@@ -16,7 +16,7 @@ class Conversations extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      filterMinParticipantCount: 10,
+      filterMinParticipantCount: 0,
       sort: "participant_count"
     };
   }

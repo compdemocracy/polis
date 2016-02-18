@@ -1,40 +1,48 @@
 import React from "react";
 import { connect } from "react-redux";
 import Radium from "radium";
-import _ from "lodash";
+// import _ from "lodash";
 import Awesome from "react-fontawesome";
 import {Link} from "react-router";
-import MaterialTitlePanel from './material-title-panel-sidebar';
-import {handleCreateConversationSubmit} from '../actions';
+import MaterialTitlePanel from "./material-title-panel-sidebar";
+import {handleCreateConversationSubmit} from "../actions";
 
 const styles = {
   sidebar: {
     width: 256,
-    height: '100vh',
+    height: "100vh",
   },
   sidebarLink: {
-    display: 'block',
-    padding: '16px 0px',
-    color: '#757575',
-    textDecoration: 'none',
+    display: "block",
+    padding: "16px 0px",
+    color: "#757575",
+    textDecoration: "none",
     cursor: "pointer"
   },
   divider: {
-    margin: '8px 0',
+    margin: "8px 0",
     height: 1,
-    backgroundColor: '#757575',
+    backgroundColor: "#757575",
   },
   content: {
-    padding: '16px',
-    height: '100%',
-    backgroundColor: 'white',
-  },
+    padding: "16px",
+    height: "100%",
+    backgroundColor: "white",
+  }
 };
 
-@connect(state => state.zid_metadata)
+@connect((state) => state.zid_metadata)
 @Radium
 class SidebarContentHome extends React.Component {
-
+  static propTypes = {
+    /* react */
+    dispatch: React.PropTypes.func,
+    params: React.PropTypes.object,
+    routes: React.PropTypes.array,
+    /* component api */
+    styles: React.PropTypes.object,
+    // foo: React.PropTypes.string
+  }
   onNewClicked() {
     this.props.dispatch(handleCreateConversationSubmit());
   }
@@ -44,7 +52,6 @@ class SidebarContentHome extends React.Component {
       <MaterialTitlePanel
         showHamburger={false}
         title="Pol.is"
-        hamburger={this.props.hamburger}
         style={this.props.style ? {...styles.sidebar, ...this.props.style} : styles.sidebar}>
         <div style={styles.content}>
           <span
@@ -97,7 +104,6 @@ export default SidebarContentHome;
     make new button point to config of fresh convo
 */
 
-
 // <p>
 //   <Awesome name="home" style={{fontSize: 24, cursor: "pointer"}}/>
 //   Polis Home
@@ -106,9 +112,8 @@ export default SidebarContentHome;
 //   { this.props.user ? this.props.user.hname : /*<Spinner/>*/ "o" }
 // </div>
 
-
-          // <Link
-          //   style={styles.sidebarLink}
-          //   to="/overall-stats">
-          //   Overall Stats
-          // </Link>
+// <Link
+//   style={styles.sidebarLink}
+//   to="/overall-stats">
+//   Overall Stats
+// </Link>
