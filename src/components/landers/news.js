@@ -1,25 +1,25 @@
-import InputField from 'material-ui/lib/text-field';
-import React from 'react';
-import { connect } from 'react-redux';
-import { doSignin, doFacebookSignin } from '../../actions';
-import Radium from 'radium';
-import Awesome from 'react-fontawesome';
-import Flex from '../framework/flex';
-import Button from '../framework/generic-button';
-import StaticContentContainer from '../framework/static-content-container';
+import InputField from "material-ui/lib/text-field";
+import React from "react";
+import { connect } from "react-redux";
+import { doSignin, doFacebookSignin } from "../../actions";
+import Radium from "radium";
+import Awesome from "react-fontawesome";
+import Flex from "../framework/flex";
+import Button from "../framework/generic-button";
+import StaticContentContainer from "../framework/static-content-container";
 
 @connect()
 @Radium
 class News extends React.Component {
-  styles () {
+  styles() {
     return {
       container: {
-        minWidth: '100vw',
+        minWidth: "100vw",
         zIndex: 10
       },
       sectionColor: {
-        minWidth: '100vw',
-        backgroundColor: 'rgb(230,230,230)',
+        minWidth: "100vw",
+        backgroundColor: "rgb(230,230,230)",
       },
       hero: {
         fontSize: 48,
@@ -29,14 +29,16 @@ class News extends React.Component {
       },
       heroSub: {
         fontSize: 24,
+        fontWeight: 300,
+        margin: 0,
         padding: "0px 40px",
         maxWidth: 600,
         zIndex: 10,
       },
       callToAction: {
-        width: '100vw',
+        width: "100vw",
         padding: "30px 0px",
-        backgroundColor: 'rgb(230,230,230)',
+        backgroundColor: "rgb(230,230,230)",
       },
       body: {
         padding: 40
@@ -48,19 +50,20 @@ class News extends React.Component {
         fontSize: 24,
         marginBottom: 0,
       },
-      subheading: {
+      sectionBody: {
         maxWidth: 500,
+        fontWeight: 300,
         lineHeight: 1.5
       },
       button: {
-        backgroundColor: 'white',
-        color: 'rgb(100,100,100)'
+        backgroundColor: "white",
+        color: "rgb(100,100,100)"
       },
       flexTestContainer: {
         minHeight: "100%"
       },
       flexTestDiv: {
-        backgroundColor: 'red',
+        backgroundColor: "red",
         color: "white",
         minHeight: 50,
         width: "100%",
@@ -69,127 +72,166 @@ class News extends React.Component {
   }
   render() {
     return (
-      <StaticContentContainer image={false} stars={{visible: false, color: "darkgrey"}}>
+      <StaticContentContainer image={false} stars={{visible: true, color: "darkgrey"}}>
         {/* hero */}
         <Flex
-          direction='column'
-          alignItems='center'
-          grow='1'
+          direction="column"
+          alignItems="center"
+          grow="1"
           styleOverrides={this.styles().sectionColor}>
             <p style={this.styles().hero}>
-              {'Make your content work harder'}
+              {"Make your content work harder"}
             </p>
             <p style={this.styles().heroSub}>
               {
-                `Turn your site into a center of gravity for conversations
-                around the issues your audience respects you for the most.`
+                `Become the center of gravity for conversations
+                about the issues your audience respects you for most.`
               }
             </p>
         </Flex>
         {/* upper cta */}
         <Flex styleOverrides={this.styles().callToAction}>
           <Button
-            backgroundColor={'transparent'}
-            backgroundColorHover={'rgb(100,100,100)'}
-            backgroundColorActive={'rgb(100,100,100)'}
-            backgroundColorFocus={'rgb(100,100,100)'}
-            color={'rgb(100,100,100)'}
-            textColorHover={'white'}
-            textColorFocus={'white'}
-            textColorActive={'white'}
-            border={'2px solid rgb(100,100,100)'}> Get pol.is </Button>
+            style={{
+              backgroundColor: "cornflowerblue",
+              color: "white"
+            }}> Get pol.is </Button>
         </Flex>
-        {/* body */}
-
         <Flex
           wrap={"wrap"}
-          justifyContent={'space-around'}
-          alignItems={'baseline'}
+          justifyContent={"space-around"}
+          alignItems={"flex-start"}
           styleOverrides={this.styles().body}>
           <Flex
             styleOverrides={this.styles().section}
-            direction='column'
-            alignItems={'flex-start'}>
-            <p style={this.styles().sectionHeader}>
-              {'Take the Power Back From Social Media'}
+            direction="column"
+            alignItems={"flex-start"}>
+            <p style={this.styles().sectionBody}>
+                Pol.is is
+                an <span style={{fontWeight: 700}}>interactive feature</span> you
+                can add to your site in minutes.
+                It works in addition to, or as a replacement for, your existing commenting system.
+                Users can optionally submit their own words. Primarily, they
+                can agree or disagree with comments submitted by others. We find
+                across conversations that <span style={{fontWeight: 700}}>around 10 times
+                more people</span> vote than comment.
+                That's a big engagement boost over existing UGC methods.
             </p>
-            <p style={this.styles().subheading}>
-              { `You produce the content, and you should benefit from the
-                dialogue around it. You care deeply about the places and issues
-                you cover, and are qualified to moderate constructive dialogue.
-                Pol.is can help you centralize and highlight discussions of
-                critical issues on your site, away from the echo chamber of
-                Twitter and Facebook.`
+            <p style={this.styles().sectionBody}>
+                Pol.is does some fancy
+                math (<span style={{fontWeight: 700}}>artificial intelligence & machine learning</span>) and
+                produces opinion groups (using interactive data visualization). These
+                are groups of participants that tended to vote the same way across
+                many comments. This shows users how their views compare to others
+                that are reading the same article - ie., whether they are in the
+                majority or minority. It also shows them (and you!) broad consensus.
+            </p>
+            <p style={this.styles().sectionBody}>
+                If you're interested in learning more about features and usage before
+                creating an
+                account, <a style={{
+                  color: "black",
+                  fontWeight: 700
+                }} target="_blank" href="http://docs.pol.is">check out the docs</a>.
+            </p>
+          </Flex>
+          <Flex wrap="wrap" styleOverrides={{maxWidth: 700}}>
+            <img
+              style={{
+                position: "relative",
+                left: "17%"
+              }}
+              width="15%"
+              src="https://pol.is/images/iphone_product_shot.png"/>
+            <img width="75%" src="https://pol.is/images/macbook_product_shot.png"/>
+          </Flex>
+        </Flex>
+        <Flex
+          wrap={"wrap"}
+          justifyContent={"space-around"}
+          alignItems={"baseline"}
+          styleOverrides={this.styles().body}>
+          <Flex
+            styleOverrides={this.styles().section}
+            direction="column"
+            alignItems={"flex-start"}>
+            <p style={this.styles().sectionHeader}>
+              {"Take Power Back From Social Media"}
+            </p>
+            <p style={this.styles().sectionBody}>
+              { `Pol.is can help you centralize and highlight discussions of
+                critical issues on your site, drawing in users from social
+                platforms who want their voices heard.`
               }
             </p>
           </Flex>
           <Flex
             styleOverrides={this.styles().section}
-            direction='column'
-            alignItems={'flex-start'}>
+            direction="column"
+            alignItems={"flex-start"}>
             <p style={this.styles().sectionHeader}>
-              {'Scale Up Engagement'}
+              {"Get More Readers in the Game"}
             </p>
-            <p style={this.styles().subheading}>
+            <p style={this.styles().sectionBody}>
               {
-                `Your audience could fill stadiums. Shouldn't your comment
-                threads accomodate more than a cocktail party? Polis engages
+                `Your audience could fill stadiums. Shouldn't your UGC
+                features accomodate more than a cocktail party? Polis engages
                 a much larger percentage of your audience, and stays
                 interesting regardless of how many people want to engage
-                - even if that's hundreds of thousands.`
+                - even if that means hundreds of thousands.`
               }
             </p>
           </Flex>
           <Flex
             styleOverrides={this.styles().section}
-            direction='column'
-            alignItems={'flex-start'}>
+            direction="column"
+            alignItems={"flex-start"}>
             <p style={this.styles().sectionHeader}>
-              {'Delight Your Brightest, Busiest Readers'}
+              {"Engage Your Brightest, Busiest Readers"}
             </p>
-            <p style={this.styles().subheading}>
+            <p style={this.styles().sectionBody}>
               {
-                `Give your most social media savvy participants an incentive
-                to share their thoughts on your site. Pol.is engages your best
-                readers by showing them how they compare to others, and gets
+                `High profile, social media savvy readers don't have a
+                great incentive to comment on your site. Pol.is engages your
+                best readers by showing them how they compare to others, and gets
                 them noticed if they have a high follower count.`
               }
             </p>
           </Flex>
           <Flex
             styleOverrides={this.styles().section}
-            direction='column'
-            alignItems={'flex-start'}>
-            <p style={this.styles().sectionHeader}> {'Reap Usable Data'} </p>
-            <p style={this.styles().subheading}>
+            direction="column"
+            alignItems={"flex-start"}>
+            <p style={this.styles().sectionHeader}> {"Usable Data"} </p>
+            <p style={this.styles().sectionBody}>
               {
                 `Pol.is data can instruct content and editorial in real time.
                 Use powerful dashboard tools to drill into conversations as
-                they’re unfolding to gain insights about participation
+                they’re unfolding. Gain insights about participation
                 patterns, data quality and audience.`
               }
             </p>
           </Flex>
           <Flex
             styleOverrides={this.styles().section}
-            direction='column'
-            alignItems={'flex-start'}>
-            <p style={this.styles().sectionHeader}> {'10x'} </p>
-            <p style={this.styles().subheading}>
+            direction="column"
+            alignItems={"flex-start"}>
+            <p style={this.styles().sectionHeader}> {"10x"} </p>
+            <p style={this.styles().sectionBody}>
               {
-                `On average, ~10x more people submit votes than comment.
+                `On average, ~10x more people vote than submit comments.
                 If you get hundreds of comments, expect thousands of voters.`
               }
             </p>
           </Flex>
           <Flex
             styleOverrides={this.styles().section}
-            direction='column'
-            alignItems={'flex-start'}>
+            direction="column"
+            alignItems={"flex-start"}>
             <p style={this.styles().sectionHeader}>
-              {'Up and Running in Minutes'}
+              {"Up and Running in Minutes"}
             </p>
-            <p style={this.styles().subheading}>
+            <p style={this.styles().sectionBody}>
               {
                 `Just drop a script tag onto your site and you're
                 on your way - no messy integrations.`
@@ -200,15 +242,10 @@ class News extends React.Component {
         {/* lower cta */}
         <Flex styleOverrides={this.styles().callToAction}>
           <Button
-            backgroundColor={'transparent'}
-            backgroundColorHover={'rgb(100,100,100)'}
-            backgroundColorActive={'rgb(100,100,100)'}
-            backgroundColorFocus={'rgb(100,100,100)'}
-            color={'rgb(100,100,100)'}
-            textColorHover={'white'}
-            textColorFocus={'white'}
-            textColorActive={'white'}
-            border={'2px solid rgb(100,100,100)'}> Learn More </Button>
+            style={{
+              backgroundColor: "cornflowerblue",
+              color: "white"
+            }}> Get pol.is </Button>
         </Flex>
 
       </StaticContentContainer>
