@@ -207,6 +207,7 @@ function deploy(params) {
         headers: {
           'x-amz-acl': 'public-read',
           'Cache-Control': 'no-cache',
+          'Content-Type': 'text/html; charset=UTF-8',
           // 'Cache-Control': 'no-transform,public,max-age=0,s-maxage=300', // NOTE: s-maxage is small for now, we could bump this up later once confident in cloudflare's cache purge workflow
         },
         makeUploadPath: makeUploadPathHtml,

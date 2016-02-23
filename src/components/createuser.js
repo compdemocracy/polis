@@ -1,13 +1,12 @@
 import React from "react";
 import { connect } from "react-redux";
-import { doSignin, doFacebookSignin } from "../actions";
+import { doCreateUser, doFacebookSignin } from "../actions";
 import Radium from "radium";
 import Flex from "./framework/flex";
 import Button from "./framework/generic-button";
 import Awesome from "react-fontawesome";
 import {Link} from "react-router";
 import StaticContentContainer from "./framework/static-content-container";
-
 
 const styles = {
   heading: {
@@ -54,21 +53,23 @@ const styles = {
 class SignIn extends React.Component {
 
   getDest() {
-    return this.props.location.pathname.slice("/signin".length);
+    return this.props.location.pathname.slice("/createuser".length);
   }
 
   handleLoginClicked(e) {
     e.preventDefault();
     const attrs = {
+      hname: this.refs.hname.value,
       email: this.refs.email.value,
-      password: this.refs.password.value
-    }
+      password: this.refs.password.value,
+      gatekeeperTosPrivacy: this.refs.gatekeeperTosPrivacy.isChecked(),
+    };
 
     var dest = this.getDest();
     if (!dest.length) {
       dest = "/";
     }
-    this.props.dispatch(doSignin(attrs, dest));
+    this.props.dispatch(doCreateUser(attrs, dest));
   }
 
   // componentDidMount() {
@@ -92,10 +93,15 @@ class SignIn extends React.Component {
     this.props.dispatch(doFacebookSignin(dest, optionalPassword))
   }
 
-  drawLoginForm() {
+  drawForm() {
     return (
       <div>
         <form>
+          <input
+            style={styles.input}
+            ref="hname"
+            placeholder="name"
+            type="text"/>
           <input
             style={styles.input}
             ref="email"
@@ -106,8 +112,24 @@ class SignIn extends React.Component {
             ref="password"
             placeholder="password"
             type="password"/>
+          <input
+            style={styles.input}
+            ref="password2"
+            placeholder="repeat password"
+            type="password"/>
+
+          <input
+            type="checkbox"
+            name="gatekeeperTosPrivacy"
+            ref="gatekeeperTosPrivacy"
+            style="position: relative; top: -1px"/>
+              &nbsp; By signing up, you agree to our
+              <a href="https://pol.is/tos" tabindex="110" >
+              terms</a> and <a href="https://pol.is/privacy" tabindex="111" > privacy</a>
+              policy.
+
           <Button style={styles.button} onClick={this.handleLoginClicked.bind(this)}>
-            Sign In
+            Create Account
           </Button>
         </form>
         <p
@@ -132,7 +154,7 @@ class SignIn extends React.Component {
           <span style={{marginLeft: 10}}>{"Sign in with Facebook"}</span>
         </Button>
 
-        <div>{"Don't have an account?"} <Link to={"/createuser" + this.getDest()} >Sign up</Link></div>
+        <div>Already have an account? <Link tabindex="6" to={"/signin" + this.getDest()} data-section="signup-select">Sign in</Link></div>
 
       </div>
     )
@@ -183,11 +205,11 @@ class SignIn extends React.Component {
         <Flex>
           <div style={styles.card}>
             <p style={styles.heading}>
-              <Awesome name={"sign-in"} /> Sign In
+              <Awesome name={"sign-in"} /> Create Account
             </p>
             {
               this.props.facebookError !== "polis_err_user_with_this_email_exists" ?
-                this.drawLoginForm() : this.drawPasswordConnectFacebookForm()
+                this.drawForm() : this.drawPasswordConnectFacebookForm()
             }
           </div>
         </Flex>

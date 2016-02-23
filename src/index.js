@@ -21,6 +21,8 @@ import PasswordResetInit from "./components/password-reset-init";
 import PasswordResetInitDone from "./components/password-reset-init-done";
 import SignIn from "./components/signin";
 import SignOut from "./components/signout";
+import CreateUser from "./components/createuser";
+
 import TOS from "./components/tos";
 import Privacy from "./components/privacy";
 import Conversations from "./components/conversations";
@@ -90,6 +92,9 @@ class Root extends React.Component {
             <Route path="signout" component={SignOut}/>
             <Route path="signout/*" component={SignOut}/>
             <Route path="signout/**/*" component={SignOut}/>
+            <Route path="createuser" component={CreateUser}/>
+            <Route path="createuser/*" component={CreateUser}/>
+            <Route path="createuser/**/*" component={CreateUser}/>
             <Route path="pwreset/*" component={PasswordReset}/>
             <Route path="pwresetinit" component={PasswordResetInit}/>
             <Route path="pwresetinit/done" component={PasswordResetInitDone}/>

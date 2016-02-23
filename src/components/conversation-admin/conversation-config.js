@@ -49,11 +49,16 @@ class ConversationConfig extends React.Component {
 
   handleBoolValueChange (field) {
     return () => {
+      var val = this.refs[field].isChecked();
+      if (field === "bgcolor") {
+        // gray checked=default, unchecked white
+        val = val ? "default" : "#fff";
+      }
       this.props.dispatch(
         handleZidMetadataUpdate(
           this.props.zid_metadata,
           field,
-          this.refs[field].isChecked()
+          val
         )
       )
     }
@@ -77,6 +82,12 @@ class ConversationConfig extends React.Component {
 
   handleStringValueChange (field) {
     return () => {
+      var val = this.refs[field].getValue();
+      if (field === "help_bgcolor" || field === "help_color") {
+        if (!val.length) {
+          val = "default";
+        }
+      }
       this.props.dispatch(
         handleZidMetadataUpdate(
           this.props.zid_metadata,
@@ -204,7 +215,6 @@ class ConversationConfig extends React.Component {
           <Checkbox
             label="Gray background"
             ref={"bgcolor"}
-            disabled
             checked={this.props.zid_metadata.bgcolor === null ? true : false}
             onCheck={ this.handleBoolValueChange("bgcolor").bind(this) }
             labelPosition={"left"}
@@ -228,7 +238,6 @@ class ConversationConfig extends React.Component {
             <InputField
               ref={"help_bgcolor"}
               style={{width: 360}}
-              disabled
               onBlur={this.handleStringValueChange("help_bgcolor").bind(this)}
               onChange={this.handleConfigInputTyping("help_bgcolor")}
               value={this.props.zid_metadata.help_bgcolor}
@@ -239,7 +248,6 @@ class ConversationConfig extends React.Component {
           <div>
             <InputField
               ref={"help_color"}
-              disabled
               style={{width: 360}}
               onBlur={this.handleStringValueChange("help_color").bind(this)}
               onChange={this.handleConfigInputTyping("help_color")}
