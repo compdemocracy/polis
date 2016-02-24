@@ -879,6 +879,7 @@ function getUidForApiKey(apikey) {
     return pgQueryP_readOnly_wRetryIfEmpty("select uid from apikeysndvweifu WHERE apikey = ($1);", [apikey]);
 }
 
+
 // http://en.wikipedia.org/wiki/Basic_access_authentication#Client_side
 function doApiKeyBasicAuth(assigner, isOptional, req, res, next) {
     var header=req.headers.authorization || '',        // get the header
@@ -3168,6 +3169,46 @@ function addApiKeyForUser(uid, optionalPrefix) {
         return pgQueryP("insert into apikeysndvweifu (uid, apikey)  VALUES ($1, $2);", [uid, apikey]);
     });
 }
+
+
+function getApiKeysTruncated(uid) {
+    return pgQueryP_readOnly("select * from apikeysndvweifu WHERE uid = ($1);", [uid]).then(function(rows) {
+        if (!rows || !rows.length) {
+            return [];
+        }
+        return rows.map(function(row) {
+            return {
+                apikeyTruncated: row.apikey.slice(0,10) + "...",
+                created: row.created,
+            };
+        });
+    });
+}
+
+function createApiKey(uid) {
+    return generateTokenP(17, false).then(function(token) {
+        var apikey = "pkey_" + token;
+        return pgQueryP("insert into apikeysndvweifu (uid, apikey) values ($1, $2) returning *;", [uid, apikey]).then(function(row) {
+            return {
+                apikey: apikey,
+                created: row.created,
+            };
+        });
+    });
+}
+
+function deleteApiKey(uid, apikeyTruncated) {
+
+    // strip trailing "..."
+    apikeyTruncated = apikeyTruncated.slice(0, apikeyTruncated.indexOf("."));
+
+    // basic sanitizing - replace unexpected characters with x's.
+    apikeyTruncated = apikeyTruncated.replace(/[^a-zA-Z0-9_]/g,'x');
+
+    return pgQueryP("delete from apikeysndvweifu where uid = ($1) and apikey ~ '^"+ apikeyTruncated+"';", [uid]);
+}
+
+
 
 // function addApiKeyForUsersBulk(uids, optionalPrefix) {
 //     var promises = uids.map(function(uid) {
