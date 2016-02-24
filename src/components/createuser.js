@@ -62,7 +62,7 @@ class SignIn extends React.Component {
       hname: this.refs.hname.value,
       email: this.refs.email.value,
       password: this.refs.password.value,
-      gatekeeperTosPrivacy: this.refs.gatekeeperTosPrivacy.isChecked(),
+      gatekeeperTosPrivacy: true,
     };
 
     var dest = this.getDest();
@@ -118,15 +118,9 @@ class SignIn extends React.Component {
             placeholder="repeat password"
             type="password"/>
 
-          <input
-            type="checkbox"
-            name="gatekeeperTosPrivacy"
-            ref="gatekeeperTosPrivacy"
-            style="position: relative; top: -1px"/>
-              &nbsp; By signing up, you agree to our
+          <div>I agree to the
               <a href="https://pol.is/tos" tabindex="110" >
-              terms</a> and <a href="https://pol.is/privacy" tabindex="111" > privacy</a>
-              policy.
+              pol.is terms</a> and <a href="https://pol.is/privacy" tabindex="111" > privacy</a>.</div>
 
           <Button style={styles.button} onClick={this.handleLoginClicked.bind(this)}>
             Create Account
