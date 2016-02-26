@@ -7024,7 +7024,7 @@ function getNextCommentRandomly(zid, pid, withoutTids, include_social) {
     var params = {
         zid: zid,
         not_voted_by_pid: pid,
-        limit: 1,
+        limit: 2, // 2 since one may be the one that is just being voted on
         random: true,
         include_social: include_social,
     };
@@ -7033,9 +7033,9 @@ function getNextCommentRandomly(zid, pid, withoutTids, include_social) {
     }
     return getComments(params).then(function(comments) {
         if (!comments || !comments.length) {
-            return null;
+            return [];
         } else {
-            return comments[0];
+            return comments;
         }
     });
 }
@@ -7178,14 +7178,14 @@ q += "  AND c.active = true";
 q += "  AND c.mod >= conv.minModVal";
 q += "  AND c.velocity > 0";
 q += " ORDER BY starcount DESC NULLS LAST, nonpass_score DESC ";
-q += " LIMIT 1;";
+q += " LIMIT 2;"; // 2 since one may be the one that is just being voted on
 
 
     return pgQueryP_readOnly(q, [zid, pid]).then(function(comments) {
         if (!comments || !comments.length) {
-            return null;
+            return [];
         } else {
-            return comments[0];
+            return comments;
         }
     });
 }
@@ -7331,7 +7331,7 @@ function(req, res) {
     var o = {
       user: arr[0],
       ptpt: arr[1],
-      nextComment: arr[2],
+      nextComment: arr[2].length ? arr[2][0] : null, //  since nextComment will be an array, choose the first item if possible
       conversation: arr[3],
       votes: arr[4] || [],
       pca: arr[5] ? (arr[5].asJSON ? arr[5].asJSON : null) : null,
@@ -7397,10 +7397,11 @@ function(req, res) {
         pid = ptpt.pid;
     }) : Promise.resolve();
 
-    pidReadyPromise.then(function() {
+    // Fire off fetch for next comment. It will return two in case it returns the same comment the user just voted on, we can choose the other.
+    var nextCommentPromise = getNextComment(req.p.zid, pid, [], true);
 
+    var votePromise = pidReadyPromise.then(function() {
         return votesPost(pid, req.p.zid, req.p.tid, req.p.vote);
-
     }).then(function(createdTime) {
         setTimeout(function() {
             updateConversationModifiedTime(req.p.zid, createdTime);
@@ -7414,12 +7415,26 @@ function(req, res) {
         } else {
             return addStar(req.p.zid, req.p.tid, pid, req.p.starred, createdTime);
         }
-    }).then(function() {
-        return getNextComment(req.p.zid, pid, [], true);
-    }).then(function(nextComment) {
+    });
+
+    Promise.all([
+        nextCommentPromise,
+        votePromise,
+    ]).then(function(arr) {
+        var nextComments = arr[0];
+
         var result = {};
-        if (nextComment) {
-            result.nextComment = nextComment;
+        if (nextComments.length) {
+            if (nextComments.length >= 2) {
+                if (nextComments[0].pid === pid) {
+                    // same as comment the user just voted on, so send them the other one.
+                    result.nextComment = nextComments[1];
+                } else {
+                    result.nextComment = nextComments[0];
+                }
+            } else {
+                result.nextComment = nextComments[0];
+            }
         } else {
             // no need to wait for this to finish
             addNoMoreCommentsRecord(req.p.zid, pid);
