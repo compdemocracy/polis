@@ -7,6 +7,7 @@ import Button from "./framework/generic-button";
 import Awesome from "react-fontawesome";
 import {Link} from "react-router";
 import StaticContentContainer from "./framework/static-content-container";
+import strings from "../strings/strings";
 
 
 const styles = {
@@ -99,6 +100,7 @@ class SignIn extends React.Component {
   }
 
   drawLoginForm() {
+    const errorMessage = this.props.error ? <div>{strings(this.props.error.responseText)}</div> : "";
     return (
       <div>
         <form>
@@ -112,9 +114,11 @@ class SignIn extends React.Component {
             ref="password"
             placeholder="password"
             type="password"/>
+          {errorMessage}
           <Button style={styles.button} onClick={this.handleLoginClicked.bind(this)}>
             Sign In
           </Button>
+          <span>{this.props.pending ? "spinner" : ""}</span>
         </form>
         <p
           style={{
