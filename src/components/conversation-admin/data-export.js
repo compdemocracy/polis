@@ -124,7 +124,7 @@ class DataExport extends React.Component {
               this.state.days.map((day, i)=>{
                 return (
                   <option selected={day.selected} key={i} value={day.name}> {day.name} </option>
-                )
+                );
               })
             }
           </select>
@@ -139,7 +139,7 @@ class DataExport extends React.Component {
               this.state.tzs.map((tzs, i) => {
                 return (
                   <option selected={tzs.selected} key={i} value={tzs.name}> {tzs.name} </option>
-                )
+                );
               })
             }
           </select>
@@ -156,6 +156,11 @@ class DataExport extends React.Component {
               style={{marginBottom:5}}/>
           </RadioButtonGroup>
           <Button
+            style={{
+              backgroundColor: "cornflowerblue",
+              color: "white",
+              marginTop: 20,
+            }}
             onClick={this.handleExportClicked().bind(this)}
             >
             Export
@@ -163,7 +168,7 @@ class DataExport extends React.Component {
           {this.state.showHelpMessage ? this.showHelpMessage() : ""}
         </div>
       </div>
-    )
+    );
   }
 }
 
