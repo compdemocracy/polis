@@ -129,8 +129,7 @@ class SignIn extends React.Component {
             type="password"/>
 
           <div style={styles.termsContainer}>
-            <input type="checkbox"/>
-            {" I agree to the "}
+            {"I agree to the "}
               <a href="https://pol.is/tos" tabindex="110" style={styles.links}>
               pol.is terms</a> and <a href="https://pol.is/privacy" tabindex="111" style={styles.links} > privacy</a>.
           </div>
