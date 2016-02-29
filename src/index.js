@@ -22,6 +22,9 @@ import PasswordResetInitDone from "./components/password-reset-init-done";
 import SignIn from "./components/signin";
 import SignOut from "./components/signout";
 import CreateUser from "./components/createuser";
+/* landers */
+import News from "./components/landers/news";
+import Home from "./components/landers/homepage";
 
 import TOS from "./components/tos";
 import Privacy from "./components/privacy";
@@ -51,8 +54,6 @@ import ParticipantModerationHidden from "./components/conversation-admin/moderat
 import DataExport from "./components/conversation-admin/data-export";
 import ShareAndEmbed from "./components/conversation-admin/share-and-embed";
 
-/* landers */
-import News from "./components/landers/news";
 
 const store = configureStore();
 
@@ -86,6 +87,7 @@ class Root extends React.Component {
               </Route>
             </Route>
             <Route path="news" component={News}/>
+            <Route path="home" component={Home}/>
             <Route path="signin" component={SignIn}/>
             <Route path="signin/*" component={SignIn}/>
             <Route path="signin/**/*" component={SignIn}/>
@@ -106,7 +108,7 @@ class Root extends React.Component {
           <DevTools store={store} visibleOnLoad={false} monitor={LogMonitor} />
         </DebugPanel>
       </div>
-    )
+    );
   }
 }
 
@@ -119,6 +121,7 @@ import injectTapEventPlugin from "react-tap-event-plugin";
 //https://github.com/zilverline/react-tap-event-plugin
 injectTapEventPlugin();
 
+
 window.$ = $;
 
-ReactDOM.render(<Root/>, document.getElementById('root'));
+ReactDOM.render(<Root/>, document.getElementById("root"));

@@ -1,15 +1,15 @@
-import React from 'react';
+import React from "react";
 
 const styles = {
   root: {
     fontWeight: 300,
   },
   header: {
-    backgroundColor: 'rgba(3, 169, 244,.5)',
-    color: 'white',
-    padding: '16px',
-    fontSize: '1em',
-  },
+    backgroundColor: "rgba(3, 169, 244,.5)",
+    color: "white",
+    padding: "16px",
+    fontSize: "1em"
+  }
 };
 
 const TrialBanner = (props) => {

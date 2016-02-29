@@ -20,7 +20,7 @@ class BackgroundStars extends React.Component {
         <canvas
           style={{
             position: "absolute",
-            top: 0,
+            top: this.props.top || 0,
             left: 0,
           }}
           width={this.props.width}
