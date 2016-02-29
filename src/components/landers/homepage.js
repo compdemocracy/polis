@@ -40,6 +40,7 @@ class Homepage extends React.Component {
       word: 0,
       words: [
         "organic",
+        "engaging",
         "authentic",
         "effortless",
         "interactive"
