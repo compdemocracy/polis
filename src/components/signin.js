@@ -53,7 +53,17 @@ const styles = {
   },
   signupLink: {
     color: "white"
-  }
+  },
+  error: {
+    margin: "20px 0px"
+  },
+  termsSmallprint: {
+    fontSize: 12,
+    maxWidth: 400,
+    fontWeight: 300,
+    lineHeight: 1.3,
+    color: "rgb(220,220,220)"
+  },
 };
 
 @connect(state => state.signin)
@@ -99,8 +109,18 @@ class SignIn extends React.Component {
     this.props.dispatch(doFacebookSignin(dest, optionalPassword))
   }
 
+  maybeErrorMessage() {
+    let markup = ""
+    if (this.props.error) {
+      markup = (
+        <div style={styles.error}>
+          { strings(this.props.error.responseText) }
+        </div>
+      );
+    }
+    return markup;
+  }
   drawLoginForm() {
-    const errorMessage = this.props.error ? <div>{strings(this.props.error.responseText)}</div> : "";
     return (
       <div>
         <form>
@@ -114,18 +134,12 @@ class SignIn extends React.Component {
             ref="password"
             placeholder="password"
             type="password"/>
-          {errorMessage}
+          {this.maybeErrorMessage()}
           <Button style={styles.button} onClick={this.handleLoginClicked.bind(this)}>
-            Sign In
+            {this.props.pending ? "Signing in..." : "Sign In"}
           </Button>
-          <span>{this.props.pending ? "spinner" : ""}</span>
         </form>
-        <p
-          style={{
-            fontSize: 12,
-            maxWidth: 400,
-            fontWeight: 100
-          }}>
+        <p style={styles.termsSmallprint}>
           {
             "If you click 'Sign in with Facebook' and are not a pol.is user, you will be registered and you agree to the pol.is terms and privacy policy"
           }

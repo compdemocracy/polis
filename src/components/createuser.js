@@ -56,6 +56,13 @@ const styles = {
   },
   signinContainer: {
     marginTop: 20
+  },
+  termsSmallprint: {
+    fontSize: 12,
+    maxWidth: 400,
+    fontWeight: 300,
+    lineHeight: 1.3,
+    color: "rgb(220,220,220)"
   }
 };
 
@@ -103,9 +110,10 @@ class SignIn extends React.Component {
     const optionalPassword = this.refs.facebook_password.value
     this.props.dispatch(doFacebookSignin(dest, optionalPassword))
   }
-
-  drawForm() {
+  maybeErrorMessage() {
     const errorMessage = this.props.error ? <div>{strings(this.props.error.responseText)}</div> : "";
+  }
+  drawForm() {
     return (
       <div>
         <form>
@@ -130,24 +138,20 @@ class SignIn extends React.Component {
             placeholder="repeat password"
             type="password"/>
 
+          {this.maybeErrorMessage()}
+
           <div style={styles.termsContainer}>
-            {"I agree to the "}
+            <p style={styles.termsSmallprint}>{"I agree to the "}
               <a href="https://pol.is/tos" tabindex="110" style={styles.links}>
-              pol.is terms</a> and <a href="https://pol.is/privacy" tabindex="111" style={styles.links} > privacy</a>.
+              pol.is terms</a> and <a href="https://pol.is/privacy" tabindex="111" style={styles.links} > privacy agreement</a>.
+            </p>
           </div>
 
-          {errorMessage}
           <Button style={styles.button} onClick={this.handleLoginClicked.bind(this)}>
-            Create Account
+            {this.props.pending ? "Creating Account..." : "Create Account"}
           </Button>
-          <span>{this.props.pending ? "spinner" : ""}</span>
         </form>
-        <p
-          style={{
-            fontSize: 12,
-            maxWidth: 400,
-            fontWeight: 100
-          }}>
+        <p style={styles.termsSmallprint}>
           {
             "If you click 'Sign in with Facebook' and are not a pol.is user, you will be registered and you agree to the pol.is terms and privacy policy"
           }
