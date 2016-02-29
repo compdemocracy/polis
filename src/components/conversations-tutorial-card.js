@@ -30,11 +30,14 @@ class ConversationTutorialCard extends React.Component {
     style: React.PropTypes.object,
     title: React.PropTypes.string,
     awesome: React.PropTypes.string,
+    docs: React.PropTypes.bool,
+    clickHandler: React.PropTypes.func,
     // foo: React.PropTypes.string
   }
   static defaultProps = {
     title: "Default Tutorial Title",
-    awesome: "plus"
+    awesome: "plus",
+    docs: false,
   }
   getStyles() {
     return {
@@ -65,10 +68,12 @@ class ConversationTutorialCard extends React.Component {
   render() {
     const styles = this.getStyles();
     return (
-      <div style={[
-        styles.container,
-        this.props.style
-      ]}>
+      <div
+        onClick={this.props.clickHandler}
+        style={[
+          styles.container,
+          this.props.style
+        ]}>
         <p style={styles.heading}>
           <Awesome name={this.props.awesome} style={styles.awesome}/>
           {this.props.title}

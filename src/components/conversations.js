@@ -10,6 +10,7 @@ import * as globals from "./framework/global-styles";
 import Awesome from "react-fontawesome";
 import ConversationFilters from "./conversation-filters";
 import ConversationsTutorialCard from "./conversations-tutorial-card";
+import {handleCreateConversationSubmit} from "../actions";
 
 @connect((state) => state.conversations)
 @Radium
@@ -83,10 +84,16 @@ class Conversations extends React.Component {
       }
     };
   }
-  goToConversation(r) {
+  goTo(r) {
     return () => {
       browserHistory.push(r);
     };
+  }
+  goToDocs() {
+    window.location = "http://docs.pol.is"
+  }
+  onNewClicked() {
+    this.props.dispatch(handleCreateConversationSubmit());
   }
   filterCheck(c) {
     // console.log('filtering', c, this.state.filterMinParticipantCount)
@@ -106,7 +113,7 @@ class Conversations extends React.Component {
             direction="column"
             alignItems="flex-start"
             styleOverrides={this.getStyles().conversationCard}
-            clickHandler={this.goToConversation(`/m/${c.conversation_id}`)}
+            clickHandler={this.goTo(`/m/${c.conversation_id}`)}
             key={i}>
               <span ref={`statNumber${i}`} style={this.getStyles().statNumber}>
                 <Awesome name="users" style={this.getStyles().awesome}/>
@@ -142,6 +149,7 @@ class Conversations extends React.Component {
         wrap="wrap">
         <ConversationsTutorialCard
           awesome="plus"
+          clickHandler={this.onNewClicked.bind(this)}
           body={`
             Single conversations are quick and flexible. You're in control. Drop in a title and
             description, choose moderation settings and send a link to participants.
@@ -151,6 +159,7 @@ class Conversations extends React.Component {
           title="Start a single conversation"/>
         <ConversationsTutorialCard
           awesome="code"
+          clickHandler={this.goTo(`/integrate`)}
           body={`
             Embed pol.is as a comment system across your entire site. Great if you
             have a wordpress blog or other hosting platform that uses templates. Simply
@@ -160,6 +169,7 @@ class Conversations extends React.Component {
           title="Integrate polis into your site"/>
         <ConversationsTutorialCard
           awesome="align-left"
+          clickHandler={this.goToDocs}
           body={`
             Get oriented! Get the big picture of what pol.is can do and what the default
             settings are. Check out the data pol.is produces and what you can do with it.
