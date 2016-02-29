@@ -111,7 +111,15 @@ class SignIn extends React.Component {
     this.props.dispatch(doFacebookSignin(dest, optionalPassword))
   }
   maybeErrorMessage() {
-    const errorMessage = this.props.error ? <div>{strings(this.props.error.responseText)}</div> : "";
+    let markup = ""
+    if (this.props.error) {
+      markup = (
+        <div style={styles.error}>
+          { strings(this.props.error.responseText) }
+        </div>
+      );
+    }
+    return markup;
   }
   drawForm() {
     return (
