@@ -9,6 +9,7 @@ import Flex from "./framework/flex";
 import * as globals from "./framework/global-styles";
 import Awesome from "react-fontawesome";
 import ConversationFilters from "./conversation-filters";
+import ConversationsTutorialCard from "./conversations-tutorial-card";
 
 @connect((state) => state.conversations)
 @Radium
@@ -133,8 +134,44 @@ class Conversations extends React.Component {
   onFilterChange() {
     this.setState()
   }
+  renderTutorialCards() {
+    return (
+      <Flex
+        direction="row"
+        alignItems="baseline"
+        wrap="wrap">
+        <ConversationsTutorialCard
+          awesome="plus"
+          body={`
+            Single conversations are quick and flexible. You're in control. Drop in a title and
+            description, choose moderation settings and send a link to participants.
+            Great for playing around with pol.is or embedding pol.is as a feature
+            on a single page.
+          `}
+          title="Start a single conversation"/>
+        <ConversationsTutorialCard
+          awesome="code"
+          body={`
+            Embed pol.is as a comment system across your entire site. Great if you
+            have a wordpress blog or other hosting platform that uses templates. Simply
+            a script tag into your template. We'll keep track of which conversations
+            belong on which pages, and create new ones automatically when needed.
+          `}
+          title="Integrate polis into your site"/>
+        <ConversationsTutorialCard
+          awesome="align-left"
+          body={`
+            Get oriented! Get the big picture of what pol.is can do and what the default
+            settings are. Check out the data pol.is produces and what you can do with it.
+            Go deep on user authorization and anonymity strategies.
+          `}
+          title={"Read the overview & documentation"}/>
+      </Flex>
+    )
+  }
   render() {
     const err = this.props.error;
+    const noMoreTutorialsAfterThisNumber = 5;
     return (
       <Flex
         direction="column"
@@ -149,8 +186,8 @@ class Conversations extends React.Component {
           ""
         }
         {
-          !this.props.loading && !this.props.conversations && !err ?
-            "No conversations to display" :
+          !this.props.loading && this.props.conversations.length < noMoreTutorialsAfterThisNumber && !err ?
+            this.renderTutorialCards() :
             ""
         }
         {this.props.conversations ? this.renderFilteredConversations() : ""}
