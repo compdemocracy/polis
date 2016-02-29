@@ -45,6 +45,16 @@ const styles = {
     padding: "8px 12px",
     borderRadius: 5,
     fontSize: 14,
+  },
+  termsContainer: {
+    marginTop: 20,
+    marginBottom: 20
+  },
+  links: {
+    color: "white"
+  },
+  signinContainer: {
+    marginTop: 20
   }
 };
 
@@ -118,9 +128,12 @@ class SignIn extends React.Component {
             placeholder="repeat password"
             type="password"/>
 
-          <div>I agree to the
-              <a href="https://pol.is/tos" tabindex="110" >
-              pol.is terms</a> and <a href="https://pol.is/privacy" tabindex="111" > privacy</a>.</div>
+          <div style={styles.termsContainer}>
+            <input type="checkbox"/>
+            {" I agree to the "}
+              <a href="https://pol.is/tos" tabindex="110" style={styles.links}>
+              pol.is terms</a> and <a href="https://pol.is/privacy" tabindex="111" style={styles.links} > privacy</a>.
+          </div>
 
           <Button style={styles.button} onClick={this.handleLoginClicked.bind(this)}>
             Create Account
@@ -145,10 +158,15 @@ class SignIn extends React.Component {
             padding: "3px 5px",
             borderRadius: 3,
           }} name="facebook"/>
-          <span style={{marginLeft: 10}}>{"Sign in with Facebook"}</span>
+        <span style={{marginLeft: 10}}>{"Sign up with Facebook"}</span>
         </Button>
 
-        <div>Already have an account? <Link tabindex="6" to={"/signin" + this.getDest()} data-section="signup-select">Sign in</Link></div>
+        <div style={styles.signinContainer}>
+          {"Already have an account? "}
+          <Link style={styles.links} tabindex="6" to={"/signin" + this.getDest()} data-section="signup-select">
+            Sign in
+          </Link>
+        </div>
 
       </div>
     )
@@ -190,7 +208,7 @@ class SignIn extends React.Component {
             { "Connect Facebook Account" }
           </Button>
       </span>
-    )
+    );
   }
 
   render() {

@@ -46,6 +46,12 @@ const styles = {
     padding: "8px 12px",
     borderRadius: 5,
     fontSize: 14,
+  },
+  signupContainer: {
+    marginTop: 20,
+  },
+  signupLink: {
+    color: "white"
   }
 };
 
@@ -132,7 +138,12 @@ class SignIn extends React.Component {
           <span style={{marginLeft: 10}}>{"Sign in with Facebook"}</span>
         </Button>
 
-        <div>{"Don't have an account?"} <Link to={"/createuser" + this.getDest()} >Sign up</Link></div>
+        <div style={styles.signupContainer}>
+          {"Don't have an account? "}
+          <Link style={styles.signupLink} to={"/createuser" + this.getDest()}>
+            Sign up
+          </Link>
+        </div>
 
       </div>
     )
