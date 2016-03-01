@@ -12430,6 +12430,8 @@ app.get(/^\/signout(\/.*)?/, fetchIndexForAdminPage);
 app.get(/^\/signin(\/.*)?/, fetchIndexForAdminPage);
 app.get(/^\/dist\/admin_bundle.js$/, makeFileFetcher(hostname, portForAdminFiles, "/dist/admin_bundle.js", {'Content-Type': "application/javascript"}));
 app.get(/^\/__webpack_hmr$/, makeFileFetcher(hostname, portForAdminFiles, "/__webpack_hmr", {'Content-Type': "eventsource"}));
+// admin dash-based landers
+app.get(/^\/home(\/.*)?/, fetchIndexForAdminPage);
 
 
 app.get("/iip/:conversation_id",
