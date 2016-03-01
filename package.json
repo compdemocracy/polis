@@ -6,6 +6,7 @@
     "clean": "rimraf dist",
     "build:webpack": "NODE_ENV=production webpack --config webpack.config.js",
     "build": "npm run clean && npm run build:webpack",
+    "deploy_TO_PRODUCTION": "gulp deploy_TO_PRODUCTION",
     "deployPreprod": "gulp deployPreprod",
     "start": "node dev-server.js",
     "lint": "eslint src"
