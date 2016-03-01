@@ -196,7 +196,7 @@ class Conversations extends React.Component {
           ""
         }
         {
-          !this.props.loading && this.props.conversations.length < noMoreTutorialsAfterThisNumber && !err ?
+          !this.props.loading && this.props.conversations && this.props.conversations.length < noMoreTutorialsAfterThisNumber && !err ?
             this.renderTutorialCards() :
             ""
         }
