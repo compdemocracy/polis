@@ -91,7 +91,7 @@ class SidebarContentConversation extends React.Component {
             <Awesome name="align-left"/><span style={{marginLeft: 10}}>Docs</span>
           </a>
           <a style={styles.sidebarLink} target="blank" href="https://twitter.com/UsePolis">
-            <Awesome name="twitter"/><span style={{marginLeft: 10}}>@UsePolis</span>
+            <Awesome style={{color: "#4099FF"}} name="twitter"/><span style={{marginLeft: 10}}>@UsePolis</span>
           </a>
           <Link
             style={styles.sidebarLink}
