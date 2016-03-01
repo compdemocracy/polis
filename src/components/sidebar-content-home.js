@@ -47,13 +47,19 @@ class SidebarContentHome extends React.Component {
     this.props.dispatch(handleCreateConversationSubmit());
   }
 
+  handleClick() {
+    if (this.props.onSidebarItemClicked) {
+      this.props.onSidebarItemClicked();
+    }
+  }
+
   render() {
     return (
       <MaterialTitlePanel
         showHamburger={false}
         title="Pol.is"
         style={this.props.style ? {...styles.sidebar, ...this.props.style} : styles.sidebar}>
-        <div style={styles.content}>
+        <div style={styles.content} onClick={this.handleClick.bind(this)}>
           <span
             style={styles.sidebarLink}
             onClick={this.onNewClicked.bind(this)}>

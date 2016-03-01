@@ -165,16 +165,24 @@ class App extends React.Component {
 
     return title;
   }
+  onSidebarItemClicked() {
+    this.setState({sidebarOpen: false});
+  }
+
   renderConsole() {
     return (
       <Sidebar
         sidebar={
           this.props.params.conversation_id ?
-          <SidebarContentConversation conversation_id={this.props.params.conversation_id}/> :
-            <SidebarContentHome/>
+            <SidebarContentConversation
+              conversation_id={this.props.params.conversation_id}
+              onSidebarItemClicked={ this.onSidebarItemClicked.bind(this) }/> :
+            <SidebarContentHome
+              onSidebarItemClicked={ this.onSidebarItemClicked.bind(this) } />
           }
           open={ this.state.sidebarOpen }
           docked={ this.state.sidebarDocked }
+
           onSetOpen={ this.onSetSidebarOpen.bind(this) }>
           <MaterialTitlePanel
             handleHamburgerClick={this.handleMenuButtonClick.bind(this)}

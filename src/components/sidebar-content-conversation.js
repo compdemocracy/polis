@@ -31,13 +31,20 @@ const styles = {
 
 @Radium
 class SidebarContentConversation extends React.Component {
+
+  handleClick() {
+    if (this.props.onSidebarItemClicked) {
+      this.props.onSidebarItemClicked();
+    }
+  }
+
   render() {
     return (
       <MaterialTitlePanel
         showHamburger={false}
         title={"Pol.is/"+this.props.conversation_id}
         style={this.props.style ? {...styles.sidebar, ...this.props.style} : styles.sidebar}>
-        <div style={styles.content}>
+        <div style={styles.content} onClick={this.handleClick.bind(this)}>
           <Link
             style={styles.sidebarLink}
             to={"/"}>
