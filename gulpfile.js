@@ -164,6 +164,63 @@ gulp.task('deployPreprod', [
   });
 });
 
+gulp.task('fontsPreprod', [
+  "preprodConfig",
+], function() {
+  return deployFonts({
+      bucket: "preprod.pol.is"
+  });
+});
+
+gulp.task('fontsProd', [
+  "prodConfig",
+], function() {
+  return deployFonts({
+      bucket: "pol.is"
+  });
+});
+
+function deployFonts(params) {
+    var creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'));
+    creds = _.extend(creds, params);
+
+    //var fontCacheSeconds = 31536000;
+    var fontCacheSeconds = 99;
+
+    function makeUploadPathFactory(tagForLogging) {
+      return function(file) {
+        var fixed = file.path.match(RegExp("font.*"))[0];
+        console.log("upload path " + tagForLogging + ": " + fixed);
+        return fixed;
+      }
+    }
+
+    ['woff','woff2','otf','ttf','svg','eot'].forEach(function(ext) {
+        var contentType = {
+            'woff': 'application/x-font-woff',
+            'woff2': 'application/font-woff2',
+            'ttf': 'application/x-font-ttf',
+            'otf': 'application/x-font-opentype',
+            'svg': 'image/svg+xml',
+            'eot': 'application/vnd.ms-fontobject',
+        }[ext];
+
+        gulp.src([
+          './font/*.' + ext,
+          ], {read: false})
+        .pipe(s3(creds, {
+            delay: 1000,
+            headers: {
+              'x-amz-acl': 'public-read',
+              'Content-Type': contentType,
+              'Cache-Control': 'no-transform,public,max-age=MAX_AGE,s-maxage=MAX_AGE'.replace(/MAX_AGE/g, fontCacheSeconds),
+            },
+            makeUploadPath: makeUploadPathFactory("cached_gzipped_"+fontCacheSeconds),
+          }));
+      });
+
+}
+
 function deploy(params) {
     var creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'));
     creds = _.extend(creds, params);
