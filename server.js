@@ -2036,7 +2036,7 @@ var whitelistedBuckets = {
     "about.polis.io": "about.polis.io",
 };
 
-app.all("/api/v3/*", function(req, res, next) {
+function addCorsHeader(req, res, next) {
 
   var host = "";
   if (domainOverride) {
@@ -2079,7 +2079,11 @@ app.all("/api/v3/*", function(req, res, next) {
       res.header("Access-Control-Allow-Credentials", true);
   }
   return next();
-});
+}
+
+app.all("/api/v3/*", addCorsHeader);
+app.all("/font/*", addCorsHeader);
+
 app.all("/api/v3/*", function(req, res, next) {
   if (req.method.toLowerCase() !== "options") {
     return next();
