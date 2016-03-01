@@ -42,6 +42,10 @@ class Participant extends React.Component {
   makeFeatureButton() {
     return (
       <Button
+        style={{
+          backgroundColor: "#03a9f4",
+          color: "white",
+        }}
         onClick={this.onFeatureClicked.bind(this)}>
         <Awesome name="chevron-up"/> feature
       </Button>
@@ -50,6 +54,10 @@ class Participant extends React.Component {
   makeHideButton() {
     return (
       <Button
+        style={{
+          backgroundColor: "#03a9f4",
+          color: "white",
+        }}
         onClick={this.onHideClicked.bind(this)}>
         <Awesome name="ban"/> hide
       </Button>

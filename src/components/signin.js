@@ -9,7 +9,6 @@ import {Link} from "react-router";
 import StaticContentContainer from "./framework/static-content-container";
 import strings from "../strings/strings";
 
-
 const styles = {
   heading: {
     fontSize: 36,

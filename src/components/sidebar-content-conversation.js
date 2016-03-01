@@ -52,6 +52,12 @@ class SidebarContentConversation extends React.Component {
           </Link>
           <Link
             style={styles.sidebarLink}
+            to={"/m/"+this.props.conversation_id+"/live"}>
+            <Awesome style={{color: "#5AB85A"}} name="circle"/>
+            <span style={{marginLeft: 10}}> Live </span>
+          </Link>
+          <Link
+            style={styles.sidebarLink}
             to={"/m/"+this.props.conversation_id+"/share"}>
             <Awesome name="code"/>
             <span style={{marginLeft: 10}}> Share & Embed </span>

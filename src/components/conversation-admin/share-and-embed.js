@@ -20,8 +20,8 @@ const styles = {
 class ShareAndEmbed extends React.Component {
   constructEmbeddedOnMarkup() {
     return (
-      <p>{"Embedded on: "}
-        <a target="blank" href={this.props.zid_metadata.parent_url}>
+      <p >{"Embedded on: "}
+        <a style={{color: "black"}} target="blank" href={this.props.zid_metadata.parent_url}>
           {this.props.zid_metadata.parent_url}
         </a>
       </p>
@@ -32,12 +32,12 @@ class ShareAndEmbed extends React.Component {
       <div>
         <div style={styles.card}>
           <p style={{
-            fontSize: 18,
-            fontWeight: 500
-            }}> {"Share this link: "} </p>
+            fontSize: 24,
+            fontWeight: 700
+            }}> {"Share"} </p>
           <p>
             <a
-              style={{textDecoration: "none", fontSize: 36}}
+              style={{fontSize: 36, color: "black"}}
               target="blank"
               href={"https://pol.is/" + this.props.params.conversation_id}>
               {"pol.is/" + this.props.params.conversation_id}
@@ -46,9 +46,9 @@ class ShareAndEmbed extends React.Component {
         </div>
         <div style={styles.card}>
           <p style={{
-            fontSize: 18,
-            fontWeight: 500
-            }}> {"Paste this embed code into your site: "} </p>
+            fontSize: 24,
+            fontWeight: 700
+            }}> {"Embed"} </p>
           <div style={{
             background: "rgb(238,238,238)",
             display: "inline-block",
@@ -69,20 +69,6 @@ class ShareAndEmbed extends React.Component {
                 this.constructEmbeddedOnMarkup() : ""
             }
           </div>
-        </div>
-
-        <div style={styles.card}>
-          <p style={{
-            fontSize: 18,
-            fontWeight: 500
-            }}> See your conversation, live: </p>
-          <iframe
-            src={"https://pol.is/"+this.props.params.conversation_id}
-            style={{
-              minHeight: "2000px",
-              width: "100%",
-              border: "none"
-            }}/>
         </div>
       </div>
     );

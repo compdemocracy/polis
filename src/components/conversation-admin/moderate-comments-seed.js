@@ -3,6 +3,7 @@ import { connect } from "react-redux";
 import { handleSeedCommentSubmit } from "../../actions";
 import Radium from "radium";
 import _ from "lodash";
+import Button from "../framework/generic-button";
 
 const styles = {
   card: {
@@ -63,19 +64,14 @@ class ModerateCommentsSeed extends React.Component {
             ref="seed_form"/>
         </div>
         <div>
-          <button
+          <Button
             style={{
-              padding: "15px 30px",
-              background: "rgb(230,230,230)",
-              color: "rgb(160,160,160)",
-              border: "none",
-              borderRadius: 3,
-              fontSize: 16,
-              cursor: "pointer"
+              backgroundColor: "#03a9f4",
+              color: "white",
             }}
             onClick={this.handleSubmitSeed.bind(this)}>
             Submit
-          </button>
+          </Button>
         </div>
       </div>
     );

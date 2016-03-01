@@ -32,12 +32,28 @@ class Comment extends React.Component {
   }
   makeAcceptButton() {
     return (
-      <Button onClick={this.onAcceptClicked.bind(this)}> accept </Button>
+      <Button
+        style={{
+          backgroundColor: "#03a9f4",
+          color: "white",
+          marginTop: 20,
+        }}
+        onClick={this.onAcceptClicked.bind(this)}>
+        accept
+      </Button>
     )
   }
   makeRejectButton() {
     return (
-      <Button onClick={this.onRejectClicked.bind(this)}> reject </Button>
+      <Button
+        style={{
+          backgroundColor: "#03a9f4",
+          color: "white",
+          marginTop: 20,
+        }}
+        onClick={this.onRejectClicked.bind(this)}>
+        reject
+      </Button>
     )
   }
   render() {
