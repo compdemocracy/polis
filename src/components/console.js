@@ -12,6 +12,7 @@ import SidebarContentConversation from "./sidebar-content-conversation";
 import SidebarContentHome from "./sidebar-content-home";
 import MaterialTitlePanel from "./material-title-panel";
 import Trial from "./framework/trial-banner";
+import Flex from "./framework/flex";
 
 const styles = {
   container: {
@@ -202,15 +203,20 @@ class App extends React.Component {
   }
   renderSpinner() {
     return (
-      <StarsSpinner
-        text={""}
-        nodeColor={ "rgb(150,150,150)" }
-        count={ Math.floor(window.innerWidth / 10) }
-        width={ window.innerWidth }
-        height={ window.innerHeight }
-        radius={ 1.5 }
-        lineWidth={ 1 }/>
+      <Flex styleOverrides={{height: "100%"}}>
+        {"Loading pol.is..."}
+      </Flex>
     )
+    // return (
+    //   <StarsSpinner
+    //     text={""}
+    //     nodeColor={ "rgb(150,150,150)" }
+    //     count={ Math.floor(window.innerWidth / 10) }
+    //     width={ window.innerWidth }
+    //     height={ window.innerHeight }
+    //     radius={ 1.5 }
+    //     lineWidth={ 1 }/>
+    // )
   }
   render() {
     return (
