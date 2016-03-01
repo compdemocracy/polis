@@ -12436,7 +12436,7 @@ app.get(/^\/dist\/admin_bundle.js$/, makeFileFetcher(hostname, portForAdminFiles
 app.get(/^\/__webpack_hmr$/, makeFileFetcher(hostname, portForAdminFiles, "/__webpack_hmr", {'Content-Type': "eventsource"}));
 // admin dash-based landers
 app.get(/^\/home(\/.*)?/, fetchIndexForAdminPage);
-
+app.get("/", fetchIndexForAdminPage);
 
 app.get("/iip/:conversation_id",
 // function(req, res, next) {
@@ -12588,27 +12588,27 @@ function(req, res) {
 });
 
 
-var conditionalIndexFetcher = (function() {
-    var fetchLander = makeFileFetcher(hostname, portForParticipationFiles, "/billions.html", {'Content-Type': "text/html"});
-    return function(req, res) {
-        if (hasAuthToken(req)) {
-            // user is signed in, serve the app
-            return fetchIndexForAdminPage(req, res);
-        } else if (!browserSupportsPushState(req)) {
-            // TEMPORARY: Don't show the landing page.
-            // The problem is that /user/create redirects to #/user/create,
-            // which ends up here, and since there's no auth token yet,
-            // we would show the lander. One fix would be to serve up the auth page
-            // as a separate html file, and not rely on JS for the routing.
-            return fetchIndexForAdminPage(req, res);
-        } else {
-            // user not signed in, serve landing page
-            return fetchLander(req, res);
-        }
-    };
-}());
+// var conditionalIndexFetcher = (function() {
+//     var fetchLander = makeFileFetcher(hostname, portForParticipationFiles, "/billions.html", {'Content-Type': "text/html"});
+//     return function(req, res) {
+//         if (hasAuthToken(req)) {
+//             // user is signed in, serve the app
+//             return fetchIndexForAdminPage(req, res);
+//         } else if (!browserSupportsPushState(req)) {
+//             // TEMPORARY: Don't show the landing page.
+//             // The problem is that /user/create redirects to #/user/create,
+//             // which ends up here, and since there's no auth token yet,
+//             // we would show the lander. One fix would be to serve up the auth page
+//             // as a separate html file, and not rely on JS for the routing.
+//             return fetchIndexForAdminPage(req, res);
+//         } else {
+//             // user not signed in, serve landing page
+//             return fetchLander(req, res);
+//         }
+//     };
+// }());
 
-app.get("/", conditionalIndexFetcher);
+// app.get("/", conditionalIndexFetcher);
 
 
 app.get(/^\/localFile\/.*/, function(req, res) {
