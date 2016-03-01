@@ -12537,7 +12537,7 @@ app.get(/^\/privacy$/, makeFileFetcher(hostname, portForParticipationFiles, "/pr
 app.get(/^\/canvas_setup_backup_instructions$/, makeFileFetcher(hostname, portForParticipationFiles, "/canvas_setup_backup_instructions.html", {'Content-Type': "text/html"}));
 app.get(/^\/styleguide$/, makeFileFetcher(hostname, portForParticipationFiles, "/styleguide.html", {'Content-Type': "text/html"}));
 // Duplicate url for content at root. Needed so we have something for "About" to link to.
-app.get(/^\/about$/, makeRedirectorTo("/billions"));
+app.get(/^\/about$/, makeRedirectorTo("/home"));
 app.get(/^\/s\/CTE\/?$/, makeFileFetcher(hostname, portForParticipationFiles, "/football.html", {'Content-Type': "text/html"}));
 app.get(/^\/wimp$/, makeFileFetcher(hostname, portForParticipationFiles, "/wimp.html", {'Content-Type': "text/html"}));
 app.get(/^\/edu$/, makeFileFetcher(hostname, portForParticipationFiles, "/lander.html", {'Content-Type': "text/html"}));
@@ -12589,7 +12589,6 @@ function(req, res) {
 
 
 var conditionalIndexFetcher = (function() {
-    var fetchLander = makeFileFetcher(hostname, portForParticipationFiles, "/billions.html", {'Content-Type': "text/html"});
     return function(req, res) {
         if (hasAuthToken(req)) {
             // user is signed in, serve the app
