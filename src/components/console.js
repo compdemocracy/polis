@@ -38,7 +38,7 @@ class App extends React.Component {
     dispatch: React.PropTypes.func,
     params: React.PropTypes.object,
     /* component api */
-    error: React.PropTypes.bool,
+    error: React.PropTypes.object,
     loading: React.PropTypes.bool,
     user: React.PropTypes.object,
     routes: React.PropTypes.array,
