@@ -2,6 +2,7 @@ import InputField from "material-ui/lib/text-field";
 import React from "react";
 import { connect } from "react-redux";
 import { doSignin, doFacebookSignin } from "../../actions";
+import { browserHistory } from "react-router";
 import Radium from "radium";
 import Awesome from "react-fontawesome";
 import Flex from "../framework/flex";
@@ -70,6 +71,11 @@ class News extends React.Component {
       }
     }
   }
+  handleGetStartedClicked(r) {
+    return () => {
+      browserHistory.push(r);
+    };
+  }
   render() {
     return (
       <StaticContentContainer image={false} stars={{visible: true, color: "darkgrey"}}>
@@ -92,10 +98,11 @@ class News extends React.Component {
         {/* upper cta */}
         <Flex styleOverrides={this.styles().callToAction}>
           <Button
+            onClick={this.handleGetStartedClicked("createuser")}
             style={{
               backgroundColor: "cornflowerblue",
               color: "white"
-            }}> Get pol.is </Button>
+            }}> Get started </Button>
         </Flex>
         <Flex
           wrap={"wrap"}
@@ -245,7 +252,7 @@ class News extends React.Component {
             style={{
               backgroundColor: "cornflowerblue",
               color: "white"
-            }}> Get pol.is </Button>
+            }}> Get started </Button>
         </Flex>
 
       </StaticContentContainer>

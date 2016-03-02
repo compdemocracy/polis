@@ -2,12 +2,12 @@ import React from "react";
 import Radium from "radium";
 import Flex from "../framework/flex";
 import Button from "../framework/generic-button";
+import { browserHistory } from "react-router";
 // import Awesome from "react-fontawesome";
 import {Link} from "react-router";
 import StaticContentContainer from "../framework/static-content-container";
 import Banner from "../framework/trial-banner";
 import Stars from "../framework/background-stars";
-
 
 const styles = {
   heading: {
@@ -70,10 +70,15 @@ class Homepage extends React.Component {
         lineWidth={ 1 }/>
     );
   }
+  handleGetStartedClicked(r) {
+    return () => {
+      browserHistory.push(r);
+    };
+  }
   render() {
     return (
       <StaticContentContainer stars={{visible: true, color: "white"}}>
-        <div>
+        <div style={{margin: 20}}>
           <p style={styles.heading}>
             {`pol.is means ${this.state.words[this.state.word]} feedback`}
           </p>
@@ -90,11 +95,13 @@ class Homepage extends React.Component {
               effectively.`
             }
           </p>
-          <Button style={{
-            marginTop: 20,
-            backgroundColor: "cornflowerblue",
-            color: "white"
-          }}>
+          <Button
+            onClick={this.handleGetStartedClicked("createuser")}
+            style={{
+              marginTop: 20,
+              backgroundColor: "cornflowerblue",
+              color: "white"
+            }}>
           Get started
           </Button>
         </div>
