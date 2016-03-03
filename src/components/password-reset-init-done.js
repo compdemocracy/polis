@@ -10,9 +10,9 @@ import StaticContentContainer from "./framework/static-content-container";
 
 const styles = {
   heading: {
-    fontSize: 36,
+    fontSize: 24,
     display: "block",
-    marginBottom: 20
+    margin: 0
   },
   card: {
     position: "relative",
@@ -34,6 +34,9 @@ const styles = {
     borderRadius: 3,
     border: "1px solid rgba(240,240,240,1)",
   },
+  awesome: {
+    marginRight: 20
+  }
 }
 
 @connect()
@@ -45,7 +48,10 @@ class PasswordResetInitDone extends React.Component {
       <StaticContentContainer>
         <Flex>
           <div style={styles.card}>
-              <p style={styles.heading}><Awesome name="envelope" /> Check your email for a password reset link</p>
+            <p style={styles.heading}>
+              <Awesome style={styles.awesome} name="envelope"/>
+                Check your email for a password reset link
+            </p>
           </div>
         </Flex>
       </StaticContentContainer>

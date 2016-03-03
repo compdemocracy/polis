@@ -12,22 +12,22 @@ const styles = {
   heading: {
     fontSize: 36,
     display: "block",
-    marginBottom: 20
+    margin: 0,
   },
   card: {
     position: "relative",
     zIndex: 10,
     backgroundColor: "rgba(0,0,0,.3)",
-    padding: "50px",
+    padding: 30,
     borderRadius: 3,
     color: "white"
   },
   button: {
-    display: "block",
+    backgroundColor: "cornflowerblue",
   },
   input: {
     display: "block",
-    margin: "10px 0px",
+    margin: "20px 0px",
     color: "rgb(100,100,100)",
     fontSize: 14,
     padding: 7,
@@ -46,7 +46,7 @@ class PasswordResetInit extends React.Component {
 
     const attrs = {
       email: this.refs.email.value,
-    }
+    };
 
     this.props.dispatch(doPasswordResetInit(attrs));
   }
@@ -56,7 +56,7 @@ class PasswordResetInit extends React.Component {
       <StaticContentContainer>
         <Flex>
           <div style={styles.card}>
-              <p style={styles.heading}><Awesome name="bolt" /> Password Reset</p>
+              <p style={styles.heading}> Password Reset</p>
             <form>
               <input
                 style={styles.input}
