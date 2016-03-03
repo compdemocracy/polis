@@ -1,4 +1,6 @@
 import $ from "jquery";
+import PolisNet from "../util/net";
+
 
 /* ======= Types ======= */
 export const REQUEST_USER = "REQUEST_USER";
@@ -144,7 +146,7 @@ const userFetchError = (err) => {
 }
 
 const fetchUser = () => {
-  return $.get('/api/v3/users?errIfNoAuth=true');
+  return PolisNet.polisGet('/api/v3/users', {errIfNoAuth: true});
 }
 
 export const populateUserStore = () => {
@@ -176,16 +178,7 @@ const signinError = (err) => {
 }
 
 const signinPost = (attrs) => {
-  return $.ajax({
-    url:  "/api/v3/auth/login",
-    type: "POST",
-    dataType: "json",
-    xhrFields: {
-      withCredentials: true
-    },
-    // crossDomain: true,
-    data: attrs
-  });
+  return PolisNet.polisPost('/api/v3/auth/login', attrs);
 }
 
 export const doSignin = (attrs, dest) => {
@@ -225,16 +218,7 @@ const createUserError = (err) => {
 }
 
 const createUserPost = (attrs) => {
-  return $.ajax({
-    url:  "/api/v3/auth/new",
-    type: "POST",
-    dataType: "json",
-    xhrFields: {
-      withCredentials: true
-    },
-    // crossDomain: true,
-    data: attrs
-  });
+  return PolisNet.polisPost("/api/v3/auth/new", attrs);
 }
 
 export const doCreateUser = (attrs, dest) => {
@@ -281,16 +265,7 @@ const passwordResetInitError = (err) => {
 }
 
 const passwordResetInitPost = (attrs) => {
-  return $.ajax({
-    url:  "/api/v3/auth/pwresettoken",
-    type: "POST",
-    dataType: "json",
-    xhrFields: {
-      withCredentials: true
-    },
-    // crossDomain: true,
-    data: attrs
-  });
+  return PolisNet.polisPost("/api/v3/auth/pwresettoken", attrs);
 }
 
 export const doPasswordResetInit = (attrs) => {
@@ -333,16 +308,7 @@ const passwordResetError = (err) => {
 }
 
 const passwordResetPost = (attrs) => {
-  return $.ajax({
-    url:  "/api/v3/auth/password",
-    type: "POST",
-    dataType: "json",
-    xhrFields: {
-      withCredentials: true
-    },
-    // crossDomain: true,
-    data: attrs
-  });
+  return PolisNet.polisPost('/api/v3/auth/password', attrs);
 }
 
 export const doPasswordReset = (attrs) => {
@@ -813,11 +779,7 @@ const submitSeedCommentPostError = () => {
 }
 
 const postSeedComment = (comment) => {
-  return $.ajax({
-    method: "POST",
-    url: "/api/v3/comments",
-    data: comment
-  })
+  return PolisNet.polisPost('/api/v3/comments', comment);
 }
 
 export const handleSeedCommentSubmit = (comment) => {
@@ -891,14 +853,10 @@ const createConversationPostError = (err) => {
 }
 
 const postCreateConversation = () => {
-  return $.ajax({
-    method: "POST",
-    url: "/api/v3/conversations",
-    data: {
-      is_draft: true,
-      is_active: true,
-    }
-  })
+  return PolisNet.polisPost('/api/v3/conversations', {
+    is_draft: true,
+    is_active: true,
+  });
 }
 
 export const handleCreateConversationSubmit = (routeTo) => {
