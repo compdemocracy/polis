@@ -161,7 +161,12 @@ class SignIn extends React.Component {
             Sign up
           </Link>
         </div>
-
+        <div style={styles.signupContainer}>
+          {"Forgot your password? "}
+          <Link style={styles.signupLink} to={"/pwresetinit"}>
+            Reset Password
+          </Link>
+        </div>
       </div>
     )
   }
