@@ -194,9 +194,9 @@ export const doSignin = (attrs, dest) => {
         }, 3000);
       },
       err => dispatch(signinError(err))
-    )
-  }
-}
+    );
+  };
+};
 
 
 
