@@ -18,6 +18,9 @@ const styles = {
     WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
     BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
   },
+  body: {
+    fontWeight: 300,
+  }
 }
 
 @connect(state => state.mod_ptpt_default)
@@ -52,16 +55,16 @@ class ParticipantModerationDefault extends React.Component {
     return (
       <div>
         <div style={styles.card}>
-          <p>
+          <p style={styles.body}>
             We automatically decide who to show in the visualization, but you can override that here. The visualization will differ per user based on whether they have Facebook friends participating. Here’s how we prioritize who gets shown on a per user basis:
           </p>
-          <ul>
+          <ul style={styles.body}>
             <li> {"Each participant's Facebook friends"} </li>
             <li> {"Participants with verified Twitter accounts"} </li>
             <li> {"Participants with highest number of Twitter followers"} </li>
             <li> {"Random participants with Facebook connected"} </li>
           </ul>
-          <p> Featured participants are always shown. Hidden participants are only shown to Facebook friends. </p>
+          <p style={styles.body}> Featured participants are always shown. Hidden participants are only shown to Facebook friends. </p>
         </div>
         <div>
           {
