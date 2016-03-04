@@ -3,6 +3,7 @@ import { connect } from "react-redux";
 import Radium from "radium";
 import _ from "lodash";
 import Highlight from "react-highlight";
+import { Link } from "react-router";
 
 const styles = {
   card: {
@@ -63,6 +64,12 @@ class ShareAndEmbed extends React.Component {
             {"<script async='true' src='https://pol.is/embed.js'></script>"}
             </Highlight>
           </div>
+          <p style={{fontWeight: 300}}>
+            {
+              "This embed code can only be used to embed a single conversation. "
+            }
+            <Link to="integrate">I want to integrate pol.is on my entire site.</Link>
+          </p>
           <div>
             {
               this.props.zid_metadata.parent_url ?
