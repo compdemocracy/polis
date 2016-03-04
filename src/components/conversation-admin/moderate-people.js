@@ -22,15 +22,17 @@ const styles = {
     WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
     BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
   },
-}
+};
 
-const mapStateToProps = (state, ownProps) => {
+const mapStateToProps = (state) => {
   return {
     ptpt_default: state.mod_ptpt_default,
     ptpt_featured: state.mod_ptpt_featured,
     ptpt_hidden: state.mod_ptpt_hidden
-  }
-}
+  };
+};
+
+const pollFrequency = 7000;
 
 @connect(mapStateToProps)
 @Radium
@@ -43,7 +45,7 @@ class ModeratePeople extends React.Component {
   componentWillMount () {
     this.getParticipantsRepeatedly = setInterval(()=>{
       this.loadParticipants()
-    },2000);
+    },pollFrequency);
   }
   componentWillUnmount() {
     clearInterval(this.getParticipantsRepeatedly);
