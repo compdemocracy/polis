@@ -900,7 +900,7 @@ const unmoderatedCommentsFetchError = (err) => {
 }
 
 const fetchUnmoderatedComments = (conversation_id) => {
-  return $.get('/api/v3/comments?moderation=true&mod=0&conversation_id=' + conversation_id);
+  return $.get('/api/v3/comments?moderation=true&include_social=true&mod=0&conversation_id=' + conversation_id);
 }
 
 export const populateUnmoderatedCommentsStore = (conversation_id) => {
@@ -936,7 +936,7 @@ const acceptedCommentsFetchError = (err) => {
 }
 
 const fetchAcceptedComments = (conversation_id) => {
-  return $.get('/api/v3/comments?moderation=true&mod=1&conversation_id=' + conversation_id);
+  return $.get('/api/v3/comments?moderation=true&mod=1&include_social=true&conversation_id=' + conversation_id);
 }
 
 export const populateAcceptedCommentsStore = (conversation_id) => {
@@ -971,8 +971,9 @@ const rejectedCommentsFetchError = (err) => {
   }
 }
 
+
 const fetchRejectedComments = (conversation_id) => {
-  return $.get('/api/v3/comments?moderation=true&mod=-1&conversation_id=' + conversation_id);
+  return $.get('/api/v3/comments?moderation=true&include_social=true&mod=-1&conversation_id=' + conversation_id);
 }
 
 export const populateRejectedCommentsStore = (conversation_id) => {
@@ -981,9 +982,9 @@ export const populateRejectedCommentsStore = (conversation_id) => {
     return fetchRejectedComments(conversation_id).then(
       res => dispatch(receiveRejectedComments(res)),
       err => dispatch(rejectedCommentsFetchError(err))
-    )
-  }
-}
+    );
+  };
+};
 
 /* populate ALL stores todo/accept/reject/seed */
 
@@ -993,9 +994,9 @@ export const populateAllCommentStores = (conversation_id) => {
       dispatch(populateUnmoderatedCommentsStore(conversation_id)),
       dispatch(populateAcceptedCommentsStore(conversation_id)),
       dispatch(populateRejectedCommentsStore(conversation_id))
-    )
-  }
-}
+    );
+  };
+};
 
 // export const populateAllCommentStores = (conversation) => {
 // }
