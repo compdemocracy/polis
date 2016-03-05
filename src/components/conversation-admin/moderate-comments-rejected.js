@@ -23,7 +23,7 @@ class ModerateCommentsRejected extends React.Component {
       <div>
         <div>
           {
-            this.props.rejected_comments !== null ? this.createCommentMarkup() : "spinnrrrr"
+            this.props.rejected_comments !== null ? this.createCommentMarkup() : "Loading rejected comments..."
           }
         </div>
       </div>

@@ -40,7 +40,7 @@ class ModerateCommentsTodo extends React.Component {
           {
             this.props.unmoderated_comments !== null ?
             this.createCommentMarkup() :
-            <Spinner/>
+            "Loading unmoderated comments..."
           }
         </div>
       </div>
