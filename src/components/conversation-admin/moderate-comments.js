@@ -4,7 +4,8 @@ import { populateAllCommentStores } from "../../actions";
 import Radium from "radium";
 import _ from "lodash";
 import { Link } from "react-router";
-import Spinner from "../framework/spinner";
+import Flex from "../framework/flex";
+import NavTab from "../framework/nav-tab";
 
 const mapStateToProps = (state, ownProps) => {
   return {
@@ -12,104 +13,74 @@ const mapStateToProps = (state, ownProps) => {
     accepted: state.mod_comments_accepted,
     rejected: state.mod_comments_rejected,
     seed: state.seed_comments
-  }
-}
+  };
+};
 
-const styles = {
-  navCard: {
-    margin: 20,
-    backgroundColor: "rgb(253,253,253)",
-    borderRadius: 3,
-    padding: 10,
-    WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
-    BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
-  },
-}
+const pollFrequency = 7000;
 
 @connect(mapStateToProps)
 @Radium
 class CommentModeration extends React.Component {
+  getStyles() {
+    return {
+      navContainer: {
+        margin: "10px 20px 20px 20px",
+      }
+    };
+  }
   loadComments() {
     this.props.dispatch(
       populateAllCommentStores(this.props.params.conversation_id)
-    )
+    );
   }
-  componentWillMount () {
-    this.getCommentsRepeatedly = setInterval(()=>{
-      this.loadComments()
-    },2000);
+  componentWillMount() {
+    this.getCommentsRepeatedly = setInterval(() => {
+      this.loadComments();
+    }, pollFrequency);
   }
   componentWillUnmount() {
     clearInterval(this.getCommentsRepeatedly);
   }
   render() {
-    const m = "/m/"+this.props.params.conversation_id+"/comments/";
+    const styles = this.getStyles();
     return (
       <div>
-        <div style={styles.navCard}>
-          <Link
-            style={{
-              marginLeft: -10,
-              padding: 10,
-              borderRadius: 3,
-              cursor: "pointer",
-              textDecoration: "none",
-              fontWeight: 700
-            }}
-            to={m}>
-              {"Todo "}
-              {
-                this.props.unmoderated.unmoderated_comments ?
+        <Flex
+          wrap="wrap"
+          justifyContent="space-between"
+          styleOverrides={styles.navContainer}>
+          <NavTab
+            active={this.props.routes[3].path ? false : true}
+            url={`/m/${this.props.params.conversation_id}/comments/`}
+            text="Unmoderated"
+            number={
+              this.props.unmoderated.unmoderated_comments ?
                 this.props.unmoderated.unmoderated_comments.length :
                 "..."
-              }
-          </Link>
-          <Link
-            style={{
-              padding: 10,
-              borderRadius: 3,
-              cursor: "pointer",
-              textDecoration: "none",
-              fontWeight: 700
-            }}
-            to={m + "accepted"}>
-              {"Accepted "}
-              {
-                this.props.accepted.accepted_comments ?
+              }/>
+          <NavTab
+            active={this.props.routes[3].path === "accepted"}
+            url={`/m/${this.props.params.conversation_id}/comments/accepted`}
+            text="Accepted"
+            number={
+              this.props.accepted.accepted_comments ?
                 this.props.accepted.accepted_comments.length :
                 "..."
-              }
-          </Link>
-          <Link
-            style={{
-              padding: 10,
-              borderRadius: 3,
-              cursor: "pointer",
-              textDecoration: "none",
-              fontWeight: 700
-            }}
-            to={m + "rejected"}>
-              {"Rejected "}
-              {
-                this.props.rejected.rejected_comments ?
+              }/>
+          <NavTab
+            active={this.props.routes[3].path === "rejected"}
+            url={`/m/${this.props.params.conversation_id}/comments/rejected`}
+            text="Rejected"
+            number={
+              this.props.rejected.rejected_comments ?
                 this.props.rejected.rejected_comments.length :
                 "..."
-            }
-          </Link>
-          <Link
-            style={{
-              padding: 10,
-              borderRadius: 3,
-              cursor: "pointer",
-              textDecoration: "none",
-              fontWeight: 700
-            }}
-            to={m + "seed"}>
-              {
-                "Seed"
-              }
-          </Link>
-        </div>
+              }/>
+          <NavTab
+            active={this.props.routes[3].path === "seed"}
+            url={`/m/${this.props.params.conversation_id}/comments/seed`}
+            text="Seed"/>
+        </Flex>
         {this.props.children}
       </div>
     );
