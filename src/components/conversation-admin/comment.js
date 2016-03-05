@@ -1,18 +1,8 @@
 import React from "react";
 import Radium from "radium";
 import Flex from "../framework/flex";
-import Button from "../framework/moderate-button";
-
-const styles = {
-  card: {
-    margin: "10px 20px 10px 20px",
-    backgroundColor: "rgb(253,253,253)",
-    borderRadius: 3,
-    padding: 10,
-    WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
-    BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
-  },
-}
+import Button from "../framework/generic-button";
+import ParticipantHeader from "./participant-header";
 
 @Radium
 class Comment extends React.Component {
@@ -23,6 +13,23 @@ class Comment extends React.Component {
     rejectButton: React.PropTypes.bool,
     acceptClickHandler: React.PropTypes.func,
     rejectClickHandler: React.PropTypes.func,
+  }
+  getStyles() {
+    return {
+      card: {
+        margin: "10px 20px 10px 20px",
+        backgroundColor: "rgb(253,253,253)",
+        borderRadius: 3,
+        padding: 10,
+        WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
+        BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
+      },
+      commentBody: {
+        maxWidth: 550,
+        fontWeight: 300,
+        marginLeft: 10
+      }
+    }
   }
   onAcceptClicked() {
     this.props.acceptClickHandler(this.props.comment)
@@ -36,7 +43,6 @@ class Comment extends React.Component {
         style={{
           backgroundColor: "#03a9f4",
           color: "white",
-          marginTop: 20,
         }}
         onClick={this.onAcceptClicked.bind(this)}>
         accept
@@ -49,7 +55,6 @@ class Comment extends React.Component {
         style={{
           backgroundColor: "#03a9f4",
           color: "white",
-          marginTop: 20,
         }}
         onClick={this.onRejectClicked.bind(this)}>
         reject
@@ -57,12 +62,19 @@ class Comment extends React.Component {
     )
   }
   render() {
+    const styles = this.getStyles();
     return (
       <div style={styles.card}>
         <Flex
+          direction="column"
+          wrap="wrap"
           justifyContent="space-between"
-          align={"top"}>
-          <p>{ this.props.comment.txt }</p>
+          alignItems={"baseline"}>
+          {this.props.comment.social ? <ParticipantHeader {...this.props.comment.social} /> : "Anonymous"}
+          <Flex grow={1}>
+            <p style={styles.commentBody}>{ this.props.comment.txt }</p>
+          </Flex>
+
           <Flex>
             { this.props.acceptButton ? this.makeAcceptButton() : "" }
             { this.props.rejectButton ? this.makeRejectButton() : "" }
