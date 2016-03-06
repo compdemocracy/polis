@@ -4,21 +4,18 @@ import Radium from "radium";
 import Flex from "../framework/flex";
 import Awesome from "react-fontawesome";
 import Button from "../framework/generic-button";
+import ParticipantHeader from "./participant-header";
 
-const cardHeight = 50;
-const cardPadding = 10;
-const cardBorderRadius = 3;
 
 const styles = {
   card: {
-    height: cardHeight,
     margin: "10px 20px 10px 20px",
     backgroundColor: "rgb(253,253,253)",
-    borderRadius: cardBorderRadius,
-    padding: cardPadding,
+    borderRadius: 3,
+    padding: 10,
     WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
     BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
-  }
+  },
 };
 
 @Radium
@@ -65,15 +62,21 @@ class Participant extends React.Component {
   }
   render() {
     return (
-      <Flex
-        justifyContent={"space-between"}
-        styleOverrides={styles.card}>
-          <span>{this.props.name}</span>
-        <Flex>
-          {this.props.featureButton ? this.makeFeatureButton() : ""}
-          {this.props.hideButton ? this.makeHideButton() : ""}
+      <div style={styles.card}>
+        <Flex
+          direction="column"
+          wrap="wrap"
+          justifyContent="space-between"
+          alignItems={"baseline"}>
+          <ParticipantHeader
+            {...this.props.participant.facebook}
+            {...this.props.participant.twitter} />
+          <Flex>
+            {this.props.featureButton ? this.makeFeatureButton() : ""}
+            {this.props.hideButton ? this.makeHideButton() : ""}
+          </Flex>
         </Flex>
-      </Flex>
+      </div>
     );
   }
 }

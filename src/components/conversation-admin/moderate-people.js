@@ -4,6 +4,8 @@ import Radium from "radium";
 import { populateAllParticipantStores } from "../../actions";
 import _ from "lodash";
 import { Link } from "react-router";
+import Flex from "../framework/flex";
+import NavTab from "../framework/nav-tab";
 
 const cardPadding = 10;
 const cardBorderRadius = 3;
@@ -37,6 +39,13 @@ const pollFrequency = 7000;
 @connect(mapStateToProps)
 @Radium
 class ModeratePeople extends React.Component {
+  getStyles() {
+    return {
+      navContainer: {
+        margin: "10px 20px 20px 20px",
+      }
+    };
+  }
   loadParticipants() {
     this.props.dispatch(
       populateAllParticipantStores(this.props.params.conversation_id)
@@ -51,60 +60,42 @@ class ModeratePeople extends React.Component {
     clearInterval(this.getParticipantsRepeatedly);
   }
   render() {
+    const styles = this.getStyles();
     const m = "/m/"+this.props.params.conversation_id+"/participants/";
     return (
       <div>
-        <div style={styles.navCard}>
-          <Link
-            style={{
-              marginLeft: -10,
-              padding: 10,
-              borderRadius: 3,
-              cursor: "pointer",
-              textDecoration: "none",
-              fontWeight: 700
-            }}
-            to={m}>
-            {"Default "}
-            {
+        <Flex
+          wrap="wrap"
+          justifyContent="space-between"
+          styleOverrides={styles.navContainer}>
+          <NavTab
+            active={this.props.routes[3].path ? false : true}
+            url={`/m/${this.props.params.conversation_id}/participants/`}
+            text="Default"
+            number={
               this.props.ptpt_default.default_participants ?
-              this.props.ptpt_default.default_participants.length :
-              "..."
-            }
-          </Link>
-          <Link
-            style={{
-              padding: 10,
-              borderRadius: 3,
-              cursor: "pointer",
-              textDecoration: "none",
-              fontWeight: 700
-            }}
-            to={m + "featured"}>
-            {"Featured "}
-            {
+                this.props.ptpt_default.default_participants.length :
+                "..."
+            }/>
+          <NavTab
+            active={this.props.routes[3].path === "featured"}
+            url={`/m/${this.props.params.conversation_id}/participants/featured`}
+            text="Featured"
+            number={
               this.props.ptpt_featured.featured_participants ?
-              this.props.ptpt_featured.featured_participants.length :
-              "..."
-            }
-          </Link>
-          <Link
-            style={{
-              padding: 10,
-              borderRadius: 3,
-              cursor: "pointer",
-              textDecoration: "none",
-              fontWeight: 700
-            }}
-            to={m + "hidden"}>
-            {"Hidden "}
-            {
+                this.props.ptpt_featured.featured_participants.length :
+                "..."
+            }/>
+          <NavTab
+            active={this.props.routes[3].path === "hidden"}
+            url={`/m/${this.props.params.conversation_id}/participants/hidden`}
+            text="Hidden"
+            number={
               this.props.ptpt_hidden.hidden_participants ?
-              this.props.ptpt_hidden.hidden_participants.length :
-              "..."
-            }
-          </Link>
-        </div>
+                this.props.ptpt_hidden.hidden_participants.length :
+                "..."
+            }/>
+        </Flex>
         {this.props.children}
       </div>
     );
