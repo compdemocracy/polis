@@ -74,7 +74,6 @@ class Comment extends React.Component {
           <Flex grow={1}>
             <p style={styles.commentBody}>{ this.props.comment.txt }</p>
           </Flex>
-
           <Flex>
             { this.props.acceptButton ? this.makeAcceptButton() : "" }
             { this.props.rejectButton ? this.makeRejectButton() : "" }
