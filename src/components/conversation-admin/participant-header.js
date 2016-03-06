@@ -88,7 +88,6 @@ class ComponentName extends React.Component {
     )
   }
   twitterIcon() {
-    console.log(this.props)
     return (
       <a target="_blank" href={`https://twitter.com/${this.props.screen_name}`}>
         <Awesome
