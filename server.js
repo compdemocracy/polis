@@ -6217,6 +6217,17 @@ function getComments(o) {
                         "profile_image_url_https",
                     ]);
                     infoToReturn.tw_verified = !!info.verified;
+
+                    // extract props from fb_public_profile
+                    if (info.fb_public_profile) {
+                        try {
+                            var temp = JSON.parse(info.fb_public_profile);
+                            infoToReturn.fb_verified = temp.verified;
+                        } catch (e) {
+                            console.error("error parsing JSON of fb_public_profile for uid: ", info.uid);
+                        }
+                    }
+
                     if (!_.isUndefined(infoToReturn.fb_user_id)) {
                         var width = 40;
                         var height = 40;
