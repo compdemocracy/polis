@@ -6216,6 +6216,7 @@ function getComments(o) {
                         "twitter_user_id",
                         "profile_image_url_https",
                     ]);
+                    infoToReturn.tw_verified = !!info.verified;
                     if (!_.isUndefined(infoToReturn.fb_user_id)) {
                         var width = 40;
                         var height = 40;
@@ -10268,6 +10269,17 @@ function pullFbTwIntoSubObjects(ptptoiRecord) {
             x[key] = val;
         }
     });
+    // extract props from fb_public_profile
+    if (x.facebook && x.facebook.fb_public_profile) {
+        try {
+            var temp = JSON.parse(x.facebook.fb_public_profile);
+            x.facebook.verified = temp.verified;
+            // shouln't return this to client
+            delete x.facebook.fb_public_profile;
+        } catch (e) {
+            console.error("error parsing JSON of fb_public_profile for uid: ", p.uid);
+        }
+    }
     return x;
 }
 
