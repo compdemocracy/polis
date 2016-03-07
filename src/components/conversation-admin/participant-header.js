@@ -61,17 +61,19 @@ class ComponentName extends React.Component {
   }
   getImage() {
     let image = "";
-
-    if (this.props.fb_picture) {
+    if (this.props.fb_user_id) {
       image = (
         <img src={this.props.fb_picture} style={this.getStyles().image}/>
       )
+    } else if (this.props.profile_image_url_https) {
+      image = (
+        <img src={this.props.profile_image_url_https} style={this.getStyles().image}/>
+      )
+    } else if (this.props.twitter_profile_image_url_https) {
+      image = (
+        <img src={this.props.twitter_profile_image_url_https} style={this.getStyles().image}/>
+      )
     }
-
-    if (this.props.profile_image_url_https) {
-      <img src={this.props.profile_image_url_https} style={this.getStyles().image}/>
-    }
-
     return image;
   }
   facebookIcon() {
