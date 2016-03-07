@@ -6323,23 +6323,28 @@ function(req, res) {
             // convert from DD to POJO
             result = result.m;
 
-            // Convert from {pid -> foo} to {xid -> foo}
-            var pidToXid = {};
-            for (i = 0; i < pidXidRows.length; i++) {
-                pidToXid[pidXidRows[i].pid] = pidXidRows[i].xid;
-            }
-            var xidBasedResult = {};
-            var size = 0;
-            _.each(result, function(val, key) {
-                xidBasedResult[pidToXid[key]] = val;
-                size += 1;
-            });
+            if (pidXidRows && pidXidRows.length) {
+                // Convert from {pid -> foo} to {xid -> foo}
+                var pidToXid = {};
+                for (i = 0; i < pidXidRows.length; i++) {
+                    pidToXid[pidXidRows[i].pid] = pidXidRows[i].xid;
+                }
+                var xidBasedResult = {};
+                var size = 0;
+                _.each(result, function(val, key) {
+                    xidBasedResult[pidToXid[key]] = val;
+                    size += 1;
+                });
 
-            if (strict && (commentCountRows.length || voteCountRows.length) && size > 0) {
-                fail(res, 409, "polis_err_get_participation_missing_xids This conversation is missing xids for some of its participants.");
-                return;
+                if (strict && (commentCountRows.length || voteCountRows.length) && size > 0) {
+                    fail(res, 409, "polis_err_get_participation_missing_xids This conversation is missing xids for some of its participants.");
+                    return;
+                }
+                res.status(200).json(xidBasedResult);
+            } else {
+                res.status(200).json(result);
             }
-            res.status(200).json(xidBasedResult);
+
         });
     }).catch(function(err) {
         fail(res, 500, "polis_err_get_participation_misc", err);
