@@ -74,6 +74,14 @@ CREATE TABLE twitter_users (
 );
 
 
+CREATE TABLE site_domain_whitelist(
+    site_id VARCHAR(256) NOT NULL,
+    domain_whitelist VARCHAR(999),
+    modified BIGINT NOT NULL DEFAULT now_as_millis(),
+    created BIGINT NOT NULL DEFAULT now_as_millis()
+);
+CREATE INDEX site_domain_whitelist_idx ON users USING btree (site_id);
+
 -- simple, compact metrics storage. Don't put any bulky stuff like strings here.
 -- We'll probably need to replace this with something that scales better.
 CREATE TABLE metrics (
