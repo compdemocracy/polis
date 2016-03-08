@@ -5168,6 +5168,87 @@ function getFirstForPid(votes) {
     return firstVotes;
 }
 
+
+// function isParentDomainWhitelisted(domain, zid) {
+//     var splitDomain = domain.split('.');
+//     return pgQueryP_readOnly(
+//         "select domain_whitelist from site_domain_whitelist where site_id = "+
+//         "(select site_id from users where uid = "+
+//         "(select owner from conversations where zid = ($1)));", [zid])
+//     .then(function(rows) {
+//         if (!rows || !rows.length) {
+//             // there is no whitelist, so any domain is ok.
+//             return true;
+//         }
+//         var whitelist = rows[0].domain_whitelist;
+//         var domains = whitelist.split(',');
+//         for (var i = 0; i < domains.length; i++) {
+//             var d = domains[i];
+//             d = d.split('.');
+
+//             // TODO account for whitecard *'s
+
+//             // example: domain might be blogs.nytimes.com, and whitelist entry might be nytimes.com, and that should be a match
+//             var relevantPartOfDomain = domain.slice(domain.length-d.length, domain.length);
+//             var pairs = _.zip(relevantPartOfDomain, d);
+//             if (_.every(pairs, function(p) { return p[0] === p[1]; })) {
+//                 // found a matching domain string in the whitelist
+//                 return true;
+//             }
+//         }
+//         return false;
+//     });
+// }
+
+function setDomainWhitelist(uid, newWhitelist) {
+    // TODO_UPSERT
+    return pgQueryP("select * from site_domain_whitelist where site_id = (select site_id from users where uid = ($1));", [uid])
+        .then(function(rows) {
+            if (!rows || !rows.length) {
+                return pgQueryP("insert into site_domain_whitelist (site_id, domain_whitelist) values ((select site_id from users where uid = ($1)), $2);", [uid, newWhitelist]);
+            } else {
+                return pgQueryP("update site_domain_whitelist set domain_whitelist = ($2) where site_id = (select site_id from users where uid = ($1));", [uid, newWhitelist]);
+            }
+        });
+}
+
+function getDomainWhitelist(uid) {
+    return pgQueryP("select * from site_domain_whitelist where site_id = (select site_id from users where uid = ($1));", [uid]).then(function(rows) {
+        if (!rows || !rows.length) {
+            return "";
+        }
+        return rows[0].domain_whitelist;
+    });
+}
+
+app.get("/api/v3/domainWhitelist",
+    moveToBody,
+    auth(assignToP),
+function(req, res) {
+    getDomainWhitelist(req.p.uid).then(function(whitelist) {
+        res.json({
+            domain_whitelist: whitelist,
+        });
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_get_domainWhitelist_misc", err);
+    });
+});
+
+app.post("/api/v3/domainWhitelist",
+    auth(assignToP),
+    need('domain_whitelist', getOptionalStringLimitLength(999), assignToP, ""),
+function(req, res) {
+    setDomainWhitelist(req.p.uid, req.p.domain_whitelist).then(function() {
+        res.json({
+            domain_whitelist: req.p.domain_whitelist,
+        });
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_post_domainWhitelist_misc", err);
+    });
+});
+
+
+
 app.get("/api/v3/conversationStats",
     moveToBody,
     auth(assignToP),
