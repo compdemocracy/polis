@@ -5174,7 +5174,7 @@ function isParentDomainWhitelisted(domain, conversation_id, isWithinIframe) {
     return pgQueryP_readOnly(
         "select domain_whitelist from site_domain_whitelist where site_id = "+
         "(select site_id from users where uid = "+
-        "(select owner from conversations where zid = (select * from zinvites where zinvite = ($1))));", [conversation_id])
+        "(select owner from conversations where zid = (select zid from zinvites where zinvite = ($1))));", [conversation_id])
     .then(function(rows) {
         if (!rows || !rows.length) {
             // there is no whitelist, so any domain is ok.
@@ -5208,14 +5208,15 @@ function isParentDomainWhitelisted(domain, conversation_id, isWithinIframe) {
 }
 
 
-function denyIfNotFromWhitelistedDomainfunction(req, res, next) {
+function denyIfNotFromWhitelistedDomain(req, res, next) {
     var referrer = req.headers.referer;
     referrer = referrer && referrer.length && referrer.split('/');
     referrer = referrer && referrer.length >= 3 && referrer[2];
+    referrer = referrer || "";
 
     var path = req.path;
     path = path && path.split('/');
-    var conversation_id = path && path.length >= 2 && path[2];
+    var conversation_id = path && path.length >= 2 && path[1];
     var isWithinIframe = req.path.indexOf('parent_url') >= 0;
     isParentDomainWhitelisted(referrer, conversation_id, isWithinIframe).then(function(isOk) {
         if (isOk) {
