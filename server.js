@@ -5169,35 +5169,35 @@ function getFirstForPid(votes) {
 }
 
 
-function isParentDomainWhitelisted(domain, conversation_id, isWithinIframe) {
+function isParentDomainWhitelisted(domain, zid, isWithinIframe) {
     var splitDomain = domain.split('.');
     return pgQueryP_readOnly(
         "select domain_whitelist from site_domain_whitelist where site_id = "+
         "(select site_id from users where uid = "+
-        "(select owner from conversations where zid = (select zid from zinvites where zinvite = ($1))));", [conversation_id])
+        "(select owner from conversations where zid = ($1)));", [zid])
     .then(function(rows) {
-        if (!rows || !rows.length) {
+        if (!rows || !rows.length || !rows[0].domain_whitelist.length) {
             // there is no whitelist, so any domain is ok.
             return true;
         }
         var whitelist = rows[0].domain_whitelist;
-        var domains = whitelist.split(',');
-        if (!isWithinIframe && domains.indexOf('pol.is') >= 0) {
+        var wdomains = whitelist.split(',');
+        if (!isWithinIframe && wdomains.indexOf('pol.is') >= 0) {
             // if pol.is is in the whitelist, then it's ok to show the conversation outside of an iframe.
             return true;
         }
         function equal(p) {
             return p[0] === p[1];
         }
-        for (var i = 0; i < domains.length; i++) {
-            var d = domains[i];
-            d = d.split('.');
+        for (var i = 0; i < wdomains.length; i++) {
+            var w = wdomains[i];
+            var wParts = w.split('.');
 
             // TODO account for whitecard *'s
 
             // example: domain might be blogs.nytimes.com, and whitelist entry might be nytimes.com, and that should be a match
-            var relevantPartOfDomain = domain.slice(domain.length-d.length, domain.length);
-            var pairs = _.zip(relevantPartOfDomain, d);
+            var relevantPartOfDomain = domain.slice(domain.length-w.length, domain.length);
+            var pairs = _.zip(relevantPartOfDomain, w);
             if (_.every(pairs, equal)) {
                 // found a matching domain string in the whitelist
                 return true;
@@ -5209,16 +5209,22 @@ function isParentDomainWhitelisted(domain, conversation_id, isWithinIframe) {
 
 
 function denyIfNotFromWhitelistedDomain(req, res, next) {
+
+            // res.status(403);
+            // next("polis_err_domain");
+            // return;
     var referrer = req.headers.referer;
     referrer = referrer && referrer.length && referrer.split('/');
     referrer = referrer && referrer.length >= 3 && referrer[2];
     referrer = referrer || "";
 
-    var path = req.path;
-    path = path && path.split('/');
-    var conversation_id = path && path.length >= 2 && path[1];
+    // var path = req.path;
+    // path = path && path.split('/');
+    // var conversation_id = path && path.length >= 2 && path[1];
+    var zid = req.p.zid;
+
     var isWithinIframe = req.path.indexOf('parent_url') >= 0;
-    isParentDomainWhitelisted(referrer, conversation_id, isWithinIframe).then(function(isOk) {
+    isParentDomainWhitelisted(referrer, zid, isWithinIframe).then(function(isOk) {
         if (isOk) {
             next();
         } else {
@@ -7385,6 +7391,7 @@ app.get("/api/v3/participationInit",
   want('ptptoiLimit', getInt, assignToP),
   want('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
   want('conversation_id', getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
+  denyIfNotFromWhitelistedDomain, // this seems like the easiest place to enforce the domain whitelist. The index.html is cached on cloudflare, so that's not the right place.
   resolve_pidThing('pid', assignToP, "get:votes"), // must be after zid getter
 function(req, res) {
 
@@ -12555,7 +12562,7 @@ function fetchIndexForConversation(req, res) {
 
 var fetchIndexForAdminPage = makeFileFetcher(hostname, portForAdminFiles, "/index_admin.html", {'Content-Type': "text/html"});
 
-app.get(/^\/[0-9][0-9A-Za-z]+(\/.*)?/, denyIfNotFromWhitelistedDomain, fetchIndexForConversation); // conversation view
+app.get(/^\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // conversation view
 app.get(/^\/explore\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // power view
 app.get(/^\/share\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // share view
 app.get(/^\/summary\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // summary view
@@ -12656,7 +12663,7 @@ app.get(/^\/s$/, fetchIndexWithoutPreloadData);
 app.get(/^\/hk\/new/, fetchIndexWithoutPreloadData);
 app.get(/^\/inboxApiTest/, fetchIndexWithoutPreloadData);
 app.get(/^\/pwresetinit.*/, fetchIndexForAdminPage);
-app.get(/^\/demo\/[0-9][0-9A-Za-z]+/, denyIfNotFromWhitelistedDomain, fetchIndexForConversation);
+app.get(/^\/demo\/[0-9][0-9A-Za-z]+/, fetchIndexForConversation);
 app.get(/^\/pwreset.*/, fetchIndexForAdminPage);
 app.get(/^\/prototype.*/, fetchIndexWithoutPreloadData);
 app.get(/^\/plan.*/, fetchIndexWithoutPreloadData);
