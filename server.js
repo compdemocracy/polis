@@ -5228,12 +5228,12 @@ function denyIfNotFromWhitelistedDomain(req, res, next) {
         if (isOk) {
             next();
         } else {
-            res.status(403);
+            res.send(403, "polis_err_domain");
             next("polis_err_domain");
         }
     }).catch(function(err) {
-        res.status(403);
         console.error(err);
+        res.send(403, "polis_err_domain");
         next("polis_err_domain_misc");
     });
 }
