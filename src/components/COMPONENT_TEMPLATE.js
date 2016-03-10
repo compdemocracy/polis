@@ -5,8 +5,6 @@ import Radium from 'radium';
 // import { connect } from 'react-redux';
 // import { FOO } from '../actions';
 
-// const style = {
-// };
 
 // @connect(state => {
 //   return state.FOO;
