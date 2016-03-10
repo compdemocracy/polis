@@ -20,6 +20,11 @@
 
 
     <script>window.preload = "REPLACE_THIS_WITH_PRELOAD_DATA";</script>
+    <style>
+    .displaynone {
+      display: none;
+    }
+    </style>
 
 <script> // Fire off this ajax first. it's slower than the other CDN delivered things.
 (function() {
@@ -118,6 +123,13 @@ function onPreloadFail(statusCode, failResponse) {
     if (p[cbs[i]]) {
       p[cbs[i]](1);
     }
+  }
+  if (statusCode === 403 && failResponse.match(/^polis_err_domain/)) {
+    setTimeout(function() {
+      var el = document.getElementById("badDomainMessage");
+      el.className = el.className.replace( /(?:^|\s)displaynone(?!\S)/g , '');
+      document.getElementById("mainSpinner").className += " displaynone";
+    },100);
   }
 }
 
@@ -342,6 +354,7 @@ window.initIntercom = function(){
 <![endif]-->
 
 <p id="mainSpinner" class="HeadingC" style="text-align:center; margin: 40px">Loading...</p>
+<p id="badDomainMessage" class="HeadingC displaynone" style="text-align:center; margin: 40px;">This coversation can not be viewed from this domain.</p>
 
 </body>
 </html>
