@@ -5182,28 +5182,55 @@ function isParentDomainWhitelisted(domain, zid, isWithinIframe) {
         }
         var whitelist = rows[0].domain_whitelist;
         var wdomains = whitelist.split(',');
-        if (!isWithinIframe && wdomains.indexOf('pol.is') >= 0) {
+        if (!isWithinIframe && wdomains.indexOf('*.pol.is') >= 0) {
             // if pol.is is in the whitelist, then it's ok to show the conversation outside of an iframe.
             return true;
         }
         function equal(p) {
             return p[0] === p[1];
         }
+        var ok = false;
         for (var i = 0; i < wdomains.length; i++) {
             var w = wdomains[i];
             var wParts = w.split('.');
 
-            // TODO account for whitecard *'s
+            // example: domain might be blogs.nytimes.com, and whitelist entry might be *.nytimes.com, and that should be a match
+            var parts = domain.split('.');
 
-            // example: domain might be blogs.nytimes.com, and whitelist entry might be nytimes.com, and that should be a match
-            var relevantPartOfDomain = domain.slice(domain.length-w.length, domain.length);
-            var pairs = _.zip(relevantPartOfDomain, w);
-            if (_.every(pairs, equal)) {
-                // found a matching domain string in the whitelist
-                return true;
+            if (wParts.length && wParts[0] === "*") {
+                // wild card case
+                // check for a match on each part following the '*'
+                var bad = false;
+
+                wParts = wParts.reverse();
+                parts = parts.reverse();
+                for (var p = 0; p < wParts.length - 1; p++) {
+                    if (wParts[p] !== parts[p]) {
+                        bad = true;
+                        break;
+                    }
+                }
+                ok = !bad;
+            } else {
+                // no wild card
+                var bad2 = false;
+                if (wParts.length !== parts.length) {
+                    bad2 = true;
+                }
+                // check for a match on each part
+                for (var p2 = 0; p2 >= wParts.length; p++) {
+                    if (wParts[p2] !== parts[p2]) {
+                        bad2 = true;
+                        break;
+                    }
+                }
+                ok = !bad2;
             }
+
+
+
         }
-        return false;
+        return ok;
     });
 }
 
