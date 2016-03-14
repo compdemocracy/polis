@@ -4,6 +4,7 @@ import { handleSeedCommentSubmit } from "../../actions";
 import Radium from "radium";
 import _ from "lodash";
 import Button from "../framework/generic-button";
+import strings from "../../strings/strings";
 
 const styles = {
   card: {
@@ -70,8 +71,9 @@ class ModerateCommentsSeed extends React.Component {
               color: "white",
             }}
             onClick={this.handleSubmitSeed.bind(this)}>
-            Submit
+            {this.props.pending ? "Submitting..." : "Submit"}
           </Button>
+          {this.props.error ? <div>{strings(this.props.error)}</div> : ""}
         </div>
       </div>
     );

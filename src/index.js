@@ -45,6 +45,7 @@ import ModerateCommentsTodo from "./components/conversation-admin/moderate-comme
 import ModerateCommentsAccepted from "./components/conversation-admin/moderate-comments-accepted";
 import ModerateCommentsRejected from "./components/conversation-admin/moderate-comments-rejected";
 import ModerateCommentsSeed from "./components/conversation-admin/moderate-comments-seed";
+import ModerateCommentsSeedTweet from "./components/conversation-admin/moderate-comments-seed-tweet";
 
 import ParticipantModeration from "./components/conversation-admin/moderate-people";
 import ParticipantModerationDefault from "./components/conversation-admin/moderate-people-default";
@@ -77,6 +78,7 @@ class Root extends React.Component {
                   <Route path="accepted" component={ModerateCommentsAccepted}/>
                   <Route path="rejected" component={ModerateCommentsRejected}/>
                   <Route path="seed" component={ModerateCommentsSeed}/>
+                  <Route path="seed_tweet" component={ModerateCommentsSeedTweet}/>
                 </Route>
                 <Route path="participants" component={ParticipantModeration}>
                   <IndexRoute component={ParticipantModerationDefault}/>
