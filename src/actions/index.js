@@ -117,7 +117,7 @@ export const FACEBOOK_SIGNIN_FAILED = "FACEBOOK_SIGNIN_FAILED";
 
   populate is the function the component calls
   fetch is the api call itself
-  request tells everyone we're loading
+  request tells everyone we"re loading
   receive proxies the data to the store
 
 */
@@ -146,7 +146,7 @@ const userFetchError = (err) => {
 }
 
 const fetchUser = () => {
-  return PolisNet.polisGet('/api/v3/users', {errIfNoAuth: true});
+  return PolisNet.polisGet("/api/v3/users", {errIfNoAuth: true});
 }
 
 export const populateUserStore = () => {
@@ -178,7 +178,7 @@ const signinError = (err) => {
 }
 
 const signinPost = (attrs) => {
-  return PolisNet.polisPost('/api/v3/auth/login', attrs);
+  return PolisNet.polisPost("/api/v3/auth/login", attrs);
 }
 
 export const doSignin = (attrs, dest) => {
@@ -308,7 +308,7 @@ const passwordResetError = (err) => {
 }
 
 const passwordResetPost = (attrs) => {
-  return PolisNet.polisPost('/api/v3/auth/password', attrs);
+  return PolisNet.polisPost("/api/v3/auth/password", attrs);
 }
 
 export const doPasswordReset = (attrs) => {
@@ -371,7 +371,7 @@ const getFriends = (response) => {
     });
   }
 
-  FB.api('/me/friends', (response) => {
+  FB.api("/me/friends", (response) => {
     console.log("/me/friends returned");
     if (response && !response.error) {
 
@@ -384,7 +384,7 @@ const getFriends = (response) => {
         dfd.resolve(friendsSoFar || []);
       }
     } else {
-      // 'failed to find friends'
+      // "failed to find friends"
       dfd.reject(response);
     }
   });
@@ -394,7 +394,7 @@ const getFriends = (response) => {
 const getInfo = (response) => {
   var dfd = $.Deferred();
 
-  FB.api('/me', (response) => {
+  FB.api("/me", (response) => {
     console.log("/me done");
     // {"id":"10152802017421079"
     //   "email":"michael@bjorkegren.com"
@@ -414,7 +414,7 @@ const getInfo = (response) => {
 
     if (response && !response.error) {
       if (response.location && response.location.id) {
-        FB.api('/' + response.location.id, (locationResponse) => {
+        FB.api("/" + response.location.id, (locationResponse) => {
           console.log("locationResponse");
           console.dir(locationResponse);
           if (locationResponse) {
@@ -426,7 +426,7 @@ const getInfo = (response) => {
         dfd.resolve(response);
       }
     } else {
-      // alert('failed to find data');
+      // alert("failed to find data");
       dfd.reject(response);
     }
   });
@@ -448,7 +448,7 @@ const saveFacebookFriendsData = (data, dest, dispatch) => {
     type: "POST"
   }).then(() => {
     setTimeout(() => {
-        // Force page to load so we can be sure the old user's state is cleared from memory
+        // Force page to load so we can be sure the old user"s state is cleared from memory
         // delay a bit so the cookies have time to clear too.
         window.location = dest || "/";
       }, 1000);
@@ -457,7 +457,7 @@ const saveFacebookFriendsData = (data, dest, dispatch) => {
 
     if ( err.responseText && /polis_err_user_with_this_email_exists/.test(err.responseText) ) {
 
-      console.log('thats a user already enter your password')
+      console.log("thats a user already enter your password")
       // Todo handle
 
       // var password = prompt("A pol.is user "+data.fb_email+", the same email address as associted with your facebook account, already exists. Enter your pol.is password to enable facebook login for your pol.is account.");
@@ -466,7 +466,7 @@ const saveFacebookFriendsData = (data, dest, dispatch) => {
       dispatch(facebookSigninFailed("polis_err_user_with_this_email_exists")) //handle case user already exists enter your password
 
       // that.model.set({
-      //   create: false, // don't show create account stuff, account exists.
+      //   create: false, // don"t show create account stuff, account exists.
       //   linkMode: true,
       //   email: data.fb_email,
       // });
@@ -544,19 +544,19 @@ const callFacebookLoginAPI = (dest, dispatch, optionalPassword) => {
     }, {
       return_scopes: true, // response should contain the scopes the user allowed
       scope: [
-        // 'taggable_friends', // requires review.
-        // invitable_friends NOTE: only for games with a fb Canvas presence, so don't use this
-        'public_profile',
-        'user_friends',
-        'email'
-      ].join(',')
+        // "taggable_friends", // requires review.
+        // invitable_friends NOTE: only for games with a fb Canvas presence, so don"t use this
+        "public_profile",
+        "user_friends",
+        "email"
+      ].join(",")
     });
 }
 
 export const doFacebookSignin = (dest, optionalPassword) => {
   return (dispatch) => {
     dispatch(facebookSigninInitiated())
-    console.log('facebook sign in initiated', dest)
+    console.log("facebook sign in initiated", dest)
     return callFacebookLoginAPI(dest, dispatch, optionalPassword)
   }
 }
@@ -569,7 +569,7 @@ const signoutInitiated = () => {
   };
 };
 
-// SIGNOUT_SUCCESSFUL Not needed since redirecting to clear old user's state from memory
+// SIGNOUT_SUCCESSFUL Not needed since redirecting to clear old user"s state from memory
 
 const signoutError = (err) => {
   return {
@@ -584,7 +584,7 @@ const signoutPost = (dest) => {
     type: "POST",
     url: "/api/v3/auth/deregister",
     data: {},
-    dataType: "text", // server returns an empty response, so can't parse as JSON
+    dataType: "text", // server returns an empty response, so can"t parse as JSON
     });
 }
 
@@ -594,7 +594,7 @@ export const doSignout = (dest) => {
     return signoutPost().then(
       res => {
         setTimeout(() => {
-          // Force page to load so we can be sure the old user's state is cleared from memory
+          // Force page to load so we can be sure the old user"s state is cleared from memory
           // delay a bit so the cookies have time to clear too.
           window.location = dest || "/about";
         }, 1000);
@@ -627,7 +627,7 @@ const conversationsError = (err) => {
 }
 
 const fetchConversations = () => {
-  return $.get('/api/v3/conversations?include_all_conversations_i_am_in=true');
+  return $.get("/api/v3/conversations?include_all_conversations_i_am_in=true");
 }
 
 export const populateConversationsStore = () => {
@@ -672,7 +672,7 @@ export const resetMetadataStore = () => {
 }
 
 const fetchZidMetadata = (conversation_id) => {
-  return $.get('/api/v3/conversations?conversation_id=' + conversation_id);
+  return $.get("/api/v3/conversations?conversation_id=" + conversation_id);
 }
 
 export const populateZidMetadataStore = (conversation_id) => {
@@ -692,7 +692,7 @@ export const populateZidMetadataStore = (conversation_id) => {
       return;
     }
 
-    // don't fetch again if we already have data loaded for that conversation.
+    // don"t fetch again if we already have data loaded for that conversation.
     if (hasConversationId && state.zid_metadata.zid_metadata.conversation_id == conversation_id) {
       return;
     }
@@ -779,18 +779,20 @@ const submitSeedCommentPostError = () => {
 }
 
 const postSeedComment = (comment) => {
-  return PolisNet.polisPost('/api/v3/comments', comment);
-}
+  return PolisNet.polisPost("/api/v3/comments", comment);
+};
 
 export const handleSeedCommentSubmit = (comment) => {
   return (dispatch) => {
-    dispatch(submitSeedCommentStart())
+    dispatch(submitSeedCommentStart());
     return postSeedComment(comment).then(
-      res => dispatch(submitSeedCommentPostSuccess(res)),
-      err => dispatch(submitSeedCommentPostError(err))
-    ).then(dispatch(populateAllCommentStores(comment.conversation_id)))
-  }
-}
+      (res) => dispatch(submitSeedCommentPostSuccess(res)),
+      (err) => dispatch(submitSeedCommentPostError(err))
+    ).then(dispatch(
+      populateAllCommentStores(comment.conversation_id)
+    ));
+  };
+};
 
 /* seed comments fetch */
 
@@ -815,7 +817,7 @@ export const handleSeedCommentSubmit = (comment) => {
 // }
 
 // const fetchSeedComments = (conversation_id) => {
-//   return $.get('/api/v3/comments?moderation=true&mod=0&conversation_id=' + conversation_id);
+//   return $.get("/api/v3/comments?moderation=true&mod=0&conversation_id=" + conversation_id);
 // }
 
 // export const populateSeedCommentStore = (conversation_id) => {
@@ -853,7 +855,7 @@ const createConversationPostError = (err) => {
 }
 
 const postCreateConversation = () => {
-  return PolisNet.polisPost('/api/v3/conversations', {
+  return PolisNet.polisPost("/api/v3/conversations", {
     is_draft: true,
     is_active: true,
   });
@@ -900,7 +902,7 @@ const unmoderatedCommentsFetchError = (err) => {
 }
 
 const fetchUnmoderatedComments = (conversation_id) => {
-  return $.get('/api/v3/comments?moderation=true&include_social=true&mod=0&conversation_id=' + conversation_id);
+  return $.get("/api/v3/comments?moderation=true&include_social=true&mod=0&conversation_id=" + conversation_id);
 }
 
 export const populateUnmoderatedCommentsStore = (conversation_id) => {
@@ -936,7 +938,7 @@ const acceptedCommentsFetchError = (err) => {
 }
 
 const fetchAcceptedComments = (conversation_id) => {
-  return $.get('/api/v3/comments?moderation=true&mod=1&include_social=true&conversation_id=' + conversation_id);
+  return $.get("/api/v3/comments?moderation=true&mod=1&include_social=true&conversation_id=" + conversation_id);
 }
 
 export const populateAcceptedCommentsStore = (conversation_id) => {
@@ -973,7 +975,7 @@ const rejectedCommentsFetchError = (err) => {
 
 
 const fetchRejectedComments = (conversation_id) => {
-  return $.get('/api/v3/comments?moderation=true&include_social=true&mod=-1&conversation_id=' + conversation_id);
+  return $.get("/api/v3/comments?moderation=true&include_social=true&mod=-1&conversation_id=" + conversation_id);
 }
 
 export const populateRejectedCommentsStore = (conversation_id) => {
@@ -1109,7 +1111,7 @@ const defaultParticipantFetchError = (err) => {
 }
 
 const fetchDefaultParticipants = (conversation_id) => {
-  return $.get('/api/v3/ptptois?mod=0&conversation_id=' + conversation_id);
+  return $.get("/api/v3/ptptois?mod=0&conversation_id=" + conversation_id);
 }
 
 export const populateDefaultParticipantStore = (conversation_id) => {
@@ -1145,7 +1147,7 @@ const featuredParticipantFetchError = (err) => {
 }
 
 const fetchFeaturedParticipants = (conversation_id) => {
-  return $.get('/api/v3/ptptois?mod=1&conversation_id=' + conversation_id);
+  return $.get("/api/v3/ptptois?mod=1&conversation_id=" + conversation_id);
 }
 
 export const populateFeaturedParticipantStore = (conversation_id) => {
@@ -1181,7 +1183,7 @@ const hiddenParticipantFetchError = (err) => {
 }
 
 const fetchHiddenParticipants = (conversation_id) => {
-  return $.get('/api/v3/ptptois?mod=-1&conversation_id=' + conversation_id);
+  return $.get("/api/v3/ptptois?mod=-1&conversation_id=" + conversation_id);
 }
 
 export const populateHiddenParticipantStore = (conversation_id) => {
@@ -1310,7 +1312,7 @@ const conversationStatsFetchError = (err) => {
 }
 
 const fetchConversationStats = (conversation_id) => {
-  return $.get('/api/v3/conversationStats?conversation_id=' + conversation_id);
+  return $.get("/api/v3/conversationStats?conversation_id=" + conversation_id);
 }
 
 export const populateConversationStatsStore = (conversation_id) => {
