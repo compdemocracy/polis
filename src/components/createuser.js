@@ -134,7 +134,7 @@ class SignIn extends React.Component {
             style={styles.input}
             ref="email"
             placeholder="email"
-            type="text"/>
+            type="email"/>
           <input
             style={styles.input}
             ref="password"
