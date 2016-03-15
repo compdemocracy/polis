@@ -50,7 +50,7 @@ class CommentModeration extends React.Component {
       <div>
         <Flex
           wrap="wrap"
-          justifyContent="space-between"
+          justifyContent="flex-start"
           styleOverrides={styles.navContainer}>
           <NavTab
             active={this.props.routes[3].path ? false : true}
