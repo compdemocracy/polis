@@ -38,20 +38,21 @@ class NavTab extends React.Component {
       navTabs: {
         cursor: "pointer",
         padding: 14,
-        borderRadius: 3,
-        color: "black",
         fontWeight: 700,
         textDecoration: "none",
-        backgroundColor: this.props.active ? "rgb(200,200,200)" : "none",
+        color: "rgb(200,200,200)",
+        borderBottom: "3px solid transparent", /* avoids height glitch */
+      },
+      active: {
+        borderBottom: "3px solid rgb(100,100,100)",
+        color: "rgb(100,100,100)",
       },
       tabText: {
         display: "inline-block",
       },
       number: {
-        color: "rgb(170,170,170)",
         padding: "3px 6px",
-        backgroundColor: "rgb(250,250,250)",
-        border: "1px solid rgb(170,170,170)",
+        backgroundColor: "white",
         borderRadius: 3,
         fontWeight: 300,
         display: "inline-block",
@@ -65,13 +66,15 @@ class NavTab extends React.Component {
     const styles = this.getStyles();
     return (
         <Link
+          onlyActiveOnIndex
+          activeStyle={styles.active}
           style={styles.navTabs}
           to={this.props.url}>
             <span style={styles.tabText}> {this.props.text} </span>
             {
               this.props.number ?
                 <span style={styles.number}> {this.props.number} </span> :
-                this.props.empty
+                ""
             }
         </Link>
     );
