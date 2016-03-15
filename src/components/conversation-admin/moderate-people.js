@@ -51,10 +51,13 @@ class ModeratePeople extends React.Component {
       populateAllParticipantStores(this.props.params.conversation_id)
     )
   }
-  componentWillMount () {
-    this.getParticipantsRepeatedly = setInterval(()=>{
-      this.loadParticipants()
-    },pollFrequency);
+  componentWillMount() {
+    this.getParticipantsRepeatedly = setInterval(() => {
+      this.loadParticipants();
+    }, pollFrequency);
+  }
+  componentDidMount() {
+    this.loadParticipants();
   }
   componentWillUnmount() {
     clearInterval(this.getParticipantsRepeatedly);
