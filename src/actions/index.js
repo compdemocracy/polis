@@ -75,6 +75,11 @@ export const SUBMIT_SEED_COMMENT = "SUBMIT_SEED_COMMENT";
 export const SUBMIT_SEED_COMMENT_SUCCESS = "SUBMIT_SEED_COMMENT_SUCCESS";
 export const SUBMIT_SEED_COMMENT_ERROR = "SUBMIT_SEED_COMMENT_ERROR";
 
+/* submit tweet seed comment */
+export const SUBMIT_SEED_COMMENT_TWEET = "SUBMIT_SEED_COMMENT_TWEET";
+export const SUBMIT_SEED_COMMENT_TWEET_SUCCESS = "SUBMIT_SEED_COMMENT_TWEET_SUCCESS";
+export const SUBMIT_SEED_COMMENT_TWEET_ERROR = "SUBMIT_SEED_COMMENT_TWEET_ERROR";
+
 export const REQUEST_SEED_COMMENTS = "REQUEST_SEED_COMMENTS";
 export const RECEIVE_SEED_COMMENTS = "RECEIVE_SEED_COMMENTS";
 export const SEED_COMMENTS_FETCH_ERROR = "SEED_COMMENTS_FETCH_ERROR";
@@ -780,9 +785,10 @@ const submitSeedCommentPostSuccess = () => {
   }
 }
 
-const submitSeedCommentPostError = () => {
+const submitSeedCommentPostError = (err) => {
   return {
-    type: SUBMIT_SEED_COMMENT_ERROR
+    type: SUBMIT_SEED_COMMENT_ERROR,
+    data: err,
   }
 }
 
@@ -801,6 +807,42 @@ export const handleSeedCommentSubmit = (comment) => {
     ));
   };
 };
+
+
+/* seed tweets submit */
+
+const submitSeedCommentTweetStart = () => {
+  return {
+    type: SUBMIT_SEED_COMMENT_TWEET
+  }
+}
+
+const submitSeedCommentPostTweetSuccess = () => {
+  return {
+    type: SUBMIT_SEED_COMMENT_TWEET_SUCCESS
+  }
+}
+
+const submitSeedCommentPostTweetError = (err) => {
+  return {
+    type: SUBMIT_SEED_COMMENT_TWEET_ERROR,
+    data: err,
+  }
+}
+
+const postSeedCommentTweet = (o) => {
+  return PolisNet.polisPost('/api/v3/comments', o);
+}
+
+export const handleSeedCommentTweetSubmit = (o) => {
+  return (dispatch) => {
+    dispatch(submitSeedCommentTweetStart())
+    return postSeedCommentTweet(o).then(
+      res => dispatch(submitSeedCommentPostTweetSuccess(res)),
+      err => dispatch(submitSeedCommentPostTweetError(err))
+    ).then(dispatch(populateAllCommentStores(o.conversation_id)))
+  }
+}
 
 /* seed comments fetch */
 

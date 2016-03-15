@@ -10,4 +10,6 @@ s.polis_err_login_unknown_user_or_password = "Login failed: invalid username/pas
 s.polis_err_reg_user_with_that_email_exists = "Email address already in use, Try logging in instead.";
 s.polis_err_reg_need_name = "Please include your name.";
 
+s.polis_err_post_comment_duplicate = "Error posting: This comment already exists!";
+
 export default s;

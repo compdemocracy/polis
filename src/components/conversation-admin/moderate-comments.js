@@ -87,6 +87,10 @@ class CommentModeration extends React.Component {
             url={`/m/${this.props.params.conversation_id}/comments/seed`}
             empty={""}
             text="Seed"/>
+          <NavTab
+            active={this.props.routes[3].path === "seed_tweet"}
+            url={`/m/${this.props.params.conversation_id}/comments/seed_tweet`}
+            text="Seed Tweet"/>
         </Flex>
         {this.props.children}
       </div>
