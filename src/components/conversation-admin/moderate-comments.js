@@ -38,6 +38,9 @@ class CommentModeration extends React.Component {
       this.loadComments();
     }, pollFrequency);
   }
+  componentDidMount() {
+    this.loadComments();
+  }
   componentWillUnmount() {
     clearInterval(this.getCommentsRepeatedly);
   }
