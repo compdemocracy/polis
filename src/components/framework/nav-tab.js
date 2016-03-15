@@ -42,16 +42,17 @@ class NavTab extends React.Component {
         color: "black",
         fontWeight: 700,
         textDecoration: "none",
-        border: this.props.active ? "3px solid rgb(200,200,200)" : "none",
+        backgroundColor: this.props.active ? "rgb(200,200,200)" : "none",
       },
       tabText: {
         display: "inline-block",
       },
       number: {
-        color: "rgb(250,250,250)",
+        color: "rgb(170,170,170)",
         padding: "3px 6px",
-        backgroundColor: "rgb(150,150,150)",
-        borderRadius: 2,
+        backgroundColor: "rgb(250,250,250)",
+        border: "1px solid rgb(170,170,170)",
+        borderRadius: 3,
         fontWeight: 300,
         display: "inline-block",
         fontSize: 14,
@@ -70,7 +71,7 @@ class NavTab extends React.Component {
             {
               this.props.number ?
                 <span style={styles.number}> {this.props.number} </span> :
-                ""
+                this.props.empty
             }
         </Link>
     );

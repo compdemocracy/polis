@@ -52,6 +52,7 @@ class CommentModeration extends React.Component {
           <NavTab
             active={this.props.routes[3].path ? false : true}
             url={`/m/${this.props.params.conversation_id}/comments/`}
+            empty={0}
             text="Unmoderated"
             number={
               this.props.unmoderated.unmoderated_comments ?
@@ -61,6 +62,7 @@ class CommentModeration extends React.Component {
           <NavTab
             active={this.props.routes[3].path === "accepted"}
             url={`/m/${this.props.params.conversation_id}/comments/accepted`}
+            empty={0}
             text="Accepted"
             number={
               this.props.accepted.accepted_comments ?
@@ -70,6 +72,7 @@ class CommentModeration extends React.Component {
           <NavTab
             active={this.props.routes[3].path === "rejected"}
             url={`/m/${this.props.params.conversation_id}/comments/rejected`}
+            empty={0}
             text="Rejected"
             number={
               this.props.rejected.rejected_comments ?
@@ -79,6 +82,7 @@ class CommentModeration extends React.Component {
           <NavTab
             active={this.props.routes[3].path === "seed"}
             url={`/m/${this.props.params.conversation_id}/comments/seed`}
+            empty={""}
             text="Seed"/>
         </Flex>
         {this.props.children}
