@@ -60,10 +60,6 @@ class ModerateCommentsSeed extends React.Component {
       text = "Success!";
     }
 
-    if (this.props.error) {
-      text = "Error submitting, click to try again";
-    }
-
     if (this.props.loading) {
       text = "Saving...";
     }
