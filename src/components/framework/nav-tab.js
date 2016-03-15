@@ -40,7 +40,7 @@ class NavTab extends React.Component {
         padding: 14,
         fontWeight: 700,
         textDecoration: "none",
-        color: "rgb(200,200,200)",
+        color: "rgb(180,180,180)",
         borderBottom: "3px solid transparent", /* avoids height glitch */
       },
       active: {

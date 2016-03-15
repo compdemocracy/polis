@@ -1095,7 +1095,10 @@ export const changeCommentStatusToAccepted = (comment) => {
   return (dispatch) => {
     dispatch(optimisticCommentAccepted(comment))
     return putCommentAccepted(comment).then(
-      res => dispatch(acceptCommentSuccess(res)),
+      res => {
+        dispatch(acceptCommentSuccess(res));
+        dispatch(populateAllCommentStores(comment.conversation_id));
+      },
       err => dispatch(acceptCommentError(err))
     )
   }
@@ -1139,6 +1142,7 @@ export const changeCommentStatusToRejected = (comment) => {
     return putCommentRejected(comment).then(
       (res) => {
         dispatch(rejectCommentSuccess(res));
+        dispatch(populateAllCommentStores(comment.conversation_id));
       },
       err => dispatch(rejectCommentError(err))
     )
