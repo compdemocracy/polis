@@ -8,6 +8,7 @@ import Awesome from "react-fontawesome";
 import Flex from "../framework/flex";
 import Button from "../framework/generic-button";
 import StaticContentContainer from "../framework/static-content-container";
+import { Tweet } from 'react-twitter-widgets';
 
 @connect()
 @Radium
@@ -20,26 +21,36 @@ class News extends React.Component {
       },
       sectionColor: {
         minWidth: "100vw",
-        backgroundColor: "rgb(230,230,230)",
+        backgroundColor: "#03a9f4",
+        color: "white"
       },
       hero: {
         fontSize: 48,
-        maxWidth: 600,
+        lineHeight: 1.4,
+        textTransform: 'uppercase',
+        maxWidth: 900,
         padding: "0px 40px",
         zIndex: 10,
+        textAlign: 'center',
       },
       heroSub: {
         fontSize: 24,
+        lineHeight: 1.6,
+        textAlign: 'center',
         fontWeight: 300,
         margin: 0,
         padding: "0px 40px",
-        maxWidth: 600,
+        maxWidth: 900,
         zIndex: 10,
       },
       callToAction: {
         width: "100vw",
         padding: "30px 0px",
-        backgroundColor: "rgb(230,230,230)",
+        backgroundColor: "#03a9f4",
+      },
+      getStartedButton: {
+        backgroundColor: "#FFC83C",
+        color: "white"
       },
       body: {
         padding: 40
@@ -78,7 +89,10 @@ class News extends React.Component {
   }
   render() {
     return (
-      <StaticContentContainer image={false} stars={{visible: true, color: "darkgrey"}}>
+      <StaticContentContainer
+        backgroundColor={"#03a9f4"}
+        image={false}
+        stars={{visible: true, color: "darkgrey"}}>
         {/* hero */}
         <Flex
           direction="column"
@@ -89,20 +103,15 @@ class News extends React.Component {
               {"Make your content work harder"}
             </p>
             <p style={this.styles().heroSub}>
-              {
-                `Become the center of gravity for conversations
-                about the issues your audience respects you for most.`
-              }
+                pol.is is an interactive feature that allows your readers to
+                meaningfully engage around issues on your site
             </p>
         </Flex>
         {/* upper cta */}
         <Flex styleOverrides={this.styles().callToAction}>
           <Button
             onClick={this.handleGetStartedClicked("createuser")}
-            style={{
-              backgroundColor: "cornflowerblue",
-              color: "white"
-            }}> Get started </Button>
+            style={this.styles().getStartedButton}> Get started </Button>
         </Flex>
         <Flex
           wrap={"wrap"}
@@ -115,23 +124,16 @@ class News extends React.Component {
             alignItems={"flex-start"}>
             <p style={this.styles().sectionBody}>
                 Pol.is is
-                an <span style={{fontWeight: 700}}>interactive feature</span> you
-                can add to your site in minutes.
+                an <span style={{fontWeight: 700}}>interactive feature</span> that you
+                can effortlessly embed on your digital content.
                 It works in addition to, or as a replacement for, your existing commenting system.
-                Users can optionally submit their own words. Primarily, they
-                can agree or disagree with comments submitted by others. We find
-                across conversations that <span style={{fontWeight: 700}}>around 10 times
-                more people</span> vote than comment.
-                That's a big engagement boost over existing UGC methods.
             </p>
             <p style={this.styles().sectionBody}>
                 Pol.is does some fancy
-                math (<span style={{fontWeight: 700}}>artificial intelligence & machine learning</span>) and
-                produces opinion groups (using interactive data visualization). These
-                are groups of participants that tended to vote the same way across
-                many comments. This shows users how their views compare to others
-                that are reading the same article - ie., whether they are in the
-                majority or minority. It also shows them (and you!) broad consensus.
+                math (<span style={{fontWeight: 700}}>artificial intelligence & machine learning</span>) to
+                produce opinion groups (using interactive data visualization). All users
+                can see where they stand relative to others on the issues - and it produces
+                lots of usable data that immediately helps you understand your content.
             </p>
             <p style={this.styles().sectionBody}>
                 If you're interested in learning more about features and usage before
@@ -139,7 +141,7 @@ class News extends React.Component {
                 account, <a style={{
                   color: "black",
                   fontWeight: 700
-                }} target="_blank" href="http://docs.pol.is">check out the docs</a>.
+                }} target="_blank" href="http://docs.pol.is">check out the documentation</a>.
             </p>
           </Flex>
           <Flex wrap="wrap" styleOverrides={{maxWidth: 700}}>
@@ -225,10 +227,11 @@ class News extends React.Component {
             alignItems={"flex-start"}>
             <p style={this.styles().sectionHeader}> {"10x"} </p>
             <p style={this.styles().sectionBody}>
-              {
-                `On average, ~10x more people vote than submit comments.
-                If you get hundreds of comments, expect thousands of voters.`
-              }
+              Across conversations, we find that
+                <span style={{fontWeight: 700}}> on average 10 times
+                more people</span> vote than comment.
+                That's a big engagement boost over existing UGC methods.
+
             </p>
           </Flex>
           <Flex
@@ -249,10 +252,7 @@ class News extends React.Component {
         {/* lower cta */}
         <Flex styleOverrides={this.styles().callToAction}>
           <Button
-            style={{
-              backgroundColor: "cornflowerblue",
-              color: "white"
-            }}> Get started </Button>
+            style={this.styles().getStartedButton}> Get started </Button>
         </Flex>
 
       </StaticContentContainer>
