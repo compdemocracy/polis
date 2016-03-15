@@ -1,6 +1,6 @@
 import React from "react";
 import { connect } from "react-redux";
-import { handleSeedCommentSubmit } from "../../actions";
+import { handleSeedCommentSubmit, seedCommentChanged } from "../../actions";
 import Radium from "radium";
 import _ from "lodash";
 import Button from "../framework/generic-button";
@@ -14,7 +14,20 @@ const styles = {
     WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
     BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
   },
-}
+  seedForm: {
+    width: "100%",
+    maxWidth: 400,
+    resize: "none",
+    border: "1px solid rgb(200,200,200)",
+    marginBottom: 15,
+    backgroundColor: "rgb(245,245,245)",
+    borderRadius: 3,
+    minHeight: 100,
+    fontSize: 16,
+    fontWeight: 300,
+    padding: 10
+  },
+};
 
 @connect(state => state.seed_comments)
 @Radium
@@ -33,11 +46,28 @@ class ModerateCommentsSeed extends React.Component {
       conversation_id: this.props.params.conversation_id,
       vote: 0,
       prepop: true
-    }
+    };
     this.props.dispatch(handleSeedCommentSubmit(comment))
   }
-  handleTextareaChange() {
+  handleTextareaChange(e) {
+    this.props.dispatch(seedCommentChanged(e.target.value));
+  }
+  getButtonText() {
+    let text = "Submit";
 
+    if (this.props.success) {
+      text = "Success!";
+    }
+
+    if (this.props.error) {
+      text = "Error submitting, click to try again";
+    }
+
+    if (this.props.loading) {
+      text = "Saving...";
+    }
+
+    return text;
   }
   render() {
     return (
@@ -48,19 +78,9 @@ class ModerateCommentsSeed extends React.Component {
         }}> Add comments for participants to vote on: </p>
         <div>
           <textarea
-            onChange={this.handleTextareaChange}
-            style={{
-              width: "100%",
-              maxWidth: 400,
-              resize: "none",
-              border: "1px solid lightgrey",
-              marginBottom: 15,
-              backgroundColor: "rgb(240,240,240)",
-              borderRadius: 3,
-              minHeight: 100,
-              fontSize: 16,
-              padding: 10
-            }}
+            onChange={this.handleTextareaChange.bind(this)}
+            value={this.props.seedText}
+            style={styles.seedForm}
             ref="seed_form"/>
         </div>
         <div>
@@ -70,7 +90,7 @@ class ModerateCommentsSeed extends React.Component {
               color: "white",
             }}
             onClick={this.handleSubmitSeed.bind(this)}>
-            Submit
+            {this.getButtonText()}
           </Button>
         </div>
       </div>
@@ -79,9 +99,3 @@ class ModerateCommentsSeed extends React.Component {
 }
 
 export default ModerateCommentsSeed;
-
-/*
-  todo
-    handle all validation niceties
-    seed tweet
-*/

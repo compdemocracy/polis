@@ -70,6 +70,7 @@ export const HIDE_PARTICIPANT_SUCCESS = "HIDE_PARTICIPANT_SUCCESS";
 export const HIDE_PARTICIPANT_ERROR = "HIDE_PARTICIPANT_ERROR";
 
 /* submit seed comment */
+export const SEED_COMMENT_LOCAL_UPDATE = "SEED_COMMENT_LOCAL_UPDATE";
 export const SUBMIT_SEED_COMMENT = "SUBMIT_SEED_COMMENT";
 export const SUBMIT_SEED_COMMENT_SUCCESS = "SUBMIT_SEED_COMMENT_SUCCESS";
 export const SUBMIT_SEED_COMMENT_ERROR = "SUBMIT_SEED_COMMENT_ERROR";
@@ -759,6 +760,13 @@ export const optimisticZidMetadataUpdateOnTyping = (zm, field, value) => {
 }
 
 /* seed comments submit */
+
+export const seedCommentChanged = (text) => {
+  return {
+    type: SEED_COMMENT_LOCAL_UPDATE,
+    text: text
+  }
+}
 
 const submitSeedCommentStart = () => {
   return {
