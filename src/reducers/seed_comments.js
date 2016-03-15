@@ -5,7 +5,6 @@ const seed_comments = (state = {
   loading: false,
   error: false,
   success: false,
-  pending: false,
 }, action) => {
   switch (action.type) {
   case types.SEED_COMMENT_LOCAL_UPDATE:
@@ -36,19 +35,19 @@ const seed_comments = (state = {
     });
   case types.SUBMIT_SEED_COMMENT_TWEET:
     return Object.assign({}, state, {
-      pending: true,
+      loading: true,
       error: false,
     });
 
   case types.SUBMIT_SEED_COMMENT_TWEET_SUCCESS:
     return Object.assign({}, state, {
-      pending: false,
+      loading: false,
       error: false,
     });
 
   case types.SUBMIT_SEED_COMMENT_TWEET_ERROR: {
     return Object.assign({}, state, {
-      pending: false,
+      loading: false,
       error: action.data.responseText,
     });
   }
