@@ -9,45 +9,56 @@ import BackgroundStars from "./background-stars";
 import Header from "./static-content-header";
 import Footer from "./static-content-footer";
 
-
-const styles = (props) => {
-  return {
-    flexContainer: {
-      minHeight: "100%",
-      background: props.image ? "url(https://pol.is/landerImages/billions-compressor.jpeg) no-repeat center center fixed" : "",
-      backgroundSize: props.image ? "cover" : ""
-    }
-  }
-}
-
+// @connect(state => {
+//   return state.FOO;
+// })
 @Radium
 class StaticContentContainer extends React.Component {
-  static propTypes = {
-    /**
-     * image specifies whether a background image should be shown or not
-     */
-    image: PropTypes.bool,
-    stars: PropTypes.object,
-  };
+  constructor(props) {
+    super(props);
+    this.state = {
 
+    };
+  }
+  static propTypes = {
+    /* react */
+    // dispatch: React.PropTypes.func,
+    params: React.PropTypes.object,
+    routes: React.PropTypes.array,
+    /* component api */
+    style: React.PropTypes.object,
+    // foo: React.PropTypes.string
+  }
   static defaultProps = {
     image: true,
-    stars: true
+    stars: true,
+  }
+  getStyles() {
+    return {
+      flexContainer: {
+        minHeight: "100%",
+        background: this.props.image ? "url(https://pol.is/landerImages/billions-compressor.jpeg) no-repeat center center fixed" : "",
+        backgroundSize: this.props.image ? "cover" : ""
+      }
+    };
   }
   render() {
+    const styles = this.getStyles();
     return (
-        <Flex
-          justifyContent="space-between"
-          direction="column"
-          styleOverrides={styles(this.props).flexContainer}>
-          <Header/>
-          {this.props.children}
-          <Footer/>
-        </Flex>
+      <Flex
+        styleOverrides={[
+          styles.flexContainer,
+          this.props.style
+        ]}
+        justifyContent="space-between"
+        direction="column"
+        styleOverrides={styles.flexContainer}>
+        <Header/>
+        {this.props.children}
+        <Footer/>
+      </Flex>
     );
   }
 }
-
-
 
 export default StaticContentContainer;
