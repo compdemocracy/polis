@@ -33,6 +33,13 @@ const seed_comments = (state = {
       error: action.data.responseText,
       success: false
     });
+  case types.SEED_COMMENT_TWEET_LOCAL_UPDATE:
+    return Object.assign({}, state, {
+      loading: false,
+      error: false,
+      seedText: action.text,
+      success: false
+    });
   case types.SUBMIT_SEED_COMMENT_TWEET:
     return Object.assign({}, state, {
       loading: true,
@@ -41,8 +48,10 @@ const seed_comments = (state = {
 
   case types.SUBMIT_SEED_COMMENT_TWEET_SUCCESS:
     return Object.assign({}, state, {
+      seedText: "",
       loading: false,
       error: false,
+      success: true,
     });
 
   case types.SUBMIT_SEED_COMMENT_TWEET_ERROR: {

@@ -1,6 +1,6 @@
 import React from "react";
 import { connect } from "react-redux";
-import { handleSeedCommentTweetSubmit } from "../../actions";
+import { handleSeedCommentTweetSubmit, seedCommentTweetChanged } from "../../actions";
 import Radium from "radium";
 import _ from "lodash";
 import Button from "../framework/generic-button";
@@ -43,8 +43,27 @@ class ModerateCommentsSeed extends React.Component {
     }
     this.props.dispatch(handleSeedCommentTweetSubmit(o))
   }
-  handleTextareaChange() {
+  handleTextareaChange(e) {
+    this.props.dispatch(seedCommentTweetChanged(e.target.value));
+  }
+  handleKey(e) {
+    if (e.charCode == 13) {
+      e.preventDefault();
+      this.handleSubmitSeed();
+    }
+  }
+  getButtonText() {
+    let text = "Submit";
 
+    if (this.props.success) {
+      text = "Success!";
+    }
+
+    if (this.props.loading) {
+      text = "Saving...";
+    }
+
+    return text;
   }
   render() {
     if (this.props.error) {
@@ -56,13 +75,14 @@ class ModerateCommentsSeed extends React.Component {
           marginTop: 5,
           fontSize: 16
         }}> Paste in a Tweet URL. It will be imported for participants to vote on. </p>
-        <div>
+        <div onKeyPress={this.handleKey.bind(this)}>
           <textarea
-            onChange={this.handleTextareaChange}
+            value={this.props.seedText}
+            onChange={this.handleTextareaChange.bind(this)}
+            rows="1"
+            maxLength="200"
             style={{
               width: "100%",
-              rows: 1,
-              maxlength: 200,
               maxWidth: 400,
               resize: "none",
               border: "1px solid lightgrey",
@@ -81,7 +101,7 @@ class ModerateCommentsSeed extends React.Component {
               color: "white",
             }}
             onClick={this.handleSubmitSeed.bind(this)}>
-            {this.props.pending ? "Submitting..." : "Submit tweet as comment"}
+            {this.getButtonText()}
           </Button>
         </div>
         {this.props.error ? <div>{strings(this.props.error)}</div> : ""}

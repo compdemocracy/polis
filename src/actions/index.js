@@ -76,6 +76,7 @@ export const SUBMIT_SEED_COMMENT_SUCCESS = "SUBMIT_SEED_COMMENT_SUCCESS";
 export const SUBMIT_SEED_COMMENT_ERROR = "SUBMIT_SEED_COMMENT_ERROR";
 
 /* submit tweet seed comment */
+export const SEED_COMMENT_TWEET_LOCAL_UPDATE = "SEED_COMMENT_TWEET_LOCAL_UPDATE";
 export const SUBMIT_SEED_COMMENT_TWEET = "SUBMIT_SEED_COMMENT_TWEET";
 export const SUBMIT_SEED_COMMENT_TWEET_SUCCESS = "SUBMIT_SEED_COMMENT_TWEET_SUCCESS";
 export const SUBMIT_SEED_COMMENT_TWEET_ERROR = "SUBMIT_SEED_COMMENT_TWEET_ERROR";
@@ -811,6 +812,12 @@ export const handleSeedCommentSubmit = (comment) => {
 
 /* seed tweets submit */
 
+export const seedCommentTweetChanged = (text) => {
+  return {
+    type: SEED_COMMENT_TWEET_LOCAL_UPDATE,
+    text: text
+  }
+}
 const submitSeedCommentTweetStart = () => {
   return {
     type: SUBMIT_SEED_COMMENT_TWEET
