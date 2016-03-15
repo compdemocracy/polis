@@ -8,7 +8,7 @@ import Awesome from "react-fontawesome";
 import Flex from "../framework/flex";
 import Button from "../framework/generic-button";
 import StaticContentContainer from "../framework/static-content-container";
-import { Tweet } from 'react-twitter-widgets';
+// import { Tweet } from 'react-twitter-widgets';
 
 @connect()
 @Radium
