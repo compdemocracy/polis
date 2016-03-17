@@ -130,7 +130,7 @@ function onPreloadFail(statusCode, failResponse) {
       var el = document.getElementById("badDomainMessage");
       el.className = el.className.replace( /(?:^|\s)displaynone(?!\S)/g , '');
       document.getElementById("mainSpinner").className += " displaynone";
-    },100);
+    },400);
   }
 }
 
