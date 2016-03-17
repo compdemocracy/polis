@@ -9885,7 +9885,7 @@ function getSocialParticipantsForMod(zid, limit, mod) {
         "twitter_users.followers_count as tw__followers_count, " +
         // "twitter_users.friends_count as tw__friends_count, " +
         "twitter_users.verified as tw__verified, " +
-        // "twitter_users.profile_image_url_https as tw__profile_image_url_https, " +
+        "twitter_users.profile_image_url_https as tw__profile_image_url_https, " +
         "twitter_users.location as tw__location, " +
         // "twitter_users.response as tw__response, " +
         // "twitter_users.modified as tw__modified, " +
@@ -10473,6 +10473,12 @@ function pullFbTwIntoSubObjects(ptptoiRecord) {
             delete x.facebook.fb_public_profile;
         } catch (e) {
             console.error("error parsing JSON of fb_public_profile for uid: ", p.uid);
+        }
+
+        if (!_.isUndefined(x.facebook.fb_user_id)) {
+            var width = 40;
+            var height = 40;
+            x.facebook.fb_picture = "https://graph.facebook.com/v2.2/"+ x.facebook.fb_user_id +"/picture?width="+width+"&height=" + height;
         }
     }
     return x;
