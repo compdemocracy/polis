@@ -5176,20 +5176,24 @@ function isParentDomainWhitelisted(domain, zid, isWithinIframe) {
         "(select site_id from users where uid = "+
         "(select owner from conversations where zid = ($1)));", [zid])
     .then(function(rows) {
+        console.log('isParentDomainWhitelisted', domain, zid, isWithinIframe);
         if (!rows || !rows.length || !rows[0].domain_whitelist.length) {
             // there is no whitelist, so any domain is ok.
+            console.log('isParentDomainWhitelisted', 'no whitelist');
             return true;
         }
         var whitelist = rows[0].domain_whitelist;
         var wdomains = whitelist.split(',');
         if (!isWithinIframe && wdomains.indexOf('*.pol.is') >= 0) {
             // if pol.is is in the whitelist, then it's ok to show the conversation outside of an iframe.
+            console.log('isParentDomainWhitelisted', '*.pol.is');
             return true;
         }
         function equal(p) {
             return p[0] === p[1];
         }
         var ok = false;
+        console.log('isParentDomainWhitelisted', 1);
         for (var i = 0; i < wdomains.length; i++) {
             var w = wdomains[i];
             var wParts = w.split('.');
@@ -5197,6 +5201,7 @@ function isParentDomainWhitelisted(domain, zid, isWithinIframe) {
             // example: domain might be blogs.nytimes.com, and whitelist entry might be *.nytimes.com, and that should be a match
             var parts = domain.split('.');
 
+        console.log('isParentDomainWhitelisted', 2, wParts, parts);
             if (wParts.length && wParts[0] === "*") {
                 // wild card case
                 // check for a match on each part following the '*'
@@ -5204,9 +5209,12 @@ function isParentDomainWhitelisted(domain, zid, isWithinIframe) {
 
                 wParts = wParts.reverse();
                 parts = parts.reverse();
+        console.log('isParentDomainWhitelisted', 3, parts, wParts);
                 for (var p = 0; p < wParts.length - 1; p++) {
+                    console.log('isParentDomainWhitelisted', 33, parts[p], wParts[p]);
                     if (wParts[p] !== parts[p]) {
                         bad = true;
+        console.log('isParentDomainWhitelisted', 4);
                         break;
                     }
                 }
@@ -5214,22 +5222,30 @@ function isParentDomainWhitelisted(domain, zid, isWithinIframe) {
             } else {
                 // no wild card
                 var bad2 = false;
+        console.log('isParentDomainWhitelisted', 5);
                 if (wParts.length !== parts.length) {
+        console.log('isParentDomainWhitelisted', 6);
                     bad2 = true;
                 }
+                    console.log('isParentDomainWhitelisted', 61, parts, wParts);
                 // check for a match on each part
-                for (var p2 = 0; p2 >= wParts.length; p++) {
+                for (var p2 = 0; p2 < wParts.length; p2++) {
+                    console.log('isParentDomainWhitelisted', 66, parts[p2], wParts[p2]);
                     if (wParts[p2] !== parts[p2]) {
                         bad2 = true;
+        console.log('isParentDomainWhitelisted', 7);
                         break;
                     }
                 }
                 ok = !bad2;
             }
 
-
+            if (ok) {
+                break;
+            }
 
         }
+        console.log('isParentDomainWhitelisted', 8, ok);
         return ok;
     });
 }
@@ -5237,21 +5253,35 @@ function isParentDomainWhitelisted(domain, zid, isWithinIframe) {
 
 function denyIfNotFromWhitelistedDomain(req, res, next) {
 
+    var isWithinIframe = req.headers && req.headers.referer && req.headers.referer.indexOf('parent_url') >= 0;
+
+
             // res.status(403);
             // next("polis_err_domain");
             // return;
-    var referrer = req.headers.referer;
-    referrer = referrer && referrer.length && referrer.split('/');
-    referrer = referrer && referrer.length >= 3 && referrer[2];
-    referrer = referrer || "";
+
+    var ref = req.headers.referer;
+    if (isWithinIframe) {
+        if (ref) {
+            ref = decodeURIComponent(ref.replace(/.*parent_url=/,'').replace(/&.*/,''));
+
+            ref = ref && ref.length && ref.split('/');
+            ref = ref && ref.length >= 3 && ref[2];
+            ref = ref || "";
+        }
+    } else {
+        ref = ref && ref.length && ref.split('/');
+        ref = ref && ref.length >= 3 && ref[2];
+        ref = ref || "";
+    }
+
 
     // var path = req.path;
     // path = path && path.split('/');
     // var conversation_id = path && path.length >= 2 && path[1];
     var zid = req.p.zid;
 
-    var isWithinIframe = req.path.indexOf('parent_url') >= 0;
-    isParentDomainWhitelisted(referrer, zid, isWithinIframe).then(function(isOk) {
+    isParentDomainWhitelisted(ref, zid, isWithinIframe).then(function(isOk) {
         if (isOk) {
             next();
         } else {
