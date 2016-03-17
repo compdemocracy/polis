@@ -126,11 +126,16 @@ function onPreloadFail(statusCode, failResponse) {
     }
   }
   if (statusCode === 403 && failResponse.match(/^polis_err_domain/)) {
-    setTimeout(function() {
+    function updateDomainMessage() {
       var el = document.getElementById("badDomainMessage");
-      el.className = el.className.replace( /(?:^|\s)displaynone(?!\S)/g , '');
-      document.getElementById("mainSpinner").className += " displaynone";
-    },400);
+      if (el) {
+        el.className = el.className.replace( /(?:^|\s)displaynone(?!\S)/g , '');
+        document.getElementById("mainSpinner").className += " displaynone";
+        clearInterval(updateDomainIntervalRef);
+      }
+    }
+    var updateDomainIntervalRef = setInterval(updateDomainMessage, 100);
+
   }
 }
 
