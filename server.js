@@ -6393,8 +6393,10 @@ function getComments(o) {
                         "screen_name",
                         "twitter_user_id",
                         "profile_image_url_https",
+                        "followers_count",
                     ]);
                     infoToReturn.tw_verified = !!info.verified;
+                    infoToReturn.tw_followers_count = info.followers_count;
 
                     // extract props from fb_public_profile
                     if (info.fb_public_profile) {
