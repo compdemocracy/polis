@@ -585,7 +585,14 @@ CREATE TABLE votes(
     zid INTEGER NOT NULL,
     pid INTEGER NOT NULL,
     tid INTEGER NOT NULL,
+
     vote SMALLINT,
+
+    -- Divide by 32767 before using! (and multiply by 32767 before storing). Applications should refer to this as "weight" after converting to a float in the range [-1, 1]
+    -- This is a SMALLINT for space saving reasons only (since vote is also SMALLINT (2 bytes), They'll line up w 4 a byte boundary).
+    -- -1.0 for "Don't show", 1.0 for "Show a lot", 0.0 is default.
+    weight_x_32767 SMALLINT DEFAULT 0,
+
     created BIGINT DEFAULT now_as_millis()
 );
 -- needed to make nextComment query fast
