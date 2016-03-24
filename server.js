@@ -1630,16 +1630,19 @@ function recordPermanentCookieZidJoin(permanentCookieToken, zid) {
 }
 
 
-function doVotesPost(pid, zid, tid, voteType) {
+function doVotesPost(pid, zid, tid, voteType, weight) {
+    weight = weight || 0;
+    var weight_x_32767 = (weight * 32767) << 0; // weight is stored as a SMALLINT, so convert from a [-1,1] float to [-32767,32767] int
     return new Promise(function(resolve, reject) {
-        var query = "INSERT INTO votes (pid, zid, tid, vote, created) VALUES ($1, $2, $3, $4, default) RETURNING created;";
-        var params = [pid, zid, tid, voteType];
+        var query = "INSERT INTO votes (pid, zid, tid, vote, weight_x_32767, created) VALUES ($1, $2, $3, $4, $5, default) RETURNING created;";
+        var params = [pid, zid, tid, voteType, weight_x_32767];
         pgQuery(query, params, function(err, result) {
             if (err) {
                 if (isDuplicateKey(err)) {
                     reject("polis_err_vote_duplicate");
                 } else {
-                    reject("polis_err_vote");
+                    console.dir(err);
+                    reject("polis_err_vote_other");
                 }
                 return;
             }
@@ -1648,7 +1651,7 @@ function doVotesPost(pid, zid, tid, voteType) {
     });
 }
 
-function votesPost(pid, zid, tid, voteType) {
+function votesPost(pid, zid, tid, voteType, weight) {
     return pgQueryP_readOnly("select is_active from conversations where zid = ($1);", [zid]).then(function(rows) {
         if (!rows || !rows.length) {
             throw "polis_err_unknown_conversation";
@@ -1658,7 +1661,7 @@ function votesPost(pid, zid, tid, voteType) {
             throw "polis_err_conversation_is_closed";
         }
     }).then(function() {
-        return doVotesPost(pid, zid, tid, voteType);
+        return doVotesPost(pid, zid, tid, voteType, weight);
     });
 }
 
@@ -7033,7 +7036,7 @@ function(req, res) {
                         sendCommentModerationEmail(req, 125, zid, "?"); // email mike for all comments, since some people may not have turned on strict moderation, and we may want to babysit evaluation conversations of important customers.
                     }
 
-                    votesPost(pid, zid, tid, vote).then(function() {
+                    votesPost(pid, zid, tid, vote, 0).then(function() {
 
                         setTimeout(function() {
                             updateConversationModifiedTime(zid, createdTime);
@@ -7105,6 +7108,9 @@ function(req, res) {
         if (err || pid < 0) { fail(res, 500, "polis_err_getting_pid", err); return; }
         pgQuery_readOnly("SELECT * FROM votes WHERE zid = ($1) AND pid = ($2);", [req.p.zid, req.p.pid], function(err, docs) {
             if (err) { fail(res, 500, "polis_err_get_votes_by_me", err); return; }
+            for (var i = 0; i < docs.rows.length; i++) {
+                docs.rows[i].weight = docs.rows[i].weight / 32767;
+            }
             finishArray(res, docs.rows);
         });
     });
@@ -7578,6 +7584,7 @@ app.post("/api/v3/votes",
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('vote', getIntInRange(-1, 1), assignToP),
     want('starred', getBool, assignToP),
+    want('weight', getNumberInRange(-1, 1), assignToP, 0),
     resolve_pidThing('pid', assignToP, "post:votes"),
 function(req, res) {
     var uid = req.p.uid; // PID_FLOW uid may be undefined here.
@@ -7603,7 +7610,7 @@ function(req, res) {
     var nextCommentPromise = getNextComment(req.p.zid, pid, [], true);
 
     var votePromise = pidReadyPromise.then(function() {
-        return votesPost(pid, req.p.zid, req.p.tid, req.p.vote);
+        return votesPost(pid, req.p.zid, req.p.tid, req.p.vote, req.p.weight);
     }).then(function(createdTime) {
         setTimeout(function() {
             updateConversationModifiedTime(req.p.zid, createdTime);
@@ -10226,7 +10233,12 @@ function getVotesForPids(zid, pids) {
     if (pids.length === 0) {
         return Promise.resolve([]);
     }
-    return pgQueryP_readOnly("select * from votes where zid = ($1) and pid in (" + pids.join(",") + ") order by pid, tid, created;", [zid]);
+    return pgQueryP_readOnly("select * from votes where zid = ($1) and pid in (" + pids.join(",") + ") order by pid, tid, created;", [zid]).then(function(votesRows) {
+        for (var i = 0; i < votesRows.length; i++) {
+            votesRows[i].weight = votesRows[i].weight / 32767;
+        }
+        return votesRows;
+    });
 }
 
 
