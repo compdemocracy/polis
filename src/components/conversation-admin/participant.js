@@ -16,6 +16,9 @@ const styles = {
     WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
     BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
   },
+  buttons: {
+    marginTop: 20
+  }
 };
 
 @Radium
@@ -71,7 +74,7 @@ class Participant extends React.Component {
           <ParticipantHeader
             {...this.props.participant.facebook}
             {...this.props.participant.twitter} />
-          <Flex>
+          <Flex styleOverrides={styles.buttons}>
             {this.props.featureButton ? this.makeFeatureButton() : ""}
             {this.props.hideButton ? this.makeHideButton() : ""}
           </Flex>

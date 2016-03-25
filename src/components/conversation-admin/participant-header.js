@@ -14,7 +14,7 @@ import VerifiedTwitterIcon from "../framework/verified-twitter-icon";
 //   return state.FOO;
 // })
 @Radium
-class ComponentName extends React.Component {
+class ParticipantHeader extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
@@ -40,9 +40,10 @@ class ComponentName extends React.Component {
         borderRadius: 3,
       },
       name: {
-        marginLeft: this.props.fb_name ? 10 : 3,
+        marginLeft: 10,
+        marginBottom: 3,
         fontWeight: 700,
-        marginRight: 10
+
       },
     };
   }
@@ -102,6 +103,30 @@ class ComponentName extends React.Component {
       </a>
     )
   }
+
+  followers() {
+    return (
+      <a
+        target="_blank" href={`https://twitter.com/${this.props.screen_name}`}
+        style={{
+            textDecoration: "none",
+            fontWeight: 300,
+            color: "black",
+            marginLeft: 10
+          }}>
+        <Awesome
+          style={{
+            fontSize: 16,
+            color: "#4099FF",
+          }}
+          name={"twitter"} />
+        <span style={{marginLeft: 5}}>
+          {this.props.followers_count}
+        </span>
+      </a>
+    )
+  }
+
   render() {
     const styles = this.getStyles();
     return (
@@ -111,9 +136,14 @@ class ComponentName extends React.Component {
         alignItems="flex-start">
         <Flex alignItems="flex-start">
           {this.getImage()}
-          <span style={styles.name}>
-            {this.getRealName()}
-          </span>
+          <Flex direction="column" alignItems="flex-start">
+            <span style={styles.name}>
+              {this.getRealName()}
+            </span>
+            <span>
+              {this.props.followers_count ? this.followers() : ""}
+            </span>
+          </Flex>
           {this.props.is_verified ? <VerifiedTwitterIcon/> : ""}
         </Flex>
         <div>
@@ -126,7 +156,7 @@ class ComponentName extends React.Component {
   }
 }
 
-export default ComponentName;
+export default ParticipantHeader;
 
 /*
 
