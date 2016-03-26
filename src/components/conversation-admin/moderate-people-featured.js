@@ -15,6 +15,9 @@ const styles = {
     WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
     BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
   },
+  body: {
+    fontWeight: 300,
+  }
 }
 
 @connect(state => state.mod_ptpt_featured)
@@ -44,7 +47,7 @@ class ParticipantModerationFeatured extends React.Component {
     return (
       <div>
         <div style={styles.card}>
-          <p> Those featured participants with more followers will be prioritized if there are too many featured participants to show in the visualization. </p>
+          <p style={styles.body}> Those featured participants with more followers will be prioritized if there are too many featured participants to show in the visualization. </p>
         </div>
         <div>
           {

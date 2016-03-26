@@ -16,6 +16,9 @@ const styles = {
     WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
     BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
   },
+  body: {
+    fontWeight: 300,
+  }
 }
 
 @connect(state => state.mod_ptpt_hidden)
@@ -45,7 +48,7 @@ class ParticipantModerationHidden extends React.Component {
     return (
       <div >
         <div style={styles.card}>
-          <p> These participants are not shown in the visualization, but their votes are still counted. Note that they will still be shown to other participants who are their Facebook friends.</p>
+          <p style={styles.body}> These participants are not shown in the visualization, but their votes are still counted. Note that they will still be shown to other participants who are their Facebook friends.</p>
         </div>
         {
           this.props.hidden_participants !== null ? this.createParticipantMarkup() : <Spinner/>
