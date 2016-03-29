@@ -26,9 +26,9 @@
                  ;; Troublesome carmine...
                  ;[com.taoensso/carmine "2.7.0" :exclusions [org.clojure/clojure]]
                  ;; Updates; requires fixing index conflict between named-matrix and core.matrix
-                 ;[net.mikera/core.matrix "0.37.0"]
-                 ;[net.mikera/vectorz-clj "0.33.0"]
-                 [net.mikera/core.matrix "0.23.0"]
+                 [net.mikera/core.matrix "0.37.0"]
+                 [net.mikera/vectorz-clj "0.33.0"]
+                 ;[net.mikera/core.matrix "0.23.0"]
                  [net.mikera/core.matrix.stats "0.3.0"]
                  [net.mikera/vectorz-clj "0.19.0"]
                  [criterium "0.4.2"]

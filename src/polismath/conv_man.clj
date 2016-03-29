@@ -278,8 +278,6 @@
 (defn queue-message-batch!
   "Queue message batches for "
   [{:as conv-man :keys [conversations config listeners]} message-type zid message-batch]
-  (log/info "Conversations is:" conversations)
-  (log/info "Message batch is:" message-batch)
   (if-let [{:keys [conv message-chan]} (get @conversations zid)]
     ;; Then we already have a go loop running for this
     (>!! message-chan {:message-type message-type :message-batch message-batch})
@@ -296,14 +294,12 @@
       ;; ensuring that we don't have race conditions for conv state. The state kept in the atom is basically
       ;; just a convenience.
       (go-loop [conv conv]
-        (log/info "In conversation manager go-loop for zid:" zid)
         (let [first-msg (<! message-chan)
               _ (log/info "Message chan put in queue-message-batch! for zid:" zid)
               msgs (concat [first-msg] (take-all! message-chan))
               {:as split-msgs :keys [votes moderation]} (split-batches msgs)
               error-handler (build-update-error-handler conv-man message-chan conv)
-              _ (log/info "About to run updaters:")
-              _ (log/info "split-msgs: " split-msgs)
+              _ (log/info "About to run updaters")
               conv (-> conv
                        (pc/?> moderation conv/mod-update moderation)
                        (pc/?> votes (partial update conv-man) votes error-handler))]
@@ -319,4 +315,5 @@
   (test/run-tests 'conv-man-tests)
   )
 
+:ok
 

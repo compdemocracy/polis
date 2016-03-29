@@ -16,11 +16,11 @@
 ;; So when you reset, it reboots all systems.
 
 (defn init!
-  ([system-map-fn config-overrides]
+  ([system-map-generator config-overrides]
    (alter-var-root #'system
-     (constantly (utils/apply-kwargs component/system-map (system-map-fn config-overrides)))))
-  ([system-map-fn]
-   (init! system-map-fn {})))
+     (constantly (utils/apply-kwargs component/system-map (system-map-generator config-overrides)))))
+  ([system-map-generator]
+   (init! system-map-generator {})))
 
 (defn start! []
   (alter-var-root #'system component/start))
@@ -30,19 +30,19 @@
     (fn [s] (when s (component/stop s)))))
 
 (defn run!
-  ([system-map-fn config-overrides]
-   (init! system-map-fn config-overrides)
+  ([system-map-generator config-overrides]
+   (init! system-map-generator config-overrides)
    (start!))
-  ([system-map-fn]
-   (run! system-map-fn {})))
+  ([system-map-generator]
+   (run! system-map-generator {})))
 
 ;(defonce -runner! nil)
 (defn -runner! [] (run! (system/base-system {})))
 
 (defn system-reset!
-  ([system-map-fn config-overrides]
+  ([system-map-generator config-overrides]
    (stop!)
-   (alter-var-root #'-runner! (partial run! system-map-fn config-overrides))
+   (alter-var-root #'-runner! (partial run! system-map-generator config-overrides))
    ;; Not sure if this -runner! thing will work, but giving it a try. If it does we can stashthe system and
    ;; config-overrides as well.
    (namespace.repl/refresh :after 'polismath.system/runner!)))
@@ -77,9 +77,9 @@
       (:help options)   (utils/exit 0 (usage summary))
       (:errors options) (utils/exit 1 (str "Found the following errors:" \newline (:errors options)))
       :else 
-      (let [system-map-fn (subcommands (first arguments))]
-        (start! system-map-fn)))))
-
+      (let [system-map-generator (subcommands (first arguments))
+            main-system (system/create-and-run-system! system-map-generator options)]
+        system))))
 
 
 (comment

@@ -40,16 +40,20 @@
         postgres (-> system :postgres)]
     (storm/spout
       (nextTuple []
-        (log/info "Polling" message-type ">" @last-timestamp)
-        (let [poll-function (get {:votes postgres/poll :moderation postgres/mod-poll} message-type)
-              results (poll-function postgres @last-timestamp)
-              grouped-batches (group-by :zid results)]
-          ; For each chunk of votes, for each conversation, send to the appropriate spout
-          (doseq [[zid batch] grouped-batches]
-            (storm/emit-spout! collector [message-type zid batch]))
-          ; Update timestamp if needed
-          (swap! last-timestamp
-                 (fn [last-ts] (apply max 0 last-ts (map timestamp-key results)))))
+        (try
+          (log/info "Polling" message-type ">" @last-timestamp)
+          (let [poll-function (get {:votes postgres/poll :moderation postgres/mod-poll} message-type)
+                results (poll-function postgres @last-timestamp)
+                grouped-batches (group-by :zid results)]
+            ; For each chunk of votes, for each conversation, send to the appropriate spout
+            (doseq [[zid batch] grouped-batches]
+              (storm/emit-spout! collector [message-type zid batch]))
+            ; Update timestamp if needed
+            (swap! last-timestamp
+                   (fn [last-ts] (apply max 0 last-ts (map timestamp-key results)))))
+          (catch Exception e
+            (log/error "Exception bubbled up in poll-spout!")
+            (.printStackTrace e)))
         (Thread/sleep polling-interval))
       (ack [id]))))
 
@@ -62,10 +66,14 @@
         conv-man (:conversation-manager system)]
     (storm/bolt
       (execute [tuple]
-        (let [[message-type zid batch] (.getValues tuple)]
-          ;; XXX Need to think more about recompute...
-          (cm/queue-message-batch! conv-man message-type zid batch))
-        (storm/ack! collector tuple)))))
+        (try
+          (let [[message-type zid batch] (.getValues tuple)]
+            ;; XXX Need to think more about recompute...
+            (cm/queue-message-batch! conv-man message-type zid batch))
+          (storm/ack! collector tuple)
+          (catch Exception e
+            (log/error "Exception bubbled up in conv-update-bold!")
+            (.printStackTrace e)))))))
 
 (defn make-topology
   ;; Note here that we're pushing through the full system configuration as config overrides, because we need
