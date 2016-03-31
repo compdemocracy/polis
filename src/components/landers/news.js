@@ -104,7 +104,8 @@ class News extends React.Component {
             </p>
             <p style={this.styles().heroSub}>
                 pol.is is an interactive feature that allows your readers to
-                meaningfully engage around issues on your site
+                meaningfully engage around issues on your site - we're helping
+                media publications do way more with way less.
             </p>
         </Flex>
         {/* upper cta */}
