@@ -6,11 +6,12 @@ import _ from "lodash";
 import RadioButton from "material-ui/lib/radio-button";
 import RadioButtonGroup from "material-ui/lib/radio-button-group";
 import SelectField from "material-ui/lib/select-field";
-import moment from "moment";
 import Button from "../framework/generic-button";
 import dateSetupUtil from "../../util/data-export-date-setup";
 import Flex from "../framework/flex";
 import Awesome from "react-fontawesome";
+import Checkbox from "material-ui/lib/checkbox";
+import settings from "../../settings";
 
 const styles = {
   container: {
@@ -75,21 +76,30 @@ class DataExport extends React.Component {
       </div>
     )
   }
+  handleUntilToggled() {
+    this.setState({until: !this.state.until});
+  }
   render() {
     return (
       <div style={styles.container}>
         <div style={styles.exportCard}>
           <p style={{marginTop: 0}}> Until: </p>
+          <input
+            onClick={this.handleUntilToggled.bind(this)}
+            style={{
+              marginRight: 10,
+            }}
+            type="checkbox"/>
           <select
+            disabled={this.state.until ? "" : "disabled"}
             style={{
               marginRight: 10,
               cursor: "pointer",
               fontSize: 16,
-
             }}
             ref="exportSelectYear">
             {
-              this.state.years.map((year, i)=>{
+              this.state.years.map((year, i) => {
                 return (
                   <option selected={year.selected} key={i} value={year.name}> {year.name} </option>
                 )
@@ -97,6 +107,7 @@ class DataExport extends React.Component {
             }
           </select>
           <select
+            disabled={this.state.until ? "" : "disabled"}
             style={{
               marginRight: 10,
               cursor: "pointer",
@@ -113,6 +124,7 @@ class DataExport extends React.Component {
             }
           </select>
           <select
+            disabled={this.state.until ? "" : "disabled"}
             style={{
               marginRight: 10,
               cursor: "pointer",
@@ -129,6 +141,7 @@ class DataExport extends React.Component {
             }
           </select>
           <select
+            disabled={this.state.until ? "" : "disabled"}
             style={{
               marginRight: 10,
               cursor: "pointer",
@@ -143,6 +156,7 @@ class DataExport extends React.Component {
               })
             }
           </select>
+          <p style={{fontWeight: 300, maxWidth: 400, lineHeight: 1.5}}> {"(By default, the entire dataset is returned. To limit the last timestamp returned, enter a date here.)"} </p>
           <p> Format: </p>
           <RadioButtonGroup ref="chooseFormat" name="format" defaultSelected="csv">
             <RadioButton
