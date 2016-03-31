@@ -1406,18 +1406,21 @@ const dataExportError = () => {
   };
 };
 
-const dataExportGet = (conversation_id, format, unixTimestamp) => {
+const dataExportGet = (conversation_id, format, unixTimestamp, untilEnabled) => {
   //       url += ("&unixTimestamp=" + ((ctx.date/1000) << 0));
 
   /* https://pol.is/api/v3/dataExport?conversation_id=2arcefpshi&format=csv&unixTimestamp=1447362000 */
-  const url = `/api/v3/dataExport?conversation_id=${conversation_id}&format=${format}&unixTimestamp=${unixTimestamp}`
+  var url = `/api/v3/dataExport?conversation_id=${conversation_id}&format=${format}`;
+  if (untilEnabled) {
+    url += `&unixTimestamp=${unixTimestamp}`;
+  }
   return $.get(url);
 }
 
-export const startDataExport = (conversation_id, format, unixTimestamp) => {
+export const startDataExport = (conversation_id, format, unixTimestamp, untilEnabled) => {
   return (dispatch) => {
     dispatch(dataExportStarted() )
-    return dataExportGet(conversation_id, format, unixTimestamp).then(
+    return dataExportGet(conversation_id, format, unixTimestamp, untilEnabled).then(
       res => dispatch(dataExportSuccess(res)),
       err => dispatch(dataExportError(err))
     )

@@ -27,7 +27,7 @@ const setupBasedOnCurrentDate = () => {
       {num: 8, name: "august"},
       {num: 9, name: "september"},
       {num: 10, name: "october"},
-      {num: 11, name: "november", selected: true},
+      {num: 11, name: "november"},
       {num: 12, name: "december"},
     ].map(function(m) {
       if (m.num === month) {
@@ -51,6 +51,7 @@ const setupBasedOnCurrentDate = () => {
       "UTC-1000",
       "UTC-0900",
       "UTC-0800",
+      "UTC-0700",
       "UTC-0600",
       "UTC-0500",
       "UTC-0430",

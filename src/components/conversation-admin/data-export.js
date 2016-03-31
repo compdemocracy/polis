@@ -55,7 +55,8 @@ class DataExport extends React.Component {
         startDataExport(
           this.props.zid_metadata.conversation_id,
           format,
-          ((dddate/1000) << 0)
+          ((dddate/1000) << 0),
+          !!this.state.untilEnabled
         )
       )
     }
@@ -77,7 +78,7 @@ class DataExport extends React.Component {
     )
   }
   handleUntilToggled() {
-    this.setState({until: !this.state.until});
+    this.setState({untilEnabled: !this.state.untilEnabled});
   }
   render() {
     return (
@@ -91,7 +92,7 @@ class DataExport extends React.Component {
             }}
             type="checkbox"/>
           <select
-            disabled={this.state.until ? "" : "disabled"}
+            disabled={this.state.untilEnabled ? "" : "disabled"}
             style={{
               marginRight: 10,
               cursor: "pointer",
@@ -107,7 +108,7 @@ class DataExport extends React.Component {
             }
           </select>
           <select
-            disabled={this.state.until ? "" : "disabled"}
+            disabled={this.state.untilEnabled ? "" : "disabled"}
             style={{
               marginRight: 10,
               cursor: "pointer",
@@ -124,7 +125,7 @@ class DataExport extends React.Component {
             }
           </select>
           <select
-            disabled={this.state.until ? "" : "disabled"}
+            disabled={this.state.untilEnabled ? "" : "disabled"}
             style={{
               marginRight: 10,
               cursor: "pointer",
@@ -141,7 +142,7 @@ class DataExport extends React.Component {
             }
           </select>
           <select
-            disabled={this.state.until ? "" : "disabled"}
+            disabled={this.state.untilEnabled ? "" : "disabled"}
             style={{
               marginRight: 10,
               cursor: "pointer",
@@ -149,9 +150,9 @@ class DataExport extends React.Component {
             }}
             ref="exportSelectHour">
             {
-              this.state.tzs.map((tzs, i) => {
+              this.state.tzs.map((tz, i) => {
                 return (
-                  <option selected={tzs.selected} key={i} value={tzs.name}> {tzs.name} </option>
+                  <option selected={tz.selected} key={i} value={tz.name}> {tz.name} </option>
                 );
               })
             }
