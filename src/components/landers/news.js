@@ -40,7 +40,7 @@ class News extends React.Component {
         fontWeight: 300,
         margin: 0,
         padding: "0px 40px",
-        maxWidth: 900,
+        maxWidth: 700,
         zIndex: 10,
       },
       callToAction: {
@@ -52,11 +52,25 @@ class News extends React.Component {
         backgroundColor: "#FFC83C",
         color: "white"
       },
+      newsLogo: {
+        width: 170
+      },
       body: {
         padding: 40
       },
       section: {
         padding: 0,
+      },
+      pressSection: {
+        backgroundColor: "rgb(230,230,230)",
+        color: "darkgray",
+        width: "100vw",
+      },
+      bandSection: {
+        backgroundColor: "#03a9f4",
+        color: "white",
+        width: "100vw",
+        padding: "30px 0px"
       },
       sectionHeader: {
         fontSize: 24,
@@ -91,9 +105,16 @@ class News extends React.Component {
     return (
       <StaticContentContainer
         backgroundColor={"#03a9f4"}
+        headerBackgroundColor={"#03a9f4"}
+        footerBackgroundColor={"#03a9f4"}
         image={false}
         stars={{visible: true, color: "darkgrey"}}>
         {/* hero */}
+        <div style={{
+          height: 3,
+          width: "20%",
+          backgroundColor: "white"
+        }}> </div>
         <Flex
           direction="column"
           alignItems="center"
@@ -103,9 +124,8 @@ class News extends React.Component {
               {"Make your content work harder"}
             </p>
             <p style={this.styles().heroSub}>
-                pol.is is an interactive feature that allows your readers to
-                meaningfully engage around issues on your site - we're helping
-                media publications do way more with way less.
+                pol.is is a beautiful interactive feature that engages (way) more of your readers
+                in meaningful conversations on your site, with (way) less burden on you.
             </p>
         </Flex>
         {/* upper cta */}
@@ -113,6 +133,31 @@ class News extends React.Component {
           <Button
             onClick={this.handleGetStartedClicked("createuser")}
             style={this.styles().getStartedButton}> Get started </Button>
+        </Flex>
+        <Flex
+          styleOverrides={this.styles().pressSection}
+          direction="column"
+          alignItems={"center"}>
+          <Flex
+            styleOverrides={{width: "100%"}}
+            wrap="wrap"
+            justifyContent={"space-around"}>
+            <a href="http://www.geekwire.com/2014/startup-spotlight-polis/">
+              <img style={this.styles().newsLogo} src="http://cdn.geekwire.com/wp-content/uploads/2015/02/GeekWire-logo-transparent.png"/>
+            </a>
+            <a href="http://m.media.daum.net/m/media/world/newsview/20160302145809114">
+              <img style={this.styles().newsLogo} src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Daum_communication_logo.svg/2000px-Daum_communication_logo.svg.png"/>
+            </a>
+            <a href="http://www.poynter.org/2016/here-are-27-ways-to-think-about-comments/401728/">
+              <img style={this.styles().newsLogo} src="http://atendesigngroup.com/sites/all/themes/aten2014/images/logos/logo--poynter.png"/>
+            </a>
+            <a href="http://www.mobilisationlab.org/blooming-digital-democracy-taiwan-sunflower-movement/#.Vur9oxIrLUI">
+              <img style={this.styles().newsLogo} src="http://www.mobilisationlab.org/wp-content/themes/eleven40/images/logo-mob-lab-sq.png"/>
+            </a>
+            <a href="https://coralproject.net/new-community-tools-polis/">
+              <img style={this.styles().newsLogo} src="https://coralproject.net/wp-content/uploads/2015/10/coralWordMark-1.5.png"/>
+            </a>
+          </Flex>
         </Flex>
         <Flex
           wrap={"wrap"}
@@ -130,14 +175,19 @@ class News extends React.Component {
                 It works in addition to, or as a replacement for, your existing commenting system.
             </p>
             <p style={this.styles().sectionBody}>
-                Pol.is does some fancy
-                math (<span style={{fontWeight: 700}}>artificial intelligence & machine learning</span>) to
-                produce opinion groups (using interactive data visualization). All users
+              {`
+                Pol.is does some fancy math
+              `}
+                <span style={{fontWeight: 700}}>(artificial intelligence & machine learning)</span>
+              {`
+                to produce opinion groups (using interactive data visualization). All users
                 can see where they stand relative to others on the issues - and it produces
-                lots of usable data that immediately helps you understand your content.
+                lots of usable data that immediately helps you understand your audience's
+                experience of your content.
+              `}
             </p>
             <p style={this.styles().sectionBody}>
-                If you're interested in learning more about features and usage before
+                If you are interested in learning more about features and usage before
                 creating an
                 account, <a style={{
                   color: "black",
@@ -157,6 +207,20 @@ class News extends React.Component {
           </Flex>
         </Flex>
         <Flex
+          styleOverrides={this.styles().bandSection}
+          direction="column"
+          alignItems={"center"}>
+          <p style={this.styles().sectionHeader}>
+            {"Hands Free Mode"}
+          </p>
+          <p style={this.styles().sectionBody}>
+            {`
+              Stop moderating if you want to - pol.is will make conversations
+              great automatically by intelligently routing comments algorithmically.
+            `}
+          </p>
+        </Flex>
+        <Flex
           wrap={"wrap"}
           justifyContent={"space-around"}
           alignItems={"baseline"}
@@ -169,10 +233,12 @@ class News extends React.Component {
               {"Take Power Back From Social Media"}
             </p>
             <p style={this.styles().sectionBody}>
-              { `Pol.is can help you centralize and highlight discussions of
-                critical issues on your site, drawing in users from social
-                platforms who want their voices heard.`
-              }
+              {`
+                Pol.is can help you leverage your brand to centralize discussions,
+                drawing in users who want their voices heard. You'll immediately
+                see users you haven't seen before, of a higher profile than
+                you're used to, engaging with your content.
+              `}
             </p>
           </Flex>
           <Flex
@@ -202,9 +268,10 @@ class News extends React.Component {
             <p style={this.styles().sectionBody}>
               {
                 `High profile, social media savvy readers don't have a
-                great incentive to comment on your site. Pol.is engages your
-                best readers by showing them how they compare to others, and gets
-                them noticed if they have a high follower count.`
+                great incentive to comment on your site. Pol.is gives them one by
+                showing them how their views compare to others, and gets
+                them noticed if they have a high follower count. You can manually
+                curate who is seen as well.`
               }
             </p>
           </Flex>
@@ -228,10 +295,10 @@ class News extends React.Component {
             alignItems={"flex-start"}>
             <p style={this.styles().sectionHeader}> {"10x"} </p>
             <p style={this.styles().sectionBody}>
-              Across conversations, we find that
+              Our data shows that
                 <span style={{fontWeight: 700}}> on average 10 times
-                more people</span> vote than comment.
-                That's a big engagement boost over existing UGC methods.
+                more people</span> vote in pol.is conversations than comment.
+                {" That's a big engagement boost over existing UGC methods."}
 
             </p>
           </Flex>
