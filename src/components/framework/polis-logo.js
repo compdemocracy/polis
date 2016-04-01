@@ -5,20 +5,22 @@ import Flex from "./flex";
 
 const styles = {
   link: {
-    textDecoration: 'none',
+    textDecoration: "none",
     cursor: "pointer",
     color: "white",
     fontSize: 24,
     margin: "15px 0px"
   }
-}
+};
 
 @Radium
 class PolisLogo extends React.Component {
 
   render() {
     return (
-      <Flex align="center" >
+      <Flex
+        styleOverrides={this.props.containerStyle}
+        align="center" >
         <div style={{
           width: 12,
           height: 12,
