@@ -212,7 +212,7 @@ class SignIn extends React.Component {
 
   render() {
     return (
-      <StaticContentContainer  stars={{visible: true, color: "white"}}>
+      <StaticContentContainer stars={{visible: true, color: "white"}}>
         <Flex>
           <div style={styles.card}>
             <p style={styles.heading}>
