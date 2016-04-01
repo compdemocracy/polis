@@ -53,9 +53,9 @@ class StaticContentContainer extends React.Component {
         justifyContent="space-between"
         direction="column"
         styleOverrides={styles.flexContainer}>
-        <Header/>
+        <Header backgroundColor={this.props.headerBackgroundColor}/>
         {this.props.children}
-        <Footer/>
+        <Footer backgroundColor={this.props.footerBackgroundColor}/>
       </Flex>
     );
   }

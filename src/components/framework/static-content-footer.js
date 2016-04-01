@@ -16,7 +16,7 @@ class Footer extends React.Component {
         // position: "absolute",
         // bottom: "0",
         width: "100%",
-        backgroundColor: "rgba(0,0,0,.5)",
+        backgroundColor: this.props.backgroundColor ? this.props.backgroundColor : "rgba(0,0,0,.5)",
         color: "white",
         zIndex: 10,
         height: 40,

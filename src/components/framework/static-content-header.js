@@ -15,18 +15,23 @@ class Header extends React.Component {
       topBar: {
         width: "100%",
         // height: 70,
-        fontSize: 24,
-        fontWeight: 700,
+        fontSize: 18,
+        fontWeight: 400,
         color: "white",
-        backgroundColor: "rgba(0,0,0,.3)",
+        backgroundColor: this.props.backgroundColor ? this.props.backgroundColor : "rgba(0,0,0,.3)",
         zIndex: 10,
       }
     }
   }
   render() {
     return (
-      <Flex styleOverrides={this.styles().topBar}>
-        <PolisLogo/>
+      <Flex
+        justifyContent={"space-between"}
+        styleOverrides={this.styles().topBar}>
+        <PolisLogo containerStyle={{marginLeft: 20}}/>
+          <Link style={{
+              textDecoration: "none", color: "white", marginRight: 20
+            }} to={"signin"}>Sign In</Link>
       </Flex>
     );
   }
