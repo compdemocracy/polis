@@ -110,11 +110,6 @@ class News extends React.Component {
         image={false}
         stars={{visible: true, color: "darkgrey"}}>
         {/* hero */}
-        <div style={{
-          height: 3,
-          width: "20%",
-          backgroundColor: "white"
-        }}> </div>
         <Flex
           direction="column"
           alignItems="center"
