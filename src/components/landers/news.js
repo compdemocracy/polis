@@ -124,8 +124,8 @@ class News extends React.Component {
               {"Make your content work harder"}
             </p>
             <p style={this.styles().heroSub}>
-                pol.is is a beautiful interactive feature that engages (way) more of your readers
-                in meaningful conversations on your site, with (way) less burden on you.
+              pol.is is an embeddable discussion platform that engages more of your readers
+              in meaningful conversation, with less burden on you.
             </p>
         </Flex>
         {/* upper cta */}
@@ -180,10 +180,8 @@ class News extends React.Component {
               `}
                 <span style={{fontWeight: 700}}>(artificial intelligence & machine learning)</span>
               {`
-                to produce opinion groups (using interactive data visualization). All users
-                can see where they stand relative to others on the issues - and it produces
-                lots of usable data that immediately helps you understand your audience's
-                experience of your content.
+                to produce opinion groups. All users
+                can see where they stand relative to others on the issues in an interactive visualization.
               `}
             </p>
             <p style={this.styles().sectionBody}>
@@ -284,8 +282,9 @@ class News extends React.Component {
               {
                 `Pol.is data can instruct content and editorial in real time.
                 Use powerful dashboard tools to drill into conversations as
-                they’re unfolding. Gain insights about participation
-                patterns, data quality and audience.`
+                they’re unfolding. pol.is produces
+                lots of usable data that immediately helps you understand your audience's
+                experience of your content.`
               }
             </p>
           </Flex>
