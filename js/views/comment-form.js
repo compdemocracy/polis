@@ -189,7 +189,8 @@ module.exports = Handlebones.ModelView.extend({
     }
 
     var hasSocial = window.userObject.hasFacebook || window.userObject.hasTwitter;
-    if (hasSocial) {
+    var needsSocial = preload.firstConv.auth_needed_to_write;
+    if (hasSocial || !needsSocial) {
       doSubmitComment();
     } else {
       this.showSocialAuthChoices();
