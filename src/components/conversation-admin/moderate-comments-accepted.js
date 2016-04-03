@@ -4,6 +4,8 @@ import { populateAcceptedCommentsStore, changeCommentStatusToRejected } from '..
 import Radium from "radium";
 import _ from "lodash";
 import Comment from "./comment";
+import Spinner from "../framework/spinner";
+import Flex from "../framework/flex";
 
 
 @connect(state => state.mod_comments_accepted)
@@ -13,7 +15,7 @@ class ModerateCommentsAccepted extends React.Component {
     this.props.dispatch(changeCommentStatusToRejected(comment))
   }
   createCommentMarkup() {
-    const comments = this.props.accepted_comments.map((comment, i)=>{
+    const comments = this.props.accepted_comments.map((comment, i) => {
       return (
         <Comment
           key={i}
@@ -24,12 +26,26 @@ class ModerateCommentsAccepted extends React.Component {
     })
     return comments;
   }
+  renderSpinner() {
+    return (
+      <Flex>
+        <Spinner/>
+        <span style={{
+            marginLeft: 10,
+            position: "relative",
+            top: -2
+          }}> Loading accepted comments... </span>
+      </Flex>
+    )
+  }
   render() {
     return (
       <div>
         <div>
           {
-            this.props.accepted_comments !== null ? this.createCommentMarkup() : "Loading accepted comments"
+            this.props.accepted_comments !== null ?
+              this.createCommentMarkup() :
+              this.renderSpinner()
           }
         </div>
       </div>

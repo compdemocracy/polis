@@ -8,6 +8,7 @@ import Radium from "radium";
 import _ from "lodash";
 import Comment from "./comment";
 import Spinner from "../framework/spinner";
+import Flex from "../framework/flex";
 
 @connect(state => state.mod_comments_unmoderated )
 @Radium
@@ -33,6 +34,18 @@ class ModerateCommentsTodo extends React.Component {
     })
     return comments;
   }
+  renderSpinner() {
+    return (
+      <Flex>
+        <Spinner/>
+        <span style={{
+            marginLeft: 10,
+            position: "relative",
+            top: -2
+          }}> Loading unmoderated comments... </span>
+      </Flex>
+    )
+  }
   render() {
     return (
       <div>
@@ -40,7 +53,7 @@ class ModerateCommentsTodo extends React.Component {
           {
             this.props.unmoderated_comments !== null ?
             this.createCommentMarkup() :
-            "Loading unmoderated comments..."
+            this.renderSpinner()
           }
         </div>
       </div>
