@@ -21,7 +21,6 @@ const styles = {
     resize: "none",
     border: "1px solid rgb(200,200,200)",
     marginBottom: 15,
-    backgroundColor: "rgb(245,245,245)",
     borderRadius: 3,
     minHeight: 100,
     fontSize: 16,

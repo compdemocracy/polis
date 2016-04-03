@@ -87,7 +87,6 @@ class ModerateCommentsSeed extends React.Component {
               resize: "none",
               border: "1px solid lightgrey",
               marginBottom: 15,
-              backgroundColor: "rgb(240,240,240)",
               borderRadius: 3,
               fontSize: 16,
               padding: 10
