@@ -49,7 +49,7 @@ class News extends React.Component {
         backgroundColor: "#03a9f4",
       },
       getStartedButton: {
-        backgroundColor: "#FFC83C",
+        backgroundColor: "rgb(255,191,31)",
         color: "white"
       },
       newsLogo: {
