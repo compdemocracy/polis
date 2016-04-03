@@ -28,6 +28,12 @@ class Comment extends React.Component {
         maxWidth: 550,
         fontWeight: 300,
         marginLeft: 10
+      },
+      info: {
+        fontWeight: 300,
+        fontSize: 14,
+        marginTop: 0,
+        marginLeft: 10,
       }
     }
   }
@@ -61,6 +67,10 @@ class Comment extends React.Component {
       </Button>
     )
   }
+  getDate() {
+    const date = new Date(+this.props.comment.created);
+    return `${date.getMonth()+1} / ${date.getUTCDate()} / ${date.getFullYear()}`
+  }
   render() {
     const styles = this.getStyles();
     return (
@@ -70,10 +80,21 @@ class Comment extends React.Component {
           wrap="wrap"
           justifyContent="space-between"
           alignItems={"baseline"}>
-          {this.props.comment.social ? <ParticipantHeader {...this.props.comment.social} /> : "Anonymous"}
+          {
+            this.props.comment.social ?
+              <ParticipantHeader {...this.props.comment.social} /> :
+                "Anonymous"
+          }
           <Flex grow={1}>
             <p style={styles.commentBody}>{ this.props.comment.txt }</p>
           </Flex>
+          <p style={styles.info}>
+            Created on
+            <span style={{fontWeight: 500}}> {this.getDate()}</span>,
+            voted on a total of
+            <span style={{fontWeight: 500}}> {this.props.comment.count} </span>
+            times.
+          </p>
           <Flex>
             { this.props.acceptButton ? this.makeAcceptButton() : "" }
             { this.props.rejectButton ? this.makeRejectButton() : "" }
