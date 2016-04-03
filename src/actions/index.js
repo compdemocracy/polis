@@ -190,7 +190,6 @@ const signinPost = (attrs) => {
 
 export const doSignin = (attrs, dest) => {
   return (dispatch) => {
-    console.log(attrs)
     dispatch(signinInitiated())
     return signinPost(attrs).then(
       () => {
@@ -361,7 +360,6 @@ const getFriends = (response) => {
   var dfd = $.Deferred();
 
   const getMoreFriends = (friendsSoFar, urlForNextCall) => {
-    console.log("getMoreFriends");
 
     return $.get(urlForNextCall).then((response) => {
       if (response.data.length) {
@@ -379,7 +377,6 @@ const getFriends = (response) => {
   }
 
   FB.api("/me/friends", (response) => {
-    console.log("/me/friends returned");
     if (response && !response.error) {
 
       var friendsSoFar = response.data;
@@ -402,7 +399,6 @@ const getInfo = (response) => {
   var dfd = $.Deferred();
 
   FB.api("/me", (response) => {
-    console.log("/me done");
     // {"id":"10152802017421079"
     //   "email":"michael@bjorkegren.com"
     //   "first_name":"Mike"
@@ -422,8 +418,8 @@ const getInfo = (response) => {
     if (response && !response.error) {
       if (response.location && response.location.id) {
         FB.api("/" + response.location.id, (locationResponse) => {
-          console.log("locationResponse");
-          console.dir(locationResponse);
+          // console.log("locationResponse");
+          // console.dir(locationResponse);
           if (locationResponse) {
             response.locationInfo = locationResponse;
           }
