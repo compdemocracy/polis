@@ -80,6 +80,7 @@ module.exports = function(params) {
     var commentsAvailableCallbacks = $.Callbacks();
 
     var firstPcaCallPromise = $.Deferred();
+    var firstSuccessfulPcaCallPromise = $.Deferred();
     var clustersCachePromise = $.Deferred();
     var votesForTidBidPromise = $.Deferred();
 
@@ -1454,6 +1455,7 @@ function clientSideBaseCluster(things, N) {
 
         p2.then(function() {
             firstPcaCallPromise.resolve();
+            firstSuccessfulPcaCallPromise.resolve();
         });
         return p2;
     }
@@ -2506,7 +2508,7 @@ function clientSideBaseCluster(things, N) {
     }
 
     function prepAndSendVisData() {
-        firstPcaCallPromise.then(function() {
+        firstSuccessfulPcaCallPromise.then(function() {
             var o = prepProjection(projectionPeopleCache);
             var buckets = o.buckets;
             buckets.sort(function(a, b) {
