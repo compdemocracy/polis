@@ -6,6 +6,7 @@ import {
 } from '../../actions';
 import Radium from "radium";
 import _ from "lodash";
+import Flex from '../framework/Flex';
 import Participant from "./participant";
 import Spinner from "../framework/spinner";
 
@@ -52,6 +53,18 @@ class ParticipantModerationDefault extends React.Component {
       );
     });
   }
+  renderSpinner() {
+    return (
+      <Flex>
+        <Spinner/>
+        <span style={{
+            marginLeft: 10,
+            position: "relative",
+            top: -2
+          }}> Loading participants... </span>
+      </Flex>
+    )
+  }
   render() {
     return (
       <div>
@@ -69,7 +82,7 @@ class ParticipantModerationDefault extends React.Component {
         </div>
         <div>
           {
-            this.props.default_participants !== null ? this.createParticipantMarkup() : <Spinner/>
+            this.props.default_participants !== null ? this.createParticipantMarkup() : this.renderSpinner()
           }
         </div>
       </div>

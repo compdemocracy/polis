@@ -5,6 +5,7 @@ import Radium from "radium";
 import _ from "lodash";
 import Participant from "./participant";
 import Spinner from "../framework/spinner";
+import Flex from '../framework/Flex';
 
 const styles = {
   card: {
@@ -45,6 +46,18 @@ class ParticipantModerationFeatured extends React.Component {
       )
     })
   }
+  renderSpinner() {
+    return (
+      <Flex>
+        <Spinner/>
+        <span style={{
+            marginLeft: 10,
+            position: "relative",
+            top: -2
+          }}> Loading participants... </span>
+      </Flex>
+    )
+  }
   render() {
     return (
       <div>
@@ -53,7 +66,7 @@ class ParticipantModerationFeatured extends React.Component {
         </div>
         <div>
           {
-            this.props.featured_participants !== null ? this.createParticipantMarkup() : <Spinner/>
+            this.props.featured_participants !== null ? this.createParticipantMarkup() : this.renderSpinner()
           }
         </div>
       </div>

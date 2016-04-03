@@ -5,7 +5,7 @@ import Radium from "radium";
 import _ from "lodash";
 import Participant from "./participant";
 import Spinner from "../framework/spinner";
-
+import Flex from '../framework/Flex';
 
 const styles = {
   card: {
@@ -45,14 +45,29 @@ class ParticipantModerationHidden extends React.Component {
       )
     })
   }
+  renderSpinner() {
+    return (
+      <Flex>
+        <Spinner/>
+        <span style={{
+            marginLeft: 10,
+            position: "relative",
+            top: -2
+          }}> Loading participants... </span>
+      </Flex>
+    )
+  }
   render() {
     return (
       <div >
         <div style={styles.card}>
-          <p style={styles.body}> These participants are not shown in the visualization, but their votes are still counted. Note that they will still be shown to other participants who are their Facebook friends.</p>
+          <p style={styles.body}>
+            {`These participants are not shown in the visualization, but their votes are still counted.
+            They will still be shown to other participants who are their Facebook friends.`}
+          </p>
         </div>
         {
-          this.props.hidden_participants !== null ? this.createParticipantMarkup() : <Spinner/>
+          this.props.hidden_participants !== null ? this.createParticipantMarkup() : this.renderSpinner()
         }
       </div>
     );
