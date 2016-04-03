@@ -33,7 +33,9 @@ class ParticipantModerationDefault extends React.Component {
     this.props.dispatch(changeParticipantStatusToHidden(participant))
   }
   createParticipantMarkup() {
-    const participants = this.props.default_participants.map((participant, i)=>{
+    return _.sortByOrder(this.props.default_participants, (p) => {
+      return p.twitter ? p.twitter.followers_count : 0;
+    }, ["desc"]).map((participant, i) => {
       return (
         <Participant
           participant={participant}
@@ -47,9 +49,8 @@ class ParticipantModerationDefault extends React.Component {
             participant.twitter.name
           }
           key={i}/>
-      )
-    })
-    return participants;
+      );
+    });
   }
   render() {
     return (

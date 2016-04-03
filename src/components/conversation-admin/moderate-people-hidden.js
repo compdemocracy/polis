@@ -28,7 +28,9 @@ class ParticipantModerationHidden extends React.Component {
     this.props.dispatch(changeParticipantStatusToFeatured(participant))
   }
   createParticipantMarkup() {
-    const participants = this.props.hidden_participants.map((participant, i)=>{
+    return _.sortByOrder(this.props.hidden_participants, (p) => {
+      return p.twitter ? p.twitter.followers_count : 0;
+    }, ["desc"]).map((participant, i) => {
       return (
         <Participant
           participant={participant}
@@ -42,7 +44,6 @@ class ParticipantModerationHidden extends React.Component {
           key={i}/>
       )
     })
-    return participants;
   }
   render() {
     return (
