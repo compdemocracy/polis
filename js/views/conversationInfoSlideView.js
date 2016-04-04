@@ -13,8 +13,8 @@ module.exports =  Handlebones.ModelView.extend({
   },
   context: function() {
     var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
-    ctx.twitterShareCount = preload.conversation.twitterShareCount;
-    ctx.fbShareCount = preload.conversation.fbShareCount;
+    ctx.twitterShareCount = preload.firstConv.twitterShareCount;
+    ctx.fbShareCount = preload.firstConv.fbShareCount;
     ctx.s = Strings;
     return ctx;
   },

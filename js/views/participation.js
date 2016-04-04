@@ -149,12 +149,12 @@ module.exports =  ConversationView.extend({
     ctx.hasFacebook = userObject.hasFacebook;
     ctx.hasTwitter = userObject.hasTwitter;
     ctx.hasFbAndTw = ctx.hasFacebook && ctx.hasTwitter;
-    ctx.twitterShareCount = preload.conversation.twitterShareCount;
-    ctx.fbShareCount = preload.conversation.fbShareCount;
+    ctx.twitterShareCount = preload.firstConv.twitterShareCount;
+    ctx.fbShareCount = preload.firstConv.fbShareCount;
     ctx.s = Strings;
-    ctx.polis_bgcolor = preload.conversation.bgcolor || "#f7f7f7";
-    ctx.hideSocialButtons = preload.conversation.socialbtn_type === 0;
-    ctx.hideHelp = preload.conversation.help_type === 0;
+    ctx.polis_bgcolor = preload.firstConv.bgcolor || "#f7f7f7";
+    ctx.hideSocialButtons = preload.firstConv.socialbtn_type === 0;
+    ctx.hideHelp = preload.firstConv.help_type === 0;
 
     // var md_content = "Hello.\n======\n* This is markdown.\n * It is fun\n * Love it or leave it.\n* This is [an example](http://example.com/ \"Title\") inline link.\n\n![Alt text](https://62e528761d0685343e1c-f3d1b99a743ffa4142d9d7f1978d9686.ssl.cf2.rackcdn.com/files/67396/width668/image-20141216-14144-1fmodw7.jpg)"
     var md_content = ctx.description || "";
@@ -295,7 +295,7 @@ module.exports =  ConversationView.extend({
     return (display.xs()/* || display.sm() */) && (this.conversationTabs.onAnalyzeTab() || this.conversationTabs.onGroupTab());
   },
   initialize: function(options) {
-    $("body").css("background-color", preload.conversation.bgcolor || "#f7f7f7");
+    $("body").css("background-color", preload.firstConv.bgcolor || "#f7f7f7");
     ConversationView.prototype.initialize.apply(this, arguments);
     var that = this;
     this.wipCommentFormText = options.wipCommentFormText;

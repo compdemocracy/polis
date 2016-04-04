@@ -45,7 +45,7 @@ module.exports = Handlebones.ModelView.extend({
     ctx.s = Strings;
     ctx.desktop = !display.xs();
 
-    var btnBg = preload.conversation.style_btn;
+    var btnBg = preload.firstConv.style_btn;
     if (btnBg) {
       ctx.customBtnStyles = "background-color: " + btnBg + ";";
     }
