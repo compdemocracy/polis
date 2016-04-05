@@ -47,7 +47,7 @@
 
 (defspout poll-spout ["type" "zid" "batch"] {:prepare true :params [type poll-fn timestamp-key poll-interval]}
   [conf context collector]
-  (let [last-timestamp (atom 0)]
+  (let [last-timestamp (atom (try (java.lang.Long/parseLong (:initial-polling-timestamp env/env)) (catch Exception e (log/warn "INITIAL_POLLING_TIMESTAMP not set; setting to 0") 0)))]
     ;(if (= poll-fn :sim-poll)
       ;(log/info "Starting sim poller!")
       ;(start-sim-poller!))

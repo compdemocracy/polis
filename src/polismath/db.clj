@@ -58,7 +58,7 @@
 
 (ko/defentity comments
   (ko/entity-fields :zid :tid :mod :modified)
-  (ko/belongs-to conversations  (:fk :zid)))
+  (ko/belongs-to conversations (:fk :zid)))
 
 
 (defn poll
@@ -216,5 +216,20 @@
     (mongo-db (env/env :mongolab-uri))
     (mongo-collection-name "main")
     {:zid zid}))
+
+
+(defn conv-poll
+  "Query for all data since last-vote-timestamp for a given zid, given an implicit db-spec"
+  [zid last-vote-timestamp]
+  (try
+    (kdb/with-db (db-spec)
+      (ko/select votes
+        (ko/where {:created [> last-vote-timestamp]
+                   :zid zid})
+        (ko/order [:zid :tid :pid :created] :asc))) ; ordering by tid is important, since we rely on this ordering to determine the index within the comps, which needs to correspond to the tid
+    (catch Exception e
+      (log/error "polling failed for conv zid =" zid ":" (.getMessage e))
+      (.printStackTrace e)
+      [])))
 
 

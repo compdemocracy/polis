@@ -259,7 +259,10 @@
   (if-let [conv (and (not recompute) (db/load-conv zid))]
     (-> conv
         restructure-mongo-conv
-        (assoc :recompute :reboot))
+        (assoc :recompute :reboot)
+        (assoc :rating-mat (-> (nm/named-matrix)
+                               (nm/update-nmat (->> (db/conv-poll zid 0)
+                                                    (map (fn [vote-row] (mapv (partial get vote-row) [:pid :tid :vote]))))))))
     ; would be nice to have :recompute :initial
     (assoc (conv/new-conv) :zid zid :recompute :full)))
 
