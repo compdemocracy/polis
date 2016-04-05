@@ -9871,8 +9871,16 @@ function getFacebookInfo(uids) {
 }
 
 function getSocialParticipantsForMod(zid, limit, mod) {
+
+    var modClause = "";
+    var params = [zid, limit];
+    if (!_.isUndefined(mod)) {
+        modClause = " and mod = ($3)";
+        params.push(mod);
+    }
+
     var q = "with " +
-    "p as (select uid, pid, mod from participants where zid = ($1) and mod = ($3)), " + // and vote_count >= 1
+    "p as (select uid, pid, mod from participants where zid = ($1) " + modClause + "), " + // and vote_count >= 1
 
     "final_set as (select * from p limit ($2)), " +
 
@@ -9913,7 +9921,7 @@ function getSocialParticipantsForMod(zid, limit, mod) {
     "select * from all_rows where (tw__twitter_user_id is not null) or (fb__fb_user_id is not null) " +
     // "select * from all_rows " +
     ";";
-    return pgQueryP(q, [zid, limit, mod]);
+    return pgQueryP(q, params);
 }
 
 var socialParticipantsCache = new LruCache({
@@ -10516,7 +10524,7 @@ function(req, res) {
 app.get("/api/v3/ptptois",
     moveToBody,
     auth(assignToP),
-    need('mod', getInt, assignToP),
+    want('mod', getInt, assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('conversation_id', getStringLimitLength(1, 1000), assignToP),
 function(req, res) {
