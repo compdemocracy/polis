@@ -6271,8 +6271,13 @@ function(req, res) {
 });
 
 function _getCommentsForModerationList(o) {
-    var modClause = _.isUndefined(o.mod) ? "" : " and comments.mod = ($2)";
-    return pgQueryP_metered_readOnly("_getCommentsForModerationList", "select * from (select tid, count(*) from votes where zid = ($1) group by tid) as foo full outer join comments on foo.tid = comments.tid where comments.zid = ($1)" + modClause, [o.zid, o.mod]);
+    var modClause = "";
+    var params = [o.zid];
+    if (!_.isUndefined(o.mod)) {
+        modClause = " and comments.mod = ($2)";
+        params.push(o.mod);
+    }
+    return pgQueryP_metered_readOnly("_getCommentsForModerationList", "select * from (select tid, count(*) from votes where zid = ($1) group by tid) as foo full outer join comments on foo.tid = comments.tid where comments.zid = ($1)" + modClause, params);
 }
 
 function _getCommentsList(o) {
