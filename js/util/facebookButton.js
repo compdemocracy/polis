@@ -142,6 +142,7 @@ function facebookLoginOkHandler(response, optionalPassword) {
       if (optionalPassword) {
         data.password = optionalPassword;
       }
+      data.owner = false; // since this is the participation view, don't add them to intercom
 
       return $.ajax({
         url: "/api/v3/auth/facebook",

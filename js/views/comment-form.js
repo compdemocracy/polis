@@ -228,7 +228,7 @@ module.exports = Handlebones.ModelView.extend({
     // open a new window where the twitter auth screen will show.
     // that window will redirect back to a simple page that calls window.opener.twitterStatus("ok")
     var params = 'location=0,status=0,width=800,height=400';
-    window.open(document.location.origin + "/api/v3/twitterBtn?dest=/twitterAuthReturn", 'twitterWindow', params);
+    window.open(document.location.origin + "/api/v3/twitterBtn?owner=false&dest=/twitterAuthReturn", 'twitterWindow', params);
   },
   showSocialAuthChoices: function() {
     $("#comment_form_controls").hide();
