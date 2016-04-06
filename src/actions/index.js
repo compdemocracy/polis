@@ -28,6 +28,10 @@ export const UPDATE_ZID_METADATA_ERROR = "UPDATE_ZID_METADATA_ERROR";
 export const OPTIMISTIC_ZID_METADATA_UPDATE = "OPTIMISTIC_ZID_METADATA_UPDATE";
 
 /* moderation */
+export const REQUEST_COMMENTS = "REQUEST_COMMENTS";
+export const RECEIVE_COMMENTS = "RECEIVE_COMMENTS";
+export const COMMENTS_FETCH_ERROR = "COMMENTS_FETCH_ERROR";
+
 export const REQUEST_UNMODERATED_COMMENTS = "REQUEST_UNMODERATED_COMMENTS";
 export const RECEIVE_UNMODERATED_COMMENTS = "RECEIVE_UNMODERATED_COMMENTS";
 export const UNMODERATED_COMMENTS_FETCH_ERROR = "UNMODERATED_COMMENTS_FETCH_ERROR";
@@ -47,6 +51,10 @@ export const ACCEPT_COMMENT_ERROR = "ACCEPT_COMMENT_ERROR";
 export const REJECT_COMMENT = "REJECT_COMMENT";
 export const REJECT_COMMENT_SUCCESS = "REJECT_COMMENT_SUCCESS";
 export const REJECT_COMMENT_ERROR = "REJECT_COMMENT_ERROR";
+
+export const REQUEST_PARTICIPANTS = "REQUEST_PARTICIPANTS";
+export const RECEIVE_PARTICIPANTS = "RECEIVE_PARTICIPANTS";
+export const PARTICIPANTS_FETCH_ERROR = "PARTICIPANTS_FETCH_ERROR";
 
 export const REQUEST_DEFAULT_PARTICIPANTS = "REQUEST_DEFAULT_PARTICIPANTS";
 export const RECEIVE_DEFAULT_PARTICIPANTS = "RECEIVE_DEFAULT_PARTICIPANTS";
@@ -118,6 +126,12 @@ export const FACEBOOK_SIGNIN_INITIATED = "FACEBOOK_SIGNIN_INITIATED";
 export const FACEBOOK_SIGNIN_SUCCESSFUL = "FACEBOOK_SIGNIN_SUCCESSFUL";
 export const FACEBOOK_SIGNIN_FAILED = "FACEBOOK_SIGNIN_FAILED";
 
+/* MATH */
+
+export const REQUEST_MATH = "REQUEST_MATH";
+export const RECEIVE_MATH = "RECEIVE_MATH";
+export const MATH_FETCH_ERROR = "MATH_FETCH_ERROR";
+
 /* ======= Actions ======= */
 
 /*
@@ -181,16 +195,16 @@ const signinError = (err) => {
   return {
     type: SIGNIN_ERROR,
     data: err
-  }
-}
+  };
+};
 
 const signinPost = (attrs) => {
   return PolisNet.polisPost("/api/v3/auth/login", attrs);
-}
+};
 
 export const doSignin = (attrs, dest) => {
   return (dispatch) => {
-    dispatch(signinInitiated())
+    dispatch(signinInitiated());
     return signinPost(attrs).then(
       () => {
         setTimeout(() => {
@@ -199,12 +213,10 @@ export const doSignin = (attrs, dest) => {
           window.location = dest||"";
         }, 3000);
       },
-      err => dispatch(signinError(err))
+      (err) => dispatch(signinError(err))
     );
   };
 };
-
-
 
 /* createUser */
 
@@ -220,12 +232,12 @@ const createUserError = (err) => {
   return {
     type: CREATEUSER_ERROR,
     data: err
-  }
-}
+  };
+};
 
 const createUserPost = (attrs) => {
   return PolisNet.polisPost("/api/v3/auth/new", attrs);
-}
+};
 
 export const doCreateUser = (attrs, dest) => {
   return (dispatch) => {
@@ -238,16 +250,10 @@ export const doCreateUser = (attrs, dest) => {
           window.location = dest||"";
         }, 3000);
       },
-      err => dispatch(createUserError(err))
-    )
+      (err) => dispatch(createUserError(err))
+    );
   };
 };
-
-
-
-
-
-
 
 /* passwordResetInit */
 
@@ -267,16 +273,16 @@ const passwordResetInitError = (err) => {
   return {
     type: PWRESET_INIT_ERROR,
     data: err
-  }
-}
+  };
+};
 
 const passwordResetInitPost = (attrs) => {
   return PolisNet.polisPost("/api/v3/auth/pwresettoken", attrs);
-}
+};
 
 export const doPasswordResetInit = (attrs) => {
   return (dispatch) => {
-    dispatch(passwordResetInitInitiated())
+    dispatch(passwordResetInitInitiated());
     return passwordResetInitPost(attrs).then(
       () => {
         setTimeout(() => {
@@ -287,10 +293,10 @@ export const doPasswordResetInit = (attrs) => {
 
         return dispatch(passwordResetInitSuccess());
       },
-      err => dispatch(passwordResetInitError(err))
-    )
-  }
-}
+      (err) => dispatch(passwordResetInitError(err))
+    );
+  };
+};
 
 /* passwordReset */
 
@@ -310,16 +316,16 @@ const passwordResetError = (err) => {
   return {
     type: PWRESET_ERROR,
     data: err
-  }
-}
+  };
+};
 
 const passwordResetPost = (attrs) => {
   return PolisNet.polisPost("/api/v3/auth/password", attrs);
-}
+};
 
 export const doPasswordReset = (attrs) => {
   return (dispatch) => {
-    dispatch(passwordResetInitiated())
+    dispatch(passwordResetInitiated());
     return passwordResetPost(attrs).then(
       () => {
         setTimeout(() => {
@@ -330,31 +336,31 @@ export const doPasswordReset = (attrs) => {
 
         return dispatch(passwordResetSuccess());
       },
-      err => dispatch(passwordResetError(err))
-    )
-  }
-}
+      (err) => dispatch(passwordResetError(err))
+    );
+  };
+};
 
 /* facebook */
 
 const facebookSigninInitiated = () => {
   return {
     type: FACEBOOK_SIGNIN_INITIATED
-  }
-}
+  };
+};
 
 const facebookSigninSuccessful = () => {
   return {
     type: FACEBOOK_SIGNIN_SUCCESSFUL
-  }
-}
+  };
+};
 
 const facebookSigninFailed = (errorCode) => {
   return {
     type: FACEBOOK_SIGNIN_FAILED,
     errorCode: errorCode
-  }
-}
+  };
+};
 
 const getFriends = (response) => {
   var dfd = $.Deferred();
@@ -363,7 +369,7 @@ const getFriends = (response) => {
 
     return $.get(urlForNextCall).then((response) => {
       if (response.data.length) {
-        for (var i = 0; i < response.data.length; i++) {
+        for (let i = 0; i < response.data.length; i++) {
           friendsSoFar.push(response.data[i]);
         }
         if (response.paging.next) {
@@ -918,19 +924,90 @@ export const handleCreateConversationSubmit = (routeTo) => {
   return (dispatch, getState) => {
     dispatch(createConversationStart())
     return postCreateConversation().then(
-      function(res) {
+      (res) => {
         dispatch(createConversationPostSuccess(res));
         return res;
       },
-      err => dispatch(createConversationPostError(err))
-    ).then(function(res) {
+      (err) => dispatch(createConversationPostError(err))
+    ).then((res) => {
       window.location = "/m/" + res.conversation_id;
     });
   };
+};
+
+
+/* request all comments */
+
+const requestComments = () => {
+  return {
+    type: REQUEST_COMMENTS
+  }
+};
+
+const receiveComments = (data) => {
+  return {
+    type: RECEIVE_COMMENTS,
+    data: data
+  }
+};
+
+const commentsFetchError = (err) => {
+  return {
+    type: COMMENTS_FETCH_ERROR,
+    data: err
+  }
 }
 
+const fetchAllComments = (conversation_id) => {
+  return $.get("/api/v3/comments?moderation=true&include_social=true&conversation_id=" + conversation_id);
+};
 
+export const populateCommentsStore = (conversation_id) => {
+  return (dispatch) => {
+    dispatch(requestComments());
+    return fetchAllComments(conversation_id).then(
+      (res) => dispatch(receiveComments(res)),
+      (err) => dispatch(commentsFetchError(err))
+    );
+  };
+};
 
+/* request math */
+
+const requestMath = () => {
+  return {
+    type: REQUEST_MATH
+  };
+};
+
+const receiveMath = (data) => {
+  return {
+    type: RECEIVE_MATH,
+    data: data
+  }
+};
+
+const mathFetchError = (err) => {
+  return {
+    type: MATH_FETCH_ERROR,
+    data: err
+  };
+};
+
+const fetchMath = (conversation_id, lastVoteTimestamp) => {
+  return $.get("/api/v3/math/pca2?&lastVoteTimestamp="+ lastVoteTimestamp +"&conversation_id=" + conversation_id);
+};
+
+export const populateMathStore = (conversation_id) => {
+  return (dispatch, getState) => {
+    dispatch(requestMath());
+    const lastVoteTimestamp = getState().math.lastVoteTimestamp
+    return fetchMath(conversation_id, lastVoteTimestamp).then(
+      (res) => dispatch(receiveMath(res)),
+      (err) => dispatch(mathFetchError(err))
+    );
+  };
+};
 
 /* unmoderated comments */
 
@@ -1142,8 +1219,45 @@ export const changeCommentStatusToRejected = (comment) => {
       },
       err => dispatch(rejectCommentError(err))
     )
-  }
-}
+  };
+};
+
+/* request participants */
+
+const requestParticipants = () => {
+  return {
+    type: REQUEST_PARTICIPANTS
+  };
+};
+
+const receiveParticipants = (data) => {
+  return {
+    type: RECEIVE_PARTICIPANTS,
+    data: data
+  };
+};
+
+const participantsFetchError = (err) => {
+  return {
+    type: PARTICIPANTS_FETCH_ERROR,
+    data: err
+  };
+};
+
+const fetchParticipants = (conversation_id) => {
+  return $.get("/api/v3/ptptois?conversation_id=" + conversation_id);
+};
+
+export const populateParticipantsStore = (conversation_id) => {
+  return (dispatch) => {
+    dispatch(requestParticipants());
+    return fetchParticipants(conversation_id).then(
+      (res) => dispatch(receiveParticipants(res)),
+      (err) => dispatch(participantsFetchError(err))
+    );
+  };
+};
+
 
 /* request default participants for ptpt moderation view */
 
