@@ -5506,7 +5506,7 @@ app.post("/api/v3/auth/facebook",
     want('conversation_id', getOptionalStringLimitLength(999), assignToP),
     want('password', getPassword, assignToP),
     need('response', getStringLimitLength(1, 9999), assignToP),
-
+    want("owner", getBool, assignToP, true),
 function(req, res) {
 
     // If a pol.is user record exists, and someone logs in with a facebook account that has the same email address, we should bind that facebook account to the pol.is account, and let the user sign in.
@@ -5529,8 +5529,9 @@ function(req, res) {
 
     var fb_friends_response = req.p.fb_friends_response ? JSON.parse(req.p.fb_friends_response) : null;
 
-    var shouldAddToIntercom = true;
+    var shouldAddToIntercom = req.p.owner;
     if (req.p.conversation_id) {
+        // TODO needed now that we have "owner" param?
         shouldAddToIntercom = false;
     }
 
@@ -5784,6 +5785,7 @@ app.post("/api/v3/auth/new",
     want('lti_context_id', getStringLimitLength(1, 9999), assignToP),
     want('tool_consumer_instance_guid', getStringLimitLength(1, 9999), assignToP),
     want('afterJoinRedirectUrl', getStringLimitLength(1, 9999), assignToP),
+    want("owner", getBool, assignToP, true),
 function(req, res) {
     var hname = req.p.hname;
     var password = req.p.password;
@@ -5811,7 +5813,7 @@ function(req, res) {
         }
     }
 
-    var shouldAddToIntercom = true;
+    var shouldAddToIntercom = req.p.owner;
     if (req.p.lti_user_id) {
         shouldAddToIntercom = false;
     }
@@ -9262,12 +9264,13 @@ app.get("/api/v3/twitterBtn",
     moveToBody,
     authOptional(assignToP),
     want("dest", getStringLimitLength(9999), assignToP),
+    want("owner", getBool, assignToP, true),
 function(req, res) {
     var uid = req.p.uid;
 
     var dest = req.p.dest || "/inbox";
     dest = encodeURIComponent(getServerNameWithProtocol(req) + dest);
-    var returnUrl = getServerNameWithProtocol(req) + "/api/v3/twitter_oauth_callback?dest=" + dest;
+    var returnUrl = getServerNameWithProtocol(req) + "/api/v3/twitter_oauth_callback?owner="+ req.p.owner +"&dest=" + dest;
 
     getTwitterRequestToken(returnUrl).then(function(data) {
         winston.log("info",data);
@@ -9725,9 +9728,47 @@ app.get("/api/v3/twitter_oauth_callback",
     need("dest", getStringLimitLength(9999), assignToP),
     need("oauth_token", getStringLimitLength(9999), assignToP), // TODO verify
     need("oauth_verifier", getStringLimitLength(9999), assignToP), // TODO verify
-
+    want("owner", getBool, assignToP, true),
 function(req, res) {
     var uid = req.p.uid;
+
+
+
+    function maybeAddToIntercom(o) {
+        var shouldAddToIntercom = req.p.owner;
+        if (shouldAddToIntercom) {
+            var params = {
+                "email" : o.email,
+                "name" : o.name,
+                "user_id": o.uid,
+            };
+            var customData = {};
+            // if (referrer) {
+            //     customData.referrer = o.referrer;
+            // }
+            // if (organization) {
+            //     customData.org = organization;
+            // }
+            // customData.fb = true; // mark this user as a facebook auth user
+            customData.tw = true; // mark this user as a twitter auth user
+            customData.twitterScreenName = o.screen_name;
+            customData.uid = o.uid;
+            if (_.keys(customData).length) {
+                params.custom_data = customData;
+            }
+            intercom.createUser(params, function(err, res) {
+                if (err) {
+                    winston.log("info",err);
+                    console.error("polis_err_intercom_create_user_tw_fail");
+                    winston.log("info",params);
+                    yell("polis_err_intercom_create_user_tw_fail");
+                    return;
+                }
+            });
+        }
+    }
+
+
 
     // TODO "Upon a successful authentication, your callback_url would receive a request containing the oauth_token and oauth_verifier parameters. Your application should verify that the token matches the request token received in step 1."
 
@@ -9794,6 +9835,7 @@ function(req, res) {
                 // set the user's hname, if not already set
                 pgQueryP("update users set hname = ($2) where uid = ($1) and hname is NULL;", [uid, u.name]).then(function() {
                     // OK, ready
+                    maybeAddToIntercom(u);
                     res.redirect(dest);
                 }, function(err) {
                     fail(res, 500, "polis_err_twitter_auth_update", err);
