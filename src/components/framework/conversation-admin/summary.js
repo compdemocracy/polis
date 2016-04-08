@@ -8,7 +8,10 @@ import {
   populateMathStore,
   populateParticipantsStore
 } from "../../actions";
-import ParticipantHeader from "./participant-header";
+import Comment from "./summary-comment";
+// import Flex from '../framework/Flex';
+import colors from "../framework/colors";
+
 
 @connect((state) => {
   return {
@@ -18,7 +21,7 @@ import ParticipantHeader from "./participant-header";
   };
 })
 @Radium
-class ExecutiveSummary extends React.Component {
+class Summary extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
@@ -44,41 +47,19 @@ class ExecutiveSummary extends React.Component {
     this.props.dispatch(populateMathStore(this.props.params.conversation_id));
     this.props.dispatch(populateParticipantsStore(this.props.params.conversation_id));
   }
-  getStyles() {
-    return {
-      base: {
-
-      },
-      card: {
-        margin: "10px 20px 10px 20px",
-        backgroundColor: "rgb(253,253,253)",
-        borderRadius: 3,
-        padding: 10,
-        WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
-        BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
-      },
-      comment: {
-        fontWeight: 300,
-        borderLeft: "3px solid rgb(150,150,150)",
-        paddingLeft: 10,
-        marginLeft: 20
-      }
-    };
-  }
   getConsensusAgreeComments() {
     const comments = this.props.comments.comments;
     const math = this.props.math.math;
     const styles = this.getStyles();
-    return math.consensus.agree.map((comment) => {
+    return math.consensus.agree.map((comment, i) => {
       return (
-        <div>
-          {
-            comments[comment.tid].social ?
-              <ParticipantHeader {...comments[comment.tid].social} /> :
-                "Anonymous"
-          }
-          <p style={styles.comment}>{comments[comment.tid].txt}</p>
-        </div>
+        <Comment
+          key={i}
+          majority={true}
+          agree={true}
+          first={i === 0 ? true : false}
+          {...comment}
+          {...comments[comment.tid]} />
       );
     });
   }
@@ -86,16 +67,14 @@ class ExecutiveSummary extends React.Component {
     const comments = this.props.comments.comments;
     const math = this.props.math.math;
     const styles = this.getStyles();
-    return math.consensus.disagree.map((comment) => {
+    return math.consensus.disagree.map((comment, i) => {
       return (
-        <div>
-          {
-            comments[comment.tid].social ?
-              <ParticipantHeader {...comments[comment.tid].social} /> :
-                "Anonymous"
-          }
-          <p style={styles.comment}>{comments[comment.tid].txt}</p>
-        </div>
+        <Comment
+          key={i}
+          majority={true}
+          first={i === 0 ? true : false}
+          {...comment}
+          {...comments[comment.tid]} />
       );
     });
   }
@@ -111,19 +90,49 @@ class ExecutiveSummary extends React.Component {
   summary() {
     const comments = this.props.comments.comments;
     const math = this.props.math.math;
+    const styles = this.getStyles();
     return (
-      <div>
-        <p> Out of {math["n-cmts"]} comments submitted, the most agreed upon comment[s]: </p>
+      <span style={styles.text}>
+        <p style={styles.text}>
+          {`${math["n"]} people participated. `}
+          {`There were ${math["n-cmts"]} comments submitted. `}
+        </p>
+        Across all {math["n"]} participants,
+        <span> the most agreed upon </span>
+        {math.consensus.agree.length > 1 ? " comments were: " : "comment was: "}
+
         {this.getConsensusAgreeComments()}
-        The most disagreed upon comment[s]:
+        The most disagreed upon
+        {math.consensus.disagree.length > 1 ? " comments were: " : "comment was: "}
+
         {this.getConsensusDisagreeComments()}
         There were {math["group-clusters"].length} groups
         {this.getGroupComments()}
-      </div>
+      </span>
     );
   }
+  getStyles() {
+    return {
+      base: {
+
+      },
+      card: {
+        margin: "10px 20px 10px 20px",
+        backgroundColor: "rgb(253,253,253)",
+        borderRadius: 3,
+        padding: 10,
+        WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
+        BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
+      },
+      text: {
+        fontWeight: 300
+      },
+      mostAgreedUpon: {
+        backgroundColor: "rgb()"
+      }
+    };
+  }
   render() {
-    console.log('summary',this.props)
     const styles = this.getStyles();
     const comments = this.props.comments.comments;
     const math = this.props.math.math;
@@ -140,4 +149,4 @@ class ExecutiveSummary extends React.Component {
   }
 }
 
-export default ExecutiveSummary;
+export default Summary;
