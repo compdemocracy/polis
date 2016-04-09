@@ -1,10 +1,10 @@
 import React from "react";
 import Radium from "radium";
-// import _ from "lodash";
+import _ from "lodash";
 // import Flex from "./framework/flex";
 // import { connect } from "react-redux";
 // import { FOO } from "../actions";
-
+import Group from "./summary-group";
 
 // @connect(state => {
 //   return state.FOO;
@@ -48,12 +48,16 @@ class SummaryGroups extends React.Component {
       },
     };
   }
-  getGroupComments() {
+  groups() {
     // const comments = this.props.comments.comments;
     const math = this.props.math.math;
-    return math["group-clusters"].map((group, i) => {
+    return _.map(math["repness"], (comments, i) => {
       return (
-        <p> Group {i} </p>
+        <Group
+          key={i}
+          repnessIndex={i}
+          groupComments={comments}
+          {...this.props}/>
       );
     });
   }
@@ -64,8 +68,8 @@ class SummaryGroups extends React.Component {
     return (
       <span>
         <p style={styles.sectionHeader}> Opinion Groups </p>
-        <p> There were {math["group-clusters"].length} groups. The largest had x, etc </p>
-        {this.getGroupComments()}
+        <p> There were {math.repness.length} groups. The largest had x, etc </p>
+        {this.groups()}
       </span>
     );
   }

@@ -8,9 +8,6 @@ import Awesome from "react-fontawesome";
 import VerifiedTwitterIcon from "../framework/verified-twitter-icon";
 import colors from "../framework/colors";
 
-// const style = {
-// };
-
 // @connect(state => {
 //   return state.FOO;
 // })
@@ -82,33 +79,39 @@ class SummaryComment extends React.Component {
   }
 
   followers() {
+    const styles = this.getStyles();
     return (
       <a
         target="_blank" href={`https://twitter.com/${this.props.screen_name}`}
-        style={{
-            textDecoration: "none",
-            fontWeight: 300,
-            color: "black",
-            marginLeft: 10
-          }}>
+        style={styles.twitterLink}>
         <Awesome
-          style={{
-            fontSize: 16,
-            color: "#4099FF",
-          }}
+          style={styles.twitterIcon}
           name={"twitter"} />
-        <span style={{marginLeft: 5}}>
+        <span style={styles.followerCount}>
           {this.props.social.followers_count}
         </span>
       </a>
     );
   }
   getStats() {
-    return (
-      <span>
-        {` ${Math.floor(this.props["n-success"] / this.props["n-trials"] * 100)}%`}
-      </span>
-    )
+    const styles = this.getStyles();
+    let stats;
+    if (this.props.majority) {
+      /* it's consensus */
+      stats = (
+        <span style={styles.stat}>
+          {`${Math.floor(this.props["n-success"] / this.props["n-trials"] * 100)}%`}
+        </span>
+      );
+    } else {
+      /* it's a group, so it's calculated above because complex accessor */
+      stats = (
+        <span style={styles.stat}>
+          {`${this.props.percent}%`}
+        </span>
+      )
+    }
+    return stats;
   }
   getStyles() {
     return {
@@ -117,25 +120,45 @@ class SummaryComment extends React.Component {
         height: 25,
         position: "relative",
         top: 7,
-        marginRight: 8
+        marginRight: 7,
+        marginLeft: 5
       },
       icons: {
         // marginLeft: this.props.social ? 8 : 0
         // marginLeft: 8
       },
       name: {
-        marginLeft: this.props.social ? 5 : 0,
-        fontWeight: 500,
+        // marginLeft: this.props.social ? 5 : 0,
+        fontWeight: 300,
       },
       container: {
-        marginLeft: this.props.first ? 0 : 5,
+        marginLeft: 30
       },
-      mostAgreedUpon: {
-        backgroundColor: "rgb(46, 204, 113)",
-        padding: "3px 6px",
-        borderRadius: 3,
-        color: "white"
+      twitterLink: {
+        textDecoration: "none",
+        fontWeight: 300,
+        color: "black",
+        marginLeft: this.props.social && this.props.social.fb_user_id ? 10 : 0,
       },
+      twitterIcon: {
+        fontSize: 16,
+        color: "#4099FF",
+      },
+      followerCount: {
+        marginLeft: 5
+      },
+      stat: {
+        color: this.props.agree ? "rgb(46, 204, 113)" : "rgb(231, 76, 60)",
+        // padding: "3px 6px",
+        // borderRadius: 3,
+        // color: "white"
+      },
+      dot: {
+        fontSize: 24
+      },
+      commentText: {
+        fontWeight: 300
+      }
     };
   }
   render() {
@@ -143,20 +166,22 @@ class SummaryComment extends React.Component {
     // comment={comments[comment.tid].txt}
     const styles = this.getStyles();
     return (
-      <span style={styles.container}>
+      <p style={styles.container}>
+        {this.getStats()}
+        {` `}
         {this.getImage()}
-        <span style={styles.icons}>
-          {this.props.social && this.props.social.fb_user_id ? this.facebookIcon() : ""}
-          {this.props.social && this.props.social.followers_count ? this.followers() : ""}
-          {this.props.social && this.props.social.is_verified ? <VerifiedTwitterIcon/> : ""}
-        </span>
         <span style={styles.name}>
           {this.props.social ? this.getRealName() : "Anonymous"}
-          {": "}
+          <span style={styles.icons}>
+            {this.props.social ? <span style={styles.dot}>{` · `}</span> : ""}
+            {this.props.social && this.props.social.fb_user_id ? this.facebookIcon() : ""}
+            {this.props.social && this.props.social.followers_count ? this.followers() : ""}
+            {this.props.social && this.props.social.is_verified ? <VerifiedTwitterIcon/> : ""}
+          </span>
+          <span style={styles.dot}>{` · `}</span>
         </span>
-        {this.props.txt}
-        {this.getStats()}
-      </span>
+        <span style={styles.commentText}>{this.props.txt}</span>
+      </p>
     );
   }
 }

@@ -59,7 +59,7 @@ class Summary extends React.Component {
       },
       innerContent: {
         maxWidth: 600,
-        lineHeight: 2.0
+        lineHeight: 1.6
       }
     };
   }
@@ -70,8 +70,8 @@ class Summary extends React.Component {
     return (
       <Flex styleOverrides={styles.card}>
         <Flex styleOverrides={styles.innerContent}>
-          {this.props.math.loading || this.props.comments.loading ? "Loading... " : ""}
-          {this.props.math.error || this.props.comments.error ? "Error loading data" : ""}
+          {this.props.math.loading || this.props.comments.loading ? "Loading summary... " : ""}
+          {this.props.math.error || this.props.comments.error ? "Error loading summary" : ""}
           {
             !this.props.math.loading && !this.props.comments.loading ?
               <span>
