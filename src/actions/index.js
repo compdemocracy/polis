@@ -1165,6 +1165,7 @@ const putCommentAccepted = (comment) => {
 }
 
 export const changeCommentStatusToAccepted = (comment) => {
+  comment.active = true;
   return (dispatch) => {
     dispatch(optimisticCommentAccepted(comment))
     return putCommentAccepted(comment).then(
