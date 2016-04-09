@@ -1,6 +1,7 @@
 import React from "react";
 import Radium from "radium";
 import _ from "lodash";
+import Flex from '../framework/Flex';
 import { connect } from "react-redux";
 import {
   populateCommentsStore,
@@ -8,7 +9,9 @@ import {
   populateParticipantsStore
 } from "../../actions";
 import Comment from "./summary-comment";
-import Flex from '../framework/Flex';
+import SummaryStats from "./summary-stats";
+import Consensus from "./summary-consensus";
+import Groups from "./summary-groups";
 
 @connect((state) => {
   return {
@@ -44,79 +47,8 @@ class Summary extends React.Component {
     this.props.dispatch(populateMathStore(this.props.params.conversation_id));
     this.props.dispatch(populateParticipantsStore(this.props.params.conversation_id));
   }
-  getConsensusAgreeComments() {
-    const comments = this.props.comments.comments;
-    const math = this.props.math.math;
-    const styles = this.getStyles();
-    return math.consensus.agree.map((comment, i) => {
-      return (
-        <Comment
-          key={i}
-          majority={true}
-          agree={true}
-          first={i === 0 ? true : false}
-          {...comment}
-          {...comments[comment.tid]} />
-      );
-    });
-  }
-  getConsensusDisagreeComments() {
-    const comments = this.props.comments.comments;
-    const math = this.props.math.math;
-    const styles = this.getStyles();
-    return math.consensus.disagree.map((comment, i) => {
-      return (
-        <Comment
-          key={i}
-          majority={true}
-          {...comment}
-          {...comments[comment.tid]} />
-      );
-    });
-  }
-  getGroupComments() {
-    // const comments = this.props.comments.comments;
-    const math = this.props.math.math;
-    return math["group-clusters"].map((group, i) => {
-      return (
-        <p> Group {i} </p>
-      );
-    });
-  }
-  summary() {
-    const comments = this.props.comments.comments;
-    const math = this.props.math.math;
-    const styles = this.getStyles();
-    return (
-      <span style={styles.text}>
-        <p style={styles.text}>
-          {`${math["n"]} people participated. `}
-          {`There were ${math["n-cmts"]} comments submitted. `}
-        </p>
-        <p style={styles.sectionHeader}> The General Consensus </p>
-        <span style={{lineHeight: 2.3}}>
-          Across all {math["n"]} participants,
-          <span> the most agreed upon </span>
-          {math.consensus.agree.length > 1 ? " comments were: " : "comment was: "}
-        </span>
-
-        {this.getConsensusAgreeComments()}
-        The most disagreed upon
-        {math.consensus.disagree.length > 1 ? " comments were: " : "comment was: "}
-        {this.getConsensusDisagreeComments()}
-
-        <p style={styles.sectionHeader}> Opinion Groups </p>
-
-        <p> There were {math["group-clusters"].length} groups. The largest had x, etc </p>
-        {this.getGroupComments()}
-      </span>
-    );
-  }
   getStyles() {
     return {
-      base: {
-
-      },
       card: {
         margin: "10px 20px 10px 20px",
         backgroundColor: "rgb(253,253,253)",
@@ -125,28 +57,31 @@ class Summary extends React.Component {
         WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
         BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
       },
-      text: {
-        fontWeight: 300,
-        maxWidth: 600
-      },
-      mostAgreedUpon: {
-        backgroundColor: "rgb()"
-      },
-      sectionHeader: {
-        fontWeight: 900
+      innerContent: {
+        maxWidth: 600,
+        lineHeight: 2.0
       }
     };
   }
   render() {
-
     const styles = this.getStyles();
     const comments = this.props.comments.comments;
     const math = this.props.math.math;
     return (
       <Flex styleOverrides={styles.card}>
-        {this.props.math.loading || this.props.comments.loading ? "Loading... " : ""}
-        {this.props.math.error || this.props.comments.error ? "Error loading data" : ""}
-        {!this.props.math.loading && !this.props.comments.loading ? this.summary() : ""}
+        <Flex styleOverrides={styles.innerContent}>
+          {this.props.math.loading || this.props.comments.loading ? "Loading... " : ""}
+          {this.props.math.error || this.props.comments.error ? "Error loading data" : ""}
+          {
+            !this.props.math.loading && !this.props.comments.loading ?
+              <span>
+                <SummaryStats {...this.props}/>
+                <Consensus {...this.props}/>
+                <Groups {...this.props}/>
+              </span> :
+            ""
+          }
+        </Flex>
       </Flex>
     );
   }
