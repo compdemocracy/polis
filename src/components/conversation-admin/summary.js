@@ -1,7 +1,6 @@
 import React from "react";
 import Radium from "radium";
 import _ from "lodash";
-// import Flex from "./framework/flex";
 import { connect } from "react-redux";
 import {
   populateCommentsStore,
@@ -9,9 +8,7 @@ import {
   populateParticipantsStore
 } from "../../actions";
 import Comment from "./summary-comment";
-// import Flex from '../framework/Flex';
-import colors from "../framework/colors";
-
+import Flex from '../framework/Flex';
 
 @connect((state) => {
   return {
@@ -72,7 +69,6 @@ class Summary extends React.Component {
         <Comment
           key={i}
           majority={true}
-          first={i === 0 ? true : false}
           {...comment}
           {...comments[comment.tid]} />
       );
@@ -97,16 +93,21 @@ class Summary extends React.Component {
           {`${math["n"]} people participated. `}
           {`There were ${math["n-cmts"]} comments submitted. `}
         </p>
-        Across all {math["n"]} participants,
-        <span> the most agreed upon </span>
-        {math.consensus.agree.length > 1 ? " comments were: " : "comment was: "}
+        <p style={styles.sectionHeader}> The General Consensus </p>
+        <span style={{lineHeight: 2.3}}>
+          Across all {math["n"]} participants,
+          <span> the most agreed upon </span>
+          {math.consensus.agree.length > 1 ? " comments were: " : "comment was: "}
+        </span>
 
         {this.getConsensusAgreeComments()}
         The most disagreed upon
         {math.consensus.disagree.length > 1 ? " comments were: " : "comment was: "}
-
         {this.getConsensusDisagreeComments()}
-        There were {math["group-clusters"].length} groups
+
+        <p style={styles.sectionHeader}> Opinion Groups </p>
+
+        <p> There were {math["group-clusters"].length} groups. The largest had x, etc </p>
         {this.getGroupComments()}
       </span>
     );
@@ -125,26 +126,28 @@ class Summary extends React.Component {
         BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
       },
       text: {
-        fontWeight: 300
+        fontWeight: 300,
+        maxWidth: 600
       },
       mostAgreedUpon: {
         backgroundColor: "rgb()"
+      },
+      sectionHeader: {
+        fontWeight: 900
       }
     };
   }
   render() {
+
     const styles = this.getStyles();
     const comments = this.props.comments.comments;
     const math = this.props.math.math;
     return (
-      <div style={[
-        styles.card,
-        this.props.style
-      ]}>
+      <Flex styleOverrides={styles.card}>
         {this.props.math.loading || this.props.comments.loading ? "Loading... " : ""}
         {this.props.math.error || this.props.comments.error ? "Error loading data" : ""}
         {!this.props.math.loading && !this.props.comments.loading ? this.summary() : ""}
-      </div>
+      </Flex>
     );
   }
 }

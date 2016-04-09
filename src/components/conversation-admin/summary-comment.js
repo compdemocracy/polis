@@ -121,11 +121,11 @@ class SummaryComment extends React.Component {
       },
       name: {
         marginLeft: this.props.social ? 5 : 0,
-        fontWeight: 900,
+        fontWeight: 500,
       },
       container: {
-        marginLeft: 5,
-        lineHeight: 1.9
+        marginLeft: this.props.first ? 0 : 5,
+        lineHeight: 2.3
       }
     };
   }
