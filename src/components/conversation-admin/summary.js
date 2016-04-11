@@ -73,7 +73,7 @@ class Summary extends React.Component {
           {this.props.math.loading || this.props.comments.loading ? "Loading summary... " : ""}
           {this.props.math.error || this.props.comments.error ? "Error loading summary" : ""}
           {
-            !this.props.math.loading && !this.props.comments.loading ?
+            math && !this.props.math.loading && !this.props.comments.loading ?
               <span>
                 <SummaryStats {...this.props}/>
                 <Consensus {...this.props}/>
