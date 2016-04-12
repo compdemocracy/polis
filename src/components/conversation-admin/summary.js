@@ -75,7 +75,6 @@ class Summary extends React.Component {
           {
             math && !this.props.math.loading && !this.props.comments.loading ?
               <span>
-                <SummaryStats {...this.props}/>
                 <Consensus {...this.props}/>
                 <Groups {...this.props}/>
               </span> :
@@ -88,3 +87,5 @@ class Summary extends React.Component {
 }
 
 export default Summary;
+
+// <SummaryStats {...this.props}/>
