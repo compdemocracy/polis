@@ -45,18 +45,20 @@ class SummaryGroup extends React.Component {
     console.log(this.props)
     const comments = this.props.comments.comments;
     const math = this.props.math.math;
+
     return this.props.groupComments.map((comment, i) => {
-      let groupVotes = math["group-votes"][this.props.repnessIndex].votes[comment.tid]
+      const groupVotes = math["group-votes"][this.props.repnessIndex].votes[comment.tid];
+      const isBestAgree = comment["best-agree"] && (groupVotes && groupVotes.A > 0);
+      const agree = isBestAgree || comment["repful-for"] === "agree";
+      const percent = agree ?
+        Math.floor(groupVotes.A / groupVotes.S * 100) :
+        Math.floor(groupVotes.D / groupVotes.S * 100);
       return (
         <Comment
           key={i}
           majority={false}
-          agree={comment["repful-for"] === "agree" ? true : false}
-          percent={
-            comment["repful-for"] === "agree" ?
-            Math.floor(groupVotes.A / groupVotes.S * 100) :
-            Math.floor(groupVotes.D / groupVotes.S * 100)
-          }
+          agree={agree}
+          percent={percent}
           {...comment}
           {...comments[comment.tid]}/>
       )
