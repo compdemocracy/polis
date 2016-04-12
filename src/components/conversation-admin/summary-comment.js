@@ -7,6 +7,7 @@ import Flex from '../framework/Flex';
 import Awesome from "react-fontawesome";
 import VerifiedTwitterIcon from "../framework/verified-twitter-icon";
 import colors from "../framework/colors";
+import Barchart from "./summary-comment-barchart";
 
 // @connect(state => {
 //   return state.FOO;
@@ -193,6 +194,9 @@ class SummaryComment extends React.Component {
           <span style={styles.commentText}>
             {this.props.txt}
           </span>
+          {
+            !this.props.majority ? <Barchart tid={this.props.tid}/> : ""
+          }
         </span>
       </Flex>
     );
