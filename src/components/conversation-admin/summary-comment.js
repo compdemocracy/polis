@@ -99,14 +99,14 @@ class SummaryComment extends React.Component {
     if (this.props.majority) {
       /* it's consensus */
       stats = (
-        <span style={styles.stat}>
+        <span style={styles.percent}>
           {`${Math.floor(this.props["n-success"] / this.props["n-trials"] * 100)}%`}
         </span>
       );
     } else {
       /* it's a group, so it's calculated above because complex accessor */
       stats = (
-        <span style={styles.stat}>
+        <span style={styles.percent}>
           {`${this.props.percent}%`}
         </span>
       )
@@ -117,22 +117,18 @@ class SummaryComment extends React.Component {
     return {
       image: {
         borderRadius: 100,
-        height: 25,
+        height: 30,
         position: "relative",
-        top: 7,
+        top: 10,
         marginRight: 7,
-        marginLeft: 5
       },
       icons: {
         // marginLeft: this.props.social ? 8 : 0
         // marginLeft: 8
+
       },
       name: {
-        // marginLeft: this.props.social ? 5 : 0,
-        fontWeight: 300,
-      },
-      container: {
-        marginLeft: 30
+        fontStyle: "italic"
       },
       twitterLink: {
         textDecoration: "none",
@@ -147,14 +143,18 @@ class SummaryComment extends React.Component {
       followerCount: {
         marginLeft: 5
       },
-      stat: {
+      percent: {
         color: this.props.agree ? "rgb(46, 204, 113)" : "rgb(231, 76, 60)",
         // padding: "3px 6px",
         // borderRadius: 3,
         // color: "white"
       },
-      dot: {
-        fontSize: 24
+      percentContainer: {
+        marginRight: 15,
+        minWidth: 45
+      },
+      commentContainer: {
+        fontWeight: 300
       },
       commentText: {
         fontWeight: 300
@@ -166,22 +166,31 @@ class SummaryComment extends React.Component {
     // comment={comments[comment.tid].txt}
     const styles = this.getStyles();
     return (
-      <p style={styles.container}>
-        {this.getStats()}
-        {` `}
-        {this.getImage()}
-        <span style={styles.name}>
-          {this.props.social ? this.getRealName() : "Anonymous"}
+      <Flex
+        alignItems="baseline"
+        justifyContent="flex-start">
+        <span style={styles.percentContainer}>
+          {this.getStats()}
+        </span>
+        <Flex alignSelf="baseline">
+          {this.getImage()}
+        </Flex>
+        <span style={styles.commentContainer}>
+          <span style={styles.name}>
+            {this.props.social ? this.getRealName() : "Anonymous"}
+          </span>
           <span style={styles.icons}>
-            {this.props.social ? <span style={styles.dot}>{` · `}</span> : ""}
+            {this.props.social ? " • " : ""}
             {this.props.social && this.props.social.fb_user_id ? this.facebookIcon() : ""}
             {this.props.social && this.props.social.followers_count ? this.followers() : ""}
             {this.props.social && this.props.social.is_verified ? <VerifiedTwitterIcon/> : ""}
           </span>
-          <span style={styles.dot}>{` · `}</span>
+          {` • `}
+          <span style={styles.commentText}>
+            {this.props.txt}
+          </span>
         </span>
-        <span style={styles.commentText}>{this.props.txt}</span>
-      </p>
+      </Flex>
     );
   }
 }

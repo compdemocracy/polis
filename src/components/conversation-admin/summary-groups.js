@@ -35,9 +35,8 @@ class SummaryGroups extends React.Component {
 
       },
       sectionHeader: {
-        fontWeight: 100,
-        textTransform: "uppercase",
-        fontSize: 16
+        fontWeight: 500,
+        fontSize: 24
       },
       text: {
         fontWeight: 300,
