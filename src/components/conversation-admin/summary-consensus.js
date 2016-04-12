@@ -96,7 +96,9 @@ class SummaryConsensus extends React.Component {
         <p style={styles.sectionHeader}> The General Consensus </p>
         <p>
           Across all {math["n"]} participants,
-          the <span style={styles.mostAgreedUpon}>most agreed</span> upon
+          {` the `}
+          <span style={styles.mostAgreedUpon}>most agreed</span>
+          {` upon `}
           {math.consensus.agree.length > 1 ? " comments were: " : "comment was: "}
         </p>
         {this.getConsensusAgreeComments()}
