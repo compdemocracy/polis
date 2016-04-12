@@ -5,6 +5,7 @@ import Radium from "radium";
 // import { connect } from "react-redux";
 // import { FOO } from "../actions";
 import Comment from "./summary-comment";
+import Awesome from "react-fontawesome";
 
 // @connect(state => {
 //   return state.FOO;
@@ -31,8 +32,12 @@ class SummaryGroup extends React.Component {
   }
   getStyles() {
     return {
-      base: {
-
+      numberBadge: {
+        backgroundColor: "rgb(140,140,140)",
+        padding: "3px 6px",
+        borderRadius: 3,
+        color: "white",
+        fontWeight: 300
       }
     };
   }
@@ -63,11 +68,12 @@ class SummaryGroup extends React.Component {
     return (
       <span>
         <p>
-          {`Group `}
-          {`${+this.props.repnessIndex + 1}`}
-          {": "}
-          {math["group-votes"][this.props.repnessIndex]["n-members"]}
-          {` participants`}
+          <span style={styles.numberBadge}>
+            {` ${math["group-votes"][this.props.repnessIndex]["n-members"]} participants`}
+            {` in group ${+this.props.repnessIndex + 1}`}
+          </span>
+          {` tended to vote similarly that:`}
+
         </p>
         {this.groupComments()}
       </span>
@@ -76,3 +82,10 @@ class SummaryGroup extends React.Component {
 }
 
 export default SummaryGroup;
+
+// <Awesome name="users"/>
+// {` `}
+// {`Group `}
+// {``}
+// {": "}
+// {` participants`}

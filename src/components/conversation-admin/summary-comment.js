@@ -158,6 +158,9 @@ class SummaryComment extends React.Component {
       },
       commentText: {
         fontWeight: 300
+      },
+      container: {
+        marginTop: 20,
       }
     };
   }
@@ -167,6 +170,7 @@ class SummaryComment extends React.Component {
     const styles = this.getStyles();
     return (
       <Flex
+        styleOverrides={styles.container}
         alignItems="baseline"
         justifyContent="flex-start">
         <span style={styles.percentContainer}>

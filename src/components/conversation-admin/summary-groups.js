@@ -67,7 +67,6 @@ class SummaryGroups extends React.Component {
     return (
       <span>
         <p style={styles.sectionHeader}> Opinion Groups </p>
-        <p> There were {math.repness.length} groups. The largest had x, etc </p>
         {this.groups()}
       </span>
     );

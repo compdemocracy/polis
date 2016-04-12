@@ -54,7 +54,7 @@ class SummaryConsensus extends React.Component {
         padding: "3px 6px",
         borderRadius: 3,
         color: "white",
-      }
+      },
     };
   }
   getConsensusAgreeComments() {
@@ -94,18 +94,18 @@ class SummaryConsensus extends React.Component {
     return (
       <span style={styles.text}>
         <p style={styles.sectionHeader}> The General Consensus </p>
-        <span>
+        <p>
           Across all {math["n"]} participants,
           the <span style={styles.mostAgreedUpon}>most agreed</span> upon
           {math.consensus.agree.length > 1 ? " comments were: " : "comment was: "}
-        </span>
+        </p>
         {this.getConsensusAgreeComments()}
-        <span>
+        <p>
           {` The `}
           <span style={styles.mostDisgreedUpon}>most disagreed</span>
           {` upon `}
           {math.consensus.disagree.length > 1 ? " comments were: " : "comment was: "}
-        </span>
+        </p>
         {this.getConsensusDisagreeComments()}
       </span>
     );
