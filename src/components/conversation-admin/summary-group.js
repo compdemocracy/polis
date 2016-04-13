@@ -1,7 +1,7 @@
 import React from "react";
 import Radium from "radium";
 // import _ from "lodash";
-// import Flex from "./framework/flex";
+import Flex from "../framework/flex";
 // import { connect } from "react-redux";
 // import { FOO } from "../actions";
 import Comment from "./summary-comment";
@@ -15,7 +15,8 @@ class SummaryGroup extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-
+      pagination: 0,
+      showHowOtherGroupsFelt: false
     };
   }
   static propTypes = {
@@ -53,32 +54,38 @@ class SummaryGroup extends React.Component {
       const percent = agree ?
         Math.floor(groupVotes.A / groupVotes.S * 100) :
         Math.floor(groupVotes.D / groupVotes.S * 100);
-      return (
-        <Comment
-          key={i}
-          majority={false}
-          agree={agree}
-          percent={percent}
-          {...comment}
-          {...comments[comment.tid]}/>
-      )
+      // if (this.state.pagination === i) {
+        return (
+          <Comment
+            key={i}
+            showHowOtherGroupsFelt={this.props.showHowOtherGroupsFelt}
+            majority={false}
+            agree={agree}
+            percent={percent}
+            {...comment}
+            {...comments[comment.tid]}/>
+        )
+      // }
     })
   }
   render() {
     const styles = this.getStyles();
     const math = this.props.math.math;
     return (
-      <span>
-        <p>
-          <span style={styles.numberBadge}>
-            {` ${math["group-votes"][this.props.repnessIndex]["n-members"]} participants`}
-            {` in group ${+this.props.repnessIndex + 1}`}
-          </span>
-          {` tended to vote similarly that:`}
-
-        </p>
+      <div
+        style={{
+          marginBottom: 70
+        }}>
+          <p>
+            <span style={{fontSize: 18, fontWeight: 100}}>
+              {`GROUP ${+this.props.repnessIndex + 1} `}
+            </span>
+            <span style={{fontSize: 18, fontWeight: 500}}>
+              {` • ${math["group-votes"][this.props.repnessIndex]["n-members"]} participants`}
+            </span>
+          </p>
         {this.groupComments()}
-      </span>
+      </div>
     );
   }
 }

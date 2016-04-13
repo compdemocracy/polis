@@ -15,7 +15,7 @@ class SummaryConsensus extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-
+      pagination: 0
     };
   }
   static propTypes = {
@@ -39,9 +39,10 @@ class SummaryConsensus extends React.Component {
         fontWeight: 500,
         fontSize: 24
       },
-      text: {
+      container: {
         fontWeight: 300,
-        maxWidth: 600
+        maxWidth: 600,
+        marginBottom: 70
       },
       mostAgreedUpon: {
         backgroundColor: "rgb(46, 204, 113)",
@@ -62,15 +63,17 @@ class SummaryConsensus extends React.Component {
     const math = this.props.math.math;
     const styles = this.getStyles();
     return math.consensus.agree.map((comment, i) => {
-      return (
-        <Comment
-          key={i}
-          majority={true}
-          agree={true}
-          first={i === 0 ? true : false}
-          {...comment}
-          {...comments[comment.tid]} />
-      );
+      // if (this.state.pagination === i) {
+        return (
+          <Comment
+            key={i}
+            majority={true}
+            agree={true}
+            first={i === 0 ? true : false}
+            {...comment}
+            {...comments[comment.tid]} />
+        );
+      // }
     });
   }
   getConsensusDisagreeComments() {
@@ -78,13 +81,15 @@ class SummaryConsensus extends React.Component {
     const math = this.props.math.math;
     const styles = this.getStyles();
     return math.consensus.disagree.map((comment, i) => {
-      return (
-        <Comment
-          key={i}
-          majority={true}
-          {...comment}
-          {...comments[comment.tid]} />
-      );
+      // if (this.state.pagination === i) {
+        return (
+          <Comment
+            key={i}
+            majority={true}
+            {...comment}
+            {...comments[comment.tid]} />
+        );
+      // }
     });
   }
   render() {
@@ -92,7 +97,7 @@ class SummaryConsensus extends React.Component {
     const math = this.props.math.math;
     const styles = this.getStyles();
     return (
-      <span style={styles.text}>
+      <div style={styles.container}>
         <p style={styles.sectionHeader}> The General Consensus </p>
         <p>
           Across all {math["n"]} participants,
@@ -109,7 +114,7 @@ class SummaryConsensus extends React.Component {
           {math.consensus.disagree.length > 1 ? " comments were: " : "comment was: "}
         </p>
         {this.getConsensusDisagreeComments()}
-      </span>
+      </div>
     );
   }
 }

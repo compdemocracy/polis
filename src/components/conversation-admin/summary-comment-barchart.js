@@ -50,11 +50,17 @@ class SummaryBarchart extends React.Component {
       return (
         <div>
           <p>
-            <span> Group {++i} </span>
-            {
-              "hi"
-              // votes[this.props.tid].A
-            }
+            <span style={{
+              backgroundColor: "rgb(240,240,240)",
+              padding: "3px 6px",
+              borderRadius: 3,
+              color: "rgb(170,170,170)",
+              fontWeight: 300
+            }}> Group {++i}:</span>
+            <span style={{fontWeight: 300}}>
+              {` ${votes.votes[this.props.tid].A} agreed & `}
+              {`${votes.votes[this.props.tid].D} disagreed`}
+            </span>
           </p>
         </div>
       )
