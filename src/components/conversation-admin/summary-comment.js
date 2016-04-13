@@ -99,18 +99,10 @@ class SummaryComment extends React.Component {
     let stats;
     if (this.props.majority) {
       /* it's consensus */
-      stats = (
-        <span style={styles.percent}>
-          {`${Math.floor(this.props["n-success"] / this.props["n-trials"] * 100)}%`}
-        </span>
-      );
+      stats = `${Math.floor(this.props["n-success"] / this.props["n-trials"] * 100)}%`;
     } else {
       /* it's a group, so it's calculated above because complex accessor */
-      stats = (
-        <span style={styles.percent}>
-          {`${this.props.percent}%`}
-        </span>
-      )
+      stats = `${this.props.percent}%`
     }
     return stats;
   }
@@ -152,7 +144,7 @@ class SummaryComment extends React.Component {
       },
       percentContainer: {
         marginRight: 15,
-        minWidth: 45
+        minWidth: 65
       },
       commentContainer: {
         fontWeight: 300
@@ -175,7 +167,11 @@ class SummaryComment extends React.Component {
         alignItems="baseline"
         justifyContent="flex-start">
         <span style={styles.percentContainer}>
-          {this.getStats()}
+          <span style={styles.percent}>
+            <Awesome name={this.props.agree ? "check-circle-o" : "ban"}/>
+            {` `}
+            {this.getStats()}
+          </span>
         </span>
         <Flex alignSelf="baseline">
           {this.getImage()}
@@ -195,7 +191,7 @@ class SummaryComment extends React.Component {
             {this.props.txt}
           </span>
           {
-            !this.props.majority ? <Barchart tid={this.props.tid}/> : ""
+            !this.props.majority && this.props.showHowOtherGroupsFelt ? <Barchart tid={this.props.tid}/> : ""
           }
         </span>
       </Flex>
