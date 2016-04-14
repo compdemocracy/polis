@@ -394,8 +394,8 @@
       (do
         (handle-completion! aws-cred filename params)
         (assoc-in (response/file-response (full-path filename))
-                   [:headers "Content-Disposition"]
-                   (str "attachment; filename=" \" filename \")))
+                  [:headers "Content-Disposition"]
+                  (str "attachment; filename=" \" filename \")))
       ;; Otherwise, the timeout hit, and we should trigger the check back later lifecycle
       :else
       (do
