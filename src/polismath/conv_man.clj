@@ -6,6 +6,7 @@
             [polismath.db :as db]
             [polismath.utils :refer :all]
             [plumbing.core :as pc]
+            [schema.core :as s]
             [clojure.core.matrix.impl.ndarray]
             [clojure.core.async
              :as as
@@ -132,6 +133,15 @@
           (.printStackTrace e)))
       (log/debug "Profile data for zid" (:zid conv) ": " prof))))
 
+;; XXX WIP; need to flesh out and think about all the ins and outs
+;; Also, should place this in conversation, but for now...
+(def Conversation
+  "A schema for what valid conversations should look like (WIP)"
+  {:zid                 s/Int
+   :last-vote-timestamp s/Int
+   :group-votes         s/Any
+   ;; Note: we let all other key-value pairs pass through
+   s/Keyword            s/Any})
 
 (defn update-fn
   "This function is what actually gets sent to the conv-actor. In addition to the conversation and vote batches
@@ -150,6 +160,12 @@
                              :finish-time finish-time
                              :recompute recompute
                              :n-votes (count votes))
+        ;; Make sure our data has the right shape
+        (when-let [validation-errors (s/check Conversation updated-conv)]
+          ;; XXX Should really be using throw+ (slingshot) here and throutout the code base
+          ;; Also, should put in code for doing smart collapsing of collections...
+          (throw (Exception. (str "Validation error: Conversation Value does not match schema: "
+                                  validation-errors))))
         ; Format and upload main results
         (doseq [[col-name prep-fn] [["main" prep-main] ; main math results, for client
                                     ["bidtopid" prep-bidToPid]]] ; bidtopid mapping, for server
@@ -207,10 +223,19 @@
           (log/error "Unable to perform conv-update dump for" zid-str))))))
 
 
+;; XXX This is really bad, now that I think of it. There should be a data-driven declarative specification of
+;; what the sape of a conversation is, what is required, what needs to be modified etc, so everything is all
+;; in one place. This problem with teh :lastVoteTimestamp and group-votes etc came up precisely because there
+;; wasn't "one place to go" for modifying all of the potential points of interest for these kind of changes.
+
+;; XXX However, we shouldn't even be pushing the results to mongo if we didn't actually update anything
+
 (defn restructure-mongo-conv
   [conv]
   (-> conv
-      (hash-map-subset #{:rating-mat :lastVoteTimestamp :zid :pca :in-conv :n :n-cmts :group-clusters :base-clusters})
+      (hash-map-subset #{:rating-mat :lastVoteTimestamp :zid :pca :in-conv :n :n-cmts :group-clusters :base-clusters :group-votes})
+      (assoc :last-vote-timestamp (get conv :lastVoteTimestamp)
+             :last-mod-timestamp  (get conv :lastModTimestamp))
       ; Make sure there is an empty named matrix to operate on
       (assoc :rating-mat (nm/named-matrix))
       ; Update the base clusters to be unfolded
@@ -225,7 +250,10 @@
   (if-let [conv (and (not recompute) (db/load-conv zid))]
     (-> conv
         restructure-mongo-conv
-        (assoc :recompute :reboot))
+        (assoc :recompute :reboot)
+        (assoc :rating-mat (-> (nm/named-matrix)
+                               (nm/update-nmat (->> (db/conv-poll zid 0)
+                                                    (map (fn [vote-row] (mapv (partial get vote-row) [:pid :tid :vote]))))))))
     ; would be nice to have :recompute :initial
     (assoc (conv/new-conv) :zid zid :recompute :full)))
 

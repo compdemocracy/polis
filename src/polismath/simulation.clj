@@ -1,13 +1,14 @@
 (ns polismath.simulation
-;(ns user
   (:require [clojure.newtools.cli :refer [parse-opts]]
             [clojure.string :as string]
             [bigml.sampling [reservoir :as reservoir]
                             [simple :as simple]]
             [taoensso.timbre.profiling :as profiling
               :refer (pspy pspy* profile defnp p p*)]
-            [taoensso.carmine :as car]
-            [taoensso.carmine.message-queue :as car-mq])
+            ;[taoensso.carmine :as car]
+            ;[taoensso.carmine.message-queue :as car-mq]
+            )
+  ;; XXX Move to requires
   (:use polismath.utils
         ;alex-and-georges.debug-repl
         polismath.named-matrix
@@ -234,34 +235,36 @@
    (string/join \newline)))
 
 
+;; Removing all carmine code for now to ensure it's not messing up production
+
 ; See `wcar` docstring for opts
-(def server1-conn {:pool {}
-                   :spec {}})
-(defmacro wcar* [& body] `(car/wcar server1-conn ~@body))
-(def wcar-worker* (partial car-mq/worker server1-conn))
+;(def server1-conn {:pool {}
+                   ;:spec {}})
+;(defmacro wcar* [& body] `(car/wcar server1-conn ~@body))
+;(def wcar-worker* (partial car-mq/worker server1-conn))
 
-(defn simulate!
-  [{:keys [n-convs poll-interval]}]
-  (let [pollers (repeat n-convs simple-poller)
-        poller (apply comp-poller pollers)]
-    (loop [convs (for [i (range n-convs)]
-                   (sim-conv :n-ptpts 4 :n-cmnts 5 :zid i))
-           last-vote-timestamp 0
-           polls 0]
-      (Thread/sleep poll-interval)
-      (let [[new-convs votes] (poll! poller convs last-vote-timestamp)
-            new-last-vote-timestamp (apply max (map :created votes))]
-        (println "Simulating" (count votes))
-        (wcar* (car-mq/enqueue "simvotes" (vec votes)))
-        (recur new-convs new-last-vote-timestamp (inc polls))))))
+;(defn simulate!
+  ;[{:keys [n-convs poll-interval]}]
+  ;(let [pollers (repeat n-convs simple-poller)
+        ;poller (apply comp-poller pollers)]
+    ;(loop [convs (for [i (range n-convs)]
+                   ;(sim-conv :n-ptpts 4 :n-cmnts 5 :zid i))
+           ;last-vote-timestamp 0
+           ;polls 0]
+      ;(Thread/sleep poll-interval)
+      ;(let [[new-convs votes] (poll! poller convs last-vote-timestamp)
+            ;new-last-vote-timestamp (apply max (map :created votes))]
+        ;(println "Simulating" (count votes))
+        ;(wcar* (car-mq/enqueue "simvotes" (vec votes)))
+        ;(recur new-convs new-last-vote-timestamp (inc polls))))))
 
 
-(defn -main [& args]
-  (println "Starting simulations")
-  (let [{:keys [options arguments errors summary]} (parse-opts args cli-options)]
-    (cond
-      (:help options)   (exit 0 (usage summary))
-      (:errors options) (exit 1 (str "Found the following errors:" \newline (:errors options)))
-      :else             (simulate! options))))
+;(defn -main [& args]
+  ;(println "Starting simulations")
+  ;(let [{:keys [options arguments errors summary]} (parse-opts args cli-options)]
+    ;(cond
+      ;(:help options)   (exit 0 (usage summary))
+      ;(:errors options) (exit 1 (str "Found the following errors:" \newline (:errors options)))
+      ;:else             (simulate! options))))
 
 

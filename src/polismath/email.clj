@@ -8,8 +8,8 @@
 
 (defn send-email!
   ([{:keys [from to subject text html] :as params}]
-   (log/info "Sending email...")
-   (log/info "  have mailgun key?" (boolean *mailgun-key*))
+   (log/info "Sending email to:" to)
+   (log/debug "  have mailgun key?" (boolean *mailgun-key*))
    (try
      (client/post *mailgun-url*
                   {:basic-auth ["api" *mailgun-key*]

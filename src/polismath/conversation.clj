@@ -412,7 +412,7 @@
   "Take a conversation record and a seq of moderation data and updates the conversation's mod-out attr"
   [conv mods]
   ; Hmm... really need to make sure that if someone quickly mods and unmods on a long running comp, we
-  ; consider order or :updated
+  ; consider order or :updated XXX
   (try
     (let [mod-sep (fn [mod] (->> mods
                                  (filter (comp #{mod} :mod))
