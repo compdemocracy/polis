@@ -12704,6 +12704,7 @@ app.get(/^\/dist\/admin_bundle.js$/, makeFileFetcher(hostname, portForAdminFiles
 app.get(/^\/__webpack_hmr$/, makeFileFetcher(hostname, portForAdminFiles, "/__webpack_hmr", {'Content-Type': "eventsource"}));
 // admin dash-based landers
 app.get(/^\/home(\/.*)?/, fetchIndexForAdminPage);
+app.get(/^\/createuser(\/.*)?/, fetchIndexForAdminPage);
 
 
 app.get("/iip/:conversation_id",
