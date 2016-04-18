@@ -10,7 +10,6 @@ var ConversationInfoSlideView = require('../views/conversationInfoSlideView');
 var ConversationStatsHeader = require('../views/conversation-stats-header');
 var ConversationTabsView = require("../views/conversationTabs");
 var ChangeVotesView = require("../views/change-votes");
-var LegendView = require("../views/legendView");
 var GroupSelectionView = require("../views/groupSelectionView");
 var display = require("../util/display");
 var ResultsView = require("../views/results-view");
@@ -855,8 +854,6 @@ module.exports =  ConversationView.extend({
         collection: this.allCommentsCollection
       }));
 
-      this.legendView = this.addChild(new LegendView({
-      }));
 
       this.voteMoreModel.on("change", function() {
         that.updateVisMode();
@@ -1103,9 +1100,6 @@ module.exports =  ConversationView.extend({
       });
 
 
-      $("#closeLegendButton").on("click", function() {
-        that.conversationTabs.hideLegend();
-      });
       $("#nextTutorialStepButton").on("click", function() {
         that.vis.tutorialNextClicked();
       });
