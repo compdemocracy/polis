@@ -1,14 +1,31 @@
-@import 'rainbow/themes/github.scss';
+// @import 'rainbow/themes/github.scss';
+
+body {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.42857;
+  color: #333333;
+  background-color: #fff;
+}
+
+// 2KB
 @import 'owlcarousel/owl.carousel.scss';
 @import 'owlcarousel/owl.theme.scss';
 @import 'owlcarousel/owl.transitions.scss';
 @import 'owlcarousel/owl.custom.scss';
+
 @import 'bootstrap_config/bootstrap';
+
+// 4KB
 @import 'awesome_config/font-awesome';
+
 // @import 'base';
 
 @import 'polis/polis';
+
+// 3KB
 @import 'conversationView';
+
 @import 'pca_vis';
 
 

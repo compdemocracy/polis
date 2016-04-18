@@ -2,7 +2,7 @@
 // polis style guide
 //
 
-@import 'normalize';
+// @import 'normalize';
 
 // BASE
 @import 'base/mixins';
@@ -11,28 +11,28 @@
 @import 'base/content';
 
 //LAYOUT
-@import 'layout/grid';
+// @import 'layout/grid';
 
 //MODULES
-@import 'modules/accordion';
-@import 'modules/buttons';
-@import 'modules/footer';
-@import 'modules/forms';
-@import 'modules/formSwitch';
-@import 'modules/intercom';
-@import 'modules/header';
-@import 'modules/hero';
-@import 'modules/icons';
-@import 'modules/lander';
-@import 'modules/legend';
-@import 'modules/lists';
-@import 'modules/navigation';
-@import 'modules/notifications';
-@import 'modules/share';
-@import 'modules/toggle';
+// @import 'modules/accordion';
+// @import 'modules/buttons';
+// @import 'modules/footer';
+// @import 'modules/forms';
+// @import 'modules/formSwitch';
+// @import 'modules/intercom';
+// @import 'modules/header';
+// @import 'modules/hero';
+// @import 'modules/icons';
+// @import 'modules/lander';
+// @import 'modules/legend';
+// @import 'modules/lists';
+// @import 'modules/navigation';
+// @import 'modules/notifications';
+// @import 'modules/share';
+// @import 'modules/toggle';
 @import 'modules/visualization';
 
-@import 'modules/starterComments';
+// @import 'modules/starterComments';
 
 //STATES
 @import 'states/states';
