@@ -3961,9 +3961,9 @@ function sendTextEmailWithPostmark(sender, recipient, subject, text) {
 }
 
 function sendTextEmail(sender, recipient, subject, text) {
-    var promise = sendTextEmailWithPostmark(sender, recipient, subject, text).catch(function(err) {
+    var promise = sendTextEmailWithMailgun(sender, recipient, subject, text).catch(function(err) {
         yell("polis_err_primary_email_sender_failed");
-        return sendTextEmailWithMailgun(sender, recipient, subject, text);
+        return sendTextEmailWithPostmark(sender, recipient, subject, text);
     });
     promise.catch(function(err) {
         yell("polis_err_backup_email_sender_failed");
