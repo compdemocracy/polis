@@ -45,11 +45,20 @@ var FooterPartial = require("./tmpl/footer");
 var PolisLogoPartial = require("./tmpl/polisLogo");
 var TutorialSlidesButtonsPartial = require("./tmpl/tutorialSlidesButtonsPartial");
 var TutorialSlidesButtonsLeftPartial = require("./tmpl/tutorialSlidesButtonsLeftPartial");
-
+var IconFaCircleCheckPartial = require("./tmpl/icon_fa_check_circle");
+var IconFaBan = require("./tmpl/icon_fa_ban");
+var IconFaAngleLeft = require("./tmpl/icon_fa_angle_left");
+var IconFaAngleRight = require("./tmpl/icon_fa_angle_right");
+var IconFaLightBulb = require("./tmpl/icon_fa_lightbulb_o");
+var IconFaAsterisk = require("./tmpl/icon_fa_asterisk");
+var IconFaTimes = require("./tmpl/icon_fa_times");
+var IconFaTwitter = require("./tmpl/icon_fa_twitter");
+var iconFaFacebookSquare = require("./tmpl/icon_fa_facebook_square");
 
 var LinkTosPartial = require("./tmpl/link-TOS-partial");
 var LinkPrivacyPartial = require("./tmpl/link-privacy-partial");
 var LinkAddPolisPartial = require("./tmpl/link-AddPolis-partial");
+
 
 
 var match = window.location.pathname.match(/ep1_[0-9A-Za-z]+$/);
@@ -335,6 +344,17 @@ Handlebars.registerPartial("tutorialSlidesButtonsLeft", TutorialSlidesButtonsLef
 Handlebars.registerPartial("linkTos", LinkTosPartial);
 Handlebars.registerPartial("linkPrivacy", LinkPrivacyPartial);
 Handlebars.registerPartial("linkAddPolis", LinkAddPolisPartial);
+Handlebars.registerPartial("iconFaCircleCheck", IconFaCircleCheckPartial);
+Handlebars.registerPartial("iconFaBan", IconFaBan);
+Handlebars.registerPartial("iconFaLightBulb", IconFaLightBulb);
+Handlebars.registerPartial("iconFaAsterisk", IconFaAsterisk);
+Handlebars.registerPartial("iconFaTimes", IconFaTimes);
+Handlebars.registerPartial("iconFaFacebookSquare", iconFaFacebookSquare);
+Handlebars.registerPartial("iconFaTwitter", IconFaTwitter);
+Handlebars.registerPartial("iconFaAngleLeft", IconFaAngleLeft);
+Handlebars.registerPartial("iconFaAngleRight", IconFaAngleRight);
+
+
 
 
 _.mixin({

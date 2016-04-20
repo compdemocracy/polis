@@ -117,16 +117,36 @@
 
     <div style="margin: 10px 0px" class="{{#if hideSocialButtons}}displayNone{{/if}}">
       <button class="facebookShareButton userWillShareOnFacebook">
-        <i class="fa fa-facebook-square"></i>
-        &nbsp;Share
+        <i class="svgIcon" style="
+          display: inline-block;
+          position: relative;
+          margin-right: 2px;
+          top: 1px;
+          width: 16px;
+          fill: white;
+        ">{{> iconFaFacebookSquare}}</i>
+        <span style="
+          top: -2px;
+          position: relative;
+        ">Share</span>
       </button>
       {{#if fbShareCount}}
         <span class="arrow_box">{{fbShareCount}}</span>
       {{/if}}
 
       <button class="twitterShareButton userWillShareOnTwitter">
-        <i class="fa fa-twitter"></i>
-        &nbsp;Tweet
+        <i class="svgIcon" style="
+          display: inline-block;
+          position: relative;
+          margin-right: 2px;
+          top: 1px;
+          width: 16px;
+          fill: white;
+        ">{{> iconFaTwitter}}</i>
+        <span style="
+          top: -2px;
+          position: relative;
+        ">Tweet</span>
       </button>
       {{#if twitterShareCount}}
         <span class="arrow_box">{{twitterShareCount}}</span>
@@ -214,10 +234,13 @@
       {{!-- TODO_SECURITY try to not use triple brackets. --}}
       {{{s.participantHelpWelcomeText}}}
     </span>
-    <i
-      style="position: absolute; top: 8px; right: 8px;"
-      class="fa fa-times cursorPointer">
-    </i>
+
+    <i class="svgIcon cursorPointer" style="
+      position: absolute; top: 7px; right: 5px;
+      width: 16px;
+      fill: #3498DB;
+      ">{{> iconFaTimes}}</i>
+
   </p>
 </div>
 
@@ -246,7 +269,15 @@
     {{#unless hasFacebook}}
       <button class="facebookButton">
         <span class="socialButtonText">
-          <i class="fa fa-facebook-square"></i>&nbsp; {{s.connectFbButton}}
+          <i class="svgIcon" style="
+            display: inline-block;
+            position: relative;
+            margin-right: 2px;
+            top: 6px;
+            width: 25px;
+            fill: white;
+          ">{{> iconFaFacebookSquare}}</i>
+          {{s.connectFbButton}}
         </span>
       </button>
     {{/unless}}
@@ -254,7 +285,15 @@
     {{#unless hasTwitter}}
       <button class="twitterButton">
       <span class="socialButtonText">
-        <i class="fa fa-twitter" style="color: white"></i>&nbsp; {{s.connectTwButton}}
+        <i class="svgIcon" style="
+          display: inline-block;
+          position: relative;
+          margin-right: 2px;
+          top: 8px;
+          width: 25px;
+          fill: white;
+        ">{{> iconFaTwitter}}</i>
+        {{s.connectTwButton}}
       </span>
       </button>
     {{/unless}}
@@ -293,10 +332,11 @@
       {{!-- TODO_SECURITY try to not use triple brackets. --}}
       {{{s.participantHelpGroupsText}}}
     </span>
-    <i
-      style="position: absolute; top: 8px; right: 8px;"
-      class="fa fa-times cursorPointer">
-    </i>
+    <i class="svgIcon cursorPointer" style="
+      position: absolute; top: 7px; right: 5px;
+      width: 16px;
+      fill: #3498DB;
+      ">{{> iconFaTimes}}</i>
   </p>
   <div id="helpTextGroupsMore" style="display:none; margin-top: 10px">
     {{{s.helpWhatAreGroupsDetail}}}

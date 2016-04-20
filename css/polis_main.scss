@@ -1,5 +1,15 @@
 // @import 'rainbow/themes/github.scss';
 
+.svgIcon {
+  display: inline-block;
+  position: relative;
+  margin-right: 2px;
+  top: 5px;
+  width: 22px;
+  fill: black;
+}
+
+
 body {
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: 14px;
@@ -17,7 +27,7 @@ body {
 @import 'bootstrap_config/bootstrap';
 
 // 4KB
-@import 'awesome_config/font-awesome';
+// @import 'awesome_config/font-awesome';
 
 // @import 'base';
 

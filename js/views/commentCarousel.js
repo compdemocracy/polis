@@ -8,6 +8,10 @@ var Utils = require("../util/utils");
 var isMobile = Utils.isMobile();
 
 
+var IconFaAngleLeft = require("../tmpl/icon_fa_angle_left");
+var IconFaAngleRight = require("../tmpl/icon_fa_angle_right");
+
+
 function addMultipleOwlItems(htmlStrings, targetPosition) {
   var base = this,
       i,
@@ -131,10 +135,15 @@ module.exports = Handlebones.View.extend({
               'background-color: rgba(0,0,0,0);'+
               'border: none;'+
               '">'+
-              '<i '+
-                'style="font-size: 48px; font-weight: bold" '+
-                'class="fa fa-angle-left"> '+
-              '</i>'+
+
+              '<i class="svgIcon" style="' +
+                'display: inline-block;' +
+                'position: relative;' +
+                'margin-right: 2px;' +
+                'top: 6px;' +
+                'width: 48px;' +
+                'fill: black;' +
+              '">'+IconFaAngleLeft()+'</i>' +
             '</span>';
 
           var groupCarouselNextHTML = '<span '+
@@ -151,10 +160,16 @@ module.exports = Handlebones.View.extend({
               'background-color: rgba(0,0,0,0);'+
               'border: none;'+
               '">'+
-              '<i '+
-                'style="font-size: 48px; font-weight: bold" '+
-                'class="fa fa-angle-right"> '+
-              '</i>'+
+            '<i class="svgIcon" style="' +
+              'display: inline-block;' +
+              'position: relative;' +
+              'margin-right: 2px;' +
+              'top: 6px;' +
+              'width: 48px;' +
+              'fill: black;' +
+            '">'+IconFaAngleRight()+'</i>' +
+
+
           '</span>';
 
           that.getPrevButtonEl().remove();

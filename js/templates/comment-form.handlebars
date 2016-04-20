@@ -54,10 +54,28 @@
         ">
       <div class="protip"><p><i class="fa fa-microphone"></i>&nbsp; {{s.connectToPostPrompt}}</p></div>
       {{#unless hasFacebook}}
-        <button id="facebookButtonCommentForm" class="facebookButton"><i class="fa fa-facebook-square"></i>&nbsp; {{s.connectFacebook}}</button>
+        <button id="facebookButtonCommentForm" class="facebookButton" style="padding-top: 0px;">
+          <i class="svgIcon" style="
+            display: inline-block;
+            position: relative;
+            margin-right: 2px;
+            top: 6px;
+            width: 25px;
+            fill: white;
+          ">{{> iconFaFacebookSquare}}</i>
+          {{s.connectFacebook}}</button>
       {{/unless}}
       {{#unless hasTwitter}}
-        <button id="twitterButtonCommentForm" class="twitterButton"><i class="fa fa-twitter"></i>&nbsp; {{s.connectTwitter}}</button>
+        <button id="twitterButtonCommentForm" class="twitterButton" style="padding-top: 0px;">
+        <i class="svgIcon" style="
+          display: inline-block;
+          position: relative;
+          margin-right: 2px;
+          top: 8px;
+          width: 25px;
+          fill: white;
+        ">{{> iconFaTwitter}}</i>
+          {{s.connectTwitter}}</button>
       {{/unless}}
     </div>
 
@@ -105,14 +123,14 @@
           class="protip low_priority_tip"
           style="display:none; {{#unless desktop}}font-size:12px{{/unless}}"
           >
-          <i
-            class="fa fa-lightbulb-o"
-            style="
-            font-size: 24px;
+          <i class="svgIcon" style="
+            display: inline-block;
             position: relative;
-            top: 2px;
-            ">
-          </i>
+            margin-right: 2px;
+            top: 5px;
+            width: 24px;
+            fill: rgba(0, 0, 0, 0.5);
+            ">{{> iconFaLightBulb}}</i>
           <span style="margin-left: 6px;">
             <strong>
               {{s.tip}}
@@ -130,11 +148,16 @@
             display: none;
             {{#unless desktop}}font-size:12px{{/unless}}
             ">
-            <i
-              class="fa fa-asterisk"
-              style="font-size: 16px;
-              ">
-            </i>&nbsp;
+
+            <i class="svgIcon" style="
+              display: inline-block;
+              position: relative;
+              margin-right: 2px;
+              top: 3px;
+              width: 16px;
+              fill: rgba(0, 0, 0, 0.5);
+              ">{{> iconFaAsterisk}}</i>
+
             <span style="margin-left: 6px;">
               {{s.tipOneIdea}}
             </span>
@@ -148,11 +171,16 @@
             display:none;
             {{#unless desktop}}font-size:12px{{/unless}}
             ">
-            <i
-              class="fa fa-asterisk"
-              style="font-size: 16px;
-              ">
-            </i>&nbsp;
+
+            <i class="svgIcon" style="
+              display: inline-block;
+              position: relative;
+              margin-right: 2px;
+              top: 3px;
+              width: 16px;
+              fill: rgba(0, 0, 0, 0.5);
+              ">{{> iconFaAsterisk}}</i>
+
               <span style="margin-left: 6px">
                 {{s.tipNoQuestions}}
               </span>
