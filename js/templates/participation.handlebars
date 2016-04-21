@@ -213,15 +213,14 @@
 <div
   id="helpTextWelcome"
   style="
-    background-color: {{help_bgcolor}};
+    {{!-- background-color: {{help_bgcolor}}; --}}
     {{!-- border: 1px solid rgb(85, 172, 238); --}}
     {{!-- color: rgb(68, 136, 189); --}}
-    color: {{help_color}};
-    padding: 15px 30px 15px 15px;
-    width: 100%;
-    margin: 10px auto;
-    border-radius: 4px;
-    position: relative;
+    {{!-- color: {{help_color}}; --}}
+    color: gray;
+    padding: 5px 0px 5px 0px;
+    font-style: italic;
+    font-family: chaparral-pro;
   " class="
   clickDoesNotDeselectHull
   {{#if hideHelp}} displayNone{{/if}}
@@ -234,12 +233,6 @@
       {{!-- TODO_SECURITY try to not use triple brackets. --}}
       {{{s.participantHelpWelcomeText}}}
     </span>
-
-    <i class="svgIcon cursorPointer" style="
-      position: absolute; top: 7px; right: 5px;
-      width: 16px;
-      fill: #3498DB;
-      ">{{> iconFaTimes}}</i>
 
   </p>
 </div>
@@ -312,15 +305,21 @@
 <div
   id="helpTextGroups"
   style="
-    background-color: {{help_bgcolor}};
+    {{!-- background-color: {{help_bgcolor}}; --}}
     {{!-- border: 1px solid rgb(85, 172, 238); --}}
     {{!-- color: rgb(68, 136, 189); --}}
-    color: {{help_color}};
+{{!--    color: {{help_color}};
     padding: 15px 30px 15px 15px;
     width: 99%;
     margin: 0px auto 10px auto;
     border-radius: 4px;
-    position: relative;
+    position: relative; --}}
+
+    color: gray;
+    padding: 5px 0px 5px 0px;
+    font-style: italic;
+    font-family: chaparral-pro;
+
   " class="
     clickDoesNotDeselectHull
     {{#if hideHelp}}displayNone{{/if}}
