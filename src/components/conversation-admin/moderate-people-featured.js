@@ -5,7 +5,7 @@ import Radium from "radium";
 import _ from "lodash";
 import Participant from "./participant";
 import Spinner from "../framework/spinner";
-import Flex from '../framework/Flex';
+import Flex from '../framework/flex';
 
 const styles = {
   card: {

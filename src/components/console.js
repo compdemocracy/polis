@@ -163,6 +163,8 @@ class App extends React.Component {
       title = "Share & Embed";
     } else if (this.props.routes[2] && this.props.routes[2].path === "live") {
       title = "See Conversation Live";
+    } else if (this.props.routes[2] && this.props.routes[2].path === "summary") {
+      title = "Summary";
     }
 
     return title;

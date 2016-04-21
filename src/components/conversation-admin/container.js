@@ -7,10 +7,6 @@ import Markdown from "react-markdown";
 import Spinner from "../framework/spinner";
 import StarsSpinner from "../framework/stars-spinner";
 
-const cardHeight = 50;
-const cardPadding = 10;
-const cardBorderRadius = 3;
-
 const styles = {
   container: {
     backgroundColor: "rgb(240,240,247)",

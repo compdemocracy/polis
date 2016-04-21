@@ -55,6 +55,7 @@ import ParticipantModerationHidden from "./components/conversation-admin/moderat
 import DataExport from "./components/conversation-admin/data-export";
 import ShareAndEmbed from "./components/conversation-admin/share-and-embed";
 import Live from "./components/conversation-admin/live";
+import Summary from "./components/conversation-admin/summary";
 
 const store = configureStore();
 
@@ -73,6 +74,7 @@ class Root extends React.Component {
                 <IndexRoute component={ConversationConfig}/>
                 <Route path="live" component={Live}/>
                 <Route path="share" component={ShareAndEmbed}/>
+                <Route path="summary" component={Summary}/>
                 <Route path="comments" component={ModerateComments}>
                   <IndexRoute component={ModerateCommentsTodo}/>
                   <Route path="accepted" component={ModerateCommentsAccepted}/>

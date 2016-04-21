@@ -49,7 +49,7 @@ class SidebarContentConversation extends React.Component {
             style={styles.sidebarLink}
             to={"/"}>
             <Awesome name="chevron-left"/>
-            <span style={{marginLeft: 15}}> Back </span>
+            <span style={{marginLeft: 15}}> Home </span>
           </Link>
           <Link
             style={styles.sidebarLink}
@@ -80,6 +80,12 @@ class SidebarContentConversation extends React.Component {
             to={"/m/"+this.props.conversation_id+"/participants"}>
             <Awesome name="users"/>
             <span style={{marginLeft: 10}}> Participants </span>
+          </Link>
+          <Link
+            style={styles.sidebarLink}
+            to={"/m/"+this.props.conversation_id+"/summary"}>
+            <Awesome name="list-alt"/>
+            <span style={{marginLeft: 10}}> Summary </span>
           </Link>
           <Link
             style={styles.sidebarLink}
