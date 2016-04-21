@@ -1286,7 +1286,7 @@ function clientSideBaseCluster(things, N) {
                                     // o.ptptoiCount += 1;
                                     return o;
                                 }
-                                o.members = _.union(o.members, bucket.members);
+                                // o.members = _.union(o.members, bucket.members);
                                 o.count += bucket.count;
                                 o.bids.push(bucket.id); // not currently consumed by vis
 
@@ -1375,56 +1375,26 @@ function clientSideBaseCluster(things, N) {
 
 
                     // -------------- PROCESS VOTES INFO --------------------------
-
-                    var votesBase = pcaData["votes-base"];
-                    var indexToBid = pcaData["base-clusters"].id;
-
-                    // TEMP hack for bug in data
-                    if (!_.isUndefined(votesBase.tid)) {
-                        var tid = votesBase.tid;
-                        votesBase[tid] = {};
-                        votesBase[tid].A = votesBase.A;
-                        votesBase[tid].D = votesBase.D;
-                        delete votesBase.tid;
-                        delete votesBase.A;
-                        delete votesBase.D;
-                    }
-
-                    bidToGid = getBidToGid(clusters); // TODO see if it's ok to delete this line since we call getBidToGid(clusters) above
                     var gidToBigBucketId = {};
                     _.each(bigBuckets, function(b) {
                         gidToBigBucketId[b.gid] = b.bid;
                     });
                     votesForTidBid = {};
-                    var tids = _.map(_.keys(votesBase), Number);
-                    _.each(tids, function(tid) {
-                        // translate from the compact index format to bid->voteCount format
-                        var aOrig = votesBase[tid].A;
-                        var dOrig = votesBase[tid].D;
-                        var sOrig = votesBase[tid].S;
+                    _.each(groupVotes[0].votes, function(o, tid) {
                         var A = {};
                         var D = {};
                         var S = {};
-                        var len = aOrig.length;
-                        var bid;
-                        var bigBucketBid;
-                        for (var i = 0; i < len; i++) {
-                            bid = indexToBid[i];
-                            bigBucketBid = gidToBigBucketId[bidToGid[bid]]; // convert to big bucket id
-                            if (!_.isUndefined(bigBucketBid)) {
-                                A[bigBucketBid] = (A[bigBucketBid] || 0) + aOrig[i];
-                                D[bigBucketBid] = (D[bigBucketBid] || 0) + dOrig[i];
-                                S[bigBucketBid] = (S[bigBucketBid] || 0) + sOrig[i];
-                            }
-                            A[bid] = aOrig[i];
-                            D[bid] = dOrig[i];
-                            S[bid] = sOrig[i];
-                        }
-                        // bidToBigBucket needed here
+                        _.each(clusters, function(cluster) {
+                            var gid = cluster.id;
+                            var bigBucketBid = gidToBigBucketId[gid];
+                            A[bigBucketBid] = groupVotes[gid]["votes"][tid].A;
+                            D[bigBucketBid] = groupVotes[gid]["votes"][tid].D;
+                            S[bigBucketBid] = groupVotes[gid]["votes"][tid].S;
+                        });
                         votesForTidBid[tid] = {
                             A: A,
                             D: D,
-                            S: S
+                            S: S,
                         };
                     });
 
