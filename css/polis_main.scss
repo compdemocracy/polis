@@ -44,3 +44,12 @@ body {
 	background-color: $header-footer-color;
 	padding: 10px 0px 10px 0px;
 }
+
+.tab-content {
+  > .tab-pane {
+    display: none;
+  }
+  > .active {
+    display: block;
+  }
+}
