@@ -49,7 +49,7 @@ class SidebarContentConversation extends React.Component {
             style={styles.sidebarLink}
             to={"/"}>
             <Awesome name="chevron-left"/>
-            <span style={{marginLeft: 15}}> Back </span>
+            <span style={{marginLeft: 15}}> Home </span>
           </Link>
           <Link
             style={styles.sidebarLink}
