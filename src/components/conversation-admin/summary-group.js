@@ -43,7 +43,6 @@ class SummaryGroup extends React.Component {
     };
   }
   groupComments() {
-    console.log(this.props)
     const comments = this.props.comments.comments;
     const math = this.props.math.math;
 

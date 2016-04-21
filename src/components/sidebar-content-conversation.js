@@ -83,6 +83,12 @@ class SidebarContentConversation extends React.Component {
           </Link>
           <Link
             style={styles.sidebarLink}
+            to={"/m/"+this.props.conversation_id+"/summary"}>
+            <Awesome name="list-alt"/>
+            <span style={{marginLeft: 10}}> Summary </span>
+          </Link>
+          <Link
+            style={styles.sidebarLink}
             to={"/m/"+this.props.conversation_id+"/stats"}>
             <Awesome name="area-chart"/>
             <span style={{marginLeft: 10}}> Stats </span>
