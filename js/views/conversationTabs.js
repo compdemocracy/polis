@@ -10,7 +10,7 @@ var display = require("../util/display");
 var Utils = require("../util/utils");
 
 
-module.exports =  Handlebones.ModelView.extend({
+module.exports = Handlebones.ModelView.extend({
   name: "conversation-tabs-view",
   template: template,
   MAJORITY_TAB: "majorityTab",
@@ -96,7 +96,7 @@ module.exports =  Handlebones.ModelView.extend({
     c.showMajorityTab = this.showMajorityTab;
     c.selfUrl = null;
     if (Utils.isInIframe()) {
-      c.selfUrl = (document.location+"").replace("embed.pol.is", "pol.is");
+      c.selfUrl = (document.location + "").replace("embed.pol.is", "pol.is");
     }
     return c;
   },
@@ -124,7 +124,7 @@ module.exports =  Handlebones.ModelView.extend({
     "click #commentViewTab": "onVoteTabClick",
     "click #infoPaneTab": "onInfoPaneTabClick",
     // Before shown
-    "show.bs.tab": function (e) {
+    "show.bs.tab": function(e) {
       var to = e.target;
       var from = e.relatedTarget;
       // console.log("to", to.id);
@@ -136,32 +136,32 @@ module.exports =  Handlebones.ModelView.extend({
       if (to && to.id === this.LEGEND_TAB) {
         this.trigger("beforeshow:legend");
       }
-       // previous tab
+      // previous tab
       if (from && from.id === this.WRITE_TAB) {
         this.trigger("beforehide:write");
       }
       if (from && from.id === this.LEGEND_TAB) {
         this.trigger("beforehide:legend");
       }
-      if(from && from.id === this.MAJORITY_TAB) {
+      if (from && from.id === this.MAJORITY_TAB) {
         this.trigger("beforehide:majority");
         eb.trigger("beforehide:majority");
       }
-      if(to && to.id === this.MAJORITY_TAB) {
+      if (to && to.id === this.MAJORITY_TAB) {
         this.trigger("beforeshow:majority");
       }
 
-      if(from && from.id === this.GROUP_TAB) {
+      if (from && from.id === this.GROUP_TAB) {
         this.trigger("beforehide:group");
         this.hideGroupHeader();
         this.showTabLabels();
       }
-      if(to && to.id === this.GROUP_TAB) {
+      if (to && to.id === this.GROUP_TAB) {
         this.trigger("beforeshow:group");
         this.showGroupHeader();
         this.hideTabLabels();
       }
-      if(to && to.id === this.VOTE_TAB) {
+      if (to && to.id === this.VOTE_TAB) {
         this.trigger("beforeshow:vote");
       }
     },
@@ -173,14 +173,14 @@ module.exports =  Handlebones.ModelView.extend({
     //   debugger;
     // },
     // After shown
-    "shown.bs.tab": function (e) {
+    "shown.bs.tab": function(e) {
       var to = e.target;
       // e.relatedTarget // previous tab
-      if(e.target && e.target.id === this.MAJORITY_TAB) {
+      if (e.target && e.target.id === this.MAJORITY_TAB) {
         this.trigger("aftershow:majority");
         eb.trigger("aftershow:majority");
       }
-      if(e.target && e.target.id === this.GROUP_TAB) {
+      if (e.target && e.target.id === this.GROUP_TAB) {
         this.trigger("aftershow:group");
       }
       if (e.target && e.target.id === this.WRITE_TAB) {
@@ -190,8 +190,8 @@ module.exports =  Handlebones.ModelView.extend({
         this.stopPulsingVoteTab();
         this.trigger("aftershow:vote");
       } else if (e.target && e.target.id === this.WRITE_TAB) {
-          // don't pulse on write tab
-          this.stopPulsingVoteTab();
+        // don't pulse on write tab
+        this.stopPulsingVoteTab();
       } else {
         // all other tabs cause pulsing
         this.maybeStartPulsingVoteTab();

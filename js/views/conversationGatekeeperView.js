@@ -14,19 +14,19 @@ module.exports = PolisModelView.extend({
   name: "conversationGatekeeper",
   template: template,
   events: {
-    "submit form": function(event){
+    "submit form": function(event) {
       var that = this;
       event.preventDefault();
-      serialize(this, function(attrs){
+      serialize(this, function(attrs) {
         // pull out the for values for pmaid
 
         var numbers = _.chain(attrs)
-          .values()  // attrs is {pmqid: pmaid} or {pmqid: [pmaid]}. We only need to upload the pmaids.
+          .values() // attrs is {pmqid: pmaid} or {pmqid: [pmaid]}. We only need to upload the pmaids.
           .flatten() // when !is_exclusive, you can get an array of pmaid for each pmqid
           .map(Number)
           .filter(function(num) {
-          return !_.isNaN(num) && _.isNumber(num);
-        }).value();
+            return !_.isNaN(num) && _.isNumber(num);
+          }).value();
         // delete them from the hash
         numbers.forEach(function(num) {
           delete attrs[num];
@@ -53,7 +53,7 @@ module.exports = PolisModelView.extend({
           type: "POST",
           dataType: "json",
           xhrFields: {
-              withCredentials: true
+            withCredentials: true
           },
           // crossDomain: true,
           data: attrs
@@ -90,8 +90,8 @@ module.exports = PolisModelView.extend({
       conversation_id: conversation_id
     });
     this.metadataCollection.fetch({
-        data: $.param(params),
-        processData: true
+      data: $.param(params),
+      processData: true
     });
     this.metadataQuestionsView = this.addChild(new MetadataQuestionsView({
       collection: this.metadataCollection,

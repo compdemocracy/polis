@@ -3,12 +3,12 @@ var Handlebones = require("handlebones");
 
 var PolisView = Handlebones.View.extend({
 
-    render: function() {
-       eb.trigger(eb.firstRender);
-       // this.trigger("beforeRender");
-       Handlebones.View.prototype.render.apply(this, arguments);
-       // this.trigger("afterRender");
-    },
+  render: function() {
+    eb.trigger(eb.firstRender);
+    // this.trigger("beforeRender");
+    Handlebones.View.prototype.render.apply(this, arguments);
+    // this.trigger("afterRender");
+  },
 
 });
 

@@ -12,19 +12,19 @@ var PolisFacebookUtils = require('../util/facebookButton');
 var SHOULD_PROMPT_FOR_FB = false;
 
 module.exports = Handlebones.ModelView.extend({
-    name: "readReactView",
-    template: template,
-    events: {
+  name: "readReactView",
+  template: template,
+  events: {
 
-      "click #fbNotNowBtn": "fbNotNowBtn",
-      "click #fbNoUseBtn": "fbNoUseBtn",
-      "click #fbConnectBtn": "fbConnectBtn",
-      // "click #passButton": "participantPassed",
+    "click #fbNotNowBtn": "fbNotNowBtn",
+    "click #fbNoUseBtn": "fbNoUseBtn",
+    "click #fbConnectBtn": "fbConnectBtn",
+    // "click #passButton": "participantPassed",
 
-      // "hover .starbutton": function(){
-      //   this.$(".starbutton").html("<i class='fa fa-star'></i>");
-      // }
-    },
+    // "hover .starbutton": function(){
+    //   this.$(".starbutton").html("<i class='fa fa-star'></i>");
+    // }
+  },
   fbNotNowBtn: function() {
     this.model.set("response", "fbnotnow");
   },

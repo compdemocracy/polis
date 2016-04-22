@@ -14,23 +14,25 @@ var IconFaAngleRight = require("../tmpl/icon_fa_angle_right");
 
 function addMultipleOwlItems(htmlStrings, targetPosition) {
   var base = this,
-      i,
-      position;
+    i,
+    position;
 
-  if (!htmlStrings || !htmlStrings.length) {return false; }
+  if (!htmlStrings || !htmlStrings.length) {
+    return false;
+  }
 
   if (base.$elem.children().length === 0) {
-      for (i = 0; i < htmlStrings.length; i++) {
-        base.$elem.append(htmlStrings[i]);
-      }
-      base.setVars();
-      return false;
+    for (i = 0; i < htmlStrings.length; i++) {
+      base.$elem.append(htmlStrings[i]);
+    }
+    base.setVars();
+    return false;
   }
   base.unWrap();
   if (targetPosition === undefined || targetPosition === -1) {
-      position = -1;
+    position = -1;
   } else {
-      position = targetPosition;
+    position = targetPosition;
   }
   if (position >= base.$userItems.length || position === -1) {
     for (i = 0; i < htmlStrings.length; i++) {
@@ -89,7 +91,7 @@ module.exports = Handlebones.View.extend({
 
     var el = that.getCarouselEl();
     el.html("");
-    el.append("<div id='"+ that.el_smallWindow +"' style='left: 10%; width:80%'></div>");
+    el.append("<div id='" + that.el_smallWindow + "' style='left: 10%; width:80%'></div>");
 
     var results = that.getSmallWindowEl();
     results.addClass("owl-carousel");
@@ -99,11 +101,11 @@ module.exports = Handlebones.View.extend({
     }
 
     results.owlCarousel({
-      items : that.commentLimit,
-      singleItem : true,
+      items: that.commentLimit,
+      singleItem: true,
       // autoHeight : true,
       //  transitionStyle: "fade", // this should enable CSS3 transitions
-      afterInit : function(elem){
+      afterInit: function(elem) {
         var thatCarousel = this;
         if (!isMobile) {
           this.owlControls.prependTo(elem);
@@ -121,56 +123,56 @@ module.exports = Handlebones.View.extend({
 
           var buttonOffset = display.xs() ? "-5px" : "0";
 
-          var groupCarouselPrevHTML = '<span '+
-            'id="'+ that.el_prevButton +'" '+
-            'class="Btn-alt Btn-small Btn" '+
-            'style=" '+
-              'z-index: 3;'+
-              'position: absolute;'+
-              'top: 40px;'+
-              'left:' + buttonOffset + ';' +
-              'box-shadow: none;'+
-              'cursor: pointer;'+
-              'color: black;'+
-              'background-color: rgba(0,0,0,0);'+
-              'border: none;'+
-              '">'+
+          var groupCarouselPrevHTML = '<span ' +
+            'id="' + that.el_prevButton + '" ' +
+            'class="Btn-alt Btn-small Btn" ' +
+            'style=" ' +
+            'z-index: 3;' +
+            'position: absolute;' +
+            'top: 40px;' +
+            'left:' + buttonOffset + ';' +
+            'box-shadow: none;' +
+            'cursor: pointer;' +
+            'color: black;' +
+            'background-color: rgba(0,0,0,0);' +
+            'border: none;' +
+            '">' +
 
-              '<i class="svgIcon" style="' +
-                'display: inline-block;' +
-                'position: relative;' +
-                'margin-right: 2px;' +
-                'top: 6px;' +
-                'width: 48px;' +
-                'fill: black;' +
-              '">'+IconFaAngleLeft()+'</i>' +
+            '<i class="svgIcon" style="' +
+            'display: inline-block;' +
+            'position: relative;' +
+            'margin-right: 2px;' +
+            'top: 6px;' +
+            'width: 48px;' +
+            'fill: black;' +
+            '">' + IconFaAngleLeft() + '</i>' +
             '</span>';
 
-          var groupCarouselNextHTML = '<span '+
-            'id="'+ that.el_nextButton +'" '+
-            'class="Btn-alt Btn-small Btn" '+
-            'style=" '+
-              'z-index: 3;'+
-              'position: absolute;'+
-              'top: 40px;'+
-              'right:' + buttonOffset + ';' +
-              'box-shadow: none;'+
-              'cursor: pointer;'+
-              'color: black;'+
-              'background-color: rgba(0,0,0,0);'+
-              'border: none;'+
-              '">'+
+          var groupCarouselNextHTML = '<span ' +
+            'id="' + that.el_nextButton + '" ' +
+            'class="Btn-alt Btn-small Btn" ' +
+            'style=" ' +
+            'z-index: 3;' +
+            'position: absolute;' +
+            'top: 40px;' +
+            'right:' + buttonOffset + ';' +
+            'box-shadow: none;' +
+            'cursor: pointer;' +
+            'color: black;' +
+            'background-color: rgba(0,0,0,0);' +
+            'border: none;' +
+            '">' +
             '<i class="svgIcon" style="' +
-              'display: inline-block;' +
-              'position: relative;' +
-              'margin-right: 2px;' +
-              'top: 6px;' +
-              'width: 48px;' +
-              'fill: black;' +
-            '">'+IconFaAngleRight()+'</i>' +
+            'display: inline-block;' +
+            'position: relative;' +
+            'margin-right: 2px;' +
+            'top: 6px;' +
+            'width: 48px;' +
+            'fill: black;' +
+            '">' + IconFaAngleRight() + '</i>' +
 
 
-          '</span>';
+            '</span>';
 
           that.getPrevButtonEl().remove();
           that.getNextButtonEl().remove();
@@ -202,7 +204,7 @@ module.exports = Handlebones.View.extend({
 
 
         });
-      // }, 100);
+        // }, 100);
 
       },
       afterMove: function() {
@@ -210,7 +212,7 @@ module.exports = Handlebones.View.extend({
 
         updateCarouselButtons.call(this);
         setTimeout(function() {
-            eb.trigger(eb.commentSelected, tid);
+          eb.trigger(eb.commentSelected, tid);
         }, 200);
       }
     });

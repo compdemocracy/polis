@@ -1,10 +1,9 @@
-
 // FB.getLoginStatus(function(response) {
-    //   if (response.status === 'connected') {
-    //     alert(1);
-    //     console.log('Logged in.');
-    //   }
-    //   else {
+//   if (response.status === 'connected') {
+//     alert(1);
+//     console.log('Logged in.');
+//   }
+//   else {
 
 
 function getFriends() {
@@ -28,7 +27,7 @@ function getFriends() {
     });
   }
 
-  FB.api('/me/friends',function (response) {
+  FB.api('/me/friends', function(response) {
     console.log("/me/friends returned");
     if (response && !response.error) {
       // alert(JSON.stringify(response));
@@ -57,7 +56,7 @@ function getFriends() {
 function getInfo() {
   var dfd = $.Deferred();
 
-  FB.api('/me',function (response) {
+  FB.api('/me', function(response) {
     console.log("/me done");
     // {"id":"10152802017421079"
     //   "email":"michael@bjorkegren.com"
@@ -115,50 +114,50 @@ function facebookLoginOkHandler(response, optionalPassword) {
     getInfo(),
     getFriends()).then(function(fb_public_profile, friendsData) {
 
-      // alert(JSON.stringify(friendsData));
-      console.log("got info and friends");
+    // alert(JSON.stringify(friendsData));
+    console.log("got info and friends");
 
-      var data = {
-          // fb_user_id: FB.getUserID(),
-          // fb_login_status: FB.getLoginStatus(),
-          // fb_auth_response: JSON.stringify(FB.getAuthResponse()),
-          // fb_access_token: FB.getAccessToken(),
-          fb_public_profile: JSON.stringify(fb_public_profile),
-          fb_friends_response: JSON.stringify(friendsData),
-          response: JSON.stringify(response)
-      };
-      if (fb_public_profile.email) {
-        data.fb_email = fb_public_profile.email;
-      } else {
-        data.provided_email = prompt("Please enter your email address.");
-      }
-      var hname = [fb_public_profile.first_name, fb_public_profile.last_name].join(" ");
-      if (hname.length) {
-        data.hname = hname;
-      }
-      if (response && response.authResponse && response.authResponse.grantedScopes) {
-        data.fb_granted_scopes = response.authResponse.grantedScopes;
-      }
-      if (optionalPassword) {
-        data.password = optionalPassword;
-      }
-      data.owner = false; // since this is the participation view, don't add them to intercom
+    var data = {
+      // fb_user_id: FB.getUserID(),
+      // fb_login_status: FB.getLoginStatus(),
+      // fb_auth_response: JSON.stringify(FB.getAuthResponse()),
+      // fb_access_token: FB.getAccessToken(),
+      fb_public_profile: JSON.stringify(fb_public_profile),
+      fb_friends_response: JSON.stringify(friendsData),
+      response: JSON.stringify(response)
+    };
+    if (fb_public_profile.email) {
+      data.fb_email = fb_public_profile.email;
+    } else {
+      data.provided_email = prompt("Please enter your email address.");
+    }
+    var hname = [fb_public_profile.first_name, fb_public_profile.last_name].join(" ");
+    if (hname.length) {
+      data.hname = hname;
+    }
+    if (response && response.authResponse && response.authResponse.grantedScopes) {
+      data.fb_granted_scopes = response.authResponse.grantedScopes;
+    }
+    if (optionalPassword) {
+      data.password = optionalPassword;
+    }
+    data.owner = false; // since this is the participation view, don't add them to intercom
 
-      return $.ajax({
-        url: "/api/v3/auth/facebook",
-        contentType: "application/json; charset=utf-8",
-        headers: {
-            //"Cache-Control": "no-cache"  // no-cache
-            "Cache-Control": "max-age=0"
-        },
-        xhrFields: {
-            withCredentials: true
-        },
-        // crossDomain: true,
-        dataType: "json",
-        data: JSON.stringify(data),
-        type: "POST"
-      });
+    return $.ajax({
+      url: "/api/v3/auth/facebook",
+      contentType: "application/json; charset=utf-8",
+      headers: {
+        //"Cache-Control": "no-cache"  // no-cache
+        "Cache-Control": "max-age=0"
+      },
+      xhrFields: {
+        withCredentials: true
+      },
+      // crossDomain: true,
+      dataType: "json",
+      data: JSON.stringify(data),
+      type: "POST"
+    });
   });
 }
 
@@ -188,7 +187,7 @@ function connect() {
   if (FB.getAuthResponse()) {
     FB.getLoginStatus(function(x) {
       if (x.status === "connected") {
-        facebookLoginOkHandler(x /*, password */).then(dfd.resolve, dfd.reject);
+        facebookLoginOkHandler(x /*, password */ ).then(dfd.resolve, dfd.reject);
       } else {
         // this code path may trigger popup blockers.
         // ideally the fbLoginPrompt call below is called instead.

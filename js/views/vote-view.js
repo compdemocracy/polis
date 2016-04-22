@@ -11,25 +11,25 @@ var Strings = require("../strings");
 var iOS = Utils.isIos();
 
 module.exports = Handlebones.ModelView.extend({
-    name: "vote-view",
-    template: template,
-    events: {
-      "click #agreeButton": "participantAgreed",
-      "click #disagreeButton": "participantDisagreed",
-      "click #passButton": "participantPassed",
-      "click #subscribeBtn": "subscribeBtn",
-      "click #starBtn": "starBtn",
-      "hover .starbutton": function(){
-        this.$(".starbutton").html("<i class='fa fa-star'></i>");
-      }
-    },
+  name: "vote-view",
+  template: template,
+  events: {
+    "click #agreeButton": "participantAgreed",
+    "click #disagreeButton": "participantDisagreed",
+    "click #passButton": "participantPassed",
+    "click #subscribeBtn": "subscribeBtn",
+    "click #starBtn": "starBtn",
+    "hover .starbutton": function() {
+      this.$(".starbutton").html("<i class='fa fa-star'></i>");
+    }
+  },
   context: function() {
     var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
     ctx.iOS = iOS;
     ctx.customStyles = "";
     // if (ctx.txt && ctx.txt.length < 30) {
     //   ctx.customStyles += "text-align: center; ";
-      // ctx.customStyles += "padding-top: 39px; ";
+    // ctx.customStyles += "padding-top: 39px; ";
     //   ctx.customStyles += "font-size: 22px; ";
     // }
     ctx.email = userObject.email;
@@ -87,7 +87,8 @@ module.exports = Handlebones.ModelView.extend({
   },
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
-      eb.on(eb.exitConv, cleanup);
+    eb.on(eb.exitConv, cleanup);
+
     function cleanup() {
       //alert('cleanup');
       eb.off(eb.exitConv, cleanup);
@@ -116,16 +117,20 @@ module.exports = Handlebones.ModelView.extend({
     var that = this;
     var waitingForComments = true;
     var commentPollInterval = 5 * 1000;
+
     function pollForComments(optionalPromiseForPreExisingNextCommentCall) {
       if (waitingForComments && !Utils.isHidden()) {
-          getNextAndShow(optionalPromiseForPreExisingNextCommentCall);
+        getNextAndShow(optionalPromiseForPreExisingNextCommentCall);
       } else {
         // try to try again later
         setTimeout(pollForComments, commentPollInterval);
       }
     }
+
     function showComment(model) {
-      that.model.clear({silent: true});
+      that.model.clear({
+        silent: true
+      });
       that.model.set(_.extend({
         empty: false
       }, model));
@@ -133,6 +138,7 @@ module.exports = Handlebones.ModelView.extend({
       that.trigger("showComment");
       waitingForComments = false;
     }
+
     function getNextAndShow(optionalPromiseForPreExisingNextCommentCall) {
       var params = {};
       if (that.model && that.model.get("tid")) {
@@ -155,6 +161,7 @@ module.exports = Handlebones.ModelView.extend({
         setTimeout(pollForComments, commentPollInterval);
       });
     }
+
     function onFail(err) {
       this.animateIn();
       console.error(err);
@@ -162,12 +169,13 @@ module.exports = Handlebones.ModelView.extend({
       if (!Utils.cookiesEnabled()) {
         // TODO send GA event
         alert("Sorry, voting requires cookies to be enabled. If you do enable cookies, be sure to reload the page after.");
-      } else if (err && err.responseText === "polis_err_conversation_is_closed"){
+      } else if (err && err.responseText === "polis_err_conversation_is_closed") {
         alert("This conversation is closed. No further voting is allowed.");
       } else {
         alert("Apologies, your vote failed to send. Please check your connection and try again.");
       }
     }
+
     function onVote(result) {
       var that = this;
       eb.trigger(eb.vote, this.mostRecentVoteType);
@@ -185,8 +193,11 @@ module.exports = Handlebones.ModelView.extend({
       // https://github.com/twbs/bootstrap/issues/12832
       this.$(".btn-vote").blur();
     }
+
     function showClosedConversationNotice() {
-      that.model.clear({silent: true});
+      that.model.clear({
+        silent: true
+      });
       that.model.set({
         empty: true,
         txt1: "This conversation is closed.",
@@ -194,11 +205,12 @@ module.exports = Handlebones.ModelView.extend({
       });
       that.render();
     }
+
     function showEmpty() {
       $.when(
         preloadHelper.firstVotesByMePromise,
         preloadHelper.firstPtptPromise
-        ).then(_.defer(function() {
+      ).then(_.defer(function() {
 
         var userHasVoted = !!votesByMe.size();
 
@@ -213,14 +225,16 @@ module.exports = Handlebones.ModelView.extend({
         } else {
           message1 = "There aren't any comments yet.";
           if (is_public) {
-            message2 =  "Get this conversation started by inviting more participants, or add a comment.";
+            message2 = "Get this conversation started by inviting more participants, or add a comment.";
           } else {
-            message2 =  "Get this conversation started by adding a comment.";
+            message2 = "Get this conversation started by adding a comment.";
           }
         }
 
         // TODO show some indication of whether they should wait around or not (how many active users there are, etc)
-        that.model.clear({silent: true});
+        that.model.clear({
+          silent: true
+        });
         that.model.set({
           empty: true,
           txt1: message1,
@@ -276,7 +290,7 @@ module.exports = Handlebones.ModelView.extend({
       });
       this.onButtonClicked();
       serverClient.agree(tid, starred)
-          .then(onVote.bind(this), onFail.bind(this));
+        .then(onVote.bind(this), onFail.bind(this));
     };
     this.participantDisagreed = function() {
       this.mostRecentVoteType = "disagree";
@@ -289,7 +303,7 @@ module.exports = Handlebones.ModelView.extend({
       });
       this.onButtonClicked();
       serverClient.disagree(tid, starred)
-          .then(onVote.bind(this), onFail.bind(this));
+        .then(onVote.bind(this), onFail.bind(this));
     };
     this.participantPassed = function() {
       this.mostRecentVoteType = "pass";
@@ -302,7 +316,7 @@ module.exports = Handlebones.ModelView.extend({
       });
       this.onButtonClicked();
       serverClient.pass(tid, starred)
-          .then(onVote.bind(this), onFail.bind(this));
+        .then(onVote.bind(this), onFail.bind(this));
     };
     this.participantStarred = function() {
       var tid = this.model.get("tid");
@@ -314,17 +328,17 @@ module.exports = Handlebones.ModelView.extend({
       });
       this.onButtonClicked();
       $.when(serverClient.star(tid), serverClient.agree(tid))
-          .then(onVote.bind(this), onFail.bind(this));
+        .then(onVote.bind(this), onFail.bind(this));
     };
     this.participantTrashed = function() {
       var tid = this.model.get("tid");
       this.onButtonClicked();
       serverClient.trash(tid)
-          .then(onVote.bind(this), onFail.bind(this));
+        .then(onVote.bind(this), onFail.bind(this));
     };
 
     pollForComments(options.firstCommentPromise); // call immediately using a promise for the first comment (latency reduction hack)
-    this.listenTo(this, "rendered", function(){
+    this.listenTo(this, "rendered", function() {
       // this.$("#agreeButton").tooltip({
       //   title: "This comment represents my opinion",
       //   placement: "right",
@@ -339,21 +353,30 @@ module.exports = Handlebones.ModelView.extend({
       this.$("#passButton").tooltip({
         title: "'No reaction', or 'I am unsure'",
         placement: "top",
-        delay: { show: 500, hide: 0 }
+        delay: {
+          show: 500,
+          hide: 0
+        }
       });
       this.$("#starButton").tooltip({
         title: "'Critical point', or 'central to my worldview'",
         placement: "top",
-        delay: { show: 500, hide: 0 },
+        delay: {
+          show: 500,
+          hide: 0
+        },
         container: "body"
       });
       this.$("#trashButton").tooltip({
         title: "This comment is irrelevant and/or abusive",
         placement: "top",
-        delay: { show: 500, hide: 0 }
+        delay: {
+          show: 500,
+          hide: 0
+        }
       });
 
 
     });
   }
-  });
+});

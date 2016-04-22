@@ -325,7 +325,7 @@ gulp.task('jshint', function(){
           noarg: true, // no arguments.caller and arguments.callee (allow for optimizations)
           newcap: true, // constructors must be capitalized
         //  latedef: "nofunc",
-         // indent: 2,
+          indent: 2,
           immed: true,
 //          forin: true, require hasOwnProperty checks
           boss: true,

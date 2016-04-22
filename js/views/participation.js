@@ -58,7 +58,7 @@ function shouldMoveVis() {
   return false;
 }
 
-module.exports =  ConversationView.extend({
+module.exports = ConversationView.extend({
   name: "participationView",
   template: template,
   className: "participationView clickDeselectsHull",
@@ -67,13 +67,12 @@ module.exports =  ConversationView.extend({
     "click .twitterButton": "twitterConnectBtn",
     "click .twitterShareButton": "shareOnTwitter",
     "click .facebookShareButton": "shareOnFacebook",
-    "click .hideOnClick" : "hideOnClick",
+    "click .hideOnClick": "hideOnClick",
     "click #helpTextGroups": "hideHelpTextGroups",
     "click #helpTextWelcome": "hideHelpTextWelcome",
     "click #helpTextGroupsExpand": "expandHelpTextGroups",
     // "click #fbLoginBtn": "fbConnectBtn", // NOTE: may want a separate handler/API
     // "click #twitterLoginBtn": "twitterConnectBtn", // NOTE: may want a separate handler/API
-
   },
   firstMathPollResultDeferred: $.Deferred(),
   shouldAffixVis: false,
@@ -178,7 +177,7 @@ module.exports =  ConversationView.extend({
     var html = markdown.renderJsonML( markdown.toHTMLTree( tree ) );
   */
 
-    var html = markdown.toHTML( md_content );
+    var html = markdown.toHTML(md_content);
     ctx.description = html;
     if (/^ *$/.test(ctx.description) || _.isNull(ctx.description)) {
       ctx.description = void 0;
@@ -269,8 +268,8 @@ module.exports =  ConversationView.extend({
       //   // don't show line on mobile
       //   this.vis.showLineToCluster(-1);
       // } else {
-        gid = _.isUndefined(gid) ? this.selectedGid : gid;
-        this.vis.showLineToCluster(gid);
+      gid = _.isUndefined(gid) ? this.selectedGid : gid;
+      this.vis.showLineToCluster(gid);
       // }
     }
   },
@@ -282,7 +281,7 @@ module.exports =  ConversationView.extend({
     }
   },
   shouldShowVisUnderTabs: function() {
-    return (display.xs()/* || display.sm() */) && (this.conversationTabs.onAnalyzeTab() || this.conversationTabs.onGroupTab());
+    return (display.xs() /* || display.sm() */ ) && (this.conversationTabs.onAnalyzeTab() || this.conversationTabs.onGroupTab());
   },
   initialize: function(options) {
     $("body").css("background-color", preload.firstConv.bgcolor || "#f7f7f7");
@@ -308,211 +307,213 @@ module.exports =  ConversationView.extend({
     }
   },
   doInit: function(options, firstComment) {
-    var vis;
-    var that = this;
-    var conversation_id = this.conversation_id;
-    var zinvite = this.zinvite;
-    var serverClient = this.serverClient;
+      var vis;
+      var that = this;
+      var conversation_id = this.conversation_id;
+      var zinvite = this.zinvite;
+      var serverClient = this.serverClient;
 
-    // This is a wart. ServerClient should be initialized much earlier, probably as a singleton, and it should be responsible for fetching the first comment.
-    serverClient.setNextCachedComment(options.firstCommentPromise);
+      // This is a wart. ServerClient should be initialized much earlier, probably as a singleton, and it should be responsible for fetching the first comment.
+      serverClient.setNextCachedComment(options.firstCommentPromise);
 
-    eb.on(eb.vote, function() {
-      that.socialButtonsAllowedToShow = true;
-      that.updateVisibilityOfSocialButtons();
-    });
+      eb.on(eb.vote, function() {
+        that.socialButtonsAllowedToShow = true;
+        that.updateVisibilityOfSocialButtons();
+      });
 
-    // initialize this first to ensure that the vote view is showing and populated ASAP
-    this.readReactView = this.addChild(new ReadReactView({
-      firstCommentPromise: options.firstCommentPromise,
-      serverClient: serverClient,
-      model: new Backbone.Model(),
-      conversationModel: this.model,
-      votesByMe: this.votesByMe,
-      // is_public: Utils.isShortConversationId(this.conversation_id),
-      isSubscribed: function() { return that.isSubscribed.apply(that, arguments); },
-      conversation_id: conversation_id
-    }));
+      // initialize this first to ensure that the vote view is showing and populated ASAP
+      this.readReactView = this.addChild(new ReadReactView({
+        firstCommentPromise: options.firstCommentPromise,
+        serverClient: serverClient,
+        model: new Backbone.Model(),
+        conversationModel: this.model,
+        votesByMe: this.votesByMe,
+        // is_public: Utils.isShortConversationId(this.conversation_id),
+        isSubscribed: function() {
+          return that.isSubscribed.apply(that, arguments);
+        },
+        conversation_id: conversation_id
+      }));
 
-    // clicks to "the background" should delelect hulls.
-    // This is important because the edge of the vis is not visible.
-    $(document.body).on("click", function(e) {
+      // clicks to "the background" should delelect hulls.
+      // This is important because the edge of the vis is not visible.
+      $(document.body).on("click", function(e) {
 
-      function maybeDeselectHull($node) {
-        if (!$node) {
-          return;
-        }
-        if ($node.hasClass("clickDeselectsHull")) {
-          if (that.vis) {
-            that.vis.deselect();
+        function maybeDeselectHull($node) {
+          if (!$node) {
+            return;
           }
-          eb.trigger(eb.backgroundClicked);
-          return;
-        } else if ($node.hasClass("clickDoesNotDeselectHull")) {
-          // we're in a subtree where clicking does not deselect hulls.
-          // Done searching.
-          return;
-        } else if ($node.parent() && $node.parent().length) {
-          // keep searching
-          maybeDeselectHull($node.parent());
-          return;
+          if ($node.hasClass("clickDeselectsHull")) {
+            if (that.vis) {
+              that.vis.deselect();
+            }
+            eb.trigger(eb.backgroundClicked);
+            return;
+          } else if ($node.hasClass("clickDoesNotDeselectHull")) {
+            // we're in a subtree where clicking does not deselect hulls.
+            // Done searching.
+            return;
+          } else if ($node.parent() && $node.parent().length) {
+            // keep searching
+            maybeDeselectHull($node.parent());
+            return;
+          }
         }
-      }
 
-      maybeDeselectHull($(e.target));
-    });
-
-    eb.on(eb.deselectGroups, function() {
-      if (that.vis) {
-        that.vis.deselect();
-      }
-    });
-
-    eb.on(eb.clusterSelectionChanged, function(gid) {
-      that.selectedGid = gid;
-      that.updateLineToSelectedCluster(gid);
-      that.groupNamesModel.set({
-        "selectedGid": gid,
-        "infoSlidePaneViewActive": false,
+        maybeDeselectHull($(e.target));
       });
 
-      if (gid === -1) {
+      eb.on(eb.deselectGroups, function() {
+        if (that.vis) {
+          that.vis.deselect();
+        }
+      });
+
+      eb.on(eb.clusterSelectionChanged, function(gid) {
+        that.selectedGid = gid;
+        that.updateLineToSelectedCluster(gid);
+        that.groupNamesModel.set({
+          "selectedGid": gid,
+          "infoSlidePaneViewActive": false,
+        });
+
+        if (gid === -1) {
+          if (vis) {
+            vis.selectComment(null);
+          }
+          // $("#commentViewTab").click();
+
+          if (that.conversationTabs.onGroupTab()) { // TODO check if needed
+            // that.conversationTabs.gotoVoteTab();
+            // that.conversationTabs.gotoAnalyzeTab();
+          }
+        }
+        that.updateCarouselVisibility();
+      });
+      eb.on(eb.backgroundClicked, function() {
+        that.conversationTabs.gotoInfoPaneTab();
+        that.groupSelectionView.gotoInfoPaneTab();
+        that.updateCarouselVisibility();
+      });
+      eb.on(eb.clusterClicked, function(gid) {
+        if (_.isNumber(gid) && gid >= 0) {
+          that.conversationTabs.gotoGroupTab();
+          // that.tutorialModel.set("step", Infinity);
+          // $("#groupTab").click();
+          // $("#groupTab").tab("show");
+
+          if (that.selectedGid === -1) {
+
+            // on transition from no selection to selection
+
+            // // ensure vis is showing when you click on a group, this also should ensure that the carousel is on-screen below the vis
+            // if (isMobile) {
+            //   $('html, body').animate({
+            //     scrollTop: $("#visualization_parent_div").offset().top
+            //   }, 100);
+            // }
+          }
+        }
+        that.updateCarouselVisibility();
+
+        that.onClusterTapped.apply(that, arguments);
+      });
+
+      eb.on(eb.queryResultsRendered, this.onAnalyzeTabPopulated.bind(this));
+
+
+      this.conversationStatsHeader = new ConversationStatsHeader();
+
+      var resultsCollection = new ResultsCollection();
+
+      // HTTP PATCH - model.save({patch: true})
+
+      function onPersonUpdate(updatedNodes, newClusters, newParticipantCount) {
+        that.firstMathPollResultDeferred.resolve();
+        if (updatedNodes.length >= 3) { // 2 could be the first author and the author's group. 3 ensures another group/person
+          if ($("#vis_section:hidden")) {
+            $("#vis_section").fadeIn(1000, function() {
+              that.initPcaVis();
+            });
+          }
+          eb.trigger(eb.visShown);
+        } else {
+          $("#vis_section").hide();
+        }
         if (vis) {
-          vis.selectComment(null);
+          vis.upsertNode.apply(vis, arguments);
         }
-        // $("#commentViewTab").click();
 
-        if (that.conversationTabs.onGroupTab()) { // TODO check if needed
-          // that.conversationTabs.gotoVoteTab();
-          // that.conversationTabs.gotoAnalyzeTab();
-        }
-      }
-      that.updateCarouselVisibility();
-    });
-    eb.on(eb.backgroundClicked, function() {
-      that.conversationTabs.gotoInfoPaneTab();
-      that.groupSelectionView.gotoInfoPaneTab();
-      that.updateCarouselVisibility();
-    });
-    eb.on(eb.clusterClicked, function(gid) {
-      if (_.isNumber(gid) && gid >= 0) {
-        that.conversationTabs.gotoGroupTab();
-        // that.tutorialModel.set("step", Infinity);
-        // $("#groupTab").click();
-      // $("#groupTab").tab("show");
+        var newGroups = _.map(newClusters, function(c, index) {
+          return {
+            styles: "",
+            name: Number(index) + 1,
+            gid: Number(index)
+          };
+        });
+        newGroups.push({
+          name: (display.xs() ? Strings.majorityOpinionShort : Strings.majorityOpinion),
+          styles: "margin-left: 20px;",
+          gid: -1
+        });
+        that.groupNamesModel.set("groups", newGroups);
 
-        if (that.selectedGid === -1) {
-
-          // on transition from no selection to selection
-
-          // // ensure vis is showing when you click on a group, this also should ensure that the carousel is on-screen below the vis
-          // if (isMobile) {
-          //   $('html, body').animate({
-          //     scrollTop: $("#visualization_parent_div").offset().top
-          //   }, 100);
-          // }
-        }
-      }
-      that.updateCarouselVisibility();
-
-      that.onClusterTapped.apply(that, arguments);
-    });
-
-    eb.on(eb.queryResultsRendered, this.onAnalyzeTabPopulated.bind(this));
-
-
-    this.conversationStatsHeader = new ConversationStatsHeader();
-
-    var resultsCollection = new ResultsCollection();
-
-    // HTTP PATCH - model.save({patch: true})
-
-    function onPersonUpdate(updatedNodes, newClusters, newParticipantCount) {
-      that.firstMathPollResultDeferred.resolve();
-      if (updatedNodes.length >= 3) { // 2 could be the first author and the author's group. 3 ensures another group/person
-        if ($("#vis_section:hidden")) {
-          $("#vis_section").fadeIn(1000, function() {
-            that.initPcaVis();
-          });
-        }
-        eb.trigger(eb.visShown);
-      } else {
-        $("#vis_section").hide();
-      }
-      if (vis) {
-        vis.upsertNode.apply(vis, arguments);
+        $(".participationCount").html(newParticipantCount + (newParticipantCount === 1 ? " person" : " people"));
       }
 
-      var newGroups = _.map(newClusters, function(c, index) {
-        return {
-          styles: "",
-          name: Number(index) + 1,
-          gid: Number(index)
-        };
-      });
-      newGroups.push({
-        name: (display.xs() ? Strings.majorityOpinionShort : Strings.majorityOpinion),
-        styles: "margin-left: 20px;",
-        gid: -1
-      });
-      that.groupNamesModel.set("groups", newGroups);
 
-      $(".participationCount").html(newParticipantCount + (newParticipantCount === 1 ? " person" : " people"));
-    }
+      function configureGutters() {
+        // if (display.xs()) {
+        //   $("#controlTabs").addClass("no-gutter");
+        // } else {
+        //   $("#controlTabs").removeClass("no-gutter");
+        // }
+      }
 
 
-    function configureGutters() {
-      // if (display.xs()) {
-      //   $("#controlTabs").addClass("no-gutter");
-      // } else {
-      //   $("#controlTabs").removeClass("no-gutter");
-      // }
-    }
+      function moveVisToBottom() {
+        if (shouldMoveVis()) {
+          var $vis = that.$("#visualization_parent_div").detach();
+          $("#vis_sibling_bottom").append($vis);
+        }
+      }
 
-
-    function moveVisToBottom() {
-      if (shouldMoveVis()) {
+      function moveVisAboveQueryResults() {
         var $vis = that.$("#visualization_parent_div").detach();
-        $("#vis_sibling_bottom").append($vis);
-      }
-    }
-
-    function moveVisAboveQueryResults() {
-      var $vis = that.$("#visualization_parent_div").detach();
-      $("#vis_sibling_above_tab_content").append($vis);
-    }
-
-    function initPcaVis() {
-      if (!Utils.supportsVis()) {
-        // Don't show vis for weird devices (Gingerbread, etc)
-        return;
+        $("#vis_sibling_above_tab_content").append($vis);
       }
 
+      function initPcaVis() {
+        if (!Utils.supportsVis()) {
+          // Don't show vis for weird devices (Gingerbread, etc)
+          return;
+        }
 
 
-      var w = $("#visualization_div").width();
-      var xOffset = 30;
-      if (isIE8) {
-        w = 500;
-        // $("#visualization_div").width(w);
-      }
-      if (display.xs()) {
-        xOffset = 0;
-        w = $(document.body).width() - 30;
-      }
-      var h = w/2;
-      // $("#visualization_div").height(h);
-      if (w === that.oldW && h === that.oldH) {
-        return;
-      }
-      that.oldH = h;
-      that.oldW = w;
-      $("#visualization_div > .visualization").remove();
-      // $(VIS_SELECTOR).html("").height(0);
-      // $(VIS_SELECTOR).parent().css("display", "none");
 
-      that.serverClient.removePersonUpdateListener(onPersonUpdate); // TODO REMOVE DUPLICATE
-      vis = that.vis = new VisView({
+        var w = $("#visualization_div").width();
+        var xOffset = 30;
+        if (isIE8) {
+          w = 500;
+          // $("#visualization_div").width(w);
+        }
+        if (display.xs()) {
+          xOffset = 0;
+          w = $(document.body).width() - 30;
+        }
+        var h = w / 2;
+        // $("#visualization_div").height(h);
+        if (w === that.oldW && h === that.oldH) {
+          return;
+        }
+        that.oldH = h;
+        that.oldW = w;
+        $("#visualization_div > .visualization").remove();
+        // $(VIS_SELECTOR).html("").height(0);
+        // $(VIS_SELECTOR).parent().css("display", "none");
+
+        that.serverClient.removePersonUpdateListener(onPersonUpdate); // TODO REMOVE DUPLICATE
+        vis = that.vis = new VisView({
           inVisLegendCounter: that.inVisLegendCounter,
           isIE8: isIE8,
           isMobile: isMobile,
@@ -531,91 +532,91 @@ module.exports =  ConversationView.extend({
             var x = that.serverClient.getGroupInfo(gid);
             return x.count;
           },
+        });
+        that.updateLineToSelectedCluster();
+        if (that.selectedGid >= 0) {
+          vis.selectGroup(that.selectedGid, true);
+        }
+        // if (display.xs()) {
+        //   $("#commentView").addClass("floating-side-panel-gradients");
+        // } else {
+        //   $("#commentView").removeClass("floating-side-panel-gradients");
+        // }
+
+        that.serverClient.addPersonUpdateListener(onPersonUpdate); // TODO REMOVE DUPLICATE
+
+
+        vis.getFirstShowDeferred().then(function() {
+          setTimeout(function() {
+            // that.selectedGid = -1;
+            vis.deselect();
+            vis.selectComment(null);
+            // that.conversationTabs.gotoAnalyzeTab();
+            that.conversationTabs.gotoInfoPaneTab();
+          }, 0);
+          that.groupSelectionView.show();
+        });
+
+
+        // that.tutorialController.setHandler("blueDot", function(){
+        //   that.$blueDotPopover = that.$(VIS_SELECTOR).popover({
+        //     title: "DOTS ARE PEOPLE",
+        //     content: "Each dot represents one or more people. The blue circle represents you. By reacting to a comment, you have caused your dot to move. As you and other participants react, you will move closer to people who reacted similarly to you, and further from people who reacted differently. <button type='button' id='blueDotPopoverButton' class='Btn Btn-primary' style='display: block; margin-top:10px'> Ok, got it </button>",
+        //     html: true,
+        //     trigger: "manual",
+        //     placement: "bottom"
+        //   }).popover("show");
+        //   $('#blueDotPopoverButton').click(function(){
+        //     that.$blueDotPopover.popover("destroy");
+        //   });
+        // });
+        // that.tutorialController.setHandler("shadedGroup", function(){
+        //   that.$shadedGroupPopover = that.$(VIS_SELECTOR).popover({
+        //     title: "CLICK ON GROUPS",
+        //     content: "Shaded areas represent groups. Click on a shaded area to show comments that most represent this group's opinion, and separate this group from the other groups.<button type='button' id='shadedGroupPopoverButton' class='Btn Btn-primary' style='display: block; margin-top:10px'> Ok, got it </button>",
+        //     html: true,
+        //     trigger: "manual",
+        //     placement: "bottom"
+        //   }).popover("show");
+        //   $('#shadedGroupPopoverButton').click(function(){
+        //     that.$shadedGroupPopover.popover("destroy");
+        //   });
+        // });
+        // that.tutorialController.setHandler("analyzePopover", function(){
+        //   setTimeout(function(){
+        //     if (!that.$el) {
+        //       return;
+        //     }
+        //     that.$analyzeViewPopover = that.$('.query_results > li').first().popover({
+        //       title: "COMMENTS FOR THIS GROUP",
+        //       content: "Clicking on a shaded area brings up the comments that brought this group together: comments that were agreed upon, and comments that were disagreed upon. Click on a comment to see which participants agreed (green/up) and which participants disagreed (red/down) across the whole conversation. Participants who haven't reacted to the selected comment disappear. <button type='button' id='analyzeViewPopoverButton' class='Btn Btn-primary' style='display: block; margin-top:10px'> Ok, got it </button>",
+        //       html: true,
+        //       trigger: "manual",
+        //       placement: "bottom"
+        //     });
+        //     // that.$('.query_result_item').first().trigger('click');
+        //     that.$analyzeViewPopover.popover("show");
+        //     that.$('#analyzeViewPopoverButton').click(function(){
+        //       that.$analyzeViewPopover.popover("destroy");
+        //     })
+        //   },1500)
+        // })
+
+        // serverClient.updateMyProjection();
+      } // end initPcaVis
+
+      this.initPcaVis = initPcaVis;
+
+
+
+
+      // just a quick hack for now.
+      // we may need to look into something more general
+      // http://stackoverflow.com/questions/11216392/how-to-handle-scroll-position-on-hashchange-in-backbone-js-application
+      var scrollTopOnFirstShow = _.once(function() {
+        // scroll to top
+        window.scroll(0, 0);
       });
-      that.updateLineToSelectedCluster();
-      if (that.selectedGid >= 0) {
-        vis.selectGroup(that.selectedGid, true);
-      }
-      // if (display.xs()) {
-      //   $("#commentView").addClass("floating-side-panel-gradients");
-      // } else {
-      //   $("#commentView").removeClass("floating-side-panel-gradients");
-      // }
-
-      that.serverClient.addPersonUpdateListener(onPersonUpdate); // TODO REMOVE DUPLICATE
-
-
-      vis.getFirstShowDeferred().then(function() {
-        setTimeout(function() {
-          // that.selectedGid = -1;
-          vis.deselect();
-          vis.selectComment(null);
-          // that.conversationTabs.gotoAnalyzeTab();
-          that.conversationTabs.gotoInfoPaneTab();
-        }, 0);
-        that.groupSelectionView.show();
-      });
-
-
-      // that.tutorialController.setHandler("blueDot", function(){
-      //   that.$blueDotPopover = that.$(VIS_SELECTOR).popover({
-      //     title: "DOTS ARE PEOPLE",
-      //     content: "Each dot represents one or more people. The blue circle represents you. By reacting to a comment, you have caused your dot to move. As you and other participants react, you will move closer to people who reacted similarly to you, and further from people who reacted differently. <button type='button' id='blueDotPopoverButton' class='Btn Btn-primary' style='display: block; margin-top:10px'> Ok, got it </button>",
-      //     html: true,
-      //     trigger: "manual",
-      //     placement: "bottom"
-      //   }).popover("show");
-      //   $('#blueDotPopoverButton').click(function(){
-      //     that.$blueDotPopover.popover("destroy");
-      //   });
-      // });
-      // that.tutorialController.setHandler("shadedGroup", function(){
-      //   that.$shadedGroupPopover = that.$(VIS_SELECTOR).popover({
-      //     title: "CLICK ON GROUPS",
-      //     content: "Shaded areas represent groups. Click on a shaded area to show comments that most represent this group's opinion, and separate this group from the other groups.<button type='button' id='shadedGroupPopoverButton' class='Btn Btn-primary' style='display: block; margin-top:10px'> Ok, got it </button>",
-      //     html: true,
-      //     trigger: "manual",
-      //     placement: "bottom"
-      //   }).popover("show");
-      //   $('#shadedGroupPopoverButton').click(function(){
-      //     that.$shadedGroupPopover.popover("destroy");
-      //   });
-      // });
-      // that.tutorialController.setHandler("analyzePopover", function(){
-      //   setTimeout(function(){
-      //     if (!that.$el) {
-      //       return;
-      //     }
-      //     that.$analyzeViewPopover = that.$('.query_results > li').first().popover({
-      //       title: "COMMENTS FOR THIS GROUP",
-      //       content: "Clicking on a shaded area brings up the comments that brought this group together: comments that were agreed upon, and comments that were disagreed upon. Click on a comment to see which participants agreed (green/up) and which participants disagreed (red/down) across the whole conversation. Participants who haven't reacted to the selected comment disappear. <button type='button' id='analyzeViewPopoverButton' class='Btn Btn-primary' style='display: block; margin-top:10px'> Ok, got it </button>",
-      //       html: true,
-      //       trigger: "manual",
-      //       placement: "bottom"
-      //     });
-      //     // that.$('.query_result_item').first().trigger('click');
-      //     that.$analyzeViewPopover.popover("show");
-      //     that.$('#analyzeViewPopoverButton').click(function(){
-      //       that.$analyzeViewPopover.popover("destroy");
-      //     })
-      //   },1500)
-      // })
-
-      // serverClient.updateMyProjection();
-    } // end initPcaVis
-
-    this.initPcaVis = initPcaVis;
-
-
-
-
-    // just a quick hack for now.
-    // we may need to look into something more general
-    // http://stackoverflow.com/questions/11216392/how-to-handle-scroll-position-on-hashchange-in-backbone-js-application
-    var scrollTopOnFirstShow = _.once(function() {
-      // scroll to top
-      window.scroll(0,0);
-    });
 
 
       /* child views */
@@ -685,7 +686,7 @@ module.exports =  ConversationView.extend({
 
       setTimeout(function() {
         that.visModeModel.set("visMode", mode);
-      },1);
+      }, 1);
 
 
       this.infoSlideViewModel = new Backbone.Model({
@@ -706,11 +707,14 @@ module.exports =  ConversationView.extend({
       this.selectedGid = -1;
       this.groupNamesModel = new Backbone.Model({
         groups: [
-        // these will be set when the pca results arrive
-        // {name: 1, gid: 0},
-        // {name: 2, gid: 1},
-        // {name: 3, gid: 2},
-        {name: "Majority Opinion", gid: -1},
+          // these will be set when the pca results arrive
+          // {name: 1, gid: 0},
+          // {name: 2, gid: 1},
+          // {name: 3, gid: 2},
+          {
+            name: "Majority Opinion",
+            gid: -1
+          },
         ],
         selectedGid: this.selectedGid,
         infoSlidePaneViewActive: true,
@@ -869,304 +873,309 @@ module.exports =  ConversationView.extend({
         // $("#"+VOTE_TAB).tab("show");
       });
 
-    // Clicking on the background dismisses the popovers.
-    this.$el.on("click", function() {
-      that.destroyPopovers();
-    });
-
-
-    that.conversationTabs.on("beforeshow:write", function() {
-      if (shouldHideVisWhenWriteTabShowing()) {
-        // When we're switching to the write tab, hide the vis.
-        that.hideVis();
-      }
-      moveVisToBottom(); // just in case
-      that.showWriteHints();
-      that.updateVisibilityOfSocialButtons();
-    });
-    that.conversationTabs.on("beforehide:write", function() {
-      // When we're leaving the write tab, show the vis again.
-      that.showVis();
-      that.hideWriteHints();
-    });
-    that.conversationTabs.on("beforehide:group", function() {
-      if (vis) {
-        vis.deselect();
-      }
-      // eb.trigger(eb.commentSelected, false);
-      // that.conversationTabs.doShowTabsUX();
-    });
-    that.conversationTabs.on("afterhide:majority", function() {
-      if (vis) {
-        vis.selectComment(null);
-      }
-    });
-
-    that.conversationTabs.on("beforeshow:majority", function() {
-      // that.showTutorial();
-      if (that.shouldShowVisUnderTabs()) {
-        moveVisAboveQueryResults();
-      }
-      // that.showVis();
-      that.allCommentsCollection.doFetch({
-        gid: that.selectedGid
-      }).then(function() {
-        that.commentCarouselMajorityView.renderWithCarousel();
-      });
-      that.updateVisibilityOfSocialButtons();
-    });
-      that.conversationTabs.on("beforeshow:group", function() {
-      if (that.shouldShowVisUnderTabs()) {
-        moveVisAboveQueryResults();
-      }
-      // that.showVis();
-      that.allCommentsCollection.doFetch({
-        gid: that.selectedGid
-      }).then(function() {
-          // setTimeout(function() {
-          //   $("#carousel").fadeIn("slow");
-          // }, 100);
-      });
-      that.updateVisibilityOfSocialButtons();
-    });
-    that.conversationTabs.on("aftershow:vote", function() {
-      that.initPcaVis();
-    });
-    that.conversationTabs.on("beforeshow:vote", function() {
-      moveVisToBottom();
-      // that.showVis();
-      // that.showTutorial();
-      that.updateVisibilityOfSocialButtons();
-    });
-    that.conversationTabs.on("aftershow:majority", function() {
-      that.initPcaVis();
-      that.commentCarouselMajorityView.renderWithCarousel();
-
-      if (SHOULD_AUTO_CLICK_FIRST_COMMENT) {
-        $(".query_result_item").first().trigger("click");
-      }
-    });
-    that.conversationTabs.on("aftershow:group", function() {
-      that.initPcaVis();
-      $(".query_result_item").first().trigger("click");
-    });
-    that.conversationTabs.on("aftershow:write", function() {
-      // Put the comment textarea in focus (should pop up the keyboard on mobile)
-      if (Utils.shouldFocusOnTextareaWhenWritePaneShown()) {
-        $("#comment_form_textarea").focus();
-      }
-    });
-
-    // window.playback = function() {
-    //   $.get("/api/v3/math/pcaPlaybackList?conversation_id="+that.conversation_id).then(function(result) {
-    //     if (!result) {
-    //       alert("couldn't find playback data");
-    //     }
-    //     result.sort(function(a, b) {
-    //       return a.lastVoteTimestamp - b.lastVoteTimestamp;
-    //     });
-    //     // var result = [
-    //     //   {lastVoteTimestamp: 123, n: 5, "n-cmts": 100},
-    //     //   {lastVoteTimestamp: 135, n: 6, "n-cmts": 102},
-    //     //   {lastVoteTimestamp: 136, n: 6, "n-cmts": 102},
-    //     //   {lastVoteTimestamp: 137, n: 6, "n-cmts": 102},
-    //     //   {lastVoteTimestamp: 138, n: 6, "n-cmts": 102},
-    //     //   {lastVoteTimestamp: 139, n: 6, "n-cmts": 102},
-    //     //   {lastVoteTimestamp: 149, n: 6, "n-cmts": 102},
-    //     //   {lastVoteTimestamp: 155, n: 6, "n-cmts": 102},
-    //     //   {lastVoteTimestamp: 165, n: 6, "n-cmts": 102},
-    //     //   {lastVoteTimestamp: 175, n: 6, "n-cmts": 102},
-    //     //   {lastVoteTimestamp: 185, n: 6, "n-cmts": 102},
-    //     //   {lastVoteTimestamp: 195, n: 6, "n-cmts": 102},
-    //     //   {lastVoteTimestamp: 235, n: 6, "n-cmts": 102},
-    //     //   ];
-    //     $("#visualization_div > #playbackLinks").remove();
-    //     $("#visualization_div").append("<div id='playbackLinks' style='max-height:100px; overflow:scroll;'></div>");
-    //     _.each(result, function(r) {
-    //       var label = [r.lastVoteTimestamp, r.n+" ptpts", r["n-cmts"]+" comments", (new Date(r.lastVoteTimestamp)).toLocaleTimeString()].join(", ");
-    //       $("#playbackLinks").append(
-    //         "<a class='playbacklink' id='"+ r.lastVoteTimestamp+"' data-foo='"+label+"'>" + r.n + " </a>");
-    //     });
-
-    //     $("#playbackLinks > .playbacklink").on("click", function(ev) {
-    //       var timestamp = Number(ev.target.id);
-    //       $("#playbackLinks > .playbacklink").css("background-color", "rgba(0,0,0,0)");
-    //       $(ev.target).css("background-color", "orange");
-    //       that.serverClient.jumpTo(timestamp);
-    //     });
-    //   });
-    // };
-
-
-    this.listenTo(this, "render", function(){
-      setTimeout(function() {
-
-      if (false) {
-        $("#voteMoreParent").show();
-      }
-      // if (AB.isA()) {
-      //   var cfp = $("#commentFormParent").detach();
-      //   cfp.insertAfter($("#commentFormBSibling"));
-      // }
-
-
-
-      that.updateVisMode();
-
-      // that.visModeModel.set("visMode", VIS_MODE_WAITING);
-
-      $("#getDataButton").on("click", function() {
-        $.get("/api/v3/dummyButton?button=getDataButton");
-        setTimeout(function() {
-          alert("coming soon!");
-        });
-      });
-
-      $("#closeConversationButton").on("click", function() {
-        $.post("/api/v3/conversation/close", {conversation_id: that.conversation_id}).then(function() {
-          alert("Conversation closed! Writing and voting are disabled.");
-          document.location.reload();
-        }, function(err) {
-          alert("error closing conversation");
-        });
-      });
-
-      $("#reopenConversationButton").on("click", function() {
-        $.post("/api/v3/conversation/reopen", {conversation_id: that.conversation_id}).then(function() {
-          alert("Conversation reopened! Writing and voting are enabled.");
-          document.location.reload();
-        }, function(err) {
-          alert("error reopening conversation");
-        });
+      // Clicking on the background dismisses the popovers.
+      this.$el.on("click", function() {
+        that.destroyPopovers();
       });
 
 
-      $("#nextTutorialStepButton").on("click", function() {
-        that.vis.tutorialNextClicked();
+      that.conversationTabs.on("beforeshow:write", function() {
+        if (shouldHideVisWhenWriteTabShowing()) {
+          // When we're switching to the write tab, hide the vis.
+          that.hideVis();
+        }
+        moveVisToBottom(); // just in case
+        that.showWriteHints();
+        that.updateVisibilityOfSocialButtons();
       });
-
-      scrollTopOnFirstShow();
-
-
-      if (!display.xs() && !display.sm() && that.shouldAffixVis) {
-        $("#visualization_div").affix({
-          offset: {
-            top: 150 //will be set dynamically
-          }
-        });
-      }
-      function deselectHulls() {
+      that.conversationTabs.on("beforehide:write", function() {
+        // When we're leaving the write tab, show the vis again.
+        that.showVis();
+        that.hideWriteHints();
+      });
+      that.conversationTabs.on("beforehide:group", function() {
         if (vis) {
           vis.deselect();
         }
-      }
-      /*
-      that.commentView.on("showComment", _.once(function() {
-        if (!isMobile) {
-          that.$("#"+that.conversationTabs.VOTE_TAB).tooltip({
-            title: "Start here - read and react to comments submitted by others.",
-            placement: "top",
-            delay: { show: 300, hide: 200 },
-            container: "body"
-          });
+        // eb.trigger(eb.commentSelected, false);
+        // that.conversationTabs.doShowTabsUX();
+      });
+      that.conversationTabs.on("afterhide:majority", function() {
+        if (vis) {
+          vis.selectComment(null);
         }
-      }));
-      if (!isMobile) {
-        that.$("#" + that.conversationTabs.WRITE_TAB).tooltip({
-          title: "If your ideas aren't already represented, submit your own comments. Other participants will be able to react.",
-          placement: "top",
-          delay: { show: 300, hide: 200 },
-          container: "body"
+      });
+
+      that.conversationTabs.on("beforeshow:majority", function() {
+        // that.showTutorial();
+        if (that.shouldShowVisUnderTabs()) {
+          moveVisAboveQueryResults();
+        }
+        // that.showVis();
+        that.allCommentsCollection.doFetch({
+          gid: that.selectedGid
+        }).then(function() {
+          that.commentCarouselMajorityView.renderWithCarousel();
         });
-      }
-
-      if (!isMobile) {
-        that.$("#"+that.conversationTabs.MAJORITY_TAB).tooltip({
-          title: "See which comments have consensus, and which comments were representative of each group.",
-          placement: "top",
-          delay: { show: 300, hide: 200 },
-          container: "body"
-
-        // Wait until the first comment is shown before showing the tooltip
+        that.updateVisibilityOfSocialButtons();
+      });
+      that.conversationTabs.on("beforeshow:group", function() {
+        if (that.shouldShowVisUnderTabs()) {
+          moveVisAboveQueryResults();
+        }
+        // that.showVis();
+        that.allCommentsCollection.doFetch({
+          gid: that.selectedGid
+        }).then(function() {
+          // setTimeout(function() {
+          //   $("#carousel").fadeIn("slow");
+          // }, 100);
         });
-      }
-      */
+        that.updateVisibilityOfSocialButtons();
+      });
+      that.conversationTabs.on("aftershow:vote", function() {
+        that.initPcaVis();
+      });
+      that.conversationTabs.on("beforeshow:vote", function() {
+        moveVisToBottom();
+        // that.showVis();
+        // that.showTutorial();
+        that.updateVisibilityOfSocialButtons();
+      });
+      that.conversationTabs.on("aftershow:majority", function() {
+        that.initPcaVis();
+        that.commentCarouselMajorityView.renderWithCarousel();
 
-      // that.commentView.on("showComment", _.once(function() {
+        if (SHOULD_AUTO_CLICK_FIRST_COMMENT) {
+          $(".query_result_item").first().trigger("click");
+        }
+      });
+      that.conversationTabs.on("aftershow:group", function() {
+        that.initPcaVis();
+        $(".query_result_item").first().trigger("click");
+      });
+      that.conversationTabs.on("aftershow:write", function() {
+        // Put the comment textarea in focus (should pop up the keyboard on mobile)
+        if (Utils.shouldFocusOnTextareaWhenWritePaneShown()) {
+          $("#comment_form_textarea").focus();
+        }
+      });
 
-      //   that.$commentViewPopover = that.$("#commentView").popover({
-      //     title: "START HERE",
-      //     content: "Read comments submitted by other participants and react using these buttons. <button type='button' id='commentViewPopoverButton' class='Btn Btn-primary' style='display: block; margin-top:10px'> Ok, got it </button>",
-      //     html: true, //XSS risk, not important for now
-      //     trigger: "manual",
-      //     placement: "bottom"
-      //   });
-
-      //   setTimeout(function(){
-      //     if (that.conversationTabs.onVoteTab()) {
-      //       that.$commentViewPopover.popover("show");
-      //       $("#commentViewPopoverButton").click(function(){
-      //         that.$commentViewPopover.popover("destroy");
-      //       });
+      // window.playback = function() {
+      //   $.get("/api/v3/math/pcaPlaybackList?conversation_id="+that.conversation_id).then(function(result) {
+      //     if (!result) {
+      //       alert("couldn't find playback data");
       //     }
-      //   },2000);
-      // }));
+      //     result.sort(function(a, b) {
+      //       return a.lastVoteTimestamp - b.lastVoteTimestamp;
+      //     });
+      //     // var result = [
+      //     //   {lastVoteTimestamp: 123, n: 5, "n-cmts": 100},
+      //     //   {lastVoteTimestamp: 135, n: 6, "n-cmts": 102},
+      //     //   {lastVoteTimestamp: 136, n: 6, "n-cmts": 102},
+      //     //   {lastVoteTimestamp: 137, n: 6, "n-cmts": 102},
+      //     //   {lastVoteTimestamp: 138, n: 6, "n-cmts": 102},
+      //     //   {lastVoteTimestamp: 139, n: 6, "n-cmts": 102},
+      //     //   {lastVoteTimestamp: 149, n: 6, "n-cmts": 102},
+      //     //   {lastVoteTimestamp: 155, n: 6, "n-cmts": 102},
+      //     //   {lastVoteTimestamp: 165, n: 6, "n-cmts": 102},
+      //     //   {lastVoteTimestamp: 175, n: 6, "n-cmts": 102},
+      //     //   {lastVoteTimestamp: 185, n: 6, "n-cmts": 102},
+      //     //   {lastVoteTimestamp: 195, n: 6, "n-cmts": 102},
+      //     //   {lastVoteTimestamp: 235, n: 6, "n-cmts": 102},
+      //     //   ];
+      //     $("#visualization_div > #playbackLinks").remove();
+      //     $("#visualization_div").append("<div id='playbackLinks' style='max-height:100px; overflow:scroll;'></div>");
+      //     _.each(result, function(r) {
+      //       var label = [r.lastVoteTimestamp, r.n+" ptpts", r["n-cmts"]+" comments", (new Date(r.lastVoteTimestamp)).toLocaleTimeString()].join(", ");
+      //       $("#playbackLinks").append(
+      //         "<a class='playbacklink' id='"+ r.lastVoteTimestamp+"' data-foo='"+label+"'>" + r.n + " </a>");
+      //     });
+
+      //     $("#playbackLinks > .playbacklink").on("click", function(ev) {
+      //       var timestamp = Number(ev.target.id);
+      //       $("#playbackLinks > .playbacklink").css("background-color", "rgba(0,0,0,0)");
+      //       $(ev.target).css("background-color", "orange");
+      //       that.serverClient.jumpTo(timestamp);
+      //     });
+      //   });
+      // };
+
+
+      this.listenTo(this, "render", function() {
+        setTimeout(function() {
+
+          if (false) {
+            $("#voteMoreParent").show();
+          }
+          // if (AB.isA()) {
+          //   var cfp = $("#commentFormParent").detach();
+          //   cfp.insertAfter($("#commentFormBSibling"));
+          // }
 
 
 
-      configureGutters();
-      var windowWidth = $(window).width();
+          that.updateVisMode();
 
-      function resizeVis() {
-        var windowWidthNew = $(window).width();
-        if (windowWidth !== windowWidthNew) {
-          windowWidth = windowWidthNew;
-          configureGutters();
-          initPcaVis();
-        }
-      }
-      var resizeVisWithDebounce = _.debounce(resizeVis, 500);
+          // that.visModeModel.set("visMode", VIS_MODE_WAITING);
 
-      if (isIE8) {
-        // Can't listen to the "resize" event since IE8 fires a resize event whenever a DOM element changes size.
-        // http://stackoverflow.com/questions/1852751/window-resize-event-firing-in-internet-explorer
-       setTimeout(initPcaVis, 10); // give other UI elements a chance to load
-        // document.body.onresize = _.debounce(initPcaVis, 1000)
-      } else {
-        setTimeout(initPcaVis, 10); // give other UI elements a chance to load
+          $("#getDataButton").on("click", function() {
+            $.get("/api/v3/dummyButton?button=getDataButton");
+            setTimeout(function() {
+              alert("coming soon!");
+            });
+          });
 
-        // This need to happen quickly, so no debounce
-        $(window).resize(function() {
-          if (that.shouldShowVisUnderTabs()) {
-            // wait for layout
-            setTimeout(
-              moveVisAboveQueryResults,
-              10);
-          } else {
-            // wait for layout
-            setTimeout(
-              moveVisToBottom,
-              10);
+          $("#closeConversationButton").on("click", function() {
+            $.post("/api/v3/conversation/close", {
+              conversation_id: that.conversation_id
+            }).then(function() {
+              alert("Conversation closed! Writing and voting are disabled.");
+              document.location.reload();
+            }, function(err) {
+              alert("error closing conversation");
+            });
+          });
+
+          $("#reopenConversationButton").on("click", function() {
+            $.post("/api/v3/conversation/reopen", {
+              conversation_id: that.conversation_id
+            }).then(function() {
+              alert("Conversation reopened! Writing and voting are enabled.");
+              document.location.reload();
+            }, function(err) {
+              alert("error reopening conversation");
+            });
+          });
+
+
+          $("#nextTutorialStepButton").on("click", function() {
+            that.vis.tutorialNextClicked();
+          });
+
+          scrollTopOnFirstShow();
+
+
+          if (!display.xs() && !display.sm() && that.shouldAffixVis) {
+            $("#visualization_div").affix({
+              offset: {
+                top: 150 //will be set dynamically
+              }
+            });
           }
 
-          resizeVisWithDebounce();
+          function deselectHulls() {
+            if (vis) {
+              vis.deselect();
+            }
+          }
+          /*
+          that.commentView.on("showComment", _.once(function() {
+            if (!isMobile) {
+              that.$("#"+that.conversationTabs.VOTE_TAB).tooltip({
+                title: "Start here - read and react to comments submitted by others.",
+                placement: "top",
+                delay: { show: 300, hide: 200 },
+                container: "body"
+              });
+            }
+          }));
+          if (!isMobile) {
+            that.$("#" + that.conversationTabs.WRITE_TAB).tooltip({
+              title: "If your ideas aren't already represented, submit your own comments. Other participants will be able to react.",
+              placement: "top",
+              delay: { show: 300, hide: 200 },
+              container: "body"
+            });
+          }
 
-        });
-      }
+          if (!isMobile) {
+            that.$("#"+that.conversationTabs.MAJORITY_TAB).tooltip({
+              title: "See which comments have consensus, and which comments were representative of each group.",
+              placement: "top",
+              delay: { show: 300, hide: 200 },
+              container: "body"
+
+            // Wait until the first comment is shown before showing the tooltip
+            });
+          }
+          */
+
+          // that.commentView.on("showComment", _.once(function() {
+
+          //   that.$commentViewPopover = that.$("#commentView").popover({
+          //     title: "START HERE",
+          //     content: "Read comments submitted by other participants and react using these buttons. <button type='button' id='commentViewPopoverButton' class='Btn Btn-primary' style='display: block; margin-top:10px'> Ok, got it </button>",
+          //     html: true, //XSS risk, not important for now
+          //     trigger: "manual",
+          //     placement: "bottom"
+          //   });
+
+          //   setTimeout(function(){
+          //     if (that.conversationTabs.onVoteTab()) {
+          //       that.$commentViewPopover.popover("show");
+          //       $("#commentViewPopoverButton").click(function(){
+          //         that.$commentViewPopover.popover("destroy");
+          //       });
+          //     }
+          //   },2000);
+          // }));
+
+
+
+          configureGutters();
+          var windowWidth = $(window).width();
+
+          function resizeVis() {
+            var windowWidthNew = $(window).width();
+            if (windowWidth !== windowWidthNew) {
+              windowWidth = windowWidthNew;
+              configureGutters();
+              initPcaVis();
+            }
+          }
+          var resizeVisWithDebounce = _.debounce(resizeVis, 500);
+
+          if (isIE8) {
+            // Can't listen to the "resize" event since IE8 fires a resize event whenever a DOM element changes size.
+            // http://stackoverflow.com/questions/1852751/window-resize-event-firing-in-internet-explorer
+            setTimeout(initPcaVis, 10); // give other UI elements a chance to load
+            // document.body.onresize = _.debounce(initPcaVis, 1000)
+          } else {
+            setTimeout(initPcaVis, 10); // give other UI elements a chance to load
+
+            // This need to happen quickly, so no debounce
+            $(window).resize(function() {
+              if (that.shouldShowVisUnderTabs()) {
+                // wait for layout
+                setTimeout(
+                  moveVisAboveQueryResults,
+                  10);
+              } else {
+                // wait for layout
+                setTimeout(
+                  moveVisToBottom,
+                  10);
+              }
+
+              resizeVisWithDebounce();
+
+            });
+          }
 
 
 
 
-  }, 0); // end listenTo "render"
-  });
-  this.render();
+        }, 0); // end listenTo "render"
+      });
+      this.render();
 
-  // Prefetch the comments to speed up the first click on a group.
-  // (we don't want to slow down page load for this, so deferring,
-  //  but we don't want to wait until the user clicks the hull)
-  setTimeout(function() {
-    that.allCommentsCollection.doFetch({});
-  }, 3000);
+      // Prefetch the comments to speed up the first click on a group.
+      // (we don't want to slow down page load for this, so deferring,
+      //  but we don't want to wait until the user clicks the hull)
+      setTimeout(function() {
+        that.allCommentsCollection.doFetch({});
+      }, 3000);
 
-  } // end initialize
+    } // end initialize
 });

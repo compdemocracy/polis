@@ -65,5 +65,5 @@ function routeEvent(methodNameToCall, methodArgs) {
 
 module.exports = {
   gaEvent: gaEvent,
-  routeEvent: routeEvent};
-
+  routeEvent: routeEvent
+};

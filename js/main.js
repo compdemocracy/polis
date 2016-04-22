@@ -1,12 +1,5 @@
-
-
-
-
-
 // init this asap
 var preloadHelper = require("./util/preloadHelper");
-
-
 
 
 var $ = require("jquery");
@@ -84,7 +77,7 @@ if (isEmbedded()) {
     if (nu !== oldDocumentHeight) {
       oldDocumentHeight = nu;
       PostMessageUtils.postResizeEvent(nu);
-      }
+    }
   }, 200);
 }
 
@@ -143,14 +136,14 @@ window.addEventListener("message", function(event) {
   // auth token. keep this in this closure, don't put it on a global. used for cases where cookies are disabled.
   var token;
 
-var p = window.location.pathname;
+  var p = window.location.pathname;
   // check for token within URL
   if (p.match(/^\/inbox\//) ||
-      p.match(/^\/settings\/ep1_[A-Za-z0-9]+/) ||
-      p.match(/^\/settings\/enterprise\/ep1_[A-Za-z0-9]+/) ||
-      p.match(/^\/conversation\/create\//) ||
-      p.match(/^\/[0-9][A-Za-z0-9]+\/ep1_[A-Za-z0-9]+/)
-    ) {
+    p.match(/^\/settings\/ep1_[A-Za-z0-9]+/) ||
+    p.match(/^\/settings\/enterprise\/ep1_[A-Za-z0-9]+/) ||
+    p.match(/^\/conversation\/create\//) ||
+    p.match(/^\/[0-9][A-Za-z0-9]+\/ep1_[A-Za-z0-9]+/)
+  ) {
     // expecting params (added to support LTI)
     var params = Utils.decodeParams(encodedParams);
     if (params.xPolisLti) {
@@ -167,9 +160,9 @@ var p = window.location.pathname;
 
 
 
-  $.ajaxPrefilter(function( options, originalOptions, jqXHR ) {
-    if ( !options.beforeSend) {
-      options.beforeSend = function (xhr) {
+  $.ajaxPrefilter(function(options, originalOptions, jqXHR) {
+    if (!options.beforeSend) {
+      options.beforeSend = function(xhr) {
         // TODO assert that ajax request is going to our servers (in case of XSS)
         if (token) {
           xhr.setRequestHeader('x-polis', token);
@@ -177,7 +170,7 @@ var p = window.location.pathname;
       };
     }
   });
-  $(document).ajaxSuccess(function( event, xhr, settings ) {
+  $(document).ajaxSuccess(function(event, xhr, settings) {
     var t = xhr.getResponseHeader('x-polis');
     if (t) {
       token = t;
@@ -219,18 +212,19 @@ Handlebars.registerHelper("ifNotEmbedded", ifNotEmbedded);
 function isIE8() {
   return /MSIE 8.0/.exec(navigator.userAgent);
 }
+
 function ifIE8(arg0) {
   return isIE8() ? arg0.fn(this) : "";
 }
 Handlebars.registerHelper("ifIE8", ifIE8);
 
 function ifNotIE8(arg0) {
-  return isIE8()  ? "" : arg0.fn(this);
+  return isIE8() ? "" : arg0.fn(this);
 }
 Handlebars.registerHelper("ifNotIE8", ifNotIE8);
 
 function ifIos(arg0) {
-  return Utils.isIos()  ? arg0.fn(this): "";
+  return Utils.isIos() ? arg0.fn(this) : "";
 }
 Handlebars.registerHelper("ifIos", ifIos);
 
@@ -320,7 +314,7 @@ function addProtocolToLinkIfNeeded(url) {
 
 Handlebars.registerHelper('link', function(text, url) {
   text = Handlebars.Utils.escapeExpression(text);
-  url  = Handlebars.Utils.escapeExpression(url);
+  url = Handlebars.Utils.escapeExpression(url);
   var result = '<a href="' + url + '">' + text + '</a>';
 
   return new Handlebars.SafeString(result);
@@ -329,7 +323,7 @@ Handlebars.registerHelper('link', function(text, url) {
 Handlebars.registerHelper('linkExternal', function(text, url) {
   text = Handlebars.Utils.escapeExpression(text);
   url = addProtocolToLinkIfNeeded(url);
-  url  = Handlebars.Utils.escapeExpression(url);
+  url = Handlebars.Utils.escapeExpression(url);
   var result = '<a style="color:black" href="' + url + '" target="_blank">' + text + ' &nbsp;<i class="fa fa-external-link" style="font-size: 0.7em;"></i></a>';
 
   return new Handlebars.SafeString(result);
@@ -363,22 +357,22 @@ Handlebars.registerPartial("iconFaAngleRight", IconFaAngleRight);
 
 
 _.mixin({
-    isId: function(n) {
-      return n >= 0;
-    }
+  isId: function(n) {
+    return n >= 0;
+  }
 });
 
 if (!window.location.hostname.match(/polis/)) {
-    window.document.title = window.location.port;
+  window.document.title = window.location.port;
 }
 
 // debug convenience function for deregistering.
 window.deregister = function(dest) {
-    // relying on server to clear cookies
-    return $.post("/api/v3/auth/deregister", {}).always(function() {
-      window.location = dest || "/about";
-      // Backbone.history.navigate("/", {trigger: true});
-    });
+  // relying on server to clear cookies
+  return $.post("/api/v3/auth/deregister", {}).always(function() {
+    window.location = dest || "/about";
+    // Backbone.history.navigate("/", {trigger: true});
+  });
 };
 
 
@@ -393,9 +387,9 @@ function isParticipationView() {
 
 
 // if (isEmbedded()) {
-  // $(document.body).css("background-color", "#fff");
+// $(document.body).css("background-color", "#fff");
 // } else {
-  // $(document.body).css("background-color", "#f7f7f7");
+// $(document.body).css("background-color", "#f7f7f7");
 // }
 
 
@@ -406,28 +400,28 @@ var uidPromise;
 // } else {
 uidPromise = CurrentUserModel.update().then(function(user) {
 
-    window.intercomOptions = {
-        app_id: 'nb5hla8s',
-        widget: {
-          activator: '#IntercomDefaultWidget'
-        }
-    };
-    if (user.uid) {
-      intercomOptions.user_id = user.uid + "";
+  window.intercomOptions = {
+    app_id: 'nb5hla8s',
+    widget: {
+      activator: '#IntercomDefaultWidget'
     }
-    if (user.email) {
-      intercomOptions.email = user.email;
-    }
-    if (user.created) {
-      intercomOptions.created_at = user.created / 1000 >> 0;
-    }
-  });
+  };
+  if (user.uid) {
+    intercomOptions.user_id = user.uid + "";
+  }
+  if (user.email) {
+    intercomOptions.email = user.email;
+  }
+  if (user.created) {
+    intercomOptions.created_at = user.created / 1000 >> 0;
+  }
+});
 // }
 
 
 $.when(
-    preloadHelper.acceptLanguagePromise,
-    uidPromise).always(function() {
+  preloadHelper.acceptLanguagePromise,
+  uidPromise).always(function() {
 
   initialize(function(next) {
     // Load any data that your app requires to boot
@@ -453,7 +447,7 @@ $.when(
     // set up the "exitConv" event
     var currentRoute;
     router.on("route", function(route, params) {
-      console.log("route changed from: " + currentRoute+ " to: " + route);
+      console.log("route changed from: " + currentRoute + " to: " + route);
       if (currentRoute === "conversationView") {
         eb.trigger(eb.exitConv);
       }
@@ -486,44 +480,43 @@ $.when(
 
 
 function initialize(complete) {
-    $(function() {
-      Backbone.history.start({
-        pushState: true,
-        root: "/",
-        silent: true
+  $(function() {
+    Backbone.history.start({
+      pushState: true,
+      root: "/",
+      silent: true
     });
 
-  // RootView may use link or url helpers which
-  // depend on Backbone history being setup
-  // so need to wait to loadUrl() (which will)
-  // actually execute the route
-  RootView.getInstance(document.body);
+    // RootView may use link or url helpers which
+    // depend on Backbone history being setup
+    // so need to wait to loadUrl() (which will)
+    // actually execute the route
+    RootView.getInstance(document.body);
 
 
-// FB.Event.subscribe('auth.authResponseChange', function(response) {
-//     console.dir(response);
-//     console.log('The status of the session changed to: '+response.status);
-//     alert(response.status);
-// });
+    // FB.Event.subscribe('auth.authResponseChange', function(response) {
+    //     console.dir(response);
+    //     console.log('The status of the session changed to: '+response.status);
+    //     alert(response.status);
+    // });
 
 
-// setTimeout(function() {
-//       $(document.body).on("click", function() {
-//         // FB.getLoginStatus(function(response) {
-//         //   if (response.status === 'connected') {
-//         //     alert(1);
-//         //     console.log('Logged in.');
-//         //   }
-//         //   else {
-//               FB.login();
-//           // }
-//       });
-//     // });
-// }, 2000);
+    // setTimeout(function() {
+    //       $(document.body).on("click", function() {
+    //         // FB.getLoginStatus(function(response) {
+    //         //   if (response.status === 'connected') {
+    //         //     alert(1);
+    //         //     console.log('Logged in.');
+    //         //   }
+    //         //   else {
+    //               FB.login();
+    //           // }
+    //       });
+    //     // });
+    // }, 2000);
 
-  complete(function() {
-    Backbone.history.loadUrl();
+    complete(function() {
+      Backbone.history.loadUrl();
+    });
   });
-});
 }
-

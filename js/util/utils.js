@@ -4,16 +4,20 @@ var PolisStorage = require("./polisStorage");
 var Url = require("./url");
 
 var millisPerDay = 1000 * 60 * 60 * 24;
+
 function millisSinceJoin() {
   return Date.now() - PolisStorage.userCreated();
 }
+
 function daysSinceJoin() {
   console.log('daysSinceJoin', millisSinceJoin(), millisPerDay);
   return (millisSinceJoin() / millisPerDay) >> 0;
 }
+
 function numberOfDaysInTrial() {
   return (window.userObject && window.userObject.daysInTrial) || 10;
 }
+
 function trialDaysRemaining() {
   console.log('trial', numberOfDaysInTrial(), daysSinceJoin());
 
@@ -24,94 +28,92 @@ function mapObj(o, f) {
   var out = {};
 
   var ff = _.isFunction(f) ? function(val, key) {
-      out[key] = f(val, key);
+    out[key] = f(val, key);
   } : function(val, key) {
-      out[key] = o[key];
+    out[key] = o[key];
   };
   _.each(o, ff);
   return out;
 }
 
 // http://stackoverflow.com/questions/8112634/jquery-detecting-cookies-enabled
-function are_cookies_enabled()
-{
-  if ((""+document.cookie).length > 0) {
+function are_cookies_enabled() {
+  if (("" + document.cookie).length > 0) {
     console.log("cookieEnabled true " + document.cookie);
     return true;
   }
-    // var cookieEnabled = (navigator.cookieEnabled) ? true : false;
+  // var cookieEnabled = (navigator.cookieEnabled) ? true : false;
 
-    // if (typeof navigator.cookieEnabled == "undefined" && !cookieEnabled)
-    // {
+  // if (typeof navigator.cookieEnabled == "undefined" && !cookieEnabled)
+  // {
 
-    // create a temporary cookie
-    var soon = new Date(Date.now() + 1000).toUTCString();
-    var teststring = "_polistest_cookiesenabled";
-    document.cookie = teststring + "=1; expires=" + soon;
-    // see if it worked
-    var cookieEnabled = document.cookie.indexOf(teststring) !== -1;
-    console.log("cookieEnabled  " + cookieEnabled + " "+ document.cookie);
+  // create a temporary cookie
+  var soon = new Date(Date.now() + 1000).toUTCString();
+  var teststring = "_polistest_cookiesenabled";
+  document.cookie = teststring + "=1; expires=" + soon;
+  // see if it worked
+  var cookieEnabled = document.cookie.indexOf(teststring) !== -1;
+  console.log("cookieEnabled  " + cookieEnabled + " " + document.cookie);
 
-    // clear the cookie
-    document.cookie = teststring + "=; expires=" + (new Date(0)).toUTCString();
+  // clear the cookie
+  document.cookie = teststring + "=; expires=" + (new Date(0)).toUTCString();
 
-    // }
-    return cookieEnabled;
+  // }
+  return cookieEnabled;
 }
 
 //http://stackoverflow.com/questions/19189785/is-there-a-good-cookie-library-for-javascript
-function getCookie(sName)
-{
-    sName = sName.toLowerCase();
-    var oCrumbles = document.cookie.split(";");
-    for(var i=0; i<oCrumbles.length;i++)
-    {
-        var oPair= oCrumbles[i].split("=");
-        var sKey = oPair[0].trim().toLowerCase();
-        var sValue = oPair.length>1?oPair[1]:"";
-        if(sKey === sName) {
-            var val = decodeURIComponent(sValue);
-            if (val === "null") {
-                val = null;
-            }
-            return val;
-        }
+function getCookie(sName) {
+  sName = sName.toLowerCase();
+  var oCrumbles = document.cookie.split(";");
+  for (var i = 0; i < oCrumbles.length; i++) {
+    var oPair = oCrumbles[i].split("=");
+    var sKey = oPair[0].trim().toLowerCase();
+    var sValue = oPair.length > 1 ? oPair[1] : "";
+    if (sKey === sName) {
+      var val = decodeURIComponent(sValue);
+      if (val === "null") {
+        val = null;
+      }
+      return val;
     }
-    return null;
+  }
+  return null;
 }
 
 
 function strToHex(str) {
-var hex, i;
-var result = "";
-for (i=0; i<str.length; i++) {
-  hex = str.charCodeAt(i).toString(16);
-  result += ("000"+hex).slice(-4);
+  var hex, i;
+  var result = "";
+  for (i = 0; i < str.length; i++) {
+    hex = str.charCodeAt(i).toString(16);
+    result += ("000" + hex).slice(-4);
+  }
+  return result;
 }
-return result;
-}
+
 function hexToStr(hexString) {
-var j;
-var hexes = hexString.match(/.{1,4}/g) || [];
-var str = "";
-for(j = 0; j<hexes.length; j++) {
-  str += String.fromCharCode(parseInt(hexes[j], 16));
-}
-return str;
+  var j;
+  var hexes = hexString.match(/.{1,4}/g) || [];
+  var str = "";
+  for (j = 0; j < hexes.length; j++) {
+    str += String.fromCharCode(parseInt(hexes[j], 16));
+  }
+  return str;
 }
 
 function decodeParams(encodedStringifiedJson) {
-    if (!encodedStringifiedJson.match(/^\/?ep1_/)) {
-      throw new Error("wrong encoded params prefix");
-    }
-    if (encodedStringifiedJson[0] === "/") {
-      encodedStringifiedJson = encodedStringifiedJson.slice(5);
-    } else {
-      encodedStringifiedJson = encodedStringifiedJson.slice(4);
-    }
-    var stringifiedJson = hexToStr(encodedStringifiedJson);
-    var o = JSON.parse(stringifiedJson);
-    return o;
+  if (!encodedStringifiedJson.match(/^\/?ep1_/)) {
+    throw new Error("wrong encoded params prefix");
+  }
+  if (encodedStringifiedJson[0] === "/") {
+    encodedStringifiedJson = encodedStringifiedJson.slice(5);
+  } else {
+    encodedStringifiedJson = encodedStringifiedJson.slice(4);
+  }
+  var stringifiedJson = hexToStr(encodedStringifiedJson);
+  var o = JSON.parse(stringifiedJson);
+  return o;
 }
 
 function encodeParams(o) {
@@ -132,31 +134,32 @@ function isInIframe() {
 }
 
 // http://www.html5rocks.com/en/tutorials/pagevisibility/intro/
-function getHiddenProp(){
-    var prefixes = ['webkit','moz','ms','o'];
+function getHiddenProp() {
+  var prefixes = ['webkit', 'moz', 'ms', 'o'];
 
-    // if 'hidden' is natively supported just return it
-    if ('hidden' in document) {
-      return 'hidden';
+  // if 'hidden' is natively supported just return it
+  if ('hidden' in document) {
+    return 'hidden';
+  }
+
+  // otherwise loop over all the known prefixes until we find one
+  for (var i = 0; i < prefixes.length; i++) {
+    if ((prefixes[i] + 'Hidden') in document) {
+      return prefixes[i] + 'Hidden';
     }
+  }
 
-    // otherwise loop over all the known prefixes until we find one
-    for (var i = 0; i < prefixes.length; i++){
-      if ((prefixes[i] + 'Hidden') in document) {
-        return prefixes[i] + 'Hidden';
-      }
-    }
-
-    // otherwise it's not supported
-    return null;
+  // otherwise it's not supported
+  return null;
 }
-function isHidden() {
-    var prop = getHiddenProp();
-    if (!prop) {
-      return false;
-    }
 
-    return document[prop];
+function isHidden() {
+  var prop = getHiddenProp();
+  if (!prop) {
+    return false;
+  }
+
+  return document[prop];
 }
 
 function shouldFocusOnTextareaWhenWritePaneShown() {
@@ -190,11 +193,11 @@ function toQueryParamString(o) {
 }
 
 function toUnitVector(x, y) {
-  var magnitude = Math.sqrt(x*x + y*y);
+  var magnitude = Math.sqrt(x * x + y * y);
   if (magnitude === 0) {
     return [0, 0];
   }
-  return [x/magnitude, y/magnitude];
+  return [x / magnitude, y / magnitude];
 }
 
 
@@ -242,12 +245,12 @@ function evenlySample(items, maxSample) {
   var gotLast = false;
   for (var i = 0; i < items.length; i += step) {
     newItems.push(items[i]);
-    if (i === len-1) {
+    if (i === len - 1) {
       gotLast = true;
     }
   }
   if (!gotLast) {
-    newItems.push(items[len-1]);
+    newItems.push(items[len - 1]);
   }
   return newItems;
 }
@@ -280,12 +283,14 @@ function userCanSeeDescription() {
   ucsd = (ucsd === "true" || ucsd === "1" || _.isUndefined(ucsd));
   return ucsd;
 }
+
 function userCanSeeVis() {
   var params = parseQueryParams(window.location.search);
   var ucsv = params.ucsv;
   ucsv = (ucsv === "true" || ucsv === "1" || _.isUndefined(ucsv));
   return ucsv;
 }
+
 function userCanSeeFooter() {
   var params = parseQueryParams(window.location.search);
   var ucsf = params.ucsf;
@@ -308,8 +313,14 @@ module.exports = {
   mapObj: mapObj,
   computeXySpans: function(points) {
     var spans = {
-      x: { min: Infinity, max: -Infinity },
-      y: { min: Infinity, max: -Infinity }
+      x: {
+        min: Infinity,
+        max: -Infinity
+      },
+      y: {
+        min: Infinity,
+        max: -Infinity
+      }
     };
     for (var i = 0; i < points.length; i++) {
       if (points[i].proj) {

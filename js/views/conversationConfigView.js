@@ -6,14 +6,13 @@ var disappearingAlert = require("../util/polisAlert").disappearingAlert;
 var serialize = require("../util/serialize");
 
 
-
-module.exports =  Handlebones.ModelView.extend({
+module.exports = Handlebones.ModelView.extend({
   name: "conversationConfigView",
   template: template,
   setTrueFalseOrNothing: function(name, o) {
-    if (this.$("#"+name+"On")[0].checked) {
+    if (this.$("#" + name + "On")[0].checked) {
       o[name] = true;
-    } else if (this.$("#"+name+"Off")[0].checked) {
+    } else if (this.$("#" + name + "Off")[0].checked) {
       o[name] = false;
     }
     //  else if (this.$("#"+name+"Default")[0].checked) {
@@ -21,7 +20,7 @@ module.exports =  Handlebones.ModelView.extend({
     // }
   },
   events: {
-  "click #submitButton": "onFormChange"
+    "click #submitButton": "onFormChange"
   },
   onFormChange: function(e) {
     e.preventDefault();
@@ -65,8 +64,8 @@ module.exports =  Handlebones.ModelView.extend({
     return ctx;
   },
   initialize: function(options) {
-    Handlebones.ModelView.prototype.initialize.apply(this, arguments);
-    var that = this;
-    var conversation_id = this.conversation_id = this.model.get("conversation_id");
-  } // end initialize
+      Handlebones.ModelView.prototype.initialize.apply(this, arguments);
+      var that = this;
+      var conversation_id = this.conversation_id = this.model.get("conversation_id");
+    } // end initialize
 });

@@ -42,26 +42,23 @@ module.exports = PolisModelView.extend({
     }
   },
 
-
   allowMetadataFiltering: function() {
     return true;
   },
 
-  emphasizeParticipants: function() {
-  },
-
+  emphasizeParticipants: function() {},
 
   destroyPopovers: function() {
     popoverEach("destroy");
   },
-  onClusterTapped : function(gid) {
+  onClusterTapped: function(gid) {
     this.selectedGid = gid;
 
     this.destroyPopovers();
     var that = this;
-      // if (window.isMobile()) {
-      //    window.scrollTo(0, $("#visualization_div").offset().top);
-      // }
+    // if (window.isMobile()) {
+    //    window.scrollTo(0, $("#visualization_div").offset().top);
+    // }
   },
 
   initialize: function(options) {
@@ -139,31 +136,31 @@ module.exports = PolisModelView.extend({
 
 
 
-      //  // CHILD VIEWS
+    //  // CHILD VIEWS
 
-      // this.metadataQuestionsView = this.addChild(new MetadataQuestionsFilterView({
-      //   serverClient: serverClient,
-      //   conversation_id: conversation_id,
-      //   collection: metadataCollection
-      // }));
+    // this.metadataQuestionsView = this.addChild(new MetadataQuestionsFilterView({
+    //   serverClient: serverClient,
+    //   conversation_id: conversation_id,
+    //   collection: metadataCollection
+    // }));
 
-      //  // LISTEN TO EVENTS
+    //  // LISTEN TO EVENTS
 
-      // this.listenTo(this.metadataQuestionsView, "answersSelected", function(enabledAnswers) {
-      //   if (that.allowMetadataFiltering()) {
-      //     console.log(enabledAnswers);
-      //     serverClient.queryParticipantsByMetadata(enabledAnswers).then(
-      //       that.emphasizeParticipants.bind(that),
-      //       function(err) {
-      //         console.error(err);
-      //       });
-      //   }
-      // });
+    // this.listenTo(this.metadataQuestionsView, "answersSelected", function(enabledAnswers) {
+    //   if (that.allowMetadataFiltering()) {
+    //     console.log(enabledAnswers);
+    //     serverClient.queryParticipantsByMetadata(enabledAnswers).then(
+    //       that.emphasizeParticipants.bind(that),
+    //       function(err) {
+    //         console.error(err);
+    //       });
+    //   }
+    // });
 
-      // Clicking on the background dismisses the popovers.
-      this.$el.on("click", function() {
-        that.destroyPopovers();
-      });
+    // Clicking on the background dismisses the popovers.
+    this.$el.on("click", function() {
+      that.destroyPopovers();
+    });
 
 
   }

@@ -31,8 +31,14 @@ authenticatedDfd.done(function() {
 function onFirstRender() {
   $("#mainSpinner").hide();
 }
-function authenticated() { return PolisStorage.uid() || PolisStorage.uidFromCookie() || window.authenticatedByHeader;}
-function hasEmail() { return PolisStorage.hasEmail(); }
+
+function authenticated() {
+  return PolisStorage.uid() || PolisStorage.uidFromCookie() || window.authenticatedByHeader;
+}
+
+function hasEmail() {
+  return PolisStorage.hasEmail();
+}
 
 // TODO refactor this terrible recursive monster function.
 function doJoinConversation(args) {
@@ -59,95 +65,95 @@ function doJoinConversation(args) {
   var uid = PolisStorage.uid() || PolisStorage.uidFromCookie();
   console.log("have uid", !!uid);
   if (!uid) {
-      console.log("trying to load conversation, but no auth");
-      // Not signed in.
-      // Or not registered.
+    console.log("trying to load conversation, but no auth");
+    // Not signed in.
+    // Or not registered.
 
-      if (suzinvite) {
+    if (suzinvite) {
 
-        $.ajax({
-          url: "/api/v3/joinWithInvite",
-          type: "POST",
-          dataType: "json",
-          xhrFields: {
-              withCredentials: true
-          },
-          // crossDomain: true,
-          data: data,
-        }).then(function(data) {
-          window.userObject = $.extend(window.userObject, data);
-          window.userObject.uid = void 0;
+      $.ajax({
+        url: "/api/v3/joinWithInvite",
+        type: "POST",
+        dataType: "json",
+        xhrFields: {
+          withCredentials: true
+        },
+        // crossDomain: true,
+        data: data,
+      }).then(function(data) {
+        window.userObject = $.extend(window.userObject, data);
+        window.userObject.uid = void 0;
 
-          that.participationView(conversation_id);
-          gaEvent("Session", "create", "empty");
-        }, function(err) {
-          if (err.responseText === "polis_err_no_matching_suzinvite") {
-            gaEvent("Session", "createFail", "polis_err_no_matching_suzinvite");
-            setTimeout(function() {
-              alert("Sorry, this single-use URL has been used.");
-            },99);
-          } else {
-            alert("error joining conversation");
-            // that.conversationGatekeeper(conversation_id, suzinvite).done(function(ptptData) {
-            //   doJoinConversation.call(that, args);
-            // });
-          }
-        });
-      } else if (conversation_id) {
-        // Don't require user to explicitly create a user before joining the conversation.
-        $.ajax({
-          url: "/api/v3/joinWithInvite",
-          type: "POST",
-          dataType: "json",
-          xhrFields: {
-              withCredentials: true
-          },
-          // crossDomain: true,
-          data: data
-        }).then(function(data) {
-          window.userObject = $.extend(window.userObject, data);
-          window.userObject.uid = void 0;
+        that.participationView(conversation_id);
+        gaEvent("Session", "create", "empty");
+      }, function(err) {
+        if (err.responseText === "polis_err_no_matching_suzinvite") {
+          gaEvent("Session", "createFail", "polis_err_no_matching_suzinvite");
+          setTimeout(function() {
+            alert("Sorry, this single-use URL has been used.");
+          }, 99);
+        } else {
+          alert("error joining conversation");
+          // that.conversationGatekeeper(conversation_id, suzinvite).done(function(ptptData) {
+          //   doJoinConversation.call(that, args);
+          // });
+        }
+      });
+    } else if (conversation_id) {
+      // Don't require user to explicitly create a user before joining the conversation.
+      $.ajax({
+        url: "/api/v3/joinWithInvite",
+        type: "POST",
+        dataType: "json",
+        xhrFields: {
+          withCredentials: true
+        },
+        // crossDomain: true,
+        data: data
+      }).then(function(data) {
+        window.userObject = $.extend(window.userObject, data);
+        window.userObject.uid = void 0;
 
-          that.participationView(conversation_id);
-          gaEvent("Session", "create", "empty");
-        }, function(err) {
-          if (/polis_err_need_full_user/.test(err.responseText)) {
+        that.participationView(conversation_id);
+        gaEvent("Session", "create", "empty");
+      }, function(err) {
+        if (/polis_err_need_full_user/.test(err.responseText)) {
 
-            alert("error joining conversation polis_err_need_full_user");
-          } else {
-            // TODO when does this happen?
-            alert("error joining conversation 2");
-          }
-          // console.dir(err);
-        });
-      } else {
-        gaEvent("Session", "createFail", "polis_err_unexpected_conv_join_condition_1");
-        setTimeout(function() {
-          alert("missing conversation ID in URL. Shouldn't hit this.");
-        },99);
+          alert("error joining conversation polis_err_need_full_user");
+        } else {
+          // TODO when does this happen?
+          alert("error joining conversation 2");
+        }
+        // console.dir(err);
+      });
+    } else {
+      gaEvent("Session", "createFail", "polis_err_unexpected_conv_join_condition_1");
+      setTimeout(function() {
+        alert("missing conversation ID in URL. Shouldn't hit this.");
+      }, 99);
 
 
-        // !!!!!!!!!!TEMP CODE - JOIN WITHOUT A ZINVITE!!!!!
-        // Don't require user to explicitly create a user before joining the conversation.
-        $.ajax({
-          url: "/api/v3/joinWithInvite",
-          type: "POST",
-          dataType: "json",
-          xhrFields: {
-              withCredentials: true
-          },
-          // crossDomain: true,
-          data: data, // zinvite: zinvite
-        }).then(function(data) {
-          window.userObject = $.extend(window.userObject, data);
-          window.userObject.uid = void 0;
-          that.participationView(conversation_id);
-          gaEvent("Session", "create", "empty");
-        }, function(err) {
-          alert("error joining conversation 3");
-        });
+      // !!!!!!!!!!TEMP CODE - JOIN WITHOUT A ZINVITE!!!!!
+      // Don't require user to explicitly create a user before joining the conversation.
+      $.ajax({
+        url: "/api/v3/joinWithInvite",
+        type: "POST",
+        dataType: "json",
+        xhrFields: {
+          withCredentials: true
+        },
+        // crossDomain: true,
+        data: data, // zinvite: zinvite
+      }).then(function(data) {
+        window.userObject = $.extend(window.userObject, data);
+        window.userObject.uid = void 0;
+        that.participationView(conversation_id);
+        gaEvent("Session", "create", "empty");
+      }, function(err) {
+        alert("error joining conversation 3");
+      });
 
-      }
+    }
   } else { // uid defined
     var params = {
       conversation_id: conversation_id,
@@ -175,7 +181,7 @@ function doJoinConversation(args) {
           type: "POST",
           dataType: "json",
           xhrFields: {
-              withCredentials: true
+            withCredentials: true
           },
           // crossDomain: true,
           data: {
@@ -236,8 +242,8 @@ var polisRouter = Backbone.Router.extend({
     this.r("welcome/:einvite", "createUserViewFromEinvite");
     this.r("", "landingPageView");
 
-    this.r(/^([0-9][0-9A-Za-z]+)\/?(\?.*)?$/, "participationViewWithQueryParams");  // conversation_id / query params
-    this.r(/^([0-9][0-9A-Za-z]+)(\/ep1_[0-9A-Za-z]+)?$/, "participationView");  // conversation_id / encodedStringifiedJson
+    this.r(/^([0-9][0-9A-Za-z]+)\/?(\?.*)?$/, "participationViewWithQueryParams"); // conversation_id / query params
+    this.r(/^([0-9][0-9A-Za-z]+)(\/ep1_[0-9A-Za-z]+)?$/, "participationView"); // conversation_id / encodedStringifiedJson
     this.r(/^ot\/([0-9][0-9A-Za-z]+)\/(.*)/, "participationViewWithSuzinvite"); // ot/conversation_id/suzinvite
     this.r(/^demo\/([0-9][0-9A-Za-z]+)/, "demoConversation");
     //this.r(/^summary\/([0-9][0-9A-Za-z]+)$/, "summaryView");  // summary/conversation_id
@@ -246,8 +252,9 @@ var polisRouter = Backbone.Router.extend({
       /^summaryView/,
       /^createConversation/
     ];
+
     function needsFooter(route) {
-      return _.some(routesWithFooter, function(regex){
+      return _.some(routesWithFooter, function(regex) {
         return route.match(regex);
       });
     }
@@ -258,8 +265,8 @@ var polisRouter = Backbone.Router.extend({
       //   $(document.body).append(footer);
       //   $("#footer").show();
       // } else {
-        // $("#footer").hide();
-        // $('[data-view-name="root"]').removeClass("wrap");
+      // $("#footer").hide();
+      // $('[data-view-name="root"]').removeClass("wrap");
       // }
     });
     eb.once(eb.firstRender, function() {
@@ -280,11 +287,15 @@ var polisRouter = Backbone.Router.extend({
     });
   },
   bail: function() {
-    this.gotoRoute("/", {trigger: true});
+    this.gotoRoute("/", {
+      trigger: true
+    });
   },
   landingPageView: function() {
     if (!authenticated()) {
-      this.gotoRoute("/user/create", {trigger: true});
+      this.gotoRoute("/user/create", {
+        trigger: true
+      });
       // RootView.getInstance().setView(new LandingPageView());
       // RootView.getInstance().setView(new CreateUserFormView({
       //   model : new Backbone.Model({
@@ -294,7 +305,9 @@ var polisRouter = Backbone.Router.extend({
       // }));
     } else {
       // this.inbox();
-      this.gotoRoute("/inbox", {trigger: true});
+      this.gotoRoute("/inbox", {
+        trigger: true
+      });
     }
   },
   deregister: function(dest) {
@@ -309,7 +322,7 @@ var polisRouter = Backbone.Router.extend({
 
       if (!_.isUndefined(args.vis_type)) {
         // allow turning on the vis from the URL.
-      if (model.get("is_mod")) {
+        if (model.get("is_mod")) {
           model.set("vis_type", Number(args.vis_type));
         }
       }
@@ -320,7 +333,7 @@ var polisRouter = Backbone.Router.extend({
         firstCommentPromise: firstCommentPromise
       });
       RootView.getInstance().setView(participationView);
-    },function(e) {
+    }, function(e) {
       console.error("error3 loading conversation model");
     });
   },
@@ -336,7 +349,7 @@ var polisRouter = Backbone.Router.extend({
 
       if (!_.isUndefined(args.vis_type)) {
         // allow turning on the vis from the URL.
-      if (model.get("is_mod")) {
+        if (model.get("is_mod")) {
           model.set("vis_type", Number(args.vis_type));
         }
       }
@@ -348,7 +361,7 @@ var polisRouter = Backbone.Router.extend({
         firstCommentPromise: firstCommentPromise
       });
       RootView.getInstance().setView(participationView);
-    },function(e) {
+    }, function(e) {
       console.error("error3 loading conversation model");
     });
   },
@@ -403,7 +416,7 @@ var polisRouter = Backbone.Router.extend({
     //   RootView.getInstance().setView(view);
     // }, 500);
   },
-  participationView: function(conversation_id, encodedStringifiedJson,suzinvite) {
+  participationView: function(conversation_id, encodedStringifiedJson, suzinvite) {
     if (!Utils.cookiesEnabled()) {
       this.tryCookieThing();
     }
@@ -457,7 +470,7 @@ var polisRouter = Backbone.Router.extend({
   },
 
   redirect: function(path, ignoreEncodedParams) {
-    var ep = (encodedParams ? ("/"+encodedParams): "");
+    var ep = (encodedParams ? ("/" + encodedParams) : "");
     if (ignoreEncodedParams) {
       ep = "";
     }
@@ -466,4 +479,4 @@ var polisRouter = Backbone.Router.extend({
 
 });
 
- module.exports = polisRouter;
+module.exports = polisRouter;
