@@ -35,8 +35,6 @@ var owl = require("owl");
 var popoverEach = require("./util/popoverEach");
 
 // register partials
-var BannerPartial = require("./tmpl/banner");
-var BannerParticipantPaysPartial = require("./tmpl/banner_pp");
 var FooterPartial = require("./tmpl/footer");
 var HeaderPartial = require("./tmpl/header");
 var HeaderWhatisPolisPartial = require("./tmpl/headerWhatIsPolis");
