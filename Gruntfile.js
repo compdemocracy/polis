@@ -33,9 +33,9 @@ module.exports = function(grunt) {
   });
 
   // ******from http://gruntjs.com/configuring-tasks:******
-  // All most people need to know is that foo/*.js 
-  // will match all files ending with .js in the foo/ subdirectory, 
-  // but foo/**/*.js will match all files 
+  // All most people need to know is that foo/*.js
+  // will match all files ending with .js in the foo/ subdirectory,
+  // but foo/**/*.js will match all files
   // ending with .js in the foo/ subdirectory and all of its subdirectories.
   // ******from http://gruntjs.com/configuring-tasks:******
 
@@ -45,7 +45,7 @@ module.exports = function(grunt) {
     pkg: grunt.file.readJSON('package.json'),
     paths: paths,
     clean: {
-      output: [           //DELETE EVERYTHING IN THE 
+      output: [           //DELETE EVERYTHING IN THE
         paths.output.js,  //public/js folder
         paths.output.css,  //and the public/css folder
         paths.output.font
@@ -200,7 +200,7 @@ module.exports = function(grunt) {
           boss: true,
 //          debug: true, // uncomment temporarily when you want to allow debugger; statements.
           // browser: true,
-          es3: true,          
+          es3: true,
           globals: {
             d3: true,
             jQuery: true,
@@ -216,12 +216,12 @@ module.exports = function(grunt) {
           // relax: eventually we should get rid of these
             //expr: true,
            // loopfunc: true,
-            //shadow: true,        
+            //shadow: true,
         }
     }
   });
 
-  // for an explanation of the getRequireJSOptions function, see: 
+  // for an explanation of the getRequireJSOptions function, see:
   // https://github.com/jrburke/r.js/blob/master/build/example.build.js
 
   function getRequireJSOptions(env) {
@@ -253,7 +253,6 @@ module.exports = function(grunt) {
         'bootstrap_affix': '../bower_components/bootstrap/js/affix',
         // d3 is conditionally loaded from index
         // 'd3': '../bower_components/d3/d3',
-        // 'r2d3': '../bower_components/r2d3/r2d3',
         'lawnchair': '../bower_components/lawnchair/src/Lawnchair',
         // 'app': 'lib/App',
         'p': 'lib/p',
@@ -279,16 +278,16 @@ module.exports = function(grunt) {
         'bootstrap_alert': {  //all bootstrap files need to be added to the dependency array of js/main.js
           deps: ['jquery']
         },
-        'bootstrap_tab': { 
+        'bootstrap_tab': {
           deps: ['jquery']
         },
-        'bootstrap_tooltip': { 
+        'bootstrap_tooltip': {
           deps: ['jquery']
         },
-        'bootstrap_button': { 
+        'bootstrap_button': {
           deps: ['jquery']
         },
-        'bootstrap_transition': { 
+        'bootstrap_transition': {
           deps: ['jquery']
         },
         'anystretch': {
@@ -326,7 +325,7 @@ module.exports = function(grunt) {
         compress: {
           dead_code: true,
           unused: true,
-        } 
+        }
       }
     }
     return {

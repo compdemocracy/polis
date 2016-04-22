@@ -4,7 +4,7 @@ var express = require('express');
 var gulp = require('gulp');
 var s3 = require('gulp-s3');
 var browserify = require('gulp-browserify');
-var concat = require('gulp-concat'); 
+var concat = require('gulp-concat');
 var uglify = require('gulp-uglify')
 var rename = require('gulp-rename');
 var connect = require('gulp-connect');
@@ -20,9 +20,9 @@ var gulpif = require('gulp-if');
 var gutil = require('gulp-util');
 var handlebars = require('gulp-handlebars');
 var compileHandlebars = require('gulp-compile-handlebars');
-// var styl = require('gulp-styl');  
-// var refresh = require('gulp-livereload');  
-// var lr = require('tiny-lr');  
+// var styl = require('gulp-styl');
+// var refresh = require('gulp-livereload');
+// var lr = require('tiny-lr');
 // var server = lr();
 var markdown = require('gulp-markdown')
 var path = require('path');
@@ -73,7 +73,7 @@ function showDesktopNotification(title, body) {
 
 
 function prepPathForTemplate(path) {
-  // add slash at front if missing      
+  // add slash at front if missing
   if (path.match(/^[^\/]/)) {
     path = "/" + path;
   }
@@ -142,7 +142,7 @@ gulp.task('connect', [], function() {
   app.use(/^\/survey$/, express.static(path.join(destRootBase, "survey.html")));
   app.use(/^\/company$/, express.static(path.join(destRootBase, "company.html")));
   app.use(/^\/docs\/api$/, function (req, res) { res.redirect("/docs/api/v3");});
-  app.use(/^\/api$/, function (req, res) { res.redirect("/docs/api");});  
+  app.use(/^\/api$/, function (req, res) { res.redirect("/docs/api");});
   app.use(/^\/docs\/api\/v3$/, express.static(path.join(destRootBase, "api_v3.html")));
   app.use(/^\/embed$/, express.static(path.join(destRootBase, "embed.html")));
   app.use(/^\/politics$/, express.static(path.join(destRootBase, "politics.html")));
@@ -237,14 +237,12 @@ gulp.task('index', [
     s = s.pipe(template({
       basepath: basepath,
       d3Filename: 'd3.js',
-      r2d3Filename: 'r2d3.js',
     }))
   } else {
     s = s.pipe(template({
       //basepath: 'https://s3.amazonaws.com/pol.is',
       basepath: basepath, // proxy through server (cached by cloudflare, and easier than choosing a bucket for preprod, etc)
       d3Filename: 'd3.min.js',
-      r2d3Filename: 'r2d3.min.js',
     }));
   }
   return s.pipe(gulp.dest(destRootBase));
@@ -269,7 +267,7 @@ gulp.task('templates', function(){
 
   return gulp.src(['js/templates/*.hbs', 'js/templates/*.handlebars'])
     .pipe(tap(function(file) {
-      
+
       if(needsHeaderAndFooter(file) || needsBanner(file)) {
         console.log(file.path)
         file._contents = Buffer.concat([
@@ -331,7 +329,7 @@ gulp.task('jshint', function(){
           boss: true,
 //          debug: true, // uncomment temporarily when you want to allow debugger; statements.
           // browser: true,
-          // es3: true,          
+          // es3: true,
           globals: {
             d3: true,
             jQuery: true,
@@ -347,7 +345,7 @@ gulp.task('jshint', function(){
           // relax: eventually we should get rid of these
             //expr: true,
            // loopfunc: true,
-            //shadow: true,        
+            //shadow: true,
         }
         )))
       .pipe(jshint.reporter('default'))
@@ -375,7 +373,7 @@ gulp.task('scripts', ['templates', 'jshint'], function() {
           },
           originalbackbone: {
             path: 'bower_components/backbone/backbone', // backbone before modifications
-            depends: { jquery: '$', underscore: '_' },  
+            depends: { jquery: '$', underscore: '_' },
             exports: 'Backbone',
           },
           backbone: {
@@ -389,7 +387,7 @@ gulp.task('scripts', ['templates', 'jshint'], function() {
           },
           handlebones: {
             path: 'bower_components/handlebones/handlebones',
-            depends: { handlebars: 'Handlebars', backbone: 'Backbone' },             
+            depends: { handlebars: 'Handlebars', backbone: 'Backbone' },
             exports: 'Handlebones',
           },
           bootstrap_alert: {  //all bootstrap files need to be added to the dependency array of js/main.js
@@ -432,7 +430,7 @@ gulp.task('scripts', ['templates', 'jshint'], function() {
             depends: { jquery: "jQuery" },
             exports: null,
           },
-          bootstrap_button: { 
+          bootstrap_button: {
             path: 'bower_components/bootstrap-sass-official/assets/javascripts/bootstrap/button',
             depends: { jquery: "jQuery" },
             exports: null,
@@ -484,10 +482,8 @@ gulp.task("scriptsOther", function() {
   var files = [];
   if (devMode) {
     files.push('bower_components/d3/d3.js');
-    files.push('bower_components/r2d3/r2d3.js');
   } else {
     files.push('bower_components/d3/d3.min.js');
-    files.push('bower_components/r2d3/r2d3.min.js');
   }
   var s = gulp.src(files);
   if (!devMode) {
@@ -736,7 +732,7 @@ function deploy(params) {
         headers: {
           'x-amz-acl': 'public-read',
           'Content-Encoding': 'gzip',
-          'Cache-Control': 'no-transform,public,max-age=MAX_AGE,s-maxage=MAX_AGE'.replace(/MAX_AGE/g, cacheSecondsForContentWithCacheBuster),          
+          'Cache-Control': 'no-transform,public,max-age=MAX_AGE,s-maxage=MAX_AGE'.replace(/MAX_AGE/g, cacheSecondsForContentWithCacheBuster),
         },
         makeUploadPath: makeUploadPathFactory("cached_gzipped_"+cacheSecondsForContentWithCacheBuster),
       }));
@@ -794,7 +790,7 @@ function deploy(params) {
           return "/embed_helper.js";
         },
       }));
-    
+
 
     // TODO remove this duplication!
     var twitterAuthReturnCacheSeconds = 60;

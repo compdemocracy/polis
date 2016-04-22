@@ -1,6 +1,5 @@
 var eb = require("../eventBus");
 var display = require("../util/display");
-// var Raphael = require("raphael");
 var Utils = require("../util/utils");
 // TODO are we using force Layout or not? not really. so it may be worth cleaning up to simplify.
 // Use a css animation to transition the position
@@ -9,12 +8,10 @@ function VisView(params) {
 
   var el_selector = params.el;
   var el_queryResultSelector = params.el_queryResultSelector;
-  var el_raphaelSelector = params.el_raphaelSelector;
   var getReactionsToComment = params.getReactionsToComment;
   var computeXySpans = params.computeXySpans;
   var getPidToBidMapping = params.getPidToBidMapping;
   var getParticipantsOfInterestForGid = params.getParticipantsOfInterestForGid;
-  var isIE8 = params.isIE8;
   var isMobile = params.isMobile;
   var xOffset = params.xOffset || 0;
   var getGroupNameForGid = params.getGroupNameForGid;
@@ -66,7 +63,7 @@ function VisView(params) {
   var SELECTED_HULL_RADIUS_BOOST = 3;
   var UNSELECTED_HULL_RADIUS_BOOST = -1;
 
-  var width = $(el_raphaelSelector).width();
+  var width = $(el_selector).width();
 
   // var ptptOiRadius = d3.scale.linear().range([10, 16]).domain([350, 800]).clamp(true)(width);
   var retina = window.devicePixelRatio > 1;
@@ -113,18 +110,6 @@ function VisView(params) {
   var SELF_DOT_HINT_HIDE_AFTER_DELAY = 10 * 1000;
   var selfDotHintText = "you";
 
-  // if (isIE8) {
-  //     $(el_selector).html(
-  //         "<div class='visualization' style='width:100%;height:100%;'><center>" +
-  //         "Apologies, the visualization is not available on IE 8.</br>" +
-  //         "Get the full experience on IE 10+, Chrome, Firefox, or on your iOS / Android browser.</br>" +
-  //         "</center></div>");
-  //     return {
-  //         upsertNode: function() {},
-  //         emphasizeParticipants: function() {}
-  //     };
-  // }
-
   // Tunables
 
   var minNodeRadiusScaleForGivenVisWidth = d3.scale.linear().range([2, 4]).domain([350, 800]).clamp(true);
@@ -168,7 +153,7 @@ function VisView(params) {
   var tip = null;
   var SHOW_TIP = true;
   var tipPreviousTarget = null; // Sorry God!
-  if (SHOW_TIP && !isIE8) {
+  if (SHOW_TIP) {
     $("#ptpt-tip").remove();
     tip = d3.tip().attr("id", "ptpt-tip").attr("stroke", "rgb(52,73,94)").html(
       function(d) {
@@ -215,17 +200,6 @@ function VisView(params) {
     onMajorityTab = false;
   });
 
-
-  // if (isIE8) {
-  //     // R2D3 seems to have trouble with percent values.
-  //     // Hard-coding pixel values for now.
-  //     dimensions = {
-  //         width: "500px",
-  //         height: "300px"
-  //     };
-  // }
-
-
   function chooseRadiusForHullCorners(d) {
     var r = 3;
     if (d.isSummaryBucket) {
@@ -243,196 +217,103 @@ function VisView(params) {
   };
 
 
-  var paper;
-  // if (isIE8) {
-  //     paper = new Raphael($(el_raphaelSelector)[0], dimensions.width, dimensions.height);
-  //     paper.clear();
-  //     // http://stackoverflow.com/questions/15365129/manipulate-canvas-background-color-in-raphael-by-using-variable-paper
-  //     paper.canvas.style.backgroundColor = '#FFFFFF';
-  // }
-
   var MAX_BUCKETS = 60;
   var rNodes = [];
   var rBuckets = [];
 
-  // function makeBucketParts(i) {
-  //     var circleOuter = paper.circle(0,0,0);
-  //     circleOuter.attr('fill', colorNoVote);
-  //     circleOuter.attr('fill-opacity', 0.2);
-  //     circleOuter.attr('stroke-width', 0);
-
-  //     var circle  = paper.circle(0,0,0);
-  //     circle.attr('fill', colorNoVote);
-  //     circle.attr('stroke-width', 0);
-
-  //     // colorSelf
-  //     var up = paper.path();
-  //     up.attr('fill', colorPull);
-  //     up.attr('stroke-width', 0);
-
-  //     var down = paper.path();
-  //     down.attr('fill', colorPush);
-  //     down.attr('stroke-width', 0);
 
 
-  //         // .toFront();
-  //     var set = paper.set();
-  //     set.push(circle);
-  //     set.push(circleOuter);
-  //     set.push(up);
-  //     set.push(down);
-  //     var bucket = {
-  //         radius: 0,
-  //         x: 0,
-  //         y: 0,
-  //         circle: circle,
-  //         circleOuter: circleOuter,
-  //         up: up,
-  //         down: down,
-  //         transform: function(x, y) {
-  //             this.x = x;
-  //             this.y = y;
-  //             this.set.transform("");
-  //             this.set.transform("T" + x + "," + y);
+  $(el_selector)
+    .append("<svg>" +
+      "<defs>" +
+      "<marker class='helpArrow' id='ArrowTip'" +
+      "viewBox='0 0 14 14'" +
+      "refX='1' refY='5'" +
+      "markerWidth='5'" +
+      "markerHeight='5'" +
+      "orient='auto'>" +
+      // "<path d='M 0 0 L 10 5 L 0 10 z' />" +
+      "<circle cx = '6' cy = '6' r = '5' />" +
+      "</marker>" +
+      "<clipPath id=\"clipCircle\">" +
+      "<circle r=\"" + ptptOiRadius + "\" cx=\"0\" cy=\"0\"/>" +
+      "</clipPath>" +
+      "<filter id='colorMeMatrix'>" +
+      "<feColorMatrix in='SourceGraphic'" +
+      "type='matrix'" +
+      "values='0.33 0.33 0.33 0 0 " +
+      "0.33 0.33 0.33 0 0 " +
+      "0.33 0.33 0.33 0 0 " +
+      "0 0 0 1 0' />" +
+      "</filter>" +
 
-  //             // this.circle.attr("cx", x);
-  //             // this.circle.attr("cy", y);
+      "<filter id='colorMeMatrixRed'>" +
+      "<feColorMatrix in='SourceGraphic'" +
+      "type='matrix'" +
+      "values='1.00 0.60 0.60 0 0.3 " +
+      "0.10 0.20 0.10 0 0 " +
+      "0.10 0.10 0.20 0 0 " +
+      "0 0 0 1 0' />" +
+      "</filter>" +
 
-  //             // this.circleOuter.attr("cx", x);
-  //             // this.circleOuter.attr("cy", y);
+      "<filter id='colorMeMatrixGreen'>" +
+      "<feColorMatrix in='SourceGraphic'" +
+      "type='matrix'" +
+      "values='0.20 0.10 0.10 0 0 " +
+      "0.60 1.00 0.60 0 0.3 " +
+      "0.10 0.10 0.40 0 0 " +
+      "0 0 0 1 0' />" +
+      "</filter>" +
 
-  //         },
-  //         scaleCircle: function(s) {
-  //             this.circle.attr("r", this.radius * s);
-  //         },
-  //         setUps: function(ups) {
-  //             var path = chooseUpArrowPath2(ups, 0, 0);
-  //             var _transformed = Raphael.transformPath(path,
-  //                 'T0,0'); // TODO needed?
-  //             this.up.animate({path: _transformed}, 0);
-  //         },
+      "</defs>" +
+      // "<g>" +
+      // '<rect x="'+ (w-150) +'" y="0" width="150" height="25" rx="3" ry="3" fill="#e3e4e5"/>'+
+      // '<text x="'+ (w-150) +'" y="10" width="150" height="25" rx="3" ry="3" fill="##3498db">SHOW LEGEND</text>'+
+      // "</g>" +
+      "</svg>");
 
-  //         setDowns: function(downs) {
-  //             var path = chooseDownArrowPath2(downs, 0, 0);
-  //             var _transformed = Raphael.transformPath(path,
-  //                 'T0,0'); // TODO needed?
-  //             this.down.animate({path: _transformed}, 0);
-  //         },
-  //         // arrowUp: arrowUp,
-  //         // arrowUpOuter: arrowUpOuter,
-  //         // arrowDown: arrowDown,
-  //         // arrowDownOuter: arrowDownOuter,
-  //         set: set
-  //     };
-
-  //     return bucket;
-  // }
-
-
-  if (isIE8) {
-    // for (var i = 0; i < MAX_BUCKETS; i++) {
-    //     var bucket = makeBucketParts();
-    //     rNodes.push(bucket);
-    // }
-  } else {
-
-    $(el_selector)
-      .append("<svg>" +
-        "<defs>" +
-        "<marker class='helpArrow' id='ArrowTip'" +
-        "viewBox='0 0 14 14'" +
-        "refX='1' refY='5'" +
-        "markerWidth='5'" +
-        "markerHeight='5'" +
-        "orient='auto'>" +
-        // "<path d='M 0 0 L 10 5 L 0 10 z' />" +
-        "<circle cx = '6' cy = '6' r = '5' />" +
-        "</marker>" +
-        "<clipPath id=\"clipCircle\">" +
-        "<circle r=\"" + ptptOiRadius + "\" cx=\"0\" cy=\"0\"/>" +
-        "</clipPath>" +
-        "<filter id='colorMeMatrix'>" +
-        "<feColorMatrix in='SourceGraphic'" +
-        "type='matrix'" +
-        "values='0.33 0.33 0.33 0 0 " +
-        "0.33 0.33 0.33 0 0 " +
-        "0.33 0.33 0.33 0 0 " +
-        "0 0 0 1 0' />" +
-        "</filter>" +
-
-        "<filter id='colorMeMatrixRed'>" +
-        "<feColorMatrix in='SourceGraphic'" +
-        "type='matrix'" +
-        "values='1.00 0.60 0.60 0 0.3 " +
-        "0.10 0.20 0.10 0 0 " +
-        "0.10 0.10 0.20 0 0 " +
-        "0 0 0 1 0' />" +
-        "</filter>" +
-
-        "<filter id='colorMeMatrixGreen'>" +
-        "<feColorMatrix in='SourceGraphic'" +
-        "type='matrix'" +
-        "values='0.20 0.10 0.10 0 0 " +
-        "0.60 1.00 0.60 0 0.3 " +
-        "0.10 0.10 0.40 0 0 " +
-        "0 0 0 1 0' />" +
-        "</filter>" +
-
-        "</defs>" +
-        // "<g>" +
-        // '<rect x="'+ (w-150) +'" y="0" width="150" height="25" rx="3" ry="3" fill="#e3e4e5"/>'+
-        // '<text x="'+ (w-150) +'" y="10" width="150" height="25" rx="3" ry="3" fill="##3498db">SHOW LEGEND</text>'+
-        // "</g>" +
-        "</svg>");
-  }
 
   var helpLine;
   var helpArrowPoints = [];
 
-  if (isIE8) {
-    // $(el_raphaelSelector).on("click", selectBackground);
-    // w = $(el_raphaelSelector).width();
-    // h = $(el_raphaelSelector).height();
-
-  } else {
-    //create svg, appended to a div with the id #visualization_div, w and h values to be computed by jquery later
-    //to connect viz to responsive layout if desired
-    visualization = d3.select(el_selector).select("svg")
-      .call(tip || function() {}) /* initialize d3-tip */
-      // .attr("width", "100%")
-      // .attr("height", "100%")
-      .attr(dimensions)
-      // .attr("viewBox", "0 0 " + w + " " + h )
-      .classed("visualization", true)
-      .append(groupTag)
-      // .call(d3.behavior.zoom().scaleExtent([1, 8]).on("zoom", zoom))
-    ;
-    $(el_selector).on("click", selectBackground);
-    $(el_selector).on("click", function() {
-      eb.trigger(eb.backgroundClicked);
-    });
+  //create svg, appended to a div with the id #visualization_div, w and h values to be computed by jquery later
+  //to connect viz to responsive layout if desired
+  visualization = d3.select(el_selector).select("svg")
+    .call(tip || function() {}) /* initialize d3-tip */
+    // .attr("width", "100%")
+    // .attr("height", "100%")
+    .attr(dimensions)
+    // .attr("viewBox", "0 0 " + w + " " + h )
+    .classed("visualization", true)
+    .append(groupTag)
+    // .call(d3.behavior.zoom().scaleExtent([1, 8]).on("zoom", zoom))
+  ;
+  $(el_selector).on("click", selectBackground);
+  $(el_selector).on("click", function() {
+    eb.trigger(eb.backgroundClicked);
+  });
 
 
-    main_layer = visualization.append(groupTag)
-      .attr("id", "main_layer")
-      .attr("transform", "translate(" + xOffset + ")");
+  main_layer = visualization.append(groupTag)
+    .attr("id", "main_layer")
+    .attr("transform", "translate(" + xOffset + ")");
 
-    blocker_layer = visualization.append(groupTag)
-      .attr("id", "blocker_layer")
-      .attr("transform", "translate(" + xOffset + ")");
+  blocker_layer = visualization.append(groupTag)
+    .attr("id", "blocker_layer")
+    .attr("transform", "translate(" + xOffset + ")");
 
-    overlay_layer = visualization.append(groupTag);
+  overlay_layer = visualization.append(groupTag);
 
-    helpLine = d3.svg.line();
+  helpLine = d3.svg.line();
 
-    overlay_layer.append("path")
-      .datum(helpArrowPoints)
-      .classed("helpArrow", true)
-      .classed("helpArrowLine", true)
-      .style("display", "none");
-    w = dimensions.width - xOffset; // $(el_selector).width() - xOffset;
-    h = params.h; //dimensions.height; //$(el_selector).height();
-  }
+  overlay_layer.append("path")
+    .datum(helpArrowPoints)
+    .classed("helpArrow", true)
+    .classed("helpArrowLine", true)
+    .style("display", "none");
+  w = dimensions.width - xOffset; // $(el_selector).width() - xOffset;
+  h = params.h; //dimensions.height; //$(el_selector).height();
+
 
   var clusterPointerFromBottom = display.xs();
   var clusterPointerOriginY = clusterPointerFromBottom ? h + 2 : 80;
@@ -459,28 +340,26 @@ function VisView(params) {
 
   //$(el_selector).prepend($($("#pca_vis_overlays_template").html()));
 
-  var useForce = !isIE8;
-  // var useForce = false;
-  if (useForce) {
-    force = d3.layout.force()
-      .nodes(nodes)
-      .links([])
-      .friction(0.9) // more like viscosity [0,1], defaults to 0.9
-      .gravity(0)
-      .charge(function(d) {
-        // slight overlap allowed
-        if (isSummaryBucket(d)) {
-          if (display.xs()) {
-            return -900;
-          } else {
-            return -200;
-          }
+
+  force = d3.layout.force()
+    .nodes(nodes)
+    .links([])
+    .friction(0.9) // more like viscosity [0,1], defaults to 0.9
+    .gravity(0)
+    .charge(function(d) {
+      // slight overlap allowed
+      if (isSummaryBucket(d)) {
+        if (display.xs()) {
+          return -900;
         } else {
-          return -80;
+          return -200;
         }
-      })
-      .size([w, h]);
-  }
+      } else {
+        return -80;
+      }
+    })
+    .size([w, h]);
+
 
   // function zoomToHull(d){
 
@@ -507,12 +386,6 @@ function VisView(params) {
 
   function setClusterActive(clusterId) {
     selectedCluster = clusterId;
-
-    // duplicated at 938457938475438975
-    if (!isIE8) {
-      // main_layer.selectAll(".active_group").classed("active_group", false);
-    }
-
     return $.Deferred().resolve([]);
   }
 
@@ -528,37 +401,20 @@ function VisView(params) {
   }
 
   function updateHullColors() {
-    if (isIE8) {
-      // (function() {
-      //    for (var i = 0; i < raphaelHulls.length; i++) {
-      //         console.log('updateHullColors', selectedCluster, i);
-      //         if (i === selectedCluster) {
-      //           raphaelHulls[i]
-      //             .attr('fill', hull_selected_color)
-      //             .attr('stroke', hull_selected_color);
-      //         } else {
-      //           raphaelHulls[i]
-      //             .attr('fill', hull_unselected_color)
-      //             .attr('stroke', hull_unselected_color);
-      //         }
-      //     }
-      // }());
-    } else {
-      if (clusterIsSelected()) {
-        d3.select(d3Hulls[selectedCluster][0][0]).classed("active_group", true);
-        d3.select(d3HullSelections[selectedCluster][0][0]).classed("active_group", true);
-        // d3.select(d3HullShadows[selectedCluster][0][0]).classed("active_group", true);
-      }
-      (function() {
-        for (var i = 0; i < d3Hulls.length; i++) {
-          if (i === hoveredHullId) {
-            d3.select(d3Hulls[i][0][0]).classed("hovered_group", true);
-            d3.select(d3HullSelections[i][0][0]).classed("hovered_group", true);
-            // d3.select(d3HullShadows[selectedCluster][0][0]).classed("hovered_group", true);
-          }
-        }
-      }());
+    if (clusterIsSelected()) {
+      d3.select(d3Hulls[selectedCluster][0][0]).classed("active_group", true);
+      d3.select(d3HullSelections[selectedCluster][0][0]).classed("active_group", true);
+      // d3.select(d3HullShadows[selectedCluster][0][0]).classed("active_group", true);
     }
+    (function() {
+      for (var i = 0; i < d3Hulls.length; i++) {
+        if (i === hoveredHullId) {
+          d3.select(d3Hulls[i][0][0]).classed("hovered_group", true);
+          d3.select(d3HullSelections[i][0][0]).classed("hovered_group", true);
+          // d3.select(d3HullShadows[selectedCluster][0][0]).classed("hovered_group", true);
+        }
+      }
+    }());
   }
 
 
@@ -619,32 +475,6 @@ function VisView(params) {
   var hull_shadow_stroke_width = hull_stoke_width + hull_shadow_thickness;
   var hull_selection_stroke_width = hull_shadow_stroke_width + hull_seletion_thickness;
 
-  // function makeRaphaelHulls(color, strokeWidth, translateX, translateY) {
-  //     return _.times(9, function(i) {
-  //         function handleClick(event) {
-  //             event.stopPropagation();
-  //             return onClusterClicked({
-  //                 hullId: i
-  //             });
-  //         }
-  //         var hull = paper.path()
-  //             .attr('fill', color)
-  //             .attr('stroke-width', strokeWidth)
-  //             .attr('stroke-linejoin','round')
-  //             .attr('stroke', color)
-  //             .attr('stroke-linecap', 'round')
-  //             .on('touchstart', handleClick)
-  //             .on('mousedown', handleClick)
-  //             .toBack();
-
-  //             // translate the shadow
-  //             if (translateX || translateY) {
-  //                 hull.translate(translateX||0, translateY||0);
-  //             }
-
-  //             return hull;
-  //         });
-  // }
 
   function makeD3Hulls(hullClass, strokeWidth, translateX, translateY) {
     return _.times(9, function(i) {
@@ -661,14 +491,10 @@ function VisView(params) {
     });
   }
 
-  if (isIE8) {
-    // raphaelHulls = makeRaphaelHulls(hull_unselected_color, hull_stoke_width);
-    // raphaelHullsShadow = makeRaphaelHulls(hull_shadow_color, hull_shadow_stroke_width, 1, 1);
-  } else {
-    // d3HullShadows = makeD3Hulls("hull_shadow", hull_shadow_stroke_width, 1, 1);
-    d3HullSelections = makeD3Hulls("hull_selection", hull_selection_stroke_width, 0, 0);
-    d3Hulls = makeD3Hulls("hull", hull_stoke_width);
-  }
+  // d3HullShadows = makeD3Hulls("hull_shadow", hull_shadow_stroke_width, 1, 1);
+  d3HullSelections = makeD3Hulls("hull_selection", hull_selection_stroke_width, 0, 0);
+  d3Hulls = makeD3Hulls("hull", hull_stoke_width);
+
 
   function updateHulls() {
     bidToBucket = _.object(_.pluck(nodes, "bid"), nodes);
@@ -821,66 +647,59 @@ function VisView(params) {
         } else {
           points.hullId = i; // NOTE: d is an Array, but we're tacking on the hullId. TODO Does D3 have a better way of referring to the hulls by ID?
           var shape = makeHullShape(points);
-          if (isIE8) {
-            // points.unshift();
-            // var _transformed = Raphael.transformPath(shape, 'T0,0');
-            // raphaelHulls[i].animate({path: _transformed}, 0);
-            // raphaelHullsShadow[i].animate({path: _transformed}, 0);
-          } else {
+          // If the cluster has only one participant, don't show the hull.
+          // intead, make the hull into an extra large invisible touch target.
+          var color = (clusters[i].length > 1) ? "#eee" : "#f7f7f7";
+          var colorShadow = (clusters[i].length > 1) ? "#d4d4d4" : "#f7f7f7";
+          // var strokeWidth = (clusters[i].length > 1) ? "6px" : "40px";
+          var selectionStrokeWidth = (clusters[i].length > 1) ? "9px" : "43px";
+          var selectionStrokeDashArray = (clusters[i].length > 1) ? "5,5" : "1,1";
 
-            // If the cluster has only one participant, don't show the hull.
-            // intead, make the hull into an extra large invisible touch target.
-            var color = (clusters[i].length > 1) ? "#eee" : "#f7f7f7";
-            var colorShadow = (clusters[i].length > 1) ? "#d4d4d4" : "#f7f7f7";
-            // var strokeWidth = (clusters[i].length > 1) ? "6px" : "40px";
-            var selectionStrokeWidth = (clusters[i].length > 1) ? "9px" : "43px";
-            var selectionStrokeDashArray = (clusters[i].length > 1) ? "5,5" : "1,1";
+          var shadowStrokeWidth = (clusters[i].length > 1) ? "8px" : "0px";
 
-            var shadowStrokeWidth = (clusters[i].length > 1) ? "8px" : "0px";
-
-            if (selectedCluster === i) {
-              // no shadow, since we'll show dashed line
-              if (COLOR_SELECTED_HULL) {
-                shadowStrokeWidth = "0px";
-                color = "#e9f0f7";
-              }
-
-              d3HullSelections[i].datum(points)
-                .attr("d", shape)
-                .style("visibility", "visible");
-            } else {
-              d3HullSelections[i].datum(points)
-                .attr("d", shape)
-                .style("visibility", "hidden");
+          if (selectedCluster === i) {
+            // no shadow, since we'll show dashed line
+            if (COLOR_SELECTED_HULL) {
+              shadowStrokeWidth = "0px";
+              color = "#e9f0f7";
             }
 
-            d3Hulls[i].datum(points)
+            d3HullSelections[i].datum(points)
               .attr("d", shape)
-              // .style("fill-opacity", 1)
-              // .style("fill", "white")
-              .style("stroke", "rgb(130,130,130)")
-              // .style("stroke-opacity", hullOpacity)
-              .style("stroke-width", 1)
-              .style("stroke-dasharray", "2px 4px")
               .style("visibility", "visible");
-
-
-            // d3HullShadows[i].datum(points)
-            //     .attr("d", shape)
-            //     .style("fill", colorShadow)
-            //     .style("stroke", colorShadow)
-            //     // .style("fill-opacity", hullOpacity)
-            //     // .style("stroke-opacity", hullOpacity)
-            //     .style("stroke-width", shadowStrokeWidth)
-            //     .attr("transform", function(h) {
-            //         if (h.hullId === getSelectedGid()) {
-            //             return "translate(2, 2)";
-            //         } else {
-            //             return "translate(1, 1)";
-            //         }
-            //     })
-            //     .style("visibility", "visible");
+          } else {
+            d3HullSelections[i].datum(points)
+              .attr("d", shape)
+              .style("visibility", "hidden");
           }
+
+          d3Hulls[i].datum(points)
+            .attr("d", shape)
+            // .style("fill-opacity", 1)
+            // .style("fill", "white")
+            .style("stroke", "rgb(130,130,130)")
+            // .style("stroke-opacity", hullOpacity)
+            .style("stroke-width", 1)
+            .style("stroke-dasharray", "2px 4px")
+            .style("visibility", "visible");
+
+
+          // d3HullShadows[i].datum(points)
+          //     .attr("d", shape)
+          //     .style("fill", colorShadow)
+          //     .style("stroke", colorShadow)
+          //     // .style("fill-opacity", hullOpacity)
+          //     // .style("stroke-opacity", hullOpacity)
+          //     .style("stroke-width", shadowStrokeWidth)
+          //     .attr("transform", function(h) {
+          //         if (h.hullId === getSelectedGid()) {
+          //             return "translate(2, 2)";
+          //         } else {
+          //             return "translate(1, 1)";
+          //         }
+          //     })
+          //     .style("visibility", "visible");
+
         }
         dfd.resolve();
       }, 0);
@@ -946,18 +765,9 @@ function VisView(params) {
     }
 
 
-    if (isIE8) {
-      // for (var i = 0; i < nodes.length; i++) {
-      //   var node = nodes[i];
-      //   var bucket = rNodes[i];
-      //   var x = node.x;
-      //   var y = node.y;
-      //   bucket.transform(x, y);
-      // }
-    } else {
-      main_layer.selectAll(".node")
-        .attr("transform", chooseTransformForRoots);
-    }
+    main_layer.selectAll(".node")
+      .attr("transform", chooseTransformForRoots);
+
 
 
     updateHullsThrottled();
@@ -1686,441 +1496,374 @@ function VisView(params) {
     });
 
 
-    if (force) {
-      force.nodes(nodes, key).start();
-      // } else if (isIE8) {
-      //   // don't do force layout, do that stuff here once.
-      //     nodes.forEach(function(o) {
-      //         o.x = o.targetX;
-      //         o.y = o.targetY;
-      //     });
-      //     (function() {
-      //       for (var i = 0; i < nodes.length; i++) {
-      //         var node = nodes[i];
-      //         var bucket = rNodes[i];
-      //         var x = node.x;
-      //         var y = node.y;
+    force.nodes(nodes, key).start();
 
-      //         bucket.transform(x, y);
-      //       }
-      //     }());
-      //     updateHulls();
-    } else {
-      // see fa89dsjf8d
-    }
+    // TODO use key to guarantee unique items
 
-    function setupRaphaelNode(n) {
-      // do each on a separate stack
-      setTimeout(function() {
-        var node = nodes[n];
-        var bucket = rNodes[n];
-        if (isSelf(node)) {
-          bucket.circleOuter.attr("fill", "rgba(255,255,255,0)");
-          bucket.circleOuter.attr("stroke", colorSelf);
-          bucket.circleOuter.attr("stroke-width", 1);
-          bucket.circleOuter.attr("opacity", 0.5);
-          bucket.circleOuter.attr("r", bucket.radius * 2);
+
+    main_layer.selectAll(".node")
+      .attr("visibility", function(d) {
+        return (d.count >= 1) ? "visbile" : "hidden";
+      });
+
+    var update = main_layer.selectAll(".ptpt")
+      .data(nodes, key)
+      .sort(sortWithSelfOnTop);
+
+    var exit = update.exit();
+    exit.remove();
+
+    // ENTER
+    var enter = update.enter();
+    var g = enter
+      .append(groupTag)
+      .classed("ptpt", true)
+      .classed("node", true)
+      .attr("data-bid", function(d) {
+        return d.bid;
+      })
+      .on("click", onParticipantClicked)
+      .on("mouseover", showTip)
+      .on("mouseout", hideTip)
+      // .call(force.drag)
+    ;
+
+
+    var pinEnter = g.filter(isParticipantOfInterest);
+    pinEnter
+      .append("line")
+      .classed("pin", true)
+      .attr("x1", 0)
+      .attr("y1", 0)
+      .attr("x2", 0)
+      .attr("y2", pinLength)
+      .attr("stroke-linecap", "round")
+      .attr("stroke", "rgb(160,160,160)")
+      .attr("stroke-width", function(d) {
+        return "1px";
+      });
+    pinEnter
+      .append("circle")
+      .attr("r", function(d) {
+        if (display.xs()) {
+          return 1;
         } else {
-          bucket.circleOuter.attr("fill", colorNoVote);
-          bucket.circleOuter.attr("stroke", colorSelf);
-          bucket.circleOuter.attr("stroke-width", 0);
-          bucket.circleOuter.attr("opacity", "");
-          bucket.circleOuter.attr("r", bucket.radius);
+          return 2;
         }
-      }, 10);
-    }
+      })
+      .attr("cx", 0)
+      .attr("cy", pinLength)
+      .attr("fill", "rgb(160,160,160)");
 
-    if (isIE8) {
-      // (function() {
-      //   for (var n = 0; n < nodes.length; n++) {
-      //     var node = nodes[n];
-      //     var bucket = rNodes[n];
-      //     if (isSelf(node)) {
-      //         bucket.circle.attr("fill", colorSelf);
-      //     } else {
-      //         bucket.circle.attr("fill", colorNoVote);
-      //     }
-      //   }
-      // }());
-      // // postpone to speed up init
-      // setTimeout(function() {
-      //   _.map(_.range(nodes.length), setupRaphaelNode);
-      // }, 1000);
-    } else {
-
-      // TODO use key to guarantee unique items
-
-
-      main_layer.selectAll(".node")
-        .attr("visibility", function(d) {
-          return (d.count >= 1) ? "visbile" : "hidden";
-        });
-
-      var update = main_layer.selectAll(".ptpt")
-        .data(nodes, key)
-        .sort(sortWithSelfOnTop);
-
-      var exit = update.exit();
-      exit.remove();
-
-      // ENTER
-      var enter = update.enter();
-      var g = enter
-        .append(groupTag)
-        .classed("ptpt", true)
-        .classed("node", true)
-        .attr("data-bid", function(d) {
-          return d.bid;
-        })
-        .on("click", onParticipantClicked)
-        .on("mouseover", showTip)
-        .on("mouseout", hideTip)
-        // .call(force.drag)
-      ;
-
-
-      var pinEnter = g.filter(isParticipantOfInterest);
-      pinEnter
-        .append("line")
-        .classed("pin", true)
-        .attr("x1", 0)
-        .attr("y1", 0)
-        .attr("x2", 0)
-        .attr("y2", pinLength)
-        .attr("stroke-linecap", "round")
-        .attr("stroke", "rgb(160,160,160)")
-        .attr("stroke-width", function(d) {
-          return "1px";
-        });
-      pinEnter
-        .append("circle")
-        .attr("r", function(d) {
-          if (display.xs()) {
-            return 1;
-          } else {
-            return 2;
-          }
-        })
-        .attr("cx", 0)
-        .attr("cy", pinLength)
-        .attr("fill", "rgb(160,160,160)");
-
-      if (Utils.projectComments) {
-        var foo = main_layer.selectAll(".c").data(comments);
-        var commentWidth = 2;
-        var commentWidthHalf = commentWidth / 2;
-        var bar = foo.enter()
-          .append("rect")
-          .attr("x", function(d) {
-            return d.target.x - commentWidthHalf;
-          })
-          .attr("y", function(d) {
-            return d.target.y - commentWidthHalf;
-          })
-          .attr("width", commentWidth)
-          .attr("height", commentWidth)
-          .style("stroke", "darkgray")
-          .style("fill", "darkgray");
-        if (Utils.debugCommentProjection) {
-          bar.on("mouseover", showTip);
-          bar.on("mouseout", hideTip);
-        }
-      }
-
-      // OUTER TRANSLUCENT SHAPES
-      var opacityOuter = 0.2;
-      var upArrowEnter = g.append("polygon")
-        .classed("up", true)
-        .classed("bktv", true)
-        .style("fill", colorPull)
-        .style("fill-opacity", opacityOuter)
-        // .style("stroke", colorPullOutline)
-        // .style("stroke-width", 1)
-      ;
-      var downArrowEnter = g.append("polygon")
-        .classed("down", true)
-        .classed("bktv", true)
-        .style("fill", colorPush)
-        .style("fill-opacity", opacityOuter)
-        // .style("stroke", colorPushOutline)
-        // .style("stroke-width", 1)
-      ;
-      var ptptoiImageZoomFactor = 1;
-      var picEnter = g.append("image");
-      picEnter
-      // .classed("circle", true)
-        .classed("bktv", true)
+    if (Utils.projectComments) {
+      var foo = main_layer.selectAll(".c").data(comments);
+      var commentWidth = 2;
+      var commentWidthHalf = commentWidth / 2;
+      var bar = foo.enter()
+        .append("rect")
         .attr("x", function(d) {
-          return getImageWidth(d) * -0.5;
+          return d.target.x - commentWidthHalf;
         })
         .attr("y", function(d) {
-          return getImageWidth(d) * -0.5;
+          return d.target.y - commentWidthHalf;
         })
-        .attr("filter", "")
-        // .style("visibility", "hidden")
-        .attr("height", getImageWidth)
-        .attr("width", getImageWidth)
-        .attr("clip-path", "url(#clipCircle)")
-        .attr("xlink:href", function(d) {
-          return d.pic;
-        })
-        //   .style("opacity", opacityOuter)
-        //   .style("fill", chooseFill)
-        // .filter(isSelf)
-        //     .style("fill", "rgba(0,0,0,0)")
-        //     .style("stroke", colorSelf)
-        //     .style("stroke-width", 1)
-        //     .style("opacity", 0.5)
-      ;
-
-
-      var grayHaloEnter = g.append("circle");
-      grayHaloEnter
-        .classed("grayHalo", true)
-        .attr("cx", 0)
-        .attr("cy", 0)
-        .classed("ptptoi", isParticipantOfInterest)
-        .attr("r", function(d) {
-          if (isSummaryBucket(d)) {
-            return anonBlobRadius;
-          }
-          if (isParticipantOfInterest(d)) {
-            return ptptOiRadius;
-          }
-          // if (isSelf(d)) {
-          //     return ptptOiRadius;
-          // }
-          return ptptOiRadius;
-        })
-        .attr("stroke", grayHaloColor)
-        .attr("stroke-width", function(d) {
-          if (d.isSummaryBucket) {
-            return 0;
-          } else if (isSelf(d)) {
-            return 3;
-          } else {
-            return haloWidth;
-          }
-        })
-        .attr("fill", "rgba(0,0,0,0)");
-
-
-      var beaconEnter = g.append("circle");
-      beaconEnter
-        .classed("beacon", true)
-        .attr("cx", 0)
-        .attr("cy", 0)
-        .classed("ptptoi", isParticipantOfInterest)
-        .attr("r", 0)
-        .attr("stroke-width", 10)
-        .attr("fill", "rgba(0,0,0,0)")
-        .attr("opacity", 0)
-        .attr("display", "none");
-
-
-
-      // INNER SCALE-CHANGING SHAPES
-      var upArrowEnterInner = g.append("path")
-        .classed("up", true)
-        .classed("bktvi", true)
-        .style("fill", "rgba(0,0,0,0)")
-        .attr("stroke-width", function(d) {
-          if (isSummaryBucket(d)) {
-            return anonBlobHaloVoteWidth;
-          } else {
-            return haloVoteWidth;
-          }
-        })
-        .style("stroke", colorPull)
-        .style("opacity", 0.8);
-
-      var downArrowEnterInner = g.append("path")
-        .classed("down", true)
-        .classed("bktvi", true)
-        .style("fill", "rgba(0,0,0,0)")
-        .attr("stroke-width", function(d) {
-          if (d.isSummaryBucket) {
-            return anonBlobHaloVoteWidth;
-          } else {
-            return haloVoteWidth;
-          }
-        })
-        .style("stroke", colorPush)
-        .style("opacity", 0.8);
-
-      // var circleEnterInner = g.append("circle")
-      //   .classed("circle", true)
-      //   .classed("bktvi", true)
-      //   .style("stroke-width", 0)
-      //   .style("fill", chooseFill)
-      //   ;
-
-      var self = g.filter(isSelf);
-      self.classed("selfDot", true);
-
-
-
-      var edgeLengthToMatchCircleRadius = Math.sqrt(1 / 2) * ptptOiDiameter / 2;
-      var socialIconScale = ptptOiDiameter / 2 / maxPtptoiRad * 0.8;
-      if (retina) {
-        socialIconScale *= 0.8;
-      } else {
-        socialIconScale *= 1.1;
+        .attr("width", commentWidth)
+        .attr("height", commentWidth)
+        .style("stroke", "darkgray")
+        .style("fill", "darkgray");
+      if (Utils.debugCommentProjection) {
+        bar.on("mouseover", showTip);
+        bar.on("mouseout", hideTip);
       }
-      var socialRoot = g.filter(isParticipantOfInterest).append("g");
-      socialRoot.attr("transform", "translate(" + edgeLengthToMatchCircleRadius + "," + edgeLengthToMatchCircleRadius + ")");
+    }
 
-      socialRoot.append("circle")
-        .style("fill", function(d) {
-          if (d.hasFacebook) {
-            return "#3A5795";
-          } else if (d.hasTwitter) {
-            return "#55acee";
-          } else {
-            return "rgba(0,0,0,0)";
-          }
-
-        })
-        .attr("cx", 0)
-        .attr("cy", 0)
-        .attr("r", ptptOiDiameter / 6)
-        // .classed("hideWhenGroupSelected", true)
-      ;
-
-      var socialIconRoot = socialRoot.append("g");
-      socialIconRoot.attr("transform", "scale(" + socialIconScale + "," + socialIconScale + ")");
-      socialIconRoot.append("g")
-        // .attr("transform", function(d) {
-        //     if (d.hasFacebook) {
-        //         return "translate(" + (retina ? "6,35" : "9,38")  +") scale(.005, -0.005)";
-
-      //     } else if (d.hasTwitter) {
-      //         return "translate(" + (retina ? "8,25" : "9,28")  +") scale(0.015,0.015)";
-      //     }
-      // })
-      .attr("transform", function(d) {
-          if (d.hasFacebook) {
-            return "translate(" + (retina ? "-19,15" : "-19,15") + ") scale(.0065, -0.0065)";
-
-          } else if (d.hasTwitter) {
-            return "translate(" + (retina ? "-7,-7" : "-7,-7") + ") scale(0.015,0.015)";
-          }
-        })
-        .append("path")
-        .style("visibility", function(d) {
-          return (d.hasFacebook || d.hasTwitter) ? "visible" : "hidden";
-        })
-        .style("fill", "white")
-        .attr("d", function(d) {
-          if (d.hasFacebook) {
-            return "m 3179.0313,3471.2813 c 147.3,0 273.8408,-10.85 310.7504,-15.75 l 0,-360.25 -213.2496,-0.25 c -167.24,0 -199.5008,-79.38 -199.5008,-196 l 0,-257.25 398.7504,0 -52,-402.75 -346.7504,0 0,-1033.5 -415.9996,0 0,1033.5 -347.75,0 0,402.75 347.75,0 0,297 c 0,344.73 210.47,532.5 517.9996,532.5 z";
-          } else if (d.hasTwitter) {
-            return "d", "M0 781.864q0 7.32 7.32 13.176 12.2 8.296 43.432 24.4 119.072 61.488 249.856 61.488 162.992 0 296.216 -83.936 63.44 -40.016 112.728 -96.38t78.324 -117.608 43.432 -122.732 13.42 -119.56v-17.08q57.096 -40.992 89.304 -93.696 2.928 -5.856 2.928 -8.784 0 -6.344 -4.88 -11.224t-11.224 -4.88q-3.416 0 -11.712 3.904 -5.856 1.952 -14.396 4.88t-14.64 5.124 -8.052 2.684q12.688 -14.152 26.352 -38.308t13.664 -35.38q0 -6.344 -4.88 -10.98t-11.712 -4.636q-3.904 0 -7.808 2.44 -55.632 29.768 -103.944 40.504 -59.048 -56.12 -141.032 -56.12 -83.936 0 -142.984 58.56t-59.048 141.52q0 14.64 1.952 23.912 -82.472 -6.832 -159.088 -39.528t-137.616 -87.84q-14.152 -13.664 -54.656 -57.096 -5.856 -5.856 -13.664 -5.856 -5.856 0 -12.2 7.808 -12.688 19.032 -20.008 46.604t-7.32 53.924q0 72.712 45.384 126.88l-14.152 -6.832q-12.2 -5.368 -18.056 -5.368 -8.296 0 -13.908 4.88t-5.612 12.688q0 51.24 26.352 97.112t71.248 73.2l-5.856 -.976q-.976 0 -2.684 -.488t-2.684 -.732 -1.464 -.244q-6.344 0 -10.98 4.88t-4.636 10.736q0 .488 .976 5.368 16.592 50.752 55.144 86.132t90.28 47.58q-84.912 52.216 -187.392 52.216 -6.832 0 -21.96 -1.464 -20.496 -.976 -22.448 -.976 -6.344 0 -10.98 4.88t-4.636 11.224z";
-          }
-        })
-        // .classed("hideWhenGroupSelected", true)
-      ;
-
-      // socialIconRoot.append("g")
-      //     .attr("transform", function(d) {
-      //         return "translate(" + (retina ? "25,3":"29,8")  +") scale(0.015,0.015)";
-      //     })
-      //       .append("path")
-      //         .style("fill", "#55acee")
-      //         .style("visibility", function(d) {
-      //             return d.hasTwitter ? "visible" : "hidden";
-      //         })
-      // ;
+    // OUTER TRANSLUCENT SHAPES
+    var opacityOuter = 0.2;
+    var upArrowEnter = g.append("polygon")
+      .classed("up", true)
+      .classed("bktv", true)
+      .style("fill", colorPull)
+      .style("fill-opacity", opacityOuter)
+      // .style("stroke", colorPullOutline)
+      // .style("stroke-width", 1)
+    ;
+    var downArrowEnter = g.append("polygon")
+      .classed("down", true)
+      .classed("bktv", true)
+      .style("fill", colorPush)
+      .style("fill-opacity", opacityOuter)
+      // .style("stroke", colorPushOutline)
+      // .style("stroke-width", 1)
+    ;
+    var ptptoiImageZoomFactor = 1;
+    var picEnter = g.append("image");
+    picEnter
+    // .classed("circle", true)
+      .classed("bktv", true)
+      .attr("x", function(d) {
+        return getImageWidth(d) * -0.5;
+      })
+      .attr("y", function(d) {
+        return getImageWidth(d) * -0.5;
+      })
+      .attr("filter", "")
+      // .style("visibility", "hidden")
+      .attr("height", getImageWidth)
+      .attr("width", getImageWidth)
+      .attr("clip-path", "url(#clipCircle)")
+      .attr("xlink:href", function(d) {
+        return d.pic;
+      })
+      //   .style("opacity", opacityOuter)
+      //   .style("fill", chooseFill)
+      // .filter(isSelf)
+      //     .style("fill", "rgba(0,0,0,0)")
+      //     .style("stroke", colorSelf)
+      //     .style("stroke-width", 1)
+      //     .style("opacity", 0.5)
+    ;
 
 
+    var grayHaloEnter = g.append("circle");
+    grayHaloEnter
+      .classed("grayHalo", true)
+      .attr("cx", 0)
+      .attr("cy", 0)
+      .classed("ptptoi", isParticipantOfInterest)
+      .attr("r", function(d) {
+        if (isSummaryBucket(d)) {
+          return anonBlobRadius;
+        }
+        if (isParticipantOfInterest(d)) {
+          return ptptOiRadius;
+        }
+        // if (isSelf(d)) {
+        //     return ptptOiRadius;
+        // }
+        return ptptOiRadius;
+      })
+      .attr("stroke", grayHaloColor)
+      .attr("stroke-width", function(d) {
+        if (d.isSummaryBucket) {
+          return 0;
+        } else if (isSelf(d)) {
+          return 3;
+        } else {
+          return haloWidth;
+        }
+      })
+      .attr("fill", "rgba(0,0,0,0)");
 
-      // g.append("text")
-      //   // .classed("help", true)
-      //   // .classed("help_text_you", true)
-      //   .text(function(d) {
-      //       return d.bid;
-      //   })
-      //   .attr("text-anchor", "start")
-      //   // .attr("fill", "rgba(0,0,0,1.0)")
-      //   .attr("fill", colorSelf)
-      //   .attr("stroke", colorSelfOutline)
-      //   .attr("transform", function(d) {
-      //       return "translate(12, 6)";
-      //   });
 
-
-      // g.filter(isSummaryBucket)
-      //   .append("circle")
-      //   .classed("")
-      //   .attr("r", anonBlobRadius)
-      //   .attr("cx", 0)
-      //   .attr("cy", 0)
-      //   .attr("fill", "rgba(0,0,0,0)")
-      // ;
-
-      var labelG = g.filter(isSummaryBucket)
-        .append("g");
-
-      labelG.append("path")
-        .style("fill", "gray")
-        .attr("transform", "translate(-18,-8) scale(.008, 0.008)")
-        .attr("d", function(d) {
-          return "M529 896q-162 5-265 128h-134q-82 0-138-40.5t-56-118.5q0-353 124-353 6 0 43.5 21t97.5 42.5 119 21.5q67 0 133-23-5 37-5 66 0 139 81 256zm1071 637q0 120-73 189.5t-194 69.5h-874q-121 0-194-69.5t-73-189.5q0-53 3.5-103.5t14-109 26.5-108.5 43-97.5 62-81 85.5-53.5 111.5-20q10 0 43 21.5t73 48 107 48 135 21.5 135-21.5 107-48 73-48 43-21.5q61 0 111.5 20t85.5 53.5 62 81 43 97.5 26.5 108.5 14 109 3.5 103.5zm-1024-1277q0 106-75 181t-181 75-181-75-75-181 75-181 181-75 181 75 75 181zm704 384q0 159-112.5 271.5t-271.5 112.5-271.5-112.5-112.5-271.5 112.5-271.5 271.5-112.5 271.5 112.5 112.5 271.5zm576 225q0 78-56 118.5t-138 40.5h-134q-103-123-265-128 81-117 81-256 0-29-5-66 66 23 133 23 59 0 119-21.5t97.5-42.5 43.5-21q124 0 124 353zm-128-609q0 106-75 181t-181 75-181-75-75-181 75-181 181-75 181 75 75 181z";
-        });
-
-      labelG
-        .append("text")
-        .classed("summaryLabel", true)
-        // .attr("transform", function(d) {
-        //     return "translate(0, "+ pinLength +")";
-        // })
-        .text(function(d) {
-          return getGroupNameForGid(d.gid);
-        })
-        // .classed("help", true)
-        // .classed("help_text_you", true)
-        .style("font-family", "FontAwesome") // Tahoma, Helvetica, sans-serif For the "AGREED"/"DISAGREED" label: Tahoma should be good at small sizes http://ux.stackexchange.com/questions/3330/what-is-the-best-font-for-extremely-limited-space-i-e-will-fit-the-most-readab
-        .style("font-size", chooseSummaryLabelFontSize)
-        // .style("font-weight", "bold")
-        .attr("text-anchor", "left")
-        // .attr("alignment-baseline", "bottom")
-        .attr("alignment-baseline", "middle")
-        .attr("fill", "rgba(0,0,0,0.5)")
-        // .attr("fill", colorSelf)
-        // .attr("stroke", colorSelfOutline)
-        // .attr("transform", function(d) {
-        //     return "translate(12, 6)";
-        // });
-      ;
+    var beaconEnter = g.append("circle");
+    beaconEnter
+      .classed("beacon", true)
+      .attr("cx", 0)
+      .attr("cy", 0)
+      .classed("ptptoi", isParticipantOfInterest)
+      .attr("r", 0)
+      .attr("stroke-width", 10)
+      .attr("fill", "rgba(0,0,0,0)")
+      .attr("opacity", 0)
+      .attr("display", "none");
 
 
 
-      // g.filter(isSummaryBucket)
-      // .append("text")
-      // .classed("summaryLabelBottom", true)
-      // .style("font-family", "Tahoma, Helvetica, sans-serif") // For the "AGREED"/"DISAGREED" label: Tahoma should be good at small sizes http://ux.stackexchange.com/questions/3330/what-is-the-best-font-for-extremely-limited-space-i-e-will-fit-the-most-readab
-      // .style("font-size", "10px")
-      // // .style("font-weight", "bold")
-      // .style("fill", "gray")
-      // .text("people")
-      // .attr("text-anchor", "middle")
-      // .attr("alignment-baseline", "top")
+    // INNER SCALE-CHANGING SHAPES
+    var upArrowEnterInner = g.append("path")
+      .classed("up", true)
+      .classed("bktvi", true)
+      .style("fill", "rgba(0,0,0,0)")
+      .attr("stroke-width", function(d) {
+        if (isSummaryBucket(d)) {
+          return anonBlobHaloVoteWidth;
+        } else {
+          return haloVoteWidth;
+        }
+      })
+      .style("stroke", colorPull)
+      .style("opacity", 0.8);
+
+    var downArrowEnterInner = g.append("path")
+      .classed("down", true)
+      .classed("bktvi", true)
+      .style("fill", "rgba(0,0,0,0)")
+      .attr("stroke-width", function(d) {
+        if (d.isSummaryBucket) {
+          return anonBlobHaloVoteWidth;
+        } else {
+          return haloVoteWidth;
+        }
+      })
+      .style("stroke", colorPush)
+      .style("opacity", 0.8);
+
+    // var circleEnterInner = g.append("circle")
+    //   .classed("circle", true)
+    //   .classed("bktvi", true)
+    //   .style("stroke-width", 0)
+    //   .style("fill", chooseFill)
+    //   ;
+
+    var self = g.filter(isSelf);
+    self.classed("selfDot", true);
+
+
+
+    var edgeLengthToMatchCircleRadius = Math.sqrt(1 / 2) * ptptOiDiameter / 2;
+    var socialIconScale = ptptOiDiameter / 2 / maxPtptoiRad * 0.8;
+    if (retina) {
+      socialIconScale *= 0.8;
+    } else {
+      socialIconScale *= 1.1;
+    }
+    var socialRoot = g.filter(isParticipantOfInterest).append("g");
+    socialRoot.attr("transform", "translate(" + edgeLengthToMatchCircleRadius + "," + edgeLengthToMatchCircleRadius + ")");
+
+    socialRoot.append("circle")
+      .style("fill", function(d) {
+        if (d.hasFacebook) {
+          return "#3A5795";
+        } else if (d.hasTwitter) {
+          return "#55acee";
+        } else {
+          return "rgba(0,0,0,0)";
+        }
+
+      })
+      .attr("cx", 0)
+      .attr("cy", 0)
+      .attr("r", ptptOiDiameter / 6)
+      // .classed("hideWhenGroupSelected", true)
+    ;
+
+    var socialIconRoot = socialRoot.append("g");
+    socialIconRoot.attr("transform", "scale(" + socialIconScale + "," + socialIconScale + ")");
+    socialIconRoot.append("g")
       // .attr("transform", function(d) {
-      //     return "translate(0, 11)";
+      //     if (d.hasFacebook) {
+      //         return "translate(" + (retina ? "6,35" : "9,38")  +") scale(.005, -0.005)";
+
+    //     } else if (d.hasTwitter) {
+    //         return "translate(" + (retina ? "8,25" : "9,28")  +") scale(0.015,0.015)";
+    //     }
+    // })
+    .attr("transform", function(d) {
+        if (d.hasFacebook) {
+          return "translate(" + (retina ? "-19,15" : "-19,15") + ") scale(.0065, -0.0065)";
+
+        } else if (d.hasTwitter) {
+          return "translate(" + (retina ? "-7,-7" : "-7,-7") + ") scale(0.015,0.015)";
+        }
+      })
+      .append("path")
+      .style("visibility", function(d) {
+        return (d.hasFacebook || d.hasTwitter) ? "visible" : "hidden";
+      })
+      .style("fill", "white")
+      .attr("d", function(d) {
+        if (d.hasFacebook) {
+          return "m 3179.0313,3471.2813 c 147.3,0 273.8408,-10.85 310.7504,-15.75 l 0,-360.25 -213.2496,-0.25 c -167.24,0 -199.5008,-79.38 -199.5008,-196 l 0,-257.25 398.7504,0 -52,-402.75 -346.7504,0 0,-1033.5 -415.9996,0 0,1033.5 -347.75,0 0,402.75 347.75,0 0,297 c 0,344.73 210.47,532.5 517.9996,532.5 z";
+        } else if (d.hasTwitter) {
+          return "d", "M0 781.864q0 7.32 7.32 13.176 12.2 8.296 43.432 24.4 119.072 61.488 249.856 61.488 162.992 0 296.216 -83.936 63.44 -40.016 112.728 -96.38t78.324 -117.608 43.432 -122.732 13.42 -119.56v-17.08q57.096 -40.992 89.304 -93.696 2.928 -5.856 2.928 -8.784 0 -6.344 -4.88 -11.224t-11.224 -4.88q-3.416 0 -11.712 3.904 -5.856 1.952 -14.396 4.88t-14.64 5.124 -8.052 2.684q12.688 -14.152 26.352 -38.308t13.664 -35.38q0 -6.344 -4.88 -10.98t-11.712 -4.636q-3.904 0 -7.808 2.44 -55.632 29.768 -103.944 40.504 -59.048 -56.12 -141.032 -56.12 -83.936 0 -142.984 58.56t-59.048 141.52q0 14.64 1.952 23.912 -82.472 -6.832 -159.088 -39.528t-137.616 -87.84q-14.152 -13.664 -54.656 -57.096 -5.856 -5.856 -13.664 -5.856 -5.856 0 -12.2 7.808 -12.688 19.032 -20.008 46.604t-7.32 53.924q0 72.712 45.384 126.88l-14.152 -6.832q-12.2 -5.368 -18.056 -5.368 -8.296 0 -13.908 4.88t-5.612 12.688q0 51.24 26.352 97.112t71.248 73.2l-5.856 -.976q-.976 0 -2.684 -.488t-2.684 -.732 -1.464 -.244q-6.344 0 -10.98 4.88t-4.636 10.736q0 .488 .976 5.368 16.592 50.752 55.144 86.132t90.28 47.58q-84.912 52.216 -187.392 52.216 -6.832 0 -21.96 -1.464 -20.496 -.976 -22.448 -.976 -6.344 0 -10.98 4.88t-4.636 11.224z";
+        }
+      })
+      // .classed("hideWhenGroupSelected", true)
+    ;
+
+    // socialIconRoot.append("g")
+    //     .attr("transform", function(d) {
+    //         return "translate(" + (retina ? "25,3":"29,8")  +") scale(0.015,0.015)";
+    //     })
+    //       .append("path")
+    //         .style("fill", "#55acee")
+    //         .style("visibility", function(d) {
+    //             return d.hasTwitter ? "visible" : "hidden";
+    //         })
+    // ;
+
+
+
+    // g.append("text")
+    //   // .classed("help", true)
+    //   // .classed("help_text_you", true)
+    //   .text(function(d) {
+    //       return d.bid;
+    //   })
+    //   .attr("text-anchor", "start")
+    //   // .attr("fill", "rgba(0,0,0,1.0)")
+    //   .attr("fill", colorSelf)
+    //   .attr("stroke", colorSelfOutline)
+    //   .attr("transform", function(d) {
+    //       return "translate(12, 6)";
+    //   });
+
+
+    // g.filter(isSummaryBucket)
+    //   .append("circle")
+    //   .classed("")
+    //   .attr("r", anonBlobRadius)
+    //   .attr("cx", 0)
+    //   .attr("cy", 0)
+    //   .attr("fill", "rgba(0,0,0,0)")
+    // ;
+
+    var labelG = g.filter(isSummaryBucket)
+      .append("g");
+
+    labelG.append("path")
+      .style("fill", "gray")
+      .attr("transform", "translate(-18,-8) scale(.008, 0.008)")
+      .attr("d", function(d) {
+        return "M529 896q-162 5-265 128h-134q-82 0-138-40.5t-56-118.5q0-353 124-353 6 0 43.5 21t97.5 42.5 119 21.5q67 0 133-23-5 37-5 66 0 139 81 256zm1071 637q0 120-73 189.5t-194 69.5h-874q-121 0-194-69.5t-73-189.5q0-53 3.5-103.5t14-109 26.5-108.5 43-97.5 62-81 85.5-53.5 111.5-20q10 0 43 21.5t73 48 107 48 135 21.5 135-21.5 107-48 73-48 43-21.5q61 0 111.5 20t85.5 53.5 62 81 43 97.5 26.5 108.5 14 109 3.5 103.5zm-1024-1277q0 106-75 181t-181 75-181-75-75-181 75-181 181-75 181 75 75 181zm704 384q0 159-112.5 271.5t-271.5 112.5-271.5-112.5-112.5-271.5 112.5-271.5 271.5-112.5 271.5 112.5 112.5 271.5zm576 225q0 78-56 118.5t-138 40.5h-134q-103-123-265-128 81-117 81-256 0-29-5-66 66 23 133 23 59 0 119-21.5t97.5-42.5 43.5-21q124 0 124 353zm-128-609q0 106-75 181t-181 75-181-75-75-181 75-181 181-75 181 75 75 181z";
+      });
+
+    labelG
+      .append("text")
+      .classed("summaryLabel", true)
+      // .attr("transform", function(d) {
+      //     return "translate(0, "+ pinLength +")";
+      // })
+      .text(function(d) {
+        return getGroupNameForGid(d.gid);
+      })
+      // .classed("help", true)
+      // .classed("help_text_you", true)
+      .style("font-family", "FontAwesome") // Tahoma, Helvetica, sans-serif For the "AGREED"/"DISAGREED" label: Tahoma should be good at small sizes http://ux.stackexchange.com/questions/3330/what-is-the-best-font-for-extremely-limited-space-i-e-will-fit-the-most-readab
+      .style("font-size", chooseSummaryLabelFontSize)
+      // .style("font-weight", "bold")
+      .attr("text-anchor", "left")
+      // .attr("alignment-baseline", "bottom")
+      .attr("alignment-baseline", "middle")
+      .attr("fill", "rgba(0,0,0,0.5)")
+      // .attr("fill", colorSelf)
+      // .attr("stroke", colorSelfOutline)
+      // .attr("transform", function(d) {
+      //     return "translate(12, 6)";
       // });
-      // ;
+    ;
 
 
 
-    }
+    // g.filter(isSummaryBucket)
+    // .append("text")
+    // .classed("summaryLabelBottom", true)
+    // .style("font-family", "Tahoma, Helvetica, sans-serif") // For the "AGREED"/"DISAGREED" label: Tahoma should be good at small sizes http://ux.stackexchange.com/questions/3330/what-is-the-best-font-for-extremely-limited-space-i-e-will-fit-the-most-readab
+    // .style("font-size", "10px")
+    // // .style("font-weight", "bold")
+    // .style("fill", "gray")
+    // .text("people")
+    // .attr("text-anchor", "middle")
+    // .attr("alignment-baseline", "top")
+    // .attr("transform", function(d) {
+    //     return "translate(0, 11)";
+    // });
+    // ;
+
+
+
+
     updateNodes();
-
-    // fa89dsjf8d
-    if (!force && !isIE8) {
-      updateNodesOnTick();
-      // main_layer.selectAll(".node")
-      // .attr("transform", chooseTransformForRoots);
-    }
 
     updateHulls();
 
@@ -2637,36 +2380,14 @@ function VisView(params) {
         }
       }
 
-      function chooseTransformSubsetRaphael(d) {
-        var bid = d.bid;
-        var ppl = bidToPids[bid];
-        var total = ppl ? ppl.length : 0;
-        var active = hash[bid] || 0;
-        var ratio = active / total;
-        if (ratio > 0.99 || total === 0) {
-          return 1;
-        } else {
-          return ratio;
-        }
-      }
+      visualization.selectAll(".bktvi")
+        // .attr("stroke", chooseStroke)
+        .attr("transform", chooseTransformSubset)
+        // .attr("stroke-width", chooseStrokeWidth)
+        // .attr("fill-opacity", chooseFillOpacity)
+      ;
 
-      if (isIE8) {
-        // for (var j = 0; j < nodes.length; j++) {
-        //     var node = nodes[j];
-        //     var bucket = rNodes[j];
-        //     var s = chooseTransformSubsetRaphael(node);
-        //     bucket.scaleCircle(s);
-        //     // bucket.circle.scale(s, s)
-        // }
-      } else {
-        visualization.selectAll(".bktvi")
-          // .attr("stroke", chooseStroke)
-          .attr("transform", chooseTransformSubset)
-          // .attr("stroke-width", chooseStrokeWidth)
-          // .attr("fill-opacity", chooseFillOpacity)
-        ;
 
-      }
     });
   }
 

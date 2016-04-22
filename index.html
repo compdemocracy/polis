@@ -256,108 +256,28 @@ window.initIntercom = function(){
 
 
 <div id="fb-root"></div>
-    <script>
-      window.fbAsyncInit = function() {
-        FB.init({
-          appId      : '661042417336977',
-          xfbml      : true,
-          version    : 'v2.1'
-        });
-      };
+<script>
+  window.fbAsyncInit = function() {
+    FB.init({
+      appId      : '661042417336977',
+      xfbml      : true,
+      version    : 'v2.1'
+    });
+  };
 
-      (function(d, s, id){
-         var js, fjs = d.getElementsByTagName(s)[0];
-         if (d.getElementById(id)) {return;}
-         js = d.createElement(s); js.id = id;
-         // js.src = "//connect.facebook.net/en_US/sdk.js";
-        js.src = "//connect.facebook.net/en_US/sdk/debug.js"; // unminified
-         fjs.parentNode.insertBefore(js, fjs);
-       }(document, 'script', 'facebook-jssdk'));
-    </script>
-
-<!--
-    <div
-      class="fb-like"
-      data-share="true"
-      data-width="450"
-      data-show-faces="true">
-    </div> -->
-
-<!--[if lte IE 9]>
-
-  <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
-  <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
-
-
-  <script>
-    (function (fallback) {
-
-    fallback = fallback || function () { };
-
-    // function to trap most of the console functions from the FireBug Console API.
-    var trap = function () {
-        // create an Array from the arguments Object
-        var args = Array.prototype.slice.call(arguments);
-        // console.raw captures the raw args, without converting toString
-        console.raw.push(args);
-        var message = args.join(' ');
-        console.messages.push(message);
-        fallback(message);
-    };
-
-    // redefine console
-    //if (typeof console === 'undefined') {
-        console = {
-            messages: [],
-            raw: [],
-            dump: function() { return console.messages.join('\n'); },
-            log: trap,
-            debug: trap,
-            info: trap,
-            warn: trap,
-            error: trap,
-            assert: trap,
-            clear: function() {
-                  console.messages.length = 0;
-                  console.row.length = 0 ;
-            },
-            dir: trap,
-            dirxml: trap,
-            trace: trap,
-            group: trap,
-            groupCollapsed: trap,
-            groupEnd: trap,
-            time: trap,
-            timeEnd: trap,
-            timeStamp: trap,
-            profile: trap,
-            profileEnd: trap,
-            count: trap,
-            exception: trap,
-            table: trap
-        };
-   // }
-
-})(null); // to define a fallback function, replace null with the name of the function (ex: alert)
+  (function(d, s, id){
+     var js, fjs = d.getElementsByTagName(s)[0];
+     if (d.getElementById(id)) {return;}
+     js = d.createElement(s); js.id = id;
+     // js.src = "//connect.facebook.net/en_US/sdk.js";
+    js.src = "//connect.facebook.net/en_US/sdk/debug.js"; // unminified
+     fjs.parentNode.insertBefore(js, fjs);
+   }(document, 'script', 'facebook-jssdk'));
 </script>
-<script src="<%= basepath %>/js/<%= r2d3Filename %>" charset="utf-8"></script>
-<![endif]-->
-<!--[if gt IE 9]><!-->
+
 <script src="<%= basepath %>/js/<%= d3Filename %>"></script>
-<!--<![endif]-->
+<script src="<%= basepath %>/js/polis.js"></script>
 
-
-    <script src="<%= basepath %>/js/polis.js"></script>
-
-
-
-<!-- <script type="text/javascript" src="rainbow/js/rainbow.js"></script>
-<script type="text/javascript" src="rainbow/js/language/generic.js"></script>
-<script type="text/javascript" src="rainbow/js/language/javascript.js"></script> -->
-<!--[if lte IE 8]>
-<script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
-<script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
-<![endif]-->
 
 <p id="mainSpinner" class="HeadingC" style="text-align:center; margin: 40px">Loading...</p>
 <p id="badDomainMessage" class="HeadingC displaynone" style="text-align:center; margin: 40px;">This coversation can not be viewed from this domain.</p>

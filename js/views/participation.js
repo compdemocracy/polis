@@ -41,9 +41,6 @@ var useVoteMoreBlocker = false;
 var isIE8 = Utils.isIE8();
 var isMobile = Utils.isMobile();
 var isOldAndroid = Utils.isOldAndroid();
-// var useRaphael =
-//   isIE8 || // because no support for svg
-//   isOldAndroid; // Gingerbread gets no vis.
 
 function shouldHideVisWhenWriteTabShowing() {
   return true;
@@ -521,7 +518,6 @@ module.exports = ConversationView.extend({
           computeXySpans: Utils.computeXySpans,
           el_queryResultSelector: ".query_results_div",
           el: VIS_SELECTOR,
-          el_raphaelSelector: VIS_SELECTOR, //"#raphael_div",
           getGroupNameForGid: function(gid) {
             var x = that.serverClient.getGroupInfo(gid);
             return x.count;
