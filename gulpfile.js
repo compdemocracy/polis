@@ -310,6 +310,8 @@ gulp.task('jshint', function(){
           curly: true, // require if,else blocks to have {}
           eqeqeq: true,
           trailing: true, // no trailing whitespace allowed
+          forin: true, // requires all for in loops to filter object's items
+          freeze: true, // prohibits overwriting prototypes of native objects such as Array, Date and so on.
           // immed: true,
           // latedef: true,
           // newcap: true,

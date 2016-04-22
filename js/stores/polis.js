@@ -1430,6 +1430,7 @@ module.exports = function(params) {
   }
 
   function arraysToObjects(objWithArraysAsProperties) {
+    /* jshint -W089 */
     var objects = [];
     var len = -1;
     for (var k in objWithArraysAsProperties) {
@@ -1446,6 +1447,7 @@ module.exports = function(params) {
       }
       objects.push(o);
     }
+    /* jshint +W089 */
     return objects;
   }
 
@@ -1498,8 +1500,7 @@ module.exports = function(params) {
 
 
     var bidToGid = getBidToGid();
-    for (var pid in participantsOfInterestVotes) {
-      var ptpt = participantsOfInterestVotes[pid];
+    _.each(participantsOfInterestVotes, function(ptpt, pid) {
       var magicPid = Number(pid) + 10000000000;
       var gid = bidToGid[magicPid];
       // clusters[gid].ptptoiCount = (clusters[gid].ptptoiCount || 0) + 1;
@@ -1515,7 +1516,7 @@ module.exports = function(params) {
       temp.gid = gid;
       var p = bucketizeParticipantOfInterest(temp, ptpt);
       people.push(p);
-    }
+    });
 
     function averageTheThings(items, getter) {
       var total = 0;
@@ -1884,13 +1885,12 @@ module.exports = function(params) {
       usePreloadFamous = false;
       x = x || {};
       // assign fake bids for these projected participants
-      for (var pid in x) {
+      _.each(x, function(ptpt, pid) {
         pid = parseInt(pid);
         var bucketId = pid + PTPOI_BID_OFFSET; // should be safe to say there aren't 10 billion buckets, so we can use this range
         if (pid === myPid) {
           myBid = bucketId;
         }
-        var ptpt = x[pid];
         ptpt.fakeBid = bucketId;
 
         // default anon picture, may be overwritten
@@ -1925,7 +1925,7 @@ module.exports = function(params) {
         if (ptpt.polis) {
           ptpt.picture = ptpt.polis.polis_pic;
         }
-      }
+      });
       participantsOfInterestVotes = x;
       participantsOfInterestBids = _.pluck(_.values(participantsOfInterestVotes), "bid");
     });
@@ -2379,13 +2379,12 @@ module.exports = function(params) {
     }
     var cluster = clustersCache[gid].members;
     var items = [];
-    for (var pid in participantsOfInterestVotes) {
-      var data = participantsOfInterestVotes[pid];
+    _.each(participantsOfInterestVotes, function(data, pid) {
       var bid = data.bid;
       if (cluster.indexOf(bid) >= 0) {
         items.push(data);
       }
-    }
+    });
     return items;
   }
 
