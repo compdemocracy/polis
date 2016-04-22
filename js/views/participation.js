@@ -26,8 +26,6 @@ var Strings = require("../strings");
 var Utils = require("../util/utils");
 var VisView = require("../lib/VisView");
 var VoteMoreView = require("../views/voteMoreView");
-var TutorialView = require("../views/tutorialView");
-var TutorialSlidesView = require("../views/tutorialSlides");
 var WritingTipsView = require("../views/writingTips");
 
 var markdown = require('markdown');
@@ -42,8 +40,6 @@ var VIS_MODE_VOTEMORE = 2;
 var VIS_MODE_TUT = 3;
 
 var useAboveVisTutorial = false;
-var useVisBlockingTutorial = true;
-var launchWithTutorial = false; // !Utils.isInIframe(); // Don't want to show tutorial for casual/journalism scenarios until we have the custom wording/logic to wait on a first vote.
 var useVoteMoreBlocker = false;
 
 var isIE8 = Utils.isIE8();
@@ -114,11 +110,6 @@ module.exports =  ConversationView.extend({
   showVis: function() {
     $("#vis_sibling_bottom").show();
   },
-  // showTutorial: function() {
-  //   if (this.visModeModel.get("visMode") === VIS_MODE_TUT) {
-  //     $("#tutorialSlides").show();
-  //   }
-  // },
   hideWriteHints: function() {
     $("#write_hints_div").hide();
   },
@@ -395,9 +386,6 @@ module.exports =  ConversationView.extend({
           // that.conversationTabs.gotoVoteTab();
           // that.conversationTabs.gotoAnalyzeTab();
         }
-        if (that.tutorialView) {
-          that.tutorialView.endAnalyzeTutorial();
-        }
       }
       that.updateCarouselVisibility();
     });
@@ -423,9 +411,6 @@ module.exports =  ConversationView.extend({
           //     scrollTop: $("#visualization_parent_div").offset().top
           //   }, 100);
           // }
-          if (that.tutorialView) {
-            that.tutorialView.startAnalyzeTutorial();
-          }
         }
       }
       that.updateCarouselVisibility();
@@ -653,14 +638,9 @@ module.exports =  ConversationView.extend({
         }
       });
 
-      if (launchWithTutorial && !_.isUndefined(options.finishedTutorial)) {
-        launchWithTutorial = !options.finishedTutorial;
-      }
       var mode = VIS_MODE_VIS;
       if (useVoteMoreBlocker) {
         mode = VIS_MODE_VOTEMORE;
-      } else if (launchWithTutorial) {
-        mode = VIS_MODE_TUT;
       } else {
         mode = VIS_MODE_VIS;
       }
@@ -670,7 +650,6 @@ module.exports =  ConversationView.extend({
       this.visModeModel.on("change:visMode", function() {
         var visMode = that.visModeModel.get("visMode");
         if (visMode === VIS_MODE_TUT) {
-          $("#tutorialSlides").show();
           $("#afterTutorial").hide();
           $("#voteMoreParent").hide();
           $("#visualization_parent_div").hide();
@@ -679,7 +658,6 @@ module.exports =  ConversationView.extend({
         if (visMode === VIS_MODE_VIS) {
           // that.vis.hideHintVoteMoreBlocker();
           $("#voteMoreParent").hide();
-          $("#tutorialSlides").hide();
           $("#afterTutorial").show();
           $("#visualization_parent_div").css("visibility", "visible");
           $("#visualization_parent_div").css("display", "block");
@@ -705,25 +683,8 @@ module.exports =  ConversationView.extend({
         }
       });
 
-
-      if (useVisBlockingTutorial) {
-        this.tutorialSlidesModel = new Backbone.Model({
-          step: 1
-        });
-        this.tutorialSlidesView = this.addChild(new TutorialSlidesView({
-          model: this.tutorialSlidesModel
-        }));
-        this.tutorialSlidesView.on("done", function() {
-          that.visModeModel.set("visMode", VIS_MODE_VIS);
-          that.serverClient.finishedTutorial();
-        });
-      }
       setTimeout(function() {
-        if (mode === VIS_MODE_TUT) {
-          tutorialStart();
-        } else {
-          that.visModeModel.set("visMode", mode);
-        }
+        that.visModeModel.set("visMode", mode);
       },1);
 
 
@@ -778,11 +739,6 @@ module.exports =  ConversationView.extend({
         $("#infoPaneTab").click();
       });
 
-      if (useAboveVisTutorial) {
-        this.tutorialView = this.addChild(new TutorialView({
-          model: this.tutorialModel
-        }));
-      }
 
       // var gotFirstComment = (firstComment && !_.isUndefined(firstComment.txt));
       // var openToWriteTab = !gotFirstComment;
@@ -989,9 +945,6 @@ module.exports =  ConversationView.extend({
       if (SHOULD_AUTO_CLICK_FIRST_COMMENT) {
         $(".query_result_item").first().trigger("click");
       }
-      if (display.xs()) {
-        $("#tutorialSlides").hide();
-      }
     });
     that.conversationTabs.on("aftershow:group", function() {
       that.initPcaVis();
@@ -999,7 +952,6 @@ module.exports =  ConversationView.extend({
     });
     that.conversationTabs.on("aftershow:write", function() {
       // Put the comment textarea in focus (should pop up the keyboard on mobile)
-      $("#tutorialSlides").hide();
       if (Utils.shouldFocusOnTextareaWhenWritePaneShown()) {
         $("#comment_form_textarea").focus();
       }
@@ -1045,11 +997,6 @@ module.exports =  ConversationView.extend({
     //   });
     // };
 
-    function tutorialStart() {
-      that.tutorialSlidesModel.set("step", 1);
-      that.visModeModel.set("visMode", VIS_MODE_TUT);
-      $("#commentViewTab").click();
-    }
 
     this.listenTo(this, "render", function(){
       setTimeout(function() {
@@ -1062,12 +1009,6 @@ module.exports =  ConversationView.extend({
       //   cfp.insertAfter($("#commentFormBSibling"));
       // }
 
-      // if (launchWithTutorial) {
-      //   $("#tutorialSlides").show();
-      // }
-
-
-      $("#resetVisBlockerTutorial").on("click", tutorialStart);
 
 
       that.updateVisMode();

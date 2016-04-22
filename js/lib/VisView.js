@@ -1,5 +1,4 @@
 var eb = require("../eventBus");
-var owl = require("owl");
 var display = require("../util/display");
 // var Raphael = require("raphael");
 var Utils = require("../util/utils");

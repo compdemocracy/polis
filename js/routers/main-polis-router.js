@@ -1,42 +1,14 @@
 var RootView = require("../views/root");
 var Backbone = require("backbone");
 var ConversationModel = require("../models/conversation");
-var CookiesDisabledView = require("../views/cookiesDisabledView");
-var CourseView = require("../views/course");
-var RootsView = require("../views/roots");
-var RootsRootView = require("../views/rootsRoot");
 var ParticipantModel = require("../models/participant");
 var bbFetch = require("../net/bbFetch");
 var ConversationsCollection = require("../collections/conversations");
 var eb = require("../eventBus");
-var FaqCollection = require("../collections/faqs");
-var FaqContent = require("../faqContent");
-var InboxItemForApiView = require('../views/inboxItemForApi');
-var InboxView = require("../views/inbox");
-var InboxApiTestView = require("../views/inboxApiTest");
-var HomepageView = require("../views/homepage");
-var CreateConversationFormView = require("../views/create-conversation-form");
-var HkNewView = require("../views/hkNew");
-var ConversationDetailsView = require("../views/conversation-details");
-var ConversationGatekeeperView = require("../views/conversationGatekeeperView");
-var CreateUserForm = require("../views/create-user-form");
 var ParticipationView = require("../views/participation");
-var ExploreView = require("../views/explore");
-var EmptyView = require("../views/empty-view");
-var LoginFormView = require("../views/login-form");
 var metric = require("../util/gaMetric");
-var ModerationView = require("../views/moderation");
-var PasswordResetView = require("../views/passwordResetView");
-var PasswordResetInitView = require("../views/passwordResetInitView");
-var SettingsEnterpriseView = require("../views/settingsEnterprise.js");
-var SettingsView = require("../views/settings.js");
-var ShareLinkView = require("../views/share-link-view");
-var SummaryView = require("../views/summary.js");
-var PlanUpgradeView = require("../views/plan-upgrade");
 var preloadHelper = require("../util/preloadHelper");
-var FaqView = require("../views/faq");
 var PolisStorage = require("../util/polisStorage");
-var TutorialSlidesView = require("../views/tutorialSlides");
 var UserModel = require("../models/user");
 var Utils = require("../util/utils");
 var _ = require("underscore");
@@ -115,9 +87,10 @@ function doJoinConversation(args) {
               alert("Sorry, this single-use URL has been used.");
             },99);
           } else {
-            that.conversationGatekeeper(conversation_id, suzinvite).done(function(ptptData) {
-              doJoinConversation.call(that, args);
-            });
+            alert("error joining conversation");
+            // that.conversationGatekeeper(conversation_id, suzinvite).done(function(ptptData) {
+            //   doJoinConversation.call(that, args);
+            // });
           }
         });
       } else if (conversation_id) {
@@ -139,17 +112,13 @@ function doJoinConversation(args) {
           gaEvent("Session", "create", "empty");
         }, function(err) {
           if (/polis_err_need_full_user/.test(err.responseText)) {
-            that.doCreateUserFromGatekeeper(conversation_id).done(function(ptptData) {
-              doJoinConversation.call(that, args);
-            });
+
+            alert("error joining conversation polis_err_need_full_user");
           } else {
             // TODO when does this happen?
-            that.conversationGatekeeper(conversation_id).done(function(ptptData) {
-              doJoinConversation.call(that, args);
-            });
+            alert("error joining conversation 2");
           }
           // console.dir(err);
-          // doCreateUserFromGatekeeper
         });
       } else {
         gaEvent("Session", "createFail", "polis_err_unexpected_conv_join_condition_1");
@@ -175,9 +144,7 @@ function doJoinConversation(args) {
           that.participationView(conversation_id);
           gaEvent("Session", "create", "empty");
         }, function(err) {
-          that.conversationGatekeeper(conversation_id).done(function(ptptData) {
-            doJoinConversation.call(that, args);
-          });
+          alert("error joining conversation 3");
         });
 
       }
@@ -224,9 +191,7 @@ function doJoinConversation(args) {
           if (err.responseText === "polis_err_no_matching_suzinvite") {
             alert("Sorry, this single-use URL has been used.");
           } else {
-            that.conversationGatekeeper(conversation_id, suzinvite).done(function(ptptData) {
-              doJoinConversation.call(that, args);
-            });
+            alert("error joining conversation 3");
           }
         });
       });
@@ -245,9 +210,7 @@ function doJoinConversation(args) {
           alert("Before joining, you must link this account to your Canvas account. Look for an assignment called \"setup pol.is\".");
         } else {
           // not sure if this path works, or ever occurs
-          that.conversationGatekeeper(conversation_id).done(function(ptptData) {
-            doJoinConversation.call(that, args);
-          });
+          alert("error joining conversation 4");
         }
       });
     }
@@ -267,57 +230,20 @@ var polisRouter = Backbone.Router.extend({
     window.location = route;
   },
   initialize: function(options) {
-    this.r("homepage", "homepageView");
     this.r(/^conversation\/create(\/ep1_[0-9A-Za-z]+)?/, "createConversation");
-    this.r(/^hk\/new\/?$/, "hkNew");
     this.r("user/create(/:params)", "createUser");
-    this.r("user/login(/:redirectPath)", "login");
     this.r(/^user\/logout(\/.+)/, "deregister");
     this.r("welcome/:einvite", "createUserViewFromEinvite");
-    this.r(/^settings(\/ep1_[0-9A-Za-z]+)?/, "settings");
-    this.r(/^settings\/enterprise(\/ep1_[0-9A-Za-z]+)?/, "settingsEnterprise");
-    this.r("inbox", "inbox");
-    this.r(/^inbox\/(ep1_[0-9A-Za-z]+)$/, "inboxLti");
-
-    this.r("inboxApiTest(/:filter)", "inboxApiTest");
-    this.r("faq", "faq");
-    this.r("tut", "doShowTutorial");
-    this.r("pwresetinit", "pwResetInit");
-    this.r("prototype", "prototype");
     this.r("", "landingPageView");
-
-    this.r(/^course\/(.*)/, "courseView");
-    this.r(/^hk\/?$/, "hk");
-    this.r(/^r\/?$/, "roots");
-    this.r(/^s\/?$/, "rootsRoot");
-    this.r(/^s\/(.+)$/, "roots");
-    this.r(/^s\/new\/(.+)$/, "rootsNew");
 
     this.r(/^([0-9][0-9A-Za-z]+)\/?(\?.*)?$/, "participationViewWithQueryParams");  // conversation_id / query params
     this.r(/^([0-9][0-9A-Za-z]+)(\/ep1_[0-9A-Za-z]+)?$/, "participationView");  // conversation_id / encodedStringifiedJson
     this.r(/^ot\/([0-9][0-9A-Za-z]+)\/(.*)/, "participationViewWithSuzinvite"); // ot/conversation_id/suzinvite
-    this.r(/^pwreset\/(.*)/, "pwReset");
     this.r(/^demo\/([0-9][0-9A-Za-z]+)/, "demoConversation");
-
-    //this.r(/^explore\/([0-9][0-9A-Za-z]+)$/, "exploreView");  // explore/conversation_id
-    this.r(/^share\/([0-9][0-9A-Za-z]+)$/, "shareView");  // share/conversation_id
     //this.r(/^summary\/([0-9][0-9A-Za-z]+)$/, "summaryView");  // summary/conversation_id
-    this.r(/^m\/([0-9][0-9A-Za-z]+)\/?(.*)$/, "moderationView");  // m/conversation_id
-    // this.r(/^iip\/([0-9][0-9A-Za-z]+)$/, "inboxItemParticipant");
-    // this.r(/^iim\/([0-9][0-9A-Za-z]+)$/, "inboxItemModerator");
 
     var routesWithFooter = [
-      /^faq/,
-      /^settings/,
-      /^settings\/enterprise/,
       /^summaryView/,
-      /^inbox(\/.*)?$/,
-      /^inboxLti/,
-      /^inboxApiTest$/,
-      /^moderationView/,
-      /^pwResetInit/,
-      /^pwReset/,
-      /^exploreView/,
       /^createConversation/
     ];
     function needsFooter(route) {
@@ -340,27 +266,6 @@ var polisRouter = Backbone.Router.extend({
       onFirstRender();
     });
 
-    var that = this;
-    eb.on("upvote_but_no_auth", function(o) {
-        var promise = that.doLogin(true);
-        promise.then(function() {
-          $.post("/api/v3/upvotes", {
-            conversation_id: o.conversation_id
-          }).always(function() {
-            that.redirect(o.pathname);
-          });
-        });
-    });
-    eb.on("createContext_but_no_auth", function(o) {
-        var promise = that.doLogin(true);
-        promise.then(function() {
-          $.post("/api/v3/contexts", {
-            name: o.name
-          }).always(function() {
-            that.redirect(o.pathname); // TODO this doesn't seem to get triggered
-          });
-        });
-    });
 
     if (authenticated()) {
       authenticatedDfd.resolve();
@@ -377,70 +282,6 @@ var polisRouter = Backbone.Router.extend({
   bail: function() {
     this.gotoRoute("/", {trigger: true});
   },
-  prototype: function() {
-    var view = new EmptyView();
-    RootView.getInstance().setView(view);
-  },
-  upgradePlan: function(plan_id) {
-    var promise;
-    if (!authenticated()) {
-      window.planId = plan_id;
-      promise = this.doLogin(false);
-    } else if (!hasEmail() && !window.authenticatedByHeader) {
-      window.planId = plan_id;
-      promise = this.doLogin(true);
-    } else {
-      if (_.isUndefined(plan_id) && !_.isUndefined(window.plan_id)) {
-        plan_id = window.planId;
-      }
-      promise = $.Deferred().resolve();
-    }
-    promise.then(function() {
-      var userModel = new UserModel();
-      bbFetch(userModel).then(function() {
-        var view = new PlanUpgradeView({
-          model: userModel,
-          plan_id: plan_id,
-        });
-        RootView.getInstance().setView(view);
-      });
-    });
-
-  },
-  // inboxItemParticipant: function(conversation_id) {
-  //   var model = new Backbone.Model({
-  //     conversation_id: conversation_id,
-  //     participant_count: 0,
-  //     topic: "Placeholder Topic",
-  //     description: "Placeholder Description",
-  //     url_name: "https://preprod.pol.is/" + conversation_id,
-  //     url_name_with_hostname: "https://preprod.pol.is/" + conversation_id,
-  //     // url_moderate: "https://pol.is/m/" + conversation_id,
-  //     target: "_blank",
-  //     is_owner: false,
-  //   })
-  //   var view = new InboxItemForApiView({
-  //     model: model
-  //   });
-  //   RootView.getInstance().setView(view);
-  // },
-  // inboxItemModerator: function(conversation_id) {
-  //   var model = new Backbone.Model({
-  //     conversation_id: conversation_id,
-  //     participant_count: 0,
-  //     topic: "Placeholder Topic",
-  //     description: "Placeholder Description",
-  //     url_name: "https://pol.is/" + conversation_id,
-  //     url_name_with_hostname: "https://pol.is/" + conversation_id,
-  //     url_moderate: "https://pol.is/m/" + conversation_id,
-  //     target: "_blank",
-  //     is_owner: true,
-  //   })
-  //   var view = new InboxItemForApiView({ // TODO moderator specific
-  //     model: model
-  //   });
-  //   RootView.getInstance().setView(view);
-  // },
   landingPageView: function() {
     if (!authenticated()) {
       this.gotoRoute("/user/create", {trigger: true});
@@ -456,478 +297,9 @@ var polisRouter = Backbone.Router.extend({
       this.gotoRoute("/inbox", {trigger: true});
     }
   },
-  settings: function(encodedStringifiedJson) {
-    var promise = $.Deferred().resolve();
-    if (!authenticated()) {
-      promise = this.doLogin(false);
-    } else if (!hasEmail()  && !window.authenticatedByHeader) {
-      promise = this.doLogin(true);
-    }
-    promise.then(function() {
-      var userModel = new UserModel();
-      bbFetch(userModel).then(function() {
-          var v = new SettingsView({
-          model: userModel,
-        });
-        RootView.getInstance().setView(v);
-      });
-    });
-  },
-  settingsEnterprise: function(encodedStringifiedJson) {
-    var o = {};
-    if (encodedStringifiedJson && encodedStringifiedJson.length) {
-      o = Utils.decodeParams(encodedStringifiedJson);
-    }
-    // alert(o.monthly);
-    // alert(o.maxUsers);
-    var promise = $.Deferred().resolve();
-    if (!authenticated()) {
-      promise = this.doLogin(false);
-    } else if (!hasEmail()  && !window.authenticatedByHeader) {
-      promise = this.doLogin(true);
-    }
-    promise.then(function() {
-      var userModel = new UserModel();
-      bbFetch(userModel).then(function() {
-          var v = new SettingsEnterpriseView({
-          model: userModel,
-          proposal: o
-        });
-        RootView.getInstance().setView(v);
-      });
-    });
-  },
   deregister: function(dest) {
     window.deregister(dest);
   },
-  shareView: function(conversation_id) {
-    var that = this;
-    this.getConversationModel(conversation_id).then(function(model) {
-      var view = new ShareLinkView({
-        model: model
-      });
-      RootView.getInstance().setView(view);
-    },function(e) {
-      console.error("error2 loading conversation model");
-    });
-  },
-  inbox: function(encodedStringifiedJson){
-    var promise = $.Deferred().resolve();
-
-    if (!authenticated()) {
-      promise = this.doLogin(false);
-    } else if (!hasEmail()  && !window.authenticatedByHeader) {
-      promise = this.doLogin(true);
-    }
-    $.when(promise, preloadHelper.firstUserPromise).then(function() {
-      // TODO add to inboxview init
-      // conversationsCollection.fetch({
-      //     data: $.param({
-      //         is_active: false,
-      //         is_draft: false,
-      //     }),
-      //     processData: true,
-      // });
-      var filterAttrs = {};
-      if (encodedStringifiedJson) {
-        console.log(encodedStringifiedJson);
-        // // check for context
-        // if (filter.match(/context=([^=?]+)/).length > 1) {
-        //   filterAttrs.context = filter.match(/context=([^=?]+)/)[1];
-        // }
-        var o = Utils.decodeParams(encodedStringifiedJson);
-        console.dir(o);
-        filterAttrs = $.extend(filterAttrs, o);
-      } else {
-
-        // Default inbox behavior
-
-        // Not just the ones I started.
-        filterAttrs.include_all_conversations_i_am_in = true;
-      }
-
-      var conversationsCollection = new ConversationsCollection();
-      // Let the InboxView filter the conversationsCollection.
-
-      var userModel = new UserModel();
-      bbFetch(userModel).then(function() {
-        var inboxView = new InboxView({
-          model: userModel,
-          collection: conversationsCollection,
-          filters: filterAttrs
-        });
-        RootView.getInstance().setView(inboxView);
-      });
-
-    });
-  },
-
-  inboxLti: function(encodedStringifiedJson){
-    var promise = $.Deferred().resolve();
-
-    if (!authenticated()) {
-      promise = this.doLogin(false);
-    }
-    promise.then(function() {
-      // TODO add to inboxview init
-      // conversationsCollection.fetch({
-      //     data: $.param({
-      //         is_active: false,
-      //         is_draft: false,
-      //     }),
-      //     processData: true,
-      // });
-      var filterAttrs = {};
-      if (encodedStringifiedJson) {
-        console.log(encodedStringifiedJson);
-        // // check for context
-        // if (filter.match(/context=([^=?]+)/).length > 1) {
-        //   filterAttrs.context = filter.match(/context=([^=?]+)/)[1];
-        // }
-        var o = Utils.decodeParams(encodedStringifiedJson);
-        console.dir(o);
-        filterAttrs = $.extend(filterAttrs, o);
-      } else {
-
-        // Default inbox behavior
-
-        // Not just the ones I started.
-        filterAttrs.include_all_conversations_i_am_in = true;
-      }
-
-      var conversationsCollection = new ConversationsCollection();
-      // Let the InboxView filter the conversationsCollection.
-      var inboxView = new InboxView({
-        collection: conversationsCollection,
-        filters: filterAttrs
-      });
-      RootView.getInstance().setView(inboxView);
-    });
-  },
-  hk: function() {
-    /*eslint-disable */
-    /* jshint ignore:start */
-    var check = Utils.isIos() && (window.top != window);
-    /* jshint ignore:end */
-    /*eslint-enable */
-    if (check) {
-      // this.tryCookieThing();
-      window.top.location = "https://pol.is/hk";
-    }
-    var filterAttrs = {
-      is_draft: false,
-      want_upvoted: true,
-      context: "hongkong2014"
-    };
-    var conversationsCollection = new ConversationsCollection();
-    // Let the InboxView filter the conversationsCollection.
-    var view = new CourseView({
-      collection: conversationsCollection,
-      filters: filterAttrs
-    });
-    RootView.getInstance().setView(view);
-  },
-  rootsRoot: function() {
-    var view = new RootsRootView();
-    RootView.getInstance().setView(view);
-  },
-  roots: function(context) {
-    var filterAttrs = {
-      is_draft: false,
-      is_active: true,
-      // want_upvoted: true,
-      limit: 99,
-      context: context || "/", // NOTE "/" context is magic -- see server
-    };
-    var conversationsCollection = new ConversationsCollection();
-    // Let the InboxView filter the conversationsCollection.
-    var view = new RootsView({
-      collection: conversationsCollection,
-      filters: filterAttrs
-    });
-    RootView.getInstance().setView(view);
-  },
-  courseView: function(course_invite){
-    var promise = $.Deferred().resolve();
-    if (!authenticated()) {
-      promise = this.doLogin(false);
-    } else if (!hasEmail()  && !window.authenticatedByHeader) {
-      promise = this.doLogin(true);
-    }
-    promise.then(function() {
-      var filterAttrs = {
-        course_invite: course_invite
-      };
-      // Not just the ones I started.
-      filterAttrs.include_all_conversations_i_am_in = true;
-
-      var conversationsCollection = new ConversationsCollection();
-      // Let the InboxView filter the conversationsCollection.
-      var view = new CourseView({
-        collection: conversationsCollection,
-        filters: filterAttrs
-      });
-      RootView.getInstance().setView(view);
-    });
-  },
-  inboxApiTest: function(filter){
-    var promise = $.Deferred().resolve();
-    if (!authenticated()) {
-      promise = this.doLogin(false);
-    } else if (!hasEmail()  && !window.authenticatedByHeader) {
-      promise = this.doLogin(true);
-    }
-    promise.then(function() {
-      // TODO add to inboxview init
-      // conversationsCollection.fetch({
-      //     data: $.param({
-      //         is_active: false,
-      //         is_draft: false,
-      //     }),
-      //     processData: true,
-      // });
-      var filterAttrs = {};
-      // filterAttrs.want_inbox_item_admin_html = true;
-      // filterAttrs.want_inbox_item_admin_html = true;
-      filterAttrs.limit = 5;
-      // filterAttrs.include_all_conversations_i_am_in = true; // don't want this for api test
-      filterAttrs.want_mod_url = true;
-      filterAttrs.user_id = "user_12345";
-      // filterAttrs.want_inbox_item_participant_url = true;
-      // if (filter) {
-      //   switch(filter) {
-      //     case "closed":
-      //       filterAttrs.is_active = false;
-      //       filterAttrs.is_draft = false;
-      //     break;
-      //     case "active":
-      //       filterAttrs.is_active = true;
-      //     break;
-      //     default:
-      //       filterAttrs.is_active = true;
-      //     break;
-      //   }
-      // }
-      var conversationsCollection = new ConversationsCollection();
-      // Let the InboxView filter the conversationsCollection.
-      var inboxView = new InboxApiTestView({
-        filters: filterAttrs,
-        collection: conversationsCollection
-      });
-      RootView.getInstance().setView(inboxView);
-    });
-  },
-  homepageView: function(){
-    var homepage = new HomepageView();
-    RootView.getInstance().setView(homepage);
-  },
-  createConversation: function(encodedStringifiedJson){
-    var promise = $.Deferred().resolve();
-    if (!authenticated()) {
-      promise = this.doLogin(false);
-    } else if (!hasEmail()  && !window.authenticatedByHeader) {
-      promise = this.doLogin(true);
-    }
-    var paramsFromPath = {};
-    if (encodedStringifiedJson) {
-      paramsFromPath = Utils.decodeParams(encodedStringifiedJson);
-    }
-    var that = this;
-    promise.then(function() {
-      function onFail(err) {
-        alert("failed to create new conversation");
-        console.dir(err);
-      }
-      conversationsCollection = new ConversationsCollection();
-
-      var o = {
-        is_draft: true,
-        is_active: true // TODO think
-      };
-
-
-      var model = new ConversationModel(o);
-
-      model.save().then(function(data) {
-        var conversation_id = data[0][0].conversation_id;
-        model.set("conversation_id", conversation_id);
-
-        var ptpt = new ParticipantModel({
-          conversation_id: conversation_id
-        });
-        return ptpt.save();
-      }).then(function(ptptAttrs) {
-        var createConversationFormView = new CreateConversationFormView({
-          model: model,
-          paramsFromPath: paramsFromPath,
-          collection: conversationsCollection,
-          pid: ptptAttrs.pid,
-          add: true
-        });
-        that.listenTo(createConversationFormView, "all", function(eventName, data) {
-          if (eventName === "done") {
-            // NOTE suurls broken for now
-            // var suurls = data;
-            //   if (suurls) {
-            //   var suurlsCsv = [];
-            //   var len = suurls.xids.length;
-            //   var xids = suurls.xids;
-            //   var urls = suurls.urls;
-            //   for (var i = 0; i < len; i++) {
-            //     suurlsCsv.push({xid: xids[i], url: urls[i]});
-            //   }
-            //   model.set("suurls", suurlsCsv);
-            // }
-
-            if (paramsFromPath.custom_canvas_assignment_id) {
-              // This is attached to a Canvas assignment, take the instructor right to the conversation. They shouldn't be sharing the link, because participation outside Canvas will not be graded.
-              that.gotoRoute("/" + model.get("conversation_id"), {trigger: true});
-            } else {
-              // The usual case, show the share page.
-              that.gotoRoute("/share/" + model.get("conversation_id"), {trigger: true});
-            }
-          }
-        });
-        RootView.getInstance().setView(createConversationFormView);
-        $("[data-toggle='checkbox']").each(function() {
-          var $checkbox = $(this);
-          $checkbox.checkbox();
-        });
-      }, onFail);
-    });
-  },
-
-  hkNew: function(){
-    var promise = $.Deferred().resolve();
-    if (!authenticated()) {
-      promise = this.doLogin(true);
-    } else if (!hasEmail()  && !window.authenticatedByHeader) {
-      promise = this.doLogin(true);
-    }
-    var paramsFromPath = {};
-    var that = this;
-    promise.then(function() {
-      function onFail(err) {
-        alert("failed to create new conversation");
-        console.dir(err);
-      }
-      conversationsCollection = new ConversationsCollection();
-
-      var o = {
-        context: "hongkong2014",
-        is_draft: true,
-        is_active: true // TODO think
-      };
-
-
-      var model = new ConversationModel(o);
-
-      model.save().then(function(data) {
-        var conversation_id = data[0][0].conversation_id;
-        model.set("conversation_id", conversation_id);
-
-        var ptpt = new ParticipantModel({
-          conversation_id: conversation_id
-        });
-        return ptpt.save();
-      }).then(function(ptptAttrs) {
-        var createConversationFormView = new HkNewView({
-          model: model,
-          paramsFromPath: paramsFromPath,
-          collection: conversationsCollection,
-          pid: ptptAttrs.pid,
-          add: true
-        });
-        that.listenTo(createConversationFormView, "all", function(eventName, data) {
-          if (eventName === "done") {
-            // NOTE suurls broken for now
-            // var suurls = data;
-            //   if (suurls) {
-            //   var suurlsCsv = [];
-            //   var len = suurls.xids.length;
-            //   var xids = suurls.xids;
-            //   var urls = suurls.urls;
-            //   for (var i = 0; i < len; i++) {
-            //     suurlsCsv.push({xid: xids[i], url: urls[i]});
-            //   }
-            //   model.set("suurls", suurlsCsv);
-            // }
-
-            if (paramsFromPath.custom_canvas_assignment_id) {
-              // This is attached to a Canvas assignment, take the instructor right to the conversation. They shouldn't be sharing the link, because participation outside Canvas will not be graded.
-              that.gotoRoute("/" + model.get("conversation_id"), {trigger: true});
-            } else {
-              // The usual case, show the hk index
-              that.gotoRoute("/hk", {trigger: true});
-            }
-          }
-        });
-        RootView.getInstance().setView(createConversationFormView);
-        $("[data-toggle='checkbox']").each(function() {
-          var $checkbox = $(this);
-          $checkbox.checkbox();
-        });
-      }, onFail);
-    });
-  },
-
-  rootsNew: function(context){
-    var promise = $.Deferred().resolve();
-    if (!authenticated()) {
-      promise = this.doLogin(true);
-    } else if (!hasEmail()  && !window.authenticatedByHeader) {
-      promise = this.doLogin(true);
-    }
-    var paramsFromPath = {};
-    var that = this;
-    promise.then(function() {
-      function onFail(err) {
-        alert("failed to create new conversation");
-        console.dir(err);
-      }
-      conversationsCollection = new ConversationsCollection();
-
-      var o = {
-        context: context,
-        is_draft: true,
-        is_active: true // TODO think
-      };
-
-
-      var model = new ConversationModel(o);
-
-      model.save().then(function(data) {
-        var conversation_id = data[0][0].conversation_id;
-        model.set("conversation_id", conversation_id);
-
-        var ptpt = new ParticipantModel({
-          conversation_id: conversation_id
-        });
-        return ptpt.save();
-      }).then(function(ptptAttrs) {
-
-
-        var createConversationFormView = new CreateConversationFormView({
-          model: model,
-          paramsFromPath: paramsFromPath,
-          collection: conversationsCollection,
-          pid: ptptAttrs.pid,
-          add: true
-        });
-        that.listenTo(createConversationFormView, "all", function(eventName, data) {
-          if (eventName === "done") {
-            that.gotoRoute("/" + data.conversation_id, {trigger: true});
-          }
-        });
-        RootView.getInstance().setView(createConversationFormView);
-        $("[data-toggle='checkbox']").each(function() {
-          var $checkbox = $(this);
-          $checkbox.checkbox();
-        });
-      }, onFail);
-    });
-  },
-
   doLaunchConversation2: function(conversation_id, args) {
 
     // Since nextComment is pretty slow, fire off the request way early (this actually happens on the js on index.html now) and pass the promise into the participation view so it's (probably) ready when the page loads.
@@ -981,61 +353,6 @@ var polisRouter = Backbone.Router.extend({
     });
   },
 
-  doLaunchExploreView: function(args) {
-    var ptptModel = args.ptptModel;
-    var conversation_id = ptptModel.get("conversation_id");
-    var pid = ptptModel.get("pid");
-
-    this.getConversationModel(conversation_id).then(function(model) {
-      var exploreView = new ExploreView({
-        pid: pid,
-        model: model
-      });
-      RootView.getInstance().setView(exploreView);
-    },function(e) {
-      console.error("error4 loading conversation model");
-      console.dir(arguments);
-    });
-  },
-  doLaunchSummaryView: function(args) {
-    var ptptModel = args.ptptModel;
-    var conversation_id = ptptModel.get("conversation_id");
-    var pid = ptptModel.get("pid");
-
-    this.getConversationModel(conversation_id).then(function(model) {
-      var view = new SummaryView({
-        pid: pid,
-        model: model
-      });
-      RootView.getInstance().setView(view);
-    },function(e) {
-      console.error("error5 loading conversation model");
-      console.dir(arguments);
-    });
-  },
-  doLaunchModerationView: function(args) {
-    var ptptModel = args.ptptModel;
-    var subviewName = args.subviewName;
-    var conversation_id = ptptModel.get("conversation_id");
-    var pid = ptptModel.get("pid");
-
-    this.getConversationModel(conversation_id).then(function(model) {
-      if (!model.get("is_mod")) {
-        alert("Sorry, only moderators can moderate this conversation.");
-        return;
-      }
-      var view = new ModerationView({
-        subviewName: subviewName,
-        pid: pid,
-        model: model
-      });
-      RootView.getInstance().setView(view);
-    },function(e) {
-      console.error("error6 loading conversation model");
-    });
-  },
-
-
   demoConversation: function(conversation_id) {
     var ptpt = new ParticipantModel({
       conversation_id: conversation_id,
@@ -1051,26 +368,6 @@ var polisRouter = Backbone.Router.extend({
   participationViewWithSuzinvite: function(conversation_id, suzinvite) {
     window.suzinvite = suzinvite;
     return this.participationView(conversation_id, null, suzinvite);
-  },
-  exploreView: function(conversation_id, zinvite) {
-    doJoinConversation.call(this, {
-      onSuccess: this.doLaunchExploreView.bind(this), // TODO
-      conversation_id: conversation_id
-    });
-  },
-  summaryView: function(conversation_id, zinvite) {
-    doJoinConversation.call(this, {
-      onSuccess: this.doLaunchSummaryView.bind(this), // TODO
-      conversation_id: conversation_id
-    });
-  },
-
-  moderationView: function(conversation_id, subviewName) {
-    doJoinConversation.call(this, {
-      subviewName: subviewName,
-      onSuccess: this.doLaunchModerationView.bind(this), // TODO
-      conversation_id: conversation_id
-    });
   },
   tryCookieThing: function() {
     function browserCompatibleWithRedirectTrick() {
@@ -1135,22 +432,13 @@ var polisRouter = Backbone.Router.extend({
     var params = Utils.parseQueryParams(queryParamString);
     var that = this;
     this.doLaunchConversation2(conversation_id, params);
-    
+
     // // this.doShowTutorial().then(function() {
     //   doJoinConversation.call(that, _.extend(params, {
     //     onSuccess: that.doLaunchConversation.bind(that), // TODO
     //     conversation_id: conversation_id
     //   }));
     // // });
-  },
-  doShowTutorial: function() {
-    var dfd = $.Deferred();
-    var view = new TutorialSlidesView({
-        model: new Backbone.Model({})
-      });
-    view.on("done", dfd.resolve);
-    RootView.getInstance().setView(view);
-    return dfd.promise();
   },
   getConversationModel: function(conversation_id, suzinvite) {
     var model;
@@ -1168,123 +456,14 @@ var polisRouter = Backbone.Router.extend({
     });
   },
 
-  // assumes the user already exists.
-  conversationGatekeeper: function(conversation_id, suzinvite) {
-    var dfd = $.Deferred();
-    this.getConversationModel(conversation_id, suzinvite).then(function(model) {
-      data.model = model;
-      var gatekeeperView = new ConversationGatekeeperView(data);
-      gatekeeperView.on("done", dfd.resolve);
-      RootView.getInstance().setView(gatekeeperView);
-    }, dfd.reject);
-
-    return dfd.promise();
-  },
-  doCreateUserFromGatekeeper: function(conversation_id) {
-    var dfd = $.Deferred();
-
-    this.getConversationModel(conversation_id).then(function(model) {
-      model.set("create", true); // do we need this?
-      var view = new CreateUserForm({
-        model : model
-      });
-      view.on("authenticated", dfd.resolve);
-      RootView.getInstance().setView(view);
-    },function(e) {
-      console.error("error1 loading conversation model");
-      setTimeout(function() { that.participationView(conversation_id); }, 5000); // retry
-    });
-    return dfd.promise();
-  },
   redirect: function(path, ignoreEncodedParams) {
     var ep = (encodedParams ? ("/"+encodedParams): "");
     if (ignoreEncodedParams) {
       ep = "";
     }
     document.location = document.location.protocol + "//" + document.location.host + path + ep;
-  },
-  createUser: function(params){
-    var that = this;
-    var optionalEncodedParams = encodedParams;
-    this.doLogin(true, optionalEncodedParams).done(function() {
-    // this.doCreateUser().done(function() {
-
-
-        // trash the JS context, don't leave password sitting around
-        that.redirect("/inbox", true);
-
-      // that.inbox();
-    });
-  },
-  createUserViewFromEinvite: function(einvite) {
-    var that = this;
-    var model = {
-      einvite: einvite,
-      hideHaveAccount: true,
-      readonlyEmail: true,
-      showEmailWelcome: true,
-      create: true
-    };
-    $.getJSON("/api/v3/einvites?einvite=" + einvite).then(function(o) {
-      model.email = o.email;
-      return model;
-    }, function() {
-      // einvite lookup failed somehow, go ahead and show the form - the user will have to enter their email again.
-      console.error("einvite lookup failed");
-      return $.Deferred().resolve(model);
-    }).then(function(model) {
-      var view = new CreateUserForm({
-        model: new Backbone.Model(model)
-      });
-      view.on("authenticated", function() {
-        // trash the JS context, don't leave password sitting around
-        that.redirect("/inbox");
-      });
-      RootView.getInstance().setView(view);
-    });
-  },
-  pwReset: function(pwresettoken) {
-    var view = new PasswordResetView({
-      pwresettoken: pwresettoken
-    });
-    RootView.getInstance().setView(view);
-  },
-  pwResetInit: function() {
-    var view = new PasswordResetInitView();
-    RootView.getInstance().setView(view );
-  },
-  doLogin: function(create, optionalEncodedParams) {
-    var dfd = $.Deferred();
-    var gatekeeperView = new CreateUserForm({
-      model: new Backbone.Model({
-        create: create,
-        encodedParams: optionalEncodedParams
-      })
-    });
-    gatekeeperView.on("authenticated", dfd.resolve);
-    RootView.getInstance().setView(gatekeeperView);
-    dfd.done(authenticatedDfd.resolve);
-
-    dfd.done(function(){ location.reload(); }); // TODO: need to refactor code that users doLogin to expect this reload event.
-
-    return dfd.promise();
-  },
-  login: function(redirectPath){
-    var that = this;
-    this.doLogin(false).done(function() {
-      if (_.isUndefined(redirectPath)) {
-        // trash the JS context, don't leave password sitting around
-        that.redirect("/inbox");
-      } else {
-        that.redirect("/" + redirectPath);
-      }
-    });
-  },
-  faq: function(){
-    var faqCollection = new FaqCollection(FaqContent);
-    var faqView = new FaqView({collection: faqCollection});
-    RootView.getInstance().setView(faqView);
   }
+
 });
 
  module.exports = polisRouter;
