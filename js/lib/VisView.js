@@ -549,9 +549,7 @@ function VisView(params) {
       var points = [];
       var theta = 0;
       var tau = 6.28318;
-      var step = isIE8 ?
-        0.7853 : // pi/4  (less points since slow)
-        0.261799; // pi/12 (more points)
+      var step = 0.261799; // pi/12
       while (theta < tau) {
         points.push([x + r * Math.cos(theta), yOffset + y + r * Math.sin(theta)]);
         theta += step;
@@ -711,16 +709,13 @@ function VisView(params) {
 
     var p = $.when.apply($, updateHullPromises);
     p.then(function() {
-      if (isIE8) {
-        // TODO
-      } else {
-        // Remove empty clusters.
-        var emptyClusterCount = d3Hulls.length - clusters.length;
-        var startIndex = d3Hulls.length - emptyClusterCount;
-        for (var i = startIndex; i < d3Hulls.length; i++) {
-          hideHull(i);
-        }
+      // Remove empty clusters.
+      var emptyClusterCount = d3Hulls.length - clusters.length;
+      var startIndex = d3Hulls.length - emptyClusterCount;
+      for (var i = startIndex; i < d3Hulls.length; i++) {
+        hideHull(i);
       }
+
 
 
       if (clusterToShowLineTo >= 0) {
@@ -2036,7 +2031,6 @@ function VisView(params) {
           //     }
           // }
         }
-        updateNodeVoteCounts();
         updateNodes();
         // visualization.selectAll(".node")
         //   .attr("transform", chooseTransform)
@@ -2110,145 +2104,90 @@ function VisView(params) {
     updateNodes();
   }
 
-  function updateNodeVoteCounts() {
-    if (isIE8) {
-      // for (var i = 0; i < nodes.length; i++) {
-      //     var node = nodes[i];
-      //     var bucket = rNodes[i];
-      //     bucket.setUps(node.ups);
-      //     bucket.setDowns(node.downs);
-      // }
-    }
-  }
-
   function updateNodes() {
     setTimeout(doUpdateNodes, 0);
   }
 
   function doUpdateNodes() {
-    if (isIE8) {
-      // for (var i = 0; i < nodes.length; i++) {
-      //   var node = nodes[i];
-      //   var bucket = rNodes[i];
-      //   var r = chooseCircleRadius(node);
-      //   bucket.radius = r;
-      //   if (isSelf(node)) {
-      //       bucket.circleOuter.attr("r", r*2);
-      //   } else {
-      //       bucket.circleOuter.attr("r", r);
-      //   }
+    var update = visualization.selectAll(".node");
+    var upArrowUpdateInner = update.selectAll(".up.bktvi").data(nodes, key)
+      .style("display", chooseDisplayForArrows)
+      .attr("d", chooseUpArrowPath) // NOTE: using tranform to select the scale
+    ;
 
-      //   bucket.scaleCircle(1); // sets the inner circle radius
+    var imageUpdate = update.selectAll("image.bktv").data(nodes, key)
+      .attr("filter", chooseFilter);
 
-      //   if (shouldDisplayCircle(node)) {
-      //       bucket.circle.show();
-      //       bucket.circleOuter.show();
-      //   } else {
-      //       bucket.circle.hide();
-      //       bucket.circleOuter.hide();
-      //   }
-      //   if (shouldDisplayArrows(node)) {
-      //       bucket.up.show();
-      //       bucket.down.show();
-      //   } else {
-      //       bucket.up.hide();
-      //       bucket.down.hide();
-      //   }
-      // }
+
+    var downArrowUpdateInner = update.selectAll(".down.bktvi").data(nodes, key)
+      .style("display", chooseDisplayForArrows)
+      .attr("d", chooseDownArrowPath) // NOTE: using tranform to select the scale
+    ;
+    var grayHaloUpdate = update.selectAll(".grayHalo").data(nodes, key)
+      .style("display", chooseDisplayForGrayHalo);
+
+    if (clusterIsSelected()) {
+      update.selectAll(".hideWhenGroupSelected").style("visibility", "hidden");
     } else {
-      var update = visualization.selectAll(".node");
-      var upArrowUpdateInner = update.selectAll(".up.bktvi").data(nodes, key)
-        .style("display", chooseDisplayForArrows)
-        .attr("d", chooseUpArrowPath) // NOTE: using tranform to select the scale
-      ;
+      update.selectAll(".hideWhenGroupSelected").style("visibility", "visible");
+    }
 
-      var imageUpdate = update.selectAll("image.bktv").data(nodes, key)
-        .attr("filter", chooseFilter);
-
-
-      var downArrowUpdateInner = update.selectAll(".down.bktvi").data(nodes, key)
-        .style("display", chooseDisplayForArrows)
-        .attr("d", chooseDownArrowPath) // NOTE: using tranform to select the scale
-      ;
-      var grayHaloUpdate = update.selectAll(".grayHalo").data(nodes, key)
-        .style("display", chooseDisplayForGrayHalo);
-
-      if (clusterIsSelected()) {
-        update.selectAll(".hideWhenGroupSelected").style("visibility", "hidden");
-      } else {
-        update.selectAll(".hideWhenGroupSelected").style("visibility", "visible");
-      }
-
-      update.selectAll(".grayHalo")
-        .style("stroke", function(d) {
-          if (isSelf(d)) {
-            if (clusterIsSelected() || onMajorityTab) {
+    update.selectAll(".grayHalo")
+      .style("stroke", function(d) {
+        if (isSelf(d)) {
+          if (clusterIsSelected() || onMajorityTab) {
+            if (d.ups || d.downs) {
+              return grayHaloColorSelected;
+            } else {
+              return grayHaloColor; // returning this (instead of rgba(0,0,0,0)) since other halos will have this gray foundation behind a translucent red/green
+            }
+          } else {
+            return colorSelf;
+          }
+        } else {
+          if (clusterIsSelected()) {
+            if (isParticipantOfInterest(d)) {
               if (d.ups || d.downs) {
                 return grayHaloColorSelected;
               } else {
                 return grayHaloColor; // returning this (instead of rgba(0,0,0,0)) since other halos will have this gray foundation behind a translucent red/green
               }
             } else {
-              return colorSelf;
+              return grayHaloColorSelected; // returning this (instead of rgba(0,0,0,0)) since other halos will have this gray foundation behind a translucent red/green
             }
           } else {
-            if (clusterIsSelected()) {
-              if (isParticipantOfInterest(d)) {
-                if (d.ups || d.downs) {
-                  return grayHaloColorSelected;
-                } else {
-                  return grayHaloColor; // returning this (instead of rgba(0,0,0,0)) since other halos will have this gray foundation behind a translucent red/green
-                }
-              } else {
-                return grayHaloColorSelected; // returning this (instead of rgba(0,0,0,0)) since other halos will have this gray foundation behind a translucent red/green
-              }
-            } else {
-              return grayHaloColor;
-            }
+            return grayHaloColor;
           }
-        });
+        }
+      });
 
 
-      update.selectAll(".summaryLabel")
-        .style("font-size", chooseSummaryLabelFontSize);
+    update.selectAll(".summaryLabel")
+      .style("font-size", chooseSummaryLabelFontSize);
 
 
-      var circleUpdate = update.selectAll(".circle.bktv").data(nodes, key)
-        .style("display", chooseDisplayForOuterCircle)
-        .attr("r", chooseCircleRadiusOuter)
-        .style("fill", chooseFill)
-        .style("fill-opacity", 0.5)
-        .filter(isSelf)
-        .style("display", chooseDisplayForCircle)
-        .style("fill-opacity", 0)
-        .attr("r", chooseCircleRadiusOuter)
-        // .style("fill", chooseFill)
-      ;
-      var circleUpdateInner = update.selectAll(".circle.bktvi").data(nodes, key)
-        .style("display", chooseDisplayForCircle)
-        .attr("r", chooseCircleRadius) // NOTE: using tranform to select the scale
-      ;
+    var circleUpdate = update.selectAll(".circle.bktv").data(nodes, key)
+      .style("display", chooseDisplayForOuterCircle)
+      .attr("r", chooseCircleRadiusOuter)
+      .style("fill", chooseFill)
+      .style("fill-opacity", 0.5)
+      .filter(isSelf)
+      .style("display", chooseDisplayForCircle)
+      .style("fill-opacity", 0)
+      .attr("r", chooseCircleRadiusOuter)
+      // .style("fill", chooseFill)
+    ;
+    var circleUpdateInner = update.selectAll(".circle.bktvi").data(nodes, key)
+      .style("display", chooseDisplayForCircle)
+      .attr("r", chooseCircleRadius) // NOTE: using tranform to select the scale
+    ;
 
+    var selfNode = _.filter(nodes, isSelf)[0];
+    if (selfNode && !selfHasAppeared) {
+      selfHasAppeared = true;
+      onSelfAppearsCallbacks.fire();
 
-      var selfNode = _.filter(nodes, isSelf)[0];
-      if (selfNode && !selfHasAppeared) {
-        selfHasAppeared = true;
-        onSelfAppearsCallbacks.fire();
-
-        setupBlueDotHelpText(update.select(".selfDot"));
-      }
-
-
-      // update.attr("fill-opacity", function(d) {
-      //   if (clusterIsSelected()) {
-      //       return d.gid === selectedCluster ? "100%" : "90%";
-      //   } else {
-      //       // nothing selected
-      //       return "100%";
-      //   }
-      // });
-
-
+      setupBlueDotHelpText(update.select(".selfDot"));
     }
   }
 
@@ -2257,10 +2196,7 @@ function VisView(params) {
   }
 
   function resetSelection() {
-    console.log("resetSelection");
-    if (isIE8) {} else {
-      visualization.selectAll(".active_group").classed("active_group", false);
-    }
+    visualization.selectAll(".active_group").classed("active_group", false);
     selectedCluster = -1;
     eb.trigger(eb.clusterSelectionChanged, selectedCluster);
   }
@@ -2573,22 +2509,20 @@ function VisView(params) {
       color = colorPush;
     }
 
-    if (isIE8) {} else {
-      var update = visualization.selectAll(".node").filter(isSelf);
-      update
-        .selectAll(".beacon")
-        .attr("stroke", color)
-        .attr("r", 0)
-        .attr("opacity", 0.8)
-        .attr("display", "block")
-        .transition(1000)
-        .attr("r", 50)
-        .attr("opacity", 0)
-        .transition(10)
-        .attr("r", 0)
-        .attr("opacity", 0)
-        .attr("display", "none");
-    }
+    var update = visualization.selectAll(".node").filter(isSelf);
+    update
+      .selectAll(".beacon")
+      .attr("stroke", color)
+      .attr("r", 0)
+      .attr("opacity", 0.8)
+      .attr("display", "block")
+      .transition(1000)
+      .attr("r", 50)
+      .attr("opacity", 0)
+      .transition(10)
+      .attr("r", 0)
+      .attr("opacity", 0)
+      .attr("display", "none");
   });
 
   function getSelectedGid() {

@@ -110,56 +110,6 @@ function toNumberWithFalsyAsZero(val) {
   }
 }
 
-function asNumberWithFalsyAsZero(getter) {
-  return function(key) {
-    var val = getter(key);
-    return toNumberWithFalsyAsZero(val);
-  };
-}
-
-// function makeMapAccessor(accessor) {
-//     var oldGet = accessor.get;
-//     accessor.get = function(key) {
-//         return ( oldGet() && JSON.parse(oldGet()) || {})[key];
-//     };
-//     var oldSet = accessor.set;
-//     accessor.set = function(key, val, temporary) {
-//         var o = oldGet() && JSON.parse(oldGet()) || {};
-//         o[key] = val;
-//         oldSet(JSON.stringify(o), temporary);
-//     };
-//     return accessor;
-// }
-
-// function castToNumber(accessor) {
-//     var oldGet = accessor.get;
-//     accessor.get = function(key) {
-//         return Number(oldGet());
-//     };
-//     return accessor;
-// }
-
-// function clearAll() {
-//     for (var key in x) {
-//         if (x[key].clear) {
-//             x[key].clear();
-//         }
-//     }
-// }
-
-
-// stored in RAM only
-// var pid = -1;
-// function setPid(newPid) {
-//     pid = newPid;
-// }
-// function getPid() {
-//     return pid;
-// }
-// var pidRamStore = {
-//     set: setPid,
-//     get: getPid
-// };
 
 function getUidFromUserObject() {
   return window.preload && window.preload.firstUser && window.preload.firstUser.uid;
@@ -172,19 +122,11 @@ function getPlanCodeFromUserObject() {
 function userCreated() {
   return toNumberWithFalsyAsZero(window.preload && window.preload.firstUser && window.preload.firstUser.created) || Date.now();
 }
+
 module.exports = {
-  // pids: asNumber(makeCookieValueGetterForKeyWithSuffix("p")) // p for pid, expecting keys like 314p=2; 451p=12
-  // pid: pidRamStore,
-  // clearAll: clearAll,
-  //comments: makeAccessor("p_comments"), // TODO use a real db
-  //reactionsByMe: makeAccessor("p_reactions_by_me"), // TODO use a real db
   hasEmail: makeAccessor("e").get,
-  // email: makeAccessor("email").get,
-  //username: makeAccessor("p_username"),
   uidFromCookie: makeAccessor("uid2").get,
   uid: getUidFromUserObject,
   planCode: getPlanCodeFromUserObject,
   userCreated: userCreated
-
-  //token: makeAccessor("p_authToken")
 };

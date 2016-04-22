@@ -1,6 +1,4 @@
-var CommentView = require('../views/vote-view');
-var CommentFormView = require("../views/comment-form");
-var ConversationStatsHeader = require('../views/conversation-stats-header');
+// var ConversationStatsHeader = require('../views/conversation-stats-header');
 var eb = require("../eventBus");
 var Handlebones = require("handlebones");
 var PolisFacebookUtils = require('../util/facebookButton');
@@ -175,20 +173,20 @@ module.exports = Handlebones.ModelView.extend({
     "shown.bs.tab": function(e) {
       var to = e.target;
       // e.relatedTarget // previous tab
-      if (e.target && e.target.id === this.MAJORITY_TAB) {
+      if (to && to.id === this.MAJORITY_TAB) {
         this.trigger("aftershow:majority");
         eb.trigger("aftershow:majority");
       }
-      if (e.target && e.target.id === this.GROUP_TAB) {
+      if (to && to.id === this.GROUP_TAB) {
         this.trigger("aftershow:group");
       }
-      if (e.target && e.target.id === this.WRITE_TAB) {
+      if (to && to.id === this.WRITE_TAB) {
         this.trigger("aftershow:write");
       }
-      if (e.target && e.target.id === this.VOTE_TAB) {
+      if (to && to.id === this.VOTE_TAB) {
         this.stopPulsingVoteTab();
         this.trigger("aftershow:vote");
-      } else if (e.target && e.target.id === this.WRITE_TAB) {
+      } else if (to && to.id === this.WRITE_TAB) {
         // don't pulse on write tab
         this.stopPulsingVoteTab();
       } else {
@@ -226,7 +224,6 @@ module.exports = Handlebones.ModelView.extend({
   },
 
   fbConnectBtn: function() {
-    var that = this;
     PolisFacebookUtils.connect().then(function() {
       // that.model.set("response", "fbdone");
       location.reload();
@@ -252,7 +249,6 @@ module.exports = Handlebones.ModelView.extend({
     this.$("#voteTab").removeClass("pulseEffect");
   },
   maybeStartPulsingVoteTab: function() {
-    var that = this;
     if (this.serverClient.unvotedCommentsExist()) {
       // setTimeout is a workaround since the classes seem to get cleared, probably by Boostrap Tabs code.
       setTimeout(function() {

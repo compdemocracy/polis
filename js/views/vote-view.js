@@ -3,7 +3,6 @@ var Handlebones = require("handlebones");
 var PostMessageUtils = require("../util/postMessageUtils");
 var preloadHelper = require("../util/preloadHelper");
 var template = require("../tmpl/vote-view");
-var CommentModel = require("../models/comment");
 var serverClient = require("../stores/polis");
 var Utils = require("../util/utils");
 var Strings = require("../strings");
@@ -105,7 +104,7 @@ module.exports = Handlebones.ModelView.extend({
 
     var is_public = options.is_public;
     var conversation_id = this.conversation_id = options.conversation_id;
-    var pid = this.pid = options.pid;
+    this.pid = options.pid;
     this.isSubscribed = options.isSubscribed;
 
     if (Utils.isDemoMode()) {
@@ -177,7 +176,6 @@ module.exports = Handlebones.ModelView.extend({
     }
 
     function onVote(result) {
-      var that = this;
       eb.trigger(eb.vote, this.mostRecentVoteType);
       eb.trigger(eb.interacted);
       setTimeout(PostMessageUtils.postVoteEvent);

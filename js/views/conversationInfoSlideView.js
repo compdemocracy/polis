@@ -1,9 +1,6 @@
 var template = require("../tmpl/conversationInfoSlideView");
 var Handlebones = require("handlebones");
-var eb = require("../eventBus");
-var _ = require("underscore");
 var Strings = require("../strings");
-
 
 module.exports =  Handlebones.ModelView.extend({
   name: "conversationInfoSlideView",
@@ -20,7 +17,5 @@ module.exports =  Handlebones.ModelView.extend({
   },
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
-    var that = this;
   }
 });
-

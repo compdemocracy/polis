@@ -1,7 +1,5 @@
-var eb = require("../eventBus");
 var Handlebones = require("handlebones");
 var template = require("../tmpl/voteMore");
-var utils = require("../util/utils");
 
 module.exports = Handlebones.ModelView.extend({
   name: "vote-more-view",

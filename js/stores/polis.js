@@ -2,20 +2,14 @@
 
 var eb = require("../eventBus");
 var deepcopy = require("deepcopy");
-var metric = require("../util/gaMetric");
 var preloadHelper = require("../util/preloadHelper");
 var Utils = require("../util/utils");
-var shuffleWithSeed = require("../util/shuffleWithSeed");
-// var brain = require("brain");
-var URLs = require("../util/url");
-var mapObj = Utils.mapObj;
 var Net = require("../util/net");
 
 var PTPOI_BID_OFFSET = 1e10;
 
 var polisPost = Net.polisPost;
 var polisGet = Net.polisGet;
-var polisAjax = Net.polisAjax;
 
 
 module.exports = function(params) {
@@ -36,8 +30,6 @@ module.exports = function(params) {
 
   var commentsToVoteOn = {}; // tid -> comment
 
-  var basePath = params.basePath;
-
   var votesPath = "api/v3/votes";
   var starsPath = "api/v3/stars";
   var trashesPath = "api/v3/trashes";
@@ -46,13 +38,10 @@ module.exports = function(params) {
   var finishedTutorialPath = "api/v3/tutorial";
 
   var createAccountPath = "api/v3/auth/new";
-  var loginPath = "api/v3/auth/login";
-  var deregisterPath = "api/v3/auth/deregister";
   var pcaPath = "api/v3/math/pca2";
   var votesFamousPath = "api/v3/votes/famous";
   var pcaPlaybackPath = "api/v3/math/pcaPlaybackByLastVoteTimestamp";
   var bidToPidPath = "api/v3/bidToPid";
-  var bidPath = "api/v3/bid";
 
   var conversationsPath = "api/v3/conversations";
   var convSubPath = "api/v3/convSubscriptions";
@@ -70,7 +59,6 @@ module.exports = function(params) {
 
   var lastServerTokenForPCA = -1;
   var lastServerTokenForComments = -1;
-  var lastServerTokenForBid = -1;
   var lastServerTokenForBidToPid = -1;
 
   var initReadyCallbacks = $.Callbacks();
@@ -92,7 +80,6 @@ module.exports = function(params) {
   var groupVotes = null;
   var nextCommentCache = null;
 
-  var tidSubsetForReprojection = [];
   var consensusComments = null;
 
   // collections
@@ -100,7 +87,6 @@ module.exports = function(params) {
   if (demoMode()) {
     votesByMe.trigger("change", votesByMe);
   }
-  var allComments = [];
 
   // allComments.on("add remove reset", function() {
   //     eb.trigger(eb.commentCount, this.length);
@@ -119,22 +105,14 @@ module.exports = function(params) {
   var pollingScheduledCallbacks = [];
 
   var tokenStore = params.tokenStore;
-  var uidStore = params.uidStore;
 
   var conversation_id = params.conversation_id;
-  var zinvite = params.zinvite;
   var myPid = "unknownpid";
   eb.on(eb.pidChange, function(newPid) {
     myPid = newPid;
     prepAndSendVisData();
   });
   var USE_JETPACK_FOR_SELF = false; //(myPid % 2 === 1); // AB test where odd pids get jetpack
-
-  var means = null; // TODO move clustering into a separate file
-
-  var BUCKETIZE_THRESH = 64;
-  var BUCKETIZE_ROWS = 8;
-  var BUCKETIZE_COLUMNS = 8;
 
   // var shouldPoll = true;
 
@@ -258,10 +236,6 @@ module.exports = function(params) {
       fail();
     });
     return dfd.promise();
-  }
-
-  function getNumComments() {
-    return _.keys(commentsToVoteOn).length;
   }
 
   function getNextComment(o) {
@@ -491,12 +465,6 @@ module.exports = function(params) {
     });
   }
 
-  function getCommentVelocities() {
-    return polisGet(commentVelocitiesPath, {
-      conversation_id: conversation_id
-    });
-  }
-
   function invite(xids) {
     return polisPost("api/v3/users/invite", {
       single_use_tokens: true,
@@ -556,22 +524,6 @@ module.exports = function(params) {
       this.picture_size = o.picture_size;
     }
 
-  }
-
-  function average(items, getter) {
-    var avg = 0;
-    for (var i = 0; i < items.length; i++) {
-      avg += getter(items[i]);
-    }
-    return avg / items.length;
-  }
-
-  function getX(person) {
-    return person.proj.x;
-  }
-
-  function getY(person) {
-    return person.proj.y;
   }
 
   Bucket.prototype.containsPid = function(pid) {
@@ -803,18 +755,6 @@ module.exports = function(params) {
   }
   */
 
-
-  function getMetadataAnswers() {
-    return polisGet(metadataAnswersPath, {
-      conversation_id: conversation_id
-    });
-  }
-
-  function getMetadataChoices() {
-    return polisGet(metadataChoicesPath, {
-      conversation_id: conversation_id
-    });
-  }
 
   function getBidToGid(clusters) {
     var bidToGid = {};
@@ -1175,10 +1115,6 @@ module.exports = function(params) {
     return fetchPca(pcaPath, lastServerTokenForPCA);
   }
 
-  function fetchPcaPlaybackByTimestamp(timestamp) {
-    return fetchPca(pcaPlaybackPath, timestamp);
-  }
-
 
   function fetchPca(path, timestamp) {
     if (Utils.isHidden() && firstPcaCallPromise.state() === "resolved") {
@@ -1284,7 +1220,6 @@ module.exports = function(params) {
 
 
           bidToBigBucket = {};
-          var pairs = [_.keys(buckets), _.values(buckets)];
           // bigBuckets = [1,2,3];
           bigBuckets = _.map(bucketPerGroup,
             function(bucketsForGid, gid) {
@@ -1587,17 +1522,6 @@ module.exports = function(params) {
       people.push(p);
     }
 
-
-    // BEGIN PTPTPO-BASED CENTROID CALCULATION
-    function getParticipantCount(nodes) {
-      // var count = d.count;
-      var count = 0;
-      for (var i = 0; i < nodes.length; i++) {
-        count += nodes[i].count;
-      }
-      return count;
-    }
-
     function averageTheThings(items, getter) {
       var total = 0;
       _.each(items, function(item) {
@@ -1607,9 +1531,7 @@ module.exports = function(params) {
       return total / items.length;
     }
 
-
     var bidToNode = _.indexBy(people, "bid");
-
 
     function getxy(bid, dim) {
       var node = bidToNode[bid];
@@ -1627,7 +1549,6 @@ module.exports = function(params) {
     function getY(bid) {
       return getxy(bid, "y");
     }
-
 
     function getBigBucketForGroup(gid) {
       for (var i = 0; i < people.length; i++) {
@@ -1681,20 +1602,6 @@ module.exports = function(params) {
 
   function authenticated() {
     return !!tokenStore.get();
-  }
-
-  // todo make a separate file for stimulus stuff
-  function stories() {
-    return [conversation_id];
-    //"509c9db2bc1e120000000001",
-    //"509c9eddbc1e120000000002",
-    //"509c9fd6bc1e120000000003",
-    //"509ca042bc1e120000000004"];
-  }
-
-  // helper for copy-and-pasted mongo documents
-  function ObjectId(s) {
-    return s;
   }
 
   function getCommentsForProjection(params) {
@@ -1965,11 +1872,6 @@ module.exports = function(params) {
   DD.prototype.s = DA.prototype.s = function(k, v) {
     this.m[k] = v;
   };
-
-  function emptyArray() {
-    return [];
-  }
-
 
   function getFamousVotes() {
     var o = {
@@ -2556,7 +2458,6 @@ module.exports = function(params) {
     trash: trash,
     star: star,
     unstar: unstar,
-    stories: stories,
     invite: invite,
     convSub: convSub,
     queryParticipantsByMetadata: queryParticipantsByMetadata,

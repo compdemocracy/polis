@@ -32,7 +32,6 @@ module.exports = Handlebones.ModelView.extend({
     this.model.set("response", "fbnouse");
   },
   fbConnectBtn: function() {
-    var that = this;
     PolisFacebookUtils.connect().then(function() {
       // that.model.set("response", "fbdone");
       location.reload();

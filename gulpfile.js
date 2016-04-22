@@ -316,7 +316,7 @@ gulp.task('jshint', function(){
           // noarg: true,
           // sub: true,
           // undef: true,
-        //  unused: true,
+           unused: "vars",
           // quotmark: "double",
          // plusplus: true, // no ++ or --
         //  nonew: true,

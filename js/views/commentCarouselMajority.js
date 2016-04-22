@@ -4,7 +4,6 @@ var carouselCommentMobileTemplate = require("../tmpl/carouselCommentMobile");
 var carouselCommentTemplate = require("../tmpl/carouselComment");
 var constants = require("../util/constants");
 var display = require("../util/display");
-var eb = require("../eventBus");
 var template = require("../tmpl/commentCarouselMajority");
 var Strings = require("../strings");
 var Utils = require("../util/utils");
@@ -68,7 +67,6 @@ module.exports = CommentCarousel.extend({
       // var backgroundColor = forAgree ? "rgba(46, 204, 84, 0.07)" : "rgba(246, 208, 208, 1)";
       var backgroundColor = "white"; //forAgree ? "rgba(192, 228, 180, 1)" : "rgba(246, 208, 208, 1)";
       var dotColor = forAgree ? "#00b54d" : "#e74c3c";
-      var gradient = "";
       var social = c.get("social");
       var socialCtx = {
         name: Strings.anonPerson,
@@ -142,7 +140,6 @@ module.exports = CommentCarousel.extend({
   },
   initialize: function(options) {
     CommentCarousel.prototype.initialize.apply(this, arguments);
-    var that = this;
     this.collection = options.collection;
     this.getTidsForConsensus = options.getTidsForConsensus;
     this.getPtptCount = options.getPtptCount;

@@ -64,7 +64,6 @@ module.exports = CommentCarousel.extend({
       var repness = that.tidToR[tid];
       var repfullForAgree = repness["repful-for"] === "agree";
       indexToTid.push(tid);
-      var header;
       var v = info.votes[tid];
       var denominator = v.S; // or maybe v.S (seen)
       if (repness["best-agree"] && (v.A > 0)) {
@@ -85,7 +84,6 @@ module.exports = CommentCarousel.extend({
       var bodyColor = "#333";
       var backgroundColor = "white";
       var dotColor = repfullForAgree ? "#00b54d" : "#e74c3c";
-      var gradient = "";
 
       var social = c.get("social");
       var socialCtx = {
@@ -180,8 +178,6 @@ module.exports = CommentCarousel.extend({
     var that = this;
     this.collection = options.collection;
     var getTidsForGroup = options.getTidsForGroup;
-    var getLocations = options.getLocations;
-    var getParticipantsOfInterestForGid = options.getParticipantsOfInterestForGid;
 
     function doFetch(gid) {
       that.collection.firstFetchPromise.then(function() {

@@ -1,9 +1,7 @@
-var AB = require("../util/ab");
 var AnalyzeGlobalView = require("../views/commentCarouselMajority");
 var AnalyzeGroupView = require("../views/commentCarouselGroup");
 var Backbone = require("backbone");
 var CommentFormView = require("../views/comment-form");
-var CommentsCollection = require("../collections/comments");
 var ConversationInfoSlideView = require('../views/conversationInfoSlideView');
 var ConversationStatsHeader = require('../views/conversation-stats-header');
 var ConversationTabsView = require("../views/conversationTabs");
@@ -19,7 +17,6 @@ var preloadHelper = require("../util/preloadHelper");
 var ReadReactView = require('../views/ReadReactView');
 var Strings = require("../strings");
 var template = require('../tmpl/participation');
-var UserModel = require("../models/user");
 var Utils = require("../util/utils");
 var VisView = require("../lib/VisView");
 var VoteMoreView = require("../views/voteMoreView");
@@ -40,7 +37,6 @@ var useVoteMoreBlocker = false;
 
 var isIE8 = Utils.isIE8();
 var isMobile = Utils.isMobile();
-var isOldAndroid = Utils.isOldAndroid();
 
 function shouldHideVisWhenWriteTabShowing() {
   return true;
@@ -204,7 +200,6 @@ module.exports = ConversationView.extend({
   },
 
   fbConnectBtn: function() {
-    var that = this;
     PolisFacebookUtils.connect().then(function() {
       // that.model.set("response", "fbdone");
       location.reload();
@@ -303,7 +298,6 @@ module.exports = ConversationView.extend({
       var vis;
       var that = this;
       var conversation_id = this.conversation_id;
-      var zinvite = this.zinvite;
       var serverClient = this.serverClient;
 
       // This is a wart. ServerClient should be initialized much earlier, probably as a singleton, and it should be responsible for fetching the first comment.
@@ -1045,11 +1039,6 @@ module.exports = ConversationView.extend({
             });
           }
 
-          function deselectHulls() {
-            if (vis) {
-              vis.deselect();
-            }
-          }
           /*
           that.commentView.on("showComment", _.once(function() {
             if (!isMobile) {

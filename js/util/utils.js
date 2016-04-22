@@ -1,7 +1,6 @@
 var _ = require("underscore");
 var anonPicBase64 = require("../images/anon_profile");
 var PolisStorage = require("./polisStorage");
-var Url = require("./url");
 
 var millisPerDay = 1000 * 60 * 60 * 24;
 

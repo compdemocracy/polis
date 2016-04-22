@@ -1,8 +1,5 @@
-var display = require("../util/display");
 var template = require("../tmpl/analyzeGroupParticipantsView");
-var CommentModel = require("../models/comment");
 var Handlebones = require("handlebones");
-var Utils = require("../util/utils");
 var eb = require("../eventBus");
 
 
@@ -29,7 +26,6 @@ module.exports = Handlebones.View.extend({
         return;
       }
       that.ptptois = getParticipantsOfInterestForGid(gid);
-      var numBucketsThatAreNotPeople = 1; // don't count the anonbucket in the cluster
       that.othersCount = (getGroupInfo(gid).count) - that.ptptois.length;
       that.ptptois = _.map(that.ptptois, function(x) {
         x.name = (x.twitter && (x.twitter.name || "@"+x.twitter.screen_name)) || (x.facebook && x.facebook.fb_name) || "";

@@ -1,4 +1,3 @@
-var eb = require("../eventBus");
 var Handlebones = require("handlebones");
 var template = require("../tmpl/profilePicView");
 var Utils = require("../util/utils");
@@ -25,6 +24,5 @@ module.exports =  Handlebones.ModelView.extend({
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     this.model = options.model;
-    var that = this;
   }
 });

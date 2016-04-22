@@ -1,7 +1,5 @@
-var display = require("../util/display");
 var template = require("../tmpl/groupSelectionView");
 var Handlebones = require("handlebones");
-var eb = require("../eventBus");
 var _ = require("underscore");
 var Strings = require("../strings");
 
@@ -62,7 +60,6 @@ module.exports =  Handlebones.ModelView.extend({
   },
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
-    var that = this;
     this.onChangedCallbacks = $.Callbacks();
     this.onClickInfoPaneButtonClickedCallbacks = $.Callbacks();
   }
