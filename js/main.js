@@ -42,9 +42,6 @@ var LinkAddPolisPartial = require("./tmpl/link-AddPolis-partial");
 var LinkPrivacyPartial = require("./tmpl/link-privacy-partial");
 var LinkTosPartial = require("./tmpl/link-TOS-partial");
 var PolisLogoPartial = require("./tmpl/polisLogo");
-var TrialRemainingStatementPartial = require("./tmpl/trialRemainingStatement");
-var TutorialSlidesButtonsLeftPartial = require("./tmpl/tutorialSlidesButtonsLeftPartial");
-var TutorialSlidesButtonsPartial = require("./tmpl/tutorialSlidesButtonsPartial");
 
 //  require icon partials
 var IconFaAngleLeft = require("./tmpl/icon_fa_angle_left");
@@ -332,12 +329,7 @@ Handlebars.registerHelper('linkExternal', function(text, url) {
 Handlebars.registerPartial("polisLogo", PolisLogoPartial);
 Handlebars.registerPartial("header", HeaderPartial);
 Handlebars.registerPartial("headerWhatIsPolis", HeaderWhatisPolisPartial);
-Handlebars.registerPartial("banner", BannerPartial);
-Handlebars.registerPartial("banner_pp", BannerParticipantPaysPartial);
-Handlebars.registerPartial("trialRemainingStatement", TrialRemainingStatementPartial);
 Handlebars.registerPartial("footer", FooterPartial);
-Handlebars.registerPartial("tutorialSlidesButtons", TutorialSlidesButtonsPartial);
-Handlebars.registerPartial("tutorialSlidesButtonsLeft", TutorialSlidesButtonsLeftPartial);
 Handlebars.registerPartial("linkTos", LinkTosPartial);
 Handlebars.registerPartial("linkPrivacy", LinkPrivacyPartial);
 Handlebars.registerPartial("linkAddPolis", LinkAddPolisPartial);

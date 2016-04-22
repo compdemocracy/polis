@@ -8,7 +8,6 @@ var PolisModelView = require("../lib/PolisModelView");
 var popoverEach = require("../util/popoverEach");
 var preloadHelper = require("../util/preloadHelper");
 var ServerClient = require("../stores/polis");
-var TutorialController = require("../controllers/tutorialController");
 var VotesCollection = require("../collections/votes");
 var URLs = require("../util/url");
 var Utils = require("../util/utils");

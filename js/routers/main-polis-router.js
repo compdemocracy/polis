@@ -3,7 +3,6 @@ var _ = require("underscore");
 var Backbone = require("backbone");
 var bbFetch = require("../net/bbFetch");
 var ConversationModel = require("../models/conversation");
-var ConversationsCollection = require("../collections/conversations");
 var eb = require("../eventBus");
 var gaEvent = require("../util/gaMetric").gaEvent;
 var metric = require("../util/gaMetric");
