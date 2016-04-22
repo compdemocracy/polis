@@ -2,7 +2,6 @@ var AB = require("../util/ab");
 var AnalyzeGlobalView = require("../views/commentCarouselMajority");
 var AnalyzeGroupView = require("../views/commentCarouselGroup");
 var Backbone = require("backbone");
-var ChangeVotesView = require("../views/change-votes");
 var CommentFormView = require("../views/comment-form");
 var CommentsCollection = require("../collections/comments");
 var ConversationInfoSlideView = require('../views/conversationInfoSlideView');
@@ -18,14 +17,11 @@ var PolisFacebookUtils = require('../util/facebookButton');
 var polisLogoBase64 = require("../images/polis_logo");
 var preloadHelper = require("../util/preloadHelper");
 var ReadReactView = require('../views/ReadReactView');
-var ResultsCollection = require("../collections/results");
-var ResultsView = require("../views/results-view");
 var Strings = require("../strings");
 var template = require('../tmpl/participation');
 var UserModel = require("../models/user");
 var Utils = require("../util/utils");
 var VisView = require("../lib/VisView");
-var VoteModel = require("../models/vote");
 var VoteMoreView = require("../views/voteMoreView");
 var WritingTipsView = require("../views/writingTips");
 
@@ -424,8 +420,6 @@ module.exports = ConversationView.extend({
 
       this.conversationStatsHeader = new ConversationStatsHeader();
 
-      var resultsCollection = new ResultsCollection();
-
       // HTTP PATCH - model.save({patch: true})
 
       function onPersonUpdate(updatedNodes, newClusters, newParticipantCount) {
@@ -759,11 +753,6 @@ module.exports = ConversationView.extend({
 
       this.writingTips = this.addChild(new WritingTipsView());
 
-      this.changeVotes = new ChangeVotesView({
-        serverClient: serverClient,
-        conversation_id: conversation_id
-      });
-
       // this.commentView.on("vote", this.tutorialController.onVote);
 
       // this.commentsByMe = new CommentsCollection({
@@ -780,14 +769,10 @@ module.exports = ConversationView.extend({
         wipCommentFormText: this.wipCommentFormText,
       }));
 
-      this.resultsView = this.addChild(new ResultsView({
-        serverClient: serverClient,
-        conversation_id: conversation_id,
-        collection: resultsCollection
-      }));
       this.analyzeGroupModel = new Backbone.Model({
         selectedGid: this.selectedGid,
       });
+
       this.commentCarouselGroupView = this.addChild(new AnalyzeGroupView({
         model: this.analyzeGroupModel,
         conversation_id: conversation_id,

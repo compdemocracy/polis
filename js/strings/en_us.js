@@ -1,6 +1,4 @@
-
 var s = {};
-
 
 s.agree = "Agree";
 s.disagree = "Disagree";

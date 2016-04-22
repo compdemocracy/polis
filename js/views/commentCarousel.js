@@ -8,8 +8,8 @@ var Utils = require("../util/utils");
 var isMobile = Utils.isMobile();
 
 
-var IconFaAngleLeft = require("../tmpl/icon_fa_angle_left");
-var IconFaAngleRight = require("../tmpl/icon_fa_angle_right");
+var iconFaAngleLeft = require("../tmpl/icon_fa_angle_left");
+var iconFaAngleRight = require("../tmpl/icon_fa_angle_right");
 
 
 function addMultipleOwlItems(htmlStrings, targetPosition) {
@@ -145,7 +145,7 @@ module.exports = Handlebones.View.extend({
             'top: 6px;' +
             'width: 48px;' +
             'fill: black;' +
-            '">' + IconFaAngleLeft() + '</i>' +
+            '">' + iconFaAngleLeft() + '</i>' +
             '</span>';
 
           var groupCarouselNextHTML = '<span ' +
@@ -169,7 +169,7 @@ module.exports = Handlebones.View.extend({
             'top: 6px;' +
             'width: 48px;' +
             'fill: black;' +
-            '">' + IconFaAngleRight() + '</i>' +
+            '">' + iconFaAngleRight() + '</i>' +
 
 
             '</span>';

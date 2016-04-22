@@ -1,6 +1,5 @@
 var s = {};
 
-
 s.agree = "贊成";
 s.disagree = "反對";
 s.pass = "略過 / 不確定";

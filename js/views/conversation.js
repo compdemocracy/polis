@@ -68,8 +68,6 @@ module.exports = PolisModelView.extend({
     var conversation_id = this.conversation_id = this.model.get("conversation_id");
     var zinvite = this.zinvite = this.model.get("zinvite");
 
-    this.tutorialController = new TutorialController();
-
     this.allCommentsCollection = new CommentsCollection();
     this.allCommentsCollection.firstFetchPromise = $.Deferred();
 

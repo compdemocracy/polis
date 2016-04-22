@@ -2899,4 +2899,4 @@ function VisView(params) {
     showAllClustersAsActive: showAllClustersAsActive,
   };
 
-};
+}

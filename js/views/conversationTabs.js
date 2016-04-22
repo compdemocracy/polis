@@ -1,4 +1,3 @@
-var ChangeVotesView = require("../views/change-votes");
 var CommentView = require('../views/vote-view');
 var CommentFormView = require("../views/comment-form");
 var ConversationStatsHeader = require('../views/conversation-stats-header');
