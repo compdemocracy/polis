@@ -3,7 +3,7 @@ var _ = require("underscore");
 var Backbone = require("backbone");
 var ConversationModel = require("../models/conversation");
 var eb = require("../eventBus");
-var gaEvent = require("../util/gaMetric").gaEvent;
+// var gaEvent = require("../util/gaMetric").gaEvent;
 var metric = require("../util/gaMetric");
 var ParticipantModel = require("../models/participant");
 var ParticipationView = require("../views/participation");
@@ -50,11 +50,6 @@ var polisRouter = Backbone.Router.extend({
     this.r(/^ot\/([0-9][0-9A-Za-z]+)\/(.*)/, "participationViewWithSuzinvite"); // ot/conversation_id/suzinvite
     this.r(/^demo\/([0-9][0-9A-Za-z]+)/, "demoConversation");
     //this.r(/^summary\/([0-9][0-9A-Za-z]+)$/, "summaryView");  // summary/conversation_id
-
-    var routesWithFooter = [
-      /^summaryView/,
-      /^createConversation/
-    ];
 
     this.on("route", function(route, params) {
       // if (needsFooter(route)) {

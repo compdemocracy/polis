@@ -3,7 +3,6 @@ var Handlebones = require("handlebones");
 var PostMessageUtils = require("../util/postMessageUtils");
 var preloadHelper = require("../util/preloadHelper");
 var template = require("../tmpl/vote-view");
-var serverClient = require("../stores/polis");
 var Utils = require("../util/utils");
 var Strings = require("../strings");
 

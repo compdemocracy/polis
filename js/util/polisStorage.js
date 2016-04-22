@@ -89,19 +89,6 @@ function makeAccessor(k) {
   };
 }
 
-function makeCookieValueGetterForKeyWithSuffix(suffix) {
-  return function(key) {
-    key += suffix;
-    return store.get(key);
-  };
-}
-
-function asNumber(getter) {
-  return function(key) {
-    return Number(getter(key));
-  };
-}
-
 function toNumberWithFalsyAsZero(val) {
   if (_.isUndefined(val)) {
     return 0;

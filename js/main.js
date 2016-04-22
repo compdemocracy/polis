@@ -9,30 +9,26 @@ var CurrentUserModel = require("./stores/currentUser");
 var display = require("./util/display");
 var eb = require("./eventBus");
 var Handlebars = require("handlebars");
-var IntercomModalHack = require("./util/intercomModalHack");
 var MainPolisRouter = require("./routers/main-polis-router");
 var Metrics = require("./metrics");
 var PolisStorage = require("./util/polisStorage");
 var PostMessageUtils = require("./util/postMessageUtils");
 var preloadHelper = require("./util/preloadHelper");
 var RootView = require("./views/root");
-var Url = require("./util/url");
 var Utils = require("./util/utils");
 
 // These are required here to ensure they are included in the build.
-var bootstrapAffix = require("bootstrap_affix");
-var bootstrapAlert = require("bootstrap_alert");
-var bootstrapButton = require("bootstrap_button");
-var bootstrapCollapse = require("bootstrap_collapse");
-var bootstrapDropdown = require("bootstrap_dropdown");
-var bootstrapPopover = require("bootstrap_popover");
-var bootstrapTab = require("bootstrap_tab");
-var bootstrapToolTip = require("bootstrap_tooltip");
-var bootstrapTransition = require("bootstrap_transition");
-var owl = require("owl");
-
-// Call this here so it gets initialized early.
-var popoverEach = require("./util/popoverEach");
+require("bootstrap_affix");
+require("bootstrap_alert");
+require("bootstrap_button");
+require("bootstrap_collapse");
+require("bootstrap_dropdown");
+require("bootstrap_popover");
+require("bootstrap_tab");
+require("bootstrap_tooltip");
+require("bootstrap_transition");
+require("owl");
+require("./util/popoverEach");
 
 // register partials
 var FooterPartial = require("./tmpl/footer");
@@ -443,7 +439,6 @@ $.when(
       }
       currentRoute = route;
 
-      var intercomWait = 0;
       uidPromise.then(function() {
 
         var u = userObject;

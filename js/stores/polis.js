@@ -37,10 +37,8 @@ module.exports = function(params) {
   var nextCommentPath = "api/v3/nextComment";
   var finishedTutorialPath = "api/v3/tutorial";
 
-  var createAccountPath = "api/v3/auth/new";
   var pcaPath = "api/v3/math/pca2";
   var votesFamousPath = "api/v3/votes/famous";
-  var pcaPlaybackPath = "api/v3/math/pcaPlaybackByLastVoteTimestamp";
   var bidToPidPath = "api/v3/bidToPid";
 
   var conversationsPath = "api/v3/conversations";
@@ -50,9 +48,6 @@ module.exports = function(params) {
 
   var queryParticipantsByMetadataPath = "api/v3/query_participants_by_metadata";
 
-  var commentVelocitiesPath = "api/v3/velocities";
-  var metadataAnswersPath = "api/v3/metadata/answers";
-  var metadataChoicesPath = "api/v3/metadata/choices";
   var xidsPath = "api/v3/xids";
 
   var logger = params.logger;

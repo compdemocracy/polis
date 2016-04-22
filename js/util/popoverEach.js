@@ -1,6 +1,10 @@
 var $ = require("jquery");
-var bootstrapToolTip = require("bootstrap_tooltip");
-var bootstrapPopover = require("bootstrap_popover");
+
+
+// not sure about these
+require("bootstrap_tooltip");
+require("bootstrap_popover");
+
 
 var originalPopover = $.fn.popover;
 var popoverTargets = [];

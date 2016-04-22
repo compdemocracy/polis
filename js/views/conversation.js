@@ -9,10 +9,7 @@ var popoverEach = require("../util/popoverEach");
 var preloadHelper = require("../util/preloadHelper");
 var ServerClient = require("../stores/polis");
 var VotesCollection = require("../collections/votes");
-var URLs = require("../util/url");
 var Utils = require("../util/utils");
-
-var urlPrefix = URLs.urlPrefix;
 
 module.exports = PolisModelView.extend({
 
@@ -52,12 +49,7 @@ module.exports = PolisModelView.extend({
   },
   onClusterTapped: function(gid) {
     this.selectedGid = gid;
-
     this.destroyPopovers();
-    var that = this;
-    // if (window.isMobile()) {
-    //    window.scrollTo(0, $("#visualization_div").offset().top);
-    // }
   },
 
   initialize: function(options) {
@@ -88,7 +80,7 @@ module.exports = PolisModelView.extend({
     // });
 
 
-    var serverClient = that.serverClient = new ServerClient({
+    that.serverClient = new ServerClient({
       conversation_id: conversation_id,
       zinvite: zinvite,
       tokenStore: PolisStorage.token,

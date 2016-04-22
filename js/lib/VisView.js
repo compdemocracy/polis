@@ -4,14 +4,17 @@ var Utils = require("../util/utils");
 // TODO are we using force Layout or not? not really. so it may be worth cleaning up to simplify.
 // Use a css animation to transition the position
 
-function VisView(params) {
+/*jshint -W098 */
+var VisView;
+/*jshint +W098 */
+
+VisView = function(params) {
 
   var el_selector = params.el;
   var el_queryResultSelector = params.el_queryResultSelector;
   var getReactionsToComment = params.getReactionsToComment;
   var computeXySpans = params.computeXySpans;
   var getPidToBidMapping = params.getPidToBidMapping;
-  var getParticipantsOfInterestForGid = params.getParticipantsOfInterestForGid;
   var isMobile = params.isMobile;
   var xOffset = params.xOffset || 0;
   var getGroupNameForGid = params.getGroupNameForGid;
@@ -51,14 +54,11 @@ function VisView(params) {
   var hullIdToGid = {};
 
   var selectedCluster = -1;
-  var selectedBids = [];
   var selectedTid = -1;
 
   var eps = 0.000000001;
-  var SELECT_GLOBAL_CONSENSUS_WHEN_NO_HULL_SELECTED = false;
 
   var COLOR_SELECTED_HULL = true;
-  var EXTRA_RADIUS_FOR_HALO_PIE = 2;
   var EXTRA_RADIUS_FOR_SUMMARY_HALO = 2;
   var SELECTED_HULL_RADIUS_BOOST = 3;
   var UNSELECTED_HULL_RADIUS_BOOST = -1;
@@ -76,8 +76,6 @@ function VisView(params) {
   var maxPtptoiRad = basePtptoiRad + maxradboost;
   var ptptOiDiameter = ptptOiRadius * 2;
 
-
-  var friendOrFolloweeRadius = ptptOiRadius + 2;
 
   var haloWidth = d3.scale.linear().range([1, 1]).domain([350, 800]).clamp(true)(width);
   var haloVoteWidth = d3.scale.linear().range([2, 4]).domain([350, 800]).clamp(true)(width);
@@ -113,8 +111,6 @@ function VisView(params) {
   // Tunables
 
   var minNodeRadiusScaleForGivenVisWidth = d3.scale.linear().range([2, 4]).domain([350, 800]).clamp(true);
-  var maxNodeRadiusScaleForGivenVisWidth = d3.scale.linear().range([10, 20]).domain([350, 800]).clamp(true);
-  var chargeForGivenVisWidth = d3.scale.linear().range([-1, -10]).domain([350, 800]).clamp(true);
   var strokeWidthGivenVisWidth = d3.scale.linear().range([0.2, 1.0]).domain([350, 800]).clamp(true);
   var hullStrokeWidthGivenVisWidth = d3.scale.linear().range([4, 12]).domain([350, 800]).clamp(true);
 
@@ -123,7 +119,6 @@ function VisView(params) {
   var colorPull = "#2ecc71";
   var colorPullLabel = "rgb(0, 181, 77)";
   var colorPush = "#e74c3c"; // ALIZARIN
-  var colorPushLabel = "rgb(224,102,102)";
   var colorSummaryBlob = "#F9F9F9";
   window.color = function() {
     // colorPull = "rgb(0, 214, 195)";
@@ -138,7 +133,6 @@ function VisView(params) {
 
   var colorPass = "#bbb"; //#BDC3C7"; // SILVER
   var colorSelf = "rgb(0, 186, 255)"; // blue - like the 'you are here' in mapping software
-  var colorNoVote = colorPass;
   // var colorSelfOutline = d3.rgb(colorSelf).darker().toString();
   // var colorPullOutline = d3.rgb(colorPull).darker().toString();
   // var colorPushOutline = d3.rgb(colorPush).darker().toString();
@@ -152,7 +146,6 @@ function VisView(params) {
   /* d3-tip === d3 tooltips... [[$ bower install --save d3-tip]] api docs avail at https://github.com/Caged/d3-tip */
   var tip = null;
   var SHOW_TIP = true;
-  var tipPreviousTarget = null; // Sorry God!
   if (SHOW_TIP) {
     $("#ptpt-tip").remove();
     tip = d3.tip().attr("id", "ptpt-tip").attr("stroke", "rgb(52,73,94)").html(
@@ -215,12 +208,6 @@ function VisView(params) {
       isSummaryBucket: true
     }) + 2, // the +2 is to give 1 pixel for the hull stroke, and 1 pixel of white
   };
-
-
-  var MAX_BUCKETS = 60;
-  var rNodes = [];
-  var rBuckets = [];
-
 
 
   $(el_selector)
@@ -370,20 +357,6 @@ function VisView(params) {
   //     //visualization.attr("transform", "translate(10,10)scale(" + d3.event.scale + ")");
   // }
 
-
-  function argMax(f, args) {
-    var max = -Infinity;
-    var maxArg = null;
-    _.each(args, function(arg) {
-      var val = f(arg);
-      if (val > max) {
-        max = val;
-        maxArg = arg;
-      }
-    });
-    return maxArg;
-  }
-
   function setClusterActive(clusterId) {
     selectedCluster = clusterId;
     return $.Deferred().resolve([]);
@@ -466,9 +439,6 @@ function VisView(params) {
       }
     }
   }
-  var hull_unselected_color = '#f6f6f6';
-  var hull_selected_color = '#ebf3ff';
-  var hull_shadow_color = '#d4d4d4';
   var hull_shadow_thickness = w > 550 ? 2 : 1;
   var hull_seletion_thickness = w > 550 ? 2 : 1;
   var hull_stoke_width = hullStrokeWidthGivenVisWidth(w);
@@ -499,10 +469,6 @@ function VisView(params) {
   function updateHulls() {
     bidToBucket = _.object(_.pluck(nodes, "bid"), nodes);
     hulls = clusters.map(function(cluster) {
-      var top = Infinity;
-      var bottom = -Infinity;
-      var right = -Infinity;
-      var left = Infinity;
       var temp = _.map(cluster, function(bid) {
         var bucket = bidToBucket[bid];
         if (_.isUndefined(bucket)) {
@@ -522,14 +488,6 @@ function VisView(params) {
 
     function makeHullShape(stuff) {
       return "M" + stuff.join("L") + "Z";
-    }
-
-    // hulls don't render when there's only one point
-    // so make a nearby neighbor
-    function makeDummyNeighbor(point) {
-      return [
-        point
-      ];
     }
 
     function getOffsetForPin(node) {
@@ -648,10 +606,7 @@ function VisView(params) {
           // If the cluster has only one participant, don't show the hull.
           // intead, make the hull into an extra large invisible touch target.
           var color = (clusters[i].length > 1) ? "#eee" : "#f7f7f7";
-          var colorShadow = (clusters[i].length > 1) ? "#d4d4d4" : "#f7f7f7";
           // var strokeWidth = (clusters[i].length > 1) ? "6px" : "40px";
-          var selectionStrokeWidth = (clusters[i].length > 1) ? "9px" : "43px";
-          var selectionStrokeDashArray = (clusters[i].length > 1) ? "5,5" : "1,1";
 
           var shadowStrokeWidth = (clusters[i].length > 1) ? "8px" : "0px";
 
@@ -769,16 +724,6 @@ function VisView(params) {
   }
   if (force) {
     force.on("tick", updateNodesOnTick);
-  }
-
-  function shouldDisplayCircle(d) {
-    // Hide the circle so we can show the up/down arrows
-    if (commentIsSelected() &&
-      !isSelf(d) // for now, always show circle - TODO fix up/down arrow for blue dot
-    ) {
-      return false;
-    }
-    return true;
   }
 
   function computeClusterPointerTarget(points_WillBeMutated) {
@@ -921,7 +866,6 @@ function VisView(params) {
 
   function chooseDisplayForCircle(d) {
     return "inherit";
-    // return shouldDisplayCircle(d) ? "inherit" : "none";
   }
 
 
@@ -1025,15 +969,6 @@ function VisView(params) {
     }
   }
 
-  function chooseStroke(d) {
-    if (commentIsSelected()) {
-
-    } else {
-      if (isSelf(d)) {
-        return colorSelfOutline;
-      }
-    }
-  }
 
   function clusterIsSelected() {
     return _.isNumber(selectedCluster) && selectedCluster >= 0;
@@ -1051,24 +986,6 @@ function VisView(params) {
     return "translate(" + insetPoint.x + "," + insetPoint.y + ")";
   }
 
-  var offsetFactor = 4.9;
-
-  function makeArrowPoints(scale, yOffset, shouldFlipY) {
-    var left = -scale;
-    var right = scale;
-    // equilateral triangle
-    var bottom = yOffset;
-    var top = Math.sqrt(3 * right * right);
-    if (shouldFlipY) {
-      top *= -1;
-    }
-    top += yOffset;
-    var leftBottom = left + "," + bottom;
-    var rightBottom = right + "," + bottom;
-    var center = "0," + top;
-    return leftBottom + " " + rightBottom + " " + center;
-  }
-
   var TAU = Math.PI * 2;
   var pieChartOrigin = 3 / 4 * TAU;
 
@@ -1083,7 +1000,6 @@ function VisView(params) {
     // var sum = scale + scaleDowns;
     // var yOffset = scale - sum/2;
 
-    // return makeArrowPoints(scale, yOffset, true);
     var count = d.seens; //d.clusterCount || d.count;
     var ratio = d.ups / count;
     ratio = Math.min(ratio, 0.99999);
@@ -1127,12 +1043,6 @@ function VisView(params) {
     if (!d.downs) {
       return;
     }
-    // var scale = bucketRadiusForCount(d.downs || 0);
-    // var scaleUps = bucketRadiusForCount(d.ups || 0);
-    // var sum = scale + scaleUps;
-    // var yOffset = scaleUps - sum/2;
-    // return makeArrowPoints(scale, yOffset, false);
-
 
     var count = d.seens; // d.clusterCount || d.count;
 
@@ -1154,43 +1064,6 @@ function VisView(params) {
 
 
   }
-
-
-  // function makeArrowPoints2(scale, shouldFlipY, originX, originY) {
-  //     var left = -scale;
-  //     var right = scale;
-  //     // equilateral triangle
-  //     var top = Math.sqrt(3 * right * right);
-  //     if (shouldFlipY) {
-  //         top *= -1;
-  //     }
-  //     top += originY;
-  //     var bottom = originY;
-  //     right += originX;
-  //     left += originX;
-
-  //     var f = function(x) {
-  //         return Math.floor(x*10)/10;
-  //     };
-
-  //     var leftBottom = f(left) + " " + f(bottom);
-  //     var rightBottom = f(right) + " " + f(bottom);
-  //     var center = f(originX) + " " + f(top);
-  //     var s =  "M " + leftBottom + " L " + rightBottom + " L " + center + " L " + leftBottom + " Z";
-  //     return s;
-  // }
-
-  // function chooseUpArrowPath2(ups, originX, originY) {
-  //     if (!ups) { return; }
-  //     var scale = bucketRadiusForCount(ups || 0);
-  //     return makeArrowPoints2(scale, true, originX, originY);
-  // }
-
-  // function chooseDownArrowPath2(downs, originX, originY) {
-  //     if (!downs) { return; }
-  //     var scale = bucketRadiusForCount(downs || 0);
-  //     return makeArrowPoints2(scale, false, originX, originY);
-  // }
 
 
   function getImageWidth(d) {
@@ -1273,24 +1146,6 @@ function VisView(params) {
     return !!d.ptptoi;
   }
 
-  function hashCode(s) {
-    var hash = 0,
-      i,
-      character;
-    if (s.length === 0) {
-      return hash;
-    }
-    for (i = 0; i < s.length; i++) {
-      character = s.charCodeAt(i);
-      hash = ((hash << 5) - hash) + character;
-      hash = hash & hash; // Convert to 32bit integer
-    }
-    return hash;
-  }
-
-  // var colorFromString = _.compose(d3.scale.category20(), function(s) {
-  //     return hashCode(s) % 20;
-  // });
 
   function key(d) {
     return d.bid;
@@ -1574,7 +1429,7 @@ function VisView(params) {
 
     // OUTER TRANSLUCENT SHAPES
     var opacityOuter = 0.2;
-    var upArrowEnter = g.append("polygon")
+    g.append("polygon") // upArrowEnter
       .classed("up", true)
       .classed("bktv", true)
       .style("fill", colorPull)
@@ -1582,7 +1437,7 @@ function VisView(params) {
       // .style("stroke", colorPullOutline)
       // .style("stroke-width", 1)
     ;
-    var downArrowEnter = g.append("polygon")
+    g.append("polygon") // downArrowEnter
       .classed("down", true)
       .classed("bktv", true)
       .style("fill", colorPush)
@@ -1590,7 +1445,6 @@ function VisView(params) {
       // .style("stroke", colorPushOutline)
       // .style("stroke-width", 1)
     ;
-    var ptptoiImageZoomFactor = 1;
     var picEnter = g.append("image");
     picEnter
     // .classed("circle", true)
@@ -1665,7 +1519,7 @@ function VisView(params) {
 
 
     // INNER SCALE-CHANGING SHAPES
-    var upArrowEnterInner = g.append("path")
+    g.append("path")  // upArrowEnterInner
       .classed("up", true)
       .classed("bktvi", true)
       .style("fill", "rgba(0,0,0,0)")
@@ -1679,7 +1533,7 @@ function VisView(params) {
       .style("stroke", colorPull)
       .style("opacity", 0.8);
 
-    var downArrowEnterInner = g.append("path")
+    g.append("path") // downArrowEnterInner
       .classed("down", true)
       .classed("bktvi", true)
       .style("fill", "rgba(0,0,0,0)")
@@ -1889,8 +1743,6 @@ function VisView(params) {
 
   function showHintYou() {
 
-    var helpStrokeWidth = display.xs() ? 1 : 2;
-
     var g = visualization.selectAll(".node");
 
 
@@ -2018,57 +1870,11 @@ function VisView(params) {
           node.seens = votes.S[node.bid] || 0;
           node.gid = bidToGid[node.bid];
 
-          // for (var p = 0; p < node.ppl.length; p++) {
-
-          //     // TODO_MAXDOTS count up the votes of each type for each user (instead of just ppl[0])
-          //     var reaction = bidToVote[node.ppl[p].pid];
-          //     if (reaction) {
-          //         if (reaction.vote === -1) {
-          //             node.ups += 1;
-          //         } else if (reaction.vote === 1) {
-          //             node.downs += 1;
-          //         }
-          //     }
-          // }
         }
         updateNodes();
-        // visualization.selectAll(".node")
-        //   .attr("transform", chooseTransform)
-        //   .selectAll("path")
-        //       .style("fill", chooseFill)
-        //       .style("stroke", chooseStroke)
-        //       .style("fill-opacity", chooseAlpha)
-        //       // .attr("r", chooseRadius)
-        //       .attr("d", chooseShape)
-        // ;
       }, function() {
         console.error("failed to get reactions to comment: " + d.tid);
       });
-  }
-
-  // TODO move this stuff out into a backbone view.
-  function chooseCommentFill(d) {
-    if (selectedTid === d.tid) {
-      return "#428bca";
-    } else {
-      // return nothing since we want the hover class to be able to set
-      return "";
-    }
-  }
-
-
-  function renderComments(comments) {
-
-    var dfd = $.Deferred();
-
-    if (comments.length) {
-      $(el_queryResultSelector).show();
-    } else {
-      $(el_queryResultSelector).hide();
-    }
-    setTimeout(dfd.resolve, 4000);
-    eb.trigger("queryResultsRendered");
-    return dfd.promise();
   }
 
   function clickingPtptoiOpensProfile() {
@@ -2108,22 +1914,24 @@ function VisView(params) {
     setTimeout(doUpdateNodes, 0);
   }
 
+
   function doUpdateNodes() {
+
     var update = visualization.selectAll(".node");
-    var upArrowUpdateInner = update.selectAll(".up.bktvi").data(nodes, key)
+
+    update.selectAll(".up.bktvi").data(nodes, key) // upArrowUpdateInner
       .style("display", chooseDisplayForArrows)
       .attr("d", chooseUpArrowPath) // NOTE: using tranform to select the scale
     ;
 
-    var imageUpdate = update.selectAll("image.bktv").data(nodes, key)
+    update.selectAll("image.bktv").data(nodes, key) // imageUpdate
       .attr("filter", chooseFilter);
 
-
-    var downArrowUpdateInner = update.selectAll(".down.bktvi").data(nodes, key)
+    update.selectAll(".down.bktvi").data(nodes, key) // downArrowUpdateInner
       .style("display", chooseDisplayForArrows)
       .attr("d", chooseDownArrowPath) // NOTE: using tranform to select the scale
     ;
-    var grayHaloUpdate = update.selectAll(".grayHalo").data(nodes, key)
+    update.selectAll(".grayHalo").data(nodes, key) // grayHaloUpdate
       .style("display", chooseDisplayForGrayHalo);
 
     if (clusterIsSelected()) {
@@ -2166,7 +1974,7 @@ function VisView(params) {
       .style("font-size", chooseSummaryLabelFontSize);
 
 
-    var circleUpdate = update.selectAll(".circle.bktv").data(nodes, key)
+    update.selectAll(".circle.bktv").data(nodes, key) // circleUpdate
       .style("display", chooseDisplayForOuterCircle)
       .attr("r", chooseCircleRadiusOuter)
       .style("fill", chooseFill)
@@ -2177,7 +1985,7 @@ function VisView(params) {
       .attr("r", chooseCircleRadiusOuter)
       // .style("fill", chooseFill)
     ;
-    var circleUpdateInner = update.selectAll(".circle.bktvi").data(nodes, key)
+    update.selectAll(".circle.bktvi").data(nodes, key) // circleUpdateInner
       .style("display", chooseDisplayForCircle)
       .attr("r", chooseCircleRadius) // NOTE: using tranform to select the scale
     ;
@@ -2279,29 +2087,6 @@ function VisView(params) {
         hash[bid] += 1; // count the person
       }
 
-      function chooseStrokeWidth(d) {
-        // If emphasized, maintain fill, (no stroke needed)
-        if (hash[d.bid]) {
-          return 0;
-        }
-        return 2;
-      }
-
-      function chooseStroke(d) {
-        // If emphasized, maintain fill, (no stroke needed)
-        if (hash[d.bid]) {
-          return void 0; // undefined
-        }
-        return chooseFill(d);
-      }
-
-      function chooseFillOpacity(d) {
-        // If emphasized, maintain fill, (no stroke needed)
-        if (hash[d.bid] >= 2) {
-          return 1;
-        }
-        return 0.2;
-      }
 
       function chooseTransformSubset(d) {
         var bid = d.bid;
@@ -2317,25 +2102,11 @@ function VisView(params) {
       }
 
       visualization.selectAll(".bktvi")
-        // .attr("stroke", chooseStroke)
         .attr("transform", chooseTransformSubset)
-        // .attr("stroke-width", chooseStrokeWidth)
-        // .attr("fill-opacity", chooseFillOpacity)
       ;
-
-
     });
   }
 
-
-  function centerOfCluster(gid) {
-    var c = centroids[gid];
-    if (c) {
-      return [c.x, c.y];
-    } else {
-      return [-99, -99];
-    }
-  }
 
   function dist(start, b) {
     var dx = start[0] - b[0];
@@ -2432,7 +2203,6 @@ function VisView(params) {
     if (navigator.userAgent.match(/MSIE 10/)) {
       return;
     }
-    // var center = centerOfCluster(gid);
 
     var startX = clusterPointerFromBottom ? w / 10 : -2;
     var start = [startX, clusterPointerOriginY];
@@ -2470,12 +2240,6 @@ function VisView(params) {
       //// .attr("marker-start", "url(#ArrowTip)")
       //// .attr("points", ["-2," + clusterPointerOriginY, center].join(" "));
       .attr("d", helpLine);
-  }
-
-  function onHelpTextClicked() {
-    overlay_layer.selectAll(".helpArrow")
-      .style("display", "none");
-    $("#helpTextBox").addClass("hidden");
   }
 
   function setupBlueDotHelpText(self) {
@@ -2554,4 +2318,4 @@ function VisView(params) {
     showAllClustersAsActive: showAllClustersAsActive,
   };
 
-}
+};
