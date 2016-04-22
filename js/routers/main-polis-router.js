@@ -1,19 +1,19 @@
-var RootView = require("../views/root");
+var $ = require("jquery");
+var _ = require("underscore");
 var Backbone = require("backbone");
-var ConversationModel = require("../models/conversation");
-var ParticipantModel = require("../models/participant");
 var bbFetch = require("../net/bbFetch");
+var ConversationModel = require("../models/conversation");
 var ConversationsCollection = require("../collections/conversations");
 var eb = require("../eventBus");
-var ParticipationView = require("../views/participation");
+var gaEvent = require("../util/gaMetric").gaEvent;
 var metric = require("../util/gaMetric");
-var preloadHelper = require("../util/preloadHelper");
+var ParticipantModel = require("../models/participant");
+var ParticipationView = require("../views/participation");
 var PolisStorage = require("../util/polisStorage");
+var preloadHelper = require("../util/preloadHelper");
+var RootView = require("../views/root");
 var UserModel = require("../models/user");
 var Utils = require("../util/utils");
-var _ = require("underscore");
-var $ = require("jquery");
-var gaEvent = require("../util/gaMetric").gaEvent;
 
 
 var match = window.location.pathname.match(/ep1_[0-9A-Za-z]+$/);

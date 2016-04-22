@@ -1,69 +1,74 @@
 
+
+
+
+
 // init this asap
 var preloadHelper = require("./util/preloadHelper");
 
 
+
+
 var $ = require("jquery");
-var eb = require("./eventBus");
+var _ = require("underscore");
 var Backbone = require("backbone");
 var CurrentUserModel = require("./stores/currentUser");
+var display = require("./util/display");
+var eb = require("./eventBus");
+var Handlebars = require("handlebars");
 var IntercomModalHack = require("./util/intercomModalHack");
-var RootView = require("./views/root");
 var MainPolisRouter = require("./routers/main-polis-router");
 var Metrics = require("./metrics");
 var PolisStorage = require("./util/polisStorage");
 var PostMessageUtils = require("./util/postMessageUtils");
 var preloadHelper = require("./util/preloadHelper");
-var Handlebars = require("handlebars");
-var _ = require("underscore");
-var display = require("./util/display");
-var Utils = require("./util/utils");
+var RootView = require("./views/root");
 var Url = require("./util/url");
+var Utils = require("./util/utils");
 
 // These are required here to ensure they are included in the build.
+var bootstrapAffix = require("bootstrap_affix");
 var bootstrapAlert = require("bootstrap_alert");
-var bootstrapTab = require("bootstrap_tab");
-var bootstrapToolTip = require("bootstrap_tooltip");
 var bootstrapButton = require("bootstrap_button");
-var bootstrapPopover = require("bootstrap_popover");
-var bootstrapTransition = require("bootstrap_transition");
 var bootstrapCollapse = require("bootstrap_collapse");
 var bootstrapDropdown = require("bootstrap_dropdown");
-var bootstrapAffix = require("bootstrap_affix");
+var bootstrapPopover = require("bootstrap_popover");
+var bootstrapTab = require("bootstrap_tab");
+var bootstrapToolTip = require("bootstrap_tooltip");
+var bootstrapTransition = require("bootstrap_transition");
 var owl = require("owl");
 
 // Call this here so it gets initialized early.
 var popoverEach = require("./util/popoverEach");
 
 // register partials
-var HeaderPartial = require("./tmpl/header");
-var HeaderWhatisPolisPartial = require("./tmpl/headerWhatIsPolis");
 var BannerPartial = require("./tmpl/banner");
 var BannerParticipantPaysPartial = require("./tmpl/banner_pp");
-var TrialRemainingStatementPartial = require("./tmpl/trialRemainingStatement");
 var FooterPartial = require("./tmpl/footer");
+var HeaderPartial = require("./tmpl/header");
+var HeaderWhatisPolisPartial = require("./tmpl/headerWhatIsPolis");
+var LinkAddPolisPartial = require("./tmpl/link-AddPolis-partial");
+var LinkPrivacyPartial = require("./tmpl/link-privacy-partial");
+var LinkTosPartial = require("./tmpl/link-TOS-partial");
 var PolisLogoPartial = require("./tmpl/polisLogo");
-var TutorialSlidesButtonsPartial = require("./tmpl/tutorialSlidesButtonsPartial");
+var TrialRemainingStatementPartial = require("./tmpl/trialRemainingStatement");
 var TutorialSlidesButtonsLeftPartial = require("./tmpl/tutorialSlidesButtonsLeftPartial");
-var IconFaCircleCheckPartial = require("./tmpl/icon_fa_check_circle");
-var IconFaBan = require("./tmpl/icon_fa_ban");
+var TutorialSlidesButtonsPartial = require("./tmpl/tutorialSlidesButtonsPartial");
+
+//  require icon partials
 var IconFaAngleLeft = require("./tmpl/icon_fa_angle_left");
 var IconFaAngleRight = require("./tmpl/icon_fa_angle_right");
-var IconFaLightBulb = require("./tmpl/icon_fa_lightbulb_o");
 var IconFaAsterisk = require("./tmpl/icon_fa_asterisk");
+var IconFaBan = require("./tmpl/icon_fa_ban");
+var IconFaCircleCheckPartial = require("./tmpl/icon_fa_check_circle");
+var iconFaFacebookSquare = require("./tmpl/icon_fa_facebook_square");
+var IconFaLightBulb = require("./tmpl/icon_fa_lightbulb_o");
 var IconFaTimes = require("./tmpl/icon_fa_times");
 var IconFaTwitter = require("./tmpl/icon_fa_twitter");
-var iconFaFacebookSquare = require("./tmpl/icon_fa_facebook_square");
-
-var LinkTosPartial = require("./tmpl/link-TOS-partial");
-var LinkPrivacyPartial = require("./tmpl/link-privacy-partial");
-var LinkAddPolisPartial = require("./tmpl/link-AddPolis-partial");
-
 
 
 var match = window.location.pathname.match(/ep1_[0-9A-Za-z]+$/);
 var encodedParams = match ? match[0] : void 0;
-
 var forceEmbedded = false;
 
 // notify parent iframe when document changes height
