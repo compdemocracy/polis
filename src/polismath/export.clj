@@ -533,7 +533,7 @@
 (def cli-options
   [["-z" "--zid ZID"           "ZID on which to do a rerun" :parse-fn #(Integer/parseInt %)]
    ["-Z" "--zinvite ZINVITE"   "ZINVITE code on which to perform a rerun"]
-   ["-u" "--user-id USER_ID"   "Export all conversations associated with ZID, and place in zip file" :parse-fn #(Integer/parseInt %)]
+   ["-u" "--user-id USER_ID"   "Export all conversations associated with USER_ID, and place in zip file" :parse-fn #(Integer/parseInt %)]
    ["-a" "--at-date AT_DATE"   "A string of YYYY MM DD HH MM SS (in UTC)" :parse-fn parse-date]
    ["-f" "--format FORMAT"     "Either csv, excel or (soon) json" :parse-fn keyword :validate [#{:csv :excel} "Must be either csv or excel"]]
    ;; -U ;utc offset?
