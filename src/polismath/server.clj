@@ -159,11 +159,11 @@
 ;; This will end up redirecting to the aws download link
 (defn private-datadump-url
   [filename zinvite]
-  (private-url (str "datadump/results?filename=" filename "&zinvite=" zinvite)))
+  (private-url (str "datadump/results?filename=" filename "&conversation_id=" zinvite)))
 
 (defn public-datadump-url
   [filename zinvite]
-  (public-url (str "dataExport/results?filename=" filename "&zinvite=" zinvite)))
+  (public-url (str "dataExport/results?filename=" filename "&conversation_id=" zinvite)))
 
 ;; Email notification of completion
 
@@ -329,7 +329,7 @@
 
 (defn get-status-location-url
   [filename zinvite]
-  (private-url (str "datadump/status?filename=" filename "&zinvite=" zinvite)))
+  (private-url (str "datadump/status?filename=" filename "&conversation_id=" zinvite)))
 
 (defn check-back-response
   ([filename zinvite status]
