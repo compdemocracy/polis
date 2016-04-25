@@ -2524,7 +2524,11 @@ function doProxyDataExportCall(req, res, urlBuilderFunction) {
 
         var url = urlBuilderFunction(exportServerUser, exportServerPass, user.email);
 
-        var x = request(url);
+        var x = request({
+            method: "GET",
+            uri: url,
+            followRedirect: false,
+        });
         req.pipe(x);
         x.pipe(res);
         x.on("error", function(err) {
