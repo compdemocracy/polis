@@ -30,10 +30,15 @@
 (def tmp-dir (or (:export-temp-dir env/env) "/tmp/")) ; XXX
 (defn full-path [filename] (str tmp-dir filename))
 
-(def app-url-base (or (:export-server-url-base env/env) "http://localhost:3000"))
-(defn full-url
+(def private-app-url-base (or (:export-server-url-base env/env) "http://localhost:3000"))
+(def public-url-base "https://pol.is")
+(defn private-url
   [& path]
-  (apply str app-url-base "/" path))
+  (apply str private-app-url-base "/" path))
+
+(defn public-url
+  [& path]
+  (apply str public-app-url-base "/" path))
 
 
 ;; A ping handler will just be for debugging purposes
@@ -152,10 +157,13 @@
                  :file (full-path filename)))
 
 ;; This will end up redirecting to the aws download link
-(defn get-datadump-url
+(defn private-datadump-url
   [filename zinvite]
-  (full-url (str "datadump/results?filename=" filename "&zinvite=" zinvite)))
+  (private-url (str "datadump/results?filename=" filename "&zinvite=" zinvite)))
 
+(defn public-datadump-url
+  [filename zinvite]
+  (public-url (str "datadump/results?filename=" filename "&zinvite=" zinvite)))
 
 ;; Email notification of completion
 
@@ -211,7 +219,7 @@
 (defn send-email-notification!
   [filename params]
   (let [zinvite (:zinvite params)
-        download-url (get-datadump-url filename zinvite)
+        download-url (public-datadump-url filename zinvite)
         email-hiccup (completion-email-text zinvite download-url)]
     (email/send-email!
       "Christopher Small <chris@pol.is>"
@@ -321,7 +329,7 @@
 
 (defn get-status-location-url
   [filename zinvite]
-  (full-url (str "datadump/status?filename=" filename "&zinvite=" zinvite)))
+  (private-url (str "datadump/status?filename=" filename "&zinvite=" zinvite)))
 
 (defn check-back-response
   ([filename zinvite status]
@@ -338,7 +346,7 @@
 
 (defn complete-response
   [filename zinvite]
-  (let [url (get-datadump-url filename zinvite)]
+  (let [url (private-datadump-url filename zinvite)]
     {:status  201
      :headers {"Content-Type" "text/plain"
                "Location"     url}
