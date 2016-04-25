@@ -31,7 +31,7 @@
 (defn full-path [filename] (str tmp-dir filename))
 
 (def private-app-url-base (or (:export-server-url-base env/env) "http://localhost:3000"))
-(def public-url-base "https://pol.is")
+(def public-app-url-base "https://pol.is")
 (defn private-url
   [& path]
   (apply str private-app-url-base "/" path))
