@@ -31,7 +31,7 @@
 (defn full-path [filename] (str tmp-dir filename))
 
 (def private-app-url-base (or (:export-server-url-base env/env) "http://localhost:3000"))
-(def public-app-url-base "https://pol.is")
+(def public-app-url-base "https://pol.is/api/v3")
 (defn private-url
   [& path]
   (apply str private-app-url-base "/" path))
@@ -163,7 +163,7 @@
 
 (defn public-datadump-url
   [filename zinvite]
-  (public-url (str "datadump/results?filename=" filename "&zinvite=" zinvite)))
+  (public-url (str "dataExport/results?filename=" filename "&zinvite=" zinvite)))
 
 ;; Email notification of completion
 
@@ -247,7 +247,7 @@
 
 (defn generate-aws-url!
   "Generate a presigned url from amazon for the given filename. Optionally set an expiration in hours (defaulting to the number
-  sourced from env variable :download-link-expiration-hours."
+  sourced from env variable :download-link-expiration-hours)."
   ([aws-cred filename expiration]
    ;; XXX more env/env stuff
    (let [expiration (-> expiration time/hours time/from-now)]
@@ -366,7 +366,7 @@
 ;; completed down the road.
 
 (defn run-datadump
-   "Based on params this actually runs the export-conversation computation."
+  "Based on params this actually runs the export-conversation computation."
   [filename params]
   (log/info "Params for run-datadump are:" (with-out-str (prn params)))
   (try
