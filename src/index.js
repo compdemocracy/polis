@@ -30,6 +30,7 @@ import Plus from "./components/landers/plus";
 import TOS from "./components/tos";
 import Privacy from "./components/privacy";
 import Conversations from "./components/conversations";
+// import OtherConversations from "./components/OtherConversations";
 import Integrate from "./components/integrate";
 // this may become '/' defaultview - with instructions if no stats to show
 import OverallStats from "./components/overall-stats";
@@ -68,6 +69,7 @@ class Root extends React.Component {
           <Router history={browserHistory}>
             <Route path="/" component={Console}>
               <IndexRoute component={Conversations}/>
+              <Route path="other-conversations" component={Conversations}/>
               <Route path="integrate" component={Integrate}/>
               <Route path="overall-stats" component={OverallStats}/>
               <Route path="account" component={Account}/>

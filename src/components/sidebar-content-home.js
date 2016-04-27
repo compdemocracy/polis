@@ -76,7 +76,13 @@ class SidebarContentHome extends React.Component {
             style={styles.sidebarLink}
             to="/">
             <Awesome name="inbox"/>
-            <span style={{marginLeft: 10}}> Conversations </span>
+            <span style={{marginLeft: 10}}> {"My Conversations"} </span>
+          </Link>
+          <Link
+            style={styles.sidebarLink}
+            to="/other-conversations">
+            <Awesome name="user"/>
+            <span style={{marginLeft: 10}}> {"Other Conversations"} </span>
           </Link>
           {/*<Link
             style={styles.sidebarLink}

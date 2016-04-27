@@ -98,12 +98,22 @@ class Conversations extends React.Component {
   filterCheck(c) {
     // console.log('filtering', c, this.state.filterMinParticipantCount)
     let include = true;
+
     if (c.participant_count < this.state.filterMinParticipantCount) {
       include = false;
     }
-    if (!c.is_owner) {
+
+    if (this.props.route.path === "other-conversations") {
+      // filter out conversations i do own
+      include = c.is_owner ? false : true;
+    }
+
+    if (this.props.route.path !== "other-conversations" && !c.is_owner) {
+      // if it's not other convos and i'm not the owner, don't show it
+      // filter out convos i don't own
       include = false;
     }
+
     return include;
   }
   renderFilteredConversations() {
