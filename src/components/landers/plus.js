@@ -111,7 +111,7 @@ class Plus extends React.Component {
           grow="1"
           styleOverrides={this.styles().sectionColor}>
             <p style={this.styles().hero}>
-              {"What does your crowd think?"}
+              { "What does your crowd think?" }
             </p>
             <p style={this.styles().heroSub}>
               Meet pol.is: an AI powered sentiment gathering platform.
@@ -126,7 +126,7 @@ class Plus extends React.Component {
         </Flex>
         <Press/>
 
-
+<p> polis leverages techniques from both quantitative and qualitative research, combined with powerful analytics, to gather feedback that is simultaneously authentic to the population being surveyed and data rich. </p>
       <Flex
         styleOverrides={{padding: "20px 40px"}}
         justifyContent="space-around"
