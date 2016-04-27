@@ -12714,6 +12714,7 @@ app.get(/^\/__webpack_hmr$/, makeFileFetcher(hostname, portForAdminFiles, "/__we
 // admin dash-based landers
 app.get(/^\/home(\/.*)?/, fetchIndexForAdminPage);
 app.get(/^\/createuser(\/.*)?/, fetchIndexForAdminPage);
+app.get(/^\/plus(\/.*)?/, fetchIndexForAdminPage);
 
 
 app.get("/iip/:conversation_id",
