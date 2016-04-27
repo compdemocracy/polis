@@ -288,6 +288,15 @@ class ConversationConfig extends React.Component {
             color={settings.polisBlue}/>
             <p style={{fontSize: 10, fontStyle: "italic"}}> Users cannot vote without first connecting either Facebook or Twitter </p>
           <Checkbox
+            label="Open Data"
+            ref={"is_data_open"}
+            checked={this.props.zid_metadata.is_data_open}
+            onCheck={ this.handleBoolValueChange("is_data_open").bind(this) }
+            labelPosition={"left"}
+            labelWrapperColor={settings.darkerGray}
+            color={settings.polisBlue}/>
+            <p style={{fontSize: 10, fontStyle: "italic"}}> Comments, votes, and group data can be exported by any user </p>
+          <Checkbox
             label="Preserve Anonymity"
             ref={"is_anon"}
             disabled
