@@ -231,6 +231,7 @@ CREATE TABLE conversations(
     is_active BOOLEAN DEFAULT FALSE,
     is_draft BOOLEAN DEFAULT FALSE, -- TODO check default
     is_public BOOLEAN DEFAULT TRUE,
+    is_data_open BOOLEAN DEFAULT FALSE, -- anyone can export a data dump
     profanity_filter BOOLEAN DEFAULT TRUE,
     spam_filter BOOLEAN DEFAULT TRUE,
     strict_moderation BOOLEAN DEFAULT FALSE,
