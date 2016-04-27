@@ -427,6 +427,7 @@ var sql_conversations = sql.define({
     "is_active",
     "is_draft",
     "is_public",  // TODO remove this column
+    "is_data_open",
     "profanity_filter",
     "spam_filter",
     "strict_moderation",
@@ -2513,7 +2514,7 @@ function doProxyDataExportCall(req, res, urlBuilderFunction) {
         var user = a[0];
         var conv = a[1];
         var isOwner = req.p.uid === conv.owner;
-        var isAllowed = isOwner || isPolisDev(req.p.uid);
+        var isAllowed = isOwner || isPolisDev(req.p.uid) || conv.is_data_open;
 
         if (!isAllowed) {
             fail(res, 403, "polis_err_permission", err);
@@ -8056,6 +8057,7 @@ app.put('/api/v3/conversations',
     want('is_active', getBool, assignToP),
     want('is_anon', getBool, assignToP),
     want('is_draft', getBool, assignToP, false),
+    want('is_data_open', getBool, assignToP, false),
     want('owner_sees_participation_stats', getBool, assignToP, false),
     want('profanity_filter', getBool, assignToP),
     want('short_url', getBool, assignToP, false),
@@ -8107,6 +8109,9 @@ function(req, res){
     }
     if (!_.isUndefined(req.p.is_draft)) {
         fields.is_draft = req.p.is_draft;
+    }
+    if (!_.isUndefined(req.p.is_data_open)) {
+        fields.is_data_open = req.p.is_data_open;
     }
     if (!_.isUndefined(req.p.profanity_filter)) {
         fields.profanity_filter = req.p.profanity_filter;
