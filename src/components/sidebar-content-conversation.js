@@ -19,7 +19,6 @@ const styles = {
     textDecoration: "none"
   },
   divider: {
-    margin: "8px 0",
     height: 1,
     backgroundColor: "#757575"
   },
