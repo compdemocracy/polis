@@ -5,6 +5,7 @@ import _ from "lodash";
 import Awesome from "react-fontawesome";
 import {Link} from "react-router";
 import MaterialTitlePanel from "./material-title-panel-sidebar";
+import SidebarItem from "./sidebar-item";
 
 const styles = {
   sidebar: {
@@ -13,7 +14,7 @@ const styles = {
   },
   sidebarLink: {
     display: "block",
-    padding: "16px 0px",
+    padding: "16px 0px 16px 16px",
     color: "#757575",
     textDecoration: "none"
   },
@@ -23,7 +24,6 @@ const styles = {
     backgroundColor: "#757575"
   },
   content: {
-    padding: "16px",
     height: "100%",
     backgroundColor: "white"
   }
@@ -45,60 +45,51 @@ class SidebarContentConversation extends React.Component {
         title={"Pol.is/"+this.props.conversation_id}
         style={this.props.style ? {...styles.sidebar, ...this.props.style} : styles.sidebar}>
         <div style={styles.content} onClick={this.handleClick.bind(this)}>
-          <Link
-            style={styles.sidebarLink}
-            to={"/"}>
-            <Awesome name="chevron-left"/>
-            <span style={{marginLeft: 15}}> Home </span>
-          </Link>
-          <Link
-            style={styles.sidebarLink}
-            to={"/m/"+this.props.conversation_id}>
-            <Awesome name="gears"/>
-            <span style={{marginLeft: 10}}> Config </span>
-          </Link>
-          <Link
-            style={styles.sidebarLink}
-            to={"/m/"+this.props.conversation_id+"/live"}>
-            <Awesome style={{color: "#5AB85A"}} name="circle"/>
-            <span style={{marginLeft: 10}}> Live </span>
-          </Link>
-          <Link
-            style={styles.sidebarLink}
-            to={"/m/"+this.props.conversation_id+"/share"}>
-            <Awesome name="code"/>
-            <span style={{marginLeft: 10}}> Share & Embed </span>
-          </Link>
-          <Link
-            style={styles.sidebarLink}
-            to={"/m/"+this.props.conversation_id+"/comments"}>
-            <Awesome name="comments"/>
-            <span style={{marginLeft: 10}}> Comments </span>
-          </Link>
-          <Link
-            style={styles.sidebarLink}
-            to={"/m/"+this.props.conversation_id+"/participants"}>
-            <Awesome name="users"/>
-            <span style={{marginLeft: 10}}> Participants </span>
-          </Link>
-          <Link
-            style={styles.sidebarLink}
-            to={"/m/"+this.props.conversation_id+"/summary"}>
-            <Awesome name="list-alt"/>
-            <span style={{marginLeft: 10}}> Summary </span>
-          </Link>
-          <Link
-            style={styles.sidebarLink}
-            to={"/m/"+this.props.conversation_id+"/stats"}>
-            <Awesome name="area-chart"/>
-            <span style={{marginLeft: 10}}> Stats </span>
-          </Link>
-          <Link
-            style={styles.sidebarLink}
-            to={"/m/"+this.props.conversation_id+"/export"}>
-            <Awesome name="cloud-download"/>
-            <span style={{marginLeft: 10}}> Data export </span>
-          </Link>
+          <SidebarItem
+            to="/"
+            selected={false}
+            icon="chevron-left"
+            text="All Conversations"/>
+          <SidebarItem
+            to={"/m/"+this.props.conversation_id}
+            selected={this.props.routes[2] && !this.props.routes[2].path}
+            icon="gears"
+            text="Configure"/>
+          <SidebarItem
+            to={"/m/"+this.props.conversation_id+"/live"}
+            selected={this.props.routes[2] && this.props.routes[2].path === "live"}
+            icon="heartbeat"
+            text="See it"/>
+          <SidebarItem
+            to={"/m/"+this.props.conversation_id+"/share"}
+            selected={this.props.routes[2] && this.props.routes[2].path === "share"}
+            icon="code"
+            text="Share & Embed"/>
+          <SidebarItem
+            to={"/m/"+this.props.conversation_id+"/comments"}
+            selected={this.props.routes[2] && this.props.routes[2].path === "comments"}
+            icon="comments"
+            text="Comments"/>
+          <SidebarItem
+            to={"/m/"+this.props.conversation_id+"/participants"}
+            selected={this.props.routes[2] && this.props.routes[2].path === "participants"}
+            icon="users"
+            text="Participants"/>
+          <SidebarItem
+            to={"/m/"+this.props.conversation_id+"/summary"}
+            selected={this.props.routes[2] && this.props.routes[2].path === "summary"}
+            icon="list-alt"
+            text="Summary"/>
+          <SidebarItem
+            to={"/m/"+this.props.conversation_id+"/stats"}
+            selected={this.props.routes[2] && this.props.routes[2].path === "stats"}
+            icon="area-chart"
+            text="Stats"/>
+          <SidebarItem
+            to={"/m/"+this.props.conversation_id+"/export"}
+            selected={this.props.routes[2] && this.props.routes[2].path === "export"}
+            icon="cloud-download"
+            text="Data Export"/>
           <div style={styles.divider} />
           <a style={styles.sidebarLink} target="blank" href="http://docs.pol.is">
             <Awesome name="align-left"/><span style={{marginLeft: 10}}>Docs</span>

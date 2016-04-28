@@ -147,12 +147,16 @@ class App extends React.Component {
 
     if (this.props.routes[1] && this.props.routes[1].path === "integrate") {
       title = "Integrate";
-    } else if (this.props.routes[1] && this.props.routes[1].path === "conversations") {
+    } else if (this.props.routes[1] && !this.props.routes[1].path) {
       title = "My Conversations";
+    } else if (this.props.routes[1] && this.props.routes[1].path === "other-conversations") {
+      title = "Conversations I Participated In";
     } else if (this.props.routes[1] && this.props.routes[1].path === "account") {
       title = "Account Management";
     } else if (this.props.routes[2] && this.props.routes[2].path === "comments") {
       title = "Moderate Comments";
+    } else if (this.props.routes[2] && !this.props.routes[2].path) {
+      title = "Configure Conversation";
     } else if (this.props.routes[2] && this.props.routes[2].path === "participants") {
       title = "Moderate Participants";
     } else if (this.props.routes[2] && this.props.routes[2].path === "stats") {
@@ -179,9 +183,11 @@ class App extends React.Component {
         sidebar={
           this.props.params.conversation_id ?
             <SidebarContentConversation
+              {...this.props}
               conversation_id={this.props.params.conversation_id}
               onSidebarItemClicked={ this.onSidebarItemClicked.bind(this) }/> :
             <SidebarContentHome
+              {...this.props}
               onSidebarItemClicked={ this.onSidebarItemClicked.bind(this) } />
           }
           open={ this.state.sidebarOpen }

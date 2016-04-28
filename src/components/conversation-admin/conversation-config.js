@@ -111,7 +111,7 @@ class ConversationConfig extends React.Component {
   }
 
   render() {
-    console.log("md", this.props.zid_metadata.topic)
+    console.log(this.props)
     return (
       <div style={styles.container}>
         <div style={styles.configCard}>

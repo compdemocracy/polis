@@ -6,6 +6,7 @@ import Awesome from "react-fontawesome";
 import {Link} from "react-router";
 import MaterialTitlePanel from "./material-title-panel-sidebar";
 import {handleCreateConversationSubmit} from "../actions";
+import SidebarItem from "./sidebar-item";
 
 const styles = {
   sidebar: {
@@ -14,7 +15,7 @@ const styles = {
   },
   sidebarLink: {
     display: "block",
-    padding: "16px 0px",
+    padding: "16px 0px 16px 16px",
     color: "#757575",
     textDecoration: "none",
     cursor: "pointer"
@@ -25,7 +26,6 @@ const styles = {
     backgroundColor: "#757575",
   },
   content: {
-    padding: "16px",
     height: "100%",
     backgroundColor: "white",
   }
@@ -66,31 +66,30 @@ class SidebarContentHome extends React.Component {
             <Awesome name="plus"/>
             <span style={{marginLeft: 10}}> New </span>
           </span>
-          <Link
-            style={styles.sidebarLink}
-            to="/integrate">
-            <Awesome name="code"/>
-            <span style={{marginLeft: 10}}> Integrate </span>
-          </Link>
-          <Link
-            style={styles.sidebarLink}
-            to="/">
-            <Awesome name="inbox"/>
-            <span style={{marginLeft: 10}}> {"My Conversations"} </span>
-          </Link>
-          <Link
-            style={styles.sidebarLink}
-            to="/other-conversations">
-            <Awesome name="user"/>
-            <span style={{marginLeft: 10}}> {"Other Conversations"} </span>
-          </Link>
-          {/*<Link
-            style={styles.sidebarLink}
-            to="/account">
-            <Awesome name="credit-card"/>
-            <span style={{marginLeft: 10}}> Account </span>
-            </Link>*/}
+
+          <SidebarItem
+            to="/integrate"
+            selected={this.props.routes[1] && this.props.routes[1].path === "integrate"}
+            icon="code"
+            text="Integrate"/>
+          <SidebarItem
+            to="/"
+            selected={this.props.routes[1] && !this.props.routes[1].path}
+            icon="inbox"
+            text="My Conversations"/>
+          <SidebarItem
+            to="/other-conversations"
+            selected={this.props.routes[1] && this.props.routes[1].path === "other-conversations"}
+            icon="user"
+            text="Other Conversations"/>
+          {/*<SidebarItem
+            to="/account"
+            selected={false}
+            icon="credit-card"
+            text="Account"/>*/}
+
           <div style={styles.divider} />
+
           <a style={styles.sidebarLink} target="blank" href="http://docs.pol.is">
             <Awesome name="align-left"/><span style={{marginLeft: 10}}>Docs</span>
           </a>
