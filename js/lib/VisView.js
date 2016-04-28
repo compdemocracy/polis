@@ -1678,7 +1678,7 @@ VisView = function(params) {
       })
       // .classed("help", true)
       // .classed("help_text_you", true)
-      .style("font-family", "FontAwesome") // Tahoma, Helvetica, sans-serif For the "AGREED"/"DISAGREED" label: Tahoma should be good at small sizes http://ux.stackexchange.com/questions/3330/what-is-the-best-font-for-extremely-limited-space-i-e-will-fit-the-most-readab
+      .style("font-family", "Tahoma, Helvetica, sans-serif") // Tahoma, Helvetica, sans-serif For the "AGREED"/"DISAGREED" label: Tahoma should be good at small sizes http://ux.stackexchange.com/questions/3330/what-is-the-best-font-for-extremely-limited-space-i-e-will-fit-the-most-readab
       .style("font-size", chooseSummaryLabelFontSize)
       // .style("font-weight", "bold")
       .attr("text-anchor", "left")
