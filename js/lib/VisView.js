@@ -940,31 +940,11 @@ VisView = function(params) {
 
 
   function chooseFill(d) {
-    // if (commentIsSelected()) {
-    //     if (d.effects === -1) {  // pull
-    //         return colorPull;
-    //     } else if (d.effects === 1) { // push
-    //         return colorPush;
-    //     }
-    // }
-
     if (isParticipantOfInterest(d)) {
-      // return "rgba(255,0,0,0.5)";
       return "rgba(0,0,0,0)";
     } else if (isSelf(d)) {
-      return "rgba(0,0,0,0)"; //colorSelf;
+      return "rgba(0,0,0,0)";
     } else {
-
-      // var gid = bidToGid[d.bid];
-      // if (gid === 0) {
-      //     return "rgba(255,0,0,0.2)";
-      // } else if (gid === 1) {
-      //     return "rgba(0,255,0,0.2)";
-      // } else if (gid === 2) {
-      //     return "rgba(0,0,255,0.2)";
-      // }
-      // return "#0CF";
-
       return colorSummaryBlob;
     }
   }
@@ -993,13 +973,6 @@ VisView = function(params) {
     if (!d.ups) {
       return;
     }
-    // var scale = bucketRadiusForCount(d.ups || 0);
-
-    // var scaleDowns = bucketRadiusForCount(d.downs || 0);
-
-    // var sum = scale + scaleDowns;
-    // var yOffset = scale - sum/2;
-
     var count = d.seens; //d.clusterCount || d.count;
     var ratio = d.ups / count;
     ratio = Math.min(ratio, 0.99999);
@@ -1014,8 +987,6 @@ VisView = function(params) {
     var end = pieChartOrigin + (TAU * ratio / 2); // -degrees/2;
     var largeArcFlag = ratio > 0.5 ? 1 : 0;
     return generateWedgeString(0, 0, start, end, r, largeArcFlag, false);
-
-
   }
 
 
@@ -1463,13 +1434,6 @@ VisView = function(params) {
       .attr("xlink:href", function(d) {
         return d.pic;
       })
-      //   .style("opacity", opacityOuter)
-      //   .style("fill", chooseFill)
-      // .filter(isSelf)
-      //     .style("fill", "rgba(0,0,0,0)")
-      //     .style("stroke", colorSelf)
-      //     .style("stroke-width", 1)
-      //     .style("opacity", 0.5)
     ;
 
 
@@ -1547,13 +1511,6 @@ VisView = function(params) {
       .style("stroke", colorPush)
       .style("opacity", 0.8);
 
-    // var circleEnterInner = g.append("circle")
-    //   .classed("circle", true)
-    //   .classed("bktvi", true)
-    //   .style("stroke-width", 0)
-    //   .style("fill", chooseFill)
-    //   ;
-
     var self = g.filter(isSelf);
     self.classed("selfDot", true);
 
@@ -1589,14 +1546,6 @@ VisView = function(params) {
     var socialIconRoot = socialRoot.append("g");
     socialIconRoot.attr("transform", "scale(" + socialIconScale + "," + socialIconScale + ")");
     socialIconRoot.append("g")
-      // .attr("transform", function(d) {
-      //     if (d.hasFacebook) {
-      //         return "translate(" + (retina ? "6,35" : "9,38")  +") scale(.005, -0.005)";
-
-    //     } else if (d.hasTwitter) {
-    //         return "translate(" + (retina ? "8,25" : "9,28")  +") scale(0.015,0.015)";
-    //     }
-    // })
     .attr("transform", function(d) {
         if (d.hasFacebook) {
           return "translate(" + (retina ? "-19,15" : "-19,15") + ") scale(.0065, -0.0065)";
@@ -1617,45 +1566,8 @@ VisView = function(params) {
           return "d", "M0 781.864q0 7.32 7.32 13.176 12.2 8.296 43.432 24.4 119.072 61.488 249.856 61.488 162.992 0 296.216 -83.936 63.44 -40.016 112.728 -96.38t78.324 -117.608 43.432 -122.732 13.42 -119.56v-17.08q57.096 -40.992 89.304 -93.696 2.928 -5.856 2.928 -8.784 0 -6.344 -4.88 -11.224t-11.224 -4.88q-3.416 0 -11.712 3.904 -5.856 1.952 -14.396 4.88t-14.64 5.124 -8.052 2.684q12.688 -14.152 26.352 -38.308t13.664 -35.38q0 -6.344 -4.88 -10.98t-11.712 -4.636q-3.904 0 -7.808 2.44 -55.632 29.768 -103.944 40.504 -59.048 -56.12 -141.032 -56.12 -83.936 0 -142.984 58.56t-59.048 141.52q0 14.64 1.952 23.912 -82.472 -6.832 -159.088 -39.528t-137.616 -87.84q-14.152 -13.664 -54.656 -57.096 -5.856 -5.856 -13.664 -5.856 -5.856 0 -12.2 7.808 -12.688 19.032 -20.008 46.604t-7.32 53.924q0 72.712 45.384 126.88l-14.152 -6.832q-12.2 -5.368 -18.056 -5.368 -8.296 0 -13.908 4.88t-5.612 12.688q0 51.24 26.352 97.112t71.248 73.2l-5.856 -.976q-.976 0 -2.684 -.488t-2.684 -.732 -1.464 -.244q-6.344 0 -10.98 4.88t-4.636 10.736q0 .488 .976 5.368 16.592 50.752 55.144 86.132t90.28 47.58q-84.912 52.216 -187.392 52.216 -6.832 0 -21.96 -1.464 -20.496 -.976 -22.448 -.976 -6.344 0 -10.98 4.88t-4.636 11.224z";
         }
       })
-      // .classed("hideWhenGroupSelected", true)
     ;
 
-    // socialIconRoot.append("g")
-    //     .attr("transform", function(d) {
-    //         return "translate(" + (retina ? "25,3":"29,8")  +") scale(0.015,0.015)";
-    //     })
-    //       .append("path")
-    //         .style("fill", "#55acee")
-    //         .style("visibility", function(d) {
-    //             return d.hasTwitter ? "visible" : "hidden";
-    //         })
-    // ;
-
-
-
-    // g.append("text")
-    //   // .classed("help", true)
-    //   // .classed("help_text_you", true)
-    //   .text(function(d) {
-    //       return d.bid;
-    //   })
-    //   .attr("text-anchor", "start")
-    //   // .attr("fill", "rgba(0,0,0,1.0)")
-    //   .attr("fill", colorSelf)
-    //   .attr("stroke", colorSelfOutline)
-    //   .attr("transform", function(d) {
-    //       return "translate(12, 6)";
-    //   });
-
-
-    // g.filter(isSummaryBucket)
-    //   .append("circle")
-    //   .classed("")
-    //   .attr("r", anonBlobRadius)
-    //   .attr("cx", 0)
-    //   .attr("cy", 0)
-    //   .attr("fill", "rgba(0,0,0,0)")
-    // ;
 
     var labelG = g.filter(isSummaryBucket)
       .append("g");
@@ -1670,47 +1582,16 @@ VisView = function(params) {
     labelG
       .append("text")
       .classed("summaryLabel", true)
-      // .attr("transform", function(d) {
-      //     return "translate(0, "+ pinLength +")";
-      // })
       .text(function(d) {
         return getGroupNameForGid(d.gid);
       })
-      // .classed("help", true)
-      // .classed("help_text_you", true)
       .style("font-family", "Tahoma, Helvetica, sans-serif") // Tahoma, Helvetica, sans-serif For the "AGREED"/"DISAGREED" label: Tahoma should be good at small sizes http://ux.stackexchange.com/questions/3330/what-is-the-best-font-for-extremely-limited-space-i-e-will-fit-the-most-readab
       .style("font-size", chooseSummaryLabelFontSize)
-      // .style("font-weight", "bold")
       .attr("text-anchor", "left")
-      // .attr("alignment-baseline", "bottom")
       .attr("alignment-baseline", "middle")
       .attr("fill", "rgba(0,0,0,0.5)")
-      // .attr("fill", colorSelf)
-      // .attr("stroke", colorSelfOutline)
-      // .attr("transform", function(d) {
-      //     return "translate(12, 6)";
       // });
     ;
-
-
-
-    // g.filter(isSummaryBucket)
-    // .append("text")
-    // .classed("summaryLabelBottom", true)
-    // .style("font-family", "Tahoma, Helvetica, sans-serif") // For the "AGREED"/"DISAGREED" label: Tahoma should be good at small sizes http://ux.stackexchange.com/questions/3330/what-is-the-best-font-for-extremely-limited-space-i-e-will-fit-the-most-readab
-    // .style("font-size", "10px")
-    // // .style("font-weight", "bold")
-    // .style("fill", "gray")
-    // .text("people")
-    // .attr("text-anchor", "middle")
-    // .attr("alignment-baseline", "top")
-    // .attr("transform", function(d) {
-    //     return "translate(0, 11)";
-    // });
-    // ;
-
-
-
 
     updateNodes();
 
@@ -1745,43 +1626,6 @@ VisView = function(params) {
 
     var g = visualization.selectAll(".node");
 
-
-    // var centermostNode = g.filter(function(d) {
-    //   return d.isChosenNodeForInVisLegend;
-    // });
-    // centermostNode.append("text")
-    //   .classed("help", true)
-    //   .text("another participant")
-    //   .attr("text-anchor", "start")
-    //   .attr("fill", "#000")
-    //   // .attr("style", "background-color: #f7f7f7") not possible in SVG must draw rectangle.
-    //   .attr("transform", function(d) {
-    //       return "translate(55, -17)";
-    //   });
-    // centermostNode.append("polyline")
-    //   .classed("help", true)
-    //   .style("display", "block")
-    //   .style("stroke", "#555555")
-    //   .style("stroke-width", helpStrokeWidth)
-    //   .style("z-index", 9999)
-    //   .style("fill", "rgba(0,0,0,0)")
-    //   // .attr("marker-end", "url(#ArrowTipOpenCircle)")
-    //   // .attr("marker-start", "url(#ArrowTip)")
-    //   .attr("points", function(d) {
-    //       return ["9, -9", "20, -20", "50,-20"].join(" ")
-    //   });
-    // centermostNode.append("circle")
-    //   .classed("help", true)
-    //   // .classed("circle", true)
-    //   .attr("cx", 0)
-    //   .attr("cy", 0)
-    //   .attr("r", 12.727)
-    //   // .style("opacity", opacityOuter)
-    //   .style("fill", "rgba(0,0,0,0)")
-    //   .style("stroke", "#555555")
-    //   .style("stroke-width", helpStrokeWidth)
-    //   ;
-
     var selfNode = g.filter(isSelf);
     selfNode.append("text")
       .classed("help", true)
@@ -1794,29 +1638,6 @@ VisView = function(params) {
       .attr("transform", function(d) {
         return "translate(12, 6)";
       });
-    // selfNode.append("polyline")
-    //   .classed("help", true)
-    //   .style("display", "block")
-    //   .style("stroke", "#555555")
-    //   .style("stroke-width", helpStrokeWidth)
-    //   .style("z-index", 9999)
-    //   .style("fill", "rgba(0,0,0,0)")
-    //   // .attr("marker-end", "url(#ArrowTipOpenCircle)")
-    //   // .attr("marker-start", "url(#ArrowTip)")
-    //   .attr("points", function(d) {
-    //       return ["9, 9", "20, 20", "50,20"].join(" ")
-    //   });
-    // selfNode.append("circle")
-    //   .classed("help", true)
-    //   // .classed("circle", true)
-    //   .attr("cx", 0)
-    //   .attr("cy", 0)
-    //   .attr("r", 12.727)
-    //   // .style("opacity", opacityOuter)
-    //   .style("fill", "rgba(0,0,0,0)")
-    //   .style("stroke", "#555555")
-    //   .style("stroke-width", helpStrokeWidth)
-    //   ;
   }
 
   var dotsShouldWiggle = false;
@@ -1883,10 +1704,6 @@ VisView = function(params) {
   }
 
   function onParticipantClicked(d) {
-    // d3.event.stopPropagation();
-    // d3.event.preventDefault(); // prevent flashing on iOS
-
-
     if (clickingPtptoiOpensProfile()) {
       // NOTE: it may be hard to tap a hull without accidentally
       // tapping a ptptoi on mobile, so disabling on mobile for now.
