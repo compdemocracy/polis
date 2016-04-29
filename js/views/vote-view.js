@@ -74,6 +74,7 @@ module.exports = Handlebones.ModelView.extend({
       }
     }
     ctx.social = socialCtx;
+    ctx.noModSet = !ctx.spamOn && !ctx.otOn && !ctx.importantOn;
     return ctx;
   },
 

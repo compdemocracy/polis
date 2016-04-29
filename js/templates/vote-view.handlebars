@@ -168,7 +168,11 @@
       </div>
     </div>
     <div id="modSubmit" class="modToggle moderateSubmitButton">
-      {{s.modSubmit}}
+      {{#if noModSet}}
+        {{s.modSubmitInitialState}}
+      {{else}}
+        {{s.modSubmit}}
+      {{/if}}
     </div>
   </div>
   {{else}}
