@@ -636,6 +636,7 @@ svg {
   }
 
 .facebookButton, .twitterButton {
+  cursor: pointer;
   border: 0px;
   color: white;
   font-family: $sans-font;
@@ -687,6 +688,7 @@ svg {
 }
 
 .twitterShareButton {
+    cursor: pointer;
     border: 0px;
     color: white;
     font-family: $sans-font;
@@ -706,6 +708,7 @@ svg {
 }
 
 .facebookShareButton {
+  cursor: pointer;
   border: 0px;
   color: white;
   font-family: $sans-font;
