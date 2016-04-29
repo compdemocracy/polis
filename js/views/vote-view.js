@@ -24,7 +24,7 @@ module.exports = Handlebones.ModelView.extend({
     "click #spamToggle": "spamToggle",
     "click #otToggle": "otToggle",
     "click #importantToggle": "importantToggle",
-
+    "click #modSubmit" : "participantModerated",
   },
   context: function() {
     var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
@@ -74,7 +74,6 @@ module.exports = Handlebones.ModelView.extend({
       }
     }
     ctx.social = socialCtx;
-    ctx.shouldMod = true;
     return ctx;
   },
 
@@ -110,6 +109,9 @@ module.exports = Handlebones.ModelView.extend({
     this.$el.children().children().animate({
       opacity: 1
     }, 200);
+  },
+  showMod: function() {
+    this.model.set("shouldMod", true);
   },
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
@@ -158,7 +160,8 @@ module.exports = Handlebones.ModelView.extend({
         silent: true
       });
       that.model.set(_.extend({
-        empty: false
+        empty: false,
+        shouldMod: false,
       }, model));
       that.render();
       that.trigger("showComment");
@@ -166,6 +169,7 @@ module.exports = Handlebones.ModelView.extend({
     }
 
     function getNextAndShow(optionalPromiseForPreExisingNextCommentCall) {
+
       var params = {};
       if (that.model && that.model.get("tid")) {
         params.notTid = that.model.get("tid");
@@ -206,7 +210,10 @@ module.exports = Handlebones.ModelView.extend({
       eb.trigger(eb.vote, this.mostRecentVoteType);
       eb.trigger(eb.interacted);
       setTimeout(PostMessageUtils.postVoteEvent);
-      if (result.nextComment) {
+
+      if (result.shouldMod) {
+        this.showMod(); // result of mod should include a nextComment property.
+      } else if (result.nextComment) {
         showComment(result.nextComment);
       } else {
         showEmpty();
@@ -343,6 +350,16 @@ module.exports = Handlebones.ModelView.extend({
       serverClient.pass(tid, starred)
         .then(onVote.bind(this), onFail.bind(this));
     };
+
+    this.participantModerated = function(e) {
+      var tid = this.model.get("tid");
+      serverClient.mod(tid, {
+        spam: this.model.get("spamOn"),
+        offtopic: this.model.get("otOn"),
+        important: this.model.get("importantOn"),
+      }).then(onVote.bind(this), onFail.bind(this));
+    };
+
     this.participantStarred = function() {
       var tid = this.model.get("tid");
       votesByMe.add({

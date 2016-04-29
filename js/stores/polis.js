@@ -48,6 +48,8 @@ module.exports = function(params) {
 
   var queryParticipantsByMetadataPath = "api/v3/query_participants_by_metadata";
 
+  var ptptCommentModPath = "api/v3/ptptCommentMod";
+
   var xidsPath = "api/v3/xids";
 
   var logger = params.logger;
@@ -459,6 +461,17 @@ module.exports = function(params) {
       tid: tid
     });
   }
+
+  function mod(tid, flags) {
+    return polisPost(ptptCommentModPath, {
+      conversation_id: conversation_id,
+      tid: tid,
+      spam: !!flags.spam,
+      offtopic: !!flags.offtopic,
+      important: !!flags.important,
+    });
+  }
+
 
   function invite(xids) {
     return polisPost("api/v3/users/invite", {
@@ -2452,6 +2465,7 @@ module.exports = function(params) {
     trash: trash,
     star: star,
     unstar: unstar,
+    mod: mod,
     invite: invite,
     convSub: convSub,
     queryParticipantsByMetadata: queryParticipantsByMetadata,
