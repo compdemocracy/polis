@@ -56,9 +56,6 @@ function destRoot() {
   var root = path.join(destRootBase, destRootRest);
   return root;
 }
-function destRootAbout() {
-  return destRootBase;
-}
 var devMode = true;
 var preprodMode = false;
 var prodMode = false;
@@ -155,7 +152,6 @@ gulp.task('connect', [], function() {
   app.use(/^\/styleguide$/, express.static(path.join(destRootBase, "styleguide.html")));
   // Duplicate url for content at root. Needed so we have something for "About" to link to.
   app.use(/^\/billions$/, express.static(path.join(destRootBase, "billions.html")));
-  app.use(/^\/about$/, express.static(path.join(destRootBase, "lander.html")));
   app.use(/^\/wimp$/, express.static(path.join(destRootBase, "wimp.html")));
   app.use(/^\/try$/, express.static(path.join(destRootBase, "try.html")));
 
@@ -192,17 +188,6 @@ gulp.task('css', function(){
       }))
       .pipe(concat("polis.css"))
       .pipe(gulp.dest(destRoot() + '/css'));
-});
-
-gulp.task('cssAbout', function(){
-  gulp.src(["polisStatic/css/about.scss"])
-      .pipe(sass({
-        loadPath: [__dirname + "/css"],
-        // sourcemap: true,
-        // sourcemapPath: '../scss'
-      }))
-      .pipe(concat("about.css"))
-      .pipe(gulp.dest(destRootAbout() + '/css'));
 });
 
 gulp.task('fontawesome', function() {
@@ -505,56 +490,6 @@ gulp.task("scriptsOther", function() {
   return s.pipe(gulp.dest(destRoot() + "/js"));
 });
 
-// ---------------------- BEGIN ABOUT PAGE STUFF ------------------------
-
-gulp.task('about', function () {
-
-    var headerStandard = fs.readFileSync('polisStatic/templates/partials/staticHeaderStandard.handlebars', {encoding: "utf8"});
-
-    var basepath = prepPathForTemplate(destRootRest);
-    headerStandard = headerStandard.replace(/<%= *basepath *%>/g, basepath);
-
-    var templateData = {
-        foo: 'bar333'
-    },
-    options = {
-        ignorePartials: false, //ignores the unknown footer2 partial in the handlebars template, defaults to false
-        partials : {
-            headerStandard: headerStandard,
-        },
-        helpers : {
-            // capitals : function(str){
-            //     return str.toUpperCase();
-            // }
-        }
-    }
-
-    return gulp.src('polisStatic/templates/*.handlebars')
-        .pipe(compileHandlebars(templateData, options))
-        .pipe(rename(function (path) {
-          path.extname = ".html"
-        }))
-        .pipe(gulp.dest(destRootBase));
-});
-
-
-
-
-// function promiseToStream(p) {
-//   var Readable = Stream.Readable;
-//   var rs = new Readable;
-//   p.then(function(val) {
-//     rs.push(val);
-//     rs.push(null);
-//   }).catch(function(err) {
-//     rs.emit("error", err);
-//   });
-//   return rs;
-// }
-
-
-// ----------------------- END ABOUT PAGE STUFF -------------------------
-
 
 gulp.task("preprodConfig", function() {
   preprodMode = true;
@@ -591,17 +526,14 @@ gulp.task('common', [
   "scriptsOther",
   "scripts",
   "css",
-  "cssAbout",
   "fontawesome",
   "index",
-  "about",
   "embedJs",
   ], function() {
     showDesktopNotification("BUILD UPDATED", "woohoo");
 });
 
 gulp.task('dev', [
-  "about",
   "common",
   ], function(){
 });
