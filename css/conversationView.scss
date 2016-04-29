@@ -276,6 +276,16 @@ img {
   color: white;
 }
 
+.reactionButton {
+  cursor: pointer;
+  transition: all .2s ease-in-out;
+}
+.reactionButton:hover {
+  -ms-transform: scale(1.12,1.12); /* IE 9 */
+  -webkit-transform: scale(1.12,1.12); /* Safari */
+  transform: scale(1.12,1.12);
+}
+
 #visualization_div {
   width: 100%;
 }
