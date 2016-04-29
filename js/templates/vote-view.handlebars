@@ -129,59 +129,114 @@
 {{#if empty}}
   {{!-- nothing --}}
 {{else}}
-  <div
-    class="
-      reactionButtons
-      flexbox
-      justify-content-space-around
-      align-items-baseline
-      unselectable
-    "
-    style="
-      display: -webkit-box;
-      display: -moz-box;
-      display: -ms-flexbox;
-      display: -webkit-flex;
-      display: flex;
-      -webkit-flex-flow: row wrap;
-      justify-content: space-around;
-      margin-bottom: 20px;
+  {{#if shouldMod}}
+    <div
+      class="
+        reactionButtons
+        flexbox
+        justify-content-space-around
+        align-items-baseline
+        unselectable
+      "
+      style="
+        display: -webkit-box;
+        display: -moz-box;
+        display: -ms-flexbox;
+        display: -webkit-flex;
+        display: flex;
+        -webkit-flex-flow: row wrap;
+        justify-content: space-around;
+        margin-bottom: 20px;
+      ">
+      <div
+        id="spamToggle"
+        class="modToggle groupButton {{#if spamOn}}selectedGroupButton{{/if}}"
+        >
+        {{s.modSpam}}
+      </div>
+      <div
+        id="otToggle"
+        class="modToggle groupButton {{#if otOn}}selectedGroupButton{{/if}}"
+        >
+        {{s.modOffTopic}}
+      </div>
+      <div
+        id="importantToggle"
+        class="modToggle groupButton {{#if importantOn}}selectedGroupButton{{/if}}"
+        >
+        {{s.modImportant}}
+      </div>
+    </div>
+    <div id="modSubmit" class="modToggle Btn Btn-primary" style="
+      background-color: lightgreen;
+      text-transform: none;
+      font-size: 16px;
+      font-weight: 500;
+      border: none;
+      border-radius: 4px;
+      background-color: #3498db;
+      color: white;
+      min-width: 110px;
+      height: 40px;
+      margin-left: 5px;
     ">
-    <div
-      id="agreeButton"
-      style="cursor: pointer"
-      >
-      <i class="svgIcon" style="
-        display: inline-block;
-        position: relative;
-        margin-right: 2px;
-        top: 5px;
-        width: 22px;
-        fill: #2ecc71;
-        ">{{> iconFaCircleCheck}}</i>
-      {{s.agree}}
+      {{s.modSubmit}}
     </div>
+  {{else}}
     <div
-      id="disagreeButton"
-      style="cursor: pointer"
-      >
-      <i class="svgIcon" style="
-        display: inline-block;
-        position: relative;
-        margin-right: 2px;
-        top: 5px;
-        width: 22px;
-        fill: #e74c3c;
-        ">{{> iconFaBan}}</i>
-      {{s.disagree}}
+      class="
+        reactionButtons
+        flexbox
+        justify-content-space-around
+        align-items-baseline
+        unselectable
+      "
+      style="
+        display: -webkit-box;
+        display: -moz-box;
+        display: -ms-flexbox;
+        display: -webkit-flex;
+        display: flex;
+        -webkit-flex-flow: row wrap;
+        justify-content: space-around;
+        margin-bottom: 20px;
+      ">
+      <div
+        id="agreeButton"
+        style="cursor: pointer"
+        >
+        <i class="svgIcon" style="
+          display: inline-block;
+          position: relative;
+          margin-right: 2px;
+          top: 5px;
+          width: 22px;
+          fill: #2ecc71;
+          ">{{> iconFaCircleCheck}}</i>
+        {{s.agree}}
+      </div>
+      <div
+        id="disagreeButton"
+        style="cursor: pointer"
+        >
+        <i class="svgIcon" style="
+          display: inline-block;
+          position: relative;
+          margin-right: 2px;
+          top: 5px;
+          width: 22px;
+          fill: #e74c3c;
+          ">{{> iconFaBan}}</i>
+        {{s.disagree}}
+      </div>
+      <div
+        style="cursor: pointer"
+        id="passButton"
+        >
+        {{s.pass}}
+      </div>
     </div>
-    <div
-      style="cursor: pointer"
-      id="passButton"
-      >
-      {{s.pass}}
-    </div>
-  </div>
+  {{/if}}
 {{/if}}
 
 

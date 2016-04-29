@@ -19,10 +19,16 @@ module.exports = Handlebones.ModelView.extend({
     "click #starBtn": "starBtn",
     "hover .starbutton": function() {
       this.$(".starbutton").html("<i class='fa fa-star'></i>");
-    }
+    },
+
+    "click #spamToggle": "spamToggle",
+    "click #otToggle": "otToggle",
+    "click #importantToggle": "importantToggle",
+
   },
   context: function() {
     var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
+    console.log(ctx.spamOn);
     ctx.iOS = iOS;
     ctx.customStyles = "";
     // if (ctx.txt && ctx.txt.length < 30) {
@@ -69,9 +75,32 @@ module.exports = Handlebones.ModelView.extend({
       }
     }
     ctx.social = socialCtx;
-
+    ctx.shouldMod = true;
     return ctx;
   },
+
+  spamToggle: function() {
+    this.model.set({
+      spamOn: !this.model.get("spamOn"),
+      otOn: false,
+      importantOn: false,
+    });
+  },
+  otToggle: function() {
+    this.model.set({
+      spamOn: false,
+      otOn: !this.model.get("otOn"),
+      importantOn: false,
+    });
+  },
+  importantToggle: function() {
+    this.model.set({
+      spamOn: false,
+      otOn: false,
+      importantOn: !this.model.get("importantOn"),
+    });
+  },
+
   animateOut: function() {
     // Animating opacity directly instead of jQuery's fadeOut because we don't want display:none at the end.
     this.$el.children().children().animate({
