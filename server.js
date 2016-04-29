@@ -7647,6 +7647,11 @@ function(req, res) {
         }
         // PID_FLOW This may be the first time the client gets the pid.
         result.currentPid = req.p.pid;
+
+
+        result.shouldMod = true; // TODO not always!
+
+
         finishOne(res, result);
 
     }).catch(function(err) {
@@ -7658,6 +7663,52 @@ function(req, res) {
             fail(res, 500, "polis_err_vote", err);
         }
     });
+    });
+});
+
+
+
+app.post("/api/v3/ptptCommentMod",
+    auth(assignToP),
+    need('tid', getInt, assignToP),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    need('important', getBool, assignToP, false),
+    need('spam', getBool, assignToP, false),
+    need('offtopic', getBool, assignToP, false),
+    resolve_pidThing('pid', assignToP, "post:ptptModComment"),
+function(req, res) {
+    var uid = req.p.uid;
+    var zid = req.p.zid;
+    var pid = req.p.pid;
+
+        // return pgQueryP("insert into ...
+    Promise.resolve().then(function(createdTime) {
+        setTimeout(function() {
+            updateConversationModifiedTime(req.p.zid, createdTime);
+            updateLastInteractionTimeForConversation(zid, uid);
+        }, 100);
+    }).then(function() {
+        return getNextComment(req.p.zid, pid, [], true);
+    }).then(function(nextComment) {
+        var result = {};
+        if (nextComment) {
+            result.nextComment = nextComment;
+        } else {
+            // no need to wait for this to finish
+            addNoMoreCommentsRecord(req.p.zid, pid);
+        }
+        // PID_FLOW This may be the first time the client gets the pid.
+        result.currentPid = req.p.pid;
+        finishOne(res, result);
+
+    }).catch(function(err) {
+        if (err === "polis_err_ptptCommentMod_duplicate") {
+            fail(res, 406, "polis_err_ptptCommentMod_duplicate", err); // TODO allow for changing votes?
+        } else if (err === "polis_err_conversation_is_closed") {
+            fail(res, 403, "polis_err_conversation_is_closed", err);
+        } else {
+            fail(res, 500, "polis_err_ptptCommentMod", err);
+        }
     });
 });
 
