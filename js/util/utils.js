@@ -38,7 +38,6 @@ function mapObj(o, f) {
 // http://stackoverflow.com/questions/8112634/jquery-detecting-cookies-enabled
 function are_cookies_enabled() {
   if (("" + document.cookie).length > 0) {
-    console.log("cookieEnabled true " + document.cookie);
     return true;
   }
   // var cookieEnabled = (navigator.cookieEnabled) ? true : false;

@@ -28,7 +28,6 @@ module.exports = Handlebones.ModelView.extend({
   },
   context: function() {
     var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
-    console.log(ctx.spamOn);
     ctx.iOS = iOS;
     ctx.customStyles = "";
     // if (ctx.txt && ctx.txt.length < 30) {
