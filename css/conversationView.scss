@@ -133,10 +133,6 @@ img {
   // top: 200px;
 }
 
-.reactionButtons {
-
-}
-
 .lightPanel {
   background-color: white;
   border: solid 1px lightgray;
@@ -240,16 +236,46 @@ img {
   margin-bottom: 20px;
 }
 
-
 .modToggle {
   cursor: pointer;
   padding: 10px 20px 10px 20px;
 }
 
+.modButtonContainer {
+  display: block;
+  margin-left: 55px;
+  margin-bottom: 25px;
+}
 
-// #making_meaning_of_viz {
-//   display: inline;
-// }
+.moderateButton {
+  background-color: rgb(230,230,230);
+  margin-right: 20px;
+  border-radius: 3px;
+  font-weight: 500;
+  transition: all .2s ease-in-out;
+}
+
+.moderateButton:hover {
+  -ms-transform: scale(1.12,1.12); /* IE 9 */
+  -webkit-transform: scale(1.12,1.12); /* Safari */
+  transform: scale(1.12,1.12);
+
+}
+
+.moderateSubmitButton {
+  font-size: 16px;
+  border-radius: 3px;
+  background-color: #3498db;
+  color: white;
+  font-weight: 500;
+  display: inline;
+}
+
+.selectedModerateButton {
+  background-color: #3498db;
+  color: white;
+}
+
 #visualization_div {
   width: 100%;
 }
@@ -287,13 +313,12 @@ svg {
   display: block; /* prevent weird margins under vis */
 }
 
-
 .flexbox {
-display: -webkit-box;      /* OLD - iOS 6-, Safari 3.1-6 */
-display: -moz-box;         /* OLD - Firefox 19- (buggy but mostly works) */
-display: -ms-flexbox;      /* TWEENER - IE 10 */
-display: -webkit-flex;     /* NEW - Chrome */
-display: flex;             /* NEW, Spec - Opera 12.1, Firefox 20+ */
+  display: -webkit-box;      /* OLD - iOS 6-, Safari 3.1-6 */
+  display: -moz-box;         /* OLD - Firefox 19- (buggy but mostly works) */
+  display: -ms-flexbox;      /* TWEENER - IE 10 */
+  display: -webkit-flex;     /* NEW - Chrome */
+  display: flex;             /* NEW, Spec - Opera 12.1, Firefox 20+ */
 }
 
 .flex-wrap {
@@ -446,24 +471,6 @@ display: flex;             /* NEW, Spec - Opera 12.1, Firefox 20+ */
 .gray_out {
   color: #888;
 }
-// .questionAnswerFilter {
-//   margin-right: 10px;
-//   border: 1px solid #DDD;
-//   border-bottom-width: 2px;
-//   border-right-width: 2px;
-//   background-color: #F8F8F8;
-// }
-// .questionAnswerFilter.off {
-//   background-color: white;
-// }
-
-// .questionAnswerFilterLabel {
-//   padding-left: 10px;
-// }
-
-// .questionAnswerList {
-//   padding-bottom: 10px;
-// }
 
 .icon-star {
   color: #f39c12;
@@ -476,8 +483,6 @@ display: flex;             /* NEW, Spec - Opera 12.1, Firefox 20+ */
 .query_result_item.selected {
   background-color: $color_selected_comment;
 }
-
-//
 
 .vote-histogram-bar:hover {
     fill: red !important;
@@ -777,17 +782,6 @@ display: flex;             /* NEW, Spec - Opera 12.1, Firefox 20+ */
     display: none;
   }
 
-  // This was for the wall-to-wall comment pane
-  // .majority-tab {
-  //   // border-radius: 0px;
-  //   // border: 0px;
-  //   margin-right: -5px;
-  //   margin-left: -5px;
-  // }
-  // #group {
-  //   margin-right: -5px;
-  //   margin-left: -5px;
-  // }
 }
 
 @media (max-width: 380px) {

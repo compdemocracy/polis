@@ -1585,7 +1585,7 @@ VisView = function(params) {
       .text(function(d) {
         return getGroupNameForGid(d.gid);
       })
-      .style("font-family", "Tahoma, Helvetica, sans-serif") // Tahoma, Helvetica, sans-serif For the "AGREED"/"DISAGREED" label: Tahoma should be good at small sizes http://ux.stackexchange.com/questions/3330/what-is-the-best-font-for-extremely-limited-space-i-e-will-fit-the-most-readab
+      .style("font-family", "Helvetica, sans-serif") // Tahoma, Helvetica, sans-serif For the "AGREED"/"DISAGREED" label: Tahoma should be good at small sizes http://ux.stackexchange.com/questions/3330/what-is-the-best-font-for-extremely-limited-space-i-e-will-fit-the-most-readab
       .style("font-size", chooseSummaryLabelFontSize)
       .attr("text-anchor", "left")
       .attr("alignment-baseline", "middle")

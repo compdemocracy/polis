@@ -3,10 +3,13 @@ var s = {};
 s.agree = "Agree";
 s.disagree = "Disagree";
 s.pass = "Pass / Unsure";
+
 s.modSpam = "Spam";
 s.modOffTopic = "Off Topic";
 s.modImportant = "Important";
+s.modSubmitInitialState = "Skip (none of the above), next comment";
 s.modSubmit = "Done, next comment";
+
 s.x_wrote = "wrote:";
 s.x_tweeted = "tweeted:";
 s.group_123 = "Group:";
