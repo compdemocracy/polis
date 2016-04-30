@@ -73,6 +73,7 @@ var akismetLib = require('akismet'),
     LruCache = require("lru-cache"),
     stripe = require("stripe")(process.env.STRIPE_SECRET_KEY),
     timeout = require('connect-timeout'),
+    isValidUrl = require('valid-url'),
     zlib = require('zlib'),
     _ = require('underscore');
     // winston = require("winston");
@@ -585,7 +586,6 @@ function makeSessionToken() {
     return crypto.randomBytes(32).toString('base64').replace(/[^A-Za-z0-9]/g,"").substr(0, 20);
 }
 
-// TODO_SECURITY check if this cache is safe to use. (using a closure to keep the )
 // But we need to squeeze a bit more out of the db right now,
 // and generally remove sources of uncertainty about what makes
 // various queries slow. And having every single query talk to PG
@@ -1049,6 +1049,20 @@ function getStringLimitLength(min, max) {
             // strip leading/trailing spaces
             s = s.replace(/^ */,"").replace(/ *$/,"");
             resolve(s);
+        });
+    };
+}
+
+function getUrlLimitLength(limit) {
+    return function(s) {
+        getStringLimitLength(limit)(s).then(function(s) {
+            return new Promise(function(resolve, reject) {
+                if (isValidUrl(s)) {
+                    return resolve(s);
+                } else {
+                    return reject("polis_fail_parse_url_invalid");
+                }
+            });
         });
     };
 }
@@ -6847,7 +6861,7 @@ app.post("/api/v3/comments",
     want("twitter_tweet_id", getStringLimitLength(999), assignToP),
     want("quote_twitter_screen_name", getStringLimitLength(999), assignToP),
     want("quote_txt", getStringLimitLength(999), assignToP),
-    want("quote_src_url", getStringLimitLength(999), assignToP), // TODO_SECURITY make sure this is a normal URL with no weird javascript injection or anything in it.
+    want("quote_src_url", getUrlLimitLength(999), assignToP),
     want("anon", getBool, assignToP),
     resolve_pidThing('pid', assignToP, "post:comments"),
 function(req, res) {
@@ -7426,7 +7440,7 @@ app.get("/api/v3/nextComment",
     moveToBody,
     authOptional(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-    resolve_pidThing('not_voted_by_pid', assignToP, "get:nextComment"), // TODO_SECURITY should ensure this pid is self
+    resolve_pidThing('not_voted_by_pid', assignToP, "get:nextComment"),
     want('without', getArrayOfInt, assignToP),
     want('include_social', getBool, assignToP),
     haltOnTimeout,
@@ -8935,15 +8949,6 @@ function encodeParams(o) {
     var encoded = "ep1_" + strToHex(stringifiedJson);
     return encoded;
 }
-// TODO_SECURITY needs to require auth of the site_id owner
-app.get('/api/v3/encoded_site_id_create_user_url',
-    moveToBody,
-    need('site_id', getStringLimitLength(1, 100), assignToP),
-function(req, res) {
-    res.send("https://pol.is/user/create/" + encodeParams({
-        site_id: req.p.site_id,
-    }));
-});
 
 app.get('/api/v3/enterprise_deal_url',
     moveToBody,
@@ -10632,10 +10637,17 @@ app.get("/api/v3/ptptois",
 function(req, res) {
     var zid = req.p.zid;
     var mod = req.p.mod;
+    var uid = req.p.uid;
     var limit = 999;
-    // TODO_SECURITY add check for priviledges
-    getSocialParticipantsForMod(zid, limit, mod).then(function(ptptois) {
 
+    Promise.all([
+        getSocialParticipantsForMod(zid, limit, mod),
+        getConversationInfo(req.p.zid),
+    ]).then(function(a) {
+        var ptptois = a[0];
+        var conv = a[1];
+        var isOwner = req.p.uid === conv.owner;
+        var isAllowed = isOwner || isPolisDev(req.p.uid) || conv.is_data_open;
         ptptois = ptptois.map(removeNullOrUndefinedProperties);
         ptptois = ptptois.map(pullFbTwIntoSubObjects);
         ptptois = ptptois.map(function(p) {
