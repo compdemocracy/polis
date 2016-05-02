@@ -1,6 +1,7 @@
 import React from "react";
 import Awesome from "react-fontawesome";
 import * as globals from "./framework/global-styles";
+import Flex from "./framework/flex";
 
 const styles = {
   root: {
@@ -23,6 +24,7 @@ const MaterialTitlePanel = (props) => {
   return (
     <div style={rootStyle}>
       <div style={styles.header}>
+        <Flex justifyContent="space-between" alignItems="center">
         {
           props.showHamburger ?
             "" :
@@ -37,7 +39,14 @@ const MaterialTitlePanel = (props) => {
               <Awesome name="bars"/>
             </div>
         }
-        { props.title }
+          { props.title }
+          <Flex grow={1} justifyContent="flex-end" styleOverrides={{
+              margin: 0, fontSize: 14, fontWeight: 300
+            }}>
+            <Awesome style={{marginRight: 7}} name="user"/>
+            {props.name.split(" ")[0]}
+          </Flex>
+        </Flex>
       </div>
       {props.children}
     </div>

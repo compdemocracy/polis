@@ -197,6 +197,7 @@ class App extends React.Component {
           <MaterialTitlePanel
             handleHamburgerClick={this.handleMenuButtonClick.bind(this)}
             showHamburger={this.state.sidebarDocked}
+            name={this.props.user.hname}
             title={this.getTitleFromRoute()}>
             {
               /*trial condition*/ true ?
