@@ -2169,6 +2169,8 @@ return str;
 app.get("/api/v3/launchPrep",
     moveToBody,
     need("dest", getStringLimitLength(1, 10000), assignToP),
+    handle_GET_launchPrep);
+
 function handle_GET_launchPrep(req, res) {
 
 
@@ -2189,7 +2191,7 @@ function handle_GET_launchPrep(req, res) {
     // using hex since it doesn't require escaping like base64.
     var dest = hexToStr(req.p.dest);
     res.redirect(dest);
-});
+}
 
 
 // app.get("/api/v3/setFirstCookie",
@@ -2214,6 +2216,8 @@ function handle_GET_launchPrep(req, res) {
 
 app.get("/api/v3/tryCookie",
     moveToBody,
+    handle_GET_tryCookie);
+
 function handle_GET_tryCookie(req, res) {
 
 
@@ -2229,7 +2233,7 @@ function handle_GET_tryCookie(req, res) {
         });
     }
     res.status(200).json({});
-});
+}
 
 
 var pcaCacheSize = (process.env.CACHE_MATH_RESULTS === "true") ? 300 : 1;
@@ -2439,10 +2443,12 @@ function redirectIfHasZidButNoConversationId(req, res, next) {
 
 
 app.get("/api/v3/math/pca",
+    handle_GET_math_pca);
+
 function handle_GET_math_pca(req, res) {
     // migrated off this path, old clients were causing timeout issues by polling repeatedly without waiting for a result for a previous poll.
     res.status(304).end();
-});
+}
 
 // Cache the knowledge of whether there are any pca results for a given zid.
 // Needed to determine whether to return a 404 or a 304.
@@ -2455,6 +2461,8 @@ app.get("/api/v3/math/pca2",
     redirectIfHasZidButNoConversationId, // TODO remove once
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('lastVoteTimestamp', getInt, assignToP, -1),
+    handle_GET_math_pca2);
+
 function handle_GET_math_pca2(req, res) {
     var zid = req.p.zid;
     var lastVoteTimestamp = req.p.lastVoteTimestamp;
@@ -2498,7 +2506,7 @@ function handle_GET_math_pca2(req, res) {
     }).catch(function(err) {
         fail(res, 500, err);
     });
-});
+}
 
 
 
@@ -2569,6 +2577,8 @@ app.get("/api/v3/dataExport",
     need('conversation_id', getStringLimitLength(1, 1000), assignToP),
     want('format', getStringLimitLength(1, 100), assignToP),
     want('unixTimestamp', getStringLimitLength(99), assignToP),
+    handle_GET_dataExport);
+
 function handle_GET_dataExport(req, res) {
     doProxyDataExportCall(req, res, function(exportServerUser, exportServerPass, email) {
         return "http://" +
@@ -2580,7 +2590,7 @@ function handle_GET_dataExport(req, res) {
             (req.p.unixTimestamp ? ("&at-date=" + req.p.unixTimestamp * 1000) : "")
             ;
     });
-});
+}
 
 app.get("/api/v3/dataExport/results",
     moveToBody,
@@ -2588,6 +2598,8 @@ app.get("/api/v3/dataExport/results",
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('conversation_id', getStringLimitLength(1, 1000), assignToP),
     want('filename', getStringLimitLength(1, 1000), assignToP),
+    handle_GET_dataExport_results);
+
 function handle_GET_dataExport_results(req, res) {
     doProxyDataExportCall(req, res, function(exportServerUser, exportServerPass, email) {
         return "http://" +
@@ -2596,11 +2608,13 @@ function handle_GET_dataExport_results(req, res) {
             req.p.conversation_id +
             "&filename="+req.p.filename;
     });
-});
+}
 
 app.get("/api/v3/math/pcaPlaybackList",
     moveToBody,
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    handle_GET_pcaPlaybackList);
+
 function handle_GET_pcaPlaybackList(req, res) {
     var zid = req.p.zid;
 
@@ -2609,12 +2623,14 @@ function handle_GET_pcaPlaybackList(req, res) {
     }).catch(function(err) {
         fail(res, 500, err);
     });
-});
+}
 
 app.get("/api/v3/math/pcaPlaybackByLastVoteTimestamp",
     moveToBody,
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('lastVoteTimestamp', getInt, assignToP, 0),
+    handle_GET_pcaPlaybackByLastVoteTimestamp);
+
 function handle_GET_pcaPlaybackByLastVoteTimestamp(req, res) {
     var zid = req.p.zid;
     var lastVoteTimestamp = req.p.lastVoteTimestamp;
@@ -2624,7 +2640,7 @@ function handle_GET_pcaPlaybackByLastVoteTimestamp(req, res) {
     }).catch(function(err) {
         fail(res, 500, err);
     });
-});
+}
 
 function getBidToPidMapping(zid, lastVoteTimestamp) {
     lastVoteTimestamp = lastVoteTimestamp || -1;
@@ -2652,6 +2668,8 @@ app.get("/api/v3/bidToPid",
     moveToBody,
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('lastVoteTimestamp', getInt, assignToP, 0),
+    handle_GET_bidToPid);
+
 function handle_GET_bidToPid(req, res) {
     var uid = req.p.uid;
     var zid = req.p.zid;
@@ -2667,7 +2685,7 @@ function handle_GET_bidToPid(req, res) {
     },function(err) {
         res.status(304).end();
     });
-});
+}
 
 function getXids(zid) {
     return new MPromise("getXids", function(resolve, reject) {
@@ -2689,6 +2707,8 @@ app.get("/api/v3/xids",
     moveToBody,
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    handle_GET_xids);
+
 function handle_GET_xids(req, res) {
     var uid = req.p.uid;
     var zid = req.p.zid;
@@ -2706,7 +2726,7 @@ function handle_GET_xids(req, res) {
     }, function(err) {
         fail(res, 500, "polis_err_get_xids", err);
     });
-});
+}
 
 
 function getBidsForPids(zid, lastVoteTimestamp, pids) {
@@ -2760,6 +2780,8 @@ app.get("/api/v3/bid",
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('lastVoteTimestamp', getInt, assignToP, 0),
+    handle_GET_bid);
+
 function handle_GET_bid(req, res) {
     var uid = req.p.uid;
     var zid = req.p.zid;
@@ -2809,12 +2831,14 @@ function handle_GET_bid(req, res) {
     }).catch(function(err) {
         fail(res, 500, "polis_err_get_bid_misc", err);
     });
-});
+}
 
 
 app.post("/api/v3/auth/password",
     need('pwresettoken', getOptionalStringLimitLength(1000), assignToP),
     need('newPassword', getPasswordWithCreatePasswordRules, assignToP),
+    handle_POST_auth_password);
+
 function handle_POST_auth_password(req, res) {
     var pwresettoken = req.p.pwresettoken;
     var newPassword = req.p.newPassword;
@@ -2832,7 +2856,7 @@ function handle_POST_auth_password(req, res) {
             });
         });
     });
-});
+}
 
 
 function getServerNameWithProtocol(req) {
@@ -2857,6 +2881,8 @@ function getServerNameWithProtocol(req) {
 
 app.post("/api/v3/auth/pwresettoken",
     need('email', getEmail, assignToP),
+    handle_POST_auth_pwresettoken);
+
 function handle_POST_auth_pwresettoken(req, res) {
     var email = req.p.email;
 
@@ -2886,7 +2912,7 @@ function handle_POST_auth_pwresettoken(req, res) {
         sendPasswordResetEmailFailure(email, server);
         finish();
     });
-});
+}
 
 function sendPasswordResetEmailFailure(email, server) {
     var body = "" +
@@ -2994,6 +3020,8 @@ function doCookieAuth(assigner, isOptional, req, res, next) {
 
 app.post("/api/v3/auth/deregister",
     want("showPage", getStringLimitLength(1, 99), assignToP),
+    handle_POST_auth_deregister);
+
 function handle_POST_auth_deregister(req, res) {
     req.p = req.p || {};
     var token = req.cookies[COOKIES.TOKEN];
@@ -3025,7 +3053,7 @@ function handle_POST_auth_deregister(req, res) {
         if (err) { fail(res, 500, "couldn't end session", err); return; }
         finish();
     });
-});
+}
 
 // app.post("/api/v3/metrics",
 //     authOptional(assignToP),
@@ -3066,6 +3094,8 @@ app.get("/api/v3/zinvites/:zid",
     moveToBody,
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    handle_GET_zinvites);
+
 function handle_GET_zinvites(req, res) {
     // if uid is not conversation owner, fail
     pgQuery_readOnly('SELECT * FROM conversations WHERE zid = ($1) AND owner = ($2);', [req.p.zid, req.p.uid], function(err, results) {
@@ -3093,7 +3123,7 @@ function handle_GET_zinvites(req, res) {
             });
         });
     });
-});
+}
 
 function generateConversationURLPrefix() {
     // not 1 or 0 since they look like "l" and "O"
@@ -3299,6 +3329,8 @@ app.post("/api/v3/zinvites/:zid",
     auth(assignToP),
     want('short_url', getBool, assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    handle_POST_zinvites);
+
 function handle_POST_zinvites(req, res) {
     var generateShortUrl = req.p.short_url;
 
@@ -3313,7 +3345,7 @@ function handle_POST_zinvites(req, res) {
             fail(res, 500, "polis_err_creating_zinvite", err);
         });
     });
-});
+}
 
 function getUserProperty(uid, propertyName) {
     return new MPromise("getUserProperty", function(resolve, reject) {
@@ -4098,6 +4130,8 @@ app.get("/api/v3/participants",
     // want('pid', getInt, assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     // resolve_pidThing('pid', assignToP),
+    handle_GET_participants);
+
 function handle_GET_participants(req, res) {
     // var pid = req.p.pid;
     var uid = req.p.uid;
@@ -4141,17 +4175,19 @@ function handle_GET_participants(req, res) {
     //     // }
 
     // });
-});
+}
 
 app.get("/api/v3/dummyButton",
     moveToBody,
     need("button", getStringLimitLength(1,999), assignToP),
     authOptional(assignToP),
+    handle_GET_dummyButton);
+
 function handle_GET_dummyButton(req, res) {
     var message = req.p.button + " " + req.p.uid;
     emailFeatureRequest(message);
     res.status(200).end();
-});
+}
 
 function userHasAnsweredZeQuestions(zid, answers) {
     return new MPromise("userHasAnsweredZeQuestions", function(resolve, reject) {
@@ -4181,6 +4217,8 @@ app.post("/api/v3/participants",
     want('answers', getArrayOfInt, assignToP, []), // {pmqid: [pmaid, pmaid], ...} where the pmaids are checked choices
     want('parent_url', getStringLimitLength(9999), assignToP),
     want('referrer', getStringLimitLength(9999), assignToP),
+    handle_POST_participants);
+
 function handle_POST_participants(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
@@ -4268,7 +4306,7 @@ function handle_POST_participants(req, res) {
     }).catch(function(err) {
         fail(res, 500, "polis_err_post_participants_misc", err);
     });
-});
+}
 
 function addLtiUserifNeeded(uid, lti_user_id, tool_consumer_instance_guid, lti_user_image) {
     lti_user_image = lti_user_image || null;
@@ -4633,6 +4671,8 @@ app.get("/api/v3/notifications/subscribe",
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('conversation_id', getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
     need('email', getEmail, assignToP),
+    handle_GET_notifications_subscribe);
+
 function handle_GET_notifications_subscribe(req, res) {
     var zid = req.p.zid;
     var email = req.p.email;
@@ -4656,7 +4696,7 @@ function handle_GET_notifications_subscribe(req, res) {
     }).catch(function(err) {
         fail(res, 500, "polis_err_subscribe_misc", err);
     });
-});
+}
 
 app.get("/api/v3/notifications/unsubscribe",
     moveToBody,
@@ -4664,6 +4704,8 @@ app.get("/api/v3/notifications/unsubscribe",
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('conversation_id', getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
     need('email', getEmail, assignToP),
+    handle_GET_notifications_unsubscribe);
+
 function handle_GET_notifications_unsubscribe(req, res) {
     var zid = req.p.zid;
     var email = req.p.email;
@@ -4687,13 +4729,15 @@ function handle_GET_notifications_unsubscribe(req, res) {
     }).catch(function(err) {
         fail(res, 500, "polis_err_unsubscribe_misc", err);
     });
-});
+}
 
 app.post("/api/v3/convSubscriptions",
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need("type", getInt, assignToP),
     want('email', getEmail, assignToP),
+    handle_POST_convSubscriptions);
+
 function handle_POST_convSubscriptions(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
@@ -4723,7 +4767,7 @@ function handle_POST_convSubscriptions(req, res) {
     }).catch(function(err) {
         fail(res, 500, "polis_err_subscribing_misc", err);
     });
-});
+}
 
 
 app.post("/api/v3/auth/login",
@@ -4734,6 +4778,8 @@ app.post("/api/v3/auth/login",
     want('lti_context_id', getStringLimitLength(1, 9999), assignToP),
     want('tool_consumer_instance_guid', getStringLimitLength(1, 9999), assignToP),
     want('afterJoinRedirectUrl', getStringLimitLength(1, 9999), assignToP),
+    handle_POST_auth_login);
+
 function handle_POST_auth_login(req, res) {
     var password = req.p.password;
     var email = req.p.email || "";
@@ -4828,6 +4874,8 @@ app.post("/api/v3/joinWithInvite",
     want('answers', getArrayOfInt, assignToP, []), // {pmqid: [pmaid, pmaid], ...} where the pmaids are checked choices
     want('referrer', getStringLimitLength(9999), assignToP),
     want('parent_url', getStringLimitLength(9999), assignToP),
+    handle_POST_joinWithInvite);
+
 function handle_POST_joinWithInvite(req, res) {
 
     // if they're already in the conv
@@ -4896,7 +4944,7 @@ function handle_POST_joinWithInvite(req, res) {
             fail(res, 500, "polis_err_joinWithZidOrSuzinvite");
         }
     });
-});
+}
 
 
 // Test for deadlock condition
@@ -5173,9 +5221,11 @@ function addFacebookFriends(uid, fb_friends_response) {
 
 app.get("/perfStats_9182738127",
     moveToBody,
+    handle_GET_perfStats);
+
 function handle_GET_perfStats(req, res) {
     res.json(METRICS_IN_RAM);
-});
+}
 
 function getFirstForPid(votes) {
     var seen = {};
@@ -5344,6 +5394,8 @@ function getDomainWhitelist(uid) {
 app.get("/api/v3/domainWhitelist",
     moveToBody,
     auth(assignToP),
+    handle_GET_domainWhitelist);
+
 function handle_GET_domainWhitelist(req, res) {
     getDomainWhitelist(req.p.uid).then(function(whitelist) {
         res.json({
@@ -5352,11 +5404,13 @@ function handle_GET_domainWhitelist(req, res) {
     }).catch(function(err) {
         fail(res, 500, "polis_err_get_domainWhitelist_misc", err);
     });
-});
+}
 
 app.post("/api/v3/domainWhitelist",
     auth(assignToP),
     need('domain_whitelist', getOptionalStringLimitLength(999), assignToP, ""),
+    handle_POST_domainWhitelist);
+
 function handle_POST_domainWhitelist(req, res) {
     setDomainWhitelist(req.p.uid, req.p.domain_whitelist).then(function() {
         res.json({
@@ -5365,7 +5419,7 @@ function handle_POST_domainWhitelist(req, res) {
     }).catch(function(err) {
         fail(res, 500, "polis_err_post_domainWhitelist_misc", err);
     });
-});
+}
 
 
 
@@ -5373,6 +5427,8 @@ app.get("/api/v3/conversationStats",
     moveToBody,
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    handle_GET_conversationStats);
+
 function handle_GET_conversationStats(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
@@ -5434,13 +5490,15 @@ function handle_GET_conversationStats(req, res) {
     }).catch(function(err) {
         fail(res, 500, "polis_err_conversationStats_misc", err);
     });
-});
+}
 
 
 app.get("/snapshot",
     moveToBody,
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    handle_GET_snapshot);
+
 function handle_GET_snapshot(req, res) {
     var uid = req.p.uid;
     var zid = req.p.zid;
@@ -5496,19 +5554,21 @@ function handle_GET_snapshot(req, res) {
             fail(res, 500, "polis_err_cloning_conversation_misc", err);
         });
     });
-});
+}
 
 // this endpoint isn't really ready for general use
 app.get("/api/v3/facebook/delete",
     moveToBody,
     auth(assignToP),
+    handle_GET_facebook_delete);
+
 function handle_GET_facebook_delete(req, res) {
     deleteFacebookUserRecord(req.p).then(function() {
         res.json({});
     }).catch(function(err) {
         fail(res, 500, err);
     });
-});
+}
 
 app.post("/api/v3/auth/facebook",
     enableAgid,
@@ -5527,6 +5587,8 @@ app.post("/api/v3/auth/facebook",
     want('password', getPassword, assignToP),
     need('response', getStringLimitLength(1, 9999), assignToP),
     want("owner", getBool, assignToP, true),
+    handle_POST_auth_facebook);
+
 function handle_POST_auth_facebook(req, res) {
 
     // If a pol.is user record exists, and someone logs in with a facebook account that has the same email address, we should bind that facebook account to the pol.is account, and let the user sign in.
@@ -5787,7 +5849,7 @@ function handle_POST_auth_facebook(req, res) {
 
 */
 
-});
+}
 
 app.post("/api/v3/auth/new",
     want('anon', getBool, assignToP),
@@ -5806,6 +5868,8 @@ app.post("/api/v3/auth/new",
     want('tool_consumer_instance_guid', getStringLimitLength(1, 9999), assignToP),
     want('afterJoinRedirectUrl', getStringLimitLength(1, 9999), assignToP),
     want("owner", getBool, assignToP, true),
+    handle_POST_auth_new);
+
 function handle_POST_auth_new(req, res) {
     var hname = req.p.hname;
     var password = req.p.password;
@@ -5948,11 +6012,13 @@ function handle_POST_auth_new(req, res) {
     }, function(err) {
         fail(res, 500, "polis_err_reg_checking_existing_users", err);
     });
-}); // end /api/v3/auth/new
+} // end /api/v3/auth/new
 
 app.post("/api/v3/tutorial",
     auth(assignToP),
     need("step", getInt, assignToP),
+    handle_POST_tutorial);
+
 function handle_POST_tutorial(req, res) {
     var uid = req.p.uid;
     var step = req.p.step;
@@ -5961,14 +6027,15 @@ function handle_POST_tutorial(req, res) {
     }).catch(function(err) {
         fail(res, 500, "polis_err_saving_tutorial_state", err);
     });
-});
-
+}
 
 
 app.get("/api/v3/users",
     moveToBody,
     want("errIfNoAuth", getBool, assignToP),
     authOptional(assignToP),
+    handle_GET_users);
+
 function handle_GET_users(req, res) {
     var uid = req.p.uid;
 
@@ -5984,7 +6051,7 @@ function handle_GET_users(req, res) {
     }).catch(function(err) {
         fail(res, 500, "polis_err_getting_user_info", err);
     });
-});
+}
 
 function getUser(uid) {
     if (!uid) {
@@ -6150,6 +6217,8 @@ app.get("/api/v3/createPlanChangeCoupon_aiudhfaiodufy78sadtfiasdf",
     moveToBody,
     need('uid', getInt, assignToP),
     need('planCode', getOptionalStringLimitLength(999), assignToP),
+    handle_GET_createPlanChangeCoupon);
+
 function handle_GET_createPlanChangeCoupon(req, res) {
     var uid = req.p.uid;
     var planCode = req.p.planCode;
@@ -6164,12 +6233,14 @@ function handle_GET_createPlanChangeCoupon(req, res) {
     }).catch(function(err) {
         fail(res, 500, "polis_err_creating_coupon_code", err);
     });
-});
+}
 
 app.get("/api/v3/changePlanWithCoupon",
     moveToBody,
     authOptional(assignToP),
     need('code', getOptionalStringLimitLength(999), assignToP),
+    handle_GET_changePlanWithCoupon);
+
 function handle_GET_changePlanWithCoupon(req, res) {
     var uid = req.p.uid;
     var code = req.p.code;
@@ -6189,7 +6260,7 @@ function handle_GET_changePlanWithCoupon(req, res) {
         emailBadProblemTime("changePlanWithCoupon failed");
         fail(res, 500, "polis_err_changing_plan_with_coupon", err);
     });
-});
+}
 
 function getCouponInfo(couponCode) {
     return pgQueryP("select * from coupons_for_free_upgrades where code = ($1);", [couponCode]);
@@ -6235,10 +6306,12 @@ function updatePlan(req, res, uid, planCode, isCurrentUser) {
 
 // Just for testing that the new custom stripe form is submitting properly
 app.post("/api/v3/post_payment_form",
+    handle_POST_post_payment_form);
+
 function handle_POST_post_payment_form(req, res) {
   winston.log("info","XXX - Got the params!");
   winston.log("info","XXX - Got the params!" + res);
-});
+}
 
 
 app.post("/api/v3/charge",
@@ -6246,6 +6319,8 @@ app.post("/api/v3/charge",
     want('stripeToken', getOptionalStringLimitLength(999), assignToP),
     want('stripeEmail', getOptionalStringLimitLength(999), assignToP),
     need('plan', getOptionalStringLimitLength(999), assignToP),
+    handle_POST_charge);
+
 function handle_POST_charge(req, res) {
 
     var stripeToken = req.p.stripeToken;
@@ -6291,7 +6366,7 @@ function handle_POST_charge(req, res) {
             }
         }
     });
-});
+}
 
 function _getCommentsForModerationList(o) {
     var modClause = "";
@@ -6487,6 +6562,8 @@ app.get("/api/v3/participation",
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('strict', getBool, assignToP),
+    handle_GET_participation);
+
 function handle_GET_participation(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
@@ -6560,7 +6637,7 @@ function handle_GET_participation(req, res) {
     }).catch(function(err) {
         fail(res, 500, "polis_err_get_participation_misc", err);
     });
-});
+}
 
 
 
@@ -6575,6 +6652,8 @@ app.get("/api/v3/comments",
 //    need('lastServerToken', _.identity, assignToP),
     resolve_pidThing('not_voted_by_pid', assignToP, "get:comments:not_voted_by_pid"),
     resolve_pidThing('pid', assignToP, "get:comments:pid"),
+    handle_GET_comments);
+
 function handle_GET_comments(req, res) {
     var zid = req.p.zid;
     var tids = req.p.tids;
@@ -6606,7 +6685,7 @@ function handle_GET_comments(req, res) {
         winston.log("info","getComments " + rid + " failed");
         fail(res, 500, "polis_err_get_comments", err);
     });
-}); // end GET /api/v3/comments
+} // end GET /api/v3/comments
 
 
 function isDuplicateKey(err) {
@@ -6754,6 +6833,8 @@ function getComment(zid, tid) {
 //     need(HMAC_SIGNATURE_PARAM_NAME, getStringLimitLength(10, 999), assignToP),
 //     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
 //     need('tid', getInt, assignToP),
+//     handle_GET_mute);
+//
 // function handle_GET_mute(req, res) {
 //     var tid = req.p.tid;
 //     var zid = req.p.zid;
@@ -6785,7 +6866,7 @@ function getComment(zid, tid) {
 //     winston.log("info","mute", 6);
 //         fail(res, 500, err);
 //     });
-// });
+// }
 
 // // NOTE: using GET so it can be hit from an email URL.
 // app.get("/api/v3/unmute",
@@ -6794,6 +6875,8 @@ function getComment(zid, tid) {
 //     need(HMAC_SIGNATURE_PARAM_NAME, getStringLimitLength(10, 999), assignToP),
 //     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
 //     need('tid', getInt, assignToP),
+//     handle_GET_unmute);
+//
 // function handle_GET_unmute(req, res) {
 //     var tid = req.p.tid;
 //     var zid = req.p.zid;
@@ -6818,7 +6901,7 @@ function getComment(zid, tid) {
 //     }).catch(function(err) {
 //         fail(res, 500, err);
 //     });
-// });
+// }
 
 
 function hasBadWords(txt) {
@@ -6866,6 +6949,8 @@ app.post("/api/v3/comments",
     want("quote_src_url", getUrlLimitLength(999), assignToP),
     want("anon", getBool, assignToP),
     resolve_pidThing('pid', assignToP, "post:comments"),
+    handle_POST_comments);
+
 function handle_POST_comments(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
@@ -7125,12 +7210,14 @@ function handle_POST_comments(req, res) {
                 //}); // SET CONSTRAINTS
               ////}); // nextTick
         //}); // BEGIN
-}); // end POST /api/v3/comments
+} // end POST /api/v3/comments
 
 app.get("/api/v3/votes/me",
     moveToBody,
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    handle_GET_votes_me);
+
 function handle_GET_votes_me(req, res) {
     getPid(req.p.zid, req.p.uid, function(err, pid) {
         if (err || pid < 0) { fail(res, 500, "polis_err_getting_pid", err); return; }
@@ -7142,7 +7229,7 @@ function handle_GET_votes_me(req, res) {
             finishArray(res, docs.rows);
         });
     });
-});
+}
 
 
 function getVotesForZidPids(zid, pids, callback) {
@@ -7200,6 +7287,8 @@ function getCommentIdCounts(voteRecords) {
 //     moveToBody,
 //     want('users', getArrayOfInt, assignToP),
 //     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+//     handle_GET_selection);
+//
 // function handle_GET_selection(req, res) {
 //         var zid = req.p.zid;
 //         var users = req.p.users || [];
@@ -7238,7 +7327,7 @@ function getCommentIdCounts(voteRecords) {
 //                 finishArray(res, comments);
 //             }); // end comments query
 //         }); // end votes query
-//     }); // end GET selection
+//     } // end GET selection
 
 
 app.get("/api/v3/votes",
@@ -7247,13 +7336,15 @@ app.get("/api/v3/votes",
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('tid', getInt, assignToP),
     resolve_pidThing('pid', assignToP, "get:votes"),
+    handle_GET_votes);
+
 function handle_GET_votes(req, res) {
     getVotesForSingleParticipant(req.p).then(function(votes) {
         finishArray(res, votes);
     }, function(err) {
         fail(res, 500, "polis_err_votes_get", err);
     });
-});
+}
 
 function getNextCommentRandomly(zid, pid, withoutTids, include_social) {
     var params = {
@@ -7446,6 +7537,8 @@ app.get("/api/v3/nextComment",
     want('without', getArrayOfInt, assignToP),
     want('include_social', getBool, assignToP),
     haltOnTimeout,
+    handle_GET_nextComment);
+
 function handle_GET_nextComment(req, res) {
     if (req.timedout) { return; }
     // NOTE: I tried to speed up this query by adding db indexes, and by removing queries like getConversationInfo and finishOne.
@@ -7476,7 +7569,7 @@ function handle_GET_nextComment(req, res) {
         if (req.timedout) { return; }
         fail(res, 500, "polis_err_get_next_comment", err);
     });
-});
+}
 
 app.get("/api/v3/participationInit",
   moveToBody,
@@ -7486,6 +7579,8 @@ app.get("/api/v3/participationInit",
   want('conversation_id', getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
   denyIfNotFromWhitelistedDomain, // this seems like the easiest place to enforce the domain whitelist. The index.html is cached on cloudflare, so that's not the right place.
   resolve_pidThing('pid', assignToP, "get:votes"), // must be after zid getter
+  handle_GET_participationInit);
+
 function handle_GET_participationInit(req, res) {
 
   var qs = {
@@ -7597,7 +7692,7 @@ function handle_GET_participationInit(req, res) {
     console.error(err);
     fail(res, 500, "polis_err_get_participationInit", err);
   });
-});
+}
 
 
 
@@ -7614,6 +7709,8 @@ app.post("/api/v3/votes",
     want('starred', getBool, assignToP),
     want('weight', getNumberInRange(-1, 1), assignToP, 0),
     resolve_pidThing('pid', assignToP, "post:votes"),
+    handle_POST_votes);
+
 function handle_POST_votes(req, res) {
     var uid = req.p.uid; // PID_FLOW uid may be undefined here.
     var zid = req.p.zid;
@@ -7680,7 +7777,7 @@ function handle_POST_votes(req, res) {
         }
     });
     });
-});
+}
 
 
 
@@ -7692,6 +7789,8 @@ app.post("/api/v3/ptptCommentMod",
     need('spam', getBool, assignToP, false),
     need('offtopic', getBool, assignToP, false),
     resolve_pidThing('pid', assignToP, "post:ptptModComment"),
+    handle_POST_ptptCommentMod);
+
 function handle_POST_ptptCommentMod(req, res) {
     var uid = req.p.uid;
     var zid = req.p.zid;
@@ -7726,7 +7825,7 @@ function handle_POST_ptptCommentMod(req, res) {
             fail(res, 500, "polis_err_ptptCommentMod", err);
         }
     });
-});
+}
 
 
 
@@ -7734,6 +7833,8 @@ function handle_POST_ptptCommentMod(req, res) {
 app.post("/api/v3/upvotes",
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    handle_POST_upvotes);
+
 function handle_POST_upvotes(req, res) {
     var uid = req.p.uid;
     var zid = req.p.zid;
@@ -7755,7 +7856,7 @@ function handle_POST_upvotes(req, res) {
     }, function(err) {
         fail(res, 500, "polis_err_upvote_check", err);
     });
-});
+}
 
 
 function addStar(zid, tid, pid, starred, created) {
@@ -7775,6 +7876,8 @@ app.post("/api/v3/stars",
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('starred', getIntInRange(0,1), assignToP),
     getPidForParticipant(assignToP, pidCache),
+    handle_POST_stars);
+
 function handle_POST_stars(req, res) {
     var params = [req.p.pid, req.p.zid, req.p.tid, req.p.starred];
     addStar(req.p.zid, req.p.tid, req.p.pid, req.p.starred).then(function(result) {
@@ -7792,7 +7895,7 @@ function handle_POST_stars(req, res) {
             }
         }
     });
-});
+}
 
 app.post("/api/v3/trashes",
     auth(assignToP),
@@ -7800,6 +7903,8 @@ app.post("/api/v3/trashes",
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('trashed', getIntInRange(0,1), assignToP),
     getPidForParticipant(assignToP, pidCache),
+    handle_POST_trashes);
+
 function handle_POST_trashes(req, res) {
     var query = "INSERT INTO trashes (pid, zid, tid, trashed, created) VALUES ($1, $2, $3, $4, default);";
     var params = [req.p.pid, req.p.zid, req.p.tid, req.p.trashed];
@@ -7820,7 +7925,7 @@ function handle_POST_trashes(req, res) {
 
         res.status(200).json({});  // TODO don't stop after the first one, map the inserts to deferreds.
     });
-});
+}
 
 
 function verifyMetadataAnswersExistForEachQuestion(zid) {
@@ -7864,6 +7969,8 @@ app.put('/api/v3/comments',
     need('active', getBool, assignToP),
     need('mod', getInt, assignToP),
     need('velocity', getNumberInRange(0,1), assignToP),
+    handle_PUT_comments);
+
 function handle_PUT_comments(req, res){
     var uid = req.p.uid;
     var zid = req.p.zid;
@@ -7884,7 +7991,7 @@ function handle_PUT_comments(req, res){
     }).catch(function(err) {
         fail(res, 500, "polis_err_update_comment", err);
     });
-});
+}
 
 
 // kind of crappy that we're replacing the zinvite.
@@ -8039,6 +8146,8 @@ function updateLocalRecordsToReflectPostedGrades(listOfGradingContexts) {
 app.get('/api/v3/lti_oauthv1_credentials',
     moveToBody,
     want('uid', getInt, assignToP),
+    handle_GET_lti_oauthv1_credentials);
+
 function handle_GET_lti_oauthv1_credentials(req, res) {
     var uid = "FOO";
     if (req.p && req.p.uid) {
@@ -8054,7 +8163,7 @@ function handle_GET_lti_oauthv1_credentials(req, res) {
         // return the query, they we can manually run this in the pg shell, and email? the keys to the instructor
         res.status(200).json("INSERT INTO lti_oauthv1_credentials (uid, oauth_consumer_key, oauth_shared_secret) values ("+x+") returning oauth_consumer_key, oauth_shared_secret;");
     });
-});
+}
 
 
 
@@ -8062,6 +8171,8 @@ app.post('/api/v3/conversation/close',
     moveToBody,
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    handle_POST_conversation_close);
+
 function handle_POST_conversation_close(req, res) {
 
     pgQueryP("select * from conversations where zid = ($1) and owner = ($2);", [req.p.zid, req.p.uid]).then(function(rows) {
@@ -8092,12 +8203,14 @@ function handle_POST_conversation_close(req, res) {
     }).catch(function(err) {
         fail(res, 500, "polis_err_closing_conversation", err);
     });
-});
+}
 
 app.post('/api/v3/conversation/reopen',
     moveToBody,
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    handle_POST_conversation_reopen);
+
 function handle_POST_conversation_reopen(req, res) {
 
     pgQueryP("select * from conversations where zid = ($1) and owner = ($2);", [req.p.zid, req.p.uid]).then(function(rows) {
@@ -8114,7 +8227,7 @@ function handle_POST_conversation_reopen(req, res) {
     }).catch(function(err) {
         fail(res, 500, "polis_err_reopening_conversation", err);
     });
-});
+}
 
 app.put('/api/v3/conversations',
     moveToBody,
@@ -8152,6 +8265,8 @@ app.put('/api/v3/conversations',
     want('tool_consumer_instance_guid', getOptionalStringLimitLength(999), assignToP),
     want('custom_canvas_assignment_id', getInt, assignToP),
     want('link_url', getStringLimitLength(1, 9999), assignToP),
+    handle_PUT_conversations);
+
 function handle_PUT_conversations(req, res){
   var generateShortUrl = req.p.short_url;
   isModerator(req.p.zid, req.p.uid).then(function(ok) {
@@ -8366,12 +8481,14 @@ function handle_PUT_conversations(req, res){
   }).catch(function(err) {
     fail(res, 500, "polis_err_update_conversation", err);
   });
-});
+}
 
 app.delete('/api/v3/metadata/questions/:pmqid',
     moveToBody,
     auth(assignToP),
     need('pmqid', getInt, assignToP),
+    handle_DELETE_metadata_questions);
+
 function handle_DELETE_metadata_questions(req, res) {
     var uid = req.p.uid;
     var pmqid = req.p.pmqid;
@@ -8387,12 +8504,14 @@ function handle_DELETE_metadata_questions(req, res) {
             });
         });
     });
-});
+}
 
 app.delete('/api/v3/metadata/answers/:pmaid',
     moveToBody,
     auth(assignToP),
     need('pmaid', getInt, assignToP),
+    handle_DELETE_metadata_answers);
+
 function handle_DELETE_metadata_answers(req, res) {
     var uid = req.p.uid;
     var pmaid = req.p.pmaid;
@@ -8408,7 +8527,7 @@ function handle_DELETE_metadata_answers(req, res) {
             });
         });
     });
-});
+}
 
 function getZidForAnswer(pmaid, callback) {
     pgQuery("SELECT zid FROM participant_metadata_answers WHERE pmaid = ($1);", [pmaid], function(err, result) {
@@ -8462,6 +8581,8 @@ app.get('/api/v3/metadata/questions',
     want('suzinvite', getOptionalStringLimitLength(32), assignToP),
     want('zinvite', getOptionalStringLimitLength(300), assignToP),
     // TODO want('lastMetaTime', getInt, assignToP, 0),
+    handle_GET_metadata_questions);
+
 function handle_GET_metadata_questions(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
@@ -8493,13 +8614,15 @@ function handle_GET_metadata_questions(req, res) {
     } else {
         doneChecking(false);
     }
-});
+}
 
 app.post('/api/v3/metadata/questions',
     moveToBody,
     auth(assignToP),
     need('key', getOptionalStringLimitLength(999), assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    handle_POST_metadata_questions);
+
 function handle_POST_metadata_questions(req, res) {
     var zid = req.p.zid;
     var key = req.p.key;
@@ -8518,7 +8641,7 @@ function handle_POST_metadata_questions(req, res) {
     }
 
     isConversationOwner(zid, uid, doneChecking);
-});
+}
 
 app.post('/api/v3/metadata/answers',
     moveToBody,
@@ -8526,6 +8649,8 @@ app.post('/api/v3/metadata/answers',
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('pmqid', getInt, assignToP),
     need('value', getOptionalStringLimitLength(999), assignToP),
+    handle_POST_metadata_answers);
+
 function handle_POST_metadata_answers(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
@@ -8547,12 +8672,14 @@ function handle_POST_metadata_answers(req, res) {
     }
 
     isConversationOwner(zid, uid, doneChecking);
-});
+}
 
 app.get('/api/v3/metadata/choices',
     moveToBody,
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    handle_GET_metadata_choices);
+
 function handle_GET_metadata_choices(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
@@ -8562,7 +8689,7 @@ function handle_GET_metadata_choices(req, res) {
     }, function(err) {
         fail(res, 500, "polis_err_get_participant_metadata_choices", err);
     });
-});
+}
 
 app.get('/api/v3/metadata/answers',
     moveToBody,
@@ -8572,6 +8699,8 @@ app.get('/api/v3/metadata/answers',
     want('suzinvite', getOptionalStringLimitLength(32), assignToP),
     want('zinvite', getOptionalStringLimitLength(300), assignToP),
     // TODO want('lastMetaTime', getInt, assignToP, 0),
+    handle_GET_metadata_answers);
+
 function handle_GET_metadata_answers(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
@@ -8608,7 +8737,7 @@ function handle_GET_metadata_answers(req, res) {
     } else {
         doneChecking(false);
     }
-});
+}
 
 app.get('/api/v3/metadata',
     moveToBody,
@@ -8617,6 +8746,8 @@ app.get('/api/v3/metadata',
     want('zinvite', getOptionalStringLimitLength(300), assignToP),
     want('suzinvite', getOptionalStringLimitLength(32), assignToP),
     // TODO want('lastMetaTime', getInt, assignToP, 0),
+    handle_GET_metadata);
+
 function handle_GET_metadata(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
@@ -8679,7 +8810,7 @@ function handle_GET_metadata(req, res) {
     } else {
         doneChecking(false);
     }
-});
+}
 
 app.post('/api/v3/metadata/new',
     moveToBody,
@@ -8687,8 +8818,11 @@ app.post('/api/v3/metadata/new',
     want('oid', getInt, assignToP),
     need('metaname', getInt, assignToP),
     need('metavalue', getInt, assignToP),
+    handle_POST_metadata_new);
+
 function handle_POST_metadata_new(req, res) {
-});
+}
+
 
 
 function getConversationHasMetadata(zid) {
@@ -8957,6 +9091,8 @@ app.get('/api/v3/enterprise_deal_url',
     // want('upfront', getBool, assignToP),
     need('monthly', getInt, assignToP),
     want('maxUsers', getInt, assignToP),
+    handle_GET_enterprise_deal_url);
+
 function handle_GET_enterprise_deal_url(req, res) {
     var o = {
         monthly: req.p.monthly
@@ -8965,10 +9101,12 @@ function handle_GET_enterprise_deal_url(req, res) {
         o.maxUsers = req.p.maxUsers;
     }
     res.send("https://pol.is/settings/enterprise/" + encodeParams(o));
-});
+}
 
 
 app.get('/api/v3/stripe_account_connect',
+    handle_GET_stripe_account_connect);
+
 function handle_GET_stripe_account_connect(req, res) {
     var stripe_client_id = process.env.STRIPE_CLIENT_ID;
 
@@ -8978,7 +9116,7 @@ function handle_GET_stripe_account_connect(req, res) {
     }).send("<html><body>" +
         "<a href ='" + stripeUrl + "'>Connect Pol.is to Stripe</a>" +
     "</body></html>");
-});
+}
 
 
 app.get('/api/v3/stripe_account_connected_oauth_callback',
@@ -8987,6 +9125,8 @@ app.get('/api/v3/stripe_account_connected_oauth_callback',
     want("access_token", getStringLimitLength(9999), assignToP),
     want("error", getStringLimitLength(9999), assignToP),
     want("error_description", getStringLimitLength(9999), assignToP),
+    handle_GET_stripe_account_connected_oauth_callback);
+
 function handle_GET_stripe_account_connected_oauth_callback(req, res) {
 
   var code = req.p.code;
@@ -9037,7 +9177,7 @@ function handle_GET_stripe_account_connected_oauth_callback(req, res) {
       fail(res, 500, "polis_err_saving_stripe_info", err);
     });
   });
-});
+}
 
 
 app.get('/api/v3/conversations',
@@ -9057,6 +9197,8 @@ app.get('/api/v3/conversations',
     want('limit', getIntInRange(1, 9999), assignToP), // not allowing a super high limit to prevent DOS attacks
     want('context', getStringLimitLength(1, 999), assignToP),
     want('xid', getStringLimitLength(1, 999), assignToP),
+    handle_GET_conversations);
+
 function handle_GET_conversations(req, res) {
   var courseIdPromise = Promise.resolve();
   if (req.p.course_invite) {
@@ -9082,11 +9224,13 @@ function handle_GET_conversations(req, res) {
       fail(res, 403, "polis_err_need_auth");
     }
   });
-});
+}
 
 app.get('/api/v3/contexts',
     moveToBody,
     authOptional(assignToP),
+    handle_GET_contexts);
+
 function handle_GET_contexts(req, res) {
     pgQueryP_readOnly("select name from contexts where is_public = TRUE order by name;", []).then(function(contexts) {
         res.status(200).json(contexts);
@@ -9095,11 +9239,13 @@ function handle_GET_contexts(req, res) {
     }).catch(function(err) {
       fail(res, 500, "polis_err_get_contexts_misc", err);
     });
-});
+}
 
 app.post('/api/v3/contexts',
     auth(assignToP),
     need('name', getStringLimitLength(1, 300), assignToP),
+    handle_POST_contexts);
+
 function handle_POST_contexts(req, res) {
     var uid = req.p.uid;
     var name = req.p.name;
@@ -9124,7 +9270,7 @@ function handle_POST_contexts(req, res) {
     }).catch(function(err) {
         fail(res, 500, "polis_err_post_contexts_check_misc", err);
     });
-});
+}
 
 
 function isUserAllowedToCreateConversations(uid, callback) {
@@ -9152,6 +9298,8 @@ app.post('/api/v3/conversations',
     want('context', getOptionalStringLimitLength(999), assignToP, ""),
     want('topic', getOptionalStringLimitLength(1000), assignToP, ""),
     want('description', getOptionalStringLimitLength(50000), assignToP, ""),
+    handle_POST_conversations);
+
 function handle_POST_conversations(req, res) {
 
     winston.log("info","context", req.p.context);
@@ -9201,11 +9349,15 @@ function handle_POST_conversations(req, res) {
         });
     }); // end insert
   }); // end isUserAllowedToCreateConversations
-}); // end post conversations
+} // end post conversations
 
 /*
 app.get('/api/v3/users',
-function handle_GET_usershandle_GET_(req, res) {
+    handle_GET_users);
+*/
+
+/*
+function handle_GET_users(req, res) {
     // creating a user may fail, since we randomly generate the uid, and there may be collisions.
     var query = pgQuery('SELECT * FROM users');
     var responseText = "";
@@ -9215,7 +9367,7 @@ function handle_GET_usershandle_GET_(req, res) {
     query.on('end', function(row, result) {
         res.status(200).end(responseText);
     });
-});
+}
 */
 
 
@@ -9225,6 +9377,8 @@ app.post('/api/v3/query_participants_by_metadata',
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('pmaids', getArrayOfInt, assignToP, []),
+    handle_POST_query_participants_by_metadata);
+
 function handle_POST_query_participants_by_metadata(req, res) {
     var uid = req.p.uid;
     var zid = req.p.zid;
@@ -9253,11 +9407,13 @@ function handle_POST_query_participants_by_metadata(req, res) {
     }
 
     isOwnerOrParticipant(zid, uid, doneChecking);
-});
+}
 
 app.post('/api/v3/sendCreatedLinkToEmail',
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    handle_POST_sendCreatedLinkToEmail);
+
 function handle_POST_sendCreatedLinkToEmail(req, res){
     winston.log("info",req.p);
     pgQuery_readOnly("SELECT * FROM users WHERE uid = $1", [req.p.uid], function(err, results){
@@ -9290,7 +9446,7 @@ function handle_POST_sendCreatedLinkToEmail(req, res){
                 });
         });
     });
-});
+}
 
 
 function getTwitterRequestToken(returnUrl) {
@@ -9332,6 +9488,8 @@ app.get("/api/v3/twitterBtn",
     authOptional(assignToP),
     want("dest", getStringLimitLength(9999), assignToP),
     want("owner", getBool, assignToP, true),
+    handle_GET_twitterBtn);
+
 function handle_GET_twitterBtn(req, res) {
     var uid = req.p.uid;
 
@@ -9347,7 +9505,7 @@ function handle_GET_twitterBtn(req, res) {
     }).catch(function(err) {
         fail(res, 500, "polis_err_twitter_auth_01", err);
     });
-});
+}
 
 
 function getTwitterAccessToken(body) {
@@ -9796,6 +9954,8 @@ app.get("/api/v3/twitter_oauth_callback",
     need("oauth_token", getStringLimitLength(9999), assignToP), // TODO verify
     need("oauth_verifier", getStringLimitLength(9999), assignToP), // TODO verify
     want("owner", getBool, assignToP, true),
+    handle_GET_twitter_oauth_callback);
+
 function handle_GET_twitter_oauth_callback(req, res) {
     var uid = req.p.uid;
 
@@ -9969,7 +10129,7 @@ function handle_GET_twitter_oauth_callback(req, res) {
     }).catch(function(err) {
         fail(res, 500, "polis_err_twitter_auth_misc", err);
     });
-});
+}
 
 function getTwitterInfo(uids) {
     return pgQueryP_readOnly("select * from twitter_users where uid in ($1);", uids);
@@ -10532,6 +10692,8 @@ app.get("/api/v3/locations",
     authOptional(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need("gid", getInt, assignToP),
+    handle_GET_locations);
+
 function handle_GET_locations(req, res) {
     var zid = req.p.zid;
     var gid = req.p.gid;
@@ -10557,7 +10719,7 @@ function handle_GET_locations(req, res) {
     }).catch(function(err) {
         fail(res, 500, "polis_err_locations_01", err);
     });
-});
+}
 
 
 function removeNullOrUndefinedProperties(o) {
@@ -10612,6 +10774,8 @@ app.put("/api/v3/ptptois",
     need("mod", getInt, assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     resolve_pidThing('pid', assignToP),
+    handle_PUT_ptptois);
+
 function handle_PUT_ptptois(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
@@ -10628,7 +10792,7 @@ function handle_PUT_ptptois(req, res) {
     }).catch(function(err) {
         fail(res, 500, "polis_err_ptptoi_misc_234", err);
     });
-});
+}
 
 app.get("/api/v3/ptptois",
     moveToBody,
@@ -10636,6 +10800,8 @@ app.get("/api/v3/ptptois",
     want('mod', getInt, assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('conversation_id', getStringLimitLength(1, 1000), assignToP),
+    handle_GET_ptptois);
+
 function handle_GET_ptptois(req, res) {
     var zid = req.p.zid;
     var mod = req.p.mod;
@@ -10660,7 +10826,7 @@ function handle_GET_ptptois(req, res) {
     }).catch(function(err) {
         fail(res, 500, "polis_err_ptptoi_misc", err);
     });
-});
+}
 
 app.get("/api/v3/votes/famous",
     moveToBody,
@@ -10668,6 +10834,8 @@ app.get("/api/v3/votes/famous",
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('lastVoteTimestamp', getInt, assignToP, -1),
     want('ptptoiLimit', getIntInRange(0,99), assignToP),
+    handle_GET_votes_famous);
+
 function handle_GET_votes_famous(req, res) {
   var uid = req.p.uid;
   var zid = req.p.zid;
@@ -10680,7 +10848,7 @@ function handle_GET_votes_famous(req, res) {
   }).catch(function(err) {
     fail(res, 500, "polis_err_famous_proj_get1", err);
   });
-});
+}
 
 
 
@@ -10906,6 +11074,8 @@ app.get("/api/v3/twitter_users",
     moveToBody,
     authOptional(assignToP),
     want("twitter_user_id", getInt, assignToP), // if not provided, returns info for the signed-in user
+    handle_GET_twitter_users);
+
 function handle_GET_twitter_users(req, res) {
     var uid = req.p.uid;
     var p;
@@ -10924,10 +11094,12 @@ function handle_GET_twitter_users(req, res) {
     }).catch(function(err) {
         fail(res, 500, "polis_err_twitter_user_info_get", err);
     });
-});
+}
 
 app.post("/api/v3/einvites",
     need('email', getEmail, assignToP),
+    handle_POST_einvites);
+
 function handle_POST_einvites(req, res) {
     var email = req.p.email;
     generateTokenP(30, false).then(function(einvite) {
@@ -10939,11 +11111,13 @@ function handle_POST_einvites(req, res) {
     }).catch(function(err) {
         fail(res, 500, "polis_err_sending_einvite", err);
     });
-});
+}
 
 // TODO_SECURITY
 app.get("/api/v3/cache/purge/f2938rh2389hr283hr9823rhg2gweiwriu78",
     // moveToBody,
+    handle_GET_cache_purge);
+
 function handle_GET_cache_purge(req, res) {
 
     var hostname = "pol.is";
@@ -10958,12 +11132,14 @@ function handle_GET_cache_purge(req, res) {
     })
     .pipe(res);
 
-});
+}
 
 
 app.get("/api/v3/einvites",
     moveToBody,
     need("einvite", getStringLimitLength(1, 100), assignToP),
+    handle_GET_einvites);
+
 function handle_GET_einvites(req, res) {
     var einvite = req.p.einvite;
 
@@ -10976,7 +11152,7 @@ function handle_GET_einvites(req, res) {
     }).catch(function(err) {
         fail(res, 500, "polis_err_fetching_einvite", err);
     });
-});
+}
 
 
 function generateSingleUseUrl(req, conversation_id, suzinvite) {
@@ -11190,6 +11366,8 @@ app.post("/api/v3/LTI/setup_assignment",
     want("lis_outcome_service_url", getStringLimitLength(1, 9999), assignToP), //  send grades here!
     want("launch_presentation_return_url", getStringLimitLength(1, 9999), assignToP),
     want("ext_content_return_types", getStringLimitLength(1, 9999), assignToP),
+    handle_POST_lti_setup_assignment);
+
 function handle_POST_lti_setup_assignment(req, res) {
     winston.log("info",req);
     var roles = req.p.roles;
@@ -11261,7 +11439,7 @@ function handle_POST_lti_setup_assignment(req, res) {
     }).catch(function(err) {
         fail(res, 500, "polis_err_launching_lti_save", err);
     });
-}); // end /api/v3/LTI/setup_assignment
+} // end /api/v3/LTI/setup_assignment
 
 
 // app.post("/api/v3/LTI/canvas_nav",
@@ -11276,6 +11454,8 @@ function handle_POST_lti_setup_assignment(req, res) {
 //     want("lis_outcome_service_url", getStringLimitLength(1, 9999), assignToP), //  send grades here!
 //     want("launch_presentation_return_url", getStringLimitLength(1, 9999), assignToP),
 //     want("ext_content_return_types", getStringLimitLength(1, 9999), assignToP),
+//     handle_POST_lti_canvas_nav);
+
 // function handle_POST_lti_canvas_nav(req, res) {
 //     winston.log("info",req);
 //     var roles = req.p.roles;
@@ -11345,7 +11525,7 @@ function handle_POST_lti_setup_assignment(req, res) {
 //         fail(res, 500, "polis_err_launching_lti_finding_user", err);
 //     });
 
-// }); // end /api/v3/LTI/canvas_nav
+// } // end /api/v3/LTI/canvas_nav
 
 
 
@@ -11431,6 +11611,8 @@ app.post("/api/v3/LTI/conversation_assignment",
     want("lis_outcome_service_url", getStringLimitLength(1, 9999), assignToP), //  send grades here!
     want("lis_result_sourcedid", getStringLimitLength(1, 9999), assignToP), //  grading context
     want("tool_consumer_instance_guid", getStringLimitLength(1, 9999), assignToP), //  canvas instance
+    handle_POST_lti_conversation_assignment);
+
 function handle_POST_lti_conversation_assignment(req, res) {
     var roles = req.p.roles;
     var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
@@ -11586,7 +11768,7 @@ function handle_POST_lti_conversation_assignment(req, res) {
 
     // wait! how do we know what the conversation should have for topic / description?
 
-});
+}
 
 
 
@@ -11595,6 +11777,8 @@ for easy copy and paste
 https://preprod.pol.is/api/v3/LTI/setup_assignment.xml
 */
 app.get("/api/v3/LTI/setup_assignment.xml",
+    handle_GET_setup_assignment_xml);
+
 function handle_GET_setup_assignment_xml(req, res) {
 var xml = '' +
 '<cartridge_basiclti_link xmlns="http://www.imsglobal.org/xsd/imslticc_v1p0" xmlns:blti="http://www.imsglobal.org/xsd/imsbasiclti_v1p0" xmlns:lticm="http://www.imsglobal.org/xsd/imslticm_v1p0" xmlns:lticp="http://www.imsglobal.org/xsd/imslticp_v1p0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsglobal.org/xsd/imslticc_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticc_v1p0.xsd http://www.imsglobal.org/xsd/imsbasiclti_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imsbasiclti_v1p0.xsd http://www.imsglobal.org/xsd/imslticm_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticm_v1p0.xsd http://www.imsglobal.org/xsd/imslticp_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticp_v1p0.xsd">' +
@@ -11649,7 +11833,7 @@ var xml = '' +
 
 res.set('Content-Type', 'text/xml');
 res.status(200).send(xml);
-});
+}
 
 
 
@@ -11725,6 +11909,9 @@ res.status(200).send(xml);
 //     want("lis_person_contact_email_primary", getStringLimitLength(1, 9999), assignToP),
 //     want("launch_presentation_return_url", getStringLimitLength(1, 9999), assignToP),
 //     want("ext_content_return_types", getStringLimitLength(1, 9999), assignToP),
+//     handle_POST_lti_editor_tool);
+
+
 // function handle_POST_lti_editor_tool(req, res) {
 //     var roles = req.p.roles;
 //     var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
@@ -11761,7 +11948,7 @@ res.status(200).send(xml);
 //         fail(res, 500, "polis_err_unexpected_launch_params", err);
 //     }
 
-// }); // end editor_tool
+// } // end editor_tool
 
 
 function redirectToLtiEditorDestinationWithDetailsAboutIframe(req, res, launch_presentation_return_url, url, width, height) {
@@ -11850,6 +12037,8 @@ function redirectToLtiEditorDestinationWithDetailsAboutLtiLink(req, res, launch_
 //     want("lis_person_contact_email_primary", getStringLimitLength(1, 9999), assignToP),
 //     want("launch_presentation_return_url", getStringLimitLength(1, 9999), assignToP),
 //     want("ext_content_return_types", getStringLimitLength(1, 9999), assignToP),
+//     handle_POST_lti_editor_tool_for_setup);
+
 // function handle_POST_lti_editor_tool_for_setup(req, res) {
 //     var roles = req.p.roles;
 //     var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
@@ -11875,7 +12064,7 @@ function redirectToLtiEditorDestinationWithDetailsAboutLtiLink(req, res, launch_
 //     } else {
 //         fail(res, 500, "polis_err_unexpected_launch_params", err);
 //     }
-// }); // end editor_tool_for_setup
+// } // end editor_tool_for_setup
 
 // This approach does not work on the current canvas iOS app.
 //
@@ -11936,6 +12125,8 @@ https://pol.is/api/v3/LTI/conversation_assignment.xml
 https://preprod.pol.is/api/v3/LTI/conversation_assignment.xml
 */
 app.get("/api/v3/LTI/conversation_assignment.xml",
+    handle_GET_conversation_assigmnent_xml);
+
 function handle_GET_conversation_assigmnent_xml(req, res) {
     var serverName = getServerNameWithProtocol(req);
 
@@ -11981,10 +12172,12 @@ var xml = '' +
 
 res.set('Content-Type', 'text/xml');
 res.status(200).send(xml);
-});
+}
 
 
 app.get("/canvas_app_instructions.png",
+    handle_GET_canvas_app_instructions_png);
+
 function handle_GET_canvas_app_instructions_png(req, res) {
     var path = "/landerImages/";
     if (/Android/.exec(req.headers['user-agent'])) {
@@ -11996,7 +12189,7 @@ function handle_GET_canvas_app_instructions_png(req, res) {
     }
     var doFetch = makeFileFetcher(hostname, portForParticipationFiles, path, {'Content-Type': "image/png"});
     doFetch(req, res);
-});
+}
 
 
 // app.post("/api/v3/users/invite",
@@ -12005,6 +12198,9 @@ function handle_GET_canvas_app_instructions_png(req, res) {
 //     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
 //     need('single_use_tokens', getBool, assignToP),
 //     need('xids', getArrayOfStringNonEmpty, assignToP),
+//     handle_POST_users_invite);
+
+
 // function handle_POST_users_invite(req, res) {
 //     var owner = req.p.uid;
 //     var xids = req.p.xids;
@@ -12044,7 +12240,7 @@ function handle_GET_canvas_app_instructions_png(req, res) {
 //     }).catch(function(err) {
 //         fail(res, 500, "polis_err_generating_single_use_invites", err);
 //     });
-// });
+// }
 
 function sendSuzinviteEmail(req, email, conversation_id, suzinvite) {
     var serverName = getServerNameWithProtocol(req);
@@ -12075,6 +12271,8 @@ app.post("/api/v3/users/invite",
     need('conversation_id', getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
     // need('single_use_tokens', getBool, assignToP),
     need('emails', getArrayOfStringNonEmpty, assignToP),
+    handle_POST_users_invite);
+
 function handle_POST_users_invite(req, res) {
     var uid = req.p.uid;
     var emails = req.p.emails;
@@ -12126,7 +12324,7 @@ function handle_POST_users_invite(req, res) {
     }).catch(function(err) {
         fail(res, 500, "polis_err_getting_conversation_info", err);
     });
-});
+}
 
 
 
@@ -12321,6 +12519,8 @@ app.get(/^\/polis_site_id.*/,
     want('ucsd', getBool, assignToP), // not persisted
     want('ucsv', getBool, assignToP), // not persisted
     want('ucsf', getBool, assignToP), // not persisted
+    handle_GET_index_for_participation);
+
 function handle_GET_index_for_participation(req, res) {
     var site_id = /polis_site_id[^\/]*/.exec(req.path);
     var page_id = /\S\/([^\/]*)/.exec(req.path);
@@ -12418,7 +12618,7 @@ function handle_GET_index_for_participation(req, res) {
     }).catch(function(err) {
         fail(res, 500, "polis_err_redirecting_to_conv", err);
     });
-});
+}
 
 //app.use(express.static(__dirname + '/src/desktop/index.html'));
 //app.use('/static', express.static(__dirname + '/src'));
@@ -12789,18 +12989,22 @@ app.get("/iip/:conversation_id",
 // },
     moveToBody,
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    handle_GET_iip_conversation);
+
 function handle_GET_iip_conversation(req, res) {
     var conversation_id = req.params.conversation_id;
     res.set({
         'Content-Type': 'text/html',
     });
     res.send("<a href='https://pol.is/" + conversation_id + "' target='_blank'>" + conversation_id + "</a>");
-});
+}
 // app.get(/^\/iip\/([0-9][0-9A-Za-z]+)$/, fetchIndex);
 
 app.get("/iim/:conversation_id",
     moveToBody,
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    handle_GET_iim_conversation);
+
 function handle_GET_iim_conversation(req, res) {
     var zid = req.p.zid;
     var conversation_id = req.params.conversation_id;
@@ -12816,7 +13020,7 @@ function handle_GET_iim_conversation(req, res) {
     }).catch(function(err) {
         fail(res, 500, "polis_err_fetching_conversation_info", err);
     });
-});
+}
 // app.get(/^\/iim\/([0-9][0-9A-Za-z]+)$/, fetchIndex);
 
 
@@ -12895,6 +13099,8 @@ app.get(/^\/twitterAuthReturn$/, makeFileFetcher(hostname, portForParticipationF
 app.get("/twitter_image",
     moveToBody,
     need('id', getStringLimitLength(999), assignToP),
+    handle_GET_twitter_image);
+
 function handle_GET_twitter_image(req, res) {
     getTwitterUserInfo({twitter_user_id: req.p.id}, true).then(function(data) {
         data = JSON.parse(data);
@@ -12929,7 +13135,7 @@ function handle_GET_twitter_image(req, res) {
     }).catch(function(err) {
         res.status(404).end();
     });
-});
+}
 
 
 var conditionalIndexFetcher = (function() {
