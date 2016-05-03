@@ -12117,6 +12117,71 @@ function handle_GET_localFile_dev_only(req, res) {
     });
 }
 
+function middleware_log_request_body(req, res, next) {
+  if (devMode) {
+    var b = "";
+    if (req.body) {
+      var temp = _.clone(req.body);
+      // if (temp.email) {
+      //     temp.email = "foo@foo.com";
+      // }
+      if (temp.password) {
+        temp.password = "some_password";
+      }
+      if (temp.newPassword) {
+        temp.newPassword = "some_password";
+      }
+      if (temp.password2) {
+        temp.password2 = "some_password";
+      }
+      if (temp.hname) {
+        temp.hname = "somebody";
+      }
+      b = JSON.stringify(temp);
+    }
+    winston.log("info",req.path + " " + b);
+  } else {
+    // don't log the route or params, since Heroku does that for us.
+  }
+  next();
+}
+
+function middleware_log_middleware_errors(err, req, res, next) {
+    if(!err) {
+        return next();
+    }
+    winston.log("info","error found in middleware");
+    console.error(err);
+    if (err && err.stack) {
+        console.error(err.stack);
+    }
+    yell(err);
+    next(err);
+}
+
+function middleware_check_if_options(req, res, next) {
+  if (req.method.toLowerCase() !== "options") {
+    return next();
+  }
+  return res.send(204);
+}
+
+var middleware_responseTime_start = responseTime(function (req, res, time) {
+  if (req && req.route && req.route.path) {
+    var path = req.route.path;
+    time = time << 0;
+    addInRamMetric(path, time);
+  }
+});
+
+var p3pFunction = p3p(p3p.recommended);
+function middleware_p3p(req, res, next) {
+  if (isIE(req)) {
+    return p3pFunction(req, res, next);
+  } else {
+    return next();
+  }
+}
 
 return {
   addCorsHeader: addCorsHeader,
@@ -12172,6 +12237,14 @@ return {
   winston: winston,
   writeDefaultHead: writeDefaultHead,
   yell: yell,
+
+
+  middleware_check_if_options: middleware_check_if_options,
+  middleware_log_middleware_errors: middleware_log_middleware_errors,
+  middleware_log_request_body: middleware_log_request_body,
+  middleware_p3p: middleware_p3p,
+  middleware_responseTime_start: middleware_responseTime_start,
+
 
   // handlers
   handle_DELETE_metadata_answers: handle_DELETE_metadata_answers,
@@ -12283,7 +12356,7 @@ function init() {
                 yell("failed_to_init_db_connections");
                 reject(err);
             }
-            initializePolisAPI(args).then(resolve, reject);
+            resolve(initializePolisAPI(args));
         });
     });
 }

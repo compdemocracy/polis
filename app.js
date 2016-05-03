@@ -62,6 +62,11 @@ server.init().then(function(o) {
   var writeDefaultHead = o.writeDefaultHead;
   var yell = o.yell;
 
+  var middleware_log_request_body = o.middleware_log_request_body;
+  var middleware_log_middleware_errors = o.middleware_log_middleware_errors;
+  var middleware_check_if_options = o.middleware_check_if_options;
+  var middleware_p3p = o.middleware_p3p;
+  var middleware_responseTime_start = o.middleware_responseTime_start;
 
   var handle_DELETE_metadata_answers = o.handle_DELETE_metadata_answers;
   var handle_DELETE_metadata_questions = o.handle_DELETE_metadata_questions;
@@ -184,28 +189,7 @@ app.disable('x-powered-by');
 //app.use(meter("api.all"));
 // app.use(express.logger());
 
-app.use(responseTime(function (req, res, time) {
-  if (req && req.route && req.route.path) {
-    var path = req.route.path;
-    time = time << 0;
-    addInRamMetric(path, time);
-  }
-}));
-
-app.use(redirectIfNotHttps);
-app.use(express.cookieParser());
-app.use(express.bodyParser());
-app.use(writeDefaultHead);
-var p3pFunction = p3p(p3p.recommended);
-app.use(function(req, res, next) {
-  if (isIE(req)) {
-    return p3pFunction(req, res, next);
-  } else {
-    return next();
-  }
-});
-app.use(redirectIfWrongDomain);
-app.use(redirectIfApiDomain);
+app.use(middleware_responseTime_start);
 
 var gzipMiddleware = express.compress();
 function maybeApplyGzip(req, res, next) {
@@ -217,6 +201,13 @@ function maybeApplyGzip(req, res, next) {
   }
 }
 
+app.use(redirectIfNotHttps);
+app.use(express.cookieParser());
+app.use(express.bodyParser());
+app.use(writeDefaultHead);
+app.use(middleware_p3p);
+app.use(redirectIfWrongDomain);
+app.use(redirectIfApiDomain);
 
 if (devMode) {
     app.use(express.compress());
@@ -225,55 +216,12 @@ if (devMode) {
     // but it's about 2x faster if we do the gzip (for the inbox query on mike's account)
     app.use(express.compress());
 }
-app.use(function(req, res, next) {
-  if (devMode) {
-    var b = "";
-    if (req.body) {
-      var temp = _.clone(req.body);
-      // if (temp.email) {
-      //     temp.email = "foo@foo.com";
-      // }
-      if (temp.password) {
-        temp.password = "some_password";
-      }
-      if (temp.newPassword) {
-        temp.newPassword = "some_password";
-      }
-      if (temp.password2) {
-        temp.password2 = "some_password";
-      }
-      if (temp.hname) {
-        temp.hname = "somebody";
-      }
-      b = JSON.stringify(temp);
-    }
-    winston.log("info",req.path + " " + b);
-  } else {
-    // don't log the route or params, since Heroku does that for us.
-  }
-  next();
-});
-app.use(function(err, req, res, next) {
-    if(!err) {
-        return next();
-    }
-    winston.log("info","error found in middleware");
-    console.error(err);
-    if (err && err.stack) {
-        console.error(err.stack);
-    }
-    yell(err);
-    next(err);
-});
+app.use(middleware_log_request_body);
+app.use(middleware_log_middleware_errors);
 
 app.all("/api/v3/*", addCorsHeader);
 app.all("/font/*", addCorsHeader);
-app.all("/api/v3/*", function(req, res, next) {
-  if (req.method.toLowerCase() !== "options") {
-    return next();
-  }
-  return res.send(204);
-});
+app.all("/api/v3/*", middleware_check_if_options);
 
 ////////////////////////////////////////////
 ////////////////////////////////////////////
