@@ -2168,7 +2168,7 @@ return str;
 app.get("/api/v3/launchPrep",
     moveToBody,
     need("dest", getStringLimitLength(1, 10000), assignToP),
-function(req, res) {
+function handle_GET_launchPrep(req, res) {
 
 
     var setOnPolisDomain = !domainOverride;
@@ -2213,7 +2213,7 @@ function(req, res) {
 
 app.get("/api/v3/tryCookie",
     moveToBody,
-function(req, res) {
+function handle_GET_tryCookie(req, res) {
 
 
     var setOnPolisDomain = !domainOverride;
@@ -2438,7 +2438,7 @@ function redirectIfHasZidButNoConversationId(req, res, next) {
 
 
 app.get("/api/v3/math/pca",
-function(req, res) {
+function handle_GET_math_pca(req, res) {
     // migrated off this path, old clients were causing timeout issues by polling repeatedly without waiting for a result for a previous poll.
     res.status(304).end();
 });
@@ -2454,7 +2454,7 @@ app.get("/api/v3/math/pca2",
     redirectIfHasZidButNoConversationId, // TODO remove once
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('lastVoteTimestamp', getInt, assignToP, -1),
-function(req, res) {
+function handle_GET_math_pca2(req, res) {
     var zid = req.p.zid;
     var lastVoteTimestamp = req.p.lastVoteTimestamp;
 
@@ -2568,7 +2568,7 @@ app.get("/api/v3/dataExport",
     need('conversation_id', getStringLimitLength(1, 1000), assignToP),
     want('format', getStringLimitLength(1, 100), assignToP),
     want('unixTimestamp', getStringLimitLength(99), assignToP),
-function(req, res) {
+function handle_GET_dataExport(req, res) {
     doProxyDataExportCall(req, res, function(exportServerUser, exportServerPass, email) {
         return "http://" +
             exportServerUser+":"+exportServerPass +
@@ -2587,7 +2587,7 @@ app.get("/api/v3/dataExport/results",
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('conversation_id', getStringLimitLength(1, 1000), assignToP),
     want('filename', getStringLimitLength(1, 1000), assignToP),
-function(req, res) {
+function handle_GET_dataExport_results(req, res) {
     doProxyDataExportCall(req, res, function(exportServerUser, exportServerPass, email) {
         return "http://" +
             exportServerUser+":"+exportServerPass +
@@ -2600,7 +2600,7 @@ function(req, res) {
 app.get("/api/v3/math/pcaPlaybackList",
     moveToBody,
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-function(req, res) {
+function handle_GET_pcaPlaybackList(req, res) {
     var zid = req.p.zid;
 
     getPcaPlaybackList(zid).then(function(summaries) {
@@ -2614,7 +2614,7 @@ app.get("/api/v3/math/pcaPlaybackByLastVoteTimestamp",
     moveToBody,
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('lastVoteTimestamp', getInt, assignToP, 0),
-function(req, res) {
+function handle_GET_pcaPlaybackByLastVoteTimestamp(req, res) {
     var zid = req.p.zid;
     var lastVoteTimestamp = req.p.lastVoteTimestamp;
 
@@ -2651,7 +2651,7 @@ app.get("/api/v3/bidToPid",
     moveToBody,
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('lastVoteTimestamp', getInt, assignToP, 0),
-function(req, res) {
+function handle_GET_bidToPid(req, res) {
     var uid = req.p.uid;
     var zid = req.p.zid;
     var lastVoteTimestamp = req.p.lastVoteTimestamp;
@@ -2688,7 +2688,7 @@ app.get("/api/v3/xids",
     moveToBody,
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-function(req, res) {
+function handle_GET_xids(req, res) {
     var uid = req.p.uid;
     var zid = req.p.zid;
 
@@ -2759,7 +2759,7 @@ app.get("/api/v3/bid",
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('lastVoteTimestamp', getInt, assignToP, 0),
-function(req, res) {
+function handle_GET_bid(req, res) {
     var uid = req.p.uid;
     var zid = req.p.zid;
     var lastVoteTimestamp = req.p.lastVoteTimestamp;
@@ -2814,7 +2814,7 @@ function(req, res) {
 app.post("/api/v3/auth/password",
     need('pwresettoken', getOptionalStringLimitLength(1000), assignToP),
     need('newPassword', getPasswordWithCreatePasswordRules, assignToP),
-function(req, res) {
+function handle_POST_auth_password(req, res) {
     var pwresettoken = req.p.pwresettoken;
     var newPassword = req.p.newPassword;
 
@@ -2856,7 +2856,7 @@ function getServerNameWithProtocol(req) {
 
 app.post("/api/v3/auth/pwresettoken",
     need('email', getEmail, assignToP),
-function(req, res) {
+function handle_POST_auth_pwresettoken(req, res) {
     var email = req.p.email;
 
     var server = getServerNameWithProtocol(req);
@@ -2993,7 +2993,7 @@ function doCookieAuth(assigner, isOptional, req, res, next) {
 
 app.post("/api/v3/auth/deregister",
     want("showPage", getStringLimitLength(1, 99), assignToP),
-function(req, res) {
+function handle_POST_auth_deregister(req, res) {
     req.p = req.p || {};
     var token = req.cookies[COOKIES.TOKEN];
 
@@ -3032,7 +3032,7 @@ function(req, res) {
 //     need('times', getArrayOfInt, assignToP),
 //     need('durs', getArrayOfInt, assignToP),
 //     need('clientTimestamp', getInt, assignToP),
-// function(req, res) {
+// function handle_POST_metrics(req, res) {
 //     var uid = req.p.uid || null;
 //     var durs = req.p.durs.map(function(dur) {
 //         if (dur === -1) {
@@ -3065,7 +3065,7 @@ app.get("/api/v3/zinvites/:zid",
     moveToBody,
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-function(req, res) {
+function handle_GET_zinvites(req, res) {
     // if uid is not conversation owner, fail
     pgQuery_readOnly('SELECT * FROM conversations WHERE zid = ($1) AND owner = ($2);', [req.p.zid, req.p.uid], function(err, results) {
         if (err) {
@@ -3298,7 +3298,7 @@ app.post("/api/v3/zinvites/:zid",
     auth(assignToP),
     want('short_url', getBool, assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-function(req, res) {
+function handle_POST_zinvites(req, res) {
     var generateShortUrl = req.p.short_url;
 
     pgQuery('SELECT * FROM conversations WHERE zid = ($1) AND owner = ($2);', [req.p.zid, req.p.uid], function(err, results) {
@@ -4097,7 +4097,7 @@ app.get("/api/v3/participants",
     // want('pid', getInt, assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     // resolve_pidThing('pid', assignToP),
-function(req, res) {
+function handle_GET_participants(req, res) {
     // var pid = req.p.pid;
     var uid = req.p.uid;
     var zid = req.p.zid;
@@ -4146,7 +4146,7 @@ app.get("/api/v3/dummyButton",
     moveToBody,
     need("button", getStringLimitLength(1,999), assignToP),
     authOptional(assignToP),
-function(req, res) {
+function handle_GET_dummyButton(req, res) {
     var message = req.p.button + " " + req.p.uid;
     emailFeatureRequest(message);
     res.status(200).end();
@@ -4180,7 +4180,7 @@ app.post("/api/v3/participants",
     want('answers', getArrayOfInt, assignToP, []), // {pmqid: [pmaid, pmaid], ...} where the pmaids are checked choices
     want('parent_url', getStringLimitLength(9999), assignToP),
     want('referrer', getStringLimitLength(9999), assignToP),
-function(req, res) {
+function handle_POST_participants(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
     var answers = req.p.answers;
@@ -4632,7 +4632,7 @@ app.get("/api/v3/notifications/subscribe",
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('conversation_id', getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
     need('email', getEmail, assignToP),
-function(req, res) {
+function handle_GET_notifications_subscribe(req, res) {
     var zid = req.p.zid;
     var email = req.p.email;
     var params = {
@@ -4663,7 +4663,7 @@ app.get("/api/v3/notifications/unsubscribe",
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('conversation_id', getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
     need('email', getEmail, assignToP),
-function(req, res) {
+function handle_GET_notifications_unsubscribe(req, res) {
     var zid = req.p.zid;
     var email = req.p.email;
     var params = {
@@ -4693,7 +4693,7 @@ app.post("/api/v3/convSubscriptions",
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need("type", getInt, assignToP),
     want('email', getEmail, assignToP),
-function(req, res) {
+function handle_POST_convSubscriptions(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
     var type = req.p.type;
@@ -4733,7 +4733,7 @@ app.post("/api/v3/auth/login",
     want('lti_context_id', getStringLimitLength(1, 9999), assignToP),
     want('tool_consumer_instance_guid', getStringLimitLength(1, 9999), assignToP),
     want('afterJoinRedirectUrl', getStringLimitLength(1, 9999), assignToP),
-function(req, res) {
+function handle_POST_auth_login(req, res) {
     var password = req.p.password;
     var email = req.p.email || "";
     var lti_user_id = req.p.lti_user_id;
@@ -4827,7 +4827,7 @@ app.post("/api/v3/joinWithInvite",
     want('answers', getArrayOfInt, assignToP, []), // {pmqid: [pmaid, pmaid], ...} where the pmaids are checked choices
     want('referrer', getStringLimitLength(9999), assignToP),
     want('parent_url', getStringLimitLength(9999), assignToP),
-function(req, res) {
+function handle_POST_joinWithInvite(req, res) {
 
     // if they're already in the conv
     //     this shouldn't get called
@@ -5172,7 +5172,7 @@ function addFacebookFriends(uid, fb_friends_response) {
 
 app.get("/perfStats_9182738127",
     moveToBody,
-function(req, res) {
+function handle_GET_perfStats(req, res) {
     res.json(METRICS_IN_RAM);
 });
 
@@ -5343,7 +5343,7 @@ function getDomainWhitelist(uid) {
 app.get("/api/v3/domainWhitelist",
     moveToBody,
     auth(assignToP),
-function(req, res) {
+function handle_GET_domainWhitelist(req, res) {
     getDomainWhitelist(req.p.uid).then(function(whitelist) {
         res.json({
             domain_whitelist: whitelist,
@@ -5356,7 +5356,7 @@ function(req, res) {
 app.post("/api/v3/domainWhitelist",
     auth(assignToP),
     need('domain_whitelist', getOptionalStringLimitLength(999), assignToP, ""),
-function(req, res) {
+function handle_POST_domainWhitelist(req, res) {
     setDomainWhitelist(req.p.uid, req.p.domain_whitelist).then(function() {
         res.json({
             domain_whitelist: req.p.domain_whitelist,
@@ -5372,7 +5372,7 @@ app.get("/api/v3/conversationStats",
     moveToBody,
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-function(req, res) {
+function handle_GET_conversationStats(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
     isModerator(zid, uid).then(function(is_mod) {
@@ -5440,7 +5440,7 @@ app.get("/snapshot",
     moveToBody,
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-function(req, res) {
+function handle_GET_snapshot(req, res) {
     var uid = req.p.uid;
     var zid = req.p.zid;
 
@@ -5501,7 +5501,7 @@ function(req, res) {
 app.get("/api/v3/facebook/delete",
     moveToBody,
     auth(assignToP),
-function(req, res) {
+function handle_GET_facebook_delete(req, res) {
     deleteFacebookUserRecord(req.p).then(function() {
         res.json({});
     }).catch(function(err) {
@@ -5526,7 +5526,7 @@ app.post("/api/v3/auth/facebook",
     want('password', getPassword, assignToP),
     need('response', getStringLimitLength(1, 9999), assignToP),
     want("owner", getBool, assignToP, true),
-function(req, res) {
+function handle_POST_auth_facebook(req, res) {
 
     // If a pol.is user record exists, and someone logs in with a facebook account that has the same email address, we should bind that facebook account to the pol.is account, and let the user sign in.
     var TRUST_FB_TO_VALIDATE_EMAIL = false;
@@ -5805,7 +5805,7 @@ app.post("/api/v3/auth/new",
     want('tool_consumer_instance_guid', getStringLimitLength(1, 9999), assignToP),
     want('afterJoinRedirectUrl', getStringLimitLength(1, 9999), assignToP),
     want("owner", getBool, assignToP, true),
-function(req, res) {
+function handle_POST_auth_new(req, res) {
     var hname = req.p.hname;
     var password = req.p.password;
     var password2 = req.p.password2; // for verification
@@ -5952,7 +5952,7 @@ function(req, res) {
 app.post("/api/v3/tutorial",
     auth(assignToP),
     need("step", getInt, assignToP),
-function(req, res) {
+function handle_POST_tutorial(req, res) {
     var uid = req.p.uid;
     var step = req.p.step;
     pgQueryP("update users set tut = ($1) where uid = ($2);", [step, uid]).then(function() {
@@ -5968,7 +5968,7 @@ app.get("/api/v3/users",
     moveToBody,
     want("errIfNoAuth", getBool, assignToP),
     authOptional(assignToP),
-function(req, res) {
+function handle_GET_users(req, res) {
     var uid = req.p.uid;
 
     if (req.p.errIfNoAuth && !uid) {
@@ -6144,11 +6144,12 @@ function updateStripePlan(user, stripeToken, stripeEmail, plan) {
 }
 
 // use this to generate coupons for free upgrades
+// TODO_SECURITY
 app.get("/api/v3/createPlanChangeCoupon_aiudhfaiodufy78sadtfiasdf",
     moveToBody,
     need('uid', getInt, assignToP),
     need('planCode', getOptionalStringLimitLength(999), assignToP),
-function(req, res) {
+function handle_GET_createPlanChangeCoupon(req, res) {
     var uid = req.p.uid;
     var planCode = req.p.planCode;
     generateTokenP(30, false).then(function(code) {
@@ -6168,7 +6169,7 @@ app.get("/api/v3/changePlanWithCoupon",
     moveToBody,
     authOptional(assignToP),
     need('code', getOptionalStringLimitLength(999), assignToP),
-function(req, res) {
+function handle_GET_changePlanWithCoupon(req, res) {
     var uid = req.p.uid;
     var code = req.p.code;
     var isCurrentUser = true;
@@ -6233,7 +6234,7 @@ function updatePlan(req, res, uid, planCode, isCurrentUser) {
 
 // Just for testing that the new custom stripe form is submitting properly
 app.post("/api/v3/post_payment_form",
-function(req, res) {
+function handle_POST_post_payment_form(req, res) {
   winston.log("info","XXX - Got the params!");
   winston.log("info","XXX - Got the params!" + res);
 });
@@ -6244,7 +6245,7 @@ app.post("/api/v3/charge",
     want('stripeToken', getOptionalStringLimitLength(999), assignToP),
     want('stripeEmail', getOptionalStringLimitLength(999), assignToP),
     need('plan', getOptionalStringLimitLength(999), assignToP),
-function(req, res) {
+function handle_POST_charge(req, res) {
 
     var stripeToken = req.p.stripeToken;
     var stripeEmail = req.p.stripeEmail;
@@ -6485,7 +6486,7 @@ app.get("/api/v3/participation",
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('strict', getBool, assignToP),
-function(req, res) {
+function handle_GET_participation(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
     var strict = req.p.strict;
@@ -6573,7 +6574,7 @@ app.get("/api/v3/comments",
 //    need('lastServerToken', _.identity, assignToP),
     resolve_pidThing('not_voted_by_pid', assignToP, "get:comments:not_voted_by_pid"),
     resolve_pidThing('pid', assignToP, "get:comments:pid"),
-function(req, res) {
+function handle_GET_comments(req, res) {
     var zid = req.p.zid;
     var tids = req.p.tids;
     var pid = req.p.pid;
@@ -6752,7 +6753,7 @@ function getComment(zid, tid) {
 //     need(HMAC_SIGNATURE_PARAM_NAME, getStringLimitLength(10, 999), assignToP),
 //     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
 //     need('tid', getInt, assignToP),
-// function(req, res) {
+// function handle_GET_mute(req, res) {
 //     var tid = req.p.tid;
 //     var zid = req.p.zid;
 //     var params = {
@@ -6792,7 +6793,7 @@ function getComment(zid, tid) {
 //     need(HMAC_SIGNATURE_PARAM_NAME, getStringLimitLength(10, 999), assignToP),
 //     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
 //     need('tid', getInt, assignToP),
-// function(req, res) {
+// function handle_GET_unmute(req, res) {
 //     var tid = req.p.tid;
 //     var zid = req.p.zid;
 //     var params = {
@@ -6864,7 +6865,7 @@ app.post("/api/v3/comments",
     want("quote_src_url", getUrlLimitLength(999), assignToP),
     want("anon", getBool, assignToP),
     resolve_pidThing('pid', assignToP, "post:comments"),
-function(req, res) {
+function handle_POST_comments(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
     var txt = req.p.txt;
@@ -7129,7 +7130,7 @@ app.get("/api/v3/votes/me",
     moveToBody,
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-function(req, res) {
+function handle_GET_votes_me(req, res) {
     getPid(req.p.zid, req.p.uid, function(err, pid) {
         if (err || pid < 0) { fail(res, 500, "polis_err_getting_pid", err); return; }
         pgQuery_readOnly("SELECT * FROM votes WHERE zid = ($1) AND pid = ($2);", [req.p.zid, req.p.pid], function(err, docs) {
@@ -7198,7 +7199,7 @@ function getCommentIdCounts(voteRecords) {
 //     moveToBody,
 //     want('users', getArrayOfInt, assignToP),
 //     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-// function(req, res) {
+// function handle_GET_selection(req, res) {
 //         var zid = req.p.zid;
 //         var users = req.p.users || [];
 
@@ -7245,7 +7246,7 @@ app.get("/api/v3/votes",
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('tid', getInt, assignToP),
     resolve_pidThing('pid', assignToP, "get:votes"),
-function(req, res) {
+function handle_GET_votes(req, res) {
     getVotesForSingleParticipant(req.p).then(function(votes) {
         finishArray(res, votes);
     }, function(err) {
@@ -7444,7 +7445,7 @@ app.get("/api/v3/nextComment",
     want('without', getArrayOfInt, assignToP),
     want('include_social', getBool, assignToP),
     haltOnTimeout,
-function(req, res) {
+function handle_GET_nextComment(req, res) {
     if (req.timedout) { return; }
     // NOTE: I tried to speed up this query by adding db indexes, and by removing queries like getConversationInfo and finishOne.
     //          They didn't help much, at least under current load, which is negligible. pg:diagnose isn't complaining about indexes.
@@ -7484,7 +7485,7 @@ app.get("/api/v3/participationInit",
   want('conversation_id', getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
   denyIfNotFromWhitelistedDomain, // this seems like the easiest place to enforce the domain whitelist. The index.html is cached on cloudflare, so that's not the right place.
   resolve_pidThing('pid', assignToP, "get:votes"), // must be after zid getter
-function(req, res) {
+function handle_GET_participationInit(req, res) {
 
   var qs = {
     conversation_id: req.p.conversation_id,
@@ -7612,7 +7613,7 @@ app.post("/api/v3/votes",
     want('starred', getBool, assignToP),
     want('weight', getNumberInRange(-1, 1), assignToP, 0),
     resolve_pidThing('pid', assignToP, "post:votes"),
-function(req, res) {
+function handle_POST_votes(req, res) {
     var uid = req.p.uid; // PID_FLOW uid may be undefined here.
     var zid = req.p.zid;
     var pid = req.p.pid; // PID_FLOW pid may be undefined here.
@@ -7690,7 +7691,7 @@ app.post("/api/v3/ptptCommentMod",
     need('spam', getBool, assignToP, false),
     need('offtopic', getBool, assignToP, false),
     resolve_pidThing('pid', assignToP, "post:ptptModComment"),
-function(req, res) {
+function handle_POST_ptptCommentMod(req, res) {
     var uid = req.p.uid;
     var zid = req.p.zid;
     var pid = req.p.pid;
@@ -7732,7 +7733,7 @@ function(req, res) {
 app.post("/api/v3/upvotes",
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-function(req, res) {
+function handle_POST_upvotes(req, res) {
     var uid = req.p.uid;
     var zid = req.p.zid;
 
@@ -7773,7 +7774,7 @@ app.post("/api/v3/stars",
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('starred', getIntInRange(0,1), assignToP),
     getPidForParticipant(assignToP, pidCache),
-function(req, res) {
+function handle_POST_stars(req, res) {
     var params = [req.p.pid, req.p.zid, req.p.tid, req.p.starred];
     addStar(req.p.zid, req.p.tid, req.p.pid, req.p.starred).then(function(result) {
         var createdTime = result.rows[0].created;
@@ -7798,7 +7799,7 @@ app.post("/api/v3/trashes",
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('trashed', getIntInRange(0,1), assignToP),
     getPidForParticipant(assignToP, pidCache),
-function(req, res) {
+function handle_POST_trashes(req, res) {
     var query = "INSERT INTO trashes (pid, zid, tid, trashed, created) VALUES ($1, $2, $3, $4, default);";
     var params = [req.p.pid, req.p.zid, req.p.tid, req.p.trashed];
     pgQuery(query, params, function(err, result) {
@@ -7862,7 +7863,7 @@ app.put('/api/v3/comments',
     need('active', getBool, assignToP),
     need('mod', getInt, assignToP),
     need('velocity', getNumberInRange(0,1), assignToP),
-function(req, res){
+function handle_PUT_comments(req, res){
     var uid = req.p.uid;
     var zid = req.p.zid;
     var tid = req.p.tid;
@@ -8037,7 +8038,7 @@ function updateLocalRecordsToReflectPostedGrades(listOfGradingContexts) {
 app.get('/api/v3/lti_oauthv1_credentials',
     moveToBody,
     want('uid', getInt, assignToP),
-function(req, res) {
+function handle_GET_lti_oauthv1_credentials(req, res) {
     var uid = "FOO";
     if (req.p && req.p.uid) {
         uid = req.p.uid;
@@ -8060,7 +8061,7 @@ app.post('/api/v3/conversation/close',
     moveToBody,
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-function(req, res) {
+function handle_POST_conversation_close(req, res) {
 
     pgQueryP("select * from conversations where zid = ($1) and owner = ($2);", [req.p.zid, req.p.uid]).then(function(rows) {
         if (!rows || !rows.length) {
@@ -8096,7 +8097,7 @@ app.post('/api/v3/conversation/reopen',
     moveToBody,
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-function(req, res) {
+function handle_POST_conversation_reopen(req, res) {
 
     pgQueryP("select * from conversations where zid = ($1) and owner = ($2);", [req.p.zid, req.p.uid]).then(function(rows) {
         if (!rows || !rows.length) {
@@ -8150,7 +8151,7 @@ app.put('/api/v3/conversations',
     want('tool_consumer_instance_guid', getOptionalStringLimitLength(999), assignToP),
     want('custom_canvas_assignment_id', getInt, assignToP),
     want('link_url', getStringLimitLength(1, 9999), assignToP),
-function(req, res){
+function handle_PUT_conversations(req, res){
   var generateShortUrl = req.p.short_url;
   isModerator(req.p.zid, req.p.uid).then(function(ok) {
     if (!ok) {
@@ -8370,7 +8371,7 @@ app.delete('/api/v3/metadata/questions/:pmqid',
     moveToBody,
     auth(assignToP),
     need('pmqid', getInt, assignToP),
-function(req, res) {
+function handle_DELETE_metadata_questions(req, res) {
     var uid = req.p.uid;
     var pmqid = req.p.pmqid;
 
@@ -8391,7 +8392,7 @@ app.delete('/api/v3/metadata/answers/:pmaid',
     moveToBody,
     auth(assignToP),
     need('pmaid', getInt, assignToP),
-function(req, res) {
+function handle_DELETE_metadata_answers(req, res) {
     var uid = req.p.uid;
     var pmaid = req.p.pmaid;
 
@@ -8460,7 +8461,7 @@ app.get('/api/v3/metadata/questions',
     want('suzinvite', getOptionalStringLimitLength(32), assignToP),
     want('zinvite', getOptionalStringLimitLength(300), assignToP),
     // TODO want('lastMetaTime', getInt, assignToP, 0),
-function(req, res) {
+function handle_GET_metadata_questions(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
     var zinvite = req.p.zinvite;
@@ -8498,7 +8499,7 @@ app.post('/api/v3/metadata/questions',
     auth(assignToP),
     need('key', getOptionalStringLimitLength(999), assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-function(req, res) {
+function handle_POST_metadata_questions(req, res) {
     var zid = req.p.zid;
     var key = req.p.key;
     var uid = req.p.uid;
@@ -8524,7 +8525,7 @@ app.post('/api/v3/metadata/answers',
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('pmqid', getInt, assignToP),
     need('value', getOptionalStringLimitLength(999), assignToP),
-function(req, res) {
+function handle_POST_metadata_answers(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
     var pmqid = req.p.pmqid;
@@ -8551,7 +8552,7 @@ app.get('/api/v3/metadata/choices',
     moveToBody,
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-function(req, res) {
+function handle_GET_metadata_choices(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
 
@@ -8570,7 +8571,7 @@ app.get('/api/v3/metadata/answers',
     want('suzinvite', getOptionalStringLimitLength(32), assignToP),
     want('zinvite', getOptionalStringLimitLength(300), assignToP),
     // TODO want('lastMetaTime', getInt, assignToP, 0),
-function(req, res) {
+function handle_GET_metadata_answers(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
     var zinvite = req.p.zinvite;
@@ -8615,7 +8616,7 @@ app.get('/api/v3/metadata',
     want('zinvite', getOptionalStringLimitLength(300), assignToP),
     want('suzinvite', getOptionalStringLimitLength(32), assignToP),
     // TODO want('lastMetaTime', getInt, assignToP, 0),
-function(req, res) {
+function handle_GET_metadata(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
     var zinvite = req.p.zinvite;
@@ -8685,7 +8686,7 @@ app.post('/api/v3/metadata/new',
     want('oid', getInt, assignToP),
     need('metaname', getInt, assignToP),
     need('metavalue', getInt, assignToP),
-function(req, res) {
+function handle_POST_metadata_new(req, res) {
 });
 
 
@@ -8955,7 +8956,7 @@ app.get('/api/v3/enterprise_deal_url',
     // want('upfront', getBool, assignToP),
     need('monthly', getInt, assignToP),
     want('maxUsers', getInt, assignToP),
-function(req, res) {
+function handle_GET_enterprise_deal_url(req, res) {
     var o = {
         monthly: req.p.monthly
     };
@@ -8967,7 +8968,7 @@ function(req, res) {
 
 
 app.get('/api/v3/stripe_account_connect',
-function(req, res) {
+function handle_GET_stripe_account_connect(req, res) {
     var stripe_client_id = process.env.STRIPE_CLIENT_ID;
 
     var stripeUrl = "https://connect.stripe.com/oauth/authorize?response_type=code&client_id="+stripe_client_id+"&scope=read_write";
@@ -8985,7 +8986,7 @@ app.get('/api/v3/stripe_account_connected_oauth_callback',
     want("access_token", getStringLimitLength(9999), assignToP),
     want("error", getStringLimitLength(9999), assignToP),
     want("error_description", getStringLimitLength(9999), assignToP),
-function(req, res) {
+function handle_GET_stripe_account_connected_oauth_callback(req, res) {
 
   var code = req.p.code;
   var access_token = req.p.access_token;
@@ -9055,7 +9056,7 @@ app.get('/api/v3/conversations',
     want('limit', getIntInRange(1, 9999), assignToP), // not allowing a super high limit to prevent DOS attacks
     want('context', getStringLimitLength(1, 999), assignToP),
     want('xid', getStringLimitLength(1, 999), assignToP),
-function(req, res) {
+function handle_GET_conversations(req, res) {
   var courseIdPromise = Promise.resolve();
   if (req.p.course_invite) {
     courseIdPromise = pgQueryP_readOnly("select course_id from courses where course_invite = ($1);", [req.p.course_invite]).then(function(rows) {
@@ -9085,7 +9086,7 @@ function(req, res) {
 app.get('/api/v3/contexts',
     moveToBody,
     authOptional(assignToP),
-function(req, res) {
+function handle_GET_contexts(req, res) {
     pgQueryP_readOnly("select name from contexts where is_public = TRUE order by name;", []).then(function(contexts) {
         res.status(200).json(contexts);
     }, function(err) {
@@ -9098,7 +9099,7 @@ function(req, res) {
 app.post('/api/v3/contexts',
     auth(assignToP),
     need('name', getStringLimitLength(1, 300), assignToP),
-function(req, res) {
+function handle_POST_contexts(req, res) {
     var uid = req.p.uid;
     var name = req.p.name;
     function createContext() {
@@ -9150,7 +9151,7 @@ app.post('/api/v3/conversations',
     want('context', getOptionalStringLimitLength(999), assignToP, ""),
     want('topic', getOptionalStringLimitLength(1000), assignToP, ""),
     want('description', getOptionalStringLimitLength(50000), assignToP, ""),
-function(req, res) {
+function handle_POST_conversations(req, res) {
 
     winston.log("info","context", req.p.context);
     var generateShortUrl = req.p.short_url;
@@ -9203,7 +9204,7 @@ function(req, res) {
 
 /*
 app.get('/api/v3/users',
-function(req, res) {
+function handle_GET_usershandle_GET_(req, res) {
     // creating a user may fail, since we randomly generate the uid, and there may be collisions.
     var query = pgQuery('SELECT * FROM users');
     var responseText = "";
@@ -9223,7 +9224,7 @@ app.post('/api/v3/query_participants_by_metadata',
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('pmaids', getArrayOfInt, assignToP, []),
-function(req, res) {
+function handle_POST_query_participants_by_metadata(req, res) {
     var uid = req.p.uid;
     var zid = req.p.zid;
     var pmaids = req.p.pmaids;
@@ -9256,7 +9257,7 @@ function(req, res) {
 app.post('/api/v3/sendCreatedLinkToEmail',
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-function(req, res){
+function handle_POST_sendCreatedLinkToEmail(req, res){
     winston.log("info",req.p);
     pgQuery_readOnly("SELECT * FROM users WHERE uid = $1", [req.p.uid], function(err, results){
         if (err) { fail(res, 500, "polis_err_get_email_db", err); return; }
@@ -9330,7 +9331,7 @@ app.get("/api/v3/twitterBtn",
     authOptional(assignToP),
     want("dest", getStringLimitLength(9999), assignToP),
     want("owner", getBool, assignToP, true),
-function(req, res) {
+function handle_GET_twitterBtn(req, res) {
     var uid = req.p.uid;
 
     var dest = req.p.dest || "/inbox";
@@ -9794,7 +9795,7 @@ app.get("/api/v3/twitter_oauth_callback",
     need("oauth_token", getStringLimitLength(9999), assignToP), // TODO verify
     need("oauth_verifier", getStringLimitLength(9999), assignToP), // TODO verify
     want("owner", getBool, assignToP, true),
-function(req, res) {
+function handle_GET_twitter_oauth_callback(req, res) {
     var uid = req.p.uid;
 
 
@@ -10530,7 +10531,7 @@ app.get("/api/v3/locations",
     authOptional(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need("gid", getInt, assignToP),
-function(req, res) {
+function handle_GET_locations(req, res) {
     var zid = req.p.zid;
     var gid = req.p.gid;
 
@@ -10610,7 +10611,7 @@ app.put("/api/v3/ptptois",
     need("mod", getInt, assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     resolve_pidThing('pid', assignToP),
-function(req, res) {
+function handle_PUT_ptptois(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
     var pid = req.p.pid;
@@ -10634,7 +10635,7 @@ app.get("/api/v3/ptptois",
     want('mod', getInt, assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('conversation_id', getStringLimitLength(1, 1000), assignToP),
-function(req, res) {
+function handle_GET_ptptois(req, res) {
     var zid = req.p.zid;
     var mod = req.p.mod;
     var uid = req.p.uid;
@@ -10666,7 +10667,7 @@ app.get("/api/v3/votes/famous",
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('lastVoteTimestamp', getInt, assignToP, -1),
     want('ptptoiLimit', getIntInRange(0,99), assignToP),
-function(req, res) {
+function handle_GET_votes_famous(req, res) {
   var uid = req.p.uid;
   var zid = req.p.zid;
   var lastVoteTimestamp = req.p.lastVoteTimestamp;
@@ -10904,7 +10905,7 @@ app.get("/api/v3/twitter_users",
     moveToBody,
     authOptional(assignToP),
     want("twitter_user_id", getInt, assignToP), // if not provided, returns info for the signed-in user
-function(req, res) {
+function handle_GET_twitter_users(req, res) {
     var uid = req.p.uid;
     var p;
     if (uid) {
@@ -10926,7 +10927,7 @@ function(req, res) {
 
 app.post("/api/v3/einvites",
     need('email', getEmail, assignToP),
-function(req, res) {
+function handle_POST_einvites(req, res) {
     var email = req.p.email;
     generateTokenP(30, false).then(function(einvite) {
         return pgQueryP("insert into einvites (email, einvite) values ($1, $2);", [email, einvite]).then(function(rows) {
@@ -10939,10 +10940,10 @@ function(req, res) {
     });
 });
 
-
+// TODO_SECURITY
 app.get("/api/v3/cache/purge/f2938rh2389hr283hr9823rhg2gweiwriu78",
     // moveToBody,
-function(req, res) {
+function handle_GET_cache_purge(req, res) {
 
     var hostname = "pol.is";
     // NOTE: can't purge preprod independently unless we set up a separate domain on cloudflare, AFAIK
@@ -10962,7 +10963,7 @@ function(req, res) {
 app.get("/api/v3/einvites",
     moveToBody,
     need("einvite", getStringLimitLength(1, 100), assignToP),
-function(req, res) {
+function handle_GET_einvites(req, res) {
     var einvite = req.p.einvite;
 
     winston.log("info","select * from einvites where einvite = ($1);", [einvite]);
@@ -11188,7 +11189,7 @@ app.post("/api/v3/LTI/setup_assignment",
     want("lis_outcome_service_url", getStringLimitLength(1, 9999), assignToP), //  send grades here!
     want("launch_presentation_return_url", getStringLimitLength(1, 9999), assignToP),
     want("ext_content_return_types", getStringLimitLength(1, 9999), assignToP),
-function(req, res) {
+function handle_POST_lti_setup_assignment(req, res) {
     winston.log("info",req);
     var roles = req.p.roles;
     var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
@@ -11274,7 +11275,7 @@ function(req, res) {
 //     want("lis_outcome_service_url", getStringLimitLength(1, 9999), assignToP), //  send grades here!
 //     want("launch_presentation_return_url", getStringLimitLength(1, 9999), assignToP),
 //     want("ext_content_return_types", getStringLimitLength(1, 9999), assignToP),
-// function(req, res) {
+// function handle_POST_lti_canvas_nav(req, res) {
 //     winston.log("info",req);
 //     var roles = req.p.roles;
 //     var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
@@ -11429,7 +11430,7 @@ app.post("/api/v3/LTI/conversation_assignment",
     want("lis_outcome_service_url", getStringLimitLength(1, 9999), assignToP), //  send grades here!
     want("lis_result_sourcedid", getStringLimitLength(1, 9999), assignToP), //  grading context
     want("tool_consumer_instance_guid", getStringLimitLength(1, 9999), assignToP), //  canvas instance
-function(req, res) {
+function handle_POST_lti_conversation_assignment(req, res) {
     var roles = req.p.roles;
     var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
     var isLearner = /[lL]earner/.exec(roles);
@@ -11593,7 +11594,7 @@ for easy copy and paste
 https://preprod.pol.is/api/v3/LTI/setup_assignment.xml
 */
 app.get("/api/v3/LTI/setup_assignment.xml",
-function(req, res) {
+function handle_GET_setup_assignment_xml(req, res) {
 var xml = '' +
 '<cartridge_basiclti_link xmlns="http://www.imsglobal.org/xsd/imslticc_v1p0" xmlns:blti="http://www.imsglobal.org/xsd/imsbasiclti_v1p0" xmlns:lticm="http://www.imsglobal.org/xsd/imslticm_v1p0" xmlns:lticp="http://www.imsglobal.org/xsd/imslticp_v1p0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsglobal.org/xsd/imslticc_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticc_v1p0.xsd http://www.imsglobal.org/xsd/imsbasiclti_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imsbasiclti_v1p0.xsd http://www.imsglobal.org/xsd/imslticm_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticm_v1p0.xsd http://www.imsglobal.org/xsd/imslticp_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticp_v1p0.xsd">' +
 
@@ -11723,7 +11724,7 @@ res.status(200).send(xml);
 //     want("lis_person_contact_email_primary", getStringLimitLength(1, 9999), assignToP),
 //     want("launch_presentation_return_url", getStringLimitLength(1, 9999), assignToP),
 //     want("ext_content_return_types", getStringLimitLength(1, 9999), assignToP),
-// function(req, res) {
+// function handle_POST_lti_editor_tool(req, res) {
 //     var roles = req.p.roles;
 //     var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
 //     var user_id = req.p.user_id;
@@ -11848,7 +11849,7 @@ function redirectToLtiEditorDestinationWithDetailsAboutLtiLink(req, res, launch_
 //     want("lis_person_contact_email_primary", getStringLimitLength(1, 9999), assignToP),
 //     want("launch_presentation_return_url", getStringLimitLength(1, 9999), assignToP),
 //     want("ext_content_return_types", getStringLimitLength(1, 9999), assignToP),
-// function(req, res) {
+// function handle_POST_lti_editor_tool_for_setup(req, res) {
 //     var roles = req.p.roles;
 //     var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
 //     var user_id = req.p.user_id;
@@ -11934,7 +11935,7 @@ https://pol.is/api/v3/LTI/conversation_assignment.xml
 https://preprod.pol.is/api/v3/LTI/conversation_assignment.xml
 */
 app.get("/api/v3/LTI/conversation_assignment.xml",
-function(req, res) {
+function handle_GET_conversation_assigmnent_xml(req, res) {
     var serverName = getServerNameWithProtocol(req);
 
 var xml = '' +
@@ -11983,7 +11984,7 @@ res.status(200).send(xml);
 
 
 app.get("/canvas_app_instructions.png",
-function(req, res) {
+function handle_GET_canvas_app_instructions_png(req, res) {
     var path = "/landerImages/";
     if (/Android/.exec(req.headers['user-agent'])) {
         path += "app_instructions_android.png";
@@ -12003,7 +12004,7 @@ function(req, res) {
 //     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
 //     need('single_use_tokens', getBool, assignToP),
 //     need('xids', getArrayOfStringNonEmpty, assignToP),
-// function(req, res) {
+// function handle_POST_users_invite(req, res) {
 //     var owner = req.p.uid;
 //     var xids = req.p.xids;
 //     var zid = req.p.zid;
@@ -12073,7 +12074,7 @@ app.post("/api/v3/users/invite",
     need('conversation_id', getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
     // need('single_use_tokens', getBool, assignToP),
     need('emails', getArrayOfStringNonEmpty, assignToP),
-function(req, res) {
+function handle_POST_users_invite(req, res) {
     var uid = req.p.uid;
     var emails = req.p.emails;
     var zid = req.p.zid;
@@ -12319,7 +12320,7 @@ app.get(/^\/polis_site_id.*/,
     want('ucsd', getBool, assignToP), // not persisted
     want('ucsv', getBool, assignToP), // not persisted
     want('ucsf', getBool, assignToP), // not persisted
-function(req, res) {
+function handle_GET_index_for_participation(req, res) {
     var site_id = /polis_site_id[^\/]*/.exec(req.path);
     var page_id = /\S\/([^\/]*)/.exec(req.path);
     if (!site_id.length || page_id.length < 2) {
@@ -12787,7 +12788,7 @@ app.get("/iip/:conversation_id",
 // },
     moveToBody,
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-function(req, res) {
+function handle_GET_iip_conversation(req, res) {
     var conversation_id = req.params.conversation_id;
     res.set({
         'Content-Type': 'text/html',
@@ -12799,7 +12800,7 @@ function(req, res) {
 app.get("/iim/:conversation_id",
     moveToBody,
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-function(req, res) {
+function handle_GET_iim_conversation(req, res) {
     var zid = req.p.zid;
     var conversation_id = req.params.conversation_id;
     getConversationInfo(zid).then(function(info) {
@@ -12893,7 +12894,7 @@ app.get(/^\/twitterAuthReturn$/, makeFileFetcher(hostname, portForParticipationF
 app.get("/twitter_image",
     moveToBody,
     need('id', getStringLimitLength(999), assignToP),
-function(req, res) {
+function handle_GET_twitter_image(req, res) {
     getTwitterUserInfo({twitter_user_id: req.p.id}, true).then(function(data) {
         data = JSON.parse(data);
         if (!data || !data.length) {
