@@ -5157,7 +5157,7 @@ function handle_GET_conversationStats(req, res) {
             // var votesHistogram = a[2];
             // var socialUsers = _.map(a[4], castTimestamp);
 
-            var votesGroupedByPid = _.groupBy(comments, "pid");
+            var votesGroupedByPid = _.groupBy(votes, "pid");
             var votesHistogramObj = {};
             _.each(votesGroupedByPid, function(votesByParticipant, pid) {
                 votesHistogramObj[votesByParticipant.length] = (votesHistogramObj[votesByParticipant.length] + 1) || 1;
@@ -5173,15 +5173,38 @@ function handle_GET_conversationStats(req, res) {
                 return a.n_ptpts - b.n_ptpts;
             });
 
-
-
-
+            var burstsForPid = {};
+            var interBurstGap = 10 * 60 * 1000; // a 10 minute gap between votes counts as a gap between bursts
+            _.each(votesGroupedByPid, function(votesByParticipant, pid) {
+                burstsForPid[pid] = 1;
+                var prevCreated = votesByParticipant.length ? votesByParticipant[0] : 0;
+                for (var v = 1; v < votesByParticipant.length; v++) {
+                    var vote = votesByParticipant[v];
+                    if (interBurstGap + prevCreated < vote.created) {
+                        burstsForPid[pid] += 1;
+                    }
+                    prevCreated = vote.created;
+                }
+            });
+            var burstHistogramObj = {};
+            _.each(burstsForPid, function(bursts, pid) {
+                burstHistogramObj[bursts] = (burstHistogramObj[bursts] + 1) || 1;
+            });
+            var burstHistogram = [];
+            _.each(burstHistogramObj, function(ptptCount, burstCount) {
+                burstHistogram.push({
+                    n_ptpts: ptptCount,
+                    n_bursts: Number(burstCount),
+                });
+            });
+            burstHistogram.sort(function(a, b) {
+                return a.n_bursts - b.n_bursts;
+            });
 
             var actualParticipants = getFirstForPid(votes);  // since an agree vote is submitted for each comment's author, this includes people who only wrote a comment, but didn't explicitly vote.
             actualParticipants = _.pluck(actualParticipants, "created");
             var commenters = getFirstForPid(comments);
             commenters = _.pluck(commenters, "created");
-
 
             var totalComments = _.pluck(comments, "created");
             var totalVotes = _.pluck(votes, "created");
@@ -5202,6 +5225,7 @@ function handle_GET_conversationStats(req, res) {
                 firstCommentTimes: commenters,
                 // viewTimes: viewTimes,
                 votesHistogram: votesHistogram,
+                burstHistogram: burstHistogram,
                 // socialUsers: totalSocialUsers,
             });
         });
