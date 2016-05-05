@@ -5128,14 +5128,30 @@ function handle_POST_domainWhitelist(req, res) {
 function handle_GET_conversationStats(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
+    var until = req.p.until;
     isModerator(zid, uid).then(function(is_mod) {
         if (!is_mod) {
             fail(res, 403, "polis_err_conversationStats_need_moderation_permission");
             return;
         }
+
+        var args = [zid];
+
+        var q0 = until ?
+            "select created, pid, mod from comments where zid = ($1) and created < ($2) order by created;" :
+            "select created, pid, mod from comments where zid = ($1) order by created;";
+
+        var q1 = until ?
+            "select created, pid from votes where zid = ($1) and created < ($2) order by created;" :
+            "select created, pid from votes where zid = ($1) order by created;";
+
+        if (until) {
+            args.push(until);
+        }
+
         return Promise.all([
-            pgQueryP_readOnly("select created, pid, mod from comments where zid = ($1) order by created;", [zid]),
-            pgQueryP_readOnly("select created, pid from votes where zid = ($1) order by created;", [zid]),
+            pgQueryP_readOnly(q0, args),
+            pgQueryP_readOnly(q1, args),
             // pgQueryP_readOnly("select created from participants where zid = ($1) order by created;", [zid]),
 
             // pgQueryP_readOnly("with pidvotes as (select pid, count(*) as countForPid from votes where zid = ($1)"+
