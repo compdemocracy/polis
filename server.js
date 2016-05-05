@@ -2368,7 +2368,7 @@ function handle_GET_math_pca2(req, res) {
 
 
 
-function doProxyDataExportCall(req, res, urlBuilderFunction) {
+function doProxyDataExportCall(req, res, urlBuilderFunction, returnImmediately) {
     Promise.all([
         getUserInfoForUid2(req.p.uid),
         getConversationInfo(req.p.zid),
@@ -2393,10 +2393,17 @@ function doProxyDataExportCall(req, res, urlBuilderFunction) {
             followRedirect: false,
         });
         req.pipe(x);
-        x.pipe(res);
         x.on("error", function(err) {
-            fail(res, 500, "polis_err_data_export1", err);
+            emailBadProblemTime("darwin call failed - " + JSON.stringify(err));
         });
+        if (returnImmediately) {
+            res.status(200).json({});
+        } else {
+            x.pipe(res);
+            x.on("error", function(err) {
+                fail(res, 500, "polis_err_data_export1", err);
+            });
+        }
 
         // "https://polisdarwin.herokuapp.com/datadump/results?filename=polis-export-2demo-1446053307819.zip&zinvite=2demo"
 
@@ -2421,7 +2428,7 @@ function handle_GET_dataExport(req, res) {
             email +
             (req.p.unixTimestamp ? ("&at-date=" + req.p.unixTimestamp * 1000) : "")
             ;
-    });
+    }, true);
 }
 
 
@@ -2432,7 +2439,7 @@ function handle_GET_dataExport_results(req, res) {
             "@polisdarwin.herokuapp.com/datadump/results?zinvite=" +
             req.p.conversation_id +
             "&filename="+req.p.filename;
-    });
+    }, false);
 }
 
 
