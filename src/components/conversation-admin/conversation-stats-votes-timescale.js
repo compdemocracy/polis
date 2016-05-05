@@ -7,6 +7,7 @@ import {VictoryChart} from "victory-chart";
 import {VictoryLine} from "victory-line";
 import {VictoryBar} from "victory-bar";
 import {VictoryAxis} from "victory-axis";
+import {d3} from "d3";
 
 // @connect(state => state.stats)
 @Radium
@@ -19,14 +20,15 @@ class VotesTimescale extends React.Component {
     chartHeight: React.PropTypes.number
   }
   render() {
+    // scale={{
+    //   x: d3.time.scale(this.props.data.voteTimes),
+    //   y: d3.scale.linear()
+    // }}
     return (
       <VictoryChart
         width={this.props.chartWidth}
         height={this.props.chartHeight}
-        scale={{
-          x: d3.time.scale(this.props.data.voteTimes),
-          y: d3.scale.linear()
-        }}>
+>
         <VictoryLine
           style={{
             data: {

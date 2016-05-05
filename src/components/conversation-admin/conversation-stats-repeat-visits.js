@@ -10,7 +10,7 @@ import {VictoryAxis} from "victory-axis";
 
 // @connect(state => state.stats)
 @Radium
-class VotesDistribution extends React.Component {
+class RepeatVisits extends React.Component {
   static propTypes = {
     dispatch: React.PropTypes.func,
     params: React.PropTypes.object,
@@ -23,56 +23,63 @@ class VotesDistribution extends React.Component {
       <VictoryChart
         width={this.props.chartWidth}
         height={this.props.chartHeight}
-        
-        domainPadding={{x: 30, y: 30}}>
+        domainPadding={{x: 40, y: 40}}>
         <VictoryAxis
-          tickCount={20}
-          label="Votes"
+          label="Visits"
+          tickCount={this.props.data.burstHistogram.length}
           style={{
               axis: {
-                stroke: "black",
+                stroke: "rgba(240,240,240,1)",
                 strokeWidth: 1
               },
               ticks: {
                 stroke: "transparent"
               },
               tickLabels: {
-                fill: "black"
+                fill: "rgba(130,130,130,1)"
               }
           }}/>
         <VictoryAxis
           label="Participant count"
           orientation={"left"}
+          tickCount={20}
           dependentAxis
           style={{
               axis: {
-                stroke: "black",
+                stroke: "transparent",
+                strokeWidth: 1
+              },
+              grid: {
+                stroke: "rgba(240,240,240,1)",
                 strokeWidth: 1
               },
               ticks: {
                 stroke: "transparent"
               },
               tickLabels: {
-                fill: "black"
+                fill: "rgba(130,130,130,1)"
               }
           }}/>
         <VictoryBar
           style={{
             data: {
-              fill: "cornflowerblue",
-              width: 1
+              fill: "red",
+              width: 6,
             }
           }}
-          data={this.props.data.votesHistogram.map((d) => {
+          data={this.props.data.burstHistogram.map((d,i) => {
+            if (i !== 0) {
             return {
-              x: d.n_ptpts,
-              y: d.n_votes
+              x: d.n_bursts,
+              y: d.n_ptpts
             };
-          })}
+          } else { return {x: 1, y: 0} }
+          })
+          }
           />
       </VictoryChart>
     )
   }
 }
 
-export default VotesDistribution;
+export default RepeatVisits;
