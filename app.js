@@ -413,6 +413,7 @@ app.get("/api/v3/conversationStats",
   moveToBody,
   auth(assignToP),
   need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+  want('until', getInt, assignToP),
   handle_GET_conversationStats);
 
 app.get("/snapshot",
