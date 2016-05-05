@@ -1483,14 +1483,15 @@ const conversationStatsFetchError = (err) => {
   }
 }
 
-const fetchConversationStats = (conversation_id) => {
-  return $.get("/api/v3/conversationStats?conversation_id=" + conversation_id);
+const fetchConversationStats = (conversation_id, until) => {
+  console.log("calling", conversation_id, until);
+  return $.get("/api/v3/conversationStats?conversation_id=" + conversation_id + (until ? "&until="+until : ""));
 }
 
-export const populateConversationStatsStore = (conversation_id) => {
+export const populateConversationStatsStore = (conversation_id, until) => {
   return (dispatch) => {
     dispatch(requestConversationStats())
-    return fetchConversationStats(conversation_id).then(
+    return fetchConversationStats(conversation_id, until).then(
       res => dispatch(receiveConversationStats(res)),
       err => dispatch(conversationStatsFetchError(err))
     )

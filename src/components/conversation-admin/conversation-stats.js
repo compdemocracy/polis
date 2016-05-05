@@ -1,3 +1,5 @@
+import Button from "../framework/generic-button";
+import dateSetupUtil from "../../util/data-export-date-setup";
 import React from "react";
 import {connect} from "react-redux";
 import Radium from "radium";
@@ -28,9 +30,8 @@ const style = {
 class ConversationStats extends React.Component {
   constructor(props) {
     super(props);
-    this.state = {
-
-    };
+    var times = dateSetupUtil();
+    this.state = Object.assign({},times);
   }
   static propTypes = {
     dispatch: React.PropTypes.func,
@@ -43,9 +44,24 @@ class ConversationStats extends React.Component {
       color: "white"
     }
   }
+  handleUntilButtonClicked() {
+    const year = this.refs.exportSelectYear.value;
+    const month = this.refs.exportSelectMonth.value;
+    const dayOfMonth = this.refs.exportSelectDay.value;
+    const tz = this.refs.exportSelectHour.value;
+    const dateString = [month, dayOfMonth, year, tz].join(" ");
+    const dddate = new Date(dateString);
+    const until = Number(dddate);
+    this.setState({
+      until: until,
+    }, function() {
+      this.loadStats();
+    });
+  }
   loadStats() {
+    var until = this.state.until;
     this.props.dispatch(
-      populateConversationStatsStore(this.props.params.conversation_id)
+      populateConversationStatsStore(this.props.params.conversation_id, until)
     );
   }
   componentWillMount() {
@@ -122,6 +138,79 @@ class ConversationStats extends React.Component {
             </div>
           </Flex>
         </Flex>
+
+        <select
+            style={{
+              marginRight: 10,
+              cursor: "pointer",
+              fontSize: 16,
+            }}
+            ref="exportSelectYear">
+            {
+              this.state.years.map((year, i) => {
+                return (
+                  <option selected={year.selected} key={i} value={year.name}> {year.name} </option>
+                )
+              })
+            }
+          </select>
+          <select
+            style={{
+              marginRight: 10,
+              cursor: "pointer",
+              fontSize: 16,
+
+            }}
+            ref="exportSelectMonth">
+            {
+              this.state.months.map((month, i)=>{
+                return (
+                  <option selected={month.selected} key={i} value={month.name}> {month.name} </option>
+                )
+              })
+            }
+          </select>
+          <select
+            style={{
+              marginRight: 10,
+              cursor: "pointer",
+              fontSize: 16,
+
+            }}
+            ref="exportSelectDay">
+            {
+              this.state.days.map((day, i)=>{
+                return (
+                  <option selected={day.selected} key={i} value={day.name}> {day.name} </option>
+                );
+              })
+            }
+          </select>
+          <select
+            style={{
+              marginRight: 10,
+              cursor: "pointer",
+              fontSize: 16,
+            }}
+            ref="exportSelectHour">
+            {
+              this.state.tzs.map((tz, i) => {
+                return (
+                  <option selected={tz.selected} key={i} value={tz.name}> {tz.name} </option>
+                );
+              })
+            }
+          </select>
+          <Button
+            style={{
+              backgroundColor: "#03a9f4",
+              color: "white",
+              marginTop: 20,
+            }}
+            onClick={this.handleUntilButtonClicked.bind(this)}
+            >
+            Set Until
+          </Button>
       </div>
     );
   }
