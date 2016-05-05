@@ -29,7 +29,6 @@ heroku addons:create --app=polisapp heroku-postgresql:standard-0 --follow HEROKU
 
 var akismetLib = require('akismet'),
     badwords = require('badwords/object'),
-    core = require('./core'),
     Promise = require('bluebird'),
     dgram = require('dgram'),
     http = require('http'),
