@@ -49,6 +49,7 @@ class ConversationStats extends React.Component {
     );
   }
   componentWillMount() {
+    this.loadStats();
     this.getStatsRepeatedly = setInterval(()=>{
       this.loadStats();
     }, 10000);
