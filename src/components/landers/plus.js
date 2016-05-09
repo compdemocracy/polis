@@ -111,7 +111,7 @@ class Plus extends React.Component {
           grow="1"
           styleOverrides={this.styles().sectionColor}>
             <p style={this.styles().hero}>
-              { "What does your crowd think?" }
+              { "Crowd Intelligence" }
             </p>
             <p style={this.styles().heroSub}>
               Meet pol.is: an AI powered sentiment gathering platform.
