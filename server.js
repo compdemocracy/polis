@@ -5336,7 +5336,6 @@ function handle_GET_facebook_delete(req, res) {
 
 function getFriends(fb_access_token) {
   function getMoreFriends(friendsSoFar, urlForNextCall) {
-    console.log("getMoreFriends");
     // urlForNextCall includes access token
     return request.get(urlForNextCall).then(function(response) {
       var len = response.data.length;
@@ -5359,7 +5358,6 @@ function getFriends(fb_access_token) {
   return new Promise(function(resolve, reject) {
     FB.setAccessToken(fb_access_token);
     FB.api('/me/friends', function(response) {
-      console.log("/me/friends returned");
       if (response && !response.error) {
         var friendsSoFar = response.data;
         if (response.data.length && response.paging.next) {
