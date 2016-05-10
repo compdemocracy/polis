@@ -24,6 +24,7 @@
     "bluebird": "^2.9.34",
     "connect-timeout": "^1.7.0",
     "express": "~3.21.2",
+    "fb": "1.0.2",
     "gulp": "~3.8.6",
     "gulp-eslint": "^0.15.0",
     "http-proxy": "~0.10.3",

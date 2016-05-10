@@ -41,6 +41,7 @@ var akismetLib = require('akismet'),
     parsePgConnectionString = require('pg-connection-string').parse,
     mongo = require('mongodb'),
     async = require('async'),
+    FB = require('fb'),
     fs = require('fs'),
     url = require('url'),
     path = require('path'),
@@ -4896,14 +4897,15 @@ function createFacebookUserRecord(o) {
     ]);
 }
 function updateFacebookUserRecord(o) {
-    var profileInfo = JSON.parse(o.fb_public_profile);
+    var profileInfo = o.fb_public_profile;
+    var fb_public_profile_string = JSON.stringify(o.fb_public_profile);
     // Create facebook user record
     return pgQueryP("update facebook_users set fb_user_id=($2), fb_name=($3), fb_link=($4), fb_public_profile=($5), fb_login_status=($6), fb_access_token=($7), fb_granted_scopes=($8), fb_location_id=($9), location=($10), fb_friends_response=($11), response=($12) where uid = ($1);", [
         o.uid,
         o.fb_user_id,
         profileInfo.name,
         profileInfo.link,
-        o.fb_public_profile,
+        fb_public_profile_string,
         o.fb_login_status,
         // o.fb_auth_response,
         o.fb_access_token,
@@ -5328,27 +5330,130 @@ function handle_GET_facebook_delete(req, res) {
 }
 
 
+function getFriends(fb_access_token) {
+  function getMoreFriends(friendsSoFar, urlForNextCall) {
+    console.log("getMoreFriends");
+    // urlForNextCall includes access token
+    return request.get(urlForNextCall).then(function(response) {
+      var len = response.data.length;
+      if (len) {
+        for (var i = 0; i < len; i++) {
+          friendsSoFar.push(response.data[i]);
+        }
+        if (response.paging.next) {
+          return getMoreFriends(friendsSoFar, response.paging.next);
+        }
+        return friendsSoFar;
+      } else {
+        return friendsSoFar;
+      }
+    }, function(err) {
+      emailBadProblemTime("getMoreFriends failed");
+      return friendsSoFar;
+    });
+  }
+  return new Promise(function(resolve, reject) {
+    FB.setAccessToken(fb_access_token);
+    FB.api('/me/friends', function(response) {
+      console.log("/me/friends returned");
+      if (response && !response.error) {
+        var friendsSoFar = response.data;
+        if (response.data.length && response.paging.next) {
+          getMoreFriends(friendsSoFar, response.paging.next).then(
+            resolve,
+            reject);
+        } else {
+          resolve(friendsSoFar || []);
+        }
+      } else {
+        reject(response);
+      }
+    });
+  });
+} // end getFriends
+
+function getLocationInfo(fb_access_token, location) {
+  return new Promise(function(resolve, reject) {
+    if (location && location.id) {
+      FB.setAccessToken(fb_access_token);
+      FB.api('/' + location.id, function(locationResponse) {
+        resolve(locationResponse);
+      });
+    } else {
+      resolve({});
+    }
+  });
+}
+
+
 function handle_POST_auth_facebook(req, res) {
+  var response = JSON.parse(req.p.response);
+  var fb_access_token = response.authResponse.accessToken;
+  var fields = [
+    'email',
+    'first_name',
+    'friends',
+    'gender',
+    'id',
+    'is_verified',
+    'last_name',
+    'link',
+    'locale',
+    'location',
+    'name',
+    'timezone',
+    'updated_time',
+    'verified',
+  ];
+
+  FB.setAccessToken(fb_access_token);
+  FB.api('me', { fields: fields }, function (fbRes) {
+    if(!fbRes || fbRes.error) {
+      fail(res, 500, "polis_err_fb_auth_check", fbRes && fbRes.error);
+      return;
+    }
+    Promise.all([
+      getLocationInfo(fb_access_token, fbRes.location),
+      (fbRes.friends.length ? getFriends(fb_access_token) : Promise.resolve([])),
+    ]).then(function(a) {
+      var locationResponse = a[0];
+      var friends = a[1];
+
+      if (locationResponse) {
+        req.p.locationInfo = locationResponse;
+      }
+      if (friends) {
+        req.p.fb_friends_response = JSON.stringify(friends);
+      }
+      response.locationInfo = locationResponse;
+      do_handle_POST_auth_facebook(req, res, {
+        locationInfo: locationResponse,
+        friends: friends,
+        info: _.pick(fbRes, fields),
+      });
+    });
+  });
+}
+
+
+function do_handle_POST_auth_facebook(req, res, o) {
 
     // If a pol.is user record exists, and someone logs in with a facebook account that has the same email address, we should bind that facebook account to the pol.is account, and let the user sign in.
     var TRUST_FB_TO_VALIDATE_EMAIL = false;
-
+    var email = o.info.email;
+    var hname = o.info.name;
+    var fb_friends_response = o.friends;
+    var fb_user_id = o.info.id;
     var response = JSON.parse(req.p.response);
-    var fb_public_profile = req.p.fb_public_profile;
-    var fb_user_id = response.authResponse.userID;
+    var fb_public_profile = o.info;
     var fb_login_status = response.status;
     // var fb_auth_response = response.authResponse.
     var fb_access_token = response.authResponse.accessToken;
-    var fb_email = req.p.fb_email;
-    var provided_email = req.p.provided_email;
-    var email = fb_email || provided_email;
+
     var existingUid = req.p.existingUid;
-    var hname = req.p.hname;
     var referrer = req.cookies[COOKIES.REFERRER];
     var password = req.p.password;
     var uid = req.p.uid;
-
-    var fb_friends_response = req.p.fb_friends_response ? JSON.parse(req.p.fb_friends_response) : null;
 
     var shouldAddToIntercom = req.p.owner;
     if (req.p.conversation_id) {
