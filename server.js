@@ -5494,6 +5494,13 @@ function do_handle_POST_auth_facebook(req, res, o) {
       "   or facebook_users.fb_user_id = ($2) " +
       ";", [email, fb_user_id]).then(function(rows) {
         var user = rows && rows.length && rows[0] || null;
+        if (rows && rows.length > 1) {
+          // the auth provided us with email and fb_user_id where the email is one polis uesr, and the fb_user_id is for another.
+          // go with the fb_user_id in this case, and leave the email matching account alone.
+          user = _.find(rows, function(row) {
+            return row.fb_user_id === fb_user_id;
+          });
+        }
         if (user) {
             if (user.fb_user_id) {
                 // user has FB account linked
