@@ -985,9 +985,13 @@ function emitTheFailure(res, httpCode, extraErrorCodeForLogs, clientVisibleError
     res.end(clientVisibleErrorString);
 }
 
+function isEmail(s) {
+  return typeof s !== "string" || s.length > 999 || -1 === s.indexOf("@");
+}
+
 function getEmail(s) {
     return new Promise(function(resolve, reject) {
-        if (typeof s !== "string" || s.length > 999 || -1 === s.indexOf("@")) {
+        if (!isEmail(s)) {
             return reject("polis_fail_parse_email");
         }
         resolve(s);
