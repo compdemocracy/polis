@@ -5441,7 +5441,7 @@ function handle_POST_auth_facebook(req, res) {
 function do_handle_POST_auth_facebook(req, res, o) {
 
     // If a pol.is user record exists, and someone logs in with a facebook account that has the same email address, we should bind that facebook account to the pol.is account, and let the user sign in.
-    var TRUST_FB_TO_VALIDATE_EMAIL = false;
+    var TRUST_FB_TO_VALIDATE_EMAIL = true;
     var email = o.info.email;
     var hname = o.info.name;
     var fb_friends_response = o.friends;
@@ -5451,11 +5451,23 @@ function do_handle_POST_auth_facebook(req, res, o) {
     var fb_login_status = response.status;
     // var fb_auth_response = response.authResponse.
     var fb_access_token = response.authResponse.accessToken;
+    var verified = o.info.verified;
 
     var existingUid = req.p.existingUid;
     var referrer = req.cookies[COOKIES.REFERRER];
     var password = req.p.password;
     var uid = req.p.uid;
+
+    if (!verified) {
+      if (email) {
+        doSendEinvite(req, email);
+        res.status(403).send("polis_err_reg_fb_verification_email_sent");
+        return;
+      } else {
+        res.status(403).send("polis_err_reg_fb_verification_noemail_unverified");
+        return;
+      }
+    }
 
     var shouldAddToIntercom = req.p.owner;
     if (req.p.conversation_id) {
@@ -10492,14 +10504,19 @@ function handle_GET_twitter_users(req, res) {
     });
 }
 
+function doSendEinvite(req, email) {
+  return generateTokenP(30, false).then(function(einvite) {
+    return pgQueryP("insert into einvites (email, einvite) values ($1, $2);", [email, einvite]).then(function(rows) {
+      return sendEinviteEmail(req, email, einvite);
+    });
+  });
+}
+
+
 function handle_POST_einvites(req, res) {
     var email = req.p.email;
-    generateTokenP(30, false).then(function(einvite) {
-        return pgQueryP("insert into einvites (email, einvite) values ($1, $2);", [email, einvite]).then(function(rows) {
-            return sendEinviteEmail(req, email, einvite).then(function() {
-                res.status(200).json({});
-            });
-        });
+    doSendEinvite(req, email).then(function() {
+        res.status(200).json({});
     }).catch(function(err) {
         fail(res, 500, "polis_err_sending_einvite", err);
     });
