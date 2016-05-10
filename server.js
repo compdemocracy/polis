@@ -4900,7 +4900,7 @@ function updateFacebookUserRecord(o) {
     var profileInfo = o.fb_public_profile;
     var fb_public_profile_string = JSON.stringify(o.fb_public_profile);
     // Create facebook user record
-    return pgQueryP("update facebook_users set fb_user_id=($2), fb_name=($3), fb_link=($4), fb_public_profile=($5), fb_login_status=($6), fb_access_token=($7), fb_granted_scopes=($8), fb_location_id=($9), location=($10), fb_friends_response=($11), response=($12) where uid = ($1);", [
+    return pgQueryP("update facebook_users set modified=now_as_millis(), fb_user_id=($2), fb_name=($3), fb_link=($4), fb_public_profile=($5), fb_login_status=($6), fb_access_token=($7), fb_granted_scopes=($8), fb_location_id=($9), location=($10), fb_friends_response=($11), response=($12) where uid = ($1);", [
         o.uid,
         o.fb_user_id,
         profileInfo.name,

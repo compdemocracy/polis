@@ -422,6 +422,7 @@ CREATE TABLE facebook_users (
     response TEXT,
     fb_friends_response TEXT,
     created BIGINT DEFAULT now_as_millis(),
+    modified BIGINT DEFAULT now_as_millis(),
     UNIQUE(uid),
     UNIQUE(fb_user_id)
 );
