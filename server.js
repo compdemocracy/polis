@@ -5324,7 +5324,6 @@ function handle_GET_snapshot(req, res) {
 }
 
 
-
 function handle_GET_facebook_delete(req, res) {
     deleteFacebookUserRecord(req.p).then(function() {
         res.json({});
@@ -5490,7 +5489,10 @@ function do_handle_POST_auth_facebook(req, res, o) {
     // if signed in:
     //  why are we showing them the button then? we should probably just start a new session.
 
-    pgQueryP("select users.*, facebook_users.fb_user_id from users left join facebook_users on users.uid = facebook_users.uid where users.email = ($1);", [email]).then(function(rows) {
+    pgQueryP("select users.*, facebook_users.fb_user_id from users left join facebook_users on users.uid = facebook_users.uid " +
+      "where users.email = ($1) " +
+      "   or facebook_users.fb_user_id = ($2) " +
+      ";", [email, fb_user_id]).then(function(rows) {
         var user = rows && rows.length && rows[0] || null;
         if (user) {
             if (user.fb_user_id) {
