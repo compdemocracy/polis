@@ -3867,6 +3867,12 @@ function sendVerificaionEmail(req, email, einvite) {
     body);
 }
 
+function isEmailVerified(email) {
+  return pgQueryP("select * from email_validations where email = ($1);", [email]).then(function(rows) {
+    return rows.length > 0;
+  });
+}
+
 function handle_GET_verification(req, res) {
   var einvite = req.p.e;
   pgQueryP("select * from einvites where einvite = ($1);", [einvite]).then(function(rows) {
@@ -3874,7 +3880,12 @@ function handle_GET_verification(req, res) {
       fail(res, 500, "polis_err_verification_missing");
     }
     var email = rows[0].email;
-    return pgQueryP("insert into email_validations (email) values ($1);", [email]);
+    return pgQueryP("select email from email_validations where email = ($1);", [email]).then(function(rows) {
+      if (rows && rows.length > 0) {
+        return true;
+      }
+      return pgQueryP("insert into email_validations (email) values ($1);", [email]);
+    });
   }).then(function() {
     res.set('Content-Type', 'text/html');
     res.send(
@@ -3884,7 +3895,7 @@ function handle_GET_verification(req, res) {
         "</div>" +
       "</body></html>");
   }).catch(function(err) {
-    fail(res, 500, "polis_err_verification_misc", err);
+    fail(res, 500, "polis_err_verification", err);
   });
 }
 
@@ -5494,17 +5505,6 @@ function do_handle_POST_auth_facebook(req, res, o) {
   console.log("fb_data"); // TODO_REMOVE
   console.dir(o); // TODO_REMOVE
 
-  // if (!verified) {
-    if (email) {
-      doSendVerification(req, email);
-      res.status(403).send("polis_err_reg_fb_verification_email_sent");
-      return;
-    } else {
-      res.status(403).send("polis_err_reg_fb_verification_noemail_unverified");
-      return;
-    }
-  // }
-
   var shouldAddToIntercom = req.p.owner;
   if (req.p.conversation_id) {
     // TODO needed now that we have "owner" param?
@@ -5718,31 +5718,57 @@ function do_handle_POST_auth_facebook(req, res, o) {
     });
   } // end doFbNoUserExistsYet
 
-  pgQueryP("select users.*, facebook_users.fb_user_id from users left join facebook_users on users.uid = facebook_users.uid " +
-    "where users.email = ($1) " +
-    "   or facebook_users.fb_user_id = ($2) " +
-    ";", [email, fb_user_id]).then(function(rows) {
-      var user = rows && rows.length && rows[0] || null;
-      if (rows && rows.length > 1) {
-        // the auth provided us with email and fb_user_id where the email is one polis user, and the fb_user_id is for another.
-        // go with the one matching the fb_user_id in this case, and leave the email matching account alone.
-        user = _.find(rows, function(row) {
-          return row.fb_user_id === fb_user_id;
-        });
-      }
-      if (user) {
-        if (user.fb_user_id) {
-          doFbUserHasAccountLinked(user);
-        } else {
-          doFbNotLinkedButUserWithEmailExists(user);
-        }
+  var emailVerifiedPromise = Promise.resolve(true);
+  if (!verified) {
+    if (email) {
+      emailVerifiedPromise = isEmailVerified(email);
+    } else {
+      emailVerifiedPromise = Promise.resolve(false);
+    }
+  }
+
+  Promise.all([
+    emailVerifiedPromise,
+  ]).then(function(a) {
+    var isVerifiedByPolisOrFacebook = a[0];
+
+    if (!isVerifiedByPolisOrFacebook) {
+      if (email) {
+        doSendVerification(req, email);
+        res.status(403).send("polis_err_reg_fb_verification_email_sent");
+        return;
       } else {
-        doFbNoUserExistsYet(user);
+        res.status(403).send("polis_err_reg_fb_verification_noemail_unverified");
+        return;
       }
-  }, function(err) {
-    fail(res, 500, "polis_err_reg_fb_user_looking_up_email", err);
-  }).catch(function(err) {
-    fail(res, 500, "polis_err_reg_fb_user_misc", err);
+    }
+
+    pgQueryP("select users.*, facebook_users.fb_user_id from users left join facebook_users on users.uid = facebook_users.uid " +
+      "where users.email = ($1) " +
+      "   or facebook_users.fb_user_id = ($2) " +
+      ";", [email, fb_user_id]).then(function(rows) {
+        var user = rows && rows.length && rows[0] || null;
+        if (rows && rows.length > 1) {
+          // the auth provided us with email and fb_user_id where the email is one polis user, and the fb_user_id is for another.
+          // go with the one matching the fb_user_id in this case, and leave the email matching account alone.
+          user = _.find(rows, function(row) {
+            return row.fb_user_id === fb_user_id;
+          });
+        }
+        if (user) {
+          if (user.fb_user_id) {
+            doFbUserHasAccountLinked(user);
+          } else {
+            doFbNotLinkedButUserWithEmailExists(user);
+          }
+        } else {
+          doFbNoUserExistsYet(user);
+        }
+    }, function(err) {
+      fail(res, 500, "polis_err_reg_fb_user_looking_up_email", err);
+    }).catch(function(err) {
+      fail(res, 500, "polis_err_reg_fb_user_misc", err);
+    });
   });
 } // end do_handle_POST_auth_facebook
 
