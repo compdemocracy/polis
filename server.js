@@ -3852,7 +3852,41 @@ function sendEinviteEmail(req, email, einvite) {
         body);
 }
 
+function sendVerificaionEmail(req, email, einvite) {
+  var serverName = getServerNameWithProtocol(req);
+  var body = "" +
+    "Welcome to pol.is!\n" +
+    "\n" +
+    "Click this link to verify your email address:\n" +
+    "\n" +
+    serverName + "/api/v3/verify?e=" + einvite + "\n";
+  return sendTextEmail(
+    POLIS_FROM_ADDRESS,
+    email,
+    "Polis verification",
+    body);
+}
 
+function handle_GET_verification(req, res) {
+  var einvite = req.p.e;
+  pgQueryP("select * from einvites where einvite = ($1);", [einvite]).then(function(rows) {
+    if (!rows.length) {
+      fail(res, 500, "polis_err_verification_missing");
+    }
+    var email = rows[0].email;
+    return pgQueryP("insert into email_validations (email) values ($1);", [email]);
+  }).then(function() {
+    res.set('Content-Type', 'text/html');
+    res.send(
+      "<html><body>" +
+        "<div style='font-family: Futura, Helvetica, sans-serif;'>" +
+          "Email verified! You can close this tab or hit the back button." +
+        "</div>" +
+      "</body></html>");
+  }).catch(function(err) {
+    fail(res, 500, "polis_err_verification_misc", err);
+  });
+}
 
 function paramsToStringSortedByName(params) {
     var pairs = _.pairs(params).sort(function(a, b) { return a[0] > b[0]; });
@@ -5462,7 +5496,7 @@ function do_handle_POST_auth_facebook(req, res, o) {
 
   // if (!verified) {
     if (email) {
-      doSendEinvite(req, email);
+      doSendVerification(req, email);
       res.status(403).send("polis_err_reg_fb_verification_email_sent");
       return;
     } else {
@@ -10514,7 +10548,13 @@ function doSendEinvite(req, email) {
     });
   });
 }
-
+function doSendVerification(req, email) {
+  return generateTokenP(30, false).then(function(einvite) {
+    return pgQueryP("insert into einvites (email, einvite) values ($1, $2);", [email, einvite]).then(function(rows) {
+      return sendVerificaionEmail(req, email, einvite);
+    });
+  });
+}
 
 function handle_POST_einvites(req, res) {
     var email = req.p.email;
@@ -12496,6 +12536,7 @@ return {
   handle_GET_twitter_users: handle_GET_twitter_users,
   handle_GET_twitterBtn: handle_GET_twitterBtn,
   handle_GET_users: handle_GET_users,
+  handle_GET_verification: handle_GET_verification,
   handle_GET_votes: handle_GET_votes,
   handle_GET_votes_famous: handle_GET_votes_famous,
   handle_GET_votes_me: handle_GET_votes_me,
