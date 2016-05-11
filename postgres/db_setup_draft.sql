@@ -298,6 +298,11 @@ CREATE TABLE einvites (
     UNIQUE (einvite)
 );
 
+CREATE TABLE email_validations (
+    email VARCHAR(999),
+    created BIGINT DEFAULT now_as_millis(),
+    UNIQUE (email)
+);
 
 --  invite codes for converationZ
 CREATE TABLE zinvites (

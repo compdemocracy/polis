@@ -122,6 +122,7 @@ server.init().then(function(o) {
   var handle_GET_twitter_users = o.handle_GET_twitter_users;
   var handle_GET_twitterBtn = o.handle_GET_twitterBtn;
   var handle_GET_users = o.handle_GET_users;
+  var handle_GET_verification = o.handle_GET_verification;
   var handle_GET_votes = o.handle_GET_votes;
   var handle_GET_votes_famous = o.handle_GET_votes_famous;
   var handle_GET_votes_me = o.handle_GET_votes_me;
@@ -1071,6 +1072,11 @@ app.get("/api/v3/tryCookie",
   moveToBody,
   handle_GET_tryCookie);
 
+app.get("/api/v3/verify",
+  moveToBody,
+  need("e", getStringLimitLength(1, 1000), assignToP),
+  handle_GET_verification);
+
 // app.get("/api/v3/setFirstCookie",
 //     moveToBody,
 //     handle_GET_setFirstCookie);
@@ -1103,6 +1109,8 @@ app.get(/^\/conversation\/create(\/.*)?/, fetchIndexWithoutPreloadData);
 app.get(/^\/user\/create(\/.*)?$/, fetchIndexWithoutPreloadData);
 app.get(/^\/user\/login(\/.*)?$/, fetchIndexWithoutPreloadData);
 app.get(/^\/welcome\/.*$/, fetchIndexWithoutPreloadData);
+
+
 app.get(/^\/settings(\/.*)?$/, fetchIndexWithoutPreloadData);
 app.get(/^\/user\/logout(\/.*)?$/, fetchIndexWithoutPreloadData);
 
