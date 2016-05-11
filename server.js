@@ -5460,7 +5460,7 @@ function do_handle_POST_auth_facebook(req, res, o) {
   console.log("fb_data"); // TODO_REMOVE
   console.dir(o); // TODO_REMOVE
 
-  if (!verified) {
+  // if (!verified) {
     if (email) {
       doSendEinvite(req, email);
       res.status(403).send("polis_err_reg_fb_verification_email_sent");
@@ -5469,7 +5469,7 @@ function do_handle_POST_auth_facebook(req, res, o) {
       res.status(403).send("polis_err_reg_fb_verification_noemail_unverified");
       return;
     }
-  }
+  // }
 
   var shouldAddToIntercom = req.p.owner;
   if (req.p.conversation_id) {
