@@ -5457,6 +5457,9 @@ function do_handle_POST_auth_facebook(req, res, o) {
   var password = req.p.password;
   var uid = req.p.uid;
 
+  console.log("fb_data"); // TODO_REMOVE
+  console.dir(o); // TODO_REMOVE
+
   if (!verified) {
     if (email) {
       doSendEinvite(req, email);
