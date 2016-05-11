@@ -5439,284 +5439,275 @@ function handle_POST_auth_facebook(req, res) {
 
 function do_handle_POST_auth_facebook(req, res, o) {
 
-    // If a pol.is user record exists, and someone logs in with a facebook account that has the same email address, we should bind that facebook account to the pol.is account, and let the user sign in.
-    var TRUST_FB_TO_VALIDATE_EMAIL = true;
-    var email = o.info.email;
-    var hname = o.info.name;
-    var fb_friends_response = o.friends;
-    var fb_user_id = o.info.id;
-    var response = JSON.parse(req.p.response);
-    var fb_public_profile = o.info;
-    var fb_login_status = response.status;
-    // var fb_auth_response = response.authResponse.
-    var fb_access_token = response.authResponse.accessToken;
-    var verified = o.info.verified;
+  // If a pol.is user record exists, and someone logs in with a facebook account that has the same email address, we should bind that facebook account to the pol.is account, and let the user sign in.
+  var TRUST_FB_TO_VALIDATE_EMAIL = true;
+  var email = o.info.email;
+  var hname = o.info.name;
+  var fb_friends_response = o.friends;
+  var fb_user_id = o.info.id;
+  var response = JSON.parse(req.p.response);
+  var fb_public_profile = o.info;
+  var fb_login_status = response.status;
+  // var fb_auth_response = response.authResponse.
+  var fb_access_token = response.authResponse.accessToken;
+  var verified = o.info.verified;
 
-    var existingUid = req.p.existingUid;
-    var referrer = req.cookies[COOKIES.REFERRER];
-    var password = req.p.password;
-    var uid = req.p.uid;
+  var existingUid = req.p.existingUid;
+  var referrer = req.cookies[COOKIES.REFERRER];
+  var password = req.p.password;
+  var uid = req.p.uid;
 
-    if (!verified) {
-      if (email) {
-        doSendEinvite(req, email);
-        res.status(403).send("polis_err_reg_fb_verification_email_sent");
-        return;
-      } else {
-        res.status(403).send("polis_err_reg_fb_verification_noemail_unverified");
-        return;
-      }
+  if (!verified) {
+    if (email) {
+      doSendEinvite(req, email);
+      res.status(403).send("polis_err_reg_fb_verification_email_sent");
+      return;
+    } else {
+      res.status(403).send("polis_err_reg_fb_verification_noemail_unverified");
+      return;
     }
+  }
 
-    var shouldAddToIntercom = req.p.owner;
-    if (req.p.conversation_id) {
-        // TODO needed now that we have "owner" param?
-        shouldAddToIntercom = false;
-    }
+  var shouldAddToIntercom = req.p.owner;
+  if (req.p.conversation_id) {
+    // TODO needed now that we have "owner" param?
+    shouldAddToIntercom = false;
+  }
 
-    var fbUserRecord = {
-        // uid provided later
-        fb_user_id: fb_user_id,
-        fb_public_profile: fb_public_profile,
-        fb_login_status: fb_login_status,
-        // fb_auth_response: fb_auth_response,
-        fb_access_token: fb_access_token,
-        fb_granted_scopes: req.p.fb_granted_scopes,
-        fb_friends_response: req.p.fb_friends_response || "",
-        response: req.p.response,
-    };
-
-    // if signed in:
-    //  why are we showing them the button then? we should probably just start a new session.
-
-    pgQueryP("select users.*, facebook_users.fb_user_id from users left join facebook_users on users.uid = facebook_users.uid " +
-      "where users.email = ($1) " +
-      "   or facebook_users.fb_user_id = ($2) " +
-      ";", [email, fb_user_id]).then(function(rows) {
-        var user = rows && rows.length && rows[0] || null;
-        if (rows && rows.length > 1) {
-          // the auth provided us with email and fb_user_id where the email is one polis uesr, and the fb_user_id is for another.
-          // go with the fb_user_id in this case, and leave the email matching account alone.
-          user = _.find(rows, function(row) {
-            return row.fb_user_id === fb_user_id;
-          });
-        }
-        if (user) {
-            if (user.fb_user_id) {
-                // user has FB account linked
-                if (user.fb_user_id === fb_user_id) {
-
-                    updateFacebookUserRecord(_.extend({}, {
-                        uid: user.uid
-                    }, fbUserRecord)).then(function() {
-                        var friendsAddedPromise = fb_friends_response ? addFacebookFriends(user.uid, fb_friends_response) : Promise.resolve();
-                        return friendsAddedPromise.then(function() {
-                            startSessionAndAddCookies(req, res, user.uid)
-                            .then(function() {
-                                res.json({
-                                    uid: user.uid,
-                                    hname: user.hname,
-                                    email: user.email,
-                                    // token: token
-                                });
-                            }).catch(function(err) {
-                                fail(res, 500, "polis_err_reg_fb_start_session2", err);
-                            });
-                        }, function(err) {
-                            fail(res, 500, "polis_err_linking_fb_friends2", err);
-                        });
-                    }, function(err) {
-                        fail(res, 500, "polis_err_updating_fb_info", err);
-                    }).catch(function(err) {
-                        fail(res, 500, "polis_err_fb_auth_misc", err);
-                    });
-                } else {
-                    // the user with that email has a different FB account attached
-                    // ruh roh..  probably rare
-                    fail(res, 500, "polis_err_reg_fb_user_exists_with_different_account");
-                    emailBadProblemTime("facebook auth where user exists with different facebook account " + user.uid);
-                }
-            } else {
-                // user for this email exists, but does not have FB account linked.
-                    // user will be prompted for their password, and client will repeat the call with password
-                        // fail(res, 409, "polis_err_reg_user_exits_with_email_but_has_no_facebook_linked")
-                if (!TRUST_FB_TO_VALIDATE_EMAIL && !password) {
-                    fail(res, 403, "polis_err_user_with_this_email_exists " + email);
-                } else {
-                    var pwPromise = TRUST_FB_TO_VALIDATE_EMAIL ? Promise.resolve(true) : checkPassword(user.uid, password||"");
-                    pwPromise.then(function(ok) {
-                        if (ok) {
-                            createFacebookUserRecord(_.extend({}, {
-                                uid: user.uid
-                            }, fbUserRecord)).then(function() {
-                                var friendsAddedPromise = fb_friends_response ? addFacebookFriends(user.uid, fb_friends_response) : Promise.resolve();
-                                return friendsAddedPromise.then(function() {
-                                    return startSessionAndAddCookies(req, res, user.uid).then(function() {
-                                        return user;
-                                    });
-                                }, function(err) {
-                                    fail(res, 500, "polis_err_linking_fb_friends", err);
-                                })
-                                .then(function(user) {
-                                    res.status(200).json({
-                                        uid: user.uid,
-                                        hname: user.hname,
-                                        email: user.email,
-                                        // token: token
-                                    });
-                                }, function(err) {
-                                    fail(res, 500, "polis_err_linking_fb_misc", err);
-                                });
-                            }, function(err) {
-                                fail(res, 500, "polis_err_linking_fb_to_existing_polis_account", err);
-                            }).catch(function(err) {
-                                fail(res, 500, "polis_err_linking_fb_to_existing_polis_account_misc", err);
-                            });
-                        } else {
-                            fail(res, 403, "polis_err_password_mismatch");
-                        }
-                    }, function(err) {
-                        fail(res, 500, "polis_err_password_check");
-                    });
-                }
-            }
-        } else {
-            // no polis user with that email exists yet.
-            // ok, so create a user with all the info we have and link to the fb info table
+  var fbUserRecord = {
+    // uid provided later
+    fb_user_id: fb_user_id,
+    fb_public_profile: fb_public_profile,
+    fb_login_status: fb_login_status,
+    // fb_auth_response: fb_auth_response,
+    fb_access_token: fb_access_token,
+    fb_granted_scopes: req.p.fb_granted_scopes,
+    fb_friends_response: req.p.fb_friends_response || "",
+    response: req.p.response,
+  };
 
 
-            var promise;
-            if (uid) {
-
-                winston.log("info","fb1 5a...");
-
-                // user record already exists, so populate that in case it has missing info
-                promise = Promise.all([
-                    pgQueryP("select * from users where uid = ($1);", [uid]),
-                    pgQueryP("update users set hname = ($2) where uid = ($1) and hname is NULL;",[uid, hname]),
-                    pgQueryP("update users set email = ($2) where uid = ($1) and email is NULL;",[uid, email]),
-                ]).then(function(o) {
-                    var user = o[0][0];
-                    winston.log("info","fb1 5a");
-                    winston.log("info",user);
-                    winston.log("info","end fb1 5a");
-                    return user;
-                });
-                winston.log("info","fb1 5a....");
-            } else {
-
-                winston.log("info","fb1 5b...");
-
-                var query = "insert into users " +
-                    "(email, hname) VALUES "+
-                    "($1, $2) "+
-                    "returning *;";
-                promise = pgQueryP(query, [email, hname])
-                .then(function(rows) {
-                    var user = rows && rows.length && rows[0] || null;
-                    winston.log("info","fb1 5b");
-                    winston.log("info",user);
-                    winston.log("info","end fb1 5b");
-                    return user;
-                });
-            }
-            // Create user record
-            promise
-            .then(function(user) {
-
-                winston.log("info","fb1 4");
-                winston.log("info",user);
-                winston.log("info","end fb1 4");
-                return createFacebookUserRecord(_.extend({}, user, fbUserRecord)).then(function() {
-                    return user;
-                });
-            })
-            .then(function(user) {
-                winston.log("info","fb1 3");
-                winston.log("info",user);
-                winston.log("info","end fb1 3");
-                if (fb_friends_response) {
-                    return addFacebookFriends(user.uid, fb_friends_response).then(function() {
-                        return user;
-                    });
-                } else {
-                    // no friends, or this user is first polis user among his/her friends.
-                    return user;
-                }
-            }, function(err) {
-                fail(res, 500, "polis_err_reg_fb_user_creating_record2", err);
-            })
-            .then(function(user) {
-                winston.log("info","fb1 2");
-                winston.log("info",user);
-                winston.log("info","end fb1 2");
-                var uid = user.uid;
-                return startSessionAndAddCookies(req, res, uid).then(function() {
-                    return user;
-                }, function(err) {
-                    fail(res, 500, "polis_err_reg_fb_user_creating_record3", err);
-                });
-            }, function(err) {
-                fail(res, 500, "polis_err_reg_fb_user_creating_record", err);
-            })
-            .then(function(user) {
-                winston.log("info","fb1");
-                winston.log("info",user);
-                winston.log("info","end fb1");
-                res.json({
-                    uid: user.uid,
-                    hname: user.hname,
-                    email: user.email,
-                    // token: token
-                });
-                if (shouldAddToIntercom) {
-                    var params = {
-                        "email" : user.email,
-                        "name" : user.hname,
-                        "user_id": user.uid,
-                    };
-                    var customData = {};
-                    if (referrer) {
-                        customData.referrer = referrer;
-                    }
-                    // if (organization) {
-                    //     customData.org = organization;
-                    // }
-                    customData.fb = true; // mark this user as a facebook auth user
-                    customData.uid = user.uid;
-                    if (_.keys(customData).length) {
-                        params.custom_data = customData;
-                    }
-                    intercom.createUser(params, function(err, res) {
-                        if (err) {
-                            winston.log("info",err);
-                            console.error("polis_err_intercom_create_user_fb_fail");
-                            winston.log("info",params);
-                            yell("polis_err_intercom_create_user_fb_fail");
-                            return;
-                        }
-                    });
-                }
-            }, function(err) {
-                fail(res, 500, "polis_err_reg_fb_user_misc22", err);
-            }).catch(function(err) {
-                fail(res, 500, "polis_err_reg_fb_user_misc2", err);
+  function doFbUserHasAccountLinked(user) {
+    if (user.fb_user_id === fb_user_id) {
+      updateFacebookUserRecord(_.extend({}, {
+        uid: user.uid
+      }, fbUserRecord)).then(function() {
+        var friendsAddedPromise = fb_friends_response ? addFacebookFriends(user.uid, fb_friends_response) : Promise.resolve();
+        return friendsAddedPromise.then(function() {
+          startSessionAndAddCookies(req, res, user.uid)
+          .then(function() {
+            res.json({
+              uid: user.uid,
+              hname: user.hname,
+              email: user.email,
+              // token: token
             });
+          }).catch(function(err) {
+            fail(res, 500, "polis_err_reg_fb_start_session2", err);
+          });
+        }, function(err) {
+          fail(res, 500, "polis_err_linking_fb_friends2", err);
+        });
+      }, function(err) {
+        fail(res, 500, "polis_err_updating_fb_info", err);
+      }).catch(function(err) {
+        fail(res, 500, "polis_err_fb_auth_misc", err);
+      });
+    } else {
+      // the user with that email has a different FB account attached
+      // ruh roh..  probably rare
+      fail(res, 500, "polis_err_reg_fb_user_exists_with_different_account");
+      emailBadProblemTime("facebook auth where user exists with different facebook account " + user.uid);
+    }
+  } // doFbUserHasAccountLinked
+
+  function doFbNotLinkedButUserWithEmailExists(user) {
+    // user for this email exists, but does not have FB account linked.
+    // user will be prompted for their password, and client will repeat the call with password
+    // fail(res, 409, "polis_err_reg_user_exits_with_email_but_has_no_facebook_linked")
+    if (!TRUST_FB_TO_VALIDATE_EMAIL && !password) {
+      fail(res, 403, "polis_err_user_with_this_email_exists " + email);
+    } else {
+      var pwPromise = TRUST_FB_TO_VALIDATE_EMAIL ? Promise.resolve(true) : checkPassword(user.uid, password||"");
+      pwPromise.then(function(ok) {
+        if (ok) {
+          createFacebookUserRecord(_.extend({}, {
+            uid: user.uid
+          }, fbUserRecord)).then(function() {
+            var friendsAddedPromise = fb_friends_response ? addFacebookFriends(user.uid, fb_friends_response) : Promise.resolve();
+            return friendsAddedPromise.then(function() {
+              return startSessionAndAddCookies(req, res, user.uid).then(function() {
+                return user;
+              });
+            }, function(err) {
+              fail(res, 500, "polis_err_linking_fb_friends", err);
+            })
+            .then(function(user) {
+              res.status(200).json({
+                uid: user.uid,
+                hname: user.hname,
+                email: user.email,
+                // token: token
+              });
+            }, function(err) {
+              fail(res, 500, "polis_err_linking_fb_misc", err);
+            });
+          }, function(err) {
+            fail(res, 500, "polis_err_linking_fb_to_existing_polis_account", err);
+          }).catch(function(err) {
+            fail(res, 500, "polis_err_linking_fb_to_existing_polis_account_misc", err);
+          });
+        } else {
+          fail(res, 403, "polis_err_password_mismatch");
         }
+      }, function(err) {
+          fail(res, 500, "polis_err_password_check");
+      });
+    }
+  } // end doFbNotLinkedButUserWithEmailExists
+
+  function doFbNoUserExistsYet(user) {
+    var promise;
+    if (uid) {
+      winston.log("info","fb1 5a...");
+      // user record already exists, so populate that in case it has missing info
+      promise = Promise.all([
+        pgQueryP("select * from users where uid = ($1);", [uid]),
+        pgQueryP("update users set hname = ($2) where uid = ($1) and hname is NULL;",[uid, hname]),
+        pgQueryP("update users set email = ($2) where uid = ($1) and email is NULL;",[uid, email]),
+      ]).then(function(o) {
+        var user = o[0][0];
+        winston.log("info","fb1 5a");
+        winston.log("info",user);
+        winston.log("info","end fb1 5a");
+        return user;
+      });
+      winston.log("info","fb1 5a....");
+    } else {
+      winston.log("info","fb1 5b...");
+      var query = "insert into users " +
+        "(email, hname) VALUES "+
+        "($1, $2) "+
+        "returning *;";
+      promise = pgQueryP(query, [email, hname])
+      .then(function(rows) {
+        var user = rows && rows.length && rows[0] || null;
+        winston.log("info","fb1 5b");
+        winston.log("info",user);
+        winston.log("info","end fb1 5b");
+        return user;
+      });
+    }
+    // Create user record
+    promise
+    .then(function(user) {
+      winston.log("info","fb1 4");
+      winston.log("info",user);
+      winston.log("info","end fb1 4");
+      return createFacebookUserRecord(_.extend({}, user, fbUserRecord)).then(function() {
+        return user;
+      });
+    })
+    .then(function(user) {
+      winston.log("info","fb1 3");
+      winston.log("info",user);
+      winston.log("info","end fb1 3");
+      if (fb_friends_response) {
+        return addFacebookFriends(user.uid, fb_friends_response).then(function() {
+          return user;
+        });
+      } else {
+        // no friends, or this user is first polis user among his/her friends.
+        return user;
+      }
     }, function(err) {
-        fail(res, 500, "polis_err_reg_fb_user_looking_up_email", err);
+      fail(res, 500, "polis_err_reg_fb_user_creating_record2", err);
+    })
+    .then(function(user) {
+      winston.log("info","fb1 2");
+      winston.log("info",user);
+      winston.log("info","end fb1 2");
+      var uid = user.uid;
+      return startSessionAndAddCookies(req, res, uid).then(function() {
+        return user;
+      }, function(err) {
+        fail(res, 500, "polis_err_reg_fb_user_creating_record3", err);
+      });
+    }, function(err) {
+      fail(res, 500, "polis_err_reg_fb_user_creating_record", err);
+    })
+    .then(function(user) {
+      winston.log("info","fb1");
+      winston.log("info",user);
+      winston.log("info","end fb1");
+      res.json({
+        uid: user.uid,
+        hname: user.hname,
+        email: user.email,
+        // token: token
+      });
+      if (shouldAddToIntercom) {
+        var params = {
+          "email" : user.email,
+          "name" : user.hname,
+          "user_id": user.uid,
+        };
+        var customData = {};
+        if (referrer) {
+          customData.referrer = referrer;
+        }
+        // if (organization) {
+        //     customData.org = organization;
+        // }
+        customData.fb = true; // mark this user as a facebook auth user
+        customData.uid = user.uid;
+        if (_.keys(customData).length) {
+          params.custom_data = customData;
+        }
+        intercom.createUser(params, function(err, res) {
+          if (err) {
+            winston.log("info",err);
+            console.error("polis_err_intercom_create_user_fb_fail");
+            winston.log("info",params);
+            yell("polis_err_intercom_create_user_fb_fail");
+            return;
+          }
+        });
+      }
+    }, function(err) {
+      fail(res, 500, "polis_err_reg_fb_user_misc22", err);
     }).catch(function(err) {
-        fail(res, 500, "polis_err_reg_fb_user_misc", err);
+      fail(res, 500, "polis_err_reg_fb_user_misc2", err);
     });
+  } // end doFbNoUserExistsYet
 
-/*
-
-    THOUGHTS: will FB auth work everywhere we need it to? within iframes (seems so)..  in webviews? not sure.
-
-
-*/
-
-}
+  pgQueryP("select users.*, facebook_users.fb_user_id from users left join facebook_users on users.uid = facebook_users.uid " +
+    "where users.email = ($1) " +
+    "   or facebook_users.fb_user_id = ($2) " +
+    ";", [email, fb_user_id]).then(function(rows) {
+      var user = rows && rows.length && rows[0] || null;
+      if (rows && rows.length > 1) {
+        // the auth provided us with email and fb_user_id where the email is one polis user, and the fb_user_id is for another.
+        // go with the one matching the fb_user_id in this case, and leave the email matching account alone.
+        user = _.find(rows, function(row) {
+          return row.fb_user_id === fb_user_id;
+        });
+      }
+      if (user) {
+        if (user.fb_user_id) {
+          doFbUserHasAccountLinked(user);
+        } else {
+          doFbNotLinkedButUserWithEmailExists(user);
+        }
+      } else {
+        doFbNoUserExistsYet(user);
+      }
+  }, function(err) {
+    fail(res, 500, "polis_err_reg_fb_user_looking_up_email", err);
+  }).catch(function(err) {
+    fail(res, 500, "polis_err_reg_fb_user_misc", err);
+  });
+} // end do_handle_POST_auth_facebook
 
 
 function handle_POST_auth_new(req, res) {
