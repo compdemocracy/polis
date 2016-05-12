@@ -10,8 +10,15 @@ import Button from "../framework/generic-button";
 import StaticContentContainer from "../framework/static-content-container";
 import Press from "./press";
 import Benefit from "./benefit";
+import BackgroundStars from "../framework/background-stars";
 
 // import { Tweet } from 'react-twitter-widgets';
+
+/*
+
+  <p> polis leverages techniques from both quantitative and qualitative research, combined with powerful analytics, to gather feedback that is simultaneously authentic to the population being surveyed and data rich. </p>
+
+*/
 
 @connect()
 @Radium
@@ -30,7 +37,6 @@ class Plus extends React.Component {
       hero: {
         fontSize: 48,
         lineHeight: 1.4,
-        textTransform: 'uppercase',
         maxWidth: 900,
         padding: "0px 40px",
         zIndex: 10,
@@ -49,10 +55,10 @@ class Plus extends React.Component {
       callToAction: {
         width: "100vw",
         padding: "50px 0px 70px 0px",
-        backgroundColor: "#03a9f4",
+        // backgroundColor: "#03a9f4",
       },
       getStartedButton: {
-        backgroundColor: "rgb(255,191,31)",
+        backgroundColor: "#03a9f4",
         color: "white"
       },
       body: {
@@ -109,9 +115,9 @@ class Plus extends React.Component {
           direction="column"
           alignItems="center"
           grow="1"
-          styleOverrides={this.styles().sectionColor}>
+          >
             <p style={this.styles().hero}>
-              { "Crowd Intelligence" }
+              { "Crowd Intelligence Made Effortless" }
             </p>
             <p style={this.styles().heroSub}>
               Meet pol.is: an AI powered sentiment gathering platform.
@@ -126,26 +132,20 @@ class Plus extends React.Component {
         </Flex>
         <Press/>
 
-<p> polis leverages techniques from both quantitative and qualitative research, combined with powerful analytics, to gather feedback that is simultaneously authentic to the population being surveyed and data rich. </p>
       <Flex
         styleOverrides={{padding: "20px 40px"}}
         justifyContent="space-around"
         wrap="wrap"
         alignItems="baseline">
         <Benefit
-          heading={"Scalable feedback"}
-          body={`
-            Whether you have hundreds of people or hundreds of thousands, pol.is can help you figure out what they think with little to no burden on you.
-            `}/>
-        <Benefit
-          heading={"Unbiased"}
-          body={`
-            Respondents are scoring themselves on statements created by other respondents, not what was already in the survey creator's head
-            `}/>
-        <Benefit
           heading={"Effortless"}
           body={`
-            Ask a question and let pol.is produce insights automatically
+            No survey to create - simply ask a question in plain english, share a link, and let pol.is produce insights automatically
+            `}/>
+        <Benefit
+          heading={"Scalable"}
+          body={`
+            Whether you have hundreds of people or hundreds of thousands, pol.is can help you figure out what they think
             `}/>
         <Benefit
           heading={"Organic"}
@@ -153,14 +153,19 @@ class Plus extends React.Component {
             The results from pol.is are emergent - they are a better reflection of the state of mind of participants than surveys are - and frequently surprising
             `}/>
         <Benefit
-          heading={"Usable data"}
+          heading={"Unbiased"}
           body={`
-            Pol.is layers quantitative data onto qualitative data - it's both rich and usable. Your data is yours: run a data export at any time to get the raw data in csv form. Cross reference your data with opinion groups pol.is produces.
+            Respondents are scoring themselves on statements created by other respondents, not the ideas already in the mind of the survey creator
             `}/>
         <Benefit
-          heading={"API"}
+          heading={"Data Rich"}
           body={`
-            The pol.is api allows you to automate and script conversations
+            Pol.is layers quantitative data onto qualitative data - it's both rich and usable. Your data is yours: run a data export at any time to get the raw data in csv form
+            `}/>
+        <Benefit
+          heading={"JSON API"}
+          body={`
+            The pol.is API allows you to automate and script conversations, ship insights to those who need them and export data to analysis pipelines
             `}/>
       </Flex>
 
