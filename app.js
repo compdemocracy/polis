@@ -1,6 +1,5 @@
 "use strict";
 
-var _ = require('underscore');
 var Promise = require('bluebird');
 var express = require('express');
 var mongo = require('mongodb');
@@ -65,7 +64,6 @@ var helpersInitialized = new Promise(function(resolve, reject) {
 helpersInitialized.then(function(o) {
 
   var addCorsHeader = o.addCorsHeader;
-  var addInRamMetric = o.addInRamMetric;
   var assignToP = o.assignToP;
   var assignToPCustom = o.assignToPCustom;
   var auth = o.auth;
@@ -94,13 +92,11 @@ helpersInitialized.then(function(o) {
   var haltOnTimeout = o.haltOnTimeout;
   var HMAC_SIGNATURE_PARAM_NAME = o.HMAC_SIGNATURE_PARAM_NAME;
   var hostname = o.hostname;
-  var isIE = o.isIE;
   var makeFileFetcher = o.makeFileFetcher;
   var makeReactClientProxy = o.makeReactClientProxy;
   var makeRedirectorTo = o.makeRedirectorTo;
   var moveToBody = o.moveToBody;
   var need = o.need;
-  var p3p = o.p3p;
   var pidCache = o.pidCache;
   var portForAdminFiles = o.portForAdminFiles;
   var portForParticipationFiles = o.portForParticipationFiles;
@@ -110,13 +106,11 @@ helpersInitialized.then(function(o) {
   var redirectIfNotHttps = o.redirectIfNotHttps;
   var redirectIfWrongDomain = o.redirectIfWrongDomain;
   var resolve_pidThing = o.resolve_pidThing;
-  var responseTime = o.responseTime;
   var timeout = o.timeout;
   var want = o.want;
   var wantCookie = o.wantCookie;
   var winston = o.winston;
   var writeDefaultHead = o.writeDefaultHead;
-  var yell = o.yell;
 
   var middleware_log_request_body = o.middleware_log_request_body;
   var middleware_log_middleware_errors = o.middleware_log_middleware_errors;
@@ -248,16 +242,15 @@ helpersInitialized.then(function(o) {
 
   app.use(middleware_responseTime_start);
 
-  var gzipMiddleware = express.compress();
-
-  function maybeApplyGzip(req, res, next) {
-    if (req.path && req.path.indexOf("/math/pca2") >= 0) {
-      // pca2 caches gzipped responses, so no need to gzip again.
-      next(null);
-    } else {
-      return gzipMiddleware(req, res, next);
-    }
-  }
+  // var gzipMiddleware = express.compress();
+  // function maybeApplyGzip(req, res, next) {
+  //   if (req.path && req.path.indexOf("/math/pca2") >= 0) {
+  //     // pca2 caches gzipped responses, so no need to gzip again.
+  //     next(null);
+  //   } else {
+  //     return gzipMiddleware(req, res, next);
+  //   }
+  // }
 
   app.use(redirectIfNotHttps);
   app.use(express.cookieParser());

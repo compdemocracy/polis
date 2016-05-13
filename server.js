@@ -5,7 +5,6 @@ var badwords = require('badwords/object');
 var Promise = require('bluebird');
 var http = require('http');
 var httpProxy = require('http-proxy');
-var https = require('https');
 // var Promise = require('es6-promise').Promise,
 var sql = require("sql"); // see here for useful syntax: https://github.com/brianc/node-sql/blob/bbd6ed15a02d4ab8fbc5058ee2aff1ad67acd5dc/lib/node/valueExpression.js
 var escapeLiteral = require('pg').Client.prototype.escapeLiteral;
@@ -14,22 +13,19 @@ var parsePgConnectionString = require('pg-connection-string').parse;
 var async = require('async');
 var FB = require('fb');
 var fs = require('fs');
-var url = require('url');
-var path = require('path');
 var bcrypt = require('bcrypt');
 var crypto = require('crypto');
 var Intercom = require('intercom.io'); // https://github.com/tarunc/intercom.io
 var p3p = require('p3p');
 var OAuth = require('oauth');
-var Pushover = require('pushover-notifications');
-var pushoverInstance = new Pushover({
-  user: process.env.PUSHOVER_GROUP_POLIS_DEV,
-  token: process.env.PUSHOVER_POLIS_PROXY_API_KEY,
-});
+// var Pushover = require('pushover-notifications');
+// var pushoverInstance = new Pushover({
+//   user: process.env.PUSHOVER_GROUP_POLIS_DEV,
+//   token: process.env.PUSHOVER_POLIS_PROXY_API_KEY,
+// });
 var Mailgun = require('mailgun').Mailgun;
 var mailgun = new Mailgun(process.env.MAILGUN_API_KEY);
 var postmark = require("postmark")(process.env.POSTMARK_API_KEY);
-var querystring = require('querystring');
 var devMode = "localhost" === process.env.STATIC_FILES_HOST;
 var replaceStream = require('replacestream');
 var responseTime = require('response-time');
@@ -170,7 +166,7 @@ if (devMode) {
   pg.defaults.poolSize = 12;
 }
 
-var SELF_HOSTNAME = "localhost:" + process.env.PORT;
+// var SELF_HOSTNAME = "localhost:" + process.env.PORT;
 // if (!devMode) {
 // ^^^ possible to use localhost on Heroku?
 //  SELF_HOSTNAME = process.env.SERVICE_HOSTNAME
@@ -280,10 +276,9 @@ DD.prototype.g = DA.prototype.g = function(k) {
 DD.prototype.s = DA.prototype.s = function(k, v) {
   this.m[k] = v;
 };
-
-function emptyArray() {
-  return [];
-}
+// function emptyArray() {
+//   return [];
+// }
 
 
 
@@ -432,40 +427,6 @@ var sql_participants_extended = sql.define({
   ],
 });
 
-var sql_courses = sql.define({
-  name: 'courses',
-  columns: [
-    "course_id",
-    "course_invite",
-    "topic",
-    "description",
-    "owner",
-    "created",
-  ],
-});
-// var sql_otzinvites = sql.define({
-//   name: 'otzinvites',
-//   columns: [
-//     "otzinvite",
-//     "zid",
-//     "xid",
-//     ]
-// });
-
-
-function orderLike(itemsToBeReordered, itemsThatHaveTheRightOrder, fieldName) {
-  var i;
-  // identity field -> item
-  var items = {};
-  for (i = 0; i < itemsToBeReordered.length; i++) {
-    items[itemsToBeReordered[i][fieldName]] = itemsToBeReordered[i];
-  }
-  var dest = [];
-  for (i = 0; i < itemsThatHaveTheRightOrder.length; i++) {
-    dest.push(items[itemsThatHaveTheRightOrder[i][fieldName]]);
-  }
-  return dest;
-}
 
 
 // // Eventually, the plan is to support a larger number-space by using some lowercase letters.
@@ -585,18 +546,6 @@ function startSession(uid, cb) {
     }
     winston.log("info", 'startSession: token set.');
     cb(null, token);
-  });
-}
-
-function startSessionP(uid) {
-  return new Promise(function(resolve, reject) {
-    startSession(uid, function(err, token) {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(token);
-      }
-    });
   });
 }
 
@@ -804,7 +753,7 @@ function doApiKeyBasicAuth(assigner, isOptional, req, res, next) {
     auth = new Buffer(token, 'base64').toString(), // convert from base64
     parts = auth.split(/:/), // split on colon
     username = parts[0],
-    password = parts[1], // we don't use the password part, just use "apikey:"
+    // password = parts[1], // we don't use the password part (just use "apikey:")
     apikey = username;
   getUidForApiKey(apikey).then(function(rows) {
     if (!rows || !rows.length) {
@@ -1253,7 +1202,7 @@ var prrrams = (function() {
 }());
 var need = prrrams.need;
 var want = prrrams.want;
-var needCookie = prrrams.needCookie;
+// var needCookie = prrrams.needCookie;
 var wantCookie = prrrams.wantCookie;
 
 var COOKIES = {
@@ -1282,9 +1231,6 @@ var COOKIES_TO_CLEAR = {
 
 function initializePolisHelpers(mongoParams) {
 
-  var collection = mongoParams.mongoCollectionOfEvents;
-  var collectionOfUsers = mongoParams.mongoCollectionOfUsers;
-  var collectionOfStimuli = mongoParams.mongoCollectionOfStimuli;
   var collectionOfPcaResults = mongoParams.mongoCollectionOfPcaResults;
   var collectionOfBidToPidResults = mongoParams.mongoCollectionOfBidToPidResults;
   var collectionOfPcaPlaybackResults = mongoParams.mongoCollectionOfPcaPlaybackResults;
@@ -1441,7 +1387,7 @@ function initializePolisHelpers(mongoParams) {
       setUidCookie(req, res, setOnPolisDomain, uid);
       setPlanCookie(req, res, setOnPolisDomain, plan);
       setHasEmailCookie(req, res, setOnPolisDomain, email);
-      setUserCreatedTimestampCookie(req, res, setOnPolisDomain, o.created);
+      setUserCreatedTimestampCookie(req, res, setOnPolisDomain, created);
       if (!req.cookies[COOKIES.PERMANENT_COOKIE]) {
         setPermanentCookie(req, res, setOnPolisDomain, makeSessionToken());
       }
@@ -2468,7 +2414,6 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_GET_bidToPid(req, res) {
-    var uid = req.p.uid;
     var zid = req.p.zid;
     var lastVoteTimestamp = req.p.lastVoteTimestamp;
 
@@ -3006,69 +2951,64 @@ function initializePolisHelpers(mongoParams) {
     });
   }
 
-  function generateApiKeyForUser(uid, optionalPrefix) {
-    var prefix = _.isUndefined(optionalPrefix) ? "" : optionalPrefix;
-    var parts = ["pkey"];
-    var len = 32;
-    if (!_.isUndefined(optionalPrefix)) {
-      parts.push(optionalPrefix);
-    }
-    len -= parts[0].length;
-    len -= (parts.length - 1); // the underscores
-    parts.forEach(function(part) {
-      len -= part.length;
-    });
-    return generateTokenP(len, false).then(function(token) {
-      parts.push(token);
-      var apikey = parts.join("_");
-      return apikey;
+  // function generateApiKeyForUser(uid, optionalPrefix) {
+  //   var parts = ["pkey"];
+  //   var len = 32;
+  //   if (!_.isUndefined(optionalPrefix)) {
+  //     parts.push(optionalPrefix);
+  //   }
+  //   len -= parts[0].length;
+  //   len -= (parts.length - 1); // the underscores
+  //   parts.forEach(function(part) {
+  //     len -= part.length;
+  //   });
+  //   return generateTokenP(len, false).then(function(token) {
+  //     parts.push(token);
+  //     var apikey = parts.join("_");
+  //     return apikey;
+  //   });
+  // }
 
-    });
-  }
-
-  function addApiKeyForUser(uid, optionalPrefix) {
-    return generateApiKeyForUser(uid, optionalPrefix).then(function(apikey) {
-      return pgQueryP("insert into apikeysndvweifu (uid, apikey)  VALUES ($1, $2);", [uid, apikey]);
-    });
-  }
+  // function addApiKeyForUser(uid, optionalPrefix) {
+  //   return generateApiKeyForUser(uid, optionalPrefix).then(function(apikey) {
+  //     return pgQueryP("insert into apikeysndvweifu (uid, apikey)  VALUES ($1, $2);", [uid, apikey]);
+  //   });
+  // }
 
 
-  function getApiKeysTruncated(uid) {
-    return pgQueryP_readOnly("select * from apikeysndvweifu WHERE uid = ($1);", [uid]).then(function(rows) {
-      if (!rows || !rows.length) {
-        return [];
-      }
-      return rows.map(function(row) {
-        return {
-          apikeyTruncated: row.apikey.slice(0, 10) + "...",
-          created: row.created,
-        };
-      });
-    });
-  }
+  // function getApiKeysTruncated(uid) {
+  //   return pgQueryP_readOnly("select * from apikeysndvweifu WHERE uid = ($1);", [uid]).then(function(rows) {
+  //     if (!rows || !rows.length) {
+  //       return [];
+  //     }
+  //     return rows.map(function(row) {
+  //       return {
+  //         apikeyTruncated: row.apikey.slice(0, 10) + "...",
+  //         created: row.created,
+  //       };
+  //     });
+  //   });
+  // }
 
-  function createApiKey(uid) {
-    return generateTokenP(17, false).then(function(token) {
-      var apikey = "pkey_" + token;
-      return pgQueryP("insert into apikeysndvweifu (uid, apikey) values ($1, $2) returning *;", [uid, apikey]).then(function(row) {
-        return {
-          apikey: apikey,
-          created: row.created,
-        };
-      });
-    });
-  }
+  // function createApiKey(uid) {
+  //   return generateTokenP(17, false).then(function(token) {
+  //     var apikey = "pkey_" + token;
+  //     return pgQueryP("insert into apikeysndvweifu (uid, apikey) values ($1, $2) returning *;", [uid, apikey]).then(function(row) {
+  //       return {
+  //         apikey: apikey,
+  //         created: row.created,
+  //       };
+  //     });
+  //   });
+  // }
 
-  function deleteApiKey(uid, apikeyTruncated) {
-
-    // strip trailing "..."
-    apikeyTruncated = apikeyTruncated.slice(0, apikeyTruncated.indexOf("."));
-
-    // basic sanitizing - replace unexpected characters with x's.
-    apikeyTruncated = apikeyTruncated.replace(/[^a-zA-Z0-9_]/g, 'x');
-
-    return pgQueryP("delete from apikeysndvweifu where uid = ($1) and apikey ~ '^" + apikeyTruncated + "';", [uid]);
-  }
+  // function deleteApiKey(uid, apikeyTruncated) {
+  //   // strip trailing "..."
+  //   apikeyTruncated = apikeyTruncated.slice(0, apikeyTruncated.indexOf("."));
+  //   // basic sanitizing - replace unexpected characters with x's.
+  //   apikeyTruncated = apikeyTruncated.replace(/[^a-zA-Z0-9_]/g, 'x');
+  //   return pgQueryP("delete from apikeysndvweifu where uid = ($1) and apikey ~ '^" + apikeyTruncated + "';", [uid]);
+  // }
 
 
 
@@ -3146,30 +3086,6 @@ function initializePolisHelpers(mongoParams) {
       }).catch(function(err) {
         fail(res, 500, "polis_err_creating_zinvite", err);
       });
-    });
-  }
-
-  function getUserProperty(uid, propertyName) {
-    return new MPromise("getUserProperty", function(resolve, reject) {
-      pgQuery_readOnly("SELECT * FROM users WHERE uid = ($1);", [uid], function(err, results) {
-        if (err) {
-          reject(err);
-        } else if (!results || !results.rows || !results.rows.length) {
-          reject();
-        } else {
-          resolve(results.rows[0][propertyName]);
-        }
-      });
-    });
-  }
-
-  function getConversationProperty(zid, propertyName, callback) {
-    pgQuery_readOnly('SELECT * FROM conversations WHERE zid = ($1);', [zid], function(err, results) {
-      if (err || !results || !results.rows || !results.rows.length) {
-        callback(1);
-        return;
-      }
-      callback(null, results.rows[0][propertyName]);
     });
   }
 
@@ -3316,18 +3232,6 @@ function initializePolisHelpers(mongoParams) {
       } else {
         callback(null); // ok
       }
-    });
-  }
-
-  function getOwner(zid) {
-    return new MPromise("getOwner", function(resolve, reject) {
-      pgQuery_readOnly("SELECT owner FROM conversations where zid = ($1);", [zid], function(err, results) {
-        if (err || !results || !results.rows || !results.rows.length) {
-          reject(new Error("polis_err_no_conversation_for_zid"));
-          return;
-        }
-        resolve(results.rows[0].owner);
-      });
     });
   }
 
@@ -3624,7 +3528,6 @@ function initializePolisHelpers(mongoParams) {
     //     return;
     // }
     pgQuery_readOnly("SELECT * FROM conversations WHERE zid = ($1) AND owner = ($2);", [zid, uid], function(err, docs) {
-      var pid;
       if (!docs || !docs.rows || docs.rows.length === 0) {
         err = err || 1;
       }
@@ -3665,29 +3568,6 @@ function initializePolisHelpers(mongoParams) {
     });
   }
 
-  // returns null if it's missing
-  function getParticipantsByZidPids(zid, pids) {
-    return new MPromise("getParticipantByZidPid", function(resolve, reject) {
-      pids.forEach(function(pid) {
-        if (!_.isNumber(pid)) {
-          throw "polis_err_1_invalid_pid";
-        }
-      });
-      if (!pids.length) {
-        return Promise.resolve([]);
-      }
-      var pidString = pids.join(",");
-      pgQuery_readOnly("SELECT * FROM participants WHERE zid = ($1) AND pid in (" + pidString + ");", [zid], function(err, results) {
-        if (err) {
-          return reject(err);
-        }
-        if (!results || !results.rows) {
-          return reject(new Error("polis_err_getParticipantByZidPid_failed"));
-        }
-        resolve(results.rows[0]);
-      });
-    });
-  }
 
   function getAnswersForConversation(zid, callback) {
     pgQuery_readOnly("SELECT * from participant_metadata_answers WHERE zid = ($1) AND alive=TRUE;", [zid], function(err, x) {
@@ -4716,17 +4596,6 @@ function initializePolisHelpers(mongoParams) {
 
 
 
-  function createLtiUser(email) {
-    return pgQueryP("INSERT INTO users (email) VALUES ($1) RETURNING uid;", [email]).then(function(rows) {
-      if (!rows || !rows.length) {
-        throw new Error("polis_err_create_lti_user");
-      }
-      return rows[0].uid;
-    });
-  }
-
-
-
   function handle_POST_joinWithInvite(req, res) {
 
     // if they're already in the conv
@@ -4982,16 +4851,6 @@ function initializePolisHelpers(mongoParams) {
     res.status(200).send(html);
   }
 
-  function getUserByEmail(email) {
-    return pgQueryP_readOnly("select * from users where email = ($1);", [email]).then(function(rows) {
-      if (rows && rows.length) {
-        return rows[0];
-      } else {
-        return null;
-      }
-    });
-  }
-
   function deleteFacebookUserRecord(o) {
     if (!isPolisDev(o.uid)) {
       // limit to test accounts for now
@@ -5094,7 +4953,6 @@ function initializePolisHelpers(mongoParams) {
 
 
   function isParentDomainWhitelisted(domain, zid, isWithinIframe) {
-    var splitDomain = domain.split('.');
     return pgQueryP_readOnly(
         "select domain_whitelist from site_domain_whitelist where site_id = " +
         "(select site_id from users where uid = " +
@@ -5112,10 +4970,6 @@ function initializePolisHelpers(mongoParams) {
           // if pol.is is in the whitelist, then it's ok to show the conversation outside of an iframe.
           console.log('isParentDomainWhitelisted', '*.pol.is');
           return true;
-        }
-
-        function equal(p) {
-          return p[0] === p[1];
         }
         var ok = false;
         console.log('isParentDomainWhitelisted', 1);
@@ -5582,7 +5436,7 @@ function initializePolisHelpers(mongoParams) {
     var fb_access_token = response.authResponse.accessToken;
     var verified = o.info.verified;
 
-    var existingUid = req.p.existingUid;
+    // var existingUid = req.p.existingUid;
     var referrer = req.cookies[COOKIES.REFERRER];
     var password = req.p.password;
     var uid = req.p.uid;
@@ -6325,15 +6179,6 @@ function initializePolisHelpers(mongoParams) {
     var plan = req.p.plan;
     var planCode = planCodes[plan];
 
-    var prices = {
-      mike: 50,
-      individuals: 100 * 100,
-      sites: 1000 * 100,
-      organizations: 300 * 100, // TODO parameterize
-      students: 3 * 100,
-      // pp: 0, // not sent to stripe
-    };
-
     if (plan !== "pp") {
       if (!stripeToken) {
         return fail(res, 500, "polis_err_changing_plan_missing_stripeToken");
@@ -6632,11 +6477,6 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_GET_comments(req, res) {
-    var zid = req.p.zid;
-    var tids = req.p.tids;
-    var pid = req.p.pid;
-    var not_voted_by_pid = req.p.not_voted_by_pid;
-    var mod = req.p.mod;
 
     var rid = req.headers["x-request-id"] + " " + req.headers['user-agent'];
     winston.log("info", "getComments " + rid + " begin");
@@ -6787,21 +6627,19 @@ function initializePolisHelpers(mongoParams) {
   //     return moderateComment(zid, tid, true, mod);
   // }
 
-  function getComment(zid, tid) {
-    return new MPromise("getComment", function(resolve, reject) {
-      pgQuery("select * from comments where zid = ($1) and tid = ($2);", [zid, tid], function(err, results) {
-        if (err) {
-          reject(err);
-        } else if (!results || !results.rows || !results.rows.length) {
-          reject("polis_err_missing_comment");
-        } else {
-          resolve(results.rows[0]);
-        }
-      });
-    });
-  }
-
-
+  // function getComment(zid, tid) {
+  //   return new MPromise("getComment", function(resolve, reject) {
+  //     pgQuery("select * from comments where zid = ($1) and tid = ($2);", [zid, tid], function(err, results) {
+  //       if (err) {
+  //         reject(err);
+  //       } else if (!results || !results.rows || !results.rows.length) {
+  //         reject("polis_err_missing_comment");
+  //       } else {
+  //         resolve(results.rows[0]);
+  //       }
+  //     });
+  //   });
+  // }
 
   // function handle_GET_mute(req, res) {
   //     var tid = req.p.tid;
@@ -6814,7 +6652,6 @@ function initializePolisHelpers(mongoParams) {
   //     winston.log("info","mute", 1);
   //     verifyHmacForQueryParams("v3/mute", params).catch(function() {
   //     winston.log("info","mute", 2);
-
   //         fail(res, 403, "polis_err_signature_mismatch");
   //     }).then(function() {
   //     winston.log("info","mute", 3);
@@ -6835,7 +6672,6 @@ function initializePolisHelpers(mongoParams) {
   //         fail(res, 500, err);
   //     });
   // }
-
 
   // function handle_GET_unmute(req, res) {
   //     var tid = req.p.tid;
@@ -6950,7 +6786,7 @@ function initializePolisHelpers(mongoParams) {
     twitterPrepPromise.then(function(info) {
 
       var ptpt = info && info.ptpt;
-      var twitterUser = info && info.twitterUser;
+      // var twitterUser = info && info.twitterUser;
       var tweet = info && info.tweet;
 
       if (tweet) {
@@ -7183,106 +7019,6 @@ function initializePolisHelpers(mongoParams) {
     });
   }
 
-
-  function getVotesForZidPids(zid, pids, callback) {
-
-    var query = sql_votes.select(sql_votes.star())
-      .where(
-        sql_votes.zid.equals(zid)
-      ).and(
-        sql_votes.vote.notEquals(0) // ignore passes
-      );
-    // allow empty queries to return all votes.... (TODO think about scale!)
-    if (pids && pids.length) {
-      query = query.and(
-        sql_votes.pid.in(pids)
-      );
-    }
-
-    pgQuery_readOnly(query.toString(), function(err, results) {
-      if (err) {
-        return callback(err);
-      }
-      callback(null, results.rows);
-    });
-  }
-
-
-  function getCommentIdCounts(voteRecords) {
-    var votes = voteRecords;
-    var commentIdCountMap = {};
-    // TODO account for duplicate votes (where the current value is
-    for (var i = 0; i < votes.length; i++) {
-      var vote = votes[i];
-      var count = commentIdCountMap[vote.tid];
-      if (vote.vote === polisTypes.reactions.pull) {
-        commentIdCountMap[vote.tid] = count + 1 || 1;
-      } else if (vote.vote === polisTypes.reactions.push) {
-        // push
-        commentIdCountMap[vote.tid] = count - 1 || -1;
-      } else {
-        console.error("expected just push and pull in query");
-      }
-    }
-    // create array of pairs [[commentId, count],...]
-    var commentIdCounts = _.pairs(commentIdCountMap);
-    // remove net negative items
-    commentIdCounts = commentIdCounts.filter(function(c) {
-      return Number(c[1]) > 0;
-    });
-    // remove net negative items ????
-    commentIdCounts.forEach(function(c) {
-      c[0].txt += c[1];
-    });
-    commentIdCounts.sort(function(a, b) {
-      return b[1] - a[1]; // descending by freq
-    });
-    return commentIdCounts;
-  }
-
-
-  // function handle_GET_selection(req, res) {
-  //         var zid = req.p.zid;
-  //         var users = req.p.users || [];
-
-  //         getVotesForZidPids(zid, users, function(err, voteRecords) {
-  //             if (err) { fail(res, 500, "polis_err_get_selection", err); return; }
-  //             if (!voteRecords.length) { fail(res, 500, "polis_err_get_selection_no_votes"); return; }
-
-  //             var commentIdCounts = getCommentIdCounts(voteRecords);
-  //             commentIdCounts = commentIdCounts.slice(0, 10);
-  //             var commentIdsOrdering = commentIdCounts.map(function(x) { return {tid: x[0]};});
-  //             var commentIds = commentIdCounts.map(function(x) { return x[0];});
-
-  //             var queryForSelectedComments = sql_comments.select(sql_comments.star())
-  //                 .where(sql_comments.zid.equals(zid))
-  //                 .and(sql_comments.tid.in(commentIds));
-  //             pgQuery(queryForSelectedComments.toString(), function(err, results) {
-  //                 if (err) { fail(res, 500, "polis_err_get_selection_comments", err); return; }
-  //                 var comments = results.rows;
-  //                 // map the results onto the commentIds list, which has the right ordering
-  //                 comments = orderLike(comments, commentIdsOrdering, "tid"); // TODO fix and test the extra declaration of comments
-  //                 for (var i = 0; i < comments.length; i++) {
-  //                     comments[i].freq = i;
-  //                 }
-
-  //                 comments.sort(function(a, b) {
-  //                     // desc sort primarily on frequency(ascending), then on recency
-  //                     if (b.freq > a.freq) {
-  //                         return -1;
-  //                     } else if (b.freq < a.freq) {
-  //                         return 1;
-  //                     } else {
-  //                         return b.created > a.created;
-  //                     }
-  //                 });
-  //                 finishArray(res, comments);
-  //             }); // end comments query
-  //         }); // end votes query
-  //     } // end GET selection
-
-
-
   function handle_GET_votes(req, res) {
     getVotesForSingleParticipant(req.p).then(function(votes) {
       finishArray(res, votes);
@@ -7312,154 +7048,79 @@ function initializePolisHelpers(mongoParams) {
   }
 
 
-  function getNextCommentPrioritizingNonPassedComments(zid, pid, withoutTids) {
-    /*
-    WITH conv AS
-      (SELECT *,
-        CASE WHEN strict_moderation=TRUE then 1 ELSE 0 END as minModVal from conversations where zid = 12480),
-          pv AS
-      (SELECT tid,
-              TRUE AS voted
-       FROM votes
-       WHERE zid = 12480
-         AND pid = 157
-       GROUP BY tid),
-         x AS
-      (SELECT *
-       FROM votes_lastest_unique(12480)
-       ORDER BY tid),
-         a AS
-      (SELECT zid,
-              tid,
-              count(*)
-       FROM x
-       WHERE vote < 0
-       GROUP BY zid,
-                tid),
-         d AS
-      (SELECT tid,
-              count(*)
-       FROM x
-       WHERE vote > 0
-       GROUP BY tid),
-         t AS
-      (SELECT tid,
-              count(*)
-       FROM x
-       GROUP BY tid),
-         c AS
-      (SELECT *
-       FROM comments
-       WHERE zid = 12480)
-    SELECT 12480 AS zid,
-           c.tid,
-           (COALESCE(a.count,0.0)+COALESCE(d.count,0.0)) / coalesce(t.count, 1.0) AS nonpass_score,
-           COALESCE(pv.voted, FALSE) AS voted,
-           c.*
-    FROM c
-    LEFT JOIN d ON c.tid = d.tid
-    LEFT JOIN t ON c.tid = t.tid
-    LEFT JOIN a ON a.zid = c.zid
-    AND a.tid = c.tid
-    LEFT JOIN pv ON c.tid = pv.tid
-    LEFT JOIN conv ON c.zid = conv.zid
-    WHERE voted IS NULL
-      AND (pv.voted = FALSE OR pv.voted IS NULL)
-      AND c.active = TRUE
-      AND c.mod >= conv.minModVal
-      AND c.velocity > 0
-    ORDER BY nonpass_score DESC;
-    */
-
-    /*
-
-                q = q.and(sql_comments.active.equals(true));
-                if (conv.strict_moderation) {
-                    q = q.and(sql_comments.mod.equals(polisTypes.mod.ok));
-                } else {
-                    q = q.and(sql_comments.mod.notEquals(polisTypes.mod.ban));
-                }
-            }
-
-            q = q.and(sql_comments.velocity.gt(0)); // filter muted comments
-
-    */
-
-    if (!withoutTids || !withoutTids.length) {
-      withoutTids = [-999999]; // ensure there's a value in there so the sql parses as a list
-    }
-
-    var q = "WITH ";
-    q += "  star_counts AS ";
-    q += "  (SELECT tid, count(*) as starcount from stars where zid = $1 group by tid), ";
-    q += "  conv AS  ";
-    q += "  (SELECT *,";
-    q += "    CASE WHEN strict_moderation=TRUE then 1 ELSE 0 END as minModVal from conversations where zid = $1),";
-    q += "  pv AS  ";
-    q += "  (SELECT tid,  ";
-    q += "          TRUE AS voted ";
-    q += "   FROM votes  ";
-    q += "   WHERE zid = $1 ";
-    q += "     AND pid = $2 ";
-    q += "   GROUP BY tid),  ";
-    q += "     x AS  ";
-    q += "  (SELECT * ";
-    q += "   FROM votes_lastest_unique($1) ";
-    q += "   ORDER BY tid),  ";
-    q += "     a AS  ";
-    q += "  (SELECT zid,  ";
-    q += "          tid,  ";
-    q += "          count(*) ";
-    q += "   FROM x  ";
-    q += "   WHERE vote < 0 ";
-    q += "   GROUP BY zid,  ";
-    q += "            tid),  ";
-    q += "     d AS  ";
-    q += "  (SELECT tid,  ";
-    q += "          count(*) ";
-    q += "   FROM x  ";
-    q += "   WHERE vote > 0 ";
-    q += "   GROUP BY tid),  ";
-    q += "     t AS  ";
-    q += "  (SELECT tid,  ";
-    q += "          count(*) ";
-    q += "   FROM x ";
-    q += "   GROUP BY tid),  ";
-    q += "     c AS  ";
-    q += "  (SELECT * ";
-    q += "   FROM comments  ";
-    q += "   WHERE zid = $1) ";
-    q += "SELECT $1 AS zid,  ";
-    q += "       c.tid,  ";
-    q += "       (COALESCE(a.count,0.0)+COALESCE(d.count,0.0)) / coalesce(t.count, 1.0) AS nonpass_score,  ";
-    q += "       pv.voted AS voted,  ";
-    q += "       c.* ";
-    q += "FROM c ";
-    q += "LEFT JOIN d ON c.tid = d.tid ";
-    q += "LEFT JOIN t ON c.tid = t.tid ";
-    q += "LEFT JOIN a ON a.zid = c.zid ";
-    q += "  AND a.tid = c.tid ";
-    q += "LEFT JOIN pv ON c.tid = pv.tid  ";
-    q += "LEFT JOIN conv ON c.zid = conv.zid  ";
-    q += "LEFT JOIN star_counts ON c.tid = star_counts.tid ";
-    q += "WHERE voted IS NULL ";
-    q += "  AND c.tid NOT IN (" + withoutTids.join(",") + ") ";
-    q += "  AND (pv.voted = FALSE OR pv.voted IS NULL)";
-    q += "  AND c.active = true";
-    q += "  AND c.mod >= conv.minModVal";
-    q += "  AND c.velocity > 0";
-    q += " ORDER BY starcount DESC NULLS LAST, nonpass_score DESC ";
-    q += " LIMIT 1;";
-
-
-    return pgQueryP_readOnly(q, [zid, pid]).then(function(comments) {
-      if (!comments || !comments.length) {
-        return null;
-      } else {
-        return comments[0];
-      }
-    });
-  }
+  // function getNextCommentPrioritizingNonPassedComments(zid, pid, withoutTids) {
+  //   if (!withoutTids || !withoutTids.length) {
+  //     withoutTids = [-999999]; // ensure there's a value in there so the sql parses as a list
+  //   }
+  //   var q = "WITH ";
+  //   q += "  star_counts AS ";
+  //   q += "  (SELECT tid, count(*) as starcount from stars where zid = $1 group by tid), ";
+  //   q += "  conv AS  ";
+  //   q += "  (SELECT *,";
+  //   q += "    CASE WHEN strict_moderation=TRUE then 1 ELSE 0 END as minModVal from conversations where zid = $1),";
+  //   q += "  pv AS  ";
+  //   q += "  (SELECT tid,  ";
+  //   q += "          TRUE AS voted ";
+  //   q += "   FROM votes  ";
+  //   q += "   WHERE zid = $1 ";
+  //   q += "     AND pid = $2 ";
+  //   q += "   GROUP BY tid),  ";
+  //   q += "     x AS  ";
+  //   q += "  (SELECT * ";
+  //   q += "   FROM votes_lastest_unique($1) ";
+  //   q += "   ORDER BY tid),  ";
+  //   q += "     a AS  ";
+  //   q += "  (SELECT zid,  ";
+  //   q += "          tid,  ";
+  //   q += "          count(*) ";
+  //   q += "   FROM x  ";
+  //   q += "   WHERE vote < 0 ";
+  //   q += "   GROUP BY zid,  ";
+  //   q += "            tid),  ";
+  //   q += "     d AS  ";
+  //   q += "  (SELECT tid,  ";
+  //   q += "          count(*) ";
+  //   q += "   FROM x  ";
+  //   q += "   WHERE vote > 0 ";
+  //   q += "   GROUP BY tid),  ";
+  //   q += "     t AS  ";
+  //   q += "  (SELECT tid,  ";
+  //   q += "          count(*) ";
+  //   q += "   FROM x ";
+  //   q += "   GROUP BY tid),  ";
+  //   q += "     c AS  ";
+  //   q += "  (SELECT * ";
+  //   q += "   FROM comments  ";
+  //   q += "   WHERE zid = $1) ";
+  //   q += "SELECT $1 AS zid,  ";
+  //   q += "       c.tid,  ";
+  //   q += "       (COALESCE(a.count,0.0)+COALESCE(d.count,0.0)) / coalesce(t.count, 1.0) AS nonpass_score,  ";
+  //   q += "       pv.voted AS voted,  ";
+  //   q += "       c.* ";
+  //   q += "FROM c ";
+  //   q += "LEFT JOIN d ON c.tid = d.tid ";
+  //   q += "LEFT JOIN t ON c.tid = t.tid ";
+  //   q += "LEFT JOIN a ON a.zid = c.zid ";
+  //   q += "  AND a.tid = c.tid ";
+  //   q += "LEFT JOIN pv ON c.tid = pv.tid  ";
+  //   q += "LEFT JOIN conv ON c.zid = conv.zid  ";
+  //   q += "LEFT JOIN star_counts ON c.tid = star_counts.tid ";
+  //   q += "WHERE voted IS NULL ";
+  //   q += "  AND c.tid NOT IN (" + withoutTids.join(",") + ") ";
+  //   q += "  AND (pv.voted = FALSE OR pv.voted IS NULL)";
+  //   q += "  AND c.active = true";
+  //   q += "  AND c.mod >= conv.minModVal";
+  //   q += "  AND c.velocity > 0";
+  //   q += " ORDER BY starcount DESC NULLS LAST, nonpass_score DESC ";
+  //   q += " LIMIT 1;";
+  //   return pgQueryP_readOnly(q, [zid, pid]).then(function(comments) {
+  //     if (!comments || !comments.length) {
+  //       return null;
+  //     } else {
+  //       return comments[0];
+  //     }
+  //   });
+  // }
 
   function getNextComment(zid, pid, withoutTids, include_social) {
     return getNextCommentRandomly(zid, pid, withoutTids, include_social);
@@ -7517,15 +7178,15 @@ function initializePolisHelpers(mongoParams) {
 
   function handle_GET_participationInit(req, res) {
 
-    var qs = {
-      conversation_id: req.p.conversation_id,
-    };
+    // var qs = {
+    //   conversation_id: req.p.conversation_id,
+    // };
 
-    var nextCommentQs = _.extend({}, qs, {
-      not_voted_by_pid: "mypid",
-      limit: 1,
-      include_social: true,
-    });
+    // var nextCommentQs = _.extend({}, qs, {
+    //   not_voted_by_pid: "mypid",
+    //   limit: 1,
+    //   include_social: true,
+    // });
 
     // var votesByMeQs = _.extend({}, req.p, {
     //   pid: "mypid",
@@ -7535,31 +7196,31 @@ function initializePolisHelpers(mongoParams) {
     //   ptptoiLimit: req.p.ptptoiLimit,
     // }) : qs;
 
-    function getIfConv() {
-      if (qs.conversation_id) {
-        return request.get.apply(request, arguments);
-      } else {
-        return Promise.resolve("null");
-      }
-    }
+    // function getIfConv() {
+    //   if (qs.conversation_id) {
+    //     return request.get.apply(request, arguments);
+    //   } else {
+    //     return Promise.resolve("null");
+    //   }
+    // }
 
-    function getIfConvAndAuth() {
-      if (req.p.uid) {
-        return getIfConv.apply(0, arguments);
-      } else {
-        return Promise.resolve("null");
-      }
-    }
+    // function getIfConvAndAuth() {
+    //   if (req.p.uid) {
+    //     return getIfConv.apply(0, arguments);
+    //   } else {
+    //     return Promise.resolve("null");
+    //   }
+    // }
 
-    function getWith304AsSuccess() {
-      return getIfConv.apply(0, arguments).catch(function(foo) {
-        if (foo.statusCode === 304) {
-          return "null";
-        } else {
-          throw foo;
-        }
-      });
-    }
+    // function getWith304AsSuccess() {
+    //   return getIfConv.apply(0, arguments).catch(function(foo) {
+    //     if (foo.statusCode === 304) {
+    //       return "null";
+    //     } else {
+    //       throw foo;
+    //     }
+    //   });
+    // }
 
     function ifConv(f, args) {
       if (req.p.conversation_id) {
@@ -7658,7 +7319,7 @@ function initializePolisHelpers(mongoParams) {
 
     pidReadyPromise.then(function() {
 
-      var votePromise = pidReadyPromise.then(function() {
+      pidReadyPromise.then(function() {
         return votesPost(pid, req.p.zid, req.p.tid, req.p.vote, req.p.weight);
       }).then(function(createdTime) {
         setTimeout(function() {
@@ -7781,7 +7442,6 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_POST_stars(req, res) {
-    var params = [req.p.pid, req.p.zid, req.p.tid, req.p.starred];
     addStar(req.p.zid, req.p.tid, req.p.pid, req.p.starred).then(function(result) {
       var createdTime = result.rows[0].created;
       setTimeout(function() {
@@ -8436,7 +8096,6 @@ function initializePolisHelpers(mongoParams) {
 
   function handle_GET_metadata_questions(req, res) {
     var zid = req.p.zid;
-    var uid = req.p.uid;
     var zinvite = req.p.zinvite;
     var suzinvite = req.p.suzinvite;
 
@@ -8532,7 +8191,6 @@ function initializePolisHelpers(mongoParams) {
 
   function handle_GET_metadata_choices(req, res) {
     var zid = req.p.zid;
-    var uid = req.p.uid;
 
     getChoicesForConversation(zid).then(function(choices) {
       finishArray(res, choices);
@@ -8544,7 +8202,6 @@ function initializePolisHelpers(mongoParams) {
 
   function handle_GET_metadata_answers(req, res) {
     var zid = req.p.zid;
-    var uid = req.p.uid;
     var zinvite = req.p.zinvite;
     var suzinvite = req.p.suzinvite;
     var pmqid = req.p.pmqid;
@@ -8589,7 +8246,6 @@ function initializePolisHelpers(mongoParams) {
 
   function handle_GET_metadata(req, res) {
     var zid = req.p.zid;
-    var uid = req.p.uid;
     var zinvite = req.p.zinvite;
     var suzinvite = req.p.suzinvite;
 
@@ -8724,7 +8380,7 @@ function initializePolisHelpers(mongoParams) {
     var uid = req.p.uid;
     var zid = req.p.zid;
     var xid = req.p.xid;
-    var course_invite = req.p.course_invite;
+    // var course_invite = req.p.course_invite;
     var include_all_conversations_i_am_in = req.p.include_all_conversations_i_am_in;
     var want_mod_url = req.p.want_mod_url;
     var want_upvoted = req.p.want_upvoted;
@@ -8733,7 +8389,7 @@ function initializePolisHelpers(mongoParams) {
     var want_inbox_item_admin_html = req.p.want_inbox_item_admin_html;
     var want_inbox_item_participant_html = req.p.want_inbox_item_participant_html;
     var context = req.p.context;
-    var limit = req.p.limit;
+    // var limit = req.p.limit;
     winston.log("info", "thecontext", context);
 
 
@@ -8798,7 +8454,7 @@ function initializePolisHelpers(mongoParams) {
         query = query.and(sql_conversations.is_draft.equals(req.p.is_draft));
       }
       if (!_.isUndefined(req.p.zid)) {
-        query = query.and(sql_conversations.zid.equals(req.p.zid));
+        query = query.and(sql_conversations.zid.equals(zid));
       }
       if (isRootsQuery) {
         query = query.and(sql_conversations.context.isNotNull());
@@ -8962,9 +8618,9 @@ function initializePolisHelpers(mongoParams) {
   function handle_GET_stripe_account_connected_oauth_callback(req, res) {
 
     var code = req.p.code;
-    var access_token = req.p.access_token;
-    var error = req.p.error;
-    var error_description = req.p.error_description;
+    // var access_token = req.p.access_token;
+    // var error = req.p.error;
+    // var error_description = req.p.error_description;
     if (req.p.error) {
       fail(res, 500, "polis_err_fetching_stripe_info_" + req.p.error, req.p.error_description);
       return;
@@ -9254,8 +8910,6 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function handle_GET_twitterBtn(req, res) {
-    var uid = req.p.uid;
-
     var dest = req.p.dest || "/inbox";
     dest = encodeURIComponent(getServerNameWithProtocol(req) + dest);
     var returnUrl = getServerNameWithProtocol(req) + "/api/v3/twitter_oauth_callback?owner=" + req.p.owner + "&dest=" + dest;
@@ -9396,37 +9050,37 @@ function initializePolisHelpers(mongoParams) {
     });
   }
 
-  function getTwitterUserTimeline(screen_name) {
-    var oauth = new OAuth.OAuth(
-      'https://api.twitter.com/oauth/request_token', // null
-      'https://api.twitter.com/oauth/access_token', // null
-      process.env.TWITTER_CONSUMER_KEY, //'your application consumer key',
-      process.env.TWITTER_CONSUMER_SECRET, //'your application secret',
-      '1.0A',
-      null,
-      'HMAC-SHA1'
-    );
-    return new MPromise("getTwitterTweet", function(resolve, reject) {
-      oauth.get(
-        'https://api.twitter.com/1.1/statuses/user_timeline.json?screen_name=' + screen_name,
-        void 0, //'your user token for this app', //test user token
-        void 0, //'your user secret for this app', //test user secret
-        function(e, data, res) {
-          if (e) {
-            console.error(" - - - - get twitter tweet failed - - - -");
-            console.error(e);
-            reject(e);
-          } else {
-            var foo = JSON.parse(data);
-            foo = _.pluck(foo, "text");
-            console.dir(foo);
-            resolve(data);
-          }
-          // winston.log("info",require('util').inspect(data));
-        }
-      );
-    });
-  }
+  // function getTwitterUserTimeline(screen_name) {
+  //   var oauth = new OAuth.OAuth(
+  //     'https://api.twitter.com/oauth/request_token', // null
+  //     'https://api.twitter.com/oauth/access_token', // null
+  //     process.env.TWITTER_CONSUMER_KEY, //'your application consumer key',
+  //     process.env.TWITTER_CONSUMER_SECRET, //'your application secret',
+  //     '1.0A',
+  //     null,
+  //     'HMAC-SHA1'
+  //   );
+  //   return new MPromise("getTwitterTweet", function(resolve, reject) {
+  //     oauth.get(
+  //       'https://api.twitter.com/1.1/statuses/user_timeline.json?screen_name=' + screen_name,
+  //       void 0, //'your user token for this app', //test user token
+  //       void 0, //'your user secret for this app', //test user secret
+  //       function(e, data, res) {
+  //         if (e) {
+  //           console.error(" - - - - get twitter tweet failed - - - -");
+  //           console.error(e);
+  //           reject(e);
+  //         } else {
+  //           var foo = JSON.parse(data);
+  //           foo = _.pluck(foo, "text");
+  //           console.dir(foo);
+  //           resolve(data);
+  //         }
+  //         // winston.log("info",require('util').inspect(data));
+  //       }
+  //     );
+  //   });
+  // }
 
 
 
@@ -10062,26 +9716,26 @@ function initializePolisHelpers(mongoParams) {
     });
   }
 
-  function getFacebookFriendsInConversation(zid, uid) {
-    if (!uid) {
-      return Promise.resolve([]);
-    }
-    var p = pgQueryP_readOnly(
-      "select * from " +
-      "(select * from " +
-      "(select * from " +
-      "(select friend as uid from facebook_friends where uid = ($2) union select uid from facebook_friends where friend = ($2) union select uid from facebook_users where uid = ($2)) as friends) " +
-      // ^ as friends
-      "as fb natural left join facebook_users) as fb2 " +
-      "inner join (select * from participants where zid = ($1) and (vote_count > 0 OR uid = ($2))) as p on fb2.uid = p.uid;", [zid, uid]);
-    //"select * from (select * from (select friend as uid from facebook_friends where uid = ($2) union select uid from facebook_friends where friend = ($2)) as friends where uid in (select uid from participants where zid = ($1))) as fb natural left join facebook_users;", [zid, uid]);
-    return p;
-  }
+  // function getFacebookFriendsInConversation(zid, uid) {
+  //   if (!uid) {
+  //     return Promise.resolve([]);
+  //   }
+  //   var p = pgQueryP_readOnly(
+  //     "select * from " +
+  //     "(select * from " +
+  //     "(select * from " +
+  //     "(select friend as uid from facebook_friends where uid = ($2) union select uid from facebook_friends where friend = ($2) union select uid from facebook_users where uid = ($2)) as friends) " +
+  //     // ^ as friends
+  //     "as fb natural left join facebook_users) as fb2 " +
+  //     "inner join (select * from participants where zid = ($1) and (vote_count > 0 OR uid = ($2))) as p on fb2.uid = p.uid;", [zid, uid]);
+  //   //"select * from (select * from (select friend as uid from facebook_friends where uid = ($2) union select uid from facebook_friends where friend = ($2)) as friends where uid in (select uid from participants where zid = ($1))) as fb natural left join facebook_users;", [zid, uid]);
+  //   return p;
+  // }
 
-  function getFacebookUsersInConversation(zid) {
-    var p = pgQueryP_readOnly("select * from facebook_users inner join (select * from participants where zid = ($1) and vote_count > 0) as p on facebook_users.uid = p.uid;", [zid]);
-    return p;
-  }
+  // function getFacebookUsersInConversation(zid) {
+  //   var p = pgQueryP_readOnly("select * from facebook_users inner join (select * from participants where zid = ($1) and vote_count > 0) as p on facebook_users.uid = p.uid;", [zid]);
+  //   return p;
+  // }
 
   function getSocialInforForUsers(uids) {
     uids.forEach(function(uid) {
@@ -10161,40 +9815,12 @@ function initializePolisHelpers(mongoParams) {
   }
 
 
-  // function dbMigrationAddVoteCount() {
-  //     function process(x) {
-  //         winston.log("info","freefood" + x.zid, x.count, x.pid);
-  //         pgQueryP("update participants set vote_count = ($1) where zid = ($2) and pid = ($3);", [
-  //                 x.count,
-  //                 x.zid,
-  //                 x.pid,
-  //             ]);
-  //     }
-  //     pgQueryP("select zid, pid, count(*) from votes group by zid, pid order by zid, pid, count;",[]).then(function(counts) {
-  //         // var tasks = [];
-  //         // for (var i =0; i < counts.length; i++) {
-  //         //     var x = counts[i];
-  //         //     tas
-  //         // }
-  //         var asdf = setInterval(function() {
-  //             var x = counts.pop();
-  //             if (x) {
-  //                 process(x);
-  //             } else {
-  //                 clearInterval(asdf);
-  //             }
-  //         }, 20);
-  //     });
-  // }
-  // setTimeout(dbMigrationAddVoteCount, 9999);
-
-
-
   // zid_pid => "lastVoteTimestamp:ppaddddaadadaduuuuuuuuuuuuuuuuu"; // not using objects to save some ram
   // TODO consider "p2a24a2dadadu15" format
   var votesForZidPidCache = new LruCache({
     max: 5000,
   });
+
 
   function getVotesForZidPidWithTimestampCheck(zid, pid, lastVoteTimestamp) {
     var key = zid + "_" + pid;
@@ -10209,6 +9835,7 @@ function initializePolisHelpers(mongoParams) {
     }
     return null;
   }
+
 
   function cacheVotesForZidPidWithTimestamp(zid, pid, lastVoteTimestamp, votes) {
     var key = zid + "_" + pid;
@@ -10549,18 +10176,22 @@ function initializePolisHelpers(mongoParams) {
 
     Promise.all([
       getSocialParticipantsForMod(zid, limit, mod),
-      getConversationInfo(req.p.zid),
+      getConversationInfo(zid),
     ]).then(function(a) {
       var ptptois = a[0];
       var conv = a[1];
-      var isOwner = req.p.uid === conv.owner;
+      var isOwner = uid === conv.owner;
       var isAllowed = isOwner || isPolisDev(req.p.uid) || conv.is_data_open;
-      ptptois = ptptois.map(removeNullOrUndefinedProperties);
-      ptptois = ptptois.map(pullFbTwIntoSubObjects);
-      ptptois = ptptois.map(function(p) {
-        p.conversation_id = req.p.conversation_id;
-        return p;
-      });
+      if (isAllowed) {
+        ptptois = ptptois.map(removeNullOrUndefinedProperties);
+        ptptois = ptptois.map(pullFbTwIntoSubObjects);
+        ptptois = ptptois.map(function(p) {
+          p.conversation_id = req.p.conversation_id;
+          return p;
+        });
+      } else {
+        ptptois = [];
+      }
       res.status(200).json(ptptois);
     }).catch(function(err) {
       fail(res, 500, "polis_err_ptptoi_misc", err);
@@ -10568,10 +10199,6 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function handle_GET_votes_famous(req, res) {
-    var uid = req.p.uid;
-    var zid = req.p.zid;
-    var lastVoteTimestamp = req.p.lastVoteTimestamp;
-
     doFamousQuery(req.p, req).then(function(data) {
       res.status(200).json(data);
     }, function(err) {
@@ -10590,10 +10217,10 @@ function initializePolisHelpers(mongoParams) {
 
     // NOTE: if this API is running slow, it's probably because fetching the PCA from mongo is slow, and PCA caching is disabled
 
-    var twitterLimit = 999; // we can actually check a lot of these, since they might be among the fb users
-    var softLimit = 26;
+    // var twitterLimit = 999; // we can actually check a lot of these, since they might be among the fb users
+    // var softLimit = 26;
     var hardLimit = _.isUndefined(o.ptptoiLimit) ? 30 : o.ptptoiLimit;
-    var ALLOW_NON_FRIENDS_WHEN_EMPTY_SOCIAL_RESULT = true;
+    // var ALLOW_NON_FRIENDS_WHEN_EMPTY_SOCIAL_RESULT = true;
     var mod = 0; // for now, assume all conversations will show unmoderated and approved participants.
 
     function getAuthorUidsOfFeaturedComments() {
@@ -11076,17 +10703,17 @@ function initializePolisHelpers(mongoParams) {
   // TODO return HTML from the auth functions. the html should contain the token? so that ajax calls can be made.
   function handle_POST_lti_setup_assignment(req, res) {
     winston.log("info", req);
-    var roles = req.p.roles;
-    var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
+    // var roles = req.p.roles;
+    // var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
     var user_id = req.p.user_id;
     var context_id = req.p.context_id;
-    var user_image = req.p.user_image || "";
+    // var user_image = req.p.user_image || "";
     if (!req.p.tool_consumer_instance_guid) {
       emailBadProblemTime("couldn't find tool_consumer_instance_guid, maybe this isn't Canvas?");
     }
 
     // TODO SECURITY we need to verify the signature
-    var oauth_consumer_key = req.p.oauth_consumer_key;
+    // var oauth_consumer_key = req.p.oauth_consumer_key;
 
     var dataSavedPromise = pgQueryP("insert into lti_single_assignment_callback_info (lti_user_id, lti_context_id, lis_outcome_service_url, stringified_json_of_post_content) values ($1, $2, $3, $4);", [
       user_id,
@@ -11289,16 +10916,16 @@ function initializePolisHelpers(mongoParams) {
   function handle_POST_lti_conversation_assignment(req, res) {
     var roles = req.p.roles;
     var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
-    var isLearner = /[lL]earner/.exec(roles);
+    // var isLearner = /[lL]earner/.exec(roles);
     var user_id = req.p.user_id;
     var context_id = req.p.context_id;
-    var user_image = req.p.user_image || "";
+    // var user_image = req.p.user_image || "";
 
     winston.log("info", "grades req.body " + JSON.stringify(req.body));
     winston.log("info", "grades req.p " + JSON.stringify(req.p));
 
     // TODO SECURITY we need to verify the signature
-    var oauth_consumer_key = req.p.oauth_consumer_key;
+    // var oauth_consumer_key = req.p.oauth_consumer_key;
 
     function getPolisUserForLtiUser() {
       return pgQueryP("select * from lti_users left join users on lti_users.uid = users.uid where lti_users.lti_user_id = ($1) and lti_users.tool_consumer_instance_guid = ($2);", [user_id, req.p.tool_consumer_instance_guid]).then(function(rows) {
@@ -11500,226 +11127,6 @@ function initializePolisHelpers(mongoParams) {
     res.set('Content-Type', 'text/xml');
     res.status(200).send(xml);
   }
-
-
-
-  // function handle_GET_lti_canvas_nav_xml(req, res) {
-  // var xml = '' +
-  // '<cartridge_basiclti_link xmlns="http://www.imsglobal.org/xsd/imslticc_v1p0" xmlns:blti="http://www.imsglobal.org/xsd/imsbasiclti_v1p0" xmlns:lticm="http://www.imsglobal.org/xsd/imslticm_v1p0" xmlns:lticp="http://www.imsglobal.org/xsd/imslticp_v1p0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsglobal.org/xsd/imslticc_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticc_v1p0.xsd http://www.imsglobal.org/xsd/imsbasiclti_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imsbasiclti_v1p0.xsd http://www.imsglobal.org/xsd/imslticm_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticm_v1p0.xsd http://www.imsglobal.org/xsd/imslticp_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticp_v1p0.xsd">' +
-
-  // '<blti:title>Pol.is Nav</blti:title>' +
-  // '<blti:description>Pol.is Conversations</blti:description>' +
-  // '<blti:icon>' +
-  // 'http://minecraft.inseng.net:8133/minecraft-16x16.png' +
-  // '</blti:icon>' +
-  // // '<blti:launch_url>https://preprod.pol.is/api/v3/LTI/canvas_nav</blti:launch_url>' +
-
-  // '<blti:custom>' +
-  // '<lticm:property name="custom_canvas_xapi_url">$Canvas.xapi.url</lticm:property>' +
-  // '</blti:custom>' +
-
-  // '<blti:extensions platform="canvas.instructure.com">' +
-
-  //     '<lticm:property name="tool_id">polis_lti</lticm:property>' +
-  //     '<lticm:property name="privacy_level">public</lticm:property>' +
-
-  //     // nav
-  //     '<lticm:options name="course_navigation">' +
-  //         '<lticm:property name="url">https://preprod.pol.is/api/v3/LTI/canvas_nav</lticm:property>' +
-  //         '<lticm:property name="text">pol.is</lticm:property>' +
-  //         '<lticm:property name="visibility">public</lticm:property>' +
-  //         '<lticm:property name="default">enabled</lticm:property>' +
-  //         '<lticm:property name="enabled">true</lticm:property>' +
-  //     '</lticm:options>' +
-
-
-
-  // '</blti:extensions>' +
-
-  // '<cartridge_bundle identifierref="BLTI001_Bundle"/>' +
-  // '<cartridge_icon identifierref="BLTI001_Icon"/>' +
-  // '</cartridge_basiclti_link>';
-
-  // res.set('Content-Type', 'text/xml');
-  // res.status(200).send(xml);
-  // }
-
-
-
-  // // team meetings - schedule with others, smart converence room
-  // // or redirect tool
-  // // students already pay an online fee
-  // //
-  // // ADA? 508 compliance
-  // // accessibility - Teach Act: those who don't have dexterity
-  // // colors
-  // // screen readers
-
-  // // TODO rename to LTI/launch
-  // // TODO save launch contexts in mongo. For now, to err on the side of collecting extra data, let them be duplicated. Attach a timestamp too.
-  // // TODO return HTML from the auth functions. the html should contain the token? so that ajax calls can be made.
-  // function handle_POST_lti_editor_tool(req, res) {
-  //     var roles = req.p.roles;
-  //     var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
-  //     var user_id = req.p.user_id;
-  //     var context_id = req.p.context_id;
-  //     var user_image = req.p.user_image || "";
-
-
-
-  //     // TODO SECURITY we need to verify the signature
-  //     var oauth_consumer_key = req.p.oauth_consumer_key;
-
-  //     var owner = 125;
-  //     // if (oauth_consumer_key === 'asdfasdf') {
-  //     //     uid = 125;
-  //     // }
-
-  //     // rich text editor tool embed
-  //     var ext_content_return_types = req.p.ext_content_return_types;
-  //     var launch_presentation_return_url = req.p.launch_presentation_return_url;
-
-  //     // TODO wait to redirect
-  //     //https://canvas.instructure.com/doc/api/file.editor_button_tools.html
-  //     if (/iframe/.exec(ext_content_return_types)) {
-  //         var path = encodeParams({
-  //             context: context_id,
-  //             launch_presentation_return_url_hex: strToHex(launch_presentation_return_url),
-  //         });
-  //         res.redirect(getServerNameWithProtocol(req) + "/conversation/create/" + path);
-  //         return;
-  //     } else if (ext_content_return_types) {
-  //         fail(res, 500, "polis_err_unexpected_lti_return_type_for_ext_content_return_types", err);
-  //     } else {
-  //         fail(res, 500, "polis_err_unexpected_launch_params", err);
-  //     }
-
-  // } // end editor_tool
-
-
-  function redirectToLtiEditorDestinationWithDetailsAboutIframe(req, res, launch_presentation_return_url, url, width, height) {
-    res.redirect(launch_presentation_return_url + "?" + [
-      ["return_type", "iframe"].join("="), ["url", url].join("="), ["width", width].join("="), ["height", height].join("="),
-    ].join("&"));
-  }
-
-  function redirectToLtiEditorDestinationWithDetailsAboutLtiLink(req, res, launch_presentation_return_url, url) {
-    res.redirect(launch_presentation_return_url + "?" + [
-      ["return_type", "lti_launch_url"].join("="), ["url", url].join("="), ["title", "external tool title 123"].join("="), ["text", "link text here"].join("="),
-    ].join("&"));
-  }
-
-
-
-  // function handle_GET_lti_editor_tool_xml(req, res) {
-  // var xml = '' +
-  // '<cartridge_basiclti_link xmlns="http://www.imsglobal.org/xsd/imslticc_v1p0" xmlns:blti="http://www.imsglobal.org/xsd/imsbasiclti_v1p0" xmlns:lticm="http://www.imsglobal.org/xsd/imslticm_v1p0" xmlns:lticp="http://www.imsglobal.org/xsd/imslticp_v1p0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsglobal.org/xsd/imslticc_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticc_v1p0.xsd http://www.imsglobal.org/xsd/imsbasiclti_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imsbasiclti_v1p0.xsd http://www.imsglobal.org/xsd/imslticm_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticm_v1p0.xsd http://www.imsglobal.org/xsd/imslticp_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticp_v1p0.xsd">' +
-
-  // '<blti:title>Polis Editor Tool</blti:title>' +
-  // '<blti:description>based on Minecraft LMS integration</blti:description>' +
-  // '<blti:icon>' +
-  // 'http://minecraft.inseng.net:8133/minecraft-16x16.png' +
-  // '</blti:icon>' +
-  // '<blti:launch_url>https://preprod.pol.is/api/v3/LTI/editor_tool</blti:launch_url>' +
-
-  // '<blti:custom>' +
-  // '<lticm:property name="custom_canvas_xapi_url">$Canvas.xapi.url</lticm:property>' +
-  // '</blti:custom>' +
-
-  // '<blti:extensions platform="canvas.instructure.com">' +
-
-  //     '<lticm:property name="tool_id">polis_lti</lticm:property>' +
-  //     '<lticm:property name="privacy_level">public</lticm:property>' +
-
-  //     // editor button
-  //     '<lticm:property name="domain">preprod.pol.is</lticm:property>' +
-  //     '<lticm:property name="text">Polis Foo Test</lticm:property>' +
-  //     '<lticm:options name="editor_button">' +
-  //         '<lticm:property name="enabled">true</lticm:property>' +
-  //         '<lticm:property name="icon_url">https://preprod.pol.is/polis-favicon_favicon.png</lticm:property>' +
-  //         '<lticm:property name="selection_width">500</lticm:property>' +
-  //         '<lticm:property name="selection_height">300</lticm:property>' +
-  //     '</lticm:options>' +
-
-
-  // '</blti:extensions>' +
-
-  // '<cartridge_bundle identifierref="BLTI001_Bundle"/>' +
-  // '<cartridge_icon identifierref="BLTI001_Icon"/>' +
-  // '</cartridge_basiclti_link>';
-
-  // res.set('Content-Type', 'text/xml');
-  // res.status(200).send(xml);
-  // });
-
-
-
-  // This approach does not work on the current canvas iOS app.
-  //
-  // // TODO rename to LTI/launch
-  // // TODO save launch contexts in mongo. For now, to err on the side of collecting extra data, let them be duplicated. Attach a timestamp too.
-  // // TODO return HTML from the auth functions. the html should contain the token? so that ajax calls can be made.
-  // function handle_POST_lti_editor_tool_for_setup(req, res) {
-  //     var roles = req.p.roles;
-  //     var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
-  //     var user_id = req.p.user_id;
-  //     var context_id = req.p.context_id;
-  //     var user_image = req.p.user_image || "";
-  //     // TODO SECURITY we need to verify the signature
-  //     var oauth_consumer_key = req.p.oauth_consumer_key;
-  //     var owner = 125;
-  //     // if (oauth_consumer_key === 'asdfasdf') {
-  //     //     uid = 125;
-  //     // }
-  //     // rich text editor tool embed
-  //     var ext_content_return_types = req.p.ext_content_return_types;
-  //     var launch_presentation_return_url = req.p.launch_presentation_return_url;
-  //     // TODO wait to redirect
-  //     //https://canvas.instructure.com/doc/api/file.editor_button_tools.html
-  //     if (/iframe/.exec(ext_content_return_types)) {
-  //         var url = getServerNameWithProtocol(req) + "/api/v3/LTI/setup_assignment";
-  //         redirectToLtiEditorDestinationWithDetailsAboutLtiLink(req, res, launch_presentation_return_url, url);
-  //     } else if (ext_content_return_types) {
-  //         fail(res, 500, "polis_err_unexpected_lti_return_type_for_ext_content_return_types", err);
-  //     } else {
-  //         fail(res, 500, "polis_err_unexpected_launch_params", err);
-  //     }
-  // } // end editor_tool_for_setup
-
-  // This approach does not work on the current canvas iOS app.
-  //
-  // function handle_GET_editor_tool_for_setup_xml(req, res) {
-  // var xml = '' +
-  // '<cartridge_basiclti_link xmlns="http://www.imsglobal.org/xsd/imslticc_v1p0" xmlns:blti="http://www.imsglobal.org/xsd/imsbasiclti_v1p0" xmlns:lticm="http://www.imsglobal.org/xsd/imslticm_v1p0" xmlns:lticp="http://www.imsglobal.org/xsd/imslticp_v1p0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsglobal.org/xsd/imslticc_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticc_v1p0.xsd http://www.imsglobal.org/xsd/imsbasiclti_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imsbasiclti_v1p0.xsd http://www.imsglobal.org/xsd/imslticm_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticm_v1p0.xsd http://www.imsglobal.org/xsd/imslticp_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticp_v1p0.xsd">' +
-  // '<blti:title>Polis Editor Tool For Setup</blti:title>' +
-  // '<blti:description>based on Minecraft LMS integration</blti:description>' +
-  // '<blti:icon>' +
-  // 'http://minecraft.inseng.net:8133/minecraft-16x16.png' +
-  // '</blti:icon>' +
-  // '<blti:launch_url>https://preprod.pol.is/api/v3/LTI/editor_tool_for_setup</blti:launch_url>' +
-  // '<blti:custom>' +
-  // '<lticm:property name="custom_canvas_xapi_url">$Canvas.xapi.url</lticm:property>' +
-  // '</blti:custom>' +
-  // '<blti:extensions platform="canvas.instructure.com">' +
-  //     '<lticm:property name="tool_id">polis_lti</lticm:property>' +
-  //     '<lticm:property name="privacy_level">public</lticm:property>' +
-  //     // editor button
-  //     '<lticm:property name="domain">preprod.pol.is</lticm:property>' +
-  //     '<lticm:property name="text">Polis SETUP EDITOR TOOL</lticm:property>' +
-  //     '<lticm:options name="editor_button">' +
-  //         '<lticm:property name="enabled">true</lticm:property>' +
-  //         '<lticm:property name="icon_url">https://preprod.pol.is/polis-favicon_favicon.png</lticm:property>' +
-  //         '<lticm:property name="selection_width">50</lticm:property>' +
-  //         '<lticm:property name="selection_height">50</lticm:property>' +
-  //     '</lticm:options>' +
-  // '</blti:extensions>' +
-  // '<cartridge_bundle identifierref="BLTI001_Bundle"/>' +
-  // '<cartridge_icon identifierref="BLTI001_Icon"/>' +
-  // '</cartridge_basiclti_link>';
-  // res.set('Content-Type', 'text/xml');
-  // res.status(200).send(xml);
-  // });
-
 
 
   function handle_GET_conversation_assigmnent_xml(req, res) {
@@ -11967,7 +11374,7 @@ function initializePolisHelpers(mongoParams) {
               registerPageId(site_id, page_id, zid),
               generateAndRegisterZinvite(zid, generateShortUrl),
             ]).then(function(o) {
-              var notNeeded = o[0];
+              // var notNeeded = o[0];
               var zinvite = o[1];
               // NOTE: OK to return conversation_id, because this conversation was just created by this user.
               resolve({
@@ -12139,70 +11546,6 @@ function initializePolisHelpers(mongoParams) {
       fail(res, 500, "polis_err_redirecting_to_conv", err);
     });
   }
-
-
-  // function staticFile(req, res) {
-  //     // try to serve a static file
-  //     var requestPath = req.url;
-  //     // var contentPath = './src';
-  //     // Don't use this approach without protecting against arbitrary file access
-  //     // if (/^\/[0-9]/.exec(requestPath) || requestPath === '/') {
-  //     //     contentPath += '/desktop/index.html';
-  //     // } else if (requestPath.indexOf('/static/') === 0) {
-  //     //     contentPath += requestPath.slice(7);
-  //     // }
-  //     getStaticFile(contentPath, res);
-  // }
-
-
-  // this cache currently never expires
-  // filename -> content
-  var staticFileCache = {};
-
-  function getStaticFile(contentPath, res) {
-    var extname = path.extname(contentPath);
-    var contentType = 'text/html';
-    if ('.js' === extname) {
-      contentType = 'text/javascript';
-    } else if ('.css' === extname) {
-      contentType = 'text/css';
-    } else if ('.png' === extname) {
-      contentType = 'image/png';
-    } else if ('.woff' === extname) {
-      contentType = 'application/x-font-woff';
-    }
-
-    function onSuccess(content) {
-      res.setHeader('Content-Type', contentType);
-      res.status(200);
-      res.send(content);
-    }
-
-    function onMissing() {
-      res.setHeader(404);
-      res.json({
-        status: 404,
-      });
-    }
-
-    if (staticFileCache[contentPath]) {
-      onSuccess(staticFileCache[contentPath]);
-    } else {
-      fs.exists(contentPath, function(exists) {
-        if (!exists) {
-          return onMissing();
-        }
-        fs.readFile(contentPath, function(error, content) {
-          if (error) {
-            return onMissing();
-          }
-          staticFileCache[contentPath] = content;
-          onSuccess(content);
-        });
-      });
-    }
-  }
-
 
   var routingProxy = new httpProxy.RoutingProxy();
 
@@ -12430,11 +11773,9 @@ function initializePolisHelpers(mongoParams) {
     getZidFromConversationId(conversation_id).then(function(zid) {
       return Promise.all([
         getConversationInfo(zid),
-        // optionalItems,
       ]);
     }).then(function(a) {
       var conv = a[0];
-      var optionalResults = a[1];
 
       var auth_opt_allow_3rdparty = ifDefinedFirstElseSecond(conv.auth_opt_allow_3rdparty, true);
       var auth_opt_fb_computed = auth_opt_allow_3rdparty && ifDefinedFirstElseSecond(conv.auth_opt_fb, true);
@@ -12687,7 +12028,6 @@ function initializePolisHelpers(mongoParams) {
 
   return {
     addCorsHeader: addCorsHeader,
-    addInRamMetric: addInRamMetric,
     assignToP: assignToP,
     assignToPCustom: assignToPCustom,
     auth: auth,
@@ -12716,13 +12056,11 @@ function initializePolisHelpers(mongoParams) {
     haltOnTimeout: haltOnTimeout,
     HMAC_SIGNATURE_PARAM_NAME: HMAC_SIGNATURE_PARAM_NAME,
     hostname: hostname,
-    isIE: isIE,
     makeFileFetcher: makeFileFetcher,
     makeReactClientProxy: makeReactClientProxy,
     makeRedirectorTo: makeRedirectorTo,
     moveToBody: moveToBody,
     need: need,
-    p3p: p3p,
     pidCache: pidCache,
     portForAdminFiles: portForAdminFiles,
     portForParticipationFiles: portForParticipationFiles,
@@ -12732,7 +12070,6 @@ function initializePolisHelpers(mongoParams) {
     redirectIfNotHttps: redirectIfNotHttps,
     redirectIfWrongDomain: redirectIfWrongDomain,
     resolve_pidThing: resolve_pidThing,
-    responseTime: responseTime,
     timeout: timeout,
     want: want,
     wantCookie: wantCookie,
