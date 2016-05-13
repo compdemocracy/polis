@@ -8089,24 +8089,7 @@ function initializePolisHelpers(mongoParams) {
     });
   }
 
-  // Returns a function that behaves like failNow, but waits for some duration.
-  // The idea is to prevent timing attacks on various failure modes.
-  function failNotWithin(minDelay) {
-    var timerStart = Date.now();
-    return function() {
-      var args = arguments;
-      var failMoment = Date.now();
-      var elapsedBeforeFailureDetected = failMoment - timerStart;
-      var remainingDelay = Math.max(0, minDelay - elapsedBeforeFailureDetected);
-      setTimeout(function() {
-        fail.apply({}, args);
-      }, remainingDelay);
-    };
-  }
-
   function getOneConversation(zid, uid) {
-    // var fail = failNotWithin(500);
-    // no need for auth, since conversation_id was provided
     return Promise.all([
       pgQueryP_readOnly("select * from conversations left join  (select uid, site_id from users) as u on conversations.owner = u.uid where conversations.zid = ($1);", [zid]),
       getConversationHasMetadata(zid),
