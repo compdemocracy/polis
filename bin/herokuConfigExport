@@ -3,7 +3,7 @@
 # usage (unsafe!)
 #  eval `./bin/herokuConfigExport`
 
-heroku config --app polisapp | grep ": " | sed "s/[:=] */='/" | sed "s/$/'/" | sed "s/^/export /" | grep -v MATH_ENV
+heroku config --app "$1" | grep ": " | sed "s/[:=] */='/" | sed "s/$/'/" | sed "s/^/export /" | grep -v MATH_ENV
 
 # Set developer enviroment ("Beta") vars here:
 echo "export APPLICATION_NAME=PolisWebServerBeta"
