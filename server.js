@@ -113,16 +113,16 @@ Promise.onPossiblyUnhandledRejection(function(err){
 
 var polisDevs = [
     // Mike
-    125, // m@bjorkegren.com
-    26347, // mike@pol.is
-    91268, // michael@bjorkegren.com -- facebook and twiter attached
+    125,
+    26347, // @pol.is
+    91268, // facebook and twiter attached
 
     // Colin
-    186, // colinmegill@gmail.com
+    186, // @gmail.com
 
     // Chris
-    302, //  metasoarous@gmail.com
-    36140, // chris@pol.is
+    302, //  @gmail.com
+    36140, // @pol.is
 ];
 
 function isPolisDev(uid) {
