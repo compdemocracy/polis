@@ -27,53 +27,52 @@ heroku addons:create --app=polisapp heroku-postgresql:standard-0 --follow HEROKU
     //[process.env.APPLICATION_NAME,'Heroku']
 //);
 
-var akismetLib = require('akismet'),
-    badwords = require('badwords/object'),
-    Promise = require('bluebird'),
-    dgram = require('dgram'),
-    http = require('http'),
-    httpProxy = require('http-proxy'),
-    https = require('https'),
-    // Promise = require('es6-promise').Promise,
-    sql = require("sql"), // see here for useful syntax: https://github.com/brianc/node-sql/blob/bbd6ed15a02d4ab8fbc5058ee2aff1ad67acd5dc/lib/node/valueExpression.js
-    escapeLiteral = require('pg').Client.prototype.escapeLiteral,
-    pg = require('pg').native, //.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
-    parsePgConnectionString = require('pg-connection-string').parse
-    async = require('async'),
-    FB = require('fb'),
-    fs = require('fs'),
-    url = require('url'),
-    path = require('path'),
-    bcrypt = require('bcrypt'),
-    crypto = require('crypto'),
-    Intercom = require('intercom.io'), // https://github.com/tarunc/intercom.io
-    p3p = require('p3p'),
-    OAuth = require('oauth'),
-    Pushover = require( 'pushover-notifications' ),
-    pushoverInstance = new Pushover( {
-        user: process.env.PUSHOVER_GROUP_POLIS_DEV,
-        token: process.env.PUSHOVER_POLIS_PROXY_API_KEY,
-    }),
-    // sendgrid = require('sendgrid')(
-    //   process.env['SENDGRID_USERNAME'],
-    //   process.env['SENDGRID_PASSWORD'],
-    //   {api: 'smtp'}
-    // ),
-    Mailgun = require('mailgun').Mailgun,
-    mailgun = new Mailgun(process.env.MAILGUN_API_KEY),
-    postmark = require("postmark")(process.env.POSTMARK_API_KEY),
-    querystring = require('querystring'),
-    devMode = "localhost" === process.env.STATIC_FILES_HOST,
-    replaceStream = require('replacestream'),
-    responseTime = require('response-time'),
-    request = require('request-promise'), // includes Request, but adds promise methods
-    LruCache = require("lru-cache"),
-    stripe = require("stripe")(process.env.STRIPE_SECRET_KEY),
-    timeout = require('connect-timeout'),
-    isValidUrl = require('valid-url'),
-    zlib = require('zlib'),
-    _ = require('underscore');
-    // winston = require("winston");
+var akismetLib = require('akismet');
+var badwords = require('badwords/object');
+var Promise = require('bluebird');
+var dgram = require('dgram');
+var http = require('http');
+var httpProxy = require('http-proxy');
+var https = require('https');
+// var Promise = require('es6-promise').Promise,
+var sql = require("sql"); // see here for useful syntax: https://github.com/brianc/node-sql/blob/bbd6ed15a02d4ab8fbc5058ee2aff1ad67acd5dc/lib/node/valueExpression.js
+var escapeLiteral = require('pg').Client.prototype.escapeLiteral;
+var pg = require('pg').native; //.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
+var parsePgConnectionString = require('pg-connection-string').parse;
+var async = require('async');
+var FB = require('fb');
+var fs = require('fs');
+var url = require('url');
+var path = require('path');
+var bcrypt = require('bcrypt');
+var crypto = require('crypto');
+var Intercom = require('intercom.io'); // https://github.com/tarunc/intercom.io
+var p3p = require('p3p');
+var OAuth = require('oauth');
+var Pushover = require( 'pushover-notifications' );
+var pushoverInstance = new Pushover( {
+    user: process.env.PUSHOVER_GROUP_POLIS_DEV,
+    token: process.env.PUSHOVER_POLIS_PROXY_API_KEY,
+});
+// var sendgrid = require('sendgrid')(
+//     process.env['SENDGRID_USERNAME'],
+//     process.env['SENDGRID_PASSWORD'],
+//     {api: 'smtp'});
+var Mailgun = require('mailgun').Mailgun;
+var mailgun = new Mailgun(process.env.MAILGUN_API_KEY);
+var postmark = require("postmark")(process.env.POSTMARK_API_KEY);
+var querystring = require('querystring');
+var devMode = "localhost" === process.env.STATIC_FILES_HOST;
+var replaceStream = require('replacestream');
+var responseTime = require('response-time');
+var request = require('request-promise'); // includes Request, but adds promise methods
+var LruCache = require("lru-cache");
+var stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+var timeout = require('connect-timeout');
+var isValidUrl = require('valid-url');
+var zlib = require('zlib');
+var _ = require('underscore');
+// var winston = require("winston");
 
 var winston = console;
 
