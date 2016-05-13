@@ -2329,10 +2329,9 @@ function initializePolisHelpers(mongoParams) {
   }
 
 
-
   function handle_GET_dataExport(req, res) {
     doProxyDataExportCall(req, res, function(exportServerUser, exportServerPass, email) {
-      return "http://" +
+      return "https://" +
         exportServerUser + ":" + exportServerPass +
         "@"+process.env.SERVICE_MATHAPI_HOSTNAME+"/datadump/get?zinvite=" +
         req.p.conversation_id +
@@ -2345,7 +2344,7 @@ function initializePolisHelpers(mongoParams) {
 
   function handle_GET_dataExport_results(req, res) {
     doProxyDataExportCall(req, res, function(exportServerUser, exportServerPass, email) {
-      return "http://" +
+      return "https://" +
         exportServerUser + ":" + exportServerPass +
         "@"+process.env.SERVICE_MATHAPI_HOSTNAME+"/datadump/results?zinvite=" +
         req.p.conversation_id +
