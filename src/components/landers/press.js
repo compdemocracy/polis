@@ -32,13 +32,19 @@ class Press extends React.Component {
   getStyles() {
     return {
       pressSection: {
-        backgroundColor: "rgb(230,230,230)",
+        backgroundColor: "rgb(247,247,247)",
         color: "darkgray",
-        width: "100vw",
-        padding: 30
+        width: "100%",
+        padding: 30,
+        // "@media (min-width: 768px)": {
+        // }
       },
       newsLogo: {
-        width: 170
+        width: 170,
+        filter: "grayscale(100%) opacity(0.4)",
+        ":hover": {
+          filter: "none"
+        }
       },
     };
   }
@@ -54,26 +60,31 @@ class Press extends React.Component {
           justifyContent={"space-around"}>
           <a href="http://www.geekwire.com/2014/startup-spotlight-polis/">
             <img
+              key="1"
               style={this.getStyles().newsLogo}
               src="http://cdn.geekwire.com/wp-content/uploads/2015/02/GeekWire-logo-transparent.png"/>
           </a>
-          <a href="http://m.media.daum.net/m/media/world/newsview/20160302145809114">
+          {/*<a href="http://m.media.daum.net/m/media/world/newsview/20160302145809114">
             <img
+              key="2"
               style={this.getStyles().newsLogo}
               src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Daum_communication_logo.svg/2000px-Daum_communication_logo.svg.png"/>
-          </a>
+          </a>*/}
           <a href="http://www.poynter.org/2016/here-are-27-ways-to-think-about-comments/401728/">
             <img
+              key="3"
               style={this.getStyles().newsLogo}
               src="http://atendesigngroup.com/sites/all/themes/aten2014/images/logos/logo--poynter.png"/>
           </a>
           <a href="http://www.mobilisationlab.org/blooming-digital-democracy-taiwan-sunflower-movement/#.Vur9oxIrLUI">
             <img
+              key="4"
               style={this.getStyles().newsLogo}
               src="http://www.mobilisationlab.org/wp-content/themes/eleven40/images/logo-mob-lab-sq.png"/>
           </a>
           <a href="https://coralproject.net/new-community-tools-polis/">
             <img
+              key="kabillion"
               style={this.getStyles().newsLogo}
               src="https://coralproject.net/wp-content/uploads/2015/10/coralWordMark-1.5.png"/>
           </a>
