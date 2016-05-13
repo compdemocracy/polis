@@ -144,7 +144,7 @@ var POLIS_FROM_ADDRESS = "Polis Team <" + process.env.EMAIL_MIKE + ">";
 
 var akismet = akismetLib.client({
   blog: 'https://pol.is', // required: your root level url
-  apiKey: process.env.AKISMET_ANTISPAM_API_KEY
+  apiKey: process.env.AKISMET_ANTISPAM_API_KEY,
 });
 
 akismet.verifyKey(function(err, verified) {
@@ -338,7 +338,7 @@ var yell = errorNotifications.add;
 
 var intercom = new Intercom({
   apiKey: process.env.INTERCOM_API_KEY,
-  appId: "nb5hla8s"
+  appId: "nb5hla8s",
 });
 
 
@@ -381,7 +381,7 @@ var sql_conversations = sql.define({
     "auth_opt_fb",
     "auth_opt_tw",
     "auth_opt_allow_3rdparty",
-  ]
+  ],
 });
 var sql_votes = sql.define({
   name: 'votes',
@@ -391,7 +391,7 @@ var sql_votes = sql.define({
     "pid",
     "created",
     "vote",
-  ]
+  ],
 });
 var sql_comments = sql.define({
   name: 'comments',
@@ -407,7 +407,7 @@ var sql_comments = sql.define({
     "mod",
     "quote_src_url",
     "anon",
-  ]
+  ],
 });
 
 var sql_participant_metadata_answers = sql.define({
@@ -418,7 +418,7 @@ var sql_participant_metadata_answers = sql.define({
     "zid",
     "value",
     "alive",
-  ]
+  ],
 });
 
 var sql_participants_extended = sql.define({
@@ -441,7 +441,7 @@ var sql_courses = sql.define({
     "description",
     "owner",
     "created",
-  ]
+  ],
 });
 // var sql_otzinvites = sql.define({
 //   name: 'otzinvites',
@@ -640,7 +640,7 @@ function getUidForPwResetToken(pwresettoken, cb) {
       return;
     }
     cb(null, {
-      uid: results.rows[0].uid
+      uid: results.rows[0].uid,
     });
   });
 }
@@ -1217,7 +1217,7 @@ var prrrams = (function() {
         extractor: extractFromBody,
         parserWhichReturnsPromise: parserWhichReturnsPromise,
         assigner: assigner,
-        required: true
+        required: true,
       });
     },
     want: function(name, parserWhichReturnsPromise, assigner, defaultVal) {
@@ -1227,7 +1227,7 @@ var prrrams = (function() {
         parserWhichReturnsPromise: parserWhichReturnsPromise,
         assigner: assigner,
         required: false,
-        defaultVal: defaultVal
+        defaultVal: defaultVal,
       });
     },
     needCookie: function(name, parserWhichReturnsPromise, assigner) {
@@ -1236,7 +1236,7 @@ var prrrams = (function() {
         extractor: extractFromCookie,
         parserWhichReturnsPromise: parserWhichReturnsPromise,
         assigner: assigner,
-        required: true
+        required: true,
       });
     },
     wantCookie: function(name, parserWhichReturnsPromise, assigner, defaultVal) {
@@ -1246,7 +1246,7 @@ var prrrams = (function() {
         parserWhichReturnsPromise: parserWhichReturnsPromise,
         assigner: assigner,
         required: false,
-        defaultVal: defaultVal
+        defaultVal: defaultVal,
       });
     },
   };
@@ -1690,7 +1690,7 @@ function initializePolisHelpers(mongoParams) {
 
     if (!/https/.test(req.headers["x-forwarded-proto"])) { // assuming we're running on Heroku, where we're behind a proxy.
       res.writeHead(302, {
-        Location: "https://" + req.headers.host + req.url
+        Location: "https://" + req.headers.host + req.url,
       });
       return res.end();
     }
@@ -1704,7 +1704,7 @@ function initializePolisHelpers(mongoParams) {
       /www.pol.is/.test(req.headers.host)
     ) {
       res.writeHead(302, {
-        Location: "https://pol.is" + req.url
+        Location: "https://pol.is" + req.url,
       });
       return res.end();
     }
@@ -1715,12 +1715,12 @@ function initializePolisHelpers(mongoParams) {
     if (/api.pol.is/.test(req.headers.host)) {
       if (req.url === "/" || req.url === "") {
         res.writeHead(302, {
-          Location: "https://pol.is/docs/api"
+          Location: "https://pol.is/docs/api",
         });
         return res.end();
       } else if (!req.url.match(/^\/?api/)) {
         res.writeHead(302, {
-          Location: "https://pol.is/" + req.url
+          Location: "https://pol.is/" + req.url,
         });
         return res.end();
       }
@@ -2073,8 +2073,8 @@ function initializePolisHelpers(mongoParams) {
     INFO("mathpoll begin", lastPrefetchedVoteTimestamp);
     var cursor = collectionOfPcaResults.find({
       lastVoteTimestamp: {
-        $gt: lastPrefetchedVoteTimestamp
-      }
+        $gt: lastPrefetchedVoteTimestamp,
+      },
     });
     // cursor.sort([["lastVoteTimestamp", "asc"]]);
 
@@ -2132,7 +2132,7 @@ function initializePolisHelpers(mongoParams) {
     return new MPromise("pcaGet", function(resolve, reject) {
       var queryStart = Date.now();
       collectionOfPcaResults.find({
-        zid: zid
+        zid: zid,
       }, function(err, cursor) {
         if (err) {
           reject("polis_err_get_pca_results_find");
@@ -2199,10 +2199,10 @@ function initializePolisHelpers(mongoParams) {
     return new Promise(function(resolve, reject) {
       collectionOfPcaPlaybackResults.find({
         $and: [{
-          zid: zid
+          zid: zid,
         }, {
-          lastVoteTimestamp: lastVoteTimestamp
-        }, ]
+          lastVoteTimestamp: lastVoteTimestamp,
+        }],
       }, function(err, cursor) {
         if (err) {
           reject("polis_err_get_pca_playback_result_find");
@@ -2225,7 +2225,7 @@ function initializePolisHelpers(mongoParams) {
   function getPcaPlaybackList(zid) {
     return new Promise(function(resolve, reject) {
       collectionOfPcaPlaybackResults.find({
-        zid: zid
+        zid: zid,
       }, function(err, cursor) {
         if (err) {
           reject("polis_err_get_pca_playback_results_list_find");
@@ -2260,7 +2260,7 @@ function initializePolisHelpers(mongoParams) {
     if (req.body.zid && !req.body.conversation_id) {
       winston.log("info", "redirecting old zid user to about page");
       res.writeHead(302, {
-        Location: "https://pol.is/about"
+        Location: "https://pol.is/about",
       });
       return res.end();
     }
@@ -2441,7 +2441,7 @@ function initializePolisHelpers(mongoParams) {
     lastVoteTimestamp = lastVoteTimestamp || -1;
     return new MPromise("getBidToPidMapping", function(resolve, reject) {
       collectionOfBidToPidResults.find({
-        zid: zid
+        zid: zid,
       }, function(err, cursor) {
         if (err) {
           reject("polis_err_get_pca_results_find");
@@ -2476,7 +2476,7 @@ function initializePolisHelpers(mongoParams) {
       var b2p = doc.bidToPid;
 
       res.json({
-        bidToPid: b2p
+        bidToPid: b2p,
       });
 
     }, function(err) {
@@ -2609,7 +2609,7 @@ function initializePolisHelpers(mongoParams) {
       }
 
       res.json({
-        bid: yourBid // The user's current bid
+        bid: yourBid, // The user's current bid
       });
 
     }, function(err) {
@@ -2737,20 +2737,20 @@ function initializePolisHelpers(mongoParams) {
     var origin = req.headers.origin || "";
     if (domainOverride || origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
       res.clearCookie(cookieName, {
-        path: "/"
+        path: "/",
       });
     } else {
       res.clearCookie(cookieName, {
         path: "/",
-        domain: ".polis.io"
+        domain: ".polis.io",
       });
       res.clearCookie(cookieName, {
         path: "/",
-        domain: "www.polis.io"
+        domain: "www.polis.io",
       });
       res.clearCookie(cookieName, {
         path: "/",
-        domain: ".pol.is"
+        domain: ".pol.is",
       });
       //         res.clearCookie(cookieName, {path: "/", domain: "www.pol.is"});
     }
@@ -2763,7 +2763,7 @@ function initializePolisHelpers(mongoParams) {
       for (cookieName in req.cookies) {
         if (COOKIES_TO_CLEAR[cookieName]) {
           res.clearCookie(cookieName, {
-            path: "/"
+            path: "/",
           });
         }
       }
@@ -2773,7 +2773,7 @@ function initializePolisHelpers(mongoParams) {
         if (COOKIES_TO_CLEAR[cookieName]) {
           res.clearCookie(cookieName, {
             path: "/",
-            domain: ".polis.io"
+            domain: ".polis.io",
           });
         }
       }
@@ -2781,7 +2781,7 @@ function initializePolisHelpers(mongoParams) {
         if (COOKIES_TO_CLEAR[cookieName]) {
           res.clearCookie(cookieName, {
             path: "/",
-            domain: "www.polis.io"
+            domain: "www.polis.io",
           });
         }
       }
@@ -2789,7 +2789,7 @@ function initializePolisHelpers(mongoParams) {
         if (COOKIES_TO_CLEAR[cookieName]) {
           res.clearCookie(cookieName, {
             path: "/",
-            domain: ".pol.is"
+            domain: ".pol.is",
           });
         }
       }
@@ -2907,7 +2907,7 @@ function initializePolisHelpers(mongoParams) {
       if (!results || !results.rows) {
         res.writeHead(404);
         res.json({
-          status: 404
+          status: 404,
         });
         return;
       }
@@ -2919,7 +2919,7 @@ function initializePolisHelpers(mongoParams) {
         if (!results || !results.rows) {
           res.writeHead(404);
           res.json({
-            status: 404
+            status: 404,
           });
           return;
         }
@@ -3446,7 +3446,12 @@ function initializePolisHelpers(mongoParams) {
   function createParticpantLocationRecord(
     zid, uid, pid, lat, lng, source) {
     return pgQueryP("insert into participant_locations (zid, uid, pid, lat, lng, source) values ($1,$2,$3,$4,$5,$6);", [
-      zid, uid, pid, lat, lng, source
+      zid,
+      uid,
+      pid,
+      lat,
+      lng,
+      source,
     ]);
   }
 
@@ -3748,9 +3753,10 @@ function initializePolisHelpers(mongoParams) {
     return sendMultipleTextEmails(
       POLIS_FROM_ADDRESS, [process.env.EMAIL_MIKE, process.env.EMAIL_COLIN, process.env.EMAIL_CHRIS],
       "Dummy button clicked!!!",
-      body).catch(function(err) {
-        yell("polis_err_failed_to_email_for_dummy_button");
-        yell(message);
+      body)
+    .catch(function(err) {
+      yell("polis_err_failed_to_email_for_dummy_button");
+      yell(message);
     });
   }
 
@@ -3763,9 +3769,9 @@ function initializePolisHelpers(mongoParams) {
       POLIS_FROM_ADDRESS, [process.env.EMAIL_MIKE, process.env.EMAIL_COLIN, process.env.EMAIL_CHRIS],
       "Polis Bad Problems!!!",
       body).catch(function(err) {
-      yell("polis_err_failed_to_email_bad_problem_time");
-      yell(message);
-    });
+        yell("polis_err_failed_to_email_bad_problem_time");
+        yell(message);
+      });
   }
 
 
@@ -3792,11 +3798,11 @@ function initializePolisHelpers(mongoParams) {
         userInfo.email,
         "Polis Password Reset",
         body).then(function() {
-        callback();
-      }).catch(function(err) {
-        yell("polis_err_failed_to_email_password_reset_code");
-        callback(err);
-      });
+          callback();
+        }).catch(function(err) {
+          yell("polis_err_failed_to_email_password_reset_code");
+          callback(err);
+        });
     });
   }
 
@@ -4496,7 +4502,7 @@ function initializePolisHelpers(mongoParams) {
   function createNotificationsUnsubscribeUrl(conversation_id, email) {
     var params = {
       conversation_id: conversation_id,
-      email: email
+      email: email,
     };
     var path = "api/v3/notifications/unsubscribe";
     params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
@@ -4511,7 +4517,7 @@ function initializePolisHelpers(mongoParams) {
   function createNotificationsSubscribeUrl(conversation_id, email) {
     var params = {
       conversation_id: conversation_id,
-      email: email
+      email: email,
     };
     var path = "api/v3/notifications/subscribe";
     params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
@@ -4667,7 +4673,7 @@ function initializePolisHelpers(mongoParams) {
             var response_data = {
               uid: uid,
               email: email,
-              token: token
+              token: token,
             };
             addCookies(req, res, token, uid).then(function() {
               winston.log("info", "uid", uid);
@@ -4739,56 +4745,56 @@ function initializePolisHelpers(mongoParams) {
 
 
     return joinWithZidOrSuzinvite({
-        answers: req.p.answers,
-        existingAuth: !!req.p.uid,
-        suzinvite: req.p.suzinvite,
-        permanentCookieToken: req.p.permanentCookieToken,
-        uid: req.p.uid,
-        zid: req.p.zid, // since the zid is looked up using the conversation_id, it's safe to use zid as an invite token. TODO huh?
-        referrer: req.p.referrer,
-        parent_url: req.p.parent_url,
-      })
-      .then(function(o) {
-        var uid = o.uid;
-        winston.log("info", "startSessionAndAddCookies " + uid + " existing " + o.existingAuth);
-        // TODO check for possible security implications
-        if (!o.existingAuth) {
-          return startSessionAndAddCookies(req, res, uid).then(function() {
-            return o;
-          });
-        }
-        return Promise.resolve(o);
-      })
-      .then(function(o) {
-        winston.log("info", "permanentCookieToken", o.permanentCookieToken);
-        if (o.permanentCookieToken) {
-          return recordPermanentCookieZidJoin(o.permanentCookieToken, o.zid).then(function() {
-            return o;
-          }, function() {
-            return o;
-          });
-        } else {
+      answers: req.p.answers,
+      existingAuth: !!req.p.uid,
+      suzinvite: req.p.suzinvite,
+      permanentCookieToken: req.p.permanentCookieToken,
+      uid: req.p.uid,
+      zid: req.p.zid, // since the zid is looked up using the conversation_id, it's safe to use zid as an invite token. TODO huh?
+      referrer: req.p.referrer,
+      parent_url: req.p.parent_url,
+    })
+    .then(function(o) {
+      var uid = o.uid;
+      winston.log("info", "startSessionAndAddCookies " + uid + " existing " + o.existingAuth);
+      // TODO check for possible security implications
+      if (!o.existingAuth) {
+        return startSessionAndAddCookies(req, res, uid).then(function() {
           return o;
-        }
-      })
-      .then(function(o) {
-        var pid = o.pid;
-        res.status(200).json({
-          pid: pid,
-          uid: req.p.uid,
         });
-      })
-      .catch(function(err) {
-        if (err && err.message && err.message.match(/polis_err_need_full_user/)) {
-          userFail(res, 403, err.message, err);
-        } else if (err && err.message) {
-          fail(res, 500, err.message, err);
-        } else if (err) {
-          fail(res, 500, "polis_err_joinWithZidOrSuzinvite", err);
-        } else {
-          fail(res, 500, "polis_err_joinWithZidOrSuzinvite");
-        }
+      }
+      return Promise.resolve(o);
+    })
+    .then(function(o) {
+      winston.log("info", "permanentCookieToken", o.permanentCookieToken);
+      if (o.permanentCookieToken) {
+        return recordPermanentCookieZidJoin(o.permanentCookieToken, o.zid).then(function() {
+          return o;
+        }, function() {
+          return o;
+        });
+      } else {
+        return o;
+      }
+    })
+    .then(function(o) {
+      var pid = o.pid;
+      res.status(200).json({
+        pid: pid,
+        uid: req.p.uid,
       });
+    })
+    .catch(function(err) {
+      if (err && err.message && err.message.match(/polis_err_need_full_user/)) {
+        userFail(res, 403, err.message, err);
+      } else if (err && err.message) {
+        fail(res, 500, err.message, err);
+      } else if (err) {
+        fail(res, 500, "polis_err_joinWithZidOrSuzinvite", err);
+      } else {
+        fail(res, 500, "polis_err_joinWithZidOrSuzinvite");
+      }
+    });
   }
 
 
@@ -4881,7 +4887,7 @@ function initializePolisHelpers(mongoParams) {
         } else {
           return createDummyUser().then(function(uid) {
             return _.extend(o, {
-              uid: uid
+              uid: uid,
             });
           });
         }
@@ -5418,30 +5424,30 @@ function initializePolisHelpers(mongoParams) {
             zid,
             newZid,
           ]).then(function() {
-          return pgQueryP(
-            "insert into comments (pid, tid, zid, txt, velocity, mod, uid, active, created) " +
-            "select pid, tid, ($2), txt, velocity, mod, uid, active, created from comments where zid = ($1);", [
-              zid,
-              newZid,
-            ]).then(function() {
             return pgQueryP(
-              "insert into votes (pid, tid, zid, vote, created) " +
-              "select pid, tid, ($2), vote, created from votes where zid = ($1);", [
+              "insert into comments (pid, tid, zid, txt, velocity, mod, uid, active, created) " +
+              "select pid, tid, ($2), txt, velocity, mod, uid, active, created from comments where zid = ($1);", [
                 zid,
                 newZid,
               ]).then(function() {
-              return generateAndRegisterZinvite(newZid, true).then(function(zinvite) {
-                res.status(200).json({
-                  zid: newZid,
-                  zinvite: zinvite,
-                  url: getServerNameWithProtocol(req) + "/" + zinvite,
-                });
+                return pgQueryP(
+                  "insert into votes (pid, tid, zid, vote, created) " +
+                  "select pid, tid, ($2), vote, created from votes where zid = ($1);", [
+                    zid,
+                    newZid,
+                  ]).then(function() {
+                    return generateAndRegisterZinvite(newZid, true).then(function(zinvite) {
+                      res.status(200).json({
+                        zid: newZid,
+                        zinvite: zinvite,
+                        url: getServerNameWithProtocol(req) + "/" + zinvite,
+                      });
+                    });
+                  });
               });
-            });
+          }).catch(function(err) {
+            fail(res, 500, "polis_err_cloning_conversation_misc", err);
           });
-        }).catch(function(err) {
-          fail(res, 500, "polis_err_cloning_conversation_misc", err);
-        });
       });
   }
 
@@ -5531,7 +5537,7 @@ function initializePolisHelpers(mongoParams) {
 
     FB.setAccessToken(fb_access_token);
     FB.api('me', {
-      fields: fields
+      fields: fields,
     }, function(fbRes) {
       if (!fbRes || fbRes.error) {
         fail(res, 500, "polis_err_fb_auth_check", fbRes && fbRes.error);
@@ -5606,7 +5612,7 @@ function initializePolisHelpers(mongoParams) {
     function doFbUserHasAccountLinked(user) {
       if (user.fb_user_id === fb_user_id) {
         updateFacebookUserRecord(_.extend({}, {
-          uid: user.uid
+          uid: user.uid,
         }, fbUserRecord)).then(function() {
           var friendsAddedPromise = fb_friends_response ? addFacebookFriends(user.uid, fb_friends_response) : Promise.resolve();
           return friendsAddedPromise.then(function() {
@@ -5648,26 +5654,26 @@ function initializePolisHelpers(mongoParams) {
         pwPromise.then(function(ok) {
           if (ok) {
             createFacebookUserRecord(_.extend({}, {
-              uid: user.uid
+              uid: user.uid,
             }, fbUserRecord)).then(function() {
               var friendsAddedPromise = fb_friends_response ? addFacebookFriends(user.uid, fb_friends_response) : Promise.resolve();
               return friendsAddedPromise.then(function() {
-                  return startSessionAndAddCookies(req, res, user.uid).then(function() {
-                    return user;
-                  });
-                }, function(err) {
-                  fail(res, 500, "polis_err_linking_fb_friends", err);
-                })
-                .then(function(user) {
-                  res.status(200).json({
-                    uid: user.uid,
-                    hname: user.hname,
-                    email: user.email,
-                    // token: token
-                  });
-                }, function(err) {
-                  fail(res, 500, "polis_err_linking_fb_misc", err);
+                return startSessionAndAddCookies(req, res, user.uid).then(function() {
+                  return user;
                 });
+              }, function(err) {
+                fail(res, 500, "polis_err_linking_fb_friends", err);
+              })
+              .then(function(user) {
+                res.status(200).json({
+                  uid: user.uid,
+                  hname: user.hname,
+                  email: user.email,
+                  // token: token,
+                });
+              }, function(err) {
+                fail(res, 500, "polis_err_linking_fb_misc", err);
+              });
             }, function(err) {
               fail(res, 500, "polis_err_linking_fb_to_existing_polis_account", err);
             }).catch(function(err) {
@@ -5826,28 +5832,28 @@ function initializePolisHelpers(mongoParams) {
         "where users.email = ($1) " +
         "   or facebook_users.fb_user_id = ($2) " +
         ";", [email, fb_user_id]).then(function(rows) {
-        var user = rows && rows.length && rows[0] || null;
-        if (rows && rows.length > 1) {
-          // the auth provided us with email and fb_user_id where the email is one polis user, and the fb_user_id is for another.
-          // go with the one matching the fb_user_id in this case, and leave the email matching account alone.
-          user = _.find(rows, function(row) {
-            return row.fb_user_id === fb_user_id;
-          });
-        }
-        if (user) {
-          if (user.fb_user_id) {
-            doFbUserHasAccountLinked(user);
-          } else {
-            doFbNotLinkedButUserWithEmailExists(user);
+          var user = rows && rows.length && rows[0] || null;
+          if (rows && rows.length > 1) {
+            // the auth provided us with email and fb_user_id where the email is one polis user, and the fb_user_id is for another.
+            // go with the one matching the fb_user_id in this case, and leave the email matching account alone.
+            user = _.find(rows, function(row) {
+              return row.fb_user_id === fb_user_id;
+            });
           }
-        } else {
-          doFbNoUserExistsYet(user);
-        }
-      }, function(err) {
-        fail(res, 500, "polis_err_reg_fb_user_looking_up_email", err);
-      }).catch(function(err) {
-        fail(res, 500, "polis_err_reg_fb_user_misc", err);
-      });
+          if (user) {
+            if (user.fb_user_id) {
+              doFbUserHasAccountLinked(user);
+            } else {
+              doFbNotLinkedButUserWithEmailExists(user);
+            }
+          } else {
+            doFbNoUserExistsYet(user);
+          }
+        }, function(err) {
+          fail(res, 500, "polis_err_reg_fb_user_looking_up_email", err);
+        }).catch(function(err) {
+          fail(res, 500, "polis_err_reg_fb_user_misc", err);
+        });
     });
   } // end do_handle_POST_auth_facebook
 
@@ -6186,7 +6192,7 @@ function initializePolisHelpers(mongoParams) {
   function createStripeSubscription(customerId, planId) {
     return new Promise(function(resolve, reject) {
       stripe.customers.createSubscription(customerId, {
-        plan: planId
+        plan: planId,
       }, function(err, subscription) {
         if (err) {
           reject(err);
@@ -6289,12 +6295,12 @@ function initializePolisHelpers(mongoParams) {
           path = "/settings/enterprise";
         }
         res.writeHead(302, {
-          Location: protocol + "://" + req.headers.host + path
+          Location: protocol + "://" + req.headers.host + path,
         });
         return res.end();
       } else {
         res.status(200).json({
-          status: "upgraded!"
+          status: "upgraded!",
         });
       }
     }).catch(function(err) {
@@ -8284,11 +8290,11 @@ function initializePolisHelpers(mongoParams) {
                   req.p.tool_consumer_instance_guid,
                   req.p.context, // lti_context_id,
                   req.p.custom_canvas_assignment_id).then(function() {
-                  finishOne(res, conv, true, successCode);
-                }).catch(function(err) {
-                  fail(res, 500, "polis_err_saving_assignment_grading_context", err);
-                  emailBadProblemTime("PUT conversation worked, but couldn't save assignment context");
-                });
+                    finishOne(res, conv, true, successCode);
+                  }).catch(function(err) {
+                    fail(res, 500, "polis_err_saving_assignment_grading_context", err);
+                    emailBadProblemTime("PUT conversation worked, but couldn't save assignment context");
+                  });
               } else {
                 finishOne(res, conv, true, successCode);
               }
@@ -8506,7 +8512,7 @@ function initializePolisHelpers(mongoParams) {
         fail(res, 403, "polis_err_post_participant_metadata_auth", err);
         return;
       }
-      pgQuery("INSERT INTO participant_metadata_answers (pmqid, zid, value, pmaid) VALUES ($1, $2, $3, default) RETURNING *;", [pmqid, zid, value, ], function(err, results) {
+      pgQuery("INSERT INTO participant_metadata_answers (pmqid, zid, value, pmaid) VALUES ($1, $2, $3, default) RETURNING *;", [pmqid, zid, value], function(err, results) {
         if (err || !results || !results.rows || !results.rows.length) {
           pgQuery("UPDATE participant_metadata_answers set alive = TRUE where pmqid = ($1) AND zid = ($2) AND value = ($3) RETURNING *;", [pmqid, zid, value], function(err, results) {
             if (err) {
@@ -8932,7 +8938,7 @@ function initializePolisHelpers(mongoParams) {
 
   function handle_GET_enterprise_deal_url(req, res) {
     var o = {
-      monthly: req.p.monthly
+      monthly: req.p.monthly,
     };
     if (req.p.maxUsers) {
       o.maxUsers = req.p.maxUsers;
@@ -8971,8 +8977,8 @@ function initializePolisHelpers(mongoParams) {
         grant_type: 'authorization_code',
         client_id: process.env.STRIPE_CLIENT_ID,
         code: code,
-        client_secret: process.env.STRIPE_SECRET_KEY
-      }
+        client_secret: process.env.STRIPE_SECRET_KEY,
+      },
     }, function(err, r, body) {
       if (err) {
         fail(res, 500, "polis_err_stripe_oauth", err);
@@ -8996,12 +9002,12 @@ function initializePolisHelpers(mongoParams) {
           body.refresh_token,
           body.access_token,
         ]).then(function() {
-        res.set({
-          'Content-Type': 'text/html',
-        }).send("<html><body>success!</body></html>");
-      }, function(err) {
-        fail(res, 500, "polis_err_saving_stripe_info", err);
-      });
+          res.set({
+            'Content-Type': 'text/html',
+          }).send("<html><body>success!</body></html>");
+        }, function(err) {
+          fail(res, 500, "polis_err_saving_stripe_info", err);
+        });
     });
   }
 
@@ -9130,7 +9136,7 @@ function initializePolisHelpers(mongoParams) {
           // NOTE: OK to return conversation_id, because this conversation was just created by this user.
           finishOne(res, {
             url: buildConversationUrl(req, zinvite),
-            zid: zid
+            zid: zid,
           });
         }).catch(function(err) {
           fail(res, 500, "polis_err_zinvite_create", err);
@@ -9204,10 +9210,10 @@ function initializePolisHelpers(mongoParams) {
           email,
           "Link: " + createdLink,
           body).then(function() {
-          res.status(200).json({});
-        }).catch(function(err) {
-          fail(res, 500, "polis_err_sending_created_link_to_email", err);
-        });
+            res.status(200).json({});
+          }).catch(function(err) {
+            fail(res, 500, "polis_err_sending_created_link_to_email", err);
+          });
       });
     });
   }
@@ -9587,7 +9593,7 @@ function initializePolisHelpers(mongoParams) {
   function prepForQuoteWithTwitterUser(quote_twitter_screen_name, zid) {
     var query = pgQueryP("select * from twitter_users where screen_name = ($1);", [quote_twitter_screen_name]);
     return addParticipantByTwitterUserId(query, {
-      twitter_screen_name: quote_twitter_screen_name
+      twitter_screen_name: quote_twitter_screen_name,
     }, zid, null);
   }
 
@@ -9597,7 +9603,7 @@ function initializePolisHelpers(mongoParams) {
       var twitter_user_id = user.id_str;
       var query = pgQueryP("select * from twitter_users where twitter_user_id = ($1);", [twitter_user_id]);
       return addParticipantByTwitterUserId(query, {
-        twitter_user_id: twitter_user_id
+        twitter_user_id: twitter_user_id,
       }, zid, tweet);
     });
   }
@@ -9693,14 +9699,14 @@ function initializePolisHelpers(mongoParams) {
           u.location,
           JSON.stringify(u),
         ]).then(function(rows) {
-        var record = rows && rows.length && rows[0] || null;
+          var record = rows && rows.length && rows[0] || null;
 
-        // return the twitter user record
-        return {
-          twitterUser: u,
-          twitterUserDbRecord: record,
-        };
-      });
+          // return the twitter user record
+          return {
+            twitterUser: u,
+            twitterUserDbRecord: record,
+          };
+        });
     });
   }
 
@@ -9780,7 +9786,7 @@ function initializePolisHelpers(mongoParams) {
       // TODO - if no auth, generate a new user.
 
       getTwitterUserInfo({
-        twitter_user_id: kv.user_id
+        twitter_user_id: kv.user_id,
       }, false).then(function(u) {
         u = JSON.parse(u)[0];
         winston.log("info", "TWITTER USER INFO");
@@ -9809,69 +9815,70 @@ function initializePolisHelpers(mongoParams) {
             u.location,
             JSON.stringify(u),
           ]).then(function() {
-          // SUCCESS
-          // There was no existing record
-          // set the user's hname, if not already set
-          pgQueryP("update users set hname = ($2) where uid = ($1) and hname is NULL;", [uid, u.name]).then(function() {
-            // OK, ready
-            maybeAddToIntercom(u);
-            res.redirect(dest);
-          }, function(err) {
-            fail(res, 500, "polis_err_twitter_auth_update", err);
-          }).catch(function(err) {
-            fail(res, 500, "polis_err_twitter_auth_update_misc", err);
-          });
-        }, function(err) {
-          if (isDuplicateKey(err)) {
-            // we know the uid OR twitter_user_id is filled
-            // check if the uid is there with the same twitter_user_id - if so, redirect and good!
-            // determine which kind of duplicate
-            Promise.all([
-              pgQueryP("select * from twitter_users where uid = ($1);", [uid]),
-              pgQueryP("select * from twitter_users where twitter_user_id = ($1);", [u.id]),
-            ]).then(function(foo) {
-              var recordForUid = foo[0][0];
-              var recordForTwitterId = foo[1][0];
-              if (recordForUid && recordForTwitterId) {
-                if (recordForUid.uid === recordForTwitterId.uid) {
-                  // match
-                  res.redirect(dest);
-                } else {
+            // SUCCESS
+            // There was no existing record
+            // set the user's hname, if not already set
+            pgQueryP("update users set hname = ($2) where uid = ($1) and hname is NULL;", [uid, u.name]).then(function() {
+              // OK, ready
+              maybeAddToIntercom(u);
+              res.redirect(dest);
+            }, function(err) {
+              fail(res, 500, "polis_err_twitter_auth_update", err);
+            }).catch(function(err) {
+              fail(res, 500, "polis_err_twitter_auth_update_misc", err);
+            });
+          },
+          function(err) {
+            if (isDuplicateKey(err)) {
+              // we know the uid OR twitter_user_id is filled
+              // check if the uid is there with the same twitter_user_id - if so, redirect and good!
+              // determine which kind of duplicate
+              Promise.all([
+                pgQueryP("select * from twitter_users where uid = ($1);", [uid]),
+                pgQueryP("select * from twitter_users where twitter_user_id = ($1);", [u.id]),
+              ]).then(function(foo) {
+                var recordForUid = foo[0][0];
+                var recordForTwitterId = foo[1][0];
+                if (recordForUid && recordForTwitterId) {
+                  if (recordForUid.uid === recordForTwitterId.uid) {
+                    // match
+                    res.redirect(dest);
+                  } else {
+                    // TODO_SECURITY_REVIEW
+                    // both exist, but not same uid
+                    switchToUser(req, res, recordForTwitterId.uid).then(function() {
+                      res.redirect(dest);
+                    }).catch(function(err) {
+                      fail(res, 500, "polis_err_twitter_auth_456", err);
+                    });
+                  }
+                } else if (recordForUid) {
+                  // currently signed in user has a twitter account attached, but it's a different twitter account, and they are now signing in with a different twitter account.
+                  // the newly supplied twitter account is not attached to anything.
+                  fail(res, 500, "polis_err_twitter_already_attached", err);
+                } else if (recordForTwitterId) {
+                  // currently signed in user has no twitter account attached, but they just signed in with a twitter account which is attached to another user.
+                  // For now, let's just have it sign in as that user.
                   // TODO_SECURITY_REVIEW
-                  // both exist, but not same uid
                   switchToUser(req, res, recordForTwitterId.uid).then(function() {
                     res.redirect(dest);
                   }).catch(function(err) {
-                    fail(res, 500, "polis_err_twitter_auth_456", err);
+                    fail(res, 500, "polis_err_twitter_auth_234", err);
                   });
+                } else {
+                  fail(res, 500, "polis_err_twitter_auth_345");
                 }
-              } else if (recordForUid) {
-                // currently signed in user has a twitter account attached, but it's a different twitter account, and they are now signing in with a different twitter account.
-                // the newly supplied twitter account is not attached to anything.
-                fail(res, 500, "polis_err_twitter_already_attached", err);
-              } else if (recordForTwitterId) {
-                // currently signed in user has no twitter account attached, but they just signed in with a twitter account which is attached to another user.
-                // For now, let's just have it sign in as that user.
-                // TODO_SECURITY_REVIEW
-                switchToUser(req, res, recordForTwitterId.uid).then(function() {
-                  res.redirect(dest);
-                }).catch(function(err) {
-                  fail(res, 500, "polis_err_twitter_auth_234", err);
-                });
-              } else {
-                fail(res, 500, "polis_err_twitter_auth_345");
-              }
-            });
+              });
 
             // else check if the uid is there and has some other screen_name - if so, ????????
 
             // else check if the screen_name is there, but for a different uid - if so, ??????
 
-          } else {
-            fail(res, 500, "polis_err_twitter_auth_05", err);
-          }
-        });
-      }, function(err) {
+            } else {
+              fail(res, 500, "polis_err_twitter_auth_05", err);
+            }
+          });
+      },function(err) {
         fail(res, 500, "polis_err_twitter_auth_041", err);
       }).catch(function(err) {
         fail(res, 500, "polis_err_twitter_auth_04", err);
@@ -10111,7 +10118,7 @@ function initializePolisHelpers(mongoParams) {
       // "created",
       "location",
       // "response",
-      "name"
+      "name",
     ].join(",");
 
     // NOTE: this does not yet prioritize twitter users who you personally follow
@@ -10215,7 +10222,7 @@ function initializePolisHelpers(mongoParams) {
     var cachedVotes = pids.map(function(pid) {
       return {
         pid: pid,
-        votes: getVotesForZidPidWithTimestampCheck(zid, pid, lastVoteTimestamp)
+        votes: getVotesForZidPidWithTimestampCheck(zid, pid, lastVoteTimestamp),
       };
     });
     var uncachedPids = cachedVotes.filter(function(o) {
@@ -10845,13 +10852,13 @@ function initializePolisHelpers(mongoParams) {
     // NOTE: can't purge preprod independently unless we set up a separate domain on cloudflare, AFAIK
 
     request.post("https://www.cloudflare.com/api_json.html").form({
-        a: 'fpurge_ts',
-        tkn: process.env.CLOUDFLARE_API_KEY,
-        email: process.env.CLOUDFLARE_API_EMAIL,
-        z: hostname,
-        v: 1,
-      })
-      .pipe(res);
+      a: 'fpurge_ts',
+      tkn: process.env.CLOUDFLARE_API_KEY,
+      email: process.env.CLOUDFLARE_API_EMAIL,
+      z: hostname,
+      v: 1,
+    })
+    .pipe(res);
 
   }
 
@@ -10905,7 +10912,7 @@ function initializePolisHelpers(mongoParams) {
         }).then(function(conversation_id) {
           return {
             zid: zid,
-            conversation_id: conversation_id
+            conversation_id: conversation_id,
           };
         }).then(function(o) {
           return {
@@ -11379,14 +11386,14 @@ function initializePolisHelpers(mongoParams) {
               xPolisLti: createPolisLtiToken(req.p.tool_consumer_instance_guid, req.p.user_id), // x-polis-lti header
               tool_consumer_instance_guid: req.p.tool_consumer_instance_guid,
               context: context_id,
-              custom_canvas_assignment_id: req.p.custom_canvas_assignment_id
+              custom_canvas_assignment_id: req.p.custom_canvas_assignment_id,
             }));
           } else {
             var url = getServerNameWithProtocol(req) + "/conversation/create/" + encodeParams({
               forceEmbedded: true,
               tool_consumer_instance_guid: req.p.tool_consumer_instance_guid,
               context: context_id,
-              custom_canvas_assignment_id: req.p.custom_canvas_assignment_id
+              custom_canvas_assignment_id: req.p.custom_canvas_assignment_id,
             });
             renderLtiLinkagePage(req, res, url);
           }
@@ -11773,7 +11780,7 @@ function initializePolisHelpers(mongoParams) {
       path += "app_instructions_blank.png";
     }
     var doFetch = makeFileFetcher(hostname, portForParticipationFiles, path, {
-      'Content-Type': "image/png"
+      'Content-Type': "image/png",
     });
     doFetch(req, res);
   }
@@ -12155,19 +12162,14 @@ function initializePolisHelpers(mongoParams) {
   function getStaticFile(contentPath, res) {
     var extname = path.extname(contentPath);
     var contentType = 'text/html';
-    switch (extname) {
-      case '.js':
-        contentType = 'text/javascript';
-      break;
-      case '.css':
-        contentType = 'text/css';
-      break;
-      case '.png':
-        contentType = 'image/png';
-      break;
-      case '.woff':
-        contentType = 'application/x-font-woff';
-      break;
+    if ('.js' === extname) {
+      contentType = 'text/javascript';
+    } else if ('.css' === extname) {
+      contentType = 'text/css';
+    } else if ('.png' === extname) {
+      contentType = 'image/png';
+    } else if ('.woff' === extname) {
+      contentType = 'application/x-font-woff';
     }
 
     function onSuccess(content) {
@@ -12179,7 +12181,7 @@ function initializePolisHelpers(mongoParams) {
     function onMissing() {
       res.setHeader(404);
       res.json({
-        status: 404
+        status: 404,
       });
     }
 
@@ -12215,7 +12217,7 @@ function initializePolisHelpers(mongoParams) {
     if (!hostname) {
 
       var host = req.headers.host || "";
-      var re = rew RegExp(process.env.SERVICE_HOSTNAME + "$");
+      var re = new RegExp(process.env.SERVICE_HOSTNAME + "$");
       if (host.match(re)) {
         // don't alert for this, it's probably DNS related
         // TODO_SEO what should we return?
@@ -12274,7 +12276,7 @@ function initializePolisHelpers(mongoParams) {
       var protocol = devMode ? "http://" : "https://";
       var url = protocol + req.headers.host + path;
       res.writeHead(302, {
-        Location: url
+        Location: url,
       });
       res.end();
     };
@@ -12362,12 +12364,12 @@ function initializePolisHelpers(mongoParams) {
   var portForAdminFiles = process.env.STATIC_FILES_ADMINDASH_PORT;
 
   var fetchUnsupportedBrowserPage = makeFileFetcher(hostname, portForParticipationFiles, "/unsupportedBrowser.html", {
-    'Content-Type': "text/html"
+    'Content-Type': "text/html",
   });
 
   function fetchIndex(req, res, preloadData, port) {
     var headers = {
-      'Content-Type': "text/html"
+      'Content-Type': "text/html",
     };
     if (!devMode) {
       _.extend(headers, {
@@ -12474,7 +12476,7 @@ function initializePolisHelpers(mongoParams) {
 
 
   var fetchIndexForAdminPage = makeFileFetcher(hostname, portForAdminFiles, "/index_admin.html", {
-    'Content-Type': "text/html"
+    'Content-Type': "text/html",
   });
 
 
@@ -12535,7 +12537,7 @@ function initializePolisHelpers(mongoParams) {
 
   function handle_GET_twitter_image(req, res) {
     getTwitterUserInfo({
-      twitter_user_id: req.p.id
+      twitter_user_id: req.p.id,
     }, true).then(function(data) {
       data = JSON.parse(data);
       if (!data || !data.length) {
@@ -12609,7 +12611,7 @@ function initializePolisHelpers(mongoParams) {
         res.end();
       } else {
         res.writeHead(200, {
-          'Content-Type': 'text/html'
+          'Content-Type': 'text/html',
         });
         res.end(content, 'utf-8');
       }
