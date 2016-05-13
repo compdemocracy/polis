@@ -438,8 +438,8 @@
       (log/info "SERVER_REQUIRE_SSL unset; ssl not being required.")
       handler)))
 
-;; config env var?
-(def valid-remote-addresses #{"pol.is" "preprod.pol.is" "127.0.0.1" "polis.herokuapp.com" "polis-preprod.herokuapp.com"})
+;; Should add to component
+(def valid-remote-addresses (-> env/env :valid-remote-addresses (clojure.string/split #"\s+")))
 (defn restrict-remote-address
   [handler]
   (fn [request]
