@@ -2269,11 +2269,7 @@ function initializePolisHelpers(mongoParams) {
     });
   }
 
-
-
   /*
-
-
       addConversationId(o).then(function(item) {
           // ensure we don't expose zid
           if (item.zid) {
@@ -2325,7 +2321,6 @@ function initializePolisHelpers(mongoParams) {
           fail(res, 500, "polis_err_data_export1", err);
         });
       }
-
     }, function(err) {
       fail(res, 500, "polis_err_data_export2", err);
     }).catch(function(err) {
@@ -2361,7 +2356,6 @@ function initializePolisHelpers(mongoParams) {
 
   function handle_GET_pcaPlaybackList(req, res) {
     var zid = req.p.zid;
-
     getPcaPlaybackList(zid).then(function(summaries) {
       res.status(200).json(summaries);
     }).catch(function(err) {
@@ -2373,7 +2367,6 @@ function initializePolisHelpers(mongoParams) {
   function handle_GET_pcaPlaybackByLastVoteTimestamp(req, res) {
     var zid = req.p.zid;
     var lastVoteTimestamp = req.p.lastVoteTimestamp;
-
     getPcaPlaybackByLastVoteTimestamp(zid, lastVoteTimestamp).then(function(data) {
       res.status(200).json(data);
     }).catch(function(err) {
@@ -2410,18 +2403,14 @@ function initializePolisHelpers(mongoParams) {
   }
 
 
-
   function handle_GET_bidToPid(req, res) {
     var zid = req.p.zid;
     var lastVoteTimestamp = req.p.lastVoteTimestamp;
-
     getBidToPidMapping(zid, lastVoteTimestamp).then(function(doc) {
       var b2p = doc.bidToPid;
-
       res.json({
         bidToPid: b2p,
       });
-
     }, function(err) {
       res.status(304).end();
     });
@@ -2429,7 +2418,6 @@ function initializePolisHelpers(mongoParams) {
 
   function getXids(zid) {
     return new MPromise("getXids", function(resolve, reject) {
-
       pgQuery_readOnly("select pid, xid from xids inner join " +
         "(select * from participants where zid = ($1)) as p on xids.uid = p.uid " +
         " where owner in (select owner from conversations where zid = ($1));", [zid],
@@ -2442,7 +2430,6 @@ function initializePolisHelpers(mongoParams) {
         });
     });
   }
-
 
 
   function handle_GET_xids(req, res) {
