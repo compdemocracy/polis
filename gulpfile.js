@@ -27,7 +27,7 @@ gulp.task('lint', function() {
         "eqeqeq": 1,
 
 
-        "comma-dangle": 0, // TODO SWITCH TO THIS: "comma-dangle": [1, "always-multiline"],
+        "comma-dangle": [1, "always-multiline"],
 
         // "immed": 1,
         // "latedef": 1,
