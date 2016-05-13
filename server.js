@@ -38,8 +38,7 @@ var akismetLib = require('akismet'),
     sql = require("sql"), // see here for useful syntax: https://github.com/brianc/node-sql/blob/bbd6ed15a02d4ab8fbc5058ee2aff1ad67acd5dc/lib/node/valueExpression.js
     escapeLiteral = require('pg').Client.prototype.escapeLiteral,
     pg = require('pg').native, //.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
-    parsePgConnectionString = require('pg-connection-string').parse,
-    mongo = require('mongodb'),
+    parsePgConnectionString = require('pg-connection-string').parse
     async = require('async'),
     FB = require('fb'),
     fs = require('fs'),
@@ -698,45 +697,7 @@ function clearPwResetToken(pwresettoken, cb) {
     });
 }
 
-//var mongoServer = new MongoServer(process.env.MONGOLAB_URI, 37977, {auto_reconnect: true});
-//var db = new MongoDb('exampleDb', mongoServer, {safe: true});
-function connectToMongo(callback) {
-mongo.connect(process.env.MONGOLAB_URI, {
-    server: {
-        auto_reconnect: true
-    },
-    db: {
-        safe: true
-    }
-}, function(err, db) {
-    if(err) {
-        console.error('mongo failed to init');
-        console.error(err);
-        process.exit(1);
-    }
 
-    function mongoCollectionName(basename) {
-      var schemaDate = "2014_08_22";
-      var envName = process.env.MATH_ENV; // prod, preprod, chris, mike
-      var name = ["math", envName, schemaDate, basename].join("_");
-      winston.log("info",name);
-      return name;
-    }
-
-    db.collection(mongoCollectionName('main'), function(err, collectionOfPcaResults) {
-    db.collection(mongoCollectionName('bidtopid'), function(err, collectionOfBidToPidResults) {
-    db.collection(mongoCollectionName('pcaPlaybackResults'), function(err, collectionOfPcaPlaybackResults) {
-
-        callback(null, {
-            mongoCollectionOfPcaResults: collectionOfPcaResults,
-            mongoCollectionOfBidToPidResults: collectionOfBidToPidResults,
-            mongoCollectionOfPcaPlaybackResults: collectionOfPcaPlaybackResults,
-        });
-    });
-    });
-    });
-});
-}
 
 // Same syntax as pg.client.query, but uses connection pool
 // Also takes care of calling 'done'.
@@ -1325,7 +1286,7 @@ var COOKIES_TO_CLEAR = {
 
 
 
-function initializePolisAPI(mongoParams) {
+function initializePolisHelpers(mongoParams) {
 
 var collection = mongoParams.mongoCollectionOfEvents;
 var collectionOfUsers = mongoParams.mongoCollectionOfUsers;
@@ -12606,25 +12567,10 @@ return {
   handle_PUT_ptptois: handle_PUT_ptptois,
 };
 
-} // End of initializePolisAPI
-
-
-function init() {
-    return new Promise(function(resolve, reject) {
-        connectToMongo(function(err, args) {
-            if (err) {
-                console.error("failed to init db connections");
-                console.error(err);
-                yell("failed_to_init_db_connections");
-                reject(err);
-            }
-            resolve(initializePolisAPI(args));
-        });
-    });
-}
+} // End of initializePolisHelpers
 
 module.exports = {
-    init: init,
+    initializePolisHelpers: initializePolisHelpers,
 };
 
 

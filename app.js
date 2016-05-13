@@ -1,12 +1,68 @@
 "use strict";
-var _ = require('underscore');
-var express = require('express');
 
-var app = express();
+var _ = require('underscore');
+var Promise = require('bluebird');
+var express = require('express');
+var mongo = require('mongodb');
 
 var server = require('./server');
 
-server.init().then(function(o) {
+var app = express();
+
+
+//var mongoServer = new MongoServer(process.env.MONGOLAB_URI, 37977, {auto_reconnect: true});
+//var db = new MongoDb('exampleDb', mongoServer, {safe: true});
+function connectToMongo(callback) {
+  mongo.connect(process.env.MONGOLAB_URI, {
+    server: {
+      auto_reconnect: true
+    },
+    db: {
+      safe: true
+    }
+  }, function(err, db) {
+    if(err) {
+      console.error('mongo failed to init');
+      console.error(err);
+      process.exit(1);
+    }
+
+    function mongoCollectionName(basename) {
+      var schemaDate = "2014_08_22";
+      var envName = process.env.MATH_ENV; // prod, preprod, chris, mike
+      var name = ["math", envName, schemaDate, basename].join("_");
+      console.log("info",name);
+      return name;
+    }
+
+    db.collection(mongoCollectionName('main'), function(err, collectionOfPcaResults) {
+      db.collection(mongoCollectionName('bidtopid'), function(err, collectionOfBidToPidResults) {
+        db.collection(mongoCollectionName('pcaPlaybackResults'), function(err, collectionOfPcaPlaybackResults) {
+          callback(null, {
+            mongoCollectionOfPcaResults: collectionOfPcaResults,
+            mongoCollectionOfBidToPidResults: collectionOfBidToPidResults,
+            mongoCollectionOfPcaPlaybackResults: collectionOfPcaPlaybackResults,
+          });
+        });
+      });
+    });
+  });
+}
+
+var helpersInitialized = new Promise(function(resolve, reject) {
+  connectToMongo(function(err, args) {
+    if (err) {
+        console.error("failed to init db connections");
+        console.error(err);
+        reject(err);
+    }
+    resolve(server.initializePolisHelpers(args));
+  });
+});
+
+
+
+helpersInitialized.then(function(o) {
 
   var addCorsHeader = o.addCorsHeader;
   var addInRamMetric = o.addInRamMetric;
