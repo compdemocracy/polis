@@ -3,7 +3,6 @@
 var akismetLib = require('akismet');
 var badwords = require('badwords/object');
 var Promise = require('bluebird');
-var dgram = require('dgram');
 var http = require('http');
 var httpProxy = require('http-proxy');
 var https = require('https');
@@ -287,44 +286,6 @@ function emptyArray() {
 
 
 var domainOverride = process.env.DOMAIN_OVERRIDE || null;
-
-/*
-var metric = (function() {
-    var apikey = process.env.HOSTEDGRAPHITE_APIKEY;
-    return function(metricName, numberValue, optionalTimestampOverride) {
-        return new Promise(function(resolve, reject) {
-            var point = {
-                dur: numberValue,
-                time : new Date(),
-            };
-            INFO(point);
-            metricName = metricName.replace(/[^A-Za-z0-9\.]/g,"");
-            INFO(metricName);
-            // influx.writePoint(metricName, point, {}, function(err) {
-            //     if (err) { reject(err); return; }
-            //     resolve();
-            // });
-            var t = "";
-            if (!_.isUndefined(optionalTimestampOverride)) {
-                optionalTimestampOverride /= 1000; // graphite wants seconds
-                t = " " + optionalTimestampOverride;
-            }
-            var message = new Buffer(apikey + "." + metricName + " " + numberValue +"\n");
-            INFO(message.toString());
-            var socket = dgram.createSocket("udp4");
-            socket.send(message, 0, message.length, 2003, "carbon.hostedgraphite.com", function(err, bytes) {
-                socket.close();
-                if (err) {
-                    console.error("metric send failed " + err);
-                    reject(err);
-                } else {
-                    resolve();
-                }
-            });
-        });
-    };
-}());
-*/
 
 function haltOnTimeout(req, res, next) {
     if (req.timedout){

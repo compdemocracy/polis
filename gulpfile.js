@@ -40,7 +40,7 @@ gulp.task('lint', function(){
         //  "nonew": 1,
           "no-caller": 1, // no arguments.caller and arguments.callee (allow for optimizations)
         //  "latedef": "nofunc",
-         // "indent": 2,
+          "indent": ["error", 4],
           "wrap-iife": 1,
 //          "forin": 1, require hasOwnProperty checks
           // "boss": 1,
