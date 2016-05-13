@@ -55,5 +55,7 @@ s.helpWhatAreGroupsDetail = "<p>You've probably seen 'recommended products' on A
 s.socialConnectPrompt = "Connect to see friends and people you follow in the visualization.";
 s.connectFbButton = "Connect with Facebook";
 s.connectTwButton = "Connect with Twitter";
+s.polis_err_reg_fb_verification_email_sent = "Please check your email for a verification link, then return here to continue.";
+s.polis_err_reg_fb_verification_noemail_unverified = "Your Facebook account is unverified. Please verify your email address with Facebook, then return here to continue.";
 
 module.exports = s;
