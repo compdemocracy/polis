@@ -791,18 +791,6 @@ CREATE TABLE page_ids (
     UNIQUE(site_id, page_id)
 );
 
-
-CREATE TABLE stripe_accounts (
-    stripe_account_token_type VARCHAR(999) NOT NULL, --      "bearer",
-    stripe_account_stripe_publishable_key VARCHAR(999) NOT NULL, --       PUBLISHABLE_KEY,
-    stripe_account_scope VARCHAR(999) NOT NULL, --       "read_write",
-    stripe_account_livemode BOOLEAN NOT NULL, --       false,
-    stripe_account_stripe_user_id VARCHAR(999) NOT NULL, --       USER_ID,
-    stripe_account_refresh_token VARCHAR(999) NOT NULL, --      REFRESH_TOKEN,
-    stripe_account_access_token VARCHAR(999) NOT NULL, --      ACCESS_TOKEN
-    created BIGINT DEFAULT now_as_millis()
-);
-
 -- http://stackoverflow.com/questions/3970795/how-do-you-create-a-random-string-in-postgresql
 CREATE OR REPLACE FUNCTION random_string(INTEGER)
 RETURNS TEXT AS

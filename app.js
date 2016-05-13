@@ -124,20 +124,17 @@ helpersInitialized.then(function(o) {
   var handle_GET_bidToPid = o.handle_GET_bidToPid;
   var handle_GET_cache_purge = o.handle_GET_cache_purge;
   var handle_GET_canvas_app_instructions_png = o.handle_GET_canvas_app_instructions_png;
-  var handle_GET_changePlanWithCoupon = o.handle_GET_changePlanWithCoupon;
   var handle_GET_comments = o.handle_GET_comments;
   var handle_GET_conditionalIndexFetcher = o.handle_GET_conditionalIndexFetcher;
   var handle_GET_contexts = o.handle_GET_contexts;
   var handle_GET_conversation_assigmnent_xml = o.handle_GET_conversation_assigmnent_xml;
   var handle_GET_conversations = o.handle_GET_conversations;
   var handle_GET_conversationStats = o.handle_GET_conversationStats;
-  var handle_GET_createPlanChangeCoupon = o.handle_GET_createPlanChangeCoupon;
   var handle_GET_dataExport = o.handle_GET_dataExport;
   var handle_GET_dataExport_results = o.handle_GET_dataExport_results;
   var handle_GET_domainWhitelist = o.handle_GET_domainWhitelist;
   var handle_GET_dummyButton = o.handle_GET_dummyButton;
   var handle_GET_einvites = o.handle_GET_einvites;
-  var handle_GET_enterprise_deal_url = o.handle_GET_enterprise_deal_url;
   var handle_GET_facebook_delete = o.handle_GET_facebook_delete;
   var handle_GET_iim_conversation = o.handle_GET_iim_conversation;
   var handle_GET_iip_conversation = o.handle_GET_iip_conversation;
@@ -164,8 +161,6 @@ helpersInitialized.then(function(o) {
   var handle_GET_ptptois = o.handle_GET_ptptois;
   var handle_GET_setup_assignment_xml = o.handle_GET_setup_assignment_xml;
   var handle_GET_snapshot = o.handle_GET_snapshot;
-  var handle_GET_stripe_account_connect = o.handle_GET_stripe_account_connect;
-  var handle_GET_stripe_account_connected_oauth_callback = o.handle_GET_stripe_account_connected_oauth_callback;
   var handle_GET_tryCookie = o.handle_GET_tryCookie;
   var handle_GET_twitter_image = o.handle_GET_twitter_image;
   var handle_GET_twitter_oauth_callback = o.handle_GET_twitter_oauth_callback;
@@ -184,7 +179,6 @@ helpersInitialized.then(function(o) {
   var handle_POST_auth_new = o.handle_POST_auth_new;
   var handle_POST_auth_password = o.handle_POST_auth_password;
   var handle_POST_auth_pwresettoken = o.handle_POST_auth_pwresettoken;
-  var handle_POST_charge = o.handle_POST_charge;
   var handle_POST_comments = o.handle_POST_comments;
   var handle_POST_contexts = o.handle_POST_contexts;
   var handle_POST_conversation_close = o.handle_POST_conversation_close;
@@ -200,7 +194,6 @@ helpersInitialized.then(function(o) {
   var handle_POST_metadata_new = o.handle_POST_metadata_new;
   var handle_POST_metadata_questions = o.handle_POST_metadata_questions;
   var handle_POST_participants = o.handle_POST_participants;
-  var handle_POST_post_payment_form = o.handle_POST_post_payment_form;
   var handle_POST_ptptCommentMod = o.handle_POST_ptptCommentMod;
   var handle_POST_query_participants_by_metadata = o.handle_POST_query_participants_by_metadata;
   var handle_POST_sendCreatedLinkToEmail = o.handle_POST_sendCreatedLinkToEmail;
@@ -528,32 +521,6 @@ helpersInitialized.then(function(o) {
     authOptional(assignToP),
     handle_GET_users);
 
-  // use this to generate coupons for free upgrades
-  // TODO_SECURITY
-  app.get("/api/v3/createPlanChangeCoupon_aiudhfaiodufy78sadtfiasdf",
-    moveToBody,
-    need('uid', getInt, assignToP),
-    need('planCode', getOptionalStringLimitLength(999), assignToP),
-    handle_GET_createPlanChangeCoupon);
-
-  app.get("/api/v3/changePlanWithCoupon",
-    moveToBody,
-    authOptional(assignToP),
-    need('code', getOptionalStringLimitLength(999), assignToP),
-    handle_GET_changePlanWithCoupon);
-
-
-  // Just for testing that the new custom stripe form is submitting properly
-  app.post("/api/v3/post_payment_form",
-    handle_POST_post_payment_form);
-
-  app.post("/api/v3/charge",
-    auth(assignToP),
-    want('stripeToken', getOptionalStringLimitLength(999), assignToP),
-    want('stripeEmail', getOptionalStringLimitLength(999), assignToP),
-    need('plan', getOptionalStringLimitLength(999), assignToP),
-    handle_POST_charge);
-
   app.get("/api/v3/participation",
     moveToBody,
     auth(assignToP),
@@ -827,24 +794,6 @@ helpersInitialized.then(function(o) {
     need('metaname', getInt, assignToP),
     need('metavalue', getInt, assignToP),
     handle_POST_metadata_new);
-
-  app.get('/api/v3/enterprise_deal_url',
-    moveToBody,
-    // want('upfront', getBool, assignToP),
-    need('monthly', getInt, assignToP),
-    want('maxUsers', getInt, assignToP),
-    handle_GET_enterprise_deal_url);
-
-  app.get('/api/v3/stripe_account_connect',
-    handle_GET_stripe_account_connect);
-
-  app.get('/api/v3/stripe_account_connected_oauth_callback',
-    moveToBody,
-    want("code", getStringLimitLength(9999), assignToP),
-    want("access_token", getStringLimitLength(9999), assignToP),
-    want("error", getStringLimitLength(9999), assignToP),
-    want("error_description", getStringLimitLength(9999), assignToP),
-    handle_GET_stripe_account_connected_oauth_callback);
 
   app.get('/api/v3/conversations',
     moveToBody,
