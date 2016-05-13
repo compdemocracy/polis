@@ -1308,9 +1308,9 @@ function initializePolisHelpers(mongoParams) {
     if (setOnPolisDomain) {
       o.secure = _.isUndefined(o.secure) ? true : o.secure;
       o.domain = _.isUndefined(o.domain) ? '.pol.is' : o.domain;
-      if (/polis.io/.test(req.headers.host)) {
-        o.domain = '.polis.io';
-      }
+      // if (/pol.is/.test(req.headers.host)) {
+      //   o.domain = '.pol.is';
+      // }
     }
     res.cookie(name, value, o);
   }
@@ -1801,12 +1801,6 @@ function initializePolisHelpers(mongoParams) {
   ];
 
   var whitelistedDomains = [
-    "http://about.polis.io",
-    "https://about.polis.io",
-    "http://www.polis.io",
-    "https://www.polis.io",
-    "http://polis.io",
-    "https://polis.io",
     "http://pol.is",
     "https://pol.is",
     "http://api.pol.is", // TODO delete?
@@ -1846,9 +1840,7 @@ function initializePolisHelpers(mongoParams) {
     "pol.is": "pol.is",
     "embed.pol.is": "pol.is",
     "survey.pol.is": "survey.pol.is",
-    "www.polis.io": "pol.is",
     "preprod.pol.is": "preprod.pol.is",
-    "about.polis.io": "about.polis.io",
   };
 
   function addCorsHeader(req, res, next) {
@@ -2671,14 +2663,6 @@ function initializePolisHelpers(mongoParams) {
     } else {
       res.clearCookie(cookieName, {
         path: "/",
-        domain: ".polis.io",
-      });
-      res.clearCookie(cookieName, {
-        path: "/",
-        domain: "www.polis.io",
-      });
-      res.clearCookie(cookieName, {
-        path: "/",
         domain: ".pol.is",
       });
       //         res.clearCookie(cookieName, {path: "/", domain: "www.pol.is"});
@@ -2697,23 +2681,6 @@ function initializePolisHelpers(mongoParams) {
         }
       }
     } else {
-
-      for (cookieName in req.cookies) {
-        if (COOKIES_TO_CLEAR[cookieName]) {
-          res.clearCookie(cookieName, {
-            path: "/",
-            domain: ".polis.io",
-          });
-        }
-      }
-      for (cookieName in req.cookies) {
-        if (COOKIES_TO_CLEAR[cookieName]) {
-          res.clearCookie(cookieName, {
-            path: "/",
-            domain: "www.polis.io",
-          });
-        }
-      }
       for (cookieName in req.cookies) {
         if (COOKIES_TO_CLEAR[cookieName]) {
           res.clearCookie(cookieName, {
@@ -11193,9 +11160,6 @@ function initializePolisHelpers(mongoParams) {
       if (!whitelistedBuckets[origin]) {
         console.error("got request with host that's not whitelisted: (" + req.headers.host + ")");
         return;
-      }
-      if (/about.polis.io/.exec(origin)) {
-        return process.env.STATIC_FILES_ABOUTPAGE_HOST;
       }
       origin = whitelistedBuckets[origin];
       return origin + "." + process.env.STATIC_FILES_HOST;
