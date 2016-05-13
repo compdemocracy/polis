@@ -1,32 +1,5 @@
 "use strict";
 
-
-/*
-spinning up a replica:
-
-heroku addons:create --app=polisapp heroku-postgresql:standard-0 --follow HEROKU_POSTGRESQL_BLUE
-
-
-*/
-
-
-/*
-    DNS notes:
-
-    Mailgun verification:
-     mx._domainkey.polis.io
-     polis.io TXT record v=spf1 include:mailgun.org ~all
-
-    Mailgun open/click tracking
-     CNAME email.polis.io => mailgun.org
-
-*/
-
-//require('nodefly').profile(
-    //process.env.NODEFLY_APPLICATION_KEY,
-    //[process.env.APPLICATION_NAME,'Heroku']
-//);
-
 var akismetLib = require('akismet');
 var badwords = require('badwords/object');
 var Promise = require('bluebird');
@@ -54,10 +27,6 @@ var pushoverInstance = new Pushover( {
     user: process.env.PUSHOVER_GROUP_POLIS_DEV,
     token: process.env.PUSHOVER_POLIS_PROXY_API_KEY,
 });
-// var sendgrid = require('sendgrid')(
-//     process.env['SENDGRID_USERNAME'],
-//     process.env['SENDGRID_PASSWORD'],
-//     {api: 'smtp'});
 var Mailgun = require('mailgun').Mailgun;
 var mailgun = new Mailgun(process.env.MAILGUN_API_KEY);
 var postmark = require("postmark")(process.env.POSTMARK_API_KEY);

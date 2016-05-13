@@ -45,7 +45,6 @@
     "request": "~2.38.0",
     "request-promise": "~0.3.2",
     "response-time": "^2.3.1",
-    "sendgrid": "~0.4.4",
     "simple-oauth2": "~0.2.0",
     "sql": "~0.34.0",
     "squel": "~1.1.3",
