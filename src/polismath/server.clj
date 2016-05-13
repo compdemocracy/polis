@@ -222,7 +222,7 @@
         download-url (public-datadump-url filename zinvite)
         email-hiccup (completion-email-text zinvite download-url)]
     (email/send-email!
-      "Christopher Small <chris@pol.is>"
+      (:chris-email env/env)
       (:email params)
       (str "Data export for pol.is conversation pol.is/" zinvite)
       (hiccup-to-plain-text email-hiccup)
