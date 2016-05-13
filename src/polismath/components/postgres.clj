@@ -71,7 +71,7 @@
 
 (ko/defentity comments
   (ko/entity-fields :zid :tid :mod :modified)
-  (ko/belongs-to conversations  (:fk :zid)))
+  (ko/belongs-to conversations (:fk :zid)))
 
 
 (defn poll
@@ -179,5 +179,91 @@
       get-users-with-stats
       (ko/where (in :email emails))
       (ko/select))))
+
+
+(defn mongo-collection-name
+  "Mongo collection name based on MATH_ENV env variable and hard-coded schema data. Makes sure that
+  prod, preprod, dev (and subdevs like chrisdev) have their own noninterfering collections."
+  [basename]
+  (let [schema-date "2014_08_22"
+        env-name    (or (env/env :math-env) "dev")]
+    (str "math_" env-name "_" schema-date "_" basename)))
+
+(defn mongo-exports-collection-name
+  "Mongo collection name based on MATH_ENV env variable. While the return value of
+  mongo-collection-name points to the actual math collections for a given environment, the
+  value of this function points to the table which contains export status information for datadumps."
+  [basename]
+  (let [env-name    (or (env/env :math-env) "dev")]
+    (str "exports_" env-name)))
+
+
+(defn- megabytes
+  [^long n]
+  (* n 1024 1024))
+
+;; Dear lord this is a monstrosity... need to move this to component XXX
+(def
+  ^{:doc "Memoized; returns a db object for connecting to mongo"}
+  mongo-db
+  (memoize
+    (fn [mongo-url]
+      (let [db (if mongo-url
+                 (let [{:keys [conn db]} (mg/connect-via-uri mongo-url)]
+                   db)
+                 (let [conn (mg/connect)
+                       db (mg/get-db conn "local-db")]
+                   db))]
+        ; Create indices, in case they don't exist
+        (doseq [c ["bidtopid" "main" "cache"]]
+          (let [c (mongo-collection-name c)]
+            (mc/ensure-index db c (array-map :zid 1) {:name (str c "_zid_index") :unique true})))
+        ;; An index for lastupdated on "exports" collection
+        (mc/ensure-index db "exports" {:lastupdate 1} {:expireAfterSeconds (* (try (Integer/parseInt (:export-expiry-days env/env))
+                                                                                  (catch Exception e 10)) ;; Note: make sure env variable exists and move to config component XXX
+                                                                              (* 60 60 24))})
+        ; set up rolling limit on profile data
+        (let [prof-coll (mongo-collection-name "profile")]
+          (if-not (mc/exists? db prof-coll)
+            (try
+              (mc/create db prof-coll {:capped true :size (-> 125 megabytes) :max 200000})
+              (catch Exception e
+                (log/warn "Unable to create capped profile collection. Perhaps it's already been created?")))))
+        ; make sure to return db
+        db))))
+
+
+(defn load-conv
+  "Very bare bones reloading of the conversation; no cleanup for keyword/int hash-map key mismatches,
+  as found in the :repness"
+  [zid]
+  (mc/find-one-as-map
+    (mongo-db (env/env :mongolab-uri))
+    (mongo-collection-name "main")
+    {:zid zid}))
+
+(defn format-for-mongo
+  "Formats data for mongo, first passing through a prep function which may strip out uneeded junk or
+  reshape things. Takes conv and lastVoteTimestamp, though the latter may be moved into the former in update"
+  [prep-fn conv]
+  (-> conv
+    prep-fn
+    ; core.matrix & monger workaround: convert to str with cheshire then back
+    ch/generate-string
+    ch/parse-string))
+
+(defn conv-poll
+  "Query for all data since last-vote-timestamp for a given zid, given an implicit db-spec"
+  [zid last-vote-timestamp]
+  (try
+    (kdb/with-db (db-spec)
+      (ko/select votes
+        (ko/where {:created [> last-vote-timestamp]
+                   :zid zid})
+        (ko/order [:zid :tid :pid :created] :asc))) ; ordering by tid is important, since we rely on this ordering to determine the index within the comps, which needs to correspond to the tid
+    (catch Exception e
+      (log/error "polling failed for conv zid =" zid ":" (.getMessage e))
+      (.printStackTrace e)
+      [])))
 
 

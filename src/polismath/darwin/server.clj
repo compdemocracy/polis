@@ -26,10 +26,15 @@
 (def tmp-dir (or (:export-temp-dir env/env) "/tmp/")) ; XXX
 (defn full-path [filename] (str tmp-dir filename))
 
-(def app-url-base (or (:export-server-url-base env/env) "http://localhost:3000"))
-(defn full-url
+(def private-app-url-base (or (:export-server-url-base env/env) "http://localhost:3000"))
+(def public-app-url-base "https://pol.is/api/v3")
+(defn private-url
   [& path]
-  (apply str app-url-base "/" path))
+  (apply str private-app-url-base "/" path))
+
+(defn public-url
+  [& path]
+  (apply str public-app-url-base "/" path))
 
 
 ;; A ping handler will just be for debugging purposes
@@ -60,14 +65,32 @@
 ;; Tihs could all possibly be interwoven with the config component as well.
 
 (defn ->double
-  "Try to parse as an integer; return nil if not possible."
+  "Try to parse a decimal number as double; return nil if not possible."
   [x]
   (try (Double/parseDouble x)
        (catch Exception e nil)))
 
-(def parsers {:at-date ->double :format keyword})
+(defn ->long
+  "Try to parse as an integer as long; return nil if not possible."
+  [x]
+  (try (Long/parseLong x)
+       (catch Exception e nil)))
 
-(def allowed-params #{:filename :zinvite :at-date :format :email})
+(defn between? [a b x]
+  (and x (< a x) (> b x)))
+
+(defn parse-and-validate-timeout
+  [x]
+  (let [x (try (Long/parseLong x)
+               (catch Exception e (throw (Exception. "Invalid timeout value"))))]
+    (assert (and x (< 0 x) (>= 29000 x)) "Invalid timout value")
+    x))
+
+(def parsers {:at-date ->long
+              :format  keyword
+              :timeout parse-and-validate-timeout})
+
+(def allowed-params #{:filename :zinvite :at-date :format :email :timeout})
 
 (defn parsed-params
   "Parses the params for a request, occording to parsers."
@@ -130,10 +153,13 @@
                  :file (full-path filename)))
 
 ;; This will end up redirecting to the aws download link
-(defn get-datadump-url
+(defn private-datadump-url
   [filename zinvite]
-  (full-url (str "datadump/results?filename=" filename "&zinvite=" zinvite)))
+  (private-url (str "datadump/results?filename=" filename "&conversation_id=" zinvite)))
 
+(defn public-datadump-url
+  [filename zinvite]
+  (public-url (str "dataExport/results?filename=" filename "&conversation_id=" zinvite)))
 
 ;; Email notification of completion
 
@@ -189,10 +215,10 @@
 (defn send-email-notification!
   [filename params]
   (let [zinvite (:zinvite params)
-        download-url (get-datadump-url filename zinvite)
+        download-url (public-datadump-url filename zinvite)
         email-hiccup (completion-email-text zinvite download-url)]
     (email/send-email!
-      "Christopher Small <chris@pol.is>"
+      (:chris-email env/env)
       (:email params)
       (str "Data export for pol.is conversation pol.is/" zinvite)
       (hiccup-to-plain-text email-hiccup)
@@ -217,7 +243,7 @@
 
 (defn generate-aws-url!
   "Generate a presigned url from amazon for the given filename. Optionally set an expiration in hours (defaulting to the number
-  sourced from env variable :download-link-expiration-hours."
+  sourced from env variable :download-link-expiration-hours)."
   ([aws-cred filename expiration]
    ;; XXX more env/env stuff
    (let [expiration (-> expiration time/hours time/from-now)]
@@ -299,7 +325,7 @@
 
 (defn get-status-location-url
   [filename zinvite]
-  (full-url (str "datadump/status?filename=" filename "&zinvite=" zinvite)))
+  (private-url (str "datadump/status?filename=" filename "&conversation_id=" zinvite)))
 
 (defn check-back-response
   ([filename zinvite status]
@@ -316,7 +342,7 @@
 
 (defn complete-response
   [filename zinvite]
-  (let [url (get-datadump-url filename zinvite)]
+  (let [url (private-datadump-url filename zinvite)]
     {:status  201
      :headers {"Content-Type" "text/plain"
                "Location"     url}
@@ -336,7 +362,7 @@
 ;; completed down the road.
 
 (defn run-datadump
-   "Based on params this actually runs the export-conversation computation."
+  "Based on params this actually runs the export-conversation computation."
   [filename params]
   (log/info "Params for run-datadump are:" (with-out-str (prn params)))
   (try
@@ -361,7 +387,7 @@
         _ (log/info "Handling datadump request with params:" (with-out-str (prn params)))
         filename (generate-filename params)
         datadump (async/thread (run-datadump filename params))
-        timeout (async/timeout 100000)
+        timeout (async/timeout (or (:timeout parsed-params) 29000))
         [done? _] (async/alts!! [datadump timeout])]
     (cond
       ;; We'll try to catch all exceptions before this 
@@ -372,8 +398,8 @@
       (do
         (handle-completion! aws-cred filename params)
         (assoc-in (response/file-response (full-path filename))
-                   [:headers "Content-Disposition"]
-                   (str "attachment; filename=" \" filename \")))
+                  [:headers "Content-Disposition"]
+                  (str "attachment; filename=" \" filename \")))
       ;; Otherwise, the timeout hit, and we should trigger the check back later lifecycle
       :else
       (do

@@ -209,7 +209,10 @@
         restructure-mongo-conv
         ;(->> (tr/trace "load-or-init (post restructure):"))
         ;; What the fuck is this all about? Should this really be getting set here?
-        (assoc :recompute :reboot))
+        (assoc :recompute :reboot)
+        (assoc :rating-mat (-> (nm/named-matrix)
+                               (nm/update-nmat (->> (db/conv-poll zid 0)
+                                                    (map (fn [vote-row] (mapv (partial get vote-row) [:pid :tid :vote]))))))))
     ; would be nice to have :recompute :initial
     (assoc (conv/new-conv) :zid zid :recompute :full)))
 

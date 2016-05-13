@@ -30,15 +30,20 @@
   ;; Should fork timestamp key on message-type as well XXX
   {:params [system-config message-type timestamp-key] :prepare true}
   [conf context collector]
-  (let [last-timestamp (atom 0)
-        ;; Need config for storm to be set under keys of :vote and :mod, so the spouts are configurable
-        ;; more simply from this; But I guess some of these things should maybe not be constructable this
-        ;; way...
-        ;system (-> system-config system/base-system component/system-map component/start)
-        {:as spout-config :keys [polling-interval]} (-> system-config :storm :spouts message-type)
-        system (system/create-and-run-base-system! system-config)
-        postgres (-> system :postgres)]
-    (storm/spout
+  ;(let [last-timestamp (atom 0)
+        ;;; Need config for storm to be set under keys of :vote and :mod, so the spouts are configurable
+        ;;; more simply from this; But I guess some of these things should maybe not be constructable this
+        ;;; way...
+        ;;system (-> system-config system/base-system component/system-map component/start)
+        ;{:as spout-config :keys [polling-interval]} (-> system-config :storm :spouts message-type)
+        ;system (system/create-and-run-base-system! system-config)
+        ;postgres (-> system :postgres)]
+    ;(storm/spout
+  (let [last-timestamp (atom (try (java.lang.Long/parseLong (:initial-polling-timestamp env/env)) (catch Exception e (log/warn "INITIAL_POLLING_TIMESTAMP not set; setting to 0") 0)))]
+    ;(if (= poll-fn :sim-poll)
+      ;(log/info "Starting sim poller!")
+      ;(start-sim-poller!))
+    (spout
       (nextTuple []
         (try
           (log/info "Polling" message-type ">" @last-timestamp)

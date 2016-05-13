@@ -3,8 +3,10 @@
 # usage (unsafe!)
 #  eval `./bin/herokuConfigExport`
 
-heroku config --app polisapp | grep ": " | sed "s/[:=] */='/" | sed "s/$/'/" | sed "s/^/export /" | grep -v MATH_ENV
+heroku config --app $1 | grep ": " | sed "s/[:=] */='/" | sed "s/$/'/" | sed "s/^/export /" | grep -v MATH_ENV
 
 # Set developer enviroment ("Beta") vars here:
 echo "export APPLICATION_NAME=PolisWebServerBeta"
+# some time on April 05th, 2016
+echo "export INITIAL_POLLING_TIMESTAMP=1459882373802"
 

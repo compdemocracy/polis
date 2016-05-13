@@ -77,7 +77,7 @@
     :zinvite))
 
 
-(defn get-conversation-votes
+(defn get-conversation-votes*
   ([zid]
    (kdb/with-db (db/db-spec)
      (ko/select db/votes
@@ -89,6 +89,12 @@
        (ko/where {:zid zid :created [<= final-vote-timestamp]})
        ; ordering by tid is important, since we rely on this ordering to determine the index within the comps, which needs to correspond to the tid
        (ko/order [:zid :tid :pid :created] :asc)))))
+
+(defn get-conversation-votes
+  [& args]
+  ;; Flip the signs on the votes XXX (remove when we switch)
+  (map #(update-in % [:vote] (partial * -1))
+       (apply get-conversation-votes* args)))
 
 (defn get-conversation-data
   "Return a map with :topic and :description keys"
@@ -274,8 +280,10 @@
                  (count (filter #(= (:pid %) ptpt) comments))
                  (count (remove nil? row))
                  ;; XXX God damn aggree vs disagree...
-                 (count (filter #{-1} row))
-                 (count (filter #{1} row))]
+                 ;; Fixed this upstream, for now; so should be good to go once we've fixed it at the source. But
+                 ;; keep an eye on it for now... XXX
+                 (count (filter #{1} row))
+                 (count (filter #{-1} row))]
                 row))
         (nm/rownames mat)
         (.matrix mat)))))
@@ -295,10 +303,12 @@
   "Just adds vote counts to the comments data"
   [comments votes]
   (map
-    (fn [{:keys [pid] :as comment-data}]
-      (let [comment-votes (filter #(= pid (:pid %)) votes)
-            aggrees (filter #(= -1 (:vote %)) comment-votes)
-            disagrees (filter #(= 1 (:vote %)) comment-votes)]
+    (fn [{:keys [tid] :as comment-data}]
+      (let [comment-votes (filter #(= tid (:tid %)) votes)
+            ;; Fixed this upstream, for now; so should be good to go once we've fixed it at the source. But
+            ;; keep an eye on it for now... XXX
+            aggrees (filter #(= 1 (:vote %)) comment-votes)
+            disagrees (filter #(= -1 (:vote %)) comment-votes)]
         (assoc comment-data :aggrees (count aggrees) :disagrees (count disagrees))))
     comments))
 
@@ -345,13 +355,20 @@
                                                           :n-comments   "Comments"
                                                           :n-commenters "Commenters"}}))
       (update-in [:comments]
-                 (partial scsv/vectorize {:header [:tid :pid :aggrees :disagrees :mod :txt]
-                                          :format-header {:tid       "Comment ID"
+                 (partial scsv/vectorize {:header [:created :tid :pid :aggrees :disagrees :mod :txt]
+                                          :format-header {:created   "Timestamp"
+                                                          :tid       "Comment ID"
                                                           :pid       "Author"
                                                           :aggrees   "Aggrees"
                                                           :disagrees "Disagrees"
                                                           :mod       "Moderated"
                                                           :txt       "Comment body"}}))
+      (update-in [:votes]
+                 (partial scsv/vectorize {:header [:created :tid :pid :vote]
+                                          :format-header {:created   "Timestamp"
+                                                          :tid       "Comment ID"
+                                                          :pid       "Voter"
+                                                          :vote      "Vote"}}))
       (update-in [:participants-votes]
                  format-vote-matrix-header
                  ;; flesh out...
@@ -364,6 +381,7 @@
       (stringify-keys (array-map :summary "Summary"
                                  :stats-history "Stats History"
                                  :comments "Comments"
+                                 :votes "Votes"
                                  :participants-votes "Participants Votes"))))
 
 
@@ -383,9 +401,16 @@
                   [:description  "conversation-description"]])
       (update-in [:stats-history]
                  (partial scsv/vectorize {:header [:n-votes :n-comments :n-visitors :n-voters :n-commenters]}))
+      (update-in [:votes]
+                 (partial scsv/vectorize {:header [:created :tid :pid :vote]
+                                          :format-header {:created   "timestamp"
+                                                          :tid       "comment-id"
+                                                          :pid       "voter-id"
+                                                          :vote      "vote"}}))
       (update-in [:comments]
-                 (partial scsv/vectorize {:header [:tid :pid :aggrees :disagrees :mod :txt]
-                                          :format-header {:tid       "comment-id"
+                 (partial scsv/vectorize {:header [:created :tid :pid :aggrees :disagrees :mod :txt]
+                                          :format-header {:created   "timestamp"
+                                                          :tid       "comment-id"
                                                           :pid       "author-id"
                                                           :aggrees   "agrees"
                                                           :disagrees "disagrees"
@@ -440,6 +465,8 @@
            (print-csv (:stats-history data)))
          (with-entry (str entry-point-base "/comments.csv")
            (print-csv (:comments data)))
+         (with-entry (str entry-point-base "/votes.csv")
+           (print-csv (:votes data)))
          (with-entry (str entry-point-base "/participants-votes.csv")
            (print-csv (:participants-votes data))))))))
 
@@ -470,7 +497,8 @@
         participants (get-participation-data zid)
         ;; Should factor out into separate function
         conv (utils/apply-kwargs micro/load-conv kw-args)]
-    {:summary (summary-data conv votes comments participants)
+    {:votes votes
+     :summary (summary-data conv votes comments participants)
      :stats-history (stats-history votes participants comments)
      :participants-votes (participants-votes-table conv votes comments)
      :comments comments}))
@@ -484,9 +512,9 @@
         conv (conv/conv-update conv votes)
         _ (println "Done with conv update")
         comments (enriched-comments-data (get-comments-data zid at-date) votes)
-        participants (get-participation-data zid at-date)
-        ]
-    {:summary (assoc (summary-data conv votes comments participants) :at-date at-date)
+        participants (get-participation-data zid at-date)]
+    {:votes votes
+     :summary (assoc (summary-data conv votes comments participants) :at-date at-date)
      :stats-history (stats-history votes participants comments)
      :participants-votes (participants-votes-table conv votes comments)
      :comments comments}))
@@ -510,8 +538,8 @@
       (if (-> export-data :summary :n-voters (> 0))
         (saver zip-stream entry-point formatted)
         (println "Skipping conv" zid zinvite ", since no votes"))
-      (saver filename formatted))))
-
+      (saver filename formatted)))
+  (log/info "Finished exporting data for zid =" zid ", zinvite =" zinvite))
 
 (defn parse-date
   [s]
@@ -524,7 +552,7 @@
 (def cli-options
   [["-z" "--zid ZID"           "ZID on which to do a rerun" :parse-fn #(Integer/parseInt %)]
    ["-Z" "--zinvite ZINVITE"   "ZINVITE code on which to perform a rerun"]
-   ["-u" "--user-id USER_ID"   "Export all conversations associated with ZID, and place in zip file" :parse-fn #(Integer/parseInt %)]
+   ["-u" "--user-id USER_ID"   "Export all conversations associated with USER_ID, and place in zip file" :parse-fn #(Integer/parseInt %)]
    ["-a" "--at-date AT_DATE"   "A string of YYYY MM DD HH MM SS (in UTC)" :parse-fn parse-date]
    ["-f" "--format FORMAT"     "Either csv, excel or (soon) json" :parse-fn keyword :validate [#{:csv :excel} "Must be either csv or excel"]]
    ;; -U ;utc offset?
@@ -569,6 +597,19 @@
                                           :entry-point (str (zipfile-basename filename) "/" zinvite "." ext))))))
         (export-conversation options))
       (exit 0 "Export complete"))))
+
+;; A testbench for using the main API function
+;(comment
+  ;(export-conversation {;;:zid 310273
+                        ;:zinvite "7scufp"
+                        ;:format :csv
+                        ;:filename "cljwebdev.zip"
+                        ;:math-env "prod"})
+  (export-conversation {;;:zid 310273
+                        :zinvite "7scufp"
+                        :format :excel
+                        :filename "cljwebdev.xlsx"
+                        :math-env "prod"})
 
 
 :ok
