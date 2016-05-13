@@ -878,7 +878,7 @@ function moveToBody(req, res, next) {
 
 
 String.prototype.hashCode = function() {
-  var hash = 0,
+  var hash = 0;
   var i;
   var character;
   if (this.length === 0) {
