@@ -80,15 +80,15 @@ Promise.onPossiblyUnhandledRejection(function(err) {
 var polisDevs = [
   // Mike
   125,
-  26347, // @pol.is
+  26347, // polis
   91268, // facebook and twiter attached
 
   // Colin
-  186, // @gmail.com
+  186, // gmail
 
   // Chris
-  302, //  @gmail.com
-  36140, // @pol.is
+  302, //  gmail
+  36140, // polis
 ];
 
 function isPolisDev(uid) {
@@ -139,7 +139,7 @@ setInterval(function() {
 // // END GITHUB OAUTH2
 
 
-var POLIS_FROM_ADDRESS = "Polis Team <mike@pol.is>";
+var POLIS_FROM_ADDRESS = "Polis Team <" + process.env.EMAIL_MIKE + ">";
 
 
 var akismet = akismetLib.client({
@@ -173,7 +173,7 @@ if (devMode) {
 var SELF_HOSTNAME = "localhost:" + process.env.PORT;
 // if (!devMode) {
 // ^^^ possible to use localhost on Heroku?
-//  SELF_HOSTNAME = "polisapp.herokuapp.com"
+//  SELF_HOSTNAME = process.env.SERVICE_HOSTNAME
 //}
 
 
@@ -879,13 +879,14 @@ function moveToBody(req, res, next) {
 
 String.prototype.hashCode = function() {
   var hash = 0,
-    i, char;
+  var i;
+  var character;
   if (this.length === 0) {
     return hash;
   }
   for (i = 0; i < this.length; i++) {
-    char = this.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    character = this.charCodeAt(i);
+    hash = ((hash << 5) - hash) + character;
     hash = hash & hash; // Convert to 32bit integer
   }
   return hash;
@@ -1697,9 +1698,9 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function redirectIfWrongDomain(req, res, next) {
+    // var reServiceHostname = new RegExp(process.env.SERVICE_HOSTNAME);
     if (
-      // /polis.io/.test(req.headers.host) ||
-      // /polisapp.herokuapp.com/.test(req.headers.host) || // needed for heroku integrations (like slack?)
+      // reServiceHostname.test(req.headers.host) || // needed for heroku integrations (like slack?)
       /www.pol.is/.test(req.headers.host)
     ) {
       res.writeHead(302, {
@@ -1855,13 +1856,10 @@ function initializePolisHelpers(mongoParams) {
   ];
 
   var whitelistedDomains = [
-    "http://beta7816238476123.polis.io",
-    "https://beta7816238476123.polis.io",
     "http://about.polis.io",
     "https://about.polis.io",
     "http://www.polis.io",
     "https://www.polis.io",
-    "http://bonn83np5g4s6k2am.herokuapp.com/",
     "http://polis.io",
     "https://polis.io",
     "http://pol.is",
@@ -1878,8 +1876,8 @@ function initializePolisHelpers(mongoParams) {
     "https://embed.pol.is",
     "http://survey.pol.is",
     "https://survey.pol.is",
-    "http://polisapp.herokuapp.com",
-    "https://polisapp.herokuapp.com",
+    process.env.DOMAIN_WHITELIST_ITEM_01,
+    process.env.DOMAIN_WHITELIST_ITEM_02,
     "http://localhost:5001",
     "http://localhost:5002",
     "https://canvas.instructure.com", // LTI
@@ -2384,8 +2382,6 @@ function initializePolisHelpers(mongoParams) {
         });
       }
 
-      // "https://polisdarwin.herokuapp.com/datadump/results?filename=polis-export-2demo-1446053307819.zip&zinvite=2demo"
-
     }, function(err) {
       fail(res, 500, "polis_err_data_export2", err);
     }).catch(function(err) {
@@ -2399,7 +2395,7 @@ function initializePolisHelpers(mongoParams) {
     doProxyDataExportCall(req, res, function(exportServerUser, exportServerPass, email) {
       return "http://" +
         exportServerUser + ":" + exportServerPass +
-        "@polisdarwin.herokuapp.com/datadump/get?zinvite=" +
+        "@"+process.env.SERVICE_MATHAPI_HOSTNAME+"/datadump/get?zinvite=" +
         req.p.conversation_id +
         "&format=" + req.p.format + "&email=" +
         email +
@@ -2412,7 +2408,7 @@ function initializePolisHelpers(mongoParams) {
     doProxyDataExportCall(req, res, function(exportServerUser, exportServerPass, email) {
       return "http://" +
         exportServerUser + ":" + exportServerPass +
-        "@polisdarwin.herokuapp.com/datadump/results?zinvite=" +
+        "@"+process.env.SERVICE_MATHAPI_HOSTNAME+"/datadump/results?zinvite=" +
         req.p.conversation_id +
         "&filename=" + req.p.filename;
     }, false);
@@ -3750,7 +3746,7 @@ function initializePolisHelpers(mongoParams) {
       message;
 
     return sendMultipleTextEmails(
-      POLIS_FROM_ADDRESS, ["mike@pol.is", "colin@pol.is", "chris@pol.is"],
+      POLIS_FROM_ADDRESS, [process.env.EMAIL_MIKE, process.env.EMAIL_COLIN, process.env.EMAIL_CHRIS],
       "Dummy button clicked!!!",
       body).catch(function(err) {
         yell("polis_err_failed_to_email_for_dummy_button");
@@ -3764,7 +3760,7 @@ function initializePolisHelpers(mongoParams) {
       message;
 
     return sendMultipleTextEmails(
-      POLIS_FROM_ADDRESS, ["mike@pol.is", "colin@pol.is", "chris@pol.is"],
+      POLIS_FROM_ADDRESS, [process.env.EMAIL_MIKE, process.env.EMAIL_COLIN, process.env.EMAIL_CHRIS],
       "Polis Bad Problems!!!",
       body).catch(function(err) {
       yell("polis_err_failed_to_email_bad_problem_time");
@@ -3875,7 +3871,7 @@ function initializePolisHelpers(mongoParams) {
     if (d.getDay() === 1) {
       // send the monday backup email system test
       // If the sending fails, we should get an error ping.
-      sendTextEmailWithMailgun(POLIS_FROM_ADDRESS, "mike@pol.is", "monday backup email system test (mailgun)", "seems to be working");
+      sendTextEmailWithMailgun(POLIS_FROM_ADDRESS, process.env.EMAIL_MIKE, "monday backup email system test (mailgun)", "seems to be working");
     }
   }
   setInterval(trySendingBackupEmailTest, 1000 * 60 * 60 * 23); // try every 23 hours (so it should only try roughly once a day)
@@ -7051,7 +7047,8 @@ function initializePolisHelpers(mongoParams) {
           pgQuery(
             "INSERT INTO COMMENTS " +
             "(pid, zid, txt, velocity, active, mod, uid, tweet_id, quote_src_url, anon, created, tid) VALUES " +
-            "($1,   $2,  $3,       $4,     $5,  $6, $7,  $8,       $9,            $10,  default, null) RETURNING tid, created;", [pid, zid, txt, velocity, active, mod, authorUid, twitter_tweet_id || null, quote_src_url || null, anon || false],
+            "($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, default, null) RETURNING tid, created;",
+            [pid, zid, txt, velocity, active, mod, authorUid, twitter_tweet_id || null, quote_src_url || null, anon || false],
 
             function(err, docs) {
               if (err) {
@@ -12218,7 +12215,8 @@ function initializePolisHelpers(mongoParams) {
     if (!hostname) {
 
       var host = req.headers.host || "";
-      if (host.match(/polisapp.herokuapp.com$/)) {
+      var re = rew RegExp(process.env.SERVICE_HOSTNAME + "$");
+      if (host.match(re)) {
         // don't alert for this, it's probably DNS related
         // TODO_SEO what should we return?
         userFail(res, 500, "polis_err_proxy_serving_to_domain", new Error(host));
