@@ -33,6 +33,7 @@ gulp.task('lint', function() {
         // "latedef": 1,
         // "newcap": 1,
         // "noarg": 1,
+        "no-unused-vars": ["error", { "vars": "all", "args": "none" }],
         // "sub": 1,
         // "undef": 1,
         // "unused": 1,
@@ -61,7 +62,6 @@ gulp.task('lint', function() {
         "space-infix-ops": 0,
         "semi-spacing": 0,
         "no-use-before-define": 0, // might be nice
-        "no-unused-vars": 0, // might be nice
         "key-spacing": 0, // might be nice
         "yoda": 0,
         "handle-callback-err": 0, // SHOULD PROBABLY SWITCH THIS TO 1
