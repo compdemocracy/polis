@@ -9750,65 +9750,6 @@ function initializePolisHelpers(mongoParams) {
     return pgQueryP_metered_readOnly("getSocialInforForUsers", "with fb as (select * from facebook_users where uid in (" + uidString + ")), tw as (select * from twitter_users where uid in (" + uidString + ")) select * from fb full outer join tw on tw.uid = fb.uid;", []);
   }
 
-  function getTwitterUsersInConversation(zid, uid, limit) {
-    limit = 2;
-    var columns = ["pid",
-      "participants.uid",
-      "zid",
-      "participants.created",
-      "vote_count",
-      "last_interaction",
-      "subscribed",
-      "last_notified",
-      "mod",
-      // "uid",
-      "twitter_user_id",
-      "screen_name",
-      "followers_count",
-      "friends_count",
-      "verified",
-      "profile_image_url_https",
-      "modified",
-      // "created",
-      "location",
-      // "response",
-      "name",
-    ].join(",");
-
-    // NOTE: this does not yet prioritize twitter users who you personally follow
-    // the second query is for users that are pinned in the conversation. they're included regardless of the limit.
-    return pgQueryP_readOnly(
-      "select * from (select " + columns + " from participants inner join twitter_users on twitter_users.uid = participants.uid where participants.mod >= 0 and participants.zid = ($1) and (participants.vote_count > 0 OR participants.uid = ($2)) order by followers_count desc limit ($3)) as foo" +
-      " UNION select " + columns + " from participants inner join twitter_users on twitter_users.uid = participants.uid where participants.mod >= 2 and participants.zid = ($1) and participants.vote_count > 0 " +
-      ";", [zid, uid, limit]);
-
-    // return pgQueryP("select * from participants inner join twitter_users on twitter_users.uid = participants.uid where participants.zid = ($1) and (participants.vote_count > 0 OR participants.uid = ($2));", [zid, uid]).then(function(twitterParticipants) {
-    //     if (!twitterParticipants || !twitterParticipants.length) {
-    //         return Promise.resolve([]);
-    //     }
-    //     var twitterIds = _.pluck(twitterParticipants, "twitter_user_id");
-    //     return getTwitterUserInfoBulk(twitterIds).then(function(freshTwitterInfos) {
-    //         winston.log("info","catsfood", freshTwitterInfos.length);
-    //         var twitterIdToIndex = {};
-    //         for (var i = 0; i < twitterIds.length; i++) {
-    //             twitterIdToIndex[twitterIds[i]] = parseInt(i);
-    //         }
-    //         winston.log("info","catsfoods");
-    //         winston.log("info",twitterIdToIndex);
-    //         for (var t = 0; t < freshTwitterInfos.length; t++) {
-    //             var info = freshTwitterInfos[t];
-    //             var index = twitterIdToIndex[info.id_str];
-    //             twitterParticipants[index] = _.extend(twitterParticipants[index], info);
-    //         }
-    //         return twitterParticipants;
-    //     });
-    // });
-  }
-
-  function getPolisSocialSettings(zid, uid) {
-    return pgQueryP_readOnly("select * from participants inner join social_settings on social_settings.uid = participants.uid where participants.zid = ($1) and (participants.vote_count > 0 OR participants.uid = ($2));", [zid, uid]);
-  }
-
   function updateVoteCount(zid, pid) {
     // return pgQueryP("update participants set vote_count = vote_count + 1 where zid = ($1) and pid = ($2);",[zid, pid]);
     return pgQueryP("update participants set vote_count = (select count(*) from votes where zid = ($1) and pid = ($2)) where zid = ($1) and pid = ($2)", [zid, pid]);
