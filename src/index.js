@@ -96,7 +96,7 @@ class Root extends React.Component {
             </Route>
             <Route path="news" component={News}/>
             <Route path="plus" component={Plus}/>
-            <Route path="home" component={Home}/>
+            <Route path="home" component={Plus}/>
             <Route path="signin" component={SignIn}/>
             <Route path="signin/*" component={SignIn}/>
             <Route path="signin/**/*" component={SignIn}/>
