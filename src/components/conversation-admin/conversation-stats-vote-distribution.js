@@ -23,12 +23,12 @@ class VotesDistribution extends React.Component {
       <VictoryChart
         width={this.props.chartWidth}
         height={this.props.chartHeight}
-        
         domainPadding={{x: 30, y: 30}}>
         <VictoryAxis
           tickCount={20}
-          label="Votes"
+          label="Vote count"
           style={{
+            data: {
               axis: {
                 stroke: "black",
                 strokeWidth: 1
@@ -39,12 +39,14 @@ class VotesDistribution extends React.Component {
               tickLabels: {
                 fill: "black"
               }
+            }
           }}/>
         <VictoryAxis
           label="Participant count"
           orientation={"left"}
           dependentAxis
           style={{
+            data: {
               axis: {
                 stroke: "black",
                 strokeWidth: 1
@@ -55,6 +57,7 @@ class VotesDistribution extends React.Component {
               tickLabels: {
                 fill: "black"
               }
+            }
           }}/>
         <VictoryBar
           style={{

@@ -10,7 +10,6 @@ import Flex from "../framework/flex";
 import NumberCards from "./conversation-stats-number-cards";
 import Votes from "./conversation-stats-votes-timescale";
 import VotesDistribution from "./conversation-stats-vote-distribution";
-import RepeatVisits from "./conversation-stats-repeat-visits";
 import CommentsTimescale from "./conversation-stats-comments-timescale";
 import CommentersVoters from "./conversation-stats-commenters-voters";
 import StarsSpinner from "../framework/stars-spinner";
@@ -129,19 +128,6 @@ class ConversationStats extends React.Component {
                 <span>Votes per participant distribution</span>
               </h3>
               <VotesDistribution
-                chartHeight={this.refs.chartContainer ?
-                  (this.refs.chartContainer.offsetWidth * .45) :
-                  400 }
-                chartWidth={this.refs.chartContainer ?
-                  (this.refs.chartContainer.offsetWidth * .9) :
-                  (window.innerWidth * .5) }
-                data={data}/>
-            </div>
-            <div style={style.chartCard}>
-              <h3 style={{marginBottom: 0, marginLeft: 50}}>
-                <span>Repeat visits </span>
-              </h3>
-              <RepeatVisits
                 chartHeight={this.refs.chartContainer ?
                   (this.refs.chartContainer.offsetWidth * .45) :
                   400 }
