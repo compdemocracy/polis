@@ -7059,7 +7059,7 @@ function initializePolisHelpers(mongoParams) {
         result.currentPid = req.p.pid;
 
 
-        result.shouldMod = true; // TODO not always!
+        // result.shouldMod = true; // TODO
 
 
         finishOne(res, result);
