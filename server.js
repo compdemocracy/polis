@@ -4815,7 +4815,7 @@ function initializePolisHelpers(mongoParams) {
     winston.log("info", "createFacebookUserRecord", JSON.stringify(o));
     winston.log("info", o);
     winston.log("info", "end createFacebookUserRecord");
-    var profileInfo = JSON.parse(o.fb_public_profile);
+    var profileInfo = o.fb_public_profile;
     winston.log("info", "createFacebookUserRecord profileInfo");
     winston.log("info", profileInfo);
     winston.log("info", "end createFacebookUserRecord profileInfo");
@@ -4825,7 +4825,7 @@ function initializePolisHelpers(mongoParams) {
       o.fb_user_id,
       profileInfo.name,
       profileInfo.link,
-      o.fb_public_profile,
+      JSON.stringify(o.fb_public_profile),
       o.fb_login_status,
       // o.fb_auth_response,
       o.fb_access_token,
