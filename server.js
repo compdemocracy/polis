@@ -5442,9 +5442,13 @@ function initializePolisHelpers(mongoParams) {
         });
       } else {
         // the user with that email has a different FB account attached
-        // ruh roh..  probably rare
-        fail(res, 500, "polis_err_reg_fb_user_exists_with_different_account");
-        emailBadProblemTime("facebook auth where user exists with different facebook account " + user.uid);
+        // so clobber the old facebook_users record and add the new one.
+        deleteFacebookUserRecord(user).then(function() {
+          doFbNotLinkedButUserWithEmailExists(user);
+        }, function(err) {
+          emailBadProblemTime("facebook auth where user exists with different facebook account " + user.uid);
+          fail(res, 500, "polis_err_reg_fb_user_exists_with_different_account");
+        });
       }
     } // doFbUserHasAccountLinked
 
