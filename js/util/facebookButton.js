@@ -9,106 +9,6 @@ var Strings = require("../strings");
 //   else {
 
 
-function getFriends() {
-  var dfd = $.Deferred();
-
-  function getMoreFriends(friendsSoFar, urlForNextCall) {
-    console.log("getMoreFriends");
-
-    return $.get(urlForNextCall).then(function(response) {
-      if (response.data.length) {
-        for (var i = 0; i < response.data.length; i++) {
-          friendsSoFar.push(response.data[i]);
-        }
-        if (response.paging.next) {
-          return getMoreFriends(friendsSoFar, response.paging.next);
-        }
-        return friendsSoFar;
-      } else {
-        return friendsSoFar;
-      }
-    });
-  }
-
-  FB.api('/me/friends', function(response) {
-    console.log("/me/friends returned");
-    if (response && !response.error) {
-      // alert(JSON.stringify(response));
-      // if (response.data) {
-      //   for (var i = 0; i < response.data.length; i++) {
-      //     alert(response.data[i]);
-      //   }
-      // }
-
-      var friendsSoFar = response.data;
-      if (response.data.length && response.paging.next) {
-        getMoreFriends(friendsSoFar, response.paging.next).then(
-          dfd.resolve,
-          dfd.reject);
-      } else {
-        dfd.resolve(friendsSoFar || []);
-      }
-    } else {
-      // alert('failed to find friends');
-      dfd.reject(response);
-    }
-  });
-  return dfd.promise();
-} // end getFriends
-
-function getInfo() {
-  var dfd = $.Deferred();
-
-  FB.api('/me', function(response) {
-    console.log("/me done");
-    // {"id":"10152802017421079"
-    //   "email":"michael@bjorkegren.com"
-    //   "first_name":"Mike"
-    //   "gender":"male"
-    //   "last_name":"Bjorkegren"
-    //   "link":"https://www.facebook.com/app_scoped_user_id/10152802017421079/"
-    //   "locale":"en_US"
-    //   "location": {
-    //      "id": "110843418940484",  ------------> we can make another call to get the lat,lng for this
-    //      "name": "Seattle, Washington"
-    //   },
-    //   "name":"Mike Bjorkegren"
-    //   "timezone":-7
-    //   "updated_time":"2014-07-03T06:38:02+0000"
-    //   "verified":true}
-
-    if (response && !response.error) {
-      // alert(JSON.stringify(response));
-      // if (response.data) {
-      //   for (var i = 0; i < response.data.length; i++) {
-      //     alert(response.data[i]);
-      //   }
-      // }
-
-      if (response.location && response.location.id) {
-        FB.api('/' + response.location.id, function(locationResponse) {
-          console.log("locationResponse");
-          console.dir(locationResponse);
-          if (locationResponse) {
-            response.locationInfo = locationResponse;
-          }
-          dfd.resolve(response);
-        });
-      } else {
-        dfd.resolve(response);
-      }
-    } else {
-      // alert('failed to find data');
-      dfd.reject(response);
-    }
-  });
-  return dfd.promise();
-} // end getInfo
-
-
-
-
-
 
 function facebookLoginOkHandler(response, optionalPassword) {
   console.log("onFbLoginOk");
@@ -137,10 +37,10 @@ function facebookLoginOkHandler(response, optionalPassword) {
     type: "POST"
   });
   promise.fail(function(o) {
-    if ("polis_err_reg_fb_verification_email_sent" == o.responseText) {
+    if ("polis_err_reg_fb_verification_email_sent" === o.responseText) {
       alert(Strings.polis_err_reg_fb_verification_email_sent);
     }
-    if ("polis_err_reg_fb_verification_noemail_unverified" == o.responseText) {
+    if ("polis_err_reg_fb_verification_noemail_unverified" === o.responseText) {
       alert(Strings.polis_err_reg_fb_verification_noemail_unverified);
     }
   });
