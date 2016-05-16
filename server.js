@@ -859,7 +859,7 @@ function emitTheFailure(res, httpCode, extraErrorCodeForLogs, clientVisibleError
 }
 
 function isEmail(s) {
-  return typeof s !== "string" || s.length > 999 || -1 === s.indexOf("@");
+  return typeof s === "string" && s.length < 999 && s.indexOf("@") > 0;
 }
 
 function getEmail(s) {
