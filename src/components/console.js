@@ -68,7 +68,12 @@ class App extends React.Component {
 
   checkForAuth(props) {
     if (!_.isUndefined(props.isLoggedIn)) {
-      if (!props.isLoggedIn && (props.status === 401 || props.status === 403)) {
+
+      var shouldRedirect = props.error ?
+        (props.status === 401 || props.status === 403) :
+        !props.isLoggedIn;
+
+      if (shouldRedirect) {
         window.location = "/signin" + this.props.location.pathname;
       }
     }
