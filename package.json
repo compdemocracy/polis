@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "description": "Polis React",
   "engines": {
-    "node": "0.12.14"
+    "node": "6.2.0"
   },
   "scripts": {
     "clean": "rimraf dist",
