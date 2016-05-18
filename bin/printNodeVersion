@@ -1,0 +1,2 @@
+var parsed = require('../package.json');
+console.log("v" + parsed.engines.node);

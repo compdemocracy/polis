@@ -2,13 +2,16 @@
   "name": "polis-react",
   "version": "0.0.1",
   "description": "Polis React",
+  "engines": {
+    "node": "0.12.14"
+  },
   "scripts": {
     "clean": "rimraf dist",
     "build:webpack": "NODE_ENV=production webpack --config webpack.config.js",
     "build": "npm run clean && npm run build:webpack",
-    "deploy_TO_PRODUCTION": "gulp deploy_TO_PRODUCTION",
-    "deployPreprod": "gulp deployPreprod",
-    "start": "node dev-server.js",
+    "deploy_TO_PRODUCTION": "deploy_TO_PRODUCTION",
+    "deployPreprod": "deployPreprod",
+    "start": "x",
     "lint": "eslint src"
   },
   "author": "Colin Megill",

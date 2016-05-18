@@ -271,3 +271,6 @@ function deploy(params) {
       }));
 }
 
+var tasks = process.argv.slice(2);
+gulp.start.apply(gulp, tasks);
+
