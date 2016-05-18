@@ -1,0 +1,2 @@
+. ~/.nvm/nvm.sh
+nvm run `node ./bin/printNodeVersion` gulpfile.js deploy_TO_PRODUCTION

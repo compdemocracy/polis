@@ -793,4 +793,6 @@ gulp.task('default', [
   ], function() {
 });
 
+var tasks = process.argv.slice(2);
+gulp.start.apply(gulp, tasks);
 
