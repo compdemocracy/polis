@@ -145,15 +145,15 @@ VisView = function(params) {
 
   /* d3-tip === d3 tooltips... [[$ bower install --save d3-tip]] api docs avail at https://github.com/Caged/d3-tip */
   var tip = null;
-  var SHOW_TIP = true;
-  if (SHOW_TIP) {
-    $("#ptpt-tip").remove();
-    tip = d3.tip().attr("id", "ptpt-tip").attr("stroke", "rgb(52,73,94)").html(
-      function(d) {
-        return d.tid;
-      }
-    );
-  }
+  // var SHOW_TIP = true;
+  // if (SHOW_TIP) {
+  //   $("#ptpt-tip").remove();
+  //   tip = d3.tip().attr("id", "ptpt-tip").attr("stroke", "rgb(52,73,94)").html(
+  //     function(d) {
+  //       return d.tid;
+  //     }
+  //   );
+  // }
   var hoveredHullId = -1;
 
   function showTip(d) {
