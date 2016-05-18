@@ -216,7 +216,6 @@ CREATE TABLE courses(
 CREATE UNIQUE INDEX course_id_idx ON courses USING btree (course_id);
 
 
--- This is a light table that's used exclusively for generating IDs
 CREATE TABLE conversations(
     -- TODO after testing failure cases with 10, use this:
     -- 2147483647  (2**32/2 -1)
