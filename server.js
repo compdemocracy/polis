@@ -1,43 +1,43 @@
 "use strict";
 
-var akismetLib = require('akismet');
-var badwords = require('badwords/object');
-var Promise = require('bluebird');
-var http = require('http');
-var httpProxy = require('http-proxy');
-// var Promise = require('es6-promise').Promise,
-var sql = require("sql"); // see here for useful syntax: https://github.com/brianc/node-sql/blob/bbd6ed15a02d4ab8fbc5058ee2aff1ad67acd5dc/lib/node/valueExpression.js
-var escapeLiteral = require('pg').Client.prototype.escapeLiteral;
-var pg = require('pg').native; //.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
-var parsePgConnectionString = require('pg-connection-string').parse;
-var async = require('async');
-var FB = require('fb');
-var fs = require('fs');
-var bcrypt = require('bcrypt');
-var crypto = require('crypto');
-var Intercom = require('intercom.io'); // https://github.com/tarunc/intercom.io
-var p3p = require('p3p');
-var OAuth = require('oauth');
-// var Pushover = require('pushover-notifications');
-// var pushoverInstance = new Pushover({
+const akismetLib = require('akismet');
+const badwords = require('badwords/object');
+const Promise = require('bluebird');
+const http = require('http');
+const httpProxy = require('http-proxy');
+// const Promise = require('es6-promise').Promise,
+const sql = require("sql"); // see here for useful syntax: https://github.com/brianc/node-sql/blob/bbd6ed15a02d4ab8fbc5058ee2aff1ad67acd5dc/lib/node/valueExpression.js
+const escapeLiteral = require('pg').Client.prototype.escapeLiteral;
+const pg = require('pg').native; //.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
+const parsePgConnectionString = require('pg-connection-string').parse;
+const async = require('async');
+const FB = require('fb');
+const fs = require('fs');
+const bcrypt = require('bcrypt');
+const crypto = require('crypto');
+const Intercom = require('intercom.io'); // https://github.com/tarunc/intercom.io
+const p3p = require('p3p');
+const OAuth = require('oauth');
+// const Pushover = require('pushover-notifications');
+// const pushoverInstance = new Pushover({
 //   user: process.env.PUSHOVER_GROUP_POLIS_DEV,
 //   token: process.env.PUSHOVER_POLIS_PROXY_API_KEY,
 // });
-var Mailgun = require('mailgun').Mailgun;
-var mailgun = new Mailgun(process.env.MAILGUN_API_KEY);
-var postmark = require("postmark")(process.env.POSTMARK_API_KEY);
-var devMode = "localhost" === process.env.STATIC_FILES_HOST;
-var replaceStream = require('replacestream');
-var responseTime = require('response-time');
-var request = require('request-promise'); // includes Request, but adds promise methods
-var LruCache = require("lru-cache");
-var timeout = require('connect-timeout');
-var isValidUrl = require('valid-url');
-var zlib = require('zlib');
-var _ = require('underscore');
-// var winston = require("winston");
+const Mailgun = require('mailgun').Mailgun;
+const mailgun = new Mailgun(process.env.MAILGUN_API_KEY);
+const postmark = require("postmark")(process.env.POSTMARK_API_KEY);
+const devMode = "localhost" === process.env.STATIC_FILES_HOST;
+const replaceStream = require('replacestream');
+const responseTime = require('response-time');
+const request = require('request-promise'); // includes Request, but adds promise methods
+const LruCache = require("lru-cache");
+const timeout = require('connect-timeout');
+const isValidUrl = require('valid-url');
+const zlib = require('zlib');
+const _ = require('underscore');
+// const winston = require("winston");
 
-var winston = console;
+const winston = console;
 
 
 
@@ -72,7 +72,7 @@ Promise.onPossiblyUnhandledRejection(function(err) {
 });
 
 
-var polisDevs = [
+const polisDevs = [
   // Mike
   125,
   26347, // polis
@@ -93,7 +93,7 @@ function isPolisDev(uid) {
 // so we can grant extra days to users
 // eventually we should probably move this to db.
 // for now, use git blame to see when these were added
-var usersToAdditionalTrialDays = {
+const  usersToAdditionalTrialDays = {
   50756: 14, // julien
   85423: 100, // mike test
 };
@@ -134,10 +134,9 @@ setInterval(function() {
 // // END GITHUB OAUTH2
 
 
-var POLIS_FROM_ADDRESS = "Polis Team <" + process.env.EMAIL_MIKE + ">";
+const POLIS_FROM_ADDRESS = "Polis Team <" + process.env.EMAIL_MIKE + ">";
 
-
-var akismet = akismetLib.client({
+const akismet = akismetLib.client({
   blog: 'https://pol.is', // required: your root level url
   apiKey: process.env.AKISMET_ANTISPAM_API_KEY,
 });
@@ -177,8 +176,8 @@ if (devMode) {
 //    values: [circular buffers of values (holds 1000 items)]
 //    index: index in circular buffer
 //}
-var METRICS_IN_RAM = {};
-var SHOULD_ADD_METRICS_IN_RAM = false;
+const METRICS_IN_RAM = {};
+const SHOULD_ADD_METRICS_IN_RAM = false;
 
 function addInRamMetric(metricName, val) {
   if (!SHOULD_ADD_METRICS_IN_RAM) {
@@ -241,7 +240,7 @@ function isSpam(o) {
   });
 }
 
-var INFO;
+const INFO;
 if (devMode) {
   INFO = function() {};
 
@@ -281,7 +280,7 @@ DD.prototype.s = DA.prototype.s = function(k, v) {
 
 
 
-var domainOverride = process.env.DOMAIN_OVERRIDE || null;
+const domainOverride = process.env.DOMAIN_OVERRIDE || null;
 
 function haltOnTimeout(req, res, next) {
   if (req.timedout) {
@@ -299,7 +298,7 @@ function ifDefinedSet(name, source, dest) {
 
 //metric("api.process.launch", 1);
 
-var errorNotifications = (function() {
+const errorNotifications = (function() {
   var errors = [];
 
   function sendAll() {
@@ -327,17 +326,17 @@ var errorNotifications = (function() {
     },
   };
 }());
-var yell = errorNotifications.add;
+const yell = errorNotifications.add;
 
 
-var intercom = new Intercom({
+const intercom = new Intercom({
   apiKey: process.env.INTERCOM_API_KEY,
   appId: "nb5hla8s",
 });
 
 
 //first we define our tables
-var sql_conversations = sql.define({
+const sql_conversations = sql.define({
   name: 'conversations',
   columns: [
     "zid",
@@ -377,7 +376,7 @@ var sql_conversations = sql.define({
     "auth_opt_allow_3rdparty",
   ],
 });
-var sql_votes = sql.define({
+const sql_votes = sql.define({
   name: 'votes',
   columns: [
     "zid",
@@ -387,7 +386,7 @@ var sql_votes = sql.define({
     "vote",
   ],
 });
-var sql_comments = sql.define({
+const sql_comments = sql.define({
   name: 'comments',
   columns: [
     "tid",
@@ -404,7 +403,7 @@ var sql_comments = sql.define({
   ],
 });
 
-var sql_participant_metadata_answers = sql.define({
+const sql_participant_metadata_answers = sql.define({
   name: 'participant_metadata_answers',
   columns: [
     "pmaid",
@@ -415,7 +414,7 @@ var sql_participant_metadata_answers = sql.define({
   ],
 });
 
-var sql_participants_extended = sql.define({
+const sql_participants_extended = sql.define({
   name: 'participants_extended',
   columns: [
     "uid",
@@ -476,7 +475,7 @@ function makeSessionToken() {
 // and generally remove sources of uncertainty about what makes
 // various queries slow. And having every single query talk to PG
 // adds a lot of variability across the board.
-var userTokenCache = new LruCache({
+const userTokenCache = new LruCache({
   max: 9000,
 });
 
@@ -643,12 +642,12 @@ function pgQueryImpl() {
 }
 
 
-var usingReplica = process.env.DATABASE_URL !== process.env[process.env.DATABASE_FOR_READS_NAME];
-var prodPoolSize = usingReplica ? 3 : 12; /// 39
-var pgPoolLevelRanks = ["info", "verbose"];
-var pgPoolLoggingLevel = -1; // -1 to get anything more important than info and verbose. // pgPoolLevelRanks.indexOf("info");
+const usingReplica = process.env.DATABASE_URL !== process.env[process.env.DATABASE_FOR_READS_NAME];
+const prodPoolSize = usingReplica ? 3 : 12; /// 39
+const pgPoolLevelRanks = ["info", "verbose"];
+const pgPoolLoggingLevel = -1; // -1 to get anything more important than info and verbose. // pgPoolLevelRanks.indexOf("info");
 
-var queryReadWriteObj = {
+const queryReadWriteObj = {
   isReadOnly: false,
   pgConfig: _.extend(parsePgConnectionString(process.env.DATABASE_URL), {
     poolSize: (devMode ? 2 : prodPoolSize),
@@ -661,7 +660,7 @@ var queryReadWriteObj = {
     },
   }),
 };
-var queryReadOnlyObj = {
+const queryReadOnlyObj = {
   isReadOnly: true,
   pgConfig: _.extend(parsePgConnectionString(process.env[process.env.DATABASE_FOR_READS_NAME]), {
     poolSize: (devMode ? 2 : prodPoolSize),
@@ -976,7 +975,7 @@ function getInt(s) {
 }
 
 
-var conversationIdToZidCache = new LruCache({
+const conversationIdToZidCache = new LruCache({
   max: 1000,
 });
 
@@ -1004,7 +1003,7 @@ function getZidFromConversationId(conversation_id) {
 }
 
 // conversation_id is the client/ public API facing string ID
-var parseConversationId = getStringLimitLength(1, 100);
+const parseConversationId = getStringLimitLength(1, 100);
 
 function getConversationIdFetchZid(s) {
   return parseConversationId(s).then(function(conversation_id) {
@@ -1114,7 +1113,7 @@ function extractFromCookie(req, name) {
   }
   return req.cookies[name];
 }
-var prrrams = (function() {
+const prrrams = (function() {
   function buildCallback(config) {
     var name = config.name;
     var parserWhichReturnsPromise = config.parserWhichReturnsPromise;
@@ -1199,12 +1198,12 @@ var prrrams = (function() {
     },
   };
 }());
-var need = prrrams.need;
-var want = prrrams.want;
+const need = prrrams.need;
+const want = prrrams.want;
 // var needCookie = prrrams.needCookie;
-var wantCookie = prrrams.wantCookie;
+const wantCookie = prrrams.wantCookie;
 
-var COOKIES = {
+const COOKIES = {
   HAS_EMAIL: 'e',
   TOKEN: 'token2',
   UID: 'uid2',
@@ -1216,7 +1215,7 @@ var COOKIES = {
   TRY_COOKIE: 'tryCookie',
   PLAN_NUMBER: 'plan', // not set if trial user
 };
-var COOKIES_TO_CLEAR = {
+const COOKIES_TO_CLEAR = {
   e: true,
   token2: true,
   uid2: true,
