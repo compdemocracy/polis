@@ -649,7 +649,7 @@ const pgPoolLoggingLevel = -1; // -1 to get anything more important than info an
 
 const queryReadWriteObj = {
   isReadOnly: false,
-  pgConfig: _.extend(parsePgConnectionString(process.env.DATABASE_URL), {
+  pgConfig: Object.assign(parsePgConnectionString(process.env.DATABASE_URL), {
     poolSize: (devMode ? 2 : prodPoolSize),
     // poolIdleTimeout: 30000, // max milliseconds a client can go unused before it is removed from the pool and destroyed
     // reapIntervalMillis: 1000, //frequeny to check for idle clients within the client pool
@@ -662,7 +662,7 @@ const queryReadWriteObj = {
 };
 const queryReadOnlyObj = {
   isReadOnly: true,
-  pgConfig: _.extend(parsePgConnectionString(process.env[process.env.DATABASE_FOR_READS_NAME]), {
+  pgConfig: Object.assign(parsePgConnectionString(process.env[process.env.DATABASE_FOR_READS_NAME]), {
     poolSize: (devMode ? 2 : prodPoolSize),
     // poolIdleTimeout: 30000, // max milliseconds a client can go unused before it is removed from the pool and destroyed
     // reapIntervalMillis: 1000, //frequeny to check for idle clients within the client pool
@@ -807,11 +807,11 @@ function doPolisLtiTokenHeaderAuth(assigner, isOptional, req, res, next) {
 function moveToBody(req, res, next) {
   if (req.query) {
     req.body = req.body || {};
-    _.extend(req.body, req.query);
+    Object.assign(req.body, req.query);
   }
   if (req.params) {
     req.body = req.body || {};
-    _.extend(req.body, req.params);
+    Object.assign(req.body, req.params);
   }
   // inti req.p if not there already
   req.p = req.p || {};
@@ -3373,14 +3373,14 @@ Feel free to reply to this email if you need help.`;
     if (!data || !_.keys(data).length) {
       return Promise.resolve();
     }
-    let params = _.extend({}, data, {
+    let params = Object.assign({}, data, {
       zid: zid,
       uid: uid,
     });
     let q = sql_participants_extended.insert(params);
     return pgQueryP(q.toString(), [])
       .catch(function() {
-        let params2 = _.extend({
+        let params2 = Object.assign({
           created: 9876543212345, // hacky string, will be replaced with the word "default".
         }, params);
         // TODO replace all this with an upsert once heroku upgrades postgres
@@ -4646,7 +4646,7 @@ Email verified! You can close this tab or hit the back button.
       .then(function(o) {
         if (o.suzinvite) {
           return getSUZinviteInfo(o.suzinvite).then(function(suzinviteInfo) {
-            return _.extend(o, suzinviteInfo);
+            return Object.assign(o, suzinviteInfo);
           });
         } else if (o.zid) {
           return o;
@@ -4709,7 +4709,7 @@ Email verified! You can close this tab or hit the back button.
           return o;
         } else {
           return createDummyUser().then(function(uid) {
-            return _.extend(o, {
+            return Object.assign(o, {
               uid: uid,
             });
           });
@@ -4731,7 +4731,7 @@ Email verified! You can close this tab or hit the back button.
         }
         // TODO_REFERRER add info as third arg
         return joinConversation(o.zid, o.uid, info, o.answers).then(function(ptpt) {
-          return _.extend(o, ptpt);
+          return Object.assign(o, ptpt);
         });
       })
       .then(function(o) {
@@ -5419,7 +5419,7 @@ Email verified! You can close this tab or hit the back button.
 
     function doFbUserHasAccountLinked(user) {
       if (user.fb_user_id === fb_user_id) {
-        updateFacebookUserRecord(_.extend({}, {
+        updateFacebookUserRecord(Object.assign({}, {
           uid: user.uid,
         }, fbUserRecord)).then(function() {
           let friendsAddedPromise = fb_friends_response ? addFacebookFriends(user.uid, fb_friends_response) : Promise.resolve();
@@ -5465,7 +5465,7 @@ Email verified! You can close this tab or hit the back button.
         let pwPromise = TRUST_FB_TO_VALIDATE_EMAIL ? Promise.resolve(true) : checkPassword(user.uid, password || "");
         pwPromise.then(function(ok) {
           if (ok) {
-            createFacebookUserRecord(_.extend({}, {
+            createFacebookUserRecord(Object.assign({}, {
               uid: user.uid,
             }, fbUserRecord)).then(function() {
               let friendsAddedPromise = fb_friends_response ? addFacebookFriends(user.uid, fb_friends_response) : Promise.resolve();
@@ -5538,7 +5538,7 @@ Email verified! You can close this tab or hit the back button.
           winston.log("info", "fb1 4");
           winston.log("info", user);
           winston.log("info", "end fb1 4");
-          return createFacebookUserRecord(_.extend({}, user, fbUserRecord)).then(function() {
+          return createFacebookUserRecord(Object.assign({}, user, fbUserRecord)).then(function() {
             return user;
           });
         })
@@ -6896,17 +6896,17 @@ Email verified! You can close this tab or hit the back button.
     //   conversation_id: req.p.conversation_id,
     // };
 
-    // let nextCommentQs = _.extend({}, qs, {
+    // let nextCommentQs = Object.assign({}, qs, {
     //   not_voted_by_pid: "mypid",
     //   limit: 1,
     //   include_social: true,
     // });
 
-    // let votesByMeQs = _.extend({}, req.p, {
+    // let votesByMeQs = Object.assign({}, req.p, {
     //   pid: "mypid",
     // });
 
-    // let famousQs = req.p.ptptoiLimit ? _.extend({}, qs, {
+    // let famousQs = req.p.ptptoiLimit ? Object.assign({}, qs, {
     //   ptptoiLimit: req.p.ptptoiLimit,
     // }) : qs;
 
@@ -9440,7 +9440,7 @@ Email verified! You can close this tab or hit the back button.
         cacheVotesForZidPidWithTimestamp(zid, pid, lastVoteTimestamp, votes);
       });
       let cachedPidToVotes = toObj(cachedVotes);
-      return _.extend(newPidToVotes, cachedPidToVotes);
+      return Object.assign(newPidToVotes, cachedPidToVotes);
     });
   }
 
@@ -10903,7 +10903,7 @@ Email verified! You can close this tab or hit the back button.
             return;
           }
 
-          let params = _.extend(o, {
+          let params = Object.assign(o, {
             owner: uid,
             // topic: req.p.topic,
             // description: req.p.description,
@@ -11274,7 +11274,7 @@ Email verified! You can close this tab or hit the back button.
       'Content-Type': "text/html",
     };
     if (!devMode) {
-      _.extend(headers, {
+      Object.assign(headers, {
         'Cache-Control': 'no-transform,public,max-age=60,s-maxage=60', // Cloudflare will probably cache it for one or two hours
       });
     }
@@ -11361,7 +11361,7 @@ Email verified! You can close this tab or hit the back button.
         auth_opt_tw_computed: auth_opt_tw_computed,
       };
       conv.conversation_id = conversation_id;
-      // conv = _.extend({}, optionalResults, conv);
+      // conv = Object.assign({}, optionalResults, conv);
       return conv;
     }).then(function(x) {
       let preloadData = {
