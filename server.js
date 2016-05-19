@@ -134,7 +134,7 @@ setInterval(function() {
 // // END GITHUB OAUTH2
 
 
-const POLIS_FROM_ADDRESS = "Polis Team <" + process.env.EMAIL_MIKE + ">";
+const POLIS_FROM_ADDRESS = `Polis Team <${process.env.EMAIL_MIKE}>`;
 
 const akismet = akismetLib.client({
   blog: 'https://pol.is', // required: your root level url
@@ -2625,14 +2625,14 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function sendPasswordResetEmailFailure(email, server) {
-    let body = "" +
-      "We were unable to find a pol.is account registered with the email address: " + email + "\n" +
-      "\n" +
-      "You may have used another email address to create your account.\n" +
-      "\n" +
-      "If you need to create a new account, you can do that here " + server + "/user/create\n" +
-      "\n" +
-      "Feel free to reply to this email if you need help.";
+    let body =
+`We were unable to find a pol.is account registered with the email address: ${email}
+
+You may have used another email address to create your account.
+
+If you need to create a new account, you can do that here ${server}/home
+
+Feel free to reply to this email if you need help.`;
 
     return sendTextEmail(
       POLIS_FROM_ADDRESS,
@@ -2740,12 +2740,12 @@ function initializePolisHelpers(mongoParams) {
         res.set({
           'Content-Type': 'text/html',
         });
-        let html = "" +
-          "<!DOCTYPE html><html lang='en'>" +
-          "<body>" +
-          "<h1>You are now signed out of pol.is</h1>" +
-          "<p>Please return to the 'setup pol.is' assignment to sign in as another user.</p>" +
-          "</body></html>";
+        let html =
+`<!DOCTYPE html><html lang='en'>
+<body>
+<h1>You are now signed out of pol.is</h1>
+<p>Please return to the 'setup pol.is' assignment to sign in as another user.</p>
+</body></html>`;
         res.status(200).send(html);
       }
     }
@@ -3576,9 +3576,10 @@ function initializePolisHelpers(mongoParams) {
 
 
   function emailFeatureRequest(message) {
-    let body = "" +
-      "Somebody clicked a dummy button!\n" +
-      message;
+    const body =
+`Somebody clicked a dummy button!
+
+${message}`;
 
     return sendMultipleTextEmails(
       POLIS_FROM_ADDRESS, [process.env.EMAIL_MIKE, process.env.EMAIL_COLIN, process.env.EMAIL_CHRIS],
@@ -3591,9 +3592,10 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function emailBadProblemTime(message) {
-    let body = "" +
-      "Yo, there was a serious problem. Here's the message:\n" +
-      message;
+    const body =
+`Yo, there was a serious problem. Here's the message:
+
+${message}`;
 
     return sendMultipleTextEmails(
       POLIS_FROM_ADDRESS, [process.env.EMAIL_MIKE, process.env.EMAIL_COLIN, process.env.EMAIL_CHRIS],
@@ -3613,15 +3615,16 @@ function initializePolisHelpers(mongoParams) {
       if (!userInfo) {
         return callback('missing user info');
       }
-      let body = "" +
-        "Hi " + userInfo.hname + ",\n" +
-        "\n" +
-        "We have just received a password reset request for " + userInfo.email + "\n" +
-        "\n" +
-        "To reset your password, visit this url:\n" +
-        serverName + "/pwreset/" + pwresettoken + "\n" +
-        "\n" +
-        "Thank you for using Polis\n";
+      let body =
+
+`Hi ${userInfo.hname},
+
+We have just received a password reset request for ${userInfo.email}
+
+To reset your password, visit this page:
+${serverName}/pwreset/${pwresettoken}
+
+"Thank you for using Polis`;
 
       sendTextEmail(
         POLIS_FROM_ADDRESS,
@@ -3716,14 +3719,14 @@ function initializePolisHelpers(mongoParams) {
 
   function sendEinviteEmail(req, email, einvite) {
     let serverName = getServerNameWithProtocol(req);
-    let body = "" +
-      "Welcome to pol.is!\n" +
-      "\n" +
-      "Click this link to open your account:\n" +
-      "\n" +
-      serverName + "/welcome/" + einvite + "\n" +
-      "\n" +
-      "Thank you for using Polis\n";
+    const body =
+`Welcome to pol.is!
+
+Click this link to open your account:
+
+${serverName}/welcome/${einvite}
+
+Thank you for using Polis`;
 
     return sendTextEmail(
       POLIS_FROM_ADDRESS,
@@ -3734,12 +3737,13 @@ function initializePolisHelpers(mongoParams) {
 
   function sendVerificaionEmail(req, email, einvite) {
     let serverName = getServerNameWithProtocol(req);
-    let body = "" +
-      "Welcome to pol.is!\n" +
-      "\n" +
-      "Click this link to verify your email address:\n" +
-      "\n" +
-      serverName + "/api/v3/verify?e=" + einvite + "\n";
+    let body =
+`Welcome to pol.is!
+
+Click this link to verify your email address:
+
+${serverName}/api/v3/verify?e=${einvite}`;
+
     return sendTextEmail(
       POLIS_FROM_ADDRESS,
       email,
@@ -3769,11 +3773,11 @@ function initializePolisHelpers(mongoParams) {
     }).then(function() {
       res.set('Content-Type', 'text/html');
       res.send(
-        "<html><body>" +
-        "<div style='font-family: Futura, Helvetica, sans-serif;'>" +
-        "Email verified! You can close this tab or hit the back button." +
-        "</div>" +
-        "</body></html>");
+`<html><body>
+<div style='font-family: Futura, Helvetica, sans-serif;'>
+Email verified! You can close this tab or hit the back button.
+</div>
+</body></html>`);
     }).catch(function(err) {
       fail(res, 500, "polis_err_verification", err);
     });
@@ -3829,7 +3833,7 @@ function initializePolisHelpers(mongoParams) {
     return getUserInfoForUid2(uid).then(function(userInfo) {
       return sendTextEmail(
         POLIS_FROM_ADDRESS,
-        userInfo.hname ? (userInfo.hname + "<" + userInfo.email + ">") : userInfo.email,
+        userInfo.hname ? (`${userInfo.hname} <${userInfo.email}>`) : userInfo.email,
         subject,
         body);
     });
@@ -4373,10 +4377,10 @@ function initializePolisHelpers(mongoParams) {
       return pgQueryP("update participants set subscribed = 1 where uid = (select uid from users where email = ($2)) and zid = ($1);", [zid, email]).then(function() {
         res.set('Content-Type', 'text/html');
         res.send(
-          "<h1>Subscribed!</h1>" +
-          "<p>" +
-          "<a href=\"" + createNotificationsUnsubscribeUrl(req.p.conversation_id, req.p.email) + "\">oops, unsubscribe me.</a>" +
-          "</p>"
+`<h1>Subscribed!</h1>
+<p>
+<a href="${createNotificationsUnsubscribeUrl(req.p.conversation_id, req.p.email)}">oops, unsubscribe me.</a>
+</p>`
         );
       });
     }, function() {
@@ -4399,10 +4403,10 @@ function initializePolisHelpers(mongoParams) {
       return pgQueryP("update participants set subscribed = 0 where uid = (select uid from users where email = ($2)) and zid = ($1);", [zid, email]).then(function() {
         res.set('Content-Type', 'text/html');
         res.send(
-          "<h1>Unsubscribed.</h1>" +
-          "<p>" +
-          "<a href=\"" + createNotificationsSubscribeUrl(req.p.conversation_id, req.p.email) + "\">oops, subscribe me again.</a>" +
-          "</p>"
+`<h1>Unsubscribed.</h1>
+<p>
+<a href="${createNotificationsSubscribeUrl(req.p.conversation_id, req.p.email)}">oops, subscribe me again.</a>
+</p>`
         );
       });
     }, function() {
@@ -6069,7 +6073,7 @@ function initializePolisHelpers(mongoParams) {
             if (!_.isUndefined(infoToReturn.fb_user_id)) {
               let width = 40;
               let height = 40;
-              infoToReturn.fb_picture = "https://graph.facebook.com/v2.2/" + infoToReturn.fb_user_id + "/picture?width=" + width + "&height=" + height;
+              infoToReturn.fb_picture = `https://graph.facebook.com/v2.2/${infoToReturn.fb_user_id}/picture?width=${width}&height=${height}`;
             }
 
             uidToSocialInfo[info.uid] = infoToReturn;
@@ -6202,7 +6206,7 @@ function initializePolisHelpers(mongoParams) {
         if (hasFacebook) {
           let width = 40;
           let height = 40;
-          c.social.fb_picture = "https://graph.facebook.com/v2.2/" + c.social.fb_user_id + "/picture?width=" + width + "&height=" + height;
+          c.social.fb_picture = `https://graph.facebook.com/v2.2/${c.social.fb_user_id}/picture?width=${width}&height=${height}`;
         }
         return c;
       });
@@ -6274,7 +6278,7 @@ function initializePolisHelpers(mongoParams) {
       // "Sent: " + Date.now() + "\n";
 
       // NOTE: Adding zid to the subject to force the email client to create a new email thread.
-      return sendEmailByUid(uid, "Waiting for review (conversation " + zinvite + ")", body);
+      return sendEmailByUid(uid, `Waiting for review (conversation ${zinvite})`, body);
     }).catch(function(err) {
       console.error(err);
     });
