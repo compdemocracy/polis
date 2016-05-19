@@ -100,12 +100,12 @@ const  usersToAdditionalTrialDays = {
 
 // log heap stats
 setInterval(function() {
-  var mem = process.memoryUsage();
-  var heapUsed = mem.heapUsed;
-  var rss = mem.rss;
-  var heapTotal = mem.heapTotal;
+  let mem = process.memoryUsage();
+  let heapUsed = mem.heapUsed;
+  let rss = mem.rss;
+  let heapTotal = mem.heapTotal;
   winston.log("info", "heapUsed:", heapUsed, "heapTotal:", heapTotal, "rss:", rss);
-  // var start = Date.now();
+  // let start = Date.now();
 
   //metric("api.process.mem.heapUsed", heapUsed, start);
   //metric("api.process.mem.rss", rss, start);
@@ -114,9 +114,9 @@ setInterval(function() {
 
 
 // // BEGIN GITHUB OAUTH2
-// var CLIENT_SECRET = "0b178e412a10fa023a0153bf7cefaf6dae0f74b9";
-// var CLIENT_ID = "109a1eb4732b3ec1075b";
-// var oauth2 = require('simple-oauth2')({
+// let CLIENT_SECRET = "0b178e412a10fa023a0153bf7cefaf6dae0f74b9";
+// let CLIENT_ID = "109a1eb4732b3ec1075b";
+// let oauth2 = require('simple-oauth2')({
 //   clientID: CLIENT_ID,
 //   clientSecret: CLIENT_SECRET,
 //   site: 'https://github.com/login',
@@ -126,7 +126,7 @@ setInterval(function() {
 // winston.log("info",oauth2);
 
 // // Authorization uri definition
-// var authorization_uri = oauth2.AuthCode.authorizeURL({
+// let authorization_uri = oauth2.AuthCode.authorizeURL({
 //   redirect_uri: 'https://preprod.pol.is/oauth2/oauth2_github_callback',
 //   scope: 'notifications',
 //   state: '3(#0/!~'
@@ -164,7 +164,7 @@ if (devMode) {
   pg.defaults.poolSize = 12;
 }
 
-// var SELF_HOSTNAME = "localhost:" + process.env.PORT;
+// let SELF_HOSTNAME = "localhost:" + process.env.PORT;
 // if (!devMode) {
 // ^^^ possible to use localhost on Heroku?
 //  SELF_HOSTNAME = process.env.SERVICE_HOSTNAME
@@ -189,7 +189,7 @@ function addInRamMetric(metricName, val) {
       index: 0,
     };
   }
-  var index = METRICS_IN_RAM[metricName].index;
+  let index = METRICS_IN_RAM[metricName].index;
   METRICS_IN_RAM[metricName].values[index] = val;
   METRICS_IN_RAM[metricName].index = (index + 1) % 1000;
 }
@@ -198,26 +198,26 @@ function addInRamMetric(metricName, val) {
 
 // metered promise
 function MPromise(name, f) {
-  var p = new Promise(f);
-  var start = Date.now();
+  let p = new Promise(f);
+  let start = Date.now();
   setTimeout(function() {
     addInRamMetric(name + ".go", 1, start);
   }, 100);
   p.then(function() {
-    var end = Date.now();
-    var duration = end - start;
+    let end = Date.now();
+    let duration = end - start;
     setTimeout(function() {
       addInRamMetric(name + ".ok", duration, end);
     }, 100);
   }, function() {
-    var end = Date.now();
-    var duration = end - start;
+    let end = Date.now();
+    let duration = end - start;
     setTimeout(function() {
       addInRamMetric(name + ".fail", duration, end);
     }, 100);
   }).catch(function(err) {
-    var end = Date.now();
-    var duration = end - start;
+    let end = Date.now();
+    let duration = end - start;
     setTimeout(function() {
       addInRamMetric(name + ".fail", duration, end);
       console.log("MPromise internal error");
@@ -240,7 +240,7 @@ function isSpam(o) {
   });
 }
 
-const INFO;
+var INFO;
 if (devMode) {
   INFO = function() {};
 
@@ -267,7 +267,7 @@ DD.prototype.g = DA.prototype.g = function(k) {
   if (this.m.hasOwnProperty(k)) {
     return this.m[k];
   }
-  var v = this.f(k);
+  let v = this.f(k);
   this.m[k] = v;
   return v;
 };
@@ -299,7 +299,7 @@ function ifDefinedSet(name, source, dest) {
 //metric("api.process.launch", 1);
 
 const errorNotifications = (function() {
-  var errors = [];
+  let errors = [];
 
   function sendAll() {
     if (errors.length === 0) {
@@ -433,13 +433,13 @@ const sql_participants_extended = sql.define({
 // // Just using digits [2-9] to start with. Omitting 0 and 1 since they can be confused with
 // // letters once we start using letters.
 // // This should give us roughly 8^8 = 16777216 conversations before we have to add letters.
-// var ReadableIds = (function() {
+// let ReadableIds = (function() {
 //     function rand(a) {
 //         return _.random(a.length);
 //     }
 //     // no 1 (looks like l)
 //     // no 0 (looks like 0)
-//     var numbers8 = "23456789".split("");
+//     let numbers8 = "23456789".split("");
 
 //     // should fit within 32 bits
 //     function generateConversationId() {
@@ -480,7 +480,7 @@ const userTokenCache = new LruCache({
 });
 
 function getUserInfoForSessionToken(sessionToken, res, cb) {
-  var cachedUid = userTokenCache.get(sessionToken);
+  let cachedUid = userTokenCache.get(sessionToken);
   if (cachedUid) {
     cb(null, cachedUid);
     return;
@@ -497,7 +497,7 @@ function getUserInfoForSessionToken(sessionToken, res, cb) {
       cb(403);
       return;
     }
-    var uid = results.rows[0].uid;
+    let uid = results.rows[0].uid;
     userTokenCache.set(sessionToken, uid);
     cb(null, uid);
   });
@@ -513,8 +513,8 @@ function isPolisLtiToken(token) {
 }
 
 function parsePolisLtiToken(token) {
-  var parts = token.split(/:::/);
-  var o = {
+  let parts = token.split(/:::/);
+  let o = {
     // parts[0] === "xPolisLtiToken", don't need that
     tool_consumer_instance_guid: parts[1],
     lti_user_id: parts[2],
@@ -524,7 +524,7 @@ function parsePolisLtiToken(token) {
 
 
 function getUserInfoForPolisLtiToken(token) {
-  var o = parsePolisLtiToken(token);
+  let o = parsePolisLtiToken(token);
   return pgQueryP("select uid from lti_users where tool_consumer_instance_guid = $1 and lti_user_id = $2", [
     o.tool_consumer_instance_guid,
     o.lti_user_id,
@@ -534,7 +534,7 @@ function getUserInfoForPolisLtiToken(token) {
 }
 
 function startSession(uid, cb) {
-  var token = makeSessionToken();
+  let token = makeSessionToken();
   //winston.log("info",'startSession: token will be: ' + sessionToken);
   winston.log("info", 'startSession');
   pgQuery("insert into auth_tokens (uid, token, created) values ($1, $2, default);", [uid, token], function(err, repliesSetToken) {
@@ -563,7 +563,7 @@ function setupPwReset(uid, cb) {
     // These can probably be shortened at some point.
     return crypto.randomBytes(140).toString('base64').replace(/[^A-Za-z0-9]/g, "").substr(0, 100);
   }
-  var token = makePwResetToken();
+  let token = makePwResetToken();
   pgQuery("insert into pwreset_tokens (uid, token, created) values ($1, $2, default);", [uid, token], function(errSetToken, repliesSetToken) {
     if (errSetToken) {
       cb(errSetToken);
@@ -607,10 +607,10 @@ function clearPwResetToken(pwresettoken, cb) {
 // Same syntax as pg.client.query, but uses connection pool
 // Also takes care of calling 'done'.
 function pgQueryImpl() {
-  var args = arguments;
-  var queryString = args[0];
-  var params;
-  var callback;
+  let args = arguments;
+  let queryString = args[0];
+  let params;
+  let callback;
   if (_.isFunction(args[2])) {
     params = args[1];
     callback = args[2];
@@ -683,7 +683,7 @@ function pgQuery_readOnly() {
 }
 
 function pgQueryP_impl(queryString, params) {
-  var f = this.isReadOnly ? pgQuery_readOnly : pgQuery;
+  let f = this.isReadOnly ? pgQuery_readOnly : pgQuery;
   return new Promise(function(resolve, reject) {
     f(queryString, params, function(err, result) {
       if (err) {
@@ -719,7 +719,7 @@ function pgQueryP_readOnly_wRetryIfEmpty(queryString, params) {
 
 
 function pgQueryP_metered_impl(name, queryString, params) {
-  var f = this.isReadOnly ? pgQueryP_readOnly : pgQueryP;
+  let f = this.isReadOnly ? pgQueryP_readOnly : pgQueryP;
   return new MPromise(name, function(resolve, reject) {
     f(queryString, params).then(resolve, reject);
   });
@@ -746,7 +746,7 @@ function getUidForApiKey(apikey) {
 
 // http://en.wikipedia.org/wiki/Basic_access_authentication#Client_side
 function doApiKeyBasicAuth(assigner, isOptional, req, res, next) {
-  var header = req.headers.authorization || '', // get the header
+  let header = req.headers.authorization || '', // get the header
     token = header.split(/\s+/).pop() || '', // and the encoded auth token
     auth = new Buffer(token, 'base64').toString(), // convert from base64
     parts = auth.split(/:/), // split on colon
@@ -769,7 +769,7 @@ function doApiKeyBasicAuth(assigner, isOptional, req, res, next) {
 }
 
 function doHeaderAuth(assigner, isOptional, req, res, next) {
-  var token = req.headers["x-polis"];
+  let token = req.headers["x-polis"];
 
   //if (req.body.uid) { next(401); return; } // shouldn't be in the post - TODO - see if we can do the auth in parallel for non-destructive operations
   getUserInfoForSessionToken(token, res, function(err, uid) {
@@ -790,7 +790,7 @@ function doHeaderAuth(assigner, isOptional, req, res, next) {
 }
 
 function doPolisLtiTokenHeaderAuth(assigner, isOptional, req, res, next) {
-  var token = req.headers["x-polis"];
+  let token = req.headers["x-polis"];
 
   getUserInfoForPolisLtiToken(token).then(function(uid) {
     assigner(req, "uid", Number(uid));
@@ -825,9 +825,9 @@ function moveToBody(req, res, next) {
 
 
 String.prototype.hashCode = function() {
-  var hash = 0;
-  var i;
-  var character;
+  let hash = 0;
+  let i;
+  let character;
   if (this.length === 0) {
     return hash;
   }
@@ -941,7 +941,7 @@ function getUrlLimitLength(limit) {
 
 function getBool(s) {
   return new Promise(function(resolve, reject) {
-    var type = typeof s;
+    let type = typeof s;
     if ("boolean" === type) {
       return resolve(s);
     }
@@ -966,7 +966,7 @@ function getInt(s) {
     if (_.isNumber(s) && s >> 0 === s) {
       return resolve(s);
     }
-    var x = parseInt(s);
+    let x = parseInt(s);
     if (isNaN(x)) {
       return reject("polis_fail_parse_int " + s);
     }
@@ -982,7 +982,7 @@ const conversationIdToZidCache = new LruCache({
 // NOTE: currently conversation_id is stored as zinvite
 function getZidFromConversationId(conversation_id) {
   return new MPromise("getZidFromConversationId", function(resolve, reject) {
-    var cachedZid = conversationIdToZidCache.get(conversation_id);
+    let cachedZid = conversationIdToZidCache.get(conversation_id);
     if (cachedZid) {
       resolve(cachedZid);
       return;
@@ -994,7 +994,7 @@ function getZidFromConversationId(conversation_id) {
         console.error("polis_err_fetching_zid_for_conversation_id" + conversation_id);
         return reject("polis_err_fetching_zid_for_conversation_id");
       } else {
-        var zid = results.rows[0].zid;
+        let zid = results.rows[0].zid;
         conversationIdToZidCache.set(conversation_id, zid);
         return resolve(zid);
       }
@@ -1020,7 +1020,7 @@ function getNumber(s) {
     if (_.isNumber(s)) {
       return resolve(s);
     }
-    var x = parseFloat(s);
+    let x = parseFloat(s);
     if (isNaN(x)) {
       return reject("polis_fail_parse_number");
     }
@@ -1086,7 +1086,7 @@ function getIntInRange(min, max) {
 function assignToP(req, name, x) {
   req.p = req.p || {};
   if (!_.isUndefined(req.p[name])) {
-    var s = "clobbering " + name;
+    let s = "clobbering " + name;
     console.error(s);
     yell(s);
   }
@@ -1115,21 +1115,21 @@ function extractFromCookie(req, name) {
 }
 const prrrams = (function() {
   function buildCallback(config) {
-    var name = config.name;
-    var parserWhichReturnsPromise = config.parserWhichReturnsPromise;
-    var assigner = config.assigner;
-    var required = config.required;
-    var defaultVal = config.defaultVal;
-    var extractor = config.extractor;
+    let name = config.name;
+    let parserWhichReturnsPromise = config.parserWhichReturnsPromise;
+    let assigner = config.assigner;
+    let required = config.required;
+    let defaultVal = config.defaultVal;
+    let extractor = config.extractor;
 
-    var f = function(req, res, next) {
-      var val = extractor(req, name);
+    let f = function(req, res, next) {
+      let val = extractor(req, name);
       if (!_.isUndefined(val) && !_.isNull(val)) {
         parserWhichReturnsPromise(val).then(function(parsed) {
           assigner(req, name, parsed);
           next();
         }, function(e) {
-          var s = "polis_err_param_parse_failed_" + name;
+          let s = "polis_err_param_parse_failed_" + name;
           console.error(s);
           console.error(e);
           yell(s);
@@ -1147,7 +1147,7 @@ const prrrams = (function() {
         next();
       } else {
         // winston.log("info",req);
-        var s = "polis_err_param_missing_" + name;
+        let s = "polis_err_param_missing_" + name;
         console.error(s);
         yell(s);
         res.status(400);
@@ -1200,7 +1200,7 @@ const prrrams = (function() {
 }());
 const need = prrrams.need;
 const want = prrrams.want;
-// var needCookie = prrrams.needCookie;
+// let needCookie = prrrams.needCookie;
 const wantCookie = prrrams.wantCookie;
 
 const COOKIES = {
@@ -1229,11 +1229,11 @@ const COOKIES_TO_CLEAR = {
 
 function initializePolisHelpers(mongoParams) {
 
-  var collectionOfPcaResults = mongoParams.mongoCollectionOfPcaResults;
-  var collectionOfBidToPidResults = mongoParams.mongoCollectionOfBidToPidResults;
-  var collectionOfPcaPlaybackResults = mongoParams.mongoCollectionOfPcaPlaybackResults;
+  let collectionOfPcaResults = mongoParams.mongoCollectionOfPcaResults;
+  let collectionOfBidToPidResults = mongoParams.mongoCollectionOfBidToPidResults;
+  let collectionOfPcaPlaybackResults = mongoParams.mongoCollectionOfPcaPlaybackResults;
 
-  var polisTypes = {
+  let polisTypes = {
     reactions: {
       push: 1,
       pull: -1,
@@ -1260,13 +1260,13 @@ function initializePolisHelpers(mongoParams) {
   //         comments = comments.rows;
   //         votes = votes.rows;
 
-  //         var exists = {};
+  //         let exists = {};
   //         votes.forEach(function(v) {
   //             exists[v.zid +"_"+ v.tid] = true;
   //         });
-  //         var missing = [];
+  //         let missing = [];
   //         for (var i = 0 ; i < comments.length; i++) {
-  //             var c = comments[i];
+  //             let c = comments[i];
   //             if (!exists[c.zid + "_" + c.tid]) {
   //                 missing.push(c);
   //             }
@@ -1298,10 +1298,10 @@ function initializePolisHelpers(mongoParams) {
 
 
 
-  var oneYear = 1000 * 60 * 60 * 24 * 365;
+  let oneYear = 1000 * 60 * 60 * 24 * 365;
 
   function setCookie(req, res, setOnPolisDomain, name, value, options) {
-    var o = _.clone(options || {});
+    let o = _.clone(options || {});
     o.path = _.isUndefined(o.path) ? '/' : o.path;
     o.maxAge = _.isUndefined(o.maxAge) ? oneYear : o.maxAge;
     if (setOnPolisDomain) {
@@ -1371,12 +1371,12 @@ function initializePolisHelpers(mongoParams) {
 
   function addCookies(req, res, token, uid) {
     return getUserInfoForUid2(uid).then(function(o) {
-      var email = o.email;
-      var created = o.created;
-      var plan = o.plan;
+      let email = o.email;
+      let created = o.created;
+      let plan = o.plan;
 
-      var setOnPolisDomain = !domainOverride;
-      var origin = req.headers.origin || "";
+      let setOnPolisDomain = !domainOverride;
+      let origin = req.headers.origin || "";
       if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
         setOnPolisDomain = false;
       }
@@ -1408,20 +1408,20 @@ function initializePolisHelpers(mongoParams) {
     });
   }
 
-  var pidCache = new LruCache({
+  let pidCache = new LruCache({
     max: 9000,
   });
 
   // returns a pid of -1 if it's missing
   function getPid(zid, uid, callback) {
-    var cacheKey = zid + "_" + uid;
-    var cachedPid = pidCache.get(cacheKey);
+    let cacheKey = zid + "_" + uid;
+    let cachedPid = pidCache.get(cacheKey);
     if (!_.isUndefined(cachedPid)) {
       callback(null, cachedPid);
       return;
     }
     pgQuery_readOnly("SELECT pid FROM participants WHERE zid = ($1) AND uid = ($2);", [zid, uid], function(err, docs) {
-      var pid = -1;
+      let pid = -1;
       if (docs && docs.rows && docs.rows[0]) {
         pid = docs.rows[0].pid;
         pidCache.set(cacheKey, pid);
@@ -1432,8 +1432,8 @@ function initializePolisHelpers(mongoParams) {
 
   // returns a pid of -1 if it's missing
   function getPidPromise(zid, uid) {
-    var cacheKey = zid + "_" + uid;
-    var cachedPid = pidCache.get(cacheKey);
+    let cacheKey = zid + "_" + uid;
+    let cachedPid = pidCache.get(cacheKey);
     return new MPromise("getPidPromise", function(resolve, reject) {
       if (!_.isUndefined(cachedPid)) {
         resolve(cachedPid);
@@ -1447,7 +1447,7 @@ function initializePolisHelpers(mongoParams) {
           resolve(-1);
           return;
         }
-        var pid = results.rows[0].pid;
+        let pid = results.rows[0].pid;
         pidCache.set(cacheKey, pid);
         resolve(pid);
       });
@@ -1466,7 +1466,7 @@ function initializePolisHelpers(mongoParams) {
       }
       console.dir(req.p);
 
-      var existingValue = extractFromBody(req, pidThingStringName) || extractFromCookie(req, pidThingStringName);
+      let existingValue = extractFromBody(req, pidThingStringName) || extractFromCookie(req, pidThingStringName);
 
       if (existingValue === "mypid" && req.p.zid && req.p.uid) {
         getPidPromise(req.p.zid, req.p.uid).then(function(pid) {
@@ -1499,8 +1499,8 @@ function initializePolisHelpers(mongoParams) {
   // must follow auth and need('zid'...) middleware
   function getPidForParticipant(assigner, cache) {
     return function(req, res, next) {
-      var zid = req.p.zid;
-      var uid = req.p.uid;
+      let zid = req.p.zid;
+      let uid = req.p.uid;
 
       function finish(pid) {
         assigner(req, "pid", pid);
@@ -1508,7 +1508,7 @@ function initializePolisHelpers(mongoParams) {
       }
       getPidPromise(zid, uid).then(function(pid) {
         if (pid === -1) {
-          var msg = "polis_err_get_pid_for_participant_missing";
+          let msg = "polis_err_get_pid_for_participant_missing";
           yell(msg);
 
           winston.log("info", zid);
@@ -1547,10 +1547,10 @@ function initializePolisHelpers(mongoParams) {
 
   function doVotesPost(pid, zid, tid, voteType, weight) {
     weight = weight || 0;
-    var weight_x_32767 = (weight * 32767) << 0; // weight is stored as a SMALLINT, so convert from a [-1,1] float to [-32767,32767] int
+    let weight_x_32767 = (weight * 32767) << 0; // weight is stored as a SMALLINT, so convert from a [-1,1] float to [-32767,32767] int
     return new Promise(function(resolve, reject) {
-      var query = "INSERT INTO votes (pid, zid, tid, vote, weight_x_32767, created) VALUES ($1, $2, $3, $4, $5, default) RETURNING created;";
-      var params = [pid, zid, tid, voteType, weight_x_32767];
+      let query = "INSERT INTO votes (pid, zid, tid, vote, weight_x_32767, created) VALUES ($1, $2, $3, $4, $5, default) RETURNING created;";
+      let params = [pid, zid, tid, voteType, weight_x_32767];
       pgQuery(query, params, function(err, result) {
         if (err) {
           if (isDuplicateKey(err)) {
@@ -1571,7 +1571,7 @@ function initializePolisHelpers(mongoParams) {
       if (!rows || !rows.length) {
         throw "polis_err_unknown_conversation";
       }
-      var conv = rows[0];
+      let conv = rows[0];
       if (!conv.is_active) {
         throw "polis_err_conversation_is_closed";
       }
@@ -1590,7 +1590,7 @@ function initializePolisHelpers(mongoParams) {
 
   function votesGet(p) {
     return new MPromise("votesGet", function(resolve, reject) {
-      var q = sql_votes.select(sql_votes.star())
+      let q = sql_votes.select(sql_votes.star())
         .where(sql_votes.zid.equals(p.zid));
 
       if (!_.isUndefined(p.pid)) {
@@ -1622,7 +1622,7 @@ function initializePolisHelpers(mongoParams) {
 
   function redirectIfNotHttps(req, res, next) {
 
-    var exempt = devMode;
+    let exempt = devMode;
 
     // IE is picky, so use HTTP.
     // TODO figure out IE situation, (proxy static files in worst-case)
@@ -1642,7 +1642,7 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function redirectIfWrongDomain(req, res, next) {
-    // var reServiceHostname = new RegExp(process.env.SERVICE_HOSTNAME);
+    // let reServiceHostname = new RegExp(process.env.SERVICE_HOSTNAME);
     if (
       // reServiceHostname.test(req.headers.host) || // needed for heroku integrations (like slack?)
       /www.pol.is/.test(req.headers.host)
@@ -1686,8 +1686,8 @@ function initializePolisHelpers(mongoParams) {
     });
   }
   // function createDummyUsersBatch(n) {
-  //     var query = "insert into users (created) values ";
-  //     var values = [];
+  //     let query = "insert into users (created) values ";
+  //     let values = [];
   //     for (var i = 0; i < n; i++) {
   //         values.push("(default)");
   //     }
@@ -1702,7 +1702,7 @@ function initializePolisHelpers(mongoParams) {
   //                 reject(new Error("polis_err_create_empty_user"));
   //                 return;
   //             }
-  //             var uids = results.rows.map(function(row) {
+  //             let uids = results.rows.map(function(row) {
   //                 return row.uid;
   //             });
   //             resolve(uids);
@@ -1714,8 +1714,8 @@ function initializePolisHelpers(mongoParams) {
   function auth(assigner, isOptional) {
     return function(req, res, next) {
       //var token = req.body.token;
-      var token = req.cookies[COOKIES.TOKEN];
-      var xPolisToken = req.headers["x-polis"];
+      let token = req.cookies[COOKIES.TOKEN];
+      let xPolisToken = req.headers["x-polis"];
 
       if (xPolisToken && isPolisLtiToken(xPolisToken)) {
         doPolisLtiTokenHeaderAuth(assigner, isOptional, req, res, next);
@@ -1762,14 +1762,14 @@ function initializePolisHelpers(mongoParams) {
   /*
   function meter(name) {
       return function (req, res, next){
-          var start = Date.now();
+          let start = Date.now();
           setTimeout(function() {
               metric(name + ".go", 1, start);
           }, 1);
           res.on('finish', function(){
-            var end = Date.now();
-            var duration = end - start;
-            var status = ".ok";
+            let end = Date.now();
+            let duration = end - start;
+            let status = ".ok";
             if (!res.statusCode || res.statusCode >= 500) {
               status = ".fail";
             } else if (res.statusCode >= 400) {
@@ -1794,12 +1794,12 @@ function initializePolisHelpers(mongoParams) {
 
 
 
-  var whitelistedCrossDomainRoutes = [
+  let whitelistedCrossDomainRoutes = [
     /^\/api\/v[0-9]+\/launchPrep/,
     /^\/api\/v[0-9]+\/setFirstCookie/,
   ];
 
-  var whitelistedDomains = [
+  let whitelistedDomains = [
     "http://pol.is",
     "https://pol.is",
     "http://api.pol.is", // TODO delete?
@@ -1835,7 +1835,7 @@ function initializePolisHelpers(mongoParams) {
     "", // for API
   ];
 
-  var whitelistedBuckets = {
+  let whitelistedBuckets = {
     "pol.is": "pol.is",
     "embed.pol.is": "pol.is",
     "survey.pol.is": "survey.pol.is",
@@ -1844,7 +1844,7 @@ function initializePolisHelpers(mongoParams) {
 
   function addCorsHeader(req, res, next) {
 
-    var host = "";
+    let host = "";
     if (domainOverride) {
       host = req.protocol + "://" + domainOverride;
     } else {
@@ -1860,14 +1860,14 @@ function initializePolisHelpers(mongoParams) {
     host = host.replace(/#.*$/, "");
 
     // Remove characters starting with the first slash following the double slash at the beginning.
-    var result = /^[^\/]*\/\/[^\/]*/.exec(host);
+    let result = /^[^\/]*\/\/[^\/]*/.exec(host);
     if (result && result[0]) {
       host = result[0];
     }
 
 
     // check if the route is on a special list that allows it to be called cross domain (by polisHost.js for example)
-    var routeIsWhitelistedForAnyDomain = _.some(whitelistedCrossDomainRoutes, function(regex) {
+    let routeIsWhitelistedForAnyDomain = _.some(whitelistedCrossDomainRoutes, function(regex) {
       return regex.test(req.path);
     });
 
@@ -1908,9 +1908,9 @@ function initializePolisHelpers(mongoParams) {
   ////////////////////////////////////////////
 
   function strToHex(str) {
-    var hex, i;
-    // var str = "\u6f22\u5b57"; // "\u6f22\u5b57" === "漢字"
-    var result = "";
+    let hex, i;
+    // let str = "\u6f22\u5b57"; // "\u6f22\u5b57" === "漢字"
+    let result = "";
     for (i = 0; i < str.length; i++) {
       hex = str.charCodeAt(i).toString(16);
       result += ("000" + hex).slice(-4);
@@ -1919,9 +1919,9 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function hexToStr(hexString) {
-    var j;
-    var hexes = hexString.match(/.{1,4}/g) || [];
-    var str = "";
+    let j;
+    let hexes = hexString.match(/.{1,4}/g) || [];
+    let str = "";
     for (j = 0; j < hexes.length; j++) {
       str += String.fromCharCode(parseInt(hexes[j], 16));
     }
@@ -1933,8 +1933,8 @@ function initializePolisHelpers(mongoParams) {
   function handle_GET_launchPrep(req, res) {
 
 
-    var setOnPolisDomain = !domainOverride;
-    var origin = req.headers.origin || "";
+    let setOnPolisDomain = !domainOverride;
+    let origin = req.headers.origin || "";
     if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
       setOnPolisDomain = false;
     }
@@ -1948,7 +1948,7 @@ function initializePolisHelpers(mongoParams) {
     });
 
     // using hex since it doesn't require escaping like base64.
-    var dest = hexToStr(req.p.dest);
+    let dest = hexToStr(req.p.dest);
     res.redirect(dest);
   }
 
@@ -1956,8 +1956,8 @@ function initializePolisHelpers(mongoParams) {
   // function handle_GET_setFirstCookie(req, res) {
 
 
-  //     var setOnPolisDomain = !domainOverride;
-  //     var origin = req.headers.origin || "";
+  //     let setOnPolisDomain = !domainOverride;
+  //     let origin = req.headers.origin || "";
   //     if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
   //         setOnPolisDomain = false;
   //     }
@@ -1974,8 +1974,8 @@ function initializePolisHelpers(mongoParams) {
   function handle_GET_tryCookie(req, res) {
 
 
-    var setOnPolisDomain = !domainOverride;
-    var origin = req.headers.origin || "";
+    let setOnPolisDomain = !domainOverride;
+    let origin = req.headers.origin || "";
     if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
       setOnPolisDomain = false;
     }
@@ -1989,24 +1989,24 @@ function initializePolisHelpers(mongoParams) {
   }
 
 
-  var pcaCacheSize = (process.env.CACHE_MATH_RESULTS === "true") ? 300 : 1;
-  var pcaCache = new LruCache({
+  let pcaCacheSize = (process.env.CACHE_MATH_RESULTS === "true") ? 300 : 1;
+  let pcaCache = new LruCache({
     max: pcaCacheSize,
   });
 
-  var lastPrefetchedVoteTimestamp = -1;
+  let lastPrefetchedVoteTimestamp = -1;
 
   // this scheme might not last forever. For now, there are only a couple of MB worth of conversation pca data.
   function fetchAndCacheLatestPcaData() {
-    var lastPrefetchPollStartTime = Date.now();
+    let lastPrefetchPollStartTime = Date.now();
 
     function waitTime() {
-      var timePassed = Date.now() - lastPrefetchPollStartTime;
+      let timePassed = Date.now() - lastPrefetchPollStartTime;
       return Math.max(0, 2500 - timePassed);
     }
 
     INFO("mathpoll begin", lastPrefetchedVoteTimestamp);
-    var cursor = collectionOfPcaResults.find({
+    let cursor = collectionOfPcaResults.find({
       lastVoteTimestamp: {
         $gt: lastPrefetchedVoteTimestamp,
       },
@@ -2029,7 +2029,7 @@ function initializePolisHelpers(mongoParams) {
 
       INFO("mathpoll updating", item.lastVoteTimestamp, item.zid);
 
-      // var prev = pcaCache.get(item.zid);
+      // let prev = pcaCache.get(item.zid);
 
       updatePcaCache(item.zid, item).then(function(o) {
         if (item.lastVoteTimestamp > lastPrefetchedVoteTimestamp) {
@@ -2047,8 +2047,8 @@ function initializePolisHelpers(mongoParams) {
   setTimeout(fetchAndCacheLatestPcaData, 3000);
 
   function getPca(zid, lastVoteTimestamp) {
-    var cached = pcaCache.get(zid);
-    var cachedPOJO = cached && cached.asPOJO;
+    let cached = pcaCache.get(zid);
+    let cachedPOJO = cached && cached.asPOJO;
     if (cachedPOJO) {
       if (cachedPOJO.lastVoteTimestamp <= lastVoteTimestamp) {
         INFO("mathpoll related", "math was cached but not new", zid, lastVoteTimestamp);
@@ -2065,7 +2065,7 @@ function initializePolisHelpers(mongoParams) {
     // not caching these means that conversations without new votes might not be cached. (closed conversations may be slower to load)
     // It's probably not difficult to cache, but keeping things simple for now, and only caching things that come down with the poll.
     return new MPromise("pcaGet", function(resolve, reject) {
-      var queryStart = Date.now();
+      let queryStart = Date.now();
       collectionOfPcaResults.find({
         zid: zid,
       }, function(err, cursor) {
@@ -2074,15 +2074,15 @@ function initializePolisHelpers(mongoParams) {
           return;
         }
 
-        var queryEnd = Date.now();
-        var queryDuration = queryEnd - queryStart;
+        let queryEnd = Date.now();
+        let queryDuration = queryEnd - queryStart;
         addInRamMetric("pcaGetQuery", queryDuration);
 
-        var nextObjectStart = Date.now();
+        let nextObjectStart = Date.now();
         cursor.nextObject(function(err, item) {
 
-          var nextObjectEnd = Date.now();
-          var nextObjectDuration = nextObjectEnd - nextObjectStart;
+          let nextObjectEnd = Date.now();
+          let nextObjectDuration = nextObjectEnd - nextObjectStart;
           addInRamMetric("pcaGetToArray", nextObjectDuration);
 
           if (err) {
@@ -2110,14 +2110,14 @@ function initializePolisHelpers(mongoParams) {
   function updatePcaCache(zid, item) {
     return new Promise(function(resolve, reject) {
       delete item.zid; // don't leak zid
-      var asJSON = JSON.stringify(item);
-      var buf = new Buffer(asJSON, 'utf-8');
+      let asJSON = JSON.stringify(item);
+      let buf = new Buffer(asJSON, 'utf-8');
       zlib.gzip(buf, function(err, jsondGzipdPcaBuffer) {
         if (err) {
           return reject(err);
         }
 
-        var o = {
+        let o = {
           asPOJO: item,
           asJSON: asJSON,
           asBufferOfGzippedJson: jsondGzipdPcaBuffer,
@@ -2173,7 +2173,7 @@ function initializePolisHelpers(mongoParams) {
           } else if (!docs.length) {
             resolve(null);
           } else {
-            var summaries = [];
+            let summaries = [];
             if (docs.length) {
               summaries = docs.map(function(doc) {
                 return {
@@ -2212,12 +2212,12 @@ function initializePolisHelpers(mongoParams) {
   // Cache the knowledge of whether there are any pca results for a given zid.
   // Needed to determine whether to return a 404 or a 304.
   // zid -> boolean
-  var pcaResultsExistForZid = {};
+  let pcaResultsExistForZid = {};
 
 
   function handle_GET_math_pca2(req, res) {
-    var zid = req.p.zid;
-    var lastVoteTimestamp = req.p.lastVoteTimestamp;
+    let zid = req.p.zid;
+    let lastVoteTimestamp = req.p.lastVoteTimestamp;
 
     function finishWith304or404() {
       if (pcaResultsExistForZid[zid]) {
@@ -2247,7 +2247,7 @@ function initializePolisHelpers(mongoParams) {
           // This server doesn't know yet if there are any PCA results in the DB
           // So try querying from -1
           return getPca(zid, -1).then(function(data) {
-            var exists = !!data;
+            let exists = !!data;
             pcaResultsExistForZid[zid] = exists;
             finishWith304or404();
           });
@@ -2281,21 +2281,21 @@ function initializePolisHelpers(mongoParams) {
       getUserInfoForUid2(req.p.uid),
       getConversationInfo(req.p.zid),
     ]).then(function(a) {
-      var user = a[0];
-      var conv = a[1];
-      var isOwner = req.p.uid === conv.owner;
-      var isAllowed = isOwner || isPolisDev(req.p.uid) || conv.is_data_open;
+      let user = a[0];
+      let conv = a[1];
+      let isOwner = req.p.uid === conv.owner;
+      let isAllowed = isOwner || isPolisDev(req.p.uid) || conv.is_data_open;
 
       if (!isAllowed) {
         fail(res, 403, "polis_err_permission");
         return;
       }
-      var exportServerUser = process.env.EXPORT_SERVER_AUTH_USERNAME;
-      var exportServerPass = process.env.EXPORT_SERVER_AUTH_PASS;
+      let exportServerUser = process.env.EXPORT_SERVER_AUTH_USERNAME;
+      let exportServerPass = process.env.EXPORT_SERVER_AUTH_PASS;
 
-      var url = urlBuilderFunction(exportServerUser, exportServerPass, user.email);
+      let url = urlBuilderFunction(exportServerUser, exportServerPass, user.email);
 
-      var x = request({
+      let x = request({
         method: "GET",
         uri: url,
         followRedirect: false,
@@ -2345,7 +2345,7 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_GET_pcaPlaybackList(req, res) {
-    var zid = req.p.zid;
+    let zid = req.p.zid;
     getPcaPlaybackList(zid).then(function(summaries) {
       res.status(200).json(summaries);
     }).catch(function(err) {
@@ -2355,8 +2355,8 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_GET_pcaPlaybackByLastVoteTimestamp(req, res) {
-    var zid = req.p.zid;
-    var lastVoteTimestamp = req.p.lastVoteTimestamp;
+    let zid = req.p.zid;
+    let lastVoteTimestamp = req.p.lastVoteTimestamp;
     getPcaPlaybackByLastVoteTimestamp(zid, lastVoteTimestamp).then(function(data) {
       res.status(200).json(data);
     }).catch(function(err) {
@@ -2394,10 +2394,10 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_GET_bidToPid(req, res) {
-    var zid = req.p.zid;
-    var lastVoteTimestamp = req.p.lastVoteTimestamp;
+    let zid = req.p.zid;
+    let lastVoteTimestamp = req.p.lastVoteTimestamp;
     getBidToPidMapping(zid, lastVoteTimestamp).then(function(doc) {
-      var b2p = doc.bidToPid;
+      let b2p = doc.bidToPid;
       res.json({
         bidToPid: b2p,
       });
@@ -2423,8 +2423,8 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_GET_xids(req, res) {
-    var uid = req.p.uid;
-    var zid = req.p.zid;
+    let uid = req.p.uid;
+    let zid = req.p.zid;
 
     isOwner(zid, uid).then(function(owner) {
       if (owner) {
@@ -2443,28 +2443,28 @@ function initializePolisHelpers(mongoParams) {
 
 
   function getBidsForPids(zid, lastVoteTimestamp, pids) {
-    var dataPromise = getBidToPidMapping(zid, lastVoteTimestamp);
-    var mathResultsPromise = getPca(zid, lastVoteTimestamp);
+    let dataPromise = getBidToPidMapping(zid, lastVoteTimestamp);
+    let mathResultsPromise = getPca(zid, lastVoteTimestamp);
 
     return Promise.all([dataPromise, mathResultsPromise]).then(function(items) {
-      var b2p = items[0].bidToPid || []; // not sure yet if "|| []" is right here.
-      var mathResults = items[1].asPOJO;
+      let b2p = items[0].bidToPid || []; // not sure yet if "|| []" is right here.
+      let mathResults = items[1].asPOJO;
 
 
       function findBidForPid(pid) {
-        var yourBidi = -1;
+        let yourBidi = -1;
         // if (!b2p) {
         //     return yourBidi;
         // }
         for (var bidi = 0; bidi < b2p.length; bidi++) {
-          var pids = b2p[bidi];
+          let pids = b2p[bidi];
           if (pids.indexOf(pid) !== -1) {
             yourBidi = bidi;
             break;
           }
         }
 
-        var yourBid = indexToBid[yourBidi];
+        let yourBid = indexToBid[yourBidi];
 
         if (yourBidi >= 0 && _.isUndefined(yourBid)) {
           console.error("polis_err_math_index_mapping_mismatch", "pid was", pid, "bidToPid was", JSON.stringify(b2p));
@@ -2474,9 +2474,9 @@ function initializePolisHelpers(mongoParams) {
         return yourBid;
       }
 
-      var indexToBid = mathResults["base-clusters"].id;
-      var bids = pids.map(findBidForPid);
-      var pidToBid = _.object(pids, bids);
+      let indexToBid = mathResults["base-clusters"].id;
+      let bids = pids.map(findBidForPid);
+      let pidToBid = _.object(pids, bids);
       return pidToBid;
     });
   }
@@ -2489,18 +2489,18 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_GET_bid(req, res) {
-    var uid = req.p.uid;
-    var zid = req.p.zid;
-    var lastVoteTimestamp = req.p.lastVoteTimestamp;
+    let uid = req.p.uid;
+    let zid = req.p.zid;
+    let lastVoteTimestamp = req.p.lastVoteTimestamp;
 
-    var dataPromise = getBidToPidMapping(zid, lastVoteTimestamp);
-    var pidPromise = getPidPromise(zid, uid);
-    var mathResultsPromise = getPca(zid, lastVoteTimestamp);
+    let dataPromise = getBidToPidMapping(zid, lastVoteTimestamp);
+    let pidPromise = getPidPromise(zid, uid);
+    let mathResultsPromise = getPca(zid, lastVoteTimestamp);
 
     Promise.all([dataPromise, pidPromise, mathResultsPromise]).then(function(items) {
-      var b2p = items[0].bidToPid || []; // not sure yet if "|| []" is right here.
-      var pid = items[1];
-      var mathResults = items[2].asPOJO;
+      let b2p = items[0].bidToPid || []; // not sure yet if "|| []" is right here.
+      let pid = items[1];
+      let mathResults = items[2].asPOJO;
 
 
       if (pid < 0) {
@@ -2509,18 +2509,18 @@ function initializePolisHelpers(mongoParams) {
         return;
       }
 
-      var indexToBid = mathResults["base-clusters"].id;
+      let indexToBid = mathResults["base-clusters"].id;
 
-      var yourBidi = -1;
+      let yourBidi = -1;
       for (var bidi = 0; bidi < b2p.length; bidi++) {
-        var pids = b2p[bidi];
+        let pids = b2p[bidi];
         if (pids.indexOf(pid) !== -1) {
           yourBidi = bidi;
           break;
         }
       }
 
-      var yourBid = indexToBid[yourBidi];
+      let yourBid = indexToBid[yourBidi];
 
       if (yourBidi >= 0 && _.isUndefined(yourBid)) {
         console.error("polis_err_math_index_mapping_mismatch", "pid was", pid, "bidToPid was", JSON.stringify(b2p));
@@ -2542,8 +2542,8 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_POST_auth_password(req, res) {
-    var pwresettoken = req.p.pwresettoken;
-    var newPassword = req.p.newPassword;
+    let pwresettoken = req.p.pwresettoken;
+    let newPassword = req.p.newPassword;
 
     getUidForPwResetToken(pwresettoken, function(err, userParams) {
       if (err) {
@@ -2551,7 +2551,7 @@ function initializePolisHelpers(mongoParams) {
         fail(res, 500, "Password Reset failed. Couldn't find matching pwresettoken.", err);
         return;
       }
-      var uid = Number(userParams.uid);
+      let uid = Number(userParams.uid);
       generateHashedPassword(newPassword, function(err, hashedPassword) {
         pgQuery("UPDATE jianiuevyew SET pwhash = ($1) where uid=($2);", [hashedPassword, uid], function(err, results) {
           if (err) {
@@ -2573,7 +2573,7 @@ function initializePolisHelpers(mongoParams) {
 
 
   function getServerNameWithProtocol(req) {
-    var server = "https://pol.is";
+    let server = "https://pol.is";
     if (devMode) {
       // usually localhost:5000
       server = "http://" + req.headers.host;
@@ -2594,9 +2594,9 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_POST_auth_pwresettoken(req, res) {
-    var email = req.p.email;
+    let email = req.p.email;
 
-    var server = getServerNameWithProtocol(req);
+    let server = getServerNameWithProtocol(req);
 
     // let's clear the cookies here, in case something is borked.
     clearCookies(req, res);
@@ -2625,7 +2625,7 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function sendPasswordResetEmailFailure(email, server) {
-    var body = "" +
+    let body = "" +
       "We were unable to find a pol.is account registered with the email address: " + email + "\n" +
       "\n" +
       "You may have used another email address to create your account.\n" +
@@ -2654,7 +2654,7 @@ function initializePolisHelpers(mongoParams) {
 
 
   function clearCookie(req, res, cookieName) {
-    var origin = req.headers.origin || "";
+    let origin = req.headers.origin || "";
     if (domainOverride || origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
       res.clearCookie(cookieName, {
         path: "/",
@@ -2669,8 +2669,8 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function clearCookies(req, res) {
-    var origin = req.headers.origin || "";
-    var cookieName;
+    let origin = req.headers.origin || "";
+    let cookieName;
     if (domainOverride || origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
       for (cookieName in req.cookies) {
         if (COOKIES_TO_CLEAR[cookieName]) {
@@ -2700,7 +2700,7 @@ function initializePolisHelpers(mongoParams) {
 
   function doCookieAuth(assigner, isOptional, req, res, next) {
 
-    var token = req.cookies[COOKIES.TOKEN];
+    let token = req.cookies[COOKIES.TOKEN];
 
     //if (req.body.uid) { next(401); return; } // shouldn't be in the post - TODO - see if we can do the auth in parallel for non-destructive operations
     getUserInfoForSessionToken(token, res, function(err, uid) {
@@ -2728,7 +2728,7 @@ function initializePolisHelpers(mongoParams) {
 
   function handle_POST_auth_deregister(req, res) {
     req.p = req.p || {};
-    var token = req.cookies[COOKIES.TOKEN];
+    let token = req.cookies[COOKIES.TOKEN];
 
     // clear cookies regardless of auth status
     clearCookies(req, res);
@@ -2740,7 +2740,7 @@ function initializePolisHelpers(mongoParams) {
         res.set({
           'Content-Type': 'text/html',
         });
-        var html = "" +
+        let html = "" +
           "<!DOCTYPE html><html lang='en'>" +
           "<body>" +
           "<h1>You are now signed out of pol.is</h1>" +
@@ -2763,23 +2763,23 @@ function initializePolisHelpers(mongoParams) {
   }
 
   // function handle_POST_metrics(req, res) {
-  //     var uid = req.p.uid || null;
-  //     var durs = req.p.durs.map(function(dur) {
+  //     let uid = req.p.uid || null;
+  //     let durs = req.p.durs.map(function(dur) {
   //         if (dur === -1) {
   //             dur = null;
   //         }
   //         return dur;
   //     });
-  //     var clientTimestamp = req.p.clientTimestamp;
-  //     var ages = req.p.times.map(function(t) {
+  //     let clientTimestamp = req.p.clientTimestamp;
+  //     let ages = req.p.times.map(function(t) {
   //         return clientTimestamp - t;
   //     });
-  //     var now = Date.now();
-  //     var timesInTermsOfServerTime = ages.map(function(a) {
+  //     let now = Date.now();
+  //     let timesInTermsOfServerTime = ages.map(function(a) {
   //         return now - a;
   //     });
-  //     var len = timesInTermsOfServerTime.length;
-  //     var entries = [];
+  //     let len = timesInTermsOfServerTime.length;
+  //     let entries = [];
   //     for (var i = 0; i < len; i++) {
   //         entries.push([uid, types[i], durs[i], timesInTermsOfServerTime[i]].join(','));
   //     }
@@ -2841,7 +2841,7 @@ function initializePolisHelpers(mongoParams) {
             return;
           }
           winston.log("info", longStringOfTokens);
-          var otzinviteArray = longStringOfTokens.match(/.{1,31}/g);
+          let otzinviteArray = longStringOfTokens.match(/.{1,31}/g);
           otzinviteArray = otzinviteArray.slice(0, numTokens); // Base64 encoding expands to extra characters, so trim to the number of tokens we want.
           otzinviteArray = otzinviteArray.map(function(suzinvite) {
             return generateConversationURLPrefix() + suzinvite;
@@ -2867,7 +2867,7 @@ function initializePolisHelpers(mongoParams) {
   function generateToken(len, pseudoRandomOk, callback) {
     // TODO store up a buffer of random bytes sampled at random times to reduce predictability. (or see if crypto module does this for us)
     // TODO if you want more readable tokens, see ReadableIds
-    var gen;
+    let gen;
     if (pseudoRandomOk) {
       gen = crypto.pseudoRandomBytes;
     } else {
@@ -2878,7 +2878,7 @@ function initializePolisHelpers(mongoParams) {
         return callback(err);
       }
 
-      var prettyToken = buf.toString('base64')
+      let prettyToken = buf.toString('base64')
         .replace(/\//g, 'A').replace(/\+/g, 'B') // replace url-unsafe tokens (ends up not being a proper encoding since it maps onto A and B. Don't want to use any punctuation.)
         .replace(/l/g, 'C') // looks like '1'
         .replace(/L/g, 'D') // looks like '1'
@@ -2902,8 +2902,8 @@ function initializePolisHelpers(mongoParams) {
   }
 
   // function generateApiKeyForUser(uid, optionalPrefix) {
-  //   var parts = ["pkey"];
-  //   var len = 32;
+  //   let parts = ["pkey"];
+  //   let len = 32;
   //   if (!_.isUndefined(optionalPrefix)) {
   //     parts.push(optionalPrefix);
   //   }
@@ -2914,7 +2914,7 @@ function initializePolisHelpers(mongoParams) {
   //   });
   //   return generateTokenP(len, false).then(function(token) {
   //     parts.push(token);
-  //     var apikey = parts.join("_");
+  //     let apikey = parts.join("_");
   //     return apikey;
   //   });
   // }
@@ -2942,7 +2942,7 @@ function initializePolisHelpers(mongoParams) {
 
   // function createApiKey(uid) {
   //   return generateTokenP(17, false).then(function(token) {
-  //     var apikey = "pkey_" + token;
+  //     let apikey = "pkey_" + token;
   //     return pgQueryP("insert into apikeysndvweifu (uid, apikey) values ($1, $2) returning *;", [uid, apikey]).then(function(row) {
   //       return {
   //         apikey: apikey,
@@ -2963,15 +2963,15 @@ function initializePolisHelpers(mongoParams) {
 
 
   // function addApiKeyForUsersBulk(uids, optionalPrefix) {
-  //     var promises = uids.map(function(uid) {
+  //     let promises = uids.map(function(uid) {
   //         return generateApiKeyForUser(uid, optionalPrefix);
   //     });
   //     return Promise.all(promises).then(function(apikeys) {
-  //         var query = "insert into apikeysndvweifu (uid, apikey)  VALUES ";
-  //         var pairs = [];
+  //         let query = "insert into apikeysndvweifu (uid, apikey)  VALUES ";
+  //         let pairs = [];
   //         for (var i = 0; i < uids.length; i++) {
-  //             var uid = uids[i];
-  //             var apikey = apikeys[i];
+  //             let uid = uids[i];
+  //             let apikey = apikeys[i];
   //             pairs.push("(" + uid + ', \'' + apikey + '\')');
   //         }
   //         query += pairs.join(',');
@@ -2980,7 +2980,7 @@ function initializePolisHelpers(mongoParams) {
   //     });
   // }
 
-  // var uidsX = [];
+  // let uidsX = [];
   // for (var i = 200200; i < 300000; i++) {
   //     uidsX.push(i);
   // }
@@ -2989,10 +2989,10 @@ function initializePolisHelpers(mongoParams) {
   //     setTimeout(function() { process.exit();}, 3000);
   // });
 
-  // // var time1 = Date.now();
+  // // let time1 = Date.now();
   // createDummyUsersBatch(3 * 1000).then(function(uids) {
-  //         // var time2 = Date.now();
-  //         // var dt = time2 - time1;
+  //         // let time2 = Date.now();
+  //         // let dt = time2 - time1;
   //         // console.log("time foo" , dt);
   //         // console.dir(uids);
   //         uids.forEach(function(uid) {
@@ -3007,7 +3007,7 @@ function initializePolisHelpers(mongoParams) {
 
 
   function generateAndRegisterZinvite(zid, generateShort) {
-    var len = 10;
+    let len = 10;
     if (generateShort) {
       len = 6;
     }
@@ -3021,7 +3021,7 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_POST_zinvites(req, res) {
-    var generateShortUrl = req.p.short_url;
+    let generateShortUrl = req.p.short_url;
 
     pgQuery('SELECT * FROM conversations WHERE zid = ($1) AND owner = ($2);', [req.p.zid, req.p.uid], function(err, results) {
       if (err) {
@@ -3049,17 +3049,17 @@ function initializePolisHelpers(mongoParams) {
     });
   }
 
-  var zidToConversationIdCache = new LruCache({
+  let zidToConversationIdCache = new LruCache({
     max: 1000,
   });
 
   function getZinvite(zid, dontUseCache) {
-    var cachedConversationId = zidToConversationIdCache.get(zid);
+    let cachedConversationId = zidToConversationIdCache.get(zid);
     if (!dontUseCache && cachedConversationId) {
       return Promise.resolve(cachedConversationId);
     }
     return pgQueryP_metered("getZinvite", "select * from zinvites where zid = ($1);", [zid]).then(function(rows) {
-      var conversation_id = rows && rows[0] && rows[0].zinvite || void 0;
+      let conversation_id = rows && rows[0] && rows[0].zinvite || void 0;
       if (conversation_id) {
         zidToConversationIdCache.set(zid, conversation_id);
       }
@@ -3076,10 +3076,10 @@ function initializePolisHelpers(mongoParams) {
     });
     zids = _.uniq(zids);
 
-    var uncachedZids = zids.filter(function(zid) {
+    let uncachedZids = zids.filter(function(zid) {
       return !zidToConversationIdCache.get(zid);
     });
-    var zidsWithCachedConversationIds = zids.filter(function(zid) {
+    let zidsWithCachedConversationIds = zids.filter(function(zid) {
       return !!zidToConversationIdCache.get(zid);
     }).map(function(zid) {
       return {
@@ -3089,7 +3089,7 @@ function initializePolisHelpers(mongoParams) {
     });
 
     function makeZidToConversationIdMap(arrays) {
-      var zid2conversation_id = {};
+      let zid2conversation_id = {};
       arrays.forEach(function(a) {
         a.forEach(function(o) {
           zid2conversation_id[o.zid] = o.zinvite;
@@ -3125,7 +3125,7 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function addConversationIds(a) {
-    var zids = [];
+    let zids = [];
     for (var i = 0; i < a.length; i++) {
       if (a[i].zid) {
         zids.push(a[i].zid);
@@ -3148,7 +3148,7 @@ function initializePolisHelpers(mongoParams) {
       if (item.zid) {
         delete item.zid;
       }
-      var statusCode = altStatusCode || 200;
+      let statusCode = altStatusCode || 200;
       res.status(statusCode).json(item);
     }, function(err) {
       fail(res, 500, "polis_err_finishing_responseA", err);
@@ -3249,7 +3249,7 @@ function initializePolisHelpers(mongoParams) {
       return callback(0);
     }
 
-    var q = "select * from participant_metadata_answers where zid = ($1) and pmaid in (" +
+    let q = "select * from participant_metadata_answers where zid = ($1) and pmaid in (" +
       answers.join(",") +
       ");";
 
@@ -3263,7 +3263,7 @@ function initializePolisHelpers(mongoParams) {
       qa_results = _.indexBy(qa_results, "pmaid");
       // construct an array of params arrays
       answers = answers.map(function(pmaid) {
-        var pmqid = qa_results[pmaid].pmqid;
+        let pmqid = qa_results[pmaid].pmqid;
         return [zid, pid, pmaid, pmqid];
       });
       // make simultaneous requests to insert the choices
@@ -3309,7 +3309,7 @@ function initializePolisHelpers(mongoParams) {
     ]);
   }
 
-  var LOCATION_SOURCES = {
+  let LOCATION_SOURCES = {
     Twitter: 400,
     Facebook: 300,
     HTML5: 200,
@@ -3322,8 +3322,8 @@ function initializePolisHelpers(mongoParams) {
       pgQueryP_readOnly("select * from facebook_users where uid = ($1);", [uid]),
       pgQueryP_readOnly("select * from twitter_users where uid = ($1);", [uid]),
     ]).then(function(o) {
-      var fb = o[0] && o[0][0];
-      var tw = o[1] && o[1][0];
+      let fb = o[0] && o[0][0];
+      let tw = o[1] && o[1][0];
       if (fb && _.isString(fb.location)) {
         return {
           location: fb.location,
@@ -3373,21 +3373,21 @@ function initializePolisHelpers(mongoParams) {
     if (!data || !_.keys(data).length) {
       return Promise.resolve();
     }
-    var params = _.extend({}, data, {
+    let params = _.extend({}, data, {
       zid: zid,
       uid: uid,
     });
-    var q = sql_participants_extended.insert(params);
+    let q = sql_participants_extended.insert(params);
     return pgQueryP(q.toString(), [])
       .catch(function() {
-        var params2 = _.extend({
+        let params2 = _.extend({
           created: 9876543212345, // hacky string, will be replaced with the word "default".
         }, params);
         // TODO replace all this with an upsert once heroku upgrades postgres
-        var qUpdate = sql_participants_extended.update(params2)
+        let qUpdate = sql_participants_extended.update(params2)
           .where(sql_participants_extended.zid.equals(zid))
           .and(sql_participants_extended.uid.equals(uid));
-        var qString = qUpdate.toString();
+        let qString = qUpdate.toString();
         qString = qString.replace("9876543212345", "default");
         return pgQueryP(qString, []);
       });
@@ -3411,8 +3411,8 @@ function initializePolisHelpers(mongoParams) {
 
     // there was no participant row, so create one
     return addParticipant(zid, uid).then(function(rows) {
-      var pid = rows && rows[0] && rows[0].pid;
-      var ptpt = rows[0];
+      let pid = rows && rows[0] && rows[0].pid;
+      let ptpt = rows[0];
 
       doAddExtendedParticipantInfo();
 
@@ -3435,7 +3435,7 @@ function initializePolisHelpers(mongoParams) {
       //       However, that doesn't seem to be preventing duplicate pid constraint errors.
       //       Doing this retry in JS for now since it's quick and easy, rather than try to
       //       figure what's wrong with the postgres locks.
-      var promise = tryJoin()
+      let promise = tryJoin()
         .catch(tryJoin)
         .catch(tryJoin)
         .catch(tryJoin)
@@ -3567,7 +3567,7 @@ function initializePolisHelpers(mongoParams) {
         if (!results.rows || !results.rows.length) {
           return reject(null);
         }
-        var o = results.rows[0];
+        let o = results.rows[0];
         resolve(o);
       });
     });
@@ -3576,7 +3576,7 @@ function initializePolisHelpers(mongoParams) {
 
 
   function emailFeatureRequest(message) {
-    var body = "" +
+    let body = "" +
       "Somebody clicked a dummy button!\n" +
       message;
 
@@ -3591,7 +3591,7 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function emailBadProblemTime(message) {
-    var body = "" +
+    let body = "" +
       "Yo, there was a serious problem. Here's the message:\n" +
       message;
 
@@ -3613,7 +3613,7 @@ function initializePolisHelpers(mongoParams) {
       if (!userInfo) {
         return callback('missing user info');
       }
-      var body = "" +
+      let body = "" +
         "Hi " + userInfo.hname + ",\n" +
         "\n" +
         "We have just received a password reset request for " + userInfo.email + "\n" +
@@ -3639,8 +3639,8 @@ function initializePolisHelpers(mongoParams) {
 
   function sendTextEmailWithMailgun(sender, recipient, subject, text) {
     winston.log("info", "sending email with mailgun: " + [sender, recipient, subject, text].join(" "));
-    var servername = "";
-    var options = {};
+    let servername = "";
+    let options = {};
     return new Promise(function(resolve, reject) {
       mailgun.sendText(sender, [recipient], subject, text, servername, options, function(err) {
         if (err) {
@@ -3677,7 +3677,7 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function sendTextEmail(sender, recipient, subject, text) {
-    var promise = sendTextEmailWithMailgun(sender, recipient, subject, text).catch(function(err) {
+    let promise = sendTextEmailWithMailgun(sender, recipient, subject, text).catch(function(err) {
       yell("polis_err_primary_email_sender_failed");
       return sendTextEmailWithPostmark(sender, recipient, subject, text);
     });
@@ -3690,7 +3690,7 @@ function initializePolisHelpers(mongoParams) {
   function sendMultipleTextEmails(sender, recipientArray, subject, text) {
     recipientArray = recipientArray || [];
     return Promise.all(recipientArray.map(function(email) {
-      var promise = sendTextEmail(
+      let promise = sendTextEmail(
         sender,
         email,
         subject,
@@ -3703,7 +3703,7 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function trySendingBackupEmailTest() {
-    var d = new Date();
+    let d = new Date();
     if (d.getDay() === 1) {
       // send the monday backup email system test
       // If the sending fails, we should get an error ping.
@@ -3715,8 +3715,8 @@ function initializePolisHelpers(mongoParams) {
 
 
   function sendEinviteEmail(req, email, einvite) {
-    var serverName = getServerNameWithProtocol(req);
-    var body = "" +
+    let serverName = getServerNameWithProtocol(req);
+    let body = "" +
       "Welcome to pol.is!\n" +
       "\n" +
       "Click this link to open your account:\n" +
@@ -3733,8 +3733,8 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function sendVerificaionEmail(req, email, einvite) {
-    var serverName = getServerNameWithProtocol(req);
-    var body = "" +
+    let serverName = getServerNameWithProtocol(req);
+    let body = "" +
       "Welcome to pol.is!\n" +
       "\n" +
       "Click this link to verify your email address:\n" +
@@ -3754,12 +3754,12 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function handle_GET_verification(req, res) {
-    var einvite = req.p.e;
+    let einvite = req.p.e;
     pgQueryP("select * from einvites where einvite = ($1);", [einvite]).then(function(rows) {
       if (!rows.length) {
         fail(res, 500, "polis_err_verification_missing");
       }
-      var email = rows[0].email;
+      let email = rows[0].email;
       return pgQueryP("select email from email_validations where email = ($1);", [email]).then(function(rows) {
         if (rows && rows.length > 0) {
           return true;
@@ -3780,7 +3780,7 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function paramsToStringSortedByName(params) {
-    var pairs = _.pairs(params).sort(function(a, b) {
+    let pairs = _.pairs(params).sort(function(a, b) {
       return a[0] > b[0];
     });
     pairs = pairs.map(function(pair) {
@@ -3790,29 +3790,29 @@ function initializePolisHelpers(mongoParams) {
   }
 
   // // units are seconds
-  // var expirationPolicies = {
+  // let expirationPolicies = {
   //     pwreset_created : 60 * 60 * 2,
   // };
 
-  var HMAC_SIGNATURE_PARAM_NAME = "signature";
+  let HMAC_SIGNATURE_PARAM_NAME = "signature";
 
   function createHmacForQueryParams(path, params) {
     path = path.replace(/\/$/, ""); // trim trailing "/"
-    var s = path + "?" + paramsToStringSortedByName(params);
-    var hmac = crypto.createHmac("sha1", "G7f387ylIll8yuskuf2373rNBmcxqWYFfHhdsd78f3uekfs77EOLR8wofw");
+    let s = path + "?" + paramsToStringSortedByName(params);
+    let hmac = crypto.createHmac("sha1", "G7f387ylIll8yuskuf2373rNBmcxqWYFfHhdsd78f3uekfs77EOLR8wofw");
     hmac.setEncoding('hex');
     hmac.write(s);
     hmac.end();
-    var hash = hmac.read();
+    let hash = hmac.read();
     return hash;
   }
 
   function verifyHmacForQueryParams(path, params) {
     return new Promise(function(resolve, reject) {
       params = _.clone(params);
-      var hash = params[HMAC_SIGNATURE_PARAM_NAME];
+      let hash = params[HMAC_SIGNATURE_PARAM_NAME];
       delete params[HMAC_SIGNATURE_PARAM_NAME];
-      var correctHash = createHmacForQueryParams(path, params);
+      let correctHash = createHmacForQueryParams(path, params);
       // To thwart timing attacks, add some randomness to the response time with setTimeout.
       setTimeout(function() {
         winston.log("info", "comparing", correctHash, hash);
@@ -3838,12 +3838,12 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_GET_participants(req, res) {
-    // var pid = req.p.pid;
-    var uid = req.p.uid;
-    var zid = req.p.zid;
+    // let pid = req.p.pid;
+    let uid = req.p.uid;
+    let zid = req.p.zid;
 
     pgQueryP_readOnly("select * from participants where uid = ($1) and zid = ($2)", [uid, zid]).then(function(rows) {
-      var ptpt = rows && rows.length && rows[0] || null;
+      let ptpt = rows && rows.length && rows[0] || null;
       res.status(200).json(ptpt);
     }).catch(function(err) {
       fail(res, 500, "polis_err_get_participant", err);
@@ -3852,8 +3852,8 @@ function initializePolisHelpers(mongoParams) {
     // function fetchOne() {
     //     pgQuery("SELECT * FROM users WHERE uid IN (SELECT uid FROM participants WHERE pid = ($1) AND zid = ($2));", [pid, zid], function(err, result) {
     //         if (err || !result || !result.rows || !result.rows.length) { fail(res, 500, "polis_err_fetching_participant_info", err); return; }
-    //         var ptpt = result.rows[0];
-    //         var data = {};
+    //         let ptpt = result.rows[0];
+    //         let data = {};
     //         // choose which fields to expose
     //         data.hname = ptpt.hname;
 
@@ -3884,7 +3884,7 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_GET_dummyButton(req, res) {
-    var message = req.p.button + " " + req.p.uid;
+    let message = req.p.button + " " + req.p.uid;
     emailFeatureRequest(message);
     res.status(200).end();
   }
@@ -3897,14 +3897,14 @@ function initializePolisHelpers(mongoParams) {
           return;
         }
 
-        var q2a = _.indexBy(available_answers, 'pmqid');
-        var a2q = _.indexBy(available_answers, 'pmaid');
+        let q2a = _.indexBy(available_answers, 'pmqid');
+        let a2q = _.indexBy(available_answers, 'pmaid');
         for (var i = 0; i < answers.length; i++) {
-          var pmqid = a2q[answers[i]].pmqid;
+          let pmqid = a2q[answers[i]].pmqid;
           delete q2a[pmqid];
         }
-        var remainingKeys = _.keys(q2a);
-        var missing = remainingKeys && remainingKeys.length > 0;
+        let remainingKeys = _.keys(q2a);
+        let missing = remainingKeys && remainingKeys.length > 0;
         if (missing) {
           return reject(new Error('polis_err_metadata_not_chosen_pmqid_' + remainingKeys[0]));
         } else {
@@ -3916,13 +3916,13 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_POST_participants(req, res) {
-    var zid = req.p.zid;
-    var uid = req.p.uid;
-    var answers = req.p.answers;
-    var info = {};
+    let zid = req.p.zid;
+    let uid = req.p.uid;
+    let answers = req.p.answers;
+    let info = {};
 
-    var parent_url = req.cookies[COOKIES.PARENT_URL] || req.p.parent_url;
-    var referrer = req.cookies[COOKIES.PARENT_REFERRER] || req.p.referrer;
+    let parent_url = req.cookies[COOKIES.PARENT_URL] || req.p.parent_url;
+    let referrer = req.cookies[COOKIES.PARENT_REFERRER] || req.p.referrer;
 
     if (parent_url) {
       info.parent_url = parent_url;
@@ -4028,7 +4028,7 @@ function initializePolisHelpers(mongoParams) {
       } else if (!rows[0].pwhash) {
         return void 0;
       }
-      var hashedPassword = rows[0].pwhash;
+      let hashedPassword = rows[0].pwhash;
       return new Promise(function(resolve, reject) {
         bcrypt.compare(password, hashedPassword, function(errCompare, result) {
           if (errCompare) {
@@ -4042,7 +4042,7 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function subscribeToNotifications(zid, uid) {
-    var type = 1; // 1 for email
+    let type = 1; // 1 for email
     winston.log("info", "subscribeToNotifications", zid, uid);
     return pgQueryP("update participants set subscribed = ($3) where zid = ($1) and uid = ($2);", [zid, uid, type]).then(function(rows) {
       return type;
@@ -4050,7 +4050,7 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function unsubscribeFromNotifications(zid, uid) {
-    var type = 0; // 1 for nothing
+    let type = 0; // 1 for nothing
     return pgQueryP("update participants set subscribed = ($3) where zid = ($1) and uid = ($2);", [zid, uid, type]).then(function(rows) {
       return type;
     });
@@ -4061,7 +4061,7 @@ function initializePolisHelpers(mongoParams) {
     // TODO: currently this will currently err on the side of notifying people for comments that are pending moderator approval.
 
     // check it out! http://sqlformat.org/
-    // var q = "SELECT * ";
+    // let q = "SELECT * ";
     //     q += "FROM  ";
     //     q += "  (SELECT zid,  ";
     //     q += "          max(created) AS max_comment_time ";
@@ -4076,7 +4076,7 @@ function initializePolisHelpers(mongoParams) {
 
 
 
-    // var q = "WITH needed_totals AS  ";
+    // let q = "WITH needed_totals AS  ";
     // q += "  (SELECT zid,  ";
     // q += "          COUNT(*) AS total ";
     // q += "   FROM comments  ";
@@ -4122,7 +4122,7 @@ function initializePolisHelpers(mongoParams) {
 
 
 
-    var q = "WITH needed_totals AS  ";
+    let q = "WITH needed_totals AS  ";
     q += "  (SELECT zid,  ";
     q += "          COALESCE(COUNT(*), 0) AS total ";
     q += "   FROM comments  ";
@@ -4278,8 +4278,8 @@ function initializePolisHelpers(mongoParams) {
 
 
   function sendNotificationEmail(uid, url, conversation_id, email, remaining) {
-    var subject = "New comments to vote on";
-    var body = "There are new comments available for you to vote on here:\n";
+    let subject = "New comments to vote on";
+    let body = "There are new comments available for you to vote on here:\n";
     body += "\n";
     body += url + "\n";
     body += "\n";
@@ -4296,7 +4296,7 @@ function initializePolisHelpers(mongoParams) {
       winston.log("info", "getParticipantsThatNeedNotifications", rows.length);
       winston.log("info", rows);
       rows.forEach(function(row) {
-        var url = row.parent_url;
+        let url = row.parent_url;
         if (!url) {
           url = "https://pol.is/" + row.zinvite;
         }
@@ -4330,14 +4330,14 @@ function initializePolisHelpers(mongoParams) {
 
 
   function createNotificationsUnsubscribeUrl(conversation_id, email) {
-    var params = {
+    let params = {
       conversation_id: conversation_id,
       email: email,
     };
-    var path = "api/v3/notifications/unsubscribe";
+    let path = "api/v3/notifications/unsubscribe";
     params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
 
-    var server = "http://localhost:5000";
+    let server = "http://localhost:5000";
     if (!devMode) {
       server = "https://" + process.env.PRIMARY_POLIS_URL;
     }
@@ -4345,14 +4345,14 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function createNotificationsSubscribeUrl(conversation_id, email) {
-    var params = {
+    let params = {
       conversation_id: conversation_id,
       email: email,
     };
-    var path = "api/v3/notifications/subscribe";
+    let path = "api/v3/notifications/subscribe";
     params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
 
-    var server = "http://localhost:5000";
+    let server = "http://localhost:5000";
     if (!devMode) {
       server = "https://" + process.env.PRIMARY_POLIS_URL;
     }
@@ -4362,9 +4362,9 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_GET_notifications_subscribe(req, res) {
-    var zid = req.p.zid;
-    var email = req.p.email;
-    var params = {
+    let zid = req.p.zid;
+    let email = req.p.email;
+    let params = {
       conversation_id: req.p.conversation_id,
       email: req.p.email,
     };
@@ -4388,9 +4388,9 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_GET_notifications_unsubscribe(req, res) {
-    var zid = req.p.zid;
-    var email = req.p.email;
-    var params = {
+    let zid = req.p.zid;
+    let email = req.p.email;
+    let params = {
       conversation_id: req.p.conversation_id,
       email: req.p.email,
     };
@@ -4414,18 +4414,18 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_POST_convSubscriptions(req, res) {
-    var zid = req.p.zid;
-    var uid = req.p.uid;
-    var type = req.p.type;
+    let zid = req.p.zid;
+    let uid = req.p.uid;
+    let type = req.p.type;
 
-    var email = req.p.email;
+    let email = req.p.email;
 
     function finish(type) {
       res.status(200).json({
         subscribed: type,
       });
     }
-    var emailSetPromise = email ? updateEmail(uid, email) : Promise.resolve();
+    let emailSetPromise = email ? updateEmail(uid, email) : Promise.resolve();
     emailSetPromise.then(function() {
       if (type === 1) {
         subscribeToNotifications(zid, uid).then(finish).catch(function(err) {
@@ -4448,13 +4448,13 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_POST_auth_login(req, res) {
-    var password = req.p.password;
-    var email = req.p.email || "";
-    var lti_user_id = req.p.lti_user_id;
-    var lti_user_image = req.p.lti_user_image;
-    var lti_context_id = req.p.lti_context_id;
-    var tool_consumer_instance_guid = req.p.tool_consumer_instance_guid;
-    var afterJoinRedirectUrl = req.p.afterJoinRedirectUrl;
+    let password = req.p.password;
+    let email = req.p.email || "";
+    let lti_user_id = req.p.lti_user_id;
+    let lti_user_image = req.p.lti_user_image;
+    let lti_context_id = req.p.lti_context_id;
+    let tool_consumer_instance_guid = req.p.tool_consumer_instance_guid;
+    let afterJoinRedirectUrl = req.p.afterJoinRedirectUrl;
 
     email = email.toLowerCase();
     if (!_.isString(password) || !password.length) {
@@ -4474,7 +4474,7 @@ function initializePolisHelpers(mongoParams) {
         return;
       }
 
-      var uid = docs[0].uid;
+      let uid = docs[0].uid;
 
       pgQuery("select pwhash from jianiuevyew where uid = ($1);", [uid], function(err, results) {
         results = results.rows;
@@ -4489,7 +4489,7 @@ function initializePolisHelpers(mongoParams) {
           return;
         }
 
-        var hashedPassword = results[0].pwhash;
+        let hashedPassword = results[0].pwhash;
 
         bcrypt.compare(password, hashedPassword, function(errCompare, result) {
           winston.log("info", "errCompare, result", errCompare, result);
@@ -4500,7 +4500,7 @@ function initializePolisHelpers(mongoParams) {
           }
 
           startSession(uid, function(errSess, token) {
-            var response_data = {
+            let response_data = {
               uid: uid,
               email: email,
               token: token,
@@ -4509,10 +4509,10 @@ function initializePolisHelpers(mongoParams) {
               winston.log("info", "uid", uid);
               winston.log("info", "lti_user_id", lti_user_id);
               winston.log("info", "lti_context_id", lti_context_id);
-              var ltiUserPromise = lti_user_id ?
+              let ltiUserPromise = lti_user_id ?
                 addLtiUserifNeeded(uid, lti_user_id, tool_consumer_instance_guid, lti_user_image) :
                 Promise.resolve();
-              var ltiContextMembershipPromise = lti_context_id ?
+              let ltiContextMembershipPromise = lti_context_id ?
                 addLtiContextMembership(uid, lti_context_id, tool_consumer_instance_guid) :
                 Promise.resolve();
               Promise.all([ltiUserPromise, ltiContextMembershipPromise]).then(function() {
@@ -4574,7 +4574,7 @@ function initializePolisHelpers(mongoParams) {
       parent_url: req.p.parent_url,
     })
     .then(function(o) {
-      var uid = o.uid;
+      let uid = o.uid;
       winston.log("info", "startSessionAndAddCookies " + uid + " existing " + o.existingAuth);
       // TODO check for possible security implications
       if (!o.existingAuth) {
@@ -4597,7 +4597,7 @@ function initializePolisHelpers(mongoParams) {
       }
     })
     .then(function(o) {
-      var pid = o.pid;
+      let pid = o.pid;
       res.status(200).json({
         pid: pid,
         uid: req.p.uid,
@@ -4718,7 +4718,7 @@ function initializePolisHelpers(mongoParams) {
         });
       })
       .then(function(o) {
-        var info = {};
+        let info = {};
         if (o.referrer) {
           info.referrer = o.referrer;
         }
@@ -4775,7 +4775,7 @@ function initializePolisHelpers(mongoParams) {
     res.set({
       'Content-Type': 'text/html',
     });
-    var html = "" +
+    let html = "" +
       "<!DOCTYPE html><html lang='en'>" +
       '<head>' +
       '<meta name="viewport" content="width=device-width, initial-scale=1;">' +
@@ -4814,7 +4814,7 @@ function initializePolisHelpers(mongoParams) {
     winston.log("info", "createFacebookUserRecord", JSON.stringify(o));
     winston.log("info", o);
     winston.log("info", "end createFacebookUserRecord");
-    var profileInfo = o.fb_public_profile;
+    let profileInfo = o.fb_public_profile;
     winston.log("info", "createFacebookUserRecord profileInfo");
     winston.log("info", profileInfo);
     winston.log("info", "end createFacebookUserRecord profileInfo");
@@ -4837,8 +4837,8 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function updateFacebookUserRecord(o) {
-    var profileInfo = o.fb_public_profile;
-    var fb_public_profile_string = JSON.stringify(o.fb_public_profile);
+    let profileInfo = o.fb_public_profile;
+    let fb_public_profile_string = JSON.stringify(o.fb_public_profile);
     // Create facebook user record
     return pgQueryP("update facebook_users set modified=now_as_millis(), fb_user_id=($2), fb_name=($3), fb_link=($4), fb_public_profile=($5), fb_login_status=($6), fb_access_token=($7), fb_granted_scopes=($8), fb_location_id=($9), location=($10), fb_friends_response=($11), response=($12) where uid = ($1);", [
       o.uid,
@@ -4858,11 +4858,11 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function addFacebookFriends(uid, fb_friends_response) {
-    var fbFriendIds = fb_friends_response.map(function(friend) {
+    let fbFriendIds = fb_friends_response.map(function(friend) {
       return friend.id + '';
     }).filter(function(id) {
       // NOTE: would just store facebook IDs as numbers, but they're too big for JS numbers.
-      var hasNonNumericalCharacters = /[^0-9]/.test(id);
+      let hasNonNumericalCharacters = /[^0-9]/.test(id);
       if (hasNonNumericalCharacters) {
         emailBadProblemTime("found facebook ID with non-numerical characters " + id);
       }
@@ -4888,11 +4888,11 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function getFirstForPid(votes) {
-    var seen = {};
-    var len = votes.length;
-    var firstVotes = [];
+    let seen = {};
+    let len = votes.length;
+    let firstVotes = [];
     for (var i = 0; i < len; i++) {
-      var vote = votes[i];
+      let vote = votes[i];
       if (!seen[vote.pid]) {
         firstVotes.push(vote);
         seen[vote.pid] = true;
@@ -4914,27 +4914,27 @@ function initializePolisHelpers(mongoParams) {
           console.log('isParentDomainWhitelisted', 'no whitelist');
           return true;
         }
-        var whitelist = rows[0].domain_whitelist;
-        var wdomains = whitelist.split(',');
+        let whitelist = rows[0].domain_whitelist;
+        let wdomains = whitelist.split(',');
         if (!isWithinIframe && wdomains.indexOf('*.pol.is') >= 0) {
           // if pol.is is in the whitelist, then it's ok to show the conversation outside of an iframe.
           console.log('isParentDomainWhitelisted', '*.pol.is');
           return true;
         }
-        var ok = false;
+        let ok = false;
         console.log('isParentDomainWhitelisted', 1);
         for (var i = 0; i < wdomains.length; i++) {
-          var w = wdomains[i];
-          var wParts = w.split('.');
+          let w = wdomains[i];
+          let wParts = w.split('.');
 
           // example: domain might be blogs.nytimes.com, and whitelist entry might be *.nytimes.com, and that should be a match
-          var parts = domain.split('.');
+          let parts = domain.split('.');
 
           console.log('isParentDomainWhitelisted', 2, wParts, parts);
           if (wParts.length && wParts[0] === "*") {
             // wild card case
             // check for a match on each part following the '*'
-            var bad = false;
+            let bad = false;
 
             wParts = wParts.reverse();
             parts = parts.reverse();
@@ -4950,7 +4950,7 @@ function initializePolisHelpers(mongoParams) {
             ok = !bad;
           } else {
             // no wild card
-            var bad2 = false;
+            let bad2 = false;
             console.log('isParentDomainWhitelisted', 5);
             if (wParts.length !== parts.length) {
               console.log('isParentDomainWhitelisted', 6);
@@ -4982,14 +4982,14 @@ function initializePolisHelpers(mongoParams) {
 
   function denyIfNotFromWhitelistedDomain(req, res, next) {
 
-    var isWithinIframe = req.headers && req.headers.referer && req.headers.referer.indexOf('parent_url') >= 0;
+    let isWithinIframe = req.headers && req.headers.referer && req.headers.referer.indexOf('parent_url') >= 0;
 
 
     // res.status(403);
     // next("polis_err_domain");
     // return;
 
-    var ref = req.headers.referer;
+    let ref = req.headers.referer;
     if (isWithinIframe) {
       if (ref) {
         ref = decodeURIComponent(ref.replace(/.*parent_url=/, '').replace(/&.*/, ''));
@@ -5005,10 +5005,10 @@ function initializePolisHelpers(mongoParams) {
     }
 
 
-    // var path = req.path;
+    // let path = req.path;
     // path = path && path.split('/');
-    // var conversation_id = path && path.length >= 2 && path[1];
-    var zid = req.p.zid;
+    // let conversation_id = path && path.length >= 2 && path[1];
+    let zid = req.p.zid;
 
     isParentDomainWhitelisted(ref, zid, isWithinIframe).then(function(isOk) {
       if (isOk) {
@@ -5071,22 +5071,22 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_GET_conversationStats(req, res) {
-    var zid = req.p.zid;
-    var uid = req.p.uid;
-    var until = req.p.until;
+    let zid = req.p.zid;
+    let uid = req.p.uid;
+    let until = req.p.until;
     isModerator(zid, uid).then(function(is_mod) {
       if (!is_mod) {
         fail(res, 403, "polis_err_conversationStats_need_moderation_permission");
         return;
       }
 
-      var args = [zid];
+      let args = [zid];
 
-      var q0 = until ?
+      let q0 = until ?
         "select created, pid, mod from comments where zid = ($1) and created < ($2) order by created;" :
         "select created, pid, mod from comments where zid = ($1) order by created;";
 
-      var q1 = until ?
+      let q1 = until ?
         "select created, pid from votes where zid = ($1) and created < ($2) order by created;" :
         "select created, pid from votes where zid = ($1) order by created;";
 
@@ -5111,18 +5111,18 @@ function initializePolisHelpers(mongoParams) {
           o.created = Number(o.created);
           return o;
         }
-        var comments = _.map(a[0], castTimestamp);
-        var votes = _.map(a[1], castTimestamp);
-        // var uniqueHits = _.map(a[2], castTimestamp); // participants table
-        // var votesHistogram = a[2];
-        // var socialUsers = _.map(a[4], castTimestamp);
+        let comments = _.map(a[0], castTimestamp);
+        let votes = _.map(a[1], castTimestamp);
+        // let uniqueHits = _.map(a[2], castTimestamp); // participants table
+        // let votesHistogram = a[2];
+        // let socialUsers = _.map(a[4], castTimestamp);
 
-        var votesGroupedByPid = _.groupBy(votes, "pid");
-        var votesHistogramObj = {};
+        let votesGroupedByPid = _.groupBy(votes, "pid");
+        let votesHistogramObj = {};
         _.each(votesGroupedByPid, function(votesByParticipant, pid) {
           votesHistogramObj[votesByParticipant.length] = (votesHistogramObj[votesByParticipant.length] + 1) || 1;
         });
-        var votesHistogram = [];
+        let votesHistogram = [];
         _.each(votesHistogramObj, function(ptptCount, voteCount) {
           votesHistogram.push({
             n_votes: voteCount,
@@ -5133,24 +5133,24 @@ function initializePolisHelpers(mongoParams) {
           return a.n_ptpts - b.n_ptpts;
         });
 
-        var burstsForPid = {};
-        var interBurstGap = 10 * 60 * 1000; // a 10 minute gap between votes counts as a gap between bursts
+        let burstsForPid = {};
+        let interBurstGap = 10 * 60 * 1000; // a 10 minute gap between votes counts as a gap between bursts
         _.each(votesGroupedByPid, function(votesByParticipant, pid) {
           burstsForPid[pid] = 1;
-          var prevCreated = votesByParticipant.length ? votesByParticipant[0] : 0;
+          let prevCreated = votesByParticipant.length ? votesByParticipant[0] : 0;
           for (var v = 1; v < votesByParticipant.length; v++) {
-            var vote = votesByParticipant[v];
+            let vote = votesByParticipant[v];
             if (interBurstGap + prevCreated < vote.created) {
               burstsForPid[pid] += 1;
             }
             prevCreated = vote.created;
           }
         });
-        var burstHistogramObj = {};
+        let burstHistogramObj = {};
         _.each(burstsForPid, function(bursts, pid) {
           burstHistogramObj[bursts] = (burstHistogramObj[bursts] + 1) || 1;
         });
-        var burstHistogram = [];
+        let burstHistogram = [];
         _.each(burstHistogramObj, function(ptptCount, burstCount) {
           burstHistogram.push({
             n_ptpts: ptptCount,
@@ -5161,15 +5161,15 @@ function initializePolisHelpers(mongoParams) {
           return a.n_bursts - b.n_bursts;
         });
 
-        var actualParticipants = getFirstForPid(votes); // since an agree vote is submitted for each comment's author, this includes people who only wrote a comment, but didn't explicitly vote.
+        let actualParticipants = getFirstForPid(votes); // since an agree vote is submitted for each comment's author, this includes people who only wrote a comment, but didn't explicitly vote.
         actualParticipants = _.pluck(actualParticipants, "created");
-        var commenters = getFirstForPid(comments);
+        let commenters = getFirstForPid(comments);
         commenters = _.pluck(commenters, "created");
 
-        var totalComments = _.pluck(comments, "created");
-        var totalVotes = _.pluck(votes, "created");
-        // var viewTimes = _.pluck(uniqueHits, "created");
-        // var totalSocialUsers = _.pluck(socialUsers, "created");
+        let totalComments = _.pluck(comments, "created");
+        let totalVotes = _.pluck(votes, "created");
+        // let viewTimes = _.pluck(uniqueHits, "created");
+        // let totalSocialUsers = _.pluck(socialUsers, "created");
 
         votesHistogram = _.map(votesHistogram, function(x) {
           return {
@@ -5198,8 +5198,8 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_GET_snapshot(req, res) {
-    var uid = req.p.uid;
-    var zid = req.p.zid;
+    let uid = req.p.uid;
+    let zid = req.p.zid;
 
     if (isPolisDev(uid)) {
       // is polis developer
@@ -5218,10 +5218,10 @@ function initializePolisHelpers(mongoParams) {
           fail(res, 500, "polis_err_cloning_conversation", err);
         }
         // winston.log("info",rows);
-        var conv = result.rows[0];
+        let conv = result.rows[0];
 
-        // var conv = rows[0];
-        var newZid = conv.zid;
+        // let conv = rows[0];
+        let newZid = conv.zid;
         return pgQueryP(
           "insert into participants (pid, zid, uid, created) " +
           "select pid, ($2), uid, created from participants where zid = ($1);", [
@@ -5269,7 +5269,7 @@ function initializePolisHelpers(mongoParams) {
     function getMoreFriends(friendsSoFar, urlForNextCall) {
       // urlForNextCall includes access token
       return request.get(urlForNextCall).then(function(response) {
-        var len = response.data.length;
+        let len = response.data.length;
         if (len) {
           for (var i = 0; i < len; i++) {
             friendsSoFar.push(response.data[i]);
@@ -5290,7 +5290,7 @@ function initializePolisHelpers(mongoParams) {
       FB.setAccessToken(fb_access_token);
       FB.api('/me/friends', function(response) {
         if (response && !response.error) {
-          var friendsSoFar = response.data;
+          let friendsSoFar = response.data;
           if (response.data.length && response.paging.next) {
             getMoreFriends(friendsSoFar, response.paging.next).then(
               resolve,
@@ -5320,9 +5320,9 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_POST_auth_facebook(req, res) {
-    var response = JSON.parse(req.p.response);
-    var fb_access_token = response.authResponse.accessToken;
-    var fields = [
+    let response = JSON.parse(req.p.response);
+    let fb_access_token = response.authResponse.accessToken;
+    let fields = [
       'email',
       'first_name',
       'friends',
@@ -5351,8 +5351,8 @@ function initializePolisHelpers(mongoParams) {
         getLocationInfo(fb_access_token, fbRes.location),
         (fbRes.friends.length ? getFriends(fb_access_token) : Promise.resolve([])),
       ]).then(function(a) {
-        var locationResponse = a[0];
-        var friends = a[1];
+        let locationResponse = a[0];
+        let friends = a[1];
 
         if (locationResponse) {
           req.p.locationInfo = locationResponse;
@@ -5374,33 +5374,33 @@ function initializePolisHelpers(mongoParams) {
   function do_handle_POST_auth_facebook(req, res, o) {
 
     // If a pol.is user record exists, and someone logs in with a facebook account that has the same email address, we should bind that facebook account to the pol.is account, and let the user sign in.
-    var TRUST_FB_TO_VALIDATE_EMAIL = true;
-    var email = o.info.email;
-    var hname = o.info.name;
-    var fb_friends_response = o.friends;
-    var fb_user_id = o.info.id;
-    var response = JSON.parse(req.p.response);
-    var fb_public_profile = o.info;
-    var fb_login_status = response.status;
-    // var fb_auth_response = response.authResponse.
-    var fb_access_token = response.authResponse.accessToken;
-    var verified = o.info.verified;
+    let TRUST_FB_TO_VALIDATE_EMAIL = true;
+    let email = o.info.email;
+    let hname = o.info.name;
+    let fb_friends_response = o.friends;
+    let fb_user_id = o.info.id;
+    let response = JSON.parse(req.p.response);
+    let fb_public_profile = o.info;
+    let fb_login_status = response.status;
+    // let fb_auth_response = response.authResponse.
+    let fb_access_token = response.authResponse.accessToken;
+    let verified = o.info.verified;
 
-    // var existingUid = req.p.existingUid;
-    var referrer = req.cookies[COOKIES.REFERRER];
-    var password = req.p.password;
-    var uid = req.p.uid;
+    // let existingUid = req.p.existingUid;
+    let referrer = req.cookies[COOKIES.REFERRER];
+    let password = req.p.password;
+    let uid = req.p.uid;
 
     console.log("fb_data"); // TODO_REMOVE
     console.dir(o); // TODO_REMOVE
 
-    var shouldAddToIntercom = req.p.owner;
+    let shouldAddToIntercom = req.p.owner;
     if (req.p.conversation_id) {
       // TODO needed now that we have "owner" param?
       shouldAddToIntercom = false;
     }
 
-    var fbUserRecord = {
+    let fbUserRecord = {
       // uid provided later
       fb_user_id: fb_user_id,
       fb_public_profile: fb_public_profile,
@@ -5418,7 +5418,7 @@ function initializePolisHelpers(mongoParams) {
         updateFacebookUserRecord(_.extend({}, {
           uid: user.uid,
         }, fbUserRecord)).then(function() {
-          var friendsAddedPromise = fb_friends_response ? addFacebookFriends(user.uid, fb_friends_response) : Promise.resolve();
+          let friendsAddedPromise = fb_friends_response ? addFacebookFriends(user.uid, fb_friends_response) : Promise.resolve();
           return friendsAddedPromise.then(function() {
             startSessionAndAddCookies(req, res, user.uid)
               .then(function() {
@@ -5458,13 +5458,13 @@ function initializePolisHelpers(mongoParams) {
       if (!TRUST_FB_TO_VALIDATE_EMAIL && !password) {
         fail(res, 403, "polis_err_user_with_this_email_exists " + email);
       } else {
-        var pwPromise = TRUST_FB_TO_VALIDATE_EMAIL ? Promise.resolve(true) : checkPassword(user.uid, password || "");
+        let pwPromise = TRUST_FB_TO_VALIDATE_EMAIL ? Promise.resolve(true) : checkPassword(user.uid, password || "");
         pwPromise.then(function(ok) {
           if (ok) {
             createFacebookUserRecord(_.extend({}, {
               uid: user.uid,
             }, fbUserRecord)).then(function() {
-              var friendsAddedPromise = fb_friends_response ? addFacebookFriends(user.uid, fb_friends_response) : Promise.resolve();
+              let friendsAddedPromise = fb_friends_response ? addFacebookFriends(user.uid, fb_friends_response) : Promise.resolve();
               return friendsAddedPromise.then(function() {
                 return startSessionAndAddCookies(req, res, user.uid).then(function() {
                   return user;
@@ -5497,7 +5497,7 @@ function initializePolisHelpers(mongoParams) {
     } // end doFbNotLinkedButUserWithEmailExists
 
     function doFbNoUserExistsYet(user) {
-      var promise;
+      let promise;
       if (uid) {
         winston.log("info", "fb1 5a...");
         // user record already exists, so populate that in case it has missing info
@@ -5506,7 +5506,7 @@ function initializePolisHelpers(mongoParams) {
           pgQueryP("update users set hname = ($2) where uid = ($1) and hname is NULL;", [uid, hname]),
           pgQueryP("update users set email = ($2) where uid = ($1) and email is NULL;", [uid, email]),
         ]).then(function(o) {
-          var user = o[0][0];
+          let user = o[0][0];
           winston.log("info", "fb1 5a");
           winston.log("info", user);
           winston.log("info", "end fb1 5a");
@@ -5515,13 +5515,13 @@ function initializePolisHelpers(mongoParams) {
         winston.log("info", "fb1 5a....");
       } else {
         winston.log("info", "fb1 5b...");
-        var query = "insert into users " +
+        let query = "insert into users " +
           "(email, hname) VALUES " +
           "($1, $2) " +
           "returning *;";
         promise = pgQueryP(query, [email, hname])
           .then(function(rows) {
-            var user = rows && rows.length && rows[0] || null;
+            let user = rows && rows.length && rows[0] || null;
             winston.log("info", "fb1 5b");
             winston.log("info", user);
             winston.log("info", "end fb1 5b");
@@ -5557,7 +5557,7 @@ function initializePolisHelpers(mongoParams) {
           winston.log("info", "fb1 2");
           winston.log("info", user);
           winston.log("info", "end fb1 2");
-          var uid = user.uid;
+          let uid = user.uid;
           return startSessionAndAddCookies(req, res, uid).then(function() {
             return user;
           }, function(err) {
@@ -5577,12 +5577,12 @@ function initializePolisHelpers(mongoParams) {
             // token: token
           });
           if (shouldAddToIntercom) {
-            var params = {
+            let params = {
               "email": user.email,
               "name": user.hname,
               "user_id": user.uid,
             };
-            var customData = {};
+            let customData = {};
             if (referrer) {
               customData.referrer = referrer;
             }
@@ -5611,7 +5611,7 @@ function initializePolisHelpers(mongoParams) {
         });
     } // end doFbNoUserExistsYet
 
-    var emailVerifiedPromise = Promise.resolve(true);
+    let emailVerifiedPromise = Promise.resolve(true);
     if (!verified) {
       if (email) {
         emailVerifiedPromise = isEmailVerified(email);
@@ -5623,7 +5623,7 @@ function initializePolisHelpers(mongoParams) {
     Promise.all([
       emailVerifiedPromise,
     ]).then(function(a) {
-      var isVerifiedByPolisOrFacebook = a[0];
+      let isVerifiedByPolisOrFacebook = a[0];
 
       if (!isVerifiedByPolisOrFacebook) {
         if (email) {
@@ -5640,7 +5640,7 @@ function initializePolisHelpers(mongoParams) {
         "where users.email = ($1) " +
         "   or facebook_users.fb_user_id = ($2) " +
         ";", [email, fb_user_id]).then(function(rows) {
-          var user = rows && rows.length && rows[0] || null;
+          let user = rows && rows.length && rows[0] || null;
           if (rows && rows.length > 1) {
             // the auth provided us with email and fb_user_id where the email is one polis user, and the fb_user_id is for another.
             // go with the one matching the fb_user_id in this case, and leave the email matching account alone.
@@ -5667,24 +5667,24 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_POST_auth_new(req, res) {
-    var hname = req.p.hname;
-    var password = req.p.password;
-    var password2 = req.p.password2; // for verification
-    var email = req.p.email;
-    var oinvite = req.p.oinvite;
-    var zinvite = req.p.zinvite;
-    var referrer = req.cookies[COOKIES.REFERRER];
-    var organization = req.p.organization;
-    var gatekeeperTosPrivacy = req.p.gatekeeperTosPrivacy;
-    var lti_user_id = req.p.lti_user_id;
-    var lti_user_image = req.p.lti_user_image;
-    var lti_context_id = req.p.lti_context_id;
-    var tool_consumer_instance_guid = req.p.tool_consumer_instance_guid;
-    var afterJoinRedirectUrl = req.p.afterJoinRedirectUrl;
+    let hname = req.p.hname;
+    let password = req.p.password;
+    let password2 = req.p.password2; // for verification
+    let email = req.p.email;
+    let oinvite = req.p.oinvite;
+    let zinvite = req.p.zinvite;
+    let referrer = req.cookies[COOKIES.REFERRER];
+    let organization = req.p.organization;
+    let gatekeeperTosPrivacy = req.p.gatekeeperTosPrivacy;
+    let lti_user_id = req.p.lti_user_id;
+    let lti_user_image = req.p.lti_user_image;
+    let lti_context_id = req.p.lti_context_id;
+    let tool_consumer_instance_guid = req.p.tool_consumer_instance_guid;
+    let afterJoinRedirectUrl = req.p.afterJoinRedirectUrl;
 
-    var site_id = void 0;
+    let site_id = void 0;
     if (req.p.encodedParams) {
-      var decodedParams = decodeParams(req.p.encodedParams);
+      let decodedParams = decodeParams(req.p.encodedParams);
       if (decodedParams.site_id) {
         // NOTE: we could have just allowed site_id to be passed as a normal param, but then we'd need to think about securing that with some other token sooner.
         // I think we can get by with this obscure scheme for a bit.
@@ -5693,7 +5693,7 @@ function initializePolisHelpers(mongoParams) {
       }
     }
 
-    var shouldAddToIntercom = req.p.owner;
+    let shouldAddToIntercom = req.p.owner;
     if (req.p.lti_user_id) {
       shouldAddToIntercom = false;
     }
@@ -5739,11 +5739,11 @@ function initializePolisHelpers(mongoParams) {
           fail(res, 500, "polis_err_generating_hash", err);
           return;
         }
-        var query = "insert into users " +
+        let query = "insert into users " +
           "(email, hname, zinvite, oinvite, is_owner" + (site_id ? ", site_id" : "") + ") VALUES " + // TODO use sql query builder
           "($1, $2, $3, $4, $5" + (site_id ? ", $6" : "") + ") " + // TODO use sql query builder
           "returning uid;";
-        var vals =
+        let vals =
           [email, hname, zinvite || null, oinvite || null, true];
         if (site_id) {
           vals.push(site_id); // TODO use sql query builder
@@ -5755,7 +5755,7 @@ function initializePolisHelpers(mongoParams) {
             fail(res, 500, "polis_err_reg_failed_to_add_user_record", err);
             return;
           }
-          var uid = result && result.rows && result.rows[0] && result.rows[0].uid;
+          let uid = result && result.rows && result.rows[0] && result.rows[0].uid;
 
           pgQuery("insert into jianiuevyew (uid, pwhash) values ($1, $2);", [uid, hashedPassword], function(err, results) {
             if (err) {
@@ -5772,10 +5772,10 @@ function initializePolisHelpers(mongoParams) {
               }
               addCookies(req, res, token, uid).then(function() {
 
-                var ltiUserPromise = lti_user_id ?
+                let ltiUserPromise = lti_user_id ?
                   addLtiUserifNeeded(uid, lti_user_id, tool_consumer_instance_guid, lti_user_image) :
                   Promise.resolve();
-                var ltiContextMembershipPromise = lti_context_id ?
+                let ltiContextMembershipPromise = lti_context_id ?
                   addLtiContextMembership(uid, lti_context_id, tool_consumer_instance_guid) :
                   Promise.resolve();
                 Promise.all([ltiUserPromise, ltiContextMembershipPromise]).then(function() {
@@ -5804,12 +5804,12 @@ function initializePolisHelpers(mongoParams) {
                 });
 
                 if (shouldAddToIntercom) {
-                  var params = {
+                  let params = {
                     "email": email,
                     "name": hname,
                     "user_id": uid,
                   };
-                  var customData = {};
+                  let customData = {};
                   if (referrer) {
                     customData.referrer = referrer;
                   }
@@ -5847,8 +5847,8 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_POST_tutorial(req, res) {
-    var uid = req.p.uid;
-    var step = req.p.step;
+    let uid = req.p.uid;
+    let step = req.p.step;
     pgQueryP("update users set tut = ($1) where uid = ($2);", [step, uid]).then(function() {
       res.status(200).json({});
     }).catch(function(err) {
@@ -5859,7 +5859,7 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_GET_users(req, res) {
-    var uid = req.p.uid;
+    let uid = req.p.uid;
 
     if (req.p.errIfNoAuth && !uid) {
       fail(res, 401, "polis_error_auth_needed");
@@ -5885,15 +5885,15 @@ function initializePolisHelpers(mongoParams) {
       getFacebookInfo([uid]),
       getTwitterInfo([uid]),
     ]).then(function(o) {
-      var info = o[0];
-      var fbInfo = o[1];
-      var twInfo = o[2];
+      let info = o[0];
+      let fbInfo = o[1];
+      let twInfo = o[2];
 
-      var hasFacebook = fbInfo && fbInfo.length && fbInfo[0];
-      var hasTwitter = twInfo && twInfo.length && twInfo[0];
+      let hasFacebook = fbInfo && fbInfo.length && fbInfo[0];
+      let hasTwitter = twInfo && twInfo.length && twInfo[0];
       if (hasFacebook) {
-        var width = 40;
-        var height = 40;
+        let width = 40;
+        let height = 40;
         fbInfo.fb_picture = "https://graph.facebook.com/v2.2/" + fbInfo.fb_user_id + "/picture?width=" + width + "&height=" + height;
         delete fbInfo[0].response;
       }
@@ -5920,8 +5920,8 @@ function initializePolisHelpers(mongoParams) {
 
 
   function _getCommentsForModerationList(o) {
-    var modClause = "";
-    var params = [o.zid];
+    let modClause = "";
+    let params = [o.zid];
     if (!_.isUndefined(o.mod)) {
       modClause = " and comments.mod = ($2)";
       params.push(o.mod);
@@ -5933,7 +5933,7 @@ function initializePolisHelpers(mongoParams) {
     return new MPromise("_getCommentsList", function(resolve, reject) {
       getConversationInfo(o.zid).then(function(conv) {
 
-        var q = sql_comments.select(sql_comments.star())
+        let q = sql_comments.select(sql_comments.star())
           .where(
             sql_comments.zid.equals(o.zid)
           );
@@ -6003,10 +6003,10 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function getComments(o) {
-    var commentListPromise = o.moderation ? _getCommentsForModerationList(o) : _getCommentsList(o);
+    let commentListPromise = o.moderation ? _getCommentsForModerationList(o) : _getCommentsList(o);
 
     return commentListPromise.then(function(rows) {
-      var cols = [
+      let cols = [
         "txt",
         "tid",
         "created",
@@ -6023,7 +6023,7 @@ function initializePolisHelpers(mongoParams) {
         cols.push("count"); //  in  moderation queries, we join in the vote count
       }
       rows = rows.map(function(row) {
-        var x = _.pick(row, cols);
+        let x = _.pick(row, cols);
         if (!_.isUndefined(x.count)) {
           x.count = Number(x.count);
         }
@@ -6032,16 +6032,16 @@ function initializePolisHelpers(mongoParams) {
       return rows;
     }).then(function(comments) {
       if (o.include_social) {
-        var nonAnonComments = comments.filter(function(c) {
+        let nonAnonComments = comments.filter(function(c) {
           return !c.anon;
         });
-        var uids = _.pluck(nonAnonComments, "uid");
+        let uids = _.pluck(nonAnonComments, "uid");
         return getSocialInforForUsers(uids).then(function(socialInfos) {
-          var uidToSocialInfo = {};
+          let uidToSocialInfo = {};
           socialInfos.forEach(function(info) {
             info.uid = info.coalesced_uid;
             // whitelist properties to send
-            var infoToReturn = _.pick(info, [
+            let infoToReturn = _.pick(info, [
               // fb
               "fb_name",
               "fb_link",
@@ -6059,7 +6059,7 @@ function initializePolisHelpers(mongoParams) {
             // extract props from fb_public_profile
             if (info.fb_public_profile) {
               try {
-                var temp = JSON.parse(info.fb_public_profile);
+                let temp = JSON.parse(info.fb_public_profile);
                 infoToReturn.fb_verified = temp.verified;
               } catch (e) {
                 console.error("error parsing JSON of fb_public_profile for uid: ", info.uid);
@@ -6067,15 +6067,15 @@ function initializePolisHelpers(mongoParams) {
             }
 
             if (!_.isUndefined(infoToReturn.fb_user_id)) {
-              var width = 40;
-              var height = 40;
+              let width = 40;
+              let height = 40;
               infoToReturn.fb_picture = "https://graph.facebook.com/v2.2/" + infoToReturn.fb_user_id + "/picture?width=" + width + "&height=" + height;
             }
 
             uidToSocialInfo[info.uid] = infoToReturn;
           });
           return comments.map(function(c) {
-            var s = uidToSocialInfo[c.uid];
+            let s = uidToSocialInfo[c.uid];
             if (s) {
               if (!c.anon) { // s should be undefined in this case, but adding a double-check here in case.
                 c.social = s;
@@ -6111,9 +6111,9 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_GET_participation(req, res) {
-    var zid = req.p.zid;
-    var uid = req.p.uid;
-    var strict = req.p.strict;
+    let zid = req.p.zid;
+    let uid = req.p.uid;
+    let strict = req.p.strict;
     isOwner(zid, uid).then(function(ok) {
       if (!ok) {
         fail(res, 403, "polis_err_get_participation_auth");
@@ -6125,10 +6125,10 @@ function initializePolisHelpers(mongoParams) {
         pgQueryP_readOnly("select pid, count(*) from comments where zid = ($1) group by pid;", [zid]),
         pgQueryP_readOnly("select pid, xid from xids inner join (select * from participants where zid = ($1)) as p on xids.uid = p.uid;", [zid]),
       ]).then(function(o) {
-        var voteCountRows = o[0];
-        var commentCountRows = o[1];
-        var pidXidRows = o[2];
-        var i, r;
+        let voteCountRows = o[0];
+        let commentCountRows = o[1];
+        let pidXidRows = o[2];
+        let i, r;
 
         if (strict && !pidXidRows.length) {
           fail(res, 409, "polis_err_get_participation_missing_xids This conversation has no xids for its participants.");
@@ -6136,7 +6136,7 @@ function initializePolisHelpers(mongoParams) {
         }
 
         // Build a map like this {xid -> {votes: 10, comments: 2}}
-        var result = new DD(function() {
+        let result = new DD(function() {
           return {
             votes: 0,
             comments: 0,
@@ -6159,12 +6159,12 @@ function initializePolisHelpers(mongoParams) {
 
         if (pidXidRows && pidXidRows.length) {
           // Convert from {pid -> foo} to {xid -> foo}
-          var pidToXid = {};
+          let pidToXid = {};
           for (i = 0; i < pidXidRows.length; i++) {
             pidToXid[pidXidRows[i].pid] = pidXidRows[i].xid;
           }
-          var xidBasedResult = {};
-          var size = 0;
+          let xidBasedResult = {};
+          let size = 0;
           _.each(result, function(val, key) {
             xidBasedResult[pidToXid[key]] = val;
             size += 1;
@@ -6188,20 +6188,20 @@ function initializePolisHelpers(mongoParams) {
 
   function handle_GET_comments(req, res) {
 
-    var rid = req.headers["x-request-id"] + " " + req.headers['user-agent'];
+    let rid = req.headers["x-request-id"] + " " + req.headers['user-agent'];
     winston.log("info", "getComments " + rid + " begin");
 
     getComments(req.p).then(function(comments) {
 
       comments = comments.map(function(c) {
-        var hasTwitter = c.social && c.social.twitter_user_id;
+        let hasTwitter = c.social && c.social.twitter_user_id;
         if (hasTwitter) {
           c.social.twitter_profile_image_url_https = getServerNameWithProtocol(req) + "/twitter_image?id=" + c.social.twitter_user_id;
         }
-        var hasFacebook = c.social && c.social.fb_user_id;
+        let hasFacebook = c.social && c.social.fb_user_id;
         if (hasFacebook) {
-          var width = 40;
-          var height = 40;
+          let width = 40;
+          let height = 40;
           c.social.fb_picture = "https://graph.facebook.com/v2.2/" + c.social.fb_user_id + "/picture?width=" + width + "&height=" + height;
         }
         return c;
@@ -6216,7 +6216,7 @@ function initializePolisHelpers(mongoParams) {
 
 
   function isDuplicateKey(err) {
-    var isdup = err.code === 23505 ||
+    let isdup = err.code === 23505 ||
       err.code === '23505' ||
       err.sqlState === 23505 ||
       err.sqlState === '23505' ||
@@ -6236,7 +6236,7 @@ function initializePolisHelpers(mongoParams) {
         if (err) {
           reject(err);
         } else {
-          var count = result && result.rows && result.rows[0] && result.rows[0].count;
+          let count = result && result.rows && result.rows[0] && result.rows[0].count;
           count = Number(count);
           if (isNaN(count)) {
             count = void 0;
@@ -6251,7 +6251,7 @@ function initializePolisHelpers(mongoParams) {
     if (_.isUndefined(unmoderatedCommentCount)) {
       unmoderatedCommentCount = "";
     }
-    var body = unmoderatedCommentCount;
+    let body = unmoderatedCommentCount;
     if (unmoderatedCommentCount === 1) {
       body += " Comment is waiting for your review here: ";
     } else {
@@ -6285,33 +6285,33 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function createModerationUrl(req, zinvite) {
-    var server = devMode ? "http://localhost:5000" : "https://pol.is";
+    let server = devMode ? "http://localhost:5000" : "https://pol.is";
 
     if (req.headers.host.indexOf("preprod.pol.is") >= 0) {
       server = "https://preprod.pol.is";
     }
-    var url = server + "/m/" + zinvite;
+    let url = server + "/m/" + zinvite;
     return url;
   }
 
   // function createMuteUrl(zid, tid) {
-  //     var server = devMode ? "http://localhost:5000" : "https://pol.is";
-  //     var params = {
+  //     let server = devMode ? "http://localhost:5000" : "https://pol.is";
+  //     let params = {
   //         zid: zid,
   //         tid: tid
   //     };
-  //     var path = "v3/mute";
+  //     let path = "v3/mute";
   //     params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
   //     return server + "/"+path+"?" + paramsToStringSortedByName(params);
   // }
 
   // function createUnmuteUrl(zid, tid) {
-  //     var server = devMode ? "http://localhost:5000" : "https://pol.is";
-  //     var params = {
+  //     let server = devMode ? "http://localhost:5000" : "https://pol.is";
+  //     let params = {
   //         zid: zid,
   //         tid: tid
   //     };
-  //     var path = "v3/unmute";
+  //     let path = "v3/unmute";
   //     params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
   //     return server + "/"+path+"?" + paramsToStringSortedByName(params);
   // }
@@ -6329,11 +6329,11 @@ function initializePolisHelpers(mongoParams) {
   }
 
   // function muteComment(zid, tid) {
-  //     var mod = polisTypes.mod.ban;
+  //     let mod = polisTypes.mod.ban;
   //     return moderateComment(zid, tid, false, mod);
   // }
   // function unmuteComment(zid, tid) {
-  //     var mod = polisTypes.mod.ok;
+  //     let mod = polisTypes.mod.ok;
   //     return moderateComment(zid, tid, true, mod);
   // }
 
@@ -6352,9 +6352,9 @@ function initializePolisHelpers(mongoParams) {
   // }
 
   // function handle_GET_mute(req, res) {
-  //     var tid = req.p.tid;
-  //     var zid = req.p.zid;
-  //     var params = {
+  //     let tid = req.p.tid;
+  //     let zid = req.p.zid;
+  //     let params = {
   //         zid: req.p.zid,
   //         tid: req.p.tid,
   //         signature: req.p[HMAC_SIGNATURE_PARAM_NAME],
@@ -6384,9 +6384,9 @@ function initializePolisHelpers(mongoParams) {
   // }
 
   // function handle_GET_unmute(req, res) {
-  //     var tid = req.p.tid;
-  //     var zid = req.p.zid;
-  //     var params = {
+  //     let tid = req.p.tid;
+  //     let zid = req.p.zid;
+  //     let params = {
   //         zid: req.p.zid,
   //         tid: req.p.tid,
   //         signature: req.p[HMAC_SIGNATURE_PARAM_NAME],
@@ -6412,7 +6412,7 @@ function initializePolisHelpers(mongoParams) {
 
   function hasBadWords(txt) {
     txt = txt.toLowerCase();
-    var tokens = txt.split(" ");
+    let tokens = txt.split(" ");
     for (var i = 0; i < tokens.length; i++) {
       if (badwords[tokens[i]]) {
         return true;
@@ -6443,19 +6443,19 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_POST_comments(req, res) {
-    var zid = req.p.zid;
-    var uid = req.p.uid;
-    var txt = req.p.txt;
-    var pid = req.p.pid; // PID_FLOW may be undefined
-    var currentPid = pid;
-    var vote = req.p.vote;
-    var prepopulating = req.p.prepop;
-    var twitter_tweet_id = req.p.twitter_tweet_id;
-    var quote_twitter_screen_name = req.p.quote_twitter_screen_name;
-    var quote_txt = req.p.quote_txt;
-    var quote_src_url = req.p.quote_src_url;
-    var anon = req.p.anon;
-    var mustBeModerator = !!quote_txt || !!twitter_tweet_id || anon;
+    let zid = req.p.zid;
+    let uid = req.p.uid;
+    let txt = req.p.txt;
+    let pid = req.p.pid; // PID_FLOW may be undefined
+    let currentPid = pid;
+    let vote = req.p.vote;
+    let prepopulating = req.p.prepop;
+    let twitter_tweet_id = req.p.twitter_tweet_id;
+    let quote_twitter_screen_name = req.p.quote_twitter_screen_name;
+    let quote_txt = req.p.quote_txt;
+    let quote_src_url = req.p.quote_src_url;
+    let anon = req.p.anon;
+    let mustBeModerator = !!quote_txt || !!twitter_tweet_id || anon;
 
 
     // either include txt, or a tweet id
@@ -6476,7 +6476,7 @@ function initializePolisHelpers(mongoParams) {
       // PID_FLOW
       if (_.isUndefined(pid)) {
         return addParticipant(req.p.zid, req.p.uid).then(function(rows) {
-          var ptpt = rows[0];
+          let ptpt = rows[0];
           pid = ptpt.pid;
           currentPid = pid;
           return pid;
@@ -6486,7 +6486,7 @@ function initializePolisHelpers(mongoParams) {
     }
 
 
-    var twitterPrepPromise = Promise.resolve();
+    let twitterPrepPromise = Promise.resolve();
     if (twitter_tweet_id) {
       twitterPrepPromise = prepForTwitterComment(twitter_tweet_id, zid);
     } else if (quote_twitter_screen_name) {
@@ -6495,9 +6495,9 @@ function initializePolisHelpers(mongoParams) {
 
     twitterPrepPromise.then(function(info) {
 
-      var ptpt = info && info.ptpt;
-      // var twitterUser = info && info.twitterUser;
-      var tweet = info && info.tweet;
+      let ptpt = info && info.ptpt;
+      // let twitterUser = info && info.twitterUser;
+      let tweet = info && info.tweet;
 
       if (tweet) {
         txt = tweet.text;
@@ -6505,13 +6505,13 @@ function initializePolisHelpers(mongoParams) {
         txt = quote_txt;
       }
 
-      var ip =
+      let ip =
         req.headers['x-forwarded-for'] || // TODO This header may contain multiple IP addresses. Which should we report?
         req.connection.remoteAddress ||
         req.socket.remoteAddress ||
         req.connection.socket.remoteAddress;
 
-      var isSpamPromise = isSpam({
+      let isSpamPromise = isSpam({
         comment_content: txt,
         comment_author: uid,
         permalink: 'https://pol.is/' + zid,
@@ -6523,24 +6523,24 @@ function initializePolisHelpers(mongoParams) {
         console.error("isSpam failed");
         winston.log("info", err);
       });
-      // var isSpamPromise = Promise.resolve(false);
-      var isModeratorPromise = isModerator(zid, uid);
+      // let isSpamPromise = Promise.resolve(false);
+      let isModeratorPromise = isModerator(zid, uid);
 
-      var conversationInfoPromise = getConversationInfo(zid);
+      let conversationInfoPromise = getConversationInfo(zid);
 
-      var pidPromise;
+      let pidPromise;
       if (ptpt) {
         pidPromise = Promise.resolve(ptpt.pid);
       } else {
         pidPromise = doGetPid();
       }
-      var commentExistsPromise = commentExists(zid, txt);
+      let commentExistsPromise = commentExists(zid, txt);
 
       Promise.all([pidPromise, conversationInfoPromise, isModeratorPromise, commentExistsPromise]).then(function(results) {
-        var pid = results[0];
-        var conv = results[1];
-        var is_moderator = results[2];
-        var commentExists = results[3];
+        let pid = results[0];
+        let conv = results[1];
+        let is_moderator = results[2];
+        let commentExists = results[3];
 
         if (!is_moderator && mustBeModerator) {
           fail(res, 403, "polis_err_post_comment_auth");
@@ -6563,7 +6563,7 @@ function initializePolisHelpers(mongoParams) {
           return;
         }
 
-        var bad = hasBadWords(txt);
+        let bad = hasBadWords(txt);
         isSpamPromise.then(function(spammy) {
           winston.log("info", "spam test says: " + txt + " " + (spammy ? "spammy" : "not_spammy"));
           return spammy;
@@ -6572,9 +6572,9 @@ function initializePolisHelpers(mongoParams) {
           winston.log("info", err);
           return false; // spam check failed, continue assuming "not spammy".
         }).then(function(spammy) {
-          var velocity = 1;
-          var active = true;
-          var classifications = [];
+          let velocity = 1;
+          let active = true;
+          let classifications = [];
           if (bad && conv.profanity_filter) {
             active = false;
             classifications.push("bad");
@@ -6587,14 +6587,14 @@ function initializePolisHelpers(mongoParams) {
             active = false;
           }
 
-          var mod = 0; // hasn't yet been moderated.
+          let mod = 0; // hasn't yet been moderated.
 
           // moderators' comments are automatically in (when prepopulating).
           if (is_moderator && prepopulating) {
             mod = polisTypes.mod.ok;
             active = true;
           }
-          var authorUid = ptpt ? ptpt.uid : uid;
+          let authorUid = ptpt ? ptpt.uid : uid;
 
           pgQuery(
             "INSERT INTO COMMENTS " +
@@ -6614,8 +6614,8 @@ function initializePolisHelpers(mongoParams) {
                 return;
               }
               docs = docs.rows;
-              var tid = docs && docs[0] && docs[0].tid;
-              var createdTime = docs && docs[0] && docs[0].created;
+              let tid = docs && docs[0] && docs[0].tid;
+              let createdTime = docs && docs[0] && docs[0].created;
 
               if (bad || spammy || conv.strict_moderation) {
                 getNumberOfCommentsWithModerationStatus(zid, polisTypes.mod.unmoderated).catch(function(err) {
@@ -6624,7 +6624,7 @@ function initializePolisHelpers(mongoParams) {
                 }).then(function(n) {
 
                   pgQueryP_readOnly("select * from users where site_id = (select site_id from page_ids where zid = ($1)) UNION select * from users where uid = ($2);", [zid, conv.owner]).then(function(users) {
-                    var uids = _.pluck(users, "uid");
+                    let uids = _.pluck(users, "uid");
                     // also notify polis team for moderation
                     uids = _.union(uids, [
                       125, // mike
@@ -6738,7 +6738,7 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function getNextCommentRandomly(zid, pid, withoutTids, include_social) {
-    var params = {
+    let params = {
       zid: zid,
       not_voted_by_pid: pid,
       limit: 1,
@@ -6762,7 +6762,7 @@ function initializePolisHelpers(mongoParams) {
   //   if (!withoutTids || !withoutTids.length) {
   //     withoutTids = [-999999]; // ensure there's a value in there so the sql parses as a list
   //   }
-  //   var q = "WITH ";
+  //   let q = "WITH ";
   //   q += "  star_counts AS ";
   //   q += "  (SELECT tid, count(*) as starcount from stars where zid = $1 group by tid), ";
   //   q += "  conv AS  ";
@@ -6866,7 +6866,7 @@ function initializePolisHelpers(mongoParams) {
         }
         finishOne(res, c);
       } else {
-        var o = {};
+        let o = {};
         if (!_.isUndefined(req.p.not_voted_by_pid)) {
           o.currentPid = req.p.not_voted_by_pid;
         }
@@ -6888,21 +6888,21 @@ function initializePolisHelpers(mongoParams) {
 
   function handle_GET_participationInit(req, res) {
 
-    // var qs = {
+    // let qs = {
     //   conversation_id: req.p.conversation_id,
     // };
 
-    // var nextCommentQs = _.extend({}, qs, {
+    // let nextCommentQs = _.extend({}, qs, {
     //   not_voted_by_pid: "mypid",
     //   limit: 1,
     //   include_social: true,
     // });
 
-    // var votesByMeQs = _.extend({}, req.p, {
+    // let votesByMeQs = _.extend({}, req.p, {
     //   pid: "mypid",
     // });
 
-    // var famousQs = req.p.ptptoiLimit ? _.extend({}, qs, {
+    // let famousQs = req.p.ptptoiLimit ? _.extend({}, qs, {
     //   ptptoiLimit: req.p.ptptoiLimit,
     // }) : qs;
 
@@ -6965,7 +6965,7 @@ function initializePolisHelpers(mongoParams) {
       ifConv(doFamousQuery, [req.p, req]),
       // getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/votes/famous", qs: famousQs, headers: req.headers, gzip: true}),
     ]).then(function(arr) {
-      var o = {
+      let o = {
         user: arr[0],
         ptpt: arr[1],
         nextComment: arr[2],
@@ -7003,27 +7003,27 @@ function initializePolisHelpers(mongoParams) {
 
 
   function updateConversationModifiedTime(zid, t) {
-    var modified = _.isUndefined(t) ? Date.now() : Number(t);
+    let modified = _.isUndefined(t) ? Date.now() : Number(t);
     return pgQueryP("update conversations set modified = ($2) where zid = ($1) and modified < ($2);", [zid, modified]);
   }
 
   function handle_POST_votes(req, res) {
-    var uid = req.p.uid; // PID_FLOW uid may be undefined here.
-    var zid = req.p.zid;
-    var pid = req.p.pid; // PID_FLOW pid may be undefined here.
+    let uid = req.p.uid; // PID_FLOW uid may be undefined here.
+    let zid = req.p.zid;
+    let pid = req.p.pid; // PID_FLOW pid may be undefined here.
 
     // We allow viewing (and possibly writing) without cookies enabled, but voting requires cookies (except the auto-vote on your own comment, which seems ok)
-    var token = req.cookies[COOKIES.TOKEN];
-    var apiToken = req.headers.authorization;
-    var xPolisHeaderToken = req.headers['x-polis'];
+    let token = req.cookies[COOKIES.TOKEN];
+    let apiToken = req.headers.authorization;
+    let xPolisHeaderToken = req.headers['x-polis'];
     if (!uid && !token && !apiToken && !xPolisHeaderToken) {
       fail(res, 403, "polis_err_vote_noauth");
       return;
     }
 
     // PID_FLOW WIP for now assume we have a uid, but need a participant record.
-    var pidReadyPromise = _.isUndefined(req.p.pid) ? addParticipant(req.p.zid, req.p.uid).then(function(rows) {
-      var ptpt = rows[0];
+    let pidReadyPromise = _.isUndefined(req.p.pid) ? addParticipant(req.p.zid, req.p.uid).then(function(rows) {
+      let ptpt = rows[0];
       pid = ptpt.pid;
     }) : Promise.resolve();
 
@@ -7047,7 +7047,7 @@ function initializePolisHelpers(mongoParams) {
       }).then(function() {
         return getNextComment(req.p.zid, pid, [], true);
       }).then(function(nextComment) {
-        var result = {};
+        let result = {};
         if (nextComment) {
           result.nextComment = nextComment;
         } else {
@@ -7078,9 +7078,9 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_POST_ptptCommentMod(req, res) {
-    var uid = req.p.uid;
-    var zid = req.p.zid;
-    var pid = req.p.pid;
+    let uid = req.p.uid;
+    let zid = req.p.zid;
+    let pid = req.p.pid;
 
     // return pgQueryP("insert into ...
     Promise.resolve().then(function(createdTime) {
@@ -7091,7 +7091,7 @@ function initializePolisHelpers(mongoParams) {
     }).then(function() {
       return getNextComment(req.p.zid, pid, [], true);
     }).then(function(nextComment) {
-      var result = {};
+      let result = {};
       if (nextComment) {
         result.nextComment = nextComment;
       } else {
@@ -7116,8 +7116,8 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_POST_upvotes(req, res) {
-    var uid = req.p.uid;
-    var zid = req.p.zid;
+    let uid = req.p.uid;
+    let zid = req.p.zid;
 
     pgQueryP("select * from upvotes where uid = ($1) and zid = ($2);", [uid, zid]).then(function(rows) {
       if (rows && rows.length) {
@@ -7141,8 +7141,8 @@ function initializePolisHelpers(mongoParams) {
 
   function addStar(zid, tid, pid, starred, created) {
     starred = starred ? 1 : 0;
-    var query = "INSERT INTO stars (pid, zid, tid, starred, created) VALUES ($1, $2, $3, $4, default) RETURNING created;";
-    var params = [pid, zid, tid, starred];
+    let query = "INSERT INTO stars (pid, zid, tid, starred, created) VALUES ($1, $2, $3, $4, default) RETURNING created;";
+    let params = [pid, zid, tid, starred];
     if (!_.isUndefined(created)) {
       query = "INSERT INTO stars (pid, zid, tid, starred, created) VALUES ($1, $2, $3, $4, $5) RETURNING created;";
       params.push(created);
@@ -7153,7 +7153,7 @@ function initializePolisHelpers(mongoParams) {
 
   function handle_POST_stars(req, res) {
     addStar(req.p.zid, req.p.tid, req.p.pid, req.p.starred).then(function(result) {
-      var createdTime = result.rows[0].created;
+      let createdTime = result.rows[0].created;
       setTimeout(function() {
         updateConversationModifiedTime(req.p.zid, createdTime);
       }, 100);
@@ -7170,8 +7170,8 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function handle_POST_trashes(req, res) {
-    var query = "INSERT INTO trashes (pid, zid, tid, trashed, created) VALUES ($1, $2, $3, $4, default);";
-    var params = [req.p.pid, req.p.zid, req.p.tid, req.p.trashed];
+    let query = "INSERT INTO trashes (pid, zid, tid, trashed, created) VALUES ($1, $2, $3, $4, default);";
+    let params = [req.p.pid, req.p.zid, req.p.tid, req.p.trashed];
     pgQuery(query, params, function(err, result) {
       if (err) {
         if (isDuplicateKey(err)) {
@@ -7182,7 +7182,7 @@ function initializePolisHelpers(mongoParams) {
         return;
       }
 
-      var createdTime = result.rows[0].created;
+      let createdTime = result.rows[0].created;
       setTimeout(function() {
         updateConversationModifiedTime(req.p.zid, createdTime);
       }, 100);
@@ -7193,7 +7193,7 @@ function initializePolisHelpers(mongoParams) {
 
 
   function verifyMetadataAnswersExistForEachQuestion(zid) {
-    var errorcode = "polis_err_missing_metadata_answers";
+    let errorcode = "polis_err_missing_metadata_answers";
     return new Promise(function(resolve, reject) {
       pgQuery_readOnly("select pmqid from participant_metadata_questions where zid = ($1);", [zid], function(err, results) {
         if (err) {
@@ -7204,7 +7204,7 @@ function initializePolisHelpers(mongoParams) {
           resolve();
           return;
         }
-        var pmqids = results.rows.map(function(row) {
+        let pmqids = results.rows.map(function(row) {
           return Number(row.pmqid);
         });
         pgQuery_readOnly(
@@ -7218,7 +7218,7 @@ function initializePolisHelpers(mongoParams) {
               reject(new Error(errorcode));
               return;
             }
-            var questions = _.reduce(pmqids, function(o, pmqid) {
+            let questions = _.reduce(pmqids, function(o, pmqid) {
               o[pmqid] = 1;
               return o;
             }, {});
@@ -7236,11 +7236,11 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function handle_PUT_comments(req, res) {
-    var uid = req.p.uid;
-    var zid = req.p.zid;
-    var tid = req.p.tid;
-    var active = req.p.active;
-    var mod = req.p.mod;
+    let uid = req.p.uid;
+    let zid = req.p.zid;
+    let tid = req.p.tid;
+    let active = req.p.active;
+    let mod = req.p.mod;
 
     isModerator(zid, uid).then(function(isModerator) {
       if (isModerator) {
@@ -7262,7 +7262,7 @@ function initializePolisHelpers(mongoParams) {
   // This is needed because we initially create a conversation with the POST, then actually set the properties with the subsequent PUT.
   // if we stop doing that, we can remove this function.
   function generateAndReplaceZinvite(zid, generateShortZinvite) {
-    var len = 12;
+    let len = 12;
     if (generateShortZinvite) {
       len = 6;
     }
@@ -7284,7 +7284,7 @@ function initializePolisHelpers(mongoParams) {
 
   function sendGradeForAssignment(oauth_consumer_key, oauth_consumer_secret, params) {
 
-    var replaceResultRequestBody = '' +
+    let replaceResultRequestBody = '' +
       '<?xml version="1.0" encoding="UTF-8"?>' +
       '<imsx_POXEnvelopeRequest xmlns="http://www.imsglobal.org/services/ltiv1p1/xsd/imsoms_v1p0">' +
       '<imsx_POXHeader>' +
@@ -7310,7 +7310,7 @@ function initializePolisHelpers(mongoParams) {
       '</imsx_POXBody>' +
       '</imsx_POXEnvelopeRequest>';
 
-    var oauth = new OAuth.OAuth(
+    let oauth = new OAuth.OAuth(
       null, //'https://api.twitter.com/oauth/request_token',
       null, //'https://api.twitter.com/oauth/access_token',
       oauth_consumer_key, //'your application consumer key',
@@ -7343,7 +7343,7 @@ function initializePolisHelpers(mongoParams) {
 
   function sendCanvasGradesIfNeeded(zid, ownerUid) {
     // get the lti_user_ids for participants who voted or commented
-    var goodLtiUserIdsPromise = pgQueryP(
+    let goodLtiUserIdsPromise = pgQueryP(
       "select lti_user_id from " +
       "(select distinct uid from " +
       "(select distinct pid from votes where zid = ($1) UNION " +
@@ -7351,13 +7351,13 @@ function initializePolisHelpers(mongoParams) {
       "inner join participants p on x.pid = p.pid where p.zid = ($1)) as good_uids " +
       "inner join lti_users on good_uids.uid = lti_users.uid;", [zid]);
 
-    var callbackInfoPromise = pgQueryP(
+    let callbackInfoPromise = pgQueryP(
       "select * from canvas_assignment_conversation_info ai " +
       "inner join canvas_assignment_callback_info ci " +
       "on ai.custom_canvas_assignment_id = ci.custom_canvas_assignment_id " +
       "where ai.zid = ($1);", [zid]);
 
-    var ownerLtiCredsPromise = pgQueryP(
+    let ownerLtiCredsPromise = pgQueryP(
       "select * from lti_oauthv1_credentials where uid = ($1);", [ownerUid]);
 
     return Promise.all([
@@ -7365,13 +7365,13 @@ function initializePolisHelpers(mongoParams) {
       callbackInfoPromise,
       ownerLtiCredsPromise,
     ]).then(function(results) {
-      var isFullPointsEarningLtiUserId = _.indexBy(results[0], "lti_user_id");
-      var callbackInfos = results[1];
+      let isFullPointsEarningLtiUserId = _.indexBy(results[0], "lti_user_id");
+      let callbackInfos = results[1];
       if (!callbackInfos || !callbackInfos.length) {
         // TODO may be able to check for scenarios like missing callback infos, where votes and comments and canvas_assignment_conversation_info exist, and then throw an error
         return;
       }
-      var ownerLtiCreds = results[2];
+      let ownerLtiCreds = results[2];
       if (!ownerLtiCreds || !ownerLtiCreds.length) {
         throw new Error("polis_err_lti_oauth_credentials_are_missing " + ownerUid);
       }
@@ -7380,8 +7380,8 @@ function initializePolisHelpers(mongoParams) {
         throw new Error("polis_err_lti_oauth_credentials_are_bad " + ownerUid);
       }
 
-      var promises = callbackInfos.map(function(assignmentCallbackInfo) {
-        var gradeFromZeroToOne = isFullPointsEarningLtiUserId[assignmentCallbackInfo.lti_user_id] ? 1.0 : 0.0;
+      let promises = callbackInfos.map(function(assignmentCallbackInfo) {
+        let gradeFromZeroToOne = isFullPointsEarningLtiUserId[assignmentCallbackInfo.lti_user_id] ? 1.0 : 0.0;
         assignmentCallbackInfo.gradeFromZeroToOne = gradeFromZeroToOne;
         winston.log("info", "grades assigned" + gradeFromZeroToOne + " lti_user_id " + assignmentCallbackInfo.lti_user_id);
         return sendGradeForAssignment(
@@ -7408,7 +7408,7 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function handle_GET_lti_oauthv1_credentials(req, res) {
-    var uid = "FOO";
+    let uid = "FOO";
     if (req.p && req.p.uid) {
       uid = req.p.uid;
     }
@@ -7416,9 +7416,9 @@ function initializePolisHelpers(mongoParams) {
       generateTokenP(40, false),
       generateTokenP(40, false),
     ]).then(function(results) {
-      var key = "polis_oauth_consumer_key_" + results[0];
-      var secret = "polis_oauth_shared_secret_" + results[1];
-      var x = [uid, "'" + key + "'", "'" + secret + "'"].join(",");
+      let key = "polis_oauth_consumer_key_" + results[0];
+      let secret = "polis_oauth_shared_secret_" + results[1];
+      let x = [uid, "'" + key + "'", "'" + secret + "'"].join(",");
       // return the query, they we can manually run this in the pg shell, and email? the keys to the instructor
       res.status(200).json("INSERT INTO lti_oauthv1_credentials (uid, oauth_consumer_key, oauth_shared_secret) values (" + x + ") returning oauth_consumer_key, oauth_shared_secret;");
     });
@@ -7433,12 +7433,12 @@ function initializePolisHelpers(mongoParams) {
         fail(res, 500, "polis_err_closing_conversation_no_such_conversation");
         return;
       }
-      var conv = rows[0];
+      let conv = rows[0];
       // if (conv.is_active) {
       // regardless of old state, go ahead and close it, and update grades. will make testing easier.
       pgQueryP("update conversations set is_active = false where zid = ($1);", [conv.zid]).then(function() {
         // might need to send some grades
-        var ownerUid = req.p.uid;
+        let ownerUid = req.p.uid;
         sendCanvasGradesIfNeeded(conv.zid, ownerUid).then(function(listOfContexts) {
           return updateLocalRecordsToReflectPostedGrades(listOfContexts);
         }).then(function() {
@@ -7465,7 +7465,7 @@ function initializePolisHelpers(mongoParams) {
         fail(res, 500, "polis_err_closing_conversation_no_such_conversation");
         return;
       }
-      var conv = rows[0];
+      let conv = rows[0];
       pgQueryP("update conversations set is_active = true where zid = ($1);", [conv.zid]).then(function() {
         res.status(200).json({});
       }).catch(function(err) {
@@ -7477,21 +7477,21 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function handle_PUT_conversations(req, res) {
-    var generateShortUrl = req.p.short_url;
+    let generateShortUrl = req.p.short_url;
     isModerator(req.p.zid, req.p.uid).then(function(ok) {
       if (!ok) {
         fail(res, 403, "polis_err_update_conversation_permission");
         return;
       }
 
-      var verifyMetaPromise;
+      let verifyMetaPromise;
       if (req.p.verifyMeta) {
         verifyMetaPromise = verifyMetadataAnswersExistForEachQuestion(req.p.zid);
       } else {
         verifyMetaPromise = Promise.resolve();
       }
 
-      var fields = {};
+      let fields = {};
       if (!_.isUndefined(req.p.is_active)) {
         fields.is_active = req.p.is_active;
       }
@@ -7574,7 +7574,7 @@ function initializePolisHelpers(mongoParams) {
       }
 
 
-      var q = sql_conversations.update(
+      let q = sql_conversations.update(
           fields
         )
         .where(
@@ -7590,20 +7590,20 @@ function initializePolisHelpers(mongoParams) {
               fail(res, 500, "polis_err_update_conversation", err);
               return;
             }
-            var conv = result && result.rows && result.rows[0];
+            let conv = result && result.rows && result.rows[0];
 
-            var promise = generateShortUrl ?
+            let promise = generateShortUrl ?
               generateAndReplaceZinvite(req.p.zid, generateShortUrl) :
               Promise.resolve();
-            var successCode = generateShortUrl ? 201 : 200;
+            let successCode = generateShortUrl ? 201 : 200;
 
             promise.then(function() {
 
               // send notification email
               if (req.p.send_created_email) {
                 Promise.all([getUserInfoForUid2(req.p.uid), getConversationUrl(req, req.p.zid, true)]).then(function(results) {
-                  var hname = results[0].hname;
-                  var url = results[1];
+                  let hname = results[0].hname;
+                  let url = results[1];
                   sendEmailByUid(
                       req.p.uid,
                       "Conversation created",
@@ -7636,11 +7636,11 @@ function initializePolisHelpers(mongoParams) {
                 // };
 
                 // using links because iframes are pretty crappy within Canvas assignments.
-                var linkText = "pol.is conversation";
+                let linkText = "pol.is conversation";
                 if (req.p.topic) {
                   linkText += " (" + req.p.topic + ")";
                 }
-                var linkTitle = "";
+                let linkTitle = "";
                 if (req.p.description) {
                   linkTitle += req.p.description;
                 }
@@ -7672,7 +7672,7 @@ function initializePolisHelpers(mongoParams) {
 
 
               //     // LTI redirect to create e
-              //     // var url = getServerNameWithProtocol(req) + "/" + req.p.conversation_id;
+              //     // let url = getServerNameWithProtocol(req) + "/" + req.p.conversation_id;
               //     // redirectToLtiEditorDestinationWithDetailsAboutIframe(req, res, req.p.launch_presentation_return_url, url, 320, 900);
               // // } else {
               // finishOne(res, conv);
@@ -7692,8 +7692,8 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function handle_DELETE_metadata_questions(req, res) {
-    var uid = req.p.uid;
-    var pmqid = req.p.pmqid;
+    let uid = req.p.uid;
+    let pmqid = req.p.pmqid;
 
     getZidForQuestion(pmqid, function(err, zid) {
       if (err) {
@@ -7718,8 +7718,8 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function handle_DELETE_metadata_answers(req, res) {
-    var uid = req.p.uid;
-    var pmaid = req.p.pmaid;
+    let uid = req.p.uid;
+    let pmaid = req.p.pmaid;
 
     getZidForAnswer(pmaid, function(err, zid) {
       if (err) {
@@ -7805,9 +7805,9 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function handle_GET_metadata_questions(req, res) {
-    var zid = req.p.zid;
-    var zinvite = req.p.zinvite;
-    var suzinvite = req.p.suzinvite;
+    let zid = req.p.zid;
+    let zinvite = req.p.zinvite;
+    let suzinvite = req.p.suzinvite;
 
     function doneChecking(err, foo) {
       if (err) {
@@ -7826,7 +7826,7 @@ function initializePolisHelpers(mongoParams) {
           fail(res, 500, "polis_err_get_participant_metadata_questions", err);
           return;
         }
-        var rows = result[0] && result[0].rows;
+        let rows = result[0] && result[0].rows;
         rows = rows.map(function(r) {
           r.required = true;
           return r;
@@ -7845,9 +7845,9 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function handle_POST_metadata_questions(req, res) {
-    var zid = req.p.zid;
-    var key = req.p.key;
-    var uid = req.p.uid;
+    let zid = req.p.zid;
+    let key = req.p.key;
+    let uid = req.p.uid;
 
     function doneChecking(err, foo) {
       if (err) {
@@ -7871,10 +7871,10 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function handle_POST_metadata_answers(req, res) {
-    var zid = req.p.zid;
-    var uid = req.p.uid;
-    var pmqid = req.p.pmqid;
-    var value = req.p.value;
+    let zid = req.p.zid;
+    let uid = req.p.uid;
+    let pmqid = req.p.pmqid;
+    let value = req.p.value;
 
     function doneChecking(err, foo) {
       if (err) {
@@ -7900,7 +7900,7 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function handle_GET_metadata_choices(req, res) {
-    var zid = req.p.zid;
+    let zid = req.p.zid;
 
     getChoicesForConversation(zid).then(function(choices) {
       finishArray(res, choices);
@@ -7911,17 +7911,17 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_GET_metadata_answers(req, res) {
-    var zid = req.p.zid;
-    var zinvite = req.p.zinvite;
-    var suzinvite = req.p.suzinvite;
-    var pmqid = req.p.pmqid;
+    let zid = req.p.zid;
+    let zinvite = req.p.zinvite;
+    let suzinvite = req.p.suzinvite;
+    let pmqid = req.p.pmqid;
 
     function doneChecking(err, foo) {
       if (err) {
         fail(res, 403, "polis_err_get_participant_metadata_auth", err);
         return;
       }
-      var query = sql_participant_metadata_answers.select(sql_participant_metadata_answers.star())
+      let query = sql_participant_metadata_answers.select(sql_participant_metadata_answers.star())
         .where(
           sql_participant_metadata_answers.zid.equals(zid)
         ).and(
@@ -7936,7 +7936,7 @@ function initializePolisHelpers(mongoParams) {
           fail(res, 500, "polis_err_get_participant_metadata_answers", err);
           return;
         }
-        var rows = result.rows.map(function(r) {
+        let rows = result.rows.map(function(r) {
           r.is_exclusive = true; // TODO fetch this info from the queston itself
           return r;
         });
@@ -7955,9 +7955,9 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_GET_metadata(req, res) {
-    var zid = req.p.zid;
-    var zinvite = req.p.zinvite;
-    var suzinvite = req.p.suzinvite;
+    let zid = req.p.zid;
+    let zinvite = req.p.zinvite;
+    let suzinvite = req.p.suzinvite;
 
     function doneChecking(err) {
       if (err) {
@@ -7979,15 +7979,15 @@ function initializePolisHelpers(mongoParams) {
           fail(res, 500, "polis_err_get_participant_metadata", err);
           return;
         }
-        var keys = result[0] && result[0].rows;
-        var vals = result[1] && result[1].rows;
-        var choices = result[2] && result[2].rows;
-        var o = {};
-        var keyNames = {};
-        var valueNames = {};
-        var i;
-        var k;
-        var v;
+        let keys = result[0] && result[0].rows;
+        let vals = result[1] && result[1].rows;
+        let choices = result[2] && result[2].rows;
+        let o = {};
+        let keyNames = {};
+        let valueNames = {};
+        let i;
+        let k;
+        let v;
         if (!keys || !keys.length) {
           res.status(200).json({});
           return;
@@ -8039,7 +8039,7 @@ function initializePolisHelpers(mongoParams) {
         if (err) {
           return reject("polis_err_get_conversation_metadata_by_zid");
         }
-        var hasNoMetadata = !metadataResults || !metadataResults.rows || !metadataResults.rows.length;
+        let hasNoMetadata = !metadataResults || !metadataResults.rows || !metadataResults.rows.length;
         resolve(!hasNoMetadata);
       });
     });
@@ -8050,10 +8050,10 @@ function initializePolisHelpers(mongoParams) {
       pgQueryP_readOnly("select * from conversations left join  (select uid, site_id from users) as u on conversations.owner = u.uid where conversations.zid = ($1);", [zid]),
       getConversationHasMetadata(zid),
     ]).then(function(results) {
-      var conv = results[0] && results[0][0];
-      var convHasMetadata = results[1];
+      let conv = results[0] && results[0][0];
+      let convHasMetadata = results[1];
       return getUserInfoForUid2(conv.owner).then(function(userInfo) {
-        var ownername = userInfo.hname;
+        let ownername = userInfo.hname;
         if (convHasMetadata) {
           conv.hasMetadata = true;
         }
@@ -8070,28 +8070,28 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function getConversations(req, res) {
-    var uid = req.p.uid;
-    var zid = req.p.zid;
-    var xid = req.p.xid;
-    // var course_invite = req.p.course_invite;
-    var include_all_conversations_i_am_in = req.p.include_all_conversations_i_am_in;
-    var want_mod_url = req.p.want_mod_url;
-    var want_upvoted = req.p.want_upvoted;
-    var want_inbox_item_admin_url = req.p.want_inbox_item_admin_url;
-    var want_inbox_item_participant_url = req.p.want_inbox_item_participant_url;
-    var want_inbox_item_admin_html = req.p.want_inbox_item_admin_html;
-    var want_inbox_item_participant_html = req.p.want_inbox_item_participant_html;
-    var context = req.p.context;
-    // var limit = req.p.limit;
+    let uid = req.p.uid;
+    let zid = req.p.zid;
+    let xid = req.p.xid;
+    // let course_invite = req.p.course_invite;
+    let include_all_conversations_i_am_in = req.p.include_all_conversations_i_am_in;
+    let want_mod_url = req.p.want_mod_url;
+    let want_upvoted = req.p.want_upvoted;
+    let want_inbox_item_admin_url = req.p.want_inbox_item_admin_url;
+    let want_inbox_item_participant_url = req.p.want_inbox_item_participant_url;
+    let want_inbox_item_admin_html = req.p.want_inbox_item_admin_html;
+    let want_inbox_item_participant_html = req.p.want_inbox_item_participant_html;
+    let context = req.p.context;
+    // let limit = req.p.limit;
     winston.log("info", "thecontext", context);
 
 
     // this statement is currently a subset of the next one
-    // var zidListQuery = "select zid from page_ids where site_id = (select site_id from users where uid = ($1))";
+    // let zidListQuery = "select zid from page_ids where site_id = (select site_id from users where uid = ($1))";
 
     // include conversations started by people with the same site_id as me
     // 1's indicate that the conversations are there for that reason
-    var zidListQuery = "select zid, 1 as type from conversations where owner in (select uid from users where site_id = (select site_id from users where uid = ($1)))";
+    let zidListQuery = "select zid, 1 as type from conversations where owner in (select uid from users where site_id = (select site_id from users where uid = ($1)))";
     if (include_all_conversations_i_am_in) {
       zidListQuery += " UNION ALL select zid, 2 as type from participants where uid = ($1)"; // using UNION ALL instead of UNION to ensure we get all the 1's and 2's (I'm not sure if we can guarantee the 2's won't clobber some 1's if we use UNION)
     }
@@ -8104,16 +8104,16 @@ function initializePolisHelpers(mongoParams) {
         return;
       }
 
-      var participantInOrSiteAdminOf = results && results.rows && _.pluck(results.rows, "zid") || null;
-      var siteAdminOf = _.filter(results.rows, function(row) {
+      let participantInOrSiteAdminOf = results && results.rows && _.pluck(results.rows, "zid") || null;
+      let siteAdminOf = _.filter(results.rows, function(row) {
         return row.type === 1;
       });
-      var isSiteAdmin = _.indexBy(siteAdminOf, "zid");
+      let isSiteAdmin = _.indexBy(siteAdminOf, "zid");
 
-      var query = sql_conversations.select(sql_conversations.star());
+      let query = sql_conversations.select(sql_conversations.star());
 
-      var isRootsQuery = false;
-      var orClauses;
+      let isRootsQuery = false;
+      let orClauses;
       if (!_.isUndefined(req.p.context)) {
         if (req.p.context === "/") {
           winston.log("info", "asdf" + req.p.context + "asdf");
@@ -8166,11 +8166,11 @@ function initializePolisHelpers(mongoParams) {
           fail(res, 500, "polis_err_get_conversations", err);
           return;
         }
-        var data = result.rows || [];
+        let data = result.rows || [];
 
 
         addConversationIds(data).then(function(data) {
-          var suurlsPromise;
+          let suurlsPromise;
           if (xid) {
             suurlsPromise = Promise.all(data.map(function(conv) {
               return createOneSuzinvite(
@@ -8183,14 +8183,14 @@ function initializePolisHelpers(mongoParams) {
           } else {
             suurlsPromise = Promise.resolve();
           }
-          var upvotesPromise = (uid && want_upvoted) ? pgQueryP_readOnly("select zid from upvotes where uid = ($1);", [uid]) : Promise.resolve();
+          let upvotesPromise = (uid && want_upvoted) ? pgQueryP_readOnly("select zid from upvotes where uid = ($1);", [uid]) : Promise.resolve();
 
           return Promise.all([
             suurlsPromise,
             upvotesPromise,
           ]).then(function(x) {
-            var suurlData = x[0];
-            var upvotes = x[1];
+            let suurlData = x[0];
+            let upvotes = x[1];
             if (suurlData) {
               suurlData = _.indexBy(suurlData, "zid");
             }
@@ -8199,7 +8199,7 @@ function initializePolisHelpers(mongoParams) {
             }
             data.forEach(function(conv) {
               conv.is_owner = conv.owner === uid;
-              var root = getServerNameWithProtocol(req);
+              let root = getServerNameWithProtocol(req);
 
               if (want_mod_url) {
                 // TODO make this into a moderation invite URL so others can join Issue #618
@@ -8274,19 +8274,19 @@ function initializePolisHelpers(mongoParams) {
     } else {
       encodedStringifiedJson = encodedStringifiedJson.slice(4);
     }
-    var stringifiedJson = hexToStr(encodedStringifiedJson);
-    var o = JSON.parse(stringifiedJson);
+    let stringifiedJson = hexToStr(encodedStringifiedJson);
+    let o = JSON.parse(stringifiedJson);
     return o;
   }
 
   function encodeParams(o) {
-    var stringifiedJson = JSON.stringify(o);
-    var encoded = "ep1_" + strToHex(stringifiedJson);
+    let stringifiedJson = JSON.stringify(o);
+    let encoded = "ep1_" + strToHex(stringifiedJson);
     return encoded;
   }
 
   function handle_GET_conversations(req, res) {
-    var courseIdPromise = Promise.resolve();
+    let courseIdPromise = Promise.resolve();
     if (req.p.course_invite) {
       courseIdPromise = pgQueryP_readOnly("select course_id from courses where course_invite = ($1);", [req.p.course_invite]).then(function(rows) {
         return rows[0].course_id;
@@ -8323,8 +8323,8 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function handle_POST_contexts(req, res) {
-    var uid = req.p.uid;
-    var name = req.p.name;
+    let uid = req.p.uid;
+    let name = req.p.name;
 
     function createContext() {
       return pgQueryP("insert into contexts (name, creator, is_public) values ($1, $2, $3);", [name, uid, true]).then(function() {
@@ -8336,7 +8336,7 @@ function initializePolisHelpers(mongoParams) {
       });
     }
     pgQueryP("select name from contexts where name = ($1);", [name]).then(function(rows) {
-      var exists = rows && rows.length;
+      let exists = rows && rows.length;
       if (exists) {
         fail(res, 422, "polis_err_post_context_exists");
         return;
@@ -8364,7 +8364,7 @@ function initializePolisHelpers(mongoParams) {
   function handle_POST_conversations(req, res) {
 
     winston.log("info", "context", req.p.context);
-    var generateShortUrl = req.p.short_url;
+    let generateShortUrl = req.p.short_url;
 
     isUserAllowedToCreateConversations(req.p.uid, function(err, isAllowed) {
       if (err) {
@@ -8377,7 +8377,7 @@ function initializePolisHelpers(mongoParams) {
       }
 
 
-      var q = sql_conversations.insert({
+      let q = sql_conversations.insert({
         owner: req.p.uid,
         topic: req.p.topic,
         description: req.p.description,
@@ -8403,7 +8403,7 @@ function initializePolisHelpers(mongoParams) {
           return;
         }
 
-        var zid = result && result.rows && result.rows[0] && result.rows[0].zid;
+        let zid = result && result.rows && result.rows[0] && result.rows[0].zid;
 
         generateAndRegisterZinvite(zid, generateShortUrl).then(function(zinvite) {
           // NOTE: OK to return conversation_id, because this conversation was just created by this user.
@@ -8421,9 +8421,9 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_POST_query_participants_by_metadata(req, res) {
-    var uid = req.p.uid;
-    var zid = req.p.zid;
-    var pmaids = req.p.pmaids;
+    let uid = req.p.uid;
+    let zid = req.p.zid;
+    let pmaids = req.p.pmaids;
 
     if (!pmaids.length) {
       // empty selection
@@ -8461,13 +8461,13 @@ function initializePolisHelpers(mongoParams) {
         fail(res, 500, "polis_err_get_email_db", err);
         return;
       }
-      var email = results.rows[0].email;
-      var fullname = results.rows[0].hname;
+      let email = results.rows[0].email;
+      let fullname = results.rows[0].hname;
       pgQuery_readOnly("select * from zinvites where zid = $1", [req.p.zid], function(err, results) {
-        var zinvite = results.rows[0].zinvite;
-        var server = getServerNameWithProtocol(req);
-        var createdLink = server + "/#" + req.p.zid + "/" + zinvite;
-        var body = "" +
+        let zinvite = results.rows[0].zinvite;
+        let server = getServerNameWithProtocol(req);
+        let createdLink = server + "/#" + req.p.zid + "/" + zinvite;
+        let body = "" +
           "Hi " + fullname + ",\n" +
           "\n" +
           "Here's a link to the conversation you just created. Use it to invite participants to the conversation. Share it by whatever network you prefer - Gmail, Facebook, Twitter, etc., or just post it to your website or blog. Try it now! Click this link to go to your conversation: \n" +
@@ -8493,7 +8493,7 @@ function initializePolisHelpers(mongoParams) {
 
 
   function getTwitterRequestToken(returnUrl) {
-    var oauth = new OAuth.OAuth(
+    let oauth = new OAuth.OAuth(
       'https://api.twitter.com/oauth/request_token', // null
       'https://api.twitter.com/oauth/access_token', // null
       process.env.TWITTER_CONSUMER_KEY, //'your application consumer key',
@@ -8502,7 +8502,7 @@ function initializePolisHelpers(mongoParams) {
       null,
       'HMAC-SHA1'
     );
-    var body = {
+    let body = {
       oauth_callback: returnUrl,
     };
     return new Promise(function(resolve, reject) {
@@ -8527,9 +8527,9 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function handle_GET_twitterBtn(req, res) {
-    var dest = req.p.dest || "/inbox";
+    let dest = req.p.dest || "/inbox";
     dest = encodeURIComponent(getServerNameWithProtocol(req) + dest);
-    var returnUrl = getServerNameWithProtocol(req) + "/api/v3/twitter_oauth_callback?owner=" + req.p.owner + "&dest=" + dest;
+    let returnUrl = getServerNameWithProtocol(req) + "/api/v3/twitter_oauth_callback?owner=" + req.p.owner + "&dest=" + dest;
 
     getTwitterRequestToken(returnUrl).then(function(data) {
       winston.log("info", data);
@@ -8543,7 +8543,7 @@ function initializePolisHelpers(mongoParams) {
 
 
   function getTwitterAccessToken(body) {
-    var oauth = new OAuth.OAuth(
+    let oauth = new OAuth.OAuth(
       'https://api.twitter.com/oauth/request_token', // null
       'https://api.twitter.com/oauth/access_token', // null
       process.env.TWITTER_CONSUMER_KEY, //'your application consumer key',
@@ -8574,19 +8574,19 @@ function initializePolisHelpers(mongoParams) {
   }
 
   // TODO expire this stuff
-  var twitterUserInfoCache = new LruCache({
+  let twitterUserInfoCache = new LruCache({
     max: 1000,
   });
 
 
   function getTwitterUserInfo(o, useCache) {
-    var twitter_user_id = o.twitter_user_id;
-    var twitter_screen_name = o.twitter_screen_name;
-    var params = {
+    let twitter_user_id = o.twitter_user_id;
+    let twitter_screen_name = o.twitter_screen_name;
+    let params = {
       // oauth_verifier: req.p.oauth_verifier,
       // oauth_token: req.p.oauth_token, // confused. needed, but docs say this: "The request token is also passed in the oauth_token portion of the header, but this will have been added by the signing process."
     };
-    var identifier; // this is way sloppy, but should be ok for caching and logging
+    let identifier; // this is way sloppy, but should be ok for caching and logging
     if (twitter_user_id) {
       params.user_id = twitter_user_id;
       identifier = twitter_user_id;
@@ -8595,7 +8595,7 @@ function initializePolisHelpers(mongoParams) {
       identifier = twitter_screen_name;
     }
 
-    var oauth = new OAuth.OAuth(
+    let oauth = new OAuth.OAuth(
       'https://api.twitter.com/oauth/request_token', // null
       'https://api.twitter.com/oauth/access_token', // null
       process.env.TWITTER_CONSUMER_KEY, //'your application consumer key',
@@ -8605,7 +8605,7 @@ function initializePolisHelpers(mongoParams) {
       'HMAC-SHA1'
     );
     return new MPromise("getTwitterUserInfo", function(resolve, reject) {
-      var cachedCopy = twitterUserInfoCache.get(identifier);
+      let cachedCopy = twitterUserInfoCache.get(identifier);
       if (useCache && cachedCopy) {
         return resolve(cachedCopy);
       }
@@ -8637,7 +8637,7 @@ function initializePolisHelpers(mongoParams) {
 
 
   function getTwitterTweetById(twitter_tweet_id) {
-    var oauth = new OAuth.OAuth(
+    let oauth = new OAuth.OAuth(
       'https://api.twitter.com/oauth/request_token', // null
       'https://api.twitter.com/oauth/access_token', // null
       process.env.TWITTER_CONSUMER_KEY, //'your application consumer key',
@@ -8668,7 +8668,7 @@ function initializePolisHelpers(mongoParams) {
   }
 
   // function getTwitterUserTimeline(screen_name) {
-  //   var oauth = new OAuth.OAuth(
+  //   let oauth = new OAuth.OAuth(
   //     'https://api.twitter.com/oauth/request_token', // null
   //     'https://api.twitter.com/oauth/access_token', // null
   //     process.env.TWITTER_CONSUMER_KEY, //'your application consumer key',
@@ -8688,7 +8688,7 @@ function initializePolisHelpers(mongoParams) {
   //           console.error(e);
   //           reject(e);
   //         } else {
-  //           var foo = JSON.parse(data);
+  //           let foo = JSON.parse(data);
   //           foo = _.pluck(foo, "text");
   //           console.dir(foo);
   //           resolve(data);
@@ -8706,12 +8706,12 @@ function initializePolisHelpers(mongoParams) {
   //  so keep a list of these for as long as the server is running,
   //  so we don't repeat requests for them.
   // This is probably not optimal, but is pretty easy.
-  var suspendedOrPotentiallyProblematicTwitterIds = [];
+  let suspendedOrPotentiallyProblematicTwitterIds = [];
 
 
   function getTwitterUserInfoBulk(list_of_twitter_user_id) {
     list_of_twitter_user_id = list_of_twitter_user_id || [];
-    var oauth = new OAuth.OAuth(
+    let oauth = new OAuth.OAuth(
       'https://api.twitter.com/oauth/request_token', // null
       'https://api.twitter.com/oauth/access_token', // null
       process.env.TWITTER_CONSUMER_KEY, //'your application consumer key',
@@ -8792,7 +8792,7 @@ function initializePolisHelpers(mongoParams) {
 
   function updateSomeTwitterUsers() {
     return pgQueryP_readOnly("select uid, twitter_user_id from twitter_users where modified < (now_as_millis() - 30*60*1000) order by modified desc limit 100;").then(function(results) {
-      var twitter_user_ids = _.pluck(results, "twitter_user_id");
+      let twitter_user_ids = _.pluck(results, "twitter_user_id");
       if (results.length === 0) {
         return [];
       }
@@ -8804,8 +8804,8 @@ function initializePolisHelpers(mongoParams) {
       getTwitterUserInfoBulk(twitter_user_ids).then(function(info) {
         console.dir(info);
 
-        var updateQueries = info.map(function(u) {
-          var q = "update twitter_users set " +
+        let updateQueries = info.map(function(u) {
+          let q = "update twitter_users set " +
             "screen_name = ($2)," +
             "name = ($3)," +
             "followers_count = ($4)," +
@@ -8850,8 +8850,8 @@ function initializePolisHelpers(mongoParams) {
     return createDummyUser().then(function(uid) {
       return getAndInsertTwitterUser(o, uid).then(function(result) {
 
-        var u = result.twitterUser;
-        var twitterUserDbRecord = result.twitterUserDbRecord;
+        let u = result.twitterUser;
+        let twitterUserDbRecord = result.twitterUserDbRecord;
 
         return pgQueryP("update users set hname = ($2) where uid = ($1) and hname is NULL;", [uid, u.name]).then(function() {
           return twitterUserDbRecord;
@@ -8862,7 +8862,7 @@ function initializePolisHelpers(mongoParams) {
 
 
   function prepForQuoteWithTwitterUser(quote_twitter_screen_name, zid) {
-    var query = pgQueryP("select * from twitter_users where screen_name = ($1);", [quote_twitter_screen_name]);
+    let query = pgQueryP("select * from twitter_users where screen_name = ($1);", [quote_twitter_screen_name]);
     return addParticipantByTwitterUserId(query, {
       twitter_screen_name: quote_twitter_screen_name,
     }, zid, null);
@@ -8870,9 +8870,9 @@ function initializePolisHelpers(mongoParams) {
 
   function prepForTwitterComment(twitter_tweet_id, zid) {
     return getTwitterTweetById(twitter_tweet_id).then(function(tweet) {
-      var user = tweet.user;
-      var twitter_user_id = user.id_str;
-      var query = pgQueryP("select * from twitter_users where twitter_user_id = ($1);", [twitter_user_id]);
+      let user = tweet.user;
+      let twitter_user_id = user.id_str;
+      let query = pgQueryP("select * from twitter_users where twitter_user_id = ($1);", [twitter_user_id]);
       return addParticipantByTwitterUserId(query, {
         twitter_user_id: twitter_user_id,
       }, zid, tweet);
@@ -8883,7 +8883,7 @@ function initializePolisHelpers(mongoParams) {
   function addParticipantByTwitterUserId(query, o, zid, tweet) {
     function addParticipantAndFinish(uid, twitterUser, tweet) {
       return addParticipant(zid, uid).then(function(rows) {
-        var ptpt = rows[0];
+        let ptpt = rows[0];
         return {
           ptpt: ptpt,
           twitterUser: twitterUser,
@@ -8893,8 +8893,8 @@ function initializePolisHelpers(mongoParams) {
     }
     return query.then(function(rows) {
       if (rows && rows.length) {
-        var twitterUser = rows[0];
-        var uid = twitterUser.uid;
+        let twitterUser = rows[0];
+        let uid = twitterUser.uid;
         return getParticipant(zid, uid).then(function(ptpt) {
           if (!ptpt) {
             return addParticipantAndFinish(uid, twitterUser, tweet);
@@ -8910,9 +8910,9 @@ function initializePolisHelpers(mongoParams) {
       } else {
         // no user records yet
         return createUserFromTwitterInfo(o).then(function(twitterUser) {
-          var uid = twitterUser.uid;
+          let uid = twitterUser.uid;
           return addParticipant(zid, uid).then(function(rows) {
-            var ptpt = rows[0];
+            let ptpt = rows[0];
             return {
               ptpt: ptpt,
               twitterUser: twitterUser,
@@ -8970,7 +8970,7 @@ function initializePolisHelpers(mongoParams) {
           u.location,
           JSON.stringify(u),
         ]).then(function(rows) {
-          var record = rows && rows.length && rows[0] || null;
+          let record = rows && rows.length && rows[0] || null;
 
           // return the twitter user record
           return {
@@ -8984,19 +8984,19 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_GET_twitter_oauth_callback(req, res) {
-    var uid = req.p.uid;
+    let uid = req.p.uid;
 
 
 
     function maybeAddToIntercom(o) {
-      var shouldAddToIntercom = req.p.owner;
+      let shouldAddToIntercom = req.p.owner;
       if (shouldAddToIntercom) {
-        var params = {
+        let params = {
           "email": o.email,
           "name": o.name,
           "user_id": o.uid,
         };
-        var customData = {};
+        let customData = {};
         // if (referrer) {
         //     customData.referrer = o.referrer;
         // }
@@ -9026,7 +9026,7 @@ function initializePolisHelpers(mongoParams) {
 
     // TODO "Upon a successful authentication, your callback_url would receive a request containing the oauth_token and oauth_verifier parameters. Your application should verify that the token matches the request token received in step 1."
 
-    var dest = req.p.dest;
+    let dest = req.p.dest;
     winston.log("info", "twitter_oauth_callback uid", uid);
     winston.log("info", "twitter_oauth_callback params");
     winston.log("info", req.p);
@@ -9040,12 +9040,12 @@ function initializePolisHelpers(mongoParams) {
     }
     retryFunctionWithPromise(tryGettingTwitterAccessToken, 20).then(function(o) {
       winston.log("info", "TWITTER ACCESS TOKEN");
-      var pairs = o.split("&");
-      var kv = {};
+      let pairs = o.split("&");
+      let kv = {};
       pairs.forEach(function(pair) {
-        var pairSplit = pair.split("=");
-        var k = pairSplit[0];
-        var v = pairSplit[1];
+        let pairSplit = pair.split("=");
+        let k = pairSplit[0];
+        let v = pairSplit[1];
         if (k === "user_id") {
           v = parseInt(v);
         }
@@ -9108,8 +9108,8 @@ function initializePolisHelpers(mongoParams) {
                 pgQueryP("select * from twitter_users where uid = ($1);", [uid]),
                 pgQueryP("select * from twitter_users where twitter_user_id = ($1);", [u.id]),
               ]).then(function(foo) {
-                var recordForUid = foo[0][0];
-                var recordForTwitterId = foo[1][0];
+                let recordForUid = foo[0][0];
+                let recordForTwitterId = foo[1][0];
                 if (recordForUid && recordForTwitterId) {
                   if (recordForUid.uid === recordForTwitterId.uid) {
                     // match
@@ -9171,14 +9171,14 @@ function initializePolisHelpers(mongoParams) {
 
   function getSocialParticipantsForMod(zid, limit, mod) {
 
-    var modClause = "";
-    var params = [zid, limit];
+    let modClause = "";
+    let params = [zid, limit];
     if (!_.isUndefined(mod)) {
       modClause = " and mod = ($3)";
       params.push(mod);
     }
 
-    var q = "with " +
+    let q = "with " +
       "p as (select uid, pid, mod from participants where zid = ($1) " + modClause + "), " + // and vote_count >= 1
 
       "final_set as (select * from p limit ($2)), " +
@@ -9223,19 +9223,19 @@ function initializePolisHelpers(mongoParams) {
     return pgQueryP(q, params);
   }
 
-  var socialParticipantsCache = new LruCache({
+  let socialParticipantsCache = new LruCache({
     maxAge: 1000 * 30, // 30 seconds
     max: 999,
   });
 
   function getSocialParticipants(zid, uid, limit, mod, lastVoteTimestamp, authorUids) {
     // NOTE ignoring authorUids as part of cacheKey for now, just because.
-    var cacheKey = [zid, limit, mod, lastVoteTimestamp].join("_");
+    let cacheKey = [zid, limit, mod, lastVoteTimestamp].join("_");
     if (socialParticipantsCache.get(cacheKey)) {
       return socialParticipantsCache.get(cacheKey);
     }
 
-    var authorsQuery = authorUids.map(function(authorUid) {
+    let authorsQuery = authorUids.map(function(authorUid) {
       return "select " + Number(authorUid) + " as uid, 900 as priority";
     });
     authorsQuery = "(" + authorsQuery.join(" union ") + ")";
@@ -9243,7 +9243,7 @@ function initializePolisHelpers(mongoParams) {
       authorsQuery = null;
     }
 
-    var q = "with " +
+    let q = "with " +
       "p as (select uid, pid, mod from participants where zid = ($1) and vote_count >= 1), " +
       // "all_friends as (select  " +
       //         "friend as uid, 100 as priority from facebook_friends where uid = ($2) " +
@@ -9337,7 +9337,7 @@ function initializePolisHelpers(mongoParams) {
   //   if (!uid) {
   //     return Promise.resolve([]);
   //   }
-  //   var p = pgQueryP_readOnly(
+  //   let p = pgQueryP_readOnly(
   //     "select * from " +
   //     "(select * from " +
   //     "(select * from " +
@@ -9350,7 +9350,7 @@ function initializePolisHelpers(mongoParams) {
   // }
 
   // function getFacebookUsersInConversation(zid) {
-  //   var p = pgQueryP_readOnly("select * from facebook_users inner join (select * from participants where zid = ($1) and vote_count > 0) as p on facebook_users.uid = p.uid;", [zid]);
+  //   let p = pgQueryP_readOnly("select * from facebook_users inner join (select * from participants where zid = ($1) and vote_count > 0) as p on facebook_users.uid = p.uid;", [zid]);
   //   return p;
   // }
 
@@ -9363,7 +9363,7 @@ function initializePolisHelpers(mongoParams) {
     if (!uids.length) {
       return Promise.resolve([]);
     }
-    var uidString = uids.join(",");
+    let uidString = uids.join(",");
     return pgQueryP_metered_readOnly("getSocialInforForUsers", "with fb as (select * from facebook_users where uid in (" + uidString + ")), tw as (select * from twitter_users where uid in (" + uidString + ")) select * from fb full outer join tw on tw.uid = fb.uid;", []);
   }
 
@@ -9375,18 +9375,18 @@ function initializePolisHelpers(mongoParams) {
 
   // zid_pid => "lastVoteTimestamp:ppaddddaadadaduuuuuuuuuuuuuuuuu"; // not using objects to save some ram
   // TODO consider "p2a24a2dadadu15" format
-  var votesForZidPidCache = new LruCache({
+  let votesForZidPidCache = new LruCache({
     max: 5000,
   });
 
 
   function getVotesForZidPidWithTimestampCheck(zid, pid, lastVoteTimestamp) {
-    var key = zid + "_" + pid;
-    var cachedVotes = votesForZidPidCache.get(key);
+    let key = zid + "_" + pid;
+    let cachedVotes = votesForZidPidCache.get(key);
     if (cachedVotes) {
-      var pair = cachedVotes.split(":");
-      var cachedTime = Number(pair[0]);
-      var votes = pair[1];
+      let pair = cachedVotes.split(":");
+      let cachedTime = Number(pair[0]);
+      let votes = pair[1];
       if (cachedTime >= lastVoteTimestamp) {
         return votes;
       }
@@ -9396,21 +9396,21 @@ function initializePolisHelpers(mongoParams) {
 
 
   function cacheVotesForZidPidWithTimestamp(zid, pid, lastVoteTimestamp, votes) {
-    var key = zid + "_" + pid;
-    var val = lastVoteTimestamp + ":" + votes;
+    let key = zid + "_" + pid;
+    let val = lastVoteTimestamp + ":" + votes;
     votesForZidPidCache.set(key, val);
   }
 
 
   // returns {pid -> "adadddadpupuuuuuuuu"}
   function getVotesForZidPidsWithTimestampCheck(zid, pids, lastVoteTimestamp) {
-    var cachedVotes = pids.map(function(pid) {
+    let cachedVotes = pids.map(function(pid) {
       return {
         pid: pid,
         votes: getVotesForZidPidWithTimestampCheck(zid, pid, lastVoteTimestamp),
       };
     });
-    var uncachedPids = cachedVotes.filter(function(o) {
+    let uncachedPids = cachedVotes.filter(function(o) {
       return !o.votes;
     }).map(function(o) {
       return o.pid;
@@ -9420,7 +9420,7 @@ function initializePolisHelpers(mongoParams) {
     });
 
     function toObj(items) {
-      var o = {};
+      let o = {};
       for (var i = 0; i < items.length; i++) {
         o[items[i].pid] = items[i].votes;
       }
@@ -9431,11 +9431,11 @@ function initializePolisHelpers(mongoParams) {
       return Promise.resolve(toObj(cachedVotes));
     }
     return getVotesForPids(zid, uncachedPids).then(function(votesRows) {
-      var newPidToVotes = aggregateVotesToPidVotesObj(votesRows);
+      let newPidToVotes = aggregateVotesToPidVotesObj(votesRows);
       _.each(newPidToVotes, function(votes, pid) {
         cacheVotesForZidPidWithTimestamp(zid, pid, lastVoteTimestamp, votes);
       });
-      var cachedPidToVotes = toObj(cachedVotes);
+      let cachedPidToVotes = toObj(cachedVotes);
       return _.extend(newPidToVotes, cachedPidToVotes);
     });
   }
@@ -9456,7 +9456,7 @@ function initializePolisHelpers(mongoParams) {
 
 
   function createEmptyVoteVector(greatestTid) {
-    var a = [];
+    let a = [];
     for (var i = 0; i <= greatestTid; i++) {
       a[i] = "u"; // (u)nseen
     }
@@ -9464,8 +9464,8 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function aggregateVotesToPidVotesObj(votes) {
-    var i = 0;
-    var greatestTid = 0;
+    let i = 0;
+    let greatestTid = 0;
     for (i = 0; i < votes.length; i++) {
       if (votes[i].tid > greatestTid) {
         greatestTid = votes[i].tid;
@@ -9473,14 +9473,14 @@ function initializePolisHelpers(mongoParams) {
     }
 
     // use arrays or strings?
-    var vectors = {}; // pid -> sparse array
+    let vectors = {}; // pid -> sparse array
     for (i = 0; i < votes.length; i++) {
-      var v = votes[i];
+      let v = votes[i];
       // set up a vector for the participant, if not there already
 
       vectors[v.pid] = vectors[v.pid] || createEmptyVoteVector(greatestTid);
       // assign a vote value at that location
-      var vote = v.vote;
+      let vote = v.vote;
       if (polisTypes.reactions.push === vote) {
         vectors[v.pid][v.tid] = 'd';
       } else if (polisTypes.reactions.pull === vote) {
@@ -9493,7 +9493,7 @@ function initializePolisHelpers(mongoParams) {
       }
 
     }
-    var vectors2 = {};
+    let vectors2 = {};
     _.each(vectors, function(val, key) {
       vectors2[key] = val.join("");
     });
@@ -9510,17 +9510,17 @@ function initializePolisHelpers(mongoParams) {
       getClusters(zid, lastVoteTimestamp),
       getBidToPidMapping(zid, lastVoteTimestamp),
     ]).then(function(o) {
-      var clusters = o[0];
-      var bidToPids = o[1].bidToPid;
-      var cluster = clusters[gid];
+      let clusters = o[0];
+      let bidToPids = o[1].bidToPid;
+      let cluster = clusters[gid];
       if (!cluster) {
         return [];
       }
-      var members = cluster.members;
-      var pids = [];
+      let members = cluster.members;
+      let pids = [];
       for (var i = 0; i < members.length; i++) {
-        var bid = members[i];
-        var morePids = bidToPids[bid];
+        let bid = members[i];
+        let morePids = bidToPids[bid];
         Array.prototype.push.apply(pids, morePids);
       }
       pids = pids.map(function(x) {
@@ -9536,8 +9536,8 @@ function initializePolisHelpers(mongoParams) {
 
 
   function geoCodeWithGoogleApi(locationString) {
-    var googleApiKey = process.env.GOOGLE_API_KEY;
-    var address = encodeURI(locationString);
+    let googleApiKey = process.env.GOOGLE_API_KEY;
+    let address = encodeURI(locationString);
 
     return new Promise(function(resolve, reject) {
       request.get("https://maps.googleapis.com/maps/api/geocode/json?address=" + address + "&key=" + googleApiKey).then(function(response) {
@@ -9546,7 +9546,7 @@ function initializePolisHelpers(mongoParams) {
           reject("polis_err_geocoding_failed");
           return;
         }
-        var bestResult = response.results[0]; // NOTE: seems like there could be multiple responses - using first for now
+        let bestResult = response.results[0]; // NOTE: seems like there could be multiple responses - using first for now
         resolve(bestResult);
       }, reject).catch(reject);
     });
@@ -9557,8 +9557,8 @@ function initializePolisHelpers(mongoParams) {
       if (!rows || !rows.length) {
         return geoCodeWithGoogleApi(locationString).then(function(result) {
           winston.log("info", result);
-          var lat = result.geometry.location.lat;
-          var lng = result.geometry.location.lng;
+          let lat = result.geometry.location.lat;
+          let lng = result.geometry.location.lng;
           // NOTE: not waiting for the response to this - it might fail in the case of a race-condition, since we don't have upsert
           pgQueryP("insert into geolocation_cache (location,lat,lng,response) values ($1,$2,$3,$4);", [
             locationString,
@@ -9566,14 +9566,14 @@ function initializePolisHelpers(mongoParams) {
             lng,
             JSON.stringify(result),
           ]);
-          var o = {
+          let o = {
             lat: lat,
             lng: lng,
           };
           return o;
         });
       } else {
-        var o = {
+        let o = {
           lat: rows[0].lat,
           lng: rows[0].lng,
         };
@@ -9583,48 +9583,48 @@ function initializePolisHelpers(mongoParams) {
   }
 
 
-  var twitterShareCountCache = LruCache({
+  let twitterShareCountCache = LruCache({
     maxAge: 1000 * 60 * 30, // 30 minutes
     max: 999,
   });
 
   function getTwitterShareCountForConversation(conversation_id) {
-    var cached = twitterShareCountCache.get(conversation_id);
+    let cached = twitterShareCountCache.get(conversation_id);
     if (cached) {
       return Promise.resolve(cached);
     }
-    var httpUrl = "https://cdn.api.twitter.com/1/urls/count.json?url=http://pol.is/" + conversation_id;
-    var httpsUrl = "https://cdn.api.twitter.com/1/urls/count.json?url=https://pol.is/" + conversation_id;
+    let httpUrl = "https://cdn.api.twitter.com/1/urls/count.json?url=http://pol.is/" + conversation_id;
+    let httpsUrl = "https://cdn.api.twitter.com/1/urls/count.json?url=https://pol.is/" + conversation_id;
     return Promise.all([
       request.get(httpUrl),
       request.get(httpsUrl),
     ]).then(function(a) {
-      var httpResult = a[0];
-      var httpsResult = a[1];
-      var httpCount = JSON.parse(httpResult).count;
-      var httpsCount = JSON.parse(httpsResult).count;
+      let httpResult = a[0];
+      let httpsResult = a[1];
+      let httpCount = JSON.parse(httpResult).count;
+      let httpsCount = JSON.parse(httpsResult).count;
       if (httpCount > 0 && httpsCount > 0 && httpCount === httpsCount) {
         console.warn("found matching http and https twitter share counts, if this is common, check twitter api to see if it has changed.");
       }
-      var count = httpCount + httpsCount;
+      let count = httpCount + httpsCount;
       twitterShareCountCache.set(conversation_id, count);
       return count;
     });
   }
 
-  var fbShareCountCache = LruCache({
+  let fbShareCountCache = LruCache({
     maxAge: 1000 * 60 * 30, // 30 minutes
     max: 999,
   });
 
   function getFacebookShareCountForConversation(conversation_id) {
-    var cached = fbShareCountCache.get(conversation_id);
+    let cached = fbShareCountCache.get(conversation_id);
     if (cached) {
       return Promise.resolve(cached);
     }
-    var url = "http://graph.facebook.com/\?id\=https://pol.is/" + conversation_id;
+    let url = "http://graph.facebook.com/\?id\=https://pol.is/" + conversation_id;
     return request.get(url).then(function(result) {
-      var shares = JSON.parse(result).shares;
+      let shares = JSON.parse(result).shares;
       fbShareCountCache.set(conversation_id, shares);
       return shares;
     });
@@ -9633,17 +9633,17 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_GET_locations(req, res) {
-    var zid = req.p.zid;
-    var gid = req.p.gid;
+    let zid = req.p.zid;
+    let gid = req.p.gid;
 
     Promise.all([
       getPidsForGid(zid, gid, -1),
       getLocationsForParticipants(zid),
     ]).then(function(o) {
-      var pids = o[0];
-      var locations = o[1];
+      let pids = o[0];
+      let locations = o[1];
       locations = locations.filter(function(locData) {
-        var pidIsInGroup = _.indexOf(pids, locData.pid, true) >= 0; // uses binary search
+        let pidIsInGroup = _.indexOf(pids, locData.pid, true) >= 0; // uses binary search
         return pidIsInGroup;
       });
       locations = locations.map(function(locData) {
@@ -9662,7 +9662,7 @@ function initializePolisHelpers(mongoParams) {
 
   function removeNullOrUndefinedProperties(o) {
     for (var k in o) {
-      var v = o[k];
+      let v = o[k];
       if (v === null || v === undefined) {
         delete o[k];
       }
@@ -9671,11 +9671,11 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function pullFbTwIntoSubObjects(ptptoiRecord) {
-    var p = ptptoiRecord;
-    var x = {};
+    let p = ptptoiRecord;
+    let x = {};
     _.each(p, function(val, key) {
-      var fbMatch = /fb__(.*)/.exec(key);
-      var twMatch = /tw__(.*)/.exec(key);
+      let fbMatch = /fb__(.*)/.exec(key);
+      let twMatch = /tw__(.*)/.exec(key);
       if (fbMatch && fbMatch.length === 2 && val !== null) {
         x.facebook = x.facebook || {};
         x.facebook[fbMatch[1]] = val;
@@ -9689,7 +9689,7 @@ function initializePolisHelpers(mongoParams) {
     // extract props from fb_public_profile
     if (x.facebook && x.facebook.fb_public_profile) {
       try {
-        var temp = JSON.parse(x.facebook.fb_public_profile);
+        let temp = JSON.parse(x.facebook.fb_public_profile);
         x.facebook.verified = temp.verified;
         // shouln't return this to client
         delete x.facebook.fb_public_profile;
@@ -9698,8 +9698,8 @@ function initializePolisHelpers(mongoParams) {
       }
 
       if (!_.isUndefined(x.facebook.fb_user_id)) {
-        var width = 40;
-        var height = 40;
+        let width = 40;
+        let height = 40;
         x.facebook.fb_picture = "https://graph.facebook.com/v2.2/" + x.facebook.fb_user_id + "/picture?width=" + width + "&height=" + height;
       }
     }
@@ -9708,10 +9708,10 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_PUT_ptptois(req, res) {
-    var zid = req.p.zid;
-    var uid = req.p.uid;
-    var pid = req.p.pid;
-    var mod = req.p.mod;
+    let zid = req.p.zid;
+    let uid = req.p.uid;
+    let pid = req.p.pid;
+    let mod = req.p.mod;
     isModerator(zid, uid).then(function(isMod) {
       if (!isMod) {
         fail(res, 403, "polis_err_ptptoi_permissions_123");
@@ -9727,19 +9727,19 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_GET_ptptois(req, res) {
-    var zid = req.p.zid;
-    var mod = req.p.mod;
-    var uid = req.p.uid;
-    var limit = 999;
+    let zid = req.p.zid;
+    let mod = req.p.mod;
+    let uid = req.p.uid;
+    let limit = 999;
 
     Promise.all([
       getSocialParticipantsForMod(zid, limit, mod),
       getConversationInfo(zid),
     ]).then(function(a) {
-      var ptptois = a[0];
-      var conv = a[1];
-      var isOwner = uid === conv.owner;
-      var isAllowed = isOwner || isPolisDev(req.p.uid) || conv.is_data_open;
+      let ptptois = a[0];
+      let conv = a[1];
+      let isOwner = uid === conv.owner;
+      let isAllowed = isOwner || isPolisDev(req.p.uid) || conv.is_data_open;
       if (isAllowed) {
         ptptois = ptptois.map(removeNullOrUndefinedProperties);
         ptptois = ptptois.map(pullFbTwIntoSubObjects);
@@ -9769,17 +9769,17 @@ function initializePolisHelpers(mongoParams) {
 
 
   function doFamousQuery(o, req) {
-    var uid = o.uid;
-    var zid = o.zid;
-    var lastVoteTimestamp = o.lastVoteTimestamp;
+    let uid = o.uid;
+    let zid = o.zid;
+    let lastVoteTimestamp = o.lastVoteTimestamp;
 
     // NOTE: if this API is running slow, it's probably because fetching the PCA from mongo is slow, and PCA caching is disabled
 
-    // var twitterLimit = 999; // we can actually check a lot of these, since they might be among the fb users
-    // var softLimit = 26;
-    var hardLimit = _.isUndefined(o.ptptoiLimit) ? 30 : o.ptptoiLimit;
-    // var ALLOW_NON_FRIENDS_WHEN_EMPTY_SOCIAL_RESULT = true;
-    var mod = 0; // for now, assume all conversations will show unmoderated and approved participants.
+    // let twitterLimit = 999; // we can actually check a lot of these, since they might be among the fb users
+    // let softLimit = 26;
+    let hardLimit = _.isUndefined(o.ptptoiLimit) ? 30 : o.ptptoiLimit;
+    // let ALLOW_NON_FRIENDS_WHEN_EMPTY_SOCIAL_RESULT = true;
+    let mod = 0; // for now, assume all conversations will show unmoderated and approved participants.
 
     function getAuthorUidsOfFeaturedComments() {
       return getPca(zid, 0).then(function(pcaData) {
@@ -9790,16 +9790,16 @@ function initializePolisHelpers(mongoParams) {
         pcaData.consensus = pcaData.consensus || {};
         pcaData.consensus.agree = pcaData.consensus.agree || [];
         pcaData.consensus.disagree = pcaData.consensus.disagree || [];
-        var consensusTids = _.union(
+        let consensusTids = _.union(
           _.pluck(pcaData.consensus.agree, "tid"),
           _.pluck(pcaData.consensus.disagree, "tid"));
 
-        var groupTids = [];
+        let groupTids = [];
         for (var gid in pcaData.repness) {
-          var commentData = pcaData.repness[gid];
+          let commentData = pcaData.repness[gid];
           groupTids = _.union(groupTids, _.pluck(commentData, "tid"));
         }
-        var featuredTids = _.union(consensusTids, groupTids);
+        let featuredTids = _.union(consensusTids, groupTids);
         featuredTids.sort();
         featuredTids = _.uniq(featuredTids);
 
@@ -9807,7 +9807,7 @@ function initializePolisHelpers(mongoParams) {
           return [];
         }
 
-        var q = "with " +
+        let q = "with " +
           "u as (select distinct(uid) from comments where zid = ($1) and tid in (" + featuredTids.join(",") + ") order by uid) " +
           "select u.uid from u inner join facebook_users on facebook_users.uid = u.uid " +
           "union " +
@@ -9815,7 +9815,7 @@ function initializePolisHelpers(mongoParams) {
           "order by uid;";
 
         return pgQueryP_readOnly(q, [zid]).then(function(comments) {
-          var uids = _.pluck(comments, "uid");
+          let uids = _.pluck(comments, "uid");
           uids = _.uniq(uids);
           return uids;
         });
@@ -9834,8 +9834,8 @@ function initializePolisHelpers(mongoParams) {
       ]).then(function(stuff) {
         //     // if we didn't find any FB friends or Twitter users, find some that aren't friends
         //     // This may or may not be the right thing to do, but the reasoning is that it will help people understand what Polis is. Empty buckets will be confusing.
-        //     var facebookFriends = stuff[0] || [];
-        //     var twitterParticipants = stuff[1] || [];
+        //     let facebookFriends = stuff[0] || [];
+        //     let twitterParticipants = stuff[1] || [];
         //     if (ALLOW_NON_FRIENDS_WHEN_EMPTY_SOCIAL_RESULT &&
         //         !facebookFriends.length &&
         //         !twitterParticipants.length) {
@@ -9847,20 +9847,20 @@ function initializePolisHelpers(mongoParams) {
         //         return stuff;
         //     }
         // }).then(function(stuff) {
-        var participantsWithSocialInfo = stuff[0] || [];
-        // var facebookFriends = stuff[0] || [];
-        // var twitterParticipants = stuff[1] || [];
-        // var polisSocialSettings = stuff[2] || [];
-        // var myPid = stuff[3];
-        // var pidToData = {};
-        // var pids = [];
+        let participantsWithSocialInfo = stuff[0] || [];
+        // let facebookFriends = stuff[0] || [];
+        // let twitterParticipants = stuff[1] || [];
+        // let polisSocialSettings = stuff[2] || [];
+        // let myPid = stuff[3];
+        // let pidToData = {};
+        // let pids = [];
         // twitterParticipants.map(function(p) {
         //     return p.pid;
         // });
 
         // function shouldSkip(p) {
-        //     var pidAlreadyAdded = !!pidToData[p.pid];
-        //     var isSelf = p.pid === myPid;
+        //     let pidAlreadyAdded = !!pidToData[p.pid];
+        //     let isSelf = p.pid === myPid;
         //     if (!pidAlreadyAdded && !isSelf && pids.length > softLimit) {
         //         if (pids.length > hardLimit) {
         //             return true;
@@ -9880,7 +9880,7 @@ function initializePolisHelpers(mongoParams) {
         // ALSO, per-group-minimums: we should include at least a facebook friend and at least one famous twitter user(if they exist) per group
 
         participantsWithSocialInfo = participantsWithSocialInfo.map(function(p) {
-          var x = pullFbTwIntoSubObjects(p);
+          let x = pullFbTwIntoSubObjects(p);
           // nest the fb and tw properties in sub objects
 
           if (p.priority === 1000) {
@@ -9896,11 +9896,11 @@ function initializePolisHelpers(mongoParams) {
           return x;
         });
 
-        var pids = participantsWithSocialInfo.map(function(p) {
+        let pids = participantsWithSocialInfo.map(function(p) {
           return p.pid;
         });
 
-        var pidToData = _.indexBy(participantsWithSocialInfo, "pid"); // TODO this is extra work, probably not needed after some rethinking
+        let pidToData = _.indexBy(participantsWithSocialInfo, "pid"); // TODO this is extra work, probably not needed after some rethinking
 
         // polisSocialSettings.forEach(function(p) {
         //     if (shouldSkip(p)) {
@@ -9963,9 +9963,9 @@ function initializePolisHelpers(mongoParams) {
           return getBidsForPids(zid, -1, pids).then(function(pidsToBids) {
             _.each(vectors, function(value, pid, list) {
               pid = parseInt(pid);
-              var bid = pidsToBids[pid];
-              var notInBucket = _.isUndefined(bid);
-              var isSelf = pidToData[pid].isSelf;
+              let bid = pidsToBids[pid];
+              let notInBucket = _.isUndefined(bid);
+              let isSelf = pidToData[pid].isSelf;
               // winston.log("info","pidToData", pid, myPid, isSelf);
               // winston.log("info",pidToData[pid]);
               if (notInBucket && !isSelf) {
@@ -9987,8 +9987,8 @@ function initializePolisHelpers(mongoParams) {
   } // end doFamousQuery
 
   function handle_GET_twitter_users(req, res) {
-    var uid = req.p.uid;
-    var p;
+    let uid = req.p.uid;
+    let p;
     if (uid) {
       p = pgQueryP_readOnly("select * from twitter_users where uid = ($1);", [uid]);
     } else if (req.p.twitter_user_id) {
@@ -10023,7 +10023,7 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function handle_POST_einvites(req, res) {
-    var email = req.p.email;
+    let email = req.p.email;
     doSendEinvite(req, email).then(function() {
       res.status(200).json({});
     }).catch(function(err) {
@@ -10033,7 +10033,7 @@ function initializePolisHelpers(mongoParams) {
 
   function handle_GET_cache_purge(req, res) {
 
-    var hostname = "pol.is";
+    let hostname = "pol.is";
     // NOTE: can't purge preprod independently unless we set up a separate domain on cloudflare, AFAIK
 
     request.post("https://www.cloudflare.com/api_json.html").form({
@@ -10049,7 +10049,7 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_GET_einvites(req, res) {
-    var einvite = req.p.einvite;
+    let einvite = req.p.einvite;
 
     winston.log("info", "select * from einvites where einvite = ($1);", [einvite]);
     pgQueryP("select * from einvites where einvite = ($1);", [einvite]).then(function(rows) {
@@ -10089,7 +10089,7 @@ function initializePolisHelpers(mongoParams) {
 
   function createOneSuzinvite(xid, zid, owner, generateSingleUseUrl) {
     return generateSUZinvites(1).then(function(suzinviteArray) {
-      var suzinvite = suzinviteArray[0];
+      let suzinvite = suzinviteArray[0];
       return pgQueryP(
           "INSERT INTO suzinvites (suzinvite, xid, zid, owner) VALUES ($1, $2, $3, $4);", [suzinvite, xid, zid, owner])
         .then(function(result) {
@@ -10112,17 +10112,17 @@ function initializePolisHelpers(mongoParams) {
 
 
   function renderLtiLinkagePage(req, res, afterJoinRedirectUrl) {
-    var context_id = req.p.context_id;
-    var user_id = req.p.user_id;
-    var user_image = req.p.user_image;
-    var tool_consumer_instance_guid = req.p.tool_consumer_instance_guid;
+    let context_id = req.p.context_id;
+    let user_id = req.p.user_id;
+    let user_image = req.p.user_image;
+    let tool_consumer_instance_guid = req.p.tool_consumer_instance_guid;
 
-    var greeting = '';
+    let greeting = '';
 
 
     // TODO If we're doing this basic form, we can't just return json from the /login call
 
-    var form1 = '' +
+    let form1 = '' +
       '<h2>create a new <img src="https://pol.is/polis-favicon_favicon.png" height="20px"> pol<span class="Logo--blue">.</span>is account</h2>' +
       '<p><form role="form" class="FormVertical" action="' + getServerNameWithProtocol(req) + '/api/v3/auth/new" method="POST">' +
       '<div class="FormVertical-group">' +
@@ -10155,7 +10155,7 @@ function initializePolisHelpers(mongoParams) {
       '</div>' +
       '</form></p>';
 
-    var form2 = '' +
+    let form2 = '' +
       '<p> - OR - </p>' +
       '<h2>sign in with an existing pol.is account</h2>' +
       '<p><form role="form" class="FormVertical" action="' + getServerNameWithProtocol(req) + '/api/v3/auth/login" method="POST">' +
@@ -10186,9 +10186,9 @@ function initializePolisHelpers(mongoParams) {
     res.set({
       'Content-Type': 'text/html',
     });
-    // var customPart = isInstructor ? "you are the instructor" : "you are a Student";
+    // let customPart = isInstructor ? "you are the instructor" : "you are a Student";
 
-    var html = "" +
+    let html = "" +
       "<!DOCTYPE html><html lang='en'>" +
       '<head>' +
       '<meta name="viewport" content="width=device-width, initial-scale=1;">' +
@@ -10261,19 +10261,19 @@ function initializePolisHelpers(mongoParams) {
   // TODO return HTML from the auth functions. the html should contain the token? so that ajax calls can be made.
   function handle_POST_lti_setup_assignment(req, res) {
     winston.log("info", req);
-    // var roles = req.p.roles;
-    // var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
-    var user_id = req.p.user_id;
-    var context_id = req.p.context_id;
-    // var user_image = req.p.user_image || "";
+    // let roles = req.p.roles;
+    // let isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
+    let user_id = req.p.user_id;
+    let context_id = req.p.context_id;
+    // let user_image = req.p.user_image || "";
     if (!req.p.tool_consumer_instance_guid) {
       emailBadProblemTime("couldn't find tool_consumer_instance_guid, maybe this isn't Canvas?");
     }
 
     // TODO SECURITY we need to verify the signature
-    // var oauth_consumer_key = req.p.oauth_consumer_key;
+    // let oauth_consumer_key = req.p.oauth_consumer_key;
 
-    var dataSavedPromise = pgQueryP("insert into lti_single_assignment_callback_info (lti_user_id, lti_context_id, lis_outcome_service_url, stringified_json_of_post_content) values ($1, $2, $3, $4);", [
+    let dataSavedPromise = pgQueryP("insert into lti_single_assignment_callback_info (lti_user_id, lti_context_id, lis_outcome_service_url, stringified_json_of_post_content) values ($1, $2, $3, $4);", [
       user_id,
       context_id,
       req.p.lis_outcome_service_url || "",
@@ -10290,7 +10290,7 @@ function initializePolisHelpers(mongoParams) {
         pgQueryP("select * from lti_users left join users on lti_users.uid = users.uid where lti_user_id = ($1);", [user_id]).then(function(rows) {
 
           // find the correct one - note: this loop may be useful in warning when people have multiple linkages
-          var userForLtiUserId = null;
+          let userForLtiUserId = null;
           (rows || []).forEach(function(row) {
             if (row.uid === req.p.uid) {
               userForLtiUserId = row;
@@ -10336,11 +10336,11 @@ function initializePolisHelpers(mongoParams) {
 
   // function handle_POST_lti_canvas_nav(req, res) {
   //     winston.log("info",req);
-  //     var roles = req.p.roles;
-  //     var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
-  //     var user_id = req.p.user_id;
-  //     var context_id = req.p.context_id;
-  //     var user_image = req.p.user_image || "";
+  //     let roles = req.p.roles;
+  //     let isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
+  //     let user_id = req.p.user_id;
+  //     let context_id = req.p.context_id;
+  //     let user_image = req.p.user_image || "";
   //     // if (!req.p.tool_consumer_instance_guid) {
   //     //     emailBadProblemTime("couldn't find tool_consumer_instance_guid, maybe this isn't Canvas?");
   //     // }
@@ -10348,13 +10348,13 @@ function initializePolisHelpers(mongoParams) {
   //     winston.log("info",req.p);
 
   //     // // TODO SECURITY we need to verify the signature
-  //     // var oauth_consumer_key = req.p.oauth_consumer_key;
+  //     // let oauth_consumer_key = req.p.oauth_consumer_key;
 
   //     // Check if linked to this uid.
   //     pgQueryP("select * from lti_users left join users on lti_users.uid = users.uid where lti_users.lti_user_id = ($1) and lti_users.tool_consumer_instance_guid = ($2);", [user_id, req.p.tool_consumer_instance_guid]).then(function(rows) {
 
 
-  //         var userForLtiUserId = null;
+  //         let userForLtiUserId = null;
   //         if (rows.length) {
   //             userForLtiUserId = rows[0];
   //         }
@@ -10375,7 +10375,7 @@ function initializePolisHelpers(mongoParams) {
   //                     // });
 
 
-  //                     var inboxLaunchParams = encodeParams({
+  //                     let inboxLaunchParams = encodeParams({
   //                         context: context_id, // we're using the LTI context_id as a polis conversation context. scope the inbox to the course
   //                         xPolisLti: createPolisLtiToken(req.p.tool_consumer_instance_guid, req.p.user_id),  // x-polis-lti header
   //                         // TODO add token
@@ -10409,7 +10409,7 @@ function initializePolisHelpers(mongoParams) {
 
   function addCanvasAssignmentConversationInfoIfNeeded(zid, tool_consumer_instance_guid, lti_context_id, custom_canvas_assignment_id) {
     return getCanvasAssignmentInfo(tool_consumer_instance_guid, lti_context_id, custom_canvas_assignment_id).then(function(rows) {
-      var exists = rows && rows.length;
+      let exists = rows && rows.length;
       if (exists) {
         return exists;
       } else {
@@ -10472,22 +10472,22 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_POST_lti_conversation_assignment(req, res) {
-    var roles = req.p.roles;
-    var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
-    // var isLearner = /[lL]earner/.exec(roles);
-    var user_id = req.p.user_id;
-    var context_id = req.p.context_id;
-    // var user_image = req.p.user_image || "";
+    let roles = req.p.roles;
+    let isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
+    // let isLearner = /[lL]earner/.exec(roles);
+    let user_id = req.p.user_id;
+    let context_id = req.p.context_id;
+    // let user_image = req.p.user_image || "";
 
     winston.log("info", "grades req.body " + JSON.stringify(req.body));
     winston.log("info", "grades req.p " + JSON.stringify(req.p));
 
     // TODO SECURITY we need to verify the signature
-    // var oauth_consumer_key = req.p.oauth_consumer_key;
+    // let oauth_consumer_key = req.p.oauth_consumer_key;
 
     function getPolisUserForLtiUser() {
       return pgQueryP("select * from lti_users left join users on lti_users.uid = users.uid where lti_users.lti_user_id = ($1) and lti_users.tool_consumer_instance_guid = ($2);", [user_id, req.p.tool_consumer_instance_guid]).then(function(rows) {
-        var userForLtiUserId = null;
+        let userForLtiUserId = null;
         if (rows.length) {
           userForLtiUserId = rows[0];
           winston.log("info", 'got user for lti_user_id:' + JSON.stringify(userForLtiUserId));
@@ -10534,11 +10534,11 @@ function initializePolisHelpers(mongoParams) {
         req.p.custom_canvas_assignment_id),
       getPolisUserForLtiUser(),
     ]).then(function(results) {
-      var infos = results[0];
-      var exists = infos && infos.length;
-      var info = infos[0];
+      let infos = results[0];
+      let exists = infos && infos.length;
+      let info = infos[0];
 
-      var user = results[1];
+      let user = results[1];
 
       if (exists) {
         return constructConversationUrl(info.zid).then(function(url) {
@@ -10574,7 +10574,7 @@ function initializePolisHelpers(mongoParams) {
               custom_canvas_assignment_id: req.p.custom_canvas_assignment_id,
             }));
           } else {
-            var url = getServerNameWithProtocol(req) + "/conversation/create/" + encodeParams({
+            let url = getServerNameWithProtocol(req) + "/conversation/create/" + encodeParams({
               forceEmbedded: true,
               tool_consumer_instance_guid: req.p.tool_consumer_instance_guid,
               context: context_id,
@@ -10631,7 +10631,7 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_GET_setup_assignment_xml(req, res) {
-    var xml = '' +
+    let xml = '' +
       '<cartridge_basiclti_link xmlns="http://www.imsglobal.org/xsd/imslticc_v1p0" xmlns:blti="http://www.imsglobal.org/xsd/imsbasiclti_v1p0" xmlns:lticm="http://www.imsglobal.org/xsd/imslticm_v1p0" xmlns:lticp="http://www.imsglobal.org/xsd/imslticp_v1p0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsglobal.org/xsd/imslticc_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticc_v1p0.xsd http://www.imsglobal.org/xsd/imsbasiclti_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imsbasiclti_v1p0.xsd http://www.imsglobal.org/xsd/imslticm_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticm_v1p0.xsd http://www.imsglobal.org/xsd/imslticp_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticp_v1p0.xsd">' +
 
       '<blti:title>Polis Setup Assignment</blti:title>' +
@@ -10688,9 +10688,9 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_GET_conversation_assigmnent_xml(req, res) {
-    var serverName = getServerNameWithProtocol(req);
+    let serverName = getServerNameWithProtocol(req);
 
-    var xml = '' +
+    let xml = '' +
       '<cartridge_basiclti_link xmlns="http://www.imsglobal.org/xsd/imslticc_v1p0" xmlns:blti="http://www.imsglobal.org/xsd/imsbasiclti_v1p0" xmlns:lticm="http://www.imsglobal.org/xsd/imslticm_v1p0" xmlns:lticp="http://www.imsglobal.org/xsd/imslticp_v1p0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsglobal.org/xsd/imslticc_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticc_v1p0.xsd http://www.imsglobal.org/xsd/imsbasiclti_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imsbasiclti_v1p0.xsd http://www.imsglobal.org/xsd/imslticm_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticm_v1p0.xsd http://www.imsglobal.org/xsd/imslticp_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticp_v1p0.xsd">' +
 
       '<blti:title>Polis Conversation Setup</blti:title>' +
@@ -10736,7 +10736,7 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_GET_canvas_app_instructions_png(req, res) {
-    var path = "/landerImages/";
+    let path = "/landerImages/";
     if (/Android/.exec(req.headers['user-agent'])) {
       path += "app_instructions_android.png";
     } else if (/iPhone.*like Mac OS X/.exec(req.headers['user-agent'])) {
@@ -10744,7 +10744,7 @@ function initializePolisHelpers(mongoParams) {
     } else {
       path += "app_instructions_blank.png";
     }
-    var doFetch = makeFileFetcher(hostname, portForParticipationFiles, path, {
+    let doFetch = makeFileFetcher(hostname, portForParticipationFiles, path, {
       'Content-Type': "image/png",
     });
     doFetch(req, res);
@@ -10753,25 +10753,25 @@ function initializePolisHelpers(mongoParams) {
 
 
   // function handle_POST_users_invite(req, res) {
-  //     var owner = req.p.uid;
-  //     var xids = req.p.xids;
-  //     var zid = req.p.zid;
+  //     let owner = req.p.uid;
+  //     let xids = req.p.xids;
+  //     let zid = req.p.zid;
 
 
   //     // generate some tokens
   //     // add them to a table paired with user_ids
   //     // return URLs with those.
   //     generateSUZinvites(xids.length).then(function(suzinviteArray) {
-  //         var pairs = _.zip(xids, suzinviteArray);
+  //         let pairs = _.zip(xids, suzinviteArray);
 
-  //         var valuesStatements = pairs.map(function(pair) {
-  //             var xid = escapeLiteral(pair[0]);
-  //             var suzinvite = escapeLiteral(pair[1]);
-  //             var statement = "("+ suzinvite + ", " + xid + "," + zid+","+owner+")";
+  //         let valuesStatements = pairs.map(function(pair) {
+  //             let xid = escapeLiteral(pair[0]);
+  //             let suzinvite = escapeLiteral(pair[1]);
+  //             let statement = "("+ suzinvite + ", " + xid + "," + zid+","+owner+")";
   //             winston.log("info",statement);
   //             return statement;
   //         });
-  //         var query = "INSERT INTO suzinvites (suzinvite, xid, zid, owner) VALUES " + valuesStatements.join(",") + ";";
+  //         let query = "INSERT INTO suzinvites (suzinvite, xid, zid, owner) VALUES " + valuesStatements.join(",") + ";";
   //         winston.log("info",query);
   //         pgQuery(query, [], function(err, results) {
   //             if (err) { fail(res, 500, "polis_err_saving_invites", err); return; }
@@ -10794,8 +10794,8 @@ function initializePolisHelpers(mongoParams) {
   // }
 
   function sendSuzinviteEmail(req, email, conversation_id, suzinvite) {
-    var serverName = getServerNameWithProtocol(req);
-    var body = "" +
+    let serverName = getServerNameWithProtocol(req);
+    let body = "" +
       "Welcome to pol.is!\n" +
       "\n" +
       "Click this link to open your account:\n" +
@@ -10816,29 +10816,29 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function handle_POST_users_invite(req, res) {
-    var uid = req.p.uid;
-    var emails = req.p.emails;
-    var zid = req.p.zid;
-    var conversation_id = req.p.conversation_id;
+    let uid = req.p.uid;
+    let emails = req.p.emails;
+    let zid = req.p.zid;
+    let conversation_id = req.p.conversation_id;
 
     getConversationInfo(zid).then(function(conv) {
 
-      var owner = conv.owner;
+      let owner = conv.owner;
 
       // generate some tokens
       // add them to a table paired with user_ids
       // return URLs with those.
       generateSUZinvites(emails.length).then(function(suzinviteArray) {
-        var pairs = _.zip(emails, suzinviteArray);
+        let pairs = _.zip(emails, suzinviteArray);
 
-        var valuesStatements = pairs.map(function(pair) {
-          var xid = escapeLiteral(pair[0]);
-          var suzinvite = escapeLiteral(pair[1]);
-          var statement = "(" + suzinvite + ", " + xid + "," + zid + "," + owner + ")";
+        let valuesStatements = pairs.map(function(pair) {
+          let xid = escapeLiteral(pair[0]);
+          let suzinvite = escapeLiteral(pair[1]);
+          let statement = "(" + suzinvite + ", " + xid + "," + zid + "," + owner + ")";
           winston.log("info", statement);
           return statement;
         });
-        var query = "INSERT INTO suzinvites (suzinvite, xid, zid, owner) VALUES " + valuesStatements.join(",") + ";";
+        let query = "INSERT INTO suzinvites (suzinvite, xid, zid, owner) VALUES " + valuesStatements.join(",") + ";";
         winston.log("info", query);
         pgQuery(query, [], function(err, results) {
           if (err) {
@@ -10847,8 +10847,8 @@ function initializePolisHelpers(mongoParams) {
           }
 
           Promise.all(pairs.map(function(pair) {
-            var email = pair[0];
-            var suzinvite = pair[1];
+            let email = pair[0];
+            let suzinvite = pair[1];
             return sendSuzinviteEmail(req, email, conversation_id, suzinvite).then(function() {
               return addInviter(uid, email);
             }, function(err) {
@@ -10885,9 +10885,9 @@ function initializePolisHelpers(mongoParams) {
       return new Promise(function(resolve, reject) {
 
 
-        var uid = rows[0].uid;
+        let uid = rows[0].uid;
         //    create a conversation for the owner we got,
-        var generateShortUrl = false;
+        let generateShortUrl = false;
 
         isUserAllowedToCreateConversations(uid, function(err, isAllowed) {
           if (err) {
@@ -10899,7 +10899,7 @@ function initializePolisHelpers(mongoParams) {
             return;
           }
 
-          var params = _.extend(o, {
+          let params = _.extend(o, {
             owner: uid,
             // topic: req.p.topic,
             // description: req.p.description,
@@ -10914,7 +10914,7 @@ function initializePolisHelpers(mongoParams) {
             owner_sees_participation_stats: false, // TODO think, and test join
           });
 
-          var q = sql_conversations.insert(params).returning('*').toString();
+          let q = sql_conversations.insert(params).returning('*').toString();
 
           pgQuery(q, [], function(err, result) {
             if (err) {
@@ -10926,14 +10926,14 @@ function initializePolisHelpers(mongoParams) {
               }
             }
 
-            var zid = result && result.rows && result.rows[0] && result.rows[0].zid;
+            let zid = result && result.rows && result.rows[0] && result.rows[0].zid;
 
             Promise.all([
               registerPageId(site_id, page_id, zid),
               generateAndRegisterZinvite(zid, generateShortUrl),
             ]).then(function(o) {
-              // var notNeeded = o[0];
-              var zinvite = o[1];
+              // let notNeeded = o[0];
+              let zinvite = o[1];
               // NOTE: OK to return conversation_id, because this conversation was just created by this user.
               resolve({
                 owner: uid,
@@ -10955,7 +10955,7 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function sendImplicitConversationCreatedEmails(site_id, page_id, url, modUrl, seedUrl) {
-    var body = "" +
+    let body = "" +
       "Conversation created!" + "\n" +
       "\n" +
       "You can find the conversation here:\n" +
@@ -10977,7 +10977,7 @@ function initializePolisHelpers(mongoParams) {
 
     return pgQueryP("select email from users where site_id = ($1)", [site_id]).then(function(rows) {
 
-      var emails = _.pluck(rows, "email");
+      let emails = _.pluck(rows, "email");
       emails = _.union(emails, [
         "m@bjorkegren.com",
       ]);
@@ -11007,21 +11007,21 @@ function initializePolisHelpers(mongoParams) {
   // The routers on client and server will need to be updated for that
   // as will checks like isParticipationView on the client.
   function handle_GET_implicit_conversation_generation(req, res) {
-    var site_id = /polis_site_id[^\/]*/.exec(req.path);
-    var page_id = /\S\/([^\/]*)/.exec(req.path);
+    let site_id = /polis_site_id[^\/]*/.exec(req.path);
+    let page_id = /\S\/([^\/]*)/.exec(req.path);
     if (!site_id.length || page_id.length < 2) {
       fail(res, 404, "polis_err_parsing_site_id_or_page_id");
     }
     site_id = site_id[0];
     page_id = page_id[1];
 
-    var ucv = req.p.ucv;
-    var ucw = req.p.ucw;
-    var ucst = req.p.ucst;
-    var ucsd = req.p.ucsd;
-    var ucsv = req.p.ucsv;
-    var ucsf = req.p.ucsf;
-    var o = {};
+    let ucv = req.p.ucv;
+    let ucw = req.p.ucw;
+    let ucst = req.p.ucst;
+    let ucsd = req.p.ucsd;
+    let ucsv = req.p.ucsv;
+    let ucsf = req.p.ucsf;
+    let o = {};
     ifDefinedSet("parent_url", req.p, o);
     ifDefinedSet("auth_needed_to_vote", req.p, o);
     ifDefinedSet("auth_needed_to_write", req.p, o);
@@ -11033,8 +11033,8 @@ function initializePolisHelpers(mongoParams) {
     }
 
     // Set stuff in cookies to be retrieved when POST participants is called.
-    var setOnPolisDomain = !domainOverride;
-    var origin = req.headers.origin || "";
+    let setOnPolisDomain = !domainOverride;
+    let origin = req.headers.origin || "";
     if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
       setOnPolisDomain = false;
     }
@@ -11074,9 +11074,9 @@ function initializePolisHelpers(mongoParams) {
       if (!rows || !rows.length) {
         // conv not initialized yet
         initializeImplicitConversation(site_id, page_id, o).then(function(conv) {
-          var url = buildConversationUrl(req, conv.zinvite);
-          var modUrl = buildModerationUrl(req, conv.zinvite);
-          var seedUrl = buildSeedUrl(req, conv.zinvite);
+          let url = buildConversationUrl(req, conv.zinvite);
+          let modUrl = buildModerationUrl(req, conv.zinvite);
+          let seedUrl = buildSeedUrl(req, conv.zinvite);
           sendImplicitConversationCreatedEmails(site_id, page_id, url, modUrl, seedUrl).then(function() {
             winston.log("info", 'email sent');
           }).catch(function(err) {
@@ -11093,7 +11093,7 @@ function initializePolisHelpers(mongoParams) {
       } else {
         // conv was initialized, nothing to set up
         getZinvite(rows[0].zid).then(function(conversation_id) {
-          var url = buildConversationUrl(req, conversation_id);
+          let url = buildConversationUrl(req, conversation_id);
           url = appendParams(url);
           res.redirect(url);
         }).catch(function(err) {
@@ -11105,7 +11105,7 @@ function initializePolisHelpers(mongoParams) {
     });
   }
 
-  var routingProxy = new httpProxy.RoutingProxy();
+  let routingProxy = new httpProxy.RoutingProxy();
 
   function addStaticFileHeaders(res) {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -11114,11 +11114,11 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function proxy(req, res) {
-    var hostname = buildStaticHostname(req, res);
+    let hostname = buildStaticHostname(req, res);
     if (!hostname) {
 
-      var host = req.headers.host || "";
-      var re = new RegExp(process.env.SERVICE_HOSTNAME + "$");
+      let host = req.headers.host || "";
+      let re = new RegExp(process.env.SERVICE_HOSTNAME + "$");
       if (host.match(re)) {
         // don't alert for this, it's probably DNS related
         // TODO_SEO what should we return?
@@ -11144,7 +11144,7 @@ function initializePolisHelpers(mongoParams) {
     // } else {
 
 
-    var port = process.env.STATIC_FILES_PORT;
+    let port = process.env.STATIC_FILES_PORT;
     // set the host header too, since S3 will look at that (or the routing proxy will patch up the request.. not sure which)
     req.headers.host = hostname;
     routingProxy.proxyRequest(req, res, {
@@ -11159,7 +11159,7 @@ function initializePolisHelpers(mongoParams) {
     if (devMode) {
       return process.env.STATIC_FILES_HOST;
     } else {
-      var origin = req.headers.host;
+      let origin = req.headers.host;
       if (!whitelistedBuckets[origin]) {
         console.error("got request with host that's not whitelisted: (" + req.headers.host + ")");
         return;
@@ -11171,8 +11171,8 @@ function initializePolisHelpers(mongoParams) {
 
   function makeRedirectorTo(path) {
     return function(req, res) {
-      var protocol = devMode ? "http://" : "https://";
-      var url = protocol + req.headers.host + path;
+      let protocol = devMode ? "http://" : "https://";
+      let url = protocol + req.headers.host + path;
       res.writeHead(302, {
         Location: url,
       });
@@ -11184,14 +11184,14 @@ function initializePolisHelpers(mongoParams) {
   function makeFileFetcher(hostname, port, path, headers, preloadData) {
 
     return function(req, res) {
-      var hostname = buildStaticHostname(req, res);
+      let hostname = buildStaticHostname(req, res);
       if (!hostname) {
         fail(res, 500, "polis_err_file_fetcher_serving_to_domain");
         console.error(req.headers.host);
         console.error(req.path);
         return;
       }
-      var url;
+      let url;
       if (devMode) {
         url = "http://" + hostname + ":" + port + path;
       } else {
@@ -11203,16 +11203,16 @@ function initializePolisHelpers(mongoParams) {
         url = "http://" + hostname + path;
       }
       winston.log("info", "fetch file from " + url);
-      var x = request(url);
+      let x = request(url);
       req.pipe(x);
       if (!_.isUndefined(preloadData)) {
         x = x.pipe(replaceStream("\"REPLACE_THIS_WITH_PRELOAD_DATA\"", JSON.stringify(preloadData)));
       }
-      // var title = "foo";
-      // var description = "bar";
-      // var site_name = "baz";
+      // let title = "foo";
+      // let description = "bar";
+      // let site_name = "baz";
 
-      var fbMetaTagsString = "<meta property=\"og:image\" content=\"https://s3.amazonaws.com/pol.is/polis_logo.png\" />\n";
+      let fbMetaTagsString = "<meta property=\"og:image\" content=\"https://s3.amazonaws.com/pol.is/polis_logo.png\" />\n";
       if (preloadData && preloadData.conversation) {
         fbMetaTagsString += "    <meta property=\"og:title\" content=\"" + preloadData.conversation.topic + "\" />\n";
         fbMetaTagsString += "    <meta property=\"og:description\" content=\"" + preloadData.conversation.description + "\" />\n";
@@ -11244,7 +11244,7 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function isIE(req) {
-    var h = req.headers['user-agent'];
+    let h = req.headers['user-agent'];
     return /MSIE [0-9]/.test(h) || /Trident/.test(h);
   }
 
@@ -11257,16 +11257,16 @@ function initializePolisHelpers(mongoParams) {
   }
 
   // serve up index.html in response to anything starting with a number
-  var hostname = process.env.STATIC_FILES_HOST;
-  var portForParticipationFiles = process.env.STATIC_FILES_PORT;
-  var portForAdminFiles = process.env.STATIC_FILES_ADMINDASH_PORT;
+  let hostname = process.env.STATIC_FILES_HOST;
+  let portForParticipationFiles = process.env.STATIC_FILES_PORT;
+  let portForAdminFiles = process.env.STATIC_FILES_ADMINDASH_PORT;
 
-  var fetchUnsupportedBrowserPage = makeFileFetcher(hostname, portForParticipationFiles, "/unsupportedBrowser.html", {
+  let fetchUnsupportedBrowserPage = makeFileFetcher(hostname, portForParticipationFiles, "/unsupportedBrowser.html", {
     'Content-Type': "text/html",
   });
 
   function fetchIndex(req, res, preloadData, port) {
-    var headers = {
+    let headers = {
       'Content-Type': "text/html",
     };
     if (!devMode) {
@@ -11274,7 +11274,7 @@ function initializePolisHelpers(mongoParams) {
         'Cache-Control': 'no-transform,public,max-age=60,s-maxage=60', // Cloudflare will probably cache it for one or two hours
       });
     }
-    var doFetch = makeFileFetcher(hostname, port, "/index.html", headers, preloadData);
+    let doFetch = makeFileFetcher(hostname, port, "/index.html", headers, preloadData);
     if (isUnsupportedBrowser(req)) {
 
       return fetchUnsupportedBrowserPage(req, res);
@@ -11305,8 +11305,8 @@ function initializePolisHelpers(mongoParams) {
 
   function fetchIndexForConversation(req, res) {
     console.log("fetchIndexForConversation", req.path);
-    var match = req.path.match(/[0-9][0-9A-Za-z]+/);
-    var conversation_id;
+    let match = req.path.match(/[0-9][0-9A-Za-z]+/);
+    let conversation_id;
     if (match && match.length) {
       conversation_id = match[0];
     }
@@ -11330,11 +11330,11 @@ function initializePolisHelpers(mongoParams) {
         getConversationInfo(zid),
       ]);
     }).then(function(a) {
-      var conv = a[0];
+      let conv = a[0];
 
-      var auth_opt_allow_3rdparty = ifDefinedFirstElseSecond(conv.auth_opt_allow_3rdparty, true);
-      var auth_opt_fb_computed = auth_opt_allow_3rdparty && ifDefinedFirstElseSecond(conv.auth_opt_fb, true);
-      var auth_opt_tw_computed = auth_opt_allow_3rdparty && ifDefinedFirstElseSecond(conv.auth_opt_tw, true);
+      let auth_opt_allow_3rdparty = ifDefinedFirstElseSecond(conv.auth_opt_allow_3rdparty, true);
+      let auth_opt_fb_computed = auth_opt_allow_3rdparty && ifDefinedFirstElseSecond(conv.auth_opt_fb, true);
+      let auth_opt_tw_computed = auth_opt_allow_3rdparty && ifDefinedFirstElseSecond(conv.auth_opt_tw, true);
 
       conv = {
         topic: conv.topic,
@@ -11360,7 +11360,7 @@ function initializePolisHelpers(mongoParams) {
       // conv = _.extend({}, optionalResults, conv);
       return conv;
     }).then(function(x) {
-      var preloadData = {
+      let preloadData = {
         conversation: x,
         // Nothing user-specific can go here, since we want to cache these per-conv index files on the CDN.
       };
@@ -11371,14 +11371,14 @@ function initializePolisHelpers(mongoParams) {
   }
 
 
-  var fetchIndexForAdminPage = makeFileFetcher(hostname, portForAdminFiles, "/index_admin.html", {
+  let fetchIndexForAdminPage = makeFileFetcher(hostname, portForAdminFiles, "/index_admin.html", {
     'Content-Type': "text/html",
   });
 
 
 
   function handle_GET_iip_conversation(req, res) {
-    var conversation_id = req.params.conversation_id;
+    let conversation_id = req.params.conversation_id;
     res.set({
       'Content-Type': 'text/html',
     });
@@ -11387,13 +11387,13 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_GET_iim_conversation(req, res) {
-    var zid = req.p.zid;
-    var conversation_id = req.params.conversation_id;
+    let zid = req.p.zid;
+    let conversation_id = req.params.conversation_id;
     getConversationInfo(zid).then(function(info) {
       res.set({
         'Content-Type': 'text/html',
       });
-      var title = info.topic || info.created;
+      let title = info.topic || info.created;
       res.send("<a href='https://pol.is/" + conversation_id + "' target='_blank'>" + title + "</a>" +
         "<p><a href='https://pol.is/m" + conversation_id + "' target='_blank'>moderate</a></p>" +
         (info.description ? "<p>" + info.description + "</p>" : "")
@@ -11407,11 +11407,11 @@ function initializePolisHelpers(mongoParams) {
 
   function makeReactClientProxy(hostname, port) {
     return function(req, res) {
-      var temp = req.path.split("/");
+      let temp = req.path.split("/");
       temp.shift();
       temp.shift();
-      var path = "/" + temp.join("/");
-      var url;
+      let path = "/" + temp.join("/");
+      let url;
       if (devMode) {
         url = "http://" + hostname + ":" + port + path;
       } else {
@@ -11420,7 +11420,7 @@ function initializePolisHelpers(mongoParams) {
       }
       console.log("ORIG", req.path);
       console.log("URL", url);
-      var x = request(url);
+      let x = request(url);
       req.pipe(x);
       x.pipe(res);
       x.on("error", function(err) {
@@ -11441,9 +11441,9 @@ function initializePolisHelpers(mongoParams) {
         return;
       }
       data = data[0];
-      var url = data.profile_image_url; // not https to save a round-trip
+      let url = data.profile_image_url; // not https to save a round-trip
 
-      var finished = false;
+      let finished = false;
       http.get(url, function(twitterResponse) {
         if (!finished) {
           clearTimeout(timeoutHandle);
@@ -11455,7 +11455,7 @@ function initializePolisHelpers(mongoParams) {
         fail(res, 500, "polis_err_finding_file " + url, err);
       });
 
-      var timeoutHandle = setTimeout(function() {
+      let timeoutHandle = setTimeout(function() {
         if (!finished) {
           finished = true;
           res.writeHead(504);
@@ -11470,7 +11470,7 @@ function initializePolisHelpers(mongoParams) {
   }
 
 
-  var handle_GET_conditionalIndexFetcher = (function() {
+  let handle_GET_conditionalIndexFetcher = (function() {
     return function(req, res) {
       if (hasAuthToken(req)) {
         // user is signed in, serve the app
@@ -11484,7 +11484,7 @@ function initializePolisHelpers(mongoParams) {
         return fetchIndexForAdminPage(req, res);
       } else {
         // user not signed in, redirect to landing page
-        var url = getServerNameWithProtocol(req) + "/home";
+        let url = getServerNameWithProtocol(req) + "/home";
         res.redirect(url);
       }
     };
@@ -11493,7 +11493,7 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_GET_localFile_dev_only(req, res) {
-    var filename = String(req.path).split("/");
+    let filename = String(req.path).split("/");
     filename.shift();
     filename.shift();
     filename = filename.join('/');
@@ -11516,9 +11516,9 @@ function initializePolisHelpers(mongoParams) {
 
   function middleware_log_request_body(req, res, next) {
     if (devMode) {
-      var b = "";
+      let b = "";
       if (req.body) {
-        var temp = _.clone(req.body);
+        let temp = _.clone(req.body);
         // if (temp.email) {
         //     temp.email = "foo@foo.com";
         // }
@@ -11563,15 +11563,15 @@ function initializePolisHelpers(mongoParams) {
     return res.send(204);
   }
 
-  var middleware_responseTime_start = responseTime(function(req, res, time) {
+  let middleware_responseTime_start = responseTime(function(req, res, time) {
     if (req && req.route && req.route.path) {
-      var path = req.route.path;
+      let path = req.route.path;
       time = time << 0;
       addInRamMetric(path, time);
     }
   });
 
-  var p3pFunction = p3p(p3p.recommended);
+  let p3pFunction = p3p(p3p.recommended);
 
   function middleware_p3p(req, res, next) {
     if (isIE(req)) {
