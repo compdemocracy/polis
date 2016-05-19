@@ -1871,7 +1871,7 @@ function initializePolisHelpers(mongoParams) {
       return regex.test(req.path);
     });
 
-    if (!domainOverride && -1 === whitelistedDomains.indexOf(host) && !routeIsWhitelistedForAnyDomain) {
+    if (!domainOverride && !whitelistedDomains.includes(host) && !routeIsWhitelistedForAnyDomain) {
       winston.log("info", 'not whitelisted');
       // winston.log("info",req);
       winston.log("info", req.headers);
@@ -2579,13 +2579,13 @@ function initializePolisHelpers(mongoParams) {
       server = "http://" + req.headers.host;
     }
 
-    if (req.headers.host.indexOf("preprod.pol.is") >= 0) {
+    if (req.headers.host.includes("preprod.pol.is")) {
       server = "https://preprod.pol.is";
     }
-    if (req.headers.host.indexOf("embed.pol.is") >= 0) {
+    if (req.headers.host.includes("embed.pol.is")) {
       server = "https://embed.pol.is";
     }
-    if (req.headers.host.indexOf("survey.pol.is") >= 0) {
+    if (req.headers.host.includes("survey.pol.is")) {
       server = "https://survey.pol.is";
     }
     return server;
@@ -4986,7 +4986,7 @@ Email verified! You can close this tab or hit the back button.
 
   function denyIfNotFromWhitelistedDomain(req, res, next) {
 
-    let isWithinIframe = req.headers && req.headers.referer && req.headers.referer.indexOf('parent_url') >= 0;
+    let isWithinIframe = req.headers && req.headers.referer && req.headers.referer.includes('parent_url');
 
 
     // res.status(403);
@@ -6224,7 +6224,7 @@ Email verified! You can close this tab or hit the back button.
       err.code === '23505' ||
       err.sqlState === 23505 ||
       err.sqlState === '23505' ||
-      (err.messagePrimary && err.messagePrimary.indexOf("duplicate key value") >= 0);
+      (err.messagePrimary && err.messagePrimary.includes("duplicate key value"));
     return isdup;
   }
 
@@ -6291,7 +6291,7 @@ Email verified! You can close this tab or hit the back button.
   function createModerationUrl(req, zinvite) {
     let server = devMode ? "http://localhost:5000" : "https://pol.is";
 
-    if (req.headers.host.indexOf("preprod.pol.is") >= 0) {
+    if (req.headers.host.includes("preprod.pol.is")) {
       server = "https://preprod.pol.is";
     }
     let url = server + "/m/" + zinvite;
