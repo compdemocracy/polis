@@ -1547,7 +1547,7 @@ function initializePolisHelpers(mongoParams) {
 
   function doVotesPost(pid, zid, tid, voteType, weight) {
     weight = weight || 0;
-    let weight_x_32767 = (weight * 32767) << 0; // weight is stored as a SMALLINT, so convert from a [-1,1] float to [-32767,32767] int
+    let weight_x_32767 = Math.trunc(weight * 32767); // weight is stored as a SMALLINT, so convert from a [-1,1] float to [-32767,32767] int
     return new Promise(function(resolve, reject) {
       let query = "INSERT INTO votes (pid, zid, tid, vote, weight_x_32767, created) VALUES ($1, $2, $3, $4, $5, default) RETURNING created;";
       let params = [pid, zid, tid, voteType, weight_x_32767];
@@ -11570,7 +11570,7 @@ Email verified! You can close this tab or hit the back button.
   let middleware_responseTime_start = responseTime(function(req, res, time) {
     if (req && req.route && req.route.path) {
       let path = req.route.path;
-      time = time << 0;
+      time = Math.trunc(time);
       addInRamMetric(path, time);
     }
   });
