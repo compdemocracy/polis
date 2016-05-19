@@ -65,151 +65,152 @@ var helpersInitialized = new Promise(function(resolve, reject) {
 
 
 helpersInitialized.then(function(o) {
+  const {
+    addCorsHeader,
+    assignToP,
+    assignToPCustom,
+    auth,
+    authOptional,
+    COOKIES,
+    denyIfNotFromWhitelistedDomain,
+    devMode,
+    enableAgid,
+    fetchIndexForAdminPage,
+    fetchIndexForConversation,
+    fetchIndexWithoutPreloadData,
+    getArrayOfInt,
+    getArrayOfStringNonEmpty,
+    getBool,
+    getConversationIdFetchZid,
+    getEmail,
+    getInt,
+    getIntInRange,
+    getNumberInRange,
+    getOptionalStringLimitLength,
+    getPassword,
+    getPasswordWithCreatePasswordRules,
+    getPidForParticipant,
+    getStringLimitLength,
+    getUrlLimitLength,
+    haltOnTimeout,
+    HMAC_SIGNATURE_PARAM_NAME,
+    hostname,
+    makeFileFetcher,
+    makeReactClientProxy,
+    makeRedirectorTo,
+    moveToBody,
+    need,
+    pidCache,
+    portForAdminFiles,
+    portForParticipationFiles,
+    proxy,
+    redirectIfApiDomain,
+    redirectIfHasZidButNoConversationId,
+    redirectIfNotHttps,
+    redirectIfWrongDomain,
+    resolve_pidThing,
+    timeout,
+    want,
+    wantCookie,
+    winston,
+    writeDefaultHead,
 
-  const addCorsHeader = o.addCorsHeader;
-  const assignToP = o.assignToP;
-  const assignToPCustom = o.assignToPCustom;
-  const auth = o.auth;
-  const authOptional = o.authOptional;
-  const COOKIES = o.COOKIES;
-  const denyIfNotFromWhitelistedDomain = o.denyIfNotFromWhitelistedDomain;
-  const devMode = o.devMode;
-  const enableAgid = o.enableAgid;
-  const fetchIndexForAdminPage = o.fetchIndexForAdminPage;
-  const fetchIndexForConversation = o.fetchIndexForConversation;
-  const fetchIndexWithoutPreloadData = o.fetchIndexWithoutPreloadData;
-  const getArrayOfInt = o.getArrayOfInt;
-  const getArrayOfStringNonEmpty = o.getArrayOfStringNonEmpty;
-  const getBool = o.getBool;
-  const getConversationIdFetchZid = o.getConversationIdFetchZid;
-  const getEmail = o.getEmail;
-  const getInt = o.getInt;
-  const getIntInRange = o.getIntInRange;
-  const getNumberInRange = o.getNumberInRange;
-  const getOptionalStringLimitLength = o.getOptionalStringLimitLength;
-  const getPassword = o.getPassword;
-  const getPasswordWithCreatePasswordRules = o.getPasswordWithCreatePasswordRules;
-  const getPidForParticipant = o.getPidForParticipant;
-  const getStringLimitLength = o.getStringLimitLength;
-  const getUrlLimitLength = o.getUrlLimitLength;
-  const haltOnTimeout = o.haltOnTimeout;
-  const HMAC_SIGNATURE_PARAM_NAME = o.HMAC_SIGNATURE_PARAM_NAME;
-  const hostname = o.hostname;
-  const makeFileFetcher = o.makeFileFetcher;
-  const makeReactClientProxy = o.makeReactClientProxy;
-  const makeRedirectorTo = o.makeRedirectorTo;
-  const moveToBody = o.moveToBody;
-  const need = o.need;
-  const pidCache = o.pidCache;
-  const portForAdminFiles = o.portForAdminFiles;
-  const portForParticipationFiles = o.portForParticipationFiles;
-  const proxy = o.proxy;
-  const redirectIfApiDomain = o.redirectIfApiDomain;
-  const redirectIfHasZidButNoConversationId = o.redirectIfHasZidButNoConversationId;
-  const redirectIfNotHttps = o.redirectIfNotHttps;
-  const redirectIfWrongDomain = o.redirectIfWrongDomain;
-  const resolve_pidThing = o.resolve_pidThing;
-  const timeout = o.timeout;
-  const want = o.want;
-  const wantCookie = o.wantCookie;
-  const winston = o.winston;
-  const writeDefaultHead = o.writeDefaultHead;
+    middleware_log_request_body,
+    middleware_log_middleware_errors,
+    middleware_check_if_options,
+    middleware_p3p,
+    middleware_responseTime_start,
 
-  const middleware_log_request_body = o.middleware_log_request_body;
-  const middleware_log_middleware_errors = o.middleware_log_middleware_errors;
-  const middleware_check_if_options = o.middleware_check_if_options;
-  const middleware_p3p = o.middleware_p3p;
-  const middleware_responseTime_start = o.middleware_responseTime_start;
-
-  const handle_DELETE_metadata_answers = o.handle_DELETE_metadata_answers;
-  const handle_DELETE_metadata_questions = o.handle_DELETE_metadata_questions;
-  const handle_GET_bid = o.handle_GET_bid;
-  const handle_GET_bidToPid = o.handle_GET_bidToPid;
-  const handle_GET_cache_purge = o.handle_GET_cache_purge;
-  const handle_GET_canvas_app_instructions_png = o.handle_GET_canvas_app_instructions_png;
-  const handle_GET_comments = o.handle_GET_comments;
-  const handle_GET_conditionalIndexFetcher = o.handle_GET_conditionalIndexFetcher;
-  const handle_GET_contexts = o.handle_GET_contexts;
-  const handle_GET_conversation_assigmnent_xml = o.handle_GET_conversation_assigmnent_xml;
-  const handle_GET_conversations = o.handle_GET_conversations;
-  const handle_GET_conversationStats = o.handle_GET_conversationStats;
-  const handle_GET_dataExport = o.handle_GET_dataExport;
-  const handle_GET_dataExport_results = o.handle_GET_dataExport_results;
-  const handle_GET_domainWhitelist = o.handle_GET_domainWhitelist;
-  const handle_GET_dummyButton = o.handle_GET_dummyButton;
-  const handle_GET_einvites = o.handle_GET_einvites;
-  const handle_GET_facebook_delete = o.handle_GET_facebook_delete;
-  const handle_GET_iim_conversation = o.handle_GET_iim_conversation;
-  const handle_GET_iip_conversation = o.handle_GET_iip_conversation;
-  const handle_GET_implicit_conversation_generation = o.handle_GET_implicit_conversation_generation;
-  const handle_GET_launchPrep = o.handle_GET_launchPrep;
-  const handle_GET_localFile_dev_only = o.handle_GET_localFile_dev_only;
-  const handle_GET_locations = o.handle_GET_locations;
-  const handle_GET_lti_oauthv1_credentials = o.handle_GET_lti_oauthv1_credentials;
-  const handle_GET_math_pca2 = o.handle_GET_math_pca2;
-  const handle_GET_math_pca = o.handle_GET_math_pca;
-  const handle_GET_metadata = o.handle_GET_metadata;
-  const handle_GET_metadata_answers = o.handle_GET_metadata_answers;
-  const handle_GET_metadata_choices = o.handle_GET_metadata_choices;
-  const handle_GET_metadata_questions = o.handle_GET_metadata_questions;
-  const handle_GET_nextComment = o.handle_GET_nextComment;
-  const handle_GET_notifications_subscribe = o.handle_GET_notifications_subscribe;
-  const handle_GET_notifications_unsubscribe = o.handle_GET_notifications_unsubscribe;
-  const handle_GET_participants = o.handle_GET_participants;
-  const handle_GET_participation = o.handle_GET_participation;
-  const handle_GET_participationInit = o.handle_GET_participationInit;
-  const handle_GET_pcaPlaybackByLastVoteTimestamp = o.handle_GET_pcaPlaybackByLastVoteTimestamp;
-  const handle_GET_pcaPlaybackList = o.handle_GET_pcaPlaybackList;
-  const handle_GET_perfStats = o.handle_GET_perfStats;
-  const handle_GET_ptptois = o.handle_GET_ptptois;
-  const handle_GET_setup_assignment_xml = o.handle_GET_setup_assignment_xml;
-  const handle_GET_snapshot = o.handle_GET_snapshot;
-  const handle_GET_tryCookie = o.handle_GET_tryCookie;
-  const handle_GET_twitter_image = o.handle_GET_twitter_image;
-  const handle_GET_twitter_oauth_callback = o.handle_GET_twitter_oauth_callback;
-  const handle_GET_twitter_users = o.handle_GET_twitter_users;
-  const handle_GET_twitterBtn = o.handle_GET_twitterBtn;
-  const handle_GET_users = o.handle_GET_users;
-  const handle_GET_verification = o.handle_GET_verification;
-  const handle_GET_votes = o.handle_GET_votes;
-  const handle_GET_votes_famous = o.handle_GET_votes_famous;
-  const handle_GET_votes_me = o.handle_GET_votes_me;
-  const handle_GET_xids = o.handle_GET_xids;
-  const handle_GET_zinvites = o.handle_GET_zinvites;
-  const handle_POST_auth_deregister = o.handle_POST_auth_deregister;
-  const handle_POST_auth_facebook = o.handle_POST_auth_facebook;
-  const handle_POST_auth_login = o.handle_POST_auth_login;
-  const handle_POST_auth_new = o.handle_POST_auth_new;
-  const handle_POST_auth_password = o.handle_POST_auth_password;
-  const handle_POST_auth_pwresettoken = o.handle_POST_auth_pwresettoken;
-  const handle_POST_comments = o.handle_POST_comments;
-  const handle_POST_contexts = o.handle_POST_contexts;
-  const handle_POST_conversation_close = o.handle_POST_conversation_close;
-  const handle_POST_conversation_reopen = o.handle_POST_conversation_reopen;
-  const handle_POST_conversations = o.handle_POST_conversations;
-  const handle_POST_convSubscriptions = o.handle_POST_convSubscriptions;
-  const handle_POST_domainWhitelist = o.handle_POST_domainWhitelist;
-  const handle_POST_einvites = o.handle_POST_einvites;
-  const handle_POST_joinWithInvite = o.handle_POST_joinWithInvite;
-  const handle_POST_lti_conversation_assignment = o.handle_POST_lti_conversation_assignment;
-  const handle_POST_lti_setup_assignment = o.handle_POST_lti_setup_assignment;
-  const handle_POST_metadata_answers = o.handle_POST_metadata_answers;
-  const handle_POST_metadata_new = o.handle_POST_metadata_new;
-  const handle_POST_metadata_questions = o.handle_POST_metadata_questions;
-  const handle_POST_participants = o.handle_POST_participants;
-  const handle_POST_ptptCommentMod = o.handle_POST_ptptCommentMod;
-  const handle_POST_query_participants_by_metadata = o.handle_POST_query_participants_by_metadata;
-  const handle_POST_sendCreatedLinkToEmail = o.handle_POST_sendCreatedLinkToEmail;
-  const handle_POST_stars = o.handle_POST_stars;
-  const handle_POST_trashes = o.handle_POST_trashes;
-  const handle_POST_tutorial = o.handle_POST_tutorial;
-  const handle_POST_upvotes = o.handle_POST_upvotes;
-  const handle_POST_users_invite = o.handle_POST_users_invite;
-  const handle_POST_votes = o.handle_POST_votes;
-  const handle_POST_zinvites = o.handle_POST_zinvites;
-  const handle_PUT_comments = o.handle_PUT_comments;
-  const handle_PUT_conversations = o.handle_PUT_conversations;
-  const handle_PUT_ptptois = o.handle_PUT_ptptois;
+    handle_DELETE_metadata_answers,
+    handle_DELETE_metadata_questions,
+    handle_GET_bid,
+    handle_GET_bidToPid,
+    handle_GET_cache_purge,
+    handle_GET_canvas_app_instructions_png,
+    handle_GET_comments,
+    handle_GET_conditionalIndexFetcher,
+    handle_GET_contexts,
+    handle_GET_conversation_assigmnent_xml,
+    handle_GET_conversations,
+    handle_GET_conversationStats,
+    handle_GET_dataExport,
+    handle_GET_dataExport_results,
+    handle_GET_domainWhitelist,
+    handle_GET_dummyButton,
+    handle_GET_einvites,
+    handle_GET_facebook_delete,
+    handle_GET_iim_conversation,
+    handle_GET_iip_conversation,
+    handle_GET_implicit_conversation_generation,
+    handle_GET_launchPrep,
+    handle_GET_localFile_dev_only,
+    handle_GET_locations,
+    handle_GET_lti_oauthv1_credentials,
+    handle_GET_math_pca2,
+    handle_GET_math_pca,
+    handle_GET_metadata,
+    handle_GET_metadata_answers,
+    handle_GET_metadata_choices,
+    handle_GET_metadata_questions,
+    handle_GET_nextComment,
+    handle_GET_notifications_subscribe,
+    handle_GET_notifications_unsubscribe,
+    handle_GET_participants,
+    handle_GET_participation,
+    handle_GET_participationInit,
+    handle_GET_pcaPlaybackByLastVoteTimestamp,
+    handle_GET_pcaPlaybackList,
+    handle_GET_perfStats,
+    handle_GET_ptptois,
+    handle_GET_setup_assignment_xml,
+    handle_GET_snapshot,
+    handle_GET_tryCookie,
+    handle_GET_twitter_image,
+    handle_GET_twitter_oauth_callback,
+    handle_GET_twitter_users,
+    handle_GET_twitterBtn,
+    handle_GET_users,
+    handle_GET_verification,
+    handle_GET_votes,
+    handle_GET_votes_famous,
+    handle_GET_votes_me,
+    handle_GET_xids,
+    handle_GET_zinvites,
+    handle_POST_auth_deregister,
+    handle_POST_auth_facebook,
+    handle_POST_auth_login,
+    handle_POST_auth_new,
+    handle_POST_auth_password,
+    handle_POST_auth_pwresettoken,
+    handle_POST_comments,
+    handle_POST_contexts,
+    handle_POST_conversation_close,
+    handle_POST_conversation_reopen,
+    handle_POST_conversations,
+    handle_POST_convSubscriptions,
+    handle_POST_domainWhitelist,
+    handle_POST_einvites,
+    handle_POST_joinWithInvite,
+    handle_POST_lti_conversation_assignment,
+    handle_POST_lti_setup_assignment,
+    handle_POST_metadata_answers,
+    handle_POST_metadata_new,
+    handle_POST_metadata_questions,
+    handle_POST_participants,
+    handle_POST_ptptCommentMod,
+    handle_POST_query_participants_by_metadata,
+    handle_POST_sendCreatedLinkToEmail,
+    handle_POST_stars,
+    handle_POST_trashes,
+    handle_POST_tutorial,
+    handle_POST_upvotes,
+    handle_POST_users_invite,
+    handle_POST_votes,
+    handle_POST_zinvites,
+    handle_PUT_comments,
+    handle_PUT_conversations,
+    handle_PUT_ptptois,
+  } = o;
 
 
   app.disable('x-powered-by');
