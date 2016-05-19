@@ -23,6 +23,7 @@
     "bcrypt": "0.8.6",
     "bluebird": "2.10.2",
     "connect-timeout": "1.7.0",
+    "eslint": "^2.10.2",
     "express": "3.21.2",
     "fb": "1.0.2",
     "gulp": "3.8.11",
@@ -50,5 +51,9 @@
     "underscore": "1.5.2",
     "valid-url": "1.0.9",
     "winston": "1.0.2"
+  },
+  "devDependencies": {
+    "babel-eslint": "^6.0.4",
+    "eslint": "^2.10.2"
   }
 }
