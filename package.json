@@ -11,7 +11,7 @@
     "build": "npm run clean && npm run build:webpack",
     "deploy_TO_PRODUCTION": "deploy_TO_PRODUCTION",
     "deployPreprod": "deployPreprod",
-    "start": "x",
+    "start": "./x",
     "lint": "eslint src"
   },
   "author": "Colin Megill",
