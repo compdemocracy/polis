@@ -3,8 +3,11 @@
 const Promise = require('bluebird');
 const express = require('express');
 const mongo = require('mongodb');
+const optional = require("optional");
 
 const server = require('./server');
+
+const polisServerBrand = optional('polisServerBrand');
 
 const app = express();
 
@@ -1079,6 +1082,16 @@ helpersInitialized.then(function(o) {
     moveToBody,
     need("e", getStringLimitLength(1, 1000), assignToP),
     handle_GET_verification);
+
+
+
+  if (polisServerBrand && polisServerBrand.registerRoutes) {
+    polisServerBrand.registerRoutes(app, o);
+  }
+
+
+
+
 
   // app.get("/api/v3/setFirstCookie",
   //     moveToBody,
