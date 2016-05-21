@@ -22,6 +22,7 @@ import PasswordResetInitDone from "./components/password-reset-init-done";
 import SignIn from "./components/signin";
 import SignOut from "./components/signout";
 import CreateUser from "./components/createuser";
+import Contributor from "./components/contributors";
 /* landers */
 import News from "./components/landers/news";
 import Home from "./components/landers/homepage";
@@ -109,6 +110,7 @@ class Root extends React.Component {
             <Route path="pwreset/*" component={PasswordReset}/>
             <Route path="pwresetinit" component={PasswordResetInit}/>
             <Route path="pwresetinit/done" component={PasswordResetInitDone}/>
+            <Route path="contrib" component={Contributor}/>
             <Route path="tos" component={TOS}/>
             <Route path="privacy" component={Privacy}/>
           </Router>
