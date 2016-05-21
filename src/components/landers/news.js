@@ -102,8 +102,7 @@ class News extends React.Component {
         backgroundColor={"#03a9f4"}
         headerBackgroundColor={"#03a9f4"}
         footerBackgroundColor={"#03a9f4"}
-        image={false}
-        stars={{visible: true, color: "darkgrey"}}>
+        image={false}>
         {/* hero */}
         <Flex
           direction="column"
