@@ -5351,9 +5351,14 @@ Email verified! You can close this tab or hit the back button.
         fail(res, 500, "polis_err_fb_auth_check", fbRes && fbRes.error);
         return;
       }
+
+      const friendsPromise = (fbRes && fbRes.friends && fbRes.friends.length ?
+        getFriends(fb_access_token) :
+        Promise.resolve([]));
+
       Promise.all([
         getLocationInfo(fb_access_token, fbRes.location),
-        (fbRes.friends.length ? getFriends(fb_access_token) : Promise.resolve([])),
+        friendsPromise,
       ]).then(function(a) {
         let locationResponse = a[0];
         let friends = a[1];
