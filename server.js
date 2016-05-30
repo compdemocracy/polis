@@ -5327,7 +5327,8 @@ Email verified! You can close this tab or hit the back button.
     let response = JSON.parse(req.p.response);
     let fb_access_token = response && response.authResponse && response.authResponse.accessToken;
     if (!fb_access_token) {
-      emailBadProblemTime("polis_err_missing_fb_access_token " + req.headers.referer);
+      emailBadProblemTime("polis_err_missing_fb_access_token " + req.headers.referer + "\n\n" + req.p.response);
+      console.log(req.p.response);
       fail(res, 500, "polis_err_missing_fb_access_token");
     }
     let fields = [
