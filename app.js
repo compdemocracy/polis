@@ -128,7 +128,6 @@ helpersInitialized.then(function(o) {
     handle_DELETE_metadata_questions,
     handle_GET_bid,
     handle_GET_bidToPid,
-    handle_GET_cache_purge,
     handle_GET_canvas_app_instructions_png,
     handle_GET_comments,
     handle_GET_conditionalIndexFetcher,
@@ -197,7 +196,6 @@ helpersInitialized.then(function(o) {
     handle_POST_lti_conversation_assignment,
     handle_POST_lti_setup_assignment,
     handle_POST_metadata_answers,
-    handle_POST_metadata_new,
     handle_POST_metadata_questions,
     handle_POST_participants,
     handle_POST_ptptCommentMod,
@@ -794,13 +792,6 @@ helpersInitialized.then(function(o) {
     // TODO want('lastMetaTime', getInt, assignToP, 0),
     handle_GET_metadata);
 
-  app.post('/api/v3/metadata/new',
-    moveToBody,
-    auth(assignToP),
-    want('oid', getInt, assignToP),
-    need('metaname', getInt, assignToP),
-    need('metavalue', getInt, assignToP),
-    handle_POST_metadata_new);
 
   app.get('/api/v3/conversations',
     moveToBody,
@@ -919,10 +910,10 @@ helpersInitialized.then(function(o) {
     need('email', getEmail, assignToP),
     handle_POST_einvites);
 
-  // TODO_SECURITY
-  app.get("/api/v3/cache/purge/f2938rh2389hr283hr9823rhg2gweiwriu78",
-    // moveToBody,
-    handle_GET_cache_purge);
+  // // TODO_SECURITY
+  // app.get("/api/v3/cache/purge/f2938rh2389hr283hr9823rhg2gweiwriu78",
+  //   // moveToBody,
+  //   handle_GET_cache_purge);
 
   app.get("/api/v3/einvites",
     moveToBody,
