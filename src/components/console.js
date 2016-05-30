@@ -95,7 +95,7 @@ class App extends React.Component {
           /* jshint ignore:start */
           Intercom("boot", {
             app_id: "nb5hla8s",
-            created_at: Date.now(),
+            created_at: user.created / 1000 >> 0,
             user_id: user.uid
           });
           /* jshint ignore:end */
@@ -108,23 +108,28 @@ class App extends React.Component {
 
   updateIntercomSettings() {
     this.initIntercom();
-    const user = this.props.user;
-    window.intercomOptions = {
-      app_id: "nb5hla8s",
-      widget: {
-        activator: "#IntercomDefaultWidget"
+    if (this.intercomInitialized) {
+      const user = this.props.user;
+      window.intercomOptions = {
+        app_id: "nb5hla8s",
+        widget: {
+          activator: "#IntercomDefaultWidget"
+        }
+      };
+      if (user && user.uid) {
+        intercomOptions.user_id = user.uid + "";
       }
-    };
-    if (user && user.uid) {
-      intercomOptions.user_id = user.uid + "";
+      if (user && user.email) {
+        intercomOptions.email = user.email;
+      }
+      if (user && user.created) {
+        intercomOptions.created_at = user.created / 1000 >> 0;
+      }
+      if (user && user.hname) {
+        intercomOptions.name = user.hname;
+      }
+      Intercom('update', intercomOptions);
     }
-    if (user && user.email) {
-      intercomOptions.email = user.email;
-    }
-    if (user && user.created) {
-      intercomOptions.created_at = user.created / 1000 >> 0;
-    }
-
   }
 
   componentDidUpdate() {
