@@ -6635,7 +6635,9 @@ Email verified! You can close this tab or hit the back button.
                   yell("polis_err_getting_modstatus_comment_count");
                   return void 0;
                 }).then(function(n) {
-
+                  if (n === 0) {
+                    return;
+                  }
                   pgQueryP_readOnly("select * from users where site_id = (select site_id from page_ids where zid = ($1)) UNION select * from users where uid = ($2);", [zid, conv.owner]).then(function(users) {
                     let uids = _.pluck(users, "uid");
                     // also notify polis team for moderation
