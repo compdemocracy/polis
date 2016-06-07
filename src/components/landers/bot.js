@@ -58,7 +58,6 @@ class Plus extends React.Component {
         border: "none",
         borderRadius: 3,
         margin: "20px 0px 10px 0px"
-
       },
       waitingListButton: {
         backgroundColor: "#03a9f4",
@@ -66,9 +65,40 @@ class Plus extends React.Component {
         borderRadius: 3,
         margin: "0px 0px 20px 0px"
       },
-      slackContainer: {
+      imageContainer: {
+        width: "100%",
         marginBottom: 40,
         marginTop: 0,
+        position: "relative",
+        '@media (min-width: 768px)': {
+          marginTop: 40
+        },
+      },
+      interfaceImage: {
+        width: "100%",
+        zIndex: -1000,
+        '@media (min-width: 320px)': {
+          marginTop: 0,
+          width: "90%"
+        },
+        '@media (min-width: 768px)': {
+          display: "none"
+        }
+      },
+      conversationImage: {
+        '@media (min-width: 320px)': {
+          width: '90%',
+          position: "inherit"
+        },
+        '@media (min-width: 768px)': {
+          display: "none"
+        },
+      },
+      imagesCombinedForHighRes: {
+        display: "none",
+        '@media (min-width: 768px)': {
+          display: "inherit"
+        },
       },
       body: {
         padding: 40
@@ -84,7 +114,7 @@ class Plus extends React.Component {
         backgroundColor: "#03a9f4",
         color: "white",
         width: "100vw",
-        padding: "30px 0px"
+        padding: "30px 0px",
       },
       sectionHeader: {
         fontSize: 24,
@@ -181,11 +211,23 @@ class Plus extends React.Component {
         <div>
           <Button
             onClick={this.handleJoinWaitingListClicked()}
-            style={this.styles().waitingListButton}> Join the Waiting List </Button>
+            style={this.styles().waitingListButton}>
+            Join the Waiting List
+          </Button>
         </div>
-        <div style={this.styles().slackContainer}>
-          <img src="http://s33.postimg.org/zfoqfil0v/slack_Interface.png" />
-        </div>
+        <Flex
+          direction="column"
+          styleOverrides={this.styles().imageContainer}>
+          <image
+            style={this.styles().imagesCombinedForHighRes}
+            src="http://s32.postimg.org/qdigc9kvp/convo_Interface_Combined.png"/>
+          <img
+            style={this.styles().interfaceImage}
+            src="http://s33.postimg.org/zfoqfil0v/slack_Interface.png"/>
+          <img
+            style={this.styles().conversationImage}
+            src="http://s33.postimg.org/jr40v6nov/conversation.png"/>
+        </Flex>
         <Flex
           styleOverrides={{
             width: "100%",
@@ -195,7 +237,7 @@ class Plus extends React.Component {
           justifyContent="center"
           wrap="nowrap"
           alignItems="center">
-          <p style={this.styles().howItWorks}> How PolisBot works </p>
+          <p style={this.styles().howItWorks}> Get started in minutes </p>
           <Step
             step={"1"}
             body={`
