@@ -27,6 +27,7 @@ import Contributor from "./components/contributors";
 import News from "./components/landers/news";
 import Home from "./components/landers/homepage";
 import Plus from "./components/landers/plus";
+import Bot from "./components/landers/bot";
 
 import TOS from "./components/tos";
 import Privacy from "./components/privacy";
@@ -98,6 +99,7 @@ class Root extends React.Component {
             <Route path="news" component={News}/>
             <Route path="plus" component={Plus}/>
             <Route path="home" component={Plus}/>
+            <Route path="bot" component={Bot}/>
             <Route path="signin" component={SignIn}/>
             <Route path="signin/*" component={SignIn}/>
             <Route path="signin/**/*" component={SignIn}/>

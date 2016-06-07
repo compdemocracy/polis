@@ -20,20 +20,11 @@ class Button extends React.Component {
         backgroundColor: this.props.style.backgroundColor,
         color: this.props.style.color,
         border: this.props.style.border ? this.props.style.border : 0,
-        marginRight: 10,
         borderRadius: "0.3em",
         // padding: "0.4em 1em",
         padding: "0.8em 1.5em",
         cursor: "pointer",
         outline: "none",
-
-        // "@media (min-width: 992px)": {
-        //   padding: "0.6em 1.2em"
-        // },
-
-        // "@media (min-width: 1200px)": {
-        //   padding: "0.8em 1.5em"
-        // },
 
         ":hover": {
           backgroundColor: Color(this.props.style.backgroundColor).darken(.1).rgbString()
