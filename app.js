@@ -1134,6 +1134,7 @@ helpersInitialized.then(function(o) {
   app.get(/^\/m\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForAdminPage);
   app.get(/^\/integrate(\/.*)?/, fetchIndexForAdminPage);
   app.get(/^\/account(\/.*)?/, fetchIndexForAdminPage);
+  app.get(/^\/bot(\/.*)?/, fetchIndexForAdminPage);
   app.get(/^\/conversations(\/.*)?/, fetchIndexForAdminPage);
   app.get(/^\/signout(\/.*)?/, fetchIndexForAdminPage);
   app.get(/^\/signin(\/.*)?/, fetchIndexForAdminPage);
