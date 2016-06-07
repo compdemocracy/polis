@@ -41,6 +41,7 @@ class Plus extends React.Component {
       hero: {
         fontSize: "2.5em",
         lineHeight: 1.4,
+        marginBottom: 10,
         maxWidth: 900,
         padding: "0px 40px",
         zIndex: 10,
@@ -54,10 +55,13 @@ class Plus extends React.Component {
         lineHeight: 1.6,
         textAlign: 'center',
         fontWeight: 300,
-        margin: 0,
+        margin: "10px 0px 0px 0px",
         padding: "0px 40px 40px 40px",
         maxWidth: 700,
         zIndex: 10,
+      },
+      slackLogo: {
+        width: 100
       },
       waitingListInput: {
         padding: 13,
@@ -206,6 +210,9 @@ class Plus extends React.Component {
                 sophisticated summaries of their thoughts. Automatically.
               `}
             </p>
+            <img
+            style={this.styles().slackLogo}
+            src="https://upload.wikimedia.org/wikipedia/en/7/76/Slack_Icon.png"/>
             <p style={this.styles().heroSub}>
               Meet PolisBot, an AI powered slackbot. Eliminate
                information gathering meetings, complex
