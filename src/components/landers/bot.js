@@ -26,13 +26,17 @@ class Plus extends React.Component {
   styles() {
     return {
       container: {
-        minWidth: "100vw",
+        width: "100%",
         zIndex: 10
       },
       sectionColor: {
-        minWidth: "100vw",
+        width: "100%",
         backgroundColor: "#03a9f4",
         color: "white",
+      },
+      heroContainer: {
+        width: "100%",
+        backgroundColor: "rgb(245,245,245)"
       },
       hero: {
         fontSize: "2.5em",
@@ -41,20 +45,22 @@ class Plus extends React.Component {
         padding: "0px 40px",
         zIndex: 10,
         textAlign: 'center',
+        width: "100%",
+        color: "rgb(130,130,130)",
       },
       heroSub: {
         fontSize: 24,
+        color: "rgb(130,130,130)",
         lineHeight: 1.6,
         textAlign: 'center',
         fontWeight: 300,
         margin: 0,
-        padding: "0px 40px",
+        padding: "0px 40px 40px 40px",
         maxWidth: 700,
         zIndex: 10,
       },
       waitingListInput: {
         padding: 13,
-        backgroundColor: "rgb(240,240,240)",
         border: "none",
         borderRadius: 3,
         margin: "20px 0px 10px 0px"
@@ -97,7 +103,8 @@ class Plus extends React.Component {
       imagesCombinedForHighRes: {
         display: "none",
         '@media (min-width: 768px)': {
-          display: "inherit"
+          display: "inherit",
+          width: 800,
         },
       },
       body: {
@@ -170,6 +177,10 @@ class Plus extends React.Component {
         lineHeight: 1.8,
 
       },
+      lowerCallToActionContainer: {
+        width: "100%",
+        backgroundColor: "rgb(230,230,230)",
+      }
     }
   }
   handleJoinWaitingListClicked(r) {
@@ -185,6 +196,7 @@ class Plus extends React.Component {
         stars={{visible: true, color: "darkgrey"}}>
         {/* hero */}
         <Flex
+          styleOverrides={this.styles().heroContainer}
           direction="column"
           alignItems="center"
           >
@@ -202,6 +214,9 @@ class Plus extends React.Component {
             </p>
         </Flex>
         {/* upper cta */}
+        <Flex
+          direction="column"
+          styleOverrides={this.styles().lowerCallToActionContainer}>
         <div>
           <input
             placeholder="email"
@@ -215,6 +230,7 @@ class Plus extends React.Component {
             Join the Waiting List
           </Button>
         </div>
+        </Flex>
         <Flex
           direction="column"
           styleOverrides={this.styles().imageContainer}>
@@ -260,6 +276,7 @@ class Plus extends React.Component {
               PolisBot sends you a summary of statements that enjoyed broad consensus. If there were divisive issues, the summary will also convey opinion groups that formed, whether they were the majority or minority, and what issues separated them from the rest of the participants.
               `}/>
         </Flex>
+
         <Flex
           styleOverrides={this.styles().pricingContainer}
           direction="column"
@@ -268,6 +285,24 @@ class Plus extends React.Component {
           <p style={this.styles().pricingDesc}> 45 days to experiment. $3 / month / user thereafter. </p>
           <p style={this.styles().pricingNumber}> $3 </p>
           <p style={this.styles().pricingSubtext}> per month per slack user </p>
+        </Flex>
+        {/* lower cta */}
+        <Flex
+          direction="column"
+          styleOverrides={this.styles().lowerCallToActionContainer}>
+        <div>
+          <input
+            placeholder="email"
+            style={this.styles().waitingListInput}
+            type="email"/>
+        </div>
+        <div>
+          <Button
+            onClick={this.handleJoinWaitingListClicked()}
+            style={this.styles().waitingListButton}>
+            Join the Waiting List
+          </Button>
+        </div>
         </Flex>
       </StaticContentContainer>
     );
