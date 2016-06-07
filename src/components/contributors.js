@@ -4,15 +4,13 @@ import Awesome from "react-fontawesome";
 import StaticContentContainer from "./framework/static-content-container";
 import Button from "./framework/generic-button";
 
+
 // import _ from "lodash";
 import Flex from "./framework/flex";
-// import { connect } from "react-redux";
-// import { FOO } from "../actions";
+import { connect } from "react-redux";
+import { handleContribSubmit } from "../actions";
 
-
-// @connect(state => {
-//   return state.FOO;
-// })
+@connect(state => state.contrib)
 @Radium
 class ComponentName extends React.Component {
   constructor(props) {
@@ -79,6 +77,18 @@ class ComponentName extends React.Component {
         marginBottom: 20,
       }
     };
+  }
+  handleSubmit () {
+    const data = {
+      name: this.refs.name.value,
+      email: this.refs.email.value,
+      github_id: this.refs.github_username.value,
+      name: this.refs.name.value,
+      company_name: this.refs.company_name.value,
+      date: this.refs.date.value,
+      agreement_version: 1,
+    };
+    this.props.dispatch(handleContribSubmit(data));
   }
   render() {
     const styles = this.getStyles();
@@ -159,7 +169,7 @@ class ComponentName extends React.Component {
                 6. This PCA is governed by the laws of the State of California and applicable U.S. Federal law. Any choice of law rules will not apply.
               `}
             </textarea>
-            <Button style={styles.button}>
+            <Button style={styles.button} onClick={this.handleSubmit.bind(this)}>
               I Agree
             </Button>
           </div>

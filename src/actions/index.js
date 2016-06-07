@@ -126,6 +126,10 @@ export const FACEBOOK_SIGNIN_INITIATED = "FACEBOOK_SIGNIN_INITIATED";
 export const FACEBOOK_SIGNIN_SUCCESSFUL = "FACEBOOK_SIGNIN_SUCCESSFUL";
 export const FACEBOOK_SIGNIN_FAILED = "FACEBOOK_SIGNIN_FAILED";
 
+export const SUBMIT_CONTRIB = "SUBMIT_CONTRIB";
+export const SUBMIT_CONTRIB_SUCCESS = "SUBMIT_CONTRIB_SUCCESS";
+export const SUBMIT_CONTRIB_ERROR = "SUBMIT_CONTRIB_ERROR";
+
 /* MATH */
 
 export const REQUEST_MATH = "REQUEST_MATH";
@@ -811,6 +815,42 @@ export const handleSeedCommentSubmit = (comment) => {
   };
 };
 
+const makeStandardStart = (type) => {
+  return {
+    type: type,
+  };
+};
+const makeStandardError = (type, err) => {
+  return {
+    type: type,
+    data: err,
+  }
+};
+const makeStandardSuccess = (type, data) => {
+  return {
+    type: type,
+    data: data,
+  }
+};
+
+const postContrib = (data) => {
+  return PolisNet.polisPost("/api/v3/contributors", data);
+};
+
+export const handleContribSubmit = (data) => {
+  return (dispatch) => {
+    dispatch(makeStandardStart(SUBMIT_CONTRIB));
+    return postContrib(data).then(
+      (res) => {
+        alert("success");
+        return dispatch(makeStandardSuccess(SUBMIT_CONTRIB_SUCCESS, es))
+      },
+      (err) => {
+        alert(err.responseText);
+        return dispatch(makeStandardError(SUBMIT_CONTRIB_ERROR, err));
+      });
+  };
+};
 
 /* seed tweets submit */
 
