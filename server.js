@@ -5333,7 +5333,9 @@ Email verified! You can close this tab or hit the back button.
     if (!fb_access_token) {
       emailBadProblemTime("polis_err_missing_fb_access_token " + req.headers.referer + "\n\n" + req.p.response);
       console.log(req.p.response);
+      console.log(JSON.stringify(req.headers));
       fail(res, 500, "polis_err_missing_fb_access_token");
+      return;
     }
     let fields = [
       'email',
