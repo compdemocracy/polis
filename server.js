@@ -10080,6 +10080,26 @@ Email verified! You can close this tab or hit the back button.
   }
 
 
+  function handle_POST_contributors(req, res) {
+    const uid = req.p.uid || null;
+    const agreement_version = req.p.agreement_version;
+    const name = req.p.name;
+    const email = req.p.email;
+    const github_id = req.p.github_id;
+    const company_name = req.p.company_name;
+
+    pgQueryP("insert into contributor_agreement_signatures (uid, agreement_version, github_id, name, email, company_name) " +
+      "values ($1, $2, $3, $4, $5, $6);", [uid, agreement_version, github_id, name, email, company_name]).then(() => {
+
+        emailTeam("contributer agreement signed",  [uid, agreement_version, github_id, name, email, company_name].join("\n"));
+
+        res.json({});
+
+      }, (err) => {
+        fail(res, 500, "polis_err_POST_contributors_misc", err);
+      });
+  }
+
   function generateSingleUseUrl(req, conversation_id, suzinvite) {
     return getServerNameWithProtocol(req) + "/ot/" + conversation_id + "/" + suzinvite;
   }
@@ -11728,6 +11748,7 @@ Email verified! You can close this tab or hit the back button.
     handle_POST_auth_pwresettoken,
     handle_POST_comments,
     handle_POST_contexts,
+    handle_POST_contributors,
     handle_POST_conversation_close,
     handle_POST_conversation_reopen,
     handle_POST_conversations,

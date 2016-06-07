@@ -186,6 +186,7 @@ helpersInitialized.then(function(o) {
     handle_POST_auth_pwresettoken,
     handle_POST_comments,
     handle_POST_contexts,
+    handle_POST_contributors,
     handle_POST_conversation_close,
     handle_POST_conversation_reopen,
     handle_POST_conversations,
@@ -1074,7 +1075,15 @@ helpersInitialized.then(function(o) {
     need("e", getStringLimitLength(1, 1000), assignToP),
     handle_GET_verification);
 
-
+  app.post("/api/v3/contributors",
+    authOptional(assignToP),
+    need('agreement_version', getIntInRange(1, 999999), assignToP),
+    need('name', getStringLimitLength(746), assignToP),
+    need('email', getStringLimitLength(256), assignToP),
+    need('github_id', getStringLimitLength(256), assignToP),
+    need('company_name', getStringLimitLength(746), assignToP),
+    handle_POST_contributors);
+  
 
   if (polisServerBrand && polisServerBrand.registerRoutes) {
     polisServerBrand.registerRoutes(app, o);
@@ -1138,6 +1147,7 @@ helpersInitialized.then(function(o) {
   app.get(/^\/home(\/.*)?/, fetchIndexForAdminPage);
   app.get(/^\/createuser(\/.*)?/, fetchIndexForAdminPage);
   app.get(/^\/plus(\/.*)?/, fetchIndexForAdminPage);
+  app.get(/^\/contrib(\/.*)?/, fetchIndexForAdminPage);
 
   app.get(/^\/react(\/.*)?$/, makeReactClientProxy("localhost", 3000));
   app.get(/^\/inbox(\/.*)?$/, fetchIndexWithoutPreloadData);

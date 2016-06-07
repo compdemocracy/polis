@@ -621,7 +621,15 @@ CREATE TABLE event_ptpt_no_more_comments (
 );
 
 
-
+CREATE TABLE contributer_agreement_signatures(
+    uid INTEGER REFERENCES users(uid),
+    name VARCHAR(746) NOT NULL,
+    company_name VARCHAR(746),
+    github_id VARCHAR(256),
+    email VARCHAR(256) NOT NULL, -- http://stackoverflow.com/questions/386294/what-is-the-maximum-length-of-a-valid-email-address
+    agreement_version INTEGER NOT NULL,
+    created BIGINT DEFAULT now_as_millis()
+);
 
 
 -- -- This should be updated from math nodes, who will have an entire conversation loaded in memory.
