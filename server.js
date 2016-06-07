@@ -3591,19 +3591,23 @@ ${message}`;
     });
   }
 
+  function emailTeam(subject, body) {
+    return sendMultipleTextEmails(
+      POLIS_FROM_ADDRESS, [process.env.EMAIL_MIKE, process.env.EMAIL_COLIN, process.env.EMAIL_CHRIS],
+      subject,
+      body).catch(function(err) {
+        yell("polis_err_failed_to_email_team");
+        yell(message);
+      });
+  }
+
   function emailBadProblemTime(message) {
     const body =
 `Yo, there was a serious problem. Here's the message:
 
 ${message}`;
 
-    return sendMultipleTextEmails(
-      POLIS_FROM_ADDRESS, [process.env.EMAIL_MIKE, process.env.EMAIL_COLIN, process.env.EMAIL_CHRIS],
-      "Polis Bad Problems!!!",
-      body).catch(function(err) {
-        yell("polis_err_failed_to_email_bad_problem_time");
-        yell(message);
-      });
+    return emailTeam("Polis Bad Problems!!!", body);
   }
 
 
@@ -11603,6 +11607,7 @@ Email verified! You can close this tab or hit the back button.
     COOKIES,
     denyIfNotFromWhitelistedDomain,
     devMode,
+    emailTeam,
     enableAgid,
     fail,
     fetchIndexForAdminPage,
@@ -11644,6 +11649,7 @@ Email verified! You can close this tab or hit the back button.
     redirectIfNotHttps,
     redirectIfWrongDomain,
     resolve_pidThing,
+    sendTextEmail,
     timeout,
     want,
     wantCookie,
