@@ -3,19 +3,21 @@ import Radium from "radium";
 import _ from "lodash";
 import Flex from "./flex";
 
-const styles = {
-  link: {
-    textDecoration: "none",
-    cursor: "pointer",
-    color: "white",
-    fontSize: 24,
-    margin: "15px 0px"
-  }
-};
+
 
 @Radium
 class PolisLogo extends React.Component {
-
+  styles() {
+    return {
+      link: {
+        textDecoration: "none",
+        cursor: "pointer",
+        color: this.props.color ? this.props.color : "white",
+        fontSize: 24,
+        margin: "15px 0px"
+      }
+    }
+  };
   render() {
     return (
       <Flex
@@ -27,7 +29,7 @@ class PolisLogo extends React.Component {
           marginRight: 6,
           position: "relative", top: 3,
           borderRadius: 20,
-          backgroundColor: "rgba(255,255,255,1)"}}>
+          backgroundColor: this.props.backgroundColor ? this.props.backgroundColor : "rgb(255,255,255)"}}>
         </div>
         <div style={{
           width: 16,
@@ -35,7 +37,7 @@ class PolisLogo extends React.Component {
           marginRight: 6,
           position: "relative", top: 3,
           borderRadius: 20,
-          backgroundColor: "rgba(255,255,255,1)"}}>
+          backgroundColor: this.props.backgroundColor ? this.props.backgroundColor : "rgb(255,255,255)"}}>
         </div>
         <div style={{
           width: 8,
@@ -43,9 +45,9 @@ class PolisLogo extends React.Component {
           marginRight: 6,
           position: "relative", top: 3,
           borderRadius: 20,
-          backgroundColor: "rgba(255,255,255,1)"}}>
+          backgroundColor: this.props.backgroundColor ? this.props.backgroundColor : "rgb(255,255,255)"}}>
         </div>
-        <a style={styles.link} href="http://pol.is">
+        <a style={this.styles().link} href="http://pol.is">
             pol.is
         </a>
       </Flex>

@@ -40,14 +40,12 @@ class Benefit extends React.Component {
         width: "100%",
       },
       stepText: {
-        fontSize: "1.8em",
+        fontSize: "2.2em",
         margin: 0,
-        backgroundColor: "#03a9f4",
+        // backgroundColor: "#03a9f4",
         // color: "rgb(180,180,180)",
-        color: "white",
-        width: 36,
+        color: "rgb(130,130,130)",
         padding: 10,
-        height: 36,
         borderRadius: 100,
       },
       sectionBody: {

@@ -9,6 +9,7 @@ import { doSignin, doFacebookSignin } from "../../actions";
 import { browserHistory } from "react-router";
 import Radium from "radium";
 import StaticContentContainer from "../framework/static-content-container";
+import PolisLogo from "../framework/polis-logo";
 import Press from "./press";
 import Step from "./step";
 
@@ -22,7 +23,7 @@ import Step from "./step";
 
 @connect()
 @Radium
-class Plus extends React.Component {
+class Bot extends React.Component {
   styles() {
     return {
       container: {
@@ -42,6 +43,7 @@ class Plus extends React.Component {
         fontSize: "2.5em",
         lineHeight: 1.4,
         marginBottom: 10,
+        marginTop: 10,
         maxWidth: 900,
         padding: "0px 40px",
         zIndex: 10,
@@ -61,7 +63,8 @@ class Plus extends React.Component {
         zIndex: 10,
       },
       slackLogo: {
-        width: 100
+        width: 100,
+        marginTop: 20,
       },
       waitingListInput: {
         padding: 13,
@@ -204,21 +207,29 @@ class Plus extends React.Component {
           direction="column"
           alignItems="center"
           >
-            <p style={this.styles().hero}>
-              {`
-                Ask questions of your people, get
-                sophisticated summaries of their thoughts. Automatically.
-              `}
-            </p>
-            <img
+          <Flex>
+          {/*
+            <PolisLogo color={"rgb(130,130,130)"} backgroundColor={"rgb(130,130,130)"}/>
+            <Awesome style={{color: "rgb(130,130,130)"}} name={"heart"}/>
+          */}
+          <img
             style={this.styles().slackLogo}
             src="https://upload.wikimedia.org/wikipedia/en/7/76/Slack_Icon.png"/>
-            <p style={this.styles().heroSub}>
-              Meet PolisBot, an AI powered slackbot. Eliminate
-               information gathering meetings, complex
-              email chains and time spent creating surveys. Ask the questions
-              that come naturally to groups of any size.
+          </Flex>
+            <p style={this.styles().hero}>
+              {`
+                Your team's thoughts.
+              `}
             </p>
+
+            <p style={this.styles().heroSub}>
+              Meet PolisBot, an AI powered slackbot. Ask the questions you
+              have, get sophisticated text summaries automatically. Eliminate
+               information gathering meetings, complex
+              email chains and time spent creating surveys. Works with
+              teams of any size - even thousands.
+            </p>
+
         </Flex>
         {/* upper cta */}
         <Flex
@@ -241,7 +252,7 @@ class Plus extends React.Component {
         <Flex
           direction="column"
           styleOverrides={this.styles().imageContainer}>
-          <image
+          <img
             style={this.styles().imagesCombinedForHighRes}
             src="http://s32.postimg.org/qdigc9kvp/convo_Interface_Combined.png"/>
           <img
@@ -264,12 +275,12 @@ class Plus extends React.Component {
           <Step
             step={"1"}
             body={`
-              Invite PolisBot to your Slack team
+              Invite PolisBot to your Slack team (we'll send you a link)
               `}/>
           <Step
             step={"2"}
             body={`
-              Tell PolisBot what you want to know about and specify some combination of
+              Send PolisBot a question to ask your team and specify some combination of
               #channels and @users to participate
               `}/>
           <Step
@@ -316,4 +327,4 @@ class Plus extends React.Component {
   }
 }
 
-export default Plus;
+export default Bot;
