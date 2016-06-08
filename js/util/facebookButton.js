@@ -51,8 +51,12 @@ function facebookLoginOkHandler(response, optionalPassword) {
 function fbLoginPrompt() {
   var dfd = $.Deferred();
   FB.login(
-    function(x) {
-      return facebookLoginOkHandler(x).then(dfd.resolve, dfd.reject);
+    function(response) {
+      if (response.authResponse) {
+        return facebookLoginOkHandler(response).then(dfd.resolve, dfd.reject);
+      } else {
+        return dfd.reject();
+      }
     }, {
       return_scopes: true, // response should contain the scopes the user allowed
       scope: [
