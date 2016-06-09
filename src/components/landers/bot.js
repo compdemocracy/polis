@@ -3,15 +3,18 @@ import BackgroundStars from "../framework/background-stars";
 import Button from "../framework/generic-button";
 import Flex from "../framework/flex";
 import InputField from "material-ui/lib/text-field";
+import PolisLogo from "../framework/polis-logo";
+import PolisNet from "../../util/net";
+import Press from "./press";
+import Radium from "radium";
 import React from "react";
+import StaticContentContainer from "../framework/static-content-container";
+import Step from "./step";
+import strings from "../../strings/strings";
+import { browserHistory } from "react-router";
 import { connect } from "react-redux";
 import { doSignin, doFacebookSignin } from "../../actions";
-import { browserHistory } from "react-router";
-import Radium from "radium";
-import StaticContentContainer from "../framework/static-content-container";
-import PolisLogo from "../framework/polis-logo";
-import Press from "./press";
-import Step from "./step";
+
 
 // import { Tweet } from 'react-twitter-widgets';
 
@@ -21,6 +24,14 @@ import Step from "./step";
 
 */
 
+let defaultState = {
+  successTextUpper: "",
+  successTextLower: "",
+  errorTextUpper: "",
+  errorTextLower: "",
+};
+
+
 @connect()
 @Radium
 class Bot extends React.Component {
@@ -29,6 +40,13 @@ class Bot extends React.Component {
       container: {
         width: "100%",
         zIndex: 10
+      },
+      error: {
+        color: "red",
+        margin: "0px 0px 0px 20px",
+      },
+      success: {
+        margin: "0px 0px 0px 20px",
       },
       sectionColor: {
         width: "100%",
@@ -195,8 +213,34 @@ class Bot extends React.Component {
       }
     }
   }
-  handleJoinWaitingListClicked(r) {
-    // todo
+  handleJoinWaitingListClickedUpper() {
+    this.doHandleJoinWaitingListClicked(this.refs.emailupper && this.refs.emailupper.value).then(() => {
+      this.setState(Object.assign({}, defaultState, {
+        successTextUpper: strings("waitinglist_add_success"),
+      }));
+    }, (err) => {
+      this.setState(Object.assign({}, defaultState, {
+        errorTextUpper: err.responseText,
+      }));
+    });
+  }
+  handleJoinWaitingListClickedLower() {
+    this.doHandleJoinWaitingListClicked(this.refs.emaillower && this.refs.emaillower.value).then(() => {
+      this.setState(Object.assign({}, defaultState, {
+        successTextLower: strings("waitinglist_add_success"),
+      }));
+    }, (err) => {
+      this.setState(Object.assign({}, defaultState, {
+        errorTextLower: err.responseText,
+      }));
+    });
+  }
+  doHandleJoinWaitingListClicked(email) {
+    const data = {
+      campaign: "bot",
+      email: email,
+    };
+    return PolisNet.polisPost("/api/v3/waitinglist", data);
   }
   render() {
     return (
@@ -244,12 +288,17 @@ class Bot extends React.Component {
           <input
             placeholder="email"
             style={this.styles().waitingListInput}
+            ref="emailupper"
             type="email"/>
           <Button
-            onClick={this.handleJoinWaitingListClicked()}
+            onClick={this.handleJoinWaitingListClickedUpper.bind(this)}
             style={this.styles().waitingListButton}>
             Join the Waiting List
           </Button>
+
+          {this.maybeErrorMessage(this.state.errorTextUpper)}
+          {this.maybeSuccessMessage(this.state.successTextUpper)}
+
         </Flex>
         </Flex>
         <Flex
@@ -319,16 +368,43 @@ class Bot extends React.Component {
           <input
             placeholder="email"
             style={this.styles().waitingListInput}
+            ref="emaillower"
             type="email"/>
           <Button
-            onClick={this.handleJoinWaitingListClicked()}
+            onClick={this.handleJoinWaitingListClickedLower.bind(this)}
             style={this.styles().waitingListButton}>
             Join the Waiting List
           </Button>
+
+          {this.maybeErrorMessage(this.state.errorTextLower)}
+          {this.maybeSuccessMessage(this.state.successTextLower)}
+
         </Flex>
         </Flex>
       </StaticContentContainer>
     );
+  }
+  maybeErrorMessage(text) {
+    let markup = "";
+    if (text) {
+      markup = (
+        <div style={this.styles().error}>
+          { strings(text) }
+        </div>
+      );
+    }
+    return markup;
+  }
+  maybeSuccessMessage(text) {
+    let markup = "";
+    if (text) {
+      markup = (
+        <div style={this.styles().success}>
+          { strings(text) }
+        </div>
+      );
+    }
+    return markup;
   }
 }
 
