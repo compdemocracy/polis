@@ -632,6 +632,12 @@ CREATE TABLE contributer_agreement_signatures(
 );
 
 
+CREATE TABLE waitinglist (
+    email VARCHAR(256) NOT NULL,
+    campaign VARCHAR(100) NOT NULL,
+    created BIGINT DEFAULT now_as_millis()
+);
+
 -- -- This should be updated from math nodes, who will have an entire conversation loaded in memory.
 -- CREATE TABLE stats_per_comment(
 --     zid INTEGER NOT NULL,
