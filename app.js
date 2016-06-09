@@ -208,6 +208,7 @@ helpersInitialized.then(function(o) {
     handle_POST_upvotes,
     handle_POST_users_invite,
     handle_POST_votes,
+    handle_POST_waitinglist,
     handle_POST_zinvites,
     handle_PUT_comments,
     handle_PUT_conversations,
@@ -1083,7 +1084,11 @@ helpersInitialized.then(function(o) {
     need('github_id', getStringLimitLength(256), assignToP),
     need('company_name', getStringLimitLength(746), assignToP),
     handle_POST_contributors);
-  
+
+  app.post("/api/v3/waitinglist",
+    need('email', getEmail, assignToP),
+    need('campaign', getStringLimitLength(100), assignToP),
+    handle_POST_waitinglist);
 
   if (polisServerBrand && polisServerBrand.registerRoutes) {
     polisServerBrand.registerRoutes(app, o);

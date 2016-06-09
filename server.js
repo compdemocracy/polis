@@ -10102,6 +10102,17 @@ Email verified! You can close this tab or hit the back button.
       });
   }
 
+  function handle_POST_waitinglist(req, res) {
+    pgQueryP(
+      "insert into waitinglist (email, campaign) values ($1, $2);",
+      [req.p.email, req.p.campaign]).then(() => {
+        res.json({});
+      }, (err) => {
+        fail(res, 500, "polis_err_POST_waitinglist", err);
+      });
+  }
+
+
   function generateSingleUseUrl(req, conversation_id, suzinvite) {
     return getServerNameWithProtocol(req) + "/ot/" + conversation_id + "/" + suzinvite;
   }
@@ -11772,6 +11783,7 @@ Email verified! You can close this tab or hit the back button.
     handle_POST_upvotes,
     handle_POST_users_invite,
     handle_POST_votes,
+    handle_POST_waitinglist,
     handle_POST_zinvites,
     handle_PUT_comments,
     handle_PUT_conversations,
