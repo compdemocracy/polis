@@ -165,6 +165,7 @@ helpersInitialized.then(function(o) {
     handle_GET_perfStats,
     handle_GET_ptptois,
     handle_GET_setup_assignment_xml,
+    handle_GET_slack_login,
     handle_GET_snapshot,
     handle_GET_tryCookie,
     handle_GET_twitter_image,
@@ -178,6 +179,8 @@ helpersInitialized.then(function(o) {
     handle_GET_votes_me,
     handle_GET_xids,
     handle_GET_zinvites,
+
+
     handle_POST_auth_deregister,
     handle_POST_auth_facebook,
     handle_POST_auth_login,
@@ -202,6 +205,7 @@ helpersInitialized.then(function(o) {
     handle_POST_ptptCommentMod,
     handle_POST_query_participants_by_metadata,
     handle_POST_sendCreatedLinkToEmail,
+    handle_POST_slack_user_invites,
     handle_POST_stars,
     handle_POST_trashes,
     handle_POST_tutorial,
@@ -1019,6 +1023,18 @@ helpersInitialized.then(function(o) {
     // need('single_use_tokens', getBool, assignToP),
     need('emails', getArrayOfStringNonEmpty, assignToP),
     handle_POST_users_invite);
+
+
+  app.get(/^\/slack_login_code.*/,
+    moveToBody,
+    authOptional(assignToP),
+    handle_GET_slack_login);
+
+  app.post("/api/v3/slack/user/invites",
+    need('slack_team', getStringLimitLength(1, 20), assignToP),
+    need('slack_user_id', getStringLimitLength(1, 20), assignToP),
+    handle_POST_slack_user_invites);
+
 
   app.get(/^\/polis_site_id.*/,
     moveToBody,
