@@ -256,6 +256,7 @@ CREATE TABLE conversations(
     auth_opt_tw BOOLEAN, -- if null, server will default to TRUE
     auth_opt_allow_3rdparty BOOLEAN, -- if null, server will default to TRUE -- this overrides auth_opt_fb and auth_opt_tw if false
 
+    is_slack BOOLEAN DEFAULT FALSE,
 
 --     ptpts_can_vote INTEGER DEFAULT 1,
 --     ptpts_can_write INTEGER DEFAULT 1,
@@ -410,6 +411,22 @@ CREATE TABLE geolocation_cache (
     created BIGINT DEFAULT now_as_millis(),
     UNIQUE (location)
 );
+
+
+CREATE TABLE slack_users (
+    uid INTEGER NOT NULL REFERENCES users(uid),
+    slack_team VARCHAR(20) NOT NULL,
+    slack_user_id VARCHAR(20) NOT NULL,
+    created BIGINT DEFAULT now_as_millis(),
+    UNIQUE(slack_team, slack_user_id)
+);
+CREATE TABLE slack_user_invites (
+    slack_team VARCHAR(20) NOT NULL,
+    slack_user_id VARCHAR(20) NOT NULL,
+    token VARCHAR(100) NOT NULL,
+    created BIGINT DEFAULT now_as_millis()
+);
+
 
 CREATE TABLE facebook_users (
     uid INTEGER NOT NULL REFERENCES users(uid),

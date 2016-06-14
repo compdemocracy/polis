@@ -10041,6 +10041,116 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
+
+/*
+
+CREATE TABLE slack_users (
+    uid INTEGER NOT NULL REFERENCES users(uid),
+    slack_team VARCHAR(20) NOT NULL,
+    slack_user_id VARCHAR(20) NOT NULL,
+    created BIGINT DEFAULT now_as_millis(),
+    UNIQUE(slack_team, slack_user_id)
+);
+CREATE TABLE slack_user_invites (
+    slack_team VARCHAR(20) NOT NULL,
+    slack_user_id VARCHAR(20) NOT NULL,
+    token VARCHAR(100) NOT NULL,
+    created BIGINT DEFAULT now_as_millis()
+);
+*/
+
+
+
+  function handle_GET_slack_login(req, res) {
+
+    function finish(uid) {
+      startSessionAndAddCookies(req, res, uid).then(function() {
+        res.set({
+          'Content-Type': 'text/html',
+        });
+        let html = "" +
+          "<!DOCTYPE html><html lang='en'>" +
+          '<head>' +
+          '<meta name="viewport" content="width=device-width, initial-scale=1;">' +
+          '</head>' +
+          "<body style='max-width:320px; font-family: Futura, Helvetica, sans-serif;'>" +
+          "logged in!" +
+          "</body></html>";
+        res.status(200).send(html);
+      }).catch((err) => {
+        fail(res, 500, "polis_err_slack_login_session_start", err);
+      });
+    }
+
+    const existing_uid_for_client = req.p.uid;
+    const token = /\/slack_login_code\/([^\/]*)/.exec(req.path)[1];
+
+    pgQueryP("select * from slack_user_invites where token = ($1);", [
+      token,
+    ]).then((rows) => {
+      if (!rows || !rows.length) {
+        fail(res, 500, "polis_err_slack_login_unknown_token " + token);
+        return;
+      }
+      const row = rows[0];
+      // if (row.created > foo) {
+      //   fail(res, 500, "polis_err_slack_login_token_expired");
+      //   return;
+      // }
+      const slack_team = row.slack_team;
+      const slack_user_id = row.slack_user_id;
+      pgQueryP("select * from slack_users where slack_team = ($1) and slack_user_id = ($2);", [
+        slack_team,
+        slack_user_id,
+      ]).then((rows) => {
+        
+        if (!rows || !rows.length) {
+          // create new user (or use existing user) and associate a new slack_user entry
+          const uidPromise = existing_uid_for_client ? Promise.resolve(existing_uid_for_client) : createDummyUser();
+          uidPromise.then((uid) => {
+            return pgQueryP("insert into slack_users (uid, slack_team, slack_user_id) values ($1, $2, $3);", [
+              uid,
+              slack_team,
+              slack_user_id,
+            ]).then((rows) => {
+              finish(uid);
+            }, function(err) {
+              fail(res, 500, "polis_err_slack_login_03", err);
+            });
+          }).catch((err) => {
+            fail(res, 500, "polis_err_slack_login_02", err);
+          });
+        } else {
+          // slack_users entry exists, so log in as that user
+          finish(rows[0].uid);
+        }
+      }, (err) => {
+        fail(res, 500, "polis_err_slack_login_01", err);
+      });
+
+    }, (err) => {
+      fail(res, 500, "polis_err_slack_login_misc", err);
+    });
+  }
+
+  function handle_POST_slack_user_invites(req, res) {
+    const slack_team = req.p.slack_team;
+    const slack_user_id = req.p.slack_user_id;
+    generateTokenP(99, false).then(function(token) {
+      pgQueryP("insert into slack_user_invites (slack_team, slack_user_id, token) values ($1, $2, $3);", [
+        slack_team,
+        slack_user_id,
+        token,
+      ]).then((rows) => {
+        res.json({
+          url: getServerNameWithProtocol(req) + "/slack_login_code/" + token,
+        });
+      }, (err) => {
+        fail(res, 500, "polis_err_creating_slack_user_invite", err);
+      });
+    });
+  }
+
   function handle_POST_einvites(req, res) {
     let email = req.p.email;
     doSendEinvite(req, email).then(function() {
@@ -11740,6 +11850,7 @@ Email verified! You can close this tab or hit the back button.
     handle_GET_perfStats,
     handle_GET_ptptois,
     handle_GET_setup_assignment_xml,
+    handle_GET_slack_login,
     handle_GET_snapshot,
     handle_GET_tryCookie,
     handle_GET_twitter_image,
@@ -11777,6 +11888,7 @@ Email verified! You can close this tab or hit the back button.
     handle_POST_ptptCommentMod,
     handle_POST_query_participants_by_metadata,
     handle_POST_sendCreatedLinkToEmail,
+    handle_POST_slack_user_invites,
     handle_POST_stars,
     handle_POST_trashes,
     handle_POST_tutorial,
