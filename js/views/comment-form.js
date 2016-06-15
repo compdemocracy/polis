@@ -5,6 +5,7 @@ var template = require("../tmpl/comment-form");
 var display = require("../util/display");
 var eb = require("../eventBus");
 var Handlebones = require("handlebones");
+var M = require("../util/metrics");
 var PolisFacebookUtils = require('../util/facebookButton');
 var ProfilePicView = require('../views/profilePicView');
 var serialize = require("../util/serialize");
@@ -187,9 +188,12 @@ module.exports = Handlebones.ModelView.extend({
 
     var hasSocial = window.userObject.hasFacebook || window.userObject.hasTwitter;
     var needsSocial = preload.firstConv.auth_needed_to_write;
+    M.add(M.COMMENT_SUBMIT_CLICK);
     if (hasSocial || !needsSocial) {
+      M.add(M.COMMENT_SUBMIT_INIT);
       doSubmitComment();
     } else {
+      M.add(M.COMMENT_SUBMIT_SOCIAL_NEEDED);
       this.showSocialAuthChoices();
     }
   },
@@ -201,13 +205,16 @@ module.exports = Handlebones.ModelView.extend({
   facebookClicked: function(e) {
     e.preventDefault();
     var that = this;
+    M.addAndSend(M.COMMENT_SUBMIT_FB_INIT);
     PolisFacebookUtils.connect().then(function() {
+      M.addAndSend(M.COMMENT_SUBMIT_FB_OK);
       // wait a bit for new cookies to be ready, or something, then submit comment.
       setTimeout(function() {
         that.onAuthSuccess();
         // CurrentUserModel.update();
       }, 100);
     }, function(err) {
+      M.addAndSend(M.COMMENT_SUBMIT_FB_ERR);
       // alert("facebook error");
     });
   },
@@ -216,12 +223,16 @@ module.exports = Handlebones.ModelView.extend({
     e.preventDefault();
 
     eb.on(eb.twitterConnected, function() {
+      M.addAndSend(M.COMMENT_SUBMIT_TW_OK);
       // wait a bit for new cookies to be ready, or something, then submit comment.
       setTimeout(function() {
         that.onAuthSuccess();
         // CurrentUserModel.update();
       }, 100);
     });
+
+    M.addAndSend(M.COMMENT_SUBMIT_TW_INIT);
+
     // open a new window where the twitter auth screen will show.
     // that window will redirect back to a simple page that calls window.opener.twitterStatus("ok")
     var params = 'location=0,status=0,width=800,height=400';
