@@ -2762,33 +2762,61 @@ Feel free to reply to this email if you need help.`;
     });
   }
 
-  // function handle_POST_metrics(req, res) {
-  //     let uid = req.p.uid || null;
-  //     let durs = req.p.durs.map(function(dur) {
-  //         if (dur === -1) {
-  //             dur = null;
-  //         }
-  //         return dur;
-  //     });
-  //     let clientTimestamp = req.p.clientTimestamp;
-  //     let ages = req.p.times.map(function(t) {
-  //         return clientTimestamp - t;
-  //     });
-  //     let now = Date.now();
-  //     let timesInTermsOfServerTime = ages.map(function(a) {
-  //         return now - a;
-  //     });
-  //     let len = timesInTermsOfServerTime.length;
-  //     let entries = [];
-  //     for (var i = 0; i < len; i++) {
-  //         entries.push([uid, types[i], durs[i], timesInTermsOfServerTime[i]].join(','));
-  //     }
-  //     pgQueryP("insert into metrics (uid, type, dur, created) values ("+ entries +");", []).then(function(result) {
-  //         res.json({});
-  //     }).catch(function(err) {
-  //         fail(res, 500, "polis_err_metrics_post", err);
-  //     });
-  // });
+  function hashStringToInt32(s) {
+    let h = 1;
+    if (typeof s !== "string" || !s.length) {
+      return 99;
+    }
+    for (var i = 0; i < s.length; i++) {
+      h = h * s.charCodeAt(i) * 31;
+    }
+    if (h < 0) {
+      h = -h;
+    }
+    // fit in 32 bit signed
+    while (h > 2147483648) {
+      h = h / 2;
+    }
+    return h;
+  }
+
+  function handle_POST_metrics(req, res) {
+    const pc = req.cookies[COOKIES.PERMANENT_COOKIE];
+    const hashedPc = hashStringToInt32(pc);
+
+    const uid = req.p.uid || null;
+    const durs = req.p.durs.map(function(dur) {
+      if (dur === -1) {
+        dur = null;
+      }
+      return dur;
+    });
+    const clientTimestamp = req.p.clientTimestamp;
+    const ages = req.p.times.map(function(t) {
+      return clientTimestamp - t;
+    });
+    const now = Date.now();
+    const timesInTermsOfServerTime = ages.map(function(a) {
+      return now - a;
+    });
+    const len = timesInTermsOfServerTime.length;
+    const entries = [];
+    for (var i = 0; i < len; i++) {
+      entries.push("(" + [
+        uid || "null",
+        req.p.types[i],
+        durs[i],
+        hashedPc,
+        timesInTermsOfServerTime[i],
+      ].join(',') + ")");
+    }
+
+    pgQueryP("insert into metrics (uid, type, dur, hashedPc, created) values "+ entries.join(",") +";", []).then(function(result) {
+      res.json({});
+    }).catch(function(err) {
+      fail(res, 500, "polis_err_metrics_post", err);
+    });
+  }
 
 
 
@@ -11884,6 +11912,7 @@ CREATE TABLE slack_user_invites (
     handle_POST_lti_setup_assignment,
     handle_POST_metadata_answers,
     handle_POST_metadata_questions,
+    handle_POST_metrics,
     handle_POST_participants,
     handle_POST_ptptCommentMod,
     handle_POST_query_participants_by_metadata,
