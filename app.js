@@ -201,6 +201,7 @@ helpersInitialized.then(function(o) {
     handle_POST_lti_setup_assignment,
     handle_POST_metadata_answers,
     handle_POST_metadata_questions,
+    handle_POST_metrics,
     handle_POST_participants,
     handle_POST_ptptCommentMod,
     handle_POST_query_participants_by_metadata,
@@ -1106,6 +1107,14 @@ helpersInitialized.then(function(o) {
     need('campaign', getStringLimitLength(100), assignToP),
     handle_POST_waitinglist);
 
+  app.post("/api/v3/metrics",
+      authOptional(assignToP),
+      need('types', getArrayOfInt, assignToP),
+      need('times', getArrayOfInt, assignToP),
+      need('durs', getArrayOfInt, assignToP),
+      need('clientTimestamp', getInt, assignToP),
+      handle_POST_metrics);
+
   if (polisServerBrand && polisServerBrand.registerRoutes) {
     polisServerBrand.registerRoutes(app, o);
   }
@@ -1114,16 +1123,12 @@ helpersInitialized.then(function(o) {
 
 
 
+
+
+
   // app.get("/api/v3/setFirstCookie",
   //     moveToBody,
   //     handle_GET_setFirstCookie);
-  // app.post("/api/v3/metrics",
-  //     authOptional(assignToP),
-  //     need('types', getArrayOfInt, assignToP),
-  //     need('times', getArrayOfInt, assignToP),
-  //     need('durs', getArrayOfInt, assignToP),
-  //     need('clientTimestamp', getInt, assignToP),
-  //     handle_POST_metrics);
   // app.get("/api/v3/LTI/canvas_nav.xml",
   //     handle_GET_lti_canvas_nav_xml);
   // app.get("/api/v3/LTI/editor_tool.xml",
