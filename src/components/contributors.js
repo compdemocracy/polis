@@ -4,6 +4,7 @@ import Awesome from "react-fontawesome";
 import StaticContentContainer from "./framework/static-content-container";
 import Button from "./framework/generic-button";
 
+import PolisNet from "../util/net";
 
 // import _ from "lodash";
 import Flex from "./framework/flex";
@@ -16,7 +17,8 @@ class ComponentName extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-
+      submitError: false,
+      submitSuccess: false,
     };
   }
   static propTypes = {
@@ -88,7 +90,21 @@ class ComponentName extends React.Component {
       date: this.refs.date.value,
       agreement_version: 1,
     };
-    this.props.dispatch(handleContribSubmit(data));
+
+    PolisNet.polisPost("/api/v3/contributors", data)
+      .then(() => {
+        this.setState({
+          submitSuccess: true,
+          submitError: false
+        })
+      })
+      .catch(() => {
+        this.setState({
+          submitSuccess: false,
+          submitError: true
+        })
+      });
+
   }
   render() {
     const styles = this.getStyles();
@@ -169,9 +185,15 @@ class ComponentName extends React.Component {
                 6. This PCA is governed by the laws of the State of California and applicable U.S. Federal law. Any choice of law rules will not apply.
               `}
             </textarea>
-            <Button style={styles.button} onClick={this.handleSubmit.bind(this)}>
-              I Agree
-            </Button>
+            { this.state.submitSuccess === true ? "Success. Thanks for contributing to pol.is!" : "" }
+            { this.state.submitError === true ? "Error saving submission - try again, and message us if you continue to experience problems." : "" }
+            {
+              this.state.submitSuccess === false ?
+              <Button style={styles.button} onClick={this.handleSubmit.bind(this)}>
+                I Agree
+              </Button> :
+              ""
+            }
           </div>
         </Flex>
       </StaticContentContainer>

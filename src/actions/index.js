@@ -833,24 +833,7 @@ const makeStandardSuccess = (type, data) => {
   }
 };
 
-const postContrib = (data) => {
-  return PolisNet.polisPost("/api/v3/contributors", data);
-};
 
-export const handleContribSubmit = (data) => {
-  return (dispatch) => {
-    dispatch(makeStandardStart(SUBMIT_CONTRIB));
-    return postContrib(data).then(
-      (res) => {
-        alert("success");
-        return dispatch(makeStandardSuccess(SUBMIT_CONTRIB_SUCCESS, es))
-      },
-      (err) => {
-        alert(err.responseText);
-        return dispatch(makeStandardError(SUBMIT_CONTRIB_ERROR, err));
-      });
-  };
-};
 
 /* seed tweets submit */
 
