@@ -1731,7 +1731,15 @@ function initializePolisHelpers(mongoParams) {
             req.p = req.p || {};
             req.p.uid = uid;
             next();
+          }, function(err) {
+            res.status(500);
+            console.error(err);
+            next("polis_err_auth_token_error_2343");
           });
+        }, function(err) {
+          res.status(500);
+          console.error(err);
+          next("polis_err_auth_token_error_1241");
         }).catch(function(err) {
           res.status(500);
           console.error(err);
