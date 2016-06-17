@@ -14,6 +14,7 @@ import strings from "../../strings/strings";
 import { browserHistory } from "react-router";
 import { connect } from "react-redux";
 import { doSignin, doFacebookSignin } from "../../actions";
+import HexLogoLargeShort from "../framework/hex-logo-large-short";
 
 
 // import { Tweet } from 'react-twitter-widgets';
@@ -55,6 +56,7 @@ class Bot extends React.Component {
       },
       heroContainer: {
         width: "100%",
+        paddingTop: 20,
         backgroundColor: "rgb(245,245,245)"
       },
       hero: {
@@ -81,8 +83,11 @@ class Bot extends React.Component {
         zIndex: 10,
       },
       slackLogo: {
-        width: 100,
-        marginTop: 20,
+        width: 25,
+        marginRight: 2,
+        marginLeft: 0,
+        position: "relative",
+        top: 4
       },
       waitingListInput: {
         padding: 16,
@@ -176,7 +181,8 @@ class Bot extends React.Component {
       pricingContainer: {
         margin: "20px 0px 0px 0px",
         width: "100%",
-        backgroundColor: "rgb(245,245,245)"
+        backgroundColor: "rgb(245,245,245)",
+        paddingTop: 20
       },
       pricingHeadline: {
         color: "rgb(130,130,130)",
@@ -261,9 +267,7 @@ class Bot extends React.Component {
             <PolisLogo color={"rgb(130,130,130)"} backgroundColor={"rgb(130,130,130)"}/>
             <Awesome style={{color: "rgb(130,130,130)"}} name={"heart"}/>
           */}
-          <img
-            style={this.styles().slackLogo}
-            src="https://upload.wikimedia.org/wikipedia/en/7/76/Slack_Icon.png"/>
+          <HexLogoLargeShort/>
           </Flex>
             <p style={this.styles().hero}>
               {`
@@ -272,12 +276,15 @@ class Bot extends React.Component {
             </p>
 
             <p style={this.styles().heroSub}>
-              Meet PolisBot, an AI powered slackbot. Ask the questions you
+              Meet PolisBot, an AI powered <img
+               style={this.styles().slackLogo}
+               src="https://upload.wikimedia.org/wikipedia/en/7/76/Slack_Icon.png"/>Slack bot. Ask the questions you
               have, get sophisticated text summaries automatically. Eliminate
                information gathering meetings, complex
               email chains and time spent creating surveys. Works with
               teams of any size - even thousands.
             </p>
+
 
         </Flex>
         {/* upper cta */}
@@ -327,7 +334,7 @@ class Bot extends React.Component {
           <Step
             step={"1"}
             body={`
-              Invite PolisBot to your Slack team (we'll send you a link)
+              Invite PolisBot to your Slack team (we'll send you a link when your turn comes up on the wait list)
               `}/>
           <Step
             step={"2"}
@@ -355,10 +362,9 @@ class Bot extends React.Component {
           styleOverrides={this.styles().pricingContainer}
           direction="column"
           justifyContent="center">
-          <p style={this.styles().pricingHeadline}> Transparent Pricing </p>
-          <p style={this.styles().pricingDesc}> 45 days to experiment. $3 / month / user thereafter. </p>
-          <p style={this.styles().pricingNumber}> $3 </p>
-          <p style={this.styles().pricingSubtext}> per month per slack user </p>
+          <HexLogoLargeShort/>
+
+          <p style={this.styles().pricingDesc}> 45 days to experiment, completely free.</p>
         </Flex>
         {/* lower cta */}
         <Flex

@@ -6,6 +6,7 @@ import Flex from "./flex";
 import Awesome from "react-fontawesome";
 import {Link} from "react-router";
 import PolisLogo from "./polis-logo";
+import HexLogo from "./hex-logo-tiny-long";
 
 @connect()
 @Radium
@@ -28,10 +29,10 @@ class Header extends React.Component {
       <Flex
         justifyContent={"space-between"}
         styleOverrides={this.styles().topBar}>
-        <PolisLogo containerStyle={{marginLeft: 20}}/>
+        <HexLogo/>
           <Link style={{
-              textDecoration: "none", color: "white", marginRight: 20
-            }} to={"signin"}>Sign In</Link>
+            textDecoration: "none", color: "white", marginRight: 20
+          }} to={"signin"}>Sign In</Link>
       </Flex>
     );
   }
