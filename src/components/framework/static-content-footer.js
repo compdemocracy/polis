@@ -18,15 +18,21 @@ class Footer extends React.Component {
         backgroundColor: "#03a9f4",
         width: "100%",
         margin: 0,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        "@media (min-width: 768px)": {
+
+        }
       },
       innerContainer: {
         margin: "60px 100px",
         display: "flex",
         flexDirection: "column",
         alignItems: "baseline",
-        justifyContent: "space-between",
+        justifyContent: "space-around",
         "@media (min-width: 768px)": {
-          margin: 60,
+          width: "100%",
           flexDirection: "row",
           alignItems: "flex-start",
         }
