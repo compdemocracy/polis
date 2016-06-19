@@ -98,10 +98,9 @@ class Root extends React.Component {
                 <Route path="export" component={DataExport}/>
               </Route>
             </Route>
-            <Route path="go" component={Meta}/>
             <Route path="news" component={News}/>
             <Route path="plus" component={Plus}/>
-            <Route path="home" component={Plus}/>
+            <Route path="home" component={Meta}/>
             <Route path="bot" component={Bot}/>
             <Route path="demo" component={Demo}/>
             <Route path="signin" component={SignIn}/>
