@@ -63,27 +63,27 @@ class Footer extends React.Component {
           <HexLogo invert/>
           <div>
             <p style={this.styles().header}> pol.is </p>
-            <p><a style={this.styles().link} href="#"> Home </a></p>
+            <p><a style={this.styles().link} href="https://pol.is"> Home </a></p>
             <p><a style={this.styles().link} href="#"> Company </a></p>
             <p><a style={this.styles().link} href="#"> Press </a></p>
-            <p><a style={this.styles().link} href="#"> Docs </a></p>
-            <p><a style={this.styles().link} href="#"> Github </a></p>
-            <p><a style={this.styles().link} href="#"> API </a></p>
+            <p><a style={this.styles().link} href="http://docs.pol.is"> Docs </a></p>
+            <p><a style={this.styles().link} href="https://github.com/pol-is/"> Github </a></p>
+            <p><a style={this.styles().link} href="https://github.com/pol-is/polisServer/blob/master/app.js"> API </a></p>
           </div>
           <div>
             <p style={this.styles().header}> web </p>
-            <p><a style={this.styles().link} href="#"> Sign up </a></p>
-            <p><a style={this.styles().link} href="#"> Sign in </a></p>
+            <p><a style={this.styles().link} href="https://pol.is/createuser"> Sign up </a></p>
+            <p><a style={this.styles().link} href="https://pol.is/signin"> Sign in </a></p>
           </div>
           <div>
             <p style={this.styles().header}> connect </p>
-            <p><a style={this.styles().link} href="#"> <Awesome name="twitter"/> Twitter </a></p>
-            <p><a style={this.styles().link} href="#"> <Awesome name="medium"/> Medium </a></p>
+            <p><a style={this.styles().link} href="https://twitter.com/usepolis"> <Awesome name="twitter"/> Twitter </a></p>
+            <p><a style={this.styles().link} href="https://blog.pol.is/"> <Awesome name="medium"/> Medium </a></p>
           </div>
           <div>
             <p style={this.styles().header}> legal </p>
-            <p><a style={this.styles().link} href="#"> Terms & Conditions </a></p>
-            <p><a style={this.styles().link} href="#"> Privacy Policy </a></p>
+            <p><a style={this.styles().link} href="https://pol.is/tos"> Terms & Conditions </a></p>
+            <p><a style={this.styles().link} href="https://pol.is/privacy"> Privacy Policy </a></p>
           </div>
         </div>
         <p style={this.styles().copyright}> @ 2016 Polis Technology Inc. All Rights Reserved. Patent Pending. </p>
