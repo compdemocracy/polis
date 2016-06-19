@@ -156,6 +156,7 @@ class MetaLander extends React.Component {
             <p style={this.styles().forText}> For Teams on Slack </p>
           </a>
         </div>
+        {/*
         <div style={{width: "100%"}}>
           <a
             href="/gov"
@@ -168,6 +169,7 @@ class MetaLander extends React.Component {
             <p style={this.styles().forText}> For Governments & Citizens </p>
           </a>
         </div>
+      */}
       </StaticContentContainer>
     );
   }
