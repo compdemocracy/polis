@@ -1170,6 +1170,9 @@ helpersInitialized.then(function(o) {
   app.get(/^\/__webpack_hmr$/, makeFileFetcher(hostname, portForAdminFiles, "/__webpack_hmr", {
     'Content-Type': "eventsource",
   }));
+  app.get(/^\/privacy$/, fetchIndexForAdminPage);
+  app.get(/^\/tos$/, fetchIndexForAdminPage);
+
   // admin dash-based landers
   app.get(/^\/home(\/.*)?/, fetchIndexForAdminPage);
   app.get(/^\/createuser(\/.*)?/, fetchIndexForAdminPage);
@@ -1230,12 +1233,6 @@ helpersInitialized.then(function(o) {
     'Content-Type': "text/html",
   }));
   app.get(/^\/plus$/, makeFileFetcher(hostname, portForParticipationFiles, "/plus.html", {
-    'Content-Type': "text/html",
-  }));
-  app.get(/^\/tos$/, makeFileFetcher(hostname, portForParticipationFiles, "/tos.html", {
-    'Content-Type': "text/html",
-  }));
-  app.get(/^\/privacy$/, makeFileFetcher(hostname, portForParticipationFiles, "/privacy.html", {
     'Content-Type': "text/html",
   }));
   app.get(/^\/canvas_setup_backup_instructions$/, makeFileFetcher(hostname, portForParticipationFiles, "/canvas_setup_backup_instructions.html", {
