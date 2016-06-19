@@ -48,6 +48,12 @@ class MetaLander extends React.Component {
         /* WHEN IT'S SMALL AND UP (DEFAULT) */
         width: "100%",
         display: "flex",
+        textDecoration: "none",
+        opacity: "0.95",
+        ':hover': {
+          opacity: "1",
+        },
+        cursor: "pointer",
         flexDirection: "column",
         alignItems: "center",
         flexWrap: "no-wrap",
@@ -82,7 +88,7 @@ class MetaLander extends React.Component {
         color: "#FFFFFF",
         width: 300,
         fontSize: "2em",
-        fontWeight: 300
+        fontWeight: 300,
       },
       publisherIcon: {
 
@@ -120,29 +126,41 @@ class MetaLander extends React.Component {
           <p style={this.styles().polis}> pol.is </p>
           <p style={this.styles().subtext}> AI powered conversations </p>
         </Flex>
-        <div
-          style={[this.styles().goSection, this.styles().publishers]}
-          >
-          <div style={this.styles().iconWrapper}>
-            <PublishersFlat/>
-          </div>
-          <p style={this.styles().forText}> For Publishers and Readers </p>
+        <div style={{width: "100%"}}>
+          <a
+            href="/news"
+            key="1"
+            style={[this.styles().goSection, this.styles().publishers]}
+            >
+            <div style={this.styles().iconWrapper}>
+              <PublishersFlat/>
+            </div>
+            <p style={this.styles().forText}> For Publishers and Readers </p>
+          </a>
         </div>
-        <div
-          style={[this.styles().goSection, this.styles().slack]}
-          >
-          <div style={this.styles().iconWrapper}>
-            <img width="200" src="https://assets.brandfolder.com/irnq5s6s/original/slack_monochrome_white.png"/>
-          </div>
-          <p style={this.styles().forText}> For Teams on Slack </p>
+        <div style={{width: "100%"}}>
+          <a
+            href="/bot"
+            key="2"
+            style={[this.styles().goSection, this.styles().slack]}
+            >
+            <div style={this.styles().iconWrapper}>
+              <img width="200" src="https://assets.brandfolder.com/irnq5s6s/original/slack_monochrome_white.png"/>
+            </div>
+            <p style={this.styles().forText}> For Teams on Slack </p>
+          </a>
         </div>
-        <div
-          style={[this.styles().goSection, this.styles().gov]}
-          >
-          <div style={this.styles().iconWrapper}>
-            <GovFlat/>
-          </div>
-          <p style={this.styles().forText}> For Governments & Citizens </p>
+        <div style={{width: "100%"}}>
+          <a
+            href="/gov"
+            key="3"
+            style={[this.styles().goSection, this.styles().gov]}
+            >
+            <div style={this.styles().iconWrapper}>
+              <GovFlat/>
+            </div>
+            <p style={this.styles().forText}> For Governments & Citizens </p>
+          </a>
         </div>
       </StaticContentContainer>
     );
