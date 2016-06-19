@@ -5,53 +5,116 @@ import _ from "lodash";
 import Flex from "./flex";
 import Awesome from "react-fontawesome";
 import {Link} from "react-router";
+import HexLogo from "./hex-logo-large-short";
 
+const RadiumLink = Radium(Link);
 
 @connect()
 @Radium
 class Footer extends React.Component {
   styles () {
     return {
-      footer: {
-        // position: "absolute",
-        // bottom: "0",
+      container: {
+        backgroundColor: "#03a9f4",
         width: "100%",
-        backgroundColor: this.props.backgroundColor ? this.props.backgroundColor : "rgba(0,0,0,.5)",
-        color: "white",
-        zIndex: 10,
-        height: 40,
+        margin: 0,
       },
-      footerLink: {
-        textDecoration: 'none',
-        cursor: "pointer",
+      innerContainer: {
+        margin: "60px 100px",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "baseline",
+        justifyContent: "space-between",
+        "@media (min-width: 768px)": {
+          margin: 60,
+          flexDirection: "row",
+          alignItems: "flex-start",
+        }
+      },
+      link: {
+        textDecoration: "none",
         color: "white",
-        fontSize: 12
+        fontWeight: 300,
+      },
+      header: {
+        fontWeight: 700,
+        color: "white",
+        fontSize: "1.7em"
+      },
+      copyright: {
+        width: "100%",
+        textAlign: "center",
+        fontWeight: 300,
+        color: "white",
+        marginBottom: 20
       }
     }
   }
   render() {
     return (
-      <div
-        style={this.styles(this.props).footer}>
-        <Flex justifyContent={"space-between"} alignItems={"baseline"}>
-          <p style={{marginLeft: 20, fontSize: 12}}>© Polis Technology Inc. 2016 </p>
-          <div style={{marginRight: 20}}>
-            <Link
-              style={this.styles(this.props).footerLink}
-              to="/tos">
-              <Awesome name="file-text-o"/>
-              <span style={{marginLeft: 5}}> TOS </span>
-            </Link>
-            <Link
-              style={this.styles(this.props).footerLink}
-              to="/privacy">
-              <span style={{marginLeft: 5}}> PRIVACY </span>
-            </Link>
+      <div style={this.styles().container}>
+        <div style={this.styles().innerContainer}>
+          <HexLogo invert/>
+          <div>
+            <p style={this.styles().header}> pol.is </p>
+            <p><a style={this.styles().link} href="#"> Home </a></p>
+            <p><a style={this.styles().link} href="#"> Company </a></p>
+            <p><a style={this.styles().link} href="#"> Press </a></p>
+            <p><a style={this.styles().link} href="#"> Docs </a></p>
+            <p><a style={this.styles().link} href="#"> Github </a></p>
+            <p><a style={this.styles().link} href="#"> API </a></p>
           </div>
-        </Flex>
+          <div>
+            <p style={this.styles().header}> web </p>
+            <p><a style={this.styles().link} href="#"> Sign up </a></p>
+            <p><a style={this.styles().link} href="#"> Sign in </a></p>
+          </div>
+          <div>
+            <p style={this.styles().header}> connect </p>
+            <p><a style={this.styles().link} href="#"> <Awesome name="twitter"/> Twitter </a></p>
+            <p><a style={this.styles().link} href="#"> <Awesome name="medium"/> Medium </a></p>
+          </div>
+          <div>
+            <p style={this.styles().header}> legal </p>
+            <p><a style={this.styles().link} href="#"> Terms & Conditions </a></p>
+            <p><a style={this.styles().link} href="#"> Privacy Policy </a></p>
+          </div>
+        </div>
+        <p style={this.styles().copyright}> @ 2016 Polis Technology Inc. All Rights Reserved. Patent Pending. </p>
       </div>
     );
   }
 }
 
 export default Footer;
+
+// footer: {
+//   // position: "absolute",
+//   // bottom: "0",
+//   width: "100%",
+//   backgroundColor: this.props.backgroundColor ? this.props.backgroundColor : "rgba(0,0,0,.5)",
+//   color: "white",
+//   zIndex: 10,
+//   height: 40,
+// },
+// link: {
+//   textDecoration: 'none',
+//   cursor: "pointer",
+//   color: "white",
+//   fontSize: 12
+// }
+
+// <p style={{marginLeft: 20, fontSize: 12}}>© Polis Technology Inc. 2016 </p>
+// <div style={{marginRight: 20}}>
+//   <Link
+//     style={this.styles(this.props).link}
+//     to="/tos">
+//     <Awesome name="file-text-o"/>
+//     <span style={{marginLeft: 5}}> TOS </span>
+//   </Link>
+//   <Link
+//     style={this.styles(this.props).link}
+//     to="/privacy">
+//     <span style={{marginLeft: 5}}> PRIVACY </span>
+//   </Link>
+// </div>

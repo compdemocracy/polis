@@ -27,11 +27,15 @@ class Header extends React.Component {
   render() {
     return (
       <Flex
-        justifyContent={"space-between"}
+        justifyContent={this.props.nologo ? "flex-end" : "space-between"}
         styleOverrides={this.styles().topBar}>
-        <HexLogo/>
+        {this.props.nologo ? "" : <HexLogo/>}
           <Link style={{
-            textDecoration: "none", color: "white", marginRight: 20
+            textDecoration: "none",
+            color: "white",
+            marginRight: 20,
+            marginTop: 20,
+            marginBottom: 20
           }} to={"signin"}>Sign In</Link>
       </Flex>
     );

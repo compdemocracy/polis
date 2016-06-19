@@ -29,6 +29,7 @@ import Home from "./components/landers/homepage";
 import Plus from "./components/landers/plus";
 import Bot from "./components/landers/bot";
 import Demo from "./components/landers/demo";
+import Meta from "./components/landers/metalander";
 
 import TOS from "./components/tos";
 import Privacy from "./components/privacy";
@@ -97,6 +98,7 @@ class Root extends React.Component {
                 <Route path="export" component={DataExport}/>
               </Route>
             </Route>
+            <Route path="go" component={Meta}/>
             <Route path="news" component={News}/>
             <Route path="plus" component={Plus}/>
             <Route path="home" component={Plus}/>

@@ -53,7 +53,7 @@ class StaticContentContainer extends React.Component {
         justifyContent="space-between"
         direction="column"
         styleOverrides={styles.flexContainer}>
-        <Header backgroundColor={this.props.headerBackgroundColor}/>
+        <Header nologo={this.props.nologo} backgroundColor={this.props.headerBackgroundColor}/>
         {this.props.children}
         <Footer backgroundColor={this.props.footerBackgroundColor}/>
       </Flex>
