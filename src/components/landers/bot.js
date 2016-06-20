@@ -278,7 +278,7 @@ class Bot extends React.Component {
             <p style={this.styles().heroSub}>
               Meet PolisBot, an AI powered <img
                style={this.styles().slackLogo}
-               src="https://upload.wikimedia.org/wikipedia/en/7/76/Slack_Icon.png"/>Slack bot. Ask the questions you
+               src="/landerImages/slack_logo.png"/>Slack bot. Ask the questions you
               have, get sophisticated text summaries automatically. Eliminate
                information gathering meetings, complex
               email chains and time spent creating surveys. Works with
