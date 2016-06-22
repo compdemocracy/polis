@@ -1175,6 +1175,7 @@ helpersInitialized.then(function(o) {
 
   // admin dash-based landers
   app.get(/^\/home(\/.*)?/, fetchIndexForAdminPage);
+  app.get(/^\/gov(\/.*)?/, fetchIndexForAdminPage);
   app.get(/^\/createuser(\/.*)?/, fetchIndexForAdminPage);
   app.get(/^\/plus(\/.*)?/, fetchIndexForAdminPage);
   app.get(/^\/contrib(\/.*)?/, fetchIndexForAdminPage);
