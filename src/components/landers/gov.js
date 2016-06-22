@@ -108,6 +108,12 @@ class Gov extends React.Component {
       section: {
         padding: 0,
       },
+      caseStudyTextContainer: {
+        maxWidth: 500,
+        '@media (min-width: 1050)': {
+          marginLeft: 50,
+        },
+      },
       goSection: {
         /* WHEN IT'S SMALL AND UP (DEFAULT) */
         width: "100%",
@@ -266,15 +272,13 @@ class Gov extends React.Component {
           <Flex
             styleOverrides={{width: "100%", marginBottom: 40}}
             justifyContent="center"
+            wrap="wrap"
             alignItems="baseline">
             <blockquote className="twitter-tweet" dataLang="en"><p lang="en" dir="ltr"><a href="https://twitter.com/UsePolis">@UsePolis</a> increased citizen engagement around policy proposals from 10&#39;s of people to 1000&#39;s, and increased quality as well.</p>&mdash; 唐鳳 (@audreyt) <a href="https://twitter.com/audreyt/status/744450181307850752">June 19, 2016</a></blockquote>
             <Flex
               direction="column"
               alignItems="flex-start"
-              styleOverrides={{
-                maxWidth: 500,
-                marginLeft: 150,
-              }}>
+              styleOverrides={this.styles().caseStudyTextContainer}>
               <p style={{
                 fontFamily: "Georgia",
                 fontSize: 24,
