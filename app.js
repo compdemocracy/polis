@@ -205,6 +205,7 @@ helpersInitialized.then(function(o) {
     handle_POST_participants,
     handle_POST_ptptCommentMod,
     handle_POST_query_participants_by_metadata,
+    handle_POST_reserve_conversation_id,
     handle_POST_sendCreatedLinkToEmail,
     handle_POST_slack_user_invites,
     handle_POST_stars,
@@ -829,6 +830,10 @@ helpersInitialized.then(function(o) {
     need('name', getStringLimitLength(1, 300), assignToP),
     handle_POST_contexts);
 
+  app.post('/api/v3/reserve_conversation_id',
+    auth(assignToP),
+    handle_POST_reserve_conversation_id);
+
   // TODO check to see if ptpt has answered necessary metadata questions.
   app.post('/api/v3/conversations',
     auth(assignToP),
@@ -843,6 +848,7 @@ helpersInitialized.then(function(o) {
     want('context', getOptionalStringLimitLength(999), assignToP, ""),
     want('topic', getOptionalStringLimitLength(1000), assignToP, ""),
     want('description', getOptionalStringLimitLength(50000), assignToP, ""),
+    want('conversation_id', getStringLimitLength(6, 300), assignToP, ""),
     handle_POST_conversations);
 
   // app.get('/api/v3/users',
