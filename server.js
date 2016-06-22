@@ -8415,6 +8415,20 @@ Email verified! You can close this tab or hit the back button.
     // });
   }
 
+  function handle_POST_reserve_conversation_id(req, res) {
+    const zid = 0;
+    const shortUrl = false;
+    // TODO check auth - maybe bot has key
+    generateAndRegisterZinvite(zid, shortUrl).then(function(conversation_id) {
+      res.json({
+        conversation_id: conversation_id,
+      });
+    }).catch((err) => {
+      fail(res, 500, "polis_err_reserve_conversation_id", err);
+    });
+  }
+
+
   function handle_POST_conversations(req, res) {
 
     winston.log("info", "context", req.p.context);
@@ -8459,7 +8473,17 @@ Email verified! You can close this tab or hit the back button.
 
         let zid = result && result.rows && result.rows[0] && result.rows[0].zid;
 
-        generateAndRegisterZinvite(zid, generateShortUrl).then(function(zinvite) {
+        const zinvitePromise = req.p.conversation_id ?
+          getZidFromConversationId(req.p.conversation_id).then((zid) => {
+            return zid === 0 ? req.p.conversation_id : null;
+          }) :
+          generateAndRegisterZinvite(zid, generateShortUrl);
+
+        zinvitePromise.then(function(zinvite) {
+          if (zinvite === null) {
+            fail(res, 400, "polis_err_conversation_id_already_in_use", err);
+            return;
+          }
           // NOTE: OK to return conversation_id, because this conversation was just created by this user.
           finishOne(res, {
             url: buildConversationUrl(req, zinvite),
@@ -11924,6 +11948,7 @@ CREATE TABLE slack_user_invites (
     handle_POST_participants,
     handle_POST_ptptCommentMod,
     handle_POST_query_participants_by_metadata,
+    handle_POST_reserve_conversation_id,
     handle_POST_sendCreatedLinkToEmail,
     handle_POST_slack_user_invites,
     handle_POST_stars,
