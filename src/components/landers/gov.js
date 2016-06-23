@@ -43,10 +43,8 @@ class Gov extends React.Component {
       },
       error: {
         color: "red",
-        margin: "0px 0px 0px 20px",
       },
       success: {
-        margin: "0px 0px 0px 20px",
       },
       callToActionContainer: {
         width: "100%",
@@ -69,9 +67,8 @@ class Gov extends React.Component {
         marginBottom: 10,
         marginTop: 10,
         maxWidth: 900,
-        padding: "0px 40px",
         zIndex: 10,
-        textAlign: 'center',
+        textAlign: "center",
         width: "100%",
         color: "rgb(130,130,130)",
       },
@@ -79,10 +76,8 @@ class Gov extends React.Component {
         fontSize: 24,
         color: "rgb(130,130,130)",
         lineHeight: 1.6,
-        textAlign: 'center',
+        textAlign: "center",
         fontWeight: 300,
-        margin: "10px 0px 0px 0px",
-        padding: "0px 40px 40px 40px",
         maxWidth: 700,
         zIndex: 10,
       },
@@ -91,7 +86,7 @@ class Gov extends React.Component {
         border: "none",
         borderRadius: 3,
         margin: "20px 0px 10px 0px",
-        '@media (min-width: 470px)': {
+        "@media (min-width: 470px)": {
           marginRight: 20,
         },
       },
@@ -108,8 +103,11 @@ class Gov extends React.Component {
         padding: 0,
       },
       caseStudyTextContainer: {
-        maxWidth: 500,
-        '@media (min-width: 1050)': {
+        /* WHEN IT'S SMALL AND UP (DEFAULT) */
+        maxWidth: 320,
+        marginLeft: 0,
+        /* WHEN IT'S BIG */
+        "@media (min-width: 768px)": {
           marginLeft: 50,
         },
       },
