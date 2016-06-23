@@ -428,6 +428,14 @@ CREATE TABLE slack_user_invites (
     created BIGINT DEFAULT now_as_millis()
 );
 
+CREATE TABLE slack_bot_events (
+    -- slack_team VARCHAR(20) NOT NULL,
+    id SERIAL, -- to help with deleting
+    event json NOT NULL,
+    created BIGINT DEFAULT now_as_millis()
+);
+
+
 
 CREATE TABLE facebook_users (
     uid INTEGER NOT NULL REFERENCES users(uid),

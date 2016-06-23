@@ -511,6 +511,16 @@ function createPolisLtiToken(tool_consumer_instance_guid, lti_user_id) {
 function isPolisLtiToken(token) {
   return token.match(/^xPolisLtiToken/);
 }
+function isPolisSlackTeamUserToken(token) {
+  return token.match(/^xPolisSlackTeamUserToken/);
+}
+
+// function sendSlackEvent(slack_team, o) {
+//   return pgQueryP("insert into slack_bot_events (slack_team, event) values ($1, $2);", [slack_team, o]);
+// }
+function sendSlackEvent(o) {
+  return pgQueryP("insert into slack_bot_events (event) values ($1);", [o]);
+}
 
 function parsePolisLtiToken(token) {
   let parts = token.split(/:::/);
@@ -521,6 +531,8 @@ function parsePolisLtiToken(token) {
   };
   return o;
 }
+
+
 
 
 function getUserInfoForPolisLtiToken(token) {
@@ -790,6 +802,19 @@ function doHeaderAuth(assigner, isOptional, req, res, next) {
 }
 
 function doPolisLtiTokenHeaderAuth(assigner, isOptional, req, res, next) {
+  let token = req.headers["x-polis"];
+
+  getUserInfoForPolisLtiToken(token).then(function(uid) {
+    assigner(req, "uid", Number(uid));
+    next();
+  }).catch(function(err) {
+    res.status(403);
+    next("polis_err_auth_no_such_token");
+    return;
+  });
+}
+
+function doPolisSlackTeamUserTokenHeaderAuth(assigner, isOptional, req, res, next) {
   let token = req.headers["x-polis"];
 
   getUserInfoForPolisLtiToken(token).then(function(uid) {
@@ -1545,7 +1570,8 @@ function initializePolisHelpers(mongoParams) {
   }
 
 
-  function doVotesPost(pid, zid, tid, voteType, weight) {
+  function doVotesPost(pid, conv, tid, voteType, weight, shouldNotify) {
+    let zid = conv.zid;
     weight = weight || 0;
     let weight_x_32767 = Math.trunc(weight * 32767); // weight is stored as a SMALLINT, so convert from a [-1,1] float to [-32767,32767] int
     return new Promise(function(resolve, reject) {
@@ -1561,13 +1587,24 @@ function initializePolisHelpers(mongoParams) {
           }
           return;
         }
-        resolve(result.rows[0].created);
+
+        if (shouldNotify && conv && conv.is_slack) {
+          sendSlackEvent({
+            type: "vote",
+            vote: vote,
+          });
+        }
+
+        resolve({
+          conv: conv,
+          vote: result.rows[0],
+        });
       });
     });
   }
 
-  function votesPost(pid, zid, tid, voteType, weight) {
-    return pgQueryP_readOnly("select is_active from conversations where zid = ($1);", [zid]).then(function(rows) {
+  function votesPost(pid, zid, tid, voteType, weight, shouldNotify) {
+    return pgQueryP_readOnly("select * from conversations where zid = ($1);", [zid]).then(function(rows) {
       if (!rows || !rows.length) {
         throw "polis_err_unknown_conversation";
       }
@@ -1575,8 +1612,9 @@ function initializePolisHelpers(mongoParams) {
       if (!conv.is_active) {
         throw "polis_err_conversation_is_closed";
       }
-    }).then(function() {
-      return doVotesPost(pid, zid, tid, voteType, weight);
+      return conv;
+    }).then(function(conv) {
+      return doVotesPost(pid, conv, tid, voteType, weight, shouldNotify);
     });
   }
 
@@ -1719,6 +1757,8 @@ function initializePolisHelpers(mongoParams) {
 
       if (xPolisToken && isPolisLtiToken(xPolisToken)) {
         doPolisLtiTokenHeaderAuth(assigner, isOptional, req, res, next);
+      } else if (xPolisToken && xPolisSlackTeamUserToken(xPolisToken)) {
+        doPolisSlackTeamUserTokenHeaderAuth(assigner, isOptional, req, res, next);
       } else if (xPolisToken) {
         doHeaderAuth(assigner, isOptional, req, res, next);
       } else if (token) {
@@ -6654,7 +6694,7 @@ Email verified! You can close this tab or hit the back button.
           pgQuery(
             "INSERT INTO COMMENTS " +
             "(pid, zid, txt, velocity, active, mod, uid, tweet_id, quote_src_url, anon, created, tid) VALUES " +
-            "($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, default, null) RETURNING tid, created;",
+            "($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, default, null) RETURNING *;",
             [pid, zid, txt, velocity, active, mod, authorUid, twitter_tweet_id || null, quote_src_url || null, anon || false],
 
             function(err, docs) {
@@ -6669,8 +6709,9 @@ Email verified! You can close this tab or hit the back button.
                 return;
               }
               docs = docs.rows;
-              let tid = docs && docs[0] && docs[0].tid;
-              let createdTime = docs && docs[0] && docs[0].created;
+              let comment = docs && docs[0];
+              let tid = comment && comment.tid;
+              let createdTime = comment && comment.created;
 
               if (bad || spammy || conv.strict_moderation) {
                 getNumberOfCommentsWithModerationStatus(zid, polisTypes.mod.unmoderated).catch(function(err) {
@@ -6690,14 +6731,25 @@ Email verified! You can close this tab or hit the back button.
                     ]);
                     uids.forEach(function(uid) {
                       sendCommentModerationEmail(req, uid, zid, n);
+                      sendSlackEvent({
+                        comment: comment,
+                        type: "comment_mod_needed",
+                      });
                     });
                   });
                 });
               } else {
                 sendCommentModerationEmail(req, 125, zid, "?"); // email mike for all comments, since some people may not have turned on strict moderation, and we may want to babysit evaluation conversations of important customers.
+                sendSlackEvent({
+                  type: "comment_mod_needed",
+                  comment: comment,
+                });
               }
 
-              votesPost(pid, zid, tid, vote, 0).then(function() {
+              votesPost(pid, zid, tid, vote, 0, false).then(function(o) {
+                let conv = o.conv;
+                let vote = o.vote;
+                let createdTime = vote.created;
 
                 setTimeout(function() {
                   updateConversationModifiedTime(zid, createdTime);
@@ -7086,9 +7138,15 @@ Email verified! You can close this tab or hit the back button.
 
     pidReadyPromise.then(function() {
 
+      let conv;
+      let vote;
+
       pidReadyPromise.then(function() {
-        return votesPost(pid, req.p.zid, req.p.tid, req.p.vote, req.p.weight);
-      }).then(function(createdTime) {
+        return votesPost(pid, req.p.zid, req.p.tid, req.p.vote, req.p.weight, true);
+      }).then(function(o) {
+        conv = o.conv;
+        vote = o.vote;
+        let createdTime = vote.created;
         setTimeout(function() {
           updateConversationModifiedTime(req.p.zid, createdTime);
           updateLastInteractionTimeForConversation(zid, uid);
@@ -7114,9 +7172,7 @@ Email verified! You can close this tab or hit the back button.
         // PID_FLOW This may be the first time the client gets the pid.
         result.currentPid = req.p.pid;
 
-
         // result.shouldMod = true; // TODO
-
 
         finishOne(res, result);
 
@@ -7494,6 +7550,14 @@ Email verified! You can close this tab or hit the back button.
       // if (conv.is_active) {
       // regardless of old state, go ahead and close it, and update grades. will make testing easier.
       pgQueryP("update conversations set is_active = false where zid = ($1);", [conv.zid]).then(function() {
+
+        if (conv.is_slack) {
+          sendSlackEvent({
+            type: "closed",
+            conversation: conv,
+          });
+        }
+
         // might need to send some grades
         let ownerUid = req.p.uid;
         sendCanvasGradesIfNeeded(conv.zid, ownerUid).then(function(listOfContexts) {
@@ -7524,6 +7588,12 @@ Email verified! You can close this tab or hit the back button.
       }
       let conv = rows[0];
       pgQueryP("update conversations set is_active = true where zid = ($1);", [conv.zid]).then(function() {
+        if (conv.is_slack) {
+          sendSlackEvent({
+            type: "reopened",
+            conversation: conv,
+          });
+        }
         res.status(200).json({});
       }).catch(function(err) {
         fail(res, 500, "polis_err_reopening_conversation2", err);
