@@ -15,7 +15,6 @@ import { browserHistory } from "react-router";
 import { connect } from "react-redux";
 import { doSignin, doFacebookSignin } from "../../actions";
 import HexLogoLargeShort from "../framework/hex-logo-large-short";
-import Tweet from 'react-tweet'
 
 // import { Tweet } from 'react-twitter-widgets';
 
