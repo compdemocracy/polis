@@ -1,3 +1,5 @@
 ---
 "extends":
   - "defaults/configurations/walmart/es6-react"
+rules:
+  comma-dangle: 0
