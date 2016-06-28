@@ -2,6 +2,12 @@ body {
   min-height: 300px; // if we're slow to load while in an iframe, we want to indicate that something will appear (TODO spinner)
 }
 
+
+.svgCenter {
+  display: block;
+  margin: auto;
+}
+
 .form-control {
   display: block;
   width: 100%;

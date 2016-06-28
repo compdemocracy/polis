@@ -50,6 +50,9 @@ var IconFaLightBulb = require("./tmpl/icon_fa_lightbulb_o");
 var IconFaTimes = require("./tmpl/icon_fa_times");
 var IconFaTwitter = require("./tmpl/icon_fa_twitter");
 
+// require logo partials
+var Logo = require("./tmpl/logo");
+var LogoInvert = require("./tmpl/logo_invert");
 
 var match = window.location.pathname.match(/ep1_[0-9A-Za-z]+$/);
 var encodedParams = match ? match[0] : void 0;
@@ -338,7 +341,8 @@ Handlebars.registerPartial("iconFaFacebookSquare", iconFaFacebookSquare);
 Handlebars.registerPartial("iconFaTwitter", IconFaTwitter);
 Handlebars.registerPartial("iconFaAngleLeft", IconFaAngleLeft);
 Handlebars.registerPartial("iconFaAngleRight", IconFaAngleRight);
-
+Handlebars.registerPartial("logoInvert", LogoInvert);
+Handlebars.registerPartial("logo", Logo);
 
 
 
