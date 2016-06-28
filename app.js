@@ -134,6 +134,8 @@ helpersInitialized.then(function(o) {
     handle_GET_contexts,
     handle_GET_conversation_assigmnent_xml,
     handle_GET_conversations,
+    handle_GET_conversationsRecentActivity,
+    handle_GET_conversationsRecentlyStarted,
     handle_GET_conversationStats,
     handle_GET_dataExport,
     handle_GET_dataExport_results,
@@ -148,8 +150,8 @@ helpersInitialized.then(function(o) {
     handle_GET_localFile_dev_only,
     handle_GET_locations,
     handle_GET_lti_oauthv1_credentials,
-    handle_GET_math_pca2,
     handle_GET_math_pca,
+    handle_GET_math_pca2,
     handle_GET_metadata,
     handle_GET_metadata_answers,
     handle_GET_metadata_choices,
@@ -179,6 +181,7 @@ helpersInitialized.then(function(o) {
     handle_GET_votes_me,
     handle_GET_xids,
     handle_GET_zinvites,
+
 
 
     handle_POST_auth_deregister,
@@ -399,6 +402,19 @@ helpersInitialized.then(function(o) {
     need("button", getStringLimitLength(1, 999), assignToP),
     authOptional(assignToP),
     handle_GET_dummyButton);
+
+
+  app.get("/api/v3/conversations/recently_started",
+    auth(assignToP),
+    moveToBody,
+    want('sinceUnixTimestamp', getStringLimitLength(99), assignToP),
+    handle_GET_conversationsRecentlyStarted);
+
+  app.get("/api/v3/conversations/recent_activity",
+    auth(assignToP),
+    moveToBody,
+    want('sinceUnixTimestamp', getStringLimitLength(99), assignToP),
+    handle_GET_conversationsRecentActivity);
 
   app.post("/api/v3/participants",
     auth(assignToP),
