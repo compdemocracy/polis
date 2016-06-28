@@ -3977,6 +3977,36 @@ Email verified! You can close this tab or hit the back button.
     res.status(200).end();
   }
 
+
+  function doGetConversationsRecent(req, res, field) {
+    if (!isPolisDev(req.p.uid)) {
+      fail(res, 403, "polis_err_no_access_for_this_user");
+      return;
+    }
+    var time = req.p.sinceUnixTimestamp;
+    if (_.isUndefined(time)) {
+      time = Date.now() - 1000*60*60*24*7;
+    } else {
+      time *= 1000;
+    }
+    time = parseInt(time);
+    pgQueryP_readOnly("select * from conversations where "+field+" >= ($1);", [time]).then((rows) => {
+      res.json(rows);
+    }).catch((err) => {
+      fail(res, 403, "polis_err_conversationsRecent", err);
+    });
+  }
+
+  function handle_GET_conversationsRecentlyStarted(req, res) {
+    doGetConversationsRecent(req, res, "created");
+  }
+
+  function handle_GET_conversationsRecentActivity(req, res) {
+    doGetConversationsRecent(req, res, "modified");
+  }
+
+
+
   function userHasAnsweredZeQuestions(zid, answers) {
     return new MPromise("userHasAnsweredZeQuestions", function(resolve, reject) {
       getAnswersForConversation(zid, function(err, available_answers) {
@@ -11953,6 +11983,8 @@ CREATE TABLE slack_user_invites (
     handle_GET_contexts,
     handle_GET_conversation_assigmnent_xml,
     handle_GET_conversations,
+    handle_GET_conversationsRecentActivity,
+    handle_GET_conversationsRecentlyStarted,
     handle_GET_conversationStats,
     handle_GET_dataExport,
     handle_GET_dataExport_results,
@@ -11967,8 +11999,8 @@ CREATE TABLE slack_user_invites (
     handle_GET_localFile_dev_only,
     handle_GET_locations,
     handle_GET_lti_oauthv1_credentials,
-    handle_GET_math_pca2,
     handle_GET_math_pca,
+    handle_GET_math_pca2,
     handle_GET_metadata,
     handle_GET_metadata_answers,
     handle_GET_metadata_choices,
