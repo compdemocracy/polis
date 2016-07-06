@@ -29,6 +29,7 @@
     "fb": "1.0.2",
     "gulp": "3.8.11",
     "http-proxy": "0.10.4",
+    "intercom-client": "^2.8.0",
     "intercom.io": "^1.2.1",
     "lru-cache": "3.0.0",
     "mailgun": "0.4.3",

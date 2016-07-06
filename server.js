@@ -16,6 +16,8 @@ const fs = require('fs');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const Intercom = require('intercom.io'); // https://github.com/tarunc/intercom.io
+const IntercomOfficial = require('intercom-client');
+const intercomClient = new IntercomOfficial.Client('nb5hla8s', process.env.INTERCOM_API_KEY).usePromises();
 const p3p = require('p3p');
 const OAuth = require('oauth');
 // const Pushover = require('pushover-notifications');
@@ -36,8 +38,21 @@ const isValidUrl = require('valid-url');
 const zlib = require('zlib');
 const _ = require('underscore');
 // const winston = require("winston");
-
 const winston = console;
+
+
+// var conversion = {
+//   contact: { user_id: '8634dd66-f75e-428d-a2bf-930baa0571e9' },
+//   user: { email: 'asdf@adsf.com', user_id: "12345" },
+// };
+// intercomClient.leads.convert(conversion).then((o) => {
+//   console.error(o);
+//   console.error(4);
+// }).catch((err) => {
+//   console.error(5);
+//   console.error(err);
+// });
+
 
 
 
@@ -10377,13 +10392,28 @@ CREATE TABLE slack_user_invites (
   }
 
   function handle_POST_waitinglist(req, res) {
-    pgQueryP(
-      "insert into waitinglist (email, campaign) values ($1, $2);",
-      [req.p.email, req.p.campaign]).then(() => {
-        res.json({});
-      }, (err) => {
-        fail(res, 500, "polis_err_POST_waitinglist", err);
+    let intercom_lead_user_id;
+    intercomClient.leads.create().then((x) => {
+      intercom_lead_user_id = x.body.user_id;
+      return intercom_lead_user_id;
+    }).then(() => {
+      return intercomClient.leads.update({
+        user_id: intercom_lead_user_id,
+        email: req.p.email,
+        last_request_at: Date.now(),
+        custom_attributes: {
+          campaign: req.p.campaign,
+        },
       });
+    }).then(() => {
+      return pgQueryP(
+        "insert into waitinglist (email, campaign, intercom_lead_user_id) values ($1, $2, $3);",
+        [req.p.email, req.p.campaign, intercom_lead_user_id]);
+    }).then(() => {
+      res.json({});
+    }).catch((err) => {
+      fail(res, 500, "polis_err_POST_waitinglist", err);
+    });
   }
 
 
