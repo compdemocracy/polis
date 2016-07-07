@@ -1,7 +1,16 @@
 {{#ifNotEmbedded}}
-  <div style="width:100%;font-size:18px;font-weight:400;color:white;background-color:#03a9f4;z-index:10; text-align: center;">
+  <div style="width:100%;font-size:18px;font-weight:400;color:white;background-color:#03a9f4;z-index:10; text-align: center; padding: 20px 0px; margin-bottom: 20px;">
     {{> logoInvert}}
-    <a style="text-decoration:none;cursor:pointer;color:white;font-size:24px;margin:15px 0px;" href="http://pol.is" data-reactid=".0.0.$=1$=010.$=1$=010.$=1$/=013">pol.is</a>
+    <a
+      style="text-decoration:none;cursor:pointer;color:white;font-size:3em;margin:15px 0px;font-family: Georgia;letter-spacing: 6.61px;"
+      href="http://pol.is"
+      data-reactid=".0.0.$=1$=010.$=1$=010.$=1$/=013">
+      pol.is
+    </a>
+    <p
+      style="color:white;font-size:1.7em;margin:15px 0px;font-family: Georgia;letter-spacing: 6.61px;">
+      AI powered conversations
+    </p>
   </div>
 </div>
 {{/ifNotEmbedded}}
@@ -429,50 +438,16 @@
 {{!  ------------ BEGIN FOOTER ---------------  }}
 {{#unless no_footer}}
 
-  {{> logo}}
-
-  <div
-    style="
-      margin-top: 30px;
-      border-top: 1px solid rgba(0,0,0, 0.2);
-      {{#if no_write}}
-        border-top: 0px;
+  <div style="margin-top: 40px; margin-bottom: 20px">
+    {{> logo}}
+    <div
+      style="
         margin-top: 15px;
-      {{/if}}
-    "
-    >
-    {{#if showLogoInFooter}}
-    <div class="flexbox align-items-flex-end">
-      <a
-        href="{{logo_href}}"
-        target="_blank"
-        >
-        <img
-          width="100px"
-          src="https://pol.is/polis_logo_2.png"
-          alt=""
-          >
-      </a>
-      <div class="flex-grow-2">
-      </div>
-      {{> linkPrivacy}}
-      {{> linkTos}}
-    </div>
-    {{/if}}
-    <div class="flexbox align-items-flex-end">
-      {{#if showLogoInFooter}}
-        <div class="flex-grow-2">
-        </div>
-        {{> linkAddPolis}}
-        <div class="flex-grow-2">
-        </div>
-      {{else}}
-        {{!-- {{> linkAddPolis}} --}}
-        <div class="flex-grow-2">
-        </div>
+        text-align: center;
+      "
+      >
         {{> linkPrivacy}}
         {{> linkTos}}
-      {{/if}}
     </div>
   </div>
 
@@ -493,5 +468,3 @@
 {{!  ------------ END FOOTER ---------------  }}
 
 </div> {{! END PARTICIPATION VIEW DIV }}
-
-
