@@ -1,41 +1,40 @@
 import * as types from "../actions";
 
-const seed_comments = (state = {
+const seed_comments_tweet = (state = {
   seedText: "",
   loading: false,
   error: false,
   success: false,
 }, action) => {
   switch (action.type) {
-  case types.SEED_COMMENT_LOCAL_UPDATE:
+  case types.SEED_COMMENT_TWEET_LOCAL_UPDATE:
     return Object.assign({}, state, {
       loading: false,
       error: false,
-      seedText: action.text,
+      seedTweetText: action.text,
       success: false
     });
-  case types.SUBMIT_SEED_COMMENT:
+  case types.SUBMIT_SEED_COMMENT_TWEET:
     return Object.assign({}, state, {
       loading: true,
       error: false,
-      success: false
     });
-  case types.SUBMIT_SEED_COMMENT_SUCCESS:
+  case types.SUBMIT_SEED_COMMENT_TWEET_SUCCESS:
     return Object.assign({}, state, {
+      seedTweetText: "",
       loading: false,
-      seedText: "",
       error: false,
-      success: true
+      success: true,
     });
-  case types.SUBMIT_SEED_COMMENT_ERROR:
+  case types.SUBMIT_SEED_COMMENT_TWEET_ERROR: {
     return Object.assign({}, state, {
       loading: false,
       error: action.data.responseText,
-      success: false
     });
+  }
   default:
     return state;
   }
 };
 
-export default seed_comments;
+export default seed_comments_tweet;

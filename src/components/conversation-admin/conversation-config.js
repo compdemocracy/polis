@@ -9,6 +9,10 @@ import settings from "../../settings";
 import Spinner from "../framework/spinner";
 import Awesome from "react-fontawesome";
 
+import ModerateCommentsSeed from "./moderate-comments-seed";
+import ModerateCommentsSeedTweet from "./moderate-comments-seed-tweet";
+
+
 /* check if refer came from 'new' and if it did, show modal saying 'get started by...' */
 
 const cardPadding = 10;
@@ -145,6 +149,10 @@ class ConversationConfig extends React.Component {
             value={this.props.zid_metadata.description}
             multiLine={true} />
         </div>
+
+        <ModerateCommentsSeed params={{conversation_id: this.props.zid_metadata.conversation_id}}/>
+        <ModerateCommentsSeedTweet params={{conversation_id: this.props.zid_metadata.conversation_id}}/>
+
         <div style={styles.configCard}>
           <p style={styles.sectionHeader}> Customize the User Interface </p>
           <div style={{marginTop: 20}}> </div>

@@ -13,4 +13,6 @@ s.polis_err_reg_need_name = "Please include your name.";
 s.polis_err_post_comment_duplicate = "Error posting: This comment already exists!";
 s.waitinglist_add_success = "You've been added to the waiting list!";
 
+s.polis_err_fetching_tweet = "Error fetching tweet. Expected a URL to a twitter tweet.";
+
 export default s;
