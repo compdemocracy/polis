@@ -9,7 +9,7 @@ s = en_us;
 
 function f(key) {
   // strip whitespace from key
-  key = key.replace(/\s+$/,"").replace(/^s+/,"");
+  key = key.replace(/\s+$/,"").replace(/^\s+/,"");
   if (typeof s[key] === "undefined") {
     return key;
   }
