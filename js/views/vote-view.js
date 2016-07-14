@@ -75,6 +75,7 @@ module.exports = Handlebones.ModelView.extend({
     }
     ctx.social = socialCtx;
     ctx.noModSet = !ctx.spamOn && !ctx.otOn && !ctx.importantOn;
+    ctx.canSubscribe = !!preload.firstPtpt;
     return ctx;
   },
 
@@ -233,8 +234,8 @@ module.exports = Handlebones.ModelView.extend({
       });
       that.model.set({
         empty: true,
-        txt1: "This conversation is closed.",
-        txt2: "No further voting is allowed."
+        txt1: Strings.convIsClosed,
+        txt2: Strings.noMoreVotingAllowed,
       });
       that.render();
     }
@@ -253,14 +254,14 @@ module.exports = Handlebones.ModelView.extend({
         var message1;
         var message2;
         if (userHasVoted) {
-          message1 = "You've voted on all the comments.";
-          message2 = "If you have something to add, try writing your own comment.";
+          message1 = Strings.noCommentsYouVotedOnAll;
+          message2 = Strings.noCommentsTryWritingOne;
         } else {
-          message1 = "There aren't any comments yet.";
+          message1 = Strings.noCommentsYet;
           if (is_public) {
-            message2 = "Get this conversation started by inviting more participants, or add a comment.";
+            message2 = Strings.noCommentsYetSoInvite;
           } else {
-            message2 = "Get this conversation started by adding a comment.";
+            message2 = Strings.noCommentsYetSoWrite;
           }
         }
 

@@ -58,4 +58,29 @@ s.connectTwButton = "Connect with Twitter";
 s.polis_err_reg_fb_verification_email_sent = "Please check your email for a verification link, then return here to continue.";
 s.polis_err_reg_fb_verification_noemail_unverified = "Your Facebook account is unverified. Please verify your email address with Facebook, then return here to continue.";
 
+s.notificationsAlreadySubscribed = "You are subscribed to updates for this conversation.";
+s.notificationsGetNotified = "Get notified when more comments arrive:";
+s.notificationsEnterEmail = "Enter your email address to get notified when more comments arrive:";
+s.labelEmail = "Email";
+s.notificationsSubscribeButton = "Subscribe";
+s.noCommentsYet = "There aren't any comments yet.";
+s.noCommentsYetSoWrite = "Get this conversation started by adding a comment.";
+s.noCommentsYetSoInvite = "Get this conversation started by inviting more participants, or add a comment.";
+s.noCommentsYouVotedOnAll = "You've voted on all the comments.";
+s.noCommentsTryWritingOne = "If you have something to add, try writing your own comment.";
+s.convIsClosed = "This conversation is closed.";
+s.noMoreVotingAllowed = "No further voting is allowed.";
+
+s.topic_good_01 = "What should we do about the pingpong room?";
+s.topic_good_01_reason = "open ended, anyone can have an opinion on answers to this question";
+s.topic_good_02 = "What do you think about the new proposal?";
+s.topic_good_02_reason = "open ended, anyone can have an opinion on answers to this question";
+s.topic_good_03 = "Can you think of anything that's slowing productivity?";
+
+s.topic_bad_01 = "everyone report your launch readiness";
+s.topic_bad_01_reason = "people from various teams will be voting on the responses, but may not have enough knowledge to vote confidently.";
+s.topic_bad_02 = "what are our launch blockers?";
+s.topic_bad_02_reason = "";
+
+
 module.exports = s;
