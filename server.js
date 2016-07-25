@@ -7162,7 +7162,13 @@ Email verified! You can close this tab or hit the back button.
 
   function updateConversationModifiedTime(zid, t) {
     let modified = _.isUndefined(t) ? Date.now() : Number(t);
-    return pgQueryP("update conversations set modified = ($2) where zid = ($1) and modified < ($2);", [zid, modified]);
+    let query = "update conversations set modified = ($2) where zid = ($1) and modified < ($2);";
+    let params = [zid, modified];
+    if (_.isUndefined(t)) {
+      query = "update conversations set modified = now_as_millis() where zid = ($1);";
+      params = [zid];
+    }
+    return pgQueryP(query, params);
   }
 
   function handle_POST_votes(req, res) {
@@ -7845,7 +7851,7 @@ Email verified! You can close this tab or hit the back button.
                 finishOne(res, conv, true, successCode);
               }
 
-
+              updateConversationModifiedTime(req.p.zid);
 
               //     // LTI redirect to create e
               //     // let url = getServerNameWithProtocol(req) + "/" + req.p.conversation_id;
