@@ -2658,6 +2658,10 @@ function initializePolisHelpers(mongoParams) {
     return server;
   }
 
+  function handle_POST_auth_slack_redirect_uri(req, res) {
+    console.dir(req);
+    res.status(200).send("");
+  }
 
 
   function handle_POST_auth_pwresettoken(req, res) {
@@ -12074,6 +12078,7 @@ CREATE TABLE slack_user_invites (
     handle_POST_auth_new,
     handle_POST_auth_password,
     handle_POST_auth_pwresettoken,
+    handle_POST_auth_slack_redirect_uri,
     handle_POST_comments,
     handle_POST_contexts,
     handle_POST_contributors,

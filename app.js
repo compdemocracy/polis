@@ -190,6 +190,7 @@ helpersInitialized.then(function(o) {
     handle_POST_auth_new,
     handle_POST_auth_password,
     handle_POST_auth_pwresettoken,
+    handle_POST_auth_slack_redirect_uri,
     handle_POST_comments,
     handle_POST_contexts,
     handle_POST_contributors,
@@ -494,6 +495,10 @@ helpersInitialized.then(function(o) {
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     handle_GET_snapshot);
+
+app.get("/api/v3/auth/slack/redirect_uri",
+    handle_POST_auth_slack_redirect_uri);
+
 
   // this endpoint isn't really ready for general use TODO_SECURITY
   app.get("/api/v3/facebook/delete",
