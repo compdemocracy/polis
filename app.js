@@ -865,6 +865,9 @@ helpersInitialized.then(function(o) {
     want('topic', getOptionalStringLimitLength(1000), assignToP, ""),
     want('description', getOptionalStringLimitLength(50000), assignToP, ""),
     want('conversation_id', getStringLimitLength(6, 300), assignToP, ""),
+    want('is_slack', getBool, assignToP, false),
+    
+    want('is_data_open', getBool, assignToP, false),
     handle_POST_conversations);
 
   // app.get('/api/v3/users',
