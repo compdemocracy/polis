@@ -1210,6 +1210,9 @@ app.get("/api/v3/auth/slack/redirect_uri",
   app.get(/^\/plus(\/.*)?/, fetchIndexForAdminPage);
   app.get(/^\/contrib(\/.*)?/, fetchIndexForAdminPage);
 
+  app.get(/^\/bot\/install(\/.*)?/, fetchIndexForAdminPage);
+  app.get(/^\/bot\/support(\/.*)?/, fetchIndexForAdminPage);
+  
   app.get(/^\/react(\/.*)?$/, makeReactClientProxy("localhost", 3000));
   app.get(/^\/inbox(\/.*)?$/, fetchIndexWithoutPreloadData);
   app.get(/^\/r/, fetchIndexWithoutPreloadData);
