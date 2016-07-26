@@ -270,6 +270,15 @@ CREATE TABLE conversations(
 );
 CREATE INDEX conversations_owner_idx ON conversations USING btree (owner);
 
+
+CREATE TABLE slack_oauth_access_tokens (
+    slack_access_token VARCHAR(100) NOT NULL,
+    slack_scope VARCHAR(100) NOT NULL,
+    -- slack_team VARCHAR(100) NOT NULL,
+    created BIGINT DEFAULT now_as_millis()
+    -- UNIQUE(slack_team)
+);
+
 CREATE TABLE inviters (
     inviter_uid INTEGER REFERENCES users(uid),
     invited_email VARCHAR(999),

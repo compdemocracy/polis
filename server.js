@@ -363,6 +363,7 @@ const sql_conversations = sql.define({
     "is_draft",
     "is_public", // TODO remove this column
     "is_data_open",
+    "is_slack",
     "profanity_filter",
     "spam_filter",
     "strict_moderation",
@@ -2659,8 +2660,25 @@ function initializePolisHelpers(mongoParams) {
   }
 
   function handle_POST_auth_slack_redirect_uri(req, res) {
-    console.dir(req);
-    res.status(200).send("");
+    const code = req.p.code;
+    // const state = req.p.state;
+    request({
+      url: "https://slack.com/api/oauth.access",
+      client_id: process.env.POLIS_SLACK_APP_CLIENT_ID,
+      client_secret: process.env.POLIS_SLACK_APP_CLIENT_SECRET,
+      code: code,
+      redirect_uri:  getServerNameWithProtocol(req) + "/api/v3/auth/slack/redirect_uri",
+    }).then((slack_response) => {
+      return pgQueryP("insert into slack_oauth_access_tokens (slack_access_token, slack_scope) values ($1, $2);", [
+        slack_response.access_token,
+        slack_response.scope,
+        // state,
+      ]);
+    }).then(() => {
+      res.status(200).send("");
+    }).catch((err) => {
+      fail(res, 500, "polis_err_slack_oauth", err);
+    });
   }
 
 

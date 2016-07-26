@@ -498,6 +498,9 @@ helpersInitialized.then(function(o) {
     handle_GET_snapshot);
 
   app.get("/api/v3/auth/slack/redirect_uri",
+    moveToBody,
+    need('code', getStringLimitLength(1, 999)),
+    want('state', getStringLimitLength(0, 999)),
     handle_POST_auth_slack_redirect_uri);
 
   app.post("/api/v3/slack/interactive_messages",
