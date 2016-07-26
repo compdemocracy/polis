@@ -29,6 +29,7 @@ import News2 from "./components/landers/news2";
 import Home from "./components/landers/homepage";
 import Plus from "./components/landers/plus";
 import Bot from "./components/landers/bot";
+import BotInstall from "./components/landers/bot-install";
 import Gov from "./components/landers/gov";
 import Demo from "./components/landers/demo";
 import Meta from "./components/landers/metalander";
@@ -104,6 +105,7 @@ class Root extends React.Component {
             <Route path="plus" component={Plus}/>
             <Route path="home" component={Meta}/>
             <Route path="bot" component={Bot}/>
+            <Route path="bot/install" component={BotInstall}/>
             <Route path="gov" component={Gov}/>
             <Route path="demo" component={Demo}/>
             <Route path="signin" component={SignIn}/>
