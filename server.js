@@ -2662,18 +2662,30 @@ function initializePolisHelpers(mongoParams) {
   function handle_POST_auth_slack_redirect_uri(req, res) {
     const code = req.p.code;
     // const state = req.p.state;
-    request({
-      url: "https://slack.com/api/oauth.access",
-      client_id: process.env.POLIS_SLACK_APP_CLIENT_ID,
-      client_secret: process.env.POLIS_SLACK_APP_CLIENT_SECRET,
-      code: code,
-      redirect_uri:  getServerNameWithProtocol(req) + "/api/v3/auth/slack/redirect_uri",
+    console.log("handle_POST_auth_slack_redirect_uri 1");
+    request.post("https://slack.com/api/oauth.access", {
+      method: "POST",
+      type: "application/json",
+      // contentType: "application/json; charset=utf-8",
+      headers: {
+        // "Authorization": "Basic " + new Buffer(key + ":" + secret, "utf8").toString("base64"),
+        // "Cache-Control": "max-age=0",
+      },
+      json: {
+        client_id: process.env.POLIS_SLACK_APP_CLIENT_ID,
+        client_secret: process.env.POLIS_SLACK_APP_CLIENT_SECRET,
+        code: code,
+        redirect_uri:  getServerNameWithProtocol(req) + "/api/v3/auth/slack/redirect_uri",
+      }
     }).then((slack_response) => {
+      console.log("handle_POST_auth_slack_redirect_uri 2");
       return pgQueryP("insert into slack_oauth_access_tokens (slack_access_token, slack_scope) values ($1, $2);", [
         slack_response.access_token,
         slack_response.scope,
         // state,
       ]);
+    }, (err) => {
+      fail(res, 500, "polis_err_slack_oauth 2", err);
     }).then(() => {
       res.status(200).send("");
     }).catch((err) => {
