@@ -211,6 +211,7 @@ helpersInitialized.then(function(o) {
     handle_POST_query_participants_by_metadata,
     handle_POST_reserve_conversation_id,
     handle_POST_sendCreatedLinkToEmail,
+    handle_POST_slack_interactive_messages,
     handle_POST_slack_user_invites,
     handle_POST_stars,
     handle_POST_trashes,
@@ -496,9 +497,11 @@ helpersInitialized.then(function(o) {
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     handle_GET_snapshot);
 
-app.get("/api/v3/auth/slack/redirect_uri",
+  app.get("/api/v3/auth/slack/redirect_uri",
     handle_POST_auth_slack_redirect_uri);
 
+  app.post("/api/v3/slack/interactive_messages",
+    handle_POST_slack_interactive_messages);
 
   // this endpoint isn't really ready for general use TODO_SECURITY
   app.get("/api/v3/facebook/delete",
@@ -1212,7 +1215,7 @@ app.get("/api/v3/auth/slack/redirect_uri",
 
   app.get(/^\/bot\/install(\/.*)?/, fetchIndexForAdminPage);
   app.get(/^\/bot\/support(\/.*)?/, fetchIndexForAdminPage);
-  
+
   app.get(/^\/react(\/.*)?$/, makeReactClientProxy("localhost", 3000));
   app.get(/^\/inbox(\/.*)?$/, fetchIndexWithoutPreloadData);
   app.get(/^\/r/, fetchIndexWithoutPreloadData);

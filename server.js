@@ -10324,6 +10324,11 @@ CREATE TABLE slack_user_invites (
     });
   }
 
+  function handle_POST_slack_interactive_messages(req, res) {
+    console.dir(req);
+    res.status(200).send("");
+  }
+
   function handle_POST_slack_user_invites(req, res) {
     const slack_team = req.p.slack_team;
     const slack_user_id = req.p.slack_user_id;
@@ -12099,6 +12104,7 @@ CREATE TABLE slack_user_invites (
     handle_POST_query_participants_by_metadata,
     handle_POST_reserve_conversation_id,
     handle_POST_sendCreatedLinkToEmail,
+    handle_POST_slack_interactive_messages,
     handle_POST_slack_user_invites,
     handle_POST_stars,
     handle_POST_trashes,
