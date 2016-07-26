@@ -28,6 +28,7 @@ const OAuth = require('oauth');
 const Mailgun = require('mailgun').Mailgun;
 const mailgun = new Mailgun(process.env.MAILGUN_API_KEY);
 const postmark = require("postmark")(process.env.POSTMARK_API_KEY);
+const querystring = require('querystring');
 const devMode = "localhost" === process.env.STATIC_FILES_HOST;
 const replaceStream = require('replacestream');
 const responseTime = require('response-time');
@@ -1162,6 +1163,13 @@ const prrrams = (function() {
     let required = config.required;
     let defaultVal = config.defaultVal;
     let extractor = config.extractor;
+
+    if (typeof assigner !== "function") {
+      throw "bad arg for assigner";
+    }
+    if (typeof parserWhichReturnsPromise !== "function") {
+      throw "bad arg for parserWhichReturnsPromise";
+    }
 
     let f = function(req, res, next) {
       let val = extractor(req, name);
@@ -2663,31 +2671,46 @@ function initializePolisHelpers(mongoParams) {
     const code = req.p.code;
     // const state = req.p.state;
     console.log("handle_POST_auth_slack_redirect_uri 1");
-    request.post("https://slack.com/api/oauth.access", {
-      method: "POST",
-      type: "application/json",
-      // contentType: "application/json; charset=utf-8",
-      headers: {
-        // "Authorization": "Basic " + new Buffer(key + ":" + secret, "utf8").toString("base64"),
-        // "Cache-Control": "max-age=0",
-      },
-      json: {
-        client_id: process.env.POLIS_SLACK_APP_CLIENT_ID,
-        client_secret: process.env.POLIS_SLACK_APP_CLIENT_SECRET,
-        code: code,
-        redirect_uri:  getServerNameWithProtocol(req) + "/api/v3/auth/slack/redirect_uri",
+
+    console.log(process.env.POLIS_SLACK_APP_CLIENT_ID);
+
+    request.get("https://slack.com/api/oauth.access?" + querystring.stringify({
+      client_id: process.env.POLIS_SLACK_APP_CLIENT_ID,
+      client_secret: process.env.POLIS_SLACK_APP_CLIENT_SECRET,
+      code: code,
+      redirect_uri:  getServerNameWithProtocol(req) + "/api/v3/auth/slack/redirect_uri",
+    }))
+    // request.post("https://slack.com/api/oauth.access", {
+    //   method: "POST",
+    //   type: "application/json",
+    //   contentType: "application/json; charset=utf-8",
+    //   headers: {
+    //     // "Authorization": "Basic " + new Buffer(key + ":" + secret, "utf8").toString("base64"),
+    //     // "Cache-Control": "max-age=0",
+    //   },
+    //   json: {
+    //     client_id: process.env.POLIS_SLACK_APP_CLIENT_ID,
+    //     client_secret: process.env.POLIS_SLACK_APP_CLIENT_SECRET,
+    //     code: code,
+    //     redirect_uri:  getServerNameWithProtocol(req) + "/api/v3/auth/slack/redirect_uri",
+    //   }
+    // })
+    .then((slack_response) => {
+      slack_response = JSON.parse(slack_response);
+      if (slack_response && slack_response.ok === false) {
+        fail(res, 500, "polis_err_slack_oauth 3", slack_response);
+        return;
       }
-    }).then((slack_response) => {
       console.log("handle_POST_auth_slack_redirect_uri 2");
-      return pgQueryP("insert into slack_oauth_access_tokens (slack_access_token, slack_scope) values ($1, $2);", [
+      console.log(slack_response);
+      return pgQueryP("insert into slack_oauth_access_tokens (slack_access_token, slack_scope, slack_auth_response) values ($1, $2, $3);", [
         slack_response.access_token,
         slack_response.scope,
+        slack_response,
         // state,
-      ]);
-    }, (err) => {
-      fail(res, 500, "polis_err_slack_oauth 2", err);
-    }).then(() => {
-      res.status(200).send("");
+      ]).then(() => {
+        res.status(200).send("");
+      });
     }).catch((err) => {
       fail(res, 500, "polis_err_slack_oauth", err);
     });

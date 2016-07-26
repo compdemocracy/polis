@@ -274,7 +274,8 @@ CREATE INDEX conversations_owner_idx ON conversations USING btree (owner);
 CREATE TABLE slack_oauth_access_tokens (
     slack_access_token VARCHAR(100) NOT NULL,
     slack_scope VARCHAR(100) NOT NULL,
-    -- slack_team VARCHAR(100) NOT NULL,
+    -- slack_team VARCHAR(100) NOT NULL,    
+    slack_auth_response json NOT NULL,
     created BIGINT DEFAULT now_as_millis()
     -- UNIQUE(slack_team)
 );
