@@ -75,7 +75,7 @@ class BotInstall extends React.Component {
         image={false}>
         <Flex>
           <a
-            href="https://slack.com/oauth/authorize?scope=incoming-webhook,bot&client_id=2551241597.63059358549">
+            href="https://slack.com/oauth/authorize?scope=incoming-webhook,bot,chat:write:bot&client_id=2551241597.63059358549">
             <img
               alt="Add to Slack"
               height="40"
