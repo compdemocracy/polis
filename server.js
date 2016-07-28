@@ -10378,7 +10378,25 @@ CREATE TABLE slack_user_invites (
   }
 
   function handle_POST_slack_interactive_messages(req, res) {
-    console.dir(req);
+    const payload = JSON.parse(req.p.payload);
+
+    // const attachments = payload.attachments;
+    // const bot_id = payload.bot_id;
+    // const callback_id = payload.callback_id;
+    // const channel = payload.channel;
+    // const original_message = payload.original_message;
+    const response_url = payload.response_url;
+    // const subtype = payload.subtype;
+    // const team = payload.team;
+    // const ts = payload.ts;
+    // const type = payload.type;
+    // const username = payload.username;
+
+    console.dir(response_url);
+    console.dir(payload);
+
+
+    // console.dir(req.p);
     res.status(200).send("");
   }
 
