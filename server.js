@@ -38,8 +38,13 @@ const timeout = require('connect-timeout');
 const isValidUrl = require('valid-url');
 const zlib = require('zlib');
 const _ = require('underscore');
+var WebClient = require('@slack/client').WebClient;
+var web = new WebClient(process.env.SLACK_API_TOKEN);
 // const winston = require("winston");
 const winston = console;
+
+
+
 
 
 // var conversion = {
@@ -10377,27 +10382,87 @@ CREATE TABLE slack_user_invites (
     });
   }
 
+  function postMessageUsingHttp(o) {
+    return new Promise(function(resolve, reject) {
+      web.chat.postMessage(o.channel, o.text, o, (err, info) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(info);
+        }
+      });
+    });
+  }
+
+
   function handle_POST_slack_interactive_messages(req, res) {
     const payload = JSON.parse(req.p.payload);
 
     // const attachments = payload.attachments;
     // const bot_id = payload.bot_id;
     // const callback_id = payload.callback_id;
-    // const channel = payload.channel;
     // const original_message = payload.original_message;
-    const response_url = payload.response_url;
     // const subtype = payload.subtype;
-    // const team = payload.team;
     // const ts = payload.ts;
     // const type = payload.type;
     // const username = payload.username;
+    const channel = payload.channel;
+    const response_url = payload.response_url;
+    const team = payload.team;
+    const actions = payload.actions;
+    // const user = payload.user;
 
     console.dir(response_url);
     console.dir(payload);
 
 
-    // console.dir(req.p);
-    res.status(200).send("");
+
+    postMessageUsingHttp({
+      channel: channel.id,
+      team: team.id,
+      text: "woo! you voted: " + actions[0].name,
+      "attachments": [
+        {
+          "text": Math.random(),
+          "fallback": "You are unable to choose a game",
+          "callback_id": "wopr_game",
+          "color": "#3AA3E3",
+          "attachment_type": "default",
+          "actions": [
+            {
+              "name": "chess",
+              "text": "Chess",
+              "type": "button",
+              "value": "chess",
+            },
+            {
+              "name": "maze",
+              "text": "Falken's Maze",
+              "type": "button",
+              "value": "maze",
+            },
+            {
+              "name": "war",
+              "text": "Thermonuclear War",
+              "style": "danger",
+              "type": "button",
+              "value": "war",
+              "confirm": {
+                "title": "Are you sure?",
+                "text": "Wouldn't you prefer a good game of chess?",
+                "ok_text": "Yes",
+                "dismiss_text": "No",
+              },
+            },
+          ],
+        },
+      ],
+    }).then((result) => {
+      // console.dir(req.p);
+      res.status(200).send("");
+    }).catch((err) => {
+      fail(res, 500, "polis_err_slack_interactive_messages_000", err);
+    });
   }
 
   function handle_POST_slack_user_invites(req, res) {
