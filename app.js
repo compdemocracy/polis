@@ -504,6 +504,7 @@ helpersInitialized.then(function(o) {
     handle_POST_auth_slack_redirect_uri);
 
   app.post("/api/v3/slack/interactive_messages",
+    need('payload', getOptionalStringLimitLength(9999), assignToP, ""),
     handle_POST_slack_interactive_messages);
 
   // this endpoint isn't really ready for general use TODO_SECURITY
