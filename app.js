@@ -192,6 +192,7 @@ helpersInitialized.then(function(o) {
     handle_POST_auth_pwresettoken,
     handle_POST_auth_slack_redirect_uri,
     handle_POST_comments,
+    handle_POST_comments_slack,
     handle_POST_contexts,
     handle_POST_contributors,
     handle_POST_conversation_close,
@@ -616,6 +617,22 @@ helpersInitialized.then(function(o) {
     want("anon", getBool, assignToP),
     resolve_pidThing('pid', assignToP, "post:comments"),
     handle_POST_comments);
+
+  app.post("/api/v3/comments/slack",
+    auth(assignToP),
+    want('slack_team', getOptionalStringLimitLength(99), assignToP),
+    want('slack_user_id', getOptionalStringLimitLength(99), assignToP),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    want('txt', getOptionalStringLimitLength(997), assignToP),
+    want('vote', getIntInRange(-1, 1), assignToP, -1), // default to agree
+    want('prepop', getBool, assignToP),
+    want("twitter_tweet_id", getStringLimitLength(999), assignToP),
+    want("quote_twitter_screen_name", getStringLimitLength(999), assignToP),
+    want("quote_txt", getStringLimitLength(999), assignToP),
+    want("quote_src_url", getUrlLimitLength(999), assignToP),
+    want("anon", getBool, assignToP),
+    resolve_pidThing('pid', assignToP, "post:comments"),
+    handle_POST_comments_slack);
 
   app.get("/api/v3/votes/me",
     moveToBody,

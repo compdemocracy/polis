@@ -1485,7 +1485,7 @@ function initializePolisHelpers(mongoParams) {
   }
 
   // returns a pid of -1 if it's missing
-  function getPidPromise(zid, uid) {
+  function getPidPromise(zid, uid, usePrimary) {
     let cacheKey = zid + "_" + uid;
     let cachedPid = pidCache.get(cacheKey);
     return new MPromise("getPidPromise", function(resolve, reject) {
@@ -1493,7 +1493,8 @@ function initializePolisHelpers(mongoParams) {
         resolve(cachedPid);
         return;
       }
-      pgQuery_readOnly("SELECT pid FROM participants WHERE zid = ($1) AND uid = ($2);", [zid, uid], function(err, results) {
+      const f = usePrimary ? pgQuery : pgQuery_readOnly;
+      f("SELECT pid FROM participants WHERE zid = ($1) AND uid = ($2);", [zid, uid], function(err, results) {
         if (err) {
           return reject(err);
         }
@@ -6646,6 +6647,44 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
+  function handle_POST_comments_slack(req, res) {
+    const slack_team = req.p.slack_team;
+    const slack_user_id = req.p.slack_user_id;
+
+
+    pgQueryP("select * from slack_users where slack_team = ($1) and slack_user_id = ($2);", [slack_team, slack_user_id]).then((rows) => {
+      if (!rows || !rows.length) {
+        const uidPromise = createDummyUser();
+        return uidPromise.then((uid) => {
+          return pgQueryP("insert into slack_users (uid, slack_team, slack_user_id) values ($1, $2, $3) returning *;", [
+            uid,
+            slack_team,
+            slack_user_id,
+          ]);
+        });
+      }
+      return rows;
+    }).then((slack_user_rows) => {
+      return getPidPromise(req.p.zid, req.p.uid, true).then((pid) => {
+        if (pid >= 0) {
+          req.p.pid = pid
+        }
+        return slack_user_rows;
+      });
+    }).then((slack_user_rows) => {
+      if (!slack_user_rows || !slack_user_rows.length) {
+        fail(res, 500, "polis_err_post_comments_slack_missing_slack_user");
+      }
+      const uid = slack_user_rows[0].uid;
+      req.p.uid = uid;
+
+      handle_POST_comments(req, res);
+
+
+    }).catch((err) => {
+      fail(res, 500, "polis_err_post_comments_slack_misc", err);
+    });
+  }
 
 
   function handle_POST_comments(req, res) {
@@ -6681,11 +6720,17 @@ Email verified! You can close this tab or hit the back button.
     function doGetPid() {
       // PID_FLOW
       if (_.isUndefined(pid)) {
-        return addParticipant(req.p.zid, req.p.uid).then(function(rows) {
-          let ptpt = rows[0];
-          pid = ptpt.pid;
-          currentPid = pid;
-          return pid;
+        return getPidPromise(req.p.zid, req.p.uid, true).then((pid) => {
+          if (pid === -1) {
+            return addParticipant(req.p.zid, req.p.uid).then(function(rows) {
+              let ptpt = rows[0];
+              pid = ptpt.pid;
+              currentPid = pid;
+              return pid;
+            });
+          } else {
+            return pid;
+          }
         });
       }
       return Promise.resolve(pid);
@@ -12221,6 +12266,7 @@ CREATE TABLE slack_user_invites (
     handle_POST_auth_pwresettoken,
     handle_POST_auth_slack_redirect_uri,
     handle_POST_comments,
+    handle_POST_comments_slack,
     handle_POST_contexts,
     handle_POST_contributors,
     handle_POST_conversation_close,
