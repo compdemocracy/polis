@@ -56,6 +56,7 @@ function connectToMongo(callback) {
 
 var helpersInitialized = new Promise(function(resolve, reject) {
   connectToMongo(function(err, args) {
+    console.log('connectToMongo callback', err, args);
     if (err) {
       console.error("failed to init db connections");
       console.error(err);
@@ -227,6 +228,7 @@ helpersInitialized.then(function(o) {
     handle_PUT_ptptois,
   } = o;
 
+  console.log('begin route config');
 
   app.disable('x-powered-by');
   // app.disable('etag'); // seems to be eating CPU, and we're not using etags yet. https://www.dropbox.com/s/hgfd5dm0e29728w/Screenshot%202015-06-01%2023.42.47.png?dl=0
