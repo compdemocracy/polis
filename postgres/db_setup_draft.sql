@@ -11,6 +11,11 @@
 
 
 
+CREATE OR REPLACE FUNCTION to_zid(associated_zinvite TEXT) RETURNS INT AS $$
+        BEGIN
+            RETURN (select zid from zinvites where zinvite = associated_zinvite);
+        END;
+$$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION now_as_millis() RETURNS BIGINT AS $$
         DECLARE
