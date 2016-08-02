@@ -134,18 +134,6 @@ class MetaLander extends React.Component {
         </Flex>
         <div style={{width: "100%"}}>
           <a
-            href="/news"
-            key="1"
-            style={[this.styles().goSection, this.styles().publishers]}
-            >
-            <div style={this.styles().iconWrapper}>
-              <PublishersFlat/>
-            </div>
-            <p style={this.styles().forText}> For Publishers and Readers </p>
-          </a>
-        </div>
-        <div style={{width: "100%"}}>
-          <a
             href="/bot"
             key="2"
             style={[this.styles().goSection, this.styles().slack]}
@@ -174,3 +162,18 @@ class MetaLander extends React.Component {
 }
 
 export default MetaLander;
+
+/*
+<div style={{width: "100%"}}>
+  <a
+    href="/news"
+    key="1"
+    style={[this.styles().goSection, this.styles().publishers]}
+    >
+    <div style={this.styles().iconWrapper}>
+      <PublishersFlat/>
+    </div>
+    <p style={this.styles().forText}> For Publishers and Readers </p>
+  </a>
+</div>
+*/
