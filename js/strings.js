@@ -10,7 +10,7 @@ var zh_Hant = require("./strings/zh_Hant.js");
 var zh_Hans = require("./strings/zh_Hans.js");
 
 // Spanish
-// var es = require("./strings/es.js");
+var es = require("./strings/es_la.js");
 
 // Italian
 var it = require("./strings/it.js");
