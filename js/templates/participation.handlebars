@@ -262,6 +262,7 @@
   {{view readReactView}}
 </span>
 
+{{#if auth_prompt_any_social}}
 {{#unless hasFbAndTw}}
 <div
   id="socialButtonsUnderReadReact"
@@ -275,6 +276,7 @@
     {{s.socialConnectPrompt}}
   </p>
   <div>
+    {{#if auth_opt_fb_computed}}
     {{#unless hasFacebook}}
       <button class="facebookButton">
         <span class="socialButtonText">
@@ -290,7 +292,9 @@
         </span>
       </button>
     {{/unless}}
+    {{/if}}
 
+    {{#if auth_opt_tw_computed}}
     {{#unless hasTwitter}}
       <button class="twitterButton">
       <span class="socialButtonText">
@@ -306,9 +310,12 @@
       </span>
       </button>
     {{/unless}}
+    {{/if}}
   </div>
 </div>
 {{/unless}}  {{!-- hasFbAndTw --}}
+{{/if}}  {{!-- auth_prompt_any_social --}}
+
 
 <span class="{{#if no_vis}}displayNone{{/if}}"> {{!-- no_vis toggle wrapper --}}
 <div id="vis_section" class="displayNone">
