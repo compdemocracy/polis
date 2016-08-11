@@ -8338,6 +8338,11 @@ Email verified! You can close this tab or hit the back button.
     ]).then(function(results) {
       let conv = results[0] && results[0][0];
       let convHasMetadata = results[1];
+
+      conv.auth_opt_allow_3rdparty = ifDefinedFirstElseSecond(conv.auth_opt_allow_3rdparty, true);
+      conv.auth_opt_fb_computed = conv.auth_opt_allow_3rdparty && ifDefinedFirstElseSecond(conv.auth_opt_fb, true);
+      conv.auth_opt_tw_computed = conv.auth_opt_allow_3rdparty && ifDefinedFirstElseSecond(conv.auth_opt_tw, true);
+
       return getUserInfoForUid2(conv.owner).then(function(userInfo) {
         let ownername = userInfo.hname;
         if (convHasMetadata) {
