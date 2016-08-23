@@ -54,7 +54,7 @@ class Company extends React.Component {
               Founding Team
             </p>
             <Flex styleOverrides={{marginBottom: 30}} direction="column">
-              <img style={styles.pic} src="https://pbs.twimg.com/profile_images/551658402758156288/18Ys8Byj.jpeg"/>
+              <img style={styles.pic} src="https://pol.is/landerImages/18Ys8Byj.jpeg"/>
               <div>
               <p style={styles.bodyText}>
                 Colin Megill
@@ -67,7 +67,7 @@ class Company extends React.Component {
               </a>
             </Flex>
             <Flex styleOverrides={{marginBottom: 30}} direction="column">
-              <img style={styles.pic} src="https://pbs.twimg.com/profile_images/652394729699610624/MItXxpoe.jpg"/>
+              <img style={styles.pic} src="https://pol.is/landerImages/MItXxpoe.jpg"/>
               <div>
               <p style={styles.bodyText}>
                 Michael Bjorkegren
@@ -80,7 +80,7 @@ class Company extends React.Component {
               </a>
             </Flex>
             <Flex styleOverrides={{marginBottom: 30}} direction="column">
-              <img style={styles.pic} src="https://pbs.twimg.com/profile_images/457717361206755328/th-BO255.jpeg"/>
+              <img style={styles.pic} src="https://pol.is/landerImages/th-BO255.jpeg"/>
               <div>
               <p style={styles.bodyText}>
                 Christopher Small
