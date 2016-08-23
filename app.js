@@ -1264,9 +1264,8 @@ helpersInitialized.then(function(o) {
     'Content-Type': "text/html",
   }));
   app.get(/^\/news$/, fetchIndexForAdminPage);
-  app.get(/^\/company$/, makeFileFetcher(hostname, portForParticipationFiles, "/company.html", {
-    'Content-Type': "text/html",
-  }));
+  app.get(/^\/company$/, fetchIndexForAdminPage);
+  
   app.get(/^\/api$/, function(req, res) {
     res.redirect("/docs/api/v3");
   });
