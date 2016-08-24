@@ -267,11 +267,14 @@ class Gov extends React.Component {
             color: "rgb(130,130,130)",
           }}> Taiwan: A Case Study </p>
           <Flex
-            styleOverrides={{width: "100%", marginBottom: 40}}
+            styleOverrides={{width: "100%", marginBottom: 0}}
             justifyContent="center"
             wrap="wrap"
             alignItems="baseline">
-            <blockquote className="twitter-tweet" dataLang="en"><p lang="en" dir="ltr"><a href="https://twitter.com/UsePolis">@UsePolis</a> increased citizen engagement around policy proposals from 10&#39;s of people to 1000&#39;s, and increased quality as well.</p>&mdash; 唐鳳 (@audreyt) <a href="https://twitter.com/audreyt/status/744450181307850752">June 19, 2016</a></blockquote>
+            <Flex direction="column">
+              <blockquote className="twitter-tweet" dataLang="en"><p lang="en" dir="ltr"><a href="https://twitter.com/UsePolis">@UsePolis</a> increased citizen engagement around policy proposals from 10&#39;s of people to 1000&#39;s, and increased quality as well.</p>&mdash; 唐鳳 (@audreyt) <a href="https://twitter.com/audreyt/status/744450181307850752">June 19, 2016</a></blockquote>
+              <blockquote className="twitter-tweet" data-lang="en"><p lang="en" dir="ltr">You need to read about vTaiwan, it&#39;s the future of <a href="https://twitter.com/hashtag/democracy?src=hash">#democracy</a>, today. Seriously. Read. It. Now. <a href="https://t.co/4BheYqw9vx">{"https://t.co/4BheYqw9vx"}</a></p>&mdash; United Diversity (@uniteddiversity) <a href="https://twitter.com/uniteddiversity/status/767656559434469376">August 22, 2016</a></blockquote>
+            </Flex>
             <Flex
               direction="column"
               alignItems="flex-start"
@@ -364,6 +367,22 @@ class Gov extends React.Component {
                 <img height="50" src="http://www.digitalartsonline.co.uk/cmsdata/features/3626921/medium-m-color-688.png"/>
               </Flex>
             </Flex>
+          </Flex>
+          <Flex styleOverrides={{padding: "40px 20px"}}>
+            <a
+              href="civichall.org/civicist/vtaiwan-democracy-frontier/"
+              style={{
+              fontFamily: "Georgia",
+              fontSize: 24,
+              maxWidth: "32.5em",
+              lineHeight: 1.7,
+              marginRight: 30,
+              color: "rgb(130,130,130)",
+            }}> "Proponents of open-source democracy, take note, we are on the verge of a breakthrough." </a>
+            <img
+              width={100}
+              style={{borderRadius: 7}}
+              src="https://pbs.twimg.com/profile_images/593902371341783040/OEPQIQnO.png"/>
           </Flex>
         </Flex>
         <div style={{width: "100%"}}>

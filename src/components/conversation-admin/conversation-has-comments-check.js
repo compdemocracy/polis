@@ -7,6 +7,7 @@ import Spinner from "../framework/spinner";
 import strings from "../../strings/strings";
 import { connect } from "react-redux";
 import { populateAllCommentStores, changeCommentStatusToRejected } from '../../actions';
+import Awesome from "react-fontawesome";
 
 @connect(state => state.mod_comments_accepted)
 @connect(state => state.mod_comments_rejected)
@@ -37,7 +38,18 @@ class ConversationHasCommentsCheck extends React.Component {
     } else {
       s = "ok";
     }
-    return <div>{s}</div>;
+    return (
+      <Flex styleOverrides={this.getStyles().card} alignItems="center">
+        <Awesome
+          style={{
+            color: "rgb(241, 54, 10)",
+            fontSize: 36,
+            marginRight: 20
+          }}
+          name="bullhorn"/>
+        <p style={{fontWeight: 300, lineHeight: 1.5}}>{s}</p>
+      </Flex>
+    )
   }
   renderSpinner() {
     return (
@@ -51,16 +63,26 @@ class ConversationHasCommentsCheck extends React.Component {
       </Flex>
     )
   }
+  getStyles() {
+    return {
+      card: {
+        margin: "10px 20px 10px 20px",
+        backgroundColor: "rgb(253,253,253)",
+        borderRadius: 3,
+        padding: "0px 20px",
+        WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
+        BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
+      },
+    }
+  }
   render() {
     return (
       <div>
-        <div>
-          {
-            (this.props.accepted_comments !== null && this.props.rejected_comments !== null) ?
-              this.createCommentMarkup() :
-              this.renderSpinner()
-          }
-        </div>
+        {
+          (this.props.accepted_comments !== null && this.props.rejected_comments !== null) ?
+            this.createCommentMarkup() :
+            this.renderSpinner()
+        }
       </div>
     );
   }

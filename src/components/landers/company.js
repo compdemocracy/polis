@@ -9,7 +9,8 @@ import strings from "../../strings/strings";
 
 const styles = {
   container: {
-    margin: 20,
+    padding: 20,
+    marginBottom: 40,
     maxWidth: "31em"
   },
   heading: {
@@ -29,6 +30,17 @@ const styles = {
   pic: {
     width: 150,
     borderRadius: 100
+  },
+  clipping: {
+    marginBottom: 20
+  },
+  publication: {
+    marginRight: "1em",
+    width: "10em"
+  },
+  pressURL: {
+    color: "black",
+    maxWidth: "20em"
   }
 };
 
@@ -44,13 +56,13 @@ class Company extends React.Component {
         image={false}>
         <Flex styleOverrides={styles.container}>
           <div>
-            <p style={[styles.heading, {marginTop: 30}]}>
+            <p style={[styles.heading, {marginTop: 20, marginBottom: 30}]}>
               Company
             </p>
             <p style={styles.bodyText}>
               {"We’re a small, focused team of technologists trying to make the world a better place with surprisingly smart software. We love web, AI & OSS."}
             </p>
-            <p style={[styles.heading, {marginTop: 50}]}>
+            <p style={[styles.heading, {marginTop: 50, marginBottom: 30}]}>
               Founding Team
             </p>
             <Flex styleOverrides={{marginBottom: 30}} direction="column">
@@ -92,7 +104,7 @@ class Company extends React.Component {
                 <Awesome style={{fontSize: 18, color: "#4099FF"}} name={"twitter"}/>
               </a>
             </Flex>
-            <p style={[styles.heading, {marginTop: 50}]}>
+            <p style={[styles.heading, {marginTop: 50, marginBottom: 30}]}>
               Mission & Vision
             </p>
             <p style={styles.bodyText}>
@@ -101,8 +113,44 @@ class Company extends React.Component {
               We set out to build a communication system that would handle 'big' and stay coherent.
               We wanted people to feel safe & listened to, and we felt it was of the highest importance that minority opinions be preserved rather than 'outvoted'.
 
-              <p style={styles.bodyText}> Most generally, we’re leveraging advances in mobile connectivity, artificial intelligence and machine learning to build tools that provide transparency, produce insight and decentralize power in all kinds of organizations of people everywhere on Earth. </p>
+              <p style={styles.bodyText}> Most generally, we leverage advances in mobile connectivity, artificial intelligence and machine learning to build tools that provide transparency, produce insight and decentralize power in all kinds of organizations of people everywhere on Earth. </p>
             </p>
+            <p id="press" style={[styles.heading, {marginTop: 50, marginBottom: 30}]}>
+              Press
+            </p>
+
+            <Flex justifyContent="flex-start" alignItems="baseline" styleOverrides={[styles.bodyText, styles.clipping]}>
+              <span style={styles.publication}> Civicist </span>
+              <a style={styles.pressURL} href="http://civichall.org/civicist/vtaiwan-democracy-frontier/"> vTaiwan: Public Participation Methods on the Cyberpunk Frontier of Democracy </a>
+            </Flex>
+            <Flex justifyContent="flex-start" alignItems="baseline" styleOverrides={[styles.bodyText, styles.clipping]}>
+              <span style={styles.publication}> Le Monde (French) </span>
+              <a style={styles.pressURL} href="http://www.lemonde.fr/idees/article/2016/05/25/une-experience-pionniere-de-democratie-numerique-a-taiwan_4926104_3232.html"> "A Pioneering Experience of Digital Democracy" in Taiwan </a>
+            </Flex>
+            <Flex justifyContent="flex-start" alignItems="baseline" styleOverrides={[styles.bodyText, styles.clipping]}>
+              <span style={styles.publication}> Intium (Chinese) </span>
+              <a style={styles.pressURL} href="https://theinitium.com/article/20160606-taiwan-g0v/"> "Why is Taiwan's Open Source Movement a Model for The World?" </a>
+            </Flex>
+            <Flex justifyContent="flex-start" alignItems="baseline" styleOverrides={[styles.bodyText, styles.clipping]}>
+              <span style={styles.publication}> Greenpeace MobLab </span>
+              <a style={styles.pressURL} href="http://www.mobilisationlab.org/blooming-digital-democracy-taiwan-sunflower-movement/#.Vur9oxIrLUI"> "Blooming digital democracy in Taiwan’s Sunflower movement: How technologists and activists are working together to mobilise a nation" </a>
+            </Flex>
+            <Flex justifyContent="flex-start" alignItems="baseline" styleOverrides={[styles.bodyText, styles.clipping]}>
+              <span style={styles.publication}> Coral Project </span>
+              <a style={styles.pressURL} href="https://coralproject.net/new-community-tools-polis/"> New community tools: pol.is </a>
+            </Flex>
+            <Flex justifyContent="flex-start" alignItems="baseline" styleOverrides={[styles.bodyText, styles.clipping]}>
+              <span style={styles.publication}> Poynter </span>
+              <a style={styles.pressURL} href="http://www.poynter.org/2016/here-are-27-ways-to-think-about-comments/401728/"> Here are 27 ways to think about comments </a>
+            </Flex>
+            <Flex justifyContent="flex-start" alignItems="baseline" styleOverrides={[styles.bodyText, styles.clipping]}>
+              <span style={styles.publication}> Daum (Korean) </span>
+              <a style={styles.pressURL} href="http://m.media.daum.net/m/media/world/newsview/20160302145809114"> "We want to change the relationship between citizens and government" </a>
+            </Flex>
+            <Flex justifyContent="flex-start" alignItems="baseline" styleOverrides={[styles.bodyText, styles.clipping]}>
+              <span style={styles.publication}> GeekWire </span>
+              <a style={styles.pressURL} href="http://www.geekwire.com/2014/startup-spotlight-polis/"> Startup Spotlight: pol.is </a>
+            </Flex>
           </div>
         </Flex>
       </StaticContentContainer>

@@ -15,7 +15,7 @@ s.waitinglist_add_success = "You've been added to the waiting list!";
 
 s.polis_err_fetching_tweet = "Error fetching tweet. Expected a URL to a twitter tweet.";
 
-s.share_but_no_comments_warning = "This conversation has no comments. We recommend you add a few comments before inviting participants, since this will help them understand what kind of comments they should submit.";
+s.share_but_no_comments_warning = "This conversation has no comments. We recommend you add a few comments before inviting participants. This will help participants get started. In the menu to the left, go to 'comments' and then 'seed'.";
 s.share_but_no_visible_comments_warning = "This conversation has no visible comments. We recommend you add a few comments (or moderate the comments that exist) before inviting participants, since this will help them understand what kind of comments they should submit.";
 
 
