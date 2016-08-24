@@ -248,6 +248,28 @@ class Bot extends React.Component {
     };
     return PolisNet.polisPost("/api/v3/waitinglist", data);
   }
+  maybeErrorMessage(text) {
+    let markup = "";
+    if (text) {
+      markup = (
+        <div style={this.styles().error}>
+          { strings(text) }
+        </div>
+      );
+    }
+    return markup;
+  }
+  maybeSuccessMessage(text) {
+    let markup = "";
+    if (text) {
+      markup = (
+        <div style={this.styles().success}>
+          { strings(text) }
+        </div>
+      );
+    }
+    return markup;
+  }
   render() {
     return (
       <StaticContentContainer
@@ -291,22 +313,22 @@ class Bot extends React.Component {
         <Flex
           direction="column"
           styleOverrides={this.styles().callToActionContainer}>
-        <Flex alignItems="baseline" wrap="wrap">
-          <input
-            placeholder="email"
-            style={this.styles().waitingListInput}
-            ref="emailupper"
-            type="email"/>
-          <Button
-            onClick={this.handleJoinWaitingListClickedUpper.bind(this)}
-            style={this.styles().waitingListButton}>
-            Join the Waiting List
-          </Button>
-
-          {this.maybeErrorMessage(this.state.errorTextUpper)}
-          {this.maybeSuccessMessage(this.state.successTextUpper)}
-
-        </Flex>
+          <Flex alignItems="baseline" wrap="wrap">
+            <input
+              placeholder="email"
+              style={this.styles().waitingListInput}
+              ref="emailupper"
+              type="email"/>
+            <Button
+              onClick={this.handleJoinWaitingListClickedUpper.bind(this)}
+              style={this.styles().waitingListButton}>
+              Join the Waiting List
+            </Button>
+          </Flex>
+          <div style={{margin: 10}}>
+            {this.maybeErrorMessage(this.state.errorTextUpper)}
+            {this.maybeSuccessMessage(this.state.successTextUpper)}
+          </div>
         </Flex>
         <Flex
           direction="column"
@@ -389,28 +411,6 @@ class Bot extends React.Component {
         </Flex>
       </StaticContentContainer>
     );
-  }
-  maybeErrorMessage(text) {
-    let markup = "";
-    if (text) {
-      markup = (
-        <div style={this.styles().error}>
-          { strings(text) }
-        </div>
-      );
-    }
-    return markup;
-  }
-  maybeSuccessMessage(text) {
-    let markup = "";
-    if (text) {
-      markup = (
-        <div style={this.styles().success}>
-          { strings(text) }
-        </div>
-      );
-    }
-    return markup;
   }
 }
 

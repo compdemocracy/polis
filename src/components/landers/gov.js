@@ -208,6 +208,28 @@ class Gov extends React.Component {
     };
     return PolisNet.polisPost("/api/v3/waitinglist", data);
   }
+  maybeErrorMessage(text) {
+    let markup = "";
+    if (text) {
+      markup = (
+        <div style={this.styles().error}>
+          { strings(text) }
+        </div>
+      );
+    }
+    return markup;
+  }
+  maybeSuccessMessage(text) {
+    let markup = "";
+    if (text) {
+      markup = (
+        <div style={this.styles().success}>
+          { strings(text) }
+        </div>
+      );
+    }
+    return markup;
+  }
   render() {
     return (
       <StaticContentContainer
@@ -255,10 +277,12 @@ class Gov extends React.Component {
               Request a Demo
             </Button>
 
-            {this.maybeErrorMessage(this.state.errorTextUpper)}
-            {this.maybeSuccessMessage(this.state.successTextUpper)}
 
           </Flex>
+          <div style={{margin: 10}}>
+            {this.maybeErrorMessage(this.state.errorTextUpper)}
+            {this.maybeSuccessMessage(this.state.successTextUpper)}
+          </div>
         </Flex>
         <Flex styleOverrides={{width: "100%"}} direction="column">
           <p style={{
@@ -420,28 +444,6 @@ class Gov extends React.Component {
         </div>
       </StaticContentContainer>
     );
-  }
-  maybeErrorMessage(text) {
-    let markup = "";
-    if (text) {
-      markup = (
-        <div style={this.styles().error}>
-          { strings(text) }
-        </div>
-      );
-    }
-    return markup;
-  }
-  maybeSuccessMessage(text) {
-    let markup = "";
-    if (text) {
-      markup = (
-        <div style={this.styles().success}>
-          { strings(text) }
-        </div>
-      );
-    }
-    return markup;
   }
 }
 
