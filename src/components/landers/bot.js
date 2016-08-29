@@ -386,7 +386,7 @@ class Bot extends React.Component {
           justifyContent="center">
           <HexLogoLargeShort/>
 
-          <p style={this.styles().pricingDesc}> 45 days to experiment, completely free.</p>
+          <p style={this.styles().pricingDesc}> 30 days to experiment, completely free.</p>
         </Flex>
         {/* lower cta */}
         <Flex
