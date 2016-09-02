@@ -45,7 +45,7 @@ class ModerateCommentsSeed extends React.Component {
       pid: "mypid",
       conversation_id: this.props.params.conversation_id,
       vote: 0,
-      prepop: true
+      is_seed: true
     };
     this.props.dispatch(handleSeedCommentSubmit(comment))
   }

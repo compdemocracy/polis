@@ -73,6 +73,7 @@ class Comment extends React.Component {
   }
   render() {
     const styles = this.getStyles();
+    const showAsAnon = !this.props.comment.social || this.props.comment.anon || this.props.comment.is_seed;
     return (
       <div style={styles.card}>
         <Flex
@@ -81,9 +82,9 @@ class Comment extends React.Component {
           justifyContent="space-between"
           alignItems={"baseline"}>
           {
-            this.props.comment.social ?
-              <ParticipantHeader {...this.props.comment.social} /> :
-                "Anonymous"
+            showAsAnon ?
+              "Anonymous" :
+              <ParticipantHeader {...this.props.comment.social} />
           }
           <Flex grow={1}>
             <p style={styles.commentBody}>{ this.props.comment.txt }</p>
