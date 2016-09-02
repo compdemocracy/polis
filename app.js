@@ -613,12 +613,12 @@ helpersInitialized.then(function(o) {
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('txt', getOptionalStringLimitLength(997), assignToP),
     want('vote', getIntInRange(-1, 1), assignToP, -1), // default to agree
-    want('prepop', getBool, assignToP),
     want("twitter_tweet_id", getStringLimitLength(999), assignToP),
     want("quote_twitter_screen_name", getStringLimitLength(999), assignToP),
     want("quote_txt", getStringLimitLength(999), assignToP),
     want("quote_src_url", getUrlLimitLength(999), assignToP),
     want("anon", getBool, assignToP),
+    want("is_seed", getBool, assignToP),
     resolve_pidThing('pid', assignToP, "post:comments"),
     handle_POST_comments);
 
@@ -629,12 +629,12 @@ helpersInitialized.then(function(o) {
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('txt', getOptionalStringLimitLength(997), assignToP),
     want('vote', getIntInRange(-1, 1), assignToP, -1), // default to agree
-    want('prepop', getBool, assignToP),
     want("twitter_tweet_id", getStringLimitLength(999), assignToP),
     want("quote_twitter_screen_name", getStringLimitLength(999), assignToP),
     want("quote_txt", getStringLimitLength(999), assignToP),
     want("quote_src_url", getUrlLimitLength(999), assignToP),
     want("anon", getBool, assignToP),
+    want("is_seed", getBool, assignToP),
     resolve_pidThing('pid', assignToP, "post:comments"),
     handle_POST_comments_slack);
 
