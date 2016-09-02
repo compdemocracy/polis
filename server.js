@@ -6222,6 +6222,7 @@ Email verified! You can close this tab or hit the back button.
         "tweet_id",
         "quote_src_url",
         "anon",
+        "is_seed",
       ];
       if (o.moderation) {
         cols.push("velocity");
@@ -6241,7 +6242,7 @@ Email verified! You can close this tab or hit the back button.
     }).then(function(comments) {
       if (o.include_social) {
         let nonAnonComments = comments.filter(function(c) {
-          return !c.anon;
+          return !c.anon && !c.is_seed;
         });
         let uids = _.pluck(nonAnonComments, "uid");
         return getSocialInforForUsers(uids).then(function(socialInfos) {
@@ -6694,12 +6695,12 @@ Email verified! You can close this tab or hit the back button.
     let pid = req.p.pid; // PID_FLOW may be undefined
     let currentPid = pid;
     let vote = req.p.vote;
-    let prepopulating = req.p.prepop;
     let twitter_tweet_id = req.p.twitter_tweet_id;
     let quote_twitter_screen_name = req.p.quote_twitter_screen_name;
     let quote_txt = req.p.quote_txt;
     let quote_src_url = req.p.quote_src_url;
     let anon = req.p.anon;
+    let is_seed = req.p.is_seed;
     let mustBeModerator = !!quote_txt || !!twitter_tweet_id || anon;
 
 
@@ -6841,7 +6842,7 @@ Email verified! You can close this tab or hit the back button.
           let mod = 0; // hasn't yet been moderated.
 
           // moderators' comments are automatically in (when prepopulating).
-          if (is_moderator && prepopulating) {
+          if (is_moderator && is_seed) {
             mod = polisTypes.mod.ok;
             active = true;
           }
@@ -6849,9 +6850,9 @@ Email verified! You can close this tab or hit the back button.
 
           pgQuery(
             "INSERT INTO COMMENTS " +
-            "(pid, zid, txt, velocity, active, mod, uid, tweet_id, quote_src_url, anon, created, tid) VALUES " +
-            "($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, default, null) RETURNING *;",
-            [pid, zid, txt, velocity, active, mod, authorUid, twitter_tweet_id || null, quote_src_url || null, anon || false],
+            "(pid, zid, txt, velocity, active, mod, uid, tweet_id, quote_src_url, anon, is_seed, created, tid) VALUES " +
+            "($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, default, null) RETURNING *;",
+            [pid, zid, txt, velocity, active, mod, authorUid, twitter_tweet_id || null, quote_src_url || null, anon || false, is_seed || false],
 
             function(err, docs) {
               if (err) {

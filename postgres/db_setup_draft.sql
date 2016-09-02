@@ -563,6 +563,7 @@ CREATE TABLE comments(
     tweet_id BIGINT, -- Used when this comment is an imported tweet, else null.
     quote_src_url VARCHAR(1000), -- URL for a page where the (presumably) famous person's quote can be found
     anon BOOLEAN NOT NULL DEFAULT false, -- if true, the author of the comment will not be shown.
+    is_seed BOOLEAN NOT NULL DEFAULT false,
     UNIQUE(zid, txt),    --issued this: ALTER TABLE comments ADD CONSTRAINT comments_txt_unique_constraint UNIQUE (zid, txt);
     FOREIGN KEY (zid, pid) REFERENCES participants (zid, pid)
 );
