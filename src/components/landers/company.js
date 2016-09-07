@@ -119,6 +119,11 @@ class Company extends React.Component {
               Press
             </p>
 
+
+            <Flex justifyContent="flex-start" alignItems="baseline" styleOverrides={[styles.bodyText, styles.clipping]}>
+              <span style={styles.publication}> Nesta (UK) </span>
+              <a style={styles.pressURL} href="http://www.nesta.org.uk/blog/corbyn-wants-tools-massive-multi-person-online-deliberation-here-are-some-ways-he-could-do-it"> Corbyn wants tools for 'massive-multi-person online deliberation' - here are some ways he could do it </a>
+            </Flex>
             <Flex justifyContent="flex-start" alignItems="baseline" styleOverrides={[styles.bodyText, styles.clipping]}>
               <span style={styles.publication}> Civicist </span>
               <a style={styles.pressURL} href="http://civichall.org/civicist/vtaiwan-democracy-frontier/"> vTaiwan: Public Participation Methods on the Cyberpunk Frontier of Democracy </a>
