@@ -28,28 +28,28 @@ class ConversationHasCommentsCheck extends React.Component {
     const isStrictMod = this.props.strict_moderation;
     const numVisible = numAccepted + (isStrictMod ?  0 : numUnmoderated);
 
-    let s;
+    let s = "";
     if (numVisible === 0) {
       if (isStrictMod && numUnmoderated > 0) {
         s = strings("share_but_no_visible_comments_warning");
       } else {
         s = strings("share_but_no_comments_warning");
       }
+      return (
+        <Flex styleOverrides={this.getStyles().card} alignItems="center">
+          <Awesome
+            style={{
+              color: "rgb(241, 54, 10)",
+              fontSize: 36,
+              marginRight: 20
+            }}
+            name="bullhorn"/>
+          <p style={{fontWeight: 300, lineHeight: 1.5}}>{s}</p>
+        </Flex>
+      )
     } else {
-      s = "ok";
+      return null;
     }
-    return (
-      <Flex styleOverrides={this.getStyles().card} alignItems="center">
-        <Awesome
-          style={{
-            color: "rgb(241, 54, 10)",
-            fontSize: 36,
-            marginRight: 20
-          }}
-          name="bullhorn"/>
-        <p style={{fontWeight: 300, lineHeight: 1.5}}>{s}</p>
-      </Flex>
-    )
   }
   renderSpinner() {
     return (
