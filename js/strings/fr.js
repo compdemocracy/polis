@@ -1,8 +1,8 @@
 var s = {};
 
-s.agree = "Je suis d'accord";
-s.disagree = "Je ne suis pas d'accord";
-s.pass = "Je passe / Je ne sais pas";
+s.agree = "D'accord";
+s.disagree = "Pas d'accord";
+s.pass = "passe / ne sais pas";
 
 s.modSpam = "Spam";
 s.modOffTopic = "Hors sujet";
