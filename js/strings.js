@@ -12,6 +12,9 @@ var zh_Hans = require("./strings/zh_Hans.js");
 // Spanish
 var es = require("./strings/es_la.js");
 
+// French
+var fr = require("./strings/fr.js");
+
 // Italian
 var it = require("./strings/it.js");
 
@@ -47,6 +50,9 @@ preloadHelper.acceptLanguagePromise.then(function() {
     }
     else if (languageCode.match(/^es/)) {
       _.extend(strings, es);
+    }
+    else if (languageCode.match(/^fr/)) {
+      _.extend(strings, fr);
     }
   });
 });
