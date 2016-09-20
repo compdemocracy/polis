@@ -394,7 +394,7 @@ class Gov extends React.Component {
           </Flex>
           <Flex styleOverrides={{padding: "40px 20px"}}>
             <a
-              href="civichall.org/civicist/vtaiwan-democracy-frontier/"
+              href="http://civichall.org/civicist/vtaiwan-democracy-frontier/"
               style={{
               fontFamily: "Georgia",
               fontSize: 24,
