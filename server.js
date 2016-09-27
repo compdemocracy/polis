@@ -11459,7 +11459,6 @@ CREATE TABLE slack_user_invites (
 
           let params = Object.assign(o, {
             owner: uid,
-            // topic: req.p.topic,
             // description: req.p.description,
             is_active: true,
             is_draft: false,
@@ -11586,6 +11585,7 @@ CREATE TABLE slack_user_invites (
     ifDefinedSet("auth_opt_fb", req.p, o);
     ifDefinedSet("auth_opt_tw", req.p, o);
     ifDefinedSet("auth_opt_allow_3rdparty", req.p, o);
+    ifDefinedSet("topic", req.p, o);
     if (!_.isUndefined(req.p.show_vis)) {
       o.vis_type = req.p.show_vis ? 1 : 0;
     }
