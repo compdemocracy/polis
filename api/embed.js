@@ -50,8 +50,9 @@
 
          ptpts_can_vote: d.getAttribute("data-ptpts_can_vote"),
          ptpts_can_write: d.getAttribute("data-ptpts_can_write"),
-         ptpts_can_see_vis: d.getAttribute("dataptpts_can_see_vis-")
+         ptpts_can_see_vis: d.getAttribute("dataptpts_can_see_vis-"),
 
+         topic: d.getAttribute("data-topic")
      };
   }
 
@@ -107,6 +108,7 @@
     appendIfPresent("auth_opt_fb");
     appendIfPresent("auth_opt_tw");
     appendIfPresent("auth_opt_allow_3rdparty");
+    appendIfPresent("topic");
 
     if (paramStrings.length) {
       src += "?" + paramStrings.join("&");
