@@ -10635,7 +10635,7 @@ CREATE TABLE slack_user_invites (
   }
 
   function buildSeedUrl(req, zinvite) {
-    return buildModerationUrl(req, zinvite) + "/seed";
+    return buildModerationUrl(req, zinvite) + "/comments/seed";
   }
 
   function getConversationUrl(req, zid, dontUseCache) {
