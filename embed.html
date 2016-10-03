@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Polis</title>
+
+
+
+
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.1.0/css/font-awesome.min.css">
+
+
+
+<script src="//code.jquery.com/jquery-1.11.0.min.js"></script>
+<script type="text/javascript" src="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
+<script type="text/javascript" src="//use.typekit.net/ecj0qyr.js"></script>
+<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/jquery/1.9.0/jquery.min.js"></script>
+<script type="text/javascript">try{Typekit.load();}catch(e){}</script>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-49459311-1', 'pol.is');
+  ga('require', 'displayfeatures');
+  ga('send', 'pageview');
+
+</script>
+
+
+<script>
+function setCookie(cname,cvalue,exdays) {
+    var d = new Date();
+    d.setTime(d.getTime()+(exdays*24*60*60*1000));
+    var expires = "expires="+d.toGMTString();
+    document.cookie = cname + "=" + cvalue + "; " + expires;
+}
+
+function getCookie(cname) {
+    var name = cname + "=";
+    var ca = document.cookie.split(';');
+    for(var i=0; i<ca.length; i++)
+      {
+      var c = ca[i].trim();
+      if (c.indexOf(name)==0) return c.substring(name.length,c.length);
+    }
+    return "";
+}
+if (!getCookie("ref")) {
+    setCookie("ref", document.referrer, 365);
+}
+
+$(document).ready(function() {
+  if (getCookie("uid2")) {
+    $(".ifAuth").fadeIn();
+  } else {
+    $(".ifNoAuth").fadeIn();
+  }
+});
+
+//FB
+function getFriends() {
+  var dfd = $.Deferred();
+
+  function getMoreFriends(friendsSoFar, urlForNextCall) {
+    console.log("getMoreFriends");
+
+    return $.get(urlForNextCall).then(function(response) {
+      if (response.data.length) {
+        for (var i = 0; i < response.data.length; i++) {
+          friendsSoFar.push(response.data[i]);
+        }
+        if (response.paging.next) {
+          return getMoreFriends(friendsSoFar, response.paging.next);
+        }
+        return friendsSoFar;
+      } else {
+        return friendsSoFar;
+      }
+    });
+  }
+
+  FB.api('/me/friends',function (response) {
+    console.log("/me/friends returned");
+    if (response && !response.error) {
+      // alert(JSON.stringify(response));
+      // if (response.data) {
+      //   for (var i = 0; i < response.data.length; i++) {
+      //     alert(response.data[i]);
+      //   }
+      // }
+
+      var friendsSoFar = response.data;
+      if (response.data.length && response.paging.next) {
+        getMoreFriends(friendsSoFar, response.paging.next).then(
+          dfd.resolve,
+          dfd.reject);
+      } else {
+        dfd.resolve(friendsSoFar || []);
+      }
+    } else {
+      // alert('failed to find friends');
+      dfd.reject(response);
+    }
+  });
+  return dfd.promise();
+} // end getFriends
+
+function getInfo() {
+  var dfd = $.Deferred();
+
+  FB.api('/me',function (response) {
+    console.log("/me done");
+    // {"id":"10152802017421079"
+    //   "email":"michael@bjorkegren.com"
+    //   "first_name":"Mike"
+    //   "gender":"male"
+    //   "last_name":"Bjorkegren"
+    //   "link":"https://www.facebook.com/app_scoped_user_id/10152802017421079/"
+    //   "locale":"en_US"
+    //   "location": {
+    //      "id": "110843418940484",  ------------> we can make another call to get the lat,lng for this
+    //      "name": "Seattle, Washington"
+    //   },
+    //   "name":"Mike Bjorkegren"
+    //   "timezone":-7
+    //   "updated_time":"2014-07-03T06:38:02+0000"
+    //   "verified":true}
+
+    if (response && !response.error) {
+      // alert(JSON.stringify(response));
+      // if (response.data) {
+      //   for (var i = 0; i < response.data.length; i++) {
+      //     alert(response.data[i]);
+      //   }
+      // }
+
+      if (response.location && response.location.id) {
+        FB.api('/' + response.location.id, function(locationResponse) {
+          console.log("locationResponse");
+          console.dir(locationResponse);
+          if (locationResponse) {
+            response.locationInfo = locationResponse;
+          }
+          dfd.resolve(response);
+        });
+      } else {
+        dfd.resolve(response);
+      }
+    } else {
+      // alert('failed to find data');
+      dfd.reject(response);
+    }
+  });
+  return dfd.promise();
+} // end getInfo
+
+
+
+
+
+
+function facebookLoginOkHandler(response, optionalPassword) {
+  console.log("onFbLoginOk");
+  console.dir(response);
+  return $.when(
+    getInfo(),
+    getFriends()).then(function(fb_public_profile, friendsData) {
+
+      // alert(JSON.stringify(friendsData));
+      console.log("got info and friends");
+
+      var data = {
+          // fb_user_id: FB.getUserID(),
+          // fb_login_status: FB.getLoginStatus(),
+          // fb_auth_response: JSON.stringify(FB.getAuthResponse()),
+          // fb_access_token: FB.getAccessToken(),
+          fb_public_profile: JSON.stringify(fb_public_profile),
+          fb_friends_response: JSON.stringify(friendsData),
+          response: JSON.stringify(response)
+      };
+      if (fb_public_profile.email) {
+        data.fb_email = fb_public_profile.email;
+      } else {
+        data.provided_email = prompt("Please enter your email address.");
+      }
+      var hname = [fb_public_profile.first_name, fb_public_profile.last_name].join(" ");
+      if (hname.length) {
+        data.hname = hname;
+      }
+      if (response && response.authResponse && response.authResponse.grantedScopes) {
+        data.fb_granted_scopes = response.authResponse.grantedScopes;
+      }
+      if (optionalPassword) {
+        data.password = optionalPassword;
+      }
+
+      return $.ajax({
+        url: "/api/v3/auth/facebook",
+        contentType: "application/json; charset=utf-8",
+        headers: {
+            //"Cache-Control": "no-cache"  // no-cache
+            "Cache-Control": "max-age=0"
+        },
+        xhrFields: {
+            withCredentials: true
+        },
+        // crossDomain: true,
+        dataType: "json",
+        data: JSON.stringify(data),
+        type: "POST"
+      });
+  });
+}
+
+
+function fbLoginPrompt() {
+  var dfd = $.Deferred();
+  FB.login(
+    function(x) {
+      return facebookLoginOkHandler(x).then(dfd.resolve, dfd.reject);
+    }, {
+      return_scopes: true, // response should contain the scopes the user allowed
+      scope: [
+        // 'taggable_friends', // requires review.
+        // invitable_friends NOTE: only for games with a fb Canvas presence, so don't use this
+        'public_profile',
+        'user_location',
+        'user_friends',
+        'email'
+      ].join(',')
+    });
+  return dfd.promise();
+}
+
+
+function connect() {
+  var dfd = $.Deferred();
+  if (FB.getAuthResponse()) {
+    FB.getLoginStatus(function(x) {
+      if (x.status === "connected") {
+        facebookLoginOkHandler(x /*, password */).then(dfd.resolve, dfd.reject);
+      } else {
+        // this code path may trigger popup blockers.
+        // ideally the fbLoginPrompt call below is called instead.
+        fbLoginPrompt().then(dfd.resolve, dfd.reject);
+      }
+    });
+  } else {
+    // test for FB.getUserID() so we can show the prompt on the same stack, preventing the popup-blocker from showing.
+    fbLoginPrompt().then(dfd.resolve, dfd.reject);
+  }
+  return dfd.promise();
+}
+
+$(function() {
+  $(".facebookButton").on("click", function() {
+    connect().then(function() {
+      // that.model.set("response", "fbdone");
+      // location.reload();
+      window.location = "/inbox";
+    }, function(err) {
+      // alert("facebook error");
+    });
+  });
+});
+</script>
+
+
+
+<!-- facebook code for share link -->
+<div id="fb-root"></div>
+<script>(function(d, s, id) {
+var js, fjs = d.getElementsByTagName(s)[0];
+if (d.getElementById(id)) return;
+js = d.createElement(s); js.id = id;
+js.src = "//connect.facebook.net/en_US/sdk.js#xfbml=1&appId=661042417336977&version=v2.0";
+fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+
+
+<link href='https://fonts.googleapis.com/css?family=Montserrat:400,700|Cardo' rel='stylesheet' type='text/css'>
+
+
+
+  <link rel="stylesheet" type="text/css" href="/css/about.css">
+</head>
+
+<body>
+
+<script>
+var polis = window.polis = window.polis || {};
+polis.on = polis.on || {};
+polis.on.resize = [
+  function(o) {
+    var iframe = o.iframe;
+    var data = o.data;
+    console.dir(data);
+    return true;
+  }
+];
+</script>
+
+<div
+  class="polis"
+  data-width="320px"
+
+  data-ucv="1"
+  data-ucw="0"
+  data-ucst="0"
+  data-ucsd="0"
+  data-ucsv="0"
+  data-ucsf="0"
+
+
+
+
+  data-show_vis="false"
+  data-auth_needed_to_vote="true"
+  data-auth_needed_to_write="false"
+  data-auth_opt_fb="true"
+  data-auth_opt_tw="false"
+  data-auth_opt_allow_3rdparty="true"
+
+
+
+  data-page_id="embed_test_page_id_04"
+  data-site_id="polis_site_id_o9WmgsAfV63kMvvcZf">
+</div>
+
+
+<div
+  class="polis"
+
+  data-width="320px"
+
+  data-ucv="0"
+  data-ucw="0"
+  data-ucst="0"
+  data-ucsd="0"
+  data-ucsv="1"
+  data-ucsf="0"
+
+
+
+
+  data-show_vis="false"
+  data-auth_needed_to_vote="true"
+  data-auth_needed_to_write="false"
+  data-auth_opt_fb="true"
+  data-auth_opt_tw="false"
+  data-auth_opt_allow_3rdparty="true"
+
+
+
+  data-page_id="embed_test_page_id_04"
+  data-site_id="polis_site_id_o9WmgsAfV63kMvvcZf">
+</div>
+
+<script async="true" src="https://pol.is/embed.js"></script>
+
+</body>
+</html>

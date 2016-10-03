@@ -35,6 +35,10 @@ app.get(/^\/api\//, proxy);
 app.put(/^\/api\//, proxy);
 app.post(/^\/api\//, proxy);
 
+app.get(/^\/embed\/?$/, function(req, res) {
+  res.sendFile(path.join(__dirname, 'embed.html'));
+});
+
 app.get('*', function(req, res) {
   res.sendFile(path.join(__dirname, 'index.html'));
 });

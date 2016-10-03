@@ -76,6 +76,16 @@ gulp.task('index', [
   fs.writeFileSync(indexDest, index);
 });
 
+gulp.task('embed', [
+], function() {
+  var index = fs.readFileSync('embed.html', {encoding: "utf8"});
+  var dest = [destRootBase, "embed.html"].join("/");
+  // fs.mkdirSync(destRootBase);
+  fs.writeFileSync(dest, index);
+});
+
+
+
 gulp.task("preprodConfig", function() {
   preprodMode = true;
 });
@@ -127,6 +137,7 @@ gulp.task('common', [
     runSequence(
       'bundle',
       'index',
+      'embed',
       'scripts',
       callback);
 });
