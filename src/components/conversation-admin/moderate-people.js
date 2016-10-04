@@ -1,11 +1,13 @@
-import React from "react";
-import { connect } from "react-redux";
-import Radium from "radium";
-import { populateAllParticipantStores } from "../../actions";
 import _ from "lodash";
-import { Link } from "react-router";
+import ComponentHelpers from "../../util/component-helpers";
 import Flex from "../framework/flex";
 import NavTab from "../framework/nav-tab";
+import NoPermission from "./no-permission";
+import Radium from "radium";
+import React from "react";
+import { connect } from "react-redux";
+import { Link } from "react-router";
+import { populateAllParticipantStores } from "../../actions";
 
 const cardPadding = 10;
 const cardBorderRadius = 3;
@@ -36,6 +38,7 @@ const mapStateToProps = (state) => {
 
 const pollFrequency = 7000;
 
+@connect(state => state.zid_metadata)
 @connect(mapStateToProps)
 @Radium
 class ModeratePeople extends React.Component {
@@ -63,6 +66,9 @@ class ModeratePeople extends React.Component {
     clearInterval(this.getParticipantsRepeatedly);
   }
   render() {
+    if (ComponentHelpers.shouldShowPermissionsError(this.props)) {
+      return <NoPermission/>
+    }
     const styles = this.getStyles();
     const m = "/m/"+this.props.params.conversation_id+"/participants/";
     return (

@@ -1,11 +1,13 @@
-import React from "react";
-import { connect } from "react-redux";
-import { populateAllCommentStores } from "../../actions";
-import Radium from "radium";
 import _ from "lodash";
-import { Link } from "react-router";
+import ComponentHelpers from "../../util/component-helpers";
 import Flex from "../framework/flex";
 import NavTab from "../framework/nav-tab";
+import NoPermission from "./no-permission";
+import Radium from "radium";
+import React from "react";
+import { connect } from "react-redux";
+import { Link } from "react-router";
+import { populateAllCommentStores } from "../../actions";
 
 const mapStateToProps = (state, ownProps) => {
   return {
@@ -18,6 +20,8 @@ const mapStateToProps = (state, ownProps) => {
 
 const pollFrequency = 7000;
 
+
+@connect(state => state.zid_metadata)
 @connect(mapStateToProps)
 @Radium
 class CommentModeration extends React.Component {
@@ -45,7 +49,12 @@ class CommentModeration extends React.Component {
     clearInterval(this.getCommentsRepeatedly);
   }
   render() {
+    if (ComponentHelpers.shouldShowPermissionsError(this.props)) {
+      return <NoPermission/>;
+    }
+
     const styles = this.getStyles();
+
     return (
       <div>
         <Flex

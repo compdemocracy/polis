@@ -11,6 +11,7 @@ import Awesome from "react-fontawesome";
 import ConversationFilters from "./conversation-filters";
 import ConversationsTutorialCard from "./conversations-tutorial-card";
 import {handleCreateConversationSubmit} from "../actions";
+import Url from "../util/url";
 
 @connect((state) => state.conversations)
 @Radium
@@ -89,6 +90,16 @@ class Conversations extends React.Component {
       browserHistory.push(r);
     };
   }
+  goToConversation(conversation_id) {
+    return () => {
+      if (this.props.route.path === "other-conversations") {
+        window.open(`${Url.urlPrefix}${conversation_id}`, "_blank");
+        return;
+      }
+      browserHistory.push(`/m/${conversation_id}`);
+    };
+  }
+
   goToDocs() {
     window.location = "http://docs.pol.is"
   }
@@ -126,7 +137,7 @@ class Conversations extends React.Component {
             direction="column"
             alignItems="flex-start"
             styleOverrides={this.getStyles().conversationCard}
-            clickHandler={this.goTo(`/m/${c.conversation_id}`)}
+            clickHandler={this.goToConversation(c.conversation_id)}
             key={i}>
               <span ref={`statNumber${i}`} style={this.getStyles().statNumber}>
                 <Awesome name="users" style={this.getStyles().awesome}/>
