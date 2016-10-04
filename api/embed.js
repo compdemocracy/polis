@@ -33,7 +33,7 @@
 
          // These config variables will be used to init the conversation.
          // Subsequent loads will not update to these values in our DB.
-         // To change the values, go to the config tab of
+         // To change the values after the conversation is created, go to the config tab of
          // https://pol.is/m/<conversation_id>
          show_vis: d.getAttribute("data-show_vis"),
 
@@ -46,13 +46,8 @@
          // This is here in case we add other auth providers (Google, etc), you can preemptively disable them by setting this to false.
          // Example: if auth_opt_fb is true, but auth_opt_allow_3rdparty is false, users will not be prompted to auth using Facebook.
          auth_opt_allow_3rdparty: d.getAttribute("data-auth_opt_allow_3rdparty"), // default true
-
-
-         ptpts_can_vote: d.getAttribute("data-ptpts_can_vote"),
-         ptpts_can_write: d.getAttribute("data-ptpts_can_write"),
-         ptpts_can_see_vis: d.getAttribute("dataptpts_can_see_vis-"),
-
          topic: d.getAttribute("data-topic")
+
      };
   }
 
