@@ -58,8 +58,8 @@ preloadHelper.acceptLanguagePromise.then(function() {
       _.extend(strings, fr);
     }
     else if (
-      languageCode.match(/^pt/) ||	// To help other Portuguese speaker participants until its specific translation is not here
-      languageCode.match(/^pt-PT/) || 	// To help Portuguese participantes until an specific translation is not here
+      languageCode.match(/^pt/) ||  // To help other Portuguese speaker participants until its specific translation is not here
+      languageCode.match(/^pt-PT/) ||  // To help Portuguese participantes until an specific translation is not here
       languageCode.match(/^pt-BR/)) {
       _.extend(strings, pt_br);
     }
