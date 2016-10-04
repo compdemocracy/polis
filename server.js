@@ -8336,23 +8336,25 @@ Email verified! You can close this tab or hit the back button.
     return Promise.all([
       pgQueryP_readOnly("select * from conversations left join  (select uid, site_id from users) as u on conversations.owner = u.uid where conversations.zid = ($1);", [zid]),
       getConversationHasMetadata(zid),
+      getUserInfoForUid2(uid),
     ]).then(function(results) {
       let conv = results[0] && results[0][0];
       let convHasMetadata = results[1];
+      let requestingUserInfo = results[2];
 
       conv.auth_opt_allow_3rdparty = ifDefinedFirstElseSecond(conv.auth_opt_allow_3rdparty, true);
       conv.auth_opt_fb_computed = conv.auth_opt_allow_3rdparty && ifDefinedFirstElseSecond(conv.auth_opt_fb, true);
       conv.auth_opt_tw_computed = conv.auth_opt_allow_3rdparty && ifDefinedFirstElseSecond(conv.auth_opt_tw, true);
 
-      return getUserInfoForUid2(conv.owner).then(function(userInfo) {
-        let ownername = userInfo.hname;
+      return getUserInfoForUid2(conv.owner).then(function(ownerInfo) {
+        let ownername = ownerInfo.hname;
         if (convHasMetadata) {
           conv.hasMetadata = true;
         }
         if (!_.isUndefined(ownername) && conv.context !== "hongkong2014") {
           conv.ownername = ownername;
         }
-        conv.is_mod = conv.site_id === userInfo.site_id;
+        conv.is_mod = conv.site_id === requestingUserInfo.site_id;
         conv.is_owner = conv.owner === uid;
         conv.pp = false; // participant pays (WIP)
         delete conv.uid; // conv.owner is what you want, uid shouldn't be returned.
