@@ -1276,7 +1276,7 @@ helpersInitialized.then(function(o) {
   app.get(/^\/docs\/api\/v3$/, makeFileFetcher(hostname, portForParticipationFiles, "/api_v3.html", {
     'Content-Type': "text/html",
   }));
-  app.get(/^\/embed$/, makeFileFetcher(hostname, portForParticipationFiles, "/embed.html", {
+  app.get(/^\/embed$/, makeFileFetcher(hostname, portForAdminFiles, "/embed.html", {
     'Content-Type': "text/html",
   }));
   app.get(/^\/politics$/, makeFileFetcher(hostname, portForParticipationFiles, "/politics.html", {
