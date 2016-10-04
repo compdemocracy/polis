@@ -44,8 +44,9 @@
     function(o) {
       var iframe = o.iframe;
       var data = o.data;
+      // Here's where you can do something with the resize event
       console.dir(data);
-      return true;
+      return false; // Return true to prevent default resize handler found in https://pol.is/embed.js
     }
   ];
   </script>
