@@ -7259,6 +7259,9 @@ Email verified! You can close this tab or hit the back button.
         o.nextComment.currentPid = req.p.pid;
       }
       res.status(200).json(o);
+    }, function(err) {
+      console.error(err);
+      fail(res, 500, "polis_err_get_participationInit2", err);
     }).catch(function(err) {
       console.error(err);
       fail(res, 500, "polis_err_get_participationInit", err);
