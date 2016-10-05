@@ -18,7 +18,6 @@ const crypto = require('crypto');
 const Intercom = require('intercom.io'); // https://github.com/tarunc/intercom.io
 const IntercomOfficial = require('intercom-client');
 const intercomClient = new IntercomOfficial.Client('nb5hla8s', process.env.INTERCOM_API_KEY).usePromises();
-const p3p = require('p3p');
 const OAuth = require('oauth');
 // const Pushover = require('pushover-notifications');
 // const pushoverInstance = new Pushover({
@@ -11803,10 +11802,10 @@ CREATE TABLE slack_user_invites (
     };
   }
 
-  function isIE(req) {
-    let h = req.headers['user-agent'];
-    return /MSIE [0-9]/.test(h) || /Trident/.test(h);
-  }
+  // function isIE(req) {
+  //   let h = req.headers['user-agent'];
+  //   return /MSIE [0-9]/.test(h) || /Trident/.test(h);
+  // }
 
   function isUnsupportedBrowser(req) {
     return /MSIE [234567]/.test(req.headers['user-agent']);
@@ -12131,15 +12130,6 @@ CREATE TABLE slack_user_invites (
     }
   });
 
-  let p3pFunction = p3p(p3p.recommended);
-
-  function middleware_p3p(req, res, next) {
-    if (isIE(req)) {
-      return p3pFunction(req, res, next);
-    } else {
-      return next();
-    }
-  }
 
   console.log('end initializePolisHelpers');
 
@@ -12206,7 +12196,6 @@ CREATE TABLE slack_user_invites (
     middleware_check_if_options,
     middleware_log_middleware_errors,
     middleware_log_request_body,
-    middleware_p3p,
     middleware_responseTime_start,
 
 
