@@ -8,23 +8,25 @@
             [clojure.tools.trace :as tr]
             [clojure.tools.logging :as log]
             [clojure.newtools.cli :refer [parse-opts]]
+            [com.stuartsierra.component :as component]
             [plumbing.core :as pc]
             [korma.core :as ko]
             [korma.db :as kdb]))
 
 
-(defn conv-poll
-  [zid]
-  (kdb/with-db (db/db-spec)
-    (ko/select db/votes
-      (ko/where {:zid zid})
-      (ko/order [:zid :tid :pid :created] :asc))))
+
+(defrecord Microscope [postgres mongo conversation-manager config]
+  component/Lifecycle
+  ;; Don't know if there will really be any important state here;
+  ;; Seems like an anti-pattern and like we should just be operating on some base-system...
+  (start [this] this)
+  (stop [this] this))
 
 ;; XXX Should really move to db
 (defn get-zid-from-zinvite
-  [zinvite]
+  [{:as microscope :keys [postgres]} zinvite]
   (-> 
-    (kdb/with-db (db/db-spec)
+    (kdb/with-db (:db-spec postgres)
       (ko/select "zinvites"
         (ko/fields :zid :zinvite)
         (ko/where {:zinvite zinvite})))
@@ -33,13 +35,12 @@
 
 
 (defn recompute
-  [& {:keys [zid zinvite recompute] :as args}]
+  [{:as microscope :keys [conversation-manager postgres]} & {:keys [zid zinvite recompute] :as args}]
   (assert (utils/xor zid zinvite))
-  (let [zid        (or zid (get-zid-from-zinvite zinvite))
-        new-votes  (conv-poll zid)
-        conv-actor (cm/new-conv-actor (partial cm/load-or-init zid :recompute recompute))]
+  (let [zid        (or zid (get-zid-from-zinvite microscope zinvite))
+        new-votes  (db/conv-poll postgres zid)]
     (println zid zinvite)
-    (cm/snd conv-actor [:votes new-votes])
+    (cm/queue-message-batch! conversation-manager :votes zid new-votes)
     (add-watch
       (:conv conv-actor)
       :complete-watch

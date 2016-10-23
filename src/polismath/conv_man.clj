@@ -6,6 +6,7 @@
             [polismath.meta.metrics :as met]
             [polismath.components.env :as env]
             [polismath.components.mongo :as mongo]
+            [polismath.components.postgres :as db]
             [polismath.utils :as utils]
             [clojure.core.matrix.impl.ndarray]
             [clojure.core.async :as async :refer [go go-loop <! >! <!! >!! alts!! alts! chan dropping-buffer put! take!]]
@@ -13,8 +14,8 @@
             [clojure.tools.logging :as log]
             [com.stuartsierra.component :as component]
             [plumbing.core :as pc]
-            [schema.core :as s]
-            ))
+            [schema.core :as s]))
+            
 
 
 (defn prep-bidToPid
@@ -279,7 +280,7 @@
 
 ;; Need to think about what to do if failed conversations lead to messages piling up in the message queue XXX
 (defn queue-message-batch!
-  "Queue message batches for "
+  "Queue message batches for a given conversation by zid"
   [{:as conv-man :keys [conversations config listeners]} message-type zid message-batch]
   (if-let [{:keys [conv message-chan]} (get @conversations zid)]
     ;; Then we already have a go loop running for this
