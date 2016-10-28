@@ -14,12 +14,16 @@ app.use(require('webpack-dev-middleware')(compiler, {
 
 app.use(require('webpack-hot-middleware')(compiler));
 
+const serviceUrl = process.env.SERVICE_URL ? process.env.SERVICE_URL : "https://pol.is";
 
 function proxy (req, res) {
+  const hostHeader = serviceUrl.replace(/.*\/\//,"");
+  const headers =  Object.assign(req.headers, {"origin": serviceUrl, "Origin": serviceUrl, "host": hostHeader, "Host": hostHeader});
+
   var x = request({
-    url: "http://" + process.env.POLIS_SERVER_DOMAIN + ":5000" + req.path,
+    url: serviceUrl + req.path,
     qs: req.query,
-    headers: req.headers,
+    headers: headers,
     rejectUnauthorized:false,
   });
   req.pipe(x);
