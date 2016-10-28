@@ -135,6 +135,7 @@ helpersInitialized.then(function(o) {
     handle_GET_conditionalIndexFetcher,
     handle_GET_contexts,
     handle_GET_conversation_assigmnent_xml,
+    handle_GET_conversationPreloadInfo,
     handle_GET_conversations,
     handle_GET_conversationsRecentActivity,
     handle_GET_conversationsRecentlyStarted,
@@ -408,6 +409,11 @@ helpersInitialized.then(function(o) {
     authOptional(assignToP),
     handle_GET_dummyButton);
 
+
+  app.get("/api/v3/conversations/preload",
+    moveToBody,
+    need('conversation_id', getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
+    handle_GET_conversationPreloadInfo);
 
   app.get("/api/v3/conversations/recently_started",
     auth(assignToP),

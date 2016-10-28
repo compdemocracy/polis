@@ -11559,6 +11559,55 @@ CREATE TABLE slack_user_invites (
     ]);
   }
 
+  function doGetConversationPreloadInfo(conversation_id) {
+    // return Promise.resolve({});
+    return getZidFromConversationId(conversation_id).then(function(zid) {
+      return Promise.all([
+        getConversationInfo(zid),
+      ]);
+    }).then(function(a) {
+      let conv = a[0];
+
+      let auth_opt_allow_3rdparty = ifDefinedFirstElseSecond(conv.auth_opt_allow_3rdparty, true);
+      let auth_opt_fb_computed = auth_opt_allow_3rdparty && ifDefinedFirstElseSecond(conv.auth_opt_fb, true);
+      let auth_opt_tw_computed = auth_opt_allow_3rdparty && ifDefinedFirstElseSecond(conv.auth_opt_tw, true);
+
+      conv = {
+        topic: conv.topic,
+        description: conv.description,
+        created: conv.created,
+        link_url: conv.link_url,
+        parent_url: conv.parent_url,
+        vis_type: conv.vis_type,
+        write_type: conv.write_type,
+        help_type: conv.help_type,
+        socialbtn_type: conv.socialbtn_type,
+        bgcolor: conv.bgcolor,
+        help_color: conv.help_color,
+        help_bgcolor: conv.help_bgcolor,
+        style_btn: conv.style_btn,
+        auth_needed_to_vote: ifDefinedFirstElseSecond(conv.auth_needed_to_vote, false),
+        auth_needed_to_write: ifDefinedFirstElseSecond(conv.auth_needed_to_write, true),
+        auth_opt_allow_3rdparty: auth_opt_allow_3rdparty,
+        auth_opt_fb_computed: auth_opt_fb_computed,
+        auth_opt_tw_computed: auth_opt_tw_computed,
+      };
+      conv.conversation_id = conversation_id;
+      // conv = Object.assign({}, optionalResults, conv);
+      return conv;
+    });
+  }
+
+  function handle_GET_conversationPreloadInfo(req, res) {
+    return doGetConversationPreloadInfo(req.p.conversation_id).then((conv) => {
+      res.status(200).json(conv);
+    }, (err) => {
+      fail(res, 500, "polis_err_get_conversation_preload_info", err);
+    });
+  }
+
+
+
   // NOTE: this isn't optimal
   // rather than code for a new URL scheme for implicit conversations,
   // the idea is to redirect implicitly created conversations
@@ -11887,41 +11936,7 @@ CREATE TABLE slack_user_invites (
       });
     }, 100);
 
-    getZidFromConversationId(conversation_id).then(function(zid) {
-      return Promise.all([
-        getConversationInfo(zid),
-      ]);
-    }).then(function(a) {
-      let conv = a[0];
-
-      let auth_opt_allow_3rdparty = ifDefinedFirstElseSecond(conv.auth_opt_allow_3rdparty, true);
-      let auth_opt_fb_computed = auth_opt_allow_3rdparty && ifDefinedFirstElseSecond(conv.auth_opt_fb, true);
-      let auth_opt_tw_computed = auth_opt_allow_3rdparty && ifDefinedFirstElseSecond(conv.auth_opt_tw, true);
-
-      conv = {
-        topic: conv.topic,
-        description: conv.description,
-        created: conv.created,
-        link_url: conv.link_url,
-        parent_url: conv.parent_url,
-        vis_type: conv.vis_type,
-        write_type: conv.write_type,
-        help_type: conv.help_type,
-        socialbtn_type: conv.socialbtn_type,
-        bgcolor: conv.bgcolor,
-        help_color: conv.help_color,
-        help_bgcolor: conv.help_bgcolor,
-        style_btn: conv.style_btn,
-        auth_needed_to_vote: ifDefinedFirstElseSecond(conv.auth_needed_to_vote, false),
-        auth_needed_to_write: ifDefinedFirstElseSecond(conv.auth_needed_to_write, true),
-        auth_opt_allow_3rdparty: auth_opt_allow_3rdparty,
-        auth_opt_fb_computed: auth_opt_fb_computed,
-        auth_opt_tw_computed: auth_opt_tw_computed,
-      };
-      conv.conversation_id = conversation_id;
-      // conv = Object.assign({}, optionalResults, conv);
-      return conv;
-    }).then(function(x) {
+    doGetConversationPreloadInfo(conversation_id).then(function(x) {
       let preloadData = {
         conversation: x,
         // Nothing user-specific can go here, since we want to cache these per-conv index files on the CDN.
@@ -12212,6 +12227,7 @@ CREATE TABLE slack_user_invites (
     handle_GET_conditionalIndexFetcher,
     handle_GET_contexts,
     handle_GET_conversation_assigmnent_xml,
+    handle_GET_conversationPreloadInfo,
     handle_GET_conversations,
     handle_GET_conversationsRecentActivity,
     handle_GET_conversationsRecentlyStarted,
