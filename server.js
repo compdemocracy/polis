@@ -1037,7 +1037,7 @@ function getZidFromConversationId(conversation_id) {
       if (err) {
         return reject(err);
       } else if (!results || !results.rows || !results.rows.length) {
-        console.error("polis_err_fetching_zid_for_conversation_id" + conversation_id);
+        console.error("polis_err_fetching_zid_for_conversation_id " + conversation_id);
         return reject("polis_err_fetching_zid_for_conversation_id");
       } else {
         let zid = results.rows[0].zid;
