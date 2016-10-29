@@ -3,18 +3,18 @@
                  "src/polismath/"
                  ".lein-git-deps/debug-repl/src/"
                  ".lein-git-deps/tools.cli/src/main/clojure/"]
-  ;:aot :all
   ; faster run time in exchange for slower startup time
   :jvm-opts ^:replace []
-  :repl-options {:timeout 120000}
+  :repl-options {:timeout 120000
+                 :port 34343}
   :target-path "target/%s"
   :javac-target "1.7"
   :repositories {"twitter4j" "http://twitter4j.org/maven2"}
-  :plugins [[lein-git-deps "0.0.1-SNAPSHOT"]
+  :plugins [[lein-git-deps "0.0.1-SNAPSHOT"]]
             ;; need to add profiles to use this to avoid clout dep issue
             ;[lein-gorilla "0.3.4"]
             ;[lein-environ "0.4.0"]
-            ]
+
   :git-dependencies [
                      ["https://github.com/metasoarous/tools.cli.git" "master"]
                      ["https://github.com/GeorgeJahad/debug-repl.git" "master"]]
@@ -69,16 +69,12 @@
                  [prismatic/plumbing "0.2.2"]
                  [environ "0.4.0"]
 
-                 [org.clojure/test.check "0.7.0"]
-                 ]
+                 [org.clojure/test.check "0.7.0"]]
+
   :gorilla-options {:keymap {"command:app:save" "alt+g alt+w"}
                     :port 989796}
   :main polismath.runner
   :min-lein-version "2.3.0"
-  :profiles {
-    :dev {
-      :env {
-        :mongo-url "db/mongo.db"}}
-    :production {
-      :env {}}})
+  :profiles {:dev {:env {:mongo-url "db/mongo.db"}}
+             :production {:env {}}})
 

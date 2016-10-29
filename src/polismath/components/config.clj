@@ -35,12 +35,12 @@
                 :cluster-name "polis-cluster"
                 :workers      3
                 :spouts {:votes {:polling-interval 2000}
-                         :moderation {:polling-interval 5000}}
-                }
+                         :moderation {:polling-interval 5000}}}
+
    :math       {:matrix-implementation :vectorz}
    :logging    {:file "log/dev.log"
-                :level :info}
-   })
+                :level :info}})
+
 
 (def rules
   "Mapping of env keys to parsing options"
@@ -89,10 +89,10 @@
    :logging-level              {:path [:logging :level] :parse ->keyword
                                 :doc "Logging level for timbre; info, debug, error, etc"}
    :logging-file               {:path [:logging :file]
-                                :doc "If set, a file to which the log will be appended"}
+                                :doc "If set, a file to which the log will be appended"}})
    ;; XXX TODO & Thoughts
    ;; Mini batch sizes (see polismath.math.conversation)
-   })
+
 
 (defn get-environ-config [rules env]
   (reduce

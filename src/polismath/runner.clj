@@ -93,9 +93,9 @@
   ;(let [conv-man (:conversation-manager system)]
     ;(conv-man/queue-message-batch! conv-man ))
 
-  (stop!)
+  (stop!))
   ;(run!
-  )
+
 
 
 

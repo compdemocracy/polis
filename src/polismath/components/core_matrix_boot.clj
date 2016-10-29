@@ -11,10 +11,17 @@
   [v jsonGenerator]
   (encode-seq (into-array v) jsonGenerator))
 
+;; Should maybe make this dynamically computed based on the implementation... Annoying that we have to do this at all;
+;; Maybe there is something better we can hook on in our json encoding multimethod (the reason we
+;; need any of this mess)
 (def matrix-types ['mikera.vectorz.Vector
                    ;; XXX Need to figure out why this doesn't exist yet
-                   'clojure.core.matrix.impl.ndarray.NDArray
-                   ])
+                   ;'clojure.core.matrix.impl.ndarray.NDArray])
+                   ;; Could this be the new ns?
+                   'mikera.arrayz.NDArray
+                   ;'clojure.core.matrix.impl.ndarray.NDArray
+                   'clojure.core.matrix.impl.ndarray_object.NDArray])
+
 
 (def dummy-matrix [[1 2 3] [4 5 6]])
 
@@ -24,6 +31,7 @@
   (start [component]
     (let [implementation (get-in config [:math :matrix-implementation])]
       (log/info "Starting CoreMatrixBooter with implementation:" implementation)
+      (matrix/matrix dummy-matrix)
       (matrix/set-current-implementation implementation)
       (matrix/matrix dummy-matrix)
       ;(matrix/matrix :ndarray-object dummy-matrix)
@@ -41,9 +49,14 @@
       (remove-encoder (ns-resolve *ns* t)))
     component))
 
-(defn create-core-matrix-booter []
-  (map->CoreMatrixBooter {}))
+(defn create-core-matrix-booter
+  ([]
+   (create-core-matrix-booter {}))
+  ([options]
+   (map->CoreMatrixBooter options)))
 
+
+;(component/start (create-core-matrix-booter {:config {:math {:matrix-implementation :vectorz}}}))
 
 :ok
 

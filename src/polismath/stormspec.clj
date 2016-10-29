@@ -35,15 +35,16 @@
         ;;; more simply from this; But I guess some of these things should maybe not be constructable this
         ;;; way...
         ;;system (-> system-config system/base-system component/system-map component/start)
-        ;{:as spout-config :keys [polling-interval]} (-> system-config :storm :spouts message-type)
         ;system (system/create-and-run-base-system! system-config)
-        ;postgres (-> system :postgres)]
     ;(storm/spout
-  (let [last-timestamp (atom (try (java.lang.Long/parseLong (:initial-polling-timestamp env/env)) (catch Exception e (log/warn "INITIAL_POLLING_TIMESTAMP not set; setting to 0") 0)))]
+  (let [system (system/create-and-run-base-system! system-config)
+        polling-interval (-> system-config :storm :spouts message-type :polling-interval)
+        postgres (-> system :postgres)
+        last-timestamp (atom (try (java.lang.Long/parseLong (:initial-polling-timestamp env/env)) (catch Exception e (log/warn "INITIAL_POLLING_TIMESTAMP not set; setting to 0") 0)))]
     ;(if (= poll-fn :sim-poll)
       ;(log/info "Starting sim poller!")
       ;(start-sim-poller!))
-    (spout
+    (storm/spout
       (nextTuple []
         (try
           (log/info "Polling" message-type ">" @last-timestamp)
@@ -85,7 +86,7 @@
   ;; something serializable for the nodes to boot their systems from in the prepare steps
   [{:keys [config] :as storm-cluster}]
   (let [config (into {} config) ;; O/w have a non-serializable object
-        spouts {"vote-spout" (storm/spout-spec (poll-spout config :votes :created ))
+        spouts {"vote-spout" (storm/spout-spec (poll-spout config :votes :created))
                 "mod-spout"  (storm/spout-spec (poll-spout config :moderation :modified))}
         bolt-inputs (into {} (for [s (keys spouts)] [s ["zid"]]))]
     (assoc storm-cluster

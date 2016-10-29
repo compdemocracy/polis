@@ -21,26 +21,22 @@
    :core-matrix-boot     (component/using (create-core-matrix-booter)   [:config])
    :postgres             (component/using (create-postgres)             [:config])
    :mongo                (component/using (create-mongo)                [:config])
-   :conversation-manager (component/using (create-conversation-manager) [:config :core-matrix-boot :mongo])
-   })
+   :conversation-manager (component/using (create-conversation-manager) [:config :core-matrix-boot :mongo])})
 
 (defn darwin-system
   "Creates a base-system and assocs in darwin server related components."
   [config-overrides]
-  :TODO
-  )
+  :TODO)
 
 (defn onyx-system
   "Creates a base-system and assocs in polismath onyx worker related components."
   [config-overrides]
-  :TODO
-  )
+  :TODO)
 
 (defn simulator-system
   "Creates a base-system and assocs in a simulation engine."
   [config-overrides]
-  :TODO
-  )
+  :TODO)
 
 (defn create-and-run-system!
   [system config]
