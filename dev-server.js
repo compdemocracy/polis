@@ -17,7 +17,7 @@ app.use(require('webpack-hot-middleware')(compiler));
 
 function proxy (req, res) {
   var x = request({
-    url: "http://localhost:5000" + req.path,
+    url: "http://" + process.env.POLIS_SERVER_DOMAIN + ":5000" + req.path,
     qs: req.query,
     headers: req.headers,
     rejectUnauthorized:false,
