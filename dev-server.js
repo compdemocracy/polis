@@ -43,7 +43,7 @@ app.get('*', function(req, res) {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-app.listen(5002, 'localhost', function(err) {
+app.listen(5002, '0.0.0.0', function(err) {
   if (err) {
     console.log("error", err);
     return;
