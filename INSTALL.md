@@ -16,8 +16,8 @@ Install dependencies via `npm`:
 
     $ npm install
 
-If you are running polisServer on external server then set the IP or domain on
-the `POLIS_SERVER_DOMAIN` environment varible on `.env_dev` file.
+If you are running polisServer locally, be sure to set
+the `SERVICE_URL` environment varible in the `.env_dev` file.
 
 Run polisClientAdmin:
 
