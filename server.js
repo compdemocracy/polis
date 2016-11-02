@@ -6837,13 +6837,19 @@ Email verified! You can close this tab or hit the back button.
           if (bad && conv.profanity_filter) {
             active = false;
             classifications.push("bad");
+            console.log("active=false because (bad && conv.profanity_filter)");
           }
           if (spammy && conv.spam_filter) {
             active = false;
             classifications.push("spammy");
+            console.log("active=false because (spammy && conv.spam_filter)");
           }
           if (conv.strict_moderation) {
             active = false;
+            console.log("active=false because (conv.strict_moderation)");
+          }
+          if (active) {
+            console.log("active=true");
           }
 
           let mod = 0; // hasn't yet been moderated.
