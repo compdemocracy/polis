@@ -1,7 +1,7 @@
 {
-  "stage": 0,
   "env": {
     "development": {
+      "stage": 0,
       "plugins": ["react-transform"],
       "extra": {
         "react-transform": {
@@ -15,6 +15,15 @@
           }]
         }
       }
+    },
+    "test": {
+      "presets": ["es2015", "react"],
+      "plugins": [
+        "syntax-decorators",
+        "transform-class-properties",
+        "transform-es2015-computed-properties",
+        "transform-object-rest-spread"
+      ]
     }
   }
 }
