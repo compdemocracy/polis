@@ -8911,7 +8911,7 @@ Email verified! You can close this tab or hit the back button.
 
   // TODO expire this stuff
   let twitterUserInfoCache = new LruCache({
-    max: 1000,
+    max: 10000,
   });
 
 
