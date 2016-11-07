@@ -12059,11 +12059,11 @@ CREATE TABLE slack_user_invites (
       }, 9999);
 
     }).catch(function(err) {
-      console.error("polis_err_missing_twitter_image", 404, err);
+      console.error("polis_err_missing_twitter_image", err);
       if (err && err.stack) {
         console.error(err.stack);
       }
-      res.status(404).end();
+      res.status(500).end();
     });
   }
 
