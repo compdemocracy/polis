@@ -8916,6 +8916,8 @@ Email verified! You can close this tab or hit the back button.
 
 
   function getTwitterUserInfo(o, useCache) {
+    console.log("getTwitterUserInfo", o);
+
     let twitter_user_id = o.twitter_user_id;
     let twitter_screen_name = o.twitter_screen_name;
     let params = {
@@ -12023,6 +12025,7 @@ CREATE TABLE slack_user_invites (
 
 
   function handle_GET_twitter_image(req, res) {
+    console.log("handle_GET_twitter_image", req.p.id);
     getTwitterUserInfo({
       twitter_user_id: req.p.id,
     }, true).then(function(data) {
