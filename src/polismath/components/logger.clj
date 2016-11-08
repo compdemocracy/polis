@@ -1,6 +1,6 @@
 (ns polismath.components.logger
   (:require [com.stuartsierra.component :as component]
-            [taoensso.timbre :as timbre]
+            [taoensso.timbre :as log]
             [taoensso.timbre.appenders.core :as appenders]))
 
 
@@ -9,7 +9,8 @@
 (defrecord Logger [config]
   component/Lifecycle
   (start [component]
-    (timbre/merge-config!
+    (log/info ">> Starting config component")
+    (log/merge-config!
       {;:middleware [] ; (fns [data]) -> ?data, applied left->right
        ;:timestamp-opts default-timestamp-opts ; {:pattern _ :locale _ :timezone _}
        ;:output-fn default-output-fn ; (fn [data]) -> string
@@ -26,9 +27,10 @@
                         (println formatted-output-str)))}
                    :file-appender
                    {:spit (appenders/spit-appender {:fname "/path/my-file.log"})}}})
-    (timbre/merge-config!
+    (log/merge-config!
       (:logging config)))
   (stop [component]
+    (log/info "<< Stopping config component")
     component))
 
 (defn create-logger []

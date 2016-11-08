@@ -66,7 +66,7 @@
 (defrecord Mongo [config conn db]
   component/Lifecycle
   (start [component]
-    (log/info "Starting Mongo component")
+    (log/info ">> Starting Mongo component")
     (if-not (and conn db)
       (-> component
           get-connection-and-db!
@@ -75,7 +75,7 @@
       component))
 
   (stop [component]
-    (log/info "Stopping Mongo component")
+    (log/info "<< Stopping Mongo component")
     (mg/disconnect conn)
     (assoc component :conn nil :db nil)))
 

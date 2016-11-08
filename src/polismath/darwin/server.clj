@@ -101,8 +101,8 @@
       ;; Don't really need this if we have params instead of query params, but whateves
       (let [k (keyword k)]
         (if (allowed-params k)
-                      (assoc m k ((or (parsers k) identity) v))
-                      m)))
+            (assoc m k ((or (parsers k) identity) v))
+            m)))
     {}
     params))
 
@@ -453,10 +453,10 @@
    (-> handler
        ring.keyword-params/wrap-keyword-params
        ring.params/wrap-params
-       (auth/wrap-basic-authentication authenticated?)
+       (auth/wrap-basic-authentication authenticated?))})
        ;redirect-http-to-https-if-required
        ;restrict-remote-access
-       )})
+
 
 (defn get-port
   [default]
@@ -474,8 +474,8 @@
   {:app app
    :port (get-port 3000)
    ;; Not sure exactly what this is doing; maybe leave out XXX
-   :client-auth :need
-   })
+   :client-auth :need})
+
 
 
 (defonce http-server

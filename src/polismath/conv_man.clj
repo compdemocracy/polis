@@ -36,20 +36,20 @@
       (assoc :lastVoteTimestamp (:last-vote-timestamp results))
       (assoc :lastModTimestamp (:last-mod-timestamp results))
       (utils/hash-map-subset #{
-        :base-clusters
-        :group-clusters
-        :in-conv
-        :lastVoteTimestamp
-        :lastModTimestamp
-        :n
-        :n-cmts
-        :pca
-        :repness
-        :consensus
-        :zid
-        :user-vote-counts
-        :votes-base
-        :group-votes})))
+                               :base-clusters
+                               :group-clusters
+                               :in-conv
+                               :lastVoteTimestamp
+                               :lastModTimestamp
+                               :n
+                               :n-cmts
+                               :pca
+                               :repness
+                               :consensus
+                               :zid
+                               :user-vote-counts
+                               :votes-base
+                               :group-votes})))
 
 
 (defn handle-profile-data
@@ -316,8 +316,8 @@
 ;; Need to find a good way of making sure these tests don't ever get committed uncommented
 (comment
   (require '[clojure.test :as test])
-  (test/run-tests 'conv-man-tests)
-  )
+  (test/run-tests 'conv-man-tests))
+
 
 :ok
 

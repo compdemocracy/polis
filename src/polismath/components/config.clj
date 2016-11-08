@@ -5,6 +5,10 @@
             [environ.core :as environ]))
 
 
+;; I think we need to just move to this: https://github.com/juxt/aero
+;; Good set of features without baking in too many assumptions or constraining design
+
+
 (defn ->long [x]
   (try
     (Long/parseLong x)
@@ -121,9 +125,10 @@
 (defrecord Config [overrides]
   component/Lifecycle
   (start [component]
-    (log/info "Starting config component")
+    (log/info ">> Starting config component")
     (into component (get-config overrides)))
   (stop [component]
+    (log/info "<< Stopping config component")
     component))
 
 (defn create-config

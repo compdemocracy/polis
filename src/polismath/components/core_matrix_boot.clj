@@ -30,7 +30,7 @@
   ;; Load the matrix implementation and create a dummy matrix to ensure classes get loaded properly.
   (start [component]
     (let [implementation (get-in config [:math :matrix-implementation])]
-      (log/info "Starting CoreMatrixBooter with implementation:" implementation)
+      (log/info ">> Starting CoreMatrixBooter with implementation:" implementation)
       (matrix/matrix dummy-matrix)
       (matrix/set-current-implementation implementation)
       (matrix/matrix dummy-matrix)
@@ -44,7 +44,7 @@
     component)
 
   (stop [component]
-    (log/info "Stopping CoreMatrixBooter")
+    (log/info "<< Stopping CoreMatrixBooter")
     (doseq [t matrix-types]
       (remove-encoder (ns-resolve *ns* t)))
     component))
