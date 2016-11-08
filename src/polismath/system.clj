@@ -1,11 +1,12 @@
 (ns polismath.system
   (:require [polismath.utils :as utils]
-            [polismath.components [config :as config :refer [create-config]]
-                                  [mongo :as mongo :refer [create-mongo]]
-                                  [postgres :as postgres :refer [create-postgres]]
-                                  [core-matrix-boot :as core-matrix-boot :refer [create-core-matrix-booter]]
-                                  [logger :as logger :refer [create-logger]]]
-            [polismath.conv-man :as conv-man :refer [create-conversation-manager]]
+            [polismath.components [config :as config]
+                                  [mongo :as mongo]
+                                  [postgres :as postgres]
+                                  [core-matrix-boot :as core-matrix-boot]
+                                  [logger :as logger]]
+            [polismath.conv-man :as conv-man]
+            [polismath.poller :as poller]
             [polismath.utils :as utils]
             [clojure.tools.logging :as log]
             [clojure.tools.namespace.repl :as namespace.repl]
@@ -16,12 +17,22 @@
 (defn base-system
   "This constructs an instance of the base system components, including config, db, etc."
   [config-overrides]
-  {:config               (create-config config-overrides)
-   :logger               (component/using (create-logger)               [:config])
-   :core-matrix-boot     (component/using (create-core-matrix-booter)   [:config])
-   :postgres             (component/using (create-postgres)             [:config])
-   :mongo                (component/using (create-mongo)                [:config])
-   :conversation-manager (component/using (create-conversation-manager) [:config :core-matrix-boot :mongo])})
+  {:config               (config/create-config config-overrides)
+   ;:logger               (component/using (logger/create-logger)                 [:config])
+   :core-matrix-boot     (component/using (core-matrix-boot/create-core-matrix-booter) [:config])
+   :postgres             (component/using (postgres/create-postgres)             [:config])
+   :mongo                (component/using (mongo/create-mongo)                   [:config])
+   :conversation-manager (component/using (conv-man/create-conversation-manager) [:config :core-matrix-boot :mongo])})
+
+(defn poller-system
+  "Creates a base-system and assocs in darwin server related components."
+  [config-overrides]
+  (let [sys-map
+        (merge (base-system config-overrides)
+          {:vote-poller (component/using (poller/create-poller :votes)      [:config :postgres :conversation-manager])
+           :mod-poller  (component/using (poller/create-poller :moderation) [:config :postgres :conversation-manager])})]
+    (log/info "Here's the system keys:" (keys sys-map))
+    sys-map))
 
 (defn darwin-system
   "Creates a base-system and assocs in darwin server related components."

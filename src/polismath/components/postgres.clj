@@ -11,9 +11,9 @@
             [plumbing.core :as pc]
             [korma.core :as ko]
             [korma.db :as kdb]
-            [cheshire.core :as ch]
+            [cheshire.core :as ch]))
             ;[alex-and-georges.debug-repl :as dbr]
-            ))
+
 
 
 (defn heroku-db-spec
@@ -33,11 +33,11 @@
 (defrecord Postgres [config db-spec]
   component/Lifecycle
   (start [component]
-    (log/info "Starting Postgres component")
+    (log/info ">> Starting Postgres component")
     (let [db-spec (-> config :database :url heroku-db-spec)]
       (assoc component :db-spec db-spec)))
   (stop [component]
-    (log/info "Stopping Postgres component")
+    (log/info "<< Stopping Postgres component")
     (assoc component :db-spec nil)))
 
 (defn create-postgres
@@ -180,6 +180,15 @@
       (ko/where (in :email emails))
       (ko/select))))
 
+(defn get-zid-from-zinvite
+  [component zinvite]
+  (->
+    (kdb/with-db (:db-spec component)
+                 (ko/select "zinvites"
+                            (ko/fields :zid :zinvite)
+                            (ko/where {:zinvite zinvite})))
+    first
+    :zid))
 
 (defn conv-poll
   "Query for all data since last-vote-timestamp for a given zid, given an implicit db-spec"

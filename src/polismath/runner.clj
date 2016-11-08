@@ -1,8 +1,9 @@
 (ns polismath.runner
   "This namespace is responsible for running systems"
-  (:require [polismath.system :as system :refer [darwin-system onyx-system simulator-system]]
-            [polismath.stormspec :as stormspec :refer [storm-system]]
+  (:require [polismath.system :as system]
+            ;[polismath.stormspec :as stormspec :refer [storm-system]]
             [polismath.utils :as utils]
+            ;; TODO Replace this with the canonical clojure.tools.cli once storm is removed
             [clojure.newtools.cli :as cli]
             [clojure.tools.namespace.repl :as namespace.repl]
             [clojure.tools.logging :as log]
@@ -47,24 +48,30 @@
    ;; config-overrides as well.
    (namespace.repl/refresh :after 'polismath.system/runner!)))
 
-
 (def subcommands
-  {"storm" storm-system
-   "darwin" darwin-system
-   "onyx" onyx-system
-   "simulator" simulator-system})
+  {;"storm" stormspec/storm-system ;; remove...
+   ;"onyx" system/onyx-system ;; soon...
+   "poller" system/poller-system
+   "darwin" system/darwin-system
+   "simulator" system/simulator-system})
 
+;; TODO Build nice cli settings forking on subcommand, and tie in sanely with options comp
+
+;; QUESTION How do we fork things nicely on command that get run and exit, vs long lived?
 
 (def cli-options
   "Has the same options as simulation if simulations are run"
-  [["-n" "--name" "Cluster name; triggers submission to cluster" :default nil]
+  [
+   ;; old storm setting...
+   ;["-n" "--name" "Cluster name; triggers submission to cluster" :default nil]
    ["-r" "--recompute"]])
 
 (defn usage [options-summary]
   (->> ["Polismath stormspec"
         "Usage: lein run [subcommand] [options]"
         ""
-        "Subcommand options: storm, darwin, onyx, simulator"
+        (str "Subcommand options: " (string/join " " (keys subcommands)))
+
         ""
         "Other options:"
         options-summary]
@@ -78,15 +85,15 @@
       (:errors options) (utils/exit 1 (str "Found the following errors:" \newline (:errors options)))
       :else 
       (let [system-map-generator (subcommands (first arguments))
-            main-system (system/create-and-run-system! system-map-generator options)]
+            system (system/create-and-run-system! system-map-generator options)]
         system))))
 
 
 (comment
   (try
     ;(run! system/base-system)
-    ;(stop!)
-    (run! storm-system)
+    (stop!)
+    (run! system/poller-system)
     :ok (catch Exception e (.printStackTrace e) e))
 
   ;(require '[polismath.conv-man :as conv-man])
@@ -94,7 +101,6 @@
     ;(conv-man/queue-message-batch! conv-man ))
 
   (stop!))
-  ;(run!
 
 
 
