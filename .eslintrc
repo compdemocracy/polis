@@ -1,5 +1,14 @@
 ---
-"extends":
-  - "defaults/configurations/walmart/es6-react"
+plugins:
+  - babel
+  - react
+extends:
+  - standard
+  - standard-jsx
+  - standard-react
+  - defaults/configurations/walmart/es6-react
 rules:
-  comma-dangle: 0
+  - comma-dangle: ["error", "never"]
+parserOptions:
+  - ecmaFeatures:
+    - jsx: true
