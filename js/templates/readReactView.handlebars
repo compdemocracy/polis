@@ -2,6 +2,8 @@
   id="readReactView"
   style="margin-bottom: -40px;"
   >
+
+  {{!-- Top of "Card stack" --}}
   <div
   	class="
   		custom_gutter
@@ -13,6 +15,8 @@
   		z-index: 3;
   		{{!-- min-height: 144px; attempt to avoid flashing on vote view load--}}
   	">
+
+    {{!-- This is the optional social prompt --}}
 	  {{#if promptFacebook}}
 	  <div style="margin: 20px;" class="Notification Notification--warning">
 	    <p class="HeadingF HeadingF--light pull-right" style="cursor: pointer" role="button" type="button" id="fbNotNowBtn">
@@ -29,12 +33,12 @@
 	      </div>
 	    </div>
 	  </div>
-
 	  {{else}}
-		{{view voteView}}
+  		{{view voteView}}
 	  {{/if}}
 	</div>
 
+  {{!-- Empty "Card stack" div1 (notice css "top" and "width") --}}
 	<div
 		style="
 			min-height: 30px;
@@ -46,6 +50,7 @@
 		"
 		class="lightPanel">
 	</div>
+  {{!-- Empty "Card stack" div2 (notice css "top" and "width") --}}
 	<div
 		style="
 			min-height: 30px;

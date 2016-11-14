@@ -1,94 +1,95 @@
 
 <div id="comment_shower">
-    {{#if empty}}
-      <div  style="margin: 20px;" class="Notification Notification--warning">
-      {{#if subscribed}}
-          <p class="HeadingF HeadingF--light "><i class="fa fa-bell-o"></i>&nbsp;<strong>{{txt1}}</strong></p>
-          <p>{{txt2}}</p>
-          <p>
 
-            {{#ifNotIE8}}
-              <i class="fa fa-check-square-o" style="font-size: 20px; color: #2ecc71; position: relative; top: 1px"></i>
-            {{/ifNotIE8}}
-            {{s.notificationsAlreadySubscribed}}
-          </p>
-      {{else}}
-        {{#if canSubscribe}}
-          <p class="HeadingF HeadingF--light "><i class="fa fa-bell-o"></i>&nbsp;<strong>{{txt1}}</strong></p>
-          <form role="form" class="FormVertical">
-          {{#if email}}
-              <p>{{s.notificationsGetNotified}}</p>
-              <pre>{{email}}</pre>
-          {{else}}
-              <p>{{s.notificationsEnterEmail}}</p>
-              <div class="FormVertical-group">
-                <label class="FormLabel" for="gatekeeperEmailCreate">{{s.labelEmail}}</label>
-                <input type="text" name="email" id="gatekeeperEmailCreate" size="40" class="email FormControl" {{#if readonlyEmail}}readonly{{/if}}>
-              </div>
-          {{/if}}
-            <div class="FormVertical-group">
-              <span id="subscribeBtn" class="Btn Btn-primary unselectable" style="
-                text-transform: none;
-                font-size: 16px;
-                font-weight: 500;
-                cursor: pointer;
-                border: none;
-                border-radius: 4px;
-                background-color: #3498db;
-                color: white;
-                min-width: 110px;
-                height: 40px;
-                margin-left: 5px;
-                display: inline-block;
-                margin-top: 10px;
-                {{customBtnStyles}}
-                ">{{s.notificationsSubscribeButton}}</span>
-            </div>
-          </form>
-        {{else}}
-          <div><strong>{{s.noCommentsYet}}</strong></div>
-          <div>{{s.noCommentsYetSoWrite}}</div>
-        {{/if}}
-      {{/if}}
-      </div>
-    {{else}}
+{{#if empty}}
+  <div  style="margin: 20px;" class="Notification Notification--warning"> {{!-- empty scenario div --}}
+  {{#if subscribed}}
+    <p class="HeadingF HeadingF--light "><i class="fa fa-bell-o"></i>&nbsp;<strong>{{txt1}}</strong></p>
+    <p>{{txt2}}</p>
+    <p>
+      {{#ifNotIE8}}
+        <i class="fa fa-check-square-o" style="font-size: 20px; color: #2ecc71; position: relative; top: 1px"></i>
+      {{/ifNotIE8}}
+      {{s.notificationsAlreadySubscribed}}
+    </p>
+  {{else}} {{!-- !subscribed --}}
+    {{#if canSubscribe}}
+      <p class="HeadingF HeadingF--light "><i class="fa fa-bell-o"></i>&nbsp;<strong>{{txt1}}</strong></p>
+      <form role="form" class="FormVertical">
+        {{#if email}}
+          <p>{{s.notificationsGetNotified}}</p>
+          <pre>{{email}}</pre>
+        {{else}} {{!-- !email --}}
+          <p>{{s.notificationsEnterEmail}}</p>
+          <div class="FormVertical-group">
+            <label class="FormLabel" for="gatekeeperEmailCreate">{{s.labelEmail}}</label>
+            <input type="text" name="email" id="gatekeeperEmailCreate" size="40" class="email FormControl" {{#if readonlyEmail}}readonly{{/if}}>
+          </div>
+        {{/if}} {{!-- /email --}}
+        <div class="FormVertical-group">
+          <span id="subscribeBtn" class="Btn Btn-primary unselectable" style="
+            text-transform: none;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            background-color: #3498db;
+            color: white;
+            min-width: 110px;
+            height: 40px;
+            margin-left: 5px;
+            display: inline-block;
+            margin-top: 10px;
+            {{customBtnStyles}}
+            ">{{s.notificationsSubscribeButton}}</span>
+        </div>
+      </form>
+    {{else}} {{!-- !canSubscribe --}}
+      <div><strong>{{s.noCommentsYet}}</strong></div>
+      <div>{{s.noCommentsYetSoWrite}}</div>
+    {{/if}} {{!-- /canSubscribe --}}
+  {{/if}} {{!-- /subscribed --}}
+  </div> {{!-- /empty scenario div --}}
 
-    <!-- there is a comment to show -->
-    <div>
-      {{! social stuff }}
-      <img
-        src="{{social.img}}"
-        style="
-          width: 36px;
-          margin-left: 10px;
-          margin-top: 10px;
-          border-radius: 3px;
-          border: 1px solid #ccc;
-          "
-        ></img>
-      <p
-        style="
-          display: inline;
-          position: relative;
-          top: -3px;
-          font-weight: 700;
-          margin-left: 5px;
-        ">
-        {{social.name}}
-        <span style="
-          font-weight: 300;
-          color: rgba(113, 113, 113, .75);
-          ">
-          {{#if tweet_id}}
-            <a href="https://twitter.com/{{social.screen_name}}/status/{{tweet_id}}" target="_blank">{{s.x_tweeted}}</a>
+{{else}} {{!-- !empty --}}
+
+  <!-- there is a comment to show -->
+  <div> {{!-- notempty scenario div --}}
+    {{! social stuff }}
+    <img
+      src="{{social.img}}"
+      style="
+        width: 36px;
+        margin-left: 10px;
+        margin-top: 10px;
+        border-radius: 3px;
+        border: 1px solid #ccc;
+        "
+      ></img>
+    <p
+      style="
+        display: inline;
+        position: relative;
+        top: -3px;
+        font-weight: 700;
+        margin-left: 5px;
+    ">
+      {{social.name}}
+      <span style="
+        font-weight: 300;
+        color: rgba(113, 113, 113, .75);
+      ">
+        {{#if tweet_id}}
+          <a href="https://twitter.com/{{social.screen_name}}/status/{{tweet_id}}" target="_blank">{{s.x_tweeted}}</a>
+        {{else}} {{!-- !tweet_id --}}
+          {{#if quote_src_url}}
+            <a href="{{quote_src_url}}" target="_blank">{{s.x_wrote}}</a>
           {{else}}
-            {{#if quote_src_url}}
-              <a href="{{quote_src_url}}" target="_blank">{{s.x_wrote}}</a>
-            {{else}}
-              {{s.x_wrote}}
-            {{/if}}
+            {{s.x_wrote}}
           {{/if}}
-        </span>
+        {{/if}} {{!-- /tweet_id --}}
+      </span>
   {{!-- ========== STAR ========== --}}
   {{!--   <span
           id="starBtn"
@@ -125,30 +126,34 @@
             {{s.tipStarred}}
           </span>
         </span> --}}
-      </p>
-      {{!-- {{social.twitter_user_id}} --}}
-      {{!-- {{social.screen_name}} --}}
-      <p style="
-        margin-left: 55px; {{!-- 10 + 36 + 5 from social above --}}
-        font-weight: 300;
-        min-height: 65px;
-        position: relative;
-        top: -13px;
-        width: 70%;
-        line-height: 1.3;
-        font-size: 14px;
-        {{customStyles}}
-        ">
-         {{txt}}
-      </p>
-      {{!-- {{createdString}} --}}
-    {{/if}}
-</div>
+    </p>
+    {{!-- {{social.twitter_user_id}} --}}
+    {{!-- {{social.screen_name}} --}}
+    <p style="
+      margin-left: 55px; {{!-- 10 + 36 + 5 from social above --}}
+      font-weight: 300;
+      min-height: 65px;
+      position: relative;
+      top: -13px;
+      width: 70%;
+      line-height: 1.3;
+      font-size: 14px;
+      {{customStyles}}
+    ">
+     {{txt}}
+    </p>
+    {{!-- {{createdString}} --}}
+
+
+  </div> {{!-- /notempty scenario div --}}
+{{/if}} {{!-- /empty --}}
+
+{{!--   </div> --}}
 
 
 {{#if empty}}
   {{!-- nothing --}}
-{{else}}
+{{else}} {{!-- !empty --}}
   {{#if shouldMod}}
   <div class="modButtonContainer">
     <div
@@ -195,7 +200,7 @@
       {{/if}}
     </div>
   </div>
-  {{else}}
+  {{else}} {{!-- !shouldMod --}}
     <div
       class="
         reactionButtons
@@ -249,5 +254,8 @@
         {{s.pass}}
       </div>
     </div>
-  {{/if}}
-{{/if}}
+  {{/if}} {{!-- /shouldMod --}}
+
+{{/if}} {{!-- /empty --}}
+
+</div> {{!-- /comment_shower div --}}
