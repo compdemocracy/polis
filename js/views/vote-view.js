@@ -27,6 +27,10 @@ module.exports = Handlebones.ModelView.extend({
     "click #otToggle": "otToggle",
     "click #importantToggle": "importantToggle",
     "click #modSubmit" : "participantModerated",
+
+    "click #facebookButtonVoteView" : "facebookClicked",
+    "click #twitterButtonVoteView" : "twitterClicked",
+
   },
   context: function() {
     var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
@@ -80,6 +84,44 @@ module.exports = Handlebones.ModelView.extend({
     ctx.canSubscribe = !!preload.firstPtpt;
     ctx.needSocial = this.model.get("needSocial");
     return ctx;
+  },
+
+
+  facebookClicked: function(e) {
+    e.preventDefault();
+    var that = this;
+    M.addAndSend(M.VOTE_SUBMIT_FB_INIT);
+    PolisFacebookUtils.connect().then(function() {
+      M.addAndSend(M.VOTE_SUBMIT_FB_OK);
+      // wait a bit for new cookies to be ready, or something, then submit comment.
+      setTimeout(function() {
+        that.onAuthSuccess();
+        // CurrentUserModel.update();
+      }, 100);
+    }, function(err) {
+      M.addAndSend(M.VOTE_SUBMIT_FB_ERR);
+      // alert("facebook error");
+    });
+  },
+  twitterClicked: function(e) {
+    var that = this;
+    e.preventDefault();
+
+    eb.on(eb.twitterConnectedVoteView, function() {
+      M.addAndSend(M.VOTE_SUBMIT_TW_OK);
+      // wait a bit for new cookies to be ready, or something, then submit comment.
+      setTimeout(function() {
+        that.onAuthSuccess();
+        // CurrentUserModel.update();
+      }, 100);
+    });
+
+    M.addAndSend(M.VOTE_SUBMIT_TW_INIT);
+
+    // open a new window where the twitter auth screen will show.
+    // that window will redirect back to a simple page that calls window.opener.twitterStatus("ok")
+    var params = 'location=0,status=0,width=800,height=400';
+    window.open(document.location.origin + "/api/v3/twitterBtn?owner=false&dest=/twitterAuthReturn/VoteView", 'twitterWindow', params);
   },
 
   spamToggle: function() {
@@ -324,11 +366,12 @@ module.exports = Handlebones.ModelView.extend({
       if (!starred) {
         starred = void 0; // don't bother sending up false, no need to put a vote value of 0 in the db.
       }
-      votesByMe.add({
+      this.wipVote = {
         vote: -1,
         conversation_id: conversation_id,
         tid: tid
-      });
+      };
+      votesByMe.add(this.wipVote);
       this.onButtonClicked();
       serverClient.agree(tid, starred)
         .then(onVote.bind(this), onFail.bind(this));
@@ -337,11 +380,12 @@ module.exports = Handlebones.ModelView.extend({
       this.mostRecentVoteType = "disagree";
       var tid = this.model.get("tid");
       var starred = this.model.get("starred");
-      votesByMe.add({
+      this.wipVote = {
         vote: 1,
         conversation_id: conversation_id,
         tid: tid
-      });
+      };
+      votesByMe.add(this.wipVote);
       this.onButtonClicked();
       serverClient.disagree(tid, starred)
         .then(onVote.bind(this), onFail.bind(this));
@@ -350,11 +394,12 @@ module.exports = Handlebones.ModelView.extend({
       this.mostRecentVoteType = "pass";
       var tid = this.model.get("tid");
       var starred = this.model.get("starred");
-      votesByMe.add({
+      this.wipVote = {
         vote: 0,
         conversation_id: conversation_id,
         tid: tid
-      });
+      };
+      votesByMe.add(this.wipVote);
       this.onButtonClicked();
       serverClient.pass(tid, starred)
         .then(onVote.bind(this), onFail.bind(this));
@@ -386,6 +431,37 @@ module.exports = Handlebones.ModelView.extend({
       this.onButtonClicked();
       serverClient.trash(tid)
         .then(onVote.bind(this), onFail.bind(this));
+    };
+
+
+    this.onAuthSuccess = function() {
+
+      if (!this.wipVote) {
+        alert(1);
+        return;
+      }
+      var starred = this.model.get("starred");
+      var tid = this.wipVote.tid;
+
+      function reloadPage() {
+        eb.trigger(eb.reload);
+      }
+      function onFailAfterAuth () {
+        alert(2);
+      }
+
+      if (this.wipVote.vote === -1) {
+        serverClient.agree(tid, starred)
+          .then(reloadPage, onFailAfterAuth);
+      } else if (this.wipVote.vote === 0) {
+        serverClient.pass(tid, starred)
+          .then(reloadPage, onFailAfterAuth);
+      } else if (this.wipVote.vote === 1) {
+        serverClient.disagree(tid, starred)
+          .then(reloadPage, onFailAfterAuth);
+      } else {
+        alert(3);
+      }
     };
 
     pollForComments(options.firstCommentPromise); // call immediately using a promise for the first comment (latency reduction hack)

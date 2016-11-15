@@ -222,7 +222,7 @@ module.exports = Handlebones.ModelView.extend({
     var that = this;
     e.preventDefault();
 
-    eb.on(eb.twitterConnected, function() {
+    eb.on(eb.twitterConnectedCommentForm, function() {
       M.addAndSend(M.COMMENT_SUBMIT_TW_OK);
       // wait a bit for new cookies to be ready, or something, then submit comment.
       setTimeout(function() {
@@ -236,7 +236,7 @@ module.exports = Handlebones.ModelView.extend({
     // open a new window where the twitter auth screen will show.
     // that window will redirect back to a simple page that calls window.opener.twitterStatus("ok")
     var params = 'location=0,status=0,width=800,height=400';
-    window.open(document.location.origin + "/api/v3/twitterBtn?owner=false&dest=/twitterAuthReturn", 'twitterWindow', params);
+    window.open(document.location.origin + "/api/v3/twitterBtn?owner=false&dest=/twitterAuthReturn/CommentForm", 'twitterWindow', params);
   },
   showSocialAuthChoices: function() {
     $("#comment_form_controls").hide();

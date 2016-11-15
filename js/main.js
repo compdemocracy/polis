@@ -119,10 +119,18 @@ window.addEventListener("message", function(event) {
 
   // NOTE: event could have any origin, since we're embedded, so be careful here
 
-  if (event.data === "twitterConnected") { // this message is sent from twitterAuthReturn.html
+  // this message is sent from twitterAuthReturn.html
+  if (event.data === "twitterConnected") {
     // location.reload();
     eb.trigger(eb.twitterConnected);
+  } else if (event.data === "twitterConnectedCommentForm") {
+    eb.trigger(eb.twitterConnectedCommentForm);
+  } else if (event.data === "twitterConnectedParticipationView") {
+    eb.trigger(eb.twitterConnectedParticipationView);
+  } else if (event.data === "twitterConnectedVoteView") {
+    eb.trigger(eb.twitterConnectedVoteView);
   }
+
 
 }, false);
 
