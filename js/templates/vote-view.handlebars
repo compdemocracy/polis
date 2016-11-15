@@ -1,6 +1,43 @@
 
 <div id="comment_shower">
 
+{{#if needSocial}}
+{{!-- ================ CONNECT FACEBOOK / TWITTER ================ --}}
+<div
+  id="socialButtonsVoteView"
+  style="
+    {{!-- display: none; --}}
+    margin: 10px;
+    ">
+  <div class="protip"><p><i class="fa fa-microphone"></i>&nbsp; {{s.connectToVotePrompt}}</p></div>
+  {{#unless hasFacebook}}
+    <button id="facebookButtonVoteView" class="facebookButton" style="padding-top: 0px; margin-bottom: 4px;">
+      <i class="svgIcon" style="
+        display: inline-block;
+        position: relative;
+        margin-right: 2px;
+        top: 6px;
+        width: 25px;
+        fill: white;
+      ">{{> iconFaFacebookSquare}}</i>
+      {{s.connectFacebook}}</button>
+  {{/unless}}
+  {{#unless hasTwitter}}
+    <button id="twitterButtonVoteView" class="twitterButton" style="padding-top: 0px; margin-bottom: 4px;">
+    <i class="svgIcon" style="
+      display: inline-block;
+      position: relative;
+      margin-right: 2px;
+      top: 8px;
+      width: 25px;
+      fill: white;
+    ">{{> iconFaTwitter}}</i>
+      {{s.connectTwitter}}</button>
+  {{/unless}}
+</div>
+
+{{else}}  {{!-- !needSocial --}}
+
 {{#if empty}}
   <div  style="margin: 20px;" class="Notification Notification--warning"> {{!-- empty scenario div --}}
   {{#if subscribed}}
@@ -257,5 +294,8 @@
   {{/if}} {{!-- /shouldMod --}}
 
 {{/if}} {{!-- /empty --}}
+
+
+{{/if}}  {{!-- /needSocial --}}
 
 </div> {{!-- /comment_shower div --}}

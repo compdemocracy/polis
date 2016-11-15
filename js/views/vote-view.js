@@ -1,5 +1,7 @@
 var eb = require("../eventBus");
 var Handlebones = require("handlebones");
+var M = require("../util/metrics");
+var PolisFacebookUtils = require('../util/facebookButton');
 var PostMessageUtils = require("../util/postMessageUtils");
 var preloadHelper = require("../util/preloadHelper");
 var template = require("../tmpl/vote-view");
@@ -76,6 +78,7 @@ module.exports = Handlebones.ModelView.extend({
     ctx.social = socialCtx;
     ctx.noModSet = !ctx.spamOn && !ctx.otOn && !ctx.importantOn;
     ctx.canSubscribe = !!preload.firstPtpt;
+    ctx.needSocial = this.model.get("needSocial");
     return ctx;
   },
 
@@ -203,6 +206,10 @@ module.exports = Handlebones.ModelView.extend({
         alert("Sorry, voting requires cookies to be enabled. If you do enable cookies, be sure to reload the page after.");
       } else if (err && err.responseText === "polis_err_conversation_is_closed") {
         alert("This conversation is closed. No further voting is allowed.");
+      } else if (err && err.responseText === "polis_err_post_votes_social_needed") {
+        that.model.set({
+          needSocial: true,
+        });
       } else {
         alert("Apologies, your vote failed to send. Please check your connection and try again.");
       }

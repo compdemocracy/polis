@@ -42,6 +42,7 @@ s.commentSent = "Comment Sent! Other participants will see your comment and agre
 s.connectFacebook = "Connect Facebook";
 s.connectTwitter = "Connect Twitter";
 s.connectToPostPrompt = "Connect an identity to comment. We will not post to your timeline.";
+s.connectToVotePrompt = "Connect an identity to vote. We will not post to your timeline.";
 s.tip = "Tip:";
 s.tipCommentsRandom = "Comments are displayed randomly. You are not directly replying to anyone.";
 s.tipOneIdea = "Break up long comments that contain multiple ideas. This makes it easier for others to vote on your comment.";
