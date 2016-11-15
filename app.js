@@ -1321,7 +1321,7 @@ helpersInitialized.then(function(o) {
   app.get(/^\/try$/, makeFileFetcher(hostname, portForParticipationFiles, "/try.html", {
     'Content-Type': "text/html",
   }));
-  app.get(/^\/twitterAuthReturn$/, makeFileFetcher(hostname, portForParticipationFiles, "/twitterAuthReturn.html", {
+  app.get(/^\/twitterAuthReturn(\/.*)?$/, makeFileFetcher(hostname, portForParticipationFiles, "/twitterAuthReturn.html", {
     'Content-Type': "text/html",
   }));
 
