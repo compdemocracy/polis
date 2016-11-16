@@ -4399,7 +4399,7 @@ Email verified! You can close this tab or hit the back button.
     q += " WHERE subscribed = 1 ";
     // q += "  AND (latest_comment_time + 30*60*1000) <= now_as_millis() "; // sub last_interaction with last_comment_time
     q += "  AND (last_notified + 24*60*60*1000) <= now_as_millis() "; // limit to one per day
-    q += "  AND (last_interaction + 30*60*1000) <= now_as_millis() "; // wait 30 minutes after their last interaction
+    q += "  AND (last_interaction + 5*60*1000) <= now_as_millis() "; // wait 5 minutes after their last interaction
     q += "  AND remaining > 0 ";
     q += " ORDER BY ppl.zid, ppl.uid;";
 
