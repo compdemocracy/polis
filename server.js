@@ -4505,12 +4505,13 @@ Email verified! You can close this tab or hit the back button.
       winston.log("info", "getParticipantsThatNeedNotifications", rows.length);
       winston.log("info", rows);
       rows.forEach(function(row) {
+        let last_notified = row.last_notified; // only send an email if last_notified matches the one in the query above. This should prevent race conditions between multiple server instances.
         let url = row.parent_url;
         if (!url) {
           url = "https://pol.is/" + row.zinvite;
         }
         // NOTE: setting the DB status first to prevent a race condition where there can be multiple emails sent (one from each server)
-        pgQueryP("update participants set last_notified = now_as_millis() where uid = ($1) and zid = ($2);", [row.uid, row.zid]).then(function() {
+        pgQueryP("update participants set last_notified = now_as_millis() where uid = ($1) and zid = ($2) and last_notified = ($3);", [row.uid, row.zid, last_notified]).then(function() {
           return sendNotificationEmail(row.uid, url, row.zinvite, row.email, row.remaining);
         }).catch(function(err) {
           yell("polis_err_notifying_participants_misc");
@@ -4530,7 +4531,7 @@ Email verified! You can close this tab or hit the back button.
     notifyParticipantsOfNewComments();
     setInterval(function() {
       notifyParticipantsOfNewComments();
-    }, 10 * 60 * 1000);
+    }, 5 * 60 * 1000);
   }
 
   function updateEmail(uid, email) {
