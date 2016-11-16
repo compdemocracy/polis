@@ -223,7 +223,8 @@ module.exports = Handlebones.ModelView.extend({
       }
       var promise = optionalPromiseForPreExisingNextCommentCall || serverClient.getNextComment(params);
       promise.then(function(c) {
-        var email = that.$(".email").val();
+        var emailEl = that.$(".email");
+        var email = emailEl.val() || emailEl.is(":focus");
         if (!email) { // Don't clobber view if user is writing an email
           if (!that.conversationModel.get("is_active")) {
             showClosedConversationNotice();
