@@ -52,7 +52,7 @@
   {{else}} {{!-- !subscribed --}}
     {{#if canSubscribe}}
       <p class="HeadingF HeadingF--light "><i class="fa fa-bell-o"></i>&nbsp;<strong>{{txt1}}</strong></p>
-      <form role="form" class="FormVertical">
+      <form role="form" class="FormVertical" id="subscribeEmailForm">
         {{#if email}}
           <p>{{s.notificationsGetNotified}}</p>
           <pre>{{email}}</pre>

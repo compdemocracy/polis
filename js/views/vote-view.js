@@ -18,6 +18,7 @@ module.exports = Handlebones.ModelView.extend({
     "click #disagreeButton": "participantDisagreed",
     "click #passButton": "participantPassed",
     "click #subscribeBtn": "subscribeBtn",
+    'submit #subscribeEmailForm': "subscribeBtn",
     "click #starBtn": "starBtn",
     "hover .starbutton": function() {
       this.$(".starbutton").html("<i class='fa fa-star'></i>");
@@ -359,6 +360,7 @@ module.exports = Handlebones.ModelView.extend({
         alert("Error subscribing");
         console.error(err);
       });
+      return false;
     };
     this.participantAgreed = function(e) {
       this.mostRecentVoteType = "agree";
