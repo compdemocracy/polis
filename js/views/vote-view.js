@@ -81,7 +81,7 @@ module.exports = Handlebones.ModelView.extend({
     }
     ctx.social = socialCtx;
     ctx.noModSet = !ctx.spamOn && !ctx.otOn && !ctx.importantOn;
-    ctx.canSubscribe = !!preload.firstPtpt;
+    ctx.canSubscribe = !!preload.firstPtpt || this.votesByMe.size() > 0;
     ctx.needSocial = this.model.get("needSocial");
     return ctx;
   },
@@ -169,7 +169,7 @@ module.exports = Handlebones.ModelView.extend({
       eb.off(eb.exitConv, cleanup);
     }
     var serverClient = options.serverClient;
-    var votesByMe = options.votesByMe;
+    var votesByMe = this.votesByMe = options.votesByMe;
     var votesByMeFetched = $.Deferred();
     votesByMeFetched.then(function() {
       if (votesByMe.size() > 0) {
