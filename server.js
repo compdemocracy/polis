@@ -2648,20 +2648,23 @@ function initializePolisHelpers(mongoParams) {
       }
       let uid = Number(userParams.uid);
       generateHashedPassword(newPassword, function(err, hashedPassword) {
-        pgQuery("UPDATE jianiuevyew SET pwhash = ($1) where uid=($2);", [hashedPassword, uid], function(err, results) {
-          if (err) {
+        return pgQueryP("insert into jianiuevyew (uid, pwhash) values "+
+          "($1, $2) on conflict (uid) "+
+          "do update set pwhash = excluded.pwhash;", [
+            uid,
+            hashedPassword,
+          ]).then((rows) => {
+            res.status(200).json("Password reset successful.");
+            clearPwResetToken(pwresettoken, function(err) {
+              if (err) {
+                yell(err);
+                console.error("polis_err_auth_pwresettoken_clear_fail");
+              }
+            });
+          }, (err) => {
             console.error(err);
             fail(res, 500, "Couldn't reset password.", err);
-            return;
-          }
-          res.status(200).json("Password reset successful.");
-          clearPwResetToken(pwresettoken, function(err) {
-            if (err) {
-              yell(err);
-              console.error("polis_err_auth_pwresettoken_clear_fail");
-            }
           });
-        });
       });
     });
   }
