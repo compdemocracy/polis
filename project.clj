@@ -21,7 +21,6 @@
   :dependencies [[commons-collections/commons-collections "3.2.1"]
                  [cheshire "5.3.1"]
                  [org.clojure/tools.reader "0.8.13"]
-                 ;[com.taoensso/timbre "3.3.1"]
                  [com.taoensso/timbre "4.2.1"]
                  ;; Troublesome carmine...
                  ;[com.taoensso/carmine "2.7.0" :exclusions [org.clojure/clojure]]
@@ -41,17 +40,16 @@
                  [org.clojure/tools.namespace "0.2.7"]
                  [org.clojure/tools.logging "0.3.0"]
                  [org.clojure/tools.trace "0.7.6"]
+                 ;; We should be able to switch back to this now that we aren't using storm
                  ;[org.clojure/tools.cli "0.3.1"]
                  ;; implicitly requires jetty, component and ring
                  [ring/ring-core "1.4.0" :exclusions [clj-time]]
                  [ring-jetty-component "0.2.3" :exclusions [clj-time]]
                  [ring-basic-authentication "1.0.5"]
                  [ring/ring-ssl "0.2.1"]
-                 ;[javax.servlet/servlet-api "2.5"] ; temp
-                 ;[compojure "1.1.3"] ;; update to 1.4.0 when storm moves
-                 ;; fuck it; using bidi
                  [bidi "1.20.3" :exclusions [prismatic/schema]]
-                 [org.apache.storm/storm-core "0.9.2-incubating"]
+                 ;; Taking out storm cause yeah...
+                 ;[org.apache.storm/storm-core "0.9.2-incubating"]
                  [bigml/sampling "2.1.0"]
                  [incanter "1.5.4"]
                  [com.novemberain/monger "3.0.1"]
