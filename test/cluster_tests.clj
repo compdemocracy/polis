@@ -12,14 +12,14 @@
 
 
 (def real-nmat (named-matrix
-  ["p1" "p2" "p3" "p4" "p5" "p6"]
-  ["c1" "c2" "c3" "c4"]
-  [[ 0  1  0  1]
-   [ 0  1  0  1]
-   [-1  0 -1  1]
-   [ 1  0  1  0]
-   [-1 -1  0  1]
-   [-1  1  0  1]]))
+                ["p1" "p2" "p3" "p4" "p5" "p6"]
+                ["c1" "c2" "c3" "c4"]
+                [[ 0  1  0  1]
+                 [ 0  1  0  1]
+                 [-1  0 -1  1]
+                 [ 1  0  1  0]
+                 [-1 -1  0  1]
+                 [-1  1  0  1]]))
 
 
 ; Initialization test
@@ -69,17 +69,17 @@
     (let [data (named-matrix
                  ["p1" "p2"]
                  ["c1" "c2" "c3"]
-                 [[ 0  1  0 ]
-                  [-1  1  0 ]])]
+                 [[ 0  1  0]
+                  [-1  1  0]])]
       (size-correct (kmeans data 3) 2))))
 
 
 (let [data (named-matrix
              ["p1" "p2" "p3"]
              ["c1" "c2" "c3"]
-             [[ 0  1  0 ]
-              [ 0  1  0 ]
-              [-1  1  0 ]])]
+             [[ 0  1  0]
+              [ 0  1  0]
+              [-1  1  0]])]
   (deftest identical-mem-pos-test
     (testing "k-means gives n-1 clusters when precisely 2 items have identical positions"
         (size-correct (kmeans data 3) 2)))
@@ -136,10 +136,10 @@
 (let [last-clusters [{:members [1 2] :id 1}
                      {:members [3 4] :id 2}]
       nmat (fn [rows] (named-matrix rows [:x :y]
-             [[1.2   0.4]
-              [1.0   0.3]
-              [-0.2 -0.4]
-              [-0.7 -0.7]]))
+                       [[1.2   0.4]
+                        [1.0   0.3]
+                        [-0.2 -0.4]
+                        [-0.7 -0.7]]))
       kmeanser (fn [new-data] (kmeans new-data 2 :last-clusters last-clusters))]
 
   (deftest missing-some-members
@@ -267,7 +267,7 @@
         (is (= (setify-members weighted-clsts)
                (setify-members duped-clsts :trans first)))
         (doseq [[weighted-clst duped-clst]
-                  (map vector weighted-init duped-init)]
+                (map vector weighted-init duped-init)]
           (is (almost=? (:center weighted-clst)
                         (:center weighted-clst))))))))
 
@@ -289,6 +289,6 @@
 
 
 (defn -main []
-  (run-tests 'cluster-tests)
-  )
+  (run-tests 'cluster-tests))
+
 

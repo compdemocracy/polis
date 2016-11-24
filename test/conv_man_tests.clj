@@ -11,8 +11,8 @@
             [polismath.math.named-matrix :as nm]
             [polismath.conv-man :as conv-man]
             [polismath.system :as system]
-            [polismath.components.config :as config]
-            ))
+            [polismath.components.config :as config]))
+
 
 
 ;(gen/sample gen/->Generator
@@ -43,7 +43,7 @@
           (is (if-let [conv (first (async/alts!! [result-chan (async/timeout 20000)]))]
                 (let [matrix (-> conv :rating-mat nm/get-matrix)]
                   (is (m=? [[0   nil nil]
-                            [nil  1  -1 ]
+                            [nil  1  -1]
                             [-1  nil nil]] matrix)
                       "The conversation does not have the correct rating matrix post conversation update")
                   (not (nil? conv)))
@@ -53,6 +53,6 @@
 
 
 (defn -main []
-  (run-tests 'conv-man-tests)
-  )
+  (run-tests 'conv-man-tests))
+
 

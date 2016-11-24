@@ -1,23 +1,23 @@
 (ns named-matrix-test
   (:use test-helpers)
   (:require [clojure.test :refer :all]
-            [polismath.named-matrix :refer :all]))
+            [polismath.math.named-matrix :refer :all]))
 
 (def reactions [
-   '("p1" "c1"  0)
-   '("p1" "c2"  1)
-   '("p2" "c1" -1)
-   '("p2" "c2"  1)
-   '("p3" "c1" -1)
-   '("p2" "c3"  1)
-   ])
+                '("p1" "c1"  0)
+                '("p1" "c2"  1)
+                '("p2" "c1" -1)
+                '("p2" "c2"  1)
+                '("p3" "c1" -1)
+                '("p2" "c3"  1)])
+
 
 (def real-nmat (named-matrix
-  ["p1" "p2" "p3"]
-  ["c1" "c2" "c3"]
-  [[ 0 1   nil]
-   [-1 1   1  ]
-   [-1 nil nil]]))
+                ["p1" "p2" "p3"]
+                ["c1" "c2" "c3"]
+                [[ 0 1   nil]
+                 [-1 1   1]
+                 [-1 nil nil]]))
 
 
 (defn unpack-nmat [nmat]
@@ -31,11 +31,11 @@
       (is (m=? [[1 2 3] [4 5 6] [nil nil nil]] (add-padding m 0 1 nil))))
     (testing "horizontal"
       (is (m=? [[1 2 3 nil] [4 5 6 nil]] (add-padding m 1 1 nil))))
-  (testing "adding 0"
-    (testing "verticle"
-      (is (m=? [[1 2 3] [4 5 6] [0 0 0]] (add-padding m 0 1 0))))
-    (testing "horizontal"
-      (is (m=? [[1 2 3 0] [4 5 6 0]] (add-padding m 1 1 0)))))))
+   (testing "adding 0"
+     (testing "verticle"
+       (is (m=? [[1 2 3] [4 5 6] [0 0 0]] (add-padding m 0 1 0))))
+     (testing "horizontal"
+       (is (m=? [[1 2 3 0] [4 5 6 0]] (add-padding m 1 1 0)))))))
 
 
 ; Simple creation test
@@ -91,7 +91,7 @@
         (is (m=? (get-matrix nmat)
                [[ 0 1   nil  nil]
                 [-1 1   -1   nil]
-                [-1 nil nil  1  ]]))
+                [-1 nil nil  1]]))
         (is (= (rownames nmat)
                (rownames real-nmat))
             "Nothing should change with rows")
@@ -105,7 +105,7 @@
         (is (m=? (get-matrix nmat)
                [[ 0   1    nil  nil]
                 [-1   1    1    nil]
-                [-1   nil  nil -1  ]
+                [-1   nil  nil -1]
                 [ nil nil  1    nil]]))
         (is (= (rownames nmat)
                ["p1" "p2" "p3" "p4"])
@@ -120,7 +120,7 @@
     (let [submat (named-matrix
                    ["p1" "p2"] ["c1" "c2" "c3"]
                     [[ 0 1 nil]
-                     [-1 1 1  ]])]
+                     [-1 1 1]])]
       (testing "using rowname-subset"
         (is (nmat-equal (rowname-subset real-nmat ["p1" "p2"]) submat)))
       (testing "using inv-rowname-subset"

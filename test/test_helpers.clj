@@ -18,7 +18,7 @@
   (fn [xs ys & args]
     (let [dims (mapv m/dimensionality [xs ys])]
       (assert (= (first dims) (last dims))
-               "xs and ys should have the same dimesnionality")
+              "xs and ys should have the same dimesnionality")
       dims)))
 (defmethod almost=? [0 0]
   [x y & {:keys [tol] :or {tol 0.001}}]

@@ -1,6 +1,6 @@
 (ns index-hash-test
   (:require [clojure.test :refer :all]
-            [polismath.named-matrix :refer :all]))
+            [polismath.math.named-matrix :refer :all]))
 
 
 (defn ih-equals [ih1 ih2]

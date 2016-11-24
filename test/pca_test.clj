@@ -1,18 +1,18 @@
 (ns pca-test
   (:use test-helpers)
   (:require [clojure.test :refer :all]
-            [polismath.named-matrix :refer :all]
+            [polismath.math.named-matrix :refer :all]
             [clojure.math.numeric-tower :refer :all]
             [clojure.core.matrix :as m]
-            [polismath.pca :refer :all]))
+            [polismath.math.pca :refer :all]))
 
 
 (deftest powerit
   (testing "Should generally work"
-    (let [data (m/matrix [[ 1 0  0  ]
-                        [-1 1  0.1]
-                        [ 0 1  0.1]
-                        [ 0 1 -0.1]])
+    (let [data (m/matrix [[ 1 0  0]
+                          [-1 1  0.1]
+                          [ 0 1  0.1]
+                          [ 0 1 -0.1]])
           expected [-0.34217 0.93906 0.032633]
           pc-from-start (fn [start] (power-iteration data 2 start))]
 

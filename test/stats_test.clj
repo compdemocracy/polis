@@ -1,8 +1,8 @@
 (ns stats-test
   (:use test-helpers)
   (:require [clojure.test :refer :all]
-            [polismath.clusters :refer :all]
-            [polismath.stats :refer :all]))
+            [polismath.math.clusters :refer :all]
+            [polismath.math.stats :refer :all]))
 
 
 (deftest test-two-prop-test
