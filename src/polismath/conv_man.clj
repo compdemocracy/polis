@@ -80,6 +80,7 @@
    ;; Note: we let all other key-value pairs pass through
    s/Keyword            s/Any})
 
+;; Should rename this not to conflict with clojure.core/update... poor form
 (defn update
   "This function is what actually gets sent to the conv-actor. In addition to the conversation and vote batches
   up in the channel, we also take an error-callback. Eventually we'll want to pass opts through here as well."
@@ -304,9 +305,15 @@
               {:as split-msgs :keys [votes moderation]} (split-batches msgs)
               error-handler (build-update-error-handler conv-man message-chan conv)
               _ (log/info "About to run updaters")
-              conv (-> conv
-                       (pc/?> moderation conv/mod-update moderation)
-                       (pc/?> votes (partial update conv-man) votes error-handler))]
+              ;; TODO Oh... is this how we're failing to get moderation affecting repness? We're presently only updating mongo
+              ;; (via `update`) if there are also votes. (see below)
+              conv (if moderation
+                     (conv/mod-update conv moderation)
+                     conv)
+              ;; Should extracct the stateful bits here till the very end, so even if there are just mods it updates
+              conv (if votes
+                     (update conv-man conv votes error-handler)
+                     conv)]
           (log/info "Completed computing conversation zid:" zid)
           (swap! conversations assoc-in [zid :conv] conv)
           (doseq [[k f] @listeners] (try (f conv) (catch Exception e (log/error "Listener error") (.printStackTrace e))))
