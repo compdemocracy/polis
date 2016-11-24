@@ -20,32 +20,32 @@
 (deftype IndexHash
   [^java.util.Vector names ^clojure.lang.PersistentArrayMap index-hash]
   AutoIncIndex
-    (get-names [this] (.names this))
-    (next-index [this] (count (.names this)))
-    (index [this keyname] (index-hash keyname))
-    (append [this keyname]
-      (if ((.index-hash this) keyname)
-        this
-        (IndexHash.
-          (conj (get-names this) keyname)
-          (assoc (.index-hash this) keyname (next-index this)))))
-    (append-many [this keynames]
-      ; potentially faster
-      ;(let [uniq-kns (distinct keynames)
-            ;new-kns (remove (.index-hash this) uniq-kns)]
-        ;(IndexHash.
-          ;(into (.names this) new-kns)
-          ;(into (.index-hash)
-            ;(map
-              ;#(vector %1 (+ (count (.names this)) %2))
-              ;new-kns
-              ;(range)))))
-      ; much simpler
-      (reduce append this keynames))
-    (subset [this keynames]
-      (let [kn-set (set keynames)
-            new-kns (filter kn-set (.names this))]
-        (IndexHash. new-kns (into {} (map vector new-kns (range)))))))
+  (get-names [this] (.names this))
+  (next-index [this] (count (.names this)))
+  (index [this keyname] (index-hash keyname))
+  (append [this keyname]
+    (if ((.index-hash this) keyname)
+      this
+      (IndexHash.
+        (conj (get-names this) keyname)
+        (assoc (.index-hash this) keyname (next-index this)))))
+  (append-many [this keynames]
+    ; potentially faster
+    ;(let [uniq-kns (distinct keynames)
+          ;new-kns (remove (.index-hash this) uniq-kns)]
+      ;(IndexHash.
+        ;(into (.names this) new-kns)
+        ;(into (.index-hash)
+          ;(map
+            ;#(vector %1 (+ (count (.names this)) %2))
+            ;new-kns
+            ;(range)))))
+    ; much simpler
+    (reduce append this keynames))
+  (subset [this keynames]
+    (let [kn-set (set keynames)
+          new-kns (filter kn-set (.names this))]
+      (IndexHash. new-kns (into {} (map vector new-kns (range)))))))
 
 (defn index-hash
   "Construct a new IndexHash with the given keynames"
@@ -82,67 +82,67 @@
 
 
 (deftype NamedMatrix
-  [row-index col-index ^java.util.Vector matrix]
+  [row-index col-index matrix]
   PNamedMatrix
-    (update-nmat [this values]
-      ; First find the row and column names that aren't yet in the data
-      (let [[missing-rows missing-cols]
-            (reduce
-              (fn [[missing-rows missing-cols] [row col value]]
-                [(if (nil? (index (.row-index this) row))
-                   (conj missing-rows row)
-                   missing-rows)
-                 (if (nil? (index (.col-index this) col))
-                   (conj missing-cols col)
-                   missing-cols)])
-              [[] []]
-              values)
-            ; Construct new rowname and colname hash-indices
-            new-row-index (append-many (.row-index this) missing-rows)
-            new-col-index (append-many (.col-index this) missing-cols)
-            new-row-count (count (set missing-rows))
-            new-col-count (count (set missing-cols))]
-        ; Construct a new NamedMatrix
-        (NamedMatrix.
-          new-row-index
-          new-col-index
-          ; Construct new matrix
-          (as-> (.matrix this) mat
-            (if (= 0 (matrix/dimension-count mat 1))
-              ; If the matrix is empty, just create the shape needed
-              (matrix/coerce [[]]
-                (matrix/broadcast nil [new-row-count new-col-count]))
-              ; OW, add padding of nils for new rows/cols
-              (-> mat
-                (add-padding 1 (count (set missing-cols)))
-                (add-padding 0 (count (set missing-rows)))))
-            ; Next assoc-in all of the new votes
-            (reduce
-              (fn [mat' [row col value]]
-                (let [row-i (index new-row-index row)
-                      col-i (index new-col-index col)]
-                  (assoc-in mat' [row-i col-i] value)))
-              mat
-              values)))))
-    (rownames [this] (get-names (.row-index this)))
-    (colnames [this] (get-names (.col-index this)))
-    (get-matrix [this] (.matrix this))
-    (get-row-index [this] (.row-index this))
-    (get-col-index [this] (.col-index this))
-    (rowname-subset [this names]
-      (let [row-indices (map (partial index (.row-index this)) names)
-            row-index (subset (.row-index this) names)]
-        (NamedMatrix.
-          row-index
-          (.col-index this)
-          (filter-by-index (.matrix this) row-indices))))
-    (colname-subset [this names]
-      (let [col-indices (map (partial index (.col-index this)) names)
-            col-index (subset (.col-index this) names)]
-        (NamedMatrix.
-          (.row-index this)
-          col-index
-          (matrix/select (.matrix this) :all col-indices)))))
+  (update-nmat [this values]
+    ; First find the row and column names that aren't yet in the data
+    (let [[missing-rows missing-cols]
+          (reduce
+            (fn [[missing-rows missing-cols] [row col value]]
+              [(if (nil? (index (.row-index this) row))
+                 (conj missing-rows row)
+                 missing-rows)
+               (if (nil? (index (.col-index this) col))
+                 (conj missing-cols col)
+                 missing-cols)])
+            [[] []]
+            values)
+          ; Construct new rowname and colname hash-indices
+          new-row-index (append-many (.row-index this) missing-rows)
+          new-col-index (append-many (.col-index this) missing-cols)
+          new-row-count (count (set missing-rows))
+          new-col-count (count (set missing-cols))]
+      ; Construct a new NamedMatrix
+      (NamedMatrix.
+        new-row-index
+        new-col-index
+        ; Construct new matrix
+        (as-> (.matrix this) mat
+          (if (= 0 (matrix/dimension-count mat 1))
+            ; If the matrix is empty, just create the shape needed
+            (matrix/coerce [[]]
+              (matrix/broadcast nil [new-row-count new-col-count]))
+            ; OW, add padding of nils for new rows/cols
+            (-> mat
+              (add-padding 1 (count (set missing-cols)))
+              (add-padding 0 (count (set missing-rows)))))
+          ; Next assoc-in all of the new votes
+          (reduce
+            (fn [mat' [row col value]]
+              (let [row-i (index new-row-index row)
+                    col-i (index new-col-index col)]
+                (assoc-in mat' [row-i col-i] value)))
+            mat
+            values)))))
+  (rownames [this] (get-names (.row-index this)))
+  (colnames [this] (get-names (.col-index this)))
+  (get-matrix [this] (.matrix this))
+  (get-row-index [this] (.row-index this))
+  (get-col-index [this] (.col-index this))
+  (rowname-subset [this names]
+    (let [row-indices (map (partial index (.row-index this)) names)
+          row-index (subset (.row-index this) names)]
+      (NamedMatrix.
+        row-index
+        (.col-index this)
+        (filter-by-index (.matrix this) row-indices))))
+  (colname-subset [this names]
+    (let [col-indices (map (partial index (.col-index this)) names)
+          col-index (subset (.col-index this) names)]
+      (NamedMatrix.
+        (.row-index this)
+        col-index
+        (matrix/select (.matrix this) :all col-indices)))))
 
 
 (defn named-matrix
