@@ -1,6 +1,6 @@
 (ns polismath.math.named-matrix
-  (:require [clojure.core.matrix :as cm]
-            [clojure.core.matrix.select :as cm-sel]
+  (:require [clojure.core.matrix :as matrix]
+            ;[clojure.core.matrix.select :as matrix]
             [taoensso.timbre.profiling :as profiling :refer (pspy pspy* profile defnp p p*)])
   ;; Again, move to 
   (:use polismath.utils))
@@ -73,7 +73,7 @@
   "Adds specified value padding to 2d matrices"
   [mat ^Integer dim ^Integer n & [value]]
   (let [other-dim (mod (inc dim) 2)
-        other-dimcount (cm/dimension-count mat other-dim)]
+        other-dimcount (matrix/dimension-count mat other-dim)]
     (case dim
       0 (let [padding (into [] (repeat other-dimcount value))]
           (into mat (repeat n padding)))
@@ -87,16 +87,16 @@
     (update-nmat [this values]
       ; First find the row and column names that aren't yet in the data
       (let [[missing-rows missing-cols]
-              (reduce
-                (fn [[missing-rows missing-cols] [row col value]]
-                  [(if (nil? (index (.row-index this) row))
-                     (conj missing-rows row)
-                     missing-rows)
-                   (if (nil? (index (.col-index this) col))
-                     (conj missing-cols col)
-                     missing-cols)])
-                [[] []]
-                values)
+            (reduce
+              (fn [[missing-rows missing-cols] [row col value]]
+                [(if (nil? (index (.row-index this) row))
+                   (conj missing-rows row)
+                   missing-rows)
+                 (if (nil? (index (.col-index this) col))
+                   (conj missing-cols col)
+                   missing-cols)])
+              [[] []]
+              values)
             ; Construct new rowname and colname hash-indices
             new-row-index (append-many (.row-index this) missing-rows)
             new-col-index (append-many (.col-index this) missing-cols)
@@ -108,10 +108,10 @@
           new-col-index
           ; Construct new matrix
           (as-> (.matrix this) mat
-            (if (= 0 (cm/dimension-count mat 1))
+            (if (= 0 (matrix/dimension-count mat 1))
               ; If the matrix is empty, just create the shape needed
-              (cm/coerce [[]]
-                (cm/broadcast nil [new-row-count new-col-count]))
+              (matrix/coerce [[]]
+                (matrix/broadcast nil [new-row-count new-col-count]))
               ; OW, add padding of nils for new rows/cols
               (-> mat
                 (add-padding 1 (count (set missing-cols)))
@@ -142,7 +142,7 @@
         (NamedMatrix.
           (.row-index this)
           col-index
-          (cm-sel/sel (.matrix this) (cm-sel/irange) col-indices)))))
+          (matrix/select (.matrix this) :all col-indices)))))
 
 
 (defn named-matrix
@@ -182,7 +182,7 @@
 
 
 (defn get-row-by-name [nmat row-name]
-  (cm/get-row (get-matrix nmat) (index (get-row-index nmat) row-name)))
+  (matrix/get-row (get-matrix nmat) (index (get-row-index nmat) row-name)))
 
 
 (defn inv-rowname-subset [nmat row-names]

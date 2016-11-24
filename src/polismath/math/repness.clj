@@ -5,12 +5,11 @@
             [polismath.math.clusters :as clusters]
             [clojure.core.matrix :as mat]
             [clojure.core.matrix.operators :refer :all]
-            [clojure.core.matrix.select :as mselect]
             [clojure.tools.trace :as tr]
             [plumbing.core :as pc :refer [fnk map-vals <-]]
-            [plumbing.graph :as gr]
+            [plumbing.graph :as gr])
             ;[alex-and-georges.debug-repl :as dbr]
-            )
+
   (:refer-clojure :exclude [* - + == /]))
 
 (mat/set-current-implementation :vectorz)
@@ -107,11 +106,11 @@
   (cond
    ; Explicitly don't let something that hasn't been voted on at all come into repness
     (= 0 na nd)
-        false
+    false
     ; If we have a current-best by repness estimate, use the more robust measurement
     (and current-best (> (:ra current-best) 1.0))
         ; XXX - a litte messy, since we're basicaly reimplimenting the repness sort function
-        (> (* ra rat pa pat) (apply * (map current-best [:ra :rat :pa :pat])))
+    (> (* ra rat pa pat) (apply * (map current-best [:ra :rat :pa :pat])))
     ; If we have current-best, but only by prob estimate, just shoot for something that is generally agreed upon
     current-best
         (> (* pa pat) (apply * (map current-best [:pa :pat])))
@@ -135,9 +134,9 @@
   agree/disagree as to which is more representative, and populates a more regular structure accordingly."
   [tid {:keys [na nd ns pa pd pat pdt ra rd rat rdt] :as comment-conv-stats}]
   (let [[n-success n-trials p-success p-test repness repness-test repful-for]
-         (if (> rat rdt)
-           [na ns pa pat ra rat :agree]
-           [nd ns pd pdt rd rdt :disagree])]
+        (if (> rat rdt)
+          [na ns pa pat ra rat :agree]
+          [nd ns pd pdt rd rdt :disagree])]
     {:tid          tid
      :n-success    n-success
      :n-trials     n-trials

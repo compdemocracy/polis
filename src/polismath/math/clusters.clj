@@ -12,9 +12,8 @@
             [polismath.math.named-matrix :as nm]
             [clojure.core.matrix :as matrix]
             [clojure.core.matrix.stats :as matrix-stats]
-            [clojure.core.matrix.operators :refer :all]
-            [clojure.core.matrix.select :as matrix-select]
-            ))
+            [clojure.core.matrix.operators :refer :all]))
+
 
 (matrix/set-current-implementation :vectorz)
 
@@ -180,16 +179,16 @@
   [data clusters]
   (let [[dist clst-id id]
           ; find the maximum dist, clst-id, mem-id triple
-          (apply max-key #(get % 0)
-            (map
-              (fn [mem]
+        (apply max-key #(get % 0)
+          (map
+            (fn [mem]
                 ; Find the minimum distance, cluster-id pair, and add the member name to the end
-                (conj (apply min-key #(get % 0)
-                        (map
-                          #(vector (matrix/distance (nm/get-row-by-name data mem) (:center %)) (:id %))
-                          clusters))
-                   mem))
-              (nm/rownames data)))]
+              (conj (apply min-key #(get % 0)
+                      (map
+                        #(vector (matrix/distance (nm/get-row-by-name data mem) (:center %)) (:id %))
+                        clusters))
+                 mem))
+            (nm/rownames data)))]
     {:dist dist :clst-id clst-id :id id}))
 
 
@@ -306,28 +305,28 @@
   ([distmat clusters member]
    (let [dist-row (nm/rowname-subset distmat [member])
          [a b]
-           (reduce
-             (fn [[a b] clst]
-               (let [memb-clst? (some #{member} (:members clst))
-                     membs (remove #{member} (:members clst))]
+         (reduce
+           (fn [[a b] clst]
+             (let [memb-clst? (some #{member} (:members clst))
+                   membs (remove #{member} (:members clst))]
                  ; This is a little bit silly, but will basically trigger returning 0 if member is in a
                  ; singleton cluster
-                 (if (and memb-clst? (empty? membs))
-                   (reduced [1 1])
+               (if (and memb-clst? (empty? membs))
+                 (reduced [1 1])
                    ; Otherwise, continue...
-                   (as-> membs data
+                 (as-> membs data
                      ; Subset to just the columns for this clusters
-                     (nm/colname-subset dist-row data)
-                     (nm/get-matrix data)
+                   (nm/colname-subset dist-row data)
+                   (nm/get-matrix data)
                      ; This is a 2D row vector; we want 1D, so take first
-                     (first data)
+                   (first data)
                      ; Take the mean of the entries
-                     (matrix-stats/mean data)
-                     (if memb-clst?
-                       [data b]
-                       [a (min data (or b data))])))))
-             [nil nil]
-             clusters)]
+                   (matrix-stats/mean data)
+                   (if memb-clst?
+                     [data b]
+                     [a (min data (or b data))])))))
+           [nil nil]
+           clusters)]
      ; The actual silhouette computation
      (/ (- b a) (max b a))))
   ([distmat clusters]
@@ -386,10 +385,10 @@
                id (:id cluster)]
            ; Return some values that we can feed to update-nmat
            [[id :x (first center)]
-            [id :y (second center)]]
-           ))
-       clusters
-       )))))
+            [id :y (second center)]]))
+
+       clusters)))))
+
 
 
 (defn xy-clusters-to-nmat2 [clusters]
