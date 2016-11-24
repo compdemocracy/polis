@@ -19,7 +19,7 @@
                      ["https://github.com/metasoarous/tools.cli.git" "master"]
                      ["https://github.com/GeorgeJahad/debug-repl.git" "master"]]
   :dependencies [;; org.clojure stuff...
-                 [org.clojure/clojure "1.8.0"]
+                 [org.clojure/clojure "1.9.0-alpha14"]
                  [org.clojure/core.async "0.2.395"]
                  [org.clojure/data.csv "0.1.3"]
                  [org.clojure/math.numeric-tower "0.0.4"]

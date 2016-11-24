@@ -28,4 +28,4 @@
     ;  (println "XXX Error executing tests!")
     ;  (.printStackTrace e))))
 
-(-main)
+;(-main)
