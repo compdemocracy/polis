@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [* - + == /])
   (:require [taoensso.timbre.profiling :as profiling
              :refer (pspy pspy* profile defnp p p*)]
+            [taoensso.timbre :as log]
             [plumbing.core :as pc
              :refer (fnk map-vals <-)]
             [plumbing.graph :as gr]
@@ -22,8 +23,7 @@
   "Append an item to a cluster, where item is a (mem_id, vector) pair"
   [clst item]
   (assoc clst
-         ; Note that order is important here, and assumed to be the same for the weighted-mean call in
-         ; `cluster-step`.
+         ; Note that order is important here, and assumed to be the same for the weighted-mean call in `cluster-step`.
          :members (conj (:members clst) (first item))
          :positions (conj (:positions clst) (last item))))
 
@@ -42,11 +42,14 @@
 (defn init-clusters
   "Effectively random initial clusters for initializing a new kmeans comp"
   [data k]
-  (take k
-    (map-indexed
-      (fn [id position] {:id id :members [] :center (matrix/matrix position)})
-      ; Have to make sure we don't have identical cluster centers
-      (distinct (matrix/rows (nm/get-matrix data))))))
+  (->> data
+       nm/get-matrix
+       matrix/rows
+       vec ;; Have to cast to vec before we can distinct cause rows gives us a matrixlist
+       distinct
+       (map-indexed
+         (fn [id position] {:id id :members [] :center (matrix/matrix position)}))
+       (take k)))
 
 
 (defn same-clustering?
@@ -63,7 +66,11 @@
 (defn cleared-clusters
   "Clears a cluster's members so that new ones can be assoced on a new clustering step"
   [clusters]
-  (into {} (map #(vector (:id %) (assoc % :members [] :positions [])) clusters)))
+  (->> clusters
+       (map (fn [cluster]
+              [(:id cluster)
+               (assoc cluster :members [] :positions [])]))
+       (into {})))
 
 
 (defmulti weighted-mean
