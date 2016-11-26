@@ -6,7 +6,7 @@
   ; faster run time in exchange for slower startup time
   :jvm-opts ^:replace []
   :repl-options {:timeout 120000
-                 :port 34343}
+                 :port 34344}
   :target-path "target/%s"
   :javac-target "1.7"
   :repositories {"twitter4j" "http://twitter4j.org/maven2"}
@@ -68,6 +68,7 @@
                  [dk.ative/docjure "1.11.0"]
                  [prismatic/plumbing "0.5.3"]
                  [environ "1.1.0"]
+                 [mount "0.1.10"]
 
                  [org.clojure/test.check "0.9.0"]]
 

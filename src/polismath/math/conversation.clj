@@ -66,12 +66,15 @@
   "Base of all conversation updates; handles default update opts and does named matrix updating"
   {:opts'       (plmb/fnk [opts]
                   "Merge in opts with the following defaults"
-                  (merge {:n-comps 2
+                  ;; TODO Answer and resolve this question:
+                  ;; QUESTION Does it make senes to have the defaults here or in the config.edn or both duplicated?
+                  (merge {:n-comps 2 ; does our code even generalize to others?
                           :pca-iters 10
                           :base-iters 10
                           :base-k 50
                           :max-k 5
                           :group-iters 10
+                          ;; These three in particular we should be able to tune quickly
                           :max-ptpts 80000
                           :max-cmts 800
                           :group-k-buffer 4}
@@ -158,9 +161,9 @@
                           (map first)
                           (take (- greedy-n n-in-conv))
                           (into in-conv))
-                        in-conv))))
+                        in-conv))))})
   ; End of base conv update
-  })
+
 
 
 (defn max-k-fn
@@ -176,7 +179,7 @@
   (merge
      base-conv-update-graph
      {:mat (plmb/fnk [rating-mat]
-             ; swap nils for zeros - most things need the 0s, but repness needs the nils"
+             ; swap nils for zeros - most things need the 0s, but repness needs the nils
              (mapv (fn [row] (map #(if (nil? %) 0 %) row))
                (nm/get-matrix rating-mat)))
 
@@ -242,8 +245,8 @@
       :group-k-smoother
             (plmb/fnk
               [conv group-clusterings group-clusterings-silhouettes opts']
-              (let [{:keys [last-k last-k-count smoothed-k] :or {last-k-count 0}}
-                      (:group-k-smoother conv)
+              (let [{:keys [last-k last-k-count smoothed-k] :or {last-k-count 0}
+                      (:group-k-smoother conv)}
                     count-buffer (:group-k-buffer opts')
                                  ; Find best K value for current data, given silhouette
                     this-k       (apply max-key group-clusterings-silhouettes (keys group-clusterings))
@@ -316,10 +319,10 @@
 
       :consensus  (plmb/fnk [conv rating-mat]
                     (-> (repness/consensus-stats rating-mat)
-                        (repness/select-consensus-comments (:mod-out conv))))
+                        (repness/select-consensus-comments (:mod-out conv))))}))
 
      ; End of large-update
-     }))
+
 
 
 (defn partial-pca
@@ -338,7 +341,7 @@
                                                               (matrix/dimension-count old-val 0)) 0))]
                   (+ (* forget-rate old-val) (* learning-rate new-val))))]
     (fn [pca']
-      ; Actual updater lambda"
+      ; Actual updater lambda
       {:center (learn (:center pca') (:center part-pca))
        :comps  (mapv #(learn %1 %2) (:comps pca') (:comps part-pca))})))
 
@@ -382,31 +385,33 @@
 (defn conv-update
   "This function dispatches to either small- or large-conv-update, depending on the number
   of participants (as decided by call to sample-size-fn)."
-  ;; XXX This function is going to need to take config component for cutoff values
+  ([conv votes]
+   (conv-update conv votes {}))
+  ;; TODO Need to pass through these options from all the various places where we call this function...
   ;; XXX Also need to set the max globally and by conversation for plan throttling
-  [conv votes & {:keys [med-cutoff large-cutoff]
-                                 :or {med-cutoff 100 large-cutoff 10000}
-                                 :as opts}]
-  (let [zid     (or (:zid conv) (:zid (first votes)))
-        ptpts   (nm/rownames (:rating-mat conv))
-        n-ptpts (count (distinct (into ptpts (map :pid votes))))
-        n-cmts  (count (distinct (into (nm/rownames (:rating-mat conv)) (map :tid votes))))]
-    ; This is a safety measure so we can call conv-update on an empty conversation after adding mod-out
-    (if (and (= 0 n-ptpts n-cmts)
-             (empty? votes))
-      conv
-      (do
-        (log/info (str "Starting conv-update for zid " zid ": N=" n-ptpts ", C=" n-cmts ", V=" (count votes)))
-        (->
-          ; dispatch to the appropriate function
-          ((cond
-             (> n-ptpts large-cutoff)  large-conv-update
-             :else                     small-conv-update)
-                {:conv conv :votes votes :opts opts})
-          ;; This seems hackish... XXX
-          ; Remove the :votes key from customs; not needed for persistence
-          (assoc-in [:customs :votes] [])
-          (dissoc :keep-votes))))))
+  ([conv votes {:keys [med-cutoff large-cutoff]
+                :or {med-cutoff 100 large-cutoff 10000}
+                :as opts}]
+   (let [zid     (or (:zid conv) (:zid (first votes)))
+         ptpts   (nm/rownames (:rating-mat conv))
+         n-ptpts (count (distinct (into ptpts (map :pid votes))))
+         n-cmts  (count (distinct (into (nm/rownames (:rating-mat conv)) (map :tid votes))))]
+     ; This is a safety measure so we can call conv-update on an empty conversation after adding mod-out
+     (if (and (= 0 n-ptpts n-cmts)
+              (empty? votes))
+       conv
+       (do
+         (log/info (str "Starting conv-update for zid " zid ": N=" n-ptpts ", C=" n-cmts ", V=" (count votes)))
+         (->
+           ; dispatch to the appropriate function
+           ((cond
+              (> n-ptpts large-cutoff)  large-conv-update
+              :else                     small-conv-update
+                 {:conv conv :votes votes :opts opts}))
+           ;; This seems hackish... XXX
+           ; Remove the :votes key from customs; not needed for persistence
+           (assoc-in [:customs :votes] [])
+           (dissoc :keep-votes)))))))
 
 
 (defn mod-update

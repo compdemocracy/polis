@@ -27,20 +27,15 @@
 ;; XXX This should be computed; that is be a function of the rules.
 ;; :default specification should be in the rules themselves
 (def defaults
-  {:nrepl-port 12345
-   :math-env   :dev
+  {:math-env   :dev
+   :math-schema-date "2014_08_22"
    :darwin     {:server-port 3123}
-   ;; XXX Hmm... How do we express a dependency here?
+   :export     {:expiry-days 10}
+   ;; XXX Hmm... How do we express a dependency here? ; => Ah... this is exactly what aero solves!
    :primary-polis-url :localhost ;; Must do it in the component load...
    :database   {:pool-size 3}
-   :math-schema-date "2014_08_22"
-   :export     {:expiry-days 10}
-   :storm      {:execution    :local
-                :cluster-name "polis-cluster"
-                :workers      3
-                :spouts {:votes {:polling-interval 2000}
-                         :moderation {:polling-interval 5000}}}
-
+   :poller     {:votes {:polling-interval 2000}
+                :moderation {:polling-interval 5000}}
    :math       {:matrix-implementation :vectorz}
    :logging    {:file "log/dev.log"
                 :level :info}})
@@ -48,8 +43,7 @@
 
 (def rules
   "Mapping of env keys to parsing options"
-  {:nrepl-port                 {:parse ->long}
-   :math-env                   {:parse ->keyword}
+  {:math-env                   {:parse ->keyword}
    ;; Have to use :port since that's what heroku expects...
    :port                       {:path [:darwin :server-port] :parse ->long}
    :database-url               {:path [:database :url]}
@@ -60,6 +54,7 @@
    :mailgun-url                {:path [:email :url]}
    :primary-polis-url          {:path [:email :api-key]}
    :math-matrix-implementation {:path [:math :matrix-implementation] :parse ->keyword}
+   ;; TODO Put all these within a :conv-update opt so we can just pass that through to conv-update all at once
    :math-cutoff-medium         {:path [:math :cutoffs :medium] :parse ->long
                                 :doc "This is the maximum size of a conversation before running in :medium mode"}
    :math-cutoff-large          {:path [:math :cutoffs :large] :parse ->long
@@ -84,12 +79,6 @@
    :recompute                  {:parse boolean
                                 :doc "Whether or not to perform a recompute"}
    ;; Need to think about how to handle options
-   :storm-execution            {:path [:storm :execution] :options [:local :distributed] :parse ->keyword
-                                :doc "Whether to run storm as a distributed cluster (StormSubmitter) or in local mode (LocalCluster)"}
-   :storm-cluster-name         {:path [:storm :cluster-name]
-                                :doc "Name of the cluster to run on in distributed mode"}
-   :storm-workers              {:path [:storm :workers] :parse ->long
-                                :doc "Number of storm cluster workers for distributed mode"}
    :logging-level              {:path [:logging :level] :parse ->keyword
                                 :doc "Logging level for timbre; info, debug, error, etc"}
    :logging-file               {:path [:logging :file]
@@ -139,4 +128,27 @@
 
 
 :ok
+
+
+;; XXX This bit of refactoring is a WIP for switching to aero and mount (v component)...
+
+;(defmethod aero/reader `keyword
+;  [_ _ value]
+;  (keyword value))
+;
+;(defn get-config
+;  ([profile overrides]
+;   (deep-merge (get-environ-conifg rules)))
+;  ([profile] (get-config profile {}))
+;  ([] (get-config :dev)))
+;
+;;; We use the overrides atom to allow the system start function to specify specific overrides
+;(defonce profile (atom :dev))
+;(defonce overrides (atom nil))
+;
+;(defstate config
+;          :start (do (log/info ">> Starting config component")
+;                     (get-config profile overrides))
+;          :stop (do (log/info "<< Stopping config component")
+;                    (reset! overrides nil)))
 

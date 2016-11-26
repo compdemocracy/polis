@@ -31,7 +31,7 @@
         (let [system (system/create-and-run-base-system! config)
               conv-man (:conversation-manager system)
               result-chan (async/chan)
-              ;; Need to hook this up
+              ;; TODO Need to hook this up
               error-chan (async/chan)]
           ;; Since the conversation manager is asynchronous, we'll create a channel where we'll put the
           ;; results of the conversation update.
