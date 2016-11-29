@@ -52,6 +52,25 @@
                                :group-votes})))
 
 
+(defn columnize
+  ([stats keys]
+   (->> keys
+        (map
+          (fn [k]
+            (let [vals (map (fn [stat] (get stat k)) stats)]
+              [k vals])))
+        (into {})))
+  ([stats]
+   (let [keys (-> stats first keys)]
+     (columnize stats keys))))
+
+(defn prep-ptpt-stats
+  [results]
+  {:zid (:zid results)
+   :ptptstats (columnize (:ptpt-stats results))
+   :lastVoteTimestamp (:last-vote-timestamp results)})
+
+
 (defn handle-profile-data
   "For now, just log profile data. Eventually want to send to influxDB and graphite."
   [{:as conv-man :keys [mongo]} conv & {:keys [recompute n-votes finish-time] :as extra-data}]
@@ -110,7 +129,8 @@
                                   validation-errors))))
         ; Format and upload main results
         (doseq [[col-name prep-fn] [["main" prep-main] ; main math results, for client
-                                    ["bidtopid" prep-bidToPid]]] ; bidtopid mapping, for server
+                                    ["bidtopid" prep-bidToPid] ; bidtopid mapping, for server
+                                    ["ptptstats" prep-ptpt-stats]]]
           ;; XXX Hmmm... format-for-mongo should be abstracted so that it always get's called, and the prep
           ;; function gets taken care of separately; don't need to conplect these
           (->> updated-conv

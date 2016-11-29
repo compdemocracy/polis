@@ -7,7 +7,9 @@
             [clojure.core.matrix.operators :refer :all]
             [clojure.tools.trace :as tr]
             [plumbing.core :as pc :refer [fnk map-vals <-]]
-            [plumbing.graph :as gr])
+            [plumbing.graph :as gr]
+            [clojure.core.matrix :as matrix]
+            [taoensso.timbre :as log])
             ;[alex-and-georges.debug-repl :as dbr]
 
   (:refer-clojure :exclude [* - + == /]))
@@ -280,6 +282,97 @@
                        (map (partial format-stat cons-for)))))]
     {:agree    (top-5 :agree)
      :disagree (top-5 :disagree)}))
+
+
+
+;; Participant analyses
+;; ====================
+
+;; We'd like to characterize various interesting participanti archetypes.
+
+;; * bridge: individuals who have the potential of "bridging" the divide between groups
+;;     * high a-repness in multiple groups, or
+;;     * high repness in one group and high majority aggreement
+;;     * look for people non-trivially in the center !!!
+;; * core/extremist: (are these the same thing); Those who are most solidly within one group
+;;     * high repness in a group
+;;     * low consensus rep ???
+;;     * lowest possible repness out of group
+;;     * same as looking at how far away from center you are !!!
+
+;; Does it make sense to even talk about representativeness of a participant to a group?
+;; I think it does.
+;; And I think it naturally corresponds to the partial projection k
+
+;; repness to each group: This could be the partial projection for repful comments; do we restrict by positive?
+;; consensus-followingness; don't know if we really need this...
+
+;; Summarizing:
+;;
+;; I’m thinking we can implement that with two new computed things (edited)
+;; the first would be a representativeness score for each participant
+;; and the second would be a score for how strongly each ptpt agrees with majority opinions
+
+
+;; XXX This should probably be in the clusters ns
+(defn ids->members
+  [clusters]
+  (->> clusters
+       (map (fn [{:keys [id members]}]
+              [id members]))
+       (into {})))
+
+
+(defn mat-center
+  [matrix]
+  (if (satisfies? nm/PNamedMatrix matrix)
+    (mat-center (nm/get-matrix matrix))
+    (/ (reduce + matrix)
+       (matrix/row-count matrix))))
+
+(defn closeness
+  [ptpt-position center]
+  (- 1
+     (mat/length
+       (- ptpt-position center))))
+
+(defn extremeness
+  [ptpt-position group-center group-extreme-direction]
+  (mat/dot (- ptpt-position group-center)
+           group-extreme-direction))
+
+(defn participant-stats
+  [group-clusters base-clusters proj-nmat ptpt-vote-counts]
+  (let [bid->pid (ids->members base-clusters)
+        ;; Map group ids to participant ids (pushing through base-clusters)
+        global-center (mat-center proj-nmat)
+        group-data
+        (->> group-clusters
+             (map (fn [{:keys [id members]}]
+                    (let [pids (apply concat (map bid->pid members))
+                          size (count pids) ; group size
+                          ;; XXX Oh... actually we already have what we need to do the group centers from base; Should do that for perf
+                          center (mat-center (nm/rowname-subset proj-nmat pids))
+                          extreme-direction (mat/normalise (- center global-center))]
+                      [id {:gid id :pids pids :center center :size size :extreme-direction extreme-direction}])))
+             (into {}))
+        ;; Compute the global center
+        ;; For each group, the normalized vector pointing from center to group
+        the-stats
+        (->> (vals group-data)
+             (mapcat (fn [{:keys [gid pids center extreme-direction]}]
+                       (map (fn [pid]
+                              (let [ptpt-position (nm/get-row-by-name proj-nmat pid)]
+                                {:pid pid
+                                 :gid gid
+                                 :n-votes (get ptpt-vote-counts pid)
+                                 ;; Here we compute the stats
+                                 :centricness (closeness ptpt-position global-center)
+                                 :coreness (closeness ptpt-position center)
+                                 :extremeness (extremeness ptpt-position center extreme-direction)}))
+                            pids))))]
+    the-stats))
+
 
 :ok
 

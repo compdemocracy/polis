@@ -353,6 +353,7 @@
          (apply concat))))
 
 
+;; XXX This is a little too opinionated imo; Should just map to center and leave unfolding x y for elsewhere for better generality
 (defn fold-clusters
   "Takes clusters -- a seq of maps `{:members :id :center}` -- and transforms into a single map
   `{:id :members :x :y :count}`, where each key points to a seq of the values associated with each

@@ -130,10 +130,11 @@
    :user-vote-counts
                 (plmb/fnk [rating-mat]
                   ; For deciding in-conv below; filter ptpts based on how much they've voted
-                  (mapv
-                    (fn [rowname row] [rowname (count (remove nil? row))])
-                    (nm/rownames rating-mat)
-                    (nm/get-matrix rating-mat)))
+                  (->> (mapv
+                         (fn [rowname row] [rowname (count (remove nil? row))])
+                         (nm/rownames rating-mat)
+                         (nm/get-matrix rating-mat))
+                       (into {})))
 
    :in-conv     (plmb/fnk [conv user-vote-counts n-cmts]
                   ; This keeps track of which ptpts are in the conversation (to be considered
@@ -192,10 +193,14 @@
       :proj (plmb/fnk [rating-mat pca]
               (pca/sparsity-aware-project-ptpts (nm/get-matrix rating-mat) pca))
 
+      ;; QUESTION Just have proj return an nmat?
+      :proj-nmat
+      (plmb/fnk [rating-mat proj]
+        (nm/named-matrix (nm/rownames rating-mat) ["x" "y"] proj))
+
       :base-clusters
-            (plmb/fnk [conv rating-mat proj in-conv opts']
-              (let [proj-mat (nm/named-matrix (nm/rownames rating-mat) ["x" "y"] proj)
-                    in-conv-mat (nm/rowname-subset proj-mat in-conv)]
+            (plmb/fnk [conv proj-nmat in-conv opts']
+              (let [in-conv-mat (nm/rowname-subset proj-nmat in-conv)]
                 (sort-by :id
                   (clusters/kmeans in-conv-mat
                     (:base-k opts')
@@ -245,8 +250,8 @@
       :group-k-smoother
             (plmb/fnk
               [conv group-clusterings group-clusterings-silhouettes opts']
-              (let [{:keys [last-k last-k-count smoothed-k] :or {last-k-count 0}
-                      (:group-k-smoother conv)}
+              (let [{:keys [last-k last-k-count smoothed-k] :or {last-k-count 0}}
+                    (:group-k-smoother conv)
                     count-buffer (:group-k-buffer opts')
                                  ; Find best K value for current data, given silhouette
                     this-k       (apply max-key group-clusterings-silhouettes (keys group-clusterings))
@@ -267,6 +272,7 @@
               (get group-clusterings
                 (:smoothed-k group-k-smoother)))
 
+      ;; a vector of member vectors, sorted by base cluster id
       :bid-to-pid (plmb/fnk [base-clusters]
                     (mapv :members (sort-by :id base-clusters)))
 
@@ -316,6 +322,11 @@
       :repness    (plmb/fnk [conv rating-mat group-clusters base-clusters]
                     (-> (repness/conv-repness rating-mat group-clusters base-clusters)
                         (repness/select-rep-comments (:mod-out conv))))
+
+      :ptpt-stats
+      (plmb/fnk [group-clusters base-clusters proj-nmat user-vote-counts]
+        (repness/participant-stats group-clusters base-clusters proj-nmat user-vote-counts))
+
 
       :consensus  (plmb/fnk [conv rating-mat]
                     (-> (repness/consensus-stats rating-mat)
@@ -406,8 +417,8 @@
            ; dispatch to the appropriate function
            ((cond
               (> n-ptpts large-cutoff)  large-conv-update
-              :else                     small-conv-update
-                 {:conv conv :votes votes :opts opts}))
+              :else                     small-conv-update)
+            {:conv conv :votes votes :opts opts})
            ;; This seems hackish... XXX
            ; Remove the :votes key from customs; not needed for persistence
            (assoc-in [:customs :votes] [])

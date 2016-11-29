@@ -1,5 +1,5 @@
 (ns test-helpers
-  (require [clojure.core.matrix :as m]))
+  (:require [clojure.core.matrix :as m]))
 
 
 (defn dimension-counts [xs]

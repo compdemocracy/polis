@@ -8,6 +8,7 @@
             [silhouette-test]
             [stats-test]
             [utils-test]
+            [ptpt-stats-test]
             [clojure.test :as test]))
 
 
@@ -23,9 +24,10 @@
         pca-test
         silhouette-test
         stats-test
-        utils-test]))
+        utils-test
+        ptpt-stats-test]))
     ;(catch Exception e
     ;  (println "XXX Error executing tests!")
     ;  (.printStackTrace e))))
 
-;(-main)
+(-main)
