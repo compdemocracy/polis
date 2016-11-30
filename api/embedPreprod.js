@@ -164,7 +164,7 @@
 
     window.addEventListener("message", function(event) {
       var data = event.data||{};
-      if (!event.origin.match(/pol.is$/)) {
+      if (!event.origin.match(/(^|\.)pol.is$/)) {
         return;
       }
 
