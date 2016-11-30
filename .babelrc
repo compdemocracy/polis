@@ -1,5 +1,8 @@
 {
   "env": {
+    "production": {
+      "stage": 0
+    },
     "development": {
       "stage": 0,
       "plugins": ["react-transform"],
