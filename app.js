@@ -746,6 +746,7 @@ helpersInitialized.then(function(o) {
     want('conversation_id', getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
     denyIfNotFromWhitelistedDomain, // this seems like the easiest place to enforce the domain whitelist. The index.html is cached on cloudflare, so that's not the right place.
     resolve_pidThing('pid', assignToP, "get:votes"), // must be after zid getter
+    want('xid', getStringLimitLength(1, 999), assignToP),
     handle_GET_participationInit);
 
   app.post("/api/v3/votes",
@@ -1217,6 +1218,7 @@ helpersInitialized.then(function(o) {
     want('ucsd', getBool, assignToP), // not persisted
     want('ucsv', getBool, assignToP), // not persisted
     want('ucsf', getBool, assignToP), // not persisted
+    want('xid', getStringLimitLength(1, 999), assignToP), // not persisted
     handle_GET_implicit_conversation_generation);
 
   app.get("/iip/:conversation_id",
