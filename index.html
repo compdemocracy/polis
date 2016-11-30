@@ -32,6 +32,27 @@
 <script> // Fire off this ajax first. it's slower than the other CDN delivered things.
 (function() {
 
+function parseQueryParams(s) {
+  if (typeof s !== "string") {
+    return {};
+  }
+  if (s.charAt(0) === "?") {
+    s = s.slice(1);
+  }
+  var pairStrings = s.split("&");
+  var o = {};
+  for (var i = 0; i < pairStrings.length; i++) {
+    var pair = pairStrings[i].split("=");
+    o[pair[0]] = pair[1];
+  }
+  return o;
+}
+
+function getXid() {
+  var params = parseQueryParams(window.location.search);
+  return params.xid;
+}
+
 function ajaxGet(url, success, fail) {
   var xmlhttp;
   if (window.XMLHttpRequest) {
@@ -168,8 +189,17 @@ if (p.conversation && p.conversation.conversation_id) {
   qp.push("conversation_id=" + p.conversation.conversation_id);
 }
 qp.push("pid=mypid");
+
+var xid = getXid();
+if (typeof xid !== "undefined") {
+  qp.push("xid=" + xid);
+}
+
 var qp = qp.join("&");
 qp = qp.length > 1 ? ("?" + qp) : "";
+
+
+
 
 ajaxGet("/api/v3/participationInit" + qp,
   onPreloadOk,

@@ -305,6 +305,11 @@ function ownerCanDisableBranding() {
   return window.preload.firstConv.plan >= 99;
 }
 
+function getXid() {
+  var params = parseQueryParams(window.location.search);
+  return params.xid;
+}
+
 
 // Return the {x: {min: #, max: #}, y: {min: #, max: #}}
 module.exports = {
@@ -400,6 +405,7 @@ module.exports = {
     }
     return gid + 1;
   },
+  getXid: getXid,
   isDemoMode: function() {
     return document.location.pathname.indexOf('/demo') === 0;
   },
