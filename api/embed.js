@@ -17,6 +17,8 @@
          site_id: d.getAttribute("data-site_id"),
          page_id: d.getAttribute("data-page_id"),
          parent_url: d.getAttribute("data-parent_url"),
+         xid: d.getAttribute("data-xid"),
+
          border: d.getAttribute("data-border"),
          border_radius: d.getAttribute("data-border_radius"),
          padding: d.getAttribute("data-padding"),
@@ -29,6 +31,7 @@
          ucsd: d.getAttribute("data-ucsd"),
          ucsv: d.getAttribute("data-ucsv"),
          ucsf: d.getAttribute("data-ucsf"),
+
 
 
 
@@ -90,6 +93,8 @@
     if (o.parent_url) {
       paramStrings.push("referrer="+ encodeURIComponent(document.referrer));
     }
+
+    appendIfPresent("xid");
 
     appendIfPresent("ucv");
     appendIfPresent("ucw");
