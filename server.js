@@ -8044,7 +8044,19 @@ Email verified! You can close this tab or hit the back button.
     let xidUserPromise = Promise.resolve();
     if (!_.isUndefined(xid) && !_.isNull(xid)) {
       // assume conversation owner is posting via api.
-      xidUserPromise = pgQueryP("select * from xids where xid = ($1) and owner = ($2);", [xid, uid]);
+      xidUserPromise = pgQueryP("select * from xids where xid = ($1) and owner = ($2);", [xid, uid]).then((rows) => {
+        if (!rows || !rows.length) {
+          throw "polis_err_vote_xid_missing_" + xid;
+        }
+        let xidRecordForPtpt = rows[0];
+        if (xidRecordForPtpt) {
+          return getPidPromise(zid, xidRecordForPtpt.uid, true).then((pidRecord) => {
+            xidRecordForPtpt.pid = pidRecord.pid;
+            return xidRecordForPtpt;
+          });
+        }
+        return xidRecordForPtpt;
+      });
     }
 
     // We allow viewing (and possibly writing) without cookies enabled, but voting requires cookies (except the auto-vote on your own comment, which seems ok)
@@ -8056,51 +8068,52 @@ Email verified! You can close this tab or hit the back button.
       return;
     }
 
-    xidUserPromise.then(function(xidUser) {
+    return xidUserPromise.then(function(xidUser) {
 
       if (xidUser && xidUser.uid) {
         uid = xidUser.uid;
+        pid = xidUser.pid;
       }
 
       // let conv;
       let vote;
 
       // PID_FLOW WIP for now assume we have a uid, but need a participant record.
-      let pidReadyPromise = _.isUndefined(req.p.pid) ? addParticipant(req.p.zid, uid).then(function(rows) {
+      let pidReadyPromise = _.isUndefined(pid) ? addParticipant(zid, uid).then(function(rows) {
         let ptpt = rows[0];
         pid = ptpt.pid;
       }) : Promise.resolve();
 
-      pidReadyPromise.then(function() {
-        return votesPost(uid, pid, req.p.zid, req.p.tid, req.p.vote, req.p.weight, true);
+      return pidReadyPromise.then(function() {
+        return votesPost(uid, pid, zid, req.p.tid, req.p.vote, req.p.weight, true);
       }).then(function(o) {
         // conv = o.conv;
         vote = o.vote;
         let createdTime = vote.created;
         setTimeout(function() {
-          updateConversationModifiedTime(req.p.zid, createdTime);
+          updateConversationModifiedTime(zid, createdTime);
           updateLastInteractionTimeForConversation(zid, uid);
 
           // NOTE: may be greater than number of comments, if they change votes
-          updateVoteCount(req.p.zid, pid);
+          updateVoteCount(zid, pid);
         }, 100);
         if (_.isUndefined(req.p.starred)) {
           return;
         } else {
-          return addStar(req.p.zid, req.p.tid, pid, req.p.starred, createdTime);
+          return addStar(zid, req.p.tid, pid, req.p.starred, createdTime);
         }
       }).then(function() {
-        return getNextComment(req.p.zid, pid, [], true);
+        return getNextComment(zid, pid, [], true);
       }).then(function(nextComment) {
         let result = {};
         if (nextComment) {
           result.nextComment = nextComment;
         } else {
           // no need to wait for this to finish
-          addNoMoreCommentsRecord(req.p.zid, pid);
+          addNoMoreCommentsRecord(zid, pid);
         }
         // PID_FLOW This may be the first time the client gets the pid.
-        result.currentPid = req.p.pid;
+        result.currentPid = pid;
 
 
         // result.shouldMod = true; // TODO
@@ -8123,18 +8136,17 @@ Email verified! You can close this tab or hit the back button.
         }
 
         finishOne(res, result);
-
-      }).catch(function(err) {
-        if (err === "polis_err_vote_duplicate") {
-          fail(res, 406, "polis_err_vote_duplicate", err); // TODO allow for changing votes?
-        } else if (err === "polis_err_conversation_is_closed") {
-          fail(res, 403, "polis_err_conversation_is_closed", err);
-        } else if (err === "polis_err_post_votes_social_needed") {
-          fail(res, 403, "polis_err_post_votes_social_needed", err);
-        } else {
-          fail(res, 500, "polis_err_vote", err);
-        }
       });
+    }).catch(function(err) {
+      if (err === "polis_err_vote_duplicate") {
+        fail(res, 406, "polis_err_vote_duplicate", err); // TODO allow for changing votes?
+      } else if (err === "polis_err_conversation_is_closed") {
+        fail(res, 403, "polis_err_conversation_is_closed", err);
+      } else if (err === "polis_err_post_votes_social_needed") {
+        fail(res, 403, "polis_err_post_votes_social_needed", err);
+      } else {
+        fail(res, 500, "polis_err_vote", err);
+      }
     });
   }
 
