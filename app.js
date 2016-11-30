@@ -757,6 +757,7 @@ helpersInitialized.then(function(o) {
     want('starred', getBool, assignToP),
     want('weight', getNumberInRange(-1, 1), assignToP, 0),
     resolve_pidThing('pid', assignToP, "post:votes"),
+    want('xid', getStringLimitLength(1, 999), assignToP),
     handle_POST_votes);
 
   app.post("/api/v3/ptptCommentMod",
