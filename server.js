@@ -8050,8 +8050,8 @@ Email verified! You can close this tab or hit the back button.
         }
         let xidRecordForPtpt = rows[0];
         if (xidRecordForPtpt) {
-          return getPidPromise(zid, xidRecordForPtpt.uid, true).then((pidRecord) => {
-            xidRecordForPtpt.pid = pidRecord.pid;
+          return getPidPromise(zid, xidRecordForPtpt.uid, true).then((pidForXid) => {
+            xidRecordForPtpt.pid = pidForXid;
             return xidRecordForPtpt;
           });
         }
