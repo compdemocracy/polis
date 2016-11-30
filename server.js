@@ -1926,6 +1926,7 @@ function initializePolisHelpers(mongoParams) {
     "http://facebook.com",
     "https://api.twitter.com",
     "", // for API
+    "https://push.inteligenciademocratica.cc",
   ];
 
   let whitelistedBuckets = {
