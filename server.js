@@ -8039,6 +8039,13 @@ Email verified! You can close this tab or hit the back button.
     let uid = req.p.uid; // PID_FLOW uid may be undefined here.
     let zid = req.p.zid;
     let pid = req.p.pid; // PID_FLOW pid may be undefined here.
+    let xid = req.p.xid;
+
+    let xidUserPromise = Promise.resolve();
+    if (!_.isUndefined(xid) && !_.isNull(xid)) {
+      // assume conversation owner is posting via api.
+      xidUserPromise = pgQueryP("select * from xids where xid = ($1) and owner = ($2);", [xid, uid]);
+    }
 
     // We allow viewing (and possibly writing) without cookies enabled, but voting requires cookies (except the auto-vote on your own comment, which seems ok)
     let token = req.cookies[COOKIES.TOKEN];
@@ -8049,17 +8056,20 @@ Email verified! You can close this tab or hit the back button.
       return;
     }
 
-    // PID_FLOW WIP for now assume we have a uid, but need a participant record.
-    let pidReadyPromise = _.isUndefined(req.p.pid) ? addParticipant(req.p.zid, req.p.uid).then(function(rows) {
-      let ptpt = rows[0];
-      pid = ptpt.pid;
-    }) : Promise.resolve();
+    xidUserPromise.then(function(xidUser) {
 
-
-    pidReadyPromise.then(function() {
+      if (xidUser && xidUser.uid) {
+        uid = xidUser.uid;
+      }
 
       // let conv;
       let vote;
+
+      // PID_FLOW WIP for now assume we have a uid, but need a participant record.
+      let pidReadyPromise = _.isUndefined(req.p.pid) ? addParticipant(req.p.zid, uid).then(function(rows) {
+        let ptpt = rows[0];
+        pid = ptpt.pid;
+      }) : Promise.resolve();
 
       pidReadyPromise.then(function() {
         return votesPost(uid, pid, req.p.zid, req.p.tid, req.p.vote, req.p.weight, true);
