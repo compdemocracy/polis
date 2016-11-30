@@ -7943,6 +7943,17 @@ Email verified! You can close this tab or hit the back button.
     }
 
 
+    let hasXid = !_.isUndefined(req.p.xid);
+
+    function setXid(owner, uid, xid) {
+      return pgQueryP("insert into xids (owner, uid, xid) values ($1,$2,$3) " +
+          "on conflict (owner, xid) do nothing;", [
+            owner,
+            uid,
+            xid,
+          ]);
+    }
+
     Promise.all([
       // request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/users", qs: qs, headers: req.headers, gzip: true}),
       getUser(req.p.uid),
@@ -7959,11 +7970,12 @@ Email verified! You can close this tab or hit the back button.
       ifConv(doFamousQuery, [req.p, req]),
       // getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/votes/famous", qs: famousQs, headers: req.headers, gzip: true}),
     ]).then(function(arr) {
+      let conv = arr[3];
       let o = {
         user: arr[0],
         ptpt: arr[1],
         nextComment: arr[2],
-        conversation: arr[3],
+        conversation: conv,
         votes: arr[4] || [],
         pca: arr[5] ? (arr[5].asJSON ? arr[5].asJSON : null) : null,
         famous: arr[6],
@@ -7987,7 +7999,20 @@ Email verified! You can close this tab or hit the back button.
       if (!_.isUndefined(req.p.pid)) {
         o.nextComment.currentPid = req.p.pid;
       }
-      res.status(200).json(o);
+
+      function finish() {
+        res.status(200).json(o);
+      }
+      if (hasXid) {
+        setXid(conv.owner, req.p.uid, req.p.xid).then(() => {
+          finish();
+        }, (err) => {
+          fail(res, 500, "polis_err_get_participationInit3", err);
+        });
+      } else {
+        finish();
+      }
+
     }, function(err) {
       console.error(err);
       fail(res, 500, "polis_err_get_participationInit2", err);
@@ -12732,6 +12757,7 @@ CREATE TABLE slack_user_invites (
     let ucsd = req.p.ucsd;
     let ucsv = req.p.ucsv;
     let ucsf = req.p.ucsf;
+    let xid = req.p.xid;
     let o = {};
     ifDefinedSet("parent_url", req.p, o);
     ifDefinedSet("auth_needed_to_vote", req.p, o);
@@ -12777,6 +12803,9 @@ CREATE TABLE slack_user_invites (
       }
       if (!_.isUndefined(ucsf)) {
         url += ("&ucsf=" + ucsf);
+      }
+      if (!_.isUndefined(xid)) {
+        url += ("&xid=" + xid);
       }
       return url;
     }
