@@ -1,5 +1,5 @@
 #!/bin/sh
 while [ 1 ]
 do
-    lein with-profile production trampoline run -m polismath.stormspec
+    lein with-profile production trampoline run -m polismath.runner poller
 done

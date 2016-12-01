@@ -131,8 +131,6 @@
         (doseq [[col-name prep-fn] [["main" prep-main] ; main math results, for client
                                     ["bidtopid" prep-bidToPid] ; bidtopid mapping, for server
                                     ["ptptstats" prep-ptpt-stats]]]
-          ;; XXX Hmmm... format-for-mongo should be abstracted so that it always get's called, and the prep
-          ;; function gets taken care of separately; don't need to conplect these
           (->> updated-conv
                prep-fn
                mongo/format-for-mongo
