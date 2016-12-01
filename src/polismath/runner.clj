@@ -86,7 +86,9 @@
       :else 
       (let [system-map-generator (subcommands (first arguments))
             system (system/create-and-run-system! system-map-generator options)]
-        system))))
+        (loop []
+          (Thread/sleep 1000)
+          (recur))))))
 
 
 (comment
