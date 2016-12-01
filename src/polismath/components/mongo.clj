@@ -11,9 +11,10 @@
   "Mongo collection name based on math-env and math-schema-date config variables. Makes sure that
   prod, preprod, dev (and subdevs like chrisdev or mikedev) have their own noninterfering collections."
   ([mongo rootname]
-   (let [{:keys [math-schema-date math-env]} (:config mongo)]
+   (let [{:keys [math-schema-date math-env]} (:config mongo)
+         math-env (or math-env :dev)]
      (str rootname "_" (name math-env) "_" math-schema-date)))
-  ([mongo rootname basename] (str (collection-name mongo rootname) basename)))
+  ([mongo rootname basename] (str (collection-name mongo rootname) "_" basename)))
 
 (defn math-collection-name
   "As in collection-name function, with rootname bound to 'math'; used for actual math results."

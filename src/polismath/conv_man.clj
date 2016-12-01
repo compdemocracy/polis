@@ -134,7 +134,7 @@
           (->> updated-conv
                prep-fn
                mongo/format-for-mongo
-               (mongo/zid-upsert mongo (mongo/collection-name mongo col-name))))
+               (mongo/zid-upsert mongo (mongo/collection-name mongo "math" col-name))))
         (log/info "Finished uploading mongo results for zid:" zid)
         ; Return the updated conv
         updated-conv)
