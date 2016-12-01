@@ -6,7 +6,7 @@
             ;; TODO Replace this with the canonical clojure.tools.cli once storm is removed
             [clojure.newtools.cli :as cli]
             [clojure.tools.namespace.repl :as namespace.repl]
-            [clojure.tools.logging :as log]
+            [taoensso.timbre :as log]
             [clojure.string :as string]
             [com.stuartsierra.component :as component]))
 
@@ -79,12 +79,14 @@
 
 (defn -main [& args]
   (let [{:keys [arguments options errors summary]} (cli/parse-opts args cli-options)]
-    (log/info "Submitting storm topology")
+    (log/info "Runner main function executed")
     (cond
       (:help options)   (utils/exit 0 (usage summary))
       (:errors options) (utils/exit 1 (str "Found the following errors:" \newline (:errors options)))
       :else 
-      (let [system-map-generator (subcommands (first arguments))
+      (let [subcommand (first arguments)
+            system-map-generator (subcommands subcommand)
+            _ (log/info "Running subcommand:" subcommand)
             system (system/create-and-run-system! system-map-generator options)]
         (loop []
           (Thread/sleep 1000)
