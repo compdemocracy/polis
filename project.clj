@@ -4,7 +4,8 @@
                  ".lein-git-deps/debug-repl/src/"
                  ".lein-git-deps/tools.cli/src/main/clojure/"]
   ; faster run time in exchange for slower startup time
-  :jvm-opts ^:replace []
+  :aot :all
+  ;:jvm-opts ^:replace []
   :repl-options {:timeout 120000
                  :port 34344}
   :target-path "target/%s"
