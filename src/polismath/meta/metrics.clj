@@ -9,8 +9,8 @@
 (defn- make-socket
   "Make a datagram socket; optional port parameter is the local port for the socket. If ommitted (or if nil is passed),
   the Java implementation will pick some available port and bind it."
-	([] (new java.net.DatagramSocket))
-	([port] (if port (new java.net.DatagramSocket port) (make-socket))))
+  ([] (new java.net.DatagramSocket))
+  ([port] (if port (new java.net.DatagramSocket port) (make-socket))))
 
 (defrecord MetricSender [config send-socket]
   component/Lifecycle
@@ -33,7 +33,7 @@
         {:keys [hostname remote-port]} (get-config metric-sender)
         ipaddress (java.net.InetAddress/getByName hostname)
         send-packet (new java.net.DatagramPacket (.getBytes data) (.length data) ipaddress remote-port)]
-  (.send send-socket send-packet)))
+    (.send send-socket send-packet)))
 
 (defn- make-send-string
   "All keys are name keys are prepended with 'math.<math-env>.'..."
@@ -80,8 +80,8 @@
 
 
 ;(defn make-receive [receive-port]
-	;(let [receive-socket (make-socket receive-port)]
-		;(fn [] (receive-data receive-socket))))
+  ;(let [receive-socket (make-socket receive-port)]
+    ;(fn [] (receive-data receive-socket))))
 
 :ok
 
