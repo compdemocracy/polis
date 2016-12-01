@@ -12,7 +12,7 @@
   prod, preprod, dev (and subdevs like chrisdev or mikedev) have their own noninterfering collections."
   ([mongo rootname]
    (let [{:keys [math-schema-date math-env]} (:config mongo)]
-     (str rootname "_" math-env "_" math-schema-date)))
+     (str rootname "_" (name math-env) "_" math-schema-date)))
   ([mongo rootname basename] (str (collection-name mongo rootname) basename)))
 
 (defn math-collection-name
