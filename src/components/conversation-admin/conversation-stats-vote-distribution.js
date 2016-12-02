@@ -70,8 +70,8 @@ class VotesDistribution extends React.Component {
           }}
           data={this.props.data.votesHistogram.map((d) => {
             return {
-              x: d.n_ptpts,
-              y: d.n_votes
+              x: d.n_votes,
+              y: d.n_ptpts,
             };
           })}
           />
