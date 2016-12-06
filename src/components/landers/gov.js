@@ -53,6 +53,9 @@ class Gov extends React.Component {
         backgroundColor: "rgb(245,245,245)",
         paddingBottom: 20,
       },
+      callToActionInnerFlex: {
+
+      },
       sectionColor: {
         width: "100%",
         backgroundColor: "#03a9f4",
@@ -87,7 +90,7 @@ class Gov extends React.Component {
         padding: 16,
         border: "none",
         borderRadius: 3,
-        margin: "20px 0px 10px 0px",
+        margin: "0px 0px 10px 0px",
         "@media (min-width: 470px)": {
           marginRight: 20,
         },
@@ -96,13 +99,10 @@ class Gov extends React.Component {
         backgroundColor: "#03a9f4",
         color: "white",
         borderRadius: 3,
-        margin: "0px 0px 20px 0px"
+        // margin: "0px 0px 20px 0px"
       },
       body: {
         padding: 40
-      },
-      section: {
-        padding: 0,
       },
       caseStudyTextContainer: {
         /* WHEN IT'S SMALL AND UP (DEFAULT) */
@@ -113,7 +113,7 @@ class Gov extends React.Component {
           marginLeft: 50,
         },
       },
-      goSection: {
+      section: {
         /* WHEN IT'S SMALL AND UP (DEFAULT) */
         width: "100%",
         display: "flex",
@@ -135,15 +135,6 @@ class Gov extends React.Component {
           minHeight: 200
         }
       },
-      cloud: {
-        backgroundColor: "rgb(240,240,240)",
-      },
-      oss: {
-        backgroundColor: "rgb(230,230,230)",
-      },
-      export: {
-        backgroundColor: "rgb(240,240,240)",
-      },
       icon: {
         color: "white",
         fontSize: "4em",
@@ -162,6 +153,10 @@ class Gov extends React.Component {
           marginLeft: 30,
           width: 250,
         }
+      },
+      videoSectionTitle: {
+        color: "white",
+        fontSize: 36
       },
       button: {
         backgroundColor: "white",
@@ -260,32 +255,69 @@ class Gov extends React.Component {
             </p>
 
             <p style={this.styles().heroSub}>
-              Scale up outreach in online consultation. Get powerful insights that can shape and legitimize policy.
+              pol.is is bringing AI & machine learning to participatory democracy. Scale up outreach in online consultation & get powerful insights that can shape and legitimize policy.
             </p>
         </Flex>
         {/* upper cta */}
         <Flex
-          direction="column"
+          alignItems="center"
           styleOverrides={this.styles().callToActionContainer}>
-          <Flex alignItems="baseline" wrap="wrap">
+          <Flex
+            styleOverrides={this.styles().callToActionInnerFlex}
+            direction="column"
+            alignItems="flex-start">
             <input
-              placeholder="email"
+              placeholder="Name"
+              style={this.styles().waitingListInput}
+              ref="nameupper"
+              type="name"/>
+            <input
+              placeholder="Email"
               style={this.styles().waitingListInput}
               ref="emailupper"
               type="email"/>
+            <input
+              placeholder="Organization"
+              style={this.styles().waitingListInput}
+              ref="affiliationupper"
+              type="affiliation"/>
+            <input
+              placeholder="Role"
+              style={this.styles().waitingListInput}
+              ref="roleupper"
+              type="role"/>
             <Button
               onClick={this.handleJoinWaitingListClickedUpper.bind(this)}
               style={this.styles().waitingListButton}>
-              Request a Demo
+              Contact Me
             </Button>
-
-
-          </Flex>
           <div style={{margin: 10}}>
             {this.maybeErrorMessage(this.state.errorTextUpper)}
             {this.maybeSuccessMessage(this.state.successTextUpper)}
           </div>
         </Flex>
+        </Flex>
+        <div
+          style={{
+            width: "100%",
+            display: "block",
+            backgroundColor: "#03a9f4",
+            padding: "0px 0px 30px 0px"
+          }}>
+          <Flex>
+          <p style={[this.styles().videoSectionTitle]}> A Brief Introduction </p>
+          </Flex>
+          <Flex>
+          <iframe
+            width="640"
+            height="360"
+            style={{border: "10px solid white", borderRadius: 4, margin: "auto"}}
+            src="https://www.youtube.com/embed/09Lqj5lazKM?rel=0&amp;showinfo=0"
+            frameborder="0"
+            allowfullscreen>
+          </iframe>
+          </Flex>
+        </div>
         <Flex styleOverrides={{width: "100%"}} direction="column">
           <p style={{
             fontFamily: "Georgia",
@@ -411,10 +443,31 @@ class Gov extends React.Component {
               src="https://pbs.twimg.com/profile_images/593902371341783040/OEPQIQnO.png"/>
           </Flex>
         </Flex>
+        <div
+          style={{
+            width: "100%",
+            display: "block",
+            backgroundColor: "#03a9f4",
+            padding: "0px 0px 30px 0px"
+          }}>
+          <Flex>
+          <p style={[this.styles().videoSectionTitle]}> A Hands-on Demo & Walkthrough </p>
+          </Flex>
+          <Flex>
+          <iframe
+            width="640"
+            height="360"
+            style={{border: "10px solid white", borderRadius: 4, margin: "auto"}}
+            src="https://www.youtube.com/embed/FrIin_omVn4?rel=0&amp;showinfo=0"
+            frameborder="0"
+            allowfullscreen>
+          </iframe>
+          </Flex>
+        </div>
         <div style={{width: "100%"}}>
           <div
             key="1"
-            style={[this.styles().goSection, this.styles().cloud]}
+            style={[this.styles().section, {backgroundColor: "rgb(240,240,240)"}]}
             >
             <div style={this.styles().iconWrapper}>
               <Awesome style={this.styles().icon} name="cloud"/>
@@ -425,7 +478,7 @@ class Gov extends React.Component {
         <div style={{width: "100%"}}>
           <div
             key="2"
-            style={[this.styles().goSection, this.styles().oss]}
+            style={[this.styles().section, {backgroundColor: "rgb(230,230,230)"}]}
             >
             <div style={this.styles().iconWrapper}>
               <Awesome style={this.styles().icon} name="github"/>
@@ -436,7 +489,7 @@ class Gov extends React.Component {
         <div style={{width: "100%"}}>
           <div
             key="3"
-            style={[this.styles().goSection, this.styles().export]}
+            style={[this.styles().section, {backgroundColor: "rgb(240,240,240)"}]}
             >
             <div style={this.styles().iconWrapper}>
               <Awesome style={this.styles().icon} name="code"/>
@@ -444,6 +497,45 @@ class Gov extends React.Component {
             <p style={this.styles().forText}> No lock in: export your data in csv format using a web interface or via API </p>
           </div>
         </div>
+        <Flex
+          alignItems="center"
+          styleOverrides={[this.styles().callToActionContainer, {paddingTop: 30}]}>
+          <Flex
+            styleOverrides={this.styles().callToActionInnerFlex}
+            direction="column"
+            alignItems="flex-start">
+            <p style={[this.styles().videoSectionTitle, {color: "rgb(130,130,130)", margin: "0px 0px 20px 0px"}]}> Get In Touch </p>
+            <input
+              placeholder="Name"
+              style={this.styles().waitingListInput}
+              ref="nameupper"
+              type="name"/>
+            <input
+              placeholder="Email"
+              style={this.styles().waitingListInput}
+              ref="emailupper"
+              type="email"/>
+            <input
+              placeholder="Organization"
+              style={this.styles().waitingListInput}
+              ref="affiliationupper"
+              type="affiliation"/>
+            <input
+              placeholder="Role"
+              style={this.styles().waitingListInput}
+              ref="roleupper"
+              type="role"/>
+            <Button
+              onClick={this.handleJoinWaitingListClickedUpper.bind(this)}
+              style={this.styles().waitingListButton}>
+              Contact Me
+            </Button>
+          <div style={{margin: 10}}>
+            {this.maybeErrorMessage(this.state.errorTextUpper)}
+            {this.maybeSuccessMessage(this.state.successTextUpper)}
+          </div>
+        </Flex>
+        </Flex>
       </StaticContentContainer>
     );
   }
