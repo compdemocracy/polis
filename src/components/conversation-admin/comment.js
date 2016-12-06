@@ -51,6 +51,7 @@ class Comment extends React.Component {
         style={{
           backgroundColor: "#03a9f4",
           color: "white",
+          marginRight: 20
         }}
         onClick={this.onAcceptClicked.bind(this)}>
         accept

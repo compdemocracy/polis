@@ -47,6 +47,7 @@ class Participant extends React.Component {
         style={{
           backgroundColor: "#03a9f4",
           color: "white",
+          marginRight: 20
         }}
         onClick={this.onFeatureClicked.bind(this)}>
         <Awesome name="chevron-up"/> feature
