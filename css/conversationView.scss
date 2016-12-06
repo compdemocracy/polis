@@ -284,11 +284,18 @@ img {
   color: white;
 }
 
-.reactionButton {
+.reactionButton{
   cursor: pointer;
   transition: all .2s ease-in-out;
+  color: rgba(0,0,0,0.5);
+  border-color: rgba(0,0,0,0);
+  background-color: rgba(0,0,0,0);
+  text-decoration: none;
+  font-size: 14px;
+  font-family: "Helvetica Neue", Helvetica, sans-serif;
+  text-rendering: optimizeLegibility;
 }
-.reactionButton:hover {
+.reactionButton:hover{
   -ms-transform: scale(1.12,1.12); /* IE 9 */
   -webkit-transform: scale(1.12,1.12); /* Safari */
   transform: scale(1.12,1.12);

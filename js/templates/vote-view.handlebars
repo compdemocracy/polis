@@ -258,7 +258,7 @@
         justify-content: space-around;
         margin-bottom: 20px;
       ">
-      <div
+      <button
         id="agreeButton"
         class="reactionButton"
         >
@@ -271,8 +271,8 @@
           fill: #2ecc71;
           ">{{> iconFaCircleCheck}}</i>
         {{s.agree}}
-      </div>
-      <div
+      </button>
+      <button
         id="disagreeButton"
         class="reactionButton"
         >
@@ -285,13 +285,13 @@
           fill: #e74c3c;
           ">{{> iconFaBan}}</i>
         {{s.disagree}}
-      </div>
-      <div
+      </button>
+      <button
         id="passButton"
         class="reactionButton"
         >
         {{s.pass}}
-      </div>
+      </button>
     </div>
   {{/if}} {{!-- /shouldMod --}}
 
