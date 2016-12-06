@@ -13,6 +13,7 @@
    (try
      (client/post *mailgun-url*
                   {:basic-auth ["api" *mailgun-key*]
+                   :headers {"host" "pol.is"}
                    :query-params params})
      (catch Exception e (.printStackTrace e))))
   ([from to subject text html] (send-email! {:from from :to to :subject subject :text text :html html}))
