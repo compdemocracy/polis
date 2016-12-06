@@ -1,17 +1,17 @@
-(ns polismath.meta.microscope)
-;  (:require [polismath.conv-man :as cm]
-;            [polismath.components.env :as env]
-;            [polismath.components.db :as db]
-;            [polismath.math.conversation :as conv]
-;            [polismath.math.named-matrix :as nm]
-;            [polismath.utils :as utils]
-;            [clojure.tools.trace :as tr]
-;            [clojure.tools.logging :as log]
-;            [clojure.newtools.cli :refer [parse-opts]]
-;            [com.stuartsierra.component :as component]
-;            [plumbing.core :as pc]
-;            [korma.core :as ko]
-;            [korma.db :as kdb]))
+(ns polismath.meta.microscope
+  (:require [polismath.conv-man :as cm]
+            [polismath.components.env :as env]
+            [polismath.components.postgres :as db]
+            [polismath.math.conversation :as conv]
+            [polismath.math.named-matrix :as nm]
+            [polismath.utils :as utils]
+            [clojure.tools.trace :as tr]
+            [clojure.tools.logging :as log]
+            [clojure.newtools.cli :refer [parse-opts]]
+            [com.stuartsierra.component :as component]
+            [plumbing.core :as pc]
+            [korma.core :as ko]
+            [korma.db :as kdb]))
 ;
 ;
 ;
@@ -23,30 +23,41 @@
 ;  (stop [this] this))
 ;
 ;;; XXX Should really move to db
-;(defn get-zid-from-zinvite
-;  [{:as microscope :keys [postgres]} zinvite]
-;  (->
-;    (kdb/with-db (:db-spec postgres)
-;      (ko/select "zinvites"
-;        (ko/fields :zid :zinvite)
-;        (ko/where {:zinvite zinvite})))
-;    first
-;    :zid))
-;
-;
-;(defn recompute
-;  [{:as microscope :keys [conversation-manager postgres]} & {:keys [zid zinvite recompute] :as args}]
-;  (assert (utils/xor zid zinvite))
-;  (let [zid        (or zid (get-zid-from-zinvite microscope zinvite))
-;        new-votes  (db/conv-poll postgres zid)]
-;    (println zid zinvite)
-;    (cm/queue-message-batch! conversation-manager :votes zid new-votes)
-;    (add-watch
-;      (:conv conv-actor)
-;      :complete-watch
-;      (fn [k r o n]
-;        (println "Done recomputing")))
-;    conv-actor))
+(defn get-zid-from-zinvite
+  [{:as system :keys [postgres]} zinvite]
+  (->
+    (kdb/with-db (:db-spec postgres)
+      (ko/select "zinvites"
+        (ko/fields :zid :zinvite)
+        (ko/where {:zinvite zinvite})))
+    first
+    :zid))
+
+(comment
+  (require '[polismath.runner :as runner :refer [system]])
+  (get-zid-from-zinvite system "7scufp")
+  :end-example-comment)
+
+
+(defn recompute
+  [{:as system :keys [conversation-manager postgres]} & {:keys [zid zinvite] :as args}]
+  (assert (utils/xor zid zinvite))
+  (let [zid        (or zid (get-zid-from-zinvite system zinvite))
+        new-votes  (db/conv-poll postgres zid 0)]
+    (log/info "Running a recompute on zid:" zid "(zinvite:" zinvite ")")
+    (cm/queue-message-batch! conversation-manager :votes zid new-votes)
+    (cm/add-listener!
+      conversation-manager
+      :complete-watch
+      (fn [new-conv]
+        (log/info "Done recomputing conv")))))
+
+(comment
+  (require '[polismath.runner :as runner :refer [system]])
+  (get-zid-from-zinvite system "7scufp")
+  (recompute system :zinvite "7scufp")
+  :end-example-comment)
+
 ;
 ;
 ;(defn kw->int
