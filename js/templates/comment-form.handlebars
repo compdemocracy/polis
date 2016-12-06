@@ -28,9 +28,11 @@
           name="txt"
           type="text"
           maxlength="400"
+          tabindex=201
           {{!-- placeholder="Submit your own opinions here. Shorter is better - break up your ideas. You are not responding to anyone else directly - comments are sent out randomly to all participants."  --}}
           placeholder="{{s.writePrompt}}"
           {{#if shouldAutofocusOnTextarea}}autofocus{{/if}}
+
           ></textarea>
         {{!-- <p
           id="commentSentAlert"
@@ -56,7 +58,7 @@
         ">
       <div class="protip"><p><i class="fa fa-microphone"></i>&nbsp; {{s.connectToPostPrompt}}</p></div>
       {{#unless hasFacebook}}
-        <button id="facebookButtonCommentForm" class="facebookButton" style="padding-top: 0px;">
+        <button id="facebookButtonCommentForm" class="facebookButton" style="padding-top: 0px;" tabindex=203>
           <i class="svgIcon" style="
             display: inline-block;
             position: relative;
@@ -68,7 +70,7 @@
           {{s.connectFacebook}}</button>
       {{/unless}}
       {{#unless hasTwitter}}
-        <button id="twitterButtonCommentForm" class="twitterButton" style="padding-top: 0px;">
+        <button id="twitterButtonCommentForm" class="twitterButton" style="padding-top: 0px;" tabindex=204>
         <i class="svgIcon" style="
           display: inline-block;
           position: relative;
@@ -209,6 +211,7 @@
           unselectable
           "
         id="comment_button"
+        tabindex=202
         type="submit"
         style="
           text-transform: none;
