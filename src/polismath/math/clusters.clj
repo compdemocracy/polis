@@ -219,7 +219,8 @@
         ; next make sure we're not dealing with any clusters that are identical to eachother
         uniq-clusters (uniqify-clusters clusters)
         ; count uniq data points to figure out how many clusters are possible
-        possible-clusters (min k (count (distinct (matrix/rows (nm/get-matrix data)))))]
+        ;; I don't like the into here, but seems necessary to solve a weird core.matrix issue with lists not having nth
+        possible-clusters (min k (count (distinct (into [] (matrix/rows (nm/get-matrix data))))))]
     (loop [clusters uniq-clusters]
       ; Whatever the case here, we want to do one more recentering
       (let [clusters (recenter-clusters data clusters :weights weights)]
