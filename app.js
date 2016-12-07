@@ -216,6 +216,7 @@ helpersInitialized.then(function(o) {
     handle_POST_query_participants_by_metadata,
     handle_POST_reserve_conversation_id,
     handle_POST_sendCreatedLinkToEmail,
+    handle_POST_sendEmailExportReady,
     handle_POST_slack_interactive_messages,
     handle_POST_slack_user_invites,
     handle_POST_stars,
@@ -483,6 +484,13 @@ helpersInitialized.then(function(o) {
     moveToBody,
     handle_GET_perfStats);
 
+  app.post("/api/v3/sendEmailExportReady",
+    need('webserver_username', getStringLimitLength(1, 999), assignToP),
+    need('webserver_pass', getStringLimitLength(1, 999), assignToP),
+    need('uid', getInt, assignToP, 0),
+    need('conversation_id', getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
+    need('filename', getStringLimitLength(9999), assignToP),
+    handle_POST_sendEmailExportReady);
 
   app.get("/api/v3/domainWhitelist",
     moveToBody,

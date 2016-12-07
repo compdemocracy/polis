@@ -8846,6 +8846,43 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
+  function handle_POST_sendEmailExportReady(req, res) {
+
+    if (req.p.webserver_pass !== process.env.WEBSERVER_PASS || req.p.webserver_username !== process.env.WEBSERVER_USERNAME) {      
+      return fail(res, 403, "polis_err_sending_export_link_to_email_auth");
+    }
+
+    pgQuery_readOnly("SELECT * FROM users WHERE uid = $1", [req.p.uid], function(err, results) {
+      if (err) {
+        fail(res, 500, "polis_err_get_email_db", err);
+        return;
+      }
+      const email = results.rows[0].email;
+      // const fullname = results.rows[0].hname;
+      const subject = "Data export for pol.is conversation pol.is/" + req.p.conversation_id;
+      const fromAddress = `Polis Team <${process.env.EMAIL_CHRIS}>`;
+      const body = `Greetings
+
+You created a data export for pol.is conversation pol.is/${req.p.conversation_id} that has just completed. You can download the results for this conversation at the following url:
+
+https://pol.is/api/v3/dataExport/results?filename=${req.p.filename}&conversation_id=${req.p.conversation_id}
+
+Please let us know if you have any questons about the data.
+
+Thanks for using pol.is!
+`;
+
+      sendTextEmail(
+        fromAddress,
+        email,
+        subject,
+        body).then(function() {
+          res.status(200).json({});
+        }).catch(function(err) {
+          fail(res, 500, "polis_err_sending_export_link_to_email", err);
+        });
+    });
+  }
 
   function getTwitterRequestToken(returnUrl) {
     let oauth = new OAuth.OAuth(
@@ -12344,6 +12381,7 @@ CREATE TABLE slack_user_invites (
     handle_POST_query_participants_by_metadata,
     handle_POST_reserve_conversation_id,
     handle_POST_sendCreatedLinkToEmail,
+    handle_POST_sendEmailExportReady,
     handle_POST_slack_interactive_messages,
     handle_POST_slack_user_invites,
     handle_POST_stars,
