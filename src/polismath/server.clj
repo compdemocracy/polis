@@ -259,12 +259,13 @@
     (comment (client/request))
     (let [response
           (client/post "https://pol.is/api/v3/sendEmailExportReady"
-                       {:query-params {:webserver_username (:webserver-username env/env)
-                                       :webserver_pass (:webserver-pass env/env)
-                                       :email email
-                                       :filename filename
-                                       :raise false
-                                       :conversation_id zinvite}
+                       {:form-params {:webserver_username (:webserver-username env/env)
+                                      :webserver_pass (:webserver-pass env/env)
+                                      :email email
+                                      :filename filename
+                                      :raise false
+                                      :conversation_id zinvite}
+                        :content-type :json
                         :throw-entire-message? true})]
       (log/info "send email notification response:\n" (with-out-str (clojure.pprint/pprint response))))
     (catch Exception e
