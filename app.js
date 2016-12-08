@@ -487,7 +487,7 @@ helpersInitialized.then(function(o) {
   app.post("/api/v3/sendEmailExportReady",
     need('webserver_username', getStringLimitLength(1, 999), assignToP),
     need('webserver_pass', getStringLimitLength(1, 999), assignToP),
-    need('uid', getInt, assignToP, 0),
+    need('email', getEmail, assignToP),
     need('conversation_id', getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
     need('filename', getStringLimitLength(9999), assignToP),
     handle_POST_sendEmailExportReady);
