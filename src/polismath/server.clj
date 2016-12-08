@@ -256,13 +256,16 @@
 (defn send-email-notification-via-polis-api!
   [filename {:keys [zinvite email]}]
   (try
+    (comment (client/request))
     (let [response
           (client/post "https://pol.is/api/v3/sendEmailExportReady"
                        {:query-params {:webserver_username (:webserver-username env/env)
                                        :webserver_pass (:webserver-pass env/env)
                                        :email email
                                        :filename filename
-                                       :conversation_id zinvite}})]
+                                       :raise false
+                                       :conversation_id zinvite}
+                        :throw-entire-message? true})]
       (log/info "send email notification response:\n" (with-out-str (clojure.pprint/pprint response))))
     (catch Exception e
       (log/error e "failed to send email:\n"))))
