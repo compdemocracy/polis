@@ -679,6 +679,8 @@ CREATE TABLE contributer_agreement_signatures(
 CREATE TABLE waitinglist (
     email VARCHAR(256) NOT NULL,
     campaign VARCHAR(100) NOT NULL,
+    affiliation VARCHAR(999),
+    role VARCHAR(999),
     intercom_lead_user_id VARCHAR(100),
     created BIGINT DEFAULT now_as_millis()
 );
