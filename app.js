@@ -1321,7 +1321,7 @@ helpersInitialized.then(function(o) {
     'Content-Type': "text/html",
   }));
   // Duplicate url for content at root. Needed so we have something for "About" to link to.
-  app.get(/^\/about$/, makeRedirectorTo("/home"));
+  app.get(/^\/about$/, makeRedirectorTo("/gov"));
   app.get(/^\/s\/CTE\/?$/, makeFileFetcher(hostname, portForParticipationFiles, "/football.html", {
     'Content-Type': "text/html",
   }));
