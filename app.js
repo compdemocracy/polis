@@ -1175,7 +1175,10 @@ helpersInitialized.then(function(o) {
     handle_POST_contributors);
 
   app.post("/api/v3/waitinglist",
+    need('name', getStringLimitLength(746), assignToP),
     need('email', getEmail, assignToP),
+    want('affiliation', getStringLimitLength(999), assignToP),
+    want('role', getStringLimitLength(999), assignToP),
     need('campaign', getStringLimitLength(100), assignToP),
     handle_POST_waitinglist);
 

@@ -10670,18 +10670,32 @@ CREATE TABLE slack_user_invites (
       intercom_lead_user_id = x.body.user_id;
       return intercom_lead_user_id;
     }).then(() => {
+
+      var custom = {
+        campaign: req.p.campaign,
+      };
+      if (req.p.affiliation) {
+        custom.affiliation = req.p.affiliation;
+      }
+      if (req.p.role) {
+        custom.role = req.p.role;
+      }
       return intercomClient.leads.update({
         user_id: intercom_lead_user_id,
         email: req.p.email,
         last_request_at: Date.now(),
-        custom_attributes: {
-          campaign: req.p.campaign,
-        },
+        name: req.p.name,
+        custom_attributes: custom,
       });
     }).then(() => {
       return pgQueryP(
-        "insert into waitinglist (email, campaign, intercom_lead_user_id) values ($1, $2, $3);",
-        [req.p.email, req.p.campaign, intercom_lead_user_id]);
+        "insert into waitinglist (email, campaign, affiliation, role, intercom_lead_user_id) values ($1, $2, $3, $4, $5);", [
+          req.p.email,
+          req.p.campaign,
+          req.p.affiliation || null,
+          req.p.role || null,
+          intercom_lead_user_id,
+        ]);
     }).then(() => {
       res.json({});
     }).catch((err) => {
