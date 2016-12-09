@@ -177,7 +177,12 @@ class Gov extends React.Component {
     }
   }
   handleJoinWaitingListClickedUpper() {
-    this.doHandleJoinWaitingListClicked(this.refs.emailupper && this.refs.emailupper.value).then(() => {
+    this.doHandleJoinWaitingListClicked({
+      email: this.refs.emailupper && this.refs.emailupper.value,
+      name: this.refs.nameupper && this.refs.nameupper.value,
+      affiliation: this.refs.affiliationupper && this.refs.affiliationupper.value,
+      role: this.refs.roleupper && this.refs.roleupper.value,
+    }).then(() => {
       this.setState(Object.assign({}, defaultState, {
         successTextUpper: strings("waitinglist_add_success"),
       }));
@@ -188,7 +193,12 @@ class Gov extends React.Component {
     });
   }
   handleJoinWaitingListClickedLower() {
-    this.doHandleJoinWaitingListClicked(this.refs.emaillower && this.refs.emaillower.value).then(() => {
+    this.doHandleJoinWaitingListClicked({
+      email: this.refs.emaillower && this.refs.emaillower.value,
+      name: this.refs.namelower && this.refs.namelower.value,
+      affiliation: this.refs.affiliationlower && this.refs.affiliationlower.value,
+      role: this.refs.rolelower && this.refs.rolelower.value,
+    }).then(() => {
       this.setState(Object.assign({}, defaultState, {
         successTextLower: strings("waitinglist_add_success"),
       }));
@@ -198,11 +208,8 @@ class Gov extends React.Component {
       }));
     });
   }
-  doHandleJoinWaitingListClicked(email) {
-    const data = {
-      campaign: "gov",
-      email: email,
-    };
+  doHandleJoinWaitingListClicked(data) {
+    data.campaign = "gov";
     return PolisNet.polisPost("/api/v3/waitinglist", data);
   }
   maybeErrorMessage(text) {
@@ -508,31 +515,31 @@ class Gov extends React.Component {
             <input
               placeholder="Name"
               style={this.styles().waitingListInput}
-              ref="nameupper"
+              ref="namelower"
               type="name"/>
             <input
               placeholder="Email"
               style={this.styles().waitingListInput}
-              ref="emailupper"
+              ref="emaillower"
               type="email"/>
             <input
               placeholder="Organization"
               style={this.styles().waitingListInput}
-              ref="affiliationupper"
+              ref="affiliationlower"
               type="affiliation"/>
             <input
               placeholder="Role"
               style={this.styles().waitingListInput}
-              ref="roleupper"
+              ref="rolelower"
               type="role"/>
             <Button
-              onClick={this.handleJoinWaitingListClickedUpper.bind(this)}
+              onClick={this.handleJoinWaitingListClickedLower.bind(this)}
               style={this.styles().waitingListButton}>
               Contact Me
             </Button>
           <div style={{margin: 10}}>
-            {this.maybeErrorMessage(this.state.errorTextUpper)}
-            {this.maybeSuccessMessage(this.state.successTextUpper)}
+            {this.maybeErrorMessage(this.state.errorTextLower)}
+            {this.maybeSuccessMessage(this.state.successTextLower)}
           </div>
         </Flex>
         </Flex>
