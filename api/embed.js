@@ -19,6 +19,7 @@
          parent_url: d.getAttribute("data-parent_url"),
          border: d.getAttribute("data-border"),
          border_radius: d.getAttribute("data-border_radius"),
+         padding: d.getAttribute("data-padding"),
          height: d.getAttribute("data-height"),
          demo: d.getAttribute("data-demo"),
 
