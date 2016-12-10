@@ -1250,7 +1250,6 @@ helpersInitialized.then(function(o) {
   app.get(/^\/tos$/, fetchIndexForAdminPage);
 
   // admin dash-based landers
-  app.get(/^\/home(\/.*)?/, fetchIndexForAdminPage);
   app.get(/^\/gov(\/.*)?/, fetchIndexForAdminPage);
   app.get(/^\/createuser(\/.*)?/, fetchIndexForAdminPage);
   app.get(/^\/plus(\/.*)?/, fetchIndexForAdminPage);
@@ -1322,6 +1321,7 @@ helpersInitialized.then(function(o) {
   }));
   // Duplicate url for content at root. Needed so we have something for "About" to link to.
   app.get(/^\/about$/, makeRedirectorTo("/gov"));
+  app.get(/^\/home(\/.*)?/, makeRedirectorTo("/gov"));
   app.get(/^\/s\/CTE\/?$/, makeFileFetcher(hostname, portForParticipationFiles, "/football.html", {
     'Content-Type': "text/html",
   }));
