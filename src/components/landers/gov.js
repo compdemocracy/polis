@@ -257,7 +257,7 @@ class Gov extends React.Component {
           </Flex>
             <p style={this.styles().hero}>
               {`
-                Outstanding Citizen Engagement
+                Democracy, Meet AI
               `}
             </p>
 
