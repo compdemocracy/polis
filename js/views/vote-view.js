@@ -303,17 +303,19 @@ module.exports = Handlebones.ModelView.extend({
 
         waitingForComments = true;
         // pollForComments();
-
+        var ucw = Utils.userCanWrite();
         var message1;
         var message2;
         if (userHasVoted) {
           message1 = Strings.noCommentsYouVotedOnAll;
-          message2 = Strings.noCommentsTryWritingOne;
+          if (ucw) {
+            message2 = Strings.noCommentsTryWritingOne;
+          }
         } else {
           message1 = Strings.noCommentsYet;
           if (is_public) {
             message2 = Strings.noCommentsYetSoInvite;
-          } else {
+          } else if (ucw) {
             message2 = Strings.noCommentsYetSoWrite;
           }
         }
