@@ -626,6 +626,18 @@ CREATE FUNCTION get_times_for_most_recent_visible_comments() RETURNS TABLE (zid 
 $$ LANGUAGE SQL;
 
 
+CREATE TABLE math_ticks (
+    zid INTEGER REFERENCES conversations(zid),
+    math_tick BIGINT NOT NULL DEFAULT 0,
+    modified BIGINT NOT NULL DEFAULT now_as_millis(),
+    UNIQUE (zid)
+);
+
+
+-- insert into math_ticks (zid) values ($1) on conflict (zid) 
+--    do update set modified = now_as_millis(), math_tick = (math_tick + 1) returning *;
+
+
 
 --CREATE SEQUENCE vote_ids_for_4 START 1 OWNED BY conv.id;
 --CREATE SEQUENCE vote_ids START 1 OWNED BY conversations.zid;
