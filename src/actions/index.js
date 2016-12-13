@@ -1486,6 +1486,47 @@ export const changeParticipantStatusToHidden = (participant) => {
     )
   }
 }
+
+/* moderator clicked unmoderate ptpt */
+const optimisticUnmoderateParticipant = (participant) => {
+  return {
+    type: FEATURE_PARTICIPANT,
+    participant: participant
+  }
+}
+
+const unmoderateParticipantSuccess = (data) => {
+  return {
+    type: FEATURE_PARTICIPANT_SUCCESS,
+    data: data
+  }
+}
+
+const unmoderateParticipantError = (err) => {
+  return {
+    type: FEATURE_PARTICIPANT_ERROR,
+    data: err
+  }
+}
+
+const putUnmoderateParticipant = (participant) => {
+  return $.ajax({
+    method: "PUT",
+    url: "/api/v3/ptptois",
+    data: Object.assign(participant, {mod: 0})
+  })
+}
+
+export const changeParticipantStatusToUnmoderated = (participant) => {
+  return (dispatch) => {
+    dispatch(optimisticUnmoderateParticipant(participant))
+    return putUnmoderateParticipant(participant).then(
+      res => dispatch(hideParticipantSuccess(res)),
+      err => dispatch(hideParticipantError(err))
+    )
+  }
+}
+
 /* request conversation stats */
 
 const requestConversationStats = () => {

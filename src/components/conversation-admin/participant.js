@@ -38,8 +38,14 @@ class Participant extends React.Component {
   onFeatureClicked() {
     this.props.featureClickHandler(this.props.participant)
   }
+  onUnfeatureClicked() {
+    this.props.unfeatureClickHandler(this.props.participant)
+  }
   onHideClicked() {
     this.props.hideClickHandler(this.props.participant)
+  }
+  onUnhideClicked() {
+    this.props.unhideClickHandler(this.props.participant)
   }
   makeFeatureButton() {
     return (
@@ -54,6 +60,19 @@ class Participant extends React.Component {
       </Button>
     )
   }
+  makeUnfeatureButton() {
+    return (
+      <Button
+        style={{
+          backgroundColor: "#03a9f4",
+          color: "white",
+          marginRight: 20
+        }}
+        onClick={this.onUnfeatureClicked.bind(this)}>
+        unfeature
+      </Button>
+    )
+  }
   makeHideButton() {
     return (
       <Button
@@ -63,6 +82,18 @@ class Participant extends React.Component {
         }}
         onClick={this.onHideClicked.bind(this)}>
         <Awesome name="ban"/> hide
+      </Button>
+    )
+  }
+  makeUnhideButton() {
+    return (
+      <Button
+        style={{
+          backgroundColor: "#03a9f4",
+          color: "white",
+        }}
+        onClick={this.onUnhideClicked.bind(this)}>
+        unhide
       </Button>
     )
   }
@@ -79,7 +110,9 @@ class Participant extends React.Component {
             {...this.props.participant.twitter} />
           <Flex styleOverrides={styles.buttons}>
             {this.props.featureButton ? this.makeFeatureButton() : ""}
+            {this.props.unfeatureButton ? this.makeUnfeatureButton() : ""}
             {this.props.hideButton ? this.makeHideButton() : ""}
+            {this.props.unhideButton ? this.makeUnhideButton() : ""}
           </Flex>
         </Flex>
       </div>

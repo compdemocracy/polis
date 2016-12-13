@@ -2,7 +2,10 @@
 
 import React from "react";
 import { connect } from "react-redux";
-import { changeParticipantStatusToHidden } from '../../actions'
+import {
+  changeParticipantStatusToHidden,
+  changeParticipantStatusToUnmoderated,
+} from '../../actions'
 import Radium from "radium";
 import _ from "lodash";
 import Participant from "./participant";
@@ -29,6 +32,9 @@ class ParticipantModerationFeatured extends React.Component {
   onHideClicked(participant) {
     this.props.dispatch(changeParticipantStatusToHidden(participant))
   }
+  onUnfeatureClicked(participant) {
+    this.props.dispatch(changeParticipantStatusToUnmoderated(participant))
+  }
   createParticipantMarkup() {
     return _.sortByOrder(this.props.featured_participants, (p) => {
       console.log(p);
@@ -39,6 +45,8 @@ class ParticipantModerationFeatured extends React.Component {
           participant={participant}
           hideButton
           hideClickHandler={this.onHideClicked.bind(this)}
+          unfeatureButton
+          unfeatureClickHandler={this.onUnfeatureClicked.bind(this)}
           name={
             participant.facebook ?
             participant.facebook.fb_name :
