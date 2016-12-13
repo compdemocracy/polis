@@ -79,6 +79,7 @@ class ModerateCommentsSeed extends React.Component {
             onChange={this.handleTextareaChange.bind(this)}
             value={this.props.seedText}
             style={styles.seedForm}
+            maxLength="400"
             ref="seed_form"/>
         </div>
         <div>
