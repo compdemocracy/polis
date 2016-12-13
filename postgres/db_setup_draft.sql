@@ -657,6 +657,35 @@ CREATE FUNCTION votes_lastest_unique(int) RETURNS SETOF votes AS $$
 $$ LANGUAGE SQL;
 
 
+
+CREATE TABLE crowd_mod (
+    zid INTEGER NOT NULL,
+    pid INTEGER NOT NULL,
+    tid INTEGER NOT NULL,
+    created BIGINT DEFAULT now_as_millis(),
+
+    -- agreed
+    as_important BOOLEAN,
+    as_factual BOOLEAN,
+    as_feeling BOOLEAN,
+
+    -- disagreed
+    as_notmyfeeling BOOLEAN,
+    as_notgoodidea BOOLEAN,
+    as_notfact BOOLEAN,
+    --as_abusive BOOLEAN,
+
+    -- passed
+    as_unsure BOOLEAN,
+    as_spam BOOLEAN,
+    as_abusive BOOLEAN,
+    as_offtopic BOOLEAN
+);
+
+
+
+
+
 CREATE TABLE event_ptpt_no_more_comments (
     zid INTEGER NOT NULL,
     pid INTEGER NOT NULL,

@@ -7368,7 +7368,22 @@ Email verified! You can close this tab or hit the back button.
         // PID_FLOW This may be the first time the client gets the pid.
         result.currentPid = req.p.pid;
 
-        // result.shouldMod = true; // TODO
+        result.shouldMod = true; // TODO
+        result.modOptions = {};
+        if (req.p.vote === polisTypes.reactions.pull) {
+          result.modOptions.as_important = true;
+          result.modOptions.as_factual = true;
+          result.modOptions.as_feeling = true;
+        } else if (req.p.vote === polisTypes.reactions.push) {
+          result.modOptions.as_notmyfeeling = true;
+          result.modOptions.as_notgoodidea = true;
+          result.modOptions.as_notfact = true;
+          result.modOptions.as_abusive = true;
+        } else if (req.p.vote === polisTypes.reactions.pass) {
+          result.modOptions.as_unsure = true;
+          result.modOptions.as_spam = true;
+          result.modOptions.as_abusive = true;
+        }
 
         finishOne(res, result);
 
@@ -7389,39 +7404,85 @@ Email verified! You can close this tab or hit the back button.
 
 
   function handle_POST_ptptCommentMod(req, res) {
-    let uid = req.p.uid;
     let zid = req.p.zid;
     let pid = req.p.pid;
 
-    // return pgQueryP("insert into ...
-    Promise.resolve().then(function(createdTime) {
-      setTimeout(function() {
-        updateConversationModifiedTime(req.p.zid, createdTime);
-        updateLastInteractionTimeForConversation(zid, uid);
-      }, 100);
-    }).then(function() {
-      return getNextComment(req.p.zid, pid, [], true);
-    }).then(function(nextComment) {
-      let result = {};
-      if (nextComment) {
-        result.nextComment = nextComment;
-      } else {
-        // no need to wait for this to finish
-        addNoMoreCommentsRecord(req.p.zid, pid);
-      }
-      // PID_FLOW This may be the first time the client gets the pid.
-      result.currentPid = req.p.pid;
-      finishOne(res, result);
+    let uid = req.p.uid;
 
-    }).catch(function(err) {
-      if (err === "polis_err_ptptCommentMod_duplicate") {
-        fail(res, 406, "polis_err_ptptCommentMod_duplicate", err); // TODO allow for changing votes?
-      } else if (err === "polis_err_conversation_is_closed") {
-        fail(res, 403, "polis_err_conversation_is_closed", err);
-      } else {
-        fail(res, 500, "polis_err_ptptCommentMod", err);
-      }
-    });
+    // need('as_important', getBool, assignToP, false),
+    // need('as_spam', getBool, assignToP, false),
+    // need('as_offtopic', getBool, assignToP, false),
+
+
+
+    return pgQueryP("insert into crowd_mod (" +
+      "zid, " +
+      "pid, " +
+      "tid, " +
+      "as_abusive, " +
+      "as_factual, " +
+      "as_feeling, " +
+      "as_important, " +
+      "as_notfact, " +
+      "as_notgoodidea, " +
+      "as_notmyfeeling, " +
+      "as_offtopic, " +
+      "as_spam, " +
+      "as_unsure) values (" +
+      "$1, " +
+      "$2, " +
+      "$3, " +
+      "$4, " +
+      "$5, " +
+      "$6, " +
+      "$7, " +
+      "$8, " +
+      "$9, " +
+      "$10, " +
+      "$11, " +
+      "$12, " +
+      "$13);",[
+        req.p.zid,
+        req.p.pid,
+        req.p.tid,
+        req.p.as_abusive,
+        req.p.as_factual,
+        req.p.as_feeling,
+        req.p.as_important,
+        req.p.as_notfact,
+        req.p.as_notgoodidea,
+        req.p.as_notmyfeeling,
+        req.p.as_offtopic,
+        req.p.as_spam,
+        req.p.unsure,
+      ]).then((createdTime) => {
+        setTimeout(function() {
+          updateConversationModifiedTime(req.p.zid, createdTime);
+          updateLastInteractionTimeForConversation(zid, uid);
+        }, 100);
+      }).then(function() {
+        return getNextComment(req.p.zid, pid, [], true);
+      }).then(function(nextComment) {
+        let result = {};
+        if (nextComment) {
+          result.nextComment = nextComment;
+        } else {
+          // no need to wait for this to finish
+          addNoMoreCommentsRecord(req.p.zid, pid);
+        }
+        // PID_FLOW This may be the first time the client gets the pid.
+        result.currentPid = req.p.pid;
+        finishOne(res, result);
+
+      }).catch(function(err) {
+        if (err === "polis_err_ptptCommentMod_duplicate") {
+          fail(res, 406, "polis_err_ptptCommentMod_duplicate", err); // TODO allow for changing votes?
+        } else if (err === "polis_err_conversation_is_closed") {
+          fail(res, 403, "polis_err_conversation_is_closed", err);
+        } else {
+          fail(res, 500, "polis_err_ptptCommentMod", err);
+        }
+      });
   }
 
 
