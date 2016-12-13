@@ -10179,7 +10179,7 @@ Thanks for using pol.is!
     let zid = req.p.zid;
     let mod = req.p.mod;
     let uid = req.p.uid;
-    let limit = 999;
+    let limit = 99999;
 
     Promise.all([
       getSocialParticipantsForMod(zid, limit, mod),
