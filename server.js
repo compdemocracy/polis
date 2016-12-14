@@ -7368,21 +7368,24 @@ Email verified! You can close this tab or hit the back button.
         // PID_FLOW This may be the first time the client gets the pid.
         result.currentPid = req.p.pid;
 
+
         result.shouldMod = true; // TODO
-        result.modOptions = {};
-        if (req.p.vote === polisTypes.reactions.pull) {
-          result.modOptions.as_important = true;
-          result.modOptions.as_factual = true;
-          result.modOptions.as_feeling = true;
-        } else if (req.p.vote === polisTypes.reactions.push) {
-          result.modOptions.as_notmyfeeling = true;
-          result.modOptions.as_notgoodidea = true;
-          result.modOptions.as_notfact = true;
-          result.modOptions.as_abusive = true;
-        } else if (req.p.vote === polisTypes.reactions.pass) {
-          result.modOptions.as_unsure = true;
-          result.modOptions.as_spam = true;
-          result.modOptions.as_abusive = true;
+        if (result.shouldMod) {
+          result.modOptions = {};
+          if (req.p.vote === polisTypes.reactions.pull) {
+            result.modOptions.as_important = true;
+            result.modOptions.as_factual = true;
+            result.modOptions.as_feeling = true;
+          } else if (req.p.vote === polisTypes.reactions.push) {
+            result.modOptions.as_notmyfeeling = true;
+            result.modOptions.as_notgoodidea = true;
+            result.modOptions.as_notfact = true;
+            result.modOptions.as_abusive = true;
+          } else if (req.p.vote === polisTypes.reactions.pass) {
+            result.modOptions.as_unsure = true;
+            result.modOptions.as_spam = true;
+            result.modOptions.as_abusive = true;
+          }
         }
 
         finishOne(res, result);
