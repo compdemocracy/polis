@@ -10750,12 +10750,13 @@ CREATE TABLE slack_user_invites (
       });
     }).then(() => {
       return pgQueryP(
-        "insert into waitinglist (email, campaign, affiliation, role, intercom_lead_user_id) values ($1, $2, $3, $4, $5);", [
+        "insert into waitinglist (email, campaign, affiliation, role, intercom_lead_user_id, name) values ($1, $2, $3, $4, $5, $6);", [
           req.p.email,
           req.p.campaign,
           req.p.affiliation || null,
           req.p.role || null,
           intercom_lead_user_id,
+          req.p.name,
         ]);
     }).then(() => {
       res.json({});
