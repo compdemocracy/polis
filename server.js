@@ -7369,7 +7369,7 @@ Email verified! You can close this tab or hit the back button.
         result.currentPid = req.p.pid;
 
 
-        result.shouldMod = true; // TODO
+        // result.shouldMod = true; // TODO
         if (result.shouldMod) {
           result.modOptions = {};
           if (req.p.vote === polisTypes.reactions.pull) {
