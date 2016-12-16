@@ -10158,6 +10158,91 @@ Thanks for using pol.is!
   }
 
 
+  function getParticipantMetadataForConversation(zid) {
+    return pgQueryP("select * from demographic_data left join participants on participants.uid = demographic_data.uid where zid = ($1);", [zid]);
+  }
+
+  function handle_GET_groupDemographics(req, res) {
+    if (!isPolisDev(req.p.uid)) {
+      fail(res, 500, "polis_err_groupDemographics_auth", err);
+      return;
+    }
+    let zid = req.p.zid;
+    Promise.all([
+      getPidsForGid(zid, 0, -1),
+      getPidsForGid(zid, 1, -1),
+      getPidsForGid(zid, 2, -1),
+      getPidsForGid(zid, 3, -1),
+      getPidsForGid(zid, 4, -1),
+      getParticipantMetadataForConversation(zid),
+    ]).then((o) => {
+      let groupPids = [];
+      let groupStats = [];
+      for (let i = 0; i < 5; i++) {
+        if (o[i] && o[i].length) {
+          groupPids.push(o[i]);
+
+          groupStats.push({
+            gid: i,
+            count: 0,
+            fb_gender_male: 0,
+            fb_gender_female: 0,
+            fb_gender_other: 0,
+            fb_gender_null: 0,
+            ms_gender_estimate_fb_male: 0,
+            ms_gender_estimate_fb_female: 0,
+            ms_gender_estimate_fb_null: 0,
+            ms_birth_year_estimate_fb: 0,
+            ms_birth_year_count: 0,
+          });
+        } else {
+          break;
+        }
+      }
+      let meta = o[5];
+
+      meta = _.indexBy(meta, 'pid');
+
+      for (let i = 0; i < groupStats.length; i++) {
+        let s = groupStats[i];
+        let pids = groupPids[i];
+        for (let p = 0; p < pids.length; p++) {
+          let pid = pids[p];
+          let ptptMeta = meta[pid];
+          if (ptptMeta) {
+            s.count += 1;
+            if (ptptMeta.fb_gender === 0) {
+              s.fb_gender_male += 1;
+            } else if (ptptMeta.fb_gender === 1) {
+              s.fb_gender_female += 1;
+            } else if (ptptMeta.fb_gender >= 2) {
+              s.fb_gender_other += 1;
+            } else {
+              s.fb_gender_null += 1;
+            }
+            if (ptptMeta.ms_birth_year_estimate_fb > 1900) {
+              s.ms_birth_year_estimate_fb += ptptMeta.ms_birth_year_estimate_fb;
+              s.ms_birth_year_count += 1;
+            }
+            if (ptptMeta.ms_gender_estimate_fb === 0) {
+              s.ms_gender_estimate_fb_male += 1;
+            } else if (ptptMeta.ms_gender_estimate_fb === 1) {
+              s.ms_gender_estimate_fb_female += 1;
+            } else {
+              s.ms_gender_estimate_fb_null += 1;
+            }
+          }
+        }
+        s.ms_birth_year_estimate_fb = s.ms_birth_year_estimate_fb / s.ms_birth_year_count;
+      }
+
+      res.json(groupStats);
+
+    }).catch((err) => {
+      fail(res, 500, "polis_err_groupDemographics", err);
+    });
+  }
+
 
   function handle_GET_locations(req, res) {
     let zid = req.p.zid;
@@ -12466,6 +12551,7 @@ CREATE TABLE slack_user_invites (
     handle_GET_dummyButton,
     handle_GET_einvites,
     handle_GET_facebook_delete,
+    handle_GET_groupDemographics,
     handle_GET_iim_conversation,
     handle_GET_iip_conversation,
     handle_GET_implicit_conversation_generation,

@@ -148,6 +148,7 @@ helpersInitialized.then(function(o) {
     handle_GET_dummyButton,
     handle_GET_einvites,
     handle_GET_facebook_delete,
+    handle_GET_groupDemographics,
     handle_GET_iim_conversation,
     handle_GET_iip_conversation,
     handle_GET_implicit_conversation_generation,
@@ -571,6 +572,7 @@ helpersInitialized.then(function(o) {
     want("owner", getBool, assignToP, true),
     handle_POST_auth_new);
 
+
   app.post("/api/v3/tutorial",
     auth(assignToP),
     need("step", getInt, assignToP),
@@ -588,6 +590,14 @@ helpersInitialized.then(function(o) {
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('strict', getBool, assignToP),
     handle_GET_participation);
+
+
+  app.get("/api/v3/group_demographics",
+    moveToBody,
+    auth(assignToP),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    handle_GET_groupDemographics);
+
 
   app.get("/api/v3/comments",
     moveToBody,
