@@ -664,9 +664,32 @@ CREATE INDEX votes_zid_pid_idx ON votes USING btree (zid, pid);
 
 
 -- since each participant can change their vote, and those values are stored in votes, use this if you want to fetch the current state
-CREATE FUNCTION votes_lastest_unique(int) RETURNS SETOF votes AS $$
-    WITH m AS (SELECT zid, pid, tid, MAX(created) AS created FROM votes WHERE zid = $1 GROUP BY zid, pid, tid) SELECT v.* FROM m LEFT JOIN votes v ON m.zid = v.zid AND m.pid = v.pid AND m.tid = v.tid WHERE m.created = v.created;
-$$ LANGUAGE SQL;
+-- CREATE FUNCTION votes_lastest_unique(int) RETURNS SETOF votes AS $$
+--     WITH m AS (SELECT zid, pid, tid, MAX(created) AS created FROM votes WHERE zid = $1 GROUP BY zid, pid, tid) SELECT v.* FROM m LEFT JOIN votes v ON m.zid = v.zid AND m.pid = v.pid AND m.tid = v.tid WHERE m.created = v.created;
+-- $$ LANGUAGE SQL;
+
+-- udpate the votes_latest_unique table if it gets out of sync
+-- insert into votes_latest_unique (zid, pid, tid, vote, modified, weight_x_32767) select zid, pid, tid, vote, created as modified, weight_x_32767 from (WITH m AS (SELECT zid, pid, tid, MAX(created) AS created FROM votes GROUP BY zid, pid, tid) SELECT v.* FROM m LEFT JOIN votes v ON m.zid = v.zid AND m.pid = v.pid AND m.tid = v.tid WHERE m.created = v.created) as foo;
+-- if that fails, run this and retry
+-- delete from votes a where a.ctid <> (select min(b.ctid) from votes b where a.zid = b.zid and a.tid = b.tid and a.pid = b.pid and a.vote = b.vote and a.created = b.created);
+
+CREATE TABLE votes_latest_unique (    
+    zid INTEGER NOT NULL,
+    pid INTEGER NOT NULL,
+    tid INTEGER NOT NULL,
+
+    vote SMALLINT,
+
+    -- Divide by 32767 before using! (and multiply by 32767 before storing). Applications should refer to this as "weight" after converting to a float in the range [-1, 1]
+    -- This is a SMALLINT for space saving reasons only (since vote is also SMALLINT (2 bytes), They'll line up w 4 a byte boundary).
+    -- -1.0 for "Don't show", 1.0 for "Show a lot", 0.0 is default.
+    weight_x_32767 SMALLINT DEFAULT 0,
+
+    modified BIGINT DEFAULT now_as_millis(),
+    UNIQUE (zid, pid, tid)
+);
+CREATE INDEX votes_latest_unique_zid_tid_idx ON votes USING btree (zid, tid);
+
 
 
 
