@@ -6153,7 +6153,37 @@ Email verified! You can close this tab or hit the back button.
       modClause = " and comments.mod = ($2)";
       params.push(o.mod);
     }
-    return pgQueryP_metered_readOnly("_getCommentsForModerationList", "select * from (select tid, count(*) from votes where zid = ($1) group by tid) as foo full outer join comments on foo.tid = comments.tid where comments.zid = ($1)" + modClause, params);
+    return pgQueryP_metered_readOnly("_getCommentsForModerationList", "select * from (select tid, vote, count(*) from votes_latest_unique where zid = ($1) group by tid, vote) as foo full outer join comments on foo.tid = comments.tid where comments.zid = ($1)" + modClause, params).then((rows) => {
+      // each comment will have up to three rows. merge those into one with agree/disagree/pass counts.
+      let adp = {};
+      for (let i = 0; i < rows.length; i++) {
+        let row = rows[i];
+        let o = adp[row.tid] = adp[row.tid] || {
+          agree_count: 0,
+          disagree_count: 0,
+          pass_count: 0,
+        };
+        if (row.vote === polisTypes.reactions.pull) {
+          o.agree_count = Number(row.count);
+        } else if (row.vote === polisTypes.reactions.push) {
+          o.disagree_count = Number(row.count);
+        } else if (row.vote === polisTypes.reactions.pass) {
+          o.pass_count = Number(row.count);
+        }
+      }
+      rows = _.uniq(rows, false, (row) => {
+        return row.tid;
+      });
+
+      for (let i = 0; i < rows.length; i++) {
+        let row = rows[i];
+        row.agree_count = adp[row.tid].agree_count;
+        row.disagree_count = adp[row.tid].disagree_count;
+        row.pass_count = adp[row.tid].pass_count;
+        row.count = row.agree_count + row.disagree_count + row.pass_count;
+      }
+      return rows;
+    });
   }
 
   function _getCommentsList(o) {
@@ -6248,6 +6278,9 @@ Email verified! You can close this tab or hit the back button.
         cols.push("zid");
         cols.push("mod");
         cols.push("active");
+        cols.push("agree_count"); //  in  moderation queries, we join in the vote count
+        cols.push("disagree_count"); //  in  moderation queries, we join in the vote count
+        cols.push("pass_count"); //  in  moderation queries, we join in the vote count
         cols.push("count"); //  in  moderation queries, we join in the vote count
       }
       rows = rows.map(function(row) {
