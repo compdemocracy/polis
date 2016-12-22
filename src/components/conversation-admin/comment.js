@@ -74,6 +74,12 @@ class Comment extends React.Component {
     const date = new Date(+this.props.comment.created);
     return `${date.getMonth()+1} / ${date.getUTCDate()} / ${date.getFullYear()}`
   }
+  getVoteBreakdown(comment) {
+    if (typeof this.props.comment.agree_count !== "undefined") {
+      return <span>({this.props.comment.agree_count} agreed, {this.props.comment.disagree_count} disagreed, {this.props.comment.pass_count} passed)</span>;
+    }
+    return "";
+  }
   render() {
     const styles = this.getStyles();
     const showAsAnon = !this.props.comment.social || this.props.comment.anon || this.props.comment.is_seed;
@@ -98,6 +104,7 @@ class Comment extends React.Component {
             voted on a total of
             <span style={{fontWeight: 500}}> {this.props.comment.count} </span>
             times.
+            {this.getVoteBreakdown(this.props.comment)}
           </p>
           <Flex>
             { this.props.acceptButton ? this.makeAcceptButton() : "" }
