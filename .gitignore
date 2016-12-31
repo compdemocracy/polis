@@ -1,0 +1,7 @@
+### OSX ###
+.DS_Store
+
+# App specific
+dist
+node_modules
+npm-debug.log
