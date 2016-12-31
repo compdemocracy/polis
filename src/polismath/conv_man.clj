@@ -77,20 +77,20 @@
       (assoc :lastVoteTimestamp (:last-vote-timestamp results))
       (assoc :lastModTimestamp (:last-mod-timestamp results))
       (hash-map-subset #{
-        :base-clusters
-        :group-clusters
-        :in-conv
-        :lastVoteTimestamp
-        :lastModTimestamp
-        :n
-        :n-cmts
-        :pca
-        :repness
-        :consensus
-        :zid
-        :user-vote-counts
-        :votes-base
-        :group-votes})))
+                         :base-clusters
+                         :group-clusters
+                         :in-conv
+                         :lastVoteTimestamp
+                         :lastModTimestamp
+                         :n
+                         :n-cmts
+                         :pca
+                         :repness
+                         :consensus
+                         :zid
+                         :user-vote-counts
+                         :votes-base
+                         :group-votes})))
 
 
 (defn mongo-upsert-results
@@ -325,7 +325,7 @@
               msgs      (take-all! msgbox)
               msgs      (concat [first-msg] msgs)
               {votes :votes mods :moderation}
-                        (split-batches msgs)]
+              (split-batches msgs)]
           (when mods
             (swap! conv conv/mod-update mods))
           (swap! conv update-fn (or votes []) err-handler))
