@@ -10,6 +10,9 @@
     "lint": "eslint src",
     "postinstall": "npm run build"
   },
+  "engines": {
+    "node": "6.9.1"
+  },
   "author": "Colin Megill",
   "license": "",
   "devDependencies": {
