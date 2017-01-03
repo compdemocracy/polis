@@ -21,9 +21,20 @@ class App extends React.Component {
     net.polisGet("/api/v3/voteProbabilityMatrixAgree", {
       conversation_id: conversation_id,
     }).then((result) => {
-      this.probabilitiesAgree = result;
+      // debugger;
+      // result = result && result.map((row, i) => {
+      //   row.key = i;
+      //   return row;
+      // });
+
+      this.setState({
+        probabilitiesAgree: result.matrix,
+        probabilitiesAgreeTids: result.rowToTid,
+      });
     }, (err) => {
-      this.probabilitiesAgreeError = err || true;
+      this.setState({
+        probabilitiesAgreeError: err || true,
+      });
     });
   }
 
@@ -32,7 +43,7 @@ class App extends React.Component {
   }
 
   render() {
-    return <Report probabilities={this.probabilitiesAgree} error={this.probabilitiesAgreeError}/>;
+    return <Report probabilities={this.state.probabilitiesAgree} tids={this.state.probabilitiesAgreeTids} error={this.state.probabilitiesAgreeError}/>;
   }
 }
 
