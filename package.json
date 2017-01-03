@@ -41,6 +41,7 @@
     "d3": "^3.5.17",
     "d3-scale-chromatic": "^1.1.0",
     "history": "^1.12.5",
+    "jquery": "^2.1.4",
     "lodash": "4.16.4",
     "moment": "^2.14.1",
     "moment-range": "^2.2.0",

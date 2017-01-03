@@ -5,50 +5,37 @@ import probabilities from "../sampleData/probabilities";
 import Radium from "radium";
 import _ from "lodash";
 
+import Report from "./report";
+
+import net from "../util/net"
+
+import $ from 'jquery';
+
+var conversation_id = "2arcefpshi";
+
 @Radium
 class App extends React.Component {
 
-  makeRect(comment, row, column) {
-    return (
-      <rect
-        fill={d3.interpolateGreens(comment)}
-        width="5"
-        height="5"
-        y={row * 10}
-        x={column * 10}  />
-    )
+
+  getAgreeMatrix() {
+    net.polisGet("/api/v3/voteProbabilityMatrixAgree", {
+      conversation_id: conversation_id,
+    }).then((result) => {
+      this.probabilitiesAgree = result;
+    }, (err) => {
+      this.probabilitiesAgreeError = err || true;
+    });
   }
 
-  makeRow(comments, row) {
-    return (
-      <g>
-        {comments.map((comment, column) => {
-          return (
-            <g>
-              {this.makeRect(comment, row, column)}
-            </g>
-          )
-        })}
-      </g>
-    )
+  componentWillMount() {
+    this.getAgreeMatrix();
   }
 
   render() {
-    return (
-      <div>
-        <p style={{margin: 20}}> pol.is report </p>
-        <svg style={{margin: 100}} width="1000" height="1000">
-          {probabilities.map((comments, row) => {
-            return (
-              <g key={Math.random()}>
-                {this.makeRow(comments, row)}
-              </g>
-            )
-          })}
-        </svg>
-      </div>
-    );
+    return <Report probabilities={this.probabilitiesAgree} error={this.probabilitiesAgreeError}/>;
   }
 }
 
 export default App;
+
+window.$ = $;
