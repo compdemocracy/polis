@@ -11,8 +11,8 @@ class Report extends React.Component {
     return (
       <rect
         fill={d3.interpolateGreens(comment)}
-        width="5"
-        height="5"
+        width="10"
+        height="10"
         x={column * 10}
         y="0" />
     )
@@ -20,31 +20,41 @@ class Report extends React.Component {
 
   makeRow(comments, row) {
     return (
-      <g
-          transform={"translate(0, " + (row * 10) + ")"} >
+      <g transform={"translate(0, " + (row * 10) + ")"} >
         <text
           textAnchor="right"
           alignmentBaseline="middle"
           fill="rgba(0,0,0,0.5)"
-          // style="font-family: Helvetica, sans-serif; font-size: 11px;"
-        >{this.props.tids[row]}</text>
+          style={{
+            fontFamily: "Helvetica, sans-serif",
+            fontSize: 10
+          }}>
+          {this.props.tids[row]}
+        </text>
 
-        {comments.map((comment, column) => {
-          {row === 0 ? <g transform={"translate(" + (column * 10) + ", 20)"}>
-            <text
-              textAnchor="right"
-              alignmentBaseline="middle"
-              fill="rgba(0,0,0,0.5)"
-              // style="font-family: Helvetica, sans-serif; font-size: 11px;"
-            >{"a"}</text>
-          </g> : ""}
-
-          return (
-            <g key={column}>
-              {this.makeRect(comment, row, column)}
-            </g>
-          )
-        })}
+        {
+          comments.map((comment, column) => {
+            {
+              row === 0 ?
+              <g transform={"translate(" + (column * 10) + ", 20)"}>
+                <text
+                  textAnchor="right"
+                  alignmentBaseline="middle"
+                  fill="rgba(0,0,0,0.5)"
+                  // style="font-family: Helvetica, sans-serif; font-size: 11px;"
+                  >
+                  {"a"}
+                </text>
+              </g>
+              : ""
+            }
+            return (
+              <g key={column}>
+                {this.makeRect(comment, row, column)}
+              </g>
+            )
+          })
+        }
       </g>
     )
   }
