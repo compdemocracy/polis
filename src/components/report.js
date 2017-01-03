@@ -4,6 +4,10 @@ import React from "react";
 import Radium from "radium";
 import _ from "lodash";
 
+
+var leftOffset = 70;
+var topOffset = 70;
+
 @Radium
 class Report extends React.Component {
 
@@ -13,14 +17,14 @@ class Report extends React.Component {
         fill={d3.interpolateGreens(comment)}
         width="10"
         height="10"
-        x={column * 10}
-        y="0" />
+        x={column * 10 + leftOffset}
+        y={0} />
     )
   }
 
   makeRow(comments, row) {
     return (
-      <g transform={"translate(0, " + (row * 10) + ")"} >
+      <g transform={"translate(0, " + (row * 10 + topOffset) + ")"} >
         <text
           textAnchor="right"
           alignmentBaseline="middle"
@@ -34,24 +38,27 @@ class Report extends React.Component {
 
         {
           comments.map((comment, column) => {
-            {
-              row === 0 ?
-              <g transform={"translate(" + (column * 10) + ", 20),  rotate(270)"}>
-                <text
-                  textAnchor="right"
-                  alignmentBaseline="middle"
-                  fill="rgba(0,0,0,0.5)"
-                  // style="font-family: Helvetica, sans-serif; font-size: 11px;"
-                  >
-                  {this.props.tids[column]}
-                </text>
-              </g>
-              : ""
-            }
+
             return (
-              <g key={column}>
-                {this.makeRect(comment, row, column)}
-              </g>
+              <g>
+                {
+                row === 0 ?
+                <g transform={"translate(" + (column * 10) + ", 20),  rotate(270)"}>
+                  <text
+                    textAnchor="right"
+                    alignmentBaseline="middle"
+                    fill="rgba(0,0,0,0.5)"
+                    // style="font-family: Helvetica, sans-serif; font-size: 11px;"
+                    >
+                    {this.props.tids[column]}
+                  </text>
+                </g>
+                : ""
+              }
+                <g key={column}>
+                  {this.makeRect(comment, row, column)}
+                </g>
+            </g>
             )
           })
         }
