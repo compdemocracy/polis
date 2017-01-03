@@ -36,14 +36,14 @@ class Report extends React.Component {
           comments.map((comment, column) => {
             {
               row === 0 ?
-              <g transform={"translate(" + (column * 10) + ", 20)"}>
+              <g transform={"translate(" + (column * 10) + ", 20),  rotate(270)"}>
                 <text
                   textAnchor="right"
                   alignmentBaseline="middle"
                   fill="rgba(0,0,0,0.5)"
                   // style="font-family: Helvetica, sans-serif; font-size: 11px;"
                   >
-                  {"a"}
+                  {this.props.tids[column]}
                 </text>
               </g>
               : ""

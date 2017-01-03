@@ -11,7 +11,7 @@ import net from "../util/net"
 
 import $ from 'jquery';
 
-var conversation_id = "2arcefpshi";
+var conversation_id = "2ez5beswtc";
 
 @Radium
 class App extends React.Component {
