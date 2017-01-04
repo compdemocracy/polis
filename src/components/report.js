@@ -13,12 +13,26 @@ class Report extends React.Component {
 
   makeRect(comment, row, column) {
     return (
-      <rect
-        fill={d3.interpolateGreens(comment)}
-        width="10"
-        height="10"
-        x={column * 10 + leftOffset}
-        y={0} />
+      <g>
+        <rect
+          fill={d3.interpolateGreens(comment)}
+          width="20"
+          height="20"
+          x={column * 20}
+          y="0" />
+          <text
+            x={column * 20 + 5}
+            y={13}
+            textAnchor="auto"
+            alignmentBaseline="auto"
+            fill="rgba(0,0,0,0.5)"
+            style={{
+              fontFamily: "Helvetica, sans-serif",
+              fontSize: 10
+            }}>
+            {Math.floor(comment * 100)}
+          </text>
+      </g>
     )
   }
 
