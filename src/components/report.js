@@ -5,8 +5,8 @@ import Radium from "radium";
 import _ from "lodash";
 
 
-var leftOffset = 70;
-var topOffset = 70;
+var leftOffset = 17;
+var topOffset = 50;
 
 @Radium
 class Report extends React.Component {
@@ -18,13 +18,10 @@ class Report extends React.Component {
           fill={d3.interpolateGreens(comment)}
           width="20"
           height="20"
-          x={column * 20}
-          y="0" />
+          />
           <text
-            x={column * 20 + 5}
+            x={5}
             y={13}
-            textAnchor="auto"
-            alignmentBaseline="auto"
             fill="rgba(0,0,0,0.5)"
             style={{
               fontFamily: "Helvetica, sans-serif",
@@ -36,46 +33,49 @@ class Report extends React.Component {
     )
   }
 
+  makeColumn(comments, row) {
+    return comments.map((comment, column) => {
+      return (
+        <g key={column} >
+          {/* this translate places the top text labels where they should go, rotated */}
+          <text
+            transform={"translate(" + (column * 20 + 13) + ", 20), rotate(270)"}
+            fill="rgba(0,0,0,0.7)"
+            style={{
+              display: row === 0 ? "block" : "none",
+              fontFamily: "Helvetica, sans-serif",
+              fontSize: 10,
+              fontWeight: 700
+            }}
+            >
+            {this.props.tids[column]}
+          </text>
+          {/* this translate places the columns where they should go, and creates a gutter */}
+          <g transform={"translate(" + (column * 20) + ", 30)"}>
+            {this.makeRect(comment, row, column)}
+          </g>
+        </g>
+      )
+    })
+  }
+
   makeRow(comments, row) {
     return (
-      <g transform={"translate(0, " + (row * 10 + topOffset) + ")"} >
+      <g transform={"translate(0, " + (row * 20 + topOffset) + ")"}>
+        {/* this translate seperates the rows */}
         <text
-          textAnchor="right"
-          alignmentBaseline="middle"
-          fill="rgba(0,0,0,0.5)"
+          fill="rgba(0,0,0,.7)"
           style={{
             fontFamily: "Helvetica, sans-serif",
-            fontSize: 10
+            fontSize: 10,
+            fontWeight: 700
           }}>
           {this.props.tids[row]}
         </text>
-
-        {
-          comments.map((comment, column) => {
-
-            return (
-              <g key={column}>
-                {
-                row === 0 ?
-                <g transform={"translate(" + (column * 10) + ", 20),  rotate(270)"}>
-                  <text
-                    textAnchor="right"
-                    alignmentBaseline="middle"
-                    fill="rgba(0,0,0,0.5)"
-                    // style="font-family: Helvetica, sans-serif; font-size: 11px;"
-                    >
-                    {this.props.tids[column]}
-                  </text>
-                </g>
-                : ""
-              }
-                <g>
-                  {this.makeRect(comment, row, column)}
-                </g>
-            </g>
-            )
-          })
-        }
+        {/* this translate moves just the colored squares over to make a gutter, not the text */}
+        <g transform={"translate("+ leftOffset +", -43)"}>
+          {this.makeColumn(comments, row)}
+        </g>
       </g>
     )
   }
@@ -84,7 +84,7 @@ class Report extends React.Component {
     return (
       <div>
         <p style={{margin: 20}}> pol.is report </p>
-        <svg style={{margin: 100}} width="1000" height="1000">
+        <svg style={{margin: 20}} width="1000" height="1000">
           {this.props.probabilities.map((comments, row) => {
             return (
               <g key={row}>
