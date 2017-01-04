@@ -40,6 +40,7 @@
       (utils/hash-map-subset #{
                                :base-clusters
                                :group-clusters
+                               :subgroup-clusters
                                :in-conv
                                :lastVoteTimestamp
                                :lastModTimestamp
@@ -311,8 +312,10 @@
           conv (load-or-init conv-man zid :recompute (:recompute config))
           _ (log/info "Conversation loaded for conv zid:" zid)
           ;; XXX Need to set up message chan buffer as a env var
-          message-chan (chan 100000)]
-      (swap! conversations assoc zid {:conv conv :message-chan message-chan})
+          message-chan (chan 100000)
+          ;; We use a separate cchannel for messages that we've tryied to process but that havent worked for one reason or another
+          retry-chan   (chan 10)] ; only relaly need buffer 1 here?
+      (swap! conversations assoc zid {:conv conv :message-chan message-chan :retry-chan retry-chan})
       ;; Just call again to make sure the message gets on the chan :-)
       (queue-message-batch! conv-man message-type zid message-batch)
       ;; However, we don't use the conversations atom conv state, but keep track of it explicitly in the loop,
@@ -320,10 +323,11 @@
       ;; just a convenience.
       (go-loop [conv conv]
         (let [first-msg (<! message-chan)
+              retry-msgs (async/poll! retry-chan)
               _ (log/info "Message chan put in queue-message-batch! for zid:" zid)
-              msgs (concat [first-msg] (take-all! message-chan))
+              msgs (vec (concat retry-msgs [first-msg] (take-all! message-chan)))
               {:as split-msgs :keys [votes moderation]} (split-batches msgs)
-              error-handler (build-update-error-handler conv-man message-chan conv)
+              error-handler (build-update-error-handler conv-man retry-chan conv)
               _ (log/info "About to run updaters")
               ;; TODO Oh... is this how we're failing to get moderation affecting repness? We're presently only updating mongo
               ;; (via `update`) if there are also votes. (see below)
