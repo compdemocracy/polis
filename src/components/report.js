@@ -40,7 +40,7 @@ class Report extends React.Component {
           comments.map((comment, column) => {
 
             return (
-              <g>
+              <g key={column}>
                 {
                 row === 0 ?
                 <g transform={"translate(" + (column * 10) + ", 20),  rotate(270)"}>
@@ -55,7 +55,7 @@ class Report extends React.Component {
                 </g>
                 : ""
               }
-                <g key={column}>
+                <g>
                   {this.makeRect(comment, row, column)}
                 </g>
             </g>
