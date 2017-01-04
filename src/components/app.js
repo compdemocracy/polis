@@ -17,29 +17,56 @@ var conversation_id = "2ez5beswtc";
 class App extends React.Component {
 
 
-  getAgreeMatrix() {
-    net.polisGet("/api/v3/voteProbabilityMatrixAgree", {
+  getMath() {
+    return net.polisGet("/api/v3/math/pca2", {
+      lastVoteTimestamp: 0,
       conversation_id: conversation_id,
-    }).then((result) => {
-      // debugger;
-      // result = result && result.map((row, i) => {
-      //   row.key = i;
-      //   return row;
-      // });
+    });
+  }
+
+  getAgreeMatrix() {
+    return net.polisGet("/api/v3/voteProbabilityMatrixAgree", {
+      conversation_id: conversation_id,
+    });
+  }
+  getComments() {
+    return net.polisGet("/api/v3/comments", {
+      conversation_id: conversation_id,
+      moderation: true,
+      include_social: true,
+    });
+  }
+
+  getParticipantsOfInterest() {
+    return net.polisGet("/api/v3/ptptois", {
+      conversation_id: conversation_id,
+    });
+  }
+
+  getData() {
+    Promise.all([
+      this.getMath(),
+      this.getAgreeMatrix(),
+      this.getComments(),
+      this.getParticipantsOfInterest(),
+    ]).then((a) => {
+      var mathResult = a[0];
+      var coOccurrenceAgreeResult = a[1];
 
       this.setState({
-        probabilitiesAgree: result.matrix,
-        probabilitiesAgreeTids: result.rowToTid,
+        probabilitiesAgree: coOccurrenceAgreeResult.matrix,
+        probabilitiesAgreeTids: coOccurrenceAgreeResult.rowToTid,
+
       });
     }, (err) => {
       this.setState({
-        probabilitiesAgreeError: err || true,
+        probabilitiesAgreeError: (err || true),
       });
     });
   }
 
   componentWillMount() {
-    this.getAgreeMatrix();
+    this.getData();
   }
 
   render() {
