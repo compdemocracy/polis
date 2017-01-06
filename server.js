@@ -6495,16 +6495,6 @@ Email verified! You can close this tab or hit the back button.
     }
     return gender;
   }
-  function isGenderMale(demo) {
-    return getGender(demo) === 0;
-  }
-  function isGenderFemale(demo) {
-    return getGender(demo) === 1;
-  }
-  function isGenderUnknown(demo) {
-    var gender = getGender(demo);
-    return gender !== 0 && gender !== 1;
-  }
 
 
   
@@ -6518,6 +6508,17 @@ Email verified! You can close this tab or hit the back button.
     }
     function isPass(v) {
       return v.vote === polisTypes.reactions.pass;
+    }
+
+    function isGenderMale(demo) {
+      return demo.gender === 0;
+    }
+    function isGenderFemale(demo) {
+      return demo.gender === 1;
+    }
+    function isGenderUnknown(demo) {
+      var gender = demo.gender;
+      return gender !== 0 && gender !== 1;
     }
 
     return Promise.all([
@@ -6566,31 +6567,34 @@ Email verified! You can close this tab or hit the back button.
         var disagrees = votesForThisComment.filter(isDisgree);
         var passes = votesForThisComment.filter(isPass);
 
-        c.demo = {
-          agree: {
-            gender: {
-              m: agrees.filter(isGenderMale).length,
-              f: agrees.filter(isGenderFemale).length,
-              unknown: agrees.filter(isGenderUnknown).length,
+        var votesByAgeRange = _.groupBy(votesForThisComment, "ageRange");
+
+        c.demographics = {
+          gender: {
+            "m": {
+              agree: agrees.filter(isGenderMale).length,
+              disagree: disagrees.filter(isGenderMale).length,
+              pass: passes.filter(isGenderMale).length,
             },
-            age: _.countBy(agrees, "ageRange"),
-          },
-          disagree: {
-            gender: {
-              m: disagrees.filter(isGenderMale).length,
-              f: disagrees.filter(isGenderFemale).length,
-              unknown: disagrees.filter(isGenderUnknown).length,
+            "f": {
+              agree: agrees.filter(isGenderFemale).length,
+              disagree: disagrees.filter(isGenderFemale).length,
+              pass: passes.filter(isGenderFemale).length,
             },
-            age: _.countBy(disagrees, "ageRange"),
-          },
-          pass: {
-            gender: {
-              m: passes.filter(isGenderMale).length,
-              f: passes.filter(isGenderFemale).length,
-              unknown: passes.filter(isGenderUnknown).length,
+            "?": {
+              agree: agrees.filter(isGenderUnknown).length,
+              disagree: disagrees.filter(isGenderUnknown).length,
+              pass: passes.filter(isGenderUnknown).length,
             },
-            age: _.countBy(passes, "ageRange"),
           },
+          age: _.mapObject(votesByAgeRange, (votes, ageRange) => {
+            var o = _.countBy(votes, "vote");
+            return {
+              agree: o[polisTypes.reactions.pull],
+              disagree: o[polisTypes.reactions.push],
+              pass: o[polisTypes.reactions.pass],
+            };
+          }),
         };
         return c;
       });
