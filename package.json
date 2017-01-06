@@ -51,7 +51,7 @@
     "response-time": "2.3.1",
     "simple-oauth2": "0.2.1",
     "sql": "0.34.0",
-    "underscore": "1.5.2",
+    "underscore": "1.8.3",
     "valid-url": "1.0.9",
     "winston": "1.0.2"
   },
