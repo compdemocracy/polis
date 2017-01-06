@@ -6459,6 +6459,123 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
+  
+  function getAgeRange(demo) {
+    var age = demo.ms_birth_year_estimate_fb;
+    if (_.isNull(age) || _.isUndefined(age) || _.isNaN(age)) {
+      return 0;
+    } else if (age < 12) {
+      return 1;
+    } else if (age < 18) {
+      return 2;
+    } else if (age < 25) {
+      return 3;
+    } else if (age < 35) {
+      return 4;
+    } else if (age < 45) {
+      return 5;
+    } else if (age < 55) {
+      return 6;
+    } else if (age < 65) {
+      return 7;
+    } else {
+      return 8;
+    }
+  }
+
+  // 0 male, 1 female, 2 other, or NULL
+  function getGender(demo) {
+    var gender = fb_gender;
+    if (_.isNull(gender) || _.isUndefined(gender)) {
+      gender = ms_gender_estimate_fb;
+    }
+    return gender;
+  }
+  function isGenderMale(demo) {
+    return getGender(demo) === 0;
+  }
+  function isGenderFemale(demo) {
+    return getGender(demo) === 1;
+  }
+  function isGenderUnknown(demo) {
+    var gender = getGender(demo);
+    return gender !== 0 && gender !== 1;
+  }
+
+
+  
+
+  function getDemographicsForVotersOnComments(zid, comments) {
+    function isAgree(v) {
+      return v.vote === polisTypes.reactions.pull;
+    }
+    function isDisgree(v) {
+      return v.vote === polisTypes.reactions.push;
+    }
+    function isPass(v) {
+      return v.vote === polisTypes.reactions.pass;
+    }
+
+    return Promise.all([
+      pgQueryP("select * from votes_latest_unique where zid = ($1);", [zid]),
+      pgQueryP("select p.pid, d.* from participants p left join demographic_data d on p.uid = d.uid where p.zid = ($1);", [zid]),
+    ]).then((a) => {
+      var votes = a[0];
+      var demo = a[1];
+
+
+      demo = demo.map((d) => {
+        return {
+          pid: d.pid,
+          gender: getGender(d),
+          ageRange: getAgeRange(d),
+        };
+      });
+      var demoByPid = _.indexBy(demo, "pid");
+      
+      votes = votes.map((v) => {
+        return _.extend(v, demoByPid[v.pid];
+      });
+
+      var votesByTid = _.indexBy(votes, "tid");
+
+      return comments.map((c) => {
+
+        var agrees = votesByTid[c.tid].filter(isAgree);
+        var disagrees = votesByTid[c.tid].filter(isDisgree);
+        var passes = votesByTid[c.tid].filter(isPass);
+
+        c.demo = {
+          agree: {
+            gender: {
+              m: agrees.filter(isGenderMale).length,
+              f: agrees.filter(isGenderFemale).length,
+              unknown: agrees.filter(isGenderUnknown).length,
+            },
+            age: _.indexBy(agrees, "ageRange"),
+          },
+          disagree: {
+            gender: {
+              m: disagrees.filter(isGenderMale).length,
+              f: disagrees.filter(isGenderFemale).length,
+              unknown: disagrees.filter(isGenderUnknown).length,
+            },
+            age: _.indexBy(disagrees, "ageRange"),
+          },
+          pass: {
+            gender: {
+              m: passes.filter(isGenderMale).length,
+              f: passes.filter(isGenderFemale).length,
+              unknown: passes.filter(isGenderUnknown).length,
+            },
+            age: _.indexBy(passes, "ageRange"),
+          },
+        };
+        return c;
+      });
+    });
+  }
+
 
   function handle_GET_comments(req, res) {
 
@@ -6480,6 +6597,22 @@ Email verified! You can close this tab or hit the back button.
         }
         return c;
       });
+
+      if (req.p.include_demographics) {
+        isOwner(req.p.zid, req.p.uid).then((owner) => {
+          if (owner) {
+            return getDemographicsForVotersOnComments(req.p.zid, comments).then((commentsWithDemographics) => {
+              finishArray(res, commentsWithDemographics);
+            }).catch((err) => {
+              fail(res, 500, "polis_err_get_comments3", err);
+            });
+          } else {
+            fail(res, 500, "polis_err_get_comments_permissions", err);
+          }
+        }).catch((err) => {
+          fail(res, 500, "polis_err_get_comments2", err);
+        });
+      }
 
       finishArray(res, comments);
     }).catch(function(err) {
