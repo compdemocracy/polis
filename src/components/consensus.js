@@ -1,6 +1,6 @@
 import React from "react";
 import Radium from "radium";
-// import _ from "lodash";
+import _ from "lodash";
 import Comment from "./comment";
 
 @Radium
@@ -21,6 +21,7 @@ class Consensus extends React.Component {
 
   render() {
     const styles = this.getStyles();
+    const comments = _.keyBy(this.props.comments, "tid");
     return (
       <div style={[
         styles.base,
@@ -29,21 +30,27 @@ class Consensus extends React.Component {
       <p> Consensus </p>
         {
           this.props.consensus ? this.props.consensus.agree.map((c, i) => {
-            return <Comment conversation={this.props.conversation} key={i} index={i} comment={this.props.comments[c.tid]}/>
+            return <Comment
+              conversation={this.props.conversation}
+              key={i}
+              index={i}
+              comment={comments[c.tid]}/>
           })
           : "Loading Consensus"
         }
-
+        {
+          this.props.consensus ? this.props.consensus.disagree.map((c, i) => {
+            return <Comment
+              conversation={this.props.conversation}
+              key={i}
+              index={i}
+              comment={comments[c.tid]}/>
+          })
+          : "Loading Consensus"
+        }
       </div>
     );
   }
 }
 
 export default Consensus;
-// 
-// {
-//   this.props.consensus ? this.props.consensus.disagree.map((c, i) => {
-//     return <Comment conversation={this.props.conversation} key={i} index={i} comment={this.props.comments[c.tid]}/>
-//   })
-//   : "Loading Consensus"
-// }
