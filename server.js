@@ -6461,33 +6461,37 @@ Email verified! You can close this tab or hit the back button.
 
   
   function getAgeRange(demo) {
-    var age = demo.ms_birth_year_estimate_fb;
-    if (_.isNull(age) || _.isUndefined(age) || _.isNaN(age)) {
-      return 0;
-    } else if (age < 12) {
-      return 1;
+    var currentYear = (new Date()).getUTCFullYear();
+    var birthYear = demo.ms_birth_year_estimate_fb;
+    console.log('mikeage', age);
+    if (_.isNull(birthYear) || _.isUndefined(birthYear) || _.isNaN(birthYear)) {
+      return "?";
+    }
+    var age = currentYear - birthYear;
+    if (age < 12) {
+      return "0-11";
     } else if (age < 18) {
-      return 2;
+      return "12-17";
     } else if (age < 25) {
-      return 3;
+      return "18-24";
     } else if (age < 35) {
-      return 4;
+      return "25-34";
     } else if (age < 45) {
-      return 5;
+      return "35-44";
     } else if (age < 55) {
-      return 6;
+      return "45-54";
     } else if (age < 65) {
-      return 7;
+      return "55-64";
     } else {
-      return 8;
+      return "65+";
     }
   }
 
   // 0 male, 1 female, 2 other, or NULL
   function getGender(demo) {
-    var gender = fb_gender;
+    var gender = demo.fb_gender;
     if (_.isNull(gender) || _.isUndefined(gender)) {
-      gender = ms_gender_estimate_fb;
+      gender = demo.ms_gender_estimate_fb;
     }
     return gender;
   }
@@ -6517,7 +6521,7 @@ Email verified! You can close this tab or hit the back button.
     }
 
     return Promise.all([
-      pgQueryP("select * from votes_latest_unique where zid = ($1);", [zid]),
+      pgQueryP("select pid,tid,vote from votes_latest_unique where zid = ($1);", [zid]),
       pgQueryP("select p.pid, d.* from participants p left join demographic_data d on p.uid = d.uid where p.zid = ($1);", [zid]),
     ]).then((a) => {
       var votes = a[0];
@@ -6534,16 +6538,33 @@ Email verified! You can close this tab or hit the back button.
       var demoByPid = _.indexBy(demo, "pid");
       
       votes = votes.map((v) => {
-        return _.extend(v, demoByPid[v.pid];
+        return _.extend(v, demoByPid[v.pid]);
       });
 
-      var votesByTid = _.indexBy(votes, "tid");
+      var votesByTid = _.groupBy(votes, "tid");
+
+      console.log("mikedemoBypid");
+      console.log(demoByPid);
+      console.log("mikevotes");
+      console.log(votes);
+      console.log(votesByTid);
+
+      // TODO maybe we should actually look at gender, then a/d/p %
+      // TODO maybe we should actually look at each age range, then a/d/p %
+      // that will be more natrual in cases of unequal representation
 
       return comments.map((c) => {
+        var votesForThisComment =  votesByTid[c.tid];
 
-        var agrees = votesByTid[c.tid].filter(isAgree);
-        var disagrees = votesByTid[c.tid].filter(isDisgree);
-        var passes = votesByTid[c.tid].filter(isPass);
+        if (!votesForThisComment || !votesForThisComment.length) {
+          console.log("skipping");
+          console.log(votesForThisComment);
+          return c;
+        }
+
+        var agrees = votesForThisComment.filter(isAgree);
+        var disagrees = votesForThisComment.filter(isDisgree);
+        var passes = votesForThisComment.filter(isPass);
 
         c.demo = {
           agree: {
@@ -6552,7 +6573,7 @@ Email verified! You can close this tab or hit the back button.
               f: agrees.filter(isGenderFemale).length,
               unknown: agrees.filter(isGenderUnknown).length,
             },
-            age: _.indexBy(agrees, "ageRange"),
+            age: _.countBy(agrees, "ageRange"),
           },
           disagree: {
             gender: {
@@ -6560,7 +6581,7 @@ Email verified! You can close this tab or hit the back button.
               f: disagrees.filter(isGenderFemale).length,
               unknown: disagrees.filter(isGenderUnknown).length,
             },
-            age: _.indexBy(disagrees, "ageRange"),
+            age: _.countBy(disagrees, "ageRange"),
           },
           pass: {
             gender: {
@@ -6568,7 +6589,7 @@ Email verified! You can close this tab or hit the back button.
               f: passes.filter(isGenderFemale).length,
               unknown: passes.filter(isGenderUnknown).length,
             },
-            age: _.indexBy(passes, "ageRange"),
+            age: _.countBy(passes, "ageRange"),
           },
         };
         return c;
@@ -6601,20 +6622,20 @@ Email verified! You can close this tab or hit the back button.
       if (req.p.include_demographics) {
         isOwner(req.p.zid, req.p.uid).then((owner) => {
           if (owner) {
-            return getDemographicsForVotersOnComments(req.p.zid, comments).then((commentsWithDemographics) => {
+            return getDemographicsForVotersOnComments(req.p.zid, comments).then((commentsWithDemographics) => {              
               finishArray(res, commentsWithDemographics);
             }).catch((err) => {
               fail(res, 500, "polis_err_get_comments3", err);
             });
           } else {
-            fail(res, 500, "polis_err_get_comments_permissions", err);
+            fail(res, 500, "polis_err_get_comments_permissions");            
           }
         }).catch((err) => {
           fail(res, 500, "polis_err_get_comments2", err);
         });
+      } else {
+        finishArray(res, comments);
       }
-
-      finishArray(res, comments);
     }).catch(function(err) {
       winston.log("info", "getComments " + rid + " failed");
       fail(res, 500, "polis_err_get_comments", err);
