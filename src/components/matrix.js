@@ -3,13 +3,14 @@ import React from "react";
 
 import Radium from "radium";
 import _ from "lodash";
+import * as globals from "./globals";
 
 
 var leftOffset = 17;
 var topOffset = 50;
 
 @Radium
-class Report extends React.Component {
+class Matrix extends React.Component {
 
   makeRect(comment, row, column) {
     return (
@@ -24,7 +25,7 @@ class Report extends React.Component {
             y={13}
             fill="rgba(0,0,0,0.5)"
             style={{
-              fontFamily: "Helvetica, sans-serif",
+              fontFamily: globals.sans,
               fontSize: 10
             }}>
             {Math.floor(comment * 100)}
@@ -83,7 +84,6 @@ class Report extends React.Component {
   renderMatrix() {
     return (
       <div>
-        <p style={{margin: 20}}> pol.is report </p>
         <svg style={{margin: 20}} width="1000" height="1000">
           {this.props.probabilities.map((comments, row) => {
             return (
@@ -120,4 +120,4 @@ class Report extends React.Component {
   }
 }
 
-export default Report;
+export default Matrix;

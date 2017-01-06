@@ -5,7 +5,13 @@ import probabilities from "../sampleData/probabilities";
 import Radium from "radium";
 import _ from "lodash";
 
-import Report from "./report";
+import Matrix from "./Matrix";
+import Heading from "./Heading";
+import Overview from "./Overview";
+import Consensus from "./Consensus";
+import Contested from "./Contested";
+import AllComments from "./AllComments";
+import ParticipantGroups from "./ParticipantGroups";
 
 import net from "../util/net"
 
@@ -13,9 +19,19 @@ import $ from 'jquery';
 
 var conversation_id = "2ez5beswtc";
 
-@Radium
 class App extends React.Component {
 
+  constructor(props) {
+    super(props);
+    this.state = {
+      consensus: null,
+      comments: null,
+      participants: null,
+      probabilitiesAgree: null,
+      probabilitiesAgreeTids: null,
+      conversation: null
+    };
+  }
 
   getMath() {
     return net.polisGet("/api/v3/math/pca2", {
@@ -33,7 +49,9 @@ class App extends React.Component {
     return net.polisGet("/api/v3/comments", {
       conversation_id: conversation_id,
       moderation: true,
+      mod_gt: -1,
       include_social: true,
+      include_demographics: true
     });
   }
 
@@ -42,21 +60,34 @@ class App extends React.Component {
       conversation_id: conversation_id,
     });
   }
-
+  getConversation() {
+    return net.polisGet("/api/v3/conversations", {
+      conversation_id: conversation_id,
+    });
+  }
   getData() {
     Promise.all([
       this.getMath(),
       this.getAgreeMatrix(),
       this.getComments(),
       this.getParticipantsOfInterest(),
+      this.getConversation()
     ]).then((a) => {
-      var mathResult = a[0];
-      var coOccurrenceAgreeResult = a[1];
+      const mathResult = a[0];
+      const coOccurrenceAgreeResult = a[1];
+      const comments = a[2];
+      const participants = a[3];
+      const conversation = a[4];
+
+      console.log(a)
 
       this.setState({
+        consensus: mathResult.consensus,
+        comments: comments,
+        participants: participants,
         probabilitiesAgree: coOccurrenceAgreeResult.matrix,
         probabilitiesAgreeTids: coOccurrenceAgreeResult.rowToTid,
-
+        conversation: conversation
       });
     }, (err) => {
       this.setState({
@@ -70,7 +101,24 @@ class App extends React.Component {
   }
 
   render() {
-    return <Report probabilities={this.state.probabilitiesAgree} tids={this.state.probabilitiesAgreeTids} error={this.state.probabilitiesAgreeError}/>;
+    return (
+      <div style={{margin: 20}}>
+        <Heading/>
+        <Overview/>
+        <Consensus
+          conversation={this.state.conversation}
+          comments={this.state.comments}
+          consensus={this.state.consensus}/>
+        <Contested/>
+        <AllComments/>
+        <Matrix
+          probabilities={this.state.probabilitiesAgree}
+          tids={this.state.probabilitiesAgreeTids}
+          error={this.state.probabilitiesAgreeError}/>
+        <ParticipantGroups/>
+        <p> pol.is report </p>
+      </div>
+    );
   }
 }
 
