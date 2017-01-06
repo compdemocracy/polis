@@ -606,6 +606,7 @@ helpersInitialized.then(function(o) {
     want('tids', getArrayOfInt, assignToP),
     want('moderation', getBool, assignToP),
     want('mod', getInt, assignToP),
+    want('mod_gt', getInt, assignToP),
     want('include_social', getBool, assignToP),
     want('include_demographics', getBool, assignToP),
     //    need('lastServerToken', _.identity, assignToP),
