@@ -29,7 +29,8 @@ class App extends React.Component {
       participants: null,
       probabilitiesAgree: null,
       probabilitiesAgreeTids: null,
-      conversation: null
+      conversation: null,
+      groupDemographics: null
     };
   }
 
@@ -65,19 +66,27 @@ class App extends React.Component {
       conversation_id: conversation_id,
     });
   }
+  getGroupDemographics() {
+    return net.polisGet("/api/v3/group_demographics", {
+      conversation_id: conversation_id,
+    });
+
+  }
   getData() {
     Promise.all([
       this.getMath(),
       this.getAgreeMatrix(),
       this.getComments(),
       this.getParticipantsOfInterest(),
-      this.getConversation()
+      this.getConversation(),
+      this.getGroupDemographics()
     ]).then((a) => {
       const mathResult = a[0];
       const coOccurrenceAgreeResult = a[1];
       const comments = a[2];
       const participants = a[3];
       const conversation = a[4];
+      const groupDemographics = a[5];
 
       console.log(a)
 
@@ -109,8 +118,9 @@ class App extends React.Component {
           conversation={this.state.conversation}
           comments={this.state.comments}
           consensus={this.state.consensus}/>
-        <Contested/>
-        <AllComments/>
+        <AllComments
+          conversation={this.state.conversation}
+          comments={this.state.comments}/>
         <Matrix
           probabilities={this.state.probabilitiesAgree}
           tids={this.state.probabilitiesAgreeTids}
