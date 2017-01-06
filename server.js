@@ -6167,6 +6167,10 @@ Email verified! You can close this tab or hit the back button.
       modClause = " and comments.mod = ($2)";
       params.push(o.mod);
     }
+    if (!_.isUndefined(o.mod_gt)) {
+      modClause = " and comments.mod > ($2)";
+      params.push(o.mod_gt);
+    }
     return pgQueryP_metered_readOnly("_getCommentsForModerationList", "select * from (select tid, vote, count(*) from votes_latest_unique where zid = ($1) group by tid, vote) as foo full outer join comments on foo.tid = comments.tid where comments.zid = ($1)" + modClause, params).then((rows) => {
       // each comment will have up to three rows. merge those into one with agree/disagree/pass counts.
       let adp = {};
@@ -7277,7 +7281,7 @@ Email verified! You can close this tab or hit the back button.
   //   q += "   GROUP BY tid),  ";
   //   q += "     x AS  ";
   //   q += "  (SELECT * ";
-  //   q += "   FROM votes_lastest_unique($1) ";
+  //   q += "   FROM votes_latest_unique($1) ";
   //   q += "   ORDER BY tid),  ";
   //   q += "     a AS  ";
   //   q += "  (SELECT zid,  ";
