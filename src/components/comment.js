@@ -4,6 +4,7 @@ import Flex from "./flex";
 // import ParticipantHeader from "./participant-header";
 import { connect } from "react-redux";
 import * as globals from "./globals";
+import BarChart from "./barChart";
 
 @Radium
 class Comment extends React.Component {
@@ -30,57 +31,7 @@ class Comment extends React.Component {
     }
     return "";
   }
-  createBarChart() {
 
-    const rectStartX = 70;
-    const barHeight = 12;
-    const leftTextOffset = 63;
-
-    const arr = [
-      {
-        label: "voted",
-        percent: this.props.comment.count / this.props.conversation.participant_count * 100,
-        fill: "rgb(180,180,180)"
-      },
-      {
-        label: "agreed",
-        percent: this.props.comment.agree_count / this.props.comment.count * 100,
-        fill: "rgb(46, 204, 113)"
-      },
-      {
-        label: "disagreed",
-        percent: this.props.comment.disagree_count / this.props.comment.count * 100,
-        fill: "rgb(231, 76, 60)"
-      },
-      {
-        label: "passed",
-        percent: this.props.comment.pass_count / this.props.comment.count * 100,
-        fill: "rgb(230,230,230)"
-      }
-    ];
-    return (
-      <g>
-        {arr.map((d, i) => {
-          return (
-            <g key={i}>
-              <text x={leftTextOffset} y={(i+1) * 15} fontFamily="Helvetica" fontSize="10" textAnchor={"end"}>
-                {d.label}
-              </text>
-              <rect
-                width={d.percent}
-                height={barHeight}
-                x={rectStartX}
-                y={((i+1) * 15) - 9}
-                fill={d.fill}/>
-              <text x={leftTextOffset + d.percent + 10} y={(i+1) * 15} fontFamily="Helvetica" fontSize="10" textAnchor={"start"}>
-                {Math.floor(d.percent) + "%"}
-              </text>
-            </g>
-          )
-        })}
-      </g>
-    )
-  }
   render() {
     const styles = this.getStyles();
     const showAsAnon = !this.props.comment.social || this.props.comment.anon || this.props.comment.is_seed;
@@ -111,7 +62,9 @@ class Comment extends React.Component {
             y2="65"
             strokeWidth="2"
             stroke="rgb(245,245,245)"/>
-          {this.createBarChart()}
+          <BarChart
+            conversation={this.props.conversation}
+            comment={this.props.comment}/>
         </svg>
       </Flex>
     );
@@ -119,7 +72,10 @@ class Comment extends React.Component {
 }
 
 export default Comment;
-//
+
+// <p>{this.props.comment.demographics.gender}</p>
+// <p>{this.props.comment.demographics.age}</p>
+
 // {
 //   showAsAnon ?
 //     "Anonymous" :
