@@ -607,6 +607,7 @@ helpersInitialized.then(function(o) {
     want('moderation', getBool, assignToP),
     want('mod', getInt, assignToP),
     want('include_social', getBool, assignToP),
+    want('include_demographics', getBool, assignToP),
     //    need('lastServerToken', _.identity, assignToP),
     resolve_pidThing('not_voted_by_pid', assignToP, "get:comments:not_voted_by_pid"),
     resolve_pidThing('pid', assignToP, "get:comments:pid"),
