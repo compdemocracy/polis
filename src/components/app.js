@@ -119,9 +119,6 @@ class App extends React.Component {
           conversation={this.state.conversation}
           comments={this.state.comments}
           consensus={this.state.consensus}/>
-        <AllComments
-          conversation={this.state.conversation}
-          comments={this.state.comments}/>
         <Matrix
           probabilities={this.state.probabilitiesAgree}
           tids={this.state.probabilitiesAgreeTids}
@@ -132,6 +129,10 @@ class App extends React.Component {
           demographics={this.state.demographics}
           comments={this.state.comments}
           math={this.state.math}/>
+        <p> ==================================== End Analysis ==================================== </p>
+        <AllComments
+          conversation={this.state.conversation}
+          comments={this.state.comments}/>
       </div>
     );
   }

@@ -28,20 +28,20 @@ class AllComments extends React.Component {
         this.props.style
       ]}>
       <p> All Comments </p>
+      {
+        this.props.comments ? this.props.comments.map((c, i) => {
+          return <Comment
+            conversation={this.props.conversation}
+            key={i}
+            index={i}
+            comment={comments[c.tid]}/>
+        })
+        : "Loading All Comments"
+      }
+
       </div>
     );
   }
 }
 
 export default AllComments;
-
-// {
-//   this.props.comments ? this.props.comments.map((c, i) => {
-//     return <Comment
-//       conversation={this.props.conversation}
-//       key={i}
-//       index={i}
-//       comment={comments[c.tid]}/>
-//   })
-//   : "Loading All Comments"
-// }
