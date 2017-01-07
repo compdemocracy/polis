@@ -10,21 +10,25 @@ const BarChart = ({comment, conversation, groupVotesForThisGroup}) => {
     {
       label: "voted",
       percent: comment.count / conversation.participant_count * 100,
+      ratio: " (" + comment.count + "/" + conversation.participant_count + ")",
       fill: "rgb(180,180,180)"
     },
     {
       label: "agreed",
       percent: comment.agree_count / comment.count * 100,
+      ratio: " (" + comment.agree_count + "/" + comment.count + ")",
       fill: "rgb(46, 204, 113)"
     },
     {
       label: "disagreed",
       percent: comment.disagree_count / comment.count * 100,
+      ratio: " (" + comment.disagree_count + "/" + comment.count + ")",
       fill: "rgb(231, 76, 60)"
     },
     {
       label: "passed",
       percent: comment.pass_count / comment.count * 100,
+      ratio: " (" + comment.pass_count + "/" + comment.count + ")",
       fill: "rgb(230,230,230)"
     }
   ];
@@ -37,9 +41,14 @@ const BarChart = ({comment, conversation, groupVotesForThisGroup}) => {
     let totalVotes = agrees + disagrees + passes;
     let nMembers = groupVotesForThisGroup["n-members"];
     arr[0].percent = totalVotes / nMembers * 100;
-    arr[1].percent =  agrees / totalVotes * 100;
+    arr[1].percent = agrees / totalVotes * 100;
     arr[2].percent = disagrees / totalVotes * 100;
     arr[3].percent = passes / totalVotes * 100;
+
+    arr[0].ratio = " (" + totalVotes + "/" + nMembers + ")";
+    arr[1].ratio = " (" + agrees     + "/" + totalVotes + ")";
+    arr[2].ratio = " (" + disagrees  + "/" + totalVotes + ")";
+    arr[3].ratio = " (" + passes     + "/" + totalVotes + ")";
   }
 
   return (
@@ -58,6 +67,7 @@ const BarChart = ({comment, conversation, groupVotesForThisGroup}) => {
               fill={d.fill}/>
             <text x={leftTextOffset + d.percent + 10} y={(i+1) * 15} fontFamily="Helvetica" fontSize="10" textAnchor={"start"}>
               {Math.floor(d.percent) + "%"}
+              {d.ratio}
             </text>
           </g>
         )
