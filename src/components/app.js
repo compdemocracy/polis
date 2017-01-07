@@ -91,6 +91,7 @@ class App extends React.Component {
       console.log(a)
 
       this.setState({
+        math: mathResult,
         consensus: mathResult.consensus,
         comments: comments,
         participants: participants,
@@ -125,8 +126,12 @@ class App extends React.Component {
           probabilities={this.state.probabilitiesAgree}
           tids={this.state.probabilitiesAgreeTids}
           error={this.state.probabilitiesAgreeError}/>
-        <ParticipantGroups/>
-        <p> pol.is report </p>
+        <ParticipantGroups
+          comments={this.state.comments}
+          conversation={this.state.conversation}
+          demographics={this.state.demographics}
+          comments={this.state.comments}
+          math={this.state.math}/>
       </div>
     );
   }

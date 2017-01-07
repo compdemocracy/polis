@@ -24,7 +24,8 @@ class Heading extends React.Component {
         styles.base,
         this.props.style
       ]}>
-        {"Heading"}
+      <p> pol.is report </p>
+
       </div>
     );
   }

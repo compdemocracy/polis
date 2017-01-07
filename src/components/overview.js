@@ -29,6 +29,8 @@ class Overview extends React.Component {
           to an audience of {this.props.audiences}. The conversation was run for {this.props.duration}.
           The participants were prompted to give their perspective on {this.props.topic}.
           The specific question was {this.props.description}.
+
+          A total of {this.props.partipcants} participated. {this.props.demographics} were women
         </p>
       </div>
     );
