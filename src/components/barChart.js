@@ -40,7 +40,6 @@ const BarChart = ({comment, conversation, groupVotesForThisGroup}) => {
     arr[1].percent =  agrees / nMembers * 100;
     arr[2].percent = disagrees / nMembers * 100;
     arr[3].percent = passes / nMembers * 100;
-    debugger;
   }
 
   return (
