@@ -75,6 +75,7 @@ class ParticipantGroupComment extends React.Component {
             strokeWidth="2"
             stroke="rgb(245,245,245)"/>
           <BarChart
+            groupVotesForThisGroup={this.props.groupVotesForThisGroup}
             conversation={this.props.conversation}
             comment={this.props.comment}/>
         </svg>

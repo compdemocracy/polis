@@ -39,7 +39,7 @@ class ParticipantGroups extends React.Component {
               repnessIndex={i}
               conversation={this.props.conversation}
               groupComments={groupComments}
-              math={this.props.math}/>
+              groupVotesForThisGroup={this.props.math["group-votes"][i]}/>
           );
         }) : "Loading Groups"
       }

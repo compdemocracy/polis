@@ -3,7 +3,7 @@ import Comment from "./participantGroupComment";
 import * as globals from "./globals";
 import Flex from "./flex"
 
-const ParticipantGroup = ({repnessIndex, groupComments, math, conversation, allComments}) => {
+const ParticipantGroup = ({repnessIndex, groupComments, conversation, allComments, groupVotesForThisGroup}) => {
 
   const drawGroupComments = () => {
     const allCommentsKeyed = _.keyBy(allComments, "tid");
@@ -20,7 +20,8 @@ const ParticipantGroup = ({repnessIndex, groupComments, math, conversation, allC
         conversation={conversation}
         key={i}
         index={i}
-        comment={allCommentsKeyed[c.tid]}/>
+        comment={allCommentsKeyed[c.tid]}
+        groupVotesForThisGroup={groupVotesForThisGroup} />
 
     })
   }
@@ -39,16 +40,16 @@ const ParticipantGroup = ({repnessIndex, groupComments, math, conversation, allC
               {`GROUP ${+repnessIndex + 1} `}
             </span>
             <span style={{fontSize: 18}}>
-              {` • ${math["group-votes"][repnessIndex]["n-members"]} participants`}
+              {` • ${groupVotesForThisGroup["n-members"]} participants`}
             </span>
           </p>
           <span
             style={{
-              width: globals.barChartWidth, 
+              width: globals.barChartWidth,
               position: "relative",
               left: 40
             }}>
-            All (3425345)
+            All ({conversation.participant_count})
           </span>
           <span
             style={{
@@ -56,10 +57,10 @@ const ParticipantGroup = ({repnessIndex, groupComments, math, conversation, allC
               position: "relative",
               left: 40
             }}>
-            This group (3425345)
+            This group ({groupVotesForThisGroup["n-members"]})
           </span>
         </Flex>
-      {drawGroupComments()}
+      {drawGroupComments(groupVotesForThisGroup)}
     </div>
   );
 };
