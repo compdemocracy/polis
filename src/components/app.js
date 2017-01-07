@@ -30,7 +30,11 @@ class App extends React.Component {
       probabilitiesAgree: null,
       probabilitiesAgreeTids: null,
       conversation: null,
-      groupDemographics: null
+      groupDemographics: null,
+      dimensions: {
+        width: window.innerWidth,
+        height: window.innerHeight
+      }
     };
   }
 
@@ -108,6 +112,14 @@ class App extends React.Component {
 
   componentWillMount() {
     this.getData();
+    window.addEventListener("resize", _.throttle(() => {
+      this.setState({
+        dimensions: {
+          width: window.innerWidth,
+          height: window.innerHeight
+        }
+      })
+    }, 500));
   }
 
   render() {
