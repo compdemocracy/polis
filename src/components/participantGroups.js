@@ -20,7 +20,6 @@ class ParticipantGroups extends React.Component {
     };
   }
   render() {
-    console.log(this.props)
     const styles = this.getStyles();
     return (
       <div style={[
