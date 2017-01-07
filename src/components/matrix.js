@@ -85,6 +85,9 @@ class Matrix extends React.Component {
     return (
       <div>
         <p style={{fontSize: globals.primaryHeading}}>Correlation Matrix</p>
+        <p style={{width: globals.paragraphWidth}}>
+          This is a matrix showing every comment by every comment (all comments are shown, in order of being submitted, on each axis). Each square represents the likihood that if someone agreed with one comment, they would agree with the other. For instance, [n%] of people who agreed with comment [n] also agreed with comment [m].
+        </p>
         <svg style={{margin: 20}} width="1000" height="800">
           {this.props.probabilities.map((comments, row) => {
             return (

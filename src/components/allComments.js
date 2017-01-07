@@ -29,6 +29,9 @@ class AllComments extends React.Component {
         this.props.style
       ]}>
       <p style={{fontSize: globals.primaryHeading}}> All Comments </p>
+      <p style={{width: globals.paragraphWidth}}>
+        This is a list of the [n] comments that were accepted into the conversation by moderators and was voted on by greater than [n%] of [total participants].
+      </p>
       {
         this.props.comments ? this.props.comments.map((c, i) => {
           return <Comment

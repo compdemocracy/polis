@@ -30,6 +30,9 @@ class Consensus extends React.Component {
         this.props.style
       ]}>
       <p style={{fontSize: globals.primaryHeading}}> Consensus </p>
+        <p style={{width: globals.paragraphWidth}}>
+          Across all [n] participants, there was general agreement on these comments. Either a majority (more than 60% of those who voted on the comment) agreed or disagreed, and no more than [n%] dissented. These comments were also voted on by greater than [n%] of total voters.
+        </p>
         {
           this.props.consensus ? this.props.consensus.agree.map((c, i) => {
             return <Comment
