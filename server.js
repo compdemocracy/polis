@@ -6628,7 +6628,7 @@ Email verified! You can close this tab or hit the back button.
       });
 
       if (req.p.include_demographics) {
-        isOwner(req.p.zid, req.p.uid).then((owner) => {
+        isModerator(req.p.zid, req.p.uid).then((owner) => {
           if (owner) {
             return getDemographicsForVotersOnComments(req.p.zid, comments).then((commentsWithDemographics) => {              
               finishArray(res, commentsWithDemographics);
