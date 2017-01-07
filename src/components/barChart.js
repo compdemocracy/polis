@@ -37,9 +37,9 @@ const BarChart = ({comment, conversation, groupVotesForThisGroup}) => {
     let totalVotes = agrees + disagrees + passes;
     let nMembers = groupVotesForThisGroup["n-members"];
     arr[0].percent = totalVotes / nMembers * 100;
-    arr[1].percent =  agrees / nMembers * 100;
-    arr[2].percent = disagrees / nMembers * 100;
-    arr[3].percent = passes / nMembers * 100;
+    arr[1].percent =  agrees / totalVotes * 100;
+    arr[2].percent = disagrees / totalVotes * 100;
+    arr[3].percent = passes / totalVotes * 100;
   }
 
   return (
