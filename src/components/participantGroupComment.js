@@ -54,7 +54,19 @@ class ParticipantGroupComment extends React.Component {
             }}>#{this.props.comment.tid}</span>
           <span style={styles.commentBody}>{ this.props.comment.txt }</span>
         </Flex>
-        <svg width={250} height={70}>
+        <svg width={globals.barChartWidth} height={70}>
+          <line
+            x1="120"
+            y1="0"
+            x2="120"
+            y2="65"
+            strokeWidth="2"
+            stroke="rgb(245,245,245)"/>
+          <BarChart
+            conversation={this.props.conversation}
+            comment={this.props.comment}/>
+        </svg>
+        <svg width={globals.barChartWidth} height={70}>
           <line
             x1="120"
             y1="0"
