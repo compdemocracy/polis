@@ -31,35 +31,34 @@ const ParticipantGroup = ({repnessIndex, groupComments, math, conversation, allC
         marginBottom: 70,
         width: "100%"
       }}>
-      <Flex justifyContent={"flex-start"} styleOverrides={{width: "100%"}}>
-        <p style={{
-            width: globals.paragraphWidth
-          }}>
-          <span style={{fontSize: 18}}>
-            {`GROUP ${+repnessIndex + 1} `}
+        <Flex justifyContent={"flex-start"} styleOverrides={{width: "100%"}}>
+          <p style={{
+              width: globals.paragraphWidth
+            }}>
+            <span style={{fontSize: 18}}>
+              {`GROUP ${+repnessIndex + 1} `}
+            </span>
+            <span style={{fontSize: 18}}>
+              {` • ${math["group-votes"][repnessIndex]["n-members"]} participants`}
+            </span>
+          </p>
+          <span
+            style={{
+              width: globals.barChartWidth, 
+              position: "relative",
+              left: 40
+            }}>
+            All (3425345)
           </span>
-          <span style={{fontSize: 18}}>
-            {` • ${math["group-votes"][repnessIndex]["n-members"]} participants`}
+          <span
+            style={{
+              width: globals.barChartWidth,
+              position: "relative",
+              left: 40
+            }}>
+            This group (3425345)
           </span>
-        </p>
-        <span
-          style={{
-            width: globals.barChartWidth,
-            position: "relative",
-            left: 40
-          }}>
-          All (3425345)
-        </span>
-        <span
-          style={{
-            width: globals.barChartWidth,
-            position: "relative",
-            left: 40
-          }}>
-          This group (3425345)
-        </span>
-      </Flex>
-
+        </Flex>
       {drawGroupComments()}
     </div>
   );
