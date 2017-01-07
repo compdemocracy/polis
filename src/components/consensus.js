@@ -2,6 +2,8 @@ import React from "react";
 import Radium from "radium";
 import _ from "lodash";
 import Comment from "./comment";
+import * as globals from "./globals";
+
 
 @Radium
 class Consensus extends React.Component {
@@ -27,7 +29,7 @@ class Consensus extends React.Component {
         styles.base,
         this.props.style
       ]}>
-      <p> Consensus </p>
+      <p style={{fontSize: globals.primaryHeading}}> Consensus </p>
         {
           this.props.consensus ? this.props.consensus.agree.map((c, i) => {
             return <Comment

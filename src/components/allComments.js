@@ -2,6 +2,7 @@ import React from "react";
 import Radium from "radium";
 // import _ from "lodash";
 import Comment from "./comment";
+import * as globals from "./globals";
 
 @Radium
 class AllComments extends React.Component {
@@ -27,7 +28,7 @@ class AllComments extends React.Component {
         styles.base,
         this.props.style
       ]}>
-      <p> All Comments </p>
+      <p style={{fontSize: globals.primaryHeading}}> All Comments </p>
       {
         this.props.comments ? this.props.comments.map((c, i) => {
           return <Comment

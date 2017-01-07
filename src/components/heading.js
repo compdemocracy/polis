@@ -1,6 +1,7 @@
 import React from "react";
 import Radium from "radium";
 // import _ from "lodash";
+import * as globals from "./globals";
 
 @Radium
 class Heading extends React.Component {
@@ -24,7 +25,7 @@ class Heading extends React.Component {
         styles.base,
         this.props.style
       ]}>
-      <p> pol.is report </p>
+      <p style={{fontSize: globals.primaryHeading}}> pol.is report </p>
 
       </div>
     );

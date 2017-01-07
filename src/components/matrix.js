@@ -84,7 +84,7 @@ class Matrix extends React.Component {
   renderMatrix() {
     return (
       <div>
-        <p>Correlation Matrix</p>
+        <p style={{fontSize: globals.primaryHeading}}>Correlation Matrix</p>
         <svg style={{margin: 20}} width="1000" height="800">
           {this.props.probabilities.map((comments, row) => {
             return (

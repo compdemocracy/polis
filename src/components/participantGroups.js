@@ -2,6 +2,7 @@ import React from "react";
 import Radium from "radium";
 // import _ from "lodash";
 import Group from "./participantGroup";
+import * as globals from "./globals";
 
 @Radium
 class ParticipantGroups extends React.Component {
@@ -26,6 +27,8 @@ class ParticipantGroups extends React.Component {
         styles.base,
         this.props.style
       ]}>
+      <p style={{fontSize: globals.primaryHeading}}> Opinion Groups </p>
+
       {
         this.props.math && this.props.comments ? _.map(this.props.math["repness"], (groupComments, i) => {
           return (
