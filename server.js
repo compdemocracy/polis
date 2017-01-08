@@ -10320,7 +10320,7 @@ Thanks for using pol.is!
   }
 
 
-  function getParticipantMetadataForConversation(zid) {
+  function getParticipantDemographicsForConversation(zid) {
     return pgQueryP("select * from demographic_data left join participants on participants.uid = demographic_data.uid where zid = ($1);", [zid]);
   }
 
@@ -10336,7 +10336,7 @@ Thanks for using pol.is!
       getPidsForGid(zid, 2, -1),
       getPidsForGid(zid, 3, -1),
       getPidsForGid(zid, 4, -1),
-      getParticipantMetadataForConversation(zid),
+      getParticipantDemographicsForConversation(zid),
     ]).then((o) => {
       let groupPids = [];
       let groupStats = [];
