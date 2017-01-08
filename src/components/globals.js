@@ -12,3 +12,4 @@ export const paragraph = {
   fontFamily: serif,
   lineHeight: paragraphLineHeight
 }
+export const side = 1000;

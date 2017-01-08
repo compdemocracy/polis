@@ -15,6 +15,7 @@ import Consensus from "./Consensus";
 import Contested from "./Contested";
 import AllComments from "./AllComments";
 import ParticipantGroups from "./ParticipantGroups";
+import Graph from "./Graph";
 
 import net from "../util/net"
 
@@ -191,6 +192,9 @@ class App extends React.Component {
           comments={this.state.comments}
           ptptCount={this.state.ptptCount}
           math={this.state.math}/>
+        <Graph
+          math={this.state.math}/>
+        <p> ==================================== End Analysis ==================================== </p>
         <AllComments
           conversation={this.state.conversation}
           ptptCount={this.state.ptptCount}
