@@ -10349,13 +10349,24 @@ Thanks for using pol.is!
             count: 0,
             fb_gender_male: 0,
             fb_gender_female: 0,
-            fb_gender_other: 0,
             fb_gender_null: 0,
             ms_gender_estimate_fb_male: 0,
             ms_gender_estimate_fb_female: 0,
             ms_gender_estimate_fb_null: 0,
+            gender_guess_male: 0,
+            gender_guess_female: 0,
+            gender_guess_null: 0,
             ms_birth_year_estimate_fb: 0,
             ms_birth_year_count: 0,
+            birth_year_guess: 0,
+            birth_year_guess_count: 0,
+
+            // convenient counts
+            gender_male: 0,
+            gender_female: 0,
+            gender_null: 0,
+            birth_year: 0,
+            birth_year_count: 0,
           });
         } else {
           break;
@@ -10377,10 +10388,15 @@ Thanks for using pol.is!
               s.fb_gender_male += 1;
             } else if (ptptMeta.fb_gender === 1) {
               s.fb_gender_female += 1;
-            } else if (ptptMeta.fb_gender >= 2) {
-              s.fb_gender_other += 1;
             } else {
               s.fb_gender_null += 1;
+            }
+            if (ptptMeta.gender_guess === 0) {
+              s.gender_guess_male += 1;
+            } else if (ptptMeta.gender_guess === 1) {
+              s.gender_guess_female += 1;
+            } else {
+              s.gender_guess_null += 1;
             }
             if (ptptMeta.ms_birth_year_estimate_fb > 1900) {
               s.ms_birth_year_estimate_fb += ptptMeta.ms_birth_year_estimate_fb;
@@ -10393,9 +10409,44 @@ Thanks for using pol.is!
             } else {
               s.ms_gender_estimate_fb_null += 1;
             }
+
+            if (ptptMeta.birth_year_guess) {
+              s.birth_year_guess += ptptMeta.birth_year_guess;
+              s.birth_year_guess_count += 1;
+            }
+
+            // compute convenient counts
+            let gender = null;
+            if (_.isNumber(ptptMeta.fb_gender)) {
+              gender = ptptMeta.fb_gender;
+            } else if (_.isNumber(ptptMeta.gender_guess)) {
+              gender = ptptMeta.gender_guess;
+            } else if (_.isNumber(ptptMeta.ms_gender_estimate_fb)) {
+              gender = ptptMeta.ms_gender_estimate_fb;
+            }
+            if (gender === 0) {
+              s.gender_male += 1;
+            } else if (gender === 1) {
+              s.gender_female += 1;
+            } else {
+              s.gender_null += 1;
+            }
+            let birthYear = null;
+            if (ptptMeta.ms_birth_year_estimate_fb > 1900) {
+              birthYear = ptptMeta.ms_birth_year_estimate_fb;
+            } else if (ptptMeta.birth_year_guess > 1900) {
+              birthYear = ptptMeta.birth_year_guess;
+            }
+            if (birthYear > 1900) {
+              s.birth_year += birthYear;
+              s.birth_year_count += 1;
+            }
+
           }
         }
         s.ms_birth_year_estimate_fb = s.ms_birth_year_estimate_fb / s.ms_birth_year_count;
+        s.birth_year_guess = s.birth_year_guess / s.birth_year_guess_count;
+        s.birth_year = s.birth_year / s.birth_year_count;
       }
 
       res.json(groupStats);
