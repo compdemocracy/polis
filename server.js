@@ -10347,19 +10347,19 @@ Thanks for using pol.is!
           groupStats.push({
             gid: i,
             count: 0,
-            fb_gender_male: 0,
-            fb_gender_female: 0,
-            fb_gender_null: 0,
-            ms_gender_estimate_fb_male: 0,
-            ms_gender_estimate_fb_female: 0,
-            ms_gender_estimate_fb_null: 0,
-            gender_guess_male: 0,
-            gender_guess_female: 0,
-            gender_guess_null: 0,
-            ms_birth_year_estimate_fb: 0,
-            ms_birth_year_count: 0,
-            birth_year_guess: 0,
-            birth_year_guess_count: 0,
+            // fb_gender_male: 0,
+            // fb_gender_female: 0,
+            // fb_gender_null: 0,
+            // ms_gender_estimate_fb_male: 0,
+            // ms_gender_estimate_fb_female: 0,
+            // ms_gender_estimate_fb_null: 0,
+            // gender_guess_male: 0,
+            // gender_guess_female: 0,
+            // gender_guess_null: 0,
+            // ms_birth_year_estimate_fb: 0,
+            // ms_birth_year_count: 0,
+            // birth_year_guess: 0,
+            // birth_year_guess_count: 0,
 
             // convenient counts
             gender_male: 0,
@@ -10384,36 +10384,36 @@ Thanks for using pol.is!
           let ptptMeta = meta[pid];
           if (ptptMeta) {
             s.count += 1;
-            if (ptptMeta.fb_gender === 0) {
-              s.fb_gender_male += 1;
-            } else if (ptptMeta.fb_gender === 1) {
-              s.fb_gender_female += 1;
-            } else {
-              s.fb_gender_null += 1;
-            }
-            if (ptptMeta.gender_guess === 0) {
-              s.gender_guess_male += 1;
-            } else if (ptptMeta.gender_guess === 1) {
-              s.gender_guess_female += 1;
-            } else {
-              s.gender_guess_null += 1;
-            }
-            if (ptptMeta.ms_birth_year_estimate_fb > 1900) {
-              s.ms_birth_year_estimate_fb += ptptMeta.ms_birth_year_estimate_fb;
-              s.ms_birth_year_count += 1;
-            }
-            if (ptptMeta.ms_gender_estimate_fb === 0) {
-              s.ms_gender_estimate_fb_male += 1;
-            } else if (ptptMeta.ms_gender_estimate_fb === 1) {
-              s.ms_gender_estimate_fb_female += 1;
-            } else {
-              s.ms_gender_estimate_fb_null += 1;
-            }
+            // if (ptptMeta.fb_gender === 0) {
+            //   s.fb_gender_male += 1;
+            // } else if (ptptMeta.fb_gender === 1) {
+            //   s.fb_gender_female += 1;
+            // } else {
+            //   s.fb_gender_null += 1;
+            // }
+            // if (ptptMeta.gender_guess === 0) {
+            //   s.gender_guess_male += 1;
+            // } else if (ptptMeta.gender_guess === 1) {
+            //   s.gender_guess_female += 1;
+            // } else {
+            //   s.gender_guess_null += 1;
+            // }
+            // if (ptptMeta.ms_birth_year_estimate_fb > 1900) {
+            //   s.ms_birth_year_estimate_fb += ptptMeta.ms_birth_year_estimate_fb;
+            //   s.ms_birth_year_count += 1;
+            // }
+            // if (ptptMeta.ms_gender_estimate_fb === 0) {
+            //   s.ms_gender_estimate_fb_male += 1;
+            // } else if (ptptMeta.ms_gender_estimate_fb === 1) {
+            //   s.ms_gender_estimate_fb_female += 1;
+            // } else {
+            //   s.ms_gender_estimate_fb_null += 1;
+            // }
 
-            if (ptptMeta.birth_year_guess) {
-              s.birth_year_guess += ptptMeta.birth_year_guess;
-              s.birth_year_guess_count += 1;
-            }
+            // if (ptptMeta.birth_year_guess) {
+            //   s.birth_year_guess += ptptMeta.birth_year_guess;
+            //   s.birth_year_guess_count += 1;
+            // }
 
             // compute convenient counts
             let gender = null;
