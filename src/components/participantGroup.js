@@ -3,7 +3,7 @@ import Comment from "./participantGroupComment";
 import * as globals from "./globals";
 import Flex from "./flex"
 
-const ParticipantGroup = ({repnessIndex, groupComments, conversation, allComments, groupVotesForThisGroup}) => {
+const ParticipantGroup = ({repnessIndex, groupComments, conversation, allComments, groupVotesForThisGroup, demographicsForGroup}) => {
 
   const drawGroupComments = () => {
     const allCommentsKeyed = _.keyBy(allComments, "tid");
@@ -26,6 +26,9 @@ const ParticipantGroup = ({repnessIndex, groupComments, conversation, allComment
     })
   }
 
+  let demo = demographicsForGroup;
+  let currentYear = (new Date()).getUTCFullYear();
+
   return (
     <div
       style={{
@@ -33,16 +36,23 @@ const ParticipantGroup = ({repnessIndex, groupComments, conversation, allComment
         width: "100%"
       }}>
         <Flex justifyContent={"flex-start"} styleOverrides={{width: "100%"}}>
-          <p style={{
+          <div style={{
               width: globals.paragraphWidth
             }}>
             <span style={{fontSize: 18}}>
               {`GROUP ${+repnessIndex + 1} `}
+              <span style={{fontSize: 18}}>
+                {` • ${groupVotesForThisGroup["n-members"]} participants`}
+              </span>
             </span>
-            <span style={{fontSize: 18}}>
-              {` • ${groupVotesForThisGroup["n-members"]} participants`}
-            </span>
-          </p>
+            <div style={{
+              paddingBottom: "10px",
+            }}>
+            {`In this group, ${demo.count} ptpts have demographic data. Of those,
+              ${demo.gender_male} are male, ${demo.gender_female} are female, ${demo.gender_null} unknown.
+              The average age is ${Math.round(currentYear - demo.birth_year)}.`}
+            </div>
+          </div>
           <span
             style={{
               width: globals.barChartWidth,

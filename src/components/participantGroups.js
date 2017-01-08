@@ -21,6 +21,9 @@ class ParticipantGroups extends React.Component {
   }
   render() {
     const styles = this.getStyles();
+    if (!this.props.conversation) {
+      return <div>Loading Groups</div>;
+    }
     return (
       <div style={[
         styles.base,
@@ -28,7 +31,7 @@ class ParticipantGroups extends React.Component {
       ]}>
       <p style={{fontSize: globals.primaryHeading}}> Opinion Groups </p>
       <p style={{width: globals.paragraphWidth}}>
-        Across [n] total participants, [n] opinion groups emerged. Each opinion group is made up of a number of participants who tended to vote similarly, and differently from other opinion groups, on multiple comments.
+        Across {this.props.conversation.participant_count} total participants, {this.props.math["group-votes"].length} opinion groups emerged. Each opinion group is made up of a number of participants who tended to vote similarly, and differently from other opinion groups, on multiple comments.
       </p>
       {
         this.props.math && this.props.comments ? _.map(this.props.math["repness"], (groupComments, i) => {
@@ -38,6 +41,7 @@ class ParticipantGroups extends React.Component {
               allComments={this.props.comments}
               repnessIndex={i}
               conversation={this.props.conversation}
+              demographicsForGroup={this.props.demographics[i]}
               groupComments={groupComments}
               groupVotesForThisGroup={this.props.math["group-votes"][i]}/>
           );

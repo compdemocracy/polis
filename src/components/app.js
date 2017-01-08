@@ -98,6 +98,7 @@ class App extends React.Component {
         math: mathResult,
         consensus: mathResult.consensus,
         comments: comments,
+        demographics: groupDemographics,
         participants: participants,
         probabilitiesAgree: coOccurrenceAgreeResult.matrix,
         probabilitiesAgreeTids: coOccurrenceAgreeResult.rowToTid,
