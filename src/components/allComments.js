@@ -3,6 +3,7 @@ import Radium from "radium";
 // import _ from "lodash";
 import Comment from "./comment";
 import * as globals from "./globals";
+import style from "../util/style";
 
 @Radium
 class AllComments extends React.Component {
@@ -20,6 +21,9 @@ class AllComments extends React.Component {
     };
   }
   render() {
+    if (!this.props.conversation) {
+      return <div>Loading All Comments...</div>
+    }
     const styles = this.getStyles();
     const comments = _.keyBy(this.props.comments, "tid");
 
@@ -30,7 +34,7 @@ class AllComments extends React.Component {
       ]}>
       <p style={{fontSize: globals.primaryHeading}}> All Comments </p>
       <p style={{width: globals.paragraphWidth}}>
-        This is a list of the [n] comments that were accepted into the conversation by moderators and was voted on by greater than [n%] of [total participants].
+        This is a list of the {this.props.comments.length} comments that were accepted into the conversation by moderators and were voted on by greater than [n%] of the <span style={style.variable}>{this.props.ptptCount}</span> participants.
       </p>
       {
         this.props.comments ? this.props.comments.map((c, i) => {
@@ -38,7 +42,8 @@ class AllComments extends React.Component {
             conversation={this.props.conversation}
             key={i}
             index={i}
-            comment={comments[c.tid]}/>
+            comment={comments[c.tid]}
+            ptptCount={this.props.ptptCount}/>
         })
         : "Loading All Comments"
       }

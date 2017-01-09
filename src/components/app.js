@@ -92,6 +92,11 @@ class App extends React.Component {
       const conversation = a[4];
       const groupDemographics = a[5];
 
+      var ptptCount = 0;
+      _.each(mathResult["group-votes"], (val, key) => {
+        ptptCount += val["n-members"];
+      });
+
       console.log(a)
 
       this.setState({
@@ -102,7 +107,8 @@ class App extends React.Component {
         participants: participants,
         probabilitiesAgree: coOccurrenceAgreeResult.matrix,
         probabilitiesAgreeTids: coOccurrenceAgreeResult.rowToTid,
-        conversation: conversation
+        conversation: conversation,
+        ptptCount: ptptCount,
       });
     }, (err) => {
       this.setState({
@@ -130,21 +136,25 @@ class App extends React.Component {
         <Overview/>
         <Consensus
           conversation={this.state.conversation}
+          ptptCount={this.state.ptptCount}
           comments={this.state.comments}
           consensus={this.state.consensus}/>
         <Matrix
           probabilities={this.state.probabilitiesAgree}
           tids={this.state.probabilitiesAgreeTids}
+          ptptCount={this.state.ptptCount}
           error={this.state.probabilitiesAgreeError}/>
         <ParticipantGroups
           comments={this.state.comments}
           conversation={this.state.conversation}
           demographics={this.state.demographics}
           comments={this.state.comments}
+          ptptCount={this.state.ptptCount}
           math={this.state.math}/>
         <p> ==================================== End Analysis ==================================== </p>
         <AllComments
           conversation={this.state.conversation}
+          ptptCount={this.state.ptptCount}
           comments={this.state.comments}/>
       </div>
     );

@@ -2,6 +2,7 @@ import React from "react";
 import Radium from "radium";
 // import _ from "lodash";
 import Group from "./participantGroup";
+import style from "../util/style";
 import * as globals from "./globals";
 
 @Radium
@@ -31,7 +32,7 @@ class ParticipantGroups extends React.Component {
       ]}>
       <p style={{fontSize: globals.primaryHeading}}> Opinion Groups </p>
       <p style={{width: globals.paragraphWidth}}>
-        Across {this.props.conversation.participant_count} total participants, {this.props.math["group-votes"].length} opinion groups emerged. Each opinion group is made up of a number of participants who tended to vote similarly, and differently from other opinion groups, on multiple comments.
+        Across <span style={style.variable}>{this.props.ptptCount}</span> total participants, {this.props.math["group-votes"].length} opinion groups emerged. Each opinion group is made up of a number of participants who tended to vote similarly, and differently from other opinion groups, on multiple comments.
       </p>
       {
         this.props.math && this.props.comments ? _.map(this.props.math["repness"], (groupComments, i) => {
@@ -43,7 +44,8 @@ class ParticipantGroups extends React.Component {
               conversation={this.props.conversation}
               demographicsForGroup={this.props.demographics[i]}
               groupComments={groupComments}
-              groupVotesForThisGroup={this.props.math["group-votes"][i]}/>
+              groupVotesForThisGroup={this.props.math["group-votes"][i]}
+              ptptCount={this.props.ptptCount}/>
           );
         }) : "Loading Groups"
       }

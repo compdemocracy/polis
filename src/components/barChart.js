@@ -1,16 +1,15 @@
 import React from "react";
 
-const BarChart = ({comment, conversation, groupVotesForThisGroup}) => {
+const BarChart = ({comment, conversation, groupVotesForThisGroup, ptptCount}) => {
 
   const rectStartX = 70;
   const barHeight = 12;
   const leftTextOffset = 63;
-
   const arr = [
     {
       label: "voted",
-      percent: comment.count / conversation.participant_count * 100,
-      ratio: " (" + comment.count + "/" + conversation.participant_count + ")",
+      percent: comment.count / ptptCount * 100,
+      ratio: " (" + comment.count + "/" + ptptCount + ")",
       fill: "rgb(180,180,180)"
     },
     {

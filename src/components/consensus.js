@@ -3,7 +3,7 @@ import Radium from "radium";
 import _ from "lodash";
 import Comment from "./comment";
 import * as globals from "./globals";
-
+import style from "../util/style";
 
 @Radium
 class Consensus extends React.Component {
@@ -22,6 +22,9 @@ class Consensus extends React.Component {
   }
 
   render() {
+    if (!this.props.conversation) {
+      return <div>Loading Consensus...</div>
+    }
     const styles = this.getStyles();
     const comments = _.keyBy(this.props.comments, "tid");
     return (
@@ -31,7 +34,7 @@ class Consensus extends React.Component {
       ]}>
       <p style={{fontSize: globals.primaryHeading}}> Consensus </p>
         <p style={{width: globals.paragraphWidth}}>
-          Across all {this.props.conversation.participant_count} participants, there was general agreement on these comments. Either a majority (more than 60% of those who voted on the comment) agreed or disagreed, and no more than [n%] dissented. These comments were also voted on by greater than [n%] of total voters.
+          Across all <span style={style.variable}>{this.props.ptptCount}</span> participants, there was general agreement on these comments. Either a majority (more than 60% of those who voted on the comment) agreed or disagreed, and no more than [n%] dissented. These comments were also voted on by greater than [n%] of total voters.
         </p>
         {
           this.props.consensus ? this.props.consensus.agree.map((c, i) => {
@@ -39,7 +42,8 @@ class Consensus extends React.Component {
               conversation={this.props.conversation}
               key={i}
               index={i}
-              comment={comments[c.tid]}/>
+              comment={comments[c.tid]}
+              ptptCount={this.props.ptptCount}/>
           })
           : "Loading Consensus"
         }
@@ -49,7 +53,8 @@ class Consensus extends React.Component {
               conversation={this.props.conversation}
               key={i}
               index={i}
-              comment={comments[c.tid]}/>
+              comment={comments[c.tid]}
+              ptptCount={this.props.ptptCount}/>
           })
           : "Loading Consensus"
         }

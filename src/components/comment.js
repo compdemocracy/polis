@@ -64,7 +64,8 @@ class Comment extends React.Component {
             stroke="rgb(245,245,245)"/>
           <BarChart
             conversation={this.props.conversation}
-            comment={this.props.comment}/>
+            comment={this.props.comment}
+            ptptCount={this.props.ptptCount}/>
         </svg>
       </Flex>
     );

@@ -2,8 +2,9 @@ import React from "react";
 import Comment from "./participantGroupComment";
 import * as globals from "./globals";
 import Flex from "./flex"
+import style from "../util/style";
 
-const ParticipantGroup = ({repnessIndex, groupComments, conversation, allComments, groupVotesForThisGroup, demographicsForGroup}) => {
+const ParticipantGroup = ({repnessIndex, groupComments, conversation, allComments, groupVotesForThisGroup, demographicsForGroup, ptptCount}) => {
 
   const drawGroupComments = () => {
     const allCommentsKeyed = _.keyBy(allComments, "tid");
@@ -15,13 +16,13 @@ const ParticipantGroup = ({repnessIndex, groupComments, conversation, allComment
       // const percent = agree ?
       // Math.floor(groupVotes.A / groupVotes.S * 100) :
       // Math.floor(groupVotes.D / groupVotes.S * 100);
-
       return <Comment
         conversation={conversation}
         key={i}
         index={i}
         comment={allCommentsKeyed[c.tid]}
-        groupVotesForThisGroup={groupVotesForThisGroup} />
+        groupVotesForThisGroup={groupVotesForThisGroup}
+        ptptCount={ptptCount}/>
 
     })
   }
@@ -42,15 +43,15 @@ const ParticipantGroup = ({repnessIndex, groupComments, conversation, allComment
             <span style={{fontSize: 18}}>
               {`GROUP ${+repnessIndex + 1} `}
               <span style={{fontSize: 18}}>
-                {` • ${groupVotesForThisGroup["n-members"]} participants`}
+                 • <span style={style.variable}>{groupVotesForThisGroup["n-members"]}</span> participants
               </span>
             </span>
             <div style={{
               paddingBottom: "10px",
             }}>
-            {`In this group, ${demo.count} ptpts have demographic data. Of those,
-              ${demo.gender_male} are male, ${demo.gender_female} are female, ${demo.gender_null} unknown.
-              The average age is ${Math.round(currentYear - demo.birth_year)}.`}
+            In this group, <span style={style.variable}>{demo.count}</span> ptpts have demographic data. Of those,
+              <span style={style.variable}>{demo.gender_male}</span> are <span style={style.metadataCategory}>male</span>, <span style={style.variable}>{demo.gender_female}</span> are <span style={style.metadataCategory}>female</span>, <span style={style.variable}>{demo.gender_null}</span> <span style={style.metadataCategory}>unknown</span>.
+              The average age is <span style={style.metadataCategory}>{Math.round(currentYear - demo.birth_year)}</span>.
             </div>
           </div>
           <span
@@ -59,7 +60,7 @@ const ParticipantGroup = ({repnessIndex, groupComments, conversation, allComment
               position: "relative",
               left: 40
             }}>
-            All ({conversation.participant_count})
+            All (<span style={style.variable}>{ptptCount}</span>)
           </span>
           <span
             style={{
@@ -67,7 +68,7 @@ const ParticipantGroup = ({repnessIndex, groupComments, conversation, allComment
               position: "relative",
               left: 40
             }}>
-            This group ({groupVotesForThisGroup["n-members"]})
+            This group (<span style={style.variable}>{groupVotesForThisGroup["n-members"]}</span>)
           </span>
         </Flex>
       {drawGroupComments(groupVotesForThisGroup)}
