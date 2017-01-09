@@ -189,8 +189,8 @@ module.exports = ConversationView.extend({
     ctx.showLogoInFooter = false;
 
     ctx.no_vis = !Utils.userCanSeeVis() || ctx.vis_type === 0;
-    ctx.no_write = ctx.write_type === 0 || !Utils.userCanWrite();
-    ctx.no_voting = !Utils.userCanVote();
+    ctx.no_write = ctx.write_type === 0 || !Utils.userCanWrite() || !ctx.is_active;;
+    ctx.no_voting = !Utils.userCanVote() || !ctx.is_active;
     ctx.no_topic = !Utils.userCanSeeTopic();
     ctx.no_description = !Utils.userCanSeeDescription();
     ctx.no_footer = !Utils.userCanSeeFooter();
