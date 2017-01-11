@@ -40,7 +40,7 @@ class Matrix extends React.Component {
         <g key={column} >
           {/* this translate places the top text labels where they should go, rotated */}
           <text
-            transform={"translate(" + (column * 20 + 13) + ", 20), rotate(270)"}
+            transform={"translate(" + (column * square + 13) + ", 20), rotate(270)"}
             fill="rgba(0,0,0,0.7)"
             style={{
               display: row === 0 ? "block" : "none",
@@ -52,7 +52,7 @@ class Matrix extends React.Component {
             {this.props.tids[column]}
           </text>
           {/* this translate places the columns where they should go, and creates a gutter */}
-          <g transform={"translate(" + (column * 20) + ", 30)"}>
+          <g transform={"translate(" + (column * square) + ", 30)"}>
             {this.makeRect(comment, row, column)}
           </g>
         </g>
@@ -84,7 +84,7 @@ class Matrix extends React.Component {
   renderMatrix() {
     return (
       <div>
-        <p style={{fontSize: globals.primaryHeading}}>Correlation Matrix</p>
+        <p style={{fontSize: globals.primaryHeading}}>{this.props.title}</p>
         <p style={{width: globals.paragraphWidth}}>
           This is a matrix showing every comment by every comment (all comments are shown, in order of being submitted, on each axis). Each square represents the likihood that if someone agreed with one comment, they would agree with the other. For instance, [n%] of people who agreed with comment [n] also agreed with comment [m].
         </p>
