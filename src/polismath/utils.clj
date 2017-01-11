@@ -128,11 +128,11 @@
 
 (defn filter-by-index [coll idxs] 
   (greedy-false
-  (let [idx-set (set idxs)]
-    (->> (with-indices coll)
-      (filter #(idx-set (first %)))
-      (map second)))
-    ))
+   (let [idx-set (set idxs)]
+     (->> (with-indices coll)
+       (filter #(idx-set (first %)))
+       (map second)))))
+
 
 
 (defn apply-kwargs
@@ -174,8 +174,8 @@
     [dep]
     (add-dependencies :coordinates [dep] :repositories (merge cemerick.pomegranate.aether/maven-central {"clojars" "http://clojars.org/repo"})))
   (load-dep '[clj-time "0.10.0"])
-  (load-dep '[clj-excel "0.0.1"])
-  )
+  (load-dep '[clj-excel "0.0.1"]))
+
 
 :ok
 
