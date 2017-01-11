@@ -107,14 +107,18 @@ class App extends React.Component {
       var badTids = {};
       for (let row = 0; row < probabilities.length; row++) {
         if (probabilities[row][0] === "NaN") {
-          badTids[row] = true;
+          let tid = correlationHClust.comments[row];
+          badTids[tid] = true;
+          console.log("bad", tid);
         }
       }
       var filteredProbabilities = probabilities.map((row) => {
-        return row.filter((cell, colTid) => {
+        return row.filter((cell, colNum) => {
+          let colTid = correlationHClust.comments[colNum];
           return badTids[colTid] !== true;
         });
-      }).filter((row, rowTid) => {
+      }).filter((row, rowNum) => {
+          let rowTid = correlationHClust.comments[rowNum];
           return badTids[rowTid] !== true;
       });
       var filteredTids =tids.filter((tid, index) => {
