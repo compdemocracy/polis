@@ -99,7 +99,7 @@ class Matrix extends React.Component {
               negatively correlated
             </span>
             <span style={{fontSize: 10, width: 150, textAlign: "right"}}>
-              positive correlated
+              positively correlated
             </span>
           </Flex>
           <img
