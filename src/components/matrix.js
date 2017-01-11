@@ -5,9 +5,12 @@ import Radium from "radium";
 import _ from "lodash";
 import * as globals from "./globals";
 
-
 var leftOffset = 17;
 var topOffset = 50;
+
+var scale = d3.scaleLinear().domain([-1, 1]).range([0, 1])
+
+const square = 20;
 
 @Radium
 class Matrix extends React.Component {
@@ -16,9 +19,9 @@ class Matrix extends React.Component {
     return (
       <g>
         <rect
-          fill={d3.interpolateGreens(comment)}
-          width="20"
-          height="20"
+          fill={d3.interpolateRdBu(scale(comment))}
+          width={square}
+          height={square}
           />
           <text
             x={5}

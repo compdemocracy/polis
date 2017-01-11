@@ -1,6 +1,8 @@
 import React from "react";
 // import { connect } from "react-redux";
 import probabilities from "../sampleData/probabilities";
+import covariance from "../sampleData/covariance";
+import correlation from "../sampleData/correlation";
 
 import Radium from "radium";
 import _ from "lodash";
@@ -132,18 +134,33 @@ class App extends React.Component {
   render() {
     return (
       <div style={{margin: 20}}>
-        <Heading/>
-        <Overview/>
+        <Heading conversation={this.state.conversation}/>
+        <Overview
+          demographics={this.state.demographics}
+          conversation={this.state.conversation}/>
         <Consensus
           conversation={this.state.conversation}
           ptptCount={this.state.ptptCount}
           comments={this.state.comments}
           consensus={this.state.consensus}/>
-        <Matrix
+        {/*<Matrix
+          title={"Co occurance matrix"}
           probabilities={this.state.probabilitiesAgree}
           tids={this.state.probabilitiesAgreeTids}
           ptptCount={this.state.ptptCount}
-          error={this.state.probabilitiesAgreeError}/>
+          error={this.state.probabilitiesAgreeError}/>*/}
+        <Matrix
+          title={"Covariance matrix"}
+          probabilities={covariance.matrix}
+          tids={covariance.comments}
+          ptptCount={this.state.ptptCount}
+          />
+        <Matrix
+          title={"Correlation matrix"}
+          probabilities={correlation.matrix}
+          tids={correlation.comments}
+          ptptCount={this.state.ptptCount}
+          />
         <ParticipantGroups
           comments={this.state.comments}
           conversation={this.state.conversation}
