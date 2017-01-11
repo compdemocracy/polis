@@ -55,8 +55,11 @@
                  [bidi "2.0.14" :exclusions [prismatic/schema]]
                  ;; Taking out storm cause yeah...
                  ;[org.apache.storm/storm-core "0.9.2-incubating"]
+                 [incanter "1.9.1" :exclusions [org.clojure/clojure
+                                                ;; For some reason, our 3.1.0 code fails when we include this; probably
+                                                ;; AOT compilation issues, because excluding monger doesn't help...
+                                                incanter/incanter-mongodb]]
                  [bigml/sampling "3.1"]
-                 ;[incanter "1.5.4"]
                  [com.novemberain/monger "3.1.0"]
                  [amazonica "0.3.77" :exclusions [org.apache.httpcomponents/httpclient
                                                   org.apache.httpcomponents/httpcore]]
@@ -79,6 +82,7 @@
                     :port 989796}
   :main polismath.runner
   :min-lein-version "2.3.0"
-  :profiles {:dev {:env {:mongo-url "db/mongo.db"}}
+  :profiles {:dev {:dependencies []
+                   :env {:mongo-url "db/mongo.db"}}
              :production {:env {}}})
 
