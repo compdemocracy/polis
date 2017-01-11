@@ -102,7 +102,7 @@ class App extends React.Component {
 
       // prep Correlation matrix.
       var probabilities = correlationHClust.matrix;
-      var tids =  correlation.comments;
+      var tids =  correlationHClust.comments;
       var badTids = {};
       for (let row = 0; row < probabilities.length; row++) {
         if (probabilities[row][0] === "NaN") {
