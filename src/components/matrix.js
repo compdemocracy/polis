@@ -44,7 +44,7 @@ class Matrix extends React.Component {
         <g key={column} >
           {/* this translate places the top text labels where they should go, rotated */}
           <text
-            transform={"translate(" + (column * square + 13) + ", 20), rotate(270)"}
+            transform={"translate(" + (column * square + 13) + ", 25), rotate(315)"}
             fill="rgba(0,0,0,0.7)"
             style={{
               display: row === 0 ? "block" : "none",
