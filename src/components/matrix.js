@@ -88,8 +88,8 @@ class Matrix extends React.Component {
     return (
       <div>
         <p style={{fontSize: globals.primaryHeading}}>{this.props.title}</p>
-        <p style={{width: globals.paragraphWidth}}>
-          This is a matrix showing every comment by every comment (all comments are shown, in order of being submitted, on each axis). Each square represents the likihood that if someone agreed with one comment, they would agree with the other. For instance, [n%] of people who agreed with comment [n] also agreed with comment [m].
+        <p style={globals.paragraph}>
+          What is the probability that a participant who agreed (or disagreed) with a given comment also agreed (or disagreed) with another given comment? This symmetrical matrix, which shows all comments along both axes, computes this probability. Patterns emerge when we evaluate groups of comments that tended to be voted on similarly.
         </p>
         <svg style={{margin: 20}} width="1000" height="800">
           {this.props.probabilities.map((comments, row) => {
@@ -128,3 +128,7 @@ class Matrix extends React.Component {
 }
 
 export default Matrix;
+
+
+
+// This is a matrix showing every comment by every comment (all comments are shown, in order of being submitted, on each axis). Each square represents the likihood that if someone agreed with one comment, they would agree with the other. For instance, [n%] of people who agreed with comment [n] also agreed with comment [m].

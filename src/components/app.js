@@ -157,6 +157,7 @@ class App extends React.Component {
       <div style={{margin: 20}}>
         <Heading conversation={this.state.conversation}/>
         <Overview
+          ptptCount={this.state.ptptCount}
           demographics={this.state.demographics}
           conversation={this.state.conversation}/>
         <Consensus

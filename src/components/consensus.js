@@ -17,8 +17,9 @@ const Consensus = ({conversation, comments, ptptCount, consensus}) => {
     <div>
       <p style={{fontSize: globals.primaryHeading}}> Consensus </p>
       <p style={globals.paragraph}>
-        Across all <span style={style.variable}>{ptptCount}</span> participants, there was general agreement on these comments. Either a majority (more than 60% of those who voted on the comment) agreed or disagreed, and no more than [n%] dissented. These comments were also voted on by greater than [n%] of total voters.
+        Across all {ptptCount} participants, there was general agreement on the following comments. Either a majority (more than 60% of those who voted on the comment) agreed or disagreed.
       </p>
+      <div style={{marginTop: 50}}>
       {
         consensus ? consensus.agree.map((c, i) => {
           return <Comment
@@ -41,8 +42,11 @@ const Consensus = ({conversation, comments, ptptCount, consensus}) => {
         })
         : "Loading Consensus"
       }
+      </div>
     </div>
   );
 };
 
 export default Consensus;
+
+// These comments were also voted on by greater than [n%] of total voters.

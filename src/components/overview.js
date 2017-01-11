@@ -3,7 +3,7 @@ import Radium from "radium";
 // import _ from "lodash";
 import * as globals from "./globals";
 
-const Overview = ({conversation, demographics}) => {
+const Overview = ({conversation, demographics, ptptCount}) => {
   console.log(conversation, demographics)
   return (
     <div>
@@ -13,7 +13,7 @@ const Overview = ({conversation, demographics}) => {
         {conversation && conversation.ownername ? "This conversation was run by "+conversation.ownername+". " : null}
         {conversation && conversation.topic ? "The topic was set as '"+conversation.topic+"'. " : null}
         {conversation && conversation.description ? "The specific question was '"+conversation.description+"'. ": null}
-        {conversation && conversation.participant_count ? "A total of "+conversation.participant_count+" people participated. " : null}
+        {conversation && conversation.participant_count ? "A total of "+ptptCount+" people participated. " : null}
       </p>
     </div>
   );
