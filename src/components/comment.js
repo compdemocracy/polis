@@ -16,11 +16,6 @@ class Comment extends React.Component {
     acceptClickHandler: React.PropTypes.func,
     rejectClickHandler: React.PropTypes.func,
   }
-  getStyles() {
-    return {
-
-    }
-  }
   getDate() {
     const date = new Date(+this.props.comment.created);
     return `${date.getMonth()+1} / ${date.getUTCDate()} / ${date.getFullYear()}`
@@ -33,14 +28,13 @@ class Comment extends React.Component {
   }
 
   render() {
-    const styles = this.getStyles();
     const showAsAnon = !this.props.comment.social || this.props.comment.anon || this.props.comment.is_seed;
 
     return (
       <Flex
         styleOverrides={{
           width: "100%",
-          marginBottom: 20,
+          marginBottom: 50,
           background: this.props.index % 2 !== 0 ? "none" : "none"
         }}
         direction="row"
@@ -50,9 +44,12 @@ class Comment extends React.Component {
           <span style={{
               width: 40,
               textAlign: "right",
-              marginRight: 10
+              marginRight: 10,
+              fontFamily: globals.sans,
+              fontWeight: 700,
+              color: globals.tidGrey
             }}>#{this.props.comment.tid}</span>
-          <span style={styles.commentBody}>{ this.props.comment.txt }</span>
+          <span style={[globals.paragraph, {fontStyle: "italic"}]}>{ this.props.comment.txt }</span>
         </Flex>
         <svg width={globals.barChartWidth} height={70}>
           <line

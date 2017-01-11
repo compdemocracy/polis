@@ -1,5 +1,6 @@
 import React from "react";
 // import { connect } from "react-redux";
+import Flex from "./flex";
 
 import Radium from "radium";
 import _ from "lodash";
@@ -91,7 +92,32 @@ class Matrix extends React.Component {
         <p style={globals.paragraph}>
           What is the probability that a participant who agreed (or disagreed) with a given comment also agreed (or disagreed) with another given comment? This symmetrical matrix, which shows all comments along both axes, computes this probability. Patterns emerge when we evaluate groups of comments that tended to be voted on similarly.
         </p>
-        <svg style={{margin: 20}} width="1000" height="800">
+
+        <div style={{width: 500, marginTop: 30}}>
+          <Flex justifyContent={"space-between"} alignItems={"baseline"} styleOverrides={{marginBottom: 5}}>
+            <span style={{fontSize: 10, width: 150}}>
+              negatively correlated
+            </span>
+            <span style={{fontSize: 10, width: 150, textAlign: "right"}}>
+              positive correlated
+            </span>
+          </Flex>
+          <img
+            style={{marginLeft: 0}}
+            width={"100%"}
+            height={20}
+            src={"https://raw.githubusercontent.com/d3/d3-scale-chromatic/master/img/RdBu.png"}/>
+          <Flex justifyContent={"space-between"} alignItems={"baseline"}>
+            <span style={{fontSize: 10, width: 150}}>
+              Participants who agreed with one comment tended to disagree with the other, or vice versa
+            </span>
+            <span style={{fontSize: 10, width: 150, textAlign: "right"}}>
+              Participants tended to either agree or disagree with both comments
+            </span>
+          </Flex>
+        </div>
+
+        <svg style={{margin: 20}} width="1000" height="700">
           {this.props.probabilities.map((comments, row) => {
             return (
               <g key={row}>

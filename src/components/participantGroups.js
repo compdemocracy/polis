@@ -31,9 +31,10 @@ class ParticipantGroups extends React.Component {
         this.props.style
       ]}>
       <p style={{fontSize: globals.primaryHeading}}> Opinion Groups </p>
-      <p style={{width: globals.paragraphWidth}}>
-        Across <span style={style.variable}>{this.props.ptptCount}</span> total participants, {this.props.math["group-votes"].length} opinion groups emerged. Each opinion group is made up of a number of participants who tended to vote similarly, and differently from other opinion groups, on multiple comments.
+      <p style={globals.paragraph}>
+        Across {this.props.ptptCount} total participants, {this.props.math["group-votes"].length} opinion groups emerged. There are two factors that define an opinion group. First, each opinion group is made up of a number of participants who tended to vote similarly on multiple comments. Second, each group of participants who voted similarly will have also voted distinctly differently from other groups.
       </p>
+      <div style={{marginTop: 50}}>
       {
         this.props.math && this.props.comments ? _.map(this.props.math["repness"], (groupComments, i) => {
           return (
@@ -49,6 +50,7 @@ class ParticipantGroups extends React.Component {
           );
         }) : "Loading Groups"
       }
+      </div>
       </div>
     );
   }

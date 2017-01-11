@@ -33,26 +33,28 @@ const ParticipantGroup = ({repnessIndex, groupComments, conversation, allComment
   return (
     <div
       style={{
-        marginBottom: 70,
-        width: "100%"
+        marginBottom: 20,
+        width: "100%",
+
       }}>
-        <Flex justifyContent={"flex-start"} styleOverrides={{width: "100%"}}>
-          <div style={{
-              width: globals.paragraphWidth
-            }}>
-            <span style={{fontSize: 18}}>
-              {`GROUP ${+repnessIndex + 1} `}
-              <span style={{fontSize: 18}}>
-                 • <span style={style.variable}>{groupVotesForThisGroup["n-members"]}</span> participants
-              </span>
-            </span>
-            <div style={{
-              paddingBottom: "10px",
-            }}>
-            In this group, <span style={style.variable}>{demo.count}</span> ptpts have demographic data. Of those,
-              <span style={style.variable}>{demo.gender_male}</span> are <span style={style.metadataCategory}>male</span>, <span style={style.variable}>{demo.gender_female}</span> are <span style={style.metadataCategory}>female</span>, <span style={style.variable}>{demo.gender_null}</span> <span style={style.metadataCategory}>unknown</span>.
-              The average age is <span style={style.metadataCategory}>{Math.round(currentYear - demo.birth_year)}</span>.
-            </div>
+      <div style={{
+          width: globals.paragraphWidth,
+          fontWeight: 700,
+          marginBottom: 20,
+          fontSize: globals.secondaryHeading
+        }}>
+        <span>
+          {`GROUP ${+repnessIndex + 1} `}
+          <span>
+            • {groupVotesForThisGroup["n-members"]} PARTICIPANTS
+          </span>
+        </span>
+      </div>
+        <Flex justifyContent={"flex-start"} alignItems={"baseline"} styleOverrides={{width: "100%", marginBottom: 20}}>
+          <div style={globals.paragraph}>
+            In this group, {demo.count} participants have demographic data.
+            Of those, {demo.gender_male} are male, {demo.gender_female} are female, {demo.gender_null} unknown.
+            The average age is {Math.round(currentYear - demo.birth_year)}.
           </div>
           <span
             style={{
@@ -60,7 +62,7 @@ const ParticipantGroup = ({repnessIndex, groupComments, conversation, allComment
               position: "relative",
               left: 40
             }}>
-            All (<span style={style.variable}>{ptptCount}</span>)
+            All ({ptptCount})
           </span>
           <span
             style={{
@@ -68,7 +70,7 @@ const ParticipantGroup = ({repnessIndex, groupComments, conversation, allComment
               position: "relative",
               left: 40
             }}>
-            This group (<span style={style.variable}>{groupVotesForThisGroup["n-members"]}</span>)
+            This group ({groupVotesForThisGroup["n-members"]})
           </span>
         </Flex>
       {drawGroupComments(groupVotesForThisGroup)}

@@ -6,6 +6,7 @@ export const barChartWidth = 250;
 export const primaryHeading = 36;
 export const secondaryHeading = 18;
 
+export const tidGrey = "rgb(220,220,220)";
 export const paragraph = {
   width: paragraphWidth,
   fontFamily: serif,

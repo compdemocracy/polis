@@ -40,7 +40,7 @@ class ParticipantGroupComment extends React.Component {
       <Flex
         styleOverrides={{
           width: "100%",
-          marginBottom: 20,
+          marginBottom: 50,
           background: this.props.index % 2 !== 0 ? "none" : "none"
         }}
         direction="row"
@@ -50,9 +50,12 @@ class ParticipantGroupComment extends React.Component {
           <span style={{
               width: 40,
               textAlign: "right",
-              marginRight: 10
+              marginRight: 10,
+              fontFamily: globals.sans,
+              fontWeight: 700,
+              color: globals.tidGrey
             }}>#{this.props.comment.tid}</span>
-          <span style={styles.commentBody}>{ this.props.comment.txt }</span>
+          <span style={[globals.paragraph, {fontStyle: "italic"}]}>{ this.props.comment.txt }</span>
         </Flex>
         <svg width={globals.barChartWidth} height={70}>
           <line

@@ -33,9 +33,10 @@ class AllComments extends React.Component {
         this.props.style
       ]}>
       <p style={{fontSize: globals.primaryHeading}}> All Comments </p>
-      <p style={{width: globals.paragraphWidth}}>
-        This is a list of the {this.props.comments.length} comments that were accepted into the conversation by moderators and were voted on by greater than [n%] of the <span style={style.variable}>{this.props.ptptCount}</span> participants.
+      <p style={globals.paragraph}>
+        This is a list of the {this.props.comments.length} comments that were accepted into the conversation by moderators.
       </p>
+      <div style={{marginTop: 50}}>
       {
         this.props.comments ? this.props.comments.map((c, i) => {
           return <Comment
@@ -47,7 +48,7 @@ class AllComments extends React.Component {
         })
         : "Loading All Comments"
       }
-
+      </div>
       </div>
     );
   }

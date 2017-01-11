@@ -3,14 +3,14 @@ import React from "react";
 const BarChart = ({comment, conversation, groupVotesForThisGroup, ptptCount}) => {
 
   const rectStartX = 70;
-  const barHeight = 12;
+  const barHeight = 15;
   const leftTextOffset = 63;
   const arr = [
     {
       label: "voted",
       percent: comment.count / ptptCount * 100,
       ratio: " (" + comment.count + "/" + ptptCount + ")",
-      fill: "rgb(180,180,180)"
+      fill: "rgb(230,230,230)"
     },
     {
       label: "agreed",
@@ -64,7 +64,7 @@ const BarChart = ({comment, conversation, groupVotesForThisGroup, ptptCount}) =>
               x={rectStartX}
               y={((i+1) * 15) - 9}
               fill={d.fill}/>
-            <text x={leftTextOffset + d.percent + 10} y={(i+1) * 15} fontFamily="Helvetica" fontSize="10" textAnchor={"start"}>
+            <text x={leftTextOffset + d.percent + 10} y={(i+1) * 15 + 2} fontFamily="Helvetica" fontSize="10" textAnchor={"start"}>
               {Math.floor(d.percent) + "%"}
               {d.ratio}
             </text>
