@@ -3,6 +3,7 @@ import React from "react";
 import probabilities from "../sampleData/probabilities";
 import covariance from "../sampleData/covariance";
 import correlation from "../sampleData/correlation";
+import correlationHClust from "../sampleData/correlationHClust"
 
 import Radium from "radium";
 import _ from "lodash";
@@ -100,7 +101,7 @@ class App extends React.Component {
       });
 
       // prep Correlation matrix.
-      var probabilities = correlation.matrix;
+      var probabilities = correlationHClust.matrix;
       var tids =  correlation.comments;
       var badTids = {};
       for (let row = 0; row < probabilities.length; row++) {
