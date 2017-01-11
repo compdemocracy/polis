@@ -99,7 +99,26 @@ class App extends React.Component {
         ptptCount += val["n-members"];
       });
 
-      console.log(a)
+      // prep Correlation matrix.
+      var probabilities = correlation.matrix;
+      var tids =  correlation.comments;
+      var badTids = {};
+      for (let row = 0; row < probabilities.length; row++) {
+        if (probabilities[row][0] === "NaN") {
+          badTids[row] = true;
+        }
+      }
+      var filteredProbabilities = probabilities.map((row) => {
+        return row.filter((cell, colTid) => {
+          return badTids[colTid] !== true;
+        });
+      }).filter((row, rowTid) => {
+          return badTids[rowTid] !== true;
+      });
+      var filteredTids =tids.filter((tid, index) => {
+        return badTids[tid] !== true;
+      });
+
 
       this.setState({
         math: mathResult,
@@ -111,6 +130,8 @@ class App extends React.Component {
         probabilitiesAgreeTids: coOccurrenceAgreeResult.rowToTid,
         conversation: conversation,
         ptptCount: ptptCount,
+        filteredCorrelationMatrix: filteredProbabilities,
+        filterecCorrelationTids: filteredTids,
       });
     }, (err) => {
       this.setState({
@@ -149,16 +170,16 @@ class App extends React.Component {
           tids={this.state.probabilitiesAgreeTids}
           ptptCount={this.state.ptptCount}
           error={this.state.probabilitiesAgreeError}/>*/}
-        <Matrix
+        {/*<Matrix
           title={"Covariance matrix"}
           probabilities={covariance.matrix}
           tids={covariance.comments}
           ptptCount={this.state.ptptCount}
-          />
+          />*/}
         <Matrix
           title={"Correlation matrix"}
-          probabilities={correlation.matrix}
-          tids={correlation.comments}
+          probabilities={this.state.filteredCorrelationMatrix}
+          tids={this.state.filterecCorrelationTids}
           ptptCount={this.state.ptptCount}
           />
         <ParticipantGroups
