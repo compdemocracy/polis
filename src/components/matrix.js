@@ -109,10 +109,10 @@ class Matrix extends React.Component {
             src={"https://raw.githubusercontent.com/d3/d3-scale-chromatic/master/img/RdBu.png"}/>
           <Flex justifyContent={"space-between"} alignItems={"baseline"}>
             <span style={{fontSize: 10, width: 150}}>
-              Participants who agreed with one comment tended to disagree with the other, or vice versa
+              These two comments are in opposition. Participants who agreed with one comment tended to disagree with the other, or vice versa.
             </span>
             <span style={{fontSize: 10, width: 150, textAlign: "right"}}>
-              Participants tended to either agree or disagree with both comments
+              These two comments are harmonious. Participants tended to vote the same way on both comments, either agreeing or disagreeing with both.
             </span>
           </Flex>
         </div>
