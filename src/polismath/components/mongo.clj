@@ -95,7 +95,7 @@
   [mongo zid]
   (mc/find-one-as-map
     (:db mongo)
-    (collection-name (:config mongo) "main")
+    (math-collection-name mongo "main")
     {:zid zid}))
 
 (defn format-for-mongo
