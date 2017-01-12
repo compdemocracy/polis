@@ -14,6 +14,8 @@ RUN \
   curl --silent https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein > /usr/local/bin/lein && \
   chmod +x /usr/local/bin/lein && \
 
+  lein deps
+
   # Not doing this for now, since conflicts with core.matrix for some reason...
   #lein package && \
   # Don't forget to WORKDIR /app before entry point if we switch back to this...
