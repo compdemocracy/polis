@@ -144,6 +144,7 @@ class App extends React.Component {
         ptptCount: ptptCount,
         filteredCorrelationMatrix: filteredProbabilities,
         filterecCorrelationTids: filteredTids,
+        badTids: badTids,
         groupNames: groupNames,
       });
     }, (err) => {
@@ -205,6 +206,7 @@ class App extends React.Component {
           math={this.state.math}/>
         <Graph
           groupNames={this.state.groupNames}
+          badTids={this.state.badTids}
           math={this.state.math}/>
         <p> ==================================== End Analysis ==================================== </p>
         <AllComments
