@@ -125,6 +125,12 @@ class App extends React.Component {
         return badTids[tid] !== true;
       });
 
+      var groupNames = {
+        1: "Sceptical of centralization",
+        0: "Pro Renzi, pro centralization",
+      };
+
+
 
       this.setState({
         math: mathResult,
@@ -138,6 +144,7 @@ class App extends React.Component {
         ptptCount: ptptCount,
         filteredCorrelationMatrix: filteredProbabilities,
         filterecCorrelationTids: filteredTids,
+        groupNames: groupNames,
       });
     }, (err) => {
       this.setState({
@@ -187,16 +194,17 @@ class App extends React.Component {
           title={"Correlation matrix"}
           probabilities={this.state.filteredCorrelationMatrix}
           tids={this.state.filterecCorrelationTids}
-          ptptCount={this.state.ptptCount}
-          />
+          ptptCount={this.state.ptptCount}/>
         <ParticipantGroups
           comments={this.state.comments}
           conversation={this.state.conversation}
           demographics={this.state.demographics}
           comments={this.state.comments}
           ptptCount={this.state.ptptCount}
+          groupNames={this.state.groupNames}
           math={this.state.math}/>
         <Graph
+          groupNames={this.state.groupNames}
           math={this.state.math}/>
         <p> ==================================== End Analysis ==================================== </p>
         <AllComments

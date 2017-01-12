@@ -45,6 +45,7 @@ class ParticipantGroups extends React.Component {
               conversation={this.props.conversation}
               demographicsForGroup={this.props.demographics[i]}
               groupComments={groupComments}
+              groupName={this.props.groupNames[i]}
               groupVotesForThisGroup={this.props.math["group-votes"][i]}
               ptptCount={this.props.ptptCount}/>
           );

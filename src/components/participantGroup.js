@@ -4,7 +4,7 @@ import * as globals from "./globals";
 import Flex from "./flex"
 import style from "../util/style";
 
-const ParticipantGroup = ({repnessIndex, groupComments, conversation, allComments, groupVotesForThisGroup, demographicsForGroup, ptptCount}) => {
+const ParticipantGroup = ({repnessIndex, groupComments, conversation, allComments, groupVotesForThisGroup, demographicsForGroup, ptptCount, groupName}) => {
 
   const drawGroupComments = () => {
     const allCommentsKeyed = _.keyBy(allComments, "tid");
@@ -46,9 +46,10 @@ const ParticipantGroup = ({repnessIndex, groupComments, conversation, allComment
         <span>
           {`GROUP ${+repnessIndex + 1} `}
           <span>
-            • {groupVotesForThisGroup["n-members"]} PARTICIPANTS
+            • "{groupName}"
           </span>
         </span>
+        <div>{groupVotesForThisGroup["n-members"]} PARTICIPANTS</div>
       </div>
         <Flex justifyContent={"flex-start"} alignItems={"baseline"} styleOverrides={{width: "100%", marginBottom: 20}}>
           <div style={globals.paragraph}>
