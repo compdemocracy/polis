@@ -115,6 +115,22 @@ class Graph extends React.Component {
             return (<text x={300} y={300}> Renzi Supporters </text>)
           }) : null */}
           {<Comments points={commentsPoints} xx={xx} yy={yy} xScaleup={commentScaleupFactorX} yScaleup={commentScaleupFactorY}/>}
+          {this.props.math["group-clusters"].map((c, i) => {
+            return (<text
+              key={i}
+              transform={i === 0 ? "translate(755,255)" : "translate(200,600)"}
+              fill="rgba(0,0,0,0.7)"
+              style={{
+                display: "block",
+                fontFamily: "Helvetica, sans-serif",
+                fontSize: 10,
+                fontWeight: 700
+              }}
+              >
+              {this.props.groupNames[c.id]}
+            </text>);
+          })}
+          groupNames
         </svg>
       </div>
     );
