@@ -30,7 +30,7 @@ const GraphParticipants = ({points, xx, yy}) => {
     <g transform={`translate(${globals.side / 2},${globals.side / 2})`}>
       {points.map((pt, i) => {
         return <circle
-          r={3}
+          r={6}
           fill={getColor(pt.gid)}
           key={i}
           cx={xx(pt.x)}
