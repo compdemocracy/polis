@@ -25,8 +25,9 @@ class Matrix extends React.Component {
           height={square}
           />
           <text
-            x={5}
+            x={9}
             y={13}
+            textAnchor={"middle"}
             fill="rgba(0,0,0,0.5)"
             style={{
               fontFamily: globals.sans,
@@ -44,7 +45,7 @@ class Matrix extends React.Component {
         <g key={column} >
           {/* this translate places the top text labels where they should go, rotated */}
           <text
-            transform={"translate(" + (column * square + 13) + ", 25), rotate(315)"}
+            transform={"translate(" + (column * square + 10) + ", 25), rotate(315)"}
             fill="rgba(0,0,0,0.7)"
             style={{
               display: row === 0 ? "block" : "none",

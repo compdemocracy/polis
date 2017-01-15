@@ -81,18 +81,17 @@ class Graph extends React.Component {
     var commentScaleupFactorX = 2 * greatestAbsPtptX / greatestAbsCommentX; // TODO figure out why *2 was needed
     var commentScaleupFactorY = 2 * greatestAbsPtptY / greatestAbsCommentY; // TODO figure out why *2 was needed
 
-    const side = 1000;
     return (
       <div>
         <p style={{fontSize: globals.primaryHeading}}> Opinion Graph </p>
-        <p style={{width: globals.paragraphWidth}}>
-          All people and comments visualized
+        <p style={globals.paragraph}>
+          This graph shows all people and all comments. People who voted similarly across many comments are closer together.
         </p>
-        <svg width={side} height={side} style={{border: "1px solid rgb(210,210,210)"}}>
+        <svg width={globals.side} height={globals.side} style={{border: "1px solid rgb(210,210,210)"}}>
           <VictoryAxis
             standalone={false}
-            height={side}
-            width={side}
+            height={globals.side}
+            width={globals.side}
             tickValues={["5", "4", "3", "2", "1", "0", "1", "2", "3", "4", "5"]}
             label="Anti Renzi & Anti Centralization vs Pro Renzi & Centralization"
             style={{
@@ -105,8 +104,8 @@ class Graph extends React.Component {
             />
           <VictoryAxis
             standalone={false}
-            height={side}
-            width={side}
+            height={globals.side}
+            width={globals.side}
             tickValues={["5", "4", "3", "2", "1", "0", "1", "2", "3", "4", "5"]}
             label="Government is Responsibility vs People are Responsibility"
             dependentAxis/>

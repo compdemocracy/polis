@@ -208,7 +208,6 @@ class App extends React.Component {
           groupNames={this.state.groupNames}
           badTids={this.state.badTids}
           math={this.state.math}/>
-        <p> ==================================== End Analysis ==================================== </p>
         <AllComments
           conversation={this.state.conversation}
           ptptCount={this.state.ptptCount}
