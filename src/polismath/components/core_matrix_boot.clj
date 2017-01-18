@@ -21,6 +21,7 @@
                    ;'clojure.core.matrix.impl.ndarray.NDArray])
                    ;; Could this be the new ns?
                    'mikera.arrayz.NDArray
+                   'mikera.matrixx.Matrix
                    ;'clojure.core.matrix.impl.ndarray.NDArray
                    'clojure.core.matrix.impl.ndarray_object.NDArray])
 

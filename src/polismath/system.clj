@@ -24,7 +24,7 @@
    :core-matrix-boot     (component/using (core-matrix-boot/create-core-matrix-booter) [:config])
    :postgres             (component/using (postgres/create-postgres)             [:config])
    :mongo                (component/using (mongo/create-mongo)                   [:config])
-   :conversation-manager (component/using (conv-man/create-conversation-manager) [:config :core-matrix-boot :mongo])})
+   :conversation-manager (component/using (conv-man/create-conversation-manager) [:config :core-matrix-boot :mongo :postgres])})
 
 (defn poller-system
   "Creates a base-system and assocs in darwin server related components."
