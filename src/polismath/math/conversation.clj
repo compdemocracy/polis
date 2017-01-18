@@ -225,6 +225,10 @@
                         [(:id clst) (count (:members clst))])
                       base-clusters)))
 
+
+      ;; Here we compute the top level clusters; These are the traditional clusters we've been using for some time now.
+      ;; Below we'll use these as the basis for a second level of subgroup clusters
+
       ; Compute group-clusters for multiple k values
       :group-clusterings
             (plmb/fnk [conv base-clusters-weights base-clusters-proj opts']
@@ -234,10 +238,8 @@
                       (clusters/kmeans base-clusters-proj k
                         :last-clusters
                           ; A little pedantic here in case no clustering yet for this k
-                          (let [last-clusterings (:group-clusterings conv)]
-                            (if last-clusterings
-                              (last-clusterings k)
-                              last-clusterings))
+                          (when-let [last-clusterings (:group-clusterings conv)]
+                            (last-clusterings k))
                         :cluster-iters (:group-iters opts')
                         :weights base-clusters-weights)))
                   (range 2 (inc (max-k-fn base-clusters-proj (:max-k opts'))))))
@@ -270,9 +272,94 @@
 
       ; Pick the cluster corresponding to smoothed K value from group-k-smoother
       :group-clusters
-            (plmb/fnk [group-clusterings group-k-smoother]
-              (get group-clusterings
-                (:smoothed-k group-k-smoother)))
+      (plmb/fnk [group-clusterings group-k-smoother]
+        (get group-clusterings
+          (:smoothed-k group-k-smoother)))
+
+
+      ;; Now we're going to do the same thing for subclusters, or 2-level, 2-down hierarchical clustering
+      ;; This will more or less look the same, except that we'll have to do it for
+
+      ;; Compute subgroup-clusters for each group id, for multiple k values, returning a nested map of:
+      ;;     {:group-id {:k [clusters] ...} ...}
+      :subgroup-clusterings
+      (plmb/fnk [conv base-clusters-weights base-clusters-proj group-clusters opts']
+        (let [group-ids (mapv :id group-clusters)]
+          ;; For each group cluster id
+          (plmb/map-from-keys
+            (fn [gid]
+              ;; For each k value...
+              ;; TODO Here we should really:
+              ;; * not return anyting if group cluster less than 10% (or some such) of population
+              ;; * not return anything if group cluster generally too small to subcluster (10?)
+              ;; * how do we handle these possibilties downstream?
+              (plmb/map-from-keys
+                (fn [k]
+                  ;; We sort by id just to have a canonical repr
+                  (sort-by
+                    :id
+                    (clusters/kmeans base-clusters-proj k
+                                     :last-clusters (get-in conv [:subgroup-clusterings gid k]) ;; ok if nil
+                                     ;; TODO: Really need to properly account for what happens when group k changes...
+                                     ;; QUESTION: Add subgroup iters? For now assume same parameter value as group; level
+                                     :cluster-iters (:group-iters opts')
+                                     :weights base-clusters-weights)))
+                (range 2 (inc (max-k-fn base-clusters-proj (:max-k opts'))))))
+            group-ids)))
+
+      ; Compute silhouette values for the various clusterings
+      :subgroup-clusterings-silhouettes
+      (plmb/fnk [subgroup-clusterings bucket-dists]
+        (plmb/map-vals
+          (partial
+            plmb/map-vals
+            (partial clusters/silhouette bucket-dists))
+          subgroup-clusterings))
+
+      ; This smooths changes in cluster counts (K-vals) by remembering what the last K was, and only changing
+      ; after (:group-k-buffer opts') many times on a new K value
+      :subgroup-k-smoother
+      (plmb/fnk
+        [conv subgroup-clusterings subgroup-clusterings-silhouettes opts']
+        (into {}
+          (map
+            (fn [[gid group-subgroup-clusterings]]
+              (let [group-subgroup-silhouettes (get subgroup-clusterings-silhouettes gid)
+                    {:keys [last-k last-k-count smoothed-k] :or {last-k-count 0}}
+                    (get-in conv [:subgroup-k-smoother gid])
+                    count-buffer (:group-k-buffer opts')
+                    ; Find best K value for current data, given silhouette
+                    this-k       (apply max-key group-subgroup-silhouettes (keys group-subgroup-clusterings))
+                    ; If this and last K values are the same, increment counter
+                    same         (if last-k (= this-k last-k) false)
+                    this-k-count (if same (+ last-k-count 1) 1)
+                    ; if seen > buffer many times, switch, OW, take last smoothed
+                    smoothed-k   (if (>= this-k-count count-buffer)
+                                   this-k
+                                   (if smoothed-k smoothed-k this-k))]
+                ;; We return a map of key-value pairs that look like this:
+                ;; This is maybe where we could put information about whether the last count matches for the sake of subgroups...
+                [gid
+                 {:last-k       this-k
+                  :last-k-count this-k-count
+                  :smoothed-k   smoothed-k}]))
+            subgroup-clusterings)))
+
+      ;; This is a little different from the group version above; For each group, we take the subgroup clustering with
+      ;; the best silhouette, and we mapcat those together into a single global clustering, which is strictly a
+      ;; subclustering (refinement) of the courser group clustering. To each of the clusters in this clustering,
+      ;; we assoc the :parent-id (or should it be :group-id?)
+      :subgroup-clusters
+      (plmb/fnk [subgroup-clusterings subgroup-k-smoother]
+        (mapcat
+          (fn [[gid group-subgroup-clusterings]]
+            (when-let [smoothed-k (get-in subgroup-k-smoother [gid :smoothed-k])]
+              (map
+                (plmb/fn-> (assoc :group-id gid))
+                (get group-subgroup-clusterings smoothed-k))))
+          subgroup-clusterings))
+
+
 
       ;; a vector of member vectors, sorted by base cluster id
       :bid-to-pid (plmb/fnk [base-clusters]

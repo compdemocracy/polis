@@ -83,10 +83,19 @@
   (let [{:keys [arguments options errors summary]} (cli/parse-opts args cli-options)]
     (log/info "Runner main function executed")
     (cond
-      (:help options)   (utils/exit 0 (usage summary))
-      (:errors options) (utils/exit 1 (str "Found the following errors:" \newline (:errors options)))
-      :else 
-      (let [subcommand (first arguments)
+      ;; Help message
+      (:help options)
+      (utils/exit 0 (usage summary))
+      ;; Error in parsing (this should really catch the below condition as well
+      (:errors options)
+      (utils/exit 1 (str "Found the following errors:" \newline (:errors options)))
+      ;; Example:
+      ;;; Specifically catch the first argument here needing to be
+      ;(nil? (first arguments))
+      ;(utils/exit 1 "Must specify a subcommand!")
+      :else
+      ;; For now, we'll set the default to be the "poller"
+      (let [subcommand (or (first arguments) "poller")
             system-map-generator (subcommands subcommand)
             _ (log/info "Running subcommand:" subcommand)
             system (system/create-and-run-system! system-map-generator options)]
