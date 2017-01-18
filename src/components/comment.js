@@ -46,7 +46,7 @@ class Comment extends React.Component {
               textAlign: "right",
               marginRight: 10,
               fontFamily: globals.sans,
-              fontWeight: 700,
+              fontWeight: 400,
               color: globals.tidGrey
             }}>#{this.props.comment.tid}</span>
           <span style={[globals.paragraph, {fontStyle: "italic"}]}>{ this.props.comment.txt }</span>
