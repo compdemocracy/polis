@@ -448,6 +448,17 @@ const sql_participants_extended = sql.define({
   ],
 });
 
+//first we define our tables
+const sql_users = sql.define({
+  name: 'users',
+  columns: [
+    "uid",
+    "hname",
+    "email",
+    "created",
+  ],
+});
+
 
 
 // // Eventually, the plan is to support a larger number-space by using some lowercase letters.
@@ -7901,6 +7912,34 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
+  function handle_PUT_users(req, res) {
+    let uid = req.p.uid;
+    if (isPolisDev(uid) && req.p.uid_of_user) {
+      uid = req.p.uid_of_user;
+    }
+
+    let fields = {};
+    if (!_.isUndefined(req.p.email)) {
+      fields.email = req.p.email;
+    }
+    if (!_.isUndefined(req.p.hname)) {
+      fields.hname = req.p.hname;
+    }
+
+    let q = sql_users.update(
+        fields
+      )
+      .where(
+        sql_users.uid.equals(uid)
+      );
+
+    pgQueryP(q.toString(), []).then((result) => {
+      res.json(result);
+    }).catch((err) => {
+      fail(res, 500, "polis_err_put_user", err);
+    });
+  }
+
   function handle_PUT_conversations(req, res) {
     let generateShortUrl = req.p.short_url;
     isModerator(req.p.zid, req.p.uid).then(function(ok) {
@@ -12503,6 +12542,7 @@ CREATE TABLE slack_user_invites (
     handle_PUT_comments,
     handle_PUT_conversations,
     handle_PUT_ptptois,
+    handle_PUT_users,
   };
 
 } // End of initializePolisHelpers
