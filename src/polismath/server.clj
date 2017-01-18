@@ -21,7 +21,8 @@
             [clojure.tools.logging :as log]
             [clj-time.core :as time]
             [bidi.bidi :as bidi]
-            [bidi.ring]))
+            [bidi.ring]
+            [clj-http.client :as client]))
 
 
 ;; First we'll just set up some basic helpers and settings/variables we'll need.
@@ -105,8 +106,8 @@
       ;; Don't really need this if we have params instead of query params, but whateves
       (let [k (keyword k)]
         (if (allowed-params k)
-                      (assoc m k ((or (parsers k) identity) v))
-                      m)))
+            (assoc m k ((or (parsers k) identity) v))
+            m)))
     {}
     params))
 
@@ -216,7 +217,24 @@
      [:p "Thanks for using " polis-link "!"]
      [:p "Christopher Small" [:br] "Chief Data Scientist"]]))
 
-(defn send-email-notification!
+
+;(defn send-email!
+;  ([{:keys [from to subject text html] :as params}]
+;   (log/info "Sending email to:" to)
+;   (log/debug "  have mailgun key?" (boolean *mailgun-key*))
+;   (try
+;     (client/post *mailgun-url*
+;                  {:basic-auth ["api" *mailgun-key*]
+;                   :headers {"host" "pol.is"}
+;                   :query-params params})
+;     (catch Exception e (.printStackTrace e))))
+;  ([from to subject text html] (send-email! {:from from :to to :subject subject :text text :html html}))
+;  ([from to subject text] (send-email! {:from from :to to :subject subject :text text})))
+
+
+(defn send-email-notification-via-mailgun!
+  "This is the old implementation of the send method, which directly sends an email using the mailgun AP.
+  It will likely be removed soon but is being left here for posterity, for the moment."
   [filename params]
   (let [zinvite (:zinvite params)
         download-url (public-datadump-url filename zinvite)
@@ -228,12 +246,38 @@
       (hiccup-to-plain-text email-hiccup)
       (hiccup/html email-hiccup))))
 
+; curl -X POST -s "https://pol.is/api/v3/sendEmailExportReady"
+;   -d "conversation_id=9isb32"
+;   -d "filename=polis-export-9isb32-1472680904264.zip"
+;   -d "webserver_username=$WEBSERVER_USERNAME"
+;   -d "webserver_pass=$WEBSERVER_PASS"
+;   -d "uid=125"
+
+(defn send-email-notification-via-polis-api!
+  [filename {:keys [zinvite email]}]
+  (try
+    (comment (client/request))
+    (let [response
+          (client/post "https://pol.is/api/v3/sendEmailExportReady"
+                       {:form-params {:webserver_username (:webserver-username env/env)
+                                      :webserver_pass (:webserver-pass env/env)
+                                      :email email
+                                      :filename filename
+                                      :raise false
+                                      :conversation_id zinvite}
+                        :content-type :json
+                        :throw-entire-message? true})]
+      (log/info "send email notification response:\n" (with-out-str (clojure.pprint/pprint response))))
+    (catch Exception e
+      (log/error e "failed to send email:\n"))))
+
 (defn handle-completion!
   [aws-cred filename params]
   (log/info "Completed export computation for filename" filename "params:" (with-out-str (str params)))
   (upload-to-aws aws-cred filename)
   (notify-mongo filename "complete" params)
-  (when (:email params) (send-email-notification! filename params)))
+  (when (:email params) (send-email-notification-via-polis-api! filename params)))
+  ;(when (:email params) (send-email-notification-via-mailgun! filename params)))
 
 (defn handle-timedout-datadump!
   [aws-cred filename compute-chan params]
@@ -457,10 +501,10 @@
    (-> handler
        ring.keyword-params/wrap-keyword-params
        ring.params/wrap-params
-       (auth/wrap-basic-authentication authenticated?)
+       (auth/wrap-basic-authentication authenticated?))})
        ;redirect-http-to-https-if-required
        ;restrict-remote-access
-       )})
+
 
 (defn get-port
   [default]
@@ -478,8 +522,8 @@
   {:app app
    :port (get-port 3000)
    ;; Not sure exactly what this is doing; maybe leave out XXX
-   :client-auth :need
-   })
+   :client-auth :need})
+
 
 
 (defonce http-server
@@ -528,8 +572,8 @@
 
   (-> (client/post "http://localhost:3000/ping" {:form-params {:q "foo, bar"}})
       (dissoc :body)
-      clojure.pprint/pprint)
-  )
+      clojure.pprint/pprint))
+
 
 
 ;; TODO / Thoughts
