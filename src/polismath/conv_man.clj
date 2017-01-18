@@ -37,8 +37,7 @@
       ; Whitelist of keys to be included in sent data; removes intermediates
       (assoc :lastVoteTimestamp (:last-vote-timestamp results))
       (assoc :lastModTimestamp (:last-mod-timestamp results))
-      (utils/hash-map-subset #{
-                               :base-clusters
+      (utils/hash-map-subset #{:base-clusters
                                :group-clusters
                                :subgroup-clusters
                                :in-conv
