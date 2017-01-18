@@ -126,8 +126,8 @@ class App extends React.Component {
       });
 
       var groupNames = {
-        1: "Sceptical of centralization",
-        0: "Pro Renzi, pro centralization",
+        0: "Sceptical of centralization",
+        1: "Pro Renzi, pro centralization",
       };
 
 
