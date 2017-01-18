@@ -4,6 +4,7 @@ import probabilities from "../sampleData/probabilities";
 import covariance from "../sampleData/covariance";
 import correlation from "../sampleData/correlation";
 import correlationHClust from "../sampleData/correlationHClust"
+import * as globals from "./globals";
 
 import Radium from "radium";
 import _ from "lodash";
@@ -125,11 +126,6 @@ class App extends React.Component {
         return badTids[tid] !== true;
       });
 
-      var groupNames = {
-        0: "Sceptical of centralization",
-        1: "Pro Renzi, pro centralization",
-      };
-
 
 
       this.setState({
@@ -145,7 +141,7 @@ class App extends React.Component {
         filteredCorrelationMatrix: filteredProbabilities,
         filterecCorrelationTids: filteredTids,
         badTids: badTids,
-        groupNames: groupNames,
+        groupNames: globals.groupNames,
       });
     }, (err) => {
       this.setState({

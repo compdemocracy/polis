@@ -12,4 +12,55 @@ export const paragraph = {
   fontFamily: serif,
   lineHeight: paragraphLineHeight
 }
-export const side = 750;
+
+export const side = 1000;
+
+
+export const axisLabels = {
+  x: "pro-tax / pro-action vs. anti-tax / anti-action",
+  y: "",
+};
+
+// ====== REMEMBER: gid's start at zero, (0, 1, 2) but we show them as group 1, 2, 3 =======
+
+export const groupColor = (gid) => {
+  if (gid === 0) {
+    return "rgb(100, 100, 255)";
+  } else if (gid === 1) {
+    return "rgb(100, 200, 200)";
+  } else if (gid === 2) {
+    return "rgb(100, 255, 100)";
+  } else if (gid === 3) {
+    return "rgb(255, 100, 100)";
+  } else if (gid === 4) {
+    return "rgb(200, 200, 100)";
+  } else if (gid === 5) {
+    return "rgb(200, 100, 200)";
+  } else {
+    return "rgb(255, 0, 0)";
+  }
+};
+
+// ====== REMEMBER: gid's start at zero, (0, 1, 2) but we show them as group 1, 2, 3 =======
+
+export const getGroupNamePosition = (gid) => {
+  if (gid === 0) {
+    return  "translate(555,255)";
+  }
+  if (gid === 1) {
+    return  "translate(200,220)";
+  }
+  if (gid === 2) {
+    return  "translate(400,700)";
+  }
+  return "translate(50, 50)";
+};
+
+// ====== REMEMBER: gid's start at zero, (0, 1, 2) but we show them as group 1, 2, 3 =======
+
+export const groupNames = {
+  0: "Uncertain skeptics who acknowledge urgency of problem",
+  1: "Pro nanny state",
+  2: "Taxes harm the poor",
+};
+

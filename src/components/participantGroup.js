@@ -4,13 +4,13 @@ import * as globals from "./globals";
 import Flex from "./flex"
 import style from "../util/style";
 
-const ParticipantGroup = ({repnessIndex, groupComments, conversation, allComments, groupVotesForThisGroup, demographicsForGroup, ptptCount, groupName}) => {
+const ParticipantGroup = ({gid, groupComments, conversation, allComments, groupVotesForThisGroup, demographicsForGroup, ptptCount, groupName}) => {
 
   const drawGroupComments = () => {
     const allCommentsKeyed = _.keyBy(allComments, "tid");
 
     return groupComments.map((c, i) => {
-      // const groupVotes = math["group-votes"][repnessIndex].votes[comment.tid];
+      // const groupVotes = math["group-votes"][gid].votes[comment.tid];
       // const isBestAgree = comment["best-agree"] && (groupVotes && groupVotes.A > 0);
       // const agree = isBestAgree || comment["repful-for"] === "agree";
       // const percent = agree ?
@@ -44,10 +44,17 @@ const ParticipantGroup = ({repnessIndex, groupComments, conversation, allComment
           fontSize: globals.secondaryHeading
         }}>
         <span>
-          {`GROUP ${+repnessIndex + 1} `}
+          {`GROUP ${gid + 1} `}
           <span>
             • "{groupName}"
           </span>
+          <svg width="1em"height="1em" style={{border: "none"}}>
+            <circle
+              r={6}
+              fill={globals.groupColor(gid)}
+              cx={10}
+              cy={10}/>
+          </svg>
         </span>
         <div>{groupVotesForThisGroup["n-members"]} PARTICIPANTS</div>
       </div>

@@ -8,30 +8,12 @@ const GraphParticipants = ({points, xx, yy}) => {
     return null
   }
 
-  function getColor(gid) {
-    if (gid === 0) {
-      return "rgb(100, 100, 255)";
-    } else if (gid === 1) {
-      return "rgb(100, 200, 200)";
-    } else if (gid === 2) {
-      return "rgb(100, 255, 100)";
-    } else if (gid === 3) {
-      return "rgb(255, 100, 100)";
-    } else if (gid === 4) {
-      return "rgb(200, 200, 100)";
-    } else if (gid === 5) {
-      return "rgb(200, 100, 200)";
-    } else {
-      return "rgb(255, 0, 0)";
-    }
-  }
-
   return (
     <g transform={`translate(${globals.side / 2},${globals.side / 2})`}>
       {points.map((pt, i) => {
         return <circle
           r={6}
-          fill={getColor(pt.gid)}
+          fill={globals.groupColor(pt.gid)}
           key={i}
           cx={xx(pt.x)}
           cy={yy(pt.y)}/>

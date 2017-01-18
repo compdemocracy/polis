@@ -6,8 +6,8 @@ import Radium from "radium";
 import _ from "lodash";
 import * as globals from "./globals";
 
-var leftOffset = 17;
-var topOffset = 50;
+var leftOffset = 34;
+var topOffset = 60;
 
 var scale = d3.scaleLinear().domain([-1, 1]).range([0, 1])
 
@@ -54,7 +54,7 @@ class Matrix extends React.Component {
               fontWeight: 700
             }}
             >
-            {this.props.tids[column]}
+            {'#' + this.props.tids[column]}
           </text>
           {/* this translate places the columns where they should go, and creates a gutter */}
           <g transform={"translate(" + (column * square) + ", 30)"}>
@@ -76,7 +76,7 @@ class Matrix extends React.Component {
             fontSize: 10,
             fontWeight: 700
           }}>
-          {this.props.tids[row]}
+          {'#' + this.props.tids[row]}
         </text>
         {/* this translate moves just the colored squares over to make a gutter, not the text */}
         <g transform={"translate("+ leftOffset +", -43)"}>
@@ -87,6 +87,7 @@ class Matrix extends React.Component {
   }
 
   renderMatrix() {
+    let side = this.props.probabilities.length * square + 70;
     return (
       <div>
         <p style={{fontSize: globals.primaryHeading}}>{this.props.title}</p>
@@ -118,7 +119,7 @@ class Matrix extends React.Component {
           </Flex>
         </div>
 
-        <svg style={{margin: 20}} width="1000" height="700">
+        <svg width={side} height={side}>
           {this.props.probabilities.map((comments, row) => {
             return (
               <g key={row}>

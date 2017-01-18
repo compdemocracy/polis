@@ -73,13 +73,15 @@ class Graph extends React.Component {
     const xx = d3.scaleLinear().domain([_.min(allXs),_.max(allXs)]).range([-(globals.side / denom - border), globals.side / denom - border]);
     const yy = d3.scaleLinear().domain([_.min(allYs),_.max(allYs)]).range([-(globals.side / denom - border), globals.side / denom - border]);
 
-    var greatestAbsPtptX = _.max(baseClusters, (pt) => { return Math.abs(pt.x); }).x;
-    var greatestAbsPtptY = _.max(baseClusters, (pt) => { return Math.abs(pt.y); }).y;
-    var greatestAbsCommentX = _.max(commentsPoints, (pt) => { return Math.abs(pt.x); }).x;
-    var greatestAbsCommentY = _.max(commentsPoints, (pt) => { return Math.abs(pt.y); }).y;
+    var greatestAbsPtptX = Math.abs(_.max(baseClusters, (pt) => { return Math.abs(pt.x); }).x);
+    var greatestAbsPtptY = Math.abs(_.max(baseClusters, (pt) => { return Math.abs(pt.y); }).y);
+    var greatestAbsCommentX = Math.abs(_.max(commentsPoints, (pt) => { return Math.abs(pt.x); }).x);
+    var greatestAbsCommentY = Math.abs(_.max(commentsPoints, (pt) => { return Math.abs(pt.y); }).y);
 
-    var commentScaleupFactorX = 2 * greatestAbsPtptX / greatestAbsCommentX; // TODO figure out why *2 was needed
-    var commentScaleupFactorY = 2 * greatestAbsPtptY / greatestAbsCommentY; // TODO figure out why *2 was needed
+    var commentScaleupFactorX = -0.4* greatestAbsPtptX / greatestAbsCommentX; // TODO figure out why *2 was needed
+    var commentScaleupFactorY = -8 * greatestAbsPtptY / greatestAbsCommentY; // TODO figure out why *2 was needed
+
+
 
     return (
       <div>
@@ -93,21 +95,20 @@ class Graph extends React.Component {
             height={globals.side}
             width={globals.side}
             tickValues={["5", "4", "3", "2", "1", "0", "1", "2", "3", "4", "5"]}
-            label="Anti Renzi & Anti Centralization vs Pro Renzi & Centralization"
+            label={globals.axisLabels.x}
             style={{
               axis: {},
               axisLabel: {},
               grid: {},
               ticks: {},
               tickLabels: {}
-            }}
-            />
+            }}/>
           <VictoryAxis
             standalone={false}
             height={globals.side}
             width={globals.side}
             tickValues={["5", "4", "3", "2", "1", "0", "1", "2", "3", "4", "5"]}
-            label="Government is Responsibility vs People are Responsibility"
+            label={globals.axisLabels.y}
             dependentAxis/>
           {<Participants points={baseClusters} xx={xx} yy={yy}/>}
           {/* this.props.math["group-clusters"].map((cluster, i) => {
@@ -117,7 +118,7 @@ class Graph extends React.Component {
           {this.props.math["group-clusters"].map((c, i) => {
             return (<text
               key={i}
-              transform={i === 0 ? "translate(755,255)" : "translate(200,600)"}
+              transform={globals.getGroupNamePosition(i)}
               fill="rgba(0,0,0,0.7)"
               style={{
                 display: "block",

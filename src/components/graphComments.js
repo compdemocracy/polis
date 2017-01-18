@@ -13,7 +13,7 @@ const GraphComments = ({points, xx, yy, xScaleup, yScaleup}) => {
       {points.map((pt, i) => {
         return <text
             key={i}
-            transform={"translate(" + (xx(pt.x*yScaleup)) + ", " + (yy(pt.y*yScaleup)) +")"}
+            transform={"translate(" + (xx(pt.x*xScaleup)) + ", " + (yy(pt.y*yScaleup)) +")"}
             fill="rgba(0,0,0,0.7)"
             style={{
               display: "block",
@@ -22,7 +22,7 @@ const GraphComments = ({points, xx, yy, xScaleup, yScaleup}) => {
               fontWeight: 700
             }}
             >
-            {pt.tid}
+            {'#' + pt.tid}
           </text>
       })}
     </g>

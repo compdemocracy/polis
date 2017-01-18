@@ -37,11 +37,12 @@ class ParticipantGroups extends React.Component {
       <div style={{marginTop: 50}}>
       {
         this.props.math && this.props.comments ? _.map(this.props.math["repness"], (groupComments, i) => {
+          i = Number(i);
           return (
             <Group
               key={i}
               allComments={this.props.comments}
-              repnessIndex={i}
+              gid={i}
               conversation={this.props.conversation}
               demographicsForGroup={this.props.demographics[i]}
               groupComments={groupComments}
