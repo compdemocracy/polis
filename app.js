@@ -230,6 +230,7 @@ helpersInitialized.then(function(o) {
     handle_PUT_comments,
     handle_PUT_conversations,
     handle_PUT_ptptois,
+    handle_PUT_users,
   } = o;
 
   console.log('begin route config');
@@ -808,6 +809,16 @@ helpersInitialized.then(function(o) {
     want('custom_canvas_assignment_id', getInt, assignToP),
     want('link_url', getStringLimitLength(1, 9999), assignToP),
     handle_PUT_conversations);
+
+
+  app.put('/api/v3/users',
+    moveToBody,
+    auth(assignToP),
+    want('email', getEmail, assignToP),
+    want('hname', getOptionalStringLimitLength(9999), assignToP),
+    want('uid_of_user', getInt, assignToP),
+    handle_PUT_users);
+
 
   app.delete('/api/v3/metadata/questions/:pmqid',
     moveToBody,
