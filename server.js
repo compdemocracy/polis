@@ -718,6 +718,9 @@ function pgQuery_readOnly() {
 }
 
 function pgQueryP_impl(queryString, params) {
+  if (!_.isString(queryString)) {
+    return Promise.reject("query_was_not_string");
+  }
   let f = this.isReadOnly ? pgQuery_readOnly : pgQuery;
   return new Promise(function(resolve, reject) {
     f(queryString, params, function(err, result) {
