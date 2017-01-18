@@ -4,7 +4,7 @@ import * as globals from "./globals";
 import Flex from "./flex"
 import style from "../util/style";
 
-const ParticipantGroup = ({gid, groupComments, conversation, allComments, groupVotesForThisGroup, demographicsForGroup, ptptCount, groupName}) => {
+const ParticipantGroup = ({gid, groupComments, conversation, allComments, groupVotesForThisGroup, demographicsForGroup, ptptCount, groupName, formatTid}) => {
 
   const drawGroupComments = () => {
     const allCommentsKeyed = _.keyBy(allComments, "tid");
@@ -21,6 +21,7 @@ const ParticipantGroup = ({gid, groupComments, conversation, allComments, groupV
         key={i}
         index={i}
         comment={allCommentsKeyed[c.tid]}
+        formatTid={formatTid}
         groupVotesForThisGroup={groupVotesForThisGroup}
         ptptCount={ptptCount}/>
 

@@ -54,7 +54,7 @@ class Matrix extends React.Component {
               fontWeight: 700
             }}
             >
-            {'#' + this.props.tids[column]}
+            {this.props.formatTid(this.props.tids[column])}
           </text>
           {/* this translate places the columns where they should go, and creates a gutter */}
           <g transform={"translate(" + (column * square) + ", 30)"}>
@@ -76,7 +76,7 @@ class Matrix extends React.Component {
             fontSize: 10,
             fontWeight: 700
           }}>
-          {'#' + this.props.tids[row]}
+          {this.props.formatTid(this.props.tids[row])}
         </text>
         {/* this translate moves just the colored squares over to make a gutter, not the text */}
         <g transform={"translate("+ leftOffset +", -43)"}>

@@ -2,7 +2,7 @@ import React from "react";
 import _ from "lodash";
 import * as globals from "./globals";
 
-const GraphComments = ({points, xx, yy, xScaleup, yScaleup}) => {
+const GraphComments = ({points, xx, yy, xScaleup, yScaleup, formatTid}) => {
 
   if (!points) {
     return null
@@ -22,7 +22,7 @@ const GraphComments = ({points, xx, yy, xScaleup, yScaleup}) => {
               fontWeight: 700
             }}
             >
-            {'#' + pt.tid}
+            {formatTid(pt.tid)}
           </text>
       })}
     </g>

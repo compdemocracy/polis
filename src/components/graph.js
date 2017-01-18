@@ -114,7 +114,7 @@ class Graph extends React.Component {
           {/* this.props.math["group-clusters"].map((cluster, i) => {
             return (<text x={300} y={300}> Renzi Supporters </text>)
           }) : null */}
-          {<Comments points={commentsPoints} xx={xx} yy={yy} xScaleup={commentScaleupFactorX} yScaleup={commentScaleupFactorY}/>}
+          {<Comments points={commentsPoints} xx={xx} yy={yy} xScaleup={commentScaleupFactorX} yScaleup={commentScaleupFactorY} formatTid={this.props.formatTid}/>}
           {this.props.math["group-clusters"].map((c, i) => {
             return (<text
               key={i}

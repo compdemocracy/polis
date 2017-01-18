@@ -5,7 +5,7 @@ import Comment from "./comment";
 import * as globals from "./globals";
 import style from "../util/style";
 
-const Consensus = ({conversation, comments, ptptCount, consensus}) => {
+const Consensus = ({conversation, comments, ptptCount, consensus, formatTid}) => {
 
   const _comments = _.keyBy(comments, "tid");
 
@@ -27,6 +27,7 @@ const Consensus = ({conversation, comments, ptptCount, consensus}) => {
             key={i}
             index={i}
             comment={_comments[c.tid]}
+            formatTid={formatTid}
             ptptCount={ptptCount}/>
         })
         : "Loading Consensus"
@@ -38,6 +39,7 @@ const Consensus = ({conversation, comments, ptptCount, consensus}) => {
             key={i}
             index={i}
             comment={_comments[c.tid]}
+            formatTid={formatTid}
             ptptCount={ptptCount}/>
         })
         : "Loading Consensus"

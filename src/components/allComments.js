@@ -44,6 +44,7 @@ class AllComments extends React.Component {
             key={i}
             index={i}
             comment={comments[c.tid]}
+            formatTid={this.props.formatTid}
             ptptCount={this.props.ptptCount}/>
         })
         : "Loading All Comments"

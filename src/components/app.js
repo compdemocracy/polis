@@ -126,6 +126,23 @@ class App extends React.Component {
         return badTids[tid] !== true;
       });
 
+      var maxTid = -1;
+      for (let i = 0; i < comments.length; i++) {
+        if (comments[i].tid > maxTid) {
+          maxTid = comments[i].tid;
+        }
+      }
+      var tidWidth = ("" + maxTid).length
+
+      function pad(n, width, z) {
+        z = z || '0';
+        n = n + '';
+        return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n;
+      }
+      function formatTid(tid) {
+        let padded = "" + tid;
+        return '#' + pad(""+tid, tidWidth);
+      }
 
 
       this.setState({
@@ -142,6 +159,7 @@ class App extends React.Component {
         filterecCorrelationTids: filteredTids,
         badTids: badTids,
         groupNames: globals.groupNames,
+        formatTid: formatTid,
       });
     }, (err) => {
       this.setState({
@@ -174,6 +192,7 @@ class App extends React.Component {
           conversation={this.state.conversation}
           ptptCount={this.state.ptptCount}
           comments={this.state.comments}
+          formatTid={this.state.formatTid}
           consensus={this.state.consensus}/>
         {/*<Matrix
           title={"Co occurance matrix"}
@@ -191,6 +210,7 @@ class App extends React.Component {
           title={"Correlation matrix"}
           probabilities={this.state.filteredCorrelationMatrix}
           tids={this.state.filterecCorrelationTids}
+          formatTid={this.state.formatTid}
           ptptCount={this.state.ptptCount}/>
         <ParticipantGroups
           comments={this.state.comments}
@@ -199,14 +219,17 @@ class App extends React.Component {
           comments={this.state.comments}
           ptptCount={this.state.ptptCount}
           groupNames={this.state.groupNames}
+          formatTid={this.state.formatTid}
           math={this.state.math}/>
         <Graph
           groupNames={this.state.groupNames}
           badTids={this.state.badTids}
+          formatTid={this.state.formatTid}
           math={this.state.math}/>
         <AllComments
           conversation={this.state.conversation}
           ptptCount={this.state.ptptCount}
+          formatTid={this.state.formatTid}
           comments={this.state.comments}/>
       </div>
     );

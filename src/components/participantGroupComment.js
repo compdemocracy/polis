@@ -54,7 +54,7 @@ class ParticipantGroupComment extends React.Component {
               fontFamily: globals.sans,
               fontWeight: 700,
               color: globals.tidGrey
-            }}>#{this.props.comment.tid}</span>
+            }}>{this.props.formatTid(this.props.comment.tid)}</span>
           <span style={[globals.paragraph, {fontStyle: "italic"}]}>{ this.props.comment.txt }</span>
         </Flex>
         <svg width={globals.barChartWidth} height={70}>

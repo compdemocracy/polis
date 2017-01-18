@@ -48,7 +48,9 @@ class Comment extends React.Component {
               fontFamily: globals.sans,
               fontWeight: 400,
               color: globals.tidGrey
-            }}>#{this.props.comment.tid}</span>
+            }}>
+            {this.props.formatTid(this.props.comment.tid)}
+            </span>
           <span style={[globals.paragraph, {fontStyle: "italic"}]}>{ this.props.comment.txt }</span>
         </Flex>
         <svg width={globals.barChartWidth} height={70}>
