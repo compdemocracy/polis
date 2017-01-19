@@ -73,13 +73,19 @@ class Graph extends React.Component {
     const xx = d3.scaleLinear().domain([_.min(allXs),_.max(allXs)]).range([-(globals.side / denom - border), globals.side / denom - border]);
     const yy = d3.scaleLinear().domain([_.min(allYs),_.max(allYs)]).range([-(globals.side / denom - border), globals.side / denom - border]);
 
-    var greatestAbsPtptX = Math.abs(_.max(baseClusters, (pt) => { return Math.abs(pt.x); }).x);
-    var greatestAbsPtptY = Math.abs(_.max(baseClusters, (pt) => { return Math.abs(pt.y); }).y);
-    var greatestAbsCommentX = Math.abs(_.max(commentsPoints, (pt) => { return Math.abs(pt.x); }).x);
-    var greatestAbsCommentY = Math.abs(_.max(commentsPoints, (pt) => { return Math.abs(pt.y); }).y);
+    // var greatestAbsPtptX = Math.abs(_.max(baseClusters, (pt) => { return Math.abs(pt.x); }).x);
+    // var greatestAbsPtptY = Math.abs(_.max(baseClusters, (pt) => { return Math.abs(pt.y); }).y);
+    // var greatestAbsCommentX = Math.abs(_.max(commentsPoints, (pt) => { return Math.abs(pt.x); }).x);
+    // var greatestAbsCommentY = Math.abs(_.max(commentsPoints, (pt) => { return Math.abs(pt.y); }).y);
+    var greatestAbsPtptX = _.max(baseClusters, (pt) => { return Math.abs(pt.x); }).x;
+    var greatestAbsPtptY = _.max(baseClusters, (pt) => { return Math.abs(pt.y); }).y;
+    var greatestAbsCommentX = _.max(commentsPoints, (pt) => { return Math.abs(pt.x); }).x;
+    var greatestAbsCommentY = _.max(commentsPoints, (pt) => { return Math.abs(pt.y); }).y;
 
-    var commentScaleupFactorX = -0.4* greatestAbsPtptX / greatestAbsCommentX; // TODO figure out why *2 was needed
-    var commentScaleupFactorY = -8 * greatestAbsPtptY / greatestAbsCommentY; // TODO figure out why *2 was needed
+    var commentScaleupFactorX = 2 * greatestAbsPtptX / greatestAbsCommentX; // TODO figure out why *2 was needed
+    var commentScaleupFactorY = 2 * greatestAbsPtptY / greatestAbsCommentY; // TODO figure out why *2 was needed
+    // var commentScaleupFactorX = -0.4* greatestAbsPtptX / greatestAbsCommentX; // TODO figure out why *2 was needed
+    // var commentScaleupFactorY = -8 * greatestAbsPtptY / greatestAbsCommentY; // TODO figure out why *2 was needed
 
 
 

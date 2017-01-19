@@ -13,12 +13,12 @@ export const paragraph = {
   lineHeight: paragraphLineHeight
 }
 
-export const side = 1000;
+export const side = 750;
 
 
 export const axisLabels = {
-  x: "pro-tax / pro-action vs. anti-tax / anti-action",
-  y: "",
+  x: "Pro Renzi & Centralization vs Anti Renzi & Anti Centralization",
+  y: "Government is Responsibility vs People are Responsibility",
 };
 
 // ====== REMEMBER: gid's start at zero, (0, 1, 2) but we show them as group 1, 2, 3 =======
@@ -45,13 +45,10 @@ export const groupColor = (gid) => {
 
 export const getGroupNamePosition = (gid) => {
   if (gid === 0) {
-    return  "translate(555,255)";
+    return "translate(555,255)";
   }
   if (gid === 1) {
-    return  "translate(200,220)";
-  }
-  if (gid === 2) {
-    return  "translate(400,700)";
+    return "translate(200,550)";
   }
   return "translate(50, 50)";
 };
@@ -59,8 +56,7 @@ export const getGroupNamePosition = (gid) => {
 // ====== REMEMBER: gid's start at zero, (0, 1, 2) but we show them as group 1, 2, 3 =======
 
 export const groupNames = {
-  0: "Uncertain skeptics who acknowledge urgency of problem",
-  1: "Pro nanny state",
-  2: "Taxes harm the poor",
+  0: "Sceptical of centralization",
+  1: "Pro Renzi, pro centralization",
 };
 
