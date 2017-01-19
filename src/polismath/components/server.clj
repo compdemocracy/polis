@@ -4,7 +4,7 @@
   (:require
     ;; XXX Deprecate; use component config directly
     [clojure.core.async :as async :refer [chan >!! <!! >! <! go]]
-    [clojure.tools.logging :as log]
+    [taoensso.timbre :as log]
 
     [ring.component.jetty :as jetty]
     [com.stuartsierra.component :as component]
@@ -28,7 +28,6 @@
   "This wraps a handler such that requested for /healthcheck"
   [handler]
   (fn [{:as request :keys [uri]}]
-    (log/debug "uri:" uri)
     (if (= uri "/healthcheck")
       (healthcheck-handler request)
       (handler request))))
@@ -37,19 +36,24 @@
   [config opts app jetty-server]
   component/Lifecycle
   (start [component]
+    (log/info ">> Starting server component with config:" config)
     (let [wrapped-handler (wrap-handler (:handler app))
           jetty-server (jetty/jetty-server (merge {:app (merge app {:handler wrapped-handler})}
                                                   (:server config)
                                                   opts))]
+      (component/start jetty-server)
       (assoc component :jetty-server jetty-server)))
   (stop [component]
+    (log/info "<< Stopping server component")
     (component/stop jetty-server)
     component))
 
 
 (defn create-server
   ;; Default handler just return the healthcheck response always
-  ([{:as opts :or {handler healthcheck-handler}}]
-   (map->Server opts))
+  ([opts]
+   (let [opts (merge {:app {:handler healthcheck-handler}}
+                     opts)]
+     (map->Server opts)))
   ([]
    (create-server {})))
