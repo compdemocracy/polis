@@ -31,7 +31,8 @@
 (def defaults
   {:math-env   :dev
    :math-schema-date "2014_08_22"
-   :darwin     {:server-port 3123}
+   :server     {:port 8080}
+   ;:darwin     {:server-port 3123}
    :export     {:expiry-days 10}
    ;; XXX Hmm... How do we express a dependency here? ; => Ah... this is exactly what aero solves!
    :primary-polis-url :localhost ;; Must do it in the component load...
@@ -47,7 +48,7 @@
   "Mapping of env keys to parsing options"
   {:math-env                   {:parse ->keyword}
    ;; Have to use :port since that's what heroku expects...
-   :port                       {:path [:darwin :server-port] :parse ->long}
+   :port                       {:path [:server :port] :parse ->long}
    :database-url               {:path [:database :url]}
    :database-for-reads-name    {:path [:database :reads-name]}
    :database-pool-size         {:path [:database :pool-size] :parse ->long}

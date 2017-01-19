@@ -6,7 +6,8 @@
                                   [mongo :as mongo]
                                   [postgres :as postgres]
                                   [core-matrix-boot :as core-matrix-boot]
-                                  [logger :as logger]]
+                                  [logger :as logger]
+                                  [server :as server]]
             [polismath.conv-man :as conv-man]
             [polismath.poller :as poller]
             [polismath.utils :as utils]
@@ -32,7 +33,8 @@
   (let [sys-map
         (merge (base-system config-overrides)
           {:vote-poller (component/using (poller/create-poller :votes)      [:config :postgres :conversation-manager])
-           :mod-poller  (component/using (poller/create-poller :moderation) [:config :postgres :conversation-manager])})]
+           :mod-poller  (component/using (poller/create-poller :moderation) [:config :postgres :conversation-manager])
+           :server      (component/using (server/create-server)             [:config :conversation-manager])})]
     (log/info "Here's the system keys:" (keys sys-map))
     sys-map))
 
