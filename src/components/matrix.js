@@ -22,8 +22,7 @@ class Matrix extends React.Component {
         <rect
           fill={d3.interpolateRdBu(scale(comment))}
           width={square}
-          height={square}
-          />
+          height={square} />
           <text
             x={9}
             y={13}
