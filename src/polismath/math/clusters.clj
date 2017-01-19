@@ -15,6 +15,7 @@
             [polismath.math.named-matrix :as nm]
             [clojure.core.matrix :as matrix]
             [clojure.core.matrix.stats :as matrix-stats]
+            [clojure.core.matrix.selection :as matrix.selection]
             [clojure.core.matrix.operators :refer :all]))
 
 
@@ -476,7 +477,7 @@
         matrix (:matrix corr-matrix)
         members (:members (first clusters))
         member-indices (mapv #(.indexOf comments %) members)]
-    {:matrix (clojure.core.matrix.selection/sel matrix member-indices member-indices)
+    {:matrix (matrix.selection/sel matrix member-indices member-indices)
      :comments members}))
 
 
@@ -552,20 +553,26 @@
            '[polismath.system :as system])
   (runner/run! system/base-system {:math-env :preprod})
   ;; Load the data for 15117 (zinvite 2ez5beswtc)
-  (def conv (conv-man/load-or-init (:conversation-manager runner/system) 15117))
+  ;(def focus-id 15117)
+  (def focus-zinvite "36jajfnhhn")
+  (def focus-id 15228)
+  (def conv (conv-man/load-or-init (:conversation-manager runner/system) focus-id))
+  ;conv
   (matrix/shape (nm/get-matrix (:rating-mat conv)))
   ;; Compute hclust on a cleaned, transposed rating matrix
   (def hclusters (hclust (cleaned-rating-mat-transpose conv)))
   (count (-> hclusters first :members))
   ;; Compute corr matrix
   (def corr-mat (correlation-matrix conv))
-  corr-mat
+  (keys corr-mat)
   (matrix/shape (:matrix corr-mat))
   (def corr-mat' (blockify-corr-matrix corr-mat hclusters))
+  (keys corr-mat')
+  (:comments corr-mat')
   ;; Spit this out
-  (spit-matrix "2ez5beswtc.corrmat.json" {:matrix corr-mat :comments (nm/colnames (:rating-mat conv))})
-  (spit-matrix "2ez5beswtc.corrmat-whclust.json" {:matrix corr-mat :comments (nm/colnames (:rating-mat conv))})
-  (spit-hclust "2ez5beswtc.hclust.json" {:matrix corr-mat :comments (nm/colnames (:rating-mat conv))})
+  (spit-matrix (str focus-zinvite ".corrmat.json") corr-mat)
+  (spit-matrix (str focus-zinvite ".corrmat-whclust.json") corr-mat')
+  (spit-hclust (str focus-zinvite ".hclust.json") hclusters)
   ;; All done
   :endcomment)
 
