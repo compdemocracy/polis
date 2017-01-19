@@ -25,17 +25,17 @@ export const axisLabels = {
 
 export const groupColor = (gid) => {
   if (gid === 0) {
-    return "rgb(100, 100, 255)";
+    return "rgb(7, 121, 183)";
   } else if (gid === 1) {
-    return "rgb(100, 200, 200)";
+    return "rgb(255, 128, 0)";
   } else if (gid === 2) {
-    return "rgb(100, 255, 100)";
+    return "rgb(153, 153, 153)";
   } else if (gid === 3) {
-    return "rgb(255, 100, 100)";
+    return "rgb(255, 253, 0)";
   } else if (gid === 4) {
-    return "rgb(200, 200, 100)";
+    return "rgb(104, 64, 157)";
   } else if (gid === 5) {
-    return "rgb(200, 100, 200)";
+    return "rgb(179, 90, 30)";
   } else {
     return "rgb(255, 0, 0)";
   }
