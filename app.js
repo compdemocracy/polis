@@ -84,6 +84,7 @@ helpersInitialized.then(function(o) {
     enableAgid,
     fetchIndexForAdminPage,
     fetchIndexForConversation,
+    fetchIndexForReportPage,
     fetchIndexWithoutPreloadData,
     getArrayOfInt,
     getArrayOfStringNonEmpty,
@@ -1279,7 +1280,7 @@ helpersInitialized.then(function(o) {
 
   app.get(/^\/react(\/.*)?$/, makeReactClientProxy("localhost", 3000));
   app.get(/^\/inbox(\/.*)?$/, fetchIndexWithoutPreloadData);
-  app.get(/^\/r/, fetchIndexWithoutPreloadData);
+  // app.get(/^\/r/, fetchIndexWithoutPreloadData);
   app.get(/^\/hk/, fetchIndexWithoutPreloadData);
   app.get(/^\/s\//, fetchIndexWithoutPreloadData);
   app.get(/^\/s$/, fetchIndexWithoutPreloadData);
@@ -1301,6 +1302,8 @@ helpersInitialized.then(function(o) {
   }));
   app.get(/^\/news$/, fetchIndexForAdminPage);
   app.get(/^\/company$/, fetchIndexForAdminPage);
+
+  app.get(/^\/report\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForReportPage);
   
   app.get(/^\/api$/, function(req, res) {
     res.redirect("/docs/api/v3");
