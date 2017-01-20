@@ -12170,6 +12170,9 @@ CREATE TABLE slack_user_invites (
   let fetchIndexForAdminPage = makeFileFetcher(hostname, portForAdminFiles, "/index_admin.html", {
     'Content-Type': "text/html",
   });
+  let fetchIndexForReportPage = makeFileFetcher(hostname, portForAdminFiles, "/index_report.html", {
+    'Content-Type': "text/html",
+  });
 
 
 
@@ -12389,6 +12392,7 @@ CREATE TABLE slack_user_invites (
     fail,
     fetchIndexForAdminPage,
     fetchIndexForConversation,
+    fetchIndexForReportPage,
     fetchIndexWithoutPreloadData,
     getArrayOfInt,
     getArrayOfStringNonEmpty,
