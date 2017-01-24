@@ -140,7 +140,7 @@ class Matrix extends React.Component {
   }
   renderLoading() {
     return (
-      <div>loading matrix...</div>
+      <div>loading matrix... (may take up to a minute)</div>
     );
   }
   render() {
