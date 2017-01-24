@@ -26,6 +26,8 @@ app.use(require("webpack-hot-middleware")(compiler));
 
 const serviceUrl = process.env.SERVICE_URL ? process.env.SERVICE_URL : "https://preprod.pol.is";
 
+console.log("SERVICE_URL:", serviceUrl);
+
 function proxy (req, res) {
   const hostHeader = serviceUrl.replace(/.*\/\//,"");
   const headers =  Object.assign(req.headers, {"origin": serviceUrl, "Origin": serviceUrl, "host": hostHeader, "Host": hostHeader});
