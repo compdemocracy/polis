@@ -142,6 +142,7 @@ helpersInitialized.then(function(o) {
     handle_GET_conversationsRecentActivity,
     handle_GET_conversationsRecentlyStarted,
     handle_GET_conversationStats,
+    handle_GET_math_correlationMatrix,
     handle_GET_dataExport,
     handle_GET_dataExport_results,
     handle_GET_domainWhitelist,
@@ -322,6 +323,14 @@ helpersInitialized.then(function(o) {
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('lastVoteTimestamp', getInt, assignToP, -1),
     handle_GET_math_pca2);
+
+  app.get("/api/v3/math/correlationMatrix",
+    moveToBody,
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    want('lastVoteTimestamp', getInt, assignToP, -1),
+    handle_GET_math_correlationMatrix);
+
+
 
   app.get("/api/v3/dataExport",
     moveToBody,
