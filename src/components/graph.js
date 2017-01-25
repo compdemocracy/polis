@@ -96,6 +96,26 @@ class Graph extends React.Component {
           This graph shows all people and all comments. People who voted similarly across many comments are closer together.
         </p>
         <svg width={globals.side} height={globals.side} style={{border: "1px solid rgb(210,210,210)"}}>
+          <line
+            strokeDasharray={"3, 3"}
+            x1={50 /* magic number is axis padding */}
+            y1={globals.side / 2}
+            x2={globals.side}
+            y2={globals.side / 2}
+            style={{
+              stroke: "rgb(130,130,130)",
+              strokeWidth: 1
+            }}/>
+          <line
+            strokeDasharray={"3, 3"}
+            x1={globals.side / 2}
+            y1={0}
+            x2={globals.side / 2}
+            y2={globals.side - 50 /* magic number is axis padding */}
+            style={{
+              stroke: "rgb(130,130,130)",
+              strokeWidth: 1
+            }}/>
           <VictoryAxis
             standalone={false}
             height={globals.side}
@@ -136,7 +156,7 @@ class Graph extends React.Component {
               {this.props.groupNames[c.id]}
             </text>);
           })}
-          groupNames
+
         </svg>
       </div>
     );
