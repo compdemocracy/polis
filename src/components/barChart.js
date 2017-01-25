@@ -1,6 +1,6 @@
 import React from "react";
 
-const BarChart = ({comment, conversation, groupVotesForThisGroup, ptptCount}) => {
+const BarChart = ({comment, conversation, groupVotes, ptptCount}) => {
 
   const rectStartX = 70;
   const barHeight = 15;
@@ -31,14 +31,14 @@ const BarChart = ({comment, conversation, groupVotesForThisGroup, ptptCount}) =>
       fill: "rgb(230,230,230)"
     }
   ];
-  if (groupVotesForThisGroup) {
-    let groupVotesForThisComment = groupVotesForThisGroup.votes[comment.tid];
+  if (groupVotes) {
+    let groupVotesForThisComment = groupVotes.votes[comment.tid];
     let agrees = groupVotesForThisComment.A;
     let disagrees = groupVotesForThisComment.D;
     let sawTheComment = groupVotesForThisComment.S;
     let passes = sawTheComment - (agrees + disagrees);
     let totalVotes = agrees + disagrees + passes;
-    let nMembers = groupVotesForThisGroup["n-members"];
+    let nMembers = groupVotes["n-members"];
     arr[0].percent = totalVotes / nMembers * 100;
     arr[1].percent = agrees / totalVotes * 100;
     arr[2].percent = disagrees / totalVotes * 100;

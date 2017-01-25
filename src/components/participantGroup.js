@@ -4,7 +4,7 @@ import * as globals from "./globals";
 import Flex from "./flex"
 import style from "../util/style";
 
-const ParticipantGroup = ({gid, groupComments, conversation, allComments, groupVotesForThisGroup, demographicsForGroup, ptptCount, groupName, formatTid}) => {
+const ParticipantGroup = ({gid, groupComments, conversation, allComments, groupVotesForThisGroup, groupVotesForOtherGroups, demographicsForGroup, ptptCount, groupName, formatTid}) => {
 
   const drawGroupComments = () => {
     const allCommentsKeyed = _.keyBy(allComments, "tid");
@@ -23,6 +23,7 @@ const ParticipantGroup = ({gid, groupComments, conversation, allComments, groupV
         comment={allCommentsKeyed[c.tid]}
         formatTid={formatTid}
         groupVotesForThisGroup={groupVotesForThisGroup}
+        groupVotesForOtherGroups={groupVotesForOtherGroups}
         ptptCount={ptptCount}/>
 
     })
@@ -71,7 +72,7 @@ const ParticipantGroup = ({gid, groupComments, conversation, allComments, groupV
               position: "relative",
               left: 40
             }}>
-            All ({ptptCount})
+            Other Groups ({groupVotesForOtherGroups["n-members"]})
           </span>
           <span
             style={{

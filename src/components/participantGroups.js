@@ -36,18 +36,46 @@ class ParticipantGroups extends React.Component {
       </p>
       <div style={{marginTop: 50}}>
       {
-        this.props.math && this.props.comments ? _.map(this.props.math["repness"], (groupComments, i) => {
-          i = Number(i);
+        this.props.math && this.props.comments ? _.map(this.props.math["repness"], (groupComments, gid) => {
+          gid = Number(gid);
+
+          let otherGroupVotes = {
+            votes: [],
+            "n-members": 0,
+          };
+
+          let MAX_CLUSTERS = 50;
+          let temp = this.props.math["group-votes"];
+          for (let ogid = 0; ogid < MAX_CLUSTERS; ogid++) {
+            if (ogid === gid || !temp[ogid]) {
+              continue;
+            }
+            otherGroupVotes["n-members"] += temp[ogid]["n-members"];
+            let commentVotes = temp[ogid].votes;
+            _.each(commentVotes, (voteObj, tid) => {
+              tid = Number(tid);
+              if (voteObj) {
+                if (!otherGroupVotes.votes[tid]) {
+                  otherGroupVotes.votes[tid] = {A: 0, D: 0, S: 0};
+                }
+                otherGroupVotes.votes[tid].A += voteObj.A;
+                otherGroupVotes.votes[tid].D += voteObj.D;
+                otherGroupVotes.votes[tid].S += voteObj.S;
+
+              }
+            });
+          }
           return (
             <Group
-              key={i}
+              key={gid}
               allComments={this.props.comments}
-              gid={i}
+              gid={gid}
               conversation={this.props.conversation}
-              demographicsForGroup={this.props.demographics[i]}
+              demographicsForGroup={this.props.demographics[gid]}
               groupComments={groupComments}
-              groupName={this.props.groupNames[i]}
-              groupVotesForThisGroup={this.props.math["group-votes"][i]}
+              groupName={this.props.groupNames[gid]}
+              groupVotesForThisGroup={this.props.math["group-votes"][gid]}
+              groupVotesForOtherGroups={otherGroupVotes}
               formatTid={this.props.formatTid}
               ptptCount={this.props.ptptCount}/>
           );

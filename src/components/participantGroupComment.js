@@ -66,6 +66,7 @@ class ParticipantGroupComment extends React.Component {
             strokeWidth="2"
             stroke="rgb(245,245,245)"/>
           <BarChart
+            groupVotes={this.props.groupVotesForOtherGroups}
             conversation={this.props.conversation}
             comment={this.props.comment}
             ptptCount={this.props.ptptCount}/>
@@ -79,7 +80,7 @@ class ParticipantGroupComment extends React.Component {
             strokeWidth="2"
             stroke="rgb(245,245,245)"/>
           <BarChart
-            groupVotesForThisGroup={this.props.groupVotesForThisGroup}
+            groupVotes={this.props.groupVotesForThisGroup}
             conversation={this.props.conversation}
             comment={this.props.comment}
             ptptCount={this.props.ptptCount}/>
