@@ -6217,8 +6217,7 @@ Email verified! You can close this tab or hit the back button.
     if (!_.isUndefined(o.mod)) {
       modClause = " and comments.mod = ($2)";
       params.push(o.mod);
-    }
-    if (!_.isUndefined(o.mod_gt)) {
+    } else if (!_.isUndefined(o.mod_gt)) {
       modClause = " and comments.mod > ($2)";
       params.push(o.mod_gt);
     }
