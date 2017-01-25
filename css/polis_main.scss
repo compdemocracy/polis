@@ -20,6 +20,18 @@ body {
   background-color: #fff;
 }
 
+input:focus {
+  outline:none;
+}
+
+button:focus {
+  outline:none;
+}
+
+textarea:focus {
+  outline:none;
+}
+
 // 2KB
 @import 'owlcarousel/owl.carousel.scss';
 @import 'owlcarousel/owl.theme.scss';
