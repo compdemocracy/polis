@@ -6518,7 +6518,6 @@ Email verified! You can close this tab or hit the back button.
   function getAgeRange(demo) {
     var currentYear = (new Date()).getUTCFullYear();
     var birthYear = demo.ms_birth_year_estimate_fb;
-    console.log('mikeage', age);
     if (_.isNull(birthYear) || _.isUndefined(birthYear) || _.isNaN(birthYear)) {
       return "?";
     }
@@ -6599,12 +6598,6 @@ Email verified! You can close this tab or hit the back button.
 
       var votesByTid = _.groupBy(votes, "tid");
 
-      console.log("mikedemoBypid");
-      console.log(demoByPid);
-      console.log("mikevotes");
-      console.log(votes);
-      console.log(votesByTid);
-
       // TODO maybe we should actually look at gender, then a/d/p %
       // TODO maybe we should actually look at each age range, then a/d/p %
       // that will be more natrual in cases of unequal representation
@@ -6614,7 +6607,7 @@ Email verified! You can close this tab or hit the back button.
 
         if (!votesForThisComment || !votesForThisComment.length) {
           console.log("skipping");
-          console.log(votesForThisComment);
+          // console.log(votesForThisComment);
           return c;
         }
 
