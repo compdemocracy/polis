@@ -116,7 +116,8 @@
     iframe.style.border = o.border || "1px solid #ccc";
     iframe.style.borderRadius = o.border_radius || "4px";
     iframe.style.padding = o.padding || "4px"; // 1px ensures that right border shows up on default wordpress theme
-    iframe.style.backgroundColor = "rgb(247, 247, 247)";
+    iframe.style.backgroundColor = "white";
+    // iframe.style.backgroundColor = "rgb(247, 247, 247)";
     iframe.id = id;
     parent.appendChild(iframe);
     iframes.push(iframe);
