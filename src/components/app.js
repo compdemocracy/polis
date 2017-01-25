@@ -224,6 +224,7 @@ class App extends React.Component {
           formatTid={this.state.formatTid}
           math={this.state.math}/>
         <Graph
+          comments={this.state.comments}
           groupNames={this.state.groupNames}
           badTids={this.state.badTids}
           formatTid={this.state.formatTid}

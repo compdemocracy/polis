@@ -36,6 +36,7 @@ class Graph extends React.Component {
           x: x,
           y: y,
           tid: i,
+          txt: this.props.comments[i] && this.props.comments[i].txt,
         });
       }
       allXs.push(compsX[i]);
