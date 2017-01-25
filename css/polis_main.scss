@@ -32,6 +32,10 @@ textarea:focus {
   outline:none;
 }
 
+textarea {
+  font-family: Helvetica, Arial, sans-serif;
+}
+
 // 2KB
 @import 'owlcarousel/owl.carousel.scss';
 @import 'owlcarousel/owl.theme.scss';
