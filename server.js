@@ -6634,6 +6634,7 @@ Email verified! You can close this tab or hit the back button.
               pass: passes.filter(isGenderUnknown).length,
             },
           },
+          // TODO return all age ranges even if zero.
           age: _.mapObject(votesByAgeRange, (votes, ageRange) => {
             var o = _.countBy(votes, "vote");
             return {
