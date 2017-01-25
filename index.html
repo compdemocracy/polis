@@ -24,6 +24,9 @@
     .displaynone {
       display: none;
     }
+    .hidden {
+      visibility: hidden;
+    }
     </style>
 
 <script> // Fire off this ajax first. it's slower than the other CDN delivered things.
@@ -279,9 +282,14 @@ window.initIntercom = function(){
 <script src="<%= basepath %>/js/polis.js"></script>
 
 
-<p id="mainSpinner" class="HeadingC" style="text-align:center; margin: 40px"></p>
-<!-- <p id="mainSpinner" class="HeadingC" style="text-align:center; margin: 40px">Loading...</p> -->
+<p id="mainSpinner" class="HeadingC" style="text-align:center; margin: 40px">Loading...</p>
 <p id="badDomainMessage" class="HeadingC displaynone" style="text-align:center; margin: 40px;">This coversation can not be viewed from this domain.</p>
+
+<script>
+  if (window.top !== window) {
+    document.getElementById("mainSpinner").classList.add("hidden");
+  }
+</script>
 
 </body>
 </html>
