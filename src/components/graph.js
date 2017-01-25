@@ -87,15 +87,17 @@ class Graph extends React.Component {
     // var commentScaleupFactorX = -0.4* greatestAbsPtptX / greatestAbsCommentX; // TODO figure out why *2 was needed
     // var commentScaleupFactorY = -8 * greatestAbsPtptY / greatestAbsCommentY; // TODO figure out why *2 was needed
 
-
-
     return (
       <div>
         <p style={{fontSize: globals.primaryHeading}}> Opinion Graph </p>
         <p style={globals.paragraph}>
-          This graph shows all people and all comments. People who voted similarly across many comments are closer together.
+          This graph shows all people and all comments.
         </p>
-        <svg width={globals.side} height={globals.side} style={{border: "1px solid rgb(210,210,210)"}}>
+        <p style={globals.paragraph}>
+          Comments, identified by their number, are positioned more closely to comments that were voted on similarly (blue, in the correlation matrix above). Comments are positioned further away from comments that tended to be voted on differently (red, in the correlation matrix above). </p>
+        <p style={globals.paragraph}>People are positioned closer to the comments on which agreed, and further from the comments on which they disagreed. Groups of participants that tended to vote similarly across many comments are identified by their similar color.
+        </p>
+        <svg width={globals.side} height={globals.side} style={{border: "1px solid rgb(210,210,210)", marginTop: 30}}>
           <line
             strokeDasharray={"3, 3"}
             x1={50 /* magic number is axis padding */}
@@ -141,7 +143,7 @@ class Graph extends React.Component {
             return (<text x={300} y={300}> Renzi Supporters </text>)
           }) : null */}
           {<Comments points={commentsPoints} xx={xx} yy={yy} xScaleup={commentScaleupFactorX} yScaleup={commentScaleupFactorY} formatTid={this.props.formatTid}/>}
-          {this.props.math["group-clusters"].map((c, i) => {
+          {/*this.props.math["group-clusters"].map((c, i) => {
             return (<text
               key={i}
               transform={globals.getGroupNamePosition(i)}
@@ -155,7 +157,7 @@ class Graph extends React.Component {
               >
               {this.props.groupNames[c.id]}
             </text>);
-          })}
+          }) */}
 
         </svg>
       </div>
