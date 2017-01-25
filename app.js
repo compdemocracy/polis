@@ -521,7 +521,7 @@ helpersInitialized.then(function(o) {
     want('until', getInt, assignToP),
     handle_GET_conversationStats);
 
-  app.get("/snapshot",
+  app.get("/api/v3/snapshot",
     moveToBody,
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
