@@ -17,8 +17,8 @@ export const side = 750;
 
 
 export const axisLabels = {
-  x: "Government is Responsibility vs People are Responsibility",
-  y: "Pro Renzi & Centralization vs Anti Renzi & Anti Centralization",
+  x: "Pro Renzi & Centralization vs Anti Renzi & Anti Centralization",
+  y: "Government is Responsibility vs People are Responsibility",
 };
 
 // ====== REMEMBER: gid's start at zero, (0, 1, 2) but we show them as group 1, 2, 3 =======
@@ -56,7 +56,7 @@ export const getGroupNamePosition = (gid) => {
 // ====== REMEMBER: gid's start at zero, (0, 1, 2) but we show them as group 1, 2, 3 =======
 
 export const groupNames = {
-  0: "Pro Renzi, pro centralization",
-  1: "Sceptical of centralization",
+  0: "Sceptical of centralization",
+  1: "Pro Renzi, pro centralization",
 };
 
