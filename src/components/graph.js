@@ -95,7 +95,7 @@ class Graph extends React.Component {
         </p>
         <p style={globals.paragraph}>
           Comments, identified by their number, are positioned more closely to comments that were voted on similarly (blue, in the correlation matrix above). Comments are positioned further away from comments that tended to be voted on differently (red, in the correlation matrix above). </p>
-        <p style={globals.paragraph}>People are positioned closer to the comments on which agreed, and further from the comments on which they disagreed. Groups of participants that tended to vote similarly across many comments are identified by their similar color.
+        <p style={globals.paragraph}>People are positioned closer to the comments on which they agreed, and further from the comments on which they disagreed. Groups of participants that tended to vote similarly across many comments are identified by their similar color.
         </p>
         <svg width={globals.side} height={globals.side} style={{border: "1px solid rgb(210,210,210)", marginTop: 30}}>
           <line
