@@ -40,27 +40,24 @@ const ParticipantGroup = ({gid, groupComments, conversation, allComments, groupV
 
       }}>
       <div style={{
-          width: globals.paragraphWidth,
-          fontWeight: 700,
           marginBottom: 20,
           fontSize: globals.secondaryHeading
         }}>
         <span>
-          {`GROUP ${gid + 1} `}
           <span>
-            • "{groupName}"
+            "{groupName}"
           </span>
-          <svg width="1em"height="1em" style={{border: "none"}}>
+          <svg width="1em"height="1em" style={{border: "none", marginLeft: 10, marginRight: 10}}>
             <circle
-              r={6}
+              r={5}
               fill={globals.groupColor(gid)}
               cx={10}
-              cy={10}/>
+              cy={12}/>
           </svg>
         </span>
-        <div>{groupVotesForThisGroup["n-members"]} PARTICIPANTS</div>
+        <span>{groupVotesForThisGroup["n-members"]} PARTICIPANTS</span>
       </div>
-        <Flex justifyContent={"flex-start"} alignItems={"baseline"} styleOverrides={{width: "100%", marginBottom: 20}}>
+        <Flex justifyContent={"flex-start"} alignItems={"baseline"} styleOverrides={{width: "100%", marginBottom: 40}}>
           <div style={globals.paragraph}>
             In this group, {demo.count} participants have demographic data.
             Of those, {demo.gender_male} are male, {demo.gender_female} are female, {demo.gender_null} unknown.
@@ -72,7 +69,7 @@ const ParticipantGroup = ({gid, groupComments, conversation, allComments, groupV
               position: "relative",
               left: 40
             }}>
-            Other Groups ({groupVotesForOtherGroups["n-members"]})
+            All others ({groupVotesForOtherGroups["n-members"]})
           </span>
           <span
             style={{
