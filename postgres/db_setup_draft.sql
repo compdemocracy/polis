@@ -245,8 +245,10 @@ CREATE TABLE conversations(
     vis_type INTEGER NOT NULL DEFAULT 1, -- for now, vis=1 is on, vis=0 is off. in the future, other values may be used for other configurations of vis
     write_type INTEGER NOT NULL DEFAULT 1, -- for now, 1 shows comment form, 0 hides the comment form. in the future, other values may be used for other configurations of comment form
     help_type INTEGER NOT NULL DEFAULT 1, -- 0 for disabled, 1 for enabled
+    write_hint_type INTEGER NOT NULL DEFAULT 1, -- 1 for under comment form, 0 for off
     style_btn VARCHAR(500),
     socialbtn_type INTEGER NOT NULL DEFAULT 1, -- 0 for none, 1 for all,
+    subscribe_type INTEGER NOT NULL DEFAULT 1, -- 0 for none, 1 for email,
     bgcolor VARCHAR(20),
     help_bgcolor VARCHAR(20),
     help_color VARCHAR(20),
