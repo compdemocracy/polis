@@ -45,10 +45,10 @@ export const groupColor = (gid) => {
 
 export const getGroupNamePosition = (gid) => {
   if (gid === 0) {
-    return "translate(555,255)";
+    return "translate(200,550)";
   }
   if (gid === 1) {
-    return "translate(200,550)";
+    return "translate(555,255)";
   }
   return "translate(50, 50)";
 };
