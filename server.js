@@ -5473,15 +5473,16 @@ Email verified! You can close this tab or hit the back button.
   }
 
 
-
   function handle_GET_snapshot(req, res) {
     let uid = req.p.uid;
     let zid = req.p.zid;
+
 
     if (isPolisDev(uid)) {
       // is polis developer
     } else {
       fail(res, 403, "polis_err_permissions");
+      return;
     }
 
     pgQuery(
@@ -5493,6 +5494,7 @@ Email verified! You can close this tab or hit the back button.
       function(err, result) {
         if (err) {
           fail(res, 500, "polis_err_cloning_conversation", err);
+          return;
         }
         // winston.log("info",rows);
         let conv = result.rows[0];
@@ -5500,8 +5502,8 @@ Email verified! You can close this tab or hit the back button.
         // let conv = rows[0];
         let newZid = conv.zid;
         return pgQueryP(
-          "insert into participants (pid, zid, uid, created) " +
-          "select pid, ($2), uid, created from participants where zid = ($1);", [
+          "insert into participants (pid, zid, uid, created, mod, subscribed) " +
+          "select pid, ($2), uid, created, mod, 0 from participants where zid = ($1);", [
             zid,
             newZid,
           ]).then(function() {
@@ -5511,12 +5513,12 @@ Email verified! You can close this tab or hit the back button.
                 zid,
                 newZid,
               ]).then(function() {
-                return pgQueryP(
-                  "insert into votes (pid, tid, zid, vote, created) " +
-                  "select pid, tid, ($2), vote, created from votes where zid = ($1);", [
-                    zid,
-                    newZid,
-                  ]).then(function() {
+                return pgQueryP("select * from votes where zid = ($1);", [zid]).then((votes) => {
+                  // insert votes one at a time.
+                  return Promise.all(votes.map(function(v) {
+                    let q = "insert into votes (zid, pid, tid, vote, created) values ($1, $2, $3, $4, $5);";
+                    return pgQueryP(q, [newZid, v.pid, v.tid, v.vote, v.created]);
+                  })).then(function() {
                     return generateAndRegisterZinvite(newZid, true).then(function(zinvite) {
                       res.status(200).json({
                         zid: newZid,
@@ -5525,6 +5527,7 @@ Email verified! You can close this tab or hit the back button.
                       });
                     });
                   });
+                });
               });
           }).catch(function(err) {
             fail(res, 500, "polis_err_cloning_conversation_misc", err);
