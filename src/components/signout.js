@@ -31,7 +31,11 @@ class SignOut extends React.Component {
 
   render() {
     return (
-      <StaticContentContainer>
+      <StaticContentContainer
+        backgroundColor={"#03a9f4"}
+        headerBackgroundColor={"#03a9f4"}
+        footerBackgroundColor={"#03a9f4"}
+        image={false}>
         <Flex>
           <p style={styles.heading}><Awesome name="sign-out" /> Signing Out</p>
         </Flex>
