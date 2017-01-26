@@ -12594,6 +12594,7 @@ CREATE TABLE slack_user_invites (
           twitterResponse.pipe(res);
         }
       }).on("error", function(err) {
+        finished = true;
         fail(res, 500, "polis_err_finding_file " + url, err);
       });
 
