@@ -291,8 +291,14 @@ module.exports = ConversationView.extend({
   },
   updateVisibilityOfSocialButtons: function() {
     var okToShow = true;
-    okToShow &= this.socialButtonsAllowedToShow;
+    okToShow = okToShow && this.socialButtonsAllowedToShow;
     // okToShow &= this.conversationTabs.onVoteTab();
+
+    var voteCountForFacebookPrompt = 2; // 2 means it appears after 3 votes.
+
+    var votedEnough = this.readReactModel && this.readReactModel.get("voteCount") >= voteCountForFacebookPrompt || false;
+    okToShow = okToShow && votedEnough;
+
     if (okToShow) {
       $("#socialButtonsUnderReadReact").fadeIn(1000);
     } else {
@@ -314,10 +320,11 @@ module.exports = ConversationView.extend({
       });
 
       // initialize this first to ensure that the vote view is showing and populated ASAP
+      this.readReactModel = new Backbone.Model();
       this.readReactView = this.addChild(new ReadReactView({
         firstCommentPromise: options.firstCommentPromise,
         serverClient: serverClient,
-        model: new Backbone.Model(),
+        model: this.readReactModel,
         conversationModel: this.model,
         votesByMe: this.votesByMe,
         // is_public: Utils.isShortConversationId(this.conversation_id),
