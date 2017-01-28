@@ -4,7 +4,6 @@ import Radium from "radium";
 import * as globals from "./globals";
 
 const Overview = ({conversation, demographics, ptptCount}) => {
-  console.log(conversation, demographics)
   return (
     <div>
       <p style={{fontSize: globals.primaryHeading}}>Overview</p>

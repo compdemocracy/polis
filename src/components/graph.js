@@ -10,6 +10,20 @@ import Participants from "./graphParticipants";
 @Radium
 class Graph extends React.Component {
 
+  constructor(props) {
+    super(props);
+    this.state = {
+      selectedComment: null,
+    };
+  }
+
+  handleCommentHover(selectedComment) {
+    return () => {
+      console.log('setting state', selectedComment)
+      this.setState({selectedComment});
+    }
+  }
+
   render() {
 
     if (!this.props.math) {
@@ -119,6 +133,18 @@ class Graph extends React.Component {
               stroke: "rgb(130,130,130)",
               strokeWidth: 1
             }}/>
+          {/* Comment */}
+          <g transform={`translate(${globals.side / 2}, ${15})`}>
+            <text
+              style={{
+                fontFamily: "Georgia",
+                fontSize: 14,
+                fontStyle: "italic"
+              }}
+              textAnchor="middle">
+              {this.state.selectedComment ? this.state.selectedComment.txt : null}
+            </text>
+          </g>
           {/* Bottom axis */}
           <g transform={`translate(${globals.side / 2}, ${globals.side - 20})`}>
             <text
@@ -187,7 +213,18 @@ class Graph extends React.Component {
           {/* this.props.math["group-clusters"].map((cluster, i) => {
             return (<text x={300} y={300}> Renzi Supporters </text>)
           }) : null */}
-          {<Comments points={commentsPoints} xx={xx} yy={yy} xScaleup={commentScaleupFactorX} yScaleup={commentScaleupFactorY} formatTid={this.props.formatTid}/>}
+          {
+            commentsPoints ?
+            <Comments
+              handleCommentHover={this.handleCommentHover.bind(this)}
+              points={commentsPoints}
+              xx={xx}
+              yy={yy}
+              xScaleup={commentScaleupFactorX}
+              yScaleup={commentScaleupFactorY}
+              formatTid={this.props.formatTid}/> :
+            null
+          }
           {/*this.props.math["group-clusters"].map((c, i) => {
             return (<text
               key={i}

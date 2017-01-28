@@ -2,31 +2,31 @@ import React from "react";
 import _ from "lodash";
 import * as globals from "./globals";
 
-const GraphComments = ({points, xx, yy, xScaleup, yScaleup, formatTid}) => {
+class GraphComments extends React.Component {
 
-  if (!points) {
-    return null
+  render () {
+    return (
+      <g transform={`translate(${globals.side / 2},${globals.side / 2})`}>
+        {this.props.points.map((pt, i) => {
+          return <text
+              key={i}
+              onMouseEnter={this.props.handleCommentHover(pt)}
+              onMouseLeave={this.props.handleCommentHover(pt)}
+              transform={"translate(" + (this.props.xx(pt.x * this.props.xScaleup)) + ", " + (this.props.yy(pt.y * this.props.yScaleup)) +")"}
+              fill="rgba(0,0,0,0.7)"
+              style={{
+                display: "block",
+                fontFamily: "Helvetica, sans-serif",
+                fontSize: 10,
+                fontWeight: 700
+              }}
+              >
+              {this.props.formatTid(pt.tid)}
+            </text>
+        })}
+      </g>
+    );
   }
-
-  return (
-    <g transform={`translate(${globals.side / 2},${globals.side / 2})`}>
-      {points.map((pt, i) => {
-        return <text
-            key={i}
-            transform={"translate(" + (xx(pt.x*xScaleup)) + ", " + (yy(pt.y*yScaleup)) +")"}
-            fill="rgba(0,0,0,0.7)"
-            style={{
-              display: "block",
-              fontFamily: "Helvetica, sans-serif",
-              fontSize: 10,
-              fontWeight: 700
-            }}
-            >
-            {formatTid(pt.tid)}
-          </text>
-      })}
-    </g>
-  );
 }
 
       // <circle
