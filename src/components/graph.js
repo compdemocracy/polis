@@ -142,7 +142,7 @@ class Graph extends React.Component {
                 fontStyle: "italic"
               }}
               textAnchor="middle">
-              {this.state.selectedComment ? this.state.selectedComment.txt : null}
+              {this.state.selectedComment ? this.state.selectedComment.txt + " " + this.state.selectedComment.tid : null}
             </text>
           </g>
           {/* Bottom axis */}
