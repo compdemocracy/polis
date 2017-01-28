@@ -98,12 +98,12 @@ class Graph extends React.Component {
           Comments, identified by their number, are positioned more closely to comments that were voted on similarly (blue, in the correlation matrix above). Comments are positioned further away from comments that tended to be voted on differently (red, in the correlation matrix above). </p>
         <p style={globals.paragraph}>People are positioned closer to the comments on which they agreed, and further from the comments on which they disagreed. Groups of participants that tended to vote similarly across many comments (elaborated in the previous section) are identified by their similar color.
         </p>
-        <svg width={globals.side} height={globals.side} style={{border: "1px solid rgb(210,210,210)", marginTop: 30}}>
+        <svg width={globals.side} height={globals.side} style={{ marginTop: 30}}>
           <line
             strokeDasharray={"3, 3"}
             x1={50 /* magic number is axis padding */}
             y1={globals.side / 2}
-            x2={globals.side}
+            x2={globals.side - 50}
             y2={globals.side / 2}
             style={{
               stroke: "rgb(130,130,130)",
@@ -112,40 +112,77 @@ class Graph extends React.Component {
           <line
             strokeDasharray={"3, 3"}
             x1={globals.side / 2}
-            y1={0}
+            y1={50}
             x2={globals.side / 2}
             y2={globals.side - 50 /* magic number is axis padding */}
             style={{
               stroke: "rgb(130,130,130)",
               strokeWidth: 1
             }}/>
-          <VictoryAxis
-            standalone={false}
-            height={globals.side}
-            width={globals.side}
-            tickValues={[]}
-            label={globals.axisLabels.x}
-            style={{
-              axis: {display: "none"},
-              axisLabel: {},
-              grid: {},
-              ticks: {},
-              tickLabels: {}
-            }}/>
-          <VictoryAxis
-            standalone={false}
-            style={{
-              axis: {display: "none"},
-              axisLabel: {},
-              grid: {},
-              ticks: {},
-              tickLabels: {}
-            }}
-            height={globals.side}
-            width={globals.side}
-            tickValues={[]}
-            label={globals.axisLabels.y}
-            dependentAxis/>
+          {/* Bottom axis */}
+          <g transform={`translate(${globals.side / 2}, ${globals.side - 20})`}>
+            <text
+              textAnchor="middle">
+              {globals.axisLabels.spacer}
+            </text>
+            <text
+              style={{
+                fontFamily: "Georgia",
+                fontSize: 14
+              }}
+              textAnchor="end"
+              x={-35}
+              y={-1}>
+              {globals.axisLabels.leftArrow}
+              {" "}
+              {globals.axisLabels.xLeft}
+            </text>
+            <text
+              style={{
+                fontFamily: "Georgia",
+                fontSize: 14
+              }}
+              textAnchor="start"
+              x={35}
+              y={-1}>
+              {globals.axisLabels.xRight}
+              {" "}
+              {globals.axisLabels.rightArrow}
+            </text>
+          </g>
+
+          {/* Left axis */}
+          <g transform={`translate(${30}, ${globals.side / 2}) rotate(270)`}>
+            <text
+              textAnchor="middle">
+              {globals.axisLabels.spacer}
+            </text>
+            <text
+              style={{
+                fontFamily: "Georgia",
+                fontSize: 14
+              }}
+              textAnchor="end"
+              x={-35}
+              y={-1}>
+              {globals.axisLabels.leftArrow}
+              {" "}
+              {globals.axisLabels.yLeft}
+            </text>
+            <text
+              style={{
+                fontFamily: "Georgia",
+                fontSize: 14
+              }}
+              textAnchor="start"
+              x={35}
+              y={-1}>
+              {globals.axisLabels.yRight}
+              {" "}
+              {globals.axisLabels.rightArrow}
+            </text>
+          </g>
+
           {<Participants points={baseClusters} xx={xx} yy={yy}/>}
           {/* this.props.math["group-clusters"].map((cluster, i) => {
             return (<text x={300} y={300}> Renzi Supporters </text>)
@@ -174,6 +211,35 @@ class Graph extends React.Component {
 }
 
 export default Graph;
+
+
+// <VictoryAxis
+//   standalone={false}
+//   height={globals.side}
+//   width={globals.side}
+//   tickValues={[]}
+//   label={globals.axisLabels.x}
+//   style={{
+//     axis: {display: "none"},
+//     axisLabel: {},
+//     grid: {},
+//     ticks: {},
+//     tickLabels: {}
+//   }}/>
+// <VictoryAxis
+//   standalone={false}
+//   style={{
+//     axis: {display: "none"},
+//     axisLabel: {},
+//     grid: {},
+//     ticks: {},
+//     tickLabels: {}
+//   }}
+//   height={globals.side}
+//   width={globals.side}
+//   tickValues={[]}
+//   label={globals.axisLabels.y}
+//   dependentAxis/>
 
 // grid
 // <line

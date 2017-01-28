@@ -17,23 +17,28 @@ export const side = 750;
 
 
 export const axisLabels = {
-  x: "⟵ Anti-Renzi, anti-centralization ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯  Pro-Renzi, centralization ⟶",
-  y: "⟵ Leave it to the government ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯ Participatory process is best ⟶",
+  spacer: "⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯",
+  leftArrow: "⟵",
+  rightArrow: "⟶",
+  xLeft: "Anti-Renzi, anti-centralization",
+  xRight: "Pro-Renzi, centralization",
+  yRight: "Participatory process is best",
+  yLeft: "Leave it to the government"
 };
 
 // ====== REMEMBER: gid's start at zero, (0, 1, 2) but we show them as group 1, 2, 3 =======
 
 export const groupColor = (gid) => {
   if (gid === 0) {
-    return "rgb(7, 121, 183)";
+    return "#91bfdb"; /* light blue */
   } else if (gid === 1) {
-    return "rgb(255, 128, 0)";
+    return "#fc8d62"; /* bright orange salmon */
   } else if (gid === 2) {
-    return "rgb(153, 153, 153)";
+    return "#984ea3"; /* dark purple */
   } else if (gid === 3) {
-    return "rgb(255, 253, 0)";
+    return "#bababa"; /* dark grey */
   } else if (gid === 4) {
-    return "rgb(104, 64, 157)";
+    return "#80cdc1"; /* teal */
   } else if (gid === 5) {
     return "rgb(179, 90, 30)";
   } else {
