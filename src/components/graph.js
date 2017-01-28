@@ -42,10 +42,10 @@ class Graph extends React.Component {
       if (this.props.comments[i]) {
         let x = compsX[i];
         let y = compsY[i];
-        if (i === 32) { // TODO_DEMO_HACK use force layout instead
-          x += 0.02;
-          y += 0.01;
-        }
+        // if (i === 32) { // TODO_DEMO_HACK use force layout instead
+        //   x += 0.02;
+        //   y += 0.01;
+        // }
         if (!this.props.badTids[i]) {
           commentsPoints.push({
             x: x,
