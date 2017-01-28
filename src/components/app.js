@@ -34,8 +34,6 @@ class App extends React.Component {
       consensus: null,
       comments: null,
       participants: null,
-      probabilitiesAgree: null,
-      probabilitiesAgreeTids: null,
       conversation: null,
       groupDemographics: null,
       dimensions: {
@@ -52,11 +50,6 @@ class App extends React.Component {
     });
   }
 
-  getAgreeMatrix() {
-    return net.polisGet("/api/v3/voteProbabilityMatrixAgree", {
-      conversation_id: conversation_id,
-    });
-  }
   getComments() {
     return net.polisGet("/api/v3/comments", {
       conversation_id: conversation_id,
@@ -86,18 +79,16 @@ class App extends React.Component {
   getData() {
     Promise.all([
       this.getMath(),
-      this.getAgreeMatrix(),
       this.getComments(),
       this.getParticipantsOfInterest(),
       this.getConversation(),
       this.getGroupDemographics()
     ]).then((a) => {
       const mathResult = a[0];
-      const coOccurrenceAgreeResult = a[1];
-      const comments = a[2];
-      const participants = a[3];
-      const conversation = a[4];
-      const groupDemographics = a[5];
+      const comments = a[1];
+      const participants = a[2];
+      const conversation = a[3];
+      const groupDemographics = a[4];
 
       var ptptCount = 0;
       _.each(mathResult["group-votes"], (val, key) => {
@@ -153,8 +144,6 @@ class App extends React.Component {
         comments: comments,
         demographics: groupDemographics,
         participants: participants,
-        probabilitiesAgree: coOccurrenceAgreeResult.matrix,
-        probabilitiesAgreeTids: coOccurrenceAgreeResult.rowToTid,
         conversation: conversation,
         ptptCount: ptptCount,
         filteredCorrelationMatrix: filteredProbabilities,
@@ -165,7 +154,8 @@ class App extends React.Component {
       });
     }, (err) => {
       this.setState({
-        probabilitiesAgreeError: (err || true),
+        error: true,
+        errorText: err,
       });
     });
   }
@@ -183,6 +173,12 @@ class App extends React.Component {
   }
 
   render() {
+    if (this.state.error) {
+      return (<div>
+        <div> Error Loading </div>
+        <div> {this.state.errorText} </div>
+      </div>);
+    }
     return (
       <div style={{margin: 20}}>
         <Heading conversation={this.state.conversation}/>
@@ -196,18 +192,6 @@ class App extends React.Component {
           comments={this.state.comments}
           formatTid={this.state.formatTid}
           consensus={this.state.consensus}/>
-        {/*<Matrix
-          title={"Co occurance matrix"}
-          probabilities={this.state.probabilitiesAgree}
-          tids={this.state.probabilitiesAgreeTids}
-          ptptCount={this.state.ptptCount}
-          error={this.state.probabilitiesAgreeError}/>*/}
-        {/*<Matrix
-          title={"Covariance matrix"}
-          probabilities={covariance.matrix}
-          tids={covariance.comments}
-          ptptCount={this.state.ptptCount}
-          />*/}
         <Matrix
           title={"Correlation matrix"}
           probabilities={this.state.filteredCorrelationMatrix}
