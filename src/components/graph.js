@@ -39,22 +39,24 @@ class Graph extends React.Component {
     const compsX = this.props.math.pca.comps[0];
     const compsY = this.props.math.pca.comps[1];
     for (let i = 0; i < compsX.length; i++) {
-      let x = compsX[i];
-      let y = compsY[i];
-      if (i === 32) { // TODO_DEMO_HACK use force layout instead
-        x += 0.02;
-        y += 0.01;
+      if (this.props.comments[i]) {
+        let x = compsX[i];
+        let y = compsY[i];
+        if (i === 32) { // TODO_DEMO_HACK use force layout instead
+          x += 0.02;
+          y += 0.01;
+        }
+        if (!this.props.badTids[i]) {
+          commentsPoints.push({
+            x: x,
+            y: y,
+            tid: this.props.comments[i].tid,
+            txt: this.props.comments[i].txt,
+          });
+        }
+        allXs.push(compsX[i]);
+        allYs.push(compsY[i]);
       }
-      if (!this.props.badTids[i]) {
-        commentsPoints.push({
-          x: x,
-          y: y,
-          tid: i,
-          txt: this.props.comments[i] && this.props.comments[i].txt,
-        });
-      }
-      allXs.push(compsX[i]);
-      allYs.push(compsY[i]);
     }
 
     const baseClusterIdToGid = (baseClusterId) => {
