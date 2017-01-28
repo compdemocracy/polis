@@ -123,10 +123,10 @@ class Graph extends React.Component {
             standalone={false}
             height={globals.side}
             width={globals.side}
-            tickValues={["5", "4", "3", "2", "1", "0", "1", "2", "3", "4", "5"]}
+            tickValues={[]}
             label={globals.axisLabels.x}
             style={{
-              axis: {},
+              axis: {display: "none"},
               axisLabel: {},
               grid: {},
               ticks: {},
@@ -134,9 +134,16 @@ class Graph extends React.Component {
             }}/>
           <VictoryAxis
             standalone={false}
+            style={{
+              axis: {display: "none"},
+              axisLabel: {},
+              grid: {},
+              ticks: {},
+              tickLabels: {}
+            }}
             height={globals.side}
             width={globals.side}
-            tickValues={["5", "4", "3", "2", "1", "0", "1", "2", "3", "4", "5"]}
+            tickValues={[]}
             label={globals.axisLabels.y}
             dependentAxis/>
           {<Participants points={baseClusters} xx={xx} yy={yy}/>}
