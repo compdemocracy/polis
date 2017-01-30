@@ -324,26 +324,27 @@
       ;; ensuring that we don't have race conditions for conv state. The state kept in the atom is basically
       ;; just a convenience.
       (go-loop [conv conv]
-        (let [first-msg (<! message-chan)
-              retry-msgs (async/poll! retry-chan)
-              _ (log/info "Message chan put in queue-message-batch! for zid:" zid)
-              msgs (vec (concat retry-msgs [first-msg] (take-all! message-chan)))
-              {:as split-msgs :keys [votes moderation]} (split-batches msgs)
-              error-handler (build-update-error-handler conv-man retry-chan conv)
-              _ (log/info "About to run updaters")
-              ;; TODO Oh... is this how we're failing to get moderation affecting repness? We're presently only updating mongo
-              ;; (via `update`) if there are also votes. (see below)
-              conv (if moderation
-                     (conv/mod-update conv moderation)
-                     conv)
-              ;; Should extracct the stateful bits here till the very end, so even if there are just mods it updates
-              conv (if votes
-                     (update conv-man conv votes error-handler)
-                     conv)]
-          (log/info "Completed computing conversation zid:" zid)
-          (swap! conversations assoc-in [zid :conv] conv)
-          (doseq [[k f] @listeners] (try (f conv) (catch Exception e (log/error "Listener error") (.printStackTrace e))))
-          (recur conv))))))
+        ;; If nil comes through as the first message, then the chan is closed, and we should be done, not continue looping forever
+        (when-let [first-msg (<! message-chan)]
+          (let [retry-msgs (async/poll! retry-chan)
+                _ (log/info "Message chan put in queue-message-batch! for zid:" zid)
+                msgs (vec (concat retry-msgs [first-msg] (take-all! message-chan)))
+                {:as split-msgs :keys [votes moderation]} (split-batches msgs)
+                error-handler (build-update-error-handler conv-man retry-chan conv)
+                _ (log/info "About to run updaters")
+                ;; TODO Oh... is this how we're failing to get moderation affecting repness? We're presently only updating mongo
+                ;; (via `update`) if there are also votes. (see below)
+                conv (if moderation
+                       (conv/mod-update conv moderation)
+                       conv)
+                ;; Should extracct the stateful bits here till the very end, so even if there are just mods it updates
+                conv (if votes
+                       (update conv-man conv votes error-handler)
+                       conv)]
+            (log/info "Completed computing conversation zid:" zid)
+            (swap! conversations assoc-in [zid :conv] conv)
+            (doseq [[k f] @listeners] (try (f conv) (catch Exception e (log/error "Listener error") (.printStackTrace e))))
+            (recur conv)))))))
 
 
 ;; Need to find a good way of making sure these tests don't ever get committed uncommented
