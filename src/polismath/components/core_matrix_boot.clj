@@ -9,6 +9,9 @@
             [cheshire.generate :refer [add-encoder encode-seq remove-encoder]]))
 
 
+;; Maybe this just shouldn't be a component, but an environment thing? Or does it work cause things won't be loaded on
+;; static compile anyway? Ug...
+
 (defn matrix-encoder
   [v jsonGenerator]
   (encode-seq (into-array v) jsonGenerator))
@@ -48,8 +51,9 @@
 
   (stop [component]
     (log/info "<< Stopping CoreMatrixBooter")
-    (doseq [t matrix-types]
-      (remove-encoder (ns-resolve *ns* t)))
+    ;; Actually... let's just stop this.
+    ;(doseq [t matrix-types]
+    ;  (remove-encoder (ns-resolve *ns* t)))
     component))
 
 (defn create-core-matrix-booter
