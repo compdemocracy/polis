@@ -12,8 +12,7 @@
             [polismath.utils :as utils]
             [clojure.core.matrix.impl.ndarray]
             [clojure.core.async :as async :refer [go go-loop <! >! <!! >!! alts!! alts! chan dropping-buffer put! take!]]
-            [clojure.tools.trace :as tr]
-            [clojure.tools.logging :as log]
+            [taoensso.timbre :as log]
             [com.stuartsierra.component :as component]
             [plumbing.core :as pc]
             [schema.core :as s]))

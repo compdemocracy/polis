@@ -7,7 +7,7 @@
             ;; Replace with as util XXX
             ;[polismath.utils :as utils :refer :all]
             [clojure.stacktrace :refer :all]
-            [clojure.tools.logging :as log]
+            [taoensso.timbre :as log]
             [clojure.tools.trace :as tr]
             [com.stuartsierra.component :as component]
             [plumbing.core :as pc]

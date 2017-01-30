@@ -2,7 +2,7 @@
 
 (ns polismath.components.mongo
   (:require [polismath.utils :as utils]
-            [clojure.tools.logging :as log]
+            [taoensso.timbre :as log]
             [com.stuartsierra.component :as component]
             [cheshire.core :as ch]
             [monger.core :as mg]

@@ -25,7 +25,7 @@
 ;            [clojure.pprint :refer [pprint]]
 ;            [clojure.core.matrix :as mat]
 ;            [clojure.tools.trace :as tr]
-;            [clojure.tools.logging :as log]
+;            [taoensso.timbre :as log]
 ;            [clojure.newtools.cli :refer [parse-opts]])
 ;  (:import [java.util.zip ZipOutputStream ZipEntry]))
 ;

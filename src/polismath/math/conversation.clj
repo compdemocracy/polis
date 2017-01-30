@@ -18,7 +18,7 @@
             [monger.collection :as mc]
             [bigml.sampling.simple :as sampling]
             ;[alex-and-georges.debug-repl :as dbr]
-            [clojure.tools.logging :as log]))
+            [taoensso.timbre :as log]))
 
 
 (defn new-conv []

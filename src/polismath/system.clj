@@ -11,7 +11,7 @@
             [polismath.conv-man :as conv-man]
             [polismath.poller :as poller]
             [polismath.utils :as utils]
-            [clojure.tools.logging :as log]
+            [taoensso.timbre :as log]
             [clojure.tools.namespace.repl :as namespace.repl]
             [clojure.string :as string]
             [clojure.newtools.cli :as cli]

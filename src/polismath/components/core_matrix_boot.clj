@@ -4,7 +4,7 @@
   (:require [polismath.utils :as utils]
             [clojure.core.matrix :as matrix]
             [clojure.core.matrix.impl.ndarray :as ndarray]
-            [clojure.tools.logging :as log]
+            [taoensso.timbre :as log]
             [com.stuartsierra.component :as component]
             [cheshire.generate :refer [add-encoder encode-seq remove-encoder]]))
 

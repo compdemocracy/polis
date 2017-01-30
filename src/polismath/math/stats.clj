@@ -4,7 +4,7 @@
   ;; XXX Moe to require
   (:require [plumbing.core :as pc]
             [clojure.core.matrix :as matrix]
-            [clojure.tools.trace :as tr]))
+            [taoensso.timbre :as log]))
 
 
 (defn prop-test

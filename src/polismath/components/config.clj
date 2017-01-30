@@ -2,7 +2,7 @@
 
 (ns polismath.components.config
   (:require [polismath.utils :as utils]
-            [clojure.tools.logging :as log]
+            [taoensso.timbre :as log]
             [com.stuartsierra.component :as component]
             [environ.core :as environ]))
 
