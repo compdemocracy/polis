@@ -110,12 +110,12 @@
   [data n-comps & {:keys [iters start-vectors] :as kwargs}]
   (match (map (partial matrix/dimension-count data) [0 1])
     [1 n-cols]
-      {:center (matrix/matrix (repeatv n-comps 0))
-       :comps  (into [(matrix/normalise (matrix/get-row data 0))]
-                 (repeat (dec n-comps) (repeatv n-cols 0)))}
+    {:center (matrix/matrix (repeatv n-comps 0))
+     :comps  (into [(matrix/normalise (matrix/get-row data 0))]
+               (repeat (dec n-comps) (repeatv n-cols 0)))}
     [n-rows 1]
-      {:center (matrix/matrix [0])
-       :comps  (matrix/matrix [1])}
+    {:center (matrix/matrix [0])
+     :comps  (matrix/matrix [1])}
     :else
       (utils/apply-kwargs powerit-pca data n-comps
                     (assoc kwargs :start-vectors
@@ -138,21 +138,21 @@
   (let [n-cmnts   (count votes)
         [pc1 pc2] comps
         [n-votes p1 p2] ; (p1, p2) is the projection we build
-          (reduce
+        (reduce
             ; _-n is the nth entry in _
-            (fn [[n-votes p1 p2] [x-n cntr-n pc1-n pc2-n]]
+          (fn [[n-votes p1 p2] [x-n cntr-n pc1-n pc2-n]]
               ; if we have voted, do the thing
-              (if x-n
+            (if x-n
                 ; first subtract center
-                (let [x-n' (- x-n cntr-n)]
+              (let [x-n' (- x-n cntr-n)]
                   ; then do a step in the dot product, and inc n-votes seen
-                  [(inc n-votes)
-                   (+ p1 (* x-n' pc1-n))
-                   (+ p2 (* x-n' pc2-n))])
+                [(inc n-votes)
+                 (+ p1 (* x-n' pc1-n))
+                 (+ p2 (* x-n' pc2-n))])
                 ; ... ow (if haven't voted) return what was there
-                [n-votes p1 p2]))
-            [0 0.0 0.0]
-            (utils/zip votes center pc1 pc2))]
+              [n-votes p1 p2]))
+          [0 0.0 0.0]
+          (utils/zip votes center pc1 pc2))]
     ; Now scale the projection by the following value, which pushes us out from the center
     (* (Math/sqrt (/ n-cmnts (max n-votes 1)))
        [p1 p2])))

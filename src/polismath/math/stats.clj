@@ -18,7 +18,7 @@
 (defn two-prop-test
   [succ-in succ-out pop-in pop-out]
   (let [[succ-in succ-out pop-in pop-out]
-          (map inc [succ-in succ-out pop-in pop-out])
+        (map inc [succ-in succ-out pop-in pop-out])
         pi1 (/ succ-in pop-in)
         pi2 (/ succ-out pop-out)
         pi-hat (/ (+ succ-in succ-out) (+ pop-in pop-out))]
