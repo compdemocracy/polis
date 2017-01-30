@@ -176,6 +176,34 @@
     (+ 2
        (int (/ (count (nm/rownames data)) 12)))))
 
+(defn group-votes
+  "Returns a map of group-clusters ids to {:A :D :S} maps."
+  [group-clusters base-clusters votes-base]
+  (let [bid-to-index (zipmap (map :id base-clusters)
+                             (range))]
+    (into {}
+      (map
+        (fn [{:keys [id members] :as group-cluster}]
+          (letfn [(count-fn [tid vote]
+                    (->>
+                      members
+                      (mapv bid-to-index)
+                      (mapv #(((votes-base tid) vote) %))
+                      (apply +)))]
+            [id
+             {:n-members (let [bids (set members)]
+                           ; Add up the count of members in each base-cluster in this group-cluster
+                           (->> base-clusters
+                                (filter #(bids (:id %)))
+                                (map #(count (:members %)))
+                                (reduce + 0)))
+              :votes (plmb/map-from-keys
+                       (fn [tid]
+                         {:A (count-fn tid :A)
+                          :D (count-fn tid :D)
+                          :S (count-fn tid :S)})
+                       (keys votes-base))}]))
+        group-clusters))))
 
 (def small-conv-update-graph
   "For computing small conversation updates (those without need for base clustering)"
@@ -231,44 +259,44 @@
 
       ; Compute group-clusters for multiple k values
       :group-clusterings
-            (plmb/fnk [conv base-clusters-weights base-clusters-proj opts']
-                (plmb/map-from-keys
-                  (fn [k]
-                    (sort-by :id
-                      (clusters/kmeans base-clusters-proj k
-                        :last-clusters
-                          ; A little pedantic here in case no clustering yet for this k
-                          (when-let [last-clusterings (:group-clusterings conv)]
-                            (last-clusterings k))
-                        :cluster-iters (:group-iters opts')
-                        :weights base-clusters-weights)))
-                  (range 2 (inc (max-k-fn base-clusters-proj (:max-k opts'))))))
+      (plmb/fnk [conv base-clusters-weights base-clusters-proj opts']
+          (plmb/map-from-keys
+            (fn [k]
+              (sort-by :id
+                (clusters/kmeans base-clusters-proj k
+                  :last-clusters
+                    ; A little pedantic here in case no clustering yet for this k
+                    (when-let [last-clusterings (:group-clusterings conv)]
+                      (last-clusterings k))
+                  :cluster-iters (:group-iters opts')
+                  :weights base-clusters-weights)))
+            (range 2 (inc (max-k-fn base-clusters-proj (:max-k opts'))))))
 
       ; Compute silhouette values for the various clusterings
       :group-clusterings-silhouettes
-            (plmb/fnk [group-clusterings bucket-dists]
-              (plmb/map-vals (partial clusters/silhouette bucket-dists) group-clusterings))
+      (plmb/fnk [group-clusterings bucket-dists]
+        (plmb/map-vals (partial clusters/silhouette bucket-dists) group-clusterings))
 
       ; This smooths changes in cluster counts (K-vals) by remembering what the last K was, and only changing
       ; after (:group-k-buffer opts') many times on a new K value
       :group-k-smoother
-            (plmb/fnk
-              [conv group-clusterings group-clusterings-silhouettes opts']
-              (let [{:keys [last-k last-k-count smoothed-k] :or {last-k-count 0}}
-                    (:group-k-smoother conv)
-                    count-buffer (:group-k-buffer opts')
-                                 ; Find best K value for current data, given silhouette
-                    this-k       (apply max-key group-clusterings-silhouettes (keys group-clusterings))
-                                 ; If this and last K values are the same, increment counter
-                    same         (if last-k (= this-k last-k) false)
-                    this-k-count (if same (+ last-k-count 1) 1)
-                                 ; if seen > buffer many times, switch, OW, take last smoothed
-                    smoothed-k   (if (>= this-k-count count-buffer)
-                                   this-k
-                                   (if smoothed-k smoothed-k this-k))]
-                {:last-k       this-k
-                 :last-k-count this-k-count
-                 :smoothed-k   smoothed-k}))
+      (plmb/fnk
+        [conv group-clusterings group-clusterings-silhouettes opts']
+        (let [{:keys [last-k last-k-count smoothed-k] :or {last-k-count 0}}
+              (:group-k-smoother conv)
+              count-buffer (:group-k-buffer opts')
+                           ; Find best K value for current data, given silhouette
+              this-k       (apply max-key group-clusterings-silhouettes (keys group-clusterings))
+                           ; If this and last K values are the same, increment counter
+              same         (if last-k (= this-k last-k) false)
+              this-k-count (if same (+ last-k-count 1) 1)
+                           ; if seen > buffer many times, switch, OW, take last smoothed
+              smoothed-k   (if (>= this-k-count count-buffer)
+                             this-k
+                             (if smoothed-k smoothed-k this-k))]
+          {:last-k       this-k
+           :last-k-count this-k-count
+           :smoothed-k   smoothed-k}))
 
       ; Pick the cluster corresponding to smoothed K value from group-k-smoother
       :group-clusters
@@ -278,7 +306,7 @@
 
 
       ;; Now we're going to do the same thing for subclusters, or 2-level, 2-down hierarchical clustering
-      ;; This will more or less look the same, except that we'll have to do it for
+      ;; This will more or less look the same, except that we'll have to do it for each group
 
       ;; Compute subgroup-clusters for each group id, for multiple k values, returning a nested map of:
       ;;     {:group-id {:k [clusters] ...} ...}
@@ -299,6 +327,7 @@
                   (sort-by
                     :id
                     (clusters/kmeans base-clusters-proj k
+                                     ;; This is where we grab the last-clusters from the last update's conv
                                      :last-clusters (get-in conv [:subgroup-clusterings gid k]) ;; ok if nil
                                      ;; TODO: Really need to properly account for what happens when group k changes...
                                      ;; QUESTION: Add subgroup iters? For now assume same parameter value as group; level
@@ -345,19 +374,23 @@
                   :smoothed-k   smoothed-k}]))
             subgroup-clusterings)))
 
-      ;; This is a little different from the group version above; For each group, we take the subgroup clustering with
-      ;; the best silhouette, and we mapcat those together into a single global clustering, which is strictly a
-      ;; subclustering (refinement) of the courser group clustering. To each of the clusters in this clustering,
-      ;; we assoc the :parent-id (or should it be :group-id?)
+      ;; This is a little different from the group version above;
+      ;; For each group, we take the subgroup clustering the best silhouette, and keep it.
+      ;; To each of the clusters in this clustering, we assoc the :parent-id of that cluster.
+      ;; We end up with a map that looks like {:parent-id clusters}, where clusters looks as it does for `:group-clusters`,
+      ;; excepting the each cluster has a `:parent-id` attr.
       :subgroup-clusters
       (plmb/fnk [subgroup-clusterings subgroup-k-smoother]
-        (mapcat
-          (fn [[gid group-subgroup-clusterings]]
-            (when-let [smoothed-k (get-in subgroup-k-smoother [gid :smoothed-k])]
-              (map
-                (plmb/fn-> (assoc :group-id gid))
-                (get group-subgroup-clusterings smoothed-k))))
-          subgroup-clusterings))
+        (into
+          {}
+          (map
+            (fn [[gid group-subgroup-clusterings]]
+              (when-let [smoothed-k (get-in subgroup-k-smoother [gid :smoothed-k])]
+                [gid
+                 (map
+                   (plmb/fn-> (assoc :parent-id gid))
+                   (get group-subgroup-clusterings smoothed-k))]))
+            subgroup-clusterings)))
 
 
 
@@ -379,49 +412,59 @@
                            :D (agg-bucket-votes-for-tid bid-to-pid rating-mat utils/disagree? tid)
                            :S (agg-bucket-votes-for-tid bid-to-pid rating-mat number? tid)}))))
 
+
+      ;; In most or all of the below, we need to do things for both groups and subgroups. However, the logic for these
+      ;; isn't well refactored. There should ideally be some representation of the computations operating on group
+      ;; clusters that naturally generalizes or can be applied to the nesting of the subgroup-clusters. However, it also
+      ;; raises the question of how we could be structuring the subgroup clusters data differently to facilitate simpler
+      ;; provessing. There's some tradeoff between ease of initial processing (dealing with ids and such) and ease of
+      ;; downstream processing and data consumption. Will hvae to strike a balance here... For now, again, things are a
+      ;; little verbose, but you can hopefully see some of the patters emerging for where these things may generalize.
+
       ; {tid {gid {A _ D _ S}}}
-      :group-votes (plmb/fnk [group-clusters base-clusters votes-base]
-                     (let [bid-to-index (zipmap (map :id base-clusters)
-                                                (range))]
-                       (into {}
-                         (map
-                           (fn [{:keys [id members] :as group-cluster}]
-                             (letfn [(count-fn [tid vote]
-                                       (->>
-                                         members
-                                         (mapv bid-to-index)
-                                         (mapv #(((votes-base tid) vote) %))
-                                         (apply +)))]
-                               [id
-                                {:n-members (let [bids (set members)]
-                                              ; Add up the count of members in each base-cluster in this group-cluster
-                                              (->> base-clusters
-                                                   (filter #(bids (:id %)))
-                                                   (map #(count (:members %)))
-                                                   (reduce + 0)))
-                                 :votes (plmb/map-from-keys
-                                          (fn [tid]
-                                            {:A (count-fn tid :A)
-                                             :D (count-fn tid :D)
-                                             :S (count-fn tid :S)})
-                                          (keys votes-base))}]))
-                           group-clusters))))
+      :group-votes
+      (plmb/fnk [group-clusters base-clusters votes-base]
+        (group-votes group-clusters base-clusters votes-base))
+      ; {gid {tid {gid {A _ D _ S}}}}
+      :subgroup-votes
+      (plmb/fnk [subgroup-clusters base-clusters votes-base]
+        (->> subgroup-clusters
+             (plmb/map-vals
+               (fn [subgroup-clusters']
+                 (group-votes subgroup-clusters' base-clusters votes-base)))))
 
 
-      :repness    (plmb/fnk [conv rating-mat group-clusters base-clusters]
-                    (-> (repness/conv-repness rating-mat group-clusters base-clusters)
-                        (repness/select-rep-comments (:mod-out conv))))
+      :repness
+      (plmb/fnk [conv rating-mat group-clusters base-clusters]
+        (-> (repness/conv-repness rating-mat group-clusters base-clusters)
+            (repness/select-rep-comments (:mod-out conv))))
+      :subgroup-repness
+      (plmb/fnk [conv rating-mat subgroup-clusters base-clusters]
+        (->> subgroup-clusters
+             (plmb/map-vals
+               (fn [subgroup-clusters']
+                 (-> (repness/conv-repness rating-mat subgroup-clusters' base-clusters)
+                     (repness/select-rep-comments (:mod-out conv)))))))
 
+      ;;We need a subgroups vs of this?
       :ptpt-stats
       (plmb/fnk [group-clusters base-clusters proj-nmat user-vote-counts]
         (repness/participant-stats group-clusters base-clusters proj-nmat user-vote-counts))
+      :subgroup-ptpt-stats
+      (plmb/fnk [subgroup-clusters base-clusters proj-nmat user-vote-counts]
+        (->> subgroup-clusters
+             (plmb/map-vals
+               (fn [subgroup-clusters']
+                 (repness/participant-stats subgroup-clusters' base-clusters proj-nmat user-vote-counts)))))
 
 
-      :consensus  (plmb/fnk [conv rating-mat]
-                    (-> (repness/consensus-stats rating-mat)
-                        (repness/select-consensus-comments (:mod-out conv))))}))
+      :consensus
+      (plmb/fnk [conv rating-mat]
+        (-> (repness/consensus-stats rating-mat)
+            (repness/select-consensus-comments (:mod-out conv))))
 
-     ; End of large-update
+      ; End of large-update
+      #_:end}))
 
 
 

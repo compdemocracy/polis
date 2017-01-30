@@ -51,7 +51,10 @@
                                :zid
                                :user-vote-counts
                                :votes-base
-                               :group-votes})))
+                               :group-votes
+                               :subgroup-votes
+                               :subgroup-repness})))
+                               ;:subgroup-ptpt-stats})))
 
 
 (defn columnize
