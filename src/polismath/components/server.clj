@@ -6,7 +6,7 @@
     [clojure.core.async :as async :refer [chan >!! <!! >! <! go]]
     [taoensso.timbre :as log]
 
-    [ring.component.jetty :as jetty]
+    [ring.adapter.jetty :as jetty]
     [com.stuartsierra.component :as component]
 
     [polismath.components.env :as env]
@@ -38,14 +38,18 @@
   (start [component]
     (log/info ">> Starting server component with config:" config)
     (let [wrapped-handler (wrap-handler (:handler app))
-          jetty-server (jetty/jetty-server (merge {:app (merge app {:handler wrapped-handler})}
-                                                  (:server config)
-                                                  opts))]
-      (component/start jetty-server)
+          jetty-server (jetty/run-jetty wrapped-handler
+                                        (merge {:join? false :port 8080}
+                                               (:server config)
+                                               opts))]
+      (.start jetty-server)
       (assoc component :jetty-server jetty-server)))
   (stop [component]
     (log/info "<< Stopping server component")
-    (component/stop jetty-server)
+    (try
+      (.stop jetty-server)
+      (catch Exception e
+        (log/error e "Unable to stop server!")))
     component))
 
 
