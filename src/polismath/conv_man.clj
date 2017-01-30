@@ -277,12 +277,12 @@
 (defrecord ConversationManager [config mongo postgres metrics conversations listeners]
   component/Lifecycle
   (start [component]
-    (log/info "Starting ConversationManager")
+    (log/info ">> Starting ConversationManager")
     (let [conversations (atom {})
           listeners (atom {})]
       (assoc component :conversations conversations :listeners listeners)))
   (stop [component]
-    (log/info "Stopping ConversationManager")
+    (log/info "<< Stopping ConversationManager")
     ;; Close all our message channels for good measure
     (doseq [[zid {:keys [message-chan]}] @conversations]
       (async/close! message-chan))
