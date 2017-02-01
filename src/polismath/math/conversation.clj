@@ -312,29 +312,33 @@
       ;;     {:group-id {:k [clusters] ...} ...}
       :subgroup-clusterings
       (plmb/fnk [conv base-clusters-weights base-clusters-proj group-clusters opts']
-        (let [group-ids (mapv :id group-clusters)]
+        (into {}
           ;; For each group cluster id
-          (plmb/map-from-keys
-            (fn [gid]
-              ;; For each k value...
-              ;; TODO Here we should really:
-              ;; * not return anyting if group cluster less than 10% (or some such) of population
-              ;; * not return anything if group cluster generally too small to subcluster (10?)
-              ;; * how do we handle these possibilties downstream?
-              (plmb/map-from-keys
-                (fn [k]
-                  ;; We sort by id just to have a canonical repr
-                  (sort-by
-                    :id
-                    (clusters/kmeans base-clusters-proj k
-                                     ;; This is where we grab the last-clusters from the last update's conv
-                                     :last-clusters (get-in conv [:subgroup-clusterings gid k]) ;; ok if nil
-                                     ;; TODO: Really need to properly account for what happens when group k changes...
-                                     ;; QUESTION: Add subgroup iters? For now assume same parameter value as group; level
-                                     :cluster-iters (:group-iters opts')
-                                     :weights base-clusters-weights)))
-                (range 2 (inc (max-k-fn base-clusters-proj (:max-k opts'))))))
-            group-ids)))
+          (map
+            (fn [group-cluster]
+              (let [gid (:id group-cluster)
+                    group-members (:members group-cluster)
+                    group-cluster-proj (nm/rowname-subset base-clusters-proj group-members)]
+                ;; For each k value...
+                ;; TODO Here we should really:
+                ;; * not return anyting if group cluster less than 10% (or some such) of population
+                ;; * not return anything if group cluster generally too small to subcluster (10?)
+                ;; * how do we handle these possibilties downstream?
+                [gid
+                 (plmb/map-from-keys
+                   (fn [k]
+                     ;; We sort by id just to have a canonical repr
+                     (sort-by
+                       :id
+                       (clusters/kmeans group-cluster-proj k
+                                        ;; This is where we grab the last-clusters from the last update's conv
+                                        :last-clusters (get-in conv [:subgroup-clusterings gid k]) ;; ok if nil
+                                        ;; TODO: Really need to properly account for what happens when group k changes...
+                                        ;; QUESTION: Add subgroup iters? For now assume same parameter value as group; level
+                                        :cluster-iters (:group-iters opts')
+                                        :weights base-clusters-weights)))
+                   (range 2 (inc (max-k-fn group-cluster-proj (:max-k opts')))))]))
+            group-clusters)))
 
       ; Compute silhouette values for the various clusterings
       :subgroup-clusterings-silhouettes
@@ -345,6 +349,7 @@
             (partial clusters/silhouette bucket-dists))
           subgroup-clusterings))
 
+      ;; Should call this the k-selector:
       ; This smooths changes in cluster counts (K-vals) by remembering what the last K was, and only changing
       ; after (:group-k-buffer opts') many times on a new K value
       :subgroup-k-smoother
