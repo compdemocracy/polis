@@ -312,7 +312,7 @@
 (defn silhouette
   "Compute the silhoette coefficient for either a cluster member, or for an entire clustering. Currently,
   the latter just averages over the former for all members - it's likely there is a more efficient way
-  to block things up."
+  to block things up. If distmat has distances in it not in clusters, those distances are ignored."
   ([distmat clusters member]
    (let [dist-row (nm/rowname-subset distmat [member])
          [a b]
@@ -341,10 +341,11 @@
      ; The actual silhouette computation
      (/ (- b a) (max b a))))
   ([distmat clusters]
-   (weighted-mean
-     (map
-       (partial silhouette distmat clusters)
-       (nm/rownames distmat)))))
+   (let [cluster-distmat (nm/rowname-subset distmat (mapcat :members clusters))]
+     (weighted-mean
+       (map
+         (partial silhouette distmat clusters)
+         (nm/rownames cluster-distmat))))))
 
 
 (defn group-members
