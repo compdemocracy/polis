@@ -32,10 +32,14 @@
   {:math-env   :dev
    :math-schema-date "2014_08_22"
    :server     {:port 8080}
+   :aws        {:access-key (env/env :aws-access-key)
+                :secret-key (env/env :aws-secret-key)}
    ;:darwin     {:server-port 3123}
-   :export     {:expiry-days 10}
-   ;; XXX Hmm... How do we express a dependency here? ; => Ah... this is exactly what aero solves!
-   :primary-polis-url :localhost ;; Must do it in the component load...
+   :export     {:expiry-days 10
+                :temp-dir "/tmp/"
+                ;; Hmmm should be able to specify a dep on port; aero?
+                :private-url-base "http://localhost:8080"
+                :public-url-base "https://pol.is/api/v3"}
    :database   {:pool-size 3}
    :poller     {:votes {:polling-interval 2000}
                 :moderation {:polling-interval 5000}}
@@ -55,7 +59,10 @@
    :mongolab-uri               {:path [:mongo :url]}
    :mailgun-api-key            {:path [:email :api-key]}
    :mailgun-url                {:path [:email :url]}
-   :primary-polis-url          {:path [:email :api-key]}
+   :aws-secret-key             {:path [:aws :secret-key]}
+   :aws-access-key             {:path [:aws :access-key]}
+   :webserver-username         {:path [:webserver-username]}
+   :webserver-username         {:path [:webserver-password]}
    :math-matrix-implementation {:path [:math :matrix-implementation] :parse ->keyword}
    ;; TODO Put all these within a :conv-update opt so we can just pass that through to conv-update all at once
    :math-cutoff-medium         {:path [:math :cutoffs :medium] :parse ->long

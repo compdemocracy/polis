@@ -127,4 +127,11 @@
     collection-name
     object))
 
+(defn upsert
+  [mongo collection-name condition object]
+  (mc/update (:db mongo)
+             collection-name
+             condition
+             object
+             {:upsert true}))
 

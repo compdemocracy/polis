@@ -63,10 +63,7 @@
 
 (def cli-options
   "Has the same options as simulation if simulations are run"
-  [
-   ;; old storm setting...
-   ;["-n" "--name" "Cluster name; triggers submission to cluster" :default nil]
-   ["-r" "--recompute"]])
+  [["-r" "--recompute"]])
 
 (defn usage [options-summary]
   (->> ["Polismath stormspec"
@@ -78,6 +75,57 @@
         "Other options:"
         options-summary]
    (string/join \newline)))
+
+(defn parse-date
+  [s]
+  (->> (clojure.string/split s #"\s+")
+       (map #(Integer/parseInt %))
+       (apply t/date-time)
+       co/to-long))
+
+
+(def export-cli-options
+  [["-z" "--zid ZID"           "ZID on which to do an export" :parse-fn #(Integer/parseInt %)]
+   ["-Z" "--zinvite ZINVITE"   "ZINVITE code on which to perform an export"]
+   ["-u" "--user-id USER_ID"   "Export all conversations associated with USER_ID, and place in zip file" :parse-fn #(Integer/parseInt %)]
+   ["-a" "--at-date AT_DATE"   "A string of YYYY MM DD HH MM SS (in UTC)" :parse-fn parse-date]
+   ["-f" "--format FORMAT"     "Either csv, excel or (soon) json" :parse-fn keyword :validate [#{:csv :excel} "Must be either csv or excel"]]
+   ["-h" "--help"              "Print help and exit"]])
+
+(defn error-msg [errors]
+  (str "The following errors occurred while parsing your command:\n\n"
+       (clojure.string/join \newline errors)))
+
+(defn help-msg [options]
+  (str "Export a conversation or set of conversations according to the options below:\n\n"
+       \tab
+       "filename" \tab "Filename (or file basename, in case of zip output, implicit or explicit" \newline
+       (clojure.string/join \newline
+                            (for [opt cli-options]
+                              (apply str (interleave (repeat \tab) (take 3 opt)))))))
+
+;;; This needs to be cleaned up and integrated somehow; Different mode though, not sure exactly how to..
+
+(defn export-main
+  [arguments options]
+  (let [filename (first arguments)
+        options (assoc options :env-overrides {:math-env "prod"} :filename filename)]
+    (if-let [uid (:user-id options)]
+      ;; maybe here check if filename ends in zip and add if not; safest, and easiest... XXX
+      (with-open [file (io/output-stream filename)
+                  zip  (ZipOutputStream. file)]
+        (doseq [zid (export/get-zids-for-uid darwin uid)]
+          (let [zinvite (get-zinvite-from-zid darwin zid)
+                ext (case (:format options) :excel "xls" :csv "csv")]
+            (println "Now working on conv:" zid zinvite)
+            (export-conversation darwin
+                                 (assoc options
+                                   :zid zid
+                                   :zip-stream zip
+                                   :entry-point (str (zipfile-basename filename) "/" zinvite "." ext))))))
+      (export-conversation darwin options))
+    (exit 0 "Export complete")))
+
 
 (defn -main [& args]
   (let [{:keys [arguments options errors summary]} (cli/parse-opts args cli-options)]

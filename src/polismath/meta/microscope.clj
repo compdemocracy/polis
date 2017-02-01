@@ -60,29 +60,29 @@
   (recompute system :zinvite "7scufp")
   :end-example-comment)
 
-;
-;
-;(defn kw->int
-;  [kw]
-;  (-> kw
-;      (str)
-;      (clojure.string/replace ":" "")
-;      (Integer/parseInt)))
-;
-;
-;(defn load-conv
-;  [& {:keys [zid zinvite env-overrides] :or {env-overrides {}} :as args}]
-;  (assert (utils/xor zid zinvite))
-;  (let [zid (or zid (get-zid-from-zinvite zinvite))]
-;    (env/with-env-overrides env-overrides
-;      (->
-;        (db/load-conv zid)
-;        ;; This should be ok here right?
-;        (cm/restructure-mongo-conv)
-;        (update-in
-;          [:repness]
-;          (partial pc/map-keys kw->int))))))
-;
+
+
+(defn kw->int
+  [kw]
+  (-> kw
+      (str)
+      (clojure.string/replace ":" "")
+      (Integer/parseInt)))
+
+
+(defn load-conv
+  [& {:keys [zid zinvite env-overrides] :or {env-overrides {}} :as args}]
+  (assert (utils/xor zid zinvite))
+  (let [zid (or zid (get-zid-from-zinvite zinvite))]
+    (env/with-env-overrides env-overrides
+      (->
+        (db/load-conv zid)
+        ;; This should be ok here right?
+        (cm/restructure-mongo-conv)
+        (update-in
+          [:repness]
+          (partial pc/map-keys kw->int))))))
+
 ;
 ;(defn replay-conv-update
 ;  "Can be run as a shell command on a error file to replay what happened."
