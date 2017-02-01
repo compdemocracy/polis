@@ -2138,6 +2138,9 @@ function initializePolisHelpers(mongoParams) {
 
       // let prev = pcaCache.get(item.zid);
 
+
+      processMathObject(item);
+
       updatePcaCache(item.zid, item).then(function(o) {
         if (item.lastVoteTimestamp > lastPrefetchedVoteTimestamp) {
           lastPrefetchedVoteTimestamp = item.lastVoteTimestamp;
@@ -2152,6 +2155,169 @@ function initializePolisHelpers(mongoParams) {
 
   // don't start immediately, let other things load first.
   setTimeout(fetchAndCacheLatestPcaData, 3000);
+
+  function splitTopLevelGroup(o, gid) {
+    function shouldKeepGroup(g) {
+      return g.id !== gid;
+    }
+    function uniquifySubgroupId(g) {
+      g.id = g.id + 100;
+      return g;
+    }
+    function withGid(g) {
+      return g.id === gid;
+    }
+
+    let newGroupClusters = o['group-clusters'].filter(shouldKeepGroup);
+    let subgroupClusterTop = _.find(o['subgroup-clusters'], withGid);
+    if (!subgroupClusterTop || !subgroupClusterTop.val) {
+      return o;
+    }
+    let subGroupClustersToAdd = subgroupClusterTop.val.map(uniquifySubgroupId);
+    newGroupClusters = newGroupClusters.concat(subGroupClustersToAdd);
+
+    let newRepness = o['repness'].filter(shouldKeepGroup);
+    let subgroupRepnessTop = _.find(o['subgroup-repness'], withGid);
+    if (!subgroupRepnessTop || !subgroupRepnessTop.val) {
+      return o;
+    }
+    let repnessToAdd = subgroupRepnessTop.val.map(uniquifySubgroupId);
+    newRepness = newRepness.concat(repnessToAdd);
+
+    let newGroupVotes = o['group-votes'].filter(shouldKeepGroup);
+    let subgroupVotesTop = _.find(o['subgroup-votes'], withGid);
+    if (!subgroupVotesTop || !subgroupVotesTop.val) {
+      return o;
+    }
+    let subGroupVotesToAdd = subgroupVotesTop.val.map(uniquifySubgroupId);
+    newGroupVotes = newGroupVotes.concat(subGroupVotesToAdd);
+
+    o['repness'] = _.sortBy(newRepness, "id");
+    o['group-clusters'] = _.sortBy(newGroupClusters, "id");
+    o['group-votes'] = _.sortBy(newGroupVotes, "id");
+    return o;
+  }
+
+  function packGids(o) {  
+    
+    // TODO start index at 1
+
+    function remapGid(g) {
+      g.id = gid2newGid[g.id];
+      return g;
+    }
+    let origGids = o['group-clusters'].map((g) => {return g.id;});
+    origGids.sort();
+    let gid2newGid = {};
+    for (let i = 0; i < origGids.length; i++) {
+      gid2newGid[origGids[i]] = i;
+    }
+    o['group-clusters'] = _.sortBy(o['group-clusters'].map(remapGid), 'id');
+    o['group-votes'] = _.sortBy(o['group-votes'].map(remapGid), 'id');
+    o['repness'] = _.sortBy(o['repness'].map(remapGid), 'id');
+
+    o['subgroup-clusters'] = _.sortBy(o['subgroup-clusters'].map(remapGid), 'id');
+    o['subgroup-votes'] = _.sortBy(o['subgroup-votes'].map(remapGid), 'id');
+    o['subgroup-repness'] = _.sortBy(o['subgroup-repness'].map(remapGid), 'id');
+
+
+    return o;
+  }
+
+  function processMathObject(o) {
+
+    function remapSubgroupStuff(g) {
+      g.val = _.keys(g.val).map((id) => {
+        return {id: Number(id), val: g.val[id]};
+      });
+      return g;
+    }
+
+    // Normalize so everything is arrays of objects (group-clusters is already in this format, but needs to have the val: subobject style too).
+
+    if (_.isArray(o['group-clusters'])) {
+      // NOTE this is different since group-clusters is already an array.
+      o['group-clusters'] = o['group-clusters'].map((g) => {
+        return {id: Number(g.id), val: g};
+      });
+    }
+
+    if (!_.isArray(o['repness'])) {
+      o['repness'] = _.keys(o['repness']).map((gid) => {
+        return {id: Number(gid), val: o['repness'][gid]};
+      });
+    }
+    if (!_.isArray(o['group-votes'])) {
+      o['group-votes'] = _.keys(o['group-votes']).map((gid) => {
+        return {id: Number(gid), val: o['group-votes'][gid]};
+      });
+    }
+    if (!_.isArray(o['subgroup-repness'])) {
+      o['subgroup-repness'] = _.keys(o['subgroup-repness']).map((gid) => {
+        return {id: Number(gid), val: o['subgroup-repness'][gid]};
+      });
+      o['subgroup-repness'].map(remapSubgroupStuff);
+    }
+    if (!_.isArray(o['subgroup-votes'])) {
+      o['subgroup-votes'] = _.keys(o['subgroup-votes']).map((gid) => {
+        return {id: Number(gid), val: o['subgroup-votes'][gid]};
+      });
+      o['subgroup-votes'].map(remapSubgroupStuff);
+    }
+    if (!_.isArray(o['subgroup-clusters'])) {
+      o['subgroup-clusters'] = _.keys(o['subgroup-clusters']).map((gid) => {
+        return {id: Number(gid), val: o['subgroup-clusters'][gid]};
+      });
+      o['subgroup-clusters'].map(remapSubgroupStuff);
+    }
+
+    // Edge case where there are two groups and one is huge, split the large group.
+    // Once we have a better story for h-clust in the participation view, then we can just show the h-clust instead.
+    var groupVotes = o['group-votes'];
+    if (_.keys(groupVotes).length === 2 && o['subgroup-votes'] && o['subgroup-clusters'] && o['subgroup-repness']) {
+      var s0 = groupVotes[0].val['n-members'];
+      var s1 = groupVotes[1].val['n-members'];
+      const scaleRatio = 1.1;
+      if (s1 * scaleRatio < s0) {
+        console.log('splitting 0', s0, s1, s1*scaleRatio);
+        o = splitTopLevelGroup(o, groupVotes[0].id);
+      } else if (s0 * scaleRatio < s1) {
+        console.log('splitting 1', s0, s1, s0*scaleRatio);
+        o = splitTopLevelGroup(o, groupVotes[1].id);
+      }
+    }
+
+    // Gaps in the gids are not what we want to show users, and they make client development difficult.
+    // So this guarantees that the gids are contiguous. TODO look into Darwin.
+    o = packGids(o);
+
+    // Un-normalize to maintain API consistency.
+    // This could removed in a future API version.
+    function toObj(a) {
+      let obj = {};
+      for (let i = 0; i < a.length; i++) {
+        obj[a[i].id] = a[i].val;
+        obj[a[i].id].id = a[i].id;
+      }
+      return obj;
+    }
+    function toArray(a) {
+      return a.map((g) => {
+        let id = g.id;
+        g = g.val;
+        g.id = id;
+        return g;
+      });
+    }
+    o['repness'] = toObj(o['repness']);
+    o['group-votes'] = toObj(o['group-votes']);
+    o['group-clusters'] = toArray(o['group-clusters']);
+
+    delete o['subgroup-repness'];
+    delete o['subgroup-votes'];
+    delete o['subgroup-clusters'];
+    return o;
+  }
 
   function getPca(zid, lastVoteTimestamp) {
     let cached = pcaCache.get(zid);
@@ -2202,6 +2368,8 @@ function initializePolisHelpers(mongoParams) {
             resolve(null);
           } else {
             INFO("mathpoll related", "after cache miss, found item, adding to cache", zid, lastVoteTimestamp);
+
+            processMathObject(item);
 
             updatePcaCache(zid, item).then(function(o) {
               resolve(o);
