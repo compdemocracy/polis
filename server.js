@@ -3948,6 +3948,9 @@ ${serverName}/pwreset/${pwresettoken}
   }
 
   function trySendingBackupEmailTest() {
+    if (devMode) {
+      return;
+    }
     let d = new Date();
     if (d.getDay() === 1) {
       // send the monday backup email system test
