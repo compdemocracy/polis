@@ -8056,10 +8056,14 @@ Email verified! You can close this tab or hit the back button.
   }
 
 
-
   function handle_POST_conversation_close(req, res) {
-
-    pgQueryP("select * from conversations where zid = ($1) and owner = ($2);", [req.p.zid, req.p.uid]).then(function(rows) {
+    var q = "select * from conversations where zid = ($1)";
+    var params = [req.p.zid];
+    if (!isPolisDev(req.p.uid)) {
+      q = q + " and owner = ($2)";
+      params.push(req.p.uid);
+    }
+    pgQueryP(q, params).then(function(rows) {
       if (!rows || !rows.length) {
         fail(res, 500, "polis_err_closing_conversation_no_such_conversation");
         return;
@@ -8099,7 +8103,13 @@ Email verified! You can close this tab or hit the back button.
 
   function handle_POST_conversation_reopen(req, res) {
 
-    pgQueryP("select * from conversations where zid = ($1) and owner = ($2);", [req.p.zid, req.p.uid]).then(function(rows) {
+    var q = "select * from conversations where zid = ($1)";
+    var params = [req.p.zid];
+    if (!isPolisDev(req.p.uid)) {
+      q = q + " and owner = ($2)";
+      params.push(req.p.uid);
+    }
+    pgQueryP(q, params).then(function(rows) {
       if (!rows || !rows.length) {
         fail(res, 500, "polis_err_closing_conversation_no_such_conversation");
         return;
