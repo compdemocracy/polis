@@ -38,7 +38,8 @@
    :primary-polis-url :localhost ;; Must do it in the component load...
    :database   {:pool-size 3}
    :poller     {:votes {:polling-interval 2000}
-                :moderation {:polling-interval 5000}}
+                :moderation {:polling-interval 5000}
+                :initial-polling-timestamp 1459882373802}
    :math       {:matrix-implementation :vectorz}
    :logging    {:file "log/dev.log"
                 :level :info}})
@@ -78,6 +79,8 @@
                                 :doc "The polling interval for votes, in milliseconds"}
    :mod-polling-interval       {:parse ->long :path [:storm :spouts :moderation :polling-interval]
                                 :doc "The polling interval for moderation, in milliseconds"}
+   :initial-polling-timestamp  {:parse ->long :path [:poller :initial-polling-timestamp]
+                                :doc "The initial vote and mod polling timestamp (only load convs with votes later than this)"}
    ;; Need to think more about the semantics of a recompute; once; always; only if not booted; etc? XXX
    :recompute                  {:parse boolean
                                 :doc "Whether or not to perform a recompute"}
