@@ -13,7 +13,8 @@
             [com.stuartsierra.component :as component]
             [plumbing.core :as pc]
             [korma.core :as ko]
-            [korma.db :as kdb]))
+            [korma.db :as kdb]
+            [polismath.components.postgres :as postgres]))
 ;
 ;
 ;
@@ -25,26 +26,12 @@
 ;  (stop [this] this))
 ;
 ;;; XXX Should really move to db
-(defn get-zid-from-zinvite
-  [{:as system :keys [postgres]} zinvite]
-  (->
-    (kdb/with-db (:db-spec postgres)
-      (ko/select "zinvites"
-        (ko/fields :zid :zinvite)
-        (ko/where {:zinvite zinvite})))
-    first
-    :zid))
-
-(comment
-  (require '[polismath.runner :as runner :refer [system]])
-  (get-zid-from-zinvite system "7scufp")
-  :end-example-comment)
 
 
 (defn recompute
   [{:as system :keys [conversation-manager postgres]} & {:keys [zid zinvite] :as args}]
   (assert (utils/xor zid zinvite))
-  (let [zid        (or zid (get-zid-from-zinvite system zinvite))
+  (let [zid        (or zid (postgres/get-zid-from-zinvite (:postgres system) zinvite))
         new-votes  (db/conv-poll postgres zid 0)]
     (log/info "Running a recompute on zid:" zid "(zinvite:" zinvite ")")
     (cm/queue-message-batch! conversation-manager :votes zid new-votes)

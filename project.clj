@@ -2,7 +2,8 @@
 
 (defproject polismath "0.1.0-SNAPSHOT"
   :source-paths ["src/"
-                 "src/polismath/"
+                 "dev/"
+                 ;; TODO Need to replace .lein-git-deps with proper checkouts
                  ".lein-git-deps/debug-repl/src/"
                  ".lein-git-deps/tools.cli/src/main/clojure/"]
   ; faster run time in exchange for slower startup time
