@@ -2,7 +2,6 @@
 
 (defproject polismath "0.1.0-SNAPSHOT"
   :source-paths ["src/"
-                 "dev/"
                  ;; TODO Need to replace .lein-git-deps with proper checkouts
                  ".lein-git-deps/debug-repl/src/"
                  ".lein-git-deps/tools.cli/src/main/clojure/"]
@@ -19,8 +18,7 @@
             ;[lein-gorilla "0.3.4"]
             ;[lein-environ "0.4.0"]
 
-  :git-dependencies [
-                     ["https://github.com/metasoarous/tools.cli.git" "master"]
+  :git-dependencies [["https://github.com/metasoarous/tools.cli.git" "master"]
                      ["https://github.com/GeorgeJahad/debug-repl.git" "master"]]
   :dependencies [;; org.clojure stuff...
                  [org.clojure/clojure "1.9.0-alpha14"]
@@ -83,7 +81,8 @@
                     :port 989796}
   :main polismath.runner
   :min-lein-version "2.3.0"
-  :profiles {:dev {:dependencies []
+  :profiles {:dev {:dependencies [[org.clojure/test.check "0.9.0"]]
+                   :source-paths ["src" "dev"]
                    :env {:mongo-url "db/mongo.db"}}
              :production {:env {}}})
 
