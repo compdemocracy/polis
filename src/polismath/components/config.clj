@@ -75,9 +75,9 @@
                                 :doc "The hostname for sending messages to graphite"}
    :export-expiry-days         {:path [:export :expiry-days] :parse ->long
                                 :doc "The number of days before a mongo record representing a data exports gets removed"}
-   :vote-polling-interval      {:parse ->long :path [:storm :spouts :votes :polling-interval]
+   :vote-polling-interval      {:parse ->long :path [:poller :votes :polling-interval]
                                 :doc "The polling interval for votes, in milliseconds"}
-   :mod-polling-interval       {:parse ->long :path [:storm :spouts :moderation :polling-interval]
+   :mod-polling-interval       {:parse ->long :path [:poller :moderation :polling-interval]
                                 :doc "The polling interval for moderation, in milliseconds"}
    :initial-polling-timestamp  {:parse ->long :path [:poller :initial-polling-timestamp]
                                 :doc "The initial vote and mod polling timestamp (only load convs with votes later than this)"}
