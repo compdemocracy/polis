@@ -24,9 +24,8 @@
 ;  ;; Seems like an anti-pattern and like we should just be operating on some base-system...
 ;  (start [this] this)
 ;  (stop [this] this))
-;
-;;; XXX Should really move to db
 
+;; Should really just move this to the conv-man namespace; this namespace can go for now
 
 (defn recompute
   [{:as system :keys [conversation-manager postgres]} & {:keys [zid zinvite] :as args}]
@@ -43,10 +42,9 @@
 
 (comment
   (require '[polismath.runner :as runner :refer [system]])
-  (get-zid-from-zinvite system "7scufp")
+  (postgres/get-zid-from-zinvite (:postgres system) "7scufp")
   (recompute system :zinvite "7scufp")
   :end-example-comment)
-
 
 
 (defn kw->int
@@ -57,20 +55,7 @@
       (Integer/parseInt)))
 
 
-(defn load-conv
-  [& {:keys [zid zinvite env-overrides] :or {env-overrides {}} :as args}]
-  (assert (utils/xor zid zinvite))
-  (let [zid (or zid (get-zid-from-zinvite zinvite))]
-    (env/with-env-overrides env-overrides
-      (->
-        (db/load-conv zid)
-        ;; This should be ok here right?
-        (cm/restructure-mongo-conv)
-        (update-in
-          [:repness]
-          (partial pc/map-keys kw->int))))))
 
-;
 ;(defn replay-conv-update
 ;  "Can be run as a shell command on a error file to replay what happened."
 ;  [filename]

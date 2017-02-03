@@ -32,8 +32,6 @@
   {:math-env   :dev
    :math-schema-date "2014_08_22"
    :server     {:port 8080}
-   :aws        {:access-key (env/env :aws-access-key)
-                :secret-key (env/env :aws-secret-key)}
    ;:darwin     {:server-port 3123}
    :export     {:expiry-days 10
                 :temp-dir "/tmp/"
@@ -63,7 +61,7 @@
    :aws-secret-key             {:path [:aws :secret-key]}
    :aws-access-key             {:path [:aws :access-key]}
    :webserver-username         {:path [:webserver-username]}
-   :webserver-username         {:path [:webserver-password]}
+   :webserver-password         {:path [:webserver-password]}
    :math-matrix-implementation {:path [:math :matrix-implementation] :parse ->keyword}
    ;; TODO Put all these within a :conv-update opt so we can just pass that through to conv-update all at once
    :math-cutoff-medium         {:path [:math :cutoffs :medium] :parse ->long

@@ -206,4 +206,8 @@
       (.printStackTrace e)
       [])))
 
+;(defn inc-math-tick!
+;  [component zid]
+;  (kdb/with-db (:db/spec component)
+;    (ko/select)))
 
