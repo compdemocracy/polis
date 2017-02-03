@@ -10,11 +10,8 @@
 
 
 (defn poll
-  [{:as poller :keys [conversation-manager postgres kill-chan]} message-type]
-  (let [start-polling-from
-        ;; TODO; Replace this catch with config parsing options
-        (try (java.lang.Long/parseLong (:initial-polling-timestamp env/env))
-             (catch Exception e (log/warn "INITIAL_POLLING_TIMESTAMP not set; setting to 0") 0))
+  [{:as poller :keys [config conversation-manager postgres kill-chan]} message-type]
+  (let [start-polling-from (-> config :poller :initial-polling-timestamp)
         polling-interval (or (-> poller :config :storm :spouts message-type :polling-interval) 1000)
         [poll-function timestamp-key]
         (get {:votes [postgres/poll :created]

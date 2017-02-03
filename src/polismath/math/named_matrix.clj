@@ -3,7 +3,10 @@
 (ns polismath.math.named-matrix
   (:require [clojure.core.matrix :as matrix]
             ;[clojure.core.matrix.select :as matrix]
-            [taoensso.timbre.profiling :as profiling :refer (pspy pspy* profile defnp p p*)])
+            [taoensso.timbre.profiling :as profiling :refer (pspy pspy* profile defnp p p*)]
+            [clojure.spec :as s]
+            [clojure.spec.gen :as gen]
+            [clojure.test.check.generators :as generators])
   ;; Again, move to 
   (:use polismath.utils))
 
@@ -154,6 +157,31 @@
     (index-hash (or rows []))
     (index-hash (or cols []))
     (or matrix [[]])))
+
+
+(s/def ::NamedMatrix
+  (s/with-gen
+    (s/and
+      (partial satisfies? PNamedMatrix)
+      ;(comp get-matrix matrix/matrix?)
+      (comp rownames matrix/vec?)
+      (comp colnames matrix/vec?)
+      (comp rownames distinct)
+      (comp colnames distinct))
+    ;; Silly... need way smarter generators here; And maybe actually the generator shouldn't be on this entity, since a named
+    ;(clojure.test.check.generators/elements)
+    #(gen/elements #{(named-matrix [1 2 3] [1 2 3] [[0 -1 -1] [0 1 -1] [1 -1 -1]])
+                     (named-matrix [3 1 2] [3 1 2] [[0 nil -1] [0 1 -1] [1 nil 1]])})))
+
+;; Not sure why I'm not able to excercise this?
+;(gen/generator (s/gen ::NamedMatrix))
+;(s/valid?
+;  ::NamedMatrix
+;  (gen/generate
+;    (gen/elements #{(named-matrix [1 2 3] [1 2 3] [[0 -1 -1] [0 1 -1] [1 -1 -1]])
+;                    (named-matrix [3 1 2] [3 1 2] [[0 nil -1] [0 1 -1] [1 nil 1]])})))
+;(gen/generate (s/gen ::NamedMatrix))
+;(s/exercise ::NamedMatrix)
 
 
 (defmethod print-method NamedMatrix

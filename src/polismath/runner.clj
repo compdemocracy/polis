@@ -153,17 +153,17 @@
 
 
 (comment
-  (try
-    ;(run! system/base-system)
-    (stop!)
-    (run! system/poller-system)
-    :ok (catch Exception e (.printStackTrace e) e))
+  ;(run! system/poller-system)
+  (run! system/base-system)
+
+  (conv-man/load-or-init)
 
   ;(require '[polismath.conv-man :as conv-man])
   ;(let [conv-man (:conversation-manager system)]
     ;(conv-man/queue-message-batch! conv-man ))
 
-  (stop!))
+  (stop!)
+  :endcomment)
 
 
 

@@ -105,7 +105,7 @@
 
 ;; Should rename this not to conflict with clojure.core/update... poor form
 (defn update
-  "This function is what actually gets sent to the conv-actor. In addition to the conversation and vote batches
+  "This function is what actually gets sent to the conv-manager. In addition to the conversation and vote batches
   up in the channel, we also take an error-callback. Eventually we'll want to pass opts through here as well."
   [conv-man conv votes error-callback]
   (let [start-time (System/currentTimeMillis)
@@ -207,12 +207,14 @@
 ;; in one place. This problem with teh :lastVoteTimestamp and group-votes etc came up precisely because there
 ;; wasn't "one place to go" for modifying all of the potential points of interest for these kind of changes.
 
+;; ^ I'm leaving this note in for posterity, but note that this is exactly what spec is :-)
+
 ;; XXX However, we shouldn't even be pushing the results to mongo if we didn't actually update anything
 
 (defn restructure-mongo-conv
   [conv]
   (-> conv
-      (utils/hash-map-subset #{:rating-mat :lastVoteTimestamp :zid :pca :in-conv :n :n-cmts :group-clusters :base-clusters :group-votes})
+      (utils/hash-map-subset #{:math_tick :rating-mat :lastVoteTimestamp :zid :pca :in-conv :n :n-cmts :group-clusters :base-clusters :repness :group-votes :subgroup-clusters :subgroup-votes :subgroup-repness})
       (assoc :last-vote-timestamp (get conv :lastVoteTimestamp)
              :last-mod-timestamp  (get conv :lastModTimestamp))
       ; Make sure there is an empty named matrix to operate on
@@ -283,12 +285,15 @@
       (assoc component :conversations conversations :listeners listeners)))
   (stop [component]
     (log/info "<< Stopping ConversationManager")
-    ;; Close all our message channels for good measure
-    (doseq [[zid {:keys [message-chan]}] @conversations]
-      (async/close! message-chan))
-    ;; Not sure, but we might want this for GC
-    (reset! conversations nil)
-    (reset! listeners nil)
+    (try
+      ;; Close all our message channels for good measure
+      (doseq [[zid {:keys [message-chan]}] @conversations]
+        (async/close! message-chan))
+      ;; Not sure, but we might want this for GC
+      (reset! conversations nil)
+      (reset! listeners nil)
+      (catch Exception e
+        (log/error e "Unable to stop ConvMan component")))
     (assoc component :conversations nil)))
 
 (defn create-conversation-manager

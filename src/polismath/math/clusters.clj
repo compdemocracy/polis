@@ -13,11 +13,23 @@
             [polismath.utils :as utils]
             [polismath.math.stats :as stats]
             [polismath.math.named-matrix :as nm]
+            [clojure.spec :as s]
             [clojure.core.matrix :as matrix]
             [clojure.core.matrix.stats :as matrix-stats]
             [clojure.core.matrix.selection :as matrix.selection]
             [clojure.core.matrix.operators :refer :all]))
 
+
+;; We may want to make formal that it's an int? Cause we add later?
+(s/def ::id (constantly true))
+(s/def ::members seq?)
+(s/def ::center seq?)
+
+(s/def ::cluster
+  (s/keys :req-un [::id ::members ::center]))
+
+(s/def ::clustering
+  (s/* ::cluster))
 
 (matrix/set-current-implementation :vectorz)
 
@@ -312,7 +324,7 @@
 (defn silhouette
   "Compute the silhoette coefficient for either a cluster member, or for an entire clustering. Currently,
   the latter just averages over the former for all members - it's likely there is a more efficient way
-  to block things up."
+  to block things up. If distmat has distances in it not in clusters, those distances are ignored."
   ([distmat clusters member]
    (let [dist-row (nm/rowname-subset distmat [member])
          [a b]
@@ -341,10 +353,11 @@
      ; The actual silhouette computation
      (/ (- b a) (max b a))))
   ([distmat clusters]
-   (weighted-mean
-     (map
-       (partial silhouette distmat clusters)
-       (nm/rownames distmat)))))
+   (let [cluster-distmat (nm/rowname-subset distmat (mapcat :members clusters))]
+     (weighted-mean
+       (map
+         (partial silhouette distmat clusters)
+         (nm/rownames cluster-distmat))))))
 
 
 (defn group-members

@@ -2,23 +2,83 @@
 
 (ns polismath.math.conversation
   (:refer-clojure :exclude [* -  + == /])
-  (:require [polismath.utils :as utils]
-            [polismath.math.pca :as pca]
-            [polismath.math.clusters :as clusters]
-            [polismath.math.repness :as repness]
-            [polismath.math.named-matrix :as nm]
-            [clojure.core.matrix :as matrix]
-            [clojure.tools.reader.edn :as edn]
-            [clojure.tools.trace :as tr]
-            [clojure.math.numeric-tower :as math]
-            [clojure.core.matrix :as matrix]
-            [clojure.core.matrix.operators :refer :all]
-            [plumbing.core :as plmb]
-            [plumbing.graph :as graph]
-            [monger.collection :as mc]
-            [bigml.sampling.simple :as sampling]
-            ;[alex-and-georges.debug-repl :as dbr]
-            [taoensso.timbre :as log]))
+  (:require
+    [polismath.utils :as utils]
+    [polismath.math.pca :as pca]
+    [polismath.math.clusters :as clusters]
+    [polismath.math.repness :as repness]
+    [polismath.math.named-matrix :as nm]
+    [clojure.core.matrix :as matrix]
+    [clojure.spec :as s]
+    [clojure.tools.reader.edn :as edn]
+    [clojure.tools.trace :as tr]
+    [clojure.math.numeric-tower :as math]
+    [clojure.core.matrix :as matrix]
+    [clojure.core.matrix.operators :refer :all]
+    [plumbing.core :as plmb]
+    [plumbing.graph :as graph]
+    [monger.collection :as mc]
+    [bigml.sampling.simple :as sampling]
+    ;[alex-and-georges.debug-repl :as dbr]
+    [taoensso.timbre :as log]
+    [clojure.spec.gen :as gen]
+    [clojure.test.check.generators :as generators]))
+
+
+;; Starting to spec out our domain model here and build generators for the pieces
+;; This will let us do generative testing and all other ilk of awesome things
+
+(defn pos-int [gen-bound]
+  (s/with-gen
+    (s/and int? pos?)
+    (s/gen (s/int-in 0 gen-bound))))
+
+(s/def ::zid (pos-int 20))
+(s/def ::tid (pos-int 100))
+(s/def ::pid (pos-int 100))
+(s/def ::gid (pos-int 8))
+;; QUESTION How do we have a generator that gives us monotonically increasing values?
+(s/def ::created (s/and int? pos?))
+(s/def ::vote #{-1 0 1 -1.0 1.0 0.0})
+
+(s/def ::vote-map
+  (s/keys :req-un [::zid ::tid ::pid ::vote ::created]))
+
+(s/def ::maybe-vote (s/or :missing nil? :voted ::vote))
+
+(s/def ::zid int?)
+(s/def ::last-vote-timestamp int?)
+(s/def ::group-votes
+  (constantly true))
+(s/def ::sub-group-votes
+  (s/map-of ::gid ::group-votes))
+
+(s/def ::group-clusters ::clusters/clustering)
+(s/def ::subgroup-clusters
+  (s/map-of ::gid ::clusters/clustering))
+
+(s/def ::repness ::repness/clustering-repness)
+
+(s/def ::subgroup-repness
+  (s/map-of ::gid ::repness/clustering-repness))
+
+(s/def ::rating-mat
+  ;(s/with-gen
+    (s/and ::nm/NamedMatrix))
+           ;every element is a ::maybe-vote
+           ;#(every?))))
+  ;; Let's just use a generator that generates votes and places them in a rating mat?
+  ;())
+
+;; May want to speck out "bare" vs "fleshed out" conversations, as well as loaded vs raw, etc
+(s/def ::new-conversation
+  (s/keys :req-un [::rating-mat]))
+(s/def ::full-conversation
+  (s/keys :req-un [::zid ::last-vote-timestamp ::group-votes ::rating-mat ::group-clusters ::subgroup-clusters ::repness ::subgroup-repness]))
+
+(s/def ::conversation
+  (s/or :new ::new-conversation
+        :full ::full-conversation))
 
 
 (defn new-conv []
@@ -26,11 +86,12 @@
   {:rating-mat (nm/named-matrix)})
 
 
-(defn choose-group-k [base-clusters]
-  (let [len (count base-clusters)]
-    (cond
-      (< len 99) 3
-      :else 4)))
+;; I think this is old and can be removed
+;(defn choose-group-k [base-clusters]
+;  (let [len (count base-clusters)]
+;    (cond
+;      (< len 99) 3
+;      :else 4)))
 
 
 (defn agg-bucket-votes-for-tid [bid-to-pid rating-mat filter-cond tid]
@@ -220,8 +281,9 @@
                               :start-vectors (get-in conv [:pca :comps])
                               :iters (:pca-iters opts')))
 
-      :proj (plmb/fnk [rating-mat pca]
-              (pca/sparsity-aware-project-ptpts (nm/get-matrix rating-mat) pca))
+      :proj
+      (plmb/fnk [rating-mat pca]
+        (pca/sparsity-aware-project-ptpts (nm/get-matrix rating-mat) pca))
 
       ;; QUESTION Just have proj return an nmat?
       :proj-nmat
@@ -229,29 +291,29 @@
         (nm/named-matrix (nm/rownames rating-mat) ["x" "y"] proj))
 
       :base-clusters
-            (plmb/fnk [conv proj-nmat in-conv opts']
-              (let [in-conv-mat (nm/rowname-subset proj-nmat in-conv)]
-                (sort-by :id
-                  (clusters/kmeans in-conv-mat
-                    (:base-k opts')
-                    :last-clusters (:base-clusters conv)
-                    :cluster-iters (:base-iters opts')))))
+      (plmb/fnk [conv proj-nmat in-conv opts']
+        (let [in-conv-mat (nm/rowname-subset proj-nmat in-conv)]
+          (sort-by :id
+            (clusters/kmeans in-conv-mat
+              (:base-k opts')
+              :last-clusters (:base-clusters conv)
+              :cluster-iters (:base-iters opts')))))
 
       :base-clusters-proj
-            (plmb/fnk [base-clusters]
-              (clusters/xy-clusters-to-nmat2 base-clusters))
+      (plmb/fnk [base-clusters]
+        (clusters/xy-clusters-to-nmat2 base-clusters))
       
       :bucket-dists
-            (plmb/fnk [base-clusters-proj]
-              (clusters/named-dist-matrix base-clusters-proj))
+      (plmb/fnk [base-clusters-proj]
+        (clusters/named-dist-matrix base-clusters-proj))
 
       :base-clusters-weights
-            (plmb/fnk [base-clusters]
-              (into {}
-                    (map
-                      (fn [clst]
-                        [(:id clst) (count (:members clst))])
-                      base-clusters)))
+      (plmb/fnk [base-clusters]
+        (into {}
+              (map
+                (fn [clst]
+                  [(:id clst) (count (:members clst))])
+                base-clusters)))
 
 
       ;; Here we compute the top level clusters; These are the traditional clusters we've been using for some time now.
@@ -312,29 +374,33 @@
       ;;     {:group-id {:k [clusters] ...} ...}
       :subgroup-clusterings
       (plmb/fnk [conv base-clusters-weights base-clusters-proj group-clusters opts']
-        (let [group-ids (mapv :id group-clusters)]
+        (into {}
           ;; For each group cluster id
-          (plmb/map-from-keys
-            (fn [gid]
-              ;; For each k value...
-              ;; TODO Here we should really:
-              ;; * not return anyting if group cluster less than 10% (or some such) of population
-              ;; * not return anything if group cluster generally too small to subcluster (10?)
-              ;; * how do we handle these possibilties downstream?
-              (plmb/map-from-keys
-                (fn [k]
-                  ;; We sort by id just to have a canonical repr
-                  (sort-by
-                    :id
-                    (clusters/kmeans base-clusters-proj k
-                                     ;; This is where we grab the last-clusters from the last update's conv
-                                     :last-clusters (get-in conv [:subgroup-clusterings gid k]) ;; ok if nil
-                                     ;; TODO: Really need to properly account for what happens when group k changes...
-                                     ;; QUESTION: Add subgroup iters? For now assume same parameter value as group; level
-                                     :cluster-iters (:group-iters opts')
-                                     :weights base-clusters-weights)))
-                (range 2 (inc (max-k-fn base-clusters-proj (:max-k opts'))))))
-            group-ids)))
+          (map
+            (fn [group-cluster]
+              (let [gid (:id group-cluster)
+                    group-members (:members group-cluster)
+                    group-cluster-proj (nm/rowname-subset base-clusters-proj group-members)]
+                ;; For each k value...
+                ;; TODO Here we should really:
+                ;; * not return anyting if group cluster less than 10% (or some such) of population
+                ;; * not return anything if group cluster generally too small to subcluster (10?)
+                ;; * how do we handle these possibilties downstream?
+                [gid
+                 (plmb/map-from-keys
+                   (fn [k]
+                     ;; We sort by id just to have a canonical repr
+                     (sort-by
+                       :id
+                       (clusters/kmeans group-cluster-proj k
+                                        ;; This is where we grab the last-clusters from the last update's conv
+                                        :last-clusters (get-in conv [:subgroup-clusterings gid k]) ;; ok if nil
+                                        ;; TODO: Really need to properly account for what happens when group k changes...
+                                        ;; QUESTION: Add subgroup iters? For now assume same parameter value as group; level
+                                        :cluster-iters (:group-iters opts')
+                                        :weights base-clusters-weights)))
+                   (range 2 (inc (max-k-fn group-cluster-proj (:max-k opts')))))]))
+            group-clusters)))
 
       ; Compute silhouette values for the various clusterings
       :subgroup-clusterings-silhouettes
@@ -345,6 +411,7 @@
             (partial clusters/silhouette bucket-dists))
           subgroup-clusterings))
 
+      ;; Should call this the k-selector:
       ; This smooths changes in cluster counts (K-vals) by remembering what the last K was, and only changing
       ; after (:group-k-buffer opts') many times on a new K value
       :subgroup-k-smoother
@@ -385,11 +452,14 @@
           {}
           (map
             (fn [[gid group-subgroup-clusterings]]
-              (when-let [smoothed-k (get-in subgroup-k-smoother [gid :smoothed-k])]
-                [gid
-                 (map
-                   (plmb/fn-> (assoc :parent-id gid))
-                   (get group-subgroup-clusterings smoothed-k))]))
+              (if-let [smoothed-k (get-in subgroup-k-smoother [gid :smoothed-k])]
+                (do
+                  (log/debug "Found smoothed-k:" smoothed-k)
+                  [gid
+                   (map
+                     (plmb/fn-> (assoc :parent-id gid))
+                     (get group-subgroup-clusterings smoothed-k))])
+                (log/warn "Didn't find smoothed-k for gid:" gid)))
             subgroup-clusterings)))
 
 
@@ -555,6 +625,29 @@
            ; Remove the :votes key from customs; not needed for persistence
            (assoc-in [:customs :votes] [])
            (dissoc :keep-votes)))))))
+
+
+
+(defn conv-shape
+  [conv]
+  (matrix/shape (:rating-mat conv)))
+
+(defn not-smaller?
+  [conv1 conv2]
+  (let [[p1 c1] (conv-shape conv1)
+        [p2 c2] (conv-shape conv2)]
+    (and (>= p1 p2) (>= c1 c2))))
+
+(s/fdef conv-update
+  :args (s/cat :conv ::conversation :votes (s/* ::vote))
+  :ret ::full-conversation
+  :fn (s/and #(not-smaller? (:ret %) (-> % :args :conv))))
+
+(comment
+  (require '[clojure.spec.gen :as gen])
+  (gen/generate (s/gen ::conversation))
+  :end)
+
 
 
 (defn mod-update

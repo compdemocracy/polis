@@ -42,7 +42,8 @@
                 :public-url-base "https://pol.is/api/v3"}
    :database   {:pool-size 3}
    :poller     {:votes {:polling-interval 2000}
-                :moderation {:polling-interval 5000}}
+                :moderation {:polling-interval 5000}
+                :initial-polling-timestamp 1459882373802}
    :math       {:matrix-implementation :vectorz}
    :logging    {:file "log/dev.log"
                 :level :info}})
@@ -81,10 +82,12 @@
                                 :doc "The hostname for sending messages to graphite"}
    :export-expiry-days         {:path [:export :expiry-days] :parse ->long
                                 :doc "The number of days before a mongo record representing a data exports gets removed"}
-   :vote-polling-interval      {:parse ->long :path [:storm :spouts :votes :polling-interval]
+   :vote-polling-interval      {:parse ->long :path [:poller :votes :polling-interval]
                                 :doc "The polling interval for votes, in milliseconds"}
-   :mod-polling-interval       {:parse ->long :path [:storm :spouts :moderation :polling-interval]
+   :mod-polling-interval       {:parse ->long :path [:poller :moderation :polling-interval]
                                 :doc "The polling interval for moderation, in milliseconds"}
+   :initial-polling-timestamp  {:parse ->long :path [:poller :initial-polling-timestamp]
+                                :doc "The initial vote and mod polling timestamp (only load convs with votes later than this)"}
    ;; Need to think more about the semantics of a recompute; once; always; only if not booted; etc? XXX
    :recompute                  {:parse boolean
                                 :doc "Whether or not to perform a recompute"}

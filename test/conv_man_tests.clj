@@ -46,7 +46,8 @@
                 (let [matrix (-> conv :rating-mat nm/get-matrix)]
                   (is (m=? [[0   nil nil]
                             [nil  1  -1]
-                            [-1  nil nil]] matrix)
+                            [-1  nil nil]]
+                           matrix)
                       "The conversation does not have the correct rating matrix post conversation update")
                   (not (nil? conv)))
                 ;; There's a problem; the timeout was hit

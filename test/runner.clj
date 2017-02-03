@@ -14,6 +14,7 @@
             [clojure.test :as test]))
 
 
+
 (defn -main []
   ;(try
     (apply
@@ -33,3 +34,5 @@
     ;  (.printStackTrace e))))
 
 (-main)
+
+;(test/run-tests 'conversation-test)
