@@ -5,6 +5,7 @@
             [polismath.math.stats :as stats]
             [polismath.math.named-matrix :as nm]
             [polismath.math.clusters :as clusters]
+            [clojure.spec :as s]
             [clojure.core.matrix :as mat]
             [clojure.core.matrix.operators :refer :all]
             [clojure.tools.trace :as tr]
@@ -18,6 +19,38 @@
 
 (mat/set-current-implementation :vectorz)
 
+
+(s/def ::repful-for
+  #{:agree :disagree})
+
+
+(s/def ::probability
+  (s/and number?
+         (partial >= 1)
+         (partial <= 0)))
+
+(s/def ::test-val
+  (s/and number?))
+
+
+(s/def ::tid int?)
+(s/def ::gid int?)
+(s/def ::n-success int?)
+(s/def ::n-trials int?)
+(s/def ::p-success
+  (partial s/valid? ::probability))
+(s/def ::p-test number?)
+
+(s/def ::repress
+  (s/and number?
+         (partial < 0)))
+
+(s/def ::comment-repness
+  (s/keys :req-un [::tid ::test-val ::repful-for ::n-success ::n-trials ::p-success ::p-test ::repness]))
+
+(s/def ::clustering-repness
+  (s/map-of ::gid
+            (s/* ::repness)))
 
 
 (defn- count-votes

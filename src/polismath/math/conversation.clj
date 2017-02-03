@@ -8,6 +8,7 @@
             [polismath.math.repness :as repness]
             [polismath.math.named-matrix :as nm]
             [clojure.core.matrix :as matrix]
+            [clojure.spec :as s]
             [clojure.tools.reader.edn :as edn]
             [clojure.tools.trace :as tr]
             [clojure.math.numeric-tower :as math]
@@ -18,7 +19,65 @@
             [monger.collection :as mc]
             [bigml.sampling.simple :as sampling]
             ;[alex-and-georges.debug-repl :as dbr]
-            [taoensso.timbre :as log]))
+            [taoensso.timbre :as log]
+            [clojure.spec.gen :as gen]
+            [clojure.test.check.generators :as generators]))
+
+
+;; Starting to spec out our domain model here and build generators for the pieces
+;; This will let us do generative testing and all other ilk of awesome things
+
+(defn pos-int [gen-bound]
+  (s/with-gen
+    (s/and int? pos?)
+    (s/gen (s/int-in 0 gen-bound))))
+
+(s/def ::zid (pos-int 20))
+(s/def ::tid (pos-int 100))
+(s/def ::pid (pos-int 100))
+(s/def ::gid (pos-int 8))
+;; QUESTION How do we have a generator that gives us monotonically increasing values?
+(s/def ::created (s/and int? pos?))
+(s/def ::vote #{-1 0 1 -1.0 1.0 0.0})
+
+(s/def ::vote-map
+  (s/keys :req-un [::zid ::tid ::pid ::vote ::created]))
+
+(s/def ::maybe-vote (s/or :missing nil? :voted ::vote))
+
+(s/def ::zid int?)
+(s/def ::last-vote-timestamp int?)
+(s/def ::group-votes
+  (constantly true))
+(s/def ::sub-group-votes
+  (s/map-of ::gid ::group-votes))
+
+(s/def ::group-clusters ::clusters/clustering)
+(s/def ::subgroup-clusters
+  (s/map-of ::gid ::clusters/clustering))
+
+(s/def ::repness ::repness/clustering-repness)
+
+(s/def ::subgroup-repness
+  (s/map-of ::gid ::repness/clustering-repness))
+
+(s/def ::rating-mat
+  ;(s/with-gen
+    (s/and ::nm/NamedMatrix))
+           ;every element is a ::maybe-vote
+           ;#(every?))))
+  ;; Let's just use a generator that generates votes and places them in a rating mat?
+  ;())
+
+;; May want to speck out "bare" vs "fleshed out" conversations, as well as loaded vs raw, etc
+(s/def ::new-conversation
+  (s/keys :req-un [::rating-mat]))
+(s/def ::full-conversation
+  (s/keys :req-un [::zid ::last-vote-timestamp ::group-votes ::rating-mat ::group-clusters ::subgroup-clusters ::repness ::subgroup-repness]))
+
+(s/def ::conversation
+  (s/or :new ::new-conversation
+        :full ::full-conversation))
 
 
 (defn new-conv []
@@ -26,11 +85,12 @@
   {:rating-mat (nm/named-matrix)})
 
 
-(defn choose-group-k [base-clusters]
-  (let [len (count base-clusters)]
-    (cond
-      (< len 99) 3
-      :else 4)))
+;; I think this is old and can be removed
+;(defn choose-group-k [base-clusters]
+;  (let [len (count base-clusters)]
+;    (cond
+;      (< len 99) 3
+;      :else 4)))
 
 
 (defn agg-bucket-votes-for-tid [bid-to-pid rating-mat filter-cond tid]
@@ -560,6 +620,29 @@
            ; Remove the :votes key from customs; not needed for persistence
            (assoc-in [:customs :votes] [])
            (dissoc :keep-votes)))))))
+
+
+
+(defn conv-shape
+  [conv]
+  (matrix/shape (:rating-mat conv)))
+
+(defn not-smaller?
+  [conv1 conv2]
+  (let [[p1 c1] (conv-shape conv1)
+        [p2 c2] (conv-shape conv2)]
+    (and (>= p1 p2) (>= c1 c2))))
+
+(s/fdef conv-update
+  :args (s/cat :conv ::conversation :votes (s/* ::vote))
+  :ret ::full-conversation
+  :fn (s/and #(not-smaller? (:ret %) (-> % :args :conv))))
+
+(comment
+  (require '[clojure.spec.gen :as gen])
+  (gen/generate (s/gen ::conversation))
+  :end)
+
 
 
 (defn mod-update
