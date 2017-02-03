@@ -212,7 +212,7 @@
 (defn restructure-mongo-conv
   [conv]
   (-> conv
-      (utils/hash-map-subset #{:rating-mat :lastVoteTimestamp :zid :pca :in-conv :n :n-cmts :group-clusters :base-clusters :group-votes})
+      (utils/hash-map-subset #{:math_tick :rating-mat :lastVoteTimestamp :zid :pca :in-conv :n :n-cmts :group-clusters :base-clusters :repness :group-votes :subgroup-clusters :subgroup-votes :subgroup-repness})
       (assoc :last-vote-timestamp (get conv :lastVoteTimestamp)
              :last-mod-timestamp  (get conv :lastModTimestamp))
       ; Make sure there is an empty named matrix to operate on
