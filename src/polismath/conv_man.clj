@@ -207,6 +207,8 @@
 ;; in one place. This problem with teh :lastVoteTimestamp and group-votes etc came up precisely because there
 ;; wasn't "one place to go" for modifying all of the potential points of interest for these kind of changes.
 
+;; ^ I'm leaving this note in for posterity, but note that this is exactly what spec is :-)
+
 ;; XXX However, we shouldn't even be pushing the results to mongo if we didn't actually update anything
 
 (defn restructure-mongo-conv
