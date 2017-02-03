@@ -79,8 +79,12 @@
 
   (stop [component]
     (log/info "<< Stopping Mongo component")
-    (mg/disconnect conn)
+    (try
+      (mg/disconnect conn)
+      (catch Exception e
+        (log/warn e "Couldn't stop Mongo component!")))
     (assoc component :conn nil :db nil)))
+
 
 
 (defn create-mongo []

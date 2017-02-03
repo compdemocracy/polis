@@ -283,12 +283,15 @@
       (assoc component :conversations conversations :listeners listeners)))
   (stop [component]
     (log/info "<< Stopping ConversationManager")
-    ;; Close all our message channels for good measure
-    (doseq [[zid {:keys [message-chan]}] @conversations]
-      (async/close! message-chan))
-    ;; Not sure, but we might want this for GC
-    (reset! conversations nil)
-    (reset! listeners nil)
+    (try
+      ;; Close all our message channels for good measure
+      (doseq [[zid {:keys [message-chan]}] @conversations]
+        (async/close! message-chan))
+      ;; Not sure, but we might want this for GC
+      (reset! conversations nil)
+      (reset! listeners nil)
+      (catch Exception e
+        (log/error e "Unable to stop ConvMan component")))
     (assoc component :conversations nil)))
 
 (defn create-conversation-manager
