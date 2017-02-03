@@ -105,7 +105,7 @@
 
 ;; Should rename this not to conflict with clojure.core/update... poor form
 (defn update
-  "This function is what actually gets sent to the conv-actor. In addition to the conversation and vote batches
+  "This function is what actually gets sent to the conv-manager. In addition to the conversation and vote batches
   up in the channel, we also take an error-callback. Eventually we'll want to pass opts through here as well."
   [conv-man conv votes error-callback]
   (let [start-time (System/currentTimeMillis)

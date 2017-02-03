@@ -2,26 +2,27 @@
 
 (ns polismath.math.conversation
   (:refer-clojure :exclude [* -  + == /])
-  (:require [polismath.utils :as utils]
-            [polismath.math.pca :as pca]
-            [polismath.math.clusters :as clusters]
-            [polismath.math.repness :as repness]
-            [polismath.math.named-matrix :as nm]
-            [clojure.core.matrix :as matrix]
-            [clojure.spec :as s]
-            [clojure.tools.reader.edn :as edn]
-            [clojure.tools.trace :as tr]
-            [clojure.math.numeric-tower :as math]
-            [clojure.core.matrix :as matrix]
-            [clojure.core.matrix.operators :refer :all]
-            [plumbing.core :as plmb]
-            [plumbing.graph :as graph]
-            [monger.collection :as mc]
-            [bigml.sampling.simple :as sampling]
-            ;[alex-and-georges.debug-repl :as dbr]
-            [taoensso.timbre :as log]
-            [clojure.spec.gen :as gen]
-            [clojure.test.check.generators :as generators]))
+  (:require
+    [polismath.utils :as utils]
+    [polismath.math.pca :as pca]
+    [polismath.math.clusters :as clusters]
+    [polismath.math.repness :as repness]
+    [polismath.math.named-matrix :as nm]
+    [clojure.core.matrix :as matrix]
+    [clojure.spec :as s]
+    [clojure.tools.reader.edn :as edn]
+    [clojure.tools.trace :as tr]
+    [clojure.math.numeric-tower :as math]
+    [clojure.core.matrix :as matrix]
+    [clojure.core.matrix.operators :refer :all]
+    [plumbing.core :as plmb]
+    [plumbing.graph :as graph]
+    [monger.collection :as mc]
+    [bigml.sampling.simple :as sampling]
+    ;[alex-and-georges.debug-repl :as dbr]
+    [taoensso.timbre :as log]
+    [clojure.spec.gen :as gen]
+    [clojure.test.check.generators :as generators]))
 
 
 ;; Starting to spec out our domain model here and build generators for the pieces
@@ -280,8 +281,9 @@
                               :start-vectors (get-in conv [:pca :comps])
                               :iters (:pca-iters opts')))
 
-      :proj (plmb/fnk [rating-mat pca]
-              (pca/sparsity-aware-project-ptpts (nm/get-matrix rating-mat) pca))
+      :proj
+      (plmb/fnk [rating-mat pca]
+        (pca/sparsity-aware-project-ptpts (nm/get-matrix rating-mat) pca))
 
       ;; QUESTION Just have proj return an nmat?
       :proj-nmat
@@ -289,29 +291,29 @@
         (nm/named-matrix (nm/rownames rating-mat) ["x" "y"] proj))
 
       :base-clusters
-            (plmb/fnk [conv proj-nmat in-conv opts']
-              (let [in-conv-mat (nm/rowname-subset proj-nmat in-conv)]
-                (sort-by :id
-                  (clusters/kmeans in-conv-mat
-                    (:base-k opts')
-                    :last-clusters (:base-clusters conv)
-                    :cluster-iters (:base-iters opts')))))
+      (plmb/fnk [conv proj-nmat in-conv opts']
+        (let [in-conv-mat (nm/rowname-subset proj-nmat in-conv)]
+          (sort-by :id
+            (clusters/kmeans in-conv-mat
+              (:base-k opts')
+              :last-clusters (:base-clusters conv)
+              :cluster-iters (:base-iters opts')))))
 
       :base-clusters-proj
-            (plmb/fnk [base-clusters]
-              (clusters/xy-clusters-to-nmat2 base-clusters))
+      (plmb/fnk [base-clusters]
+        (clusters/xy-clusters-to-nmat2 base-clusters))
       
       :bucket-dists
-            (plmb/fnk [base-clusters-proj]
-              (clusters/named-dist-matrix base-clusters-proj))
+      (plmb/fnk [base-clusters-proj]
+        (clusters/named-dist-matrix base-clusters-proj))
 
       :base-clusters-weights
-            (plmb/fnk [base-clusters]
-              (into {}
-                    (map
-                      (fn [clst]
-                        [(:id clst) (count (:members clst))])
-                      base-clusters)))
+      (plmb/fnk [base-clusters]
+        (into {}
+              (map
+                (fn [clst]
+                  [(:id clst) (count (:members clst))])
+                base-clusters)))
 
 
       ;; Here we compute the top level clusters; These are the traditional clusters we've been using for some time now.
@@ -450,11 +452,14 @@
           {}
           (map
             (fn [[gid group-subgroup-clusterings]]
-              (when-let [smoothed-k (get-in subgroup-k-smoother [gid :smoothed-k])]
-                [gid
-                 (map
-                   (plmb/fn-> (assoc :parent-id gid))
-                   (get group-subgroup-clusterings smoothed-k))]))
+              (if-let [smoothed-k (get-in subgroup-k-smoother [gid :smoothed-k])]
+                (do
+                  (log/debug "Found smoothed-k:" smoothed-k)
+                  [gid
+                   (map
+                     (plmb/fn-> (assoc :parent-id gid))
+                     (get group-subgroup-clusterings smoothed-k))])
+                (log/warn "Didn't find smoothed-k for gid:" gid)))
             subgroup-clusterings)))
 
 
