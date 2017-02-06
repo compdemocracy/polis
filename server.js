@@ -10023,6 +10023,7 @@ Thanks for using pol.is!
             // set the user's hname, if not already set
             pgQueryP("update users set hname = ($2) where uid = ($1) and hname is NULL;", [uid, u.name]).then(function() {
               // OK, ready
+              u.uid = uid;
               maybeAddToIntercom(u);
               res.redirect(dest);
             }, function(err) {
