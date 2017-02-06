@@ -12755,32 +12755,6 @@ CREATE TABLE slack_user_invites (
 
 
 
-  function makeReactClientProxy(hostname, port) {
-    return function(req, res) {
-      let temp = req.path.split("/");
-      temp.shift();
-      temp.shift();
-      let path = "/" + temp.join("/");
-      let url;
-      if (devMode) {
-        url = "http://" + hostname + ":" + port + path;
-      } else {
-        fail(res, 404, "polis_err_finding_file " + path);
-        return;
-      }
-      console.log("ORIG", req.path);
-      console.log("URL", url);
-      let x = request(url);
-      req.pipe(x);
-      x.pipe(res);
-      x.on("error", function(err) {
-        fail(res, 500, "polis_err_finding_file " + path, err);
-      });
-    };
-  }
-
-
-
   function handle_GET_twitter_image(req, res) {
     console.log("handle_GET_twitter_image", req.p.id);
     getTwitterUserInfo({
@@ -12964,7 +12938,6 @@ CREATE TABLE slack_user_invites (
     HMAC_SIGNATURE_PARAM_NAME,
     hostname,
     makeFileFetcher,
-    makeReactClientProxy,
     makeRedirectorTo,
     moveToBody,
     need,
