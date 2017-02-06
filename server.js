@@ -7146,6 +7146,8 @@ Email verified! You can close this tab or hit the back button.
     let is_seed = req.p.is_seed;
     let mustBeModerator = !!quote_txt || !!twitter_tweet_id || anon;
 
+    console.log("POST_comments begin", Date.now());
+    console.log("POST_comments params", req.p);
 
     // either include txt, or a tweet id
     if (_.isUndefined(txt) &&
@@ -7162,21 +7164,29 @@ Email verified! You can close this tab or hit the back button.
     }
 
     function doGetPid() {
+
+      console.log("POST_comments doGetPid begin", Date.now());
+
       // PID_FLOW
       if (_.isUndefined(pid)) {
         return getPidPromise(req.p.zid, req.p.uid, true).then((pid) => {
           if (pid === -1) {
+
+            console.log("POST_comments doGetPid addParticipant begin", Date.now());
             return addParticipant(req.p.zid, req.p.uid).then(function(rows) {
               let ptpt = rows[0];
               pid = ptpt.pid;
               currentPid = pid;
+              console.log("POST_comments doGetPid addParticipant done", Date.now());
               return pid;
             });
           } else {
+            console.log("POST_comments doGetPid done", Date.now());
             return pid;
           }
         });
       }
+      console.log("POST_comments doGetPid done", Date.now());
       return Promise.resolve(pid);
     }
 
@@ -7188,7 +7198,11 @@ Email verified! You can close this tab or hit the back button.
       twitterPrepPromise = prepForQuoteWithTwitterUser(quote_twitter_screen_name, zid);
     }
 
+    console.log("POST_comments before twitterPrepPromise", Date.now());
+
     twitterPrepPromise.then(function(info) {
+
+      console.log("POST_comments after twitterPrepPromise", Date.now());
 
       let ptpt = info && info.ptpt;
       // let twitterUser = info && info.twitterUser;
@@ -7231,7 +7245,12 @@ Email verified! You can close this tab or hit the back button.
       }
       let commentExistsPromise = commentExists(zid, txt);
 
+      console.log("POST_comments before Promise.all", Date.now());
+
       return Promise.all([pidPromise, conversationInfoPromise, isModeratorPromise, commentExistsPromise]).then(function(results) {
+
+        console.log("POST_comments after Promise.all", Date.now());
+
         let pid = results[0];
         let conv = results[1];
         let is_moderator = results[2];
@@ -7263,6 +7282,8 @@ Email verified! You can close this tab or hit the back button.
           console.dir(req.p);
         }
         let bad = hasBadWords(txt);
+
+        console.log("POST_comments before isSpamPromise", Date.now());
         return isSpamPromise.then(function(spammy) {
           winston.log("info", "spam test says: " + txt + " " + (spammy ? "spammy" : "not_spammy"));
           return spammy;
@@ -7271,6 +7292,7 @@ Email verified! You can close this tab or hit the back button.
           winston.log("info", err);
           return false; // spam check failed, continue assuming "not spammy".
         }).then(function(spammy) {
+          console.log("POST_comments after isSpamPromise", Date.now());
           let velocity = 1;
           let active = true;
           let classifications = [];
@@ -7300,6 +7322,8 @@ Email verified! You can close this tab or hit the back button.
             active = true;
           }
           let authorUid = ptpt ? ptpt.uid : uid;
+
+          console.log("POST_comments before INSERT INTO COMMENTS", Date.now());
 
           return pgQueryP(
             "INSERT INTO COMMENTS " +
@@ -7343,6 +7367,7 @@ Email verified! You can close this tab or hit the back button.
                 });
               }
 
+              console.log("POST_comments before votesPost", Date.now());
               return votesPost(uid, pid, zid, tid, vote, 0, false).then(function(o) {
                 // let conv = o.conv;
                 let vote = o.vote;
@@ -7354,6 +7379,7 @@ Email verified! You can close this tab or hit the back button.
                   updateVoteCount(zid, pid);
                 }, 100);
 
+                console.log("POST_comments sending json", Date.now());
                 res.json({
                   tid: tid,
                   currentPid: currentPid,
