@@ -7231,7 +7231,7 @@ Email verified! You can close this tab or hit the back button.
       }
       let commentExistsPromise = commentExists(zid, txt);
 
-      Promise.all([pidPromise, conversationInfoPromise, isModeratorPromise, commentExistsPromise]).then(function(results) {
+      return Promise.all([pidPromise, conversationInfoPromise, isModeratorPromise, commentExistsPromise]).then(function(results) {
         let pid = results[0];
         let conv = results[1];
         let is_moderator = results[2];
@@ -7263,7 +7263,7 @@ Email verified! You can close this tab or hit the back button.
           console.dir(req.p);
         }
         let bad = hasBadWords(txt);
-        isSpamPromise.then(function(spammy) {
+        return isSpamPromise.then(function(spammy) {
           winston.log("info", "spam test says: " + txt + " " + (spammy ? "spammy" : "not_spammy"));
           return spammy;
         }, function(err) {
@@ -7301,24 +7301,11 @@ Email verified! You can close this tab or hit the back button.
           }
           let authorUid = ptpt ? ptpt.uid : uid;
 
-          pgQuery(
+          return pgQueryP(
             "INSERT INTO COMMENTS " +
             "(pid, zid, txt, velocity, active, mod, uid, tweet_id, quote_src_url, anon, is_seed, created, tid) VALUES " +
             "($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, default, null) RETURNING *;",
-            [pid, zid, txt, velocity, active, mod, authorUid, twitter_tweet_id || null, quote_src_url || null, anon || false, is_seed || false],
-
-            function(err, docs) {
-              if (err) {
-                winston.log("info", err);
-                if (err.code === '23505' || err.code === 23505) {
-                  // duplicate comment
-                  fail(res, 409, "polis_err_post_comment_duplicate", err);
-                } else {
-                  fail(res, 500, "polis_err_post_comment", err);
-                }
-                return;
-              }
-              docs = docs.rows;
+            [pid, zid, txt, velocity, active, mod, authorUid, twitter_tweet_id || null, quote_src_url || null, anon || false, is_seed || false]).then(function(docs) {
               let comment = docs && docs[0];
               let tid = comment && comment.tid;
               // let createdTime = comment && comment.created;
@@ -7356,7 +7343,7 @@ Email verified! You can close this tab or hit the back button.
                 });
               }
 
-              votesPost(uid, pid, zid, tid, vote, 0, false).then(function(o) {
+              return votesPost(uid, pid, zid, tid, vote, 0, false).then(function(o) {
                 // let conv = o.conv;
                 let vote = o.vote;
                 let createdTime = vote.created;
@@ -7374,12 +7361,14 @@ Email verified! You can close this tab or hit the back button.
               }, function(err) {
                 fail(res, 500, "polis_err_vote_on_create", err);
               });
-
-
+            }, function(err) {
+              if (err.code === '23505' || err.code === 23505) {
+                // duplicate comment
+                fail(res, 409, "polis_err_post_comment_duplicate", err);
+              } else {
+                fail(res, 500, "polis_err_post_comment", err);
+              }
             }); // insert
-        }, function(err) {
-          yell("polis_err_unhandled_spam_check_error");
-
         });
       }, function(errors) {
         if (errors[0]) {
