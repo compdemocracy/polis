@@ -12675,6 +12675,11 @@ CREATE TABLE slack_user_invites (
     return _.isUndefined(first) ? second : first;
   }
 
+
+  let fetch404Page = makeFileFetcher(hostname, portForAdminFiles, "/404.html", {
+    'Content-Type': "text/html",
+  });
+
   function fetchIndexForConversation(req, res) {
     console.log("fetchIndexForConversation", req.path);
     let match = req.path.match(/[0-9][0-9A-Za-z]+/);
@@ -12704,7 +12709,8 @@ CREATE TABLE slack_user_invites (
       };
       fetchIndex(req, res, preloadData, portForParticipationFiles);
     }).catch(function(err) {
-      fail(res, 500, "polis_err_fetching_conversation_info2", err);
+      fetch404Page(req, res);
+      // fail(res, 500, "polis_err_fetching_conversation_info2", err);
     });
   }
 
