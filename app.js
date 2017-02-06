@@ -1384,8 +1384,14 @@ helpersInitialized.then(function(o) {
 
   app.get("/", handle_GET_conditionalIndexFetcher);
 
-  // proxy everything else
-  app.get(/^\/[^(api\/)]?.*/, proxy);
+  // proxy static files
+  app.get(/^\/cached\/.*/, proxy);
+  app.get(/^\/font\/.*/, proxy);
+
+  // 404 everything else
+  app.get(/^\/[^(api\/)]?.*/, makeFileFetcher(hostname, portForAdminFiles, "/404.html", {
+    'Content-Type': "text/html",
+  }));
 
   app.listen(process.env.PORT);
 
