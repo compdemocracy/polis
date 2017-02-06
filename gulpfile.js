@@ -86,6 +86,14 @@ gulp.task('embed', [
   fs.writeFileSync(dest, index);
 });
 
+gulp.task('404', [
+], function() {
+  var index = fs.readFileSync('404.html', {encoding: "utf8"});
+  var dest = [destRootBase, "404.html"].join("/");
+  // fs.mkdirSync(destRootBase);
+  fs.writeFileSync(dest, index);
+});
+
 
 
 gulp.task("preprodConfig", function() {
@@ -140,6 +148,7 @@ gulp.task('common', [
       'bundle',
       'index',
       'embed',
+      '404',
       'scripts',
       callback);
 });
