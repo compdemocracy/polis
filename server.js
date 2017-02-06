@@ -7150,9 +7150,10 @@ Email verified! You can close this tab or hit the back button.
     console.log("POST_comments params", req.p);
 
     // either include txt, or a tweet id
-    if (_.isUndefined(txt) &&
-      _.isUndefined(twitter_tweet_id) &&
-      _.isUndefined(quote_txt)
+    if (
+      (_.isUndefined(txt) || txt === '') &&
+      (_.isUndefined(twitter_tweet_id) || twitter_tweet_id === '') &&
+      (_.isUndefined(quote_txt) || quote_txt === '')
     ) {
       fail(res, 400, "polis_err_param_missing_txt");
       return;
@@ -7283,7 +7284,8 @@ Email verified! You can close this tab or hit the back button.
 
         if (_.isUndefined(txt)) {
           console.log("undefined txt");
-          console.dir(req.p);
+          console.log(req.p);
+          throw "polis_err_post_comments_missing_txt";
         }
         let bad = hasBadWords(txt);
 
