@@ -7209,9 +7209,13 @@ Email verified! You can close this tab or hit the back button.
       let tweet = info && info.tweet;
 
       if (tweet) {
+        console.log('Post comments tweet', txt, tweet.txt);
         txt = tweet.text;
       } else if (quote_txt) {
+        console.log('Post comments quote_txt', txt, quote_txt);
         txt = quote_txt;
+      } else {
+        console.log('Post comments txt', txt);
       }
 
       let ip =
