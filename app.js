@@ -104,7 +104,6 @@ helpersInitialized.then(function(o) {
     HMAC_SIGNATURE_PARAM_NAME,
     hostname,
     makeFileFetcher,
-    makeReactClientProxy,
     makeRedirectorTo,
     moveToBody,
     need,
@@ -1265,7 +1264,6 @@ helpersInitialized.then(function(o) {
   app.get(/^\/conversation\/create(\/.*)?/, fetchIndexWithoutPreloadData);
   app.get(/^\/user\/create(\/.*)?$/, fetchIndexWithoutPreloadData);
   app.get(/^\/user\/login(\/.*)?$/, fetchIndexWithoutPreloadData);
-  app.get(/^\/welcome\/.*$/, fetchIndexWithoutPreloadData);
 
 
   app.get(/^\/settings(\/.*)?$/, fetchIndexWithoutPreloadData);
@@ -1292,13 +1290,11 @@ helpersInitialized.then(function(o) {
   // admin dash-based landers
   app.get(/^\/gov(\/.*)?/, fetchIndexForAdminPage);
   app.get(/^\/createuser(\/.*)?/, fetchIndexForAdminPage);
-  app.get(/^\/plus(\/.*)?/, fetchIndexForAdminPage);
   app.get(/^\/contrib(\/.*)?/, fetchIndexForAdminPage);
 
   app.get(/^\/bot\/install(\/.*)?/, fetchIndexForAdminPage);
   app.get(/^\/bot\/support(\/.*)?/, fetchIndexForAdminPage);
 
-  app.get(/^\/react(\/.*)?$/, makeReactClientProxy("localhost", 3000));
   app.get(/^\/inbox(\/.*)?$/, fetchIndexWithoutPreloadData);
   // app.get(/^\/r/, fetchIndexWithoutPreloadData);
   app.get(/^\/hk/, fetchIndexWithoutPreloadData);
@@ -1309,50 +1305,11 @@ helpersInitialized.then(function(o) {
   app.get(/^\/pwresetinit.*/, fetchIndexForAdminPage);
   app.get(/^\/demo\/[0-9][0-9A-Za-z]+/, fetchIndexForConversation);
   app.get(/^\/pwreset.*/, fetchIndexForAdminPage);
-  app.get(/^\/prototype.*/, fetchIndexWithoutPreloadData);
-  app.get(/^\/plan.*/, fetchIndexWithoutPreloadData);
-  app.get(/^\/professors$/, makeFileFetcher(hostname, portForParticipationFiles, "/lander.html", {
-    'Content-Type': "text/html",
-  }));
-  app.get(/^\/football$/, makeFileFetcher(hostname, portForParticipationFiles, "/football.html", {
-    'Content-Type': "text/html",
-  }));
-  app.get(/^\/pricing$/, makeFileFetcher(hostname, portForParticipationFiles, "/pricing.html", {
-    'Content-Type': "text/html",
-  }));
-  app.get(/^\/news$/, fetchIndexForAdminPage);
   app.get(/^\/company$/, fetchIndexForAdminPage);
 
   app.get(/^\/report\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForReportPage);
   
-  app.get(/^\/api$/, function(req, res) {
-    res.redirect("/docs/api/v3");
-  });
-  app.get(/^\/docs\/api$/, function(req, res) {
-    res.redirect("/docs/api/v3");
-  });
-  app.get(/^\/docs\/api\/v3$/, makeFileFetcher(hostname, portForParticipationFiles, "/api_v3.html", {
-    'Content-Type': "text/html",
-  }));
   app.get(/^\/embed$/, makeFileFetcher(hostname, portForAdminFiles, "/embed.html", {
-    'Content-Type': "text/html",
-  }));
-  app.get(/^\/politics$/, makeFileFetcher(hostname, portForParticipationFiles, "/politics.html", {
-    'Content-Type': "text/html",
-  }));
-  app.get(/^\/marketers$/, makeFileFetcher(hostname, portForParticipationFiles, "/marketers.html", {
-    'Content-Type': "text/html",
-  }));
-  app.get(/^\/faq$/, makeFileFetcher(hostname, portForParticipationFiles, "/faq.html", {
-    'Content-Type': "text/html",
-  }));
-  app.get(/^\/blog$/, makeFileFetcher(hostname, portForParticipationFiles, "/blog.html", {
-    'Content-Type': "text/html",
-  }));
-  app.get(/^\/billions$/, makeFileFetcher(hostname, portForParticipationFiles, "/billions.html", {
-    'Content-Type': "text/html",
-  }));
-  app.get(/^\/plus$/, makeFileFetcher(hostname, portForParticipationFiles, "/plus.html", {
     'Content-Type': "text/html",
   }));
   app.get(/^\/canvas_setup_backup_instructions$/, makeFileFetcher(hostname, portForParticipationFiles, "/canvas_setup_backup_instructions.html", {
@@ -1365,15 +1322,6 @@ helpersInitialized.then(function(o) {
   app.get(/^\/about$/, makeRedirectorTo("/gov"));
   app.get(/^\/home(\/.*)?/, makeRedirectorTo("/gov"));
   app.get(/^\/s\/CTE\/?$/, makeFileFetcher(hostname, portForParticipationFiles, "/football.html", {
-    'Content-Type': "text/html",
-  }));
-  app.get(/^\/wimp$/, makeFileFetcher(hostname, portForParticipationFiles, "/wimp.html", {
-    'Content-Type': "text/html",
-  }));
-  app.get(/^\/edu$/, makeFileFetcher(hostname, portForParticipationFiles, "/lander.html", {
-    'Content-Type': "text/html",
-  }));
-  app.get(/^\/try$/, makeFileFetcher(hostname, portForParticipationFiles, "/try.html", {
     'Content-Type': "text/html",
   }));
   app.get(/^\/twitterAuthReturn(\/.*)?$/, makeFileFetcher(hostname, portForParticipationFiles, "/twitterAuthReturn.html", {
