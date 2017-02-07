@@ -1335,6 +1335,7 @@ helpersInitialized.then(function(o) {
   // proxy static files
   app.get(/^\/cached\/.*/, proxy);
   app.get(/^\/font\/.*/, proxy);
+  app.get(/^\/.*embed.*js\/.*/, proxy);
 
   // 404 everything else
   app.get(/^\/[^(api\/)]?.*/, makeFileFetcher(hostname, portForAdminFiles, "/404.html", {
