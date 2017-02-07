@@ -65,8 +65,9 @@
                                                   ;com.fasterxml.jackson.core/jackson-core]]
                  ;[com.fasterxml.jackson.core/jackson-core "2.5.3"]
                  ;[com.fasterxml.jackson.core/jackson-databind "2.5.3"]
+                 ;[org.clojure/java.jdbc "0.7.0-alpha1"]
                  [org.postgresql/postgresql "9.2-1004-jdbc4"]
-                 [korma "0.3.0-RC5"]
+                 [korma "0.4.3"]
                  [clj-time "0.12.2"]
                  [clj-excel "0.0.1"]
                  [semantic-csv "0.1.0"]
@@ -74,6 +75,7 @@
                  [prismatic/plumbing "0.5.3"]
                  [environ "1.1.0"]
                  [mount "0.1.10"]
+                 [honeysql "0.8.2"]
 
                  [org.clojure/test.check "0.9.0"]]
 
