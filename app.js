@@ -1337,10 +1337,16 @@ helpersInitialized.then(function(o) {
   app.get(/^\/font\/.*/, proxy);
   app.get(/^\/.*embed.*js\/.*/, proxy);
 
-  // 404 everything else
-  app.get(/^\/[^(api\/)]?.*/, makeFileFetcher(hostname, portForAdminFiles, "/404.html", {
-    'Content-Type': "text/html",
-  }));
+  var missingFilesGet404 = false;
+  if (missingFilesGet404) {
+    // 404 everything else
+    app.get(/^\/[^(api\/)]?.*/, makeFileFetcher(hostname, portForAdminFiles, "/404.html", {
+      'Content-Type': "text/html",
+    }));
+  } else {
+    // proxy everything else
+    app.get(/^\/[^(api\/)]?.*/, proxy);
+  }
 
   app.listen(process.env.PORT);
 
