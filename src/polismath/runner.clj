@@ -57,6 +57,7 @@
    ;"onyx" system/onyx-system ;; soon...
    "poller" system/poller-system
    "darwin" system/darwin-system
+   "full" system/full-system
    "simulator" system/simulator-system})
 
 ;; TODO Build nice cli settings forking on subcommand, and tie in sanely with options comp
