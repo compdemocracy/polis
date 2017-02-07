@@ -34,6 +34,8 @@
 
 (defn run!
   ([system-map-generator config-overrides]
+   ;; Make sure if we already have a system that it has been stopped
+   (when system (stop!))
    (init! system-map-generator config-overrides)
    (start!))
   ([system-map-generator]
