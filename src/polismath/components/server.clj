@@ -28,6 +28,7 @@
   "This wraps a handler such that requested for /healthcheck"
   [handler]
   (fn [{:as request :keys [uri]}]
+    (log/debug "wrap-handler called for request" uri)
     (if (= uri "/healthcheck")
       (healthcheck-handler request)
       (handler request))))
@@ -36,7 +37,7 @@
   [config opts app jetty-server]
   component/Lifecycle
   (start [component]
-    (log/info ">> Starting server component with config:" config)
+    (log/info ">> Starting server component with config:" (:server config))
     (let [wrapped-handler (wrap-handler (:handler app))
           jetty-server (jetty/run-jetty wrapped-handler
                                         (merge {:join? false :port 8080}
