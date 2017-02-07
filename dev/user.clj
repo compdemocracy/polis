@@ -21,11 +21,15 @@
   (let [zid (or zid (postgres/get-zid-from-zinvite (:postgres runner/system) zinvite))]
     (conv-man/load-or-init (:conversation-manager runner/system) zid)))
 
-(comment
-  (runner/run! system/base-system)
-  (runner/stop!)
-  (def args {:zid 15228})
 
+;; Can toggle between do and comment here for refiring entire file
+;(do
+(comment
+  ;(runner/run! system/base-system)
+  ;(runner/run! system/full-system)
+  (runner/run! system/darwin-system)
+
+  (def args {:zid 15228})
   (def conv (load-conv args))
 
   (:config runner/system)
@@ -42,4 +46,6 @@
     ;(:repness updated-conv'))
   ;(get-conv args)
   (-> runner/system :conversation-manager :conversations deref)
+
+  (runner/stop!)
   :end)
