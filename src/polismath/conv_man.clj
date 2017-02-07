@@ -147,9 +147,6 @@
       (catch Exception e
         ;; XXX See comment below about decoupling errors
         (error-callback votes start-time (:opts' conv) e)
-        ; Wait a second before returning the origin, unmodified conv, to throttle retries
-        ;; XXX This shouldn't be here... ???
-        (Thread/sleep 1000)
         conv))))
 
 
