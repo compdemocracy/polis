@@ -13,7 +13,10 @@
             [plumbing.core :as pc]
             [korma.core :as ko]
             [korma.db :as kdb]
-            [cheshire.core :as ch]))
+            [cheshire.core :as ch]
+            [clojure.java.jdbc :as jdbc]
+            [honeysql.core :as sql]
+            [honeysql.helpers :as sqlhelp]))
             ;[alex-and-georges.debug-repl :as dbr]
 
 
@@ -206,8 +209,25 @@
       (.printStackTrace e)
       [])))
 
-;(defn inc-math-tick!
-;  [component zid]
-;  (kdb/with-db (:db/spec component)
-;    (ko/select)))
+
+;; This is honeysql;
+;; We are going to implement _everything else_ in terms of this.
+
+(defn query
+  [component query]
+  (jdbc/query (:db-spec component)
+              query))
+
+(defn inc-math-tick
+  [postgres query]
+  (query postgres ["insert into math_ticks (zid) values (?) on conflict (zid) do update set modified = now_as_millis(), math_tick = (math_ticks.math_tick + 1) returning *;" 12480]))
+
+(comment
+  (require '[polismath.runner :as runner])
+  (def postgres (:postgres runner/system))
+  (query postgres ["select * from zinvites limit 10"])
+  (query postgres ["insert into math_ticks (zid) values (?) on conflict (zid) do update set modified = now_as_millis(), math_tick = (math_ticks.math_tick + 1) returning *;" 12480])
+  :endcomment)
+
+;(defn)
 
