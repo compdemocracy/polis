@@ -5,8 +5,6 @@
     [polismath.darwin.export :as export]
     ;; XXX Deprecate; use component config directly
     [polismath.components.env :as env]
-    [polismath.components.db :as db]
-    [polismath.darwin.email :as email]
     [clojure.core.async :as async :refer [chan >!! <!! >! <! go]]
     [taoensso.timbre :as log]
     [ring.component.jetty :refer [jetty-server]]
@@ -16,9 +14,10 @@
     [ring.middleware.keyword-params :as ring.keyword-params]
     [ring.middleware.basic-authentication :as auth :refer [wrap-basic-authentication]]
     [bidi.bidi :as bidi]
+    [bidi.ring]
     [com.stuartsierra.component :as component]
     [monger.collection :as mc]
-    [hiccup.core :as hiccup]
+    ;[hiccup.core :as hiccup]
     [amazonica.aws.s3 :as s3]
     [clj-time.core :as time]
     [clj-http.client :as client]
@@ -33,7 +32,7 @@
   (str (or (-> darwin :config :export :temp-dir) "/tmp/")
        filename))
 
-(def private-app-url-base [darwin]
+(defn private-app-url-base [darwin]
   (or (-> darwin :config :export :private-url-base env/env)))
 
 (defn public-app-url-base [darwin]
@@ -395,13 +394,14 @@
   (bidi.ring/make-handler (routes darwin)))
 
 ;; securitay ;; move env variables to config component
-(defn authenticated? [name pass]
-  (and (= name (:export-server-auth-username env/env))
-       (= pass (:export-server-auth-pass env/env))))
+(defn authenticated? [darwin name pass]
+  (let [config (-> darwin :config :darwin)]
+    (and (= name (:server-auth-username config))
+         (= pass (:server-auth-pass config)))))
 
 ;; For added security, wade through this crap...
 
-;; Need to add to component config
+; Need to add to component config
 ;(def valid-remote-addresses (-> env/env :valid-remote-addresses (clojure.string/split #"\s+")))
 ;(defn restrict-remote-address
 ;  [handler]
@@ -426,20 +426,24 @@
 
 
 
-(defrecord Darwin [config postgres mongo handler]
+(defrecord Darwin [config postgres mongo handler conversation-manager]
   component/Lifecycle
   (start [component]
     (let [handler
           (-> (make-handler component)
               ring.keyword-params/wrap-keyword-params
               ring.params/wrap-params
-              (auth/wrap-basic-authentication authenticated?))]
+              (auth/wrap-basic-authentication (partial authenticated? component)))]
       ;redirect-http-to-https-if-required
       ;restrict-remote-access
       (assoc component :handler handler)))
   (stop [component]
     component))
 
+
+(defn create-darwin
+  []
+  (map->Darwin {}))
 
 
 

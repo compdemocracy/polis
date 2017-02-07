@@ -10,6 +10,7 @@
                                   [server :as server]]
             [polismath.conv-man :as conv-man]
             [polismath.poller :as poller]
+            [polismath.darwin.server :as darwin]
             [polismath.utils :as utils]
             [taoensso.timbre :as log]
             [clojure.tools.namespace.repl :as namespace.repl]
@@ -30,18 +31,25 @@
 (defn poller-system
   "Creates a base-system and assocs in darwin server related components."
   [config-overrides]
-  (let [sys-map
-        (merge (base-system config-overrides)
-          {:vote-poller (component/using (poller/create-poller :votes)      [:config :postgres :conversation-manager])
-           :mod-poller  (component/using (poller/create-poller :moderation) [:config :postgres :conversation-manager])
-           :server      (component/using (server/create-server)             [:config :conversation-manager])})]
-    (log/info "Here's the system keys:" (keys sys-map))
-    sys-map))
+  (merge
+    (base-system config-overrides)
+    {:vote-poller (component/using (poller/create-poller :votes)      [:config :postgres :conversation-manager])
+     :mod-poller  (component/using (poller/create-poller :moderation) [:config :postgres :conversation-manager])
+     :server      (component/using (server/create-server)             [:config :conversation-manager])}))
 
 (defn darwin-system
   "Creates a base-system and assocs in darwin server related components."
   [config-overrides]
-  :TODO)
+  (merge
+    (base-system config-overrides)
+    {:app    (component/using (darwin/create-darwin) [:config :postgres :conversation-manager])
+     :server (component/using (server/create-server) [:config :conversation-manager :app])}))
+
+(defn full-system
+  [config-overrides]
+  (merge
+    (poller-system config-overrides)
+    (darwin-system config-overrides)))
 
 (defn onyx-system
   "Creates a base-system and assocs in polismath onyx worker related components."

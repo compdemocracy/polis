@@ -62,6 +62,8 @@
    :aws-access-key             {:path [:aws :access-key]}
    :webserver-username         {:path [:webserver-username]}
    :webserver-password         {:path [:webserver-password]}
+   :export-server-auth-username {:path [:darwin :server-auth-username]}
+   :export-server-auth-pass {:path [:darwin :server-auth-pass]}
    :math-matrix-implementation {:path [:math :matrix-implementation] :parse ->keyword}
    ;; TODO Put all these within a :conv-update opt so we can just pass that through to conv-update all at once
    :math-cutoff-medium         {:path [:math :cutoffs :medium] :parse ->long
