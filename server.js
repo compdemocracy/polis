@@ -2617,7 +2617,7 @@ function initializePolisHelpers(mongoParams) {
       let exportServerPass = process.env.EXPORT_SERVER_AUTH_PASS;
 
       let url = urlBuilderFunction(exportServerUser, exportServerPass, user.email);
-
+      console.log('dataExport url', url);
       let x = request({
         method: "GET",
         uri: url,
