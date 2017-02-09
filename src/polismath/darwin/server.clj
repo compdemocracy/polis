@@ -123,7 +123,7 @@
     (let [darwin-config (-> darwin :config)
           response
           ;; The next three lines should probably be extracted
-          (client/post (:webserver-url darwin-config) "/sendEmailExportReady"
+          (client/post (str (:webserver-url darwin-config) "/sendEmailExportReady")
                        {:form-params {:webserver_username (:webserver-username darwin-config)
                                       :webserver_pass (:webserver-pass darwin-config)
                                       :email email
