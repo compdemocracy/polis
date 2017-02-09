@@ -502,11 +502,12 @@
       (clojure.string/replace ":" "")
       (Integer/parseInt)))
 
-;; Should be using the
+;; Should be using the conv-man to load the conversation if it's already there
 (defn load-conv
   [darwin & {:keys [zid zinvite] :as args}]
   (assert (utils/xor zid zinvite))
   (let [zid (or zid (postgres/get-zid-from-zinvite (:postgres darwin) zinvite))]
+    (log/debug "Loading conversation" zid)
     (->
       (mongo/load-conv (:mongo darwin) zid)
       ;; This should be ok here right?
