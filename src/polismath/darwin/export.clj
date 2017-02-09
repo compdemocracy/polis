@@ -502,6 +502,7 @@
       (clojure.string/replace ":" "")
       (Integer/parseInt)))
 
+;; Should be using the
 (defn load-conv
   [darwin & {:keys [zid zinvite] :as args}]
   (assert (utils/xor zid zinvite))
@@ -523,7 +524,7 @@
         comments (enriched-comments-data (get-comments-data darwin zid) votes)
         participants (get-participation-data darwin zid)
         ;; Should factor out into separate function
-        conv (utils/apply-kwargs mongo/load-conv (:mongo darwin) kw-args)]
+        conv (utils/apply-kwargs load-conv darwin kw-args)]
     {:votes votes
      :summary (summary-data darwin conv votes comments participants)
      :stats-history (stats-history votes participants comments)
