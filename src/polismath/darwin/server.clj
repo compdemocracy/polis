@@ -4,7 +4,7 @@
   (:require
     [polismath.darwin.export :as export]
     ;; XXX Deprecate; use component config directly
-    [polismath.components.env :as env]
+    ;[polismath.components.env :as env]
     [clojure.core.async :as async :refer [chan >!! <!! >! <! go]]
     [taoensso.timbre :as log]
     [ring.component.jetty :refer [jetty-server]]
@@ -33,18 +33,18 @@
        filename))
 
 (defn private-app-url-base [darwin]
-  (or (-> darwin :config :export :private-url-base env/env)))
+  (or (-> darwin :config :export :private-url-base)))
 
-(defn public-app-url-base [darwin]
-  (or (-> darwin :config :export "https://pol.is/api/v3")))
+;(defn public-app-url-base [darwin]
+;  (or (-> darwin :config :export :public-url-base) "https://pol.is/api/v3"))
 
 (defn private-url
   [darwin & path]
   (apply str (private-app-url-base darwin) "/" path))
 
-(defn public-url
-  [darwin & path]
-  (apply str (public-app-url-base darwin) "/" path))
+;(defn public-url
+;  [darwin & path]
+;  (apply str (public-app-url-base darwin) "/" path))
 
 
 ;; A ping handler will just be for debugging purposes
@@ -111,9 +111,9 @@
   (private-url darwin
                (str "datadump/results?filename=" filename "&conversation_id=" zinvite)))
 
-(defn public-datadump-url
-  [darwin filename zinvite]
-  (public-url darwin (str "dataExport/results?filename=" filename "&conversation_id=" zinvite)))
+;(defn public-datadump-url
+;  [darwin filename zinvite]
+;  (public-url darwin (str "dataExport/results?filename=" filename "&conversation_id=" zinvite)))
 
 
 (defn send-email-notification-via-polis-api!
@@ -285,7 +285,7 @@
     (let [;; The dissoc is just a vague security measure
           request-params (-> params
                              (dissoc :env-overrides)
-                             (assoc :filename (full-path filename)))]
+                             (assoc :filename (full-path darwin filename)))]
       (export/export-conversation darwin request-params)
       ;; Return truthy :done token
       :done)

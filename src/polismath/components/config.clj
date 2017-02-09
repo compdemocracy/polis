@@ -37,6 +37,7 @@
                 :temp-dir "/tmp/"
                 ;; Hmmm should be able to specify a dep on port; aero?
                 :private-url-base "http://localhost:8080"
+                ;; Shit... should be able to specify dependency on preprod as well!
                 :public-url-base "https://pol.is/api/v3"}
    :database   {:pool-size 3}
    :poller     {:votes {:polling-interval 2000}
