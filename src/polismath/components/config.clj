@@ -36,9 +36,9 @@
    :export     {:expiry-days 10
                 :temp-dir "/tmp/"
                 ;; Hmmm should be able to specify a dep on port; aero?
-                :private-url-base "http://localhost:8080"
+                :private-url-base "http://localhost:8080"}
                 ;; Shit... should be able to specify dependency on preprod as well!
-                :public-url-base "https://pol.is/api/v3"}
+   :webserver-url "https://preprod.pol.is/api/v3"
    :database   {:pool-size 3}
    :poller     {:votes {:polling-interval 2000}
                 :moderation {:polling-interval 5000}
@@ -62,7 +62,8 @@
    :aws-secret-key             {:path [:aws :secret-key]}
    :aws-access-key             {:path [:aws :access-key]}
    :webserver-username         {:path [:webserver-username]}
-   :webserver-password         {:path [:webserver-password]}
+   :webserver-pass             {:path [:webserver-pass]}
+   :webserver-url              {:path [:webserver-url]}
    :export-server-auth-username {:path [:darwin :server-auth-username]}
    :export-server-auth-pass {:path [:darwin :server-auth-pass]}
    :math-matrix-implementation {:path [:math :matrix-implementation] :parse ->keyword}

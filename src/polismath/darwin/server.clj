@@ -122,9 +122,10 @@
   (try
     (let [darwin-config (-> darwin :config)
           response
-          (client/post "https://pol.is/api/v3/sendEmailExportReady"
+          ;; The next three lines should probably be extracted
+          (client/post (:webserver-url darwin-config) "/sendEmailExportReady"
                        {:form-params {:webserver_username (:webserver-username darwin-config)
-                                      :webserver_pass (:webserver-password darwin-config)
+                                      :webserver_pass (:webserver-pass darwin-config)
                                       :email email
                                       :filename filename
                                       :raise false
