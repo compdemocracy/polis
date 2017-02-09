@@ -33,7 +33,7 @@
    :math-schema-date "2014_08_22"
    :server     {:port 8080}
    ;:darwin     {:server-port 3123}
-   :export     {:expiry-days 10
+   :export     {:expiry-days 6
                 :temp-dir "/tmp/"
                 ;; Hmmm should be able to specify a dep on port; aero?
                 :private-url-base "http://localhost:8080"}
