@@ -9399,14 +9399,15 @@ Email verified! You can close this tab or hit the back button.
       return fail(res, 403, "polis_err_sending_export_link_to_email_auth");
     }
 
+    const domain = process.env.primary_polis_url;
     const email = req.p.email;
     const subject = "Data export for pol.is conversation pol.is/" + req.p.conversation_id;
     const fromAddress = `Polis Team <${process.env.EMAIL_CHRIS}>`;
     const body = `Greetings
 
-You created a data export for pol.is conversation pol.is/${req.p.conversation_id} that has just completed. You can download the results for this conversation at the following url:
+You created a data export for pol.is conversation ${domain}/${req.p.conversation_id} that has just completed. You can download the results for this conversation at the following url:
 
-https://pol.is/api/v3/dataExport/results?filename=${req.p.filename}&conversation_id=${req.p.conversation_id}
+https://${domain}/api/v3/dataExport/results?filename=${req.p.filename}&conversation_id=${req.p.conversation_id}
 
 Please let us know if you have any questons about the data.
 
