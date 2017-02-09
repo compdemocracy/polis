@@ -42,7 +42,7 @@
   [config-overrides]
   (merge
     (base-system config-overrides)
-    {:app    (component/using (darwin/create-darwin) [:config :postgres :conversation-manager])
+    {:app    (component/using (darwin/create-darwin) [:config :postgres :mongo :conversation-manager])
      :server (component/using (server/create-server) [:config :conversation-manager :app])}))
 
 (defn full-system

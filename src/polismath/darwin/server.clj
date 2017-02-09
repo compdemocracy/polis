@@ -432,7 +432,7 @@
     (log/info "Darwin request received:" (utils/hash-map-subset request [:request-method :uri :query-string :remote-addr]))
     (handler request)))
 
-(defrecord Darwin [config postgres mongo handler conversation-manager]
+(defrecord Darwin [config postgres mongo conversation-manager handler]
   component/Lifecycle
   (start [component]
     (let [handler
