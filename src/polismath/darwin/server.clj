@@ -21,7 +21,8 @@
     [amazonica.aws.s3 :as s3]
     [clj-time.core :as time]
     [clj-http.client :as client]
-    [polismath.components.mongo :as mongo]))
+    [polismath.components.mongo :as mongo]
+    [polismath.utils :as utils]))
 
 
 
@@ -425,6 +426,11 @@
 ;      handler)))
 
 
+(defn log-requests
+  [handler]
+  (fn [request]
+    (log/info "Darwin request received:" (utils/hash-map-subset request [:request-method :uri :query-string :remote-addr]))
+    (handler request)))
 
 (defrecord Darwin [config postgres mongo handler conversation-manager]
   component/Lifecycle
@@ -433,7 +439,8 @@
           (-> (make-handler component)
               ring.keyword-params/wrap-keyword-params
               ring.params/wrap-params
-              (auth/wrap-basic-authentication (partial authenticated? component)))]
+              (auth/wrap-basic-authentication (partial authenticated? component))
+              log-requests)]
       ;redirect-http-to-https-if-required
       ;restrict-remote-access
       (assoc component :handler handler)))
