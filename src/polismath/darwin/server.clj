@@ -390,7 +390,7 @@
   ["/" {"ping"      ping-handler
         "datadump/" {"get"     (partial get-datadump-handler darwin)
                      "status"  (partial get-datadump-status-handler darwin)
-                     "results" (partial filename-request-handler darwin aws-cred)}}])
+                     "results" (partial filename-request-handler darwin)}}])
 
 (defn make-handler [darwin]
   (bidi.ring/make-handler (routes darwin)))
