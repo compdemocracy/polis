@@ -4,8 +4,9 @@
   (:require [polismath.components.env :as env]
             [polismath.util.pretty-printers :as pp]
             [polismath.utils :as utils]
-    ;; Replace with as util XXX
-    ;[polismath.utils :as utils :refer :all]
+            [cheshire.core :as ch]
+            ;; Replace with as util XXX
+            ;[polismath.utils :as utils :refer :all]
             [clojure.stacktrace :refer :all]
             [taoensso.timbre :as log]
             [clojure.tools.trace :as tr]
@@ -84,6 +85,7 @@
 (defn poll
   "Query for all data since last-vote-timestamp, given a db-spec"
   [component last-vote-timestamp]
+  (log/info "poll" last-vote-timestamp)
   (try
     (kdb/with-db (:db-spec component)
       (ko/select votes
@@ -99,6 +101,7 @@
   "Moderation query: basically look for when things were last modified, since this is the only time they will
   have been moderated."
   [component last-mod-timestamp]
+  (log/info "modpoll" last-mod-timestamp)
   (try
     (kdb/with-db (:db-spec component)
       (ko/select comments
@@ -172,6 +175,7 @@
 
 (defn get-users-by-uid
   [component uids]
+  (log/info "get-user-by-uid")
   (kdb/with-db (:db-spec component)
     (->
       get-users-with-stats
@@ -181,6 +185,7 @@
 
 (defn get-users-by-email
   [component emails]
+  (log/info "get-user-by-email")
   (kdb/with-db (:db-spec component)
     (->
       get-users-with-stats
@@ -189,6 +194,7 @@
 
 (defn get-zid-from-zinvite
   [component zinvite]
+  (log/info "get-zid-from-zinvite")
   (->
     (kdb/with-db (:db-spec component)
                  (ko/select "zinvites"
@@ -200,6 +206,7 @@
 (defn conv-poll
   "Query for all data since last-vote-timestamp for a given zid, given an implicit db-spec"
   [component zid last-vote-timestamp]
+  (log/info "conv-poll")
   (try
     (kdb/with-db (:db-spec component)
       (ko/select votes
@@ -212,6 +219,27 @@
       [])))
 
 
+(defn format-as-json-for-db
+  "Formats data for pg json, first passing through a prep function which may strip out uneeded junk or
+  reshape things. Takes conv and lastVoteTimestamp, though the latter may be moved into the former in update"
+  [conv]
+  (-> conv
+      ; core.matrix & monger workaround: convert to str with cheshire then back
+      ch/generate-string
+      ch/parse-string))
+
+; (defn collection-name
+;   "math_env name based on math-env and math-schema-date config variables. Makes sure that
+;   prod, preprod, dev (and subdevs like chrisdev or mikedev) have their own noninterfering collections."
+;   ([mongo rootname]
+;    (let [{:keys [math-schema-date math-env]} (:config mongo)
+;          math-env (or math-env :dev)]
+;      (str rootname "_" (name math-env) "_" math-schema-date)))
+;   ([mongo rootname basename] (str (collection-name mongo rootname) "_" basename)))
+
+
+
+
 ;; This is honeysql;
 ;; We are going to implement _everything else_ in terms of this.
 
@@ -219,6 +247,7 @@
   "Takes a postgres component and a query, and executes the query. The query can either be a postgres vector, or a map.
   Maps will be compiled via honeysql/format."
   [component query-data]
+  (log/info "query")
   (if (map? query-data)
     (query component (sql/format query-data))
     (jdbc/query (:db-spec component) query-data)))
@@ -266,21 +295,75 @@
 
 (defn insert-correlationmatrix!
   [postgres rid data]
-  (jdbc/insert!
-    (:db-spec postgres)
-    :math_report_correlationmatrix
-    {:rid rid
-     :math_env (name (-> postgres :config :math-env))
-     :data (pg-json data)}))
+  (query postgres ["insert into math_report_correlationmatrix (rid, math_env, data) values (?,?,?) on conflict (rid, math_env) do update set data = excluded.data returning rid;" rid (name (-> postgres :config :math-env)) (pg-json data)]))
 
 ;; Marks all tasks with the same task_bucket as done.
 (defn mark-task-complete!
   [postgres task_bucket]
+  (log/info "mark-task-complete")
   (jdbc/update!
     (:db-spec postgres)
     :worker_tasks
     {:finished_time (System/currentTimeMillis)}
     ["task_bucket = ?" task_bucket]))
+
+(defn upload-math-main
+  [postgres zid math-env data]
+  (log/info "upload-math-main")
+  ;;(log/info "upload-math-main" (:lastVoteTimestamp data) data)
+  (query postgres ["insert into math_main (zid, math_env, last_vote_timestamp, data) values (?,?,?,?) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data, last_vote_timestamp = excluded.last_vote_timestamp returning zid;" zid (name math-env) (:lastVoteTimestamp data) (pg-json data)]))
+
+(defn upload-math-profile
+  [postgres zid math-env data]
+  (log/info "upload-math-profile")
+  (query postgres ["insert into math_profile (zid, math_env, data) values (?,?,?) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data returning zid;" zid (name math-env) (pg-json data)]))
+
+(defn upload-math-ptptstats
+  [postgres zid math-env data]
+  (log/info "upload-math-ptptstats")
+  (query postgres ["insert into math_ptptstats (zid, math_env, data) values (?,?,?) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data returning zid;" zid (name math-env) (pg-json data)]))
+
+(defn upload-math-cache
+  [postgres zid math-env data]
+  (log/info "upload-math-cache")
+  (query postgres ["insert into math_cache (zid, math_env, data) values (?,?,?) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data returning zid;" zid (name math-env) (pg-json data)]))
+
+(defn upload-math-bidtopid
+  [postgres zid math-env data]
+  (query postgres ["insert into math_bidtopid (zid, math_env, data) values (?,?,?) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data returning zid;" zid (name math-env) (pg-json data)]))
+
+(defn upload-math-exportstatus
+  [postgres zid math-env filename data]
+  (log/info "upload-math-exportstatus")
+  (query postgres []
+    "insert into math_exportstatus (zid, math_env, filename, data, modified) values (?,?,?,?, now_as_millis()) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data, filename = modified.filename returning zid;"
+    zid
+    (name math-env)
+    filename
+    (pg-json data)))
+
+(defn get-math-exportstatus
+  [postgres zid math-env filename]
+  (log/info "get-math-exportstatus")
+  (first (query postgres ["select * from math_exportstatus where zid = (?) and math_env = (?) and filename = (?);" zid (name math-env) filename])))
+
+
+(defn load-conv
+  "Very bare bones reloading of the conversation; no cleanup for keyword/int hash-map key mismatches,
+  as found in the :repness"
+  [postgres zid math-env]
+  (log/info "load-conv")
+  (let [row (first (query postgres ["select * from math_main where zid = (?) and math_env = (?);" zid (name math-env)]))]
+    (log/info "load-conv" row)
+    (if row
+  	(ch/parse-string (.toString (:data row)))
+	row)))
+
+  ; (mc/find-one-as-map
+    ; (:db mongo)
+    ; (math-collection-name mongo "main")
+    ; {:zid zid}))
+
 
 (comment
   (require '[polismath.runner :as runner])

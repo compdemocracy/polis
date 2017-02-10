@@ -5,6 +5,7 @@
     [polismath.darwin.export :as export]
     ;; XXX Deprecate; use component config directly
     ;[polismath.components.env :as env]
+    [polismath.components.postgres :as db]
     [clojure.core.async :as async :refer [chan >!! <!! >! <! go]]
     [taoensso.timbre :as log]
     [ring.component.jetty :refer [jetty-server]]
@@ -28,6 +29,7 @@
 
 ;; TODO Need to refactor so that the main server ns is a little more about the logic of putting things together
 ;; TODO Maybe we need a darwin.core ns focus on the shared logic of these things?
+
 
 
 
@@ -68,26 +70,27 @@
 ;; Here, we're setting up basic mongo read and write helpers.
 
 (defn update-export-status
-  [{:as darwin :keys [mongo]} filename zinvite document]
-  (mongo/upsert
-    (:mongo darwin)
-    (mongo/collection-name mongo "exports")
-    {:filename filename :zinvite zinvite}
-    (mongo/format-for-mongo
+  [{:as darwin :keys [postgres config]} filename zid zinvite document]
+  (db/upload-math-exportstatus
+    postgres
+    zid
+    (config :math-env)
+    filename
+    (db/format-as-json-for-db
       (assoc document
         :filename filename
-        :zinvite zinvite
+        :conversation_id zinvite
         :lastupdate (System/currentTimeMillis)))))
+    
 
 (defn get-export-status
-  [{:as darwin :keys [mongo]} filename zinvite]
-  (mc/find-one (:db mongo)
-               (mongo/collection-name mongo "exports")
-               {:filename filename :zinvite zinvite}))
+  [{:as darwin :keys [postgres config]} filename zid]
+  (db/get-math-exportstatus postgres zid (config :math-env) filename)) ; TODO_MIKE only the first result if there are any
 
-(defn notify-mongo
-  [darwin filename status params]
-  (update-export-status darwin filename (:zinvite params) {:status status :params params}))
+
+(defn notify-of-status
+  [darwin filename status zinvite params]
+  (update-export-status darwin filename (:zid params) zinvite {:status status :params params}))
 
 
 ;; We use AWS to store conversation exports whcih took a long time to compute.
@@ -141,22 +144,23 @@
 
 
 (defn handle-completion!
-  [darwin filename params]
+  [darwin filename zinvite params]
   (log/info "Completed export computation for filename" filename "params:" (with-out-str (str params)))
   (upload-to-aws darwin filename)
-  (notify-mongo darwin filename "complete" params)
+  ;;(upload-to-polis-server darwin filename)
+  (notify-of-status darwin filename "complete" zinvite params)
   (when (:email params) (send-email-notification-via-polis-api! darwin filename params)))
 
 
 (defn handle-timedout-datadump!
-  [darwin filename compute-chan params]
+  [darwin filename compute-chan zinvite params]
   (log/info "Timed out on datadump computation for filename" filename "params:" (with-out-str (str params)) ". Starting async lifecycle.")
   ;; First let mongo know we're working on it
-  (notify-mongo darwin filename "processing" params)
+  (notify-of-status darwin filename "processing" zinvite params)
   ;; Start a go routine, which upon completion of the computation loads the data to
   ;; aws and updates the mongo
   (go (when-let [_ (<! compute-chan)]
-        (handle-completion! (aws-cred darwin) filename params))))
+        (handle-completion! (aws-cred darwin) filename zinvite params))))
 
 (defn- ->double
   "Try to parse a decimal number as double; return nil if not possible."
@@ -186,20 +190,20 @@
 ;; A more detailed outline of what this looks like in code is as follows:
 
 ;; get export params
-;;   * notify-mongo (:started)
+;;   * notify-of-status (:started)
 ;;   * start computing
 ;;   * complete:
 ;;       * go:
 ;;            * upload-aws
-;;            * notify-mongo (:complete)
+;;            * notify-of-status (:complete)
 ;;       * response 200
 ;;   * timeout
-;;       * notify-mongo (:processing)
+;;       * notify-of-status (:processing)
 ;;       * response 202
 ;;       * go:
 ;;            * complete:
 ;;                 * upload-aws
-;;                 * notify-mongo (:complete)
+;;                 * notify-of-status (:complete)
 ;; get export filename
 ;;   * not ready
 ;;       * 404 not there
@@ -233,9 +237,10 @@
 
 (defn filename-request-handler
   "Given aws-creds, returns a function handler function which responds to requests for an existing file on AWS."
-  [darwin {:keys [params] :as request}]
-  (let [{:keys [filename zinvite]} params]
-    (if (= (get (get-export-status darwin filename zinvite) "status") "complete")
+  [darwin {:keys [params postgres] :as request}]
+  (let [{:keys [filename zinvite]} params
+        zid (db/get-zid-from-zinvite postgres zinvite)]
+    (if (= (get (get-export-status darwin filename zid) "status") "complete")
       ;; Have to think about the security repercussions here. Would be nice if we could stream this and never
       ;; expose the link here. XXX
       (redirect-to-aws-url darwin filename)
@@ -270,9 +275,10 @@
      :body    (str "Export is complete. Download at the Location url specified in the header (" url ")")}))
 
 (defn get-datadump-status-handler
-  [darwin {:keys [params] :as request}]
-  (let [{:keys [filename zinvite]} params]
-    (case (-> (get-export-status darwin filename zinvite) (get "status"))
+  [darwin {:keys [params postgres] :as request}]
+  (let [{:keys [filename zinvite]} params
+        zid (db/get-zid-from-zinvite postgres zinvite)]
+    (case (-> (get-export-status darwin filename zid) (get "status"))
       ("pending" "started" "processing") (check-back-response darwin filename zinvite 200)
       "complete"                         (complete-response darwin filename zinvite)
       ;; In case we don't match, 404
@@ -363,14 +369,16 @@
 (defn get-datadump-handler
   "Main handler function; Attempts to return a datadump file within within a set amount of time, and if it can't, will
   respond with a 202, and set up a process for obtaining the results once they're done."
-  [darwin {:keys [params] :as request}]
+  [darwin {:keys [params postgres] :as request}]
   (let [params (parsed-params datadump-params params)
         ;; Check validity of params here
         _ (log/info "Handling datadump request with params:" (with-out-str (prn params)))
         filename (generate-filename params)
         datadump (async/thread (run-datadump darwin filename params))
         timeout (async/timeout (or (:timeout parsed-params) 29000))
-        [done? _] (async/alts!! [datadump timeout])]
+        [done? _] (async/alts!! [datadump timeout])        
+        zinvite (params :zinvite)
+        zid (db/get-zid-from-zinvite postgres zinvite)]
     (cond
       ;; We'll try to catch all exceptions before this
       (:exception done?)
@@ -378,15 +386,15 @@
       ;; Any other truthy value means we have successful computation
       done?
       (do
-        (handle-completion! darwin filename params)
+        (handle-completion! darwin filename zinvite params)
         (assoc-in (response/file-response (full-path darwin filename))
                   [:headers "Content-Disposition"]
                   (str "attachment; filename=" \" filename \")))
       ;; Otherwise, the timeout hit, and we should trigger the check back later lifecycle
       :else
       (do
-        (handle-timedout-datadump! darwin filename datadump params)
-        (check-back-response darwin filename (:zinvite params))))))
+        (handle-timedout-datadump! darwin filename datadump zinvite params)
+        (check-back-response darwin filename zinvite)))))
 
 
 

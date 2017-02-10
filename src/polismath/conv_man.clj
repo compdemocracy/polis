@@ -22,7 +22,7 @@
 
 
 (defn prep-bidToPid
-  "Prep function for passing to db/format-for-mongo given bidToPid data"
+  "Prep function for passing to db/format-as-json-for-db given bidToPid data"
   [results]
   {:zid (:zid results)
    :bidToPid (:bid-to-pid results)
@@ -30,7 +30,7 @@
 
 
 (defn prep-main
-  "Prep function for passing to db/format-for-mongo and on the main polismath collection."
+  "Prep function for passing to db/format-as-json-for-db and on the main polismath collection."
   [results]
   (-> results
       ; REFORMAT BASE CLUSTERS
@@ -79,7 +79,7 @@
 
 (defn handle-profile-data
   "For now, just log profile data. Eventually want to send to influxDB and graphite."
-  [{:as conv-man :keys [mongo]} conv & {:keys [recompute n-votes finish-time] :as extra-data}]
+  [{:as conv-man :keys [postgres config]} conv & {:keys [recompute n-votes finish-time] :as extra-data}]
   (if-let [prof-atom (:profile-data conv)]
     (let [prof @prof-atom
           tot (apply + (map second prof))
@@ -89,7 +89,7 @@
             (assoc :n-ptps (:n conv))
             (merge (utils/hash-map-subset conv #{:n-cmts :zid :last-vote-timestamp})
                    extra-data)
-            (->> (mongo/insert mongo (mongo/math-collection-name mongo "profile"))))
+            (->> (db/upload-math-profile postgres (:zid conv) (:math-env config))))
         (catch Exception e
           (log/warn "Unable to submit profile data for zid:" (:zid conv))
           (.printStackTrace e)))
@@ -111,7 +111,8 @@
   up in the channel, we also take an error-callback. Eventually we'll want to pass opts through here as well."
   [conv-man conv votes error-callback]
   (let [start-time (System/currentTimeMillis)
-        mongo (:mongo conv-man)]
+	config (:config conv-man)
+        pg (:postgres conv-man)]
     (log/info "Starting conversation update for zid:" (:zid conv))
     (try
       ;; Need to expose opts for conv-update through config... XXX
@@ -134,13 +135,12 @@
           (throw (Exception. (str "Validation error: Conversation Value does not match schema: "
                                   validation-errors))))
         ; Format and upload main results
-        (doseq [[col-name prep-fn] [["main" prep-main] ; main math results, for client
-                                    ["bidtopid" prep-bidToPid] ; bidtopid mapping, for server
-                                    ["ptptstats" prep-ptpt-stats]]]
+        (doseq [[prep-fn uploader] [[prep-main db/upload-math-main] ; main math results, for client
+				    [prep-bidToPid db/upload-math-bidtopid] ; bidtopid mapping, for server
+				    [prep-ptpt-stats db/upload-math-ptptstats]]]
           (->> updated-conv
                prep-fn
-               mongo/format-for-mongo
-               (mongo/zid-upsert mongo (mongo/collection-name mongo "math" col-name))))
+               (uploader pg zid (:math-env config))))
         (log/info "Finished uploading mongo results for zid:" zid)
         ; Return the updated conv
         updated-conv)
@@ -210,7 +210,7 @@
 
 ;; XXX However, we shouldn't even be pushing the results to mongo if we didn't actually update anything
 
-(defn restructure-mongo-conv
+(defn restructure-json-conv
   [conv]
   (-> conv
       (utils/hash-map-subset #{:math_tick :rating-mat :lastVoteTimestamp :zid :pca :in-conv :n :n-cmts :group-clusters :base-clusters :repness :group-votes :subgroup-clusters :subgroup-votes :subgroup-repness})
@@ -228,10 +228,10 @@
   "Given a zid, either load a minimal set of information from mongo, or if a new zid, create a new conv"
   [conv-man zid & {:keys [recompute]}]
   (log/info "Running load or init")
-  (if-let [conv (and (not recompute) (mongo/load-conv (:mongo conv-man) zid))]
+  (if-let [conv (and (not recompute) (db/load-conv (:postgres conv-man) zid (-> conv-man :config :math-env)))]
     (-> conv
         ;(->> (tr/trace "load-or-init (about to restructure):"))
-        restructure-mongo-conv
+        restructure-json-conv
         ;(->> (tr/trace "load-or-init (post restructure):"))
         ;; What the fuck is this all about? Should this really be getting set here?
         (assoc :recompute :reboot)

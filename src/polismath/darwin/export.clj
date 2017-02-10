@@ -28,7 +28,6 @@
             [taoensso.timbre :as log]
             [clojure.newtools.cli :refer [parse-opts]]
             [polismath.components.postgres :as postgres]
-            [polismath.components.mongo :as mongo]
             [polismath.conv-man :as conv-man]
             [plumbing.core :as plmb])
   (:import [java.util.zip ZipOutputStream ZipEntry]))
@@ -509,9 +508,9 @@
   (let [zid (or zid (postgres/get-zid-from-zinvite (:postgres darwin) zinvite))]
     (log/debug "Loading conversation" zid)
     (->
-      (mongo/load-conv (:mongo darwin) zid)
+      (db/load-conv (:postgres darwin) zid)
       ;; This should be ok here right?
-      (conv-man/restructure-mongo-conv)
+      (conv-man/restructure-json-conv)
       (update-in
         [:repness]
         (partial plmb/map-keys kw->int)))))
@@ -525,7 +524,7 @@
         comments (enriched-comments-data (get-comments-data darwin zid) votes)
         participants (get-participation-data darwin zid)
         ;; Should factor out into separate function
-        conv (utils/apply-kwargs load-conv darwin kw-args)]
+        conv (utils/apply-kwargs db/load-conv (:postgres darwin) kw-args)]
     {:votes votes
      :summary (summary-data darwin conv votes comments participants)
      :stats-history (stats-history votes participants comments)
