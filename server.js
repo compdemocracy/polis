@@ -7390,6 +7390,7 @@ Email verified! You can close this tab or hit the back button.
                   tid: tid,
                   currentPid: currentPid,
                 });
+                console.log("POST_comments sent json", Date.now());
               }, function(err) {
                 fail(res, 500, "polis_err_vote_on_create", err);
               });
