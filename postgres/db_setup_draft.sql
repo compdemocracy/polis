@@ -628,16 +628,107 @@ CREATE FUNCTION get_times_for_most_recent_visible_comments() RETURNS TABLE (zid 
 $$ LANGUAGE SQL;
 
 
+CREATE TABLE reports (
+  rid SERIAL,
+  report_id VARCHAR(300) NOT NULL,
+  zid INTEGER NOT NULL REFERENCES conversations(zid),
+  created BIGINT DEFAULT now_as_millis(),
+  modified BIGINT DEFAULT now_as_millis(),
+
+  UNIQUE(rid),
+  UNIQUE(report_id)
+);
+
+CREATE TABLE report_comment_selections (
+  rid INTEGER NOT NULL REFERENCES reports(rid),
+  tid INTEGER NOT NULL,
+  selection SMALLINT NOT NULL, -- 1 for included, -1 for not included, 0 or no record could be something like "included if there's room"
+  modified BIGINT DEFAULT now_as_millis(),
+  UNIQUE(rid, tid)
+);
+
+CREATE TABLE worker_tasks (
+  created BIGINT DEFAULT now_as_millis(),
+  finished_time BIGINT -- null by default. A non-null value here also serves as the 'done' flag.
+);
+
+
+
 CREATE TABLE math_ticks (
     zid INTEGER REFERENCES conversations(zid),
     math_tick BIGINT NOT NULL DEFAULT 0,
     modified BIGINT NOT NULL DEFAULT now_as_millis(),
     UNIQUE (zid)
 );
-
-
 -- insert into math_ticks (zid) values ($1) on conflict (zid) 
 --    do update set modified = now_as_millis(), math_tick = (math_tick + 1) returning *;
+
+CREATE TABLE math_main (
+  zid INTEGER NOT NULL REFERENCES conversations(zid),
+  math_env VARCHAR(999) NOT NULL,
+  data jsonb NOT NULL,
+  modified BIGINT DEFAULT now_as_millis(),
+  UNIQUE(zid, math_env)
+);
+CREATE INDEX main_main_idx ON votes USING btree (zid);
+
+CREATE TABLE math_profile (
+  zid INTEGER NOT NULL REFERENCES conversations(zid),
+  math_env VARCHAR(999) NOT NULL,
+  data jsonb NOT NULL,
+  modified BIGINT DEFAULT now_as_millis(),
+  UNIQUE(zid, math_env)
+);
+CREATE INDEX main_profile_idx ON votes USING btree (zid);
+
+CREATE TABLE math_ptptstats (
+  zid INTEGER NOT NULL REFERENCES conversations(zid),
+  math_env VARCHAR(999) NOT NULL,
+  data jsonb NOT NULL,
+  modified BIGINT DEFAULT now_as_millis(),
+  UNIQUE(zid, math_env)
+);
+CREATE INDEX math_ptptstats_idx ON votes USING btree (zid);
+
+CREATE TABLE math_cache (
+  zid INTEGER NOT NULL REFERENCES conversations(zid),
+  math_env VARCHAR(999) NOT NULL,
+  data jsonb NOT NULL,
+  modified BIGINT DEFAULT now_as_millis(),
+  UNIQUE(zid, math_env)
+);
+CREATE INDEX math_cache_idx ON votes USING btree (zid);
+
+CREATE TABLE math_pidtopid (
+  zid INTEGER NOT NULL REFERENCES conversations(zid),
+  math_env VARCHAR(999) NOT NULL,
+  data jsonb NOT NULL,
+  modified BIGINT DEFAULT now_as_millis(),
+  UNIQUE(zid, math_env)
+);
+CREATE INDEX math_pidtopid_idx ON votes USING btree (zid);
+
+CREATE TABLE math_exportstatus (
+  zid INTEGER NOT NULL REFERENCES conversations(zid),
+  math_env VARCHAR(999) NOT NULL,
+  filename VARCHAR(9999) NOT NULL,
+  data jsonb NOT NULL,
+  modified BIGINT DEFAULT now_as_millis(),
+  UNIQUE(zid, math_env)
+);
+CREATE INDEX math_exportstatus_idx ON votes USING btree (zid);
+
+CREATE TABLE math_report_correlationmatrix (
+  rid INTEGER NOT NULL REFERENCES reports(rid),
+  math_env VARCHAR(999) NOT NULL,
+  data jsonb NOT NULL,
+  modified BIGINT DEFAULT now_as_millis(),
+  UNIQUE(rid)
+);
+CREATE INDEX math_report_zid_idx ON votes USING btree (zid);
+
+
+
 
 
 
