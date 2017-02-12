@@ -679,6 +679,7 @@ CREATE TABLE math_main (
   zid INTEGER NOT NULL REFERENCES conversations(zid),
   math_env VARCHAR(999) NOT NULL,
   data jsonb NOT NULL,
+  last_vote_timestamp BIGINT NOT NULL,
   modified BIGINT DEFAULT now_as_millis(),
   UNIQUE(zid, math_env)
 );
