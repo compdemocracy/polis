@@ -1334,8 +1334,6 @@ const COOKIES_TO_CLEAR = {
 
 function initializePolisHelpers(mongoParams) {
 
-  let collectionOfPcaResults = mongoParams.mongoCollectionOfPcaResults;
-  let collectionOfBidToPidResults = mongoParams.mongoCollectionOfBidToPidResults;
   let collectionOfPcaPlaybackResults = mongoParams.mongoCollectionOfPcaPlaybackResults;
 
   let polisTypes = {
@@ -2212,49 +2210,43 @@ function initializePolisHelpers(mongoParams) {
       return Math.max(0, 2500 - timePassed);
     }
 
-    INFO("mathpoll begin", lastPrefetchedVoteTimestamp);
-    let cursor = collectionOfPcaResults.find({
-      lastVoteTimestamp: {
-        $gt: lastPrefetchedVoteTimestamp,
-      },
-    });
-    // cursor.sort([["lastVoteTimestamp", "asc"]]);
 
-    function processItem(err, item) {
-      if (err) {
-        console.error(err);
-        console.error("mathpoll err", "polis_err_prefetch_pca_results_iter");
-        setTimeout(fetchAndCacheLatestPcaData, 10 * waitTime());
-        return;
-      }
-      if (item === null) {
+    // cursor.sort([["lastVoteTimestamp", "asc"]]);
+    pgQueryP_readOnly("select * from math_main where last_vote_timestamp > ($1) order by last_vote_timestamp limit 10;", [lastPrefetchedVoteTimestamp]).then((rows) => {
+
+      if (!rows || !rows.length) {
         // call again
         INFO("mathpoll done");
         setTimeout(fetchAndCacheLatestPcaData, waitTime());
         return;
       }
 
-      INFO("mathpoll updating", item.lastVoteTimestamp, item.zid);
+      let results = rows.map((row) => {
+        let item = row.data;
 
-      // let prev = pcaCache.get(item.zid);
+        INFO("mathpoll updating", item.lastVoteTimestamp, item.zid);
 
-
-      processMathObject(item);
-
-      updatePcaCache(item.zid, item).then(function(o) {
+        // let prev = pcaCache.get(item.zid);
         if (item.lastVoteTimestamp > lastPrefetchedVoteTimestamp) {
           lastPrefetchedVoteTimestamp = item.lastVoteTimestamp;
         }
-        cursor.nextObject(processItem);
-      }, function(err) {
-        cursor.nextObject(processItem);
+
+        processMathObject(item);
+
+        return updatePcaCache(item.zid, item);
       });
-    }
-    cursor.nextObject(processItem);
+      Promise.all(results).then((a) => {
+        setTimeout(fetchAndCacheLatestPcaData, 10 * waitTime());
+      });
+    }).catch((err) => {
+      INFO("mathpoll error", err);
+      setTimeout(fetchAndCacheLatestPcaData, 10 * waitTime());
+    });
+
   }
 
   // don't start immediately, let other things load first.
-  setTimeout(fetchAndCacheLatestPcaData, 3000);
+  setTimeout(fetchAndCacheLatestPcaData, 5000);
 
   function splitTopLevelGroup(o, gid) {
     function shouldKeepGroup(g) {
@@ -2443,47 +2435,32 @@ function initializePolisHelpers(mongoParams) {
     // NOTE: not caching results from this query for now, think about this later.
     // not caching these means that conversations without new votes might not be cached. (closed conversations may be slower to load)
     // It's probably not difficult to cache, but keeping things simple for now, and only caching things that come down with the poll.
-    return new MPromise("pcaGet", function(resolve, reject) {
-      let queryStart = Date.now();
-      collectionOfPcaResults.find({
-        zid: zid,
-      }, function(err, cursor) {
-        if (err) {
-          reject("polis_err_get_pca_results_find");
-          return;
-        }
 
-        let queryEnd = Date.now();
-        let queryDuration = queryEnd - queryStart;
-        addInRamMetric("pcaGetQuery", queryDuration);
+    let queryStart = Date.now();
 
-        let nextObjectStart = Date.now();
-        cursor.nextObject(function(err, item) {
+    return pgQueryP_readOnly("select * from math_main where zid = ($1) and math_env = ($2);", [zid, process.env.MATH_ENV]).then((rows) => {
 
-          let nextObjectEnd = Date.now();
-          let nextObjectDuration = nextObjectEnd - nextObjectStart;
-          addInRamMetric("pcaGetToArray", nextObjectDuration);
+      let queryEnd = Date.now();
+      let queryDuration = queryEnd - queryStart;
+      addInRamMetric("pcaGetQuery", queryDuration);
 
-          if (err) {
-            reject("polis_err_get_pca_results_find_toarray");
-          } else if (!item) {
-            INFO("mathpoll related", "after cache miss, unable to find item", zid, lastVoteTimestamp);
-            resolve(null);
-          } else if (item.lastVoteTimestamp <= lastVoteTimestamp) {
-            INFO("mathpoll related", "after cache miss, unable to find newer item", zid, lastVoteTimestamp);
-            resolve(null);
-          } else {
-            INFO("mathpoll related", "after cache miss, found item, adding to cache", zid, lastVoteTimestamp);
+      if (!rows || !rows.length) {
+        INFO("mathpoll related", "after cache miss, unable to find item", zid, lastVoteTimestamp);
+        return null;
+      }
+      let item = rows[0].data;
+      if (item.lastVoteTimestamp <= lastVoteTimestamp) {
+        INFO("mathpoll related", "after cache miss, unable to find newer item", zid, lastVoteTimestamp);
+        return null;
+      }
+      INFO("mathpoll related", "after cache miss, found item, adding to cache", zid, lastVoteTimestamp);
 
-            processMathObject(item);
+      processMathObject(item);
 
-            updatePcaCache(zid, item).then(function(o) {
-              resolve(o);
-            }, function(err) {
-              reject(err);
-            });
-          }
-        });
+      return updatePcaCache(zid, item).then(function(o) {
+        return o;
+      }, function(err) {
+        return err;
       });
     });
   }
@@ -2640,6 +2617,7 @@ function initializePolisHelpers(mongoParams) {
       fail(res, 500, err);
     });
   }
+
 
   /*
       addConversationId(o).then(function(item) {
@@ -2845,29 +2823,21 @@ function initializePolisHelpers(mongoParams) {
 
   function getBidToPidMapping(zid, lastVoteTimestamp) {
     lastVoteTimestamp = lastVoteTimestamp || -1;
-    return new MPromise("getBidToPidMapping", function(resolve, reject) {
-      collectionOfBidToPidResults.find({
-        zid: zid,
-      }, function(err, cursor) {
-        if (err) {
-          reject("polis_err_get_pca_results_find");
-          return;
-        }
-        cursor.toArray(function(err, docs) {
-          if (err) {
-            reject(new Error("polis_err_get_pca_results_find_toarray"));
-            return;
-          }
-          if (!docs.length) {
-            // Could actually be a 404, would require more work to determine that.
-            reject(new Error("polis_err_get_pca_results_missing"));
-          } else if (docs[0].lastVoteTimestamp <= lastVoteTimestamp) {
-            reject(new Error("polis_err_get_pca_results_not_new"));
-          } else {
-            resolve(docs[0]);
-          }
-        });
-      });
+
+
+    return pgQueryP_readOnly("select * from math_bidtopid where zid = ($1) and math_env = ($2);", [zid, process.env.MATH_ENV]).then((rows) => {
+
+      if (zid === 12480) {
+        console.log("bidToPid", rows[0].data);
+      }
+      if (!rows || !rows.length) {
+        // Could actually be a 404, would require more work to determine that.
+        return new Error("polis_err_get_pca_results_missing");
+      } else if (rows[0].data.lastVoteTimestamp <= lastVoteTimestamp) {
+        return new Error("polis_err_get_pca_results_not_new");
+      } else {
+        return rows[0].data;
+      }
     });
   }
 
