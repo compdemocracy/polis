@@ -22,9 +22,12 @@
     [clj-time.core :as time]
     [clj-http.client :as client]
     [polismath.components.mongo :as mongo]
-    [polismath.utils :as utils]))
+    [polismath.utils :as utils]
+    [clojure.set :as set]))
 
 
+;; TODO Need to refactor so that the main server ns is a little more about the logic of putting things together
+;; TODO Maybe we need a darwin.core ns focus on the shared logic of these things?
 
 
 
@@ -336,13 +339,16 @@
               :format  keyword
               :timeout parse-and-validate-timeout})
 
-(def allowed-params #{:filename :zinvite :at-date :format :email :timeout})
+
+(def base-params #{:zinvite})
+(def datadump-params (set/union base-params #{:filename :at-date :format :email :timeout}))
+
 
 ;; And finally, our param parser.
 
 (defn parsed-params
   "Parses the params for a request, occording to parsers."
-  [params]
+  [allowed-params params]
   ;(log/info "Here are the params:" params)
   (reduce
     (fn [m [k v]]
@@ -358,7 +364,7 @@
   "Main handler function; Attempts to return a datadump file within within a set amount of time, and if it can't, will
   respond with a 202, and set up a process for obtaining the results once they're done."
   [darwin {:keys [params] :as request}]
-  (let [params (parsed-params params)
+  (let [params (parsed-params datadump-params params)
         ;; Check validity of params here
         _ (log/info "Handling datadump request with params:" (with-out-str (prn params)))
         filename (generate-filename params)
@@ -383,6 +389,52 @@
         (check-back-response darwin filename (:zinvite params))))))
 
 
+
+;; Here we also hook in the conv resp handler
+
+;(defn cov-handler
+;  [darwin {:as request :keys [params]}]
+;  (let [params (parsed-params darwin params)
+;        ;; Check validity of params here
+;        _ (log/info "Handling datadump request with params:" (with-out-str (prn params)))
+;        cov (async/thread (run-datadump darwin params))
+;        timeout (async/timeout (or (:timeout parsed-params) 29000))
+;        [done? _] (async/alts!! [cov timeout])]))
+
+
+
+(comment
+  ;; Here we're putting everything together
+  ;; This may not all be 100% correct, as it was copied over from the repl... but I ran through all but the spit and sanity checks pass
+  (require '[incanter.charts :as charts]
+           '[polismath.runner :as runner]
+           '[polismath.system :as system])
+  ;(runner/run! system/base-system {:math-env :preprod})
+  ;; Load the data for 15117 (zinvite 2ez5beswtc)
+  ;(def focus-id 15117)
+  (def focus-zinvite "36jajfnhhn")
+  (def focus-id 15228)
+  (def conv (conv-man/load-or-init (:conversation-manager runner/system) focus-id))
+  ;conv
+  (matrix/shape (nm/get-matrix (:rating-mat conv)))
+  ;; Compute hclust on a cleaned, transposed rating matrix
+  (time
+    (def hclusters (hclust (cleaned-rating-mat-transpose conv))))
+  (count (-> hclusters first :members))
+  ;; Compute corr matrix
+  (time
+    (def corr-mat (correlation-matrix conv)))
+  (keys corr-mat)
+  (matrix/shape (:matrix corr-mat))
+  (def corr-mat' (blockify-corr-matrix corr-mat hclusters))
+  (keys corr-mat')
+  (count (:comments corr-mat'))
+  ;; Spit this out
+  (spit-matrix (str focus-zinvite ".corrmat.json") corr-mat)
+  (spit-matrix (str focus-zinvite ".corrmat-whclust.json") corr-mat')
+  (spit-hclust (str focus-zinvite ".hclust.json") hclusters)
+  ;; All done
+  :endcomment)
 
 ;; Route everything together, build handlers, etc
 

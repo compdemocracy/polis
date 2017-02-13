@@ -26,8 +26,9 @@
 ;(do
 (comment
   ;(runner/run! system/base-system)
+  (runner/run! system/task-system)
   ;(runner/run! system/full-system)
-  (runner/run! system/darwin-system)
+  ;(runner/run! system/darwin-system)
 
   (def args {:zid 15228})
   (def conv (load-conv args))
@@ -48,4 +49,5 @@
   (-> runner/system :conversation-manager :conversations deref)
 
   (runner/stop!)
+
   :end)

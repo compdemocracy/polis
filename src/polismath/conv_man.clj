@@ -9,13 +9,15 @@
             [polismath.components.env :as env]
             [polismath.components.mongo :as mongo]
             [polismath.components.postgres :as db]
+            [polismath.math.corr :as corr]
             [polismath.utils :as utils]
             [clojure.core.matrix.impl.ndarray]
             [clojure.core.async :as async :refer [go go-loop <! >! <!! >!! alts!! alts! chan dropping-buffer put! take!]]
             [taoensso.timbre :as log]
             [com.stuartsierra.component :as component]
             [plumbing.core :as pc]
-            [schema.core :as s]))
+            [schema.core :as s]
+            [polismath.components.postgres :as postgres]))
             
 
 
@@ -303,6 +305,18 @@
   ([{:as conv-man :keys [listeners]} listener-key listener-fn]
    (swap! listeners assoc listener-key listener-fn)))
 
+
+(defn generate-report-data!
+  [{:as conv-man :keys [postgres]} conv report-data]
+  (log/info "Generating report data for report:" report-data)
+  (let [rid (:rid report-data)
+        tids (map :tid (postgres/query (:postgres conv-man) (postgres/report-tids rid)))
+        corr-mat (corr/compute-corr conv tids)]
+    (postgres/insert-correlationmatrix! postgres rid corr-mat)
+    ;; TODO Need to specify what the
+    (postgres/mark-task-complete! postgres (-> report-data :task-record :created))))
+
+
 ;; Need to think about what to do if failed conversations lead to messages piling up in the message queue XXX
 (defn queue-message-batch!
   "Queue message batches for a given conversation by zid"
@@ -317,7 +331,7 @@
           ;; XXX Need to set up message chan buffer as a env var
           message-chan (chan 100000)
           ;; We use a separate cchannel for messages that we've tryied to process but that havent worked for one reason or another
-          retry-chan   (chan 10)] ; only relaly need buffer 1 here?
+          retry-chan   (chan 10)] ; only really need buffer 1 here?
       (swap! conversations assoc zid {:conv conv :message-chan message-chan :retry-chan retry-chan})
       ;; Just call again to make sure the message gets on the chan :-)
       (queue-message-batch! conv-man message-type zid message-batch)
@@ -330,7 +344,7 @@
           (let [retry-msgs (async/poll! retry-chan)
                 _ (log/info "Message chan put in queue-message-batch! for zid:" zid)
                 msgs (vec (concat retry-msgs [first-msg] (take-all! message-chan)))
-                {:as split-msgs :keys [votes moderation]} (split-batches msgs)
+                {:as split-msgs :keys [votes moderation generate_report_data]} (split-batches msgs)
                 error-handler (build-update-error-handler conv-man retry-chan conv)
                 _ (log/info "About to run updaters")
                 ;; TODO Oh... is this how we're failing to get moderation affecting repness? We're presently only updating mongo
@@ -340,8 +354,10 @@
                        conv)
                 ;; Should extracct the stateful bits here till the very end, so even if there are just mods it updates
                 conv (if votes
-                       (update conv-man conv votes error-handler)
+                       (conv-update conv-man conv votes error-handler)
                        conv)]
+            (doseq [report-task generate_report_data]
+              (generate-report-data! conv-man conv report-task))
             (log/info "Completed computing conversation zid:" zid)
             (swap! conversations assoc-in [zid :conv] conv)
             (doseq [[k f] @listeners] (try (f conv) (catch Exception e (log/error "Listener error") (.printStackTrace e))))

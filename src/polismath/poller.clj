@@ -11,8 +11,9 @@
 
 (defn poll
   [{:as poller :keys [config conversation-manager postgres kill-chan]} message-type]
-  (let [start-polling-from (-> config :poller :initial-polling-timestamp)
-        polling-interval (or (-> poller :config :storm :spouts message-type :polling-interval) 1000)
+  (let [poller-config (-> config :poller)
+        start-polling-from (:initial-polling-timestamp poller-config)
+        polling-interval (or (-> config (get message-type) :polling-interval) 1000)
         [poll-function timestamp-key]
         (get {:votes [postgres/poll :created]
               :moderation [postgres/mod-poll :modified]}

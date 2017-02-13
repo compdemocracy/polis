@@ -40,9 +40,10 @@
                 ;; Shit... should be able to specify dependency on preprod as well!
    :webserver-url "https://preprod.pol.is/api/v3"
    :database   {:pool-size 3}
-   :poller     {:votes {:polling-interval 2000}
-                :moderation {:polling-interval 5000}
-                :initial-polling-timestamp 1459882373802}
+   :poller     {:votes {:polling-interval 1000}
+                :moderation {:polling-interval 1000}
+                :tasks {:polling-interval 1000}
+                :initial-polling-timestamp 1485993112746}
    :math       {:matrix-implementation :vectorz}
    :logging    {:file "log/dev.log"
                 :level :info}})

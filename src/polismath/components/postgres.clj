@@ -4,8 +4,8 @@
   (:require [polismath.components.env :as env]
             [polismath.util.pretty-printers :as pp]
             [polismath.utils :as utils]
-            ;; Replace with as util XXX
-            ;[polismath.utils :as utils :refer :all]
+    ;; Replace with as util XXX
+    ;[polismath.utils :as utils :refer :all]
             [clojure.stacktrace :refer :all]
             [taoensso.timbre :as log]
             [clojure.tools.trace :as tr]
@@ -13,10 +13,12 @@
             [plumbing.core :as pc]
             [korma.core :as ko]
             [korma.db :as kdb]
-            [cheshire.core :as ch]
+            [cheshire.core :as cheshire]
             [clojure.java.jdbc :as jdbc]
             [honeysql.core :as sql]
-            [honeysql.helpers :as sqlhelp]))
+            [honeysql.helpers :as honey]
+            [honeysql.helpers :as sqlhelp])
+  (:import (org.postgresql.util PGobject)))
             ;[alex-and-georges.debug-repl :as dbr]
 
 
@@ -214,20 +216,107 @@
 ;; We are going to implement _everything else_ in terms of this.
 
 (defn query
-  [component query]
-  (jdbc/query (:db-spec component)
-              query))
+  "Takes a postgres component and a query, and executes the query. The query can either be a postgres vector, or a map.
+  Maps will be compiled via honeysql/format."
+  [component query-data]
+  (if (map? query-data)
+    (query component (sql/format query-data))
+    (jdbc/query (:db-spec component) query-data)))
+
+(defn poll-tasks
+  [component last-timestamp]
+  (->>
+    (query
+      component
+      (sql/format
+        {:select [:*]
+         :from [:worker_tasks]
+         :where [:and
+                 [:> :created last-timestamp]
+                 [:= :finished_time nil]]}))
+    (map (fn [task-record]
+           (-> task-record
+               (update :task_type keyword)
+               (update :task_data (comp #(cheshire/parse-string % true) #(.toString %))))))))
+
+(defn zid-from-rid
+  [rid]
+  {:select [:zid]
+   :from [:reports]
+   :where [:= :rid rid]})
+
+(defn report-tids
+  [rid]
+  {:select [:tid]
+   :from [:report_comment_selections]
+   :where [:= :rid rid]})
+
+(defn query-zid-from-rid [component rid]
+  (query component (zid-from-rid rid)))
 
 (defn inc-math-tick
   [postgres query]
   (query postgres ["insert into math_ticks (zid) values (?) on conflict (zid) do update set modified = now_as_millis(), math_tick = (math_ticks.math_tick + 1) returning *;" 12480]))
 
+(defn pg-json
+  [data]
+  (doto (PGobject.)
+        (.setType "json")
+        (.setValue (cheshire/encode data))))
+
+(defn insert-correlationmatrix!
+  [postgres rid data]
+  (jdbc/insert!
+    (:db-spec postgres)
+    :math_report_correlationmatrix
+    {:rid rid
+     :math_env (name (-> postgres :config :math-env))
+     :data (pg-json data)}))
+
+(defn insert-correlationmatrix!
+  [postgres rid data]
+  (jdbc/insert!
+    (:db-spec postgres)
+    :math_report_correlationmatrix
+    {:rid rid
+     :math_env (name (-> postgres :config :math-env))
+     :data (pg-json data)}))
+
+(defn mark-task-complete!
+  [postgres created]
+  (jdbc/update!
+    (:db-spec postgres)
+    :worker_tasks
+    {:finished_time (System/currentTimeMillis)}
+    ["created = ?" created]))
+
 (comment
   (require '[polismath.runner :as runner])
   (def postgres (:postgres runner/system))
+  (def config (:config postgres))
   (query postgres ["select * from zinvites limit 10"])
   (query postgres ["insert into math_ticks (zid) values (?) on conflict (zid) do update set modified = now_as_millis(), math_tick = (math_ticks.math_tick + 1) returning *;" 12480])
+  (poll-tasks postgres 0)
+  (query
+    postgres
+    (-> (honey/update :worker_tasks)
+        (honey/values [{}])))
+
+  (jdbc/execute!
+    (:db-spec postgres)
+    (-> (honey/update :worker_tasks)
+        (honey/value)))
+
+  (try
+    (mark-task-complete! postgres 1486713088241)
+    (catch Exception e (log/error (.getNextException e))))
+
+
+  (query
+    postgres
+    (report-tids 1))
   :endcomment)
 
-;(defn)
+:ok
+
 

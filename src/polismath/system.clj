@@ -10,6 +10,7 @@
                                   [server :as server]]
             [polismath.conv-man :as conv-man]
             [polismath.poller :as poller]
+            [polismath.tasks :as tasks]
             [polismath.darwin.server :as darwin]
             [polismath.utils :as utils]
             [taoensso.timbre :as log]
@@ -45,10 +46,18 @@
     {:app    (component/using (darwin/create-darwin) [:config :postgres :mongo :conversation-manager])
      :server (component/using (server/create-server) [:config :conversation-manager :app])}))
 
+(defn task-system
+  [config-overrides]
+  (merge
+    (base-system config-overrides)
+    {:task-poller (component/using (tasks/create-task-poller) [:config :postgres :conversation-manager])
+     :server (component/using (server/create-server) [:config :conversation-manager :task-poller])}))
+
 (defn full-system
   [config-overrides]
   (merge
     (poller-system config-overrides)
+    (task-system config-overrides)
     (darwin-system config-overrides)))
 
 (defn onyx-system
