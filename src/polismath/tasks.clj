@@ -33,7 +33,6 @@
 (defn poll
   [{:as poller :keys [config postgres kill-chan]}]
   (log/debug "Initializing task poller loop")
-  (log/debug "postgres:" postgres)
   (let [poller-config (-> config :poller)
         start-polling-from (:initial-polling-timestamp poller-config)
         polling-interval (or (-> poller-config :tasks :polling-interval) 1000)]
