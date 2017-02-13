@@ -273,15 +273,7 @@
      :math_env (name (-> postgres :config :math-env))
      :data (pg-json data)}))
 
-(defn insert-correlationmatrix!
-  [postgres rid data]
-  (jdbc/insert!
-    (:db-spec postgres)
-    :math_report_correlationmatrix
-    {:rid rid
-     :math_env (name (-> postgres :config :math-env))
-     :data (pg-json data)}))
-
+;; TODO Need to switch over to specifying the workers_tasks primary key instead of created for identity
 (defn mark-task-complete!
   [postgres created]
   (jdbc/update!

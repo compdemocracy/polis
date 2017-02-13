@@ -106,7 +106,7 @@
    s/Keyword            s/Any})
 
 ;; Should rename this not to conflict with clojure.core/update... poor form
-(defn update
+(defn conv-update
   "This function is what actually gets sent to the conv-manager. In addition to the conversation and vote batches
   up in the channel, we also take an error-callback. Eventually we'll want to pass opts through here as well."
   [conv-man conv votes error-callback]
@@ -313,7 +313,7 @@
         tids (map :tid (postgres/query (:postgres conv-man) (postgres/report-tids rid)))
         corr-mat (corr/compute-corr conv tids)]
     (postgres/insert-correlationmatrix! postgres rid corr-mat)
-    ;; TODO Need to specify what the
+    ;; TODO Need to switch over to specifying the workers_tasks primary key instead of created for identity
     (postgres/mark-task-complete! postgres (-> report-data :task-record :created))))
 
 
