@@ -1,0 +1,77 @@
+
+
+<h3>Subscription Plans</h3>
+
+    <table class="table options">
+      <thead>
+        <tr>
+          <th>Plan</th>
+          <th>Price</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="">
+          <td> Individual </td>
+          <td> $100 / month  </td>
+          <td> <a class="btn btn-success btn-xs" href="/plan/upgrade/individuals">Choose</a> </td>
+        </tr>
+        <tr class="">
+          <td> Site </td>
+          <td> $1000 / month  </td>
+          <td> <a class="btn btn-success btn-xs" href="/plan/upgrade/sites">Choose</a> </td>
+        </tr>
+        <tr class="">
+          <td> Org </td>
+          <td> <a href="mailto:colin@pol.is?Subject=Polis%20Organizational%20Pricing" target="_top"> Contact Us </a>  </td>
+          <td> </td>
+        </tr>
+        <tr>
+          <td style="font-size:14px"><em>For an overview of features,<br> see our <a href="/pricing"> pricing page.</a></em></td>
+          <td></td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>
+
+
+
+{{#if isPlanIndividuals}}
+<p style="font-size: 14px">
+  <em> Individual Plan </em>
+</p>
+{{/if}}
+{{#if isPlanSites}}
+<p style="font-size: 14px">
+  <em> Site Plan </em>
+</p>
+{{/if}}
+
+{{!-- {{#if isPlanMike}}
+<p>
+  <a href="/plan/upgrade/individuals">Individual</a>
+  <a href="/plan/upgrade/sites">Sites</a>
+  <a href="/plan/upgrade/orgs">Orgs</a>
+  Mike
+</p>
+{{/if}} --}}
+
+{{#if isPlanIndividuals}}
+{{! WARNING DUPLICATED CODE }}
+<form action="/charge" method="POST" id="stripeForm">
+
+</form>
+{{/if}}
+
+
+{{#if isPlanSites}}
+{{! WARNING DUPLICATED CODE }}
+<form action="/charge" method="POST" id="stripeForm">
+
+</form>
+{{/if}}
+
+</div>
+</div>
+</section>
+
