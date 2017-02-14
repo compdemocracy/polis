@@ -132,6 +132,7 @@ helpersInitialized.then(function(o) {
     handle_GET_bid,
     handle_GET_bidToPid,
     handle_GET_canvas_app_instructions_png,
+    handle_GET_changePlanWithCoupon,
     handle_GET_comments,
     handle_GET_conditionalIndexFetcher,
     handle_GET_contexts,
@@ -141,6 +142,8 @@ helpersInitialized.then(function(o) {
     handle_GET_conversationsRecentActivity,
     handle_GET_conversationsRecentlyStarted,
     handle_GET_conversationStats,
+    handle_GET_createPlanChangeCoupon,
+    handle_GET_enterprise_deal_url,
     handle_GET_math_correlationMatrix,
     handle_GET_dataExport,
     handle_GET_dataExport_results,
@@ -175,6 +178,8 @@ helpersInitialized.then(function(o) {
     handle_GET_setup_assignment_xml,
     handle_GET_slack_login,
     handle_GET_snapshot,
+    handle_GET_stripe_account_connect,
+    handle_GET_stripe_account_connected_oauth_callback,
     handle_GET_tryCookie,
     handle_GET_twitter_image,
     handle_GET_twitter_oauth_callback,
@@ -197,6 +202,7 @@ helpersInitialized.then(function(o) {
     handle_POST_auth_password,
     handle_POST_auth_pwresettoken,
     handle_POST_auth_slack_redirect_uri,
+    handle_POST_charge,
     handle_POST_comments,
     handle_POST_comments_slack,
     handle_POST_contexts,
@@ -214,6 +220,7 @@ helpersInitialized.then(function(o) {
     handle_POST_metadata_questions,
     handle_POST_metrics,
     handle_POST_participants,
+    handle_POST_post_payment_form,
     handle_POST_ptptCommentMod,
     handle_POST_query_participants_by_metadata,
     handle_POST_reserve_conversation_id,
@@ -592,6 +599,32 @@ helpersInitialized.then(function(o) {
     authOptional(assignToP),
     handle_GET_users);
 
+  // use this to generate coupons for free upgrades
+  // TODO_SECURITY
+  app.get("/api/v3/createPlanChangeCoupon_aiudhfaiodufy78sadtfiasdf",
+    moveToBody,
+    need('uid', getInt, assignToP),
+    need('planCode', getOptionalStringLimitLength(999), assignToP),
+    handle_GET_createPlanChangeCoupon);
+
+  app.get("/api/v3/changePlanWithCoupon",
+    moveToBody,
+    authOptional(assignToP),
+    need('code', getOptionalStringLimitLength(999), assignToP),
+    handle_GET_changePlanWithCoupon);
+
+
+  // Just for testing that the new custom stripe form is submitting properly
+  app.post("/api/v3/post_payment_form",
+    handle_POST_post_payment_form);
+
+  app.post("/api/v3/charge",
+    auth(assignToP),
+    want('stripeToken', getOptionalStringLimitLength(999), assignToP),
+    want('stripeEmail', getOptionalStringLimitLength(999), assignToP),
+    need('plan', getOptionalStringLimitLength(999), assignToP),
+    handle_POST_charge);
+
   app.get("/api/v3/participation",
     moveToBody,
     auth(assignToP),
@@ -901,6 +934,26 @@ helpersInitialized.then(function(o) {
     // TODO want('lastMetaTime', getInt, assignToP, 0),
     handle_GET_metadata);
 
+
+  app.get('/api/v3/enterprise_deal_url',
+    moveToBody,
+    // want('upfront', getBool, assignToP),
+    need('monthly', getInt, assignToP),
+    want('maxUsers', getInt, assignToP),
+    want('plan_name', getOptionalStringLimitLength(99), assignToP),
+    want('plan_id', getOptionalStringLimitLength(99), assignToP),
+    handle_GET_enterprise_deal_url);
+
+  app.get('/api/v3/stripe_account_connect',
+    handle_GET_stripe_account_connect);
+
+  app.get('/api/v3/stripe_account_connected_oauth_callback',
+    moveToBody,
+    want("code", getStringLimitLength(9999), assignToP),
+    want("access_token", getStringLimitLength(9999), assignToP),
+    want("error", getStringLimitLength(9999), assignToP),
+    want("error_description", getStringLimitLength(9999), assignToP),
+    handle_GET_stripe_account_connected_oauth_callback);
 
   app.get('/api/v3/conversations',
     moveToBody,
@@ -1238,6 +1291,13 @@ helpersInitialized.then(function(o) {
 
 
 
+  function makeFetchIndexWithoutPreloadData() {
+    let port = portForParticipationFiles;
+    return function(req, res) {
+      return fetchIndexWithoutPreloadData(req, res, port);
+    };
+  }
+
 
 
   // app.get("/api/v3/setFirstCookie",
@@ -1266,7 +1326,9 @@ helpersInitialized.then(function(o) {
   app.get(/^\/user\/login(\/.*)?$/, fetchIndexWithoutPreloadData);
 
 
-  app.get(/^\/settings(\/.*)?$/, fetchIndexWithoutPreloadData);
+  app.get(/^\/settings(\/.*)?$/, makeFetchIndexWithoutPreloadData());
+  app.get(/^\/settings\/enterprise}.*$/, makeFetchIndexWithoutPreloadData());
+
   app.get(/^\/user\/logout(\/.*)?$/, fetchIndexWithoutPreloadData);
 
   // admin dash routes
