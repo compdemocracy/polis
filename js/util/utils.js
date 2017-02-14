@@ -295,9 +295,15 @@ function userCanSeeFooter() {
   var params = parseQueryParams(window.location.search);
   var ucsf = params.ucsf;
   ucsf = (ucsf === "true" || ucsf === "1" || _.isUndefined(ucsf));
+  if (!ucsf && !ownerCanDisableBranding()) {
+    ucsf = true;
+  }
   return ucsf;
 }
 
+function ownerCanDisableBranding() {
+  return window.preload.firstConv.plan >= 99;
+}
 
 
 // Return the {x: {min: #, max: #}, y: {min: #, max: #}}
