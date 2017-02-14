@@ -8917,7 +8917,7 @@ Email verified! You can close this tab or hit the back button.
 
   function getOneConversation(zid, uid) {
     return Promise.all([
-      pgQueryP_readOnly("select * from conversations left join  (select uid, site_id from users) as u on conversations.owner = u.uid where conversations.zid = ($1);", [zid]),
+      pgQueryP_readOnly("select * from conversations left join  (select uid, site_id, plan from users) as u on conversations.owner = u.uid where conversations.zid = ($1);", [zid]),
       getConversationHasMetadata(zid),
       (_.isUndefined(uid) ? Promise.resolve({}) : getUserInfoForUid2(uid)),
     ]).then(function(results) {
