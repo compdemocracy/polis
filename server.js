@@ -34,6 +34,7 @@ const devMode = "localhost" === process.env.STATIC_FILES_HOST;
 const replaceStream = require('replacestream');
 const responseTime = require('response-time');
 const request = require('request-promise'); // includes Request, but adds promise methods
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const LruCache = require("lru-cache");
 const timeout = require('connect-timeout');
 const isValidUrl = require('valid-url');
@@ -1939,6 +1940,7 @@ function initializePolisHelpers(mongoParams) {
     "https://m.facebook.com",
     "http://facebook.com",
     "https://api.twitter.com",
+    "https://connect.stripe.com",
     "", // for API
   ];
 
@@ -6381,6 +6383,251 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
+  // These map from non-ui string codes to number codes used in the DB
+  // The string representation ("sites", etc) is also used in intercom.
+  var planCodes = {
+    mike: 9999,
+    trial: 0,
+    individuals: 1,
+    students: 2,
+    pp: 3,
+    sites: 100,
+    org99: 99,
+    organizations: 1000,
+  };
+
+  // // These are for customer to see in UI
+  // var planCodeToPlanName = {
+  //   9999: "MikePlan",
+  //   0: "Trial",
+  //   1: "Individual",
+  //   2: "Student",
+  //   3: "Participants Pay",
+  //   100: "Site",
+  //   1000: "Organization",
+  // };
+
+
+  function changePlan(uid, planCode) {
+    return new Promise(function(resolve, reject) {
+      pgQuery("update users set plan = ($1) where uid = ($2);", [planCode, uid], function(err, results) {
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
+    });
+  }
+
+  function setUsersPlanInIntercom(uid, planCode) {
+    return new Promise(function(resolve, reject) {
+      var params = {
+        "user_id": uid,
+        "custom_data": {
+          "plan_code": planCode,
+        },
+      };
+      intercom.updateUser(params, function(err, res) {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(res);
+        }
+      });
+    });
+  }
+
+
+  function createStripeUser(o) {
+    return new Promise(function(resolve, reject) {
+      stripe.customers.create(o, function(err, customer) {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(customer);
+        }
+      });
+    });
+  }
+
+  function getStripeUser(customerId) {
+    return new Promise(function(resolve, reject) {
+      stripe.customers.retrieve(customerId, function(err, customer) {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(customer);
+        }
+      });
+    });
+  }
+
+  function createStripeSubscription(customerId, planId) {
+    return new Promise(function(resolve, reject) {
+      stripe.customers.createSubscription(customerId, {
+        plan: planId,
+      }, function(err, subscription) {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(subscription);
+        }
+      });
+    });
+  }
+
+  function updateStripePlan(user, stripeToken, stripeEmail, plan) {
+    var customerPromise = user.stripeCustomerId ? getStripeUser(user.stripeCustomerId) : createStripeUser({
+      card: stripeToken,
+      description: user.hname,
+      email: stripeEmail,
+      metadata: {
+        uid: user.uid,
+        polisEmail: user.email,
+      },
+    });
+
+    return customerPromise.then(function(customer) {
+
+      // throw new Error("TODO"); // TODO is "plan" the right identifier?
+
+      // TODO may need to wrangle existing plans..
+
+      return createStripeSubscription(customer.id, plan).then(function(subscription) {
+        // done with stripe part
+      });
+    });
+  }
+
+
+
+  function handle_GET_createPlanChangeCoupon(req, res) {
+    var uid = req.p.uid;
+    var planCode = req.p.planCode;
+    generateTokenP(30, false).then(function(code) {
+      return pgQueryP("insert into coupons_for_free_upgrades (uid, code, plan) values ($1, $2, $3) returning *;", [uid, code, planCode]).then(function(rows) {
+        var row = rows[0];
+        row.url = "https://pol.is/api/v3/changePlanWithCoupon?code=" + row.code;
+        res.status(200).json(row);
+      }).catch(function(err) {
+        fail(res, 500, "polis_err_creating_coupon", err);
+      });
+    }).catch(function(err) {
+      fail(res, 500, "polis_err_creating_coupon_code", err);
+    });
+  }
+
+
+  function handle_GET_changePlanWithCoupon(req, res) {
+    var uid = req.p.uid;
+    var code = req.p.code;
+    var isCurrentUser = true;
+    getCouponInfo(code).then(function(infos) {
+      var info = infos[0];
+      if (uid) {
+        if (uid !== info.uid) {
+          // signed in user is someone else!
+          // This could easily happen if someone is testing an auto-join conversation in another browser.
+          // So don't set the cookies in this case.
+          isCurrentUser = false;
+        }
+      }
+      updatePlan(req, res, info.uid, info.plan, isCurrentUser);
+    }).catch(function(err) {
+      emailBadProblemTime("changePlanWithCoupon failed");
+      fail(res, 500, "polis_err_changing_plan_with_coupon", err);
+    });
+  }
+
+  function getCouponInfo(couponCode) {
+    return pgQueryP("select * from coupons_for_free_upgrades where code = ($1);", [couponCode]);
+  }
+
+
+  function updatePlan(req, res, uid, planCode, isCurrentUser) {
+    winston.log("info", 'updatePlan', uid, planCode);
+    setUsersPlanInIntercom(uid, planCode).catch(function(err) {
+      emailBadProblemTime("User " + uid + " changed their plan, but we failed to update Intercom");
+    });
+
+    // update DB and finish
+    changePlan(uid, planCode).then(function() {
+      // Set cookie
+      if (isCurrentUser) {
+        var protocol = devMode ? "http" : "https";
+        var setOnPolisDomain = !domainOverride;
+        var origin = req.headers.origin || "";
+        if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
+          setOnPolisDomain = false;
+        }
+        setPlanCookie(req, res, setOnPolisDomain, planCode);
+
+        // Redirect to the same URL with the path behind the fragment "#"
+        var path = "/settings";
+        if (planCode >= 99) {
+          path = "/settings/enterprise";
+        }
+        res.writeHead(302, {
+          Location: protocol + "://" + req.headers.host + path,
+        });
+        return res.end();
+      } else {
+        res.status(200).json({
+          status: "upgraded!",
+        });
+      }
+    }).catch(function(err) {
+      emailBadProblemTime("User changed their plan, but we failed to update the DB.");
+      fail(res, 500, "polis_err_changing_plan", err);
+    });
+  }
+
+
+
+  function handle_POST_post_payment_form(req, res) {
+    winston.log("info", "XXX - Got the params!");
+    winston.log("info", "XXX - Got the params!" + res);
+  }
+
+
+  function handle_POST_charge(req, res) {
+
+    var stripeToken = req.p.stripeToken;
+    var stripeEmail = req.p.stripeEmail;
+    var uid = req.p.uid;
+    var plan = req.p.plan;
+    var planCode = planCodes[plan];
+
+    if (plan !== "pp") {
+      if (!stripeToken) {
+        return fail(res, 500, "polis_err_changing_plan_missing_stripeToken");
+      }
+      if (!stripeEmail) {
+        return fail(res, 500, "polis_err_changing_plan_missing_stripeEmail");
+      }
+    }
+
+    var updateStripePromise = Promise.resolve();
+    if (plan !== "pp") {
+      // not a participant pays plan, so we actually have to update stripe.
+      getUserInfoForUid2(uid).then(function(user) {
+        return updateStripePlan(user, stripeToken, stripeEmail, plan);
+      });
+    }
+
+    updateStripePromise.then(function() {
+      updatePlan(req, res, uid, planCode, true);
+    }).catch(function(err) {
+      if (err) {
+        if (err.type === 'StripeCardError') {
+          return fail(res, 500, "polis_err_stripe_card_declined", err);
+        } else {
+          return fail(res, 500, "polis_err_stripe", err);
+        }
+      }
+    });
+  }
 
   function _getCommentsForModerationList(o) {
     let modClause = "";
@@ -9161,6 +9408,88 @@ Email verified! You can close this tab or hit the back button.
     let encoded = "ep1_" + strToHex(stringifiedJson);
     return encoded;
   }
+
+  function handle_GET_enterprise_deal_url(req, res) {
+    var o = {
+      monthly: req.p.monthly,
+    };
+    if (req.p.maxUsers) {
+      o.maxUsers = req.p.maxUsers;
+    }
+    if (req.p.plan_name) {
+      o.plan_name = req.p.plan_name;
+    }
+    if (req.p.plan_id) {
+      o.plan_id = req.p.plan_id;
+    }
+    res.send("https://pol.is/settings/enterprise/" + encodeParams(o));
+  }
+
+
+  function handle_GET_stripe_account_connect(req, res) {
+    var stripe_client_id = process.env.STRIPE_CLIENT_ID;
+
+    var stripeUrl = "https://connect.stripe.com/oauth/authorize?response_type=code&client_id=" + stripe_client_id + "&scope=read_write";
+    res.set({
+      'Content-Type': 'text/html',
+    }).send("<html><body>" +
+      "<a href ='" + stripeUrl + "'>Connect Pol.is to Stripe</a>" +
+      "</body></html>");
+  }
+
+
+  function handle_GET_stripe_account_connected_oauth_callback(req, res) {
+
+    var code = req.p.code;
+    // var access_token = req.p.access_token;
+    // var error = req.p.error;
+    // var error_description = req.p.error_description;
+    if (req.p.error) {
+      fail(res, 500, "polis_err_fetching_stripe_info_" + req.p.error, req.p.error_description);
+      return;
+    }
+
+    // Make /oauth/token endpoint POST request
+    request.post({
+      url: 'https://connect.stripe.com/oauth/token',
+      form: {
+        grant_type: 'authorization_code',
+        client_id: process.env.STRIPE_CLIENT_ID,
+        code: code,
+        client_secret: process.env.STRIPE_SECRET_KEY,
+      },
+    }, function(err, r, body) {
+      if (err) {
+        fail(res, 500, "polis_err_stripe_oauth", err);
+        return;
+      }
+      body = JSON.parse(body);
+      pgQueryP("INSERT INTO stripe_accounts (" +
+        "stripe_account_token_type, " +
+        "stripe_account_stripe_publishable_key, " +
+        "stripe_account_scope, " +
+        "stripe_account_livemode, " +
+        "stripe_account_stripe_user_id, " +
+        "stripe_account_refresh_token, " +
+        "stripe_account_access_token " +
+        ") VALUES ($1, $2, $3, $4, $5, $6, $7);", [
+          body.token_type,
+          body.stripe_publishable_key,
+          body.scope,
+          body.livemode,
+          body.stripe_user_id,
+          body.refresh_token,
+          body.access_token,
+        ]).then(function() {
+          res.set({
+            'Content-Type': 'text/html',
+          }).send("<html><body>success!</body></html>");
+        }, function(err) {
+          fail(res, 500, "polis_err_saving_stripe_info", err);
+        });
+    });
+  }
+
 
   function handle_GET_conversations(req, res) {
     let courseIdPromise = Promise.resolve();
@@ -12638,6 +12967,7 @@ CREATE TABLE slack_user_invites (
   let portForParticipationFiles = process.env.STATIC_FILES_PORT;
   let portForAdminFiles = process.env.STATIC_FILES_ADMINDASH_PORT;
 
+
   let fetchUnsupportedBrowserPage = makeFileFetcher(hostname, portForParticipationFiles, "/unsupportedBrowser.html", {
     'Content-Type': "text/html",
   });
@@ -12673,8 +13003,10 @@ CREATE TABLE slack_user_invites (
   }
 
   function fetchIndexWithoutPreloadData(req, res, port) {
+
     return fetchIndex(req, res, {}, port);
   }
+
 
   function ifDefinedFirstElseSecond(first, second) {
     return _.isUndefined(first) ? second : first;
@@ -12978,6 +13310,7 @@ CREATE TABLE slack_user_invites (
     handle_GET_bid,
     handle_GET_bidToPid,
     handle_GET_canvas_app_instructions_png,
+    handle_GET_changePlanWithCoupon,
     handle_GET_comments,
     handle_GET_conditionalIndexFetcher,
     handle_GET_contexts,
@@ -12987,6 +13320,8 @@ CREATE TABLE slack_user_invites (
     handle_GET_conversationsRecentActivity,
     handle_GET_conversationsRecentlyStarted,
     handle_GET_conversationStats,
+    handle_GET_createPlanChangeCoupon,
+    handle_GET_enterprise_deal_url,
     handle_GET_math_correlationMatrix,
     handle_GET_dataExport,
     handle_GET_dataExport_results,
@@ -13021,6 +13356,8 @@ CREATE TABLE slack_user_invites (
     handle_GET_setup_assignment_xml,
     handle_GET_slack_login,
     handle_GET_snapshot,
+    handle_GET_stripe_account_connect,
+    handle_GET_stripe_account_connected_oauth_callback,
     handle_GET_tryCookie,
     handle_GET_twitter_image,
     handle_GET_twitter_oauth_callback,
@@ -13040,6 +13377,7 @@ CREATE TABLE slack_user_invites (
     handle_POST_auth_password,
     handle_POST_auth_pwresettoken,
     handle_POST_auth_slack_redirect_uri,
+    handle_POST_charge,
     handle_POST_comments,
     handle_POST_comments_slack,
     handle_POST_contexts,
@@ -13057,6 +13395,7 @@ CREATE TABLE slack_user_invites (
     handle_POST_metadata_questions,
     handle_POST_metrics,
     handle_POST_participants,
+    handle_POST_post_payment_form,
     handle_POST_ptptCommentMod,
     handle_POST_query_participants_by_metadata,
     handle_POST_reserve_conversation_id,
