@@ -2,8 +2,8 @@ import React from "react";
 // import { connect } from "react-redux";
 import probabilities from "../sampleData/probabilities";
 import covariance from "../sampleData/covariance";
-import correlation from "../sampleData/correlation";
-import correlationHClust from "../sampleData/correlationHClust"
+// import correlation from "../sampleData/correlation";
+// import correlationHClust from "../sampleData/correlationHClust"
 import * as globals from "./globals";
 
 import Radium from "radium";
@@ -80,16 +80,44 @@ class App extends React.Component {
     return net.polisGet("/api/v3/group_demographics", {
       conversation_id: conversation_id,
     });
-
   }
+
+  getCorrelationMatrix(lastVoteTimestamp) {
+    const attemptResponse = net.polisGet("/api/v3/math/correlationMatrix", {
+      conversation_id: conversation_id,
+      lastVoteTimestamp: lastVoteTimestamp,
+    });
+
+    return new Promise((resolve, reject) => {
+      attemptResponse.then((response) => {
+        if (response.status && response.status === "pending") {
+          setTimeout(() => {
+            this.getCorrelationMatrix(lastVoteTimestamp).then(resolve, reject);
+          }, 500);
+        } else {
+          resolve(response);
+        }
+      }, (err) => {
+        reject(err);
+      });
+    });
+  }
+
   getData() {
+    const mathPromise = this.getMath();
+    const matrixPromise = mathPromise.then((math) => {
+      const lastVoteTimestamp = math.lastVoteTimestamp;
+      return this.getCorrelationMatrix(lastVoteTimestamp);
+    });
+
     Promise.all([
-      this.getMath(),
+      mathPromise,
       this.getComments(),
       this.getParticipantsOfInterest(),
       this.getConversation(),
       this.getGroupDemographics(),
       this.getReport(),
+      matrixPromise,
     ]).then((a) => {
       const mathResult = a[0];
       const comments = a[1];
@@ -97,6 +125,7 @@ class App extends React.Component {
       const conversation = a[3];
       const groupDemographics = a[4];
       const report = a[5];
+      const correlationHClust = a[5];
 
       var ptptCount = 0;
       _.each(mathResult["group-votes"], (val, key) => {
