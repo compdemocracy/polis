@@ -135,7 +135,7 @@ class Graph extends React.Component {
               stroke: "rgb(130,130,130)",
               strokeWidth: 1
             }}/>
-          {/* Comment */}
+          {/* Comment https://bl.ocks.org/mbostock/7555321 */}
           <g transform={`translate(${globals.side / 2}, ${15})`}>
             <text
               style={{
@@ -144,7 +144,7 @@ class Graph extends React.Component {
                 fontStyle: "italic"
               }}
               textAnchor="middle">
-              {this.state.selectedComment ? this.state.selectedComment.txt + " " + this.state.selectedComment.tid : null}
+              {this.state.selectedComment ? "#" + this.state.selectedComment.tid + ". " + this.state.selectedComment.txt : null}
             </text>
           </g>
           {/* Bottom axis */}
