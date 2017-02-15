@@ -5,16 +5,35 @@ import * as globals from "./globals";
 class GraphComments extends React.Component {
 
   render () {
+
+
+    // transform={`translate(${globals.side / 2},${globals.side / 2})`}>
     return (
-      <g transform={`translate(${globals.side / 2},${globals.side / 2})`}>
+      <g>
         {this.props.points.map((pt, i) => {
+
+          let color = "black";
+          if (globals.shouldColorizeTidsByRepfulness) {
+            let tid = pt.tid;
+            let repfulForGid = null;
+            _.each(this.props.repfulAgreeTidsByGroup, (tids, gid) => {
+              if (tids.indexOf(tid) >= 0) {
+                repfulForGid = gid;
+              }
+            });
+            if (!_.isNull(repfulForGid)) {
+              color = globals.groupColor(repfulForGid);
+            }
+          }
+
           return <text
               key={i}
               onMouseEnter={this.props.handleCommentHover(pt)}
               onMouseLeave={this.props.handleCommentHover(pt)}
-              transform={"translate(" + (this.props.xx(pt.x * this.props.xScaleup)) + ", " + (this.props.yy(pt.y * this.props.yScaleup)) +")"}
+              transform={"translate(" + (this.props.xCenter + pt.x * this.props.xScaleup) + ", " + (this.props.yCenter + pt.y * this.props.yScaleup) +")"}
               fill="rgba(0,0,0,0.7)"
               style={{
+                fill: color,
                 display: "block",
                 fontFamily: "Helvetica, sans-serif",
                 fontSize: 10,

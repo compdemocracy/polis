@@ -15,6 +15,7 @@ export const paragraph = {
 
 export const side = 750;
 
+export const shouldColorizeTidsByRepfulness = true;
 
 export const axisLabels = {
   spacer: "⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯",

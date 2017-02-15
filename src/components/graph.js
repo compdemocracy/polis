@@ -1,6 +1,6 @@
 import React from "react";
 import Radium from "radium";
-// import _ from "lodash";
+import _ from "lodash";
 // import Flex from "./framework/flex";
 import * as globals from "./globals";
 import {VictoryAxis} from "victory";
@@ -19,7 +19,7 @@ class Graph extends React.Component {
 
   handleCommentHover(selectedComment) {
     return () => {
-      console.log('setting state', selectedComment)
+      // console.log('setting state', selectedComment)
       this.setState({selectedComment});
     }
   }
@@ -34,10 +34,13 @@ class Graph extends React.Component {
     const allYs = [];
 
 
+    const commentsByTid = _.keyBy(this.props.comments, "tid");
+
     // comments
     const commentsPoints = [];
     const compsX = this.props.math.pca.comps[0];
     const compsY = this.props.math.pca.comps[1];
+    let rejectedCount = 0;
     for (let i = 0; i < compsX.length; i++) {
       if (this.props.comments[i]) {
         let x = compsX[i];
@@ -47,15 +50,20 @@ class Graph extends React.Component {
         //   y += 0.01;
         // }
         if (!this.props.badTids[i]) {
-          commentsPoints.push({
-            x: x,
-            y: y,
-            tid: this.props.comments[i].tid,
-            txt: this.props.comments[i].txt,
-          });
+          if (commentsByTid[i]) {
+            commentsPoints.push({
+              x: x,
+              y: y,
+              tid: i,
+              txt: commentsByTid[i].txt,
+            });
+          } else {
+            rejectedCount += 1;
+            // console.log('skipping rejected', i, rejectedCount);
+          }
+        } else {
+          // console.log('skipping bad', i);
         }
-        allXs.push(compsX[i]);
-        allYs.push(compsY[i]);
       }
     }
 
@@ -72,37 +80,61 @@ class Graph extends React.Component {
     // participants
     const clusterXs = this.props.math["base-clusters"].x;
     const clusterYs = this.props.math["base-clusters"].y;
-    const ids = this.props.math["base-clusters"].id;
+    const bids = this.props.math["base-clusters"].id;
     let baseClusters = [];
     for (let i = 0; i < clusterXs.length; i++) {
       baseClusters.push({
         x: clusterXs[i],
         y: clusterYs[i],
-        id: ids[i],
-        gid: baseClusterIdToGid(ids[i]),
+        id: bids[i],
+        gid: baseClusterIdToGid(bids[i]),
       });
       allXs.push(clusterXs[i]);
       allYs.push(clusterYs[i]);
     }
 
-    let denom = 2;
     let border = 100;
-    const xx = d3.scaleLinear().domain([_.min(allXs),_.max(allXs)]).range([-(globals.side / denom - border), globals.side / denom - border]);
-    const yy = d3.scaleLinear().domain([_.min(allYs),_.max(allYs)]).range([-(globals.side / denom - border), globals.side / denom - border]);
+    let minClusterX = _.min(allXs);
+    let maxClusterX = _.max(allXs);
+    let minClusterY = _.min(allYs);
+    let maxClusterY = _.max(allYs);
+    const xx = d3.scaleLinear().domain([minClusterX, maxClusterX]).range([border, globals.side - border]);
+    const yy = d3.scaleLinear().domain([minClusterY, maxClusterY]).range([border, globals.side - border]);
 
-    // var greatestAbsPtptX = Math.abs(_.max(baseClusters, (pt) => { return Math.abs(pt.x); }).x);
-    // var greatestAbsPtptY = Math.abs(_.max(baseClusters, (pt) => { return Math.abs(pt.y); }).y);
-    // var greatestAbsCommentX = Math.abs(_.max(commentsPoints, (pt) => { return Math.abs(pt.x); }).x);
-    // var greatestAbsCommentY = Math.abs(_.max(commentsPoints, (pt) => { return Math.abs(pt.y); }).y);
-    var greatestAbsPtptX = _.max(baseClusters, (pt) => { return Math.abs(pt.x); }).x;
-    var greatestAbsPtptY = _.max(baseClusters, (pt) => { return Math.abs(pt.y); }).y;
-    var greatestAbsCommentX = _.max(commentsPoints, (pt) => { return Math.abs(pt.x); }).x;
-    var greatestAbsCommentY = _.max(commentsPoints, (pt) => { return Math.abs(pt.y); }).y;
+    const xCenter = xx(0);
+    const yCenter = yy(0);
 
-    var commentScaleupFactorX = 1 * greatestAbsPtptX / greatestAbsCommentX; // TODO figure out why *2 was needed
-    var commentScaleupFactorY = 1 * greatestAbsPtptY / greatestAbsCommentY; // TODO figure out why *2 was needed
-    // var commentScaleupFactorX = -0.4* greatestAbsPtptX / greatestAbsCommentX; // TODO figure out why *2 was needed
-    // var commentScaleupFactorY = -8 * greatestAbsPtptY / greatestAbsCommentY; // TODO figure out why *2 was needed
+    var greatestAbsPtptX = _.maxBy(baseClusters, (pt) => { return Math.abs(pt.x); }).x;
+    var greatestAbsPtptY = _.maxBy(baseClusters, (pt) => { return Math.abs(pt.y); }).y;
+    var greatestAbsCommentX = _.maxBy(commentsPoints, (pt) => { return Math.abs(pt.x); }).x;
+    var greatestAbsCommentY = _.maxBy(commentsPoints, (pt) => { return Math.abs(pt.y); }).y;
+
+    var maxCommentX = _.maxBy(commentsPoints, (pt) => { return pt.x; }).x;
+    var minCommentX = _.minBy(commentsPoints, (pt) => { return pt.x; }).x;
+    var maxCommentY = _.maxBy(commentsPoints, (pt) => { return pt.y; }).y;
+    var minCommentY = _.minBy(commentsPoints, (pt) => { return pt.y; }).y;
+
+    // xGreatestMapped = xCenter + xScale * maxCommentX
+    // globals.side - border = xCenter + xScale * maxCommentX
+    // globals.side - border - xCenter = xScale * maxCommentX
+    var xScaleCandidateForRightSide = (globals.side - border - xCenter) / maxCommentX;
+    var yScaleCandidateForBottomSide = (globals.side - border - yCenter) / maxCommentY;
+
+    // xLowestMapped = xCenter + xScale * minCommentX
+    // border = xCenter + xScale * minCommentX
+    // border - xCenter = xScale * minCommentX
+    // (border - xCenter) / minCommentX = xScale
+    var xScaleCandidateForLeftSide = (border - xCenter) / minCommentX;
+    var yScaleCandidateForTopSide = (border - yCenter) / minCommentY;
+
+    // TODO_VOTE_FLIP: we can probably remove the -1 below if we flip the vote values.
+    var commentScaleupFactorX = -1 * Math.min(xScaleCandidateForRightSide, xScaleCandidateForLeftSide);
+    var commentScaleupFactorY = -1 * Math.min(yScaleCandidateForBottomSide, yScaleCandidateForTopSide);
+
+    console.log('commentScaleupFactorX', commentScaleupFactorX);
+    console.log('commentScaleupFactorY', commentScaleupFactorY);
+
+
 
     return (
       <div>
@@ -118,18 +150,18 @@ class Graph extends React.Component {
           <line
             strokeDasharray={"3, 3"}
             x1={50 /* magic number is axis padding */}
-            y1={globals.side / 2}
+            y1={yCenter}
             x2={globals.side - 50}
-            y2={globals.side / 2}
+            y2={yCenter}
             style={{
               stroke: "rgb(130,130,130)",
               strokeWidth: 1
             }}/>
           <line
             strokeDasharray={"3, 3"}
-            x1={globals.side / 2}
-            y1={50}
-            x2={globals.side / 2}
+            x1={xCenter}
+            y1={50 }
+            x2={xCenter}
             y2={globals.side - 50 /* magic number is axis padding */}
             style={{
               stroke: "rgb(130,130,130)",
@@ -220,8 +252,11 @@ class Graph extends React.Component {
             <Comments
               handleCommentHover={this.handleCommentHover.bind(this)}
               points={commentsPoints}
+              repfulAgreeTidsByGroup={this.props.repfulAgreeTidsByGroup}
               xx={xx}
               yy={yy}
+              xCenter={xCenter}
+              yCenter={yCenter}
               xScaleup={commentScaleupFactorX}
               yScaleup={commentScaleupFactorY}
               formatTid={this.props.formatTid}/> :

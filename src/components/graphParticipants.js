@@ -7,9 +7,9 @@ const GraphParticipants = ({points, xx, yy}) => {
   if (!points) {
     return null
   }
-
+// transform={`translate(${globals.side / 2},${globals.side / 2})`}>
   return (
-    <g transform={`translate(${globals.side / 2},${globals.side / 2})`}>
+    <g>
       {points.map((pt, i) => {
         return <circle
           r={6}

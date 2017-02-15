@@ -137,6 +137,19 @@ class App extends React.Component {
         return '#' + pad(""+tid, tidWidth);
       }
 
+      let repfulAgreeTidsByGroup = [];
+      if (mathResult.repness) {
+        _.each(mathResult.repness, (entries, gid) => {
+          entries.forEach((entry) => {
+            if (entry['repful-for'] === 'agree') {
+              repfulAgreeTidsByGroup[gid] = repfulAgreeTidsByGroup[gid] || [];
+              repfulAgreeTidsByGroup[gid].push(entry.tid);
+            }
+          });
+        });
+      }
+
+
 
       this.setState({
         math: mathResult,
@@ -150,6 +163,7 @@ class App extends React.Component {
         filterecCorrelationTids: filteredTids,
         badTids: badTids,
         groupNames: globals.groupNames,
+        repfulAgreeTidsByGroup: repfulAgreeTidsByGroup,
         formatTid: formatTid,
       });
     }, (err) => {
@@ -207,6 +221,7 @@ class App extends React.Component {
           groupNames={this.state.groupNames}
           badTids={this.state.badTids}
           formatTid={this.state.formatTid}
+          repfulAgreeTidsByGroup={this.state.repfulAgreeTidsByGroup}
           math={this.state.math}/>
         <AllComments
           conversation={this.state.conversation}
