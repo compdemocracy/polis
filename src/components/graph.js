@@ -99,8 +99,8 @@ class Graph extends React.Component {
     var greatestAbsCommentX = _.max(commentsPoints, (pt) => { return Math.abs(pt.x); }).x;
     var greatestAbsCommentY = _.max(commentsPoints, (pt) => { return Math.abs(pt.y); }).y;
 
-    var commentScaleupFactorX = 2 * greatestAbsPtptX / greatestAbsCommentX; // TODO figure out why *2 was needed
-    var commentScaleupFactorY = 2 * greatestAbsPtptY / greatestAbsCommentY; // TODO figure out why *2 was needed
+    var commentScaleupFactorX = 1 * greatestAbsPtptX / greatestAbsCommentX; // TODO figure out why *2 was needed
+    var commentScaleupFactorY = 1 * greatestAbsPtptY / greatestAbsCommentY; // TODO figure out why *2 was needed
     // var commentScaleupFactorX = -0.4* greatestAbsPtptX / greatestAbsCommentX; // TODO figure out why *2 was needed
     // var commentScaleupFactorY = -8 * greatestAbsPtptY / greatestAbsCommentY; // TODO figure out why *2 was needed
 

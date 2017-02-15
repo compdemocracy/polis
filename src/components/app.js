@@ -192,12 +192,7 @@ class App extends React.Component {
           comments={this.state.comments}
           formatTid={this.state.formatTid}
           consensus={this.state.consensus}/>
-        <Matrix
-          title={"Correlation matrix"}
-          probabilities={this.state.filteredCorrelationMatrix}
-          tids={this.state.filterecCorrelationTids}
-          formatTid={this.state.formatTid}
-          ptptCount={this.state.ptptCount}/>
+
         <ParticipantGroups
           comments={this.state.comments}
           conversation={this.state.conversation}
