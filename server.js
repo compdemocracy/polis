@@ -1041,6 +1041,9 @@ function getInt(s) {
 const conversationIdToZidCache = new LruCache({
   max: 1000,
 });
+const reportIdToRidCache = new LruCache({
+  max: 1000,
+});
 
 // NOTE: currently conversation_id is stored as zinvite
 function getZidFromConversationId(conversation_id) {
@@ -1064,6 +1067,27 @@ function getZidFromConversationId(conversation_id) {
     });
   });
 }
+function getRidFromReportId(report_id) {
+  return new MPromise("getRidFromReportId", function(resolve, reject) {
+    let cachedRid = reportIdToRidCache.get(report_id);
+    if (cachedRid) {
+      resolve(cachedRid);
+      return;
+    }
+    pgQuery_readOnly("select rid from reports where report_id = ($1);", [report_id], function(err, results) {
+      if (err) {
+        return reject(err);
+      } else if (!results || !results.rows || !results.rows.length) {
+        console.error("polis_err_fetching_rid_for_report_id " + report_id);
+        return reject("polis_err_fetching_rid_for_report_id");
+      } else {
+        let rid = results.rows[0].rid;
+        reportIdToRidCache.set(report_id, rid);
+        return resolve(zid);
+      }
+    });
+  });
+}
 
 // conversation_id is the client/ public API facing string ID
 const parseConversationId = getStringLimitLength(1, 100);
@@ -1072,6 +1096,15 @@ function getConversationIdFetchZid(s) {
   return parseConversationId(s).then(function(conversation_id) {
     return getZidFromConversationId(conversation_id).then(function(zid) {
       return Number(zid);
+    });
+  });
+}
+
+const parseReportId = getStringLimitLength(1, 100);
+function getReportIdFetchRid(s) {
+  return parseReportId(s).then(function(report_id) {
+    return getRidFromReportId(report_id).then(function(rid) {
+      return Number(rid);
     });
   });
 }
@@ -2621,6 +2654,60 @@ function initializePolisHelpers(mongoParams) {
   */
 
   function handle_GET_math_correlationMatrix(req, res) {
+    let rid = req.p.rid;
+    let math_env = process.env.MATH_ENV;
+    let math_tick = req.p.math_tick;
+
+    function finishAsPending() {
+      res.status(202).json({
+        status: "pending",
+      });
+    }
+
+
+
+    let requestExistsPromise = pgQueryP(
+      "select * from worker_tasks where task_type = 'generate_report_data' and math_env=($2)"+
+        "and task_data->'rid' = ($1) " +
+        "and task_data->'math_tick' >= ($3);", [rid, math_env, math_tick]);
+
+    let resultExistsPromise = pgQueryP(
+      "select * from math_report_correlationmatrix where rid = ($1) and math_env = ($2) and math_tick >= ($3);", [rid, math_env, math_tick]);
+
+    resultExistsPromise.then((rows) => {
+      if (!rows || !rows.length) {
+        return requestExistsPromise.then((requests_rows) => {
+          if (!requests_rows || !requests_rows.length) {
+            return pgQueryP("insert into worker_tasks (task_type, task_data, math_env) values ('generate_report_data', $1, $2);", [
+              JSON.stringify({
+                rid: rid,
+                math_tick: math_tick,                
+              }),
+              math_env,
+            ]).then(finishAsPending);
+          }
+          finishAsPending();
+        });
+      }
+      res.json(rows[0].data);
+    }).catch((err) => {
+      return fail(res, 500, "polis_err_GET_math_correlationMatrix", err);
+    });
+
+
+
+
+    pgQueryP("insert into math_report_correlationmatrix (rid, math_env, data) values ($1, $2, null) on conflict (rid, math_env) do nothing;", [rid, math_env]).then((rows) => {
+      // Ok, we created the placeholder record (or the , which means that 
+
+    });
+
+    pgQueryP("select * from math_report_correlationmatrix where rid = ($1) and math_env = ($2) and math_t;", [rid, math_env]).then((rows) => {
+      if (!rows || !rows.length) {
+      }      
+    });
+
+
     var done = Math.random() < 0.2;
     if (!done) {
       res.status(202).json({
@@ -13481,6 +13568,7 @@ CREATE TABLE slack_user_invites (
     getPassword,
     getPasswordWithCreatePasswordRules,
     getPidForParticipant,
+    getReportIdFetchRid,
     getStringLimitLength,
     getUrlLimitLength,
     haltOnTimeout,

@@ -98,6 +98,7 @@ helpersInitialized.then(function(o) {
     getPassword,
     getPasswordWithCreatePasswordRules,
     getPidForParticipant,
+    getReportIdFetchRid,
     getStringLimitLength,
     getUrlLimitLength,
     haltOnTimeout,
@@ -332,7 +333,8 @@ helpersInitialized.then(function(o) {
 
   app.get("/api/v3/math/correlationMatrix",
     moveToBody,
-    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    // need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    need('report_id', getReportIdFetchRid, assignToPCustom('rid')),
     want('lastVoteTimestamp', getInt, assignToP, -1),
     handle_GET_math_correlationMatrix);
 
