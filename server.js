@@ -1083,7 +1083,7 @@ function getRidFromReportId(report_id) {
       } else {
         let rid = results.rows[0].rid;
         reportIdToRidCache.set(report_id, rid);
-        return resolve(zid);
+        return resolve(rid);
       }
     });
   });
@@ -2585,58 +2585,45 @@ function initializePolisHelpers(mongoParams) {
   */
 
   function handle_GET_math_correlationMatrix(req, res) {
-    let rid = req.p.rid;
-    let math_env = process.env.MATH_ENV;
-    let math_tick = req.p.math_tick;
+    // let rid = req.p.rid;
+    // let math_env = process.env.MATH_ENV;
+    // let math_tick = req.p.math_tick;
 
-    function finishAsPending() {
-      res.status(202).json({
-        status: "pending",
-      });
-    }
+    // function finishAsPending() {
+    //   res.status(202).json({
+    //     status: "pending",
+    //   });
+    // }
 
+    // let requestExistsPromise = pgQueryP(
+    //   "select * from worker_tasks where task_type = 'generate_report_data' and math_env=($2) "+
+    //     "and task_bucket = ($1) " +
+    //     "and attempts < 3 " +
+    //     "and finished_time is NULL;", [rid, math_env]);
 
+    // let resultExistsPromise = pgQueryP(
+    //   "select * from math_report_correlationmatrix where rid = ($1) and math_env = ($2) and task_data->'math_tick'::integer >= ($3);", [rid, math_env, math_tick]);
 
-    let requestExistsPromise = pgQueryP(
-      "select * from worker_tasks where task_type = 'generate_report_data' and math_env=($2)"+
-        "and task_data->'rid' = ($1) " +
-        "and task_data->'math_tick' >= ($3);", [rid, math_env, math_tick]);
-
-    let resultExistsPromise = pgQueryP(
-      "select * from math_report_correlationmatrix where rid = ($1) and math_env = ($2) and math_tick >= ($3);", [rid, math_env, math_tick]);
-
-    resultExistsPromise.then((rows) => {
-      if (!rows || !rows.length) {
-        return requestExistsPromise.then((requests_rows) => {
-          if (!requests_rows || !requests_rows.length) {
-            return pgQueryP("insert into worker_tasks (task_type, task_data, math_env) values ('generate_report_data', $1, $2);", [
-              JSON.stringify({
-                rid: rid,
-                math_tick: math_tick,                
-              }),
-              math_env,
-            ]).then(finishAsPending);
-          }
-          finishAsPending();
-        });
-      }
-      res.json(rows[0].data);
-    }).catch((err) => {
-      return fail(res, 500, "polis_err_GET_math_correlationMatrix", err);
-    });
-
-
-
-
-    pgQueryP("insert into math_report_correlationmatrix (rid, math_env, data) values ($1, $2, null) on conflict (rid, math_env) do nothing;", [rid, math_env]).then((rows) => {
-      // Ok, we created the placeholder record (or the , which means that 
-
-    });
-
-    pgQueryP("select * from math_report_correlationmatrix where rid = ($1) and math_env = ($2) and math_t;", [rid, math_env]).then((rows) => {
-      if (!rows || !rows.length) {
-      }      
-    });
+    // resultExistsPromise.then((rows) => {
+    //   if (!rows || !rows.length) {
+    //     return requestExistsPromise.then((requests_rows) => {
+    //       if (!requests_rows || !requests_rows.length) {
+    //         return pgQueryP("insert into worker_tasks (task_type, task_data, task_bucket, math_env) values ('generate_report_data', $1, $2, $3);", [
+    //           JSON.stringify({
+    //             rid: rid,
+    //             math_tick: math_tick,
+    //           }),
+    //           rid,
+    //           math_env,
+    //         ]).then(finishAsPending);
+    //       }
+    //       finishAsPending();
+    //     });
+    //   }
+    //   res.json(rows[0].data);
+    // }).catch((err) => {
+    //   return fail(res, 500, "polis_err_GET_math_correlationMatrix", err);
+    // });
 
 
     var done = Math.random() < 0.2;

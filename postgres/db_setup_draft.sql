@@ -647,8 +647,14 @@ CREATE TABLE report_comment_selections (
   UNIQUE(rid, tid)
 );
 
+
 CREATE TABLE worker_tasks (
   created BIGINT DEFAULT now_as_millis(),
+  math_env VARCHAR(999) NOT NULL,
+  attempts SMALLINT NOT NULL DEFAULT 0,
+  task_data JSONB NOT NULL,
+  task_type VARCHAR(99),
+  task_bucket BIGINT, -- This can be used to ensure multiple tasks of the same type are not in the queue for the same conversation/report simultaneously. The value could be the zid of a convo, or the rid of a report.
   finished_time BIGINT -- null by default. A non-null value here also serves as the 'done' flag.
 );
 
