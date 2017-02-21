@@ -313,8 +313,7 @@
         tids (map :tid (postgres/query (:postgres conv-man) (postgres/report-tids rid)))
         corr-mat (corr/compute-corr conv tids)]
     (postgres/insert-correlationmatrix! postgres rid corr-mat)
-    ;; TODO Need to switch over to specifying the workers_tasks primary key instead of created for identity
-    (postgres/mark-task-complete! postgres (-> report-data :task-record :created))))
+    (postgres/mark-task-complete! postgres (-> report-data :task-record :rid))))
 
 
 ;; Need to think about what to do if failed conversations lead to messages piling up in the message queue XXX

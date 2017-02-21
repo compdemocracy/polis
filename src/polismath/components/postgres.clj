@@ -273,14 +273,14 @@
      :math_env (name (-> postgres :config :math-env))
      :data (pg-json data)}))
 
-;; TODO Need to switch over to specifying the workers_tasks primary key instead of created for identity
+;; Marks all tasks with the same task_bucket as done.
 (defn mark-task-complete!
-  [postgres created]
+  [postgres task_bucket]
   (jdbc/update!
     (:db-spec postgres)
     :worker_tasks
     {:finished_time (System/currentTimeMillis)}
-    ["created = ?" created]))
+    ["task_bucket = ?" task_bucket]))
 
 (comment
   (require '[polismath.runner :as runner])
@@ -300,7 +300,7 @@
         (honey/value)))
 
   (try
-    (mark-task-complete! postgres 1486713088241)
+    (mark-task-complete! postgres 1)
     (catch Exception e (log/error (.getNextException e))))
 
 
