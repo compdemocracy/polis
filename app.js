@@ -3,7 +3,6 @@
 
 const Promise = require('bluebird');
 const express = require('express');
-const mongo = require('mongodb');
 const optional = require("optional");
 
 const server = require('./server');
@@ -13,60 +12,10 @@ const polisServerBrand = optional('polisServerBrand');
 const app = express();
 
 
-
-
-
-//var mongoServer = new MongoServer(process.env.MONGOLAB_URI, 37977, {auto_reconnect: true});
-//var db = new MongoDb('exampleDb', mongoServer, {safe: true});
-function connectToMongo(callback) {
-  mongo.connect(process.env.MONGOLAB_URI, {
-    server: {
-      auto_reconnect: true,
-    },
-    db: {
-      safe: true,
-    },
-  }, function(err, db) {
-    if (err) {
-      console.error('mongo failed to init');
-      console.error(err);
-      process.exit(1);
-    }
-
-    function mongoCollectionName(basename) {
-      const schemaDate = "2014_08_22";
-      const envName = process.env.MATH_ENV; // prod, preprod, chris, mike
-      const name = ["math", envName, schemaDate, basename].join("_");
-      console.log("info", name);
-      return name;
-    }
-
-    db.collection(mongoCollectionName('main'), function(err, collectionOfPcaResults) {
-      db.collection(mongoCollectionName('bidtopid'), function(err, collectionOfBidToPidResults) {
-        db.collection(mongoCollectionName('pcaPlaybackResults'), function(err, collectionOfPcaPlaybackResults) {
-          callback(null, {
-            mongoCollectionOfPcaResults: collectionOfPcaResults,
-            mongoCollectionOfBidToPidResults: collectionOfBidToPidResults,
-            mongoCollectionOfPcaPlaybackResults: collectionOfPcaPlaybackResults,
-          });
-        });
-      });
-    });
-  });
-}
-
 console.log('init 1');
 
 var helpersInitialized = new Promise(function(resolve, reject) {
-  connectToMongo(function(err, args) {
-    console.log('connectToMongo callback', err, args);
-    if (err) {
-      console.error("failed to init db connections");
-      console.error(err);
-      reject(err);
-    }
-    resolve(server.initializePolisHelpers(args));
-  });
+  resolve(server.initializePolisHelpers());
 });
 
 
@@ -172,8 +121,6 @@ helpersInitialized.then(function(o) {
     handle_GET_participants,
     handle_GET_participation,
     handle_GET_participationInit,
-    handle_GET_pcaPlaybackByLastVoteTimestamp,
-    handle_GET_pcaPlaybackList,
     handle_GET_perfStats,
     handle_GET_ptptois,
     handle_GET_reports,
@@ -357,17 +304,6 @@ helpersInitialized.then(function(o) {
     need('conversation_id', getStringLimitLength(1, 1000), assignToP),
     want('filename', getStringLimitLength(1, 1000), assignToP),
     handle_GET_dataExport_results);
-
-  app.get("/api/v3/math/pcaPlaybackList",
-    moveToBody,
-    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-    handle_GET_pcaPlaybackList);
-
-  app.get("/api/v3/math/pcaPlaybackByLastVoteTimestamp",
-    moveToBody,
-    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-    want('lastVoteTimestamp', getInt, assignToP, 0),
-    handle_GET_pcaPlaybackByLastVoteTimestamp);
 
   // TODO doesn't scale, stop sending entire mapping.
   app.get("/api/v3/bidToPid",
