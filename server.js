@@ -495,11 +495,7 @@ const sql_users = sql.define({
 // }());
 
 
-// Connect to a mongo database via URI
-// With the MongoLab addon the MONGOLAB_URI config variable is added to your
-// Heroku environment.  It can be accessed as process.env.MONGOLAB_URI
 
-winston.log("info", process.env.MONGOLAB_URI);
 
 function makeSessionToken() {
   // These can probably be shortened at some point.
@@ -1332,9 +1328,8 @@ const COOKIES_TO_CLEAR = {
 
 
 
-function initializePolisHelpers(mongoParams) {
+function initializePolisHelpers() {
 
-  let collectionOfPcaPlaybackResults = mongoParams.mongoCollectionOfPcaPlaybackResults;
 
   let polisTypes = {
     reactions: {
@@ -2488,67 +2483,6 @@ function initializePolisHelpers(mongoParams) {
   }
 
 
-  function getPcaPlaybackByLastVoteTimestamp(zid, lastVoteTimestamp) {
-    return new Promise(function(resolve, reject) {
-      collectionOfPcaPlaybackResults.find({
-        $and: [{
-          zid: zid,
-        }, {
-          lastVoteTimestamp: lastVoteTimestamp,
-        }],
-      }, function(err, cursor) {
-        if (err) {
-          reject("polis_err_get_pca_playback_result_find");
-          return;
-        }
-        cursor.toArray(function(err, docs) {
-          if (err) {
-            reject("polis_err_get_pca_playback_result_find_toarray");
-          } else if (!docs.length) {
-            resolve(null);
-          } else {
-            resolve(docs[0]);
-          }
-        });
-      });
-    });
-  }
-
-
-  function getPcaPlaybackList(zid) {
-    return new Promise(function(resolve, reject) {
-      collectionOfPcaPlaybackResults.find({
-        zid: zid,
-      }, function(err, cursor) {
-        if (err) {
-          reject("polis_err_get_pca_playback_results_list_find");
-          return;
-        }
-        // TODO save some memory by using the cursor as a cursor
-        cursor.toArray(function(err, docs) {
-          if (err) {
-            reject("polis_err_get_pca_playback_results_list_find_toarray");
-          } else if (!docs.length) {
-            resolve(null);
-          } else {
-            let summaries = [];
-            if (docs.length) {
-              summaries = docs.map(function(doc) {
-                return {
-                  lastVoteTimestamp: doc.lastVoteTimestamp,
-                  "n-cmts": doc["n-cmts"],
-                  n: doc.n,
-                };
-              });
-            }
-            resolve(summaries);
-          }
-        });
-      });
-    });
-  }
-
-
   function redirectIfHasZidButNoConversationId(req, res, next) {
     if (req.body.zid && !req.body.conversation_id) {
       winston.log("info", "redirecting old zid user to about page");
@@ -2800,26 +2734,6 @@ function initializePolisHelpers(mongoParams) {
     }, false);
   }
 
-
-  function handle_GET_pcaPlaybackList(req, res) {
-    let zid = req.p.zid;
-    getPcaPlaybackList(zid).then(function(summaries) {
-      res.status(200).json(summaries);
-    }).catch(function(err) {
-      fail(res, 500, err);
-    });
-  }
-
-
-  function handle_GET_pcaPlaybackByLastVoteTimestamp(req, res) {
-    let zid = req.p.zid;
-    let lastVoteTimestamp = req.p.lastVoteTimestamp;
-    getPcaPlaybackByLastVoteTimestamp(zid, lastVoteTimestamp).then(function(data) {
-      res.status(200).json(data);
-    }).catch(function(err) {
-      fail(res, 500, err);
-    });
-  }
 
   function getBidToPidMapping(zid, lastVoteTimestamp) {
     lastVoteTimestamp = lastVoteTimestamp || -1;
@@ -13675,8 +13589,6 @@ CREATE TABLE slack_user_invites (
     handle_GET_participants,
     handle_GET_participation,
     handle_GET_participationInit,
-    handle_GET_pcaPlaybackByLastVoteTimestamp,
-    handle_GET_pcaPlaybackList,
     handle_GET_perfStats,
     handle_GET_ptptois,
     handle_GET_reports,
