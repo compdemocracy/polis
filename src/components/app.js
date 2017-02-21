@@ -86,6 +86,7 @@ class App extends React.Component {
     const attemptResponse = net.polisGet("/api/v3/math/correlationMatrix", {
       conversation_id: conversation_id,
       lastVoteTimestamp: lastVoteTimestamp,
+      report_id: report_id,
     });
 
     return new Promise((resolve, reject) => {
