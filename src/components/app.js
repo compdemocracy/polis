@@ -209,6 +209,7 @@ class App extends React.Component {
         <Matrix
           title={"Correlation matrix"}
           probabilities={this.state.filteredCorrelationMatrix}
+          comments={this.state.comments}
           tids={this.state.filterecCorrelationTids}
           formatTid={this.state.formatTid}
           ptptCount={this.state.ptptCount}/>

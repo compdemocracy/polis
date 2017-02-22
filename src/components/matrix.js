@@ -24,10 +24,10 @@ class Matrix extends React.Component {
           width={square}
           height={square} />
           <text
-            x={9}
+            x={10}
             y={13}
             textAnchor={"middle"}
-            fill="rgba(0,0,0,0.5)"
+            fill={Math.abs(Math.floor(comment * 100)) > 30 ? "white" : "rgb(60,60,60)"}
             style={{
               fontFamily: globals.sans,
               fontSize: 10
@@ -39,44 +39,69 @@ class Matrix extends React.Component {
   }
 
   makeColumn(comments, row) {
+    // <text
+    //   transform={"translate(" + (column * square + 10) + ", 25), rotate(315)"}
+    //   fill="rgba(0,0,0,0.7)"
+    //   style={{
+    //     display: row === 0 ? "block" : "none",
+    //     fontFamily: "Helvetica, sans-serif",
+    //     fontSize: 10,
+    //     fontWeight: 700
+    //   }}
+    //   >
+    //   {this.props.formatTid(this.props.tids[column])}
+    // </text>
     return comments.map((comment, column) => {
-      return (
-        <g key={column} >
-          {/* this translate places the top text labels where they should go, rotated */}
-          <text
-            transform={"translate(" + (column * square + 10) + ", 25), rotate(315)"}
-            fill="rgba(0,0,0,0.7)"
-            style={{
-              display: row === 0 ? "block" : "none",
-              fontFamily: "Helvetica, sans-serif",
-              fontSize: 10,
-              fontWeight: 700
-            }}
-            >
-            {this.props.formatTid(this.props.tids[column])}
-          </text>
-          {/* this translate places the columns where they should go, and creates a gutter */}
-          <g transform={"translate(" + (column * square) + ", 30)"}>
-            {this.makeRect(comment, row, column)}
+      let markup = null;
+      if (column < row) {  /* diagonal matrix */
+        markup = (
+          <g key={column} >
+            {/* this translate places the top text labels where they should go, rotated */}
+            {/* this translate places the columns where they should go, and creates a gutter */}
+            <g transform={"translate(" + (column * square) + ", 30)"}>
+              {this.makeRect(comment, row, column)}
+            </g>
           </g>
-        </g>
-      )
+        )
+      } else if (column === row) {
+        const comment = _.find(this.props.comments, (comment) => {
+          return comment.tid === this.props.tids[column]
+        })
+        markup = (
+          <g key={column} >
+            <text
+              transform={"translate(" + (column * square + 10) + ", 46), rotate(315)"}
+              fill="rgba(0,0,0,0.7)"
+              style={{
+                fontFamily: "Helvetica, sans-serif",
+                fontSize: 10,
+                fontWeight: 700
+              }}
+              >
+              {
+                comment ? comment.txt : "[[[none found]]]"
+              }
+            </text>
+          </g>
+        )
+      }
+      return markup;
     })
   }
 
   makeRow(comments, row) {
+    // {/* this translate seperates the rows */}
+    // <text
+    //   fill="rgba(0,0,0,.7)"
+    //   style={{
+    //     fontFamily: "Helvetica, sans-serif",
+    //     fontSize: 10,
+    //     fontWeight: 700
+    //   }}>
+    //   {this.props.formatTid(this.props.tids[row])}
+    // </text>
     return (
       <g transform={"translate(0, " + (row * 20 + topOffset) + ")"}>
-        {/* this translate seperates the rows */}
-        <text
-          fill="rgba(0,0,0,.7)"
-          style={{
-            fontFamily: "Helvetica, sans-serif",
-            fontSize: 10,
-            fontWeight: 700
-          }}>
-          {this.props.formatTid(this.props.tids[row])}
-        </text>
         {/* this translate moves just the colored squares over to make a gutter, not the text */}
         <g transform={"translate("+ leftOffset +", -43)"}>
           {this.makeColumn(comments, row)}
@@ -86,7 +111,7 @@ class Matrix extends React.Component {
   }
 
   renderMatrix() {
-    let side = this.props.probabilities.length * square + 70;
+    let side = this.props.probabilities.length * square + 350;
     return (
       <div>
         <p style={{fontSize: globals.primaryHeading}}>{this.props.title}</p>
@@ -119,6 +144,7 @@ class Matrix extends React.Component {
         </div>
 
         <svg width={side} height={side}>
+          <g transform={"translate(450,0), rotate(45)"/* abstract translate magic number */}>
           {this.props.probabilities.map((comments, row) => {
             return (
               <g key={row}>
@@ -126,6 +152,7 @@ class Matrix extends React.Component {
               </g>
             )
           })}
+          </g>
         </svg>
       </div>
     );
