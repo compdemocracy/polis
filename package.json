@@ -45,6 +45,7 @@
     "gulp-rename": "~1.0.0",
     "gulp-s3": "git://github.com/mbjorkegren/gulp-s3#847e2b372204b4ceeccb0e9b567f28ff00e7fa1d",
     "history": "^1.12.5",
+    "hull.js": "^0.2.10",
     "jquery": "^2.1.4",
     "lodash": "4.16.4",
     "moment": "^2.14.1",
