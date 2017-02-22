@@ -103,7 +103,7 @@ class App extends React.Component {
         if (probabilities[row][0] === "NaN") {
           let tid = correlationHClust.comments[row];
           badTids[tid] = true;
-          console.log("bad", tid);
+          // console.log("bad", tid);
         }
       }
       var filteredProbabilities = probabilities.map((row) => {
