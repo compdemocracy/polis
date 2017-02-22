@@ -17,7 +17,7 @@ class GraphComments extends React.Component {
             let tid = pt.tid;
             let repfulForGid = null;
             _.each(this.props.repfulAgreeTidsByGroup, (tids, gid) => {
-              if (tids.indexOf(tid) >= 0) {
+              if (tids && tids.indexOf(tid) >= 0) {
                 repfulForGid = gid;
               }
             });
