@@ -13,6 +13,7 @@ class Graph extends React.Component {
 
   constructor(props) {
     super(props);
+    this.Viewer = null;
     this.state = {
       selectedComment: null,
     };
@@ -53,34 +54,36 @@ class Graph extends React.Component {
           Comments, identified by their number, are positioned more closely to comments that were voted on similarly (blue, in the correlation matrix above). Comments are positioned further away from comments that tended to be voted on differently (red, in the correlation matrix above). </p>
         <p style={globals.paragraph}>People are positioned closer to the comments on which they agreed, and further from the comments on which they disagreed. Groups of participants that tended to vote similarly across many comments (elaborated in the previous section) are identified by their similar color.
         </p>
-        <svg width={globals.side} height={globals.side} style={{marginTop: 30}}>
-          <Axes selectedComment={this.state.selectedComment} xCenter={xCenter} yCenter={yCenter}/>
 
-          <Participants points={baseClustersScaled}/>
-          {/* this.props.math["group-clusters"].map((cluster, i) => {
-            return (<text x={300} y={300}> Renzi Supporters </text>)
-          }) : null */}
-          {
-            commentsPoints ?
-            <Comments
-              handleCommentHover={this.handleCommentHover.bind(this)}
-              points={commentsPoints}
-              repfulAgreeTidsByGroup={this.props.repfulAgreeTidsByGroup}
-              xx={xx}
-              yy={yy}
-              xCenter={xCenter}
-              yCenter={yCenter}
-              xScaleup={commentScaleupFactorX}
-              yScaleup={commentScaleupFactorY}
-              formatTid={this.props.formatTid}/> :
-            null
-          }
-          {
-            hulls.map((hull) => {
-              return <Hull key={hull.group[0].gid} hull={hull}/>
-            })
-          }
-        </svg>
+
+          <svg width={globals.side} height={globals.side} style={{marginTop: 30}}>
+            <Axes selectedComment={this.state.selectedComment} xCenter={xCenter} yCenter={yCenter}/>
+            <Participants points={baseClustersScaled}/>
+            {/* this.props.math["group-clusters"].map((cluster, i) => {
+              return (<text x={300} y={300}> Renzi Supporters </text>)
+            }) : null */}
+            {
+              commentsPoints ?
+              <Comments
+                handleCommentHover={this.handleCommentHover.bind(this)}
+                points={commentsPoints}
+                repfulAgreeTidsByGroup={this.props.repfulAgreeTidsByGroup}
+                xx={xx}
+                yy={yy}
+                xCenter={xCenter}
+                yCenter={yCenter}
+                xScaleup={commentScaleupFactorX}
+                yScaleup={commentScaleupFactorY}
+                formatTid={this.props.formatTid}/> :
+              null
+            }
+            {
+              hulls.map((hull) => {
+                return <Hull key={hull.group[0].gid} hull={hull}/>
+              })
+            }
+          </svg>
+
       </div>
     );
   }
@@ -88,19 +91,19 @@ class Graph extends React.Component {
 
 export default Graph;
 
+// componentDidMount() {
+//   this.Viewer.fitToViewer();
+// }
+// <div>
+//   <button onClick={event => this.Viewer.zoomOnViewerCenter(1.1)}>Zoom in</button>
+//   <button onClick={event => this.Viewer.fitSelection(40, 40, 200, 200)}>Zoom area</button>
+//   <button onClick={event => this.Viewer.fitToViewer()}>Fit</button>
+// </div>
 
-// {/*this.props.math["group-clusters"].map((c, i) => {
-//   return (<text
-//   key={i}
-//   transform={globals.getGroupNamePosition(i)}
-//   fill="rgba(0,0,0,0.7)"
-//   style={{
-//   display: "block",
-//   fontFamily: "Helvetica, sans-serif",
-//   fontSize: 10,
-//   fontWeight: 700
-//   }}
-//   >
-//   {this.props.groupNames[c.id]}
-//   </text>);
-//   }) */}
+// <ReactSVGPanZoom
+//   style={{outline: "1px solid black", fill: "white"}}
+//   width={500} height={500} ref={Viewer => this.Viewer = Viewer}
+//   onClick={event => console.log('click', event.x, event.y, event.originalEvent)}
+//   onMouseMove={event => console.log('move', event.x, event.y)} >
+//
+// </ReactSVGPanZoom>

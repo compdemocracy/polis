@@ -63,7 +63,7 @@
     "react-router": "2.6.0",
     "react-select": "^1.0.0-rc.2",
     "react-sidebar": "^2.2.1",
-    "react-svg-pan-zoom": "2.0.0",
+    "react-svg-pan-zoom": "^2.0.0",
     "react-tap-event-plugin": "^0.2.1",
     "react-throttle": "^0.3.0",
     "redux": "^3.0.2",
