@@ -16,11 +16,30 @@ const square = 20;
 @Radium
 class Matrix extends React.Component {
 
+
+  onMouseEnterCell(row, column, correlation) {
+    this.setState({
+      mouseOverRow: row,
+      mouseOverColumn: column,
+      mouseOverCorrelation: correlation,
+    });
+  }
+  onMouseExitCell(row, column) {
+    this.setState({
+      mouseOverRow: null,
+      mouseOverColumn: null,
+      mouseOverCorrelation: null,
+    });
+  }
+
   makeRect(comment, row, column) {
     return (
       <g>
         <rect
           fill={d3.interpolateRdBu(scale(comment))}
+          onMouseEnter={() => {
+            return this.onMouseEnterCell(row, column, comment);
+          }}
           width={square}
           height={square} />
           <text
@@ -70,8 +89,15 @@ class Matrix extends React.Component {
         markup = (
           <g key={column} >
             <text
+
+              onMouseEnter={() => {
+                return this.onMouseExitCell();
+              }}
+              onMouseLeave={() => {
+                return this.onMouseExitCell();
+              }}
               transform={"translate(" + (column * square + 10) + ", 46), rotate(315)"}
-              fill="rgba(0,0,0,0.7)"
+              fill={ (column === this.state.mouseOverColumn || column === this.state.mouseOverRow) ? "rgba(0,0,0,1)" : "rgba(0,0,0,0.5)"}
               style={{
                 fontFamily: "Helvetica, sans-serif",
                 fontSize: 10,
@@ -144,6 +170,30 @@ class Matrix extends React.Component {
         </div>
 
         <svg width={side} height={side}>
+
+          <rect
+            fill="rgba(0,0,0,0)"
+            onMouseEnter={() => {
+              return this.onMouseExitCell();
+            }}
+            onMouseLeave={() => {
+              return this.onMouseExitCell();
+            }}
+            width={side}
+            height={side} />
+
+          {this.state.mouseOverCorrelation === null ? "" : <text
+            x={200}
+            y={100}
+            textAnchor={"middle"}
+            fill={d3.interpolateRdBu(scale(this.state.mouseOverCorrelation))}
+            style={{
+              fontFamily: globals.sans,
+              fontSize: 20
+            }}>
+            {Math.round(this.state.mouseOverCorrelation * 1000) / 1000}
+          </text>}
+
           <g transform={"translate(450,0), rotate(45)"/* abstract translate magic number */}>
           {this.props.probabilities.map((comments, row) => {
             return (
