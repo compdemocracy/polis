@@ -89,7 +89,7 @@
             (assoc :n-ptps (:n conv))
             (merge (utils/hash-map-subset conv #{:n-cmts :zid :last-vote-timestamp})
                    extra-data)
-            (->> (db/upload-math-profile postgres (:zid conv) (:math-env config))))
+            (->> (db/upload-math-profile postgres (:zid conv))))
         (catch Exception e
           (log/warn "Unable to submit profile data for zid:" (:zid conv))
           (.printStackTrace e)))
@@ -140,7 +140,7 @@
 				    [prep-ptpt-stats db/upload-math-ptptstats]]]
           (->> updated-conv
                prep-fn
-               (uploader pg zid (:math-env config))))
+               (uploader pg zid)))
         (log/info "Finished uploading mongo results for zid:" zid)
         ; Return the updated conv
         updated-conv)
@@ -228,7 +228,7 @@
   "Given a zid, either load a minimal set of information from mongo, or if a new zid, create a new conv"
   [conv-man zid & {:keys [recompute]}]
   (log/info "Running load or init")
-  (if-let [conv (and (not recompute) (db/load-conv (:postgres conv-man) zid (-> conv-man :config :math-env)))]
+  (if-let [conv (and (not recompute) (db/load-conv (:postgres conv-man) zid))]
     (-> conv
         ;(->> (tr/trace "load-or-init (about to restructure):"))
         restructure-json-conv

@@ -308,54 +308,54 @@
     ["task_bucket = ?" task_bucket]))
 
 (defn upload-math-main
-  [postgres zid math-env data]
+  [postgres zid data]
   (log/info "upload-math-main")
   ;;(log/info "upload-math-main" (:lastVoteTimestamp data) data)
-  (query postgres ["insert into math_main (zid, math_env, last_vote_timestamp, data) values (?,?,?,?) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data, last_vote_timestamp = excluded.last_vote_timestamp returning zid;" zid (name math-env) (:lastVoteTimestamp data) (pg-json data)]))
+  (query postgres ["insert into math_main (zid, math_env, last_vote_timestamp, data) values (?,?,?,?) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data, last_vote_timestamp = excluded.last_vote_timestamp returning zid;" zid (name (-> postgres :config :math-env)) (:lastVoteTimestamp data) (pg-json data)]))
 
 (defn upload-math-profile
-  [postgres zid math-env data]
+  [postgres zid data]
   (log/info "upload-math-profile")
-  (query postgres ["insert into math_profile (zid, math_env, data) values (?,?,?) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data returning zid;" zid (name math-env) (pg-json data)]))
+  (query postgres ["insert into math_profile (zid, math_env, data) values (?,?,?) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data returning zid;" zid (name (-> postgres :config :math-env)) (pg-json data)]))
 
 (defn upload-math-ptptstats
-  [postgres zid math-env data]
+  [postgres zid data]
   (log/info "upload-math-ptptstats")
-  (query postgres ["insert into math_ptptstats (zid, math_env, data) values (?,?,?) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data returning zid;" zid (name math-env) (pg-json data)]))
+  (query postgres ["insert into math_ptptstats (zid, math_env, data) values (?,?,?) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data returning zid;" zid (name (-> postgres :config :math-env)) (pg-json data)]))
 
 (defn upload-math-cache
   [postgres zid math-env data]
   (log/info "upload-math-cache")
-  (query postgres ["insert into math_cache (zid, math_env, data) values (?,?,?) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data returning zid;" zid (name math-env) (pg-json data)]))
+  (query postgres ["insert into math_cache (zid, math_env, data) values (?,?,?) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data returning zid;" zid (name (-> postgres :config :math-env)) (pg-json data)]))
 
 (defn upload-math-bidtopid
-  [postgres zid math-env data]
-  (query postgres ["insert into math_bidtopid (zid, math_env, data) values (?,?,?) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data returning zid;" zid (name math-env) (pg-json data)]))
+  [postgres zid data]
+  (query postgres ["insert into math_bidtopid (zid, math_env, data) values (?,?,?) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data returning zid;" zid (name (-> postgres :config :math-env)) (pg-json data)]))
 
 (defn upload-math-exportstatus
-  [postgres zid math-env filename data]
+  [postgres zid filename data]
   (log/info "upload-math-exportstatus")
   (query postgres []
     "insert into math_exportstatus (zid, math_env, filename, data, modified) values (?,?,?,?, now_as_millis()) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data, filename = modified.filename returning zid;"
     zid
-    (name math-env)
+    (name (-> postgres :config :math-env))
     filename
     (pg-json data)))
 
 (defn get-math-exportstatus
-  [postgres zid math-env filename]
+  [postgres zid filename]
   (log/info "get-math-exportstatus")
-  (first (query postgres ["select * from math_exportstatus where zid = (?) and math_env = (?) and filename = (?);" zid (name math-env) filename])))
+  (first (query postgres ["select * from math_exportstatus where zid = (?) and math_env = (?) and filename = (?);" zid (name (-> postgres :config :math-env)) filename])))
 
 
 (defn load-conv
   "Very bare bones reloading of the conversation; no cleanup for keyword/int hash-map key mismatches,
   as found in the :repness"
-  [postgres zid math-env]
+  [postgres zid]
   (log/info "load-conv")
-  (let [row (first (query postgres ["select * from math_main where zid = (?) and math_env = (?);" zid (name math-env)]))]
+  (let [row (first (query postgres ["select * from math_main where zid = (?) and math_env = (?);" zid (name (-> postgres :config :math-env))]))]
     (log/info "load-conv" row)
-    (if row
+    (if (not (nil? row))
   	(ch/parse-string (.toString (:data row)))
 	row)))
 

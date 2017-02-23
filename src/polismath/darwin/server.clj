@@ -74,7 +74,6 @@
   (db/upload-math-exportstatus
     postgres
     zid
-    (config :math-env)
     filename
     (db/format-as-json-for-db
       (assoc document
@@ -84,8 +83,8 @@
     
 
 (defn get-export-status
-  [{:as darwin :keys [postgres config]} filename zid]
-  (db/get-math-exportstatus postgres zid (config :math-env) filename)) ; TODO_MIKE only the first result if there are any
+  [{:as darwin :keys [postgres]} filename zid]
+  (first (db/get-math-exportstatus postgres zid filename)))
 
 
 (defn notify-of-status
