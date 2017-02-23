@@ -87,6 +87,24 @@ class ShareAndEmbed extends React.Component {
             }
           </div>
         </div>
+        <div style={styles.card}>
+          <p style={{
+            fontSize: 24,
+            fontWeight: 300,
+            marginTop: 0
+
+            }}> {"Explainer"} </p>
+          <p style={{fontWeight: 300}}>
+            {
+              "Adapt this script to explain pol.is to participants in your format or venue."
+            }
+          </p>
+          <p style={{fontWeight: 300}}>
+            {
+              "[Coming soon]."
+            }
+          </p>
+        </div>
       </div>
     );
   }
