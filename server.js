@@ -9627,6 +9627,63 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
+
+  function handle_GET_reports(req, res) {
+    let zid = req.p.zid;
+    let rid = req.p.rid;
+    let uid = req.p.uid;
+
+    let reportsPromise = null;
+
+    if (rid) {
+      if (zid) {
+        reportsPromise = Promise.reject("polis_err_get_reports_should_not_specify_both_report_id_and_conversation_id");
+      } else {
+        reportsPromise = pgQueryP("select * from reports where rid = ($1);", [rid]);
+      }
+    } else if (zid) {
+      reportsPromise = isModerator(zid, uid).then((doesOwnConversation) => {
+        if (!doesOwnConversation) {
+          throw "polis_err_permissions";
+        }
+        return pgQueryP("select * from reports where zid = ($1);", [zid]);
+      });
+    } else {
+      reportsPromise = pgQueryP("select * from reports where zid in (select zid from conversations where owner = ($1));", [uid]);
+    }
+
+    reportsPromise.then((reports) => {
+      let zids = [];
+      reports = reports.map((report) => {
+        zids.push(report.zid);
+        delete report.rid;
+        return report;
+      });
+
+      if (zids.length === 0) {
+        return res.json(reports);
+      }
+      return pgQueryP("select * from zinvites where zid in (" + zids.join(",") + ");", []).then((zinvite_entries) => {
+        let zidToZinvite = _.indexBy(zinvite_entries, "zid");
+        reports = reports.map((report) => {
+          report.conversation_id = zidToZinvite[report.zid].zinvite;
+          delete report.zid;
+          return report;
+        });
+        res.json(reports);
+      });
+    }).catch((err) => {
+      if (err === "polis_err_permissions") {
+        fail(res, 403, "polis_err_permissions");
+      } else if (err === "polis_err_get_reports_should_not_specify_both_report_id_and_conversation_id") {
+        fail(res, 404, "polis_err_get_reports_should_not_specify_both_report_id_and_conversation_id");
+      } else {
+        fail(res, 500, "polis_err_get_reports_misc", err);
+      }
+    });
+  }
+
+
   function decodeParams(encodedStringifiedJson) {
     if (!encodedStringifiedJson.match(/^\/?ep1_/)) {
       throw new Error("wrong encoded params prefix");
@@ -13650,6 +13707,7 @@ CREATE TABLE slack_user_invites (
     handle_GET_pcaPlaybackList,
     handle_GET_perfStats,
     handle_GET_ptptois,
+    handle_GET_reports,
     handle_GET_setup_assignment_xml,
     handle_GET_slack_login,
     handle_GET_snapshot,

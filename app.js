@@ -176,6 +176,7 @@ helpersInitialized.then(function(o) {
     handle_GET_pcaPlaybackList,
     handle_GET_perfStats,
     handle_GET_ptptois,
+    handle_GET_reports,
     handle_GET_setup_assignment_xml,
     handle_GET_slack_login,
     handle_GET_snapshot,
@@ -979,6 +980,13 @@ helpersInitialized.then(function(o) {
     want('context', getStringLimitLength(1, 999), assignToP),
     want('xid', getStringLimitLength(1, 999), assignToP),
     handle_GET_conversations);
+
+  app.get('/api/v3/reports',
+    moveToBody,
+    auth(assignToP),
+    want('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    want('report_id', getReportIdFetchRid, assignToPCustom('rid')), // Knowing the report_id grants the user permission to view the report
+    handle_GET_reports);
 
   app.get('/api/v3/contexts',
     moveToBody,
