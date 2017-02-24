@@ -12,6 +12,7 @@ import StaticContentContainer from "./framework/static-content-container";
 
 const styles = {
   heading: {
+    color: "rgb(160,160,160)",
     fontSize: 36,
     display: "block",
     margin: 0,
@@ -19,7 +20,7 @@ const styles = {
   card: {
     position: "relative",
     zIndex: 10,
-    backgroundColor: "rgba(0,0,0,.3)",
+    // backgroundColor: "rgba(0,0,0,.3)",
     padding: 30,
     borderRadius: 3,
     color: "white"
@@ -34,7 +35,7 @@ const styles = {
     fontSize: 14,
     padding: 7,
     borderRadius: 3,
-    border: "1px solid rgba(240,240,240,1)",
+    border: "1px solid rgb(200,200,200)",
   },
 }
 
@@ -55,7 +56,11 @@ class PasswordResetInit extends React.Component {
 
   render() {
     return (
-      <StaticContentContainer>
+      <StaticContentContainer
+        backgroundColor={"#03a9f4"}
+        headerBackgroundColor={"#03a9f4"}
+        footerBackgroundColor={"#03a9f4"}
+        image={false}>
         <Flex>
           <div style={styles.card}>
               <p style={styles.heading}> Password Reset</p>
