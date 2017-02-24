@@ -212,6 +212,15 @@ class ConversationConfig extends React.Component {
             color={settings.polisBlue}/>
             <p style={{fontSize: 10, fontStyle: "italic"}}> </p>
           <Checkbox
+            label="Show pol.is branding"
+            ref={"branding_type"}
+            checked={this.props.zid_metadata.branding_type === 1 ? true : false}
+            onCheck={ this.handleIntegerBoolValueChange("branding_type").bind(this) }
+            labelPosition={"left"}
+            labelWrapperColor={settings.darkerGray}
+            color={settings.polisBlue}/>
+            <p style={{fontSize: 10, fontStyle: "italic"}}> </p>
+          <Checkbox
             label="Facebook login prompt"
             ref={"auth_opt_fb"}
             checked={this.props.zid_metadata.auth_opt_fb}
