@@ -811,6 +811,7 @@ helpersInitialized.then(function(o) {
     need('tid', getInt, assignToP),
     need('active', getBool, assignToP),
     need('mod', getInt, assignToP),
+    need('is_meta', getBool, assignToP),
     need('velocity', getNumberInRange(0, 1), assignToP),
     handle_PUT_comments);
 

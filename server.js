@@ -7377,9 +7377,9 @@ Email verified! You can close this tab or hit the back button.
   //     return server + "/"+path+"?" + paramsToStringSortedByName(params);
   // }
 
-  function moderateComment(zid, tid, active, mod) {
+  function moderateComment(zid, tid, active, mod, is_meta) {
     return new Promise(function(resolve, reject) {
-      pgQuery("UPDATE COMMENTS SET active=($3), mod=($4), modified=now_as_millis() WHERE zid=($1) and tid=($2);", [zid, tid, active, mod], function(err) {
+      pgQuery("UPDATE COMMENTS SET active=($3), mod=($4), modified=now_as_millis(), is_meta = ($5) WHERE zid=($1) and tid=($2);", [zid, tid, active, mod, is_meta], function(err) {
         if (err) {
           reject(err);
         } else {
@@ -8547,10 +8547,11 @@ Email verified! You can close this tab or hit the back button.
     let tid = req.p.tid;
     let active = req.p.active;
     let mod = req.p.mod;
+    let is_meta = req.p.is_meta;
 
     isModerator(zid, uid).then(function(isModerator) {
       if (isModerator) {
-        moderateComment(zid, tid, active, mod).then(function() {
+        moderateComment(zid, tid, active, mod, is_meta).then(function() {
           res.status(200).json({});
         }, function(err) {
           fail(res, 500, "polis_err_update_comment", err);
