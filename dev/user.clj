@@ -26,14 +26,15 @@
 ;(do
 (comment
   ;(runner/run! system/base-system)
-  (runner/run! system/task-system)
-  ;(runner/run! system/full-system)
+  ;(runner/run! system/task-system)
+  (runner/run! system/full-system)
+  (runner/stop!)
   ;(runner/run! system/darwin-system)
 
   (def args {:zid 15228})
   (def conv (load-conv args))
 
-  (:config runner/system)
+  (:math-env (:config runner/system))
 
   (let [updated-conv (conv/conv-update conv [{:zid 15228 :pid 0 :tid 0 :vote 2.0 :created (System/currentTimeMillis)}])
         _ (log/info "First update")
@@ -48,6 +49,6 @@
   ;(get-conv args)
   (-> runner/system :conversation-manager :conversations deref)
 
-  (runner/stop!)
+  (runner/start!)
 
   :end)

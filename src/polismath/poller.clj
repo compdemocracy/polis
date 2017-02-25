@@ -19,8 +19,7 @@
               :moderation [postgres/mod-poll :modified]}
              message-type)]
     (go-loop [last-timestamp start-polling-from]
-      ;(when-not (async/poll! (:kill-chan poller)) ;; TODO When we upgrade clojure & clojure.core.async, should do this
-      (when-not (first (async/alts! [kill-chan (async/timeout 0)] :priority true))
+      (when-not (async/poll! kill-chan) ;; TODO When we upgrade clojure & clojure.core.async, should do this
         (log/info "Polling" message-type ">" last-timestamp)
         (let [results (poll-function postgres last-timestamp)
               grouped-batches (group-by :zid results)
@@ -39,7 +38,7 @@
   component/Lifecycle
   (start [component]
     (log/info ">> Starting" message-type "poller component")
-    (let [kill-chan (async/chan)
+    (let [kill-chan (async/promise-chan)
           component (assoc component :kill-chan kill-chan)]
       (poll component message-type)
       component))

@@ -175,7 +175,7 @@
 
 (defn get-users-by-uid
   [component uids]
-  (log/info "get-user-by-uid")
+  (log/info "get-user-by-uid for uids" uids)
   (kdb/with-db (:db-spec component)
     (->
       get-users-with-stats
@@ -185,7 +185,7 @@
 
 (defn get-users-by-email
   [component emails]
-  (log/info "get-user-by-email")
+  (log/info "get-user-by-email for emails" emails)
   (kdb/with-db (:db-spec component)
     (->
       get-users-with-stats
@@ -194,7 +194,7 @@
 
 (defn get-zid-from-zinvite
   [component zinvite]
-  (log/info "get-zid-from-zinvite")
+  (log/info "get-zid-from-zinvite for zinvite" zinvite)
   (->
     (kdb/with-db (:db-spec component)
                  (ko/select "zinvites"
@@ -206,7 +206,7 @@
 (defn conv-poll
   "Query for all data since last-vote-timestamp for a given zid, given an implicit db-spec"
   [component zid last-vote-timestamp]
-  (log/info "conv-poll")
+  (log/info "conv-poll for zid" zid ", last-vote-timestap" last-vote-timestamp)
   (try
     (kdb/with-db (:db-spec component)
       (ko/select votes
@@ -247,7 +247,6 @@
   "Takes a postgres component and a query, and executes the query. The query can either be a postgres vector, or a map.
   Maps will be compiled via honeysql/format."
   [component query-data]
-  (log/info "query")
   (if (map? query-data)
     (query component (sql/format query-data))
     (jdbc/query (:db-spec component) query-data)))
@@ -297,6 +296,16 @@
   [postgres rid data]
   (query postgres ["insert into math_report_correlationmatrix (rid, math_env, data) values (?,?,?) on conflict (rid, math_env) do update set data = excluded.data returning rid;" rid (name (-> postgres :config :math-env)) (pg-json data)]))
 
+
+;; TODO Fix this; need task-type in here as well for this to work
+;(defn mark-task-complete!
+;  [postgres task-type task-bucket]
+;  (log/info "mark-task-complete called for task-type, task-bucket:" task-type task-bucket)
+;  (jdbc/update!
+;    (:db-spec postgres)
+;    :worker_tasks
+;    {:finished_time (System/currentTimeMillis)}
+;    ["task_type = ? and task_bucket = ?" task-type task-bucket]))
 ;; Marks all tasks with the same task_bucket as done.
 (defn mark-task-complete!
   [postgres task_bucket]
@@ -309,42 +318,44 @@
 
 (defn upload-math-main
   [postgres zid data]
-  (log/info "upload-math-main")
-  ;;(log/info "upload-math-main" (:lastVoteTimestamp data) data)
+  (log/info "upload-math-main for zid" zid)
   (query postgres ["insert into math_main (zid, math_env, last_vote_timestamp, data) values (?,?,?,?) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data, last_vote_timestamp = excluded.last_vote_timestamp returning zid;" zid (name (-> postgres :config :math-env)) (:lastVoteTimestamp data) (pg-json data)]))
 
 (defn upload-math-profile
   [postgres zid data]
-  (log/info "upload-math-profile")
+  (log/info "upload-math-profile for zid" zid)
   (query postgres ["insert into math_profile (zid, math_env, data) values (?,?,?) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data returning zid;" zid (name (-> postgres :config :math-env)) (pg-json data)]))
 
 (defn upload-math-ptptstats
   [postgres zid data]
-  (log/info "upload-math-ptptstats")
+  (log/info "upload-math-ptptstats for zid" zid)
   (query postgres ["insert into math_ptptstats (zid, math_env, data) values (?,?,?) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data returning zid;" zid (name (-> postgres :config :math-env)) (pg-json data)]))
 
-(defn upload-math-cache
-  [postgres zid math-env data]
-  (log/info "upload-math-cache")
-  (query postgres ["insert into math_cache (zid, math_env, data) values (?,?,?) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data returning zid;" zid (name (-> postgres :config :math-env)) (pg-json data)]))
+;; XXX Not using this anywhere apparently so should remove
+;(defn upload-math-cache
+;  [postgres zid data]
+;  (log/info "upload-math-cache for zid" zid)
+;  (query postgres ["insert into math_cache (zid, math_env, data) values (?,?,?) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data returning zid;" zid (name (-> postgres :config :math-env)) (pg-json data)]))
 
 (defn upload-math-bidtopid
   [postgres zid data]
+  (log/info "upload-math-bidtopid for zid" zid)
   (query postgres ["insert into math_bidtopid (zid, math_env, data) values (?,?,?) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data returning zid;" zid (name (-> postgres :config :math-env)) (pg-json data)]))
 
 (defn upload-math-exportstatus
   [postgres zid filename data]
-  (log/info "upload-math-exportstatus")
-  (query postgres []
-    "insert into math_exportstatus (zid, math_env, filename, data, modified) values (?,?,?,?, now_as_millis()) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data, filename = modified.filename returning zid;"
-    zid
-    (name (-> postgres :config :math-env))
-    filename
-    (pg-json data)))
+  (log/info "upload-math-exportstatus or zid" zid)
+  (query
+    postgres
+    ["insert into math_exportstatus (zid, math_env, filename, data, modified) values (?,?,?,?, now_as_millis()) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data, filename = modified.filename returning zid;"
+     zid
+     (name (-> postgres :config :math-env))
+     filename
+     (pg-json data)]))
 
 (defn get-math-exportstatus
   [postgres zid filename]
-  (log/info "get-math-exportstatus")
+  (log/info "get-math-exportstatus for zid" zid)
   (first (query postgres ["select * from math_exportstatus where zid = (?) and math_env = (?) and filename = (?);" zid (name (-> postgres :config :math-env)) filename])))
 
 
@@ -352,12 +363,18 @@
   "Very bare bones reloading of the conversation; no cleanup for keyword/int hash-map key mismatches,
   as found in the :repness"
   [postgres zid]
-  (log/info "load-conv")
+  (log/info "load-conv called for zid" zid)
   (let [row (first (query postgres ["select * from math_main where zid = (?) and math_env = (?);" zid (name (-> postgres :config :math-env))]))]
-    (log/info "load-conv" row)
-    (if (not (nil? row))
-  	(ch/parse-string (.toString (:data row)))
-	row)))
+    (if row
+      ;; TODO Make sure this loads with keywords for map keys, except where they should be integers
+      (ch/parse-string
+        (.toString (:data row))
+        (fn [x]
+          (try
+            (Long/parseLong x)
+            (catch Exception _
+              (keyword x)))))
+      row)))
 
   ; (mc/find-one-as-map
     ; (:db mongo)

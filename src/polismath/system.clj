@@ -3,7 +3,6 @@
 (ns polismath.system
   (:require [polismath.utils :as utils]
             [polismath.components [config :as config]
-                                  [mongo :as mongo]
                                   [postgres :as postgres]
                                   [core-matrix-boot :as core-matrix-boot]
                                   [logger :as logger]
@@ -26,8 +25,7 @@
    ;:logger               (component/using (logger/create-logger)                 [:config])
    :core-matrix-boot     (component/using (core-matrix-boot/create-core-matrix-booter) [:config])
    :postgres             (component/using (postgres/create-postgres)             [:config])
-   :mongo                (component/using (mongo/create-mongo)                   [:config])
-   :conversation-manager (component/using (conv-man/create-conversation-manager) [:config :core-matrix-boot :mongo :postgres])})
+   :conversation-manager (component/using (conv-man/create-conversation-manager) [:config :core-matrix-boot :postgres])})
 
 (defn poller-system
   "Creates a base-system and assocs in darwin server related components."
@@ -43,7 +41,7 @@
   [config-overrides]
   (merge
     (base-system config-overrides)
-    {:app    (component/using (darwin/create-darwin) [:config :postgres :mongo :conversation-manager])
+    {:app    (component/using (darwin/create-darwin) [:config :postgres :conversation-manager])
      :server (component/using (server/create-server) [:config :conversation-manager :app])}))
 
 (defn task-system

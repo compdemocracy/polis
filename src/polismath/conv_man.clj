@@ -7,7 +7,6 @@
             [polismath.math.clusters :as clust]
             [polismath.meta.metrics :as met]
             [polismath.components.env :as env]
-            [polismath.components.mongo :as mongo]
             [polismath.components.postgres :as db]
             [polismath.math.corr :as corr]
             [polismath.utils :as utils]
@@ -111,7 +110,7 @@
   up in the channel, we also take an error-callback. Eventually we'll want to pass opts through here as well."
   [conv-man conv votes error-callback]
   (let [start-time (System/currentTimeMillis)
-	config (:config conv-man)
+        config (:config conv-man)
         pg (:postgres conv-man)]
     (log/info "Starting conversation update for zid:" (:zid conv))
     (try
@@ -136,12 +135,12 @@
                                   validation-errors))))
         ; Format and upload main results
         (doseq [[prep-fn uploader] [[prep-main db/upload-math-main] ; main math results, for client
-				    [prep-bidToPid db/upload-math-bidtopid] ; bidtopid mapping, for server
-				    [prep-ptpt-stats db/upload-math-ptptstats]]]
+                                    [prep-bidToPid db/upload-math-bidtopid] ; bidtopid mapping, for server
+                                    [prep-ptpt-stats db/upload-math-ptptstats]]]
           (->> updated-conv
                prep-fn
                (uploader pg zid)))
-        (log/info "Finished uploading mongo results for zid:" zid)
+        (log/info "Finished uploading math results for zid:" zid)
         ; Return the updated conv
         updated-conv)
       ; In case anything happens, run the error-callback handler. Agent error handlers do not work here, since
@@ -208,7 +207,7 @@
 
 ;; ^ I'm leaving this note in for posterity, but note that this is exactly what spec is :-)
 
-;; XXX However, we shouldn't even be pushing the results to mongo if we didn't actually update anything
+;; XXX However, we shouldn't even be pushing the results if we didn't actually update anything
 
 (defn restructure-json-conv
   [conv]
@@ -225,7 +224,7 @@
 
 
 (defn load-or-init
-  "Given a zid, either load a minimal set of information from mongo, or if a new zid, create a new conv"
+  "Given a zid, either load a minimal set of information from postgres, or if a new zid, create a new conv"
   [conv-man zid & {:keys [recompute]}]
   (log/info "Running load or init")
   (if-let [conv (and (not recompute) (db/load-conv (:postgres conv-man) zid))]
@@ -275,17 +274,20 @@
                 (flatten))))))
 
 
-(defrecord ConversationManager [config mongo postgres metrics conversations listeners]
+(defrecord ConversationManager [config postgres metrics conversations listeners kill-chan]
   component/Lifecycle
   (start [component]
     (log/info ">> Starting ConversationManager")
     (let [conversations (atom {})
-          listeners (atom {})]
-      (assoc component :conversations conversations :listeners listeners)))
+          listeners (atom {})
+          kill-chan (async/promise-chan)]
+      (assoc component :conversations conversations :listeners listeners :kill-chan kill-chan)))
   (stop [component]
     (log/info "<< Stopping ConversationManager")
     (try
       ;; Close all our message channels for good measure
+      (log/debug "conversations:" conversations)
+      (go (>! kill-chan :kill))
       (doseq [[zid {:keys [message-chan]}] @conversations]
         (async/close! message-chan))
       ;; Not sure, but we might want this for GC
@@ -293,7 +295,7 @@
       (reset! listeners nil)
       (catch Exception e
         (log/error e "Unable to stop ConvMan component")))
-    (assoc component :conversations nil)))
+    component))
 
 (defn create-conversation-manager
   []
@@ -319,48 +321,50 @@
 ;; Need to think about what to do if failed conversations lead to messages piling up in the message queue XXX
 (defn queue-message-batch!
   "Queue message batches for a given conversation by zid"
-  [{:as conv-man :keys [conversations config listeners]} message-type zid message-batch]
-  (if-let [{:keys [conv message-chan]} (get @conversations zid)]
-    ;; Then we already have a go loop running for this
-    (>!! message-chan {:message-type message-type :message-batch message-batch})
-    ;; Then we need to initialize the conversation and set up the conversation channel and go routine
-    (let [_ (log/info "Starting message batch queue and handler routine for conv zid:" zid)
-          conv (load-or-init conv-man zid :recompute (:recompute config))
-          _ (log/info "Conversation loaded for conv zid:" zid)
-          ;; XXX Need to set up message chan buffer as a env var
-          message-chan (chan 100000)
-          ;; We use a separate cchannel for messages that we've tryied to process but that havent worked for one reason or another
-          retry-chan   (chan 10)] ; only really need buffer 1 here?
-      (swap! conversations assoc zid {:conv conv :message-chan message-chan :retry-chan retry-chan})
-      ;; Just call again to make sure the message gets on the chan :-)
-      (queue-message-batch! conv-man message-type zid message-batch)
-      ;; However, we don't use the conversations atom conv state, but keep track of it explicitly in the loop,
-      ;; ensuring that we don't have race conditions for conv state. The state kept in the atom is basically
-      ;; just a convenience.
-      (go-loop [conv conv]
-        ;; If nil comes through as the first message, then the chan is closed, and we should be done, not continue looping forever
-        (when-let [first-msg (<! message-chan)]
-          (let [retry-msgs (async/poll! retry-chan)
-                _ (log/info "Message chan put in queue-message-batch! for zid:" zid)
-                msgs (vec (concat retry-msgs [first-msg] (take-all! message-chan)))
-                {:as split-msgs :keys [votes moderation generate_report_data]} (split-batches msgs)
-                error-handler (build-update-error-handler conv-man retry-chan conv)
-                _ (log/info "About to run updaters")
-                ;; TODO Oh... is this how we're failing to get moderation affecting repness? We're presently only updating mongo
-                ;; (via `update`) if there are also votes. (see below)
-                conv (if moderation
-                       (conv/mod-update conv moderation)
-                       conv)
-                ;; Should extracct the stateful bits here till the very end, so even if there are just mods it updates
-                conv (if votes
-                       (conv-update conv-man conv votes error-handler)
-                       conv)]
-            (doseq [report-task generate_report_data]
-              (generate-report-data! conv-man conv report-task))
-            (log/info "Completed computing conversation zid:" zid)
-            (swap! conversations assoc-in [zid :conv] conv)
-            (doseq [[k f] @listeners] (try (f conv) (catch Exception e (log/error "Listener error") (.printStackTrace e))))
-            (recur conv)))))))
+  [{:as conv-man :keys [conversations config listeners kill-chan]} message-type zid message-batch]
+  (when-not (async/poll! kill-chan)
+    (if-let [{:keys [conv message-chan]} (get @conversations zid)]
+      ;; Then we already have a go loop running for this
+      (>!! message-chan {:message-type message-type :message-batch message-batch})
+      ;; Then we need to initialize the conversation and set up the conversation channel and go routine
+      (let [_ (log/info "Starting message batch queue and handler routine for conv zid:" zid)
+            conv (load-or-init conv-man zid :recompute (:recompute config))
+            _ (log/info "Conversation loaded for conv zid:" zid)
+            ;; XXX Need to set up message chan buffer as a env var
+            message-chan (chan 100000)
+            ;; We use a separate cchannel for messages that we've tryied to process but that havent worked for one reason or another
+            retry-chan   (chan 10)] ; only really need buffer 1 here?
+        (swap! conversations assoc zid {:conv conv :message-chan message-chan :retry-chan retry-chan})
+        ;; Just call again to make sure the message gets on the chan :-)
+        (queue-message-batch! conv-man message-type zid message-batch)
+        ;; However, we don't use the conversations atom conv state, but keep track of it explicitly in the loop,
+        ;; ensuring that we don't have race conditions for conv state. The state kept in the atom is basically
+        ;; just a convenience.
+        (go-loop [conv conv]
+          ;; If nil comes through as the first message, then the chan is closed, and we should be done, not continue looping forever
+          (when-not (async/poll! kill-chan)
+            (when-let [first-msg (<! message-chan)]
+              (let [retry-msgs (async/poll! retry-chan)
+                    _ (log/info "Message chan put in queue-message-batch! for zid:" zid)
+                    msgs (vec (concat retry-msgs [first-msg] (take-all! message-chan)))
+                    {:as split-msgs :keys [votes moderation generate_report_data]} (split-batches msgs)
+                    error-handler (build-update-error-handler conv-man retry-chan conv)
+                    _ (log/info "About to run updaters")
+                    ;; TODO Oh... is this how we're failing to get moderation affecting repness? We're presently only updating blob
+                    ;; (via `update`) if there are also votes. (see below)
+                    conv (if moderation
+                           (conv/mod-update conv moderation)
+                           conv)
+                    ;; Should extracct the stateful bits here till the very end, so even if there are just mods it updates
+                    conv (if votes
+                           (conv-update conv-man conv votes error-handler)
+                           conv)]
+                (doseq [report-task generate_report_data]
+                  (generate-report-data! conv-man conv report-task))
+                (log/info "Completed computing conversation zid:" zid)
+                (swap! conversations assoc-in [zid :conv] conv)
+                (doseq [[k f] @listeners] (try (f conv) (catch Exception e (log/error "Listener error") (.printStackTrace e))))
+                (recur conv)))))))))
 
 
 ;; Need to find a good way of making sure these tests don't ever get committed uncommented

@@ -14,6 +14,7 @@
 
 
 (defonce system nil)
+;(def system nil)
 
 ;; Should build this to be an atom, and build something that intiates this state from a config file.
 ;; So when you reset, it reboots all systems.

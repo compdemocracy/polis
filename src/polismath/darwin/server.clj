@@ -14,15 +14,11 @@
     [ring.middleware.ssl :as ssl]
     [ring.middleware.keyword-params :as ring.keyword-params]
     [ring.middleware.basic-authentication :as auth :refer [wrap-basic-authentication]]
-    [bidi.bidi :as bidi]
     [bidi.ring]
     [com.stuartsierra.component :as component]
-    [monger.collection :as mc]
-    ;[hiccup.core :as hiccup]
     [amazonica.aws.s3 :as s3]
     [clj-time.core :as time]
     [clj-http.client :as client]
-    [polismath.components.mongo :as mongo]
     [polismath.utils :as utils]
     [clojure.set :as set]))
 
@@ -66,8 +62,8 @@
 
 
 
-;; We use mongo to persists the status of our exports, and data needed for downloading from AWS.
-;; Here, we're setting up basic mongo read and write helpers.
+;; We use postgres to persists the status of our exports as a json blob, and data needed for downloading from AWS.
+;; Here, we're setting up basic postgres read and write helpers.
 
 (defn update-export-status
   [{:as darwin :keys [postgres config]} filename zid zinvite document]
@@ -95,7 +91,7 @@
 ;; We use AWS to store conversation exports whcih took a long time to compute.
 ;; These exports are set to expire automatically.
 ;; The number of days before expiry should be stored in env variable :export-expiry-days.
-;; This value is used to compute the expiry of the exports mongo collection as well.
+;; This value is used to compute the expiry of the exports postgres blob as well.
 
 (defn aws-cred [darwin]
   (-> darwin :config :aws))
@@ -154,10 +150,10 @@
 (defn handle-timedout-datadump!
   [darwin filename compute-chan zinvite params]
   (log/info "Timed out on datadump computation for filename" filename "params:" (with-out-str (str params)) ". Starting async lifecycle.")
-  ;; First let mongo know we're working on it
+  ;; First let postgresk know we're working on it
   (notify-of-status darwin filename "processing" zinvite params)
   ;; Start a go routine, which upon completion of the computation loads the data to
-  ;; aws and updates the mongo
+  ;; aws and updates the postgres blob
   (go (when-let [_ (<! compute-chan)]
         (handle-completion! (aws-cred darwin) filename zinvite params))))
 
@@ -308,7 +304,7 @@
 
 
 ;; The filename is actually pretty iportant.
-;; It should be unique between different expors, as is used as the identifying key for the aws buckets, mongo
+;; It should be unique between different exports, as is used as the identifying key for the aws buckets, postgres
 ;; tracking and as part of the API requests.
 
 (defn generate-filename
@@ -492,7 +488,7 @@
     (log/info "Darwin request received:" (utils/hash-map-subset request [:request-method :uri :query-string :remote-addr]))
     (handler request)))
 
-(defrecord Darwin [config postgres mongo conversation-manager handler]
+(defrecord Darwin [config postgres conversation-manager handler]
   component/Lifecycle
   (start [component]
     (let [handler

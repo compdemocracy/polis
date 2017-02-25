@@ -28,7 +28,7 @@
                             formatted-output-str (output-fn data)]
                         (println formatted-output-str)))}
                    :file-appender
-                   {:spit (appenders/spit-appender {:fname "/path/my-file.log"})}}})
+                   {:spit (appenders/spit-appender {:fname "dev.log"})}}})
     (log/merge-config!
       (:logging config)))
   (stop [component]

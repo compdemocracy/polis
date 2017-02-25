@@ -32,7 +32,7 @@
 
 (defn poll
   [{:as poller :keys [config postgres kill-chan]}]
-  (log/debug "Initializing task poller loop")
+  (log/debug ">> Initializing task poller loop")
   (let [poller-config (-> config :poller)
         start-polling-from (:initial-polling-timestamp poller-config)
         polling-interval (or (-> poller-config :tasks :polling-interval) 1000)]
@@ -53,12 +53,12 @@
   component/Lifecycle
   (start [component]
     (log/info ">> Starting task poller component")
-    (let [kill-chan (async/chan)
+    (let [kill-chan (async/promise-chan)
           component (assoc component :kill-chan kill-chan)]
       (poll component)
       component))
   (stop [component]
-    (log/info "<< Stopping" "poller component")
+    (log/info "<< Stopping task poller component")
     (go (>! kill-chan :kill))
     component))
 

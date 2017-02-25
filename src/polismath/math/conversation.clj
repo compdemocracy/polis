@@ -17,7 +17,6 @@
     [clojure.core.matrix.operators :refer :all]
     [plumbing.core :as plmb]
     [plumbing.graph :as graph]
-    [monger.collection :as mc]
     [bigml.sampling.simple :as sampling]
     ;[alex-and-georges.debug-repl :as dbr]
     [taoensso.timbre :as log]
