@@ -94,7 +94,7 @@
           (.printStackTrace e)))
       (log/debug "Profile data for zid" (:zid conv) ": " prof))))
 
-;; XXX WIP; need to flesh out and think about all the ins and outs
+;; XXX This is temporary; should be switching to schema work in conversation ns
 ;; Also, should place this in conversation, but for now...
 (def Conversation
   "A schema for what valid conversations should look like (WIP)"
@@ -133,14 +133,6 @@
           (log/error "Validation error: Conversation value does not match schema for conv zid:" zid)
           (throw (Exception. (str "Validation error: Conversation Value does not match schema: "
                                   validation-errors))))
-        ; Format and upload main results
-        (doseq [[prep-fn uploader] [[prep-main db/upload-math-main] ; main math results, for client
-                                    [prep-bidToPid db/upload-math-bidtopid] ; bidtopid mapping, for server
-                                    [prep-ptpt-stats db/upload-math-ptptstats]]]
-          (->> updated-conv
-               prep-fn
-               (uploader pg zid)))
-        (log/info "Finished uploading math results for zid:" zid)
         ; Return the updated conv
         updated-conv)
       ; In case anything happens, run the error-callback handler. Agent error handlers do not work here, since
@@ -150,6 +142,18 @@
         (error-callback votes start-time (:opts' conv) e)
         conv))))
 
+(defn write-conv-updates!
+  [{:as conv-man :keys [postgres]} {:as updated-conv :keys [zid]}]
+  ;; TODO Really need to extract these writes so that mod updates do whta they're supposed to! And also run in async/thread for better parallelism
+  ; Format and upload main results
+  (async/thread
+    (doseq [[prep-fn uploader] [[prep-main db/upload-math-main] ; main math results, for client
+                                [prep-bidToPid db/upload-math-bidtopid] ; bidtopid mapping, for server
+                                [prep-ptpt-stats db/upload-math-ptptstats]]]
+      (->> updated-conv
+           prep-fn
+           (uploader postgres zid)))
+    (log/info "Finished uploading math results for zid:" zid)))
 
 ;; Maybe switch over to using this with arbitrary attrs map with zid and other data? XXX
 ;(defmacro try-with-error-log
@@ -314,8 +318,10 @@
   (let [rid (:rid report-data)
         tids (map :tid (postgres/query (:postgres conv-man) (postgres/report-tids rid)))
         corr-mat (corr/compute-corr conv tids)]
-    (postgres/insert-correlationmatrix! postgres rid corr-mat)
-    (postgres/mark-task-complete! postgres (-> report-data :task-record :rid))))
+    (async/thread
+      (postgres/insert-correlationmatrix! postgres rid corr-mat)
+      ;; TODO update to submit usng task type and task bucket
+      (postgres/mark-task-complete! postgres (-> report-data :task-record :rid)))))
 
 
 ;; Need to think about what to do if failed conversations lead to messages piling up in the message queue XXX
@@ -344,14 +350,18 @@
           ;; If nil comes through as the first message, then the chan is closed, and we should be done, not continue looping forever
           (when-not (async/poll! kill-chan)
             (when-let [first-msg (<! message-chan)]
+              ;; If there are any retry messages from a failed recompute, we put them at the front of the message stack.
+              ;; But retry messages only get processed in this way if there are new messages that have come in triggering the
+              ;; first-msg take above, ensuring we don't just loop forever on a broken message/update.
+              (log/info "Message chan put in queue-message-batch! for zid:" zid)
               (let [retry-msgs (async/poll! retry-chan)
-                    _ (log/info "Message chan put in queue-message-batch! for zid:" zid)
                     msgs (vec (concat retry-msgs [first-msg] (take-all! message-chan)))
+                    ;; Regardless, now we split the messages by message type and process them as below
                     {:as split-msgs :keys [votes moderation generate_report_data]} (split-batches msgs)
+                    ;; Here we construct an error handler that gets passed to the conv update process, wrapping the retry queue,
+                    ;; error reporting, etc.
                     error-handler (build-update-error-handler conv-man retry-chan conv)
-                    _ (log/info "About to run updaters")
-                    ;; TODO Oh... is this how we're failing to get moderation affecting repness? We're presently only updating blob
-                    ;; (via `update`) if there are also votes. (see below)
+                    ;; Run moderation and vote updates
                     conv (if moderation
                            (conv/mod-update conv moderation)
                            conv)
@@ -359,11 +369,14 @@
                     conv (if votes
                            (conv-update conv-man conv votes error-handler)
                            conv)]
+                (log/info "Completed computing conversation zid:" zid)
+                (write-conv-updates! conv-man conv)
+                ;; Run reports corr matrix stuff (etc)
                 (doseq [report-task generate_report_data]
                   (generate-report-data! conv-man conv report-task))
-                (log/info "Completed computing conversation zid:" zid)
                 (swap! conversations assoc-in [zid :conv] conv)
-                (doseq [[k f] @listeners] (try (f conv) (catch Exception e (log/error "Listener error") (.printStackTrace e))))
+                (async/thread
+                  (doseq [[k f] @listeners] (try (f conv) (catch Exception e (log/error "Listener error") (.printStackTrace e)))))
                 (recur conv)))))))))
 
 
