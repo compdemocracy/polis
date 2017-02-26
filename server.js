@@ -2601,7 +2601,7 @@ function initializePolisHelpers(mongoParams) {
     let requestExistsPromise = pgQueryP(
       "select * from worker_tasks where task_type = 'generate_report_data' and math_env=($2) "+
         "and task_bucket = ($1) " +
-        "and attempts < 3 " +
+        // "and attempts < 3 " +
         "and finished_time is NULL;", [rid, math_env]);
 
     let resultExistsPromise = pgQueryP(
