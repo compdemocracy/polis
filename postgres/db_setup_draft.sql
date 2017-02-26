@@ -567,6 +567,7 @@ CREATE TABLE comments(
     velocity REAL NOT NULL DEFAULT 1,
     mod INTEGER NOT NULL DEFAULT 0,-- {-1,0,1} where -1 is reject, 0 is no action, and 1 is accept
     active BOOLEAN NOT NULL DEFAULT TRUE, -- will be false if the comment should not be shown.
+    is_meta BOOLEAN NOT NULL DEFAULT FALSE,
     tweet_id BIGINT, -- Used when this comment is an imported tweet, else null.
     quote_src_url VARCHAR(1000), -- URL for a page where the (presumably) famous person's quote can be found
     anon BOOLEAN NOT NULL DEFAULT false, -- if true, the author of the comment will not be shown.
@@ -637,6 +638,11 @@ CREATE TABLE reports (
   zid INTEGER NOT NULL REFERENCES conversations(zid),
   created BIGINT DEFAULT now_as_millis(),
   modified BIGINT DEFAULT now_as_millis(),
+
+  label_x_neg VARCHAR(999),
+  label_x_pos VARCHAR(999),
+  label_y_neg VARCHAR(999),
+  label_y_pos VARCHAR(999),
 
   UNIQUE(rid),
   UNIQUE(report_id)
