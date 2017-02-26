@@ -6918,6 +6918,7 @@ Email verified! You can close this tab or hit the back button.
         "quote_src_url",
         "anon",
         "is_seed",
+        "is_meta",
       ];
       if (o.moderation) {
         cols.push("velocity");
