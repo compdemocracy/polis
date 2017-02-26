@@ -5,6 +5,8 @@
             [polismath.conv-man :as conv-man]
             [polismath.math.conversation :as conv]
             [polismath.components.postgres :as postgres]
+            [clojure.core.matrix :as matrix]
+            [clojure.core.async :as async :refer [>! <! >!! <!! go go-loop thread]]
             [environ.core :as env]
             [taoensso.timbre :as log]))
 
@@ -50,5 +52,18 @@
   (-> runner/system :conversation-manager :conversations deref)
 
   (runner/start!)
+
+
+  ;; Playing with core.async parallelism
+  (defn dowork [size]
+    (doseq [i (range size)]
+      (reduce + (range i))))
+
+  (let [kill-chan (async/promise-chan)
+        parallelism 4
+        work-size 30000]
+    (doseq [_ (range parallelism)]
+      (thread
+        (dowork work-size))))
 
   :end)
