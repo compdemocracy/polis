@@ -46,6 +46,9 @@
     (is (m=? (nm/get-matrix (nm/zero-out-columns real-nmat ["c2"]))
              [[0 0 nil] [-1 0 1] [-1 0 nil]]))
     (is (m=? (nm/get-matrix (nm/zero-out-columns real-nmat []))
+             (nm/get-matrix real-nmat))))
+  (testing "mod out a comment without votes yet"
+    (is (m=? (nm/get-matrix (nm/zero-out-columns real-nmat ["c999"]))
              (nm/get-matrix real-nmat)))))
 
 ; Simple creation test

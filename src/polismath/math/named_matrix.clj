@@ -205,8 +205,10 @@
         m'
         (reduce
           (fn [m' col]
-            (let [i (index col-index col)]
-              (matrix/set-column m' i 0)))
+            ;; It's possible to is_meta out a comment that hasn't yet been repsonded to
+            (if-let [i (index col-index col)]
+              (matrix/set-column m' i 0)
+              m'))
           m
           columns)]
     (named-matrix rows cols m')))
