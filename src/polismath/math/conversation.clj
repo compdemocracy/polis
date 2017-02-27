@@ -677,7 +677,7 @@
               (if (or is_meta (= mod -1))
                 (conj mod-out tid)
                 (disj mod-out tid)))
-            (or (:mod-out conv) #{})
+            (set (or (:mod-out conv) #{}))
             mods)]
       (-> conv
           (assoc :mod-out mod-out)

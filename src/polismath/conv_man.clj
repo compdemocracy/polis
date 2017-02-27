@@ -223,9 +223,10 @@
       ; Make sure there is an empty named matrix to operate on
       (assoc :unmodded-rating-mat (nm/named-matrix))
       ; Update the base clusters to be unfolded
-      (update-in [:base-clusters] clust/unfold-clusters)
+      (update :base-clusters clust/unfold-clusters)
       ; Make sure in-conv is a set
-      (update-in [:in-conv] set)))
+      (update :in-conv set)
+      (update :mod-out set)))
 
 
 (defn load-or-init
