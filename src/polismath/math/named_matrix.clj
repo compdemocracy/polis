@@ -201,7 +201,7 @@
   (let [m (get-matrix nm)
         cols (colnames nm)
         rows (rownames nm)
-        col-index (get-col-index m)
+        col-index (get-col-index nm)
         m'
         (reduce
           (fn [m' col]

@@ -180,8 +180,9 @@
                       :votes [])
                     votes))
 
-   :keep-votes  (plmb/fnk [customs]
-                  (:votes customs))
+   :keep-votes
+   (plmb/fnk [customs]
+     (:votes customs))
 
    :unmodded-rating-mat
    (plmb/fnk [conv keep-votes]

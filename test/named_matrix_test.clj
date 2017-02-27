@@ -3,7 +3,8 @@
 (ns named-matrix-test
   (:use test-helpers)
   (:require [clojure.test :refer :all]
-            [polismath.math.named-matrix :refer :all]))
+            [polismath.math.named-matrix :refer :all]
+            [polismath.math.named-matrix :as nm]))
 
 (def reactions [
                 '("p1" "c1"  0)
@@ -39,6 +40,13 @@
      (testing "horizontal"
        (is (m=? [[1 2 3 0] [4 5 6 0]] (add-padding m 1 1 0)))))))
 
+
+(deftest test-zero-out-columns
+  (testing "sanity check"
+    (is (m=? (nm/get-matrix (nm/zero-out-columns real-nmat ["c2"]))
+             [[0 0 nil] [-1 0 1] [-1 0 nil]]))
+    (is (m=? (nm/get-matrix (nm/zero-out-columns real-nmat []))
+             (nm/get-matrix real-nmat)))))
 
 ; Simple creation test
 (deftest create-matrix
