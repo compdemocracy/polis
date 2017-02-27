@@ -41,6 +41,7 @@
                                :group-clusters
                                :subgroup-clusters
                                :in-conv
+                               :mod-out
                                :lastVoteTimestamp
                                :lastModTimestamp
                                :n
