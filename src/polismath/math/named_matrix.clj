@@ -194,6 +194,24 @@
       "}")))
 
 
+
+(defn zero-out-columns
+  "Creates a new rating matrix which has had the specied columns zeroed out"
+  [nm columns]
+  (let [m (get-matrix nm)
+        cols (colnames nm)
+        rows (rownames nm)
+        col-index (get-col-index m)
+        m'
+        (reduce
+          (fn [m' col]
+            (let [i (index col-index col)]
+              (matrix/set-column m' i 0)))
+          m
+          columns)]
+    (named-matrix rows cols m')))
+
+
 (defn named-matrix-reader
   [{:keys [rownames colnames matrix]}]
   (named-matrix rownames colnames matrix))

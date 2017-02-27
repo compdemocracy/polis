@@ -16,11 +16,12 @@
 
 
 (defn -main []
+  "Run all the pure tests for polisapp. The one integration test is in conv-man-tests, and should be run separately (and
+  needs to be cleaned up to run on a separate poller system)"
   ;(try
     (apply
       test/run-tests
       '[cluster-tests
-        conv-man-tests
         conversation-test
         index-hash-test
         named-matrix-test

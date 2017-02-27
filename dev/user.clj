@@ -27,17 +27,24 @@
 ;; Can toggle between do and comment here for refiring entire file
 ;(do
 (comment
+  ;; Run one of these to interactively test out a particular system or subsystem
   ;(runner/run! system/base-system)
   ;(runner/run! system/task-system)
+  ;(runner/run! system/darwin-system)
   (runner/run! system/full-system)
   (runner/stop!)
-  ;(runner/run! system/darwin-system)
 
+  ;; Execute this to run pure math/util tests
+  (require '[runner :as test-runner])
+  ;; Rerun the tests once runner has been required by executing this
+  (test-runner/-main)
+
+
+  ;; Setting up load and interactive testing for a specific conversation
   (def args {:zid 15228})
   (def conv (load-conv args))
 
-  (:math-env (:config runner/system))
-
+  ;; Testing out updates via the pure conv-update function
   (let [updated-conv (conv/conv-update conv [{:zid 15228 :pid 0 :tid 0 :vote 2.0 :created (System/currentTimeMillis)}])
         _ (log/info "First update")
         updated-conv' (conv/conv-update updated-conv [{:zid 15228 :pid 0 :tid 0 :vote -1 :created (System/currentTimeMillis)}])
@@ -48,10 +55,9 @@
     (log/info "Previous conv key:" (boolean (:conv (:conv updated-conv'))))
     (:subgroup-clusters updated-conv'))
     ;(:repness updated-conv'))
+
   ;(get-conv args)
   (-> runner/system :conversation-manager :conversations deref)
-
-  (runner/start!)
 
 
   ;; Playing with core.async parallelism

@@ -69,11 +69,13 @@
   ;; Let's just use a generator that generates votes and places them in a rating mat?
   ;())
 
+(s/def ::unmodded-rating-mat ::rating-mat)
+
 ;; May want to speck out "bare" vs "fleshed out" conversations, as well as loaded vs raw, etc
 (s/def ::new-conversation
-  (s/keys :req-un [::rating-mat]))
+  (s/keys :req-un [::unmodded-rating-mat]))
 (s/def ::full-conversation
-  (s/keys :req-un [::zid ::last-vote-timestamp ::group-votes ::rating-mat ::group-clusters ::subgroup-clusters ::repness ::subgroup-repness]))
+  (s/keys :req-un [::zid ::last-vote-timestamp ::group-votes ::unmodded-rating-mat ::rating-mat ::group-clusters ::subgroup-clusters ::repness ::subgroup-repness]))
 
 (s/def ::conversation
   (s/or :new ::new-conversation
@@ -82,7 +84,8 @@
 
 (defn new-conv []
   "Minimal structure upon which to perform conversation updates"
-  {:rating-mat (nm/named-matrix)})
+  {:unmodded-rating-mat (nm/named-matrix)
+   :rating-mat (nm/named-matrix)})
 
 
 ;; I think this is old and can be removed
@@ -110,6 +113,7 @@
         bid-to-pid))
     ; Otherwise return an empty vector
     []))
+
 
 
 ; conv - should have
@@ -179,9 +183,18 @@
    :keep-votes  (plmb/fnk [customs]
                   (:votes customs))
 
-   :rating-mat  (plmb/fnk [conv keep-votes]
-                  (nm/update-nmat (:rating-mat conv)
-                                  (map (fn [v] (vector (:pid v) (:tid v) (:vote v))) keep-votes)))
+   :unmodded-rating-mat
+   (plmb/fnk [conv keep-votes]
+     (nm/update-nmat
+       (:unmodded-rating-mat conv)
+       (map (fn [v] (vector (:pid v) (:tid v) (:vote v))) keep-votes)))
+
+   :rating-mat
+   (plmb/fnk [conv unmodded-rating-mat]
+     ;; This if-let here is just a simple performance optimization
+     (if-let [mod-out (:mod-out conv)]
+       (nm/zero-out-columns unmodded-rating-mat mod-out)
+       unmodded-rating-mat))
 
    :n           (plmb/fnk [rating-mat]
                   (count (nm/rownames rating-mat)))
@@ -198,6 +211,8 @@
                          (nm/get-matrix rating-mat))
                        (into {})))
 
+   ;; There should really be a nice way for us to specify that we want a full recompute on everything except in-conv,
+   ;; since in general we don't want to loose people in that process.
    :in-conv     (plmb/fnk [conv user-vote-counts n-cmts]
                   ; This keeps track of which ptpts are in the conversation (to be considered
                   ; for base-clustering) based on home many votes they have. Once a ptpt is in,
@@ -605,10 +620,11 @@
                 :or {med-cutoff 100 large-cutoff 10000}
                 :as opts}]
    (let [zid     (or (:zid conv) (:zid (first votes)))
-         ptpts   (nm/rownames (:rating-mat conv))
+         ptpts   (nm/rownames (:unmodded-rating-mat conv))
          n-ptpts (count (distinct (into ptpts (map :pid votes))))
-         n-cmts  (count (distinct (into (nm/rownames (:rating-mat conv)) (map :tid votes))))]
-     ; This is a safety measure so we can call conv-update on an empty conversation after adding mod-out
+         n-cmts  (count (distinct (into (nm/rownames (:unmodded-rating-mat conv)) (map :tid votes))))]
+     ;; This is a safety measure so we can call conv-update on an empty conversation after adding mod-out
+     ;; Note though that as long as we have a non-empty conv, updating with empty/nil votes should still trigger recompute
      (if (and (= 0 n-ptpts n-cmts)
               (empty? votes))
        conv
@@ -629,7 +645,7 @@
 
 (defn conv-shape
   [conv]
-  (matrix/shape (:rating-mat conv)))
+  (matrix/shape (:unmodded-rating-mat conv)))
 
 (defn not-smaller?
   [conv1 conv2]
@@ -649,28 +665,22 @@
 
 
 
+;; TODO The language here, in the poller, the config, the conv structure, etc should all reflect that this isn't just moderation but also is_meta
 (defn mod-update
   "Take a conversation record and a seq of moderation data and updates the conversation's mod-out attr"
   [conv mods]
-  ; Hmm... really need to make sure that if someone quickly mods and unmods on a long running comp, we
-  ; consider order or :updated XXX
   (try
-    (let [mod-sep (fn [mod] (->> mods
-                                 (filter (comp #{mod} :mod))
-                                 (map :tid)
-                                 (set)))
-          mod-out (mod-sep -1)
-          mod-in  (mod-sep 1)]
+    (let [mod-out
+          (reduce
+            (fn [mod-out {:keys [tid is_meta mod]}]
+              (if (or is_meta (= mod -1))
+                (conj mod-out tid)
+                (disj mod-out tid)))
+            (or (:mod-out conv) #{})
+            mods)]
       (-> conv
-          (update-in [:mod-out]
-                     (plmb/fn->
-                       (set)
-                       (clojure.set/union mod-out)
-                       (clojure.set/difference mod-in)
-                       (set)))
-          (update-in [:last-mod-timestamp]
-                     (fn [last-mod-timestamp]
-                       (apply max (or last-mod-timestamp 0) (map :modified mods))))))
+          (assoc :mod-out mod-out)
+          (update :last-mod-timestamp #(apply max (or % 0) (map :modified mods)))))
     (catch Exception e
       (log/error "Problem running mod-update with mod-out:" (:mod-out conv) "and mods:" mods ":" e)
       (.printStackTrace e)

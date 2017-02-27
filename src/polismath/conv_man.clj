@@ -341,7 +341,7 @@
             ;; We use a separate cchannel for messages that we've tryied to process but that havent worked for one reason or another
             retry-chan   (chan 10)] ; only really need buffer 1 here?
         (swap! conversations assoc zid {:conv conv :message-chan message-chan :retry-chan retry-chan})
-        ;; Just call again to make sure the message gets on the chan :-)
+        ;; Just call again to make sure the message gets on the chan (using the if-let fork above) :-)
         (queue-message-batch! conv-man message-type zid message-batch)
         ;; However, we don't use the conversations atom conv state, but keep track of it explicitly in the loop,
         ;; ensuring that we don't have race conditions for conv state. The state kept in the atom is basically
@@ -365,8 +365,9 @@
                     conv (if moderation
                            (conv/mod-update conv moderation)
                            conv)
-                    ;; Should extracct the stateful bits here till the very end, so even if there are just mods it updates
-                    conv (if votes
+                    ;; Note that we run the update here if there are either new votes or changes in moderation; conv update
+                    ;; should work on nil vote seq
+                    conv (if (or moderation votes)
                            (conv-update conv-man conv votes error-handler)
                            conv)]
                 (log/info "Completed computing conversation zid:" zid)

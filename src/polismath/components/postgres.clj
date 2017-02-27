@@ -105,7 +105,7 @@
   (try
     (kdb/with-db (:db-spec component)
       (ko/select comments
-        (ko/fields :zid :tid :mod :modified)
+        (ko/fields :zid :tid :mod :is_meta :modified)
         (ko/where {:modified [> last-mod-timestamp]
                    :mod [not= 0]})
         (ko/order [:zid :tid :modified] :asc)))

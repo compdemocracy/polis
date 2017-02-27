@@ -28,7 +28,8 @@
                     {:vote  1 :pid 1 :tid 1 :zid 0 :created 9003}
                     {:vote -1 :pid 2 :tid 0 :zid 0 :created 9005}
                     {:vote -1 :pid 1 :tid 2 :zid 0 :created 9009}]
-          config {}]
+          config {:math-env :test
+                  :poller {:initial-polling-timestamp (System/currentTimeMillis)}}]
       (testing "in a new conv"
         (let [system (system/create-and-run-base-system! config)
               conv-man (:conversation-manager system)

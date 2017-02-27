@@ -11,8 +11,9 @@
   (named-matrix/named-matrix [:a :b] [:x :y] [[1 0] [-1 1]]))
 
 
-(let [empty-conv {:rating-mat (named-matrix/named-matrix)}
-      small-conv {:rating-mat rat-mat}
+(let [empty-conv {:unmodded-rating-mat (named-matrix/named-matrix)}
+      small-conv {:unmodded-rating-mat rat-mat
+                  :rating-mat rat-mat}
 
       single-vote   [{:created 500 :pid :a, :tid :x, :vote 3}]
       wonky-votes   [{:created 600 :pid :b, :tid :x, :vote 0}
@@ -21,15 +22,17 @@
       full-votes    (for [pid [:a :b :c] tid [:x :y :z]]
                      {:created 100 :pid pid :tid tid :vote (rand)})
 
-      big-conv {:rating-mat
-                  (named-matrix/named-matrix
-                    [:p1 :p2 :p3 :p4 :p5]
-                    [:c1 :c2 :c3 :c4]
-                    [[ 0  1  0 -1  1]
-                     [-1  0 -1 -1  0]
-                     [ 1  0  1  0  1]
-                     [ 1 -1  0 -1  0]
-                     [-1 -1  0  1  0]])
+      big-conv-matrix
+      (named-matrix/named-matrix
+        [:p1 :p2 :p3 :p4 :p5]
+        [:c1 :c2 :c3 :c4]
+        [[ 0  1  0 -1  1]
+         [-1  0 -1 -1  0]
+         [ 1  0  1  0  1]
+         [ 1 -1  0 -1  0]
+         [-1 -1  0  1  0]])
+      big-conv {:unmodded-rating-mat big-conv-matrix
+                :rating-mat big-conv-matrix
                 :pca {:center [0.0 -0.2 -0.0  0.4] ;actually calculated this...
                       :comps [[0.4  0.2 -0.3  0.7] ;this is faked...
                               [0.1 -0.5  0.2  0.2]]}}]
@@ -115,31 +118,44 @@
 
   ; Test that iterating on previous pca/clustering results makes sense
   ;; TODO Put this conv-update inside a deftest, so that errors are handled appropriately
-  ;(let [fleshed-conv (conversation/conv-update small-conv single-vote)]
-  ;  (println "yeah...")
-  ;  (deftest small-conv-iterative-test
-  ;    (testing "fleshed conv and full matrix"
-  ;      (is (conversation/conv-update fleshed-conv full-votes)))
-  ;    (testing "fleshed conv and wonky vote"
-  ;      (is (conversation/conv-update fleshed-conv [{:created 999 :pid :j :tid :k :vote -1}]))))
-  ;
-  ;  (deftest moderation-test
-  ;    (testing "from scratch with fleshed out conv"
-  ;      (is (= (:mod-out (conversation/mod-update fleshed-conv
-  ;                                   [{:tid :x :mod -1 :modified 1234}]))
-  ;             (set [:x]))))
-  ;    (testing "based on previous moderations"
-  ;      (is (= (:mod-out (conversation/mod-update (assoc big-conv :mod-out [:x])
-  ;                                   [{:tid :y :mod -1 :modified 1856}]))
-  ;             (set [:x :y])))))
-  ;  (testing "with only approve mods"
-  ;    (is (= (:mod-out (conversation/mod-update big-conv [{:tid :x :mod 1 :modified 8576}
-  ;                                                        {:tid :y :mod 1 :modified 9856}]))
-  ;           #{})))
-  ;  (testing "with only approve mods"
-  ;    (is (= (:mod-out (conversation/mod-update big-conv [{:tid :x :mod 1 :modified 7654}
-  ;                                                        {:tid :y :mod -1 :modified 8567}]))
-  ;           #{:y}))))
+  (deftest iterative-results
+    (let [fleshed-conv (conversation/conv-update small-conv single-vote)]
+      (println "yeah...")
+      (testing "small-conv-iterative-test"
+        (testing "fleshed conv and full matrix"
+          (is (conversation/conv-update fleshed-conv full-votes)))
+        (testing "fleshed conv and wonky vote"
+          (is (conversation/conv-update fleshed-conv [{:created 999 :pid :j :tid :k :vote -1}]))))
+
+      (testing "moderation-test"
+        (testing "from scratch with fleshed out conv"
+          (is (= (:mod-out (conversation/mod-update fleshed-conv
+                                       [{:tid :x :mod -1 :modified 1234}]))
+                 #{:x})))
+        (testing "based on previous moderations"
+          (is (= (:mod-out (conversation/mod-update (assoc big-conv :mod-out #{:x})
+                                       [{:tid :y :mod -1 :modified 1856}]))
+                 #{:x :y})))
+        (testing "modding back in"
+          (is (= (:mod-out (conversation/mod-update (assoc big-conv :mod-out #{:x :y})
+                                                    [{:tid :y :mod 1 :modified 1856}]))
+                 #{:x})))
+        (testing "'moderating' out is_meta"
+          (is (= (:mod-out (conversation/mod-update (assoc big-conv :mod-out #{:x})
+                                                    [{:tid :y :is_meta true :modified 1856}]))
+                 #{:x :y})))
+        (testing "undoing is_meta"
+          (is (= (:mod-out (conversation/mod-update (assoc big-conv :mod-out #{:x :y})
+                                                    [{:tid :y :is_meta false :modified 1856}]))
+                 #{:x}))))
+      (testing "with only approve mods"
+        (is (= (:mod-out (conversation/mod-update big-conv [{:tid :x :mod 1 :modified 8576}
+                                                            {:tid :y :mod 1 :modified 9856}]))
+               #{})))
+      (testing "with only approve mods"
+        (is (= (:mod-out (conversation/mod-update big-conv [{:tid :x :mod 1 :modified 7654}
+                                                            {:tid :y :mod -1 :modified 8567}]))
+               #{:y})))))
 
   (deftest large-conv-update-test
       (testing "should work with votes for only existing ptpts/cmts"
