@@ -672,8 +672,9 @@ CREATE TABLE worker_tasks (
 CREATE TABLE math_ticks (
     zid INTEGER REFERENCES conversations(zid),
     math_tick BIGINT NOT NULL DEFAULT 0,
+    math_env VARCHAR(999) NOT NULL,
     modified BIGINT NOT NULL DEFAULT now_as_millis(),
-    UNIQUE (zid)
+    UNIQUE (zid, math_env)
 );
 -- insert into math_ticks (zid) values ($1) on conflict (zid) 
 --    do update set modified = now_as_millis(), math_tick = (math_tick + 1) returning *;
@@ -683,6 +684,7 @@ CREATE TABLE math_main (
   math_env VARCHAR(999) NOT NULL,
   data jsonb NOT NULL,
   last_vote_timestamp BIGINT NOT NULL,
+  math_tick BIGINT NOT NULL DEFAULT -1, -- this will get its value from math_ticks
   modified BIGINT DEFAULT now_as_millis(),
   UNIQUE(zid, math_env)
 );
@@ -738,7 +740,7 @@ CREATE TABLE math_report_correlationmatrix (
   rid BIGINT NOT NULL REFERENCES reports(rid),
   math_env VARCHAR(999) NOT NULL,
   data jsonb,
-  math_tick BIGINT NOT NULL default -1,
+  math_tick BIGINT NOT NULL default -1, -- this will get its value from math_ticks at the moment the computation starts
   modified BIGINT DEFAULT now_as_millis(),
   UNIQUE(rid, math_env)
 );
