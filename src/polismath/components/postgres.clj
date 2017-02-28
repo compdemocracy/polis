@@ -283,8 +283,8 @@
   (query component (zid-from-rid rid)))
 
 (defn inc-math-tick
-  [postgres query]
-  (query postgres ["insert into math_ticks (zid) values (?) on conflict (zid) do update set modified = now_as_millis(), math_tick = (math_ticks.math_tick + 1) returning *;" 12480]))
+  [postgres zid]
+  (query postgres ["insert into math_ticks (zid, math_env) values (?, ?) on conflict (zid, math_env) do update set modified = now_as_millis(), math_tick = (math_ticks.math_tick + 1) returning *;" zid (name (-> postgres :config :math-env))]))
 
 (defn pg-json
   [data]
@@ -293,8 +293,8 @@
         (.setValue (cheshire/encode data))))
 
 (defn insert-correlationmatrix!
-  [postgres rid data]
-  (query postgres ["insert into math_report_correlationmatrix (rid, math_env, data) values (?,?,?) on conflict (rid, math_env) do update set data = excluded.data returning rid;" rid (name (-> postgres :config :math-env)) (pg-json data)]))
+  [postgres rid math-tick data]
+  (query postgres ["insert into math_report_correlationmatrix (rid, math_env, math_tick, data) values (?,?,?,?) on conflict (rid, math_env) do update set data = excluded.data, math_tick = excluded.math_tick returning rid;" rid (name (-> postgres :config :math-env)) math-tick (pg-json data)]))
 
 
 ;; TODO Fix this; need task-type in here as well for this to work
@@ -319,7 +319,9 @@
 (defn upload-math-main
   [postgres zid data]
   (log/info "upload-math-main for zid" zid)
-  (query postgres ["insert into math_main (zid, math_env, last_vote_timestamp, data) values (?,?,?,?) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data, last_vote_timestamp = excluded.last_vote_timestamp returning zid;" zid (name (-> postgres :config :math-env)) (:lastVoteTimestamp data) (pg-json data)]))
+  (let [math-env (name (-> postgres :config :math-env))
+        math-tick (:math_tick (first (inc-math-tick postgres zid)))]
+    (query postgres ["insert into math_main (zid, math_env, last_vote_timestamp, math_tick, data) values (?,?,?,?,?) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data, last_vote_timestamp = excluded.last_vote_timestamp, math_tick = excluded.math_tick returning zid;" zid math-env (:lastVoteTimestamp data) math-tick (pg-json data)])))
 
 (defn upload-math-profile
   [postgres zid data]
@@ -357,6 +359,10 @@
   [postgres zid filename]
   (log/info "get-math-exportstatus for zid" zid)
   (first (query postgres ["select * from math_exportstatus where zid = (?) and math_env = (?) and filename = (?);" zid (name (-> postgres :config :math-env)) filename])))
+
+(defn get-math-tick
+  [postgres zid]
+  (first (query postgres ["select math_tick from math_ticks where zid = (?) and math_env = (?);" zid (name (-> postgres :config :math-env))])))
 
 
 (defn load-conv
