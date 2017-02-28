@@ -52,7 +52,7 @@ const GraphAxes = ({yCenter, xCenter, selectedComment}) => {
           y={-1}>
           {globals.axisLabels.leftArrow}
           {" "}
-          {globals.axisLabels.xLeft}
+          {this.state.report.label_x_neg}
         </text>
         <text
           style={{
@@ -62,7 +62,7 @@ const GraphAxes = ({yCenter, xCenter, selectedComment}) => {
           textAnchor="start"
           x={35}
           y={-1}>
-          {globals.axisLabels.xRight}
+          {this.state.report.label_x_pos}
           {" "}
           {globals.axisLabels.rightArrow}
         </text>
@@ -84,7 +84,7 @@ const GraphAxes = ({yCenter, xCenter, selectedComment}) => {
           y={-1}>
           {globals.axisLabels.leftArrow}
           {" "}
-          {globals.axisLabels.yLeft}
+          {this.state.report.label_y_neg}
         </text>
         <text
           style={{
@@ -94,7 +94,7 @@ const GraphAxes = ({yCenter, xCenter, selectedComment}) => {
           textAnchor="start"
           x={35}
           y={-1}>
-          {globals.axisLabels.yRight}
+          {this.state.report.label_y_pos}
           {" "}
           {globals.axisLabels.rightArrow}
         </text>

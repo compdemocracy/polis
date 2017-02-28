@@ -24,6 +24,7 @@ import $ from 'jquery';
 
 var pathname = window.location.pathname; // "/report/2arcefpshi"
 var conversation_id = pathname.split("/")[2];
+var report_id = pathname.split("/")[3];
 
 
 class App extends React.Component {
@@ -70,6 +71,11 @@ class App extends React.Component {
       conversation_id: conversation_id,
     });
   }
+  getReport() {
+    return net.polisGet("/api/v3/reports", {
+      report_id: report_id,
+    });
+  }
   getGroupDemographics() {
     return net.polisGet("/api/v3/group_demographics", {
       conversation_id: conversation_id,
@@ -82,13 +88,15 @@ class App extends React.Component {
       this.getComments(),
       this.getParticipantsOfInterest(),
       this.getConversation(),
-      this.getGroupDemographics()
+      this.getGroupDemographics(),
+      this.getReport(),
     ]).then((a) => {
       const mathResult = a[0];
       const comments = a[1];
       const participants = a[2];
       const conversation = a[3];
       const groupDemographics = a[4];
+      const report = a[5];
 
       var ptptCount = 0;
       _.each(mathResult["group-votes"], (val, key) => {
@@ -165,6 +173,7 @@ class App extends React.Component {
         groupNames: globals.groupNames,
         repfulAgreeTidsByGroup: repfulAgreeTidsByGroup,
         formatTid: formatTid,
+        report: report,
       });
     }, (err) => {
       this.setState({
@@ -228,7 +237,8 @@ class App extends React.Component {
           badTids={this.state.badTids}
           formatTid={this.state.formatTid}
           repfulAgreeTidsByGroup={this.state.repfulAgreeTidsByGroup}
-          math={this.state.math}/>
+          math={this.state.math}
+          report={this.state.report}/>
         <AllComments
           conversation={this.state.conversation}
           ptptCount={this.state.ptptCount}
