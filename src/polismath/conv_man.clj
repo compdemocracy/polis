@@ -370,8 +370,8 @@
                            (conv/mod-update conv moderation)
                            conv)
                     ;; Note that we run the update here if there are either new votes or changes in moderation; conv update
-                    ;; should work on nil vote seq
-                    conv (if (or moderation votes)
+                    ;; should work on nil vote seq; we also run if we get a report gen request but haven't built the reating mat
+                    conv (if (or moderation votes (not (:rating-mat conv)))
                            (conv-update conv-man conv votes error-handler)
                            conv)]
                 (log/info "Completed computing conversation zid:" zid)
