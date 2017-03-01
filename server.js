@@ -2218,6 +2218,10 @@ function initializePolisHelpers() {
 
       let results = rows.map((row) => {
         let item = row.data;
+        
+        if (row.math_tick) {
+          item.math_tick = Number(row.math_tick);
+        }
 
         INFO("mathpoll updating", item.lastVoteTimestamp, item.zid);
 
@@ -2444,6 +2448,11 @@ function initializePolisHelpers() {
         return null;
       }
       let item = rows[0].data;
+
+      if (rows[0].math_tick) {
+        item.math_tick = Number(rows[0].math_tick);
+      }
+
       if (item.lastVoteTimestamp <= lastVoteTimestamp) {
         INFO("mathpoll related", "after cache miss, unable to find newer item", zid, lastVoteTimestamp);
         return null;
@@ -2567,6 +2576,15 @@ function initializePolisHelpers() {
       });
   */
 
+  function getZidForRid(rid) {
+    return pgQueryP("select zid from reports where rid = ($1);", [rid]).then((row) => {
+      if (!row || !row.length) {
+        return null;
+      }
+      return row[0].zid;
+    });
+  }
+
   function handle_GET_math_correlationMatrix(req, res) {
     let rid = req.p.rid;
     let math_env = process.env.MATH_ENV;
@@ -2588,7 +2606,12 @@ function initializePolisHelpers() {
     let resultExistsPromise = pgQueryP(
       "select * from math_report_correlationmatrix where rid = ($1) and math_env = ($2) and math_tick >= ($3);", [rid, math_env, math_tick]);
 
-    resultExistsPromise.then((rows) => {
+    Promise.all([
+      resultExistsPromise,
+      getZidForRid(rid),
+    ]).then((a) => {
+      let rows = a[0];
+      let zid = a[1];
       if (!rows || !rows.length) {
         return requestExistsPromise.then((requests_rows) => {
 
@@ -2599,6 +2622,7 @@ function initializePolisHelpers() {
             return pgQueryP("insert into worker_tasks (task_type, task_data, task_bucket, math_env) values ('generate_report_data', $1, $2, $3);", [
               JSON.stringify({
                 rid: rid,
+                zid: zid,
                 math_tick: math_tick,
               }),
               rid,
