@@ -1019,15 +1019,15 @@ const mathFetchError = (err) => {
   };
 };
 
-const fetchMath = (conversation_id, lastVoteTimestamp) => {
-  return $.get("/api/v3/math/pca2?&lastVoteTimestamp="+ lastVoteTimestamp +"&conversation_id=" + conversation_id);
+const fetchMath = (conversation_id, math_tick) => {
+  return $.get("/api/v3/math/pca2?&math_tick="+ math_tick +"&conversation_id=" + conversation_id);
 };
 
 export const populateMathStore = (conversation_id) => {
   return (dispatch, getState) => {
     dispatch(requestMath());
-    const lastVoteTimestamp = getState().math.lastVoteTimestamp
-    return fetchMath(conversation_id, lastVoteTimestamp).then(
+    const math_tick = getState().math.math_tick
+    return fetchMath(conversation_id, math_tick).then(
       (res) => dispatch(receiveMath(res)),
       (err) => dispatch(mathFetchError(err))
     );

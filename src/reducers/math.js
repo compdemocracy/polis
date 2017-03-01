@@ -5,7 +5,7 @@ import * as types from "../actions";
 const Math = (state = {
   loading: false,
   math: null,
-  lastVoteTimestamp: -1,
+  math_tick: -1,
   error: null
 }, action) => {
   switch (action.type) {
@@ -19,7 +19,7 @@ const Math = (state = {
       loading: false,
       error: null,
       math: action.data,
-      lastVoteTimestamp: action.data /* this will blow up just haven't checked obj innards yet */
+      math_tick: action.data.math_tick,
     });
   case types.MATH_FETCH_ERROR:
     return Object.assign({}, state, {
