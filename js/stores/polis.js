@@ -1136,7 +1136,7 @@ module.exports = function(params) {
 
     function fetchIt() {
       return polisGet(path, {
-        lastVoteTimestamp: timestamp,
+        math_tick: timestamp,
         conversation_id: conversation_id,
         cacheBust: (Math.random() * 1e9 >> 0)
       });
@@ -1166,10 +1166,10 @@ module.exports = function(params) {
         }
         cachedPcaData = pcaData;
 
-        if (_.isNumber(pcaData.lastVoteTimestamp)) {
-          lastServerTokenForPCA = pcaData.lastVoteTimestamp;
+        if (_.isNumber(pcaData.math_tick)) {
+          lastServerTokenForPCA = pcaData.math_tick;
         } else {
-          console.error("got invlid lastVoteTimestamp");
+          console.error("got invlid math_tick");
         }
         consensusComments = pcaData.consensus;
         groupVotes = pcaData["group-votes"];
@@ -1889,7 +1889,7 @@ module.exports = function(params) {
   function getFamousVotes() {
     var o = {
       conversation_id: conversation_id,
-      lastVoteTimestamp: lastServerTokenForPCA
+      math_tick: lastServerTokenForPCA
     };
     if (getPtptoiLimit()) {
       o.ptptoiLimit = getPtptoiLimit();
@@ -2088,7 +2088,7 @@ module.exports = function(params) {
 
   function getPidToBidMapping() {
     return polisGet(bidToPidPath, {
-      lastVoteTimestamp: lastServerTokenForBidToPid, // use the same
+      math_tick: lastServerTokenForBidToPid, // use the same
       conversation_id: conversation_id
     }).then(function(data, textStatus, xhr) {
       if (304 === xhr.status) {
@@ -2097,7 +2097,7 @@ module.exports = function(params) {
           b2p: bidToPid,
         };
       }
-      lastServerTokenForBidToPid = data.lastVoteTimestamp;
+      lastServerTokenForBidToPid = data.math_tick;
       bidToPid = data.bidToPid;
 
       var b2p = data.bidToPid;
@@ -2257,7 +2257,7 @@ module.exports = function(params) {
     pcaPromise.done(updateMyProjection);
     pcaPromise.done(function() {
       // TODO Trigger based on votes themselves incrementing, not waiting on the PCA.
-      // TODO Look into socket.io for notifying that the lastVoteTimestamp has changed.
+      // TODO Look into socket.io for notifying that the math_tick has changed.
       _.each(pollingScheduledCallbacks, function(f) {
         f();
       });
@@ -2336,11 +2336,11 @@ module.exports = function(params) {
   //     shouldPoll = false;
   // }
 
-  // function jumpTo(lastVoteTimestamp) {
+  // function jumpTo(math_tick) {
   //     stopPolling();
-  //     // console.log(lastVoteTimestamp);
+  //     // console.log(math_tick);
 
-  //     var pcaPromise = fetchPcaPlaybackByTimestamp(lastVoteTimestamp);
+  //     var pcaPromise = fetchPcaPlaybackByTimestamp(math_tick);
   //     pcaPromise.done(updateMyProjection);
   // }
 
