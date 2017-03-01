@@ -283,7 +283,7 @@ helpersInitialized.then(function(o) {
     moveToBody,
     // need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('report_id', getReportIdFetchRid, assignToPCustom('rid')),
-    want('lastVoteTimestamp', getInt, assignToP, -1),
+    want('math_tick', getInt, assignToP, -1),
     handle_GET_math_correlationMatrix);
 
 
