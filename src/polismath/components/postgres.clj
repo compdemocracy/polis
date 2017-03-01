@@ -327,7 +327,7 @@
 (defn upload-math-ptptstats
   [postgres zid math-tick data]
   (log/info "upload-math-ptptstats for zid" zid)
-  (query postgres ["insert into math_ptptstats (zid, math_env, math_tick data) values (?,?,?,?) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data math_tick = excluded.math_tick returning zid;" zid (name (-> postgres :config :math-env)) math-tick (pg-json data)]))
+  (query postgres ["insert into math_ptptstats (zid, math_env, math_tick, data) values (?,?,?,?) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data, math_tick = excluded.math_tick returning zid;" zid (name (-> postgres :config :math-env)) math-tick (pg-json data)]))
 
 ;; XXX Not using this anywhere apparently so should remove
 ;(defn upload-math-cache
@@ -338,7 +338,7 @@
 (defn upload-math-bidtopid
   [postgres zid math-tick data]
   (log/info "upload-math-bidtopid for zid" zid)
-  (query postgres ["insert into math_bidtopid (zid, math_env, math_tick, data) values (?,?,?,?) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data math_tick = excluded.math_tick returning zid;" zid (name (-> postgres :config :math-env)) math-tick (pg-json data)]))
+  (query postgres ["insert into math_bidtopid (zid, math_env, math_tick, data) values (?,?,?,?) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data, math_tick = excluded.math_tick returning zid;" zid (name (-> postgres :config :math-env)) math-tick (pg-json data)]))
 
 (defn upload-math-exportstatus
   [postgres zid filename data]

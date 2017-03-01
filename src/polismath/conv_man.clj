@@ -323,7 +323,7 @@
         tids (map :tid (postgres/query (:postgres conv-man) (postgres/report-tids rid)))
         corr-mat (corr/compute-corr conv tids)]
     (async/thread
-      (postgres/insert-correlationmatrix! postgres rid math-tick math-tick corr-mat)
+      (postgres/insert-correlationmatrix! postgres rid math-tick corr-mat)
       ;; TODO update to submit usng task type and task bucket
       (postgres/mark-task-complete! postgres rid))))
 
