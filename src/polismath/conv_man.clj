@@ -320,13 +320,13 @@
   [{:as conv-man :keys [postgres]} conv report-data]
   (log/info "Generating report data for report:" report-data)
   (let [rid (:rid report-data)
-        math-tick (postgres/get-math-tick (:postgres conv-man) (:task_bucket report-data)) ;; task_ bucket is zid in this case.
+        math-tick (postgres/get-math-tick (:postgres conv-man) (:zid report-data))
         tids (map :tid (postgres/query (:postgres conv-man) (postgres/report-tids rid)))
         corr-mat (corr/compute-corr conv tids)]
     (async/thread
       (postgres/insert-correlationmatrix! postgres rid math-tick corr-mat)
       ;; TODO update to submit usng task type and task bucket
-      (postgres/mark-task-complete! postgres (-> report-data :task-record :rid)))))
+      (postgres/mark-task-complete! postgres rid))))
 
 
 ;; Need to think about what to do if failed conversations lead to messages piling up in the message queue XXX
