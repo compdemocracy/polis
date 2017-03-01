@@ -284,7 +284,8 @@
 
 (defn inc-math-tick
   [postgres zid]
-  (query postgres ["insert into math_ticks (zid, math_env) values (?, ?) on conflict (zid, math_env) do update set modified = now_as_millis(), math_tick = (math_ticks.math_tick + 1) returning *;" zid (name (-> postgres :config :math-env))]))
+  (log/info "inc-math-tick" zid)
+  (:math_tick (first (query postgres ["insert into math_ticks (zid, math_env) values (?, ?) on conflict (zid, math_env) do update set modified = now_as_millis(), math_tick = (math_ticks.math_tick + 1) returning math_tick;" zid (name (-> postgres :config :math-env))]))))
 
 (defn pg-json
   [data]
