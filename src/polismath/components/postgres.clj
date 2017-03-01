@@ -359,7 +359,7 @@
 
 (defn get-math-tick
   [postgres zid]
-  (first (query postgres ["select math_tick from math_ticks where zid = (?) and math_env = (?);" zid (name (-> postgres :config :math-env))])))
+  (:math_tick (first (query postgres ["select math_tick from math_ticks where zid = (?) and math_env = (?);" zid (name (-> postgres :config :math-env))]))))
 
 
 (defn load-conv
