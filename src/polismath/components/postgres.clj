@@ -310,12 +310,8 @@
 ;; Marks all tasks with the same task_bucket as done.
 (defn mark-task-complete!
   [postgres task_bucket]
-  (log/info "mark-task-complete")
-  (jdbc/update!
-    (:db-spec postgres)
-    :worker_tasks
-    {:finished_time (System/currentTimeMillis)}
-    ["task_bucket = ?" task_bucket]))
+  (log/info "mark-task-complete" task_bucket)
+  (query postgres ["update worker_tasks set finished_time = now_as_millis() where math_env = (?) and task_bucket = (?) returning finished_time;" (name (-> postgres :config :math-env)) task_bucket]))
 
 (defn upload-math-main
   [postgres zid data]
