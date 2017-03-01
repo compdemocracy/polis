@@ -32,6 +32,7 @@ class App extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
+      loading: true,
       consensus: null,
       comments: null,
       participants: null,
@@ -74,6 +75,11 @@ class App extends React.Component {
   getReport() {
     return net.polisGet("/api/v3/reports", {
       report_id: report_id,
+    }).then((reports) => {
+      if (reports.length) {
+        return reports[0];
+      }
+      return reports;
     });
   }
   getGroupDemographics() {
@@ -82,10 +88,10 @@ class App extends React.Component {
     });
   }
 
-  getCorrelationMatrix(lastVoteTimestamp) {
+  getCorrelationMatrix(math_tick) {
     const attemptResponse = net.polisGet("/api/v3/math/correlationMatrix", {
       conversation_id: conversation_id,
-      lastVoteTimestamp: lastVoteTimestamp,
+      math_tick: math_tick,
       report_id: report_id,
     });
 
@@ -93,7 +99,7 @@ class App extends React.Component {
       attemptResponse.then((response) => {
         if (response.status && response.status === "pending") {
           setTimeout(() => {
-            this.getCorrelationMatrix(lastVoteTimestamp).then(resolve, reject);
+            this.getCorrelationMatrix(math_tick).then(resolve, reject);
           }, 500);
         } else {
           resolve(response);
@@ -107,8 +113,8 @@ class App extends React.Component {
   getData() {
     const mathPromise = this.getMath();
     const matrixPromise = mathPromise.then((math) => {
-      const lastVoteTimestamp = math.lastVoteTimestamp;
-      return this.getCorrelationMatrix(lastVoteTimestamp);
+      const math_tick = math.math_tick;
+      return this.getCorrelationMatrix(math_tick);
     });
 
     Promise.all([
@@ -120,13 +126,15 @@ class App extends React.Component {
       this.getReport(),
       matrixPromise,
     ]).then((a) => {
-      const mathResult = a[0];
-      const comments = a[1];
-      const participants = a[2];
-      const conversation = a[3];
-      const groupDemographics = a[4];
-      const report = a[5];
-      const correlationHClust = a[5];
+      const [
+        mathResult,
+        comments,
+        participants,
+        conversation,
+        groupDemographics,
+        report,
+        correlationHClust,
+      ] = a;
 
       var ptptCount = 0;
       _.each(mathResult["group-votes"], (val, key) => {
@@ -187,9 +195,8 @@ class App extends React.Component {
         });
       }
 
-
-
       this.setState({
+        loading: false,
         math: mathResult,
         consensus: mathResult.consensus,
         comments: comments,
@@ -205,6 +212,7 @@ class App extends React.Component {
         formatTid: formatTid,
         report: report,
       });
+
     }, (err) => {
       this.setState({
         error: true,
@@ -230,6 +238,11 @@ class App extends React.Component {
       return (<div>
         <div> Error Loading </div>
         <div> {this.state.errorText} </div>
+      </div>);
+    }
+    if (this.state.loading) {
+      return (<div>
+        <div> Loading ... </div>
       </div>);
     }
     return (

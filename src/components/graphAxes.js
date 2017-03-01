@@ -1,7 +1,7 @@
 import React from "react";
 import * as globals from "./globals";
 
-const GraphAxes = ({yCenter, xCenter, selectedComment}) => {
+const GraphAxes = ({yCenter, xCenter, selectedComment, report}) => {
   return (
     <g>
       <line
@@ -52,7 +52,7 @@ const GraphAxes = ({yCenter, xCenter, selectedComment}) => {
           y={-1}>
           {globals.axisLabels.leftArrow}
           {" "}
-          {this.state.report.label_x_neg}
+          {report.label_x_neg}
         </text>
         <text
           style={{
@@ -62,7 +62,7 @@ const GraphAxes = ({yCenter, xCenter, selectedComment}) => {
           textAnchor="start"
           x={35}
           y={-1}>
-          {this.state.report.label_x_pos}
+          {report.label_x_pos}
           {" "}
           {globals.axisLabels.rightArrow}
         </text>
@@ -84,7 +84,7 @@ const GraphAxes = ({yCenter, xCenter, selectedComment}) => {
           y={-1}>
           {globals.axisLabels.leftArrow}
           {" "}
-          {this.state.report.label_y_neg}
+          {report.label_y_neg}
         </text>
         <text
           style={{
@@ -94,7 +94,7 @@ const GraphAxes = ({yCenter, xCenter, selectedComment}) => {
           textAnchor="start"
           x={35}
           y={-1}>
-          {this.state.report.label_y_pos}
+          {report.label_y_pos}
           {" "}
           {globals.axisLabels.rightArrow}
         </text>
