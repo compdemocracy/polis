@@ -702,6 +702,7 @@ CREATE INDEX main_profile_idx ON math_profile USING btree (zid);
 CREATE TABLE math_ptptstats (
   zid INTEGER NOT NULL REFERENCES conversations(zid),
   math_env VARCHAR(999) NOT NULL,
+  math_tick BIGINT NOT NULL DEFAULT -1, -- this will get its value from math_ticks
   data jsonb NOT NULL,
   modified BIGINT DEFAULT now_as_millis(),
   UNIQUE(zid, math_env)
@@ -720,6 +721,7 @@ CREATE INDEX math_cache_idx ON math_cache USING btree (zid);
 CREATE TABLE math_bidtopid (
   zid INTEGER NOT NULL REFERENCES conversations(zid),
   math_env VARCHAR(999) NOT NULL,
+  math_tick BIGINT NOT NULL DEFAULT -1, -- this will get its value from math_ticks
   data jsonb NOT NULL,
   modified BIGINT DEFAULT now_as_millis(),
   UNIQUE(zid, math_env)
