@@ -129,7 +129,7 @@ const graphUtil = (comments, math, badTids) => {
       })
       const hull = createHull(
         pairs,
-        5
+        400
       )
       hulls.push({
         group,
