@@ -23,8 +23,7 @@ import net from "../util/net"
 import $ from 'jquery';
 
 var pathname = window.location.pathname; // "/report/2arcefpshi"
-var conversation_id = pathname.split("/")[2];
-var report_id = pathname.split("/")[3];
+var report_id = pathname.split("/")[2];
 
 
 class App extends React.Component {
@@ -45,14 +44,14 @@ class App extends React.Component {
     };
   }
 
-  getMath() {
+  getMath(conversation_id) {
     return net.polisGet("/api/v3/math/pca2", {
       lastVoteTimestamp: 0,
       conversation_id: conversation_id,
     });
   }
 
-  getComments() {
+  getComments(conversation_id) {
     return net.polisGet("/api/v3/comments", {
       conversation_id: conversation_id,
       moderation: true,
@@ -62,27 +61,27 @@ class App extends React.Component {
     });
   }
 
-  getParticipantsOfInterest() {
+  getParticipantsOfInterest(conversation_id) {
     return net.polisGet("/api/v3/ptptois", {
       conversation_id: conversation_id,
     });
   }
-  getConversation() {
+  getConversation(conversation_id) {
     return net.polisGet("/api/v3/conversations", {
       conversation_id: conversation_id,
     });
   }
-  getReport() {
+  getReport(report_id) {
     return net.polisGet("/api/v3/reports", {
       report_id: report_id,
     }).then((reports) => {
       if (reports.length) {
         return reports[0];
       }
-      return reports;
+      return null;
     });
   }
-  getGroupDemographics() {
+  getGroupDemographics(conversation_id) {
     return net.polisGet("/api/v3/group_demographics", {
       conversation_id: conversation_id,
     });
@@ -90,7 +89,6 @@ class App extends React.Component {
 
   getCorrelationMatrix(math_tick) {
     const attemptResponse = net.polisGet("/api/v3/math/correlationMatrix", {
-      conversation_id: conversation_id,
       math_tick: math_tick,
       report_id: report_id,
     });
@@ -111,29 +109,43 @@ class App extends React.Component {
   }
 
   getData() {
-    const mathPromise = this.getMath();
+    const reportPromise = this.getReport(report_id);
+    const mathPromise = reportPromise.then((report) => {
+      return this.getMath(report.conversation_id);
+    });
+    const commentsPromise = reportPromise.then((report) => {
+      return this.getComments(report.conversation_id);
+    });
+    const groupDemographicsPromise = reportPromise.then((report) => {
+      return this.getGroupDemographics(report.conversation_id);
+    });
+    const participantsOfInterestPromise = reportPromise.then((report) => {
+      return this.getParticipantsOfInterest(report.conversation_id);
+    });
     const matrixPromise = mathPromise.then((math) => {
       const math_tick = math.math_tick;
       return this.getCorrelationMatrix(math_tick);
     });
-
+    const conversationPromise = reportPromise.then((report) => {
+      return this.getConversation(report.conversation_id);
+    });
     Promise.all([
+      reportPromise,
       mathPromise,
-      this.getComments(),
-      this.getParticipantsOfInterest(),
-      this.getConversation(),
-      this.getGroupDemographics(),
-      this.getReport(),
+      commentsPromise,
+      groupDemographicsPromise,
+      participantsOfInterestPromise,
       matrixPromise,
+      conversationPromise,
     ]).then((a) => {
       const [
+        report,
         mathResult,
         comments,
-        participants,
-        conversation,
         groupDemographics,
-        report,
+        participants,
         correlationHClust,
+        conversation,
       ] = a;
 
       var ptptCount = 0;
