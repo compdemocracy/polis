@@ -63,6 +63,11 @@ class Graph extends React.Component {
               return (<text x={300} y={300}> Renzi Supporters </text>)
             }) : null */}
             {
+              hulls.map((hull) => {
+                return <Hull key={hull.group[0].gid} hull={hull}/>
+              })
+            }
+            {
               commentsPoints ?
               <Comments
                 handleCommentHover={this.handleCommentHover.bind(this)}
@@ -76,11 +81,6 @@ class Graph extends React.Component {
                 yScaleup={commentScaleupFactorY}
                 formatTid={this.props.formatTid}/> :
               null
-            }
-            {
-              hulls.map((hull) => {
-                return <Hull key={hull.group[0].gid} hull={hull}/>
-              })
             }
           </svg>
 
