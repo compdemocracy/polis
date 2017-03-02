@@ -22,7 +22,7 @@ class SidebarItem extends React.Component {
     routes: React.PropTypes.array,
     /* component api */
     style: React.PropTypes.object,
-    selected: false,
+    selected: React.PropTypes.bool,
     to: React.PropTypes.string,
     icon: React.PropTypes.string
   }

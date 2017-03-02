@@ -46,6 +46,8 @@ import Integrate from "./components/integrate";
 import OverallStats from "./components/overall-stats";
 import Account from "./components/account";
 
+import Container from "./components/container";
+
 // /conversation-admin
 import ConversationAdminContainer from "./components/conversation-admin/container";
 
@@ -69,6 +71,13 @@ import ShareAndEmbed from "./components/conversation-admin/share-and-embed";
 import Live from "./components/conversation-admin/live";
 import Summary from "./components/conversation-admin/summary";
 
+import Reports from "./components/conversation-admin/reports";
+import ReportConfig from "./components/conversation-admin/report-config";
+import ReportComments from "./components/conversation-admin/report-comments";
+import ReportsList from "./components/conversation-admin/reports-list";
+
+
+
 const store = configureStore();
 
 class Root extends React.Component {
@@ -88,6 +97,20 @@ class Root extends React.Component {
                 <Route path="live" component={Live}/>
                 <Route path="share" component={ShareAndEmbed}/>
                 <Route path="summary" component={Summary}/>
+                <Route path="reports" component={Reports}>
+                  <IndexRoute component={ReportsList}/>
+                  <Route path=":report_id" component={Container}>
+                    <IndexRoute component={ReportConfig}/>
+                  <Route path="comments" component={ReportComments}>
+                    <IndexRoute component={ModerateCommentsTodo}/>
+                    <Route path="accepted" component={ModerateCommentsAccepted}/>
+                    <Route path="rejected" component={ModerateCommentsRejected}/>
+                    <Route path="seed" component={ModerateCommentsSeed}/>
+                    <Route path="seed_tweet" component={ModerateCommentsSeedTweet}/>
+                  </Route>
+                  </Route>
+                </Route>
+                <Route path="reports" component={Reports}/>
                 <Route path="comments" component={ModerateComments}>
                   <IndexRoute component={ModerateCommentsTodo}/>
                   <Route path="accepted" component={ModerateCommentsAccepted}/>

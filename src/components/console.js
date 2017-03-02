@@ -12,6 +12,7 @@ import StarsSpinner from "./framework/stars-spinner";
 import Sidebar from "react-sidebar";
 import SidebarContentConversation from "./sidebar-content-conversation";
 import SidebarContentHome from "./sidebar-content-home";
+import SidebarContentReport from "./sidebar-content-report";
 import MaterialTitlePanel from "./material-title-panel";
 import Trial from "./framework/trial-banner";
 import Flex from "./framework/flex";
@@ -190,18 +191,26 @@ class App extends React.Component {
   }
 
   renderConsole() {
+
+    let sidebar = null;
+    if (this.props.params.report_id) {
+      sidebar = <SidebarContentReport
+        {...this.props}
+        onSidebarItemClicked={ this.onSidebarItemClicked.bind(this) } />;
+    } else if (this.props.params.conversation_id) {
+      sidebar = <SidebarContentConversation
+        {...this.props}
+        conversation_id={this.props.params.conversation_id}
+        onSidebarItemClicked={ this.onSidebarItemClicked.bind(this) }/>;
+    } else {
+      sidebar = <SidebarContentHome
+        {...this.props}
+        onSidebarItemClicked={ this.onSidebarItemClicked.bind(this) } />;
+    }
+
     return (
       <Sidebar
-        sidebar={
-          this.props.params.conversation_id ?
-            <SidebarContentConversation
-              {...this.props}
-              conversation_id={this.props.params.conversation_id}
-              onSidebarItemClicked={ this.onSidebarItemClicked.bind(this) }/> :
-            <SidebarContentHome
-              {...this.props}
-              onSidebarItemClicked={ this.onSidebarItemClicked.bind(this) } />
-          }
+          sidebar={sidebar}
           open={ this.state.sidebarOpen }
           docked={ this.state.sidebarDocked }
 

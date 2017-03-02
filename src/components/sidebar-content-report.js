@@ -31,7 +31,7 @@ const styles = {
 };
 
 @Radium
-class SidebarContentConversation extends React.Component {
+class SidebarContentReport extends React.Component {
 
   handleClick() {
     if (this.props.onSidebarItemClicked) {
@@ -40,62 +40,29 @@ class SidebarContentConversation extends React.Component {
   }
 
   render() {
+    let p = this.props.params;
+    console.log(this.props.routes);
     return (
       <MaterialTitlePanel
         showHamburger={false}
-        title={"Pol.is/"+this.props.conversation_id}
+        title={"Pol.is/"+this.props.report_id}
         style={this.props.style ? {...styles.sidebar, ...this.props.style} : styles.sidebar}>
         <div style={styles.content} onClick={this.handleClick.bind(this)}>
           <SidebarItem
-            to="/"
+            to={"/m/" + p.conversation_id + "/reports"}
             selected={false}
             icon="chevron-left"
-            text="All Conversations"/>
+            text="All Reports"/>
           <SidebarItem
-            to={"/m/"+this.props.conversation_id}
-            selected={this.props.routes[2] && !this.props.routes[2].path}
+            to={"/m/"+p.conversation_id + "/reports/" + p.report_id}
+            selected={this.props.routes[4] && !this.props.routes[4].path}
             icon="gears"
-            text="Configure"/>
+            text="Configure Report"/>
           <SidebarItem
-            to={"/m/"+this.props.conversation_id+"/live"}
-            selected={this.props.routes[2] && this.props.routes[2].path === "live"}
-            icon="heartbeat"
-            text="See it"/>
-          <SidebarItem
-            to={"/m/"+this.props.conversation_id+"/share"}
-            selected={this.props.routes[2] && this.props.routes[2].path === "share"}
-            icon="code"
-            text="Share & Embed"/>
-          <SidebarItem
-            to={"/m/"+this.props.conversation_id+"/comments"}
-            selected={this.props.routes[2] && this.props.routes[2].path === "comments"}
+            to={"/m/"+p.conversation_id + "/reports/" + p.report_id + "/comments"}
+            selected={this.props.routes[4] && this.props.routes[4].path === "comments"}
             icon="comments"
-            text="Comments"/>
-          <SidebarItem
-            to={"/m/"+this.props.conversation_id+"/participants"}
-            selected={this.props.routes[2] && this.props.routes[2].path === "participants"}
-            icon="users"
-            text="Participants"/>
-          <SidebarItem
-            to={"/m/"+this.props.conversation_id+"/summary"}
-            selected={this.props.routes[2] && this.props.routes[2].path === "summary"}
-            icon="list-alt"
-            text="Summary"/>
-          <SidebarItem
-            to={"/m/"+this.props.conversation_id+"/stats"}
-            selected={this.props.routes[2] && this.props.routes[2].path === "stats"}
-            icon="area-chart"
-            text="Stats"/>
-          <SidebarItem
-            to={"/m/"+this.props.conversation_id+"/reports"}
-            selected={this.props.routes[2] && this.props.routes[2].path === "reports"}
-            icon="area-chart"
-            text="Reports"/>
-          <SidebarItem
-            to={"/m/"+this.props.conversation_id+"/export"}
-            selected={this.props.routes[2] && this.props.routes[2].path === "export"}
-            icon="cloud-download"
-            text="Data Export"/>
+            text="Matrix Comments"/>
           <div style={styles.divider} />
           <a style={styles.sidebarLink} target="blank" href="http://docs.pol.is">
             <Awesome name="align-left"/><span style={{marginLeft: 10}}>Docs</span>
@@ -115,7 +82,7 @@ class SidebarContentConversation extends React.Component {
   }
 }
 
-export default SidebarContentConversation;
+export default SidebarContentReport;
 
 // <p>
 //   <Link to="/">
