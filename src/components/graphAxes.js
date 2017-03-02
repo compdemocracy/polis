@@ -38,66 +38,58 @@ const GraphAxes = ({yCenter, xCenter, selectedComment, report}) => {
       </g>
       {/* Bottom axis */}
       <g transform={`translate(${globals.side / 2}, ${globals.side - 20})`}>
-        <text
-          textAnchor="middle">
-          {globals.axisLabels.spacer}
-        </text>
-        <text
+        {report.label_x_neg ? <text
           style={{
             fontFamily: "Georgia",
             fontSize: 14
           }}
-          textAnchor="end"
-          x={-35}
+          textAnchor="start"
+          x={-globals.side/2 + globals.labelPadding}
           y={-1}>
           {globals.axisLabels.leftArrow}
           {" "}
           {report.label_x_neg}
-        </text>
-        <text
-          style={{
-            fontFamily: "Georgia",
-            fontSize: 14
-          }}
-          textAnchor="start"
-          x={35}
-          y={-1}>
-          {report.label_x_pos}
-          {" "}
-          {globals.axisLabels.rightArrow}
-        </text>
-      </g>
-
-      {/* Left axis */}
-      <g transform={`translate(${30}, ${globals.side / 2}) rotate(270)`}>
-        <text
-          textAnchor="middle">
-          {globals.axisLabels.spacer}
-        </text>
-        <text
+        </text> : ""}
+        {report.label_x_pos ? <text
           style={{
             fontFamily: "Georgia",
             fontSize: 14
           }}
           textAnchor="end"
-          x={-35}
+          x={globals.side/2 - globals.labelPadding}
           y={-1}>
-          {globals.axisLabels.leftArrow}
+          {report.label_x_pos}
           {" "}
-          {report.label_y_neg}
-        </text>
-        <text
+          {globals.axisLabels.rightArrow}
+        </text> : ""}
+      </g>
+
+      {/* Left axis */}
+      <g transform={`translate(${30}, ${globals.side / 2}) rotate(270)`}>
+        {report.label_y_neg ? <text
           style={{
             fontFamily: "Georgia",
             fontSize: 14
           }}
           textAnchor="start"
-          x={35}
+          x={-globals.side/2 + globals.labelPadding}
+          y={-1}>
+          {globals.axisLabels.leftArrow}
+          {" "}
+          {report.label_y_neg}
+        </text> : ""}
+        {report.label_y_pos ? <text
+          style={{
+            fontFamily: "Georgia",
+            fontSize: 14
+          }}
+          textAnchor="end"
+          x={globals.side/2 - globals.labelPadding}
           y={-1}>
           {report.label_y_pos}
           {" "}
           {globals.axisLabels.rightArrow}
-        </text>
+        </text> : ""}
       </g>
     </g>
   );

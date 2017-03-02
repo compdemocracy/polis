@@ -56,7 +56,7 @@ class Graph extends React.Component {
         </p>
 
 
-          <svg width={globals.side} height={globals.side} style={{marginTop: 30}}>
+          <svg width="100%" height={globals.side} style={{marginTop: 30}}>
             <Axes selectedComment={this.state.selectedComment} xCenter={xCenter} yCenter={yCenter} report={this.props.report}/>
             <Participants points={baseClustersScaled}/>
             {/* this.props.math["group-clusters"].map((cluster, i) => {

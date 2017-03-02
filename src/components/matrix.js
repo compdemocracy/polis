@@ -169,7 +169,7 @@ class Matrix extends React.Component {
           </Flex>
         </div>
 
-        <svg width={side} height={side}>
+        <svg width="100%" height={side}>
 
           <rect
             fill="rgba(0,0,0,0)"
@@ -194,7 +194,7 @@ class Matrix extends React.Component {
             {Math.round(this.state.mouseOverCorrelation * 1000) / 1000}
           </text>}
 
-          <g transform={"translate(450,0), rotate(45)"/* abstract translate magic number */}>
+          <g transform={"translate(200,0), rotate(45)"/* abstract translate magic number */}>
           {this.props.probabilities.map((comments, row) => {
             return (
               <g key={row}>
