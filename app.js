@@ -172,6 +172,7 @@ helpersInitialized.then(function(o) {
     handle_POST_post_payment_form,
     handle_POST_ptptCommentMod,
     handle_POST_query_participants_by_metadata,
+    handle_POST_reports,
     handle_POST_reserve_conversation_id,
     handle_POST_sendCreatedLinkToEmail,
     handle_POST_sendEmailExportReady,
@@ -920,6 +921,11 @@ helpersInitialized.then(function(o) {
     want('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('report_id', getReportIdFetchRid, assignToPCustom('rid')), // Knowing the report_id grants the user permission to view the report
     handle_GET_reports);
+
+  app.post('/api/v3/reports',
+    auth(assignToP),
+    want('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    handle_POST_reports);
 
   app.get('/api/v3/contexts',
     moveToBody,
