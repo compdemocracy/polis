@@ -7064,6 +7064,20 @@ Email verified! You can close this tab or hit the back button.
     winston.log("info", "getComments " + rid + " begin");
 
     getComments(req.p).then(function(comments) {
+      if (req.p.rid ) {
+        return pgQueryP("select tid, selection from report_comment_selections where rid = ($1);", [req.p.rid]).then((selections) => {
+          let tidToSelection = _.indexBy(selections, "tid");
+          comments = comments.map((c) => {
+            c.includeInReport = tidToSelection[c.tid] && tidToSelection[c.tid].selection > 0;
+            return c;
+          });
+          return comments;
+        });
+      } else {
+        return comments;
+      }
+
+    }).then(function(comments) {
 
       comments = comments.map(function(c) {
         let hasTwitter = c.social && c.social.twitter_user_id;

@@ -583,6 +583,7 @@ helpersInitialized.then(function(o) {
     moveToBody,
     authOptional(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    want('report_id', getReportIdFetchRid, assignToPCustom('rid')), // if you want to get report-specific info
     want('tids', getArrayOfInt, assignToP),
     want('moderation', getBool, assignToP),
     want('mod', getInt, assignToP),
