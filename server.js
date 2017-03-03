@@ -9537,6 +9537,25 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
+  function handle_POST_reports(req, res) {
+    let zid = req.p.zid;
+    let uid = req.p.uid;
+    
+    return isModerator(zid, uid).then((isMod) => {
+      if (!isMod) {
+        return fail(res, 403, "polis_err_post_reports_permissions", err);
+      }
+      return generateTokenP(20, false).then(function(report_id) {
+        report_id = 'r' + report_id;
+        return pgQueryP("insert into reports (zid, report_id) values ($1, $2);", [zid, report_id]).then(() => {
+          res.json({});
+        });
+      });
+    }).catch((err) => {
+      fail(res, 500, "polis_err_post_reports_misc", err);
+    });
+  }
+
 
   function handle_GET_reports(req, res) {
     let zid = req.p.zid;
@@ -13661,6 +13680,7 @@ CREATE TABLE slack_user_invites (
     handle_POST_post_payment_form,
     handle_POST_ptptCommentMod,
     handle_POST_query_participants_by_metadata,
+    handle_POST_reports,
     handle_POST_reserve_conversation_id,
     handle_POST_sendCreatedLinkToEmail,
     handle_POST_sendEmailExportReady,
