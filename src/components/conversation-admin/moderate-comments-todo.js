@@ -31,6 +31,8 @@ class ModerateCommentsTodo extends React.Component {
           rejectButton
           acceptClickHandler={this.onCommentAccepted.bind(this)}
           rejectClickHandler={this.onCommentRejected.bind(this)}
+          acceptButtonText="accept"
+          rejectButtonText="reject"
           comment={comment}/>
       )
     })

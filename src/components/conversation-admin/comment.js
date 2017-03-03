@@ -21,6 +21,8 @@ class Comment extends React.Component {
     rejectButton: React.PropTypes.bool,
     acceptClickHandler: React.PropTypes.func,
     rejectClickHandler: React.PropTypes.func,
+    acceptButtonText: React.PropTypes.string,
+    rejectButtonText: React.PropTypes.string,
   }
   getStyles() {
     return {
@@ -60,7 +62,7 @@ class Comment extends React.Component {
           marginRight: 20
         }}
         onClick={this.onAcceptClicked.bind(this)}>
-        accept
+        {this.props.acceptButtonText}
       </Button>
     )
   }
@@ -72,7 +74,7 @@ class Comment extends React.Component {
           color: "white",
         }}
         onClick={this.onRejectClicked.bind(this)}>
-        reject
+        {this.props.rejectButtonText}
       </Button>
     )
   }

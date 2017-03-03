@@ -5,6 +5,7 @@ import ComponentHelpers from "../../util/component-helpers";
 import Flex from "../framework/flex";
 import NavTab from "../framework/nav-tab";
 import NoPermission from "./no-permission";
+import PolisNet from "../../util/net";
 import Radium from "radium";
 import React from "react";
 import { connect } from "react-redux";
@@ -35,20 +36,44 @@ class CommentModeration extends React.Component {
     };
   }
   loadComments() {
-    this.props.dispatch(
-      populateAllCommentStores(this.props.params.conversation_id)
-    );
+    let commentsPromise = PolisNet.polisGet("/api/v3/comments", {
+      include_social: true,
+      moderation: true,
+      conversation_id: this.props.params.conversation_id,
+      report_id: this.props.params.report_id,
+    });
+    commentsPromise.then((comments) => {
+      let included = comments.filter((c) => { return c.includeInReport; });
+      let excluded = comments.filter((c) => { return !c.includeInReport; });
+      this.setState({
+        loading: false,
+        includedComments: included,
+        excludedComments: excluded,
+      });
+    });
   }
   componentWillMount() {
+    this.loadComments();
     this.getCommentsRepeatedly = setInterval(() => {
       this.loadComments();
     }, pollFrequency);
   }
-  componentDidMount() {
-    this.loadComments();
-  }
   componentWillUnmount() {
     clearInterval(this.getCommentsRepeatedly);
+  }
+  commentWasExcluded(excluded) {
+    this.state.excludedComments.push(excluded);
+    this.setState({
+      excludedComments: this.state.excludedComments,
+      includedComments: this.state.includedComments.filter((c) => { return c.tid !== excluded.tid;}),
+    });
+  }
+  commentWasIncluded(included) {
+    this.state.includedComments.push(included);
+    this.setState({
+      includedComments: this.state.includedComments,
+      excludedComments: this.state.excludedComments.filter((c) => { return c.tid !== included.tid;}),
+    });
   }
   render() {
     if (ComponentHelpers.shouldShowPermissionsError(this.props)) {
@@ -56,6 +81,7 @@ class CommentModeration extends React.Component {
     }
 
     const styles = this.getStyles();
+    const numRouteElements = this.props.routes.length;
 
     return (
       <div>
@@ -64,46 +90,34 @@ class CommentModeration extends React.Component {
           justifyContent="flex-start"
           styleOverrides={styles.navContainer}>
           <NavTab
-            active={this.props.routes[3].path ? false : true}
-            url={`/m/${this.props.params.conversation_id}/comments/`}
+            active={this.props.routes[numRouteElements-1].path === "included"}
+            url={`/m/${this.props.params.conversation_id}/reports/${this.props.params.report_id}/comments/included`}
             empty={0}
-            text="Unmoderated"
+            text="Included"
             number={
-              this.props.unmoderated.unmoderated_comments ?
-                this.props.unmoderated.unmoderated_comments.length :
+              this.state.includedComments ?
+                this.state.includedComments.length :
                 "..."
               }/>
           <NavTab
-            active={this.props.routes[3].path === "accepted"}
-            url={`/m/${this.props.params.conversation_id}/comments/accepted`}
+            active={this.props.routes[numRouteElements-1].path === "excluded"}
+            url={`/m/${this.props.params.conversation_id}/reports/${this.props.params.report_id}/comments/excluded`}
             empty={0}
-            text="Accepted"
+            text="Excluded"
             number={
-              this.props.accepted.accepted_comments ?
-                this.props.accepted.accepted_comments.length :
+              this.state.excludedComments ?
+                this.state.excludedComments.length :
                 "..."
               }/>
-          <NavTab
-            active={this.props.routes[3].path === "rejected"}
-            url={`/m/${this.props.params.conversation_id}/comments/rejected`}
-            empty={0}
-            text="Rejected"
-            number={
-              this.props.rejected.rejected_comments ?
-                this.props.rejected.rejected_comments.length :
-                "..."
-              }/>
-          <NavTab
-            active={this.props.routes[3].path === "seed"}
-            url={`/m/${this.props.params.conversation_id}/comments/seed`}
-            empty={""}
-            text="Seed"/>
-          <NavTab
-            active={this.props.routes[3].path === "seed_tweet"}
-            url={`/m/${this.props.params.conversation_id}/comments/seed_tweet`}
-            text="Seed Tweet"/>
         </Flex>
-        {this.props.children}
+
+        {React.cloneElement(this.props.children, {
+          excludedComments: this.state.excludedComments,
+          includedComments: this.state.includedComments,
+          commentWasIncluded: this.commentWasIncluded.bind(this),
+          commentWasExcluded: this.commentWasExcluded.bind(this),
+        })}
+
       </div>
     );
   }

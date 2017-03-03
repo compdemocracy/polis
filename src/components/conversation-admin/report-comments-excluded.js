@@ -2,28 +2,31 @@
 
 import React from "react";
 import { connect } from "react-redux";
-import { populateAcceptedCommentsStore, changeCommentStatusToRejected } from '../../actions';
+import { populateRejectedCommentsStore } from '../../actions'
 import Radium from "radium";
 import _ from "lodash";
 import Comment from "./comment";
 import Spinner from "../framework/spinner";
 import Flex from "../framework/flex";
 
-
-@connect(state => state.mod_comments_accepted)
+// @connect(state => state.mod_comments_rejected)
 @Radium
-class ModerateCommentsAccepted extends React.Component {
-  onCommentRejected(comment) {
-    this.props.dispatch(changeCommentStatusToRejected(comment))
+class ReportCommentsExcluded extends React.Component {
+  onCommentAccepted(comment) {
+    // this.props.dispatch(changeCommentStatusToRejected(comment))
+    this.props.commentWasIncluded(comment);
   }
   createCommentMarkup() {
-    const comments = this.props.accepted_comments.map((comment, i) => {
+    if (!this.props.excludedComments) {
+      return "";
+    }
+    const comments = this.props.excludedComments.map((comment, i)=>{
       return (
         <Comment
           key={i}
-          rejectButton
-          rejectClickHandler={this.onCommentRejected.bind(this)}
-          rejectButtonText="reject"
+          acceptButton
+          acceptClickHandler={this.onCommentAccepted.bind(this)}
+          acceptButtonText="include"
           comment={comment}/>
       )
     })
@@ -37,16 +40,17 @@ class ModerateCommentsAccepted extends React.Component {
             marginLeft: 10,
             position: "relative",
             top: -2
-          }}> Loading accepted comments... </span>
+          }}> Loading comments to be excluded from correlation matrix... </span>
       </Flex>
     )
   }
   render() {
     return (
       <div>
+      These comments will be excluded from the correlation matrix of this report.
         <div>
           {
-            this.props.accepted_comments !== null ?
+            this.props.excludedComments !== null ?
               this.createCommentMarkup() :
               this.renderSpinner()
           }
@@ -56,4 +60,4 @@ class ModerateCommentsAccepted extends React.Component {
   }
 }
 
-export default ModerateCommentsAccepted;
+export default ReportCommentsExcluded;

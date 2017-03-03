@@ -10,20 +10,23 @@ import Spinner from "../framework/spinner";
 import Flex from "../framework/flex";
 
 
-@connect(state => state.mod_comments_accepted)
+// @connect(state => state.mod_comments_accepted)
 @Radium
-class ModerateCommentsAccepted extends React.Component {
+class ReportCommentsIncluded extends React.Component {
   onCommentRejected(comment) {
-    this.props.dispatch(changeCommentStatusToRejected(comment))
+    this.props.commentWasExcluded(comment);
   }
   createCommentMarkup() {
-    const comments = this.props.accepted_comments.map((comment, i) => {
+    if (!this.props.includedComments) {
+      return "";
+    }
+    const comments = this.props.includedComments.map((comment, i) => {
       return (
         <Comment
           key={i}
           rejectButton
           rejectClickHandler={this.onCommentRejected.bind(this)}
-          rejectButtonText="reject"
+          rejectButtonText="exclude"
           comment={comment}/>
       )
     })
@@ -37,16 +40,18 @@ class ModerateCommentsAccepted extends React.Component {
             marginLeft: 10,
             position: "relative",
             top: -2
-          }}> Loading accepted comments... </span>
+          }}> Loading comments to be included in correlation matrix... </span>
       </Flex>
     )
   }
   render() {
     return (
       <div>
+      <div>These comments will be included in the correlation matrix of this report.</div>
+      <div>If the matrix is too big, try excluding comments here. Excluded comments will still appear elsewhere in the report.</div>
         <div>
           {
-            this.props.accepted_comments !== null ?
+            this.props.includedComments !== null ?
               this.createCommentMarkup() :
               this.renderSpinner()
           }
@@ -56,4 +61,4 @@ class ModerateCommentsAccepted extends React.Component {
   }
 }
 
-export default ModerateCommentsAccepted;
+export default ReportCommentsIncluded;

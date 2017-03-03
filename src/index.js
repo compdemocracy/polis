@@ -74,6 +74,8 @@ import Summary from "./components/conversation-admin/summary";
 import Reports from "./components/conversation-admin/reports";
 import ReportConfig from "./components/conversation-admin/report-config";
 import ReportComments from "./components/conversation-admin/report-comments";
+import ReportCommentsIncluded from "./components/conversation-admin/report-comments-included";
+import ReportCommentsExcluded from "./components/conversation-admin/report-comments-excluded";
 import ReportsList from "./components/conversation-admin/reports-list";
 
 
@@ -102,11 +104,9 @@ class Root extends React.Component {
                   <Route path=":report_id" component={Container}>
                     <IndexRoute component={ReportConfig}/>
                   <Route path="comments" component={ReportComments}>
-                    <IndexRoute component={ModerateCommentsTodo}/>
-                    <Route path="accepted" component={ModerateCommentsAccepted}/>
-                    <Route path="rejected" component={ModerateCommentsRejected}/>
-                    <Route path="seed" component={ModerateCommentsSeed}/>
-                    <Route path="seed_tweet" component={ModerateCommentsSeedTweet}/>
+                    <IndexRoute component={ReportCommentsIncluded}/>
+                    <Route path="included" component={ReportCommentsIncluded}/>
+                    <Route path="excluded" component={ReportCommentsExcluded}/>
                   </Route>
                   </Route>
                 </Route>
