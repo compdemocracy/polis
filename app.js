@@ -588,6 +588,7 @@ helpersInitialized.then(function(o) {
     want('tids', getArrayOfInt, assignToP),
     want('moderation', getBool, assignToP),
     want('mod', getInt, assignToP),
+    want('modIn', getBool, assignToP), // set this to true if you want to see the comments that are ptpt-visible given the current "strict mod" setting, or false for ptpt-invisible comments.
     want('mod_gt', getInt, assignToP),
     want('include_social', getBool, assignToP),
     want('include_demographics', getBool, assignToP),
