@@ -172,6 +172,7 @@ helpersInitialized.then(function(o) {
     handle_POST_post_payment_form,
     handle_POST_ptptCommentMod,
     handle_POST_query_participants_by_metadata,
+    handle_POST_reportCommentSelections,
     handle_POST_reports,
     handle_POST_reserve_conversation_id,
     handle_POST_sendCreatedLinkToEmail,
@@ -748,6 +749,17 @@ helpersInitialized.then(function(o) {
     need('is_meta', getBool, assignToP),
     need('velocity', getNumberInRange(0, 1), assignToP),
     handle_PUT_comments);
+
+
+  app.post('/api/v3/reportCommentSelections',
+    auth(assignToP),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    need('report_id', getReportIdFetchRid, assignToPCustom('rid')),
+    need('tid', getInt, assignToP),
+    need('include', getBool, assignToP),
+    handle_POST_reportCommentSelections);
+    
+
 
   // use this to generate them
   app.get('/api/v3/lti_oauthv1_credentials',

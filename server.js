@@ -8330,6 +8330,25 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
+  function handle_POST_reportCommentSelections(req, res) {
+    let uid = req.p.uid;
+    let zid = req.p.zid;
+    let rid = req.p.rid;
+    let tid = req.p.tid;
+    let selection = req.p.include ? 1 : -1;
+    isModerator(zid, uid).then((isMod) => {
+      if (!isMod) {
+        return fail(res, 403, "polis_err_POST_reportCommentSelections_auth");
+      }
+      return pgQueryP("insert into report_comment_selections (rid, tid, selection, modified) values ($1, $2, $3, now_as_millis()) "+
+        "on conflict (rid, tid) do update set selection = ($3), modified = now_as_millis();", [rid, tid, selection]).then(() => {
+          res.json({});
+        });
+    }).catch((err) => {
+      fail(res, 500, "polis_err_POST_reportCommentSelections_misc", err);
+    });
+  }
+
 
   // kind of crappy that we're replacing the zinvite.
   // This is needed because we initially create a conversation with the POST, then actually set the properties with the subsequent PUT.
@@ -13479,6 +13498,7 @@ CREATE TABLE slack_user_invites (
     handle_POST_post_payment_form,
     handle_POST_ptptCommentMod,
     handle_POST_query_participants_by_metadata,
+    handle_POST_reportCommentSelections,
     handle_POST_reports,
     handle_POST_reserve_conversation_id,
     handle_POST_sendCreatedLinkToEmail,
