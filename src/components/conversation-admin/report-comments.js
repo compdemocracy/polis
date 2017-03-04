@@ -39,6 +39,7 @@ class CommentModeration extends React.Component {
     let commentsPromise = PolisNet.polisGet("/api/v3/comments", {
       include_social: true,
       moderation: true,
+      modIn: true,
       conversation_id: this.props.params.conversation_id,
       report_id: this.props.params.report_id,
     });
@@ -67,12 +68,24 @@ class CommentModeration extends React.Component {
       excludedComments: this.state.excludedComments,
       includedComments: this.state.includedComments.filter((c) => { return c.tid !== excluded.tid;}),
     });
+    PolisNet.polisPost("/api/v3/reportCommentSelections", {
+      include: false,
+      tid: excluded.tid,
+      conversation_id: this.props.params.conversation_id,
+      report_id: this.props.params.report_id,
+    });
   }
   commentWasIncluded(included) {
     this.state.includedComments.push(included);
     this.setState({
       includedComments: this.state.includedComments,
       excludedComments: this.state.excludedComments.filter((c) => { return c.tid !== included.tid;}),
+    });
+    PolisNet.polisPost("/api/v3/reportCommentSelections", {
+      include: true,
+      tid: included.tid,
+      conversation_id: this.props.params.conversation_id,
+      report_id: this.props.params.report_id,
     });
   }
   render() {
