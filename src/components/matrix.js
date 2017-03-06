@@ -49,7 +49,8 @@ class Matrix extends React.Component {
             fill={Math.abs(Math.floor(comment * 100)) > 30 ? "white" : "rgb(60,60,60)"}
             style={{
               fontFamily: globals.sans,
-              fontSize: 10
+              fontSize: 10,
+              pointerEvents: "none",
             }}>
             {Math.floor(comment * 100)}
           </text>
@@ -169,7 +170,7 @@ class Matrix extends React.Component {
           </Flex>
         </div>
 
-        <svg width="100%" height={side}>
+        <svg width="100%" height={side} style={{cursor: "crosshair"}}>
 
           <rect
             fill="rgba(0,0,0,0)"
