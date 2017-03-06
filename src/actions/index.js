@@ -66,6 +66,10 @@ export const REJECT_COMMENT = "REJECT_COMMENT";
 export const REJECT_COMMENT_SUCCESS = "REJECT_COMMENT_SUCCESS";
 export const REJECT_COMMENT_ERROR = "REJECT_COMMENT_ERROR";
 
+export const COMMENT_IS_META = "COMMENT_IS_META";
+export const COMMENT_IS_META_SUCCESS = "COMMENT_IS_META_SUCCESS";
+export const COMMENT_IS_META_ERROR = "COMMENT_IS_META_ERROR";
+
 export const REQUEST_PARTICIPANTS = "REQUEST_PARTICIPANTS";
 export const RECEIVE_PARTICIPANTS = "RECEIVE_PARTICIPANTS";
 export const PARTICIPANTS_FETCH_ERROR = "PARTICIPANTS_FETCH_ERROR";
@@ -1256,6 +1260,50 @@ export const changeCommentStatusToRejected = (comment) => {
         dispatch(populateAllCommentStores(comment.conversation_id));
       },
       err => dispatch(rejectCommentError(err))
+    )
+  };
+};
+
+/* moderator changed comment's is_meta flag */
+
+const optimisticCommentIsMetaChanged = (comment) => {
+  return {
+    type: COMMENT_IS_META,
+    comment: comment
+  }
+}
+
+const commentIsMetaChangeSuccess = (data) => {
+  return {
+    type: COMMENT_IS_META_SUCCESS,
+    data: data
+  }
+}
+
+const commentIsMetaChangeError = (err) => {
+  return {
+    type: COMMENT_IS_META_ERROR,
+    data: err
+  }
+}
+
+const putCommentCommentIsMetaChange = (comment, is_meta) => {
+  return $.ajax({
+    method: "PUT",
+    url: "/api/v3/comments",
+    data: Object.assign(comment, {is_meta: is_meta})
+  })
+}
+
+export const changeCommentCommentIsMeta = (comment, is_meta) => {
+  return (dispatch) => {
+    dispatch(optimisticCommentIsMetaChanged())
+    return putCommentCommentIsMetaChange(comment, is_meta).then(
+      (res) => {
+        dispatch(commentIsMetaChangeSuccess(res));
+        dispatch(populateAllCommentStores(comment.conversation_id));
+      },
+      err => dispatch(commentIsMetaChangeError(err))
     )
   };
 };

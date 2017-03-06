@@ -4,8 +4,10 @@ import React from "react";
 import Radium from "radium";
 import Flex from "../framework/flex";
 import Button from "../framework/generic-button";
+import Checkbox from "material-ui/lib/checkbox";
 import ParticipantHeader from "./participant-header";
 import { connect } from "react-redux";
+import settings from "../../settings";
 
 @connect((state) => {
   return {
@@ -19,6 +21,7 @@ class Comment extends React.Component {
     params: React.PropTypes.object,
     acceptButton: React.PropTypes.bool,
     rejectButton: React.PropTypes.bool,
+    isMetaCheckbox: React.PropTypes.bool,
     acceptClickHandler: React.PropTypes.func,
     rejectClickHandler: React.PropTypes.func,
     acceptButtonText: React.PropTypes.string,
@@ -53,6 +56,9 @@ class Comment extends React.Component {
   }
   onRejectClicked() {
     this.props.rejectClickHandler(this.props.comment)
+  }
+  onIsMetaClicked() {
+    this.props.toggleIsMetaHandler(this.props.comment, this.refs.is_meta.isChecked());
   }
   makeAcceptButton() {
     return (
@@ -173,6 +179,16 @@ class Comment extends React.Component {
             <div>
             { this.props.acceptButton ? this.makeAcceptButton() : "" }
             { this.props.rejectButton ? this.makeRejectButton() : "" }
+            { this.props.isMetaCheckbox ?
+              <Checkbox
+                label="Is Metadata"
+                ref="is_meta"
+                checked={this.props.comment.is_meta}
+                onCheck={ this.onIsMetaClicked.bind(this) }
+                labelPosition={"left"}
+                labelWrapperColor={settings.darkerGray}
+                color={settings.polisBlue}/> : ""}
+            <p style={{fontSize: 10, fontStyle: "italic"}}> </p>
             </div>
           </Flex>
         </Flex>
