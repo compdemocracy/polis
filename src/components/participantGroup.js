@@ -10,6 +10,10 @@ const ParticipantGroup = ({gid, groupComments, conversation, allComments, groupV
     const allCommentsKeyed = _.keyBy(allComments, "tid");
 
     return groupComments.map((c, i) => {
+      if (!allCommentsKeyed[c.tid]) {
+        console.log('modded out?', c.tid);
+        return "";
+      }
       // const groupVotes = math["group-votes"][gid].votes[comment.tid];
       // const isBestAgree = comment["best-agree"] && (groupVotes && groupVotes.A > 0);
       // const agree = isBestAgree || comment["repful-for"] === "agree";
