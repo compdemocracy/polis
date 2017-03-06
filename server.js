@@ -8525,6 +8525,11 @@ Email verified! You can close this tab or hit the back button.
       }
       return pgQueryP("insert into report_comment_selections (rid, tid, selection, zid, modified) values ($1, $2, $3, $4, now_as_millis()) "+
         "on conflict (rid, tid) do update set selection = ($3), zid  = ($4), modified = now_as_millis();", [rid, tid, selection, zid]).then(() => {
+
+          // The old report isn't valid anymore, so when a user loads the report again a new worker_tasks entry will be created.
+          return pgQueryP("delete from math_report_correlationmatrix where rid = ($1);", [rid]);
+
+        }).then(() => {
           res.json({});
         });
     }).catch((err) => {
