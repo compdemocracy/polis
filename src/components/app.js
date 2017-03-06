@@ -99,6 +99,12 @@ class App extends React.Component {
           setTimeout(() => {
             this.getCorrelationMatrix(math_tick).then(resolve, reject);
           }, 500);
+        } else if (response.status && response.status === "polis_report_needs_comment_selection") {
+          this.setState({
+            errorLink: "http://localhost:5002/m/36jajfnhhn/reports/r6ehukhk29tcfmuc57vrj/comments",
+            errorLinkText: "Select some comments",
+          });
+          reject("Currently, No comments are selected for display in the matrix.");
         } else {
           resolve(response);
         }
@@ -250,6 +256,7 @@ class App extends React.Component {
       return (<div>
         <div> Error Loading </div>
         <div> {this.state.errorText} </div>
+        {this.state.errorLink ? (<a href={this.state.errorLink}>{this.state.errorLinkText}</a>) : ""}
       </div>);
     }
     if (this.state.loading) {
