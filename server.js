@@ -2528,6 +2528,12 @@ function initializePolisHelpers() {
       });
     }
 
+    function hasCommentSelections() {
+      return pgQueryP("select * from report_comment_selections where rid = ($1) and selection = 1;", [rid]).then((rows) => {
+        return rows.length > 0;
+      });
+    }
+
     let requestExistsPromise = pgQueryP(
       "select * from worker_tasks where task_type = 'generate_report_data' and math_env=($2) "+
         "and task_bucket = ($1) " +
@@ -2550,15 +2556,22 @@ function initializePolisHelpers() {
           const shouldAddTask = true;
 
           if (shouldAddTask) {
-            return pgQueryP("insert into worker_tasks (task_type, task_data, task_bucket, math_env) values ('generate_report_data', $1, $2, $3);", [
-              JSON.stringify({
-                rid: rid,
-                zid: zid,
-                math_tick: math_tick,
-              }),
-              rid,
-              math_env,
-            ]).then(finishAsPending);
+            return hasCommentSelections().then((hasSelections) => {
+              if (!hasSelections) {
+                return res.status(202).json({
+                  status: "polis_report_needs_comment_selection",
+                });
+              }
+              return pgQueryP("insert into worker_tasks (task_type, task_data, task_bucket, math_env) values ('generate_report_data', $1, $2, $3);", [
+                JSON.stringify({
+                  rid: rid,
+                  zid: zid,
+                  math_tick: math_tick,
+                }),
+                rid,
+                math_env,
+              ]).then(finishAsPending);
+            });
           }
           finishAsPending();
         });
