@@ -8523,8 +8523,8 @@ Email verified! You can close this tab or hit the back button.
       if (!isMod) {
         return fail(res, 403, "polis_err_POST_reportCommentSelections_auth");
       }
-      return pgQueryP("insert into report_comment_selections (rid, tid, selection, modified) values ($1, $2, $3, now_as_millis()) "+
-        "on conflict (rid, tid) do update set selection = ($3), modified = now_as_millis();", [rid, tid, selection]).then(() => {
+      return pgQueryP("insert into report_comment_selections (rid, tid, selection, zid, modified) values ($1, $2, $3, $4, now_as_millis()) "+
+        "on conflict (rid, tid) do update set selection = ($3), zid  = ($4), modified = now_as_millis();", [rid, tid, selection, zid]).then(() => {
           res.json({});
         });
     }).catch((err) => {
