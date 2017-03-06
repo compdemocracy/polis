@@ -277,7 +277,9 @@
   [rid]
   {:select [:tid]
    :from [:report_comment_selections]
-   :where [:= :rid rid]})
+   :where [:and
+           [:= :rid rid]
+           [:> :selection 0]]})
 
 (defn query-zid-from-rid [component rid]
   (query component (zid-from-rid rid)))
