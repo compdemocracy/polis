@@ -13,7 +13,6 @@ import Matrix from "./Matrix";
 import Heading from "./Heading";
 import Overview from "./Overview";
 import Consensus from "./Consensus";
-import Contested from "./Contested";
 import AllComments from "./AllComments";
 import ParticipantGroups from "./ParticipantGroups";
 import Graph from "./Graph";

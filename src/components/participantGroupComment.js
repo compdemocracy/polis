@@ -66,12 +66,12 @@ class ParticipantGroupComment extends React.Component {
             strokeWidth="2"
             stroke="rgb(245,245,245)"/>
           <BarChart
-            groupVotes={this.props.groupVotesForOtherGroups}
+            groupVotes={this.props.groupVotesForThisGroup}
             conversation={this.props.conversation}
             comment={this.props.comment}
             ptptCount={this.props.ptptCount}/>
         </svg>
-        <svg width={globals.barChartWidth} height={70}>
+        <svg width={globals.barChartWidth} height={70} style={{opacity: .65}}>
           <line
             x1="120"
             y1="0"
@@ -80,7 +80,7 @@ class ParticipantGroupComment extends React.Component {
             strokeWidth="2"
             stroke="rgb(245,245,245)"/>
           <BarChart
-            groupVotes={this.props.groupVotesForThisGroup}
+            groupVotes={this.props.groupVotesForOtherGroups}
             conversation={this.props.conversation}
             comment={this.props.comment}
             ptptCount={this.props.ptptCount}/>

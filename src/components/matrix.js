@@ -137,7 +137,7 @@ class Matrix extends React.Component {
   }
 
   renderMatrix() {
-    let side = this.props.probabilities.length * square + 350;
+    let side = this.props.probabilities.length * square + 750;
     return (
       <div>
         <p style={{fontSize: globals.primaryHeading}}>{this.props.title}</p>
@@ -194,7 +194,7 @@ class Matrix extends React.Component {
             {Math.round(this.state.mouseOverCorrelation * 1000) / 1000}
           </text>}
 
-          <g transform={"translate(200,0), rotate(45)"/* abstract translate magic number */}>
+          <g transform={"translate(1200,0), rotate(45)"/* abstract translate magic number */}>
           {this.props.probabilities.map((comments, row) => {
             return (
               <g key={row}>

@@ -73,7 +73,7 @@ const ParticipantGroup = ({gid, groupComments, conversation, allComments, groupV
               position: "relative",
               left: 40
             }}>
-            All others ({groupVotesForOtherGroups["n-members"]})
+            This Group ({groupVotesForOtherGroups["n-members"]})
           </span>
           <span
             style={{
@@ -81,7 +81,7 @@ const ParticipantGroup = ({gid, groupComments, conversation, allComments, groupV
               position: "relative",
               left: 40
             }}>
-            This group ({groupVotesForThisGroup["n-members"]})
+            All Others ({groupVotesForThisGroup["n-members"]})
           </span>
         </Flex>
       {drawGroupComments(groupVotesForThisGroup)}
