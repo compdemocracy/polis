@@ -30,6 +30,7 @@ class Comment extends React.Component {
         margin: "10px 20px 10px 20px",
         backgroundColor: "rgb(253,253,253)",
         borderRadius: 3,
+        maxWidth: 800,
         padding: 10,
         WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
         BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
