@@ -649,6 +649,7 @@ CREATE TABLE reports (
 );
 
 CREATE TABLE report_comment_selections (
+  zid INTEGER NOT NULL REFERENCES conversations(zid),
   rid BIGINT NOT NULL REFERENCES reports(rid),
   tid INTEGER NOT NULL,
   selection SMALLINT NOT NULL, -- 1 for included, -1 for not included, 0 or no record could be something like "included if there's room"
