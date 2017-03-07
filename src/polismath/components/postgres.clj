@@ -319,7 +319,7 @@
   [postgres zid math-tick data]
   (log/info "upload-math-main for zid" zid)
   (let [math-env (name (-> postgres :config :math-env))]
-    (query postgres ["insert into math_main (zid, math_env, last_vote_timestamp, math_tick, data) values (?,?,?,?,?) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data, last_vote_timestamp = excluded.last_vote_timestamp, math_tick = excluded.math_tick returning zid;" zid math-env (:lastVoteTimestamp data) math-tick (pg-json data)])))
+    (query postgres ["insert into math_main (zid, math_env, last_vote_timestamp, math_tick, data, caching_tick) values (?,?,?,?,?, (select max(caching_tick) + 1 from math_main where math_env = (?))) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data, last_vote_timestamp = excluded.last_vote_timestamp, math_tick = excluded.math_tick, caching_tick = excluded.caching_tick returning zid;" zid math-env (:lastVoteTimestamp data) math-tick (pg-json data) math-env])))
 
 (defn upload-math-profile
   [postgres zid data]
