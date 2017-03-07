@@ -460,6 +460,31 @@ const sql_users = sql.define({
   ],
 });
 
+const sql_reports = sql.define({
+  name: 'reports',
+  columns: [
+    "rid",
+    "report_id",
+    "zid",
+    "created",
+    "modified",
+    "label_x_neg",
+    "label_x_pos",
+    "label_y_neg",
+    "label_y_pos",
+    "label_group_0",
+    "label_group_1",
+    "label_group_2",
+    "label_group_3",
+    "label_group_4",
+    "label_group_5",
+    "label_group_6",
+    "label_group_7",
+    "label_group_8",
+    "label_group_9",
+  ],
+});
+
 
 
 // // Eventually, the plan is to support a larger number-space by using some lowercase letters.
@@ -9480,6 +9505,50 @@ Email verified! You can close this tab or hit the back button.
   }
 
 
+  function handle_PUT_reports(req, res) {
+    let rid = req.p.rid;
+    let uid = req.p.uid;
+    let zid = req.p.zid;
+
+    return isModerator(zid, uid).then((isMod) => {
+      if (!isMod) {
+        return fail(res, 403, "polis_err_put_reports_permissions", err);
+      }
+
+      let fields = {
+        modified: "now_as_millis()",
+      };
+
+      sql_reports.columns.map((c) => {
+        return c.name;
+      }).filter((name) => {
+        // only allow changing label fields, (label_x_neg, etc) not zid, etc.
+        return name.startsWith("label_");
+      }).forEach((name) => {
+        if (!_.isUndefined(req.p[name])) {
+          fields[name] = req.p[name];
+        }
+      });
+
+      let q = sql_reports.update(
+          fields
+        )
+        .where(
+          sql_reports.rid.equals(rid)
+        );
+
+      let query  = q.toString();
+      query = query.replace("'now_as_millis()'", "now_as_millis()"); // remove quotes added by sql lib
+      
+      return pgQueryP(query, []).then((result) => {
+        res.json({});
+      });
+    }).catch((err) => {
+      fail(res, 500, "polis_err_post_reports_misc", err);
+    });
+  }
+
+
   function handle_GET_reports(req, res) {
     let zid = req.p.zid;
     let rid = req.p.rid;
@@ -13563,6 +13632,7 @@ CREATE TABLE slack_user_invites (
     handle_PUT_comments,
     handle_PUT_conversations,
     handle_PUT_ptptois,
+    handle_PUT_reports,
     handle_PUT_users,
   };
 
