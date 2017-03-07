@@ -641,6 +641,17 @@ CREATE TABLE reports (
   label_y_neg VARCHAR(999),
   label_y_pos VARCHAR(999),
 
+  label_group_0 VARCHAR(999),
+  label_group_1 VARCHAR(999),
+  label_group_2 VARCHAR(999),
+  label_group_3 VARCHAR(999),
+  label_group_4 VARCHAR(999),
+  label_group_5 VARCHAR(999),
+  label_group_6 VARCHAR(999),
+  label_group_7 VARCHAR(999),
+  label_group_8 VARCHAR(999),
+  label_group_9 VARCHAR(999),
+
   UNIQUE(rid),
   UNIQUE(report_id)
 );
