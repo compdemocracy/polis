@@ -684,6 +684,7 @@ CREATE TABLE worker_tasks (
 CREATE TABLE math_ticks (
     zid INTEGER REFERENCES conversations(zid),
     math_tick BIGINT NOT NULL DEFAULT 0,
+    caching_tick BIGINT NOT NULL DEFAULT 0, -- set this to MAX(caching_tick) + 1. When the server is populating the cache it can use this to find new items.
     math_env VARCHAR(999) NOT NULL,
     modified BIGINT NOT NULL DEFAULT now_as_millis(),
     UNIQUE (zid, math_env)
