@@ -2347,20 +2347,20 @@ function initializePolisHelpers() {
     return o;
   }
 
-  function getPca(zid, lastVoteTimestamp) {
+  function getPca(zid, math_tick) {
     let cached = pcaCache.get(zid);
     let cachedPOJO = cached && cached.asPOJO;
     if (cachedPOJO) {
-      if (cachedPOJO.lastVoteTimestamp <= lastVoteTimestamp) {
-        INFO("mathpoll related", "math was cached but not new", zid, lastVoteTimestamp);
+      if (cachedPOJO.math_tick <= math_tick) {
+        INFO("mathpoll related", "math was cached but not new", zid, math_tick);
         return Promise.resolve(null);
       } else {
-        INFO("mathpoll related", "math from cache", zid, lastVoteTimestamp);
+        INFO("mathpoll related", "math from cache", zid, math_tick);
         return Promise.resolve(cached);
       }
     }
 
-    INFO("mathpoll cache miss", zid, lastVoteTimestamp);
+    INFO("mathpoll cache miss", zid, math_tick);
 
     // NOTE: not caching results from this query for now, think about this later.
     // not caching these means that conversations without new votes might not be cached. (closed conversations may be slower to load)
@@ -2375,7 +2375,7 @@ function initializePolisHelpers() {
       addInRamMetric("pcaGetQuery", queryDuration);
 
       if (!rows || !rows.length) {
-        INFO("mathpoll related", "after cache miss, unable to find item", zid, lastVoteTimestamp);
+        INFO("mathpoll related", "after cache miss, unable to find item", zid, math_tick);
         return null;
       }
       let item = rows[0].data;
@@ -2384,11 +2384,11 @@ function initializePolisHelpers() {
         item.math_tick = Number(rows[0].math_tick);
       }
 
-      if (item.lastVoteTimestamp <= lastVoteTimestamp) {
-        INFO("mathpoll related", "after cache miss, unable to find newer item", zid, lastVoteTimestamp);
+      if (item.math_tick <= math_tick) {
+        INFO("mathpoll related", "after cache miss, unable to find newer item", zid, math_tick);
         return null;
       }
-      INFO("mathpoll related", "after cache miss, found item, adding to cache", zid, lastVoteTimestamp);
+      INFO("mathpoll related", "after cache miss, found item, adding to cache", zid, math_tick);
 
       processMathObject(item);
 
@@ -2449,7 +2449,7 @@ function initializePolisHelpers() {
 
   function handle_GET_math_pca2(req, res) {
     let zid = req.p.zid;
-    let lastVoteTimestamp = req.p.lastVoteTimestamp;
+    let math_tick = req.p.math_tick;
 
     function finishWith304or404() {
       if (pcaResultsExistForZid[zid]) {
@@ -2463,7 +2463,7 @@ function initializePolisHelpers() {
       }
     }
 
-    getPca(zid, lastVoteTimestamp).then(function(data) {
+    getPca(zid, math_tick).then(function(data) {
       if (data) {
         // The buffer is gzipped beforehand to cut down on server effort in re-gzipping the same json string for each response.
         // We can't cache this endpoint on Cloudflare because the response changes too freqently, so it seems like the best way
@@ -2703,8 +2703,8 @@ function initializePolisHelpers() {
   }
 
 
-  function getBidToPidMapping(zid, lastVoteTimestamp) {
-    lastVoteTimestamp = lastVoteTimestamp || -1;
+  function getBidToPidMapping(zid, math_tick) {
+    math_tick = math_tick || -1;
 
 
     return pgQueryP_readOnly("select * from math_bidtopid where zid = ($1) and math_env = ($2);", [zid, process.env.MATH_ENV]).then((rows) => {
@@ -2715,7 +2715,7 @@ function initializePolisHelpers() {
       if (!rows || !rows.length) {
         // Could actually be a 404, would require more work to determine that.
         return new Error("polis_err_get_pca_results_missing");
-      } else if (rows[0].data.lastVoteTimestamp <= lastVoteTimestamp) {
+      } else if (rows[0].data.math_tick <= math_tick) {
         return new Error("polis_err_get_pca_results_not_new");
       } else {
         return rows[0].data;
@@ -2726,8 +2726,8 @@ function initializePolisHelpers() {
 
   function handle_GET_bidToPid(req, res) {
     let zid = req.p.zid;
-    let lastVoteTimestamp = req.p.lastVoteTimestamp;
-    getBidToPidMapping(zid, lastVoteTimestamp).then(function(doc) {
+    let math_tick = req.p.math_tick;
+    getBidToPidMapping(zid, math_tick).then(function(doc) {
       let b2p = doc.bidToPid;
       res.json({
         bidToPid: b2p,
@@ -2773,9 +2773,9 @@ function initializePolisHelpers() {
   }
 
 
-  function getBidsForPids(zid, lastVoteTimestamp, pids) {
-    let dataPromise = getBidToPidMapping(zid, lastVoteTimestamp);
-    let mathResultsPromise = getPca(zid, lastVoteTimestamp);
+  function getBidsForPids(zid, math_tick, pids) {
+    let dataPromise = getBidToPidMapping(zid, math_tick);
+    let mathResultsPromise = getPca(zid, math_tick);
 
     return Promise.all([dataPromise, mathResultsPromise]).then(function(items) {
       let b2p = items[0].bidToPid || []; // not sure yet if "|| []" is right here.
@@ -2812,8 +2812,8 @@ function initializePolisHelpers() {
     });
   }
 
-  function getClusters(zid, lastVoteTimestamp) {
-    return getPca(zid, lastVoteTimestamp).then(function(pcaData) {
+  function getClusters(zid, math_tick) {
+    return getPca(zid, math_tick).then(function(pcaData) {
       return pcaData.asPOJO["group-clusters"];
     });
   }
@@ -2822,11 +2822,11 @@ function initializePolisHelpers() {
   function handle_GET_bid(req, res) {
     let uid = req.p.uid;
     let zid = req.p.zid;
-    let lastVoteTimestamp = req.p.lastVoteTimestamp;
+    let math_tick = req.p.math_tick;
 
-    let dataPromise = getBidToPidMapping(zid, lastVoteTimestamp);
+    let dataPromise = getBidToPidMapping(zid, math_tick);
     let pidPromise = getPidPromise(zid, uid);
-    let mathResultsPromise = getPca(zid, lastVoteTimestamp);
+    let mathResultsPromise = getPca(zid, math_tick);
 
     Promise.all([dataPromise, pidPromise, mathResultsPromise]).then(function(items) {
       let b2p = items[0].bidToPid || []; // not sure yet if "|| []" is right here.
@@ -10638,9 +10638,9 @@ Thanks for using pol.is!
     max: 999,
   });
 
-  function getSocialParticipants(zid, uid, limit, mod, lastVoteTimestamp, authorUids) {
+  function getSocialParticipants(zid, uid, limit, mod, math_tick, authorUids) {
     // NOTE ignoring authorUids as part of cacheKey for now, just because.
-    let cacheKey = [zid, limit, mod, lastVoteTimestamp].join("_");
+    let cacheKey = [zid, limit, mod, math_tick].join("_");
     if (socialParticipantsCache.get(cacheKey)) {
       return socialParticipantsCache.get(cacheKey);
     }
@@ -10784,21 +10784,21 @@ Thanks for using pol.is!
   }
 
 
-  // zid_pid => "lastVoteTimestamp:ppaddddaadadaduuuuuuuuuuuuuuuuu"; // not using objects to save some ram
+  // zid_pid => "math_tick:ppaddddaadadaduuuuuuuuuuuuuuuuu"; // not using objects to save some ram
   // TODO consider "p2a24a2dadadu15" format
   let votesForZidPidCache = new LruCache({
     max: 5000,
   });
 
 
-  function getVotesForZidPidWithTimestampCheck(zid, pid, lastVoteTimestamp) {
+  function getVotesForZidPidWithTimestampCheck(zid, pid, math_tick) {
     let key = zid + "_" + pid;
     let cachedVotes = votesForZidPidCache.get(key);
     if (cachedVotes) {
       let pair = cachedVotes.split(":");
       let cachedTime = Number(pair[0]);
       let votes = pair[1];
-      if (cachedTime >= lastVoteTimestamp) {
+      if (cachedTime >= math_tick) {
         return votes;
       }
     }
@@ -10806,19 +10806,19 @@ Thanks for using pol.is!
   }
 
 
-  function cacheVotesForZidPidWithTimestamp(zid, pid, lastVoteTimestamp, votes) {
+  function cacheVotesForZidPidWithTimestamp(zid, pid, math_tick, votes) {
     let key = zid + "_" + pid;
-    let val = lastVoteTimestamp + ":" + votes;
+    let val = math_tick + ":" + votes;
     votesForZidPidCache.set(key, val);
   }
 
 
   // returns {pid -> "adadddadpupuuuuuuuu"}
-  function getVotesForZidPidsWithTimestampCheck(zid, pids, lastVoteTimestamp) {
+  function getVotesForZidPidsWithTimestampCheck(zid, pids, math_tick) {
     let cachedVotes = pids.map(function(pid) {
       return {
         pid: pid,
-        votes: getVotesForZidPidWithTimestampCheck(zid, pid, lastVoteTimestamp),
+        votes: getVotesForZidPidWithTimestampCheck(zid, pid, math_tick),
       };
     });
     let uncachedPids = cachedVotes.filter(function(o) {
@@ -10844,7 +10844,7 @@ Thanks for using pol.is!
     return getVotesForPids(zid, uncachedPids).then(function(votesRows) {
       let newPidToVotes = aggregateVotesToPidVotesObj(votesRows);
       _.each(newPidToVotes, function(votes, pid) {
-        cacheVotesForZidPidWithTimestamp(zid, pid, lastVoteTimestamp, votes);
+        cacheVotesForZidPidWithTimestamp(zid, pid, math_tick, votes);
       });
       let cachedPidToVotes = toObj(cachedVotes);
       return Object.assign(newPidToVotes, cachedPidToVotes);
@@ -10916,10 +10916,10 @@ Thanks for using pol.is!
     return pgQueryP_readOnly("select * from participant_locations where zid = ($1);", [zid]);
   }
 
-  function getPidsForGid(zid, gid, lastVoteTimestamp) {
+  function getPidsForGid(zid, gid, math_tick) {
     return Promise.all([
-      getClusters(zid, lastVoteTimestamp),
-      getBidToPidMapping(zid, lastVoteTimestamp),
+      getClusters(zid, math_tick),
+      getBidToPidMapping(zid, math_tick),
     ]).then(function(o) {
       let clusters = o[0];
       let bidToPids = o[1].bidToPid;
@@ -11318,7 +11318,7 @@ Thanks for using pol.is!
   function doFamousQuery(o, req) {
     let uid = o.uid;
     let zid = o.zid;
-    let lastVoteTimestamp = o.lastVoteTimestamp;
+    let math_tick = o.math_tick;
 
     // NOTE: if this API is running slow, it's probably because fetching the PCA from mongo is slow, and PCA caching is disabled
 
@@ -11373,7 +11373,7 @@ Thanks for using pol.is!
     return getAuthorUidsOfFeaturedComments().then(function(authorUids) {
 
       return Promise.all([
-        getSocialParticipants(zid, uid, hardLimit, mod, lastVoteTimestamp, authorUids),
+        getSocialParticipants(zid, uid, hardLimit, mod, math_tick, authorUids),
         // getFacebookFriendsInConversation(zid, uid),
         // getTwitterUsersInConversation(zid, uid, twitterLimit),
         // getPolisSocialSettings(zid, uid),
@@ -11504,7 +11504,7 @@ Thanks for using pol.is!
         pids = _.uniq(pids, true);
 
 
-        return getVotesForZidPidsWithTimestampCheck(zid, pids, lastVoteTimestamp).then(function(vectors) {
+        return getVotesForZidPidsWithTimestampCheck(zid, pids, math_tick).then(function(vectors) {
 
           // TODO parallelize with above query
           return getBidsForPids(zid, -1, pids).then(function(pidsToBids) {
