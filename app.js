@@ -190,6 +190,7 @@ helpersInitialized.then(function(o) {
     handle_PUT_comments,
     handle_PUT_conversations,
     handle_PUT_ptptois,
+    handle_PUT_reports,
     handle_PUT_users,
   } = o;
 
@@ -944,6 +945,27 @@ helpersInitialized.then(function(o) {
     auth(assignToP),
     want('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     handle_POST_reports);
+
+  app.put('/api/v3/reports',
+    moveToBody,
+    auth(assignToP),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    need('report_id', getReportIdFetchRid, assignToPCustom('rid')),
+    want('label_x_neg', getStringLimitLength(999), assignToP),
+    want('label_x_pos', getStringLimitLength(999), assignToP),
+    want('label_y_neg', getStringLimitLength(999), assignToP),
+    want('label_y_pos', getStringLimitLength(999), assignToP),
+    want('label_group_0', getStringLimitLength(999), assignToP),
+    want('label_group_1', getStringLimitLength(999), assignToP),
+    want('label_group_2', getStringLimitLength(999), assignToP),
+    want('label_group_3', getStringLimitLength(999), assignToP),
+    want('label_group_4', getStringLimitLength(999), assignToP),
+    want('label_group_5', getStringLimitLength(999), assignToP),
+    want('label_group_6', getStringLimitLength(999), assignToP),
+    want('label_group_7', getStringLimitLength(999), assignToP),
+    want('label_group_8', getStringLimitLength(999), assignToP),
+    want('label_group_9', getStringLimitLength(999), assignToP),
+    handle_PUT_reports);
 
   app.get('/api/v3/contexts',
     moveToBody,
