@@ -212,6 +212,15 @@ class App extends React.Component {
         });
       }
 
+      // ====== REMEMBER: gid's start at zero, (0, 1, 2) but we show them as group 1, 2, 3 in participation view ======
+      let groupNames = {};
+      for (let i = 0; i <= 9; i++) {
+        let label = report["label_group_" + i];
+        if (label) {
+          groupNames[i] = label;
+        }
+      }
+
       this.setState({
         loading: false,
         math: mathResult,
@@ -224,7 +233,7 @@ class App extends React.Component {
         filteredCorrelationMatrix: filteredProbabilities,
         filterecCorrelationTids: filteredTids,
         badTids: badTids,
-        groupNames: globals.groupNames,
+        groupNames: groupNames,
         repfulAgreeTidsByGroup: repfulAgreeTidsByGroup,
         formatTid: formatTid,
         report: report,

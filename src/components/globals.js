@@ -57,10 +57,3 @@ export const getGroupNamePosition = (gid) => {
   }
   return "translate(50, 50)";
 };
-
-// ====== REMEMBER: gid's start at zero, (0, 1, 2) but we show them as group 1, 2, 3 =======
-
-export const groupNames = {
-  0: "Skeptical of centralization",
-  1: "Pro-Renzi, pro-centralization",
-};
