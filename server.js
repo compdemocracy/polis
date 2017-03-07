@@ -2194,7 +2194,7 @@ function initializePolisHelpers() {
     max: pcaCacheSize,
   });
 
-  let lastPrefetchedVoteTimestamp = -1;
+  let lastPrefetchedMathTick = -1;
 
   // this scheme might not last forever. For now, there are only a couple of MB worth of conversation pca data.
   function fetchAndCacheLatestPcaData() {
@@ -2206,8 +2206,8 @@ function initializePolisHelpers() {
     }
 
 
-    // cursor.sort([["lastVoteTimestamp", "asc"]]);
-    pgQueryP_readOnly("select * from math_main where last_vote_timestamp > ($1) order by last_vote_timestamp limit 10;", [lastPrefetchedVoteTimestamp]).then((rows) => {
+    // cursor.sort([["math_tick", "asc"]]);
+    pgQueryP_readOnly("select * from math_main where caching_tick > ($1) order by caching_tick limit 10;", [lastPrefetchedMathTick]).then((rows) => {
 
       if (!rows || !rows.length) {
         // call again
@@ -2222,12 +2222,15 @@ function initializePolisHelpers() {
         if (row.math_tick) {
           item.math_tick = Number(row.math_tick);
         }
+        if (row.caching_tick) {
+          item.caching_tick = Number(row.caching_tick);
+        }
 
-        INFO("mathpoll updating", item.lastVoteTimestamp, item.zid);
+        INFO("mathpoll updating", item.caching_tick, item.zid);
 
         // let prev = pcaCache.get(item.zid);
-        if (item.lastVoteTimestamp > lastPrefetchedVoteTimestamp) {
-          lastPrefetchedVoteTimestamp = item.lastVoteTimestamp;
+        if (item.caching_tick > lastPrefetchedMathTick) {
+          lastPrefetchedMathTick = item.caching_tick;
         }
 
         processMathObject(item);
@@ -2235,11 +2238,11 @@ function initializePolisHelpers() {
         return updatePcaCache(item.zid, item);
       });
       Promise.all(results).then((a) => {
-        setTimeout(fetchAndCacheLatestPcaData, 10 * waitTime());
+        setTimeout(fetchAndCacheLatestPcaData, waitTime());
       });
     }).catch((err) => {
       INFO("mathpoll error", err);
-      setTimeout(fetchAndCacheLatestPcaData, 10 * waitTime());
+      setTimeout(fetchAndCacheLatestPcaData, waitTime());
     });
 
   }
@@ -2484,7 +2487,7 @@ function initializePolisHelpers() {
           asJSON: asJSON,
           asBufferOfGzippedJson: jsondGzipdPcaBuffer,
         };
-        // save in LRU cache, but don't update the lastPrefetchedVoteTimestamp
+        // save in LRU cache, but don't update the lastPrefetchedMathTick
         pcaCache.set(zid, o);
         resolve(o);
       });
