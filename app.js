@@ -278,7 +278,7 @@ helpersInitialized.then(function(o) {
     moveToBody,
     redirectIfHasZidButNoConversationId, // TODO remove once
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-    want('lastVoteTimestamp', getInt, assignToP, -1),
+    want('math_tick', getInt, assignToP, -1),
     handle_GET_math_pca2);
 
   app.get("/api/v3/math/correlationMatrix",
@@ -312,7 +312,7 @@ helpersInitialized.then(function(o) {
     authOptional(assignToP),
     moveToBody,
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-    want('lastVoteTimestamp', getInt, assignToP, 0),
+    want('math_tick', getInt, assignToP, 0),
     handle_GET_bidToPid);
 
   app.get("/api/v3/xids",
@@ -326,7 +326,7 @@ helpersInitialized.then(function(o) {
     moveToBody,
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-    want('lastVoteTimestamp', getInt, assignToP, 0),
+    want('math_tick', getInt, assignToP, 0),
     handle_GET_bid);
 
   app.post("/api/v3/auth/password",
@@ -1037,7 +1037,7 @@ helpersInitialized.then(function(o) {
     moveToBody,
     authOptional(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-    want('lastVoteTimestamp', getInt, assignToP, -1),
+    want('math_tick', getInt, assignToP, -1),
     want('ptptoiLimit', getIntInRange(0, 99), assignToP),
     handle_GET_votes_famous);
 
