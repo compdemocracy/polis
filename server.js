@@ -2229,9 +2229,15 @@ function initializePolisHelpers(mongoParams) {
   function processMathObject(o) {
 
     function remapSubgroupStuff(g) {
-      g.val = _.keys(g.val).map((id) => {
-        return {id: Number(id), val: g.val[id]};
-      });
+      if (_.isArray(g.val)) {
+        g.val = g.val.map((x) => {
+          return {id: Number(x.id), val: x};
+        });
+      } else {
+        g.val = _.keys(g.val).map((id) => {
+          return {id: Number(id), val: g.val[id]};
+        });
+      }
       return g;
     }
 
