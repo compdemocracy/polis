@@ -127,10 +127,10 @@ class App extends React.Component {
     const participantsOfInterestPromise = reportPromise.then((report) => {
       return this.getParticipantsOfInterest(report.conversation_id);
     });
-    const matrixPromise = mathPromise.then((math) => {
+    const matrixPromise = globals.enableMatrix ? mathPromise.then((math) => {
       const math_tick = math.math_tick;
       return this.getCorrelationMatrix(math_tick);
-    });
+    }) : Promise.resolve();
     const conversationPromise = reportPromise.then((report) => {
       return this.getConversation(report.conversation_id);
     });
@@ -158,29 +158,34 @@ class App extends React.Component {
         ptptCount += val["n-members"];
       });
 
-      // prep Correlation matrix.
-      var probabilities = correlationHClust.matrix;
-      var tids =  correlationHClust.comments;
       var badTids = {};
-      for (let row = 0; row < probabilities.length; row++) {
-        if (probabilities[row][0] === "NaN") {
-          let tid = correlationHClust.comments[row];
-          badTids[tid] = true;
-          // console.log("bad", tid);
+      var filteredTids = {};
+      var filteredProbabilities = {};
+
+      // prep Correlation matrix.
+      if (globals.enableMatrix) {
+        var probabilities = correlationHClust.matrix;
+        var tids =  correlationHClust.comments;
+        for (let row = 0; row < probabilities.length; row++) {
+          if (probabilities[row][0] === "NaN") {
+            let tid = correlationHClust.comments[row];
+            badTids[tid] = true;
+            // console.log("bad", tid);
+          }
         }
-      }
-      var filteredProbabilities = probabilities.map((row) => {
-        return row.filter((cell, colNum) => {
-          let colTid = correlationHClust.comments[colNum];
-          return badTids[colTid] !== true;
+        filteredProbabilities = probabilities.map((row) => {
+          return row.filter((cell, colNum) => {
+            let colTid = correlationHClust.comments[colNum];
+            return badTids[colTid] !== true;
+          });
+        }).filter((row, rowNum) => {
+            let rowTid = correlationHClust.comments[rowNum];
+            return badTids[rowTid] !== true;
         });
-      }).filter((row, rowNum) => {
-          let rowTid = correlationHClust.comments[rowNum];
-          return badTids[rowTid] !== true;
-      });
-      var filteredTids =tids.filter((tid, index) => {
-        return badTids[tid] !== true;
-      });
+        filteredTids = tids.filter((tid, index) => {
+          return badTids[tid] !== true;
+        });
+      }
 
       var maxTid = -1;
       for (let i = 0; i < comments.length; i++) {
@@ -285,13 +290,13 @@ class App extends React.Component {
           comments={this.state.comments}
           formatTid={this.state.formatTid}
           consensus={this.state.consensus}/>
-        <Matrix
+        {globals.enableMatrix ? <Matrix
           title={"Correlation matrix"}
           probabilities={this.state.filteredCorrelationMatrix}
           comments={this.state.comments}
           tids={this.state.filterecCorrelationTids}
           formatTid={this.state.formatTid}
-          ptptCount={this.state.ptptCount}/>
+          ptptCount={this.state.ptptCount}/> : ""}
         <ParticipantGroups
           comments={this.state.comments}
           conversation={this.state.conversation}

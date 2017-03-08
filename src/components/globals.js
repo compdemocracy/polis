@@ -13,6 +13,9 @@ export const paragraph = {
   lineHeight: paragraphLineHeight
 }
 
+
+export const enableMatrix = false;
+
 export const side = 750;
 export const labelPadding = 40;
 export const shouldColorizeTidsByRepfulness = true;
