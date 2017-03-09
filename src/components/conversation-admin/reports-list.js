@@ -20,6 +20,16 @@ const styles = {
     WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
     BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
   },
+  button: {
+    margin: "10px 20px 10px 20px",
+    backgroundColor: "#54A357",
+    color: "white",
+    display: "inline-block",
+    textAlign: "center",
+    padding: "10px 20px",
+    cursor: "pointer",
+    borderRadius: 3,
+  }
 }
 
 @connect(state => state.zid_metadata)
@@ -64,7 +74,9 @@ class ReportsList extends React.Component {
     }
     return (
       <div>
-        <h1>Reports</h1>
+        <div style={styles.button} onClick={this.createReportClicked.bind(this)}><Awesome name="plus"/>
+          <span style={{marginLeft: 10}}>{"Create new report"}</span>
+        </div>
         {this.state.reports.map((report) => {
           return (<div style={styles.card} key={report.report_id}>
             {report.report_id}
@@ -79,7 +91,6 @@ class ReportsList extends React.Component {
             <a href={"/reports/" + report.report_id}>View</a>
           </div>);
         })}
-        <div style={styles.card} onClick={this.createReportClicked.bind(this)}>Create New Report</div>
       </div>
     );
   }
@@ -91,4 +102,3 @@ class ReportsList extends React.Component {
             // </Link>
 
 export default ReportsList;
-
