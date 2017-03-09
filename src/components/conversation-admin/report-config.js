@@ -53,6 +53,7 @@ class ReportConfig extends React.Component {
     super(props);
     this.state = {
       loading: true,
+      error: false,
       report: null,
     };
   }
@@ -92,15 +93,46 @@ class ReportConfig extends React.Component {
 
   handleConfigInputTyping (field) {
     return (e) => {
-      this.props.dispatch(
-        optimisticZidMetadataUpdateOnTyping(
-          this.props.zid_metadata,
-          field,
-          e.target.value
-        )
-      )
+      this.setState({
+        report: Object.assign({}, this.state.report, { [field]: e.target.value })
+      })
+      this.updateReport(field, e.target.value);
     }
   }
+
+  updateReport (field, value) {
+    let data = {
+      report_id: this.props.params.report_id,
+      conversation_id: this.props.params.conversation_id,
+    };
+    data[field] = value;
+    return $.ajax({
+      url: "/api/v3/reports",
+      method: "PUT",
+      contentType: "application/json; charset=utf-8",
+      headers: { "Cache-Control": "max-age=0" },
+      xhrFields: { withCredentials: true },
+      dataType: "json",
+      data: JSON.stringify(data)
+    })
+    .fail((err) => {
+      this.setState({
+        error: true
+      })
+    })
+  }
+
+  // handleIntegerBoolValueChange (field) {
+  //   return () => {
+  //     this.props.dispatch(
+  //       handleZidMetadataUpdate(
+  //         this.props.zid_metadata,
+  //         field,
+  //         this.transformBoolToInt(this.refs[field].isChecked())
+  //       )
+  //     )
+  //   }
+  // }
 
   createMarkup() {
     return (
@@ -112,11 +144,12 @@ class ReportConfig extends React.Component {
             ref={"report_name"}
             style={{width: 360}}
             onBlur={this.handleStringValueChange("report_name").bind(this)}
-            onChange={this.handleConfigInputTyping("report_name")}
+            onChange={this.handleConfigInputTyping("report_name").bind(this)}
             value={""}
             hintText="ie., 'Monthly check-in (August)'"
             floatingLabelText={"Report name"}
             multiLine={true} />
+            <p style={{fontSize: 10, fontStyle: "italic"}}> </p>
         </div>
 
         <div style={styles.configCard}>
@@ -126,7 +159,7 @@ class ReportConfig extends React.Component {
               ref={"label_x_neg"}
               style={{width: 360}}
               onBlur={this.handleStringValueChange("label_x_neg").bind(this)}
-              onChange={this.handleConfigInputTyping("label_x_neg")}
+              onChange={this.handleConfigInputTyping("label_x_neg").bind(this)}
               value={this.state.report["label_x_neg"]}
               hintText="ie., 'In favor of more regulation'"
               floatingLabelText={"Label for negative x axis (←)"}
@@ -135,7 +168,7 @@ class ReportConfig extends React.Component {
               ref={"label_x_pos"}
               style={{width: 360}}
               onBlur={this.handleStringValueChange("label_x_pos").bind(this)}
-              onChange={this.handleConfigInputTyping("label_x_pos")}
+              onChange={this.handleConfigInputTyping("label_x_pos").bind(this)}
               value={this.state.report["label_x_pos"]}
               hintText="ie., 'Opposed to more regulation'"
               floatingLabelText={"Label for positive x axis (→)"}
@@ -144,7 +177,7 @@ class ReportConfig extends React.Component {
               ref={"label_y_neg"}
               style={{width: 360}}
               onBlur={this.handleStringValueChange("label_y_neg").bind(this)}
-              onChange={this.handleConfigInputTyping("label_y_neg")}
+              onChange={this.handleConfigInputTyping("label_y_neg").bind(this)}
               value={this.state.report["label_y_neg"]}
               hintText="ie., 'Individuals are responsible'"
               floatingLabelText={"Label for negative y axis (↓)"}
@@ -153,7 +186,7 @@ class ReportConfig extends React.Component {
               ref={"label_y_pos"}
               style={{width: 360}}
               onBlur={this.handleStringValueChange("label_y_pos").bind(this)}
-              onChange={this.handleConfigInputTyping("label_y_pos")}
+              onChange={this.handleConfigInputTyping("label_y_pos").bind(this)}
               value={this.state.report["label_y_pos"]}
               hintText="ie., 'Society is responsible'"
               floatingLabelText={"Label for positive y axis (↑)"}
@@ -172,7 +205,7 @@ class ReportConfig extends React.Component {
                     ref={"label_group_" + i}
                     style={{width: 360}}
                     onBlur={this.handleStringValueChange("label_group_" + i).bind(this)}
-                    onChange={this.handleConfigInputTyping("label_group_" + i)}
+                    onChange={this.handleConfigInputTyping("label_group_" + i).bind(this)}
                     value={this.state.report["label_group_" + i]}
                     hintText="ie., 'Dog lovers'"
                     floatingLabelText={"Group "+ i +" nickname"}
