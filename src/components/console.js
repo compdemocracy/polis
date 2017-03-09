@@ -178,6 +178,8 @@ class App extends React.Component {
       title = "Data Export";
     } else if (this.props.routes[2] && this.props.routes[2].path === "share") {
       title = "Share & Embed";
+    } else if (this.props.routes[2] && this.props.routes[2].path === "reports") {
+      title = "Reports";
     } else if (this.props.routes[2] && this.props.routes[2].path === "live") {
       title = "See Conversation Live";
     } else if (this.props.routes[2] && this.props.routes[2].path === "summary") {
