@@ -85,39 +85,25 @@ class ReportConfig extends React.Component {
   componentWillMount() {
     this.getData();
   }
-  handleStringValueChange (field) {
-    return () => {
-      var val = this.refs[field].getValue();
-      if (field === "help_bgcolor" || field === "help_color") {
-        if (!val.length) {
-          val = "default";
-        }
-      }
-      this.props.dispatch(
-        handleZidMetadataUpdate(
-          this.props.zid_metadata,
-          field,
-          this.refs[field].getValue()
-        )
-      )
-    }
-  }
 
-  handleConfigInputTyping (field) {
-    return (e) => {
-      this.setState({
-        report: Object.assign({}, this.state.report, { [field]: e.target.value })
-      })
-      this.updateReport(field, e.target.value);
-    }
-  }
-
-  updateReport (field, value) {
+  updateReport () {
     let data = {
       report_id: this.props.params.report_id,
       conversation_id: this.props.params.conversation_id,
     };
-    data[field] = value;
+
+    data.report_name = this.refs.report_name.value;
+    data.label_x_neg = this.refs.label_x_neg.value;
+    data.label_x_pos = this.refs.label_x_pos.value;
+    data.label_y_neg = this.refs.label_y_neg.value;
+    data.label_y_pos = this.refs.label_y_pos.value;
+    for (let i = 0; i < 10; i++) {
+      let s = 'label_group_' + i;
+      if (this.refs[s]) {
+        data[s] = this.refs[s].value;
+      }
+    }
+
     return $.ajax({
       url: "/api/v3/reports",
       method: "PUT",
@@ -125,13 +111,10 @@ class ReportConfig extends React.Component {
       headers: { "Cache-Control": "max-age=0" },
       xhrFields: { withCredentials: true },
       dataType: "json",
-      data: JSON.stringify(data)
-    })
-    .fail((err) => {
-      this.setState({
-        error: true
-      })
-    })
+      data: JSON.stringify(data),
+    }).fail((err) => {
+      alert("error " + err);
+    });
   }
 
   // handleIntegerBoolValueChange (field) {
@@ -149,7 +132,7 @@ class ReportConfig extends React.Component {
   createMarkup() {
     return (
       <div>
-        <button style={styles.button} onClick={() => {}}>
+        <button style={styles.button} onClick={this.updateReport.bind(this)}>
           <Awesome name="floppy-o"/>
           <span style={{marginLeft: 10}}>{"Save"}</span>
         </button>
@@ -215,7 +198,7 @@ class ReportConfig extends React.Component {
             {
               /* we have 10 groups max hardcoded for now */
               [0,1,2,3,4,5,6,7,8,9].map((d, i) => {
-                if (!this.state.report["label_group_" + i]) {return}
+                // if (!this.state.report["label_group_" + i]) {return}
                 return (
                   <InputField
                     ref={"label_group_" + i}
