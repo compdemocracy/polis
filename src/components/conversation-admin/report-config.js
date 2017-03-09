@@ -9,6 +9,7 @@ import PolisNet from "../../util/net";
 import Radium from "radium";
 import React from "react";
 import InputField from "material-ui/lib/text-field";
+import Awesome from "react-fontawesome";
 
 import { connect } from "react-redux";
 import { Link } from "react-router";
@@ -38,6 +39,17 @@ const styles = {
     marginBottom: 0,
     fontWeight: 500,
     color: "rgb(160,160,160)"
+  },
+  button: {
+    margin: "10px 20px 10px 10px",
+    backgroundColor: "#54A357",
+    color: "white",
+    display: "inline-block",
+    textAlign: "center",
+    padding: "10px 20px",
+    cursor: "pointer",
+    border: 0,
+    borderRadius: 3,
   },
   notification: {
     fontSize: 16,
@@ -137,6 +149,10 @@ class ReportConfig extends React.Component {
   createMarkup() {
     return (
       <div>
+        <button style={styles.button} onClick={() => {}}>
+          <Awesome name="floppy-o"/>
+          <span style={{marginLeft: 10}}>{"Save"}</span>
+        </button>
         {/* error and loading may go here - see conversation-config.js */}
         <div style={styles.configCard}>
           <p style={styles.sectionHeader}>Report {this.props.params.report_id}</p>
