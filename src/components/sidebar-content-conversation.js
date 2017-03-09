@@ -76,11 +76,11 @@ class SidebarContentConversation extends React.Component {
             selected={this.props.routes[2] && this.props.routes[2].path === "participants"}
             icon="users"
             text="Participants"/>
-          <SidebarItem
+          {/*<SidebarItem
             to={"/m/"+this.props.conversation_id+"/summary"}
             selected={this.props.routes[2] && this.props.routes[2].path === "summary"}
             icon="list-alt"
-            text="Summary"/>
+            text="Summary"/>*/}
           <SidebarItem
             to={"/m/"+this.props.conversation_id+"/stats"}
             selected={this.props.routes[2] && this.props.routes[2].path === "stats"}
@@ -89,7 +89,7 @@ class SidebarContentConversation extends React.Component {
           <SidebarItem
             to={"/m/"+this.props.conversation_id+"/reports"}
             selected={this.props.routes[2] && this.props.routes[2].path === "reports"}
-            icon="area-chart"
+            icon="file-text-o"
             text="Reports"/>
           <SidebarItem
             to={"/m/"+this.props.conversation_id+"/export"}
