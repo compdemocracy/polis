@@ -177,18 +177,17 @@ class Comment extends React.Component {
               {this.createBarChart()}
             </svg>
             <div>
-            { this.props.acceptButton ? this.makeAcceptButton() : "" }
-            { this.props.rejectButton ? this.makeRejectButton() : "" }
-            { this.props.isMetaCheckbox ?
-              <Checkbox
-                label="Is Metadata"
-                ref="is_meta"
-                checked={this.props.comment.is_meta}
-                onCheck={ this.onIsMetaClicked.bind(this) }
-                labelPosition={"left"}
-                labelWrapperColor={settings.darkerGray}
-                color={settings.polisBlue}/> : ""}
-            <p style={{fontSize: 10, fontStyle: "italic"}}> </p>
+              { this.props.isMetaCheckbox ?
+                <Checkbox
+                  label="metadata"
+                  ref="is_meta"
+                  checked={this.props.comment.is_meta}
+                  onCheck={ this.onIsMetaClicked.bind(this) }
+                  labelWrapperColor={settings.darkerGray}
+                  color={settings.polisBlue}/> : ""}
+              <div style={{marginTop: 10}}/>
+              { this.props.acceptButton ? this.makeAcceptButton() : "" }
+              { this.props.rejectButton ? this.makeRejectButton() : "" }
             </div>
           </Flex>
         </Flex>
