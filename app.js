@@ -686,8 +686,10 @@ helpersInitialized.then(function(o) {
     want("quote_src_url", getUrlLimitLength(999), assignToP),
     want("anon", getBool, assignToP),
     want("is_seed", getBool, assignToP),
+    want('xid', getStringLimitLength(1, 999), assignToP),
     resolve_pidThing('pid', assignToP, "post:comments"),
     handle_POST_comments);
+
 
   app.post("/api/v3/comments/slack",
     auth(assignToP),
@@ -746,7 +748,6 @@ helpersInitialized.then(function(o) {
     want('conversation_id', getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
     denyIfNotFromWhitelistedDomain, // this seems like the easiest place to enforce the domain whitelist. The index.html is cached on cloudflare, so that's not the right place.
     resolve_pidThing('pid', assignToP, "get:votes"), // must be after zid getter
-    want('xid', getStringLimitLength(1, 999), assignToP),
     handle_GET_participationInit);
 
   app.post("/api/v3/votes",
@@ -759,6 +760,7 @@ helpersInitialized.then(function(o) {
     resolve_pidThing('pid', assignToP, "post:votes"),
     want('xid', getStringLimitLength(1, 999), assignToP),
     handle_POST_votes);
+
 
   app.post("/api/v3/ptptCommentMod",
     auth(assignToP),
