@@ -1809,57 +1809,99 @@ function initializePolisHelpers(mongoParams) {
   // }
 
 
+
   function auth(assigner, isOptional) {
-    return function(req, res, next) {
+
+    function doAuth(req, res) {
       //var token = req.body.token;
       let token = req.cookies[COOKIES.TOKEN];
       let xPolisToken = req.headers["x-polis"];
 
-      let hasXid = req.body.xid;
-
-      if (xPolisToken && isPolisLtiToken(xPolisToken)) {
-        doPolisLtiTokenHeaderAuth(assigner, isOptional, req, res, next);
-      } else if (xPolisToken && isPolisSlackTeamUserToken(xPolisToken)) {
-        doPolisSlackTeamUserTokenHeaderAuth(assigner, isOptional, req, res, next);
-      } else if (xPolisToken) {
-        doHeaderAuth(assigner, isOptional, req, res, next);
-      } else if (token) {
-        doCookieAuth(assigner, isOptional, req, res, next);
-      } else if (req.headers.authorization) {
-        doApiKeyBasicAuth(assigner, isOptional, req, res, next);
-      } else if (req.body.agid) { // Auto Gen user  ID
-
-        let uidPromise = !hasXid ? createDummyUser() :
-          getConversationIdFetchZid(req.body.conversation_id).then((zid) => {
-            return getXidRecord(req.body.xid, zid).then((xidRecord) => {
-              return xidRecord.uid;
+      return new Promise(function(resolve, reject) {
+        function onDone(err) {
+          if (err) {
+            reject(err);
+          }
+          resolve(req.p.uid);
+        }
+        if (xPolisToken && isPolisLtiToken(xPolisToken)) {
+          doPolisLtiTokenHeaderAuth(assigner, isOptional, req, res, onDone);
+        } else if (xPolisToken && isPolisSlackTeamUserToken(xPolisToken)) {
+          doPolisSlackTeamUserTokenHeaderAuth(assigner, isOptional, req, res, onDone);
+        } else if (xPolisToken) {
+          doHeaderAuth(assigner, isOptional, req, res, onDone);
+        } else if (token) {
+          doCookieAuth(assigner, isOptional, req, res, onDone);
+        } else if (req.headers.authorization) {
+          doApiKeyBasicAuth(assigner, isOptional, req, res, onDone);
+        } else if (req.body.agid) { // Auto Gen user  ID
+          createDummyUser().then(function(uid) {
+            return startSessionAndAddCookies(req, res, uid).then(function() {
+              req.p = req.p || {};
+              req.p.uid = uid;
+              onDone();
+            }, function(err) {
+              res.status(500);
+              console.error(err);
+              onDone("polis_err_auth_token_error_2343");
             });
-          });
-
-        uidPromise.then(function(uid) {
-          return startSessionAndAddCookies(req, res, uid).then(function() {
-            req.p = req.p || {};
-            req.p.uid = uid;
-            next();
           }, function(err) {
             res.status(500);
             console.error(err);
-            next("polis_err_auth_token_error_2343");
+            onDone("polis_err_auth_token_error_1241");
+          }).catch(function(err) {
+            res.status(500);
+            console.error(err);
+            onDone("polis_err_auth_token_error_5345");
           });
-        }, function(err) {
-          res.status(500);
-          console.error(err);
-          next("polis_err_auth_token_error_1241");
-        }).catch(function(err) {
-          res.status(500);
-          console.error(err);
-          next("polis_err_auth_token_error_5345");
+        } else if (isOptional) {
+          onDone();
+        } else {
+          res.status(401);
+          onDone("polis_err_auth_token_not_supplied");
+        }
+      });
+    }
+
+
+    return function(req, res, next) {
+
+      let xid = req.body.xid;
+      let hasXid = !_.isUndefined(xid);
+
+      if (hasXid) {
+
+        getConversationIdFetchZid(req.body.conversation_id).then((zid) => {
+          return getXidRecord(xid, zid).then((xidRecord) => {
+            let shouldCreateXidRecord = xidRecord === "shouldCreateXidRecord";
+            if (!shouldCreateXidRecord) {
+              assigner(req, "uid", Number(xidRecord.uid));
+              next();
+            }
+            // try other auth methods, and once those are done, use req.p.uid to create new xid record.
+            doAuth(req, res).then(() => {
+              if (req.p.uid) { // req.p.uid should be set now.
+                return createXidRecord(zid, req.p.uid, xid);
+              } else if (!isOptional) {
+                throw "polis_err_missing_non_optional_uid";
+              }
+            }).then(() => {
+              next();
+            }).catch((err) => {
+              res.status(500);
+              console.error(err);
+              next("polis_err_auth_xid_error_423423");
+            });
+          });
         });
-      } else if (isOptional) {
-        next();
       } else {
-        res.status(401);
-        next("polis_err_auth_token_not_supplied");
+        doAuth(req, res).then(() => {
+          next();
+        }).catch((err) => {
+          res.status(500);
+          console.error(err);
+          next("polis_err_auth_error_432");
+        });
       }
     };
   }
