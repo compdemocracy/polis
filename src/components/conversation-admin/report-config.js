@@ -10,6 +10,7 @@ import Radium from "radium";
 import React from "react";
 import InputField from "material-ui/lib/text-field";
 import Awesome from "react-fontawesome";
+import Alert from 'react-s-alert';
 
 import { connect } from "react-redux";
 import { Link } from "react-router";
@@ -132,10 +133,20 @@ class ReportConfig extends React.Component {
   createMarkup() {
     return (
       <div>
-        <button style={styles.button} onClick={this.updateReport.bind(this)}>
+          <Alert />
+          <button style={styles.button} onClick={() => {
+            this.setState({error: !this.state.error})
+            Alert.error('Error saving. Check your internet connection and try again.', {
+              position: 'top-right',
+              beep: true,
+              timeout: 5000,
+              offset: 80
+            });
+          }}>
           <Awesome name="floppy-o"/>
           <span style={{marginLeft: 10}}>{"Save"}</span>
         </button>
+        <p>{"" + this.state.error}</p>
         {/* error and loading may go here - see conversation-config.js */}
         <div style={styles.configCard}>
           <p style={styles.sectionHeader}>Report {this.props.params.report_id}</p>
