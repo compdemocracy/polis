@@ -11296,6 +11296,11 @@ Thanks for using pol.is!
     return pgQueryP("select * from demographic_data left join participants on participants.uid = demographic_data.uid where zid = ($1);", [zid]);
   }
 
+  function getParticipantVotesForCommentsFlaggedWith_is_meta(zid) {
+    return pgQueryP("select tid, pid, vote from votes_latest_unique where zid = ($1) and tid in (select tid from comments where zid = ($1) and is_meta = true)", [zid]);
+  }
+
+
   function handle_GET_groupDemographics(req, res) {
     if (!isPolisDev(req.p.uid)) {
       fail(res, 500, "polis_err_groupDemographics_auth", err);
@@ -11309,9 +11314,14 @@ Thanks for using pol.is!
       getPidsForGid(zid, 3, -1),
       getPidsForGid(zid, 4, -1),
       getParticipantDemographicsForConversation(zid),
+      getParticipantVotesForCommentsFlaggedWith_is_meta(zid),
     ]).then((o) => {
       let groupPids = [];
       let groupStats = [];
+
+      let meta = o[5];
+      let metaVotes = o[6];
+
       for (let i = 0; i < 5; i++) {
         if (o[i] && o[i].length) {
           groupPids.push(o[i]);
@@ -11339,14 +11349,20 @@ Thanks for using pol.is!
             gender_null: 0,
             birth_year: 0,
             birth_year_count: 0,
+
+            meta_comment_agrees: {},
+            meta_comment_disagrees: {},
+            meta_comment_passes: {},
+
           });
         } else {
           break;
         }
       }
-      let meta = o[5];
+      
 
       meta = _.indexBy(meta, 'pid');
+      let pidToMetaVotes = _.groupBy(metaVotes, 'pid');
 
       for (let i = 0; i < groupStats.length; i++) {
         let s = groupStats[i];
@@ -11415,11 +11431,26 @@ Thanks for using pol.is!
             }
 
           }
+          let ptptMetaVotes = pidToMetaVotes[pid]
+          if (ptptMetaVotes) {
+            for (let v = 0; v < ptptMetaVotes.length; v++) {
+              let vote = ptptMetaVotes[v];
+              if (vote.vote === polisTypes.reactions.pass) {
+                s.meta_comment_passes[vote.tid] = 1 + (s.meta_comment_passes[vote.tid] || 0)
+              } else if (vote.vote === polisTypes.reactions.pull) {
+                s.meta_comment_agrees[vote.tid] = 1 + (s.meta_comment_agrees[vote.tid] || 0)
+              } else if (vote.vote === polisTypes.reactions.push) {
+                s.meta_comment_disagrees[vote.tid] = 1 + (s.meta_comment_disagrees[vote.tid] || 0)
+              }
+            }
+          }
         }
         s.ms_birth_year_estimate_fb = s.ms_birth_year_estimate_fb / s.ms_birth_year_count;
         s.birth_year_guess = s.birth_year_guess / s.birth_year_guess_count;
         s.birth_year = s.birth_year / s.birth_year_count;
       }
+
+
 
       res.json(groupStats);
 
