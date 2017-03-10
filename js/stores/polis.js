@@ -314,6 +314,11 @@ module.exports = function(params) {
       conversation_id: conversation_id,
       agid: 1,
     });
+
+    if (typeof window.preload.xid !== "undefined") {
+      model.xid = window.preload.xid;
+    }
+
     if (typeof model.txt !== "string" || model.txt.length === 0) {
       logger.error("bad comment");
       return $.Deferred().reject().promise();
@@ -374,6 +379,11 @@ module.exports = function(params) {
         return o;
       });
     }
+
+    if (typeof window.preload.xid !== "undefined") {
+      params.xid = window.preload.xid;
+    }
+
     var promise = polisPost(votesPath, $.extend({}, params, {
       pid: "mypid",
       conversation_id: conversation_id,
