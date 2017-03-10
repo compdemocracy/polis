@@ -113,6 +113,13 @@ class ReportConfig extends React.Component {
       xhrFields: { withCredentials: true },
       dataType: "json",
       data: JSON.stringify(data),
+    }).then(() => {
+      Alert.info('Saved!', {
+        position: 'top-right',
+        beep: false,
+        timeout: 1500,
+        offset: 80
+      });
     }).fail((err) => {
 
       console.error(err);
