@@ -27,6 +27,10 @@ function polisAjax(api, data, type) {
   //     //data = $.extend({ token: token}, data); // moving to cookies
   // }
 
+  if (typeof window.preload.xid !== "undefined") {
+    data.xid = window.preload.xid;
+  }
+
   var promise;
   var config = {
     url: url,
