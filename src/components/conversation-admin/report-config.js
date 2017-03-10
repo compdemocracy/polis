@@ -114,7 +114,15 @@ class ReportConfig extends React.Component {
       dataType: "json",
       data: JSON.stringify(data),
     }).fail((err) => {
-      alert("error " + err);
+
+      console.error(err);
+
+      Alert.error('Error saving. Check your internet connection and try again.', {
+        position: 'top-right',
+        beep: true,
+        timeout: 5000,
+        offset: 80
+      });
     });
   }
 
@@ -142,19 +150,10 @@ class ReportConfig extends React.Component {
     return (
       <div>
           <Alert />
-          <button style={styles.button} onClick={() => {
-            this.setState({error: !this.state.error})
-            Alert.error('Error saving. Check your internet connection and try again.', {
-              position: 'top-right',
-              beep: true,
-              timeout: 5000,
-              offset: 80
-            });
-          }}>
+          <button style={styles.button} onClick={this.updateReport.bind(this)}>
           <Awesome name="floppy-o"/>
           <span style={{marginLeft: 10}}>{"Save"}</span>
         </button>
-        <p>{"" + this.state.error}</p>
         {/* error and loading may go here - see conversation-config.js */}
         <div style={styles.configCard}>
           <p style={styles.sectionHeader}>Report {this.props.params.report_id}</p>
