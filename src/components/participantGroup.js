@@ -116,9 +116,6 @@ const ParticipantGroup = ({gid, groupComments, conversation, allComments, groupV
             In this group, {demo.count} participants have demographic data.
             Of those, {demo.gender_male} are male, {demo.gender_female} are female, {demo.gender_null} unknown.
             The average age is {Math.round(currentYear - demo.birth_year)}.
-            meta_comment_agrees: {JSON.stringify(demo.meta_comment_agrees)}
-            meta_comment_disagrees: {JSON.stringify(demo.meta_comment_disagrees)}
-            meta_comment_passes: {JSON.stringify(demo.meta_comment_passes)}
           </div>
           <span
             style={{
