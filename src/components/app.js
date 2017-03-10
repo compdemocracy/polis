@@ -13,6 +13,7 @@ import Matrix from "./Matrix";
 import Heading from "./Heading";
 import Overview from "./Overview";
 import Consensus from "./Consensus";
+import Uncertainty from "./Uncertainty";
 import AllComments from "./AllComments";
 import ParticipantGroups from "./ParticipantGroups";
 import Graph from "./Graph";
@@ -226,10 +227,19 @@ class App extends React.Component {
         }
       }
 
+      let uncertainty = [];
+
+      comments.map((c) => {
+        if (c.pass_count / c.count > .3) {
+          uncertainty.push(c.tid)
+        }
+      })
+
       this.setState({
         loading: false,
         math: mathResult,
         consensus: mathResult.consensus,
+        uncertainty: uncertainty,
         comments: comments,
         demographics: groupDemographics,
         participants: participants,
@@ -314,6 +324,12 @@ class App extends React.Component {
           repfulAgreeTidsByGroup={this.state.repfulAgreeTidsByGroup}
           math={this.state.math}
           report={this.state.report}/>
+        <Uncertainty
+          comments={this.state.comments}
+          uncertainty={this.state.uncertainty}
+          conversation={this.state.conversation}
+          ptptCount={this.state.ptptCount}
+          formatTid={this.state.formatTid}/>
         <AllComments
           conversation={this.state.conversation}
           ptptCount={this.state.ptptCount}
