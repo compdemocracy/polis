@@ -1815,6 +1815,8 @@ function initializePolisHelpers(mongoParams) {
       let token = req.cookies[COOKIES.TOKEN];
       let xPolisToken = req.headers["x-polis"];
 
+      let hasXid = req.body.xid;
+
       if (xPolisToken && isPolisLtiToken(xPolisToken)) {
         doPolisLtiTokenHeaderAuth(assigner, isOptional, req, res, next);
       } else if (xPolisToken && isPolisSlackTeamUserToken(xPolisToken)) {
@@ -1826,7 +1828,15 @@ function initializePolisHelpers(mongoParams) {
       } else if (req.headers.authorization) {
         doApiKeyBasicAuth(assigner, isOptional, req, res, next);
       } else if (req.body.agid) { // Auto Gen user  ID
-        createDummyUser().then(function(uid) {
+
+        let uidPromise = !hasXid ? createDummyUser() :
+          getConversationIdFetchZid(req.body.conversation_id).then((zid) => {
+            return getXidRecord(req.body.xid, zid).then((xidRecord) => {
+              return xidRecord.uid;
+            });
+          });
+
+        uidPromise.then(function(uid) {
           return startSessionAndAddCookies(req, res, uid).then(function() {
             req.p = req.p || {};
             req.p.uid = uid;
