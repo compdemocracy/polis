@@ -639,6 +639,8 @@ CREATE TABLE reports (
   created BIGINT DEFAULT now_as_millis(),
   modified BIGINT DEFAULT now_as_millis(),
 
+  report_name VARCHAR(999),
+  
   label_x_neg VARCHAR(999),
   label_x_pos VARCHAR(999),
   label_y_neg VARCHAR(999),

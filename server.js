@@ -468,6 +468,7 @@ const sql_reports = sql.define({
     "zid",
     "created",
     "modified",
+    "report_name",
     "label_x_neg",
     "label_x_pos",
     "label_y_neg",
@@ -9686,6 +9687,10 @@ Email verified! You can close this tab or hit the back button.
           fields[name] = req.p[name];
         }
       });
+
+      if (!_.isUndefined(req.p.report_name)) {
+        fields.report_name = req.p.report_name;
+      }
 
       let q = sql_reports.update(
           fields

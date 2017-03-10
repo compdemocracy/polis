@@ -951,6 +951,7 @@ helpersInitialized.then(function(o) {
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('report_id', getReportIdFetchRid, assignToPCustom('rid')),
+    want('report_name', getStringLimitLength(999), assignToP),
     want('label_x_neg', getStringLimitLength(999), assignToP),
     want('label_x_pos', getStringLimitLength(999), assignToP),
     want('label_y_neg', getStringLimitLength(999), assignToP),
