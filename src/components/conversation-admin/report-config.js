@@ -93,15 +93,15 @@ class ReportConfig extends React.Component {
       conversation_id: this.props.params.conversation_id,
     };
 
-    data.report_name = this.refs.report_name.value;
-    data.label_x_neg = this.refs.label_x_neg.value;
-    data.label_x_pos = this.refs.label_x_pos.value;
-    data.label_y_neg = this.refs.label_y_neg.value;
-    data.label_y_pos = this.refs.label_y_pos.value;
+    data.report_name = this.state.report.report_name;
+    data.label_x_neg = this.state.report.label_x_neg;
+    data.label_x_pos = this.state.report.label_x_pos;
+    data.label_y_neg = this.state.report.label_y_neg;
+    data.label_y_pos = this.state.report.label_y_pos;
     for (let i = 0; i < 10; i++) {
       let s = 'label_group_' + i;
-      if (this.refs[s]) {
-        data[s] = this.refs[s].value;
+      if (this.state.report[s]) {
+        data[s] = this.state.report[s];
       }
     }
 
@@ -130,6 +130,14 @@ class ReportConfig extends React.Component {
   //   }
   // }
 
+  handleConfigInputTyping (field) {
+    return (e) => {
+      this.setState({
+        report: Object.assign({}, this.state.report, { [field]: e.target.value }),
+      });
+    }
+  }
+
   createMarkup() {
     return (
       <div>
@@ -153,9 +161,8 @@ class ReportConfig extends React.Component {
           <InputField
             ref={"report_name"}
             style={{width: 360}}
-            onBlur={this.handleStringValueChange("report_name").bind(this)}
             onChange={this.handleConfigInputTyping("report_name").bind(this)}
-            value={""}
+            value={this.state.report["report_name"]}
             hintText="ie., 'Monthly check-in (August)'"
             floatingLabelText={"Report name"}
             multiLine={true} />
@@ -168,7 +175,6 @@ class ReportConfig extends React.Component {
             <InputField
               ref={"label_x_neg"}
               style={{width: 360}}
-              onBlur={this.handleStringValueChange("label_x_neg").bind(this)}
               onChange={this.handleConfigInputTyping("label_x_neg").bind(this)}
               value={this.state.report["label_x_neg"]}
               hintText="ie., 'In favor of more regulation'"
@@ -177,7 +183,6 @@ class ReportConfig extends React.Component {
             <InputField
               ref={"label_x_pos"}
               style={{width: 360}}
-              onBlur={this.handleStringValueChange("label_x_pos").bind(this)}
               onChange={this.handleConfigInputTyping("label_x_pos").bind(this)}
               value={this.state.report["label_x_pos"]}
               hintText="ie., 'Opposed to more regulation'"
@@ -186,7 +191,6 @@ class ReportConfig extends React.Component {
             <InputField
               ref={"label_y_neg"}
               style={{width: 360}}
-              onBlur={this.handleStringValueChange("label_y_neg").bind(this)}
               onChange={this.handleConfigInputTyping("label_y_neg").bind(this)}
               value={this.state.report["label_y_neg"]}
               hintText="ie., 'Individuals are responsible'"
@@ -195,7 +199,6 @@ class ReportConfig extends React.Component {
             <InputField
               ref={"label_y_pos"}
               style={{width: 360}}
-              onBlur={this.handleStringValueChange("label_y_pos").bind(this)}
               onChange={this.handleConfigInputTyping("label_y_pos").bind(this)}
               value={this.state.report["label_y_pos"]}
               hintText="ie., 'Society is responsible'"
@@ -210,15 +213,15 @@ class ReportConfig extends React.Component {
               /* we have 10 groups max hardcoded for now */
               [0,1,2,3,4,5,6,7,8,9].map((d, i) => {
                 // if (!this.state.report["label_group_" + i]) {return}
+                let userVisibleGroupId = i+1;
                 return (
                   <InputField
                     ref={"label_group_" + i}
                     style={{width: 360}}
-                    onBlur={this.handleStringValueChange("label_group_" + i).bind(this)}
                     onChange={this.handleConfigInputTyping("label_group_" + i).bind(this)}
                     value={this.state.report["label_group_" + i]}
                     hintText="ie., 'Dog lovers'"
-                    floatingLabelText={"Group "+ i +" nickname"}
+                    floatingLabelText={"Group "+ userVisibleGroupId +" nickname"}
                     multiLine={true} />
                 )
               })
