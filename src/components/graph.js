@@ -45,7 +45,7 @@ class Graph extends React.Component {
     } = graphUtil(this.props.comments, this.props.math, this.props.badTids);
 
     return (
-      <div>
+      <div style={{position: "relative"}}>
         <p style={{fontSize: globals.primaryHeading}}> Opinion Graph </p>
         <p style={globals.paragraph}>
           This graph shows all people and all comments.
@@ -54,10 +54,23 @@ class Graph extends React.Component {
           Comments, identified by their number, are positioned more closely to comments that were voted on similarly (blue, in the correlation matrix above). Comments are positioned further away from comments that tended to be voted on differently (red, in the correlation matrix above). </p>
         <p style={globals.paragraph}>People are positioned closer to the comments on which they agreed, and further from the comments on which they disagreed. Groups of participants that tended to vote similarly across many comments (elaborated in the previous section) are identified by their similar color.
         </p>
+        <p style={Object.assign({}, globals.paragraph, {position: "absolute", left: 160})}>
+          {this.state.selectedComment ? "#" + this.state.selectedComment.tid + ". " + this.state.selectedComment.txt : null}
+        </p>
+          <svg width="100%" height={globals.side}>
+            {/* Comment https://bl.ocks.org/mbostock/7555321 */}
+            <g transform={`translate(${globals.side / 2}, ${15})`}>
+              <text
+                style={{
+                  fontFamily: "Georgia",
+                  fontSize: 14,
+                  fontStyle: "italic"
+                }}
+                textAnchor="middle">
 
-
-          <svg width="100%" height={globals.side} style={{marginTop: 30}}>
-            <Axes selectedComment={this.state.selectedComment} xCenter={xCenter} yCenter={yCenter} report={this.props.report}/>
+              </text>
+            </g>
+            <Axes xCenter={xCenter} yCenter={yCenter} report={this.props.report}/>
             <Participants points={baseClustersScaled}/>
             {/* this.props.math["group-clusters"].map((cluster, i) => {
               return (<text x={300} y={300}> Renzi Supporters </text>)

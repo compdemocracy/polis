@@ -1,7 +1,7 @@
 import React from "react";
 import * as globals from "./globals";
 
-const GraphAxes = ({yCenter, xCenter, selectedComment, report}) => {
+const GraphAxes = ({yCenter, xCenter, report}) => {
   return (
     <g>
       <line
@@ -24,18 +24,6 @@ const GraphAxes = ({yCenter, xCenter, selectedComment, report}) => {
           stroke: "rgb(130,130,130)",
           strokeWidth: 1
         }}/>
-      {/* Comment https://bl.ocks.org/mbostock/7555321 */}
-      <g transform={`translate(${globals.side / 2}, ${15})`}>
-        <text
-          style={{
-            fontFamily: "Georgia",
-            fontSize: 14,
-            fontStyle: "italic"
-          }}
-          textAnchor="middle">
-          {selectedComment ? "#" + selectedComment.tid + ". " + selectedComment.txt : null}
-        </text>
-      </g>
       {/* Bottom axis */}
       <g transform={`translate(${globals.side / 2}, ${globals.side - 20})`}>
         {report.label_x_neg ? <text
