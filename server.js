@@ -7386,6 +7386,7 @@ Email verified! You can close this tab or hit the back button.
 
   function handle_POST_comments(req, res) {
     let zid = req.p.zid;
+    let xid = req.p.xid;
     let uid = req.p.uid;
     let txt = req.p.txt;
     let pid = req.p.pid; // PID_FLOW may be undefined
@@ -7495,12 +7496,39 @@ Email verified! You can close this tab or hit the back button.
 
       let conversationInfoPromise = getConversationInfo(zid);
 
+
+
+
+    // return xidUserPromise.then(function(xidUser) {
+
+
+
+
+      let shouldCreateXidRecord = false;
+
       let pidPromise;
       if (ptpt) {
         pidPromise = Promise.resolve(ptpt.pid);
       } else {
-        pidPromise = doGetPid();
+
+        let xidUserPromise = !_.isUndefined(xid) && !_.isNull(xid) ? getXidRecord(xid, zid) : Promise.resolve();
+        pidPromise = xidUserPromise.then((xidUser) => {
+          shouldCreateXidRecord = xidUser === "shouldCreateXidRecord";
+          if (xidUser && xidUser.uid) {
+            uid = xidUser.uid;
+            pid = xidUser.pid;
+            return pid;
+          } else {
+            return doGetPid().then((pid) => {
+              if (shouldCreateXidRecord) {
+                return createXidRecord(zid, uid, xid).then(() => {return pid;});
+              }
+              return pid;
+            });
+          }
+        });
       }
+
       let commentExistsPromise = commentExists(zid, txt);
 
       console.log("POST_comments before Promise.all", Date.now());
@@ -7942,18 +7970,6 @@ Email verified! You can close this tab or hit the back button.
       }
     }
 
-
-    let hasXid = !_.isUndefined(req.p.xid);
-
-    function setXid(owner, uid, xid) {
-      return pgQueryP("insert into xids (owner, uid, xid) values ($1,$2,$3) " +
-          "on conflict (owner, xid) do nothing;", [
-            owner,
-            uid,
-            xid,
-          ]);
-    }
-
     Promise.all([
       // request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/users", qs: qs, headers: req.headers, gzip: true}),
       getUser(req.p.uid),
@@ -8000,18 +8016,7 @@ Email verified! You can close this tab or hit the back button.
         o.nextComment.currentPid = req.p.pid;
       }
 
-      function finish() {
-        res.status(200).json(o);
-      }
-      if (hasXid) {
-        setXid(conv.owner, req.p.uid, req.p.xid).then(() => {
-          finish();
-        }, (err) => {
-          fail(res, 500, "polis_err_get_participationInit3", err);
-        });
-      } else {
-        finish();
-      }
+      res.status(200).json(o);
 
     }, function(err) {
       console.error(err);
@@ -8035,29 +8040,41 @@ Email verified! You can close this tab or hit the back button.
     return pgQueryP(query, params);
   }
 
+
+
+  function createXidRecord(zid, uid, xid) {
+    return pgQueryP("insert into xids (owner, uid, xid) values ((select owner from conversations where zid = ($1)), $2, $3) " +
+      "on conflict (owner, xid) do nothing;", [
+        zid,
+        uid,
+        xid,
+      ]);
+  }
+
+  function getXidRecord(xid, zid) {
+    return pgQueryP("select * from xids where xid = ($1) and owner = (select owner from conversations where zid = ($2));", [xid, zid]).then((rows) => {
+      if (!rows || !rows.length) {
+        return "shouldCreateXidRecord";
+      }
+      let xidRecordForPtpt = rows[0];
+      if (xidRecordForPtpt) {
+        return getPidPromise(zid, xidRecordForPtpt.uid, true).then((pidForXid) => {
+          xidRecordForPtpt.pid = pidForXid;
+          return xidRecordForPtpt;
+        });
+      }
+      return xidRecordForPtpt;
+    });
+  }
+
+
   function handle_POST_votes(req, res) {
     let uid = req.p.uid; // PID_FLOW uid may be undefined here.
     let zid = req.p.zid;
     let pid = req.p.pid; // PID_FLOW pid may be undefined here.
     let xid = req.p.xid;
 
-    let xidUserPromise = Promise.resolve();
-    if (!_.isUndefined(xid) && !_.isNull(xid)) {
-      // assume conversation owner is posting via api.
-      xidUserPromise = pgQueryP("select * from xids where xid = ($1) and owner = ($2);", [xid, uid]).then((rows) => {
-        if (!rows || !rows.length) {
-          throw "polis_err_vote_xid_missing_" + xid;
-        }
-        let xidRecordForPtpt = rows[0];
-        if (xidRecordForPtpt) {
-          return getPidPromise(zid, xidRecordForPtpt.uid, true).then((pidForXid) => {
-            xidRecordForPtpt.pid = pidForXid;
-            return xidRecordForPtpt;
-          });
-        }
-        return xidRecordForPtpt;
-      });
-    }
+    let xidUserPromise = !_.isUndefined(xid) && !_.isNull(xid) ? getXidRecord(xid, zid) : Promise.resolve();
 
     // We allow viewing (and possibly writing) without cookies enabled, but voting requires cookies (except the auto-vote on your own comment, which seems ok)
     let token = req.cookies[COOKIES.TOKEN];
@@ -8074,6 +8091,7 @@ Email verified! You can close this tab or hit the back button.
         uid = xidUser.uid;
         pid = xidUser.pid;
       }
+      let shouldCreateXidRecord = xidUser === "shouldCreateXidRecord";
 
       // let conv;
       let vote;
@@ -8085,6 +8103,10 @@ Email verified! You can close this tab or hit the back button.
       }) : Promise.resolve();
 
       return pidReadyPromise.then(function() {
+        if (shouldCreateXidRecord) {
+          return createXidRecord(zid, uid, xid);
+        }
+      }).then(function() {
         return votesPost(uid, pid, zid, req.p.tid, req.p.vote, req.p.weight, true);
       }).then(function(o) {
         // conv = o.conv;
