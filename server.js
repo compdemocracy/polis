@@ -1876,7 +1876,7 @@ function initializePolisHelpers(mongoParams) {
             let shouldCreateXidRecord = xidRecord === "shouldCreateXidRecord";
             if (!shouldCreateXidRecord) {
               assigner(req, "uid", Number(xidRecord.uid));
-              next();
+              return next();
             }
             // try other auth methods, and once those are done, use req.p.uid to create new xid record.
             doAuth(req, res).then(() => {
@@ -1886,17 +1886,17 @@ function initializePolisHelpers(mongoParams) {
                 throw "polis_err_missing_non_optional_uid";
               }
             }).then(() => {
-              next();
+              return next();
             }).catch((err) => {
               res.status(500);
               console.error(err);
-              next("polis_err_auth_xid_error_423423");
+              return next("polis_err_auth_xid_error_423423");
             });
           });
         });
       } else {
         doAuth(req, res).then(() => {
-          next();
+          return next();
         }).catch((err) => {
           res.status(500);
           console.error(err);
