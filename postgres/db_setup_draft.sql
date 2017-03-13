@@ -401,6 +401,7 @@ CREATE TABLE xids (
     uid INTEGER NOT NULL REFERENCES users(uid),
     owner INTEGER NOT NULL REFERENCES users(uid),
     xid TEXT NOT NULL, -- TODO add constraint to limit length
+    x_profile_image_url VARCHAR(3000), -- profile picture url (should be https)
     created BIGINT DEFAULT now_as_millis(),
     UNIQUE (owner, xid)
 );
