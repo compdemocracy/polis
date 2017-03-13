@@ -1870,22 +1870,31 @@ function initializePolisHelpers(mongoParams) {
       let hasXid = !_.isUndefined(xid);
 
       if (hasXid) {
-
+        console.log('xidflow has');
         getConversationIdFetchZid(req.body.conversation_id).then((zid) => {
+          console.log('xidflow got zid', zid);
+
           return getXidRecord(xid, zid).then((xidRecord) => {
+            console.log('xidflow got xidRecord', xidRecord);
             let shouldCreateXidRecord = xidRecord === "shouldCreateXidRecord";
             if (!shouldCreateXidRecord) {
+              console.log('xidflow !shouldCreateXidRecord');
               assigner(req, "uid", Number(xidRecord.uid));
               return next();
             }
+            console.log('xidflow before doAuth');
             // try other auth methods, and once those are done, use req.p.uid to create new xid record.
             doAuth(req, res).then(() => {
+              console.log('xidflow after doAuth');
               if (req.p.uid) { // req.p.uid should be set now.
+                console.log('xidflow uid', req.p.uid);
                 return createXidRecord(zid, req.p.uid, xid);
               } else if (!isOptional) {
+                console.log('xidflow no uid, but mandatory', req.p.uid);
                 throw "polis_err_missing_non_optional_uid";
               }
             }).then(() => {
+              console.log('xidflow ok');
               return next();
             }).catch((err) => {
               res.status(500);
