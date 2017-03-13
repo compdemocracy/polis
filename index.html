@@ -192,8 +192,8 @@ qp.push("pid=mypid");
 
 var xid = getXid();
 if (typeof xid !== "undefined") {
+  qp.push("xid=" + xid);
   window.preload.xid = xid;
-  // qp.push("xid=" + xid);
 }
 
 var qp = qp.join("&");
