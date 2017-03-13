@@ -300,7 +300,10 @@ module.exports = Handlebones.ModelView.extend({
         preloadHelper.firstPtptPromise
       ).then(_.defer(function() {
 
-        var userHasVoted = !!votesByMe.size();
+        var userHasVoted = !!votesByMe.size() ||
+          (preload.firstVotesByMe && preload.firstVotesByMe.length) ||
+          (preload.firstPtpt && preload.firstPtpt.vote_count > 0);
+
 
         waitingForComments = true;
         // pollForComments();
