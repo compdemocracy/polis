@@ -7447,7 +7447,7 @@ Email verified! You can close this tab or hit the back button.
 
   function handle_POST_comments(req, res) {
     let zid = req.p.zid;
-    let xid = req.p.xid;
+    let xid = void 0; //req.p.xid;
     let uid = req.p.uid;
     let txt = req.p.txt;
     let pid = req.p.pid; // PID_FLOW may be undefined
@@ -8133,7 +8133,7 @@ Email verified! You can close this tab or hit the back button.
     let uid = req.p.uid; // PID_FLOW uid may be undefined here.
     let zid = req.p.zid;
     let pid = req.p.pid; // PID_FLOW pid may be undefined here.
-    let xid = req.p.xid;
+    let xid = void 0; //req.p.xid;
 
     let xidUserPromise = !_.isUndefined(xid) && !_.isNull(xid) ? getXidRecord(xid, zid) : Promise.resolve();
 
