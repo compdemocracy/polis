@@ -52,6 +52,10 @@ function getXid() {
   var params = parseQueryParams(window.location.search);
   return params.xid;
 }
+function get_x_profile_image_url() {
+  var params = parseQueryParams(window.location.search);
+  return params.x_profile_image_url;
+}
 
 function ajaxGet(url, success, fail) {
   var xmlhttp;
@@ -194,6 +198,10 @@ var xid = getXid();
 if (typeof xid !== "undefined") {
   qp.push("xid=" + xid);
   window.preload.xid = xid;
+}
+var x_profile_image_url = get_x_profile_image_url();
+if (typeof x_profile_image_url !== "undefined") {
+  qp.push("x_profile_image_url=" + x_profile_image_url);
 }
 
 var qp = qp.join("&");

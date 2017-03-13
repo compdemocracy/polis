@@ -18,6 +18,7 @@
          page_id: d.getAttribute("data-page_id"),
          parent_url: d.getAttribute("data-parent_url"),
          xid: d.getAttribute("data-xid"),
+         x_profile_image_url: d.getAttribute("data-x_profile_image_url"),
 
          border: d.getAttribute("data-border"),
          border_radius: d.getAttribute("data-border_radius"),
@@ -95,6 +96,8 @@
     }
 
     appendIfPresent("xid");
+    appendIfPresent("x_profile_image_url");
+
 
     appendIfPresent("ucv");
     appendIfPresent("ucw");
