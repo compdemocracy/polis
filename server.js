@@ -11501,11 +11501,17 @@ Thanks for using pol.is!
           return x;
         });
 
+        participantsWithSocialInfo = participantsWithSocialInfo.filter((p) => { // TODO REMVOE
+          return p.xInfo; // TODO REMVOE
+        }); // TODO REMVOE
+ // TODO REMVOE
         let pids = participantsWithSocialInfo.map(function(p) {
           return p.pid;
         });
+        console.log('mike1234', pids.length);
 
         let pidToData = _.indexBy(participantsWithSocialInfo, "pid"); // TODO this is extra work, probably not needed after some rethinking
+        console.log('mike1234', pidToData);
 
         // polisSocialSettings.forEach(function(p) {
         //     if (shouldSkip(p)) {
@@ -11561,6 +11567,7 @@ Thanks for using pol.is!
         });
         pids = _.uniq(pids, true);
 
+        console.log('mike1234', pids);
 
         return getVotesForZidPidsWithTimestampCheck(zid, pids, lastVoteTimestamp).then(function(vectors) {
 
@@ -11575,8 +11582,10 @@ Thanks for using pol.is!
               // winston.log("info",pidToData[pid]);
               if (notInBucket && !isSelf) {
                 // pidToData[pid].ignore = true;
+                console.log('mike1234', 'deleting', pid);
                 delete pidToData[pid]; // if the participant isn't in a bucket, they probably haven't voted enough for the math worker to bucketize them.
               } else if (!!pidToData[pid]) {
+                console.log('mike1234', 'keeping', pid);
                 pidToData[pid].votes = value; // no separator, like this "adupuuauuauupuuu";
                 pidToData[pid].bid = bid;
               }
