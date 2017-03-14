@@ -105,6 +105,9 @@ class ParticipantHeader extends React.Component {
       </a>
     )
   }
+  xIcon() {
+    return <span>asdf</span>;
+  }
 
   followers() {
     return (
@@ -152,6 +155,7 @@ class ParticipantHeader extends React.Component {
           {/*this.props.twitter_user_id ? this.props.followerCount : ""*/}
           {this.props.fb_user_id ? this.facebookIcon() : ""}
           {this.props.twitter_user_id ? this.twitterIcon() : ""}
+          {this.props.xInfo && this.props.xInfo.x_profile_image_url ? this.xIcon() : ""}
         </div>
       </Flex>
     );
