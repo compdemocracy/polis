@@ -10588,12 +10588,12 @@ Thanks for using pol.is!
     return pgQueryP_readOnly("select * from facebook_users where uid in ($1);", uids);
   }
 
-  function getSocialParticipantsForMod(zid, limit, mod) {
+  function getSocialParticipantsForMod(zid, limit, mod, owner) {
 
     let modClause = "";
-    let params = [zid, limit];
+    let params = [zid, limit, owner];
     if (!_.isUndefined(mod)) {
-      modClause = " and mod = ($3)";
+      modClause = " and mod = ($4)";
       params.push(mod);
     }
 
@@ -10601,6 +10601,8 @@ Thanks for using pol.is!
       "p as (select uid, pid, mod from participants where zid = ($1) " + modClause + "), " + // and vote_count >= 1
 
       "final_set as (select * from p limit ($2)), " +
+
+      "xids_subset as (select * from xids where owner = ($3)), " +
 
       "all_rows as (select " +
       // "final_set.priority, " +
@@ -10631,12 +10633,17 @@ Thanks for using pol.is!
       // "facebook_users.created as fb__created, " +
       // "all_friends.uid is not null as is_fb_friend, " +
       // "final_set.uid " +
+      "xids_subset.x_profile_image_url as x_profile_image_url, " +
+      "xids_subset.xid as xid, " +
+      "xids_subset.x_name as x_name, " +
+
       "final_set.pid " +
       "from final_set " +
       "left join twitter_users on final_set.uid = twitter_users.uid " +
       "left join facebook_users on final_set.uid = facebook_users.uid " +
+      "left join xids_subset on final_set.uid = xids_subset.uid " +
       ") " +
-      "select * from all_rows where (tw__twitter_user_id is not null) or (fb__fb_user_id is not null) " +
+      "select * from all_rows where (tw__twitter_user_id is not null) or (fb__fb_user_id is not null) or (xid is not null) " +
       // "select * from all_rows " +
       ";";
     return pgQueryP(q, params);
@@ -11226,6 +11233,20 @@ Thanks for using pol.is!
     return o;
   }
 
+  function pullXInfoIntoSubObjects(ptptoiRecord) {
+    let p = ptptoiRecord;
+    if (p.x_profile_image_url || p.xid) {
+      p.xInfo = {};
+      p.xInfo.x_profile_image_url = p.x_profile_image_url;
+      p.xInfo.xid = p.xid;
+      p.xInfo.x_name = p.x_name;
+      delete p.x_profile_image_url;
+      delete p.xid;
+      delete p.x_name;
+    }
+    return p;
+  }
+
   function pullFbTwIntoSubObjects(ptptoiRecord) {
     let p = ptptoiRecord;
     let x = {};
@@ -11288,8 +11309,13 @@ Thanks for using pol.is!
     let uid = req.p.uid;
     let limit = 99999;
 
+    let convPromise = getConversationInfo(req.p.zid);
+    let socialPtptsPromise = convPromise.then((conv) => {
+      return getSocialParticipantsForMod(zid, limit, mod, conv.owner);
+    });
+
     Promise.all([
-      getSocialParticipantsForMod(zid, limit, mod),
+      socialPtptsPromise,
       getConversationInfo(zid),
     ]).then(function(a) {
       let ptptois = a[0];
@@ -11297,12 +11323,14 @@ Thanks for using pol.is!
       let isOwner = uid === conv.owner;
       let isAllowed = isOwner || isPolisDev(req.p.uid) || conv.is_data_open;
       if (isAllowed) {
+        ptptois = ptptois.map(pullXInfoIntoSubObjects);
         ptptois = ptptois.map(removeNullOrUndefinedProperties);
         ptptois = ptptois.map(pullFbTwIntoSubObjects);
         ptptois = ptptois.map(function(p) {
           p.conversation_id = req.p.conversation_id;
           return p;
         });
+
       } else {
         ptptois = [];
       }

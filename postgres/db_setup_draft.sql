@@ -402,8 +402,10 @@ CREATE TABLE xids (
     owner INTEGER NOT NULL REFERENCES users(uid),
     xid TEXT NOT NULL, -- TODO add constraint to limit length
     x_profile_image_url VARCHAR(3000), -- profile picture url (should be https)
+    x_name VARCHAR(746),
     created BIGINT DEFAULT now_as_millis(),
-    UNIQUE (owner, xid)
+    UNIQUE (owner, uid),
+    UNIQUE (owner, xid),
 );
 CREATE INDEX xids_owner_idx ON xids USING btree (owner);
 
