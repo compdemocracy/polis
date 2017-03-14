@@ -1938,6 +1938,13 @@ module.exports = function(params) {
           ptpt.hasTwitter = true;
         }
 
+        if (ptpt.xInfo) {
+          ptpt.picture = ptpt.xInfo.x_profile_image_url;
+          ptpt.picture_size = 48;
+          ptpt.hasTwitter = false;
+          ptpt.hasFacebook = false;
+        }
+
         // override with custom polis picture if they have it
         if (ptpt.polis) {
           ptpt.picture = ptpt.polis.polis_pic;
