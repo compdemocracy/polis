@@ -1663,7 +1663,7 @@ function initializePolisHelpers(mongoParams) {
         throw "polis_err_conversation_is_closed";
       }
       if (conv.auth_needed_to_vote) {
-        return getSocialInfoForUsers([uid]).then((info) => {
+        return getSocialInfoForUsers([uid], zid).then((info) => {
           var socialAccountIsLinked = info.length > 0;
           if (socialAccountIsLinked) {
             return conv;
@@ -6862,7 +6862,7 @@ Email verified! You can close this tab or hit the back button.
           return !c.anon && !c.is_seed;
         });
         let uids = _.pluck(nonAnonComments, "uid");
-        return getSocialInfoForUsers(uids).then(function(socialInfos) {
+        return getSocialInfoForUsers(uids, o.zid).then(function(socialInfos) {
           let uidToSocialInfo = {};
           socialInfos.forEach(function(info) {
             // whitelist properties to send
@@ -6877,6 +6877,9 @@ Email verified! You can close this tab or hit the back button.
               "twitter_user_id",
               "profile_image_url_https",
               "followers_count",
+              // xInfo
+              "x_profile_image_url",
+              "x_name",
             ]);
             infoToReturn.tw_verified = !!info.verified;
             infoToReturn.tw_followers_count = info.followers_count;
@@ -10789,7 +10792,7 @@ Thanks for using pol.is!
   //   return p;
   // }
 
-  function getSocialInfoForUsers(uids) {
+  function getSocialInfoForUsers(uids, zid) {
     uids = _.uniq(uids);
     uids.forEach(function(uid) {
       if (!_.isNumber(uid)) {
@@ -10800,7 +10803,12 @@ Thanks for using pol.is!
       return Promise.resolve([]);
     }
     let uidString = uids.join(",");
-    return pgQueryP_metered_readOnly("getSocialInfoForUsers", "with fb as (select * from facebook_users where uid in (" + uidString + ")), tw as (select * from twitter_users where uid in (" + uidString + ")) select *, coalesce(fb.uid, tw.uid) as uid from fb full outer join tw on tw.uid = fb.uid;", []);
+    return pgQueryP_metered_readOnly("getSocialInfoForUsers", "with "+
+      "fb as (select * from xids where uid in (" + uidString + ") and owner  in (select owner from conversations where zid = ($1))), "+
+      "x as (select * from facebook_users where uid in (" + uidString + ")), "+
+      "tw as (select * from twitter_users where uid in (" + uidString + ")), "+
+      "foo as (select *, coalesce(fb.uid, tw.uid) as foouid from fb full outer join tw on tw.uid = fb.uid) "+
+      "select *, coalesce(foo.foouid, x.uid) as uid from foo full outer join x on x.uid = foo.foouid;", [zid]);
   }
 
   function updateVoteCount(zid, pid) {
