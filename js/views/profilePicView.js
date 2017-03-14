@@ -11,8 +11,6 @@ module.exports =  Handlebones.ModelView.extend({
 
   context: function() {
     var ctx = _.extend({}, Handlebones.ModelView.prototype.context.apply(this, arguments));
-    ctx.hasTwitter = ctx.hasTwitter;
-    ctx.hasFacebook = ctx.hasFacebook;
     ctx.pic = Utils.getAnonPicUrl();
     if (ctx.hasFacebook) {
       ctx.pic = ctx.facebook.fb_picture;
