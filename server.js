@@ -1890,7 +1890,7 @@ function initializePolisHelpers(mongoParams) {
               console.log('xidflow after doAuth');
               if (req.p.uid) { // req.p.uid should be set now.
                 console.log('xidflow uid', req.p.uid);
-                return createXidRecord(zid, req.p.uid, xid, req.body.x_profile_image_url);
+                return createXidRecord(zid, req.p.uid, xid, req.body.x_profile_image_url, req.body.x_name);
               } else if (!isOptional) {
                 console.log('xidflow no uid, but mandatory', req.p.uid);
                 throw "polis_err_missing_non_optional_uid";
@@ -8118,13 +8118,14 @@ Email verified! You can close this tab or hit the back button.
 
 
 
-  function createXidRecord(zid, uid, xid, x_profile_image_url) {
-    return pgQueryP("insert into xids (owner, uid, xid, x_profile_image_url) values ((select owner from conversations where zid = ($1)), $2, $3, $4) " +
+  function createXidRecord(zid, uid, xid, x_profile_image_url, x_name) {
+    return pgQueryP("insert into xids (owner, uid, xid, x_profile_image_url, x_name) values ((select owner from conversations where zid = ($1)), $2, $3, $4, $5) " +
       "on conflict (owner, xid) do nothing;", [
         zid,
         uid,
         xid,
         x_profile_image_url || null,
+        x_name || null,
       ]);
   }
 
