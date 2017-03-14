@@ -1870,11 +1870,13 @@ function initializePolisHelpers(mongoParams) {
       let hasXid = !_.isUndefined(xid);
 
       if (hasXid) {
+        req.p = req.p || {};
+        req.p.xid = xid;
         console.log('xidflow has');
         getConversationIdFetchZid(req.body.conversation_id).then((zid) => {
           console.log('xidflow got zid', zid);
 
-          return getXidRecord(xid, zid).then((xidRecord) => {
+          return getXidStuff(xid, zid).then((xidRecord) => {
             console.log('xidflow got xidRecord', xidRecord);
             let shouldCreateXidRecord = xidRecord === "shouldCreateXidRecord";
             if (!shouldCreateXidRecord) {
@@ -6398,7 +6400,7 @@ Email verified! You can close this tab or hit the back button.
       return;
     }
 
-    getUser(uid).then(function(user) {
+    getUser(uid, null, null).then(function(user) {
       res.status(200).json(user);
     }, function(err) {
       fail(res, 500, "polis_err_getting_user_info2", err);
@@ -6407,7 +6409,7 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
-  function getUser(uid) {
+  function getUser(uid, zid_optional, xid_optional) {
     if (!uid) {
       // this api may be called by a new user, so we don't want to trigger a failure here.
       return Promise.resolve({});
@@ -6416,13 +6418,16 @@ Email verified! You can close this tab or hit the back button.
       getUserInfoForUid2(uid),
       getFacebookInfo([uid]),
       getTwitterInfo([uid]),
+      ((zid_optional && xid_optional) ? getXidRecord(xid_optional, zid_optional) : Promise.resolve(null)),
     ]).then(function(o) {
       let info = o[0];
       let fbInfo = o[1];
       let twInfo = o[2];
+      let xInfo = o[3];
 
       let hasFacebook = fbInfo && fbInfo.length && fbInfo[0];
       let hasTwitter = twInfo && twInfo.length && twInfo[0];
+      let hasXid = xInfo && xInfo.length && xInfo[0];
       if (hasFacebook) {
         let width = 40;
         let height = 40;
@@ -6432,6 +6437,11 @@ Email verified! You can close this tab or hit the back button.
       if (hasTwitter) {
         delete twInfo[0].response;
       }
+      if (hasXid) {
+        delete xInfo[0].owner;
+        delete xInfo[0].created;
+        delete xInfo[0].uid;
+      }
       return {
         uid: uid,
         email: info.email,
@@ -6440,6 +6450,8 @@ Email verified! You can close this tab or hit the back button.
         facebook: fbInfo && fbInfo[0],
         twitter: twInfo && twInfo[0],
         hasTwitter: !!hasTwitter,
+        hasXid: !!hasXid,
+        xInfo: xInfo && xInfo[0],
         finishedTutorial: !!info.tut,
         site_ids: [info.site_id],
         created: Number(info.created),
@@ -7572,7 +7584,7 @@ Email verified! You can close this tab or hit the back button.
         pidPromise = Promise.resolve(ptpt.pid);
       } else {
 
-        let xidUserPromise = !_.isUndefined(xid) && !_.isNull(xid) ? getXidRecord(xid, zid) : Promise.resolve();
+        let xidUserPromise = !_.isUndefined(xid) && !_.isNull(xid) ? getXidStuff(xid, zid) : Promise.resolve();
         pidPromise = xidUserPromise.then((xidUser) => {
           shouldCreateXidRecord = xidUser === "shouldCreateXidRecord";
           if (xidUser && xidUser.uid) {
@@ -8033,7 +8045,7 @@ Email verified! You can close this tab or hit the back button.
 
     Promise.all([
       // request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/users", qs: qs, headers: req.headers, gzip: true}),
-      getUser(req.p.uid),
+      getUser(req.p.uid, req.p.zid, req.p.xid),
       // getIfConvAndAuth({uri: "http://" + SELF_HOSTNAME + "/api/v3/participants", qs: qs, headers: req.headers, gzip: true}),
       ifConvAndAuth(getParticipant, [req.p.zid, req.p.uid]),
       // getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/nextComment", qs: nextCommentQs, headers: req.headers, gzip: true}),
@@ -8114,7 +8126,11 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function getXidRecord(xid, zid) {
-    return pgQueryP("select * from xids where xid = ($1) and owner = (select owner from conversations where zid = ($2));", [xid, zid]).then((rows) => {
+    return pgQueryP("select * from xids where xid = ($1) and owner = (select owner from conversations where zid = ($2));", [xid, zid]);
+  }
+
+  function getXidStuff(xid, zid) {
+    return getXidRecord(xid, zid).then((rows) => {
       if (!rows || !rows.length) {
         return "shouldCreateXidRecord";
       }
@@ -8136,7 +8152,7 @@ Email verified! You can close this tab or hit the back button.
     let pid = req.p.pid; // PID_FLOW pid may be undefined here.
     let xid = void 0; //req.p.xid;
 
-    let xidUserPromise = !_.isUndefined(xid) && !_.isNull(xid) ? getXidRecord(xid, zid) : Promise.resolve();
+    let xidUserPromise = !_.isUndefined(xid) && !_.isNull(xid) ? getXidStuff(xid, zid) : Promise.resolve();
 
     // We allow viewing (and possibly writing) without cookies enabled, but voting requires cookies (except the auto-vote on your own comment, which seems ok)
     let token = req.cookies[COOKIES.TOKEN];
