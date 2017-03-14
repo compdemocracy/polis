@@ -18,6 +18,9 @@ module.exports =  Handlebones.ModelView.extend({
     if (ctx.hasTwitter) {
       ctx.pic = ctx.twitter.profile_image_url_https;
     }
+    if (ctx.hasXid) {
+      ctx.pic = ctx.xInfo.x_profile_image_url;
+    }
     return ctx;
   },
 
