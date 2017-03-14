@@ -39,19 +39,23 @@ class ParticipantModerationFeatured extends React.Component {
     return _.sortByOrder(this.props.featured_participants, (p) => {
       console.log(p);
       return p.twitter ? p.twitter.followers_count : 0;
-    }, ["desc"]).map((participant, i)=>{
+    }, ["desc"]).map((p, i)=>{
+      let name = "[MISSING NAME]";
+      if (p.xInfo) {
+        name = p.xInfo.x_name;
+      } else if (p.twitter) {
+        name = p.twitter.name;
+      } else if (p.facebook) {
+        name = p.facebook.fb_name;
+      }
       return (
         <Participant
-          participant={participant}
+          participant={p}
           hideButton
           hideClickHandler={this.onHideClicked.bind(this)}
           unfeatureButton
           unfeatureClickHandler={this.onUnfeatureClicked.bind(this)}
-          name={
-            participant.facebook ?
-            participant.facebook.fb_name :
-            participant.twitter.name
-          }
+          name={name}
           key={i}/>
       )
     })

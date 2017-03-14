@@ -38,19 +38,23 @@ class ParticipantModerationDefault extends React.Component {
   createParticipantMarkup() {
     return _.sortByOrder(this.props.default_participants, (p) => {
       return p.twitter ? p.twitter.followers_count : 0;
-    }, ["desc"]).map((participant, i) => {
+    }, ["desc"]).map((p, i) => {
+      let name = "[MISSING NAME]";
+      if (p.xInfo) {
+        name = p.xInfo.x_name;
+      } else if (p.twitter) {
+        name = p.twitter.name;
+      } else if (p.facebook) {
+        name = p.facebook.fb_name;
+      }
       return (
         <Participant
-          participant={participant}
+          participant={p}
           featureButton
           hideButton
           featureClickHandler={this.onFeatureClicked.bind(this)}
           hideClickHandler={this.onHideClicked.bind(this)}
-          name={
-            participant.facebook ?
-            participant.facebook.fb_name :
-            participant.twitter.name
-          }
+          name={name}
           key={i}/>
       );
     });

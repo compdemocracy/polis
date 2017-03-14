@@ -106,6 +106,7 @@ class Participant extends React.Component {
           justifyContent="space-between"
           alignItems={"baseline"}>
           <ParticipantHeader
+            {...this.props.participant.xInfo}
             {...this.props.participant.facebook}
             {...this.props.participant.twitter} />
           <Flex styleOverrides={styles.buttons}>

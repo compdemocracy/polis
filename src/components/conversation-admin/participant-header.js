@@ -40,6 +40,8 @@ class ParticipantHeader extends React.Component {
     return {
       image: {
         borderRadius: 3,
+        width: 48,
+        height: 48,
       },
       name: {
         marginLeft: 10,
@@ -50,7 +52,7 @@ class ParticipantHeader extends React.Component {
     };
   }
   getRealName() {
-    let name = "";
+    let name = "[name unknown]";
 
     if (this.props.name) {
       name = this.props.name;
@@ -60,11 +62,19 @@ class ParticipantHeader extends React.Component {
       name = this.props.fb_name;
     }
 
+    if (this.props.x_name) {
+      name = this.props.x_name;
+    }
+
     return name;
   }
   getImage() {
     let image = "";
-    if (this.props.fb_user_id) {
+    if (this.props.x_profile_image_url) {
+      image = (
+        <img src={this.props.x_profile_image_url} style={this.getStyles().image}/>
+      )
+    } else if (this.props.fb_user_id) {
       image = (
         <img src={this.props.fb_picture} style={this.getStyles().image}/>
       )
