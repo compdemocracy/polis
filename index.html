@@ -43,7 +43,7 @@ function parseQueryParams(s) {
   var o = {};
   for (var i = 0; i < pairStrings.length; i++) {
     var pair = pairStrings[i].split("=");
-    o[pair[0]] = pair[1];
+    o[pair[0]] = decodeURIComponent(pair[1]);
   }
   return o;
 }
