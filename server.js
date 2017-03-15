@@ -1891,6 +1891,12 @@ function initializePolisHelpers() {
           doApiKeyBasicAuth(assigner, isOptional, req, res, onDone);
         } else if (req.body.agid) { // Auto Gen user  ID
           createDummyUser().then(function(uid) {
+            let shouldAddCookies = _.isUndefined(req.body.xid);
+            if (!shouldAddCookies) {
+              req.p = req.p || {};
+              req.p.uid = uid;
+              return onDone();
+            }
             return startSessionAndAddCookies(req, res, uid).then(function() {
               req.p = req.p || {};
               req.p.uid = uid;
