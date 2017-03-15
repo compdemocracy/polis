@@ -21,6 +21,9 @@ module.exports =  Handlebones.ModelView.extend({
     if (ctx.hasXid) {
       ctx.pic = ctx.xInfo.x_profile_image_url;
     }
+    if (window.preload.x_profile_image_url) {
+      ctx.pic = window.preload.x_profile_image_url;
+    }
     return ctx;
   },
 
