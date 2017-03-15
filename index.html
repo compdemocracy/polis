@@ -56,6 +56,10 @@ function get_x_profile_image_url() {
   var params = parseQueryParams(window.location.search);
   return params.x_profile_image_url;
 }
+function get_x_name() {
+  var params = parseQueryParams(window.location.search);
+  return params.x_name;
+}
 
 function ajaxGet(url, success, fail) {
   var xmlhttp;
@@ -202,6 +206,10 @@ if (typeof xid !== "undefined") {
 var x_profile_image_url = get_x_profile_image_url();
 if (typeof x_profile_image_url !== "undefined") {
   qp.push("x_profile_image_url=" + x_profile_image_url);
+}
+var x_name = get_x_name();
+if (typeof x_name !== "undefined") {
+  qp.push("x_name=" + x_name);
 }
 
 var qp = qp.join("&");

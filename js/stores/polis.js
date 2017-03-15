@@ -1926,6 +1926,7 @@ module.exports = function(params) {
             height = 96; // facebook will return 64x64 images if we're on a retina device
             ptpt.picture_size = 48;
           }
+
           // https://developers.facebook.com/docs/graph-api/reference/v2.2/user/picture
           ptpt.facebook.picture = "https://graph.facebook.com/v2.2/" + ptpt.facebook.fb_user_id + "/picture?width=" + width + "&height=" + height;
           ptpt.picture = ptpt.facebook.picture;
