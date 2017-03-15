@@ -10602,7 +10602,7 @@ Thanks for using pol.is!
 
       "final_set as (select * from p limit ($2)), " +
 
-      "xids_subset as (select * from xids where owner = ($3)), " +
+      "xids_subset as (select * from xids where owner = ($3) and x_profile_image_url is not null), " +
 
       "all_rows as (select " +
       // "final_set.priority, " +
@@ -10675,8 +10675,11 @@ Thanks for using pol.is!
       //         "friend as uid, 100 as priority from facebook_friends where uid = ($2) " +
       //         "union  " +
       //         "select uid, 100 as priority from facebook_friends where friend = ($2)), " +
-      "twitter_ptpts as (select p.uid, 10 as priority from p inner join twitter_users on twitter_users.uid  = p.uid where p.mod >= ($4)), " +
-      "all_fb_users as (select p.uid, 9 as priority from p inner join facebook_users on facebook_users.uid = p.uid where p.mod >= ($4)), " +
+
+      "xids_subset as (select * from xids where owner in (select owner from conversations where zid = ($1)) and x_profile_image_url is not null), " +
+      "xid_ptpts as (select p.uid, 100 as priority from p inner join xids_subset on xids_subset.uid = p.uid where p.mod >= ($4)), " +
+      "twitter_ptpts as (select p.uid, 10 as priority from p inner join twitter_users  on twitter_users.uid  = p.uid where p.mod >= ($4)), " +
+      "all_fb_users as (select p.uid,   9 as priority from p inner join facebook_users on facebook_users.uid = p.uid where p.mod >= ($4)), " +
       "self as (select CAST($2 as INTEGER) as uid, 1000 as priority), " +
       (authorsQuery ? ("authors as " + authorsQuery + ", ") : "") +
       "pptpts as (select prioritized_ptpts.uid, max(prioritized_ptpts.priority) as priority " +
@@ -10690,6 +10693,8 @@ Thanks for using pol.is!
       "select * from twitter_ptpts " +
       "union " +
       "select * from all_fb_users " +
+      "union " +
+      "select * from xid_ptpts " +
       ") as prioritized_ptpts " +
       "inner join p on prioritized_ptpts.uid = p.uid " +
       "group by prioritized_ptpts.uid order by priority desc, prioritized_ptpts.uid asc), " +
@@ -10744,11 +10749,15 @@ Thanks for using pol.is!
       // "facebook_users.fb_friends_response as fb__fb_friends_response, " +
       // "facebook_users.created as fb__created, " +
       // "all_friends.uid is not null as is_fb_friend, " +
+      "xids_subset.x_profile_image_url as x_profile_image_url, " +
+      "xids_subset.xid as xid, " +
+      "xids_subset.x_name as x_name, " +
       // "final_set.uid " +
       "p.pid " +
       "from final_set " +
       "left join twitter_users on final_set.uid = twitter_users.uid " +
       "left join facebook_users on final_set.uid = facebook_users.uid " +
+      "left join xids_subset on final_set.uid = xids_subset.uid " +
       "left join p on final_set.uid = p.uid " +
       // "left join all_fb_usersriends on all_friends.uid = p.uid " +
       ";";
@@ -11396,6 +11405,8 @@ Thanks for using pol.is!
           "select u.uid from u inner join facebook_users on facebook_users.uid = u.uid " +
           "union " +
           "select u.uid from u inner join twitter_users on twitter_users.uid = u.uid " +
+          "union " +
+          "select u.uid from u inner join xids on xids.uid = u.uid " +
           "order by uid;";
 
         return pgQueryP_readOnly(q, [zid]).then(function(comments) {
@@ -11464,8 +11475,9 @@ Thanks for using pol.is!
         // ALSO, per-group-minimums: we should include at least a facebook friend and at least one famous twitter user(if they exist) per group
 
         participantsWithSocialInfo = participantsWithSocialInfo.map(function(p) {
-          let x = pullFbTwIntoSubObjects(p);
+          let x = pullXInfoIntoSubObjects(p);
           // nest the fb and tw properties in sub objects
+          x = pullFbTwIntoSubObjects(x);
 
           if (p.priority === 1000) {
             x.isSelf = true;
