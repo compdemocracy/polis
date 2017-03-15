@@ -1864,7 +1864,8 @@ function initializePolisHelpers() {
 
 
 
-  function auth(assigner, isOptional) {
+
+  function _auth(assigner, isOptional) {
 
     function doAuth(req, res) {
       //var token = req.body.token;
@@ -1909,7 +1910,7 @@ function initializePolisHelpers() {
             onDone("polis_err_auth_token_error_5345");
           });
         } else if (isOptional) {
-          onDone();
+          onDone(); // didn't create user
         } else {
           res.status(401);
           onDone("polis_err_auth_token_not_supplied");
@@ -1932,8 +1933,8 @@ function initializePolisHelpers() {
 
           return getXidStuff(xid, zid).then((xidRecord) => {
             console.log('xidflow got xidRecord', xidRecord);
-            let shouldCreateXidRecord = xidRecord === "shouldCreateXidRecord";
-            if (!shouldCreateXidRecord) {
+            let foundXidRecord = xidRecord !== "noXidRecord";
+            if (foundXidRecord) {
               console.log('xidflow !shouldCreateXidRecord');
               assigner(req, "uid", Number(xidRecord.uid));
               return next();
@@ -1942,13 +1943,14 @@ function initializePolisHelpers() {
             // try other auth methods, and once those are done, use req.p.uid to create new xid record.
             doAuth(req, res).then(() => {
               console.log('xidflow after doAuth');
-              if (req.p.uid) { // req.p.uid should be set now.
+              if (req.p.uid && !isOptional) { // req.p.uid might be set now.
                 console.log('xidflow uid', req.p.uid);
                 return createXidRecord(zid, req.p.uid, xid, req.body.x_profile_image_url, req.body.x_name);
               } else if (!isOptional) {
                 console.log('xidflow no uid, but mandatory', req.p.uid);
                 throw "polis_err_missing_non_optional_uid";
               }
+              console.log('xidflow was optional, doing nothing');
             }).then(() => {
               console.log('xidflow ok');
               return next();
@@ -1974,9 +1976,12 @@ function initializePolisHelpers() {
 
   // input token from body or query, and populate req.body.u with userid.
   function authOptional(assigner) {
-    return auth(assigner, true);
+    return _auth(assigner, true);
   }
 
+  function auth(assigner) {
+    return _auth(assigner, false);
+  }
 
   function enableAgid(req, res, next) {
     req.body.agid = 1;
@@ -7674,7 +7679,7 @@ Email verified! You can close this tab or hit the back button.
 
         let xidUserPromise = !_.isUndefined(xid) && !_.isNull(xid) ? getXidStuff(xid, zid) : Promise.resolve();
         pidPromise = xidUserPromise.then((xidUser) => {
-          shouldCreateXidRecord = xidUser === "shouldCreateXidRecord";
+          shouldCreateXidRecord = xidUser === "noXidRecord";
           if (xidUser && xidUser.uid) {
             uid = xidUser.uid;
             pid = xidUser.pid;
@@ -8221,7 +8226,7 @@ Email verified! You can close this tab or hit the back button.
   function getXidStuff(xid, zid) {
     return getXidRecord(xid, zid).then((rows) => {
       if (!rows || !rows.length) {
-        return "shouldCreateXidRecord";
+        return "noXidRecord";
       }
       let xidRecordForPtpt = rows[0];
       if (xidRecordForPtpt) {
@@ -8258,7 +8263,7 @@ Email verified! You can close this tab or hit the back button.
         uid = xidUser.uid;
         pid = xidUser.pid;
       }
-      let shouldCreateXidRecord = xidUser === "shouldCreateXidRecord";
+      let shouldCreateXidRecord = xidUser === "noXidRecord";
 
       // let conv;
       let vote;
