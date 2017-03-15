@@ -205,10 +205,12 @@ if (typeof xid !== "undefined") {
 }
 var x_profile_image_url = get_x_profile_image_url();
 if (typeof x_profile_image_url !== "undefined") {
+  window.preload.x_profile_image_url = x_profile_image_url;
   qp.push("x_profile_image_url=" + x_profile_image_url);
 }
 var x_name = get_x_name();
 if (typeof x_name !== "undefined") {
+  window.preload.x_name = x_name;
   qp.push("x_name=" + x_name);
 }
 

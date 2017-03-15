@@ -30,6 +30,12 @@ function polisAjax(api, data, type) {
   if (typeof window.preload.xid !== "undefined") {
     data.xid = window.preload.xid;
   }
+  if (typeof window.preload.x_name !== "undefined") {
+    data.x_name = window.preload.x_name;
+  }
+  if (typeof window.preload.x_profile_image_url !== "undefined") {
+    data.x_profile_image_url = window.preload.x_profile_image_url;
+  }
 
   var promise;
   var config = {
