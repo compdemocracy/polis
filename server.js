@@ -13228,6 +13228,8 @@ CREATE TABLE slack_user_invites (
     let ucsv = req.p.ucsv;
     let ucsf = req.p.ucsf;
     let xid = req.p.xid;
+    let x_name = req.p.x_name;
+    let x_profile_image_url = req.p.x_profile_image_url;
     let o = {};
     ifDefinedSet("parent_url", req.p, o);
     ifDefinedSet("auth_needed_to_vote", req.p, o);
@@ -13281,6 +13283,12 @@ CREATE TABLE slack_user_invites (
       }
       if (!_.isUndefined(xid)) {
         url += ("&xid=" + xid);
+      }
+      if (!_.isUndefined(x_name)) {
+        url += ("&x_name=" + x_name);
+      }
+      if (!_.isUndefined(x_profile_image_url)) {
+        url += ("&x_profile_image_url=" + x_profile_image_url);
       }
       return url;
     }
