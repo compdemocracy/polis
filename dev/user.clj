@@ -5,6 +5,7 @@
             [polismath.conv-man :as conv-man]
             [polismath.math.conversation :as conv]
             [polismath.components.postgres :as postgres]
+            [polismath.math.named-matrix :as nm]
             [clojure.core.matrix :as matrix]
             [clojure.core.async :as async :refer [>! <! >!! <!! go go-loop thread]]
             [environ.core :as env]
@@ -28,10 +29,10 @@
 ;(do
 (comment
   ;; Run one of these to interactively test out a particular system or subsystem
-  ;(runner/run! system/base-system)
+  (runner/run! system/base-system)
   ;(runner/run! system/task-system)
   ;(runner/run! system/darwin-system)
-  (runner/run! system/full-system)
+  ;(runner/run! system/full-system)
   (runner/stop!)
 
   ;; Execute this to run pure math/util tests
@@ -42,10 +43,25 @@
 
   ;; Setting up load and interactive testing for a specific conversation
   (def args {:zid 15228})
-  (def conv (load-conv args))
+  (def conv
+    (-> (load-conv args)
+        (conv/conv-update [{:zid 15228 :pid 0 :tid 0 :vote 2.0 :created (System/currentTimeMillis)}])))
+  (keys conv)
+  (nm/colnames (:rating-mat conv))
+  (:repness conv)
+  (:mod-out conv)
+
+  (def updated-conv
+    (-> conv
+      (conv/mod-update [{:zid 15230 :tid 38 :is_meta true :modified (System/currentTimeMillis)}])
+      (conv/conv-update [])))
+  (:mod-out updated-conv)
+  (:repness updated-conv)
 
   ;; Testing out updates via the pure conv-update function
   (let [updated-conv (conv/conv-update conv [{:zid 15228 :pid 0 :tid 0 :vote 2.0 :created (System/currentTimeMillis)}])
+        _ (printn "colnames")
+        updated-conv (conv/mod-update conv [{:zid 15230 :tid 38 :is_meta true :modified (System/currentTimeMillis)}])
         _ (log/info "First update")
         updated-conv' (conv/conv-update updated-conv [{:zid 15228 :pid 0 :tid 0 :vote -1 :created (System/currentTimeMillis)}])
         _ (log/info "Second update")]

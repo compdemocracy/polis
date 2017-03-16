@@ -212,6 +212,11 @@
                          (nm/get-matrix rating-mat))
                        (into {})))
 
+   ;; Ugg... right, have to clarify that we don't want to drop this; are we leaving anything else out like this?
+   :mod-out
+   (plmb/fnk [conv]
+     (:mod-out conv))
+
    ;; There should really be a nice way for us to specify that we want a full recompute on everything except in-conv,
    ;; since in general we don't want to loose people in that process.
    :in-conv     (plmb/fnk [conv user-vote-counts n-cmts]
@@ -677,7 +682,7 @@
               (if (or is_meta (= mod -1))
                 (conj mod-out tid)
                 (disj mod-out tid)))
-            (set (or (:mod-out conv) #{}))
+            (set (:mod-out conv))
             mods)]
       (-> conv
           (assoc :mod-out mod-out)
