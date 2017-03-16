@@ -35,13 +35,13 @@
          ucsf: d.getAttribute("data-ucsf"),
 
 
-
-
          // These config variables will be used to init the conversation.
          // Subsequent loads will not update to these values in our DB.
          // To change the values after the conversation is created, go to the config tab of
          // https://pol.is/m/<conversation_id>
          show_vis: d.getAttribute("data-show_vis"),
+         show_share: d.getAttribute("data-show_share"),
+         bg_white: d.getAttribute("data-bg_white"),
 
          auth_needed_to_vote: d.getAttribute("data-auth_needed_to_vote"), // default false
          auth_needed_to_write: d.getAttribute("data-auth_needed_to_write"), // default true
@@ -109,6 +109,8 @@
     appendIfPresent("ucsf");
 
     appendIfPresent("show_vis");
+    appendIfPresent("show_share");
+    appendIfPresent("bg_white");
     appendIfPresent("auth_needed_to_vote");
     appendIfPresent("auth_needed_to_write");
     appendIfPresent("auth_opt_fb");
