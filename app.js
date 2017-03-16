@@ -684,6 +684,12 @@ helpersInitialized.then(function(o) {
     haltOnTimeout,
     handle_GET_nextComment);
 
+  app.get("/robots.txt",
+    function(req, res) {
+      res.send("User-agent: *\n" +
+        "Disallow: /api/");
+    });
+
   app.get("/api/v3/participationInit",
     moveToBody,
     authOptional(assignToP),
