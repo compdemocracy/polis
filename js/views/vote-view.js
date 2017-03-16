@@ -66,6 +66,7 @@ module.exports = Handlebones.ModelView.extend({
     if (social) {
       var hasTwitter = social.screen_name;
       var hasFacebook = social.fb_name;
+      var hasX = social.x_name;
       if (hasFacebook) {
         socialCtx = {
           name: social.fb_name,
@@ -81,6 +82,13 @@ module.exports = Handlebones.ModelView.extend({
           screen_name: social.screen_name,
         };
       }
+      if (hasX) {
+        socialCtx = {
+          name: social.x_name,
+          img: social.x_profile_image_url,
+        };
+      }
+
     }
     ctx.social = socialCtx;
     ctx.noModSet = !ctx.spamOn && !ctx.otOn && !ctx.importantOn;
