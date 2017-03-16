@@ -1211,6 +1211,7 @@ helpersInitialized.then(function(o) {
     want('auth_opt_allow_3rdparty', getBool, assignToP),
     want('show_vis', getBool, assignToP),
     want('show_share', getBool, assignToP),
+    want('bg_white', getBool, assignToP),
     want('topic', getStringLimitLength(1, 1000), assignToP),
     want('ucv', getBool, assignToP), // not persisted
     want('ucw', getBool, assignToP), // not persisted
