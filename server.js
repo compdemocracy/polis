@@ -13234,6 +13234,8 @@ CREATE TABLE slack_user_invites (
     if (!_.isUndefined(req.p.show_vis)) {
       o.vis_type = req.p.show_vis ? 1 : 0;
     }
+    o.socialbtn_type = req.p.show_share ? 1 : 0;
+
 
     // Set stuff in cookies to be retrieved when POST participants is called.
     let setOnPolisDomain = !domainOverride;
