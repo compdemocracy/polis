@@ -9,6 +9,9 @@ var polisPost = Net.polisPost;
 var metrics = [];
 
 
+var ENABLED = false;
+
+
 function upload() {
   if (!metrics.length) {
     return;
@@ -42,11 +45,15 @@ function addp(type) {
 }
 
 function addAndSend(type) {
-  add(type);
-  upload();
+  if (ENABLED) {
+    add(type);
+    upload();
+  }
 }
 
-setInterval(upload, 10*1000);
+if (ENABLED) {
+  setInterval(upload, 10*1000);
+}
 
 module.exports = {
   add: add,
