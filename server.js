@@ -3285,6 +3285,11 @@ Feel free to reply to this email if you need help.`;
   }
 
   function handle_POST_metrics(req, res) {
+    var enabled = false;
+    if (!enabled) {
+      return res.status(200).json({});
+    }
+
     const pc = req.cookies[COOKIES.PERMANENT_COOKIE];
     const hashedPc = hashStringToInt32(pc);
 
