@@ -10837,6 +10837,15 @@ Thanks for using pol.is!
     return pgQueryP_readOnly("select * from facebook_users where uid in ($1);", uids);
   }
 
+  function getSocialParticipantsForMod_timed() {
+    let start = Date.now();
+    return getSocialParticipantsForMod.apply(null, arguments).then(function(results) {
+      let elapsed = Date.now() - start;
+      console.log("getSocialParticipantsForMod_timed", elapsed);
+      return results;
+    });
+  }
+
   function getSocialParticipantsForMod(zid, limit, mod, owner) {
 
     let modClause = "";
@@ -11605,7 +11614,7 @@ Thanks for using pol.is!
 
     let convPromise = getConversationInfo(req.p.zid);
     let socialPtptsPromise = convPromise.then((conv) => {
-      return getSocialParticipantsForMod(zid, limit, mod, conv.owner);
+      return getSocialParticipantsForMod_timed(zid, limit, mod, conv.owner);
     });
 
     Promise.all([
