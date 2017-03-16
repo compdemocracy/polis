@@ -144,7 +144,7 @@
         conv))))
 
 (defn write-conv-updates!
-  [{:as conv-man :keys [postgres]} {:as updated-conv :keys [zid]}]
+  [{:as conv-man :keys [postgres]} {:as updated-conv :keys [zid]} math-tick]
   ;; TODO Really need to extract these writes so that mod updates do whta they're supposed to! And also run in async/thread for better parallelism
   ; Format and upload main results
   (async/thread
@@ -153,7 +153,7 @@
                                 [prep-ptpt-stats db/upload-math-ptptstats]]]
       (->> updated-conv
            prep-fn
-           (uploader postgres zid)))
+           (uploader postgres zid math-tick)))
     (log/info "Finished uploading math results for zid:" zid)))
 
 ;; Maybe switch over to using this with arbitrary attrs map with zid and other data? XXX
@@ -317,16 +317,15 @@
 
 
 (defn generate-report-data!
-  [{:as conv-man :keys [postgres]} conv report-data]
+  [{:as conv-man :keys [postgres]} conv math-tick report-data]
   (log/info "Generating report data for report:" report-data)
   (let [rid (:rid report-data)
-        math-tick (postgres/get-math-tick (:postgres conv-man) (:task_bucket report-data)) ;; task_ bucket is zid in this case.
         tids (map :tid (postgres/query (:postgres conv-man) (postgres/report-tids rid)))
         corr-mat (corr/compute-corr conv tids)]
     (async/thread
       (postgres/insert-correlationmatrix! postgres rid math-tick corr-mat)
       ;; TODO update to submit usng task type and task bucket
-      (postgres/mark-task-complete! postgres (-> report-data :task-record :rid)))))
+      (postgres/mark-task-complete! postgres rid))))
 
 
 ;; Need to think about what to do if failed conversations lead to messages piling up in the message queue XXX
@@ -374,12 +373,13 @@
                     ;; should work on nil vote seq; we also run if we get a report gen request but haven't built the reating mat
                     conv (if (or moderation votes (not (:rating-mat conv)))
                            (conv-update conv-man conv votes error-handler)
-                           conv)]
+                           conv)
+                    math-tick (postgres/inc-math-tick (:postgres conv-man) zid)]
                 (log/info "Completed computing conversation zid:" zid)
-                (write-conv-updates! conv-man conv)
+                (write-conv-updates! conv-man conv math-tick)
                 ;; Run reports corr matrix stuff (etc)
                 (doseq [report-task generate_report_data]
-                  (generate-report-data! conv-man conv report-task))
+                  (generate-report-data! conv-man conv math-tick report-task))
                 (swap! conversations assoc-in [zid :conv] conv)
                 (async/thread
                   (doseq [[k f] @listeners] (try (f conv) (catch Exception e (log/error "Listener error") (.printStackTrace e)))))
