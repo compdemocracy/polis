@@ -1404,6 +1404,32 @@ helpersInitialized.then(function(o) {
   app.get(/^\/font\/.*/, proxy);
   app.get(/^\/.*embed.*js\/.*/, proxy);
 
+
+  // ends in slash? redirect to non-slash version
+  app.get(/.*\//,
+  function(req, res) {
+    let pathAndQuery = req.originalUrl;
+
+    // remove slash at end
+    if (pathAndQuery.endsWith("/")) {
+      pathAndQuery = pathAndQuery.slice(0, pathAndQuery.length-1);
+    }
+
+    // remove slashes before "?"
+    if (pathAndQuery.indexOf("?") >= 1) {
+      pathAndQuery = pathAndQuery.replace("/\?", "?");
+    }
+
+    let fullUrl = req.protocol + '://' + req.get('host') + pathAndQuery;
+
+    if (pathAndQuery !== req.originalUrl) {
+      res.redirect(fullUrl);
+    } else {
+      proxy(req, res);
+    }
+  });
+
+
   var missingFilesGet404 = false;
   if (missingFilesGet404) {
     // 404 everything else
