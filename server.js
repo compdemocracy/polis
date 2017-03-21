@@ -11700,12 +11700,12 @@ Thanks for using pol.is!
         }
 
         let q = "with " +
-          "u as (select distinct(uid) from comments where zid = ($1) and tid in (" + featuredTids.join(",") + ") order by uid) " +
-          "select u.uid from u inner join facebook_users on facebook_users.uid = u.uid " +
+          "authors as (select distinct(uid) from comments where zid = ($1) and tid in (" + featuredTids.join(",") + ") order by uid) " +
+          "select authors.uid from authors inner join facebook_users on facebook_users.uid = authors.uid " +
           "union " +
-          "select u.uid from u inner join twitter_users on twitter_users.uid = u.uid " +
+          "select authors.uid from authors inner join twitter_users on twitter_users.uid = authors.uid " +
           "union " +
-          "select u.uid from u inner join xids on xids.uid = u.uid " +
+          "select authors.uid from authors inner join xids on xids.uid = authors.uid " +
           "order by uid;";
 
         return pgQueryP_readOnly(q, [zid]).then(function(comments) {
@@ -11791,10 +11791,6 @@ Thanks for using pol.is!
           return x;
         });
 
-        participantsWithSocialInfo = participantsWithSocialInfo.filter((p) => { // TODO REMVOE
-          return p.xInfo; // TODO REMVOE
-        }); // TODO REMVOE
- // TODO REMVOE
         let pids = participantsWithSocialInfo.map(function(p) {
           return p.pid;
         });
