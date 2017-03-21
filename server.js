@@ -11026,6 +11026,7 @@ Thanks for using pol.is!
       ";";
 
     return pgQueryP_metered_readOnly("getSocialParticipants", q, [zid, uid, limit, mod]).then(function(response) {
+      console.log('getSocialParticipants', response);
       socialParticipantsCache.set(cacheKey, response);
       return response;
     });
@@ -11698,7 +11699,6 @@ Thanks for using pol.is!
         if (featuredTids.length === 0) {
           return [];
         }
-
         let q = "with " +
           "authors as (select distinct(uid) from comments where zid = ($1) and tid in (" + featuredTids.join(",") + ") order by uid) " +
           "select authors.uid from authors inner join facebook_users on facebook_users.uid = authors.uid " +
@@ -11710,6 +11710,8 @@ Thanks for using pol.is!
 
         return pgQueryP_readOnly(q, [zid]).then(function(comments) {
           let uids = _.pluck(comments, "uid");
+          console.log('famous uids', uids);
+
           uids = _.uniq(uids);
           return uids;
         });
@@ -11741,6 +11743,7 @@ Thanks for using pol.is!
         //         return stuff;
         //     }
         // }).then(function(stuff) {
+          
         let participantsWithSocialInfo = stuff[0] || [];
         // let facebookFriends = stuff[0] || [];
         // let twitterParticipants = stuff[1] || [];
@@ -11797,7 +11800,7 @@ Thanks for using pol.is!
         console.log('mike1234', pids.length);
 
         let pidToData = _.indexBy(participantsWithSocialInfo, "pid"); // TODO this is extra work, probably not needed after some rethinking
-        console.log('mike1234', pidToData);
+        console.log('mike12345', pidToData);
 
         // polisSocialSettings.forEach(function(p) {
         //     if (shouldSkip(p)) {
@@ -11853,7 +11856,7 @@ Thanks for using pol.is!
         });
         pids = _.uniq(pids, true);
 
-        console.log('mike1234', pids);
+        console.log('mike12346', pids);
 
         return getVotesForZidPidsWithTimestampCheck(zid, pids, math_tick).then(function(vectors) {
 
@@ -11868,10 +11871,10 @@ Thanks for using pol.is!
               // winston.log("info",pidToData[pid]);
               if (notInBucket && !isSelf) {
                 // pidToData[pid].ignore = true;
-                console.log('mike1234', 'deleting', pid);
+                console.log('mike12347', 'deleting', pid);
                 delete pidToData[pid]; // if the participant isn't in a bucket, they probably haven't voted enough for the math worker to bucketize them.
               } else if (!!pidToData[pid]) {
-                console.log('mike1234', 'keeping', pid);
+                console.log('mike12348', 'keeping', pid);
                 pidToData[pid].votes = value; // no separator, like this "adupuuauuauupuuu";
                 pidToData[pid].bid = bid;
               }
