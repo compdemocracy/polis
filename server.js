@@ -2025,41 +2025,24 @@ function initializePolisHelpers() {
   ];
 
   let whitelistedDomains = [
-    "http://pol.is",
-    "https://pol.is",
-    "http://api.pol.is", // TODO delete?
-    "https://api.pol.is",
-    "http://www.pol.is",
-    "https://www.pol.is",
-    "http://preprod.pol.is",
-    "https://preprod.pol.is",
-    "http://gamma.pol.is",
-    "https://gamma.pol.is",
-    "http://embed.pol.is",
-    "https://embed.pol.is",
-    "http://survey.pol.is",
-    "https://survey.pol.is",
+    "pol.is",
     process.env.DOMAIN_WHITELIST_ITEM_01,
     process.env.DOMAIN_WHITELIST_ITEM_02,
-    "http://localhost:5001",
-    "http://localhost:5002",
-    "https://canvas.instructure.com", // LTI
-    "http://canvas.uw.edu", // LTI
-    "https://canvas.uw.edu", // LTI
-    "http://canvas.shoreline.edu", // LTI
-    "https://canvas.shoreline.edu", // LTI
-    "http://shoreline.instructure.com", // LTI
-    "https://shoreline.instructure.com", // LTI
-    "https://www.facebook.com",
-    "https://facebook.com",
-    "http://www.facebook.com",
-    "http://m.facebook.com",
-    "https://m.facebook.com",
-    "http://facebook.com",
-    "https://api.twitter.com",
-    "https://connect.stripe.com",
+    process.env.DOMAIN_WHITELIST_ITEM_03,
+    process.env.DOMAIN_WHITELIST_ITEM_04,
+    "localhost:5001",
+    "localhost:5002",
+    "canvas.instructure.com", // LTI
+    "canvas.uw.edu", // LTI
+    "canvas.shoreline.edu", // LTI
+    "shoreline.instructure.com", // LTI
+    "facebook.com",
+    "api.twitter.com",
+    "connect.stripe.com",
     "", // for API
   ];
+
+
 
   let whitelistedBuckets = {
     "pol.is": "pol.is",
@@ -2067,6 +2050,33 @@ function initializePolisHelpers() {
     "survey.pol.is": "survey.pol.is",
     "preprod.pol.is": "preprod.pol.is",
   };
+
+
+  function hasWhitelistMatches(host) {
+
+    let hostWithoutProtocol = host;
+    if (host.startsWith("http://")) {
+      hostWithoutProtocol = host.slice(7);
+    } else if (host.startsWith("https://")) {
+      hostWithoutProtocol = host.slice(8);
+    }
+
+    for (let i = 0; i < whitelistedDomains.length; i++) {
+      let w = whitelistedDomains[i];
+      if (hostWithoutProtocol.endsWith(w)) {
+        // ok, the ending matches, now we need to make sure it's the same, or a subdomain.
+        if (hostWithoutProtocol === w) {
+          return true;
+        }
+        if (hostWithoutProtocol[hostWithoutProtocol.length-(w.length + 1)] === ".") {
+          // separated by a dot, so it's a subdomain.
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
 
   function addCorsHeader(req, res, next) {
 
@@ -2097,7 +2107,10 @@ function initializePolisHelpers() {
       return regex.test(req.path);
     });
 
-    if (!domainOverride && !whitelistedDomains.includes(host) && !routeIsWhitelistedForAnyDomain) {
+
+    
+
+    if (!domainOverride && !hasWhitelistMatches(host) && !routeIsWhitelistedForAnyDomain) {
       winston.log("info", 'not whitelisted');
       // winston.log("info",req);
       winston.log("info", req.headers);
@@ -13334,8 +13347,14 @@ CREATE TABLE slack_user_invites (
     } else {
       let origin = req.headers.host;
       if (!whitelistedBuckets[origin]) {
-        console.error("got request with host that's not whitelisted: (" + req.headers.host + ")");
-        return;
+        if (hasWhitelistMatches(origin)) {
+          // Use the prod bucket for non pol.is domains
+          return whitelistedBuckets["pol.is"] + "." + process.env.STATIC_FILES_HOST;
+        } else {
+          console.error("got request with host that's not whitelisted: (" + req.headers.host + ")");
+          return;
+        }
+
       }
       origin = whitelistedBuckets[origin];
       return origin + "." + process.env.STATIC_FILES_HOST;
