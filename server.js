@@ -2298,7 +2298,8 @@ function initializePolisHelpers() {
   }
 
   // don't start immediately, let other things load first.
-  setTimeout(fetchAndCacheLatestPcaData, 5000);
+  // setTimeout(fetchAndCacheLatestPcaData, 5000);
+  fetchAndCacheLatestPcaData; // TODO_DELETE
 
   function splitTopLevelGroup(o, gid) {
     function shouldKeepGroup(g) {
@@ -2471,10 +2472,13 @@ function initializePolisHelpers() {
 
   function getPca(zid, math_tick) {
     let cached = pcaCache.get(zid);
+    if (cached && cached.expiration < Date.now()) {
+      cached = null;
+    }
     let cachedPOJO = cached && cached.asPOJO;
     if (cachedPOJO) {
       if (cachedPOJO.math_tick <= math_tick) {
-        INFO("mathpoll related", "math was cached but not new", zid, math_tick);
+        INFO("mathpoll related", "math was cached but not new: zid=", zid, "cached math_tick=",cachedPOJO.math_tick, "query math_tick=",math_tick);
         return Promise.resolve(null);
       } else {
         INFO("mathpoll related", "math from cache", zid, math_tick);
@@ -2536,6 +2540,7 @@ function initializePolisHelpers() {
           asPOJO: item,
           asJSON: asJSON,
           asBufferOfGzippedJson: jsondGzipdPcaBuffer,
+          expiration: Date.now() + 3000,
         };
         // save in LRU cache, but don't update the lastPrefetchedMathTick
         pcaCache.set(zid, o);
