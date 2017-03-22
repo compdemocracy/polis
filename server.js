@@ -265,7 +265,7 @@ function isSpam(o) {
 
 var INFO;
 if (devMode) {
-  INFO = function() {};
+  INFO = console.log;
 
   // INFO = function() {
   //     winston.log.apply(console, arguments);
