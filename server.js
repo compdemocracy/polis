@@ -2041,6 +2041,10 @@ function initializePolisHelpers() {
     process.env.DOMAIN_WHITELIST_ITEM_02,
     process.env.DOMAIN_WHITELIST_ITEM_03,
     process.env.DOMAIN_WHITELIST_ITEM_04,
+    process.env.DOMAIN_WHITELIST_ITEM_05,
+    process.env.DOMAIN_WHITELIST_ITEM_06,
+    process.env.DOMAIN_WHITELIST_ITEM_07,
+    process.env.DOMAIN_WHITELIST_ITEM_08,
     "localhost:5001",
     "localhost:5002",
     "canvas.instructure.com", // LTI
