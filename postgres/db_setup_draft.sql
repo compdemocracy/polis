@@ -404,6 +404,7 @@ CREATE TABLE xids (
     x_profile_image_url VARCHAR(3000), -- profile picture url (should be https)
     x_name VARCHAR(746),
     created BIGINT DEFAULT now_as_millis(),
+    modified BIGINT NOT NULL DEFAULT now_as_millis(),
     UNIQUE (owner, uid),
     UNIQUE (owner, xid),
 );
