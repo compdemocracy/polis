@@ -197,6 +197,10 @@
        (nm/zero-out-columns unmodded-rating-mat mod-out)
        unmodded-rating-mat))
 
+   :tids
+   (plmb/fnk [conv rating-mat]
+     (nm/colnames rating-mat))
+
    :n           (plmb/fnk [rating-mat]
                   (count (nm/rownames rating-mat)))
 

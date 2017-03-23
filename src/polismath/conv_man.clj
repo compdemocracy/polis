@@ -50,6 +50,7 @@
                                :repness
                                :consensus
                                :zid
+                               :tids
                                :user-vote-counts
                                :votes-base
                                :group-votes
