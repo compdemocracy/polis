@@ -1374,7 +1374,7 @@ helpersInitialized.then(function(o) {
   app.get(/^\/pwreset.*/, fetchIndexForAdminPage);
   app.get(/^\/company$/, fetchIndexForAdminPage);
 
-  app.get(/^\/report\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForReportPage);
+  app.get(/^\/report\/r?[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForReportPage);
   
   app.get(/^\/embed$/, makeFileFetcher(hostname, portForAdminFiles, "/embed.html", {
     'Content-Type': "text/html",
