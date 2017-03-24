@@ -88,7 +88,7 @@ class ReportsList extends React.Component {
               Edit
             </Link>
             {' '}
-            <a href={"/reports/" + report.report_id}>View</a>
+            <a href={"/report/" + report.report_id}>View</a>
           </div>);
         })}
       </div>
