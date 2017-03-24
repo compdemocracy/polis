@@ -110,6 +110,7 @@
   The :ids key maps to a vector of group ids in the same order they appear in the :stats sequence."
   [data group-clusters base-clusters]
   {:ids (map :id group-clusters)
+   :tids (nm/colnames data)
    :stats
      (->> group-clusters
        ; XXX - Base clusters may not be necessary if we use the already computed bucket vote stats
@@ -209,11 +210,11 @@
   "Selects representative comments based on beats-best-by-test? and passes-by-test?. Always ensures
   there is at least one representative comment for a given cluster. Takes the results of conv-repness
   and returns a map of group cluster ids to representative comments and stats."
-  [{:keys [ids stats] :as repness-stats} & [mod-out]]
+  [{:keys [ids tids stats] :as repness-stats} & [mod-out]]
   ; Reduce statistics into a results hash mapping group ids to rep comments
   (->>
     ; reduce with indices, so we have tids
-    (utils/with-indices stats)
+    (utils/zip tids stats)
     ; Apply moderation
     (remove (comp (set mod-out) first))
     (reduce
