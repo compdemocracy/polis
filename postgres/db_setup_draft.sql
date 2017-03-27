@@ -574,6 +574,7 @@ CREATE TABLE comments(
     anon BOOLEAN NOT NULL DEFAULT false, -- if true, the author of the comment will not be shown.
     is_seed BOOLEAN NOT NULL DEFAULT false,
     UNIQUE(zid, txt),    --issued this: ALTER TABLE comments ADD CONSTRAINT comments_txt_unique_constraint UNIQUE (zid, txt);
+    UNIQUE(zid, tid),    --issued this: ALTER TABLE comments ADD CONSTRAINT comments_tid_unique_constraint UNIQUE (zid, tid);
     FOREIGN KEY (zid, pid) REFERENCES participants (zid, pid)
 );
 CREATE INDEX comments_zid_idx ON comments USING btree (zid);
