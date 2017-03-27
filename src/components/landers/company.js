@@ -121,7 +121,10 @@ class Company extends React.Component {
               Press
             </p>
 
-
+            <Flex justifyContent="flex-start" alignItems="baseline" styleOverrides={[styles.bodyText, styles.clipping]}>
+              <span style={styles.publication}> Nesta (UK) </span>
+              <a style={styles.pressURL} href="http://www.netzwoche.ch/storys/2017-03-10/wie-viel-digitalisierung-vertraegt-die-demokratie"> How much digitization does democracy tolerate? </a>
+            </Flex>
             <Flex justifyContent="flex-start" alignItems="baseline" styleOverrides={[styles.bodyText, styles.clipping]}>
               <span style={styles.publication}> Nesta (UK) </span>
               <a style={styles.pressURL} href="http://www.nesta.org.uk/blog/corbyn-wants-tools-massive-multi-person-online-deliberation-here-are-some-ways-he-could-do-it"> Corbyn wants tools for 'massive-multi-person online deliberation' - here are some ways he could do it </a>
@@ -157,6 +160,13 @@ class Company extends React.Component {
             <Flex justifyContent="flex-start" alignItems="baseline" styleOverrides={[styles.bodyText, styles.clipping]}>
               <span style={styles.publication}> GeekWire </span>
               <a style={styles.pressURL} href="http://www.geekwire.com/2014/startup-spotlight-polis/"> Startup Spotlight: pol.is </a>
+            </Flex>
+    
+            <p id="forthcoming" style={[styles.heading, {marginTop: 50, marginBottom: 30}]}>
+              Forthcoming...
+            </p>
+             <Flex justifyContent="flex-start" alignItems="baseline" styleOverrides={[styles.bodyText, styles.clipping]}>
+              <span style={styles.publication}> Power (2018), by Carl Miller </span>
             </Flex>
           </div>
         </Flex>
