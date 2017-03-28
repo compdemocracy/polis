@@ -80,7 +80,13 @@ class Graph extends React.Component {
             }) : null */}
             {
               hulls.map((hull) => {
-                return <Hull key={hull.group[0].gid} hull={hull}/>
+                let gid = hull.group[0].gid;
+                if (_.isNumber(this.props.showOnlyGroup)) {
+                  if (gid !== this.props.showOnlyGroup) {
+                    return "";
+                  }
+                }
+                return <Hull key={gid} hull={hull}/>
               })
             }
             {
