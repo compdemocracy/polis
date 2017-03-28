@@ -13,11 +13,12 @@ const ParticipantGroupMetadataComment = ({comment, ptptCount, groupVotesForThisG
           padding: 20,
           height: 110,
           marginTop: 20,
+          marginRight: 20, 
           backgroundColor: "rgb(248,248,248)"
         }}>
-        <p style={{margin: 0}}> {groupVotesForThisGroup.votes[comment.tid].A} </p>
+        <p style={{margin: 0, fontSize: 36}}> {groupVotesForThisGroup.votes[comment.tid].A} </p>
         <p style={Object.assign({}, globals.paragraph, {
-          fontSize: 12,
+          fontSize: 14,
           margin: 0,
           textAlign: "center",
           lineHeight: 1.3,
@@ -33,7 +34,7 @@ const ParticipantGroupMetadataComment = ({comment, ptptCount, groupVotesForThisG
           maxWidth: 120,
         })}>
           {groupVotesForThisGroup.votes[comment.tid].S} voted, {groupVotesForThisGroup.votes[comment.tid].A} agreed
-          {" "}
+          {": "}
           {Math.floor(groupVotesForThisGroup.votes[comment.tid].A / groupVotesForThisGroup.votes[comment.tid].S * 100) }
           %
         </p>
