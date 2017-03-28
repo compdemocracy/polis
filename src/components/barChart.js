@@ -31,7 +31,11 @@ const BarChart = ({comment, conversation, groupVotes, ptptCount}) => {
       fill: "rgb(230,230,230)"
     }
   ];
-  if (groupVotes) {
+  let votesForTid = groupVotes && groupVotes.votes[comment.tid];
+  if (groupVotes && !votesForTid) {
+    console.warn('probably bad');
+  }
+  if (groupVotes && votesForTid) {
     let groupVotesForThisComment = groupVotes.votes[comment.tid];
     let agrees = groupVotesForThisComment.A;
     let disagrees = groupVotesForThisComment.D;
