@@ -60,23 +60,22 @@ const ParticipantGroup = ({
       style={{
         marginBottom: 20,
         width: "100%",
-
       }}>
       <div style={{
           marginBottom: 20,
           fontSize: globals.secondaryHeading
         }}>
         <p style={globals.paragraph}>
-          "{groupName}"
+          {groupName}
         </p>
-        <svg width="1em"height="1em" style={{border: "none", marginRight: 10}}>
+        <svg width="1.4em"height="1.4em" style={{border: "none", marginRight: 10, position: "relative", top: 5}}>
           <circle
-            r={5}
+            r={10}
             fill={globals.groupColor(gid)}
-            cx={10}
+            cx={12}
             cy={12}/>
         </svg>
-        <span>{groupVotesForThisGroup["n-members"]} PARTICIPANTS</span>
+        <span style={{fontSize: 24, color: globals.groupColor(gid)}}>{groupVotesForThisGroup["n-members"]} PARTICIPANTS</span>
         <MetadataComments
           allComments={allComments}
           conversation={conversation}
