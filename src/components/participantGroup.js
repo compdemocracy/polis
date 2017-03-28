@@ -83,29 +83,6 @@ const ParticipantGroup = ({
           ptptCount={ptptCount}
           demographicsForGroup={demographicsForGroup}/>
       </div>
-        <Flex justifyContent={"flex-start"} alignItems={"baseline"} styleOverrides={{width: "100%", marginBottom: 40}}>
-          <div style={globals.paragraph}>
-
-          </div>
-          <span
-            style={{
-              width: globals.barChartWidth,
-              position: "relative",
-              left: 40
-            }}>
-            This Group ({groupVotesForThisGroup["n-members"]})
-          </span>
-          <span
-            style={{
-              width: globals.barChartWidth,
-              position: "relative",
-              left: 40
-            }}>
-            All Others ({groupVotesForOtherGroups["n-members"]})
-          </span>
-        </Flex>
-      {drawGroupComments(groupVotesForThisGroup)}
-
       <Graph
         comments={allComments}
         groupNames={groupNames}
@@ -116,6 +93,28 @@ const ParticipantGroup = ({
         showOnlyGroup={gid}
         math={math}
         report={report}/>
+      <Flex justifyContent={"flex-start"} alignItems={"baseline"} styleOverrides={{width: "100%", marginBottom: 40}}>
+        <div style={globals.paragraph}>
+
+        </div>
+        <span
+          style={{
+            width: globals.barChartWidth,
+            position: "relative",
+            left: 40
+          }}>
+          This Group ({groupVotesForThisGroup["n-members"]})
+        </span>
+        <span
+          style={{
+            width: globals.barChartWidth,
+            position: "relative",
+            left: 40
+          }}>
+          All Others ({groupVotesForOtherGroups["n-members"]})
+        </span>
+      </Flex>
+      {drawGroupComments(groupVotesForThisGroup)}
 
     </div>
   );
