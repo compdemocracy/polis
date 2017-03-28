@@ -30,7 +30,7 @@ class GraphComments extends React.Component {
                 antiRepfulForGid = Number(gid);
               }
             });
-            if (!_.isNull(repfulForGid)) {
+            if (!_.isNull(repfulForGid) && repfulForGid === this.props.showOnlyGroup) {
               color = globals.groupColor(repfulForGid);
             } else if (!_.isNull(antiRepfulForGid)) {
               color = globals.antiRepfulColor;
