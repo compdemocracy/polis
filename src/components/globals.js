@@ -49,7 +49,7 @@ export const groupColor = (gid) => {
   }
 };
 
-export const antiRepfulColor = "red";
+export const antiRepfulColor = "black";
 
 // ====== REMEMBER: gid's start at zero, (0, 1, 2) but we show them as group 1, 2, 3 =======
 
