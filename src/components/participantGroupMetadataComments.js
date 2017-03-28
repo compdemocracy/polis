@@ -41,7 +41,7 @@ const ParticipantGroupMetadataComments = ({allComments, conversation, formatTid,
   return (
     <Flex
       wrap="wrap"
-      justifyContent="space-between"
+      justifyContent="flex-start"
       styleOverrides={{
         maxWidth: 850
       }}>
