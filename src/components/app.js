@@ -206,13 +206,17 @@ class App extends React.Component {
         return '#' + pad(""+tid, tidWidth);
       }
 
-      let repfulAgreeTidsByGroup = [];
+      let repfulAgreeTidsByGroup = {};
+      let repfulDisageeTidsByGroup = {};
       if (mathResult.repness) {
         _.each(mathResult.repness, (entries, gid) => {
           entries.forEach((entry) => {
             if (entry['repful-for'] === 'agree') {
               repfulAgreeTidsByGroup[gid] = repfulAgreeTidsByGroup[gid] || [];
               repfulAgreeTidsByGroup[gid].push(entry.tid);
+            } else if (entry['repful-for'] === 'disagree') {
+              repfulDisageeTidsByGroup[gid] = repfulDisageeTidsByGroup[gid] || [];
+              repfulDisageeTidsByGroup[gid].push(entry.tid);
             }
           });
         });
@@ -250,6 +254,7 @@ class App extends React.Component {
         badTids: badTids,
         groupNames: groupNames,
         repfulAgreeTidsByGroup: repfulAgreeTidsByGroup,
+        repfulDisageeTidsByGroup: repfulDisageeTidsByGroup,
         formatTid: formatTid,
         report: report,
       });
@@ -315,7 +320,11 @@ class App extends React.Component {
           ptptCount={this.state.ptptCount}
           groupNames={this.state.groupNames}
           formatTid={this.state.formatTid}
-          math={this.state.math}/>
+          math={this.state.math}
+          badTids={this.state.badTids}
+          repfulAgreeTidsByGroup={this.state.repfulAgreeTidsByGroup}
+          repfulDisageeTidsByGroup={this.state.repfulDisageeTidsByGroup}
+          report={this.state.report}/>
         <Graph
           comments={this.state.comments}
           groupNames={this.state.groupNames}
@@ -323,6 +332,7 @@ class App extends React.Component {
           formatTid={this.state.formatTid}
           repfulAgreeTidsByGroup={this.state.repfulAgreeTidsByGroup}
           math={this.state.math}
+          renderHeading={true}
           report={this.state.report}/>
         <Uncertainty
           comments={this.state.comments}

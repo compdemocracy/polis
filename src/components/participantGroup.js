@@ -1,11 +1,29 @@
 import React from "react";
 import Comment from "./participantGroupComment";
+import Graph from "./Graph";
 import MetadataComments from "./participantGroupMetadataComments";
 import * as globals from "./globals";
 import Flex from "./flex"
 import style from "../util/style";
 
-const ParticipantGroup = ({gid, groupComments, conversation, allComments, groupVotesForThisGroup, groupVotesForOtherGroups, demographicsForGroup, ptptCount, groupName, formatTid}) => {
+const ParticipantGroup = ({
+  gid,
+  groupComments,
+  conversation,
+  allComments,
+  groupVotesForThisGroup,
+  groupVotesForOtherGroups,
+  demographicsForGroup,
+  ptptCount,
+  groupName,
+  formatTid,
+  groupNames,
+  badTids,
+  repfulAgreeTidsByGroup,
+  repfulDisageeTidsByGroup,
+  math,
+  report,
+}) => {
 
   const drawGroupComments = () => {
     const allCommentsKeyed = _.keyBy(allComments, "tid");
@@ -88,6 +106,17 @@ const ParticipantGroup = ({gid, groupComments, conversation, allComments, groupV
           </span>
         </Flex>
       {drawGroupComments(groupVotesForThisGroup)}
+
+      <Graph
+        comments={allComments}
+        groupNames={groupNames}
+        badTids={badTids}
+        formatTid={formatTid}
+        repfulAgreeTidsByGroup={repfulAgreeTidsByGroup}
+        repfulDisageeTidsByGroup={repfulDisageeTidsByGroup}
+        showOnlyGroup={gid}
+        math={math}
+        report={report}/>
 
     </div>
   );

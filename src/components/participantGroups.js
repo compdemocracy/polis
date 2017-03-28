@@ -77,7 +77,16 @@ class ParticipantGroups extends React.Component {
               groupVotesForThisGroup={this.props.math["group-votes"][gid]}
               groupVotesForOtherGroups={otherGroupVotes}
               formatTid={this.props.formatTid}
-              ptptCount={this.props.ptptCount}/>
+              ptptCount={this.props.ptptCount}
+
+              groupNames={this.props.groupNames}
+              badTids={this.props.badTids}
+              repfulAgreeTidsByGroup={this.props.repfulAgreeTidsByGroup}
+              repfulDisageeTidsByGroup={this.props.repfulDisageeTidsByGroup}
+              math={this.props.math}
+              report={this.props.report}
+
+              />
           );
         }) : "Loading Groups"
       }

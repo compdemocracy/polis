@@ -44,16 +44,19 @@ class Graph extends React.Component {
       hulls,
     } = graphUtil(this.props.comments, this.props.math, this.props.badTids);
 
+    let heading = (<span><p style={{fontSize: globals.primaryHeading}}> Opinion Graph </p>
+      <p style={globals.paragraph}>
+        This graph shows all people and all comments.
+      </p>
+      <p style={globals.paragraph}>
+        Comments, identified by their number, are positioned more closely to comments that were voted on similarly (blue, in the correlation matrix above). Comments are positioned further away from comments that tended to be voted on differently (red, in the correlation matrix above). </p>
+      <p style={globals.paragraph}>People are positioned closer to the comments on which they agreed, and further from the comments on which they disagreed. Groups of participants that tended to vote similarly across many comments (elaborated in the previous section) are identified by their similar color.
+      </p></span>);
+
     return (
       <div style={{position: "relative"}}>
-        <p style={{fontSize: globals.primaryHeading}}> Opinion Graph </p>
-        <p style={globals.paragraph}>
-          This graph shows all people and all comments.
-        </p>
-        <p style={globals.paragraph}>
-          Comments, identified by their number, are positioned more closely to comments that were voted on similarly (blue, in the correlation matrix above). Comments are positioned further away from comments that tended to be voted on differently (red, in the correlation matrix above). </p>
-        <p style={globals.paragraph}>People are positioned closer to the comments on which they agreed, and further from the comments on which they disagreed. Groups of participants that tended to vote similarly across many comments (elaborated in the previous section) are identified by their similar color.
-        </p>
+        {this.props.renderHeading ? heading : ""}
+
         <p style={Object.assign({}, globals.paragraph, {position: "absolute", left: 160})}>
           {this.state.selectedComment ? "#" + this.state.selectedComment.tid + ". " + this.state.selectedComment.txt : null}
         </p>
@@ -86,6 +89,8 @@ class Graph extends React.Component {
                 handleCommentHover={this.handleCommentHover.bind(this)}
                 points={commentsPoints}
                 repfulAgreeTidsByGroup={this.props.repfulAgreeTidsByGroup}
+                repfulDisageeTidsByGroup={this.props.repfulDisageeTidsByGroup}
+                showOnlyGroup={this.props.showOnlyGroup}
                 xx={xx}
                 yy={yy}
                 xCenter={xCenter}

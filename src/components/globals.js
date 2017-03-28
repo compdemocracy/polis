@@ -49,6 +49,8 @@ export const groupColor = (gid) => {
   }
 };
 
+export const antiRepfulColor = "red";
+
 // ====== REMEMBER: gid's start at zero, (0, 1, 2) but we show them as group 1, 2, 3 =======
 
 export const getGroupNamePosition = (gid) => {

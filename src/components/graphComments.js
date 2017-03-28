@@ -6,25 +6,45 @@ class GraphComments extends React.Component {
 
   render () {
 
+    let shouldShowOnlyOneGroup = _.isNumber(this.props.showOnlyGroup);
 
     // transform={`translate(${globals.side / 2},${globals.side / 2})`}>
     return (
       <g>
         {this.props.points.map((pt, i) => {
 
+          let repfulForGid = null;
+          let antiRepfulForGid = null;
           let color = "black";
           if (globals.shouldColorizeTidsByRepfulness) {
             let tid = pt.tid;
-            let repfulForGid = null;
             _.each(this.props.repfulAgreeTidsByGroup, (tids, gid) => {
               if (tids && tids.indexOf(tid) >= 0) {
-                repfulForGid = gid;
+                console.log('rep', tid, gid);
+                repfulForGid = Number(gid);
+              }
+            });
+            _.each(this.props.repfulDisageeTidsByGroup, (tids, gid) => {
+              if (tids && tids.indexOf(tid) >= 0) {
+                console.log('!rep', tid, gid);
+                antiRepfulForGid = Number(gid);
               }
             });
             if (!_.isNull(repfulForGid)) {
               color = globals.groupColor(repfulForGid);
+            } else if (!_.isNull(antiRepfulForGid)) {
+              color = globals.antiRepfulColor;
             }
           }
+          if (shouldShowOnlyOneGroup) {
+            if (!(repfulForGid === this.props.showOnlyGroup || antiRepfulForGid === this.props.showOnlyGroup)) {
+              console.log('skip',repfulForGid,antiRepfulForGid,this.props.showOnlyGroup);
+              return "";
+            } else {
+              console.log('ok');
+            }
+          }
+
 
           return <text
               key={i}
