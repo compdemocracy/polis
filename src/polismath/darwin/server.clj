@@ -232,7 +232,7 @@
 
 (defn filename-request-handler
   "Given aws-creds, returns a function handler function which responds to requests for an existing file on AWS."
-  [darwin {:keys [params postgres] :as request}]
+  [{:as darwin :keys [params postgres]} :as request]
   (let [{:keys [filename zinvite]} params
         zid (db/get-zid-from-zinvite postgres zinvite)]
     (if (= (get (get-export-status darwin filename zid) "status") "complete")
@@ -270,7 +270,7 @@
      :body    (str "Export is complete. Download at the Location url specified in the header (" url ")")}))
 
 (defn get-datadump-status-handler
-  [darwin {:keys [params postgres] :as request}]
+  [{:as darwin :keys [params postgres]} request]
   (let [{:keys [filename zinvite]} params
         zid (db/get-zid-from-zinvite postgres zinvite)]
     (case (-> (get-export-status darwin filename zid) (get "status"))
@@ -364,7 +364,7 @@
 (defn get-datadump-handler
   "Main handler function; Attempts to return a datadump file within within a set amount of time, and if it can't, will
   respond with a 202, and set up a process for obtaining the results once they're done."
-  [darwin {:keys [params postgres] :as request}]
+  [{:as darwin :keys [params postgres]} :as request]
   (let [params (parsed-params datadump-params params)
         ;; Check validity of params here
         _ (log/info "Handling datadump request with params:" (with-out-str (prn params)))
