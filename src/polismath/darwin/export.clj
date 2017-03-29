@@ -524,7 +524,7 @@
         comments (enriched-comments-data (get-comments-data darwin zid) votes)
         participants (get-participation-data darwin zid)
         ;; Should factor out into separate function
-        conv (utils/apply-kwargs db/load-conv (:postgres darwin) kw-args)]
+        conv (utils/apply-kwargs load-conv (:postgres darwin) kw-args)]
     {:votes votes
      :summary (summary-data darwin conv votes comments participants)
      :stats-history (stats-history votes participants comments)
