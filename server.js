@@ -4905,7 +4905,9 @@ Email verified! You can close this tab or hit the back button.
 
   }
 
-  if (!devMode) {
+  // let shouldSendNotifications = !devMode;
+  let shouldSendNotifications = false;
+  if (shouldSendNotifications) {
     notifyParticipantsOfNewComments();
     setInterval(function() {
       notifyParticipantsOfNewComments();
