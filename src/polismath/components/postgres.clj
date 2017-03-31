@@ -106,8 +106,7 @@
     (kdb/with-db (:db-spec component)
       (ko/select comments
         (ko/fields :zid :tid :mod :is_meta :modified)
-        (ko/where {:modified [> last-mod-timestamp]
-                   :mod [not= 0]})
+        (ko/where {:modified [> last-mod-timestamp]})
         (ko/order [:zid :tid :modified] :asc)))
     (catch Exception e
       (log/error "moderation polling failed " (.getMessage e))
