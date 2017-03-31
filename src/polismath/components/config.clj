@@ -43,7 +43,7 @@
    :poller     {:votes {:polling-interval 1000}
                 :moderation {:polling-interval 1000}
                 :tasks {:polling-interval 1000}
-                :initial-polling-timestamp 1485993112746}
+                :poll-from-days-ago 10}
    :math       {:matrix-implementation :vectorz}
    :logging    {:file "log/dev.log"
                 :level :info}})
@@ -89,8 +89,9 @@
                                 :doc "The polling interval for votes, in milliseconds"}
    :mod-polling-interval       {:parse ->long :path [:poller :moderation :polling-interval]
                                 :doc "The polling interval for moderation, in milliseconds"}
-   :initial-polling-timestamp  {:parse ->long :path [:poller :initial-polling-timestamp]
-                                :doc "The initial vote and mod polling timestamp (only load convs with votes later than this)"}
+   ;:initial-polling-timestamp  {:parse ->long :path [:poller :initial-polling-timestamp]
+   ;                             :doc "The initial vote and mod polling timestamp (only load convs with votes later than this)"}
+   :poll-from-days-ago         {:parse ->long :path [:poller :poll-from-days-ago]}
    ;; Need to think more about the semantics of a recompute; once; always; only if not booted; etc? XXX
    :recompute                  {:parse boolean
                                 :doc "Whether or not to perform a recompute"}
