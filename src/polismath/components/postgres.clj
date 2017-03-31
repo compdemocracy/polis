@@ -195,8 +195,6 @@
 (defn get-zid-from-zinvite
   [component zinvite]
   (log/info "get-zid-from-zinvite for zinvite" zinvite)
-  (log/debug "component:" component)
-  (log/debug "Db spec:" (:db-spec component))
   (->
     (kdb/with-db (:db-spec component)
                  (ko/select "zinvites"

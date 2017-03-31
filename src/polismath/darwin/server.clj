@@ -130,7 +130,7 @@
     (let [darwin-config (-> darwin :config)
           response
           ;; The next three lines should probably be extracted
-          (client/post (log/spy (str (:webserver-url darwin-config) "/sendEmailExportReady"))
+          (client/post (str (:webserver-url darwin-config) "/sendEmailExportReady")
                        {:form-params {:webserver_username (:webserver-username darwin-config)
                                       :webserver_pass (:webserver-pass darwin-config)
                                       :email email
@@ -320,7 +320,7 @@
   "Generates a filename based on request-params"
   [{:as request-params :keys [zinvite at-date format]}]
   {:pre [zinvite format]}
-  (log/info "generating filename for request-params:" request-params)
+  (log/debug "generating filename for request-params:" request-params)
   (let [last-updated (or at-date (System/currentTimeMillis))
         ext (case format :excel "xlsx" :csv "zip")
         filename (str "polis-export-" zinvite "-" last-updated "." ext)]
