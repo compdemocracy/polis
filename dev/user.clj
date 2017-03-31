@@ -17,7 +17,7 @@
   to conv man as well."
   [{:keys [zid zinvite]}]
   (let [zid (or zid (postgres/get-zid-from-zinvite (:postgres runner/system) zinvite))]
-    (-> runner/system :conversation-manager :conversations deref (get zid))))
+    (-> runner/system :conversation-manager :conversations deref (get zid) :conv)))
 
 (defn load-conv
   [{:as args :keys [zid zinvite]}]
@@ -29,16 +29,30 @@
 ;(do
 (comment
   ;; Run one of these to interactively test out a particular system or subsystem
-  (runner/run! system/base-system)
+  ;(runner/run! system/base-system)
   ;(runner/run! system/task-system)
   ;(runner/run! system/darwin-system)
-  ;(runner/run! system/full-system)
+  (runner/run! system/full-system {:poll {:poll-from-days-ago 0.1}})
   (runner/stop!)
 
   ;; Execute this to run pure math/util tests
   (require '[runner :as test-runner])
   ;; Rerun the tests once runner has been required by executing this
   (test-runner/-main)
+
+
+
+  (:mod-out (get-conv {:zid 13287}))
+  (def conv (load-conv {:zid 13287}))
+  (:mod-out conv)
+  (def conv (conv/conv-update conv []))
+
+  ;; 16109; There's a problem with the repness on this one
+  (:mod-out (get-conv {:zid 16109}))
+  (def conv (load-conv {:zid 16109}))
+  (:mod-out convmod)
+  (def conv (conv/conv-update conv []))
+  (:repness conv)
 
 
   ;; Setting up load and interactive testing for a specific conversation
@@ -73,6 +87,7 @@
     ;(:repness updated-conv'))
 
   ;(get-conv args)
+  (-> runner/system :config)
   (-> runner/system :conversation-manager :conversations deref)
 
 
