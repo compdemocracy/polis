@@ -101,7 +101,7 @@
 
 
 (defn conv-repness
-  "Computes representativeness (repness) for a given data set, group clustering and base clustering,
+  "Computes representativeness (repness) for a given data set (named-matrix), group clustering and base clustering,
   returned as a map `{:ids __ :stats __}`. The `:stats` key maps to a sequences of results, one for each
   group cluster, each of which is a sequence where the positional index corresponds to a particular
   comment, and each value is a hash-map of statistics for the given group/comment. The hash keys obey the

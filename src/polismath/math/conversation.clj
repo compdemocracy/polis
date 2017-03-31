@@ -540,7 +540,6 @@
                  (-> (repness/conv-repness rating-mat subgroup-clusters' base-clusters)
                      (repness/select-rep-comments (:mod-out conv)))))))
 
-      ;;We need a subgroups vs of this?
       :ptpt-stats
       (plmb/fnk [group-clusters base-clusters proj-nmat user-vote-counts]
         (repness/participant-stats group-clusters base-clusters proj-nmat user-vote-counts))
