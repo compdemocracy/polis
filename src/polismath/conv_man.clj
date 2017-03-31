@@ -218,7 +218,7 @@
 (defn restructure-json-conv
   [conv]
   (-> conv
-      (utils/hash-map-subset #{:math_tick :unmodded-rating-mat :rating-mat :lastVoteTimestamp :zid :pca :in-conv :n :n-cmts :group-clusters :base-clusters :repness :group-votes :subgroup-clusters :subgroup-votes :subgroup-repness})
+      (utils/hash-map-subset #{:math_tick :unmodded-rating-mat :rating-mat :lastVoteTimestamp :mod-out :zid :pca :in-conv :n :n-cmts :group-clusters :base-clusters :repness :group-votes :subgroup-clusters :subgroup-votes :subgroup-repness})
       (assoc :last-vote-timestamp (get conv :lastVoteTimestamp)
              :last-mod-timestamp  (get conv :lastModTimestamp))
       ; Make sure there is an empty named matrix to operate on
@@ -377,6 +377,7 @@
                            conv)
                     math-tick (postgres/inc-math-tick (:postgres conv-man) zid)]
                 (log/info "Completed computing conversation zid:" zid)
+                (log/debug "Mod out for zid" zid "is:" (:mod-out conv))
                 (write-conv-updates! conv-man conv math-tick)
                 ;; Run reports corr matrix stuff (etc)
                 (doseq [report-task generate_report_data]
