@@ -66,7 +66,9 @@
 ;; Here, we're setting up basic postgres read and write helpers.
 
 (defn update-export-status
-  [{:as darwin :keys [postgres config]} filename zid zinvite document]
+  [{:as darwin :keys [postgres config]}
+   {:as params :keys [zid filename zinvite]}
+   document]
   (db/upload-math-exportstatus
     postgres
     zid
@@ -79,13 +81,16 @@
     
 
 (defn get-export-status
-  [{:as darwin :keys [postgres]} filename zid]
+  [{:as darwin :keys [postgres]}
+   {:as params :keys [filename zid]}]
   (first (db/get-math-exportstatus postgres zid filename)))
 
 
+;; Uh... seems like we're not using `update-export-status` anywhere except for here; should delete one of these functions
+;; in favor of the other
 (defn notify-of-status
-  [darwin filename status zinvite params]
-  (update-export-status darwin filename (:zid params) zinvite {:status status :params params}))
+  [darwin params status]
+  (update-export-status darwin params {:status status :params params}))
 
 
 ;; We use AWS to store conversation exports whcih took a long time to compute.
@@ -109,7 +114,8 @@
 
 ;; This will end up redirecting to the aws download link
 (defn private-datadump-url
-  [darwin filename zinvite]
+  [darwin
+   {:as params :keys [filename zinvite]}]
   (private-url darwin
                (str "datadump/results?filename=" filename "&conversation_id=" zinvite)))
 
@@ -119,12 +125,12 @@
 
 
 (defn send-email-notification-via-polis-api!
-  [darwin filename {:keys [zinvite email]}]
+  [darwin {:as params :keys [zinvite email filename]}]
   (try
     (let [darwin-config (-> darwin :config)
           response
           ;; The next three lines should probably be extracted
-          (client/post (str (:webserver-url darwin-config) "/sendEmailExportReady")
+          (client/post (log/spy (str (:webserver-url darwin-config) "/sendEmailExportReady"))
                        {:form-params {:webserver_username (:webserver-username darwin-config)
                                       :webserver_pass (:webserver-pass darwin-config)
                                       :email email
@@ -139,23 +145,25 @@
 
 
 (defn handle-completion!
-  [darwin filename zinvite params]
+  [darwin {:as params :keys [filename]}]
   (log/info "Completed export computation for filename" filename "params:" (with-out-str (str params)))
   (upload-to-aws darwin filename)
   ;;(upload-to-polis-server darwin filename)
-  (notify-of-status darwin filename "complete" zinvite params)
-  (when (:email params) (send-email-notification-via-polis-api! darwin filename params)))
+  (notify-of-status darwin params "complete")
+  (when (:email params) (send-email-notification-via-polis-api! darwin params)))
 
 
 (defn handle-timedout-datadump!
-  [darwin filename compute-chan zinvite params]
-  (log/info "Timed out on datadump computation for filename" filename "params:" (with-out-str (str params)) ". Starting async lifecycle.")
-  ;; First let postgresk know we're working on it
-  (notify-of-status darwin filename "processing" zinvite params)
-  ;; Start a go routine, which upon completion of the computation loads the data to
-  ;; aws and updates the postgres blob
-  (go (when-let [_ (<! compute-chan)]
-        (handle-completion! (aws-cred darwin) filename zinvite params))))
+  ;; TODO fix args
+  [darwin params compute-chan]
+  (let [{:keys [filename zinvite]} params]
+    (log/info "Timed out on datadump computation for filename" filename "params:" (with-out-str (str params)) ". Starting async lifecycle.")
+    ;; First let postgresk know we're working on it
+    (notify-of-status darwin params "processing")
+    ;; Start a go routine, which upon completion of the computation loads the data to
+    ;; aws and updates the postgres blob
+    (go (when-let [_ (<! compute-chan)]
+          (handle-completion! (aws-cred darwin) params)))))
 
 (defn- ->double
   "Try to parse a decimal number as double; return nil if not possible."
@@ -235,7 +243,7 @@
   [{:as darwin :keys [params postgres]} request]
   (let [{:keys [filename zinvite]} params
         zid (db/get-zid-from-zinvite postgres zinvite)]
-    (if (= (get (get-export-status darwin filename zid) "status") "complete")
+    (if (= (get (get-export-status darwin params) "status") "complete")
       ;; Have to think about the security repercussions here. Would be nice if we could stream this and never
       ;; expose the link here. XXX
       (redirect-to-aws-url darwin filename)
@@ -249,21 +257,22 @@
   (private-url darwin (str "datadump/status?filename=" filename "&conversation_id=" zinvite)))
 
 (defn check-back-response
-  ([darwin filename zinvite status]
-   (let [status-url (get-status-location-url darwin filename zinvite)]
+  ([darwin params status]
+   (let [{:keys [filename zinvite]} params
+         status-url (get-status-location-url darwin filename zinvite)]
      {:status  status
       :headers {"Content-Type" "text/plain"
                 "Location" status-url}
       :body    (str "Request is processing, but cannot be returned now. "
                     "Please visit the url in the \"Location\" header (" status-url ") to check back on the status.")}))
-  ([darwin filename zinvite] (check-back-response darwin filename zinvite 202)))
+  ([darwin params] (check-back-response darwin params 202)))
 
 
 ;; Requests for checking the status of a computation
 
 (defn complete-response
-  [darwin filename zinvite]
-  (let [url (private-datadump-url darwin filename zinvite)]
+  [darwin params]
+  (let [url (private-datadump-url darwin params)]
     {:status  201
      :headers {"Content-Type" "text/plain"
                "Location"     url}
@@ -273,9 +282,9 @@
   [{:as darwin :keys [params postgres]} request]
   (let [{:keys [filename zinvite]} params
         zid (db/get-zid-from-zinvite postgres zinvite)]
-    (case (-> (get-export-status darwin filename zid) (get "status"))
-      ("pending" "started" "processing") (check-back-response darwin filename zinvite 200)
-      "complete"                         (complete-response darwin filename zinvite)
+    (case (-> (get-export-status darwin params) (get "status"))
+      ("pending" "started" "processing") (check-back-response darwin params 200)
+      "complete"                         (complete-response darwin params)
       ;; In case we don't match, 404
       respond-404)))
 
@@ -309,7 +318,9 @@
 
 (defn generate-filename
   "Generates a filename based on request-params"
-  [{:keys [zinvite at-date format] :as request-params}]
+  [{:as request-params :keys [zinvite at-date format]}]
+  {:pre [zinvite format]}
+  (log/info "generating filename for request-params:" request-params)
   (let [last-updated (or at-date (System/currentTimeMillis))
         ext (case format :excel "xlsx" :csv "zip")
         filename (str "polis-export-" zinvite "-" last-updated "." ext)]
@@ -361,19 +372,33 @@
     {}
     params))
 
+
+(defn params-with-zid
+  [darwin parsed-params]
+  (assoc parsed-params
+    :zid (or (:zid parsed-params)
+             (db/get-zid-from-zinvite (:postgres darwin) (:zinvite parsed-params)))))
+
+(defn params-with-filename
+  [parsed-params]
+  (assoc parsed-params :filename (generate-filename parsed-params)))
+
 (defn get-datadump-handler
   "Main handler function; Attempts to return a datadump file within within a set amount of time, and if it can't, will
   respond with a 202, and set up a process for obtaining the results once they're done."
-  [{:as darwin :keys [params postgres]} request]
-  (let [params (parsed-params datadump-params params)
+  [{:as darwin :keys [postgres]}
+   {:as request :keys [params]}]
+  {:pre [(:zinvite params)]}
+  (let [params (->> params
+                    (parsed-params datadump-params)
+                    (params-with-zid darwin)
+                    (params-with-filename))
+        {:keys [zinvite zid filename]} params
         ;; Check validity of params here
         _ (log/info "Handling datadump request with params:" (with-out-str (prn params)))
-        filename (generate-filename params)
         datadump (async/thread (run-datadump darwin filename params))
         timeout (async/timeout (or (:timeout parsed-params) 29000))
-        [done? _] (async/alts!! [datadump timeout])        
-        zinvite (params :zinvite)
-        zid (db/get-zid-from-zinvite postgres zinvite)]
+        [done? _] (async/alts!! [datadump timeout])]
     (cond
       ;; We'll try to catch all exceptions before this
       (:exception done?)
@@ -381,15 +406,15 @@
       ;; Any other truthy value means we have successful computation
       done?
       (do
-        (handle-completion! darwin filename zinvite params)
+        (handle-completion! darwin params)
         (assoc-in (response/file-response (full-path darwin filename))
                   [:headers "Content-Disposition"]
                   (str "attachment; filename=" \" filename \")))
       ;; Otherwise, the timeout hit, and we should trigger the check back later lifecycle
       :else
       (do
-        (handle-timedout-datadump! darwin filename datadump zinvite params)
-        (check-back-response darwin filename zinvite)))))
+        (handle-timedout-datadump! darwin params datadump)
+        (check-back-response darwin params)))))
 
 
 
@@ -443,7 +468,8 @@
 
 (defn routes [darwin]
   ["/" {"ping"      ping-handler
-        "datadump/" {"get"     (partial get-datadump-handler darwin)
+        "datadump/" {"ping"    ping-handler
+                     "get"     #(get-datadump-handler darwin %)
                      "status"  (partial get-datadump-status-handler darwin)
                      "results" (partial filename-request-handler darwin)}}])
 

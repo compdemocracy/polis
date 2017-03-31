@@ -78,6 +78,7 @@
 
 
 (defn zip [& xss]
+  "Like haskell or python zip"
   ;;should we redo this like the with-indices below, using a map?
   (if (> (count xss) 1)
     (partition (count xss) (apply interleave xss))

@@ -504,7 +504,6 @@
 ;; Should be using the conv-man to load the conversation if it's already there
 (defn load-conv
   [darwin & {:keys [zid zinvite] :as args}]
-  (assert (utils/xor zid zinvite))
   (let [zid (or zid (postgres/get-zid-from-zinvite (:postgres darwin) zinvite))]
     (log/debug "Loading conversation" zid)
     (->
@@ -524,7 +523,7 @@
         comments (enriched-comments-data (get-comments-data darwin zid) votes)
         participants (get-participation-data darwin zid)
         ;; Should factor out into separate function
-        conv (utils/apply-kwargs load-conv (:postgres darwin) kw-args)]
+        conv (utils/apply-kwargs load-conv darwin kw-args)]
     {:votes votes
      :summary (summary-data darwin conv votes comments participants)
      :stats-history (stats-history votes participants comments)

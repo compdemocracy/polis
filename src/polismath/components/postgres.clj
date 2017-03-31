@@ -195,6 +195,8 @@
 (defn get-zid-from-zinvite
   [component zinvite]
   (log/info "get-zid-from-zinvite for zinvite" zinvite)
+  (log/debug "component:" component)
+  (log/debug "Db spec:" (:db-spec component))
   (->
     (kdb/with-db (:db-spec component)
                  (ko/select "zinvites"
@@ -344,10 +346,11 @@
 
 (defn upload-math-exportstatus
   [postgres zid filename data]
+  {:pre [postgres zid filename data]}
   (log/info "upload-math-exportstatus or zid" zid)
   (query
     postgres
-    ["insert into math_exportstatus (zid, math_env, filename, data, modified) values (?,?,?,?, now_as_millis()) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data, filename = modified.filename returning zid;"
+    ["insert into math_exportstatus (zid, math_env, filename, data, modified) values (?,?,?,?, now_as_millis()) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data, filename = excluded.filename returning zid;"
      zid
      (name (-> postgres :config :math-env))
      filename
