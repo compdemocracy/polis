@@ -183,6 +183,21 @@
      (generate-aws-url! darwin filename expiration))))
 
 
+;; The filename is actually pretty iportant.
+;; It should be unique between different exports, as is used as the identifying key for the aws buckets, postgres
+;; tracking and as part of the API requests.
+
+(defn generate-filename
+  "Generates a filename based on request-params"
+  [{:as request-params :keys [zinvite at-date format]}]
+  {:pre [zinvite format]}
+  (log/debug "generating filename for request-params:" request-params)
+  (let [last-updated (or at-date (System/currentTimeMillis))
+        ext (case format :excel "xlsx" :csv "zip")
+        filename (str "polis-export-" zinvite "-" last-updated "." ext)]
+    filename))
+
+
 ;; What follows is the guts of our responding and computing.
 
 ;; We try to respond as soon as possible to the request.
@@ -223,110 +238,6 @@
 
 ;; General helpers..
 
-(def respond-404
-  {:status 404
-   :headers {"Content-Type" "text/plain"}
-   :body "Unknown, incomplete or expired conversation export"})
-
-
-;; Requests for exported files in aws.
-
-(defn redirect-to-aws-url
-  "Creates a redirection response, which redirects to the aws download link."
-  [darwin filename]
-  (response/redirect
-    (generate-aws-url! darwin filename)))
-
-
-(defn filename-request-handler
-  "Given aws-creds, returns a function handler function which responds to requests for an existing file on AWS."
-  [{:as darwin :keys [params postgres]} request]
-  (let [{:keys [filename zinvite]} params
-        zid (db/get-zid-from-zinvite postgres zinvite)]
-    (if (= (get (get-export-status darwin params) "status") "complete")
-      ;; Have to think about the security repercussions here. Would be nice if we could stream this and never
-      ;; expose the link here. XXX
-      (redirect-to-aws-url darwin filename)
-      respond-404)))
-
-
-;; Couple helpful things for below
-
-(defn get-status-location-url
-  [darwin filename zinvite]
-  (private-url darwin (str "datadump/status?filename=" filename "&conversation_id=" zinvite)))
-
-(defn check-back-response
-  ([darwin params status]
-   (let [{:keys [filename zinvite]} params
-         status-url (get-status-location-url darwin filename zinvite)]
-     {:status  status
-      :headers {"Content-Type" "text/plain"
-                "Location" status-url}
-      :body    (str "Request is processing, but cannot be returned now. "
-                    "Please visit the url in the \"Location\" header (" status-url ") to check back on the status.")}))
-  ([darwin params] (check-back-response darwin params 202)))
-
-
-;; Requests for checking the status of a computation
-
-(defn complete-response
-  [darwin params]
-  (let [url (private-datadump-url darwin params)]
-    {:status  201
-     :headers {"Content-Type" "text/plain"
-               "Location"     url}
-     :body    (str "Export is complete. Download at the Location url specified in the header (" url ")")}))
-
-(defn get-datadump-status-handler
-  [{:as darwin :keys [params postgres]} request]
-  (let [{:keys [filename zinvite]} params
-        zid (db/get-zid-from-zinvite postgres zinvite)]
-    (case (-> (get-export-status darwin params) (get "status"))
-      ("pending" "started" "processing") (check-back-response darwin params 200)
-      "complete"                         (complete-response darwin params)
-      ;; In case we don't match, 404
-      respond-404)))
-
-
-;; Top level; either run and return the computation results, or set things up for a 202-lifecycle to be
-;; completed down the road.
-
-(defn run-datadump
-  "Based on params this actually runs the export-conversation computation."
-  [darwin filename params]
-  (log/info "Params for run-datadump are:" (with-out-str (prn params)))
-  (try
-    (let [;; The dissoc is just a vague security measure
-          request-params (-> params
-                             (dissoc :env-overrides)
-                             (assoc :filename (full-path darwin filename)))]
-      (export/export-conversation darwin request-params)
-      ;; Return truthy :done token
-      :done)
-    (catch Exception e
-      (log/error "Error with datadump computation:" (with-out-str (prn params)))
-      (.printStackTrace e)
-      {:exception e})))
-
-
-
-
-;; The filename is actually pretty iportant.
-;; It should be unique between different exports, as is used as the identifying key for the aws buckets, postgres
-;; tracking and as part of the API requests.
-
-(defn generate-filename
-  "Generates a filename based on request-params"
-  [{:as request-params :keys [zinvite at-date format]}]
-  {:pre [zinvite format]}
-  (log/debug "generating filename for request-params:" request-params)
-  (let [last-updated (or at-date (System/currentTimeMillis))
-        ext (case format :excel "xlsx" :csv "zip")
-        filename (str "polis-export-" zinvite "-" last-updated "." ext)]
-    filename))
-
-
 
 ;; The following is really just a bunch of parameter parsing stuff.
 ;; Tihs could all possibly be interwoven with the config component as well.
@@ -351,37 +262,130 @@
               :format  keyword
               :timeout parse-and-validate-timeout})
 
+(def respond-404
+  {:status 404
+   :headers {"Content-Type" "text/plain"}
+   :body "Unknown, incomplete or expired conversation export"})
 
-(def base-params #{:zinvite})
-(def datadump-params (set/union base-params #{:filename :at-date :format :email :timeout}))
 
+(def allowed-params #{:zinvite :filename :at-date :format :email :timeout})
 
 ;; And finally, our param parser.
 
-(defn parsed-params
-  "Parses the params for a request, occording to parsers."
-  [allowed-params params]
-  ;(log/info "Here are the params:" params)
-  (reduce
-    (fn [m [k v]]
-      ;; Don't really need this if we have params instead of query params, but whateves
-      (let [k (keyword k)]
-        (if (allowed-params k)
-          (assoc m k ((or (parsers k) identity) v))
-          m)))
-    {}
-    params))
-
-
 (defn params-with-zid
-  [darwin parsed-params]
-  (assoc parsed-params
-    :zid (or (:zid parsed-params)
-             (db/get-zid-from-zinvite (:postgres darwin) (:zinvite parsed-params)))))
+  [darwin params]
+  (assoc params
+    :zid (or (:zid params)
+             (db/get-zid-from-zinvite (:postgres darwin) (:zinvite params)))))
 
 (defn params-with-filename
-  [parsed-params]
-  (assoc parsed-params :filename (generate-filename parsed-params)))
+  [params]
+  (assoc params
+    :filename
+    (or (:filename params)
+        (generate-filename params))))
+
+(defn parsed-params
+  "Parses the params for a request, occording to parsers."
+  [darwin params]
+  ;(log/info "Here are the params:" params)
+  (->>
+    params
+    (reduce
+      (fn [m [k v]]
+        ;; Don't really need this if we have params instead of query params, but whateves
+        (let [k (keyword k)]
+          (if (get allowed-params k)
+            (assoc m k ((or (parsers k) identity) v))
+            m)))
+      {})
+    (params-with-zid darwin)
+    (params-with-filename)))
+
+
+;; Requests for exported files in aws.
+
+(defn redirect-to-aws-url
+  "Creates a redirection response, which redirects to the aws download link."
+  [darwin filename]
+  (response/redirect
+    (generate-aws-url! darwin filename)))
+
+
+(defn filename-request-handler
+  "Given aws-creds, returns a function handler function which responds to requests for an existing file on AWS."
+  [{:as darwin :keys [postgres]}
+   {:as request :keys [params]}]
+  (let [{:as params :keys [filename]} (parsed-params darwin params)]
+    (if (= (get (get-export-status darwin params) "status") "complete")
+      ;; Have to think about the security repercussions here. Would be nice if we could stream this and never
+      ;; expose the link here. XXX
+      (redirect-to-aws-url darwin filename)
+      respond-404)))
+
+
+;; Couple helpful things for below
+
+(defn get-status-location-url
+  [darwin {:as params :keys [filename zinvite]}]
+  (private-url darwin (str "datadump/status?filename=" filename "&zinvite=" zinvite)))
+
+(defn check-back-response
+  ([darwin params status]
+   (let [{:keys [filename zinvite]} params
+         status-url (get-status-location-url darwin params)]
+     {:status  status
+      :headers {"Content-Type" "text/plain"
+                "Location" status-url}
+      :body    (str "Request is processing, but cannot be returned now. "
+                    "Please visit the url in the \"Location\" header (" status-url ") to check back on the status.")}))
+  ([darwin params] (check-back-response darwin params 202)))
+
+
+;; Requests for checking the status of a computation
+
+(defn complete-response
+  [darwin params]
+  (let [url (private-datadump-url darwin params)]
+    {:status  201
+     :headers {"Content-Type" "text/plain"
+               "Location"     url}
+     :body    (str "Export is complete. Download at the Location url specified in the header (" url ")")}))
+
+(defn get-datadump-status-handler
+  [{:as darwin :keys [postgres]}
+   {:as request :keys [params]}]
+  (let [params (parsed-params darwin params)]
+    (case (-> (get-export-status darwin params) (get "status"))
+      ("pending" "started" "processing") (check-back-response darwin params 200)
+      "complete"                         (complete-response darwin params)
+      ;; In case we don't match, 404
+      respond-404)))
+
+
+;; Top level; either run and return the computation results, or set things up for a 202-lifecycle to be
+;; completed down the road.
+
+(defn run-datadump
+  "Based on params this actually runs the export-conversation computation."
+  [darwin {:as params :keys [filename]}]
+  (log/info "Params for run-datadump are:" (with-out-str (prn params)))
+  (try
+    (let [;; The dissoc is just a vague security measure
+          request-params (-> params
+                             (dissoc :env-overrides)
+                             (assoc :filename (full-path darwin filename)))]
+      (export/export-conversation darwin request-params)
+      ;; Return truthy :done token
+      :done)
+    (catch Exception e
+      (log/error "Error with datadump computation:" (with-out-str (prn params)))
+      (.printStackTrace e)
+      {:exception e})))
+
+
+
+
 
 (defn get-datadump-handler
   "Main handler function; Attempts to return a datadump file within within a set amount of time, and if it can't, will
@@ -389,14 +393,11 @@
   [{:as darwin :keys [postgres]}
    {:as request :keys [params]}]
   {:pre [(:zinvite params)]}
-  (let [params (->> params
-                    (parsed-params datadump-params)
-                    (params-with-zid darwin)
-                    (params-with-filename))
-        {:keys [zinvite zid filename]} params
+  (let [{:as params :keys [filename]}
+        (parsed-params darwin params)
         ;; Check validity of params here
         _ (log/info "Handling datadump request with params:" (with-out-str (prn params)))
-        datadump (async/thread (run-datadump darwin filename params))
+        datadump (async/thread (run-datadump darwin params))
         timeout (async/timeout (or (:timeout parsed-params) 29000))
         [done? _] (async/alts!! [datadump timeout])]
     (cond
@@ -470,8 +471,8 @@
   ["/" {"ping"      ping-handler
         "datadump/" {"ping"    ping-handler
                      "get"     #(get-datadump-handler darwin %)
-                     "status"  (partial get-datadump-status-handler darwin)
-                     "results" (partial filename-request-handler darwin)}}])
+                     "status"  #(get-datadump-status-handler darwin %)
+                     "results" #(filename-request-handler darwin %)}}])
 
 (defn make-handler [darwin]
   (bidi.ring/make-handler (routes darwin)))
@@ -521,6 +522,7 @@
           (-> (make-handler component)
               ring.keyword-params/wrap-keyword-params
               ring.params/wrap-params
+              ;; Should really be doing the additional params processing here, but it might change request by request, so need to think at least a bit about this
               (auth/wrap-basic-authentication (partial authenticated? component))
               log-requests)]
       ;redirect-http-to-https-if-required
