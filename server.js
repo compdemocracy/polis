@@ -4197,10 +4197,12 @@ ${serverName}/pwreset/${pwresettoken}
     return new Promise(function(resolve, reject) {
       mailgun.sendText(sender, [recipient], subject, text, servername, options, function(err) {
         if (err) {
+          console.log("mike567", "ok", sender, recipient, subject, text);
           console.error("Unable to send email via mailgun to " + recipient + " " + err);
           yell("polis_err_mailgun_email_send_failed");
           reject(err);
         } else {
+          console.log("mike567", "err", sender, recipient, subject, text, err);
           winston.log("info", "sent email with mailgun to " + recipient);
           resolve();
         }
@@ -4232,9 +4234,11 @@ ${serverName}/pwreset/${pwresettoken}
   function sendTextEmail(sender, recipient, subject, text) {
     let promise = sendTextEmailWithMailgun(sender, recipient, subject, text).catch(function(err) {
       yell("polis_err_primary_email_sender_failed");
+      console.error(err);
       return sendTextEmailWithPostmark(sender, recipient, subject, text);
     });
     promise.catch(function(err) {
+      console.error(err);
       yell("polis_err_backup_email_sender_failed");
     });
     return promise;
