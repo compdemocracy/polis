@@ -10162,6 +10162,16 @@ Please let us know if you have any questons about the data.
 Thanks for using pol.is!
 `;
 
+    console.log("SENDING EXPORT EMAIL");
+    console.log({
+      domain,
+      email,
+      subject,
+      fromAddress,
+      body,
+    });
+
+
     sendTextEmail(
       fromAddress,
       email,
