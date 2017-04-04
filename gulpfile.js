@@ -54,6 +54,7 @@ const staticFilesPrefix = "cached";
 const baseDistRoot = "dist";
 var destRootBase = "devel";
 var destRootRest = '/';  // in dist, will be the cachebuster path prefix
+var versionString = 'VERSION_ERROR';
 function destRoot() {
   var root = path.join(destRootBase, destRootRest);
   return root;
@@ -224,12 +225,14 @@ gulp.task('index', [
     s = s.pipe(template({
       basepath: basepath,
       d3Filename: 'd3.js',
-    }))
+      versionString: versionString,
+    }));
   } else {
     s = s.pipe(template({
       //basepath: 'https://s3.amazonaws.com/pol.is',
       basepath: basepath, // proxy through server (cached by cloudflare, and easier than choosing a bucket for preprod, etc)
       d3Filename: 'd3.min.js',
+      versionString: versionString,
     }));
   }
   return s.pipe(gulp.dest(destRootBase));
@@ -514,6 +517,7 @@ gulp.task("configureForProduction", function(callback) {
     var d = new Date();
     var unique_token = [d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds(), hash].join("_");
     destRootRest = [staticFilesPrefix, unique_token].join("/");
+    versionString = unique_token;
 
     console.log('done setting destRoot: ' + destRoot() + "  destRootRest: " + destRootRest + "  destRootBase: " + destRootBase);
     callback(null);
