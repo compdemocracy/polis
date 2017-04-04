@@ -11371,10 +11371,6 @@ Thanks for using pol.is!
 
 
   function handle_GET_groupDemographics(req, res) {
-    if (!isPolisDev(req.p.uid)) {
-      fail(res, 500, "polis_err_groupDemographics_auth", err);
-      return;
-    }
     let zid = req.p.zid;
     Promise.all([
       getPidsForGid(zid, 0, -1),
@@ -11384,12 +11380,18 @@ Thanks for using pol.is!
       getPidsForGid(zid, 4, -1),
       getParticipantDemographicsForConversation(zid),
       getParticipantVotesForCommentsFlaggedWith_is_meta(zid),
+      isModerator(req.p.zid, req.p.uid),
     ]).then((o) => {
       let groupPids = [];
       let groupStats = [];
 
       let meta = o[5];
       let metaVotes = o[6];
+      let isMod = o[7];
+
+      if (!isMod) {
+        throw "polis_err_groupDemographics_auth";
+      }
 
       for (let i = 0; i < 5; i++) {
         if (o[i] && o[i].length) {
