@@ -16,6 +16,7 @@ const staticFilesPrefix = "cached";
 const baseDistRoot = "dist";
 var destRootBase = "devel";
 var destRootRest = '/';  // in dist, will be the cachebuster path prefix
+var versionString = 'VERSION_ERROR';
 function destRoot() {
   var root = path.join(destRootBase, destRootRest);
   console.log(root);
@@ -71,6 +72,7 @@ gulp.task('index', [
   var bundlePath =  [destRootRest, "admin_bundle.js"].join("/");
   var index = fs.readFileSync('index.html', {encoding: "utf8"});
   index = index.replace("/dist/admin_bundle.js",  '/' + [destRootRest, "js", "admin_bundle.js"].join('/'));
+  index = index.replace("NULL_VERSION",  versionString);
 
   // index goes to the root of the dist folder.
   var indexDest = [destRootBase, "index_admin.html"].join("/");
@@ -117,6 +119,7 @@ gulp.task("configureForProduction", function(callback) {
     var d = new Date();
     var unique_token = [d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds(), hash].join("_");
     destRootRest = [staticFilesPrefix, unique_token].join("/");
+    versionString = unique_token;
 
     console.log('done setting destRoot: ' + destRoot() + "  destRootRest: " + destRootRest + "  destRootBase: " + destRootBase);
     callback(null);
