@@ -20,13 +20,13 @@ class GraphComments extends React.Component {
             let tid = pt.tid;
             _.each(this.props.repfulAgreeTidsByGroup, (tids, gid) => {
               if (tids && tids.indexOf(tid) >= 0) {
-                console.log('rep', tid, gid);
+                // console.log('rep', tid, gid);
                 repfulForGid = Number(gid);
               }
             });
             _.each(this.props.repfulDisageeTidsByGroup, (tids, gid) => {
               if (tids && tids.indexOf(tid) >= 0) {
-                console.log('!rep', tid, gid);
+                // console.log('!rep', tid, gid);
                 antiRepfulForGid = Number(gid);
               }
             });
@@ -38,10 +38,10 @@ class GraphComments extends React.Component {
           }
           if (shouldShowOnlyOneGroup) {
             if (!(repfulForGid === this.props.showOnlyGroup || antiRepfulForGid === this.props.showOnlyGroup)) {
-              console.log('skip',repfulForGid,antiRepfulForGid,this.props.showOnlyGroup);
+              // console.log('skip',repfulForGid,antiRepfulForGid,this.props.showOnlyGroup);
               return "";
             } else {
-              console.log('ok');
+              // console.log('ok');
             }
           }
 
