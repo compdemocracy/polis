@@ -100,6 +100,7 @@ module.exports = function(params) {
   var bidToPid = [];
   var pidToBidCache = null;
   var myBid;
+  var cachedPcaData = void 0;
 
   var pollingScheduledCallbacks = [];
 
@@ -1122,6 +1123,9 @@ module.exports = function(params) {
   }
 
 
+  function getMathMain() {
+    return cachedPcaData;
+  }
 
   function fetchLatestPca() {
     return fetchPca(pcaPath, lastServerTokenForPCA);
@@ -2471,6 +2475,7 @@ module.exports = function(params) {
     getFancyComments: getFancyComments,
     getReactionsToComment: getReactionsToComment,
     getPidToBidMapping: getPidToBidMappingFromCache,
+    getMathMain: getMathMain,
     disagree: disagree,
     agree: agree,
     pass: pass,

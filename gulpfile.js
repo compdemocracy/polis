@@ -47,6 +47,11 @@ var sys = require('sys');
 var url = require('url');
 
 
+var webpack = require("webpack");
+var config = require("./webpack.config.dev");
+var compiler = webpack(config);
+
+
 // WARNING: useJsHint gets mutated in watch builds
 var useJsHint = true;
 
@@ -101,6 +106,13 @@ gulp.task('connect', [], function() {
     return next();
   });
   app.use(express.static(path.join(destRootBase)));
+
+  app.use(require("webpack-dev-middleware")(compiler, {
+    noInfo: true,
+    publicPath: config.output.publicPath
+  }));
+
+
   app.use("/", fetchIndex);
   app.use(/^\/api\/v[0-9]+/, proxyToPreprod);
   app.get(/^\/docs\/api$/, function (req, res) { res.redirect("/docs/api/v3");});

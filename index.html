@@ -295,6 +295,7 @@ window.initIntercom = function(){
   </head>
   <body class="clickDeselectsHull" style="margin:0; background-color: white;">
 
+
 <!-- <div id="fb-root"></div> -->
 <script>
 // (function(d, s, id) {
@@ -328,8 +329,13 @@ window.initIntercom = function(){
 </script>
 
 <script src="<%= basepath %>/js/<%= d3Filename %>"></script>
+<script> d3_old = d3; delete d3;</script>
+<script src="https://d3js.org/d3.v4.min.js"></script>
+<script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+
 <script src="<%= basepath %>/js/polis.js"></script>
 
+<script src="/pub_vis2/vis_bundle.js"></script>
 
 <p id="mainSpinner" style="text-align:center; margin: auto; width:100%; display: none">
   <svg version="1.1" id="loader-1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
@@ -353,7 +359,6 @@ window.initIntercom = function(){
   }
 </script>
 <script>window.version = "<%= versionString %>";</script>
-
 
 
 </body>

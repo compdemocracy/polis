@@ -6,6 +6,11 @@ var preloadHelper = require("./util/preloadHelper");
 
 var $ = require("jquery");
 var _ = require("underscore");
+Object.defineProperty(window, "_", {
+  enumerable: true,
+  writable: false,
+  configurable: false,
+});
 var Backbone = require("backbone");
 var CurrentUserModel = require("./stores/currentUser");
 var display = require("./util/display");

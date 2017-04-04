@@ -201,6 +201,7 @@ module.exports = ConversationView.extend({
     var temp = Strings.addPolisToYourSite;
     temp = temp.replace("{{URL}}", polisLogoBase64);
     ctx.addPolisToYourSite = temp;
+
     return ctx;
   },
 
@@ -242,6 +243,20 @@ module.exports = ConversationView.extend({
       return optionalCrappySetterModeValue;
     }
     return this.ptptModel.get("subscribed");
+  },
+  updateVis2: function() {
+    var that = this;
+    // TODO don't do a separate AJAX call for the comments.
+    this.serverClient.getFancyComments().then(function(comments) {
+      window.renderVis(
+        document.getElementById("vis2_root"),
+        {
+          math_main: that.serverClient.getMathMain(),
+          comments: comments,
+          // comments: this.allCommentsCollection.models,
+        }
+      );
+    });
   },
   updateVisMode: function() {
     if (!this.vis) {
@@ -1000,6 +1015,7 @@ module.exports = ConversationView.extend({
           //   cfp.insertAfter($("#commentFormBSibling"));
           // }
 
+          that.updateVis2();
 
 
           that.updateVisMode();

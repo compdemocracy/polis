@@ -67,23 +67,23 @@ VisView = function(params) {
 
   var width = $(el_selector).width();
 
-  // var ptptOiRadius = d3.scale.linear().range([10, 16]).domain([350, 800]).clamp(true)(width);
+  // var ptptOiRadius = d3_old.scale.linear().range([10, 16]).domain([350, 800]).clamp(true)(width);
   var retina = window.devicePixelRatio > 1;
   var basePtptoiRad = retina ? 12 : 10;
   if (isMobile) {
     basePtptoiRad = 9;
   }
   var maxradboost = 8;
-  var ptptOiRadius = basePtptoiRad + d3.scale.linear().range([0, maxradboost]).domain([350, 800]).clamp(true)(width);
+  var ptptOiRadius = basePtptoiRad + d3_old.scale.linear().range([0, maxradboost]).domain([350, 800]).clamp(true)(width);
   var maxPtptoiRad = basePtptoiRad + maxradboost;
   var ptptOiDiameter = ptptOiRadius * 2;
 
 
-  var haloWidth = d3.scale.linear().range([1, 1]).domain([350, 800]).clamp(true)(width);
-  var haloVoteWidth = d3.scale.linear().range([2, 4]).domain([350, 800]).clamp(true)(width);
+  var haloWidth = d3_old.scale.linear().range([1, 1]).domain([350, 800]).clamp(true)(width);
+  var haloVoteWidth = d3_old.scale.linear().range([2, 4]).domain([350, 800]).clamp(true)(width);
   var anonBlobRadius = isMobile ? 18 : 20;
-  var anonBlobHaloWidth = d3.scale.linear().range([2, 4]).domain([350, 800]).clamp(true)(width);
-  var anonBlobHaloVoteWidth = anonBlobHaloWidth; //d3.scale.linear().range([6, 10]).domain([350, 800]).clamp(true)(width);
+  var anonBlobHaloWidth = d3_old.scale.linear().range([2, 4]).domain([350, 800]).clamp(true)(width);
+  var anonBlobHaloVoteWidth = anonBlobHaloWidth; //d3_old.scale.linear().range([6, 10]).domain([350, 800]).clamp(true)(width);
   var maxRad = _.max([
     ptptOiRadius + haloWidth, // not sure if halowidth should be /2
     ptptOiRadius + haloVoteWidth, // not sure if haloVoteWidth should be /2
@@ -91,14 +91,14 @@ VisView = function(params) {
     anonBlobRadius + anonBlobHaloVoteWidth // not sure if anonBlobHaloVoteWidth should be /2
   ]);
 
-  var HULL_EXTRA_RADIUS = 0; //d3.scale.linear().range([2, 6]).domain([350, 800]).clamp(true)(width);
+  var HULL_EXTRA_RADIUS = 0; //d3_old.scale.linear().range([2, 6]).domain([350, 800]).clamp(true)(width);
 
   // framerate can be low on mobile, so make it quick
-  var speed = d3.scale.linear().range([0.8, 0.1]).domain([350, 800]).clamp(true)(width);
+  var speed = d3_old.scale.linear().range([0.8, 0.1]).domain([350, 800]).clamp(true)(width);
 
 
   // the length of the visible part of the pin. The pin can be longer, if it is under the circle.
-  var pinLength = d3.scale.linear().range([14, 28]).domain([350, 800]).clamp(true)(width);
+  var pinLength = d3_old.scale.linear().range([14, 28]).domain([350, 800]).clamp(true)(width);
 
 
 
@@ -112,9 +112,9 @@ VisView = function(params) {
 
   // Tunables
 
-  var minNodeRadiusScaleForGivenVisWidth = d3.scale.linear().range([2, 4]).domain([350, 800]).clamp(true);
-  var strokeWidthGivenVisWidth = d3.scale.linear().range([0.2, 1.0]).domain([350, 800]).clamp(true);
-  var hullStrokeWidthGivenVisWidth = d3.scale.linear().range([4, 12]).domain([350, 800]).clamp(true);
+  var minNodeRadiusScaleForGivenVisWidth = d3_old.scale.linear().range([2, 4]).domain([350, 800]).clamp(true);
+  var strokeWidthGivenVisWidth = d3_old.scale.linear().range([0.2, 1.0]).domain([350, 800]).clamp(true);
+  var hullStrokeWidthGivenVisWidth = d3_old.scale.linear().range([4, 12]).domain([350, 800]).clamp(true);
 
   var grayHaloColor = "darkgrey";
   var grayHaloColorSelected = grayHaloColor; // "rgba(0,0,0,0)";
@@ -135,9 +135,9 @@ VisView = function(params) {
 
   var colorPass = "#bbb"; //#BDC3C7"; // SILVER
   var colorSelf = "rgb(0, 186, 255)"; // blue - like the 'you are here' in mapping software
-  // var colorSelfOutline = d3.rgb(colorSelf).darker().toString();
-  // var colorPullOutline = d3.rgb(colorPull).darker().toString();
-  // var colorPushOutline = d3.rgb(colorPush).darker().toString();
+  // var colorSelfOutline = d3_old.rgb(colorSelf).darker().toString();
+  // var colorPullOutline = d3_old.rgb(colorPull).darker().toString();
+  // var colorPushOutline = d3_old.rgb(colorPush).darker().toString();
   var colorSelfOutline = "rgba(0, 0, 245, 0.25)";
 
   // Cached results of tunalbes - set during init
@@ -150,7 +150,7 @@ VisView = function(params) {
   // var SHOW_TIP = true;
   // if (SHOW_TIP) {
   //   $("#ptpt-tip").remove();
-  //   tip = d3.tip().attr("id", "ptpt-tip").attr("stroke", "rgb(52,73,94)").html(
+  //   tip = d3_old.tip().attr("id", "ptpt-tip").attr("stroke", "rgb(52,73,94)").html(
   //     function(d) {
   //       return d.tid;
   //     }
@@ -267,7 +267,7 @@ VisView = function(params) {
 
   //create svg, appended to a div with the id #visualization_div, w and h values to be computed by jquery later
   //to connect viz to responsive layout if desired
-  visualization = d3.select(el_selector).select("svg")
+  visualization = d3_old.select(el_selector).select("svg")
     .call(tip || function() {}) /* initialize d3-tip */
     // .attr("width", "100%")
     // .attr("height", "100%")
@@ -275,7 +275,7 @@ VisView = function(params) {
     // .attr("viewBox", "0 0 " + w + " " + h )
     .classed("visualization", true)
     .append(groupTag)
-    // .call(d3.behavior.zoom().scaleExtent([1, 8]).on("zoom", zoom))
+    // .call(d3_old.behavior.zoom().scaleExtent([1, 8]).on("zoom", zoom))
   ;
   $(el_selector).on("click", selectBackground);
   $(el_selector).on("click", function() {
@@ -293,7 +293,7 @@ VisView = function(params) {
 
   overlay_layer = visualization.append(groupTag);
 
-  helpLine = d3.svg.line();
+  helpLine = d3_old.svg.line();
 
   overlay_layer.append("path")
     .datum(helpArrowPoints)
@@ -310,7 +310,7 @@ VisView = function(params) {
 
   // function zoom() {
   //   // TODO what is event?
-  //   visualization.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
+  //   visualization.attr("transform", "translate(" + d3_old.event.translate + ")scale(" + d3_old.event.scale + ")");
   // }
 
   window.vis = visualization; // TODO why? may prevent GC
@@ -330,7 +330,7 @@ VisView = function(params) {
   //$(el_selector).prepend($($("#pca_vis_overlays_template").html()));
 
 
-  force = d3.layout.force()
+  force = d3_old.layout.force()
     .nodes(nodes)
     .links([])
     .friction(0.9) // more like viscosity [0,1], defaults to 0.9
@@ -354,9 +354,9 @@ VisView = function(params) {
 
   //     var b = bounds[d.hullId];
   //     visualization.transition().duration(750)
-  //     //.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
+  //     //.attr("transform", "translate(" + d3_old.event.translate + ")scale(" + d3_old.event.scale + ")");
   //     .attr("transform", "" + "scale(" + 0.95 / Math.max((b[1][0] - b[0][0]) / w, (b[1][1] - b[0][1]) / h) + ")" + "translate(" + -(b[1][0] + b[0][0]) / 2 + "," + -(b[1][1] + b[0][1]) / 2 + ")");
-  //     //visualization.attr("transform", "translate(10,10)scale(" + d3.event.scale + ")");
+  //     //visualization.attr("transform", "translate(10,10)scale(" + d3_old.event.scale + ")");
   // }
 
   function setClusterActive(clusterId) {
@@ -367,9 +367,9 @@ VisView = function(params) {
   function showAllClustersAsActive() {
     var len = d3Hulls.length;
     for (var i = 0; i < len; i++) {
-      d3.select(d3Hulls[i][0][0])
+      d3_old.select(d3Hulls[i][0][0])
         .classed("active_group", true);
-      d3.select(d3HullSelections[i][0][0])
+      d3_old.select(d3HullSelections[i][0][0])
         .classed("active_group", true)
         .style("visibility", "visible");
     }
@@ -377,16 +377,16 @@ VisView = function(params) {
 
   function updateHullColors() {
     if (clusterIsSelected()) {
-      d3.select(d3Hulls[selectedCluster][0][0]).classed("active_group", true);
-      d3.select(d3HullSelections[selectedCluster][0][0]).classed("active_group", true);
-      // d3.select(d3HullShadows[selectedCluster][0][0]).classed("active_group", true);
+      d3_old.select(d3Hulls[selectedCluster][0][0]).classed("active_group", true);
+      d3_old.select(d3HullSelections[selectedCluster][0][0]).classed("active_group", true);
+      // d3_old.select(d3HullShadows[selectedCluster][0][0]).classed("active_group", true);
     }
     (function() {
       for (var i = 0; i < d3Hulls.length; i++) {
         if (i === hoveredHullId) {
-          d3.select(d3Hulls[i][0][0]).classed("hovered_group", true);
-          d3.select(d3HullSelections[i][0][0]).classed("hovered_group", true);
-          // d3.select(d3HullShadows[selectedCluster][0][0]).classed("hovered_group", true);
+          d3_old.select(d3Hulls[i][0][0]).classed("hovered_group", true);
+          d3_old.select(d3HullSelections[i][0][0]).classed("hovered_group", true);
+          // d3_old.select(d3HullShadows[selectedCluster][0][0]).classed("hovered_group", true);
         }
       }
     }());
@@ -432,12 +432,12 @@ VisView = function(params) {
     updateHullColors();
 
     //zoomToHull.call(this, d);
-    if (d3 && d3.event) {
-      if (d3.event.stopPropagation) {
-        d3.event.stopPropagation();
+    if (d3 && d3_old.event) {
+      if (d3_old.event.stopPropagation) {
+        d3_old.event.stopPropagation();
       }
-      if (d3.event.preventDefault) {
-        d3.event.preventDefault(); // prevent flashing on iOS
+      if (d3_old.event.preventDefault) {
+        d3_old.event.preventDefault(); // prevent flashing on iOS
       }
     }
   }
@@ -530,14 +530,14 @@ VisView = function(params) {
 
         // var pointsToFeedToD3 = hull.map(function(pt) { return pt;});
 
-        // if (pointsToFeedToD3.length == 1) {
-        //     pointsToFeedToD3.push([
+        // if (pointsToFeedTod3_old.length == 1) {
+        //     pointsToFeedTod3_old.push([
         //         pointsToFeedToD3[0][0] + 0.01,
         //         pointsToFeedToD3[0][1] + 0.01
         //         ]);
         // }
-        // if (pointsToFeedToD3.length == 2) {
-        //     pointsToFeedToD3.push([
+        // if (pointsToFeedTod3_old.length == 2) {
+        //     pointsToFeedTod3_old.push([
         //         pointsToFeedToD3[0][0] + 0.01,
         //         pointsToFeedToD3[0][1] - 0.01 // NOTE subtracting so they're not inline
         //         ]);
@@ -545,7 +545,7 @@ VisView = function(params) {
 
 
 
-        // var hullPoints_WillBeMutated = d3.geom.hull(pointsToFeedToD3);
+        // var hullPoints_WillBeMutated = d3_old.geom.hull(pointsToFeedToD3);
 
         if (!hull) {
           // TODO figure out what's up here
@@ -598,7 +598,7 @@ VisView = function(params) {
         }());
 
         // another pass through the hull generator, to remove interior tesselated points.
-        var points = d3.geom.hull(tessellatedPoints);
+        var points = d3_old.geom.hull(tessellatedPoints);
         hullPoints[i] = points;
         if (!points.length) {
           hideHull(i);
@@ -1211,7 +1211,7 @@ VisView = function(params) {
     }
     var minRad = minNodeRadiusScaleForGivenVisWidth(w);
     // var maxRad = maxNodeRadiusScaleForGivenVisWidth(w);
-    // bucketRadiusForCount = d3.scale.pow().exponent(.5).range([minRad, maxRad]).domain([1, maxCount]).clamp(true);
+    // bucketRadiusForCount = d3_old.scale.pow().exponent(.5).range([minRad, maxRad]).domain([1, maxCount]).clamp(true);
 
     var baseSquared = minRad * minRad;
     bucketRadiusForCount = function(count) {
@@ -1226,8 +1226,8 @@ VisView = function(params) {
       var spans = computeXySpans(updatedNodes);
       var border = padding; // this fudge factor has to account for the extra padding needed for the hulls
       return {
-        x: d3.scale.linear().range([0 + border, w - border]).domain([spans.x.min - eps, spans.x.max + eps]),
-        y: d3.scale.linear().range([0 + border, h - border]).domain([spans.y.min - eps, spans.y.max + eps])
+        x: d3_old.scale.linear().range([0 + border, w - border]).domain([spans.x.min - eps, spans.x.max + eps]),
+        y: d3_old.scale.linear().range([0 + border, h - border]).domain([spans.y.min - eps, spans.y.max + eps])
       };
     }
     // TODO pass all nodes, not just updated nodes, to createScales.
@@ -2076,7 +2076,7 @@ VisView = function(params) {
           .each("end", function() {
             selfDotTooltipShow = true;
             // need to remove the tooltip so it doesn't eat hover events
-            d3.select(this).remove();
+            d3_old.select(this).remove();
           });
       }
     }
