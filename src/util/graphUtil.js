@@ -99,8 +99,13 @@ const graphUtil = (comments, math, badTids) => {
     var yScaleCandidateForTopSide = (border - yCenter) / minCommentY;
 
     // TODO_VOTE_FLIP: we can probably remove the -1 below if we flip the vote values.
-    var commentScaleupFactorX = -1 * Math.min(xScaleCandidateForRightSide, xScaleCandidateForLeftSide);
-    var commentScaleupFactorY = -1 * Math.min(yScaleCandidateForBottomSide, yScaleCandidateForTopSide);
+    var commentScaleupFactorX = -1 * Math.min(
+      Math.abs(xScaleCandidateForRightSide),
+      Math.abs(xScaleCandidateForLeftSide));
+
+    var commentScaleupFactorY = -1 * Math.min(
+      Math.abs(yScaleCandidateForBottomSide),
+      Math.abs(yScaleCandidateForTopSide));
 
     const baseClustersScaled = baseClusters.map((p) => {
       return {
