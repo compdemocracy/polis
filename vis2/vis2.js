@@ -1,8 +1,8 @@
 
+import _ from "lodash";
 import Graph from "./components/Graph";
 import React from 'react';
 import ReactDOM from 'react-dom';
-
 
 // React Router
 // import { Router, Route, Link, IndexRoute, browserHistory } from 'react-router';
@@ -60,12 +60,14 @@ class Root extends React.Component {
       });
     }
 
+    let badTids = _.keyBy(this.props.math_main['mod-out']);
+
     return (
       <div>
         <Graph
           comments={comments}
           groupNames={{}}
-          badTids={{}}
+          badTids={badTids}
           formatTid={formatTid}
           repfulAgreeTidsByGroup={repfulAgreeTidsByGroup}
           math={this.props.math_main}
