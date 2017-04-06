@@ -14,9 +14,8 @@ const graphUtil = (comments, math, badTids) => {
     const commentsPoints = [];
     const compsX = math.pca.comps[0];
     const compsY = math.pca.comps[1];
-    let rejectedCount = 0;
     for (let i = 0; i < compsX.length; i++) {
-      if (comments[i]) {
+      if (commentsByTid[i]) {
         let x = compsX[i];
         let y = compsY[i];
         // if (i === 32) { // TODO_DEMO_HACK use force layout instead
@@ -24,17 +23,12 @@ const graphUtil = (comments, math, badTids) => {
         //   y += 0.01;
         // }
         if (!badTids[i]) {
-          if (commentsByTid[i]) {
-            commentsPoints.push({
-              x: x,
-              y: y,
-              tid: i,
-              txt: commentsByTid[i].txt,
-            });
-          } else {
-            rejectedCount += 1;
-            // console.log('skipping rejected', i, rejectedCount);
-          }
+          commentsPoints.push({
+            x: x,
+            y: y,
+            tid: i,
+            txt: commentsByTid[i].txt,
+          });
         } else {
           // console.log('skipping bad', i);
         }
