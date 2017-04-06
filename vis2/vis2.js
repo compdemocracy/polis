@@ -71,7 +71,7 @@ class Root extends React.Component {
           formatTid={formatTid}
           repfulAgreeTidsByGroup={repfulAgreeTidsByGroup}
           math={this.props.math_main}
-          renderHeading={true}
+          renderHeading={false}
           report={{}}/>
       </div>
 
