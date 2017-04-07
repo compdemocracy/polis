@@ -58,7 +58,7 @@ class Graph extends React.Component {
       <div style={{position: "relative"}}>
         {this.props.renderHeading ? heading : ""}
 
-        <p style={Object.assign({}, globals.paragraph, {position: "absolute", left: 160})}>
+        <p style={Object.assign({}, globals.paragraph, {position: "absolute", left: 0, top: -30})}>
           {this.state.selectedComment ? "#" + this.state.selectedComment.tid + ". " + this.state.selectedComment.txt : null}
         </p>
           <svg width="100%" height={globals.side}>
