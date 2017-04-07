@@ -2,9 +2,13 @@ import React from "react";
 import _ from "lodash";
 import * as globals from "./globals";
 
+/* https://bl.ocks.org/mbostock/2206590 */
+
 class GraphComments extends React.Component {
 
   render () {
+
+    if (!this.props.commentsPoints) return null;
 
     let shouldShowOnlyOneGroup = _.isNumber(this.props.showOnlyGroup);
 
@@ -61,6 +65,7 @@ class GraphComments extends React.Component {
               }}
               >
               {this.props.formatTid(pt.tid)}
+
             </text>
         })}
       </g>
