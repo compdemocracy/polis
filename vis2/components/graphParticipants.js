@@ -12,8 +12,8 @@ const GraphParticipants = ({points}) => {
     <g>
       {points.map((pt, i) => {
         return <circle
-          r={6}
-          fill={globals.groupColor(pt.gid)}
+          r={4}
+          fill={/* globals.groupColor(pt.gid)*/ "rgb(130,130,130)"}
           key={i}
           cx={pt.x}
           cy={pt.y}/>
