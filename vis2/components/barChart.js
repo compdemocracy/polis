@@ -1,6 +1,6 @@
 import React from "react";
 
-const BarChart = ({comment, groupVotes, ptptCount}) => {
+const BarChart = ({comment, groupVotes, ptptCount, translate}) => {
 
   const rectStartX = 70;
   const barHeight = 15;
@@ -55,7 +55,7 @@ const BarChart = ({comment, groupVotes, ptptCount}) => {
   }
 
   return (
-    <g>
+    <g transform={translate ? translate : "translate(0,0)"}>
       {arr.map((d, i) => {
         return (
           <g key={i}>

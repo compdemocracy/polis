@@ -13,14 +13,21 @@ const BarChartsForGroupVotes = ({selectedComment, allComments, groupVotes}) => {
   //     </g>
   //   )
 
+  const translations = ["translate(10,10)", "translate(10, 650)", "translate(500,10)", "translate(500,650)"]
+
   const drawBarChartsForGroupVotesOnSelectedComment = () => {
-    return (
-      <BarChart
-        comment={selectedComment}
-        groupVotes={groupVotes[0] /* hardcode first group for debug */}
-        translate={"we can pass in the translate to be applied to the g element that will put the comment where it needs to go depending on what group it is associated with"}
-        ptptCount={"ptptCount doesn't matter and isn't used because this barchart is for a group, not global"}/>
-    )
+    let arr = []
+    _.each(groupVotes, (group, i) => {
+      arr.push(
+        <BarChart
+          key={i}
+          comment={selectedComment}
+          groupVotes={group /* hardcode first group for debug */}
+          translate={translations[i]}
+          ptptCount={"ptptCount doesn't matter and isn't used because this barchart is for a group, not global"}/>
+      )
+    })
+    return arr;
   }
 
   return (
