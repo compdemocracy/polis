@@ -7,7 +7,8 @@ import graphUtil from "../util/graphUtil";
 import Axes from "./graphAxes";
 import Comments from "./graphComments";
 import Participants from "./graphParticipants";
-import Hull from "./hull";
+import Hulls from "./hull";
+import BarChartsForGroupVotes from "./barChartsForGroupVotes";
 
 class Graph extends React.Component {
 
@@ -74,46 +75,38 @@ class Graph extends React.Component {
               </text>
             </g>
             <Axes xCenter={xCenter} yCenter={yCenter} report={this.props.report}/>
+            <Hulls hulls={hulls} showOnlyGroup={this.props.showOnlyGroup} />
             <Participants points={baseClustersScaled}/>
-            {/* this.props.math["group-clusters"].map((cluster, i) => {
-              return (<text x={300} y={300}> Renzi Supporters </text>)
-            }) : null */}
-            {
-              hulls.map((hull) => {
-                let gid = hull.group[0].gid;
-                if (_.isNumber(this.props.showOnlyGroup)) {
-                  if (gid !== this.props.showOnlyGroup) {
-                    return "";
-                  }
-                }
-                return <Hull key={gid} hull={hull}/>
-              })
-            }
-            {
-              commentsPoints ?
-              <Comments
-                handleCommentHover={this.handleCommentHover.bind(this)}
-                points={commentsPoints}
-                repfulAgreeTidsByGroup={this.props.repfulAgreeTidsByGroup}
-                repfulDisageeTidsByGroup={this.props.repfulDisageeTidsByGroup}
-                showOnlyGroup={this.props.showOnlyGroup}
-                xx={xx}
-                yy={yy}
-                xCenter={xCenter}
-                yCenter={yCenter}
-                xScaleup={commentScaleupFactorX}
-                yScaleup={commentScaleupFactorY}
-                formatTid={this.props.formatTid}/> :
-              null
-            }
+            <Comments
+              commentsPoints={commentsPoints}
+              handleCommentHover={this.handleCommentHover.bind(this)}
+              points={commentsPoints}
+              repfulAgreeTidsByGroup={this.props.repfulAgreeTidsByGroup}
+              repfulDisageeTidsByGroup={this.props.repfulDisageeTidsByGroup}
+              showOnlyGroup={this.props.showOnlyGroup}
+              xx={xx}
+              yy={yy}
+              xCenter={xCenter}
+              yCenter={yCenter}
+              xScaleup={commentScaleupFactorX}
+              yScaleup={commentScaleupFactorY}
+              formatTid={this.props.formatTid}/>
+            <BarChartsForGroupVotes
+              selectedComment={this.state.selectedComment}
+              allComments={this.props.comments}
+              groupVotes={window.preload.firstMath["group-votes"]}
+              />
           </svg>
-
       </div>
     );
   }
 }
 
 export default Graph;
+
+// {/* this.props.math["group-clusters"].map((cluster, i) => {
+//   return (<text x={300} y={300}> Renzi Supporters </text>)
+// }) : null */}
 
 // componentDidMount() {
 //   this.Viewer.fitToViewer();
