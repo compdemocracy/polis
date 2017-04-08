@@ -83,7 +83,7 @@
 (defn get-export-status
   [{:as darwin :keys [postgres]}
    {:as params :keys [filename zid]}]
-  (first (db/get-math-exportstatus postgres zid filename)))
+  (db/get-math-exportstatus postgres zid filename))
 
 
 ;; Uh... seems like we're not using `update-export-status` anywhere except for here; should delete one of these functions
@@ -117,10 +117,11 @@
   [darwin
    {:as params :keys [filename zinvite]}]
   (private-url darwin
-               (str "datadump/results?filename=" filename "&conversation_id=" zinvite)))
+               (str "datadump/results?filename=" filename "&zinvite=" zinvite)))
 
 ;(defn public-datadump-url
 ;  [darwin filename zinvite]
+;  ;; zinvite instead of conversation_id
 ;  (public-url darwin (str "dataExport/results?filename=" filename "&conversation_id=" zinvite)))
 
 
