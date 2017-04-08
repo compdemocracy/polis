@@ -353,10 +353,19 @@
      filename
      (pg-json data)]))
 
+
+(defn decode-pg-json
+  [data]
+  (-> data .getValue cheshire/decode))
+
 (defn get-math-exportstatus
   [postgres zid filename]
   (log/info "get-math-exportstatus for zid" zid)
-  (first (query postgres ["select * from math_exportstatus where zid = (?) and math_env = (?) and filename = (?);" zid (name (-> postgres :config :math-env)) filename])))
+  (->>
+    (query postgres ["select * from math_exportstatus where zid = (?) and math_env = (?) and filename = (?);" zid (name (-> postgres :config :math-env)) filename])
+    first
+    :data
+    decode-pg-json))
 
 (defn get-math-tick
   [postgres zid]
@@ -391,7 +400,8 @@
   (def postgres (:postgres runner/system))
   (def config (:config postgres))
   (query postgres ["select * from zinvites limit 10"])
-  (query postgres ["insert into math_ticks (zid) values (?) on conflict (zid) do update set modified = now_as_millis(), math_tick = (math_ticks.math_tick + 1) returning *;" 12480])
+  (get-math-exportstatus postgres 15077 "polis-export-9ma5xnjxpj-1491632824548.zip")
+  ;(query postgres ["insert into math_ticks (zid) values (?) on conflict (zid) do update set modified = now_as_millis(), math_tick = (math_ticks.math_tick + 1) returning *;" 12480])
   (poll-tasks postgres 0)
   (query
     postgres
