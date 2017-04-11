@@ -8,7 +8,8 @@ import Axes from "./graphAxes";
 import Comments from "./graphComments";
 import Participants from "./graphParticipants";
 import Hulls from "./hull";
-import BarChartsForGroupVotes from "./barChartsForGroupVotes";
+import BarChartForVotes from "./barChartsForGroupVotes";
+import BarChart from "./barChart";
 
 class Graph extends React.Component {
 
@@ -55,12 +56,8 @@ class Graph extends React.Component {
       </p></span>);
 
     return (
-      <div style={{position: "relative"}}>
+      <div>
         {this.props.renderHeading ? heading : ""}
-
-        <p style={Object.assign({}, globals.paragraph, {position: "absolute", left: 0, top: -30})}>
-          {this.state.selectedComment ? "#" + this.state.selectedComment.tid + ". " + this.state.selectedComment.txt : null}
-        </p>
           <svg width="100%" height={globals.side}>
             {/* Comment https://bl.ocks.org/mbostock/7555321 */}
             <g transform={`translate(${globals.side / 2}, ${15})`}>
@@ -91,12 +88,32 @@ class Graph extends React.Component {
               xScaleup={commentScaleupFactorX}
               yScaleup={commentScaleupFactorY}
               formatTid={this.props.formatTid}/>
-            <BarChartsForGroupVotes
+            <BarChartForVotes
               selectedComment={this.state.selectedComment}
               allComments={this.props.comments}
-              groupVotes={window.preload.firstMath["group-votes"]}
+              groups={window.preload.firstMath["group-votes"]}
               />
           </svg>
+          <div style={{
+              width:"100%",
+              textAlign: "left",
+              padding: "40px 0px 40px 30px",
+              display: "flex",
+              justifyContent:"space-between"
+            }}>
+            {/*❮*/}
+            <p style={{maxWidth: 250}}>
+              {this.state.selectedComment ? "#" + this.state.selectedComment.tid + ". " + this.state.selectedComment.txt : null}
+            </p>
+            <svg width={260} height={100}>
+              <BarChart
+                selectedComment={this.state.selectedComment}
+                allComments={this.props.comments}
+                groups={window.preload.firstMath["group-votes"]}
+                />
+            </svg>
+            {/*❯*/}
+          </div>
       </div>
     );
   }

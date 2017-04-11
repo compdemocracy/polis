@@ -3,7 +3,7 @@ import _ from "lodash";
 import * as globals from "./globals";
 import BarChart from "./barChart";
 
-const BarChartsForGroupVotes = ({selectedComment, allComments, groupVotes}) => {
+const BarChartsForGroupVotes = ({selectedComment, allComments, groups}) => {
 
   // console.log('four bar charts', selectedComment, allComments, groupVotes)
 
@@ -17,11 +17,11 @@ const BarChartsForGroupVotes = ({selectedComment, allComments, groupVotes}) => {
 
   const drawBarChartsForGroupVotesOnSelectedComment = () => {
     let arr = []
-    _.each(groupVotes, (group, i) => {
+    _.each(groups, (group, i) => {
       arr.push(
         <BarChart
           key={i}
-          comment={selectedComment}
+          selectedComment={selectedComment}
           groupVotes={group /* hardcode first group for debug */}
           translate={translations[i]}
           ptptCount={"ptptCount doesn't matter and isn't used because this barchart is for a group, not global"}/>
