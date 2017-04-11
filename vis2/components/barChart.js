@@ -2,7 +2,6 @@ import React from "react";
 import _ from "lodash";
 
 const BarChart = ({selectedComment, groupVotes, groups, translate}) => {
-  console.log("Barchart: ", selectedComment, groupVotes, groups, translate)
 
   if (!selectedComment) return null;
 
