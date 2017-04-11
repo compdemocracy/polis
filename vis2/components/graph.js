@@ -76,6 +76,7 @@ class Graph extends React.Component {
             <Participants points={baseClustersScaled}/>
             <Comments
               commentsPoints={commentsPoints}
+              selectedComment={this.state.selectedComment}
               handleCommentHover={this.handleCommentHover.bind(this)}
               points={commentsPoints}
               repfulAgreeTidsByGroup={this.props.repfulAgreeTidsByGroup}

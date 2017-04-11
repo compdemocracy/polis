@@ -5,7 +5,6 @@ const GraphAxes = ({yCenter, xCenter, report}) => {
   return (
     <g>
       <line
-        strokeDasharray={"3, 3"}
         x1={50 /* magic number is axis padding */}
         y1={yCenter}
         x2={globals.side - 50}
@@ -15,7 +14,6 @@ const GraphAxes = ({yCenter, xCenter, report}) => {
           strokeWidth: 1
         }}/>
       <line
-        strokeDasharray={"3, 3"}
         x1={xCenter}
         y1={50 }
         x2={xCenter}
