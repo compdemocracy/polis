@@ -23,7 +23,12 @@ class Graph extends React.Component {
 
   handleCommentHover(selectedComment) {
     return () => {
-      // console.log('setting state', selectedComment)
+      this.setState({selectedComment});
+    }
+  }
+
+  handleCommentClick(selectedComment) {
+    return () => {
       this.setState({selectedComment});
     }
   }
@@ -56,65 +61,84 @@ class Graph extends React.Component {
       </p></span>);
 
     return (
-      <div>
+      <div style={{marginBottom: 200}}>
         {this.props.renderHeading ? heading : ""}
-          <svg width="100%" height={globals.side}>
-            {/* Comment https://bl.ocks.org/mbostock/7555321 */}
-            <g transform={`translate(${globals.side / 2}, ${15})`}>
-              <text
-                style={{
-                  fontFamily: "Georgia",
-                  fontSize: 14,
-                  fontStyle: "italic"
-                }}
-                textAnchor="middle">
+        <svg width="100%" height={globals.side}>
+          {/* Comment https://bl.ocks.org/mbostock/7555321 */}
+          <g transform={`translate(${globals.side / 2}, ${15})`}>
+            <text
+              style={{
+                fontFamily: "Georgia",
+                fontSize: 14,
+                fontStyle: "italic"
+              }}
+              textAnchor="middle">
 
-              </text>
-            </g>
-            <Axes xCenter={xCenter} yCenter={yCenter} report={this.props.report}/>
-            <Hulls hulls={hulls} showOnlyGroup={this.props.showOnlyGroup} />
-            <Participants points={baseClustersScaled}/>
-            <Comments
-              commentsPoints={commentsPoints}
-              selectedComment={this.state.selectedComment}
-              handleCommentHover={this.handleCommentHover.bind(this)}
-              points={commentsPoints}
-              repfulAgreeTidsByGroup={this.props.repfulAgreeTidsByGroup}
-              repfulDisageeTidsByGroup={this.props.repfulDisageeTidsByGroup}
-              showOnlyGroup={this.props.showOnlyGroup}
-              xx={xx}
-              yy={yy}
-              xCenter={xCenter}
-              yCenter={yCenter}
-              xScaleup={commentScaleupFactorX}
-              yScaleup={commentScaleupFactorY}
-              formatTid={this.props.formatTid}/>
-            <BarChartForVotes
+            </text>
+          </g>
+          <Axes xCenter={xCenter} yCenter={yCenter} report={this.props.report}/>
+          <Hulls hulls={hulls} showOnlyGroup={this.props.showOnlyGroup} />
+          <Participants points={baseClustersScaled}/>
+          <Comments
+            commentsPoints={commentsPoints}
+            selectedComment={this.state.selectedComment}
+            handleCommentHover={this.handleCommentHover.bind(this)}
+            points={commentsPoints}
+            repfulAgreeTidsByGroup={this.props.repfulAgreeTidsByGroup}
+            repfulDisageeTidsByGroup={this.props.repfulDisageeTidsByGroup}
+            showOnlyGroup={this.props.showOnlyGroup}
+            xx={xx}
+            yy={yy}
+            xCenter={xCenter}
+            yCenter={yCenter}
+            xScaleup={commentScaleupFactorX}
+            yScaleup={commentScaleupFactorY}
+            formatTid={this.props.formatTid}/>
+          <BarChartForVotes
+            selectedComment={this.state.selectedComment}
+            allComments={this.props.comments}
+            groups={window.preload.firstMath["group-votes"]}
+            />
+        </svg>
+        <div style={{
+            width:"100%",
+            textAlign: "left",
+            padding: "40px 0px 40px 30px",
+            display: "flex",
+            justifyContent:"space-between"
+          }}>
+          {/*❮*/}
+          <p style={{fontSize: 36}}>
+            {this.state.selectedComment ? "#" + this.state.selectedComment.tid : null}
+          </p>
+          <p style={{maxWidth: 250}}>
+            {this.state.selectedComment ? this.state.selectedComment.txt : null}
+          </p>
+          <svg width={260} height={100}>
+            <BarChart
               selectedComment={this.state.selectedComment}
               allComments={this.props.comments}
               groups={window.preload.firstMath["group-votes"]}
               />
           </svg>
-          <div style={{
-              width:"100%",
-              textAlign: "left",
-              padding: "40px 0px 40px 30px",
-              display: "flex",
-              justifyContent:"space-between"
-            }}>
-            {/*❮*/}
-            <p style={{maxWidth: 250}}>
-              {this.state.selectedComment ? "#" + this.state.selectedComment.tid + ". " + this.state.selectedComment.txt : null}
-            </p>
-            <svg width={260} height={100}>
-              <BarChart
-                selectedComment={this.state.selectedComment}
-                allComments={this.props.comments}
-                groups={window.preload.firstMath["group-votes"]}
-                />
-            </svg>
-            {/*❯*/}
-          </div>
+          {/*❯*/}
+        </div>
+        <div style={{width: "100%", padding: 10, overflow: "scroll"}}>
+          {this.props.comments.map((c) => { return (
+            <span
+              onClick={this.handleCommentClick(c)}
+              style={{
+                cursor: "pointer",
+                margin: 5,
+                padding: 5,
+                backgroundColor: "rgb(240,240,240)",
+                borderRadius: 3,
+              }}
+              key={c.tid}>
+              {c.tid}
+            </span>
+          )})}
+        </div>
       </div>
     );
   }

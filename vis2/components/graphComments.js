@@ -6,11 +6,13 @@ import * as globals from "./globals";
 
 class GraphComment extends React.Component {
   getRectX() {
-    let x;
-    if (this.props.pt.tid < 10) {
-      x = -7
-    } else {
+    let x = -7;
+
+    if (this.props.pt.tid >= 10 && this.props.pt.tid < 100) {
       x = -5
+    } else if (this.props.pt.tid >= 100) {
+      // big, handle hundreds for now...
+      x = -2
     }
 
     return x;
