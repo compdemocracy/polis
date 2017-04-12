@@ -2462,6 +2462,12 @@ module.exports = function(params) {
     return cachedPcaData.n;
   }
 
+  function getVotedOnTids() {
+    return votesByMe.map(function(vote) {
+      return vote.get("tid");
+    });
+  }
+
   return {
     authenticated: authenticated,
     getNextComment: getNextComment,
@@ -2470,6 +2476,7 @@ module.exports = function(params) {
     getCommentsForProjection: getCommentsForProjection,
     getTidsForGroup: getTidsForGroup,
     getTidsForConsensus: getTidsForConsensus,
+    getVotedOnTids: getVotedOnTids,
     getGroupInfo: getGroupInfo,
     getGroup: getGroup,
     getFancyComments: getFancyComments,

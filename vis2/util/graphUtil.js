@@ -80,15 +80,15 @@ const graphUtil = (comments, math, badTids) => {
     const xCenter = xx(0);
     const yCenter = yy(0);
 
-    var greatestAbsPtptX = _.maxBy(baseClusters, (pt) => { return Math.abs(pt.x); }).x;
-    var greatestAbsPtptY = _.maxBy(baseClusters, (pt) => { return Math.abs(pt.y); }).y;
-    var greatestAbsCommentX = _.maxBy(commentsPoints, (pt) => { return Math.abs(pt.x); }).x;
-    var greatestAbsCommentY = _.maxBy(commentsPoints, (pt) => { return Math.abs(pt.y); }).y;
+    var greatestAbsPtptX = (_.maxBy(baseClusters, (pt) => { return Math.abs(pt.x); }) || {x: 1}).x;
+    var greatestAbsPtptY = (_.maxBy(baseClusters, (pt) => { return Math.abs(pt.y); }) || {y: 1}).y;
+    var greatestAbsCommentX = (_.maxBy(commentsPoints, (pt) => { return Math.abs(pt.x); }) || {x: 1}).x;
+    var greatestAbsCommentY = (_.maxBy(commentsPoints, (pt) => { return Math.abs(pt.y); }) || {y: 1}).y;
 
-    var maxCommentX = _.maxBy(commentsPoints, (pt) => { return pt.x; }).x;
-    var minCommentX = _.minBy(commentsPoints, (pt) => { return pt.x; }).x;
-    var maxCommentY = _.maxBy(commentsPoints, (pt) => { return pt.y; }).y;
-    var minCommentY = _.minBy(commentsPoints, (pt) => { return pt.y; }).y;
+    var maxCommentX = (_.maxBy(commentsPoints, (pt) => { return pt.x; }) || {x: 1}).x;
+    var minCommentX = (_.minBy(commentsPoints, (pt) => { return pt.x; }) || {x: 1}).x;
+    var maxCommentY = (_.maxBy(commentsPoints, (pt) => { return pt.y; }) || {y: 1}).y;
+    var minCommentY = (_.minBy(commentsPoints, (pt) => { return pt.y; }) || {y: 1}).y;
 
     // xGreatestMapped = xCenter + xScale * maxCommentX
     // globals.side - border = xCenter + xScale * maxCommentX

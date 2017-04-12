@@ -69,6 +69,7 @@ class Root extends React.Component {
           groupNames={{}}
           badTids={badTids}
           formatTid={formatTid}
+          tidsToShow={this.props.tidsToShow}
           repfulAgreeTidsByGroup={repfulAgreeTidsByGroup}
           math={this.props.math_main}
           renderHeading={false}

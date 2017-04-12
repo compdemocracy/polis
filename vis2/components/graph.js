@@ -39,7 +39,9 @@ class Graph extends React.Component {
       return null;
     }
 
-    const {
+    let tidsToShowSet = _.keyBy(this.props.tidsToShow);
+
+    let {
       xx,
       yy,
       commentsPoints,
@@ -50,6 +52,13 @@ class Graph extends React.Component {
       commentScaleupFactorY,
       hulls,
     } = graphUtil(this.props.comments, this.props.math, this.props.badTids);
+
+    commentsPoints = commentsPoints.filter((c) => {
+      return !_.isUndefined(tidsToShowSet[c.tid]);
+    });
+    let commentsToShow = this.props.comments.filter((c) => {
+      return !_.isUndefined(tidsToShowSet[c.tid]);
+    });
 
     let heading = (<span><p style={{fontSize: globals.primaryHeading}}> Opinion Graph </p>
       <p style={globals.paragraph}>
@@ -124,7 +133,7 @@ class Graph extends React.Component {
           {/*❯*/}
         </div>
         <div style={{width: "100%", padding: 10, overflow: "scroll"}}>
-          {this.props.comments.map((c) => { return (
+          {commentsToShow.map((c) => { return (
             <span
               onClick={this.handleCommentClick(c)}
               style={{

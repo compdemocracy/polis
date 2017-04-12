@@ -253,6 +253,7 @@ module.exports = ConversationView.extend({
         {
           math_main: that.serverClient.getMathMain(),
           comments: comments,
+          tidsToShow: that.serverClient.getVotedOnTids(),
           // comments: this.allCommentsCollection.models,
         }
       );
@@ -332,6 +333,7 @@ module.exports = ConversationView.extend({
       eb.on(eb.vote, function() {
         that.socialButtonsAllowedToShow = true;
         that.updateVisibilityOfSocialButtons();
+        that.updateVis2();
       });
 
       // initialize this first to ensure that the vote view is showing and populated ASAP
@@ -471,6 +473,7 @@ module.exports = ConversationView.extend({
         that.groupNamesModel.set("groups", newGroups);
 
         $(".participationCount").html(newParticipantCount + (newParticipantCount === 1 ? " person" : " people"));
+        that.updateVis2();
       }
 
 
