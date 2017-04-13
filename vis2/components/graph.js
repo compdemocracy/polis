@@ -53,11 +53,14 @@ class Graph extends React.Component {
       hulls,
     } = graphUtil(this.props.comments, this.props.math, this.props.badTids);
 
+
+    let should_only_show_voted_on_comments = false;
+
     commentsPoints = commentsPoints.filter((c) => {
-      return !_.isUndefined(tidsToShowSet[c.tid]);
+      return !should_only_show_voted_on_comments || !_.isUndefined(tidsToShowSet[c.tid]);
     });
     let commentsToShow = this.props.comments.filter((c) => {
-      return !_.isUndefined(tidsToShowSet[c.tid]);
+      return !should_only_show_voted_on_comments || !_.isUndefined(tidsToShowSet[c.tid]);
     });
 
     let heading = (<span><p style={{fontSize: globals.primaryHeading}}> Opinion Graph </p>
