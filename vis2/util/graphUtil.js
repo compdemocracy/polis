@@ -53,7 +53,7 @@ const graphUtil = (comments, math, badTids) => {
       baseClusters.push({
         x: clusterXs[i],
         y: clusterYs[i],
-        id: bids[i],
+        bid: bids[i],
         gid: baseClusterIdToGid(bids[i]),
       });
       allXs.push(clusterXs[i]);
@@ -106,7 +106,7 @@ const graphUtil = (comments, math, badTids) => {
     const baseClustersScaled = baseClusters.map((p) => {
       return {
         gid: p.gid,
-        id: p.id,
+        bid: p.bid,
         x: xx(p.x),
         y: yy(p.y)
       }

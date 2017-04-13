@@ -90,7 +90,7 @@ class Graph extends React.Component {
           </g>
           <Axes xCenter={xCenter} yCenter={yCenter} report={this.props.report}/>
           <Hulls hulls={hulls} showOnlyGroup={this.props.showOnlyGroup} />
-          <Participants points={baseClustersScaled}/>
+          <Participants points={baseClustersScaled} ptptois={this.props.ptptois}/>
           <Comments
             commentsPoints={commentsPoints}
             selectedComment={this.state.selectedComment}

@@ -254,6 +254,7 @@ module.exports = ConversationView.extend({
           math_main: that.serverClient.getMathMain(),
           comments: comments,
           tidsToShow: that.serverClient.getVotedOnTids(),
+          ptptois: that.serverClient.getParticipantsOfInterest(),
           // comments: this.allCommentsCollection.models,
         }
       );

@@ -2417,6 +2417,10 @@ module.exports = function(params) {
     return items;
   }
 
+  function getParticipantsOfInterest() {
+    return participantsOfInterestVotes;
+  }
+
   function getGroup(gid) {
     return clustersCache[gid] && clustersCache[gid].members;
   }
@@ -2513,6 +2517,7 @@ module.exports = function(params) {
     findRepresentativeMetadata: findRepresentativeMetadata,
     parseMetadataFromCSV: parseMetadataFromCSV,
 
+    getParticipantsOfInterest: getParticipantsOfInterest,
     getParticipantsOfInterestForGid: getParticipantsOfInterestForGid,
     getPtptCount: getPtptCount,
     updateMyProjection: updateMyProjection,

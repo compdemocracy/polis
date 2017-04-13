@@ -2,7 +2,7 @@ import React from "react";
 import _ from "lodash";
 import * as globals from "./globals";
 
-const GraphParticipants = ({points}) => {
+const GraphParticipants = ({points, ptptois}) => {
 
   if (!points) {
     return null
@@ -13,8 +13,8 @@ const GraphParticipants = ({points}) => {
       {points.map((pt, i) => {
         return <circle
           r={4}
-          fill={/* globals.groupColor(pt.gid)*/ "rgb(130,130,130)"}
-          key={i}
+          fill={/* globals.groupColor(pt.gid)*/ ptptois[pt.bid] ? "orange" : "rgb(130,130,130)"}
+          key={pt.bid}
           cx={pt.x}
           cy={pt.y}/>
       })}
