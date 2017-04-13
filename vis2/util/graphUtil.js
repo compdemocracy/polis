@@ -44,26 +44,17 @@ const graphUtil = (comments, math, badTids) => {
       }
     }
 
-
-
-
     // participants
-    const clusterXs = [];//math["base-clusters"].x;
-    const clusterYs = []; //math["base-clusters"].y;
-    const proj = math.proj;
-    for (let i = 0; i < proj.length; i++) {
-      clusterXs.push(proj[i][0]);
-      clusterYs.push(proj[i][1]);
-    }
-
+    const clusterXs = math["base-clusters"].x;
+    const clusterYs = math["base-clusters"].y;
     const bids = math["base-clusters"].id;
     let baseClusters = [];
     for (let i = 0; i < clusterXs.length; i++) {
       baseClusters.push({
         x: clusterXs[i],
         y: clusterYs[i],
-        id: i, //bids[i],
-        gid: 0, //baseClusterIdToGid(bids[i]),
+        id: bids[i],
+        gid: baseClusterIdToGid(bids[i]),
       });
       allXs.push(clusterXs[i]);
       allYs.push(clusterYs[i]);
