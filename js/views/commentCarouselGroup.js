@@ -120,6 +120,7 @@ module.exports = CommentCarousel.extend({
         backgroundColor: backgroundColor,
         bodyColor: bodyColor,
         tweet_id: c.get("tweet_id"),
+        tid: c.get("tid"),
         s: Strings,
         txt: c.get("txt"),
         index: indexToTid.length-1,
