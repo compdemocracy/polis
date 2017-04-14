@@ -11,6 +11,8 @@ import Hulls from "./hull";
 import BarChartForVotes from "./barChartsForGroupVotes";
 import BarChart from "./barChart";
 
+let ptptoiScaleFactor = 0.5;
+
 class Graph extends React.Component {
 
   constructor(props) {
@@ -76,6 +78,7 @@ class Graph extends React.Component {
       <div style={{marginBottom: 200}}>
         {this.props.renderHeading ? heading : ""}
         <svg width="100%" height={globals.side}>
+
           {/* Comment https://bl.ocks.org/mbostock/7555321 */}
           <g transform={`translate(${globals.side / 2}, ${15})`}>
             <text
@@ -90,7 +93,7 @@ class Graph extends React.Component {
           </g>
           <Axes xCenter={xCenter} yCenter={yCenter} report={this.props.report}/>
           <Hulls hulls={hulls} showOnlyGroup={this.props.showOnlyGroup} />
-          <Participants points={baseClustersScaled} ptptois={this.props.ptptois}/>
+          <Participants points={baseClustersScaled} ptptois={this.props.ptptois} ptptoiScaleFactor={ptptoiScaleFactor}/>
           <Comments
             commentsPoints={commentsPoints}
             selectedComment={this.state.selectedComment}
@@ -159,6 +162,56 @@ class Graph extends React.Component {
 }
 
 export default Graph;
+
+          // <defs>
+          //   <marker
+          //     className={'helpArrow'}
+          //     id={'ArrowTip'}
+          //     viewBox={'0 0 14 14'}
+          //     refX={'1'
+          //     refY={'5'}
+          //     markerWidth={'5'}
+          //     markerHeight={'5'}
+          //     orient={'auto'}>
+          //     // "<path d='M 0 0 L 10 5 L 0 10 z' />
+          //     <circle cx = {'6'} cy = {'6'} r = {'5'} />
+          //   </marker>
+          //   <clipPath id={"clipCircleVis2"}>
+          //     <circle r={ptptOiRadius * ptptoiScaleFactor} cx={0} cy={0}/>
+          //   </clipPath>
+          //   <filter id={'colorMeMatrix'}>
+          //     <feColorMatrix
+          //       in={'SourceGraphic'}
+          //       type={'matrix'}
+          //       values={'0.33 0.33 0.33 0 0
+          //       0.33 0.33 0.33 0 0
+          //       0.33 0.33 0.33 0 0
+          //       0 0 0 1 0'} />
+          //   </filter>
+
+          //   <filter id={'colorMeMatrixRed'}
+          //     <feColorMatrix
+          //       in={'SourceGraphic'}
+          //       type={'matrix'}
+          //       values={'1.00 0.60 0.60 0 0.3
+          //         0.10 0.20 0.10 0 0
+          //         0.10 0.10 0.20 0 0
+          //         0 0 0 1 0'} />
+          //   </filter>
+
+          //   <filter id={'colorMeMatrixGreen'}>
+          //     <feColorMatrix
+          //       in={'SourceGraphic'}
+          //       type={'matrix'}
+          //       values={'0.20 0.10 0.10 0 0
+          //         0.60 1.00 0.60 0 0.3
+          //         0.10 0.10 0.40 0 0
+          //         0 0 0 1 0'} />
+          //   </filter>
+          // </defs>
+
+
+
 
 // {/* this.props.math["group-clusters"].map((cluster, i) => {
 //   return (<text x={300} y={300}> Renzi Supporters </text>)
