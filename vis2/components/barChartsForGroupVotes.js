@@ -5,15 +5,7 @@ import BarChart from "./barChart";
 
 const BarChartsForGroupVotes = ({selectedComment, allComments, groups}) => {
 
-  // console.log('four bar charts', selectedComment, allComments, groupVotes)
-
-  //   return (
-  //     <g>
-        // {/**/}
-  //     </g>
-  //   )
-
-  const translations = ["translate(10,10)", "translate(10, 650)", "translate(500,10)", "translate(500,650)"]
+  const translations = ["translate(-40,0)", "translate(-40, 650)", "translate(500,10)", "translate(500,650)"]
 
   const drawBarChartsForGroupVotesOnSelectedComment = () => {
     let arr = []
@@ -31,7 +23,7 @@ const BarChartsForGroupVotes = ({selectedComment, allComments, groups}) => {
   }
 
   return (
-    <g transform="translate(10,10)">
+    <g transform="translate(0,10)">
       {selectedComment ? drawBarChartsForGroupVotesOnSelectedComment() : null}
     </g>
   )

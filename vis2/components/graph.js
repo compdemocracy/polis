@@ -115,27 +115,29 @@ class Graph extends React.Component {
         <div style={{
             width:"100%",
             textAlign: "left",
-            padding: "40px 0px 40px 30px",
+            padding: "20px 0px 40px 10px",
             display: "flex",
-            justifyContent:"space-between"
+            justifyContent:"space-between",
+            alignItems: "flex-start",
           }}>
-          {/*❮*/}
           <p style={{fontSize: 36}}>
             {this.state.selectedComment ? "#" + this.state.selectedComment.tid : null}
           </p>
-          <p style={{maxWidth: 250}}>
+          <p style={{maxWidth: 300, fontSize: 14, fontFamily: "Georgia, serif", fontStyle: "italic"}}>
             {this.state.selectedComment ? this.state.selectedComment.txt : null}
           </p>
-          <svg width={260} height={100}>
-            <BarChart
-              selectedComment={this.state.selectedComment}
-              allComments={this.props.comments}
-              groups={window.preload.firstMath["group-votes"]}
-              />
-          </svg>
-          {/*❯*/}
+          <div style={{display: "flex", flexDirection: "column", alignItems: "center"}}>
+            <p style={{color: "black", fontWeight: 700, fontSize: 10, fontFamily: "Helvetica, sans-serif"}}>TOTAL:</p>
+            <svg width={260} height={100}>
+              <BarChart
+                selectedComment={this.state.selectedComment}
+                allComments={this.props.comments}
+                groups={window.preload.firstMath["group-votes"]}
+                />
+            </svg>
+          </div>
         </div>
-        <div style={{width: "100%", padding: 10, overflow: "scroll"}}>
+        <div style={{width: "100%", padding: 10, overflowX: "scroll", overflowY: "hidden"}}>
           {commentsToShow.map((c) => { return (
             <span
               onClick={this.handleCommentClick(c)}

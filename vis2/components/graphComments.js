@@ -44,6 +44,7 @@ class GraphComment extends React.Component {
           fill="rgba(0,0,0,0.7)"
           style={{
             fill: "black",
+            cursor: "pointer",
             display: "block",
             fontFamily: "Helvetica, sans-serif",
             fontSize: 10,
@@ -118,7 +119,6 @@ class GraphComments extends React.Component {
 }
 
   // transform={`translate(${globals.side / 2},${globals.side / 2})`}>
-
 
   // <circle
   //     r={4}

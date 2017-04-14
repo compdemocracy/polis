@@ -5,14 +5,18 @@ const BarChart = ({selectedComment, groupVotes, groups, translate}) => {
 
   if (!selectedComment) return null;
 
+  const rectStartX = 70;
+  const barHeight = 15;
+  const leftTextOffset = 63;
+
   let ptptCount;
   let commentCount;
   let commentAgreeCount;
   let commentDisagreeCount;
   let commentPassCount;
 
+  // it's the global barchart, so add everything up
   if (groups) {
-    // it's the global barchart, so add everything up
     ptptCount = _.reduce(groups, (accumulator, group, key) => {
       return accumulator += group["n-members"]
     }, 0);
@@ -34,31 +38,27 @@ const BarChart = ({selectedComment, groupVotes, groups, translate}) => {
     }, 0);
   }
 
-  const rectStartX = 70;
-  const barHeight = 15;
-  const leftTextOffset = 63;
-
   const arr = [
     {
-      label: "voted",
+      label: groups ? "voted" : "v",
       percent: commentCount / ptptCount * 100,
       ratio: " (" + commentCount + "/" + ptptCount + ")",
       fill: "rgb(230,230,230)"
     },
     {
-      label: "agreed",
+      label: groups ? "agreed" : "a",
       percent: commentAgreeCount / commentCount * 100,
       ratio: " (" + commentAgreeCount + "/" + commentCount + ")",
       fill: "rgb(46, 204, 113)"
     },
     {
-      label: "disagreed",
+      label: groups ? "disagreed" : "d",
       percent: commentDisagreeCount / commentCount * 100,
       ratio: " (" + commentDisagreeCount + "/" + commentCount + ")",
       fill: "rgb(231, 76, 60)"
     },
     {
-      label: "passed",
+      label: groups ? "passed" : "p",
       percent: commentPassCount / commentCount * 100,
       ratio: " (" + commentPassCount + "/" + commentCount + ")",
       fill: "rgb(230,230,230)"
@@ -104,19 +104,19 @@ const BarChart = ({selectedComment, groupVotes, groups, translate}) => {
               {d.label}
             </text>
             <rect
-              width={d.percent}
+              width={d.percent ? d.percent : 0}
               height={barHeight}
               x={rectStartX}
               y={((i+1) * 15) - 9}
               fill={d.fill}/>
             <text
-              x={leftTextOffset + d.percent + 10}
+              x={d.percent ? leftTextOffset + d.percent + 10 : leftTextOffset + 10}
               y={(i+1) * 15 + 2}
               fontFamily="Helvetica"
               fontSize="10"
               textAnchor={"start"}>
-              {Math.floor(d.percent) + "%"}
-              {d.ratio}
+              {d.percent ? Math.floor(d.percent) + "%" : "-"}
+              {d.percent ? d.ratio : ""}
             </text>
           </g>
         )
