@@ -111,7 +111,7 @@ class GraphComments extends React.Component {
   }
   render () {
     return (
-      <g>
+      <g id="vis2_comments">
         {this.props.commentsPoints ? this.drawComments() : null}
       </g>
     );

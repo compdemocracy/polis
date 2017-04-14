@@ -34,6 +34,7 @@ const GraphParticipants = ({points, ptptois, ptptoiScaleFactor}) => {
             cy={pt.y}/>
         }
       })}
+    <g id="vis2_participants">
     </g>
   );
 }
