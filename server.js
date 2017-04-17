@@ -817,14 +817,17 @@ function getUidForApiKey(apikey) {
 
 
 // http://en.wikipedia.org/wiki/Basic_access_authentication#Client_side
-function doApiKeyBasicAuth(assigner, isOptional, req, res, next) {
-  let header = req.headers.authorization || '', // get the header
-    token = header.split(/\s+/).pop() || '', // and the encoded auth token
+function doApiKeyBasicAuth(assigner, header, isOptional, req, res, next) {
+  let token = header.split(/\s+/).pop() || '', // and the encoded auth token
     auth = new Buffer(token, 'base64').toString(), // convert from base64
     parts = auth.split(/:/), // split on colon
     username = parts[0],
     // password = parts[1], // we don't use the password part (just use "apikey:")
     apikey = username;
+  return doApiKeyAuth(assigner, apikey, isOptional, req, res, next);
+}
+
+function doApiKeyAuth(assigner, apikey, isOptional, req, res, next) {
   getUidForApiKey(apikey).then(function(rows) {
     if (!rows || !rows.length) {
       res.status(403);
@@ -836,7 +839,7 @@ function doApiKeyBasicAuth(assigner, isOptional, req, res, next) {
   }).catch(function(err) {
     res.status(403);
     console.error(err.stack);
-    next("polis_err_auth_no_such_api_token");
+    next("polis_err_auth_no_such_api_token2");
   });
 }
 
@@ -1888,7 +1891,9 @@ function initializePolisHelpers() {
         } else if (token) {
           doCookieAuth(assigner, isOptional, req, res, onDone);
         } else if (req.headers.authorization) {
-          doApiKeyBasicAuth(assigner, isOptional, req, res, onDone);
+          doApiKeyBasicAuth(assigner, req.headers.authorization, isOptional, req, res, onDone);
+        } else if (req.headers["x-sandstorm-app-polis-apikey"]) {
+          doApiKeyAuth(assigner, req.headers["x-sandstorm-app-polis-apikey"], isOptional, req, res, onDone);
         } else if (req.body.agid) { // Auto Gen user  ID
           createDummyUser().then(function(uid) {
             let shouldAddCookies = _.isUndefined(req.body.xid);
