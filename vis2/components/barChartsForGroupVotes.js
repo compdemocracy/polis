@@ -3,20 +3,49 @@ import _ from "lodash";
 import * as globals from "./globals";
 import BarChart from "./barChart";
 
-const BarChartsForGroupVotes = ({selectedComment, allComments, groups}) => {
+const BarChartsForGroupVotes = ({selectedComment, allComments, groups, groupCornerAssignments}) => {
 
-  const translations = ["translate(-40,0)", "translate(-40, 650)", "translate(500,10)", "translate(500,650)"]
+  const translations = {
+    nw: [-40, 0],
+    ne: [-40, 650],
+    sw: [500, 10],
+    se: [500, 650],
+  };
+
+  let cornerKeys = _.keys(groupCornerAssignments)
+  function getCorner(gid) {
+    for (let i = 0; i < cornerKeys.length; i++) {
+      let key = cornerKeys[i];
+      if (groupCornerAssignments[key].gid === gid) {
+        return {
+          corner: key,
+          target: groupCornerAssignments[key].pos,
+        };
+      }
+    }
+    console.error('no corner');
+    return null;
+  }
 
   const drawBarChartsForGroupVotesOnSelectedComment = () => {
     let arr = []
     _.each(groups, (group, i) => {
+      let {
+        corner,
+        target,
+      } = getCorner(group.id);
+      let translation = translations[corner];
       arr.push(
-        <BarChart
-          key={i}
-          selectedComment={selectedComment}
-          groupVotes={group /* hardcode first group for debug */}
-          translate={translations[i]}
-          ptptCount={"ptptCount doesn't matter and isn't used because this barchart is for a group, not global"}/>
+        <g>
+          <line x1={translation[0] + 100} y1={translation[1] + 50} x2={target[0]} y2={target[1]} style={{stroke: "rgb(255,0,0)", strokeWidth:"2"}}/>
+          <BarChart
+            key={group.id}
+            selectedComment={selectedComment}
+            groupVotes={group /* hardcode first group for debug */}
+            translate={"translate(" + translation[0] + "," + translation[1] + ")"}
+            target={target}
+            ptptCount={"ptptCount doesn't matter and isn't used because this barchart is for a group, not global"}/>
+        </g>
       )
     })
     return arr;

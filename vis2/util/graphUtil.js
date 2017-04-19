@@ -3,6 +3,99 @@ import _ from "lodash";
 import createHull from "hull.js";
 
 
+
+const position_nw_0 = -99;
+const position_nw_1 = -99;
+
+const position_sw_0 = 99;
+const position_sw_1 = -99;
+
+const position_ne_0 = -99;
+const position_ne_1 = 99;
+
+const position_se_0 = 99;
+const position_se_1 = 99;
+
+
+function getScore(candidate) {
+  let score = 0;
+  score += Math.abs(candidate.nw.pos && (position_nw_0 - candidate.nw.pos[0]) || 0);
+  score += Math.abs(candidate.nw.pos && (position_nw_1 - candidate.nw.pos[1]) || 0);
+  score += Math.abs(candidate.sw.pos && (position_sw_0 - candidate.sw.pos[0]) || 0);
+  score += Math.abs(candidate.sw.pos && (position_sw_1 - candidate.sw.pos[1]) || 0);
+  score += Math.abs(candidate.ne.pos && (position_ne_0 - candidate.ne.pos[0]) || 0);
+  score += Math.abs(candidate.ne.pos && (position_ne_1 - candidate.ne.pos[1]) || 0);
+  score += Math.abs(candidate.se.pos && (position_se_0 - candidate.se.pos[0]) || 0);
+  score += Math.abs(candidate.se.pos && (position_se_1 - candidate.se.pos[1]) || 0);
+  return score;
+}
+
+function getGroupCornerAssignments(math) {
+  let groupCornerAssignments = {
+    nw: null,
+    sw: null,
+    ne: null,
+    se: null,
+  };
+
+  const clusters = math['group-clusters'];
+
+  let candidate = {
+    nw: null,
+    sw: null,
+    ne: null,
+    se: null,
+  };
+
+  let bestCandidate = null;
+  let bestScore = Infinity;
+
+  for (let i = 0; i < 4; i++) { // nw
+    candidate.nw = {
+      gid: i,
+      pos: clusters[i] && _.clone(clusters[i].center),
+    };
+    for (let j = 0; j < 4; j++) { // sw
+      if (j === i) { continue; }
+      candidate.sw = {
+        gid: j,
+        pos: clusters[j] && _.clone(clusters[j].center),
+      };
+
+      for (let k = 0; k < 4; k++) { // ne
+        if (k === i || k === j) { continue; }
+        candidate.ne = {
+          gid: k,
+          pos: clusters[k] && _.clone(clusters[k].center),
+        };
+
+        for (let m = 0; m < 4; m++) { // se
+          if (m === i || m === j || m === k) { continue; }
+          candidate.se = {
+            gid: m,
+            pos: clusters[m] && _.clone(clusters[m].center),
+          };
+
+          let score = getScore(candidate);
+          if (score < bestScore) {
+            bestCandidate = _.clone(candidate);
+            bestScore = score;
+          }
+        }
+      }
+    }
+  }
+  return bestCandidate;
+}
+
+function doMapCornerPointer(corner, xx, yy) {
+  if (corner.pos) {
+    corner.pos = _.clone(corner.pos);
+    corner.pos[0] = xx(corner.pos[0]);
+    corner.pos[1] = yy(corner.pos[1]);
+  }
+}
+
 const graphUtil = (comments, math, badTids) => {
 
     const allXs = [];
@@ -138,6 +231,14 @@ const graphUtil = (comments, math, badTids) => {
       })
     })
 
+
+    let groupCornerAssignments = getGroupCornerAssignments(math);
+    doMapCornerPointer(groupCornerAssignments.ne, xx, yy);
+    doMapCornerPointer(groupCornerAssignments.nw, xx, yy);
+    doMapCornerPointer(groupCornerAssignments.se, xx, yy);
+    doMapCornerPointer(groupCornerAssignments.sw, xx, yy);
+
+
     return {
       xx,
       yy,
@@ -148,6 +249,7 @@ const graphUtil = (comments, math, badTids) => {
       commentScaleupFactorX,
       commentScaleupFactorY,
       hulls,
+      groupCornerAssignments,
     }
 
 }

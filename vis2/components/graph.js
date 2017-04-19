@@ -53,8 +53,10 @@ class Graph extends React.Component {
       commentScaleupFactorX,
       commentScaleupFactorY,
       hulls,
+      groupCornerAssignments,
     } = graphUtil(this.props.comments, this.props.math, this.props.badTids);
 
+    console.log(groupCornerAssignments);
 
     let should_only_show_voted_on_comments = false;
 
@@ -113,6 +115,7 @@ class Graph extends React.Component {
             selectedComment={this.state.selectedComment}
             allComments={this.props.comments}
             groups={window.preload.firstMath["group-votes"]}
+            groupCornerAssignments={groupCornerAssignments}
             />
         </svg>
         <div style={{
