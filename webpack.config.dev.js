@@ -10,7 +10,7 @@ module.exports = {
   output: {
     path: path.join(__dirname, 'develvis2'),
     filename: 'vis_bundle.js',
-    publicPath: '/pub_vis2/'
+    publicPath: 'SET_THIS_FROM_GULP'
   },
   plugins: [
     new webpack.HotModuleReplacementPlugin(),

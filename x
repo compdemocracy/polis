@@ -1,2 +1,3 @@
 . ${NVM_DIR}/nvm.sh
-nvm run `node ./bin/printNodeVersion` gulpfile.js default
+# export NODE_ENV=development
+BABEL_ENV=development nvm run `node ./bin/printNodeVersion` gulpfile.js default

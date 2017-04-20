@@ -47,9 +47,7 @@ var sys = require('sys');
 var url = require('url');
 
 
-var webpack = require("webpack");
-var config = require("./webpack.config.dev");
-var compiler = webpack(config);
+
 
 
 // WARNING: useJsHint gets mutated in watch builds
@@ -69,6 +67,17 @@ var preprodMode = false;
 var prodMode = false;
 var host;
 var MINIFY_PREPROD = false;
+
+
+var basepath_visbundle_dev = "/foo";
+
+var webpack = require("webpack");
+var config = require("./webpack.config.dev");
+config.output.publicPath = basepath_visbundle_dev + "/js/";
+// console.log(config.output.publicPath);
+var compiler = webpack(config);
+var webpackStream = require('webpack-stream');
+
 
 function showDesktopNotification(title, body) {
   var child = spawn("osascript", ["-e", 'display notification "'+body+'" with title "'+title+'"'], {cwd: process.cwd()}),
@@ -236,6 +245,7 @@ gulp.task('index', [
   if (devMode) {
     s = s.pipe(template({
       basepath: basepath,
+      basepath_visbundle: basepath_visbundle_dev,
       d3Filename: 'd3.js',
       versionString: versionString,
     }));
@@ -243,6 +253,7 @@ gulp.task('index', [
     s = s.pipe(template({
       //basepath: 'https://s3.amazonaws.com/pol.is',
       basepath: basepath, // proxy through server (cached by cloudflare, and easier than choosing a bucket for preprod, etc)
+      basepath_visbundle: basepath,
       d3Filename: 'd3.min.js',
       versionString: versionString,
     }));
@@ -356,6 +367,19 @@ gulp.task('jshint', function(){
 })
 
 gulp.task('lint', ['jshint']);
+
+
+gulp.task('scriptsVis2', ['jshint'], function() {
+
+  var configProd = require('./webpack.config.js');
+  config.output.publicPath = destRoot() + "/js/";
+
+  return gulp.src('./vis2/vis2.js')
+    .pipe(webpackStream(configProd))
+    .pipe(gzip())
+    .pipe(renameToRemoveGzExtention())
+    .pipe(gulp.dest(destRoot() + "/js"));
+});
 
 
 gulp.task('scripts', ['templates', 'jshint'], function() {
@@ -479,6 +503,20 @@ gulp.task('scripts', ['templates', 'jshint'], function() {
       return s.pipe(gulp.dest(destRoot() + "/js"));
 });
 
+function renameToRemoveGzExtention() {
+  return rename(function (path) {
+    // path.dirname += "/ciao";
+    // path.basename += "-goodbye";
+    // path.extname = ".md"
+
+    // remove .gz extension
+    var ext = path.extname;
+    path.extname = ext.substr(0, ext.length- ".gz".length);
+  });
+}
+
+
+
 // for big infrequently changing scripts that we don't want to concatenate
 // on each dev build.
 gulp.task("scriptsOther", function() {
@@ -494,15 +532,7 @@ gulp.task("scriptsOther", function() {
     s = s
       .pipe(uglify())
       .pipe(gzip())
-      .pipe(rename(function (path) {
-        // path.dirname += "/ciao";
-        // path.basename += "-goodbye";
-        // path.extname = ".md"
-
-        // remove .gz extension
-        var ext = path.extname;
-        path.extname = ext.substr(0, ext.length- ".gz".length);
-      }));
+      .pipe(renameToRemoveGzExtention());
   }
   return s.pipe(gulp.dest(destRoot() + "/js"));
 });
@@ -561,6 +591,7 @@ gulp.task('dist', [
   ], function(callback){
     runSequence(
       'cleanDist',
+      'scriptsVis2',
       'common',
       // ['build-scripts', 'build-styles'], // these two would be parallel
       // 'build-html',
