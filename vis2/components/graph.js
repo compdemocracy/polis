@@ -23,6 +23,14 @@ class Graph extends React.Component {
     };
   }
 
+  componentWillMount() {
+    console.log("graph mounted");
+    document.getElementById("helpTextGroups").style.display = "none";
+    document.getElementById("visualization_div").style.display = "none";
+    document.getElementById("carouselPane").style.display = "none";
+    document.getElementsByClassName("groupSelectionView")[0].style.display = "none";
+  }
+
   handleCommentHover(selectedComment) {
     return () => {
       this.setState({selectedComment});
@@ -77,7 +85,7 @@ class Graph extends React.Component {
       </p></span>);
 
     return (
-      <div style={{marginBottom: 200}}>
+      <div>
         {this.props.renderHeading ? heading : ""}
         <svg width="100%" height={globals.side}>
 
@@ -121,7 +129,7 @@ class Graph extends React.Component {
         <div style={{
             width:"100%",
             textAlign: "left",
-            padding: "20px 0px 40px 10px",
+            padding: "20px 0px 0px 10px",
             display: "flex",
             justifyContent:"space-between",
             alignItems: "flex-start",
@@ -143,21 +151,35 @@ class Graph extends React.Component {
             </svg>
           </div>
         </div>
-        <div style={{width: "100%", padding: 10, overflowX: "scroll", overflowY: "hidden"}}>
-          {commentsToShow.map((c) => { return (
-            <span
-              onClick={this.handleCommentClick(c)}
-              style={{
-                cursor: "pointer",
-                margin: 5,
-                padding: 5,
-                backgroundColor: "rgb(240,240,240)",
-                borderRadius: 3,
-              }}
-              key={c.tid}>
-              {c.tid}
-            </span>
-          )})}
+        <div style={{display: "flex", paddingLeft: 20, paddingRight: 20}}>
+          <p style={{
+              fontSize: 18,
+              fontWeight: 500,
+              position: "relative",
+              top: 5,
+              marginRight: 20
+            }}> Comments: </p>
+          <div style={{
+              width: "100%",
+              padding: 10,
+              overflowX: "scroll",
+              overflowY: "hidden"
+            }}>
+            {commentsToShow.map((c) => { return (
+              <span
+                onClick={this.handleCommentClick(c)}
+                style={{
+                  cursor: "pointer",
+                  margin: 5,
+                  padding: 5,
+                  backgroundColor: "rgb(240,240,240)",
+                  borderRadius: 3,
+                }}
+                key={c.tid}>
+                {c.tid}
+              </span>
+            )})}
+          </div>
         </div>
       </div>
     );

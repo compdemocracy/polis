@@ -36,7 +36,7 @@ const BarChartsForGroupVotes = ({selectedComment, allComments, groups, groupCorn
       } = getCorner(group.id);
       let translation = translations[corner];
       arr.push(
-        <g>
+        <g key={group.id}>
           <line x1={translation[0] + 100} y1={translation[1] + 50} x2={target[0]} y2={target[1]} style={{stroke: "rgb(255,0,0)", strokeWidth:"2"}}/>
           <BarChart
             key={group.id}
