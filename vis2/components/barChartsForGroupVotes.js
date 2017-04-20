@@ -35,9 +35,26 @@ const BarChartsForGroupVotes = ({selectedComment, allComments, groups, groupCorn
         target,
       } = getCorner(group.id);
       let translation = translations[corner];
+      let yOffset = 0;
+      if (corner === "nw" || corner === "sw") { /* WARNING! this is reversed for some reason, this should be ne not sw. */
+        yOffset = 70;
+      }
+      // else if (corner === "sw" || corner === "se") {
+      //   yOffset = -200;
+      // }
+
+      console.log("corner: ", typeof(corner), corner, yOffset)
       arr.push(
         <g key={group.id}>
-          <line x1={translation[0] + 100} y1={translation[1] + 50} x2={target[0]} y2={target[1]} style={{stroke: "rgb(255,0,0)", strokeWidth:"2"}}/>
+          <line
+            x1={translation[0] + 100}
+            y1={translation[1] + yOffset}
+            x2={target[0]}
+            y2={target[1]}
+            style={{
+              stroke: "rgb(130,130,130)",
+              strokeWidth:"1"
+            }}/>
           <BarChart
             key={group.id}
             selectedComment={selectedComment}
