@@ -8,7 +8,7 @@ const Hull = ({hull}) => {
   return (
     <path
       d={pathString}
-      fill={/*globals.groupColor(hull.group[0].gid)*/ "rgb(200,200,200)"}
+      fill={/*globals.groupColor(hull.group[0].gid)*/ "rgb(220,220,220)"}
       fillOpacity={.4}/>
   );
 };
