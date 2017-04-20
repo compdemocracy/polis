@@ -1894,6 +1894,8 @@ function initializePolisHelpers() {
           doApiKeyBasicAuth(assigner, req.headers.authorization, isOptional, req, res, onDone);
         } else if (req.headers["x-sandstorm-app-polis-apikey"]) {
           doApiKeyAuth(assigner, req.headers["x-sandstorm-app-polis-apikey"], isOptional, req, res, onDone);
+        } else if (req.body["polisApiKey"]) {
+          doApiKeyAuth(assigner, req.body["polisApiKey"], isOptional, req, res, onDone);
         } else if (req.body.agid) { // Auto Gen user  ID
           createDummyUser().then(function(uid) {
             let shouldAddCookies = _.isUndefined(req.body.xid);
@@ -13752,6 +13754,9 @@ CREATE TABLE slack_user_invites (
         }
         if (temp.hname) {
           temp.hname = "somebody";
+        }
+        if (temp.polisApiKey) {
+          temp.polisApiKey = "pkey_somePolisApiKey";
         }
         b = JSON.stringify(temp);
       }
