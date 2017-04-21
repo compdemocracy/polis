@@ -133,7 +133,8 @@ class Graph extends React.Component {
             display: "flex",
             justifyContent:"space-between",
             alignItems: "flex-start",
-          }}>
+          }}
+            className={"lightPanel"}>
           <p style={{fontSize: 36}}>
             {this.state.selectedComment ? "#" + this.state.selectedComment.tid : null}
           </p>
