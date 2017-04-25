@@ -22,7 +22,7 @@
     "rimraf": "~2.2.8",
     "run-sequence": "~0.3.6",
     "simple-lru-cache": "0.0.1",
-    "underscore": "~1.5.2"
+    "underscore": "~1.5.2",
     "webpack-stream": "^3.2.0"
   },
   "devDependencies": {
