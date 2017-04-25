@@ -152,7 +152,7 @@ class Graph extends React.Component {
             </svg>
           </div>
         </div>
-        <div style={{display: "flex", paddingLeft: 20, paddingRight: 20}}>
+        <div style={{display: "flex", paddingLeft: 20, paddingRight: 20, marginTop: 10}}>
           <p style={{
               fontSize: 18,
               fontWeight: 500,
@@ -161,25 +161,35 @@ class Graph extends React.Component {
               marginRight: 20
             }}> Comments: </p>
           <div style={{
-              width: "100%",
-              padding: 10,
-              overflowX: "scroll",
-              overflowY: "hidden"
+            borderRadius: 3,
+            border: "1px solid rgb(200,200,200)",
+            overflow: "hidden",
+            width: "99%"
             }}>
-            {commentsToShow.map((c) => { return (
-              <span
-                onClick={this.handleCommentClick(c)}
-                style={{
-                  cursor: "pointer",
-                  margin: 5,
-                  padding: 5,
-                  backgroundColor: "rgb(240,240,240)",
-                  borderRadius: 3,
-                }}
-                key={c.tid}>
-                {c.tid}
-              </span>
-            )})}
+            <div style={{
+
+                width: "100%",
+                padding: 10,
+                overflowX: "scroll",
+                overflowY: "hidden",
+                boxShadow: "inset 1px 0px 5px 1px rgba(232,232,232,1)",
+
+              }}>
+              {commentsToShow.map((c) => { return (
+                <span
+                  onClick={this.handleCommentClick(c)}
+                  style={{
+                    cursor: "pointer",
+                    margin: 5,
+                    padding: 5,
+                    backgroundColor: "rgb(240,240,240)",
+                    borderRadius: 3,
+                  }}
+                  key={c.tid}>
+                  {c.tid}
+                </span>
+              )})}
+            </div>
           </div>
         </div>
       </div>
