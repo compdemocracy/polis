@@ -11,6 +11,9 @@ var zh_Hant = require("./strings/zh_Hant.js");
 // zh-Hans is Simplified Chinese. (CN, SG and MY can use the same file.)
 var zh_Hans = require("./strings/zh_Hans.js");
 
+// Danish
+var da = require("./strings/da_dk.js");
+
 // Spanish
 var es = require("./strings/es_la.js");
 
@@ -52,6 +55,9 @@ preloadHelper.acceptLanguagePromise.then(function() {
     }
     else if (languageCode.match(/^it/)) {
       _.extend(strings, it);
+    }
+    else if (languageCode.match(/^da/)) {
+      _.extend(strings, da);
     }
     else if (languageCode.match(/^es/)) {
       _.extend(strings, es);
