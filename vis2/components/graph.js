@@ -28,7 +28,6 @@ class Graph extends React.Component {
   componentWillMount() {
     console.log("graph mounted");
     document.getElementById("helpTextGroups").style.display = "none";
-    document.getElementById("readReactView").style.display = "none";
     document.getElementById("visualization_div").style.display = "none";
     document.getElementById("carouselPane").style.display = "none";
     document.getElementsByClassName("groupSelectionView")[0].style.display = "none";
@@ -36,17 +35,20 @@ class Graph extends React.Component {
 
   handleCommentHover(selectedComment) {
     return () => {
+      document.getElementById("readReactView").style.display = "none";
       this.setState({selectedComment});
     }
   }
 
   handleCommentClick(selectedComment) {
     return () => {
+      document.getElementById("readReactView").style.display = "none";
       this.setState({selectedComment});
     }
   }
 
   handleReturnToVoteClicked() {
+    document.getElementById("readReactView").style.display = "block";
     this.setState({selectedComment: null})
   }
 
