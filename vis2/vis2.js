@@ -83,6 +83,7 @@ class Root extends React.Component {
           repfulAgreeTidsByGroup={repfulAgreeTidsByGroup}
           math={this.props.math_main}
           renderHeading={false}
+          votesByMe={this.props.votesByMe}
           report={{}}/>
       </div>
 

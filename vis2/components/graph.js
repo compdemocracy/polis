@@ -101,6 +101,7 @@ class Graph extends React.Component {
           <ExploreTid
             handleReturnToVoteClicked={this.handleReturnToVoteClicked.bind(this)}
             selectedComment={this.state.selectedComment}
+            votesByMe={this.props.votesByMe}
             comments={this.props.comment}/> :
           <Vote
             />

@@ -2473,6 +2473,12 @@ module.exports = function(params) {
     });
   }
 
+  function getVotesByMe() {
+    return votesByMe && votesByMe.models && votesByMe.models.map(function(m) {
+      return m.attributes;
+    });
+  }
+
   return {
     authenticated: authenticated,
     getNextComment: getNextComment,
@@ -2482,6 +2488,7 @@ module.exports = function(params) {
     getTidsForGroup: getTidsForGroup,
     getTidsForConsensus: getTidsForConsensus,
     getVotedOnTids: getVotedOnTids,
+    getVotesByMe: getVotesByMe,
     getGroupInfo: getGroupInfo,
     getGroup: getGroup,
     getFancyComments: getFancyComments,
