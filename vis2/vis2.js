@@ -66,6 +66,10 @@ class Root extends React.Component {
     ptptois = _.values(ptptois);
     ptptois = _.keyBy(ptptois, "bid");
 
+    comments = comments.filter((c) => {
+      return !c.is_meta;
+    });
+
 
     return (
       <div>
