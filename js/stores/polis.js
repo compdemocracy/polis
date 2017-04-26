@@ -29,6 +29,7 @@ module.exports = function(params) {
       star: 1
     }
   };
+  window.polisTypes = polisTypes;
 
   var commentsToVoteOn = {}; // tid -> comment
 
