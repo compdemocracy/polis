@@ -8,8 +8,10 @@ import Axes from "./graphAxes";
 import Comments from "./graphComments";
 import Participants from "./graphParticipants";
 import Hulls from "./hull";
-import BarChartForVotes from "./barChartsForGroupVotes";
-import BarChart from "./barChart";
+import BarChartsForGroupVotes from "./barChartsForGroupVotes";
+import ExploreTid from "./exploreTid";
+import TidCarousel from "./tidCarousel";
+import Vote from "./voteView";
 
 let ptptoiScaleFactor = 0.5;
 
@@ -44,6 +46,10 @@ class Graph extends React.Component {
     }
   }
 
+  handleReturnToVoteClicked() {
+    this.setState({selectedComment: null})
+  }
+
   render() {
 
     if (!this.props.math) {
@@ -72,7 +78,7 @@ class Graph extends React.Component {
     commentsPoints = commentsPoints.filter((c) => {
       return !should_only_show_voted_on_comments || !_.isUndefined(tidsToShowSet[c.tid]);
     });
-    let commentsToShow = this.props.comments.filter((c) => {
+    let tidCarouselComments = this.props.comments.filter((c) => {
       return !should_only_show_voted_on_comments || !_.isUndefined(tidsToShowSet[c.tid]);
     });
 
@@ -88,6 +94,19 @@ class Graph extends React.Component {
     return (
       <div>
         {this.props.renderHeading ? heading : ""}
+        {
+          this.state.selectedComment ?
+          <ExploreTid
+            handleReturnToVoteClicked={this.handleReturnToVoteClicked.bind(this)}
+            selectedComment={this.state.selectedComment}
+            comments={this.props.comment}/> :
+          <Vote
+            />
+        }
+        <TidCarousel
+          commentsToShow={tidCarouselComments}
+          handleCommentClick={this.handleCommentClick.bind(this)}
+          />
         <svg width="100%" height={globals.side}>
 
           {/* Comment https://bl.ocks.org/mbostock/7555321 */}
@@ -120,79 +139,13 @@ class Graph extends React.Component {
             xScaleup={commentScaleupFactorX}
             yScaleup={commentScaleupFactorY}
             formatTid={this.props.formatTid}/>
-          <BarChartForVotes
+          <BarChartsForGroupVotes
             selectedComment={this.state.selectedComment}
             allComments={this.props.comments}
             groups={window.preload.firstMath["group-votes"]}
             groupCornerAssignments={groupCornerAssignments}
             />
         </svg>
-        <div style={{
-            width:"100%",
-            textAlign: "left",
-            padding: "20px 0px 0px 10px",
-            display: "flex",
-            justifyContent:"space-between",
-            alignItems: "flex-start",
-          }}
-            className={"lightPanel"}>
-          <p style={{fontSize: 36}}>
-            {this.state.selectedComment ? "#" + this.state.selectedComment.tid : null}
-          </p>
-          <p style={{maxWidth: 300, fontSize: 14, fontFamily: "Georgia, serif", fontStyle: "italic"}}>
-            {this.state.selectedComment ? this.state.selectedComment.txt : null}
-          </p>
-          <div style={{display: "flex", flexDirection: "column", alignItems: "center"}}>
-            <p style={{color: "black", fontWeight: 700, fontSize: 10, fontFamily: "Helvetica, sans-serif"}}>TOTAL:</p>
-            <svg width={260} height={100}>
-              <BarChart
-                selectedComment={this.state.selectedComment}
-                allComments={this.props.comments}
-                groups={window.preload.firstMath["group-votes"]}
-                />
-            </svg>
-          </div>
-        </div>
-        <div style={{display: "flex", paddingLeft: 20, paddingRight: 20, marginTop: 10}}>
-          <p style={{
-              fontSize: 18,
-              fontWeight: 500,
-              position: "relative",
-              top: 5,
-              marginRight: 20
-            }}> Comments: </p>
-          <div style={{
-            borderRadius: 3,
-            border: "1px solid rgb(200,200,200)",
-            overflow: "hidden",
-            width: "99%"
-            }}>
-            <div style={{
-
-                width: "100%",
-                padding: 10,
-                overflowX: "scroll",
-                overflowY: "hidden",
-                boxShadow: "inset 1px 0px 5px 1px rgba(232,232,232,1)",
-
-              }}>
-              {commentsToShow.map((c) => { return (
-                <span
-                  onClick={this.handleCommentClick(c)}
-                  style={{
-                    cursor: "pointer",
-                    margin: 5,
-                    padding: 5,
-                    backgroundColor: "rgb(240,240,240)",
-                    borderRadius: 3,
-                  }}
-                  key={c.tid}>
-                  {c.tid}
-                </span>
-              )})}
-            </div>
-          </div>
-        </div>
       </div>
     );
   }
