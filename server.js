@@ -400,13 +400,25 @@ const sql_conversations = sql.define({
     "auth_opt_allow_3rdparty",
   ],
 });
-const sql_votes = sql.define({
-  name: 'votes',
+
+// const sql_votes = sql.define({
+//   name: 'votes',
+//   columns: [
+//     "zid",
+//     "tid",
+//     "pid",
+//     "created",
+//     "vote",
+//   ],
+// });
+
+const sql_votes_latest_unique = sql.define({
+  name: 'votes_latest_unique',
   columns: [
     "zid",
     "tid",
     "pid",
-    "created",
+    "modified",
     "vote",
   ],
 });
@@ -1745,14 +1757,14 @@ function initializePolisHelpers() {
 
   function votesGet(p) {
     return new MPromise("votesGet", function(resolve, reject) {
-      let q = sql_votes.select(sql_votes.star())
-        .where(sql_votes.zid.equals(p.zid));
+      let q = sql_votes_latest_unique.select(sql_votes_latest_unique.star())
+        .where(sql_votes_latest_unique.zid.equals(p.zid));
 
       if (!_.isUndefined(p.pid)) {
-        q = q.where(sql_votes.pid.equals(p.pid));
+        q = q.where(sql_votes_latest_unique.pid.equals(p.pid));
       }
       if (!_.isUndefined(p.tid)) {
-        q = q.where(sql_votes.tid.equals(p.tid));
+        q = q.where(sql_votes_latest_unique.tid.equals(p.tid));
       }
       pgQuery_readOnly(q.toString(), function(err, results) {
         if (err) {
@@ -6881,11 +6893,11 @@ Email verified! You can close this tab or hit the back button.
           // Don't return comments the user has already voted on.
           q = q.and(
             sql_comments.tid.notIn(
-              sql_votes.subQuery().select(sql_votes.tid)
+              sql_votes_latest_unique.subQuery().select(sql_votes_latest_unique.tid)
               .where(
-                sql_votes.zid.equals(o.zid)
+                sql_votes_latest_unique.zid.equals(o.zid)
               ).and(
-                sql_votes.pid.equals(o.not_voted_by_pid)
+                sql_votes_latest_unique.pid.equals(o.not_voted_by_pid)
               )
             )
           );
