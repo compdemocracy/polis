@@ -2479,7 +2479,14 @@ module.exports = function(params) {
     });
   }
 
+  function addToVotesByMe(o) {
+    votesByMe.add(o, {
+      merge: true,
+    });
+  }
+
   return {
+    addToVotesByMe: addToVotesByMe,
     authenticated: authenticated,
     getNextComment: getNextComment,
     unvotedCommentsExist: unvotedCommentsExist,

@@ -102,6 +102,7 @@ class Graph extends React.Component {
             handleReturnToVoteClicked={this.handleReturnToVoteClicked.bind(this)}
             selectedComment={this.state.selectedComment}
             votesByMe={this.props.votesByMe}
+            onVoteClicked={this.props.onVoteClicked}
             comments={this.props.comment}/> :
           <Vote
             />

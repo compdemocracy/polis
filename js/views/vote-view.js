@@ -390,7 +390,7 @@ module.exports = Handlebones.ModelView.extend({
         conversation_id: conversation_id,
         tid: tid
       };
-      votesByMe.add(this.wipVote);
+      serverClient.addVotesByMe(this.wipVote);
       this.onButtonClicked();
       serverClient.agree(tid, starred)
         .then(onVote.bind(this), onFail.bind(this));
@@ -404,7 +404,7 @@ module.exports = Handlebones.ModelView.extend({
         conversation_id: conversation_id,
         tid: tid
       };
-      votesByMe.add(this.wipVote);
+      serverClient.addVotesByMe(this.wipVote);
       this.onButtonClicked();
       serverClient.disagree(tid, starred)
         .then(onVote.bind(this), onFail.bind(this));
@@ -418,7 +418,7 @@ module.exports = Handlebones.ModelView.extend({
         conversation_id: conversation_id,
         tid: tid
       };
-      votesByMe.add(this.wipVote);
+      serverClient.addVotesByMe(this.wipVote);
       this.onButtonClicked();
       serverClient.pass(tid, starred)
         .then(onVote.bind(this), onFail.bind(this));
@@ -435,7 +435,7 @@ module.exports = Handlebones.ModelView.extend({
 
     this.participantStarred = function() {
       var tid = this.model.get("tid");
-      votesByMe.add({
+      serverClient.addVotesByMe({
         participantStarred: true,
         vote: -1,
         conversation_id: conversation_id,

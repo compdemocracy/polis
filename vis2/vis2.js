@@ -84,6 +84,7 @@ class Root extends React.Component {
           math={this.props.math_main}
           renderHeading={false}
           votesByMe={this.props.votesByMe}
+          onVoteClicked={this.props.onVoteClicked}
           report={{}}/>
       </div>
 

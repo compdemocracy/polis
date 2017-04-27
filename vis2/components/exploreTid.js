@@ -5,6 +5,25 @@ import BarChart from "./barChart";
 
 class ExploreTid extends React.Component {
 
+  handleAgree() {
+    this.props.onVoteClicked({
+      tid: this.props.selectedComment.tid,
+      vote: window.polisTypes.reactions.pull,
+    });
+  }
+  handleDisagree() {
+    this.props.onVoteClicked({
+      tid: this.props.selectedComment.tid,
+      vote: window.polisTypes.reactions.push,
+    });
+  }
+  handlePass() {
+    this.props.onVoteClicked({
+      tid: this.props.selectedComment.tid,
+      vote: window.polisTypes.reactions.pass,
+    });
+  }
+
   render() {
 
     let currentVote = null;
@@ -33,7 +52,7 @@ class ExploreTid extends React.Component {
         cursor: "pointer",
         padding: "10px 20px"
       }}
-      onClick={this.props.handleChangeToAgreeClicked}>
+      onClick={this.handleAgree.bind(this)}>
       Agree
     </button>);
 
@@ -46,7 +65,7 @@ class ExploreTid extends React.Component {
         cursor: "pointer",
         padding: "10px 20px"
       }}
-      onClick={this.props.handleChangeToDisagreeClicked}>
+      onClick={this.handleDisagree.bind(this)}>
       Disagree
     </button>);
 
@@ -59,7 +78,7 @@ class ExploreTid extends React.Component {
         cursor: "pointer",
         padding: "10px 20px"
       }}
-      onClick={this.props.handleChangeToPassClicked}>
+      onClick={this.handlePass.bind(this)}>
       Pass
     </button>);
 

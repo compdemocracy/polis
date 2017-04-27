@@ -244,21 +244,49 @@ module.exports = ConversationView.extend({
     }
     return this.ptptModel.get("subscribed");
   },
+
   updateVis2: function() {
     var that = this;
     // TODO don't do a separate AJAX call for the comments.
     this.serverClient.getFancyComments().then(function(comments) {
-      window.renderVis(
-        document.getElementById("vis2_root"),
-        {
-          math_main: that.serverClient.getMathMain(),
-          comments: comments,
-          tidsToShow: that.serverClient.getVotedOnTids(),
-          ptptois: that.serverClient.getParticipantsOfInterest(),
-          votesByMe: that.serverClient.getVotesByMe(),
-          // comments: this.allCommentsCollection.models,
+      function doRenderVis() {
+        window.renderVis(
+          document.getElementById("vis2_root"),
+          {
+            math_main: that.serverClient.getMathMain(),
+            comments: comments,
+            tidsToShow: that.serverClient.getVotedOnTids(),
+            ptptois: that.serverClient.getParticipantsOfInterest(),
+            votesByMe: that.serverClient.getVotesByMe(),
+            onVoteClicked: onVoteClicked,
+            // comments: this.allCommentsCollection.models,
+          }
+        );
+      }
+
+      function onVoteClicked(o) {
+        var dfd = $.Deferred().reject()
+        if (o.vote === window.polisTypes.reactions.pull) {
+          dfd = that.serverClient.agree(o.tid);
+        } else if (o.vote === window.polisTypes.reactions.push) {
+          dfd = that.serverClient.disagree(o.tid);
+        } else if (o.vote === window.polisTypes.reactions.pass) {
+          dfd = that.serverClient.pass(o.tid);
         }
-      );
+        dfd.then(function() {
+          that.serverClient.addToVotesByMe({
+            vote: o.vote,
+            tid: o.tid,
+            conversation_id: that.conversation_id,
+          });
+          doRenderVis();
+        }, function() {
+          alert("error changing vote");
+        });
+
+      }
+
+      doRenderVis();
     });
   },
   updateVisMode: function() {
