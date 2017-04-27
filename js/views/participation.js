@@ -256,7 +256,7 @@ module.exports = ConversationView.extend({
             math_main: that.serverClient.getMathMain(),
             comments: comments,
             tidsToShow: that.serverClient.getVotedOnTids(),
-            ptptois: that.serverClient.getParticipantsOfInterest(),
+            ptptois: that.serverClient.getParticipantsOfInterestIncludingSelf(),
             votesByMe: that.serverClient.getVotesByMe(),
             onVoteClicked: onVoteClicked,
             // comments: this.allCommentsCollection.models,
@@ -265,7 +265,7 @@ module.exports = ConversationView.extend({
       }
 
       function onVoteClicked(o) {
-        var dfd = $.Deferred().reject()
+        var dfd = $.Deferred().reject();
         if (o.vote === window.polisTypes.reactions.pull) {
           dfd = that.serverClient.agree(o.tid);
         } else if (o.vote === window.polisTypes.reactions.push) {

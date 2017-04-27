@@ -13,11 +13,12 @@ const Participant = ({pt, ptptois, ptptoiScaleFactor}) => {
         <clipPath id={"social_image_clip_" + pt.bid}>
           <circle cx={0} cy={0} r={10} />
         </clipPath>
+        {ptptoi.isSelf ? <circle cx={0} cy={0} r={10} stroke={"#03a9f4"} strokeWidth={4}/> : ""}
         <image
           clipPath={`url(#social_image_clip_${pt.bid})`}
           x={-picSize/2 * ptptoiScaleFactor}
           y={-picSize/2 * ptptoiScaleFactor}
-          href={ptptoi.picture}
+          href={ptptoi.picture || ptptoi.pic}
           width={picSize * ptptoiScaleFactor}
           height={picSize * ptptoiScaleFactor}/>
       </g>

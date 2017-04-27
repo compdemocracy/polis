@@ -2422,6 +2422,27 @@ module.exports = function(params) {
     return participantsOfInterestVotes;
   }
 
+
+  function getParticipantsOfInterestIncludingSelf() {
+    var alreadyHaveSelf = participantsOfInterestVotes[myPid];
+    // _.some(participantsOfInterestVotes, function(p) {
+    //   console.log('pid', myPid, p.pid);
+    //   if (myPid === p.pid) {
+    //     console.log(p);
+    //   }
+    //   return myPid === p.pid;
+    // });
+    var result = _.clone(participantsOfInterestVotes);
+    if (alreadyHaveSelf) {
+      // nothing to do
+    } else {
+      result[myPid] = bucketizeSelf(projectSelf(), -1);
+      result[myPid].isSelf = true;
+    }
+    result[myPid].picture_size = 48;
+    return result;
+  }
+
   function getGroup(gid) {
     return clustersCache[gid] && clustersCache[gid].members;
   }
@@ -2534,6 +2555,7 @@ module.exports = function(params) {
 
     getParticipantsOfInterest: getParticipantsOfInterest,
     getParticipantsOfInterestForGid: getParticipantsOfInterestForGid,
+    getParticipantsOfInterestIncludingSelf: getParticipantsOfInterestIncludingSelf,
     getPtptCount: getPtptCount,
     updateMyProjection: updateMyProjection,
     shareConversationOnFacebook: shareConversationOnFacebook,

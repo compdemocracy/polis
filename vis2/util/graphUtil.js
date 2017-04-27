@@ -197,12 +197,12 @@ const graphUtil = (comments, math, badTids) => {
       Math.abs(yScaleCandidateForTopSide));
 
     const baseClustersScaled = baseClusters.map((p) => {
-      return {
+      return Object.assign({}, p, {
         gid: p.gid,
         bid: p.bid,
         x: xx(p.x),
-        y: yy(p.y)
-      }
+        y: yy(p.y),
+      });
     })
 
     const baseClustersScaledAndGrouped = {}
