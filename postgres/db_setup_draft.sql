@@ -208,7 +208,7 @@ CREATE TABLE contexts(
     name VARCHAR(300),
     creator INTEGER REFERENCES users(uid), -- rather than owner, since not sure how ownership will be done
     is_public BOOLEAN DEFAULT FALSE,
-    created BIGINT DEFAULT now_as_millis(),
+    created BIGINT DEFAULT now_as_millis()
 );
 
 CREATE TABLE courses(
@@ -218,7 +218,6 @@ CREATE TABLE courses(
     owner INTEGER REFERENCES users(uid),
     course_invite VARCHAR(32),
     created BIGINT DEFAULT now_as_millis(),
-    UNIQUE(invite),
     UNIQUE(course_id)
 );
 CREATE UNIQUE INDEX course_id_idx ON courses USING btree (course_id);
@@ -278,7 +277,6 @@ CREATE TABLE conversations(
     UNIQUE(zid)
 );
 CREATE INDEX conversations_owner_idx ON conversations USING btree (owner);
-
 
 CREATE TABLE slack_oauth_access_tokens (
     slack_access_token VARCHAR(100) NOT NULL,
@@ -482,7 +480,7 @@ CREATE TABLE facebook_users (
 
 CREATE TABLE social_settings (
     uid INTEGER NOT NULL REFERENCES users(uid),
-    polis_pic VARCHAR(3000), -- profile picture url (should be https)
+    polis_pic VARCHAR(3000) -- profile picture url (should be https)
 );
 
 -- we may have duplicates, since no upsert. We should periodically remove duplicates.
@@ -905,7 +903,7 @@ CREATE TABLE stars(
     pid INTEGER NOT NULL,
     tid INTEGER NOT NULL,
     starred INTEGER NOT NULL, -- 0 for unstarred, 1 for starred
-    created BIGINT DEFAULT now_as_millis(),
+    created BIGINT DEFAULT now_as_millis()
 );
 
 -- not enforcing uniqueness, save complete history
@@ -915,7 +913,7 @@ CREATE TABLE trashes(
     pid INTEGER NOT NULL,
     tid INTEGER NOT NULL,
     trashed INTEGER NOT NULL, -- 1 for trashed, 0 for untrashed
-    created BIGINT DEFAULT now_as_millis(),
+    created BIGINT DEFAULT now_as_millis()
 );
 
 
