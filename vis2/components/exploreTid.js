@@ -75,15 +75,29 @@ class ExploreTid extends React.Component {
     </button>);
 
 
+    // Conditionally show change votes buttons
+    let buttons = null;
+    if (window.preload.firstConv.is_active) {
+      if (!_.isNumber(currentVote)) {
+        buttons = <span>{agreeButton} {disagreeButton} {passButton}</span>
+      } else if (currentVote === window.polisTypes.reactions.pass) {
+        buttons = <span>Change your vote to {agreeButton} {disagreeButton}</span>
+      } else if (currentVote === window.polisTypes.reactions.pull) {
+        buttons = <span>Change your vote to {disagreeButton} {passButton}</span>
+      } else if (currentVote === window.polisTypes.reactions.push) {
+        buttons = <span>Change your vote to {agreeButton} {passButton}</span>
+      }
+    }
+
     let changeVotesElements = null;
-    if (_.isNull(currentVote)) {
-      changeVotesElements = <p>"no vote yet"</p>;
+    if (!_.isNumber(currentVote)) {
+      changeVotesElements = <p> {buttons}</p>
     } else if (currentVote === window.polisTypes.reactions.pass) {
-      changeVotesElements = <p> You: PASSED. Change your vote to {agreeButton} {disagreeButton}</p>
+      changeVotesElements = <p> You: PASSED. {buttons}</p>
     } else if (currentVote === window.polisTypes.reactions.pull) {
-      changeVotesElements = <p> You: AGREED. Change your vote to {disagreeButton} {passButton}</p>
+      changeVotesElements = <p> You: AGREED. {buttons}</p>
     } else if (currentVote === window.polisTypes.reactions.push) {
-      changeVotesElements = <p> You: DISAGREED. Change your vote to {agreeButton} {passButton}</p>
+      changeVotesElements = <p> You: DISAGREED. {buttons}</p>
     }
 
 
