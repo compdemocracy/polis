@@ -2074,6 +2074,7 @@ function initializePolisHelpers() {
     "api.twitter.com",
     "connect.stripe.com",
     "", // for API
+    "https://push.inteligenciademocratica.cc",
   ];
 
 
