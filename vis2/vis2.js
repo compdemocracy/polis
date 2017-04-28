@@ -70,7 +70,6 @@ class Root extends React.Component {
       return !c.is_meta;
     });
 
-
     return (
       <div>
         <Graph
@@ -87,7 +86,6 @@ class Root extends React.Component {
           onVoteClicked={this.props.onVoteClicked}
           report={{}}/>
       </div>
-
     );
   }
 }
