@@ -19,6 +19,7 @@ class Graph extends React.Component {
 
   constructor(props) {
     super(props);
+    this.hullElems = [];
     this.Viewer = null;
     this.state = {
       selectedComment: null,
@@ -26,7 +27,6 @@ class Graph extends React.Component {
   }
 
   componentWillMount() {
-    console.log("graph mounted");
     document.getElementById("helpTextGroups").style.display = "none";
     document.getElementById("visualization_div").style.display = "none";
     document.getElementById("carouselPane").style.display = "none";
@@ -52,6 +52,14 @@ class Graph extends React.Component {
     this.setState({selectedComment: null})
   }
 
+  getHullElems(gid) {
+    return (elem) => {
+      if (elem !== null) {
+        this.hullElems[gid] = elem;
+      }
+    }
+  }
+
   render() {
 
     if (!this.props.math) {
@@ -72,8 +80,6 @@ class Graph extends React.Component {
       hulls,
       groupCornerAssignments,
     } = graphUtil(this.props.comments, this.props.math, this.props.badTids);
-
-    console.log(groupCornerAssignments);
 
     let should_only_show_voted_on_comments = false;
 
@@ -126,7 +132,9 @@ class Graph extends React.Component {
             </text>
           </g>
           <Axes xCenter={xCenter} yCenter={yCenter} report={this.props.report}/>
-          <Hulls hulls={hulls} showOnlyGroup={this.props.showOnlyGroup} />
+          <Hulls
+            getHullElems={this.getHullElems.bind(this)}
+            hulls={hulls} />
           <Participants points={baseClustersScaled} ptptois={this.props.ptptois} ptptoiScaleFactor={ptptoiScaleFactor}/>
           <Comments
             commentsPoints={commentsPoints}
@@ -135,7 +143,6 @@ class Graph extends React.Component {
             points={commentsPoints}
             repfulAgreeTidsByGroup={this.props.repfulAgreeTidsByGroup}
             repfulDisageeTidsByGroup={this.props.repfulDisageeTidsByGroup}
-            showOnlyGroup={this.props.showOnlyGroup}
             xx={xx}
             yy={yy}
             xCenter={xCenter}
@@ -144,6 +151,7 @@ class Graph extends React.Component {
             yScaleup={commentScaleupFactorY}
             formatTid={this.props.formatTid}/>
           <BarChartsForGroupVotes
+            hullElems={this.hullElems}
             selectedComment={this.state.selectedComment}
             allComments={this.props.comments}
             groups={window.preload.firstMath["group-votes"]}
