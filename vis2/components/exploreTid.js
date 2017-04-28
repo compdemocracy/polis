@@ -29,19 +29,11 @@ class ExploreTid extends React.Component {
     let currentVote = null;
     if (this.props.selectedComment) {
       let selectedTid = this.props.selectedComment.tid;
-      console.log('selectedTid',selectedTid);
       let voteForSelectedComment = _.find(this.props.votesByMe, (v) => {
         return v.tid === selectedTid;
       });
-      console.log('this.props.votesByMe',this.props.votesByMe);
-
-
-      console.log('voteForSelectedComment',voteForSelectedComment);
-
       currentVote = voteForSelectedComment && voteForSelectedComment.vote;
-      console.log('currentVote',currentVote);
     }
-
 
     let agreeButton = (<button style={{
         border: "none",
