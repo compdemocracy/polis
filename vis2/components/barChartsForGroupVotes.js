@@ -2,8 +2,15 @@ import React from "react";
 import _ from "lodash";
 import * as globals from "./globals";
 import BarChart from "./barChart";
+import closestPoint from "../util/closestPointOnPath";
 
-const BarChartsForGroupVotes = ({selectedComment, allComments, groups, groupCornerAssignments}) => {
+const BarChartsForGroupVotes = ({
+  selectedComment,
+  allComments,
+  groups,
+  groupCornerAssignments,
+  hullElems
+}) => {
 
   const translations = {
     nw: [-40, 0],
@@ -43,14 +50,17 @@ const BarChartsForGroupVotes = ({selectedComment, allComments, groups, groupCorn
       //   yOffset = -200;
       // }
 
-      console.log("corner: ", typeof(corner), corner, yOffset)
+      console.log("group path: ", hullElems[group.id])
+
+      const closestPair = closestPoint(hullElems[group.id], [translation[0] + 100, translation[1] + yOffset])
+
       arr.push(
         <g key={group.id}>
           <line
             x1={translation[0] + 100}
             y1={translation[1] + yOffset}
-            x2={target[0]}
-            y2={target[1]}
+            x2={closestPair[0]}
+            y2={closestPair[1]}
             style={{
               stroke: "rgb(130,130,130)",
               strokeWidth:"1"
