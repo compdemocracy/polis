@@ -88,7 +88,7 @@ function getGroupCornerAssignments(math) {
   return bestCandidate;
 }
 
-function doMapCornerPointer(corner, xx, yy) {
+const doMapCornerPointer = (corner, xx, yy) => {
   if (corner.pos) {
     corner.pos = _.clone(corner.pos);
     corner.pos[0] = xx(corner.pos[0]);

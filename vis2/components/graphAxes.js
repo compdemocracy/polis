@@ -10,16 +10,16 @@ const GraphAxes = ({yCenter, xCenter, report}) => {
         x2={globals.side - 50}
         y2={yCenter}
         style={{
-          stroke: "rgb(130,130,130)",
+          stroke: "rgb(200,200,200)",
           strokeWidth: 1
         }}/>
       <line
         x1={xCenter}
-        y1={50 }
+        y1={50}
         x2={xCenter}
         y2={globals.side - 50 /* magic number is axis padding */}
         style={{
-          stroke: "rgb(130,130,130)",
+          stroke: "rgb(200,200,200)",
           strokeWidth: 1
         }}/>
       {/* Bottom axis */}
