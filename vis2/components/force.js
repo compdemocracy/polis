@@ -1,6 +1,5 @@
 import React from "react";
 import * as globals from "./globals";
-import { forceSimulation, forceCollide, forceManyBody } from "d3-force";
 import Comments from "./graphComments";
 import Participants from "./graphParticipants";
 
@@ -8,44 +7,55 @@ class Force extends React.Component {
 
   constructor(props) {
     super(props);
-    this.hullElems = [];
-    this.Viewer = null;
+
+    this.commentsPointsCopy = null;
 
     this.state = {
-      force_counter: 0,
       force_active: false,
     };
   }
 
-  onForceTick() {
-    this.setState({force_active: true})
+  componentDidUpdate() {
+    /* do force once for now - we'll need to NOT shouldComponentUpdate if it was just a hover on a comment... or be positive and say we just got new math as a flag */
+    if (!this.state.force_active) {
+      this.doForce()
+    }
+  }
+
+  onForceTick(data) {
+    console.log("d3 force tick", data)
+    this.setState({force_active: true});
   }
 
   doForce () {
-    const attractForce = d3.forceManyBody()
-                            .strength(580)
-                            .distanceMax(400)
-                            .distanceMin(1);
+
+    /*
+      make a copy of comments, force will mutate it in place and call tick when it has.
+      it would be nice if tick was passed data, but that is not the universe among universes we live in.
+    */
+    this.commentsPointsCopy = this.props.commentsPoints.slice(0)
 
     const collisionForce = d3.forceCollide()
-                              .radius((d) => { return d.r + 0.5; })
+                              .radius((d) => { return 5; })
                               .strength(1)
                               .iterations(100);
-
-    const simulation = d3.forceSimulation()
+    const simulation = d3.forceSimulation(this.commentsPointsCopy)
                           .alphaDecay(0.01)
-                          .force("attractForce", attractForce)
                           .force("collisionForce", collisionForce)
                           .on("tick", this.onForceTick.bind(this))
                           .on("end", () => {
                             this.setState({
-                              force_pause: true,
+                              force_active: false,
                               force_counter: this.state.force_counter + 1,
                             })
                           })
   }
 
   render () {
+    if (this.commentsPointsCopy) {
+      console.log('0',this.commentsPointsCopy[0])
+    }
+    
     return (
       <g>
         <Participants
@@ -53,7 +63,7 @@ class Force extends React.Component {
           ptptois={this.props.ptptois}
           ptptoiScaleFactor={this.props.ptptoiScaleFactor}/>
         <Comments
-          commentsPoints={this.props.commentsPoints}
+          commentsPoints={this.commentsPointsCopy /* this is a copy stored on the class, see comment above */}
           selectedComment={this.props.selectedComment}
           handleCommentHover={this.props.handleCommentHover}
           points={this.props.commentsPoints}
