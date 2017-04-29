@@ -79,7 +79,7 @@ const BarChartsForGroupVotes = ({
   }
 
   return (
-    <g transform="translate(0,10)">
+    <g>
       {selectedComment ? drawBarChartsForGroupVotesOnSelectedComment() : null}
     </g>
   )
