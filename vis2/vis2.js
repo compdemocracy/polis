@@ -103,9 +103,24 @@ injectTapEventPlugin();
 */
 
 
+class Header extends React.Component {
+  render() {
+    return <div>header2</div>;
+  }
+}
+
+
 window.renderVis = function(rootEl, props) {
   ReactDOM.render(
     React.createElement(Root, props, null),
     rootEl
   );
 }
+
+window.renderHeader = function(rootEl, props) {
+  ReactDOM.render(
+    React.createElement(Header, props, null),
+    rootEl
+  );
+}
+

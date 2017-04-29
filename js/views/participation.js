@@ -245,6 +245,15 @@ module.exports = ConversationView.extend({
     return this.ptptModel.get("subscribed");
   },
 
+  updateHeader: function() {
+    window.renderHeader(
+      document.getElementById("header_root"),
+      {
+        user: window.preload.firstUser,
+      }
+    );
+  },
+
   updateVis2: function() {
     var that = this;
     // TODO don't do a separate AJAX call for the comments.
@@ -1049,6 +1058,7 @@ module.exports = ConversationView.extend({
           // }
 
           that.updateVis2();
+          that.updateHeader();
 
 
           that.updateVisMode();
