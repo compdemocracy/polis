@@ -3,17 +3,13 @@ import _ from "lodash";
 // import {ReactSVGPanZoom} from 'react-svg-pan-zoom';
 import * as globals from "./globals";
 import graphUtil from "../util/graphUtil";
-
 import Axes from "./graphAxes";
-import Comments from "./graphComments";
-import Participants from "./graphParticipants";
+import Force from "./Force"
 import Hulls from "./hull";
 import BarChartsForGroupVotes from "./barChartsForGroupVotes";
 import ExploreTid from "./exploreTid";
 import TidCarousel from "./tidCarousel";
 import Vote from "./voteView";
-
-let ptptoiScaleFactor = 0.5;
 
 class Graph extends React.Component {
 
@@ -21,6 +17,7 @@ class Graph extends React.Component {
     super(props);
     this.hullElems = [];
     this.Viewer = null;
+
     this.state = {
       selectedComment: null,
     };
@@ -31,6 +28,57 @@ class Graph extends React.Component {
     document.getElementById("visualization_div").style.display = "none";
     document.getElementById("carouselPane").style.display = "none";
     document.getElementsByClassName("groupSelectionView")[0].style.display = "none";
+  }
+
+  componentWillReceiveProps(nextProps) {
+
+    if (!nextProps.math) {
+      return;
+    }
+
+    let tidsToShowSet = _.keyBy(nextProps.tidsToShow);
+
+    let {
+      xx,
+      yy,
+      commentsPoints,
+      xCenter,
+      yCenter,
+      baseClustersScaled,
+      commentScaleupFactorX,
+      commentScaleupFactorY,
+      hulls,
+      groupCornerAssignments,
+    } = graphUtil(nextProps.comments, nextProps.math, nextProps.badTids);
+
+    let should_only_show_voted_on_comments = false;
+    let ptptoiScaleFactor = 0.5;
+
+    commentsPoints = commentsPoints.filter((c) => {
+      return !should_only_show_voted_on_comments || !_.isUndefined(tidsToShowSet[c.tid]);
+    });
+
+    let tidCarouselComments = nextProps.comments.filter((c) => {
+      return !should_only_show_voted_on_comments || !_.isUndefined(tidsToShowSet[c.tid]);
+    });
+
+    this.setState({
+      comment_ptpt_positions_computed: true,
+      xx,
+      yy,
+      commentsPoints,
+      xCenter,
+      yCenter,
+      baseClustersScaled,
+      ptptoiScaleFactor,
+      commentScaleupFactorX,
+      commentScaleupFactorY,
+      hulls,
+      groupCornerAssignments,
+      commentsPoints,
+      tidCarouselComments
+    })
+
   }
 
   handleCommentHover(selectedComment) {
@@ -62,46 +110,13 @@ class Graph extends React.Component {
 
   render() {
 
-    if (!this.props.math) {
+    /* we're computing what's needed on update, that checks for math. */
+    if (!this.state.comment_ptpt_positions_computed) {
       return null;
     }
 
-    let tidsToShowSet = _.keyBy(this.props.tidsToShow);
-
-    let {
-      xx,
-      yy,
-      commentsPoints,
-      xCenter,
-      yCenter,
-      baseClustersScaled,
-      commentScaleupFactorX,
-      commentScaleupFactorY,
-      hulls,
-      groupCornerAssignments,
-    } = graphUtil(this.props.comments, this.props.math, this.props.badTids);
-
-    let should_only_show_voted_on_comments = false;
-
-    commentsPoints = commentsPoints.filter((c) => {
-      return !should_only_show_voted_on_comments || !_.isUndefined(tidsToShowSet[c.tid]);
-    });
-    let tidCarouselComments = this.props.comments.filter((c) => {
-      return !should_only_show_voted_on_comments || !_.isUndefined(tidsToShowSet[c.tid]);
-    });
-
-    let heading = (<span><p style={{fontSize: globals.primaryHeading}}> Opinion Graph </p>
-      <p style={globals.paragraph}>
-        This graph shows all people and all comments.
-      </p>
-      <p style={globals.paragraph}>
-        Comments, identified by their number, are positioned more closely to comments that were voted on similarly (blue, in the correlation matrix above). Comments are positioned further away from comments that tended to be voted on differently (red, in the correlation matrix above). </p>
-      <p style={globals.paragraph}>People are positioned closer to the comments on which they agreed, and further from the comments on which they disagreed. Groups of participants that tended to vote similarly across many comments (elaborated in the previous section) are identified by their similar color.
-      </p></span>);
-
     return (
       <div>
-        {this.props.renderHeading ? heading : ""}
         {
           this.state.selectedComment ?
           <ExploreTid
@@ -114,10 +129,10 @@ class Graph extends React.Component {
             />
         }
         <TidCarousel
-          commentsToShow={tidCarouselComments}
+          commentsToShow={this.state.tidCarouselComments}
           handleCommentClick={this.handleCommentClick.bind(this)}
           />
-        <svg width="100%" height={globals.side}>
+        <svg width={globals.side} height={globals.side}>
 
           {/* Comment https://bl.ocks.org/mbostock/7555321 */}
           <g transform={`translate(${globals.side / 2}, ${15})`}>
@@ -131,31 +146,24 @@ class Graph extends React.Component {
 
             </text>
           </g>
-          <Axes xCenter={xCenter} yCenter={yCenter} report={this.props.report}/>
+          <Axes
+            xCenter={this.state.xCenter}
+            yCenter={this.state.yCenter}
+            report={this.props.report}/>
           <Hulls
             getHullElems={this.getHullElems.bind(this)}
-            hulls={hulls} />
-          <Participants points={baseClustersScaled} ptptois={this.props.ptptois} ptptoiScaleFactor={ptptoiScaleFactor}/>
-          <Comments
-            commentsPoints={commentsPoints}
-            selectedComment={this.state.selectedComment}
+            hulls={this.state.hulls} />
+          <Force
             handleCommentHover={this.handleCommentHover.bind(this)}
-            points={commentsPoints}
-            repfulAgreeTidsByGroup={this.props.repfulAgreeTidsByGroup}
-            repfulDisageeTidsByGroup={this.props.repfulDisageeTidsByGroup}
-            xx={xx}
-            yy={yy}
-            xCenter={xCenter}
-            yCenter={yCenter}
-            xScaleup={commentScaleupFactorX}
-            yScaleup={commentScaleupFactorY}
-            formatTid={this.props.formatTid}/>
+            {...this.props}
+            {...this.state}
+            />
           <BarChartsForGroupVotes
             hullElems={this.hullElems}
             selectedComment={this.state.selectedComment}
             allComments={this.props.comments}
             groups={window.preload.firstMath["group-votes"]}
-            groupCornerAssignments={groupCornerAssignments}
+            groupCornerAssignments={this.state.groupCornerAssignments}
             />
         </svg>
       </div>
@@ -165,59 +173,26 @@ class Graph extends React.Component {
 
 export default Graph;
 
-          // <defs>
-          //   <marker
-          //     className={'helpArrow'}
-          //     id={'ArrowTip'}
-          //     viewBox={'0 0 14 14'}
-          //     refX={'1'
-          //     refY={'5'}
-          //     markerWidth={'5'}
-          //     markerHeight={'5'}
-          //     orient={'auto'}>
-          //     // "<path d='M 0 0 L 10 5 L 0 10 z' />
-          //     <circle cx = {'6'} cy = {'6'} r = {'5'} />
-          //   </marker>
-          //   <clipPath id={"clipCircleVis2"}>
-          //     <circle r={ptptOiRadius * ptptoiScaleFactor} cx={0} cy={0}/>
-          //   </clipPath>
-          //   <filter id={'colorMeMatrix'}>
-          //     <feColorMatrix
-          //       in={'SourceGraphic'}
-          //       type={'matrix'}
-          //       values={'0.33 0.33 0.33 0 0
-          //       0.33 0.33 0.33 0 0
-          //       0.33 0.33 0.33 0 0
-          //       0 0 0 1 0'} />
-          //   </filter>
 
-          //   <filter id={'colorMeMatrixRed'}
-          //     <feColorMatrix
-          //       in={'SourceGraphic'}
-          //       type={'matrix'}
-          //       values={'1.00 0.60 0.60 0 0.3
-          //         0.10 0.20 0.10 0 0
-          //         0.10 0.10 0.20 0 0
-          //         0 0 0 1 0'} />
-          //   </filter>
+/* heading */
 
-          //   <filter id={'colorMeMatrixGreen'}>
-          //     <feColorMatrix
-          //       in={'SourceGraphic'}
-          //       type={'matrix'}
-          //       values={'0.20 0.10 0.10 0 0
-          //         0.60 1.00 0.60 0 0.3
-          //         0.10 0.10 0.40 0 0
-          //         0 0 0 1 0'} />
-          //   </filter>
-          // </defs>
+// let heading = (<span><p style={{fontSize: globals.primaryHeading}}> Opinion Graph </p>
+//   <p style={globals.paragraph}>
+//     This graph shows all people and all comments.
+//   </p>
+//   <p style={globals.paragraph}>
+//     Comments, identified by their number, are positioned more closely to comments that were voted on similarly (blue, in the correlation matrix above). Comments are positioned further away from comments that tended to be voted on differently (red, in the correlation matrix above). </p>
+//   <p style={globals.paragraph}>People are positioned closer to the comments on which they agreed, and further from the comments on which they disagreed. Groups of participants that tended to vote similarly across many comments (elaborated in the previous section) are identified by their similar color.
+//   </p></span>);
+//   {this.props.renderHeading ? heading : ""}
 
-
-
+/* group labels */
 
 // {/* this.props.math["group-clusters"].map((cluster, i) => {
 //   return (<text x={300} y={300}> Renzi Supporters </text>)
 // }) : null */}
+
+/* React SVG Pan Zoom */
 
 // componentDidMount() {
 //   this.Viewer.fitToViewer();
