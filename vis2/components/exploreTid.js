@@ -91,18 +91,27 @@ class ExploreTid extends React.Component {
 
     let changeVotesElements = null;
     if (!_.isNumber(currentVote)) {
-      changeVotesElements = <p> {buttons}</p>
+      changeVotesElements = <span> {buttons}</span>
     } else if (currentVote === window.polisTypes.reactions.pass) {
-      changeVotesElements = <p> You: PASSED. {buttons}</p>
+      changeVotesElements = <span> You: PASSED. {buttons}</span>
     } else if (currentVote === window.polisTypes.reactions.pull) {
-      changeVotesElements = <p> You: AGREED. {buttons}</p>
+      changeVotesElements = <span> You: AGREED. {buttons}</span>
     } else if (currentVote === window.polisTypes.reactions.push) {
-      changeVotesElements = <p> You: DISAGREED. {buttons}</p>
+      changeVotesElements = <span> You: DISAGREED. {buttons}</span>
     }
 
 
     return (
-      <div>
+      <div style={{
+        padding: 10,
+        borderRadius: 5,
+        border: "1px #cacaca solid",
+        backgroundColor: "white",
+        marginBottom: -12,
+        zIndex: 9999,
+        position: "relative",
+        boxShadow: "rgb(232, 232, 232) 0px 2px 3px -1px",
+      }}>
         <button style={{
             border: "none",
             borderRadius: 3,

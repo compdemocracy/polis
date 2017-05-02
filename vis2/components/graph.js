@@ -131,6 +131,7 @@ class Graph extends React.Component {
         <TidCarousel
           commentsToShow={this.state.tidCarouselComments}
           handleCommentClick={this.handleCommentClick.bind(this)}
+          selectedComment={this.state.selectedComment}
           />
         <svg width={globals.side} height={globals.side}>
 

@@ -40,6 +40,7 @@ class TidCarousel extends React.Component {
                   padding: 5,
                   backgroundColor: "rgb(240,240,240)",
                   borderRadius: 3,
+                  border: (this.props.selectedComment && this.props.selectedComment.tid === c.tid) ? "2px gray solid": "2px white solid",
                 }}
                 key={c.tid}>
                 {c.tid}
