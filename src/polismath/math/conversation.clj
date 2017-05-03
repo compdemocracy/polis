@@ -307,7 +307,7 @@
                                     :iters (:pca-iters opts'))]
                (assoc pca
                       :comment-projection
-                      (pca/pca-project-cmnts pca))))
+                      (matrix/transpose (pca/pca-project-cmnts pca)))))
 
       :proj
       (plmb/fnk [rating-mat pca]

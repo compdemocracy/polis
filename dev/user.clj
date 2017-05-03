@@ -41,13 +41,14 @@
   (test-runner/-main)
 
 
-
   ;; Setting up load and interactive testing for a specific conversation
   (def args {:zid 11547})
   (def conv
     (-> (load-conv args)
         (conv/conv-update [{:zid 11547 :pid 0 :tid 0 :vote 2.0 :created (System/currentTimeMillis)}])))
   (keys (:pca conv))
+  (:comps (:pca conv))
+  (:comment-projection (:pca conv))
 
   (def updated-conv
     (-> conv
