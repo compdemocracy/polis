@@ -2,7 +2,7 @@
 
 (ns polismath.math.pca
   (:refer-clojure :exclude [* - + == / min max])
-  (:require [clojure.tools.trace :as tr]
+  (:require [taoensso.timbre :as log]
             [polismath.utils :as utils]
             [clojure.core.match :refer [match]]
             [clojure.core.matrix :as matrix]
@@ -168,7 +168,7 @@
 (defn pca-project-cmnts
   [{:as pca :keys [comps center]}]
   (let [n-cols (matrix/column-count comps)]
-    (sparsity-aware-project-ptpt
+    (sparsity-aware-project-ptpts
       (map
         (fn [i]
           (assoc
