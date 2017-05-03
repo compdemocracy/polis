@@ -1,7 +1,7 @@
 ;; Copyright (C) 2012-present, Polis Technology Inc. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 (ns polismath.math.pca
-  (:refer-clojure :exclude [* - + == /])
+  (:refer-clojure :exclude [* - + == / min max])
   (:require [clojure.tools.trace :as tr]
             [polismath.utils :as utils]
             [clojure.core.match :refer [match]]
@@ -139,17 +139,17 @@
         [pc1 pc2] comps
         [n-votes p1 p2] ; (p1, p2) is the projection we build
         (reduce
-            ; _-n is the nth entry in _
+          ; _-n is the nth entry in _
           (fn [[n-votes p1 p2] [x-n cntr-n pc1-n pc2-n]]
-              ; if we have voted, do the thing
+            ; if we have voted, do the thing
             (if x-n
-                ; first subtract center
+              ; first subtract center
               (let [x-n' (- x-n cntr-n)]
-                  ; then do a step in the dot product, and inc n-votes seen
+                ; then do a step in the dot product, and inc n-votes seen
                 [(inc n-votes)
                  (+ p1 (* x-n' pc1-n))
                  (+ p2 (* x-n' pc2-n))])
-                ; ... ow (if haven't voted) return what was there
+              ; ... ow (if haven't voted) return what was there
               [n-votes p1 p2]))
           [0 0.0 0.0]
           (utils/zip votes center pc1 pc2))]
@@ -163,6 +163,20 @@
   according to how many responses we have gotten"
   [data pca]
   (mapv #(sparsity-aware-project-ptpt % pca) data))
+
+
+(defn pca-project-cmnts
+  [{:as pca :keys [comps center]}]
+  (let [n-cols (matrix/column-count comps)]
+    (sparsity-aware-project-ptpt
+      (map
+        (fn [i]
+          (assoc
+            (vec (repeat n-cols nil))
+            i
+            1))
+        (range n-cols))
+      pca)))
 
 
 :ok

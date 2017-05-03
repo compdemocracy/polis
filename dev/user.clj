@@ -29,11 +29,11 @@
 ;(do
 (comment
   ;; Run one of these to interactively test out a particular system or subsystem
-  ;(runner/run! system/base-system)
+  (runner/stop!)
+  (runner/run! system/base-system)
   ;(runner/run! system/task-system)
   ;(runner/run! system/darwin-system)
-  (runner/run! system/full-system {:poll {:poll-from-days-ago 0.1}})
-  (runner/stop!)
+  ;(runner/run! system/full-system {:poll {:poll-from-days-ago 0.1}})
 
   ;; Execute this to run pure math/util tests
   (require '[runner :as test-runner])
@@ -42,28 +42,12 @@
 
 
 
-  (:mod-out (get-conv {:zid 13287}))
-  (def conv (load-conv {:zid 13287}))
-  (:mod-out conv)
-  (def conv (conv/conv-update conv []))
-
-  ;; 16109; There's a problem with the repness on this one
-  (:mod-out (get-conv {:zid 16109}))
-  (def conv (load-conv {:zid 16109}))
-  (:mod-out convmod)
-  (def conv (conv/conv-update conv []))
-  (:repness conv)
-
-
   ;; Setting up load and interactive testing for a specific conversation
-  (def args {:zid 15228})
+  (def args {:zid 11547})
   (def conv
     (-> (load-conv args)
-        (conv/conv-update [{:zid 15228 :pid 0 :tid 0 :vote 2.0 :created (System/currentTimeMillis)}])))
-  (keys conv)
-  (nm/colnames (:rating-mat conv))
-  (:repness conv)
-  (:mod-out conv)
+        (conv/conv-update [{:zid 11547 :pid 0 :tid 0 :vote 2.0 :created (System/currentTimeMillis)}])))
+  (keys (:pca conv))
 
   (def updated-conv
     (-> conv

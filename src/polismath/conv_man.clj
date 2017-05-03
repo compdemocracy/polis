@@ -48,6 +48,7 @@
                                :n-cmts
                                :pca
                                :proj
+                               ;:cmnt-proj
                                :repness
                                :consensus
                                :zid

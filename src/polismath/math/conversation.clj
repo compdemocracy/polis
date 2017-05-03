@@ -300,14 +300,22 @@
                (nm/get-matrix rating-mat)))
 
       :pca (plmb/fnk [conv mat opts']
-             (pca/wrapped-pca mat
-                              (:n-comps opts')
-                              :start-vectors (get-in conv [:pca :comps])
-                              :iters (:pca-iters opts')))
+             (let [pca
+                   (pca/wrapped-pca mat
+                                    (:n-comps opts')
+                                    :start-vectors (get-in conv [:pca :comps])
+                                    :iters (:pca-iters opts'))]
+               (assoc pca
+                      :comment-projection
+                      (pca/pca-project-cmnts pca))))
 
       :proj
       (plmb/fnk [rating-mat pca]
         (pca/sparsity-aware-project-ptpts (nm/get-matrix rating-mat) pca))
+
+      ;:cmnt-proj
+      ;(plmb/fnk [pca]
+      ;  (pca/pca-project-cmnts pca))
 
       ;; QUESTION Just have proj return an nmat?
       :proj-nmat
