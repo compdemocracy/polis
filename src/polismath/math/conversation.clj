@@ -137,7 +137,7 @@
                   (merge {:n-comps 2 ; does our code even generalize to others?
                           :pca-iters 10
                           :base-iters 10
-                          :base-k 50
+                          :base-k 100
                           :max-k 5
                           :group-iters 10
                           ;; These three in particular we should be able to tune quickly
