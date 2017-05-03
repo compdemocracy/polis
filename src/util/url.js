@@ -8,6 +8,10 @@ var polisio = "https://www.polis.io/";
 var localhost = "http://localhost:5000/";
 var localhost5002 = "http://localhost:5002/";
 
+let httpsWhitelist = [
+  /xip.io$/,
+];
+
 var urlPrefix = prod;
 if (document.domain.indexOf("preprod") >= 0) {
     urlPrefix = preprod;
@@ -31,6 +35,13 @@ if (document.domain === "localhost" && document.location.port === "5002") {
 
 if (0 === document.domain.indexOf("192.168")) {
   urlPrefix = "http://" + document.location.hostname + ":" + document.location.port + "/";
+}
+
+for (var i = 0; i < httpsWhitelist.length; i++) {
+  if (document.domain.match(httpsWhitelist[i])) {
+    urlPrefix = "https://" + document.location.hostname + ":" + document.location.port + "/";
+    break;
+  }
 }
 
 function isPreprod() {
