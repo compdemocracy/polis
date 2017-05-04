@@ -4,12 +4,13 @@ import _ from "lodash";
 import * as globals from "./globals";
 import graphUtil from "../util/graphUtil";
 import Axes from "./graphAxes";
-import Force from "./Force"
 import Hulls from "./hull";
 import BarChartsForGroupVotes from "./barChartsForGroupVotes";
 import ExploreTid from "./exploreTid";
 import TidCarousel from "./tidCarousel";
 import Vote from "./voteView";
+import Participants from "./graphParticipants";
+import Comments from "./graphComments"
 
 class Graph extends React.Component {
 
@@ -154,11 +155,39 @@ class Graph extends React.Component {
           <Hulls
             getHullElems={this.getHullElems.bind(this)}
             hulls={this.state.hulls} />
-          <Force
+
+            xx,
+            yy,
+            commentsPoints,
+            xCenter,
+            yCenter,
+            baseClustersScaled,
+            ptptoiScaleFactor,
+            commentScaleupFactorX,
+            commentScaleupFactorY,
+            hulls,
+            groupCornerAssignments,
+            commentsPoints,
+            tidCarouselComments
+
+          <Participants
+            points={this.state.baseClustersScaled}
+            ptptois={this.props.ptptois}
+            ptptoiScaleFactor={this.state.ptptoiScaleFactor}/>
+          <Comments
+            commentsPoints={this.state.commentsPoints}
+            selectedComment={this.state.selectedComment}
             handleCommentHover={this.handleCommentHover.bind(this)}
-            {...this.props}
-            {...this.state}
-            />
+            points={this.state.commentsPoints}
+            repfulAgreeTidsByGroup={this.props.repfulAgreeTidsByGroup}
+            repfulDisageeTidsByGroup={this.props.repfulDisageeTidsByGroup}
+            xx={this.state.xx}
+            yy={this.state.yy}
+            xCenter={this.state.xCenter}
+            yCenter={this.state.yCenter}
+            xScaleup={this.state.commentScaleupFactorX}
+            yScaleup={this.state.commentScaleupFactorY}
+            formatTid={this.props.formatTid}/>
           <BarChartsForGroupVotes
             hullElems={this.hullElems}
             selectedComment={this.state.selectedComment}
