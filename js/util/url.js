@@ -8,6 +8,11 @@ var embed = "https://embed.pol.is/";
 var survey = "https://survey.pol.is/";
 var localhost = "http://localhost:5000/";
 var localhost8000 = "http://localhost:8000/";
+
+var httpsWhitelist = [
+  /xip.io$/,
+];
+
 var urlPrefix = prod;
 if (document.domain.indexOf("preprod") >= 0) {
   urlPrefix = preprod;
@@ -28,6 +33,13 @@ if (document.domain === "localhost" && document.location.port === "8000") {
 
 if (0 === document.domain.indexOf("192.168")) {
   urlPrefix = "http://" + document.location.hostname + ":" + document.location.port + "/";
+}
+
+for (var i = 0; i < httpsWhitelist.length; i++) {
+  if (document.domain.match(httpsWhitelist[i])) {
+    urlPrefix = "https://" + document.location.hostname + ":" + document.location.port + "/";
+    break;
+  }
 }
 
 function isPreprod() {
