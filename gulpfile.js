@@ -63,10 +63,10 @@ function destRoot() {
   return root;
 }
 var devMode = true;
+var minified = false;
 var preprodMode = false;
 var prodMode = false;
 var host;
-var MINIFY_PREPROD = false;
 
 
 var basepath_visbundle_dev = "/foo";
@@ -371,7 +371,10 @@ gulp.task('lint', ['jshint']);
 
 gulp.task('scriptsVis2', ['jshint'], function() {
 
-  var configProd = require('./webpack.config.js');
+
+  var webpackFilename = minified ? './webpack.config.js' : './webpack.config.unminified.js';
+
+  var configProd = require(webpackFilename);
   config.output.publicPath = destRoot() + "/js/";
 
   return gulp.src('./vis2/vis2.js')
@@ -493,7 +496,7 @@ gulp.task('scripts', ['templates', 'jshint'], function() {
       .pipe(concat('polis.js'))
   // TODO      .pipe(header("copyright Polis... (except that libs are mixed in)
 
-      if (prodMode || (preprodMode && MINIFY_PREPROD)) {
+      if (prodMode || (preprodMode && minified)) {
         s = s.pipe(uglify());
       }
       if (!devMode) {
@@ -540,10 +543,16 @@ gulp.task("scriptsOther", function() {
 
 gulp.task("preprodConfig", function() {
   preprodMode = true;
+  minified = true;
 });
 
 gulp.task("prodConfig", function() {
   prodMode = true;
+  minified = true;
+});
+
+gulp.task("unminifiedConfig", function() {
+  minified = false;
 });
 
 
@@ -652,6 +661,19 @@ gulp.task('deploy_TO_PRODUCTION', [
 
 gulp.task('deployPreprod', [
   "preprodConfig",
+  "dist"
+], function() {
+
+  notifySlackOfDeployment("preprod");
+
+  return deploy({
+      bucket: "preprod.pol.is"
+  });
+});
+
+gulp.task('deployPreprodUnminified', [
+  "preprodConfig",
+  "unminifiedConfig",
   "dist"
 ], function() {
 
