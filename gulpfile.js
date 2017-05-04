@@ -26,6 +26,7 @@ function destRootAbout() {
   return destRootBase;
 }
 var devMode = true;
+var minified = false;
 var preprodMode = false;
 var prodMode = false;
 var host;
@@ -61,7 +62,8 @@ gulp.task('cleanDist', function(){
 
 gulp.task('bundle', [
 ], function(callback) {
-    exec("npm run build", function(error, stdout, stderr) {
+    var cmd = minified ? "npm run build:webpack" : "npm run build:webpack_unminified";
+    exec(cmd, function(error, stdout, stderr) {
       callback(error);
     });
 });
@@ -100,10 +102,16 @@ gulp.task('404', [
 
 gulp.task("preprodConfig", function() {
   preprodMode = true;
+  minified = true;
+});
+
+gulp.task("unminifiedConfig", function() {
+  minified = false;
 });
 
 gulp.task("prodConfig", function() {
   prodMode = true;
+  minified = true;
 });
 
 
@@ -181,6 +189,17 @@ gulp.task('deploy_TO_PRODUCTION', [
 
 gulp.task('deployPreprod', [
   "preprodConfig",
+  "dist"
+], function() {
+
+  return deploy({
+      bucket: "preprod.pol.is"
+  });
+});
+
+gulp.task('deployPreprodUnminified', [
+  "preprodConfig",
+  "unminifiedConfig",
   "dist"
 ], function() {
 

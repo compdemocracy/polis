@@ -8,8 +8,9 @@
   },
   "scripts": {
     "clean": "rimraf dist",
-    "build:webpack": "NODE_ENV=production webpack --config webpack.config.js",
-    "build": "npm run clean && npm run build:webpack",
+    "build:webpack": "npm run clean && NODE_ENV=production webpack --config webpack.config.js",
+    "build:webpack_unminified": "npm run clean && NODE_ENV=production webpack --config webpack.config.unminified.js",
+    "build": "npm run build:webpack",
     "deploy_TO_PRODUCTION": "deploy_TO_PRODUCTION",
     "deployPreprod": "deployPreprod",
     "start": "./x",
