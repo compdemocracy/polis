@@ -2,6 +2,8 @@ import * as globals from "../components/globals";
 import _ from "lodash";
 import createHull from "hull.js";
 
+import { forceSimulation, forceCollide, forceX, forceY } from 'd3-force';
+
 
 
 const position_nw_0 = -99;
@@ -15,7 +17,6 @@ const position_ne_1 = 99;
 
 const position_se_0 = 99;
 const position_se_1 = 99;
-
 
 function getScore(candidate) {
   let score = 0;
@@ -88,6 +89,29 @@ function getGroupCornerAssignments(math) {
   return bestCandidate;
 }
 
+// Mutates x,y props of objects in input arrays
+function mixedForce(arrays, strength) {
+
+  let allPoints = [];
+
+  for (let i = 0; i < arrays.length; i++) {
+    let a = arrays[i];
+    for (let ai = 0; ai < a.length; ai++) {
+      a[ai].__kind__ = i;
+    }
+    Array.prototype.push.apply(allPoints, a);
+  }
+
+  const force = forceSimulation(allPoints).stop()
+      .force('x', forceX(d => d.x))
+      .force('y', forceY(d => d.y))
+      .force("charge", d3.forceManyBody().strength(strength));
+
+  for (let i = 0; i < 110; ++i) {
+    force.tick();
+  }
+}
+
 const doMapCornerPointer = (corner, xx, yy) => {
   if (corner.pos) {
     corner.pos = _.clone(corner.pos);
@@ -153,6 +177,10 @@ const graphUtil = (comments, math, badTids) => {
       allYs.push(clusterYs[i]);
     }
 
+
+    mixedForce([commentsPoints, baseClusters], -0.015);
+
+
     let border = 100;
     let minClusterX = _.min(allXs);
     let maxClusterX = _.max(allXs);
@@ -205,6 +233,15 @@ const graphUtil = (comments, math, badTids) => {
       });
     })
 
+
+
+    for (let i = 0; i < commentsPoints.length; i++) {
+      commentsPoints[i].x = xCenter + commentsPoints[i].x * commentScaleupFactorX;
+      commentsPoints[i].y = yCenter + commentsPoints[i].y * commentScaleupFactorY;
+    }
+
+    // mixedForce([commentsPoints, baseClustersScaled], 5);
+
     const baseClustersScaledAndGrouped = {}
 
     baseClustersScaled.forEach((baseCluster) => {
@@ -239,17 +276,13 @@ const graphUtil = (comments, math, badTids) => {
     doMapCornerPointer(groupCornerAssignments.sw, xx, yy);
 
 
-
-    for (let i = 0; i < commentsPoints.length; i++) {
-      commentsPoints[i].x = xCenter + commentsPoints[i].x * commentScaleupFactorX;
-      commentsPoints[i].y = yCenter + commentsPoints[i].y * commentScaleupFactorY;
-    }
-
     return {
       commentsPoints,
       baseClustersScaled,
       hulls,
       groupCornerAssignments,
+      xCenter,
+      yCenter,
     };
 
 }
