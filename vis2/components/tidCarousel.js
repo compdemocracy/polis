@@ -80,7 +80,7 @@ class TidCarousel extends React.Component {
         </div>
         <div>
           {
-            _.map(this.props.commentsToShow.slice((this.state.page * this.state.perPage), ((this.state.page * this.state.perPage) + this.state.perPage)), (c) => { return (
+            this.props.commentsToShow && _.map(this.props.commentsToShow.slice((this.state.page * this.state.perPage), ((this.state.page * this.state.perPage) + this.state.perPage)), (c) => { return (
               <span
                 onClick={this.props.handleCommentClick(c)}
                 style={{
