@@ -24,8 +24,7 @@ class ExploreTid extends React.Component {
     });
   }
 
-  render() {
-
+  createChangeVotesElements() {
     let currentVote = null;
     if (this.props.selectedComment) {
       let selectedTid = this.props.selectedComment.tid;
@@ -35,7 +34,8 @@ class ExploreTid extends React.Component {
       currentVote = voteForSelectedComment && voteForSelectedComment.vote;
     }
 
-    let agreeButton = (<button style={{
+    let agreeButton = (
+      <button style={{
         border: "none",
         borderRadius: 3,
         backgroundColor: "green",
@@ -48,7 +48,8 @@ class ExploreTid extends React.Component {
       Agree
     </button>);
 
-    let disagreeButton = (<button style={{
+    let disagreeButton = (
+      <button style={{
         border: "none",
         borderRadius: 3,
         backgroundColor: "red",
@@ -57,22 +58,28 @@ class ExploreTid extends React.Component {
         cursor: "pointer",
         padding: "10px 20px"
       }}
-      onClick={this.handleDisagree.bind(this)}>
-      Disagree
-    </button>);
+      onClick={this.handleDisagree.bind(this)}
+    >
+        Disagree
+      </button>
+    );
 
-    let passButton = (<button style={{
-        border: "none",
-        borderRadius: 3,
-        backgroundColor: "lightgray",
-        color: "white",
-        fontWeight: "bold",
-        cursor: "pointer",
-        padding: "10px 20px"
-      }}
-      onClick={this.handlePass.bind(this)}>
-      Pass
-    </button>);
+    let passButton = (
+      <button
+        style={{
+          border: "none",
+          borderRadius: 3,
+          backgroundColor: "lightgray",
+          color: "white",
+          fontWeight: "bold",
+          cursor: "pointer",
+          padding: "10px 20px"
+        }}
+        onClick={this.handlePass.bind(this)}
+      >
+        Pass
+      </button>
+    );
 
 
     // Conditionally show change votes buttons
@@ -81,11 +88,11 @@ class ExploreTid extends React.Component {
       if (!_.isNumber(currentVote)) {
         buttons = <span>{agreeButton} {disagreeButton} {passButton}</span>
       } else if (currentVote === window.polisTypes.reactions.pass) {
-        buttons = <span>Change your vote to {agreeButton} {disagreeButton}</span>
+        buttons = <span>Change vote {agreeButton} {disagreeButton}</span>
       } else if (currentVote === window.polisTypes.reactions.pull) {
-        buttons = <span>Change your vote to {disagreeButton} {passButton}</span>
+        buttons = <span>Change vote {disagreeButton} {passButton}</span>
       } else if (currentVote === window.polisTypes.reactions.push) {
-        buttons = <span>Change your vote to {agreeButton} {passButton}</span>
+        buttons = <span>Change vote {agreeButton} {passButton}</span>
       }
     }
 
@@ -100,39 +107,24 @@ class ExploreTid extends React.Component {
       changeVotesElements = <span> You: DISAGREED. {buttons}</span>
     }
 
+    return (
+      <div style={{display: "flex", justifyContent: "flex-start"}}>
+        {changeVotesElements}
+      </div>
+    )
+
+  }
+
+  render() {
 
     return (
       <div style={{
-        padding: 10,
-        borderRadius: 5,
-        border: "1px #cacaca solid",
-        backgroundColor: "white",
-        marginBottom: -12,
-        zIndex: 9999,
-        position: "relative",
-        boxShadow: "rgb(232, 232, 232) 0px 2px 3px -1px",
-      }}>
-        <button style={{
-            border: "none",
-            borderRadius: 3,
-            backgroundColor: "red",
-            color: "white",
-            fontWeight: "bold",
-            cursor: "pointer",
-            padding: "10px 20px"
-          }}
-          onClick={this.props.handleReturnToVoteClicked}>
-          Back to voting
-        </button>
-        <p>
-          Explore your previous votes.
-          Who else agreed? Who disagreed?
-          How do your perspectives compare?
-        </p>
+          backgroundColor: "rgb(240,240,240)",
+          padding: 10,
+        }}>
         <div style={{
             width:"100%",
             textAlign: "left",
-            padding: "20px 0px 0px 10px",
             display: "flex",
             justifyContent:"space-between",
             alignItems: "flex-start",
@@ -153,12 +145,6 @@ class ExploreTid extends React.Component {
               flexDirection: "column",
               alignItems: "center"
             }}>
-            <p style={{
-              color: "black",
-              fontWeight: 700,
-              fontSize: 10,
-              fontFamily: "Helvetica, sans-serif"
-            }}>TOTAL:</p>
             <svg width={260} height={100}> {/* put this inside barchart rendered conditionally ie., 'standalone=true' prop */}
               <BarChart
                 selectedComment={this.props.selectedComment}
@@ -167,8 +153,28 @@ class ExploreTid extends React.Component {
                 />
             </svg>
           </div>
+          <button style={{
+              border: "none",
+              backgroundColor: "transparent",
+              width: 12,
+              height: 12,
+              cursor: "pointer",
+            }}
+          onClick={this.props.handleReturnToVoteClicked}>
+          <svg
+            viewPort="0 0 12 12" >
+              <line x1="1" y1="11"
+                    x2="11" y2="1"
+                    stroke="black"
+                    strokeWidth="2"/>
+              <line x1="1" y1="1"
+                    x2="11" y2="11"
+                    stroke="black"
+                    strokeWidth="2"/>
+            </svg>
+          </button>
         </div>
-        {changeVotesElements}
+        {this.createChangeVotesElements()}
       </div>
     )
   }
