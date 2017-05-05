@@ -64,7 +64,6 @@ class Graph extends React.Component {
     });
 
     this.setState({
-      comment_ptpt_positions_computed: true,
       xx,
       yy,
       commentsPoints,
@@ -111,11 +110,6 @@ class Graph extends React.Component {
 
   render() {
 
-    /* we're computing what's needed on update, that checks for math. */
-    if (!this.state.comment_ptpt_positions_computed) {
-      return null;
-    }
-
     return (
       <div>
         {
@@ -155,21 +149,6 @@ class Graph extends React.Component {
           <Hulls
             getHullElems={this.getHullElems.bind(this)}
             hulls={this.state.hulls} />
-
-            xx,
-            yy,
-            commentsPoints,
-            xCenter,
-            yCenter,
-            baseClustersScaled,
-            ptptoiScaleFactor,
-            commentScaleupFactorX,
-            commentScaleupFactorY,
-            hulls,
-            groupCornerAssignments,
-            commentsPoints,
-            tidCarouselComments
-
           <Participants
             points={this.state.baseClustersScaled}
             ptptois={this.props.ptptois}
@@ -181,12 +160,6 @@ class Graph extends React.Component {
             points={this.state.commentsPoints}
             repfulAgreeTidsByGroup={this.props.repfulAgreeTidsByGroup}
             repfulDisageeTidsByGroup={this.props.repfulDisageeTidsByGroup}
-            xx={this.state.xx}
-            yy={this.state.yy}
-            xCenter={this.state.xCenter}
-            yCenter={this.state.yCenter}
-            xScaleup={this.state.commentScaleupFactorX}
-            yScaleup={this.state.commentScaleupFactorY}
             formatTid={this.props.formatTid}/>
           <BarChartsForGroupVotes
             hullElems={this.hullElems}

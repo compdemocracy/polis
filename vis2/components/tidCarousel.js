@@ -31,7 +31,7 @@ class TidCarousel extends React.Component {
             overflowY: "hidden",
             boxShadow: "inset 1px 0px 5px 1px rgba(232,232,232,1)",
             }}>
-            {this.props.commentsToShow.map((c) => { return (
+            {this.props.commentsToShow ? this.props.commentsToShow.map((c) => { return (
               <span
                 onClick={this.props.handleCommentClick(c)}
                 style={{
@@ -45,7 +45,7 @@ class TidCarousel extends React.Component {
                 key={c.tid}>
                 {c.tid}
               </span>
-            )})}
+            )}) : ""}
           </div>
         </div>
       </div>

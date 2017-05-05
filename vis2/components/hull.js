@@ -20,14 +20,14 @@ class Hulls extends React.Component {
     return (
       <g>
         {
-          this.props.hulls.map((hull) => {
+          this.props.hulls ? this.props.hulls.map((hull) => {
             let gid = hull.group[0].gid;
             return <Hull
               key={gid}
               gid={gid}
               getHullElems={this.props.getHullElems}
               hull={hull}/>
-          })
+          }) : ""
         }
       </g>
     )

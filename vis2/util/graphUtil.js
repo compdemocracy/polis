@@ -239,18 +239,18 @@ const graphUtil = (comments, math, badTids) => {
     doMapCornerPointer(groupCornerAssignments.sw, xx, yy);
 
 
+
+    for (let i = 0; i < commentsPoints.length; i++) {
+      commentsPoints[i].x = xCenter + commentsPoints[i].x * commentScaleupFactorX;
+      commentsPoints[i].y = yCenter + commentsPoints[i].y * commentScaleupFactorY;
+    }
+
     return {
-      xx,
-      yy,
       commentsPoints,
-      xCenter,
-      yCenter,
       baseClustersScaled,
-      commentScaleupFactorX,
-      commentScaleupFactorY,
       hulls,
       groupCornerAssignments,
-    }
+    };
 
 }
 

@@ -20,9 +20,9 @@ class GraphComment extends React.Component {
   render() {
     return (
       <g transform={ "translate(" +
-        (this.props.xCenter + this.props.pt.x * this.props.xScaleup) +
+        this.props.pt.x +
         ", " +
-        (this.props.yCenter + this.props.pt.y * this.props.yScaleup) +
+        this.props.pt.y +
       ")"}>
         {
           this.props.isSelected ?
@@ -101,10 +101,6 @@ class GraphComments extends React.Component {
           pt={pt}
           isSelected={this.props.selectedComment ? pt.tid === this.props.selectedComment.tid : null}
           handleCommentHover={this.props.handleCommentHover}
-          xCenter={this.props.xCenter}
-          yCenter={this.props.yCenter}
-          xScaleup={this.props.xScaleup}
-          yScaleup={this.props.yScaleup}
         />
       )
     })
