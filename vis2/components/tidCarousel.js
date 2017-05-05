@@ -58,8 +58,8 @@ class TidCarousel extends React.Component {
         display: "flex",
         justifyContent: "space-between",
         alignItems: "baseline",
-        marginBottom: 20,
-        marginTop: 0,
+        marginBottom: this.props.selectedComment ? 10 : 0,
+        marginTop: this.props.selectedComment ? 10 : 0,
         }}>
         <div>
           <PaginateButton paginate={this.movePage(-10)} leftSide>
