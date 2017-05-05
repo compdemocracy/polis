@@ -177,8 +177,7 @@ const graphUtil = (comments, math, badTids) => {
       allYs.push(clusterYs[i]);
     }
 
-
-    mixedForce([commentsPoints, baseClusters], -0.015);
+    // mixedForce([commentsPoints, baseClusters], -0.015);
 
 
     let border = 100;
@@ -240,7 +239,7 @@ const graphUtil = (comments, math, badTids) => {
       commentsPoints[i].y = yCenter + commentsPoints[i].y * commentScaleupFactorY;
     }
 
-    // mixedForce([commentsPoints, baseClustersScaled], 5);
+    mixedForce([commentsPoints, baseClustersScaled], 2);
 
     const baseClustersScaledAndGrouped = {}
 
