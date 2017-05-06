@@ -25,7 +25,7 @@ const Participant = ({pt, ptptois, ptptoiScaleFactor}) => {
     )
   } else {
     markup = (<circle
-      r={4}
+      r={0}
       fill={/* globals.groupColor(pt.gid)*/ ptptoi ? "black" : "rgb(180,180,180)"}
       key={pt.bid}
       cx={pt.x}
