@@ -6,11 +6,9 @@ class Curate extends React.Component {
 
   constructor(props) {
     super(props);
-    this.hullElems = [];
-    this.Viewer = null;
 
     this.state = {
-      selectedComment: null,
+
     };
   }
 
@@ -20,15 +18,18 @@ class Curate extends React.Component {
         width: "100%",
         display: "flex",
         justifyContent: "space-between",
+        alignItems: "baseline",
       }}>
-        <button>All comments</button>
-        <button>My votes</button>
+        <button>X</button>
+        <button>Y</button>
         <p> Group: </p>
         <button>A</button>
         <button>B</button>
         <button>C</button>
         <button>D</button>
         <button>Majority Opinion</button>
+        <button>My votes</button>
+        <button>All comments</button>
       </div>
     )
   }
