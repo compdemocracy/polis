@@ -8,9 +8,10 @@ import Hulls from "./hull";
 import BarChartsForGroupVotes from "./barChartsForGroupVotes";
 import ExploreTid from "./exploreTid";
 import TidCarousel from "./tidCarousel";
-import Vote from "./voteView";
 import Participants from "./graphParticipants";
-import Comments from "./graphComments"
+import Comments from "./graphComments";
+import Curate from "./curate";
+
 
 class Graph extends React.Component {
 
@@ -83,20 +84,20 @@ class Graph extends React.Component {
 
   handleCommentHover(selectedComment) {
     return () => {
-      document.getElementById("readReactView").style.display = "none";
+      // document.getElementById("readReactView").style.display = "none";
       this.setState({selectedComment});
     }
   }
 
   handleCommentClick(selectedComment) {
     return () => {
-      document.getElementById("readReactView").style.display = "none";
+      // document.getElementById("readReactView").style.display = "none";
       this.setState({selectedComment});
     }
   }
 
   handleReturnToVoteClicked() {
-    document.getElementById("readReactView").style.display = "block";
+    // document.getElementById("readReactView").style.display = "block";
     this.setState({selectedComment: null})
   }
 
@@ -112,22 +113,6 @@ class Graph extends React.Component {
 
     return (
       <div>
-        {
-          this.state.selectedComment ?
-          <ExploreTid
-            handleReturnToVoteClicked={this.handleReturnToVoteClicked.bind(this)}
-            selectedComment={this.state.selectedComment}
-            votesByMe={this.props.votesByMe}
-            onVoteClicked={this.props.onVoteClicked}
-            comments={this.props.comment}/> :
-          <Vote
-            />
-        }
-        <TidCarousel
-          commentsToShow={this.state.tidCarouselComments}
-          handleCommentClick={this.handleCommentClick.bind(this)}
-          selectedComment={this.state.selectedComment}
-          />
         <svg width={globals.side} height={globals.side}>
 
           {/* Comment https://bl.ocks.org/mbostock/7555321 */}
@@ -169,6 +154,18 @@ class Graph extends React.Component {
             groupCornerAssignments={this.state.groupCornerAssignments}
             />
         </svg>
+        <Curate/>
+        <TidCarousel
+          commentsToShow={this.state.tidCarouselComments}
+          handleCommentClick={this.handleCommentClick.bind(this)}
+          selectedComment={this.state.selectedComment}
+          />
+        <ExploreTid
+          handleReturnToVoteClicked={this.handleReturnToVoteClicked.bind(this)}
+          selectedComment={this.state.selectedComment}
+          votesByMe={this.props.votesByMe}
+          onVoteClicked={this.props.onVoteClicked}
+          comments={this.props.comment}/>
       </div>
     );
   }
