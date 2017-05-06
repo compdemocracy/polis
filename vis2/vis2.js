@@ -1,6 +1,7 @@
 
 import _ from "lodash";
-import Graph from "./components/Graph";
+import Graph from "./components/graph";
+import Header from "./components/header";
 import React from 'react';
 import ReactDOM from 'react-dom';
 
@@ -103,12 +104,6 @@ injectTapEventPlugin();
 */
 
 
-class Header extends React.Component {
-  render() {
-    return <div>header2</div>;
-  }
-}
-
 
 window.renderVis = function(rootEl, props) {
   ReactDOM.render(
@@ -123,4 +118,3 @@ window.renderHeader = function(rootEl, props) {
     rootEl
   );
 }
-
