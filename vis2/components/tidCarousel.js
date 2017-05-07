@@ -58,8 +58,7 @@ class TidCarousel extends React.Component {
         display: "flex",
         justifyContent: "space-between",
         alignItems: "baseline",
-        marginBottom: this.props.selectedComment ? 10 : 0,
-        marginTop: this.props.selectedComment ? 10 : 0,
+        marginTop: 10,
         }}>
         <div>
           <PaginateButton paginate={this.movePage(-10)} leftSide>
@@ -80,21 +79,27 @@ class TidCarousel extends React.Component {
         </div>
         <div>
           {
-            this.props.commentsToShow && _.map(this.props.commentsToShow.slice((this.state.page * this.state.perPage), ((this.state.page * this.state.perPage) + this.state.perPage)), (c) => { return (
-              <span
-                onClick={this.props.handleCommentClick(c)}
-                style={{
-                  cursor: "pointer",
-                  marginRight: 3,
-                  padding: "2px 10px",
-                  backgroundColor: (this.props.selectedComment && this.props.selectedComment.tid === c.tid) ? "rgb(240,240,240)" : "rgb(180,180,180)",
-                  color: (this.props.selectedComment && this.props.selectedComment.tid === c.tid) ? "rgb(130,130,130)" : "rgb(255,255,255)",
-                  borderRadius: 4,
-                }}
-                key={c.tid}>
-                {c.tid}
-              </span>
-            )})
+            this.props.commentsToShow && _.map(
+              this.props.commentsToShow.slice(
+                (this.state.page * this.state.perPage),
+                ((this.state.page * this.state.perPage) + this.state.perPage)
+              ), (c) => { return (
+                <span
+                  onClick={this.props.handleCommentClick(c)}
+                  style={{
+                    cursor: "pointer",
+                    marginRight: 5,
+                    padding: "6px 12px",
+                    fontWeight: (this.props.selectedComment && this.props.selectedComment.tid === c.tid) ? 700 : 500,
+                    backgroundColor: (this.props.selectedComment && this.props.selectedComment.tid === c.tid) ? "#03a9f4" : "rgb(235,235,235)",
+                    color: (this.props.selectedComment && this.props.selectedComment.tid === c.tid) ? "rgb(255,255,255)" : "rgb(100,100,100)",
+                    borderRadius: 4,
+                  }}
+                  key={c.tid}>
+                  {c.tid}
+                </span>
+              )}
+            )
           }
         </div>
         <div>

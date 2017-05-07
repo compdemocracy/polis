@@ -13,6 +13,7 @@ import Comments from "./graphComments";
 import Curate from "./curate";
 
 
+
 class Graph extends React.Component {
 
   constructor(props) {
@@ -21,7 +22,7 @@ class Graph extends React.Component {
     this.Viewer = null;
 
     this.state = {
-      selectedComment: null,
+      selectedComment: null
     };
   }
 
@@ -29,7 +30,7 @@ class Graph extends React.Component {
     document.getElementById("helpTextGroups").style.display = "none";
     document.getElementById("visualization_div").style.display = "none";
     document.getElementById("carouselPane").style.display = "none";
-    document.getElementsByClassName("groupSelectionView")[0].style.display = "none";
+    document.getElementById("groupSelectionViewContainer").style.display = "none";
   }
 
   componentWillReceiveProps(nextProps) {

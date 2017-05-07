@@ -75,7 +75,6 @@ class ExploreTid extends React.Component {
       </button>
     );
 
-
     // Conditionally show change votes buttons
     let buttons = null;
     if (window.preload.firstConv.is_active) {
@@ -106,25 +105,24 @@ class ExploreTid extends React.Component {
         {changeVotesElements}
       </div>
     )
-
   }
-
   render() {
-
     return (
       <div style={{
           backgroundColor: "rgb(247,247,247)",
           borderRadius: 4,
+          marginTop: 20,
           padding: "10px 10px 10px 10px",
           width:"100%",
           minHeight: 160,
           textAlign: "left",
           display: "flex",
-          justifyContent:"space-between",
+          justifyContent:"flex-start",
           alignItems: "flex-start",
         }}>
         <p style={{
             fontSize: 24,
+            marginRight: 20,
             fontWeight: "700",
             position: "relative",
             top: -5
@@ -146,45 +144,50 @@ class ExploreTid extends React.Component {
           </p>
           {this.createChangeVotesElements()}
         </div>
-
-          <svg
-            style={{
-              position: "relative",
-              top: -2
-            }}
-            width={225}
-            height={70}> {/* put this inside barchart rendered conditionally ie., 'standalone=true' prop */}
-            <BarChart
-              selectedComment={this.props.selectedComment}
-              allComments={this.props.comments}
-              groups={window.preload.firstMath["group-votes"]}
-              />
-          </svg>
-        <button style={{
-            border: "none",
-            backgroundColor: "transparent",
-            width: 12,
-            height: 12,
-            cursor: "pointer",
-            position: "relative",
-            right: 8,
-          }}
-        onClick={this.props.handleReturnToVoteClicked}>
-        <svg
-          viewPort="0 0 12 12" >
-            <line x1="1" y1="11"
-                  x2="11" y2="1"
-                  stroke="black"
-                  strokeWidth="2"/>
-            <line x1="1" y1="1"
-                  x2="11" y2="11"
-                  stroke="black"
-                  strokeWidth="2"/>
-          </svg>
-        </button>
       </div>
     )
   }
 }
 
 export default ExploreTid;
+
+
+//
+// {/*  <svg
+//     style={{
+//       position: "relative",
+//       top: -2
+//     }}
+//     width={225}
+//     height={70}>
+//     <BarChart
+//       selectedComment={this.props.selectedComment}
+//       allComments={this.props.comments}
+//       groups={window.preload.firstMath["group-votes"]}
+//       />
+//   </svg>
+// */}
+// {/*
+//   <button style={{
+//     border: "none",
+//     backgroundColor: "transparent",
+//     width: 12,
+//     height: 12,
+//     cursor: "pointer",
+//     position: "relative",
+//     right: 8,
+//   }}
+// onClick={this.props.handleReturnToVoteClicked}>
+// <svg
+//   viewPort="0 0 12 12" >
+//     <line x1="1" y1="11"
+//           x2="11" y2="1"
+//           stroke="black"
+//           strokeWidth="2"/>
+//     <line x1="1" y1="1"
+//           x2="11" y2="11"
+//           stroke="black"
+//           strokeWidth="2"/>
+//   </svg>
+// </button>
+// */}
