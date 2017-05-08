@@ -1,0 +1,31 @@
+import React from "react";
+import _ from "lodash";
+
+const BarChartCompact = ({selectedComment, groupVotes, translate}) => {
+
+  if (!selectedComment) return null;
+
+  let groupVotesForThisComment = groupVotes.votes[selectedComment.tid];
+  let agrees = groupVotesForThisComment.A;
+  let disagrees = groupVotesForThisComment.D;
+  let sawTheComment = groupVotesForThisComment.S;
+  let passes = sawTheComment - (agrees + disagrees);
+  let totalVotes = agrees + disagrees + passes;
+  let nMembers = groupVotes["n-members"];
+
+  const agree = agrees / totalVotes * 100;
+  const disagree = disagrees / totalVotes * 100;
+  const pass = passes / totalVotes * 100;
+
+  console.log(agree, disagree, pass)
+
+  return (
+    <g transform={translate ? translate : "translate(100, 100)"}>
+      <rect x={0} width={agree} height={10} fill={"rgb(46, 204, 113)"} />
+      <rect x={agree} width={disagree} height={10} fill={"rgb(231, 76, 60)"} />
+      <rect x={agree + disagree} width={pass} height={10} fill={"rgb(230,230,230)"} />
+    </g>
+  )
+};
+
+export default BarChartCompact;

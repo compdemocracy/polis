@@ -1,7 +1,7 @@
 import React from "react";
 import _ from "lodash";
 import * as globals from "./globals";
-import BarChart from "./barChart";
+import BarChartCompact from "./barChartCompact";
 import closestPoint from "../util/closestPointOnPath";
 
 const BarChartsForGroupVotes = ({
@@ -13,8 +13,8 @@ const BarChartsForGroupVotes = ({
 }) => {
 
   const translations = {
-    nw: [-40, 0],
-    ne: [-40, 650],
+    nw: [40, 0],
+    ne: [40, 650],
     sw: [500, 10],
     se: [500, 650],
   };
@@ -50,8 +50,6 @@ const BarChartsForGroupVotes = ({
       //   yOffset = -200;
       // }
 
-      console.log("group path: ", hullElems[group.id])
-
       const closestPair = closestPoint(hullElems[group.id], [translation[0] + 100, translation[1] + yOffset])
 
       arr.push(
@@ -65,7 +63,7 @@ const BarChartsForGroupVotes = ({
               stroke: "rgb(130,130,130)",
               strokeWidth:"1"
             }}/>
-          <BarChart
+          <BarChartCompact
             key={group.id}
             selectedComment={selectedComment}
             groupVotes={group /* hardcode first group for debug */}
