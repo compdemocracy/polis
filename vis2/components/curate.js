@@ -3,6 +3,11 @@ import React from "react";
 import * as globals from "./globals";
 
 class Button extends React.Component {
+
+  handleClick() {
+    this.props.handleCurateButtonClick(this.props.identifier)
+  }
+
   render () {
     return (
       <button style={{
@@ -11,10 +16,11 @@ class Button extends React.Component {
         marginRight: 5,
         cursor: "pointer",
         padding: "6px 12px",
-        backgroundColor: (this.props.selectedComment && this.props.selectedComment.tid === c.tid) ? "#03a9f4" : "rgb(235,235,235)",
-        color: (this.props.selectedComment && this.props.selectedComment.tid === c.tid) ? "rgb(255,255,255)" : "rgb(100,100,100)",
+        backgroundColor: (this.props.selectedTidCuration && this.props.selectedTidCuration === this.props.identifier) ? "#03a9f4" : "rgb(235,235,235)",
+        color: (this.props.selectedTidCuration && this.props.selectedTidCuration === this.props.identifier) ? "rgb(255,255,255)" : "rgb(100,100,100)",
         borderRadius: 4,
-      }}>
+      }}
+      onClick={this.handleClick.bind(this)}>
         {this.props.children}
       </button>
     )
@@ -31,32 +37,58 @@ class Curate extends React.Component {
     };
   }
 
+
   render () {
     return (
       <div style={{
         width: "100%",
         display: "flex",
-        justifyContent: "space-between",
+        justifyContent: "center",
         alignItems: "baseline",
       }}>
-        <div>
-          <Button>X</Button>
-          <Button>Y</Button>
+        <div style={{marginRight: 20}}>
+          <Button
+            selectedTidCuration={this.props.selectedTidCuration}
+            handleCurateButtonClick={this.props.handleCurateButtonClick}
+            identifier={"majority"}>
+            Majority Opinion
+          </Button>
+        </div>
+        <div style={{marginRight: 20}}>
+          <Button
+            selectedTidCuration={this.props.selectedTidCuration}
+            handleCurateButtonClick={this.props.handleCurateButtonClick}
+            identifier={"differences"}>
+            Differences
+          </Button>
         </div>
         <div style={{
           display: "flex",
           justifyContent: "flex-start",
           alignItems: "baseline",
         }}>
-          <p style={{marginRight: 10, fontWeight: 500}}> Group: </p>
-          <Button>A</Button>
-          <Button>B</Button>
-          <Button>C</Button>
-          <Button>D</Button>
+          <p style={{
+              marginRight: 10,
+              fontSize: 14,
+              fontFamily: "Georgia",
+              fontStyle: "italic"
+            }}>
+            Group:
+          </p>
+          {
+            _.map(this.props.math["group-votes"], (group) => {
+              return (
+                <Button
+                  key={globals.groupLabels[group.id]}
+                  handleCurateButtonClick={this.props.handleCurateButtonClick}
+                  selectedTidCuration={this.props.selectedTidCuration}
+                  identifier={globals.groupLabels[group.id]}>
+                  {globals.groupLabels[group.id]}
+                </Button>
+              )
+            })
+          }
         </div>
-        <Button>Majority Opinion</Button>
-        <Button>My votes</Button>
-        <Button>All comments</Button>
       </div>
     )
   }

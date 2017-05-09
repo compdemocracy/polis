@@ -22,6 +22,7 @@ class Graph extends React.Component {
 
     this.state = {
       selectedComment: null,
+      selectedTidCuration: null,
     };
   }
 
@@ -102,6 +103,9 @@ class Graph extends React.Component {
     // document.getElementById("readReactView").style.display = "block";
     this.setState({selectedComment: null})
   }
+  handleCurateButtonClick (tidCuration) {
+    this.setState({selectedTidCuration: tidCuration})
+  }
 
   getHullElems(gid) {
     return (elem) => {
@@ -137,7 +141,7 @@ class Graph extends React.Component {
             getHullElems={this.getHullElems.bind(this)}
             hulls={this.state.hulls} />
           <HullLabels
-            groups={window.preload.firstMath["group-votes"] /* for labels */}
+            groups={this.props.math["group-votes"] || window.preload.firstMath["group-votes"] /* for labels */}
             centroids={this.state.groupCentroids}
             />
           <Participants
@@ -156,12 +160,17 @@ class Graph extends React.Component {
             hullElems={this.hullElems}
             selectedComment={this.state.selectedComment}
             allComments={this.props.comments}
-            groups={window.preload.firstMath["group-votes"]}
+            groups={this.props.math["group-votes"] || window.preload.firstMath["group-votes"]}
             groupCornerAssignments={this.state.groupCornerAssignments}
             />
         </svg>
-        <Curate/>
+        <Curate
+          handleCurateButtonClick={this.handleCurateButtonClick.bind(this)}
+          selectedTidCuration={this.state.selectedTidCuration}
+          math={this.props.math}
+          />
         <TidCarousel
+          selectedTidCuration={this.state.selectedTidCuration}
           commentsToShow={this.state.tidCarouselComments}
           handleCommentClick={this.handleCommentClick.bind(this)}
           selectedComment={this.state.selectedComment}
