@@ -7,6 +7,7 @@ import closestPoint from "../util/closestPointOnPath";
 const BarChartsForGroupVotes = ({
   selectedComment,
   allComments,
+  anchorPoints,
   groups,
   groupCornerAssignments,
   hullElems
@@ -50,15 +51,17 @@ const BarChartsForGroupVotes = ({
       //   yOffset = -200;
       // }
 
-      const closestPair = closestPoint(hullElems[group.id], [translation[0] + 100, translation[1] + yOffset])
+      // const closestPair = closestPoint(hullElems[group.id], [translation[0] + 100, translation[1] + yOffset])
+      // console.log("group path: ", hullElems[group.id])
+
 
       arr.push(
         <g key={group.id}>
           <line
             x1={translation[0] + 100}
             y1={translation[1] + yOffset}
-            x2={closestPair[0]}
-            y2={closestPair[1]}
+            x2={anchorPoints[group.id].x}
+            y2={anchorPoints[group.id].y}
             style={{
               stroke: "rgb(130,130,130)",
               strokeWidth:"1"

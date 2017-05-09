@@ -42,6 +42,7 @@ class Graph extends React.Component {
     let tidsToShowSet = _.keyBy(nextProps.tidsToShow);
 
     let {
+      anchorPoints,
       xx,
       yy,
       commentsPoints,
@@ -66,6 +67,7 @@ class Graph extends React.Component {
     });
 
     this.setState({
+      anchorPoints,
       xx,
       yy,
       commentsPoints,
@@ -149,6 +151,7 @@ class Graph extends React.Component {
             formatTid={this.props.formatTid}/>
           <BarChartsForGroupVotes
             hullElems={this.hullElems}
+            anchorPoints={this.state.anchorPoints}
             selectedComment={this.state.selectedComment}
             allComments={this.props.comments}
             groups={window.preload.firstMath["group-votes"]}
