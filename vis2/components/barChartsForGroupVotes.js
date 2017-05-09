@@ -12,6 +12,56 @@ const BarChartsForGroupVotes = ({
   hullElems
 }) => {
 
+
+  const position_nw_0 = 0;
+  const position_nw_1 = -globals.side;
+
+  const position_sw_0 = globals.side;
+  const position_sw_1 = 0;
+
+  const position_ne_0 = 0;
+  const position_ne_1 = globals.side;
+
+  const position_se_0 = globals.side;
+  const position_se_1 = globals.side;
+
+  const corners = [
+    [position_nw_0, position_nw_1],
+    [position_sw_0, position_sw_1],
+    [position_ne_0, position_ne_1],
+    [position_se_0, position_se_1],
+  ];
+
+
+  function getLabelAnchorForHull(hull) {
+    const candidates = corners.map((c) => {
+      const pt = closestPoint(hull, c);
+      const dx = c[0] - pt[0];
+      const dy = c[1] - pt[1];
+      return {
+        pt: pt,
+        dist: Math.sqrt(dx*dx + dy*dy),
+      };
+    });
+    let pt = _.maxBy(candidates, (c) => {
+      return -c.dist;
+    }).pt;
+
+    if (pt[0] < globals.side/2) {
+      pt[0] -= 90;
+    } else {
+      pt[0] -= 10;
+    }
+    if (pt[1] < globals.side/4) {
+      pt[1] += 10;
+    } else {
+      pt[1] -= 10;
+    }
+    return pt;
+  }
+
+
+
   const translations = {
     nw: [40, 0],
     ne: [40, 650],
@@ -50,24 +100,24 @@ const BarChartsForGroupVotes = ({
       //   yOffset = -200;
       // }
 
-      const closestPair = closestPoint(hullElems[group.id], [translation[0] + 100, translation[1] + yOffset])
+      const closestPair = getLabelAnchorForHull(hullElems[group.id]);
 
+      // <line
+      //   x1={translation[0] + 100}
+      //   y1={translation[1] + yOffset}
+      //   x2={closestPair[0]}
+      //   y2={closestPair[1]}
+      //   style={{
+      //     stroke: "rgb(130,130,130)",
+      //     strokeWidth:"1"
+      //   }}/>
       arr.push(
         <g key={group.id}>
-          <line
-            x1={translation[0] + 100}
-            y1={translation[1] + yOffset}
-            x2={closestPair[0]}
-            y2={closestPair[1]}
-            style={{
-              stroke: "rgb(130,130,130)",
-              strokeWidth:"1"
-            }}/>
           <BarChartCompact
             key={group.id}
             selectedComment={selectedComment}
             groupVotes={group /* hardcode first group for debug */}
-            translate={"translate(" + translation[0] + "," + translation[1] + ")"}
+            translate={"translate(" + closestPair[0] + "," + closestPair[1] + ")"}
             target={target}
             ptptCount={"ptptCount doesn't matter and isn't used because this barchart is for a group, not global"}/>
         </g>
