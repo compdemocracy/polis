@@ -99,7 +99,6 @@ const BarChartsForGroupVotes = ({
 
 export default BarChartsForGroupVotes;
 
-
 // const allCommentsKeyed = _.keyBy(allComments, "tid");
 // return groupComments.map((c, i) => {
 //   if (!allCommentsKeyed[c.tid]) {

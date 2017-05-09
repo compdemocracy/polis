@@ -11,8 +11,7 @@ import TidCarousel from "./tidCarousel";
 import Participants from "./graphParticipants";
 import Comments from "./graphComments";
 import Curate from "./curate";
-
-
+import HullLabels from "./hullLabels";
 
 class Graph extends React.Component {
 
@@ -22,7 +21,7 @@ class Graph extends React.Component {
     this.Viewer = null;
 
     this.state = {
-      selectedComment: null
+      selectedComment: null,
     };
   }
 
@@ -139,6 +138,10 @@ class Graph extends React.Component {
           <Hulls
             getHullElems={this.getHullElems.bind(this)}
             hulls={this.state.hulls} />
+          <HullLabels
+            groups={window.preload.firstMath["group-votes"] /* for labels */}
+            centroids={this.state.groupCentroids}
+            />
           <Participants
             points={this.state.baseClustersScaled}
             ptptois={this.props.ptptois}

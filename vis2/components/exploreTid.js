@@ -109,7 +109,6 @@ class ExploreTid extends React.Component {
   render() {
     return (
       <div style={{
-          backgroundColor: "rgb(247,247,247)",
           borderRadius: 4,
           marginTop: 20,
           padding: "10px 10px 10px 10px",
@@ -117,7 +116,7 @@ class ExploreTid extends React.Component {
           minHeight: 160,
           textAlign: "left",
           display: "flex",
-          justifyContent:"flex-start",
+          justifyContent:"center",
           alignItems: "flex-start",
         }}>
         <p style={{
