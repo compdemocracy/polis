@@ -1,7 +1,6 @@
 import * as globals from "../components/globals";
 import _ from "lodash";
 import createHull from "hull.js";
-import closestPoint from "../util/closestPointOnPath";
 
 import { forceSimulation, forceCollide, forceX, forceY } from 'd3-force';
 
@@ -18,63 +17,6 @@ const position_ne_1 = 99;
 
 const position_se_0 = 99;
 const position_se_1 = 99;
-
-
-
-function getBestAnchorPointForCorner(baseClusters, cornerX, cornerY) {
-  let bestDist = Infinity;
-  let bestX = null;
-  let bestY = null;
-
-  for (let i = 0; i < baseClusters.length; i++) {
-    let c = baseClusters[i];
-    let dx = c.x - cornerX;
-    let dy = c.y - cornerY;
-    let dist = dx*dx + dy*dy;
-    if (dist < bestDist) {
-      bestDist = dist;
-      bestX = c.x;
-      bestY = c.y;
-      if (cornerX < 0) {
-        bestX -= 0.001;
-      } else if (cornerX > 0) {
-        bestX += 0.001;
-      }
-      if (cornerY < 0) {
-        bestY -= 0.001;
-      } else if (cornerY > 0) {
-        bestY -= 0.001;
-      }
-    }
-  }
-
-  return {
-    dist: Math.sqrt(Math.abs(bestDist)),
-    x: bestX,
-    y: bestY,
-  };
-}
-
-function getBestAnchorPoint(baseClusters) {
-  let best_nw = getBestAnchorPointForCorner(baseClusters, position_nw_0, position_nw_1);
-  let best_sw = getBestAnchorPointForCorner(baseClusters, position_sw_0, position_sw_1);
-  let best_ne = getBestAnchorPointForCorner(baseClusters, position_ne_0, position_ne_1);
-  let best_se = getBestAnchorPointForCorner(baseClusters, position_se_0, position_se_1);
-
-  return _.maxBy([best_nw, best_sw, best_ne, best_se], (o) => {
-    return -o.dist;
-  });
-}
-
-function getInitialAnchorPoints(baseClustersScaledAndGrouped) {
-  let gids = _.keys(baseClustersScaledAndGrouped);
-  let result = [];
-  gids.forEach((gid) => {
-    let baseClusters = baseClustersScaledAndGrouped[gid];
-    result[gid] = getBestAnchorPoint(baseClusters);
-  });
-  return result;
-}
 
 function getScore(candidate) {
   let score = 0;
@@ -292,6 +234,13 @@ const graphUtil = (comments, math, badTids) => {
 
 
 
+    for (let i = 0; i < commentsPoints.length; i++) {
+      commentsPoints[i].x = xCenter + commentsPoints[i].x * commentScaleupFactorX;
+      commentsPoints[i].y = yCenter + commentsPoints[i].y * commentScaleupFactorY;
+    }
+
+    mixedForce([commentsPoints, baseClustersScaled], 2);
+
     const baseClustersScaledAndGrouped = {}
 
     baseClustersScaled.forEach((baseCluster) => {
@@ -301,16 +250,6 @@ const graphUtil = (comments, math, badTids) => {
         baseClustersScaledAndGrouped[baseCluster.gid] = [baseCluster];
       }
     });
-
-
-    for (let i = 0; i < commentsPoints.length; i++) {
-      commentsPoints[i].x = xCenter + commentsPoints[i].x * commentScaleupFactorX;
-      commentsPoints[i].y = yCenter + commentsPoints[i].y * commentScaleupFactorY;
-    }
-
-    let anchorPoints = getInitialAnchorPoints(baseClustersScaledAndGrouped);
-
-    mixedForce([commentsPoints, baseClustersScaled, anchorPoints], 2);
 
     const hulls = [];
 
@@ -342,9 +281,7 @@ const graphUtil = (comments, math, badTids) => {
       };
     });
 
-
     return {
-      anchorPoints,
       commentsPoints,
       baseClustersScaled,
       hulls,
