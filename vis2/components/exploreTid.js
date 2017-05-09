@@ -107,6 +107,7 @@ class ExploreTid extends React.Component {
     )
   }
   render() {
+    if (!this.props.selectedComment) {return null}
     return (
       <div style={{
           borderRadius: 4,

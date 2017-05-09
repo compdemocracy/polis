@@ -19,7 +19,6 @@ class Hull extends React.Component {
 
 class Hulls extends React.Component {
   render () {
-    console.log(this.props)
     return (
       <g>
         {

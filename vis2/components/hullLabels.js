@@ -48,8 +48,8 @@ const HullLabels = ({groups, centroids}) => {
       {centroids.map((centroid, i) => {
         return (
           <Label
-            key={i}
-            gid={i}
+            key={groups[i].id}
+            gid={groups[i].id}
             ptptCount={groups[i]["n-members"]}
             centroid={centroid}/>
         )

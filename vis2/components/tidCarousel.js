@@ -53,6 +53,8 @@ class TidCarousel extends React.Component {
 
   render() {
 
+    if (!this.props.selectedTidCuration) { return null }
+
     return (
       <div style={{
         display: "flex",
@@ -77,7 +79,18 @@ class TidCarousel extends React.Component {
             </g>
           </PaginateButton>
         </div>
-        <div>
+        <div style={{
+            display: "flex",
+            alignItems: "baseline",
+          }}>
+          <p style={{
+              marginRight: 10,
+              fontSize: 14,
+              fontFamily: "Georgia",
+              fontStyle: "italic"
+            }}>
+            Comment:
+          </p>
           {
             this.props.commentsToShow && _.map(
               this.props.commentsToShow.slice(
