@@ -155,8 +155,6 @@ class Graph extends React.Component {
             repfulDisageeTidsByGroup={this.props.repfulDisageeTidsByGroup}
             formatTid={this.props.formatTid}/>
           <BarChartsForGroupVotes
-            width={globals.side}
-            height={globals.side}
             hullElems={this.hullElems}
             anchorPoints={this.state.anchorPoints}
             selectedComment={this.state.selectedComment}

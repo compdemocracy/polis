@@ -21,24 +21,17 @@ const position_se_1 = 99;
 
 
 
-function getBestAnchorPointForCorner(points, cornerX, cornerY) {
+function getBestAnchorPointForCorner(baseClusters, cornerX, cornerY) {
   let bestDist = Infinity;
   let bestX = null;
   let bestY = null;
 
-  let secondBestDist = Infinity;
-  let secondBestX = null;
-  let secondBestY = null;
-
-  for (let i = 0; i < points.length; i++) {
-    let c = points[i];
+  for (let i = 0; i < baseClusters.length; i++) {
+    let c = baseClusters[i];
     let dx = c.x - cornerX;
     let dy = c.y - cornerY;
     let dist = dx*dx + dy*dy;
     if (dist < bestDist) {
-      secondBestDist = bestDist;
-      secondBestX = bestX;
-      secondBestY = bestY;
       bestDist = dist;
       bestX = c.x;
       bestY = c.y;
@@ -55,24 +48,18 @@ function getBestAnchorPointForCorner(points, cornerX, cornerY) {
     }
   }
 
-  // find midpoint between best and second best points
-  let x = (bestX + secondBestX) / 2;
-  let y = (bestY + secondBestY) / 2;
-  let dx = x - cornerX;
-  let dy = y - cornerY;
-
   return {
-    dist: Math.sqrt(dx*dx + dy*dy),
-    x: x,
-    y: y,
+    dist: Math.sqrt(Math.abs(bestDist)),
+    x: bestX,
+    y: bestY,
   };
 }
 
-function getBestAnchorPoint(points) {
-  let best_nw = getBestAnchorPointForCorner(points, position_nw_0, position_nw_1);
-  let best_sw = getBestAnchorPointForCorner(points, position_sw_0, position_sw_1);
-  let best_ne = getBestAnchorPointForCorner(points, position_ne_0, position_ne_1);
-  let best_se = getBestAnchorPointForCorner(points, position_se_0, position_se_1);
+function getBestAnchorPoint(baseClusters) {
+  let best_nw = getBestAnchorPointForCorner(baseClusters, position_nw_0, position_nw_1);
+  let best_sw = getBestAnchorPointForCorner(baseClusters, position_sw_0, position_sw_1);
+  let best_ne = getBestAnchorPointForCorner(baseClusters, position_ne_0, position_ne_1);
+  let best_se = getBestAnchorPointForCorner(baseClusters, position_se_0, position_se_1);
 
   return _.maxBy([best_nw, best_sw, best_ne, best_se], (o) => {
     return -o.dist;
@@ -83,8 +70,8 @@ function getInitialAnchorPoints(baseClustersScaledAndGrouped) {
   let gids = _.keys(baseClustersScaledAndGrouped);
   let result = [];
   gids.forEach((gid) => {
-    let points = baseClustersScaledAndGrouped[gid];
-    result[gid] = getBestAnchorPoint(points);
+    let baseClusters = baseClustersScaledAndGrouped[gid];
+    result[gid] = getBestAnchorPoint(baseClusters);
   });
   return result;
 }
@@ -167,9 +154,9 @@ function mixedForce(arrays, strength) {
 
   for (let i = 0; i < arrays.length; i++) {
     let a = arrays[i];
-    // for (let ai = 0; ai < a.length; ai++) {
-    //   a[ai].__kind__ = i;
-    // }
+    for (let ai = 0; ai < a.length; ai++) {
+      a[ai].__kind__ = i;
+    }
     Array.prototype.push.apply(allPoints, a);
   }
 

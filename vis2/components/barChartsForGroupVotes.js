@@ -5,7 +5,6 @@ import BarChartCompact from "./barChartCompact";
 import closestPoint from "../util/closestPointOnPath";
 
 const BarChartsForGroupVotes = ({
-  width,
   selectedComment,
   allComments,
   anchorPoints,
@@ -55,32 +54,23 @@ const BarChartsForGroupVotes = ({
       // const closestPair = closestPoint(hullElems[group.id], [translation[0] + 100, translation[1] + yOffset])
       // console.log("group path: ", hullElems[group.id])
 
-      let barWidth = 100;
-      let x = anchorPoints[group.id].x;
-      let y = anchorPoints[group.id].y;
-      if (x < width/2) {
-        x -= (barWidth - barWidth/5);
-      }
-
-
-      // <line
-      //   x1={translation[0] + 100}
-      //   y1={translation[1] + yOffset}
-      //   x2={x}
-      //   y2={y}
-      //   style={{
-      //     stroke: "rgb(130,130,130)",
-      //     strokeWidth:"1"
-      //   }}/>
 
       arr.push(
         <g key={group.id}>
+          <line
+            x1={translation[0] + 100}
+            y1={translation[1] + yOffset}
+            x2={anchorPoints[group.id].x}
+            y2={anchorPoints[group.id].y}
+            style={{
+              stroke: "rgb(130,130,130)",
+              strokeWidth:"1"
+            }}/>
           <BarChartCompact
             key={group.id}
-            width={barWidth}
             selectedComment={selectedComment}
             groupVotes={group /* hardcode first group for debug */}
-            translate={"translate(" + x + "," + y + ")"}
+            translate={"translate(" + translation[0] + "," + translation[1] + ")"}
             target={target}
             ptptCount={"ptptCount doesn't matter and isn't used because this barchart is for a group, not global"}/>
         </g>
