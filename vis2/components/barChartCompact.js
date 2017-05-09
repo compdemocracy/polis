@@ -1,7 +1,7 @@
 import React from "react";
 import _ from "lodash";
 
-const BarChartCompact = ({selectedComment, groupVotes, translate}) => {
+const BarChartCompact = ({selectedComment, groupVotes, translate, width}) => {
 
   if (!selectedComment) return null;
 
@@ -13,10 +13,10 @@ const BarChartCompact = ({selectedComment, groupVotes, translate}) => {
   let totalVotes = agrees + disagrees + passes;
   let nMembers = groupVotes["n-members"];
 
-  const agree = agrees / nMembers * 100;
-  const disagree = disagrees / nMembers * 100;
-  const pass = passes / nMembers * 100;
-  const blank = nMembers - sawTheComment / nMembers * 100;
+  const agree = agrees / nMembers * width;
+  const disagree = disagrees / nMembers * width;
+  const pass = passes / nMembers * width;
+  const blank = nMembers - sawTheComment / nMembers * width;
 
   return (
     <g transform={translate ? translate : "translate(100, 100)"}>
