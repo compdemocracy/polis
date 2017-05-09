@@ -52,6 +52,7 @@ class Graph extends React.Component {
       commentScaleupFactorX,
       commentScaleupFactorY,
       hulls,
+      groupCentroids,
       groupCornerAssignments,
     } = graphUtil(nextProps.comments, nextProps.math, nextProps.badTids);
 
@@ -78,6 +79,7 @@ class Graph extends React.Component {
       commentScaleupFactorX,
       commentScaleupFactorY,
       hulls,
+      groupCentroids,
       groupCornerAssignments,
       commentsPoints,
       tidCarouselComments

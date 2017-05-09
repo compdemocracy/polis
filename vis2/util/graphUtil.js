@@ -348,11 +348,20 @@ const graphUtil = (comments, math, badTids) => {
     doMapCornerPointer(groupCornerAssignments.se, xx, yy);
     doMapCornerPointer(groupCornerAssignments.sw, xx, yy);
 
+    let groupCentroids = math["group-clusters"].map((group) => {
+      return {
+        x: xx(group.center[0]),
+        y: yy(group.center[1]),
+      };
+    });
+
+
     return {
       anchorPoints,
       commentsPoints,
       baseClustersScaled,
       hulls,
+      groupCentroids,
       groupCornerAssignments,
       xCenter,
       yCenter,
