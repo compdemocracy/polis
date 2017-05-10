@@ -20,6 +20,10 @@ export const tidCuration = {
   differences: "differences",
 };
 
+export const pastTense = {
+  agree: "agreed",
+  disagree: "disagreed",
+}
 
 export const enableMatrix = false;
 

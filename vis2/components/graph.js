@@ -73,10 +73,7 @@ class Graph extends React.Component {
 
     let selectedComment = this.state.selectedComment
 
-    console.log('outside', this.state)
-
     if (this.state.selectedComment === null && this.state.selectedTidCuration !== null) {
-      console.log("LE THING", tidCarouselComments)
       selectedComment = tidCarouselComments[0]
     }
 
@@ -165,15 +162,15 @@ class Graph extends React.Component {
             <Hulls
               getHullElems={this.getHullElems.bind(this)}
               hulls={this.state.hulls} />
+            <Participants
+              points={this.state.baseClustersScaled}
+              ptptois={this.props.ptptois}
+              ptptoiScaleFactor={this.state.ptptoiScaleFactor}/>
             <HullLabels
               selectedGroup={_.isNumber(this.state.selectedTidCuration) ? this.state.selectedTidCuration : null}
               groups={this.props.math["group-votes"] || window.preload.firstMath["group-votes"] /* for labels */}
               centroids={this.state.groupCentroids}
               />
-            <Participants
-              points={this.state.baseClustersScaled}
-              ptptois={this.props.ptptois}
-              ptptoiScaleFactor={this.state.ptptoiScaleFactor}/>
             <Comments
               commentsPoints={this.state.commentsPoints}
               selectedComment={this.state.selectedComment}
@@ -206,6 +203,8 @@ class Graph extends React.Component {
           handleReturnToVoteClicked={this.handleReturnToVoteClicked.bind(this)}
           selectedComment={this.state.selectedComment}
           votesByMe={this.props.votesByMe}
+          selectedTidCuration={this.state.selectedTidCuration}
+          math={this.props.math || window.preload.firstMath}
           onVoteClicked={this.props.onVoteClicked}
           comments={this.props.comment}/>
       </div>

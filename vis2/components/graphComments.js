@@ -18,7 +18,6 @@ class GraphComment extends React.Component {
     return x;
   }
   render() {
-    if (!this.props.isSelected) return null;
     return (
       <g transform={ "translate(" +
         this.props.pt.x +
@@ -30,18 +29,17 @@ class GraphComment extends React.Component {
             width="20"
             x={this.getRectX()}
             y={-13}
-            fill="none"
+            fill={this.props.isSelected ? "rgb(3, 169, 244)" : "none"}
             rx="3"
             ry="3"
             strokeWidth="2"
-            strokeDasharray="4, 7, 10, 9, 10, 7, 12, 9, 100"
-            stroke="black" />
+            strokeDasharray={"4, 7, 10, 9, 10, 7, 12, 9, 100"}
+            stroke={"none"} />
           <text
             onMouseEnter={this.props.handleCommentHover(this.props.pt)}
             onMouseLeave={this.props.handleCommentHover(this.props.pt)}
-            fill="rgba(0,0,0,0.7)"
             style={{
-              fill: "black",
+              fill: this.props.isSelected ? "white" : "black",
               cursor: "pointer",
               display: "block",
               fontFamily: "Helvetica, sans-serif",

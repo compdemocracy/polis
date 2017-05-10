@@ -3,6 +3,26 @@ import React from "react";
 import * as globals from "./globals";
 import BarChart from "./barChart";
 
+const DataSentence = ({math, selectedTidCuration, selectedComment, repfulFor}) => {
+
+  let markup = null;
+
+  if (_.isNumber(selectedTidCuration)) {
+    const repful = _.find(math.repness[selectedTidCuration], (r) => { return r.tid === selectedComment.tid })
+    markup = (
+      <p style={{fontSize: 14, fontFamily: "Georgia", fontStyle: "italic"}}>
+        {Math.floor(repful["p-success"] * 100)}% of those in group {globals.groupLabels[selectedTidCuration]} who voted on comment {selectedComment.tid} {globals.pastTense[repful["repful-for"]]}
+      </p>
+    )
+  } else if (selectedTidCuration === globals.tidCuration.majority) {
+
+  }
+
+
+
+  return markup;
+}
+
 class ExploreTid extends React.Component {
 
   handleAgree() {
@@ -154,6 +174,11 @@ class ExploreTid extends React.Component {
           }}>
             {this.props.selectedComment ? this.props.selectedComment.txt : null}
           </p>
+          <DataSentence
+            math={this.props.math}
+            selectedComment={this.props.selectedComment}
+            selectedTidCuration={this.props.selectedTidCuration}
+            repfulFor={"agreed"}/>
           {/*this.createChangeVotesElements()*/}
         </div>
       </div>
