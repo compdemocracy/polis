@@ -9,6 +9,7 @@ class Button extends React.Component {
   }
 
   render () {
+
     return (
       <button style={{
         border: "none",
@@ -16,8 +17,9 @@ class Button extends React.Component {
         marginRight: 5,
         cursor: "pointer",
         padding: "6px 12px",
+        fontWeight: (!_.isNull(this.props.selectedTidCuration) && this.props.selectedTidCuration === this.props.identifier) ? 700 : 500,
         backgroundColor: (!_.isNull(this.props.selectedTidCuration) && this.props.selectedTidCuration === this.props.identifier) ? "#03a9f4" : "rgb(235,235,235)",
-        color: (this.props.selectedTidCuration && this.props.selectedTidCuration === this.props.identifier) ? "rgb(255,255,255)" : "rgb(100,100,100)",
+        color: (!_.isNull(this.props.selectedTidCuration) && this.props.selectedTidCuration === this.props.identifier) ? "rgb(255,255,255)" : "rgb(100,100,100)",
         borderRadius: 4,
       }}
       onClick={this.handleClick.bind(this)}>

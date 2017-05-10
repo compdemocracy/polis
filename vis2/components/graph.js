@@ -87,14 +87,18 @@ class Graph extends React.Component {
   handleCommentHover(selectedComment) {
     return () => {
       // document.getElementById("readReactView").style.display = "none";
-      this.setState({selectedComment});
+      this.setState({
+        selectedComment
+      });
     }
   }
 
   handleCommentClick(selectedComment) {
     return () => {
       // document.getElementById("readReactView").style.display = "none";
-      this.setState({selectedComment});
+      this.setState({
+        selectedComment
+      });
     }
   }
 
@@ -103,7 +107,10 @@ class Graph extends React.Component {
     this.setState({selectedComment: null})
   }
   handleCurateButtonClick (tidCuration) {
-    this.setState({selectedTidCuration: tidCuration});
+    this.setState({
+      selectedTidCuration: tidCuration,
+      selectedComment: null
+    });
     this.props.onCurationChange && this.props.onCurationChange(tidCuration);
   }
 
