@@ -11,9 +11,9 @@ const getBackgroundRectWidth = (ptptCount) =>  {
   return width;
 }
 
-const Users = () => {
+const Users = ({selectedGroup}) => {
   return (
-    <g width={7} fill="rgb(80,80,80)" transform={`translate(0,-9)`}>
+    <g width={7} fill={selectedGroup ? "white" : "black"} transform={`translate(0,-9)`}>
       <ellipse cx="1.99335548" cy="1.42348754" rx="1.32890365" ry="1.42348754"></ellipse>
       <ellipse cx="7.97342193" cy="1.42348754" rx="1.32890365" ry="1.42348754"></ellipse>
       <ellipse cx="4.9833887" cy="3.55871886" rx="1.99335548" ry="2.13523132"></ellipse>
@@ -24,21 +24,44 @@ const Users = () => {
   )
 }
 
-const Label = ({ptptCount, centroid, gid}) => {
+const Label = ({ptptCount, centroid, gid, selectedGroup}) => {
   return (
     <g transform={`translate(${centroid.x},${centroid.y})`}>
-      <text x={-11} style={{fontWeight: 700, fontSize: 12, pointerEvents: "none", userSelect: "none"}}>
+      <rect
+        height={20}
+        width={getBackgroundRectWidth(ptptCount)}
+        rx="4" ry="4"
+        fill={selectedGroup === gid ? "rgb(3, 169, 244)": "rgb(248,248,248)"}
+        x={-16}
+        y={-15}/>
+      <text
+        x={-11}
+        style={{
+          fontWeight: 700,
+          fill: selectedGroup === gid ? "white" : "black",
+          fontSize: 12,
+          pointerEvents: "none",
+          userSelect: "none"
+        }}>
         {globals.groupLabels[gid]}
       </text>
-      <Users/>
-      <text x={12} style={{fontWeight: 300, fontSize: 12, pointerEvents: "none", userSelect: "none"}}>
+      <Users selectedGroup={selectedGroup === gid}/>
+      <text
+        x={12}
+        style={{
+          fontWeight: 300,
+          fill: selectedGroup === gid ? "white" : "black",
+          fontSize: 12,
+          pointerEvents: "none",
+          userSelect: "none"
+        }}>
         {ptptCount}
       </text>
     </g>
   )
 }
 
-const HullLabels = ({groups, centroids}) => {
+const HullLabels = ({groups, centroids, selectedGroup}) => {
 
   if (!centroids || !groups) { return null }
 
@@ -48,6 +71,7 @@ const HullLabels = ({groups, centroids}) => {
         return (
           <Label
             key={groups[i].id}
+            selectedGroup={selectedGroup}
             gid={groups[i].id}
             ptptCount={groups[i]["n-members"]}
             centroid={centroid}/>
@@ -58,12 +82,3 @@ const HullLabels = ({groups, centroids}) => {
 }
 
 export default HullLabels
-
-
-// <rect
-//   height={20}
-//   width={getBackgroundRectWidth(ptptCount)}
-//   rx="4" ry="4"
-//   fill={"rgb(248,248,248)"}
-//   x={-16}
-//   y={-15}/>

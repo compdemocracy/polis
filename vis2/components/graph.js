@@ -166,6 +166,7 @@ class Graph extends React.Component {
               getHullElems={this.getHullElems.bind(this)}
               hulls={this.state.hulls} />
             <HullLabels
+              selectedGroup={_.isNumber(this.state.selectedTidCuration) ? this.state.selectedTidCuration : null}
               groups={this.props.math["group-votes"] || window.preload.firstMath["group-votes"] /* for labels */}
               centroids={this.state.groupCentroids}
               />
