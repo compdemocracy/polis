@@ -135,7 +135,7 @@ module.exports = ConversationView.extend({
     ctx.twitterShareCount = preload.firstConv.twitterShareCount;
     ctx.fbShareCount = preload.firstConv.fbShareCount;
     ctx.s = Strings;
-    ctx.polis_bgcolor = preload.firstConv.bgcolor || "#f7f7f7";
+    ctx.polis_bgcolor = "white"; //preload.firstConv.bgcolor || "#f7f7f7";
     ctx.hideSocialButtons = preload.firstConv.socialbtn_type === 0;
     ctx.hideHelp = preload.firstConv.help_type === 0;
 
@@ -362,7 +362,7 @@ module.exports = ConversationView.extend({
     return (display.xs() /* || display.sm() */ ) && (this.conversationTabs.onAnalyzeTab() || this.conversationTabs.onGroupTab());
   },
   initialize: function(options) {
-    $("body").css("background-color", preload.firstConv.bgcolor || "#f7f7f7");
+    // $("body").css("background-color", preload.firstConv.bgcolor || "#f7f7f7");
     ConversationView.prototype.initialize.apply(this, arguments);
     var that = this;
     this.wipCommentFormText = options.wipCommentFormText;
