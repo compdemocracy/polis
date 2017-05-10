@@ -23,17 +23,23 @@ class Graph extends React.Component {
     this.state = {
       selectedComment: null,
       selectedTidCuration: null,
+      browserDimensions: window.innerWidth
     };
   }
 
   componentWillMount() {
+
+    window.addEventListener("resize", () => {
+      this.setState({browserDimensions: window.innerWidth})
+    })
+
     document.getElementById("helpTextGroups").style.display = "none";
     document.getElementById("visualization_div").style.display = "none";
     document.getElementById("carouselPane").style.display = "none";
     document.getElementById("groupSelectionViewContainer").style.display = "none";
   }
 
-  componentWillReceiveProps(nextProps) {
+  componentWillReceiveProps(nextProps, nextState) {
 
     if (!nextProps.math) {
       return;
@@ -65,6 +71,15 @@ class Graph extends React.Component {
       return !_.isUndefined(tidsToShowSet[c.tid]);
     });
 
+    let selectedComment = this.state.selectedComment
+
+    console.log('outside', this.state)
+
+    if (this.state.selectedComment === null && this.state.selectedTidCuration !== null) {
+      console.log("LE THING", tidCarouselComments)
+      selectedComment = tidCarouselComments[0]
+    }
+
     this.setState({
       xx,
       yy,
@@ -79,6 +94,7 @@ class Graph extends React.Component {
       groupCentroids,
       groupCornerAssignments,
       commentsPoints,
+      selectedComment,
       tidCarouselComments
     })
 
@@ -107,11 +123,13 @@ class Graph extends React.Component {
     this.setState({selectedComment: null})
   }
   handleCurateButtonClick (tidCuration) {
+
     this.setState({
       selectedTidCuration: tidCuration,
       selectedComment: null
+    }, () => {
+      this.props.onCurationChange && this.props.onCurationChange(tidCuration);
     });
-    this.props.onCurationChange && this.props.onCurationChange(tidCuration);
   }
 
   getHullElems(gid) {

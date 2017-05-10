@@ -51,6 +51,51 @@ class TidCarousel extends React.Component {
     }
   }
 
+  renderUpperPaginationButtons() {
+    return (
+      <div>
+        <PaginateButton paginate={this.movePage(-10)} leftSide>
+          <g transform="translate(-13.000000, -5.000000)">
+            <g transform="translate(13.000000, 5.000000)">
+              <polyline fill="rgb(180,180,180)" points="4.50549451 5 9.50549451 10 9.50549451 6.123234e-16"></polyline>
+              <polyline fill="rgb(180,180,180)" points="-3.061617e-16 5 5 10 5 6.123234e-16"></polyline>
+            </g>
+          </g>
+        </PaginateButton>
+        <PaginateButton paginate={this.movePage(-1)} leftSide>
+          <g  transform="translate(-13.000000, -5.000000)">
+            <g transform="translate(13.000000, 5.000000)">
+              <polyline fill="rgb(180,180,180)" points="-3.061617e-16 5 5 10 5 6.123234e-16"></polyline>
+            </g>
+          </g>
+        </PaginateButton>
+      </div>
+    )
+  }
+
+  renderLowerPaginationButtons() {
+    return (
+      <div>
+        <PaginateButton paginate={this.movePage(1)}>
+          <g transform="translate(-13.000000, -5.000000)">
+            <g transform="translate(18.000000, 10.000000) scale(-1, 1) translate(-18.000000, -10.000000) translate(13.000000, 5.000000)">
+              <polyline fill="rgb(180,180,180)" points="-3.061617e-16 5 5 10 5 6.123234e-16"></polyline>
+            </g>
+          </g>
+        </PaginateButton>
+        <PaginateButton paginate={this.movePage(10)}>
+          <g transform="translate(-13.000000, -5.000000)">
+            <g transform="translate(18.000000, 10.000000) scale(-1, 1) translate(-18.000000, -10.000000) translate(13.000000, 5.000000)">
+              <polyline fill="rgb(180,180,180)" points="4.50549451 5 9.50549451 10 9.50549451 6.123234e-16"></polyline>
+              <polyline fill="rgb(180,180,180)" points="-3.061617e-16 5 5 10 5 6.123234e-16"></polyline>
+            </g>
+          </g>
+        </PaginateButton>
+      </div>
+    )
+  }
+
+
   render() {
 
     if (_.isNull(this.props.selectedTidCuration)) { return null }
@@ -58,29 +103,16 @@ class TidCarousel extends React.Component {
     return (
       <div style={{
         display: "flex",
-        justifyContent: "space-between",
+        width: "100%",
+        justifyContent: this.props.commentsToShow < this.state.page ? "center" : "space-between",
         alignItems: "baseline",
         marginTop: 10,
         }}>
-        <div>
-          <PaginateButton paginate={this.movePage(-10)} leftSide>
-            <g transform="translate(-13.000000, -5.000000)">
-              <g transform="translate(13.000000, 5.000000)">
-                <polyline fill="rgb(180,180,180)" points="4.50549451 5 9.50549451 10 9.50549451 6.123234e-16"></polyline>
-                <polyline fill="rgb(180,180,180)" points="-3.061617e-16 5 5 10 5 6.123234e-16"></polyline>
-              </g>
-            </g>
-          </PaginateButton>
-          <PaginateButton paginate={this.movePage(-1)} leftSide>
-            <g  transform="translate(-13.000000, -5.000000)">
-              <g transform="translate(13.000000, 5.000000)">
-                <polyline fill="rgb(180,180,180)" points="-3.061617e-16 5 5 10 5 6.123234e-16"></polyline>
-              </g>
-            </g>
-          </PaginateButton>
-        </div>
+        {this.props.commentsToShow < this.state.page ? this.renderUpperPaginationButtons() : null}
         <div style={{
             display: "flex",
+            width: "100%",
+            justifyContent: "center",
             alignItems: "baseline",
           }}>
           <p style={{
@@ -97,11 +129,12 @@ class TidCarousel extends React.Component {
                 (this.state.page * this.state.perPage),
                 ((this.state.page * this.state.perPage) + this.state.perPage)
               ), (c) => { return (
-                <span
+                <button
                   onClick={this.props.handleCommentClick(c)}
                   style={{
                     cursor: "pointer",
                     marginRight: 5,
+                    border: "none",
                     padding: "6px 12px",
                     fontWeight: (this.props.selectedComment && this.props.selectedComment.tid === c.tid) ? 700 : 500,
                     backgroundColor: (this.props.selectedComment && this.props.selectedComment.tid === c.tid) ? "#03a9f4" : "rgb(235,235,235)",
@@ -110,28 +143,12 @@ class TidCarousel extends React.Component {
                   }}
                   key={c.tid}>
                   {c.tid}
-                </span>
+                </button>
               )}
             )
           }
         </div>
-        <div>
-          <PaginateButton paginate={this.movePage(1)}>
-            <g transform="translate(-13.000000, -5.000000)">
-              <g transform="translate(18.000000, 10.000000) scale(-1, 1) translate(-18.000000, -10.000000) translate(13.000000, 5.000000)">
-                <polyline fill="rgb(180,180,180)" points="-3.061617e-16 5 5 10 5 6.123234e-16"></polyline>
-              </g>
-            </g>
-          </PaginateButton>
-          <PaginateButton paginate={this.movePage(10)}>
-            <g transform="translate(-13.000000, -5.000000)">
-              <g transform="translate(18.000000, 10.000000) scale(-1, 1) translate(-18.000000, -10.000000) translate(13.000000, 5.000000)">
-                <polyline fill="rgb(180,180,180)" points="4.50549451 5 9.50549451 10 9.50549451 6.123234e-16"></polyline>
-                <polyline fill="rgb(180,180,180)" points="-3.061617e-16 5 5 10 5 6.123234e-16"></polyline>
-              </g>
-            </g>
-          </PaginateButton>
-        </div>
+        {this.props.commentsToShow < this.state.page ? this.renderLowerPaginationButtons() : null}
       </div>
     )
   }

@@ -56,14 +56,6 @@ class Curate extends React.Component {
             Majority Opinion
           </Button>
         </div>
-        <div style={{marginRight: 20}}>
-          <Button
-            selectedTidCuration={this.props.selectedTidCuration}
-            handleCurateButtonClick={this.props.handleCurateButtonClick}
-            identifier={globals.tidCuration.differences}>
-            Differences
-          </Button>
-        </div>
         <div style={{
           display: "flex",
           justifyContent: "flex-start",
@@ -98,3 +90,13 @@ class Curate extends React.Component {
 
 
 export default Curate;
+
+
+// <div style={{marginRight: 20}}>
+//   <Button
+//     selectedTidCuration={this.props.selectedTidCuration}
+//     handleCurateButtonClick={this.props.handleCurateButtonClick}
+//     identifier={globals.tidCuration.differences}>
+//     Differences
+//   </Button>
+// </div>
