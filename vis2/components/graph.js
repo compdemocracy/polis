@@ -126,50 +126,51 @@ class Graph extends React.Component {
 
     return (
       <div>
-        <svg width={globals.side} height={globals.side}>
+        <svg width={globals.sideWithPadding} height={globals.sideWithPadding}>
+          <g transform={`translate(${globals.padding}, ${globals.padding})`}>
+            {/* Comment https://bl.ocks.org/mbostock/7555321 */}
+            <g transform={`translate(${globals.side / 2}, ${15})`}>
+              <text
+                style={{
+                  fontFamily: "Georgia",
+                  fontSize: 14,
+                  fontStyle: "italic"
+                }}
+                textAnchor="middle">
 
-          {/* Comment https://bl.ocks.org/mbostock/7555321 */}
-          <g transform={`translate(${globals.side / 2}, ${15})`}>
-            <text
-              style={{
-                fontFamily: "Georgia",
-                fontSize: 14,
-                fontStyle: "italic"
-              }}
-              textAnchor="middle">
-
-            </text>
+              </text>
+            </g>
+            <Axes
+              xCenter={this.state.xCenter}
+              yCenter={this.state.yCenter}
+              report={this.props.report}/>
+            <Hulls
+              getHullElems={this.getHullElems.bind(this)}
+              hulls={this.state.hulls} />
+            <HullLabels
+              groups={this.props.math["group-votes"] || window.preload.firstMath["group-votes"] /* for labels */}
+              centroids={this.state.groupCentroids}
+              />
+            <Participants
+              points={this.state.baseClustersScaled}
+              ptptois={this.props.ptptois}
+              ptptoiScaleFactor={this.state.ptptoiScaleFactor}/>
+            <Comments
+              commentsPoints={this.state.commentsPoints}
+              selectedComment={this.state.selectedComment}
+              handleCommentHover={this.handleCommentHover.bind(this)}
+              points={this.state.commentsPoints}
+              repfulAgreeTidsByGroup={this.props.repfulAgreeTidsByGroup}
+              repfulDisageeTidsByGroup={this.props.repfulDisageeTidsByGroup}
+              formatTid={this.props.formatTid}/>
+            <BarChartsForGroupVotes
+              hullElems={this.hullElems}
+              selectedComment={this.state.selectedComment}
+              allComments={this.props.comments}
+              groups={this.props.math["group-votes"] || window.preload.firstMath["group-votes"]}
+              groupCornerAssignments={this.state.groupCornerAssignments}
+              />
           </g>
-          <Axes
-            xCenter={this.state.xCenter}
-            yCenter={this.state.yCenter}
-            report={this.props.report}/>
-          <Hulls
-            getHullElems={this.getHullElems.bind(this)}
-            hulls={this.state.hulls} />
-          <HullLabels
-            groups={this.props.math["group-votes"] || window.preload.firstMath["group-votes"] /* for labels */}
-            centroids={this.state.groupCentroids}
-            />
-          <Participants
-            points={this.state.baseClustersScaled}
-            ptptois={this.props.ptptois}
-            ptptoiScaleFactor={this.state.ptptoiScaleFactor}/>
-          <Comments
-            commentsPoints={this.state.commentsPoints}
-            selectedComment={this.state.selectedComment}
-            handleCommentHover={this.handleCommentHover.bind(this)}
-            points={this.state.commentsPoints}
-            repfulAgreeTidsByGroup={this.props.repfulAgreeTidsByGroup}
-            repfulDisageeTidsByGroup={this.props.repfulDisageeTidsByGroup}
-            formatTid={this.props.formatTid}/>
-          <BarChartsForGroupVotes
-            hullElems={this.hullElems}
-            selectedComment={this.state.selectedComment}
-            allComments={this.props.comments}
-            groups={this.props.math["group-votes"] || window.preload.firstMath["group-votes"]}
-            groupCornerAssignments={this.state.groupCornerAssignments}
-            />
         </svg>
         <Curate
           handleCurateButtonClick={this.handleCurateButtonClick.bind(this)}
