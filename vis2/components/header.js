@@ -15,7 +15,7 @@ class Header extends React.Component {
         alignItems: "center",
       }}>
         <Logo/>
-        <Gear/>
+        {this.props.is_owner ? <Gear conversation_id={this.props.conversation_id}/> : ""}
       </div>
     )
   }

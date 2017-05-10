@@ -202,6 +202,7 @@ module.exports = ConversationView.extend({
     temp = temp.replace("{{URL}}", polisLogoBase64);
     ctx.addPolisToYourSite = temp;
 
+    ctx.show_admin_button = false; //ctx.is_owner;
     return ctx;
   },
 
@@ -250,6 +251,8 @@ module.exports = ConversationView.extend({
       document.getElementById("header_root"),
       {
         user: window.preload.firstUser,
+        is_owner: window.preload.firstConv.is_owner,
+        conversation_id: this.conversation_id,
       }
     );
   },
