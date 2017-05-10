@@ -256,18 +256,40 @@ module.exports = ConversationView.extend({
 
   updateVis2: function() {
     var that = this;
+
+    var curationType = null;
+
     // TODO don't do a separate AJAX call for the comments.
     this.serverClient.getFancyComments().then(function(comments) {
       function doRenderVis() {
+
+        var mathMain = that.serverClient.getMathMain();
+        var tidsToShow = []; //that.serverClient.getVotedOnTids();
+        if (_.isNull(curationType)) {
+
+        } else if (curationType === "majority") {
+          tidsToShow = [];
+          Array.prototype.push.apply(tidsToShow, mathMain.consensus.agree.map(function(c) { return c.tid}));
+          Array.prototype.push.apply(tidsToShow, mathMain.consensus.disagree.map(function(c) { return c.tid}));
+        } else if (curationType === "differences") {
+
+        } else if (_.isNumber(curationType)) {
+          tidsToShow = [];
+          var gid = curationType;
+          Array.prototype.push.apply(tidsToShow, mathMain.repness[gid].map(function(c) { return c.tid}));
+        } else {
+          console.error("unknown curationType:", curationType);
+        }
         window.renderVis(
           document.getElementById("vis2_root"),
           {
-            math_main: that.serverClient.getMathMain(),
+            math_main: mathMain,
             comments: comments,
-            tidsToShow: that.serverClient.getVotedOnTids(),
+            tidsToShow: tidsToShow,
             ptptois: that.serverClient.getParticipantsOfInterestIncludingSelf(),
             votesByMe: that.serverClient.getVotesByMe(),
             onVoteClicked: onVoteClicked,
+            onCurationChange: onCurationChange,
             // comments: this.allCommentsCollection.models,
           }
         );
@@ -293,6 +315,11 @@ module.exports = ConversationView.extend({
           alert("error changing vote");
         });
 
+      }
+
+      function onCurationChange(newCurationType) {
+        curationType = newCurationType;
+        doRenderVis();
       }
 
       doRenderVis();

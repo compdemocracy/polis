@@ -85,6 +85,7 @@ class Root extends React.Component {
           renderHeading={false}
           votesByMe={this.props.votesByMe}
           onVoteClicked={this.props.onVoteClicked}
+          onCurationChange={this.props.onCurationChange}
           report={{}}/>
       </div>
     );

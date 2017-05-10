@@ -55,15 +55,14 @@ class Graph extends React.Component {
       groupCornerAssignments,
     } = graphUtil(nextProps.comments, nextProps.math, nextProps.badTids);
 
-    let should_only_show_voted_on_comments = false;
     let ptptoiScaleFactor = 0.5;
 
     commentsPoints = commentsPoints.filter((c) => {
-      return !should_only_show_voted_on_comments || !_.isUndefined(tidsToShowSet[c.tid]);
+      return !_.isUndefined(tidsToShowSet[c.tid]);
     });
 
     let tidCarouselComments = nextProps.comments.filter((c) => {
-      return !should_only_show_voted_on_comments || !_.isUndefined(tidsToShowSet[c.tid]);
+      return !_.isUndefined(tidsToShowSet[c.tid]);
     });
 
     this.setState({
@@ -104,7 +103,8 @@ class Graph extends React.Component {
     this.setState({selectedComment: null})
   }
   handleCurateButtonClick (tidCuration) {
-    this.setState({selectedTidCuration: tidCuration})
+    this.setState({selectedTidCuration: tidCuration});
+    this.props.onCurationChange && this.props.onCurationChange(tidCuration);
   }
 
   getHullElems(gid) {

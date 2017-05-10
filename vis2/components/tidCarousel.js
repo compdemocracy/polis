@@ -53,7 +53,7 @@ class TidCarousel extends React.Component {
 
   render() {
 
-    if (!this.props.selectedTidCuration) { return null }
+    if (_.isNull(this.props.selectedTidCuration)) { return null }
 
     return (
       <div style={{

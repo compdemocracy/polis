@@ -16,7 +16,7 @@ class Button extends React.Component {
         marginRight: 5,
         cursor: "pointer",
         padding: "6px 12px",
-        backgroundColor: (this.props.selectedTidCuration && this.props.selectedTidCuration === this.props.identifier) ? "#03a9f4" : "rgb(235,235,235)",
+        backgroundColor: (!_.isNull(this.props.selectedTidCuration) && this.props.selectedTidCuration === this.props.identifier) ? "#03a9f4" : "rgb(235,235,235)",
         color: (this.props.selectedTidCuration && this.props.selectedTidCuration === this.props.identifier) ? "rgb(255,255,255)" : "rgb(100,100,100)",
         borderRadius: 4,
       }}
@@ -50,7 +50,7 @@ class Curate extends React.Component {
           <Button
             selectedTidCuration={this.props.selectedTidCuration}
             handleCurateButtonClick={this.props.handleCurateButtonClick}
-            identifier={"majority"}>
+            identifier={globals.tidCuration.majority}>
             Majority Opinion
           </Button>
         </div>
@@ -58,7 +58,7 @@ class Curate extends React.Component {
           <Button
             selectedTidCuration={this.props.selectedTidCuration}
             handleCurateButtonClick={this.props.handleCurateButtonClick}
-            identifier={"differences"}>
+            identifier={globals.tidCuration.differences}>
             Differences
           </Button>
         </div>
@@ -82,7 +82,7 @@ class Curate extends React.Component {
                   key={globals.groupLabels[group.id]}
                   handleCurateButtonClick={this.props.handleCurateButtonClick}
                   selectedTidCuration={this.props.selectedTidCuration}
-                  identifier={globals.groupLabels[group.id]}>
+                  identifier={group.id}>
                   {globals.groupLabels[group.id]}
                 </Button>
               )
