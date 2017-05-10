@@ -33,10 +33,10 @@ class Graph extends React.Component {
       this.setState({browserDimensions: window.innerWidth})
     })
 
-    document.getElementById("helpTextGroups").style.display = "none";
-    document.getElementById("visualization_div").style.display = "none";
-    document.getElementById("carouselPane").style.display = "none";
-    document.getElementById("groupSelectionViewContainer").style.display = "none";
+    // document.getElementById("helpTextGroups").style.display = "none";
+    // document.getElementById("visualization_div").style.display = "none";
+    // document.getElementById("carouselPane").style.display = "none";
+    // document.getElementById("groupSelectionViewContainer").style.display = "none";
   }
 
   componentWillReceiveProps(nextProps, nextState) {

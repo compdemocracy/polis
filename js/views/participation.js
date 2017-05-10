@@ -352,11 +352,11 @@ module.exports = ConversationView.extend({
     }
   },
   updateCarouselVisibility: function() {
-    if (this.conversationTabs.onAnalyzeTab() || this.selectedGid >= 0) {
-      $("#carouselPane").show();
-    } else {
-      $("#carouselPane").hide();
-    }
+    // if (this.conversationTabs.onAnalyzeTab() || this.selectedGid >= 0) {
+    //   $("#carouselPane").show();
+    // } else {
+    //   $("#carouselPane").hide();
+    // }
   },
   shouldShowVisUnderTabs: function() {
     return (display.xs() /* || display.sm() */ ) && (this.conversationTabs.onAnalyzeTab() || this.conversationTabs.onGroupTab());
@@ -745,7 +745,7 @@ module.exports = ConversationView.extend({
           $("#afterTutorial").show();
           $("#visualization_parent_div").css("visibility", "visible");
           $("#visualization_parent_div").css("display", "block");
-          $("#visualization_div").css("display", "block");
+          // $("#visualization_div").css("display", "block");
           $("#visualization_parent_div").fadeIn();
           that.tutorialModel.set("visible", true);
           that.initPcaVis();
