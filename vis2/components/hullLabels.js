@@ -27,12 +27,11 @@ const Users = () => {
 const Label = ({ptptCount, centroid, gid}) => {
   return (
     <g transform={`translate(${centroid.x},${centroid.y})`}>
-
-      <text x={-11} style={{fontWeight: 700, fontSize: 12}}>
+      <text x={-11} style={{fontWeight: 700, fontSize: 12, pointerEvents: "none", userSelect: "none"}}>
         {globals.groupLabels[gid]}
       </text>
       <Users/>
-      <text style={{fontWeight: 300, fontSize: 12}} x={12}>
+      <text x={12} style={{fontWeight: 300, fontSize: 12, pointerEvents: "none", userSelect: "none"}}>
         {ptptCount}
       </text>
     </g>
