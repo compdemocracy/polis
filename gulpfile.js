@@ -530,6 +530,7 @@ gulp.task("scriptsOther", function() {
   } else {
     files.push('bower_components/d3/d3.min.js');
   }
+  files.push('d3.v4.min.js');
   var s = gulp.src(files);
   if (!devMode) {
     s = s
@@ -540,6 +541,19 @@ gulp.task("scriptsOther", function() {
   return s.pipe(gulp.dest(destRoot() + "/js"));
 });
 
+gulp.task("scriptsTemp", function() {
+
+  var files = [];
+  files.push('d3.v4.min.js');
+  var s = gulp.src(files);
+  if (!devMode) {
+    s = s
+      .pipe(uglify())
+      .pipe(gzip())
+      .pipe(renameToRemoveGzExtention());
+  }
+  return s.pipe(gulp.dest(destRoot() + "/js"));
+});
 
 gulp.task("preprodConfig", function() {
   preprodMode = true;
@@ -581,6 +595,7 @@ gulp.task("configureForProduction", function(callback) {
 
 gulp.task('common', [
   "scriptsOther",
+  "scriptsTemp",
   "scripts",
   "css",
   "fontawesome",
@@ -775,6 +790,24 @@ function deploy(params) {
         makeUploadPath: function(file) {
           console.log("upload path cached_embedJs_"+embedJsCacheSeconds+" /embedPreprod.js");
           return "/embedPreprod.js";
+        },
+      }));
+
+    // TODO remove this duplication!
+    var embedJsCacheSeconds = 60;
+    gulp.src([
+      destRootBase + '/**/embed_helper.js',
+      ], {read: false})
+    .pipe(s3(creds, {
+        delay: 1000,
+        headers: {
+          'x-amz-acl': 'public-read',
+    //      'Content-Encoding': 'gzip', //causing issues, not sure why
+          'Cache-Control': 'no-cache'.replace(/MAX_AGE/g, embedJsCacheSeconds),
+        },
+        makeUploadPath: function(file) {
+          console.log("upload path cached_embedJs_"+embedJsCacheSeconds+" /embed_helper.js");
+          return "/embed_helper.js";
         },
       }));
 
