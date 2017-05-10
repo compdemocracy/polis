@@ -269,14 +269,14 @@ module.exports = ConversationView.extend({
 
         } else if (curationType === "majority") {
           tidsToShow = [];
-          Array.prototype.push.apply(tidsToShow, mathMain.consensus.agree.map(function(c) { return c.tid}));
-          Array.prototype.push.apply(tidsToShow, mathMain.consensus.disagree.map(function(c) { return c.tid}));
+          Array.prototype.push.apply(tidsToShow, mathMain.consensus.agree.map(function(c) { return c.tid; }));
+          Array.prototype.push.apply(tidsToShow, mathMain.consensus.disagree.map(function(c) { return c.tid; }));
         } else if (curationType === "differences") {
 
         } else if (_.isNumber(curationType)) {
           tidsToShow = [];
           var gid = curationType;
-          Array.prototype.push.apply(tidsToShow, mathMain.repness[gid].map(function(c) { return c.tid}));
+          Array.prototype.push.apply(tidsToShow, mathMain.repness[gid].map(function(c) { return c.tid; }));
         } else {
           console.error("unknown curationType:", curationType);
         }
