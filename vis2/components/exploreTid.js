@@ -10,15 +10,28 @@ const DataSentence = ({math, selectedTidCuration, selectedComment, repfulFor}) =
   if (_.isNumber(selectedTidCuration)) {
     const repful = _.find(math.repness[selectedTidCuration], (r) => { return r.tid === selectedComment.tid })
     markup = (
-      <p style={{fontSize: 14, fontFamily: "Georgia", fontStyle: "italic"}}>
+      <p style={{
+          fontSize: 14,
+          fontFamily: "Georgia",
+          fontStyle: "italic"
+        }}>
         {Math.floor(repful["p-success"] * 100)}% of those in group {globals.groupLabels[selectedTidCuration]} who voted on comment {selectedComment.tid} {globals.pastTense[repful["repful-for"]]}
       </p>
     )
   } else if (selectedTidCuration === globals.tidCuration.majority) {
-
+    const repfulAgree = _.find(math.consensus.agree, (r) => { return r.tid === selectedComment.tid });
+    const repfulDisagree = _.find(math.consensus.disagree, (r) => { return r.tid === selectedComment.tid });
+    const repful = repfulAgree || repfulDisagree;
+    markup = (
+      <p style={{
+          fontSize: 14,
+          fontFamily: "Georgia",
+          fontStyle: "italic"
+        }}>
+        {Math.floor(repful["p-success"] * 100)}% of everyone who voted on comment {selectedComment.tid} {repfulAgree ? "agreed" : "disagreed"}
+      </p>
+    )
   }
-
-
 
   return markup;
 }
@@ -178,7 +191,7 @@ class ExploreTid extends React.Component {
             math={this.props.math}
             selectedComment={this.props.selectedComment}
             selectedTidCuration={this.props.selectedTidCuration}
-            repfulFor={"agreed"}/>
+            />
           {/*this.createChangeVotesElements()*/}
         </div>
       </div>
