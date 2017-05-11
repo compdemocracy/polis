@@ -24,9 +24,11 @@ const Users = ({selectedGroup}) => {
   )
 }
 
-const Label = ({ptptCount, centroid, gid, selectedGroup}) => {
+const Label = ({ptptCount, centroid, gid, selectedGroup, handleClick}) => {
   return (
-    <g transform={`translate(${centroid.x},${centroid.y})`}>
+    <g
+      transform={`translate(${centroid.x},${centroid.y})`}
+      onClick={() => {handleClick(gid)}}>
       <rect
         height={20}
         width={getBackgroundRectWidth(ptptCount)}
@@ -61,7 +63,7 @@ const Label = ({ptptCount, centroid, gid, selectedGroup}) => {
   )
 }
 
-const HullLabels = ({groups, centroids, selectedGroup}) => {
+const HullLabels = ({groups, centroids, selectedGroup, handleClick}) => {
 
   if (!centroids || !groups) { return null }
 
@@ -70,6 +72,7 @@ const HullLabels = ({groups, centroids, selectedGroup}) => {
       {centroids.map((centroid, i) => {
         return (
           <Label
+            handleClick={handleClick}
             key={groups[i].id}
             selectedGroup={selectedGroup}
             gid={groups[i].id}

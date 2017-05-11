@@ -160,6 +160,7 @@ class Graph extends React.Component {
               yCenter={this.state.yCenter}
               report={this.props.report}/>
             <Hulls
+              handleClick={this.handleCurateButtonClick.bind(this)}
               getHullElems={this.getHullElems.bind(this)}
               hulls={this.state.hulls} />
             <Participants
@@ -167,6 +168,7 @@ class Graph extends React.Component {
               ptptois={this.props.ptptois}
               ptptoiScaleFactor={this.state.ptptoiScaleFactor}/>
             <HullLabels
+              handleClick={this.handleCurateButtonClick.bind(this)}
               selectedGroup={_.isNumber(this.state.selectedTidCuration) ? this.state.selectedTidCuration : null}
               groups={this.props.math["group-votes"] || window.preload.firstMath["group-votes"] /* for labels */}
               centroids={this.state.groupCentroids}

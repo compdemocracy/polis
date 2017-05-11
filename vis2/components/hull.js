@@ -8,6 +8,7 @@ class Hull extends React.Component {
     return (
       <g>
         <path
+          onClick={() => {this.props.handleClick(this.props.gid)}}
           d={pathString}
           ref={this.props.getHullElems(this.props.gid)}
           fill={/*globals.groupColor(hull.group[0].gid)*/ "rgb(220,220,220)"}
@@ -28,6 +29,7 @@ class Hulls extends React.Component {
               key={gid}
               gid={gid}
               getHullElems={this.props.getHullElems}
+              handleClick={this.props.handleClick}
               hull={hull}/>
           }) : ""
         }
