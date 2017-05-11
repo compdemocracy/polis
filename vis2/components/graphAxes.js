@@ -2,6 +2,9 @@ import React from "react";
 import * as globals from "./globals";
 
 const GraphAxes = ({yCenter, xCenter, report}) => {
+  if (!_.isNumber(yCenter) || !_.isNumber(xCenter) || !report) {
+    return null;
+  }
   return (
     <g>
       <line
