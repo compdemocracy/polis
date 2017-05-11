@@ -286,6 +286,7 @@ module.exports = ConversationView.extend({
         window.renderVis(
           document.getElementById("vis2_root"),
           {
+            Strings: Strings,
             math_main: mathMain,
             comments: comments,
             tidsToShow: tidsToShow,

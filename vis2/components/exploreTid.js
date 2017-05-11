@@ -3,32 +3,67 @@ import React from "react";
 import * as globals from "./globals";
 import BarChart from "./barChart";
 
-const DataSentence = ({math, selectedTidCuration, selectedComment, repfulFor}) => {
+
+const DataSentence = ({math, selectedTidCuration, selectedComment, repfulFor, Strings}) => {
 
   let markup = null;
 
   if (_.isNumber(selectedTidCuration)) {
-    const repful = _.find(math.repness[selectedTidCuration], (r) => { return r.tid === selectedComment.tid })
+    const gid = selectedTidCuration;
+    const tid = selectedComment.tid;
+    const groupVotes = math["group-votes"][gid];
+
+    const repness = _.find(math.repness[gid], (r) => { return r.tid === selectedComment.tid })
+    let repfulForAgree = repness["repful-for"] === "agree";
+    const v = groupVotes.votes[tid];
+    const denominator = v.S; // (seen)
+    if (repness["best-agree"] && (v.A > 0)) {
+      repfulForAgree = true;
+    }
+    // const denominator = info.count; // or maybe v.S (seen)
+    // const percent = repfulForAgree ?
+    //   "<i class='fa fa-check-circle-o'></i> " + ((v.A / denominator * 100) >> 0) :
+    //   "<i class='fa fa-ban'></i> " + ((v.D / denominator * 100) >> 0);
+    const percent = repfulForAgree ? ((v.A / denominator * 100) >> 0) : ((v.D / denominator * 100) >> 0);
+
+
+    // var count = repfulForAgree ? v.A : v.D;
+    // var createdString = (new Date(c.get("created") * 1)).toString().match(/(.*?) [0-9]+:/)[1];
+
+    var s = repfulForAgree ? Strings.pctAgreedOfGroupLong : Strings.pctDisagreedOfGroupLong;
+    s = s.replace("{{pct}}", percent);
+    s = s.replace("{{group}}", globals.groupLabels[selectedTidCuration]);
+    s = s.replace("{{comment_id}}", tid);
+
     markup = (
       <p style={{
           fontSize: 14,
           fontFamily: "Georgia",
-          fontStyle: "italic"
+          fontStyle: "italic",
+          color: repfulForAgree ? globals.colors.agree : globals.colors.disagree,
         }}>
-        {Math.floor(repful["p-success"] * 100)}% of those in group {globals.groupLabels[selectedTidCuration]} who voted on comment {selectedComment.tid} {globals.pastTense[repful["repful-for"]]}
+        {s}
       </p>
     )
   } else if (selectedTidCuration === globals.tidCuration.majority) {
-    const repfulAgree = _.find(math.consensus.agree, (r) => { return r.tid === selectedComment.tid });
-    const repfulDisagree = _.find(math.consensus.disagree, (r) => { return r.tid === selectedComment.tid });
-    const repful = repfulAgree || repfulDisagree;
+    const repfulForAgree = _.find(math.consensus.agree, (r) => { return r.tid === selectedComment.tid });
+    const repfulForDisagree = _.find(math.consensus.disagree, (r) => { return r.tid === selectedComment.tid });
+    const repness = repfulForAgree || repfulForDisagree;
+
+    const percent = (repness["n-success"] / repness["n-trials"] * 100) >> 0;
+
+    let s = repfulForAgree ? Strings.pctAgreedLong : Strings.pctDisagreedLong;
+    s = s.replace("{{pct}}", percent);
+    s = s.replace("{{comment_id}}", selectedComment.tid);
+
     markup = (
       <p style={{
           fontSize: 14,
           fontFamily: "Georgia",
-          fontStyle: "italic"
+          fontStyle: "italic",
+          color: repfulForAgree ? globals.colors.agree : globals.colors.disagree,
         }}>
-        {Math.floor(repful["p-success"] * 100)}% of everyone who voted on comment {selectedComment.tid} {repfulAgree ? "agreed" : "disagreed"}
+        {s}
       </p>
     )
   }
@@ -191,6 +226,7 @@ class ExploreTid extends React.Component {
             math={this.props.math}
             selectedComment={this.props.selectedComment}
             selectedTidCuration={this.props.selectedTidCuration}
+            Strings={this.props.Strings}
             />
           {/*this.createChangeVotesElements()*/}
         </div>

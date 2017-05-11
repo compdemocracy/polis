@@ -1,5 +1,6 @@
 import React from "react";
 import _ from "lodash";
+import * as globals from "./globals";
 
 const BarChartCompact = ({selectedComment, groupVotes, translate}) => {
 
@@ -21,9 +22,9 @@ const BarChartCompact = ({selectedComment, groupVotes, translate}) => {
   return (
     <g transform={translate ? translate : "translate(100, 100)"}>
       <rect x={0} width={100.5} height={10} fill={"white"} stroke={"rgb(180,180,180)"} />
-      <rect x={.5} width={agree} y={.5} height={9} fill={"rgb(46, 204, 113)"} />
-      <rect x={.5 + agree} width={disagree} y={.5} height={9} fill={"rgb(231, 76, 60)"} />
-      <rect x={.5 + agree + disagree} width={pass} y={.5} height={9} fill={"rgb(230,230,230)"} />
+      <rect x={.5} width={agree} y={.5} height={9} fill={globals.colors.agree} />
+      <rect x={.5 + agree} width={disagree} y={.5} height={9} fill={globals.colors.disagree} />
+      <rect x={.5 + agree + disagree} width={pass} y={.5} height={9} fill={globals.colors.pass} />
     </g>
   )
 };

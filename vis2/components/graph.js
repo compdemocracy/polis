@@ -138,7 +138,6 @@ class Graph extends React.Component {
   }
 
   render() {
-
     return (
       <div>
         <svg width={globals.sideWithPadding} height={globals.sideWithPadding}>
@@ -208,6 +207,7 @@ class Graph extends React.Component {
           selectedTidCuration={this.state.selectedTidCuration}
           math={this.props.math || window.preload.firstMath}
           onVoteClicked={this.props.onVoteClicked}
+          Strings={this.props.Strings}
           comments={this.props.comment}/>
       </div>
     );

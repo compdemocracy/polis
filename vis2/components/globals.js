@@ -77,8 +77,13 @@ export const getGroupNamePosition = (gid) => {
   return "translate(50, 50)";
 };
 
+export const colors = {
+  agree: "rgb(46, 204, 113)",
+  disagree: "rgb(231, 76, 60)",
+  pass: "rgb(230,230,230)",
+};
 
-export const colors = [
+export const d3colors = [
   [],
   ["#4C90C0"],
   ["#4C90C0", "#CBB742"],
