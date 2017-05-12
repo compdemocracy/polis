@@ -126,7 +126,9 @@ var polisRouter = Backbone.Router.extend({
   },
 
   landingPageView: function() {
+    console.log('landingPageView');
     if (!authenticated()) {
+      console.log('!authenticated');
       this.gotoRoute("/user/create", {
         trigger: true
       });
@@ -330,6 +332,7 @@ var polisRouter = Backbone.Router.extend({
   },
 
   redirect: function(path, ignoreEncodedParams) {
+    console.log('redirecting to', path);
     var ep = (encodedParams ? ("/" + encodedParams) : "");
     if (ignoreEncodedParams) {
       ep = "";
