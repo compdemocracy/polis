@@ -220,6 +220,13 @@ helpersInitialized.then(function(o) {
   //app.use(meter("api.all"));
   // app.use(express.logger());
 
+  app.use(function(req, res, next) {
+    console.log("before");
+    console.log(req.body);
+    console.log(req.headers);
+    next();
+  });
+
   app.use(middleware_responseTime_start);
 
   // const gzipMiddleware = express.compress();
@@ -248,6 +255,13 @@ helpersInitialized.then(function(o) {
   }
   app.use(middleware_log_request_body);
   app.use(middleware_log_middleware_errors);
+
+  app.use(function(req, res, next) {
+    console.log("part2");
+    console.log(req.body);
+    console.log(req.headers);
+    next();
+  });
 
   app.all("/api/v3/*", addCorsHeader);
   app.all("/font/*", addCorsHeader);
