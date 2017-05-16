@@ -1970,7 +1970,7 @@ function initializePolisHelpers() {
               console.log('xidflow after doAuth');
               if (req.p.uid && !isOptional) { // req.p.uid might be set now.
                 console.log('xidflow uid', req.p.uid);
-                return createXidRecord(zid, req.p.uid, xid, req.body.x_profile_image_url, req.body.x_name);
+                return createXidRecordByZid(zid, req.p.uid, xid, req.body.x_profile_image_url, req.body.x_name);
               } else if (!isOptional) {
                 console.log('xidflow no uid, but mandatory', req.p.uid);
                 throw "polis_err_missing_non_optional_uid";
@@ -7732,7 +7732,7 @@ Email verified! You can close this tab or hit the back button.
           } else {
             return doGetPid().then((pid) => {
               if (shouldCreateXidRecord) {
-                return createXidRecord(zid, uid, xid).then(() => {return pid;});
+                return createXidRecordByZid(zid, uid, xid).then(() => {return pid;});
               }
               return pid;
             });
@@ -8253,7 +8253,7 @@ Email verified! You can close this tab or hit the back button.
 
 
 
-  function createXidRecord(zid, uid, xid, x_profile_image_url, x_name) {
+  function createXidRecordByZid(zid, uid, xid, x_profile_image_url, x_name) {
     return pgQueryP("insert into xids (owner, uid, xid, x_profile_image_url, x_name) values ((select owner from conversations where zid = ($1)), $2, $3, $4, $5) " +
       "on conflict (owner, xid) do nothing;", [
         zid,
@@ -8262,6 +8262,21 @@ Email verified! You can close this tab or hit the back button.
         x_profile_image_url || null,
         x_name || null,
       ]);
+  }
+
+  function createXidRecord(ownerUid, uid, xid, x_profile_image_url, x_name) {
+    return pgQueryP("insert into xids (owner, uid, xid, x_profile_image_url, x_name) values ($1, $2, $3, $4, $5) " +
+      "on conflict (owner, xid) do nothing;", [
+        ownerUid,
+        uid,
+        xid,
+        x_profile_image_url || null,
+        x_name || null,
+      ]);
+  }
+
+  function getXidRecordByXidOwnerId(xid, owner) {
+    return pgQueryP("select * from xids where xid = ($1) and owner = ($2);", [xid, owner]);
   }
 
   function getXidRecord(xid, zid) {
@@ -8321,7 +8336,7 @@ Email verified! You can close this tab or hit the back button.
 
       return pidReadyPromise.then(function() {
         if (shouldCreateXidRecord) {
-          return createXidRecord(zid, uid, xid);
+          return createXidRecordByZid(zid, uid, xid);
         }
       }).then(function() {
         return votesPost(uid, pid, zid, req.p.tid, req.p.vote, req.p.weight, true);
@@ -10024,71 +10039,108 @@ Email verified! You can close this tab or hit the back button.
 
   function handle_POST_conversations(req, res) {
 
-    winston.log("info", "context", req.p.context);
-    let generateShortUrl = req.p.short_url;
+    let xidStuffReady = Promise.resolve();
+    if (!_.isUndefined(req.p.ownerXid)) {
+      let xid = req.p.ownerXid;
+      let x_profile_image_url = req.p.x_profile_image_url;
+      let x_name = req.p.x_name;
+      let ownerUid = req.p.uid;
+      xidStuffReady = getXidRecordByXidOwnerId(xid, ownerUid, true).then((rows) => {
+        if (!rows || !rows.length) {
+          console.log('no xInfo yet');
+          return createDummyUser().then((newUid) => {
+            console.log('created dummy');
+            return createXidRecord(ownerUid, newUid, xid, x_profile_image_url, x_name).then(() => {
+              console.log('created xInfo');
+              return {
+                uid: newUid,
+                owner: ownerUid,
+                xid: xid,
+                x_profile_image_url: x_profile_image_url,
+                x_name: x_name,
+              };
+            });
+          });
+        } else {
+          console.log('had xInfo');
+          return rows[0];
+        }
+      }).then((xidInfo) => {
+        console.log('setting uid');
+        req.p.uid = xidInfo.uid;
+      });
+    } 
 
-    isUserAllowedToCreateConversations(req.p.uid, function(err, isAllowed) {
-      if (err) {
-        fail(res, 403, "polis_err_add_conversation_failed_user_check", err);
-        return;
-      }
-      if (!isAllowed) {
-        fail(res, 403, "polis_err_add_conversation_not_enabled", new Error("polis_err_add_conversation_not_enabled"));
-        return;
-      }
+    xidStuffReady.then(() => {
 
+      winston.log("info", "context", req.p.context);
+      let generateShortUrl = req.p.short_url;
 
-      let q = sql_conversations.insert({
-        owner: req.p.uid,
-        topic: req.p.topic,
-        description: req.p.description,
-        is_active: req.p.is_active,
-        is_data_open: req.p.is_data_open,
-        is_draft: req.p.is_draft,
-        is_public: true, // req.p.short_url,
-        is_anon: req.p.is_anon,
-        is_slack: req.p.is_slack,
-        profanity_filter: req.p.profanity_filter,
-        spam_filter: req.p.spam_filter,
-        strict_moderation: req.p.strict_moderation,
-        context: req.p.context || null,
-        owner_sees_participation_stats: !!req.p.owner_sees_participation_stats,
-      }).returning('*').toString();
-
-      pgQuery(q, [], function(err, result) {
+      isUserAllowedToCreateConversations(req.p.uid, function(err, isAllowed) {
         if (err) {
-          if (isDuplicateKey(err)) {
-            yell(err);
-            failWithRetryRequest(res);
-          } else {
-            fail(res, 500, "polis_err_add_conversation", err);
-          }
+          fail(res, 403, "polis_err_add_conversation_failed_user_check", err);
+          return;
+        }
+        if (!isAllowed) {
+          fail(res, 403, "polis_err_add_conversation_not_enabled", new Error("polis_err_add_conversation_not_enabled"));
           return;
         }
 
-        let zid = result && result.rows && result.rows[0] && result.rows[0].zid;
 
-        const zinvitePromise = req.p.conversation_id ?
-          getZidFromConversationId(req.p.conversation_id).then((zid) => {
-            return zid === 0 ? req.p.conversation_id : null;
-          }) :
-          generateAndRegisterZinvite(zid, generateShortUrl);
+        let q = sql_conversations.insert({
+          owner: req.p.uid,
+          topic: req.p.topic,
+          description: req.p.description,
+          is_active: req.p.is_active,
+          is_data_open: req.p.is_data_open,
+          is_draft: req.p.is_draft,
+          is_public: true, // req.p.short_url,
+          is_anon: req.p.is_anon,
+          is_slack: req.p.is_slack,
+          profanity_filter: req.p.profanity_filter,
+          spam_filter: req.p.spam_filter,
+          strict_moderation: req.p.strict_moderation,
+          context: req.p.context || null,
+          owner_sees_participation_stats: !!req.p.owner_sees_participation_stats,
+        }).returning('*').toString();
 
-        zinvitePromise.then(function(zinvite) {
-          if (zinvite === null) {
-            fail(res, 400, "polis_err_conversation_id_already_in_use", err);
+        pgQuery(q, [], function(err, result) {
+          if (err) {
+            if (isDuplicateKey(err)) {
+              yell(err);
+              failWithRetryRequest(res);
+            } else {
+              fail(res, 500, "polis_err_add_conversation", err);
+            }
             return;
           }
-          // NOTE: OK to return conversation_id, because this conversation was just created by this user.
-          finishOne(res, {
-            url: buildConversationUrl(req, zinvite),
-            zid: zid,
+
+          let zid = result && result.rows && result.rows[0] && result.rows[0].zid;
+
+          const zinvitePromise = req.p.conversation_id ?
+            getZidFromConversationId(req.p.conversation_id).then((zid) => {
+              return zid === 0 ? req.p.conversation_id : null;
+            }) :
+            generateAndRegisterZinvite(zid, generateShortUrl);
+
+          zinvitePromise.then(function(zinvite) {
+            if (zinvite === null) {
+              fail(res, 400, "polis_err_conversation_id_already_in_use", err);
+              return;
+            }
+            // NOTE: OK to return conversation_id, because this conversation was just created by this user.
+            finishOne(res, {
+              url: buildConversationUrl(req, zinvite),
+              zid: zid,
+            });
+          }).catch(function(err) {
+            fail(res, 500, "polis_err_zinvite_create", err);
           });
-        }).catch(function(err) {
-          fail(res, 500, "polis_err_zinvite_create", err);
-        });
-      }); // end insert
-    }); // end isUserAllowedToCreateConversations
+        }); // end insert
+      }); // end isUserAllowedToCreateConversations
+    }).catch((err) => {
+      fail(res, 500, "polis_err_conversation_create", err);
+    }); // end xidStuffReady
   } // end post conversations
 
 
