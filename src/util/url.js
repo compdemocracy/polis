@@ -39,7 +39,7 @@ if (0 === document.domain.indexOf("192.168")) {
 
 for (var i = 0; i < httpsWhitelist.length; i++) {
   if (document.domain.match(httpsWhitelist[i])) {
-    urlPrefix = "https://" + document.location.hostname + ":" + document.location.port + "/";
+    urlPrefix = document.location.protocol + "//" + document.location.hostname + ":" + document.location.port + "/";
     break;
   }
 }
