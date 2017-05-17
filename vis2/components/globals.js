@@ -27,9 +27,7 @@ export const pastTense = {
 
 export const enableMatrix = false;
 
-export const side = 730;
 export const padding = 10;
-export const sideWithPadding = side + padding*2;
 
 export const labelPadding = 40;
 export const shouldColorizeTidsByRepfulness = true;
