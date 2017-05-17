@@ -14,6 +14,9 @@ var zh_Hans = require("./strings/zh_Hans.js");
 // Danish
 var da = require("./strings/da_dk.js");
 
+// German
+var de = require("./strings/de_de.js");
+
 // Spanish
 var es = require("./strings/es_la.js");
 
@@ -58,6 +61,9 @@ preloadHelper.acceptLanguagePromise.then(function() {
     }
     else if (languageCode.match(/^da/)) {
       _.extend(strings, da);
+    }
+    else if (languageCode.match(/^de/)) {
+      _.extend(strings, de);
     }
     else if (languageCode.match(/^es/)) {
       _.extend(strings, es);
