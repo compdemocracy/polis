@@ -139,7 +139,7 @@ class Graph extends React.Component {
 
   render() {
 
-    let ww = window.innerWidth;
+    let ww = $(document.body).width();
     let w = globals.sideWithPadding;
     let svgScale = 1;
     if (ww < w) {
