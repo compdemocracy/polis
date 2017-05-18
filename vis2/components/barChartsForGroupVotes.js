@@ -9,22 +9,21 @@ const BarChartsForGroupVotes = ({
   allComments,
   groups,
   groupCornerAssignments,
-  hullElems,
-  browserDimensions
+  hullElems
 }) => {
 
 
   const position_nw_0 = 0;
-  const position_nw_1 = -browserDimensions;
+  const position_nw_1 = -globals.side;
 
-  const position_sw_0 = browserDimensions;
+  const position_sw_0 = globals.side;
   const position_sw_1 = 0;
 
   const position_ne_0 = 0;
-  const position_ne_1 = browserDimensions;
+  const position_ne_1 = globals.side;
 
-  const position_se_0 = browserDimensions;
-  const position_se_1 = browserDimensions;
+  const position_se_0 = globals.side;
+  const position_se_1 = globals.side;
 
   const corners = [
     [position_nw_0, position_nw_1],
@@ -48,12 +47,12 @@ const BarChartsForGroupVotes = ({
       return -c.dist;
     }).pt;
 
-    if (pt[0] < browserDimensions/2) {
+    if (pt[0] < globals.side/2) {
       pt[0] -= 90;
     } else {
       pt[0] -= 10;
     }
-    if (pt[1] < browserDimensions/4) {
+    if (pt[1] < globals.side/4) {
       pt[1] += 10;
     } else {
       pt[1] -= 10;

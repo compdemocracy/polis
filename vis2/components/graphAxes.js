@@ -1,7 +1,7 @@
 import React from "react";
 import * as globals from "./globals";
 
-const GraphAxes = ({yCenter, xCenter, report, browserDimensions}) => {
+const GraphAxes = ({yCenter, xCenter, report}) => {
   if (!_.isNumber(yCenter) || !_.isNumber(xCenter) || !report) {
     return null;
   }
@@ -10,7 +10,7 @@ const GraphAxes = ({yCenter, xCenter, report, browserDimensions}) => {
       <line
         x1={50 /* magic number is axis padding */}
         y1={yCenter}
-        x2={browserDimensions  - 50}
+        x2={globals.side - 50}
         y2={yCenter}
         style={{
           stroke: "rgb(200,200,200)",
@@ -20,20 +20,20 @@ const GraphAxes = ({yCenter, xCenter, report, browserDimensions}) => {
         x1={xCenter}
         y1={50}
         x2={xCenter}
-        y2={browserDimensions  - 50 /* magic number is axis padding */}
+        y2={globals.side - 50 /* magic number is axis padding */}
         style={{
           stroke: "rgb(200,200,200)",
           strokeWidth: 1
         }}/>
       {/* Bottom axis */}
-      <g transform={`translate(${browserDimensions  / 2}, ${browserDimensions  - 20})`}>
+      <g transform={`translate(${globals.side / 2}, ${globals.side - 20})`}>
         {report.label_x_neg ? <text
           style={{
             fontFamily: "Georgia",
             fontSize: 14
           }}
           textAnchor="start"
-          x={-browserDimensions /2 + globals.labelPadding}
+          x={-globals.side/2 + globals.labelPadding}
           y={-1}>
           {globals.axisLabels.leftArrow}
           {" "}
@@ -45,7 +45,7 @@ const GraphAxes = ({yCenter, xCenter, report, browserDimensions}) => {
             fontSize: 14
           }}
           textAnchor="end"
-          x={browserDimensions /2 - globals.labelPadding}
+          x={globals.side/2 - globals.labelPadding}
           y={-1}>
           {report.label_x_pos}
           {" "}
@@ -54,14 +54,14 @@ const GraphAxes = ({yCenter, xCenter, report, browserDimensions}) => {
       </g>
 
       {/* Left axis */}
-      <g transform={`translate(${30}, ${browserDimensions  / 2}) rotate(270)`}>
+      <g transform={`translate(${30}, ${globals.side / 2}) rotate(270)`}>
         {report.label_y_neg ? <text
           style={{
             fontFamily: "Georgia",
             fontSize: 14
           }}
           textAnchor="start"
-          x={-browserDimensions /2 + globals.labelPadding}
+          x={-globals.side/2 + globals.labelPadding}
           y={-1}>
           {globals.axisLabels.leftArrow}
           {" "}
@@ -73,7 +73,7 @@ const GraphAxes = ({yCenter, xCenter, report, browserDimensions}) => {
             fontSize: 14
           }}
           textAnchor="end"
-          x={browserDimensions /2 - globals.labelPadding}
+          x={globals.side/2 - globals.labelPadding}
           y={-1}>
           {report.label_y_pos}
           {" "}

@@ -23,16 +23,15 @@ class Graph extends React.Component {
     this.state = {
       selectedComment: null,
       selectedTidCuration: null,
-      browserDimensions: window.innerWidth > 768 ? 768 : window.innerWidth
+      browserDimensions: window.innerWidth
     };
   }
 
   componentWillMount() {
 
-    window.addEventListener("resize", _.throttle(() => {
-        this.setState({browserDimensions: window.innerWidth > 768 ? 768 : window.innerWidth})
-      }, 300)
-    );
+    window.addEventListener("resize", () => {
+      this.setState({browserDimensions: window.innerWidth})
+    })
 
     // document.getElementById("helpTextGroups").style.display = "none";
     // document.getElementById("visualization_div").style.display = "none";
@@ -60,7 +59,7 @@ class Graph extends React.Component {
       hulls,
       groupCentroids,
       groupCornerAssignments,
-    } = graphUtil(nextProps.comments, nextProps.math, nextProps.badTids, this.state.browserDimensions);
+    } = graphUtil(nextProps.comments, nextProps.math, nextProps.badTids);
 
     let ptptoiScaleFactor = 0.5;
 
@@ -139,13 +138,12 @@ class Graph extends React.Component {
   }
 
   render() {
-    console.log("browserDimensions", this.state.browserDimensions)
     return (
       <div>
-        <svg width={this.state.browserDimensions} height={this.state.browserDimensions}>
-          <g >
+        <svg width={globals.sideWithPadding} height={globals.sideWithPadding}>
+          <g transform={`translate(${globals.padding}, ${globals.padding})`}>
             {/* Comment https://bl.ocks.org/mbostock/7555321 */}
-            <g transform={`translate(${this.state.browserDimensions / 2}, ${15})`}>
+            <g transform={`translate(${globals.side / 2}, ${15})`}>
               <text
                 style={{
                   fontFamily: "Georgia",
@@ -157,7 +155,6 @@ class Graph extends React.Component {
               </text>
             </g>
             <Axes
-              browserDimensions={this.state.browserDimensions}
               xCenter={this.state.xCenter}
               yCenter={this.state.yCenter}
               report={this.props.report}/>
@@ -184,7 +181,6 @@ class Graph extends React.Component {
               repfulDisageeTidsByGroup={this.props.repfulDisageeTidsByGroup}
               formatTid={this.props.formatTid}/>
             <BarChartsForGroupVotes
-              browserDimensions={this.state.browserDimensions}
               hullElems={this.hullElems}
               selectedComment={this.state.selectedComment}
               allComments={this.props.comments}
