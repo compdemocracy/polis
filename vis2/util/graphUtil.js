@@ -105,6 +105,9 @@ function mixedForce(arrays, strength) {
   const force = forceSimulation(allPoints).stop()
       .force('x', forceX(d => d.x))
       .force('y', forceY(d => d.y))
+      .force('collide', forceCollide(function(d) {
+        return d.collideRadius || 8;
+      }))
       .force("charge", d3.forceManyBody().strength(strength));
 
   for (let i = 0; i < 110; ++i) {
@@ -239,7 +242,15 @@ const graphUtil = (comments, math, badTids, browserDimensions) => {
       commentsPoints[i].y = yCenter + commentsPoints[i].y * commentScaleupFactorY;
     }
 
-    mixedForce([commentsPoints, baseClustersScaled], 2);
+    let groupCentroids = math["group-clusters"].map((group) => {
+      return {
+        x: xx(group.center[0]),
+        y: yy(group.center[1]),
+        collideRadius: 40,
+      };
+    });
+
+    mixedForce([commentsPoints, baseClustersScaled, groupCentroids], 2);
 
     const baseClustersScaledAndGrouped = {}
 
@@ -274,12 +285,7 @@ const graphUtil = (comments, math, badTids, browserDimensions) => {
     doMapCornerPointer(groupCornerAssignments.se, xx, yy);
     doMapCornerPointer(groupCornerAssignments.sw, xx, yy);
 
-    let groupCentroids = math["group-clusters"].map((group) => {
-      return {
-        x: xx(group.center[0]),
-        y: yy(group.center[1]),
-      };
-    });
+
 
     return {
       commentsPoints,
