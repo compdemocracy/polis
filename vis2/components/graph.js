@@ -138,9 +138,22 @@ class Graph extends React.Component {
   }
 
   render() {
+
+    let ww = window.innerWidth;
+    let w = globals.sideWithPadding;
+    let svgScale = 1;
+    if (ww < w) {
+      svgScale = ww / w;
+    }
+    let svgNegativeMargin = globals.sideWithPadding * (svgScale - 1);
+
     return (
       <div>
-        <svg width={globals.sideWithPadding} height={globals.sideWithPadding}>
+        <svg width={globals.sideWithPadding} height={globals.sideWithPadding} style={{
+          transform: "scale("+svgScale+")",
+          transformOrigin: "0% 0%",
+          marginBottom: svgNegativeMargin}
+        }>
           <g transform={`translate(${globals.padding}, ${globals.padding})`}>
             {/* Comment https://bl.ocks.org/mbostock/7555321 */}
             <g transform={`translate(${globals.side / 2}, ${15})`}>
