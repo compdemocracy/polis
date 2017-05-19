@@ -2069,7 +2069,7 @@ module.exports = function(params) {
     var numVotes = o.votes.length;
 
     // https://files.slack.com/files-pri/T02G773HK-F02N30MKD/slack_for_ios_upload.jpg
-    if (numVotes > 0 && (!o.isBlueDot || USE_JETPACK_FOR_SELF)) {
+    if (numVotes > 0 && (o.pid !== -1 || USE_JETPACK_FOR_SELF)) {
       var jetpack_aka_sparsity_compensation_factor = Math.sqrt(numComments / numVotes);
       x *= jetpack_aka_sparsity_compensation_factor;
       y *= jetpack_aka_sparsity_compensation_factor;
