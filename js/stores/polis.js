@@ -82,6 +82,8 @@ module.exports = function(params) {
 
   var consensusComments = null;
 
+  var modOutTids = {};
+
   // collections
   var votesByMe = params.votesByMe;
   if (demoMode()) {
@@ -1179,6 +1181,16 @@ module.exports = function(params) {
         consensusComments = pcaData.consensus;
         groupVotes = pcaData["group-votes"];
 
+
+        modOutTids = {};
+        var modOut = pcaData["mod-out"];
+        if (modOut) {
+          modOut.forEach(function(x) {
+            modOutTids[x] = true;
+          });
+        }
+
+
         return getFamousVotes().then(function() {
 
           // Check for missing comps... TODO solve
@@ -2039,8 +2051,11 @@ module.exports = function(params) {
 
     for (var i = 0; i < o.votes.length; i++) {
       var v = o.votes[i];
-      var vote = v.vote;
       var tid = v.tid;
+      if (modOutTids[tid]) {
+        continue;
+      }
+      var vote = v.vote;
 
       var dxi = (vote - (pcaCenter[tid] || 0)) * (pcX[tid] || 0);
       var dyi = (vote - (pcaCenter[tid] || 0)) * (pcY[tid] || 0);
