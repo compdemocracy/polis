@@ -2454,7 +2454,14 @@ module.exports = function(params) {
       o.y = temp.proj.y;
 
       o.gid = b2g[o.bid];
-      o.isSelf = temp.isBlueDot;
+      o.isSelf = temp.isBlueDot || o.bid === -1;
+      if (o.isSelf) {
+        var projectedSelf = projectSelf();
+        o.x = projectedSelf.proj.x;
+        o.y = projectedSelf.proj.y;
+      }
+
+
       return o;
     });
   }
