@@ -18,7 +18,7 @@ const Participant = ({pt, ptptois, ptptoiScaleFactor}) => {
           clipPath={`url(#social_image_clip_${pt.bid})`}
           x={-picSize/2 * ptptoiScaleFactor}
           y={-picSize/2 * ptptoiScaleFactor}
-          href={ptptoi.picture || ptptoi.pic}
+          xlinkHref={ptptoi.picture || ptptoi.pic}
           width={picSize * ptptoiScaleFactor}
           height={picSize * ptptoiScaleFactor}/>
       </g>
