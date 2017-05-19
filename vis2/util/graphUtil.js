@@ -106,7 +106,7 @@ function mixedForce(arrays, strength) {
       .force('x', forceX(d => d.x))
       .force('y', forceY(d => d.y))
       .force('collide', forceCollide(function(d) {
-        return d.collideRadius || 8;
+        return d.collideRadius || 10;
       }))
       .force("charge", d3.forceManyBody().strength(strength));
 
