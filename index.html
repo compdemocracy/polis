@@ -185,14 +185,14 @@ window.xsThresh = 600; // nexus 7
 var wh = getWindowSize();
 
 window.getPtptoiLimitForWidth = function(w) {
-  return w < window.xsThresh ? 12 : void 0;
+  return w < window.xsThresh ? 25 : void 0;
 };
 
-var ptptoiLimit = getPtptoiLimitForWidth(wh.w);
+// var ptptoiLimit = getPtptoiLimitForWidth(wh.w);
 var qp = [];
-if (ptptoiLimit) {
-  qp.push("ptptoiLimit=" + ptptoiLimit);
-}
+// if (ptptoiLimit) {
+//   qp.push("ptptoiLimit=" + ptptoiLimit);
+// }
 if (p.conversation && p.conversation.conversation_id) {
   qp.push("conversation_id=" + p.conversation.conversation_id);
 }

@@ -59,7 +59,8 @@ class Graph extends React.Component {
       hulls,
       groupCentroids,
       groupCornerAssignments,
-    } = graphUtil(nextProps.comments, nextProps.math, nextProps.badTids);
+      ptptoisProjected,
+    } = graphUtil(nextProps.comments, nextProps.math, nextProps.badTids, nextProps.ptptois);
 
     let ptptoiScaleFactor = 0.5;
 
@@ -91,6 +92,7 @@ class Graph extends React.Component {
       groupCentroids,
       groupCornerAssignments,
       commentsPoints,
+      ptptoisProjected,
       selectedComment,
       tidCarouselComments
     })
@@ -177,7 +179,7 @@ class Graph extends React.Component {
               hulls={this.state.hulls} />
             <Participants
               points={this.state.baseClustersScaled}
-              ptptois={this.props.ptptois}
+              ptptois={this.state.ptptoisProjected}
               ptptoiScaleFactor={this.state.ptptoiScaleFactor}/>
             <HullLabels
               handleClick={this.handleCurateButtonClick.bind(this)}

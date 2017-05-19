@@ -123,8 +123,7 @@ const doMapCornerPointer = (corner, xx, yy) => {
   }
 }
 
-const graphUtil = (comments, math, badTids) => {
-
+const graphUtil = (comments, math, badTids, ptptois) => {
     const allXs = [];
     const allYs = [];
 
@@ -179,6 +178,14 @@ const graphUtil = (comments, math, badTids) => {
       allXs.push(clusterXs[i]);
       allYs.push(clusterYs[i]);
     }
+
+    // ptptois
+    for (let i = 0; i < ptptois.length; i++) {
+      let p = ptptois[i];
+      allXs.push(p.x);
+      allYs.push(p.y);
+    }
+
 
     // mixedForce([commentsPoints, baseClusters], -0.015);
 
@@ -236,7 +243,6 @@ const graphUtil = (comments, math, badTids) => {
     })
 
 
-
     for (let i = 0; i < commentsPoints.length; i++) {
       commentsPoints[i].x = xCenter + commentsPoints[i].x * commentScaleupFactorX;
       commentsPoints[i].y = yCenter + commentsPoints[i].y * commentScaleupFactorY;
@@ -250,21 +256,31 @@ const graphUtil = (comments, math, badTids) => {
       };
     });
 
-    mixedForce([commentsPoints, baseClustersScaled, groupCentroids], 2);
-
-    const baseClustersScaledAndGrouped = {}
-
-    baseClustersScaled.forEach((baseCluster) => {
-      if (baseClustersScaledAndGrouped[baseCluster.gid]) {
-        baseClustersScaledAndGrouped[baseCluster.gid].push(baseCluster);
-      } else {
-        baseClustersScaledAndGrouped[baseCluster.gid] = [baseCluster];
-      }
+    let ptptoisProjected = ptptois.map((p) => {
+      let p2 = _.clone(p);
+      p2.x = xx(p.x);
+      p2.y = yy(p.y);
+      return p2;
     });
+
+    mixedForce([commentsPoints, /*baseClustersScaled,*/ groupCentroids, ptptoisProjected], 2);
+
+    const pointsForHullGeneration = {};
+
+    function addPoint(o) {
+      if (pointsForHullGeneration[o.gid]) {
+        pointsForHullGeneration[o.gid].push(o);
+      } else {
+        pointsForHullGeneration[o.gid] = [o];
+      }
+    }
+    baseClustersScaled.forEach(addPoint);
+
+    // ptptoisProjected.forEach(addPoint);
 
     const hulls = [];
 
-    _.each(baseClustersScaledAndGrouped, (group) => {
+    _.each(pointsForHullGeneration, (group) => {
       const pairs = group.map((g) => { /* create an array of arrays */
         return [g.x, g.y]
       })
@@ -293,6 +309,7 @@ const graphUtil = (comments, math, badTids) => {
       hulls,
       groupCentroids,
       groupCornerAssignments,
+      ptptoisProjected,
       xCenter,
       yCenter,
     };

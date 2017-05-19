@@ -63,10 +63,6 @@ class Root extends React.Component {
 
     let badTids = _.keyBy(this.props.math_main['mod-out']);
 
-    let ptptois = this.props.ptptois;
-    ptptois = _.values(ptptois);
-    ptptois = _.keyBy(ptptois, "bid");
-
     comments = comments.filter((c) => {
       return !c.is_meta;
     });
@@ -79,7 +75,7 @@ class Root extends React.Component {
           badTids={badTids}
           formatTid={formatTid}
           tidsToShow={this.props.tidsToShow}
-          ptptois={ptptois}
+          ptptois={this.props.ptptois}
           repfulAgreeTidsByGroup={repfulAgreeTidsByGroup}
           math={this.props.math_main}
           renderHeading={false}

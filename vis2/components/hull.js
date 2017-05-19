@@ -3,7 +3,7 @@ import * as globals from "./globals";
 
 class Hull extends React.Component {
   render () {
-    const line = d3.line().curve(d3.curveCatmullRom);
+    const line = d3.line(); // .curve(d3.curveBasis);
     const pathString = line(this.props.hull.hull);
     return (
       <g>

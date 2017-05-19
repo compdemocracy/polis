@@ -117,7 +117,7 @@ module.exports = function(params) {
 
   // var shouldPoll = true;
 
-  var getPtptoiLimit = params.getPtptoiLimit;
+  // var getPtptoiLimit = params.getPtptoiLimit;
 
   var usePreloadMath = true;
   var usePreloadFamous = true;
@@ -164,7 +164,7 @@ module.exports = function(params) {
 
   function getClusters() {
     var clusters = deepcopy(clustersCache);
-    addParticipantsOfInterestToClusters(clusters);
+    // addParticipantsOfInterestToClusters(clusters);
     removeEmptyBucketsFromClusters(clusters);
 
     for (var i = 0; i < clusters.length; i++) {
@@ -775,7 +775,7 @@ module.exports = function(params) {
     clusters = clusters || getClusters(); // TODO cleanup
     var gids = _.keys(clusters);
     for (var g = 0; g < gids.length; g++) {
-      var gid = gids[g];
+      var gid = Number(gids[g]);
       var cluster = clusters[gid];
       for (var i = 0; i < cluster.members.length; i++) {
         var bid = cluster.members[i];
@@ -1400,31 +1400,31 @@ module.exports = function(params) {
     return cluster;
   }
 
-  function addParticipantsOfInterestToClusters(clusters) {
-    var origClusters = deepcopy(clusters);
+  // function addParticipantsOfInterestToClusters(clusters) {
+  //   var origClusters = deepcopy(clusters);
 
-    _.each(participantsOfInterestVotes, function(data, pid) {
+  //   _.each(participantsOfInterestVotes, function(data, pid) {
 
-      var originalBid = data.bid;
+  //     var originalBid = data.bid;
 
-      _.each(clusters, function(cluster, gid) {
-        // check if the participant was in a given cluster
-        var indexOfOriginalBid = origClusters[gid].members.indexOf(originalBid);
-        if (indexOfOriginalBid >= 0) {
-          cluster.members.push(data.fakeBid);
-        }
-        // remove reference to original bucket, if it still exists.
-        var indexOfOriginalBidInNewCluster = cluster.members.indexOf(originalBid);
-        if (indexOfOriginalBidInNewCluster >= 0) {
-          cluster.members.splice(indexOfOriginalBidInNewCluster, 1);
-        }
+  //     _.each(clusters, function(cluster, gid) {
+  //       // check if the participant was in a given cluster
+  //       var indexOfOriginalBid = origClusters[gid].members.indexOf(originalBid);
+  //       if (indexOfOriginalBid >= 0) {
+  //         cluster.members.push(data.fakeBid);
+  //       }
+  //       // remove reference to original bucket, if it still exists.
+  //       var indexOfOriginalBidInNewCluster = cluster.members.indexOf(originalBid);
+  //       if (indexOfOriginalBidInNewCluster >= 0) {
+  //         cluster.members.splice(indexOfOriginalBidInNewCluster, 1);
+  //       }
 
-        // TODO only if emtpy!
-        // clusters[c] = _.without(cluster, originalBid);
+  //       // TODO only if emtpy!
+  //       // clusters[c] = _.without(cluster, originalBid);
 
-      });
-    });
-  }
+  //     });
+  //   });
+  // }
 
   function removeSelfFromBucketsAndClusters(buckets, clusters) {
     for (var b = 0; b < buckets.length; b++) {
@@ -1896,9 +1896,9 @@ module.exports = function(params) {
       conversation_id: conversation_id,
       math_tick: lastServerTokenForPCA
     };
-    if (getPtptoiLimit()) {
-      o.ptptoiLimit = getPtptoiLimit();
-    }
+    // if (getPtptoiLimit()) {
+    //   o.ptptoiLimit = getPtptoiLimit();
+    // }
     var promise = usePreloadFamous ?
       preloadHelper.firstFamousPromise :
       polisGet(votesFamousPath, o);
@@ -2023,6 +2023,7 @@ module.exports = function(params) {
   function project(o) {
     var x = 0;
     var y = 0;
+
     if (!o.votes.length) {
       return {
         pid: o.pid,
@@ -2440,7 +2441,22 @@ module.exports = function(params) {
       result[myPid].isSelf = true;
     }
     result[myPid].picture_size = 48;
-    return result;
+
+    var b2g = getBidToGid();
+
+    return _.keys(result).map(function(key) {
+      var o = result[key];
+      var votesVectorInAscii_adpu_format = o.votes || "";
+      var pid = parseInt(o.pid);
+
+      var temp = projectParticipant(pid, votesVectorInAscii_adpu_format);
+      o.x = temp.proj.x;
+      o.y = temp.proj.y;
+
+      o.gid = b2g[o.bid];
+      o.isSelf = temp.isBlueDot;
+      return o;
+    });
   }
 
   function getGroup(gid) {
