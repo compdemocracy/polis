@@ -2470,11 +2470,11 @@ module.exports = function(params) {
 
       o.gid = b2g[o.bid];
       o.isSelf = temp.isBlueDot || o.bid === -1;
-      if (o.isSelf) {
-        var projectedSelf = projectSelf();
-        o.x = projectedSelf.proj.x;
-        o.y = projectedSelf.proj.y;
-      }
+      // if (o.isSelf && o.pid === -1) { // use local votes based projection for anon self case. (rely on votesVectorInAscii_adpu_format for non-anon self)
+      //   var projectedSelf = projectSelf();
+      //   o.x = projectedSelf.proj.x;
+      //   o.y = projectedSelf.proj.y;
+      // }
 
 
       return o;
