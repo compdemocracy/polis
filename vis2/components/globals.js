@@ -81,6 +81,7 @@ export const colors = {
   agree: "rgb(46, 204, 113)",
   disagree: "rgb(231, 76, 60)",
   pass: "rgb(230,230,230)",
+  comment: "#03a9f4",
 };
 
 export const d3colors = [
