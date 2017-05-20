@@ -74,7 +74,7 @@ const BarChartsForGroupVotes = ({
             key={group.id}
             selectedComment={selectedComment}
             groupVotes={group /* hardcode first group for debug */}
-            translate={"translate(" + closestPair[0] + "," + closestPair[1] + ")"}
+            translate={closestPair}
             ptptCount={"ptptCount doesn't matter and isn't used because this barchart is for a group, not global"}/>
         </g>
       )
