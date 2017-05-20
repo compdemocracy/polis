@@ -1,3 +1,6 @@
+
+export const minParticipantsForVis = 7;
+
 export const sans = "Montserrat, ";
 export const serif = "Source Serif Pro, Georgia";
 export const paragraphWidth = 475;

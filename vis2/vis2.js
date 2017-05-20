@@ -1,4 +1,5 @@
 
+import * as globals from "./components/globals";
 import _ from "lodash";
 import Graph from "./components/graph";
 import Header from "./components/header";
@@ -66,8 +67,7 @@ class Root extends React.Component {
     comments = comments.filter((c) => {
       return !c.is_meta;
     });
-
-    return (
+    return (this.props.math_main && this.props.math_main.n >= globals.minParticipantsForVis) ? (
       <div>
         <Graph
           comments={comments}
@@ -85,7 +85,7 @@ class Root extends React.Component {
           Strings={this.props.Strings}
           report={{}}/>
       </div>
-    );
+    ) : null;
   }
 }
         // <App/>
