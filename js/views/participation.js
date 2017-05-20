@@ -257,10 +257,11 @@ module.exports = ConversationView.extend({
     );
   },
 
+  curationType: null,
+
   updateVis2: function() {
     var that = this;
 
-    var curationType = null;
 
     // TODO don't do a separate AJAX call for the comments.
     this.serverClient.getFancyComments().then(function(comments) {
@@ -268,20 +269,20 @@ module.exports = ConversationView.extend({
 
         var mathMain = that.serverClient.getMathMain();
         var tidsToShow = []; //that.serverClient.getVotedOnTids();
-        if (_.isNull(curationType)) {
+        if (_.isNull(that.curationType)) {
 
-        } else if (curationType === "majority") {
+        } else if (that.curationType === "majority") {
           tidsToShow = [];
           Array.prototype.push.apply(tidsToShow, mathMain.consensus.agree.map(function(c) { return c.tid; }));
           Array.prototype.push.apply(tidsToShow, mathMain.consensus.disagree.map(function(c) { return c.tid; }));
-        } else if (curationType === "differences") {
+        } else if (that.curationType === "differences") {
 
-        } else if (_.isNumber(curationType)) {
+        } else if (_.isNumber(that.curationType)) {
           tidsToShow = [];
-          var gid = curationType;
+          var gid = that.curationType;
           Array.prototype.push.apply(tidsToShow, mathMain.repness[gid].map(function(c) { return c.tid; }));
         } else {
-          console.error("unknown curationType:", curationType);
+          console.error("unknown curationType:", that.curationType);
         }
         window.renderVis(
           document.getElementById("vis2_root"),
@@ -322,7 +323,7 @@ module.exports = ConversationView.extend({
       }
 
       function onCurationChange(newCurationType) {
-        curationType = newCurationType;
+        that.curationType = newCurationType;
         doRenderVis();
       }
 
