@@ -5,12 +5,13 @@ const GraphAxes = ({yCenter, xCenter, report}) => {
   if (!_.isNumber(yCenter) || !_.isNumber(xCenter) || !report) {
     return null;
   }
+  let padding = 0;
   return (
     <g>
       <line
-        x1={50 /* magic number is axis padding */}
+        x1={padding /* magic number is axis padding */}
         y1={yCenter}
-        x2={globals.side - 50}
+        x2={globals.side - padding}
         y2={yCenter}
         style={{
           stroke: "rgb(200,200,200)",
@@ -18,9 +19,9 @@ const GraphAxes = ({yCenter, xCenter, report}) => {
         }}/>
       <line
         x1={xCenter}
-        y1={50}
+        y1={padding}
         x2={xCenter}
-        y2={globals.side - 50 /* magic number is axis padding */}
+        y2={globals.side - padding /* magic number is axis padding */}
         style={{
           stroke: "rgb(200,200,200)",
           strokeWidth: 1

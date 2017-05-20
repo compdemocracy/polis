@@ -190,7 +190,7 @@ const graphUtil = (comments, math, badTids, ptptois) => {
     // mixedForce([commentsPoints, baseClusters], -0.015);
 
 
-    let border = 100;
+    let border = 20;
     let minClusterX = _.min(allXs);
     let maxClusterX = _.max(allXs);
     let minClusterY = _.min(allYs);
