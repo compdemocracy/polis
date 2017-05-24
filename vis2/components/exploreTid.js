@@ -194,7 +194,7 @@ class ExploreTid extends React.Component {
           borderRadius: 4,
           padding: "10px 10px 10px 10px",
           width:"100%",
-          minHeight: 120,
+          minHeight: 145,
           textAlign: "left",
           display: "flex",
           justifyContent:"center",
