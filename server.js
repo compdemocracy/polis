@@ -855,6 +855,49 @@ function doApiKeyAuth(assigner, apikey, isOptional, req, res, next) {
   });
 }
 
+function getXidRecordByXidOwnerId(xid, owner) {
+  return pgQueryP("select * from xids where xid = ($1) and owner = ($2);", [xid, owner]);
+}
+
+function doXidApiKeyAuth(assigner, apikey, ownerXid, xid, isOptional, req, res, next) {
+  getUidForApiKey(apikey).then(function(rows) {
+    if (!rows || !rows.length) {
+      res.status(403);
+      next("polis_err_auth_no_such_api_token4");
+      return;
+    }
+    let uidForApiKey = Number(rows[0].uid);
+    return getXidRecordByXidOwnerId(ownerXid, uidForApiKey).then((rows) => {
+      if (!rows || !rows.length) {
+        res.status(403);
+        next("polis_err_auth_no_such_xid_for_this_apikey_1");
+        return;
+      }
+      let uidForConvoOwner = Number(rows[0].uid);
+      return getXidRecordByXidOwnerId(xid, uidForConvoOwner).then((rows) => {
+        if (!rows || !rows.length) {
+          res.status(403);
+          next("polis_err_auth_no_such_xid_for_this_apikey_2");
+          return;
+        }
+        let uidForCurrentUser = Number(rows[0].uid);
+        assigner(req, "uid", uidForCurrentUser);
+        next();
+      });
+    });
+
+  }, function(err) {
+    res.status(403);
+    console.error(err.stack);
+    next("polis_err_auth_no_such_api_token3");
+  }).catch(function(err) {
+    res.status(403);
+    console.error(err.stack);
+    next("polis_err_auth_misc_23423");
+  });
+}
+
+
 function doHeaderAuth(assigner, isOptional, req, res, next) {
   let token = req.headers["x-polis"];
 
@@ -8286,10 +8329,6 @@ Email verified! You can close this tab or hit the back button.
         x_profile_image_url || null,
         x_name || null,
       ]);
-  }
-
-  function getXidRecordByXidOwnerId(xid, owner) {
-    return pgQueryP("select * from xids where xid = ($1) and owner = ($2);", [xid, owner]);
   }
 
   function getXidRecord(xid, zid) {
