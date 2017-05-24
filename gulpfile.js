@@ -90,6 +90,14 @@ gulp.task('embed', [
   fs.writeFileSync(dest, index);
 });
 
+gulp.task('embedPreprod', [
+], function() {
+  var index = fs.readFileSync('embedPreprod.html', {encoding: "utf8"});
+  var dest = [destRootBase, "embedPreprod.html"].join("/");
+  // fs.mkdirSync(destRootBase);
+  fs.writeFileSync(dest, index);
+});
+
 gulp.task('404', [
 ], function() {
   var index = fs.readFileSync('404.html', {encoding: "utf8"});
@@ -159,6 +167,7 @@ gulp.task('common', [
       'bundle',
       'index',
       'embed',
+      'embedPreprod',
       '404',
       'scripts',
       callback);
