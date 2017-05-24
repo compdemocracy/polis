@@ -205,6 +205,7 @@ function isEmbedded() {
   /* jshint ignore:end */
   /*eslint-enable */
 }
+window.isEmbedded = isEmbedded;
 
 function ifEmbedded(arg0) {
   // NOTE != instead of !== for IE8

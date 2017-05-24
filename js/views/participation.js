@@ -253,6 +253,7 @@ module.exports = ConversationView.extend({
         user: window.preload.firstUser,
         is_owner: window.preload.firstConv.is_owner,
         conversation_id: this.conversation_id,
+        is_embedded: window.isEmbedded(),
       }
     );
   },
