@@ -1882,6 +1882,10 @@ function initializePolisHelpers() {
 
   function _auth(assigner, isOptional) {
 
+    function hasKey(req, key) {
+      return req.body[key] || req.headers[key];
+    }
+
     function doAuth(req, res) {
       //var token = req.body.token;
       let token = req.cookies[COOKIES.TOKEN];
@@ -1904,6 +1908,15 @@ function initializePolisHelpers() {
           doCookieAuth(assigner, isOptional, req, res, onDone);
         } else if (req.headers.authorization) {
           doApiKeyBasicAuth(assigner, req.headers.authorization, isOptional, req, res, onDone);
+        } else if (hasKey("polisApiKey") && hasKey("xid")) {
+          doApiKeyAuth(assigner, req.body["polisApiKey"], isOptional, req, res, onDone);
+        } else if (req.headers["x-sandstorm-app-polis-apikey"] && req.headers["x-sandstorm-app-polis-xid"] && req.headers["x-sandstorm-app-polis-owner-xid"]) {
+          doXidApiKeyAuth(
+            assigner,
+            req.headers["x-sandstorm-app-polis-apikey"],
+            req.headers["x-sandstorm-app-polis-owner-xid"],
+            req.headers["x-sandstorm-app-polis-xid"],
+            isOptional, req, res, onDone);
         } else if (req.headers["x-sandstorm-app-polis-apikey"]) {
           doApiKeyAuth(assigner, req.headers["x-sandstorm-app-polis-apikey"], isOptional, req, res, onDone);
         } else if (req.body["polisApiKey"]) {
