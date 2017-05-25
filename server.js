@@ -377,6 +377,7 @@ const sql_conversations = sql.define({
     "strict_moderation",
     "email_domain",
     "owner",
+    "org_id",
     "owner_sees_participation_stats",
     "context",
     "course_id",
@@ -855,29 +856,72 @@ function doApiKeyAuth(assigner, apikey, isOptional, req, res, next) {
   });
 }
 
-function getXidRecordByXidConversationId(xid, conversation_id) {
-  return pgQueryP("select * from xids where xid = ($2) and owner = (select "+
-    "CASE WHEN api_owner IS NOT NULL THEN api_owner "+
-    "ELSE owner "+
-    "END "+
-    "from conversations where zid = (select zid from zinvites where zinvite = ($1)))", [zinvite, xid]);
-}
+// function getXidRecordByXidConversationId(xid, conversation_id) {
+//   return pgQueryP("select * from xids where xid = ($2) and owner = (select org_id from conversations where zid = (select zid from zinvites where zinvite = ($1)))", [zinvite, xid]);
+// }
 
-function getXidRecordByXidOwnerId(xid, owner) {
-  return pgQueryP("select * from xids where xid = ($1) and owner = ($2);", [xid, owner]);
-}
 
-function doXidOwnerConversationIdAuth(assigner, xid, conversation_id, req, res, next) {
-  getXidRecordByXidConversationId(xid, conversation_id).then(function(rows) {
-    if (!rows || !rows.length) {
-      res.status(403);
-      next("polis_err_auth_no_such_api_token4");
-      return;
-    }
-    assigner(req, "uid", Number(rows[0].uid));
-    next();
+function createDummyUser() {
+  return new MPromise("createDummyUser", function(resolve, reject) {
+    pgQuery("INSERT INTO users (created) VALUES (default) RETURNING uid;", [], function(err, results) {
+      if (err || !results || !results.rows || !results.rows.length) {
+        console.error(err);
+        reject(new Error("polis_err_create_empty_user"));
+        return;
+      }
+      resolve(results.rows[0].uid);
+    });
   });
 }
+
+function createXidRecord(ownerUid, uid, xid, x_profile_image_url, x_name) {
+  return pgQueryP("insert into xids (owner, uid, xid, x_profile_image_url, x_name) values ($1, $2, $3, $4, $5) " +
+    "on conflict (owner, xid) do nothing;", [
+      ownerUid,
+      uid,
+      xid,
+      x_profile_image_url || null,
+      x_name || null,
+    ]);
+}
+
+
+function getXidRecordByXidOwnerId(xid, owner, x_profile_image_url, x_name, createIfMissing) {
+  return pgQueryP("select * from xids where xid = ($1) and owner = ($2);", [xid, owner]).then(function(rows) {
+    if (!rows || !rows.length) {
+      console.log('no xInfo yet');
+      if (!createIfMissing) {
+        throw new Error("polis_err_auth_no_such_xid_for_this_apikey_10");
+      }
+      return createDummyUser().then((newUid) => {
+        console.log('created dummy');
+        return createXidRecord(owner, newUid, xid, x_profile_image_url||null, x_name||null).then(() => {
+          console.log('created xInfo');
+          return [{
+            uid: newUid,
+            owner: owner,
+            xid: xid,
+            x_profile_image_url: x_profile_image_url,
+            x_name: x_name,
+          }];
+        });
+      });
+    }
+    return rows;
+  });
+}
+
+// function doXidOwnerConversationIdAuth(assigner, xid, conversation_id, req, res, next) {
+//   getXidRecordByXidConversationId(xid, conversation_id).then(function(rows) {
+//     if (!rows || !rows.length) {
+//       res.status(403);
+//       next("polis_err_auth_no_such_api_token4");
+//       return;
+//     }
+//     assigner(req, "uid", Number(rows[0].uid));
+//     next();
+//   });
+// }
 
 
 function doXidApiKeyAuth(assigner, apikey, xid, isOptional, req, res, next) {
@@ -888,7 +932,13 @@ function doXidApiKeyAuth(assigner, apikey, xid, isOptional, req, res, next) {
       return;
     }
     let uidForApiKey = Number(rows[0].uid);
-    return getXidRecordByXidOwnerId(xid, uidForApiKey).then((rows) => {
+    return getXidRecordByXidOwnerId(
+      xid,
+      uidForApiKey,
+      req.body.x_profile_image_url || req.query.x_profile_image_url,
+      req.body.x_name || req.query.x_name || null,
+      !!req.body.agid || !!req.query.agid || null
+    ).then((rows) => {
       if (!rows || !rows.length) {
         res.status(403);
         next("polis_err_auth_no_such_xid_for_this_apikey_1");
@@ -1895,19 +1945,6 @@ function initializePolisHelpers() {
     return next();
   }
 
-
-  function createDummyUser() {
-    return new MPromise("createDummyUser", function(resolve, reject) {
-      pgQuery("INSERT INTO users (created) VALUES (default) RETURNING uid;", [], function(err, results) {
-        if (err || !results || !results.rows || !results.rows.length) {
-          console.error(err);
-          reject(new Error("polis_err_create_empty_user"));
-          return;
-        }
-        resolve(results.rows[0].uid);
-      });
-    });
-  }
   // function createDummyUsersBatch(n) {
   //     let query = "insert into users (created) values ";
   //     let values = [];
@@ -1964,8 +2001,8 @@ function initializePolisHelpers() {
           doCookieAuth(assigner, isOptional, req, res, onDone);
         } else if (req.headers.authorization) {
           doApiKeyBasicAuth(assigner, req.headers.authorization, isOptional, req, res, onDone);
-        } else if (hasKey("polisApiKey") && hasKey("xid")) {
-          doXidApiKeyAuth(assigner, req.body.polisApiKey||req.headers.polisApiKey, req.body.xid||req.headers.xid, req, res, onDone);
+        } else if (hasKey(req, "polisApiKey") && hasKey(req, "xid")) {
+          doXidApiKeyAuth(assigner, req.body.polisApiKey||req.headers.polisApiKey, req.body.xid||req.headers.xid, isOptional, req, res, onDone);
         // } else if (req.headers["x-sandstorm-app-polis-apikey"] && req.headers["x-sandstorm-app-polis-xid"] && req.headers["x-sandstorm-app-polis-owner-xid"]) {
         //   doXidApiKeyAuth(
         //     assigner,
@@ -2960,7 +2997,7 @@ function initializePolisHelpers() {
     return new MPromise("getXids", function(resolve, reject) {
       pgQuery_readOnly("select pid, xid from xids inner join " +
         "(select * from participants where zid = ($1)) as p on xids.uid = p.uid " +
-        " where owner in (select owner from conversations where zid = ($1));", [zid],
+        " where owner in (select org_id from conversations where zid = ($1));", [zid],
         function(err, result) {
           if (err) {
             reject("polis_err_fetching_xids");
@@ -5416,12 +5453,12 @@ Email verified! You can close this tab or hit the back button.
         if (o.xid) {
           // used for suzinvite case
 
-          return xidExists(o.xid, o.owner, o.uid).then(function(exists) {
+          return xidExists(o.xid, o.conv.org_id, o.uid).then(function(exists) {
             if (exists) {
               // skip creating the entry (workaround for posgres's lack of upsert)
               return o;
             }
-            return createXidEntry(o.xid, o.owner, o.uid).then(function() {
+            return createXidEntry(o.xid, o.conv.org_id, o.uid).then(function() {
               return o;
             });
           });
@@ -7141,7 +7178,7 @@ Email verified! You can close this tab or hit the back button.
       return Promise.all([
         pgQueryP_readOnly("select pid, count(*) from votes where zid = ($1) group by pid;", [zid]),
         pgQueryP_readOnly("select pid, count(*) from comments where zid = ($1) group by pid;", [zid]),
-        pgQueryP_readOnly("select pid, xid from xids inner join (select * from participants where zid = ($1)) as p on xids.uid = p.uid;", [zid]),
+        getXids(zid), //pgQueryP_readOnly("select pid, xid from xids inner join (select * from participants where zid = ($1)) as p on xids.uid = p.uid;", [zid]),
       ]).then(function(o) {
         let voteCountRows = o[0];
         let commentCountRows = o[1];
@@ -8323,7 +8360,7 @@ Email verified! You can close this tab or hit the back button.
 
 
   function createXidRecordByZid(zid, uid, xid, x_profile_image_url, x_name) {
-    return pgQueryP("insert into xids (owner, uid, xid, x_profile_image_url, x_name) values ((select owner from conversations where zid = ($1)), $2, $3, $4, $5) " +
+    return pgQueryP("insert into xids (owner, uid, xid, x_profile_image_url, x_name) values ((select org_id from conversations where zid = ($1)), $2, $3, $4, $5) " +
       "on conflict (owner, xid) do nothing;", [
         zid,
         uid,
@@ -8333,19 +8370,8 @@ Email verified! You can close this tab or hit the back button.
       ]);
   }
 
-  function createXidRecord(ownerUid, uid, xid, x_profile_image_url, x_name) {
-    return pgQueryP("insert into xids (owner, uid, xid, x_profile_image_url, x_name) values ($1, $2, $3, $4, $5) " +
-      "on conflict (owner, xid) do nothing;", [
-        ownerUid,
-        uid,
-        xid,
-        x_profile_image_url || null,
-        x_name || null,
-      ]);
-  }
-
   function getXidRecord(xid, zid) {
-    return pgQueryP("select * from xids where xid = ($1) and owner = (select owner from conversations where zid = ($2));", [xid, zid]);
+    return pgQueryP("select * from xids where xid = ($1) and owner = (select org_id from conversations where zid = ($2));", [xid, zid]);
   }
 
   function getXidStuff(xid, zid) {
@@ -8369,9 +8395,6 @@ Email verified! You can close this tab or hit the back button.
     let uid = req.p.uid; // PID_FLOW uid may be undefined here.
     let zid = req.p.zid;
     let pid = req.p.pid; // PID_FLOW pid may be undefined here.
-    let xid = void 0; //req.p.xid;
-
-    let xidUserPromise = !_.isUndefined(xid) && !_.isNull(xid) ? getXidStuff(xid, zid) : Promise.resolve();
 
     // We allow viewing (and possibly writing) without cookies enabled, but voting requires cookies (except the auto-vote on your own comment, which seems ok)
     let token = req.cookies[COOKIES.TOKEN];
@@ -8382,13 +8405,7 @@ Email verified! You can close this tab or hit the back button.
       return;
     }
 
-    return xidUserPromise.then(function(xidUser) {
-
-      if (xidUser && xidUser.uid) {
-        uid = xidUser.uid;
-        pid = xidUser.pid;
-      }
-      let shouldCreateXidRecord = xidUser === "noXidRecord";
+    return Promise.resolve().then(function() {
 
       // let conv;
       let vote;
@@ -8400,10 +8417,6 @@ Email verified! You can close this tab or hit the back button.
       }) : Promise.resolve();
 
       return pidReadyPromise.then(function() {
-        if (shouldCreateXidRecord) {
-          return createXidRecordByZid(zid, uid, xid);
-        }
-      }).then(function() {
         return votesPost(uid, pid, zid, req.p.tid, req.p.vote, req.p.weight, true);
       }).then(function(o) {
         // conv = o.conv;
@@ -10109,31 +10122,13 @@ Email verified! You can close this tab or hit the back button.
       let xid = req.p.ownerXid;
       let x_profile_image_url = req.p.x_profile_image_url;
       let x_name = req.p.x_name;
-      let ownerUid = req.p.uid;
-      xidStuffReady = getXidRecordByXidOwnerId(xid, ownerUid, true).then((rows) => {
-        if (!rows || !rows.length) {
-          console.log('no xInfo yet');
-          return createDummyUser().then((newUid) => {
-            console.log('created dummy');
-            return createXidRecord(ownerUid, newUid, xid, x_profile_image_url, x_name).then(() => {
-              console.log('created xInfo');
-              return {
-                uid: newUid,
-                owner: ownerUid,
-                xid: xid,
-                x_profile_image_url: x_profile_image_url,
-                x_name: x_name,
-              };
-            });
-          });
-        } else {
-          console.log('had xInfo');
-          return rows[0];
-        }
+      let org_id = req.p.uid; // uid is the owner (the api key holder), not necessarily the creator, in this case
+      xidStuffReady = getXidRecordByXidOwnerId(xid, org_id, x_profile_image_url, x_name, true).then((rows) => {
+        return rows[0];
       }).then((xidInfo) => {
         console.log('setting uid');
-        req.p.api_owner = req.p.uid;
-        req.p.uid = xidInfo.uid;
+        req.p.org_id = req.p.uid; // api key holder
+        req.p.uid = xidInfo.uid; // creator uid of existing or newly created xid record associated with ownerXid
       });
     } 
 
@@ -10154,8 +10149,8 @@ Email verified! You can close this tab or hit the back button.
 
 
         let q = sql_conversations.insert({
-          owner: req.p.uid,
-          api_owner: req.p.api_owner || null,
+          owner: req.p.uid, // creator
+          org_id: req.p.org_id || req.p.uid, // assume the owner is the creator if there's no separate owner specified (
           topic: req.p.topic,
           description: req.p.description,
           is_active: req.p.is_active,
@@ -11102,7 +11097,7 @@ Thanks for using pol.is!
       //         "union  " +
       //         "select uid, 100 as priority from facebook_friends where friend = ($2)), " +
 
-      "xids_subset as (select * from xids where owner in (select owner from conversations where zid = ($1)) and x_profile_image_url is not null), " +
+      "xids_subset as (select * from xids where owner in (select org_id from conversations where zid = ($1)) and x_profile_image_url is not null), " +
       "xid_ptpts as (select p.uid, 100 as priority from p inner join xids_subset on xids_subset.uid = p.uid where p.mod >= ($4)), " +
       "twitter_ptpts as (select p.uid, 10 as priority from p inner join twitter_users  on twitter_users.uid  = p.uid where p.mod >= ($4)), " +
       "all_fb_users as (select p.uid,   9 as priority from p inner join facebook_users on facebook_users.uid = p.uid where p.mod >= ($4)), " +
