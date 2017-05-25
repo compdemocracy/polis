@@ -254,8 +254,8 @@ CREATE TABLE conversations(
     help_color VARCHAR(20),
     email_domain VARCHAR(200), -- space separated domain names, "microsoft.com google.com"
 
-    owner INTEGER REFERENCES users(uid), -- TODO use groups(gid)
-    api_owner INTEGER REFERENCES users(uid), -- uid for api key used when creating the conversation, might not be the same as the user who creates the conversation.
+    owner INTEGER REFERENCES users(uid),
+    org_id INTEGER REFERENCES users(uid), -- uid for the account manager of a conversation. Might be the same as the owner of the conversation.
 
     -- owner_group_id ??
     context VARCHAR(1000), -- for things like a semester of a class, etc
