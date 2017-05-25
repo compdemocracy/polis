@@ -855,11 +855,32 @@ function doApiKeyAuth(assigner, apikey, isOptional, req, res, next) {
   });
 }
 
+function getXidRecordByXidConversationId(xid, conversation_id) {
+  return pgQueryP("select * from xids where xid = ($2) and owner = (select "+
+    "CASE WHEN api_owner IS NOT NULL THEN api_owner "+
+    "ELSE owner "+
+    "END "+
+    "from conversations where zid = (select zid from zinvites where zinvite = ($1)))", [zinvite, xid]);
+}
+
 function getXidRecordByXidOwnerId(xid, owner) {
   return pgQueryP("select * from xids where xid = ($1) and owner = ($2);", [xid, owner]);
 }
 
-function doXidApiKeyAuth(assigner, apikey, ownerXid, xid, isOptional, req, res, next) {
+function doXidOwnerConversationIdAuth(assigner, xid, conversation_id, req, res, next) {
+  getXidRecordByXidConversationId(xid, conversation_id).then(function(rows) {
+    if (!rows || !rows.length) {
+      res.status(403);
+      next("polis_err_auth_no_such_api_token4");
+      return;
+    }
+    assigner(req, "uid", Number(rows[0].uid));
+    next();
+  });
+}
+
+
+function doXidApiKeyAuth(assigner, apikey, xid, isOptional, req, res, next) {
   getUidForApiKey(apikey).then(function(rows) {
     if (!rows || !rows.length) {
       res.status(403);
@@ -867,23 +888,15 @@ function doXidApiKeyAuth(assigner, apikey, ownerXid, xid, isOptional, req, res, 
       return;
     }
     let uidForApiKey = Number(rows[0].uid);
-    return getXidRecordByXidOwnerId(ownerXid, uidForApiKey).then((rows) => {
+    return getXidRecordByXidOwnerId(xid, uidForApiKey).then((rows) => {
       if (!rows || !rows.length) {
         res.status(403);
         next("polis_err_auth_no_such_xid_for_this_apikey_1");
         return;
       }
-      let uidForConvoOwner = Number(rows[0].uid);
-      return getXidRecordByXidOwnerId(xid, uidForConvoOwner).then((rows) => {
-        if (!rows || !rows.length) {
-          res.status(403);
-          next("polis_err_auth_no_such_xid_for_this_apikey_2");
-          return;
-        }
-        let uidForCurrentUser = Number(rows[0].uid);
-        assigner(req, "uid", uidForCurrentUser);
-        next();
-      });
+      let uidForCurrentUser = Number(rows[0].uid);
+      assigner(req, "uid", uidForCurrentUser);
+      next();
     });
 
   }, function(err) {
@@ -1952,14 +1965,14 @@ function initializePolisHelpers() {
         } else if (req.headers.authorization) {
           doApiKeyBasicAuth(assigner, req.headers.authorization, isOptional, req, res, onDone);
         } else if (hasKey("polisApiKey") && hasKey("xid")) {
-          doApiKeyAuth(assigner, req.body["polisApiKey"], isOptional, req, res, onDone);
-        } else if (req.headers["x-sandstorm-app-polis-apikey"] && req.headers["x-sandstorm-app-polis-xid"] && req.headers["x-sandstorm-app-polis-owner-xid"]) {
-          doXidApiKeyAuth(
-            assigner,
-            req.headers["x-sandstorm-app-polis-apikey"],
-            req.headers["x-sandstorm-app-polis-owner-xid"],
-            req.headers["x-sandstorm-app-polis-xid"],
-            isOptional, req, res, onDone);
+          doXidApiKeyAuth(assigner, req.body.polisApiKey||req.headers.polisApiKey, req.body.xid||req.headers.xid, req, res, onDone);
+        // } else if (req.headers["x-sandstorm-app-polis-apikey"] && req.headers["x-sandstorm-app-polis-xid"] && req.headers["x-sandstorm-app-polis-owner-xid"]) {
+        //   doXidApiKeyAuth(
+        //     assigner,
+        //     req.headers["x-sandstorm-app-polis-apikey"],
+        //     req.headers["x-sandstorm-app-polis-owner-xid"],
+        //     req.headers["x-sandstorm-app-polis-xid"],
+        //     isOptional, req, res, onDone);
         } else if (req.headers["x-sandstorm-app-polis-apikey"]) {
           doApiKeyAuth(assigner, req.headers["x-sandstorm-app-polis-apikey"], isOptional, req, res, onDone);
         } else if (req.body["polisApiKey"]) {
