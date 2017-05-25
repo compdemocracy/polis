@@ -10067,6 +10067,7 @@ Email verified! You can close this tab or hit the back button.
         }
       }).then((xidInfo) => {
         console.log('setting uid');
+        req.p.api_owner = req.p.uid;
         req.p.uid = xidInfo.uid;
       });
     } 
@@ -10089,6 +10090,7 @@ Email verified! You can close this tab or hit the back button.
 
         let q = sql_conversations.insert({
           owner: req.p.uid,
+          api_owner: req.p.api_owner || null,
           topic: req.p.topic,
           description: req.p.description,
           is_active: req.p.is_active,
