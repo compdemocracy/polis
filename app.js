@@ -551,8 +551,8 @@ helpersInitialized.then(function(o) {
 
   app.get("/api/v3/users",
     moveToBody,
-    want("errIfNoAuth", getBool, assignToP),
     authOptional(assignToP),
+    want("errIfNoAuth", getBool, assignToP),
     handle_GET_users);
 
   // use this to generate coupons for free upgrades
