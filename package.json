@@ -4,7 +4,9 @@
   "description": "polis =====",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "snyk-protect": "snyk protect",
+    "prepublish": "npm run snyk-protect"
   },
   "engines": {
     "node": "6.9.1",
@@ -24,9 +26,9 @@
     "badwords": "0.0.3",
     "bcrypt": "0.8.6",
     "bluebird": "2.10.2",
-    "connect-timeout": "1.7.0",
+    "connect-timeout": "1.9.0",
     "eslint": "^2.10.2",
-    "express": "3.21.2",
+    "express": "4.15.3",
     "fb": "1.0.2",
     "gulp": "3.8.11",
     "http-proxy": "0.10.4",
@@ -54,9 +56,11 @@
     "stripe": "~2.5.0",
     "underscore": "1.8.3",
     "valid-url": "1.0.9",
-    "winston": "1.0.2"
+    "winston": "1.0.2",
+    "snyk": "^1.30.1"
   },
   "optionalDependencies": {
     "polisServerBrand": "git+https://github.com/colinmegill/polisServerBrand.git#master"
-  }
+  },
+  "snyk": true
 }
