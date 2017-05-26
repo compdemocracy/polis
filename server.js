@@ -946,6 +946,8 @@ function doXidApiKeyAuth(assigner, apikey, xid, isOptional, req, res, next) {
       }
       let uidForCurrentUser = Number(rows[0].uid);
       assigner(req, "uid", uidForCurrentUser);
+      assigner(req, "xid", xid);
+      assigner(req, "owner_uid", uidForApiKey);
       next();
     });
 
@@ -6634,7 +6636,7 @@ Email verified! You can close this tab or hit the back button.
       return;
     }
 
-    getUser(uid, null, null).then(function(user) {
+    getUser(uid, null, req.p.xid, req.p.owner_uid).then(function(user) {
       res.status(200).json(user);
     }, function(err) {
       fail(res, 500, "polis_err_getting_user_info2", err);
@@ -6643,16 +6645,24 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
-  function getUser(uid, zid_optional, xid_optional) {
+  function getUser(uid, zid_optional, xid_optional, owner_uid_optional) {
     if (!uid) {
       // this api may be called by a new user, so we don't want to trigger a failure here.
       return Promise.resolve({});
     }
+
+    let xidInfoPromise = Promise.resolve(null);
+    if (zid_optional && xid_optional) {
+      xidInfoPromise = getXidRecord(xid_optional, zid_optional);
+    } else if (xid_optional && owner_uid_optional) {
+      xidInfoPromise = getXidRecordByXidOwnerId(xid_optional, owner_uid_optional);
+    }
+
     return Promise.all([
       getUserInfoForUid2(uid),
       getFacebookInfo([uid]),
       getTwitterInfo([uid]),
-      ((zid_optional && xid_optional) ? getXidRecord(xid_optional, zid_optional) : Promise.resolve(null)),
+      xidInfoPromise,
     ]).then(function(o) {
       let info = o[0];
       let fbInfo = o[1];
@@ -8336,7 +8346,7 @@ Email verified! You can close this tab or hit the back button.
 
     Promise.all([
       // request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/users", qs: qs, headers: req.headers, gzip: true}),
-      getUser(req.p.uid, req.p.zid, req.p.xid),
+      getUser(req.p.uid, req.p.zid, req.p.xid, req.p.owner_uid),
       // getIfConvAndAuth({uri: "http://" + SELF_HOSTNAME + "/api/v3/participants", qs: qs, headers: req.headers, gzip: true}),
       ifConvAndAuth(getParticipant, [req.p.zid, req.p.uid]),
       // getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/nextComment", qs: nextCommentQs, headers: req.headers, gzip: true}),
