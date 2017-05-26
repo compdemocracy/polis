@@ -891,7 +891,7 @@ function getXidRecordByXidOwnerId(xid, owner, x_profile_image_url, x_name, creat
     if (!rows || !rows.length) {
       console.log('no xInfo yet');
       if (!createIfMissing) {
-        throw new Error("polis_err_auth_no_such_xid_for_this_apikey_10");
+        throw "polis_err_auth_no_such_xid_for_this_apikey_10";
       }
       return createDummyUser().then((newUid) => {
         console.log('created dummy');
@@ -1970,7 +1970,29 @@ function initializePolisHelpers() {
   //     });
   // }
 
-
+  function doXidConversationIdAuth(assigner, xid, conversation_id, isOptional, req, res, onDone) {
+    return getConversationInfoByConversationId(conversation_id).then((conv) => {
+      return getXidRecordByXidOwnerId(
+        xid,
+        conv.org_id,
+        req.body.x_profile_image_url || req.query.x_profile_image_url,
+        req.body.x_name || req.query.x_name || null,
+        !!req.body.agid || !!req.query.agid || null)
+      .then((rows) => {
+        if (!rows || !rows.length) {
+          res.status(403);
+          onDone("polis_err_auth_no_such_xid_for_this_apikey_11");
+          return;
+        }
+        let uidForCurrentUser = Number(rows[0].uid);
+        assigner(req, "uid", uidForCurrentUser);
+        onDone();
+      });
+    }).catch((err) => {
+      console.log(err);
+      onDone(err);
+    });
+  }
 
 
   function _auth(assigner, isOptional) {
@@ -2010,6 +2032,8 @@ function initializePolisHelpers() {
         //     req.headers["x-sandstorm-app-polis-owner-xid"],
         //     req.headers["x-sandstorm-app-polis-xid"],
         //     isOptional, req, res, onDone);
+        } else if (hasKey(req, "xid") && hasKey(req, "conversation_id")) {
+          doXidConversationIdAuth(assigner, req.body.xid||req.headers.xid, req.body.conversation_id, isOptional, req, res, onDone);
         } else if (req.headers["x-sandstorm-app-polis-apikey"]) {
           doApiKeyAuth(assigner, req.headers["x-sandstorm-app-polis-apikey"], isOptional, req, res, onDone);
         } else if (req.body["polisApiKey"]) {
@@ -2052,56 +2076,66 @@ function initializePolisHelpers() {
 
     return function(req, res, next) {
 
-      let xid = req.body.xid;
-      let hasXid = !_.isUndefined(xid);
-
-      if (hasXid) {
-        req.p = req.p || {};
-        req.p.xid = xid;
-        console.log('xidflow has');
-        getConversationIdFetchZid(req.body.conversation_id).then((zid) => {
-          console.log('xidflow got zid', zid);
-
-          return getXidStuff(xid, zid).then((xidRecord) => {
-            console.log('xidflow got xidRecord', xidRecord);
-            let foundXidRecord = xidRecord !== "noXidRecord";
-            if (foundXidRecord) {
-              console.log('xidflow !shouldCreateXidRecord');
-              assigner(req, "uid", Number(xidRecord.uid));
-              return next();
-            }
-            console.log('xidflow before doAuth');
-            // try other auth methods, and once those are done, use req.p.uid to create new xid record.
-            doAuth(req, res).then(() => {
-              console.log('xidflow after doAuth');
-              if (req.p.uid && !isOptional) { // req.p.uid might be set now.
-                console.log('xidflow uid', req.p.uid);
-                return createXidRecordByZid(zid, req.p.uid, xid, req.body.x_profile_image_url, req.body.x_name);
-              } else if (!isOptional) {
-                console.log('xidflow no uid, but mandatory', req.p.uid);
-                throw "polis_err_missing_non_optional_uid";
-              }
-              console.log('xidflow was optional, doing nothing');
-            }).then(() => {
-              console.log('xidflow ok');
-              return next();
-            }).catch((err) => {
-              res.status(500);
-              console.error(err);
-              return next("polis_err_auth_xid_error_423423");
-            });
-          });
-        });
-      } else {
-        doAuth(req, res).then(() => {
-          return next();
-        }).catch((err) => {
-          res.status(500);
-          console.error(err);
-          next("polis_err_auth_error_432");
-        });
-      }
+      doAuth(req, res).then(() => {
+        return next();
+      }).catch((err) => {
+        res.status(500);
+        console.error(err);
+        next("polis_err_auth_error_432");
+      });
     };
+
+    //   let xid = req.body.xid;
+    //   let hasXid = !_.isUndefined(xid);
+
+    //   if (hasXid) {
+    //     console.log('weee 0');
+    //     req.p = req.p || {};
+    //     req.p.xid = xid;
+    //     console.log('xidflow has');
+    //     getConversationIdFetchZid(req.body.conversation_id).then((zid) => {
+    //       console.log('xidflow got zid', zid);
+
+    //       return getXidStuff(xid, zid).then((xidRecord) => {
+    //         console.log('xidflow got xidRecord', xidRecord);
+    //         let foundXidRecord = xidRecord !== "noXidRecord";
+    //         if (foundXidRecord) {
+    //           console.log('xidflow !shouldCreateXidRecord');
+    //           assigner(req, "uid", Number(xidRecord.uid));
+    //           return next();
+    //         }
+    //         console.log('xidflow before doAuth');
+    //         // try other auth methods, and once those are done, use req.p.uid to create new xid record.
+    //         doAuth(req, res).then(() => {
+    //           console.log('xidflow after doAuth');
+    //           if (req.p.uid && !isOptional) { // req.p.uid might be set now.
+    //             console.log('xidflow uid', req.p.uid);
+    //             return createXidRecordByZid(zid, req.p.uid, xid, req.body.x_profile_image_url, req.body.x_name);
+    //           } else if (!isOptional) {
+    //             console.log('xidflow no uid, but mandatory', req.p.uid);
+    //             throw "polis_err_missing_non_optional_uid";
+    //           }
+    //           console.log('xidflow was optional, doing nothing');
+    //         }).then(() => {
+    //           console.log('xidflow ok');
+    //           return next();
+    //         }).catch((err) => {
+    //           res.status(500);
+    //           console.error(err);
+    //           return next("polis_err_auth_xid_error_423423");
+    //         });
+    //       });
+    //     });
+    //   } else {
+    //     doAuth(req, res).then(() => {
+    //       return next();
+    //     }).catch((err) => {
+    //       res.status(500);
+    //       console.error(err);
+    //       next("polis_err_auth_error_432");
+    //     });
+    //   }
+    // };
   }
 
 
@@ -7654,6 +7688,19 @@ Email verified! You can close this tab or hit the back button.
       });
     });
   }
+  
+  function getConversationInfoByConversationId(conversation_id) {
+    return new MPromise("getConversationInfoByConversationId", function(resolve, reject) {
+      pgQuery("SELECT * FROM conversations WHERE zid = (select zid from zinvites where zinvite = ($1));", [conversation_id], function(err, result) {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(result.rows[0]);
+        }
+      });
+    });
+  }
+
 
   function commentExists(zid, txt) {
     return pgQueryP("select zid from comments where zid = ($1) and txt = ($2);", [zid, txt]).then(function(rows) {
