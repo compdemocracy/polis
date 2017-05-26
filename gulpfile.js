@@ -580,7 +580,7 @@ gulp.task("configureForProduction", function(callback) {
     hash = hash.toString().match(/[A-Za-z0-9]+/)[0];
 
     var d = new Date();
-    var unique_token = [d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds(), hash].join("_");
+    var unique_token = [d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds(), hash].join("_");
     destRootRest = [staticFilesPrefix, unique_token].join("/");
     versionString = unique_token;
 
