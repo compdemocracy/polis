@@ -4,7 +4,6 @@ import * as globals from "./globals";
 import {VictoryAnimation} from "victory";
 
 const Participant = ({ptpt, ptptoiScaleFactor, tweenX, tweenY}) => {
-  console.log(ptpt)
   let picSize = ptpt.picture_size;
   return (
     <g
