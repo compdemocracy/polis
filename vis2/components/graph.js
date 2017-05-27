@@ -156,6 +156,9 @@ class Graph extends React.Component {
           transformOrigin: "0% 0%",
           marginBottom: svgNegativeMargin}
         }>
+          <filter id="grayscale">
+             <feColorMatrix type="saturate" values="0"/>
+          </filter>
           <g transform={`translate(${globals.padding}, ${globals.padding})`}>
             {/* Comment https://bl.ocks.org/mbostock/7555321 */}
             <g transform={`translate(${globals.side / 2}, ${15})`}>

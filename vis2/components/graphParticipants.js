@@ -22,6 +22,7 @@ const Participant = ({ptpt, ptptoiScaleFactor, tweenX, tweenY}) => {
           ""
       }
       <image
+        filter={"url(#grayscale)"}
         clipPath={`url(#social_image_clip_${ptpt.bid})`}
         x={-picSize/2 * ptptoiScaleFactor}
         y={-picSize/2 * ptptoiScaleFactor}
