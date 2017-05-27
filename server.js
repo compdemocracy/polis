@@ -13275,6 +13275,7 @@ CREATE TABLE slack_user_invites (
     let xid = req.p.xid;
     let x_name = req.p.x_name;
     let x_profile_image_url = req.p.x_profile_image_url;
+    let parent_url = req.p.parent_url;
     let o = {};
     ifDefinedSet("parent_url", req.p, o);
     ifDefinedSet("auth_needed_to_vote", req.p, o);
@@ -13334,6 +13335,9 @@ CREATE TABLE slack_user_invites (
       }
       if (!_.isUndefined(x_profile_image_url)) {
         url += ("&x_profile_image_url=" + x_profile_image_url);
+      }
+      if (!_.isUndefined(parent_url)) {
+        url += ("&parent_url=" + parent_url);
       }
       return url;
     }
