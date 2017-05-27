@@ -14,6 +14,7 @@
     "jquery": "~1.11",
     "lodash": "4.16.4",
     "map-stream": "~0.1.0",
+    "prop-types": "^15.5.10",
     "proxy-middleware": "~0.5.0",
     "react": "15.3.1",
     "react-dom": "15.3.1",
@@ -23,6 +24,7 @@
     "run-sequence": "~0.3.6",
     "simple-lru-cache": "0.0.1",
     "underscore": "~1.5.2",
+    "victory": "^0.20.0",
     "webpack-stream": "^3.2.0"
   },
   "devDependencies": {
