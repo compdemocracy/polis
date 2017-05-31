@@ -62,8 +62,6 @@ class Graph extends React.Component {
       ptptoisProjected,
     } = graphUtil(nextProps.comments, nextProps.math, nextProps.badTids, nextProps.ptptois);
 
-    let ptptoiScaleFactor = 0.5;
-
     commentsPoints = commentsPoints.filter((c) => {
       return !_.isUndefined(tidsToShowSet[c.tid]);
     });
@@ -85,7 +83,6 @@ class Graph extends React.Component {
       xCenter,
       yCenter,
       baseClustersScaled,
-      ptptoiScaleFactor,
       commentScaleupFactorX,
       commentScaleupFactorY,
       hulls,
@@ -188,9 +185,9 @@ class Graph extends React.Component {
               getHullElems={this.getHullElems.bind(this)}
               hulls={this.state.hulls} />
             <Participants
+              selectedGroup={_.isNumber(this.state.selectedTidCuration) ? this.state.selectedTidCuration : null}
               points={this.state.baseClustersScaled}
-              ptptois={this.state.ptptoisProjected}
-              ptptoiScaleFactor={this.state.ptptoiScaleFactor}/>
+              ptptois={this.state.ptptoisProjected}/>
             <HullLabels
               handleClick={this.handleCurateButtonClick.bind(this)}
               selectedGroup={_.isNumber(this.state.selectedTidCuration) ? this.state.selectedTidCuration : null}
@@ -219,7 +216,8 @@ class Graph extends React.Component {
             alignItems: "baseline",
             flexWrap: "wrap",
             width: "100%",
-            justifyContent: "center"
+            justifyContent: "center",
+            margin: "20px 0px",
           }}>
           <Curate
             handleCurateButtonClick={this.handleCurateButtonClick.bind(this)}

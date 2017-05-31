@@ -3,6 +3,8 @@ import React from "react";
 import * as globals from "./globals";
 import BarChart from "./barChart";
 
+const checkmark = "M1299 813l-422 422q-19 19-45 19t-45-19l-294-294q-19-19-19-45t19-45l102-102q19-19 45-19t45 19l147 147 275-275q19-19 45-19t45 19l102 102q19 19 19 45t-19 45zm141 83q0-148-73-273t-198-198-273-73-273 73-198 198-73 273 73 273 198 198 273 73 273-73 198-198 73-273zm224 0q0 209-103 385.5t-279.5 279.5-385.5 103-385.5-103-279.5-279.5-103-385.5 103-385.5 279.5-279.5 385.5-103 385.5 103 279.5 279.5 103 385.5z";
+const ban = "M1440 893q0-161-87-295l-754 753q137 89 297 89 111 0 211.5-43.5t173.5-116.5 116-174.5 43-212.5zm-999 299l755-754q-135-91-300-91-148 0-273 73t-198 199-73 274q0 162 89 299zm1223-299q0 157-61 300t-163.5 246-245 164-298.5 61-298.5-61-245-164-163.5-246-61-300 61-299.5 163.5-245.5 245-164 298.5-61 298.5 61 245 164 163.5 245.5 61 299.5z";
 
 const DataSentence = ({math, selectedTidCuration, selectedComment, repfulFor, Strings}) => {
 
@@ -36,15 +38,24 @@ const DataSentence = ({math, selectedTidCuration, selectedComment, repfulFor, St
     s = s.replace("{{comment_id}}", tid);
 
     markup = (
-      <p style={{
-          fontSize: 18,
-          fontFamily: "Helvetica",
-          fontWeight: 700,
-          maxWidth: 360,
-          color: repfulForAgree ? globals.colors.agree : globals.colors.disagree,
-        }}>
-        {s}
-      </p>
+      <div style={{display: "flex"}}>
+        <svg height={40} style={{
+            display: "inline",
+            marginRight: 10,
+            fill: repfulForAgree ? globals.colors.agree : globals.colors.disagree
+          }} viewBox="0 0 1792 1792">
+          <path d={repfulForAgree ? checkmark : ban}/>
+          </svg>
+        <p style={{
+            fontSize: 14,
+            fontFamily: "Helvetica",
+            fontWeight: 500,
+            maxWidth: 240,
+            color: "rgb(180,180,180)"
+          }}>
+          {s}
+        </p>
+      </div>
     )
   } else if (selectedTidCuration === globals.tidCuration.majority) {
     const repfulForAgree = _.find(math.consensus.agree, (r) => { return r.tid === selectedComment.tid });
@@ -58,15 +69,24 @@ const DataSentence = ({math, selectedTidCuration, selectedComment, repfulFor, St
     s = s.replace("{{comment_id}}", selectedComment.tid);
 
     markup = (
-      <p style={{
-          fontSize: 18,
-          fontFamily: "Helvetica",
-          fontWeight: 700,
-          maxWidth: 360,
-          color: repfulForAgree ? globals.colors.agree : globals.colors.disagree,
-        }}>
-        {s}
-      </p>
+      <div style={{display: "flex"}}>
+        <svg height={40} style={{
+            display: "inline",
+            marginRight: 10,
+            fill: repfulForAgree ? globals.colors.agree : globals.colors.disagree
+          }} viewBox="0 0 1792 1792">
+          <path d={repfulForAgree ? checkmark : ban}/>
+          </svg>
+        <p style={{
+            fontSize: 14,
+            fontFamily: "Helvetica",
+            fontWeight: 500,
+            maxWidth: 240,
+            color: "rgb(180,180,180)"
+          }}>
+          {s}
+        </p>
+      </div>
     )
   }
 
@@ -200,14 +220,12 @@ class ExploreTid extends React.Component {
           textAlign: "left",
           display: "flex",
           justifyContent:"center",
-          alignItems: "flex-start",
+          alignItems: "baseline",
         }}>
         <p style={{
-            fontSize: 24,
+            fontSize: 18,
             marginRight: 20,
             fontWeight: "700",
-            position: "relative",
-            top: -5
           }}>
           {this.props.selectedComment ? "#" + this.props.selectedComment.tid : null}
         </p>
