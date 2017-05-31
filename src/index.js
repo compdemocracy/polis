@@ -129,7 +129,7 @@ class Root extends React.Component {
             </Route>
             <Route path="news" component={News2}/>
             <Route path="plus" component={Plus}/>
-            <Route path="home" component={Meta}/>
+            <Route path="home" component={Gov}/>
             <Route path="company" component={Company}/>
             <Route path="bot" component={Bot}/>
             <Route path="bot/install" component={BotInstall}/>
