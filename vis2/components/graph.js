@@ -221,14 +221,16 @@ class Graph extends React.Component {
           }}>
           <Curate
             handleCurateButtonClick={this.handleCurateButtonClick.bind(this)}
-            selectedTidCuration={this.state.selectedTidCuration}
             math={this.props.math}
+            selectedTidCuration={this.state.selectedTidCuration}
+            Strings={this.props.Strings}
             />
           <TidCarousel
             selectedTidCuration={this.state.selectedTidCuration}
             commentsToShow={this.state.tidCarouselComments}
             handleCommentClick={this.handleCommentClick.bind(this)}
             selectedComment={this.state.selectedComment}
+            Strings={this.props.Strings}
             />
         </div>
         <ExploreTid

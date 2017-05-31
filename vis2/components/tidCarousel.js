@@ -122,7 +122,7 @@ class TidCarousel extends React.Component {
               fontFamily: "Georgia",
               fontStyle: "italic"
             }}>
-            Comment:
+            {this.props.Strings.comment_123}
           </p>
           {
             this.props.commentsToShow && _.map(

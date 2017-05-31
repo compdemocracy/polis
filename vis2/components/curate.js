@@ -54,7 +54,7 @@ class Curate extends React.Component {
             selectedTidCuration={this.props.selectedTidCuration}
             handleCurateButtonClick={this.props.handleCurateButtonClick}
             identifier={globals.tidCuration.majority}>
-            Majority Opinion
+            {this.props.Strings.majorityOpinion}
           </Button>
         </div>
         <div style={{
@@ -68,7 +68,7 @@ class Curate extends React.Component {
               fontFamily: "Georgia",
               fontStyle: "italic"
             }}>
-            Group:
+            {this.props.Strings.group_123}
           </p>
           {
             _.map(this.props.math["group-votes"], (group) => {

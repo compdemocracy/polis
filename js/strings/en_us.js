@@ -15,6 +15,7 @@ s.modSubmit = "Done, next comment";
 s.x_wrote = "wrote:";
 s.x_tweeted = "tweeted:";
 s.group_123 = "Group:";
+s.comment_123 = "Comment:";
 s.majorityOpinion = "Majority Opinion";
 s.majorityOpinionShort = "Majority";
 s.info = "Info";
