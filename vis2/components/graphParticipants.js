@@ -42,6 +42,11 @@ const Bucket = ({pt}) => {
     cy={pt.y}/>;
 }
 
+
+function getKey(ptpt) {
+  return ptpt.isSelf ? "self" : (ptpt.bid*100000 + ptpt.pid);
+}
+
 const GraphParticipants = ({points, ptptois}) => {
 
   if (!points && !ptptois) return null
@@ -54,7 +59,7 @@ const GraphParticipants = ({points, ptptois}) => {
             <VictoryAnimation
               easing={"quadOut"}
               duration={1500}
-              key={ptpt.bid*100000 + ptpt.pid}
+              key={getKey(ptpt)}
               data={{tweenX: ptpt.x, tweenY: ptpt.y}}>
                 {
                   (tweenedProps, animationInfo) => {
@@ -62,7 +67,7 @@ const GraphParticipants = ({points, ptptois}) => {
                       return  <Participant
                         tweenX={tweenedProps.tweenX}
                         tweenY={tweenedProps.tweenY}
-                        key={ptpt.bid*100000 + ptpt.pid}
+                        key={getKey(ptpt) + "_"}
                         ptpt={ptpt}/>
                     // }
                   }

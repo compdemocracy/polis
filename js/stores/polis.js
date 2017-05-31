@@ -616,6 +616,13 @@ module.exports = function(params) {
   }
 
   function bucketizeParticipantOfInterest(o, ptptoiData) {
+    if (!ptptoiData.picture_size) {
+      if (ptptoiData.isSelf) {
+        ptptoiData.picture_size = 48;
+      } else {
+        console.error('missing picture_size', ptptoiData);
+      }
+    }
     var bucket = new Bucket({
       priority: ptptoiData.priority,
       pic: ptptoiData.picture,
