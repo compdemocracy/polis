@@ -493,17 +493,6 @@ class Gov extends React.Component {
             <p style={this.styles().forText}>pol.is is <strong>open source.</strong> Adopt & build process on top of it with confidence: it’s here to stay. </p>
           </div>
         </div>
-        <div style={{width: "100%"}}>
-          <div
-            key="3"
-            style={[this.styles().section, {backgroundColor: "rgb(240,240,240)"}]}
-            >
-            <div style={this.styles().iconWrapper}>
-              <Awesome style={this.styles().icon} name="code"/>
-            </div>
-            <p style={this.styles().forText}> No lock in: export your data in csv format using a web interface or via API </p>
-          </div>
-        </div>
         <Flex
           alignItems="center"
           styleOverrides={[this.styles().callToActionContainer, {paddingTop: 30}]}>

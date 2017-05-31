@@ -70,7 +70,6 @@ class Footer extends React.Component {
             <p><a style={this.styles().link} href="https://pol.is/company#press"> Press </a></p>
             <p><a style={this.styles().link} href="http://docs.pol.is"> Docs </a></p>
             <p><a style={this.styles().link} href="https://github.com/pol-is/"> Github </a></p>
-            <p><a style={this.styles().link} href="https://github.com/pol-is/polisServer/blob/master/app.js"> API </a></p>
           </div>
           <div>
             <p style={this.styles().header}> web </p>
