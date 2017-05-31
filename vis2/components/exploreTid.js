@@ -37,9 +37,10 @@ const DataSentence = ({math, selectedTidCuration, selectedComment, repfulFor, St
 
     markup = (
       <p style={{
-          fontSize: 14,
-          fontFamily: "Georgia",
-          fontStyle: "italic",
+          fontSize: 18,
+          fontFamily: "Helvetica",
+          fontWeight: 700,
+          maxWidth: 360,
           color: repfulForAgree ? globals.colors.agree : globals.colors.disagree,
         }}>
         {s}
@@ -58,9 +59,10 @@ const DataSentence = ({math, selectedTidCuration, selectedComment, repfulFor, St
 
     markup = (
       <p style={{
-          fontSize: 14,
-          fontFamily: "Georgia",
-          fontStyle: "italic",
+          fontSize: 18,
+          fontFamily: "Helvetica",
+          fontWeight: 700,
+          maxWidth: 360,
           color: repfulForAgree ? globals.colors.agree : globals.colors.disagree,
         }}>
         {s}
@@ -217,7 +219,7 @@ class ExploreTid extends React.Component {
           }}>
           <p style={{
             maxWidth: 360,
-            fontSize: 14,
+            fontSize: 18,
             fontFamily: "Georgia, serif",
           }}>
             {this.props.selectedComment ? this.props.selectedComment.txt : null}

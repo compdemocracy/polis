@@ -67,6 +67,8 @@ const HullLabels = ({groups, centroids, selectedGroup, handleClick}) => {
 
   if (!centroids || !groups) { return null }
 
+  console.log("selectedGroup", selectedGroup)
+
   return (
     <g>
       {centroids.map((centroid, i) => {

@@ -43,10 +43,11 @@ class Curate extends React.Component {
   render () {
     return (
       <div style={{
-        width: "100%",
         display: "flex",
         justifyContent: "center",
         alignItems: "baseline",
+        width: true ? "auto" : "100%",
+
       }}>
         <div style={{marginRight: 20}}>
           <Button

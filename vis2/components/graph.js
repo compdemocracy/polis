@@ -178,6 +178,7 @@ class Graph extends React.Component {
               report={this.props.report}/>
             <Hulls
               handleClick={this.handleCurateButtonClick.bind(this)}
+              selectedGroup={_.isNumber(this.state.selectedTidCuration) ? this.state.selectedTidCuration : null}
               getHullElems={this.getHullElems.bind(this)}
               hulls={this.state.hulls} />
             <Participants
@@ -190,14 +191,14 @@ class Graph extends React.Component {
               groups={this.props.math["group-votes"] || window.preload.firstMath["group-votes"] /* for labels */}
               centroids={this.state.groupCentroids}
               />
-            <Comments
+            {/*<Comments
               commentsPoints={this.state.commentsPoints}
               selectedComment={this.state.selectedComment}
               handleCommentHover={this.handleCommentHover.bind(this)}
               points={this.state.commentsPoints}
               repfulAgreeTidsByGroup={this.props.repfulAgreeTidsByGroup}
               repfulDisageeTidsByGroup={this.props.repfulDisageeTidsByGroup}
-              formatTid={this.props.formatTid}/>
+              formatTid={this.props.formatTid}/>*/}
             <BarChartsForGroupVotes
               hullElems={this.hullElems}
               selectedComment={this.state.selectedComment}
@@ -207,17 +208,25 @@ class Graph extends React.Component {
               />
           </g>
         </svg>
-        <Curate
-          handleCurateButtonClick={this.handleCurateButtonClick.bind(this)}
-          selectedTidCuration={this.state.selectedTidCuration}
-          math={this.props.math}
-          />
-        <TidCarousel
-          selectedTidCuration={this.state.selectedTidCuration}
-          commentsToShow={this.state.tidCarouselComments}
-          handleCommentClick={this.handleCommentClick.bind(this)}
-          selectedComment={this.state.selectedComment}
-          />
+        <div style={{
+            display: "flex",
+            alignItems: "baseline",
+            flexWrap: "wrap",
+            width: "100%",
+            justifyContent: "center"
+          }}>
+          <Curate
+            handleCurateButtonClick={this.handleCurateButtonClick.bind(this)}
+            selectedTidCuration={this.state.selectedTidCuration}
+            math={this.props.math}
+            />
+          <TidCarousel
+            selectedTidCuration={this.state.selectedTidCuration}
+            commentsToShow={this.state.tidCarouselComments}
+            handleCommentClick={this.handleCommentClick.bind(this)}
+            selectedComment={this.state.selectedComment}
+            />
+        </div>
         <ExploreTid
           handleReturnToVoteClicked={this.handleReturnToVoteClicked.bind(this)}
           selectedComment={this.state.selectedComment}
