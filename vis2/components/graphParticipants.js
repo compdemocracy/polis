@@ -56,16 +56,18 @@ const GraphParticipants = ({points, ptptois, ptptoiScaleFactor}) => {
               duration={1500}
               key={ptpt.bid*100000 + ptpt.pid}
               data={{tweenX: ptpt.x, tweenY: ptpt.y}}>
-                {(tweenedProps, animationInfo) => {
-                  // if (animationInfo.animating && animationInfo.progress < 1) {
-                    return  <Participant
-                      tweenX={tweenedProps.tweenX}
-                      tweenY={tweenedProps.tweenY}
-                      key={ptpt.bid*100000 + ptpt.pid}
-                      ptpt={ptpt}
-                      ptptoiScaleFactor={ptptoiScaleFactor}/>
-                  // }
-                }}
+                {
+                  (tweenedProps, animationInfo) => {
+                    // if (animationInfo.animating && animationInfo.progress < 1) {
+                      return  <Participant
+                        tweenX={tweenedProps.tweenX}
+                        tweenY={tweenedProps.tweenY}
+                        key={ptpt.bid*100000 + ptpt.pid}
+                        ptpt={ptpt}
+                        ptptoiScaleFactor={ptptoiScaleFactor}/>
+                    // }
+                  }
+                }
             </VictoryAnimation>
           )
         })

@@ -137,9 +137,9 @@ class TidCarousel extends React.Component {
                     marginRight: 5,
                     border: "none",
                     padding: "6px 12px",
-                    fontWeight: (this.props.selectedComment && this.props.selectedComment.tid === c.tid) ? 700 : 500,
-                    backgroundColor: (this.props.selectedComment && this.props.selectedComment.tid === c.tid) ? globals.colors.comment : "rgb(235,235,235)",
-                    color: (this.props.selectedComment && this.props.selectedComment.tid === c.tid) ? "rgb(255,255,255)" : "rgb(100,100,100)",
+                    fontWeight: (this.props.selectedComment && this.props.selectedComment.tid === c.tid) ? 700 : 300,
+                    backgroundColor: "rgb(235,235,235)",
+                    color: "rgb(100,100,100)",
                     borderRadius: 4,
                   }}
                   key={c.tid}>

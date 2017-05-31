@@ -144,6 +144,12 @@ class Graph extends React.Component {
     let ww = $(document.body).width();
     let w = globals.sideWithPadding;
     let svgScale = 1;
+    /*
+      if the width of the body is less than the width of the svg...
+      scale it down
+      if the body is at 500 and the svg is 700, then it's a 5 to 7 ratio
+      scaling factor on the svg
+    */
     if (ww < w) {
       svgScale = ww / w;
     }
@@ -151,7 +157,7 @@ class Graph extends React.Component {
 
     return (
       <div>
-        <svg width={globals.sideWithPadding} height={globals.sideWithPadding} style={{
+        <svg width={globals.sideWithPadding} height={globals.svgHeightWithPadding} style={{
           transform: "scale("+svgScale+")",
           transformOrigin: "0% 0%",
           marginBottom: svgNegativeMargin}

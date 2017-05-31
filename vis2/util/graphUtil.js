@@ -196,7 +196,7 @@ const graphUtil = (comments, math, badTids, ptptois) => {
     let minClusterY = _.min(allYs);
     let maxClusterY = _.max(allYs);
     const xx = d3.scaleLinear().domain([minClusterX, maxClusterX]).range([border, globals.side - border]);
-    const yy = d3.scaleLinear().domain([minClusterY, maxClusterY]).range([border, globals.side - border]);
+    const yy = d3.scaleLinear().domain([minClusterY, maxClusterY]).range([border, globals.svgHeightWithoutPadding - border]);
 
     const xCenter = xx(0);
     const yCenter = yy(0);
@@ -215,7 +215,7 @@ const graphUtil = (comments, math, badTids, ptptois) => {
     // globals.side - border = xCenter + xScale * maxCommentX
     // globals.side - border - xCenter = xScale * maxCommentX
     var xScaleCandidateForRightSide = (globals.side - border - xCenter) / maxCommentX;
-    var yScaleCandidateForBottomSide = (globals.side - border - yCenter) / maxCommentY;
+    var yScaleCandidateForBottomSide = (globals.svgHeightWithoutPadding - border - yCenter) / maxCommentY;
 
     // xLowestMapped = xCenter + xScale * minCommentX
     // border = xCenter + xScale * minCommentX
