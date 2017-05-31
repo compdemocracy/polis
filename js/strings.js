@@ -2,34 +2,38 @@
 
 var preloadHelper = require("./util/preloadHelper");
 
-var en_us = require("./strings/en_us.js");
-// var ja = require("./strings/ja.js");
+var translations = {
+  en_us: require("./strings/en_us.js"),
+  // ja:  require("./strings/ja.js"),
 
-// zh-Hant is Traditional Chinese (TW, MO and HK can use the same file.)
-var zh_Hant = require("./strings/zh_Hant.js");
+  // zh-Hant is Traditional Chinese (TW, MO and HK can use the same file.)
+  zh_Hant: require("./strings/zh_Hant.js"),
 
-// zh-Hans is Simplified Chinese. (CN, SG and MY can use the same file.)
-var zh_Hans = require("./strings/zh_Hans.js");
+  // zh-Hans is Simplified Chinese. (CN, SG and MY can use the same file.)
+  zh_Hans: require("./strings/zh_Hans.js"),
 
-// Danish
-var da = require("./strings/da_dk.js");
+  // Danish
+  da: require("./strings/da_dk.js"),
 
-// German
-var de = require("./strings/de_de.js");
+  // German
+  de: require("./strings/de_de.js"),
 
-// Spanish
-var es = require("./strings/es_la.js");
+  // Spanish
+  es: require("./strings/es_la.js"),
 
-// French
-var fr = require("./strings/fr.js");
+  // French
+  fr: require("./strings/fr.js"),
 
-// Italian
-var it = require("./strings/it.js");
+  // Italian
+  it: require("./strings/it.js"),
 
-// Brazilian Portuguese (all portuguese speakers are temporarily using the same file.)
-var pt_br = require("./strings/pt_br.js");
+  // Brazilian Portuguese (all portuguese speakers are temporarily using the same file.)
+  pt_br: require("./strings/pt_br.js"),
+};
 
-var strings = en_us;
+
+
+var strings = translations.en_us;
 
 preloadHelper.acceptLanguagePromise.then(function() {
   var acceptLanguage = preload.acceptLanguage || "";
@@ -42,43 +46,55 @@ preloadHelper.acceptLanguagePromise.then(function() {
 
   prioritized.forEach(function(languageCode) {
     if (languageCode.match(/^en/)) {
-      _.extend(strings, en_us);
+      _.extend(strings, translations.en_us);
     }
     // else if (languageCode.match(/^ja/)) {
-    //   strings = _.extend(strings, ja);
+    //   strings = _.extend(strings, translations.ja);
     // }
     else if (
       languageCode.match(/^zh-CN/) ||
       languageCode.match(/^zh-SG/) ||
       languageCode.match(/^zh-MY/)) {
-      _.extend(strings, zh_Hans);
+      _.extend(strings, translations.zh_Hans);
     }
     else if (languageCode.match(/^zh/)) { // TW, MO and HK
-      _.extend(strings, zh_Hant);
+      _.extend(strings, translations.zh_Hant);
     }
     else if (languageCode.match(/^it/)) {
-      _.extend(strings, it);
+      _.extend(strings, translations.it);
     }
     else if (languageCode.match(/^da/)) {
-      _.extend(strings, da);
+      _.extend(strings, translations.da);
     }
     else if (languageCode.match(/^de/)) {
-      _.extend(strings, de);
+      _.extend(strings, translations.de);
     }
     else if (languageCode.match(/^es/)) {
-      _.extend(strings, es);
+      _.extend(strings, translations.es);
     }
     else if (languageCode.match(/^fr/)) {
-      _.extend(strings, fr);
+      _.extend(strings, translations.fr);
     }
     else if (
       languageCode.match(/^pt/) ||  // To help other Portuguese speaker participants until its specific translation is not here
       languageCode.match(/^pt-PT/) ||  // To help Portuguese participantes until an specific translation is not here
       languageCode.match(/^pt-BR/)) {
-      _.extend(strings, pt_br);
+      _.extend(strings, translations.pt_br);
     }
   });
 });
 
+window.missingTranslations = function() {
+  var missingKeys = {};
+  _.each(translations, function(keyToTranslatedStringMapping, code) {
+    _.each(translations.en_us, function(originalString, key) {
+      if (!keyToTranslatedStringMapping[key]) {
+        missingKeys[code] = missingKeys[code] || [];
+        missingKeys[code].push(key);
+      }
+    });
+  });
+  return missingKeys;
+};
 
 module.exports = strings;
