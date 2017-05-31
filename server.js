@@ -13892,7 +13892,7 @@ CREATE TABLE slack_user_invites (
         return fetchIndexForAdminPage(req, res);
       } else {
         // user not signed in, redirect to landing page
-        let url = getServerNameWithProtocol(req) + "/gov";
+        let url = getServerNameWithProtocol(req) + "/home";
         res.redirect(url);
       }
     };
