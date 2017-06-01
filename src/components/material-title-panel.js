@@ -46,7 +46,7 @@ const MaterialTitlePanel = (props) => {
               margin: 0, fontSize: 14, fontWeight: 300
             }}>
             <Awesome style={{marginRight: 7}} name="user"/>
-            {props.name.split(" ")[0]}
+            {props.name && props.name.split && props.name.split(" ")[0]}
           </Flex>
         </Flex>
       </div>
