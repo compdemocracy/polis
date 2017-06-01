@@ -29,6 +29,7 @@
 
          ucv: d.getAttribute("data-ucv"),
          ucw: d.getAttribute("data-ucw"),
+         ucsh: d.getAttribute("data-ucsh"),
          ucst: d.getAttribute("data-ucst"),
          ucsd: d.getAttribute("data-ucsd"),
          ucsv: d.getAttribute("data-ucsv"),
@@ -103,6 +104,7 @@
 
     appendIfPresent("ucv");
     appendIfPresent("ucw");
+    appendIfPresent("ucsh");
     appendIfPresent("ucst");
     appendIfPresent("ucsd");
     appendIfPresent("ucsv");

@@ -301,6 +301,13 @@ function userCanSeeFooter() {
   return ucsf;
 }
 
+function userCanSeeHelp() {
+  var params = parseQueryParams(window.location.search);
+  var ucsh = params.ucsh;
+  ucsh = (ucsh === "true" || ucsh === "1" || _.isUndefined(ucsh));
+  return ucsh;
+}
+
 function ownerCanDisableBranding() {
   return window.preload.firstConv.plan >= 99;
 }
@@ -319,6 +326,7 @@ module.exports = {
   userCanSeeDescription: userCanSeeDescription,
   userCanSeeVis: userCanSeeVis,
   userCanSeeFooter: userCanSeeFooter,
+  userCanSeeHelp: userCanSeeHelp,
   argMax: argMax,
   argMin: argMin,
   mapObj: mapObj,
