@@ -948,6 +948,7 @@ function doXidApiKeyAuth(assigner, apikey, xid, isOptional, req, res, next) {
       assigner(req, "uid", uidForCurrentUser);
       assigner(req, "xid", xid);
       assigner(req, "owner_uid", uidForApiKey);
+      assigner(req, "org_id", uidForApiKey);
       next();
     });
 
@@ -1999,8 +2000,8 @@ function initializePolisHelpers() {
 
   function _auth(assigner, isOptional) {
 
-    function hasKey(req, key) {
-      return req.body[key] || req.headers[key];
+    function getKey(req, key) {
+      return req.body[key] || req.headers[key] || req.query[key];
     }
 
     function doAuth(req, res) {
@@ -2025,8 +2026,10 @@ function initializePolisHelpers() {
           doCookieAuth(assigner, isOptional, req, res, onDone);
         } else if (req.headers.authorization) {
           doApiKeyBasicAuth(assigner, req.headers.authorization, isOptional, req, res, onDone);
-        } else if (hasKey(req, "polisApiKey") && hasKey(req, "xid")) {
-          doXidApiKeyAuth(assigner, req.body.polisApiKey||req.headers.polisApiKey, req.body.xid||req.headers.xid, isOptional, req, res, onDone);
+        } else if (getKey(req, "polisApiKey") && getKey(req, "ownerXid")) {
+          doXidApiKeyAuth(assigner, getKey(req, "polisApiKey"), getKey(req, "ownerXid"), isOptional, req, res, onDone);
+        } else if (getKey(req, "polisApiKey") && getKey(req, "xid")) {
+          doXidApiKeyAuth(assigner, getKey(req, "polisApiKey"), getKey(req, "xid"), isOptional, req, res, onDone);
         // } else if (req.headers["x-sandstorm-app-polis-apikey"] && req.headers["x-sandstorm-app-polis-xid"] && req.headers["x-sandstorm-app-polis-owner-xid"]) {
         //   doXidApiKeyAuth(
         //     assigner,
@@ -2034,12 +2037,12 @@ function initializePolisHelpers() {
         //     req.headers["x-sandstorm-app-polis-owner-xid"],
         //     req.headers["x-sandstorm-app-polis-xid"],
         //     isOptional, req, res, onDone);
-        } else if (hasKey(req, "xid") && hasKey(req, "conversation_id")) {
-          doXidConversationIdAuth(assigner, req.body.xid||req.headers.xid, req.body.conversation_id, isOptional, req, res, onDone);
+        } else if (getKey(req, "xid") && getKey(req, "conversation_id")) {
+          doXidConversationIdAuth(assigner, getKey(req, "xid"), getKey(req, "conversation_id"), isOptional, req, res, onDone);
         } else if (req.headers["x-sandstorm-app-polis-apikey"]) {
           doApiKeyAuth(assigner, req.headers["x-sandstorm-app-polis-apikey"], isOptional, req, res, onDone);
         } else if (req.body["polisApiKey"]) {
-          doApiKeyAuth(assigner, req.body["polisApiKey"], isOptional, req, res, onDone);
+          doApiKeyAuth(assigner, getKey(req, "polisApiKey"), isOptional, req, res, onDone);
         } else if (req.body.agid) { // Auto Gen user  ID
           createDummyUser().then(function(uid) {
             let shouldAddCookies = _.isUndefined(req.body.xid);
@@ -10175,19 +10178,6 @@ Email verified! You can close this tab or hit the back button.
   function handle_POST_conversations(req, res) {
 
     let xidStuffReady = Promise.resolve();
-    if (!_.isUndefined(req.p.ownerXid)) {
-      let xid = req.p.ownerXid;
-      let x_profile_image_url = req.p.x_profile_image_url;
-      let x_name = req.p.x_name;
-      let org_id = req.p.uid; // uid is the owner (the api key holder), not necessarily the creator, in this case
-      xidStuffReady = getXidRecordByXidOwnerId(xid, org_id, x_profile_image_url, x_name, true).then((rows) => {
-        return rows[0];
-      }).then((xidInfo) => {
-        console.log('setting uid');
-        req.p.org_id = req.p.uid; // api key holder
-        req.p.uid = xidInfo.uid; // creator uid of existing or newly created xid record associated with ownerXid
-      });
-    } 
 
     xidStuffReady.then(() => {
 
