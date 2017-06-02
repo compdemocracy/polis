@@ -13433,6 +13433,7 @@ CREATE TABLE slack_user_invites (
     let ucsd = req.p.ucsd;
     let ucsv = req.p.ucsv;
     let ucsf = req.p.ucsf;
+    let subscribe_type = req.p.subscribe_type;
     let xid = req.p.xid;
     let x_name = req.p.x_name;
     let x_profile_image_url = req.p.x_profile_image_url;
@@ -13487,6 +13488,9 @@ CREATE TABLE slack_user_invites (
       }
       if (!_.isUndefined(ucsf)) {
         url += ("&ucsf=" + ucsf);
+      }
+      if (!_.isUndefined(subscribe_type)) {
+        url += ("&subscribe_type=" + subscribe_type);
       }
       if (!_.isUndefined(xid)) {
         url += ("&xid=" + xid);
