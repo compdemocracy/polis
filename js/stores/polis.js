@@ -4,6 +4,7 @@
 
 var eb = require("../eventBus");
 var deepcopy = require("deepcopy");
+var PostMessageUtils = require("../util/postMessageUtils");
 var preloadHelper = require("../util/preloadHelper");
 var Utils = require("../util/utils");
 var Net = require("../util/net");
@@ -324,6 +325,9 @@ module.exports = function(params) {
       return $.Deferred().reject().promise();
     }
     return polisPost(commentsPath, model).pipe(function(response) {
+
+      setTimeout(PostMessageUtils.postCommentEvent);
+
       // PID_FLOW
       if (!_.isUndefined(response.currentPid)) {
         processPidResponse(response.currentPid);

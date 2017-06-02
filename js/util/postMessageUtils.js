@@ -36,10 +36,18 @@ function postVoteEvent() {
   }, "*");
 }
 
+function postCommentEvent() {
+  window.top.postMessage({
+    name: "write",
+    polisFrameId: getPolisFrameId(),
+  }, "*");
+}
+
 module.exports = {
 
   postResizeEvent: postResizeEvent,
   postVoteEvent: postVoteEvent,
+  postCommentEvent: postCommentEvent,
 
   getPolisFrameId: getPolisFrameId,
 
