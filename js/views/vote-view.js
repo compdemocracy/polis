@@ -93,7 +93,7 @@ module.exports = Handlebones.ModelView.extend({
     ctx.social = socialCtx;
     ctx.noModSet = !ctx.spamOn && !ctx.otOn && !ctx.importantOn;
     ctx.canSubscribe = !!preload.firstPtpt || this.votesByMe.size() > 0;
-    ctx.canSubscribe = ctx.canSubscribe && preload.firstConv.subscribe_type !== 0;
+    ctx.canSubscribe = ctx.canSubscribe && Utils.userCanSeeSubscribePrompt();
     ctx.needSocial = this.model.get("needSocial");
     return ctx;
   },

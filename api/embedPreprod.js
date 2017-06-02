@@ -33,6 +33,8 @@
          ucsv: d.getAttribute("data-ucsv"),
          ucsf: d.getAttribute("data-ucsf"),
 
+         subscribe_type: d.getAttribute("data-subscribe_type"), // 0 for no prompt, 1 for email prompt (1 is default)
+
          bgcolor: d.getAttribute("data-bgcolor"),
 
          // These config variables will be used to init the conversation.
@@ -103,6 +105,8 @@
     appendIfPresent("ucsd");
     appendIfPresent("ucsv");
     appendIfPresent("ucsf");
+
+    appendIfPresent("subscribe_type");
 
     appendIfPresent("show_vis");
     appendIfPresent("auth_needed_to_vote");

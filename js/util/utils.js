@@ -308,6 +308,24 @@ function userCanSeeHelp() {
   return ucsh;
 }
 
+function getSubscribeType() {
+  var subscribe_type = window.preload.firstConv.subscribe_type;
+
+  var params = parseQueryParams(window.location.search);
+  var x = params.subscribe_type;
+  if (!_.isUndefined(x)) {
+    subscribe_type = x;
+  }
+  return subscribe_type;
+}
+
+function userCanSeeSubscribePrompt() {
+  var x = getSubscribeType();
+  // 1 is for email, there are no other options yet.
+  x = (x === 1 || x === "1" || x === "true");
+  return x;
+}
+
 function ownerCanDisableBranding() {
   return window.preload.firstConv.plan >= 99;
 }
@@ -327,6 +345,7 @@ module.exports = {
   userCanSeeVis: userCanSeeVis,
   userCanSeeFooter: userCanSeeFooter,
   userCanSeeHelp: userCanSeeHelp,
+  userCanSeeSubscribePrompt: userCanSeeSubscribePrompt,
   argMax: argMax,
   argMin: argMin,
   mapObj: mapObj,

@@ -35,6 +35,8 @@
          ucsv: d.getAttribute("data-ucsv"),
          ucsf: d.getAttribute("data-ucsf"),
 
+         subscribe_type: d.getAttribute("data-subscribe_type"), // 0 for no prompt, 1 for email prompt (1 is default)
+
 
          // These config variables will be used to init the conversation.
          // Subsequent loads will not update to these values in our DB.
@@ -109,6 +111,8 @@
     appendIfPresent("ucsd");
     appendIfPresent("ucsv");
     appendIfPresent("ucsf");
+
+    appendIfPresent("subscribe_type");
 
     appendIfPresent("show_vis");
     appendIfPresent("show_share");
