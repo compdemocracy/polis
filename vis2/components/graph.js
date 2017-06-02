@@ -150,7 +150,7 @@ class Graph extends React.Component {
     if (ww < w) {
       svgScale = ww / w;
     }
-    let svgNegativeMargin = globals.sideWithPadding * (svgScale - 1);
+    let svgNegativeMargin = globals.svgHeightWithPadding * (svgScale - 1);
 
     return (
       <div>
