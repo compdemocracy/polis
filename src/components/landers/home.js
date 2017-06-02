@@ -36,7 +36,7 @@ let defaultState = {
 
 @connect()
 @Radium
-class Gov extends React.Component {
+class Home extends React.Component {
   styles() {
     return {
       container: {
@@ -174,6 +174,20 @@ class Gov extends React.Component {
           width: "50%",
         }
       },
+      linkButton: {
+        border: "1px lightgray solid",
+        borderRadius: 3,
+        paddingTop: 0,
+        paddingBottom: 0,
+        paddingLeft: 20,
+        paddingRight: 20,
+        backgroundColor: "#03a9f4",
+        color: "white",
+        textDecoration: "none",
+        cursor: "pointer",
+        display: "inline-block",
+        marginLeft: 10
+      }
     }
   }
   handleJoinWaitingListClickedUpper() {
@@ -209,7 +223,7 @@ class Gov extends React.Component {
     });
   }
   doHandleJoinWaitingListClicked(data) {
-    data.campaign = "gov";
+    data.campaign = "home";
     return PolisNet.polisPost("/api/v3/waitinglist", data);
   }
   maybeErrorMessage(text) {
@@ -257,12 +271,12 @@ class Gov extends React.Component {
           </Flex>
             <p style={this.styles().hero}>
               {`
-                Democracy, Meet AI
+                Scale up listening
               `}
             </p>
 
             <p style={this.styles().heroSub}>
-              pol.is is bringing AI & machine learning to participatory democracy. Scale up outreach in online consultation & get powerful insights that can shape and legitimize policy.
+              pol.is helps communities and organizations understand themselves.
             </p>
         </Flex>
         {/* upper cta */}
@@ -296,7 +310,7 @@ class Gov extends React.Component {
             <Button
               onClick={this.handleJoinWaitingListClickedUpper.bind(this)}
               style={this.styles().waitingListButton}>
-              Contact Me
+              Get in touch
             </Button>
           <div style={{margin: 10}}>
             {this.maybeErrorMessage(this.state.errorTextUpper)}
@@ -457,24 +471,28 @@ class Gov extends React.Component {
             backgroundColor: "#03a9f4",
             padding: "0px 0px 30px 0px"
           }}>
-          <Flex>
-          <p style={[this.styles().videoSectionTitle]}> A Hands-on Demo & Walkthrough </p>
-          </Flex>
-          <Flex>
-          <iframe
-            width="640"
-            height="360"
-            style={{border: "10px solid white", borderRadius: 4, margin: "auto"}}
-            src="https://www.youtube.com/embed/FrIin_omVn4?rel=0&amp;showinfo=0"
-            frameborder="0"
-            allowfullscreen>
-          </iframe>
-          </Flex>
         </div>
+
+        <div style={{width: "100%"}}>
+          <div
+            key="9"
+            style={[this.styles().section, {backgroundColor: "rgb(240,240,240)"}]}
+            >
+            <div style={this.styles().iconWrapper}>
+              <img src="https://pol.is/landerImages/slack_logo.png"></img>
+            </div>
+            <p style={this.styles().forText}> Is your organization on Slack? We’re building a SlackBot that can run pol.is conversations seamlessly inside of your Slack team! Head over to pol.is/bot to join hundreds of teams on the waiting list.
+              <a href="/bot" style={this.styles().linkButton}>Learn more about PolisBot ▶</a>
+            </p>
+
+          </div>
+
+        </div>
+
         <div style={{width: "100%"}}>
           <div
             key="1"
-            style={[this.styles().section, {backgroundColor: "rgb(240,240,240)"}]}
+            style={[this.styles().section, {backgroundColor: "rgb(230,230,230)"}]}
             >
             <div style={this.styles().iconWrapper}>
               <Awesome style={this.styles().icon} name="cloud"/>
@@ -485,7 +503,7 @@ class Gov extends React.Component {
         <div style={{width: "100%"}}>
           <div
             key="2"
-            style={[this.styles().section, {backgroundColor: "rgb(230,230,230)"}]}
+            style={[this.styles().section, {backgroundColor: "rgb(240,240,240)"}]}
             >
             <div style={this.styles().iconWrapper}>
               <Awesome style={this.styles().icon} name="github"/>
@@ -493,6 +511,24 @@ class Gov extends React.Component {
             <p style={this.styles().forText}>pol.is is <strong>open source.</strong> Adopt & build process on top of it with confidence: it’s here to stay. </p>
           </div>
         </div>
+
+        <div style={{width: "100%"}}>
+          <div
+            key="8"
+            style={[this.styles().section, {backgroundColor: "rgb(230,230,230)"}]}
+            >
+            <div style={this.styles().iconWrapper}>
+              <img src="https://cdn-static-1.medium.com/_/fp/icons/favicon-medium.TAS6uQ-Y7kcKgi0xjcYHXw.ico"></img>
+            </div>
+            <p style={this.styles().forText}>Read a full case study of a conversation on obesity in New Zealand run by an independent publisher
+              <a href="https://blog.pol.is/pol-is-case-study-temperature-check-a02dff7cc838" style={this.styles().linkButton}>Go ▶</a>
+            </p>
+
+          </div>
+        </div>
+
+
+
         <Flex
           alignItems="center"
           styleOverrides={[this.styles().callToActionContainer, {paddingTop: 30}]}>
@@ -524,7 +560,7 @@ class Gov extends React.Component {
             <Button
               onClick={this.handleJoinWaitingListClickedLower.bind(this)}
               style={this.styles().waitingListButton}>
-              Contact Me
+              Get in touch
             </Button>
           <div style={{margin: 10}}>
             {this.maybeErrorMessage(this.state.errorTextLower)}
@@ -537,4 +573,4 @@ class Gov extends React.Component {
   }
 }
 
-export default Gov;
+export default Home;

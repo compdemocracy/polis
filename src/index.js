@@ -28,7 +28,7 @@ import Contributor from "./components/contributors";
 /* landers */
 import News from "./components/landers/news";
 import News2 from "./components/landers/news2";
-import Home from "./components/landers/homepage";
+// import Homepage from "./components/landers/homepage";
 import Plus from "./components/landers/plus";
 import Bot from "./components/landers/bot";
 import BotInstall from "./components/landers/bot-install";
