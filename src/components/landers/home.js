@@ -175,18 +175,17 @@ class Home extends React.Component {
         }
       },
       linkButton: {
-        border: "1px lightgray solid",
+        fontSize: 16,
+        border: "none",
         borderRadius: 3,
-        paddingTop: 0,
-        paddingBottom: 0,
-        paddingLeft: 20,
-        paddingRight: 20,
+        paddingTop: 5,
+        paddingBottom: 5,
+        paddingLeft: 22,
+        paddingRight: 22,
         backgroundColor: "#03a9f4",
         color: "white",
         textDecoration: "none",
         cursor: "pointer",
-        display: "inline-block",
-        marginLeft: 10
       }
     }
   }
@@ -318,33 +317,48 @@ class Home extends React.Component {
           </div>
         </Flex>
         </Flex>
-        <div
-          style={{
-            width: "100%",
-            display: "block",
-            backgroundColor: "#03a9f4",
-            padding: "0px 0px 30px 0px"
-          }}>
-          <Flex>
-          <p style={[this.styles().videoSectionTitle]}> A Brief Introduction </p>
-          </Flex>
-          <Flex>
-          <iframe
-            width="640"
-            height="360"
-            style={{border: "10px solid white", borderRadius: 4, margin: "auto"}}
-            src="https://www.youtube.com/embed/09Lqj5lazKM?rel=0&amp;showinfo=0"
-            frameborder="0"
-            allowfullscreen>
-          </iframe>
-          </Flex>
+
+
+
+
+        <div style={{width: "100%"}}>
+          <div
+            key="8"
+            style={[this.styles().section, {backgroundColor: "rgb(230,230,230)"}]}
+            >
+            <div style={this.styles().iconWrapper}>
+              <img src="https://cdn-static-1.medium.com/_/fp/icons/favicon-medium.TAS6uQ-Y7kcKgi0xjcYHXw.ico"></img>
+            </div>
+            <p style={this.styles().forText}>Learn how to get insights from your community in a case study run by an independent publisher.
+              <br/><a href="https://blog.pol.is/pol-is-case-study-temperature-check-a02dff7cc838" style={this.styles().linkButton}>Go ▶</a>
+            </p>
+
+          </div>
         </div>
+
+
+        <div style={{width: "100%"}}>
+          <div
+            key="9"
+            style={[this.styles().section, {backgroundColor: "rgb(240,240,240)"}]}
+            >
+            <div style={this.styles().iconWrapper}>
+              <img src="https://pol.is/landerImages/slack_logo.png"></img>
+            </div>
+            <p style={this.styles().forText}> pol.is is coming to Slack! Join hundreds of teams on the waiting list.
+              <br/><a href="/bot" style={this.styles().linkButton}>Sign up</a>
+            </p>
+
+          </div>
+
+        </div>
+
         <Flex styleOverrides={{width: "100%"}} direction="column">
           <p style={{
             fontFamily: "Georgia",
             fontSize: 36,
             color: "rgb(130,130,130)",
-          }}> Taiwan: A Case Study </p>
+          }}> Crowdsourcing Legislation </p>
           <Flex
             styleOverrides={{width: "100%", marginBottom: 0}}
             justifyContent="center"
@@ -358,12 +372,6 @@ class Home extends React.Component {
               direction="column"
               alignItems="flex-start"
               styleOverrides={this.styles().caseStudyTextContainer}>
-              <p style={{
-                fontFamily: "Georgia",
-                fontSize: 24,
-                letterSpacing: "1.4",
-                color: "rgb(130,130,130)",
-              }}> Crowdsourcing Legislation </p>
 
               <p style={{
                 fontFamily: "Georgia",
@@ -464,35 +472,32 @@ class Home extends React.Component {
               src="https://pbs.twimg.com/profile_images/593902371341783040/OEPQIQnO.png"/>
           </Flex>
         </Flex>
+
+
         <div
           style={{
             width: "100%",
             display: "block",
             backgroundColor: "#03a9f4",
-            padding: "0px 0px 30px 0px"
+            padding: "30px 0px 30px 0px"
           }}>
+          <Flex>
+          <iframe
+            width="640"
+            height="360"
+            style={{border: "10px solid white", borderRadius: 4, margin: "auto"}}
+            src="https://www.youtube.com/embed/09Lqj5lazKM?rel=0&amp;showinfo=0"
+            frameborder="0"
+            allowfullscreen>
+          </iframe>
+          </Flex>
         </div>
 
-        <div style={{width: "100%"}}>
-          <div
-            key="9"
-            style={[this.styles().section, {backgroundColor: "rgb(240,240,240)"}]}
-            >
-            <div style={this.styles().iconWrapper}>
-              <img src="https://pol.is/landerImages/slack_logo.png"></img>
-            </div>
-            <p style={this.styles().forText}> Is your organization on Slack? We’re building a SlackBot that can run pol.is conversations seamlessly inside of your Slack team! Head over to pol.is/bot to join hundreds of teams on the waiting list.
-              <a href="/bot" style={this.styles().linkButton}>Learn more about PolisBot ▶</a>
-            </p>
-
-          </div>
-
-        </div>
 
         <div style={{width: "100%"}}>
           <div
             key="1"
-            style={[this.styles().section, {backgroundColor: "rgb(230,230,230)"}]}
+            style={[this.styles().section, {backgroundColor: "rgb(240,240,240)"}]}
             >
             <div style={this.styles().iconWrapper}>
               <Awesome style={this.styles().icon} name="cloud"/>
@@ -503,7 +508,7 @@ class Home extends React.Component {
         <div style={{width: "100%"}}>
           <div
             key="2"
-            style={[this.styles().section, {backgroundColor: "rgb(240,240,240)"}]}
+            style={[this.styles().section, {backgroundColor: "rgb(230,230,230)"}]}
             >
             <div style={this.styles().iconWrapper}>
               <Awesome style={this.styles().icon} name="github"/>
@@ -511,24 +516,6 @@ class Home extends React.Component {
             <p style={this.styles().forText}>pol.is is <strong>open source.</strong> Adopt & build process on top of it with confidence: it’s here to stay. </p>
           </div>
         </div>
-
-        <div style={{width: "100%"}}>
-          <div
-            key="8"
-            style={[this.styles().section, {backgroundColor: "rgb(230,230,230)"}]}
-            >
-            <div style={this.styles().iconWrapper}>
-              <img src="https://cdn-static-1.medium.com/_/fp/icons/favicon-medium.TAS6uQ-Y7kcKgi0xjcYHXw.ico"></img>
-            </div>
-            <p style={this.styles().forText}>Read a full case study of a conversation on obesity in New Zealand run by an independent publisher
-              <a href="https://blog.pol.is/pol-is-case-study-temperature-check-a02dff7cc838" style={this.styles().linkButton}>Go ▶</a>
-            </p>
-
-          </div>
-        </div>
-
-
-
         <Flex
           alignItems="center"
           styleOverrides={[this.styles().callToActionContainer, {paddingTop: 30}]}>
