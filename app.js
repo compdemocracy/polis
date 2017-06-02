@@ -1234,6 +1234,7 @@ helpersInitialized.then(function(o) {
     want('ucsv', getBool, assignToP), // not persisted
     want('ucsf', getBool, assignToP), // not persisted
     want('xid', getStringLimitLength(1, 999), assignToP), // not persisted
+    want('subscribe_type', getStringLimitLength(1,9), assignToP), // not persisted
     want('x_name', getStringLimitLength(1, 746), assignToP),  // not persisted here, but later on POST vote/comment
     want('x_profile_image_url', getStringLimitLength(1, 3000), assignToP),  // not persisted here, but later on POST vote/comment
     handle_GET_implicit_conversation_generation);
