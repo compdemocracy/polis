@@ -13429,6 +13429,7 @@ CREATE TABLE slack_user_invites (
 
     let ucv = req.p.ucv;
     let ucw = req.p.ucw;
+    let ucsh = req.p.ucsh;
     let ucst = req.p.ucst;
     let ucsd = req.p.ucsd;
     let ucsv = req.p.ucsv;
@@ -13488,6 +13489,9 @@ CREATE TABLE slack_user_invites (
       }
       if (!_.isUndefined(ucsf)) {
         url += ("&ucsf=" + ucsf);
+      }
+      if (!_.isUndefined(ucsh)) {
+        url += ("&ucsh=" + ucsh);
       }
       if (!_.isUndefined(subscribe_type)) {
         url += ("&subscribe_type=" + subscribe_type);

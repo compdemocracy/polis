@@ -1229,6 +1229,7 @@ helpersInitialized.then(function(o) {
     want('topic', getStringLimitLength(1, 1000), assignToP),
     want('ucv', getBool, assignToP), // not persisted
     want('ucw', getBool, assignToP), // not persisted
+    want('ucsh', getBool, assignToP), // not persisted
     want('ucst', getBool, assignToP), // not persisted
     want('ucsd', getBool, assignToP), // not persisted
     want('ucsv', getBool, assignToP), // not persisted
