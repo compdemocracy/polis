@@ -236,7 +236,7 @@ class ExploreTid extends React.Component {
             height: "100%",
           }}>
           <p style={{
-            maxWidth: 360,
+            width: 360,
             fontSize: 18,
             fontFamily: "Georgia, serif",
           }}>
