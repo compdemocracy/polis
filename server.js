@@ -891,7 +891,7 @@ function getXidRecordByXidOwnerId(xid, owner, x_profile_image_url, x_name, creat
     if (!rows || !rows.length) {
       console.log('no xInfo yet');
       if (!createIfMissing) {
-        throw "polis_err_auth_no_such_xid_for_this_apikey_10";
+        return null;
       }
       return createDummyUser().then((newUid) => {
         console.log('created dummy');
@@ -940,9 +940,13 @@ function doXidApiKeyAuth(assigner, apikey, xid, isOptional, req, res, next) {
       !!req.body.agid || !!req.query.agid || null
     ).then((rows) => {
       if (!rows || !rows.length) {
-        res.status(403);
-        next("polis_err_auth_no_such_xid_for_this_apikey_1");
-        return;
+        if (isOptional) {
+          return next();
+        } else {
+          res.status(403);
+          next("polis_err_auth_no_such_xid_for_this_apikey_1");
+          return;
+        }
       }
       let uidForCurrentUser = Number(rows[0].uid);
       assigner(req, "uid", uidForCurrentUser);
@@ -1990,9 +1994,13 @@ function initializePolisHelpers() {
         !!req.body.agid || !!req.query.agid || null)
       .then((rows) => {
         if (!rows || !rows.length) {
-          res.status(403);
-          onDone("polis_err_auth_no_such_xid_for_this_apikey_11");
-          return;
+          if (isOptional) {
+            return next();
+          } else {
+            res.status(403);
+            onDone("polis_err_auth_no_such_xid_for_this_apikey_11");
+            return;
+          }
         }
         let uidForCurrentUser = Number(rows[0].uid);
         assigner(req, "uid", uidForCurrentUser);
