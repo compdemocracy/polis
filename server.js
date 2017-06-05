@@ -958,6 +958,7 @@ function doXidApiKeyAuth(assigner, apikey, xid, isOptional, req, res, next) {
     next("polis_err_auth_no_such_api_token3");
   }).catch(function(err) {
     res.status(403);
+    console.error(err);
     console.error(err.stack);
     next("polis_err_auth_misc_23423");
   });
