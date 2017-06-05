@@ -1841,13 +1841,19 @@ function initializePolisHelpers() {
         throw "polis_err_conversation_is_closed";
       }
       if (conv.auth_needed_to_vote) {
-        return getSocialInfoForUsers([uid], zid).then((info) => {
-          var socialAccountIsLinked = info.length > 0;
-          if (socialAccountIsLinked) {
+
+        return isModerator(zid, uid).then((is_mod) => {
+          if (is_mod) {
             return conv;
-          } else {
-            throw "polis_err_post_votes_social_needed";
           }
+          return getSocialInfoForUsers([uid], zid).then((info) => {
+            var socialAccountIsLinked = info.length > 0;
+            if (socialAccountIsLinked) {
+              return conv;
+            } else {
+              throw "polis_err_post_votes_social_needed";
+            }
+          });
         });
       }
       return conv;
