@@ -26,6 +26,25 @@ import HexLogoLargeShort from "../framework/hex-logo-large-short";
 
 */
 
+const Dots = () => {
+  return (
+    <Flex styleOverrides={{width: "100%", marginTop: 30, marginBottom: 20}} justifyContent="center">
+      <svg width="65px" height="5px" viewBox="0 0 65 5">
+        <g id="Page-1" stroke="none" strokeWidth="1" fill="none" fillRule="evenodd">
+          <g id="Desktop-HD-Copy-2" transform="translate(-975.000000, -1073.000000)" fill="#D8D8D8">
+            <g id="Group" transform="translate(975.000000, 1073.000000)">
+              <circle id="Oval-3" cx="2.5" cy="2.5" r="2.5"></circle>
+              <circle id="Oval-3" cx="32.5" cy="2.5" r="2.5"></circle>
+              <circle id="Oval-3" cx="62.5" cy="2.5" r="2.5"></circle>
+            </g>
+          </g>
+        </g>
+      </svg>
+    </Flex>
+  )
+}
+
+
 let defaultState = {
   successTextUpper: "",
   successTextLower: "",
@@ -50,7 +69,6 @@ class Home extends React.Component {
       },
       callToActionContainer: {
         width: "100%",
-        backgroundColor: "rgb(245,245,245)",
         paddingBottom: 20,
       },
       callToActionInnerFlex: {
@@ -64,7 +82,6 @@ class Home extends React.Component {
       heroContainer: {
         width: "100%",
         paddingTop: 20,
-        backgroundColor: "rgb(245,245,245)"
       },
       hero: {
         fontSize: "2.5em",
@@ -81,6 +98,7 @@ class Home extends React.Component {
         fontSize: 24,
         color: "rgb(130,130,130)",
         lineHeight: 1.6,
+        marginBottom: 40,
         textAlign: "center",
         fontWeight: 300,
         maxWidth: 700,
@@ -88,7 +106,7 @@ class Home extends React.Component {
       },
       waitingListInput: {
         padding: 16,
-        border: "none",
+        border: "1px solid rgb(130,130,130)",
         borderRadius: 3,
         margin: "0px 0px 10px 0px",
         "@media (min-width: 470px)": {
@@ -178,10 +196,7 @@ class Home extends React.Component {
         fontSize: 16,
         border: "none",
         borderRadius: 3,
-        paddingTop: 5,
-        paddingBottom: 5,
-        paddingLeft: 22,
-        paddingRight: 22,
+        padding: "8px 25px",
         backgroundColor: "#03a9f4",
         color: "white",
         textDecoration: "none",
@@ -275,9 +290,10 @@ class Home extends React.Component {
             </p>
 
             <p style={this.styles().heroSub}>
-              pol.is helps communities and organizations understand themselves.
+              pol.is (pōlis) helps large organizations and communities understand themselves by visualizing what people think.
             </p>
         </Flex>
+
         {/* upper cta */}
         <Flex
           alignItems="center"
@@ -318,26 +334,57 @@ class Home extends React.Component {
         </Flex>
         </Flex>
 
-
-
-
-        <div style={{width: "100%"}}>
-          <div
-            key="8"
-            style={[this.styles().section, {backgroundColor: "rgb(230,230,230)"}]}
-            >
-            <div style={this.styles().iconWrapper}>
-              <img src="https://cdn-static-1.medium.com/_/fp/icons/favicon-medium.TAS6uQ-Y7kcKgi0xjcYHXw.ico"></img>
-            </div>
-            <p style={this.styles().forText}>Learn how to get insights from your community in a case study run by an independent publisher.
-              <br/><a href="https://blog.pol.is/pol-is-case-study-temperature-check-a02dff7cc838" style={this.styles().linkButton}>Go ▶</a>
-            </p>
-
+        <div style={{
+            width: "100%",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            flexWrap: "wrap"
+          }}>
+          <div style={{width: 250, textAlign: "center", marginBottom: 40}}>
+            <a href="https://www.theguardian.com/politics/2017/jun/06/democracy-theres-an-app-for-that-the-tech-upstarts-trying-to-hack-british-politics?CMP=Share_iOSApp_Other">
+            <img
+              width={200}
+              style={{borderRadius: 7}}
+              src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/The_Guardian.svg/2000px-The_Guardian.svg.png"/>
+             </a>
+          </div>
+          <div style={{width: 250, textAlign: "center", marginBottom: 40}}>
+            <img
+              width={100}
+              style={{borderRadius: 7}}
+              src="https://lh3.googleusercontent.com/-q8SC-IQ8UaQ/VzXshV1gMDI/AAAAAAAAFfg/LWDTuF_91aE_ycXa7SRmmcHFnsKn1I44A/w1500-h1500/logo_circle.png"/>
+          </div>
+          <div style={{width: 250, textAlign: "center", marginBottom: 40}}>
+            <a href="http://civichall.org/civicist/vtaiwan-democracy-frontier/">
+            <img
+                width={100}
+                style={{borderRadius: 7}}
+                src="https://pbs.twimg.com/profile_images/593902371341783040/OEPQIQnO.png"/>
+              </a>
           </div>
         </div>
 
+        <div style={{
+            width: "100%",
+            display: "flex",
+            justifyContent: "center", alignItems: "center"}}>
+          <img
+            width={50}
+            style={{marginRight: 30}}
+            src="https://cdn-static-1.medium.com/_/fp/icons/favicon-medium.TAS6uQ-Y7kcKgi0xjcYHXw.ico">
+          </img>
+          <p style={{
+              fontFamily: "Georgia",
+              fontStyle: "italic",
+              fontSize: 16,
+              marginRight: 15,
+              maxWidth: 200
+            }}> Explore in depth case studies on the pol.is blog </p>
+          <a target="_blank" href="https://blog.pol.is/pol-is-case-study-temperature-check-a02dff7cc838" style={this.styles().linkButton}>Go</a>
+        </div>
 
-        <div style={{width: "100%"}}>
+        {/* <div style={{width: "100%"}}>
           <div
             key="9"
             style={[this.styles().section, {backgroundColor: "rgb(240,240,240)"}]}
@@ -351,7 +398,7 @@ class Home extends React.Component {
 
           </div>
 
-        </div>
+        </div>*/}
 
         <Flex styleOverrides={{width: "100%"}} direction="column">
           <p style={{
@@ -362,36 +409,31 @@ class Home extends React.Component {
           <Flex
             styleOverrides={{width: "100%", marginBottom: 0}}
             justifyContent="center"
-            wrap="wrap"
+            wrap="wrap-reverse"
             alignItems="baseline">
             <Flex direction="column">
-              <blockquote className="twitter-tweet" dataLang="en"><p lang="en" dir="ltr"><a href="https://twitter.com/UsePolis">@UsePolis</a> increased citizen engagement around policy proposals from 10&#39;s of people to 1000&#39;s, and increased quality as well.</p>&mdash; 唐鳳 (@audreyt) <a href="https://twitter.com/audreyt/status/744450181307850752">June 19, 2016</a></blockquote>
-              <blockquote className="twitter-tweet" data-lang="en"><p lang="en" dir="ltr">You need to read about vTaiwan, it&#39;s the future of <a href="https://twitter.com/hashtag/democracy?src=hash">#democracy</a>, today. Seriously. Read. It. Now. <a href="https://t.co/4BheYqw9vx">{"https://t.co/4BheYqw9vx"}</a></p>&mdash; United Diversity (@uniteddiversity) <a href="https://twitter.com/uniteddiversity/status/767656559434469376">August 22, 2016</a></blockquote>
+              <blockquote
+                className="twitter-tweet"
+                dataLang="en">
+                <p lang="en" dir="ltr">
+                  <a href="https://twitter.com/UsePolis">@UsePolis</a> increased citizen engagement around policy proposals from 10&#39;s of people to 1000&#39;s, and increased quality as well.</p>&mdash; 唐鳳 (@audreyt) <a href="https://twitter.com/audreyt/status/744450181307850752">June 19, 2016</a></blockquote>
+              <blockquote
+                className="twitter-tweet"
+                dataLang="en">
+                <p lang="en" dir="ltr">
+                  You need to read about vTaiwan, it&#39;s the future of <a href="https://twitter.com/hashtag/democracy?src=hash">#democracy</a>, today. Seriously. Read. It. Now. <a href="https://t.co/4BheYqw9vx">{"https://t.co/4BheYqw9vx"}</a></p>&mdash; United Diversity (@uniteddiversity) <a href="https://twitter.com/uniteddiversity/status/767656559434469376">August 22, 2016</a></blockquote>
             </Flex>
             <Flex
               direction="column"
               alignItems="flex-start"
               styleOverrides={this.styles().caseStudyTextContainer}>
-
               <p style={{
                 fontFamily: "Georgia",
                 fontSize: 16,
                 lineHeight: 1.6,
                 color: "rgb(130,130,130)",
               }}> The national government of Taiwan, working alongside civic minded  technologists, is using pol.is to improve the relationship between the people and the government, involving citizens more deeply in the policy formation process. </p>
-              <Flex styleOverrides={{width: "100%", marginTop: 20, marginBottom: 30}} justifyContent="center">
-                <svg width="65px" height="5px" viewBox="0 0 65 5">
-                  <g id="Page-1" stroke="none" strokeWidth="1" fill="none" fillRule="evenodd">
-                    <g id="Desktop-HD-Copy-2" transform="translate(-975.000000, -1073.000000)" fill="#D8D8D8">
-                      <g id="Group" transform="translate(975.000000, 1073.000000)">
-                        <circle id="Oval-3" cx="2.5" cy="2.5" r="2.5"></circle>
-                        <circle id="Oval-3" cx="32.5" cy="2.5" r="2.5"></circle>
-                        <circle id="Oval-3" cx="62.5" cy="2.5" r="2.5"></circle>
-                      </g>
-                    </g>
-                  </g>
-                </svg>
-              </Flex>
+              <Dots/>
               <Flex styleOverrides={{width: "100%"}} justifyContent="space-between" alignItems="center">
                 <a
                   style={{
@@ -406,73 +448,70 @@ class Home extends React.Component {
                 </a>
                 <img height="32" src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Le_Monde.svg/2000px-Le_Monde.svg.png"/>
               </Flex>
-              <Flex styleOverrides={{width: "100%", marginTop: 30, marginBottom: 20}} justifyContent="center">
-                <svg width="65px" height="5px" viewBox="0 0 65 5">
-                  <g id="Page-1" stroke="none" strokeWidth="1" fill="none" fillRule="evenodd">
-                    <g id="Desktop-HD-Copy-2" transform="translate(-975.000000, -1073.000000)" fill="#D8D8D8">
-                      <g id="Group" transform="translate(975.000000, 1073.000000)">
-                        <circle id="Oval-3" cx="2.5" cy="2.5" r="2.5"></circle>
-                        <circle id="Oval-3" cx="32.5" cy="2.5" r="2.5"></circle>
-                        <circle id="Oval-3" cx="62.5" cy="2.5" r="2.5"></circle>
-                      </g>
-                    </g>
-                  </g>
-                </svg>
-              </Flex>
-              <Flex styleOverrides={{width: "100%"}} justifyContent="space-between" alignItems="center">
-                <p
-                  style={{
-                    fontFamily: "Georgia",
-                    fontSize: 16,
-                    lineHeight: 1.6,
-                    color: "rgb(130,130,130)",
-
-                  }}>
-
-                  {"Colin Megill, a founder of pol.is, spoke at the "}
+              <Dots/>
+                <Flex styleOverrides={{width: "100%"}} justifyContent="space-between" alignItems="center">
                   <a
                     style={{
                       fontFamily: "Georgia",
                       fontSize: 16,
+                      width: 300,
+                      lineHeight: 1.6,
                       color: "rgb(130,130,130)",
                     }}
-                    href="http://summit.g0v.tw/2016/speakers">
-                    {"g0v2016 conference"}
+                    href="civichall.org/civicist/vtaiwan-democracy-frontier/">
+                    "Proponents of open-source democracy, take note, we are on the verge of a breakthrough."
                   </a>
-                  {" in Taipei, Taiwan. "}
-                  {/*" For a digestible case study in 30 minutes, "*/}
+                </Flex>
+              <Dots/>
+                <Flex styleOverrides={{width: "100%"}} justifyContent="space-between" alignItems="center">
                   <a
                     style={{
                       fontFamily: "Georgia",
                       fontSize: 16,
+                      width: 300,
+                      lineHeight: 1.6,
                       color: "rgb(130,130,130)",
                     }}
-                    href="https://blog.pol.is/pol-is-in-taiwan-da7570d372b5#.n27hweazh">
-                    {"Watch the talk & read the transcript on Medium."}
+                    href="https://civichall.org/civicist/pdf2017-panels/">
+                    "Rethinking core assumptions about representative government."
                   </a>
-                </p>
-                <img height="50" src="http://www.digitalartsonline.co.uk/cmsdata/features/3626921/medium-m-color-688.png"/>
-              </Flex>
+                </Flex>
             </Flex>
-          </Flex>
-          <Flex styleOverrides={{padding: "40px 20px"}}>
-            <a
-              href="http://civichall.org/civicist/vtaiwan-democracy-frontier/"
-              style={{
-              fontFamily: "Georgia",
-              fontSize: 24,
-              maxWidth: "32.5em",
-              lineHeight: 1.7,
-              marginRight: 30,
-              color: "rgb(130,130,130)",
-            }}> "Proponents of open-source democracy, take note, we are on the verge of a breakthrough." </a>
-            <img
-              width={100}
-              style={{borderRadius: 7}}
-              src="https://pbs.twimg.com/profile_images/593902371341783040/OEPQIQnO.png"/>
           </Flex>
         </Flex>
 
+        <Flex styleOverrides={{width: "100%"}} direction="column">
+          <p style={{
+            fontFamily: "Georgia",
+            fontSize: 36,
+            color: "rgb(130,130,130)",
+          }}> In the Community </p>
+
+          <blockquote
+            className="twitter-tweet"
+            dataLang="en">
+            <p lang="en" dir="ltr">
+              This startup thinks it has a way to use the Internet to help governments be more democratic. <a href="https://t.co/AwEV6sbGKt">https://t.co/AwEV6sbGKt</a></p>&mdash; MIT Tech Review (@techreview) <a href="https://twitter.com/techreview/status/871058296207290368">June 3, 2017</a></blockquote>
+          <blockquote
+            className="twitter-tweet"
+            data-cards="hidden"
+            dataLang="en">
+            <p lang="en" dir="ltr">
+              .<a href="https://twitter.com/UsePolis">@UsePolis</a> is tantalisingly close to the future of democracy. The future is awesome. <a href="https://t.co/IuI8XTPu1k">https://t.co/IuI8XTPu1k</a></p>&mdash; Jamie Hughes (@jamiepluscoffee) <a href="https://twitter.com/jamiepluscoffee/status/871739039690481666">June 5, 2017</a></blockquote>
+          <blockquote
+            className="twitter-tweet"
+            data-cards="hidden"
+            dataLang="en">
+            <p lang="en" dir="ltr">
+              Social media may be an echo chamber, but <a href="https://twitter.com/techreview">@techreview</a> reports the Internet doesn&#39;t have to be bad for <a href="https://twitter.com/hashtag/democracy?src=hash">#democracy</a> ➡️<a href="https://t.co/HaPCoKJnfx">https://t.co/HaPCoKJnfx</a>⬅️</p>&mdash; Harvard Ash Center (@HarvardAsh) <a href="https://twitter.com/HarvardAsh/status/872083211274334208">June 6, 2017</a></blockquote>
+          <blockquote
+            className="twitter-tweet"
+            data-cards="hidden"
+            dataLang="en">
+            <p lang="en" dir="ltr">
+              This is <a href="https://twitter.com/hashtag/civictech?src=hash">#civictech</a>: <a href="https://twitter.com/UsePolis">@UsePolis</a> also used by a danish party (+ Gov. Taiwan) I write about it in <a href="https://twitter.com/hashtag/SmartphoneDemokratie?src=hash">#SmartphoneDemokratie</a></p>&mdash; Adrienne Fichter (@adfichter) <a href="https://twitter.com/adfichter/status/871718520299692034">June 5, 2017</a></blockquote>
+            <blockquote className="twitter-tweet" data-lang="en"><p lang="en" dir="ltr">Democracy? There’s an app for that – the tech upstarts trying to ‘hack’ British politics <a href="https://t.co/7eM1DosAgJ">https://t.co/7eM1DosAgJ</a></p>&mdash; Adrian Brown (@_AdrianBrown) <a href="https://twitter.com/_AdrianBrown/status/872156469566820352">June 6, 2017</a></blockquote>
+        </Flex>
 
         <div
           style={{

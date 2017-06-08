@@ -87,7 +87,7 @@ class Footer extends React.Component {
             <p><a style={this.styles().link} href="https://pol.is/privacy"> Privacy Policy </a></p>
           </div>
         </div>
-        <p style={this.styles().copyright}> @ 2016 Polis Technology Inc. All Rights Reserved. Patent Pending. </p>
+        <p style={this.styles().copyright}> @ 2017 Polis Technology Inc. All Rights Reserved. </p>
       </div>
     );
   }

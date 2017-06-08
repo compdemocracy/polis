@@ -25,8 +25,7 @@ const styles = {
   },
   bodyText: {
     fontWeight: 300,
-    lineHeight: 1.8,
-    letterSpacing: 1.15,
+    lineHeight: 1.6,
     fontFamily: "Georgia"
   },
   pic: {
@@ -122,7 +121,15 @@ class Company extends React.Component {
             </p>
 
             <Flex justifyContent="flex-start" alignItems="baseline" styleOverrides={[styles.bodyText, styles.clipping]}>
-              <span style={styles.publication}> Nesta (UK) </span>
+              <span style={styles.publication}> The Guardian </span>
+              <a style={styles.pressURL} href="https://www.theguardian.com/politics/2017/jun/06/democracy-theres-an-app-for-that-the-tech-upstarts-trying-to-hack-british-politics?CMP=Share_iOSApp_Other"> Democracy? There’s an app for that – the tech upstarts trying to ‘hack’ British politics </a>
+            </Flex>
+            <Flex justifyContent="flex-start" alignItems="baseline" styleOverrides={[styles.bodyText, styles.clipping]}>
+              <span style={styles.publication}> MIT Technology Review </span>
+              <a style={styles.pressURL} href="https://www.technologyreview.com/s/607990/the-internet-doesnt-have-to-be-bad-for-democracy/"> The Internet Doesn't Have to Be Bad for Democracy </a>
+            </Flex>
+            <Flex justifyContent="flex-start" alignItems="baseline" styleOverrides={[styles.bodyText, styles.clipping]}>
+              <span style={styles.publication}> Netzwoche </span>
               <a style={styles.pressURL} href="http://www.netzwoche.ch/storys/2017-03-10/wie-viel-digitalisierung-vertraegt-die-demokratie"> How much digitization does democracy tolerate? </a>
             </Flex>
             <Flex justifyContent="flex-start" alignItems="baseline" styleOverrides={[styles.bodyText, styles.clipping]}>
@@ -161,7 +168,7 @@ class Company extends React.Component {
               <span style={styles.publication}> GeekWire </span>
               <a style={styles.pressURL} href="http://www.geekwire.com/2014/startup-spotlight-polis/"> Startup Spotlight: pol.is </a>
             </Flex>
-    
+
             <p id="forthcoming" style={[styles.heading, {marginTop: 50, marginBottom: 30}]}>
               Forthcoming...
             </p>
