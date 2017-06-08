@@ -531,7 +531,7 @@ class Home extends React.Component {
           }}>
           <Flex>
           <iframe
-            width="64`0"
+            width="640"
             height="360"
             style={{border: "10px solid white", borderRadius: 4, margin: "auto"}}
             src="https://www.youtube.com/embed/09Lqj5lazKM?rel=0&amp;showinfo=0"
