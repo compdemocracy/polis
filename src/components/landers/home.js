@@ -342,7 +342,7 @@ class Home extends React.Component {
             flexWrap: "wrap"
           }}>
           <div style={{width: 250, textAlign: "center", marginBottom: 40}}>
-            <a href="https://www.theguardian.com/politics/2017/jun/06/democracy-theres-an-app-for-that-the-tech-upstarts-trying-to-hack-british-politics?CMP=Share_iOSApp_Other">
+            <a target="_blank" href="https://www.theguardian.com/politics/2017/jun/06/democracy-theres-an-app-for-that-the-tech-upstarts-trying-to-hack-british-politics?CMP=Share_iOSApp_Other">
             <img
               width={200}
               style={{borderRadius: 7}}
@@ -350,13 +350,17 @@ class Home extends React.Component {
              </a>
           </div>
           <div style={{width: 250, textAlign: "center", marginBottom: 40}}>
+            <a target="_blank" href="https://www.technologyreview.com/s/607990/the-internet-doesnt-have-to-be-bad-for-democracy/">
+
             <img
               width={100}
               style={{borderRadius: 7}}
               src="https://lh3.googleusercontent.com/-q8SC-IQ8UaQ/VzXshV1gMDI/AAAAAAAAFfg/LWDTuF_91aE_ycXa7SRmmcHFnsKn1I44A/w1500-h1500/logo_circle.png"/>
+            </a>
+
           </div>
           <div style={{width: 250, textAlign: "center", marginBottom: 40}}>
-            <a href="http://civichall.org/civicist/vtaiwan-democracy-frontier/">
+            <a target="_blank" href="http://civichall.org/civicist/vtaiwan-democracy-frontier/">
             <img
                 width={100}
                 style={{borderRadius: 7}}
@@ -400,7 +404,12 @@ class Home extends React.Component {
 
         </div>*/}
 
-        <Flex styleOverrides={{width: "100%"}} direction="column">
+        <Flex styleOverrides={{
+            marginTop: 20,
+            width: "100%",
+            backgroundColor: "rgb(245,245,245)",
+            paddingBottom: 20,
+          }} direction="column">
           <p style={{
             fontFamily: "Georgia",
             fontSize: 36,
@@ -432,7 +441,7 @@ class Home extends React.Component {
                 fontSize: 16,
                 lineHeight: 1.6,
                 color: "rgb(130,130,130)",
-              }}> The national government of Taiwan, working alongside civic minded  technologists, is using pol.is to improve the relationship between the people and the government, involving citizens more deeply in the policy formation process. </p>
+              }}> The national government of Taiwan is using pol.is to improve the relationship between the people and the government, involving citizens more deeply in the policy formation process. </p>
               <Dots/>
               <Flex styleOverrides={{width: "100%"}} justifyContent="space-between" alignItems="center">
                 <a
@@ -522,7 +531,7 @@ class Home extends React.Component {
           }}>
           <Flex>
           <iframe
-            width="640"
+            width="64`0"
             height="360"
             style={{border: "10px solid white", borderRadius: 4, margin: "auto"}}
             src="https://www.youtube.com/embed/09Lqj5lazKM?rel=0&amp;showinfo=0"
