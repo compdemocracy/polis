@@ -1336,6 +1336,13 @@ helpersInitialized.then(function(o) {
   // app.get(/^\/iip\/([0-9][0-9A-Za-z]+)$/, fetchIndex);
   // app.get(/^\/iim\/([0-9][0-9A-Za-z]+)$/, fetchIndex);
 
+
+  // Conversation aliases
+  app.get(/^\/football$/, makeRedirectorTo("/2arcefpshi"));
+  app.get(/^\/pdf$/, makeRedirectorTo("/23mymwyhkn")); // pdf 2017
+
+
+
   app.get(/^\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // conversation view
   app.get(/^\/explore\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // power view
   app.get(/^\/share\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // share view
