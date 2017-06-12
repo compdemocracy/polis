@@ -1995,7 +1995,7 @@ function initializePolisHelpers() {
       .then((rows) => {
         if (!rows || !rows.length) {
           if (isOptional) {
-            return next();
+            return onDone();
           } else {
             res.status(403);
             onDone("polis_err_auth_no_such_xid_for_this_apikey_11");
