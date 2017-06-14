@@ -2035,18 +2035,25 @@ function initializePolisHelpers() {
           resolve(req.p && req.p.uid);
         }
         if (xPolisToken && isPolisLtiToken(xPolisToken)) {
+          console.log("authtype", "doPolisLtiTokenHeaderAuth");
           doPolisLtiTokenHeaderAuth(assigner, isOptional, req, res, onDone);
         } else if (xPolisToken && isPolisSlackTeamUserToken(xPolisToken)) {
+          console.log("authtype", "doPolisSlackTeamUserTokenHeaderAuth");
           doPolisSlackTeamUserTokenHeaderAuth(assigner, isOptional, req, res, onDone);
         } else if (xPolisToken) {
+          console.log("authtype", "doHeaderAuth");
           doHeaderAuth(assigner, isOptional, req, res, onDone);
         } else if (token) {
+          console.log("authtype", "doCookieAuth");
           doCookieAuth(assigner, isOptional, req, res, onDone);
         } else if (req.headers.authorization) {
+          console.log("authtype", "doApiKeyBasicAuth");
           doApiKeyBasicAuth(assigner, req.headers.authorization, isOptional, req, res, onDone);
         } else if (getKey(req, "polisApiKey") && getKey(req, "ownerXid")) {
+          console.log("authtype", "doXidApiKeyAuth");
           doXidApiKeyAuth(assigner, getKey(req, "polisApiKey"), getKey(req, "ownerXid"), isOptional, req, res, onDone);
         } else if (getKey(req, "polisApiKey") && getKey(req, "xid")) {
+          console.log("authtype", "doXidApiKeyAuth");
           doXidApiKeyAuth(assigner, getKey(req, "polisApiKey"), getKey(req, "xid"), isOptional, req, res, onDone);
         // } else if (req.headers["x-sandstorm-app-polis-apikey"] && req.headers["x-sandstorm-app-polis-xid"] && req.headers["x-sandstorm-app-polis-owner-xid"]) {
         //   doXidApiKeyAuth(
@@ -2056,12 +2063,16 @@ function initializePolisHelpers() {
         //     req.headers["x-sandstorm-app-polis-xid"],
         //     isOptional, req, res, onDone);
         } else if (getKey(req, "xid") && getKey(req, "conversation_id")) {
+          console.log("authtype", "doXidConversationIdAuth");
           doXidConversationIdAuth(assigner, getKey(req, "xid"), getKey(req, "conversation_id"), isOptional, req, res, onDone);
         } else if (req.headers["x-sandstorm-app-polis-apikey"]) {
+          console.log("authtype", "doApiKeyAuth");
           doApiKeyAuth(assigner, req.headers["x-sandstorm-app-polis-apikey"], isOptional, req, res, onDone);
         } else if (req.body["polisApiKey"]) {
+          console.log("authtype", "doApiKeyAuth");
           doApiKeyAuth(assigner, getKey(req, "polisApiKey"), isOptional, req, res, onDone);
         } else if (req.body.agid) { // Auto Gen user  ID
+          console.log("authtype", "no auth but agid");
           createDummyUser().then(function(uid) {
             let shouldAddCookies = _.isUndefined(req.body.xid);
             if (!shouldAddCookies) {
