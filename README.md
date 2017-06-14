@@ -43,4 +43,4 @@ $ npm test
 
 ---
 
-**Do you wanna contribute to this project?** See the [Contribution Guide](CONTRIBUTING) for more informations.
+**Want to contribute to this project?** See the [Contribution Guide](CONTRIBUTING.md) for more informations.
