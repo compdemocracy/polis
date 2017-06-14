@@ -37,6 +37,7 @@ import Home from "./components/landers/home";
 import Demo from "./components/landers/demo";
 import Meta from "./components/landers/metalander";
 import Company from "./components/landers/company";
+import Pricing from "./components/landers/pricing";
 
 import TOS from "./components/tos";
 import Privacy from "./components/privacy";
@@ -132,6 +133,7 @@ class Root extends React.Component {
             <Route path="plus" component={Plus}/>
             <Route path="home" component={Home}/>
             <Route path="company" component={Company}/>
+            <Route path="pricing" component={Pricing}/>
             <Route path="bot" component={Bot}/>
             <Route path="bot/install" component={BotInstall}/>
             <Route path="gov" component={Gov}/>
