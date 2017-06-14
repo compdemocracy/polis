@@ -2043,12 +2043,6 @@ function initializePolisHelpers() {
         } else if (xPolisToken) {
           console.log("authtype", "doHeaderAuth");
           doHeaderAuth(assigner, isOptional, req, res, onDone);
-        } else if (token) {
-          console.log("authtype", "doCookieAuth");
-          doCookieAuth(assigner, isOptional, req, res, onDone);
-        } else if (req.headers.authorization) {
-          console.log("authtype", "doApiKeyBasicAuth");
-          doApiKeyBasicAuth(assigner, req.headers.authorization, isOptional, req, res, onDone);
         } else if (getKey(req, "polisApiKey") && getKey(req, "ownerXid")) {
           console.log("authtype", "doXidApiKeyAuth");
           doXidApiKeyAuth(assigner, getKey(req, "polisApiKey"), getKey(req, "ownerXid"), isOptional, req, res, onDone);
@@ -2071,6 +2065,12 @@ function initializePolisHelpers() {
         } else if (req.body["polisApiKey"]) {
           console.log("authtype", "doApiKeyAuth");
           doApiKeyAuth(assigner, getKey(req, "polisApiKey"), isOptional, req, res, onDone);
+        } else if (token) {
+          console.log("authtype", "doCookieAuth");
+          doCookieAuth(assigner, isOptional, req, res, onDone);
+        } else if (req.headers.authorization) {
+          console.log("authtype", "doApiKeyBasicAuth");
+          doApiKeyBasicAuth(assigner, req.headers.authorization, isOptional, req, res, onDone);
         } else if (req.body.agid) { // Auto Gen user  ID
           console.log("authtype", "no auth but agid");
           createDummyUser().then(function(uid) {
