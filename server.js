@@ -13294,6 +13294,7 @@ CREATE TABLE slack_user_invites (
 
           let params = Object.assign(o, {
             owner: uid,
+            org_id: uid,
             // description: req.p.description,
             is_active: true,
             is_draft: false,
