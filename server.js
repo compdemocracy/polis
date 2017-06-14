@@ -2029,7 +2029,10 @@ function initializePolisHelpers() {
           if (err) {
             reject(err);
           }
-          resolve(req.p.uid);
+          if ((!req.p || !req.p.uid) && !isOptional) {
+            reject("polis_err_mandatory_auth_unsuccessful");
+          }
+          resolve(req.p && req.p.uid);
         }
         if (xPolisToken && isPolisLtiToken(xPolisToken)) {
           doPolisLtiTokenHeaderAuth(assigner, isOptional, req, res, onDone);
@@ -2101,7 +2104,7 @@ function initializePolisHelpers() {
       }).catch((err) => {
         res.status(500);
         console.error(err);
-        next("polis_err_auth_error_432");
+        next(err || "polis_err_auth_error_432");
       });
     };
 
