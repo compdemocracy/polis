@@ -45,7 +45,7 @@ module.exports = Handlebones.ModelView.extend({
     ctx.s = Strings;
     ctx.desktop = !display.xs();
 
-    ctx.no_write_hint = preload.firstConv.write_hint_type === 0;
+    ctx.no_write_hint = false; //preload.firstConv.write_hint_type === 0;
 
     var btnBg = preload.firstConv.style_btn;
     if (btnBg) {
