@@ -1154,9 +1154,11 @@ module.exports = function(params) {
 
     function fetchIt() {
       return polisGet(path, {
-        math_tick: timestamp,
+        // math_tick: timestamp,
         conversation_id: conversation_id,
         cacheBust: (Math.random() * 1e9 >> 0)
+      }, {
+        "If-None-Match": '"' + timestamp + '"',
       });
     }
 
@@ -1660,7 +1662,6 @@ module.exports = function(params) {
 
     var comments;
     return polisGet(pcaPath, {
-      lastServerToken: 0,
       conversation_id: conversation_id
     }).pipe(function(pcaData) {
       comments = pcaData.pca.principal_components;

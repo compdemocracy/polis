@@ -9,7 +9,7 @@ var basePath = "";
 
 var pid = "unknownpid";
 
-function polisAjax(api, data, type) {
+function polisAjax(api, data, type, headers) {
   if (!_.isString(api)) {
     throw "api param should be a string";
   }
@@ -37,14 +37,17 @@ function polisAjax(api, data, type) {
     data.x_profile_image_url = window.preload.x_profile_image_url;
   }
 
+  var h = Object.assign({
+    //"Cache-Control": "no-cache"  // no-cache
+    "Cache-Control": "max-age=0"
+  }, headers);
+
+
   var promise;
   var config = {
     url: url,
     contentType: "application/json; charset=utf-8",
-    headers: {
-      //"Cache-Control": "no-cache"  // no-cache
-      "Cache-Control": "max-age=0"
-    },
+    headers: h,
     xhrFields: {
       withCredentials: true
     },
@@ -87,12 +90,12 @@ function polisAjax(api, data, type) {
   return promise;
 }
 
-function polisPost(api, data) {
-  return polisAjax(api, data, "POST");
+function polisPost(api, data, headers) {
+  return polisAjax(api, data, "POST", headers);
 }
 
-function polisGet(api, data) {
-  return polisAjax(api, data, "GET");
+function polisGet(api, data, headers) {
+  return polisAjax(api, data, "GET", headers);
 }
 
 module.exports = {
