@@ -8452,7 +8452,7 @@ Email verified! You can close this tab or hit the back button.
         pca: arr[5] ? (arr[5].asJSON ? arr[5].asJSON : null) : null,
         famous: arr[6],
         // famous: JSON.parse(arr[6]),
-        acceptLanguage: req.headers["accept-language"] || req.headers["Accept-Language"],
+        acceptLanguage: req.headers["accept-language"] || req.headers["Accept-Language"] || "en-US",
       };
       if (o.conversation) {
         delete o.conversation.zid;
