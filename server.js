@@ -1362,6 +1362,15 @@ function extractFromCookie(req, name) {
   }
   return req.cookies[name];
 }
+
+function extractFromHeader(req, name) {
+  if (!req.headers) {
+    return void 0;
+  }
+  return req.headers[name.toLowerCase()];
+}
+
+
 const prrrams = (function() {
   function buildCallback(config) {
     let name = config.name;
@@ -1452,12 +1461,34 @@ const prrrams = (function() {
         defaultVal: defaultVal,
       });
     },
+    needHeader: function(name, parserWhichReturnsPromise, assigner, defaultVal) {
+      return buildCallback({
+        name: name,
+        extractor: extractFromHeader,
+        parserWhichReturnsPromise: parserWhichReturnsPromise,
+        assigner: assigner,
+        required: true,
+        defaultVal: defaultVal,
+      });
+    },
+    wantHeader: function(name, parserWhichReturnsPromise, assigner, defaultVal) {
+      return buildCallback({
+        name: name,
+        extractor: extractFromHeader,
+        parserWhichReturnsPromise: parserWhichReturnsPromise,
+        assigner: assigner,
+        required: false,
+        defaultVal: defaultVal,
+      });
+    },
   };
 }());
 const need = prrrams.need;
 const want = prrrams.want;
 // let needCookie = prrrams.needCookie;
 const wantCookie = prrrams.wantCookie;
+const needHeader = prrrams.needHeader;
+const wantHeader = prrrams.wantHeader;
 
 const COOKIES = {
   HAS_EMAIL: 'e',
@@ -2775,6 +2806,24 @@ function initializePolisHelpers() {
     let zid = req.p.zid;
     let math_tick = req.p.math_tick;
 
+    let ifNoneMatch = req.p.ifNoneMatch;
+    if (ifNoneMatch) {
+      if (!_.isUndefined(math_tick)) {
+        return fail(res, 400, "Expected either math_tick param or If-Not-Match header, but not both.");
+      }
+      if (ifNoneMatch.includes("*")) {
+        math_tick = 0;
+      } else {
+        let entries = ifNoneMatch.split(/ *, */).map((x) => {
+          return Number(x.replace(/^[wW]\//,'').replace(/^"/,'').replace(/"$/,''));
+        });
+        math_tick = _.min(entries); // supporting multiple values for the ifNoneMatch header doesn't really make sense, so I've arbitrarily chosen _.min to decide on one.
+      }
+    } else if (_.isUndefined(math_tick)) {
+      math_tick = -1;
+    }
+
+
     function finishWith304or404() {
       if (pcaResultsExistForZid[zid]) {
         res.status(304).end();
@@ -2795,6 +2844,7 @@ function initializePolisHelpers() {
         res.set({
           'Content-Type': 'application/json',
           'Content-Encoding': 'gzip',
+          'Etag': '"' + data.asPOJO.math_tick + '"',
         });
         res.send(data.asBufferOfGzippedJson);
       } else {
@@ -14051,6 +14101,7 @@ CREATE TABLE slack_user_invites (
     makeRedirectorTo,
     moveToBody,
     need,
+    needHeader,
     pgQueryP,
     pgQueryP_metered,
     pgQueryP_metered_readOnly,
@@ -14069,6 +14120,7 @@ CREATE TABLE slack_user_invites (
     timeout,
     want,
     wantCookie,
+    wantHeader,
     winston,
     writeDefaultHead,
     yell,

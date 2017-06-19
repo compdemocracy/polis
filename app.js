@@ -57,6 +57,7 @@ helpersInitialized.then(function(o) {
     makeRedirectorTo,
     moveToBody,
     need,
+    // needHeader,
     pidCache,
     portForAdminFiles,
     portForParticipationFiles,
@@ -69,6 +70,7 @@ helpersInitialized.then(function(o) {
     timeout,
     want,
     wantCookie,
+    wantHeader,
     winston,
     writeDefaultHead,
 
@@ -293,7 +295,8 @@ helpersInitialized.then(function(o) {
     moveToBody,
     redirectIfHasZidButNoConversationId, // TODO remove once
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-    want('math_tick', getInt, assignToP, -1),
+    want('math_tick', getInt, assignToP),
+    wantHeader('If-None-Match', getStringLimitLength(1000), assignToPCustom('ifNoneMatch')),
     handle_GET_math_pca2);
 
   app.get("/api/v3/math/correlationMatrix",
