@@ -18,6 +18,8 @@
          page_id: d.getAttribute("data-page_id"),
          parent_url: d.getAttribute("data-parent_url"),
          xid: d.getAttribute("data-xid"),
+         x_name: d.getAttribute("data-x_name"),
+         x_profile_image_url: d.getAttribute("data-x_profile_image_url"),
 
          border: d.getAttribute("data-border"),
          border_radius: d.getAttribute("data-border_radius"),
@@ -35,13 +37,13 @@
 
          subscribe_type: d.getAttribute("data-subscribe_type"), // 0 for no prompt, 1 for email prompt (1 is default)
 
-         bgcolor: d.getAttribute("data-bgcolor"),
-
          // These config variables will be used to init the conversation.
          // Subsequent loads will not update to these values in our DB.
          // To change the values after the conversation is created, go to the config tab of
          // https://pol.is/m/<conversation_id>
          show_vis: d.getAttribute("data-show_vis"),
+         show_share: d.getAttribute("data-show_share"),
+         bg_white: d.getAttribute("data-bg_white"),
 
          auth_needed_to_vote: d.getAttribute("data-auth_needed_to_vote"), // default false
          auth_needed_to_write: d.getAttribute("data-auth_needed_to_write"), // default true
@@ -97,7 +99,8 @@
     }
 
     appendIfPresent("xid");
-
+    appendIfPresent("x_name");
+    appendIfPresent("x_profile_image_url");
     appendIfPresent("ucv");
     appendIfPresent("ucw");
     appendIfPresent("ucsh");
@@ -109,6 +112,8 @@
     appendIfPresent("subscribe_type");
 
     appendIfPresent("show_vis");
+    appendIfPresent("show_share");
+    appendIfPresent("bg_white");
     appendIfPresent("auth_needed_to_vote");
     appendIfPresent("auth_needed_to_write");
     appendIfPresent("auth_opt_fb");
@@ -126,7 +131,8 @@
     iframe.style.border = o.border || "1px solid #ccc";
     iframe.style.borderRadius = o.border_radius || "4px";
     iframe.style.padding = o.padding || "4px"; // 1px ensures that right border shows up on default wordpress theme
-    iframe.style.backgroundColor = o.bgcolor || "rgb(247, 247, 247)";
+    iframe.style.backgroundColor = "white";
+    // iframe.style.backgroundColor = "rgb(247, 247, 247)";
     iframe.id = id;
     parent.appendChild(iframe);
     iframes.push(iframe);
