@@ -1,5 +1,6 @@
 // Copyright (C) 2012-present, Polis Technology Inc. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import Features from "../../util/plan-features";
 import React from "react";
 import { connect } from "react-redux";
 import Radium from "radium";
@@ -51,6 +52,7 @@ const styles = {
   }
 }
 
+@connect(state => state.user)
 @connect(state => state.zid_metadata)
 @Radium
 class ConversationConfig extends React.Component {
@@ -167,6 +169,7 @@ class ConversationConfig extends React.Component {
           <div style={{marginTop: 20}}> </div>
           <Checkbox
             label="Visualization"
+            disabled={!Features.canToggleVisVisibility(this.props.user)}
             ref={"vis_type"}
             checked={ this.props.zid_metadata.vis_type === 1 ? true : false }
             onCheck={ this.handleIntegerBoolValueChange("vis_type").bind(this) }
@@ -177,6 +180,7 @@ class ConversationConfig extends React.Component {
           <Checkbox
             label="Comment form"
             ref={"write_type"}
+            disabled={!Features.canToggleCommentForm(this.props.user)}
             checked={this.props.zid_metadata.write_type === 1 ? true : false}
             onCheck={ this.handleIntegerBoolValueChange("write_type").bind(this) }
             labelPosition={"left"}
@@ -214,6 +218,7 @@ class ConversationConfig extends React.Component {
           <Checkbox
             label="Show pol.is branding"
             ref={"branding_type"}
+            disabled={!Features.canTogglePolisBranding(this.props.user)}
             checked={this.props.zid_metadata.branding_type === 1 ? true : false}
             onCheck={ this.handleIntegerBoolValueChange("branding_type").bind(this) }
             labelPosition={"left"}
@@ -252,6 +257,7 @@ class ConversationConfig extends React.Component {
           <div>
             <InputField
               ref={"style_btn"}
+              disabled={!Features.canCustomizeColors(this.props.user)}
               style={{width: 360}}
               onBlur={this.handleStringValueChange("style_btn").bind(this)}
               hintText="ie., #e63082"
@@ -263,6 +269,7 @@ class ConversationConfig extends React.Component {
           <div>
             <InputField
               ref={"help_bgcolor"}
+              disabled={!Features.canCustomizeColors(this.props.user)}
               style={{width: 360}}
               onBlur={this.handleStringValueChange("help_bgcolor").bind(this)}
               onChange={this.handleConfigInputTyping("help_bgcolor")}
@@ -274,6 +281,7 @@ class ConversationConfig extends React.Component {
           <div>
             <InputField
               ref={"help_color"}
+              disabled={!Features.canCustomizeColors(this.props.user)}
               style={{width: 360}}
               onBlur={this.handleStringValueChange("help_color").bind(this)}
               onChange={this.handleConfigInputTyping("help_color")}
@@ -289,6 +297,7 @@ class ConversationConfig extends React.Component {
           <Checkbox
             label="Strict Moderation"
             ref={"strict_moderation"}
+            disabled={!Features.canToggleStrictMod(this.props.user)}
             checked={ this.props.zid_metadata.strict_moderation }
             onCheck={ this.handleBoolValueChange("strict_moderation").bind(this) }
             labelPosition={"left"}

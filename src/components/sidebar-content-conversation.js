@@ -1,5 +1,6 @@
 // Copyright (C) 2012-present, Polis Technology Inc. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import Features from "../util/plan-features";
 import React from "react";
 import { connect } from "react-redux";
 import Radium from "radium";
@@ -8,6 +9,7 @@ import Awesome from "react-fontawesome";
 import {Link} from "react-router";
 import MaterialTitlePanel from "./material-title-panel-sidebar";
 import SidebarItem from "./sidebar-item";
+
 
 const styles = {
   sidebar: {
@@ -30,6 +32,7 @@ const styles = {
   }
 };
 
+@connect(state => state.user)
 @Radium
 class SidebarContentConversation extends React.Component {
 
@@ -40,6 +43,10 @@ class SidebarContentConversation extends React.Component {
   }
 
   render() {
+    let canEditReports = Features.canEditReports(this.props.user);
+    let canViewStats = Features.canViewStats(this.props.user);
+    let canExportData = Features.canExportData(this.props.user);
+
     return (
       <MaterialTitlePanel
         showHamburger={false}
@@ -50,31 +57,37 @@ class SidebarContentConversation extends React.Component {
             to="/"
             selected={false}
             icon="chevron-left"
+            enabled={true}
             text="All Conversations"/>
           <SidebarItem
             to={"/m/"+this.props.conversation_id}
             selected={this.props.routes[2] && !this.props.routes[2].path}
             icon="gears"
+            enabled={true}
             text="Configure"/>
           <SidebarItem
             to={"/m/"+this.props.conversation_id+"/live"}
             selected={this.props.routes[2] && this.props.routes[2].path === "live"}
             icon="heartbeat"
+            enabled={true}
             text="See it"/>
           <SidebarItem
             to={"/m/"+this.props.conversation_id+"/share"}
             selected={this.props.routes[2] && this.props.routes[2].path === "share"}
             icon="code"
+            enabled={true}
             text="Share & Embed"/>
           <SidebarItem
             to={"/m/"+this.props.conversation_id+"/comments"}
             selected={this.props.routes[2] && this.props.routes[2].path === "comments"}
             icon="comments"
+            enabled={true}
             text="Comments"/>
           <SidebarItem
             to={"/m/"+this.props.conversation_id+"/participants"}
             selected={this.props.routes[2] && this.props.routes[2].path === "participants"}
             icon="users"
+            enabled={true}
             text="Participants"/>
           {/*<SidebarItem
             to={"/m/"+this.props.conversation_id+"/summary"}
@@ -82,19 +95,22 @@ class SidebarContentConversation extends React.Component {
             icon="list-alt"
             text="Summary"/>*/}
           <SidebarItem
-            to={"/m/"+this.props.conversation_id+"/stats"}
+            to={canViewStats ? "/m/"+this.props.conversation_id+"/stats" : Features.plansRoute}
             selected={this.props.routes[2] && this.props.routes[2].path === "stats"}
             icon="area-chart"
+            enabled={canViewStats}
             text="Stats"/>
           <SidebarItem
-            to={"/m/"+this.props.conversation_id+"/reports"}
+            to={canEditReports ? "/m/"+this.props.conversation_id+"/reports" : Features.plansRoute}
             selected={this.props.routes[2] && this.props.routes[2].path === "reports"}
             icon="file-text-o"
+            enabled={canEditReports}
             text="Reports"/>
           <SidebarItem
-            to={"/m/"+this.props.conversation_id+"/export"}
+            to={canExportData ? "/m/"+this.props.conversation_id+"/export" : Features.plansRoute}
             selected={this.props.routes[2] && this.props.routes[2].path === "export"}
             icon="cloud-download"
+            enabled={canExportData}
             text="Data Export"/>
           <div style={styles.divider} />
           <a style={styles.sidebarLink} target="blank" href="http://docs.pol.is">

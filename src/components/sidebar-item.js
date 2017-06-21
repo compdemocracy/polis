@@ -21,6 +21,7 @@ class SidebarItem extends React.Component {
     params: React.PropTypes.object,
     routes: React.PropTypes.array,
     /* component api */
+    enabled: React.PropTypes.bool,
     style: React.PropTypes.object,
     selected: React.PropTypes.bool,
     to: React.PropTypes.string,
@@ -30,23 +31,29 @@ class SidebarItem extends React.Component {
     // foo: "bar"
   }
   getStyles() {
+    let base = {
+      display: "block",
+      padding: "16px 0px 16px 16px",
+      color: this.props.selected ? "white" : "#757575",
+      backgroundColor: this.props.selected ? "#03a9f4" : "white",
+      textDecoration: "none",
+      cursor: "pointer"
+    };
+    let disabled = Object.assign({}, base, {
+      color: "#959595",
+    });
     return {
-      base: {
-        display: "block",
-        padding: "16px 0px 16px 16px",
-        color: this.props.selected ? "white" : "#757575",
-        backgroundColor: this.props.selected ? "#03a9f4" : "white",
-        textDecoration: "none",
-        cursor: "pointer"
-      }
+      base: base,
+      disabled: disabled,
     };
   }
   render() {
     const styles = this.getStyles();
+
     return (
       <Link
         to={this.props.to}
-        style={styles.base}>
+        style={this.props.enabled ? styles.base : styles.disabled}>
         <Awesome style={{marginRight: 10}} name={this.props.icon}/>
         {` `}
         {this.props.text}
