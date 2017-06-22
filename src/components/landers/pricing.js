@@ -1,5 +1,7 @@
 // Copyright (C) 2012-present, Polis Technology Inc. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import { connect } from "react-redux";
+import { populateUserStore } from "../../actions";
 import React from "react";
 import Radium from "radium";
 import {Link} from "react-router";
@@ -31,6 +33,7 @@ const plans = [
   {
     name: "Basic",
     price: "Free",
+    planCode: 0,
     description: "The core experience, on our site or embedded on yours. Free.",
     features: [
       "3 conversations per month",
@@ -42,6 +45,7 @@ const plans = [
   {
     name: "Professional",
     price: "$250/mo",
+    planCode: 100,
     description: "More participants. More control. More information.",
     features: [
       "Everything in Basic",
@@ -62,11 +66,13 @@ const plans = [
   {
     name: "Multi-Account",
     price: false,
+    planCode: 1000,
     description: "Provide access to professional accounts to multiple people within your organization at a discount.",
   },
   {
     name: "Integrate",
     price: false,
+    planCode: 10000,
     description: "Create conversations automatically, on your site, with your users. Good for brands & apps, as well as organizations with databases of members.",
     features: [
       "Everything in Advanced",
@@ -81,6 +87,7 @@ const plans = [
   {
     name: "On Site",
     price: false,
+    planCode: 100000,
     description: "If data security is a requirement, we'll help install a version of pol.is on your servers. Reach out for a free consultation.",
     features: [
       "Installation",
@@ -91,7 +98,7 @@ const plans = [
   },
 ]
 
-const Plan = ({plan}) => {
+const Plan = ({plan, user}) => {
   return (
     <div style={{
       maxWidth: 300,
@@ -137,15 +144,23 @@ const Plan = ({plan}) => {
           // borderTop: "1px solid rgb(130,130,130)",
         backgroundColor: "#03a9f4",
       }}>
-        {plan.price ? plan.price : "Contact Us"}
+        {user && user.planCode === plan.planCode ?
+          "(This is your current plan)" : (plan.price ?
+            plan.price :
+            "Contact Us")}
       </p>
     </div>
   )
 }
 
 
+@connect(state => state.user)
 @Radium
 class Pricing extends React.Component {
+
+  componentWillMount() {
+    this.props.dispatch(populateUserStore());
+  }
 
   render() {
     return (
@@ -162,7 +177,7 @@ class Pricing extends React.Component {
             {
               _.map(plans, (plan) => {
                 return (
-                  <Plan plan={plan}/>
+                  <Plan plan={plan} user={this.props.user}/>
                 )
               })
             }
