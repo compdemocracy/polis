@@ -3,6 +3,8 @@
 "use strict";
 
 const akismetLib = require('akismet');
+const AWS = require('aws-sdk');
+AWS.config.set('region', 'us-east-1');
 const badwords = require('badwords/object');
 const Promise = require('bluebird');
 const http = require('http');
@@ -28,12 +30,13 @@ const OAuth = require('oauth');
 // });
 const Mailgun = require('mailgun').Mailgun;
 const mailgun = new Mailgun(process.env.MAILGUN_API_KEY);
-const postmark = require("postmark")(process.env.POSTMARK_API_KEY);
+// const postmark = require("postmark")(process.env.POSTMARK_API_KEY);
 const querystring = require('querystring');
 const devMode = "localhost" === process.env.STATIC_FILES_HOST;
 const replaceStream = require('replacestream');
 const responseTime = require('response-time');
 const request = require('request-promise'); // includes Request, but adds promise methods
+const sesClient = new AWS.SES({apiVersion: '2010-12-01'}); // reads AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY from process.env
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const LruCache = require("lru-cache");
 const timeout = require('connect-timeout');
@@ -44,8 +47,6 @@ var WebClient = require('@slack/client').WebClient;
 var web = new WebClient(process.env.SLACK_API_TOKEN);
 // const winston = require("winston");
 const winston = console;
-
-
 
 
 
@@ -4433,6 +4434,46 @@ ${serverName}/pwreset/${pwresettoken}
   }
 
 
+
+  function sendTextEmailWithSes(sender, recipient, subject, text) {
+    winston.log("info", "sending email with SES: " + [sender, recipient, subject, text].join(" "));
+
+    return new Promise(function(resolve, reject) {
+      sesClient.sendEmail({
+        Destination: {
+          ToAddresses: [recipient],
+        },
+        Source: sender,
+        Message: {
+          Subject: {
+            Data: subject,
+          },
+          Body: {
+            Text: {
+              Data: text,
+            },
+          },
+        },
+
+      }, function(err, data) {
+        if (err) {
+          console.log("mike567", "ok", sender, recipient, subject, text);
+          console.error("Unable to send email via ses to " + recipient);
+          console.error(err);
+          yell("polis_err_ses_email_send_failed");
+          reject(err);
+        } else {
+          console.log("mike567", "err", sender, recipient, subject, text, err);
+          winston.log("info", "sent email with ses to " + recipient);
+          resolve();
+        }
+      });
+    });
+  }
+
+
+
+
   function sendTextEmailWithMailgun(sender, recipient, subject, text) {
     winston.log("info", "sending email with mailgun: " + [sender, recipient, subject, text].join(" "));
     let servername = "";
@@ -4453,32 +4494,32 @@ ${serverName}/pwreset/${pwresettoken}
     });
   }
 
-  function sendTextEmailWithPostmark(sender, recipient, subject, text) {
-    winston.log("info", "sending email with postmark: " + [sender, recipient, subject, text].join(" "));
-    return new Promise(function(resolve, reject) {
-      postmark.send({
-        "From": sender,
-        "To": recipient,
-        "Subject": subject,
-        "TextBody": text,
-      }, function(error, success) {
-        if (error) {
-          console.error("Unable to send email via postmark to " + recipient + " " + error.message);
-          yell("polis_err_postmark_email_send_failed");
-          reject(error);
-        } else {
-          winston.log("info", "sent email with postmark to " + recipient);
-          resolve();
-        }
-      });
-    });
-  }
+  // function sendTextEmailWithPostmark(sender, recipient, subject, text) {
+  //   winston.log("info", "sending email with postmark: " + [sender, recipient, subject, text].join(" "));
+  //   return new Promise(function(resolve, reject) {
+  //     postmark.send({
+  //       "From": sender,
+  //       "To": recipient,
+  //       "Subject": subject,
+  //       "TextBody": text,
+  //     }, function(error, success) {
+  //       if (error) {
+  //         console.error("Unable to send email via postmark to " + recipient + " " + error.message);
+  //         yell("polis_err_postmark_email_send_failed");
+  //         reject(error);
+  //       } else {
+  //         winston.log("info", "sent email with postmark to " + recipient);
+  //         resolve();
+  //       }
+  //     });
+  //   });
+  // }
 
   function sendTextEmail(sender, recipient, subject, text) {
-    let promise = sendTextEmailWithMailgun(sender, recipient, subject, text).catch(function(err) {
+    let promise = sendTextEmailWithSes(sender, recipient, subject, text).catch(function(err) {
       yell("polis_err_primary_email_sender_failed");
       console.error(err);
-      return sendTextEmailWithPostmark(sender, recipient, subject, text);
+      return sendTextEmailWithMailgun(sender, recipient, subject, text);
     });
     promise.catch(function(err) {
       console.error(err);
