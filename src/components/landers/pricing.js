@@ -10,6 +10,7 @@ import Flex from "../framework/flex";
 import Button from "../framework/generic-button";
 import StaticContentContainer from "../framework/static-content-container";
 import strings from "../../strings/strings";
+import StripeCheckout from 'react-stripe-checkout';
 import _ from "lodash";
 
 const styles = {
@@ -162,6 +163,18 @@ class Pricing extends React.Component {
     this.props.dispatch(populateUserStore());
   }
 
+  onToken = (token) => {
+    fetch('/save-stripe-token', {
+      method: 'POST',
+      body: JSON.stringify(token),
+    }).then(response => {
+      response.json().then(data => {
+        alert(`We are in business, ${data.email}`);
+      });
+    });
+  }
+
+
   render() {
     return (
       <StaticContentContainer
@@ -174,6 +187,11 @@ class Pricing extends React.Component {
             <p style={[styles.heading, {marginTop: 20, marginBottom: 30}]}>
               Pricing
             </p>
+            <StripeCheckout
+              token={this.onToken}
+              stripeKey="my_PUBLISHABLE_stripekey"
+            />
+
             {
               _.map(plans, (plan) => {
                 return (
