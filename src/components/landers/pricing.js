@@ -13,6 +13,10 @@ import strings from "../../strings/strings";
 import StripeCheckout from 'react-stripe-checkout';
 import _ from "lodash";
 
+
+
+const stripeKey = /localhost|preprod.pol.is/.test(document.domain) ? "pk_test_x6ETDQy1aCvKnaIJ2dyYFVVj" : "pk_live_zSFep14gq0gqnVkKVp6vI9eM";
+
 const styles = {
   container: {
     padding: 20,
@@ -46,6 +50,7 @@ const plans = [
   {
     name: "Professional",
     price: "$250/mo",
+    priceCents: 250*100,
     planCode: 100,
     description: "More participants. More control. More information.",
     features: [
@@ -99,71 +104,7 @@ const plans = [
   },
 ]
 
-const Plan = ({plan, user}) => {
-  return (
-    <div style={{
-      maxWidth: 300,
-      boxShadow: "0px 0px 20px 2px rgba(210,210,210,1)",
-      borderRadius: 12,
-      overflow: "hidden",
-      marginBottom: 20,
-    }}>
-      <p style={{
-        width: "100%",
-        textAlign: "center",
-        padding: "0px 0px 5px 0px",
-        // borderBottom: "1px solid rgb(130,130,130)",
-      }}>
-        {plan.name}
-      </p>
-      <p style={{
-        padding: "0px 10px",
-        fontFamily: "Georgia, serif",
-      }}>
-        {plan.description}
-      </p>
-      {
-        _.map(plan.features, (feature, i) => {
-          return (
-            <p style={{
-              padding: "0px 10px",
-              fontFamily: "Georgia, serif",
-              }}
-              key={i}
-              >
-              <Awesome
-                style={{position: "relative", top: 1, color: "#54A357", marginRight: 5}}
-                name="check-circle"/> {feature}
-            </p>
-          )
-        })
-      }
-      <p style={{
-        width: "100%",
-        textAlign: "center",
-        padding: "15px 0px 15px 0px",
-        margin: 0,
-        color: "white",
-          // borderTop: "1px solid rgb(130,130,130)",
-        backgroundColor: "#03a9f4",
-      }}>
-        {user && user.planCode === plan.planCode ?
-          "(This is your current plan)" : (plan.price ?
-            plan.price :
-            "Contact Us")}
-      </p>
-    </div>
-  )
-}
-
-
-@connect(state => state.user)
-@Radium
-class Pricing extends React.Component {
-
-  componentWillMount() {
-    this.props.dispatch(populateUserStore());
-  }
+class Plan extends React.Component {
 
   onToken = (token) => {
     fetch('/save-stripe-token', {
@@ -174,6 +115,88 @@ class Pricing extends React.Component {
         alert(`We are in business, ${data.email}`);
       });
     });
+  }
+
+  render() {
+    let actionText = "Contact Us";
+    if (this.props.user && this.props.user.planCode === this.props.plan.planCode) {
+      actionText = "(This is your current plan)";
+    } else if (this.props.plan.priceCents) {
+      actionText = (<span>
+        <span>{this.props.plan.price}</span>
+        <StripeCheckout
+          token={this.onToken}
+          stripeKey={stripeKey}
+          image={"https://pol.is/landerImages/clusters.png"}
+          name={"pol.is"}
+          description={"Upgrade to Individual plan"}
+          panelLabel={"Monthly"}
+          amount={this.props.plan.price}
+        />
+      </span>);
+    }
+
+
+    return (
+      <div style={{
+        maxWidth: 300,
+        boxShadow: "0px 0px 20px 2px rgba(210,210,210,1)",
+        borderRadius: 12,
+        overflow: "hidden",
+        marginBottom: 20,
+      }}>
+        <p style={{
+          width: "100%",
+          textAlign: "center",
+          padding: "0px 0px 5px 0px",
+          // borderBottom: "1px solid rgb(130,130,130)",
+        }}>
+          {this.props.plan.name}
+        </p>
+        <p style={{
+          padding: "0px 10px",
+          fontFamily: "Georgia, serif",
+        }}>
+          {this.props.plan.description}
+        </p>
+        {
+          _.map(this.props.plan.features, (feature, i) => {
+            return (
+              <p style={{
+                padding: "0px 10px",
+                fontFamily: "Georgia, serif",
+                }}
+                key={i}
+                >
+                <Awesome
+                  style={{position: "relative", top: 1, color: "#54A357", marginRight: 5}}
+                  name="check-circle"/> {feature}
+              </p>
+            )
+          })
+        }
+        <p style={{
+          width: "100%",
+          textAlign: "center",
+          padding: "15px 0px 15px 0px",
+          margin: 0,
+          color: "white",
+            // borderTop: "1px solid rgb(130,130,130)",
+          backgroundColor: "#03a9f4",
+        }}>
+          {actionText}
+        </p>
+      </div>
+    )
+  }
+}
+
+@connect(state => state.user)
+@Radium
+class Pricing extends React.Component {
+
+  componentWillMount() {
+    this.props.dispatch(populateUserStore());
   }
 
 
@@ -189,10 +212,6 @@ class Pricing extends React.Component {
             <p style={[styles.heading, {marginTop: 20, marginBottom: 30}]}>
               Pricing
             </p>
-            <StripeCheckout
-              token={this.onToken}
-              stripeKey="my_PUBLISHABLE_stripekey"
-            />
 
             {
               _.map(plans, (plan) => {
