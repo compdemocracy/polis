@@ -4,6 +4,7 @@
   polis._hasRun = 1;
   var iframes = [];
   var polisUrl = "https://pol.is";
+  var maxHeightsSeen = {};
 
   polis.on = polis.on || {};
   polis.on.vote = polis.on.vote || [];
@@ -212,12 +213,14 @@
         }
         if (!resizeWasHandled) {
           console.log(data.polisFrameId);
-          var iframe = document.getElementById("polis_" + data.polisFrameId);
-          // TODO uniquely identify each polis iframe so we can resize only the correct one
-          // for (var i = 0; i < iframes.length; i++) {
-            // var x = iframes[i];
-            iframe.setAttribute("height", data.height);
-          // }
+          var frameId = "polis_" + data.polisFrameId;
+          var iframe = document.getElementById(frameId);
+          var h = data.height;
+          if (h > maxHeightsSeen[frameId] || typeof maxHeightsSeen[frameId] === "undefined") {
+            // Prevents resize loops and excessive scrollbar flashing by only allowing iframe to expand.
+            maxHeightsSeen[frameId] = h;
+            iframe.setAttribute("height", h);
+          }
         }
       }
 
