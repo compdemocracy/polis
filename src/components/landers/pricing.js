@@ -123,12 +123,14 @@ const Plan = ({plan, user}) => {
         {plan.description}
       </p>
       {
-        _.map(plan.features, (feature) => {
+        _.map(plan.features, (feature, i) => {
           return (
             <p style={{
               padding: "0px 10px",
               fontFamily: "Georgia, serif",
-            }}>
+              }}
+              key={i}
+              >
               <Awesome
                 style={{position: "relative", top: 1, color: "#54A357", marginRight: 5}}
                 name="check-circle"/> {feature}
@@ -195,7 +197,7 @@ class Pricing extends React.Component {
             {
               _.map(plans, (plan) => {
                 return (
-                  <Plan plan={plan} user={this.props.user}/>
+                  <Plan plan={plan} user={this.props.user} key={plan.planCode}/>
                 )
               })
             }
