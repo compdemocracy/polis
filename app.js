@@ -1241,6 +1241,7 @@ helpersInitialized.then(function(o) {
     want('subscribe_type', getStringLimitLength(1,9), assignToP), // not persisted
     want('x_name', getStringLimitLength(1, 746), assignToP),  // not persisted here, but later on POST vote/comment
     want('x_profile_image_url', getStringLimitLength(1, 3000), assignToP),  // not persisted here, but later on POST vote/comment
+    want('x_email', getStringLimitLength(256), assignToP),  // not persisted here, but later on POST vote/comment
     handle_GET_implicit_conversation_generation);
 
   app.get("/iip/:conversation_id",

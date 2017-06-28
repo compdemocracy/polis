@@ -875,19 +875,20 @@ function createDummyUser() {
   });
 }
 
-function createXidRecord(ownerUid, uid, xid, x_profile_image_url, x_name) {
-  return pgQueryP("insert into xids (owner, uid, xid, x_profile_image_url, x_name) values ($1, $2, $3, $4, $5) " +
+function createXidRecord(ownerUid, uid, xid, x_profile_image_url, x_name, x_email) {
+  return pgQueryP("insert into xids (owner, uid, xid, x_profile_image_url, x_name, x_email) values ($1, $2, $3, $4, $5, $6) " +
     "on conflict (owner, xid) do nothing;", [
       ownerUid,
       uid,
       xid,
       x_profile_image_url || null,
       x_name || null,
+      x_email || null,
     ]);
 }
 
 
-function getXidRecordByXidOwnerId(xid, owner, x_profile_image_url, x_name, createIfMissing) {
+function getXidRecordByXidOwnerId(xid, owner, x_profile_image_url, x_name, x_email, createIfMissing) {
   return pgQueryP("select * from xids where xid = ($1) and owner = ($2);", [xid, owner]).then(function(rows) {
     if (!rows || !rows.length) {
       console.log('no xInfo yet');
@@ -896,7 +897,7 @@ function getXidRecordByXidOwnerId(xid, owner, x_profile_image_url, x_name, creat
       }
       return createDummyUser().then((newUid) => {
         console.log('created dummy');
-        return createXidRecord(owner, newUid, xid, x_profile_image_url||null, x_name||null).then(() => {
+        return createXidRecord(owner, newUid, xid, x_profile_image_url||null, x_name||null, x_email||null).then(() => {
           console.log('created xInfo');
           return [{
             uid: newUid,
@@ -904,6 +905,7 @@ function getXidRecordByXidOwnerId(xid, owner, x_profile_image_url, x_name, creat
             xid: xid,
             x_profile_image_url: x_profile_image_url,
             x_name: x_name,
+            x_email: x_email,
           }];
         });
       });
@@ -938,6 +940,7 @@ function doXidApiKeyAuth(assigner, apikey, xid, isOptional, req, res, next) {
       uidForApiKey,
       req.body.x_profile_image_url || req.query.x_profile_image_url,
       req.body.x_name || req.query.x_name || null,
+      req.body.x_email || req.query.x_email || null,
       !!req.body.agid || !!req.query.agid || null
     ).then((rows) => {
       if (!rows || !rows.length) {
@@ -2023,6 +2026,7 @@ function initializePolisHelpers() {
         conv.org_id,
         req.body.x_profile_image_url || req.query.x_profile_image_url,
         req.body.x_name || req.query.x_name || null,
+        req.body.x_email || req.query.x_email || null,
         !!req.body.agid || !!req.query.agid || null)
       .then((rows) => {
         if (!rows || !rows.length) {
@@ -2176,7 +2180,7 @@ function initializePolisHelpers() {
     //           console.log('xidflow after doAuth');
     //           if (req.p.uid && !isOptional) { // req.p.uid might be set now.
     //             console.log('xidflow uid', req.p.uid);
-    //             return createXidRecordByZid(zid, req.p.uid, xid, req.body.x_profile_image_url, req.body.x_name);
+    //             return createXidRecordByZid(zid, req.p.uid, xid, req.body.x_profile_image_url, req.body.x_name, req.body.x_email);
     //           } else if (!isOptional) {
     //             console.log('xidflow no uid, but mandatory', req.p.uid);
     //             throw "polis_err_missing_non_optional_uid";
@@ -8539,14 +8543,15 @@ Email verified! You can close this tab or hit the back button.
 
 
 
-  function createXidRecordByZid(zid, uid, xid, x_profile_image_url, x_name) {
-    return pgQueryP("insert into xids (owner, uid, xid, x_profile_image_url, x_name) values ((select org_id from conversations where zid = ($1)), $2, $3, $4, $5) " +
+  function createXidRecordByZid(zid, uid, xid, x_profile_image_url, x_name, x_email) {
+    return pgQueryP("insert into xids (owner, uid, xid, x_profile_image_url, x_name, x_email) values ((select org_id from conversations where zid = ($1)), $2, $3, $4, $5, $6) " +
       "on conflict (owner, xid) do nothing;", [
         zid,
         uid,
         xid,
         x_profile_image_url || null,
         x_name || null,
+        x_email || null,
       ]);
   }
 
@@ -11224,6 +11229,7 @@ Thanks for using pol.is!
       "xids_subset.x_profile_image_url as x_profile_image_url, " +
       "xids_subset.xid as xid, " +
       "xids_subset.x_name as x_name, " +
+      // "xids_subset.x_email as x_email, " +
 
       "final_set.pid " +
       "from final_set " +
@@ -11340,6 +11346,7 @@ Thanks for using pol.is!
       "xids_subset.x_profile_image_url as x_profile_image_url, " +
       "xids_subset.xid as xid, " +
       "xids_subset.x_name as x_name, " +
+      "xids_subset.x_email as x_email, " +
       // "final_set.uid " +
       "p.pid " +
       "from final_set " +
@@ -11871,14 +11878,16 @@ Thanks for using pol.is!
 
   function pullXInfoIntoSubObjects(ptptoiRecord) {
     let p = ptptoiRecord;
-    if (p.x_profile_image_url || p.xid) {
+    if (p.x_profile_image_url || p.xid || p.x_email) {
       p.xInfo = {};
       p.xInfo.x_profile_image_url = p.x_profile_image_url;
       p.xInfo.xid = p.xid;
       p.xInfo.x_name = p.x_name;
+      // p.xInfo.x_email = p.x_email;
       delete p.x_profile_image_url;
       delete p.xid;
       delete p.x_name;
+      delete p.x_email;
     }
     return p;
   }
@@ -13559,6 +13568,7 @@ CREATE TABLE slack_user_invites (
     let xid = req.p.xid;
     let x_name = req.p.x_name;
     let x_profile_image_url = req.p.x_profile_image_url;
+    let x_email = req.p.x_email;
     let parent_url = req.p.parent_url;
     let o = {};
     ifDefinedSet("parent_url", req.p, o);
@@ -13625,6 +13635,9 @@ CREATE TABLE slack_user_invites (
       }
       if (!_.isUndefined(x_profile_image_url)) {
         url += ("&x_profile_image_url=" + x_profile_image_url);
+      }
+      if (!_.isUndefined(x_email)) {
+        url += ("&x_email=" + x_email);
       }
       if (!_.isUndefined(parent_url)) {
         url += ("&parent_url=" + parent_url);
