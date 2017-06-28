@@ -28,7 +28,7 @@ class SidebarItem extends React.Component {
     icon: React.PropTypes.string
   }
   static defaultProps = {
-    // foo: "bar"
+    enabled: true,
   }
   getStyles() {
     let base = {
