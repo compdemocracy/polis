@@ -406,6 +406,7 @@ CREATE TABLE xids (
     xid TEXT NOT NULL, -- TODO add constraint to limit length
     x_profile_image_url VARCHAR(3000), -- profile picture url (should be https)
     x_name VARCHAR(746),
+    x_email VARCHAR(256), -- http://stackoverflow.com/questions/386294/what-is-the-maximum-length-of-a-valid-email-address
     created BIGINT DEFAULT now_as_millis(),
     modified BIGINT NOT NULL DEFAULT now_as_millis(),
     UNIQUE (owner, uid),
