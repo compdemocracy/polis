@@ -60,7 +60,7 @@
     "lodash": "^3.10.1",
     "material-ui": "^0.13.4",
     "moment": "^2.10.6",
-    "prop-types": "^15.5.4",
+    "prop-types": "^15.5.10",
     "radium": "^0.15.0",
     "react": "^0.14.9",
     "react-codemirror": "^0.2.1",
