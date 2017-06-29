@@ -3082,7 +3082,7 @@ function initializePolisHelpers() {
   }
 
 
-  function getBidToPidMapping(zid, math_tick) {
+  function getBidIndexToPidMapping(zid, math_tick) {
     math_tick = math_tick || -1;
 
 
@@ -3106,7 +3106,7 @@ function initializePolisHelpers() {
   function handle_GET_bidToPid(req, res) {
     let zid = req.p.zid;
     let math_tick = req.p.math_tick;
-    getBidToPidMapping(zid, math_tick).then(function(doc) {
+    getBidIndexToPidMapping(zid, math_tick).then(function(doc) {
       let b2p = doc.bidToPid;
       res.json({
         bidToPid: b2p,
@@ -3153,7 +3153,7 @@ function initializePolisHelpers() {
 
 
   function getBidsForPids(zid, math_tick, pids) {
-    let dataPromise = getBidToPidMapping(zid, math_tick);
+    let dataPromise = getBidIndexToPidMapping(zid, math_tick);
     let mathResultsPromise = getPca(zid, math_tick);
 
     return Promise.all([dataPromise, mathResultsPromise]).then(function(items) {
@@ -3191,11 +3191,11 @@ function initializePolisHelpers() {
     });
   }
 
-  function getClusters(zid, math_tick) {
-    return getPca(zid, math_tick).then(function(pcaData) {
-      return pcaData.asPOJO["group-clusters"];
-    });
-  }
+  // function getClusters(zid, math_tick) {
+  //   return getPca(zid, math_tick).then(function(pcaData) {
+  //     return pcaData.asPOJO["group-clusters"];
+  //   });
+  // }
 
 
   function handle_GET_bid(req, res) {
@@ -3203,7 +3203,7 @@ function initializePolisHelpers() {
     let zid = req.p.zid;
     let math_tick = req.p.math_tick;
 
-    let dataPromise = getBidToPidMapping(zid, math_tick);
+    let dataPromise = getBidIndexToPidMapping(zid, math_tick);
     let pidPromise = getPidPromise(zid, uid);
     let mathResultsPromise = getPca(zid, math_tick);
 
@@ -11544,20 +11544,27 @@ Thanks for using pol.is!
 
   function getPidsForGid(zid, gid, math_tick) {
     return Promise.all([
-      getClusters(zid, math_tick),
-      getBidToPidMapping(zid, math_tick),
+      getPca(zid, math_tick),
+      getBidIndexToPidMapping(zid, math_tick),
     ]).then(function(o) {
-      let clusters = o[0];
-      let bidToPids = o[1].bidToPid;
+      o[0] = o[0].asPOJO;
+      let clusters = o[0]['group-clusters'];
+      let indexToBid = o[0]['base-clusters'].id; // index to bid
+      let bidToIndex = [];
+      for (let i = 0; i < indexToBid.length; i++) {
+        bidToIndex[indexToBid[i]] = i;
+      }
+      let indexToPids = o[1].bidToPid; // actually index to [pid]
       let cluster = clusters[gid];
       if (!cluster) {
         return [];
       }
-      let members = cluster.members;
+      let members = cluster.members; // bids
       let pids = [];
       for (var i = 0; i < members.length; i++) {
         let bid = members[i];
-        let morePids = bidToPids[bid];
+        let index = bidToIndex[bid];
+        let morePids = indexToPids[index];
         Array.prototype.push.apply(pids, morePids);
       }
       pids = pids.map(function(x) {
