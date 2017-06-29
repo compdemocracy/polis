@@ -43,7 +43,7 @@ module.exports = function(params) {
 
   var pcaPath = "api/v3/math/pca2";
   var votesFamousPath = "api/v3/votes/famous";
-  var bidToPidPath = "api/v3/bidToPid";
+  var bidiToPidsPath = "api/v3/bidToPid";
 
   var conversationsPath = "api/v3/conversations";
   var convSubPath = "api/v3/convSubscriptions";
@@ -60,7 +60,7 @@ module.exports = function(params) {
 
   var lastServerTokenForPCA = -1;
   var lastServerTokenForComments = -1;
-  var lastServerTokenForBidToPid = -1;
+  var lastServerTokenForBidiToPid = -1;
 
   var initReadyCallbacks = $.Callbacks();
   var authStateChangeCallbacks = $.Callbacks();
@@ -101,7 +101,7 @@ module.exports = function(params) {
   var repness; // gid -> [{data about most representative comments}]
   var votesForTidBid = {}; // tid -> bid -> {A: agree count, B: disagree count}
   var participantCount = 0;
-  var bidToPid = [];
+  var bidToPids = {};
   var pidToBidCache = null;
   var myBid;
   var cachedPcaData = void 0;
@@ -2106,12 +2106,29 @@ module.exports = function(params) {
     sendUpdatedVisData(people, clusters, participantCount, projectedComments);
   }
 
+  function convert_bidiToPids_to_bidToPids(bidiToPids) {
+
+    return firstPcaCallPromise.then(function() {
+      var mathMain = getMathMain();
+      var indexToBid = mathMain['base-clusters'].id;
+
+      var bidToPids = {};
+      for (var i = 0; i < bidiToPids.length; i++) {
+        var bid = indexToBid[i];
+        var pids = bidiToPids[i];
+        bidToPids[bid] = pids;
+      }
+
+      return bidToPids;
+    });
+  }
+
   function getPidToBidMappingFromCache() {
 
-    if (lastServerTokenForBidToPid >= lastServerTokenForPCA && lastServerTokenForBidToPid > 0) {
+    if (lastServerTokenForBidiToPid >= lastServerTokenForPCA && lastServerTokenForBidiToPid > 0) {
       return $.Deferred().resolve({
         p2b: pidToBidCache,
-        b2p: bidToPid,
+        b2p: bidToPids,
         bid: myBid,
       });
     } else {
@@ -2120,33 +2137,31 @@ module.exports = function(params) {
   }
 
   function getPidToBidMapping() {
-    return polisGet(bidToPidPath, {
-      math_tick: lastServerTokenForBidToPid, // use the same
+    return polisGet(bidiToPidsPath, {
+      math_tick: lastServerTokenForBidiToPid, // use the same
       conversation_id: conversation_id
     }).then(function(data, textStatus, xhr) {
       if (304 === xhr.status) {
         return {
           p2b: pidToBidCache,
-          b2p: bidToPid,
+          b2p: bidToPids,
         };
       }
-      lastServerTokenForBidToPid = data.math_tick;
-      bidToPid = data.bidToPid;
-
-      var b2p = data.bidToPid;
+      lastServerTokenForBidiToPid = data.math_tick;
+      return convert_bidiToPids_to_bidToPids(data.bidToPid);
+    }).then(function(bidToPids) {
       var p2b = {};
-      for (var bid = 0; bid < b2p.length; bid++) {
-        var memberPids = b2p[bid];
+      _.each(bidToPids, function(memberPids, bid) {
         for (var i = 0; i < memberPids.length; i++) {
           var pid = memberPids[i];
           p2b[pid] = bid;
         }
-      }
+      });
       pidToBidCache = p2b;
 
       return {
         p2b: pidToBidCache,
-        b2p: bidToPid
+        b2p: bidToPids
       };
     });
   }
