@@ -9,28 +9,7 @@ import Awesome from "react-fontawesome";
 import {Link} from "react-router";
 import MaterialTitlePanel from "./material-title-panel-sidebar";
 import SidebarItem from "./sidebar-item";
-
-
-const styles = {
-  sidebar: {
-    width: 256,
-    height: "100%"
-  },
-  sidebarLink: {
-    display: "block",
-    padding: "16px 0px 16px 16px",
-    color: "#757575",
-    textDecoration: "none"
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "#757575"
-  },
-  content: {
-    height: "100%",
-    backgroundColor: "white"
-  }
-};
+import {s} from "./framework/global-styles";
 
 @connect(state => state.user)
 @Radium
@@ -51,8 +30,8 @@ class SidebarContentConversation extends React.Component {
       <MaterialTitlePanel
         showHamburger={false}
         title={"Pol.is/"+this.props.conversation_id}
-        style={this.props.style ? {...styles.sidebar, ...this.props.style} : styles.sidebar}>
-        <div style={styles.content} onClick={this.handleClick.bind(this)}>
+        style={this.props.style ? {...s.sidebar, ...this.props.style} : s.sidebar}>
+        <div style={s.sidebarLinks} onClick={this.handleClick.bind(this)}>
           <SidebarItem
             to="/"
             selected={false}
@@ -65,12 +44,12 @@ class SidebarContentConversation extends React.Component {
             icon="gears"
             enabled={true}
             text="Configure"/>
-          <SidebarItem
+          {/*<SidebarItem
             to={"/m/"+this.props.conversation_id+"/live"}
             selected={this.props.routes[2] && this.props.routes[2].path === "live"}
             icon="heartbeat"
             enabled={true}
-            text="See it"/>
+            text="See it"/>*/}
           <SidebarItem
             to={"/m/"+this.props.conversation_id+"/share"}
             selected={this.props.routes[2] && this.props.routes[2].path === "share"}
@@ -112,18 +91,14 @@ class SidebarContentConversation extends React.Component {
             icon="cloud-download"
             enabled={canExportData}
             text="Data Export"/>
-          <div style={styles.divider} />
-          <a style={styles.sidebarLink} target="blank" href="http://docs.pol.is">
-            <Awesome name="align-left"/><span style={{marginLeft: 10}}>Docs</span>
-          </a>
-          <a style={styles.sidebarLink} target="blank" href="https://twitter.com/UsePolis">
-            <Awesome style={{color: "#4099FF"}} name="twitter"/><span style={{marginLeft: 10}}>@UsePolis</span>
+          <a style={Object.assign({}, s.sidebarLink, {marginTop: 40})} target="blank" href="http://docs.pol.is">
+            <span style={{marginRight: 10}}>Docs</span><Awesome name="external-link"/>
           </a>
           <Link
-            style={styles.sidebarLink}
+            style={s.sidebarLink}
             to={"/signout"}>
+            <span style={{marginRight: 10}}>Sign Out</span>
             <Awesome name="sign-out"/>
-            <span style={{marginLeft: 10}}>Sign Out</span>
           </Link>
         </div>
       </MaterialTitlePanel>

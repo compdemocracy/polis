@@ -19,7 +19,8 @@ import Flex from "./framework/flex";
 
 const styles = {
   container: {
-    backgroundColor: "rgb(240,240,247)",
+    // backgroundColor: "rgb(240,240,247)",
+    backgroundColor: "white",
     height: "100%",
     margin: 0
   }
