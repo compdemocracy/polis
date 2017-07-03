@@ -5,6 +5,7 @@ import { connect } from "react-redux";
 import Radium from "radium";
 import _ from "lodash";
 import Spinner from "./framework/spinner";
+import {s} from "./framework/global-styles";
 
 const styles = {
   card: {
@@ -23,14 +24,32 @@ class Account extends React.Component {
   buildAccountMarkup() {
     // probably a component / series of them
     return (
-      <div style={styles.card}>
-        <p>{this.props.user.hname}</p>
-        <p>{this.props.user.email}</p>
-        <p>{this.props.user.hasTwitter ? this.props.user.twitter.location : "Location Unknown"}</p>
-        <p>{this.props.user.hasFacebook ? "Facebook is connected. Disconnect." : "Connect Facebook"} </p>
-        <p>{this.props.user.hasTwitter ? "Twitter is connected Disconnect" : "Connect Twitter"}</p>
-        <p>{"Your plan is: " + this.props.user.plan} <button> Upgrade </button></p>
-        <button> {"Generate api token for scripting starting convos"} </button>
+      <div style={s.accountContainer}>
+
+        <p style={s.accountSection}>Hi {this.props.user.hname.split(" ")[0]}!</p>
+
+        <div style={s.accountSection}>
+          <p style={s.accountSectionHeader}>Social</p>
+          <p>{this.props.user.hname}</p>
+          <p>{this.props.user.email}</p>
+          <p>{this.props.user.hasFacebook ? "Facebook is connected." : "Connect Facebook"} </p>
+          <p>{this.props.user.hasTwitter ? "Twitter is connected." : "Connect Twitter"}</p>
+        </div>
+        <div style={s.accountSection}>
+          <p style={s.accountSectionHeader}>Billing Overview</p>
+          <p>Plan {" " + this.props.user.plan} <button> Upgrade </button></p>
+          <p>Card</p>
+          <p>Next payment</p>
+        </div>
+        <div style={s.accountSection}>
+          <p style={s.accountSectionHeader}>Payment History</p>
+          <p>List</p>
+        </div>
+        <div style={s.accountSection}>
+          <p style={s.accountSectionHeader}>Downgrade Your Plan</p>
+          <p>Downgrade anytime, but you’ll lose access to all pro features, as well as data and reports from conversations you’ve started while on a paid plan. Need to talk to someone? Contact us via Intercom (that’s the blue button in the lower right).</p>
+          <button>Downgrade</button>
+        </div>
       </div>
     )
   }

@@ -14,6 +14,7 @@ import ConversationFilters from "./conversation-filters";
 import ConversationsTutorialCard from "./conversations-tutorial-card";
 import {handleCreateConversationSubmit} from "../actions";
 import Url from "../util/url";
+import {s} from "./framework/global-styles";
 
 @connect((state) => state.conversations)
 @Radium
@@ -43,50 +44,7 @@ class Conversations extends React.Component {
     // loading true or just do that in constructor
     // check your connectivity and try again
   }
-  getStyles() {
-    return {
-      container: {
-        backgroundColor: "rgb(240,240,247)",
-        // paddingTop: globals.headerHeight,
-        minHeight: "100%"
-      },
-      conversationCard: {
-        width: "90%",
-        padding: 20,
-        cursor: "pointer",
-        margin: "10px 0px",
-        color: "rgb(100,100,100)",
-        backgroundColor: "rgb(253,253,253)",
-        borderRadius: 3,
-        WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
-        BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
-      },
-      awesome: {
-        fontSize: 16,
-        marginRight: 6,
-        position: "relative",
-        top: -2
-      },
-      statNumber: {
-        fontSize: 18,
-        marginBottom: 20
-      },
-      parentUrl: {
-        fontSize: 12,
-        marginTop: 10
-      },
-      topic: {
-        marginBottom: 10
-        // ":hover": {
-        //   color: 'red'
-        // }
-      },
-      description: {
-        fontSize: 14,
-        fontWeight: 300,
-      }
-    };
-  }
+
   goTo(r) {
     return () => {
       browserHistory.push(r);
@@ -134,27 +92,23 @@ class Conversations extends React.Component {
       let markup = "";
       if (this.filterCheck(c)) {
         markup = (
-          <Flex
-            justifyContent="flex-start"
-            direction="column"
-            alignItems="flex-start"
-            styleOverrides={this.getStyles().conversationCard}
-            clickHandler={this.goToConversation(c.conversation_id)}
+          <div
+            style={s.conversation}
+            onClick={this.goToConversation(c.conversation_id)}
             key={i}>
-              <span ref={`statNumber${i}`} style={this.getStyles().statNumber}>
-                <Awesome name="users" style={this.getStyles().awesome}/>
-                {c.participant_count}
-              </span>
-              <span ref={`topic${i}`} style={this.getStyles().topic}>
+              <p ref={`statNumber${i}`} style={s.statNumber}>
+                {c.participant_count} participants
+              </p>
+              <p ref={`topic${i}`} style={s.topic}>
                 {c.topic}
-              </span>
-              <span ref={`description${i}`} style={this.getStyles().description}>
+              </p>
+              <p ref={`description${i}`} style={s.description}>
                 {c.description}
-              </span>
-              <span ref={`parentUrl${i}`} style={this.getStyles().parentUrl}>
+              </p>
+              <p ref={`parentUrl${i}`} style={s.parentUrl}>
                 {c.parent_url ? `Embedded on ${c.parent_url}` : ""}
-              </span>
-          </Flex>
+              </p>
+          </div>
         );
       }
       return markup;
@@ -187,9 +141,8 @@ class Conversations extends React.Component {
           awesome="code"
           clickHandler={this.goTo(`/integrate`)}
           body={`
-            Embed pol.is as a comment system across your entire site. Great if you
-            have a wordpress blog or other hosting platform that uses templates. Simply
-            a script tag into your template. We'll keep track of which conversations
+            Embed pol.is as a comment system across your entire site by dropping
+            a script tag into your templates. pol.is will keep track of which conversations
             belong on which pages, and create new ones automatically when needed.
           `}
           title="Integrate polis into your site"/>
@@ -199,7 +152,7 @@ class Conversations extends React.Component {
           body={`
             Get oriented! Get the big picture of what pol.is can do and what the default
             settings are. Check out the data pol.is produces and what you can do with it.
-            Go deep on user authorization and anonymity strategies.
+            Learn about different ways to authenticate users.
           `}
           title={"Read the overview & documentation"}/>
       </Flex>
@@ -209,10 +162,7 @@ class Conversations extends React.Component {
     const err = this.props.error;
     const noMoreTutorialsAfterThisNumber = 5;
     return (
-      <Flex
-        direction="column"
-        justifyContent="flex-start"
-        styleOverrides={this.getStyles().container}>
+      <div style={s.container}>
         <p style={{paddingLeft: 20, textAlign: "center"}}>
           {this.props.loading ? "Loading conversations..." : ""}
         </p>
@@ -227,7 +177,7 @@ class Conversations extends React.Component {
             ""
         }
         {this.props.conversations ? this.renderFilteredConversations() : ""}
-      </Flex>
+      </div>
     );
   }
 }

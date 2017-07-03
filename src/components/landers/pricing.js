@@ -48,7 +48,7 @@ const plans = [
     ]
   },
   {
-    name: "Professional",
+    name: "Professional (most popular)",
     price: "$250/mo",
     priceCents: 250*100,
     planCode: 100,
@@ -81,9 +81,9 @@ const plans = [
     planCode: 10000,
     description: "Create conversations automatically, on your site, with your users. Good for brands & apps, as well as organizations with databases of members.",
     features: [
-      "Everything in Advanced",
+      "Everything in professional",
       "xid (seamless, authenticated participation)",
-      "API",
+      "API access",
       "Create custom invitation URLs per participant (good for email campaigns)",
       "White label options",
       "Priority support",
@@ -139,22 +139,19 @@ class Plan extends React.Component {
 
     return (
       <div style={{
-        maxWidth: 300,
-        boxShadow: "0px 0px 20px 2px rgba(210,210,210,1)",
-        borderRadius: 12,
-        overflow: "hidden",
-        marginBottom: 20,
+        maxWidth: 600,
+        marginBottom: 100,
       }}>
         <p style={{
           width: "100%",
-          textAlign: "center",
+          fontWeight: 700,
+          fontSize: 24,
           padding: "0px 0px 5px 0px",
           // borderBottom: "1px solid rgb(130,130,130)",
         }}>
           {this.props.plan.name}
         </p>
         <p style={{
-          padding: "0px 10px",
           fontFamily: "Georgia, serif",
         }}>
           {this.props.plan.description}
@@ -163,7 +160,6 @@ class Plan extends React.Component {
           _.map(this.props.plan.features, (feature, i) => {
             return (
               <p style={{
-                padding: "0px 10px",
                 fontFamily: "Georgia, serif",
                 }}
                 key={i}
@@ -176,8 +172,9 @@ class Plan extends React.Component {
           })
         }
         <p style={{
-          width: "100%",
+          maxWidth: 400,
           textAlign: "center",
+          borderRadius: 3,
           padding: "15px 0px 15px 0px",
           margin: 0,
           color: "white",
@@ -209,7 +206,7 @@ class Pricing extends React.Component {
         image={false}>
         <Flex styleOverrides={styles.container}>
           <div>
-            <p style={[styles.heading, {marginTop: 20, marginBottom: 30}]}>
+            <p style={[styles.heading, {marginTop: 20, marginBottom: 50}]}>
               Pricing
             </p>
 
