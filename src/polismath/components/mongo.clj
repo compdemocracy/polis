@@ -9,6 +9,9 @@
             [monger.collection :as mc]))
 
 
+;; I think we're no longer using this namespace so we should be able to remove it.
+
+
 (defn collection-name
   "Mongo collection name based on math-env and math-schema-date config variables. Makes sure that
   prod, preprod, dev (and subdevs like chrisdev or mikedev) have their own noninterfering collections."
