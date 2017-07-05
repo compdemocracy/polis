@@ -130,7 +130,7 @@ class Plan extends React.Component {
           image={"https://pol.is/landerImages/clusters.png"}
           name={"pol.is"}
           description={"Upgrade to Individual plan"}
-          panelLabel={"Monthly"}
+          panelLabel={"Subscribe"}
           amount={this.props.plan.price}
         />
       </span>);
