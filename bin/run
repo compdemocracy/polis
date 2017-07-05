@@ -8,5 +8,6 @@ do
   echo "XXXXXXXXXXXXXXXXXX REBOOTING MATH WORKER XXXXXXXXXXXXXXXXXX"
   echo "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
   echo "                                                           "
-  timeout -t 86400 lein with-profile production trampoline run full
+  # Time was with -t 86400b efore cause amazon ami; now ubuntu, so like this
+  timeout 86400 lein with-profile production trampoline run full
 done
