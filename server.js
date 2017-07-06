@@ -7553,6 +7553,8 @@ Email verified! You can close this tab or hit the back button.
     let rid = req.headers["x-request-id"] + " " + req.headers['user-agent'];
     winston.log("info", "getComments " + rid + " begin");
 
+    const isReportQuery = !_.isUndefined(req.p.rid);
+
     getComments(req.p).then(function(comments) {
       if (req.p.rid ) {
         return pgQueryP("select tid, selection from report_comment_selections where rid = ($1);", [req.p.rid]).then((selections) => {
@@ -7585,7 +7587,7 @@ Email verified! You can close this tab or hit the back button.
 
       if (req.p.include_demographics) {
         isModerator(req.p.zid, req.p.uid).then((owner) => {
-          if (owner) {
+          if (owner || isReportQuery) {
             return getDemographicsForVotersOnComments(req.p.zid, comments).then((commentsWithDemographics) => {              
               finishArray(res, commentsWithDemographics);
             }).catch((err) => {
@@ -11703,7 +11705,9 @@ Thanks for using pol.is!
       let metaVotes = o[6];
       let isMod = o[7];
 
-      if (!isMod) {
+      const isReportQuery = !_.isUndefined(req.p.rid);
+
+      if (!isMod && !isReportQuery) {
         throw "polis_err_groupDemographics_auth";
       }
 

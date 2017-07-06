@@ -596,6 +596,7 @@ helpersInitialized.then(function(o) {
     moveToBody,
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    want('report_id', getReportIdFetchRid, assignToPCustom('rid')),
     handle_GET_groupDemographics);
 
   app.get("/api/v3/comments",
