@@ -54,6 +54,7 @@ class App extends React.Component {
   getComments(conversation_id) {
     return net.polisGet("/api/v3/comments", {
       conversation_id: conversation_id,
+      report_id: report_id,
       moderation: true,
       mod_gt: -1,
       include_social: true,
@@ -84,6 +85,7 @@ class App extends React.Component {
   getGroupDemographics(conversation_id) {
     return net.polisGet("/api/v3/group_demographics", {
       conversation_id: conversation_id,
+      report_id: report_id,
     });
   }
 
