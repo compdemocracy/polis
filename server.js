@@ -7035,9 +7035,10 @@ Email verified! You can close this tab or hit the back button.
 
 
 
-  function handle_POST_post_payment_form(req, res) {
-    winston.log("info", "XXX - Got the params!");
-    winston.log("info", "XXX - Got the params!" + res);
+  function handle_POST_stripe_save_token(req, res) {
+    console.log("info", "XXX - Got the params!");
+    console.log(req.body);
+    console.log("info", "XXX - Got the params!");
   }
 
 
@@ -14287,7 +14288,6 @@ CREATE TABLE slack_user_invites (
     handle_POST_metadata_questions,
     handle_POST_metrics,
     handle_POST_participants,
-    handle_POST_post_payment_form,
     handle_POST_ptptCommentMod,
     handle_POST_query_participants_by_metadata,
     handle_POST_reportCommentSelections,
@@ -14298,6 +14298,7 @@ CREATE TABLE slack_user_invites (
     handle_POST_slack_interactive_messages,
     handle_POST_slack_user_invites,
     handle_POST_stars,
+    handle_POST_stripe_save_token,
     handle_POST_trashes,
     handle_POST_tutorial,
     handle_POST_upvotes,

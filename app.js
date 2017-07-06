@@ -171,7 +171,6 @@ helpersInitialized.then(function(o) {
     handle_POST_metadata_questions,
     handle_POST_metrics,
     handle_POST_participants,
-    handle_POST_post_payment_form,
     handle_POST_ptptCommentMod,
     handle_POST_query_participants_by_metadata,
     handle_POST_reportCommentSelections,
@@ -182,6 +181,7 @@ helpersInitialized.then(function(o) {
     handle_POST_slack_interactive_messages,
     handle_POST_slack_user_invites,
     handle_POST_stars,
+    handle_POST_stripe_save_token,
     handle_POST_trashes,
     handle_POST_tutorial,
     handle_POST_upvotes,
@@ -574,8 +574,17 @@ helpersInitialized.then(function(o) {
 
 
   // Just for testing that the new custom stripe form is submitting properly
-  app.post("/api/v3/post_payment_form",
-    handle_POST_post_payment_form);
+  app.post("/api/v3/stripe_save_token",
+    handle_POST_stripe_save_token);
+
+
+
+  // app.post("/api/v3/stripe_start_plan",
+  //   auth(assignToP),
+  //   want('stripeToken', getOptionalStringLimitLength(9999), assignToP),
+  //   want('stripeEmail', getOptionalStringLimitLength(999), assignToP),
+  //   need('plan', getOptionalStringLimitLength(999), assignToP),
+  //   handle_POST_stripe_start_plan);
 
   app.post("/api/v3/charge",
     auth(assignToP),
