@@ -6,8 +6,8 @@ import { polisPost } from '../util/net';
 import Radium from "radium";
 import _ from "lodash";
 import Spinner from "./framework/spinner";
+import StripeForm from './stripe-form';
 import {s} from "./framework/global-styles";
-import StripeCheckout from 'react-stripe-checkout';
 
 
 const styles = {
@@ -21,26 +21,23 @@ const styles = {
   },
 }
 
-const stripeKey = /localhost|preprod.pol.is/.test(document.domain) ? "pk_test_x6ETDQy1aCvKnaIJ2dyYFVVj" : "pk_live_zSFep14gq0gqnVkKVp6vI9eM";
 
-const price = 250;
-const priceCents = price*100;
+function onToken(token) {
+  console.log('got token', token);
+  polisPost('/api/v3/stripe_save_token', {
+    token: JSON.stringify(token),
+  }).then((data) => {
+    console.log('We are in business, ' + data.email);
+  }, (err) => {
+    console.error(err);
+  });
+}
 
 
 @connect(state => state.user)
 @Radium
 class Account extends React.Component {
 
-   onToken(token) {
-    console.log('got token', token);
-    polisPost('/api/v3/stripe_save_token', {
-      token: JSON.stringify(token),
-    }).then((data) => {
-      console.log('We are in business, ' + data.email);
-    }, (err) => {
-      console.error(err);
-    });
-  }
 
 
   buildAccountMarkup() {
@@ -73,19 +70,8 @@ class Account extends React.Component {
           <button>Downgrade</button>
         </div>
 
+        <StripeForm onToken={onToken}/>
 
-        <span>
-          <span>{"$"+price+" per month"}</span>
-          <StripeCheckout
-            token={this.onToken}
-            stripeKey={stripeKey}
-            image={"https://pol.is/landerImages/clusters.png"}
-            name={"pol.is"}
-            description={"Upgrade to the Pro plan"}
-            panelLabel={"Subscribe"}
-            amount={priceCents}
-          />
-        </span>
       </div>
     )
   }

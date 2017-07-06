@@ -72,7 +72,6 @@
     "react-router": "^2.0.0-rc4",
     "react-s-alert": "^1.2.2",
     "react-sidebar": "^2.0.0",
-    "react-stripe-checkout": "^2.4.0",
     "react-stripe-elements": "0.0.2",
     "react-tap-event-plugin": "^0.2.1",
     "redux": "^3.0.2",
