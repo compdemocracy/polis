@@ -85,18 +85,20 @@ class _CardForm extends React.Component {
   }
   render() {
     return (
-      <form onSubmit={this.handleSubmit} style={{backgroundColor: "orange"}}>
+      <form onSubmit={this.handleSubmit} style={{border: "1px solid lightgrey", borderRadius: 3, padding: 10}}>
         <label>
           Card details
-          <CardElement
-            onChange={handleChange}
-            onFocus={handleFocus}
-            onBlur={handleBlur}
-            onReady={handleReady}
-            {...createOptions(this.props.fontSize)}
-          />
+          <div style={{margin: "15px 0px", maxWidth: 600}}>
+            <CardElement
+              onChange={handleChange}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
+              onReady={handleReady}
+              {...createOptions(this.props.fontSize)}
+            />
+          </div>
         </label>
-        <button>Pay</button>
+        <button style={s.primaryButton}>Pay</button>
       </form>
     );
   }
@@ -105,8 +107,6 @@ const CardForm = injectStripe(_CardForm);
 
 @Radium
 class StripeForm extends React.Component {
-
-
 
   render() {
     return (
@@ -121,17 +121,15 @@ class StripeForm extends React.Component {
 
 export default StripeForm;
 
-
-        // <span>
-        //   <span>{"$"+price+" per month"}</span>
-        //   <StripeCheckout
-        //     token={this.onToken}
-        //     stripeKey={stripeKey}
-        //     image={"https://pol.is/landerImages/clusters.png"}
-        //     name={"pol.is"}
-        //     description={"Upgrade to the Pro plan"}
-        //     panelLabel={"Subscribe"}
-        //     amount={priceCents}
-        //   />
-        // </span>
-
+// <span>
+//   <span>{"$"+price+" per month"}</span>
+//   <StripeCheckout
+//     token={this.onToken}
+//     stripeKey={stripeKey}
+//     image={"https://pol.is/landerImages/clusters.png"}
+//     name={"pol.is"}
+//     description={"Upgrade to the Pro plan"}
+//     panelLabel={"Subscribe"}
+//     amount={priceCents}
+//   />
+// </span>

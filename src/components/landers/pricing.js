@@ -36,18 +36,6 @@ const styles = {
 
 const plans = [
   {
-    name: "Basic",
-    price: "Free",
-    planCode: 0,
-    description: "The core experience, on our site or embedded on yours. Free.",
-    features: [
-      "3 conversations per month",
-      "100 participants per conversation",
-      "Seed comments",
-      "Moderate comments",
-    ]
-  },
-  {
     name: "Professional (most popular)",
     price: "$250/mo",
     priceCents: 250*100,
@@ -121,20 +109,22 @@ class Plan extends React.Component {
     let actionText = "Contact Us";
     if (this.props.user && this.props.user.planCode === this.props.plan.planCode) {
       actionText = "(This is your current plan)";
-    } else if (this.props.plan.priceCents) {
-      actionText = (<span>
-        <span>{this.props.plan.price}</span>
-        <StripeCheckout
-          token={this.onToken}
-          stripeKey={stripeKey}
-          image={"https://pol.is/landerImages/clusters.png"}
-          name={"pol.is"}
-          description={"Upgrade to Individual plan"}
-          panelLabel={"Subscribe"}
-          amount={this.props.plan.price}
-        />
-      </span>);
     }
+
+    // else if (this.props.plan.priceCents) {
+    //   actionText = (<span>
+    //     <span>{this.props.plan.price}</span>
+    //     <StripeCheckout
+    //       token={this.onToken}
+    //       stripeKey={stripeKey}
+    //       image={"https://pol.is/landerImages/clusters.png"}
+    //       name={"pol.is"}
+    //       description={"Upgrade to Individual plan"}
+    //       panelLabel={"Subscribe"}
+    //       amount={this.props.plan.price}
+    //     />
+    //   </span>);
+    // }
 
 
     return (

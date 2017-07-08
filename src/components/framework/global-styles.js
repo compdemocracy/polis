@@ -15,6 +15,24 @@ s.container = {
   margin: 0,
 }
 
+s.dangerButton = {
+  borderRadius: 3,
+  padding: "10px 20px",
+  color: "white",
+  backgroundColor: "#F1360A",
+  border: "none",
+  cursor: "pointer",
+}
+
+s.primaryButton = {
+  borderRadius: 3,
+  padding: "10px 20px",
+  color: "white",
+  backgroundColor: "#03a9f4",
+  border: "none",
+  cursor: "pointer",
+}
+
 /*************************
         Sidebar
 *************************/

@@ -51,13 +51,13 @@ class Account extends React.Component {
           <p style={s.accountSectionHeader}>Social</p>
           <p>{this.props.user.hname}</p>
           <p>{this.props.user.email}</p>
-          <p>{this.props.user.hasFacebook ? "Facebook is connected." : "Connect Facebook"} </p>
-          <p>{this.props.user.hasTwitter ? "Twitter is connected." : "Connect Twitter"}</p>
+          <p>{this.props.user.hasFacebook ? "Facebook is connected" : "Connect Facebook"} </p>
+          <p>{this.props.user.hasTwitter ? "Twitter is connected" : "Connect Twitter"}</p>
         </div>
         <div style={s.accountSection}>
           <p style={s.accountSectionHeader}>Billing Overview</p>
           <p>Plan {" " + this.props.user.plan} <button> Upgrade </button></p>
-          <p>Card</p>
+          <StripeForm onToken={onToken}/>
           <p>Next payment</p>
         </div>
         <div style={s.accountSection}>
@@ -65,12 +65,11 @@ class Account extends React.Component {
           <p>List</p>
         </div>
         <div style={s.accountSection}>
-          <p style={s.accountSectionHeader}>Downgrade Your Plan</p>
-          <p>Downgrade anytime, but you’ll lose access to all pro features, as well as data and reports from conversations you’ve started while on a paid plan. Need to talk to someone? Contact us via Intercom (that’s the blue button in the lower right).</p>
-          <button>Downgrade</button>
+          <p style={s.accountSectionHeader}>Cancel Your Plan</p>
+          <p style={{maxWidth: 600}}>Cancel anytime, but you’ll lose access to all pro features, as well as data and reports from conversations you’ve started while on a paid plan. Need to talk to someone? Contact us via Intercom (that’s the blue button in the lower right).</p>
+          <button style={s.dangerButton}>Cancel</button>
         </div>
 
-        <StripeForm onToken={onToken}/>
 
       </div>
     )
