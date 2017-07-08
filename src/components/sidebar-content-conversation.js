@@ -78,19 +78,19 @@ class SidebarContentConversation extends React.Component {
             selected={this.props.routes[2] && this.props.routes[2].path === "stats"}
             icon="area-chart"
             enabled={canViewStats}
-            text="Stats"/>
+            text={"Stats" + (canViewStats ? "" : " 🔒")}/>
           <SidebarItem
             to={canEditReports ? "/m/"+this.props.conversation_id+"/reports" : Features.plansRoute}
             selected={this.props.routes[2] && this.props.routes[2].path === "reports"}
             icon="file-text-o"
             enabled={canEditReports}
-            text="Reports"/>
+            text={"Reports" + (canEditReports ? "" : " 🔒")}/>
           <SidebarItem
             to={canExportData ? "/m/"+this.props.conversation_id+"/export" : Features.plansRoute}
             selected={this.props.routes[2] && this.props.routes[2].path === "export"}
             icon="cloud-download"
             enabled={canExportData}
-            text="Data Export"/>
+            text={"Data Export" + (canExportData ? "" : " 🔒")}/>
           <a style={Object.assign({}, s.sidebarLink, {marginTop: 40})} target="blank" href="http://docs.pol.is">
             <span style={{marginRight: 10}}>Docs</span><Awesome name="external-link"/>
           </a>
