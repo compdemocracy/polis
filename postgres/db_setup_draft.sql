@@ -1069,6 +1069,15 @@ CREATE TABLE stripe_accounts (
     created BIGINT DEFAULT now_as_millis()
 );
 
+CREATE TABLE stripe_subscriptions (
+    uid INTEGER NOT NULL REFERENCES users(uid),
+    stripe_subscription_data JSONB NOT NULL,
+    created BIGINT DEFAULT now_as_millis(),
+    modified BIGINT DEFAULT now_as_millis(),
+    UNIQUE(uid)
+);
+
+
 -- http://stackoverflow.com/questions/3970795/how-do-you-create-a-random-string-in-postgresql
 CREATE OR REPLACE FUNCTION random_string(INTEGER)
 RETURNS TEXT AS

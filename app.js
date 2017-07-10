@@ -181,7 +181,9 @@ helpersInitialized.then(function(o) {
     handle_POST_slack_interactive_messages,
     handle_POST_slack_user_invites,
     handle_POST_stars,
+    handle_POST_stripe_cancel,
     handle_POST_stripe_save_token,
+    handle_POST_stripe_upgrade,
     handle_POST_trashes,
     handle_POST_tutorial,
     handle_POST_upvotes,
@@ -577,7 +579,16 @@ helpersInitialized.then(function(o) {
   app.post("/api/v3/stripe_save_token",
     handle_POST_stripe_save_token);
 
+  app.post("/api/v3/stripe_upgrade",
+    auth(assignToP),
+    need('stripeResponse', getStringLimitLength(9999), assignToP),
+    need('plan', getStringLimitLength(99), assignToP),
+    handle_POST_stripe_upgrade);
 
+
+  app.post("/api/v3/stripe_cancel",
+    auth(assignToP),
+    handle_POST_stripe_cancel);
 
   // app.post("/api/v3/stripe_start_plan",
   //   auth(assignToP),
