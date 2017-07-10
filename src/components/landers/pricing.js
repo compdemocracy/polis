@@ -12,8 +12,7 @@ import StaticContentContainer from "../framework/static-content-container";
 import strings from "../../strings/strings";
 import StripeCheckout from 'react-stripe-checkout';
 import _ from "lodash";
-
-
+import {s} from "../framework/global-styles";
 
 const stripeKey = /localhost|preprod.pol.is/.test(document.domain) ? "pk_test_x6ETDQy1aCvKnaIJ2dyYFVVj" : "pk_live_zSFep14gq0gqnVkKVp6vI9eM";
 
@@ -37,7 +36,7 @@ const styles = {
 const plans = [
   {
     name: "Professional (most popular)",
-    price: "$250/mo",
+    price: "$250/mo, per seat",
     priceCents: 250*100,
     planCode: 100,
     description: "More participants. More control. More information.",
@@ -105,14 +104,27 @@ class Plan extends React.Component {
     });
   }
 
-  render() {
-    let actionText = "Contact Us";
+  actionMarkup() {
+    let actionMarkup = (<p style={{marginTop: 20, fontStyle: "italic"}}>Contact Us</p>)
+
     if (this.props.user && this.props.user.planCode === this.props.plan.planCode) {
-      actionText = "(This is your current plan)";
+      actionMarkup = (<p>"Current Plan"</p>);
+    } else if (this.props.plan.planCode === 100){
+      actionMarkup = (
+        <Link
+          to={"/account"}
+          style={s.primaryButton}>
+          {this.props.plan.price}
+        </Link>
+      )
     }
+    return actionMarkup;
+  }
+
+  render() {
 
     // else if (this.props.plan.priceCents) {
-    //   actionText = (<span>
+    //   actionMarkup = (<span>
     //     <span>{this.props.plan.price}</span>
     //     <StripeCheckout
     //       token={this.onToken}
@@ -161,18 +173,7 @@ class Plan extends React.Component {
             )
           })
         }
-        <p style={{
-          maxWidth: 400,
-          textAlign: "center",
-          borderRadius: 3,
-          padding: "15px 0px 15px 0px",
-          margin: 0,
-          color: "white",
-            // borderTop: "1px solid rgb(130,130,130)",
-          backgroundColor: "#03a9f4",
-        }}>
-          {actionText}
-        </p>
+        {this.actionMarkup()}
       </div>
     )
   }

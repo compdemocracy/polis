@@ -31,6 +31,7 @@ s.primaryButton = {
   backgroundColor: "#03a9f4",
   border: "none",
   cursor: "pointer",
+  textDecoration: "none",
 }
 
 /*************************

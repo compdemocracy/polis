@@ -3,6 +3,7 @@
 import React from "react";
 import { connect } from "react-redux";
 import { polisPost } from '../util/net';
+import { getPlanName } from "../util/plan-features";
 import Radium from "radium";
 import _ from "lodash";
 import Spinner from "./framework/spinner";
@@ -38,7 +39,15 @@ function onToken(token) {
 @Radium
 class Account extends React.Component {
 
-
+  cancelMarkup() {
+    return (
+      <div style={s.accountSection}>
+        <p style={s.accountSectionHeader}>Cancel Your Plan</p>
+        <p style={{maxWidth: 600}}>Cancel anytime, but you’ll lose access to all pro features, as well as data and reports from conversations you’ve started while on a paid plan. Need to talk to someone? Contact us via Intercom (that’s the blue button in the lower right).</p>
+        <button style={s.dangerButton}>Cancel</button>
+      </div>
+    )
+  }
 
   buildAccountMarkup() {
     // probably a component / series of them
@@ -51,25 +60,19 @@ class Account extends React.Component {
           <p style={s.accountSectionHeader}>Social</p>
           <p>{this.props.user.hname}</p>
           <p>{this.props.user.email}</p>
-          <p>{this.props.user.hasFacebook ? "Facebook is connected" : "Connect Facebook"} </p>
-          <p>{this.props.user.hasTwitter ? "Twitter is connected" : "Connect Twitter"}</p>
+          <p>{this.props.user.hasFacebook ? "Facebook is connected" : ""} </p>
+          <p>{this.props.user.hasTwitter ? "Twitter is connected" : ""}</p>
         </div>
         <div style={s.accountSection}>
           <p style={s.accountSectionHeader}>Billing Overview</p>
-          <p>Plan {" " + this.props.user.plan} <button> Upgrade </button></p>
+          <p>
+            Plan: {getPlanName(this.props.user)}
+          </p>
           <StripeForm onToken={onToken}/>
-          <p>Next payment</p>
-        </div>
-        <div style={s.accountSection}>
-          <p style={s.accountSectionHeader}>Payment History</p>
-          <p>List</p>
-        </div>
-        <div style={s.accountSection}>
-          <p style={s.accountSectionHeader}>Cancel Your Plan</p>
-          <p style={{maxWidth: 600}}>Cancel anytime, but you’ll lose access to all pro features, as well as data and reports from conversations you’ve started while on a paid plan. Need to talk to someone? Contact us via Intercom (that’s the blue button in the lower right).</p>
-          <button style={s.dangerButton}>Cancel</button>
+
         </div>
 
+        { this.props.user.planCode > 0 ? this.cancelMarkup() : null }
 
       </div>
     )
@@ -88,3 +91,9 @@ class Account extends React.Component {
 }
 
 export default Account;
+
+// <p>Next payment</p>
+//   <div style={s.accountSection}>
+//     <p style={s.accountSectionHeader}>Payment History</p>
+//     <p>List</p>
+//   </div>

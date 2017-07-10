@@ -39,18 +39,6 @@ const stripeKey = /localhost|preprod.pol.is/.test(document.domain) ? "pk_test_x6
 const price = 250;
 const priceCents = price*100;
 
-
-class CardSection extends React.Component {
-  render() {
-    return (
-      <label>
-        Card details
-        <CardElement style={{base: {fontSize: '18px'}}} />
-      </label>
-    );
-  }
-};
-
 const createOptions = (fontSize: string) => {
   return {
     style: {
@@ -88,7 +76,7 @@ class _CardForm extends React.Component {
       <form onSubmit={this.handleSubmit} style={{border: "1px solid lightgrey", borderRadius: 3, padding: 10}}>
         <label>
           Card details
-          <div style={{margin: "15px 0px", maxWidth: 600}}>
+          <div style={{margin: "15px 0px", maxWidth: 500, borderBottom: "2px solid lightgrey"}}>
             <CardElement
               onChange={handleChange}
               onFocus={handleFocus}
@@ -98,7 +86,7 @@ class _CardForm extends React.Component {
             />
           </div>
         </label>
-        <button style={s.primaryButton}>Pay</button>
+        <button style={s.primaryButton}>Upgrade to Professional Plan</button>
       </form>
     );
   }

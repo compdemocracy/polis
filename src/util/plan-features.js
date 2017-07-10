@@ -1,11 +1,19 @@
 
-
-
 function hasPlanCode1(user) {
   return user && user.planCode >= 1;
 }
 
+export const getPlanName = (user) => {
+  let name;
 
+  if (user.planCode === 0) {
+    name = "Free"
+  } else if (user.planCode > 0) {
+    name = "Professional"
+  }
+
+  return name;
+}
 
 export default {
 
@@ -21,4 +29,3 @@ export default {
 
   plansRoute: "/pricing",
 };
-
