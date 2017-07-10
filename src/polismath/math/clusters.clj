@@ -182,7 +182,7 @@
     ; If nothing is left, make one great big cluster - so that things don't break in most-distal later
     ; XXX - Should see if there is a cleaner place/way to handle this...
     (if (empty? clsts)
-      [{:id (inc (apply max (map :id clusters)))
+      [{:id (inc (apply max -1 (map :id clusters)))
         :members (nm/rownames data)
         :center (weighted-mean data :weights weights)}]
       clsts)))
