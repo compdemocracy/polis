@@ -73,7 +73,7 @@
 
 ;; May want to speck out "bare" vs "fleshed out" conversations, as well as loaded vs raw, etc
 (s/def ::new-conversation
-  (s/keys :req-un [::unmodded-rating-mat]))
+  (s/keys :req-un [::unmodded-rating-mat ::last-vote-timestamp]))
 (s/def ::full-conversation
   (s/keys :req-un [::zid ::last-vote-timestamp ::group-votes ::unmodded-rating-mat ::rating-mat ::group-clusters ::subgroup-clusters ::repness ::subgroup-repness]))
 
@@ -85,6 +85,8 @@
 (defn new-conv []
   "Minimal structure upon which to perform conversation updates"
   {:unmodded-rating-mat (nm/named-matrix)
+   :last-vote-timestamp 0
+   :lastVoteTimestamp 0
    :rating-mat (nm/named-matrix)})
 
 
