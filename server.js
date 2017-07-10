@@ -6838,11 +6838,13 @@ Email verified! You can close this tab or hit the back button.
   var planCodes = {
     mike: 9999,
     trial: 0,
+    free: 0,
     individuals: 1,
     students: 2,
     pp: 3,
     sites: 100,
     org99: 99,
+    pro: 300,
     organizations: 1000,
   };
 
@@ -6944,8 +6946,9 @@ Email verified! You can close this tab or hit the back button.
 
       // TODO may need to wrangle existing plans..
 
-      return createStripeSubscription(customer.id, plan).then(function(subscription) {
-        // done with stripe part
+      return createStripeSubscription(customer.id, plan).then(function(data) {
+        return pgQueryP("insert into stripe_subscriptions (uid, stripe_subscription_data) values ($1, $2) "+
+          "on conflict  (uid) do update set stripe_subscription_data = ($2), modified = now_as_millis();", [user.uid, data]);
       });
     });
   }
@@ -6983,7 +6986,7 @@ Email verified! You can close this tab or hit the back button.
           isCurrentUser = false;
         }
       }
-      updatePlan(req, res, info.uid, info.plan, isCurrentUser);
+      return updatePlanOld(req, res, info.uid, info.plan, isCurrentUser);
     }).catch(function(err) {
       emailBadProblemTime("changePlanWithCoupon failed");
       fail(res, 500, "polis_err_changing_plan_with_coupon", err);
@@ -6994,15 +6997,33 @@ Email verified! You can close this tab or hit the back button.
     return pgQueryP("select * from coupons_for_free_upgrades where code = ($1);", [couponCode]);
   }
 
-
-  function updatePlan(req, res, uid, planCode, isCurrentUser) {
+  function updatePlan(req, res, uid, planCode) {
     winston.log("info", 'updatePlan', uid, planCode);
     setUsersPlanInIntercom(uid, planCode).catch(function(err) {
       emailBadProblemTime("User " + uid + " changed their plan, but we failed to update Intercom");
     });
 
     // update DB and finish
-    changePlan(uid, planCode).then(function() {
+    return changePlan(uid, planCode).then(function() {
+      // Set cookie
+      var setOnPolisDomain = !domainOverride;
+      var origin = req.headers.origin || "";
+      if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
+        setOnPolisDomain = false;
+      }
+      setPlanCookie(req, res, setOnPolisDomain, planCode);
+    });
+  }
+
+
+  function updatePlanOld(req, res, uid, planCode, isCurrentUser) {
+    winston.log("info", 'updatePlan', uid, planCode);
+    setUsersPlanInIntercom(uid, planCode).catch(function(err) {
+      emailBadProblemTime("User " + uid + " changed their plan, but we failed to update Intercom");
+    });
+
+    // update DB and finish
+    return changePlan(uid, planCode).then(function() {
       // Set cookie
       if (isCurrentUser) {
         var protocol = devMode ? "http" : "https";
@@ -7042,6 +7063,58 @@ Email verified! You can close this tab or hit the back button.
   }
 
 
+  function handle_POST_stripe_upgrade(req, res) {
+    var uid = req.p.uid;
+    var planName = req.p.plan;
+    var planCode = planCodes[planName];
+
+    getUserInfoForUid2(uid).then(function(user) {
+      var stripeResponse = JSON.parse(req.p.stripeResponse);
+      return updateStripePlan(user, stripeResponse.id, user.email, planName);
+    }).then(function() {
+      return updatePlan(req, res, uid, planCode);
+    }).then(function() {
+      res.json({});
+    }).catch(function(err) {
+      if (err) {
+        if (err.type === 'StripeCardError') {
+          return fail(res, 500, "polis_err_stripe_card_declined", err);
+        } else {
+          return fail(res, 500, "polis_err_stripe3", err);
+        }
+      } else {
+        return fail(res, 500, "polis_err_stripe2", err);
+      }
+    });
+  }
+
+  function handle_POST_stripe_cancel(req, res) {
+    const uid = req.p.uid;
+
+
+    getUserInfoForUid2(uid).then((user) => {
+      
+      emailBadProblemTime("User cancelled subscription: " + user.email);
+
+      return pgQueryP("select * from stripe_subscriptions where uid = ($1);", [uid]).then((rows) => {
+        if (!rows || !rows.length) {
+          return fail(res, 500, "polis_err_stripe_cancel_no_subscription_record", err);
+        }
+        const record = rows[0].stripe_subscription_data;
+
+        stripe.customers.cancelSubscription(record.customer, record.id, (err) => {
+          if (err) {
+            emailBadProblemTime("User cancel subscription failed: " + user.email);
+            return fail(res, 500, "polis_err_stripe_cancel_failed", err);
+          }
+          return updatePlan(req, res, uid, planCodes.free).then(function() {
+            res.json({});
+          })
+        });
+      });
+    });
+  }
+
   function handle_POST_charge(req, res) {
 
     var stripeToken = req.p.stripeToken;
@@ -7068,7 +7141,7 @@ Email verified! You can close this tab or hit the back button.
     }
 
     updateStripePromise.then(function() {
-      updatePlan(req, res, uid, planCode, true);
+      return updatePlanOld(req, res, uid, planCode, true);
     }).catch(function(err) {
       if (err) {
         if (err.type === 'StripeCardError') {
@@ -14298,7 +14371,9 @@ CREATE TABLE slack_user_invites (
     handle_POST_slack_interactive_messages,
     handle_POST_slack_user_invites,
     handle_POST_stars,
+    handle_POST_stripe_cancel,
     handle_POST_stripe_save_token,
+    handle_POST_stripe_upgrade,
     handle_POST_trashes,
     handle_POST_tutorial,
     handle_POST_upvotes,
