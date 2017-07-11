@@ -2,6 +2,8 @@
 
 import $ from 'jquery';
 
+import Alert from 'react-s-alert';
+
 // React Core
 import React from 'react';
 import ReactDOM from 'react-dom';
@@ -81,6 +83,9 @@ import ReportCommentsExcluded from "./components/conversation-admin/report-comme
 import ReportsList from "./components/conversation-admin/reports-list";
 
 
+const alertClear = () => {
+    Alert.closeAll();
+};
 
 const store = configureStore();
 
@@ -90,7 +95,7 @@ class Root extends React.Component {
       <div>
         <Provider store={store}>
           <Router history={browserHistory}>
-            <Route path="/" component={Console}>
+            <Route path="/" component={Console} onEnter={alertClear}>
               <IndexRoute component={Conversations}/>
               <Route path="other-conversations" component={Conversations}/>
               <Route path="integrate" component={Integrate}/>
