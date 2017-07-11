@@ -88,7 +88,6 @@ class Graph extends React.Component {
       hulls,
       groupCentroids,
       groupCornerAssignments,
-      commentsPoints,
       ptptoisProjected,
       selectedComment,
       tidCarouselComments
