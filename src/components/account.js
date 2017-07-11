@@ -1,5 +1,6 @@
 // Copyright (C) 2012-present, Polis Technology Inc. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import Alert from 'react-s-alert';
 import React from "react";
 import { connect } from "react-redux";
 import { polisPost } from '../util/net';
@@ -31,6 +32,30 @@ function onToken(stripeResponse) {
   }).then((data) => {
     window.location.reload();
   }, (err) => {
+    if (err) {
+      if (err.responseText === "polis_err_stripe_card_declined") {
+        Alert.error('The card was decline. Please check and try again.', {
+          position: 'top-right',
+          beep: false,
+          timeout: 500000,
+          offset: 80
+        });
+      } else {
+        Alert.error('There was an error with code: ' + err.responseText + ' Please contact us for help.', {
+          position: 'top-right',
+          beep: false,
+          timeout: 500000,
+          offset: 80
+        });
+      }
+    } else {
+      Alert.error('There was an error. Please contact us for help.', {
+        position: 'top-right',
+        beep: false,
+        timeout: 500000,
+        offset: 80
+      });
+    }
     console.error(err);
   });
 }
