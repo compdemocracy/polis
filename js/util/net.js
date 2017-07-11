@@ -37,7 +37,7 @@ function polisAjax(api, data, type, headers) {
     data.x_profile_image_url = window.preload.x_profile_image_url;
   }
 
-  var h = Object.assign({
+  var h = _.extend({
     //"Cache-Control": "no-cache"  // no-cache
     "Cache-Control": "max-age=0"
   }, headers);
