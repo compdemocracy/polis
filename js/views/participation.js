@@ -247,6 +247,10 @@ module.exports = ConversationView.extend({
   },
 
   updateHeader: function() {
+    if (!window.renderHeader) {
+      console.error("window.renderHeader missing");
+      return;
+    }
     window.renderHeader(
       document.getElementById("header_root"),
       {
@@ -284,6 +288,11 @@ module.exports = ConversationView.extend({
           Array.prototype.push.apply(tidsToShow, mathMain.repness[gid].map(function(c) { return c.tid; }));
         } else {
           console.error("unknown curationType:", that.curationType);
+        }
+
+        if (!window.renderVis) {
+          console.error("window.renderVis missing");
+          return;
         }
         window.renderVis(
           document.getElementById("vis2_root"),
