@@ -15,6 +15,11 @@ export const getPlanName = (user) => {
   return name;
 }
 
+export const planCodes = {
+  free: 0,
+  pro: 300,
+};
+
 export default {
 
   canEditReports: hasPlanCode1,

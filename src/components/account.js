@@ -23,17 +23,27 @@ const styles = {
 }
 
 
-function onToken(token) {
-  console.log('got token', token);
-  polisPost('/api/v3/stripe_save_token', {
-    token: JSON.stringify(token),
+function onToken(stripeResponse) {
+  console.log('got token', stripeResponse);
+  polisPost('/api/v3/stripe_upgrade', {
+    stripeResponse: JSON.stringify(stripeResponse),
+    plan: "pro",
   }).then((data) => {
-    console.log('We are in business, ' + data.email);
+    window.location.reload();
   }, (err) => {
     console.error(err);
   });
 }
 
+function onCancelPlan() {
+  polisPost('/api/v3/stripe_cancel', {
+  }).then((data) => {
+    window.location.reload();
+  }, (err) => {
+    alert("error cancelling subscription, please contact us for help");
+    console.error(err);
+  });
+}
 
 @connect(state => state.user)
 @Radium
@@ -42,9 +52,9 @@ class Account extends React.Component {
   cancelMarkup() {
     return (
       <div style={s.accountSection}>
-        <p style={s.accountSectionHeader}>Cancel Your Plan</p>
+        <p style={s.accountSectionHeader}>Cancellation</p>
         <p style={{maxWidth: 600}}>Cancel anytime, but you’ll lose access to all pro features, as well as data and reports from conversations you’ve started while on a paid plan. Need to talk to someone? Contact us via Intercom (that’s the blue button in the lower right).</p>
-        <button style={s.dangerButton}>Cancel</button>
+        <button style={s.secondaryButton} onClick={onCancelPlan}>Cancel Subscription</button>
       </div>
     )
   }
@@ -68,7 +78,8 @@ class Account extends React.Component {
           <p>
             Plan: {getPlanName(this.props.user)}
           </p>
-          <StripeForm onToken={onToken}/>
+          { this.props.user.planCode === 0 ? <StripeForm onToken={onToken}/> : null }
+
 
         </div>
 

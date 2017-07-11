@@ -34,6 +34,15 @@ s.primaryButton = {
   textDecoration: "none",
 }
 
+s.secondaryButton = {
+  borderRadius: 3,
+  padding: "10px 20px",
+  color: "white",
+  backgroundColor: "#444444",
+  border: "none",
+  cursor: "pointer",
+  textDecoration: "none",
+}
 /*************************
         Sidebar
 *************************/
