@@ -41,9 +41,9 @@ const plans = [
     planCode: 100,
     description: "More participants. More control. More information.",
     features: [
-      "Everything in Basic",
+      // "Everything in Basic",
       "Unlimited conversations",
-      "Unlimited participants",
+      // "3,000 unique participants per month",
       "Seed tweets as pol.is comments",
       "Participation statistics",
       // "Extreme / moderate / group bridger participants in report ",
@@ -111,11 +111,13 @@ class Plan extends React.Component {
       actionMarkup = (<p>"Current Plan"</p>);
     } else if (this.props.plan.planCode === 100){
       actionMarkup = (
+        <div style={{marginTop: 30}}>
         <Link
           to={"/account"}
           style={s.primaryButton}>
           {this.props.plan.price}
         </Link>
+        </div>
       )
     }
     return actionMarkup;
@@ -158,6 +160,7 @@ class Plan extends React.Component {
         }}>
           {this.props.plan.description}
         </p>
+        <div>
         {
           _.map(this.props.plan.features, (feature, i) => {
             return (
@@ -173,6 +176,7 @@ class Plan extends React.Component {
             )
           })
         }
+        </div>
         {this.actionMarkup()}
       </div>
     )

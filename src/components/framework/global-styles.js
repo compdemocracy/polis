@@ -3,12 +3,15 @@
 export const headerHeight = 30;
 const regular = 300;
 const bold = 500;
+const brand = "#03a9f4";
 
 export const s = {}
 
 /*************************
         General
 *************************/
+
+s.brandColor = brand;
 
 s.container = {
   minHeight: "100%",
@@ -28,7 +31,7 @@ s.primaryButton = {
   borderRadius: 3,
   padding: "10px 20px",
   color: "white",
-  backgroundColor: "#03a9f4",
+  backgroundColor: brand,
   border: "none",
   cursor: "pointer",
   textDecoration: "none",
