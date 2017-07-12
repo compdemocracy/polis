@@ -1,6 +1,7 @@
 // Copyright (C) 2012-present, Polis Technology Inc. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import Features from "../../util/plan-features";
+import { lockedIcon} from "../../util/plan-features";
 import React from "react";
 import { connect } from "react-redux";
 import Radium from "radium";
@@ -127,6 +128,12 @@ class ConversationConfig extends React.Component {
       return <NoPermission/>
     }
 
+    const canToggleVis = Features.canToggleVisVisibility(this.props.user);
+    const canToggleCommentForm = Features.canToggleCommentForm(this.props.user);
+    const canTogglePolisBranding = Features.canTogglePolisBranding(this.props.user);
+    const canToggleStrictMod = Features.canToggleStrictMod(this.props.user);
+    const canCustomizeColors = Features.canCustomizeColors(this.props.user);
+
     return (
       <div style={styles.container}>
         <div style={styles.configCard}>
@@ -168,8 +175,8 @@ class ConversationConfig extends React.Component {
           <p style={styles.sectionHeader}> Customize the User Interface </p>
           <div style={{marginTop: 20}}> </div>
           <Checkbox
-            label="Visualization"
-            disabled={!Features.canToggleVisVisibility(this.props.user)}
+            label={"Visualization" + (canToggleVis ? "" : lockedIcon)}
+            disabled={!canToggleVis}
             ref={"vis_type"}
             checked={ this.props.zid_metadata.vis_type === 1 ? true : false }
             onCheck={ this.handleIntegerBoolValueChange("vis_type").bind(this) }
@@ -178,16 +185,16 @@ class ConversationConfig extends React.Component {
             color={settings.polisBlue}/>
             <p style={{fontSize: 10, fontStyle: "italic"}}> participants can see the visualization </p>
           <Checkbox
-            label="Comment form"
+            label={"Comment form" + (canToggleCommentForm ? "" : lockedIcon)}
             ref={"write_type"}
-            disabled={!Features.canToggleCommentForm(this.props.user)}
+            disabled={!canToggleCommentForm}
             checked={this.props.zid_metadata.write_type === 1 ? true : false}
             onCheck={ this.handleIntegerBoolValueChange("write_type").bind(this) }
             labelPosition={"left"}
             labelWrapperColor={settings.darkerGray}
             color={settings.polisBlue}/>
             <p style={{fontSize: 10, fontStyle: "italic"}}> Users can submit comments </p>
-          <Checkbox
+          {false ? (<span><Checkbox
             label="Voting pane"
             ref={"upvotes"}
             disabled
@@ -196,7 +203,7 @@ class ConversationConfig extends React.Component {
             labelPosition={"left"}
             labelWrapperColor={settings.darkerGray}
             color={settings.polisBlue}/>
-            <p style={{fontSize: 10, fontStyle: "italic"}}> Users can vote on comments </p>
+            <p style={{fontSize: 10, fontStyle: "italic"}}> Users can vote on comments </p></span>) : ""}
           <Checkbox
             label="Help text"
             ref={"help_type"}
@@ -216,9 +223,9 @@ class ConversationConfig extends React.Component {
             color={settings.polisBlue}/>
             <p style={{fontSize: 10, fontStyle: "italic"}}> </p>
           <Checkbox
-            label="Show pol.is branding"
+            label={"Show pol.is branding" + (canTogglePolisBranding ? "" : lockedIcon)}
             ref={"branding_type"}
-            disabled={!Features.canTogglePolisBranding(this.props.user)}
+            disabled={!canTogglePolisBranding}
             checked={this.props.zid_metadata.branding_type === 1 ? true : false}
             onCheck={ this.handleIntegerBoolValueChange("branding_type").bind(this) }
             labelPosition={"left"}
@@ -257,37 +264,37 @@ class ConversationConfig extends React.Component {
           <div>
             <InputField
               ref={"style_btn"}
-              disabled={!Features.canCustomizeColors(this.props.user)}
+              disabled={!canCustomizeColors}
               style={{width: 360}}
               onBlur={this.handleStringValueChange("style_btn").bind(this)}
               hintText="ie., #e63082"
               onChange={this.handleConfigInputTyping("style_btn")}
               value={this.props.zid_metadata.style_btn}
-              floatingLabelText="Customize submit button color"
+              floatingLabelText={"Customize submit button color" + (canCustomizeColors ? "" : lockedIcon)}
               multiLine={true} />
           </div>
           <div>
             <InputField
               ref={"help_bgcolor"}
-              disabled={!Features.canCustomizeColors(this.props.user)}
+              disabled={!canCustomizeColors}
               style={{width: 360}}
               onBlur={this.handleStringValueChange("help_bgcolor").bind(this)}
               onChange={this.handleConfigInputTyping("help_bgcolor")}
               value={this.props.zid_metadata.help_bgcolor}
               hintText="ie., #e63082"
-              floatingLabelText="Customize help text background"
+              floatingLabelText={"Customize help text background" + (canCustomizeColors ? "" : lockedIcon)}
               multiLine={true} />
           </div>
           <div>
             <InputField
               ref={"help_color"}
-              disabled={!Features.canCustomizeColors(this.props.user)}
+              disabled={!canCustomizeColors}
               style={{width: 360}}
               onBlur={this.handleStringValueChange("help_color").bind(this)}
               onChange={this.handleConfigInputTyping("help_color")}
               value={this.props.zid_metadata.help_color}
               hintText="ie., #e63082"
-              floatingLabelText="Customize help text color"
+              floatingLabelText={"Customize help text color" + (canCustomizeColors ? "" : lockedIcon)}
               multiLine={true} />
           </div>
         </div>
@@ -295,9 +302,9 @@ class ConversationConfig extends React.Component {
           <p style={styles.sectionHeader}> Schemes </p>
           <div style={{marginTop: 20}}> </div>
           <Checkbox
-            label="Strict Moderation"
+            label={"Strict Moderation" + (canToggleStrictMod ? "" : lockedIcon)}
             ref={"strict_moderation"}
-            disabled={!Features.canToggleStrictMod(this.props.user)}
+            disabled={!canToggleStrictMod}
             checked={ this.props.zid_metadata.strict_moderation }
             onCheck={ this.handleBoolValueChange("strict_moderation").bind(this) }
             labelPosition={"left"}
@@ -331,7 +338,7 @@ class ConversationConfig extends React.Component {
             labelWrapperColor={settings.darkerGray}
             color={settings.polisBlue}/>
             <p style={{fontSize: 10, fontStyle: "italic"}}> Comments, votes, and group data can be exported by any user </p>
-          <Checkbox
+          {false ? (<span><Checkbox
             label="Preserve Anonymity"
             ref={"is_anon"}
             disabled
@@ -339,7 +346,7 @@ class ConversationConfig extends React.Component {
             onCheck={ this.handleBoolValueChange("is_anon").bind(this) }
             labelPosition={"left"}
             labelWrapperColor={settings.darkerGray}/>
-            <p style={{fontSize: 10, fontStyle: "italic"}}> Disables visualization, does not transmit any participant statistics to you, requires social authorization for both writing and voting. </p>
+            <p style={{fontSize: 10, fontStyle: "italic"}}> Disables visualization, does not transmit any participant statistics to you, requires social authorization for both writing and voting. </p></span>) : ""}
         </div>
       </div>
     );

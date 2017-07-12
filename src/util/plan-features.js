@@ -20,6 +20,8 @@ export const planCodes = {
   pro: 300,
 };
 
+export const lockedIcon = " 🔒";
+
 export default {
 
   canEditReports: hasPlanCode1,
