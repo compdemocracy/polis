@@ -175,7 +175,7 @@ class ConversationConfig extends React.Component {
           <p style={styles.sectionHeader}> Customize the User Interface </p>
           <div style={{marginTop: 20}}> </div>
           <Checkbox
-            label={"Visualization" + (canToggleVis ? "" : lockedIcon)}
+            label= {canToggleVis ? "Visualization" : <a href="/">{"Visualization" + lockedIcon}</a>}
             disabled={!canToggleVis}
             ref={"vis_type"}
             checked={ this.props.zid_metadata.vis_type === 1 ? true : false }
