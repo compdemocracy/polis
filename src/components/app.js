@@ -48,6 +48,11 @@ class App extends React.Component {
     return net.polisGet("/api/v3/math/pca2", {
       lastVoteTimestamp: 0,
       conversation_id: conversation_id,
+    }).then((data) => {
+      if (!data) {
+        return {};
+      }
+      return data;
     });
   }
 
@@ -259,6 +264,7 @@ class App extends React.Component {
         repfulDisageeTidsByGroup: repfulDisageeTidsByGroup,
         formatTid: formatTid,
         report: report,
+        nothingToShow: !comments.length || !groupDemographics.length,
       });
 
     }, (err) => {
@@ -287,6 +293,11 @@ class App extends React.Component {
         <div> Error Loading </div>
         <div> {this.state.errorText} </div>
         {this.state.errorLink ? (<a href={this.state.errorLink}>{this.state.errorLinkText}</a>) : ""}
+      </div>);
+    }
+    if (this.state.nothingToShow) {
+      return (<div>
+        <div> Nothing to show yet </div>
       </div>);
     }
     if (this.state.loading) {
