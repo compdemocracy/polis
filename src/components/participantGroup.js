@@ -25,6 +25,11 @@ const ParticipantGroup = ({
   report,
 }) => {
 
+  let groupLabel = groupName;
+  if (typeof groupLabel === "undefined") {
+    groupLabel = "Group " + globals.groupLabels[gid];
+  }
+
   const drawGroupComments = () => {
     const allCommentsKeyed = _.keyBy(allComments, "tid");
 
@@ -66,7 +71,7 @@ const ParticipantGroup = ({
           fontSize: globals.secondaryHeading
         }}>
         <p style={globals.paragraph}>
-          {groupName}
+          {groupLabel}
         </p>
         <svg width="1.4em"height="1.4em" style={{border: "none", marginRight: 10, position: "relative", top: 5}}>
           <circle
