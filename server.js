@@ -11623,6 +11623,9 @@ Thanks for using pol.is!
       getPca(zid, math_tick),
       getBidIndexToPidMapping(zid, math_tick),
     ]).then(function(o) {
+      if (!o[0] || !o[0].asPOJO) {
+        return [];
+      }
       o[0] = o[0].asPOJO;
       let clusters = o[0]['group-clusters'];
       let indexToBid = o[0]['base-clusters'].id; // index to bid
