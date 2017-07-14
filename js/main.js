@@ -52,10 +52,12 @@ var IconFaAngleRight = require("./tmpl/icon_fa_angle_right");
 var IconFaAsterisk = require("./tmpl/icon_fa_asterisk");
 var IconFaBan = require("./tmpl/icon_fa_ban");
 var IconFaCircleCheckPartial = require("./tmpl/icon_fa_check_circle");
-var iconFaFacebookSquare = require("./tmpl/icon_fa_facebook_square");
+var iconFaFacebookSquare16 = require("./tmpl/icon_fa_facebook_square_16");
+var iconFaFacebookSquare25 = require("./tmpl/icon_fa_facebook_square_25");
 var IconFaLightBulb = require("./tmpl/icon_fa_lightbulb_o");
 var IconFaTimes = require("./tmpl/icon_fa_times");
-var IconFaTwitter = require("./tmpl/icon_fa_twitter");
+var IconFaTwitter16 = require("./tmpl/icon_fa_twitter_16");
+var IconFaTwitter25 = require("./tmpl/icon_fa_twitter_25");
 
 // require logo partials
 var Logo = require("./tmpl/logo");
@@ -353,8 +355,10 @@ Handlebars.registerPartial("iconFaBan", IconFaBan);
 Handlebars.registerPartial("iconFaLightBulb", IconFaLightBulb);
 Handlebars.registerPartial("iconFaAsterisk", IconFaAsterisk);
 Handlebars.registerPartial("iconFaTimes", IconFaTimes);
-Handlebars.registerPartial("iconFaFacebookSquare", iconFaFacebookSquare);
-Handlebars.registerPartial("iconFaTwitter", IconFaTwitter);
+Handlebars.registerPartial("iconFaFacebookSquare16", iconFaFacebookSquare16);
+Handlebars.registerPartial("iconFaFacebookSquare25", iconFaFacebookSquare25);
+Handlebars.registerPartial("iconFaTwitter16", IconFaTwitter16);
+Handlebars.registerPartial("iconFaTwitter25", IconFaTwitter25);
 Handlebars.registerPartial("iconFaAngleLeft", IconFaAngleLeft);
 Handlebars.registerPartial("iconFaAngleRight", IconFaAngleRight);
 Handlebars.registerPartial("logoInvert", LogoInvert);
