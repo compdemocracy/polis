@@ -63,7 +63,7 @@ class SidebarContentHome extends React.Component {
             text="Other Conversations"/>
           <SidebarItem
             to="/account"
-            selected={false}
+            selected={this.props.routes[1] && this.props.routes[1].path === "account"}
             icon="credit-card"
             text="Account"/>
 
