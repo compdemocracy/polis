@@ -114,6 +114,7 @@ class Account extends React.Component {
                 marginLeft: 20,
                 fontSize: 12,
                 textTransform: "uppercase",
+                fontWeight: 500,
                 textDecoration: "none",
                 color: s.brandColor,
               }} to="pricing">
