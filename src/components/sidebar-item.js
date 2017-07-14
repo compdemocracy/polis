@@ -37,7 +37,7 @@ class SidebarItem extends React.Component {
       fontWeight: this.props.selected ? 500 : 300,
     };
     let disabled = Object.assign({}, color, {
-      color: "#959595",
+      color: "rgba(100,100,100,.5)",
     });
     return {
       color: color,
