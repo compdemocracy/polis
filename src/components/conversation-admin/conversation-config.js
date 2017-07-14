@@ -175,7 +175,7 @@ class ConversationConfig extends React.Component {
           <p style={styles.sectionHeader}> Customize the User Interface </p>
           <div style={{marginTop: 20}}> </div>
           <Checkbox
-            label= {canToggleVis ? "Visualization" : <a href="/">{"Visualization" + lockedIcon}</a>}
+            label= {"Visualization" + (canToggleVis ? "" : lockedIcon)}
             disabled={!canToggleVis}
             ref={"vis_type"}
             checked={ this.props.zid_metadata.vis_type === 1 ? true : false }
@@ -203,7 +203,7 @@ class ConversationConfig extends React.Component {
             labelPosition={"left"}
             labelWrapperColor={settings.darkerGray}
             color={settings.polisBlue}/>
-            <p style={{fontSize: 10, fontStyle: "italic"}}> Users can vote on comments </p></span>) : ""}
+            <p style={{fontSize: 10, fontStyle: "italic"}}> Users can vote on comments </p></span>) : null}
           <Checkbox
             label="Help text"
             ref={"help_type"}
@@ -223,7 +223,7 @@ class ConversationConfig extends React.Component {
             color={settings.polisBlue}/>
             <p style={{fontSize: 10, fontStyle: "italic"}}> </p>
           <Checkbox
-            label={"Show pol.is branding" + (canTogglePolisBranding ? "" : lockedIcon)}
+            label={"Hide pol.is logos" + (canTogglePolisBranding ? "" : lockedIcon)}
             ref={"branding_type"}
             disabled={!canTogglePolisBranding}
             checked={this.props.zid_metadata.branding_type === 1 ? true : false}
@@ -250,7 +250,7 @@ class ConversationConfig extends React.Component {
             labelWrapperColor={settings.darkerGray}
             color={settings.polisBlue}/>
             <p style={{fontSize: 10, fontStyle: "italic"}}> </p>
-          <Checkbox
+          {false ? (<span><Checkbox
             label="Gray background"
             ref={"bgcolor"}
             checked={this.props.zid_metadata.bgcolor === null ? true : false}
@@ -260,7 +260,8 @@ class ConversationConfig extends React.Component {
             color={settings.polisBlue}/>
             <p style={{fontSize: 10, fontStyle: "italic"}}>
               {"Unchecked: white background"}
-            </p>
+            </p></span>) : null
+          }
           <div>
             <InputField
               ref={"style_btn"}
