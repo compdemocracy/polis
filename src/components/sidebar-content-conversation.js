@@ -36,6 +36,7 @@ class SidebarContentConversation extends React.Component {
           <SidebarItem
             to="/"
             selected={false}
+            showIcon={true}
             icon="chevron-left"
             enabled={true}
             text="All Conversations"/>

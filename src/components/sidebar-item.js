@@ -51,6 +51,7 @@ class SidebarItem extends React.Component {
       <Link
         to={this.props.to}
         style={Object.assign({}, s.sidebarLink, this.props.enabled ? styles.color : styles.disabled)}>
+        <span style={{position: "relative", left: -5}}> {this.props.showIcon ? <Awesome name={this.props.icon} /> : null} </span>
         {this.props.text}
       </Link>
     );
