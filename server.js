@@ -7295,6 +7295,16 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
+  function getNumberOfCommentsRemaining(zid, pid) {
+    return pgQueryP("with " +
+      "v as (select * from votes_latest_unique where zid = ($1) and pid = ($2)), " +
+      "c as (select * from get_visible_comments($1)), " +
+      "remaining as (select count(*) as remaining from c left join v on c.tid = v.tid where v.vote is null), " +
+      "total as (select count(*) as total from c) " +
+      "select remaining.remaining, total.total from remaining, total;", [zid, pid]);
+  }
+
+
   function getComments(o) {
     let commentListPromise = o.moderation ? _getCommentsForModerationList(o) : _getCommentsList(o);
 
@@ -8351,7 +8361,15 @@ Email verified! You can close this tab or hit the back button.
       if (!comments || !comments.length) {
         return null;
       } else {
-        return comments[0];
+        let c = comments[0];
+        return getNumberOfCommentsRemaining(zid, pid).then((rows) => {
+          if (!rows || !rows.length) {
+            throw new Error("polis_err_getNumberOfCommentsRemaining_" + zid + "_" + pid);
+          }
+          c.remaining = Number(rows[0].remaining);
+          c.total = Number(rows[0].total);
+          return c;
+        });
       }
     });
   }
