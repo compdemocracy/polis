@@ -631,6 +631,12 @@ CREATE TRIGGER tid_auto_unlock
     FOR EACH ROW
     EXECUTE PROCEDURE tid_auto_unlock();
 
+
+CREATE FUNCTION get_visible_comments(the_zid INTEGER) RETURNS TABLE (tid INTEGER, mod INTEGER, strict_moderation BOOLEAN) AS $$
+    select comments.tid, comments.mod, conversations.strict_moderation from comments left join conversations on comments.zid = conversations.zid where active = true and mod >= (CASE WHEN strict_moderation=TRUE then 1 else 0 END) and comments.zid = the_zid;
+$$ LANGUAGE SQL;
+
+
 -- NOTE: not currently used, but is a nice example of using RETURNS TABLE, as opposed to RETURNS SET OF
 -- taking moderation settings into account, return the timestamp for the latest comment
 CREATE FUNCTION get_times_for_most_recent_visible_comments() RETURNS TABLE (zid INTEGER, modified BIGINT) AS $$
