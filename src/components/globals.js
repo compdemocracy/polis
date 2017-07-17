@@ -9,6 +9,7 @@ export const barChartWidth = 250;
 export const primaryHeading = {
   fontSize: 18,
   fontWeight: 700,
+  textTransform: "uppercase"
 };
 export const secondaryHeading = 18;
 

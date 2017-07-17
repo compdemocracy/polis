@@ -51,7 +51,8 @@ class Comment extends React.Component {
             }}>
             {this.props.formatTid(this.props.comment.tid)}
             </span>
-          <span style={[globals.paragraph, {fontStyle: "italic"}]}>{ this.props.comment.txt  + (this.props.comment.is_meta ? ' [METADATA]' : '')}</span>
+            <span style={{fontWeight: 700, fontStyle: "auto"}}>{this.props.comment.is_meta ? "Metadata: " : ''}</span>
+          <span style={[globals.paragraph, {fontStyle: "italic"}]}>{ this.props.comment.txt }</span>
         </Flex>
         <svg width={globals.barChartWidth} height={70}>
           <line

@@ -11,6 +11,7 @@ import _ from "lodash";
 
 import Matrix from "./Matrix";
 import Heading from "./Heading";
+import Footer from "./Footer";
 import Overview from "./Overview";
 import Consensus from "./Consensus";
 import Uncertainty from "./Uncertainty";
@@ -308,7 +309,11 @@ class App extends React.Component {
     return (
       <div style={{margin: "0px 10px"}}>
         <Heading conversation={this.state.conversation}/>
-        <div style={{width: 960, margin: "auto"}}> 
+        <div style={{
+            width: 960,
+            marginLeft: 20,
+            marginTop: 40,
+          }}>
           <Overview
             ptptCount={this.state.ptptCount}
             demographics={this.state.demographics}
@@ -339,7 +344,7 @@ class App extends React.Component {
             repfulAgreeTidsByGroup={this.state.repfulAgreeTidsByGroup}
             repfulDisageeTidsByGroup={this.state.repfulDisageeTidsByGroup}
             report={this.state.report}/>
-          <Graph
+          {/* <Graph
             comments={this.state.comments}
             groupNames={this.state.groupNames}
             badTids={this.state.badTids}
@@ -347,7 +352,7 @@ class App extends React.Component {
             repfulAgreeTidsByGroup={this.state.repfulAgreeTidsByGroup}
             math={this.state.math}
             renderHeading={true}
-            report={this.state.report}/>
+            report={this.state.report}/>*/}
           <Uncertainty
             comments={this.state.comments}
             uncertainty={this.state.uncertainty}
@@ -359,6 +364,7 @@ class App extends React.Component {
             ptptCount={this.state.ptptCount}
             formatTid={this.state.formatTid}
             comments={this.state.comments}/>
+          <Footer/>
         </div>
       </div>
     );

@@ -9,7 +9,7 @@ const Overview = ({conversation, demographics, ptptCount}) => {
       <p style={globals.primaryHeading}>Overview</p>
 
       <p style={globals.paragraph}>
-        {conversation && conversation.ownername ? "This conversation was run by "+conversation.ownername+". " : null}
+        {conversation && conversation.ownername ? "This pol.is conversation was run by "+conversation.ownername+". " : null}
         {conversation && conversation.topic ? "The topic was '"+conversation.topic+"'. " : null}
       </p>
       <p style={globals.paragraph}> {conversation && conversation.participant_count ? "A total of "+ptptCount+" people participated. " : null} </p>
