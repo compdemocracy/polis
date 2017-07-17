@@ -1,4 +1,4 @@
-export const sans = "Montserrat, ";
+export const sans = "Source Sans Pro, sans";
 export const serif = "Source Serif Pro, Georgia";
 export const paragraphWidth = 475;
 export const paragraphLineHeight = "24px";
@@ -12,8 +12,9 @@ export const primaryHeading = {
 };
 export const secondaryHeading = 18;
 
-export const groupLetter = {
-
+export const groupHeader = {
+  fontSize: 24,
+  fontWeight: 700,
 }
 
 export const tidGrey = "rgb(200,200,200)";

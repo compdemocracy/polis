@@ -60,7 +60,7 @@ class Graph extends React.Component {
         <p style={Object.assign({}, globals.paragraph, {position: "absolute", left: 160})}>
           {this.state.selectedComment ? "#" + this.state.selectedComment.tid + ". " + this.state.selectedComment.txt : null}
         </p>
-          <svg width="100%" height={globals.side}>
+          <svg width="100%" height={this.props.height ? this.props.height : globals.side}>
             {/* Comment https://bl.ocks.org/mbostock/7555321 */}
             <g transform={`translate(${globals.side / 2}, ${15})`}>
               <text

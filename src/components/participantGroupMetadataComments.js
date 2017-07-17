@@ -1,6 +1,53 @@
 import React from "react";
-import Comment from "./participantGroupMetadataComment";
 import Flex from "./flex";
+
+const ParticipantGroupMetadataComment = ({comment, ptptCount, groupVotesForThisGroup, index}) => {
+
+    const percentAgreed = Math.floor(groupVotesForThisGroup.votes[comment.tid].A / groupVotesForThisGroup.votes[comment.tid].S * 100);
+
+    return (
+      <Flex
+        direction="row"
+        justifyContent="flex-start"
+        alignItems="center"
+        styleOverrides={{
+          padding: "6px 10px",
+          borderBottom: "1px solid rgb(200,200,200)",
+        }}>
+        <span style={{
+            fontSize: 12,
+            width: 300,
+            marginRight: 20,
+            display: "inline-block",
+            textAlign: "auto ",
+          }}>
+          { comment.txt }
+        </span>
+        <span style={{
+            fontSize: 12,
+            width: 70,
+            marginRight: 20,
+            display: "inline-block",
+            textAlign: "auto ",
+          }}> {groupVotesForThisGroup.votes[comment.tid].S} </span>
+        <span style={{
+            fontSize: 12,
+            width: 70,
+            marginRight: 20,
+            display: "inline-block",
+            textAlign: "auto ",
+          }}> {groupVotesForThisGroup.votes[comment.tid].A} </span>
+        <span style={{
+            fontSize: 12,
+            width: 70,
+            marginRight: 20,
+            display: "inline-block",
+            textAlign: "auto ",
+            fontWeight: percentAgreed >= 50 ? 700 : 300,
+          }}> {percentAgreed} </span>
+      </Flex>
+    );
+}
 
 const ParticipantGroupMetadataComments = ({allComments, conversation, formatTid, ptptCount, demographicsForGroup}) => {
 
@@ -39,15 +86,50 @@ const ParticipantGroupMetadataComments = ({allComments, conversation, formatTid,
   };
 
   return (
-    <Flex
-      wrap="wrap"
-      justifyContent="flex-start"
-      styleOverrides={{
-        maxWidth: 850
-      }}>
+    <div>
+      <div style={{marginBottom: 1, borderBottom: "2px solid black"}}>
+        <span style={{
+          width: 300,
+          marginRight: 30, /* the 10 in padding from the cells */
+          display: "inline-block",
+          fontWeight: 700,
+          fontSize: 14,
+          textTransform: "uppercase"
+        }}>metadata comment</span>
+        <span style={{
+          width: 70,
+          marginRight: 20,
+          display: "inline-block",
+          fontWeight: 700,
+          fontSize: 14,
+          textTransform: "uppercase"
+        }}>
+          # VOTED
+        </span>
+        <span style={{
+          width: 70,
+          marginRight: 20,
+          display: "inline-block",
+          fontWeight: 700,
+          fontSize: 14,
+          textTransform: "uppercase"
+        }}>
+          # AGREED
+        </span>
+        <span style={{
+          width: 70,
+          marginRight: 20,
+          display: "inline-block",
+          fontWeight: 700,
+          fontSize: 14,
+          textTransform: "uppercase"
+        }}>
+          % AGREED
+        </span>
+      </div>
        {
          _.keys(allTids).map((tid, i) => {
-           return <Comment
+           return <ParticipantGroupMetadataComment
              conversation={conversation}
              key={tid}
              index={i}
@@ -57,7 +139,7 @@ const ParticipantGroupMetadataComments = ({allComments, conversation, formatTid,
              ptptCount={ptptCount}/>;
         })
       }
-    </Flex>
+    </div>
   )
 };
 

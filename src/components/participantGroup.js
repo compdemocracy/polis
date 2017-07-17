@@ -70,9 +70,21 @@ const ParticipantGroup = ({
           marginBottom: 20,
           fontSize: globals.secondaryHeading
         }}>
-        <p style={globals.groupLetter}>
-          {groupLabel}: {groupVotesForThisGroup["n-members"]} participants
-        </p>
+        <div style={{display: "flex", justifyContent: "space-between"}}>
+          <p style={globals.groupHeader}>
+            {groupLabel}: {groupVotesForThisGroup["n-members"]} participants
+          </p>
+          {/* <Graph
+            comments={allComments}
+            groupNames={groupNames}
+            badTids={badTids}
+            formatTid={formatTid}
+            repfulAgreeTidsByGroup={repfulAgreeTidsByGroup}
+            repfulDisageeTidsByGroup={repfulDisageeTidsByGroup}
+            showOnlyGroup={gid}
+            math={math}
+            report={report}/> */}
+        </div>
         <MetadataComments
           allComments={allComments}
           conversation={conversation}
@@ -80,19 +92,17 @@ const ParticipantGroup = ({
           ptptCount={ptptCount}
           demographicsForGroup={demographicsForGroup}/>
       </div>
-      <Graph
-        comments={allComments}
-        groupNames={groupNames}
-        badTids={badTids}
-        formatTid={formatTid}
-        repfulAgreeTidsByGroup={repfulAgreeTidsByGroup}
-        repfulDisageeTidsByGroup={repfulDisageeTidsByGroup}
-        showOnlyGroup={gid}
-        math={math}
-        report={report}/>
-      <Flex justifyContent={"flex-start"} alignItems={"baseline"} styleOverrides={{width: "100%", marginBottom: 40}}>
-        <div style={globals.paragraph}>
 
+      <Flex
+        justifyContent={"flex-start"}
+        alignItems={"baseline"}
+        styleOverrides={{
+          width: "100%",
+          marginBottom: 20,
+          marginTop: 40,
+        }}>
+        <div style={Object.assign({}, globals.paragraph, {fontWeight: 700, fontFamily: globals.sans})}>
+          Comments which make this group unique, by their votes:
         </div>
         <span
           style={{
