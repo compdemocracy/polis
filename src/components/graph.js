@@ -44,7 +44,7 @@ class Graph extends React.Component {
       hulls,
     } = graphUtil(this.props.comments, this.props.math, this.props.badTids);
 
-    let heading = (<span><p style={{fontSize: globals.primaryHeading}}> Opinion Graph </p>
+    let heading = (<span><p style={globals.primaryHeading}> Opinion Graph </p>
       <p style={globals.paragraph}>
         This graph shows all people and all comments.
       </p>
@@ -74,7 +74,7 @@ class Graph extends React.Component {
               </text>
             </g>
             <Axes xCenter={xCenter} yCenter={yCenter} report={this.props.report}/>
-            <Participants points={baseClustersScaled}/>
+            {/*<Participants points={baseClustersScaled}/>*/}
             {/* this.props.math["group-clusters"].map((cluster, i) => {
               return (<text x={300} y={300}> Renzi Supporters </text>)
             }) : null */}

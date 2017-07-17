@@ -15,7 +15,7 @@ const Consensus = ({conversation, comments, ptptCount, consensus, formatTid}) =>
 
   return (
     <div>
-      <p style={{fontSize: globals.primaryHeading}}> Consensus </p>
+      <p style={globals.primaryHeading}> Consensus </p>
       <p style={globals.paragraph}>
         Across all {ptptCount} participants, there was general agreement on the following comments. Either a majority (more than 60% of those who voted on the comment) agreed or disagreed.
       </p>

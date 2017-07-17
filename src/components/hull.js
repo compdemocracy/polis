@@ -2,7 +2,7 @@ import React from "react";
 import * as globals from "./globals";
 
 const Hull = ({hull}) => {
-  const line = d3.line().curve(d3.curveNatural);
+  const line = d3.line().curve(d3.curveLinear);
   const pathString = line(hull.hull);
 
   return (

@@ -141,7 +141,7 @@ class Matrix extends React.Component {
     let side = this.props.probabilities.length * square + 750;
     return (
       <div>
-        <p style={{fontSize: globals.primaryHeading}}>{this.props.title}</p>
+        <p style={globals.primaryHeading}>{this.props.title}</p>
         <p style={globals.paragraph}>
           What is the probability that a participant who agreed (or disagreed) with a given comment also agreed (or disagreed) with another given comment? This symmetrical matrix, which shows all comments along both axes, computes this probability. Patterns emerge when we evaluate groups of comments that tended to be voted on similarly.
         </p>

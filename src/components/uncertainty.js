@@ -15,7 +15,7 @@ const Uncertainty = ({conversation, comments, ptptCount, uncertainty, formatTid}
 
   return (
     <div>
-      <p style={{fontSize: globals.primaryHeading}}> Areas of uncertainty </p>
+      <p style={globals.primaryHeading}> Areas of uncertainty </p>
       <p style={globals.paragraph}>
         Across all {ptptCount} participants, there was uncertainty about the following comments. Greater than 30% of participants who saw these comments 'passed'.
       </p>

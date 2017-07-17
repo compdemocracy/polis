@@ -32,7 +32,7 @@ class AllComments extends React.Component {
         styles.base,
         this.props.style
       ]}>
-      <p style={{fontSize: globals.primaryHeading}}> All Comments </p>
+      <p style={globals.primaryHeading}> All Comments </p>
       <p style={globals.paragraph}>
         This is a list of the {this.props.comments.length} comments that were accepted into the conversation by moderators.
       </p>

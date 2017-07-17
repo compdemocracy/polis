@@ -3,14 +3,24 @@ export const serif = "Source Serif Pro, Georgia";
 export const paragraphWidth = 475;
 export const paragraphLineHeight = "24px";
 export const barChartWidth = 250;
-export const primaryHeading = 36;
+
+
+
+export const primaryHeading = {
+  fontSize: 18,
+  fontWeight: 700,
+};
 export const secondaryHeading = 18;
+
+export const groupLetter = {
+
+}
 
 export const tidGrey = "rgb(200,200,200)";
 export const paragraph = {
   width: paragraphWidth,
   fontFamily: serif,
-  lineHeight: paragraphLineHeight
+  lineHeight: paragraphLineHeight,
 }
 
 
@@ -26,14 +36,6 @@ export const side = 750;
 export const labelPadding = 40;
 export const shouldColorizeTidsByRepfulness = true;
 
-export const axisLabels = {
-  leftArrow: "⟵",
-  rightArrow: "⟶",
-  xLeft: "Anti-Renzi, anti-centralization",
-  xRight: "Pro-Renzi, centralization",
-  yRight: "Participatory process is best",
-  yLeft: "Leave it to the government"
-};
 
 // ====== REMEMBER: gid's start at zero, (0, 1, 2) but we show them as group 1, 2, 3 =======
 
