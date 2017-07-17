@@ -95,6 +95,12 @@ module.exports = Handlebones.ModelView.extend({
     ctx.canSubscribe = !!preload.firstPtpt || this.votesByMe.size() > 0;
     ctx.canSubscribe = ctx.canSubscribe && Utils.userCanSeeSubscribePrompt();
     ctx.needSocial = this.model.get("needSocial");
+
+    var remaining = ctx.remaining;
+    if (remaining > 100) {
+      remaining = "100+"
+    }
+    ctx.remainingString = Strings.comments_remaining.replace("{{num_comments}}", remaining);
     return ctx;
   },
 

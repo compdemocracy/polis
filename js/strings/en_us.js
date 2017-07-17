@@ -14,6 +14,7 @@ s.modSubmit = "Done, next comment";
 
 s.x_wrote = "wrote:";
 s.x_tweeted = "tweeted:";
+s.comments_remaining = "{{num_comments}} remaining";
 s.group_123 = "Group:";
 s.comment_123 = "Comment:";
 s.majorityOpinion = "Majority Opinion";
