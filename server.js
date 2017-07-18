@@ -10078,6 +10078,14 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
+  function createReport(zid) {
+    return generateTokenP(20, false).then(function(report_id) {
+      report_id = 'r' + report_id;
+      return pgQueryP("insert into reports (zid, report_id) values ($1, $2);", [zid, report_id]);
+    });
+  }
+
+
   function handle_POST_reports(req, res) {
     let zid = req.p.zid;
     let uid = req.p.uid;
@@ -10086,11 +10094,8 @@ Email verified! You can close this tab or hit the back button.
       if (!isMod) {
         return fail(res, 403, "polis_err_post_reports_permissions", err);
       }
-      return generateTokenP(20, false).then(function(report_id) {
-        report_id = 'r' + report_id;
-        return pgQueryP("insert into reports (zid, report_id) values ($1, $2);", [zid, report_id]).then(() => {
-          res.json({});
-        });
+      return createReport(zid).then(() => {
+        res.json({});
       });
     }).catch((err) => {
       fail(res, 500, "polis_err_post_reports_misc", err);
