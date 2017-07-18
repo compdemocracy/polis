@@ -5000,12 +5000,11 @@ Email verified! You can close this tab or hit the back button.
     // q += ";";
 
 
-
     let q = "WITH needed_totals AS  ";
     q += "  (SELECT zid,  ";
     q += "          COALESCE(COUNT(*), 0) AS total ";
     q += "   FROM comments  ";
-    q += "   WHERE MOD >= 0 AND ACTIVE = TRUE";
+    q += "   WHERE MOD >= (CASE WHEN strict_moderation=TRUE then 1 else 0 END) AND ACTIVE = TRUE";
     q += "   GROUP BY zid),  ";
     q += "  participant_vote_counts AS (SELECT voted.zid,  ";
     q += "          voted.pid,  ";
@@ -5014,12 +5013,12 @@ Email verified! You can close this tab or hit the back button.
     q += "     (SELECT comments.zid,  ";
     q += "             comments.tid ";
     q += "      FROM comments  ";
-    q += "      WHERE MOD >= 0 AND ACTIVE = TRUE) AS needed ";
+    q += "      WHERE MOD >= (CASE WHEN strict_moderation=TRUE then 1 else 0 END) AND ACTIVE = TRUE) AS needed ";
     q += "   LEFT JOIN  ";
     q += "     (SELECT zid,  ";
     q += "             tid,  ";
     q += "             pid ";
-    q += "      FROM votes) AS voted ON voted.tid = needed.tid  ";
+    q += "      FROM votes_latest_unique) AS voted ON voted.tid = needed.tid  ";
     q += "   AND voted.zid = needed.zid ";
     q += "   GROUP BY voted.zid, voted.pid ";
     q += "   ORDER BY voted.zid, voted.pid),  ";
