@@ -4935,228 +4935,140 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
-  function getParticipantsThatNeedNotifications() {
+  function addNotificationTask(zid) {
+    return pgQueryP("insert into notification_tasks (zid) values ($1) on conflict (zid) do update set modified = now_as_millis();", [zid]);
+  }
 
-    // TODO: currently this will currently err on the side of notifying people for comments that are pending moderator approval.
+  function maybeAddNotificationTask(zid, timeInMillis) {
+    return pgQueryP("insert into notification_tasks (zid, modified) values ($1, $2) on conflict (zid) do nothing;", [zid, timeInMillis]);
+  }
 
-    // check it out! http://sqlformat.org/
-    // let q = "SELECT * ";
-    //     q += "FROM  ";
-    //     q += "  (SELECT zid,  ";
-    //     q += "          max(created) AS max_comment_time ";
-    //     q += "   FROM comments  ";
-    //     q += "   WHERE MOD >= 0 ";
-    //     q += "   GROUP BY zid ";
-    //     q += "   ORDER BY zid) AS foo ";
-    //     q += "INNER JOIN participants AS p ON p.zid = foo.zid  ";
-    //     q += "WHERE subscribed > 0 ";
-    //     q += "  AND last_notified < (now_as_millis() - 3*60*60*1000) ";
-    //     q += "  AND last_interaction < foo.max_comment_time;";
+  function claimNextNotificationTask() {
+    return pgQueryP("delete from notification_tasks where zid = (select zid from notification_tasks order by random() for update skip locked limit 1) returning *;").then((rows) => {
+      if (!rows || !rows.length) {
+        return null;
+      }
+      return rows[0];
+    });
+  }
 
+  function getDbTime() {
+    return pgQueryP("select now_as_millis();",[]).then((rows) => {
+      return rows[0].now_as_millis;
+    });
+  }
 
+  function doNotificationsForZid(zid, timeOfLastEvent) {
 
-    // let q = "WITH needed_totals AS  ";
-    // q += "  (SELECT zid,  ";
-    // q += "          COUNT(*) AS total ";
-    // q += "   FROM comments  ";
-    // q += "   WHERE MOD >= 0 ";
-    // q += "   GROUP BY zid),  ";
-    // q += "     foo AS  ";
-    // q += "  (SELECT voted.zid,  ";
-    // q += "          voted.pid,  ";
-    // q += "          COUNT(*) AS valid_votes ";
-    // q += "   FROM  ";
-    // q += "     (SELECT comments.zid,  ";
-    // q += "             comments.tid ";
-    // q += "      FROM comments  ";
-    // q += "      WHERE MOD >= 0) AS needed ";
-    // q += "   LEFT JOIN  ";
-    // q += "     (SELECT zid,  ";
-    // q += "             tid,  ";
-    // q += "             pid ";
-    // q += "      FROM votes) AS voted ON voted.tid = needed.tid ";
-    // q += "   AND voted.zid = needed.zid ";
-    // q += "   GROUP BY voted.zid,  ";
-    // q += "            voted.pid ";
-    // q += "   ORDER BY voted.zid,  ";
-    // q += "            voted.pid),  ";
-    // q += "     bar AS  ";
-    // q += "  (SELECT foo.zid,  ";
-    // q += "          foo.pid,  ";
-    // q += "          participants.uid,  ";
-    // q += "          participants.last_interaction,  ";
-    // q += "          participants.subscribed,  ";
-    // q += "          participants.last_notified,  ";
-    // q += "          (total - valid_votes) AS remaining ";
-    // q += "   FROM foo ";
-    // q += "   INNER JOIN needed_totals ON needed_totals.zid = foo.zid ";
-    // q += "   INNER JOIN participants ON foo.zid = participants.zid ";
-    // q += "   AND foo.pid = participants.pid)  ";
-    // q += "SELECT * ";
-    // q += "FROM bar  ";
-    // q += "WHERE subscribed = 1  ";
-    // q += "  AND (last_notified + 30*60*1000) < last_interaction";
-    // // q += "  AND remaining > 0";
-    // q += ";";
+    let shouldTryAgain = false;
 
+    return pgQueryP("select * from participants where zid = ($1) and last_notified < ($2) and subscribed > 0;", [zid, timeOfLastEvent]).then((candidates) => {
+      if (!candidates || !candidates.length) {
+        return null;
+      }
+      candidates = candidates.map((ptpt) => {
+        ptpt.last_notified = Number(ptpt.last_notified);
+        ptpt.last_interaction = Number(ptpt.last_interaction);
+        return ptpt;
+      });
+      return Promise.all([
+        getDbTime(),
+        getConversationInfo(zid),
+        getZinvite(zid),
+      ]).then((a) => {
+        let dbTimeMillis = a[0];
+        let conv = a[1];
+        let conversation_id = a[2];
 
-    let q = "WITH needed_totals AS  ";
-    q += "  (SELECT zid,  ";
-    q += "          COALESCE(COUNT(*), 0) AS total ";
-    q += "   FROM comments  ";
-    q += "   WHERE MOD >= (CASE WHEN strict_moderation=TRUE then 1 else 0 END) AND ACTIVE = TRUE";
-    q += "   GROUP BY zid),  ";
-    q += "  participant_vote_counts AS (SELECT voted.zid,  ";
-    q += "          voted.pid,  ";
-    q += "          COUNT(*) AS valid_votes ";
-    q += "   FROM  ";
-    q += "     (SELECT comments.zid,  ";
-    q += "             comments.tid ";
-    q += "      FROM comments  ";
-    q += "      WHERE MOD >= (CASE WHEN strict_moderation=TRUE then 1 else 0 END) AND ACTIVE = TRUE) AS needed ";
-    q += "   LEFT JOIN  ";
-    q += "     (SELECT zid,  ";
-    q += "             tid,  ";
-    q += "             pid ";
-    q += "      FROM votes_latest_unique) AS voted ON voted.tid = needed.tid  ";
-    q += "   AND voted.zid = needed.zid ";
-    q += "   GROUP BY voted.zid, voted.pid ";
-    q += "   ORDER BY voted.zid, voted.pid),  ";
+        let url = conv.parent_url || "https://pol.is/" + conversation_id;
 
-    q += "  people_wo_votes AS (SELECT participants.zid,  ";
-    q += "          participants.pid,  ";
-    q += "          uid,  ";
-    q += "          last_interaction,  ";
-    q += "          subscribed,  ";
-    q += "          last_notified,  ";
-    q += "          COALESCE(needed_totals.total, 0) AS remaining ";
-    q += "   FROM participants ";
-    q += "   LEFT JOIN needed_totals ON participants.zid = needed_totals.zid ";
-    q += "   LEFT JOIN participant_vote_counts ON participants.zid = participant_vote_counts.zid  ";
-    q += "   AND participants.pid = participant_vote_counts.pid  ";
-    q += "   WHERE participant_vote_counts.pid IS NULL ";
-    q += "     AND participants.subscribed = 1),  ";
+        let pid_to_ptpt = {};
+        candidates.forEach((c) => {
+          pid_to_ptpt[c.pid] = c;
+        });
+        return Promise.mapSeries(candidates, (item, index, length) => {
+          return getNumberOfCommentsRemaining(item.zid, item.pid).then((rows) => {
+            return rows[0];
+          });
+        }).then((results) => {
+          const needNotification = results.filter((result) => {
+            let ptpt = pid_to_ptpt[result.pid];
+            let needs = true;
 
-    q += "  bar AS  (SELECT participant_vote_counts.zid,  ";
-    q += "          participant_vote_counts.pid,  ";
-    q += "          participants.uid,  ";
-    q += "          participants.last_interaction,  ";
-    q += "          participants.subscribed,  ";
-    q += "          participants.last_notified,  ";
-    q += "          COALESCE(total - valid_votes, 0) AS remaining ";
-    q += "   FROM participant_vote_counts ";
-    q += "   INNER JOIN needed_totals ON needed_totals.zid = participant_vote_counts.zid ";
-    q += "   INNER JOIN participants ON participant_vote_counts.zid = participants.zid  ";
-    q += "   AND participant_vote_counts.pid = participants.pid),  ";
+            needs = needs && result.remaining > 0;
+            // needs = needs && ptpt.last_notified + 24*60*60*1000 <= dbTimeMillis; // limit to one per day
 
-    // q += "  latest_comment_times AS (SELECT zid, modified as latest_comment_time from get_times_for_most_recent_visible_comments(), ";
+            if (needs && dbTimeMillis < ptpt.last_notified + 60*60*1000) { // Limit to one per hour.
+              console.log('doNotificationsForZid', 'shouldTryAgain', 'last_notified');
+              shouldTryAgain = true;
+              needs = false;
+            }
+            if (needs && dbTimeMillis < ptpt.last_interaction + 5*60*1000) { // Wait until 5 minutes after their last interaction.
+              console.log('doNotificationsForZid', 'shouldTryAgain', 'last_interaction');
+              shouldTryAgain = true;
+              needs = false;
+            }
 
-    q += "  ppl AS (SELECT * ";
-    q += "   FROM bar ";
-    q += "   UNION SELECT * ";
-    q += "   FROM people_wo_votes)  ";
+            needs = needs && isPolisDev(ptpt.uid);
+            return needs;
+          });
 
-    q += "SELECT * FROM ppl  ";
-    q += " LEFT JOIN users";
-    q += "  ON users.uid = ppl.uid";
-    q += " LEFT JOIN conversations";
-    q += "  ON conversations.zid = ppl.zid";
-    // q += " LEFT JOIN latest_comment_times";
-    // q += "  ON latest_comment_times.zid = ppl.zid";
-    q += " LEFT JOIN zinvites";
-    q += "  ON zinvites.zid = ppl.zid";
-    q += " WHERE subscribed = 1 ";
-    // q += "  AND (latest_comment_time + 30*60*1000) <= now_as_millis() "; // sub last_interaction with last_comment_time
-    q += "  AND (last_notified + 24*60*60*1000) <= now_as_millis() "; // limit to one per day
-    q += "  AND (last_interaction + 5*60*1000) <= now_as_millis() "; // wait 5 minutes after their last interaction
-    q += "  AND remaining > 0 ";
-    q += " ORDER BY ppl.zid, ppl.uid;";
+          if (needNotification.length === 0) {
+            return null;
+          }
+          const pids = _.pluck(needNotification, "pid");
 
+          // return pgQueryP("select p.uid, p.pid, u.email from participants as p left join users as u on p.uid = u.uid where p.pid in (" + pids.join(",") + ")", []).then((rows) => {
 
+          // })
+          return pgQueryP("select uid, email from users where uid in (select uid from participants where pid in (" + pids.join(",") + "));", []).then((rows) => {
+            let uidToEmail = {};
+            rows.forEach((row) => {
+              uidToEmail[row.uid] = row.email;
+            });
 
-    /*
-    WITH
-    needed_totals AS (SELECT
-      zid,
-      COALESCE(COUNT(*), 0) AS total
-    FROM comments
-    WHERE mod >= 0
-    GROUP BY zid),
-
-    foo AS (SELECT
-      voted.zid,
-      voted.pid,
-      COUNT(*) AS valid_votes
-    FROM (SELECT
-      comments.zid,
-      comments.tid
-    FROM comments
-    WHERE mod >= 0) AS needed
-    LEFT JOIN (SELECT
-      zid,
-      tid,
-      pid
-    FROM votes) AS voted
-      ON voted.tid = needed.tid
-      AND voted.zid = needed.zid
-    GROUP BY voted.zid,
-             voted.pid
-    ORDER BY voted.zid, voted.pid),
-
-    people_wo_votes AS (SELECT
-      participants.zid,
-      participants.pid,
-      uid,
-      last_interaction,
-      subscribed,
-      last_notified,
-      COALESCE(needed_totals.total, 0) as remaining
-    FROM participants
-    LEFT JOIN needed_totals
-      ON participants.zid = needed_totals.zid
-    LEFT JOIN foo
-      ON participants.zid = foo.zid
-      AND participants.pid = foo.pid
-    WHERE foo.pid IS NULL AND participants.subscribed = 1),
-
-    bar AS (SELECT
-      foo.zid,
-      foo.pid,
-      participants.uid,
-      participants.last_interaction,
-      participants.subscribed,
-      participants.last_notified,
-      COALESCE(total - valid_votes, 0) AS remaining
-    FROM foo
-    INNER JOIN needed_totals
-      ON needed_totals.zid = foo.zid
-    INNER JOIN participants
-      ON foo.zid = participants.zid
-      AND foo.pid = participants.pid),
-
-    ppl as (
-    select * from bar
-    UNION select * from people_wo_votes)
-
-    SELECT *
-    FROM ppl
-    LEFT JOIN users
-     ON users.uid = ppl.uid
-    LEFT JOIN conversations
-     ON conversations.zid = ppl.zid
-    LEFT JOIN zinvites
-     ON zinvites.zid = ppl.zid
-    WHERE subscribed = 1
-     ORDER BY ppl.zid, ppl.uid;
-    -- AND (last_notified + 30*60*1000) <= last_interaction
-    -- AND remaining > 0;
-    */
-    return pgQueryP_readOnly(q, []);
+            return Promise.each(needNotification, (item, index, length) => {
+              const uid = pid_to_ptpt[item.pid].uid;
+              return sendNotificationEmail(uid, url, conversation_id, uidToEmail[uid], item.remaining).then(() => {
+                return pgQueryP("update participants set last_notified = now_as_millis() where uid = ($1) and zid = ($2);", [uid, zid]);
+              });
+            });
+          });
+        });
+      });
+    }).then(() => {
+      return shouldTryAgain;
+    });
   }
 
 
+  function doNotificationBatch() {
+    return claimNextNotificationTask().then((task) => {
+      if (!task) {
+        return Promise.resolve();
+      }
+      console.log('doNotificationsForZid', task.zid);
+      return doNotificationsForZid(task.zid, task.modified).then((shouldTryAgain) => {
+        console.log('doNotificationsForZid', task.zid, "shouldTryAgain", shouldTryAgain);
+        if (shouldTryAgain) {
+          // Since we claimed the task above, there will be no record, so we need to
+          // put it back to trigger a retry - unless there's a new one there, in which case we should
+          // leave the new one.
+          maybeAddNotificationTask(task.zid, task.modified);
+        }
+      });
+    });
+  }
+
+  function doNotificationLoop() {
+    console.log('doNotificationLoop');
+    doNotificationBatch().then(() => {
+      setTimeout(doNotificationLoop, 10000);
+    });
+  }
+
   function sendNotificationEmail(uid, url, conversation_id, email, remaining) {
-    let subject = "New comments to vote on";
+    let subject = "New comments to vote on (conversation " + conversation_id + ")"; // Not sure if putting the conversation_id is ideal, but we need some way to ensure that the notifications for each conversation appear in separte threads.
     let body = "There are new comments available for you to vote on here:\n";
     body += "\n";
     body += url + "\n";
@@ -5168,41 +5080,11 @@ Email verified! You can close this tab or hit the back button.
     return sendEmailByUid(uid, subject, body);
   }
 
-  function notifyParticipantsOfNewComments() {
-    getParticipantsThatNeedNotifications().then(function(rows) {
-      rows = rows || [];
-      winston.log("info", "getParticipantsThatNeedNotifications", rows.length);
-      winston.log("info", rows);
-      rows.forEach(function(row) {
-        let last_notified = row.last_notified; // only send an email if last_notified matches the one in the query above. This should prevent race conditions between multiple server instances.
-        let url = row.parent_url;
-        if (!url) {
-          url = "https://pol.is/" + row.zinvite;
-        }
-        // NOTE: setting the DB status first to prevent a race condition where there can be multiple emails sent (one from each server)
-        pgQueryP("update participants set last_notified = now_as_millis() where uid = ($1) and zid = ($2) and last_notified = ($3);", [row.uid, row.zid, last_notified]).then(function() {
-          return sendNotificationEmail(row.uid, url, row.zinvite, row.email, row.remaining);
-        }).catch(function(err) {
-          yell("polis_err_notifying_participants_misc");
-          console.error(err);
-        });
-      });
-      winston.log("info", "end getParticipantsThatNeedNotifications");
-    }).catch(function(err) {
-      winston.log("info", "error getParticipantsThatNeedNotifications");
-      console.error(err);
-      // yell("polis_err_notifying_participants");
-    });
-
-  }
-
-  // let shouldSendNotifications = !devMode;
-  let shouldSendNotifications = false;
+  let shouldSendNotifications = !devMode;
+  // let shouldSendNotifications = true;
+  // let shouldSendNotifications = false;
   if (shouldSendNotifications) {
-    notifyParticipantsOfNewComments();
-    setInterval(function() {
-      notifyParticipantsOfNewComments();
-    }, 5 * 60 * 1000);
+    doNotificationLoop();
   }
 
   function updateEmail(uid, email) {
@@ -7300,7 +7182,7 @@ Email verified! You can close this tab or hit the back button.
       "c as (select * from get_visible_comments($1)), " +
       "remaining as (select count(*) as remaining from c left join v on c.tid = v.tid where v.vote is null), " +
       "total as (select count(*) as total from c) " +
-      "select remaining.remaining, total.total from remaining, total;", [zid, pid]);
+      "select cast(remaining.remaining as integer), cast(total.total as integer), cast(($2) as integer) as pid from remaining, total;", [zid, pid]);
   }
 
 
@@ -7799,6 +7681,10 @@ Email verified! You can close this tab or hit the back button.
         if (err) {
           reject(err);
         } else {
+
+          // TODO an optimization would be to only add the task when the comment becomes visible after the mod.
+          addNotificationTask(zid);
+
           resolve();
         }
       });
@@ -8233,6 +8119,7 @@ Email verified! You can close this tab or hit the back button.
                   });
                 });
               } else {
+                addNotificationTask(zid);
                 sendCommentModerationEmail(req, 125, zid, "?"); // email mike for all comments, since some people may not have turned on strict moderation, and we may want to babysit evaluation conversations of important customers.              
                 sendSlackEvent({
                   type: "comment_mod_needed",

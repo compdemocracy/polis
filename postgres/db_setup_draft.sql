@@ -414,6 +414,14 @@ CREATE TABLE xids (
 );
 CREATE INDEX xids_owner_idx ON xids USING btree (owner);
 
+
+CREATE TABLE notification_tasks (
+    zid INTEGER NOT NULL REFERENCES conversations(zid),
+    modified BIGINT DEFAULT now_as_millis(),
+    UNIQUE (zid)
+);
+
+
 -- this could probably be called external_user_links, and should have a scope for the user identities, like "canvas.instructure.com" or something like that
 -- NOTE, there may be multiple uids for a given lti_user_id
 CREATE TABLE lti_users (
