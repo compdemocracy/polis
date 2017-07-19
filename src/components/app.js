@@ -57,12 +57,12 @@ class App extends React.Component {
     });
   }
 
-  getComments(conversation_id) {
+  getComments(conversation_id, isStrictMod) {
     return net.polisGet("/api/v3/comments", {
       conversation_id: conversation_id,
       report_id: report_id,
       moderation: true,
-      mod_gt: -1,
+      mod_gt: isStrictMod ? 0 : -1,
       include_social: true,
       include_demographics: true
     });
@@ -128,7 +128,9 @@ class App extends React.Component {
       return this.getMath(report.conversation_id);
     });
     const commentsPromise = reportPromise.then((report) => {
-      return this.getComments(report.conversation_id);
+      return conversationPromise.then((conv) => {
+        return this.getComments(report.conversation_id, conv.strict_moderation);
+      });
     });
     const groupDemographicsPromise = reportPromise.then((report) => {
       return this.getGroupDemographics(report.conversation_id);
