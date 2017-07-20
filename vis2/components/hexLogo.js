@@ -3,7 +3,7 @@ import _ from "lodash";
 
 const HexLogo = () => {
   return (
-    <svg width="60px" viewBox="0 0 264 304">
+    <svg style={{userSelect: "none"}} width="60px" viewBox="0 0 264 304">
         <g id="Page-1" stroke="none" strokeWidth="1" fill="none" fillRule="evenodd">
             <g id="logo" transform="translate(-68.000000, -48.000000)">
                 <g id="Group" transform="translate(68.000000, 48.000000)">
