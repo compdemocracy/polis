@@ -365,6 +365,7 @@ CREATE TABLE participants(
     -- subscription stuff
     subscribed INTEGER NOT NULL DEFAULT 0, -- 0 for false, 1 for email, 2 for telegram
     last_notified BIGINT DEFAULT 0, -- time of last email
+    nsli SMALLINT NOT NULL DEFAULT 0, -- notifications_since_last_interaction
 
     mod INTEGER NOT NULL DEFAULT 0,-- {-1,0,1,2} where -1 is "hide from vis", 0 is no action, 1 is "acknowledge", and 2 is is "pin" (always show, even if there are lots of high-follower count alternatives)
 

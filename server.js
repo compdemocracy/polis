@@ -4159,7 +4159,7 @@ Feel free to reply to this email if you need help.`;
   }
 
   function updateLastInteractionTimeForConversation(zid, uid) {
-    return pgQueryP("update participants set last_interaction = now_as_millis() where zid = ($1) and uid = ($2);", [zid, uid]);
+    return pgQueryP("update participants set last_interaction = now_as_millis(), nsli = 0 where zid = ($1) and uid = ($2);", [zid, uid]);
   }
 
 
@@ -4996,9 +4996,35 @@ Email verified! You can close this tab or hit the back button.
             let needs = true;
 
             needs = needs && result.remaining > 0;
-            // needs = needs && ptpt.last_notified + 24*60*60*1000 <= dbTimeMillis; // limit to one per day
 
-            if (needs && dbTimeMillis < ptpt.last_notified + 60*60*1000) { // Limit to one per hour.
+            if (needs && result.remaining < 5) {
+              // no need to try again for this user since new comments will create new tasks
+              console.log('doNotificationsForZid', 'not enough remaining');
+              needs = false;
+            }
+
+            let waitTime = 60*60*1000;
+
+            // notifications since last interation
+            if (ptpt.nsli === 0) {
+              // first notification since last interaction
+              waitTime = 60*60*1000; // 1 hour
+            } else if (ptpt.nsli === 1) {
+              // second notification since last interaction
+              waitTime = 2*60*60*1000; // 4 hours
+            } else if (ptpt.nsli === 2) {
+              // third notification since last interaction
+              waitTime = 24*60*60*1000; // 24 hours
+            } else if (ptpt.nsli === 3) {
+              // third notification since last interaction
+              waitTime = 48*60*60*1000; // 48 hours
+            } else {
+              // give up, if they vote again nsli will be set to zero again.
+              console.log('doNotificationsForZid', 'nsli');
+              needs = false;
+            }
+
+            if (needs && dbTimeMillis < ptpt.last_notified + waitTime) { // Limit to one per hour.
               console.log('doNotificationsForZid', 'shouldTryAgain', 'last_notified');
               shouldTryAgain = true;
               needs = false;
@@ -5030,7 +5056,7 @@ Email verified! You can close this tab or hit the back button.
             return Promise.each(needNotification, (item, index, length) => {
               const uid = pid_to_ptpt[item.pid].uid;
               return sendNotificationEmail(uid, url, conversation_id, uidToEmail[uid], item.remaining).then(() => {
-                return pgQueryP("update participants set last_notified = now_as_millis() where uid = ($1) and zid = ($2);", [uid, zid]);
+                return pgQueryP("update participants set last_notified = now_as_millis(), nsli = nsli + 1 where uid = ($1) and zid = ($2);", [uid, zid]);
               });
             });
           });
