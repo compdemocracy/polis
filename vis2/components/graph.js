@@ -233,6 +233,7 @@ class Graph extends React.Component {
             />
         </div>
         <ExploreTid
+          browserDimensions={this.state.browserDimensions}
           handleReturnToVoteClicked={this.handleReturnToVoteClicked.bind(this)}
           selectedComment={this.state.selectedComment}
           votesByMe={this.props.votesByMe}
