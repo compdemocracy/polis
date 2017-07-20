@@ -866,7 +866,7 @@ svg {
 
 /* LITTLE TABLET to BIG TABLET and DESKTOP */
 @media (min-width: 1024px) and (max-width: 1199px) {
-  #agreeButton, #starButton, #disagreeButton, #passButton, #trashButton {
+  #agreeButton, #disagreeButton, #passButton, #trashButton {
     // padding: 10px 10px;
   }
 }

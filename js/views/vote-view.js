@@ -21,10 +21,6 @@ module.exports = Handlebones.ModelView.extend({
     "click #passButton": "participantPassed",
     "click #subscribeBtn": "subscribeBtn",
     'submit #subscribeEmailForm': "subscribeBtn",
-    "click #starBtn": "starBtn",
-    "hover .starbutton": function() {
-      this.$(".starbutton").html("<i class='fa fa-star'></i>");
-    },
 
     "click #spamToggle": "spamToggle",
     "click #otToggle": "otToggle",
@@ -509,15 +505,6 @@ module.exports = Handlebones.ModelView.extend({
           show: 500,
           hide: 0
         }
-      });
-      this.$("#starButton").tooltip({
-        title: "'Critical point', or 'central to my worldview'",
-        placement: "top",
-        delay: {
-          show: 500,
-          hide: 0
-        },
-        container: "body"
       });
       this.$("#trashButton").tooltip({
         title: "This comment is irrelevant and/or abusive",
