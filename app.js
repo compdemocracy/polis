@@ -614,7 +614,7 @@ helpersInitialized.then(function(o) {
 
   app.get("/api/v3/group_demographics",
     moveToBody,
-    auth(assignToP),
+    authOptional(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('report_id', getReportIdFetchRid, assignToPCustom('rid')),
     handle_GET_groupDemographics);
@@ -980,7 +980,7 @@ helpersInitialized.then(function(o) {
 
   app.get('/api/v3/reports',
     moveToBody,
-    auth(assignToP),
+    authOptional(assignToP),
     want('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('report_id', getReportIdFetchRid, assignToPCustom('rid')), // Knowing the report_id grants the user permission to view the report
     handle_GET_reports);
@@ -1094,7 +1094,7 @@ helpersInitialized.then(function(o) {
 
   app.get("/api/v3/ptptois",
     moveToBody,
-    auth(assignToP),
+    authOptional(assignToP),
     want('mod', getInt, assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('conversation_id', getStringLimitLength(1, 1000), assignToP),
