@@ -17,6 +17,7 @@ import { browserHistory } from "react-router";
 import { connect } from "react-redux";
 import { doSignin, doFacebookSignin } from "../../actions";
 import HexLogoLargeShort from "../framework/hex-logo-large-short";
+import Explainer from "../explainer";
 
 // import { Tweet } from 'react-twitter-widgets';
 
@@ -369,8 +370,24 @@ class Home extends React.Component {
           </div>
         </div>
 
+        <Explainer/>
+
+        <a style={{
+            padding: "15px 20px",
+            borderRadius: 3,
+            backgroundColor: "#03a9f4",
+            color: "white",
+            textDecoration: "none",
+            cursor: "pointer",
+
+          }}
+          href="https://pol.is/createuser">
+          Get Started Free
+        </a>
+
         <div style={{
             width: "100%",
+            marginTop: 30,
             display: "flex",
             justifyContent: "center", alignItems: "center"}}>
           <img
