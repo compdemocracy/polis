@@ -8154,15 +8154,21 @@ Email verified! You can close this tab or hit the back button.
               }
 
               console.log("POST_comments before votesPost", Date.now());
-              return votesPost(uid, pid, zid, tid, vote, 0, false).then(function(o) {
-                // let conv = o.conv;
-                let vote = o.vote;
-                let createdTime = vote.created;
+
+              let createdTime = comment.created;
+              let votePromise = _.isUndefined(vote) ? Promise.resolve() : votesPost(uid, pid, zid, tid, vote, 0, false);
+
+              return votePromise.then(function(o) {
+                if (o && o.vote && o.vote.created) {
+                  createdTime = o.vote.created;
+                }
 
                 setTimeout(function() {
                   updateConversationModifiedTime(zid, createdTime);
                   updateLastInteractionTimeForConversation(zid, uid);
-                  updateVoteCount(zid, pid);
+                  if (!_.isUndefined(vote)) {
+                    updateVoteCount(zid, pid);
+                  }
                 }, 100);
 
                 console.log("POST_comments sending json", Date.now());
