@@ -40,7 +40,7 @@ class ModerateCommentsSeed extends React.Component {
     const o = {
       twitter_tweet_id: tweet_id,
       conversation_id: this.props.params.conversation_id,
-      vote: -1, // the tweeter of the tweet will auto-agree. An account will be created for them if needed.
+      // vote: -1, // the tweeter of the tweet will auto-agree. An account will be created for them if needed.
       is_seed: true
     }
     this.props.dispatch(handleSeedCommentTweetSubmit(o))
