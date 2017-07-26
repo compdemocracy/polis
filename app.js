@@ -661,7 +661,7 @@ helpersInitialized.then(function(o) {
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('txt', getOptionalStringLimitLength(997), assignToP),
-    want('vote', getIntInRange(-1, 1), assignToP, -1), // default to agree
+    want('vote', getIntInRange(-1, 1), assignToP),
     want("twitter_tweet_id", getStringLimitLength(999), assignToP),
     want("quote_twitter_screen_name", getStringLimitLength(999), assignToP),
     want("quote_txt", getStringLimitLength(999), assignToP),
