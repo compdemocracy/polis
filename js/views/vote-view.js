@@ -94,7 +94,7 @@ module.exports = Handlebones.ModelView.extend({
 
     var remaining = ctx.remaining;
     if (remaining > 100) {
-      remaining = "100+"
+      remaining = "100+";
     }
     ctx.remainingString = Strings.comments_remaining.replace("{{num_comments}}", remaining);
     return ctx;

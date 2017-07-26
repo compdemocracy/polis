@@ -113,13 +113,11 @@
         display: inline;
         position: relative;
         top: -3px;
-        font-weight: 700;
         margin-left: 5px;
+        font-weight: 300;
     ">
       {{social.name}}
       <span style="
-        font-weight: 300;
-        color: rgba(113, 113, 113, .75);
       ">
         {{#if tweet_id}}
           <a href="https://twitter.com/{{social.screen_name}}/status/{{tweet_id}}" target="_blank">{{s.x_tweeted}}</a>
@@ -149,13 +147,13 @@
     {{!-- {{social.screen_name}} --}}
     <p style="
       margin-left: 55px; {{!-- 10 + 36 + 5 from social above --}}
-      font-weight: 300;
+      font-weight: 400;
       min-height: 65px;
       position: relative;
       top: -13px;
       width: 70%;
       line-height: 1.3;
-      font-size: 14px;
+      font-size: 18px;
       {{customStyles}}
     ">
      {{txt}}
