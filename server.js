@@ -8155,6 +8155,11 @@ Email verified! You can close this tab or hit the back button.
 
               console.log("POST_comments before votesPost", Date.now());
 
+              // It should be safe to delete this. Was added to postpone the no-auto-vote change for old conversations.
+              if (is_seed && _.isUndefined(vote) && zid <= 17037) {
+                vote = 0;
+              }
+
               let createdTime = comment.created;
               let votePromise = _.isUndefined(vote) ? Promise.resolve() : votesPost(uid, pid, zid, tid, vote, 0, false);
 
