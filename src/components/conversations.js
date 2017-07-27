@@ -11,10 +11,12 @@ import Flex from "./framework/flex";
 import * as globals from "./framework/global-styles";
 import Awesome from "react-fontawesome";
 import ConversationFilters from "./conversation-filters";
-import ConversationsTutorialCard from "./conversations-tutorial-card";
+// import ConversationsTutorialCard from "./conversations-tutorial-card";
 import {handleCreateConversationSubmit} from "../actions";
 import Url from "../util/url";
 import {s} from "./framework/global-styles";
+import Explainer from "./explainer";
+
 
 @connect((state) => state.conversations)
 @Radium
@@ -171,12 +173,15 @@ class Conversations extends React.Component {
           "Error loading conversations: " + err.status + " " + err.statusText :
           ""
         }
-        {
+        { this.props.conversations ? this.renderFilteredConversations() : ""}
+        <div style={{display: "flex", justifyContent: "center", width: "100%"}}>
+          <Explainer/>
+        </div>
+        {/*
           !this.props.loading && this.props.conversations && this.props.conversations.length < noMoreTutorialsAfterThisNumber && !err ?
             this.renderTutorialCards() :
             ""
-        }
-        {this.props.conversations ? this.renderFilteredConversations() : ""}
+        */}
       </div>
     );
   }
