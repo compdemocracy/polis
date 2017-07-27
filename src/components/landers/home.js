@@ -17,7 +17,6 @@ import { browserHistory } from "react-router";
 import { connect } from "react-redux";
 import { doSignin, doFacebookSignin } from "../../actions";
 import HexLogoLargeShort from "../framework/hex-logo-large-short";
-import Explainer from "../explainer";
 
 // import { Tweet } from 'react-twitter-widgets';
 
@@ -387,7 +386,6 @@ class Home extends React.Component {
 
         <div style={{
             width: "100%",
-            marginTop: 30,
             display: "flex",
             justifyContent: "center", alignItems: "center"}}>
           <img
