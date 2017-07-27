@@ -67,9 +67,9 @@ class SidebarContentHome extends React.Component {
             icon="credit-card"
             text="Account"/>
 
-          <a style={Object.assign({}, s.sidebarLink, {marginTop: 40})} target="blank" href="http://docs.pol.is">
+          {/*<a style={Object.assign({}, s.sidebarLink, {marginTop: 40})} target="blank" href="http://docs.pol.is">
             <span style={{marginRight: 10}}>Docs</span><Awesome name="external-link"/>
-          </a>
+          </a>*/}
           <Link
             style={s.sidebarLink}
             to={"/signout"}>

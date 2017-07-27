@@ -57,14 +57,22 @@ class SidebarContentConversation extends React.Component {
             selected={this.props.routes[2] && this.props.routes[2].path === "share"}
             icon="code"
             enabled={true}
-            text="Share & Embed"/>
+            text="Distribute"/>
+            <SidebarItem
+              to={"/m/"+this.props.conversation_id+"/comments"}
+              selected={this.props.routes[2] && this.props.routes[2].path === "comments" || this.props.routes[2] && this.props.routes[2].path === "participants"}
+              icon="comments"
+              enabled={true}
+              text="Moderate"/>
           <SidebarItem
+            small
             to={"/m/"+this.props.conversation_id+"/comments"}
             selected={this.props.routes[2] && this.props.routes[2].path === "comments"}
             icon="comments"
             enabled={true}
             text="Comments"/>
           <SidebarItem
+            small
             to={"/m/"+this.props.conversation_id+"/participants"}
             selected={this.props.routes[2] && this.props.routes[2].path === "participants"}
             icon="users"
@@ -80,22 +88,22 @@ class SidebarContentConversation extends React.Component {
             selected={this.props.routes[2] && this.props.routes[2].path === "stats"}
             icon="area-chart"
             enabled={canViewStats}
-            text={"Stats" + (canViewStats ? "" : lockedIcon)}/>
+            text={"Monitor" + (canViewStats ? "" : lockedIcon)}/>
           <SidebarItem
             to={canEditReports ? "/m/"+this.props.conversation_id+"/reports" : Features.plansRoute}
             selected={this.props.routes[2] && this.props.routes[2].path === "reports"}
             icon="file-text-o"
             enabled={canEditReports}
-            text={"Reports" + (canEditReports ? "" : lockedIcon)}/>
+            text={"Report" + (canEditReports ? "" : lockedIcon)}/>
           <SidebarItem
             to={canExportData ? "/m/"+this.props.conversation_id+"/export" : Features.plansRoute}
             selected={this.props.routes[2] && this.props.routes[2].path === "export"}
             icon="cloud-download"
             enabled={canExportData}
-            text={"Data Export" + (canExportData ? "" : lockedIcon)}/>
-          <a style={Object.assign({}, s.sidebarLink, {marginTop: 40})} target="blank" href="http://docs.pol.is">
+            text={"Export Data" + (canExportData ? "" : lockedIcon)}/>
+          {/*<a style={Object.assign({}, s.sidebarLink, {marginTop: 40})} target="blank" href="http://docs.pol.is">
             <span style={{marginRight: 10}}>Docs</span><Awesome name="external-link"/>
-          </a>
+          </a>*/}
           <Link
             style={s.sidebarLink}
             to={"/signout"}>
