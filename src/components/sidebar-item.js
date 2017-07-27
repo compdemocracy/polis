@@ -39,9 +39,15 @@ class SidebarItem extends React.Component {
     let disabled = Object.assign({}, color, {
       color: "rgba(100,100,100,.5)",
     });
+    const small = {
+      fontSize: 14,
+      padding: 0,
+      margin: "0px 0px 20px 20px",
+    }
     return {
       color: color,
       disabled: disabled,
+      small: small,
     };
   }
   render() {
@@ -50,7 +56,14 @@ class SidebarItem extends React.Component {
     return (
       <Link
         to={this.props.to}
-        style={Object.assign({}, s.sidebarLink, this.props.enabled ? styles.color : styles.disabled)}>
+        style={
+          Object.assign(
+            {},
+            s.sidebarLink,
+            this.props.enabled ? styles.color : styles.disabled,
+            this.props.small ? styles.small : {}
+          )
+        }>
         <span style={{position: "relative", left: -5}}> {this.props.showIcon ? <Awesome name={this.props.icon} /> : null} </span>
         {this.props.text}
       </Link>
