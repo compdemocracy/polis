@@ -5,8 +5,10 @@ import React from "react";
 const s = {};
 
 s.container = {
-  padding: 15,
+  marginTop: 20,
+  padding: "0px 15px 15px 15px",
   maxWidth: 600,
+  borderTop: "1px solid lightgrey",
 }
 
 s.section = {
@@ -14,18 +16,18 @@ s.section = {
 }
 
 s.heading = {
-  // fontWeight: 700,
+  fontWeight: 500,
   fontSize: 16,
   textTransform: "uppercase",
-  color: "rgb(130,130,130)",
+  color: "rgb(80,80,80)",
 }
 
 s.body = {
   // fontFamily: "Georgia",
   fontSize: 16,
-  borderLeft: "7px solid rgb(150,150,150)",
+  // borderLeft: "7px solid rgb(150,150,150)",
   color: "rgb(150,150,150)",
-  padding: "0px 10px",
+  // padding: "0px 10px",
   lineHeight: "1.65em",
 }
 
@@ -39,8 +41,8 @@ s.image = {
 
 s.callOut = {
   // fontWeight: 700,
-  fontStyle: "italic",
-  color: "rgb(100,100,100)",
+  // fontStyle: "italic",
+  // color: "rgb(100,100,100)",
 }
 
 class Explainer extends React.Component {
@@ -53,7 +55,8 @@ class Explainer extends React.Component {
         <div style={s.section}>
           <p style={s.heading}>What you do</p>
           <p style={s.body}>
-            Pol.is offloads work to survey participants. Your job is to <span style={s.callOut}>frame, configure, seed, & distribute each conversation.</span>
+            pol.is is a new kind of survey that participants create themselves as they go. Smart algorithms find patterns and generate insights for you.
+            Your job is to <span style={s.callOut}>frame, configure, seed, & distribute each conversation. pol.is will produce insights automatically, and deliver a report you can share with your community.</span>
           </p>
         </div>
         <div style={s.section}>
