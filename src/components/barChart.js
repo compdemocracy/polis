@@ -8,25 +8,25 @@ const BarChart = ({comment, conversation, groupVotes, ptptCount}) => {
   const arr = [
     {
       label: "voted",
-      percent: comment.count / ptptCount * 100,
+      percent: ptptCount ? (comment.count / ptptCount * 100) : 0,
       ratio: " (" + comment.count + "/" + ptptCount + ")",
       fill: "rgb(230,230,230)"
     },
     {
       label: "agreed",
-      percent: comment.agree_count / comment.count * 100,
+      percent: comment.count ? (comment.agree_count / comment.count * 100) : 0,
       ratio: " (" + comment.agree_count + "/" + comment.count + ")",
       fill: "rgb(46, 204, 113)"
     },
     {
       label: "disagreed",
-      percent: comment.disagree_count / comment.count * 100,
+      percent: comment.count ? (comment.disagree_count / comment.count * 100) : 0,
       ratio: " (" + comment.disagree_count + "/" + comment.count + ")",
       fill: "rgb(231, 76, 60)"
     },
     {
       label: "passed",
-      percent: comment.pass_count / comment.count * 100,
+      percent: comment.count ? (comment.pass_count / comment.count * 100) : 0,
       ratio: " (" + comment.pass_count + "/" + comment.count + ")",
       fill: "rgb(230,230,230)"
     }
