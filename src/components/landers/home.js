@@ -370,7 +370,7 @@ class Home extends React.Component {
           </div>
         </div>
 
-        <Explainer/>
+        {/*<Explainer/>
 
         <a style={{
             padding: "15px 20px",
@@ -383,7 +383,7 @@ class Home extends React.Component {
           }}
           href="https://pol.is/createuser">
           Get Started Free
-        </a>
+        </a>*/}
 
         <div style={{
             width: "100%",
