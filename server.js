@@ -2584,19 +2584,19 @@ function initializePolisHelpers() {
       g.id = gid2newGid[g.id];
       return g;
     }
-    let origGids = o['group-clusters'].map((g) => {return g.id;});
+    let origGids = _.map(o['group-clusters'], (g) => {return g.id;});
     origGids.sort();
     let gid2newGid = {};
     for (let i = 0; i < origGids.length; i++) {
       gid2newGid[origGids[i]] = i;
     }
-    o['group-clusters'] = _.sortBy(o['group-clusters'].map(remapGid), 'id');
-    o['group-votes'] = _.sortBy(o['group-votes'].map(remapGid), 'id');
-    o['repness'] = _.sortBy(o['repness'].map(remapGid), 'id');
+    o['group-clusters'] = _.sortBy(_.map(o['group-clusters'], remapGid), 'id');
+    o['group-votes'] = _.sortBy(_.map(o['group-votes'], remapGid), 'id');
+    o['repness'] = _.sortBy(_.map(o['repness'], remapGid), 'id');
 
-    o['subgroup-clusters'] = _.sortBy(o['subgroup-clusters'].map(remapGid), 'id');
-    o['subgroup-votes'] = _.sortBy(o['subgroup-votes'].map(remapGid), 'id');
-    o['subgroup-repness'] = _.sortBy(o['subgroup-repness'].map(remapGid), 'id');
+    o['subgroup-clusters'] = _.sortBy(_.map(o['subgroup-clusters'], remapGid), 'id');
+    o['subgroup-votes'] = _.sortBy(_.map(o['subgroup-votes'], remapGid), 'id');
+    o['subgroup-repness'] = _.sortBy(_.map(o['subgroup-repness'], remapGid), 'id');
 
 
     return o;
