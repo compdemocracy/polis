@@ -6977,12 +6977,24 @@ Email verified! You can close this tab or hit the back button.
 
     getUserInfoForUid2(uid).then(function(user) {
       var stripeResponse = JSON.parse(req.p.stripeResponse);
+
+      const body = "Polis account upgrade: " + user.hname + "\n" +
+        user.email + "\n" +
+        "planName " + planName + "\n" +
+        "planCode " + planCode + "\n";
+
+      emailTeam("Polis account upgraded", body);
+
+
       return updateStripePlan(user, stripeResponse.id, user.email, planName);
     }).then(function() {
       return updatePlan(req, res, uid, planCode);
     }).then(function() {
       res.json({});
     }).catch(function(err) {
+
+      emailBadProblemTime("FAILED Polis account upgrade: " + uid);
+
       if (err) {
         if (err.type === 'StripeCardError') {
           return fail(res, 500, "polis_err_stripe_card_declined", err);
@@ -6990,7 +7002,7 @@ Email verified! You can close this tab or hit the back button.
           return fail(res, 500, "polis_err_stripe3", err);
         }
       } else {
-        return fail(res, 500, "polis_err_stripe2", err);
+        return fail(res, 500, "polis_err_stripe2");
       }
     });
   }
