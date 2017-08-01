@@ -34,6 +34,8 @@ var VIS_MODE_WAITING = 1;
 var VIS_MODE_VOTEMORE = 2;
 var VIS_MODE_TUT = 3;
 
+var MIN_PTPTS = 7;
+
 var useAboveVisTutorial = false;
 var useVoteMoreBlocker = false;
 
@@ -48,6 +50,7 @@ function shouldHideVisWhenWriteTabShowing() {
 function shouldMoveVis() {
   return false;
 }
+
 
 module.exports = ConversationView.extend({
   name: "participationView",
@@ -525,15 +528,19 @@ module.exports = ConversationView.extend({
 
       function onPersonUpdate(updatedNodes, newClusters, newParticipantCount) {
         that.firstMathPollResultDeferred.resolve();
-        if (updatedNodes.length >= 3) { // 2 could be the first author and the author's group. 3 ensures another group/person
+        if (newParticipantCount >= MIN_PTPTS) {
           if ($("#vis_section:hidden")) {
             $("#vis_section").fadeIn(1000, function() {
               that.initPcaVis();
             });
           }
+          $("#vis_help_label").show();
+          $("#vis_not_yet_label").hide();
           eb.trigger(eb.visShown);
         } else {
           $("#vis_section").hide();
+          $("#vis_help_label").hide();
+          $("#vis_not_yet_label").show();
         }
         if (vis) {
           vis.upsertNode.apply(vis, arguments);
@@ -584,8 +591,6 @@ module.exports = ConversationView.extend({
           // Don't show vis for weird devices (Gingerbread, etc)
           return;
         }
-
-
 
         var w = $("#visualization_div").width();
         var xOffset = 30;
@@ -953,7 +958,9 @@ module.exports = ConversationView.extend({
         // Select "Majority Opinion" on launch.
         that.groupSelectionView.setSelectedGroup(-1);
 
+
       });
+
 
       this.commentForm.on("commentSubmitted", function() {
         // $("#"+VOTE_TAB).tab("show");
@@ -1098,6 +1105,10 @@ module.exports = ConversationView.extend({
           //   var cfp = $("#commentFormParent").detach();
           //   cfp.insertAfter($("#commentFormBSibling"));
           // }
+
+          if (window.preload.firstConv.participant_count < MIN_PTPTS) {
+            $("#vis_not_yet_label").show();
+          }
 
           that.updateVis2();
           that.updateHeader();

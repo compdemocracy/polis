@@ -313,10 +313,10 @@
 {{/if}}  {{!-- auth_prompt_any_social --}}
 
 
-<span class="{{#if no_vis}}displayNone{{/if}}"> {{!-- no_vis toggle wrapper --}}
-<div id="vis_section" class="displayNone">
 
-<div class="HeadingC" style="text-transform:none; cursor: default; white-space: nowrap; border-bottom: none;">
+<span class="{{#if no_vis}}displayNone{{/if}}"> {{!-- no_vis toggle wrapper --}}
+
+  <div class="HeadingC" style="text-transform:none; cursor: default; white-space: nowrap; border-bottom: none;">
   {{!-- <img src="https://pol.is/polis-favicon_favicon.png" height="20px" id="opinion_groups_logo"> --}}
   {{s.opinionGroups}}
 </div>
@@ -344,17 +344,25 @@
     {{#if hideHelp}}displayNone{{/if}}
   ">
   <p
-    style="margin: 0px;"
+    style="margin: 0px; margin-bottom: 10px;"
     >
-    <span>
+    <span class="displayNone" id="vis_help_label">
       {{!-- TODO_SECURITY try to not use triple brackets. --}}
       {{{s.participantHelpGroupsText}}}
+    </span>
+    <span class="displayNone" id="vis_not_yet_label">
+      {{!-- TODO_SECURITY try to not use triple brackets. --}}
+      {{{s.participantHelpGroupsNotYetText}}}
     </span>
   </p>
   <div id="helpTextGroupsMore" style="display:none; margin-top: 10px">
     {{{s.helpWhatAreGroupsDetail}}}
   </div>
 </div>
+
+
+<div id="vis_section" class="displayNone">
+
 
 <div style="margin-bottom: 15px;"> {{!-- vis and carousel --}}
 
