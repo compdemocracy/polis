@@ -73,7 +73,7 @@
     "redux-thunk": "^1.0.0",
     "request": "^2.65.0",
     "title-case": "^2.1.0",
-    "victory": "^0.15.0",
+    "victory": "^0.21.3",
     "whatwg-fetch": "^0.10.1"
   }
 }

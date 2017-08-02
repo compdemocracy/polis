@@ -23,7 +23,7 @@ const BarChartCompact = ({comment, groupVotes, }) => {
   const blank = nMembers - sawTheComment / nMembers * w;
 
   return (
-    <svg width={w+ 100} height={10} style={{marginRight: 20}}>
+    <svg width={101} height={10} style={{marginRight: 30}}>
       <g>
         <rect x={0} width={w + 0.5} height={10} fill={"white"} stroke={"rgb(180,180,180)"} />
         <rect x={.5} width={agree} y={.5} height={9} fill={globals.brandColors.agree} />
@@ -41,7 +41,6 @@ const CommentRow = ({comment, groups}) => {
     let BarCharts = [];
 
     _.forEach(groups, (g, i) => {
-      console.log('g',g)
       BarCharts.push(
         <BarChartCompact
             key={i}
@@ -57,18 +56,14 @@ const CommentRow = ({comment, groups}) => {
       <div
         style={{
           display: "flex",
-          flexDirection: "row",
-          justifyContent: "flex-start",
           alignItems: "center",
           padding: "6px 10px",
           borderBottom: "1px solid rgb(200,200,200)",
         }}>
         <span style={{
             fontSize: 12,
-            width: 300,
-            marginRight: 20,
-            display: "inline-block",
-            textAlign: "auto ",
+            width: 200,
+            marginRight: 50,
           }}>
           { comment.txt }
         </span>
@@ -79,10 +74,33 @@ const CommentRow = ({comment, groups}) => {
 
 
 class AllComments extends React.Component {
+
+  getGroupLabels() {
+
+    let labels = [];
+
+    _.each(this.props.math["group-votes"], (g, i) => {
+      console.log(g)
+      labels.push(
+        <span key={i} style={{
+          width: 101,
+          marginRight: 30,
+          display: "inline-block",
+          fontWeight: 700,
+          fontSize: 14,
+          textTransform: "uppercase"
+        }}>
+          {globals.groupLabels[i]} <span style={{fontWeight: 300, fontStyle: "italic", marginLeft: 5}}>{g["n-members"]}</span>
+        </span>
+      )
+    })
+
+    return labels;
+  }
+
   render() {
 
     const comments = _.keyBy(this.props.comments, "tid");
-    console.log(this.props)
 
     return (
       <div>
@@ -90,16 +108,32 @@ class AllComments extends React.Component {
         <p style={globals.paragraph}>
           This is a list of the {this.props.comments.length} comments that were accepted into the conversation by moderators.
         </p>
-        <div style={{marginBottom: 1, borderBottom: "2px solid black"}}>
+        <div style={{
+            marginBottom: 1,
+          }}>
+        </div>
+        <div style={{
+            marginBottom: 1,
+            borderBottom: "2px solid black",
+            position: "relative",
+          }}>
           <span style={{
-            width: 300,
-            marginRight: 30, /* the 10 in padding from the cells */
+            minWidth: 200,
+            marginRight: 50 + 10 + 33, /* the 10 in padding from the cells, the 33 for offset group labels */
             display: "inline-block",
             fontWeight: 700,
             fontSize: 14,
             textTransform: "uppercase"
           }}>Comment</span>
-
+          <span style={{
+            position: "absolute",
+            top: 2,
+            left: 200 + 30, /* the 10 in padding from the cells, the 45 for offset group labels */
+            fontStyle: "italic",
+            fontWeight: 300,
+            fontSize: 14,
+          }}>Group:</span>
+          {this.getGroupLabels()}
         </div>
         {
           this.props.comments.slice().reverse().map((c, i) => {
@@ -117,36 +151,3 @@ class AllComments extends React.Component {
 }
 
 export default AllComments;
-
-
-//
-// <span style={{
-//   width: 70,
-//   marginRight: 20,
-//   display: "inline-block",
-//   fontWeight: 700,
-//   fontSize: 14,
-//   textTransform: "uppercase"
-// }}>
-//   # VOTED
-// </span>
-// <span style={{
-//   width: 70,
-//   marginRight: 20,
-//   display: "inline-block",
-//   fontWeight: 700,
-//   fontSize: 14,
-//   textTransform: "uppercase"
-// }}>
-//   # AGREED
-// </span>
-// <span style={{
-//   width: 70,
-//   marginRight: 20,
-//   display: "inline-block",
-//   fontWeight: 700,
-//   fontSize: 14,
-//   textTransform: "uppercase"
-// }}>
-//   % AGREED
-// </span>
