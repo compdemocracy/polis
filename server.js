@@ -158,7 +158,7 @@ setInterval(function() {
 // // END GITHUB OAUTH2
 
 
-const POLIS_FROM_ADDRESS = `Polis Team <${process.env.EMAIL_MIKE}>`;
+const POLIS_FROM_ADDRESS = process.env.POLIS_FROM_ADDRESS;
 
 const akismet = akismetLib.client({
   blog: 'https://pol.is', // required: your root level url
