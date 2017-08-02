@@ -1,3 +1,4 @@
 . ${NVM_DIR}/nvm.sh
 # export NODE_ENV=production
+. ./.env_always
 BABEL_ENV=production nvm run `node ./bin/printNodeVersion` gulpfile.js  deployPreprod

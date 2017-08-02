@@ -410,20 +410,22 @@ var uidPromise;
 // } else {
 uidPromise = CurrentUserModel.update().then(function(user) {
 
-  window.intercomOptions = {
-    app_id: 'nb5hla8s',
-    widget: {
-      activator: '#IntercomDefaultWidget'
+  if (window.useIntercom) {
+    window.intercomOptions = {
+      app_id: 'nb5hla8s',
+      widget: {
+        activator: '#IntercomDefaultWidget'
+      }
+    };
+    if (user.uid) {
+      intercomOptions.user_id = user.uid + "";
     }
-  };
-  if (user.uid) {
-    intercomOptions.user_id = user.uid + "";
-  }
-  if (user.email) {
-    intercomOptions.email = user.email;
-  }
-  if (user.created) {
-    intercomOptions.created_at = user.created / 1000 >> 0;
+    if (user.email) {
+      intercomOptions.email = user.email;
+    }
+    if (user.created) {
+      intercomOptions.created_at = user.created / 1000 >> 0;
+    }
   }
 });
 // }
@@ -449,7 +451,7 @@ $.when(
     }
 
     if (!window.Intercom) {
-      if (!isEmbedded() && !isParticipationView()) {
+      if (window.useIntercom && !isEmbedded() && !isParticipationView()) {
         window.initIntercom();
       }
     }
@@ -466,7 +468,7 @@ $.when(
       uidPromise.then(function() {
 
         var u = userObject;
-        if (!isEmbedded() && !isParticipationView() && (u.email || u.hasTwitter || u.hasFacebook)) {
+        if (window.useIntercom && !isEmbedded() && !isParticipationView() && (u.email || u.hasTwitter || u.hasFacebook)) {
           var intercomWait = 0;
           if (!window.Intercom) {
             intercomWait = 4000;

@@ -7,6 +7,7 @@ var gulp = require('gulp');
 var s3 = require('gulp-s3');
 var browserify = require('gulp-browserify');
 var concat = require('gulp-concat');
+var isTrue = require('boolean');
 var uglify = require('gulp-uglify')
 var rename = require('gulp-rename');
 var connect = require('gulp-connect');
@@ -247,6 +248,7 @@ gulp.task('index', [
       basepath: basepath,
       basepath_visbundle: basepath_visbundle_dev,
       d3Filename: 'd3.js',
+      useIntercom: !isTrue(process.env.DISABLE_INTERCOM),
       versionString: versionString,
     }));
   } else {
@@ -255,6 +257,7 @@ gulp.task('index', [
       basepath: basepath, // proxy through server (cached by cloudflare, and easier than choosing a bucket for preprod, etc)
       basepath_visbundle: basepath,
       d3Filename: 'd3.min.js',
+      useIntercom: !isTrue(process.env.DISABLE_INTERCOM),
       versionString: versionString,
     }));
   }
