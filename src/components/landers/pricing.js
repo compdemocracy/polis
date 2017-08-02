@@ -10,7 +10,6 @@ import Flex from "../framework/flex";
 import Button from "../framework/generic-button";
 import StaticContentContainer from "../framework/static-content-container";
 import strings from "../../strings/strings";
-import StripeCheckout from 'react-stripe-checkout';
 import _ from "lodash";
 import {s} from "../framework/global-styles";
 
@@ -124,22 +123,6 @@ class Plan extends React.Component {
   }
 
   render() {
-
-    // else if (this.props.plan.priceCents) {
-    //   actionMarkup = (<span>
-    //     <span>{this.props.plan.price}</span>
-    //     <StripeCheckout
-    //       token={this.onToken}
-    //       stripeKey={stripeKey}
-    //       image={"https://pol.is/landerImages/clusters.png"}
-    //       name={"pol.is"}
-    //       description={"Upgrade to Individual plan"}
-    //       panelLabel={"Subscribe"}
-    //       amount={this.props.plan.price}
-    //     />
-    //   </span>);
-    // }
-
 
     return (
       <div style={{
