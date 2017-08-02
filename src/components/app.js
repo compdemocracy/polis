@@ -320,20 +320,28 @@ class App extends React.Component {
             ptptCount={this.state.ptptCount}
             demographics={this.state.demographics}
             conversation={this.state.conversation}/>
-          <Consensus
+          <AllComments
+            conversation={this.state.conversation}
+            ptptCount={this.state.ptptCount}
+            math={this.state.math}
+            formatTid={this.state.formatTid}
+            comments={this.state.comments}/>
+          {/*
+            <Consensus
             conversation={this.state.conversation}
             ptptCount={this.state.ptptCount}
             comments={this.state.comments}
             formatTid={this.state.formatTid}
             consensus={this.state.consensus}/>
-          {globals.enableMatrix ? <Matrix
+            {globals.enableMatrix ? <Matrix
             title={"Correlation matrix"}
             probabilities={this.state.filteredCorrelationMatrix}
             comments={this.state.comments}
             tids={this.state.filterecCorrelationTids}
             formatTid={this.state.formatTid}
             ptptCount={this.state.ptptCount}/> : ""}
-          <ParticipantGroups
+            */}
+            <ParticipantGroups
             comments={this.state.comments}
             conversation={this.state.conversation}
             demographics={this.state.demographics}
@@ -346,26 +354,21 @@ class App extends React.Component {
             repfulAgreeTidsByGroup={this.state.repfulAgreeTidsByGroup}
             repfulDisageeTidsByGroup={this.state.repfulDisageeTidsByGroup}
             report={this.state.report}/>
-          {/* <Graph
-            comments={this.state.comments}
-            groupNames={this.state.groupNames}
-            badTids={this.state.badTids}
-            formatTid={this.state.formatTid}
-            repfulAgreeTidsByGroup={this.state.repfulAgreeTidsByGroup}
-            math={this.state.math}
-            renderHeading={true}
-            report={this.state.report}/>*/}
-          <Uncertainty
+            <Uncertainty
             comments={this.state.comments}
             uncertainty={this.state.uncertainty}
             conversation={this.state.conversation}
             ptptCount={this.state.ptptCount}
             formatTid={this.state.formatTid}/>
-          <AllComments
-            conversation={this.state.conversation}
-            ptptCount={this.state.ptptCount}
-            formatTid={this.state.formatTid}
-            comments={this.state.comments}/>
+            {/* <Graph
+              comments={this.state.comments}
+              groupNames={this.state.groupNames}
+              badTids={this.state.badTids}
+              formatTid={this.state.formatTid}
+              repfulAgreeTidsByGroup={this.state.repfulAgreeTidsByGroup}
+              math={this.state.math}
+              renderHeading={true}
+              report={this.state.report}/>*/}
           <Footer/>
         </div>
       </div>
