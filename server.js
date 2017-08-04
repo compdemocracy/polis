@@ -36,6 +36,7 @@ const devMode = "localhost" === process.env.STATIC_FILES_HOST;
 const replaceStream = require('replacestream');
 const responseTime = require('response-time');
 const request = require('request-promise'); // includes Request, but adds promise methods
+const s3Client = new AWS.S3({apiVersion: '2006-03-01'});
 const sesClient = new AWS.SES({apiVersion: '2010-12-01'}); // reads AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY from process.env
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const LruCache = require("lru-cache");
@@ -3010,75 +3011,45 @@ function initializePolisHelpers() {
   }
 
 
-  function doProxyDataExportCall(retryCount, req, res, urlBuilderFunction, returnImmediately) {
-    Promise.all([
-      getUserInfoForUid2(req.p.uid),
-      getConversationInfo(req.p.zid),
-    ]).then(function(a) {
-      let user = a[0];
-      let conv = a[1];
-      let isOwner = req.p.uid === conv.owner;
-      let isAllowed = isOwner || isPolisDev(req.p.uid) || conv.is_data_open;
 
-      if (!isAllowed) {
-        fail(res, 403, "polis_err_permission");
-        return;
-      }
-      let exportServerUser = process.env.EXPORT_SERVER_AUTH_USERNAME;
-      let exportServerPass = process.env.EXPORT_SERVER_AUTH_PASS;
 
-      let url = urlBuilderFunction(exportServerUser, exportServerPass, user.email);
-      console.log('dataExport url', url);
-      let x = request({
-        method: "GET",
-        uri: url,
-        followRedirect: false,
+  function handle_GET_dataExport(req, res) {
+
+    getUserInfoForUid2(req.p.uid).then((user) => {
+
+      return pgQueryP("insert into worker_tasks (math_env, task_data, task_type, task_bucket) values ($1, $2, 'generate_export_data', $3);", [
+        process.env.MATH_ENV,
+        {
+          'email': user.email,
+          'zid': req.p.zid,
+          'at-date': req.p.unixTimestamp * 1000,
+          'format': req.p.format,
+        },
+        Math.abs(Math.random() * 999999999999 >> 0), // TODO hash the params to get a consistent number?
+      ]).then(() => {
+        res.json({});
+      }).catch((err) => {
+        fail(res, 500, "polis_err_data_export123", err);
       });
-      req.pipe(x);
-      x.on("error", function(err) {
-        if (retryCount < 3) {
-          doProxyDataExportCall(retryCount + 1, req, res, urlBuilderFunction, returnImmediately);
-        } else {
-          emailBadProblemTime("darwin call failed after " + retryCount + " tries - " + JSON.stringify(err));
-        }
-      });
-      if (returnImmediately) {
-        res.status(200).json({});
-      } else {
-        x.pipe(res);
-        x.on("error", function(err) {
-          fail(res, 500, "polis_err_data_export1", err);
-        });
-      }
-    }, function(err) {
-      fail(res, 500, "polis_err_data_export2", err);
-    }).catch(function(err) {
-      fail(res, 500, "polis_err_data_export3", err);
+    }).catch((err) => {
+      fail(res, 500, "polis_err_data_export123b", err);
     });
   }
 
 
-  function handle_GET_dataExport(req, res) {
-    doProxyDataExportCall(0, req, res, function(exportServerUser, exportServerPass, email) {
-      return "https://" +
-        exportServerUser + ":" + exportServerPass +
-        "@"+process.env.SERVICE_MATHAPI_HOSTNAME+"/datadump/get?zinvite=" +
-        req.p.conversation_id +
-        "&format=" + req.p.format + "&email=" +
-        email +
-        (req.p.unixTimestamp ? ("&at-date=" + req.p.unixTimestamp * 1000) : "");
-    }, true);
-  }
-
-
   function handle_GET_dataExport_results(req, res) {
-    doProxyDataExportCall(0, req, res, function(exportServerUser, exportServerPass, email) {
-      return "https://" +
-        exportServerUser + ":" + exportServerPass +
-        "@"+process.env.SERVICE_MATHAPI_HOSTNAME+"/datadump/results?zinvite=" +
-        req.p.conversation_id +
-        "&filename=" + req.p.filename;
-    }, false);
+
+    var url = s3Client.getSignedUrl('getObject', {
+      Bucket: 'polis-datadump',
+      Key: ':' + process.env.MATH_ENV + "/" + req.p.filename,
+      Expires: 60*60*24*7,
+    });
+    res.redirect(url);
+
+    // res.writeHead(302, {
+    //   Location: protocol + "://" + req.headers.host + path,
+    // });
+    // return res.end();
   }
 
 
