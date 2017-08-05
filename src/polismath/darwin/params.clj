@@ -1,3 +1,0 @@
-(ns polismath.darwin.params)
-
-

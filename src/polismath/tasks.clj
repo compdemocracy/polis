@@ -1,12 +1,15 @@
 ;; Copyright (C) 2012-present, Polis Technology Inc. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 (ns polismath.tasks
-  (:require [clojure.core.async :as async :refer [go go-loop >! <! >!! <!!]]
+  (:require
+    [clojure.core.async :as async :refer [go go-loop >! <! >!! <!!]]
     [com.stuartsierra.component :as component]
     [polismath.conv-man :as conv-man]
+    [polismath.darwin.core :as darwin]
     [environ.core :as env]
     [polismath.components.postgres :as postgres]
-    [taoensso.timbre :as log]))
+    [taoensso.timbre :as log]
+    [polismath.darwin.export :as export]))
 
 
 ;; This is where we listen/poll for and dispatch tasks posted in the :worker_tasks table.
@@ -30,6 +33,20 @@
                                    (assoc (:task_data task-record)
                                      :task-record task-record))))
 
+
+(defmethod dispatch-task! :generate_export_data
+  [{:as poller :keys [darwin]} task-record]
+  (log/debug "Dispatching generate_export_data")
+  (let [params (darwin/parsed-params darwin task-record)]
+    (try
+      (darwin/notify-of-status darwin params "processing")
+      (export/export-conversation darwin params)
+      (darwin/handle-completion! darwin params)
+      (catch Exception e
+        (log/error e (str "Error generating export data for " task-record ":"))
+        (darwin/notify-of-status darwin params "failed")))))
+
+
 (defn poll
   [{:as poller :keys [config postgres kill-chan]}]
   (log/debug ">> Initializing task poller loop")
@@ -43,13 +60,16 @@
           ;; For each chunk of votes, for each conversation, send to the appropriate spout
           (doseq [task-record results]
             ;; TODO; Erm... need to sort out how we're using blocking vs non-blocking ops for threadability
-            (dispatch-task! poller task-record))
+            (try
+              (dispatch-task! poller task-record)
+              (catch Exception e
+                (log/error e (str "Error executing task " task-record ":")))))
           ;; Update timestamp
           (<! (async/timeout polling-interval))
           (recur last-timestamp))))))
 
 
-(defrecord TaskPoller [config postgres conversation-manager kill-chan]
+(defrecord TaskPoller [config darwin postgres conversation-manager kill-chan]
   component/Lifecycle
   (start [component]
     (log/info ">> Starting task poller component")
