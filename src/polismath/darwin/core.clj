@@ -27,11 +27,6 @@
 
 
 
-;; This will be kept but maybe move
-(defn full-path [darwin filename]
-  (str (or (-> darwin :config :export :temp-dir) "/tmp/")
-       filename))
-
 
 ;; We use postgres to persists the status of our exports as a json blob, and data needed for downloading from AWS.
 ;; Here, we're setting up basic postgres read and write helpers.
@@ -75,7 +70,7 @@
   (s3/put-object (aws-cred darwin)
                  :bucket-name "polis-datadump"
                  :key (full-aws-path darwin filename)
-                 :file (full-path darwin filename)))
+                 :file (export/full-path darwin filename)))
 
 
 (defn send-email-notification-via-polis-api!
