@@ -2,8 +2,10 @@ import React from "react";
 import _ from "lodash";
 import * as globals from "./globals";
 import style from "../util/style";
+import {VictoryScatter, VictoryChart, VictoryTheme} from "victory";
+import ScatterplotCommentAgreesPerGroup from "./scatterplotCommentAgreesPerGroup";
 
-const BarChartCompact = ({comment, groupVotes, }) => {
+const BarChartCompact = ({comment, groupVotes}) => {
 
   if (!comment) return null;
 
@@ -80,7 +82,7 @@ class AllComments extends React.Component {
     let labels = [];
 
     _.each(this.props.math["group-votes"], (g, i) => {
-      console.log(g)
+      // console.log(g)
       labels.push(
         <span key={i} style={{
           width: 101,
@@ -105,6 +107,8 @@ class AllComments extends React.Component {
     return (
       <div>
         <p style={globals.primaryHeading}> All Comments </p>
+        <ScatterplotCommentAgreesPerGroup
+          groupVotes={this.props.math["group-votes"]}/>
         <p style={globals.paragraph}>
           This is a list of the {this.props.comments.length} comments that were accepted into the conversation by moderators.
         </p>
