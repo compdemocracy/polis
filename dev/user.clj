@@ -30,8 +30,8 @@
 (comment
   ;; Run one of these to interactively test out a particular system or subsystem
   (runner/stop!)
-  (runner/run! system/base-system)
-  ;(runner/run! system/task-system)
+  ;(runner/run! system/base-system)
+  (runner/run! system/task-system)
   ;(runner/run! system/darwin-system)
   ;(runner/run! system/full-system {:poll {:poll-from-days-ago 0.1}})
 

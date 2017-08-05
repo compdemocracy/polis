@@ -193,7 +193,7 @@
 
 (defn get-zid-from-zinvite
   [component zinvite]
-  (log/info "get-zid-from-zinvite for zinvite" zinvite)
+  (log/debug "get-zid-from-zinvite for zinvite" zinvite)
   (->
     (kdb/with-db (:db-spec component)
                  (ko/select "zinvites"
@@ -201,6 +201,17 @@
                             (ko/where {:zinvite zinvite})))
     first
     :zid))
+
+(defn get-zinvite-from-zid
+  [component zid]
+  (log/debug "get-zinvite-from-zid for zid" zid)
+  (->
+    (kdb/with-db (:db-spec component)
+                 (ko/select "zinvites"
+                            (ko/fields :zid :zinvite)
+                            (ko/where {:zid zid})))
+    first
+    :zinvite))
 
 (defn conv-poll
   "Query for all data since last-vote-timestamp for a given zid, given an implicit db-spec"
@@ -310,9 +321,9 @@
 ;    ["task_type = ? and task_bucket = ?" task-type task-bucket]))
 ;; Marks all tasks with the same task_bucket as done.
 (defn mark-task-complete!
-  [postgres task_bucket]
+  [postgres task_type task_bucket]
   (log/info "mark-task-complete" task_bucket)
-  (query postgres ["update worker_tasks set finished_time = now_as_millis() where math_env = (?) and task_bucket = (?) returning finished_time;" (name (-> postgres :config :math-env)) task_bucket]))
+  (query postgres ["update worker_tasks set finished_time = now_as_millis() where math_env = (?) and task_type = (?) and task_bucket = (?) returning finished_time;" (name (-> postgres :config :math-env)) task_type task_bucket]))
 
 (defn upload-math-main
   [postgres zid math-tick data]

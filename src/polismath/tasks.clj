@@ -36,22 +36,23 @@
 
 (defmethod dispatch-task! :generate_export_data
   [{:as poller :keys [darwin]} task-record]
-  (log/debug "Dispatching generate_export_data")
-  (let [params (darwin/parsed-params darwin task-record)]
+  (log/debug "Dispatching generate_export_data for" task-record)
+  (let [params (assoc (:task_data task-record) :task_bucket (:task_bucket task-record))]
     (try
-      (darwin/notify-of-status darwin params "processing")
-      (export/export-conversation darwin params)
-      (darwin/handle-completion! darwin params)
+      (let [params (darwin/parsed-params darwin params)]
+        (darwin/notify-of-status darwin params "processing")
+        (export/export-conversation darwin params)
+        (darwin/handle-completion! darwin params))
       (catch Exception e
         (log/error e (str "Error generating export data for " task-record ":"))
-        (darwin/notify-of-status darwin params "failed")))))
+        (darwin/notify-of-status darwin (:task_data params) "failed")))))
 
 
 (defn poll
   [{:as poller :keys [config postgres kill-chan]}]
   (log/debug ">> Initializing task poller loop")
   (let [poller-config (-> config :poller)
-        start-polling-from (:initial-polling-timestamp poller-config)
+        start-polling-from (- (System/currentTimeMillis) (* (:poll-from-days-ago poller-config) 1000 60 60 24))
         polling-interval (or (-> poller-config :tasks :polling-interval) 1000)]
     (go-loop [last-timestamp start-polling-from]
       (when-not (async/poll! kill-chan) ;; TODO When we upgrade clojure & clojure.core.async, should do this
@@ -60,10 +61,7 @@
           ;; For each chunk of votes, for each conversation, send to the appropriate spout
           (doseq [task-record results]
             ;; TODO; Erm... need to sort out how we're using blocking vs non-blocking ops for threadability
-            (try
-              (dispatch-task! poller task-record)
-              (catch Exception e
-                (log/error e (str "Error executing task " task-record ":")))))
+            (dispatch-task! poller task-record))
           ;; Update timestamp
           (<! (async/timeout polling-interval))
           (recur last-timestamp))))))
