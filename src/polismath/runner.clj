@@ -57,7 +57,7 @@
   {;"storm" stormspec/storm-system ;; remove...
    ;"onyx" system/onyx-system ;; soon...
    "poller" system/poller-system
-   "darwin" system/darwin-system
+   "tasks" system/task-system
    "full" system/full-system
    "simulator" system/simulator-system})
 
