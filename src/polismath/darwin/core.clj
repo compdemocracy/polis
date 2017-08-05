@@ -22,7 +22,8 @@
     [clj-time.core :as time]
     [clj-http.client :as client]
     [polismath.utils :as utils]
-    [clojure.set :as set]))
+    [clojure.set :as set]
+    [polismath.components.postgres :as postgres]))
 
 
 
@@ -98,24 +99,14 @@
 
 
 (defn handle-completion!
-  [darwin {:as params :keys [filename]}]
+  [{:as darwin :keys [postgres]} {:as params :keys [filename task_bucket]}]
   (log/info "Completed export computation for filename" filename "params:" (with-out-str (str params)))
   (upload-to-aws darwin filename)
   ;;(upload-to-polis-polismath.darwin.core darwin filename)
   (notify-of-status darwin params "complete")
+  (postgres/mark-task-complete! postgres "generate_export_data" task_bucket)
   (when (:email params) (send-email-notification-via-polis-api! darwin params)))
 
-
-(defn handle-timedout-datadump!
-  ;; TODO fix args
-  [darwin params compute-chan]
-  (let [{:keys [filename zinvite]} params]
-    (log/info "Timed out on datadump computation for filename" filename "params:" (with-out-str (str params)) ". Starting async lifecycle.")
-    ;; First let postgresk know we're working on it
-    ;; Start a go routine, which upon completion of the computation loads the data to
-    ;; aws and updates the postgres blob
-    (go (when-let [_ (<! compute-chan)]
-          (handle-completion! (aws-cred darwin) params)))))
 
 
 ;; The filename is actually pretty iportant.
@@ -172,6 +163,13 @@
     (or (:filename params)
         (generate-filename params))))
 
+(defn params-with-zinvite
+  [darwin params]
+  (assoc params
+    :zinvite (or (:zinvite params)
+                 (db/get-zinvite-from-zid (:postgres darwin) (:zid params)))))
+
+
 (defn parsed-params
   "Parses the params for a request, occording to parsers."
   [darwin params]
@@ -185,6 +183,7 @@
           (assoc m k ((or (parsers k) identity) v))))
       {})
     (params-with-zid darwin)
+    (params-with-zinvite darwin)
     (params-with-filename)))
 
 

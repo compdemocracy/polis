@@ -326,7 +326,7 @@
     (async/thread
       (postgres/insert-correlationmatrix! postgres rid math-tick corr-mat)
       ;; TODO update to submit usng task type and task bucket
-      (postgres/mark-task-complete! postgres rid))))
+      (postgres/mark-task-complete! postgres "generate_report_data" rid))))
 
 
 ;; Need to think about what to do if failed conversations lead to messages piling up in the message queue XXX
