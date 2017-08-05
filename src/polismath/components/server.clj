@@ -33,6 +33,9 @@
       (healthcheck-handler request)
       (handler request))))
 
+
+;; TODO! If we need a healthcheck server again, strip out old stuff from the darwin server (:app below etc)
+
 (defrecord Server
   [config opts app jetty-server]
   component/Lifecycle
