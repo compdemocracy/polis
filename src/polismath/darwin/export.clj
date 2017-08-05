@@ -57,6 +57,11 @@
 ;; cid, author, aggrees, disagrees, mod, text
 
 
+(defn full-path [darwin filename]
+  (str (or (-> darwin :config :export :temp-dir) "/tmp/")
+       filename))
+
+
 (defn db-spec [darwin]
   (-> darwin :postgres :db-spec))
 
@@ -565,7 +570,7 @@
       (if (-> export-data :summary :n-voters (> 0))
         (saver zip-stream entry-point formatted)
         (log/debug "Skipping conv" zid zinvite ", since no votes"))
-      (saver filename formatted)))
+      (saver (full-path darwin filename) formatted)))
   (log/info "Finished exporting data for zid =" zid ", zinvite =" zinvite))
 
 
@@ -574,6 +579,8 @@
 
 ; A testbench for using the main API function
 (comment
+  (require '[polismath.runner :as runner])
+  (def darwin (:darwin runner/system))
   (export-conversation {;;:zid 310273
                         :zinvite "7scufp"
                         :format :csv
@@ -584,7 +591,8 @@
                         :zinvite "7scufp"
                         :format :excel
                         :filename "cljwebdev.xlsx"
-                        :math-env "prod"}))
+                        :math-env "prod"})
+  :end-comment)
 
 
 :ok
