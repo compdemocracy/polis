@@ -535,16 +535,15 @@
      :participants-votes (participants-votes-table conv votes comments)
      :comments comments}))
 
-
 (defn get-export-data-at-date
   [darwin {:keys [zid zinvite env-overrides at-date] :as kw-args}]
   (let [zid (or zid (postgres/get-zid-from-zinvite (:postgres darwin) zinvite))
-        votes (get-conversation-votes zid at-date)
+        votes (get-conversation-votes darwin zid at-date)
         conv (assoc (conv/new-conv) :zid zid)
         conv (conv/conv-update conv votes)
         _ (println "Done with conv update")
-        comments (enriched-comments-data (get-comments-data zid at-date) votes)
-        participants (get-participation-data zid at-date)]
+        comments (enriched-comments-data (get-comments-data darwin zid at-date) votes)
+        participants (get-participation-data darwin zid at-date)]
     {:votes votes
      :summary (assoc (summary-data darwin conv votes comments participants) :at-date at-date)
      :stats-history (stats-history votes participants comments)

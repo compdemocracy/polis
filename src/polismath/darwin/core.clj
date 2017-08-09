@@ -112,7 +112,6 @@
   "Generates a filename based on request-params"
   [{:as request-params :keys [zinvite at-date format]}]
   {:pre [zinvite format]}
-  (log/debug "generating filename for request-params:" request-params)
   (let [last-updated (or at-date (System/currentTimeMillis))
         ext (case format :excel "xlsx" :csv "zip")
         filename (str "polis-export-" zinvite "-" last-updated "." ext)]
@@ -126,8 +125,10 @@
 (defn- ->long
   "Try to parse as an integer as long; return nil if not possible."
   [x]
-  (try (Long/parseLong x)
-       (catch Exception e nil)))
+  (if (number? x)
+    (long x)
+    (try (Long/parseLong x)
+         (catch Exception e nil))))
 
 (defn- between? [a b x]
   (and x (< a x) (> b x)))
