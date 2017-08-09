@@ -384,7 +384,7 @@
                   (generate-report-data! conv-man conv math-tick report-task))
                 (swap! conversations assoc-in [zid :conv] conv)
                 (async/thread
-                  (doseq [[k f] @listeners] (try (f conv) (catch Exception e (log/error "Listener error") (.printStackTrace e)))))
+                  (doseq [[k f] @listeners] (try (f conv) (catch Exception e (log/error e "Listener error")))))
                 (recur conv)))))))))
 
 
