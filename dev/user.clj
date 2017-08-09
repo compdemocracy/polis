@@ -32,6 +32,7 @@
   (runner/stop!)
   ;(runner/run! system/base-system)
   (runner/run! system/task-system)
+  (runner/run! system/task-system {:math-env :preprod :poll-from-days-ago 0.1})
   ;(runner/run! system/darwin-system)
   ;(runner/run! system/full-system {:poll {:poll-from-days-ago 0.1}})
 
