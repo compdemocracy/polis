@@ -38,7 +38,6 @@
                 ;; Hmmm should be able to specify a dep on port; aero?
                 :private-url-base "http://localhost:8080"}
                 ;; Shit... should be able to specify dependency on preprod as well!
-   :webserver-url "https://preprod.pol.is/api/v3"
    :database   {:pool-size 3}
    :poller     {:votes {:polling-interval 1000}
                 :moderation {:polling-interval 1000}
@@ -64,7 +63,6 @@
    :aws-access-key             {:path [:aws :access-key]}
    :webserver-username         {:path [:webserver-username]}
    :webserver-pass             {:path [:webserver-pass]}
-   :webserver-url              {:path [:webserver-url]}
    :export-server-auth-username {:path [:darwin :server-auth-username]}
    :export-server-auth-pass {:path [:darwin :server-auth-pass]}
    :math-matrix-implementation {:path [:math :matrix-implementation] :parse ->keyword}
@@ -104,7 +102,20 @@
    ;; Mini batch sizes (see polismath.math.conversation)
 
 
+(defn assoc-inferred-values
+  [{:as config-map :keys [math-env]}]
+  (let [math-env-string (name math-env)
+        webserver-url (str "https://"
+                           (when-not (= math-env :prod) (str math-env-string "."))
+                           "pol.is/api/v3")]
+    (assoc config-map
+      :math-env-string (str math-env)
+      :webserver-url webserver-url)))
+
+
+
 (defn get-environ-config [rules env]
+  ;; reduce over rules and assoc-in mappings into empty map
   (reduce
     (fn [config [name {:keys [parse path] :or {parse identity}}]]
       (if-let [env-var-val (get env name)]
@@ -122,10 +133,12 @@
 
 (defn get-config
   ([overrides]
-   (deep-merge defaults
-               ;(read-string (slurp "config.edn"))
-               (get-environ-config rules environ/env)
-               overrides))
+    ;; Then infer additional values
+   (assoc-inferred-values
+     (deep-merge defaults
+                 ;(read-string (slurp "config.edn"))
+                 (get-environ-config rules environ/env)
+                 overrides)))
   ([] (get-config {})))
 
 (defrecord Config [overrides]
