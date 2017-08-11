@@ -271,6 +271,7 @@
          :from [:worker_tasks]
          :where [:and
                  [:> :created last-timestamp]
+                 [:= :math_env (name (-> postgres :config :math-env))]
                  [:= :finished_time nil]]}))
     (map (fn [task-record]
            (-> task-record
