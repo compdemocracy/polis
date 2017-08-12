@@ -63,7 +63,7 @@
 
 (defn full-aws-path
   [darwin filename]
-  (str (-> darwin :config :math-env) "/" filename))
+  (str (-> darwin :config :math-env-string) "/" filename))
 
 (defn upload-to-aws
   [darwin filename]
