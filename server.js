@@ -3041,7 +3041,7 @@ function initializePolisHelpers() {
 
     var url = s3Client.getSignedUrl('getObject', {
       Bucket: 'polis-datadump',
-      Key: ':' + process.env.MATH_ENV + "/" + req.p.filename,
+      Key: process.env.MATH_ENV + "/" + req.p.filename,
       Expires: 60*60*24*7,
     });
     res.redirect(url);
