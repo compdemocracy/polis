@@ -132,7 +132,7 @@
         (when-let [validation-errors (s/check Conversation updated-conv)]
           ;; XXX Should really be using throw+ (slingshot) here and throutout the code base
           ;; Also, should put in code for doing smart collapsing of collections...
-          (log/error "Validation error: Conversation value does not match schema for conv zid:" zid)
+          (log/error "Validation error: Conversation value does not match schema for conv:" updated-conv)
           (throw (Exception. (str "Validation error: Conversation Value does not match schema: "
                                   validation-errors))))
         ; Return the updated conv
