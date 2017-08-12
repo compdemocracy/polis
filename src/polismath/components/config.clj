@@ -109,7 +109,7 @@
                            (when-not (= math-env :prod) (str math-env-string "."))
                            "pol.is/api/v3")]
     (assoc config-map
-      :math-env-string (str math-env)
+      :math-env-string math-env-string
       :webserver-url webserver-url)))
 
 

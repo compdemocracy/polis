@@ -271,7 +271,7 @@
          :from [:worker_tasks]
          :where [:and
                  [:> :created last-timestamp]
-                 [:= :math_env (name (-> postgres :config :math-env))]
+                 [:= :math_env (-> component :config :math-env-string)]
                  [:= :finished_time nil]]}))
     (map (fn [task-record]
            (-> task-record
@@ -298,7 +298,7 @@
 (defn inc-math-tick
   [postgres zid]
   (log/info "inc-math-tick" zid)
-  (:math_tick (first (query postgres ["insert into math_ticks (zid, math_env) values (?, ?) on conflict (zid, math_env) do update set modified = now_as_millis(), math_tick = (math_ticks.math_tick + 1) returning math_tick;" zid (name (-> postgres :config :math-env))]))))
+  (:math_tick (first (query postgres ["insert into math_ticks (zid, math_env) values (?, ?) on conflict (zid, math_env) do update set modified = now_as_millis(), math_tick = (math_ticks.math_tick + 1) returning math_tick;" zid (-> postgres :config :math-env-string)]))))
 
 (defn pg-json
   [data]
@@ -308,7 +308,7 @@
 
 (defn insert-correlationmatrix!
   [postgres rid math-tick data]
-  (query postgres ["insert into math_report_correlationmatrix (rid, math_env, math_tick, data) values (?,?,?,?) on conflict (rid, math_env) do update set data = excluded.data, math_tick = excluded.math_tick returning rid;" rid (name (-> postgres :config :math-env)) math-tick (pg-json data)]))
+  (query postgres ["insert into math_report_correlationmatrix (rid, math_env, math_tick, data) values (?,?,?,?) on conflict (rid, math_env) do update set data = excluded.data, math_tick = excluded.math_tick returning rid;" rid (-> postgres :config :math-env-string) math-tick (pg-json data)]))
 
 
 ;; TODO Fix this; need task-type in here as well for this to work
@@ -324,23 +324,47 @@
 (defn mark-task-complete!
   [postgres task_type task_bucket]
   (log/info "mark-task-complete" task_bucket)
-  (query postgres ["update worker_tasks set finished_time = now_as_millis() where math_env = (?) and task_type = (?) and task_bucket = (?) returning finished_time;" (name (-> postgres :config :math-env)) task_type task_bucket]))
+  (query postgres ["update worker_tasks set finished_time = now_as_millis() where math_env = (?) and task_type = (?) and task_bucket = (?) returning finished_time;" (-> postgres :config :math-env-string) task_type task_bucket]))
 
 (defn upload-math-main
   [postgres zid math-tick data]
   (log/info "upload-math-main for zid" zid)
-  (let [math-env (name (-> postgres :config :math-env))]
-    (query postgres ["insert into math_main (zid, math_env, last_vote_timestamp, math_tick, data, caching_tick) values (?,?,?,?,?, (select max(caching_tick) + 1 from math_main where math_env = (?))) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data, last_vote_timestamp = excluded.last_vote_timestamp, math_tick = excluded.math_tick, caching_tick = excluded.caching_tick returning zid;" zid math-env (:lastVoteTimestamp data) math-tick (pg-json data) math-env])))
+  (let [math-env (-> postgres :config :math-env-string)]
+    (query postgres
+           ["insert into math_main (zid, math_env, last_vote_timestamp, math_tick, data, caching_tick)
+             values (?,?,?,?,?, (select max(caching_tick) + 1 from math_main where math_env = (?)))
+             on conflict (zid, math_env)
+             do update set modified = now_as_millis(),
+                           data = excluded.data,
+                           last_vote_timestamp = excluded.last_vote_timestamp,
+                           math_tick = excluded.math_tick,
+                           caching_tick = excluded.caching_tick
+             returning zid;"
+            ;; I believe math env is twice here because it gets used in two separate ?
+            zid math-env (:lastVoteTimestamp data) math-tick (pg-json data) math-env])))
 
 (defn upload-math-profile
   [postgres zid data]
   (log/info "upload-math-profile for zid" zid)
-  (query postgres ["insert into math_profile (zid, math_env, data) values (?,?,?) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data returning zid;" zid (name (-> postgres :config :math-env)) (pg-json data)]))
+  (query postgres
+         ["insert into math_profile (zid, math_env, data)
+           values (?,?,?) on conflict (zid, math_env)
+           do update set modified = now_as_millis(), data = excluded.data
+           returning zid;"
+          zid (-> postgres :config :math-env-string) (pg-json data)]))
 
 (defn upload-math-ptptstats
   [postgres zid math-tick data]
   (log/info "upload-math-ptptstats for zid" zid)
-  (query postgres ["insert into math_ptptstats (zid, math_env, math_tick, data) values (?,?,?,?) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data, math_tick = excluded.math_tick returning zid;" zid (name (-> postgres :config :math-env)) math-tick (pg-json data)]))
+  (query postgres
+         ["insert into math_ptptstats (zid, math_env, math_tick, data)
+           values (?,?,?,?)
+           on conflict (zid, math_env)
+           do update set modified = now_as_millis(),
+                         data = excluded.data,
+                         math_tick = excluded.math_tick
+           returning zid;"
+          zid (-> postgres :config :math-env-string) math-tick (pg-json data)]))
 
 ;; XXX Not using this anywhere apparently so should remove
 ;(defn upload-math-cache
@@ -351,17 +375,31 @@
 (defn upload-math-bidtopid
   [postgres zid math-tick data]
   (log/info "upload-math-bidtopid for zid" zid)
-  (query postgres ["insert into math_bidtopid (zid, math_env, math_tick, data) values (?,?,?,?) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data, math_tick = excluded.math_tick returning zid;" zid (name (-> postgres :config :math-env)) math-tick (pg-json data)]))
+  (query postgres
+         ["insert into math_bidtopid (zid, math_env, math_tick, data)
+           values (?,?,?,?)
+           on conflict (zid, math_env)
+           do update set modified = now_as_millis(),
+                         data = excluded.data,
+                         math_tick = excluded.math_tick
+           returning zid;"
+          zid (-> postgres :config :math-env-string) math-tick (pg-json data)]))
 
 (defn upload-math-exportstatus
   [postgres zid filename data]
   {:pre [postgres zid filename data]}
-  (log/info "upload-math-exportstatus or zid" zid)
+  (log/info "upload-math-exportstatus for zid" zid)
   (query
     postgres
-    ["insert into math_exportstatus (zid, math_env, filename, data, modified) values (?,?,?,?, now_as_millis()) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data, filename = excluded.filename returning zid;"
+    ["insert into math_exportstatus (zid, math_env, filename, data, modified)
+      values (?,?,?,?, now_as_millis())
+      on conflict (zid, math_env)
+      do update set modified = now_as_millis(),
+                    data = excluded.data,
+                    filename = excluded.filename
+      returning zid;"
      zid
-     (name (-> postgres :config :math-env))
+     (-> postgres :config :math-env-string)
      filename
      (pg-json data)]))
 
@@ -374,14 +412,14 @@
   [postgres zid filename]
   (log/info "get-math-exportstatus for zid" zid)
   (->>
-    (query postgres ["select * from math_exportstatus where zid = (?) and math_env = (?) and filename = (?);" zid (name (-> postgres :config :math-env)) filename])
+    (query postgres ["select * from math_exportstatus where zid = (?) and math_env = (?) and filename = (?);" zid (-> postgres :config :math-env-string) filename])
     first
     :data
     decode-pg-json))
 
 (defn get-math-tick
   [postgres zid]
-  (:math_tick (first (query postgres ["select math_tick from math_ticks where zid = (?) and math_env = (?);" zid (name (-> postgres :config :math-env))]))))
+  (:math_tick (first (query postgres ["select math_tick from math_ticks where zid = (?) and math_env = (?);" zid (-> postgres :config :math-env-string)]))))
 
 
 (defn load-conv
@@ -389,7 +427,7 @@
   as found in the :repness"
   [postgres zid]
   (log/info "load-conv called for zid" zid)
-  (let [row (first (query postgres ["select * from math_main where zid = (?) and math_env = (?);" zid (name (-> postgres :config :math-env))]))]
+  (let [row (first (query postgres ["select * from math_main where zid = (?) and math_env = (?);" zid (-> postgres :config :math-env-string)]))]
     (if row
       ;; TODO Make sure this loads with keywords for map keys, except where they should be integers
       (ch/parse-string
