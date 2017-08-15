@@ -51,38 +51,38 @@ class Explainer extends React.Component {
   render() {
     return (
       <div style={s.container}>
-        <p style={{fontSize: 36, textAlign: "center"}}>pol.is in 3 minutes</p>
+        <p style={{fontSize: 36, textAlign: "center"}}>pol.is in 1 minute</p>
         <div style={s.section}>
           <p style={s.heading}>What you do</p>
           <p style={s.body}>
-            pol.is is a new kind of survey that participants create themselves as they go. Smart algorithms find patterns and generate insights for you.
-            Your job is to <span style={s.callOut}>frame, configure, seed, & distribute each conversation. pol.is will produce insights automatically, and deliver a report you can share with your community.</span>
+            pol.is is a new kind of survey that participants create as they go. Your job is to create and invite people to conversations. Pol.is automatically finds patterns and produces insights, then delivers a report that you can share with your community.
           </p>
         </div>
         <div style={s.section}>
-          <p style={s.heading}>1: Frame</p>
+          <p style={s.heading}>1: Ask</p>
           <p style={s.body}>
-            Prompt your community with a question or article. <span style={s.callOut}>Pol.is is built for complicated, large scale, multi-stakeholder environments.</span> Pick a topic that matters. Leave information gathering for surveys.
+            Prompt your community with a question. Pick a topic that matters—complicated topics are perfect. Pol.is is built for complex, large-scale conversations with lots of stakeholders. Your role is to ask your community a question or give them a prompt (like an article or a tweet). Each person in your community votes on statements submitted by others, and can submit statements of their own. 
           </p>
         </div>
         <div style={s.section}>
-          <p style={s.heading}>2: Configure</p>
+          <p style={s.heading}>2: Customize</p>
           <p style={s.body}>
-            Is the conversation anonymous? Will you moderate? Can everyone see how others voted? Message us inside the app if you need help!
+            Pol.is has a bunch of settings you can use to customize your conversations. Is participation anonymous? Will you moderate comments? Can everyone see how others voted? Choose the options that work best for your conversation, and message us if you need help!
           </p>
         </div>
         <div style={s.section}>
-          <p style={s.heading}>3: Seed</p>
+          <p style={s.heading}>3: Add Comments</p>
           <p style={s.body}>
-            Add 15 initial statements. They should represent as many perspectives as you can think of that already exist out in the community.
+            Add comments so your first participants have something to vote on when they arrive at your conversation. Add about 5-15 initial comments that represent as many perspectives as you can think of. 
           </p>
         </div>
         <div style={s.section}>
-          <p style={s.heading}>4: Distribute</p>
+          <p style={s.heading}>4: Share</p>
           <p style={s.body}>
-            Share a link to our site or embed as a widget on yours. Then invite lots of people! <span style={s.callOut}>Pol.is is built for thousands</span> - but think about results getting interesting after 30+ people have voted on 30+ comments.
+            Finally, share a link to your conversation to invite participants. You can leave the conversation on Pol.is or embed it as a widget on your website. Invite lots of people! The results start getting really interesting after about 30 people have voted on 30 comments each.
           </p>
         </div>
+    /*
         <div style={s.section}>
           <p style={s.heading}>What your community does</p>
           <p style={s.body}>
@@ -116,6 +116,7 @@ class Explainer extends React.Component {
           </p>
         </div>
       </div>
+      */
     );
   }
 }
