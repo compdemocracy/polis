@@ -41,7 +41,7 @@
     "optimist": "0.3.7",
     "optional": "^0.1.3",
     "p3p": "0.0.2",
-    "pg": "6.1.0",
+    "pg": "6.1.6",
     "pg-connection-string": "0.1.3",
     "pg-native": "1.10.0",
     "pushover-notifications": "0.1.9",
