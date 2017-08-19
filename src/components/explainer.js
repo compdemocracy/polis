@@ -82,7 +82,8 @@ class Explainer extends React.Component {
             Finally, share a link to your conversation to invite participants. You can leave the conversation on Pol.is or embed it as a widget on your website. Invite lots of people! The results start getting really interesting after about 30 people have voted on 30 comments each.
           </p>
         </div>
-    /*
+    </div>
+    {/*
         <div style={s.section}>
           <p style={s.heading}>What your community does</p>
           <p style={s.body}>
@@ -116,7 +117,7 @@ class Explainer extends React.Component {
           </p>
         </div>
       </div>
-      */
+      */}
     );
   }
 }
