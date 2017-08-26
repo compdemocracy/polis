@@ -6,6 +6,7 @@
             [polismath.math.conversation :as conv]
             [polismath.components.postgres :as postgres]
             [polismath.math.named-matrix :as nm]
+            [honeysql.core :as honey]
             [clojure.core.matrix :as matrix]
             [clojure.core.async :as async :refer [>! <! >!! <!! go go-loop thread]]
             [environ.core :as env]
@@ -30,9 +31,12 @@
 (comment
   ;; Run one of these to interactively test out a particular system or subsystem
   (runner/stop!)
-  ;(runner/run! system/base-system)
-  (runner/run! system/task-system)
-  (runner/run! system/task-system {:math-env :preprod :poll-from-days-ago 0.1})
+  (runner/run! system/base-system {:math-env :prod})
+  ;(runner/run! system/task-system)
+  ;(runner/run! system/task-system {:math-env :preprod :poll-from-days-ago 0.1})
+  ;(runner/run! system/full-system {:math-env :preprod :poll-from-days-ago 0.1})
+  ;(runner/run! system/full-system {:math-env :dev :poll-from-days-ago 0.1})
+  ;(runner/run! system/full-system {:math-env :preprod})
   ;(runner/run! system/darwin-system)
   ;(runner/run! system/full-system {:poll {:poll-from-days-ago 0.1}})
 
@@ -43,13 +47,13 @@
 
 
   ;; Setting up load and interactive testing for a specific conversation
-  (def args {:zid 11547})
+  (def args {:zid 16906})
+  (def conv
+    (-> (load-conv args)
+        (conv/conv-update [])))
   (def conv
     (-> (load-conv args)
         (conv/conv-update [{:zid 11547 :pid 0 :tid 0 :vote 2.0 :created (System/currentTimeMillis)}])))
-  (keys (:pca conv))
-  (:comps (:pca conv))
-  (:comment-projection (:pca conv))
 
   (def updated-conv
     (-> conv
@@ -72,8 +76,42 @@
     (:subgroup-clusters updated-conv'))
     ;(:repness updated-conv'))
 
-  ;(get-conv args)
+
+  ;; Postgres/db testbench
+  (postgres/query
+    (:postgres runner/system)
+    ["select * from votes
+      limit 10;"])
+
+  (postgres/query
+    (:postgres runner/system)
+    ["select * from votes
+      where zid = ?;"
+     4])
+
+  (postgres/query
+    (:postgres runner/system)
+    (honey/format
+      {:select [:*]
+       :from [:votes]
+       :limit 10}))
+
+
+  ;; Debugging issue
+  (postgres/query
+    (:postgres runner/system)
+    (honey/format
+      {:select [:*]
+       :from [:math_tasks]
+       :limit 10}))
+
+
+  ;; Getting config settings
   (-> runner/system :config)
+  (-> runner/system :config :webserver-url)
+
+  (-> runner/system :config :darwin)
+  (-> runner/system :config :darwin :webserver-url)
   (-> runner/system :conversation-manager :conversations deref)
 
 
