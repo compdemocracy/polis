@@ -3012,21 +3012,61 @@ function initializePolisHelpers() {
 
 
 
+  function doAddDataExportTask(math_env, email, zid, atDate, format, task_bucket) {
+    return pgQueryP("insert into worker_tasks (math_env, task_data, task_type, task_bucket) values ($1, $2, 'generate_export_data', $3);", [
+      math_env,
+      {
+        'email': email,
+        'zid': zid,
+        'at-date': atDate,
+        'format': format,
+      },
+      task_bucket, // TODO hash the params to get a consistent number?
+    ]);
+  }
+
+
+  if (process.env.RUN_PERIODIC_EXPORT_TESTS && !devMode && process.env.MATH_ENV === "preprod") {
+    let runExportTest = () => {
+      let math_env = "prod";
+      let email = process.env.EMAIL_MIKE;
+      let zid = 12480;
+      let atDate = Date.now();
+      let format = "csv";
+      let task_bucket = Math.abs(Math.random() * 999999999999 >> 0);
+      doAddDataExportTask(math_env, email, zid, atDate, format, task_bucket).then(() => {
+        setTimeout(() => {
+          pgQueryP("select * from worker_tasks where task_type = 'generate_export_data' and task_bucket = ($1);", [task_bucket]).then((rows) => {
+            let ok = rows && rows.length;
+            if (ok) {
+              ok = rows[0].finished_time > 0;
+            }
+            if (ok) {
+              console.log('runExportTest success');
+            } else {
+              console.log('runExportTest failed');
+              emailBadProblemTime("Math export didn't finish.");
+            }
+          });
+        }, 10 * 60 * 1000); // wait 10 minutes before verifying
+      });
+    }
+    setInterval(runExportTest, 6 * 60 * 60 * 1000); // every 6 hours
+  }
+
 
   function handle_GET_dataExport(req, res) {
 
     getUserInfoForUid2(req.p.uid).then((user) => {
 
-      return pgQueryP("insert into worker_tasks (math_env, task_data, task_type, task_bucket) values ($1, $2, 'generate_export_data', $3);", [
+      return doAddDataExportTask(
         process.env.MATH_ENV,
-        {
-          'email': user.email,
-          'zid': req.p.zid,
-          'at-date': req.p.unixTimestamp * 1000,
-          'format': req.p.format,
-        },
-        Math.abs(Math.random() * 999999999999 >> 0), // TODO hash the params to get a consistent number?
-      ]).then(() => {
+        user.email,
+        req.p.zid,
+        req.p.unixTimestamp * 1000,
+        req.p.format,
+        Math.abs(Math.random() * 999999999999 >> 0))
+      .then(() => {
         res.json({});
       }).catch((err) => {
         fail(res, 500, "polis_err_data_export123", err);
