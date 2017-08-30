@@ -83,7 +83,10 @@ class Explainer extends React.Component {
           </p>
         </div>
     </div>
-    {/*
+    );
+  }
+}
+    /*
         <div style={s.section}>
           <p style={s.heading}>What your community does</p>
           <p style={s.body}>
@@ -117,9 +120,6 @@ class Explainer extends React.Component {
           </p>
         </div>
       </div>
-      */}
-    );
-  }
-}
+      */
 
 export default Explainer;
