@@ -77,6 +77,7 @@ gulp.task('index', [
   index = index.replace("/dist/admin_bundle.js",  '/' + [destRootRest, "js", "admin_bundle.js"].join('/'));
   index = index.replace("NULL_VERSION",  versionString);
   index = index.replace("<%= useIntercom %>", !isTrue(process.env.DISABLE_INTERCOM));
+  index = index.replace("<%= usePlans %>", !isTrue(process.env.DISABLE_PLANS));
 
 
   // index goes to the root of the dist folder.

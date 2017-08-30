@@ -53,6 +53,7 @@ app.get('*', function(req, res) {
   var html = fs.readFileSync(path.join(__dirname, 'index.html'), {encoding: "utf8"});
 
   html = html.replace("<%= useIntercom %>", !isTrue(process.env.DISABLE_INTERCOM));
+  html = html.replace("<%= usePlans %>", !isTrue(process.env.DISABLE_PLANS));
   res.set({
     'Content-Type': 'text/html',
   });

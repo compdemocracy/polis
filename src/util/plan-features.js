@@ -1,7 +1,12 @@
 
-function hasPlanCode1(user) {
-  return user && user.planCode >= 1;
+function canDoAnything() {
+  return !window.usePlans;
 }
+
+function hasPlanCode1(user) {
+  return (user && user.planCode >= 1) || canDoAnything();
+}
+
 
 export const getPlanName = (user) => {
   let name;
