@@ -35,6 +35,31 @@ CREATE OR REPLACE FUNCTION to_millis(t TIMESTAMP WITH TIME ZONE) RETURNS BIGINT 
         END;
 $$ LANGUAGE plpgsql;
 
+-- http://stackoverflow.com/questions/3970795/how-do-you-create-a-random-string-in-postgresql
+CREATE OR REPLACE FUNCTION random_string(INTEGER)
+RETURNS TEXT AS
+$BODY$
+SELECT array_to_string(
+    ARRAY (
+        SELECT substring(
+            '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+            FROM (ceil(random()*62))::int FOR 1
+        )
+        FROM generate_series(1, $1)
+    ),
+    ''
+)
+$BODY$
+LANGUAGE sql VOLATILE;
+
+CREATE OR REPLACE FUNCTION random_polis_site_id()
+RETURNS TEXT AS
+$BODY$
+-- 18 so it's 32 long, not much thought went into this so far
+SELECT 'polis_site_id_' || random_string(18);
+$BODY$
+LANGUAGE sql VOLATILE;
+
 -- This is a light table that's used exclusively for generating IDs
 CREATE TABLE users(
     -- TODO After testing failure cases with 10, use this:
@@ -161,56 +186,6 @@ CREATE TABLE coupons_for_free_upgrades (
 
 --CREATE TABLE org_member_metadata_types (
 
-CREATE TABLE participant_metadata_questions (
-    pmqid SERIAL,
-    zid INTEGER REFERENCES conversations(zid),
-    key VARCHAR(999), -- City, Office, Role, etc
-    alive BOOLEAN  DEFAULT TRUE, -- !deleted
-    created BIGINT DEFAULT now_as_millis(),
-    UNIQUE (zid, key), -- TODO index!
-    UNIQUE (pmqid)
-);
-
-CREATE TABLE participant_metadata_answers (
-    pmaid SERIAL,
-    pmqid INTEGER REFERENCES participant_metadata_questions(pmqid),
-    zid INTEGER REFERENCES conversations(zid), -- for fast disk-local indexing
-    value VARCHAR(999), -- Seattle, Office 23, Manager, etc
-    alive BOOLEAN DEFAULT TRUE, -- !deleted
-    created BIGINT DEFAULT now_as_millis(),
-    UNIQUE (pmqid, zid, value),
-    UNIQUE (pmaid)
-);
-
-CREATE TABLE participant_metadata_choices (
-    zid INTEGER,
-    pid INTEGER,
-    pmqid INTEGER REFERENCES participant_metadata_questions(pmqid),
-    pmaid INTEGER REFERENCES participant_metadata_answers(pmaid),
-    alive BOOLEAN DEFAULT TRUE, -- !deleted
-    created BIGINT DEFAULT now_as_millis(),
-    FOREIGN KEY (zid, pid) REFERENCES participants (zid, pid),
-    UNIQUE (zid, pid, pmqid, pmaid)
-);
-
- ---- top level
----- these can be used to construct the tree, then add an empty list to each node
---SELECT * FROM participant_metadata_questions WHERE zid = 34;
---SELECT * FROM participant_metadata_answers WHERE zid = 34;
--- now populate the tree with participant entries
---SELECT * from participant_metadata_choices WHERE zid = 34;
-----for (each) {
-----  tree.zid.pmqid.pmaid.push(pid)
-----}
-
-CREATE TABLE contexts(
-    context_id SERIAL,
-    name VARCHAR(300),
-    creator INTEGER REFERENCES users(uid), -- rather than owner, since not sure how ownership will be done
-    is_public BOOLEAN DEFAULT FALSE,
-    created BIGINT DEFAULT now_as_millis(),
-);
-
 CREATE TABLE courses(
     course_id SERIAL,
     topic VARCHAR(1000),
@@ -218,7 +193,7 @@ CREATE TABLE courses(
     owner INTEGER REFERENCES users(uid),
     course_invite VARCHAR(32),
     created BIGINT DEFAULT now_as_millis(),
-    UNIQUE(invite),
+    UNIQUE(course_invite),
     UNIQUE(course_id)
 );
 CREATE UNIQUE INDEX course_id_idx ON courses USING btree (course_id);
@@ -249,6 +224,7 @@ CREATE TABLE conversations(
     style_btn VARCHAR(500),
     socialbtn_type INTEGER NOT NULL DEFAULT 1, -- 0 for none, 1 for all,
     subscribe_type INTEGER NOT NULL DEFAULT 1, -- 0 for none, 1 for email,
+    branding_type INTEGER NOT NULL DEFAULT 1, -- 0 for polis branding, 1 for none,
     bgcolor VARCHAR(20),
     help_bgcolor VARCHAR(20),
     help_color VARCHAR(20),
@@ -281,6 +257,47 @@ CREATE TABLE conversations(
     UNIQUE(zid)
 );
 CREATE INDEX conversations_owner_idx ON conversations USING btree (owner);
+
+
+
+CREATE TABLE participant_metadata_questions (
+    pmqid SERIAL,
+    zid INTEGER REFERENCES conversations(zid),
+    key VARCHAR(999), -- City, Office, Role, etc
+    alive BOOLEAN  DEFAULT TRUE, -- !deleted
+    created BIGINT DEFAULT now_as_millis(),
+    UNIQUE (zid, key), -- TODO index!
+    UNIQUE (pmqid)
+);
+
+CREATE TABLE participant_metadata_answers (
+    pmaid SERIAL,
+    pmqid INTEGER REFERENCES participant_metadata_questions(pmqid),
+    zid INTEGER REFERENCES conversations(zid), -- for fast disk-local indexing
+    value VARCHAR(999), -- Seattle, Office 23, Manager, etc
+    alive BOOLEAN DEFAULT TRUE, -- !deleted
+    created BIGINT DEFAULT now_as_millis(),
+    UNIQUE (pmqid, zid, value),
+    UNIQUE (pmaid)
+);
+
+ ---- top level
+---- these can be used to construct the tree, then add an empty list to each node
+--SELECT * FROM participant_metadata_questions WHERE zid = 34;
+--SELECT * FROM participant_metadata_answers WHERE zid = 34;
+-- now populate the tree with participant entries
+--SELECT * from participant_metadata_choices WHERE zid = 34;
+----for (each) {
+----  tree.zid.pmqid.pmaid.push(pid)
+----}
+
+CREATE TABLE contexts(
+    context_id SERIAL,
+    name VARCHAR(300),
+    creator INTEGER REFERENCES users(uid), -- rather than owner, since not sure how ownership will be done
+    is_public BOOLEAN DEFAULT FALSE,
+    created BIGINT DEFAULT now_as_millis()
+);
 
 
 CREATE TABLE slack_oauth_access_tokens (
@@ -410,8 +427,7 @@ CREATE TABLE xids (
     x_email VARCHAR(256), -- http://stackoverflow.com/questions/386294/what-is-the-maximum-length-of-a-valid-email-address
     created BIGINT DEFAULT now_as_millis(),
     modified BIGINT NOT NULL DEFAULT now_as_millis(),
-    UNIQUE (owner, uid),
-    UNIQUE (owner, xid),
+    UNIQUE (owner, uid)
 );
 CREATE INDEX xids_owner_idx ON xids USING btree (owner);
 
@@ -420,6 +436,18 @@ CREATE TABLE notification_tasks (
     zid INTEGER NOT NULL REFERENCES conversations(zid),
     modified BIGINT DEFAULT now_as_millis(),
     UNIQUE (zid)
+);
+
+
+CREATE TABLE participant_metadata_choices (
+    zid INTEGER,
+    pid INTEGER,
+    pmqid INTEGER REFERENCES participant_metadata_questions(pmqid),
+    pmaid INTEGER REFERENCES participant_metadata_answers(pmaid),
+    alive BOOLEAN DEFAULT TRUE, -- !deleted
+    created BIGINT DEFAULT now_as_millis(),
+    FOREIGN KEY (zid, pid) REFERENCES participants (zid, pid),
+    UNIQUE (zid, pid, pmqid, pmaid)
 );
 
 
@@ -495,7 +523,7 @@ CREATE TABLE facebook_users (
 
 CREATE TABLE social_settings (
     uid INTEGER NOT NULL REFERENCES users(uid),
-    polis_pic VARCHAR(3000), -- profile picture url (should be https)
+    polis_pic VARCHAR(3000) -- profile picture url (should be https)
 );
 
 -- we may have duplicates, since no upsert. We should periodically remove duplicates.
@@ -924,7 +952,7 @@ CREATE TABLE stars(
     pid INTEGER NOT NULL,
     tid INTEGER NOT NULL,
     starred INTEGER NOT NULL, -- 0 for unstarred, 1 for starred
-    created BIGINT DEFAULT now_as_millis(),
+    created BIGINT DEFAULT now_as_millis()
 );
 
 -- not enforcing uniqueness, save complete history
@@ -934,7 +962,7 @@ CREATE TABLE trashes(
     pid INTEGER NOT NULL,
     tid INTEGER NOT NULL,
     trashed INTEGER NOT NULL, -- 1 for trashed, 0 for untrashed
-    created BIGINT DEFAULT now_as_millis(),
+    created BIGINT DEFAULT now_as_millis()
 );
 
 
@@ -996,74 +1024,6 @@ CREATE TRIGGER pid_auto_unlock
     FOR EACH ROW
     EXECUTE PROCEDURE pid_auto_unlock();
 
---BEGIN;
-    --insert into memberships (uid, gid) values (
-        --(insert into users values (default) returning uid),
-        --(insert into groups values (default) returning gid));
---COMMIT;
-
-BEGIN;
-    insert into users values (1000, 'joe');
-    --insert into groups values (11000);
-    --insert into memberships (uid, gid) values (1000, 11000);
-COMMIT;
-
-BEGIN;
-    insert into users values (1001, 'fran');
-    --insert into groups values (11001);
-    --insert into memberships (uid, gid) values (1001, 11001);
-COMMIT;
-
-BEGIN;
-    insert into users values (1002, 'holly');
-    --insert into groups values (11002);
-    --insert into memberships (uid, gid) values (1002, 11002);
-COMMIT;
-
-INSERT INTO conversations (zid, owner, created, topic, description, is_active, is_draft) values (45342, 1000, default, 'Legalization', 'Seattle recently ...', default, default);
-INSERT INTO conversations (zid, owner, created, topic, description, is_active, is_draft) values (983572, 1000, default, 'Legalization 2', 'Seattle recently ....', default, default);
-
-BEGIN;
-    INSERT INTO participants (zid, uid) VALUES ( 45342, 1001);
-COMMIT;
-
-BEGIN;
-    INSERT INTO participants (zid, uid) VALUES ( 45342, 1002);
-COMMIT;
-
-
---CREATE FUNCTION create_new_user(subtotal real) RETURNS real AS $$
---BEGIN
-    --RETURN subtotal * 0.06;
---END;
---$$ LANGUAGE plpgsql;
-
---WITH foo as (insert into groups VALUES (default) returning gid),
-     --bar as (insert into users VALUES (default) returning uid)
-     --insert into memberships (uid, gid) select uid, gid from join(bar.uid, foo.gid);
---
-     --select zid from conversations
-         --where zid in (
-            --select zid from foo
-        --);
---
---
---CREATE OR REPLACE FUNCTION uid_self_group_auto()
-    --RETURNS trigger AS $$
---DECLARE
-    --_uid int;
-    --_gid int;
---BEGIN
-    --_uid = NEW.uid;
-    --_gid =
---
-    --FOR _users in users
-    ---- Obtain an advisory lock on the participants table, limited to this conversation
-
-    --RETURN NEW;
---END;
---$$ LANGUAGE plpgsql STRICT;
-
 
 CREATE TABLE page_ids (
     site_id VARCHAR(100) NOT NULL,
@@ -1092,31 +1052,6 @@ CREATE TABLE stripe_subscriptions (
     UNIQUE(uid)
 );
 
-
--- http://stackoverflow.com/questions/3970795/how-do-you-create-a-random-string-in-postgresql
-CREATE OR REPLACE FUNCTION random_string(INTEGER)
-RETURNS TEXT AS
-$BODY$
-SELECT array_to_string(
-    ARRAY (
-        SELECT substring(
-            '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
-            FROM (ceil(random()*62))::int FOR 1
-        )
-        FROM generate_series(1, $1)
-    ),
-    ''
-)
-$BODY$
-LANGUAGE sql VOLATILE;
-
-CREATE OR REPLACE FUNCTION random_polis_site_id()
-RETURNS TEXT AS
-$BODY$
--- 18 so it's 32 long, not much thought went into this so far
-SELECT 'polis_site_id_' || random_string(18);
-$BODY$
-LANGUAGE sql VOLATILE;
 
 
 
