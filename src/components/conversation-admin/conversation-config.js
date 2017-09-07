@@ -130,7 +130,6 @@ class ConversationConfig extends React.Component {
 
     const canToggleVis = Features.canToggleVisVisibility(this.props.user);
     const canToggleCommentForm = Features.canToggleCommentForm(this.props.user);
-    const canTogglePolisBranding = Features.canTogglePolisBranding(this.props.user);
     const canToggleStrictMod = Features.canToggleStrictMod(this.props.user);
     const canCustomizeColors = Features.canCustomizeColors(this.props.user);
 
@@ -218,16 +217,6 @@ class ConversationConfig extends React.Component {
             ref={"socialbtn_type"}
             checked={this.props.zid_metadata.socialbtn_type === 1 ? true : false}
             onCheck={ this.handleIntegerBoolValueChange("socialbtn_type").bind(this) }
-            labelPosition={"left"}
-            labelWrapperColor={settings.darkerGray}
-            color={settings.polisBlue}/>
-            <p style={{fontSize: 10, fontStyle: "italic"}}> </p>
-          <Checkbox
-            label={"Hide pol.is logos" + (canTogglePolisBranding ? "" : lockedIcon)}
-            ref={"branding_type"}
-            disabled={!canTogglePolisBranding}
-            checked={this.props.zid_metadata.branding_type === 1 ? true : false}
-            onCheck={ this.handleIntegerBoolValueChange("branding_type").bind(this) }
             labelPosition={"left"}
             labelWrapperColor={settings.darkerGray}
             color={settings.polisBlue}/>
