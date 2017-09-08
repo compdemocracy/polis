@@ -21,7 +21,7 @@ const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const Intercom = require('intercom.io'); // https://github.com/tarunc/intercom.io
 const IntercomOfficial = require('intercom-client');
-const intercomClient = new IntercomOfficial.Client('nb5hla8s', process.env.INTERCOM_API_KEY).usePromises();
+const isTrue = require('boolean');
 const OAuth = require('oauth');
 // const Pushover = require('pushover-notifications');
 // const pushoverInstance = new Pushover({
@@ -48,6 +48,15 @@ var WebClient = require('@slack/client').WebClient;
 var web = new WebClient(process.env.SLACK_API_TOKEN);
 // const winston = require("winston");
 const winston = console;
+
+
+const resolveWith = (x) => { return Promise.resolve(x);};
+const intercomClient = !isTrue(process.env.DISABLE_INTERCOM) ? new IntercomOfficial.Client('nb5hla8s', process.env.INTERCOM_API_KEY).usePromises() : {
+  leads: {
+    create: resolveWith({body: {user_id: "null_intercom_user_id"}}),
+    update: resolveWith({}),
+  },
+};
 
 
 
