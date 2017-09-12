@@ -256,6 +256,15 @@ function evenlySample(items, maxSample) {
 }
 
 
+function uiLanguage() {
+  var params = parseQueryParams(window.location.search);
+  var lang = params.ui_lang;
+  if (_.isUndefined(lang)) {
+    return null;
+  }
+  return lang;
+}
+
 function userCanVote() {
   var params = parseQueryParams(window.location.search);
   var ucv = params.ucv;
@@ -338,6 +347,7 @@ function getXid() {
 
 // Return the {x: {min: #, max: #}, y: {min: #, max: #}}
 module.exports = {
+  uiLanguage: uiLanguage,
   userCanVote: userCanVote,
   userCanWrite: userCanWrite,
   userCanSeeTopic: userCanSeeTopic,

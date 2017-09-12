@@ -36,6 +36,8 @@
          ucsv: d.getAttribute("data-ucsv"),
          ucsf: d.getAttribute("data-ucsf"),
 
+         ui_lang: d.getAttribute("data-ui_lang"),
+
          subscribe_type: d.getAttribute("data-subscribe_type"), // 0 for no prompt, 1 for email prompt (1 is default)
 
 
@@ -112,6 +114,8 @@
     appendIfPresent("ucsd");
     appendIfPresent("ucsv");
     appendIfPresent("ucsf");
+
+    appendIfPresent("ui_lang");
 
     appendIfPresent("subscribe_type");
 
