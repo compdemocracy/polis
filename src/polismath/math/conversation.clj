@@ -306,10 +306,17 @@
                    (pca/wrapped-pca mat
                                     (:n-comps opts')
                                     :start-vectors (get-in conv [:pca :comps])
-                                    :iters (:pca-iters opts'))]
+                                    :iters (:pca-iters opts'))
+                   cmnt-proj (pca/pca-project-cmnts pca)
+                   cmnt-extremity
+                   (mapv
+                     (fn [row]
+                       (matrix/length row))
+                     (matrix/rows cmnt-proj))]
                (assoc pca
-                      :comment-projection
-                      (matrix/transpose (pca/pca-project-cmnts pca)))))
+                      :comment-projection (matrix/transpose cmnt-proj)
+                      :comment-extremity cmnt-extremity)))
+
 
       :proj
       (plmb/fnk [rating-mat pca]
