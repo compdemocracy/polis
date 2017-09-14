@@ -38,6 +38,8 @@ const BarChartCompact = ({comment, groupVotes}) => {
 
 const CommentRow = ({comment, groups}) => {
 
+    if (comment.is_meta) return null
+
     // const percentAgreed = Math.floor(groupVotesForThisGroup.votes[comment.tid].A / groupVotesForThisGroup.votes[comment.tid].S * 100);
 
     let BarCharts = [];
@@ -59,15 +61,23 @@ const CommentRow = ({comment, groups}) => {
         style={{
           display: "flex",
           alignItems: "center",
-          padding: "6px 10px",
+          padding: "6px 0px",
           borderBottom: "1px solid rgb(200,200,200)",
         }}>
+        <span style={{
+            fontSize: 12,
+            width: 10,
+            marginRight: 10,
+          }}>
+           {comment.tid}
+        </span>
+
         <span style={{
             fontSize: 12,
             width: 200,
             marginRight: 50,
           }}>
-          { comment.txt }
+           { comment.txt }
         </span>
         {BarCharts}
       </div>

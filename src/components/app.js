@@ -260,7 +260,7 @@ class App extends React.Component {
         conversation: conversation,
         ptptCount: ptptCount,
         filteredCorrelationMatrix: filteredProbabilities,
-        // filterecCorrelationTids: filteredTids,
+        // filteredCorrelationTids: filteredTids,
         badTids: badTids,
         groupNames: groupNames,
         repfulAgreeTidsByGroup: repfulAgreeTidsByGroup,
@@ -308,6 +308,7 @@ class App extends React.Component {
         <div> Loading ... </div>
       </div>);
     }
+    console.log('looking for extremes', this.state, this.props)
     return (
       <div style={{margin: "0px 10px"}}>
         <Heading conversation={this.state.conversation}/>
@@ -326,21 +327,22 @@ class App extends React.Component {
             math={this.state.math}
             formatTid={this.state.formatTid}
             comments={this.state.comments}/>
-          {/*
-            <Consensus
+
+          <Consensus
             conversation={this.state.conversation}
             ptptCount={this.state.ptptCount}
             comments={this.state.comments}
             formatTid={this.state.formatTid}
             consensus={this.state.consensus}/>
-            {globals.enableMatrix ? <Matrix
+
+          {globals.enableMatrix ? <Matrix
             title={"Correlation matrix"}
             probabilities={this.state.filteredCorrelationMatrix}
             comments={this.state.comments}
-            tids={this.state.filterecCorrelationTids}
+            tids={this.state.filteredCorrelationTids}
             formatTid={this.state.formatTid}
             ptptCount={this.state.ptptCount}/> : ""}
-            */}
+
             <ParticipantGroups
             comments={this.state.comments}
             conversation={this.state.conversation}
@@ -360,7 +362,7 @@ class App extends React.Component {
             conversation={this.state.conversation}
             ptptCount={this.state.ptptCount}
             formatTid={this.state.formatTid}/>
-            {/* <Graph
+            <Graph
               comments={this.state.comments}
               groupNames={this.state.groupNames}
               badTids={this.state.badTids}
@@ -368,7 +370,7 @@ class App extends React.Component {
               repfulAgreeTidsByGroup={this.state.repfulAgreeTidsByGroup}
               math={this.state.math}
               renderHeading={true}
-              report={this.state.report}/>*/}
+              report={this.state.report}/>
           <Footer/>
         </div>
       </div>
