@@ -483,8 +483,9 @@ helpersInitialized.then(function(o) {
 
   app.get("/api/v3/conversationStats",
     moveToBody,
-    auth(assignToP),
+    authOptional(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    want('report_id', getReportIdFetchRid, assignToPCustom('rid')),
     want('until', getInt, assignToP),
     handle_GET_conversationStats);
 
