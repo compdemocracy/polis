@@ -170,7 +170,7 @@ class App extends React.Component {
       });
 
       var badTids = {};
-      // var filteredTids = {};
+      var filteredTids = {};
       var filteredProbabilities = {};
 
       // prep Correlation matrix.
@@ -193,9 +193,9 @@ class App extends React.Component {
             let rowTid = correlationHClust.comments[rowNum];
             return badTids[rowTid] !== true;
         });
-        // filteredTids = tids.filter((tid, index) => {
-        //   return badTids[tid] !== true;
-        // });
+        filteredTids = tids.filter((tid, index) => {
+          return badTids[tid] !== true;
+        });
       }
 
       var maxTid = -1;
@@ -260,7 +260,7 @@ class App extends React.Component {
         conversation: conversation,
         ptptCount: ptptCount,
         filteredCorrelationMatrix: filteredProbabilities,
-        // filteredCorrelationTids: filteredTids,
+        filteredCorrelationTids: filteredTids,
         badTids: badTids,
         groupNames: groupNames,
         repfulAgreeTidsByGroup: repfulAgreeTidsByGroup,
