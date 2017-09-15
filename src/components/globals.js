@@ -32,7 +32,7 @@ export const paragraph = {
 export const groupLabels = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]
 
 
-export const enableMatrix = false;
+export const enableMatrix = true;
 
 export const side = 750;
 export const labelPadding = 40;

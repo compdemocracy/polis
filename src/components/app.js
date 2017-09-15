@@ -64,7 +64,7 @@ class App extends React.Component {
       moderation: true,
       mod_gt: isStrictMod ? 0 : -1,
       include_social: true,
-      include_demographics: true
+      include_demographics: true,
     });
   }
 
@@ -170,7 +170,7 @@ class App extends React.Component {
       });
 
       var badTids = {};
-      // var filteredTids = {};
+      var filteredTids = {};
       var filteredProbabilities = {};
 
       // prep Correlation matrix.
@@ -193,9 +193,9 @@ class App extends React.Component {
             let rowTid = correlationHClust.comments[rowNum];
             return badTids[rowTid] !== true;
         });
-        // filteredTids = tids.filter((tid, index) => {
-        //   return badTids[tid] !== true;
-        // });
+        filteredTids = tids.filter((tid, index) => {
+          return badTids[tid] !== true;
+        });
       }
 
       var maxTid = -1;
@@ -260,7 +260,7 @@ class App extends React.Component {
         conversation: conversation,
         ptptCount: ptptCount,
         filteredCorrelationMatrix: filteredProbabilities,
-        // filterecCorrelationTids: filteredTids,
+        filterecCorrelationTids: filteredTids,
         badTids: badTids,
         groupNames: groupNames,
         repfulAgreeTidsByGroup: repfulAgreeTidsByGroup,
@@ -310,6 +310,14 @@ class App extends React.Component {
     }
     return (
       <div style={{margin: "0px 10px"}}>
+        {globals.enableMatrix ? <Matrix
+          title={"Correlation matrix"}
+          probabilities={this.state.filteredCorrelationMatrix}
+          comments={this.state.comments}
+          tids={this.state.filterecCorrelationTids}
+          formatTid={this.state.formatTid}
+          ptptCount={this.state.ptptCount}/> : ""}
+
         <Heading conversation={this.state.conversation}/>
         <div style={{
             width: 960,
@@ -326,13 +334,6 @@ class App extends React.Component {
             comments={this.state.comments}
             formatTid={this.state.formatTid}
             consensus={this.state.consensus}/>
-          {globals.enableMatrix ? <Matrix
-            title={"Correlation matrix"}
-            probabilities={this.state.filteredCorrelationMatrix}
-            comments={this.state.comments}
-            tids={this.state.filterecCorrelationTids}
-            formatTid={this.state.formatTid}
-            ptptCount={this.state.ptptCount}/> : ""}
           <ParticipantGroups
             comments={this.state.comments}
             conversation={this.state.conversation}
