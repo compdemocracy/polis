@@ -18,6 +18,7 @@ import Uncertainty from "./Uncertainty";
 import AllComments from "./AllComments";
 import ParticipantGroups from "./ParticipantGroups";
 import Graph from "./Graph";
+import BoxPlot from "./boxPlot/boxPlot";
 
 import net from "../util/net"
 
@@ -95,6 +96,12 @@ class App extends React.Component {
     });
   }
 
+  // getConversationStats(conversation_id) {
+  //   return net.polisGet("/api/v3/conversationStats", {
+  //     conversation_id: conversation_id
+  //   });
+  // }
+
   getCorrelationMatrix(math_tick) {
     const attemptResponse = net.polisGet("/api/v3/math/correlationMatrix", {
       math_tick: math_tick,
@@ -135,6 +142,9 @@ class App extends React.Component {
     const groupDemographicsPromise = reportPromise.then((report) => {
       return this.getGroupDemographics(report.conversation_id);
     });
+    // const conversationStatsPromise = reportPromise.then((report) => {
+    //   return this.getConversationStats(report.conversation_id)
+    // })
     const participantsOfInterestPromise = reportPromise.then((report) => {
       return this.getParticipantsOfInterest(report.conversation_id);
     });
@@ -145,6 +155,7 @@ class App extends React.Component {
     const conversationPromise = reportPromise.then((report) => {
       return this.getConversation(report.conversation_id);
     });
+
     Promise.all([
       reportPromise,
       mathPromise,
@@ -153,7 +164,9 @@ class App extends React.Component {
       participantsOfInterestPromise,
       matrixPromise,
       conversationPromise,
+      // conversationStatsPromise,
     ]).then((a) => {
+      console.log('a:', a)
       const [
         report,
         mathResult,
@@ -316,6 +329,8 @@ class App extends React.Component {
             marginLeft: 20,
             marginTop: 40,
           }}>
+          <BoxPlot
+            groupVotes={this.state.math["group-votes"]}/>
           <Overview
             math={this.state.math}
             comments={this.state.comments}

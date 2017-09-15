@@ -3,7 +3,6 @@ import _ from "lodash";
 import * as globals from "./globals";
 import style from "../util/style";
 import {VictoryScatter, VictoryChart, VictoryTheme} from "victory";
-import ScatterplotCommentAgreesPerGroup from "./scatterplotCommentAgreesPerGroup";
 
 const BarChartCompact = ({comment, groupVotes}) => {
 
@@ -117,8 +116,7 @@ class AllComments extends React.Component {
     return (
       <div>
         <p style={globals.primaryHeading}> All Comments </p>
-        <ScatterplotCommentAgreesPerGroup
-          groupVotes={this.props.math["group-votes"]}/>
+
         <p style={globals.paragraph}>
           This is a list of the {this.props.comments.length} comments that were accepted into the conversation by moderators.
         </p>
