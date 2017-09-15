@@ -35,7 +35,6 @@ const Overview = ({
   math,
   comments
 }) => {
-  console.log("overview math", math)
   return (
     <div >
       <p style={globals.primaryHeading}>Overview</p>

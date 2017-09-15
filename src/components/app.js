@@ -167,7 +167,6 @@ class App extends React.Component {
       conversationPromise,
       conversationStatsPromise,
     ]).then((a) => {
-      console.log('a:', a)
       const [
         report,
         mathResult,
