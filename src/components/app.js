@@ -65,7 +65,7 @@ class App extends React.Component {
       moderation: true,
       mod_gt: isStrictMod ? 0 : -1,
       include_social: true,
-      include_demographics: true
+      include_demographics: true,
     });
   }
 
@@ -324,6 +324,14 @@ class App extends React.Component {
     console.log('top level app state and props', this.state, this.props)
     return (
       <div style={{margin: "0px 10px"}}>
+        {globals.enableMatrix ? <Matrix
+          title={"Correlation matrix"}
+          probabilities={this.state.filteredCorrelationMatrix}
+          comments={this.state.comments}
+          tids={this.state.filteredCorrelationTids}
+          formatTid={this.state.formatTid}
+          ptptCount={this.state.ptptCount}/> : ""}
+
         <Heading conversation={this.state.conversation}/>
         <div style={{
             marginLeft: 20,
