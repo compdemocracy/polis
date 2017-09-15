@@ -18,7 +18,6 @@ class ScatterplotCommentAgreesPerGroup extends React.Component {
     let ticks = [];
 
     _.each(this.props.groupVotes, (g, i) => {
-      // console.log(g)
       ticks.push(`${globals.groupLabels[i]} (${g["n-members"]})`)
     })
 
@@ -51,13 +50,11 @@ class ScatterplotCommentAgreesPerGroup extends React.Component {
       })
     })
 
-    console.log(dataset)
 
     return dataset;
   }
 
   render() {
-    console.log(Object.keys(this.props.groupVotes[0]).length)
     return (
       <svg
         width={600}

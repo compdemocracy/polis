@@ -74,6 +74,7 @@
     "redux-router": "^1.0.0-beta3",
     "redux-thunk": "^1.0.0",
     "request": "^2.65.0",
+    "svg-text-wrap": "0.0.1",
     "title-case": "^2.1.0",
     "victory": "^0.21.3",
     "whatwg-fetch": "^0.10.1"

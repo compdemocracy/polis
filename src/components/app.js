@@ -308,19 +308,21 @@ class App extends React.Component {
         <div> Loading ... </div>
       </div>);
     }
-    console.log('looking for extremes', this.state, this.props)
+    console.log('top level app state and props', this.state, this.props)
     return (
       <div style={{margin: "0px 10px"}}>
         <Heading conversation={this.state.conversation}/>
         <div style={{
-            width: 960,
             marginLeft: 20,
             marginTop: 40,
           }}>
+
           <Overview
             ptptCount={this.state.ptptCount}
             demographics={this.state.demographics}
             conversation={this.state.conversation}/>
+
+
           <AllComments
             conversation={this.state.conversation}
             ptptCount={this.state.ptptCount}

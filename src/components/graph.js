@@ -60,7 +60,13 @@ class Graph extends React.Component {
         <p style={Object.assign({}, globals.paragraph, {position: "absolute", left: 160})}>
           {this.state.selectedComment ? "#" + this.state.selectedComment.tid + ". " + this.state.selectedComment.txt : null}
         </p>
-          <svg width="100%" height={this.props.height ? this.props.height : globals.side}>
+          <svg
+            style={{
+              border: "5px solid rgb(200,200,200)",
+              backgroundColor: "rgb(245,245,245)"
+            }}
+            width={this.props.height ? this.props.height : globals.side}
+            height={this.props.height ? this.props.height : globals.side}>
             {/* Comment https://bl.ocks.org/mbostock/7555321 */}
             <g transform={`translate(${globals.side / 2}, ${15})`}>
               <text
@@ -78,7 +84,7 @@ class Graph extends React.Component {
             {/* this.props.math["group-clusters"].map((cluster, i) => {
               return (<text x={300} y={300}> Renzi Supporters </text>)
             }) : null */}
-            {
+            {/*
               hulls.map((hull) => {
                 let gid = hull.group[0].gid;
                 if (_.isNumber(this.props.showOnlyGroup)) {
@@ -88,22 +94,19 @@ class Graph extends React.Component {
                 }
                 return <Hull key={gid} hull={hull}/>
               })
-            }
+            */}
             {
               commentsPoints ?
               <Comments
+                {...this.props}
                 handleCommentHover={this.handleCommentHover.bind(this)}
                 points={commentsPoints}
-                repfulAgreeTidsByGroup={this.props.repfulAgreeTidsByGroup}
-                repfulDisageeTidsByGroup={this.props.repfulDisageeTidsByGroup}
-                showOnlyGroup={this.props.showOnlyGroup}
                 xx={xx}
                 yy={yy}
                 xCenter={xCenter}
                 yCenter={yCenter}
                 xScaleup={commentScaleupFactorX}
-                yScaleup={commentScaleupFactorY}
-                formatTid={this.props.formatTid}/> :
+                yScaleup={commentScaleupFactorY}/> :
               null
             }
           </svg>
@@ -114,20 +117,3 @@ class Graph extends React.Component {
 }
 
 export default Graph;
-
-// componentDidMount() {
-//   this.Viewer.fitToViewer();
-// }
-// <div>
-//   <button onClick={event => this.Viewer.zoomOnViewerCenter(1.1)}>Zoom in</button>
-//   <button onClick={event => this.Viewer.fitSelection(40, 40, 200, 200)}>Zoom area</button>
-//   <button onClick={event => this.Viewer.fitToViewer()}>Fit</button>
-// </div>
-
-// <ReactSVGPanZoom
-//   style={{outline: "1px solid black", fill: "white"}}
-//   width={500} height={500} ref={Viewer => this.Viewer = Viewer}
-//   onClick={event => console.log('click', event.x, event.y, event.originalEvent)}
-//   onMouseMove={event => console.log('move', event.x, event.y)} >
-//
-// </ReactSVGPanZoom>

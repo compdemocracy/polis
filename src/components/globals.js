@@ -1,5 +1,5 @@
-export const sans = "Source Sans Pro, sans";
-export const serif = "Source Serif Pro, Georgia";
+export const sans = "Helvetica Neue";
+export const serif = "Georgia";
 export const paragraphWidth = 475;
 export const paragraphLineHeight = "24px";
 export const barChartWidth = 250;
@@ -12,9 +12,8 @@ export const brandColors = {
 };
 
 export const primaryHeading = {
-  fontSize: 18,
+  fontSize: 36,
   fontWeight: 700,
-  textTransform: "uppercase"
 };
 export const secondaryHeading = 18;
 
@@ -38,8 +37,9 @@ export const groupLabels = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]
 
 
 export const enableMatrix = false;
-
-export const side = 750;
+// export const maxCommentExtremityToShow = 2; /* naive & may not be solid. should be dynamically generated from extremity array probably to pick top 20 or something */
+export const maxCommentExtremityToShow = .6; /* naive & may not be solid. should be dynamically generated from extremity array probably to pick top 20 or something */
+export const side = 4000;
 export const labelPadding = 40;
 export const shouldColorizeTidsByRepfulness = true;
 
