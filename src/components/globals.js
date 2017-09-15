@@ -11,15 +11,40 @@ export const brandColors = {
   comment: "#03a9f4",
 };
 
+const fontSizes = {
+  largest: 36,
+  large: 24,
+  medium: 18,
+}
+
+const fontWeights = {
+  boldest: 700,
+  normal: 400
+}
+
 export const primaryHeading = {
-  fontSize: 36,
-  fontWeight: 700,
+  fontSize: fontSizes.largest,
+  fontWeight: fontWeights.boldest,
 };
+
 export const secondaryHeading = 18;
 
 export const groupHeader = {
-  fontSize: 24,
-  fontWeight: 700,
+  fontSize: fontSizes.largest,
+  fontWeight: fontWeights.boldest,
+}
+
+export const overviewNumber = {
+  fontSize: fontSizes.largest,
+  fontWeight: fontWeights.normal,
+  marginBottom: 0,
+}
+
+export const overviewLabel = {
+  fontSize: fontSizes.medium,
+  fontWeight: fontWeights.normal,
+  marginTop: 0,
+  maxWidth: 190
 }
 
 export const tidGrey = "rgb(200,200,200)";
