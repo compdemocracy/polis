@@ -5883,9 +5883,12 @@ Email verified! You can close this tab or hit the back button.
     let zid = req.p.zid;
     let uid = req.p.uid;
     let until = req.p.until;
-    isModerator(zid, uid).then(function(is_mod) {
-      if (!is_mod) {
-        fail(res, 403, "polis_err_conversationStats_need_moderation_permission");
+
+    let hasPermission = uid ? isModerator(zid, uid) : Promise.resolve(!!req.p.rid);
+
+    hasPermission.then(function(ok) {
+      if (!ok) {
+        fail(res, 403, "polis_err_conversationStats_need_report_id_or_moderation_permission");
         return;
       }
 
