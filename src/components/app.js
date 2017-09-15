@@ -96,11 +96,12 @@ class App extends React.Component {
     });
   }
 
-  // getConversationStats(conversation_id) {
-  //   return net.polisGet("/api/v3/conversationStats", {
-  //     conversation_id: conversation_id
-  //   });
-  // }
+  getConversationStats(conversation_id) {
+    return net.polisGet("/api/v3/conversationStats", {
+      conversation_id: conversation_id,
+      report_id: report_id,
+    });
+  }
 
   getCorrelationMatrix(math_tick) {
     const attemptResponse = net.polisGet("/api/v3/math/correlationMatrix", {
@@ -142,9 +143,9 @@ class App extends React.Component {
     const groupDemographicsPromise = reportPromise.then((report) => {
       return this.getGroupDemographics(report.conversation_id);
     });
-    // const conversationStatsPromise = reportPromise.then((report) => {
-    //   return this.getConversationStats(report.conversation_id)
-    // })
+    const conversationStatsPromise = reportPromise.then((report) => {
+      return this.getConversationStats(report.conversation_id)
+    });
     const participantsOfInterestPromise = reportPromise.then((report) => {
       return this.getParticipantsOfInterest(report.conversation_id);
     });
@@ -164,7 +165,7 @@ class App extends React.Component {
       participantsOfInterestPromise,
       matrixPromise,
       conversationPromise,
-      // conversationStatsPromise,
+      conversationStatsPromise,
     ]).then((a) => {
       console.log('a:', a)
       const [
@@ -175,6 +176,7 @@ class App extends React.Component {
         participants,
         correlationHClust,
         conversation,
+        conversationstats,
       ] = a;
 
       var ptptCount = 0;
