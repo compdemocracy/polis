@@ -2,6 +2,7 @@
 .DS_Store
 
 # App specific
+.env_dev
 dist
 node_modules
 npm-debug.log
