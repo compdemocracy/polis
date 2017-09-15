@@ -260,7 +260,7 @@ class App extends React.Component {
         conversation: conversation,
         ptptCount: ptptCount,
         filteredCorrelationMatrix: filteredProbabilities,
-        filterecCorrelationTids: filteredTids,
+        filteredCorrelationTids: filteredTids,
         badTids: badTids,
         groupNames: groupNames,
         repfulAgreeTidsByGroup: repfulAgreeTidsByGroup,
@@ -314,7 +314,7 @@ class App extends React.Component {
           title={"Correlation matrix"}
           probabilities={this.state.filteredCorrelationMatrix}
           comments={this.state.comments}
-          tids={this.state.filterecCorrelationTids}
+          tids={this.state.filteredCorrelationTids}
           formatTid={this.state.formatTid}
           ptptCount={this.state.ptptCount}/> : ""}
 
