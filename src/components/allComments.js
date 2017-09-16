@@ -27,9 +27,9 @@ const BarChartCompact = ({comment, groupVotes}) => {
     <svg width={101} height={10} style={{marginRight: 30}}>
       <g>
         <rect x={0} width={w + 0.5} height={10} fill={"white"} stroke={"rgb(180,180,180)"} />
+        <rect x={.5 + agree + disagree} width={pass} y={.5} height={9} fill={globals.brandColors.pass} />
         <rect x={.5} width={agree} y={.5} height={9} fill={globals.brandColors.agree} />
         <rect x={.5 + agree} width={disagree} y={.5} height={9} fill={globals.brandColors.disagree} />
-        <rect x={.5 + agree + disagree} width={pass} y={.5} height={9} fill={globals.brandColors.pass} />
       </g>
     </svg>
   )
