@@ -36,9 +36,6 @@ const BarChartCompact = ({comment, groupVotes}) => {
 };
 
 const CommentRow = ({comment, groups}) => {
-
-    if (comment.is_meta) return null
-
     // const percentAgreed = Math.floor(groupVotesForThisGroup.votes[comment.tid].A / groupVotesForThisGroup.votes[comment.tid].S * 100);
 
     let BarCharts = [];

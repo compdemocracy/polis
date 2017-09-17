@@ -104,7 +104,7 @@ class Graph extends React.Component {
     return (
       <div style={{position: "relative"}}>
         <div>
-          <p style={globals.primaryHeading}> A graph of disagreement </p>
+          <p style={globals.primaryHeading}> Disagreement </p>
           <p style={globals.paragraph}>
           How do comments relate to each other? Did people who agreed with one comment also agree with another?
           </p>

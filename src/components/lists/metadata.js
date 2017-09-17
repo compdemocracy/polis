@@ -5,13 +5,17 @@ import CommentList from "./commentList";
 import * as globals from "../globals";
 import style from "../../util/style";
 
-const Uncertainty = ({conversation, comments, ptptCount, meta, formatTid, math}) => {
+const Metadata = ({conversation, comments, ptptCount, formatTid, math}) => {
 
   if (!conversation) {
-    return <div>Loading Uncertainty...</div>
+    return <div>Loading Metadata...</div>
   }
 
-  const _comments = _.keyBy(comments, "tid");
+  const _metadataTids = []
+
+  comments.forEach((comment, i) => {
+    if (comment.is_meta) { _metadataTids.push(comment.tid) }
+  })
 
   return (
     <div>
@@ -26,11 +30,11 @@ const Uncertainty = ({conversation, comments, ptptCount, meta, formatTid, math})
           ptptCount={ptptCount}
           math={math}
           formatTid={formatTid}
-          tidsToRender={meta /* uncertainTids would be funnier */}
+          tidsToRender={_metadataTids}
           comments={comments}/>
       </div>
     </div>
   );
 };
 
-export default Uncertainty;
+export default Metadata;

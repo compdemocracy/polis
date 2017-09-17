@@ -11,8 +11,6 @@ const Uncertainty = ({conversation, comments, ptptCount, uncertainty, formatTid,
     return <div>Loading Uncertainty...</div>
   }
 
-  const _comments = _.keyBy(comments, "tid");
-
   return (
     <div>
       <p style={globals.primaryHeading}> Areas of uncertainty </p>

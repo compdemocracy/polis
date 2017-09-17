@@ -14,6 +14,7 @@ import Heading from "./framework/heading";
 import Footer from "./framework/Footer";
 import Overview from "./Overview";
 import MajorityStrict from "./lists/majorityStrict";
+import Metadata from "./lists/metadata";
 import Uncertainty from "./lists/Uncertainty";
 // import ParticipantGwroups from "./lists/ParticipantGroups";
 import CommentsGraph from "./commentsGraph/commentsGraph";
@@ -345,6 +346,12 @@ class App extends React.Component {
             comments={this.state.comments}
             formatTid={this.state.formatTid}
             consensus={this.state.consensus}/>
+          <Metadata
+            math={this.state.math}
+            comments={this.state.comments}
+            conversation={this.state.conversation}
+            ptptCount={this.state.ptptCount}
+            formatTid={this.state.formatTid}/>
           <CommentsGraph
             comments={this.state.comments}
             groupNames={this.state.groupNames}
@@ -370,6 +377,7 @@ class App extends React.Component {
             conversation={this.state.conversation}
             ptptCount={this.state.ptptCount}
             formatTid={this.state.formatTid}/>
+
 
           <Footer/>
         </div>
