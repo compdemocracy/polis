@@ -6,9 +6,9 @@ const GraphAxes = ({yCenter, xCenter, report}) => {
     <g>
       <line
         strokeDasharray={"3, 3"}
-        x1={50 /* magic number is axis padding */}
+        x1={0 /* magic number is axis padding */}
         y1={yCenter}
-        x2={globals.side - 50}
+        x2={globals.side /* - 50 */}
         y2={yCenter}
         style={{
           stroke: "rgb(130,130,130)",
@@ -17,9 +17,9 @@ const GraphAxes = ({yCenter, xCenter, report}) => {
       <line
         strokeDasharray={"3, 3"}
         x1={xCenter}
-        y1={50 }
+        y1={0 }
         x2={xCenter}
-        y2={globals.side - 50 /* magic number is axis padding */}
+        y2={globals.side /* - 50 */ /* magic number is axis padding */}
         style={{
           stroke: "rgb(130,130,130)",
           strokeWidth: 1

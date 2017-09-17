@@ -1,5 +1,5 @@
 import React from "react";
-import * as globals from "./globals";
+import * as globals from "../globals";
 import LargeLogo from "./logoLargeShort";
 
 const Footer = ({conversation}) => {

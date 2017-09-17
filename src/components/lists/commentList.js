@@ -1,7 +1,7 @@
 import React from "react";
 import _ from "lodash";
-import * as globals from "./globals";
-import style from "../util/style";
+import * as globals from "../globals";
+import style from "../../util/style";
 import {VictoryScatter, VictoryChart, VictoryTheme} from "victory";
 
 const BarChartCompact = ({comment, groupVotes}) => {
@@ -61,7 +61,7 @@ const CommentRow = ({comment, groups}) => {
           display: "flex",
           alignItems: "center",
           padding: "6px 0px",
-          borderBottom: "1px solid rgb(200,200,200)",
+          borderBottom: "1px solid rgb(220,220,220)",
         }}>
         <span style={{
             fontSize: 12,
@@ -84,7 +84,7 @@ const CommentRow = ({comment, groups}) => {
 }
 
 
-class AllComments extends React.Component {
+class CommentList extends React.Component {
 
   getGroupLabels() {
 
@@ -97,11 +97,16 @@ class AllComments extends React.Component {
           width: 101,
           marginRight: 30,
           display: "inline-block",
-          fontWeight: 700,
+          fontWeight: 400,
           fontSize: 14,
           textTransform: "uppercase"
         }}>
-          {globals.groupLabels[i]} <span style={{fontWeight: 300, fontStyle: "italic", marginLeft: 5}}>{g["n-members"]}</span>
+          {globals.groupLabels[i]}
+          <span style={{
+              marginLeft: 5
+            }}>
+            {g["n-members"]}
+          </span>
         </span>
       )
     })
@@ -115,15 +120,6 @@ class AllComments extends React.Component {
 
     return (
       <div>
-        <p style={globals.primaryHeading}> All Comments </p>
-
-        <p style={globals.paragraph}>
-          This is a list of the {this.props.comments.length} comments that were accepted into the conversation by moderators.
-        </p>
-        <div style={{
-            marginBottom: 1,
-          }}>
-        </div>
         <div style={{
             marginBottom: 1,
             borderBottom: "2px solid black",
@@ -141,19 +137,18 @@ class AllComments extends React.Component {
             position: "absolute",
             top: 2,
             left: 200 + 30, /* the 10 in padding from the cells, the 45 for offset group labels */
-            fontStyle: "italic",
-            fontWeight: 300,
+            fontWeight: 400,
             fontSize: 14,
           }}>Group:</span>
           {this.getGroupLabels()}
         </div>
         {
-          this.props.comments.slice().reverse().map((c, i) => {
+          this.props.tidsToRender.map((tid, i) => {
             return <CommentRow
               key={i}
               index={i}
               groups={this.props.math["group-votes"]}
-              comment={comments[c.tid]}
+              comment={comments[tid]}
               />
           })
         }
@@ -162,4 +157,4 @@ class AllComments extends React.Component {
   }
 }
 
-export default AllComments;
+export default CommentList;

@@ -1,6 +1,6 @@
 import React from "react";
 import Comment from "./participantGroupComment";
-import Graph from "./Graph";
+// import Graph from "./Graph";
 import MetadataComments from "./participantGroupMetadataComments";
 import * as globals from "./globals";
 import Flex from "./flex"

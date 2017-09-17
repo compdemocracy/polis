@@ -26,8 +26,24 @@ class BoxPlot extends React.Component {
   render() {
     return (
       <div>
-      <p> Which group was the most agreeable? <a target="_blank" href="https://www.khanacademy.org/math/probability/data-distributions-a1/box--whisker-plots-a1/v/reading-box-and-whisker-plots"> How to read a box plot (3 minute video). </a> </p>
-      <div id="boxPlot"> </div>
+        <p style={globals.primaryHeading}> Which group's views are represented? </p>
+        <p style={globals.paragraph}>
+          Which group was the most agreeable, across all comments?
+        </p>
+        <p style={globals.paragraph}>
+          If the colored box is higher, it means people in the group agreed more overall.
+          This would suggest their views are represented.
+        </p>
+        <p style={globals.paragraph}>
+          If the colored box is lower, it means the group, on avereage, disagreed on more across all comments.
+          A group with a lower than average agreement may be a group that needs to comment more,
+          so that its views are properly represented.
+        </p>
+        <p style={globals.paragraph}>
+          <a target="_blank" href="https://www.khanacademy.org/math/probability/data-distributions-a1/box--whisker-plots-a1/v/reading-box-and-whisker-plots">
+          How to read a box plot
+          </a> (3 minute video).</p>
+        <div id="boxPlot"> </div>
       </div>
     );
   }

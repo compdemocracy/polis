@@ -33,7 +33,8 @@ const Overview = ({
   demographics,
   ptptCount,
   math,
-  comments
+  comments,
+  stats,
 }) => {
   return (
     <div >
@@ -48,7 +49,7 @@ const Overview = ({
         <Number
           number={ computeVoteTotal(math["user-vote-counts"]) }
           label={"votes were cast"} />
-        <Number number={"todo"} label={"people submitted comments"} />
+        <Number number={stats.firstCommentTimes.length} label={"people submitted comments"} />
         <Number number={math["n-cmts"]} label={"comments were submitted"} />
       </div>
 

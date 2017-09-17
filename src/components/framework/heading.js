@@ -1,5 +1,5 @@
 import React from "react";
-import * as globals from "./globals";
+import * as globals from "../globals";
 import SmallLogo from "./logoSmallLong";
 
 const Content = ({conversation}) => {

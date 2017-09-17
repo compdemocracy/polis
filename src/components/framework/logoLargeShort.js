@@ -1,9 +1,7 @@
 import React from "react";
-import Radium from "radium";
 import _ from "lodash";
 import Flex from "./flex";
 
-@Radium
 class PolisLogo extends React.Component {
   styles() {
     return {

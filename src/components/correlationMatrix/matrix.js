@@ -1,10 +1,10 @@
 import React from "react";
 // import { connect } from "react-redux";
-import Flex from "./flex";
+import Flex from "../framework/flex";
 
 import Radium from "radium";
 import _ from "lodash";
-import * as globals from "./globals";
+import * as globals from "../globals";
 
 var leftOffset = 34;
 var topOffset = 60;
@@ -36,7 +36,7 @@ class Matrix extends React.Component {
     return (
       <g>
         <rect
-          fill={d3.interpolateRdBu(scale(comment))}
+          fill={d3.interpolatePuOr(scale(comment))}
           onMouseEnter={() => {
             return this.onMouseEnterCell(row, column, comment);
           }}
@@ -102,7 +102,7 @@ class Matrix extends React.Component {
               style={{
                 fontFamily: "Helvetica, sans-serif",
                 fontSize: 10,
-                fontWeight: 700
+                fontWeight: 400
               }}
               >
               {
@@ -143,7 +143,14 @@ class Matrix extends React.Component {
       <div>
         <p style={globals.primaryHeading}>{this.props.title}</p>
         <p style={globals.paragraph}>
-          What is the probability that a participant who agreed (or disagreed) with a given comment also agreed (or disagreed) with another given comment? This symmetrical matrix, which shows all comments along both axes, computes this probability. Patterns emerge when we evaluate groups of comments that tended to be voted on similarly.
+          What is the chance that a participant who agreed (or disagreed) with a
+          given comment also agreed (or disagreed) with another given comment?
+        </p>
+        <p style={globals.paragraph}>
+          Patterns emerge when we evaluate groups of comments that tended to be voted on similarly.
+        </p>
+        <p style={globals.paragraph}>
+          This is an important bit of math (called a correlation matrix) that goes into making the graph above.
         </p>
 
         <div style={{width: 500, marginTop: 30}}>
@@ -159,7 +166,7 @@ class Matrix extends React.Component {
             style={{marginLeft: 0}}
             width={"100%"}
             height={20}
-            src={"https://raw.githubusercontent.com/d3/d3-scale-chromatic/master/img/RdBu.png"}/>
+            src={"https://raw.githubusercontent.com/d3/d3-scale-chromatic/master/img/PuOr.png"}/>
           <Flex justifyContent={"space-between"} alignItems={"baseline"}>
             <span style={{fontSize: 10, width: 150}}>
               These two comments are in opposition. Participants who agreed with one comment tended to disagree with the other, or vice versa.
@@ -184,10 +191,10 @@ class Matrix extends React.Component {
             height={side} />
 
           {this.state.mouseOverCorrelation === null ? "" : <text
-            x={200}
-            y={100}
+            x={30}
+            y={40}
             textAnchor={"middle"}
-            fill={d3.interpolateRdBu(scale(this.state.mouseOverCorrelation))}
+            fill={d3.interpolatePuOr(scale(this.state.mouseOverCorrelation))}
             style={{
               fontFamily: globals.sans,
               fontSize: 20
@@ -195,7 +202,7 @@ class Matrix extends React.Component {
             {Math.round(this.state.mouseOverCorrelation * 1000) / 1000}
           </text>}
 
-          <g transform={"translate(1200,0), rotate(45)"/* abstract translate magic number */}>
+          <g transform={"translate(200,0), rotate(45)"/* abstract translate magic number */}>
           {this.props.probabilities.map((comments, row) => {
             return (
               <g key={row}>
@@ -233,7 +240,5 @@ class Matrix extends React.Component {
 }
 
 export default Matrix;
-
-
 
 // This is a matrix showing every comment by every comment (all comments are shown, in order of being submitted, on each axis). Each square represents the likihood that if someone agreed with one comment, they would agree with the other. For instance, [n%] of people who agreed with comment [n] also agreed with comment [m].

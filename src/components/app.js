@@ -9,15 +9,14 @@ import * as globals from "./globals";
 import Radium from "radium";
 import _ from "lodash";
 
-import Matrix from "./Matrix";
-import Heading from "./Heading";
-import Footer from "./Footer";
+import Matrix from "./correlationMatrix/matrix";
+import Heading from "./framework/heading";
+import Footer from "./framework/Footer";
 import Overview from "./Overview";
-import Consensus from "./Consensus";
-import Uncertainty from "./Uncertainty";
-import AllComments from "./AllComments";
-import ParticipantGroups from "./ParticipantGroups";
-import Graph from "./Graph";
+import MajorityStrict from "./lists/majorityStrict";
+import Uncertainty from "./lists/Uncertainty";
+// import ParticipantGwroups from "./lists/ParticipantGroups";
+import CommentsGraph from "./commentsGraph/commentsGraph";
 import BoxPlot from "./boxPlot/boxPlot";
 
 import net from "../util/net"
@@ -227,7 +226,8 @@ class App extends React.Component {
       }
       function formatTid(tid) {
         let padded = "" + tid;
-        return '#' + pad(""+tid, tidWidth);
+        // return '#' + pad(""+tid, tidWidth);
+        return pad(""+tid, tidWidth);
       }
 
       let repfulAgreeTidsByGroup = {};
@@ -281,6 +281,7 @@ class App extends React.Component {
         repfulDisageeTidsByGroup: repfulDisageeTidsByGroup,
         formatTid: formatTid,
         report: report,
+        conversationStats: conversationstats,
         nothingToShow: !comments.length || !groupDemographics.length,
       });
 
@@ -325,66 +326,26 @@ class App extends React.Component {
     console.log('top level app state and props', this.state, this.props)
     return (
       <div style={{margin: "0px 10px"}}>
-        {globals.enableMatrix ? <Matrix
-          title={"Correlation matrix"}
-          probabilities={this.state.filteredCorrelationMatrix}
-          comments={this.state.comments}
-          tids={this.state.filteredCorrelationTids}
-          formatTid={this.state.formatTid}
-          ptptCount={this.state.ptptCount}/> : ""}
-
         <Heading conversation={this.state.conversation}/>
         <div style={{
             marginLeft: 20,
             marginTop: 40,
           }}>
-          <BoxPlot
-            groupVotes={this.state.math["group-votes"]}/>
           <Overview
+            stats={this.state.conversationStats}
             math={this.state.math}
             comments={this.state.comments}
             ptptCount={this.state.ptptCount}
             demographics={this.state.demographics}
             conversation={this.state.conversation}/>
-          <AllComments
-            conversation={this.state.conversation}
-            ptptCount={this.state.ptptCount}
+          <MajorityStrict
             math={this.state.math}
-            formatTid={this.state.formatTid}
-            comments={this.state.comments}/>
-          <Consensus
             conversation={this.state.conversation}
             ptptCount={this.state.ptptCount}
             comments={this.state.comments}
             formatTid={this.state.formatTid}
             consensus={this.state.consensus}/>
-          {globals.enableMatrix ? <Matrix
-            title={"Correlation matrix"}
-            probabilities={this.state.filteredCorrelationMatrix}
-            comments={this.state.comments}
-            tids={this.state.filteredCorrelationTids}
-            formatTid={this.state.formatTid}
-            ptptCount={this.state.ptptCount}/> : ""}
-          <ParticipantGroups
-            comments={this.state.comments}
-            conversation={this.state.conversation}
-            demographics={this.state.demographics}
-            comments={this.state.comments}
-            ptptCount={this.state.ptptCount}
-            groupNames={this.state.groupNames}
-            formatTid={this.state.formatTid}
-            math={this.state.math}
-            badTids={this.state.badTids}
-            repfulAgreeTidsByGroup={this.state.repfulAgreeTidsByGroup}
-            repfulDisageeTidsByGroup={this.state.repfulDisageeTidsByGroup}
-            report={this.state.report}/>
-          <Uncertainty
-            comments={this.state.comments}
-            uncertainty={this.state.uncertainty}
-            conversation={this.state.conversation}
-            ptptCount={this.state.ptptCount}
-            formatTid={this.state.formatTid}/>
-          <Graph
+          <CommentsGraph
             comments={this.state.comments}
             groupNames={this.state.groupNames}
             badTids={this.state.badTids}
@@ -393,6 +354,23 @@ class App extends React.Component {
             math={this.state.math}
             renderHeading={true}
             report={this.state.report}/>
+          {globals.enableMatrix ? <Matrix
+            probabilities={this.state.filteredCorrelationMatrix}
+            comments={this.state.comments}
+            tids={this.state.filteredCorrelationTids}
+            formatTid={this.state.formatTid}
+            ptptCount={this.state.ptptCount}/> : ""}
+          <BoxPlot
+            groupVotes={this.state.math["group-votes"]}/>
+
+          <Uncertainty
+            math={this.state.math}
+            comments={this.state.comments}
+            uncertainty={this.state.uncertainty}
+            conversation={this.state.conversation}
+            ptptCount={this.state.ptptCount}
+            formatTid={this.state.formatTid}/>
+
           <Footer/>
         </div>
       </div>
@@ -403,3 +381,17 @@ class App extends React.Component {
 export default App;
 
 window.$ = $;
+
+// <ParticipantGroups
+//   comments={this.state.comments}
+//   conversation={this.state.conversation}
+//   demographics={this.state.demographics}
+//   comments={this.state.comments}
+//   ptptCount={this.state.ptptCount}
+//   groupNames={this.state.groupNames}
+//   formatTid={this.state.formatTid}
+//   math={this.state.math}
+//   badTids={this.state.badTids}
+//   repfulAgreeTidsByGroup={this.state.repfulAgreeTidsByGroup}
+//   repfulDisageeTidsByGroup={this.state.repfulDisageeTidsByGroup}
+//   report={this.state.report}/>

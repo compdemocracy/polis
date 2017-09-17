@@ -1,11 +1,9 @@
 import React from "react";
-import Radium from "radium";
 // import _ from "lodash";
 import Group from "./participantGroup";
 import style from "../util/style";
 import * as globals from "./globals";
 
-@Radium
 class ParticipantGroups extends React.Component {
   constructor(props) {
     super(props);
