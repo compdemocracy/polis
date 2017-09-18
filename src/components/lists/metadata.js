@@ -30,7 +30,7 @@ const Metadata = ({conversation, comments, ptptCount, formatTid, math}) => {
           ptptCount={ptptCount}
           math={math}
           formatTid={formatTid}
-          tidsToRender={_metadataTids}
+          tidsToRender={_metadataTids.sort((a, b) => a - b) /* es6 ftw */} 
           comments={comments}/>
       </div>
     </div>

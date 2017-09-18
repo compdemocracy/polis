@@ -1,8 +1,9 @@
 import React from "react";
 // import _ from "lodash";
 import Group from "./participantGroup";
-import style from "../util/style";
-import * as globals from "./globals";
+import style from "../../util/style";
+import * as globals from "../globals";
+import Metadata from "./metadata";
 
 class ParticipantGroups extends React.Component {
   constructor(props) {
@@ -28,11 +29,17 @@ class ParticipantGroups extends React.Component {
         styles.base,
         this.props.style
       ]}>
-      <p style={globals.primaryHeading}> Opinion Groups </p>
-      <p style={globals.paragraph}>
-        Across {this.props.ptptCount} total participants, {this.props.math["group-votes"].length} opinion groups emerged. There are two factors that define an opinion group. First, each opinion group is made up of a number of participants who tended to vote similarly on multiple comments. Second, each group of participants who voted similarly will have also voted distinctly differently from other groups.
-      </p>
-      <div style={{marginTop: 50}}>
+      <div>
+        <p style={globals.primaryHeading}> Opinion Groups </p>
+        <p style={globals.paragraph}>
+          Across {this.props.ptptCount} total participants, {this.props.math["group-votes"].length} opinion groups emerged. There are two factors that define an opinion group. First, each opinion group is made up of a number of participants who tended to vote similarly on multiple comments. Second, each group of participants who voted similarly will have also voted distinctly differently from other groups.
+        </p>
+      <Metadata
+        math={this.props.math}
+        comments={this.props.comments}
+        conversation={this.props.conversation}
+        ptptCount={this.props.ptptCount}
+        formatTid={this.props.formatTid}/>
       {
         this.props.math && this.props.comments ? _.map(this.props.math["repness"], (groupComments, gid) => {
           gid = Number(gid);
@@ -66,7 +73,7 @@ class ParticipantGroups extends React.Component {
           return (
             <Group
               key={gid}
-              allComments={this.props.comments}
+              comments={this.props.comments}
               gid={gid}
               conversation={this.props.conversation}
               demographicsForGroup={this.props.demographics[gid]}
@@ -76,7 +83,6 @@ class ParticipantGroups extends React.Component {
               groupVotesForOtherGroups={otherGroupVotes}
               formatTid={this.props.formatTid}
               ptptCount={this.props.ptptCount}
-
               groupNames={this.props.groupNames}
               badTids={this.props.badTids}
               repfulAgreeTidsByGroup={this.props.repfulAgreeTidsByGroup}

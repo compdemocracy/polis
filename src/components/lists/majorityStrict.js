@@ -36,7 +36,7 @@ const MajorityStrict = ({conversation, comments, ptptCount, consensus, formatTid
         ptptCount={ptptCount}
         math={math}
         formatTid={formatTid}
-        tidsToRender={_consensusTids}
+        tidsToRender={_consensusTids.sort((a, b) => a - b)}
         comments={comments}/>
       </div>
     </div>

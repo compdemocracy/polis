@@ -27,7 +27,10 @@ export const primaryHeading = {
   fontWeight: fontWeights.boldest,
 };
 
-export const secondaryHeading = 18;
+export const secondaryHeading = {
+  fontSize: fontSizes.large,
+  fontWeight: fontWeights.normal
+}
 
 export const groupHeader = {
   fontSize: fontSizes.largest,

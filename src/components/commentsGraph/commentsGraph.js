@@ -78,7 +78,6 @@ class Graph extends React.Component {
 
   handleCommentClick(selectedComment) {
     return () => {
-      console.log('setting state', selectedComment)
       this.setState({selectedComment});
     }
   }
@@ -104,7 +103,7 @@ class Graph extends React.Component {
     return (
       <div style={{position: "relative"}}>
         <div>
-          <p style={globals.primaryHeading}> Disagreement </p>
+          <p style={globals.primaryHeading}> Comments </p>
           <p style={globals.paragraph}>
           How do comments relate to each other? Did people who agreed with one comment also agree with another?
           </p>

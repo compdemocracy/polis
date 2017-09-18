@@ -138,7 +138,7 @@ class Matrix extends React.Component {
   }
 
   renderMatrix() {
-    let side = this.props.probabilities.length * square + 750;
+    let side = this.props.probabilities.length * square + 200;
     return (
       <div>
         <p style={globals.primaryHeading}>{this.props.title}</p>

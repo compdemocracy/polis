@@ -28,7 +28,7 @@ class BoxPlot extends React.Component {
       <div>
         <p style={globals.primaryHeading}> Which group's views are represented? </p>
         <p style={globals.paragraph}>
-          Which group was the most agreeable, across all comments?
+          Which group agreed the most, across all comments?
         </p>
         <p style={globals.paragraph}>
           If the colored box is higher, it means people in the group agreed more overall.

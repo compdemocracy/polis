@@ -14,9 +14,8 @@ import Heading from "./framework/heading";
 import Footer from "./framework/Footer";
 import Overview from "./Overview";
 import MajorityStrict from "./lists/majorityStrict";
-import Metadata from "./lists/metadata";
 import Uncertainty from "./lists/Uncertainty";
-// import ParticipantGwroups from "./lists/ParticipantGroups";
+import ParticipantGroups from "./lists/ParticipantGroups";
 import CommentsGraph from "./commentsGraph/commentsGraph";
 import BoxPlot from "./boxPlot/boxPlot";
 
@@ -346,12 +345,21 @@ class App extends React.Component {
             comments={this.state.comments}
             formatTid={this.state.formatTid}
             consensus={this.state.consensus}/>
-          <Metadata
-            math={this.state.math}
+          <ParticipantGroups
             comments={this.state.comments}
             conversation={this.state.conversation}
+            demographics={this.state.demographics}
+            comments={this.state.comments}
             ptptCount={this.state.ptptCount}
-            formatTid={this.state.formatTid}/>
+            groupNames={this.state.groupNames}
+            formatTid={this.state.formatTid}
+            math={this.state.math}
+            badTids={this.state.badTids}
+            repfulAgreeTidsByGroup={this.state.repfulAgreeTidsByGroup}
+            repfulDisageeTidsByGroup={this.state.repfulDisageeTidsByGroup}
+            report={this.state.report}/>
+          <BoxPlot
+            groupVotes={this.state.math["group-votes"]}/>
           <CommentsGraph
             comments={this.state.comments}
             groupNames={this.state.groupNames}
@@ -367,8 +375,7 @@ class App extends React.Component {
             tids={this.state.filteredCorrelationTids}
             formatTid={this.state.formatTid}
             ptptCount={this.state.ptptCount}/> : ""}
-          <BoxPlot
-            groupVotes={this.state.math["group-votes"]}/>
+
 
           <Uncertainty
             math={this.state.math}
@@ -389,17 +396,3 @@ class App extends React.Component {
 export default App;
 
 window.$ = $;
-
-// <ParticipantGroups
-//   comments={this.state.comments}
-//   conversation={this.state.conversation}
-//   demographics={this.state.demographics}
-//   comments={this.state.comments}
-//   ptptCount={this.state.ptptCount}
-//   groupNames={this.state.groupNames}
-//   formatTid={this.state.formatTid}
-//   math={this.state.math}
-//   badTids={this.state.badTids}
-//   repfulAgreeTidsByGroup={this.state.repfulAgreeTidsByGroup}
-//   repfulDisageeTidsByGroup={this.state.repfulDisageeTidsByGroup}
-//   report={this.state.report}/>

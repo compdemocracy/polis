@@ -124,7 +124,7 @@ const drawBoxPlot = (dataset) => {
           .attr("text-anchor", "middle")
           .style("font-size", "18px")
           //.style("text-decoration", "underline")
-          .text("Agreement across all comments per group");
+          .text(""); // agreement across all comments per group ? 
 
   	 // draw y axis
   	svg.append("g")
