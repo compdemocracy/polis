@@ -17,6 +17,7 @@ import MajorityStrict from "./lists/majorityStrict";
 import Uncertainty from "./lists/Uncertainty";
 import ParticipantGroups from "./lists/ParticipantGroups";
 import CommentsGraph from "./commentsGraph/commentsGraph";
+import ParticipantsGraph from "./participantsGraph/participantsGraph";
 import BoxPlot from "./boxPlot/boxPlot";
 
 import net from "../util/net"
@@ -375,7 +376,15 @@ class App extends React.Component {
             tids={this.state.filteredCorrelationTids}
             formatTid={this.state.formatTid}
             ptptCount={this.state.ptptCount}/> : ""}
-
+          <ParticipantsGraph
+            comments={this.state.comments}
+            groupNames={this.state.groupNames}
+            badTids={this.state.badTids}
+            formatTid={this.state.formatTid}
+            repfulAgreeTidsByGroup={this.state.repfulAgreeTidsByGroup}
+            math={this.state.math}
+            renderHeading={true}
+            report={this.state.report}/>
 
           <Uncertainty
             math={this.state.math}

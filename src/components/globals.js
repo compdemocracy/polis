@@ -62,6 +62,7 @@ export const paragraph = {
 //   polisClientParticipation/vis2/components/globals.js
 //   polisReport/src/components/globals.js
 export const groupLabels = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]
+export const groupSymbols = ["○", "◆", "+", "-", "◬",  "▮", ]
 
 
 export const enableMatrix = true;

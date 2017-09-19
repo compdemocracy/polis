@@ -44,7 +44,7 @@ const Overview = ({
         {conversation && conversation.ownername ? "This pol.is conversation was run by "+conversation.ownername+". " : null}
         {conversation && conversation.topic ? "The topic was '"+conversation.topic+"'. " : null}
       </p>
-      <div style={{width: "100%", display: "flex", justifyContent: "space-between"}}>
+      <div style={{maxWidth: 800, display: "flex", justifyContent: "space-between"}}>
         <Number number={ptptCount} label={"people voted"} />
         <Number
           number={ computeVoteTotal(math["user-vote-counts"]) }

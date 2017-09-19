@@ -66,7 +66,7 @@ class Comments extends React.Component {
   }
 }
 
-class Graph extends React.Component {
+class CommentsGraph extends React.Component {
 
   constructor(props) {
     super(props);
@@ -126,8 +126,7 @@ class Graph extends React.Component {
         </p>
           <svg
             style={{
-              border: "1px solid rgb(130,130,130)",
-              backgroundColor: "rgb(245,245,245)"
+              border: "1px solid rgb(180,180,180)",
             }}
             width={this.props.height ? this.props.height : globals.side}
             height={this.props.height ? this.props.height : globals.side}>
@@ -180,4 +179,4 @@ class Graph extends React.Component {
   }
 }
 
-export default Graph;
+export default CommentsGraph;

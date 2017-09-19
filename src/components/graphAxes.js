@@ -11,7 +11,7 @@ const GraphAxes = ({yCenter, xCenter, report}) => {
         x2={globals.side /* - 50 */}
         y2={yCenter}
         style={{
-          stroke: "rgb(130,130,130)",
+          stroke: "rgb(215,215,215)",
           strokeWidth: 1
         }}/>
       <line
@@ -21,7 +21,7 @@ const GraphAxes = ({yCenter, xCenter, report}) => {
         x2={xCenter}
         y2={globals.side /* - 50 */ /* magic number is axis padding */}
         style={{
-          stroke: "rgb(130,130,130)",
+          stroke: "rgb(215,215,215)",
           strokeWidth: 1
         }}/>
       {/* Bottom axis */}
