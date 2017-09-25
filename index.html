@@ -60,6 +60,10 @@ function get_x_name() {
   var params = parseQueryParams(window.location.search);
   return params.x_name;
 }
+function get_domain_whitelist_override_key() {
+  var params = parseQueryParams(window.location.search);
+  return params.dwok;
+}
 
 function ajaxGet(url, success, fail) {
   var xmlhttp;
@@ -212,6 +216,10 @@ var x_name = get_x_name();
 if (typeof x_name !== "undefined") {
   window.preload.x_name = x_name;
   qp.push("x_name=" + x_name);
+}
+var dwok = get_domain_whitelist_override_key();
+if (typeof dwok !== "undefined") {
+  qp.push("domain_whitelist_override_key=" + dwok);
 }
 
 var qp = qp.join("&");
