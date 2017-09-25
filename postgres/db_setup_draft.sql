@@ -109,6 +109,7 @@ CREATE TABLE twitter_users (
 CREATE TABLE site_domain_whitelist(
     site_id VARCHAR(256) NOT NULL,
     domain_whitelist VARCHAR(999),
+    domain_whitelist_override_key VARCHAR(999),
     modified BIGINT NOT NULL DEFAULT now_as_millis(),
     created BIGINT NOT NULL DEFAULT now_as_millis()
 );

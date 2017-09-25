@@ -5711,9 +5711,9 @@ Email verified! You can close this tab or hit the back button.
   }
 
 
-  function isParentDomainWhitelisted(domain, zid, isWithinIframe) {
+  function isParentDomainWhitelisted(domain, zid, isWithinIframe, domain_whitelist_override_key) {
     return pgQueryP_readOnly(
-        "select domain_whitelist from site_domain_whitelist where site_id = " +
+        "select * from site_domain_whitelist where site_id = " +
         "(select site_id from users where uid = " +
         "(select owner from conversations where zid = ($1)));", [zid])
       .then(function(rows) {
@@ -5728,6 +5728,9 @@ Email verified! You can close this tab or hit the back button.
         if (!isWithinIframe && wdomains.indexOf('*.pol.is') >= 0) {
           // if pol.is is in the whitelist, then it's ok to show the conversation outside of an iframe.
           console.log('isParentDomainWhitelisted', '*.pol.is');
+          return true;
+        }
+        if (domain_whitelist_override_key && (rows[0].domain_whitelist_override_key === domain_whitelist_override_key)) {
           return true;
         }
         let ok = false;
@@ -5819,7 +5822,9 @@ Email verified! You can close this tab or hit the back button.
     // let conversation_id = path && path.length >= 2 && path[1];
     let zid = req.p.zid;
 
-    isParentDomainWhitelisted(ref, zid, isWithinIframe).then(function(isOk) {
+
+
+    isParentDomainWhitelisted(ref, zid, isWithinIframe, req.p.domain_whitelist_override_key).then(function(isOk) {
       if (isOk) {
         next();
       } else {
@@ -13640,6 +13645,7 @@ CREATE TABLE slack_user_invites (
     let x_profile_image_url = req.p.x_profile_image_url;
     let x_email = req.p.x_email;
     let parent_url = req.p.parent_url;
+    let dwok = req.p.dwok;
     let o = {};
     ifDefinedSet("parent_url", req.p, o);
     ifDefinedSet("auth_needed_to_vote", req.p, o);
@@ -13714,6 +13720,9 @@ CREATE TABLE slack_user_invites (
       }
       if (!_.isUndefined(parent_url)) {
         url += ("&parent_url=" + parent_url);
+      }
+      if (!_.isUndefined(dwok)) {
+        url += ("&dwok=" + dwok);
       }
       return url;
     }
