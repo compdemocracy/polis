@@ -735,7 +735,10 @@ helpersInitialized.then(function(o) {
     want('ptptoiLimit', getInt, assignToP),
     want('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('conversation_id', getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
+
+    want('domain_whitelist_override_key', getStringLimitLength(1, 1000), assignToP),
     denyIfNotFromWhitelistedDomain, // this seems like the easiest place to enforce the domain whitelist. The index.html is cached on cloudflare, so that's not the right place.
+
     resolve_pidThing('pid', assignToP, "get:votes"), // must be after zid getter
     handle_GET_participationInit);
 
