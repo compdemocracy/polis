@@ -5889,7 +5889,7 @@ Email verified! You can close this tab or hit the back button.
     let uid = req.p.uid;
     let until = req.p.until;
 
-    let hasPermission = uid ? isModerator(zid, uid) : Promise.resolve(!!req.p.rid);
+    let hasPermission = req.p.rid ? Promise.resolve(!!req.p.rid) : isModerator(zid, uid);
 
     hasPermission.then(function(ok) {
       if (!ok) {
