@@ -12,13 +12,33 @@
   polis.on.write = polis.on.write || [];
   polis.on.resize = polis.on.resize || [];
 
+  function parseQueryParams(startToken, s) {
+    if (typeof s !== "string") {
+      return {};
+    }
+    if (s.charAt(0) === startToken) {
+      s = s.slice(1);
+    }
+    var pairStrings = s.split("&");
+    var o = {};
+    for (var i = 0; i < pairStrings.length; i++) {
+      var pair = pairStrings[i].split("=");
+      o[pair[0]] = decodeURIComponent(pair[1]);
+    }
+    return o;
+  }
+
+  var paramsHash = parseQueryParams("#", window.location.hash);
+  var paramsQuery = parseQueryParams("?", window.location.search);
+  var xid = paramsHash.xid || paramsQuery.xid;
+
   function getConfig(d) {
      return {
          conversation_id: d.getAttribute("data-conversation_id"),
          site_id: d.getAttribute("data-site_id"),
          page_id: d.getAttribute("data-page_id"),
          parent_url: d.getAttribute("data-parent_url"),
-         xid: d.getAttribute("data-xid"),
+         xid: d.getAttribute("data-xid") || xid,
          x_name: d.getAttribute("data-x_name"),
          x_profile_image_url: d.getAttribute("data-x_profile_image_url"),
 

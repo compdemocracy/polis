@@ -12,6 +12,26 @@
   polis.on.write = polis.on.write || [];
   polis.on.resize = polis.on.resize || [];
 
+  function parseQueryParams(startToken, s) {
+    if (typeof s !== "string") {
+      return {};
+    }
+    if (s.charAt(0) === startToken) {
+      s = s.slice(1);
+    }
+    var pairStrings = s.split("&");
+    var o = {};
+    for (var i = 0; i < pairStrings.length; i++) {
+      var pair = pairStrings[i].split("=");
+      o[pair[0]] = decodeURIComponent(pair[1]);
+    }
+    return o;
+  }
+
+  var paramsHash = parseQueryParams("#", window.location.hash);
+  var paramsQuery = parseQueryParams("?", window.location.hash);
+  var xid = paramsHash.xid || paramsQuery.xid;
+
   function getConfig(d) {
      return {
          conversation_id: d.getAttribute("data-conversation_id"),
