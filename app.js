@@ -1325,12 +1325,12 @@ helpersInitialized.then(function(o) {
     handle_POST_waitinglist);
 
   app.post("/api/v3/metrics",
-      authOptional(assignToP),
-      need('types', getArrayOfInt, assignToP),
-      need('times', getArrayOfInt, assignToP),
-      need('durs', getArrayOfInt, assignToP),
-      need('clientTimestamp', getInt, assignToP),
-      handle_POST_metrics);
+    authOptional(assignToP),
+    need('types', getArrayOfInt, assignToP),
+    need('times', getArrayOfInt, assignToP),
+    need('durs', getArrayOfInt, assignToP),
+    need('clientTimestamp', getInt, assignToP),
+    handle_POST_metrics);
 
   if (polisServerBrand && polisServerBrand.registerRoutes) {
     polisServerBrand.registerRoutes(app, o);
@@ -1463,27 +1463,27 @@ helpersInitialized.then(function(o) {
 
   // ends in slash? redirect to non-slash version
   app.get(/.*\//,
-  function(req, res) {
-    let pathAndQuery = req.originalUrl;
+    function(req, res) {
+      let pathAndQuery = req.originalUrl;
 
-    // remove slash at end
-    if (pathAndQuery.endsWith("/")) {
-      pathAndQuery = pathAndQuery.slice(0, pathAndQuery.length-1);
-    }
+      // remove slash at end
+      if (pathAndQuery.endsWith("/")) {
+        pathAndQuery = pathAndQuery.slice(0, pathAndQuery.length-1);
+      }
 
-    // remove slashes before "?"
-    if (pathAndQuery.indexOf("?") >= 1) {
-      pathAndQuery = pathAndQuery.replace("/\?", "?");
-    }
+      // remove slashes before "?"
+      if (pathAndQuery.indexOf("?") >= 1) {
+        pathAndQuery = pathAndQuery.replace("/\?", "?");
+      }
 
-    let fullUrl = req.protocol + '://' + req.get('host') + pathAndQuery;
+      let fullUrl = req.protocol + '://' + req.get('host') + pathAndQuery;
 
-    if (pathAndQuery !== req.originalUrl) {
-      res.redirect(fullUrl);
-    } else {
-      proxy(req, res);
-    }
-  });
+      if (pathAndQuery !== req.originalUrl) {
+        res.redirect(fullUrl);
+      } else {
+        proxy(req, res);
+      }
+    });
 
 
   var missingFilesGet404 = false;

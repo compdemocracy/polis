@@ -888,13 +888,13 @@ function createDummyUser() {
 function createXidRecord(ownerUid, uid, xid, x_profile_image_url, x_name, x_email) {
   return pgQueryP("insert into xids (owner, uid, xid, x_profile_image_url, x_name, x_email) values ($1, $2, $3, $4, $5, $6) " +
     "on conflict (owner, xid) do nothing;", [
-      ownerUid,
-      uid,
-      xid,
-      x_profile_image_url || null,
-      x_name || null,
-      x_email || null,
-    ]);
+    ownerUid,
+    uid,
+    xid,
+    x_profile_image_url || null,
+    x_name || null,
+    x_email || null,
+  ]);
 }
 
 
@@ -2038,20 +2038,20 @@ function initializePolisHelpers() {
         req.body.x_name || req.query.x_name || null,
         req.body.x_email || req.query.x_email || null,
         !!req.body.agid || !!req.query.agid || null)
-      .then((rows) => {
-        if (!rows || !rows.length) {
-          if (isOptional) {
-            return onDone();
-          } else {
-            res.status(403);
-            onDone("polis_err_auth_no_such_xid_for_this_apikey_11");
-            return;
+        .then((rows) => {
+          if (!rows || !rows.length) {
+            if (isOptional) {
+              return onDone();
+            } else {
+              res.status(403);
+              onDone("polis_err_auth_no_such_xid_for_this_apikey_11");
+              return;
+            }
           }
-        }
-        let uidForCurrentUser = Number(rows[0].uid);
-        assigner(req, "uid", uidForCurrentUser);
-        onDone();
-      });
+          let uidForCurrentUser = Number(rows[0].uid);
+          assigner(req, "uid", uidForCurrentUser);
+          onDone();
+        });
     }).catch((err) => {
       console.log(err);
       onDone(err);
@@ -3075,11 +3075,11 @@ function initializePolisHelpers() {
         req.p.unixTimestamp * 1000,
         req.p.format,
         Math.abs(Math.random() * 999999999999 >> 0))
-      .then(() => {
-        res.json({});
-      }).catch((err) => {
-        fail(res, 500, "polis_err_data_export123", err);
-      });
+        .then(() => {
+          res.json({});
+        }).catch((err) => {
+          fail(res, 500, "polis_err_data_export123", err);
+        });
     }).catch((err) => {
       fail(res, 500, "polis_err_data_export123b", err);
     });
@@ -3141,13 +3141,13 @@ function initializePolisHelpers() {
       pgQuery_readOnly("select pid, xid from xids inner join " +
         "(select * from participants where zid = ($1)) as p on xids.uid = p.uid " +
         " where owner in (select org_id from conversations where zid = ($1));", [zid],
-        function(err, result) {
-          if (err) {
-            reject("polis_err_fetching_xids");
-            return;
-          }
-          resolve(result.rows);
-        });
+      function(err, result) {
+        if (err) {
+          reject("polis_err_fetching_xids");
+          return;
+        }
+        resolve(result.rows);
+      });
     });
   }
 
@@ -3286,20 +3286,20 @@ function initializePolisHelpers() {
         return pgQueryP("insert into jianiuevyew (uid, pwhash) values "+
           "($1, $2) on conflict (uid) "+
           "do update set pwhash = excluded.pwhash;", [
-            uid,
-            hashedPassword,
-          ]).then((rows) => {
-            res.status(200).json("Password reset successful.");
-            clearPwResetToken(pwresettoken, function(err) {
-              if (err) {
-                yell(err);
-                console.error("polis_err_auth_pwresettoken_clear_fail");
-              }
-            });
-          }, (err) => {
-            console.error(err);
-            fail(res, 500, "Couldn't reset password.", err);
+          uid,
+          hashedPassword,
+        ]).then((rows) => {
+          res.status(200).json("Password reset successful.");
+          clearPwResetToken(pwresettoken, function(err) {
+            if (err) {
+              yell(err);
+              console.error("polis_err_auth_pwresettoken_clear_fail");
+            }
           });
+        }, (err) => {
+          console.error(err);
+          fail(res, 500, "Couldn't reset password.", err);
+        });
       });
     });
   }
@@ -3352,25 +3352,25 @@ function initializePolisHelpers() {
     //     redirect_uri:  getServerNameWithProtocol(req) + "/api/v3/auth/slack/redirect_uri",
     //   }
     // })
-    .then((slack_response) => {
-      slack_response = JSON.parse(slack_response);
-      if (slack_response && slack_response.ok === false) {
-        fail(res, 500, "polis_err_slack_oauth 3", slack_response);
-        return;
-      }
-      console.log("handle_POST_auth_slack_redirect_uri 2");
-      console.log(slack_response);
-      return pgQueryP("insert into slack_oauth_access_tokens (slack_access_token, slack_scope, slack_auth_response) values ($1, $2, $3);", [
-        slack_response.access_token,
-        slack_response.scope,
-        slack_response,
+      .then((slack_response) => {
+        slack_response = JSON.parse(slack_response);
+        if (slack_response && slack_response.ok === false) {
+          fail(res, 500, "polis_err_slack_oauth 3", slack_response);
+          return;
+        }
+        console.log("handle_POST_auth_slack_redirect_uri 2");
+        console.log(slack_response);
+        return pgQueryP("insert into slack_oauth_access_tokens (slack_access_token, slack_scope, slack_auth_response) values ($1, $2, $3);", [
+          slack_response.access_token,
+          slack_response.scope,
+          slack_response,
         // state,
-      ]).then(() => {
-        res.status(200).send("");
+        ]).then(() => {
+          res.status(200).send("");
+        });
+      }).catch((err) => {
+        fail(res, 500, "polis_err_slack_oauth", err);
       });
-    }).catch((err) => {
-      fail(res, 500, "polis_err_slack_oauth", err);
-    });
   }
 
 
@@ -4399,10 +4399,10 @@ ${message}`;
       POLIS_FROM_ADDRESS, [process.env.EMAIL_MIKE, process.env.EMAIL_COLIN, process.env.EMAIL_CHRIS],
       "Dummy button clicked!!!",
       body)
-    .catch(function(err) {
-      yell("polis_err_failed_to_email_for_dummy_button");
-      yell(message);
-    });
+      .catch(function(err) {
+        yell("polis_err_failed_to_email_for_dummy_button");
+        yell(message);
+      });
   }
 
   function emailTeam(subject, body) {
@@ -4410,9 +4410,9 @@ ${message}`;
       POLIS_FROM_ADDRESS, [process.env.EMAIL_MIKE, process.env.EMAIL_COLIN, process.env.EMAIL_CHRIS],
       subject,
       body).catch(function(err) {
-        yell("polis_err_failed_to_email_team");
-        yell(message);
-      });
+      yell("polis_err_failed_to_email_team");
+      yell(message);
+    });
   }
 
   function emailBadProblemTime(message) {
@@ -4449,11 +4449,11 @@ ${serverName}/pwreset/${pwresettoken}
         userInfo.email,
         "Polis Password Reset",
         body).then(function() {
-          callback();
-        }).catch(function(err) {
-          yell("polis_err_failed_to_email_password_reset_code");
-          callback(err);
-        });
+        callback();
+      }).catch(function(err) {
+        yell("polis_err_failed_to_email_password_reset_code");
+        callback(err);
+      });
     });
   }
 
@@ -4638,7 +4638,7 @@ ${serverName}/api/v3/verify?e=${einvite}`;
     }).then(function() {
       res.set('Content-Type', 'text/html');
       res.send(
-`<html><body>
+        `<html><body>
 <div style='font-family: Futura, Helvetica, sans-serif;'>
 Email verified! You can close this tab or hit the back button.
 </div>
@@ -5182,7 +5182,7 @@ Email verified! You can close this tab or hit the back button.
       return pgQueryP("update participants set subscribed = 1 where uid = (select uid from users where email = ($2)) and zid = ($1);", [zid, email]).then(function() {
         res.set('Content-Type', 'text/html');
         res.send(
-`<h1>Subscribed!</h1>
+          `<h1>Subscribed!</h1>
 <p>
 <a href="${createNotificationsUnsubscribeUrl(req.p.conversation_id, req.p.email)}">oops, unsubscribe me.</a>
 </p>`
@@ -5208,7 +5208,7 @@ Email verified! You can close this tab or hit the back button.
       return pgQueryP("update participants set subscribed = 0 where uid = (select uid from users where email = ($2)) and zid = ($1);", [zid, email]).then(function() {
         res.set('Content-Type', 'text/html');
         res.send(
-`<h1>Unsubscribed.</h1>
+          `<h1>Unsubscribed.</h1>
 <p>
 <a href="${createNotificationsSubscribeUrl(req.p.conversation_id, req.p.email)}">oops, subscribe me again.</a>
 </p>`
@@ -5382,47 +5382,47 @@ Email verified! You can close this tab or hit the back button.
       referrer: req.p.referrer,
       parent_url: req.p.parent_url,
     })
-    .then(function(o) {
-      let uid = o.uid;
-      winston.log("info", "startSessionAndAddCookies " + uid + " existing " + o.existingAuth);
-      // TODO check for possible security implications
-      if (!o.existingAuth) {
-        return startSessionAndAddCookies(req, res, uid).then(function() {
+      .then(function(o) {
+        let uid = o.uid;
+        winston.log("info", "startSessionAndAddCookies " + uid + " existing " + o.existingAuth);
+        // TODO check for possible security implications
+        if (!o.existingAuth) {
+          return startSessionAndAddCookies(req, res, uid).then(function() {
+            return o;
+          });
+        }
+        return Promise.resolve(o);
+      })
+      .then(function(o) {
+        winston.log("info", "permanentCookieToken", o.permanentCookieToken);
+        if (o.permanentCookieToken) {
+          return recordPermanentCookieZidJoin(o.permanentCookieToken, o.zid).then(function() {
+            return o;
+          }, function() {
+            return o;
+          });
+        } else {
           return o;
+        }
+      })
+      .then(function(o) {
+        let pid = o.pid;
+        res.status(200).json({
+          pid: pid,
+          uid: req.p.uid,
         });
-      }
-      return Promise.resolve(o);
-    })
-    .then(function(o) {
-      winston.log("info", "permanentCookieToken", o.permanentCookieToken);
-      if (o.permanentCookieToken) {
-        return recordPermanentCookieZidJoin(o.permanentCookieToken, o.zid).then(function() {
-          return o;
-        }, function() {
-          return o;
-        });
-      } else {
-        return o;
-      }
-    })
-    .then(function(o) {
-      let pid = o.pid;
-      res.status(200).json({
-        pid: pid,
-        uid: req.p.uid,
+      })
+      .catch(function(err) {
+        if (err && err.message && err.message.match(/polis_err_need_full_user/)) {
+          userFail(res, 403, err.message, err);
+        } else if (err && err.message) {
+          fail(res, 500, err.message, err);
+        } else if (err) {
+          fail(res, 500, "polis_err_joinWithZidOrSuzinvite", err);
+        } else {
+          fail(res, 500, "polis_err_joinWithZidOrSuzinvite");
+        }
       });
-    })
-    .catch(function(err) {
-      if (err && err.message && err.message.match(/polis_err_need_full_user/)) {
-        userFail(res, 403, err.message, err);
-      } else if (err && err.message) {
-        fail(res, 500, err.message, err);
-      } else if (err) {
-        fail(res, 500, "polis_err_joinWithZidOrSuzinvite", err);
-      } else {
-        fail(res, 500, "polis_err_joinWithZidOrSuzinvite");
-      }
-    });
   }
 
 
@@ -5713,7 +5713,7 @@ Email verified! You can close this tab or hit the back button.
 
   function isParentDomainWhitelisted(domain, zid, isWithinIframe, domain_whitelist_override_key) {
     return pgQueryP_readOnly(
-        "select * from site_domain_whitelist where site_id = " +
+      "select * from site_domain_whitelist where site_id = " +
         "(select site_id from users where uid = " +
         "(select owner from conversations where zid = ($1)));", [zid])
       .then(function(rows) {
@@ -6047,31 +6047,31 @@ Email verified! You can close this tab or hit the back button.
             zid,
             newZid,
           ]).then(function() {
-            return pgQueryP(
-              "insert into comments (pid, tid, zid, txt, velocity, mod, uid, active, created) " +
+          return pgQueryP(
+            "insert into comments (pid, tid, zid, txt, velocity, mod, uid, active, created) " +
               "select pid, tid, ($2), txt, velocity, mod, uid, active, created from comments where zid = ($1);", [
-                zid,
-                newZid,
-              ]).then(function() {
-                return pgQueryP("select * from votes where zid = ($1);", [zid]).then((votes) => {
-                  // insert votes one at a time.
-                  return Promise.all(votes.map(function(v) {
-                    let q = "insert into votes (zid, pid, tid, vote, created) values ($1, $2, $3, $4, $5);";
-                    return pgQueryP(q, [newZid, v.pid, v.tid, v.vote, v.created]);
-                  })).then(function() {
-                    return generateAndRegisterZinvite(newZid, true).then(function(zinvite) {
-                      res.status(200).json({
-                        zid: newZid,
-                        zinvite: zinvite,
-                        url: getServerNameWithProtocol(req) + "/" + zinvite,
-                      });
-                    });
+              zid,
+              newZid,
+            ]).then(function() {
+            return pgQueryP("select * from votes where zid = ($1);", [zid]).then((votes) => {
+              // insert votes one at a time.
+              return Promise.all(votes.map(function(v) {
+                let q = "insert into votes (zid, pid, tid, vote, created) values ($1, $2, $3, $4, $5);";
+                return pgQueryP(q, [newZid, v.pid, v.tid, v.vote, v.created]);
+              })).then(function() {
+                return generateAndRegisterZinvite(newZid, true).then(function(zinvite) {
+                  res.status(200).json({
+                    zid: newZid,
+                    zinvite: zinvite,
+                    url: getServerNameWithProtocol(req) + "/" + zinvite,
                   });
                 });
               });
-          }).catch(function(err) {
-            fail(res, 500, "polis_err_cloning_conversation_misc", err);
+            });
           });
+        }).catch(function(err) {
+          fail(res, 500, "polis_err_cloning_conversation_misc", err);
+        });
       });
   }
 
@@ -6304,16 +6304,16 @@ Email verified! You can close this tab or hit the back button.
               }, function(err) {
                 fail(res, 500, "polis_err_linking_fb_friends", err);
               })
-              .then(function(user) {
-                res.status(200).json({
-                  uid: user.uid,
-                  hname: user.hname,
-                  email: user.email,
+                .then(function(user) {
+                  res.status(200).json({
+                    uid: user.uid,
+                    hname: user.hname,
+                    email: user.email,
                   // token: token,
+                  });
+                }, function(err) {
+                  fail(res, 500, "polis_err_linking_fb_misc", err);
                 });
-              }, function(err) {
-                fail(res, 500, "polis_err_linking_fb_misc", err);
-              });
             }, function(err) {
               fail(res, 500, "polis_err_linking_fb_to_existing_polis_account", err);
             }).catch(function(err) {
@@ -6472,28 +6472,28 @@ Email verified! You can close this tab or hit the back button.
         "where users.email = ($1) " +
         "   or facebook_users.fb_user_id = ($2) " +
         ";", [email, fb_user_id]).then(function(rows) {
-          let user = rows && rows.length && rows[0] || null;
-          if (rows && rows.length > 1) {
-            // the auth provided us with email and fb_user_id where the email is one polis user, and the fb_user_id is for another.
-            // go with the one matching the fb_user_id in this case, and leave the email matching account alone.
-            user = _.find(rows, function(row) {
-              return row.fb_user_id === fb_user_id;
-            });
-          }
-          if (user) {
-            if (user.fb_user_id) {
-              doFbUserHasAccountLinked(user);
-            } else {
-              doFbNotLinkedButUserWithEmailExists(user);
-            }
+        let user = rows && rows.length && rows[0] || null;
+        if (rows && rows.length > 1) {
+          // the auth provided us with email and fb_user_id where the email is one polis user, and the fb_user_id is for another.
+          // go with the one matching the fb_user_id in this case, and leave the email matching account alone.
+          user = _.find(rows, function(row) {
+            return row.fb_user_id === fb_user_id;
+          });
+        }
+        if (user) {
+          if (user.fb_user_id) {
+            doFbUserHasAccountLinked(user);
           } else {
-            doFbNoUserExistsYet(user);
+            doFbNotLinkedButUserWithEmailExists(user);
           }
-        }, function(err) {
-          fail(res, 500, "polis_err_reg_fb_user_looking_up_email", err);
-        }).catch(function(err) {
-          fail(res, 500, "polis_err_reg_fb_user_misc", err);
-        });
+        } else {
+          doFbNoUserExistsYet(user);
+        }
+      }, function(err) {
+        fail(res, 500, "polis_err_reg_fb_user_looking_up_email", err);
+      }).catch(function(err) {
+        fail(res, 500, "polis_err_reg_fb_user_misc", err);
+      });
     });
   } // end do_handle_POST_auth_facebook
 
@@ -7192,11 +7192,11 @@ Email verified! You can close this tab or hit the back button.
           q = q.and(
             sql_comments.tid.notIn(
               sql_votes_latest_unique.subQuery().select(sql_votes_latest_unique.tid)
-              .where(
-                sql_votes_latest_unique.zid.equals(o.zid)
-              ).and(
-                sql_votes_latest_unique.pid.equals(o.not_voted_by_pid)
-              )
+                .where(
+                  sql_votes_latest_unique.zid.equals(o.zid)
+                ).and(
+                  sql_votes_latest_unique.pid.equals(o.not_voted_by_pid)
+                )
             )
           );
         }
@@ -8037,7 +8037,7 @@ Email verified! You can close this tab or hit the back button.
 
 
 
-    // return xidUserPromise.then(function(xidUser) {
+      // return xidUserPromise.then(function(xidUser) {
 
 
 
@@ -8155,84 +8155,84 @@ Email verified! You can close this tab or hit the back button.
             "(pid, zid, txt, velocity, active, mod, uid, tweet_id, quote_src_url, anon, is_seed, created, tid) VALUES " +
             "($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, default, null) RETURNING *;",
             [pid, zid, txt, velocity, active, mod, authorUid, twitter_tweet_id || null, quote_src_url || null, anon || false, is_seed || false]).then(function(docs) {
-              let comment = docs && docs[0];
-              let tid = comment && comment.tid;
-              // let createdTime = comment && comment.created;
+            let comment = docs && docs[0];
+            let tid = comment && comment.tid;
+            // let createdTime = comment && comment.created;
 
-              if (bad || spammy || conv.strict_moderation) {
-                getNumberOfCommentsWithModerationStatus(zid, polisTypes.mod.unmoderated).catch(function(err) {
-                  yell("polis_err_getting_modstatus_comment_count");
-                  return void 0;
-                }).then(function(n) {
-                  if (n === 0) {
-                    return;
-                  }
-                  pgQueryP_readOnly("select * from users where site_id = (select site_id from page_ids where zid = ($1)) UNION select * from users where uid = ($2);", [zid, conv.owner]).then(function(users) {
-                    let uids = _.pluck(users, "uid");
-                    // also notify polis team for moderation
-                    uids = _.union(uids, [
-                      125, // mike
-                      186, // colin
-                      36140, // chris
-                    ]);
-                    uids.forEach(function(uid) {
-                      sendCommentModerationEmail(req, uid, zid, n);
-                      sendSlackEvent({
-                        type: "comment_mod_needed",
-                        data: comment,
-                      });
+            if (bad || spammy || conv.strict_moderation) {
+              getNumberOfCommentsWithModerationStatus(zid, polisTypes.mod.unmoderated).catch(function(err) {
+                yell("polis_err_getting_modstatus_comment_count");
+                return void 0;
+              }).then(function(n) {
+                if (n === 0) {
+                  return;
+                }
+                pgQueryP_readOnly("select * from users where site_id = (select site_id from page_ids where zid = ($1)) UNION select * from users where uid = ($2);", [zid, conv.owner]).then(function(users) {
+                  let uids = _.pluck(users, "uid");
+                  // also notify polis team for moderation
+                  uids = _.union(uids, [
+                    125, // mike
+                    186, // colin
+                    36140, // chris
+                  ]);
+                  uids.forEach(function(uid) {
+                    sendCommentModerationEmail(req, uid, zid, n);
+                    sendSlackEvent({
+                      type: "comment_mod_needed",
+                      data: comment,
                     });
                   });
                 });
-              } else {
-                addNotificationTask(zid);
-                sendCommentModerationEmail(req, 125, zid, "?"); // email mike for all comments, since some people may not have turned on strict moderation, and we may want to babysit evaluation conversations of important customers.              
-                sendSlackEvent({
-                  type: "comment_mod_needed",
-                  data: comment,
-                });
-              }
-
-              console.log("POST_comments before votesPost", Date.now());
-
-              // It should be safe to delete this. Was added to postpone the no-auto-vote change for old conversations.
-              if (is_seed && _.isUndefined(vote) && zid <= 17037) {
-                vote = 0;
-              }
-
-              let createdTime = comment.created;
-              let votePromise = _.isUndefined(vote) ? Promise.resolve() : votesPost(uid, pid, zid, tid, vote, 0, false);
-
-              return votePromise.then(function(o) {
-                if (o && o.vote && o.vote.created) {
-                  createdTime = o.vote.created;
-                }
-
-                setTimeout(function() {
-                  updateConversationModifiedTime(zid, createdTime);
-                  updateLastInteractionTimeForConversation(zid, uid);
-                  if (!_.isUndefined(vote)) {
-                    updateVoteCount(zid, pid);
-                  }
-                }, 100);
-
-                console.log("POST_comments sending json", Date.now());
-                res.json({
-                  tid: tid,
-                  currentPid: currentPid,
-                });
-                console.log("POST_comments sent json", Date.now());
-              }, function(err) {
-                fail(res, 500, "polis_err_vote_on_create", err);
               });
-            }, function(err) {
-              if (err.code === '23505' || err.code === 23505) {
-                // duplicate comment
-                fail(res, 409, "polis_err_post_comment_duplicate", err);
-              } else {
-                fail(res, 500, "polis_err_post_comment", err);
+            } else {
+              addNotificationTask(zid);
+              sendCommentModerationEmail(req, 125, zid, "?"); // email mike for all comments, since some people may not have turned on strict moderation, and we may want to babysit evaluation conversations of important customers.              
+              sendSlackEvent({
+                type: "comment_mod_needed",
+                data: comment,
+              });
+            }
+
+            console.log("POST_comments before votesPost", Date.now());
+
+            // It should be safe to delete this. Was added to postpone the no-auto-vote change for old conversations.
+            if (is_seed && _.isUndefined(vote) && zid <= 17037) {
+              vote = 0;
+            }
+
+            let createdTime = comment.created;
+            let votePromise = _.isUndefined(vote) ? Promise.resolve() : votesPost(uid, pid, zid, tid, vote, 0, false);
+
+            return votePromise.then(function(o) {
+              if (o && o.vote && o.vote.created) {
+                createdTime = o.vote.created;
               }
-            }); // insert
+
+              setTimeout(function() {
+                updateConversationModifiedTime(zid, createdTime);
+                updateLastInteractionTimeForConversation(zid, uid);
+                if (!_.isUndefined(vote)) {
+                  updateVoteCount(zid, pid);
+                }
+              }, 100);
+
+              console.log("POST_comments sending json", Date.now());
+              res.json({
+                tid: tid,
+                currentPid: currentPid,
+              });
+              console.log("POST_comments sent json", Date.now());
+            }, function(err) {
+              fail(res, 500, "polis_err_vote_on_create", err);
+            });
+          }, function(err) {
+            if (err.code === '23505' || err.code === 23505) {
+              // duplicate comment
+              fail(res, 409, "polis_err_post_comment_duplicate", err);
+            } else {
+              fail(res, 500, "polis_err_post_comment", err);
+            }
+          }); // insert
         });
       }, function(errors) {
         if (errors[0]) {
@@ -8603,13 +8603,13 @@ Email verified! You can close this tab or hit the back button.
   function createXidRecordByZid(zid, uid, xid, x_profile_image_url, x_name, x_email) {
     return pgQueryP("insert into xids (owner, uid, xid, x_profile_image_url, x_name, x_email) values ((select org_id from conversations where zid = ($1)), $2, $3, $4, $5, $6) " +
       "on conflict (owner, xid) do nothing;", [
-        zid,
-        uid,
-        xid,
-        x_profile_image_url || null,
-        x_name || null,
-        x_email || null,
-      ]);
+      zid,
+      uid,
+      xid,
+      x_profile_image_url || null,
+      x_name || null,
+      x_email || null,
+    ]);
   }
 
   function getXidRecord(xid, zid) {
@@ -8765,47 +8765,47 @@ Email verified! You can close this tab or hit the back button.
       "$11, " +
       "$12, " +
       "$13);",[
-        req.p.zid,
-        req.p.pid,
-        req.p.tid,
-        req.p.as_abusive,
-        req.p.as_factual,
-        req.p.as_feeling,
-        req.p.as_important,
-        req.p.as_notfact,
-        req.p.as_notgoodidea,
-        req.p.as_notmyfeeling,
-        req.p.as_offtopic,
-        req.p.as_spam,
-        req.p.unsure,
-      ]).then((createdTime) => {
-        setTimeout(function() {
-          updateConversationModifiedTime(req.p.zid, createdTime);
-          updateLastInteractionTimeForConversation(zid, uid);
-        }, 100);
-      }).then(function() {
-        return getNextComment(req.p.zid, pid, [], true);
-      }).then(function(nextComment) {
-        let result = {};
-        if (nextComment) {
-          result.nextComment = nextComment;
-        } else {
-          // no need to wait for this to finish
-          addNoMoreCommentsRecord(req.p.zid, pid);
-        }
-        // PID_FLOW This may be the first time the client gets the pid.
-        result.currentPid = req.p.pid;
-        finishOne(res, result);
+      req.p.zid,
+      req.p.pid,
+      req.p.tid,
+      req.p.as_abusive,
+      req.p.as_factual,
+      req.p.as_feeling,
+      req.p.as_important,
+      req.p.as_notfact,
+      req.p.as_notgoodidea,
+      req.p.as_notmyfeeling,
+      req.p.as_offtopic,
+      req.p.as_spam,
+      req.p.unsure,
+    ]).then((createdTime) => {
+      setTimeout(function() {
+        updateConversationModifiedTime(req.p.zid, createdTime);
+        updateLastInteractionTimeForConversation(zid, uid);
+      }, 100);
+    }).then(function() {
+      return getNextComment(req.p.zid, pid, [], true);
+    }).then(function(nextComment) {
+      let result = {};
+      if (nextComment) {
+        result.nextComment = nextComment;
+      } else {
+        // no need to wait for this to finish
+        addNoMoreCommentsRecord(req.p.zid, pid);
+      }
+      // PID_FLOW This may be the first time the client gets the pid.
+      result.currentPid = req.p.pid;
+      finishOne(res, result);
 
-      }).catch(function(err) {
-        if (err === "polis_err_ptptCommentMod_duplicate") {
-          fail(res, 406, "polis_err_ptptCommentMod_duplicate", err); // TODO allow for changing votes?
-        } else if (err === "polis_err_conversation_is_closed") {
-          fail(res, 403, "polis_err_conversation_is_closed", err);
-        } else {
-          fail(res, 500, "polis_err_ptptCommentMod", err);
-        }
-      });
+    }).catch(function(err) {
+      if (err === "polis_err_ptptCommentMod_duplicate") {
+        fail(res, 406, "polis_err_ptptCommentMod_duplicate", err); // TODO allow for changing votes?
+      } else if (err === "polis_err_conversation_is_closed") {
+        fail(res, 403, "polis_err_conversation_is_closed", err);
+      } else {
+        fail(res, 500, "polis_err_ptptCommentMod", err);
+      }
+    });
   }
 
 
@@ -8966,12 +8966,12 @@ Email verified! You can close this tab or hit the back button.
       return pgQueryP("insert into report_comment_selections (rid, tid, selection, zid, modified) values ($1, $2, $3, $4, now_as_millis()) "+
         "on conflict (rid, tid) do update set selection = ($3), zid  = ($4), modified = now_as_millis();", [rid, tid, selection, zid]).then(() => {
 
-          // The old report isn't valid anymore, so when a user loads the report again a new worker_tasks entry will be created.
-          return pgQueryP("delete from math_report_correlationmatrix where rid = ($1);", [rid]);
+        // The old report isn't valid anymore, so when a user loads the report again a new worker_tasks entry will be created.
+        return pgQueryP("delete from math_report_correlationmatrix where rid = ($1);", [rid]);
 
-        }).then(() => {
-          res.json({});
-        });
+      }).then(() => {
+        res.json({});
+      });
     }).catch((err) => {
       fail(res, 500, "polis_err_POST_reportCommentSelections_misc", err);
     });
@@ -9235,8 +9235,8 @@ Email verified! You can close this tab or hit the back button.
     }
 
     let q = sql_users.update(
-        fields
-      )
+      fields
+    )
       .where(
         sql_users.uid.equals(uid)
       );
@@ -9347,8 +9347,8 @@ Email verified! You can close this tab or hit the back button.
 
 
       let q = sql_conversations.update(
-          fields
-        )
+        fields
+      )
         .where(
           sql_conversations.zid.equals(req.p.zid)
         )
@@ -9377,9 +9377,9 @@ Email verified! You can close this tab or hit the back button.
                   let hname = results[0].hname;
                   let url = results[1];
                   sendEmailByUid(
-                      req.p.uid,
-                      "Conversation created",
-                      "Hi " + hname + ",\n" +
+                    req.p.uid,
+                    "Conversation created",
+                    "Hi " + hname + ",\n" +
                       "\n" +
                       "Here's a link to the conversation you just created. Use it to invite participants to the conversation. Share it by whatever network you prefer - Gmail, Facebook, Twitter, etc., or just post it to your website or blog. Try it now! Click this link to go to your conversation:" +
                       "\n" +
@@ -9388,7 +9388,7 @@ Email verified! You can close this tab or hit the back button.
                       "With gratitude,\n" +
                       "\n" +
                       "The team at pol.is\n"
-                    )
+                  )
                     .catch(function(err) {
                       console.error(err);
                     });
@@ -9432,11 +9432,11 @@ Email verified! You can close this tab or hit the back button.
                   req.p.tool_consumer_instance_guid,
                   req.p.context, // lti_context_id,
                   req.p.custom_canvas_assignment_id).then(function() {
-                    finishOne(res, conv, true, successCode);
-                  }).catch(function(err) {
-                    fail(res, 500, "polis_err_saving_assignment_grading_context", err);
-                    emailBadProblemTime("PUT conversation worked, but couldn't save assignment context");
-                  });
+                  finishOne(res, conv, true, successCode);
+                }).catch(function(err) {
+                  fail(res, 500, "polis_err_saving_assignment_grading_context", err);
+                  emailBadProblemTime("PUT conversation worked, but couldn't save assignment context");
+                });
               } else {
                 finishOne(res, conv, true, successCode);
               }
@@ -10096,8 +10096,8 @@ Email verified! You can close this tab or hit the back button.
       }
 
       let q = sql_reports.update(
-          fields
-        )
+        fields
+      )
         .where(
           sql_reports.rid.equals(rid)
         );
@@ -10254,20 +10254,20 @@ Email verified! You can close this tab or hit the back button.
         "stripe_account_refresh_token, " +
         "stripe_account_access_token " +
         ") VALUES ($1, $2, $3, $4, $5, $6, $7);", [
-          body.token_type,
-          body.stripe_publishable_key,
-          body.scope,
-          body.livemode,
-          body.stripe_user_id,
-          body.refresh_token,
-          body.access_token,
-        ]).then(function() {
-          res.set({
-            'Content-Type': 'text/html',
-          }).send("<html><body>success!</body></html>");
-        }, function(err) {
-          fail(res, 500, "polis_err_saving_stripe_info", err);
-        });
+        body.token_type,
+        body.stripe_publishable_key,
+        body.scope,
+        body.livemode,
+        body.stripe_user_id,
+        body.refresh_token,
+        body.access_token,
+      ]).then(function() {
+        res.set({
+          'Content-Type': 'text/html',
+        }).send("<html><body>success!</body></html>");
+      }, function(err) {
+        fail(res, 500, "polis_err_saving_stripe_info", err);
+      });
     });
   }
 
@@ -10504,10 +10504,10 @@ Email verified! You can close this tab or hit the back button.
           email,
           "Link: " + createdLink,
           body).then(function() {
-            res.status(200).json({});
-          }).catch(function(err) {
-            fail(res, 500, "polis_err_sending_created_link_to_email", err);
-          });
+          res.status(200).json({});
+        }).catch(function(err) {
+          fail(res, 500, "polis_err_sending_created_link_to_email", err);
+        });
       });
     });
   }
@@ -10548,10 +10548,10 @@ Thanks for using pol.is!
       email,
       subject,
       body).then(function() {
-        res.status(200).json({});
-      }).catch(function(err) {
-        fail(res, 500, "polis_err_sending_export_link_to_email", err);
-      });
+      res.status(200).json({});
+    }).catch(function(err) {
+      fail(res, 500, "polis_err_sending_export_link_to_email", err);
+    });
   }
 
   function getTwitterRequestToken(returnUrl) {
@@ -11023,25 +11023,25 @@ Thanks for using pol.is!
         "location," +
         "response" +
         ") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) returning *;", [
-          uid,
-          u.id,
-          u.screen_name,
-          u.name,
-          u.followers_count,
-          u.friends_count,
-          u.verified,
-          u.profile_image_url_https,
-          u.location,
-          JSON.stringify(u),
-        ]).then(function(rows) {
-          let record = rows && rows.length && rows[0] || null;
+        uid,
+        u.id,
+        u.screen_name,
+        u.name,
+        u.followers_count,
+        u.friends_count,
+        u.verified,
+        u.profile_image_url_https,
+        u.location,
+        JSON.stringify(u),
+      ]).then(function(rows) {
+        let record = rows && rows.length && rows[0] || null;
 
-          // return the twitter user record
-          return {
-            twitterUser: u,
-            twitterUserDbRecord: record,
-          };
-        });
+        // return the twitter user record
+        return {
+          twitterUser: u,
+          twitterUserDbRecord: record,
+        };
+      });
     });
   }
 
@@ -11139,81 +11139,81 @@ Thanks for using pol.is!
           "location," +
           "response" +
           ") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);", [
-            uid,
-            u.id,
-            u.screen_name,
-            u.name,
-            u.followers_count,
-            u.friends_count,
-            u.verified,
-            u.profile_image_url_https,
-            u.location,
-            JSON.stringify(u),
-          ]).then(function() {
-            // SUCCESS
-            // There was no existing record
-            // set the user's hname, if not already set
-            pgQueryP("update users set hname = ($2) where uid = ($1) and hname is NULL;", [uid, u.name]).then(function() {
-              // OK, ready
-              u.uid = uid;
-              maybeAddToIntercom(u);
-              res.redirect(dest);
-            }, function(err) {
-              fail(res, 500, "polis_err_twitter_auth_update", err);
-            }).catch(function(err) {
-              fail(res, 500, "polis_err_twitter_auth_update_misc", err);
-            });
-          },
-          function(err) {
-            if (isDuplicateKey(err)) {
-              // we know the uid OR twitter_user_id is filled
-              // check if the uid is there with the same twitter_user_id - if so, redirect and good!
-              // determine which kind of duplicate
-              Promise.all([
-                pgQueryP("select * from twitter_users where uid = ($1);", [uid]),
-                pgQueryP("select * from twitter_users where twitter_user_id = ($1);", [u.id]),
-              ]).then(function(foo) {
-                let recordForUid = foo[0][0];
-                let recordForTwitterId = foo[1][0];
-                if (recordForUid && recordForTwitterId) {
-                  if (recordForUid.uid === recordForTwitterId.uid) {
-                    // match
-                    res.redirect(dest);
-                  } else {
-                    // TODO_SECURITY_REVIEW
-                    // both exist, but not same uid
-                    switchToUser(req, res, recordForTwitterId.uid).then(function() {
-                      res.redirect(dest);
-                    }).catch(function(err) {
-                      fail(res, 500, "polis_err_twitter_auth_456", err);
-                    });
-                  }
-                } else if (recordForUid) {
-                  // currently signed in user has a twitter account attached, but it's a different twitter account, and they are now signing in with a different twitter account.
-                  // the newly supplied twitter account is not attached to anything.
-                  fail(res, 500, "polis_err_twitter_already_attached", err);
-                } else if (recordForTwitterId) {
-                  // currently signed in user has no twitter account attached, but they just signed in with a twitter account which is attached to another user.
-                  // For now, let's just have it sign in as that user.
+          uid,
+          u.id,
+          u.screen_name,
+          u.name,
+          u.followers_count,
+          u.friends_count,
+          u.verified,
+          u.profile_image_url_https,
+          u.location,
+          JSON.stringify(u),
+        ]).then(function() {
+          // SUCCESS
+          // There was no existing record
+          // set the user's hname, if not already set
+          pgQueryP("update users set hname = ($2) where uid = ($1) and hname is NULL;", [uid, u.name]).then(function() {
+            // OK, ready
+            u.uid = uid;
+            maybeAddToIntercom(u);
+            res.redirect(dest);
+          }, function(err) {
+            fail(res, 500, "polis_err_twitter_auth_update", err);
+          }).catch(function(err) {
+            fail(res, 500, "polis_err_twitter_auth_update_misc", err);
+          });
+        },
+        function(err) {
+          if (isDuplicateKey(err)) {
+            // we know the uid OR twitter_user_id is filled
+            // check if the uid is there with the same twitter_user_id - if so, redirect and good!
+            // determine which kind of duplicate
+            Promise.all([
+              pgQueryP("select * from twitter_users where uid = ($1);", [uid]),
+              pgQueryP("select * from twitter_users where twitter_user_id = ($1);", [u.id]),
+            ]).then(function(foo) {
+              let recordForUid = foo[0][0];
+              let recordForTwitterId = foo[1][0];
+              if (recordForUid && recordForTwitterId) {
+                if (recordForUid.uid === recordForTwitterId.uid) {
+                  // match
+                  res.redirect(dest);
+                } else {
                   // TODO_SECURITY_REVIEW
+                  // both exist, but not same uid
                   switchToUser(req, res, recordForTwitterId.uid).then(function() {
                     res.redirect(dest);
                   }).catch(function(err) {
-                    fail(res, 500, "polis_err_twitter_auth_234", err);
+                    fail(res, 500, "polis_err_twitter_auth_456", err);
                   });
-                } else {
-                  fail(res, 500, "polis_err_twitter_auth_345");
                 }
-              });
+              } else if (recordForUid) {
+                // currently signed in user has a twitter account attached, but it's a different twitter account, and they are now signing in with a different twitter account.
+                // the newly supplied twitter account is not attached to anything.
+                fail(res, 500, "polis_err_twitter_already_attached", err);
+              } else if (recordForTwitterId) {
+                // currently signed in user has no twitter account attached, but they just signed in with a twitter account which is attached to another user.
+                // For now, let's just have it sign in as that user.
+                // TODO_SECURITY_REVIEW
+                switchToUser(req, res, recordForTwitterId.uid).then(function() {
+                  res.redirect(dest);
+                }).catch(function(err) {
+                  fail(res, 500, "polis_err_twitter_auth_234", err);
+                });
+              } else {
+                fail(res, 500, "polis_err_twitter_auth_345");
+              }
+            });
 
             // else check if the uid is there and has some other screen_name - if so, ????????
 
             // else check if the screen_name is there, but for a different uid - if so, ??????
 
-            } else {
-              fail(res, 500, "polis_err_twitter_auth_05", err);
-            }
-          });
+          } else {
+            fail(res, 500, "polis_err_twitter_auth_05", err);
+          }
+        });
       },function(err) {
         fail(res, 500, "polis_err_twitter_auth_041", err);
       }).catch(function(err) {
@@ -12336,7 +12336,7 @@ Thanks for using pol.is!
   }
 
 
-/*
+  /*
 
 CREATE TABLE slack_users (
     uid INTEGER NOT NULL REFERENCES users(uid),
@@ -12580,13 +12580,13 @@ CREATE TABLE slack_user_invites (
     pgQueryP("insert into contributor_agreement_signatures (uid, agreement_version, github_id, name, email, company_name) " +
       "values ($1, $2, $3, $4, $5, $6);", [uid, agreement_version, github_id, name, email, company_name]).then(() => {
 
-        emailTeam("contributer agreement signed",  [uid, agreement_version, github_id, name, email, company_name].join("\n"));
+      emailTeam("contributer agreement signed",  [uid, agreement_version, github_id, name, email, company_name].join("\n"));
 
-        res.json({});
+      res.json({});
 
-      }, (err) => {
-        fail(res, 500, "polis_err_POST_contributors_misc", err);
-      });
+    }, (err) => {
+      fail(res, 500, "polis_err_POST_contributors_misc", err);
+    });
   }
 
   function handle_POST_waitinglist(req, res) {
@@ -12658,7 +12658,7 @@ CREATE TABLE slack_user_invites (
     return generateSUZinvites(1).then(function(suzinviteArray) {
       let suzinvite = suzinviteArray[0];
       return pgQueryP(
-          "INSERT INTO suzinvites (suzinvite, xid, zid, owner) VALUES ($1, $2, $3, $4);", [suzinvite, xid, zid, owner])
+        "INSERT INTO suzinvites (suzinvite, xid, zid, owner) VALUES ($1, $2, $3, $4);", [suzinvite, xid, zid, owner])
         .then(function(result) {
           return getZinvite(zid);
         }).then(function(conversation_id) {
