@@ -14,9 +14,10 @@ class BoxPlot extends React.Component {
     _.each(this.props.groupVotes, (g, ii) => {      /* for each comment each group voted on ... */
       dataset[ii] = [];                             /* initialize empty array which will have two entries: label and array of votes */
       dataset[ii][0] = globals.groupLabels[g.id]    /* g.id = 0, so go get "A" for the label */
-      dataset[ii][1] = _.map(g.votes, (v) => {      /* extract agrees as percent */
+      dataset[ii][1] = [];
+      _.forEach(g.votes, (v) => {      /* extract agrees as percent */
         if (v["S"] > 0) {                           /* make sure someone saw it */
-          return Math.floor(v["A"] / v["S"] * 100)  /* agreed / saw ... so perhaps 5 agreed / 10 saw for 50% */
+          dataset[ii][1].push(Math.floor(v["A"] / v["S"] * 100))  /* agreed / saw ... so perhaps 5 agreed / 10 saw for 50% */
         }
       });
     });
@@ -26,12 +27,14 @@ class BoxPlot extends React.Component {
   render() {
     return (
       <div>
-        <p style={globals.primaryHeading}> Which group's views are represented? </p>
+        <p style={globals.primaryHeading}> Average level of agreement per group </p>
         <p style={globals.paragraph}>
           Which group agreed the most, across all comments?
+          The line in the middle of the blue boxes below shows the mean (average) percentage agreement by a given group across all comments.
+          The lower the line in the middle of the blue box, the more a group disagreed. The higher the line, the more they agreed.
         </p>
         <p style={globals.paragraph}>
-          If the colored box is higher, it means people in the group agreed more overall.
+          If the mean, and the colored box is higher, it means people in the group agreed more overall.
           This would suggest their views are represented.
         </p>
         <p style={globals.paragraph}>
