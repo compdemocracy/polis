@@ -138,6 +138,7 @@ class Matrix extends React.Component {
   }
 
   renderMatrix() {
+    console.log("mouseOverCorrelation", this.state.mouseOverCorrelation)
     let side = this.props.probabilities.length * square + 200;
     return (
       <div>
@@ -190,17 +191,19 @@ class Matrix extends React.Component {
             width={side}
             height={side} />
 
-          {this.state.mouseOverCorrelation === null ? "" : <text
-            x={30}
-            y={40}
-            textAnchor={"middle"}
-            fill={d3.interpolatePuOr(scale(this.state.mouseOverCorrelation))}
-            style={{
-              fontFamily: globals.sans,
-              fontSize: 20
-            }}>
-            {Math.round(this.state.mouseOverCorrelation * 1000) / 1000}
-          </text>}
+          {!this.state.mouseOverCorrelation ? " " :
+            <text
+              x={300}
+              y={40}
+              textAnchor={"middle"}
+              fill={d3.interpolatePuOr(scale(this.state.mouseOverCorrelation))}
+              style={{
+                fontFamily: globals.sans,
+                fontSize: 18
+              }}>
+              {`${Math.round(this.state.mouseOverCorrelation * 1000) / 10}% chance of casting the same vote on these two statements`}
+            </text>
+          }
 
           <g transform={"translate(200,0), rotate(45)"/* abstract translate magic number */}>
           {this.props.probabilities.map((comments, row) => {
