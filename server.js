@@ -1358,7 +1358,7 @@ function getNumberInRange(min, max) {
   };
 }
 
-function getArrayOfString(a) {
+function getArrayOfString(a, maxStrings, maxLength) {
   return new Promise(function(resolve, reject) {
     if (_.isString(a)) {
       a = a.split(',');
@@ -1370,11 +1370,23 @@ function getArrayOfString(a) {
   });
 }
 
-function getArrayOfStringNonEmpty(a) {
+function getArrayOfStringNonEmpty(a, maxStrings, maxLength) {
   if (!a || !a.length) {
     return Promise.reject("polis_fail_parse_string_array_empty");
   }
   return getArrayOfString(a);
+}
+
+function getArrayOfStringLimitLength(maxStrings, maxLength) {
+  return function(a) {
+    return getArrayOfString(a, maxStrings||999999999, maxLength);
+  };
+}
+
+function getArrayOfStringNonEmptyLimitLength(maxStrings, maxLength) {
+  return function(a) {
+    return getArrayOfStringNonEmpty(a, maxStrings||999999999, maxLength);
+  };
 }
 
 function getArrayOfInt(a) {
@@ -3318,6 +3330,27 @@ function initializePolisHelpers() {
       }
     }, function(err) {
       fail(res, 500, "polis_err_get_xids", err);
+    });
+  }
+
+
+  function handle_POST_xidWhitelist(req, res) {
+    const xid_whitelist = req.p.xid_whitelist;
+    const len = xid_whitelist.length;
+    const owner = req.p.uid;
+    const entries = [];
+    try {
+      for (var i = 0; i < len; i++) {
+        entries.push("(" + escapeLiteral(xid_whitelist[i]) + "," + owner + ")");
+      }
+    } catch (err) {
+      return fail(res, 400, "polis_err_bad_xid", err);
+    }
+
+    pgQueryP("insert into xid_whitelist (xid, owner) values " + entries.join(",") + " on conflict do nothing;", []).then((result) => {
+      res.status(200).json({});
+    }).catch((err) => {
+      return fail(res, 500, "polis_err_POST_xidWhitelist", err);
     });
   }
 
@@ -14408,7 +14441,9 @@ CREATE TABLE slack_user_invites (
     fetchIndexForReportPage,
     fetchIndexWithoutPreloadData,
     getArrayOfInt,
+    getArrayOfStringLimitLength,
     getArrayOfStringNonEmpty,
+    getArrayOfStringNonEmptyLimitLength,
     getBool,
     getConversationIdFetchZid,
     getEmail,
@@ -14574,6 +14609,7 @@ CREATE TABLE slack_user_invites (
     handle_POST_users_invite,
     handle_POST_votes,
     handle_POST_waitinglist,
+    handle_POST_xidWhitelist,
     handle_POST_zinvites,
     handle_PUT_comments,
     handle_PUT_conversations,
