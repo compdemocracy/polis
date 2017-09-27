@@ -36,7 +36,9 @@ helpersInitialized.then(function(o) {
     fetchIndexForReportPage,
     fetchIndexWithoutPreloadData,
     getArrayOfInt,
+    // getArrayOfStringLimitLength,
     getArrayOfStringNonEmpty,
+    getArrayOfStringNonEmptyLimitLength,
     getBool,
     getConversationIdFetchZid,
     getEmail,
@@ -195,6 +197,7 @@ helpersInitialized.then(function(o) {
     handle_POST_users_invite,
     handle_POST_votes,
     handle_POST_waitinglist,
+    handle_POST_xidWhitelist,
     handle_POST_zinvites,
     handle_PUT_comments,
     handle_PUT_conversations,
@@ -493,6 +496,11 @@ helpersInitialized.then(function(o) {
     auth(assignToP),
     need('domain_whitelist', getOptionalStringLimitLength(999), assignToP, ""),
     handle_POST_domainWhitelist);
+
+  app.post("/api/v3/xidWhitelist",
+    auth(assignToP),
+    need('xid_whitelist', getArrayOfStringNonEmptyLimitLength(9999, 999), assignToP),
+    handle_POST_xidWhitelist);
 
   app.get("/api/v3/conversationStats",
     moveToBody,
