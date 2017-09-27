@@ -209,6 +209,7 @@ CREATE TABLE conversations(
     help_bgcolor VARCHAR(20),
     help_color VARCHAR(20),
     email_domain VARCHAR(200), -- space separated domain names, "microsoft.com google.com"
+    use_xid_whitelist BOOLEAN DEFAULT FALSE, -- check xid whitelist
 
     owner INTEGER REFERENCES users(uid),
     org_id INTEGER REFERENCES users(uid), -- uid for the account manager of a conversation. Might be the same as the owner of the conversation.
@@ -410,6 +411,15 @@ CREATE TABLE xids (
     UNIQUE (owner, uid)
 );
 CREATE INDEX xids_owner_idx ON xids USING btree (owner);
+
+
+CREATE TABLE xid_whitelist (
+    owner INTEGER NOT NULL REFERENCES users(uid),
+    xid TEXT NOT NULL, -- TODO add constraint to limit length
+    created BIGINT DEFAULT now_as_millis(),
+    UNIQUE (owner, xid)
+);
+CREATE INDEX xid_whitelist_owner_idx ON xid_whitelist USING btree (owner);
 
 
 CREATE TABLE notification_tasks (
