@@ -10,7 +10,7 @@ import GroupLabels from "./groupLabels";
 import Comments from "../commentsGraph/comments";
 
 const pointsPerSquarePixelMax = .0017; /* choose dynamically ? */
-const contourBandwidth = 25;
+const contourBandwidth = 23;
 
 const color = d3.scaleSequential(d3chromatic.interpolateYlGnBu)
 // const color = d3.scaleSequential(d3.interpolateMagma)

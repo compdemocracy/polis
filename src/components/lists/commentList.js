@@ -36,6 +36,11 @@ const BarChartCompact = ({comment, groupVotes}) => {
 };
 
 const CommentRow = ({comment, groups}) => {
+
+  if (!comment) {
+    console.error("WHY IS THERE NO COMMENT 3452354235", comment)
+    return null
+  }
     // const percentAgreed = Math.floor(groupVotesForThisGroup.votes[comment.tid].A / groupVotesForThisGroup.votes[comment.tid].S * 100);
 
     let BarCharts = [];
