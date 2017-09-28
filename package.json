@@ -39,7 +39,8 @@
   "dependencies": {
     "color": "^0.7.3",
     "d3": "^4.6.0",
-    "d3-scale-chromatic": "^1.1.0",
+    "d3-contour": "^1.1.1",
+    "d3-scale-chromatic": "^1.1.1",
     "gulp": "^3.9.0",
     "gulp-gzip": "0.0.4",
     "gulp-rename": "~1.0.0",

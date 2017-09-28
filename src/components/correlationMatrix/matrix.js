@@ -138,7 +138,7 @@ class Matrix extends React.Component {
   }
 
   renderMatrix() {
-    console.log("mouseOverCorrelation", this.state.mouseOverCorrelation)
+    // console.log("mouseOverCorrelation", this.state.mouseOverCorrelation)
     let side = this.props.probabilities.length * square + 200;
     return (
       <div>

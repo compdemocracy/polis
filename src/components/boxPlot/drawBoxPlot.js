@@ -8,7 +8,7 @@ import "./lib";
 
 const drawBoxPlot = (dataset) => {
 
-  console.log("drawBoxPlot", dataset)
+  // console.log("drawBoxPlot", dataset)
 
   var labels = true; // show the text labels beside individual boxplots?
 
@@ -93,7 +93,7 @@ const drawBoxPlot = (dataset) => {
     	// 	.rangeRoundBands([0 , width], 0.7, 0.3);
 
       var x = d3.scaleBand()
-          .domain(dataset.map(function(d) { console.log(d); return d[0] } ))
+          .domain(dataset.map(function(d) { return d[0] } ))
           .range([0, width])
           .paddingInner(0.7)
           .paddingOuter(0.3)
@@ -124,7 +124,7 @@ const drawBoxPlot = (dataset) => {
           .attr("text-anchor", "middle")
           .style("font-size", "18px")
           //.style("text-decoration", "underline")
-          .text(""); // agreement across all comments per group ? 
+          .text(""); // agreement across all comments per group ?
 
   	 // draw y axis
   	svg.append("g")

@@ -1,70 +1,13 @@
 import React from "react";
 import _ from "lodash";
-import {ReactSVGPanZoom} from 'react-svg-pan-zoom';
 import * as globals from "../globals";
 import graphUtil from "../../util/graphUtil";
 import Axes from "../graphAxes";
 // import Participants from "./graphParticipants";
 // import Hull from "./hull";
-import textWrap from 'svg-text-wrap';
+import Comments from "./comments";
 
 const TextSegment = ({t, i}) => <tspan x="27" y={i * 14}>{t}</tspan>
-
-class Comments extends React.Component {
-
-  createComments() {
-    return this.props.points.map((comment, i) => {
-
-      /* find the original comment */
-      const _comment = _.find(this.props.comments, (c) => { return c.tid === comment.tid});
-
-      /* see if it's meta or consensus */
-      if (
-        _comment.is_meta ||
-        this.props.math.pca["comment-extremity"][comment.tid] < globals.maxCommentExtremityToShow
-      ) {
-        return
-      }
-
-      /* break the text up into pieces */
-      const textArray = textWrap(comment.txt, 200, {'letter-spacing': '1px'})
-
-      return <text
-          key={i}
-          transform={
-            `translate(
-              ${this.props.xCenter + comment.x * this.props.xScaleup},
-              ${this.props.yCenter + comment.y * this.props.yScaleup}
-            )`
-          }
-          onClick={this.props.handleClick(comment)}
-          style={{
-            fill: "rgba(0,0,0,.5)",
-            fontFamily: "Helvetica",
-            cursor: "pointer",
-            fontSize: 10,
-          }}
-          >
-          {this.props.formatTid(comment.tid)}
-          {
-            /*textArray.map((t, i) => {
-              return (
-                <TextSegment key={i} t={t} i={i}/>
-              )
-            })*/
-          }
-        </text>
-    })
-  }
-
-  render () {
-    return (
-      <g>
-        {this.createComments()}
-      </g>
-    );
-  }
-}
 
 class CommentsGraph extends React.Component {
 
@@ -117,7 +60,7 @@ class CommentsGraph extends React.Component {
           certain personality to a given area.
           </p>
         </div>
-        <p style={{fontWeight: 500, maxWidth: 900}}>
+        <p style={{fontWeight: 500, maxWidth: 600, lineHeight: 1.4, minHeight: 50}}>
           {
             this.state.selectedComment ?
             "#" + this.state.selectedComment.tid + ". " + this.state.selectedComment.txt :
