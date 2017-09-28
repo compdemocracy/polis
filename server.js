@@ -737,7 +737,7 @@ function pgQueryImpl() {
 
 const usingReplica = process.env.DATABASE_URL !== process.env[process.env.DATABASE_FOR_READS_NAME];
 const prodPoolSize = usingReplica ? 3 : 12; /// 39
-const pgPoolLevelRanks = ["info", "verbose"];
+const pgPoolLevelRanks = ["info", "verbose"]; // TODO investigate
 const pgPoolLoggingLevel = -1; // -1 to get anything more important than info and verbose. // pgPoolLevelRanks.indexOf("info");
 
 const queryReadWriteObj = {
