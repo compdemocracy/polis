@@ -41,6 +41,7 @@ const sesClient = new AWS.SES({apiVersion: '2010-12-01'}); // reads AWS_ACCESS_K
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const LruCache = require("lru-cache");
 const timeout = require('connect-timeout');
+const Translate = require('@google-cloud/translate');
 const isValidUrl = require('valid-url');
 const zlib = require('zlib');
 const _ = require('underscore');
@@ -58,6 +59,9 @@ const intercomClient = !isTrue(process.env.DISABLE_INTERCOM) ? new IntercomOffic
   },
 };
 
+const translateClient = Translate({
+  projectId: projectId
+});
 
 
 // var conversion = {
@@ -6048,8 +6052,8 @@ Email verified! You can close this tab or hit the back button.
             newZid,
           ]).then(function() {
             return pgQueryP(
-              "insert into comments (pid, tid, zid, txt, velocity, mod, uid, active, created) " +
-              "select pid, tid, ($2), txt, velocity, mod, uid, active, created from comments where zid = ($1);", [
+              "insert into comments (pid, tid, zid, txt, velocity, mod, uid, active, lang, lang_confidence, created) " +
+              "select pid, tid, ($2), txt, velocity, mod, uid, active, lang, lang_confidence, created from comments where zid = ($1);", [
                 zid,
                 newZid,
               ]).then(function() {
@@ -8150,89 +8154,108 @@ Email verified! You can close this tab or hit the back button.
 
           console.log("POST_comments before INSERT INTO COMMENTS", Date.now());
 
-          return pgQueryP(
-            "INSERT INTO COMMENTS " +
-            "(pid, zid, txt, velocity, active, mod, uid, tweet_id, quote_src_url, anon, is_seed, created, tid) VALUES " +
-            "($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, default, null) RETURNING *;",
-            [pid, zid, txt, velocity, active, mod, authorUid, twitter_tweet_id || null, quote_src_url || null, anon || false, is_seed || false]).then(function(docs) {
-              let comment = docs && docs[0];
-              let tid = comment && comment.tid;
-              // let createdTime = comment && comment.created;
+          function detectLanguage(txt) {
+            if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+              return translateClient.detect(txt);
+            }
+            return Promise.resolve([{
+              confidence: null,
+              language: null,
+            }]);
+          }
+        
+          Promise.all([
+            detectLanguage(txt),
+          ]).then((a) => {
+            let detections = a[0];
+            let detection = Array.isArray(detections) ? detections[0] : detections;
+            let lang = detection.language;
+            let lang_confidence = detection.confidence;
 
-              if (bad || spammy || conv.strict_moderation) {
-                getNumberOfCommentsWithModerationStatus(zid, polisTypes.mod.unmoderated).catch(function(err) {
-                  yell("polis_err_getting_modstatus_comment_count");
-                  return void 0;
-                }).then(function(n) {
-                  if (n === 0) {
-                    return;
-                  }
-                  pgQueryP_readOnly("select * from users where site_id = (select site_id from page_ids where zid = ($1)) UNION select * from users where uid = ($2);", [zid, conv.owner]).then(function(users) {
-                    let uids = _.pluck(users, "uid");
-                    // also notify polis team for moderation
-                    uids = _.union(uids, [
-                      125, // mike
-                      186, // colin
-                      36140, // chris
-                    ]);
-                    uids.forEach(function(uid) {
-                      sendCommentModerationEmail(req, uid, zid, n);
-                      sendSlackEvent({
-                        type: "comment_mod_needed",
-                        data: comment,
+            return pgQueryP(
+              "INSERT INTO COMMENTS " +
+              "(pid, zid, txt, velocity, active, mod, uid, tweet_id, quote_src_url, anon, is_seed, created, tid, lang, lang_confidence) VALUES " +
+              "($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, default, null, $12, $13) RETURNING *;",
+              [pid, zid, txt, velocity, active, mod, authorUid, twitter_tweet_id || null, quote_src_url || null, anon || false, is_seed || false, lang, lang_confidence]).then(function(docs) {
+                let comment = docs && docs[0];
+                let tid = comment && comment.tid;
+                // let createdTime = comment && comment.created;
+
+                if (bad || spammy || conv.strict_moderation) {
+                  getNumberOfCommentsWithModerationStatus(zid, polisTypes.mod.unmoderated).catch(function(err) {
+                    yell("polis_err_getting_modstatus_comment_count");
+                    return void 0;
+                  }).then(function(n) {
+                    if (n === 0) {
+                      return;
+                    }
+                    pgQueryP_readOnly("select * from users where site_id = (select site_id from page_ids where zid = ($1)) UNION select * from users where uid = ($2);", [zid, conv.owner]).then(function(users) {
+                      let uids = _.pluck(users, "uid");
+                      // also notify polis team for moderation
+                      uids = _.union(uids, [
+                        125, // mike
+                        186, // colin
+                        36140, // chris
+                      ]);
+                      uids.forEach(function(uid) {
+                        sendCommentModerationEmail(req, uid, zid, n);
+                        sendSlackEvent({
+                          type: "comment_mod_needed",
+                          data: comment,
+                        });
                       });
                     });
                   });
-                });
-              } else {
-                addNotificationTask(zid);
-                sendCommentModerationEmail(req, 125, zid, "?"); // email mike for all comments, since some people may not have turned on strict moderation, and we may want to babysit evaluation conversations of important customers.              
-                sendSlackEvent({
-                  type: "comment_mod_needed",
-                  data: comment,
-                });
-              }
-
-              console.log("POST_comments before votesPost", Date.now());
-
-              // It should be safe to delete this. Was added to postpone the no-auto-vote change for old conversations.
-              if (is_seed && _.isUndefined(vote) && zid <= 17037) {
-                vote = 0;
-              }
-
-              let createdTime = comment.created;
-              let votePromise = _.isUndefined(vote) ? Promise.resolve() : votesPost(uid, pid, zid, tid, vote, 0, false);
-
-              return votePromise.then(function(o) {
-                if (o && o.vote && o.vote.created) {
-                  createdTime = o.vote.created;
+                } else {
+                  addNotificationTask(zid);
+                  sendCommentModerationEmail(req, 125, zid, "?"); // email mike for all comments, since some people may not have turned on strict moderation, and we may want to babysit evaluation conversations of important customers.              
+                  sendSlackEvent({
+                    type: "comment_mod_needed",
+                    data: comment,
+                  });
                 }
 
-                setTimeout(function() {
-                  updateConversationModifiedTime(zid, createdTime);
-                  updateLastInteractionTimeForConversation(zid, uid);
-                  if (!_.isUndefined(vote)) {
-                    updateVoteCount(zid, pid);
-                  }
-                }, 100);
+                console.log("POST_comments before votesPost", Date.now());
 
-                console.log("POST_comments sending json", Date.now());
-                res.json({
-                  tid: tid,
-                  currentPid: currentPid,
+                // It should be safe to delete this. Was added to postpone the no-auto-vote change for old conversations.
+                if (is_seed && _.isUndefined(vote) && zid <= 17037) {
+                  vote = 0;
+                }
+
+                let createdTime = comment.created;
+                let votePromise = _.isUndefined(vote) ? Promise.resolve() : votesPost(uid, pid, zid, tid, vote, 0, false);
+
+                return votePromise.then(function(o) {
+                  if (o && o.vote && o.vote.created) {
+                    createdTime = o.vote.created;
+                  }
+
+                  setTimeout(function() {
+                    updateConversationModifiedTime(zid, createdTime);
+                    updateLastInteractionTimeForConversation(zid, uid);
+                    if (!_.isUndefined(vote)) {
+                      updateVoteCount(zid, pid);
+                    }
+                  }, 100);
+
+                  console.log("POST_comments sending json", Date.now());
+                  res.json({
+                    tid: tid,
+                    currentPid: currentPid,
+                  });
+                  console.log("POST_comments sent json", Date.now());
+                }, function(err) {
+                  fail(res, 500, "polis_err_vote_on_create", err);
                 });
-                console.log("POST_comments sent json", Date.now());
               }, function(err) {
-                fail(res, 500, "polis_err_vote_on_create", err);
-              });
-            }, function(err) {
-              if (err.code === '23505' || err.code === 23505) {
-                // duplicate comment
-                fail(res, 409, "polis_err_post_comment_duplicate", err);
-              } else {
-                fail(res, 500, "polis_err_post_comment", err);
-              }
-            }); // insert
+                if (err.code === '23505' || err.code === 23505) {
+                  // duplicate comment
+                  fail(res, 409, "polis_err_post_comment_duplicate", err);
+                } else {
+                  fail(res, 500, "polis_err_post_comment", err);
+                }
+              }); // insert
+            }); // lang
         });
       }, function(errors) {
         if (errors[0]) {
@@ -8412,9 +8435,21 @@ Email verified! You can close this tab or hit the back button.
   //   });
   // }
 
-  function getNextComment(zid, pid, withoutTids, include_social) {
-    return getNextCommentRandomly(zid, pid, withoutTids, include_social);
+  function getCommentTranslations(zid, tid) {
+    return pgQueryP("select * from comment_translations where zid = ($1) and tid = ($2);", [zid, tid]);
+  }
+
+  function getNextComment(zid, pid, withoutTids, include_social, include_translations) {
     // return getNextCommentPrioritizingNonPassedComments(zid, pid, withoutTids, !!!!!!!!!!!!!!!!TODO IMPL!!!!!!!!!!!include_social);
+    return getNextCommentRandomly(zid, pid, withoutTids, include_social).then((c) => {
+      if (include_translations) {
+        return getCommentTranslations(zid, c.tid).then((translations) => {
+          c.translations = translations;
+          return c;
+        });
+      }
+      return c;
+    });
   }
 
   // NOTE: only call this in response to a vote. Don't call this from a poll, like /api/v3/nextComment
