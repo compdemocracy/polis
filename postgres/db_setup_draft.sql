@@ -607,6 +607,8 @@ CREATE TABLE comments(
     txt VARCHAR(1000) NOT NULL, -- TODO ensure not empty
     velocity REAL NOT NULL DEFAULT 1,
     mod INTEGER NOT NULL DEFAULT 0,-- {-1,0,1} where -1 is reject, 0 is no action, and 1 is accept
+    lang VARCHAR(10), -- 'en', 'en-US', etc
+    lang_confidence REAL, -- float between 0 and 1 indicating confidence in language detection (see google translate api)
     active BOOLEAN NOT NULL DEFAULT TRUE, -- will be false if the comment should not be shown.
     is_meta BOOLEAN NOT NULL DEFAULT FALSE,
     tweet_id BIGINT, -- Used when this comment is an imported tweet, else null.
@@ -678,6 +680,20 @@ $$ LANGUAGE SQL;
 CREATE FUNCTION get_times_for_most_recent_visible_comments() RETURNS TABLE (zid INTEGER, modified BIGINT) AS $$
     select zid, max(modified) from (select comments.*, conversations.strict_moderation from comments left join conversations on comments.zid = conversations.zid) as c where c.mod >= (CASE WHEN c.strict_moderation=TRUE then 1 else 0 END) group by c.zid order by c.zid;
 $$ LANGUAGE SQL;
+
+
+CREATE TABLE comment_translations (
+  zid INTEGER NOT NULL REFERENCES conversations(zid),
+  tid INTEGER NOT NULL,
+  src INTEGER NOT NULL, -- if positive, it's a uid, -1 for google translate, ...
+  txt VARCHAR(9999) NOT NULL, -- let translations exceed character limit
+  lang VARCHAR(10) NOT NULL, -- 'en', 'en-us', 'pt', 'pt-br'
+  created BIGINT DEFAULT now_as_millis(),
+  modified BIGINT DEFAULT now_as_millis(),
+  UNIQUE(zid, tid, src, lang)
+);
+CREATE INDEX comment_translations_idx ON comment_translations USING btree (zid, tid);
+
 
 
 CREATE TABLE reports (
