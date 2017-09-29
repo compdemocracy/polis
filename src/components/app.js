@@ -19,6 +19,7 @@ import ParticipantGroups from "./lists/ParticipantGroups";
 import CommentsGraph from "./commentsGraph/commentsGraph";
 import ParticipantsGraph from "./participantsGraph/participantsGraph";
 import BoxPlot from "./boxPlot/boxPlot";
+import Beeswarm from "./beeswarm/beeswarm";
 
 import net from "../util/net"
 
@@ -339,6 +340,11 @@ class App extends React.Component {
             ptptCount={this.state.ptptCount}
             demographics={this.state.demographics}
             conversation={this.state.conversation}/>
+          <Beeswarm
+            extremity={this.state.math.pca["comment-extremity"]}
+            math={this.state.math}
+            comments={this.state.comments}
+            />
           <MajorityStrict
             math={this.state.math}
             conversation={this.state.conversation}
@@ -385,7 +391,6 @@ class App extends React.Component {
             math={this.state.math}
             renderHeading={true}
             report={this.state.report}/>
-
           <Uncertainty
             math={this.state.math}
             comments={this.state.comments}
@@ -393,8 +398,6 @@ class App extends React.Component {
             conversation={this.state.conversation}
             ptptCount={this.state.ptptCount}
             formatTid={this.state.formatTid}/>
-
-
           <Footer/>
         </div>
       </div>

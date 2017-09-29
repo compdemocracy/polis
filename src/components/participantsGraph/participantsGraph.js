@@ -195,7 +195,7 @@ class ParticipantsGraph extends React.Component {
               yScaleup={commentScaleupFactorY}/>
               {
                 this.props.math["group-clusters"].map((g, i) => {
-                  console.log('g',g )
+                  // console.log('g',g )
                   return <text
                       key={i}
                       transform={
