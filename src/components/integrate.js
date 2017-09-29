@@ -91,8 +91,7 @@ class Integrate extends React.Component {
               {this.props.user === null ? "__loading, try refreshing__" : this.props.user.site_ids[0]}
               {"'>\n"}
               {"</div>\n"}
-              {"<script\n"}
-              {"  async='true'\n"}
+              {"<script async\n"}
               {"  src='https://pol.is/embed.js'>\n"}
               {"</script>"}
             </Highlight>
