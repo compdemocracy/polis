@@ -51,6 +51,7 @@ module.exports = Handlebones.ModelView.extend({
     if (btnBg) {
       ctx.customBtnStyles = "background-color: " + btnBg + ";";
     }
+    ctx.charLimitString = Strings.tipCharLimit.replace("{{char_limit}}", constants.CHARACTER_LIMIT);
     return ctx;
   },
   hideMessage: function(id) {
