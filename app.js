@@ -86,6 +86,7 @@ helpersInitialized.then(function(o) {
     handle_GET_canvas_app_instructions_png,
     handle_GET_changePlanWithCoupon,
     handle_GET_comments,
+    handle_GET_comments_translations,
     handle_GET_conditionalIndexFetcher,
     handle_GET_contexts,
     handle_GET_conversation_assigmnent_xml,
@@ -689,6 +690,13 @@ helpersInitialized.then(function(o) {
     want("is_seed", getBool, assignToP),
     resolve_pidThing('pid', assignToP, "post:comments"),
     handle_POST_comments_slack);
+
+  app.get("/api/v3/comments/translations"
+    auth(assignToP),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    want('tid', getInt, assignToP),
+    need('lang', getStringLimitLength(1,10), assignToP),
+    handle_GET_comments_translations);
 
   app.get("/api/v3/votes/me",
     moveToBody,

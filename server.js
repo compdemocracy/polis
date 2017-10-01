@@ -1848,6 +1848,21 @@ function initializePolisHelpers() {
   }
 
 
+  function detectLanguage(txt) {
+    if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+      return translateClient.detect(txt);
+    }
+    return Promise.resolve([{
+      confidence: null,
+      language: null,
+    }]);
+  }
+
+  function translateString(txt, target_lang) {
+    return translateClient.translate(txt, target_lang);
+  }
+
+
   function doVotesPost(uid, pid, conv, tid, voteType, weight, shouldNotify) {
     let zid = conv.zid;
     weight = weight || 0;
@@ -7582,6 +7597,30 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
+  function handle_GET_comments_translations(req, res) {
+    const zid = req.p.zid;
+    const tid = req.p.tid;
+    const firstTwoCharsOfLang = req.p.lang.substr(0,2);
+
+    getComment(zid, tid).then((comment) => {
+      return pgQueryP("select * from comment_translations where zid = ($1) and tid = ($2) and lang LIKE '$3%';", [zid, tid, firstTwoCharsOfLang]).then((existingTranslations) => {
+        if (existingTranslations) {
+          return existingTranslations;
+        }
+        return translateString(comment.txt, req.p.lang).then((results) => {
+          const translation = results[0];
+          const src = -1; // Google Translate of txt with no added context
+          return pgQueryP("insert into comment_translations (zid, tid, txt, lang, lang_confidence) values ($1, $2, $3, $4, $5) returning *;", [zid, tid, translation, lang, lang_confidence]).then((rows) => {
+            return rows;
+          });
+        });
+      }).then((rows) => {
+        res.status(200).json(rows);
+      });
+    }).catch((err) => {
+      fail(res, 500, "polis_err_get_comments_translations", err);
+    });
+  }
 
   function handle_GET_comments(req, res) {
 
@@ -7761,6 +7800,13 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
+  function getComment(zid, tid) {
+    return pgQueryP("select * from comments where zid = ($1) and tid = ($2);", [zid, tid]).then((rows) => {
+      return (rows && rows[0]) || null;
+    });
+  }
+
+
   // function muteComment(zid, tid) {
   //     let mod = polisTypes.mod.ban;
   //     return moderateComment(zid, tid, false, mod);
@@ -7768,20 +7814,6 @@ Email verified! You can close this tab or hit the back button.
   // function unmuteComment(zid, tid) {
   //     let mod = polisTypes.mod.ok;
   //     return moderateComment(zid, tid, true, mod);
-  // }
-
-  // function getComment(zid, tid) {
-  //   return new MPromise("getComment", function(resolve, reject) {
-  //     pgQuery("select * from comments where zid = ($1) and tid = ($2);", [zid, tid], function(err, results) {
-  //       if (err) {
-  //         reject(err);
-  //       } else if (!results || !results.rows || !results.rows.length) {
-  //         reject("polis_err_missing_comment");
-  //       } else {
-  //         resolve(results.rows[0]);
-  //       }
-  //     });
-  //   });
   // }
 
   // function handle_GET_mute(req, res) {
@@ -7924,6 +7956,7 @@ Email verified! You can close this tab or hit the back button.
       fail(res, 500, "polis_err_post_comments_slack_misc", err);
     });
   }
+
 
 
   function handle_POST_comments(req, res) {
@@ -8154,16 +8187,6 @@ Email verified! You can close this tab or hit the back button.
 
           console.log("POST_comments before INSERT INTO COMMENTS", Date.now());
 
-          function detectLanguage(txt) {
-            if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-              return translateClient.detect(txt);
-            }
-            return Promise.resolve([{
-              confidence: null,
-              language: null,
-            }]);
-          }
-        
           Promise.all([
             detectLanguage(txt),
           ]).then((a) => {
@@ -14311,6 +14334,7 @@ CREATE TABLE slack_user_invites (
     handle_GET_canvas_app_instructions_png,
     handle_GET_changePlanWithCoupon,
     handle_GET_comments,
+    handle_GET_comments_translations,
     handle_GET_conditionalIndexFetcher,
     handle_GET_contexts,
     handle_GET_conversation_assigmnent_xml,
