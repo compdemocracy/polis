@@ -6,6 +6,7 @@ import Radium from "radium";
 // import Flex from "./framework/flex";
 import {Link} from "react-router";
 import Awesome from "react-fontawesome";
+import {s} from "./framework/global-styles";
 
 @Radium
 class SidebarItem extends React.Component {
@@ -21,34 +22,49 @@ class SidebarItem extends React.Component {
     params: React.PropTypes.object,
     routes: React.PropTypes.array,
     /* component api */
+    enabled: React.PropTypes.bool,
     style: React.PropTypes.object,
     selected: React.PropTypes.bool,
     to: React.PropTypes.string,
     icon: React.PropTypes.string
   }
   static defaultProps = {
-    // foo: "bar"
+    enabled: true,
   }
   getStyles() {
+    let color = {
+      // color: this.props.selected ? "rgb(3, 169, 244)" : "black",
+      fontWeight: this.props.selected ? 500 : 300,
+    };
+    let disabled = Object.assign({}, color, {
+      color: "rgba(100,100,100,.5)",
+    });
+    const small = {
+      fontSize: 14,
+      padding: 0,
+      margin: "0px 0px 20px 20px",
+    }
     return {
-      base: {
-        display: "block",
-        padding: "16px 0px 16px 16px",
-        color: this.props.selected ? "white" : "#757575",
-        backgroundColor: this.props.selected ? "#03a9f4" : "white",
-        textDecoration: "none",
-        cursor: "pointer"
-      }
+      color: color,
+      disabled: disabled,
+      small: small,
     };
   }
   render() {
     const styles = this.getStyles();
+
     return (
       <Link
         to={this.props.to}
-        style={styles.base}>
-        <Awesome style={{marginRight: 10}} name={this.props.icon}/>
-        {` `}
+        style={
+          Object.assign(
+            {},
+            s.sidebarLink,
+            this.props.enabled ? styles.color : styles.disabled,
+            this.props.small ? styles.small : {}
+          )
+        }>
+        <span style={{position: "relative", left: -5}}> {this.props.showIcon ? <Awesome name={this.props.icon} /> : null} </span>
         {this.props.text}
       </Link>
     );

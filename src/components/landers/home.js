@@ -369,6 +369,21 @@ class Home extends React.Component {
           </div>
         </div>
 
+        {/*<Explainer/>
+
+        <a style={{
+            padding: "15px 20px",
+            borderRadius: 3,
+            backgroundColor: "#03a9f4",
+            color: "white",
+            textDecoration: "none",
+            cursor: "pointer",
+
+          }}
+          href="https://pol.is/createuser">
+          Get Started Free
+        </a>*/}
+
         <div style={{
             width: "100%",
             display: "flex",

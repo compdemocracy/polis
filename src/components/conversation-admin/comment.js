@@ -104,22 +104,30 @@ class Comment extends React.Component {
     const arr = [
       {
         label: "voted",
-        percent: this.props.comment.count / this.props.conversation.participant_count * 100,
+        percent: (this.props.conversation.participant_count ?
+          this.props.comment.count / this.props.conversation.participant_count * 100 :
+          0),
         fill: "rgb(180,180,180)"
       },
       {
         label: "agreed",
-        percent: this.props.comment.agree_count / this.props.comment.count * 100,
+        percent: (this.props.comment.count ?
+          this.props.comment.agree_count / this.props.comment.count * 100 :
+          0),
         fill: "rgb(46, 204, 113)"
       },
       {
         label: "disagreed",
-        percent: this.props.comment.disagree_count / this.props.comment.count * 100,
+        percent: (this.props.comment.count ?
+          this.props.comment.disagree_count / this.props.comment.count * 100 :
+          0),
         fill: "rgb(231, 76, 60)"
       },
       {
         label: "passed",
-        percent: this.props.comment.pass_count / this.props.comment.count * 100,
+        percent: (this.props.comment.count ?
+          this.props.comment.pass_count / this.props.comment.count * 100 :
+          0),
         fill: "rgb(230,230,230)"
       }
     ];

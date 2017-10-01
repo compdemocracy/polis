@@ -3,6 +3,7 @@
 var _ = require('lodash');
 var exec = require('child_process').exec;
 var gulp = require('gulp');
+var isTrue = require('boolean');
 var s3 = require('gulp-s3');
 var rename = require('gulp-rename');
 var gzip = require('gulp-gzip');
@@ -75,6 +76,9 @@ gulp.task('index', [
   var index = fs.readFileSync('index.html', {encoding: "utf8"});
   index = index.replace("/dist/admin_bundle.js",  '/' + [destRootRest, "js", "admin_bundle.js"].join('/'));
   index = index.replace("NULL_VERSION",  versionString);
+  index = index.replace("<%= useIntercom %>", !isTrue(process.env.DISABLE_INTERCOM));
+  index = index.replace("<%= usePlans %>", !isTrue(process.env.DISABLE_PLANS));
+
 
   // index goes to the root of the dist folder.
   var indexDest = [destRootBase, "index_admin.html"].join("/");

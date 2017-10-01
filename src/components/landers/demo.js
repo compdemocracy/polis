@@ -196,7 +196,7 @@ class Demo extends React.Component {
         image={false}
         stars={{visible: true, color: "darkgrey"}}>
         <div className='polis' data-conversation_id='2arcefpshi'></div>
-        <script async='true' src='https://pol.is/embed.js'></script>
+        <script async src='https://pol.is/embed.js'></script>
       </StaticContentContainer>
     );
   }

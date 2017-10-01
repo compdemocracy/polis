@@ -1,5 +1,7 @@
 // Copyright (C) 2012-present, Polis Technology Inc. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import Features from "../util/plan-features";
+import { lockedIcon} from "../util/plan-features";
 import React from "react";
 import { connect } from "react-redux";
 import Radium from "radium";
@@ -8,28 +10,9 @@ import Awesome from "react-fontawesome";
 import {Link} from "react-router";
 import MaterialTitlePanel from "./material-title-panel-sidebar";
 import SidebarItem from "./sidebar-item";
+import {s} from "./framework/global-styles";
 
-const styles = {
-  sidebar: {
-    width: 256,
-    height: "100%"
-  },
-  sidebarLink: {
-    display: "block",
-    padding: "16px 0px 16px 16px",
-    color: "#757575",
-    textDecoration: "none"
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "#757575"
-  },
-  content: {
-    height: "100%",
-    backgroundColor: "white"
-  }
-};
-
+@connect(state => state.user)
 @Radium
 class SidebarContentConversation extends React.Component {
 
@@ -40,41 +23,60 @@ class SidebarContentConversation extends React.Component {
   }
 
   render() {
+    let canEditReports = Features.canEditReports(this.props.user);
+    let canViewStats = Features.canViewStats(this.props.user);
+    let canExportData = Features.canExportData(this.props.user);
+
     return (
       <MaterialTitlePanel
         showHamburger={false}
         title={"Pol.is/"+this.props.conversation_id}
-        style={this.props.style ? {...styles.sidebar, ...this.props.style} : styles.sidebar}>
-        <div style={styles.content} onClick={this.handleClick.bind(this)}>
+        style={this.props.style ? {...s.sidebar, ...this.props.style} : s.sidebar}>
+        <div style={s.sidebarLinks} onClick={this.handleClick.bind(this)}>
           <SidebarItem
             to="/"
             selected={false}
+            showIcon={true}
             icon="chevron-left"
+            enabled={true}
             text="All Conversations"/>
           <SidebarItem
             to={"/m/"+this.props.conversation_id}
             selected={this.props.routes[2] && !this.props.routes[2].path}
             icon="gears"
+            enabled={true}
             text="Configure"/>
-          <SidebarItem
+          {/*<SidebarItem
             to={"/m/"+this.props.conversation_id+"/live"}
             selected={this.props.routes[2] && this.props.routes[2].path === "live"}
             icon="heartbeat"
-            text="See it"/>
+            enabled={true}
+            text="See it"/>*/}
           <SidebarItem
             to={"/m/"+this.props.conversation_id+"/share"}
             selected={this.props.routes[2] && this.props.routes[2].path === "share"}
             icon="code"
-            text="Share & Embed"/>
+            enabled={true}
+            text="Distribute"/>
+            <SidebarItem
+              to={"/m/"+this.props.conversation_id+"/comments"}
+              selected={this.props.routes[2] && this.props.routes[2].path === "comments" || this.props.routes[2] && this.props.routes[2].path === "participants"}
+              icon="comments"
+              enabled={true}
+              text="Moderate"/>
           <SidebarItem
+            small
             to={"/m/"+this.props.conversation_id+"/comments"}
             selected={this.props.routes[2] && this.props.routes[2].path === "comments"}
             icon="comments"
+            enabled={true}
             text="Comments"/>
           <SidebarItem
+            small
             to={"/m/"+this.props.conversation_id+"/participants"}
             selected={this.props.routes[2] && this.props.routes[2].path === "participants"}
             icon="users"
+            enabled={true}
             text="Participants"/>
           {/*<SidebarItem
             to={"/m/"+this.props.conversation_id+"/summary"}
@@ -82,32 +84,31 @@ class SidebarContentConversation extends React.Component {
             icon="list-alt"
             text="Summary"/>*/}
           <SidebarItem
-            to={"/m/"+this.props.conversation_id+"/stats"}
+            to={canViewStats ? "/m/"+this.props.conversation_id+"/stats" : Features.plansRoute}
             selected={this.props.routes[2] && this.props.routes[2].path === "stats"}
             icon="area-chart"
-            text="Stats"/>
+            enabled={canViewStats}
+            text={"Monitor" + (canViewStats ? "" : lockedIcon)}/>
           <SidebarItem
-            to={"/m/"+this.props.conversation_id+"/reports"}
+            to={canEditReports ? "/m/"+this.props.conversation_id+"/reports" : Features.plansRoute}
             selected={this.props.routes[2] && this.props.routes[2].path === "reports"}
             icon="file-text-o"
-            text="Reports"/>
+            enabled={canEditReports}
+            text={"Report" + (canEditReports ? "" : lockedIcon)}/>
           <SidebarItem
-            to={"/m/"+this.props.conversation_id+"/export"}
+            to={canExportData ? "/m/"+this.props.conversation_id+"/export" : Features.plansRoute}
             selected={this.props.routes[2] && this.props.routes[2].path === "export"}
             icon="cloud-download"
-            text="Data Export"/>
-          <div style={styles.divider} />
-          <a style={styles.sidebarLink} target="blank" href="http://docs.pol.is">
-            <Awesome name="align-left"/><span style={{marginLeft: 10}}>Docs</span>
-          </a>
-          <a style={styles.sidebarLink} target="blank" href="https://twitter.com/UsePolis">
-            <Awesome style={{color: "#4099FF"}} name="twitter"/><span style={{marginLeft: 10}}>@UsePolis</span>
-          </a>
+            enabled={canExportData}
+            text={"Export Data" + (canExportData ? "" : lockedIcon)}/>
+          {/*<a style={Object.assign({}, s.sidebarLink, {marginTop: 40})} target="blank" href="http://docs.pol.is">
+            <span style={{marginRight: 10}}>Docs</span><Awesome name="external-link"/>
+          </a>*/}
           <Link
-            style={styles.sidebarLink}
+            style={s.sidebarLink}
             to={"/signout"}>
+            <span style={{marginRight: 10}}>Sign Out</span>
             <Awesome name="sign-out"/>
-            <span style={{marginLeft: 10}}>Sign Out</span>
           </Link>
         </div>
       </MaterialTitlePanel>
