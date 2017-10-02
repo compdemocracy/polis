@@ -1262,6 +1262,7 @@ helpersInitialized.then(function(o) {
     want('ucsd', getBool, assignToP), // not persisted
     want('ucsv', getBool, assignToP), // not persisted
     want('ucsf', getBool, assignToP), // not persisted
+    want('dwok', getStringLimitLength(1, 1000), assignToP), // not persisted
     want('xid', getStringLimitLength(1, 999), assignToP), // not persisted
     want('subscribe_type', getStringLimitLength(1,9), assignToP), // not persisted
     want('x_name', getStringLimitLength(1, 746), assignToP),  // not persisted here, but later on POST vote/comment
