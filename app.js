@@ -691,7 +691,7 @@ helpersInitialized.then(function(o) {
     resolve_pidThing('pid', assignToP, "post:comments"),
     handle_POST_comments_slack);
 
-  app.get("/api/v3/comments/translations"
+  app.get("/api/v3/comments/translations",
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('tid', getInt, assignToP),
