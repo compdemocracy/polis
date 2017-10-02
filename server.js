@@ -13710,16 +13710,16 @@ CREATE TABLE slack_user_invites (
         url += ("&xid=" + xid);
       }
       if (!_.isUndefined(x_name)) {
-        url += ("&x_name=" + x_name);
+        url += ("&x_name=" + encodeURIComponent(x_name));
       }
       if (!_.isUndefined(x_profile_image_url)) {
-        url += ("&x_profile_image_url=" + x_profile_image_url);
+        url += ("&x_profile_image_url=" + encodeURIComponent(x_profile_image_url));
       }
       if (!_.isUndefined(x_email)) {
-        url += ("&x_email=" + x_email);
+        url += ("&x_email=" + encodeURIComponent(x_email));
       }
       if (!_.isUndefined(parent_url)) {
-        url += ("&parent_url=" + parent_url);
+        url += ("&parent_url=" + encodeURIComponent(parent_url));
       }
       if (!_.isUndefined(dwok)) {
         url += ("&dwok=" + dwok);
