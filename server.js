@@ -60,7 +60,7 @@ const intercomClient = !isTrue(process.env.DISABLE_INTERCOM) ? new IntercomOffic
 };
 
 const translateClient = Translate({
-  projectId: projectId
+  projectId: JSON.parse(fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS)).project_id,
 });
 
 
@@ -7610,7 +7610,7 @@ Email verified! You can close this tab or hit the back button.
         return translateString(comment.txt, req.p.lang).then((results) => {
           const translation = results[0];
           const src = -1; // Google Translate of txt with no added context
-          return pgQueryP("insert into comment_translations (zid, tid, txt, lang, lang_confidence) values ($1, $2, $3, $4, $5) returning *;", [zid, tid, translation, lang, lang_confidence]).then((rows) => {
+          return pgQueryP("insert into comment_translations (zid, tid, txt, lang, lang_confidence, src) values ($1, $2, $3, $4, $5, $6) returning *;", [zid, tid, translation, lang, lang_confidence, src]).then((rows) => {
             return rows;
           });
         });
@@ -8278,7 +8278,7 @@ Email verified! You can close this tab or hit the back button.
                   fail(res, 500, "polis_err_post_comment", err);
                 }
               }); // insert
-            }); // lang
+          }); // lang
         });
       }, function(errors) {
         if (errors[0]) {
