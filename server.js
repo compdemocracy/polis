@@ -7285,6 +7285,7 @@ Email verified! You can close this tab or hit the back button.
         "anon",
         "is_seed",
         "is_meta",
+        "lang",
       ];
       if (o.moderation) {
         cols.push("velocity");
@@ -7597,6 +7598,17 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
+  function translateAndStoreComment(zid, tid, txt, lang) {
+    return translateString(txt, lang).then((results) => {
+      const translation = results[0];
+      const src = -1; // Google Translate of txt with no added context
+      return pgQueryP("insert into comment_translations (zid, tid, txt, lang, src) values ($1, $2, $3, $4, $5) returning *;", [zid, tid, translation, lang, src]).then((rows) => {
+        return rows[0];
+      });
+    });
+  }
+
+
   function handle_GET_comments_translations(req, res) {
     const zid = req.p.zid;
     const tid = req.p.tid;
@@ -7607,13 +7619,7 @@ Email verified! You can close this tab or hit the back button.
         if (existingTranslations) {
           return existingTranslations;
         }
-        return translateString(comment.txt, req.p.lang).then((results) => {
-          const translation = results[0];
-          const src = -1; // Google Translate of txt with no added context
-          return pgQueryP("insert into comment_translations (zid, tid, txt, lang, lang_confidence, src) values ($1, $2, $3, $4, $5, $6) returning *;", [zid, tid, translation, lang, lang_confidence, src]).then((rows) => {
-            return rows;
-          });
-        });
+        return translateAndStoreComment(zid, tid, comment.txt, req.p.lang);
       }).then((rows) => {
         res.status(200).json(rows);
       });
@@ -8462,12 +8468,22 @@ Email verified! You can close this tab or hit the back button.
     return pgQueryP("select * from comment_translations where zid = ($1) and tid = ($2);", [zid, tid]);
   }
 
-  function getNextComment(zid, pid, withoutTids, include_social, include_translations) {
+  function getNextComment(zid, pid, withoutTids, include_social, lang) {
     // return getNextCommentPrioritizingNonPassedComments(zid, pid, withoutTids, !!!!!!!!!!!!!!!!TODO IMPL!!!!!!!!!!!include_social);
     return getNextCommentRandomly(zid, pid, withoutTids, include_social).then((c) => {
-      if (include_translations) {
+      if (lang && c) {
+        const firstTwoCharsOfLang = lang.substr(0,2);
         return getCommentTranslations(zid, c.tid).then((translations) => {
           c.translations = translations;
+          let hasMatch = _.some(translations, (t) => {
+            return t.lang.startsWith(firstTwoCharsOfLang);
+          });
+          if (!hasMatch) {
+            return translateAndStoreComment(zid, c.tid, c.txt, lang).then((translation) => {
+              c.translations.push(translation);
+              return c;
+            });
+          }
           return c;
         });
       }
@@ -8494,7 +8510,7 @@ Email verified! You can close this tab or hit the back button.
     //         hostclass)
     //         Along with this would be to cache in ram info about moderation status of each comment so we can filter before returning a comment.
 
-    getNextComment(req.p.zid, req.p.not_voted_by_pid, req.p.without, req.p.include_social).then(function(c) {
+    getNextComment(req.p.zid, req.p.not_voted_by_pid, req.p.without, req.p.include_social, req.p.lang).then(function(c) {
       if (req.timedout) {
         return;
       }
@@ -8592,7 +8608,7 @@ Email verified! You can close this tab or hit the back button.
       // getIfConvAndAuth({uri: "http://" + SELF_HOSTNAME + "/api/v3/participants", qs: qs, headers: req.headers, gzip: true}),
       ifConvAndAuth(getParticipant, [req.p.zid, req.p.uid]),
       // getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/nextComment", qs: nextCommentQs, headers: req.headers, gzip: true}),
-      ifConv(getNextComment, [req.p.zid, req.p.pid, [], true]),
+      ifConv(getNextComment, [req.p.zid, req.p.pid, [], true, req.p.lang]),
       // getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/conversations", qs: qs, headers: req.headers, gzip: true}),
       ifConv(getOneConversation, [req.p.zid, req.p.uid]),
       // getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/votes", qs: votesByMeQs, headers: req.headers, gzip: true}),
@@ -8695,6 +8711,7 @@ Email verified! You can close this tab or hit the back button.
     let uid = req.p.uid; // PID_FLOW uid may be undefined here.
     let zid = req.p.zid;
     let pid = req.p.pid; // PID_FLOW pid may be undefined here.
+    let lang = req.p.lang;
 
     // We allow viewing (and possibly writing) without cookies enabled, but voting requires cookies (except the auto-vote on your own comment, which seems ok)
     let token = req.cookies[COOKIES.TOKEN];
@@ -8735,7 +8752,7 @@ Email verified! You can close this tab or hit the back button.
           return addStar(zid, req.p.tid, pid, req.p.starred, createdTime);
         }
       }).then(function() {
-        return getNextComment(zid, pid, [], true);
+        return getNextComment(zid, pid, [], true, lang);
       }).then(function(nextComment) {
         let result = {};
         if (nextComment) {
@@ -8842,7 +8859,7 @@ Email verified! You can close this tab or hit the back button.
           updateLastInteractionTimeForConversation(zid, uid);
         }, 100);
       }).then(function() {
-        return getNextComment(req.p.zid, pid, [], true);
+        return getNextComment(req.p.zid, pid, [], true, req.p.lang); // TODO req.p.lang is probably not defined
       }).then(function(nextComment) {
         let result = {};
         if (nextComment) {
