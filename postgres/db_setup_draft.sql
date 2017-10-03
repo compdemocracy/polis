@@ -201,7 +201,7 @@ CREATE TABLE conversations(
     help_type INTEGER NOT NULL DEFAULT 1, -- 0 for disabled, 1 for enabled
     write_hint_type INTEGER NOT NULL DEFAULT 1, -- 1 for under comment form, 0 for off
     style_btn VARCHAR(500),
-    socialbtn_type INTEGER NOT NULL DEFAULT 1, -- 0 for none, 1 for all,
+    socialbtn_type INTEGER NOT NULL DEFAULT 0, -- 0 for none, 1 for all,
     subscribe_type INTEGER NOT NULL DEFAULT 1, -- 0 for none, 1 for email,
     branding_type INTEGER NOT NULL DEFAULT 1, -- 0 for polis branding, 1 for none,
     bgcolor VARCHAR(20),

@@ -695,7 +695,7 @@ helpersInitialized.then(function(o) {
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('tid', getInt, assignToP),
-    need('lang', getStringLimitLength(1,10), assignToP),
+    want('lang', getStringLimitLength(1,10), assignToP),
     handle_GET_comments_translations);
 
   app.get("/api/v3/votes/me",
@@ -728,6 +728,7 @@ helpersInitialized.then(function(o) {
     resolve_pidThing('not_voted_by_pid', assignToP, "get:nextComment"),
     want('without', getArrayOfInt, assignToP),
     want('include_social', getBool, assignToP),
+    want('lang', getStringLimitLength(1,10), assignToP), // preferred language of nextComment
     haltOnTimeout,
     handle_GET_nextComment);
 
@@ -743,6 +744,7 @@ helpersInitialized.then(function(o) {
     want('ptptoiLimit', getInt, assignToP),
     want('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('conversation_id', getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
+    want('lang', getStringLimitLength(1,10), assignToP), // preferred language of nextComment
 
     want('domain_whitelist_override_key', getStringLimitLength(1, 1000), assignToP),
     denyIfNotFromWhitelistedDomain, // this seems like the easiest place to enforce the domain whitelist. The index.html is cached on cloudflare, so that's not the right place.
@@ -759,6 +761,7 @@ helpersInitialized.then(function(o) {
     want('weight', getNumberInRange(-1, 1), assignToP, 0),
     resolve_pidThing('pid', assignToP, "post:votes"),
     want('xid', getStringLimitLength(1, 999), assignToP),
+    want('lang', getStringLimitLength(1,10), assignToP), // language of the next comment to be returned
     handle_POST_votes);
 
 

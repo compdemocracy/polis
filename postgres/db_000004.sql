@@ -2,3 +2,5 @@
 
 alter table comments add column lang VARCHAR(10);
 alter table comments add column lang_confidence REAL;
+
+alter table conversations alter column socialbtn_type set default 0;
