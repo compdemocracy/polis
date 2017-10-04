@@ -9,7 +9,8 @@
 // Headings
 //
 .HeadingA {
-  color: $dark-gray;
+  // color: $dark-gray;
+  color: rgb(0,0,0);
   font-family: $headline-font;
   font-weight: 700;
   font-size: 36px;
@@ -17,7 +18,9 @@
 }
 
 .HeadingA-aside {
-  color: $darker4;
+  // color: $darker4;
+  color: rgb(0,0,0);
+
   font-family: $serif-font;
   font-weight: normal;
   font-size: 18px;
@@ -25,7 +28,9 @@
 }
 
 .HeadingB {
-  color: $dark-gray;
+  // color: $dark-gray;
+  color: rgb(0,0,0);
+
   font-family: $headline-font;
   font-weight: 900;
   font-size: 18px;
@@ -39,7 +44,9 @@
 
 .HeadingC {
   border-bottom: 1px solid $default-border-color;
-  color: $darker5;
+  // color: $darker5;
+  color: rgb(0,0,0);
+
   font-weight: normal;
   font-family: $headline-font;
   font-size: 18px;
@@ -49,7 +56,9 @@
 
 /* colin created for tabs in conversation view, modify or rename if necessary and update conversationTabs.handlebars */
 .HeadingD {
-  color: $dark-gray;
+  // color: $dark-gray;
+  color: rgb(0,0,0);
+
   font-family: $headline-font;
   font-weight: 900;
   font-size: 13px;
@@ -88,11 +97,15 @@
 }
 
 .Heading--darkgray {
-  color: $dark-gray;
+  // color: $dark-gray;
+  color: rgb(0,0,0);
+
 }
 
 .Heading--gray {
-  color: $gray;
+  // color: $gray;
+  color: rgb(0,0,0);
+
 }
 
 /**** Begin Lander Headings ****/
@@ -101,7 +114,9 @@
   font-weight: 300;
   font-family: $headline-font;
   letter-spacing: 0.04em;
-  color: $dark-gray;
+  // color: $dark-gray;
+  color: rgb(0,0,0);
+
 }
 
 .HeadingG {
@@ -109,7 +124,9 @@
   font-weight: 300;
   font-family: $headline-font;
   letter-spacing: 0.04em;
-  color: $darker4;
+  // color: $darker4;
+  color: rgb(0,0,0);
+
 }
 
 
@@ -123,7 +140,9 @@
 }
 
 .HeadingH--dark {
-  color: $dark-gray;
+  // color: $dark-gray;
+  color: rgb(0,0,0);
+
 }
 /**** End Lander Headings ****/
 

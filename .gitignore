@@ -11,4 +11,5 @@ devel
 .polis_slack_creds.json
 .sass-cache/*
 .bashrc
+.env_always
 polisStatic/
