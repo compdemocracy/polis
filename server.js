@@ -59,9 +59,17 @@ const intercomClient = !isTrue(process.env.DISABLE_INTERCOM) ? new IntercomOffic
   },
 };
 
-const translateClient = Translate({
-  projectId: JSON.parse(fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS)).project_id,
-});
+const useTranslateApi = isTrue(process.env.SHOULD_USE_TRANSLATION_API);
+let translateClient = null;
+if (useTranslateApi) {
+  const GOOGLE_CREDS_TEMP_FILENAME = ".google_creds_temp";
+
+  fs.writeFileSync(GOOGLE_CREDS_TEMP_FILENAME, process.env.GOOGLE_CREDS_STRINGIFIED);
+
+  translateClient = Translate({
+    projectId: JSON.parse(fs.readFileSync(GOOGLE_CREDS_TEMP_FILENAME)).project_id,
+  });
+}
 
 
 // var conversion = {
@@ -1847,9 +1855,8 @@ function initializePolisHelpers() {
       });
   }
 
-
   function detectLanguage(txt) {
-    if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    if (useTranslateApi) {
       return translateClient.detect(txt);
     }
     return Promise.resolve([{
@@ -1859,7 +1866,10 @@ function initializePolisHelpers() {
   }
 
   function translateString(txt, target_lang) {
-    return translateClient.translate(txt, target_lang);
+    if (useTranslateApi) {
+      return translateClient.translate(txt, target_lang);
+    }
+    return Promise.resolve(null);
   }
 
 
@@ -7599,13 +7609,16 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function translateAndStoreComment(zid, tid, txt, lang) {
-    return translateString(txt, lang).then((results) => {
-      const translation = results[0];
-      const src = -1; // Google Translate of txt with no added context
-      return pgQueryP("insert into comment_translations (zid, tid, txt, lang, src) values ($1, $2, $3, $4, $5) returning *;", [zid, tid, translation, lang, src]).then((rows) => {
-        return rows[0];
+    if (useTranslateApi) {
+      return translateString(txt, lang).then((results) => {
+        const translation = results[0];
+        const src = -1; // Google Translate of txt with no added context
+        return pgQueryP("insert into comment_translations (zid, tid, txt, lang, src) values ($1, $2, $3, $4, $5) returning *;", [zid, tid, translation, lang, src]).then((rows) => {
+          return rows[0];
+        });
       });
-    });
+    }
+    return Promise.resolve([]);
   }
 
 
