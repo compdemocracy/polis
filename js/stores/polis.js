@@ -265,6 +265,7 @@ module.exports = function(params) {
       not_voted_by_pid: "mypid",
       limit: 1,
       include_social: true,
+      lang: "sv",
       conversation_id: conversation_id
     };
 
@@ -387,6 +388,7 @@ module.exports = function(params) {
     var promise = polisPost(votesPath, $.extend({}, params, {
       pid: "mypid",
       conversation_id: conversation_id,
+      lang: "sv",
       agid: 1,
     }));
     promise.then(function(response) {

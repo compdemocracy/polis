@@ -92,6 +92,11 @@ module.exports = Handlebones.ModelView.extend({
     ctx.canSubscribe = ctx.canSubscribe && Utils.userCanSeeSubscribePrompt();
     ctx.needSocial = this.model.get("needSocial");
 
+    if (ctx.translations && ctx.translations.length) {
+      ctx.translationTxt = ctx.translations[0].txt;
+      ctx.translationLang = ctx.translations[0].lang;
+    }
+
     var remaining = ctx.remaining;
     if (remaining > 100) {
       remaining = "100+";

@@ -146,7 +146,7 @@
     </p>
     {{!-- {{social.twitter_user_id}} --}}
     {{!-- {{social.screen_name}} --}}
-    <p style="
+    <p lang="{{lang}}" style="
       margin-left: 55px; {{!-- 10 + 36 + 5 from social above --}}
       font-weight: 400;
       min-height: 65px;
@@ -157,7 +157,20 @@
       font-size: 18px;
       {{customStyles}}
     ">
-     {{txt}}
+      {{txt}}
+    </p>
+    <p lang="{{translationLang}}" style="
+      margin-left: 55px; {{!-- 10 + 36 + 5 from social above --}}
+      font-weight: 400;
+      min-height: 65px;
+      position: relative;
+      top: -13px;
+      width: 70%;
+      line-height: 1.3;
+      font-size: 18px;
+      {{customStyles}}
+    ">
+      {{translationTxt}}
     </p>
     {{!-- {{createdString}} --}}
 
