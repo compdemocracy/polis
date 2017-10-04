@@ -2,9 +2,9 @@
 
 {{!-- present all hints to screen reader --}}
 <div class="screen-reader-text">
+  <label for="comment_form_textarea">{{{s.writeCommentHelpText}}}</label>
   <h3>{{s.commentWritingTipsHintsHeader}}</h3>
   <p>{{charLimitString}}</p>
-  <p>{{{s.writeCommentHelpText}}}</p>
   <p>{{s.tipCommentsRandom}}</p>
   <p>{{s.tipNoQuestions}}</p>
   <p>{{s.tipOneIdea}}</p>
@@ -117,12 +117,12 @@
           class="protip low_priority_tip"
           style="display: none; {{#unless desktop}}font-size:12px{{/unless}}"
           >
-            <span style="margin-left: 5px">
+            <label for="comment_form_textarea"  style="margin-left: 5px">
               <i
                 class="fa fa-bullhorn">
               </i>
               {{{s.commentSent}}}
-            </span>
+            </label>
         </p>
 
         <p
@@ -130,9 +130,9 @@
           class="protip low_priority_tip"
           style="{{#unless desktop}}font-size:12px;{{/unless}}"
           >
-            <span style="">
+            <label for="comment_form_textarea"  style="">
               {{{s.writeCommentHelpText}}}
-            </span>
+            </label>
         </p>
 
         <p
@@ -152,9 +152,9 @@
             <strong>
               {{s.tip}}
             </strong>
-            <span style="">
+            <label for="comment_form_textarea" style="">
               {{s.tipCommentsRandom}}
-            </span>
+            </label>
           </span>
         </p>
 
@@ -175,9 +175,9 @@
               fill: rgba(0, 0, 0, 0.5);
               ">{{> iconFaAsterisk}}</i>
 
-            <span style="margin-left: 6px;">
+            <label for="comment_form_textarea"  style="margin-left: 6px;">
               {{s.tipOneIdea}}
-            </span>
+            </label>
         </p>
 
         <p
@@ -198,9 +198,9 @@
               fill: rgba(0, 0, 0, 0.5);
               ">{{> iconFaAsterisk}}</i>
 
-              <span style="margin-left: 6px">
+              <label for="comment_form_textarea"  style="margin-left: 6px">
                 {{s.tipNoQuestions}}
-              </span>
+              </label>
         </p>
 
       </div> {{! end protips column}}
