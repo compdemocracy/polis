@@ -76,6 +76,10 @@ function get_domain_whitelist_override_key() {
   var params = parseQueryParams(window.location.search);
   return params.dwok;
 }
+function getUiLang() {
+  var params = parseQueryParams(window.location.search);
+  return params.ui_lang;
+}
 
 function ajaxGet(url, success, fail) {
   var xmlhttp;
@@ -234,7 +238,10 @@ if (typeof dwok !== "undefined") {
   qp.push("domain_whitelist_override_key=" + dwok);
 }
 
-qp.push("lang=sv");
+var ui_lang = getUiLang();
+if (ui_lang) {
+  qp.push("lang=" + ui_lang);
+}
 
 var qp = qp.join("&");
 qp = qp.length > 1 ? ("?" + qp) : "";

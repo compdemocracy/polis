@@ -159,19 +159,21 @@
     ">
       {{txt}}
     </p>
-    <p lang="{{translationLang}}" style="
-      margin-left: 55px; {{!-- 10 + 36 + 5 from social above --}}
-      font-weight: 400;
-      min-height: 65px;
-      position: relative;
-      top: -13px;
-      width: 70%;
-      line-height: 1.3;
-      font-size: 18px;
-      {{customStyles}}
-    ">
-      {{translationTxt}}
-    </p>
+    {{#if translationTxt}}
+      <p lang="{{translationLang}}" style="
+        margin-left: 55px; {{!-- 10 + 36 + 5 from social above --}}
+        font-weight: 400;
+        min-height: 65px;
+        position: relative;
+        top: -13px;
+        width: 70%;
+        line-height: 1.3;
+        font-size: 18px;
+        {{customStyles}}
+      ">
+        {{translationTxt}}
+      </p>
+    {{/if}}
     {{!-- {{createdString}} --}}
 
 

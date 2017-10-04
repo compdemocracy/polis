@@ -255,6 +255,32 @@ function evenlySample(items, maxSample) {
   return newItems;
 }
 
+function getBestTranslation(translations, lang) {
+  var firstTwoOfLang = lang.substr(0,2);
+  var matchingLang = _.filter(translations, function(t) {
+    return t.lang.startsWith(firstTwoOfLang);
+  });
+  matchingLang.sort(function(a, b) {
+    if (a.lang !== b.lang) {
+      // prefer exact language match
+      if (a.lang === lang) {
+        return -1;
+      } else if (b.lang === lang) {
+        return 1;
+      }
+    }
+    // prefer human translations
+    if (a.src > 0) {
+      return -1;
+    }
+    if (b.src > 0) {
+      return 1;
+    }
+    return 0;
+  });
+  return matchingLang;
+}
+
 
 function uiLanguage() {
   var params = parseQueryParams(window.location.search);
@@ -433,6 +459,7 @@ module.exports = {
   getAnonPicUrl: function() {
     return anonPicBase64;
   },
+  getBestTranslation: getBestTranslation,
   getCookie: getCookie,
   getGroupNameForGid: function(gid) {
     if (gid < 0) {

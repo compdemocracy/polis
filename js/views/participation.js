@@ -386,6 +386,9 @@ module.exports = ConversationView.extend({
       that.ptptModel.set(ptpt);
     });
     $.when(options.firstCommentPromise).then(function(c) {
+      if (c.translations) {
+        c.translations = Utils.getBestTranslation(c.translations, Utils.uiLanguage());
+      }
       that.doInit(options, c);
     });
   },

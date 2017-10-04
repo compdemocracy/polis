@@ -265,9 +265,12 @@ module.exports = function(params) {
       not_voted_by_pid: "mypid",
       limit: 1,
       include_social: true,
-      lang: "sv",
       conversation_id: conversation_id
     };
+
+    if (Utils.uiLanguage()) {
+      params.lang = Utils.uiLanguage();
+    }
 
     if (demoMode()) {
       // DEMO_MODE
@@ -385,16 +388,25 @@ module.exports = function(params) {
       });
     }
 
+
+    if (Utils.uiLanguage()) {
+      params = $.extend({
+        lang: Utils.uiLanguage(),
+      }, params);
+    }
+
     var promise = polisPost(votesPath, $.extend({}, params, {
       pid: "mypid",
       conversation_id: conversation_id,
-      lang: "sv",
       agid: 1,
     }));
     promise.then(function(response) {
       // PID_FLOW
       if (!_.isUndefined(response.currentPid)) {
         processPidResponse(response.currentPid);
+      }
+      if (response.translations) {
+        response.translations = Utils.getBestTranslation(response.translations, Utils.uiLanguage());
       }
     });
 
