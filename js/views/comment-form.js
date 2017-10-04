@@ -107,6 +107,9 @@ module.exports = Handlebones.ModelView.extend({
     }
   },
   textChange: function() {
+
+    this.hideMessage("#comment_sent_message");
+    this.hideMessage("#comment_send_failed_message");
     var form =  $(arguments[0].target);
     var formText = form.val();
     var len = formText.length;
@@ -193,6 +196,8 @@ module.exports = Handlebones.ModelView.extend({
             that.hideFormControls();
             that.showMessage("#comment_sent_message");
 
+          }, function(err) {
+            that.showMessage("#comment_send_failed_message");
           }).always(function() {
             that.buttonActive = true;
           });
@@ -301,21 +306,22 @@ module.exports = Handlebones.ModelView.extend({
           //   error: "Duplicate!",
           //   errorExtra: "That comment already exists.",
           // });
-          alert("Duplicate! That comment already exists.");
+          alert(Strings.commentErrorDuplicate);
         } else if (err.responseText === "polis_err_conversation_is_closed"){
 
           // that.model.set({
           //   error: "This conversation is closed.",
           //   errorExtra: "No further commenting is allowed.",
           // });
-          alert("This conversation is closed. No further commenting is allowed.");
+          alert(Strings.commentErrorConversationClosed);
         } else {
 
           // that.model.set({
           //   error: "Error sending comment.",
           //   errorExtra: "Please try again later.",
           // });
-          alert("Error sending comment, please try again later.");
+          alert(Strings.commentSendFailed);
+          // this.showMessage("#comment_send_failed_message");
         }
       });
       return promise;

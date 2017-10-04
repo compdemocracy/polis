@@ -1,17 +1,7 @@
 {{!-- Copyright (C) 2012-present, Polis Technology Inc. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>. --}}
 
-{{!-- present all hints to screen reader --}}
-<div class="screen-reader-text">
-  <label for="comment_form_textarea">{{{s.writeCommentHelpText}}}</label>
-  <h3>{{s.commentWritingTipsHintsHeader}}</h3>
-  <p>{{charLimitString}}</p>
-  <p>{{s.tipCommentsRandom}}</p>
-  <p>{{s.tipNoQuestions}}</p>
-  <p>{{s.tipOneIdea}}</p>
-</div> {{!-- end screen-reader-text --}}
-{{!-- ================ PROTIPS ================ --}}
-
-<div
+<label
+  for="comment_form_textarea"
   style="
     {{#if no_write_hint}}visibility: hidden;{{/if}}
     width: 40%;
@@ -20,26 +10,13 @@
     "> {{! protips column }}
 
   <p
-    id="comment_sent_message"
-    class="protip low_priority_tip"
-    style="display: none; {{#unless desktop}}font-size:12px{{/unless}}"
-    >
-      <label for="comment_form_textarea"  style="margin-left: 5px">
-        <i
-          class="fa fa-bullhorn">
-        </i>
-        {{{s.commentSent}}}
-      </label>
-  </p>
-
-  <p
     id="write_your_perspective_message"
     class="protip low_priority_tip"
     style="{{#unless desktop}}font-size:12px;{{/unless}}"
     >
-      <label for="comment_form_textarea"  style="">
+      <span style="">
         {{{s.writeCommentHelpText}}}
-      </label>
+      </span>
   </p>
 
   <p
@@ -59,9 +36,9 @@
       <strong>
         {{s.tip}}
       </strong>
-      <label for="comment_form_textarea" style="">
+      <span style="">
         {{s.tipCommentsRandom}}
-      </label>
+      </span>
     </span>
   </p>
 
@@ -70,8 +47,6 @@
     class="protip"
     style="display:none; {{#unless desktop}}font-size:12px{{/unless}}"
     >
-    <span style="margin-left: 6px;">
-
       <i class="svgIcon" style="
         display: inline-block;
         position: relative;
@@ -81,10 +56,9 @@
         fill: rgba(0, 0, 0, 0.5);
         ">{{> iconFaAsterisk}}</i>
 
-      <label for="comment_form_textarea" aria-invalid="true" role="alert" style="">
+      <span aria-invalid="true" role="alert" style="margin-left: 6px;">
         {{charLimitString}}
-      </label>
-    </span>
+      </span>
   </p>
 
 
@@ -105,9 +79,9 @@
         fill: rgba(0, 0, 0, 0.5);
         ">{{> iconFaAsterisk}}</i>
 
-      <label for="comment_form_textarea" style="margin-left: 6px;">
+      <span style="margin-left: 6px;">
         {{s.tipOneIdea}}
-      </label>
+      </span>
   </p>
 
   <p
@@ -128,12 +102,12 @@
         fill: rgba(0, 0, 0, 0.5);
         ">{{> iconFaAsterisk}}</i>
 
-        <label for="comment_form_textarea" aria-invalid="true" role="alert" style="margin-left: 6px">
+        <span aria-invalid="true" role="alert" style="margin-left: 6px">
           {{s.tipNoQuestions}}
-        </label>
+        </span>
   </p>
 
-</div> {{! end protips column}}
+</label> {{! end protips column}}
 
 
 
@@ -229,6 +203,42 @@
       class="
         comment_form_control_hideable
       ">
+
+
+      {{!-- ================ SUBMIT BUTTON CLICKED RESPONSE AREA ================ --}}
+      <div
+        style="
+          {{#if no_write_hint}}visibility: hidden;{{/if}}
+          width: 40%;
+          {{#if desktop}}{{!-- margin-right: 20px; --}}width: 60%;{{/if}}
+          margin-top: 0px;
+          "> {{! protips column }}
+
+        <p
+          id="comment_sent_message"
+          style="display: none; {{#unless desktop}}font-size:12px{{/unless}}"
+          role="alert"
+          >
+            <span style="margin-left: 5px">
+              {{{s.commentSent}}}
+            </span>
+        </p>
+
+        <p
+          id="comment_send_failed_message"
+          style="display: none; {{#unless desktop}}font-size:12px{{/unless}}"
+          role="alert"
+          >
+            <span style="margin-left: 5px">
+              <i
+                class="fa fa-bullhorn">
+              </i>
+              {{{s.commentSendFailed}}}
+            </span>
+        </p>
+
+      </div> {{! end SUBMIT BUTTON CLICKED RESPONSE AREA  column}}
+
 
    {{!-- ================ CHARACTER COUNT && BUTTON ================ --}}
    <span
