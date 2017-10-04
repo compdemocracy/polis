@@ -73,6 +73,14 @@ module.exports = Handlebones.ModelView.extend({
       this.maybeShowBasicTip();
     }
   },
+  updateCharLimitExceededMessage: function(formText) {
+    if (formText.length > constants.CHARACTER_LIMIT) {
+      this.showMessage("#char_limit_exceeded_message");
+    } else {
+      this.hideMessage("#char_limit_exceeded_message");
+      this.maybeShowBasicTip();
+    }
+  },
   updateCommentNotQuestionAlert: function(formText) {
     if (formText.indexOf("?") >= 0) {
       this.showMessage("#commentNotQuestionAlert");
@@ -131,6 +139,7 @@ module.exports = Handlebones.ModelView.extend({
     }
     this.$("#commentCharCount").text(txt);
     this.chooseBasicTip(formText);
+    this.updateCharLimitExceededMessage(formText);
     this.updateOneIdeaPerCommentMessage(formText);
     this.updateCommentNotQuestionAlert(formText);
     eb.trigger(eb.interacted);
