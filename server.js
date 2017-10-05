@@ -7247,7 +7247,11 @@ Email verified! You can close this tab or hit the back button.
         q = q.and(sql_comments.velocity.gt(0)); // filter muted comments
 
         if (!_.isUndefined(o.random)) {
-          q = q.order("random()");
+          if (conv.prioritize_seed) {
+            q = q.order("is_seed desc, random()");
+          } else {
+            q = q.order("random()");
+          }
         } else {
           q = q.order(sql_comments.created);
         }
