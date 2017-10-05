@@ -29,6 +29,7 @@ module.exports = Handlebones.ModelView.extend({
 
     "click #facebookButtonVoteView" : "facebookClicked",
     "click #twitterButtonVoteView" : "twitterClicked",
+    "click #showTranslationButtonVoteView" : "showTranslationClicked",
 
   },
   context: function() {
@@ -92,9 +93,12 @@ module.exports = Handlebones.ModelView.extend({
     ctx.canSubscribe = ctx.canSubscribe && Utils.userCanSeeSubscribePrompt();
     ctx.needSocial = this.model.get("needSocial");
 
-    if (ctx.translations && ctx.translations.length) {
+    if (ctx.showTranslation && ctx.translations && ctx.translations.length) {
       ctx.translationTxt = ctx.translations[0].txt;
       ctx.translationLang = ctx.translations[0].lang;
+    }
+    if (!ctx.showTranslation && ctx.lang && !Utils.matchesUiLang(ctx.lang) && ctx.translations && ctx.translations.length) {
+      ctx.showShowTranslationButton = true;
     }
 
     var remaining = ctx.remaining;
@@ -105,6 +109,12 @@ module.exports = Handlebones.ModelView.extend({
     return ctx;
   },
 
+  showTranslationClicked: function(e) {
+    e.preventDefault();
+    this.model.set({
+      showTranslation: true,
+    });
+  },
 
   facebookClicked: function(e) {
     e.preventDefault();
@@ -222,13 +232,17 @@ module.exports = Handlebones.ModelView.extend({
     }
 
     function showComment(model) {
+
+      var savedState = {
+        showTranslation: that.model.get("showTranslation"),
+        empty: false,
+        shouldMod: false,
+      };
+
       that.model.clear({
         silent: true
       });
-      that.model.set(_.extend({
-        empty: false,
-        shouldMod: false,
-      }, model));
+      that.model.set(_.extend(savedState, model));
       that.render();
       that.trigger("showComment");
       waitingForComments = false;

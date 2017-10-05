@@ -159,6 +159,14 @@
     ">
       {{txt}}
     </p>
+
+    {{#if showShowTranslationButton}}
+      <button style="
+        margin-left: 55px;
+        margin-bottom: 20px;
+      " id="showTranslationButtonVoteView">{{s.showTranslationButton}}</button>
+    {{/if}}
+
     {{#if translationTxt}}
       <p lang="{{translationLang}}" style="
         margin-left: 55px; {{!-- 10 + 36 + 5 from social above --}}

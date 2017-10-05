@@ -286,9 +286,16 @@ function uiLanguage() {
   var params = parseQueryParams(window.location.search);
   var lang = params.ui_lang;
   if (_.isUndefined(lang)) {
-    return null;
+    return window.preload.acceptLanguage && window.preload.acceptLanguage.substr(0,2) || null;
+    // return null;
   }
   return lang;
+}
+
+function matchesUiLang(lang) {
+  var firstTwoOfLang = lang.substr(0,2);
+  var firstTwoOfUiLang = uiLanguage().substr(0,2);
+  return firstTwoOfLang === firstTwoOfUiLang;
 }
 
 function userCanVote() {
@@ -374,6 +381,7 @@ function getXid() {
 // Return the {x: {min: #, max: #}, y: {min: #, max: #}}
 module.exports = {
   uiLanguage: uiLanguage,
+  matchesUiLang: matchesUiLang,
   userCanVote: userCanVote,
   userCanWrite: userCanWrite,
   userCanSeeTopic: userCanSeeTopic,

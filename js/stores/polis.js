@@ -400,14 +400,16 @@ module.exports = function(params) {
       conversation_id: conversation_id,
       agid: 1,
     }));
-    promise.then(function(response) {
+    promise = promise.then(function(response) {
       // PID_FLOW
       if (!_.isUndefined(response.currentPid)) {
         processPidResponse(response.currentPid);
       }
-      if (response.translations) {
-        response.translations = Utils.getBestTranslation(response.translations, Utils.uiLanguage());
+      var c = response.nextComment;
+      if (c.translations) {
+        c.translations = Utils.getBestTranslation(c.translations, Utils.uiLanguage());
       }
+      return response;
     });
 
     return promise;

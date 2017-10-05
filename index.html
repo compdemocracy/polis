@@ -242,6 +242,8 @@ var ui_lang = getUiLang();
 if (ui_lang) {
   qp.push("lang=" + ui_lang);
   window.ui_lang = ui_lang;
+} else {
+  qp.push("lang=acceptLang");
 }
 
 var qp = qp.join("&");
