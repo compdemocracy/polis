@@ -8648,6 +8648,14 @@ Email verified! You can close this tab or hit the back button.
       }
     }
 
+    let acceptLanguage = req.headers["accept-language"] || req.headers["Accept-Language"] || "en-US";
+
+    if (req.p.lang === "acceptLang") {
+      // "en-US,en;q=0.8,da;q=0.6,it;q=0.4,es;q=0.2,pt-BR;q=0.2,pt;q=0.2" --> "en-US"
+      // req.p.lang = acceptLanguage.match("^[^,;]*")[0];
+      req.p.lang = acceptLanguage.substr(0,2);
+    }
+
     Promise.all([
       // request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/users", qs: qs, headers: req.headers, gzip: true}),
       getUser(req.p.uid, req.p.zid, req.p.xid, req.p.owner_uid),
@@ -8674,7 +8682,7 @@ Email verified! You can close this tab or hit the back button.
         pca: arr[5] ? (arr[5].asJSON ? arr[5].asJSON : null) : null,
         famous: arr[6],
         // famous: JSON.parse(arr[6]),
-        acceptLanguage: req.headers["accept-language"] || req.headers["Accept-Language"] || "en-US",
+        acceptLanguage: acceptLanguage,
       };
       if (o.conversation) {
         delete o.conversation.zid;
