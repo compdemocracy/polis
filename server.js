@@ -1865,6 +1865,35 @@ function initializePolisHelpers() {
     }]);
   }
 
+
+  if (isTrue(process.env.BACKFILL_COMMENT_LANG_DETECTION)) {
+    pgQueryP("select tid, txt, zid from comments where lang is null;", []).then((comments) => {
+      let i = 0;
+      function doNext() {
+        if (i < comments.length) {
+          let c = comments[i];
+          i += 1;
+          detectLanguage(c.txt).then((x) => {
+            x = x[0];
+            console.log("backfill", x.language + "\t\t" + c.txt);
+            pgQueryP("update comments set lang = ($1), lang_confidence = ($2) where zid = ($3) and tid = ($4)",[
+              x.language,
+              x.confidence,
+              c.zid,
+              c.tid,
+            ]).then(() => {
+              doNext();
+            });
+          });
+        }
+      }
+      doNext();
+    });
+  }
+
+
+
+
   function translateString(txt, target_lang) {
     if (useTranslateApi) {
       return translateClient.translate(txt, target_lang);
