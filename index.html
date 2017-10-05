@@ -241,6 +241,7 @@ if (typeof dwok !== "undefined") {
 var ui_lang = getUiLang();
 if (ui_lang) {
   qp.push("lang=" + ui_lang);
+  window.ui_lang = ui_lang;
 }
 
 var qp = qp.join("&");
@@ -389,8 +390,13 @@ if (<%= useIntercom %>) {
   if (window.top !== window) {
     document.getElementById("mainSpinner").classList.add("hidden");
   }
+
+  window.version = "<%= versionString %>";
+
+  if (window.ui_lang) {
+    document.getElementsByTagName("body")[0].setAttribute("lang", ui_lang);
+  }
 </script>
-<script>window.version = "<%= versionString %>";</script>
 
 <!--
 <div id="google_translate_element"></div><script type="text/javascript">
