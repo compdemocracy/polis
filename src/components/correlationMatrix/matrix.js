@@ -154,29 +154,7 @@ class Matrix extends React.Component {
           This is an important bit of math (called a correlation matrix) that goes into making the graph above.
         </p>
 
-        <div style={{width: 500, marginTop: 30}}>
-          <Flex justifyContent={"space-between"} alignItems={"baseline"} styleOverrides={{marginBottom: 5}}>
-            <span style={{fontSize: 10, width: 150}}>
-              negatively correlated
-            </span>
-            <span style={{fontSize: 10, width: 150, textAlign: "right"}}>
-              positively correlated
-            </span>
-          </Flex>
-          <img
-            style={{marginLeft: 0}}
-            width={"100%"}
-            height={20}
-            src={"https://raw.githubusercontent.com/d3/d3-scale-chromatic/master/img/PuOr.png"}/>
-          <Flex justifyContent={"space-between"} alignItems={"baseline"}>
-            <span style={{fontSize: 10, width: 150}}>
-              These two comments are in opposition. Participants who agreed with one comment tended to disagree with the other, or vice versa.
-            </span>
-            <span style={{fontSize: 10, width: 150, textAlign: "right"}}>
-              These two comments are harmonious. Participants tended to vote the same way on both comments, either agreeing or disagreeing with both.
-            </span>
-          </Flex>
-        </div>
+
 
         <svg width="100%" height={side} style={{cursor: "crosshair"}}>
 

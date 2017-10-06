@@ -344,6 +344,8 @@ class App extends React.Component {
             extremity={this.state.math.pca["comment-extremity"]}
             math={this.state.math}
             comments={this.state.comments}
+            probabilities={this.state.filteredCorrelationMatrix}
+            probabilitiesTids={this.state.filteredCorrelationTids}
             />
           <MajorityStrict
             math={this.state.math}
@@ -376,7 +378,7 @@ class App extends React.Component {
             math={this.state.math}
             renderHeading={true}
             report={this.state.report}/>
-          {globals.enableMatrix ? <Matrix
+          {globals.enableMatrix && true ? <Matrix
             probabilities={this.state.filteredCorrelationMatrix}
             comments={this.state.comments}
             tids={this.state.filteredCorrelationTids}
