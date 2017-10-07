@@ -50,13 +50,13 @@ class VoronoiCells extends React.Component {
 
     /* find the index of cell.data.tid in probabilitiesTids and use the index of it as the accessor */
 
-    if (
-      !this.props.currentBeeswarmComment ||
-      !this.props.probabilities ||
-      !this.props.probabilitiesTids
-    ) {
-      return
-    } else if (this.props.currentBeeswarmComment.tid === cell.data.tid) {
+    // if (
+    //   !this.props.currentBeeswarmComment ||
+    //   // !this.props.probabilities ||
+    //   // !this.props.probabilitiesTids
+    // ) {
+    //   return
+    if (this.props.currentBeeswarmComment && this.props.currentBeeswarmComment.tid === cell.data.tid) {
       return "rgb(255,0,0)";
     } else {
       return "black"
@@ -87,7 +87,7 @@ class VoronoiCells extends React.Component {
                 <path fill="none" style={{pointerEvents: "all"}} d={"M" + cell.join("L") + "Z"}/>
                 <circle
                   r={3}
-                  fill={this.props.currentBeeswarmComment ? this.getFill(cell) : "rgb(0,0,0)"}
+                  fill={this.getFill(cell)}
                   cx={cell.data.x}
                   cy={cell.data.y}
                   />
