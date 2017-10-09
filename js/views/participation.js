@@ -62,8 +62,8 @@ module.exports = ConversationView.extend({
     "click .twitterShareButton": "shareOnTwitter",
     "click .facebookShareButton": "shareOnFacebook",
     "click .hideOnClick": "hideOnClick",
-    "click #helpTextGroups": "hideHelpTextGroups",
-    "click #helpTextWelcome": "hideHelpTextWelcome",
+    // "click #helpTextGroups": "hideHelpTextGroups",
+    // "click #helpTextWelcome": "hideHelpTextWelcome",
     "click #helpTextGroupsExpand": "expandHelpTextGroups",
     // "click #fbLoginBtn": "fbConnectBtn", // NOTE: may want a separate handler/API
     // "click #twitterLoginBtn": "twitterConnectBtn", // NOTE: may want a separate handler/API
@@ -86,12 +86,12 @@ module.exports = ConversationView.extend({
       $('.query_result_item').first().trigger('click');
     }
   },
-  hideHelpTextWelcome: function() {
-    $("#helpTextWelcome").fadeOut();
-  },
-  hideHelpTextGroups: function() {
-    $("#helpTextGroups").fadeOut();
-  },
+  // hideHelpTextWelcome: function() {
+  //   $("#helpTextWelcome").fadeOut();
+  // },
+  // hideHelpTextGroups: function() {
+  //   $("#helpTextGroups").fadeOut();
+  // },
   expandHelpTextGroups: function(e) {
     $("#helpTextGroupsExpand").hide();
     $("#helpTextGroupsMore").show();
