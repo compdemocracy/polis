@@ -114,33 +114,32 @@ module.exports = Handlebones.ModelView.extend({
     var formText = form.val();
     var len = formText.length;
     var remaining = CHARACTER_LIMIT - len;
-    var txt;
+    var num;
+    var txt = "{{CHARACTERS_COUNT}}";
     if (remaining < 0) {
       // txt = "- " + remaining;
-      txt = remaining;
-      this.$("#commentCharCount").css("color", "red");
+      num = -1 * remaining;
+      txt = Strings.commentTooLongByChars;
       this.$("#comment_button").attr("disabled", "disabled");
       this.$("#comment_button").css("opacity", 0.3);
       this.showMessage("#commentTooLongAlert");
       this.buttonActive = false;
-    } else if (remaining > 0) {
-      txt = /*"+ " +*/ remaining;
-      this.$("#commentCharCount").css("color", "gray");
-      this.$("#comment_button").attr("disabled", null);
-      this.$("#comment_button").css("opacity", 1);
-      this.hideMessage("#commentTooLongAlert");
-      this.maybeShowBasicTip();
-      this.buttonActive = true;
+      this.$("#commentCharCount").text("");
+      this.$("#commentCharCountExceeded").text(txt.replace("{{CHARACTERS_COUNT}}", num));
     } else {
-      txt = remaining;
-      this.$("#commentCharCount").css("color", "gray");
+      num = remaining;
       this.$("#comment_button").attr("disabled", null);
       this.$("#comment_button").css("opacity", 1);
       this.hideMessage("#commentTooLongAlert");
       this.maybeShowBasicTip();
       this.buttonActive = true;
+      // if (remaining > 0) {
+      // } else {
+      // }
+      this.$("#commentCharCount").text(txt.replace("{{CHARACTERS_COUNT}}", num));
+      this.$("#commentCharCountExceeded").text("");
     }
-    this.$("#commentCharCount").text(txt);
+
     this.chooseBasicTip(formText);
     this.updateCharLimitExceededMessage(formText);
     this.updateOneIdeaPerCommentMessage(formText);

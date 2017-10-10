@@ -60,6 +60,7 @@ s.tipCharLimit = "Comments are limited to {{char_limit}} characters.";
 s.tipCommentsRandom = "Comments are displayed randomly. You are not directly replying to anyone.";
 s.tipOneIdea = "Break up long comments that contain multiple ideas. This makes it easier for others to vote on your comment.";
 s.tipNoQuestions = "Comments should make statements rather than ask questions. Participants will agree or disagree with the statements you make.";
+s.commentTooLongByChars = "Comment length limit exceeded by {{CHARACTERS_COUNT}} characters.";
 s.notSentSinceDemo = "(not really, this is a demo)";
 s.submitComment = "Submit";
 s.tipStarred = "Marked as important.";

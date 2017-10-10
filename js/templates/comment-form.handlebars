@@ -1,11 +1,25 @@
 {{!-- Copyright (C) 2012-present, Polis Technology Inc. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>. --}}
 
-<label
-  for="comment_form_textarea"
+{{!-- ================ PROTIPS ================ --}}
+
+{{!-- present all hints to screen reader --}}
+<div class="screen-reader-text">
+  <label for="comment_form_textarea" style="display:block">{{{s.writeCommentHelpText}}}</label>
+  <h3>{{s.commentWritingTipsHintsHeader}}</h3>
+  <label for="comment_form_textarea" style="display:block">{{charLimitString}}</label>
+  <label for="comment_form_textarea" style="display:block">{{s.tipCommentsRandom}}</label>
+  <label for="comment_form_textarea" style="display:block">{{s.tipNoQuestions}}</label>
+  <label for="comment_form_textarea" style="display:block">{{s.tipOneIdea}}</label>
+</div> {{!-- end screen-reader-text --}}
+
+<div
+  aria-hidden="true"
   style="
     {{#if no_write_hint}}visibility: hidden;{{/if}}
+    {{!--
     width: 40%;
-    {{#if desktop}}{{!-- margin-right: 20px; --}}width: 60%;{{/if}}
+    {{#if desktop}}width: 60%;{{/if}}
+     --}}
     margin-top: 0px;
     "> {{! protips column }}
 
@@ -107,7 +121,7 @@
         </span>
   </p>
 
-</label> {{! end protips column}}
+</div> {{! end protips column}}
 
 
 
@@ -204,12 +218,59 @@
         comment_form_control_hideable
       ">
 
+   {{!-- ================ CHARACTER COUNT && BUTTON ================ --}}
+   <span
+    style="
+      float: right;
+      right: 0px;
+      top: 0px;
+      ">
+      <span
+        id="commentCharCount"
+        aria-hidden="true" {{!-- don't show this to screen reader, since there's no problem --}}
+        style="color: gray; {{#if desktop}}min-width: 20px;{{/if}}"
+        class="comment_form_control_hideable unselectable">
+      </span>
+      <label
+        id="commentCharCountExceeded"
+        for="comment_form_textarea"
+        style="color: red; {{#if desktop}}min-width: 20px;{{/if}}"
+        class="comment_form_control_hideable unselectable">
+      </label>
+      <button
+        class="
+          Btn
+          Btn-primary
+          unselectable
+          "
+        id="comment_button"
+        tabindex=202
+        type="submit"
+        style="
+          text-transform: none;
+          font-size: 16px;
+          font-weight: 500;
+          cursor: pointer;
+          border: none;
+          border-radius: 4px;
+          background-color: #03a9f4;
+          color: white;
+          letter-spacing; 0.07em;
+          min-width: 110px;
+          height: 40px;
+          margin-left: 5px;
+          {{customBtnStyles}}
+          ">
+        {{s.submitComment}}
+      </button>
+    </span>
 
       {{!-- ================ SUBMIT BUTTON CLICKED RESPONSE AREA ================ --}}
       <div
         style="
           {{#if no_write_hint}}visibility: hidden;{{/if}}
           width: 40%;
+          float: left;
           {{#if desktop}}{{!-- margin-right: 20px; --}}width: 60%;{{/if}}
           margin-top: 0px;
           "> {{! protips column }}
@@ -238,48 +299,6 @@
         </p>
 
       </div> {{! end SUBMIT BUTTON CLICKED RESPONSE AREA  column}}
-
-
-   {{!-- ================ CHARACTER COUNT && BUTTON ================ --}}
-   <span
-    style="
-      float: right;
-      right: 0px;
-      top: 0px;
-      ">
-      <span
-        aria-hidden="true"
-        id="commentCharCount"
-        style="color: gray; {{#if desktop}}min-width: 20px;{{/if}}"
-        class="comment_form_control_hideable unselectable">
-      </span>
-      <button
-        class="
-          Btn
-          Btn-primary
-          unselectable
-          "
-        id="comment_button"
-        tabindex=202
-        type="submit"
-        style="
-          text-transform: none;
-          font-size: 16px;
-          font-weight: 500;
-          cursor: pointer;
-          border: none;
-          border-radius: 4px;
-          background-color: #03a9f4;
-          color: white;
-          letter-spacing; 0.07em;
-          min-width: 110px;
-          height: 40px;
-          margin-left: 5px;
-          {{customBtnStyles}}
-          ">
-        {{s.submitComment}}
-      </button>
-    </span>
 
    {{!-- ================ END LOWER CONTAINER ================ --}}
     </div>
