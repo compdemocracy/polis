@@ -474,11 +474,6 @@ gulp.task('scripts', ['templates', 'jshint'], function() {
             depends: { jquery: "jQuery" },
             exports: null,
           },
-          owl: {
-            path: 'bower_components/owlcarousel/owl-carousel/owl.carousel.min.js',
-            depends: { jquery: "jQuery" },
-            exports: null,
-          },
           deepcopy: {
             path: 'bower_components/deepcopy/deepcopy.min.js',
             depends: { jquery: "jQuery" },

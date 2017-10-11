@@ -34,7 +34,6 @@ require("bootstrap_popover");
 require("bootstrap_tab");
 require("bootstrap_tooltip");
 require("bootstrap_transition");
-require("owl");
 require("./util/popoverEach");
 
 // register partials

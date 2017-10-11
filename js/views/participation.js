@@ -1,7 +1,5 @@
 // Copyright (C) 2012-present, Polis Technology Inc. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-var AnalyzeGlobalView = require("../views/commentCarouselMajority");
-var AnalyzeGroupView = require("../views/commentCarouselGroup");
 var Backbone = require("backbone");
 var CommentFormView = require("../views/comment-form");
 var ConversationInfoSlideView = require('../views/conversationInfoSlideView');
@@ -366,13 +364,6 @@ module.exports = ConversationView.extend({
       // }
     }
   },
-  updateCarouselVisibility: function() {
-    // if (this.conversationTabs.onAnalyzeTab() || this.selectedGid >= 0) {
-    //   $("#carouselPane").show();
-    // } else {
-    //   $("#carouselPane").hide();
-    // }
-  },
   shouldShowVisUnderTabs: function() {
     return (display.xs() /* || display.sm() */ ) && (this.conversationTabs.onAnalyzeTab() || this.conversationTabs.onGroupTab());
   },
@@ -491,12 +482,10 @@ module.exports = ConversationView.extend({
             // that.conversationTabs.gotoAnalyzeTab();
           }
         }
-        that.updateCarouselVisibility();
       });
       eb.on(eb.backgroundClicked, function() {
         that.conversationTabs.gotoInfoPaneTab();
         that.groupSelectionView.gotoInfoPaneTab();
-        that.updateCarouselVisibility();
       });
       eb.on(eb.clusterClicked, function(gid) {
         if (_.isNumber(gid) && gid >= 0) {
@@ -517,7 +506,6 @@ module.exports = ConversationView.extend({
             // }
           }
         }
-        that.updateCarouselVisibility();
 
         that.onClusterTapped.apply(that, arguments);
       });
@@ -882,33 +870,6 @@ module.exports = ConversationView.extend({
         selectedGid: this.selectedGid,
       });
 
-      this.commentCarouselGroupView = this.addChild(new AnalyzeGroupView({
-        model: this.analyzeGroupModel,
-        conversation_id: conversation_id,
-        getParticipantsOfInterestForGid: function() {
-          return that.serverClient.getParticipantsOfInterestForGid.apply(0, arguments);
-        },
-        getTidsForGroup: function() {
-          return that.serverClient.getTidsForGroup.apply(0, arguments);
-        },
-        getLocations: function() {
-          return that.serverClient.getLocations.apply(0, arguments);
-        },
-        collection: this.allCommentsCollection
-      }));
-
-      this.commentCarouselMajorityView = this.addChild(new AnalyzeGlobalView({
-        conversation_id: conversation_id,
-        getPtptCount: function() {
-          return that.serverClient.getPtptCount();
-        },
-        getTidsForConsensus: function() {
-          return that.serverClient.getTidsForConsensus.apply(0, arguments);
-        },
-        collection: this.allCommentsCollection
-      }));
-
-
       this.voteMoreModel.on("change", function() {
         that.updateVisMode();
       });
@@ -925,13 +886,8 @@ module.exports = ConversationView.extend({
       });
 
 
-      var doReproject = _.debounce(serverClient.updateMyProjection, 1000);
-      this.commentCarouselMajorityView.on("searchChanged", function(o) {
-        // serverClient.setTidSubsetForReprojection(o.tids);
-        if (that.conversationTabs.onAnalyzeTab()) {
-          doReproject();
-        }
-      });
+      // var doReproject = _.debounce(serverClient.updateMyProjection, 1000);
+
 
       eb.on(eb.commentSelected, function(tid) {
         if (vis) {
@@ -1008,10 +964,11 @@ module.exports = ConversationView.extend({
           moveVisAboveQueryResults();
         }
         // that.showVis();
-        that.allCommentsCollection.doFetch({
+
+        that.allCommentsCollection.doFetch({ // TODO needed anymore?
           gid: that.selectedGid
         }).then(function() {
-          that.commentCarouselMajorityView.renderWithCarousel();
+          //that.commentCarouselMajorityView.renderWithCarousel();
         });
         that.updateVisibilityOfSocialButtons();
       });
@@ -1040,7 +997,7 @@ module.exports = ConversationView.extend({
       });
       that.conversationTabs.on("aftershow:majority", function() {
         that.initPcaVis();
-        that.commentCarouselMajorityView.renderWithCarousel();
+        // that.commentCarouselMajorityView.renderWithCarousel();
 
         if (SHOULD_AUTO_CLICK_FIRST_COMMENT) {
           $(".query_result_item").first().trigger("click");
