@@ -83,6 +83,21 @@ s.topic_bad_01 = "tous les membres de l'équipe sont tenus de nous informer de l
 s.topic_bad_01_reason = "Des personnes de différentes équipes voteront sur les réponses mais ne seront pas nécessairement suffisament informées pour voter sereinement.";
 s.topic_bad_02 = "Quels blocages freinent notre lancement ?";
 s.topic_bad_02_reason = "";
+s.comments_remaining = "{{num_comments}} restants";
+s.comment_123 = "Commentaire :";
+s.pctAgreedLong = "{{pct}}% des personnes ayant voté sur le commentaire {{comment_id}} sont d'accords.";
+s.pctDisagreedLong = "{{pct}}% des personnes ayant voté sur le commentaire {{comment_id}} ne sont pas d'accords.";
+s.pctAgreedOfGroupLong = "{{pct}}% des personnes du {{group}} ayant voté sur le commentaire {{comment_id}} sont d'accords.";
+s.pctDisagreedOfGroupLong = "{{pct}}% des personnes du {{group}} ayant voté sur le commentaire {{comment_id}} ne sont pas d'accords.";
+s.commentSendFailed = "Une erreur s'est produite au moment d'envoyer votre commentaire.";
+s.commentErrorDuplicate = "Doublon! Ce commentaire existe déjà.";
+s.commentErrorConversationClosed = "Cette conversation est terminée. Vous ne pouvez plus envoyer de commentaires.";
+s.connectToVotePrompt = "Connectez-vous pour voter. Pas d'inquiétudes, nous ne publierons pas sur votre fil d'actualités.";
+s.commentWritingTipsHintsHeader = "Conseils pour rédiger des commentaires";
+s.tipCharLimit = "Les commentaires sont limités à {{char_limit}} caractères.";
+s.participantHelpGroupsNotYetText = "La visualisation apparaîtra quand 7 personnes auront voté";
+s.showTranslationButton = "Afficher la traduction";
+
 
 
 module.exports = s;
