@@ -95,8 +95,8 @@ s.commentErrorConversationClosed = "Cette conversation est terminée. Vous ne po
 s.connectToVotePrompt = "Connectez-vous pour voter. Pas d'inquiétudes, nous ne publierons pas sur votre fil d'actualités.";
 s.commentWritingTipsHintsHeader = "Conseils pour rédiger des commentaires";
 s.tipCharLimit = "Les commentaires sont limités à {{char_limit}} caractères.";
-s.participantHelpGroupsNotYetText = "La visualisation apparaitra quand 7 personnes auront voté";
-s.showTranslationButton = "Montrer la traduction";
+s.participantHelpGroupsNotYetText = "La visualisation apparaîtra quand 7 personnes auront voté";
+s.showTranslationButton = "Afficher la traduction";
 
 
 
