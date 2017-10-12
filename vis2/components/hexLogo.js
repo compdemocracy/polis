@@ -7,7 +7,7 @@ const HexLogo = () => {
         <g id="Page-1" stroke="none" strokeWidth="1" fill="none" fillRule="evenodd">
             <g id="logo" transform="translate(-68.000000, -48.000000)">
                 <g id="Group" transform="translate(68.000000, 48.000000)">
-                    <polygon id="Polygon-1" fill="#03A9F4" points="131.734836 0 263.469671 76 263.469671 228 131.734836 304 1.13280813e-13 228 2.84217094e-14 76"></polygon>
+                    <polygon id="Polygon-1" fill="#0090ff" points="131.734836 0 263.469671 76 263.469671 228 131.734836 304 1.13280813e-13 228 2.84217094e-14 76"></polygon>
                     <path d="M37.7142857,90.446281 L47.7714286,115.570248" id="Line" stroke="#FFFFFF" strokeWidth="0.3" strokeLinecap="square"></path>
                     <text id="p." fontFamily="Georgia" fontSize="179.950051" fontWeight="normal" fill="#FFFFFF">
                         <tspan x="77.9428571" y="180.07438">p.</tspan>

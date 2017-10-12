@@ -29,7 +29,7 @@ class GraphComment extends React.Component {
             width="20"
             x={this.getRectX()}
             y={-13}
-            fill={this.props.isSelected ? "rgb(3, 169, 244)" : "none"}
+            fill={this.props.isSelected ? "#0090ff" : "none"}
             rx="3"
             ry="3"
             strokeWidth="2"
