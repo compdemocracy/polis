@@ -66,7 +66,7 @@
           </div>
         {{/if}} {{!-- /email --}}
         <div class="FormVertical-group">
-          <span id="subscribeBtn" class="Btn Btn-primary unselectable" style="
+          <button id="subscribeBtn" class="Btn Btn-primary unselectable" style="
             text-transform: none;
             font-size: 16px;
             font-weight: 500;
@@ -81,7 +81,7 @@
             display: inline-block;
             margin-top: 10px;
             {{customBtnStyles}}
-            ">{{s.notificationsSubscribeButton}}</span>
+            ">{{s.notificationsSubscribeButton}}</button>
         </div>
       </form>
     {{else}} {{!-- !canSubscribe --}}
