@@ -406,7 +406,7 @@ module.exports = function(params) {
         processPidResponse(response.currentPid);
       }
       var c = response.nextComment;
-      if (c.translations) {
+      if (c && c.translations) {
         c.translations = Utils.getBestTranslation(c.translations, Utils.uiLanguage());
       }
       return response;
