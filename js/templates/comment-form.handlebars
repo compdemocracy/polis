@@ -2,18 +2,7 @@
 
 {{!-- ================ PROTIPS ================ --}}
 
-{{!-- present all hints to screen reader --}}
-<div class="screen-reader-text">
-  <label for="comment_form_textarea" style="display:block">{{{s.writeCommentHelpText}}}</label>
-  <h3>{{s.commentWritingTipsHintsHeader}}</h3>
-  <label for="comment_form_textarea" style="display:block">{{charLimitString}}</label>
-  <label for="comment_form_textarea" style="display:block">{{s.tipCommentsRandom}}</label>
-  <label for="comment_form_textarea" style="display:block">{{s.tipNoQuestions}}</label>
-  <label for="comment_form_textarea" style="display:block">{{s.tipOneIdea}}</label>
-</div> {{!-- end screen-reader-text --}}
-
 <div
-  aria-hidden="true"
   style="
     {{#if no_write_hint}}visibility: hidden;{{/if}}
     {{!--
@@ -21,44 +10,38 @@
     {{#if desktop}}width: 60%;{{/if}}
      --}}
     margin-top: 0px;
+
+    color: black;
+    padding: 5px 0px 5px 0px;
+    font-style: italic;
+    font-family: chaparral-pro;
+
     "> {{! protips column }}
 
   <p
-    id="write_your_perspective_message"
-    class="protip low_priority_tip"
     style="{{#unless desktop}}font-size:12px;{{/unless}}"
     >
       <span style="">
         {{{s.writeCommentHelpText}}}
       </span>
+      <span style="">
+        {{{s.tipCommentsRandom}}}
+      </span>
   </p>
 
-  <p
-    id="not_a_reply_message"
-    class="protip low_priority_tip"
-    style="display:none; {{#unless desktop}}font-size:12px{{/unless}}"
-    >
-    <i class="svgIcon" style="
-      display: inline-block;
-      position: relative;
-      margin-right: 2px;
-      top: 5px;
-      width: 24px;
-      fill: rgba(0, 0, 0, 0.5);
-      ">{{> iconFaLightBulb}}</i>
-    <span style="margin-left: 6px;">
-      <strong>
-        {{s.tip}}
-      </strong>
-      <span style="">
-        {{s.tipCommentsRandom}}
-      </span>
-    </span>
-  </p>
+  {{!-- present all hints to screen reader --}}
+  <div class="screen-reader-text">
+    <h3>{{s.commentWritingTipsHintsHeader}}</h3>
+    <label for="comment_form_textarea" style="display:block">{{charLimitString}}</label>
+    <label for="comment_form_textarea" style="display:block">{{s.tipNoQuestions}}</label>
+    <label for="comment_form_textarea" style="display:block">{{s.tipOneIdea}}</label>
+  </div> {{!-- end screen-reader-text --}}
+
 
   <p
     id="char_limit_exceeded_message"
     class="protip"
+    aria-hidden="true"
     style="display:none; {{#unless desktop}}font-size:12px{{/unless}}"
     >
       <i class="svgIcon" style="
@@ -79,6 +62,7 @@
   <p
     id="one_idea_per_comment_message"
     class="protip"
+    aria-hidden="true"
     style="
       display: none;
       {{#unless desktop}}font-size:12px{{/unless}}
@@ -101,6 +85,7 @@
   <p
     id="commentNotQuestionAlert"
     class="protip"
+    aria-hidden="true"
     role="alert"
     style="
       display:none;

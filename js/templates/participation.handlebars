@@ -398,47 +398,6 @@
   {{view groupSelectionView}}
 </div>
 
-<div id="carouselPane" class="tabbable clickDoesNotDeselectHull unselectable"
-  style="
-    margin: 0px 0px 10px 0px;
-    display: none;
-  "> {{! Only required for left/right tabs }}
-  <div
-    class="tab-content"
-    style="
-      min-height: 200px;
-      background-color: white;
-    ">
-    <div
-      class="tab-pane"
-      id="legend"
-      >
-      {{view legendView}}
-    </div>
-    <div
-      class="tab-pane"
-      {{!-- style="overflow: hidden" --}}
-      id="majority"
-      >
-      {{view commentCarouselMajorityView}}
-    </div>
-    <div
-      class="tab-pane"
-      {{!-- style="overflow: hidden" --}}
-      id="group"
-      >
-      {{view commentCarouselGroupView}}
-    </div>
-{{!--     <div
-      class="tab-pane"
-      id="infoSlidePane"
-      >
-      {{view conversationInfoSlideView}}
-    </div> --}}
-  </div> {{! /tab content }}
-</div> {{! /tabbable }}
-
-
 </div> {{!-- end lightPanel --}}
 </div> {{!-- end vis_section --}}
 
