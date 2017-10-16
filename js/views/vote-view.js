@@ -30,6 +30,7 @@ module.exports = Handlebones.ModelView.extend({
     "click #facebookButtonVoteView" : "facebookClicked",
     "click #twitterButtonVoteView" : "twitterClicked",
     "click #showTranslationButtonVoteView" : "showTranslationClicked",
+    "click #hideTranslationButtonVoteView" : "hideTranslationClicked",
 
   },
   context: function() {
@@ -100,6 +101,9 @@ module.exports = Handlebones.ModelView.extend({
     if (!ctx.showTranslation && ctx.lang && !Utils.matchesUiLang(ctx.lang) && ctx.translations && ctx.translations.length) {
       ctx.showShowTranslationButton = true;
     }
+    if (ctx.showTranslation && ctx.translationTxt && ctx.lang && !Utils.matchesUiLang(ctx.lang) && ctx.translations && ctx.translations.length) {
+      ctx.showHideTranslationButton = true;
+    }
 
     var remaining = ctx.remaining;
     if (remaining > 100) {
@@ -113,6 +117,13 @@ module.exports = Handlebones.ModelView.extend({
     e.preventDefault();
     this.model.set({
       showTranslation: true,
+    });
+  },
+
+  hideTranslationClicked: function(e) {
+    e.preventDefault();
+    this.model.set({
+      showTranslation: false,
     });
   },
 

@@ -166,6 +166,12 @@
         margin-bottom: 20px;
       " id="showTranslationButtonVoteView">{{s.showTranslationButton}}</button>
     {{/if}}
+    {{#if showHideTranslationButton}}
+      <button style="
+        margin-left: 55px;
+        margin-bottom: 20px;
+      " id="hideTranslationButtonVoteView">{{s.hideTranslationButton}}</button>
+    {{/if}}
 
     {{#if translationTxt}}
       <p lang="{{translationLang}}" style="
