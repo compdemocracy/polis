@@ -81,6 +81,7 @@ var webpackStream = require('webpack-stream');
 
 
 function showDesktopNotification(title, body) {
+  if (process.platform !== 'darwin') { return; }
   var child = spawn("osascript", ["-e", 'display notification "'+body+'" with title "'+title+'"'], {cwd: process.cwd()}),
             stdout = '',
             stderr = '';
