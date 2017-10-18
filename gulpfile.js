@@ -102,6 +102,24 @@ gulp.task('embedPreprod', [
   fs.writeFileSync(dest, index);
 });
 
+
+gulp.task('embedReport', [
+], function() {
+  var index = fs.readFileSync('embedReport.html', {encoding: "utf8"});
+  var dest = [destRootBase, "embedReport.html"].join("/");
+  // fs.mkdirSync(destRootBase);
+  fs.writeFileSync(dest, index);
+});
+
+gulp.task('embedReportPreprod', [
+], function() {
+  var index = fs.readFileSync('embedReportPreprod.html', {encoding: "utf8"});
+  var dest = [destRootBase, "embedReportPreprod.html"].join("/");
+  // fs.mkdirSync(destRootBase);
+  fs.writeFileSync(dest, index);
+});
+
+
 gulp.task('404', [
 ], function() {
   var index = fs.readFileSync('404.html', {encoding: "utf8"});
@@ -172,6 +190,8 @@ gulp.task('common', [
       'index',
       'embed',
       'embedPreprod',
+      'embedReport',
+      'embedReportPreprod',
       '404',
       'scripts',
       callback);
