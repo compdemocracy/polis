@@ -1448,6 +1448,12 @@ helpersInitialized.then(function(o) {
   app.get(/^\/embedPreprod$/, makeFileFetcher(hostname, portForAdminFiles, "/embedPreprod.html", {
     'Content-Type': "text/html",
   }));
+  app.get(/^\/embedReport$/, makeFileFetcher(hostname, portForAdminFiles, "/embedReport.html", {
+    'Content-Type': "text/html",
+  }));
+  app.get(/^\/embedReportPreprod$/, makeFileFetcher(hostname, portForAdminFiles, "/embedReportPreprod.html", {
+    'Content-Type': "text/html",
+  }));
   app.get(/^\/canvas_setup_backup_instructions$/, makeFileFetcher(hostname, portForParticipationFiles, "/canvas_setup_backup_instructions.html", {
     'Content-Type': "text/html",
   }));
