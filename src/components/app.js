@@ -20,6 +20,7 @@ import CommentsGraph from "./commentsGraph/commentsGraph";
 import ParticipantsGraph from "./participantsGraph/participantsGraph";
 import BoxPlot from "./boxPlot/boxPlot";
 import Beeswarm from "./beeswarm/beeswarm";
+import Controls from "./controls/controls";
 
 import net from "../util/net"
 
@@ -43,7 +44,8 @@ class App extends React.Component {
       dimensions: {
         width: window.innerWidth,
         height: window.innerHeight
-      }
+      },
+      shouldPoll: true,
     };
   }
 
@@ -295,8 +297,16 @@ class App extends React.Component {
     });
   }
 
+
   componentWillMount() {
     this.getData();
+
+    setInterval(() => {
+      if (this.state.shouldPoll) {
+        this.getData();
+      }
+    }, 20 * 1000);
+
     window.addEventListener("resize", _.throttle(() => {
       this.setState({
         dimensions: {
@@ -305,6 +315,18 @@ class App extends React.Component {
         }
       })
     }, 500));
+  }
+
+  onAutoRefreshEnabled() {
+    this.setState({
+      shouldPoll: true,
+    });
+  }
+
+  onAutoRefreshDisabled() {
+    this.setState({
+      shouldPoll: false,
+    });
   }
 
   render() {
@@ -333,6 +355,10 @@ class App extends React.Component {
             marginLeft: 20,
             marginTop: 40,
           }}>
+          <Controls
+            onAutoRefreshEnabled={this.onAutoRefreshEnabled.bind(this)}
+            onAutoRefreshDisabled={this.onAutoRefreshDisabled.bind(this)}
+            autoRefreshEnabled={this.state.shouldPoll}/>
           <Overview
             stats={this.state.conversationStats}
             math={this.state.math}
