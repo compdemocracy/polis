@@ -50,6 +50,9 @@ s.commentSent = "Comment Sent! Other participants will see your comment and agre
 s.commentSendFailed = "There was an error submitting your comment.";
 s.commentErrorDuplicate = "Duplicate! That comment already exists.";
 s.commentErrorConversationClosed = "This conversation is closed. No further commenting is allowed.";
+s.commentIsEmpty = "Comment is empty";
+s.commentIsTooLong = "Comment is too long";
+
 s.connectFacebook = "Connect Facebook";
 s.connectTwitter = "Connect Twitter";
 s.connectToPostPrompt = "Connect an identity to comment. We will not post to your timeline.";

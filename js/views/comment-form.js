@@ -268,11 +268,11 @@ module.exports = Handlebones.ModelView.extend({
     attrs.vote = constants.REACTIONS.AGREE; // participants' comments are automatically agreed to. Needed for now since math assumes every comment has at least one vote.
 
     if (/^\s*$/.exec(attrs.txt)) {
-      alert("Comment is empty");
+      alert(Strings.commentIsEmpty);
       return reject();
     }
     if (attrs.txt.length > 997) {
-      alert("Comment is too long");
+      alert(Strings.commentIsTooLong);
       return reject();
     }
 
