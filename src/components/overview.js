@@ -20,7 +20,7 @@ const computeUniqueCommenters = (comments) => {
 const Number = ({number, label}) => (
   <div>
     <p style={globals.overviewNumber}>
-      {number}
+      {number.toLocaleString()}
     </p>
     <p style={globals.overviewLabel}>
       {label}
@@ -51,6 +51,7 @@ const Overview = ({
           label={"votes were cast"} />
         <Number number={stats.firstCommentTimes.length} label={"people submitted comments"} />
         <Number number={math["n-cmts"]} label={"comments were submitted"} />
+        
       </div>
 
     </div>

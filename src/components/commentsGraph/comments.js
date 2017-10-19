@@ -13,8 +13,8 @@ class Comments extends React.Component {
 
       /* see if it's meta or consensus */
       if (
-        _comment.is_meta ||
-        this.props.math.pca["comment-extremity"][comment.tid] < globals.maxCommentExtremityToShow
+        _comment.is_meta 
+        // this.props.math.pca["comment-extremity"][comment.tid] < globals.maxCommentExtremityToShow
       ) {
         return
       }

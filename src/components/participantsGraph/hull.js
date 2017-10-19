@@ -1,5 +1,5 @@
 import React from "react";
-import * as globals from "./globals";
+import * as globals from "../globals";
 
 const Hull = ({hull}) => {
   const line = d3.line().curve(d3.curveLinear);
@@ -8,9 +8,13 @@ const Hull = ({hull}) => {
   return (
     <path
       d={pathString}
-      fill={globals.groupColor(hull.group[0].gid)}
+      strokeDasharray="5, 5"
+      stroke={"rgb(180,180,180)"}
+      fill="none"
       fillOpacity={.4}/>
   );
 };
 
 export default Hull;
+
+// fill={"rgba(0,0,0,.2)" /*globals.groupColor(hull.group[0].gid)*/}

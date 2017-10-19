@@ -85,6 +85,7 @@ class VoronoiCells extends React.Component {
             return (
               <g key={i} onMouseEnter={this.props.onHoverCallback(cell)}>
                 <path fill="none" style={{pointerEvents: "all"}} d={"M" + cell.join("L") + "Z"}/>
+
                 <circle
                   r={3}
                   fill={this.getFill(cell)}
@@ -106,7 +107,7 @@ class Beeswarm extends React.Component {
 
     this.svgWidth = 960;
     this.svgHeight = 200;
-    this.margin = {top: 40, right: 40, bottom: 40, left: 40};
+    this.margin = {top: 10, right: 10, bottom: 10, left: 10};
     this.widthMinusMargins = 960 - this.margin.left - this.margin.right;
     this.heightMinusMargins = 200 - this.margin.top - this.margin.bottom;
 
@@ -161,12 +162,12 @@ class Beeswarm extends React.Component {
         .y(function(d) { return d.y; })
       .polygons(commentsWithExtremity)
 
-      if (!this.state.axesRendered) {
-        d3.select("#beeswarmAxisAttachPointD3").append("g")
-        .attr("class", "axis axis--x")
-        .attr("transform", "translate(0," + this.heightMinusMargins + ")")
-        .call(d3.axisBottom(x).ticks(9));
-      }
+      // if (!this.state.axesRendered) {
+      //   d3.select("#beeswarmAxisAttachPointD3").append("g")
+      //   .attr("class", "axis axis--x")
+      //   .attr("transform", "translate(0," + this.heightMinusMargins + ")")
+      //   .call(d3.axisBottom(x).ticks(3));
+      // }
 
       this.setState({
         x,
@@ -177,8 +178,11 @@ class Beeswarm extends React.Component {
   }
   render() {
     return (
-      <div>
+      <div style={{width: this.svgWidth}}>
         <p style={globals.primaryHeading}> Which statements were divisive? </p>
+        <p style={globals.paragraph}>
+          Across all comments, were people mostly in agreement or divided?
+        </p>
         <p style={globals.paragraph}>
           Which statements did everyone vote the same way on, vs which statements were voted on differently?
           If most of the statements (here as little circles) are to the left of the graph, the conversation was mostly
@@ -188,7 +192,12 @@ class Beeswarm extends React.Component {
           If most of the statements (here as little circles) are to the left of the graph, the conversation was mostly
           in agreement. If towards the right, there were a lot of controversial statements.
         </p>
-        <p style={{fontWeight: 500, maxWidth: 600, lineHeight: 1.4, minHeight: 70}}>
+        <p style={{
+            fontWeight: 500,
+            maxWidth: 600,
+            lineHeight: 1.4,
+            minHeight: 70,
+          }}>
           {
             this.state.currentBeeswarmComment ?
             "#" + this.state.currentBeeswarmComment.tid + ". " + this.state.currentBeeswarmComment.txt :
@@ -207,13 +216,12 @@ class Beeswarm extends React.Component {
                 onHoverCallback={this.onHoverCallback.bind(this)}/> : null
             }
           </g>
-          <text
-            style={{textAnchor: "middle"}}
-            transform={"translate(" + (this.svgWidth/2) + " ," + (this.heightMinusMargins + this.margin.top + 40) + ")"}>
-            ← less divisive - more divisive →
-          </text>
+          <line x1="0" y1={this.svgHeight - 10} x2={this.svgWidth} y2={this.svgHeight - 10} strokeWidth="1" stroke="black"/>
         </svg>
-
+        <div style={{display: "flex", justifyContent: "space-between", margin: 0}}>
+          <p style={{margin: 0}}> Unanimity </p>
+          <p style={{margin: 0}}> More divisive</p>
+        </div>
         {/*<ProbabilityLegend/>*/}
 
       </div>
@@ -222,3 +230,9 @@ class Beeswarm extends React.Component {
 }
 
 export default Beeswarm;
+
+// <text
+//   style={{textAnchor: "middle"}}
+//   transform={"translate(" + (this.svgWidth/2) + " ," + (this.heightMinusMargins + this.margin.top + 40) + ")"}>
+//   ← less divisive - more divisive →
+// </text>

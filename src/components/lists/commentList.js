@@ -67,7 +67,7 @@ const CommentRow = ({comment, groups}) => {
         }}>
         <span style={{
             fontSize: 12,
-            width: 10,
+            width: 20,
             marginRight: 10,
           }}>
            {comment.tid}

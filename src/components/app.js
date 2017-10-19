@@ -367,9 +367,14 @@ class App extends React.Component {
             repfulAgreeTidsByGroup={this.state.repfulAgreeTidsByGroup}
             repfulDisageeTidsByGroup={this.state.repfulDisageeTidsByGroup}
             report={this.state.report}/>
-          <BoxPlot
-            groupVotes={this.state.math["group-votes"]}/>
-          <CommentsGraph
+          <Uncertainty
+            math={this.state.math}
+            comments={this.state.comments}
+            uncertainty={this.state.uncertainty}
+            conversation={this.state.conversation}
+            ptptCount={this.state.ptptCount}
+            formatTid={this.state.formatTid}/>
+          {false ? <CommentsGraph
             comments={this.state.comments}
             groupNames={this.state.groupNames}
             badTids={this.state.badTids}
@@ -377,8 +382,8 @@ class App extends React.Component {
             repfulAgreeTidsByGroup={this.state.repfulAgreeTidsByGroup}
             math={this.state.math}
             renderHeading={true}
-            report={this.state.report}/>
-          {globals.enableMatrix && true ? <Matrix
+            report={this.state.report}/> : null}
+          {globals.enableMatrix && false ? <Matrix
             probabilities={this.state.filteredCorrelationMatrix}
             comments={this.state.comments}
             tids={this.state.filteredCorrelationTids}
@@ -393,13 +398,9 @@ class App extends React.Component {
             math={this.state.math}
             renderHeading={true}
             report={this.state.report}/>
-          <Uncertainty
-            math={this.state.math}
-            comments={this.state.comments}
-            uncertainty={this.state.uncertainty}
-            conversation={this.state.conversation}
-            ptptCount={this.state.ptptCount}
-            formatTid={this.state.formatTid}/>
+          <BoxPlot
+            groupVotes={this.state.math["group-votes"]}/>
+
           <Footer/>
         </div>
       </div>
