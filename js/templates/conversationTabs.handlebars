@@ -140,24 +140,24 @@
       <li role="presentation" class="divider"></li>
     {{/if}}
 {{!-- {{#ifNotAuthenticated}}
-    <li role="presentation"><a id="twitterLoginBtn" role="menuitem" tabindex="-1" href="#"><div style="display: inline-block; width: 20px"><i class="fa fa-twitter"></i></div> Twitter</a></li>
-    <li role="presentation"><a id="fbLoginBtn" role="menuitem" tabindex="-1" href="#"><div style="display: inline-block; width: 20px"><i class="fa fa-facebook"></i></div> Facebook</a></li>
-    <li role="presentation"><a role="menuitem" tabindex="-1" href="#"><div style="display: inline-block; width: 20px"><img src="https://pol.is/polis-favicon_favicon.png" height="16px" id="opinion_groups_logo"/></div> Polis</a></li>
+    <li role="presentation"><a id="twitterLoginBtn" role="menuitem" href="#"><div style="display: inline-block; width: 20px"><i class="fa fa-twitter"></i></div> Twitter</a></li>
+    <li role="presentation"><a id="fbLoginBtn" role="menuitem" href="#"><div style="display: inline-block; width: 20px"><i class="fa fa-facebook"></i></div> Facebook</a></li>
+    <li role="presentation"><a role="menuitem" href="#"><div style="display: inline-block; width: 20px"><img src="https://pol.is/polis-favicon_favicon.png" height="16px" id="opinion_groups_logo"/></div> Polis</a></li>
 {{/ifNotAuthenticated}} --}}
 
 {{!-- {{#ifAuthenticated}} --}}
   {{#unless hasTwitter}}
-    <li role="presentation"><a id="twitterConnectBtn" role="menuitem" tabindex="-1" href="#"><div style="display: inline-block; width: 20px"><i class="fa fa-twitter"></i></div>Connect Twitter</a></li>
+    <li role="presentation"><a id="twitterConnectBtn" role="menuitem" href="#"><div style="display: inline-block; width: 20px"><i class="fa fa-twitter"></i></div>Connect Twitter</a></li>
   {{/unless}}
   {{#unless hasFacebook}}
-    <li role="presentation"><a id="fbConnectBtn" role="menuitem" tabindex="-1" href="#"><div style="display: inline-block; width: 20px"><i class="fa fa-facebook"></i></div>Connect Facebook</a></li>
+    <li role="presentation"><a id="fbConnectBtn" role="menuitem" href="#"><div style="display: inline-block; width: 20px"><i class="fa fa-facebook"></i></div>Connect Facebook</a></li>
   {{/unless}}
-    {{!-- <li role="presentation"><a role="menuitem" tabindex="-1" href="#"><div style="display: inline-block; width: 20px"><img src="https://pol.is/polis-favicon_favicon.png" height="16px" id="opinion_groups_logo"/></div> Polis</a></li> --}}
+    {{!-- <li role="presentation"><a role="menuitem" href="#"><div style="display: inline-block; width: 20px"><img src="https://pol.is/polis-favicon_favicon.png" height="16px" id="opinion_groups_logo"/></div> Polis</a></li> --}}
 
   {{#if selfUrl}}
     <li role="presentation" class="divider"></li>
     <li role="presentation">
-      <a href={{selfUrl}} role="menuitem" tabindex="-1" target="_blank">
+      <a href={{selfUrl}} role="menuitem" target="_blank">
         <div style="display: inline-block; width: 20px"><i class="fa fa-external-link-square"></i></div>View on pol.is
       </a>
     </li>
@@ -165,7 +165,7 @@
 
   {{#if showLogout}}
     <li role="presentation" class="divider"></li>
-    <li role="presentation"><a role="menuitem" tabindex="-1" href="/user/logout{{logoutDest}}">Logout</a></li>
+    <li role="presentation"><a role="menuitem" href="/user/logout{{logoutDest}}">Logout</a></li>
   {{/if}}
 {{!-- {{/ifAuthenticated}} --}}
 
