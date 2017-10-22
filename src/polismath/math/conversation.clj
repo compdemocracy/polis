@@ -69,13 +69,13 @@
   ;; Let's just use a generator that generates votes and places them in a rating mat?
   ;())
 
-(s/def ::unmodded-rating-mat ::rating-mat)
+(s/def ::raw-rating-mat ::rating-mat)
 
 ;; May want to speck out "bare" vs "fleshed out" conversations, as well as loaded vs raw, etc
 (s/def ::new-conversation
-  (s/keys :req-un [::unmodded-rating-mat ::last-vote-timestamp]))
+  (s/keys :req-un [::raw-rating-mat ::last-vote-timestamp]))
 (s/def ::full-conversation
-  (s/keys :req-un [::zid ::last-vote-timestamp ::group-votes ::unmodded-rating-mat ::rating-mat ::group-clusters ::subgroup-clusters ::repness ::subgroup-repness]))
+  (s/keys :req-un [::zid ::last-vote-timestamp ::group-votes ::raw-rating-mat ::rating-mat ::group-clusters ::subgroup-clusters ::repness ::subgroup-repness]))
 
 (s/def ::conversation
   (s/or :new ::new-conversation
@@ -84,7 +84,7 @@
 
 (defn new-conv []
   "Minimal structure upon which to perform conversation updates"
-  {:unmodded-rating-mat (nm/named-matrix)
+  {:raw-rating-mat (nm/named-matrix)
    :last-vote-timestamp 0
    :lastVoteTimestamp 0
    :rating-mat (nm/named-matrix)})
@@ -186,18 +186,20 @@
    (plmb/fnk [customs]
      (:votes customs))
 
-   :unmodded-rating-mat
+   :raw-rating-mat
    (plmb/fnk [conv keep-votes]
      (nm/update-nmat
-       (:unmodded-rating-mat conv)
+       (:raw-rating-mat conv)
        (map (fn [v] (vector (:pid v) (:tid v) (:vote v))) keep-votes)))
 
    :rating-mat
-   (plmb/fnk [conv unmodded-rating-mat]
+   (plmb/fnk [conv raw-rating-mat]
      ;; This if-let here is just a simple performance optimization
-     (if-let [mod-out (:mod-out conv)]
-       (nm/zero-out-columns unmodded-rating-mat mod-out)
-       unmodded-rating-mat))
+     (let [mat
+           (if-let [mod-out (:mod-out conv)]
+             (nm/zero-out-columns raw-rating-mat mod-out)
+             raw-rating-mat)]
+       mat))
 
    :tids
    (plmb/fnk [conv rating-mat]
@@ -297,9 +299,28 @@
   (merge
      base-conv-update-graph
      {:mat (plmb/fnk [rating-mat]
-             ; swap nils for zeros - most things need the 0s, but repness needs the nils
-             (mapv (fn [row] (map #(if (nil? %) 0 %) row))
-               (nm/get-matrix rating-mat)))
+             ; swap nils for per column average - most things need the 0s, but repness needs the nils
+             (let [mat (nm/get-matrix rating-mat)
+                   ;; TODO column-averages should be a separate build task
+                   ;; Can toggle here for nil? or (nil or = 0)
+                   ;replace? #(or (nil? %) (= 0 %))
+                   replace? nil?
+                   column-averages
+                   (mapv
+                     (fn [col]
+                       (let [col (remove replace? col)]
+                         (double
+                           (/ (reduce + col)
+                              (count col)))))
+                     (matrix/columns mat))]
+               (mapv
+                 (fn [row]
+                   (mapv
+                     (fn [i x]
+                       (if (replace? x) (get column-averages i) x))
+                     (range)
+                     row))
+                 mat)))
 
       :pca (plmb/fnk [conv mat opts']
              (let [pca
@@ -514,14 +535,14 @@
       ;;           :disagree [3 0 0 1 0 23 0 ]}
       ;; where the indices in the arrays correspond NOT directly to the bid, but to the index of the
       ;; corresponding bid in a hypothetically sorted list of the base cluster ids
-      :votes-base (plmb/fnk [bid-to-pid rating-mat]
-                    (->> rating-mat
+      :votes-base (plmb/fnk [bid-to-pid raw-rating-mat]
+                    (->> raw-rating-mat
                       nm/colnames
                       (plmb/map-from-keys
                         (fn [tid]
-                          {:A (agg-bucket-votes-for-tid bid-to-pid rating-mat utils/agree? tid)
-                           :D (agg-bucket-votes-for-tid bid-to-pid rating-mat utils/disagree? tid)
-                           :S (agg-bucket-votes-for-tid bid-to-pid rating-mat number? tid)}))))
+                          {:A (agg-bucket-votes-for-tid bid-to-pid raw-rating-mat utils/agree? tid)
+                           :D (agg-bucket-votes-for-tid bid-to-pid raw-rating-mat utils/disagree? tid)
+                           :S (agg-bucket-votes-for-tid bid-to-pid raw-rating-mat number? tid)}))))
 
 
       ;; In most or all of the below, we need to do things for both groups and subgroups. However, the logic for these
@@ -646,9 +667,9 @@
                 :or {med-cutoff 100 large-cutoff 10000}
                 :as opts}]
    (let [zid     (or (:zid conv) (:zid (first votes)))
-         ptpts   (nm/rownames (:unmodded-rating-mat conv))
+         ptpts   (nm/rownames (:raw-rating-mat conv))
          n-ptpts (count (distinct (into ptpts (map :pid votes))))
-         n-cmts  (count (distinct (into (nm/rownames (:unmodded-rating-mat conv)) (map :tid votes))))]
+         n-cmts  (count (distinct (into (nm/rownames (:raw-rating-mat conv)) (map :tid votes))))]
      ;; This is a safety measure so we can call conv-update on an empty conversation after adding mod-out
      ;; Note though that as long as we have a non-empty conv, updating with empty/nil votes should still trigger recompute
      (if (and (= 0 n-ptpts n-cmts)
@@ -671,7 +692,7 @@
 
 (defn conv-shape
   [conv]
-  (matrix/shape (:unmodded-rating-mat conv)))
+  (matrix/shape (:raw-rating-mat conv)))
 
 (defn not-smaller?
   [conv1 conv2]

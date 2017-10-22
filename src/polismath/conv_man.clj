@@ -218,11 +218,11 @@
 (defn restructure-json-conv
   [conv]
   (-> conv
-      (utils/hash-map-subset #{:math_tick :unmodded-rating-mat :rating-mat :lastVoteTimestamp :mod-out :zid :pca :in-conv :n :n-cmts :group-clusters :base-clusters :repness :group-votes :subgroup-clusters :subgroup-votes :subgroup-repness})
+      (utils/hash-map-subset #{:math_tick :raw-rating-mat :rating-mat :lastVoteTimestamp :mod-out :zid :pca :in-conv :n :n-cmts :group-clusters :base-clusters :repness :group-votes :subgroup-clusters :subgroup-votes :subgroup-repness})
       (assoc :last-vote-timestamp (get conv :lastVoteTimestamp)
              :last-mod-timestamp  (get conv :lastModTimestamp))
       ; Make sure there is an empty named matrix to operate on
-      (assoc :unmodded-rating-mat (nm/named-matrix))
+      (assoc :raw-rating-mat (nm/named-matrix))
       ; Update the base clusters to be unfolded
       (update :base-clusters clust/unfold-clusters)
       ; Make sure in-conv is a set
@@ -242,7 +242,7 @@
         ;(->> (tr/trace "load-or-init (post restructure):"))
         ;; What the fuck is this all about? Should this really be getting set here?
         (assoc :recompute :reboot)
-        (assoc :unmodded-rating-mat
+        (assoc :raw-rating-mat
                (-> (nm/named-matrix)
                    (nm/update-nmat (->> (db/conv-poll (:postgres conv-man) zid 0)
                                         (map (fn [vote-row] (mapv (partial get vote-row) [:pid :tid :vote]))))))))
