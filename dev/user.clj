@@ -32,6 +32,7 @@
   ;; Run one of these to interactively test out a particular system or subsystem
   (runner/stop!)
   (runner/run! system/base-system {:math-env :prod})
+  ;(runner/run! system/poller-system {:math-env :dev :poll-from-days-ago 0.1})
   ;(runner/run! system/task-system)
   ;(runner/run! system/task-system {:math-env :preprod :poll-from-days-ago 0.1})
   ;(runner/run! system/full-system {:math-env :preprod :poll-from-days-ago 0.1})
@@ -47,10 +48,12 @@
 
 
   ;; Setting up load and interactive testing for a specific conversation
-  (def args {:zid 16906})
+  ;(def args {:zid 16906})
   (def conv
-    (-> (load-conv args)
-        (conv/conv-update [])))
+    (-> (load-conv args)))
+  ;      (conv/conv-update [])))
+  (:raw-rating-mat conv)
+  (conv/conv-update conv [])
   (def conv
     (-> (load-conv args)
         (conv/conv-update [{:zid 11547 :pid 0 :tid 0 :vote 2.0 :created (System/currentTimeMillis)}])))
@@ -74,7 +77,7 @@
     (log/info "Previous conv key:" (boolean (:conv updated-conv)))
     (log/info "Previous conv key:" (boolean (:conv (:conv updated-conv'))))
     (:subgroup-clusters updated-conv'))
-    ;(:repness updated-conv'))
+  ;(:repness updated-conv'))
 
 
   ;; Postgres/db testbench
