@@ -90,12 +90,14 @@ preloadHelper.acceptLanguagePromise.then(function() {
 });
 
 window.missingTranslations = function() {
-  var missingKeys = {};
+  $(document.body).empty();
+  var pre = $(document.body).append("<pre></pre>");
+
   _.each(translations, function(keyToTranslatedStringMapping, code) {
+    pre.append("<h2>" + code + "</h2>");
     _.each(translations.en_us, function(originalString, key) {
       if (!keyToTranslatedStringMapping[key]) {
-        missingKeys[code] = missingKeys[code] || [];
-        missingKeys[code].push(key);
+        pre.append("<div>" + 's.' + key + ' = "' + originalString + '";' + "</div>");
       }
     });
   });
