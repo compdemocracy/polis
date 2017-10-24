@@ -669,7 +669,7 @@ gulp.task('deploy_TO_PRODUCTION', [
   notifySlackOfDeployment("prod");
 
   return deploy({
-      bucket: "pol.is"
+      bucket: process.env.S3_BUCKET_PROD
   });
 });
 
@@ -681,7 +681,7 @@ gulp.task('deployPreprod', [
   notifySlackOfDeployment("preprod");
 
   return deploy({
-      bucket: "preprod.pol.is"
+      bucket: process.env.S3_BUCKET_PREPROD
   });
 });
 
@@ -694,7 +694,7 @@ gulp.task('deployPreprodUnminified', [
   notifySlackOfDeployment("preprod");
 
   return deploy({
-      bucket: "preprod.pol.is"
+      bucket: process.env.S3_BUCKET_PREPROD
   });
 });
 
