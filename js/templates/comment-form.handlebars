@@ -21,12 +21,14 @@
   <p
     style="{{#unless desktop}}font-size:12px;{{/unless}}"
     >
-      <span style="">
+      {{!-- present all hints to screen reader --}}
+      <label for="comment_form_textarea" style="display:block">
         {{{s.writeCommentHelpText}}}
-      </span>
-      <span style="">
+      </label>
+      <label for="comment_form_textarea" style="display:block">
         {{{s.tipCommentsRandom}}}
-      </span>
+      </label>
+      {{!-- end screen-reader-text --}}
   </p>
 
   {{!-- present all hints to screen reader --}}
