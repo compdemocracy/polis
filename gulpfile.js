@@ -216,7 +216,7 @@ gulp.task('deploy_TO_PRODUCTION', [
 ], function() {
 
   return deploy({
-      bucket: "pol.is"
+      bucket: process.env.BUCKET_PROD
   });
 });
 
@@ -226,7 +226,7 @@ gulp.task('deployPreprod', [
 ], function() {
 
   return deploy({
-      bucket: "preprod.pol.is"
+      bucket: process.env.BUCKET_PREPROD
   });
 });
 
@@ -237,7 +237,7 @@ gulp.task('deployPreprodUnminified', [
 ], function() {
 
   return deploy({
-      bucket: "preprod.pol.is"
+      bucket: process.env.BUCKET_PREPROD
   });
 });
 
@@ -245,7 +245,7 @@ gulp.task('fontsPreprod', [
   "preprodConfig",
 ], function() {
   return deployFonts({
-      bucket: "preprod.pol.is"
+      bucket: process.env.BUCKET_PREPROD
   });
 });
 
@@ -253,7 +253,7 @@ gulp.task('fontsProd', [
   "prodConfig",
 ], function() {
   return deployFonts({
-      bucket: "pol.is"
+      bucket: process.env.BUCKET_PROD
   });
 });
 
