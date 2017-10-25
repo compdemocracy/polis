@@ -4,6 +4,7 @@ import _ from "lodash";
 import * as globals from "../globals";
 import style from "../../util/style";
 import CommentList from "./commentList";
+import Legend from "../framework/legend";
 
 const MajorityStrict = ({conversation, comments, ptptCount, consensus, formatTid, math}) => {
 
@@ -30,7 +31,8 @@ const MajorityStrict = ({conversation, comments, ptptCount, consensus, formatTid
         60% or more of all participants voted one way or the other,
         regardless of whether large amounts of certain minority opinion groups voted the other way.
       </p>
-      <div style={{marginTop: 50}}>
+      <Legend/>
+      <div style={{marginTop: 20}}>
       <CommentList
         conversation={conversation}
         ptptCount={ptptCount}

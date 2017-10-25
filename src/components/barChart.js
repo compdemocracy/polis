@@ -22,7 +22,7 @@ const BarChart = ({comment, conversation, groupVotes, ptptCount}) => {
       label: "disagreed",
       percent: comment.count ? (comment.disagree_count / comment.count * 100) : 0,
       ratio: " (" + comment.disagree_count + "/" + comment.count + ")",
-      fill: "rgb(231, 76, 60)"
+      fill: "rgba(231, 76, 60)"
     },
     {
       label: "passed",

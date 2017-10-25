@@ -179,18 +179,12 @@ class Beeswarm extends React.Component {
   render() {
     return (
       <div style={{width: this.svgWidth}}>
-        <p style={globals.primaryHeading}> Which statements were divisive? </p>
+        <p style={globals.primaryHeading}> How divisive was the conversation? </p>
         <p style={globals.paragraph}>
-          Across all comments, were people mostly in agreement or divided?
+          Comments (here as little circles) to the left were voted on the same way—either everyone agreed or everyone disagreed. Comments to the right were divisive—participants were split between agreement and disagreement.
         </p>
         <p style={globals.paragraph}>
-          Which statements did everyone vote the same way on, vs which statements were voted on differently?
-          If most of the statements (here as little circles) are to the left of the graph, the conversation was mostly
-          in agreement. If towards the right, there were a lot of controversial statements.
-        </p>
-        <p style={globals.paragraph}>
-          If most of the statements (here as little circles) are to the left of the graph, the conversation was mostly
-          in agreement. If towards the right, there were a lot of controversial statements.
+          <strong>How to use this:</strong> Hover to see the comment text. Start on the far right to find out what the most divisive statement was.
         </p>
         <p style={{
             fontWeight: 500,
@@ -201,7 +195,7 @@ class Beeswarm extends React.Component {
           {
             this.state.currentBeeswarmComment ?
             "#" + this.state.currentBeeswarmComment.tid + ". " + this.state.currentBeeswarmComment.txt :
-            "Hover on a comment to see it."
+            ""
           }
         </p>
         <svg width={this.svgWidth} height={this.svgHeight}>
@@ -219,8 +213,8 @@ class Beeswarm extends React.Component {
           <line x1="0" y1={this.svgHeight - 10} x2={this.svgWidth} y2={this.svgHeight - 10} strokeWidth="1" stroke="black"/>
         </svg>
         <div style={{display: "flex", justifyContent: "space-between", margin: 0}}>
-          <p style={{margin: 0}}> Unanimity </p>
-          <p style={{margin: 0}}> More divisive</p>
+          <p style={{margin: 0}}> Consensus comments </p>
+          <p style={{margin: 0}}> Divisive comments</p>
         </div>
         {/*<ProbabilityLegend/>*/}
 

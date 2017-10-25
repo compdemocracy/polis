@@ -11,7 +11,7 @@ import Comments from "../commentsGraph/comments";
 import Hull from "./hull";
 
 const pointsPerSquarePixelMax = .0017; /* choose dynamically ? */
-const contourBandwidth = 23;
+const contourBandwidth = 20;
 const colorScaleDownFactor = .5; /* The colors are too dark. This helps. */
 
 const color = d3.scaleSequential(d3chromatic.interpolateYlGnBu)

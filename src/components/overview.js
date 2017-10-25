@@ -39,6 +39,18 @@ const Overview = ({
   return (
     <div >
       <p style={globals.primaryHeading}>Overview</p>
+      <p style={globals.paragraph}>
+        Pol.is is a real-time survey system that helps identify the different ways a large group of people think about a divisive or complicated topic. Here’s a basic breakdown of some terms you’ll need to know in order to understand this report.
+      </p>
+      <p style={globals.paragraph}>
+        <strong>Participants:</strong> These are the people who participated in the conversation by voting and commenting. Based on how they voted, each participant is sorted into an opinion group.
+      </p>
+      <p style={globals.paragraph}>
+        <strong>Comments:</strong> Participants may submit comments for other participants to vote on. Comment are assigned a number in the order they’re submitted.
+      </p>
+      <p style={globals.paragraph}>
+        <strong>Opinion groups:</strong> Groups are made of participants who voted similarly to each other, and differently from the other groups.
+      </p>
 
       <p style={globals.paragraph}>
         {conversation && conversation.ownername ? "This pol.is conversation was run by "+conversation.ownername+". " : null}
@@ -51,7 +63,7 @@ const Overview = ({
           label={"votes were cast"} />
         <Number number={stats.firstCommentTimes.length} label={"people submitted comments"} />
         <Number number={math["n-cmts"]} label={"comments were submitted"} />
-        
+
       </div>
 
     </div>

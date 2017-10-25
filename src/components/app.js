@@ -373,6 +373,10 @@ class App extends React.Component {
             probabilities={this.state.filteredCorrelationMatrix}
             probabilitiesTids={this.state.filteredCorrelationTids}
             />
+          <p style={globals.primaryHeading}>Consensus</p>
+          <p style={globals.primaryHeading}>Inclusive Majority</p>
+
+
           <MajorityStrict
             math={this.state.math}
             conversation={this.state.conversation}
