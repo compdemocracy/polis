@@ -2963,6 +2963,31 @@ function initializePolisHelpers() {
     });
   }
 
+  function handle_POST_math_update(req, res) {
+    let zid = req.p.zid;
+    let uid = req.p.uid;
+    let math_env = process.env.MATH_ENV;
+    let math_update_type = req.p.math_update_type;
+
+    isModerator(zid, uid).then((hasPermission) => {
+      if (!hasPermission) {
+        return fail(res, 500, "handle_POST_math_update_permission");
+      }
+      return pgQueryP("insert into worker_tasks (task_type, task_data, task_bucket, math_env) values ('update_math', $1, $2, $3);", [
+        JSON.stringify({
+          zid: zid,
+          math_update_type: math_update_type,
+        }),
+        zid,
+        math_env,
+      ]).then(() => {
+        res.status(200).json({});
+      }).catch((err) => {
+        return fail(res, 500, "polis_err_POST_math_update", err);
+      });
+    });
+  }
+
   function handle_GET_math_correlationMatrix(req, res) {
     let rid = req.p.rid;
     let math_env = process.env.MATH_ENV;
@@ -14484,6 +14509,7 @@ CREATE TABLE slack_user_invites (
     handle_POST_joinWithInvite,
     handle_POST_lti_conversation_assignment,
     handle_POST_lti_setup_assignment,
+    handle_POST_math_update,
     handle_POST_metadata_answers,
     handle_POST_metadata_questions,
     handle_POST_metrics,
