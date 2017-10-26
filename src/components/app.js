@@ -1,20 +1,19 @@
 import React from "react";
 // import { connect } from "react-redux";
-import probabilities from "../sampleData/probabilities";
-import covariance from "../sampleData/covariance";
+// import probabilities from "../sampleData/probabilities";
+// import covariance from "../sampleData/covariance";
 // import correlation from "../sampleData/correlation";
 // import correlationHClust from "../sampleData/correlationHClust"
-import * as globals from "./globals";
-
-import Radium from "radium";
 import _ from "lodash";
 
+import * as globals from "./globals";
 import Matrix from "./correlationMatrix/matrix";
 import Heading from "./framework/heading";
 import Footer from "./framework/Footer";
 import Overview from "./overview";
 import MajorityStrict from "./lists/majorityStrict";
 import Uncertainty from "./lists/uncertainty";
+import Unanimity from "./lists/unanimity";
 import ParticipantGroups from "./lists/participantGroups";
 import CommentsGraph from "./commentsGraph/commentsGraph";
 import ParticipantsGraph from "./participantsGraph/participantsGraph";
@@ -260,10 +259,17 @@ class App extends React.Component {
       }
 
       let uncertainty = [];
+      let unanimity = [];
 
       comments.map((c) => {
         if (c.pass_count / c.count > .3) {
-          uncertainty.push(c.tid)
+          uncertainty.push(c.tid);
+        }
+      })
+
+      comments.map((c) => {
+        if (c.disagree_count === 0) {
+          unanimity.push(c.tid);
         }
       })
 
@@ -272,6 +278,7 @@ class App extends React.Component {
         math: mathResult,
         consensus: mathResult.consensus,
         uncertainty: uncertainty,
+        unanimity: unanimity,
         comments: comments,
         demographics: groupDemographics,
         participants: participants,
@@ -373,10 +380,17 @@ class App extends React.Component {
             probabilities={this.state.filteredCorrelationMatrix}
             probabilitiesTids={this.state.filteredCorrelationTids}
             />
-          <p style={globals.primaryHeading}>Consensus</p>
-          <p style={globals.primaryHeading}>Inclusive Majority</p>
-
-
+          {/*
+            <p style={globals.primaryHeading}>Consensus</p>
+            <p style={globals.primaryHeading}>Inclusive Majority</p>
+          */}
+          <Unanimity
+            math={this.state.math}
+            comments={this.state.comments}
+            unanimity={this.state.unanimity}
+            conversation={this.state.conversation}
+            ptptCount={this.state.ptptCount}
+            formatTid={this.state.formatTid}/>
           <MajorityStrict
             math={this.state.math}
             conversation={this.state.conversation}
