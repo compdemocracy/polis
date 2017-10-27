@@ -1,6 +1,7 @@
 // Copyright (C) 2012-present, Polis Technology Inc. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 var _ = require('underscore');
+var Promise = require('bluebird');
 var exec = require('child_process').exec;
 var express = require('express');
 var gulp = require('gulp');
@@ -14,6 +15,8 @@ var connect = require('gulp-connect');
 var tap = require('gulp-tap');
 var clean = require('gulp-clean');
 var jshint = require('gulp-jshint');
+// var glob = Promise.promisify(require('glob'));
+var glob = require('glob');
 var gzip = require('gulp-gzip');
 var template = require('gulp-template');
 var watch = require('gulp-watch');
@@ -27,7 +30,7 @@ var compileHandlebars = require('gulp-compile-handlebars');
 // var refresh = require('gulp-livereload');
 // var lr = require('tiny-lr');
 // var server = lr();
-var markdown = require('gulp-markdown')
+var markdown = require('gulp-markdown');
 var path = require('path');
 var Promise = require('es6-promise').Promise;
 var proxy = require('proxy-middleware');
@@ -42,6 +45,7 @@ var request = require('request');
 var rimraf = require("rimraf");
 var runSequence = require('run-sequence');
 var sass = require('gulp-sass');
+var scp = require('gulp-scp2');
 var spawn = require('child_process').spawn;
 var Stream = require('stream');
 var sys = require('sys');
@@ -49,7 +53,7 @@ var url = require('url');
 
 
 
-
+console.log("Uploader: " + process.env.UPLOADER);
 
 // WARNING: useJsHint gets mutated in watch builds
 var useJsHint = true;
@@ -668,9 +672,23 @@ gulp.task('deploy_TO_PRODUCTION', [
 
   notifySlackOfDeployment("prod");
 
-  return deploy({
-      bucket: process.env.S3_BUCKET_PROD
-  });
+  var uploader;
+  if ('s3' === process.env.UPLOADER) {
+    uploader = s3uploader({
+      bucket: process.env.S3_BUCKET_PREPROD,
+    });
+  }
+  if ('scp' === process.env.UPLOADER) {
+    uploader = scpUploader({ // TODO needs to upload as prod somehow.
+      // subdir: "cached",
+      watch: function(client) {
+        client.on('write', function(o) {
+          console.log('write %s', o.destination);
+        });
+      },
+    });
+  }
+  return deploy(uploader);
 });
 
 gulp.task('deployPreprod', [
@@ -680,9 +698,23 @@ gulp.task('deployPreprod', [
 
   notifySlackOfDeployment("preprod");
 
-  return deploy({
-      bucket: process.env.S3_BUCKET_PREPROD
-  });
+  var uploader;
+  if ('s3' === process.env.UPLOADER) {
+    uploader = s3uploader({
+      bucket: process.env.S3_BUCKET_PREPROD,
+    });
+  }
+  if ('scp' === process.env.UPLOADER) {
+    uploader = scpUploader({ // TODO needs to upload as PREprod somehow.
+      // subdir: "cached",
+      watch: function(client) {
+        client.on('write', function(o) {
+          console.log('write %s', o.destination);
+        });
+      },
+    });
+  }
+  return deploy(uploader);
 });
 
 gulp.task('deployPreprodUnminified', [
@@ -693,23 +725,55 @@ gulp.task('deployPreprodUnminified', [
 
   notifySlackOfDeployment("preprod");
 
-  return deploy({
-      bucket: process.env.S3_BUCKET_PREPROD
+  var uploader = s3uploader({
+    bucket: process.env.S3_BUCKET_PREPROD,
   });
+  return deploy(uploader);
 });
 
 gulp.task('deploySurvey', [
   "prodConfig",
   "dist"
 ], function() {
-  return deploy({
-      bucket: "survey.pol.is"
+
+  var uploader = s3uploader({
+    bucket: "survey.pol.is",
   });
+  return deploy(uploader);
 });
 
-function deploy(params) {
+function s3uploader(params) {
     var creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'));
     creds = _.extend(creds, params);
+    return function(o) {
+      return s3(creds, o);
+    };
+}
+
+function scpUploader(params) {
+  var creds = JSON.parse(fs.readFileSync('.polis_scp_creds_client.json'));
+  scpConfig = _.extend({}, creds, params);
+  return function(batchConfig) { // uploader
+    console.log("scpUploader run", batchConfig);
+    var o = _.extend({}, scpConfig);
+    if (batchConfig.subdir) {
+      console.log("batchConfig.subdir", batchConfig.subdir);
+      console.log('old path', o.dest);
+      o.dest = path.join(scpConfig.dest, batchConfig.subdir);
+      console.log('new path', o.dest);
+    } else {
+      console.log('basic path', o.dest);
+    }
+    // console.log('------------------------ foofoo', batchConfig);
+    // return foreach(function(stream, file){
+    //   console.log('------------------------ stringSrc', file);
+    //   return mergeStream(stream, stringSrc(file.name + ".headersJson", JSON.stringify(batchConfig.headers)));
+    // }).pipe(scp(scpConfig));
+    return scp(o);
+  };
+}
+
+function deploy(uploader) {
 
     var cacheSecondsForContentWithCacheBuster = 31536000;
 
@@ -727,142 +791,188 @@ function deploy(params) {
       }
     }
 
+    function deployBatch({srcKeep, srcIgnore, headers, logStatement, subdir}) {
+      return new Promise(function(resolve, reject) {
+        let gulpSrc = [srcKeep];
+        if (srcIgnore) {
+          gulpSrc.push(srcIgnore);
+        }
+        function doDeployBatch() {
+          gulp.src(gulpSrc, {read: true})
+            .pipe(uploader({
+              subdir: subdir,
+              delay: 1000,
+              headers: headers,
+              makeUploadPath: makeUploadPathFactory(logStatement),
+            })).on('error', function(err) {
+              console.log('error1', err);
+              reject(err);
+            }).on('end', resolve);
+        }
+        // create .headersJson files
+        let globOpts = {
+          nodir: true,
+        };
+        if (srcIgnore) {
+          globOpts.ignore = srcIgnore;
+        }
+        let files = glob.sync(srcKeep, globOpts)
+        for (let i = 0; i < files.length; i++) {
+          let file = files[i];
+          let headerFilename = file + ".headersJson";
+          fs.writeFileSync(headerFilename, JSON.stringify(headers));
+          gulpSrc.push(headerFilename);
+        }
+        doDeployBatch();
+      });
+    }
+
+
+    const promises = [];
     // Cached Files without Gzip
     console.log(destRoot())
-    gulp.src([
-      destRoot() + '**/**',
-      '!' + destRoot() + '/js/**',
-      ], {read: false})
-      .pipe(s3(creds, {
-        delay: 1000,
-        headers: {
-          'x-amz-acl': 'public-read',
-          'Cache-Control': 'no-transform,public,max-age=MAX_AGE,s-maxage=MAX_AGE'.replace(/MAX_AGE/g, cacheSecondsForContentWithCacheBuster),
-        },
-        makeUploadPath: makeUploadPathFactory("cached_no_gzip_"+cacheSecondsForContentWithCacheBuster),
-      }));
 
-    // Cached Gzipped Files
-    gulp.src([
-      destRoot() + '**/js/**', // simply saying "/js/**" causes the 'js' prefix to be stripped, and the files end up in the root of the bucket.
-      ], {read: false})
-    .pipe(s3(creds, {
-        delay: 1000,
-        headers: {
-          'x-amz-acl': 'public-read',
-          'Content-Encoding': 'gzip',
-          'Cache-Control': 'no-transform,public,max-age=MAX_AGE,s-maxage=MAX_AGE'.replace(/MAX_AGE/g, cacheSecondsForContentWithCacheBuster),
-        },
-        makeUploadPath: makeUploadPathFactory("cached_gzipped_"+cacheSecondsForContentWithCacheBuster),
-      }));
+    const cachedSubdir = "cached";
+
+    promises.push(deployBatch({
+      srcKeep: destRoot() + '**/**',
+      srcIgnore: '!' + destRoot() + '/js/**',
+      headers: {
+        'x-amz-acl': 'public-read',
+        'Content-Type': 'application/javascript',
+        'Cache-Control': 'no-transform,public,max-age=MAX_AGE,s-maxage=MAX_AGE'.replace(/MAX_AGE/g, cacheSecondsForContentWithCacheBuster),
+      },
+      logStatement: "cached_no_gzip_"+cacheSecondsForContentWithCacheBuster,
+      subdir: cachedSubdir,
+    }));
+
+    // Cached Gzipped CSS Files
+    promises.push(deployBatch({
+      srcKeep: destRoot() + '**/css/**', // simply saying "/css/**" causes the 'css' prefix to be stripped, and the files end up in the root of the bucket.
+      headers: {
+        'x-amz-acl': 'public-read',
+        // 'Content-Encoding': 'gzip',
+        'Content-Type': 'text/css; charset=UTF-8',
+        'Cache-Control': 'no-transform,public,max-age=MAX_AGE,s-maxage=MAX_AGE'.replace(/MAX_AGE/g, cacheSecondsForContentWithCacheBuster),
+      },
+      logStatement: makeUploadPathFactory("cached_gzipped_"+cacheSecondsForContentWithCacheBuster),
+      subdir: cachedSubdir,
+    }));
+
+    // Cached Gzipped JS Files
+    promises.push(deployBatch({
+      srcKeep: destRoot() + '**/js/**', // simply saying "/js/**" causes the 'js' prefix to be stripped, and the files end up in the root of the bucket.
+      headers: {
+        'x-amz-acl': 'public-read',
+        'Content-Encoding': 'gzip',
+        'Content-Type': 'application/javascript',
+        'Cache-Control': 'no-transform,public,max-age=MAX_AGE,s-maxage=MAX_AGE'.replace(/MAX_AGE/g, cacheSecondsForContentWithCacheBuster),
+      },
+      logStatement: makeUploadPathFactory("cached_gzipped_"+cacheSecondsForContentWithCacheBuster),
+      subdir: cachedSubdir,
+    }));
 
     // embed.js
     var embedJsCacheSeconds = 60;
-    gulp.src([
-      destRootBase + '/**/embed.js',
-      ], {read: false})
-    .pipe(s3(creds, {
-        delay: 1000,
-        headers: {
-          'x-amz-acl': 'public-read',
-    //      'Content-Encoding': 'gzip', //causing issues, not sure why
-          'Cache-Control': 'no-cache'.replace(/MAX_AGE/g, embedJsCacheSeconds),
-        },
-        makeUploadPath: function(file) {
-          console.log("upload path cached_embedJs_"+embedJsCacheSeconds+" /embed.js");
-          return "/embed.js";
-        },
-      }));
+    promises.push(deployBatch({
+      srcKeep: destRootBase + '/**/embed.js',
+      headers: {
+        'x-amz-acl': 'public-read',
+        'Content-Type': 'application/javascript',
+  //    'Content-Encoding': 'gzip', //causing issues (with s3), not sure why
+        'Cache-Control': 'no-cache'.replace(/MAX_AGE/g, embedJsCacheSeconds),
+      },
+      logStatement:  function(file) {
+        console.log("upload path cached_embedJs_"+embedJsCacheSeconds+" /embed.js");
+        return "/embed.js";
+      },
+      subdir: null,
+    }));
 
     // embedPreprod.js
     var embedJsCacheSeconds = 60;
-    gulp.src([
-      destRootBase + '/**/embedPreprod.js',
-      ], {read: false})
-    .pipe(s3(creds, {
-        delay: 1000,
-        headers: {
-          'x-amz-acl': 'public-read',
-    //      'Content-Encoding': 'gzip', //causing issues, not sure why
-          'Cache-Control': 'no-cache'.replace(/MAX_AGE/g, embedJsCacheSeconds),
-        },
-        makeUploadPath: function(file) {
-          console.log("upload path cached_embedJs_"+embedJsCacheSeconds+" /embedPreprod.js");
-          return "/embedPreprod.js";
-        },
-      }));
+    promises.push(deployBatch({
+      srcKeep: destRootBase + '/**/embedPreprod.js',
+      headers: {
+        'x-amz-acl': 'public-read',
+        'Content-Type': 'application/javascript',
+  //      'Content-Encoding': 'gzip', //causing issues (with s3), not sure why
+        'Cache-Control': 'no-cache'.replace(/MAX_AGE/g, embedJsCacheSeconds),
+      },
+      logStatement: function(file) {
+        console.log("upload path cached_embedJs_"+embedJsCacheSeconds+" /embedPreprod.js");
+        return "/embedPreprod.js";
+      },
+      subdir: null,
+    }));
 
     // TODO remove this duplication!
     var embedJsCacheSeconds = 60;
-    gulp.src([
-      destRootBase + '/**/embed_helper.js',
-      ], {read: false})
-    .pipe(s3(creds, {
-        delay: 1000,
-        headers: {
-          'x-amz-acl': 'public-read',
-    //      'Content-Encoding': 'gzip', //causing issues, not sure why
-          'Cache-Control': 'no-cache'.replace(/MAX_AGE/g, embedJsCacheSeconds),
-        },
-        makeUploadPath: function(file) {
-          console.log("upload path cached_embedJs_"+embedJsCacheSeconds+" /embed_helper.js");
-          return "/embed_helper.js";
-        },
-      }));
+    promises.push(deployBatch({
+      srcKeep: destRootBase + '/**/embed_helper.js',
+      headers: {
+        'x-amz-acl': 'public-read',
+        'Content-Type': 'application/javascript',
+  //      'Content-Encoding': 'gzip', //causing issues (with s3), not sure why
+        'Cache-Control': 'no-cache'.replace(/MAX_AGE/g, embedJsCacheSeconds),
+      },
+      logStatement: function(file) {
+        console.log("upload path cached_embedJs_"+embedJsCacheSeconds+" /embed_helper.js");
+        return "/embed_helper.js";
+      },
+      subdir: null,
+    }));
 
     // TODO remove this duplication!
     var embedJsCacheSeconds = 60;
-    gulp.src([
-      destRootBase + '/**/embed_helper.js',
-      ], {read: false})
-    .pipe(s3(creds, {
-        delay: 1000,
-        headers: {
-          'x-amz-acl': 'public-read',
-    //      'Content-Encoding': 'gzip', //causing issues, not sure why
-          'Cache-Control': 'no-cache'.replace(/MAX_AGE/g, embedJsCacheSeconds),
-        },
-        makeUploadPath: function(file) {
-          console.log("upload path cached_embedJs_"+embedJsCacheSeconds+" /embed_helper.js");
-          return "/embed_helper.js";
-        },
-      }));
+    promises.push(deployBatch({
+      srcKeep: destRootBase + '/**/embed_helper.js',
+      headers: {
+        'x-amz-acl': 'public-read',
+        'Content-Type': 'application/javascript',
+  //      'Content-Encoding': 'gzip', //causing issues (with s3), not sure why
+        'Cache-Control': 'no-cache'.replace(/MAX_AGE/g, embedJsCacheSeconds),
+      },
+      logStatement: function(file) {
+        console.log("upload path cached_embedJs_"+embedJsCacheSeconds+" /embed_helper.js");
+        return "/embed_helper.js";
+      },
+      subdir: null,
+    }));
 
 
     // TODO remove this duplication!
     var twitterAuthReturnCacheSeconds = 60;
-    gulp.src([
-      destRootBase + '/**/twitterAuthReturn.html',
-      ], {read: false})
-    .pipe(s3(creds, {
-        delay: 1000,
-        headers: {
-          'x-amz-acl': 'public-read',
-          'Content-Encoding': 'gzip',
-          'Cache-Control': 'no-cache'.replace(/MAX_AGE/g, twitterAuthReturnCacheSeconds),
-        },
-        makeUploadPath: function(file) {
-          console.log("uploading twitterAuthReturn");
-          return "/twitterAuthReturn.html";
-        },
-      }));
+    promises.push(deployBatch({
+      srcKeep: destRootBase + '/**/twitterAuthReturn.html',
+      headers: {
+        'x-amz-acl': 'public-read',
+        'Content-Encoding': 'gzip',
+        'Content-Type': 'text/html',
+        'Cache-Control': 'no-cache'.replace(/MAX_AGE/g, twitterAuthReturnCacheSeconds),
+      },
+      logStatement: function(file) {
+        console.log("uploading twitterAuthReturn");
+        return "/twitterAuthReturn.html";
+      },
+      subdir: null,
+    }));
 
     // HTML files (uncached)
     // (Wait until last to upload the html, since it will clobber the old html on S3, and we don't want that to happen before the new JS/CSS is uploaded.)
-    gulp.src([
-      destRootBase + '/**/*.html',
-      ], {read: false}).pipe(s3(creds, {
-        delay: 1000,
-        headers: {
-          'x-amz-acl': 'public-read',
-          'Cache-Control': 'no-cache',
-          // 'Cache-Control': 'no-transform,public,max-age=0,s-maxage=300', // NOTE: s-maxage is small for now, we could bump this up later once confident in cloudflare's cache purge workflow
-        },
-        makeUploadPath: makeUploadPathHtml,
-      }));
+    promises.push(deployBatch({
+      srcKeep: destRootBase + '/**/*.html',
+      headers: {
+        'x-amz-acl': 'public-read',
+        'Content-Type': 'text/html',
+        'Cache-Control': 'no-cache',
+        // 'Cache-Control': 'no-transform,public,max-age=0,s-maxage=300', // NOTE: s-maxage is small for now, we could bump this up later once confident in cloudflare's cache purge workflow
+      },
+      logStatement: makeUploadPathHtml,
+      subdir: null,
+    }));
 
-
-
+    return Promise.all(promises);
 }
 
 function doPurgeCache() {
