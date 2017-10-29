@@ -745,14 +745,34 @@ gulp.task('deploySurvey', [
 function s3uploader(params) {
     var creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'));
     creds = _.extend(creds, params);
+    this.needsHeadersJson = false;
     return function(o) {
-      return s3(creds, o);
+      let oo = _.extend({
+        delay: 1000,
+        makeUploadPath: function(file) {
+          let r = staticFilesPrefix + ".*";
+          let match = file.path.match(RegExp(r));
+          console.log(file);
+          console.log(file.path);
+          console.log(r, match);
+
+          let fixed = (_.isString(o.subdir) && match && match[0]) ? match[0] : path.basename(file.path);
+          console.log("upload path " + fixed);
+          return fixed;
+        },
+      }, o);
+      if (oo.headers) {
+        delete oo.headers['Content-Type']; // s3 figures this out
+      }
+
+      return s3(creds, oo);
     };
 }
 
 function scpUploader(params) {
   var creds = JSON.parse(fs.readFileSync('.polis_scp_creds_client.json'));
   scpConfig = _.extend({}, creds, params);
+  this.needsHeadersJson = true;
   return function(batchConfig) { // uploader
     console.log("scpUploader run", batchConfig);
     var o = _.extend({}, scpConfig);
@@ -785,7 +805,12 @@ function deploy(uploader) {
 
     function makeUploadPathFactory(tagForLogging) {
       return function(file) {
-        var fixed = file.path.match(RegExp(staticFilesPrefix + ".*"))[0];
+        console.log(file);
+        console.log(file.path);
+        let r = staticFilesPrefix + ".*";
+        let match = file.path.match(RegExp(r));
+
+        let fixed = match&&match[0] ? match[0] : file.path;
         console.log("upload path " + tagForLogging + ": " + fixed);
         return fixed;
       }
@@ -798,30 +823,33 @@ function deploy(uploader) {
           gulpSrc.push(srcIgnore);
         }
         function doDeployBatch() {
+          console.log("doDeployBatch", gulpSrc);
+
           gulp.src(gulpSrc, {read: true})
             .pipe(uploader({
               subdir: subdir,
               delay: 1000,
               headers: headers,
-              makeUploadPath: makeUploadPathFactory(logStatement),
             })).on('error', function(err) {
               console.log('error1', err);
               reject(err);
             }).on('end', resolve);
         }
         // create .headersJson files
-        let globOpts = {
-          nodir: true,
-        };
-        if (srcIgnore) {
-          globOpts.ignore = srcIgnore;
-        }
-        let files = glob.sync(srcKeep, globOpts)
-        for (let i = 0; i < files.length; i++) {
-          let file = files[i];
-          let headerFilename = file + ".headersJson";
-          fs.writeFileSync(headerFilename, JSON.stringify(headers));
-          gulpSrc.push(headerFilename);
+        if (uploader.needsHeadersJson) {
+          let globOpts = {
+            nodir: true,
+          };
+          if (srcIgnore) {
+            globOpts.ignore = srcIgnore;
+          }
+          let files = glob.sync(srcKeep, globOpts)
+          for (let i = 0; i < files.length; i++) {
+            let file = files[i];
+            let headerFilename = file + ".headersJson";
+            fs.writeFileSync(headerFilename, JSON.stringify(headers));
+            gulpSrc.push(headerFilename);
+          }
         }
         doDeployBatch();
       });
