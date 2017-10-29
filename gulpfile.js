@@ -69,6 +69,7 @@ function destRoot() {
 }
 var devMode = true;
 var minified = false;
+var scpSubdir = "";
 var preprodMode = false;
 var prodMode = false;
 var host;
@@ -561,11 +562,13 @@ gulp.task("scriptsTemp", function() {
 gulp.task("preprodConfig", function() {
   preprodMode = true;
   minified = true;
+  scpSubdir = process.env.SCP_SUBDIR_PREPROD;
 });
 
 gulp.task("prodConfig", function() {
   prodMode = true;
   minified = true;
+  scpSubdir = process.env.SCP_SUBDIR_PROD;
 });
 
 gulp.task("unminifiedConfig", function() {
@@ -745,8 +748,7 @@ gulp.task('deploySurvey', [
 function s3uploader(params) {
     var creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'));
     creds = _.extend(creds, params);
-    this.needsHeadersJson = false;
-    return function(o) {
+    let f = function(o) {
       let oo = _.extend({
         delay: 1000,
         makeUploadPath: function(file) {
@@ -767,13 +769,15 @@ function s3uploader(params) {
 
       return s3(creds, oo);
     };
+    f.needsHeadersJson = false;
+    return f;
 }
 
 function scpUploader(params) {
   var creds = JSON.parse(fs.readFileSync('.polis_scp_creds_client.json'));
+  creds.dest = path.join(creds.dest, scpSubdir);
   scpConfig = _.extend({}, creds, params);
-  this.needsHeadersJson = true;
-  return function(batchConfig) { // uploader
+  let f = function(batchConfig) { // uploader
     console.log("scpUploader run", batchConfig);
     var o = _.extend({}, scpConfig);
     if (batchConfig.subdir) {
@@ -791,6 +795,8 @@ function scpUploader(params) {
     // }).pipe(scp(scpConfig));
     return scp(o);
   };
+  f.needsHeadersJson = true;
+  return f;
 }
 
 function deploy(uploader) {
