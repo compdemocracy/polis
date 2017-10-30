@@ -186,13 +186,14 @@
       <span
         id="commentCharCount"
         aria-hidden="true" {{!-- don't show this to screen reader, since there's no problem --}}
-        style="color: gray; {{#if desktop}}min-width: 20px;{{/if}}"
+        style="display: none; color: gray; {{#if desktop}}min-width: 20px;{{/if}}"
         class="comment_form_control_hideable unselectable">
       </span>
       <label
         id="commentCharCountExceeded"
         for="comment_form_textarea"
-        style="color: red; {{#if desktop}}min-width: 20px;{{/if}}"
+        aria-role="alert"
+        style="display: none; color: red; {{#if desktop}}min-width: 20px;{{/if}}"
         class="comment_form_control_hideable unselectable">
       </label>
       <button
