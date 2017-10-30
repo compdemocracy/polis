@@ -120,15 +120,17 @@ module.exports = Handlebones.ModelView.extend({
       // txt = "- " + remaining;
       num = -1 * remaining;
       txt = Strings.commentTooLongByChars;
-      this.$("#comment_button").attr("disabled", "disabled");
+      // this.$("#comment_button").attr("disabled", "disabled");
       this.$("#comment_button").css("opacity", 0.3);
       this.showMessage("#commentTooLongAlert");
       this.buttonActive = false;
       this.$("#commentCharCount").text("");
+      this.$("#commentCharCount").hide();
       this.$("#commentCharCountExceeded").text(txt.replace("{{CHARACTERS_COUNT}}", num));
+      this.$("#commentCharCountExceeded").show();
     } else {
       num = remaining;
-      this.$("#comment_button").attr("disabled", null);
+      // this.$("#comment_button").attr("disabled", null);
       this.$("#comment_button").css("opacity", 1);
       this.hideMessage("#commentTooLongAlert");
       this.maybeShowBasicTip();
@@ -137,7 +139,9 @@ module.exports = Handlebones.ModelView.extend({
       // } else {
       // }
       this.$("#commentCharCount").text(txt.replace("{{CHARACTERS_COUNT}}", num));
+      this.$("#commentCharCount").show();
       this.$("#commentCharCountExceeded").text("");
+      this.$("#commentCharCountExceeded").hide();
     }
 
     this.chooseBasicTip(formText);

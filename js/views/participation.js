@@ -174,10 +174,10 @@ module.exports = ConversationView.extend({
 
     var html = markdown.toHTML(md_content);
     ctx.description = html;
-    if (/^ *$/.test(ctx.description) || _.isNull(ctx.description)) {
+    if (/^ *$/.test(ctx.description) || _.isNull(ctx.description) || ctx.description === "") {
       ctx.description = void 0;
     }
-    if (/^ *$/.test(ctx.topic) || _.isNull(ctx.topic)) {
+    if (/^ *$/.test(ctx.topic) || _.isNull(ctx.topic) || ctx.topic === "") {
       ctx.topic = void 0;
     }
 
