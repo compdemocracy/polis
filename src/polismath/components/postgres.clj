@@ -38,6 +38,19 @@
     (kdb/postgres settings)))
 
 
+
+;; The executor function for honeysql queries (which we'll be rewriting everything in over time)
+
+(defn query
+  "Takes a postgres component and a query, and executes the query. The query can either be a postgres vector, or a map.
+  Maps will be compiled via honeysql/format."
+  [component query-data]
+  (if (map? query-data)
+    (query component (sql/format query-data))
+    (jdbc/query (:db-spec component) query-data)))
+
+
+
 (defrecord Postgres [config db-spec]
   component/Lifecycle
   (start [component]
@@ -214,7 +227,7 @@
     :zinvite))
 
 (defn conv-poll
-  "Query for all data since last-vote-timestamp for a given zid, given an implicit db-spec"
+  "Query for all vote data since last-vote-timestamp for a given zid, given an implicit db-spec"
   [component zid last-vote-timestamp]
   (log/info "conv-poll for zid" zid ", last-vote-timestap" last-vote-timestamp)
   (try
@@ -227,6 +240,19 @@
       (log/error "polling failed for conv zid =" zid ":" (.getMessage e))
       (.printStackTrace e)
       [])))
+
+(defn conv-mod-poll
+  "Query for all mod data since last-vote-timestamp for a given zid, given an implicit db-spec"
+  [component zid last-mod-timestamp]
+  (log/info "conv-mod-poll for zid" zid ", last-vote-timestap" last-mod-timestamp)
+  (query
+    component
+    {:select [:*]
+     :from [:comments]
+     :order-by [:tid :modified]
+     :where [:and
+             [:> :modified last-mod-timestamp]
+             [:= :zid zid]]}))
 
 
 (defn format-as-json-for-db
@@ -248,18 +274,6 @@
 ;   ([mongo rootname basename] (str (collection-name mongo rootname) "_" basename)))
 
 
-
-
-;; This is honeysql;
-;; We are going to implement _everything else_ in terms of this.
-
-(defn query
-  "Takes a postgres component and a query, and executes the query. The query can either be a postgres vector, or a map.
-  Maps will be compiled via honeysql/format."
-  [component query-data]
-  (if (map? query-data)
-    (query component (sql/format query-data))
-    (jdbc/query (:db-spec component) query-data)))
 
 (defn poll-tasks
   [component last-timestamp]

@@ -245,7 +245,9 @@
         (assoc :raw-rating-mat
                (-> (nm/named-matrix)
                    (nm/update-nmat (->> (db/conv-poll (:postgres conv-man) zid 0)
-                                        (map (fn [vote-row] (mapv (partial get vote-row) [:pid :tid :vote]))))))))
+                                        (map (fn [vote-row] (mapv (partial get vote-row) [:pid :tid :vote])))))))
+        (conv/mod-update
+          (db/conv-mod-poll (:postgres conv-man) zid 0)))
     ; would be nice to have :recompute :initial
     (assoc (conv/new-conv) :zid zid :recompute :full)))
 
@@ -343,7 +345,7 @@
             _ (log/info "Conversation loaded for conv zid:" zid)
             ;; XXX Need to set up message chan buffer as a env var
             message-chan (chan 100000)
-            ;; We use a separate cchannel for messages that we've tryied to process but that havent worked for one reason or another
+            ;; We use a separate channel for messages that we've tried to process but that haven't worked for one reason or another
             retry-chan   (chan 10)] ; only really need buffer 1 here?
         (swap! conversations assoc zid {:conv conv :message-chan message-chan :retry-chan retry-chan})
         ;; Just call again to make sure the message gets on the chan (using the if-let fork above) :-)
