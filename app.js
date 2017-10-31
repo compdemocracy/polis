@@ -1381,6 +1381,7 @@ helpersInitialized.then(function(o) {
   // Conversation aliases
   app.get(/^\/football$/, makeRedirectorTo("/2arcefpshi"));
   app.get(/^\/pdf$/, makeRedirectorTo("/23mymwyhkn")); // pdf 2017
+  app.get(/^\/nabi$/, makeRedirectorTo("/8ufpzc6fkm")); // 
 
 
 
