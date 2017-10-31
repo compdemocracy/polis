@@ -212,10 +212,11 @@
                   (count (nm/colnames rating-mat)))
 
    :user-vote-counts
-                (plmb/fnk [rating-mat]
+                (plmb/fnk [raw-rating-mat]
                   ; For deciding in-conv below; filter ptpts based on how much they've voted
                   (->> (mapv
-                         (fn [rowname row] [rowname (count (remove nil? row))])
+                         (fn [rowname row]
+                           [rowname (count (remove nil? row))])
                          (nm/rownames rating-mat)
                          (nm/get-matrix rating-mat))
                        (into {})))
