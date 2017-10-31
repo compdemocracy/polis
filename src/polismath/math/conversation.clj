@@ -217,8 +217,8 @@
                   (->> (mapv
                          (fn [rowname row]
                            [rowname (count (remove nil? row))])
-                         (nm/rownames rating-mat)
-                         (nm/get-matrix rating-mat))
+                         (nm/rownames raw-rating-mat)
+                         (nm/get-matrix raw-rating-mat))
                        (into {})))
 
    ;; Ugg... right, have to clarify that we don't want to drop this; are we leaving anything else out like this?
