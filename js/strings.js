@@ -28,6 +28,9 @@ var translations = {
   // Italian
   it: require("./strings/it.js"),
 
+  // Dutch
+  nl: require("./strings/nl.js"),
+
   // Brazilian Portuguese (all portuguese speakers are temporarily using the same file.)
   pt_br: require("./strings/pt_br.js"),
 };
@@ -79,6 +82,9 @@ preloadHelper.acceptLanguagePromise.then(function() {
     }
     else if (languageCode.match(/^fr/)) {
       _.extend(strings, translations.fr);
+    }
+    else if (languageCode.match(/^nl/)) {
+      _.extend(strings, translations.nl);
     }
     else if (
       languageCode.match(/^pt/) ||  // To help other Portuguese speaker participants until its specific translation is not here
