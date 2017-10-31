@@ -94,7 +94,7 @@ s.convIsClosed = "Dit gesprek is afgesloten.";
 s.noMoreVotingAllowed = "Er mag niet meer gestemd worden.";
 
 s.topic_good_01 = "Wat zouden we kunnen doen met de pingpong kamer?";
-s.topic_good_01_reason = "vrijblijvend, iedereen kan een opinie of vraag hebben voor deze vraag';
+s.topic_good_01_reason = "vrijblijvend, iedereen kan een opinie of vraag hebben voor deze vraag";
 s.topic_good_02 = "Wat denkt u over het nieuwe voorstel?";
 s.topic_good_02_reason = "vrijblijvend, iedereen kan een opinie of vraag hebben voor deze vraag";
 s.topic_good_03 = "Kan u iets bedenken dat de productiviteit vertraagt?";
