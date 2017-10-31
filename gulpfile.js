@@ -563,12 +563,14 @@ gulp.task("preprodConfig", function() {
   preprodMode = true;
   minified = true;
   scpSubdir = process.env.SCP_SUBDIR_PREPROD;
+  s3Subdir = process.env.S3_BUCKET_PREPROD;
 });
 
 gulp.task("prodConfig", function() {
   prodMode = true;
   minified = true;
   scpSubdir = process.env.SCP_SUBDIR_PROD;
+  s3Subdir = process.env.S3_BUCKET_PROD;
 });
 
 gulp.task("unminifiedConfig", function() {
@@ -678,7 +680,7 @@ gulp.task('deploy_TO_PRODUCTION', [
   var uploader;
   if ('s3' === process.env.UPLOADER) {
     uploader = s3uploader({
-      bucket: process.env.S3_BUCKET_PREPROD,
+      bucket: s3Subdir,
     });
   }
   if ('scp' === process.env.UPLOADER) {
@@ -704,7 +706,7 @@ gulp.task('deployPreprod', [
   var uploader;
   if ('s3' === process.env.UPLOADER) {
     uploader = s3uploader({
-      bucket: process.env.S3_BUCKET_PREPROD,
+      bucket: s3Subdir,
     });
   }
   if ('scp' === process.env.UPLOADER) {
