@@ -40,6 +40,7 @@ class App extends React.Component {
       participants: null,
       conversation: null,
       groupDemographics: null,
+      colorBlindMode: false,
       dimensions: {
         width: window.innerWidth,
         height: window.innerHeight
@@ -335,7 +336,11 @@ class App extends React.Component {
       shouldPoll: false,
     });
   }
-
+  handleColorblindModeClick () {
+    this.setState({
+      colorBlindMode: !this.state.colorBlindMode
+    })
+  }
   render() {
     if (this.state.error) {
       return (<div>
@@ -364,6 +369,8 @@ class App extends React.Component {
           }}>
           <Controls
             onAutoRefreshEnabled={this.onAutoRefreshEnabled.bind(this)}
+            handleColorblindModeClick={this.handleColorblindModeClick.bind(this)}
+            colorBlindMode={this.state.colorBlindMode}
             onAutoRefreshDisabled={this.onAutoRefreshDisabled.bind(this)}
             autoRefreshEnabled={this.state.shouldPoll}/>
           <Overview
@@ -437,6 +444,7 @@ class App extends React.Component {
             comments={this.state.comments}
             groupNames={this.state.groupNames}
             badTids={this.state.badTids}
+            colorBlindMode={this.state.colorBlindMode}
             formatTid={this.state.formatTid}
             repfulAgreeTidsByGroup={this.state.repfulAgreeTidsByGroup}
             math={this.state.math}

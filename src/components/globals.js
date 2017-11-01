@@ -10,6 +10,10 @@ export const brandColors = {
   disagree: "rgb(231, 76, 60)",
   pass: "rgb(230,230,230)",
   comment: "#03a9f4",
+  yellowForRadial: "#DFE74D",
+  blue: "#03A9F4",
+  mediumGrey: "rgb(130,130,130)",
+  lightgrey: "rgb(215,215,215)",
 };
 
 const fontSizes = {

@@ -2,12 +2,9 @@
 import Checkbox from '../framework/checkbox';
 import React from "react";
 import settings from "../../settings";
-
-
-
+import * as globals from "../globals";
 
 class Controls extends React.Component {
-
 
   constructor(props) {
     super(props);
@@ -27,6 +24,7 @@ class Controls extends React.Component {
 
   render() {
     return (
+      <div>
       <Checkbox
         label= {"auto-refresh"}
         disabled={false}
@@ -36,6 +34,16 @@ class Controls extends React.Component {
         labelPosition={"left"}
         labelWrapperColor={settings.darkerGray}
         color={settings.polisBlue}/>
+      <Checkbox
+        label= {"color blind mode"}
+        disabled={false}
+        ref={"colorBlindMode"}
+        checked={ this.props.colorBlindMode}
+        clickHandler={ this.props.handleColorblindModeClick }
+        labelPosition={"left"}
+        labelWrapperColor={settings.darkerGray}
+        color={settings.polisBlue}/>
+      </div>
     );
   }
 

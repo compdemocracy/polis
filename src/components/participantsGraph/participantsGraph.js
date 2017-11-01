@@ -86,6 +86,16 @@ class ParticipantsGraph extends React.Component {
       this.setState({selectedComment});
     }
   }
+  getInnerRadialAxisColor () {
+    let color = globals.brandColors.lightgrey;
+    if (this.props.consensusDivisionColorScale && this.props.colorBlindMode) {
+      color = globals.brandColors.blue
+    } else if (this.props.consensusDivisionColorScale && !this.props.colorBlindMode) {
+      color = globals.brandColors.agree
+    }
+    return color;
+  }
+
   render() {
 
     if (!this.props.math) {
@@ -125,8 +135,6 @@ class ParticipantsGraph extends React.Component {
             This means participants who voted similarly are closer together.
           </p>
         </div>
-
-
           <p style={{fontWeight: 500, maxWidth: 600, lineHeight: 1.4, minHeight: 50}}>
             {
               this.state.selectedComment ?
@@ -147,7 +155,7 @@ class ParticipantsGraph extends React.Component {
             }}
             onClick={() => { this.setState({
               showContour: !this.state.showContour,
-              showRadialAxes: false
+              consensusDivisionColorScale: false
             })
             }}>
             Density
@@ -176,10 +184,25 @@ class ParticipantsGraph extends React.Component {
               marginRight: 20
             }}
             onClick={() => { this.setState({
-              showRadialAxes: !this.state.showRadialAxes,
+              showRadialAxes: !this.state.showRadialAxes
+            }) }}>
+            Radial axes
+          </button>
+          <button
+            style={{
+              color: this.state.consensusDivisionColorScale ? "white" : "black",
+              border: this.state.consensusDivisionColorScale ? "1px solid #03A9F4" : "1px solid black",
+              cursor: "pointer",
+              borderRadius: 3,
+              background: this.state.consensusDivisionColorScale ? "#03A9F4" : "none",
+              padding: 4,
+              marginRight: 20
+            }}
+            onClick={() => { this.setState({
+              consensusDivisionColorScale: !this.state.consensusDivisionColorScale,
               showContour: false
             }) }}>
-            Radial Axes
+            Consensus / Divisive color scale
           </button>
           <button
             style={{
@@ -248,9 +271,9 @@ class ParticipantsGraph extends React.Component {
             height={this.props.height ? this.props.height : globals.side}>
             <defs>
               <radialGradient cx="50%" cy="50%" fx="50%" fy="50%" r="43.818169%" id="radialGradient-1">
-                <stop stopColor="rgb(46, 204, 113)" offset="0%"></stop>
-                <stop stopColor="#DFE74D" offset="46.7315051%"></stop>
-                <stop stopColor="rgb(231, 76, 60)" offset="100%"></stop>
+                <stop stopColor={this.props.colorBlindMode ? globals.brandColors.blue : globals.brandColors.agree} offset="0%"></stop>
+                <stop stopColor={globals.brandColors.yellowForRadial} offset="46.7315051%"></stop>
+                <stop stopColor={globals.brandColors.disagree} offset="100%"></stop>
               </radialGradient>
               <circle
                 id="path-2"
@@ -267,20 +290,33 @@ class ParticipantsGraph extends React.Component {
               <g>
                 <circle
                   strokeWidth={1}
-                  stroke={"#DFE74D"}
+                  stroke={
+                    this.state.consensusDivisionColorScale ?
+                    globals.brandColors.disagree :
+                    globals.brandColors.lightgrey
+                  }
                   fill="none"
                   cx={xCenter}
                   cy={yCenter}
-                  r={globals.side / 4}>
-                </circle>
+                  r={globals.side / 2.3}/>
                 <circle
                   strokeWidth={1}
-                  stroke={"rgb(46, 204, 113)"}
+                  stroke={
+                    this.state.consensusDivisionColorScale ?
+                    globals.brandColors.yellowForRadial :
+                    globals.brandColors.lightgrey
+                  }
                   fill="none"
                   cx={xCenter}
                   cy={yCenter}
-                  r={globals.side / 8}>
-                </circle>
+                  r={globals.side / 4}/>
+                <circle
+                  strokeWidth={1}
+                  stroke={this.getInnerRadialAxisColor()}
+                  fill="none"
+                  cx={xCenter}
+                  cy={yCenter}
+                  r={globals.side / 8}/>
               </g> : null
             }
             {
@@ -337,7 +373,7 @@ class ParticipantsGraph extends React.Component {
               }) : null
             }
             {
-              this.state.showRadialAxes ?
+              this.state.consensusDivisionColorScale ?
               <g id="Page-1" stroke="none" strokeWidth="1" fill="none" fillRule="evenodd">
                 <g id="Artboard-Copy-4">
                   <g id="Oval">
@@ -348,7 +384,7 @@ class ParticipantsGraph extends React.Component {
                         mixBlendMode: "color-burn"
                       }}
                       xlinkHref="#path-2"></use>
-                    <use stroke="rgb(231, 76, 60)" strokeWidth="1" xlinkHref="#path-2"></use>
+                    <use stroke="none" strokeWidth="1" xlinkHref="#path-2"></use>
                   </g>
                 </g>
               </g> : null
@@ -360,26 +396,3 @@ class ParticipantsGraph extends React.Component {
 }
 
 export default ParticipantsGraph;
-
-// <svg
-//   style={{
-//     // border: "1px solid rgb(180,180,180)",
-//
-//   }}
-//   width={this.props.height ? this.props.height : globals.side}
-//   height={this.props.height ? this.props.height : globals.side}>
-//   {/* Comment https://bl.ocks.org/mbostock/7555321 */}
-//   <g transform={`translate(${globals.side / 2}, ${15})`}>
-//     <text
-//       style={{
-//         fontFamily: "Georgia",
-//         fontSize: 14,
-//         fontStyle: "italic"
-//       }}
-//       textAnchor="middle">
-//
-//     </text>
-//   </g>
-//   <Axes xCenter={xCenter} yCenter={yCenter} report={this.props.report}/>
-//   <Participants points={baseClustersScaled}/>
-// </svg>
