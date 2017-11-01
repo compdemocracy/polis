@@ -3,6 +3,7 @@ export const serif = "Georgia";
 export const paragraphWidth = 475;
 export const paragraphLineHeight = "24px";
 export const barChartWidth = 250;
+export const side = 700;
 
 export const brandColors = {
   agree: "rgb(46, 204, 113)",
@@ -68,7 +69,6 @@ export const groupSymbols = ["○", "◆", "+", "-", "◬",  "▮", ]
 export const enableMatrix = true;
 // export const maxCommentExtremityToShow = 2; /* naive & may not be solid. should be dynamically generated from extremity array probably to pick top 20 or something */
 export const maxCommentExtremityToShow = .6; /* naive & may not be solid. should be dynamically generated from extremity array probably to pick top 20 or something */
-export const side = 700;
 export const labelPadding = 40;
 export const shouldColorizeTidsByRepfulness = true;
 

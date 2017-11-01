@@ -65,12 +65,13 @@ class ParticipantsGraph extends React.Component {
     this.Viewer = null;
     this.state = {
       selectedComment: null,
-      showContour: true,
+      showContour: false,
       showGroupLabels: true,
       showParticipants: false,
-      showGroupOutline: true,
+      showGroupOutline: false,
       showComments: true,
-      showAxes: false,
+      showAxes: true,
+      showRadialAxes: true,
     };
   }
 
@@ -113,18 +114,15 @@ class ParticipantsGraph extends React.Component {
     return (
       <div style={{position: "relative"}}>
         <div>
-          <p style={globals.primaryHeading}> Participants </p>
+          <p style={globals.primaryHeading}> Graph </p>
           <p style={globals.paragraph}>
-          How do participants relate to each other?
+          Which comments were voted on similarly? How do participants relate to each other?
           </p>
           <p style={globals.paragraph}>
-          In this graph, participants are positioned closer to statements on which the agreed (see Comments graph above)
-          and further from statements on which they disagreed.
-          This means participants who voted similarly are closer together.
-          </p>
-          <p style={globals.paragraph}>
-            This is meaningful as it lends visual weight to the <i>amount</i> of people who fall in each quadrant,
-            the characteristics of which have been established above.
+            In this graph, comments are positioned more closely to comments which were voted on similarly.
+            Participants, in turn, are positioned more closely to comments on which they agreed,
+            and further from statements on which they disagreed.
+            This means participants who voted similarly are closer together.
           </p>
         </div>
 
@@ -147,7 +145,11 @@ class ParticipantsGraph extends React.Component {
               padding: 4,
               marginRight: 20
             }}
-            onClick={() => { this.setState({showContour: !this.state.showContour}) }}>
+            onClick={() => { this.setState({
+              showContour: !this.state.showContour,
+              showRadialAxes: false
+            })
+            }}>
             Density
           </button>
           <button
@@ -162,6 +164,22 @@ class ParticipantsGraph extends React.Component {
             }}
             onClick={() => { this.setState({showAxes: !this.state.showAxes}) }}>
             Axes
+          </button>
+          <button
+            style={{
+              color: this.state.showRadialAxes ? "white" : "black",
+              border: this.state.showRadialAxes ? "1px solid #03A9F4" : "1px solid black",
+              cursor: "pointer",
+              borderRadius: 3,
+              background: this.state.showRadialAxes ? "#03A9F4" : "none",
+              padding: 4,
+              marginRight: 20
+            }}
+            onClick={() => { this.setState({
+              showRadialAxes: !this.state.showRadialAxes,
+              showContour: false
+            }) }}>
+            Radial Axes
           </button>
           <button
             style={{
@@ -228,8 +246,43 @@ class ParticipantsGraph extends React.Component {
           <svg
             width={this.props.height ? this.props.height : globals.side}
             height={this.props.height ? this.props.height : globals.side}>
+            <defs>
+              <radialGradient cx="50%" cy="50%" fx="50%" fy="50%" r="43.818169%" id="radialGradient-1">
+                <stop stopColor="rgb(46, 204, 113)" offset="0%"></stop>
+                <stop stopColor="#DFE74D" offset="46.7315051%"></stop>
+                <stop stopColor="rgb(231, 76, 60)" offset="100%"></stop>
+              </radialGradient>
+              <circle
+                id="path-2"
+                style={{pointerEvents: "none"}}
+                cx={xCenter}
+                cy={yCenter}
+                r={globals.side / 2.3}>
+              </circle>
+            </defs>
             {this.state.showContour ? contours.map((contour, i) => <Contour key={i} contour={contour} />) : null}
             {this.state.showAxes ? <Axes xCenter={xCenter} yCenter={yCenter} report={this.props.report}/> : null}
+            {
+              this.state.showRadialAxes ?
+              <g>
+                <circle
+                  strokeWidth={1}
+                  stroke={"#DFE74D"}
+                  fill="none"
+                  cx={xCenter}
+                  cy={yCenter}
+                  r={globals.side / 4}>
+                </circle>
+                <circle
+                  strokeWidth={1}
+                  stroke={"rgb(46, 204, 113)"}
+                  fill="none"
+                  cx={xCenter}
+                  cy={yCenter}
+                  r={globals.side / 8}>
+                </circle>
+              </g> : null
+            }
             {
               this.state.showGroupOutline ? hulls.map((hull) => {
                 let gid = hull.group[0].gid;
@@ -282,6 +335,23 @@ class ParticipantsGraph extends React.Component {
                     {globals.groupLabels[g.id]}
                   </text>
               }) : null
+            }
+            {
+              this.state.showRadialAxes ?
+              <g id="Page-1" stroke="none" strokeWidth="1" fill="none" fillRule="evenodd">
+                <g id="Artboard-Copy-4">
+                  <g id="Oval">
+                    <use
+                      fill="url(#radialGradient-1)"
+                      fillRule="evenodd"
+                      style={{
+                        mixBlendMode: "color-burn"
+                      }}
+                      xlinkHref="#path-2"></use>
+                    <use stroke="rgb(231, 76, 60)" strokeWidth="1" xlinkHref="#path-2"></use>
+                  </g>
+                </g>
+              </g> : null
             }
           </svg>
       </div>
