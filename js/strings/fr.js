@@ -96,12 +96,12 @@ s.connectToVotePrompt = "Connectez-vous pour voter. Pas d'inquiétudes, nous ne 
 s.commentWritingTipsHintsHeader = "Conseils pour rédiger des commentaires";
 s.tipCharLimit = "Les commentaires sont limités à {{char_limit}} caractères.";
 s.participantHelpGroupsNotYetText = "La visualisation apparaîtra quand 7 personnes auront voté";
-s.showTranslationButton = "Afficher la traduction";
+s.showTranslationButton = "Activer la traduction";
 s.comments_remaining2 = "{{num_comments}} commentaires restants";
 s.commentIsEmpty = "Le commentaire est vide";
 s.commentIsTooLong = "Le commentaire est trop long";
 s.commentTooLongByChars = "La longueur maximum autorisée est dépassée de {{CHARACTERS_COUNT}} caractères.";
-s.hideTranslationButton = "Masquer la traduction";
+s.hideTranslationButton = "Désactiver la traduction";
 
 
 module.exports = s;

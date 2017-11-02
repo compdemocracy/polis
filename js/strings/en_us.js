@@ -77,8 +77,8 @@ s.connectFbButton = "Connect with Facebook";
 s.connectTwButton = "Connect with Twitter";
 s.polis_err_reg_fb_verification_email_sent = "Please check your email for a verification link, then return here to continue.";
 s.polis_err_reg_fb_verification_noemail_unverified = "Your Facebook account is unverified. Please verify your email address with Facebook, then return here to continue.";
-s.showTranslationButton = "Show Translation";
-s.hideTranslationButton = "Hide Translation";
+s.showTranslationButton = "Activate Translation";
+s.hideTranslationButton = "Deactivate Translation";
 
 s.notificationsAlreadySubscribed = "You are subscribed to updates for this conversation.";
 s.notificationsGetNotified = "Get notified when more comments arrive:";
