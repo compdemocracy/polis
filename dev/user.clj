@@ -31,7 +31,7 @@
 (comment
   ;; Run one of these to interactively test out a particular system or subsystem
   (runner/stop!)
-  (runner/run! system/base-system {:math-env :prod})
+  (runner/run! system/base-system {:math-env :dev})
   ;(runner/run! system/poller-system {:math-env :dev :poll-from-days-ago 0.1})
   ;(runner/run! system/task-system)
   ;(runner/run! system/task-system {:math-env :preprod :poll-from-days-ago 0.1})
@@ -49,11 +49,29 @@
 
   ;; Setting up load and interactive testing for a specific conversation
   ;(def args {:zid 16906})
+  ; load conv and do a recompute
+  (def args {:zid 17175})
   (def conv
-    (-> (load-conv args)))
-  ;      (conv/conv-update [])))
+    (-> (load-conv args)
+        (conv/conv-update [])))
+  (keys conv)
+  (matrix/get-column (nm/get-matrix (:raw-rating-mat conv)) 10)
+  (matrix/get-column (nm/get-matrix (:rating-mat conv)) 10)
+  (matrix/get-column (:mat conv) 10)
+  (keys (:pca conv))
+  (matrix/mget (:center (:pca conv)) 10)
+  (matrix/get-column (:comps (:pca conv)) 10)
+  (:mod-out conv)
+  ; recompute on conv
+  (def conv (conv/conv-update conv []))
+  (do
+    (conv/conv-update conv [])
+    nil)
+  ;; looks at results of conv
+  (keys conv)
   (:raw-rating-mat conv)
-  (conv/conv-update conv [])
+  (:rating-mat conv)
+  (:mat conv)
   (def conv
     (-> (load-conv args)
         (conv/conv-update [{:zid 11547 :pid 0 :tid 0 :vote 2.0 :created (System/currentTimeMillis)}])))
@@ -94,19 +112,27 @@
 
   (postgres/query
     (:postgres runner/system)
+    ;; Builds a string like the above
     (honey/format
       {:select [:*]
        :from [:votes]
        :limit 10}))
 
+  ;; This is the preferred way
+  (postgres/query
+    (:postgres runner/system)
+    ;; Processes maps automatically, so you can do either of the two
+    {:select [:*]
+     :from [:votes]
+     :limit 10})
+
 
   ;; Debugging issue
   (postgres/query
     (:postgres runner/system)
-    (honey/format
-      {:select [:*]
-       :from [:math_tasks]
-       :limit 10}))
+    {:select [:*]
+     :from [:math_tasks]
+     :limit 10})
 
 
   ;; Getting config settings

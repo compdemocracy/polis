@@ -11,9 +11,9 @@
   (named-matrix/named-matrix [:a :b] [:x :y] [[1 0] [-1 1]]))
 
 
-(let [empty-conv {:unmodded-rating-mat (named-matrix/named-matrix)}
-      small-conv {:unmodded-rating-mat rat-mat
-                  :rating-mat rat-mat}
+(let [empty-conv {:raw-rating-mat (named-matrix/named-matrix)}
+      small-conv {:raw-rating-mat rat-mat
+                  :rating-mat     rat-mat}
 
       single-vote   [{:created 500 :pid :a, :tid :x, :vote 3}]
       wonky-votes   [{:created 600 :pid :b, :tid :x, :vote 0}
@@ -31,9 +31,9 @@
          [ 1  0  1  0  1]
          [ 1 -1  0 -1  0]
          [-1 -1  0  1  0]])
-      big-conv {:unmodded-rating-mat big-conv-matrix
-                :rating-mat big-conv-matrix
-                :pca {:center [0.0 -0.2 -0.0  0.4] ;actually calculated this...
+      big-conv {:raw-rating-mat big-conv-matrix
+                :rating-mat     big-conv-matrix
+                :pca            {:center [0.0 -0.2 -0.0  0.4] ;actually calculated this...
                       :comps [[0.4  0.2 -0.3  0.7] ;this is faked...
                               [0.1 -0.5  0.2  0.2]]}}]
 
