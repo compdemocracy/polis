@@ -331,6 +331,55 @@
       (postgres/mark-task-complete! postgres "generate_report_data" rid))))
 
 
+(defn conv-actor
+  [{:as conv-man :keys [conversations kill-chan config listeners]} zid]
+  (log/info "Starting message batch queue and handler routine for conv zid:" zid)
+  (let [conv (load-or-init conv-man zid :recompute (:recompute config))
+        _ (log/info "Conversation loaded for conv zid:" zid)
+        ;; Set up our main message chan
+        message-chan (chan 10000)
+        ;; Separate channel for messages that we've tried to process but that haven't worked for one reason or another (buffer size not important here)
+        retry-chan   (chan 10)]
+    (go-loop [conv conv]
+      ;; If nil comes through as the first message, then the chan is closed, and we should be done, not continue looping forever
+      (when-not (async/poll! kill-chan)
+        (when-let [first-msg (<! message-chan)]
+          ;; If there are any retry messages from a failed recompute, we put them at the front of the message stack.
+          ;; But retry messages only get processed in this way if there are new messages that have come in triggering the
+          ;; first-msg take above, ensuring we don't just loop forever on a broken message/update.
+          (log/info "Message chan put in queue-message-batch! for zid:" zid)
+          (let [retry-msgs (async/poll! retry-chan)
+                msgs (vec (concat retry-msgs [first-msg] (take-all! message-chan)))
+                ;; Regardless, now we split the messages by message type and process them as below
+                {:as split-msgs :keys [votes moderation generate_report_data]} (split-batches msgs)
+                ;; Here we construct an error handler that gets passed to the conv update process, wrapping the retry queue,
+                ;; error reporting, etc.
+                error-handler (build-update-error-handler conv-man retry-chan conv)
+                ;; Run moderation and vote updates
+                conv (if moderation
+                       (conv/mod-update conv moderation)
+                       conv)
+                ;; Note that we run the update here if there are either new votes or changes in moderation; conv update
+                ;; should work on nil vote seq; we also run if we get a report gen request but haven't built the reating mat
+                conv (if (or moderation votes (not (:rating-mat conv)))
+                       (conv-update conv-man conv votes error-handler)
+                       conv)
+                math-tick (postgres/inc-math-tick (:postgres conv-man) zid)]
+            (log/info "Completed computing conversation zid:" zid)
+            (log/debug "Mod out for zid" zid "is:" (:mod-out conv))
+            (write-conv-updates! conv-man conv math-tick)
+            ;; Run reports corr matrix stuff (etc)
+            (doseq [report-task generate_report_data]
+              (generate-report-data! conv-man conv math-tick report-task))
+            ;; Here, we assoc into the parent conversations state as a convenience; the actual "current state" is
+            ;; as closed over in this go-loop.
+            (swap! conversations assoc-in [zid :conv] conv)
+            (async/thread
+              (doseq [[k f] @listeners] (try (f conv) (catch Exception e (log/error e "Listener error")))))
+            (recur conv)))))
+    {:conv conv :message-chan message-chan :retry-chan retry-chan}))
+
+
 ;; Need to think about what to do if failed conversations lead to messages piling up in the message queue XXX
 (defn queue-message-batch!
   "Queue message batches for a given conversation by zid"
@@ -340,54 +389,10 @@
       ;; Then we already have a go loop running for this
       (>!! message-chan {:message-type message-type :message-batch message-batch})
       ;; Then we need to initialize the conversation and set up the conversation channel and go routine
-      (let [_ (log/info "Starting message batch queue and handler routine for conv zid:" zid)
-            conv (load-or-init conv-man zid :recompute (:recompute config))
-            _ (log/info "Conversation loaded for conv zid:" zid)
-            ;; XXX Need to set up message chan buffer as a env var
-            message-chan (chan 100000)
-            ;; We use a separate channel for messages that we've tried to process but that haven't worked for one reason or another
-            retry-chan   (chan 10)] ; only really need buffer 1 here?
-        (swap! conversations assoc zid {:conv conv :message-chan message-chan :retry-chan retry-chan})
+      (let [conv-actor (conv-actor zid)]
+        (swap! conversations assoc zid conv-actor)
         ;; Just call again to make sure the message gets on the chan (using the if-let fork above) :-)
-        (queue-message-batch! conv-man message-type zid message-batch)
-        ;; However, we don't use the conversations atom conv state, but keep track of it explicitly in the loop,
-        ;; ensuring that we don't have race conditions for conv state. The state kept in the atom is basically
-        ;; just a convenience.
-        (go-loop [conv conv]
-          ;; If nil comes through as the first message, then the chan is closed, and we should be done, not continue looping forever
-          (when-not (async/poll! kill-chan)
-            (when-let [first-msg (<! message-chan)]
-              ;; If there are any retry messages from a failed recompute, we put them at the front of the message stack.
-              ;; But retry messages only get processed in this way if there are new messages that have come in triggering the
-              ;; first-msg take above, ensuring we don't just loop forever on a broken message/update.
-              (log/info "Message chan put in queue-message-batch! for zid:" zid)
-              (let [retry-msgs (async/poll! retry-chan)
-                    msgs (vec (concat retry-msgs [first-msg] (take-all! message-chan)))
-                    ;; Regardless, now we split the messages by message type and process them as below
-                    {:as split-msgs :keys [votes moderation generate_report_data]} (split-batches msgs)
-                    ;; Here we construct an error handler that gets passed to the conv update process, wrapping the retry queue,
-                    ;; error reporting, etc.
-                    error-handler (build-update-error-handler conv-man retry-chan conv)
-                    ;; Run moderation and vote updates
-                    conv (if moderation
-                           (conv/mod-update conv moderation)
-                           conv)
-                    ;; Note that we run the update here if there are either new votes or changes in moderation; conv update
-                    ;; should work on nil vote seq; we also run if we get a report gen request but haven't built the reating mat
-                    conv (if (or moderation votes (not (:rating-mat conv)))
-                           (conv-update conv-man conv votes error-handler)
-                           conv)
-                    math-tick (postgres/inc-math-tick (:postgres conv-man) zid)]
-                (log/info "Completed computing conversation zid:" zid)
-                (log/debug "Mod out for zid" zid "is:" (:mod-out conv))
-                (write-conv-updates! conv-man conv math-tick)
-                ;; Run reports corr matrix stuff (etc)
-                (doseq [report-task generate_report_data]
-                  (generate-report-data! conv-man conv math-tick report-task))
-                (swap! conversations assoc-in [zid :conv] conv)
-                (async/thread
-                  (doseq [[k f] @listeners] (try (f conv) (catch Exception e (log/error e "Listener error")))))
-                (recur conv)))))))))
+        (queue-message-batch! conv-man message-type zid message-batch)))))
 
 
 ;; Need to find a good way of making sure these tests don't ever get committed uncommented
