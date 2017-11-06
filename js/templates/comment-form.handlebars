@@ -91,20 +91,17 @@
     ">
 
     {{!-- ================ SOCIAL PICTURE && TEXT AREA ================ --}}
-    <div
-      class="
-        flexbox
-        align-items-flex-end
-        ">
-        <span class="align-items-flex-start">
-          {{view profilePicView}}
-        </span>
-      <span class="flex-grow-2">
+    <div style="display: table">
+      <span style="display: table-cell">
+        {{view profilePicView}}
+      </span>
+      <span style="display: table-cell; width: 100%">
         <textarea
           class="form-control"
           id="comment_form_textarea"
           rows="1"
           style="
+          display: inline-block;
             width: 100%;
             font-size: 16px; {{!-- 16px to prevent zooming on iOS. http://stackoverflow.com/questions/2989263/disable-auto-zoom-in-input-text-tag-safari-on-iphone --}}
             line-height: 23px;

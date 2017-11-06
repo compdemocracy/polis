@@ -7,6 +7,7 @@ var Utils = require("../util/utils");
 
 module.exports =  Handlebones.ModelView.extend({
   name: "profile-pic-view",
+  tagName: "span",
   template: template,
 
   context: function() {
