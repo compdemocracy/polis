@@ -121,9 +121,9 @@ module.exports = Handlebones.ModelView.extend({
       num = -1 * remaining;
       txt = Strings.commentTooLongByChars;
       // this.$("#comment_button").attr("disabled", "disabled");
-      this.$("#comment_button").css("opacity", 0.3);
+      // this.$("#comment_button").css("opacity", 0.3);
       this.showMessage("#commentTooLongAlert");
-      this.buttonActive = false;
+      // this.buttonActive = false;
       this.$("#commentCharCount").text("");
       this.$("#commentCharCount").hide();
       this.$("#commentCharCountExceeded").text(txt.replace("{{CHARACTERS_COUNT}}", num));
@@ -131,10 +131,10 @@ module.exports = Handlebones.ModelView.extend({
     } else {
       num = remaining;
       // this.$("#comment_button").attr("disabled", null);
-      this.$("#comment_button").css("opacity", 1);
+      // this.$("#comment_button").css("opacity", 1);
       this.hideMessage("#commentTooLongAlert");
       this.maybeShowBasicTip();
-      this.buttonActive = true;
+      // this.buttonActive = true;
       // if (remaining > 0) {
       // } else {
       // }
@@ -189,11 +189,23 @@ module.exports = Handlebones.ModelView.extend({
   },
   submitComment: function(e){
     var that = this;
+    this.hideMessage("#comment_sent_message");
+    this.hideMessage("#comment_send_failed_message");
 
     function doSubmitComment() {
       if (that.buttonActive) {
         that.buttonActive = false;
         serialize(that, function(attrs){
+          if (attrs.txt.length === 0) {
+            that.showMessage("#comment_send_failed_message");
+            that.buttonActive = true;
+            return;
+          }
+          if (attrs.txt.length > CHARACTER_LIMIT) {
+            that.showMessage("#comment_send_failed_message");
+            that.buttonActive = true;
+            return;
+          }
           that.participantCommented(attrs).then(function() {
             that.$("#comment_form_textarea").val("");
             that.hideFormControls();
