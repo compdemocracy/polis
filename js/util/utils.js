@@ -258,7 +258,7 @@ function evenlySample(items, maxSample) {
 function getBestTranslation(translations, lang) {
   var firstTwoOfLang = lang.substr(0,2);
   var matchingLang = _.filter(translations, function(t) {
-    return t.lang.startsWith(firstTwoOfLang);
+    return t.lang.indexOf(firstTwoOfLang) === 0;
   });
   matchingLang.sort(function(a, b) {
     if (a.lang !== b.lang) {
