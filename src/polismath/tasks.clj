@@ -48,6 +48,12 @@
         (darwin/notify-of-status darwin (:task_data params) "failed")))))
 
 
+(defmethod dispatch-task! :update_math
+  [{:as poller :keys [darwin conversation-manager]} task-record]
+  (log/debug "Dispatching update_math task for:" task-record)
+  (conv-man/queue-message-batch! conversation-manager :votes (-> task-record :task_data :zid) []))
+
+
 (defn poll
   [{:as poller :keys [config postgres kill-chan]}]
   (log/debug ">> Initializing task poller loop")
