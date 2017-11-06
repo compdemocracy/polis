@@ -389,7 +389,7 @@
       ;; Then we already have a go loop running for this
       (>!! message-chan {:message-type message-type :message-batch message-batch})
       ;; Then we need to initialize the conversation and set up the conversation channel and go routine
-      (let [conv-actor (conv-actor zid)]
+      (let [conv-actor (conv-actor conv-man zid)]
         (swap! conversations assoc zid conv-actor)
         ;; Just call again to make sure the message gets on the chan (using the if-let fork above) :-)
         (queue-message-batch! conv-man message-type zid message-batch)))))
