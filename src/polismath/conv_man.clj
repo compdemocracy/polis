@@ -344,10 +344,10 @@
       ;; If nil comes through as the first message, then the chan is closed, and we should be done, not continue looping forever
       (when-not (async/poll! kill-chan)
         (when-let [first-msg (<! message-chan)]
+          (log/debug "Message chan put in queue-message-batch! for zid:" zid)
           ;; If there are any retry messages from a failed recompute, we put them at the front of the message stack.
           ;; But retry messages only get processed in this way if there are new messages that have come in triggering the
           ;; first-msg take above, ensuring we don't just loop forever on a broken message/update.
-          (log/info "Message chan put in queue-message-batch! for zid:" zid)
           (let [retry-msgs (async/poll! retry-chan)
                 msgs (vec (concat retry-msgs [first-msg] (take-all! message-chan)))
                 ;; Regardless, now we split the messages by message type and process them as below
@@ -366,7 +366,7 @@
                        conv)
                 math-tick (postgres/inc-math-tick (:postgres conv-man) zid)]
             (log/info "Completed computing conversation zid:" zid)
-            (log/debug "Mod out for zid" zid "is:" (:mod-out conv))
+            ;; Write updated models
             (write-conv-updates! conv-man conv math-tick)
             ;; Run reports corr matrix stuff (etc)
             (doseq [report-task generate_report_data]
@@ -374,6 +374,7 @@
             ;; Here, we assoc into the parent conversations state as a convenience; the actual "current state" is
             ;; as closed over in this go-loop.
             (swap! conversations assoc-in [zid :conv] conv)
+            ;; Run any attached listener functions (this is experimental)
             (async/thread
               (doseq [[k f] @listeners] (try (f conv) (catch Exception e (log/error e "Listener error")))))
             (recur conv)))))
