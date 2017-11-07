@@ -5,43 +5,29 @@
   style="margin-bottom: -40px;"
   >
 
-  {{!-- Top of "Card stack" --}}
-  <div
-  	class="
-  		custom_gutter
-  		lightPanel
-  		"
-  	style="
-  		position:relative;
-  		top: 0px;
-  		z-index: 3;
-  		{{!-- min-height: 144px; attempt to avoid flashing on vote view load--}}
-  	">
-
-    {{!-- This is the optional social prompt --}}
-	  {{#if promptFacebook}}
-	  <div style="margin: 20px;" class="Notification Notification--warning">
-	    <p class="HeadingF HeadingF--light pull-right" style="cursor: pointer" role="button" type="button" id="fbNotNowBtn">
-	    	<i class="fa fa-times"></i> Not now
-	    </p>
-	    <div>
-	      <p class="facebookCaveatText">
-		      Connect Facebook and invite your friends to see them in the visualization! We will not post on your behalf.
-	      </p>
-	      <div class="text-center">
-		    	<button id="fbConnectBtn" class="facebookButton">
-		    		<i class="fa fa-facebook-square"></i>&nbsp; Connect Facebook
-		      </button>
-	      </div>
-	    </div>
-	  </div>
-	  {{else}}
-  		{{view voteView}}
-	  {{/if}}
-	</div>
 
   {{!-- Empty "Card stack" div1 (notice css "top" and "width") --}}
-	<div
+ <div
+    id="cardStack"
+    style="
+      position: relative;
+      {{!-- min-height: 144px; attempt to avoid flashing on vote view load--}}
+    ">
+    <!-- <span style="visibility: hidden"> -->
+    <span style="visibility: hidden">
+      <div id="card_dummy" style="position:relative" class="voteViewCardPos_constant lightPanel">{{view voteView_dummy}}</div>
+      <div style="min-height:80px"></div>
+    </span>
+
+    <div id="card_w" style="position:absolute; " class="animVoteCard voteViewCardPos_0 lightPanel"><span>{{view voteView_w}}</span></div>
+    <div id="card_x" style="position:absolute; " class="animVoteCard voteViewCardPos_1 lightPanel"><span>{{view voteView_x}}</span></div>
+    <div id="card_y" style="position:absolute; " class="animVoteCard voteViewCardPos_2 lightPanel"><span>{{view voteView_y}}</span></div>
+    <div id="card_z" style="position:absolute; " class="animVoteCard voteViewCardPos_3 lightPanel"><span>{{view voteView_z}}</span></div>
+
+  </div>
+
+  {{!-- Empty "Card stack" div1 (notice css "top" and "width") --}}
+	<!-- <div
 		style="
 			min-height: 30px;
 			position:relative;
@@ -51,9 +37,11 @@
 			width: 99%;
 		"
 		class="lightPanel">
-	</div>
+      {{view voteView1}}
+	</div> -->
+
   {{!-- Empty "Card stack" div2 (notice css "top" and "width") --}}
-	<div
+	<!-- <div
 		style="
 			min-height: 30px;
 			position:relative;
@@ -63,5 +51,7 @@
 			width: 98%;
 		"
 		class="lightPanel">
-	</div>
+      {{view voteView2}}
+	</div> -->
+
 </div>
