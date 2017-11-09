@@ -43,8 +43,18 @@ function postCommentEvent() {
   }, "*");
 }
 
+function postInitEvent(status) {
+  window.top.postMessage({
+    name: "init",
+    status: status,
+    conversation: window.preload.conversation,
+  }, "*");
+}
+
+
 module.exports = {
 
+  postInitEvent: postInitEvent,
   postResizeEvent: postResizeEvent,
   postVoteEvent: postVoteEvent,
   postCommentEvent: postCommentEvent,
