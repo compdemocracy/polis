@@ -430,6 +430,13 @@ uidPromise = CurrentUserModel.update().then(function(user) {
 // }
 
 
+preloadHelper.firstConvPromise.then(function() {
+  PostMessageUtils.postInitEvent("ok");
+}, function() {
+  PostMessageUtils.postInitEvent("error");
+});
+
+
 $.when(
   preloadHelper.acceptLanguagePromise,
   uidPromise).always(function() {

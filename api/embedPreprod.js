@@ -10,6 +10,7 @@
   polis.on.vote = polis.on.vote || [];
   polis.on.doneVoting = polis.on.doneVoting || [];
   polis.on.write = polis.on.write || [];
+  polis.on.init = polis.on.init || [];
   polis.on.resize = polis.on.resize || [];
 
   function parseQueryParams(startToken, s) {
@@ -216,6 +217,12 @@
           iframe: document.getElementById("polis_" + data.polisFrameId),
           data: data
         }));
+      }
+
+      if (data && data.name === "init") {
+        for (var r = 0; r < polis.on.init.length; r++) {
+          polis.on.init[r](data);
+        }
       }
 
       if (data === "cookieRedirect" && cookiesEnabledAtTopLevel()) {
