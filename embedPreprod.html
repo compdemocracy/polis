@@ -49,6 +49,16 @@
       return false; // Return true to prevent default resize handler found in https://pol.is/embed.js
     }
   ];
+  polis.on.init = [
+    function(o) {
+      if (o.status === "ok") {
+        console.log("polis loaded");
+        console.log(o.conversation);
+      } else {
+        console.error("error loading");
+      }
+    }
+  ];
   </script>
 
   <div style="width: 620px; margin: auto;">
