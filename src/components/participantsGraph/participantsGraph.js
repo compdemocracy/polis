@@ -188,7 +188,7 @@ class ParticipantsGraph extends React.Component {
             }) }}>
             Radial axes
           </button>
-          <button
+          {/* <button
             style={{
               color: this.state.consensusDivisionColorScale ? "white" : "black",
               border: this.state.consensusDivisionColorScale ? "1px solid #03A9F4" : "1px solid black",
@@ -203,7 +203,7 @@ class ParticipantsGraph extends React.Component {
               showContour: false
             }) }}>
             Consensus / Divisive color scale
-          </button>
+          </button>*/}
           <button
             style={{
               color: this.state.showComments ? "white" : "black",
@@ -283,42 +283,34 @@ class ParticipantsGraph extends React.Component {
                 r={globals.side / 2.3}>
               </circle>
             </defs>
-            {this.state.showContour ? contours.map((contour, i) => <Contour key={i} contour={contour} />) : null}
-            {this.state.showAxes ? <Axes xCenter={xCenter} yCenter={yCenter} report={this.props.report}/> : null}
             {
               this.state.showRadialAxes ?
               <g>
                 <circle
                   strokeWidth={1}
-                  stroke={
-                    this.state.consensusDivisionColorScale ?
-                    globals.brandColors.disagree :
-                    globals.brandColors.lightgrey
-                  }
-                  fill="none"
+                  stroke={"rgb(230,230,230)"}
+                  fill={"rgb(248,248,248)"}
                   cx={xCenter}
                   cy={yCenter}
                   r={globals.side / 2.3}/>
                 <circle
                   strokeWidth={1}
-                  stroke={
-                    this.state.consensusDivisionColorScale ?
-                    globals.brandColors.yellowForRadial :
-                    globals.brandColors.lightgrey
-                  }
-                  fill="none"
+                  stroke={"rgb(230,230,230)"}
+                  fill={"rgb(245,245,245)"}
                   cx={xCenter}
                   cy={yCenter}
                   r={globals.side / 4}/>
                 <circle
                   strokeWidth={1}
-                  stroke={this.getInnerRadialAxisColor()}
-                  fill="none"
+                  stroke={"rgb(230,230,230)"}
+                  fill={"rgb(248,248,248)"}
                   cx={xCenter}
                   cy={yCenter}
                   r={globals.side / 8}/>
               </g> : null
             }
+            {this.state.showContour ? contours.map((contour, i) => <Contour key={i} contour={contour} />) : null}
+            {this.state.showAxes ? <Axes xCenter={xCenter} yCenter={yCenter} report={this.props.report}/> : null}
             {
               this.state.showGroupOutline ? hulls.map((hull) => {
                 let gid = hull.group[0].gid;
