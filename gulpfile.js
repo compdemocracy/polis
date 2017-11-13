@@ -652,17 +652,19 @@ gulp.task("watchForDev", [
 });
 
 function notifySlackOfDeployment(env) {
+  var slackPath = '.polis_slack_creds.json';
+  if (fs.existsSync(slackPath)) {
+    var creds = JSON.parse(fs.readFileSync(slackPath));
 
-  var creds = JSON.parse(fs.readFileSync('.polis_slack_creds.json'));
-
-  getGitHash().then(function(hash) {
-    var slackToken = creds.apikey;
-    var message = "deploying to " + env +
-      "\n" + hash +
-      "\n" + new Date();
-    var url = "https://slack.com/api/chat.postMessage?token="+slackToken+"&channel=C02G773HT&text="+message+"&pretty=1";
-    request(url);
-  });
+    getGitHash().then(function(hash) {
+      var slackToken = creds.apikey;
+      var message = "deploying to " + env +
+        "\n" + hash +
+        "\n" + new Date();
+      var url = "https://slack.com/api/chat.postMessage?token="+slackToken+"&channel=C02G773HT&text="+message+"&pretty=1";
+      request(url);
+    });
+  }
 }
 
 gulp.task('prodBuildNoDeploy', [
