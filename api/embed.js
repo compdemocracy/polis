@@ -113,7 +113,7 @@
     var paramStrings = [];
 
     function appendIfPresent(name) {
-      if (o[name] !== null) {
+      if (o[name] !== null && o[name] !== void 0) {
         paramStrings.push(name + "=" + encodeURIComponent(o[name]));
       }
     }
