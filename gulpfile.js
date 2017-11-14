@@ -6,17 +6,20 @@ var gulp = require('gulp');
 var isTrue = require('boolean');
 var s3 = require('gulp-s3');
 var rename = require('gulp-rename');
+var glob = require('glob');
 var gzip = require('gulp-gzip');
 var path = require('path');
-var Promise = require('es6-promise').Promise;
+var Promise = require('bluebird');
 var fs = require('fs');
 var rimraf = require("rimraf");
 var runSequence = require('run-sequence');
+var scp = require('gulp-scp2');
 
 const staticFilesPrefix = "cached";
 const baseDistRoot = "dist";
 var destRootBase = "devel";
 var destRootRest = '/';  // in dist, will be the cachebuster path prefix
+var scpSubdir = "";
 var versionString = 'VERSION_ERROR';
 function destRoot() {
   var root = path.join(destRootBase, destRootRest);
@@ -133,6 +136,8 @@ gulp.task('404', [
 gulp.task("preprodConfig", function() {
   preprodMode = true;
   minified = true;
+  scpSubdir = process.env.SCP_SUBDIR_PREPROD;
+  s3Subdir = process.env.S3_BUCKET_PREPROD;
 });
 
 gulp.task("unminifiedConfig", function() {
@@ -142,6 +147,8 @@ gulp.task("unminifiedConfig", function() {
 gulp.task("prodConfig", function() {
   prodMode = true;
   minified = true;
+  scpSubdir = process.env.SCP_SUBDIR_PROD;
+  s3Subdir = process.env.S3_BUCKET_PROD;
 });
 
 
@@ -215,19 +222,46 @@ gulp.task('deploy_TO_PRODUCTION', [
   "dist"
 ], function() {
 
-  return deploy({
-      bucket: process.env.S3_BUCKET_PROD
-  });
+  var uploader;
+  if ('s3' === process.env.UPLOADER) {
+    uploader = s3uploader({
+      bucket: s3Subdir,
+    });
+  }
+  if ('scp' === process.env.UPLOADER) {
+    uploader = scpUploader({
+      // subdir: "cached",
+      watch: function(client) {
+        client.on('write', function(o) {
+          console.log('write %s', o.destination);
+        });
+      },
+    });
+  }
+  return deploy(uploader);
 });
 
 gulp.task('deployPreprod', [
   "preprodConfig",
   "dist"
 ], function() {
-
-  return deploy({
-      bucket: process.env.S3_BUCKET_PREPROD
-  });
+  var uploader;
+  if ('s3' === process.env.UPLOADER) {
+    uploader = s3uploader({
+      bucket: s3Subdir,
+    });
+  }
+  if ('scp' === process.env.UPLOADER) {
+   uploader = scpUploader({
+      // subdir: "cached",
+      watch: function(client) {
+        client.on('write', function(o) {
+          console.log('write %s', o.destination);
+       });
+      },
+    });
+  }
+  return deploy(uploader);
 });
 
 gulp.task('deployPreprodUnminified', [
@@ -256,6 +290,213 @@ gulp.task('fontsProd', [
       bucket: process.env.S3_BUCKET_PROD
   });
 });
+
+
+
+
+
+function s3uploader(params) {
+  var creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'));
+  creds = _.extend(creds, params);
+  let f = function(o) {
+    let oo = _.extend({
+      delay: 1000,
+      makeUploadPath: function(file) {
+        let r = staticFilesPrefix + ".*";
+        let match = file.path.match(RegExp(r));
+        console.log(file);
+        console.log(file.path);
+        console.log(r, match);
+
+        let fixed = (_.isString(o.subdir) && match && match[0]) ? match[0] : path.basename(file.path);
+        console.log("upload path " + fixed);
+        return fixed;
+      },
+    }, o);
+    if (oo.headers) {
+      delete oo.headers['Content-Type']; // s3 figures this out
+    }
+
+    return s3(creds, oo);
+  };
+  f.needsHeadersJson = false;
+  return f;
+}
+
+function scpUploader(params) {
+  var creds = JSON.parse(fs.readFileSync('.polis_scp_creds_client.json'));
+  creds.dest = path.join(creds.dest, scpSubdir);
+  scpConfig = _.extend({}, creds, params);
+  let f = function(batchConfig) { // uploader
+    console.log("scpUploader run", batchConfig);
+    var o = _.extend({}, scpConfig);
+    if (batchConfig.subdir) {
+      console.log("batchConfig.subdir", batchConfig.subdir);
+      console.log('old path', o.dest);
+      o.dest = path.join(scpConfig.dest, batchConfig.subdir);
+      console.log('new path', o.dest);
+    } else {
+      console.log('basic path', o.dest);
+    }
+    // console.log('------------------------ foofoo', batchConfig);
+    // return foreach(function(stream, file){
+    //   console.log('------------------------ stringSrc', file);
+    //   return mergeStream(stream, stringSrc(file.name + ".headersJson", JSON.stringify(batchConfig.headers)));
+    // }).pipe(scp(scpConfig));
+    return scp(o);
+  };
+  f.needsHeadersJson = true;
+  return f;
+}
+
+function deploy(uploader) {
+
+    var cacheSecondsForContentWithCacheBuster = 31536000;
+
+    function makeUploadPathHtml(file) {
+      var fixed = file.path.match(RegExp("[^/]*$"))[0];
+      console.log("upload path: " + fixed);
+      return fixed;
+    }
+
+    function makeUploadPathFactory(tagForLogging) {
+      return function(file) {
+        console.log(file);
+        console.log(file.path);
+        let r = staticFilesPrefix + ".*";
+        let match = file.path.match(RegExp(r));
+
+        let fixed = match&&match[0] ? match[0] : file.path;
+        console.log("upload path " + tagForLogging + ": " + fixed);
+        return fixed;
+      }
+    }
+
+    function deployBatch({srcKeep, srcIgnore, headers, logStatement, subdir}) {
+      return new Promise(function(resolve, reject) {
+        let gulpSrc = [srcKeep];
+        if (srcIgnore) {
+          gulpSrc.push(srcIgnore);
+        }
+        function doDeployBatch() {
+          console.log("doDeployBatch", gulpSrc);
+
+          gulp.src(gulpSrc, {read: true})
+            .pipe(uploader({
+              subdir: subdir,
+              delay: 1000,
+              headers: headers,
+            })).on('error', function(err) {
+              console.log('error1', err);
+              reject(err);
+            }).on('end', resolve);
+        }
+        // create .headersJson files
+        if (uploader.needsHeadersJson) {
+          let globOpts = {
+            nodir: true,
+          };
+          if (srcIgnore) {
+            globOpts.ignore = srcIgnore;
+          }
+          let files = glob.sync(srcKeep, globOpts)
+          for (let i = 0; i < files.length; i++) {
+            let file = files[i];
+            let headerFilename = file + ".headersJson";
+            fs.writeFileSync(headerFilename, JSON.stringify(headers));
+            gulpSrc.push(headerFilename);
+          }
+        }
+        doDeployBatch();
+      });
+    }
+
+    const promises = [];
+    // Cached Files without Gzip
+    console.log(destRoot())
+
+    const cachedSubdir = "cached";
+
+    // Cached Gzipped JS Files
+    promises.push(deployBatch({
+      srcKeep: destRoot() + '**/js/**', // simply saying "/js/**" causes the 'js' prefix to be stripped, and the files end up in the root of the bucket.
+      headers: {
+        'x-amz-acl': 'public-read',
+        'Content-Encoding': 'gzip',
+        'Content-Type': 'application/javascript',
+        'Cache-Control': 'no-transform,public,max-age=MAX_AGE,s-maxage=MAX_AGE'.replace(/MAX_AGE/g, cacheSecondsForContentWithCacheBuster),
+      },
+      logStatement: makeUploadPathFactory("cached_gzipped_"+cacheSecondsForContentWithCacheBuster),
+      subdir: cachedSubdir,
+    }));
+
+
+    // HTML files (uncached)
+    // (Wait until last to upload the html, since it will clobber the old html on S3, and we don't want that to happen before the new JS/CSS is uploaded.)
+    promises.push(deployBatch({
+      srcKeep: destRootBase + '/**/*.html',
+      headers: {
+        'x-amz-acl': 'public-read',
+        'Content-Type': 'text/html; charset=UTF-8',
+        'Cache-Control': 'no-cache',
+        // 'Cache-Control': 'no-transform,public,max-age=0,s-maxage=300', // NOTE: s-maxage is small for now, we could bump this up later once confident in cloudflare's cache purge workflow
+      },
+      logStatement: makeUploadPathHtml,
+      subdir: null,
+    }));
+
+    return Promise.all(promises);
+}
+
+// function deployOld(params) {
+//     var creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'));
+//     creds = _.extend(creds, params);
+
+//     var cacheSecondsForContentWithCacheBuster = 31536000;
+
+//     function makeUploadPathHtml(file) {
+//       var fixed = file.path.match(RegExp("[^/]*$"))[0];
+//       console.log("upload path: " + fixed);
+//       return fixed;
+//     }
+
+//     function makeUploadPathFactory(tagForLogging) {
+//       return function(file) {
+//         var fixed = file.path.match(RegExp(staticFilesPrefix + ".*"))[0];
+//         console.log("upload path " + tagForLogging + ": " + fixed);
+//         return fixed;
+//       }
+//     }
+
+//     // Cached Gzipped Files
+//     gulp.src([
+//       destRoot() + '**/js/**', // simply saying "/js/**" causes the 'js' prefix to be stripped, and the files end up in the root of the bucket.
+//       ], {read: false})
+//     .pipe(s3(creds, {
+//         delay: 1000,
+//         headers: {
+//           'x-amz-acl': 'public-read',
+//           'Content-Encoding': 'gzip',
+//           'Cache-Control': 'no-transform,public,max-age=MAX_AGE,s-maxage=MAX_AGE'.replace(/MAX_AGE/g, cacheSecondsForContentWithCacheBuster),
+//         },
+//         makeUploadPath: makeUploadPathFactory("cached_gzipped_"+cacheSecondsForContentWithCacheBuster),
+//       }));
+
+//     // HTML files (uncached)
+//     // (Wait until last to upload the html, since it will clobber the old html on S3, and we don't want that to happen before the new JS/CSS is uploaded.)
+//     gulp.src([
+//       destRootBase + '/**/*.html',
+//       ], {read: false}).pipe(s3(creds, {
+//         delay: 1000,
+//         headers: {
+//           'x-amz-acl': 'public-read',
+//           'Cache-Control': 'no-cache',
+//           'Content-Type': 'text/html; charset=UTF-8',
+//           // 'Cache-Control': 'no-transform,public,max-age=0,s-maxage=300', // NOTE: s-maxage is small for now, we could bump this up later once confident in cloudflare's cache purge workflow
+//         },
+//         makeUploadPath: makeUploadPathHtml,
+//       }));
+// }
 
 function deployFonts(params) {
     var creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'));
@@ -296,56 +537,6 @@ function deployFonts(params) {
           }));
       });
 
-}
-
-function deploy(params) {
-    var creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'));
-    creds = _.extend(creds, params);
-
-    var cacheSecondsForContentWithCacheBuster = 31536000;
-
-    function makeUploadPathHtml(file) {
-      var fixed = file.path.match(RegExp("[^/]*$"))[0];
-      console.log("upload path: " + fixed);
-      return fixed;
-    }
-
-    function makeUploadPathFactory(tagForLogging) {
-      return function(file) {
-        var fixed = file.path.match(RegExp(staticFilesPrefix + ".*"))[0];
-        console.log("upload path " + tagForLogging + ": " + fixed);
-        return fixed;
-      }
-    }
-
-    // Cached Gzipped Files
-    gulp.src([
-      destRoot() + '**/js/**', // simply saying "/js/**" causes the 'js' prefix to be stripped, and the files end up in the root of the bucket.
-      ], {read: false})
-    .pipe(s3(creds, {
-        delay: 1000,
-        headers: {
-          'x-amz-acl': 'public-read',
-          'Content-Encoding': 'gzip',
-          'Cache-Control': 'no-transform,public,max-age=MAX_AGE,s-maxage=MAX_AGE'.replace(/MAX_AGE/g, cacheSecondsForContentWithCacheBuster),
-        },
-        makeUploadPath: makeUploadPathFactory("cached_gzipped_"+cacheSecondsForContentWithCacheBuster),
-      }));
-
-    // HTML files (uncached)
-    // (Wait until last to upload the html, since it will clobber the old html on S3, and we don't want that to happen before the new JS/CSS is uploaded.)
-    gulp.src([
-      destRootBase + '/**/*.html',
-      ], {read: false}).pipe(s3(creds, {
-        delay: 1000,
-        headers: {
-          'x-amz-acl': 'public-read',
-          'Cache-Control': 'no-cache',
-          'Content-Type': 'text/html; charset=UTF-8',
-          // 'Cache-Control': 'no-transform,public,max-age=0,s-maxage=300', // NOTE: s-maxage is small for now, we could bump this up later once confident in cloudflare's cache purge workflow
-        },
-        makeUploadPath: makeUploadPathHtml,
-      }));
 }
 
 var tasks = process.argv.slice(2);
