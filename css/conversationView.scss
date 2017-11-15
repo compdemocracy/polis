@@ -486,12 +486,12 @@ svg {
   min-height: 30px;
   margin: 0 auto;
 
-  -webkit-transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
-  -webkit-transition-duration: 0.5s;
-  -webkit-transition-timing-function: linear;
-  transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
-  transition-duration: 0.5s;
-  transition-timing-function: linear;
+  // -webkit-transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
+  // -webkit-transition-duration: 0.5s;
+  // -webkit-transition-timing-function: linear;
+  // transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
+  // transition-duration: 0.5s;
+  // transition-timing-function: linear;
 }
 
 .voteViewCardPos_0 {
@@ -499,75 +499,79 @@ svg {
   z-index: 3;
   left: 0%;
   width: 100%;
+  // width: 100%;
   opacity: 100%;
-  -webkit-transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
-  -webkit-transition-duration: 0.5s;
-  -webkit-transition-timing-function: linear;
-  transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
-  transition-duration: 0.5s;
-  transition-timing-function: linear;
-  -webkit-transform: translate(0px, 0px);
-  transform: translate(0px, 0px);
+  // -webkit-transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
+  // -webkit-transition-duration: 0.5s;
+  // -webkit-transition-timing-function: linear;
+  // transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
+  // transition-duration: 0.5s;
+  // transition-timing-function: linear;
+  -webkit-transform: translate(0px, 0px) scale(1.0, 1);
+  transform: translate(0px, 0px) scale(1.0, 1);
 }
 .voteViewCardPos_1 {
   top: 5px;
   z-index: 2;
-  left: 0.5%;
-  width: 99%;
+  // left: 0.5%;
+  width: 100%;
+  // width: 99%;
   opacity: 100%;
-  -webkit-transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
-  -webkit-transition-duration: 0.5s;
-  -webkit-transition-timing-function: linear;
-  transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
-  transition-duration: 0.5s;
-  transition-timing-function: linear;
-  -webkit-transform: translate(0px, 0px);
-  transform: translate(0px, 0px);
+  // -webkit-transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
+  // -webkit-transition-duration: 0.5s;
+  // -webkit-transition-timing-function: linear;
+  // transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
+  // transition-duration: 0.5s;
+  // transition-timing-function: linear;
+  -webkit-transform: translate(0px, 0px) scale(0.98, 1);
+  transform: translate(0px, 0px) scale(0.98, 1);
 }
 .voteViewCardPos_2 {
   top: 10px;
   z-index: 1;
-  left: 1%;
-  width: 98%;
+  // left: 1%;
+  width: 100%;
   opacity: 100%;
-  -webkit-transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
-  -webkit-transition-duration: 0.5s;
-  -webkit-transition-timing-function: linear;
-  transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
-  transition-duration: 0.5s;
-  transition-timing-function: linear;
-  -webkit-transform: translate(0px, 0px);
-  transform: translate(0px, 0px);
+  // -webkit-transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
+  // -webkit-transition-duration: 0.5s;
+  // -webkit-transition-timing-function: linear;
+  // transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
+  // transition-duration: 0.5s;
+  // transition-timing-function: linear;
+  -webkit-transform: translate(0px, 0px) scale(0.96, 1);
+  transform: translate(0px, 0px) scale(0.96, 1);
 }
 .voteViewCardPos_3 {
   top: 15px;
   z-index: 0;
-  left: 1.5%;
-  width: 97%;
+  // left: 1.5%;
+  // width: 97%;
+  width: 100%;
   opacity: 100%;
-  -webkit-transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
-  -webkit-transition-duration: 0.5s;
-  -webkit-transition-timing-function: linear;
-  transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
-  transition-duration: 0.5s;
-  transition-timing-function: linear;
-  -webkit-transform: translate(0px, 0px);
-  transform: translate(0px, 0px);
+  // -webkit-transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
+  // -webkit-transition-duration: 0.5s;
+  // -webkit-transition-timing-function: linear;
+  // transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
+  // transition-duration: 0.5s;
+  // transition-timing-function: linear;
+  -webkit-transform: translate(0px, 0px) scale(0.94, 1);
+  transform: translate(0px, 0px) scale(0.94, 1);
 }
 .voteViewCardPos_A {
   top: 0px;
   z-index: 5;
-  left: 0%;
+  // left: 0%;
+  // width: 100%;
   width: 100%;
   opacity: 0%;
-  -webkit-transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
-  -webkit-transition-duration: 0.5s;
-  -webkit-transition-timing-function: linear;
-  transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
-  transition-duration: 0.5s;
-  transition-timing-function: linear;
-  -webkit-transform: translate(0px, -100px);
-  transform: translate(0px, -100px);
+  // -webkit-transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
+  // -webkit-transition-duration: 0.5s;
+  // -webkit-transition-timing-function: linear;
+  // transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
+  // transition-duration: 0.5s;
+  // transition-timing-function: linear;
+  -webkit-transform: translate(0px, -100px) scale(1.0, 1);
+  transform: translate(0px, -100px) scale(1.0, 1);
 }
 .voteViewCardPos_D {
   top: 0px;
