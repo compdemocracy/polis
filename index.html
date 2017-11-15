@@ -19,7 +19,11 @@
     <link rel="stylesheet" type="text/css" href="<%= basepath %>/css/polis.css"> <!-- proxy all CSS through server for respond.js -->
 
 
-    <script>window.preload = "REPLACE_THIS_WITH_PRELOAD_DATA";</script>
+    <script>
+      window.domainWhitelist = <%= domainWhitelist %>;
+      window.preload = "REPLACE_THIS_WITH_PRELOAD_DATA";
+      window.version = "<%= versionString %>";
+    </script>
     <style>
     .displaynone {
       display: none;
@@ -392,8 +396,6 @@ if (<%= useIntercom %>) {
   if (window.top !== window) {
     document.getElementById("mainSpinner").classList.add("hidden");
   }
-
-  window.version = "<%= versionString %>";
 
   if (window.ui_lang) {
     document.getElementsByTagName("body")[0].setAttribute("lang", ui_lang);
