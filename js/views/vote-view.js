@@ -247,6 +247,7 @@ module.exports = Handlebones.ModelView.extend({
     this.orig_position = options.orig_position;
     this.onVote = options.onVote;
     this.css_position = options.css_position;
+    this.shouldPoll = options.shouldPoll;
     eb.on(eb.exitConv, cleanup);
 
     function cleanup() {
@@ -563,7 +564,9 @@ module.exports = Handlebones.ModelView.extend({
       }
     };
 
-    pollForComments(options.firstCommentPromise); // call immediately using a promise for the first comment (latency reduction hack)
+    if (this.shouldPoll) {
+      pollForComments(options.firstCommentPromise); // call immediately using a promise for the first comment (latency reduction hack)
+    }
     this.listenTo(this, "rendered", function() {
       // this.$("#agreeButton").tooltip({
       //   title: "This comment represents my opinion",

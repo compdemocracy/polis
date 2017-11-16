@@ -146,7 +146,8 @@ module.exports = Handlebones.ModelView.extend({
         is_public: options.is_public,
         isSubscribed: options.isSubscribed,
         onVote: that.onVoteViewClick.bind(that),
-        conversation_id: options.conversation_id
+        conversation_id: options.conversation_id,
+        shouldPoll: false, // let the dummy view poll since there's only one.
       })));
     });
     this.voteView_w = this.voteViews[0];
@@ -169,7 +170,8 @@ module.exports = Handlebones.ModelView.extend({
       is_public: options.is_public,
       isSubscribed: options.isSubscribed,
       onVote: that.onVoteViewClick.bind(that),
-      conversation_id: options.conversation_id
+      conversation_id: options.conversation_id,
+      shouldPoll: true,
     }));
 
     eb.on("vote", function() {
