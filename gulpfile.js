@@ -15,6 +15,10 @@ var rimraf = require("rimraf");
 var runSequence = require('run-sequence');
 var scp = require('gulp-scp2');
 
+var polisConfig = require('./polis.config');
+
+console.log("Uploader: " + polisConfig.UPLOADER);
+
 const staticFilesPrefix = "cached";
 const baseDistRoot = "dist";
 var destRootBase = "devel";
@@ -79,9 +83,11 @@ gulp.task('index', [
   var index = fs.readFileSync('index.html', {encoding: "utf8"});
   index = index.replace("/dist/admin_bundle.js",  '/' + [destRootRest, "js", "admin_bundle.js"].join('/'));
   index = index.replace("NULL_VERSION",  versionString);
-  index = index.replace("<%= useIntercom %>", !isTrue(process.env.DISABLE_INTERCOM));
-  index = index.replace("<%= usePlans %>", !isTrue(process.env.DISABLE_PLANS));
+  index = index.replace("<%= useIntercom %>", !isTrue(polisConfig.DISABLE_INTERCOM));
+  index = index.replace("<%= usePlans %>", !isTrue(polisConfig.DISABLE_PLANS));
 
+  var domainWhitelist = polisConfig.domainWhitelist.join(",");
+  index = index.replace("<%= domainWhitelist %>", domainWhitelist);
 
   // index goes to the root of the dist folder.
   var indexDest = [destRootBase, "index_admin.html"].join("/");
@@ -136,8 +142,8 @@ gulp.task('404', [
 gulp.task("preprodConfig", function() {
   preprodMode = true;
   minified = true;
-  scpSubdir = process.env.SCP_SUBDIR_PREPROD;
-  s3Subdir = process.env.S3_BUCKET_PREPROD;
+  scpSubdir = polisConfig.SCP_SUBDIR_PREPROD;
+  s3Subdir = polisConfig.S3_BUCKET_PREPROD;
 });
 
 gulp.task("unminifiedConfig", function() {
@@ -147,8 +153,8 @@ gulp.task("unminifiedConfig", function() {
 gulp.task("prodConfig", function() {
   prodMode = true;
   minified = true;
-  scpSubdir = process.env.SCP_SUBDIR_PROD;
-  s3Subdir = process.env.S3_BUCKET_PROD;
+  scpSubdir = polisConfig.SCP_SUBDIR_PROD;
+  s3Subdir = polisConfig.S3_BUCKET_PROD;
 });
 
 
@@ -223,12 +229,12 @@ gulp.task('deploy_TO_PRODUCTION', [
 ], function() {
 
   var uploader;
-  if ('s3' === process.env.UPLOADER) {
+  if ('s3' === polisConfig.UPLOADER) {
     uploader = s3uploader({
       bucket: s3Subdir,
     });
   }
-  if ('scp' === process.env.UPLOADER) {
+  if ('scp' === polisConfig.UPLOADER) {
     uploader = scpUploader({
       // subdir: "cached",
       watch: function(client) {
@@ -246,12 +252,12 @@ gulp.task('deployPreprod', [
   "dist"
 ], function() {
   var uploader;
-  if ('s3' === process.env.UPLOADER) {
+  if ('s3' === polisConfig.UPLOADER) {
     uploader = s3uploader({
       bucket: s3Subdir,
     });
   }
-  if ('scp' === process.env.UPLOADER) {
+  if ('scp' === polisConfig.UPLOADER) {
    uploader = scpUploader({
       // subdir: "cached",
       watch: function(client) {
@@ -271,7 +277,7 @@ gulp.task('deployPreprodUnminified', [
 ], function() {
 
   return deploy({
-      bucket: process.env.S3_BUCKET_PREPROD
+      bucket: polisConfig.S3_BUCKET_PREPROD
   });
 });
 
@@ -279,7 +285,7 @@ gulp.task('fontsPreprod', [
   "preprodConfig",
 ], function() {
   return deployFonts({
-      bucket: process.env.S3_BUCKET_PREPROD
+      bucket: polisConfig.S3_BUCKET_PREPROD
   });
 });
 
@@ -287,7 +293,7 @@ gulp.task('fontsProd', [
   "prodConfig",
 ], function() {
   return deployFonts({
-      bucket: process.env.S3_BUCKET_PROD
+      bucket: polisConfig.S3_BUCKET_PROD
   });
 });
 
@@ -448,55 +454,6 @@ function deploy(uploader) {
     return Promise.all(promises);
 }
 
-// function deployOld(params) {
-//     var creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'));
-//     creds = _.extend(creds, params);
-
-//     var cacheSecondsForContentWithCacheBuster = 31536000;
-
-//     function makeUploadPathHtml(file) {
-//       var fixed = file.path.match(RegExp("[^/]*$"))[0];
-//       console.log("upload path: " + fixed);
-//       return fixed;
-//     }
-
-//     function makeUploadPathFactory(tagForLogging) {
-//       return function(file) {
-//         var fixed = file.path.match(RegExp(staticFilesPrefix + ".*"))[0];
-//         console.log("upload path " + tagForLogging + ": " + fixed);
-//         return fixed;
-//       }
-//     }
-
-//     // Cached Gzipped Files
-//     gulp.src([
-//       destRoot() + '**/js/**', // simply saying "/js/**" causes the 'js' prefix to be stripped, and the files end up in the root of the bucket.
-//       ], {read: false})
-//     .pipe(s3(creds, {
-//         delay: 1000,
-//         headers: {
-//           'x-amz-acl': 'public-read',
-//           'Content-Encoding': 'gzip',
-//           'Cache-Control': 'no-transform,public,max-age=MAX_AGE,s-maxage=MAX_AGE'.replace(/MAX_AGE/g, cacheSecondsForContentWithCacheBuster),
-//         },
-//         makeUploadPath: makeUploadPathFactory("cached_gzipped_"+cacheSecondsForContentWithCacheBuster),
-//       }));
-
-//     // HTML files (uncached)
-//     // (Wait until last to upload the html, since it will clobber the old html on S3, and we don't want that to happen before the new JS/CSS is uploaded.)
-//     gulp.src([
-//       destRootBase + '/**/*.html',
-//       ], {read: false}).pipe(s3(creds, {
-//         delay: 1000,
-//         headers: {
-//           'x-amz-acl': 'public-read',
-//           'Cache-Control': 'no-cache',
-//           'Content-Type': 'text/html; charset=UTF-8',
-//           // 'Cache-Control': 'no-transform,public,max-age=0,s-maxage=300', // NOTE: s-maxage is small for now, we could bump this up later once confident in cloudflare's cache purge workflow
-//         },
-//         makeUploadPath: makeUploadPathHtml,
-//       }));
-// }
 
 function deployFonts(params) {
     var creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'));
