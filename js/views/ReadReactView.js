@@ -61,6 +61,14 @@ module.exports = Handlebones.ModelView.extend({
 
     // var $el;
 
+    this.voteViews.forEach(function(vv, i) {
+      if (i === 0) {
+        vv.enableButtons();
+      } else {
+        vv.disableButtons();
+      }
+    });
+
     var $c = $cards[0];
     $c.remove();
     $("#cardStack").append($c);
@@ -149,6 +157,11 @@ module.exports = Handlebones.ModelView.extend({
         conversation_id: options.conversation_id,
         shouldPoll: false, // let the dummy view poll since there's only one.
       })));
+      if (i === 0) {
+        that.voteViews[i].enableButtons();
+      } else {
+        that.voteViews[i].disableButtons();
+      }
     });
     this.voteView_w = this.voteViews[0];
     this.voteView_x = this.voteViews[1];

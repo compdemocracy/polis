@@ -250,7 +250,7 @@ gulp.task('index', [
 ], function() {
   var s = gulp.src('index.html');
   var basepath = prepPathForTemplate(destRootRest);
-  var domainWhitelist = polisConfig.domainWhitelist.join(",");
+  var domainWhitelist = '["' + polisConfig.domainWhitelist.join('","') + '"]';
   if (devMode) {
     s = s.pipe(template({
       basepath: basepath,
