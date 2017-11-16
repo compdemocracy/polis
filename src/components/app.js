@@ -181,6 +181,8 @@ class App extends React.Component {
         conversationstats,
       ] = a;
 
+      let indexToTid = mathResult.tids;
+
       var ptptCount = 0;
       _.each(mathResult["group-votes"], (val, key) => {
         ptptCount += val["n-members"];
@@ -274,10 +276,16 @@ class App extends React.Component {
         }
       })
 
+      let extremity = {};
+      _.each(mathResult.pca["comment-extremity"], function(e, index) {
+        extremity[indexToTid[index]] = e;
+      });
+
       this.setState({
         loading: false,
         math: mathResult,
         consensus: mathResult.consensus,
+        extremity: extremity,
         uncertainty: uncertainty,
         unanimity: unanimity,
         comments: comments,
@@ -381,7 +389,7 @@ class App extends React.Component {
             demographics={this.state.demographics}
             conversation={this.state.conversation}/>
           <Beeswarm
-            extremity={this.state.math.pca["comment-extremity"]}
+            extremity={this.state.extremity}
             math={this.state.math}
             comments={this.state.comments}
             probabilities={this.state.filteredCorrelationMatrix}
