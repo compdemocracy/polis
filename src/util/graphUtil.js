@@ -72,8 +72,8 @@ const graphUtil = (comments, math, badTids) => {
     const xx = d3.scaleLinear().domain([minClusterX, maxClusterX]).range([border, globals.side - border]);
     const yy = d3.scaleLinear().domain([minClusterY, maxClusterY]).range([border, globals.side - border]);
 
-    const xCenter = xx(0);
-    const yCenter = yy(0);
+    const xCenter = globals.side / 2;
+    const yCenter = globals.side / 2;
 
     var greatestAbsPtptX = _.maxBy(baseClusters, (pt) => { return Math.abs(pt.x); }).x;
     var greatestAbsPtptY = _.maxBy(baseClusters, (pt) => { return Math.abs(pt.y); }).y;
