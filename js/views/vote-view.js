@@ -120,8 +120,19 @@ module.exports = Handlebones.ModelView.extend({
     ctx.left = [0,0.5,1][this.position] + "%";
     ctx.zIndex = [2 - this.position];
     ctx.width = ["100%","99%","98%"][this.position];
+    if (ctx.position === 0 && !ctx.hidden) {
+      ctx.enableButtons = true;
+    } else {
+      ctx.enableButtons = false;
+    }
 
     return ctx;
+  },
+  enableButtons: function() {
+    this.$el.find("button").removeAttr("tabindex");
+  },
+  disableButtons: function() {
+    this.$el.find("button").attr("tabindex", "-1");
   },
 
   showTranslationClicked: function(e) {
@@ -243,6 +254,7 @@ module.exports = Handlebones.ModelView.extend({
   },
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
+    this.hidden = options.hidden;
     this.position = options.position;
     this.orig_position = options.orig_position;
     this.onVote = options.onVote;
