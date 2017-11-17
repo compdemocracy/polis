@@ -225,10 +225,11 @@
         }
       }
 
-      if (data === "cookieRedirect" && cookiesEnabledAtTopLevel()) {
-        // temporarily redirect to polis, which will set a cookie and redirect back
-        window.location = polisUrl + "/api/v3/launchPrep?dest=" + encodeReturnUrl(window.location+"");
-      }
+      // if (data === "cookieRedirect" && cookiesEnabledAtTopLevel()) {
+      //   // temporarily redirect to polis, which will set a cookie and redirect back
+      //   window.location = polisUrl + "/api/v3/launchPrep?dest=" + encodeReturnUrl(window.location+"");
+      // }
+
       // if (data === "twitterConnectBegin") {
       //   // open a new window where the twitter auth screen will show.
       //   // that window will redirect back to a simple page that calls window.opener.twitterStatus("ok")
