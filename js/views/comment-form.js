@@ -110,6 +110,8 @@ module.exports = Handlebones.ModelView.extend({
 
     this.hideMessage("#comment_sent_message");
     this.hideMessage("#comment_send_failed_message");
+    this.hideMessage("#comment_send_failed_empty_message");
+    this.hideMessage("#comment_send_failed_too_long_message");
     var form =  $(arguments[0].target);
     var formText = form.val();
     var len = formText.length;
@@ -191,18 +193,20 @@ module.exports = Handlebones.ModelView.extend({
     var that = this;
     this.hideMessage("#comment_sent_message");
     this.hideMessage("#comment_send_failed_message");
+    this.hideMessage("#comment_send_failed_empty_message");
+    this.hideMessage("#comment_send_failed_too_long_message");
 
     function doSubmitComment() {
       if (that.buttonActive) {
         that.buttonActive = false;
         serialize(that, function(attrs){
           if (attrs.txt.length === 0) {
-            that.showMessage("#comment_send_failed_message");
+            that.showMessage("#comment_send_failed_empty_message");
             that.buttonActive = true;
             return;
           }
           if (attrs.txt.length > CHARACTER_LIMIT) {
-            that.showMessage("#comment_send_failed_message");
+            that.showMessage("#comment_send_failed_too_long_message");
             that.buttonActive = true;
             return;
           }
