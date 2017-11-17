@@ -269,13 +269,15 @@
 
 (defmethod react-to-messages :generate_report_data
   [conv-man conv _ messages]
-  (let [updated-conv (conv-update conv-man conv [])]
+  (let [math-tick (postgres/inc-math-tick (:postgres conv-man) (:zid conv))
+        ;; ideally a new upload wouldn't be necessary if convergence had been reached; can optimize this later
+        updated-conv (conv-update conv-man conv [])]
     (doseq [report-task messages]
+      (log/info "report-task:" report-task)
       (try
-        (let [math-tick (postgres/inc-math-tick (:postgres conv-man) (:zid conv))]
-          (generate-report-data! conv-man updated-conv math-tick report-task))
+        (generate-report-data! conv-man updated-conv math-tick report-task)
         (catch Exception e (log/error e (str "Unable to export " (pr-str report-task))))))
-    updated-conv))
+    (assoc updated-conv :math-tick math-tick)))
 
 
 ;; Error handling
@@ -319,7 +321,8 @@
             (try
               (if-let [updated-conv (react-to-messages conv-man conv' message-type messages)]
                 (do
-                  (let [math-tick (postgres/inc-math-tick (:postgres conv-man) zid)]
+                  (let [math-tick (or (:math-tick updated-conv) ;; pass through for report generation
+                                      (postgres/inc-math-tick (:postgres conv-man) zid))]
                     (write-conv-updates! conv-man updated-conv math-tick))
                   updated-conv)
                 ;; if nil, don't update, for just side effects
