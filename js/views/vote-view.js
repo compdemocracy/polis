@@ -125,7 +125,6 @@ module.exports = Handlebones.ModelView.extend({
     } else {
       ctx.enableButtons = false;
     }
-
     return ctx;
   },
   enableButtons: function() {
