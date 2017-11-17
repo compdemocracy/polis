@@ -49,6 +49,9 @@ s.pctAgreedOfGroupLong = "{{pct}}% of those in group {{group}} who voted on stat
 s.pctDisagreedOfGroupLong = "{{pct}}% of those in group {{group}} who voted on statement {{comment_id}} disagreed.";
 s.commentSent = "Statement submitted! Only other participants will see your statement and agree or disagree.";
 s.commentSendFailed = "There was an error submitting your statement.";
+s.commentSendFailedEmpty = "There was an error submitting your statement - Statement should not be empty.";
+s.commentSendFailedTooLong = "There was an error submitting your statement - Statement is too long.";
+
 s.commentErrorDuplicate = "Duplicate! That statement already exists.";
 s.commentErrorConversationClosed = "This conversation is closed. No further statements can be submitted.";
 s.commentIsEmpty = "Statement is empty";

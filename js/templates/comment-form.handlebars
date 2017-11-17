@@ -253,6 +253,31 @@
             </span>
         </p>
 
+        <p
+          id="comment_send_failed_empty_message"
+          style="display: none; {{#unless desktop}}font-size:12px{{/unless}}"
+          role="alert"
+          >
+            <span style="margin-left: 5px">
+              <i
+                class="fa fa-bullhorn">
+              </i>
+              {{{s.commentSendFailedEmpty}}}
+            </span>
+        </p>
+
+        <p
+          id="comment_send_failed_too_long_message"
+          style="display: none; {{#unless desktop}}font-size:12px{{/unless}}"
+          role="alert"
+          >
+            <span style="margin-left: 5px">
+              <i
+                class="fa fa-bullhorn">
+              </i>
+              {{{s.commentSendFailedTooLong}}}
+            </span>
+        </p>
       </div> {{! end SUBMIT BUTTON CLICKED RESPONSE AREA  column}}
 
    {{!-- ================ END LOWER CONTAINER ================ --}}
