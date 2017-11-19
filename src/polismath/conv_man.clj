@@ -133,7 +133,7 @@
           zid            (:zid updated-conv)
           finish-time    (System/currentTimeMillis)
           ; If this is a recompute, we'll have either :full or :reboot, ow/ want to send false
-          recompute      (if-let [rc (:recompute conv)] rc false)]
+          recompute      (or (:recompute conv) false)]
       (log/info "Finished computng conv-update for zid" zid "in" (- finish-time start-time) "ms")
       (handle-profile-data conv-man
                            updated-conv
@@ -273,10 +273,9 @@
         ;; ideally a new upload wouldn't be necessary if convergence had been reached; can optimize this later
         updated-conv (conv-update conv-man conv [])]
     (doseq [report-task messages]
-      (log/info "report-task:" report-task)
       (try
         (generate-report-data! conv-man updated-conv math-tick report-task)
-        (catch Exception e (log/error e (str "Unable to export " (pr-str report-task))))))
+        (catch Exception e (log/error e (str "Unable to generate report " (pr-str report-task))))))
     (assoc updated-conv :math-tick math-tick)))
 
 
@@ -315,22 +314,22 @@
 (defn react-to-messages!
   [conv-man conv-actor message-type messages]
   (let [start-time (System/currentTimeMillis)
-        {:keys [zid conv retry-chan]} conv-actor]
-    (let [update-fn
-          (fn [conv']
-            (try
-              (if-let [updated-conv (react-to-messages conv-man conv' message-type messages)]
-                (do
-                  (let [math-tick (or (:math-tick updated-conv) ;; pass through for report generation
-                                      (postgres/inc-math-tick (:postgres conv-man) zid))]
-                    (write-conv-updates! conv-man updated-conv math-tick))
-                  updated-conv)
-                ;; if nil, don't update, for just side effects
-                conv')
-              (catch Exception e
-                (handle-errors conv-man conv-actor conv' message-type messages e start-time)
-                conv')))]
-      (swap! conv update-fn))))
+        {:keys [zid conv retry-chan]} conv-actor
+        update-fn
+        (fn [conv']
+          (try
+            (if-let [updated-conv (react-to-messages conv-man conv' message-type messages)]
+              (do
+                (let [math-tick (or (:math-tick updated-conv) ;; pass through for report generation
+                                    (postgres/inc-math-tick (:postgres conv-man) zid))]
+                  (write-conv-updates! conv-man updated-conv math-tick))
+                updated-conv)
+              ;; if nil, don't update, for just side effects
+              conv')
+            (catch Exception e
+              (handle-errors conv-man conv-actor conv' message-type messages e start-time)
+              conv')))]
+    (swap! conv update-fn)))
 
 
 ;; Start the actor
@@ -341,8 +340,8 @@
         {:keys [zid conv message-chan retry-chan]} conv-actor]
     (go-loop []
       ;; If nil comes through as the first message, then the chan is closed, and we should be done, not continue looping forever
-      (when-not (async/poll! kill-chan)
-        (when-let [first-msg (<! message-chan)]
+      (let [[first-msg c] (async/alts! [kill-chan message-chan] :priority true)]
+        (when-not (= c kill-chan)
           (log/debug "Message chan put in queue-message-batch! for zid:" (:zid first-msg))
           ;; If there are any retry messages from a failed recompute, we put them at the front of the message stack.
           ;; But retry messages only get processed in this way if there are new messages that have come in triggering the
@@ -354,7 +353,8 @@
             ;; This acts as a whitelist for messages to run, and also an ordering of preference
             (doseq [message-type [:votes :moderation :generate_report_data]]
               (when-let [messages (get split-msgs message-type)]
-                (react-to-messages! conv-man conv-actor message-type messages)))))))))
+                (react-to-messages! conv-man conv-actor message-type messages)))
+            (recur)))))))
 
 ;; Put the actor together and
 
@@ -370,6 +370,31 @@
         actor        {:zid zid :conv (atom conv) :message-chan message-chan :retry-chan retry-chan :conv-man conv-man}]
     (go-act! conv-man actor)
     actor))
+
+
+(defn add-conv-actor-listener!
+  [conv-actor f]
+  (add-watch (:conv conv-actor)
+             ::conv-actor-state-watch
+             (fn [_ _ old-value new-value]
+               (when-not (= old-value new-value)
+                 (f new-value)))))
+
+;; At the moment this is mostly used for testing, and I'm not sure that we'll want to keep it long term. But let's see...
+(defn add-listener!
+  "Adds a watch to the conv-actor for the given zid such that the function f will be called when the given conversation
+  changes or initializes."
+  [conv-man zid f]
+  ;; If the conv-actor has already been created, then we add a watch for its :conv atom
+  (when-let [conv-actor (-> conv-man :conversations deref (get zid))]
+    (add-conv-actor-listener! conv-actor f))
+  (add-watch (:conversations conv-man)
+             [::conversations-watch zid]
+             (fn [_ _ old-value new-value]
+               ;; If a conv-actor is added for this zid, set the watch now
+               (when-let [new-conv-actor (and (not (get old-value zid))
+                                              (get new-value zid))]
+                 (add-conv-actor-listener! new-conv-actor f)))))
 
 
 
@@ -424,7 +449,8 @@
 ;; Need to find a good way of making sure these tests don't ever get committed uncommented
 (comment
   (require '[clojure.test :as test])
-  (test/run-tests 'conv-man-tests))
+  (test/run-tests 'conv-man-tests)
+  :end-comment)
 
 
 :ok
