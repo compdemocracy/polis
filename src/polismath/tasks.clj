@@ -25,13 +25,12 @@
 (defmethod dispatch-task! :generate_report_data
   [poller task-record]
   (log/debug "Dispatching generate_report_data")
-  (let [zid (->> task-record :task_data :rid (postgres/query-zid-from-rid (:postgres poller)) first :zid)]
-    (log/debug "dispatching report generation for zid" zid)
-    (conv-man/queue-message-batch! (:conversation-manager poller)
-                                   :generate_report_data
-                                   zid
-                                   (assoc (:task_data task-record)
-                                     :task-record task-record))))
+  (async/thread
+    (let [zid (->> task-record :task_data :rid (postgres/query-zid-from-rid (:postgres poller)) first :zid)]
+      (conv-man/queue-message-batch! (:conversation-manager poller)
+                                     :generate_report_data
+                                     zid
+                                     [(:task_data task-record)]))))
 
 
 (defmethod dispatch-task! :generate_export_data
@@ -51,7 +50,8 @@
 (defmethod dispatch-task! :update_math
   [{:as poller :keys [darwin conversation-manager]} task-record]
   (log/debug "Dispatching update_math task for:" task-record)
-  (conv-man/queue-message-batch! conversation-manager :votes (-> task-record :task_data :zid) []))
+  (async/thread
+    (conv-man/queue-message-batch! conversation-manager :votes (-> task-record :task_data :zid) [])))
 
 
 (defn poll
@@ -60,17 +60,22 @@
   (let [poller-config (-> config :poller)
         start-polling-from (- (System/currentTimeMillis) (* (:poll-from-days-ago poller-config) 1000 60 60 24))
         polling-interval (or (-> poller-config :tasks :polling-interval) 1000)]
-    (go-loop [last-timestamp start-polling-from]
-      (when-not (async/poll! kill-chan) ;; TODO When we upgrade clojure & clojure.core.async, should do this
-        (let [results (postgres/poll-tasks postgres last-timestamp)
-              last-timestamp (apply max 0 last-timestamp (map :created results))]
-          ;; For each chunk of votes, for each conversation, send to the appropriate spout
-          (doseq [task-record results]
-            ;; TODO; Erm... need to sort out how we're using blocking vs non-blocking ops for threadability
-            (dispatch-task! poller task-record))
-          ;; Update timestamp
-          (<! (async/timeout polling-interval))
-          (recur last-timestamp))))))
+    (async/thread
+      (loop [last-timestamp start-polling-from]
+        (log/debug "polling tasks from" last-timestamp)
+        (when-not (async/poll! kill-chan) ;; TODO When we upgrade clojure & clojure.core.async, should do this
+          (let [results (postgres/poll-tasks postgres last-timestamp)
+                last-timestamp (apply max 0 last-timestamp (map :created results))]
+            (log/debug "new last-timestamp" last-timestamp)
+            ;; For each chunk of votes, for each conversation, send to the appropriate spout
+            (doseq [task-record results]
+              ;; TODO; Erm... need to sort out how we're using blocking vs non-blocking ops for threadability
+              (log/debug "dispatch task" task-record)
+              (dispatch-task! poller task-record))
+            (<!! (async/timeout polling-interval))
+            (log/debug "post timeout")
+            ;; Update timestamp
+            (recur last-timestamp)))))))
 
 
 (defrecord TaskPoller [config darwin postgres conversation-manager kill-chan]
