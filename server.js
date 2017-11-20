@@ -1517,6 +1517,7 @@ const needHeader = prrrams.needHeader;
 const wantHeader = prrrams.wantHeader;
 
 const COOKIES = {
+  COOKIE_TEST: 'ct',
   HAS_EMAIL: 'e',
   TOKEN: 'token2',
   UID: 'uid2',
@@ -1679,17 +1680,28 @@ function initializePolisHelpers() {
     });
   }
 
+  function setCookieTestCookie(req, res, setOnPolisDomain) {
+    setCookie(req, res, setOnPolisDomain, COOKIES.COOKIE_TEST, 1, {
+      // not httpOnly - needed by JS
+    });
+  }
+
+  function shouldSetCookieOnPolisDomain(req) {
+    let setOnPolisDomain = !domainOverride;
+    let origin = req.headers.origin || "";
+    if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
+      setOnPolisDomain = false;
+    }
+    return setOnPolisDomain;
+  }
+
   function addCookies(req, res, token, uid) {
     return getUserInfoForUid2(uid).then(function(o) {
       let email = o.email;
       let created = o.created;
       let plan = o.plan;
 
-      let setOnPolisDomain = !domainOverride;
-      let origin = req.headers.origin || "";
-      if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
-        setOnPolisDomain = false;
-      }
+      let setOnPolisDomain = shouldSetCookieOnPolisDomain(req);
 
       setTokenCookie(req, res, setOnPolisDomain, token);
       setUidCookie(req, res, setOnPolisDomain, uid);
@@ -2493,6 +2505,7 @@ function initializePolisHelpers() {
     if (!req.cookies[COOKIES.PERMANENT_COOKIE]) {
       setPermanentCookie(req, res, setOnPolisDomain, makeSessionToken());
     }
+    setCookieTestCookie(req, res, setOnPolisDomain);
 
     setCookie(req, res, setOnPolisDomain, "top", "ok", {
       httpOnly: false, // not httpOnly - needed by JS
@@ -14093,6 +14106,10 @@ CREATE TABLE slack_user_invites (
         'Cache-Control': 'no-transform,public,max-age=60,s-maxage=60', // Cloudflare will probably cache it for one or two hours
       });
     }
+
+    setCookieTestCookie(req, res, shouldSetCookieOnPolisDomain(req));
+
+
     let doFetch = makeFileFetcher(hostname, port, "/index.html", headers, preloadData);
     if (isUnsupportedBrowser(req)) {
 
