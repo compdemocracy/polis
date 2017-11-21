@@ -13527,6 +13527,24 @@ CREATE TABLE slack_user_invites (
   //     });
   // }
 
+
+
+  function hangle_GET_testConnection(req, res) {
+    res.status(200).json({
+      status: "ok",
+    });
+  }
+  
+  function hangle_GET_testDatabase(req, res) {
+    pgQueryP("select uid from users limit 1", []).then((rows) => {
+      res.status(200).json({
+        status: "ok",
+      });
+    }, (err) => {
+      fail(res, 500, "polis_err_testDatabase", err);
+    });
+  }
+
   function sendSuzinviteEmail(req, email, conversation_id, suzinvite) {
     let serverName = getServerNameWithProtocol(req);
     let body = "" +
@@ -14493,6 +14511,8 @@ CREATE TABLE slack_user_invites (
     handle_GET_snapshot,
     handle_GET_stripe_account_connect,
     handle_GET_stripe_account_connected_oauth_callback,
+    hangle_GET_testConnection,
+    hangle_GET_testDatabase,
     handle_GET_tryCookie,
     handle_GET_twitter_image,
     handle_GET_twitter_oauth_callback,
