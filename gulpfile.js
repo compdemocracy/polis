@@ -247,10 +247,9 @@ gulp.task('deploy_TO_PRODUCTION', [
   return deploy(uploader);
 });
 
-gulp.task('deployPreprod', [
-  "preprodConfig",
-  "dist"
-], function() {
+
+
+function doUpload() {
   var uploader;
   if ('s3' === polisConfig.UPLOADER) {
     uploader = s3uploader({
@@ -268,18 +267,18 @@ gulp.task('deployPreprod', [
     });
   }
   return deploy(uploader);
-});
+}
+
+gulp.task('deployPreprod', [
+  "preprodConfig",
+  "dist"
+], doUpload);
 
 gulp.task('deployPreprodUnminified', [
   "preprodConfig",
   "unminifiedConfig",
   "dist"
-], function() {
-
-  return deploy({
-      bucket: polisConfig.S3_BUCKET_PREPROD
-  });
-});
+], doUpload);
 
 gulp.task('fontsPreprod', [
   "preprodConfig",
