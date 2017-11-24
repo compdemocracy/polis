@@ -86,7 +86,7 @@ gulp.task('index', [
   index = index.replace("<%= useIntercom %>", !isTrue(polisConfig.DISABLE_INTERCOM));
   index = index.replace("<%= usePlans %>", !isTrue(polisConfig.DISABLE_PLANS));
 
-  var domainWhitelist = polisConfig.domainWhitelist.join(",");
+  var domainWhitelist = '["' + polisConfig.domainWhitelist.join('","') + '"]';
   index = index.replace("<%= domainWhitelist %>", domainWhitelist);
 
   // index goes to the root of the dist folder.
