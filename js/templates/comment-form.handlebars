@@ -254,6 +254,32 @@
         </p>
 
         <p
+          id="comment_send_failed_duplicate_message"
+          style="display: none; {{#unless desktop}}font-size:12px{{/unless}}"
+          role="alert"
+          >
+            <span style="margin-left: 5px">
+              <i
+                class="fa fa-bullhorn">
+              </i>
+              {{{s.commentSendFailedDuplicate}}}
+            </span>
+        </p>
+
+        <p
+          id="comment_send_failed_conversation_closed_message"
+          style="display: none; {{#unless desktop}}font-size:12px{{/unless}}"
+          role="alert"
+          >
+            <span style="margin-left: 5px">
+              <i
+                class="fa fa-bullhorn">
+              </i>
+              {{{s.commentErrorConversationClosed}}}
+            </span>
+        </p>
+
+        <p
           id="comment_send_failed_empty_message"
           style="display: none; {{#unless desktop}}font-size:12px{{/unless}}"
           role="alert"

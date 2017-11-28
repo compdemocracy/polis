@@ -52,6 +52,7 @@ s.commentSent = "Statement submitted! Only other participants will see your stat
 s.commentSendFailed = "There was an error submitting your statement.";
 s.commentSendFailedEmpty = "There was an error submitting your statement - Statement should not be empty.";
 s.commentSendFailedTooLong = "There was an error submitting your statement - Statement is too long.";
+s.commentSendFailedDuplicate = "There was an error submitting your statement - Duplicate! That statement already exists.";
 
 s.commentErrorDuplicate = "Duplicate! That statement already exists.";
 s.commentErrorConversationClosed = "This conversation is closed. No further statements can be submitted.";

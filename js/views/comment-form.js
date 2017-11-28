@@ -112,6 +112,8 @@ module.exports = Handlebones.ModelView.extend({
     this.hideMessage("#comment_send_failed_message");
     this.hideMessage("#comment_send_failed_empty_message");
     this.hideMessage("#comment_send_failed_too_long_message");
+    this.hideMessage("#comment_send_failed_duplicate_message");
+    this.hideMessage("#comment_send_failed_conversation_closed_message");
     var form =  $(arguments[0].target);
     var formText = form.val();
     var len = formText.length;
@@ -195,6 +197,9 @@ module.exports = Handlebones.ModelView.extend({
     this.hideMessage("#comment_send_failed_message");
     this.hideMessage("#comment_send_failed_empty_message");
     this.hideMessage("#comment_send_failed_too_long_message");
+    this.hideMessage("#comment_send_failed_duplicate_message");
+    this.hideMessage("#comment_send_failed_conversation_closed_message");
+
 
     function doSubmitComment() {
       if (that.buttonActive) {
@@ -216,7 +221,7 @@ module.exports = Handlebones.ModelView.extend({
             that.showMessage("#comment_sent_message");
 
           }, function(err) {
-            that.showMessage("#comment_send_failed_message");
+            // that.showMessage("#comment_send_failed_message");
           }).always(function() {
             that.buttonActive = true;
           });
@@ -325,21 +330,24 @@ module.exports = Handlebones.ModelView.extend({
           //   error: "Duplicate!",
           //   errorExtra: "That comment already exists.",
           // });
-          alert(Strings.commentErrorDuplicate);
+          // alert(Strings.commentErrorDuplicate);
+          that.showMessage("#comment_send_failed_duplicate_message");
         } else if (err.responseText === "polis_err_conversation_is_closed"){
 
           // that.model.set({
           //   error: "This conversation is closed.",
           //   errorExtra: "No further commenting is allowed.",
           // });
-          alert(Strings.commentErrorConversationClosed);
+          // alert(Strings.commentErrorConversationClosed);
+          that.showMessage("#comment_send_failed_conversation_closed_message");
         } else {
 
           // that.model.set({
           //   error: "Error sending comment.",
           //   errorExtra: "Please try again later.",
           // });
-          alert(Strings.commentSendFailed);
+          // alert(Strings.commentSendFailed);
+          that.showMessage("#comment_send_failed_message");
           // this.showMessage("#comment_send_failed_message");
         }
       });
