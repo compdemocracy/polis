@@ -27,7 +27,7 @@
     ">
   <div class="protip"><p><i class="fa fa-microphone"></i>&nbsp; {{s.connectToVotePrompt}}</p></div>
   {{#unless hasFacebook}}
-    <button id="facebookButtonVoteView" {{#unless enableButtons}}tabindex="-1"{{/unless}} class="facebookButton" style="padding-top: 0px; margin-bottom: 4px;">
+    <button id="facebookButtonVoteView" class="facebookButton" style="padding-top: 0px; margin-bottom: 4px;">
       <i class="svgIcon" style="
         display: inline-block;
         position: relative;
@@ -39,7 +39,7 @@
       {{s.connectFacebook}}</button>
   {{/unless}}
   {{#unless hasTwitter}}
-    <button id="twitterButtonVoteView" {{#unless enableButtons}}tabindex="-1"{{/unless}} class="twitterButton" style="padding-top: 0px; margin-bottom: 4px;">
+    <button id="twitterButtonVoteView" class="twitterButton" style="padding-top: 0px; margin-bottom: 4px;">
     <i class="svgIcon" style="
       display: inline-block;
       position: relative;
@@ -80,7 +80,7 @@
           </div>
         {{/if}} {{!-- /email --}}
         <div class="FormVertical-group">
-          <button id="subscribeBtn" {{#unless enableButtons}}tabindex="-1"{{/unless}} class="Btn Btn-primary unselectable" style="
+          <button id="subscribeBtn" class="Btn Btn-primary unselectable" style="
             text-transform: none;
             font-size: 16px;
             font-weight: 500;
@@ -180,13 +180,13 @@
     </p>
 
     {{#if showShowTranslationButton}}
-      <button {{#unless enableButtons}}tabindex="-1"{{/unless}} style="
+      <button style="
         margin-left: 55px;
         margin-bottom: 20px;
       " id="showTranslationButtonVoteView">{{s.showTranslationButton}}</button>
     {{/if}}
     {{#if showHideTranslationButton}}
-      <button {{#unless enableButtons}}tabindex="-1"{{/unless}} style="
+      <button style="
         margin-left: 55px;
         margin-bottom: 20px;
       " id="hideTranslationButtonVoteView">{{s.hideTranslationButton}}</button>
@@ -286,7 +286,6 @@
       ">
       <button
         id="agreeButton"
-        {{#unless enableButtons}}tabindex="-1"{{/unless}}
         class="reactionButton"
         >
         <i class="svgIcon" style="
@@ -301,7 +300,6 @@
       </button>
       <button
         id="disagreeButton"
-        {{#unless enableButtons}}tabindex="-1"{{/unless}}
         class="reactionButton"
         >
         <i class="svgIcon" style="
@@ -316,7 +314,6 @@
       </button>
       <button
         id="passButton"
-        {{#unless enableButtons}}tabindex="-1"{{/unless}}
         class="reactionButton"
         >
         {{s.pass}}
