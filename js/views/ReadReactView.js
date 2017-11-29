@@ -49,6 +49,14 @@ module.exports = Handlebones.ModelView.extend({
     ctx.promptFacebook = SHOULD_PROMPT_FOR_FB && !hasFacebookAttached && !this.model.get("response") && this.model.get("voteCount") > voteCountForFacebookPrompt;
     return ctx;
   },
+  onVoteViewClick: function() {
+    var that = this;
+    this.commentModel.set({
+      userHasVotedThisSession: true,
+    });
+  },
+
+
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     var that = this;

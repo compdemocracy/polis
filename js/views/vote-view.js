@@ -105,6 +105,11 @@ module.exports = Handlebones.ModelView.extend({
       ctx.showHideTranslationButton = true;
     }
 
+    if (ctx.userHasVotedThisSession && this.$el.parent().parent().data("isTopCard")) {
+      // console.log('showHereIsNextStatement' + this.$el.parent().parent().attr('id'));
+      ctx.showHereIsNextStatement = true;
+    }
+
     var remaining = ctx.remaining;
     if (remaining > 100) {
       remaining = "100+";
