@@ -17,10 +17,11 @@
   <!-- {{orig_position}} -->
 <div class="comment_shower">
 
+{{!--
 {{#if showHereIsNextStatement}}
   <div class="screen-reader-text" role="alert">{{s.hereIsNextStatement}}</div>
 {{/if}}
-
+--}}
 
 {{#if needSocial}}
 {{!-- ================ CONNECT FACEBOOK / TWITTER ================ --}}
@@ -333,6 +334,11 @@
 
 
 {{/if}}  {{!-- /needSocial --}}
+
+
+{{#if showHereIsNextStatement}}
+  <div class="screen-reader-text" role="alert">{{s.hereIsNextStatement}}</div>
+{{/if}}
 
 </div> {{!-- /comment_shower div --}}
 
