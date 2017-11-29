@@ -105,10 +105,10 @@ module.exports = Handlebones.ModelView.extend({
       ctx.showHideTranslationButton = true;
     }
 
-    if (ctx.userHasVotedThisSession && this.$el.parent().parent().data("isTopCard")) {
-      // console.log('showHereIsNextStatement' + this.$el.parent().parent().attr('id'));
-      ctx.showHereIsNextStatement = true;
-    }
+    // if (ctx.userHasVotedThisSession) {
+    //   // console.log('showHereIsNextStatement' + this.$el.parent().parent().attr('id'));
+    //   ctx.showHereIsNextStatement = true;
+    // }
 
     var remaining = ctx.remaining;
     if (remaining > 100) {
@@ -321,6 +321,11 @@ module.exports = Handlebones.ModelView.extend({
         showEmpty();
       }
       this.animateIn();
+
+      // this.model.set({
+      //   userHasVotedThisSession: true,
+      // });
+      this.$("#hereIsNextStatementLabel").show();
 
       // Fix for stuck hover effects for touch events.
       // Remove when this is fix is accepted
