@@ -475,116 +475,11 @@ svg {
   color: #0a77bf;
 }
 
-.comment_shower p, .comment_shower h3 {
+#comment_shower p, #comment_shower h3 {
    font-weight: normal;
    line-height: normal;
    // background-color: $panel-color;
    // border-radius: 10px;
-}
-
-.voteViewCardPos_constant {
-  min-height: 30px;
-  margin: 0 auto;
-
-  // -webkit-transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
-  // -webkit-transition-duration: 0.5s;
-  // -webkit-transition-timing-function: linear;
-  // transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
-  // transition-duration: 0.5s;
-  // transition-timing-function: linear;
-}
-
-.voteViewCardPos_0 {
-  top: 0px;
-  z-index: 3;
-  left: 0%;
-  width: 100%;
-  // width: 100%;
-  opacity: 100%;
-  // -webkit-transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
-  // -webkit-transition-duration: 0.5s;
-  // -webkit-transition-timing-function: linear;
-  // transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
-  // transition-duration: 0.5s;
-  // transition-timing-function: linear;
-  -webkit-transform: translate(0px, 0px) scale(1.0, 1);
-  transform: translate(0px, 0px) scale(1.0, 1);
-}
-.voteViewCardPos_1 {
-  top: 5px;
-  z-index: 2;
-  // left: 0.5%;
-  width: 100%;
-  // width: 99%;
-  opacity: 100%;
-  // -webkit-transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
-  // -webkit-transition-duration: 0.5s;
-  // -webkit-transition-timing-function: linear;
-  // transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
-  // transition-duration: 0.5s;
-  // transition-timing-function: linear;
-  -webkit-transform: translate(0px, 0px) scale(0.98, 1);
-  transform: translate(0px, 0px) scale(0.98, 1);
-}
-.voteViewCardPos_2 {
-  top: 10px;
-  z-index: 1;
-  // left: 1%;
-  width: 100%;
-  opacity: 100%;
-  // -webkit-transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
-  // -webkit-transition-duration: 0.5s;
-  // -webkit-transition-timing-function: linear;
-  // transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
-  // transition-duration: 0.5s;
-  // transition-timing-function: linear;
-  -webkit-transform: translate(0px, 0px) scale(0.96, 1);
-  transform: translate(0px, 0px) scale(0.96, 1);
-}
-.voteViewCardPos_3 {
-  top: 15px;
-  z-index: 0;
-  // left: 1.5%;
-  // width: 97%;
-  width: 100%;
-  opacity: 100%;
-  // -webkit-transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
-  // -webkit-transition-duration: 0.5s;
-  // -webkit-transition-timing-function: linear;
-  // transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
-  // transition-duration: 0.5s;
-  // transition-timing-function: linear;
-  -webkit-transform: translate(0px, 0px) scale(0.94, 1);
-  transform: translate(0px, 0px) scale(0.94, 1);
-  display: none;
-}
-.voteViewCardPos_A {
-  top: 0px;
-  z-index: 5;
-  // left: 0%;
-  // width: 100%;
-  width: 100%;
-  opacity: 0%;
-  // -webkit-transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
-  // -webkit-transition-duration: 0.5s;
-  // -webkit-transition-timing-function: linear;
-  // transition-property: z-index width height background-color font-size left top transform -webkit-transform color opacity;
-  // transition-duration: 0.5s;
-  // transition-timing-function: linear;
-  -webkit-transform: translate(0px, -100px) scale(1.0, 1);
-  transform: translate(0px, -100px) scale(1.0, 1);
-}
-.voteViewCardPos_D {
-  top: 0px;
-  z-index: 4;
-  left: 0%;
-  width: 100%;
-}
-.voteViewCardPos_P {
-  top: 0px;
-  z-index: 4;
-  left: 0%;
-  width: 100%;
 }
 
 /* Comment Input Form */
@@ -969,7 +864,7 @@ svg {
 /* BIG PHONE to LITTLE tablet */
 @media only screen and (min-width : 768px) and (max-width : 1024px) {
 
-  .comment_shower {
+  #comment_shower {
     //margin-top: 20px;
   }
   .dropdown-menu {
@@ -980,7 +875,7 @@ svg {
 
 /* LITTLE TABLET and down */
 @media only screen and (min-width : 320px) and (max-width : 1024px) {
-  .comment_shower_frame {
+  #comment_shower_frame {
     padding: 5px;
   }
 
@@ -1001,7 +896,7 @@ svg {
     // display: none;
   }
 
-  .comment_shower {
+  #comment_shower {
     // margin-top: 20px;
   }
   .nav-tabs > li > a {

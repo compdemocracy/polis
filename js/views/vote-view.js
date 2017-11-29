@@ -111,16 +111,6 @@ module.exports = Handlebones.ModelView.extend({
     }
     ctx.remainingString = Strings.comments_remaining.replace("{{num_comments}}", remaining);
     ctx.remainingStringScreenReader = Strings.comments_remaining2.replace("{{num_comments}}", remaining);
-
-
-    // card animation stuff
-
-    // ctx.top = "-" + [0,26,52][this.position] + "px";
-    ctx.top = [0,5,10][this.position] + "px";
-    ctx.left = [0,0.5,1][this.position] + "%";
-    ctx.zIndex = [2 - this.position];
-    ctx.width = ["100%","99%","98%"][this.position];
-
     return ctx;
   },
 
@@ -137,37 +127,7 @@ module.exports = Handlebones.ModelView.extend({
       showTranslation: false,
     });
   },
-  animateOut: function(onDone) {
-    return this.$el.fadeOut(1000, onDone);
-  },
-  animateToPosition: function(i) {
-    this.position = i;
-    if (this.position === 0) {
-      this.ariaHidden="false";
-    } else {
-      this.ariaHidden="true";
-    }
-    var classes = [
-      "voteViewCardPos_0",
-      "voteViewCardPos_1",
-      "voteViewCardPos_2",
-      "voteViewCardPos_3",
-      "voteViewCardPos_A",
-      "voteViewCardPos_D",
-      "voteViewCardPos_P",
-    ];
-    var newClass = "voteViewCardPos_" + i;
-    var classesToRemove = classes.filter(function(c) {
-      return c !== newClass;
-    });
-    $("#voteViewCard_" + this.orig_position).removeClass(classesToRemove).addClass(newClass);
-    setTimeout(function() {
-      this.model.set({ // trigger a render
-        foo: i,
-      });
-    }, 1000);
-    this.$el.fadeIn();
-  },
+
   facebookClicked: function(e) {
     e.preventDefault();
     var that = this;
@@ -227,26 +187,22 @@ module.exports = Handlebones.ModelView.extend({
     });
   },
 
-  // animateOut: function() {
-  //   // Animating opacity directly instead of jQuery's fadeOut because we don't want display:none at the end.
-  //   this.$el.children().children().animate({
-  //     opacity: 0
-  //   }, 200);
-  // },
+  animateOut: function() {
+    // Animating opacity directly instead of jQuery's fadeOut because we don't want display:none at the end.
+    this.$el.children().children().animate({
+      opacity: 0
+    }, 200);
+  },
   animateIn: function() {
-    // this.$el.children().children().animate({
-    //   opacity: 1
-    // }, 200);
+    this.$el.children().children().animate({
+      opacity: 1
+    }, 200);
   },
   showMod: function() {
     this.model.set("shouldMod", true);
   },
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
-    this.position = options.position;
-    this.orig_position = options.orig_position;
-    this.onVote = options.onVote;
-    this.css_position = options.css_position;
     eb.on(eb.exitConv, cleanup);
 
     function cleanup() {
@@ -365,9 +321,6 @@ module.exports = Handlebones.ModelView.extend({
       // Remove when this is fix is accepted
       // https://github.com/twbs/bootstrap/issues/12832
       this.$(".btn-vote").blur();
-      if (this.onVote) {
-        this.onVote();
-      }
     }
 
     function showClosedConversationNotice() {
@@ -426,7 +379,7 @@ module.exports = Handlebones.ModelView.extend({
     }
 
     this.onButtonClicked = function() {
-      // this.animateOut();
+      this.animateOut();
     };
     this.starBtn = function(e) {
       var starred = !that.model.get("starred");
