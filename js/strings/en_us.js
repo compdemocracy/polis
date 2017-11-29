@@ -52,11 +52,11 @@ s.commentSendFailed = "There was an error submitting your statement.";
 s.commentSendFailedEmpty = "There was an error submitting your statement - Statement should not be empty.";
 s.commentSendFailedTooLong = "There was an error submitting your statement - Statement is too long.";
 s.commentSendFailedDuplicate = "There was an error submitting your statement - Duplicate! That statement already exists.";
-
 s.commentErrorDuplicate = "Duplicate! That statement already exists.";
 s.commentErrorConversationClosed = "This conversation is closed. No further statements can be submitted.";
 s.commentIsEmpty = "Statement is empty";
 s.commentIsTooLong = "Statement is too long";
+s.hereIsNextStatement = "Vote success. Navigate up to see the next statement.";
 
 s.connectFacebook = "Connect Facebook";
 s.connectTwitter = "Connect Twitter";
