@@ -12,7 +12,7 @@ var PolisFacebookUtils = require('../util/facebookButton');
 // var iOS = Utils.isIos();
 
 var SHOULD_PROMPT_FOR_FB = false;
-// Card names are "w","x","y","z"
+var cardNames = ["w","x","y","z"];
 
 module.exports = Handlebones.ModelView.extend({
   name: "readReactView",
