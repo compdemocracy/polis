@@ -84,7 +84,7 @@ module.exports = Handlebones.ModelView.extend({
     }, 1000);
 
     this.commentModel.set({
-      userHasVotedThisSession: true,
+      showHereIsNextStatement: true,
     });
 
     // v.animateOut(function() {
@@ -113,10 +113,8 @@ module.exports = Handlebones.ModelView.extend({
     // this.position = i;
     if (position === 0) {
       $card.attr("aria-hidden", false);
-      $card.data("isTopCard", true);
     } else {
       $card.attr("aria-hidden", true);
-      $card.data("isTopCard", false);
     }
     var classes = [
       "voteViewCardPos_0",
