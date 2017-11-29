@@ -61,6 +61,13 @@ module.exports = Handlebones.ModelView.extend({
 
     // var $el;
 
+    this.voteViews.forEach(function(vv, i) {
+      if (i === 0) {
+        vv.enableButtons();
+      } else {
+        vv.disableButtons();
+      }
+    });
 
     var $c = $cards[0];
     $c.remove();
@@ -78,14 +85,10 @@ module.exports = Handlebones.ModelView.extend({
     this.animateCardToPosition($($cards[2]), 1);
     this.animateCardToPosition($($cards[3]), 2);
     setTimeout(function() {
-      that.animateCardToPosition($($cards[0]), 3);
+      this.animateCardToPosition($($cards[0]), 3);
       $($cards[3]).fadeIn();
       // $($cards[0]).find('.comment_shower').css('visibility', 'visible'); // css("background-color", "white");
     }, 1000);
-
-    this.commentModel.set({
-      showHereIsNextStatement: true,
-    });
 
     // v.animateOut(function() {
     //   $el = $(v.el).remove();
@@ -97,14 +100,6 @@ module.exports = Handlebones.ModelView.extend({
     //     that.animateCardToPosition(vi, i);
     //   }
     // });
-
-    this.voteViews.forEach(function(vv, i) {
-      if (i === 0) {
-        vv.enableButtons();
-      } else {
-        vv.disableButtons();
-      }
-    });
   },
 
 
@@ -144,7 +139,7 @@ module.exports = Handlebones.ModelView.extend({
     this.model = options.model;
     this.voteViews = [];
 
-    var commentModel = this.commentModel = new CommentModel();
+    var commentModel = new CommentModel();
 
     [0,1,2,3].forEach(function(i) {
       that.voteViews.push(that.addChild(new VoteView({
@@ -162,6 +157,11 @@ module.exports = Handlebones.ModelView.extend({
         conversation_id: options.conversation_id,
         shouldPoll: false, // let the dummy view poll since there's only one.
       })));
+      if (i === 0) {
+        that.voteViews[i].enableButtons();
+      } else {
+        that.voteViews[i].disableButtons();
+      }
     });
     this.voteView_w = this.voteViews[0];
     this.voteView_x = this.voteViews[1];

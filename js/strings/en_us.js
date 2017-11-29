@@ -16,7 +16,6 @@ s.x_wrote = "wrote:";
 s.x_tweeted = "tweeted:";
 s.comments_remaining = "{{num_comments}} remaining";
 s.comments_remaining2 = "{{num_comments}} remaining statements";
-s.hereIsNextStatement = "Vote accepted, here is the next statement:";
 s.group_123 = "Group:";
 s.comment_123 = "Statement:";
 s.majorityOpinion = "Majority Opinion";
