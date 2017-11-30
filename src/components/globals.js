@@ -3,7 +3,7 @@ export const serif = "Georgia";
 export const paragraphWidth = 475;
 export const paragraphLineHeight = "24px";
 export const barChartWidth = 250;
-export const side = 700;
+export const side = 1400;
 
 export const brandColors = {
   agree: "rgb(46, 204, 113)",
