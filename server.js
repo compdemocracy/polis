@@ -3023,7 +3023,8 @@ function initializePolisHelpers() {
       "select * from worker_tasks where task_type = 'generate_report_data' and math_env=($2) "+
         "and task_bucket = ($1) " +
         // "and attempts < 3 " +
-        "and finished_time is NULL;", [rid, math_env]);
+        "and (task_data->>'math_tick')::int >= ($3) " +
+        "and finished_time is NULL;", [rid, math_env, math_tick]);
 
     let resultExistsPromise = pgQueryP(
       "select * from math_report_correlationmatrix where rid = ($1) and math_env = ($2) and math_tick >= ($3);", [rid, math_env, math_tick]);
@@ -3037,8 +3038,8 @@ function initializePolisHelpers() {
       if (!rows || !rows.length) {
         return requestExistsPromise.then((requests_rows) => {
 
-          // const shouldAddTask = !requests_rows || !requests_rows.length;
-          const shouldAddTask = true;
+          const shouldAddTask = !requests_rows || !requests_rows.length;
+          // const shouldAddTask = true;
 
           if (shouldAddTask) {
             return hasCommentSelections().then((hasSelections) => {
