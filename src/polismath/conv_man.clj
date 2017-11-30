@@ -369,7 +369,7 @@
         actor        {:zid zid :conv (atom conv) :message-chan message-chan :retry-chan retry-chan :conv-man conv-man}]
     (go-act! conv-man actor)
     ;; Trigger a conv update as the conv loads, so that state is always consistent
-    (react-to-messages! conv-man actor "votes" [])
+    (react-to-messages! conv-man actor :votes [])
     actor))
 
 
