@@ -265,7 +265,7 @@ class ParticipantsGraph extends React.Component {
             Group labels
           </button>
           </div>
-          {this.state.showParticipants || true ? <p style={globals.paragraph}>
+          {this.state.showParticipants ? <p style={globals.paragraph}>
             {hulls.map((h,i) => {
               return (
                 <span style={{marginRight: 40}} key={i}>
