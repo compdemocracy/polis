@@ -23,36 +23,44 @@ const geoPath = d3.geoPath();
 
 const Contour = ({contour}) => <path fill={color(contour.value * colorScaleDownFactor)} d={geoPath(contour)} />
 
-const Participants = ({points}) => {
+const Participants = ({points, math}) => {
 
   if (!points) {
-    return null
+    return null;
   }
-// transform={`translate(${globals.side / 2},${globals.side / 2})`}>
+
   return (
     <g>
       {points.map((pt, i) => {
-        // return <circle
-        //   r={2}
-        //   fill={globals.groupColor(pt.gid)}
-        //   key={i}
-        //   cx={pt.x}
-        //   cy={pt.y}/>
-        return (<text
-            key={i}
-            transform={
-              `translate(
-                ${pt.x},
-                ${pt.y}
-              )`
-            }
-            style={{
-              fill: "rgba(0,0,0,.5)",
-              fontSize: 12,
-            }}
-            >
-            {globals.groupSymbols[pt.gid]}
-          </text>)
+        return <g key={i}>
+        <circle
+          r={Math.sqrt(math["base-clusters"].count[pt.id]) * 3}
+          fill={globals.groupColor(pt.gid)}
+          fillOpacity=".3"
+          cx={pt.x}
+          cy={pt.y}/>
+          <text
+            fill={globals.groupColor(pt.gid)}
+            fillOpacity=".8"
+            x={pt.x - 5}
+            y={pt.y + 5}
+          >  {globals.groupSymbols[pt.gid]}</text>
+          </g>
+        // return (<text
+        //     key={i}
+        //     transform={
+        //       `translate(
+        //         ${pt.x},
+        //         ${pt.y}
+        //       )`
+        //     }
+        //     style={{
+        //       fill: "rgba(0,0,0,.5)",
+        //       fontSize: 12,
+        //     }}
+        //     >
+            // {globals.groupSymbols[pt.gid]}
+        //   </text>)
       })}
     </g>
   );
@@ -325,6 +333,7 @@ class ParticipantsGraph extends React.Component {
             {
               this.state.showParticipants ?
                 <Participants
+                  math={this.props.math}
                   points={baseClustersScaled}/>
                 : null
             }
