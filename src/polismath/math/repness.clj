@@ -284,7 +284,7 @@
        nm/get-matrix
        mat/columns
        (map comment-stats)
-       (map #(assoc %2 :tid %1) (range))))
+       (map #(assoc %2 :tid %1) (nm/colnames data))))
 
 
 (defn select-consensus-comments
