@@ -12,18 +12,17 @@ const graphUtil = (comments, math, badTids) => {
     for (let i = 0; i < indexToTid.length; i++) {
       tidToIndex[indexToTid[i]] = i;
     }
-
     // comments
     const commentsPoints = [];
-    const compsX = math.pca.comps[0];
-    const compsY = math.pca.comps[1];
+    const projX = math.pca['comment-projection'][0];
+    const projY = math.pca['comment-projection'][1];
     let rejectedCount = 0;
-    for (let i = 0; i < compsX.length; i++) {
+    for (let i = 0; i < projX.length; i++) {
       if (comments[i]) {
         let tid = comments[i].tid;
         let index = tidToIndex[tid];
-        let x = compsX[index];
-        let y = compsY[index];
+        let x = projX[index];
+        let y = projY[index];
         // if (i === 32) { // TODO_DEMO_HACK use force layout instead
         //   x += 0.02;
         //   y += 0.01;
