@@ -146,10 +146,26 @@
           (update :center (partial into []))))
     clusters))
 
+
+(defn default-tids
+  ;; Gonna need to get all of this under group clusters vs subgroups
+  [{:as conv :keys [repness consensus group-clusters rating-mat pca]}]
+  (let [{:keys [extremity]} pca
+        {:keys [agree disagree]} consensus]
+    (set
+      (concat
+        (map :tid (concat agree disagree))
+        (mapcat
+          (fn [[gid gid-repness]]
+            (map :tid gid-repness))
+          repness)))))
+
+
 (defn compute-corr
   ([conv tids]
-   (let [matrix (:rating-mat conv)
-         subset-matrix (if tids (nm/colname-subset matrix tids) matrix)
+   (log/info tids)
+   (let [matrix (log/spy (:rating-mat conv))
+         subset-matrix (if tids (log/spy (nm/colname-subset matrix tids)) (log/spy matrix))
          cleaned-matrix (cleaned-nmat subset-matrix)
          transposed-matrix (transpose-nmat cleaned-matrix)
          corr-mat (prof/profile :info :corr-mat (correlation-matrix cleaned-matrix))
@@ -161,7 +177,7 @@
                                          matrix/rows))]
      corr-mat'))
   ([conv]
-   (compute-corr conv nil)))
+   (compute-corr conv (default-tids conv))))
 
 
 (defn spit-json
