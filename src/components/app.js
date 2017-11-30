@@ -115,9 +115,10 @@ class App extends React.Component {
     return new Promise((resolve, reject) => {
       attemptResponse.then((response) => {
         if (response.status && response.status === "pending") {
+          this.corMatRetries = _.isNumber(this.corMatRetries) ? this.corMatRetries + 1 : 1;
           setTimeout(() => {
             this.getCorrelationMatrix(math_tick).then(resolve, reject);
-          }, 500);
+          }, this.corMatRetries < 10 ? 200 : 3000); // try to get a quick response, but don't keep polling at that rate for more than 10 seconds.
         } else if (response.status && response.status === "polis_report_needs_comment_selection") {
           this.setState({
             errorLink: "http://localhost:5002/m/36jajfnhhn/reports/r6ehukhk29tcfmuc57vrj/comments",
