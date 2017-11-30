@@ -163,9 +163,8 @@
 
 (defn compute-corr
   ([conv tids]
-   (log/info tids)
-   (let [matrix (log/spy (:rating-mat conv))
-         subset-matrix (if tids (log/spy (nm/colname-subset matrix tids)) (log/spy matrix))
+   (let [matrix (:rating-mat conv)
+         subset-matrix (if tids (nm/colname-subset matrix tids) matrix)
          cleaned-matrix (cleaned-nmat subset-matrix)
          transposed-matrix (transpose-nmat cleaned-matrix)
          corr-mat (prof/profile :info :corr-mat (correlation-matrix cleaned-matrix))
