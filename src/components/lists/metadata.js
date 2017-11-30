@@ -17,6 +17,10 @@ const Metadata = ({conversation, comments, ptptCount, formatTid, math}) => {
     if (comment.is_meta) { _metadataTids.push(comment.tid) }
   })
 
+  if (_metadataTids.length === 0) {
+    return null
+  }
+
   // console.log('metadata tids array', _metadataTids, comments, math)
 
   return (

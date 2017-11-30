@@ -11,9 +11,9 @@ const allCommentsModeratedIn = ({conversation, comments, ptptCount, formatTid, m
 
   return (
     <div>
-      <p style={globals.primaryHeading}> All comments (excluding those moderated out) </p>
+      <p style={globals.primaryHeading}> All comments </p>
       <p style={globals.paragraph}>
-        How groups voted across all comments
+        Group votes across all comments, excluding those comments which were moderated out.
       </p>
       <div style={{marginTop: 50}}>
         <CommentList
