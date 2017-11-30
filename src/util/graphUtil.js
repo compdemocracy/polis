@@ -75,16 +75,18 @@ const graphUtil = (comments, math, badTids) => {
     let maxClusterX = _.max(allXs);
     let minClusterY = _.min(allYs);
     let maxClusterY = _.max(allYs);
-    const xx = d3.scaleLinear().domain([minClusterX, maxClusterX]).range([border, globals.side - border]);
-    const yy = d3.scaleLinear().domain([minClusterY, maxClusterY]).range([border, globals.side - border]);
-
-    const xCenter = globals.side / 2;
-    const yCenter = globals.side / 2;
 
     var greatestAbsPtptX = _.maxBy(baseClusters, (pt) => { return Math.abs(pt.x); }).x;
     var greatestAbsPtptY = _.maxBy(baseClusters, (pt) => { return Math.abs(pt.y); }).y;
     var greatestAbsCommentX = _.maxBy(commentsPoints, (pt) => { return Math.abs(pt.x); }).x;
     var greatestAbsCommentY = _.maxBy(commentsPoints, (pt) => { return Math.abs(pt.y); }).y;
+
+
+    const xx = d3.scaleLinear().domain([-greatestAbsPtptX, greatestAbsPtptX]).range([border, globals.side - border]);
+    const yy = d3.scaleLinear().domain([-greatestAbsPtptY, greatestAbsPtptY]).range([border, globals.side - border]);
+
+    const xCenter = globals.side / 2;
+    const yCenter = globals.side / 2;
 
     var maxCommentX = _.maxBy(commentsPoints, (pt) => { return pt.x; }).x;
     var minCommentX = _.minBy(commentsPoints, (pt) => { return pt.x; }).x;
