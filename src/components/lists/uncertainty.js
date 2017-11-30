@@ -9,7 +9,6 @@ const Uncertainty = ({conversation, comments, ptptCount, uncertainty, formatTid,
   if (!conversation) {
     return <div>Loading Uncertainty...</div>
   }
-
   return (
     <div>
       <p style={globals.primaryHeading}> Areas of uncertainty </p>

@@ -14,6 +14,7 @@ import Overview from "./overview";
 import MajorityStrict from "./lists/majorityStrict";
 import Uncertainty from "./lists/uncertainty";
 import Unanimity from "./lists/unanimity";
+import AllCommentsModeratedIn from "./lists/allCommentsModeratedIn"
 import ParticipantGroups from "./lists/participantGroups";
 import CommentsGraph from "./commentsGraph/commentsGraph";
 import ParticipantsGraph from "./participantsGraph/participantsGraph";
@@ -461,7 +462,12 @@ class App extends React.Component {
             report={this.state.report}/>
           <BoxPlot
             groupVotes={this.state.math["group-votes"]}/>
-
+          <AllCommentsModeratedIn
+            math={this.state.math}
+            comments={this.state.comments}
+            conversation={this.state.conversation}
+            ptptCount={this.state.ptptCount}
+            formatTid={this.state.formatTid}/>
           <Footer/>
         </div>
       </div>
