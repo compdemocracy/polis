@@ -362,14 +362,14 @@
   (log/info "Starting message batch queue and handler routine for conv zid:" zid)
   (let [conv (load-or-init conv-man zid :recompute (:recompute config))
         _ (log/info "Conversation loaded for conv zid:" zid)
-        conv (conv/conv-update conv [])
-        _ (log/info "Initial conv update complete for zid:" zid)
         ;; Set up our main message chan
         message-chan (chan 10000)
         ;; Separate channel for messages that we've tried to process but that haven't worked for one reason or another (buffer size not important here)
         retry-chan   (chan 10)
         actor        {:zid zid :conv (atom conv) :message-chan message-chan :retry-chan retry-chan :conv-man conv-man}]
     (go-act! conv-man actor)
+    ;; Trigger a conv update as the conv loads, so that state is always consistent
+    (react-to-messages! conv-man actor "votes" [])
     actor))
 
 
