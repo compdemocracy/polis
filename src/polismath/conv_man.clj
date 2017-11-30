@@ -363,6 +363,8 @@
   (log/info "Starting message batch queue and handler routine for conv zid:" zid)
   (let [conv (load-or-init conv-man zid :recompute (:recompute config))
         _ (log/info "Conversation loaded for conv zid:" zid)
+        conv (conv/conv-update conv [])
+        _ (log/info "Initial conv update complete for zid:" zid)
         ;; Set up our main message chan
         message-chan (chan 10000)
         ;; Separate channel for messages that we've tried to process but that haven't worked for one reason or another (buffer size not important here)
