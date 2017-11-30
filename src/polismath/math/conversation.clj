@@ -267,7 +267,7 @@
        (int (/ (count (nm/rownames data)) 12)))))
 
 (defn group-votes
-  "Returns a map of group-clusters ids to {:A :D :S} maps."
+  "Returns a map of group-clusters ids to {:votes {<tid> {:A _ :D _ :S _}}} :n maps."
   [group-clusters base-clusters votes-base]
   (let [bid-to-index (zipmap (map :id base-clusters)
                              (range))]
@@ -554,17 +554,42 @@
       ;; downstream processing and data consumption. Will hvae to strike a balance here... For now, again, things are a
       ;; little verbose, but you can hopefully see some of the patters emerging for where these things may generalize.
 
-      ; {tid {gid {A _ D _ S}}}
+      ; {gid {:votes {<tid> {A _ D _ S}}}}
       :group-votes
       (plmb/fnk [group-clusters base-clusters votes-base]
         (group-votes group-clusters base-clusters votes-base))
-      ; {gid {tid {gid {A _ D _ S}}}}
+      ;; ?
       :subgroup-votes
       (plmb/fnk [subgroup-clusters base-clusters votes-base]
         (->> subgroup-clusters
              (plmb/map-vals
                (fn [subgroup-clusters']
                  (group-votes subgroup-clusters' base-clusters votes-base)))))
+
+
+      ; {gid {tid consensus}}
+      :group-aware-consensus
+           (plmb/fnk [group-votes]
+             (let [tid-gid-probs
+                   (reduce
+                     (fn [result [gid gid-stats]]
+                       (reduce
+                         (fn [result [tid {:keys [A S] :or {A 0 S 0}}]]
+                           (let [consensus (/ A (+ S 1.0))]
+                             (assoc-in result [tid gid] consensus)))
+                         result
+                         (:votes gid-stats)))
+                       ;; +1 acts as a dumb prior
+                     {}
+                     group-votes)
+                   tid-consensus
+                   (plmb/map-vals
+                     (fn [tid-stats]
+                       (->> tid-stats
+                            (map second)
+                            (reduce *)))
+                     tid-gid-probs)]
+               tid-gid-probs))
 
 
       :repness
