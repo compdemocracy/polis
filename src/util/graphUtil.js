@@ -8,6 +8,10 @@ const graphUtil = (comments, math, badTids) => {
 
     const commentsByTid = _.keyBy(comments, "tid");
     const indexToTid = math.tids;
+    const tidToIndex = [];
+    for (let i = 0; i < indexToTid.length; i++) {
+      tidToIndex[indexToTid[i]] = i;
+    }
 
     // comments
     const commentsPoints = [];
@@ -16,14 +20,15 @@ const graphUtil = (comments, math, badTids) => {
     let rejectedCount = 0;
     for (let i = 0; i < compsX.length; i++) {
       if (comments[i]) {
-        let tid = indexToTid[i];
-        let x = compsX[i];
-        let y = compsY[i];
+        let tid = comments[i].tid;
+        let index = tidToIndex[tid];
+        let x = compsX[index];
+        let y = compsY[index];
         // if (i === 32) { // TODO_DEMO_HACK use force layout instead
         //   x += 0.02;
         //   y += 0.01;
         // }
-        if (!badTids[i]) {
+        if (!badTids[tid]) {
           if (commentsByTid[tid]) {
             commentsPoints.push({
               x: x,
