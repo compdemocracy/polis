@@ -269,14 +269,13 @@
 
 (defmethod react-to-messages :generate_report_data
   [conv-man conv _ messages]
-  (let [math-tick (postgres/inc-math-tick (:postgres conv-man) (:zid conv))
-        ;; ideally a new upload wouldn't be necessary if convergence had been reached; can optimize this later
-        updated-conv (conv-update conv-man conv [])]
+  (let [math-tick (or (:math-tick conv) (:math_tick conv))]
     (doseq [report-task messages]
       (try
-        (generate-report-data! conv-man updated-conv math-tick report-task)
-        (catch Exception e (log/error e (str "Unable to generate report " (pr-str report-task))))))
-    (assoc updated-conv :math-tick math-tick)))
+        (generate-report-data! conv-man conv math-tick report-task)
+        (catch Exception e (log/error e (str "Unable to generate report " (pr-str report-task)))))))
+  ;; explicitly return nil so we don't trigger an update
+  nil)
 
 
 ;; Error handling
