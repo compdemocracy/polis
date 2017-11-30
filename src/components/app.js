@@ -46,7 +46,7 @@ class App extends React.Component {
         width: window.innerWidth,
         height: window.innerHeight
       },
-      shouldPoll: true,
+      shouldPoll: false,
     };
   }
 
