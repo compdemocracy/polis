@@ -70,7 +70,7 @@ export const groupLabels = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]
 export const groupSymbols = ["○", "◆", "+", "-", "◬",  "▮", ]
 
 
-export const enableMatrix = true;
+export const enableMatrix = false;
 // export const maxCommentExtremityToShow = 2; /* naive & may not be solid. should be dynamically generated from extremity array probably to pick top 20 or something */
 export const maxCommentExtremityToShow = .6; /* naive & may not be solid. should be dynamically generated from extremity array probably to pick top 20 or something */
 export const labelPadding = 40;
