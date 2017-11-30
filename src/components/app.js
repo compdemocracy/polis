@@ -460,8 +460,8 @@ class App extends React.Component {
             math={this.state.math}
             renderHeading={true}
             report={this.state.report}/>
-          <BoxPlot
-            groupVotes={this.state.math["group-votes"]}/>
+          {/* <BoxPlot
+            groupVotes={this.state.math["group-votes"]}/>*/}
           <AllCommentsModeratedIn
             math={this.state.math}
             comments={this.state.comments}
