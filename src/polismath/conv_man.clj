@@ -59,6 +59,7 @@
                                :n-cmts
                                :pca
                                :repness
+                               :group-aware-consensus
                                :consensus
                                :zid
                                :tids
