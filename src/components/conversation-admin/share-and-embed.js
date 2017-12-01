@@ -5,6 +5,7 @@ import ConversationHasCommentsCheck from "./conversation-has-comments-check";
 import Highlight from "react-highlight";
 import Radium from "radium";
 import React from "react";
+import Url from "../../util/url";
 import { connect } from "react-redux";
 import { Link } from "react-router";
 
@@ -48,8 +49,8 @@ class ShareAndEmbed extends React.Component {
             <a
               style={{fontSize: 36, color: "black"}}
               target="blank"
-              href={"https://pol.is/" + this.props.params.conversation_id}>
-              {"pol.is/" + this.props.params.conversation_id}
+              href={Url.urlPrefix + this.props.params.conversation_id}>
+              {Url.urlPrefix + this.props.params.conversation_id}
             </a>
           </p>
         </div>

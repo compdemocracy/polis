@@ -10,7 +10,11 @@ var wl = window.domainWhitelist.map(function(x) {
 
 for (var i = 0; i < wl.length; i++) {
   if (document.domain.match(wl[i])) {
-    urlPrefix = document.location.protocol + "//" + document.location.hostname + ":" + document.location.port + "/";
+    urlPrefix = document.location.protocol + "//" + document.location.hostname;
+    if (document.location.port) {
+      urlPrefix = urlPrefix + ":" + document.location.port;
+    }
+    urlPrefix = urlPrefix + "/";
     break;
   }
 }
