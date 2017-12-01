@@ -11,6 +11,8 @@ var request = require('request');
 var app = express();
 var compiler = webpack(config);
 
+var polisConfig = require('./polis.config');
+
 app.use(require('webpack-dev-middleware')(compiler, {
   noInfo: true,
   publicPath: config.output.publicPath
@@ -18,7 +20,7 @@ app.use(require('webpack-dev-middleware')(compiler, {
 
 app.use(require('webpack-hot-middleware')(compiler));
 
-const serviceUrl = process.env.SERVICE_URL ? process.env.SERVICE_URL : "https://pol.is";
+const serviceUrl = polisConfig.SERVICE_URL ? polisConfig.SERVICE_URL : "https://pol.is";
 console.log("SERVICE_URL:", serviceUrl);
 
 function proxy (req, res) {
@@ -52,8 +54,11 @@ app.get('*', function(req, res) {
 
   var html = fs.readFileSync(path.join(__dirname, 'index.html'), {encoding: "utf8"});
 
-  html = html.replace("<%= useIntercom %>", !isTrue(process.env.DISABLE_INTERCOM));
-  html = html.replace("<%= usePlans %>", !isTrue(process.env.DISABLE_PLANS));
+  html = html.replace("<%= useIntercom %>", !isTrue(polisConfig.DISABLE_INTERCOM));
+  html = html.replace("<%= usePlans %>", !isTrue(polisConfig.DISABLE_PLANS));
+  var domainWhitelist = '["' + polisConfig.domainWhitelist.join('","') + '"]';
+  html = html.replace("<%= domainWhitelist %>", domainWhitelist);
+
   res.set({
     'Content-Type': 'text/html',
   });
