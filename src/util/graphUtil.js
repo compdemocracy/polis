@@ -106,8 +106,8 @@ const graphUtil = (comments, math, badTids) => {
     var xScaleCandidateForLeftSide = (border - xCenter) / minCommentX;
     var yScaleCandidateForTopSide = (border - yCenter) / minCommentY;
 
-    // TODO_VOTE_FLIP: we can probably remove the -1 below if we flip the vote values.
-    var commentScaleupFactorX = -1 * Math.min(
+    // TODO_VOTE_FLIP: we can probably multiply by -1 below if we flip the vote values.
+    var commentScaleupFactorX = Math.min(
       Math.abs(xScaleCandidateForRightSide),
       Math.abs(xScaleCandidateForLeftSide));
 
