@@ -58,8 +58,5 @@
     "winston": "1.0.2",
     "finalhandler": "^1.1.0",
     "serve-static": "^1.13.1"
-  },
-  "optionalDependencies": {
-    "polisServerBrand": "git+https://github.com/colinmegill/polisServerBrand.git#master"
   }
 }
