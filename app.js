@@ -1,6 +1,55 @@
 // Copyright (C) 2012-present, Polis Technology Inc. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 "use strict";
 
+// Static file server and upload server
+
+const finalhandler = require('finalhandler');
+const fs = require('fs');
+const http = require('http');
+const serveStatic = require('serve-static');
+
+const config = JSON.parse(fs.readFileSync(process.env.CONFIG_FILE || './fs_config.json'));
+
+
+// Serve up public/ftp folder
+const serve = serveStatic(config.fileRoot, {
+    'index': false,
+    'setHeaders': setHeaders,
+});
+
+// Set header to force download
+function setHeaders (res, filePath) {
+    //res.setHeader('Content-Disposition', contentDisposition(path));
+    //
+    const configFile = fs.readFileSync(filePath + ".headersJson");
+    const headers = JSON.parse(configFile);
+    const headerNames = Object.keys(headers);
+    if (headerNames && headerNames.length) {
+        res.setHeader('Pragma', null);
+        headerNames.forEach((name) => {
+            res.setHeader(name, headers[name]);
+        });
+    }
+}
+
+// Create server
+const fileServer = http.createServer(function onRequest (req, res) {
+    serve(req, res, finalhandler(req, res));
+});
+
+// Listen
+fileServer.listen(config.port, function (err) {
+    if (!err) {
+        console.log('polisFileServer listening on port ' + config.port);
+    } else {
+        console.error('Error starting polisFileServer.');
+        console.error(err);
+    }
+});
+
+
+// Original server
+
 const Promise = require('bluebird');
 const express = require('express');
 const optional = require("optional");
@@ -1517,3 +1566,6 @@ helpersInitialized.then(function(o) {
   console.error("failed to init server");
   console.error(err);
 });
+
+
+
