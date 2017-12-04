@@ -181,6 +181,8 @@ helpersInitialized.then(function(o) {
     handle_GET_snapshot,
     handle_GET_stripe_account_connect,
     handle_GET_stripe_account_connected_oauth_callback,
+    hangle_GET_testConnection,
+    hangle_GET_testDatabase,
     handle_GET_tryCookie,
     handle_GET_twitter_image,
     handle_GET_twitter_oauth_callback,
@@ -217,6 +219,7 @@ helpersInitialized.then(function(o) {
     handle_POST_joinWithInvite,
     handle_POST_lti_conversation_assignment,
     handle_POST_lti_setup_assignment,
+    handle_POST_math_update,
     handle_POST_metadata_answers,
     handle_POST_metadata_questions,
     handle_POST_metrics,
@@ -781,6 +784,14 @@ helpersInitialized.then(function(o) {
     haltOnTimeout,
     handle_GET_nextComment);
 
+  app.get("/api/v3/testConnection",
+    moveToBody,
+    hangle_GET_testConnection);
+
+  app.get("/api/v3/testDatabase",
+    moveToBody,
+    hangle_GET_testDatabase);
+
   app.get("/robots.txt",
     function(req, res) {
       res.send("User-agent: *\n" +
@@ -1048,6 +1059,13 @@ helpersInitialized.then(function(o) {
     want('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('report_id', getReportIdFetchRid, assignToPCustom('rid')), // Knowing the report_id grants the user permission to view the report
     handle_GET_reports);
+
+  app.post('/api/v3/mathUpdate',
+    moveToBody,
+    auth(assignToP),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    need('math_update_type', getStringLimitLength(1, 32), assignToP), // expecting "recompute" or "update"
+    handle_POST_math_update);
 
   app.post('/api/v3/reports',
     auth(assignToP),
@@ -1430,6 +1448,7 @@ helpersInitialized.then(function(o) {
   // Conversation aliases
   app.get(/^\/football$/, makeRedirectorTo("/2arcefpshi"));
   app.get(/^\/pdf$/, makeRedirectorTo("/23mymwyhkn")); // pdf 2017
+  app.get(/^\/nabi$/, makeRedirectorTo("/8ufpzc6fkm")); // 
 
 
 
@@ -1494,6 +1513,12 @@ helpersInitialized.then(function(o) {
     'Content-Type': "text/html",
   }));
   app.get(/^\/embedPreprod$/, makeFileFetcher(hostname, portForAdminFiles, "/embedPreprod.html", {
+    'Content-Type': "text/html",
+  }));
+  app.get(/^\/embedReport$/, makeFileFetcher(hostname, portForAdminFiles, "/embedReport.html", {
+    'Content-Type': "text/html",
+  }));
+  app.get(/^\/embedReportPreprod$/, makeFileFetcher(hostname, portForAdminFiles, "/embedReportPreprod.html", {
     'Content-Type': "text/html",
   }));
   app.get(/^\/canvas_setup_backup_instructions$/, makeFileFetcher(hostname, portForParticipationFiles, "/canvas_setup_backup_instructions.html", {

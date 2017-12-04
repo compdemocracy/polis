@@ -32,7 +32,7 @@ const Mailgun = require('mailgun').Mailgun;
 const mailgun = new Mailgun(process.env.MAILGUN_API_KEY);
 // const postmark = require("postmark")(process.env.POSTMARK_API_KEY);
 const querystring = require('querystring');
-const devMode = "localhost" === process.env.STATIC_FILES_HOST;
+const devMode = isTrue(process.env.DEV_MODE);
 const replaceStream = require('replacestream');
 const responseTime = require('response-time');
 const request = require('request-promise'); // includes Request, but adds promise methods
@@ -1517,6 +1517,7 @@ const needHeader = prrrams.needHeader;
 const wantHeader = prrrams.wantHeader;
 
 const COOKIES = {
+  COOKIE_TEST: 'ct',
   HAS_EMAIL: 'e',
   TOKEN: 'token2',
   UID: 'uid2',
@@ -1679,17 +1680,28 @@ function initializePolisHelpers() {
     });
   }
 
+  function setCookieTestCookie(req, res, setOnPolisDomain) {
+    setCookie(req, res, setOnPolisDomain, COOKIES.COOKIE_TEST, 1, {
+      // not httpOnly - needed by JS
+    });
+  }
+
+  function shouldSetCookieOnPolisDomain(req) {
+    let setOnPolisDomain = !domainOverride;
+    let origin = req.headers.origin || "";
+    if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
+      setOnPolisDomain = false;
+    }
+    return setOnPolisDomain;
+  }
+
   function addCookies(req, res, token, uid) {
     return getUserInfoForUid2(uid).then(function(o) {
       let email = o.email;
       let created = o.created;
       let plan = o.plan;
 
-      let setOnPolisDomain = !domainOverride;
-      let origin = req.headers.origin || "";
-      if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
-        setOnPolisDomain = false;
-      }
+      let setOnPolisDomain = shouldSetCookieOnPolisDomain(req);
 
       setTokenCookie(req, res, setOnPolisDomain, token);
       setUidCookie(req, res, setOnPolisDomain, uid);
@@ -2493,6 +2505,7 @@ function initializePolisHelpers() {
     if (!req.cookies[COOKIES.PERMANENT_COOKIE]) {
       setPermanentCookie(req, res, setOnPolisDomain, makeSessionToken());
     }
+    setCookieTestCookie(req, res, setOnPolisDomain);
 
     setCookie(req, res, setOnPolisDomain, "top", "ok", {
       httpOnly: false, // not httpOnly - needed by JS
@@ -2960,6 +2973,31 @@ function initializePolisHelpers() {
         return null;
       }
       return row[0].zid;
+    });
+  }
+
+  function handle_POST_math_update(req, res) {
+    let zid = req.p.zid;
+    let uid = req.p.uid;
+    let math_env = process.env.MATH_ENV;
+    let math_update_type = req.p.math_update_type;
+
+    isModerator(zid, uid).then((hasPermission) => {
+      if (!hasPermission) {
+        return fail(res, 500, "handle_POST_math_update_permission");
+      }
+      return pgQueryP("insert into worker_tasks (task_type, task_data, task_bucket, math_env) values ('update_math', $1, $2, $3);", [
+        JSON.stringify({
+          zid: zid,
+          math_update_type: math_update_type,
+        }),
+        zid,
+        math_env,
+      ]).then(() => {
+        res.status(200).json({});
+      }).catch((err) => {
+        return fail(res, 500, "polis_err_POST_math_update", err);
+      });
     });
   }
 
@@ -13489,6 +13527,24 @@ CREATE TABLE slack_user_invites (
   //     });
   // }
 
+
+
+  function hangle_GET_testConnection(req, res) {
+    res.status(200).json({
+      status: "ok",
+    });
+  }
+  
+  function hangle_GET_testDatabase(req, res) {
+    pgQueryP("select uid from users limit 1", []).then((rows) => {
+      res.status(200).json({
+        status: "ok",
+      });
+    }, (err) => {
+      fail(res, 500, "polis_err_testDatabase", err);
+    });
+  }
+
   function sendSuzinviteEmail(req, email, conversation_id, suzinvite) {
     let serverName = getServerNameWithProtocol(req);
     let body = "" +
@@ -14068,6 +14124,10 @@ CREATE TABLE slack_user_invites (
         'Cache-Control': 'no-transform,public,max-age=60,s-maxage=60', // Cloudflare will probably cache it for one or two hours
       });
     }
+
+    setCookieTestCookie(req, res, shouldSetCookieOnPolisDomain(req));
+
+
     let doFetch = makeFileFetcher(hostname, port, "/index.html", headers, preloadData);
     if (isUnsupportedBrowser(req)) {
 
@@ -14451,6 +14511,8 @@ CREATE TABLE slack_user_invites (
     handle_GET_snapshot,
     handle_GET_stripe_account_connect,
     handle_GET_stripe_account_connected_oauth_callback,
+    hangle_GET_testConnection,
+    hangle_GET_testDatabase,
     handle_GET_tryCookie,
     handle_GET_twitter_image,
     handle_GET_twitter_oauth_callback,
@@ -14484,6 +14546,7 @@ CREATE TABLE slack_user_invites (
     handle_POST_joinWithInvite,
     handle_POST_lti_conversation_assignment,
     handle_POST_lti_setup_assignment,
+    handle_POST_math_update,
     handle_POST_metadata_answers,
     handle_POST_metadata_questions,
     handle_POST_metrics,
