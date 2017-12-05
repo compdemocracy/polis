@@ -118,19 +118,22 @@ Promise.onPossiblyUnhandledRejection(function(err) {
 });
 
 
-const polisDevs = [
-  // Mike
-  125,
-  26347, // polis
-  91268, // facebook and twiter attached
+function requiredConfig(name) {
+  if (_.isUndefined(process.env[name])) {
+    throw "be sure to set the "+name+" environment variable";
+  }
+}
 
-  // Colin
-  186, // gmail
+requiredConfig("ADMIN_UIDS"); // for testing
+requiredConfig("ADMIN_EMAILS"); // for notifying the team
+requiredConfig("ADMIN_EMAIL_DATA_EXPORT"); // a "send as" address for data export
+requiredConfig("ADMIN_EMAIL_DATA_EXPORT_TEST"); // for notifying of the outcome of automated data export testing 
+requiredConfig("ADMIN_EMAIL_EMAIL_TEST"); // for notifying of the outcome of email system testing
 
-  // Chris
-  302, //  gmail
-  36140, // polis
-];
+
+const admin_emails = JSON.parse(process.env.ADMIN_EMAILS);
+const polisDevs = JSON.parse(process.env.ADMIN_UIDS);
+
 
 function isPolisDev(uid) {
   return polisDevs.indexOf(uid) >= 0;
@@ -3135,7 +3138,7 @@ function initializePolisHelpers() {
   if (process.env.RUN_PERIODIC_EXPORT_TESTS && !devMode && process.env.MATH_ENV === "preprod") {
     let runExportTest = () => {
       let math_env = "prod";
-      let email = process.env.EMAIL_MIKE;
+      let email = process.env.ADMIN_EMAIL_DATA_EXPORT_TEST;
       let zid = 12480;
       let atDate = Date.now();
       let format = "csv";
@@ -4493,7 +4496,7 @@ Feel free to reply to this email if you need help.`;
 ${message}`;
 
     return sendMultipleTextEmails(
-      POLIS_FROM_ADDRESS, [process.env.EMAIL_MIKE, process.env.EMAIL_COLIN, process.env.EMAIL_CHRIS],
+      POLIS_FROM_ADDRESS, admin_emails,
       "Dummy button clicked!!!",
       body)
     .catch(function(err) {
@@ -4504,7 +4507,7 @@ ${message}`;
 
   function emailTeam(subject, body) {
     return sendMultipleTextEmails(
-      POLIS_FROM_ADDRESS, [process.env.EMAIL_MIKE, process.env.EMAIL_COLIN, process.env.EMAIL_CHRIS],
+      POLIS_FROM_ADDRESS, admin_emails,
       subject,
       body).catch(function(err) {
         yell("polis_err_failed_to_email_team");
@@ -4672,7 +4675,7 @@ ${serverName}/pwreset/${pwresettoken}
     if (d.getDay() === 1) {
       // send the monday backup email system test
       // If the sending fails, we should get an error ping.
-      sendTextEmailWithMailgun(POLIS_FROM_ADDRESS, process.env.EMAIL_MIKE, "monday backup email system test (mailgun)", "seems to be working");
+      sendTextEmailWithMailgun(POLIS_FROM_ADDRESS, process.env.ADMIN_EMAIL_EMAIL_TEST, "monday backup email system test (mailgun)", "seems to be working");
     }
   }
   setInterval(trySendingBackupEmailTest, 1000 * 60 * 60 * 23); // try every 23 hours (so it should only try roughly once a day)
@@ -10689,7 +10692,7 @@ Email verified! You can close this tab or hit the back button.
     const domain = process.env.primary_polis_url;
     const email = req.p.email;
     const subject = "Data export for pol.is conversation pol.is/" + req.p.conversation_id;
-    const fromAddress = `Polis Team <${process.env.EMAIL_CHRIS}>`;
+    const fromAddress = `Polis Team <${process.env.ADMIN_EMAIL_DATA_EXPORT}>`;
     const body = `Greetings
 
 You created a data export for pol.is conversation ${domain}/${req.p.conversation_id} that has just completed. You can download the results for this conversation at the following url:
