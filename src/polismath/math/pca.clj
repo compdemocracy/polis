@@ -127,8 +127,7 @@
 (defn pca-project
   "Apply the principal component projection specified by pcs to the data"
   [data {:keys [comps center]}]
-  ; Here we map each row of data to it's projection
-  ; XXX - still need to verify this...
+  ; Here we map each row of data to its projection
   (matrix/mmul (- data center) (matrix/transpose comps)))
 
 
@@ -174,7 +173,7 @@
           (assoc
             (vec (repeat n-cols nil))
             i
-            1))
+            -1))
         (range n-cols))
       pca)))
 
