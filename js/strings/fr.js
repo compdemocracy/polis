@@ -49,10 +49,14 @@ s.pctAgreedOfGroupLong = "{{pct}} % des membres du groupe {{group}} ayant voté 
 s.pctDisagreedOfGroupLong = "{{pct}} % des membres du groupe {{group}} ayant voté au sujet de l’affirmation {{comment_id}} étaient en désaccord avec celui-ci.";
 s.commentSent = "Énoncé publié! Les autres participants verront votre publication et indiqueront s’ils sont en accord ou en désaccord avec l’affirmation.";
 s.commentSendFailed = "Une erreur est survenue. Impossible de publier l’affirmation.";
-s.commentErrorDuplicate = "Doublon! Cet énoncé a déjà été publié.";
+s.commentSendFailedEmpty = "Une erreur s’est produite lors de la soumission de votre affirmation - L’affirmation ne devrait pas être vide.";
+s.commentSendFailedTooLong =  "Une erreur s’est produite lors de la soumission de votre affirmation – L’affirmation est trop longue ";
+s.commentSendFailedDuplicate = "Une erreur s’est produite lors de la soumission de votre affirmation – Une affirmation identique existe déjà.";
+s.commentErrorDuplicate = "Une erreur s’est produite lors de la soumission de votre affirmation – Une affirmation identique existe déjà.";
 s.commentErrorConversationClosed = "Cette conversation est fermée. Impossible de publier de nouvelles affirmations.";
 s.commentIsEmpty = "L’affirmation est vide.";
 s.commentIsTooLong = "L’affirmation est trop longue.";
+s.hereIsNextStatement = "Vote effectué avec succès. Naviguez vers le haut pour voir l’affirmation suivante.";
 
 s.connectFacebook = "Connexion à Facebook";
 s.connectTwitter = "Connexion à Twitter";
