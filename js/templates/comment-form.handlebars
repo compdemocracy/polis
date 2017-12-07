@@ -91,10 +91,12 @@
     ">
 
     {{!-- ================ SOCIAL PICTURE && TEXT AREA ================ --}}
-    <div style="display: table">
+    <div style="display: table; width: 100%">
+      {{#unless is_anon}}
       <span style="display: table-cell">
         {{view profilePicView}}
       </span>
+      {{/unless}}
       <span style="display: table-cell; width: 100%">
         <textarea
           class="form-control"
