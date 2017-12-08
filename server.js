@@ -2618,6 +2618,7 @@ function initializePolisHelpers() {
   // setTimeout(fetchAndCacheLatestPcaData, 5000);
   fetchAndCacheLatestPcaData; // TODO_DELETE
 
+  /*
   function splitTopLevelGroup(o, gid) {
     function shouldKeepGroup(g) {
       return g.id !== gid;
@@ -2685,6 +2686,7 @@ function initializePolisHelpers() {
 
     return o;
   }
+  */
 
   function processMathObject(o) {
 
@@ -2741,23 +2743,23 @@ function initializePolisHelpers() {
 
     // Edge case where there are two groups and one is huge, split the large group.
     // Once we have a better story for h-clust in the participation view, then we can just show the h-clust instead.
-    var groupVotes = o['group-votes'];
-    if (_.keys(groupVotes).length === 2 && o['subgroup-votes'] && o['subgroup-clusters'] && o['subgroup-repness']) {
-      var s0 = groupVotes[0].val['n-members'];
-      var s1 = groupVotes[1].val['n-members'];
-      const scaleRatio = 1.1;
-      if (s1 * scaleRatio < s0) {
-        console.log('splitting 0', s0, s1, s1*scaleRatio);
-        o = splitTopLevelGroup(o, groupVotes[0].id);
-      } else if (s0 * scaleRatio < s1) {
-        console.log('splitting 1', s0, s1, s0*scaleRatio);
-        o = splitTopLevelGroup(o, groupVotes[1].id);
-      }
-    }
+    // var groupVotes = o['group-votes'];
+    // if (_.keys(groupVotes).length === 2 && o['subgroup-votes'] && o['subgroup-clusters'] && o['subgroup-repness']) {
+    //   var s0 = groupVotes[0].val['n-members'];
+    //   var s1 = groupVotes[1].val['n-members'];
+    //   const scaleRatio = 1.1;
+    //   if (s1 * scaleRatio < s0) {
+    //     console.log('splitting 0', s0, s1, s1*scaleRatio);
+    //     o = splitTopLevelGroup(o, groupVotes[0].id);
+    //   } else if (s0 * scaleRatio < s1) {
+    //     console.log('splitting 1', s0, s1, s0*scaleRatio);
+    //     o = splitTopLevelGroup(o, groupVotes[1].id);
+    //   }
+    // }
 
-    // Gaps in the gids are not what we want to show users, and they make client development difficult.
-    // So this guarantees that the gids are contiguous. TODO look into Darwin.
-    o = packGids(o);
+    // // Gaps in the gids are not what we want to show users, and they make client development difficult.
+    // // So this guarantees that the gids are contiguous. TODO look into Darwin.
+    // o = packGids(o);
 
     // Un-normalize to maintain API consistency.
     // This could removed in a future API version.
