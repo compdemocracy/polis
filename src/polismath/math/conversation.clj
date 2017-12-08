@@ -694,8 +694,9 @@
                 :as opts}]
    (let [zid     (or (:zid conv) (:zid (first votes)))
          ptpts   (nm/rownames (:raw-rating-mat conv))
+         cmnts   (nm/colnames (:raw-rating-mat conv))
          n-ptpts (count (distinct (into ptpts (map :pid votes))))
-         n-cmts  (count (distinct (into (nm/rownames (:raw-rating-mat conv)) (map :tid votes))))]
+         n-cmts  (count (distinct (into cmnts (map :tid votes))))]
      ;; This is a safety measure so we can call conv-update on an empty conversation after adding mod-out
      ;; Note though that as long as we have a non-empty conv, updating with empty/nil votes should still trigger recompute
      (if (and (= 0 n-ptpts n-cmts)
