@@ -9,7 +9,7 @@
     [polismath.math.repness :as repness]
     [polismath.math.named-matrix :as nm]
     [clojure.core.matrix :as matrix]
-    [clojure.spec :as s]
+    [clojure.spec.alpha :as s]
     [clojure.tools.reader.edn :as edn]
     [clojure.tools.trace :as tr]
     [clojure.math.numeric-tower :as math]
@@ -20,7 +20,7 @@
     [bigml.sampling.simple :as sampling]
     ;[alex-and-georges.debug-repl :as dbr]
     [taoensso.timbre :as log]
-    [clojure.spec.gen :as gen]
+    [clojure.spec.gen.alpha :as gen]
     [clojure.test.check.generators :as generators]))
 
 

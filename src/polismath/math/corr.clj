@@ -12,7 +12,7 @@
     ;[polismath.utils :as utils]
     ;[polismath.math.stats :as stats]
     [polismath.math.named-matrix :as nm]
-    [clojure.spec :as s]
+    [clojure.spec.alpha :as s]
     [clojure.core.matrix :as matrix]
     ;[clojure.core.matrix.stats :as matrix-stats]
     [clojure.core.matrix.selection :as matrix.selection]
