@@ -507,8 +507,8 @@
       ;; This is a little different from the group version above;
       ;; For each group, we take the subgroup clustering the best silhouette, and keep it.
       ;; To each of the clusters in this clustering, we assoc the :parent-id of that cluster.
-      ;; We end up with a map that looks like {:parent-id clusters}, where clusters looks as it does for `:group-clusters`,
-      ;; excepting the each cluster has a `:parent-id` attr.
+      ;; We end up with a map that looks like {<parent-id> clusters}, where clusters looks as it does for `:group-clusters`,
+      ;; excepting the each cluster has a `:parent-id <parent-id>` attr/value pair.
       :subgroup-clusters
       (plmb/fnk [subgroup-clusterings subgroup-k-smoother]
         (into
@@ -689,8 +689,8 @@
    (conv-update conv votes {}))
   ;; TODO Need to pass through these options from all the various places where we call this function...
   ;; XXX Also need to set the max globally and by conversation for plan throttling
-  ([conv votes {:keys [med-cutoff large-cutoff]
-                :or {med-cutoff 100 large-cutoff 10000}
+  ([conv votes {:keys [large-cutoff]
+                :or {large-cutoff 10000}
                 :as opts}]
    (let [zid     (or (:zid conv) (:zid (first votes)))
          ptpts   (nm/rownames (:raw-rating-mat conv))
