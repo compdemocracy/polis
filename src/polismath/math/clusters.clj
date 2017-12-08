@@ -227,39 +227,51 @@
 (defn clean-start-clusters
   "This function takes care of some possible messy situations which can crop up with using 'last-clusters'
   in kmeans computation, and generally gets the last set of clusters ready as the basis for a new round of
-  clustering given the latest set of data."
+  clustering given the latest set of data.
+
+  WARNING!!! This function is very slow for building up a new clustering from scratch, and thus for an empty
+  clustering we just call out to init-clusters. If you try building off of just a few seed clusters though,
+  this function will behave very poorly. This could potentially be optimized for down the road, but for now
+  be warned."
   [data clusters k & {:keys [weights]}]
   ; First recenter clusters (replace cluster center with a center computed from new positions)
-  (let [clusters (into [] (safe-recenter-clusters data clusters :weights weights))
-        ; next make sure we're not dealing with any clusters that are identical to eachother
-        uniq-clusters (uniqify-clusters clusters)
-        ; count uniq data points to figure out how many clusters are possible
-        ;; I don't like the into here, but seems necessary to solve a weird core.matrix issue with lists not having nth
-        possible-clusters (min k (count (distinct (into [] (matrix/rows (nm/get-matrix data))))))]
-    (loop [clusters uniq-clusters]
-      ; Whatever the case here, we want to do one more recentering
-      (let [clusters (recenter-clusters data clusters :weights weights)]
-        (if (> possible-clusters (count clusters))
-          ; first find the most distal point, and the cluster to which it's closest
-          (let [outlier (most-distal data clusters)]
-            (if (> (:dist outlier) 0)
-              ; There is work to be done, so do it
-              (recur
-                (->
-                  ; first remove the most distal point from the cluster it was in;
-                  (map
-                    (fn [clst]
-                      (assoc clst :members
-                        (remove (set [(:id outlier)]) (:members clst))))
-                    clusters)
-                  ; next add a new cluster containing only said point.
-                  (conj {:id (inc (apply max (map :id clusters)))
-                         :members [(:id outlier)]
-                         :center (nm/get-row-by-name data (:id outlier))})))
-              ; Else just return recentered clusters
-              clusters))
-          ; Else just return recentered clusters
-          clusters)))))
+  (if (seq clusters)
+    ;; In most cases, we have existing clusters we want to optimize for as we break things apart, and want
+    ;; to break things apart in such a way as to preserve as much structure as possible
+    (let [clusters (safe-recenter-clusters data clusters :weights weights)
+          ; next make sure we're not dealing with any clusters that are identical to eachother
+          uniq-clusters (uniqify-clusters clusters)
+          ; count uniq data points to figure out how many clusters are possible
+          ;; I don't like the into here, but seems necessary to solve a weird core.matrix issue with lists not having nth
+          possible-clusters (min k (count (distinct (into [] (matrix/rows (nm/get-matrix data))))))]
+      (loop [clusters uniq-clusters]
+        ; Whatever the case here, we want to do one more recentering
+        (let [clusters (recenter-clusters data clusters :weights weights)]
+          (if (> possible-clusters (count clusters))
+            ; first find the most distal point, and the cluster to which it's closest
+            (let [outlier (most-distal data clusters)]
+              (if (> (:dist outlier) 0)
+                ; There is work to be done, so do it
+                (recur
+                  (->
+                    ; first remove the most distal point from the cluster it was in;
+                    (mapv
+                      (fn [clst]
+                        (assoc clst :members
+                          (remove (set [(:id outlier)]) (:members clst))))
+                      clusters)
+                    ; next add a new cluster containing only said point.
+                    (conj {:id (inc (apply max (map :id clusters)))
+                           :members [(:id outlier)]
+                           :center (nm/get-row-by-name data (:id outlier))})))
+                ; Else just return recentered clusters
+                clusters))
+            ; Else just return recentered clusters
+            clusters))))
+    ;; Otherwise, just initialize a set of dummy clusters
+    (do
+      (log/warn "Had to initialize clusters from clean-start-clusters. This shouldn't have to happen, and maybe means bidToPid mapping didn't load into new conv.")
+      (init-clusters data k))))
 
 
 (defn setify-members
