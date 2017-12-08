@@ -360,7 +360,7 @@
             (clusters/kmeans in-conv-mat
               (:base-k opts')
               :last-clusters (:base-clusters conv)
-              :cluster-iters (:base-iters opts')))))
+              :max-iters (:base-iters opts')))))
 
       :base-clusters-proj
       (plmb/fnk [base-clusters]
