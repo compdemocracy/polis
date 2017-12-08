@@ -49,14 +49,13 @@
     (query component (sql/format query-data))
     (jdbc/query (:db-spec component) query-data)))
 
-
-
 (defrecord Postgres [config db-spec]
   component/Lifecycle
   (start [component]
     (log/info ">> Starting Postgres component")
-    (let [db-spec (-> config :database :url heroku-db-spec)]
-      (assoc component :db-spec db-spec)))
+    (let [database-url (-> config :database :url)]
+      (assert database-url "Missing database url. Make sure to set env variables.")
+      (assoc component :db-spec (heroku-db-spec database-url))))
   (stop [component]
     (log/info "<< Stopping Postgres component")
     (assoc component :db-spec nil)))
