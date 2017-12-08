@@ -197,7 +197,7 @@ CREATE TABLE conversations(
     spam_filter BOOLEAN DEFAULT TRUE,
     strict_moderation BOOLEAN DEFAULT FALSE,
     prioritize_seed BOOLEAN DEFAULT FALSE,
-    vis_type INTEGER NOT NULL DEFAULT 1, -- for now, vis=1 is on, vis=0 is off. in the future, other values may be used for other configurations of vis
+    vis_type INTEGER NOT NULL DEFAULT 0, -- for now, vis=1 is on, vis=0 is off. in the future, other values may be used for other configurations of vis
     write_type INTEGER NOT NULL DEFAULT 1, -- for now, 1 shows comment form, 0 hides the comment form. in the future, other values may be used for other configurations of comment form
     help_type INTEGER NOT NULL DEFAULT 1, -- 0 for disabled, 1 for enabled
     write_hint_type INTEGER NOT NULL DEFAULT 1, -- 1 for under comment form, 0 for off
@@ -764,6 +764,7 @@ CREATE TABLE math_main (
   math_env VARCHAR(999) NOT NULL,
   data jsonb NOT NULL,
   last_vote_timestamp BIGINT NOT NULL,
+  caching_tick BIGINT NOT NULL DEFAULT 0,
   math_tick BIGINT NOT NULL DEFAULT -1, -- this will get its value from math_ticks
   modified BIGINT DEFAULT now_as_millis(),
   UNIQUE(zid, math_env)
