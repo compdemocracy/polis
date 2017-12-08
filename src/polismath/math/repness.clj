@@ -5,7 +5,7 @@
             [polismath.math.stats :as stats]
             [polismath.math.named-matrix :as nm]
             [polismath.math.clusters :as clusters]
-            [clojure.spec :as s]
+            [clojure.spec.alpha :as s]
             [clojure.core.matrix :as mat]
             [clojure.core.matrix.operators :refer :all]
             [clojure.tools.trace :as tr]

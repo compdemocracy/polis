@@ -2,7 +2,7 @@
 
 (ns polismath.math.clusters
   (:refer-clojure :exclude [* - + == /])
-  (:require [taoensso.timbre.profiling :as profiling
+  (:require [taoensso.timbre.profiling :as prof
              :refer (pspy pspy* profile defnp p p*)]
             [taoensso.timbre :as log]
             [plumbing.core :as pc
@@ -13,7 +13,7 @@
             [polismath.utils :as utils]
             [polismath.math.stats :as stats]
             [polismath.math.named-matrix :as nm]
-            [clojure.spec :as s]
+            [clojure.spec.alpha :as s]
             [clojure.core.matrix :as matrix]
             [clojure.core.matrix.stats :as matrix-stats]
             [clojure.core.matrix.selection :as matrix.selection]

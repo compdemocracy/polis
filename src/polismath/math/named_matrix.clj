@@ -4,8 +4,8 @@
   (:require [clojure.core.matrix :as matrix]
             ;[clojure.core.matrix.select :as matrix]
             [taoensso.timbre.profiling :as profiling :refer (pspy pspy* profile defnp p p*)]
-            [clojure.spec :as s]
-            [clojure.spec.gen :as gen]
+            [clojure.spec.alpha :as s]
+            [clojure.spec.gen.alpha :as gen]
             [clojure.test.check.generators :as generators])
   ;; Again, move to 
   (:use polismath.utils))
