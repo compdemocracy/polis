@@ -127,6 +127,11 @@
                      []
                      (nm/rownames nmat)))))
 
+;; Rename all above to weighted-mean* for profiling
+;(defnp weighted-mean
+;  [& args]
+;  (apply weighted-mean* args))
+
 (defn cluster-weights
   "Get a weights seq given a cluster with :members and a hash-map of weights. Returns nil
   if hm-weights is falsey."
