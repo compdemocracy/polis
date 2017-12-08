@@ -76,10 +76,12 @@ const graphUtil = (comments, math, badTids) => {
     let minClusterY = _.min(allYs);
     let maxClusterY = _.max(allYs);
 
-    var greatestAbsPtptX = _.maxBy(baseClusters, (pt) => { return Math.abs(pt.x); }).x;
-    var greatestAbsPtptY = _.maxBy(baseClusters, (pt) => { return Math.abs(pt.y); }).y;
-    var greatestAbsCommentX = _.maxBy(commentsPoints, (pt) => { return Math.abs(pt.x); }).x;
-    var greatestAbsCommentY = _.maxBy(commentsPoints, (pt) => { return Math.abs(pt.y); }).y;
+    var greatestAbsPtptX = Math.abs(_.maxBy(baseClusters, (pt) => { return Math.abs(pt.x); }).x);
+    var greatestAbsPtptY = Math.abs(_.maxBy(baseClusters, (pt) => { return Math.abs(pt.y); }).y);
+    var greatestAbsCommentX = Math.abs(_.maxBy(commentsPoints, (pt) => { return Math.abs(pt.x); }).x);
+    var greatestAbsCommentY = Math.abs(_.maxBy(commentsPoints, (pt) => { return Math.abs(pt.y); }).y);
+
+
 
 
     const xx = d3.scaleLinear().domain([-greatestAbsPtptX, greatestAbsPtptX]).range([border, globals.side - border]);
@@ -106,12 +108,11 @@ const graphUtil = (comments, math, badTids) => {
     var xScaleCandidateForLeftSide = (border - xCenter) / minCommentX;
     var yScaleCandidateForTopSide = (border - yCenter) / minCommentY;
 
-    // TODO_VOTE_FLIP: we can probably multiply by -1 below if we flip the vote values.
     var commentScaleupFactorX = Math.min(
       Math.abs(xScaleCandidateForRightSide),
       Math.abs(xScaleCandidateForLeftSide));
 
-    var commentScaleupFactorY = -1 * Math.min(
+    var commentScaleupFactorY = Math.min(
       Math.abs(yScaleCandidateForBottomSide),
       Math.abs(yScaleCandidateForTopSide));
 
