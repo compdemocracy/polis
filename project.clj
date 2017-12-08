@@ -13,9 +13,9 @@
   :target-path "target/%s"
   :javac-target "1.7"
   :repositories {"twitter4j" "http://twitter4j.org/maven2"}
-  :plugins [[lein-git-deps "0.0.1-SNAPSHOT"]]
+  :plugins [[lein-git-deps "0.0.1-SNAPSHOT"]
             ;; need to add profiles to use this to avoid clout dep issue
-            ;[lein-gorilla "0.3.4"]
+            [lein-gorilla "0.4.0"]]
             ;[lein-environ "0.4.0"]
 
   :git-dependencies [["https://github.com/metasoarous/tools.cli.git" "master"]
@@ -84,7 +84,8 @@
                     :port 989796}
   :main polismath.runner
   :min-lein-version "2.3.0"
-  :profiles {:dev {:dependencies [[org.clojure/test.check "0.9.0"]]
+  :profiles {:dev {:dependencies [[org.clojure/test.check "0.9.0"]
+                                  [gg4clj "0.1.0"]]
                    :source-paths ["src" "dev"]
                    :env {:mongo-url "db/mongo.db"}}
              :production {:env {}}})
