@@ -8,6 +8,7 @@
   ; faster run time in exchange for slower startup time
   ;:aot :all
   ;:jvm-opts ^:replace []
+  :jvm-opts ["-Xmx4g"]
   :repl-options {:timeout 120000
                  :port 34344}
   :target-path "target/%s"
