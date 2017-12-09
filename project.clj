@@ -24,7 +24,7 @@
   :dependencies [;; org.clojure stuff...
                  [org.clojure/clojure "1.9.0-RC2"]
                  [org.clojure/spec.alpha "0.1.143"]
-                 [org.clojure/core.async "0.2.395"]
+                 [org.clojure/core.async "0.3.465"]
                  [org.clojure/data.csv "0.1.3"]
                  [org.clojure/math.numeric-tower "0.0.4"]
                  [org.clojure/core.match "0.2.2"]
@@ -61,7 +61,6 @@
                                                 ;; AOT compilation issues, because excluding monger doesn't help...
                                                 incanter/incanter-mongodb]]
                  [bigml/sampling "3.1"]
-                 [com.novemberain/monger "3.1.0"]
                  [amazonica "0.3.77" :exclusions [org.apache.httpcomponents/httpclient
                                                   org.apache.httpcomponents/httpcore]]
                                                   ;com.fasterxml.jackson.core/jackson-core]]
@@ -86,8 +85,7 @@
   :main polismath.runner
   :min-lein-version "2.3.0"
   :profiles {:dev {:dependencies [[org.clojure/test.check "0.9.0"]
-                                  [yieldbot/vizard "1.0.1"]
-                                  [gg4clj "0.1.0"]]
+                                  [yieldbot/vizard "1.0.1"]]
                    :source-paths ["src" "dev"]
                    :env {:mongo-url "db/mongo.db"}}
              :production {:env {}}})
