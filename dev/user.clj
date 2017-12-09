@@ -47,16 +47,17 @@
 (defn comments-data
   [conv]
   (map
-    (fn [tid [x y]]
+    (fn [tid extremity [x y]]
       (merge
         {:label tid
          :x x
          :y y
+         :extremity extremity
          :type "comment"}
         (cmnt-group-votes conv tid)))
     (:tids conv)
+    (-> conv :pca :comment-extremity)
     (-> conv :pca :comment-projection matrix/transpose)))
-
 
 (defn groups-data
   [conv]
