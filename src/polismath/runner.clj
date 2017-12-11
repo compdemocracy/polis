@@ -3,14 +3,17 @@
 (ns polismath.runner
   "This namespace is responsible for running systems"
   (:require [polismath.system :as system]
-            ;[polismath.stormspec :as stormspec :refer [storm-system]]
+    ;[polismath.stormspec :as stormspec :refer [storm-system]]
             [polismath.utils :as utils]
-            ;; TODO Replace this with the canonical clojure.tools.cli once storm is removed
+    ;; TODO Replace this with the canonical clojure.tools.cli once storm is removed
             [clojure.newtools.cli :as cli]
             [clojure.tools.namespace.repl :as namespace.repl]
             [taoensso.timbre :as log]
             [clojure.string :as string]
-            [com.stuartsierra.component :as component]))
+            [com.stuartsierra.component :as component]
+            [polismath.conv-man :as conv-man]
+            [polismath.math.conversation :as conv]
+            [polismath.components.postgres :as postgres]))
 
 
 (defonce system nil)
@@ -42,7 +45,6 @@
   ([system-map-generator]
    (run! system-map-generator {})))
 
-;(defonce -runner! nil)
 (defn -runner! [] (run! (system/base-system {})))
 
 (defn system-reset!
@@ -56,6 +58,7 @@
 (def subcommands
   {;"storm" stormspec/storm-system ;; remove...
    ;"onyx" system/onyx-system ;; soon...
+   "update-all" system/base-system
    "poller" system/poller-system
    "tasks" system/task-system
    "full" system/full-system
@@ -131,6 +134,23 @@
 ;    (exit 0 "Export complete")))
 
 
+(defn update-conv
+  [conv-man zid]
+  (let [conv (conv-man/load-or-init conv-man zid)
+        updated-conv (conv/conv-update conv [])
+        math-tick (postgres/inc-math-tick (:postgres conv-man) zid)]
+    (conv-man/write-conv-updates! conv-man updated-conv math-tick)))
+
+
+(defn update-all-convs
+  [{:as system :keys [conversation-manager postgres]}]
+  (->>
+    (postgres/ptpt-counts postgres)
+    (map :ptpt_cnt)
+    (pmap (partial update-conv conversation-manager))
+    (doall)))
+
+
 (defn -main [& args]
   (let [{:keys [arguments options errors summary]} (cli/parse-opts args cli-options)]
     (log/info "Runner main function executed")
@@ -151,9 +171,12 @@
             system-map-generator (subcommands subcommand)
             _ (log/info "Running subcommand:" subcommand)
             system (system/create-and-run-system! system-map-generator options)]
-        (loop []
-          (Thread/sleep 1000)
-          (recur))))))
+        (if (= subcommand "update-all")
+          (update-all-convs system)
+          ;; Otherwise, keep the main thread spinning
+          (loop []
+            (Thread/sleep 1000)
+            (recur)))))))
 
 
 (comment

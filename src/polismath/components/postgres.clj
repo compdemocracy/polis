@@ -305,6 +305,16 @@
            [:= :rid rid]
            [:> :selection 0]]})
 
+(defn ptpt-counts [postgres]
+  (query
+    postgres
+    {:select [:*]
+     :from [[{:select [:zid [:%count-distinct.pid :ptpt_cnt]]
+              :from [:votes]
+              :group-by [:zid]}
+             :counts]]
+     :where [:> :counts.ptpt_cnt 5]}))
+
 (defn query-zid-from-rid [component rid]
   (query component (zid-from-rid rid)))
 
