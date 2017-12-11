@@ -136,10 +136,12 @@
 
 (defn update-conv
   [conv-man zid]
-  (let [conv (conv-man/load-or-init conv-man zid)
-        updated-conv (conv/conv-update conv [])
-        math-tick (postgres/inc-math-tick (:postgres conv-man) zid)]
-    (conv-man/write-conv-updates! conv-man updated-conv math-tick)))
+  (try
+    (let [conv (conv-man/load-or-init conv-man zid)
+          updated-conv (conv/conv-update conv [])
+          math-tick (postgres/inc-math-tick (:postgres conv-man) zid)]
+      (conv-man/write-conv-updates! conv-man updated-conv math-tick))
+    (catch Exception e (log/error e (str "Unable to complete conversation update for zid " zid)))))
 
 
 (defn update-all-convs
