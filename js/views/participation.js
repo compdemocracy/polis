@@ -377,7 +377,7 @@ module.exports = ConversationView.extend({
       that.ptptModel.set(ptpt);
     });
     $.when(options.firstCommentPromise).then(function(c) {
-      if (c && c.translations) {
+      if (c && c.translations && c.translations.length) {
         c.translations = Utils.getBestTranslation(c.translations, Utils.uiLanguage());
       }
       that.doInit(options, c);
