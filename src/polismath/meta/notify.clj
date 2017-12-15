@@ -5,16 +5,21 @@
 
 
 ;; Keep track of the type of notifications sent, and when they were sent, so you can avoid spamming.
-;; Maps from error code to time last sent in millis.
-(def team-notifications (atom {}))
+;; Maps from message type to a list of timestamps. If there are more than N timestamps within T seconds, it prevents sending. Timestamps older than T seconds will be cleared.
+(def team-notifications-per-message-type-throttle (atom {}))
+;; Maps from zid,message-type to time last sent in millis.
+(def team-notifications-per-convo (atom {}))
 
 
-(defn send-team-notification [subject body]
+(def throttle-count 5) ; number of messages of message-type that can be sent during a throttle-time amount of time
+(def throttle-time (* 60 60 1000))
+(def min-wait (* 60 60 1000))
+
+(defn send-team-notification [config subject body]
   (try
-    (let [darwin-config (-> darwin :config)
-          response (client/post (str (:webserver-url darwin-config) "/notifyTeam")
-                       {:form-params {:webserver_username (:webserver-username darwin-config)
-                                      :webserver_pass (:webserver-pass darwin-config)
+    (let [response (client/post (str (:webserver-url config) "/notifyTeam")
+                       {:form-params {:webserver_username (:webserver-username config)
+                                      :webserver_pass (:webserver-pass config)
                                       :subject subject
                                       :body body}
                         :content-type :json
@@ -23,14 +28,20 @@
     (catch Exception e
       (log/error e "failed to notifyTeam:\n"))))
 
-(defn notify-team [error-code subject body]
+(defn notify-team [config message-type zid subject body]
   (let [now (quot (System/currentTimeMillis) 1000)
-        min-wait (* 60 60 1000)]
-    (if (or
-          (not (contains? team-notifications error-code))
-          (>= now (+ min-wait (get team-notifications error-code))))
+        per-convo-key [zid message-type]
+        oldest (- now throttle-time)
+        trimmed-throttle-list (filter (get team-notifications-per-message-type-throttle message-type) (fn [t] (> t oldest)))
+        message-type-throttle-count (count trimmed-throttle-list)]
+    (if (and
+          (< message-type-throttle-count throttle-count) ; don't send more than 5 per hour for a given message type
+          (or ; don't send more than one per zid,message-type per hour
+            (not (contains? team-notifications-per-convo per-convo-key))
+            (>= now (+ min-wait (get team-notifications-per-convo per-convo-key)))))
       (do
-        (send-team-notification subject body)
-        (swap! team-notifications (fn [old] (assoc old error-code now)))))))
+        (send-team-notification config subject body)
+        (swap! team-notifications-per-convo (fn [old] (assoc old per-convo-key now)))
+        (swap! team-notifications-per-message-type-throttle (fn [old] (assoc old message-type (conj trimmed-throttle-list now))))))))
             
 :ok
