@@ -10692,6 +10692,19 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
+  function handle_POST_notifyTeam(req, res) {
+    if (req.p.webserver_pass !== process.env.WEBSERVER_PASS || req.p.webserver_username !== process.env.WEBSERVER_USERNAME) {
+      return fail(res, 403, "polis_err_notifyTeam_auth");
+    }
+    let subject = req.p.subject;
+    let body = req.p.body;
+    emailTeam(subject, body).then(() => {
+      res.status(200).json({});
+    }).catch((err) => {
+      return fail(res, 500, "polis_err_notifyTeam");
+    });
+  }
+
   function handle_POST_sendEmailExportReady(req, res) {
 
     if (req.p.webserver_pass !== process.env.WEBSERVER_PASS || req.p.webserver_username !== process.env.WEBSERVER_USERNAME) {      
@@ -14569,6 +14582,7 @@ CREATE TABLE slack_user_invites (
     handle_POST_metadata_answers,
     handle_POST_metadata_questions,
     handle_POST_metrics,
+    handle_POST_notifyTeam,
     handle_POST_participants,
     handle_POST_ptptCommentMod,
     handle_POST_query_participants_by_metadata,

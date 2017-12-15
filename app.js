@@ -174,6 +174,7 @@ helpersInitialized.then(function(o) {
     handle_POST_metadata_answers,
     handle_POST_metadata_questions,
     handle_POST_metrics,
+    handle_POST_notifyTeam,
     handle_POST_participants,
     handle_POST_ptptCommentMod,
     handle_POST_query_participants_by_metadata,
@@ -474,6 +475,14 @@ helpersInitialized.then(function(o) {
     need('conversation_id', getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
     need('filename', getStringLimitLength(9999), assignToP),
     handle_POST_sendEmailExportReady);
+
+
+  app.post("/api/v3/notifyTeam",
+    need('webserver_username', getStringLimitLength(1, 999), assignToP),
+    need('webserver_pass', getStringLimitLength(1, 999), assignToP),
+    need('subject', getStringLimitLength(9999), assignToP),
+    need('body', getStringLimitLength(99999), assignToP),
+    handle_POST_notifyTeam);
 
   app.get("/api/v3/domainWhitelist",
     moveToBody,
