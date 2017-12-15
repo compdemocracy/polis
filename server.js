@@ -28,8 +28,6 @@ const OAuth = require('oauth');
 //   user: process.env.PUSHOVER_GROUP_POLIS_DEV,
 //   token: process.env.PUSHOVER_POLIS_PROXY_API_KEY,
 // });
-const Mailgun = require('mailgun').Mailgun;
-const mailgun = new Mailgun(process.env.MAILGUN_API_KEY);
 // const postmark = require("postmark")(process.env.POSTMARK_API_KEY);
 const querystring = require('querystring');
 const devMode = isTrue(process.env.DEV_MODE);
@@ -37,7 +35,6 @@ const replaceStream = require('replacestream');
 const responseTime = require('response-time');
 const request = require('request-promise'); // includes Request, but adds promise methods
 const s3Client = new AWS.S3({apiVersion: '2006-03-01'});
-const sesClient = new AWS.SES({apiVersion: '2010-12-01'}); // reads AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY from process.env
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const LruCache = require("lru-cache");
 const timeout = require('connect-timeout');
@@ -49,7 +46,9 @@ var WebClient = require('@slack/client').WebClient;
 var web = new WebClient(process.env.SLACK_API_TOKEN);
 // const winston = require("winston");
 const winston = console;
-
+const emailSenders = require('./email/sendEmailSesMailgun').EmailSenders(AWS);
+const sendTextEmail = emailSenders.sendTextEmail;
+const sendTextEmailWithBackupOnly = emailSenders.sendTextEmailWithBackupOnly;
 
 const resolveWith = (x) => { return Promise.resolve(x);};
 const intercomClient = !isTrue(process.env.DISABLE_INTERCOM) ? new IntercomOfficial.Client('nb5hla8s', process.env.INTERCOM_API_KEY).usePromises() : {
@@ -4561,64 +4560,6 @@ ${serverName}/pwreset/${pwresettoken}
 
 
 
-  function sendTextEmailWithSes(sender, recipient, subject, text) {
-    winston.log("info", "sending email with SES: " + [sender, recipient, subject, text].join(" "));
-
-    return new Promise(function(resolve, reject) {
-      sesClient.sendEmail({
-        Destination: {
-          ToAddresses: [recipient],
-        },
-        Source: sender,
-        Message: {
-          Subject: {
-            Data: subject,
-          },
-          Body: {
-            Text: {
-              Data: text,
-            },
-          },
-        },
-
-      }, function(err, data) {
-        if (err) {
-          console.log("mike567", "ok", sender, recipient, subject, text);
-          console.error("Unable to send email via ses to " + recipient);
-          console.error(err);
-          yell("polis_err_ses_email_send_failed");
-          reject(err);
-        } else {
-          console.log("mike567", "err", sender, recipient, subject, text, err);
-          winston.log("info", "sent email with ses to " + recipient);
-          resolve();
-        }
-      });
-    });
-  }
-
-
-
-
-  function sendTextEmailWithMailgun(sender, recipient, subject, text) {
-    winston.log("info", "sending email with mailgun: " + [sender, recipient, subject, text].join(" "));
-    let servername = "";
-    let options = {};
-    return new Promise(function(resolve, reject) {
-      mailgun.sendText(sender, [recipient], subject, text, servername, options, function(err) {
-        if (err) {
-          console.log("mike567", "ok", sender, recipient, subject, text);
-          console.error("Unable to send email via mailgun to " + recipient + " " + err);
-          yell("polis_err_mailgun_email_send_failed");
-          reject(err);
-        } else {
-          console.log("mike567", "err", sender, recipient, subject, text, err);
-          winston.log("info", "sent email with mailgun to " + recipient);
-          resolve();
-        }
-      });
-    });
-  }
 
   // function sendTextEmailWithPostmark(sender, recipient, subject, text) {
   //   winston.log("info", "sending email with postmark: " + [sender, recipient, subject, text].join(" "));
@@ -4641,18 +4582,6 @@ ${serverName}/pwreset/${pwresettoken}
   //   });
   // }
 
-  function sendTextEmail(sender, recipient, subject, text) {
-    let promise = sendTextEmailWithSes(sender, recipient, subject, text).catch(function(err) {
-      yell("polis_err_primary_email_sender_failed");
-      console.error(err);
-      return sendTextEmailWithMailgun(sender, recipient, subject, text);
-    });
-    promise.catch(function(err) {
-      console.error(err);
-      yell("polis_err_backup_email_sender_failed");
-    });
-    return promise;
-  }
 
   function sendMultipleTextEmails(sender, recipientArray, subject, text) {
     recipientArray = recipientArray || [];
@@ -4677,7 +4606,7 @@ ${serverName}/pwreset/${pwresettoken}
     if (d.getDay() === 1) {
       // send the monday backup email system test
       // If the sending fails, we should get an error ping.
-      sendTextEmailWithMailgun(POLIS_FROM_ADDRESS, process.env.ADMIN_EMAIL_EMAIL_TEST, "monday backup email system test (mailgun)", "seems to be working");
+      sendTextEmailWithBackupOnly(POLIS_FROM_ADDRESS, process.env.ADMIN_EMAIL_EMAIL_TEST, "monday backup email system test", "seems to be working");
     }
   }
   setInterval(trySendingBackupEmailTest, 1000 * 60 * 60 * 23); // try every 23 hours (so it should only try roughly once a day)
