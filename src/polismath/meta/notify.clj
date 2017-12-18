@@ -32,13 +32,13 @@
   (let [now (quot (System/currentTimeMillis) 1000)
         per-convo-key [zid message-type]
         oldest (- now throttle-time)
-        trimmed-throttle-list (filter (get team-notifications-per-message-type-throttle message-type) (fn [t] (> t oldest)))
+        trimmed-throttle-list (filter (get @team-notifications-per-message-type-throttle message-type) (fn [t] (> t oldest)))
         message-type-throttle-count (count trimmed-throttle-list)]
     (if (and
           (< message-type-throttle-count throttle-count) ; don't send more than 5 per hour for a given message type
           (or ; don't send more than one per zid,message-type per hour
-            (not (contains? team-notifications-per-convo per-convo-key))
-            (>= now (+ min-wait (get team-notifications-per-convo per-convo-key)))))
+            (not (contains? @team-notifications-per-convo per-convo-key))
+            (>= now (+ min-wait (get @team-notifications-per-convo per-convo-key)))))
       (do
         (send-team-notification config subject body)
         (swap! team-notifications-per-convo (fn [old] (assoc old per-convo-key now)))
