@@ -128,7 +128,12 @@
 (def conv-plot
   {:width 2000
    :height 1300
-   :layer [{:mark {:type "point" :filled true}
+   :layer [
+           {:mark "rule"
+            :encoding {:x {:value 0 :scale {:zero false}}}}
+           ;{:mark "rule"
+           ; :encoding {:x {:value 0.0}}}
+           {:mark {:type "point" :filled true}
             :encoding {:x {:field "x"}
                        :y {:field "y"}
                        :size {:field "size" :scale size-scale}
@@ -177,41 +182,33 @@
 
   ;; Setting up load and interactive testing for a specific conversation
   ; load conv and do a recompute
-  (def zid 17794)
+  ;(def zid 17794)
   ;(def zid 17175)
   ;(def zid 16703)
   ;(def zid 16906)
+  (def zid 17890)
   (def args {:zid zid})
 
-  (def special-opts
-    {:n-comps 2 ; does our code even generalize to others?
-     :pca-iters 1
-     :base-iters 1
-     :base-k 100
-     :max-k 5
-     :group-iters 1
-     ;; These three in particular we should be able to tune quickly
-     :max-ptpts 80000
-     :max-cmts 800
-     :group-k-buffer 4})
 
   (def conv
     (-> (load-conv args)
-        (conv/conv-update [] special-opts)))
+        (conv/conv-update [])))
+
+  (println (:tids conv))
 
   ;; Look at profile output
   (sort-by (comp - second) @(:profile-data conv))
   (reduce + (map second @(:profile-data conv)))
 
   ;; Plot the conversation
-  (p! conv)
+  (do (p! conv) nil)
 
   ;; Run correlation matrix
   ;(corr/default-tids conv)
 
   ;; Let's try another conversation
 
-  (def zid2 17175)
+  (def zid2 17023)
   (def args2 {:zid zid2})
   (def conv2 (load-conv args2))
   ;; Profiling
@@ -223,7 +220,7 @@
   ;; queue votes through conv-man
   (conv-man/queue-message-batch! (:conversation-manager runner/system)
                                  :votes
-                                 zid
+                                 zid2
                                  [])
 
   ;; test queuing report task
