@@ -172,7 +172,7 @@ class App extends React.Component {
       conversationPromise,
       conversationStatsPromise,
     ]).then((a) => {
-      const [
+      let [
         report,
         mathResult,
         comments,
@@ -281,6 +281,18 @@ class App extends React.Component {
       let extremity = {};
       _.each(mathResult.pca["comment-extremity"], function(e, index) {
         extremity[indexToTid[index]] = e;
+      });
+
+      comments = comments.map((c) => {
+        let gac = c["group-aware-consensus"] = mathResult["group-aware-consensus"][c.tid];
+        // for now, add up the consensus values so we can sort on those.
+        if (gac) {
+          gac.total = 0;
+          for (let k in gac) {
+            gac.total += gac[k];
+          }
+        }
+        return c;
       });
 
       this.setState({

@@ -16,6 +16,9 @@ export const brandColors = {
   lightgrey: "rgb(215,215,215)",
 };
 
+export const allCommentsSortDefault = "tid";
+
+
 const fontSizes = {
   largest: 36,
   large: 24,
