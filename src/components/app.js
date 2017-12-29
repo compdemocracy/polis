@@ -287,9 +287,9 @@ class App extends React.Component {
         let gac = c["group-aware-consensus"] = mathResult["group-aware-consensus"][c.tid];
         // for now, add up the consensus values so we can sort on those.
         if (gac) {
-          gac.total = 0;
+          gac.total = 1;
           for (let k in gac) {
-            gac.total += gac[k];
+            gac.total *= (gac[k] + 0.00000001);
           }
         }
         return c;
