@@ -567,7 +567,7 @@
                  (group-votes subgroup-clusters' base-clusters votes-base)))))
 
 
-      ; {gid {tid consensus}}
+      ; {tid consensus}
       :group-aware-consensus
            (plmb/fnk [group-votes]
              (let [tid-gid-probs
@@ -575,8 +575,8 @@
                      (fn [result [gid gid-stats]]
                        (reduce
                          (fn [result [tid {:keys [A S] :or {A 0 S 0}}]]
-                           (let [consensus (/ A (+ S 1.0))]
-                             (assoc-in result [tid gid] consensus)))
+                           (let [prob (/ A (+ S 1.0))]
+                             (assoc-in result [tid gid] prob)))
                          result
                          (:votes gid-stats)))
                        ;; +1 acts as a dumb prior
@@ -589,7 +589,7 @@
                             (map second)
                             (reduce *)))
                      tid-gid-probs)]
-               tid-gid-probs))
+               tid-consensus))
 
 
       :repness
