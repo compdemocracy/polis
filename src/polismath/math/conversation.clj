@@ -575,7 +575,7 @@
                      (fn [result [gid gid-stats]]
                        (reduce
                          (fn [result [tid {:keys [A S] :or {A 0 S 0}}]]
-                           (let [prob (/ A (+ S 1.0))]
+                           (let [prob (/ (+ A 1.0) (+ S 2.0))]
                              (assoc-in result [tid gid] prob)))
                          result
                          (:votes gid-stats)))
