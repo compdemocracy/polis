@@ -13,7 +13,7 @@ function sortByVoteCount(comments) {
   return _.map(_.reverse(_.sortBy(comments, "count")), (c) => {return c.tid;});
 }
 function sortByGroupAwareConsensus(comments) {
-  return _.map(_.reverse(_.sortBy(comments, (c) => {return c["group-aware-consensus"] && c["group-aware-consensus"].total;})), (c) => {return c.tid;});
+  return _.map(_.reverse(_.sortBy(comments, (c) => {return c["group-aware-consensus"];})), (c) => {return c.tid;});
 }
 
 class allCommentsModeratedIn extends React.Component {
