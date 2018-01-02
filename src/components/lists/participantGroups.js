@@ -25,10 +25,11 @@ class ParticipantGroups extends React.Component {
       return <div>Loading Groups</div>;
     }
     return (
-      <div style={[
+      <div style={Object.assign(
+        {},
         styles.base,
         this.props.style
-      ]}>
+      )}>
       <div>
         <p style={globals.primaryHeading}> Opinion Groups </p>
         <p style={globals.paragraph}>
