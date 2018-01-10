@@ -2022,9 +2022,16 @@ function initializePolisHelpers() {
           if (is_mod) {
             return conv;
           }
-          return getSocialInfoForUsers([uid], zid).then((info) => {
+          return Promise.all([
+            pgQueryP("select * from xids where owner = ($1) and uid = ($2);", [conv.owner, uid]),
+            getSocialInfoForUsers([uid], zid),
+          ]).then(([
+            xids,
+            info,
+          ]) => {
             var socialAccountIsLinked = info.length > 0;
-            if (socialAccountIsLinked) {
+            var hasXid = xids.length > 0;
+            if (socialAccountIsLinked || hasXid) {
               return conv;
             } else {
               throw "polis_err_post_votes_social_needed";
