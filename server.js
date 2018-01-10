@@ -2764,6 +2764,9 @@ function initializePolisHelpers() {
     // This could removed in a future API version.
     function toObj(a) {
       let obj = {};
+      if (!a) {
+        return obj;
+      }
       for (let i = 0; i < a.length; i++) {
         obj[a[i].id] = a[i].val;
         obj[a[i].id].id = a[i].id;
@@ -2771,6 +2774,9 @@ function initializePolisHelpers() {
       return obj;
     }
     function toArray(a) {
+      if (!a) {
+        return [];
+      }
       return a.map((g) => {
         let id = g.id;
         g = g.val;
