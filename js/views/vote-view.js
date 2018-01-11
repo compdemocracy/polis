@@ -120,11 +120,19 @@ module.exports = Handlebones.ModelView.extend({
 
     if (ctx.showOfficialTranslation) {
       // && ctx.translationSrc !== -1) {
-      ctx.showHideTranslationButton = false;
-      ctx.showShowTranslationButton = false;
       var t = getMatchingOfficialTranslation(ctx.translations);
       ctx.txt = t.txt;
       ctx.lang = t.lang;
+    }
+
+    // if comment has correct language don't show translation or buttons
+    if (ctx.showTranslation && ctx.lang && Utils.matchesUiLang(ctx.lang)) {
+      ctx.showTranslation = false;
+      delete ctx.translationTxt;
+      delete ctx.translationLang;
+      delete ctx.translationSrc;
+      ctx.showShowTranslationButton = false;
+      ctx.showHideTranslationButton = false;
     }
 
     // if (ctx.userHasVotedThisSession) {
