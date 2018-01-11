@@ -30,7 +30,7 @@ s.helpWhatAmISeeingTitle = "Que suis-je en train de voir?";
 s.helpWhatAmISeeing = "Toutes les personnes qui ont voté de façon semblable sont regroupées. Cliquez sur un groupe pour connaître le point de vue des membres.";
 s.helpWhatDoIDoTitle = "Que dois-je faire?";
 s.helpWhatDoIDo = "Votez sur les affirmations des autres participants. Pour ce faire, cliquez sur « En accord » ou « En désaccord », puis rédigez une affirmation (une idée = une affirmation). Invitez vos amis à participer à la conversation!";
-s.writeCommentHelpText = "Vous souhaitez faire connaître votre point de vue ou partager votre expérience dans une conversation? Il vous suffit de <em>les ajouter</em> dans le champ ci-dessous.";
+s.writeCommentHelpText = "Vous souhaitez faire connaître votre point de vue ou partager votre expérience dans une conversation? Il vous suffit de <b>les ajouter</b> dans le champ ci-dessous.";
 s.heresHowGroupVoted = "Voici comment le groupe {{GROUP_NUMBER}} a voté :";
 s.one_person = "{{x}} personne";
 s.x_people = "{{x}} personnes";
