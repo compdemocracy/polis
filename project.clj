@@ -76,14 +76,14 @@
                  [honeysql "0.8.2"]
 
                  ;; Dev
+                 [org.clojure/test.check "0.9.0"]
                  [com.gfredericks/debug-repl "0.0.9"]]
 
   :gorilla-options {:keymap {"command:app:save" "alt+g alt+w"}
                     :port 989796}
   :main polismath.runner
   :min-lein-version "2.3.0"
-  :profiles {:dev {:dependencies [[org.clojure/test.check "0.9.0"]
-                                  [yieldbot/vizard "1.0.1"]]
+  :profiles {:dev {:dependencies [[yieldbot/vizard "1.0.1"]]
                    :source-paths ["src" "dev"]}
              :production {:env {}}})
 
