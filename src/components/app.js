@@ -30,6 +30,12 @@ var pathname = window.location.pathname; // "/report/2arcefpshi"
 var report_id = pathname.split("/")[2];
 
 
+function assertExists(obj, key) {
+  if (typeof obj[key] === "undefined") {
+    console.error("assertExists failed. Missing: ", key);
+  }
+}
+
 class App extends React.Component {
 
   constructor(props) {
@@ -183,7 +189,25 @@ class App extends React.Component {
         conversationstats,
       ] = a;
 
+      assertExists(mathResult, "base-clusters");
+      assertExists(mathResult, "consensus");
+      assertExists(mathResult, "group-aware-consensus");
+      assertExists(mathResult, "group-clusters");
+      assertExists(mathResult, "group-votes");
+      assertExists(mathResult, "n-cmts");
+      assertExists(mathResult, "repness");
+      assertExists(mathResult, "pca");
+      assertExists(mathResult, "tids");
+      assertExists(mathResult, "user-vote-counts");
+      assertExists(mathResult, "votes-base");
+      assertExists(mathResult.pca, "center");
+      assertExists(mathResult.pca, "comment-extremity");
+      assertExists(mathResult.pca, "comment-projection");
+      assertExists(mathResult.pca, "comps");
+
       let indexToTid = mathResult.tids;
+
+
 
       var ptptCount = 0;
       _.each(mathResult["group-votes"], (val, key) => {
