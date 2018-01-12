@@ -4,7 +4,7 @@
 ;  (:require [polismath.math.conversation :as conversation]
 ;            [polismath.math.named-matrix :as nm]
 ;            [polismath.utils :as utils]
-;            [clojure.newtools.cli :refer [parse-opts]]
+;            [clojure.tools.cli :refer [parse-opts]]
 ;            [clojure.string :as string]
 ;            [plumbing.core :as pc]
 ;            [bigml.sampling [reservoir :as reservoir]
