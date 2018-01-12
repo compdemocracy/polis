@@ -26,7 +26,7 @@
             [clojure.core.matrix :as mat]
             [clojure.tools.trace :as tr]
             [taoensso.timbre :as log]
-            [clojure.newtools.cli :refer [parse-opts]]
+            [clojure.tools.cli :refer [parse-opts]]
             [polismath.components.postgres :as postgres]
             [polismath.conv-man :as conv-man]
             [plumbing.core :as plmb])
