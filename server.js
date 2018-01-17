@@ -8461,34 +8461,87 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
-  function getNextCommentRandomly(zid, pid, withoutTids, include_social) {
+  //function getNextCommentRandomly(zid, pid, withoutTids, include_social) {
+    //let params = {
+      //zid: zid,
+      //not_voted_by_pid: pid,
+      //limit: 1,
+      //random: true,
+      //include_social: include_social,
+    //};
+    //if (!_.isUndefined(withoutTids) && withoutTids.length) {
+      //params.withoutTids = withoutTids;
+    //}
+    //return getComments(params).then(function(comments) {
+      //if (!comments || !comments.length) {
+        //return null;
+      //} else {
+        //let c = comments[0];
+        //return getNumberOfCommentsRemaining(zid, pid).then((rows) => {
+          //if (!rows || !rows.length) {
+            //throw new Error("polis_err_getNumberOfCommentsRemaining_" + zid + "_" + pid);
+          //}
+          //c.remaining = Number(rows[0].remaining);
+          //c.total = Number(rows[0].total);
+          //return c;
+        //});
+      //}
+    //});
+  //}
+
+
+  function selectProbabilistically(comments, priorities, nTotal, nRemaining) {
+    // Here we go through all of the comments we might select for the user and add their priority values
+    let lookup = _.reduce(comments, (o, comment) => {
+      // If we like, we can use nTotal and nRemaining here to figure out how much we should emphasize the
+      // priority, potentially. Maybe we end up with different classes of priorities lists for this purpose?
+      // scaling this value in some way may also be helpful.
+      lookup_val = o.lastCount + priorities[comment.tid];
+      o.lookup.push([lookup_val, comment]);
+      o.lastCount = lookup_val;
+      return o;
+    },
+      {'lastCount': 0, 'lookup': []});
+    // We arrange a random number that should fall somewhere in the range of the lookup_vals
+    let randomN = Math.random() * o.lastCount;
+    // Return the first one that has a greater lookup; could eventually replace this with something smarter
+    // that does a bisectional lookup if performance becomes an issue. But I want to keep the implementation
+    // simple to reason about all other things being equal.
+    return _.find(lookup, (x) => x[0] > randomN);
+  }
+
+
+  // This very much follows the outline of the random selection above, but factors out the probabilistic logic
+  // to the selectProbabilistically fn above.
+  function getNextPrioritizedComment(zid, pid, withoutTids, include_social) {
     let params = {
       zid: zid,
       not_voted_by_pid: pid,
-      limit: 1,
-      random: true,
       include_social: include_social,
     };
     if (!_.isUndefined(withoutTids) && withoutTids.length) {
       params.withoutTids = withoutTids;
     }
-    return getComments(params).then(function(comments) {
+    // What should we set timestamp to below in getPca? Is 0 ok? What triggers updates?
+    return Promise.all([getComments(params), getPca(zid, 0), getNumberOfCommentsRemaining(zid, pid)]).then((results) => {
+      let comments = results[0];
+      let math = results[1];
+      let numberOfCommentsRemainingRows = results[2];
       if (!comments || !comments.length) {
         return null;
+      } else if (!numberOfCommentsRemainingRows || !numberOfCommentsRemainingRows.length) {
+        throw new Error("polis_err_getNumberOfCommentsRemaining_" + zid + "_" + pid);
       } else {
-        let c = comments[0];
-        return getNumberOfCommentsRemaining(zid, pid).then((rows) => {
-          if (!rows || !rows.length) {
-            throw new Error("polis_err_getNumberOfCommentsRemaining_" + zid + "_" + pid);
-          }
-          c.remaining = Number(rows[0].remaining);
-          c.total = Number(rows[0].total);
-          return c;
-        });
-      }
+        let commentPriorities = math['comment-priorities'];
+        nRemaining = number(rows[0].remaining);
+        nRemaining = number(rows[0].total);
+        let c = selectProbabilistically(comments, commentPriorities, nTotal, nRemaining);
+        c.remaining = nRemaining;
+        c.total = nTotal;
+        return c;
+      };
     });
   }
-
 
   // function getNextCommentPrioritizingNonPassedComments(zid, pid, withoutTids) {
   //   if (!withoutTids || !withoutTids.length) {
@@ -8570,7 +8623,8 @@ Email verified! You can close this tab or hit the back button.
 
   function getNextComment(zid, pid, withoutTids, include_social, lang) {
     // return getNextCommentPrioritizingNonPassedComments(zid, pid, withoutTids, !!!!!!!!!!!!!!!!TODO IMPL!!!!!!!!!!!include_social);
-    return getNextCommentRandomly(zid, pid, withoutTids, include_social).then((c) => {
+    //return getNextCommentRandomly(zid, pid, withoutTids, include_social).then((c) => {
+    return getNextPrioritizedComment(zid, pid, withoutTids, include_social).then((c) => {
       if (lang && c) {
         const firstTwoCharsOfLang = lang.substr(0,2);
         return getCommentTranslations(zid, c.tid).then((translations) => {
