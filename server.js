@@ -8442,18 +8442,18 @@ Email verified! You can close this tab or hit the back button.
       // If we like, we can use nTotal and nRemaining here to figure out how much we should emphasize the
       // priority, potentially. Maybe we end up with different classes of priorities lists for this purpose?
       // scaling this value in some way may also be helpful.
-      lookup_val = o.lastCount + priorities[comment.tid];
+      let lookup_val = o.lastCount + priorities[comment.tid];
       o.lookup.push([lookup_val, comment]);
       o.lastCount = lookup_val;
       return o;
     },
       {'lastCount': 0, 'lookup': []});
     // We arrange a random number that should fall somewhere in the range of the lookup_vals
-    let randomN = Math.random() * o.lastCount;
+    let randomN = Math.random() * lookup.lastCount;
     // Return the first one that has a greater lookup; could eventually replace this with something smarter
     // that does a bisectional lookup if performance becomes an issue. But I want to keep the implementation
     // simple to reason about all other things being equal.
-    return _.find(lookup, (x) => x[0] > randomN);
+    return _.find(lookup.lookup, (x) => x[0] > randomN)[1];
   }
 
 
@@ -8478,9 +8478,9 @@ Email verified! You can close this tab or hit the back button.
       } else if (!numberOfCommentsRemainingRows || !numberOfCommentsRemainingRows.length) {
         throw new Error("polis_err_getNumberOfCommentsRemaining_" + zid + "_" + pid);
       } else {
-        let commentPriorities = math['comment-priorities'];
-        nRemaining = number(rows[0].remaining);
-        nRemaining = number(rows[0].total);
+        let commentPriorities = math.asPOJO['comment-priorities'];
+        let nTotal = Number(numberOfCommentsRemainingRows[0].total);
+        let nRemaining = Number(numberOfCommentsRemainingRows[0].remaining);
         let c = selectProbabilistically(comments, commentPriorities, nTotal, nRemaining);
         c.remaining = nRemaining;
         c.total = nTotal;
@@ -8488,6 +8488,7 @@ Email verified! You can close this tab or hit the back button.
       };
     });
   }
+
 
   // function getNextCommentPrioritizingNonPassedComments(zid, pid, withoutTids) {
   //   if (!withoutTids || !withoutTids.length) {
