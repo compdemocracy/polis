@@ -295,6 +295,14 @@
                        (keys votes-base))}]))
         group-clusters))))
 
+
+(defn importance-metric
+  [A P S E]
+  (let [p (/ (+ P 1) (+ S 2))
+        a (/ (+ A 1) (+ S 2))]
+    (* (- 1 p) (+ E 1) a)))
+
+  
 (def small-conv-update-graph
   "For computing small conversation updates (those without need for base clustering)"
   (merge
@@ -590,6 +598,30 @@
                             (reduce *)))
                      tid-gid-probs)]
                tid-consensus))
+
+      :comment-priorities
+      (plmb/fnk [conv group-votes pca tids]
+        (let [group-votes (:group-votes conv)
+              extremities (into {} (map vector tids (:comment-extremity pca)))]
+          (plmb/map-from-keys
+            (fn [tid]
+              (let [{:as total-votes :keys [A D S P]}
+                    ;; reduce over votes per group, already aggregated
+                    (reduce
+                      (fn [votes [gid data]]
+                        (let [{:as data :keys [A S D]} (get-in data [:votes tid])
+                              data (assoc data :P (+ (- S (+ A D))))]
+                          ;; Add in each of the data's kv count pairs
+                          (reduce
+                            (fn [votes' [k v]]
+                              (update votes' k + v))
+                            votes
+                            data)))
+                      {:A 0 :D 0 :S 0 :P 0}
+                      group-votes)
+                    extremity (get extremities tid)]
+                (importance-metric A P S extremity)))
+            tids)))
 
 
       :repness
