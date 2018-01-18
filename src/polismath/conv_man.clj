@@ -45,7 +45,7 @@
   (-> results
       ; REFORMAT BASE CLUSTERS
       (update-in [:base-clusters] clust/fold-clusters)
-      ; Whitelist of keys to be included in sent data; removes intermediates
+      ; IMPORTANT! Whitelist of keys to be included in json output; used for removing intermediates
       (assoc :lastVoteTimestamp (:last-vote-timestamp results))
       (assoc :lastModTimestamp (:last-mod-timestamp results))
       (utils/hash-map-subset #{:base-clusters
@@ -67,7 +67,8 @@
                                :votes-base
                                :group-votes
                                :subgroup-votes
-                               :subgroup-repness})))
+                               :subgroup-repness
+                               :comment-priorities})))
                                ;:subgroup-ptpt-stats})))
 
 
@@ -167,7 +168,7 @@
 (defn restructure-json-conv
   [conv]
   (-> conv
-      (utils/hash-map-subset #{:math_tick :raw-rating-mat :rating-mat :lastVoteTimestamp :mod-out :zid :pca :in-conv :n :n-cmts :group-clusters :base-clusters :repness :group-votes :subgroup-clusters :subgroup-votes :subgroup-repness :group-aware-consensus})
+      (utils/hash-map-subset #{:math_tick :raw-rating-mat :rating-mat :lastVoteTimestamp :mod-out :zid :pca :in-conv :n :n-cmts :group-clusters :base-clusters :repness :group-votes :subgroup-clusters :subgroup-votes :subgroup-repness :group-aware-consensus :comment-priorities})
       (assoc :last-vote-timestamp (get conv :lastVoteTimestamp)
              :last-mod-timestamp  (get conv :lastModTimestamp))
       ; Make sure there is an empty named matrix to operate on
