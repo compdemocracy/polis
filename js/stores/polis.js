@@ -640,7 +640,9 @@ module.exports = function(params) {
       if (ptptoiData.isSelf) {
         ptptoiData.picture_size = 48;
       } else {
-        console.error('missing picture_size', ptptoiData);
+
+        ptptoiData.picture_size = 48; // just set it for now
+        // console.error('missing picture_size', ptptoiData);
       }
     }
     var bucket = new Bucket({
