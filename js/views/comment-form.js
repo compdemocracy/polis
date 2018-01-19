@@ -229,8 +229,8 @@ module.exports = Handlebones.ModelView.extend({
         });
       }
     }
-
-    var hasSocial = window.userObject.hasFacebook || window.userObject.hasTwitter;
+    var xid = Utils.getXid();
+    var hasSocial = window.userObject.hasFacebook || window.userObject.hasTwitter || !_.isUndefined(xid);
     var needsSocial = preload.firstConv.auth_needed_to_write;
     M.add(M.COMMENT_SUBMIT_CLICK);
     if (hasSocial || !needsSocial) {
