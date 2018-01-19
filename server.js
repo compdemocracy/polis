@@ -14678,9 +14678,24 @@ CREATE TABLE slack_user_invites (
     handle_PUT_ptptois,
     handle_PUT_reports,
     handle_PUT_users,
+
+    // Debugging
+    //getNextPrioritizedComment,
+    //getPca
   };
 
 } // End of initializePolisHelpers
+
+
+// debugging
+//let ph = initializePolisHelpers()
+
+//if (false) {
+  //let nextP = ph.getNextPrioritizedComment(17794, 100, [], true);
+//};
+
+
+
 
 module.exports = {
   initializePolisHelpers,
