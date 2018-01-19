@@ -36,7 +36,9 @@ helpersInitialized.then(function(o) {
     fetchIndexForReportPage,
     fetchIndexWithoutPreloadData,
     getArrayOfInt,
+    // getArrayOfStringLimitLength,
     getArrayOfStringNonEmpty,
+    getArrayOfStringNonEmptyLimitLength,
     getBool,
     getConversationIdFetchZid,
     getEmail,
@@ -132,6 +134,8 @@ helpersInitialized.then(function(o) {
     handle_GET_snapshot,
     handle_GET_stripe_account_connect,
     handle_GET_stripe_account_connected_oauth_callback,
+    hangle_GET_testConnection,
+    hangle_GET_testDatabase,
     handle_GET_tryCookie,
     handle_GET_twitter_image,
     handle_GET_twitter_oauth_callback,
@@ -168,9 +172,11 @@ helpersInitialized.then(function(o) {
     handle_POST_joinWithInvite,
     handle_POST_lti_conversation_assignment,
     handle_POST_lti_setup_assignment,
+    handle_POST_math_update,
     handle_POST_metadata_answers,
     handle_POST_metadata_questions,
     handle_POST_metrics,
+    handle_POST_notifyTeam,
     handle_POST_participants,
     handle_POST_ptptCommentMod,
     handle_POST_query_participants_by_metadata,
@@ -191,6 +197,7 @@ helpersInitialized.then(function(o) {
     handle_POST_users_invite,
     handle_POST_votes,
     handle_POST_waitinglist,
+    handle_POST_xidWhitelist,
     handle_POST_zinvites,
     handle_PUT_comments,
     handle_PUT_conversations,
@@ -472,6 +479,14 @@ helpersInitialized.then(function(o) {
     need('filename', getStringLimitLength(9999), assignToP),
     handle_POST_sendEmailExportReady);
 
+
+  app.post("/api/v3/notifyTeam",
+    need('webserver_username', getStringLimitLength(1, 999), assignToP),
+    need('webserver_pass', getStringLimitLength(1, 999), assignToP),
+    need('subject', getStringLimitLength(9999), assignToP),
+    need('body', getStringLimitLength(99999), assignToP),
+    handle_POST_notifyTeam);
+
   app.get("/api/v3/domainWhitelist",
     moveToBody,
     auth(assignToP),
@@ -481,6 +496,11 @@ helpersInitialized.then(function(o) {
     auth(assignToP),
     need('domain_whitelist', getOptionalStringLimitLength(999), assignToP, ""),
     handle_POST_domainWhitelist);
+
+  app.post("/api/v3/xidWhitelist",
+    auth(assignToP),
+    need('xid_whitelist', getArrayOfStringNonEmptyLimitLength(9999, 999), assignToP),
+    handle_POST_xidWhitelist);
 
   app.get("/api/v3/conversationStats",
     moveToBody,
@@ -731,6 +751,14 @@ helpersInitialized.then(function(o) {
     want('lang', getStringLimitLength(1,10), assignToP), // preferred language of nextComment
     haltOnTimeout,
     handle_GET_nextComment);
+
+  app.get("/api/v3/testConnection",
+    moveToBody,
+    hangle_GET_testConnection);
+
+  app.get("/api/v3/testDatabase",
+    moveToBody,
+    hangle_GET_testDatabase);
 
   app.get("/robots.txt",
     function(req, res) {
@@ -999,6 +1027,13 @@ helpersInitialized.then(function(o) {
     want('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('report_id', getReportIdFetchRid, assignToPCustom('rid')), // Knowing the report_id grants the user permission to view the report
     handle_GET_reports);
+
+  app.post('/api/v3/mathUpdate',
+    moveToBody,
+    auth(assignToP),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    need('math_update_type', getStringLimitLength(1, 32), assignToP), // expecting "recompute" or "update"
+    handle_POST_math_update);
 
   app.post('/api/v3/reports',
     auth(assignToP),
@@ -1273,6 +1308,7 @@ helpersInitialized.then(function(o) {
     want('ucsd', getBool, assignToP), // not persisted
     want('ucsv', getBool, assignToP), // not persisted
     want('ucsf', getBool, assignToP), // not persisted
+    want('ui_lang', getStringLimitLength(1, 10), assignToP), // not persisted
     want('dwok', getStringLimitLength(1, 1000), assignToP), // not persisted
     want('xid', getStringLimitLength(1, 999), assignToP), // not persisted
     want('subscribe_type', getStringLimitLength(1,9), assignToP), // not persisted
@@ -1381,6 +1417,7 @@ helpersInitialized.then(function(o) {
   // Conversation aliases
   app.get(/^\/football$/, makeRedirectorTo("/2arcefpshi"));
   app.get(/^\/pdf$/, makeRedirectorTo("/23mymwyhkn")); // pdf 2017
+  app.get(/^\/nabi$/, makeRedirectorTo("/8ufpzc6fkm")); // 
 
 
 
@@ -1445,6 +1482,12 @@ helpersInitialized.then(function(o) {
     'Content-Type': "text/html",
   }));
   app.get(/^\/embedPreprod$/, makeFileFetcher(hostname, portForAdminFiles, "/embedPreprod.html", {
+    'Content-Type': "text/html",
+  }));
+  app.get(/^\/embedReport$/, makeFileFetcher(hostname, portForAdminFiles, "/embedReport.html", {
+    'Content-Type': "text/html",
+  }));
+  app.get(/^\/embedReportPreprod$/, makeFileFetcher(hostname, portForAdminFiles, "/embedReportPreprod.html", {
     'Content-Type': "text/html",
   }));
   app.get(/^\/canvas_setup_backup_instructions$/, makeFileFetcher(hostname, portForParticipationFiles, "/canvas_setup_backup_instructions.html", {
