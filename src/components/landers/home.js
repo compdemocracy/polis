@@ -9,6 +9,7 @@ import strings from "../../strings/strings";
 import { doSignin, doFacebookSignin } from "../../actions";
 
 import Nav from "../App/Nav/Nav";
+import FeatureSection from "./Features/FeatureSection";
 import Footer from "../App/Footer/Footer";
 import FooterData from '../../strings/footer'
 import Hero from "./Hero/Hero";
@@ -88,9 +89,8 @@ class Home extends React.Component {
         <Nav />
         <Hero headline="Know what your organization is thinking" subheadline="Polis helps organizations understand themselves. Get a summary visualization of all the viewpoints to move a conversation forward." className="page-header mt6 mt5-ns" />
         <Trust headline="You’re in good company" subheadline="Polis is trusted by governments, universities, non-profits, movements, and large organizations." />
-        <section>
-          <h1>Value Props</h1>
-        </section>
+        <FeatureSection />
+
         <aside>
           <h3>Request a Demo</h3>
           <button>Request a Demo</button>
