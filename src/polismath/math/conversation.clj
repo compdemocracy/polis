@@ -636,7 +636,9 @@
                     ;; reduce over votes per group, already aggregated
                     (reduce
                       (fn [votes [gid data]]
-                        (let [{:as data :keys [A S D]} (get-in data [:votes tid])
+                        ;; not sure why we have to do the or here? how would this ever come up nil? small
+                        ;; convs?
+                        (let [{:as data :keys [A S D] :or {A 0 S 0 D 0}} (get-in data [:votes tid])
                               data (assoc data :P (+ (- S (+ A D))))]
                           ;; Add in each of the data's kv count pairs
                           (reduce
