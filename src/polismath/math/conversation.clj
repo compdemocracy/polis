@@ -225,9 +225,12 @@
    :mod-out
    (plmb/fnk [conv]
      (:mod-out conv))
+   :meta-tids
+   (plmb/fnk [conv]
+     (:meta-tids conv))
 
    ;; There should really be a nice way for us to specify that we want a full recompute on everything except in-conv,
-   ;; since in general we don't want to loose people in that process.
+   ;; since in meta-tids we don't want to loose people in that process.
    :in-conv     (plmb/fnk [conv user-vote-counts n-cmts]
                   ; This keeps track of which ptpts are in the conversation (to be considered
                   ; for base-clustering) based on home many votes they have. Once a ptpt is in,
@@ -301,6 +304,30 @@
   (let [p (/ (+ P 1) (+ S 2))
         a (/ (+ A 1) (+ S 2))]
     (* (- 1 p) (+ E 1) a)))
+
+;; This could be
+;; TODO TUNE
+(def meta-priority 7)
+
+(defn priority-metric
+  [is-meta A P S E]
+  ;; We square to deepen our bias
+  (matrix/pow
+    (if is-meta
+      meta-priority
+        (* (importance-metric A P S E)
+           ;; scale by a factor which lets new comments bubble up
+           (+ 1 (* 8 (matrix/pow 2 (/ S -5))))))
+    2))
+
+
+(comment
+  ;; testing values
+  (float (importance-metric 1 0 1 0))
+  (priority-metric false 1 0 1 0)
+  (priority-metric false 20 3 20 0)
+  (priority-metric false 18 3 20 1)
+  :end-comment)
 
   
 (def small-conv-update-graph
@@ -600,7 +627,7 @@
                tid-consensus))
 
       :comment-priorities
-      (plmb/fnk [conv group-votes pca tids]
+      (plmb/fnk [conv group-votes pca tids meta-tids]
         (let [group-votes (:group-votes conv)
               extremities (into {} (map vector tids (:comment-extremity pca)))]
           (plmb/map-from-keys
@@ -620,7 +647,7 @@
                       {:A 0 :D 0 :S 0 :P 0}
                       group-votes)
                     extremity (get extremities tid)]
-                (importance-metric A P S extremity)))
+                (priority-metric (meta-tids tid) A P S extremity)))
             tids)))
 
 
@@ -777,6 +804,8 @@
   "Take a conversation record and a seq of moderation data and updates the conversation's mod-out attr"
   [conv mods]
   (try
+    ;; We use reduce here instead of a (->> % filter into) because we need to make sure that we are
+    ;; processing things in order for mod in then out vs out then in
     (let [mod-out
           (reduce
             (fn [mod-out {:keys [tid is_meta mod]}]
@@ -784,9 +813,18 @@
                 (conj mod-out tid)
                 (disj mod-out tid)))
             (set (:mod-out conv))
+            mods)
+          meta-tids
+          (reduce
+            (fn [meta-tids {:keys [tid is_meta]}]
+              (if is_meta
+                (conj meta-tids tid)
+                (disj meta-tids tid)))
+            (set (:meta-tids conv))
             mods)]
       (-> conv
           (assoc :mod-out mod-out)
+          (assoc :meta-tids meta-tids)
           (update :last-mod-timestamp #(apply max (or % 0) (map :modified mods)))))
     (catch Exception e
       (log/error "Problem running mod-update with mod-out:" (:mod-out conv) "and mods:" mods ":" e)

@@ -53,6 +53,7 @@
                                :subgroup-clusters
                                :in-conv
                                :mod-out
+                               :meta-tids
                                :lastVoteTimestamp
                                :lastModTimestamp
                                :n
@@ -168,7 +169,7 @@
 (defn restructure-json-conv
   [conv]
   (-> conv
-      (utils/hash-map-subset #{:math_tick :raw-rating-mat :rating-mat :lastVoteTimestamp :mod-out :zid :pca :in-conv :n :n-cmts :group-clusters :base-clusters :repness :group-votes :subgroup-clusters :subgroup-votes :subgroup-repness :group-aware-consensus :comment-priorities})
+      (utils/hash-map-subset #{:math_tick :raw-rating-mat :rating-mat :lastVoteTimestamp :mod-out :zid :pca :in-conv :n :n-cmts :group-clusters :base-clusters :repness :group-votes :subgroup-clusters :subgroup-votes :subgroup-repness :group-aware-consensus :comment-priorities :meta-tids})
       (assoc :last-vote-timestamp (get conv :lastVoteTimestamp)
              :last-mod-timestamp  (get conv :lastModTimestamp))
       ; Make sure there is an empty named matrix to operate on
@@ -177,7 +178,8 @@
       (update :base-clusters clust/unfold-clusters)
       ; Make sure in-conv is a set
       (update :in-conv set)
-      (update :mod-out set)))
+      (update :mod-out set)
+      (update :meta-tids set)))
 
 
 (defn load-or-init
