@@ -3,15 +3,10 @@
 import $ from 'jquery';
 
 import Alert from 'react-s-alert';
-
-// React Core
 import React from 'react';
 import ReactDOM from 'react-dom';
-// React Router
 import { Router, Route, Link, IndexRoute, browserHistory } from 'react-router';
-// React Redux
 import { Provider, connect } from 'react-redux';
-// Redux Devtools
 import { DevTools, DebugPanel, LogMonitor } from 'redux-devtools/lib/react';
 
 import configureStore from "./store";
@@ -19,7 +14,6 @@ import configureStore from "./store";
 // controller view
 import Console from "./components/console";
 
-// top level navigation
 import PasswordReset from "./components/password-reset";
 import PasswordResetInit from "./components/password-reset-init";
 import PasswordResetInitDone from "./components/password-reset-init-done";
@@ -27,23 +21,18 @@ import SignIn from "./components/signin";
 import SignOut from "./components/signout";
 import CreateUser from "./components/createuser";
 import Contributor from "./components/contributors";
-/* landers */
-import News from "./components/landers/news";
-import News2 from "./components/landers/news2";
-// import Homepage from "./components/landers/homepage";
-import Plus from "./components/landers/plus";
-import Bot from "./components/landers/bot";
-import BotInstall from "./components/landers/bot-install";
-import Gov from "./components/landers/gov";
-import Home from "./components/landers/home";
-import Demo from "./components/landers/demo";
-import Meta from "./components/landers/metalander";
-import Company from "./components/landers/company";
+
+/* Landers */
+import Demo from "./components/Landers/Demo";
+import Bot from "./components/Landers/bot";
+import BotInstall from "./components/Landers/bot-install";
+import Gov from "./components/Landers/gov";
+import Home from "./components/Landers/home";
+import Company from "./components/Landers/company";
 
 import TOS from "./components/tos";
 import Privacy from "./components/privacy";
 import Conversations from "./components/conversations";
-// import OtherConversations from "./components/OtherConversations";
 import Integrate from "./components/integrate";
 // this may become '/' defaultview - with instructions if no stats to show
 import OverallStats from "./components/overall-stats";
@@ -133,14 +122,12 @@ class Root extends React.Component {
                 <Route path="export" component={DataExport}/>
               </Route>
             </Route>
-            <Route path="news" component={News2}/>
-            <Route path="plus" component={Plus}/>
+            <Route path="demo" component={Demo}/>
             <Route path="home" component={Home}/>
             <Route path="company" component={Company}/>
             <Route path="bot" component={Bot}/>
             <Route path="bot/install" component={BotInstall}/>
             <Route path="gov" component={Gov}/>
-            <Route path="demo" component={Demo}/>
             <Route path="signin" component={SignIn}/>
             <Route path="signin/*" component={SignIn}/>
             <Route path="signin/**/*" component={SignIn}/>
