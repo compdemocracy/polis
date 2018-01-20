@@ -18,6 +18,9 @@ module.exports = {
     new webpack.HotModuleReplacementPlugin(),
     new webpack.NoErrorsPlugin()
   ],
+  resolve: {
+    extentions: [ '', '.js', '.css', '.png' ]
+  },
   module: {
     loaders: [
       {
@@ -27,6 +30,10 @@ module.exports = {
       },
       {
         test: /\.json$/, loader: "json-loader"
+      },
+      {
+        test: /\.(png|jpg|gif)$/,
+        loader: "file-loader"
       }
     ]
   }
