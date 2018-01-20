@@ -1,41 +1,15 @@
 // Copyright (C) 2012-present, Polis Technology Inc. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import BackgroundStars from "../framework/background-stars";
-import Button from "../framework/generic-button";
-import Flex from "../framework/flex";
-import InputField from "material-ui/lib/text-field";
-import PolisLogo from "../framework/polis-logo";
-import PolisNet from "../../util/net";
-import Press from "./press";
-import Radium from "radium";
 import React from "react";
-import StaticContentContainer from "../framework/static-content-container";
-import Step from "./step";
-import strings from "../../strings/strings";
 import { browserHistory } from "react-router";
 import { connect } from "react-redux";
+
+import PolisNet from "../../util/net";
+import strings from "../../strings/strings";
 import { doSignin, doFacebookSignin } from "../../actions";
 import Nav from "../App/Nav/Nav";
 import Footer from "../App/Footer/Footer";
 import FooterData from '../../strings/footer'
-
-const Dots = () => {
-  return (
-    <Flex styleOverrides={{width: "100%", marginTop: 30, marginBottom: 20}} justifyContent="center">
-      <svg width="65px" height="5px" viewBox="0 0 65 5">
-        <g id="Page-1" stroke="none" strokeWidth="1" fill="none" fillRule="evenodd">
-          <g id="Desktop-HD-Copy-2" transform="translate(-975.000000, -1073.000000)" fill="#D8D8D8">
-            <g id="Group" transform="translate(975.000000, 1073.000000)">
-              <circle id="Oval-3" cx="2.5" cy="2.5" r="2.5"></circle>
-              <circle id="Oval-3" cx="32.5" cy="2.5" r="2.5"></circle>
-              <circle id="Oval-3" cx="62.5" cy="2.5" r="2.5"></circle>
-            </g>
-          </g>
-        </g>
-      </svg>
-    </Flex>
-  )
-}
 
 
 let defaultState = {
@@ -44,7 +18,6 @@ let defaultState = {
   errorTextUpper: "",
   errorTextLower: "",
 };
-
 
 @connect()
 class Home extends React.Component {
