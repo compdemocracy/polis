@@ -1,10 +1,10 @@
 import React from "react";
 import PropTypes from "prop-types";
 
-const Figure = ({ src, className}) => {
+const Figure = ({ src, height, width, className}) => {
   return (
      <figure className={className}>
-        <img src={src} className="br-100" />
+        <img src={src} height={height}  />
       </figure>
   );
 };
