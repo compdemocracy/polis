@@ -189,7 +189,7 @@ module.exports = ConversationView.extend({
     // ctx.showLogoInFooter = !ctx.showLogoAndBreadCrumbInHeader;
     ctx.showLogoInFooter = false;
 
-    ctx.no_vis = !Utils.userCanSeeVis() || ctx.vis_type === 0;
+    ctx.no_vis = !Utils.userCanSeeVis() || ctx.vis_type === 0 || Utils.isIphone();
     ctx.no_write = ctx.write_type === 0 || !Utils.userCanWrite() || !ctx.is_active;
     ctx.no_voting = !Utils.userCanVote() || !ctx.is_active;
     ctx.no_topic = !Utils.userCanSeeTopic() || !ctx.topic || ctx.topic.length === 0;
