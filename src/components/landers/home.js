@@ -16,75 +16,8 @@ import FooterData from '../../strings/footer'
 import Hero from "./Hero/Hero";
 import Trust from "./Trust/Trust";
 
-
-let defaultState = {
-  successTextUpper: "",
-  successTextLower: "",
-  errorTextUpper: "",
-  errorTextLower: "",
-};
-
 @connect()
 class Home extends React.Component {
-
-  handleJoinWaitingListClickedUpper() {
-    this.doHandleJoinWaitingListClicked({
-      email: this.refs.emailupper && this.refs.emailupper.value,
-      name: this.refs.nameupper && this.refs.nameupper.value,
-      affiliation: this.refs.affiliationupper && this.refs.affiliationupper.value,
-      role: this.refs.roleupper && this.refs.roleupper.value,
-    }).then(() => {
-      this.setState(Object.assign({}, defaultState, {
-        successTextUpper: strings("waitinglist_add_success"),
-      }));
-    }, (err) => {
-      this.setState(Object.assign({}, defaultState, {
-        errorTextUpper: err.responseText,
-      }));
-    });
-  }
-  handleJoinWaitingListClickedLower() {
-    this.doHandleJoinWaitingListClicked({
-      email: this.refs.emaillower && this.refs.emaillower.value,
-      name: this.refs.namelower && this.refs.namelower.value,
-      affiliation: this.refs.affiliationlower && this.refs.affiliationlower.value,
-      role: this.refs.rolelower && this.refs.rolelower.value,
-    }).then(() => {
-      this.setState(Object.assign({}, defaultState, {
-        successTextLower: strings("waitinglist_add_success"),
-      }));
-    }, (err) => {
-      this.setState(Object.assign({}, defaultState, {
-        errorTextLower: err.responseText,
-      }));
-    });
-  }
-  doHandleJoinWaitingListClicked(data) {
-    data.campaign = "home";
-    return PolisNet.polisPost("/api/v3/waitinglist", data);
-  }
-  maybeErrorMessage(text) {
-    let markup = "";
-    if (text) {
-      markup = (
-        <div style={this.styles().error}>
-          { strings(text) }
-        </div>
-      );
-    }
-    return markup;
-  }
-  maybeSuccessMessage(text) {
-    let markup = "";
-    if (text) {
-      markup = (
-        <div style={this.styles().success}>
-          { strings(text) }
-        </div>
-      );
-    }
-    return markup;
-  }
   render() {
     return <main>
         <Nav />
