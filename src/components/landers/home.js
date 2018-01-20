@@ -15,7 +15,6 @@ import strings from "../../strings/strings";
 import { browserHistory } from "react-router";
 import { connect } from "react-redux";
 import { doSignin, doFacebookSignin } from "../../actions";
-import HexLogoLargeShort from "../framework/hex-logo-large-short";
 import Nav from "../App/Nav/Nav";
 
 
