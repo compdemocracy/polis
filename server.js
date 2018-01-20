@@ -8496,7 +8496,7 @@ Email verified! You can close this tab or hit the back button.
       // If we like, we can use nTotal and nRemaining here to figure out how much we should emphasize the
       // priority, potentially. Maybe we end up with different classes of priorities lists for this purpose?
       // scaling this value in some way may also be helpful.
-      let lookup_val = o.lastCount + priorities[comment.tid];
+      let lookup_val = o.lastCount + (priorities[comment.tid] || 1);
       o.lookup.push([lookup_val, comment]);
       o.lastCount = lookup_val;
       return o;
@@ -8507,9 +8507,11 @@ Email verified! You can close this tab or hit the back button.
     // Return the first one that has a greater lookup; could eventually replace this with something smarter
     // that does a bisectional lookup if performance becomes an issue. But I want to keep the implementation
     // simple to reason about all other things being equal.
-    return _.find(lookup.lookup, (x) => x[0] > randomN)[1];
+    let result = _.find(lookup.lookup, (x) => x[0] > randomN);
+    let c = result[1];
+    c.randomN = randomN;
+    return c;
   }
-
 
   // This very much follows the outline of the random selection above, but factors out the probabilistic logic
   // to the selectProbabilistically fn above.
@@ -8531,15 +8533,14 @@ Email verified! You can close this tab or hit the back button.
         return null;
       } else if (!numberOfCommentsRemainingRows || !numberOfCommentsRemainingRows.length) {
         throw new Error("polis_err_getNumberOfCommentsRemaining_" + zid + "_" + pid);
-      } else {
-        let commentPriorities = math.asPOJO['comment-priorities'];
-        let nTotal = Number(numberOfCommentsRemainingRows[0].total);
-        let nRemaining = Number(numberOfCommentsRemainingRows[0].remaining);
-        let c = selectProbabilistically(comments, commentPriorities, nTotal, nRemaining);
-        c.remaining = nRemaining;
-        c.total = nTotal;
-        return c;
-      };
+      }
+      let commentPriorities = math ? (math.asPOJO['comment-priorities'] || {}) : {};
+      let nTotal = Number(numberOfCommentsRemainingRows[0].total);
+      let nRemaining = Number(numberOfCommentsRemainingRows[0].remaining);
+      let c = selectProbabilistically(comments, commentPriorities, nTotal, nRemaining);
+      c.remaining = nRemaining;
+      c.total = nTotal;
+      return c;
     });
   }
 
