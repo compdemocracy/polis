@@ -25,9 +25,6 @@ class Home extends React.Component {
         <Trust headline="You’re in good company" subheadline="Polis is trusted by governments, universities, non-profits, movements, and large organizations." />
         <FeatureSection />
         <CTA /> 
-        <aside>
-          <h1>Press</h1>
-        </aside>
         <Footer social={FooterData.footer.social} content={FooterData.footer.groups} data={FooterData.footer} />
       </main>;
   }
