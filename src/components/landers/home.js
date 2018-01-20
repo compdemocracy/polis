@@ -16,7 +16,8 @@ import { browserHistory } from "react-router";
 import { connect } from "react-redux";
 import { doSignin, doFacebookSignin } from "../../actions";
 import Nav from "../App/Nav/Nav";
-
+import Footer from "../App/Footer/Footer";
+import FooterData from '../../strings/footer'
 
 const Dots = () => {
   return (
@@ -107,14 +108,11 @@ class Home extends React.Component {
     return markup;
   }
   render() {
-    return (
-      <main>
+    return <main>
         <Nav />
 
-    <section>
+        <section>
           <h2>Used by</h2>
-
-
         </section>
         <section>
           <h1>Value Props</h1>
@@ -126,8 +124,8 @@ class Home extends React.Component {
         <aside>
           <h1>Press</h1>
         </aside>
-      </main>
-    );
+        <Footer social={FooterData.footer.social} content={FooterData.footer.groups} data={FooterData.footer} />
+      </main>;
   }
 }
 
