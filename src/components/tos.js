@@ -3,32 +3,17 @@
 import React from 'react';
 import Radium from 'radium';
 import _ from 'lodash';
-import { doSignout } from '../actions';
-import StaticContentContainer from "./framework/static-content-container";
 
-const styles = {
-    card: {
-    position: "relative",
-    zIndex: 10,
-    padding: "50px",
-    borderRadius: 3,
-    color: "rgb(130,130,130)",
-    maxWidth: 700,
-    margin: 50
-  },
-}
+import LanderContainer from "./App/Container/LanderContainer";
+import ContainerInner from "./App/Container/ContainerInner";
 
-@Radium
+
 class TOS extends React.Component {
 
   render() {
     return (
-      <StaticContentContainer
-        backgroundColor={"#03a9f4"}
-        headerBackgroundColor={"#03a9f4"}
-        footerBackgroundColor={"#03a9f4"}
-        image={false}>
-    <div style={styles.card}>
+      <LanderContainer>
+        <ContainerInner>
     <p>"Last Updated: 6/26/2014"</p>
 
     <p>"Po.lis Terms of Use"</p>
@@ -473,8 +458,8 @@ class TOS extends React.Component {
       you electronically by sending a letter to the foregoing address with your
       electronic mail address and a request for these Terms."</li>
     </ol>
-  </div>
-</StaticContentContainer>
+  </ContainerInner>
+</LanderContainer>
 
     );
   }

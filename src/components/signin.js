@@ -8,23 +8,10 @@ import Flex from "./framework/flex";
 import Button from "./framework/generic-button";
 import Awesome from "react-fontawesome";
 import {Link} from "react-router";
-import StaticContentContainer from "./framework/static-content-container";
+import LanderContainer from "./App/Container/LanderContainer";
 import strings from "../strings/strings";
 
 const styles = {
-  heading: {
-    fontSize: 36,
-    display: "block",
-    marginBottom: 20,
-    marginTop: 0
-  },
-  card: {
-    position: "relative",
-    zIndex: 10,
-    padding: 20,
-    borderRadius: 3,
-    color: "rgb(130,130,130)"
-  },
   button: {
     display: "block",
     backgroundColor: "#03a9f4",
@@ -88,10 +75,6 @@ class SignIn extends React.Component {
     }
     this.props.dispatch(doSignin(attrs, dest));
   }
-
-  // componentDidMount() {
-  //   window.addEventListener('resize', () => {}, true);
-  // }
 
   facebookButtonClicked() {
     var dest = this.getDest();
@@ -158,12 +141,6 @@ class SignIn extends React.Component {
         </Button>
 
         <div style={styles.signupContainer}>
-          {"Don't have an account? "}
-          <Link style={styles.signupLink} to={"/createuser" + this.getDest()}>
-            Sign up
-          </Link>
-        </div>
-        <div style={styles.signupContainer}>
           {"Forgot your password? "}
           <Link style={styles.signupLink} to={"/pwresetinit"}>
             Reset Password
@@ -214,23 +191,16 @@ class SignIn extends React.Component {
 
   render() {
     return (
-      <StaticContentContainer
-        backgroundColor={"#03a9f4"}
-        headerBackgroundColor={"#03a9f4"}
-        footerBackgroundColor={"#03a9f4"}
-        image={false}>
-        <Flex>
-          <div style={styles.card}>
-            <p style={styles.heading}>
-              <Awesome name={"sign-in"} /> Sign In
-            </p>
-            {
-              this.props.facebookError !== "polis_err_user_with_this_email_exists" ?
-                this.drawLoginForm() : this.drawPasswordConnectFacebookForm()
-            }
-          </div>
-        </Flex>
-      </StaticContentContainer>
+      <LanderContainer>
+
+        <h1>Sign In</h1>
+
+        {
+          this.props.facebookError !== "polis_err_user_with_this_email_exists" ?
+            this.drawLoginForm() : this.drawPasswordConnectFacebookForm()
+        }
+
+      </LanderContainer>
     );
   }
 }

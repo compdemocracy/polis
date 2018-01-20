@@ -4,17 +4,14 @@ import React from "react";
 import Radium from "radium";
 import {Link} from "react-router";
 import Awesome from "react-fontawesome";
-import Flex from "../framework/flex";
-import Button from "../framework/generic-button";
-import StaticContentContainer from "../framework/static-content-container";
 import strings from "../../strings/strings";
+import Flex from '../framework/flex';
+import LanderContainer from "../App/Container/LanderContainer";
+import ContainerInner from "../App/Container/ContainerInner";
+
 
 const styles = {
-  container: {
-    padding: 20,
-    marginBottom: 40,
-    maxWidth: "31em"
-  },
+
   heading: {
     fontSize: 36,
     fontWeight: 300,
@@ -50,12 +47,8 @@ class Company extends React.Component {
 
   render() {
     return (
-      <StaticContentContainer
-        backgroundColor={"#03a9f4"}
-        headerBackgroundColor={"#03a9f4"}
-        footerBackgroundColor={"#03a9f4"}
-        image={false}>
-        <Flex styleOverrides={styles.container}>
+      <LanderContainer>
+        <ContainerInner>
           <div>
             <p style={[styles.heading, {marginTop: 20, marginBottom: 30}]}>
               Company
@@ -176,8 +169,8 @@ class Company extends React.Component {
               <span style={styles.publication}> Power (2018), by Carl Miller </span>
             </Flex>
           </div>
-        </Flex>
-      </StaticContentContainer>
+        </ContainerInner>
+      </LanderContainer>
     );
   }
 }
