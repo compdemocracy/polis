@@ -7,9 +7,12 @@ import { connect } from "react-redux";
 import PolisNet from "../../util/net";
 import strings from "../../strings/strings";
 import { doSignin, doFacebookSignin } from "../../actions";
+
 import Nav from "../App/Nav/Nav";
 import Footer from "../App/Footer/Footer";
 import FooterData from '../../strings/footer'
+import Hero from "./Hero/Hero";
+import Trust from "./Trust/Trust";
 
 
 let defaultState = {
@@ -83,10 +86,8 @@ class Home extends React.Component {
   render() {
     return <main>
         <Nav />
-
-        <section>
-          <h2>Used by</h2>
-        </section>
+        <Hero headline="Know what your organization is thinking" subheadline="Polis helps organizations understand themselves. Get a summary visualization of all the viewpoints to move a conversation forward." className="page-header mt6 mt5-ns" />
+        <Trust headline="You’re in good company" subheadline="Polis is trusted by governments, universities, non-profits, movements, and large organizations." />
         <section>
           <h1>Value Props</h1>
         </section>
