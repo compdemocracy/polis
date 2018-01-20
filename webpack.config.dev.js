@@ -19,7 +19,7 @@ module.exports = {
     new webpack.NoErrorsPlugin()
   ],
   resolve: {
-    extentions: [ '', '.js', '.css', '.png' ]
+    extentions: [ '', '.js', '.css', '.png', '.svg' ]
   },
   module: {
     loaders: [
@@ -32,7 +32,7 @@ module.exports = {
         test: /\.json$/, loader: "json-loader"
       },
       {
-        test: /\.(png|jpg|gif)$/,
+        test: /\.(png|jpg|gif|svg)$/,
         loader: "file-loader"
       }
     ]

@@ -15,7 +15,7 @@ module.exports = {
   },
   plugins: [new webpack.optimize.OccurenceOrderPlugin()],
   resolve: {
-    extentions: ["", ".js", ".css", ".png"]
+    extentions: ["", ".js", ".css", ".png", '.svg']
   },
   module: {
     preLoaders: [{ test: /\.json$/, loader: "json" }],
@@ -26,7 +26,7 @@ module.exports = {
         include: path.join(__dirname, "src")
       },
       {
-        test: /\.(png|jpg|gif)$/,
+        test: /\.(png|jpg|gif|svg)$/,
         loader: "file-loader"
       }
     ]
