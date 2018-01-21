@@ -224,22 +224,22 @@ qp.push("pid=mypid");
 
 var xid = getXid();
 if (typeof xid !== "undefined") {
-  qp.push("xid=" + xid);
   window.preload.xid = xid;
+  qp.push("xid=" + encodeURIComponent(xid));
 }
 var x_profile_image_url = get_x_profile_image_url();
 if (typeof x_profile_image_url !== "undefined") {
   window.preload.x_profile_image_url = x_profile_image_url;
-  qp.push("x_profile_image_url=" + x_profile_image_url);
+  qp.push("x_profile_image_url=" + encodeURIComponent(x_profile_image_url));
 }
 var x_name = get_x_name();
 if (typeof x_name !== "undefined") {
   window.preload.x_name = x_name;
-  qp.push("x_name=" + x_name);
+  qp.push("x_name=" + encodeURIComponent(x_name));
 }
 var dwok = get_domain_whitelist_override_key();
 if (typeof dwok !== "undefined") {
-  qp.push("domain_whitelist_override_key=" + dwok);
+  qp.push("domain_whitelist_override_key=" + encodeURIComponent(dwok));
 }
 
 var ui_lang = getUiLang();
