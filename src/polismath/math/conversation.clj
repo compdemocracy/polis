@@ -225,6 +225,9 @@
    :mod-out
    (plmb/fnk [conv]
      (:mod-out conv))
+   :mod-in
+   (plmb/fnk [conv]
+     (:mod-in conv))
    :meta-tids
    (plmb/fnk [conv]
      (:meta-tids conv))
@@ -357,7 +360,6 @@
                      (range)
                      row))
                  mat)))
-
       :pca (plmb/fnk [conv mat opts']
              (let [pca
                    (pca/wrapped-pca mat
@@ -653,6 +655,7 @@
             tids)))
 
 
+      ;; ATTENTION! The following uses of :mod-out should be ideally taking into account strict/vs non-strict
       :repness
       (plmb/fnk [conv rating-mat group-clusters base-clusters]
         (-> (repness/conv-repness rating-mat group-clusters base-clusters)
@@ -816,6 +819,14 @@
                 (disj mod-out tid)))
             (set (:mod-out conv))
             mods)
+          mod-in
+          (reduce
+            (fn [mod-in {:keys [tid is_meta mod]}]
+              (if (or is_meta (= mod 1))
+                (conj mod-in tid)
+                (disj mod-in tid)))
+            (set (:mod-in conv))
+            mods)
           meta-tids
           (reduce
             (fn [meta-tids {:keys [tid is_meta]}]
@@ -825,8 +836,9 @@
             (set (:meta-tids conv))
             mods)]
       (-> conv
-          (assoc :mod-out mod-out)
-          (assoc :meta-tids meta-tids)
+          (assoc :mod-out mod-out
+                 :mod-in mod-in
+                 :meta-tids meta-tids)
           (update :last-mod-timestamp #(apply max (or % 0) (map :modified mods)))))
     (catch Exception e
       (log/error "Problem running mod-update with mod-out:" (:mod-out conv) "and mods:" mods ":" e)
