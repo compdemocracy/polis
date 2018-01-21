@@ -77,7 +77,8 @@
 
                  ;; Dev
                  [org.clojure/test.check "0.9.0"]
-                 [com.gfredericks/debug-repl "0.0.9"]]
+                 [com.gfredericks/debug-repl "0.0.9"]
+                 [irresponsible/tentacles "0.6.1"]]
 
   :gorilla-options {:keymap {"command:app:save" "alt+g alt+w"}
                     :port 989796}
