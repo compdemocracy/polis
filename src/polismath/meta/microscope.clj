@@ -9,7 +9,7 @@
             [polismath.utils :as utils]
             [clojure.tools.trace :as tr]
             [clojure.tools.logging :as log]
-            [clojure.newtools.cli :refer [parse-opts]]
+            [clojure.tools.cli :refer [parse-opts]]
             [com.stuartsierra.component :as component]
             [plumbing.core :as pc]
             [korma.core :as ko]
