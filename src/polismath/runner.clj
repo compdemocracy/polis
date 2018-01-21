@@ -6,7 +6,7 @@
     ;[polismath.stormspec :as stormspec :refer [storm-system]]
             [polismath.utils :as utils]
     ;; TODO Replace this with the canonical clojure.tools.cli once storm is removed
-            [clojure.newtools.cli :as cli]
+            [clojure.tools.cli :as cli]
             [clojure.tools.namespace.repl :as namespace.repl]
             [taoensso.timbre :as log]
             [clojure.string :as string]

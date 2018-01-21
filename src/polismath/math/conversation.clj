@@ -225,9 +225,15 @@
    :mod-out
    (plmb/fnk [conv]
      (:mod-out conv))
+   :mod-in
+   (plmb/fnk [conv]
+     (:mod-in conv))
+   :meta-tids
+   (plmb/fnk [conv]
+     (:meta-tids conv))
 
    ;; There should really be a nice way for us to specify that we want a full recompute on everything except in-conv,
-   ;; since in general we don't want to loose people in that process.
+   ;; since in meta-tids we don't want to loose people in that process.
    :in-conv     (plmb/fnk [conv user-vote-counts n-cmts]
                   ; This keeps track of which ptpts are in the conversation (to be considered
                   ; for base-clustering) based on home many votes they have. Once a ptpt is in,
@@ -295,6 +301,38 @@
                        (keys votes-base))}]))
         group-clusters))))
 
+
+(defn importance-metric
+  [A P S E]
+  (let [p (/ (+ P 1) (+ S 2))
+        a (/ (+ A 1) (+ S 2))]
+    (* (- 1 p) (+ E 1) a)))
+
+;; This could be
+;; TODO TUNE
+(def meta-priority 7)
+
+(defn priority-metric
+  [is-meta A P S E]
+  ;; We square to deepen our bias
+  (matrix/pow
+    (if is-meta
+      meta-priority
+        (* (importance-metric A P S E)
+           ;; scale by a factor which lets new comments bubble up
+           (+ 1 (* 8 (matrix/pow 2 (/ S -5))))))
+    2))
+
+
+(comment
+  ;; testing values
+  (float (importance-metric 1 0 1 0))
+  (priority-metric false 1 0 1 0)
+  (priority-metric false 20 3 20 0)
+  (priority-metric false 18 3 20 1)
+  :end-comment)
+
+  
 (def small-conv-update-graph
   "For computing small conversation updates (those without need for base clustering)"
   (merge
@@ -322,7 +360,6 @@
                      (range)
                      row))
                  mat)))
-
       :pca (plmb/fnk [conv mat opts']
              (let [pca
                    (pca/wrapped-pca mat
@@ -567,7 +604,7 @@
                  (group-votes subgroup-clusters' base-clusters votes-base)))))
 
 
-      ; {gid {tid consensus}}
+      ; {tid consensus}
       :group-aware-consensus
            (plmb/fnk [group-votes]
              (let [tid-gid-probs
@@ -575,8 +612,8 @@
                      (fn [result [gid gid-stats]]
                        (reduce
                          (fn [result [tid {:keys [A S] :or {A 0 S 0}}]]
-                           (let [consensus (/ A (+ S 1.0))]
-                             (assoc-in result [tid gid] consensus)))
+                           (let [prob (/ (+ A 1.0) (+ S 2.0))]
+                             (assoc-in result [tid gid] prob)))
                          result
                          (:votes gid-stats)))
                        ;; +1 acts as a dumb prior
@@ -589,9 +626,36 @@
                             (map second)
                             (reduce *)))
                      tid-gid-probs)]
-               tid-gid-probs))
+               tid-consensus))
+
+      :comment-priorities
+      (plmb/fnk [conv group-votes pca tids meta-tids]
+        (let [group-votes (:group-votes conv)
+              extremities (into {} (map vector tids (:comment-extremity pca)))]
+          (plmb/map-from-keys
+            (fn [tid]
+              (let [{:as total-votes :keys [A D S P]}
+                    ;; reduce over votes per group, already aggregated
+                    (reduce
+                      (fn [votes [gid data]]
+                        ;; not sure why we have to do the or here? how would this ever come up nil? small
+                        ;; convs?
+                        (let [{:as data :keys [A S D] :or {A 0 S 0 D 0}} (get-in data [:votes tid])
+                              data (assoc data :P (+ (- S (+ A D))))]
+                          ;; Add in each of the data's kv count pairs
+                          (reduce
+                            (fn [votes' [k v]]
+                              (update votes' k + v))
+                            votes
+                            data)))
+                      {:A 0 :D 0 :S 0 :P 0}
+                      group-votes)
+                    extremity (get extremities tid)]
+                (priority-metric (meta-tids tid) A P S extremity)))
+            tids)))
 
 
+      ;; ATTENTION! The following uses of :mod-out should be ideally taking into account strict/vs non-strict
       :repness
       (plmb/fnk [conv rating-mat group-clusters base-clusters]
         (-> (repness/conv-repness rating-mat group-clusters base-clusters)
@@ -676,7 +740,8 @@
 
 
 (def eager-profiled-compiler
-  (comp graph/eager-compile (partial graph/profiled :profile-data)))
+  ;(comp graph/eager-compile (partial graph/profiled :profile-data))
+  (comp graph/par-compile (partial graph/profiled :profile-data)))
 
 (def small-conv-update (eager-profiled-compiler small-conv-update-graph))
 (def large-conv-update (eager-profiled-compiler large-conv-update-graph))
@@ -744,6 +809,8 @@
   "Take a conversation record and a seq of moderation data and updates the conversation's mod-out attr"
   [conv mods]
   (try
+    ;; We use reduce here instead of a (->> % filter into) because we need to make sure that we are
+    ;; processing things in order for mod in then out vs out then in
     (let [mod-out
           (reduce
             (fn [mod-out {:keys [tid is_meta mod]}]
@@ -751,9 +818,27 @@
                 (conj mod-out tid)
                 (disj mod-out tid)))
             (set (:mod-out conv))
+            mods)
+          mod-in
+          (reduce
+            (fn [mod-in {:keys [tid is_meta mod]}]
+              (if (or is_meta (= mod 1))
+                (conj mod-in tid)
+                (disj mod-in tid)))
+            (set (:mod-in conv))
+            mods)
+          meta-tids
+          (reduce
+            (fn [meta-tids {:keys [tid is_meta]}]
+              (if is_meta
+                (conj meta-tids tid)
+                (disj meta-tids tid)))
+            (set (:meta-tids conv))
             mods)]
       (-> conv
-          (assoc :mod-out mod-out)
+          (assoc :mod-out mod-out
+                 :mod-in mod-in
+                 :meta-tids meta-tids)
           (update :last-mod-timestamp #(apply max (or % 0) (map :modified mods)))))
     (catch Exception e
       (log/error "Problem running mod-update with mod-out:" (:mod-out conv) "and mods:" mods ":" e)

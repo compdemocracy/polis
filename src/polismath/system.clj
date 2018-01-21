@@ -15,7 +15,7 @@
             [taoensso.timbre :as log]
             [clojure.tools.namespace.repl :as namespace.repl]
             [clojure.string :as string]
-            [clojure.newtools.cli :as cli]
+            [clojure.tools.cli :as cli]
             [com.stuartsierra.component :as component]))
 
 (defn base-system

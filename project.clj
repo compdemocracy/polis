@@ -1,26 +1,23 @@
 ;; Copyright (C) 2012-present, Polis Technology Inc. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 (defproject polismath "0.1.0-SNAPSHOT"
-  :source-paths ["src/"
-                 ;; TODO Need to replace .lein-git-deps with proper checkouts
-                 ".lein-git-deps/debug-repl/src/"
-                 ".lein-git-deps/tools.cli/src/main/clojure/"]
+  :source-paths ["src/"]
+  ;; TODO Need to replace .lein-git-deps with proper checkouts
   ; faster run time in exchange for slower startup time
   ;:aot :all
   ;:jvm-opts ^:replace []
   :jvm-opts ["-Xmx4g"]
   :repl-options {:timeout 120000
+                 :nrepl-middleware [com.gfredericks.debug-repl/wrap-debug-repl]
                  :port 34344}
   :target-path "target/%s"
   :javac-target "1.7"
-  :repositories {"twitter4j" "http://twitter4j.org/maven2"}
-  :plugins [[lein-git-deps "0.0.1-SNAPSHOT"]
-            ;; need to add profiles to use this to avoid clout dep issue
+  :repositories {"twitter4j" "https://twitter4j.org/maven2"}
+  :plugins [;; need to add profiles to use this to avoid clout dep issue
             [lein-gorilla "0.4.0"]]
             ;[lein-environ "0.4.0"]
 
-  :git-dependencies [["https://github.com/metasoarous/tools.cli.git" "master"]
-                     ["https://github.com/GeorgeJahad/debug-repl.git" "master"]]
+  :git-dependencies [["https://github.com/GeorgeJahad/debug-repl.git" "master"]]
   :dependencies [;; org.clojure stuff...
                  [org.clojure/clojure "1.9.0-RC2"]
                  [org.clojure/spec.alpha "0.1.143"]
@@ -47,7 +44,7 @@
                  [criterium "0.4.4"]
                  [clj-http "3.4.1"]
                  ;; We should be able to switch back to this now that we aren't using storm
-                 ;[org.clojure/tools.cli "0.3.1"]
+                 [org.clojure/tools.cli "0.3.1"]
                  ;; implicitly requires jetty, component and ring
                  [ring/ring-core "1.5.0" :exclusions [clj-time]]
                  [ring-jetty-component "0.3.1" :exclusions [clj-time]]
@@ -78,15 +75,16 @@
                  [mount "0.1.10"]
                  [honeysql "0.8.2"]
 
-                 [org.clojure/test.check "0.9.0"]]
+                 ;; Dev
+                 [org.clojure/test.check "0.9.0"]
+                 [com.gfredericks/debug-repl "0.0.9"]
+                 [irresponsible/tentacles "0.6.1"]]
 
   :gorilla-options {:keymap {"command:app:save" "alt+g alt+w"}
                     :port 989796}
   :main polismath.runner
   :min-lein-version "2.3.0"
-  :profiles {:dev {:dependencies [[org.clojure/test.check "0.9.0"]
-                                  [yieldbot/vizard "1.0.1"]]
-                   :source-paths ["src" "dev"]
-                   :env {:mongo-url "db/mongo.db"}}
+  :profiles {:dev {:dependencies [[yieldbot/vizard "1.0.1"]]
+                   :source-paths ["src" "dev"]}
              :production {:env {}}})
 
