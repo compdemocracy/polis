@@ -8,14 +8,19 @@
             [polismath.math.named-matrix :as nm]
             [polismath.math.corr :as corr]
             [polismath.tasks :as tasks]
+            [plumbing.core :as plmb]
             [honeysql.core :as honey]
             [clojure.core.matrix :as matrix]
             [clojure.core.async :as async :refer [>! <! >!! <!! go go-loop thread]]
+            [clojure.set :as set]
+            [clojure.string :as string]
+            [clojure.pprint :as pp]
             [environ.core :as env]
             [taoensso.timbre :as log]
             [taoensso.timbre.profiling :as prof]
             [vizard.core :as viz]
-            [clojure.data.json :as json]))
+            [cheshire.core :as chesh]
+            [tentacles.gists :as gists]))
 
 
 ;; Conv loading utilities
@@ -44,20 +49,60 @@
       (:group-votes conv))))
 
 
+(defn importance-metric
+  [A P S E]
+  (let [p (/ (+ P 1) (+ S 2))
+        a (/ (+ A 1) (+ S 2))]
+    (* (- 1 p) (+ E 1) a)))
+
+
+(defn cmnt-stats
+  [conv tid extremity]
+  (let [group-votes (:group-votes conv)
+        {:as total-votes :keys [A D S P]}
+        ;; reduce over votes per group, already aggregated
+        (reduce
+          (fn [votes [gid data]]
+            (let [{:as data :keys [A S D]} (get-in data [:votes tid])
+                  data (assoc data :P (+ (- S (+ A D))))]
+              ;; Add in each of the data's kv count pairs
+              (reduce
+                (fn [votes' [k v]]
+                  (update votes' k + v))
+                votes
+                data)))
+          {:A 0 :D 0 :S 0 :P 0}
+          group-votes)
+        importance
+        (importance-metric A P S extremity)
+        priority
+        (get-in conv [:comment-priorities tid])]
+    (log/spy
+      {:total-votes (str total-votes)
+       :priority priority
+       :importance importance
+       :fontSize (* priority 40)})))
+
+
 (defn comments-data
   [conv]
-  (map
-    (fn [tid extremity [x y]]
-      (merge
-        {:label tid
-         :x x
-         :y y
-         :extremity extremity
-         :type "comment"}
-        (cmnt-group-votes conv tid)))
-    (:tids conv)
-    (-> conv :pca :comment-extremity)
-    (-> conv :pca :comment-projection matrix/transpose)))
+  (->> 
+    (map
+      (fn [tid extremity [x y]]
+        (merge
+          {:tid tid
+           :label tid
+           :x x
+           :y y
+           :extremity extremity
+           :type "comment"}
+          (cmnt-group-votes conv tid)
+          (cmnt-stats conv tid extremity)))
+      (:tids conv)
+      (-> conv :pca :comment-extremity)
+      (-> conv :pca :comment-projection matrix/transpose))
+    (remove (comp (:mod-out conv) :tid))))
+
 
 (defn groups-data
   [conv]
@@ -112,13 +157,14 @@
         subgroups))
     (:subgroup-clusters conv)))
 
+
 (defn conv-data
   [conv]
   (concat
     (comments-data conv)
     (groups-data conv)
-    (subgroup-clusters-data conv)))
-    ;(base-clusters-data conv)))
+    (subgroup-clusters-data conv)
+    (base-clusters-data conv)))
 
 
 (def size-scale
@@ -148,17 +194,163 @@
            {:mark "text"
             :encoding {:x {:field "x"}
                        :y {:field "y"}
+                       :size {:field "fontSize"}
                        :text {:field "label"}}}]})
 
-(defn p! [conv]
-  (viz/p! (assoc conv-plot :data {:values (conv-data conv)})))
+(def conv-plot
+  {:width 2000
+   :height 1300
+   :layer [
+           {:mark "rule"
+            :encoding {:x {:value 0 :scale {:zero false}}}}
+           ;{:mark "rule"
+           ; :encoding {:x {:value 0.0}}}
+           {:mark {:type "point" :filled true}
+            :encoding {:x {:field "x"}
+                       :y {:field "y"}
+                       :size {:field "size" :scale size-scale}
+                       :color {:field "type"}}}
+           {:mark "point"
+            :encoding {:x {:field "x"}
+                       :y {:field "y"}
+                       :size {:field "size"
+                              :scale size-scale}
+                       :opacity {:value 0.5}
+                       :color {:value "#000"}}}
+           {:mark "text"
+            :encoding {:x {:field "x"}
+                       :y {:field "y"}
+                       :size {:field "fontSize"}
+                       :text {:field "label"}}}]})
+
+
+
+(defn p!
+  ([conv]
+   (viz/p! (assoc conv-plot :data {:values (conv-data conv)}))))
 
 ;; Test calls here
 ;(def plot-data
 ;  (conv-data conv))
 ;(def the-plot
-;  (p! conv))
+  ;(p! conv))
 
+
+(defn integrate
+  [coll]
+  (:result
+    (reduce
+      (fn [result x]
+        (-> result
+          (update :total + x)
+          (update :result conj (+ (:total result) x))))
+      {:total 0 :result []}
+      coll)))
+
+(defn plot-priorities!
+  [conv & {:keys [strict-mod exclude-meta]}]
+  (let [values
+        (->> (:comment-priorities conv)
+             (remove (comp
+                       (set/union
+                         (if exclude-meta (:meta-tids conv) #{})
+                         (if strict-mod
+                           (set/difference (set (:tids conv)) (:mod-in conv))
+                           (set/difference (:mod-out conv) (:meta-tids conv))))
+                       first))
+             (sort-by second))
+        max-integral
+        (apply max (integrate (vals values)))
+        comments
+        (into {} (map (fn [c] [(:tid c) c])
+                      (comments-data conv)))
+        entities
+        (map
+          (fn [i [tid x] X]
+            (merge
+              (get comments tid)
+              {:rank i
+               :rank-perc (/ i (count values))
+               :tid tid
+               :priority x
+               :integral X
+               :prob (/ X max-integral)
+               :is-meta (boolean (get (:meta-tids conv) tid))
+               :mod-out (boolean (get (:mod-out conv) tid))}))
+          (range)
+          values
+          (integrate (vals values)))]
+    (viz/p!
+      {:data {:values entities}
+       :title "Priority CDF"
+       :width 1400
+       :height 900
+       :mark "bar"
+       :encoding {:x {:field "rank-perc"}
+                  :y {:field "prob"}}})))
+                  ;:y {:field "priority"}}})))
+
+
+
+(defn gist-plot!
+  [name plot]
+  (let [plot-json (chesh/generate-string plot)
+        gist (gists/create-gist {name plot-json} {:description "Vega plot; see " :public false})]
+    ;(pp/pprint (update gist :files dissoc :content))))
+    gist))
+
+(defn vega-editor-url
+  [gist-url]
+  (str
+    "https://vega.github.io/editor/#/gist/vega-lite/"
+    (-> gist-url (string/split #"\/") reverse (->> (take 2) reverse (string/join "/")))))
+
+(defn publish-plot!
+  [name plot]
+  (let [gist (gist-plot! name plot)
+        gist-url (:url gist)]
+    (log/info "Gist url:" gist-url)
+    (log/info "Vega editor url:" (vega-editor-url gist-url))))
+
+;(publish-plot! "linear" priority-plot)
+
+
+
+;(:profile-data conv)
+;(:mod-out conv)
+;(->> (:comment-priorities conv)
+     ;(remove (comp (:mod-out conv) first))
+     ;vals
+     ;;(map #(matrix/pow % 2))
+     ;sort
+     ;integrate)
+     ;(apply +))
+
+;;135 -> 199
+
+
+(defn prob-dist
+  "Messy function for investigating statistical distributions. Given a sample of comments selected
+  from the server's get comments fn, or from a page reload, this function returns the subset of those
+  comments which fall in the uppermost percentile of comments. By tracing back y values on a cdf plot to
+  the x values at which they intersect the cft, you can get a sense of what portion of sample should fall
+  within the specified percentile and then compare that to what you get here."
+  [conv sample percentile & {:keys [in-conv]}]
+  (let [comment-priorities
+        (->> (:comment-priorities conv)
+             (sort-by second)
+             (remove (comp (set/difference (:mod-out conv) (:meta-tids conv))
+                           first))
+             (filter (comp
+                       (set (or in-conv (:tids conv)))
+                       first)))]
+    (log/info (count (vec comment-priorities)))
+    (set/intersection
+      (into #{}
+        (map first
+          (take-last (log/spy :info (int (* (count comment-priorities) percentile)))
+                     comment-priorities)))
+      (set sample))))
 
 
 
@@ -168,7 +360,7 @@
   (viz/start-plot-server!)
   ;; Run one of these to interactively test out a particular system or subsystem
   (runner/run! system/base-system {:math-env :preprod})
-  ;(runner/run! system/poller-system {:math-env :dev :poll-from-days-ago 0.1})
+  (runner/run! system/poller-system {:math-env :dev :poll-from-days-ago 0.1})
   ;(runner/run! system/task-system {:math-env :preprod :poll-from-days-ago 3})
   ;(runner/run! system/full-system {:math-env :preprod :poll-from-days-ago 0.1})
   ;(runner/run! system/darwin-system)
@@ -186,22 +378,40 @@
   ;(def zid 17175)
   ;(def zid 16703)
   ;(def zid 16906)
-  (def zid 17890)
+  ;(def zid 17890)
+  (def zid 18115)
   (def args {:zid zid})
-
 
   (def conv
     (-> (load-conv args)
         (conv/conv-update [])))
 
-  (println (:tids conv))
+  (def priority-plot (plot-priorities! conv :strict-mod true :exclude-meta true))
+  (pp/pprint priority-plot)
+  (publish-plot! "comments-buble-up.json" priority-plot)
+
+
+  (->> (nm/get-matrix (:raw-rating-mat conv))
+       matrix/shape)
+  (sort (keys conv))
+  ;(let [matrix (nm/get-matrix (:raw-rating-mat conv))]
+    ;(->> matrix
+         ;matrix/columns
+         ;(map
+           ;(fn [col]
+             ;(let [seen (remove nil? col)
+                   ;agree ()]
+               ;#(/ % (-> matrix matrix/shape first))
+               ;count
+               ;double)))
+         ;sort))
 
   ;; Look at profile output
   (sort-by (comp - second) @(:profile-data conv))
   (reduce + (map second @(:profile-data conv)))
 
   ;; Plot the conversation
-  (do (p! conv) nil)
+  (p! conv)
 
   ;; Run correlation matrix
   ;(corr/default-tids conv)
