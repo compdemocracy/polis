@@ -64,7 +64,7 @@ s.hereIsNextStatement = "Vote success. Navigate up to see the next statement.";
 
 s.connectFacebook = "Connect Facebook";
 s.connectTwitter = "Connect Twitter";
-s.connectToPostPrompt = "Connect an identity to Statement. We will not post to your timeline.";
+s.connectToPostPrompt = "Connect an identity to submit a statement. We will not post to your timeline.";
 s.connectToVotePrompt = "Connect an identity to vote. We will not post to your timeline.";
 s.tip = "Tip:";
 s.commentWritingTipsHintsHeader = "Tips for writing statements";
