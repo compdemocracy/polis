@@ -1,7 +1,8 @@
 ;; Copyright (C) 2012-present, Polis Technology Inc. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 (ns polismath.meta.notify
-  (:require [clj-http.client :as client]))
+  (:require [clj-http.client :as client]
+            [taoensso.timbre :as log]))
 
 
 ;; Keep track of the type of notifications sent, and when they were sent, so you can avoid spamming.
@@ -28,11 +29,22 @@
     (catch Exception e
       (log/error e "failed to notifyTeam:\n"))))
 
+
+(defn error-message-body
+  [error]
+  (let [{:as error-map :keys [cause via trace]} (Throwable->map error)]
+    (str "Cause: " (:cause error-map) "\n"
+         "Via:" (:via error-map) "\n\n"
+         "Trace:\n"
+         (apply str
+                (for [row trace]
+                  (str "    " row "\n"))))))
+
 (defn notify-team [config message-type zid subject body]
   (let [now (quot (System/currentTimeMillis) 1000)
         per-convo-key [zid message-type]
         oldest (- now throttle-time)
-        trimmed-throttle-list (filter (get @team-notifications-per-message-type-throttle message-type) (fn [t] (> t oldest)))
+        trimmed-throttle-list (filter (fn [t] (> t oldest)) (get @team-notifications-per-message-type-throttle message-type))
         message-type-throttle-count (count trimmed-throttle-list)]
     (if (and
           (< message-type-throttle-count throttle-count) ; don't send more than 5 per hour for a given message type

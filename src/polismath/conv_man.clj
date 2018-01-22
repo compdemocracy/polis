@@ -6,6 +6,7 @@
             [polismath.math.conversation :as conv]
             [polismath.math.clusters :as clust]
             [polismath.meta.metrics :as met]
+            [polismath.meta.notify :as notify]
             [polismath.components.env :as env]
             [polismath.components.postgres :as db]
             [polismath.math.corr :as corr]
@@ -288,9 +289,16 @@
 
 (defn handle-errors
   [conv-man conv-actor conv message-type messages update-error start-time]
-  (let [zid-str (str "zid=" (:zid conv-actor))
-        retry-chan (:retry-chan conv-actor)]
-    (log/error update-error (str "Failed conversation update for message-type " message-type " and " zid-str))
+  (let [zid (:zid conv-actor)
+        zid-str (str "zid=" zid)
+        retry-chan (:retry-chan conv-actor)
+        notify-message (str "Failed conversation update for message-type " message-type " and " zid-str)]
+    (try
+      (let [stack-trace (notify/error-message-body update-error)]
+        (notify/notify-team (:config conv-man) (str "Polismath conv-man error: " message-type) zid notify-message stack-trace))
+      (catch Exception e
+        (log/error e "Unable to notify team")))
+    (log/error update-error notify-message)
     (.printStackTrace update-error)
     ; Try requeing the votes that failed so that if we get more, they'll get replayed
     (try
