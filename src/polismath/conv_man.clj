@@ -292,7 +292,7 @@
   (let [zid (:zid conv-actor)
         zid-str (str "zid=" zid)
         retry-chan (:retry-chan conv-actor)
-        notify-message (str "Failed conversation update for message-type " message-type " and " zid-str)]
+        notify-message (str "Failed conversation update on " (-> conv-man :config :math-env) " for message-type " message-type " and " zid-str)]
     (try
       (let [stack-trace (notify/error-message-body update-error)]
         (notify/notify-team (:config conv-man) (str "Polismath conv-man error: " message-type) zid notify-message stack-trace))
