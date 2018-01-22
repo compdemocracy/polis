@@ -144,7 +144,7 @@
                           :group-iters 10
                           ;; These three in particular we should be able to tune quickly
                           :max-ptpts 100000
-                          :max-cmts 1000
+                          :max-cmts 1500
                           :group-k-buffer 4}
                     opts))
 
