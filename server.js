@@ -14220,7 +14220,8 @@ CREATE TABLE slack_user_invites (
     };
     if (!devMode) {
       Object.assign(headers, {
-        'Cache-Control': 'no-transform,public,max-age=60,s-maxage=60', // Cloudflare will probably cache it for one or two hours
+        // 'Cache-Control': 'no-transform,public,max-age=60,s-maxage=60', // Cloudflare will probably cache it for one or two hours
+        'Cache-Control': 'no-cache', // Cloudflare will probably cache it for one or two hours
       });
     }
 
