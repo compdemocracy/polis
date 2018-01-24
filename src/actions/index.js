@@ -995,7 +995,9 @@ const commentsFetchError = (err) => {
 }
 
 const fetchAllComments = (conversation_id) => {
-  return $.get("/api/v3/comments?moderation=true&include_social=true&conversation_id=" + conversation_id);
+  // let includeSocial = "include_social=true&";
+  let includeSocial = "";
+  return $.get("/api/v3/comments?moderation=true&include_voting_patterns=false&"+includeSocial+"conversation_id=" + conversation_id);
 };
 
 export const populateCommentsStore = (conversation_id) => {
@@ -1068,7 +1070,9 @@ const unmoderatedCommentsFetchError = (err) => {
 }
 
 const fetchUnmoderatedComments = (conversation_id) => {
-  return $.get("/api/v3/comments?moderation=true&include_social=true&mod=0&conversation_id=" + conversation_id);
+  // let includeSocial = "include_social=true&";
+  let includeSocial = "";
+  return $.get("/api/v3/comments?moderation=true&include_voting_patterns=false&" +includeSocial+"mod=0&conversation_id=" + conversation_id);
 }
 
 export const populateUnmoderatedCommentsStore = (conversation_id) => {
@@ -1104,7 +1108,9 @@ const acceptedCommentsFetchError = (err) => {
 }
 
 const fetchAcceptedComments = (conversation_id) => {
-  return $.get("/api/v3/comments?moderation=true&mod=1&include_social=true&conversation_id=" + conversation_id);
+  // let includeSocial = "include_social=true&";
+  let includeSocial = "";
+  return $.get("/api/v3/comments?moderation=true&include_voting_patterns=false&mod=1&"+includeSocial+"conversation_id=" + conversation_id);
 }
 
 export const populateAcceptedCommentsStore = (conversation_id) => {
@@ -1141,7 +1147,9 @@ const rejectedCommentsFetchError = (err) => {
 
 
 const fetchRejectedComments = (conversation_id) => {
-  return $.get("/api/v3/comments?moderation=true&include_social=true&mod=-1&conversation_id=" + conversation_id);
+  // let includeSocial = "include_social=true&";
+  let includeSocial = "";
+  return $.get("/api/v3/comments?moderation=true&include_voting_patterns=false&"+includeSocial+"mod=-1&conversation_id=" + conversation_id);
 }
 
 export const populateRejectedCommentsStore = (conversation_id) => {
