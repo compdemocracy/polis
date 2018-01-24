@@ -7234,6 +7234,7 @@ Email verified! You can close this tab or hit the back button.
 
   function _getCommentsForModerationList(o) {
     var strictCheck = Promise.resolve(null);
+    var include_voting_patterns = o.include_voting_patterns;
     
     if (o.modIn) {
       strictCheck = pgQueryP("select strict_moderation from conversations where zid = ($1);", [o.zid]).then((c) => {
@@ -7266,8 +7267,12 @@ Email verified! You can close this tab or hit the back button.
           }
         }
       }
+      if (!include_voting_patterns) {
+        return pgQueryP_metered_readOnly("_getCommentsForModerationList", "select * from comments where comments.zid = ($1)" + modClause, params);
+      }
 
       return pgQueryP_metered_readOnly("_getCommentsForModerationList", "select * from (select tid, vote, count(*) from votes_latest_unique where zid = ($1) group by tid, vote) as foo full outer join comments on foo.tid = comments.tid where comments.zid = ($1)" + modClause, params).then((rows) => {
+
         // each comment will have up to three rows. merge those into one with agree/disagree/pass counts.
         let adp = {};
         for (let i = 0; i < rows.length; i++) {
@@ -7395,7 +7400,6 @@ Email verified! You can close this tab or hit the back button.
     return Promise.all([convPromise, commentListPromise]).then(function(a) {
       let rows = a[1];
       conv = a[0];
-
       let cols = [
         "txt",
         "tid",
