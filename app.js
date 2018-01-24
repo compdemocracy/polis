@@ -654,6 +654,7 @@ helpersInitialized.then(function(o) {
     want('include_social', getBool, assignToP),
     want('include_demographics', getBool, assignToP),
     //    need('lastServerToken', _.identity, assignToP),
+    want('include_voting_patterns', getBool, assignToP, false),
     resolve_pidThing('not_voted_by_pid', assignToP, "get:comments:not_voted_by_pid"),
     resolve_pidThing('pid', assignToP, "get:comments:pid"),
     handle_GET_comments);
