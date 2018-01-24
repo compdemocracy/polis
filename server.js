@@ -830,6 +830,9 @@ function pgQueryP_readOnly_wRetryIfEmpty(queryString, params) {
 
 function pgQueryP_metered_impl(name, queryString, params) {
   let f = this.isReadOnly ? pgQueryP_readOnly : pgQueryP;
+  if (_.isUndefined(name) || _.isUndefined(queryString) || _.isUndefined(params)) {
+    throw new Error("polis_err_pgQueryP_metered_impl missing params");
+  }
   return new MPromise(name, function(resolve, reject) {
     f(queryString, params).then(resolve, reject);
   });
