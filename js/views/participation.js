@@ -2,6 +2,8 @@
 
 var Backbone = require("backbone");
 var CommentFormView = require("../views/comment-form");
+var CommentsCollection = require("../collections/comments");
+var Constants = require("../util/constants");
 var ConversationInfoSlideView = require('../views/conversationInfoSlideView');
 var ConversationStatsHeader = require('../views/conversation-stats-header');
 var ConversationTabsView = require("../views/conversationTabs");
@@ -17,6 +19,7 @@ var preloadHelper = require("../util/preloadHelper");
 var ReadReactView = require('../views/ReadReactView');
 var Strings = require("../strings");
 var template = require('../tmpl/participation');
+var TopCommentsView = require('../views/TopCommentsView');
 var Utils = require("../util/utils");
 var VisView = require("../lib/VisView");
 var VoteMoreView = require("../views/voteMoreView");
@@ -189,7 +192,7 @@ module.exports = ConversationView.extend({
     // ctx.showLogoInFooter = !ctx.showLogoAndBreadCrumbInHeader;
     ctx.showLogoInFooter = false;
 
-    ctx.no_vis = !Utils.userCanSeeVis() || ctx.vis_type === 0 || Utils.isIphone();
+    ctx.no_vis = !Utils.userCanSeeVis() || ctx.vis_type === Constants.VIS_TYPE.OFF || Utils.isIphone();
     ctx.no_write = ctx.write_type === 0 || !Utils.userCanWrite() || !ctx.is_active;
     ctx.no_voting = !Utils.userCanVote() || !ctx.is_active;
     ctx.no_topic = !Utils.userCanSeeTopic() || !ctx.topic || ctx.topic.length === 0;
@@ -204,6 +207,9 @@ module.exports = ConversationView.extend({
     ctx.addPolisToYourSite = temp;
 
     ctx.show_admin_button = false; //ctx.is_owner;
+
+    ctx.show_top_comments = ctx.vis_type === Constants.VIS_TYPE.TOP_COMMENTS;
+    ctx.show_pca_vis = ctx.vis_type === Constants.VIS_TYPE.PCA;
     return ctx;
   },
 
@@ -265,8 +271,78 @@ module.exports = ConversationView.extend({
 
   curationType: null,
 
+  updateTopComments: function() {
+    if (this.model.get("vis_type") !== Constants.VIS_TYPE.TOP_COMMENTS) {
+      return;
+    }
+    var that = this;
+
+
+    if (this.allCommentsCollection.length === 0) {
+      // try again
+      setTimeout(function() {
+        that.updateTopComments();
+      }, 200);
+      return;
+    }
+
+    var ranking = {}; // tid -> ranking
+    function getRanking(tid) {
+      return ranking[tid] || 0;
+    }
+
+    if (Utils.getGroupAware()) {
+      ranking = this.serverClient.getGroupAwareConsensus();
+    } else {
+      var temp = this.serverClient.getConsensus();
+      var agree = temp.agree;
+      for (var i = 0; i < agree.length; i++) {
+        ranking[agree[i].tid] = agree[i]['p-success'];
+      }
+    }
+    var groupVotes = this.serverClient.getGroupVotes("all");
+
+    this.allCommentsCollection.each(function(c) {
+      var tid = c.get("tid");
+      c.set("rank", getRanking(tid));
+    });
+
+    var topComments = this.allCommentsCollection.clone().models;
+    topComments.sort(function(a, b) {
+      return b.attributes.rank - a.attributes.rank;
+    });
+    topComments = topComments.slice(0, 5);
+
+    _.each(topComments, function(c) {
+      var tid = c.get("tid");
+      var gv = groupVotes[tid];
+      c.set("gv", gv);
+      c.set("percentAgree", Math.round(100 * gv.agreed / (gv.agreed + gv.disagreed)));
+      // c.set("percentAgree", Math.round(100 * gv.agreed / gv.saw));
+      // c.set("percentAgree", gv.agreed + "/" + gv.saw);
+    });
+
+    topComments.sort(function(a, b) {
+      return b.attributes.percentAgree - a.attributes.percentAgree;
+    });
+
+    // var topTids = this.serverClient.getTopTids(5);
+    // console.log(topTids);
+    // debugger;
+    // var topComments = _.map(topTids, function(tid) {
+    //   var temp = that.allCommentsCollection.get(tid);
+    //   return temp;
+    // });
+    // console.log(topComments);
+    this.topCommentsCollection.reset(topComments);
+  },
+
   updateVis2: function() {
     var that = this;
+
+    if (this.model.get("vis_type") !== Constants.VIS_TYPE.PCA) {
+      return;
+    }
 
 
     // TODO don't do a separate AJAX call for the comments.
@@ -412,6 +488,7 @@ module.exports = ConversationView.extend({
         that.socialButtonsAllowedToShow = true;
         that.updateVisibilityOfSocialButtons();
         that.updateVis2();
+        that.updateTopComments();
       });
 
       // initialize this first to ensure that the vote view is showing and populated ASAP
@@ -427,6 +504,11 @@ module.exports = ConversationView.extend({
           return that.isSubscribed.apply(that, arguments);
         },
         conversation_id: conversation_id
+      }));
+
+      this.topCommentsCollection = new CommentsCollection([]);
+      this.topCommentsView = this.addChild(new TopCommentsView({
+        collection: this.topCommentsCollection,
       }));
 
       // clicks to "the background" should delelect hulls.
@@ -553,6 +635,7 @@ module.exports = ConversationView.extend({
 
         $(".participationCount").html(newParticipantCount + (newParticipantCount === 1 ? " person" : " people"));
         that.updateVis2();
+        that.updateTopComments();
       }
 
 
@@ -1071,6 +1154,7 @@ module.exports = ConversationView.extend({
           }
 
           that.updateVis2();
+          that.updateTopComments();
           that.updateHeader();
 
 

@@ -316,48 +316,50 @@
 
 <span class="{{#if no_vis}}displayNone{{/if}}"> {{!-- no_vis toggle wrapper --}}
 
-  <div class="HeadingC" style="text-transform:none; cursor: default; white-space: nowrap; border-bottom: none;">
-  {{!-- <img src="https://pol.is/polis-favicon_favicon.png" height="20px" id="opinion_groups_logo"> --}}
-  {{s.opinionGroups}}
-</div>
+  {{#if show_pca_vis}}
+    <div class="HeadingC" style="text-transform:none; cursor: default; white-space: nowrap; border-bottom: none;">
+      {{!-- <img src="https://pol.is/polis-favicon_favicon.png" height="20px" id="opinion_groups_logo"> --}}
+      {{s.opinionGroups}}
+    </div>
 
-<div
-  id="helpTextGroups"
-  style="
-    {{!-- background-color: {{help_bgcolor}}; --}}
-    {{!-- border: 1px solid rgb(85, 172, 238); --}}
-    {{!-- color: rgb(68, 136, 189); --}}
-{{!--    color: {{help_color}};
-    padding: 15px 30px 15px 15px;
-    width: 99%;
-    margin: 0px auto 10px auto;
-    border-radius: 4px;
-    position: relative; --}}
+    <div
+      id="helpTextGroups"
+      style="
+        {{!-- background-color: {{help_bgcolor}}; --}}
+        {{!-- border: 1px solid rgb(85, 172, 238); --}}
+        {{!-- color: rgb(68, 136, 189); --}}
+    {{!--    color: {{help_color}};
+        padding: 15px 30px 15px 15px;
+        width: 99%;
+        margin: 0px auto 10px auto;
+        border-radius: 4px;
+        position: relative; --}}
 
-    padding: 5px 0px 5px 0px;
-    font-style: italic;
-    font-family: chaparral-pro;
+        padding: 5px 0px 5px 0px;
+        font-style: italic;
+        font-family: chaparral-pro;
 
-  " class="
-    clickDoesNotDeselectHull
-    {{#if hideHelp}}displayNone{{/if}}
-  ">
-  <p
-    style="margin: 0px; margin-bottom: 10px;"
-    >
-    <span class="displayNone" id="vis_help_label">
-      {{!-- TODO_SECURITY try to not use triple brackets. --}}
-      {{{s.participantHelpGroupsText}}}
-    </span>
-    <span class="displayNone" id="vis_not_yet_label">
-      {{!-- TODO_SECURITY try to not use triple brackets. --}}
-      {{{s.participantHelpGroupsNotYetText}}}
-    </span>
-  </p>
-  <div id="helpTextGroupsMore" style="display:none; margin-top: 10px">
-    {{{s.helpWhatAreGroupsDetail}}}
-  </div>
-</div>
+      " class="
+        clickDoesNotDeselectHull
+        {{#if hideHelp}}displayNone{{/if}}
+      ">
+      <p
+        style="margin: 0px; margin-bottom: 10px;"
+        >
+        <span class="displayNone" id="vis_help_label">
+          {{!-- TODO_SECURITY try to not use triple brackets. --}}
+          {{{s.participantHelpGroupsText}}}
+        </span>
+        <span class="displayNone" id="vis_not_yet_label">
+          {{!-- TODO_SECURITY try to not use triple brackets. --}}
+          {{{s.participantHelpGroupsNotYetText}}}
+        </span>
+      </p>
+      <div id="helpTextGroupsMore" style="display:none; margin-top: 10px">
+        {{{s.helpWhatAreGroupsDetail}}}
+      </div>
+    </div>
+  {{/if}}
 
 
 <div id="vis_section" class="displayNone">
@@ -380,6 +382,15 @@
   </div>
 
   <div id="vis2_root"></div>
+
+  {{#if show_top_comments}}
+  <div id="top_comments" style="text-align: left">
+    <div class="HeadingC" style="text-transform:none; cursor: default; white-space: nowrap; border-bottom: none;">
+      {{s.topComments}}
+    </div>
+    {{view topCommentsView}}
+  </div>
+  {{/if}}
 
 </div>
 <div
