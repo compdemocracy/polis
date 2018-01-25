@@ -377,6 +377,11 @@ function getXid() {
   return params.xid;
 }
 
+function getGroupAware() {
+  var params = parseQueryParams(window.location.search);
+  return params.groupAware;
+}
+
 
 // Return the {x: {min: #, max: #}, y: {min: #, max: #}}
 module.exports = {
@@ -469,6 +474,7 @@ module.exports = {
   },
   getBestTranslation: getBestTranslation,
   getCookie: getCookie,
+  getGroupAware: getGroupAware,
   getGroupNameForGid: function(gid) {
     if (gid < 0) {
       return gid;

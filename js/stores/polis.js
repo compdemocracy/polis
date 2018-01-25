@@ -2589,6 +2589,61 @@ module.exports = function(params) {
     });
   }
 
+  function getConsensus() {
+    if (!cachedPcaData) {
+      return [];
+    }
+    return cachedPcaData['consensus'];
+  }
+
+  function getGroupAwareConsensus() {
+    if (!cachedPcaData) {
+      return [];
+    }
+    return cachedPcaData['group-aware-consensus'];
+  }
+
+  function getGroupVotes(gid_or_all) {
+    if (!cachedPcaData) {
+      return {};
+    }
+    // for now add up all the vote counts across all groups since
+    // we don't have stats for that yet.
+    if (gid_or_all === "all") {
+      var x = {};
+      var gv = cachedPcaData["group-votes"];
+      _.each(gv, function(data, gid) {
+        _.each(data.votes, function(counts, tid) {
+          var z = x[tid] = x[tid] || {agreed:0, disagreed:0, saw:0};
+          z.agreed += counts.A;
+          z.disagreed += counts.D;
+          z.saw += counts.S;
+        });
+      });
+      return x;
+    }
+
+    return cachedPcaData["group-votes"][gid_or_all];
+  }
+
+  // function getTopTids(n) {
+  //   if (!cachedPcaData) {
+  //     return [];
+  //   }
+  //   var gac = cachedPcaData['group-aware-consensus'];
+  //   var allGacScores = _.map(gac, function(score, tid) {
+  //     return {
+  //       tid: Number(tid),
+  //       score: score,
+  //     };
+  //   });
+  //   allGacScores.sort(function(a, b) { return b.score - a.score;});
+  //   var topTids = _.map(allGacScores.slice(0, n), function(x) {
+  //     return x.tid;
+  //   });
+  //   return topTids;
+  // }
+
   return {
     addToVotesByMe: addToVotesByMe,
     authenticated: authenticated,
@@ -2606,6 +2661,10 @@ module.exports = function(params) {
     getReactionsToComment: getReactionsToComment,
     getPidToBidMapping: getPidToBidMappingFromCache,
     getMathMain: getMathMain,
+    // getTopTids: getTopTids,
+    getGroupAwareConsensus: getGroupAwareConsensus,
+    getConsensus: getConsensus,
+    getGroupVotes: getGroupVotes,
     disagree: disagree,
     agree: agree,
     pass: pass,
