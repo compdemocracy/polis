@@ -20,7 +20,7 @@ const mapStateToProps = (state, ownProps) => {
   };
 };
 
-const pollFrequency = 7000;
+const pollFrequency = 60000;
 
 
 @connect(state => state.zid_metadata)
