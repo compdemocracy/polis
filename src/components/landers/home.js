@@ -21,10 +21,10 @@ class Home extends React.Component {
   render() {
     return <main>
         <Nav />
-        <Hero headline="Know what your organization is thinking" subheadline="Polis helps organizations understand themselves. Get a summary visualization of all the viewpoints to move a conversation forward." className="page-header mt6 mt5-ns" />
+        <Hero headline="Know what your organization is thinking" subheadline="Polis helps organizations understand themselves by visualizing what their members think. Get a clear picture of all the points of view to help move a conversation forward." className="page-header mt6 mt5-ns" />
         <Trust headline="You’re in good company" subheadline="Polis is trusted by governments, universities, non-profits, movements, and large organizations." />
         <FeatureSection />
-        <CTA /> 
+        <CTA />
         <Footer social={FooterData.footer.social} content={FooterData.footer.groups} data={FooterData.footer} />
       </main>;
   }
