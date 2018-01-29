@@ -19,20 +19,20 @@ const localData = {
       },
       {
         src: `${ParticipationIcon}`,
-        headline: "Participation & Engagement",
+        headline: "Higher engagement",
         teaser:
-          "With Pol.is, we see significantly greater participation metrics compared to traditional surveys. Your participants get a chance to hear and to be heard."
+          "Encourages higher participation and engagement than traditional surveys, by giving participants a chance to hear and be heard."
       },
       {
         src: `${AIInsightsIcon}`,
-        headline: "Insights you wouldn’t otherwise get",
-        teaser: "Get rich feedback from participants in an easy to understand report."
+        headline: "Unique Insights",
+        teaser: "Get rich feedback from participants in a real-time report."
       },
       {
         src: `${AIIcon}`,
         headline: "AI-enabled analytics",
         teaser:
-          "Results are automatically clustered to form opinions groups, then sorted into consensus, majority, and minority opinions."
+          "Polis clusters participants to define the opinion landscape, identifying points of consensus and divergence."
       }
     ]
   }
