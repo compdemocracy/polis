@@ -11,8 +11,8 @@
     "build:webpack": "npm run clean && NODE_ENV=production webpack --config webpack.config.js",
     "build:webpack_unminified": "npm run clean && NODE_ENV=production webpack --config webpack.config.unminified.js",
     "build": "npm run build:webpack",
-    "deploy_TO_PRODUCTION": "deploy_TO_PRODUCTION",
-    "deployPreprod": "deployPreprod",
+    "deploy:prod": "./deploy_TO_PRODUCTION",
+    "deploy:preprod": "./deployPreprod",
     "start": "./x",
     "lint": "eslint src",
     "test": "jest"
