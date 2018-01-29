@@ -5,7 +5,7 @@ const t = {
 };
 
 const Logo = ({ width, height, invert = true, className }) => (
-  <a href="http://pol.is" className={className}>
+  <a href="/" className={className}>
     <svg width={width} height="{height}" viewBox="0 0 87 100">
       <title>Polis</title>
       <desc>Logo for Polis</desc>
