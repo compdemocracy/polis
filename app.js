@@ -1426,7 +1426,6 @@ helpersInitialized.then(function(o) {
   app.get(/^\/demo$/, fetchIndexForAdminPage);
   app.get(/^\/pwreset.*/, fetchIndexForAdminPage);
   app.get(/^\/company$/, fetchIndexForAdminPage);
-  app.get(/^\/pricing$/, fetchIndexForAdminPage);
 
   app.get(/^\/report\/r?[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForReportPage);
   
