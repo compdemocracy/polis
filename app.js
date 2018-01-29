@@ -1423,6 +1423,7 @@ helpersInitialized.then(function(o) {
   app.get(/^\/inboxApiTest/, fetchIndexWithoutPreloadData);
   app.get(/^\/pwresetinit.*/, fetchIndexForAdminPage);
   app.get(/^\/demo\/[0-9][0-9A-Za-z]+/, fetchIndexForConversation);
+  app.get(/^\/demo$/, fetchIndexForAdminPage);
   app.get(/^\/pwreset.*/, fetchIndexForAdminPage);
   app.get(/^\/company$/, fetchIndexForAdminPage);
   app.get(/^\/pricing$/, fetchIndexForAdminPage);
