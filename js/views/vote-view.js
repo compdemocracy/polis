@@ -118,15 +118,18 @@ module.exports = Handlebones.ModelView.extend({
       ctx.showHideTranslationButton = true;
     }
 
+    var officalTranslation = null;
     if (ctx.showOfficialTranslation) {
       // && ctx.translationSrc !== -1) {
-      var t = getMatchingOfficialTranslation(ctx.translations);
-      ctx.txt = t.txt;
-      ctx.lang = t.lang;
+      officalTranslation = getMatchingOfficialTranslation(ctx.translations);
+      ctx.txt = officalTranslation.txt;
+      ctx.lang = officalTranslation.lang;
     }
 
     // if comment has correct language don't show translation or buttons
-    if (ctx.showTranslation && ctx.lang && Utils.matchesUiLang(ctx.lang)) {
+    if ((ctx.showTranslation || officalTranslation) &&
+        ctx.lang &&
+        Utils.matchesUiLang(ctx.lang)) {
       ctx.showTranslation = false;
       delete ctx.translationTxt;
       delete ctx.translationLang;
