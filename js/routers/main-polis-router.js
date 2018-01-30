@@ -273,7 +273,7 @@ var polisRouter = Backbone.Router.extend({
         // return true;
         return false;
       } else if (ua.match(/Trident/)) { // IE8+
-        return true;
+        return false;
       } else if (ua.match(/Chrome/)) {
         return false;
       } else if (ua.match(/Safari/)) { // would include Chrome, but we handled Chrome above
