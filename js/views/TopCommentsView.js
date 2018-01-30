@@ -44,11 +44,16 @@ module.exports = Handlebones.CollectionView.extend({
 
         var strokeWidth = 4;
         var radius = width/2 - (strokeWidth+1);
+
+        var top = -Math.PI/2;
+        var endOfAgreeArc = fullArc * that.model.get("percentAgree") / 100 - Math.PI/2;
+        var endOfDisagreeArc = - fullArc * (that.model.get("percentDisagree") / 100) - Math.PI/2;
+
         drawCtx.lineWidth = strokeWidth;
         drawCtx.strokeStyle = "rgb(46, 204, 113)"; // agree_green
         drawCtx.arc(width/2, width/2, radius,
-          -Math.PI/2, // arc starts at top
-          fullArc * that.model.get("percentAgree") / 100 - Math.PI/2, // end angle of arc
+          top, // arc starts at top
+          endOfAgreeArc, // end angle of arc
           true // counterclockwise?
           );
         drawCtx.stroke();
@@ -64,9 +69,19 @@ module.exports = Handlebones.CollectionView.extend({
         drawCtx.beginPath();
 
         drawCtx.arc(width/2, width/2, radius,
-          -Math.PI/2, // arc starts at top
-          - fullArc * (1 - that.model.get("percentAgree") / 100) - Math.PI/2, // end angle of arc
+          top, // arc starts at top
+          endOfDisagreeArc, // end angle of arc
           false // counterclockwise?
+          );
+        drawCtx.stroke();
+
+        // draw pass part
+        drawCtx.strokeStyle = "rgb(200, 200, 200)"; // pass_gray
+        drawCtx.beginPath();
+        drawCtx.arc(width/2, width/2, radius,
+          endOfAgreeArc,
+          endOfDisagreeArc,
+          true // counterclockwise?
           );
         drawCtx.stroke();
 

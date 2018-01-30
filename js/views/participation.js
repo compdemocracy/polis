@@ -317,8 +317,9 @@ module.exports = ConversationView.extend({
       var tid = c.get("tid");
       var gv = groupVotes[tid];
       c.set("gv", gv);
-      c.set("percentAgree", Math.round(100 * gv.agreed / (gv.agreed + gv.disagreed)));
-      // c.set("percentAgree", Math.round(100 * gv.agreed / gv.saw));
+      c.set("percentAgree", Math.round(100 * gv.agreed / gv.saw));
+      c.set("percentDisagree", Math.round(100 * gv.disagreed / gv.saw));
+      c.set("percentPassed", Math.round(100 * (gv.saw - gv.disagreed - gv.agreed) / gv.saw));
       // c.set("percentAgree", gv.agreed + "/" + gv.saw);
     });
 
