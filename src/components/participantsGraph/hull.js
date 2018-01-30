@@ -9,7 +9,7 @@ const Hull = ({hull}) => {
     <path
       d={pathString}
       strokeDasharray="5, 5"
-      stroke={"rgb(180,180,180)"}
+      stroke={"rgb(90,90,90)"}
       fill="none"
       fillOpacity={.4}/>
   );

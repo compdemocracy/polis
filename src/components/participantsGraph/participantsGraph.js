@@ -269,7 +269,8 @@ class ParticipantsGraph extends React.Component {
             {hulls.map((h,i) => {
               return (
                 <span style={{marginRight: 40}} key={i}>
-                  {`${globals.groupSymbols[i]} ${globals.groupLabels[i]}`}
+                  {`${globals.groupSymbols[i]}`}
+                  <span style={{fontFamily: '"HelveticaNeue-Light", "Helvetica Neue Light", "Helvetica Neue", Helvetica, Arial, "Lucida Grande", sans-serif'}}> {`${globals.groupLabels[i]}`} </span>
                 </span>
               )
             })}

@@ -29,7 +29,7 @@ const Label = ({ptptCount, centroid, gid, selectedGroup, handleClick}) => {
         style={{
           fontWeight: 700,
           fill: selectedGroup === gid ? "white" : "black",
-          fontSize: 12,
+          fontSize: 16,
           pointerEvents: "none",
           userSelect: "none"
         }}>
@@ -41,7 +41,7 @@ const Label = ({ptptCount, centroid, gid, selectedGroup, handleClick}) => {
         style={{
           fontWeight: 300,
           fill: selectedGroup === gid ? "white" : "black",
-          fontSize: 12,
+          fontSize: 16,
           pointerEvents: "none",
           userSelect: "none"
         }}>
