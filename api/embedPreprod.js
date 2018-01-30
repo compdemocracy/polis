@@ -10,8 +10,8 @@
   polis.on.vote = polis.on.vote || [];
   polis.on.doneVoting = polis.on.doneVoting || [];
   polis.on.write = polis.on.write || [];
-  polis.on.init = polis.on.init || [];
   polis.on.resize = polis.on.resize || [];
+  polis.on.init = polis.on.init || [];
 
   function parseQueryParams(startToken, s) {
     if (typeof s !== "string") {
@@ -30,7 +30,7 @@
   }
 
   var paramsHash = parseQueryParams("#", window.location.hash);
-  var paramsQuery = parseQueryParams("?", window.location.hash);
+  var paramsQuery = parseQueryParams("?", window.location.search);
   var xid = paramsHash.xid || paramsQuery.xid;
 
   function getConfig(d) {
@@ -39,7 +39,7 @@
          site_id: d.getAttribute("data-site_id"),
          page_id: d.getAttribute("data-page_id"),
          parent_url: d.getAttribute("data-parent_url"),
-         xid: d.getAttribute("data-xid"),
+         xid: d.getAttribute("data-xid") || xid,
          x_name: d.getAttribute("data-x_name"),
          x_profile_image_url: d.getAttribute("data-x_profile_image_url"),
 
@@ -226,11 +226,9 @@
         }
       }
 
-      // if (data === "cookieRedirect" && cookiesEnabledAtTopLevel()) {
-      //   // temporarily redirect to polis, which will set a cookie and redirect back
+      // if (data === "cookieRedirect" && cookiesEnabledAtTopLevel()) {//   // temporarily redirect to polis, which will set a cookie and redirect back
       //   window.location = polisUrl + "/api/v3/launchPrep?dest=" + encodeReturnUrl(window.location+"");
       // }
-
       // if (data === "twitterConnectBegin") {
       //   // open a new window where the twitter auth screen will show.
       //   // that window will redirect back to a simple page that calls window.opener.twitterStatus("ok")

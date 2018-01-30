@@ -61,7 +61,6 @@
 
          subscribe_type: d.getAttribute("data-subscribe_type"), // 0 for no prompt, 1 for email prompt (1 is default)
 
-
          // These config variables will be used to init the conversation.
          // Subsequent loads will not update to these values in our DB.
          // To change the values after the conversation is created, go to the config tab of
@@ -127,8 +126,6 @@
     appendIfPresent("xid");
     appendIfPresent("x_name");
     appendIfPresent("x_profile_image_url");
-
-
     appendIfPresent("ucv");
     appendIfPresent("ucw");
     appendIfPresent("ucsh");
@@ -229,8 +226,7 @@
         }
       }
 
-      if (data === "cookieRedirect" && cookiesEnabledAtTopLevel()) {
-        // temporarily redirect to polis, which will set a cookie and redirect back
+      if (data === "cookieRedirect" && cookiesEnabledAtTopLevel()) {//   // temporarily redirect to polis, which will set a cookie and redirect back
         window.location = polisUrl + "/api/v3/launchPrep?dest=" + encodeReturnUrl(window.location+"");
       }
       // if (data === "twitterConnectBegin") {
