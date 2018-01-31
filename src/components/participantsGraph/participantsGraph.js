@@ -151,23 +151,25 @@ class ParticipantsGraph extends React.Component {
             }
           </p>
           <div>
-          <button
-            style={{
-              color: this.state.showContour ? "white" : "black",
-              border: this.state.showContour ? "1px solid #03A9F4" : "1px solid black",
-              cursor: "pointer",
-              borderRadius: 3,
-              background: this.state.showContour ? "#03A9F4" : "none",
-              padding: 4,
-              marginRight: 20
-            }}
-            onClick={() => { this.setState({
-              showContour: !this.state.showContour,
-              consensusDivisionColorScale: false
-            })
-            }}>
-            Density
-          </button>
+          {
+          // <button
+          //   style={{
+          //     color: this.state.showContour ? "white" : "black",
+          //     border: this.state.showContour ? "1px solid #03A9F4" : "1px solid black",
+          //     cursor: "pointer",
+          //     borderRadius: 3,
+          //     background: this.state.showContour ? "#03A9F4" : "none",
+          //     padding: 4,
+          //     marginRight: 20
+          //   }}
+          //   onClick={() => { this.setState({
+          //     showContour: !this.state.showContour,
+          //     consensusDivisionColorScale: false
+          //   })
+          //   }}>
+          //   Density
+          // </button>
+          }
           <button
             style={{
               color: this.state.showAxes ? "white" : "black",
