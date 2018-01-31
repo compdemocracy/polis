@@ -4,34 +4,44 @@ import * as globals from "../globals";
 import style from "../../util/style";
 import {VictoryScatter, VictoryChart, VictoryTheme} from "victory";
 
-const BarChartCompact = ({comment, groupVotes}) => {
+const BarChartCompact = ({comment, voteCounts, nMembers}) => {
 
   if (!comment) return null;
 
   let w = 100;
 
-  let groupVotesForThisComment = groupVotes.votes[comment.tid];
-  let agrees = groupVotesForThisComment.A;
-  let disagrees = groupVotesForThisComment.D;
-  let sawTheComment = groupVotesForThisComment.S;
+  let agrees = voteCounts.A;
+  let disagrees = voteCounts.D;
+  let sawTheComment = voteCounts.S;
   let passes = sawTheComment - (agrees + disagrees);
   let totalVotes = agrees + disagrees + passes;
-  let nMembers = groupVotes["n-members"];
 
   const agree = agrees / nMembers * w;
   const disagree = disagrees / nMembers * w;
   const pass = passes / nMembers * w;
   const blank = nMembers - sawTheComment / nMembers * w;
 
+  const agreeString = (agree<<0) + "%";
+  const disagreeString = (disagree<<0) + "%";
+  const passString = (pass<<0) + "%";
+
   return (
-    <svg width={101} height={10} style={{marginRight: 30}}>
-      <g>
-        <rect x={0} width={w + 0.5} height={10} fill={"white"} stroke={"rgb(180,180,180)"} />
-        <rect x={.5 + agree + disagree} width={pass} y={.5} height={9} fill={globals.brandColors.pass} />
-        <rect x={.5} width={agree} y={.5} height={9} fill={globals.brandColors.agree} />
-        <rect x={.5 + agree} width={disagree} y={.5} height={9} fill={globals.brandColors.disagree} />
-      </g>
-    </svg>
+    <div title={agreeString + " Agreed\n" + disagreeString + " Disagreed\n" + passString + " Passed"}>
+
+      <svg width={101} height={10} style={{marginRight: 30}}>
+        <g>
+          <rect x={0} width={w + 0.5} height={10} fill={"white"} stroke={"rgb(180,180,180)"} />
+          <rect x={.5 + agree + disagree} width={pass} y={.5} height={9} fill={globals.brandColors.pass} />
+          <rect x={.5} width={agree} y={.5} height={9} fill={globals.brandColors.agree} />
+          <rect x={.5 + agree} width={disagree} y={.5} height={9} fill={globals.brandColors.disagree} />
+        </g>
+      </svg>
+      <div>
+        <span style={{fontSize: 12, marginRight: 4, color: globals.brandColors.agree}}>{agreeString}</span>
+        <span style={{fontSize: 12, marginRight: 4, color: globals.brandColors.disagree}}>{disagreeString}</span>
+        <span style={{fontSize: 12, color: "#999"}}>{passString}</span>
+      </div>
+      </div>
   )
 };
 
@@ -44,18 +54,37 @@ const CommentRow = ({comment, groups}) => {
     // const percentAgreed = Math.floor(groupVotesForThisGroup.votes[comment.tid].A / groupVotesForThisGroup.votes[comment.tid].S * 100);
 
     let BarCharts = [];
+    let totalMembers = 0;
 
+    // groups
     _.forEach(groups, (g, i) => {
+      let nMembers = g["n-members"];
+      totalMembers += nMembers;
       BarCharts.push(
         <BarChartCompact
             key={i}
             index={i}
             comment={comment}
-            groupVotes={g}
+            voteCounts={g.votes[comment.tid]}
+            nMembers={nMembers}
           />
       )
     })
 
+    // totals column
+    BarCharts.unshift(
+      <BarChartCompact
+            key={99}
+            index={99}
+            comment={comment}
+            voteCounts={{
+              A: comment.agreed,
+              D: comment.disagreed,
+              S: comment.saw,
+            }}
+            nMembers={totalMembers}
+          />
+    )
 
     return (
       <div
@@ -88,14 +117,12 @@ const CommentRow = ({comment, groups}) => {
 
 class CommentList extends React.Component {
 
+
+
+
   getGroupLabels() {
-
-    let labels = [];
-
-    _.each(this.props.math["group-votes"], (g, i) => {
-      // console.log(g)
-      labels.push(
-        <span key={i} style={{
+    function makeLabel(key, label, numMembers) {
+      return (<span key={key} style={{
           width: 101,
           marginRight: 30,
           display: "inline-block",
@@ -103,14 +130,22 @@ class CommentList extends React.Component {
           fontSize: 14,
           textTransform: "uppercase"
         }}>
-          {globals.groupLabels[i]}
+          {label}
           <span style={{
               marginLeft: 5
             }}>
-            {g["n-members"]}
+            {numMembers}
           </span>
-        </span>
-      )
+        </span>);
+    }
+    let labels = [];
+
+    // totals
+    labels.push(makeLabel(99, "Overall", ""));
+
+    _.each(this.props.math["group-votes"], (g, i) => {
+      // console.log(g)
+      labels.push(makeLabel(i, globals.groupLabels[i], g["n-members"]))
     })
 
     return labels;
