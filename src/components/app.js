@@ -7,6 +7,7 @@ import React from "react";
 import _ from "lodash";
 
 import * as globals from "./globals";
+import DataUtils from "../util/dataUtils";
 import Matrix from "./correlationMatrix/matrix";
 import Heading from "./framework/heading";
 import Footer from "./framework/Footer";
@@ -307,10 +308,14 @@ class App extends React.Component {
         extremity[indexToTid[index]] = e;
       });
 
+      var voteTotals = DataUtils.getVoteTotals(mathResult);
+
       comments = comments.map((c) => {
         c["group-aware-consensus"] = mathResult["group-aware-consensus"][c.tid];
+        c = Object.assign(c, voteTotals[c.tid]);
         return c;
       });
+
 
       this.setState({
         loading: false,

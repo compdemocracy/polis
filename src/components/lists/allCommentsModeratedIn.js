@@ -15,6 +15,15 @@ function sortByVoteCount(comments) {
 function sortByGroupAwareConsensus(comments) {
   return _.map(_.reverse(_.sortBy(comments, (c) => {return c["group-aware-consensus"];})), (c) => {return c.tid;});
 }
+function sortByPctAgreed(comments) {
+  return _.map(_.reverse(_.sortBy(comments, (c) => {return c["pctAgreed"];})), (c) => {return c.tid;});
+}
+function sortByPctDisagreed(comments) {
+  return _.map(_.reverse(_.sortBy(comments, (c) => {return c["pctDisagreed"];})), (c) => {return c.tid;});
+}
+function sortByPctPassed(comments) {
+  return _.map(_.reverse(_.sortBy(comments, (c) => {return c["pctPassed"];})), (c) => {return c.tid;});
+}
 
 class allCommentsModeratedIn extends React.Component {
 
@@ -44,6 +53,14 @@ class allCommentsModeratedIn extends React.Component {
       sortFunction = sortByVoteCount;
     } else if (this.state.sortStyle === "consensus") {
       sortFunction = sortByGroupAwareConsensus;
+    } else if (this.state.sortStyle === "consensus") {
+      sortFunction = sortByGroupAwareConsensus;
+    } else if (this.state.sortStyle === "pctAgreed") {
+      sortFunction = sortByPctAgreed;
+    } else if (this.state.sortStyle === "pctDisagreed") {
+      sortFunction = sortByPctDisagreed;
+    } else if (this.state.sortStyle === "pctPassed") {
+      sortFunction = sortByPctPassed;
     } else {
       console.error('missing sort function', this.state.sortStyle);
     }
@@ -57,8 +74,11 @@ class allCommentsModeratedIn extends React.Component {
         <label for="allCommentsSortMode">Sort by: </label>
         <select id="allCommentsSortMode" onChange={this.onSortChanged.bind(this)} value={this.state.sortStyle}>
           <option value="tid">Comment Id</option>
-          <option value="consensus">Consensus</option>
+          <option value="consensus">Group-informed Consensus</option>
           <option value="numvotes">Number of votes</option>
+          <option value="pctAgreed">% Agreed</option>
+          <option value="pctDisagreed">% Disagreed</option>
+          <option value="pctPassed">% Passed</option>
         </select>
         <div style={{marginTop: 50}}>
           <CommentList
