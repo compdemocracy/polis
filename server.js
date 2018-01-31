@@ -7153,7 +7153,7 @@ Email verified! You can close this tab or hit the back button.
       res.json({});
     }).catch(function(err) {
 
-      emailBadProblemTime("FAILED Polis account upgrade: " + uid);
+      emailBadProblemTime("FAILED Polis account upgrade: " + uid + " err.type: " + (err && err.type) + "\n\n" + err);
 
       if (err) {
         if (err.type === 'StripeCardError') {
