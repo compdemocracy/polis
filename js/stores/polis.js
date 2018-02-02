@@ -12,6 +12,7 @@ var Net = require("../util/net");
 var PTPOI_BID_OFFSET = 1e10;
 
 var polisPost = Net.polisPost;
+var polisPut = Net.polisPut;
 var polisGet = Net.polisGet;
 
 
@@ -53,6 +54,7 @@ module.exports = function(params) {
   var queryParticipantsByMetadataPath = "api/v3/query_participants_by_metadata";
 
   var ptptCommentModPath = "api/v3/ptptCommentMod";
+  var participants_extended_path = "api/v3/participants_extended";
 
   var xidsPath = "api/v3/xids";
 
@@ -2644,6 +2646,14 @@ module.exports = function(params) {
   //   return topTids;
   // }
 
+  function put_participants_extended(params) {
+    params = $.extend(params, {
+      conversation_id: conversation_id,
+    });
+
+    return polisPut(participants_extended_path, params);
+  }
+
   return {
     addToVotesByMe: addToVotesByMe,
     authenticated: authenticated,
@@ -2699,6 +2709,7 @@ module.exports = function(params) {
     getParticipantsOfInterestForGid: getParticipantsOfInterestForGid,
     getParticipantsOfInterestIncludingSelf: getParticipantsOfInterestIncludingSelf,
     getPtptCount: getPtptCount,
+    put_participants_extended: put_participants_extended,
     updateMyProjection: updateMyProjection,
     shareConversationOnFacebook: shareConversationOnFacebook,
     shareConversationOnTwitter: shareConversationOnTwitter,
