@@ -485,6 +485,8 @@ const sql_participants_extended = sql.define({
     "parent_url",
     "created",
 
+    "show_translation_activated",
+
     "permanent_cookie",
     "origin",
     "encrypted_ip_address",
