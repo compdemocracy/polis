@@ -56,8 +56,5 @@
     "underscore": "1.8.3",
     "valid-url": "1.0.9",
     "winston": "1.0.2"
-  },
-  "optionalDependencies": {
-    "polisServerBrand": "git+https://github.com/colinmegill/polisServerBrand.git#master"
   }
 }

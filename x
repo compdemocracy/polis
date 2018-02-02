@@ -2,4 +2,4 @@
 
 . ${NVM_DIR}/nvm.sh
 [ -e ./.env_dev ] && . ./.env_dev
-./node_modules/.bin/eslint *.js && nvm run `node bin/printNodeVersion` --max_old_space_size=400 --gc_interval=100 --harmony app.js
+./node_modules/.bin/eslint *.js && nvm run `node bin/printNodeVersion` --max_old_space_size=400 --gc_interval=100 --harmony app.js 

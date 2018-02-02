@@ -278,6 +278,9 @@ function MPromise(name, f) {
 
 
 function isSpam(o) {
+  if (process.env.DISABLE_SPAM_CHECK) {
+    return Promise.resolve(false);
+  }
   return new MPromise("isSpam", function(resolve, reject) {
     akismet.checkSpam(o, function(err, spam) {
       if (err) {
@@ -2037,12 +2040,15 @@ function initializePolisHelpers() {
       return next();
     }
 
-    if (!/https/.test(req.headers["x-forwarded-proto"])) { // assuming we're running on Heroku, where we're behind a proxy.
+    // We're not running on Heroku, just go forward.
+    return next();
+
+    if (req.protocol !== "https") {
       res.writeHead(302, {
         Location: "https://" + req.headers.host + req.url,
       });
       return res.end();
-    }
+    } 
     return next();
   }
 
@@ -2376,6 +2382,8 @@ function initializePolisHelpers() {
     "embed.pol.is": "pol.is",
     "survey.pol.is": "survey.pol.is",
     "preprod.pol.is": "preprod.pol.is",
+    "localhost:5000": "localhost:5000",
+    "polis.pdis.nat.gov.tw": "polis.pdis.nat.gov.tw"
   };
 
 
@@ -8020,6 +8028,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function handle_POST_comments_slack(req, res) {
+console.log('PC1');
     const slack_team = req.p.slack_team;
     const slack_user_id = req.p.slack_user_id;
 
@@ -8035,8 +8044,12 @@ Email verified! You can close this tab or hit the back button.
           ]);
         });
       }
+ console.log('PC2');
+
       return rows;
     }).then((slack_user_rows) => {
+ console.log('PC3');
+
       return getPidPromise(req.p.zid, req.p.uid, true).then((pid) => {
         if (pid >= 0) {
           req.p.pid = pid
@@ -8049,6 +8062,8 @@ Email verified! You can close this tab or hit the back button.
       }
       const uid = slack_user_rows[0].uid;
       req.p.uid = uid;
+
+ console.log('PC4');
 
       handle_POST_comments(req, res);
 
@@ -8155,6 +8170,8 @@ Email verified! You can close this tab or hit the back button.
         req.socket.remoteAddress ||
         req.connection.socket.remoteAddress;
 
+console.log("ip="+ip);
+
       let isSpamPromise = isSpam({
         comment_content: txt,
         comment_author: uid,
@@ -8176,8 +8193,6 @@ Email verified! You can close this tab or hit the back button.
 
 
     // return xidUserPromise.then(function(xidUser) {
-
-
 
 
       let shouldCreateXidRecord = false;
@@ -8249,9 +8264,10 @@ Email verified! You can close this tab or hit the back button.
         console.log("POST_comments before isSpamPromise", Date.now());
         return isSpamPromise.then(function(spammy) {
           winston.log("info", "spam test says: " + txt + " " + (spammy ? "spammy" : "not_spammy"));
+          console.log("spam test says:" + txt + " " + spammy);
           return spammy;
         }, function(err) {
-          console.error("spam check failed");
+          console.log("spam check failed");
           winston.log("info", err);
           return false; // spam check failed, continue assuming "not spammy".
         }).then(function(spammy) {
@@ -14037,7 +14053,8 @@ CREATE TABLE slack_user_invites (
 
   function makeRedirectorTo(path) {
     return function(req, res) {
-      let protocol = devMode ? "http://" : "https://";
+      // let protocol = devMode ? "http://" : "https://";
+      let protocol = "http://";
       let url = protocol + req.headers.host + path;
       res.writeHead(302, {
         Location: url,
@@ -14059,7 +14076,11 @@ CREATE TABLE slack_user_invites (
       }
       let url;
       if (devMode) {
+        // if (port === 443) {
         url = "http://" + hostname + ":" + port + path;
+        //} else {
+        //  url = "http://" + hostname + ":" + port + path;
+        //}
       } else {
         // pol.is.s3-website-us-east-1.amazonaws.com
         // preprod.pol.is.s3-website-us-east-1.amazonaws.com
@@ -14069,6 +14090,7 @@ CREATE TABLE slack_user_invites (
         url = "http://" + hostname + path;
       }
       winston.log("info", "fetch file from " + url);
+      console.log('L14077 url='+url);
       let x = request(url);
       req.pipe(x);
       if (!_.isUndefined(preloadData)) {
