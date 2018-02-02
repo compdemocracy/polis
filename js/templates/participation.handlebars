@@ -314,6 +314,15 @@
 
 
 
+{{!  ------------ SUBMIT COMMENT FORM ---------------  }}
+<div
+  id="commentFormParent"
+  class="POLIS_COMMENT_FORM {{#if no_write}}displayNone{{/if}}"
+  >
+  {{view commentForm}}
+</div>
+
+
 <span class="{{#if no_vis}}displayNone{{/if}}"> {{!-- no_vis toggle wrapper --}}
 
   {{#if show_pca_vis}}
@@ -412,13 +421,6 @@
 </span> {{!-- end no_vis toggle wrapper --}}
 
 
-{{!  ------------ SUBMIT COMMENT FORM ---------------  }}
-<div
-  id="commentFormParent"
-  class="POLIS_COMMENT_FORM {{#if no_write}}displayNone{{/if}}"
-  >
-  {{view commentForm}}
-</div>
 
 
 {{!  ------------ BEGIN FOOTER ---------------  }}
