@@ -383,6 +383,10 @@ CREATE TABLE participants_extended(
     referrer VARCHAR(9999), -- 2083 is listed as the max
     parent_url VARCHAR(9999), -- 2083 is listed as the max
     created BIGINT DEFAULT now_as_millis(),
+    modified BIGINT NOT NULL DEFAULT now_as_millis(),
+
+    show_translation_activated BOOLEAN, -- true for activated, false for deactivated, or null for didn't click
+
     UNIQUE (zid, uid)
 );
 
