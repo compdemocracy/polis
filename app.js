@@ -113,6 +113,7 @@ helpersInitialized.then(function(o) {
     handle_GET_launchPrep,
     handle_GET_localFile_dev_only,
     handle_GET_locations,
+    handle_GET_logMaxmindResponse,
     handle_GET_lti_oauthv1_credentials,
     handle_GET_math_pca,
     handle_GET_math_pca2,
@@ -794,6 +795,11 @@ helpersInitialized.then(function(o) {
     want('lang', getStringLimitLength(1,10), assignToP), // language of the next comment to be returned
     handle_POST_votes);
 
+  app.get("/api/v3/logMaxmindResponse",
+    auth(assignToP),
+    need('user_uid', getInt, assignToP),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    handle_GET_logMaxmindResponse);
 
   app.post("/api/v3/ptptCommentMod",
     auth(assignToP),
