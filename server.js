@@ -8163,7 +8163,6 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function handle_POST_comments_slack(req, res) {
-console.log('PC1');
     const slack_team = req.p.slack_team;
     const slack_user_id = req.p.slack_user_id;
 
@@ -8179,11 +8178,9 @@ console.log('PC1');
           ]);
         });
       }
- console.log('PC2');
 
       return rows;
     }).then((slack_user_rows) => {
- console.log('PC3');
 
       return getPidPromise(req.p.zid, req.p.uid, true).then((pid) => {
         if (pid >= 0) {
@@ -8197,8 +8194,6 @@ console.log('PC1');
       }
       const uid = slack_user_rows[0].uid;
       req.p.uid = uid;
-
- console.log('PC4');
 
       handle_POST_comments(req, res);
 
@@ -8304,8 +8299,6 @@ console.log('PC1');
         req.connection.remoteAddress ||
         req.socket.remoteAddress ||
         req.connection.socket.remoteAddress;
-
-console.log("ip="+ip);
 
       let isSpamPromise = isSpam({
         comment_content: txt,
@@ -14336,7 +14329,6 @@ CREATE TABLE slack_user_invites (
         url = "http://" + hostname + path;
       }
       winston.log("info", "fetch file from " + url);
-      console.log('L14077 url='+url);
       let x = request(url);
       req.pipe(x);
       if (!_.isUndefined(preloadData)) {
