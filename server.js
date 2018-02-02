@@ -9014,6 +9014,30 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
+  function handle_PUT_participants_extended(req, res) {
+    let zid = req.p.zid;
+    let uid = req.p.uid;
+
+    let fields = {};
+    if (!_.isUndefined(req.p.show_translation_activated)) {
+      fields.show_translation_activated = req.p.show_translation_activated;
+    }
+
+    let q = sql_participants_extended.update(
+      fields
+    )
+    .where(
+      sql_participants_extended.zid.equals(zid)
+    ).and(
+      sql_participants_extended.uid.equals(uid)
+    );
+
+    pgQueryP(q.toString(), []).then((result) => {
+      res.json(result);
+    }).catch((err) => {
+      fail(res, 500, "polis_err_put_participants_extended", err);
+    });
+  }
 
   function handle_POST_votes(req, res) {
     let uid = req.p.uid; // PID_FLOW uid may be undefined here.
@@ -14846,6 +14870,7 @@ CREATE TABLE slack_user_invites (
     handle_POST_zinvites,
     handle_PUT_comments,
     handle_PUT_conversations,
+    handle_PUT_participants_extended,
     handle_PUT_ptptois,
     handle_PUT_reports,
     handle_PUT_users,
