@@ -4442,7 +4442,7 @@ Feel free to reply to this email if you need help.`;
       console.log(response);
       console.log('END MAXMIND RESPONSE');
 
-      return pgQueryP("update participants_extended set country_iso_code=($4), encrypted_maxmind_response_city=($3), "+
+      return pgQueryP("update participants_extended set modified=now_as_millis(), country_iso_code=($4), encrypted_maxmind_response_city=($3), "+
         "location=ST_GeographyFromText('SRID=4326;POINT("+
         parsedResponse.location.latitude+" "+ parsedResponse.location.longitude+")'), latitude=($5), longitude=($6) where zid = ($1) and uid = ($2);",[
           zid,
