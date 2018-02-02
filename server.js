@@ -484,6 +484,11 @@ const sql_participants_extended = sql.define({
     "referrer",
     "parent_url",
     "created",
+
+    "permanent_cookie",
+    "origin",
+    "encrypted_ip_address",
+    "encrypted_x_forwarded_for",
   ],
 });
 
@@ -559,6 +564,28 @@ const sql_reports = sql.define({
 // }());
 
 
+
+
+
+
+function encrypt(text) {
+  const algorithm = 'aes-256-ctr';
+  const password = process.env.ENCRYPTION_PASSWORD_00001;
+  const cipher = crypto.createCipher(algorithm, password);
+  var crypted = cipher.update(text,'utf8','hex');
+  crypted += cipher.final('hex');
+  return crypted;
+}
+ 
+function decrypt(text) {
+  const algorithm = 'aes-256-ctr';
+  const password = process.env.ENCRYPTION_PASSWORD_00001;
+  const decipher = crypto.createDecipher(algorithm, password);
+  var dec = decipher.update(text,'hex','utf8');
+  dec += decipher.final('utf8');
+  return dec;
+}
+decrypt; // appease linter
 
 
 function makeSessionToken() {
@@ -1774,6 +1801,16 @@ function initializePolisHelpers() {
     });
   }
 
+  function getPermanentCookieAndEnsureItIsSet(req, res) {
+    let setOnPolisDomain = shouldSetCookieOnPolisDomain(req);
+    if (!req.cookies[COOKIES.PERMANENT_COOKIE]) {
+      let token = makeSessionToken();
+      setPermanentCookie(req, res, setOnPolisDomain, token);
+      return token;
+    } else {
+      return req.cookies[COOKIES.PERMANENT_COOKIE];
+    }
+  }
 
   function generateHashedPassword(password, callback) {
     bcrypt.genSalt(12, function(errSalt, salt) {
@@ -4376,10 +4413,57 @@ Feel free to reply to this email if you need help.`;
   }
 
 
+  function populateGeoIpInfo(zid, uid, ipAddress) {
+    var userId = process.env.MAXMIND_USERID;
+    var licenseKey = process.env.MAXMIND_LICENSEKEY;
+
+    var url = "https://geoip.maxmind.com/geoip/v2.1/city/";
+    var contentType = "application/vnd.maxmind.com-city+json; charset=UTF-8; version=2.1";
+
+    // "city" is     $0.0004 per query
+    // "insights" is $0.002  per query
+    var insights = false;
+
+    if (insights) {
+      url = "https://geoip.maxmind.com/geoip/v2.1/insights/";
+      contentType = "application/vnd.maxmind.com-insights+json; charset=UTF-8; version=2.1";
+    }
+
+
+    return request.get(url + ipAddress, {
+      method: "GET",
+      contentType: contentType,
+      headers: {
+        "Authorization": "Basic " + new Buffer(userId + ":" + licenseKey, "utf8").toString("base64"),
+      },
+    }).then(function(response) {
+      var parsedResponse = JSON.parse(response);
+      console.log('BEGIN MAXMIND RESPONSE');
+      console.log(response);
+      console.log('END MAXMIND RESPONSE');
+
+      return pgQueryP("update participants_extended set country_iso_code=($4), encrypted_maxmind_response_city=($3), "+
+        "location=ST_GeographyFromText('SRID=4326;POINT("+
+        parsedResponse.location.latitude+" "+ parsedResponse.location.longitude+")'), latitude=($5), longitude=($6) where zid = ($1) and uid = ($2);",[
+          zid,
+          uid,
+          encrypt(response),
+          parsedResponse.country.iso_code,
+          parsedResponse.location.latitude,
+          parsedResponse.location.longitude,
+        ]);
+
+    });
+  }
+
+
+
   function addExtendedParticipantInfo(zid, uid, data) {
     if (!data || !_.keys(data).length) {
       return Promise.resolve();
     }
+
+
     let params = Object.assign({}, data, {
       zid: zid,
       uid: uid,
@@ -4428,6 +4512,45 @@ Feel free to reply to this email if you need help.`;
       }
       populateParticipantLocationRecordIfPossible(zid, uid, pid);
       return ptpt;
+    });
+  }
+
+  function addParticipantAndMetadata(zid, uid, req, permanent_cookie) {
+    let info = {};
+    let parent_url = req.cookies[COOKIES.PARENT_URL] || req.p.parent_url;
+    let referer = req.cookies[COOKIES.PARENT_REFERRER] || req.headers["referer"] || req.headers["referrer"];
+    if (parent_url) {
+      info.parent_url = parent_url;
+    }
+    console.log('mike foo');
+    if (referer) {
+      info.referrer = referer;
+    }
+    let x_forwarded_for = req.headers["x-forwarded-for"];
+    let ip = null;
+    if (x_forwarded_for) {
+      let ips = x_forwarded_for;
+      ips = ips && ips.split(", ");
+      ip = ips.length && ips[0];
+      info.encrypted_ip_address = encrypt(ip);
+      info.encrypted_x_forwarded_for = encrypt(x_forwarded_for);
+      console.log('mike encrypt');
+    }
+    if (permanent_cookie) {
+      info.permanent_cookie = permanent_cookie;
+    }
+    if (req.headers["origin"]) {
+      info.origin = req.headers["origin"];
+    }
+    return addParticipant(zid, uid).then((rows) => {
+      let ptpt = rows[0];
+      let pid = ptpt.pid;
+      populateParticipantLocationRecordIfPossible(zid, uid, pid);
+      addExtendedParticipantInfo(zid, uid, info);
+      if (ip) {
+        populateGeoIpInfo(zid, uid, ip);
+      }
+      return rows;
     });
   }
 
@@ -8773,6 +8896,8 @@ Email verified! You can close this tab or hit the back button.
       req.p.lang = acceptLanguage.substr(0,2);
     }
 
+    getPermanentCookieAndEnsureItIsSet(req, res);
+
     Promise.all([
       // request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/users", qs: qs, headers: req.headers, gzip: true}),
       getUser(req.p.uid, req.p.zid, req.p.xid, req.p.owner_uid),
@@ -8901,7 +9026,16 @@ Email verified! You can close this tab or hit the back button.
       return;
     }
 
-    return Promise.resolve().then(function() {
+    let permanent_cookie = getPermanentCookieAndEnsureItIsSet(req, res);
+
+    // PID_FLOW WIP for now assume we have a uid, but need a participant record.
+    let pidReadyPromise = _.isUndefined(req.p.pid) ? addParticipantAndMetadata(req.p.zid, req.p.uid, req, permanent_cookie).then(function(rows) {
+      let ptpt = rows[0];
+      pid = ptpt.pid;
+    }) : Promise.resolve();
+
+
+    pidReadyPromise.then(function() {
 
       // let conv;
       let vote;
