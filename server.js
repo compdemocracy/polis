@@ -12312,6 +12312,29 @@ Thanks for using pol.is!
     });
   }
 
+  // this is for testing the encryption
+  function handle_GET_logMaxmindResponse(req, res) {
+    if (!isPolisDev(req.p.uid) || !devMode) {
+      return fail(res, 403, "polis_err_permissions", err);
+    }
+    pgQueryP("select * from participants_extended where zid = ($1) and uid = ($2);", [req.p.zid, req.p.user_uid]).then((results) => {
+      if (!results || !results.length) {
+        res.json({});
+        console.log("NOTHING");
+        return;
+      }
+      var o = results[0];
+      _.each(o, (val, key) => {
+        if (key.startsWith("encrypted_")) {
+          o[key] = decrypt(val);
+        }
+      });
+      console.log(o);
+      res.json({});
+    }).catch((err) => {
+      fail(res, 500, "polis_err_get_participantsExtended", err);
+    });
+  }
 
   function handle_GET_locations(req, res) {
     let zid = req.p.zid;
@@ -14733,6 +14756,7 @@ CREATE TABLE slack_user_invites (
     handle_GET_launchPrep,
     handle_GET_localFile_dev_only,
     handle_GET_locations,
+    handle_GET_logMaxmindResponse,
     handle_GET_lti_oauthv1_credentials,
     handle_GET_math_pca,
     handle_GET_math_pca2,
