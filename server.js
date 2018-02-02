@@ -7859,7 +7859,7 @@ Email verified! You can close this tab or hit the back button.
         });
       });
     }
-    return Promise.resolve([]);
+    return Promise.resolve(null);
   }
 
 
@@ -7875,7 +7875,7 @@ Email verified! You can close this tab or hit the back button.
         }
         return translateAndStoreComment(zid, tid, comment.txt, req.p.lang);
       }).then((rows) => {
-        res.status(200).json(rows);
+        res.status(200).json(rows || []);
       });
     }).catch((err) => {
       fail(res, 500, "polis_err_get_comments_translations", err);
@@ -8766,12 +8766,16 @@ Email verified! You can close this tab or hit the back button.
           });
           if (!hasMatch) {
             return translateAndStoreComment(zid, c.tid, c.txt, lang).then((translation) => {
-              c.translations.push(translation);
+              if (translation) {
+                c.translations.push(translation);
+              }
               return c;
             });
           }
           return c;
         });
+      } else {
+        c.translations = [];
       }
       return c;
     });
