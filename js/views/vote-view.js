@@ -157,12 +157,18 @@ module.exports = Handlebones.ModelView.extend({
     this.model.set({
       showTranslation: true,
     });
+    this.serverClient.put_participants_extended({
+      show_translation_activated: true,
+    });
   },
 
   hideTranslationClicked: function(e) {
     e.preventDefault();
     this.model.set({
       showTranslation: false,
+    });
+    this.serverClient.put_participants_extended({
+      show_translation_activated: false,
     });
   },
 
@@ -247,7 +253,7 @@ module.exports = Handlebones.ModelView.extend({
       //alert('cleanup');
       eb.off(eb.exitConv, cleanup);
     }
-    var serverClient = options.serverClient;
+    var serverClient = this.serverClient = options.serverClient;
     var votesByMe = this.votesByMe = options.votesByMe;
     var votesByMeFetched = $.Deferred();
     votesByMeFetched.then(function() {

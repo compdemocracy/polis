@@ -64,6 +64,11 @@ function polisAjax(api, data, type, headers) {
       type: "POST",
       data: JSON.stringify(data)
     }));
+  } else if ("PUT" === type) {
+    promise = $.ajax($.extend(config, {
+      type: "PUT",
+      data: JSON.stringify(data)
+    }));
   }
 
   promise.then(function() {
@@ -94,12 +99,18 @@ function polisPost(api, data, headers) {
   return polisAjax(api, data, "POST", headers);
 }
 
+function polisPut(api, data, headers) {
+  return polisAjax(api, data, "PUT", headers);
+}
+
 function polisGet(api, data, headers) {
   return polisAjax(api, data, "GET", headers);
 }
 
+
 module.exports = {
   polisAjax: polisAjax,
   polisPost: polisPost,
+  polisPut: polisPut,
   polisGet: polisGet,
 };
