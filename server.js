@@ -8776,7 +8776,7 @@ Email verified! You can close this tab or hit the back button.
           }
           return c;
         });
-      } else {
+      } else if (c) {
         c.translations = [];
       }
       return c;
