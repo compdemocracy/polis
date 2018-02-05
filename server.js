@@ -487,12 +487,7 @@ const sql_participants_extended = sql.define({
     "referrer",
     "parent_url",
     "created",
-
-<<<<<<< HEAD
-=======
     "show_translation_activated",
-
->>>>>>> a43356b6f8b257d5cfba35e4f6afa126b9635a58
     "permanent_cookie",
     "origin",
     "encrypted_ip_address",
