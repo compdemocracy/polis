@@ -484,6 +484,7 @@ const sql_participants_extended = sql.define({
     "referrer",
     "parent_url",
     "created",
+    "modified",
 
     "show_translation_activated",
 
@@ -4465,25 +4466,17 @@ Feel free to reply to this email if you need help.`;
       return Promise.resolve();
     }
 
-
     let params = Object.assign({}, data, {
       zid: zid,
       uid: uid,
+      modified: 9876543212345, // hacky string, will be replaced with the word "default".
     });
-    let q = sql_participants_extended.insert(params);
-    return pgQueryP(q.toString(), [])
-      .catch(function() {
-        let params2 = Object.assign({
-          created: 9876543212345, // hacky string, will be replaced with the word "default".
-        }, params);
-        // TODO replace all this with an upsert once heroku upgrades postgres
-        let qUpdate = sql_participants_extended.update(params2)
-          .where(sql_participants_extended.zid.equals(zid))
-          .and(sql_participants_extended.uid.equals(uid));
-        let qString = qUpdate.toString();
-        qString = qString.replace("9876543212345", "default");
-        return pgQueryP(qString, []);
-      });
+    let qUpdate = sql_participants_extended.update(params)
+      .where(sql_participants_extended.zid.equals(zid))
+      .and(sql_participants_extended.uid.equals(uid));
+    let qString = qUpdate.toString();
+    qString = qString.replace("9876543212345", "now_as_millis()");
+    return pgQueryP(qString, []);
   }
 
   function tryToJoinConversation(zid, uid, info, pmaid_answers) {
@@ -6273,6 +6266,10 @@ Email verified! You can close this tab or hit the back button.
   function handle_GET_snapshot(req, res) {
     let uid = req.p.uid;
     let zid = req.p.zid;
+
+    if (true) {
+      throw new Error("TODO Needs to clone participants_extended and any other new tables as well.");
+    }
 
 
     if (isPolisDev(uid)) {
@@ -11432,7 +11429,9 @@ Thanks for using pol.is!
   }
 
   function addParticipant(zid, uid) {
-    return pgQueryP("INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING *;", [zid, uid]);
+    return pgQueryP("INSERT INTO participants_extended (zid, uid) VALUES ($1, $2);", [zid, uid]).then(() => {
+      return pgQueryP("INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING *;", [zid, uid]);
+    });
   }
 
 
