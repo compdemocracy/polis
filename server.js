@@ -488,6 +488,11 @@ const sql_participants_extended = sql.define({
     "parent_url",
     "created",
 
+<<<<<<< HEAD
+=======
+    "show_translation_activated",
+
+>>>>>>> a43356b6f8b257d5cfba35e4f6afa126b9635a58
     "permanent_cookie",
     "origin",
     "encrypted_ip_address",
@@ -7867,7 +7872,7 @@ Email verified! You can close this tab or hit the back button.
         });
       });
     }
-    return Promise.resolve([]);
+    return Promise.resolve(null);
   }
 
 
@@ -7883,7 +7888,7 @@ Email verified! You can close this tab or hit the back button.
         }
         return translateAndStoreComment(zid, tid, comment.txt, req.p.lang);
       }).then((rows) => {
-        res.status(200).json(rows);
+        res.status(200).json(rows || []);
       });
     }).catch((err) => {
       fail(res, 500, "polis_err_get_comments_translations", err);
@@ -8775,12 +8780,16 @@ Email verified! You can close this tab or hit the back button.
           });
           if (!hasMatch) {
             return translateAndStoreComment(zid, c.tid, c.txt, lang).then((translation) => {
-              c.translations.push(translation);
+              if (translation) {
+                c.translations.push(translation);
+              }
               return c;
             });
           }
           return c;
         });
+      } else {
+        c.translations = [];
       }
       return c;
     });
@@ -9019,6 +9028,30 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
+  function handle_PUT_participants_extended(req, res) {
+    let zid = req.p.zid;
+    let uid = req.p.uid;
+
+    let fields = {};
+    if (!_.isUndefined(req.p.show_translation_activated)) {
+      fields.show_translation_activated = req.p.show_translation_activated;
+    }
+
+    let q = sql_participants_extended.update(
+      fields
+    )
+    .where(
+      sql_participants_extended.zid.equals(zid)
+    ).and(
+      sql_participants_extended.uid.equals(uid)
+    );
+
+    pgQueryP(q.toString(), []).then((result) => {
+      res.json(result);
+    }).catch((err) => {
+      fail(res, 500, "polis_err_put_participants_extended", err);
+    });
+  }
 
   function handle_POST_votes(req, res) {
     let uid = req.p.uid; // PID_FLOW uid may be undefined here.
@@ -14856,6 +14889,7 @@ CREATE TABLE slack_user_invites (
     handle_POST_zinvites,
     handle_PUT_comments,
     handle_PUT_conversations,
+    handle_PUT_participants_extended,
     handle_PUT_ptptois,
     handle_PUT_reports,
     handle_PUT_users,

@@ -202,6 +202,7 @@ helpersInitialized.then(function(o) {
     handle_POST_zinvites,
     handle_PUT_comments,
     handle_PUT_conversations,
+    handle_PUT_participants_extended,
     handle_PUT_ptptois,
     handle_PUT_reports,
     handle_PUT_users,
@@ -794,6 +795,19 @@ helpersInitialized.then(function(o) {
     want('xid', getStringLimitLength(1, 999), assignToP),
     want('lang', getStringLimitLength(1,10), assignToP), // language of the next comment to be returned
     handle_POST_votes);
+
+  app.get("/api/v3/logMaxmindResponse",
+    auth(assignToP),
+    need('user_uid', getInt, assignToP),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    handle_GET_logMaxmindResponse);
+
+  app.put("/api/v3/participants_extended",
+    auth(assignToP),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    want('show_translation_activated', getBool, assignToP),
+    handle_PUT_participants_extended);
+
 
   app.get("/api/v3/logMaxmindResponse",
     auth(assignToP),
