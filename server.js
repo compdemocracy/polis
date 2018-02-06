@@ -5181,11 +5181,13 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
-  function subscribeToNotifications(zid, uid) {
+  function subscribeToNotifications(zid, uid, email) {
     let type = 1; // 1 for email
     winston.log("info", "subscribeToNotifications", zid, uid);
-    return pgQueryP("update participants set subscribed = ($3) where zid = ($1) and uid = ($2);", [zid, uid, type]).then(function(rows) {
-      return type;
+    return pgQueryP("update participants_extended set subscribe_email = ($3) where zid = ($1) and uid = ($2);", [zid, uid, email]).then(function() {
+      return pgQueryP("update participants set subscribed = ($3) where zid = ($1) and uid = ($2);", [zid, uid, type]).then(function(rows) {
+        return type;
+      });
     });
   }
 
@@ -5258,11 +5260,11 @@ Email verified! You can close this tab or hit the back button.
 
             needs = needs && result.remaining > 0;
 
-            if (needs && result.remaining < 5) {
-              // no need to try again for this user since new comments will create new tasks
-              console.log('doNotificationsForZid', 'not enough remaining');
-              needs = false;
-            }
+            // if (needs && result.remaining < 5) {
+            //   // no need to try again for this user since new comments will create new tasks
+            //   console.log('doNotificationsForZid', 'not enough remaining');
+            //   needs = false;
+            // }
 
             let waitTime = 60*60*1000;
 
@@ -5296,7 +5298,9 @@ Email verified! You can close this tab or hit the back button.
               needs = false;
             }
 
-            needs = needs && isPolisDev(ptpt.uid);
+            if (devMode) {
+              needs = needs && isPolisDev(ptpt.uid);
+            }
             return needs;
           });
 
@@ -5308,10 +5312,10 @@ Email verified! You can close this tab or hit the back button.
           // return pgQueryP("select p.uid, p.pid, u.email from participants as p left join users as u on p.uid = u.uid where p.pid in (" + pids.join(",") + ")", []).then((rows) => {
 
           // })
-          return pgQueryP("select uid, email from users where uid in (select uid from participants where pid in (" + pids.join(",") + "));", []).then((rows) => {
+          return pgQueryP("select uid, subscribe_email from participants_extended where uid in (select uid from participants where pid in (" + pids.join(",") + "));", []).then((rows) => {
             let uidToEmail = {};
             rows.forEach((row) => {
-              uidToEmail[row.uid] = row.email;
+              uidToEmail[row.uid] = row.subscribe_email;
             });
 
             return Promise.each(needNotification, (item, index, length) => {
@@ -5372,10 +5376,6 @@ Email verified! You can close this tab or hit the back button.
   // let shouldSendNotifications = false;
   if (shouldSendNotifications) {
     doNotificationLoop();
-  }
-
-  function updateEmail(uid, email) {
-    return pgQueryP("update users set email = ($2) where uid = ($1);", [uid, email]);
   }
 
 
@@ -5475,24 +5475,18 @@ Email verified! You can close this tab or hit the back button.
         subscribed: type,
       });
     }
-    let emailSetPromise = email ? updateEmail(uid, email) : Promise.resolve();
-    emailSetPromise.then(function() {
-      if (type === 1) {
-        subscribeToNotifications(zid, uid).then(finish).catch(function(err) {
-          fail(res, 500, "polis_err_sub_conv " + zid + " " + uid, err);
-        });
-      } else if (type === 0) {
-        unsubscribeFromNotifications(zid, uid).then(finish).catch(function(err) {
-          fail(res, 500, "polis_err_unsub_conv " + zid + " " + uid, err);
-        });
-      } else {
-        fail(res, 400, "polis_err_bad_subscription_type", new Error("polis_err_bad_subscription_type"));
-      }
-    }, function(err) {
-      fail(res, 500, "polis_err_subscribing_with_email", err);
-    }).catch(function(err) {
-      fail(res, 500, "polis_err_subscribing_misc", err);
-    });
+
+    if (type === 1) {
+      subscribeToNotifications(zid, uid, email).then(finish).catch(function(err) {
+        fail(res, 500, "polis_err_sub_conv " + zid + " " + uid, err);
+      });
+    } else if (type === 0) {
+      unsubscribeFromNotifications(zid, uid).then(finish).catch(function(err) {
+        fail(res, 500, "polis_err_unsub_conv " + zid + " " + uid, err);
+      });
+    } else {
+      fail(res, 400, "polis_err_bad_subscription_type", new Error("polis_err_bad_subscription_type"));
+    }
   }
 
 

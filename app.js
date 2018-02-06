@@ -446,7 +446,7 @@ helpersInitialized.then(function(o) {
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need("type", getInt, assignToP),
-    want('email', getEmail, assignToP),
+    need('email', getEmail, assignToP),
     handle_POST_convSubscriptions);
 
   app.post("/api/v3/auth/login",
