@@ -385,6 +385,8 @@ CREATE TABLE participants_extended(
     created BIGINT DEFAULT now_as_millis(),
     modified BIGINT NOT NULL DEFAULT now_as_millis(),
 
+    subscribe_email VARCHAR(256), -- http://stackoverflow.com/questions/386294/what-is-the-maximum-length-of-a-valid-email-address
+
     show_translation_activated BOOLEAN, -- true for activated, false for deactivated, or null for didn't click
 
     UNIQUE (zid, uid)
