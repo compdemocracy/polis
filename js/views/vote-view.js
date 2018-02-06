@@ -448,7 +448,7 @@ module.exports = Handlebones.ModelView.extend({
     };
     this.subscribeBtn = function(e) {
       var that = this;
-      var email = this.$(".email").val();
+      var email = this.$(".email").val() || preload.firstUser.email;
       serverClient.convSub({
         type: 1, // 1 for email
         email: email,
