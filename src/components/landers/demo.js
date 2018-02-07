@@ -77,28 +77,28 @@ class Demo extends React.Component {
             <input
               placeholder="Name"
               ref="nameupper"
-              type="name"
+              type="text"
             />
           </FormField>
           <FormField>
             <input
               placeholder="Email"
               ref="emailupper"
-              type="email"
+              type="text"
             />
           </FormField>
           <FormField>
             <input
               placeholder="Organization"
               ref="affiliationupper"
-              type="affiliation"
+              type="text"
             />
           </FormField>
           <FormField>
             <input
               placeholder="Role"
               ref="roleupper"
-              type="role"
+              type="text"
             />
           </FormField>
 
