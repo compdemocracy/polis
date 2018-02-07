@@ -18,7 +18,7 @@ const Hero = ({ headline, subheadline, className }) => {
           <p>
             Already using Polis?
             <a href="/signin" className="link ml2">
-              Sign In
+              Sign in
             </a>
           </p>
           </div>
