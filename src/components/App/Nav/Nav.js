@@ -3,7 +3,7 @@ import Logo from "../../Core/Logo/Logo";
 import { throttle } from "lodash";
 
 const t = {
-  cta: "Requst a Demo",
+  cta: "Request a demo",
   signin: "Sign In"
 };
 
@@ -28,7 +28,7 @@ class Nav extends React.Component {
           <a href="/signin" className="link mr4 white">
             {t.signin}
           </a>
-          <a href="/demo" ref={button => (this.button = button)} className="br2 ba ph2 pv2  tc white   w-100 w-auto-ns   mt3 mt0-ns link">
+          <a href="/demo" ref={button => (this.button = button)} className="br2 ba ph2 pv2  ttu white   w-100 w-auto-ns   mt3 mt0-ns link">
             {t.cta}
           </a>
         </div>

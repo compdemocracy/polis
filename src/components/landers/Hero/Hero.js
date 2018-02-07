@@ -13,12 +13,12 @@ const Hero = ({ headline, subheadline, className }) => {
           <h1 className="f2 f1-ns ttc bodoni lh-solid lh-title-ns  mt4 mb3">{headline}</h1>
           <p className="f4 f3-ns mb4 lh-copy">{subheadline}</p>
           <a href="/demo/" className="br3 ba ph4 pv3 mb3 dib tc ttu fw6 bg-blue white justify-center link">
-            Get Started
+            Request a demo
           </a>
           <p>
             Already using Polis?
             <a href="/signin" className="link ml2">
-              Sign in
+              Sign in.
             </a>
           </p>
           </div>
