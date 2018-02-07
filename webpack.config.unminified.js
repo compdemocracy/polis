@@ -6,27 +6,29 @@ var webpack = require("webpack");
 module.exports = {
   // devtool: "source-map",
   // devtool: ['eval','sourcemap'],
-  devtool: ['sourcemap'],
-  entry: [
-    "./src/index"
-  ],
+  devtool: ["sourcemap"],
+  entry: ["./src/index"],
   output: {
     path: path.join(__dirname, "dist"),
     filename: "admin_bundle.js",
     publicPath: "/dist/"
   },
-  plugins: [
-    new webpack.optimize.OccurenceOrderPlugin(),
-  ],
+  plugins: [new webpack.optimize.OccurenceOrderPlugin()],
+  resolve: {
+    extentions: ["", ".js", ".css", ".png", '.svg']
+  },
   module: {
-
-    preLoaders: [
-      { test: /\.json$/, loader: "json"}
-    ],
-    loaders: [{
-      test: /\.js$/,
-      loaders: ["babel"],
-      include: path.join(__dirname, "src")
-    }]
+    preLoaders: [{ test: /\.json$/, loader: "json" }],
+    loaders: [
+      {
+        test: /\.js$/,
+        loaders: ["babel"],
+        include: path.join(__dirname, "src")
+      },
+      {
+        test: /\.(png|jpg|gif|svg)$/,
+        loader: "file-loader"
+      }
+    ]
   }
 };

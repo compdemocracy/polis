@@ -5,26 +5,12 @@ import React from "react";
 import { connect } from "react-redux";
 import { doPasswordResetInit } from "../actions";
 import Radium from "radium";
-import Flex from "./framework/flex";
 import Button from "./framework/generic-button";
-import Awesome from "react-fontawesome";
-import StaticContentContainer from "./framework/static-content-container";
+
+import LanderContainer from "./App/Container/LanderContainer";
+import ContainerInner from "./App/Container/ContainerInner";
 
 const styles = {
-  heading: {
-    color: "rgb(160,160,160)",
-    fontSize: 36,
-    display: "block",
-    margin: 0,
-  },
-  card: {
-    position: "relative",
-    zIndex: 10,
-    // backgroundColor: "rgba(0,0,0,.3)",
-    padding: 30,
-    borderRadius: 3,
-    color: "white"
-  },
   button: {
     backgroundColor: "cornflowerblue",
   },
@@ -56,14 +42,9 @@ class PasswordResetInit extends React.Component {
 
   render() {
     return (
-      <StaticContentContainer
-        backgroundColor={"#03a9f4"}
-        headerBackgroundColor={"#03a9f4"}
-        footerBackgroundColor={"#03a9f4"}
-        image={false}>
-        <Flex>
-          <div style={styles.card}>
-              <p style={styles.heading}> Password Reset</p>
+      <LanderContainer>
+        <ContainerInner>
+            <h1> Password Reset</h1>
             <form>
               <input
                 style={styles.input}
@@ -74,9 +55,8 @@ class PasswordResetInit extends React.Component {
                 Send password reset email
               </Button>
             </form>
-          </div>
-        </Flex>
-      </StaticContentContainer>
+        </ContainerInner>
+      </LanderContainer>
     );
   }
 }
