@@ -9,21 +9,9 @@ import Flex from "./framework/flex";
 import Button from "./framework/generic-button";
 import Awesome from "react-fontawesome";
 import StaticContentContainer from "./framework/static-content-container";
+import ContainerInner from "./App/Container/ContainerInner";
 
 const styles = {
-  heading: {
-    color: "rgb(160,160,160)",
-    fontSize: 36,
-    display: "block",
-    margin: 0
-  },
-  card: {
-    position: "relative",
-    zIndex: 10,
-    padding: 30,
-    borderRadius: 3,
-    color: "white"
-  },
   button: {
     backgroundColor: "cornflowerblue"
   },
@@ -57,39 +45,19 @@ class SignIn extends React.Component {
     this.props.dispatch(doPasswordReset(attrs));
   }
 
-  // componentDidMount() {
-  //   window.addEventListener('resize', () => {}, true);
-  // }
-
   render() {
-    return (
-      <StaticContentContainer
-        backgroundColor={"#03a9f4"}
-        headerBackgroundColor={"#03a9f4"}
-        footerBackgroundColor={"#03a9f4"}
-        image={false}>
-        <Flex>
-          <div style={styles.card}>
-              <p style={styles.heading}>Password Reset</p>
+    return <LanderContainer>
+        <ContainerInner>
+            <h1>Password Reset</h1>
             <form>
-              <input
-                style={styles.input}
-                ref="password"
-                placeholder="new password"
-                type="password"/>
-              <input
-                style={styles.input}
-                ref="passwordRepeat"
-                placeholder="repeat new password"
-                type="password"/>
+              <input style={styles.input} ref="password" placeholder="new password" type="password" />
+              <input style={styles.input} ref="passwordRepeat" placeholder="repeat new password" type="password" />
               <Button style={styles.button} onClick={this.handleClick.bind(this)}>
                 Set new password
               </Button>
             </form>
-          </div>
-        </Flex>
-      </StaticContentContainer>
-    );
+        </ContainerInner>
+      </LanderContainer>;
   }
 }
 

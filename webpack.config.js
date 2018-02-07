@@ -5,9 +5,7 @@ var webpack = require("webpack");
 
 module.exports = {
   // devtool: "source-map",
-  entry: [
-    "./src/index"
-  ],
+  entry: ["./src/index"],
   output: {
     path: path.join(__dirname, "dist"),
     filename: "admin_bundle.js",
@@ -17,7 +15,7 @@ module.exports = {
     new webpack.optimize.OccurenceOrderPlugin(),
     new webpack.DefinePlugin({
       "process.env": {
-        "NODE_ENV": JSON.stringify("production")
+        NODE_ENV: JSON.stringify("production")
       }
     }),
     new webpack.optimize.UglifyJsPlugin({
@@ -26,15 +24,21 @@ module.exports = {
       }
     })
   ],
+  resolve: {
+    extentions: [ '', '.js', '.css', '.png', '.svg' ]
+  },
   module: {
-
-    preLoaders: [
-      { test: /\.json$/, loader: "json"}
-    ],
-    loaders: [{
-      test: /\.js$/,
-      loaders: ["babel"],
-      include: path.join(__dirname, "src")
-    }]
+    preLoaders: [{ test: /\.json$/, loader: "json" }],
+    loaders: [
+      {
+        test: /\.js$/,
+        loaders: ["babel"],
+        include: path.join(__dirname, "src")
+      },
+      {
+        test: /\.(png|jpg|gif|svg)$/,
+        loader: "file-loader"
+      }
+    ]
   }
 };
