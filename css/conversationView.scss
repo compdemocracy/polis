@@ -18,6 +18,15 @@ body {
   margin: auto;
 }
 
+.weight-label {
+  position: relative;
+  padding: 10px;
+}
+.weight-radio {
+  position: absolute;
+  left: 0px;
+}
+
 .form-control {
   display: block;
   width: 100%;
