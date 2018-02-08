@@ -8903,7 +8903,7 @@ Email verified! You can close this tab or hit the back button.
       // getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/nextComment", qs: nextCommentQs, headers: req.headers, gzip: true}),
       ifConv(getNextComment, [req.p.zid, req.p.pid, [], true, req.p.lang]),
       // getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/conversations", qs: qs, headers: req.headers, gzip: true}),
-      ifConv(getOneConversation, [req.p.zid, req.p.uid]),
+      ifConv(getOneConversation, [req.p.zid, req.p.uid, req.p.lang]),
       // getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/votes", qs: votesByMeQs, headers: req.headers, gzip: true}),
       ifConv(getVotesForSingleParticipant, [req.p]),
       ifConv(getPca, [req.p.zid, -1]),
@@ -10223,19 +10223,41 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
-  function getOneConversation(zid, uid) {
+  function getConversationTranslations(zid, lang) {
+    const firstTwoCharsOfLang = lang.substr(0,2);
+    return pgQueryP("select * from conversation_translations where zid = ($1) and lang = ($2);", [zid, firstTwoCharsOfLang]);
+  }
+
+  function getConversationTranslationsMinimal(zid, lang) {
+    return getConversationTranslations(zid, lang).then(function(rows) {
+      for (let i = 0; i < rows.length; i++) {
+        delete rows[i].zid;
+        delete rows[i].created;
+        delete rows[i].modified;
+        delete rows[i].src;
+      }
+      return rows;
+    });
+  }
+
+  function getOneConversation(zid, uid, lang) {
+
     return Promise.all([
       pgQueryP_readOnly("select * from conversations left join  (select uid, site_id, plan from users) as u on conversations.owner = u.uid where conversations.zid = ($1);", [zid]),
       getConversationHasMetadata(zid),
       (_.isUndefined(uid) ? Promise.resolve({}) : getUserInfoForUid2(uid)),
+      getConversationTranslationsMinimal(zid, lang),
     ]).then(function(results) {
       let conv = results[0] && results[0][0];
       let convHasMetadata = results[1];
       let requestingUserInfo = results[2];
+      let translations = results[3];
 
       conv.auth_opt_allow_3rdparty = ifDefinedFirstElseSecond(conv.auth_opt_allow_3rdparty, true);
       conv.auth_opt_fb_computed = conv.auth_opt_allow_3rdparty && ifDefinedFirstElseSecond(conv.auth_opt_fb, true);
       conv.auth_opt_tw_computed = conv.auth_opt_allow_3rdparty && ifDefinedFirstElseSecond(conv.auth_opt_tw, true);
+
+      conv.translations = translations;
 
       return getUserInfoForUid2(conv.owner).then(function(ownerInfo) {
         let ownername = ownerInfo.hname;
