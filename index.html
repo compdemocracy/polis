@@ -136,10 +136,20 @@ function getWindowSize() {
 // we don't have promises until main bundle loads, so this is going to be a bit messy.
 var p = window.preload;
 
+
+function fixupConversation(c) {
+  var t = c.translations
+  if (t && t.length) {
+    c.topic = t[0].topic;
+    c.description = t[0].description;
+  }
+  return c;
+}
+
 function onPreloadOk(response) {
   var things = [
     {src:"nextComment", dst:"firstComment", cb:"firstCommentListener"},
-    {src:"conversation", dst:"firstConv", cb:"firstConvListener"},
+    {src:"conversation", dst:"firstConv", cb:"firstConvListener", fn:fixupConversation},
     {src:"user", dst:"firstUser", cb:"firstUserListener"},
     {src:"ptpt", dst:"firstPtpt", cb:"firstPtptListener"},
     {src:"votes", dst:"firstVotesByMe", cb:"firstVotesByMeListener"},
@@ -151,6 +161,9 @@ function onPreloadOk(response) {
     var r = things[i], src = r.src, dst = r.dst, cb = r.cb;
     if (response) {
       p[dst] = r.JSON ? JSON.parse(response[src]) : response[src];
+    }
+    if (r.fn) {
+      p[dst] = r.fn(p[dst]);
     }
 
     // weird issue probably due to setting a prop named bgcolor on a global?
