@@ -472,7 +472,7 @@ module.exports = Handlebones.ModelView.extend({
         return 1;
       }
       return 0;
-    }
+    };
     this.participantAgreed = function(e) {
       this.mostRecentVoteType = "agree";
       var tid = this.model.get("tid");
