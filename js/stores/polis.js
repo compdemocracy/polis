@@ -352,9 +352,10 @@ module.exports = function(params) {
     }
   }
 
-  function disagree(commentId, starred) {
+  function disagree(commentId, starred, weight) {
     clearComment(commentId, "push");
     var o = {
+      weight: weight,
       vote: polisTypes.reactions.push,
       tid: commentId
     };
@@ -417,9 +418,10 @@ module.exports = function(params) {
     return promise;
   }
 
-  function agree(commentId, starred) {
+  function agree(commentId, starred, weight) {
     clearComment(commentId);
     var o = {
+      weight: weight,
       vote: polisTypes.reactions.pull,
       tid: commentId
     };
@@ -429,9 +431,10 @@ module.exports = function(params) {
     return react(o);
   }
 
-  function pass(tid, starred) {
+  function pass(tid, starred, weight) {
     clearComment(tid);
     var o = {
+      weight: weight,
       vote: polisTypes.reactions.pass,
       tid: tid
     };

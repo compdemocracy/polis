@@ -305,6 +305,26 @@
         {{s.pass}}
       </button>
     </div>
+
+    <div style="text-align: center; margin-bottom: 20px">
+      <div>{{s.howImportantPrompt}}</div>
+      <label class="weight-label">
+        <span class="weight-radio"></span>
+        <input type="radio" name="radio" id="weight_low">
+        {{s.howImportantLow}}
+      </label>
+      <label class="weight-label">
+        <span class="weight-radio"></span>
+        <input type="radio" name="radio" checked="checked" id="weight_med">
+        {{s.howImportantMedium}}
+      </label>
+      <label class="weight-label">
+        <span class="weight-radio"></span>
+        <input type="radio" name="radio" id="weight_high">
+        {{s.howImportantHigh}}
+      </label>
+    </div>
+
   {{/if}} {{!-- /shouldMod --}}
 
 {{/if}} {{!-- /empty --}}
