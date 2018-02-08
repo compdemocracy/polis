@@ -6,6 +6,11 @@ s.agree = "Agree";
 s.disagree = "Disagree";
 s.pass = "Pass / Unsure";
 
+s.howImportantPrompt = "How important is this statement?";
+s.howImportantLow = "Low";
+s.howImportantMedium = "Medium";
+s.howImportantHigh = "High";
+
 s.modSpam = "Spam";
 s.modOffTopic = "Off Topic";
 s.modImportant = "Important";

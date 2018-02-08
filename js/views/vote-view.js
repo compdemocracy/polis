@@ -465,6 +465,14 @@ module.exports = Handlebones.ModelView.extend({
       });
       return false;
     };
+    this.getWeight = function() {
+      if ($("#weight_low").prop("checked")) {
+        return -1;
+      } else if ($("#weight_high").prop("checked")) {
+        return 1;
+      }
+      return 0;
+    }
     this.participantAgreed = function(e) {
       this.mostRecentVoteType = "agree";
       var tid = this.model.get("tid");
@@ -475,11 +483,12 @@ module.exports = Handlebones.ModelView.extend({
       this.wipVote = {
         vote: -1,
         conversation_id: conversation_id,
+        weight: this.getWeight(),
         tid: tid
       };
       serverClient.addToVotesByMe(this.wipVote);
       this.onButtonClicked();
-      serverClient.agree(tid, starred)
+      serverClient.agree(tid, starred, this.wipVote.weight)
         .then(onVote.bind(this), onFail.bind(this));
     };
     this.participantDisagreed = function() {
@@ -489,11 +498,12 @@ module.exports = Handlebones.ModelView.extend({
       this.wipVote = {
         vote: 1,
         conversation_id: conversation_id,
+        weight: this.getWeight(),
         tid: tid
       };
       serverClient.addToVotesByMe(this.wipVote);
       this.onButtonClicked();
-      serverClient.disagree(tid, starred)
+      serverClient.disagree(tid, starred, this.wipVote.weight)
         .then(onVote.bind(this), onFail.bind(this));
     };
     this.participantPassed = function() {
@@ -503,11 +513,12 @@ module.exports = Handlebones.ModelView.extend({
       this.wipVote = {
         vote: 0,
         conversation_id: conversation_id,
+        weight: this.getWeight(),
         tid: tid
       };
       serverClient.addToVotesByMe(this.wipVote);
       this.onButtonClicked();
-      serverClient.pass(tid, starred)
+      serverClient.pass(tid, starred, this.wipVote.weight)
         .then(onVote.bind(this), onFail.bind(this));
     };
 
@@ -547,6 +558,8 @@ module.exports = Handlebones.ModelView.extend({
         return;
       }
       var starred = this.model.get("starred");
+      var weight = 0;
+
       var tid = this.wipVote.tid;
 
       function reloadPage() {
@@ -557,13 +570,13 @@ module.exports = Handlebones.ModelView.extend({
       }
 
       if (this.wipVote.vote === -1) {
-        serverClient.agree(tid, starred)
+        serverClient.agree(tid, starred, weight)
           .then(reloadPage, onFailAfterAuth);
       } else if (this.wipVote.vote === 0) {
-        serverClient.pass(tid, starred)
+        serverClient.pass(tid, starred, weight)
           .then(reloadPage, onFailAfterAuth);
       } else if (this.wipVote.vote === 1) {
-        serverClient.disagree(tid, starred)
+        serverClient.disagree(tid, starred, weight)
           .then(reloadPage, onFailAfterAuth);
       } else {
         alert(3);
