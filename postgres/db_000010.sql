@@ -9,3 +9,5 @@ CREATE TABLE xid_whitelist (
     UNIQUE (owner, xid)
 );
 CREATE INDEX xid_whitelist_owner_idx ON xid_whitelist USING btree (owner);
+
+alter table participants_extended add column subscribe_email VARCHAR(256);
