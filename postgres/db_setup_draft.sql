@@ -712,6 +712,18 @@ CREATE TABLE comment_translations (
 CREATE INDEX comment_translations_idx ON comment_translations USING btree (zid, tid);
 
 
+CREATE TABLE conversation_translations (
+  zid INTEGER NOT NULL REFERENCES conversations(zid),
+  src INTEGER NOT NULL, -- if positive, it's a uid, -1 for google translate, ...
+  topic VARCHAR(9999) NOT NULL,
+  description VARCHAR(9999) NOT NULL,
+  lang VARCHAR(10) NOT NULL, -- 'en', 'en-us', 'pt', 'pt-br'
+  created BIGINT DEFAULT now_as_millis(),
+  modified BIGINT DEFAULT now_as_millis(),
+  UNIQUE(zid, src, lang)
+);
+CREATE INDEX conversation_translations_idx ON conversation_translations USING btree (zid);
+
 
 CREATE TABLE reports (
   rid BIGSERIAL,
