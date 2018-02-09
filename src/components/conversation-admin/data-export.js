@@ -73,7 +73,7 @@ class DataExport extends React.Component {
           }}>
           <Awesome name="cloud-download"/>
           {" "}
-          A data dump from this conversation will be sent to your email.
+          Data from this conversation will be sent to your email.
           (This can take a little while, especially for larger conversations).
         </p>
       </div>
