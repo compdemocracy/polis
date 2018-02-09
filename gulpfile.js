@@ -271,7 +271,7 @@ gulp.task('index', [
       domainWhitelist: domainWhitelist,
     }));
   }
-  return s.pipe(gulp.dest(destRootBase));
+  return s.pipe(gulp.dest(destRootBase)).pipe(gulp.dest(destRoot())); // pipe to root to clobber current build, and also to cache-busted path to support loading old builds
 });
 
 gulp.task('templates', function(){
