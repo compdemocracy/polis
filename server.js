@@ -10229,6 +10229,9 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function getConversationTranslationsMinimal(zid, lang) {
+    if (!lang) {
+      return Promise.resolve([]);
+    }
     return getConversationTranslations(zid, lang).then(function(rows) {
       for (let i = 0; i < rows.length; i++) {
         delete rows[i].zid;
@@ -10714,8 +10717,9 @@ Email verified! You can close this tab or hit the back button.
       if (course_id) {
         req.p.course_id = course_id;
       }
+      let lang = null; // for now just return the default
       if (req.p.zid) {
-        getOneConversation(req.p.zid, req.p.uid).then(function(data) {
+        getOneConversation(req.p.zid, req.p.uid, lang).then(function(data) {
           finishOne(res, data);
         }, function(err) {
           fail(res, 500, "polis_err_get_conversations_2", err);
