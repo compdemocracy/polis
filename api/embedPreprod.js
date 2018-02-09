@@ -57,6 +57,8 @@
          ucsv: d.getAttribute("data-ucsv"),
          ucsf: d.getAttribute("data-ucsf"),
 
+         build: d.getAttribute("data-build"),
+
          ui_lang: d.getAttribute("data-ui_lang"),
 
          subscribe_type: d.getAttribute("data-subscribe_type"), // 0 for no prompt, 1 for email prompt (1 is default)
@@ -122,6 +124,8 @@
     if (o.parent_url) {
       paramStrings.push("referrer="+ encodeURIComponent(document.referrer));
     }
+
+    appendIfPresent("build");
 
     appendIfPresent("xid");
     appendIfPresent("x_name");
