@@ -14143,6 +14143,7 @@ CREATE TABLE slack_user_invites (
     let x_email = req.p.x_email;
     let parent_url = req.p.parent_url;
     let dwok = req.p.dwok;
+    let build = req.p.build;
     let o = {};
     ifDefinedSet("parent_url", req.p, o);
     ifDefinedSet("auth_needed_to_vote", req.p, o);
@@ -14220,6 +14221,9 @@ CREATE TABLE slack_user_invites (
       }
       if (!_.isUndefined(dwok)) {
         url += ("&dwok=" + dwok);
+      }
+      if (!_.isUndefined(build)) {
+        url += ("&build=" + build);
       }
       return url;
     }
@@ -14427,7 +14431,7 @@ CREATE TABLE slack_user_invites (
     'Content-Type': "text/html",
   });
 
-  function fetchIndex(req, res, preloadData, port) {
+  function fetchIndex(req, res, preloadData, port, buildNumber) {
     let headers = {
       'Content-Type': "text/html",
     };
@@ -14440,8 +14444,13 @@ CREATE TABLE slack_user_invites (
 
     setCookieTestCookie(req, res, shouldSetCookieOnPolisDomain(req));
 
+    if (devMode) {
+      buildNumber = null;
+    }
 
-    let doFetch = makeFileFetcher(hostname, port, "/index.html", headers, preloadData);
+    let indexPath = (buildNumber ? ("/cached/" + buildNumber) : "") + "/index.html";
+
+    let doFetch = makeFileFetcher(hostname, port, indexPath, headers, preloadData);
     if (isUnsupportedBrowser(req)) {
 
       return fetchUnsupportedBrowserPage(req, res);
@@ -14484,6 +14493,11 @@ CREATE TABLE slack_user_invites (
     if (match && match.length) {
       conversation_id = match[0];
     }
+    let buildNumber = null;
+    if (req.query.build) {
+      buildNumber = req.query.build;
+      console.log('loading_build', buildNumber);
+    }
 
     setTimeout(function() {
       // Kick off requests to twitter and FB to get the share counts.
@@ -14504,7 +14518,7 @@ CREATE TABLE slack_user_invites (
         conversation: x,
         // Nothing user-specific can go here, since we want to cache these per-conv index files on the CDN.
       };
-      fetchIndex(req, res, preloadData, portForParticipationFiles);
+      fetchIndex(req, res, preloadData, portForParticipationFiles, buildNumber);
     }).catch(function(err) {
       fetch404Page(req, res);
       // fail(res, 500, "polis_err_fetching_conversation_info2", err);
