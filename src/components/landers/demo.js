@@ -11,6 +11,7 @@ import FormField from "../Core/Form/FormField";
 
 import LanderContainer from "../App/Container/LanderContainer";
 import ContainerInner from "../App/Container/ContainerInner";
+import PolisNet from "../../util/net";
 
 @connect()
 class Demo extends React.Component {
