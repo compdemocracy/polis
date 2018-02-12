@@ -400,7 +400,14 @@
     {{view topCommentsView}}
   </div>
   {{/if}}
-
+  {{#if show_divisive_comments}}
+  <div id="divisive_comments" style="text-align: left">
+    <div class="HeadingC" style="text-transform:none; cursor: default; white-space: nowrap; border-bottom: none;">
+      {{s.divisiveComments}}
+    </div>
+    {{view divisiveCommentsView}}
+  </div>
+  {{/if}}
 </div>
 <div
   id="groupSelectionViewContainer"

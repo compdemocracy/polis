@@ -50,6 +50,7 @@ s.xOfThoseAgreed = "of those participants agreed";
 s.xOfthoseDisagreed = "of those participants disagreed";
 s.opinionGroups = "Opinion Groups";
 s.topComments = "Top Comments";
+s.divisiveComments = "Divisive Comments";
 s.pctAgreed = "{{pct}}% Agreed";
 s.pctDisagreed = "{{pct}}% Disagreed";
 s.pctAgreedLong = "{{pct}}% of everyone who voted on statement {{comment_id}} agreed.";
