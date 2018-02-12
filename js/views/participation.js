@@ -8,6 +8,7 @@ var ConversationInfoSlideView = require('../views/conversationInfoSlideView');
 var ConversationStatsHeader = require('../views/conversation-stats-header');
 var ConversationTabsView = require("../views/conversationTabs");
 var ConversationView = require("../views/conversation");
+var DivisiveCommentsView = require('../views/DivisiveCommentsView');
 var display = require("../util/display");
 var eb = require("../eventBus");
 var GroupSelectionView = require("../views/groupSelectionView");
@@ -211,6 +212,8 @@ module.exports = ConversationView.extend({
     ctx.show_admin_button = false; //ctx.is_owner;
 
     ctx.show_top_comments = ctx.vis_type === Constants.VIS_TYPE.TOP_COMMENTS;
+    ctx.show_divisive_comments = ctx.vis_type === Constants.VIS_TYPE.TOP_COMMENTS;
+
     ctx.show_pca_vis = ctx.vis_type === Constants.VIS_TYPE.PCA;
     return ctx;
   },
@@ -310,23 +313,39 @@ module.exports = ConversationView.extend({
     });
 
     var topComments = this.allCommentsCollection.clone().models;
+    var divisiveComments = this.allCommentsCollection.clone().models;
     topComments.sort(function(a, b) {
       return b.attributes.rank - a.attributes.rank;
     });
+    divisiveComments.sort(function(a, b) {
+      return a.attributes.rank - b.attributes.rank;
+    });
     topComments = topComments.slice(0, 5);
+    divisiveComments = divisiveComments.slice(0, 5);
 
-    _.each(topComments, function(c) {
-      var tid = c.get("tid");
-      var gv = groupVotes[tid];
-      c.set("gv", gv);
-      c.set("percentAgree", Math.round(100 * gv.agreed / gv.saw));
-      c.set("percentDisagree", Math.round(100 * gv.disagreed / gv.saw));
-      c.set("percentPassed", Math.round(100 * (gv.saw - gv.disagreed - gv.agreed) / gv.saw));
-      // c.set("percentAgree", gv.agreed + "/" + gv.saw);
+    _.each([topComments, divisiveComments], function(collection) {
+      _.each(collection, function(c) {
+        var tid = c.get("tid");
+        var gv = groupVotes[tid];
+        c.set("gv", gv);
+        c.set("percentAgree", Math.round(100 * gv.agreed / gv.saw));
+        c.set("percentDisagree", Math.round(100 * gv.disagreed / gv.saw));
+        c.set("percentPassed", Math.round(100 * (gv.saw - gv.disagreed - gv.agreed) / gv.saw));
+        // c.set("percentAgree", gv.agreed + "/" + gv.saw);
+      });
     });
 
     topComments.sort(function(a, b) {
       return b.attributes.percentAgree - a.attributes.percentAgree;
+    });
+    divisiveComments.sort(function(a, b) {
+      return a.attributes.percentAgree - b.attributes.percentAgree;
+    });
+
+    // remove any items from divisive list that are also in top list
+    var topTids = _.pluck(topComments, "tid");
+    divisiveComments = _.filter(divisiveComments, function(c) {
+      return topTids.indexOf(c.tid) >= 0;
     });
 
     // var topTids = this.serverClient.getTopTids(5);
@@ -338,6 +357,7 @@ module.exports = ConversationView.extend({
     // });
     // console.log(topComments);
     this.topCommentsCollection.reset(topComments);
+    this.divisiveCommentsCollection.reset(divisiveComments);
   },
 
   updateVis2: function() {
@@ -512,6 +532,10 @@ module.exports = ConversationView.extend({
       this.topCommentsCollection = new CommentsCollection([]);
       this.topCommentsView = this.addChild(new TopCommentsView({
         collection: this.topCommentsCollection,
+      }));
+      this.divisiveCommentsCollection = new CommentsCollection([]);
+      this.divisiveCommentsView = this.addChild(new DivisiveCommentsView({
+        collection: this.divisiveCommentsCollection,
       }));
 
       // clicks to "the background" should delelect hulls.

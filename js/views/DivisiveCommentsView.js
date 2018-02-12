@@ -11,8 +11,8 @@ var width = 60;
 
 module.exports = Handlebones.CollectionView.extend({
   tagName: "ul",
-  className: "top-comments-list",
-  name: "topCommentsView",
+  className: "divisive-comments-list",
+  name: "divisiveCommentsView",
   modelView: Handlebones.ModelView.extend({
     tagName: "li",
     className: "top-comments-item",
@@ -23,8 +23,8 @@ module.exports = Handlebones.CollectionView.extend({
     context: function() {
       var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
       ctx.width = width;
-      ctx.percent = ctx.percentAgree;
-      ctx.color = "rgb(46, 204, 113)"; // agree_green
+      ctx.percent = ctx.percentDisagree;
+      ctx.color = "rgb(231, 76, 60)"; // disagree_red
       return ctx;
     },
     render: function() {
