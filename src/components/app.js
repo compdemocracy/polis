@@ -308,13 +308,22 @@ class App extends React.Component {
         extremity[indexToTid[index]] = e;
       });
 
+      var uniqueCommenters = {};
       var voteTotals = DataUtils.getVoteTotals(mathResult);
-
       comments = comments.map((c) => {
         c["group-aware-consensus"] = mathResult["group-aware-consensus"][c.tid];
+        uniqueCommenters[c.pid] = 1;
         c = Object.assign(c, voteTotals[c.tid]);
         return c;
       });
+      var numUniqueCommenters = _.keys(uniqueCommenters).length;
+      var totalVotes = _.reduce(_.values(mathResult["user-vote-counts"]), function(memo, num) {
+        return memo + num;
+      }, 0);
+      const computedStats = {
+        votesPerVoterAvg: totalVotes / ptptCount,
+        commentsPerCommenterAvg: comments.length / numUniqueCommenters,
+      };
 
 
       this.setState({
@@ -338,6 +347,7 @@ class App extends React.Component {
         formatTid: formatTid,
         report: report,
         conversationStats: conversationstats,
+        computedStats: computedStats,
         nothingToShow: !comments.length || !groupDemographics.length,
       });
 
@@ -419,6 +429,7 @@ class App extends React.Component {
             autoRefreshEnabled={this.state.shouldPoll}/>
           <Overview
             stats={this.state.conversationStats}
+            computedStats={this.state.computedStats}
             math={this.state.math}
             comments={this.state.comments}
             ptptCount={this.state.ptptCount}

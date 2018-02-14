@@ -35,6 +35,7 @@ const Overview = ({
   math,
   comments,
   stats,
+  computedStats,
 }) => {
   return (
     <div >
@@ -46,7 +47,7 @@ const Overview = ({
         <strong>Participants:</strong> These are the people who participated in the conversation by voting and commenting. Based on how they voted, each participant is sorted into an opinion group.
       </p>
       <p style={globals.paragraph}>
-        <strong>Comments:</strong> Participants may submit comments for other participants to vote on. Comment are assigned a number in the order they’re submitted.
+        <strong>Comments:</strong> Participants may submit comments for other participants to vote on. Comments are assigned a number in the order they’re submitted.
       </p>
       <p style={globals.paragraph}>
         <strong>Opinion groups:</strong> Groups are made of participants who voted similarly to each other, and differently from the other groups.
@@ -56,13 +57,15 @@ const Overview = ({
         {conversation && conversation.ownername ? "This pol.is conversation was run by "+conversation.ownername+". " : null}
         {conversation && conversation.topic ? "The topic was '"+conversation.topic+"'. " : null}
       </p>
-      <div style={{maxWidth: 800, display: "flex", justifyContent: "space-between"}}>
+      <div style={{maxWidth: 1200, display: "flex", justifyContent: "space-between"}}>
         <Number number={ptptCount} label={"people voted"} />
         <Number
           number={ computeVoteTotal(math["user-vote-counts"]) }
           label={"votes were cast"} />
         <Number number={stats.firstCommentTimes.length} label={"people submitted comments"} />
         <Number number={math["n-cmts"]} label={"comments were submitted"} />
+        <Number number={computedStats.votesPerVoterAvg.toFixed(2)} label={"votes per voter on average"} />
+        <Number number={computedStats.commentsPerCommenterAvg.toFixed(2)} label={"comments per commenter on average"} />
 
       </div>
 
