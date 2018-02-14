@@ -278,6 +278,7 @@ class ParticipantsGraph extends React.Component {
             })}
           </p> : null}
           <svg
+            className="shrink-for-print-70 move-left-20-for-print"
             width={this.props.height ? this.props.height : globals.side}
             height={this.props.height ? this.props.height : globals.side}>
             <defs>
