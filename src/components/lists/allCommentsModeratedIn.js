@@ -87,7 +87,8 @@ class allCommentsModeratedIn extends React.Component {
             math={this.props.math}
             formatTid={this.props.formatTid}
             tidsToRender={sortFunction(this.props.comments)}
-            comments={this.props.comments}/>
+            comments={this.props.comments}
+            voteColors={this.props.voteColors}/>
         </div>
       </div>
     );

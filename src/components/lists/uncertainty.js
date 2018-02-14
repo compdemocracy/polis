@@ -4,7 +4,7 @@ import CommentList from "./commentList";
 import * as globals from "../globals";
 import style from "../../util/style";
 
-const Uncertainty = ({conversation, comments, ptptCount, uncertainty, formatTid, math}) => {
+const Uncertainty = ({conversation, comments, ptptCount, uncertainty, formatTid, math, voteColors}) => {
 
   if (!conversation) {
     return <div>Loading Uncertainty...</div>
@@ -26,7 +26,8 @@ const Uncertainty = ({conversation, comments, ptptCount, uncertainty, formatTid,
           math={math}
           formatTid={formatTid}
           tidsToRender={uncertainty /* uncertainTids would be funnier */}
-          comments={comments}/>
+          comments={comments}
+          voteColors={voteColors}/>
       </div>
     </div>
   );

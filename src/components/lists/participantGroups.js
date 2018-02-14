@@ -40,6 +40,7 @@ class ParticipantGroups extends React.Component {
         comments={this.props.comments}
         conversation={this.props.conversation}
         ptptCount={this.props.ptptCount}
+        voteColors={this.props.voteColors}
         formatTid={this.props.formatTid}/>
       {
         this.props.math && this.props.comments ? _.map(this.props.math["repness"], (groupComments, gid) => {
@@ -90,6 +91,7 @@ class ParticipantGroups extends React.Component {
               repfulDisageeTidsByGroup={this.props.repfulDisageeTidsByGroup}
               math={this.props.math}
               report={this.props.report}
+              voteColors={this.props.voteColors}
 
               />
           );

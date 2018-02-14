@@ -99,7 +99,7 @@ class ParticipantsGraph extends React.Component {
     if (this.props.consensusDivisionColorScale && this.props.colorBlindMode) {
       color = globals.brandColors.blue
     } else if (this.props.consensusDivisionColorScale && !this.props.colorBlindMode) {
-      color = globals.brandColors.agree
+      color = this.props.voteColors.agree
     }
     return color;
   }
@@ -283,9 +283,9 @@ class ParticipantsGraph extends React.Component {
             height={this.props.height ? this.props.height : globals.side}>
             <defs>
               <radialGradient cx="50%" cy="50%" fx="50%" fy="50%" r="43.818169%" id="radialGradient-1">
-                <stop stopColor={this.props.colorBlindMode ? globals.brandColors.blue : globals.brandColors.agree} offset="0%"></stop>
+                <stop stopColor={this.props.voteColors.agree} offset="0%"></stop>
                 <stop stopColor={globals.brandColors.yellowForRadial} offset="46.7315051%"></stop>
-                <stop stopColor={globals.brandColors.disagree} offset="100%"></stop>
+                <stop stopColor={this.props.voteColors.disagree} offset="100%"></stop>
               </radialGradient>
               <circle
                 id="path-2"

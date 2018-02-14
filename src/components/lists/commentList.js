@@ -4,7 +4,7 @@ import * as globals from "../globals";
 import style from "../../util/style";
 import {VictoryScatter, VictoryChart, VictoryTheme} from "victory";
 
-const BarChartCompact = ({comment, voteCounts, nMembers}) => {
+const BarChartCompact = ({comment, voteCounts, nMembers, voteColors}) => {
 
   if (!comment) return null;
 
@@ -31,21 +31,21 @@ const BarChartCompact = ({comment, voteCounts, nMembers}) => {
       <svg width={101} height={10} style={{marginRight: 30}}>
         <g>
           <rect x={0} width={w + 0.5} height={10} fill={"white"} stroke={"rgb(180,180,180)"} />
-          <rect x={.5 + agree + disagree} width={pass} y={.5} height={9} fill={globals.brandColors.pass} />
-          <rect x={.5} width={agree} y={.5} height={9} fill={globals.brandColors.agree} />
-          <rect x={.5 + agree} width={disagree} y={.5} height={9} fill={globals.brandColors.disagree} />
+          <rect x={.5 + agree + disagree} width={pass} y={.5} height={9} fill={voteColors.pass} />
+          <rect x={.5} width={agree} y={.5} height={9} fill={voteColors.agree} />
+          <rect x={.5 + agree} width={disagree} y={.5} height={9} fill={voteColors.disagree} />
         </g>
       </svg>
       <div>
-        <span style={{fontSize: 12, marginRight: 4, color: globals.brandColors.agree}}>{agreeString}</span>
-        <span style={{fontSize: 12, marginRight: 4, color: globals.brandColors.disagree}}>{disagreeString}</span>
+        <span style={{fontSize: 12, marginRight: 4, color: voteColors.agree}}>{agreeString}</span>
+        <span style={{fontSize: 12, marginRight: 4, color: voteColors.disagree}}>{disagreeString}</span>
         <span style={{fontSize: 12, color: "#999"}}>{passString}</span>
       </div>
       </div>
   )
 };
 
-const CommentRow = ({comment, groups}) => {
+const CommentRow = ({comment, groups, voteColors}) => {
 
   if (!comment) {
     console.error("WHY IS THERE NO COMMENT 3452354235", comment)
@@ -67,6 +67,7 @@ const CommentRow = ({comment, groups}) => {
             comment={comment}
             voteCounts={g.votes[comment.tid]}
             nMembers={nMembers}
+            voteColors={voteColors}
           />
       )
     })
@@ -83,6 +84,7 @@ const CommentRow = ({comment, groups}) => {
               S: comment.saw,
             }}
             nMembers={totalMembers}
+            voteColors={voteColors}
           />
     )
 
@@ -140,8 +142,9 @@ class CommentList extends React.Component {
     }
     let labels = [];
 
+
     // totals
-    labels.push(makeLabel(99, "Overall", ""));
+    labels.push(makeLabel(99, "Overall", this.props.ptptCount));
 
     _.each(this.props.math["group-votes"], (g, i) => {
       // console.log(g)
@@ -186,6 +189,7 @@ class CommentList extends React.Component {
               index={i}
               groups={this.props.math["group-votes"]}
               comment={comments[tid]}
+              voteColors={this.props.voteColors}
               />
           })
         }

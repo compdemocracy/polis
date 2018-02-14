@@ -54,6 +54,11 @@ class App extends React.Component {
         height: window.innerHeight
       },
       shouldPoll: false,
+      voteColors: {
+        agree: globals.brandColors.agree,
+        disagree: globals.brandColors.disagree,
+        pass: globals.brandColors.pass,
+      },
     };
   }
 
@@ -348,7 +353,7 @@ class App extends React.Component {
         report: report,
         conversationStats: conversationstats,
         computedStats: computedStats,
-        nothingToShow: !comments.length || !groupDemographics.length,
+        nothingToShow: !comments.length || !groupDemographics.length
       });
 
     }, (err) => {
@@ -390,11 +395,26 @@ class App extends React.Component {
       shouldPoll: false,
     });
   }
+
   handleColorblindModeClick () {
-    this.setState({
-      colorBlindMode: !this.state.colorBlindMode
-    })
+    var colorBlind = !this.state.colorBlindMode;
+    if (colorBlind) {
+      this.setState({
+        colorBlindMode: colorBlind,
+        voteColors: Object.assign(this.state.voteColors, {
+          agree: globals.brandColors.agreeColorblind,
+        }),
+      });
+    } else {
+      this.setState({
+        colorBlindMode: colorBlind,
+        voteColors: Object.assign(this.state.voteColors, {
+          agree: globals.brandColors.agree,
+        }),
+      });
+    }
   }
+
   render() {
     if (this.state.error) {
       return (<div>
@@ -426,7 +446,8 @@ class App extends React.Component {
             handleColorblindModeClick={this.handleColorblindModeClick.bind(this)}
             colorBlindMode={this.state.colorBlindMode}
             onAutoRefreshDisabled={this.onAutoRefreshDisabled.bind(this)}
-            autoRefreshEnabled={this.state.shouldPoll}/>
+            autoRefreshEnabled={this.state.shouldPoll}
+            voteColors={this.state.voteColors}/>
           <Overview
             stats={this.state.conversationStats}
             computedStats={this.state.computedStats}
@@ -434,14 +455,15 @@ class App extends React.Component {
             comments={this.state.comments}
             ptptCount={this.state.ptptCount}
             demographics={this.state.demographics}
-            conversation={this.state.conversation}/>
+            conversation={this.state.conversation}
+            voteColors={this.state.voteColors}/>
           <Beeswarm
             extremity={this.state.extremity}
             math={this.state.math}
             comments={this.state.comments}
             probabilities={this.state.filteredCorrelationMatrix}
             probabilitiesTids={this.state.filteredCorrelationTids}
-            />
+            voteColors={this.state.voteColors}/>
           {/*
             <p style={globals.primaryHeading}>Consensus</p>
             <p style={globals.primaryHeading}>Inclusive Majority</p>
@@ -452,14 +474,16 @@ class App extends React.Component {
             unanimity={this.state.unanimity}
             conversation={this.state.conversation}
             ptptCount={this.state.ptptCount}
-            formatTid={this.state.formatTid}/>
+            formatTid={this.state.formatTid}
+            voteColors={this.state.voteColors}/>
           <MajorityStrict
             math={this.state.math}
             conversation={this.state.conversation}
             ptptCount={this.state.ptptCount}
             comments={this.state.comments}
             formatTid={this.state.formatTid}
-            consensus={this.state.consensus}/>
+            consensus={this.state.consensus}
+            voteColors={this.state.voteColors}/>
           <ParticipantGroups
             comments={this.state.comments}
             conversation={this.state.conversation}
@@ -472,14 +496,16 @@ class App extends React.Component {
             badTids={this.state.badTids}
             repfulAgreeTidsByGroup={this.state.repfulAgreeTidsByGroup}
             repfulDisageeTidsByGroup={this.state.repfulDisageeTidsByGroup}
-            report={this.state.report}/>
+            report={this.state.report}
+            voteColors={this.state.voteColors}/>
           <Uncertainty
             math={this.state.math}
             comments={this.state.comments}
             uncertainty={this.state.uncertainty}
             conversation={this.state.conversation}
             ptptCount={this.state.ptptCount}
-            formatTid={this.state.formatTid}/>
+            formatTid={this.state.formatTid}
+            voteColors={this.state.voteColors}/>
           {false ? <CommentsGraph
             comments={this.state.comments}
             groupNames={this.state.groupNames}
@@ -488,13 +514,15 @@ class App extends React.Component {
             repfulAgreeTidsByGroup={this.state.repfulAgreeTidsByGroup}
             math={this.state.math}
             renderHeading={true}
-            report={this.state.report}/> : null}
+            report={this.state.report}
+            voteColors={this.state.voteColors}/> : null}
           {globals.enableMatrix && false ? <Matrix
             probabilities={this.state.filteredCorrelationMatrix}
             comments={this.state.comments}
             tids={this.state.filteredCorrelationTids}
             formatTid={this.state.formatTid}
-            ptptCount={this.state.ptptCount}/> : ""}
+            ptptCount={this.state.ptptCount}
+            voteColors={this.state.voteColors}/> : ""}
           <ParticipantsGraph
             comments={this.state.comments}
             groupNames={this.state.groupNames}
@@ -504,7 +532,8 @@ class App extends React.Component {
             repfulAgreeTidsByGroup={this.state.repfulAgreeTidsByGroup}
             math={this.state.math}
             renderHeading={true}
-            report={this.state.report}/>
+            report={this.state.report}
+            voteColors={this.state.voteColors}/>
           {/* <BoxPlot
             groupVotes={this.state.math["group-votes"]}/>*/}
           <AllCommentsModeratedIn
@@ -512,7 +541,8 @@ class App extends React.Component {
             comments={this.state.comments}
             conversation={this.state.conversation}
             ptptCount={this.state.ptptCount}
-            formatTid={this.state.formatTid}/>
+            formatTid={this.state.formatTid}
+            voteColors={this.state.voteColors}/>
           <Footer/>
         </div>
       </div>

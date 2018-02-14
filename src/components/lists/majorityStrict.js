@@ -6,7 +6,7 @@ import style from "../../util/style";
 import CommentList from "./commentList";
 import Legend from "../framework/legend";
 
-const MajorityStrict = ({conversation, comments, ptptCount, consensus, formatTid, math}) => {
+const MajorityStrict = ({conversation, comments, ptptCount, consensus, formatTid, math, voteColors}) => {
 
   if (!conversation) {
     return <div>Loading Majority (strict)...</div>
@@ -31,7 +31,7 @@ const MajorityStrict = ({conversation, comments, ptptCount, consensus, formatTid
         60% or more of all participants voted one way or the other,
         regardless of whether large amounts of certain minority opinion groups voted the other way.
       </p>
-      <Legend/>
+      <Legend voteColors={voteColors}/>
       <div style={{marginTop: 20}}>
       <CommentList
         conversation={conversation}
@@ -39,7 +39,8 @@ const MajorityStrict = ({conversation, comments, ptptCount, consensus, formatTid
         math={math}
         formatTid={formatTid}
         tidsToRender={_consensusTids.sort((a, b) => a - b)}
-        comments={comments}/>
+        comments={comments}
+        voteColors={voteColors}/>
       </div>
     </div>
   );

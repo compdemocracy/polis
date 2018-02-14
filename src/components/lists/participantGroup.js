@@ -17,6 +17,7 @@ const ParticipantGroup = ({
   formatTid,
   groupNames,
   math,
+  voteColors,
 }) => {
 
   let groupLabel = groupName;
@@ -39,7 +40,8 @@ const ParticipantGroup = ({
         math={math}
         formatTid={formatTid}
         tidsToRender={_.map(groupComments, 'tid') /* uncertainTids would be funnier */}
-        comments={comments}/>
+        comments={comments}
+        voteColors={voteColors}/>
 
 
 

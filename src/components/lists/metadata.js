@@ -5,7 +5,7 @@ import CommentList from "./commentList";
 import * as globals from "../globals";
 import style from "../../util/style";
 
-const Metadata = ({conversation, comments, ptptCount, formatTid, math}) => {
+const Metadata = ({conversation, comments, ptptCount, formatTid, math, voteColors}) => {
 
   if (!conversation) {
     return <div>Loading Metadata...</div>
@@ -37,7 +37,8 @@ const Metadata = ({conversation, comments, ptptCount, formatTid, math}) => {
           math={math}
           formatTid={formatTid}
           tidsToRender={_metadataTids.sort((a, b) => a - b) /* es6 ftw */}
-          comments={comments}/>
+          comments={comments}
+          voteColors={voteColors}/>
       </div>
     </div>
   );

@@ -4,7 +4,7 @@ import CommentList from "./commentList";
 import * as globals from "../globals";
 import style from "../../util/style";
 
-const Unanimity = ({conversation, comments, ptptCount, unanimity, formatTid, math}) => {
+const Unanimity = ({conversation, comments, ptptCount, unanimity, formatTid, math, voteColors}) => {
 
   if (!conversation) {
     return <div>Loading Unanimity...</div>
@@ -27,7 +27,8 @@ const Unanimity = ({conversation, comments, ptptCount, unanimity, formatTid, mat
           math={math}
           formatTid={formatTid}
           tidsToRender={unanimity /* uncertainTids would be funnier */}
-          comments={comments}/>
+          comments={comments}
+          voteColors={voteColors}/>
       </div>
     </div>
   );
