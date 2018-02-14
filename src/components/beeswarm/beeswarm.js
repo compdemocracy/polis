@@ -181,10 +181,10 @@ class Beeswarm extends React.Component {
       <div style={{width: this.svgWidth}}>
         <p style={globals.primaryHeading}> How divisive was the conversation? </p>
         <p style={globals.paragraph}>
-          Comments (here as little circles) to the left were voted on the same way—either everyone agreed or everyone disagreed. Comments to the right were divisive—participants were split between agreement and disagreement.
+          Statements (here as little circles) to the left were voted on the same way—either everyone agreed or everyone disagreed. Statements to the right were divisive—participants were split between agreement and disagreement.
         </p>
         <p style={globals.paragraph}>
-          <strong>How to use this:</strong> Hover to see the comment text. Start on the far right to find out what the most divisive statement was.
+          <strong>How to use this:</strong> Hover to see the statement text. Start on the far right to find out what the most divisive statement was.
         </p>
         <p style={{
             fontWeight: 500,
@@ -213,8 +213,8 @@ class Beeswarm extends React.Component {
           <line x1="0" y1={this.svgHeight - 10} x2={this.svgWidth} y2={this.svgHeight - 10} strokeWidth="1" stroke="black"/>
         </svg>
         <div style={{display: "flex", justifyContent: "space-between", margin: 0}}>
-          <p style={{margin: 0}}> Consensus comments </p>
-          <p style={{margin: 0}}> Divisive comments</p>
+          <p style={{margin: 0}}> Consensus statements </p>
+          <p style={{margin: 0}}> Divisive statements</p>
         </div>
         {/*<ProbabilityLegend/>*/}
 

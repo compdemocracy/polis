@@ -18,7 +18,7 @@ const Unanimity = ({conversation, comments, ptptCount, unanimity, formatTid, mat
     <div>
       <p style={globals.primaryHeading}> Consensus </p>
       <p style={globals.paragraph}>
-        There was absolute agreement on the following comments, across all participants and groups.
+        There was absolute agreement on the following statements, across all participants and groups.
       </p>
       <div style={{marginTop: 50}}>
         <CommentList

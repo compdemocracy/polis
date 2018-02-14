@@ -32,7 +32,7 @@ const ParticipantGroup = ({
       <p style={globals.secondaryHeading}>
         {groupLabel}: {groupVotesForThisGroup["n-members"]} participants
       </p>
-      <p style={globals.paragraph}> Comments which make this group unique, by their votes: </p>
+      <p style={globals.paragraph}> Statements which make this group unique, by their votes: </p>
       <CommentList
         conversation={conversation}
         ptptCount={ptptCount}

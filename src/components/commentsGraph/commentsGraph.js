@@ -46,17 +46,17 @@ class CommentsGraph extends React.Component {
     return (
       <div style={{position: "relative"}}>
         <div>
-          <p style={globals.primaryHeading}> Comments </p>
+          <p style={globals.primaryHeading}> Statements </p>
           <p style={globals.paragraph}>
-          How do comments relate to each other? Did people who agreed with one comment also agree with another?
+          How do statements relate to each other? Did people who agreed with one comment also agree with another?
           </p>
           <p style={globals.paragraph}>
-          In this graph, comments that met disagreement are closer together if they were voted on similarly.
-          Those comments which were voted on differently are further apart.
+          In this graph, statements that met disagreement are closer together if they were voted on similarly.
+          Those statements which were voted on differently are further apart.
           </p>
           <p style={Object.assign({}, globals.paragraph, {fontStyle: "italic"})}>
           This is important because it is the basis on which we will lay out and cluster participants in a 2d space in later steps
-          (closer to the comments on which they agreed). There are no meaningful axes, but there are regions of comments that lend a
+          (closer to the statements on which they agreed). There are no meaningful axes, but there are regions of statements that lend a
           certain personality to a given area.
           </p>
         </div>
@@ -64,7 +64,7 @@ class CommentsGraph extends React.Component {
           {
             this.state.selectedComment ?
             "#" + this.state.selectedComment.tid + ". " + this.state.selectedComment.txt :
-            "Click a comment, identified by its number, to explore regions of the graph."
+            "Click a statement, identified by its number, to explore regions of the graph."
           }
         </p>
           <svg

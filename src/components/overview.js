@@ -44,10 +44,10 @@ const Overview = ({
         Pol.is is a real-time survey system that helps identify the different ways a large group of people think about a divisive or complicated topic. Here’s a basic breakdown of some terms you’ll need to know in order to understand this report.
       </p>
       <p style={globals.paragraph}>
-        <strong>Participants:</strong> These are the people who participated in the conversation by voting and commenting. Based on how they voted, each participant is sorted into an opinion group.
+        <strong>Participants:</strong> These are the people who participated in the conversation by voting and writing statements. Based on how they voted, each participant is sorted into an opinion group.
       </p>
       <p style={globals.paragraph}>
-        <strong>Comments:</strong> Participants may submit comments for other participants to vote on. Comments are assigned a number in the order they’re submitted.
+        <strong>Statements:</strong> Participants may submit statements for other participants to vote on. Statements are assigned a number in the order they’re submitted.
       </p>
       <p style={globals.paragraph}>
         <strong>Opinion groups:</strong> Groups are made of participants who voted similarly to each other, and differently from the other groups.
@@ -62,10 +62,10 @@ const Overview = ({
         <Number
           number={ computeVoteTotal(math["user-vote-counts"]) }
           label={"votes were cast"} />
-        <Number number={stats.firstCommentTimes.length} label={"people submitted comments"} />
-        <Number number={math["n-cmts"]} label={"comments were submitted"} />
+        <Number number={stats.firstCommentTimes.length} label={"people submitted statements"} />
+        <Number number={math["n-cmts"]} label={"statements were submitted"} />
         <Number number={computedStats.votesPerVoterAvg.toFixed(2)} label={"votes per voter on average"} />
-        <Number number={computedStats.commentsPerCommenterAvg.toFixed(2)} label={"comments per commenter on average"} />
+        <Number number={computedStats.commentsPerCommenterAvg.toFixed(2)} label={"statements per author on average"} />
 
       </div>
 

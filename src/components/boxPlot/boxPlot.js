@@ -29,8 +29,8 @@ class BoxPlot extends React.Component {
       <div>
         <p style={globals.primaryHeading}> Average level of agreement per group </p>
         <p style={globals.paragraph}>
-          Which group agreed the most, across all comments?
-          The line in the middle of the blue boxes below shows the mean (average) percentage agreement by a given group across all comments.
+          Which group agreed the most, across all statements?
+          The line in the middle of the blue boxes below shows the mean (average) percentage agreement by a given group across all statements.
           The lower the line in the middle of the blue box, the more a group disagreed. The higher the line, the more they agreed.
         </p>
         <p style={globals.paragraph}>
@@ -38,7 +38,7 @@ class BoxPlot extends React.Component {
           This would suggest their views are represented.
         </p>
         <p style={globals.paragraph}>
-          If the colored box is lower, it means the group, on avereage, disagreed on more across all comments.
+          If the colored box is lower, it means the group, on avereage, disagreed on more across all statements.
           A group with a lower than average agreement may be a group that needs to comment more,
           so that its views are properly represented.
         </p>

@@ -134,11 +134,11 @@ class ParticipantsGraph extends React.Component {
         <div>
           <p style={globals.primaryHeading}> Graph </p>
           <p style={globals.paragraph}>
-          Which comments were voted on similarly? How do participants relate to each other?
+          Which statements were voted on similarly? How do participants relate to each other?
           </p>
           <p style={globals.paragraph}>
-            In this graph, comments are positioned more closely to comments which were voted on similarly.
-            Participants, in turn, are positioned more closely to comments on which they agreed,
+            In this graph, statements are positioned more closely to statements which were voted on similarly.
+            Participants, in turn, are positioned more closely to statements on which they agreed,
             and further from statements on which they disagreed.
             This means participants who voted similarly are closer together.
           </p>
@@ -147,7 +147,7 @@ class ParticipantsGraph extends React.Component {
             {
               this.state.selectedComment ?
               "#" + this.state.selectedComment.tid + ". " + this.state.selectedComment.txt :
-              "Click a comment, identified by its number, to explore regions of the graph."
+              "Click a statement, identified by its number, to explore regions of the graph."
             }
           </p>
           <div>
@@ -225,7 +225,7 @@ class ParticipantsGraph extends React.Component {
               marginRight: 20
             }}
             onClick={() => { this.setState({showComments: !this.state.showComments}) }}>
-            Comments
+            Statements
           </button>
           <button
             style={{

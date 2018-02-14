@@ -13,8 +13,8 @@ const Uncertainty = ({conversation, comments, ptptCount, uncertainty, formatTid,
     <div>
       <p style={globals.primaryHeading}> Areas of uncertainty </p>
       <p style={globals.paragraph}>
-        Across all {ptptCount} participants, there was uncertainty about the following comments.
-        Greater than 30% of participants who saw these comments 'passed'.
+        Across all {ptptCount} participants, there was uncertainty about the following statements.
+        Greater than 30% of participants who saw these statements 'passed'.
       </p>
       <p style={globals.paragraph}>
         Areas of uncertainty can provide avenues to educate and open dialogue with your community.

@@ -169,7 +169,7 @@ class CommentList extends React.Component {
             fontWeight: 700,
             fontSize: 14,
             textTransform: "uppercase"
-          }}>Comment</span>
+          }}>Statement</span>
           <span style={{
             position: "absolute",
             top: 2,

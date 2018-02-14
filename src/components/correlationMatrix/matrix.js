@@ -148,7 +148,7 @@ class Matrix extends React.Component {
           given comment also agreed (or disagreed) with another given comment?
         </p>
         <p style={globals.paragraph}>
-          Patterns emerge when we evaluate groups of comments that tended to be voted on similarly.
+          Patterns emerge when we evaluate groups of statements that tended to be voted on similarly.
         </p>
         <p style={globals.paragraph}>
           This is an important bit of math (called a correlation matrix) that goes into making the graph above.
