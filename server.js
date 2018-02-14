@@ -7527,6 +7527,7 @@ Email verified! You can close this tab or hit the back button.
         "is_seed",
         "is_meta",
         "lang",
+        "pid",
       ];
       if (o.moderation) {
         cols.push("velocity");
