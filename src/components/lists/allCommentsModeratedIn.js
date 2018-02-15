@@ -73,7 +73,7 @@ class allCommentsModeratedIn extends React.Component {
         </p>
         <label for="allCommentsSortMode">Sort by: </label>
         <select id="allCommentsSortMode" onChange={this.onSortChanged.bind(this)} value={this.state.sortStyle}>
-          <option value="tid">Comment Id</option>
+          <option value="tid">Statement Id</option>
           <option value="consensus">Group-informed Consensus</option>
           <option value="numvotes">Number of votes</option>
           <option value="pctAgreed">% Agreed</option>

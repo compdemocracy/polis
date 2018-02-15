@@ -82,6 +82,7 @@ class App extends React.Component {
       mod_gt: isStrictMod ? 0 : -1,
       include_social: true,
       include_demographics: true,
+      include_voting_patterns: true,
     });
   }
 
