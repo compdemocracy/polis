@@ -213,6 +213,15 @@ class ConversationConfig extends React.Component {
             color={settings.polisBlue}/>
             <p style={{fontSize: 10, fontStyle: "italic"}}> Show the two explanation modals above voting and the visualization </p>
           <Checkbox
+            label="Prompt participants to subscribe to updates"
+            ref={"subscribe_type"}
+            checked={this.props.zid_metadata.subscribe_type === 1 ? true : false}
+            onCheck={ this.handleIntegerBoolValueChange("subscribe_type").bind(this) }
+            labelPosition={"left"}
+            labelWrapperColor={settings.darkerGray}
+            color={settings.polisBlue}/>
+            <p style={{fontSize: 10, fontStyle: "italic"}}> A prompt is shown to users once they finish voting on all available comments. They may optionally provide their email address to receive notifications when there are new comments to vote on. </p>
+          <Checkbox
             label="Social sharing buttons"
             ref={"socialbtn_type"}
             checked={this.props.zid_metadata.socialbtn_type === 1 ? true : false}
