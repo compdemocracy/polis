@@ -297,11 +297,18 @@ class App extends React.Component {
       let uncertainty = [];
       let unanimity = [];
 
+      let maxCount = _.reduce(comments, (memo, c) => { return Math.max(c.count, memo);}, 1);
       comments.map((c) => {
-        if (c.pass_count / c.count > .3) {
-          uncertainty.push(c.tid);
+        var unc = c.pass_count / c.count
+        if (unc > .3) {
+          c.unc = unc;
+          uncertainty.push(c);
         }
-      })
+      });
+      uncertainty.sort((a, b) => {
+          return (b.unc*b.unc*b.pass_count - a.unc*a.unc*a.pass_count);
+      });
+      uncertainty = uncertainty.slice(0, 5);
 
       comments.map((c) => {
         if (c.disagree_count === 0) {
@@ -337,7 +344,7 @@ class App extends React.Component {
         math: mathResult,
         consensus: mathResult.consensus,
         extremity: extremity,
-        uncertainty: uncertainty,
+        uncertainty: uncertainty.map((c) => {return c.tid;}),
         unanimity: unanimity,
         comments: comments,
         demographics: groupDemographics,
