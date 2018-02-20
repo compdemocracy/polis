@@ -415,6 +415,7 @@ const sql_conversations = sql.define({
     "write_type",
     "help_type",
     "socialbtn_type",
+    "subscribe_type",
     "bgcolor",
     "help_color",
     "help_bgcolor",
@@ -9755,6 +9756,7 @@ Email verified! You can close this tab or hit the back button.
         fields.link_url = req.p.link_url;
       }
 
+      ifDefinedSet("subscribe_type", req.p, fields);
 
       let q = sql_conversations.update(
           fields
