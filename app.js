@@ -869,6 +869,7 @@ helpersInitialized.then(function(o) {
     want('tool_consumer_instance_guid', getOptionalStringLimitLength(999), assignToP),
     want('custom_canvas_assignment_id', getInt, assignToP),
     want('link_url', getStringLimitLength(1, 9999), assignToP),
+    want('subscribe_type', getInt, assignToP),
     handle_PUT_conversations);
 
 
