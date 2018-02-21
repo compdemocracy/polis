@@ -13121,6 +13121,10 @@ CREATE TABLE slack_user_invites (
     return getServerNameWithProtocol(req) + "/" + zinvite;
   }
 
+  function buildConversationDemoUrl(req, zinvite) {
+    return getServerNameWithProtocol(req) + "/demo/" + zinvite;
+  }
+
   function buildModerationUrl(req, zinvite) {
     return getServerNameWithProtocol(req) + "/m/" + zinvite;
   }
@@ -14131,6 +14135,7 @@ CREATE TABLE slack_user_invites (
     site_id = site_id[0];
     page_id = page_id[1];
 
+    let demo = req.p.demo;
     let ucv = req.p.ucv;
     let ucw = req.p.ucw;
     let ucsh = req.p.ucsh;
@@ -14236,7 +14241,9 @@ CREATE TABLE slack_user_invites (
       if (!rows || !rows.length) {
         // conv not initialized yet
         initializeImplicitConversation(site_id, page_id, o).then(function(conv) {
-          let url = buildConversationUrl(req, conv.zinvite);
+          let url = _.isUndefined(demo) ?
+            buildConversationUrl(req, conv.zinvite) :
+            buildConversationDemoUrl(req, conv.zinvite);
           let modUrl = buildModerationUrl(req, conv.zinvite);
           let seedUrl = buildSeedUrl(req, conv.zinvite);
           sendImplicitConversationCreatedEmails(site_id, page_id, url, modUrl, seedUrl).then(function() {
