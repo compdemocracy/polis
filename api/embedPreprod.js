@@ -90,12 +90,20 @@
   function createPolisIframe(parent, o) {
     var iframe = document.createElement("iframe");
     var path = [];
-    if (o.demo) {
-      path.push("demo");
-    }
     o.parent_url = o.parent_url || window.location+"";
     var id = "polis_";
+    var paramStrings = [];
+
+    function appendIfPresent(name) {
+      if (o[name] !== null && o[name] !== void 0) {
+        paramStrings.push(name + "=" + encodeURIComponent(o[name]));
+      }
+    }
+
     if (o.conversation_id) {
+      if (o.demo) {
+        path.push("demo");
+      }
       path.push(o.conversation_id);
       id += o.conversation_id;
     } else if (o.site_id) {
@@ -107,18 +115,12 @@
       }
       path.push(o.page_id);
       id += "_" + o.page_id;
+      appendIfPresent("demo");
     } else {
       alert("Error: need data-conversation_id or data-site_id");
       return;
     }
     var src = polisUrl+ "/" + path.join("/");
-    var paramStrings = [];
-
-    function appendIfPresent(name) {
-      if (o[name] !== null && o[name] !== void 0) {
-        paramStrings.push(name + "=" + encodeURIComponent(o[name]));
-      }
-    }
 
     appendIfPresent("parent_url");
     if (o.parent_url) {

@@ -89,7 +89,7 @@ module.exports = function(params) {
 
   // collections
   var votesByMe = params.votesByMe;
-  if (demoMode()) {
+  if (Utils.isDemoMode()) {
     votesByMe.trigger("change", votesByMe);
   }
 
@@ -126,10 +126,6 @@ module.exports = function(params) {
 
   var usePreloadMath = true;
   var usePreloadFamous = true;
-
-  function demoMode() {
-    return getPid() < 0;
-  }
 
   function removeEmptyBucketsFromClusters(clusters) {
     var buckets = projectionPeopleCache;
@@ -274,8 +270,7 @@ module.exports = function(params) {
       params.lang = Utils.uiLanguage();
     }
 
-    if (demoMode()) {
-      // DEMO_MODE
+    if (Utils.isDemoMode()) {
       params.without = votesByMe.pluck("tid");
     }
 
@@ -316,7 +311,7 @@ module.exports = function(params) {
   function submitComment(model) {
 
 
-    if (demoMode()) {
+    if (Utils.isDemoMode()) {
       return $.Deferred().resolve();
     }
 
@@ -376,7 +371,7 @@ module.exports = function(params) {
       console.error("missing tid");
       console.error(params);
     }
-    if (demoMode()) {
+    if (Utils.isDemoMode()) {
       return getNextComment({
         notTid: params.tid // Also don't show the comment that was just voted on.
       }).then(function(c) {
@@ -447,7 +442,7 @@ module.exports = function(params) {
   function trash(tid) {
     clearComment(tid, "trash");
 
-    if (demoMode()) {
+    if (Utils.isDemoMode()) {
       return $.Deferred().resolve();
     }
 
@@ -471,8 +466,7 @@ module.exports = function(params) {
       console.error(params);
     }
 
-    // DEMO_MODE
-    if (getPid() < 0) {
+    if (Utils.isDemoMode()) {
       return $.Deferred().resolve();
     }
 
@@ -1544,7 +1538,7 @@ module.exports = function(params) {
     people = people || [];
     people = _.clone(people); // shallow copy
 
-    // if(demoMode()) {
+    // if(Utils.isDemoMode()) {
     //     participantsOfInterestVotes[myPid] = {
     //         bid: -1,
     //         // created: "1416276055476"
