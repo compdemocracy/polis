@@ -337,7 +337,7 @@ class App extends React.Component {
         return memo + num;
       }, 0);
       const computedStats = {
-        votesPerVoterAvg: totalVotes / ptptCount,
+        votesPerVoterAvg: totalVotes / ptptCountTotal,
         commentsPerCommenterAvg: comments.length / numUniqueCommenters,
       };
 
