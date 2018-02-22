@@ -18,7 +18,7 @@ const computeUniqueCommenters = (comments) => {
 }
 
 const Number = ({number, label}) => (
-  <div>
+  <div style={{marginLeft: "10px", marginRight: "10px"}}>
     <p style={globals.overviewNumber}>
       {number.toLocaleString()}
     </p>
