@@ -22,9 +22,9 @@ class Nav extends React.Component {
   // }
 
   render() {
-    return <nav role="banner" className="fixed bg-blue top-0 left-0 right-0 bg-white z-1 w-100 ph3 ph4-ns pv3">
-        <div className="flex flex-wrap justify-end items-center">
-          <Logo width="60px" height="32px" className="mra" />
+    return <nav role="banner" className="fixed bg-blue top-0 left-0 right-0 bg-white z-1 w-100 ph3 ph4-ns pv2">
+        <div className="mw9 center flex flex-wrap justify-end items-center">
+          <Logo width="50px" className="mra" />
           <a href="/signin" className="link mr4 white">
             {t.signin}
           </a>

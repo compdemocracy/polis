@@ -4,7 +4,7 @@ const t = {
   logo_title: "Buoy Logo"
 };
 
-const Logo = ({ width, height, invert = true, className }) => (
+const Logo = ({ width, height="auto", invert = true, className }) => (
   <a href="/" className={className}>
     <svg width={width} height="{height}" viewBox="0 0 87 100">
       <title>Polis</title>
