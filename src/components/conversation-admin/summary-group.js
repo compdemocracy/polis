@@ -2,16 +2,9 @@
 
 import React from "react";
 import Radium from "radium";
-// import _ from "lodash";
-import Flex from "../framework/flex";
-// import { connect } from "react-redux";
-// import { FOO } from "../actions";
 import Comment from "./summary-comment";
-import Awesome from "react-fontawesome";
 
-// @connect(state => {
-//   return state.FOO;
-// })
+
 @Radium
 class SummaryGroup extends React.Component {
   constructor(props) {
@@ -23,15 +16,10 @@ class SummaryGroup extends React.Component {
   }
   static propTypes = {
     /* react */
-    // dispatch: React.PropTypes.func,
     params: React.PropTypes.object,
     routes: React.PropTypes.array,
     /* component api */
     style: React.PropTypes.object,
-    // foo: React.PropTypes.string
-  }
-  static defaultProps = {
-    // foo: "bar"
   }
   getStyles() {
     return {
@@ -55,7 +43,6 @@ class SummaryGroup extends React.Component {
       const percent = agree ?
         Math.floor(groupVotes.A / groupVotes.S * 100) :
         Math.floor(groupVotes.D / groupVotes.S * 100);
-      // if (this.state.pagination === i) {
         return (
           <Comment
             key={i}
@@ -66,7 +53,6 @@ class SummaryGroup extends React.Component {
             {...comment}
             {...comments[comment.tid]}/>
         )
-      // }
     })
   }
   render() {
@@ -92,10 +78,3 @@ class SummaryGroup extends React.Component {
 }
 
 export default SummaryGroup;
-
-// <Awesome name="users"/>
-// {` `}
-// {`Group `}
-// {``}
-// {": "}
-// {` participants`}

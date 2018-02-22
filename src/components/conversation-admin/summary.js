@@ -39,11 +39,8 @@ class Summary extends React.Component {
     style: React.PropTypes.object,
     math: React.PropTypes.object,
     comments: React.PropTypes.object
-    // foo: React.PropTypes.string
   }
-  static defaultProps = {
-    // foo: "bar"
-  }
+
   componentWillMount() {
     this.props.dispatch(populateCommentsStore(this.props.params.conversation_id));
     this.props.dispatch(populateMathStore(this.props.params.conversation_id));

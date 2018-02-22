@@ -21,7 +21,6 @@ class SidebarContentHome extends React.Component {
     routes: React.PropTypes.array,
     /* component api */
     styles: React.PropTypes.object,
-    // foo: React.PropTypes.string
   }
   onNewClicked() {
     this.props.dispatch(handleCreateConversationSubmit());
@@ -66,10 +65,6 @@ class SidebarContentHome extends React.Component {
             selected={this.props.routes[1] && this.props.routes[1].path === "account"}
             icon="credit-card"
             text="Account"/>
-
-          {/*<a style={Object.assign({}, s.sidebarLink, {marginTop: 40})} target="blank" href="http://docs.pol.is">
-            <span style={{marginRight: 10}}>Docs</span><Awesome name="external-link"/>
-          </a>*/}
           <Link
             style={s.sidebarLink}
             to={"/signout"}>
@@ -82,22 +77,3 @@ class SidebarContentHome extends React.Component {
 }
 
 export default SidebarContentHome;
-
-/*
-  Todo
-    make new button point to config of fresh convo
-*/
-
-// <p>
-//   <Awesome name="home" style={{fontSize: 24, cursor: "pointer"}}/>
-//   Polis Home
-// </p>
-// <div>
-//   { this.props.user ? this.props.user.hname : /*<Spinner/>*/ "o" }
-// </div>
-
-// <Link
-//   style={s.sidebarLink}
-//   to="/overall-stats">
-//   Overall Stats
-// </Link>

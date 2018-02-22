@@ -21,12 +21,11 @@ class Press extends React.Component {
   }
   static propTypes = {
     /* react */
-    // dispatch: React.PropTypes.func,
+
     params: React.PropTypes.object,
     routes: React.PropTypes.array,
     /* component api */
     style: React.PropTypes.object,
-    // foo: React.PropTypes.string
   }
   static defaultProps = {
     // foo: "bar"
@@ -37,8 +36,6 @@ class Press extends React.Component {
         backgroundColor: "rgb(247,247,247)",
         color: "darkgray",
         width: "100%",
-        // "@media (min-width: 768px)": {
-        // }
       },
       article: {
         padding: 30
@@ -69,12 +66,6 @@ class Press extends React.Component {
               style={this.getStyles().newsLogo}
               src="http://cdn.geekwire.com/wp-content/uploads/2015/02/GeekWire-logo-transparent.png"/>
           </a>
-          {/*<a style={this.getStyles().article} href="http://m.media.daum.net/m/media/world/newsview/20160302145809114">
-            <img
-              key="2"
-              style={this.getStyles().newsLogo}
-              src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Daum_communication_logo.svg/2000px-Daum_communication_logo.svg.png"/>
-          </a>*/}
           <a style={this.getStyles().article} href="http://www.poynter.org/2016/here-are-27-ways-to-think-about-comments/401728/">
             <img
               key="3"

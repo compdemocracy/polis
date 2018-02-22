@@ -11,9 +11,6 @@ import BackgroundStars from "./background-stars";
 import Header from "./static-content-header";
 import Footer from "./static-content-footer";
 
-// @connect(state => {
-//   return state.FOO;
-// })
 @Radium
 class StaticContentContainer extends React.Component {
   constructor(props) {
@@ -29,7 +26,6 @@ class StaticContentContainer extends React.Component {
     routes: React.PropTypes.array,
     /* component api */
     style: React.PropTypes.object,
-    // foo: React.PropTypes.string
   }
   static defaultProps = {
     image: true,

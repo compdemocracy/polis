@@ -2,8 +2,6 @@
 
 import React from "react";
 import Radium from "radium";
-// import _ from "lodash";
-// import Flex from "./framework/flex";
 import {Link} from "react-router";
 import Awesome from "react-fontawesome";
 import {s} from "./framework/global-styles";
@@ -18,7 +16,6 @@ class SidebarItem extends React.Component {
   }
   static propTypes = {
     /* react */
-    // dispatch: React.PropTypes.func,
     params: React.PropTypes.object,
     routes: React.PropTypes.array,
     /* component api */
@@ -33,7 +30,6 @@ class SidebarItem extends React.Component {
   }
   getStyles() {
     let color = {
-      // color: this.props.selected ? "rgb(3, 169, 244)" : "black",
       fontWeight: this.props.selected ? 500 : 300,
     };
     let disabled = Object.assign({}, color, {

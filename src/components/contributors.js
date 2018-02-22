@@ -25,16 +25,12 @@ class ComponentName extends React.Component {
   }
   static propTypes = {
     /* react */
-    // dispatch: React.PropTypes.func,
     params: React.PropTypes.object,
     routes: React.PropTypes.array,
     /* component api */
     style: React.PropTypes.object,
-    // foo: React.PropTypes.string
   }
-  static defaultProps = {
-    // foo: "bar"
-  }
+
   getStyles() {
     return {
       base: {

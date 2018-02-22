@@ -2,18 +2,12 @@
 
 import React from 'react';
 import Radium from 'radium';
-// import _ from 'lodash';
 import Flex from '../framework/flex';
-// import { connect } from 'react-redux';
-// import { FOO } from '../actions';
 import Awesome from "react-fontawesome";
 import VerifiedTwitterIcon from "../framework/verified-twitter-icon";
 import colors from "../framework/colors";
 import Barchart from "./summary-comment-barchart";
 
-// @connect(state => {
-//   return state.FOO;
-// })
 @Radium
 class SummaryComment extends React.Component {
   constructor(props) {
@@ -24,19 +18,14 @@ class SummaryComment extends React.Component {
   }
   static propTypes = {
     /* react */
-    // dispatch: React.PropTypes.func,
     params: React.PropTypes.object,
     routes: React.PropTypes.array,
     /* component api */
     style: React.PropTypes.object,
     fb_name: React.PropTypes.string,
     social: React.PropTypes.object,
-    // foo: React.PropTypes.string
   }
-  static defaultProps = {
-    // foo: "bar"
-  }
-
+  
   getRealName() {
     let name = "";
 
@@ -117,11 +106,6 @@ class SummaryComment extends React.Component {
         top: 10,
         marginRight: 7,
       },
-      icons: {
-        // marginLeft: this.props.social ? 8 : 0
-        // marginLeft: 8
-
-      },
       name: {
         fontStyle: "italic"
       },
@@ -140,9 +124,6 @@ class SummaryComment extends React.Component {
       },
       percent: {
         color: this.props.agree ? "rgb(46, 204, 113)" : "rgb(231, 76, 60)",
-        // padding: "3px 6px",
-        // borderRadius: 3,
-        // color: "white"
       },
       percentContainer: {
         marginRight: 15,
@@ -160,8 +141,6 @@ class SummaryComment extends React.Component {
     };
   }
   render() {
-    // social={comments[comment.tid].social}
-    // comment={comments[comment.tid].txt}
     const styles = this.getStyles();
     return (
       <Flex
@@ -182,7 +161,7 @@ class SummaryComment extends React.Component {
           <span style={styles.name}>
             {this.props.social ? this.getRealName() : "Anonymous"}
           </span>
-          <span style={styles.icons}>
+          <span>
             {this.props.social ? " • " : ""}
             {this.props.social && this.props.social.fb_user_id ? this.facebookIcon() : ""}
             {this.props.social && this.props.social.followers_count ? this.followers() : ""}

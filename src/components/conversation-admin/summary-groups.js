@@ -20,16 +20,12 @@ class SummaryGroups extends React.Component {
   }
   static propTypes = {
     /* react */
-    // dispatch: React.PropTypes.func,
     params: React.PropTypes.object,
     routes: React.PropTypes.array,
     /* component api */
     style: React.PropTypes.object,
-    // foo: React.PropTypes.string
   }
-  static defaultProps = {
-    // foo: "bar"
-  }
+
   getStyles() {
     return {
       base: {
@@ -49,7 +45,6 @@ class SummaryGroups extends React.Component {
     };
   }
   groups() {
-    // const comments = this.props.comments.comments;
     const math = this.props.math.math;
     return _.map(math["repness"], (comments, i) => {
       return (

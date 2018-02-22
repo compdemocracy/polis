@@ -2,15 +2,8 @@
 
 import React from "react";
 import Radium from "radium";
-// import _ from "lodash";
 import Flex from "../framework/flex";
-// import { connect } from "react-redux";
-// import { FOO } from "../actions";
 
-
-// @connect(state => {
-//   return state.FOO;
-// })
 @Radium
 class Benefit extends React.Component {
   constructor(props) {
@@ -21,16 +14,12 @@ class Benefit extends React.Component {
   }
   static propTypes = {
     /* react */
-    // dispatch: React.PropTypes.func,
     params: React.PropTypes.object,
     routes: React.PropTypes.array,
     /* component api */
     style: React.PropTypes.object,
-    // foo: React.PropTypes.string
   }
-  static defaultProps = {
-    // foo: "bar"
-  }
+
   getStyles() {
     return {
       section: {
@@ -44,8 +33,6 @@ class Benefit extends React.Component {
       stepText: {
         fontSize: "2.2em",
         margin: 0,
-        // backgroundColor: "#03a9f4",
-        // color: "rgb(180,180,180)",
         color: "rgb(130,130,130)",
         padding: 10,
         borderRadius: 100,
