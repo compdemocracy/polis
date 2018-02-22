@@ -27,14 +27,10 @@ const styles = {
 class Participant extends React.Component {
   static propTypes = {
     /* react */
-    // dispatch: React.PropTypes.func,
     params: React.PropTypes.object
     /* component api */
-    // foo: React.PropTypes.string
   }
-  static defaultProps = {
-    // foo: "bar"
-  }
+
   onFeatureClicked() {
     this.props.featureClickHandler(this.props.participant)
   }

@@ -2,16 +2,9 @@
 
 import React from "react";
 import Radium from "radium";
-import _ from "lodash";
-import Flex from "../framework/flex";
-// import { connect } from "react-redux";
-// import { FOO } from "../actions";
 import Comment from "./summary-comment";
 
 
-// @connect(state => {
-//   return state.FOO;
-// })
 @Radium
 class SummaryConsensus extends React.Component {
   constructor(props) {
@@ -22,16 +15,12 @@ class SummaryConsensus extends React.Component {
   }
   static propTypes = {
     /* react */
-    // dispatch: React.PropTypes.func,
     params: React.PropTypes.object,
     routes: React.PropTypes.array,
     /* component api */
     style: React.PropTypes.object,
-    // foo: React.PropTypes.string
   }
-  static defaultProps = {
-    // foo: "bar"
-  }
+
   getStyles() {
     return {
       base: {
@@ -65,7 +54,6 @@ class SummaryConsensus extends React.Component {
     const math = this.props.math.math;
     const styles = this.getStyles();
     return math.consensus.agree.map((comment, i) => {
-      // if (this.state.pagination === i) {
         return (
           <Comment
             key={i}
@@ -75,7 +63,6 @@ class SummaryConsensus extends React.Component {
             {...comment}
             {...comments[comment.tid]} />
         );
-      // }
     });
   }
   getConsensusDisagreeComments() {
@@ -83,15 +70,13 @@ class SummaryConsensus extends React.Component {
     const math = this.props.math.math;
     const styles = this.getStyles();
     return math.consensus.disagree.map((comment, i) => {
-      // if (this.state.pagination === i) {
-        return (
-          <Comment
-            key={i}
-            majority={true}
-            {...comment}
-            {...comments[comment.tid]} />
-        );
-      // }
+      return (
+        <Comment
+          key={i}
+          majority={true}
+          {...comment}
+          {...comments[comment.tid]} />
+      );
     });
   }
   render() {

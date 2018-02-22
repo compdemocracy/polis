@@ -2,15 +2,12 @@
 
 import React from "react";
 import { connect } from "react-redux";
-// import { populateAcceptedCommentsStore, changeCommentStatusToRejected } from '../../actions';
 import Radium from "radium";
-import _ from "lodash";
 import {VictoryChart} from "victory-chart";
 import {VictoryLine} from "victory-line";
 import {VictoryBar} from "victory-bar";
 import {VictoryAxis} from "victory-axis";
 
-// @connect(state => state.stats)
 @Radium
 class CommentersVoters extends React.Component {
   static propTypes = {
