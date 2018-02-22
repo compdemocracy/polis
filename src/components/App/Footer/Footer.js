@@ -8,12 +8,13 @@ import ListItem from "../../Core/List/ListItem";
 const Footer = ({ social, content, data }) => {
   const date = new Date();
   const currentYear = date.getFullYear();
-
+  
   return (
     <footer
-      role="contentinfo"
+    role="contentinfo"
+    className="bg-blue white"
     >
-    <div className="bg-blue white pl3 pl4-ns pr4 pr6-l pt4 pb5 mt5 flex flex-column flex-row-ns justify-between items-start cb">
+    <div className="mw9 center pl3 pl4-ns pr4 pr6-l pt4 pb5 mt5 flex flex-column flex-row-ns justify-between items-start cb">
 
       <Logo width="60px" height="32px" />
 
@@ -33,15 +34,17 @@ const Footer = ({ social, content, data }) => {
       ))}
     </div>
       <div className="f6 w-100 w-auto-ns bg-dark-blue flex justify-end items-center ph3 ph4-ns pv3">
-        <p className="mra white">&copy; {currentYear} {data.copyright }</p>
-        {social.map((url, i) => (
-          <SocialIcon
+        <div className="mw9 center">
+          <p className="mra white mb3">&copy; {currentYear} {data.copyright }</p>
+          {social.map((url, i) => (
+            <SocialIcon
             key={`icon-${i}`}
             url={url}
             color="white"
             className="mr3"
-          />
-        ))}
+            />
+          ))}
+        </div>
       </div>
     </footer>
   );
@@ -50,6 +53,6 @@ const Footer = ({ social, content, data }) => {
 Footer.propTypes = {
   social: PropTypes.array.isRequired,
   content: PropTypes.array.isRequired
-};
+}
 
 export default Footer;
