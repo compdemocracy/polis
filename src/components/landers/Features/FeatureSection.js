@@ -47,8 +47,9 @@ const FeatureSection = ({ data }) => {
       </header>
 
       <div className="flex flex-column flex-row-ns flex-wrap-ns mw7-ns center ph4-ns">
-        {localData.values.props.map(item => (
+        {localData.values.props.map((item, i) => (
           <PropItem
+            key={`feature-${i}`}
             src={item.src}
             headline={item.headline}
             teaser={item.teaser}
@@ -56,10 +57,6 @@ const FeatureSection = ({ data }) => {
         ))}
       </div>
     </section>;
-};
-
-FeatureSection.propTypes = {
-  // data: PropTypes.object.isRequired
 };
 
 export default FeatureSection;
