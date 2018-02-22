@@ -214,8 +214,11 @@ class App extends React.Component {
 
       let indexToTid = mathResult.tids;
 
+      // # ptpts that voted
+      var ptptCountTotal = conversation.participant_count;
 
 
+      // # ptpts that voted enough to be included in math
       var ptptCount = 0;
       _.each(mathResult["group-votes"], (val, key) => {
         ptptCount += val["n-members"];
@@ -351,6 +354,7 @@ class App extends React.Component {
         participants: participants,
         conversation: conversation,
         ptptCount: ptptCount,
+        ptptCountTotal: ptptCountTotal,
         filteredCorrelationMatrix: filteredProbabilities,
         filteredCorrelationTids: filteredTids,
         badTids: badTids,
@@ -462,6 +466,7 @@ class App extends React.Component {
             math={this.state.math}
             comments={this.state.comments}
             ptptCount={this.state.ptptCount}
+            ptptCountTotal={this.state.ptptCountTotal}
             demographics={this.state.demographics}
             conversation={this.state.conversation}
             voteColors={this.state.voteColors}/>

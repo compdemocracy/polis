@@ -32,6 +32,7 @@ const Overview = ({
   conversation,
   demographics,
   ptptCount,
+  ptptCountTotal,
   math,
   comments,
   stats,
@@ -58,7 +59,9 @@ const Overview = ({
         {conversation && conversation.topic ? "The topic was '"+conversation.topic+"'. " : null}
       </p>
       <div style={{maxWidth: 1200, display: "flex", justifyContent: "space-between"}}>
-        <Number number={ptptCount} label={"people voted"} />
+        <Number number={ptptCountTotal} label={"people voted"} />
+        <Number number={ptptCount} label={"people grouped"} />
+
         <Number
           number={ computeVoteTotal(math["user-vote-counts"]) }
           label={"votes were cast"} />
