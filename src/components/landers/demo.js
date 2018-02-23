@@ -11,15 +11,27 @@ import FormField from "../Core/Form/FormField";
 
 import LanderContainer from "../App/Container/LanderContainer";
 import ContainerInner from "../App/Container/ContainerInner";
+
 import PolisNet from "../../util/net";
+import strings from "../../strings/strings";
+
+let defaultState = {
+  successTextUpper: "",
+  errorTextUpper: "",
+};
+
 
 @connect()
 class Demo extends React.Component {
-  handleGetStartedClicked(r) {
-    return () => {
-      browserHistory.push(r);
+  constructor(props) {
+    super(props);
+    this.state = {
+      successTextUpper : "",
+      errorTextUpper : "",
     };
   }
+
+
 
   handleJoinWaitingList() {
     this.doHandleJoinWaitingListClicked({
@@ -53,7 +65,7 @@ class Demo extends React.Component {
   maybeErrorMessage(text) {
     let markup = "";
     if (text) {
-      markup = <div style={this.styles().error}>{strings(text)}</div>;
+      markup = <div>{strings(text)}</div>;
     }
     return markup;
   }
@@ -61,7 +73,7 @@ class Demo extends React.Component {
   maybeSuccessMessage(text) {
     let markup = "";
     if (text) {
-      markup = <div style={this.styles().success}>{strings(text)}</div>;
+      markup = <div>{strings(text)}</div>;
     }
     return markup;
   }
@@ -73,46 +85,46 @@ class Demo extends React.Component {
         <header>
           <h1>Request a Demo</h1>
         </header>
-        <form className="">
-          <FormField>
-            <input
-              placeholder="Name"
-              ref="nameupper"
-              type="text"
-            />
-          </FormField>
-          <FormField>
-            <input
-              placeholder="Email"
-              ref="emailupper"
-              type="text"
-            />
-          </FormField>
-          <FormField>
-            <input
-              placeholder="Organization"
-              ref="affiliationupper"
-              type="text"
-            />
-          </FormField>
-          <FormField>
-            <input
-              placeholder="Role"
-              ref="roleupper"
-              type="text"
-            />
-          </FormField>
+        <FormField>
+          <input
+            placeholder="Name"
+            ref="nameupper"
+            type="text"
+          />
+        </FormField>
+        <FormField>
+          <input
+            placeholder="Email"
+            ref="emailupper"
+            type="text"
+          />
+        </FormField>
+        <FormField>
+          <input
+            placeholder="Organization"
+            ref="affiliationupper"
+            type="text"
+          />
+        </FormField>
+        <FormField>
+          <input
+            placeholder="Role"
+            ref="roleupper"
+            type="text"
+          />
+        </FormField>
 
           <Button
             onClick={this.handleJoinWaitingList.bind(this)}
           >
             Get in touch
           </Button>
-          {/* <div style={{ margin: 10 }}>
+
+          <div style={{ margin: 10 }}>
             {this.maybeErrorMessage(this.state.errorTextUpper)}
             {this.maybeSuccessMessage(this.state.successTextUpper)}
-          </div> */}
-        </form>
+          </div>
+
         </ContainerInner>
       </LanderContainer>
     );
