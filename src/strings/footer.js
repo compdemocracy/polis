@@ -21,7 +21,7 @@ export default {
         links: [
           {
             title: "FAQ",
-            url: "https://pol.is/company"
+            url: "https://intercom.help/polis/frequently-asked-questions/polis-faq"
           }
         ]
       },
