@@ -4,11 +4,13 @@ import React from "react";
 import { connect } from "react-redux";
 import { doSignin, doFacebookSignin } from "../actions";
 import Radium from "radium";
-import Flex from "./framework/flex";
-import Button from "./framework/generic-button";
-import Awesome from "react-fontawesome";
 import {Link} from "react-router";
+import { SocialIcon } from "tachyons-react-social-icons";
+
+import Button from "./framework/generic-button";
 import LanderContainer from "./App/Container/LanderContainer";
+import ContainerInner from "./App/Container/ContainerInner";
+
 import strings from "../strings/strings";
 
 const styles = {
@@ -106,8 +108,8 @@ class SignIn extends React.Component {
   }
   drawLoginForm() {
     return (
-      <div>
-        <form>
+      <div className="w-100 w-50-ns">
+        <form className="mb4">
           <input
             style={styles.input}
             ref="email"
@@ -122,29 +124,31 @@ class SignIn extends React.Component {
           <Button style={styles.button} onClick={this.handleLoginClicked.bind(this)}>
             {this.props.pending ? "Signing in..." : "Sign In"}
           </Button>
-        </form>
-        <p style={styles.termsSmallprint}>
-          {
-            "If you click 'Sign in with Facebook' and are not a pol.is user, you will be registered and you agree to the pol.is terms and privacy policy"
-          }
-        </p>
-        <Button
-          style={styles.facebookButton}
-          onClick={this.facebookButtonClicked.bind(this)}>
-          <Awesome style={{
-            color: "#3b5998",
-            backgroundColor: "rgb(255,255,255)",
-            padding: "3px 5px",
-            borderRadius: 3,
-          }} name="facebook"/>
-          <span style={{marginLeft: 10}}>{"Sign in with Facebook"}</span>
-        </Button>
-
-        <div style={styles.signupContainer}>
+        <p style={styles.signupContainer}>
           {"Forgot your password? "}
           <Link style={styles.signupLink} to={"/pwresetinit"}>
             Reset Password
           </Link>
+        </p>
+
+        </form>
+        <div className="bt b--light-gray pt3">
+          <Button
+            style={styles.facebookButton}
+            onClick={this.facebookButtonClicked.bind(this)}>
+              <SocialIcon
+                key="icon-facebook"
+                network="facebook"
+                color="white"
+                className="mr3"
+              />          
+            <span>{"Sign in with Facebook"}</span>
+          </Button>
+          <p className="mt4 mb3 lh-copy">
+            {
+              "If you click 'Sign in with Facebook' and are not a pol.is user, you will be registered and you agree to the pol.is terms and privacy policy"
+            }
+          </p>
         </div>
       </div>
     )
@@ -192,14 +196,16 @@ class SignIn extends React.Component {
   render() {
     return (
       <LanderContainer>
+        <ContainerInner>
+          <header>
+            <h1>Sign in</h1>
+          </header>
 
-        <h1>Sign In</h1>
-
-        {
-          this.props.facebookError !== "polis_err_user_with_this_email_exists" ?
-            this.drawLoginForm() : this.drawPasswordConnectFacebookForm()
-        }
-
+          {
+            this.props.facebookError !== "polis_err_user_with_this_email_exists" ?
+              this.drawLoginForm() : this.drawPasswordConnectFacebookForm()
+          }
+        </ContainerInner>
       </LanderContainer>
     );
   }
