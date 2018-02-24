@@ -8,13 +8,10 @@ import Radium from "radium";
 import Flex from "./framework/flex";
 import Button from "./framework/generic-button";
 import Awesome from "react-fontawesome";
-import StaticContentContainer from "./framework/static-content-container";
+import LanderContainer from "./App/Container/LanderContainer";
 import ContainerInner from "./App/Container/ContainerInner";
 
 const styles = {
-  button: {
-    backgroundColor: "cornflowerblue"
-  },
   input: {
     display: "block",
     margin: "20px 0px",
@@ -52,7 +49,7 @@ class SignIn extends React.Component {
             <form>
               <input style={styles.input} ref="password" placeholder="new password" type="password" />
               <input style={styles.input} ref="passwordRepeat" placeholder="repeat new password" type="password" />
-              <Button style={styles.button} onClick={this.handleClick.bind(this)}>
+              <Button onClick={this.handleClick.bind(this)}>
                 Set new password
               </Button>
             </form>
