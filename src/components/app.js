@@ -14,7 +14,6 @@ import Footer from "./framework/Footer";
 import Overview from "./overview";
 import MajorityStrict from "./lists/majorityStrict";
 import Uncertainty from "./lists/uncertainty";
-import Unanimity from "./lists/unanimity";
 import AllCommentsModeratedIn from "./lists/allCommentsModeratedIn"
 import ParticipantGroups from "./lists/participantGroups";
 import CommentsGraph from "./commentsGraph/commentsGraph";
@@ -313,12 +312,6 @@ class App extends React.Component {
       });
       uncertainty = uncertainty.slice(0, 5);
 
-      comments.map((c) => {
-        if (c.disagree_count === 0) {
-          unanimity.push(c.tid);
-        }
-      })
-
       let extremity = {};
       _.each(mathResult.pca["comment-extremity"], function(e, index) {
         extremity[indexToTid[index]] = e;
@@ -348,7 +341,6 @@ class App extends React.Component {
         consensus: mathResult.consensus,
         extremity: extremity,
         uncertainty: uncertainty.map((c) => {return c.tid;}),
-        unanimity: unanimity,
         comments: comments,
         demographics: groupDemographics,
         participants: participants,
@@ -482,14 +474,6 @@ class App extends React.Component {
             <p style={globals.primaryHeading}>Consensus</p>
             <p style={globals.primaryHeading}>Inclusive Majority</p>
           */}
-          <Unanimity
-            math={this.state.math}
-            comments={this.state.comments}
-            unanimity={this.state.unanimity}
-            conversation={this.state.conversation}
-            ptptCount={this.state.ptptCount}
-            formatTid={this.state.formatTid}
-            voteColors={this.state.voteColors}/>
           <MajorityStrict
             math={this.state.math}
             conversation={this.state.conversation}
