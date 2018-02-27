@@ -256,6 +256,7 @@ gulp.task('index', [
       basepath: basepath,
       basepath_visbundle: basepath_visbundle_dev,
       d3Filename: 'd3.js',
+      fbAppId: polisConfig.FB_APP_ID,
       useIntercom: !isTrue(polisConfig.DISABLE_INTERCOM),
       versionString: versionString,
       domainWhitelist: domainWhitelist,
@@ -266,6 +267,7 @@ gulp.task('index', [
       basepath: basepath, // proxy through server (cached by cloudflare, and easier than choosing a bucket for preprod, etc)
       basepath_visbundle: basepath,
       d3Filename: 'd3.min.js',
+      fbAppId: polisConfig.FB_APP_ID,
       useIntercom: !isTrue(polisConfig.DISABLE_INTERCOM),
       versionString: versionString,
       domainWhitelist: domainWhitelist,
