@@ -471,6 +471,7 @@ class App extends React.Component {
             conversation={this.state.conversation}
             voteColors={this.state.voteColors}/>
           <Beeswarm
+            conversation={this.state.conversation}
             extremity={this.state.extremity}
             math={this.state.math}
             comments={this.state.comments}

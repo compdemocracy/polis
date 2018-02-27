@@ -1,4 +1,5 @@
 import React from "react";
+import CommentList from "../lists/commentList";
 import drawBeeswarm from "./drawBeeswarm";
 import * as globals from "../globals";
 import _ from "lodash";
@@ -186,18 +187,6 @@ class Beeswarm extends React.Component {
         <p style={globals.paragraph}>
           <strong>How to use this:</strong> Hover to see the statement text. Start on the far right to find out what the most divisive statement was.
         </p>
-        <p style={{
-            fontWeight: 500,
-            maxWidth: 600,
-            lineHeight: 1.4,
-            minHeight: 70,
-          }}>
-          {
-            this.state.currentBeeswarmComment ?
-            "#" + this.state.currentBeeswarmComment.tid + ". " + this.state.currentBeeswarmComment.txt :
-            ""
-          }
-        </p>
         <svg width={this.svgWidth} height={this.svgHeight}>
           <g id="beeswarmAxisAttachPointD3" transform={"translate(" + this.margin.left + "," + this.margin.top + ")"}>
             {
@@ -217,6 +206,20 @@ class Beeswarm extends React.Component {
           <p style={{margin: 0}}> Divisive statements</p>
         </div>
         {/*<ProbabilityLegend/>*/}
+
+        <div style={{minHeight: "140px", paddingTop: "20px"}}>
+          { this.state.currentBeeswarmComment ?
+
+            <CommentList
+              conversation={this.props.conversation}
+              ptptCount={this.props.ptptCount}
+              math={this.props.math}
+              formatTid={this.props.formatTid}
+              tidsToRender={[this.state.currentBeeswarmComment.tid]}
+              comments={this.props.comments}
+              voteColors={this.props.voteColors}/> : null
+          }
+        </div>
 
       </div>
     );
