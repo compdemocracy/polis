@@ -173,13 +173,7 @@ class CommentList extends React.Component {
             fontSize: 14,
             textTransform: "uppercase"
           }}>Statement</span>
-          <span style={{
-            position: "absolute",
-            top: 2,
-            left: 200 + 30, /* the 10 in padding from the cells, the 45 for offset group labels */
-            fontWeight: 400,
-            fontSize: 14,
-          }}>Group:</span>
+
           {this.getGroupLabels()}
         </div>
         {
