@@ -53,10 +53,7 @@
                  [bidi "2.0.14" :exclusions [prismatic/schema]]
                  ;; Taking out storm cause yeah...
                  ;[org.apache.storm/storm-core "0.9.2-incubating"]
-                 [incanter "1.9.1" :exclusions [org.clojure/clojure
-                                                ;; For some reason, our 3.1.0 code fails when we include this; probably
-                                                ;; AOT compilation issues, because excluding monger doesn't help...
-                                                incanter/incanter-mongodb]]
+                 [incanter "1.9.2" :exclusions [org.clojure/clojure]]
                  [bigml/sampling "3.1"]
                  [amazonica "0.3.77" :exclusions [org.apache.httpcomponents/httpclient
                                                   org.apache.httpcomponents/httpcore]]
@@ -74,6 +71,7 @@
                  [environ "1.1.0"]
                  [mount "0.1.10"]
                  [honeysql "0.8.2"]
+                 [metasoarous/oz "1.2.1"]
 
                  ;; Dev
                  [org.clojure/test.check "0.9.0"]
@@ -84,7 +82,7 @@
                     :port 989796}
   :main polismath.runner
   :min-lein-version "2.3.0"
-  :profiles {:dev {:dependencies [[yieldbot/vizard "1.0.1"]]
+  :profiles {:dev {:dependencies []
                    :source-paths ["src" "dev"]}
              :production {:env {}}})
 

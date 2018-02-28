@@ -18,7 +18,7 @@
             [environ.core :as env]
             [taoensso.timbre :as log]
             [taoensso.timbre.profiling :as prof]
-            [vizard.core :as viz]
+            [oz.core :as oz]
             [cheshire.core :as chesh]
             [tentacles.gists :as gists]))
 
@@ -227,7 +227,13 @@
 
 (defn p!
   ([conv]
-   (viz/p! (assoc conv-plot :data {:values (conv-data conv)}))))
+   (oz/v! conv-plot :data {:values (conv-data conv)})))
+
+;(p! conv)
+
+;(oz/v! {:data {:values [{:x 1 :y 2} {:x 3 :y 4.3}]}
+        ;:layer [{:mark "point"
+                 ;:encoding {:x {:field "x"} :y {:field "y"}}}]})
 
 ;; Test calls here
 ;(def plot-data
@@ -280,7 +286,7 @@
           (range)
           values
           (integrate (vals values)))]
-    (viz/p!
+    (oz/v!
       {:data {:values entities}
        :title "Priority CDF"
        :width 1400
@@ -290,43 +296,6 @@
                   :y {:field "prob"}}})))
                   ;:y {:field "priority"}}})))
 
-
-
-(defn gist-plot!
-  [name plot]
-  (let [plot-json (chesh/generate-string plot)
-        gist (gists/create-gist {name plot-json} {:description "Vega plot; see " :public false})]
-    ;(pp/pprint (update gist :files dissoc :content))))
-    gist))
-
-(defn vega-editor-url
-  [gist-url]
-  (str
-    "https://vega.github.io/editor/#/gist/vega-lite/"
-    (-> gist-url (string/split #"\/") reverse (->> (take 2) reverse (string/join "/")))))
-
-(defn publish-plot!
-  [name plot]
-  (let [gist (gist-plot! name plot)
-        gist-url (:url gist)]
-    (log/info "Gist url:" gist-url)
-    (log/info "Vega editor url:" (vega-editor-url gist-url))))
-
-;(publish-plot! "linear" priority-plot)
-
-
-
-;(:profile-data conv)
-;(:mod-out conv)
-;(->> (:comment-priorities conv)
-     ;(remove (comp (:mod-out conv) first))
-     ;vals
-     ;;(map #(matrix/pow % 2))
-     ;sort
-     ;integrate)
-     ;(apply +))
-
-;;135 -> 199
 
 
 (defn prob-dist
@@ -357,10 +326,10 @@
 ;; Can toggle between do and comment here for refiring entire file
 ;(do
 (comment
-  (viz/start-plot-server!)
+  (oz/start-plot-server!)
   ;; Run one of these to interactively test out a particular system or subsystem
   (runner/run! system/base-system {:math-env :preprod})
-  (runner/run! system/poller-system {:math-env :dev :poll-from-days-ago 0.1})
+  ;(runner/run! system/poller-system {:math-env :dev :poll-from-days-ago 0.1})
   ;(runner/run! system/task-system {:math-env :preprod :poll-from-days-ago 3})
   ;(runner/run! system/full-system {:math-env :preprod :poll-from-days-ago 0.1})
   ;(runner/run! system/darwin-system)
@@ -378,8 +347,8 @@
   ;(def zid 17175)
   ;(def zid 16703)
   ;(def zid 16906)
-  ;(def zid 17890)
-  (def zid 18115)
+  (def zid 17890) ; med-small
+  ;(def zid 18115) ; big cmnts; med ptpts
   (def args {:zid zid})
 
   (def conv
@@ -388,7 +357,7 @@
 
   (def priority-plot (plot-priorities! conv :strict-mod true :exclude-meta true))
   (pp/pprint priority-plot)
-  (publish-plot! "comments-buble-up.json" priority-plot)
+  (oz/publish-plot! priority-plot)
 
 
   (->> (nm/get-matrix (:raw-rating-mat conv))
