@@ -153,13 +153,6 @@
           m))))
 
 
-(defn use-debuggers
-  "Handy debugging utility for loading in debugging namespaces - doesn't really always work. XXX - maybe
-  use Vinyasa?"
-  []
-  ;(require '[alex-and-georges.debug-repl :as dr])
-  (require '[clojure.tools.trace :as tr]))
-
 (defn clst-trace
   ([clsts] (clst-trace "" clsts))
   ([k clsts]
