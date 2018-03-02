@@ -5,6 +5,8 @@ import { connect } from "react-redux";
 import LanderContainer from "./App/Container/LanderContainer";
 import ContainerInner from "./App/Container/ContainerInner";
 
+import { doSignout } from "../actions";
+
 @connect(state => state.signout)
 class SignOut extends React.Component {
 
