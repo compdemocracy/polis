@@ -5360,8 +5360,8 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function sendNotificationEmail(uid, url, conversation_id, email, remaining) {
-    let subject = "New comments to vote on (conversation " + conversation_id + ")"; // Not sure if putting the conversation_id is ideal, but we need some way to ensure that the notifications for each conversation appear in separte threads.
-    let body = "There are new comments available for you to vote on here:\n";
+    let subject = "New statements to vote on (conversation " + conversation_id + ")"; // Not sure if putting the conversation_id is ideal, but we need some way to ensure that the notifications for each conversation appear in separte threads.
+    let body = "There are new statements available for you to vote on here:\n";
     body += "\n";
     body += url + "\n";
     body += "\n";
@@ -7976,9 +7976,9 @@ Email verified! You can close this tab or hit the back button.
     }
     let body = unmoderatedCommentCount;
     if (unmoderatedCommentCount === 1) {
-      body += " Comment is waiting for your review here: ";
+      body += " Statement is waiting for your review here: ";
     } else {
-      body += " Comments are waiting for your review here: ";
+      body += " Statements are waiting for your review here: ";
     }
 
     getZinvite(zid).catch(function(err) {
@@ -14034,8 +14034,8 @@ CREATE TABLE slack_user_invites (
       "You can moderate the conversation here:\n" +
       modUrl + "\n" +
       "\n" +
-      "We recommend you add 2-3 short comments to start things off. These comments should be easy to agree or disagree with. Here are some examples:\n \"I think the proposal is good\"\n \"This topic matters a lot\"\n or \"The bike shed should have a metal roof\"\n\n" +
-      "You can add comments here:\n" +
+      "We recommend you add 2-3 short statements to start things off. These statements should be easy to agree or disagree with. Here are some examples:\n \"I think the proposal is good\"\n \"This topic matters a lot\"\n or \"The bike shed should have a metal roof\"\n\n" +
+      "You can add statements here:\n" +
       seedUrl + "\n" +
       "\n" +
       "Feel free to reply to this email if you have questions." +
