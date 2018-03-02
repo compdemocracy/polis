@@ -80,19 +80,21 @@ gulp.task('index', [
 ], function() {
   // var githash = getGitHash();
   var bundlePath =  [destRootRest, "admin_bundle.js"].join("/");
-  var index = fs.readFileSync('index.html', {encoding: "utf8"});
-  index = index.replace("/dist/admin_bundle.js",  '/' + [destRootRest, "js", "admin_bundle.js"].join('/'));
-  index = index.replace("NULL_VERSION",  versionString);
-  index = index.replace("<%= useIntercom %>", !isTrue(polisConfig.DISABLE_INTERCOM));
-  index = index.replace("<%= usePlans %>", !isTrue(polisConfig.DISABLE_PLANS));
+  var html = fs.readFileSync('index.html', {encoding: "utf8"});
+  html = html.replace("/dist/admin_bundle.js",  '/' + [destRootRest, "js", "admin_bundle.js"].join('/'));
+  html = html.replace("NULL_VERSION",  versionString);
+
+  html = html.replace("<%= fbAppId %>", polisConfig.FB_APP_ID);
+  html = html.replace("<%= useIntercom %>", !isTrue(polisConfig.DISABLE_INTERCOM));
+  html = html.replace("<%= usePlans %>", !isTrue(polisConfig.DISABLE_PLANS));
 
   var domainWhitelist = '["' + polisConfig.domainWhitelist.join('","') + '"]';
-  index = index.replace("<%= domainWhitelist %>", domainWhitelist);
+  html = html.replace("<%= domainWhitelist %>", domainWhitelist);
 
   // index goes to the root of the dist folder.
   var indexDest = [destRootBase, "index_admin.html"].join("/");
   // fs.mkdirSync(destRootBase);
-  fs.writeFileSync(indexDest, index);
+  fs.writeFileSync(indexDest, html);
 });
 
 gulp.task('embed', [

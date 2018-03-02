@@ -13,6 +13,8 @@ module.exports = {
   DISABLE_INTERCOM: true,
   DISABLE_PLANS: true,
 
+  FB_APP_ID: '661042417336977',
+
   S3_BUCKET_PROD: 'pol.is',
   S3_BUCKET_PREPROD: 'preprod.pol.is',
 
