@@ -22,13 +22,13 @@ import SignOut from "./components/signout";
 import CreateUser from "./components/createuser";
 import Contributor from "./components/contributors";
 
-/* Landers */
-import Demo from "./components/Landers/demo";
-import Bot from "./components/Landers/bot";
-import BotInstall from "./components/Landers/bot-install";
-import Gov from "./components/Landers/gov";
-import Home from "./components/Landers/home";
-import Company from "./components/Landers/company";
+/* landers */
+import Demo from "./components/landers/demo";
+import Bot from "./components/landers/bot";
+import BotInstall from "./components/landers/bot-install";
+import Gov from "./components/landers/gov";
+import Home from "./components/landers/home";
+import Company from "./components/landers/company";
 
 import TOS from "./components/tos";
 import Privacy from "./components/privacy";
