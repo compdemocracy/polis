@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import classnames from 'classnames'
 import Figure from "../../Core/Image/Figure";
 
-import PolisReportImage from "../Icons/polis-report-insights.png";
+import PolisReportImage from "../icons/polis-report-insights.png";
 
 
 const Hero = ({ headline, subheadline, className }) => {

@@ -3,10 +3,10 @@ import PropTypes from "prop-types";
 import classnames from "classnames";
 import PropItem from "../../Core/Prop/PropItem";
 
-import EasyIcon from "../Icons/easy-to-start.svg";
-import ParticipationIcon from "../Icons/participation-engagement.svg";
-import AIIcon from "../Icons/ai-insights.svg";
-import AIInsightsIcon from "../Icons/ai-powered-insights.svg";
+import EasyIcon from "../icons/easy-to-start.svg";
+import ParticipationIcon from "../icons/participation-engagement.svg";
+import AIIcon from "../icons/ai-insights.svg";
+import AIInsightsIcon from "../icons/ai-powered-insights.svg";
 
 const localData = {
   values: {
