@@ -3,9 +3,9 @@ import PropTypes from "prop-types";
 import classnames from "classnames";
 import Figure from '../../Core/Image/Figure'
 
-import CanadaLogo from '../Icons/canada.png'
-import ColumbiaULogo from "../Icons/columbia.png"
-import MarchOnLogo from "../Icons/marchon.png"
+import CanadaLogo from '../icons/canada.png'
+import ColumbiaULogo from "../icons/columbia.png"
+import MarchOnLogo from "../icons/marchon.png"
 
 
 const Trust = ({ headline, subheadline, className }) => {
