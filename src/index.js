@@ -23,7 +23,7 @@ import CreateUser from "./components/createuser";
 import Contributor from "./components/contributors";
 
 /* Landers */
-import Demo from "./components/Landers/Demo";
+import Demo from "./components/Landers/demo";
 import Bot from "./components/Landers/bot";
 import BotInstall from "./components/Landers/bot-install";
 import Gov from "./components/Landers/gov";
