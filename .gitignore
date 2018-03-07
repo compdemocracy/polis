@@ -7,3 +7,5 @@ dist
 node_modules
 npm-debug.log
 .polis_s3_creds_client.json
+.polis_scp_creds_client.json
+polis.config.js
