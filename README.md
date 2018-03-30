@@ -6,7 +6,7 @@ The machine learning and data flow system powering pol.is.
 ## Setup
 
 To get running, install leinengen 2.
-(For more information on using clojure/leiningen, see [the wiki page](https://github.com/metasoarous/polismath/wiki/Working-with-clojure).)
+(For more information on using clojure/leiningen, see [the wiki page](https://github.com/pol-is/polismath/wiki/Working-with-clojure).)
 From there, all clojure dependencies can be installed using `lein deps`.
 You'll also need mongodb and postgresql (client) installed.
 
