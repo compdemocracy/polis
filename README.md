@@ -19,11 +19,13 @@ We recommend installing [nvm](https://github.com/creationix/nvm) so you can easi
     ```sh
     create database polis;
     ```
+    Depending on your environment and postgresql version, you may instead need to run something like `createdb polis` or `sudo -u postgres createdb polis` to get this to work.
 1. Connect to the new database then run `postgres/db_setup_draft.sql` in its shell
     ```
     \connect polis;
     \i postgres/db_setup_draft.sql`;
     ```
+    You can also separately run `psql -d polis -f postgres/db_setup_draft.sql` from the shell.
 1. Create development envs file
     ```sh
     $ cp .env_dev_local_db_template .env_dev
@@ -32,6 +34,7 @@ We recommend installing [nvm](https://github.com/creationix/nvm) so you can easi
     ```
     export DATABASE_URL=postgres://your_pg_username:your_pg_password@localhost:5432/your_pg_database_name
     ```
+    Note that in some instances you may find that your postgres port isn't 5432 and you will need to figure out what this is.
 1. Install or set Node version.
     ```sh
     # Install
