@@ -6531,7 +6531,7 @@ Email verified! You can close this tab or hit the back button.
         deleteFacebookUserRecord(user).then(function() {
           doFbNotLinkedButUserWithEmailExists(user);
         }, function(err) {
-          emailBadProblemTime("facebook auth where user exists with different facebook account " + user.uid);
+          emailBadProblemTime("facebook auth where user exists with different facebook account");
           fail(res, 500, "polis_err_reg_fb_user_exists_with_different_account");
         });
       }
