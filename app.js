@@ -874,6 +874,7 @@ helpersInitialized.then(function(o) {
     want('tool_consumer_instance_guid', getOptionalStringLimitLength(999), assignToP),
     want('custom_canvas_assignment_id', getInt, assignToP),
     want('link_url', getStringLimitLength(1, 9999), assignToP),
+    want('subscribe_type', getInt, assignToP),
     handle_PUT_conversations);
 
 
@@ -1227,6 +1228,7 @@ helpersInitialized.then(function(o) {
     want('x_name', getStringLimitLength(1, 746), assignToP),  // not persisted here, but later on POST vote/comment
     want('x_profile_image_url', getStringLimitLength(1, 3000), assignToP),  // not persisted here, but later on POST vote/comment
     want('x_email', getStringLimitLength(256), assignToP),  // not persisted here, but later on POST vote/comment
+    want('build', getStringLimitLength(300), assignToP),
     handle_GET_implicit_conversation_generation);
 
   app.get("/iip/:conversation_id",

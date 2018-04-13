@@ -418,6 +418,7 @@ const sql_conversations = sql.define({
     "write_type",
     "help_type",
     "socialbtn_type",
+    "subscribe_type",
     "bgcolor",
     "help_color",
     "help_bgcolor",
@@ -5365,8 +5366,8 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function sendNotificationEmail(uid, url, conversation_id, email, remaining) {
-    let subject = "New comments to vote on (conversation " + conversation_id + ")"; // Not sure if putting the conversation_id is ideal, but we need some way to ensure that the notifications for each conversation appear in separte threads.
-    let body = "There are new comments available for you to vote on here:\n";
+    let subject = "New statements to vote on (conversation " + conversation_id + ")"; // Not sure if putting the conversation_id is ideal, but we need some way to ensure that the notifications for each conversation appear in separte threads.
+    let body = "There are new statements available for you to vote on here:\n";
     body += "\n";
     body += url + "\n";
     body += "\n";
@@ -7533,6 +7534,7 @@ Email verified! You can close this tab or hit the back button.
         "is_seed",
         "is_meta",
         "lang",
+        "pid",
       ];
       if (o.moderation) {
         cols.push("velocity");
@@ -7980,9 +7982,9 @@ Email verified! You can close this tab or hit the back button.
     }
     let body = unmoderatedCommentCount;
     if (unmoderatedCommentCount === 1) {
-      body += " Comment is waiting for your review here: ";
+      body += " Statement is waiting for your review here: ";
     } else {
-      body += " Comments are waiting for your review here: ";
+      body += " Statements are waiting for your review here: ";
     }
 
     getZinvite(zid).catch(function(err) {
@@ -8910,7 +8912,7 @@ Email verified! You can close this tab or hit the back button.
       // getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/nextComment", qs: nextCommentQs, headers: req.headers, gzip: true}),
       ifConv(getNextComment, [req.p.zid, req.p.pid, [], true, req.p.lang]),
       // getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/conversations", qs: qs, headers: req.headers, gzip: true}),
-      ifConv(getOneConversation, [req.p.zid, req.p.uid]),
+      ifConv(getOneConversation, [req.p.zid, req.p.uid, req.p.lang]),
       // getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/votes", qs: votesByMeQs, headers: req.headers, gzip: true}),
       ifConv(getVotesForSingleParticipant, [req.p]),
       ifConv(getPca, [req.p.zid, -1]),
@@ -9761,6 +9763,7 @@ Email verified! You can close this tab or hit the back button.
         fields.link_url = req.p.link_url;
       }
 
+      ifDefinedSet("subscribe_type", req.p, fields);
 
       let q = sql_conversations.update(
           fields
@@ -10230,19 +10233,44 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
-  function getOneConversation(zid, uid) {
+  function getConversationTranslations(zid, lang) {
+    const firstTwoCharsOfLang = lang.substr(0,2);
+    return pgQueryP("select * from conversation_translations where zid = ($1) and lang = ($2);", [zid, firstTwoCharsOfLang]);
+  }
+
+  function getConversationTranslationsMinimal(zid, lang) {
+    if (!lang) {
+      return Promise.resolve([]);
+    }
+    return getConversationTranslations(zid, lang).then(function(rows) {
+      for (let i = 0; i < rows.length; i++) {
+        delete rows[i].zid;
+        delete rows[i].created;
+        delete rows[i].modified;
+        delete rows[i].src;
+      }
+      return rows;
+    });
+  }
+
+  function getOneConversation(zid, uid, lang) {
+
     return Promise.all([
       pgQueryP_readOnly("select * from conversations left join  (select uid, site_id, plan from users) as u on conversations.owner = u.uid where conversations.zid = ($1);", [zid]),
       getConversationHasMetadata(zid),
       (_.isUndefined(uid) ? Promise.resolve({}) : getUserInfoForUid2(uid)),
+      getConversationTranslationsMinimal(zid, lang),
     ]).then(function(results) {
       let conv = results[0] && results[0][0];
       let convHasMetadata = results[1];
       let requestingUserInfo = results[2];
+      let translations = results[3];
 
       conv.auth_opt_allow_3rdparty = ifDefinedFirstElseSecond(conv.auth_opt_allow_3rdparty, true);
       conv.auth_opt_fb_computed = conv.auth_opt_allow_3rdparty && ifDefinedFirstElseSecond(conv.auth_opt_fb, true);
       conv.auth_opt_tw_computed = conv.auth_opt_allow_3rdparty && ifDefinedFirstElseSecond(conv.auth_opt_tw, true);
+
+      conv.translations = translations;
 
       return getUserInfoForUid2(conv.owner).then(function(ownerInfo) {
         let ownername = ownerInfo.hname;
@@ -10699,8 +10727,9 @@ Email verified! You can close this tab or hit the back button.
       if (course_id) {
         req.p.course_id = course_id;
       }
+      let lang = null; // for now just return the default
       if (req.p.zid) {
-        getOneConversation(req.p.zid, req.p.uid).then(function(data) {
+        getOneConversation(req.p.zid, req.p.uid, lang).then(function(data) {
           finishOne(res, data);
         }, function(err) {
           fail(res, 500, "polis_err_get_conversations_2", err);
@@ -13099,6 +13128,10 @@ CREATE TABLE slack_user_invites (
     return getServerNameWithProtocol(req) + "/" + zinvite;
   }
 
+  function buildConversationDemoUrl(req, zinvite) {
+    return getServerNameWithProtocol(req) + "/demo/" + zinvite;
+  }
+
   function buildModerationUrl(req, zinvite) {
     return getServerNameWithProtocol(req) + "/m/" + zinvite;
   }
@@ -14008,8 +14041,8 @@ CREATE TABLE slack_user_invites (
       "You can moderate the conversation here:\n" +
       modUrl + "\n" +
       "\n" +
-      "We recommend you add 2-3 short comments to start things off. These comments should be easy to agree or disagree with. Here are some examples:\n \"I think the proposal is good\"\n \"This topic matters a lot\"\n or \"The bike shed should have a metal roof\"\n\n" +
-      "You can add comments here:\n" +
+      "We recommend you add 2-3 short statements to start things off. These statements should be easy to agree or disagree with. Here are some examples:\n \"I think the proposal is good\"\n \"This topic matters a lot\"\n or \"The bike shed should have a metal roof\"\n\n" +
+      "You can add statements here:\n" +
       seedUrl + "\n" +
       "\n" +
       "Feel free to reply to this email if you have questions." +
@@ -14109,6 +14142,7 @@ CREATE TABLE slack_user_invites (
     site_id = site_id[0];
     page_id = page_id[1];
 
+    let demo = req.p.demo;
     let ucv = req.p.ucv;
     let ucw = req.p.ucw;
     let ucsh = req.p.ucsh;
@@ -14124,6 +14158,7 @@ CREATE TABLE slack_user_invites (
     let x_email = req.p.x_email;
     let parent_url = req.p.parent_url;
     let dwok = req.p.dwok;
+    let build = req.p.build;
     let o = {};
     ifDefinedSet("parent_url", req.p, o);
     ifDefinedSet("auth_needed_to_vote", req.p, o);
@@ -14202,6 +14237,9 @@ CREATE TABLE slack_user_invites (
       if (!_.isUndefined(dwok)) {
         url += ("&dwok=" + dwok);
       }
+      if (!_.isUndefined(build)) {
+        url += ("&build=" + build);
+      }
       return url;
     }
 
@@ -14210,7 +14248,9 @@ CREATE TABLE slack_user_invites (
       if (!rows || !rows.length) {
         // conv not initialized yet
         initializeImplicitConversation(site_id, page_id, o).then(function(conv) {
-          let url = buildConversationUrl(req, conv.zinvite);
+          let url = _.isUndefined(demo) ?
+            buildConversationUrl(req, conv.zinvite) :
+            buildConversationDemoUrl(req, conv.zinvite);
           let modUrl = buildModerationUrl(req, conv.zinvite);
           let seedUrl = buildSeedUrl(req, conv.zinvite);
           sendImplicitConversationCreatedEmails(site_id, page_id, url, modUrl, seedUrl).then(function() {
@@ -14413,7 +14453,7 @@ CREATE TABLE slack_user_invites (
     'Content-Type': "text/html",
   });
 
-  function fetchIndex(req, res, preloadData, port) {
+  function fetchIndex(req, res, preloadData, port, buildNumber) {
     let headers = {
       'Content-Type': "text/html",
     };
@@ -14426,8 +14466,13 @@ CREATE TABLE slack_user_invites (
 
     setCookieTestCookie(req, res, shouldSetCookieOnPolisDomain(req));
 
+    if (devMode) {
+      buildNumber = null;
+    }
 
-    let doFetch = makeFileFetcher(hostname, port, "/index.html", headers, preloadData);
+    let indexPath = (buildNumber ? ("/cached/" + buildNumber) : "") + "/index.html";
+
+    let doFetch = makeFileFetcher(hostname, port, indexPath, headers, preloadData);
     if (isUnsupportedBrowser(req)) {
 
       return fetchUnsupportedBrowserPage(req, res);
@@ -14470,6 +14515,11 @@ CREATE TABLE slack_user_invites (
     if (match && match.length) {
       conversation_id = match[0];
     }
+    let buildNumber = null;
+    if (req.query.build) {
+      buildNumber = req.query.build;
+      console.log('loading_build', buildNumber);
+    }
 
     setTimeout(function() {
       // Kick off requests to twitter and FB to get the share counts.
@@ -14490,7 +14540,7 @@ CREATE TABLE slack_user_invites (
         conversation: x,
         // Nothing user-specific can go here, since we want to cache these per-conv index files on the CDN.
       };
-      fetchIndex(req, res, preloadData, portForParticipationFiles);
+      fetchIndex(req, res, preloadData, portForParticipationFiles, buildNumber);
     }).catch(function(err) {
       fetch404Page(req, res);
       // fail(res, 500, "polis_err_fetching_conversation_info2", err);
