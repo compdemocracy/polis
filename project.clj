@@ -14,7 +14,8 @@
   :javac-target "1.7"
   :repositories {"twitter4j" "https://twitter4j.org/maven2"}
   :plugins [;; need to add profiles to use this to avoid clout dep issue
-            [lein-gorilla "0.4.0"]]
+            [lein-gorilla "0.4.0"]
+            [cider/cider-nrepl "0.16.0"]]
             ;[lein-environ "0.4.0"]
 
   :git-dependencies [["https://github.com/GeorgeJahad/debug-repl.git" "master"]]
