@@ -2171,6 +2171,9 @@ function initializePolisHelpers() {
   }
 
   function redirectIfWrongDomain(req, res, next) {
+    if (localServer) {
+      return next();
+    }
     // let reServiceHostname = new RegExp(process.env.SERVICE_HOSTNAME);
     if (
       // reServiceHostname.test(req.headers.host) || // needed for heroku integrations (like slack?)
@@ -2185,6 +2188,9 @@ function initializePolisHelpers() {
   }
 
   function redirectIfApiDomain(req, res, next) {
+    if (localServer) {
+      return next();
+    }
     if (/api.pol.is/.test(req.headers.host)) {
       if (req.url === "/" || req.url === "") {
         res.writeHead(302, {
@@ -14707,7 +14713,7 @@ Thanks for using pol.is!
     getUrlLimitLength,
     haltOnTimeout,
     HMAC_SIGNATURE_PARAM_NAME,
-    hostname_,
+    hostname,
     makeFileFetcher,
     makeRedirectorTo,
     moveToBody,
