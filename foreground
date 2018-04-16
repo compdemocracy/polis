@@ -1,8 +1,7 @@
 export DEV_MODE=false
+export LOCAL_SERVER=true
 export MATH_ENV=prod
-export STATIC_FILES_HOST=localhost
-export STATIC_FILES_PORT=5044
-export STATIC_FILES_ADMINDASH_PORT=5044
+export STATIC_FILES_ORIGIN=http://localhost:5044
 export DOMAIN_OVERRIDE=polis.pdis.nat.gov.tw
 export PORT=5000
 export DATABASE_URL=postgres://polis:polis@localhost:5432/polis
