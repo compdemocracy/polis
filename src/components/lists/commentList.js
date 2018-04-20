@@ -21,9 +21,13 @@ const BarChartCompact = ({comment, voteCounts, nMembers, voteColors}) => {
   const pass = passes / nMembers * w;
   const blank = nMembers - sawTheComment / nMembers * w;
 
-  const agreeString = (agree<<0) + "%";
-  const disagreeString = (disagree<<0) + "%";
-  const passString = (pass<<0) + "%";
+  const agreeSaw = agrees / sawTheComment * w;
+  const disagreeSaw = disagrees / sawTheComment * w;
+  const passSaw = passes / sawTheComment * w;
+
+  const agreeString = (agreeSaw<<0) + "%";
+  const disagreeString = (disagreeSaw<<0) + "%";
+  const passString = (passSaw<<0) + "%";
 
   return (
     <div title={agreeString + " Agreed\n" + disagreeString + " Disagreed\n" + passString + " Passed"}>
@@ -39,7 +43,8 @@ const BarChartCompact = ({comment, voteCounts, nMembers, voteColors}) => {
       <div>
         <span style={{fontSize: 12, marginRight: 4, color: voteColors.agree}}>{agreeString}</span>
         <span style={{fontSize: 12, marginRight: 4, color: voteColors.disagree}}>{disagreeString}</span>
-        <span style={{fontSize: 12, color: "#999"}}>{passString}</span>
+        <span style={{fontSize: 12, marginRight: 4, color: "#999"}}>{passString}</span>
+        <span style={{fontSize: 12, color: "grey"}}>({sawTheComment})</span>
       </div>
       </div>
   )
