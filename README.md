@@ -1,7 +1,8 @@
-polis-dashboard-require
-=======================
+Polis Client/Participation View
+===============================
 
-This is the port of the polis dashboard to use requirejs
+This is the code for the view that conversation participants see.
+
 
 Development
 -----------
@@ -15,10 +16,18 @@ bower install
 
 To build: `gulp`
 
-Before pushing to s3: `gulp dist`
-
 The dev server is at [localhost:8000](http://localhost:8000/)
 
-### Requirements
+
+Deployment
+----------
+
+There is a `polis.config.template.js` file which will have to be copied over to `polis.config.js`, and edited as appropriate.
+
+Before pushing to s3: `gulp dist`
+
+
+### Other Requirements
 
 For gulp-ruby-sass to enable `sourcemap` options, it requires Sass >= 3.3.0
+
