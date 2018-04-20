@@ -9,6 +9,7 @@ import * as d3chromatic from 'd3-scale-chromatic';
 import GroupLabels from "./groupLabels";
 import Comments from "../commentsGraph/comments";
 import Hull from "./hull";
+import CommentList from "../lists/commentList";
 
 const pointsPerSquarePixelMax = .0017; /* choose dynamically ? */
 const contourBandwidth = 20;
@@ -143,13 +144,6 @@ class ParticipantsGraph extends React.Component {
             This means participants who voted similarly are closer together.
           </p>
         </div>
-          <p style={{fontWeight: 500, maxWidth: 600, lineHeight: 1.4, minHeight: 50}}>
-            {
-              this.state.selectedComment ?
-              "#" + this.state.selectedComment.tid + ". " + this.state.selectedComment.txt :
-              "Click a statement, identified by its number, to explore regions of the graph."
-            }
-          </p>
           <div>
           {
           // <button
@@ -267,6 +261,23 @@ class ParticipantsGraph extends React.Component {
             Group labels
           </button>
           </div>
+
+          <div style={{paddingTop: "30px", paddingBottom: "10px"}}>
+            {
+              this.state.selectedComment ?
+              <CommentList
+                conversation={this.props.conversation}
+                ptptCount={this.props.ptptCount}
+                math={this.props.math}
+                formatTid={this.props.formatTid}
+                tidsToRender={[this.state.selectedComment.tid]}
+                comments={this.props.comments}
+                voteColors={this.props.voteColors}/>
+              :
+              <p>Click a statement, identified by its number, to explore regions of the graph.</p>
+            }
+          </div>
+
           {this.state.showParticipants ? <p style={globals.paragraph}>
             {hulls.map((h,i) => {
               return (
