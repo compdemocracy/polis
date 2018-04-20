@@ -57,6 +57,10 @@
 ;; cid, author, aggrees, disagrees, mod, text
 
 
+(defn datetime [timestamp]
+  (str (java.util.Date. timestamp)))
+
+
 (defn full-path [darwin filename]
   (str (or (-> darwin :config :export :temp-dir) "/tmp/")
        filename))
@@ -103,9 +107,11 @@
 
 (defn get-conversation-votes
   [darwin & args]
-  ;; Flip the signs on the votes XXX (remove when we switch)
-  (map #(update-in % [:vote] (partial * -1))
-       (apply get-conversation-votes* darwin args)))
+  (->> (apply get-conversation-votes* darwin args)
+       ;; Flip the signs on the votes XXX (remove when we switch)
+       (map #(update-in % [:vote] (partial * -1)))
+       (map #(assoc % :datetime (datetime (:created %))))))
+
 
 (defn get-conversation-data
   "Return a map with :topic and :description keys"
@@ -117,7 +123,7 @@
         (ko/where {:zid zid})))
     first))
 
-(defn get-participation-data
+(defn get-participation-data*
   ([darwin zid]
    (kdb/with-db (db-spec darwin)
      (ko/select "participants"
@@ -128,6 +134,12 @@
      (ko/select "participants"
        (ko/fields :zid :pid :vote_count :created)
        (ko/where {:zid zid :created [<= final-timestamp]})))))
+
+(defn get-participation-data
+  [& args]
+  (->> (apply get-participation-data* args)
+       (map (fn [data]
+              (assoc data :datetime (datetime (:created data)))))))
 
 
 (defn get-comments-data
@@ -320,7 +332,10 @@
             ;; keep an eye on it for now... XXX
             aggrees (filter #(= 1 (:vote %)) comment-votes)
             disagrees (filter #(= -1 (:vote %)) comment-votes)]
-        (assoc comment-data :aggrees (count aggrees) :disagrees (count disagrees))))
+        (assoc comment-data
+               :aggrees (count aggrees)
+               :disagrees (count disagrees)
+               :datetime (datetime (:created comment-data)))))
     comments))
 
 
@@ -413,14 +428,16 @@
       (update-in [:stats-history]
                  (partial scsv/vectorize {:header [:n-votes :n-comments :n-visitors :n-voters :n-commenters]}))
       (update-in [:votes]
-                 (partial scsv/vectorize {:header [:created :tid :pid :vote]
+                 (partial scsv/vectorize {:header [:created :datetime :tid :pid :vote]
                                           :format-header {:created   "timestamp"
+                                                          :datetime  "datetime"
                                                           :tid       "comment-id"
                                                           :pid       "voter-id"
                                                           :vote      "vote"}}))
       (update-in [:comments]
-                 (partial scsv/vectorize {:header [:created :tid :pid :aggrees :disagrees :mod :txt]
+                 (partial scsv/vectorize {:header [:created :datetime :tid :pid :aggrees :disagrees :mod :txt]
                                           :format-header {:created   "timestamp"
+                                                          :datetime  "datetime"
                                                           :tid       "comment-id"
                                                           :pid       "author-id"
                                                           :aggrees   "agrees"
@@ -580,7 +597,9 @@
 (comment
   (require '[polismath.runner :as runner])
   (def darwin (:darwin runner/system))
-  (export-conversation {;;:zid 310273
+  runner/system
+  (export-conversation runner/system
+                       {;;:zid 310273
                         :zinvite "7scufp"
                         :format :csv
                         :filename "cljwebdev.zip"
