@@ -30,7 +30,7 @@ const BarChartCompact = ({comment, voteCounts, nMembers, voteColors}) => {
   const passString = (passSaw<<0) + "%";
 
   return (
-    <div title={agreeString + " Agreed\n" + disagreeString + " Disagreed\n" + passString + " Passed"}>
+    <div title={agreeString + " Agreed\n" + disagreeString + " Disagreed\n" + passString + " Passed\n" + sawTheComment + " Respondents"}>
 
       <svg width={101} height={10} style={{marginRight: 30}}>
         <g>
