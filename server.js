@@ -14236,20 +14236,25 @@ Thanks for using pol.is!
   }
 
   function proxy(req, res) {
-    let hostname = buildStaticHostname(req, res);
-    if (!hostname) {
-      let host = req.headers.host || "";
-      let re = new RegExp(process.env.SERVICE_HOSTNAME + "$");
-      if (host.match(re)) {
-        // don't alert for this, it's probably DNS related
-        // TODO_SEO what should we return?
-        userFail(res, 500, "polis_err_proxy_serving_to_domain", new Error(host));
-      } else {
-        fail(res, 500, "polis_err_proxy_serving_to_domain", new Error(host));
+    let hostname;
+    if (localServer) {
+      hostname = process.env.STATIC_FILES_ORIGIN;
+    } else {
+      hostname = buildStaticHostname(req, res);
+      if (!hostname) {
+        let host = req.headers.host || "";
+        let re = new RegExp(process.env.SERVICE_HOSTNAME + "$");
+        if (host.match(re)) {
+          // don't alert for this, it's probably DNS related
+          // TODO_SEO what should we return?
+          userFail(res, 500, "polis_err_proxy_serving_to_domain", new Error(host));
+        } else {
+          fail(res, 500, "polis_err_proxy_serving_to_domain", new Error(host));
+        }
+        console.error(req.headers.host);
+        console.error(req.path);
+        return;
       }
-      console.error(req.headers.host);
-      console.error(req.path);
-      return;
     }
 
     if (devMode) {
