@@ -126,8 +126,8 @@ function getStaticFilePort() {
     console.error('STATIC_FILES_ORIGIN and STATIC_FILES_PORT is not set.');
     return 80;
   }
-  let index = origin.indexOf(':');
-  if (index < 0) {
+  let exp = /^.+:\/\/.+:\d+$/g;
+  if (!exp.test(origin)) {
     if (origin.indexOf('https') >= 0) {
       return 443;
     } else if (origin.indexOf('http') >= 0) {
@@ -137,7 +137,7 @@ function getStaticFilePort() {
       return 80;
     }
   }
-  return parseInt(origin.substring(index + 1));
+  return parseInt(exp.exec(origin)[1]);
 }
 
 function requiredConfig(name) {
