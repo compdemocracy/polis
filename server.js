@@ -14713,7 +14713,7 @@ Thanks for using pol.is!
     getUrlLimitLength,
     haltOnTimeout,
     HMAC_SIGNATURE_PARAM_NAME,
-    hostname,
+    // hostname,
     makeFileFetcher,
     makeRedirectorTo,
     moveToBody,
