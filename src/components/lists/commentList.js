@@ -52,10 +52,12 @@ const BarChartCompact = ({comment, voteCounts, nMembers, voteColors}) => {
         {missingCounts ?
           <span style={{fontSize: 12, marginRight: 4, color: "grey"}}>Missing vote counts</span>
           :
-          <span style={{fontSize: 12, marginRight: 4, color: voteColors.agree}}>{agreeString}</span>
-          <span style={{fontSize: 12, marginRight: 4, color: voteColors.disagree}}>{disagreeString}</span>
-          <span style={{fontSize: 12, marginRight: 4, color: "#999"}}>{passString}</span>
-          <span style={{fontSize: 12, color: "grey"}}>({sawTheComment})</span>
+          <span>
+            <span style={{fontSize: 12, marginRight: 4, color: voteColors.agree}}>{agreeString}</span>
+            <span style={{fontSize: 12, marginRight: 4, color: voteColors.disagree}}>{disagreeString}</span>
+            <span style={{fontSize: 12, marginRight: 4, color: "#999"}}>{passString}</span>
+            <span style={{fontSize: 12, color: "grey"}}>({sawTheComment})</span>
+          </span>
         }
       </div>
     </div>
@@ -144,8 +146,6 @@ const CommentRow = ({comment, groups, voteColors}) => {
 class CommentList extends React.Component {
 
 
-
-
   getGroupLabels() {
     function makeLabel(key, label, numMembers) {
       return (<span key={key} style={{
@@ -216,3 +216,4 @@ class CommentList extends React.Component {
 }
 
 export default CommentList;
+
