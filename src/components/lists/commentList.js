@@ -9,10 +9,18 @@ const BarChartCompact = ({comment, voteCounts, nMembers, voteColors}) => {
   if (!comment) return null;
 
   let w = 100;
+  let agrees = 0;
+  let disagrees = 0;
+  let sawTheComment = 0;
+  let missingCounts = false;
 
-  let agrees = voteCounts.A;
-  let disagrees = voteCounts.D;
-  let sawTheComment = voteCounts.S;
+  if (typeof voteCounts != 'undefined') {
+    agrees = voteCounts.A;
+    disagrees = voteCounts.D;
+    sawTheComment = voteCounts.S;
+  } else {
+    missingCounts = true;
+  }
   let passes = sawTheComment - (agrees + disagrees);
   let totalVotes = agrees + disagrees + passes;
 
@@ -20,6 +28,7 @@ const BarChartCompact = ({comment, voteCounts, nMembers, voteColors}) => {
   const disagree = disagrees / nMembers * w;
   const pass = passes / nMembers * w;
   const blank = nMembers - sawTheComment / nMembers * w;
+
 
   const agreeSaw = agrees / sawTheComment * w;
   const disagreeSaw = disagrees / sawTheComment * w;
@@ -31,7 +40,6 @@ const BarChartCompact = ({comment, voteCounts, nMembers, voteColors}) => {
 
   return (
     <div title={agreeString + " Agreed\n" + disagreeString + " Disagreed\n" + passString + " Passed\n" + sawTheComment + " Respondents"}>
-
       <svg width={101} height={10} style={{marginRight: 30}}>
         <g>
           <rect x={0} width={w + 0.5} height={10} fill={"white"} stroke={"rgb(180,180,180)"} />
@@ -41,12 +49,16 @@ const BarChartCompact = ({comment, voteCounts, nMembers, voteColors}) => {
         </g>
       </svg>
       <div>
-        <span style={{fontSize: 12, marginRight: 4, color: voteColors.agree}}>{agreeString}</span>
-        <span style={{fontSize: 12, marginRight: 4, color: voteColors.disagree}}>{disagreeString}</span>
-        <span style={{fontSize: 12, marginRight: 4, color: "#999"}}>{passString}</span>
-        <span style={{fontSize: 12, color: "grey"}}>({sawTheComment})</span>
+        {missingCounts ?
+          <span style={{fontSize: 12, marginRight: 4, color: "grey"}}>Missing vote counts</span>
+          :
+          <span style={{fontSize: 12, marginRight: 4, color: voteColors.agree}}>{agreeString}</span>
+          <span style={{fontSize: 12, marginRight: 4, color: voteColors.disagree}}>{disagreeString}</span>
+          <span style={{fontSize: 12, marginRight: 4, color: "#999"}}>{passString}</span>
+          <span style={{fontSize: 12, color: "grey"}}>({sawTheComment})</span>
+        }
       </div>
-      </div>
+    </div>
   )
 };
 
@@ -61,23 +73,30 @@ const CommentRow = ({comment, groups, voteColors}) => {
     let BarCharts = [];
     let totalMembers = 0;
 
+
     // groups
     _.forEach(groups, (g, i) => {
       let nMembers = g["n-members"];
       totalMembers += nMembers;
+      let gVotes = g.votes[comment.tid];
+
       BarCharts.push(
         <BarChartCompact
             key={i}
             index={i}
             comment={comment}
-            voteCounts={g.votes[comment.tid]}
+            voteCounts={gVotes}
             nMembers={nMembers}
             voteColors={voteColors}
           />
-      )
+      );
     })
 
     // totals column
+    let globalCounts = {
+              A: comment.agreed,
+              D: comment.disagreed,
+              S: comment.saw};
     BarCharts.unshift(
       <BarChartCompact
             key={99}
@@ -152,7 +171,6 @@ class CommentList extends React.Component {
     labels.push(makeLabel(99, "Overall", this.props.ptptCount));
 
     _.each(this.props.math["group-votes"], (g, i) => {
-      // console.log(g)
       labels.push(makeLabel(i, globals.groupLabels[i], g["n-members"]))
     })
 
