@@ -14240,7 +14240,8 @@ Thanks for using pol.is!
   function proxy(req, res) {
     let hostname;
     if (localServer) {
-      hostname = process.env.STATIC_FILES_ORIGIN;
+      let origin = process.env.STATIC_FILES_ORIGIN;
+      hostname = /^https?:\/\/([^\/:]+).*$/.exec(origin)[1];
     } else {
       hostname = buildStaticHostname(req, res);
       if (!hostname) {

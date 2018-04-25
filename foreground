@@ -1,6 +1,7 @@
 export DEV_MODE=false
 export LOCAL_SERVER=true
 export MATH_ENV=prod
+#export STATIC_FILES_ORIGIN=https://polis-files.pdis.nat.gov.tw
 export STATIC_FILES_ORIGIN=http://localhost:5044
 export DOMAIN_OVERRIDE=polis.pdis.nat.gov.tw
 export PORT=5000
