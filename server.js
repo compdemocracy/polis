@@ -415,6 +415,7 @@ const sql_conversations = sql.define({
     "write_type",
     "help_type",
     "socialbtn_type",
+    "subscribe_type",
     "bgcolor",
     "help_color",
     "help_bgcolor",
@@ -484,6 +485,14 @@ const sql_participants_extended = sql.define({
     "referrer",
     "parent_url",
     "created",
+    "modified",
+
+    "show_translation_activated",
+
+    "permanent_cookie",
+    "origin",
+    "encrypted_ip_address",
+    "encrypted_x_forwarded_for",
   ],
 });
 
@@ -559,6 +568,28 @@ const sql_reports = sql.define({
 // }());
 
 
+
+
+
+
+function encrypt(text) {
+  const algorithm = 'aes-256-ctr';
+  const password = process.env.ENCRYPTION_PASSWORD_00001;
+  const cipher = crypto.createCipher(algorithm, password);
+  var crypted = cipher.update(text,'utf8','hex');
+  crypted += cipher.final('hex');
+  return crypted;
+}
+ 
+function decrypt(text) {
+  const algorithm = 'aes-256-ctr';
+  const password = process.env.ENCRYPTION_PASSWORD_00001;
+  const decipher = crypto.createDecipher(algorithm, password);
+  var dec = decipher.update(text,'hex','utf8');
+  dec += decipher.final('utf8');
+  return dec;
+}
+decrypt; // appease linter
 
 
 function makeSessionToken() {
@@ -830,6 +861,9 @@ function pgQueryP_readOnly_wRetryIfEmpty(queryString, params) {
 
 function pgQueryP_metered_impl(name, queryString, params) {
   let f = this.isReadOnly ? pgQueryP_readOnly : pgQueryP;
+  if (_.isUndefined(name) || _.isUndefined(queryString) || _.isUndefined(params)) {
+    throw new Error("polis_err_pgQueryP_metered_impl missing params");
+  }
   return new MPromise(name, function(resolve, reject) {
     f(queryString, params).then(resolve, reject);
   });
@@ -1771,6 +1805,16 @@ function initializePolisHelpers() {
     });
   }
 
+  function getPermanentCookieAndEnsureItIsSet(req, res) {
+    let setOnPolisDomain = shouldSetCookieOnPolisDomain(req);
+    if (!req.cookies[COOKIES.PERMANENT_COOKIE]) {
+      let token = makeSessionToken();
+      setPermanentCookie(req, res, setOnPolisDomain, token);
+      return token;
+    } else {
+      return req.cookies[COOKIES.PERMANENT_COOKIE];
+    }
+  }
 
   function generateHashedPassword(password, callback) {
     bcrypt.genSalt(12, function(errSalt, salt) {
@@ -4373,28 +4417,67 @@ Feel free to reply to this email if you need help.`;
   }
 
 
+  function populateGeoIpInfo(zid, uid, ipAddress) {
+    var userId = process.env.MAXMIND_USERID;
+    var licenseKey = process.env.MAXMIND_LICENSEKEY;
+
+    var url = "https://geoip.maxmind.com/geoip/v2.1/city/";
+    var contentType = "application/vnd.maxmind.com-city+json; charset=UTF-8; version=2.1";
+
+    // "city" is     $0.0004 per query
+    // "insights" is $0.002  per query
+    var insights = false;
+
+    if (insights) {
+      url = "https://geoip.maxmind.com/geoip/v2.1/insights/";
+      contentType = "application/vnd.maxmind.com-insights+json; charset=UTF-8; version=2.1";
+    }
+
+
+    return request.get(url + ipAddress, {
+      method: "GET",
+      contentType: contentType,
+      headers: {
+        "Authorization": "Basic " + new Buffer(userId + ":" + licenseKey, "utf8").toString("base64"),
+      },
+    }).then(function(response) {
+      var parsedResponse = JSON.parse(response);
+      console.log('BEGIN MAXMIND RESPONSE');
+      console.log(response);
+      console.log('END MAXMIND RESPONSE');
+
+      return pgQueryP("update participants_extended set modified=now_as_millis(), country_iso_code=($4), encrypted_maxmind_response_city=($3), "+
+        "location=ST_GeographyFromText('SRID=4326;POINT("+
+        parsedResponse.location.latitude+" "+ parsedResponse.location.longitude+")'), latitude=($5), longitude=($6) where zid = ($1) and uid = ($2);",[
+          zid,
+          uid,
+          encrypt(response),
+          parsedResponse.country.iso_code,
+          parsedResponse.location.latitude,
+          parsedResponse.location.longitude,
+        ]);
+
+    });
+  }
+
+
+
   function addExtendedParticipantInfo(zid, uid, data) {
     if (!data || !_.keys(data).length) {
       return Promise.resolve();
     }
+
     let params = Object.assign({}, data, {
       zid: zid,
       uid: uid,
+      modified: 9876543212345, // hacky string, will be replaced with the word "default".
     });
-    let q = sql_participants_extended.insert(params);
-    return pgQueryP(q.toString(), [])
-      .catch(function() {
-        let params2 = Object.assign({
-          created: 9876543212345, // hacky string, will be replaced with the word "default".
-        }, params);
-        // TODO replace all this with an upsert once heroku upgrades postgres
-        let qUpdate = sql_participants_extended.update(params2)
-          .where(sql_participants_extended.zid.equals(zid))
-          .and(sql_participants_extended.uid.equals(uid));
-        let qString = qUpdate.toString();
-        qString = qString.replace("9876543212345", "default");
-        return pgQueryP(qString, []);
-      });
+    let qUpdate = sql_participants_extended.update(params)
+      .where(sql_participants_extended.zid.equals(zid))
+      .and(sql_participants_extended.uid.equals(uid));
+    let qString = qUpdate.toString();
+    qString = qString.replace("9876543212345", "now_as_millis()");
+    return pgQueryP(qString, []);
   }
 
   function tryToJoinConversation(zid, uid, info, pmaid_answers) {
@@ -4425,6 +4508,45 @@ Feel free to reply to this email if you need help.`;
       }
       populateParticipantLocationRecordIfPossible(zid, uid, pid);
       return ptpt;
+    });
+  }
+
+  function addParticipantAndMetadata(zid, uid, req, permanent_cookie) {
+    let info = {};
+    let parent_url = req.cookies[COOKIES.PARENT_URL] || req.p.parent_url;
+    let referer = req.cookies[COOKIES.PARENT_REFERRER] || req.headers["referer"] || req.headers["referrer"];
+    if (parent_url) {
+      info.parent_url = parent_url;
+    }
+    console.log('mike foo');
+    if (referer) {
+      info.referrer = referer;
+    }
+    let x_forwarded_for = req.headers["x-forwarded-for"];
+    let ip = null;
+    if (x_forwarded_for) {
+      let ips = x_forwarded_for;
+      ips = ips && ips.split(", ");
+      ip = ips.length && ips[0];
+      info.encrypted_ip_address = encrypt(ip);
+      info.encrypted_x_forwarded_for = encrypt(x_forwarded_for);
+      console.log('mike encrypt');
+    }
+    if (permanent_cookie) {
+      info.permanent_cookie = permanent_cookie;
+    }
+    if (req.headers["origin"]) {
+      info.origin = req.headers["origin"];
+    }
+    return addParticipant(zid, uid).then((rows) => {
+      let ptpt = rows[0];
+      let pid = ptpt.pid;
+      populateParticipantLocationRecordIfPossible(zid, uid, pid);
+      addExtendedParticipantInfo(zid, uid, info);
+      if (ip) {
+        populateGeoIpInfo(zid, uid, ip);
+      }
+      return rows;
     });
   }
 
@@ -5060,11 +5182,13 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
-  function subscribeToNotifications(zid, uid) {
+  function subscribeToNotifications(zid, uid, email) {
     let type = 1; // 1 for email
     winston.log("info", "subscribeToNotifications", zid, uid);
-    return pgQueryP("update participants set subscribed = ($3) where zid = ($1) and uid = ($2);", [zid, uid, type]).then(function(rows) {
-      return type;
+    return pgQueryP("update participants_extended set subscribe_email = ($3) where zid = ($1) and uid = ($2);", [zid, uid, email]).then(function() {
+      return pgQueryP("update participants set subscribed = ($3) where zid = ($1) and uid = ($2);", [zid, uid, type]).then(function(rows) {
+        return type;
+      });
     });
   }
 
@@ -5137,11 +5261,11 @@ Email verified! You can close this tab or hit the back button.
 
             needs = needs && result.remaining > 0;
 
-            if (needs && result.remaining < 5) {
-              // no need to try again for this user since new comments will create new tasks
-              console.log('doNotificationsForZid', 'not enough remaining');
-              needs = false;
-            }
+            // if (needs && result.remaining < 5) {
+            //   // no need to try again for this user since new comments will create new tasks
+            //   console.log('doNotificationsForZid', 'not enough remaining');
+            //   needs = false;
+            // }
 
             let waitTime = 60*60*1000;
 
@@ -5175,7 +5299,9 @@ Email verified! You can close this tab or hit the back button.
               needs = false;
             }
 
-            needs = needs && isPolisDev(ptpt.uid);
+            if (devMode) {
+              needs = needs && isPolisDev(ptpt.uid);
+            }
             return needs;
           });
 
@@ -5187,10 +5313,10 @@ Email verified! You can close this tab or hit the back button.
           // return pgQueryP("select p.uid, p.pid, u.email from participants as p left join users as u on p.uid = u.uid where p.pid in (" + pids.join(",") + ")", []).then((rows) => {
 
           // })
-          return pgQueryP("select uid, email from users where uid in (select uid from participants where pid in (" + pids.join(",") + "));", []).then((rows) => {
+          return pgQueryP("select uid, subscribe_email from participants_extended where uid in (select uid from participants where pid in (" + pids.join(",") + "));", []).then((rows) => {
             let uidToEmail = {};
             rows.forEach((row) => {
-              uidToEmail[row.uid] = row.email;
+              uidToEmail[row.uid] = row.subscribe_email;
             });
 
             return Promise.each(needNotification, (item, index, length) => {
@@ -5234,8 +5360,8 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function sendNotificationEmail(uid, url, conversation_id, email, remaining) {
-    let subject = "New comments to vote on (conversation " + conversation_id + ")"; // Not sure if putting the conversation_id is ideal, but we need some way to ensure that the notifications for each conversation appear in separte threads.
-    let body = "There are new comments available for you to vote on here:\n";
+    let subject = "New statements to vote on (conversation " + conversation_id + ")"; // Not sure if putting the conversation_id is ideal, but we need some way to ensure that the notifications for each conversation appear in separte threads.
+    let body = "There are new statements available for you to vote on here:\n";
     body += "\n";
     body += url + "\n";
     body += "\n";
@@ -5251,10 +5377,6 @@ Email verified! You can close this tab or hit the back button.
   // let shouldSendNotifications = false;
   if (shouldSendNotifications) {
     doNotificationLoop();
-  }
-
-  function updateEmail(uid, email) {
-    return pgQueryP("update users set email = ($2) where uid = ($1);", [uid, email]);
   }
 
 
@@ -5354,24 +5476,18 @@ Email verified! You can close this tab or hit the back button.
         subscribed: type,
       });
     }
-    let emailSetPromise = email ? updateEmail(uid, email) : Promise.resolve();
-    emailSetPromise.then(function() {
-      if (type === 1) {
-        subscribeToNotifications(zid, uid).then(finish).catch(function(err) {
-          fail(res, 500, "polis_err_sub_conv " + zid + " " + uid, err);
-        });
-      } else if (type === 0) {
-        unsubscribeFromNotifications(zid, uid).then(finish).catch(function(err) {
-          fail(res, 500, "polis_err_unsub_conv " + zid + " " + uid, err);
-        });
-      } else {
-        fail(res, 400, "polis_err_bad_subscription_type", new Error("polis_err_bad_subscription_type"));
-      }
-    }, function(err) {
-      fail(res, 500, "polis_err_subscribing_with_email", err);
-    }).catch(function(err) {
-      fail(res, 500, "polis_err_subscribing_misc", err);
-    });
+
+    if (type === 1) {
+      subscribeToNotifications(zid, uid, email).then(finish).catch(function(err) {
+        fail(res, 500, "polis_err_sub_conv " + zid + " " + uid, err);
+      });
+    } else if (type === 0) {
+      unsubscribeFromNotifications(zid, uid).then(finish).catch(function(err) {
+        fail(res, 500, "polis_err_unsub_conv " + zid + " " + uid, err);
+      });
+    } else {
+      fail(res, 400, "polis_err_bad_subscription_type", new Error("polis_err_bad_subscription_type"));
+    }
   }
 
 
@@ -6145,6 +6261,10 @@ Email verified! You can close this tab or hit the back button.
   function handle_GET_snapshot(req, res) {
     let uid = req.p.uid;
     let zid = req.p.zid;
+
+    if (true) {
+      throw new Error("TODO Needs to clone participants_extended and any other new tables as well.");
+    }
 
 
     if (isPolisDev(uid)) {
@@ -7150,7 +7270,7 @@ Email verified! You can close this tab or hit the back button.
       res.json({});
     }).catch(function(err) {
 
-      emailBadProblemTime("FAILED Polis account upgrade: " + uid);
+      emailBadProblemTime("FAILED Polis account upgrade: " + uid + " err.type: " + (err && err.type) + "\n\n" + err);
 
       if (err) {
         if (err.type === 'StripeCardError') {
@@ -7231,6 +7351,7 @@ Email verified! You can close this tab or hit the back button.
 
   function _getCommentsForModerationList(o) {
     var strictCheck = Promise.resolve(null);
+    var include_voting_patterns = o.include_voting_patterns;
     
     if (o.modIn) {
       strictCheck = pgQueryP("select strict_moderation from conversations where zid = ($1);", [o.zid]).then((c) => {
@@ -7263,8 +7384,12 @@ Email verified! You can close this tab or hit the back button.
           }
         }
       }
+      if (!include_voting_patterns) {
+        return pgQueryP_metered_readOnly("_getCommentsForModerationList", "select * from comments where comments.zid = ($1)" + modClause, params);
+      }
 
       return pgQueryP_metered_readOnly("_getCommentsForModerationList", "select * from (select tid, vote, count(*) from votes_latest_unique where zid = ($1) group by tid, vote) as foo full outer join comments on foo.tid = comments.tid where comments.zid = ($1)" + modClause, params).then((rows) => {
+
         // each comment will have up to three rows. merge those into one with agree/disagree/pass counts.
         let adp = {};
         for (let i = 0; i < rows.length; i++) {
@@ -7392,7 +7517,6 @@ Email verified! You can close this tab or hit the back button.
     return Promise.all([convPromise, commentListPromise]).then(function(a) {
       let rows = a[1];
       conv = a[0];
-
       let cols = [
         "txt",
         "tid",
@@ -7404,6 +7528,7 @@ Email verified! You can close this tab or hit the back button.
         "is_seed",
         "is_meta",
         "lang",
+        "pid",
       ];
       if (o.moderation) {
         cols.push("velocity");
@@ -7729,7 +7854,7 @@ Email verified! You can close this tab or hit the back button.
         });
       });
     }
-    return Promise.resolve([]);
+    return Promise.resolve(null);
   }
 
 
@@ -7745,7 +7870,7 @@ Email verified! You can close this tab or hit the back button.
         }
         return translateAndStoreComment(zid, tid, comment.txt, req.p.lang);
       }).then((rows) => {
-        res.status(200).json(rows);
+        res.status(200).json(rows || []);
       });
     }).catch((err) => {
       fail(res, 500, "polis_err_get_comments_translations", err);
@@ -7851,9 +7976,9 @@ Email verified! You can close this tab or hit the back button.
     }
     let body = unmoderatedCommentCount;
     if (unmoderatedCommentCount === 1) {
-      body += " Comment is waiting for your review here: ";
+      body += " Statement is waiting for your review here: ";
     } else {
-      body += " Comments are waiting for your review here: ";
+      body += " Statements are waiting for your review here: ";
     }
 
     getZinvite(zid).catch(function(err) {
@@ -8636,12 +8761,16 @@ Email verified! You can close this tab or hit the back button.
           });
           if (!hasMatch) {
             return translateAndStoreComment(zid, c.tid, c.txt, lang).then((translation) => {
-              c.translations.push(translation);
+              if (translation) {
+                c.translations.push(translation);
+              }
               return c;
             });
           }
           return c;
         });
+      } else if (c) {
+        c.translations = [];
       }
       return c;
     });
@@ -8766,6 +8895,8 @@ Email verified! You can close this tab or hit the back button.
       req.p.lang = acceptLanguage.substr(0,2);
     }
 
+    getPermanentCookieAndEnsureItIsSet(req, res);
+
     Promise.all([
       // request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/users", qs: qs, headers: req.headers, gzip: true}),
       getUser(req.p.uid, req.p.zid, req.p.xid, req.p.owner_uid),
@@ -8774,7 +8905,7 @@ Email verified! You can close this tab or hit the back button.
       // getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/nextComment", qs: nextCommentQs, headers: req.headers, gzip: true}),
       ifConv(getNextComment, [req.p.zid, req.p.pid, [], true, req.p.lang]),
       // getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/conversations", qs: qs, headers: req.headers, gzip: true}),
-      ifConv(getOneConversation, [req.p.zid, req.p.uid]),
+      ifConv(getOneConversation, [req.p.zid, req.p.uid, req.p.lang]),
       // getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/votes", qs: votesByMeQs, headers: req.headers, gzip: true}),
       ifConv(getVotesForSingleParticipant, [req.p]),
       ifConv(getPca, [req.p.zid, -1]),
@@ -8878,6 +9009,30 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
+  function handle_PUT_participants_extended(req, res) {
+    let zid = req.p.zid;
+    let uid = req.p.uid;
+
+    let fields = {};
+    if (!_.isUndefined(req.p.show_translation_activated)) {
+      fields.show_translation_activated = req.p.show_translation_activated;
+    }
+
+    let q = sql_participants_extended.update(
+      fields
+    )
+    .where(
+      sql_participants_extended.zid.equals(zid)
+    ).and(
+      sql_participants_extended.uid.equals(uid)
+    );
+
+    pgQueryP(q.toString(), []).then((result) => {
+      res.json(result);
+    }).catch((err) => {
+      fail(res, 500, "polis_err_put_participants_extended", err);
+    });
+  }
 
   function handle_POST_votes(req, res) {
     let uid = req.p.uid; // PID_FLOW uid may be undefined here.
@@ -8894,7 +9049,16 @@ Email verified! You can close this tab or hit the back button.
       return;
     }
 
-    return Promise.resolve().then(function() {
+    let permanent_cookie = getPermanentCookieAndEnsureItIsSet(req, res);
+
+    // PID_FLOW WIP for now assume we have a uid, but need a participant record.
+    let pidReadyPromise = _.isUndefined(req.p.pid) ? addParticipantAndMetadata(req.p.zid, req.p.uid, req, permanent_cookie).then(function(rows) {
+      let ptpt = rows[0];
+      pid = ptpt.pid;
+    }) : Promise.resolve();
+
+
+    pidReadyPromise.then(function() {
 
       // let conv;
       let vote;
@@ -9592,6 +9756,7 @@ Email verified! You can close this tab or hit the back button.
         fields.link_url = req.p.link_url;
       }
 
+      ifDefinedSet("subscribe_type", req.p, fields);
 
       let q = sql_conversations.update(
           fields
@@ -10061,19 +10226,44 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
-  function getOneConversation(zid, uid) {
+  function getConversationTranslations(zid, lang) {
+    const firstTwoCharsOfLang = lang.substr(0,2);
+    return pgQueryP("select * from conversation_translations where zid = ($1) and lang = ($2);", [zid, firstTwoCharsOfLang]);
+  }
+
+  function getConversationTranslationsMinimal(zid, lang) {
+    if (!lang) {
+      return Promise.resolve([]);
+    }
+    return getConversationTranslations(zid, lang).then(function(rows) {
+      for (let i = 0; i < rows.length; i++) {
+        delete rows[i].zid;
+        delete rows[i].created;
+        delete rows[i].modified;
+        delete rows[i].src;
+      }
+      return rows;
+    });
+  }
+
+  function getOneConversation(zid, uid, lang) {
+
     return Promise.all([
       pgQueryP_readOnly("select * from conversations left join  (select uid, site_id, plan from users) as u on conversations.owner = u.uid where conversations.zid = ($1);", [zid]),
       getConversationHasMetadata(zid),
       (_.isUndefined(uid) ? Promise.resolve({}) : getUserInfoForUid2(uid)),
+      getConversationTranslationsMinimal(zid, lang),
     ]).then(function(results) {
       let conv = results[0] && results[0][0];
       let convHasMetadata = results[1];
       let requestingUserInfo = results[2];
+      let translations = results[3];
 
       conv.auth_opt_allow_3rdparty = ifDefinedFirstElseSecond(conv.auth_opt_allow_3rdparty, true);
       conv.auth_opt_fb_computed = conv.auth_opt_allow_3rdparty && ifDefinedFirstElseSecond(conv.auth_opt_fb, true);
       conv.auth_opt_tw_computed = conv.auth_opt_allow_3rdparty && ifDefinedFirstElseSecond(conv.auth_opt_tw, true);
+
+      conv.translations = translations;
 
       return getUserInfoForUid2(conv.owner).then(function(ownerInfo) {
         let ownername = ownerInfo.hname;
@@ -10530,8 +10720,9 @@ Email verified! You can close this tab or hit the back button.
       if (course_id) {
         req.p.course_id = course_id;
       }
+      let lang = null; // for now just return the default
       if (req.p.zid) {
-        getOneConversation(req.p.zid, req.p.uid).then(function(data) {
+        getOneConversation(req.p.zid, req.p.uid, lang).then(function(data) {
           finishOne(res, data);
         }, function(err) {
           fail(res, 500, "polis_err_get_conversations_2", err);
@@ -11261,7 +11452,9 @@ Thanks for using pol.is!
   }
 
   function addParticipant(zid, uid) {
-    return pgQueryP("INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING *;", [zid, uid]);
+    return pgQueryP("INSERT INTO participants_extended (zid, uid) VALUES ($1, $2);", [zid, uid]).then(() => {
+      return pgQueryP("INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING *;", [zid, uid]);
+    });
   }
 
 
@@ -12171,6 +12364,29 @@ Thanks for using pol.is!
     });
   }
 
+  // this is for testing the encryption
+  function handle_GET_logMaxmindResponse(req, res) {
+    if (!isPolisDev(req.p.uid) || !devMode) {
+      return fail(res, 403, "polis_err_permissions", err);
+    }
+    pgQueryP("select * from participants_extended where zid = ($1) and uid = ($2);", [req.p.zid, req.p.user_uid]).then((results) => {
+      if (!results || !results.length) {
+        res.json({});
+        console.log("NOTHING");
+        return;
+      }
+      var o = results[0];
+      _.each(o, (val, key) => {
+        if (key.startsWith("encrypted_")) {
+          o[key] = decrypt(val);
+        }
+      });
+      console.log(o);
+      res.json({});
+    }).catch((err) => {
+      fail(res, 500, "polis_err_get_participantsExtended", err);
+    });
+  }
 
   function handle_GET_locations(req, res) {
     let zid = req.p.zid;
@@ -12903,6 +13119,10 @@ CREATE TABLE slack_user_invites (
 
   function buildConversationUrl(req, zinvite) {
     return getServerNameWithProtocol(req) + "/" + zinvite;
+  }
+
+  function buildConversationDemoUrl(req, zinvite) {
+    return getServerNameWithProtocol(req) + "/demo/" + zinvite;
   }
 
   function buildModerationUrl(req, zinvite) {
@@ -13814,8 +14034,8 @@ CREATE TABLE slack_user_invites (
       "You can moderate the conversation here:\n" +
       modUrl + "\n" +
       "\n" +
-      "We recommend you add 2-3 short comments to start things off. These comments should be easy to agree or disagree with. Here are some examples:\n \"I think the proposal is good\"\n \"This topic matters a lot\"\n or \"The bike shed should have a metal roof\"\n\n" +
-      "You can add comments here:\n" +
+      "We recommend you add 2-3 short statements to start things off. These statements should be easy to agree or disagree with. Here are some examples:\n \"I think the proposal is good\"\n \"This topic matters a lot\"\n or \"The bike shed should have a metal roof\"\n\n" +
+      "You can add statements here:\n" +
       seedUrl + "\n" +
       "\n" +
       "Feel free to reply to this email if you have questions." +
@@ -13915,6 +14135,7 @@ CREATE TABLE slack_user_invites (
     site_id = site_id[0];
     page_id = page_id[1];
 
+    let demo = req.p.demo;
     let ucv = req.p.ucv;
     let ucw = req.p.ucw;
     let ucsh = req.p.ucsh;
@@ -13930,6 +14151,7 @@ CREATE TABLE slack_user_invites (
     let x_email = req.p.x_email;
     let parent_url = req.p.parent_url;
     let dwok = req.p.dwok;
+    let build = req.p.build;
     let o = {};
     ifDefinedSet("parent_url", req.p, o);
     ifDefinedSet("auth_needed_to_vote", req.p, o);
@@ -14008,6 +14230,9 @@ CREATE TABLE slack_user_invites (
       if (!_.isUndefined(dwok)) {
         url += ("&dwok=" + dwok);
       }
+      if (!_.isUndefined(build)) {
+        url += ("&build=" + build);
+      }
       return url;
     }
 
@@ -14016,7 +14241,9 @@ CREATE TABLE slack_user_invites (
       if (!rows || !rows.length) {
         // conv not initialized yet
         initializeImplicitConversation(site_id, page_id, o).then(function(conv) {
-          let url = buildConversationUrl(req, conv.zinvite);
+          let url = _.isUndefined(demo) ?
+            buildConversationUrl(req, conv.zinvite) :
+            buildConversationDemoUrl(req, conv.zinvite);
           let modUrl = buildModerationUrl(req, conv.zinvite);
           let seedUrl = buildSeedUrl(req, conv.zinvite);
           sendImplicitConversationCreatedEmails(site_id, page_id, url, modUrl, seedUrl).then(function() {
@@ -14214,20 +14441,26 @@ CREATE TABLE slack_user_invites (
     'Content-Type': "text/html",
   });
 
-  function fetchIndex(req, res, preloadData, port) {
+  function fetchIndex(req, res, preloadData, port, buildNumber) {
     let headers = {
       'Content-Type': "text/html",
     };
     if (!devMode) {
       Object.assign(headers, {
-        'Cache-Control': 'no-transform,public,max-age=60,s-maxage=60', // Cloudflare will probably cache it for one or two hours
+        // 'Cache-Control': 'no-transform,public,max-age=60,s-maxage=60', // Cloudflare will probably cache it for one or two hours
+        'Cache-Control': 'no-cache', // Cloudflare will probably cache it for one or two hours
       });
     }
 
     setCookieTestCookie(req, res, shouldSetCookieOnPolisDomain(req));
 
+    if (devMode) {
+      buildNumber = null;
+    }
 
-    let doFetch = makeFileFetcher(hostname, port, "/index.html", headers, preloadData);
+    let indexPath = (buildNumber ? ("/cached/" + buildNumber) : "") + "/index.html";
+
+    let doFetch = makeFileFetcher(hostname, port, indexPath, headers, preloadData);
     if (isUnsupportedBrowser(req)) {
 
       return fetchUnsupportedBrowserPage(req, res);
@@ -14270,6 +14503,11 @@ CREATE TABLE slack_user_invites (
     if (match && match.length) {
       conversation_id = match[0];
     }
+    let buildNumber = null;
+    if (req.query.build) {
+      buildNumber = req.query.build;
+      console.log('loading_build', buildNumber);
+    }
 
     setTimeout(function() {
       // Kick off requests to twitter and FB to get the share counts.
@@ -14290,7 +14528,7 @@ CREATE TABLE slack_user_invites (
         conversation: x,
         // Nothing user-specific can go here, since we want to cache these per-conv index files on the CDN.
       };
-      fetchIndex(req, res, preloadData, portForParticipationFiles);
+      fetchIndex(req, res, preloadData, portForParticipationFiles, buildNumber);
     }).catch(function(err) {
       fetch404Page(req, res);
       // fail(res, 500, "polis_err_fetching_conversation_info2", err);
@@ -14591,6 +14829,7 @@ CREATE TABLE slack_user_invites (
     handle_GET_launchPrep,
     handle_GET_localFile_dev_only,
     handle_GET_locations,
+    handle_GET_logMaxmindResponse,
     handle_GET_lti_oauthv1_credentials,
     handle_GET_math_pca,
     handle_GET_math_pca2,
@@ -14676,6 +14915,7 @@ CREATE TABLE slack_user_invites (
     handle_POST_zinvites,
     handle_PUT_comments,
     handle_PUT_conversations,
+    handle_PUT_participants_extended,
     handle_PUT_ptptois,
     handle_PUT_reports,
     handle_PUT_users,
