@@ -383,6 +383,12 @@ CREATE TABLE participants_extended(
     referrer VARCHAR(9999), -- 2083 is listed as the max
     parent_url VARCHAR(9999), -- 2083 is listed as the max
     created BIGINT DEFAULT now_as_millis(),
+    modified BIGINT NOT NULL DEFAULT now_as_millis(),
+
+    subscribe_email VARCHAR(256), -- http://stackoverflow.com/questions/386294/what-is-the-maximum-length-of-a-valid-email-address
+
+    show_translation_activated BOOLEAN, -- true for activated, false for deactivated, or null for didn't click
+
     UNIQUE (zid, uid)
 );
 
@@ -705,6 +711,18 @@ CREATE TABLE comment_translations (
 );
 CREATE INDEX comment_translations_idx ON comment_translations USING btree (zid, tid);
 
+
+CREATE TABLE conversation_translations (
+  zid INTEGER NOT NULL REFERENCES conversations(zid),
+  src INTEGER NOT NULL, -- if positive, it's a uid, -1 for google translate, ...
+  topic VARCHAR(9999) NOT NULL,
+  description VARCHAR(9999) NOT NULL,
+  lang VARCHAR(10) NOT NULL, -- 'en', 'en-us', 'pt', 'pt-br'
+  created BIGINT DEFAULT now_as_millis(),
+  modified BIGINT DEFAULT now_as_millis(),
+  UNIQUE(zid, src, lang)
+);
+CREATE INDEX conversation_translations_idx ON conversation_translations USING btree (zid);
 
 
 CREATE TABLE reports (
