@@ -51,7 +51,7 @@ const sendTextEmail = emailSenders.sendTextEmail;
 const sendTextEmailWithBackupOnly = emailSenders.sendTextEmailWithBackupOnly;
 
 const resolveWith = (x) => { return Promise.resolve(x);};
-const intercomClient = !isTrue(process.env.DISABLE_INTERCOM) ? new IntercomOfficial.Client({'token': process.env.INTERCOM_ACCESS_TOKEN}).usePromises() : {
+const intercomClient = !isTrue(process.env.DISABLE_INTERCOM) ? new IntercomOfficial.Client({'token': process.env.INTERCOM_ACCESS_TOKEN}) : {
   leads: {
     create: resolveWith({body: {user_id: "null_intercom_user_id"}}),
     update: resolveWith({}),
