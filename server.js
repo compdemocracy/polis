@@ -13074,6 +13074,7 @@ CREATE TABLE slack_user_invites (
   function handle_POST_waitinglist(req, res) {
     let intercom_lead_user_id;
     intercomClient.leads.create().then((x) => {
+
       intercom_lead_user_id = x.body.user_id;
       return intercom_lead_user_id;
     }).then(() => {
@@ -13107,6 +13108,8 @@ CREATE TABLE slack_user_invites (
     }).then(() => {
       res.json({});
     }).catch((err) => {
+      yell("what the hell... ");
+      yell(intercom_lead_user_id);
       fail(res, 500, "polis_err_POST_waitinglist", err);
     });
   }
