@@ -377,10 +377,7 @@ const errorNotifications = (function() {
 const yell = errorNotifications.add;
 
 
-const intercom = new Intercom({
-  apiKey: process.env.INTERCOM_API_KEY,
-  appId: "nb5hla8s",
-});
+const intercom = new Intercom(process.env.INTERCOM_ACCESS_TOKEN);
 
 
 //first we define our tables
@@ -13108,8 +13105,6 @@ CREATE TABLE slack_user_invites (
     }).then(() => {
       res.json({});
     }).catch((err) => {
-      yell("what the hell... ");
-      yell(intercom_lead_user_id);
       fail(res, 500, "polis_err_POST_waitinglist", err);
     });
   }
