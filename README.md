@@ -35,6 +35,8 @@ We recommend installing [nvm](https://github.com/creationix/nvm) so you can easi
     export DATABASE_URL=postgres://your_pg_username:your_pg_password@localhost:5432/your_pg_database_name
     ```
     Note that in some instances you may find that your postgres port isn't 5432 and you will need to figure out what this is.
+1. Note that for running in "dev mode" on a local machine, in order to avoid http -> https rerouting and other
+    issues, you'll want to run with `export DEV_MODE=true`.
 1. Install or set Node version.
     ```sh
     # Install
