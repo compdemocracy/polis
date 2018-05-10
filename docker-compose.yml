@@ -1,0 +1,56 @@
+# docker-compose run --rm node npm install
+# docker-compose up
+
+version: "3.1"
+
+services:
+  static:
+    container_name: polis-static
+    image: nginx:1.14
+    networks:
+      - 'polis-dev'
+    ports:
+      - '5002:80'
+
+  node:
+    command: "node --max_old_space_size=400 --gc_interval=100 --harmony app.js"
+    container_name: polis-server
+    image: node:6
+    working_dir: /app
+    depends_on:
+      - 'postgres'
+      - 'static'
+    env_file:
+      - ./docker-dev.env
+    networks:
+      - 'polis-dev'
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/app
+      - tmp:/app/tmp
+      - nodemod:/app/node_modules
+
+  postgres:
+    container_name: polis-db
+    image: postgres:9.5
+    restart: always
+    env_file:
+      - ./docker-dev.env
+    expose:
+      - '5432'
+    networks:
+      - 'polis-dev'
+    volumes:
+      - './postgres:/var/lib/postgresql/sql'
+      - 'backups:/backups'
+      - 'postgres:/var/lib/postgresql/data'
+
+networks:
+  polis-dev:
+
+volumes:
+  backups:
+  nodemod:
+  postgres:
+  tmp:
