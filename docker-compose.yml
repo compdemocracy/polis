@@ -1,0 +1,47 @@
+# first build or re-build:
+# docker-compose up --build
+# otherwise:
+# docker-compose up
+
+version: "3.1"
+
+services:
+  node:
+    container_name: polis-server
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - 'postgres'
+      - 'static'
+    networks:
+      - 'polis-dev'
+    ports:
+      - "5000:5000"
+
+  postgres:
+    container_name: polis-db
+    restart: always
+    build:
+      context: .
+      dockerfile: Dockerfile-db
+    networks:
+      - 'polis-dev'
+    volumes:
+      - 'backups:/backups'
+      - 'postgres:/var/lib/postgresql/data'
+
+  static:
+    container_name: polis-static
+    image: nginx:1.14
+    networks:
+      - 'polis-dev'
+    ports:
+      - '5002:80'
+
+networks:
+  polis-dev:
+
+volumes:
+  backups:
+  postgres:
