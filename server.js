@@ -51,12 +51,15 @@ const sendTextEmail = emailSenders.sendTextEmail;
 const sendTextEmailWithBackupOnly = emailSenders.sendTextEmailWithBackupOnly;
 
 const resolveWith = (x) => { return Promise.resolve(x);};
+console.log('*** intercomClient', process.env.DISABLE_INTERCOM, process.env.INTERCOM_ACCESS_TOKEN);
+console.log(!isTrue(process.env.DISABLE_INTERCOM));
 const intercomClient = !isTrue(process.env.DISABLE_INTERCOM) ? new IntercomOfficial.Client({'token': process.env.INTERCOM_ACCESS_TOKEN}) : {
   leads: {
     create: resolveWith({body: {user_id: "null_intercom_user_id"}}),
     update: resolveWith({}),
   },
 };
+console.log({ intercomClient })
 
 const useTranslateApi = isTrue(process.env.SHOULD_USE_TRANSLATION_API);
 let translateClient = null;

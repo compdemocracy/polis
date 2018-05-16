@@ -6,6 +6,7 @@
 version: "3.1"
 
 services:
+
   node:
     container_name: polis-server
     build:
@@ -19,6 +20,7 @@ services:
     ports:
       - "5000:5000"
 
+
   postgres:
     container_name: polis-db
     restart: always
@@ -31,6 +33,7 @@ services:
       - 'backups:/backups'
       - 'postgres:/var/lib/postgresql/data'
 
+
   static:
     container_name: polis-static
     image: nginx:1.14
@@ -39,9 +42,11 @@ services:
     ports:
       - '5002:80'
 
+
 networks:
   polis-dev:
 
 volumes:
   backups:
   postgres:
+
