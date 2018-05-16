@@ -126,7 +126,7 @@ function requiredConfig(name) {
 requiredConfig("ADMIN_UIDS"); // for testing
 requiredConfig("ADMIN_EMAILS"); // for notifying the team
 requiredConfig("ADMIN_EMAIL_DATA_EXPORT"); // a "send as" address for data export
-requiredConfig("ADMIN_EMAIL_DATA_EXPORT_TEST"); // for notifying of the outcome of automated data export testing 
+requiredConfig("ADMIN_EMAIL_DATA_EXPORT_TEST"); // for notifying of the outcome of automated data export testing
 requiredConfig("ADMIN_EMAIL_EMAIL_TEST"); // for notifying of the outcome of email system testing
 
 
@@ -376,9 +376,9 @@ const errorNotifications = (function() {
 }());
 const yell = errorNotifications.add;
 
-
-const intercom = new Intercom(process.env.INTERCOM_ACCESS_TOKEN);
-
+// TODO clean this up
+// const intercom = new Intercom(process.env.INTERCOM_ACCESS_TOKEN);
+const intercom = intercomClient;
 
 //first we define our tables
 const sql_conversations = sql.define({
@@ -577,7 +577,7 @@ function encrypt(text) {
   crypted += cipher.final('hex');
   return crypted;
 }
- 
+
 function decrypt(text) {
   const algorithm = 'aes-256-ctr';
   const password = process.env.ENCRYPTION_PASSWORD_00001;
@@ -2537,7 +2537,7 @@ function initializePolisHelpers() {
     });
 
 
-    
+
 
     if (!domainOverride && !hasWhitelistMatches(host) && !routeIsWhitelistedForAnyDomain) {
       winston.log("info", 'not whitelisted');
@@ -2687,7 +2687,7 @@ function initializePolisHelpers() {
 
       let results = rows.map((row) => {
         let item = row.data;
-        
+
         if (row.math_tick) {
           item.math_tick = Number(row.math_tick);
         }
@@ -2763,8 +2763,8 @@ function initializePolisHelpers() {
     return o;
   }
 
-  function packGids(o) {  
-    
+  function packGids(o) {
+
     // TODO start index at 1
 
     function remapGid(g) {
@@ -7286,7 +7286,7 @@ Email verified! You can close this tab or hit the back button.
 
 
     getUserInfoForUid2(uid).then((user) => {
-      
+
       emailBadProblemTime("User cancelled subscription: " + user.email);
 
       return pgQueryP("select * from stripe_subscriptions where uid = ($1);", [uid]).then((rows) => {
@@ -7349,13 +7349,13 @@ Email verified! You can close this tab or hit the back button.
   function _getCommentsForModerationList(o) {
     var strictCheck = Promise.resolve(null);
     var include_voting_patterns = o.include_voting_patterns;
-    
+
     if (o.modIn) {
       strictCheck = pgQueryP("select strict_moderation from conversations where zid = ($1);", [o.zid]).then((c) => {
         return o.strict_moderation;
       });
     }
-    
+
     return strictCheck.then((strict_moderation) => {
 
       let modClause = "";
@@ -7705,7 +7705,7 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
-  
+
   function getAgeRange(demo) {
     var currentYear = (new Date()).getUTCFullYear();
     var birthYear = demo.ms_birth_year_estimate_fb;
@@ -7742,7 +7742,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
 
-  
+
 
   function getDemographicsForVotersOnComments(zid, comments) {
     function isAgree(v) {
@@ -7782,7 +7782,7 @@ Email verified! You can close this tab or hit the back button.
         };
       });
       var demoByPid = _.indexBy(demo, "pid");
-      
+
       votes = votes.map((v) => {
         return _.extend(v, demoByPid[v.pid]);
       });
@@ -7914,13 +7914,13 @@ Email verified! You can close this tab or hit the back button.
       if (req.p.include_demographics) {
         isModerator(req.p.zid, req.p.uid).then((owner) => {
           if (owner || isReportQuery) {
-            return getDemographicsForVotersOnComments(req.p.zid, comments).then((commentsWithDemographics) => {              
+            return getDemographicsForVotersOnComments(req.p.zid, comments).then((commentsWithDemographics) => {
               finishArray(res, commentsWithDemographics);
             }).catch((err) => {
               fail(res, 500, "polis_err_get_comments3", err);
             });
           } else {
-            fail(res, 500, "polis_err_get_comments_permissions");            
+            fail(res, 500, "polis_err_get_comments_permissions");
           }
         }).catch((err) => {
           fail(res, 500, "polis_err_get_comments2", err);
@@ -8459,7 +8459,7 @@ Email verified! You can close this tab or hit the back button.
                   });
                 } else {
                   addNotificationTask(zid);
-                  sendCommentModerationEmail(req, 125, zid, "?"); // email mike for all comments, since some people may not have turned on strict moderation, and we may want to babysit evaluation conversations of important customers.              
+                  sendCommentModerationEmail(req, 125, zid, "?"); // email mike for all comments, since some people may not have turned on strict moderation, and we may want to babysit evaluation conversations of important customers.
                   sendSlackEvent({
                     type: "comment_mod_needed",
                     data: comment,
@@ -10486,7 +10486,7 @@ Email verified! You can close this tab or hit the back button.
   function handle_POST_reports(req, res) {
     let zid = req.p.zid;
     let uid = req.p.uid;
-    
+
     return isModerator(zid, uid).then((isMod) => {
       if (!isMod) {
         return fail(res, 403, "polis_err_post_reports_permissions", err);
@@ -10538,7 +10538,7 @@ Email verified! You can close this tab or hit the back button.
 
       let query  = q.toString();
       query = query.replace("'now_as_millis()'", "now_as_millis()"); // remove quotes added by sql lib
-      
+
       return pgQueryP(query, []).then((result) => {
         res.json({});
       });
@@ -10962,7 +10962,7 @@ Email verified! You can close this tab or hit the back button.
 
   function handle_POST_sendEmailExportReady(req, res) {
 
-    if (req.p.webserver_pass !== process.env.WEBSERVER_PASS || req.p.webserver_username !== process.env.WEBSERVER_USERNAME) {      
+    if (req.p.webserver_pass !== process.env.WEBSERVER_PASS || req.p.webserver_username !== process.env.WEBSERVER_USERNAME) {
       return fail(res, 403, "polis_err_sending_export_link_to_email_auth");
     }
 
@@ -12261,7 +12261,7 @@ Thanks for using pol.is!
           break;
         }
       }
-      
+
 
       meta = _.indexBy(meta, 'pid');
       let pidToMetaVotes = _.groupBy(metaVotes, 'pid');
@@ -12632,7 +12632,7 @@ Thanks for using pol.is!
         //         return stuff;
         //     }
         // }).then(function(stuff) {
-          
+
         let participantsWithSocialInfo = stuff[0] || [];
         // let facebookFriends = stuff[0] || [];
         // let twitterParticipants = stuff[1] || [];
@@ -12876,7 +12876,7 @@ CREATE TABLE slack_user_invites (
         slack_team,
         slack_user_id,
       ]).then((rows) => {
-        
+
         if (!rows || !rows.length) {
           // create new user (or use existing user) and associate a new slack_user entry
           const uidPromise = existing_uid_for_client ? Promise.resolve(existing_uid_for_client) : createDummyUser();
@@ -13851,7 +13851,7 @@ CREATE TABLE slack_user_invites (
       status: "ok",
     });
   }
-  
+
   function hangle_GET_testDatabase(req, res) {
     pgQueryP("select uid from users limit 1", []).then((rows) => {
       res.status(200).json({
