@@ -10976,7 +10976,7 @@ You created a data export for pol.is conversation ${domain}/${req.p.conversation
 
 https://${domain}/api/v3/dataExport/results?filename=${req.p.filename}&conversation_id=${req.p.conversation_id}
 
-Please let us know if you have any questons about the data.
+Please let us know if you have any questions about the data.
 
 Thanks for using pol.is!
 `;
