@@ -14,15 +14,19 @@ npm install
 bower install
 ```
 
-To build: `gulp`
+There is a `polis.config.template.js` file which will have to be copied over to `polis.config.js`, and edited as appropriate.
 
-The dev server is at [localhost:8000](http://localhost:8000/)
+To run: `./x`
+
+The dev server should now be running at [localhost:5001](http://localhost:5001/) (or whatever port you set in your `polis.config.js`)
+
+If you get an error like `Error: watch /home/csmall/code/polisClientParticipation/js ENOSPC` trying to run, this may be because your system has too many watches active.
+If you see this, try running `echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf && sudo sysctl -p` to increase the number of available watches on your system.
+
 
 
 Deployment
 ----------
-
-There is a `polis.config.template.js` file which will have to be copied over to `polis.config.js`, and edited as appropriate.
 
 Before pushing to s3: `gulp dist`
 
