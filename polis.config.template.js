@@ -10,6 +10,8 @@ module.exports = {
     ".+\\.xip\\.io$",
   ],
 
+  PORT: 5001,
+
   DISABLE_INTERCOM: true,
 
   FB_APP_ID: '661042417336977',
