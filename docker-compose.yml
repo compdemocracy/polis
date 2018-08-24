@@ -21,6 +21,14 @@ services:
       - "5000:5000"
 
 
+  math:
+    container_name: polis-math
+    depends_on:
+      - 'postgres'
+    build:
+      context: https://github.com/pol-is/polisMath.git
+
+
   postgres:
     container_name: polis-db
     restart: always
@@ -41,6 +49,7 @@ services:
       - 'polis-dev'
     ports:
       - '5002:80'
+
 
 
 networks:
