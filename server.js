@@ -19,7 +19,9 @@ const FB = require('fb');
 const fs = require('fs');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
-const Intercom = require('intercom.io'); // https://github.com/tarunc/intercom.io
+// May not need this anymore; looks like we're just using the other Intercom api, but need to figure out
+// what's going on here
+//const Intercom = require('intercom.io'); // https://github.com/tarunc/intercom.io
 const IntercomOfficial = require('intercom-client');
 const isTrue = require('boolean');
 const OAuth = require('oauth');
@@ -126,15 +128,13 @@ function requiredConfig(name) {
   }
 }
 
-requiredConfig("ADMIN_UIDS"); // for testing
-requiredConfig("ADMIN_EMAILS"); // for notifying the team
 requiredConfig("ADMIN_EMAIL_DATA_EXPORT"); // a "send as" address for data export
 requiredConfig("ADMIN_EMAIL_DATA_EXPORT_TEST"); // for notifying of the outcome of automated data export testing
 requiredConfig("ADMIN_EMAIL_EMAIL_TEST"); // for notifying of the outcome of email system testing
 
 
-const admin_emails = JSON.parse(process.env.ADMIN_EMAILS);
-const polisDevs = JSON.parse(process.env.ADMIN_UIDS);
+const admin_emails = JSON.parse(process.env.ADMIN_EMAILS) || [];
+const polisDevs = JSON.parse(process.env.ADMIN_UIDS) || [];
 
 
 function isPolisDev(uid) {
