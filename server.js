@@ -133,11 +133,12 @@ requiredConfig("ADMIN_EMAIL_DATA_EXPORT_TEST"); // for notifying of the outcome 
 requiredConfig("ADMIN_EMAIL_EMAIL_TEST"); // for notifying of the outcome of email system testing
 
 
-const admin_emails = JSON.parse(process.env.ADMIN_EMAILS) || [];
-const polisDevs = JSON.parse(process.env.ADMIN_UIDS) || [];
+const admin_emails = process.env.ADMIN_EMAILS ? JSON.parse(process.env.ADMIN_EMAILS) : [];
+const polisDevs = process.env.ADMIN_UIDS ? JSON.parse(process.env.ADMIN_UIDS) : [];
 
 
 function isPolisDev(uid) {
+  console.log("polisDevs", polisDevs)
   return polisDevs.indexOf(uid) >= 0;
 }
 
