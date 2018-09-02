@@ -106,7 +106,7 @@ function prepPathForTemplate(path) {
 gulp.task('connect', [], function() {
 
   function proxyToPreprod(req, response) {
-    var x = request("https://preprod.pol.is" + req.originalUrl);
+    var x = request((polisConfig.SERVICE_URL || "https://preprod.pol.is") + req.originalUrl);
     x.on("error", function(err) {
       response.status(500).end();
     });
