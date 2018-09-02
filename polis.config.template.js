@@ -10,6 +10,10 @@ module.exports = {
     ".+\\.xip\\.io$",
   ],
 
+  // Switch to localhost to forward server requests through to a local server rather than a preprod server
+  //SERVICE_URL: "http://localhost:5000",
+  SERVICE_URL: "https://preprod.pol.is",
+
   PORT: 5001,
 
   DISABLE_INTERCOM: true,
