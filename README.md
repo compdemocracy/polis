@@ -7,7 +7,7 @@ This is the code for the view that conversation participants see.
 Development
 -----------
 
-Install with [npm](https://www.npmsjs.org/) and [bower](http://bower.io/):
+Install with [npm](https://www.npmsjs.org/) and [bower](http://bower.io/) (`npm install --global bower`):
 
 ```sh
 npm install
