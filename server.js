@@ -287,16 +287,10 @@ Promise.onPossiblyUnhandledRejection(function(err) {
 });
 
 
-function requiredConfig(name) {
-  if (_.isUndefined(process.env[name])) {
-    throw "be sure to set the "+name+" environment variable";
-  }
-}
 
-requiredConfig("ADMIN_EMAIL_DATA_EXPORT"); // a "send as" address for data export
-requiredConfig("ADMIN_EMAIL_DATA_EXPORT_TEST"); // for notifying of the outcome of automated data export testing
-requiredConfig("ADMIN_EMAIL_EMAIL_TEST"); // for notifying of the outcome of email system testing
-
+const adminEmailDataExport = process.env.ADMIN_EMAIL_DATA_EXPORT || ""
+const adminEmailDataExportTest = process.env.ADMIN_EMAIL_DATA_EXPORT_TEST || ""
+const adminEmailEmailTest = process.env.ADMIN_EMAIL_EMAIL_TEST || ""
 
 const admin_emails = process.env.ADMIN_EMAILS ? JSON.parse(process.env.ADMIN_EMAILS) : [];
 const polisDevs = process.env.ADMIN_UIDS ? JSON.parse(process.env.ADMIN_UIDS) : [];
@@ -3268,7 +3262,7 @@ function initializePolisHelpers() {
   if (process.env.RUN_PERIODIC_EXPORT_TESTS && !devMode && process.env.MATH_ENV === "preprod") {
     let runExportTest = () => {
       let math_env = "prod";
-      let email = process.env.ADMIN_EMAIL_DATA_EXPORT_TEST;
+      let email = adminEmailDataExportTest;
       let zid = 12480;
       let atDate = Date.now();
       let format = "csv";
@@ -4834,7 +4828,7 @@ ${serverName}/pwreset/${pwresettoken}
     if (d.getDay() === 1) {
       // send the monday backup email system test
       // If the sending fails, we should get an error ping.
-      sendTextEmailWithBackupOnly(POLIS_FROM_ADDRESS, process.env.ADMIN_EMAIL_EMAIL_TEST, "monday backup email system test", "seems to be working");
+      sendTextEmailWithBackupOnly(POLIS_FROM_ADDRESS, adminEmailEmailTest, "monday backup email system test", "seems to be working");
     }
   }
   setInterval(trySendingBackupEmailTest, 1000 * 60 * 60 * 23); // try every 23 hours (so it should only try roughly once a day)
@@ -10989,7 +10983,7 @@ Email verified! You can close this tab or hit the back button.
     const domain = process.env.primary_polis_url;
     const email = req.p.email;
     const subject = "Data export for pol.is conversation pol.is/" + req.p.conversation_id;
-    const fromAddress = `Polis Team <${process.env.ADMIN_EMAIL_DATA_EXPORT}>`;
+    const fromAddress = `Polis Team <${adminEmailDataExport}>`;
     const body = `Greetings
 
 You created a data export for pol.is conversation ${domain}/${req.p.conversation_id} that has just completed. You can download the results for this conversation at the following url:
