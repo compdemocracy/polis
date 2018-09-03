@@ -118,16 +118,24 @@ module.exports = Handlebones.ModelView.extend({
       ctx.showHideTranslationButton = true;
     }
 
-    var officalTranslation = null;
+    var officialTranslation = null;
     if (ctx.showOfficialTranslation) {
       // && ctx.translationSrc !== -1) {
-      officalTranslation = getMatchingOfficialTranslation(ctx.translations);
-      ctx.txt = officalTranslation.txt;
-      ctx.lang = officalTranslation.lang;
+      officialTranslation = getMatchingOfficialTranslation(ctx.translations);
+      ctx.txt = officialTranslation.txt;
+      ctx.lang = officialTranslation.lang;
     }
 
+    if (officialTranslation) {
+      ctx.isUnofficialTranslation = false;
+      ctx.showTranslationButton = Strings.showTranslationButton
+    } else if (ctx.translations && ctx.translations.length > 0) {
+      ctx.isUnofficialTranslation = true;
+      ctx.showTranslationButton = Strings.showThirdPartyTranslationButton || Strings.showTranslationButton
+      ctx.thirdPartyTranslationDisclaimer = Strings.thirdPartyTranslationDisclaimer
+    }
     // if comment has correct language don't show translation or buttons
-    if ((ctx.showTranslation || officalTranslation) &&
+    if ((ctx.showTranslation || officialTranslation) &&
         ctx.lang &&
         Utils.matchesUiLang(ctx.lang)) {
       ctx.showTranslation = false;
