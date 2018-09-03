@@ -89,6 +89,9 @@ s.polis_err_reg_fb_verification_noemail_unverified = "Votre compte Facebook n’
 s.showTranslationButton = "Activer le service de traduction ";
 s.hideTranslationButton = "Désactiver le service de traduction";
 
+s.showThirdPartyTranslationButton = "Activer la traduction par un tiers";
+s.thirdPartyTranslationDisclaimer = "Traduction fournie par un tiers";
+
 s.notificationsAlreadySubscribed = "Vous êtes abonné aux mises jour de cette conversation.";
 s.notificationsGetNotified = "Recevez un avis lorsque de nouvelles affirmations sont publiées :";
 s.notificationsEnterEmail = "Saisissez votre adresse de courriel pour recevoir un message lorsque de nouvelles affirmations sont publiées :";
