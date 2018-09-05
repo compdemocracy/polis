@@ -873,14 +873,22 @@
   (ipv-print-method o w))
 
 
+(defn misc-reader [type]
+ (fn [& args]
+   {:type type
+    :args args}))
+
 ; a reader that uses these custom printing formats
 (defn read-vectorz-edn [text]
   (edn/read-string
     {:readers {'mikera.vectorz.Vector matrix/matrix
                'mikera.arrayz.NDArray matrix/matrix
                'mikera.matrixx.Matrix matrix/matrix
-               'polismath.named-matrix.NamedMatrix nm/named-matrix-reader}}
+               'polismath.named-matrix.NamedMatrix nm/named-matrix-reader
+               'object (misc-reader :object)
+               'error (misc-reader :error)}}
     text))
+
 
 
 (defn conv-update-dump
