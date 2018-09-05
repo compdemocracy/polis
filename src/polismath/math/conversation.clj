@@ -650,7 +650,11 @@
                             data)))
                       {:A 0 :D 0 :S 0 :P 0}
                       group-votes)
-                    extremity (get extremities tid)]
+                    extremity (or (get extremities tid)
+                                  (do
+                                    (log/warn "No extremity for tid" tid)
+                                    ;; Default to 0 just in case, but this shouldn't happen (bugfix)
+                                    0))]
                 (priority-metric (meta-tids tid) A P S extremity)))
             tids)))
 
