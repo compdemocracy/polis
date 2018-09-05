@@ -652,7 +652,7 @@
                       group-votes)
                     extremity (or (get extremities tid)
                                   (do
-                                    (log/warn "No extremity for tid" tid)
+                                    (log/warn "No extremity for tid" tid "zid" (:zid conv))
                                     ;; Default to 0 just in case, but this shouldn't happen (bugfix)
                                     0))]
                 (priority-metric (meta-tids tid) A P S extremity)))
