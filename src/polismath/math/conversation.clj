@@ -332,6 +332,18 @@
   (priority-metric false 18 3 20 1)
   :end-comment)
 
+(defn with-proj-and-extremtiy
+  "Compute projection and extremity and merge in to pca results"
+  [pca]
+  (let [cmnt-proj (pca/pca-project-cmnts pca)
+        cmnt-extremity
+        (mapv
+          (fn [row]
+            (matrix/length row))
+          (matrix/rows cmnt-proj))]
+    (assoc pca
+           :comment-projection (matrix/transpose cmnt-proj)
+           :comment-extremity cmnt-extremity)))
   
 (def small-conv-update-graph
   "For computing small conversation updates (those without need for base clustering)"
@@ -365,16 +377,8 @@
                    (pca/wrapped-pca mat
                                     (:n-comps opts')
                                     :start-vectors (get-in conv [:pca :comps])
-                                    :iters (:pca-iters opts'))
-                   cmnt-proj (pca/pca-project-cmnts pca)
-                   cmnt-extremity
-                   (mapv
-                     (fn [row]
-                       (matrix/length row))
-                     (matrix/rows cmnt-proj))]
-               (assoc pca
-                      :comment-projection (matrix/transpose cmnt-proj)
-                      :comment-extremity cmnt-extremity)))
+                                    :iters (:pca-iters opts'))]
+               (with-proj-and-extremtiy pca)))
 
 
       :proj
@@ -739,8 +743,10 @@
                 (let [rand-indices (take sample-size (sampling/sample (range n-ptpts) :generator :twister))
                       pca          ((partial-pca mat pca rand-indices) pca)]
                   (if (= iter 0)
-                    (recur pca (dec iter))
-                    pca)))))}))
+                    ;; Then done, but don't forget to merge in the comment extremtiy, etc
+                    (with-proj-and-extremtiy pca)
+                    ;; Recur
+                    (recur pca (dec iter)))))))}))
 
 
 (def eager-profiled-compiler
