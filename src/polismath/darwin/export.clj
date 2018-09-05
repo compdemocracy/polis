@@ -287,27 +287,50 @@
                      members))))
     group-clusters))
 
+
+(defn participant-xids
+  [darwin conv]
+  (->>
+    (db/query
+      (:postgres darwin)
+      {:select [:participants.pid :xids.uid :xid]
+       :from [:xids]
+       :join [:conversations [:= :conversations.owner :xids.owner]
+              :participants [:= :participants.uid :xids.uid]]
+       :where [:and
+               [:= :conversations.zid (:zid conv)]
+               [:= :participants.zid (:zid conv)]]})
+    (map (fn [{:keys [pid xid]}]
+           [pid xid]))
+    (into {})))
+
+
 ;; participant-id, group-id, n-votes, n-comments, n-aggre, n-disagree, <comments...>
 (defn participants-votes-table
-  [conv votes comments]
+  [darwin conv votes comments {:as kw-args :keys [include-xid]}]
   (let [mat (reconstruct-vote-matrix votes)
-        flattened-clusters (flatten-clusters (:group-clusters conv) (:base-clusters conv))]
+        flattened-clusters (flatten-clusters (:group-clusters conv) (:base-clusters conv))
+        xids (participant-xids darwin conv)]
     (concat
       ;; The header
-      [(into ["participant" "group-id" "n-comments" "n-votes" "n-agree" "n-disagree"] (nm/colnames mat))]
+      [(concat ["participant"]
+               (when include-xid ["xid"])
+               ["group-id" "n-comments" "n-votes" "n-agree" "n-disagree"]
+               (nm/colnames mat))]
       ;; The rest of the data
       (map
         (fn [ptpt row]
-          (into [ptpt
-                 (:id (ffilter #(some #{ptpt} (:members %)) flattened-clusters))
-                 (count (filter #(= (:pid %) ptpt) comments))
-                 (count (remove nil? row))
-                 ;; XXX God damn aggree vs disagree...
-                 ;; Fixed this upstream, for now; so should be good to go once we've fixed it at the source. But
-                 ;; keep an eye on it for now... XXX
-                 (count (filter #{1} row))
-                 (count (filter #{-1} row))]
-                row))
+          (concat [ptpt]
+                  (when include-xid [(get xids ptpt)])
+                  [(:id (ffilter #(some #{ptpt} (:members %)) flattened-clusters))
+                   (count (filter #(= (:pid %) ptpt) comments))
+                   (count (remove nil? row))
+                   ;; XXX God damn aggree vs disagree...
+                   ;; Fixed this upstream, for now; so should be good to go once we've fixed it at the source. But
+                   ;; keep an eye on it for now... XXX
+                   (count (filter #{1} row))
+                   (count (filter #{-1} row))]
+                  row))
         (nm/rownames mat)
         (.matrix mat)))))
 
@@ -549,7 +572,7 @@
     {:votes votes
      :summary (summary-data darwin conv votes comments participants)
      :stats-history (stats-history votes participants comments)
-     :participants-votes (participants-votes-table conv votes comments)
+     :participants-votes (participants-votes-table darwin conv votes comments kw-args)
      :comments comments}))
 
 (defn get-export-data-at-date
@@ -564,7 +587,7 @@
     {:votes votes
      :summary (assoc (summary-data darwin conv votes comments participants) :at-date at-date)
      :stats-history (stats-history votes participants comments)
-     :participants-votes (participants-votes-table conv votes comments)
+     :participants-votes (participants-votes-table darwin conv votes comments kw-args)
      :comments comments}))
 
 
@@ -575,7 +598,7 @@
   specified, which can be used for biulding up items in a zip file. This is used in export/-main to export all
   convs for a given uid, for example."
   ;; Don't forget env-overrides {:math-env "prod"}; should clean up with system
-  [darwin {:keys [zid zinvite format filename zip-stream entry-point env-overrides at-date] :as kw-args}]
+  [darwin {:keys [zid zinvite format filename zip-stream entry-point env-overrides at-date include-xid] :as kw-args}]
   (log/info "Exporting data for zid =" zid ", zinvite =" zinvite)
   (let [export-data (if at-date
                       (get-export-data-at-date darwin kw-args)
