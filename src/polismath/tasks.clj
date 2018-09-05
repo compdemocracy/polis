@@ -36,7 +36,11 @@
 (defmethod dispatch-task! :generate_export_data
   [{:as poller :keys [darwin]} task-record]
   (log/debug "Dispatching generate_export_data for" task-record)
-  (let [params (assoc (:task_data task-record) :task_bucket (:task_bucket task-record))]
+  (let [params (assoc (:task_data task-record) :task_bucket (:task_bucket task-record))
+        ;; Need to think about security implications more thoroughly before we can really include this from
+        ;; requests triggered by server (needs thorough audit to make sure user can't trigger this via web
+        ;; api request)
+        params (dissoc task-record :include-xid)]
     (try
       (let [params (darwin/parsed-params darwin params)]
         (darwin/notify-of-status darwin params "processing")
