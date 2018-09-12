@@ -35,7 +35,7 @@ const Overview = ({
   ptptCountTotal,
   math,
   comments,
-  stats,
+  //stats,
   computedStats,
 }) => {
   return (
@@ -65,7 +65,8 @@ const Overview = ({
         <Number
           number={ computeVoteTotal(math["user-vote-counts"]) }
           label={"votes were cast"} />
-        <Number number={stats.firstCommentTimes.length} label={"people submitted statements"} />
+        {/* Leaving this out for now until we get smarter conversationStats */}
+        {/* <Number number={comments.length} label={"people submitted statements"} /> */}
         <Number number={math["n-cmts"]} label={"statements were submitted"} />
         <Number number={computedStats.votesPerVoterAvg.toFixed(2)} label={"votes per voter on average"} />
         <Number number={computedStats.commentsPerCommenterAvg.toFixed(2)} label={"statements per author on average"} />

@@ -79,8 +79,8 @@ class App extends React.Component {
       report_id: report_id,
       moderation: true,
       mod_gt: isStrictMod ? 0 : -1,
-      include_social: true,
-      include_demographics: true,
+      //include_social: true,
+      //include_demographics: true,
       include_voting_patterns: true,
     });
   }
@@ -149,6 +149,8 @@ class App extends React.Component {
 
   getData() {
     const reportPromise = this.getReport(report_id);
+    // debug initial report data fetch
+    reportPromise.then((report) => console.log("report recieved:", report))
     const mathPromise = reportPromise.then((report) => {
       return this.getMath(report.conversation_id);
     });
@@ -160,9 +162,9 @@ class App extends React.Component {
     const groupDemographicsPromise = reportPromise.then((report) => {
       return this.getGroupDemographics(report.conversation_id);
     });
-    const conversationStatsPromise = reportPromise.then((report) => {
-      return this.getConversationStats(report.conversation_id)
-    });
+    //const conversationStatsPromise = reportPromise.then((report) => {
+      //return this.getConversationStats(report.conversation_id)
+    //});
     const participantsOfInterestPromise = reportPromise.then((report) => {
       return this.getParticipantsOfInterest(report.conversation_id);
     });
@@ -182,7 +184,7 @@ class App extends React.Component {
       participantsOfInterestPromise,
       matrixPromise,
       conversationPromise,
-      conversationStatsPromise,
+      //conversationStatsPromise,
     ]).then((a) => {
       let [
         report,
@@ -192,7 +194,7 @@ class App extends React.Component {
         participants,
         correlationHClust,
         conversation,
-        conversationstats,
+        //conversationstats,
       ] = a;
 
       assertExists(mathResult, "base-clusters");
@@ -355,7 +357,7 @@ class App extends React.Component {
         repfulDisageeTidsByGroup: repfulDisageeTidsByGroup,
         formatTid: formatTid,
         report: report,
-        conversationStats: conversationstats,
+        //conversationStats: conversationstats,
         computedStats: computedStats,
         nothingToShow: !comments.length || !groupDemographics.length
       });
@@ -452,8 +454,10 @@ class App extends React.Component {
             onAutoRefreshDisabled={this.onAutoRefreshDisabled.bind(this)}
             autoRefreshEnabled={this.state.shouldPoll}
             voteColors={this.state.voteColors}/>
+
+          {/* This may eventually need to go back in below */}
+          {/* stats={this.state.conversationStats} */}
           <Overview
-            stats={this.state.conversationStats}
             computedStats={this.state.computedStats}
             math={this.state.math}
             comments={this.state.comments}
