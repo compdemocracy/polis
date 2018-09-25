@@ -94,7 +94,8 @@ const readPool = new pgnative.Pool(readsPgConnection)
 function pgQueryImpl(pool, queryString, ...args) {
   // variable arity depending on whether or not query has params (default to [])
   let params, callback;
-  if (_.isFunction(args[0])) {
+  if (_.isFunction(args[1])) {
+    params = args[0];
     callback = args[1];
   } else if (_.isFunction(args[0])) {
     params = [];
