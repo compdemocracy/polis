@@ -11529,9 +11529,10 @@ Thanks for using pol.is!
         let pairSplit = pair.split("=");
         let k = pairSplit[0];
         let v = pairSplit[1];
-        if (k === "user_id") {
-          v = parseInt(v);
-        }
+        // can't do this anymore, because now twitter uses integers which overflow js max resolution
+        //if (k === "user_id") {
+          //v = parseInt(v);
+        //}
         kv[k] = v;
       });
       winston.log("info", kv);
