@@ -86,10 +86,9 @@ s.connectFbButton = "Connectez-vous avec votre compte Facebook";
 s.connectTwButton = "Connectez-vous avec votre compte Twitter";
 s.polis_err_reg_fb_verification_email_sent = "Veuillez vérifier votre boîte de courriel et cliquez sur le lien de vérification. Revenez ensuite ici pour continuer.";
 s.polis_err_reg_fb_verification_noemail_unverified = "Votre compte Facebook n’a pas été confirmé. Veuillez vérifier l’adresse de courriel que vous utilisez avec votre compte Facebook, puis revenez ici pour continuer.";
-s.showTranslationButton = "Activer le service de traduction ";
+s.showTranslationButton = "Activer la traduction par un tiers";
 s.hideTranslationButton = "Désactiver le service de traduction";
 
-s.showThirdPartyTranslationButton = "Activer la traduction par un tiers";
 s.thirdPartyTranslationDisclaimer = "Traduction fournie par un tiers";
 
 s.notificationsAlreadySubscribed = "Vous êtes abonné aux mises jour de cette conversation.";
