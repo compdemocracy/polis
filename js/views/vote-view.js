@@ -131,7 +131,7 @@ module.exports = Handlebones.ModelView.extend({
       ctx.showTranslationButton = Strings.showTranslationButton;
     } else if (ctx.translations && ctx.translations.length > 0) {
       ctx.isUnofficialTranslation = true;
-      ctx.showTranslationButton = Strings.showThirdPartyTranslationButton || Strings.showTranslationButton;
+      ctx.showTranslationButton = Strings.showTranslationButton;
       ctx.thirdPartyTranslationDisclaimer = Strings.thirdPartyTranslationDisclaimer;
     }
     // if comment has correct language don't show translation or buttons
