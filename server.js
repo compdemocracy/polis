@@ -2943,7 +2943,7 @@ function initializePolisHelpers() {
       addInRamMetric("pcaGetQuery", queryDuration);
 
       if (!rows || !rows.length) {
-        INFO("mathpoll related", "after cache miss, unable to find item", zid, math_tick);
+        INFO("mathpoll related; after cache miss, unable to find data for", {zid, math_tick, math_env: process.env.MATH_ENV});
         return null;
       }
       let item = rows[0].data;
@@ -11634,6 +11634,7 @@ Thanks for using pol.is!
             }
           });
       },function(err) {
+        winston.log("error", "failed to getTwitterUserInfo");
         fail(res, 500, "polis_err_twitter_auth_041", err);
       }).catch(function(err) {
         fail(res, 500, "polis_err_twitter_auth_04", err);
