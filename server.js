@@ -5334,7 +5334,9 @@ Email verified! You can close this tab or hit the back button.
     body += "You're receiving this message because you're signed up to receive Polis notifications for this conversation. You can unsubscribe from these emails by clicking this link:\n";
     body += createNotificationsUnsubscribeUrl(conversation_id, email) + "\n";
     body += "\n";
+    body += "If for some reason the above link does not work, please reply directly to this email with the message 'Unsubscribe' and we will remove you within 24 hours.";
     body += "\n";
+    body += "Thanks for your participation";
     return sendEmailByUid(uid, subject, body);
   }
 
@@ -5409,7 +5411,7 @@ Email verified! You can close this tab or hit the back button.
     let email = req.p.email;
     let params = {
       conversation_id: req.p.conversation_id,
-      email: req.p.email,
+      email: email,
     };
     params[HMAC_SIGNATURE_PARAM_NAME] = req.p[HMAC_SIGNATURE_PARAM_NAME];
     verifyHmacForQueryParams("api/v3/notifications/unsubscribe", params).then(function() {
