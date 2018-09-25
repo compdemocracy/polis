@@ -86,6 +86,7 @@ s.connectTwButton = "Forbind med Twitter";
 s.polis_err_reg_fb_verification_email_sent = "Check din email for et link, så vi kan verificere dig.";
 s.polis_err_reg_fb_verification_noemail_unverified = "Din Facebook-konto er ikke verificeret, Verificer den og kom tilbage..";
 s.showTranslationButton = "Aktiver oversættelse";
+
 s.hideTranslationButton = "Deaktiver oversættelse";
 
 s.notificationsAlreadySubscribed = "Du abonnerer på opdateringer for denne samtale.";
