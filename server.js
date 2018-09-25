@@ -11468,43 +11468,43 @@ Thanks for using pol.is!
 
   function handle_GET_twitter_oauth_callback(req, res) {
     let uid = req.p.uid;
+    winston.log("info", "twitter oauth callback req.p", req.p);
 
-
-
-    function maybeAddToIntercom(o) {
-      let shouldAddToIntercom = req.p.owner;
-      if (shouldAddToIntercom) {
-        let params = {
-          "email": o.email,
-          "name": o.name,
-          "user_id": o.uid,
-        };
-        let customData = {};
-        // if (referrer) {
-        //     customData.referrer = o.referrer;
-        // }
-        // if (organization) {
-        //     customData.org = organization;
-        // }
-        // customData.fb = true; // mark this user as a facebook auth user
-        customData.tw = true; // mark this user as a twitter auth user
-        customData.twitterScreenName = o.screen_name;
-        customData.uid = o.uid;
-        if (_.keys(customData).length) {
-          params.custom_data = customData;
-        }
-        intercom.createUser(params, function(err, res) {
-          if (err) {
-            winston.log("info", err);
-            console.error("polis_err_intercom_create_user_tw_fail");
-            winston.log("info", params);
-            yell("polis_err_intercom_create_user_tw_fail");
-            return;
-          }
-        });
-      }
-    }
-
+    // commenting this out for now because all objects end up getting owner = t, but we don't really want to
+    // add all twitter/facebook logins to intercom, so turning this off for now.
+    //function maybeAddToIntercom(o) {
+      //let shouldAddToIntercom = req.p.owner;
+      //if (shouldAddToIntercom) {
+        //let params = {
+          //"email": o.email,
+          //"name": o.name,
+          //"user_id": o.uid,
+        //};
+        //let customData = {};
+        //// if (referrer) {
+        ////     customData.referrer = o.referrer;
+        //// }
+        //// if (organization) {
+        ////     customData.org = organization;
+        //// }
+        //// customData.fb = true; // mark this user as a facebook auth user
+        //customData.tw = true; // mark this user as a twitter auth user
+        //customData.twitterScreenName = o.screen_name;
+        //customData.uid = o.uid;
+        //if (_.keys(customData).length) {
+          //params.custom_data = customData;
+        //}
+        //intercom.createUser(params, function(err, res) {
+          //if (err) {
+            //winston.log("info", err);
+            //console.error("polis_err_intercom_create_user_tw_fail");
+            //winston.log("info", params);
+            //yell("polis_err_intercom_create_user_tw_fail");
+            //return;
+          //}
+        //});
+      //}
+    //}
 
 
     // TODO "Upon a successful authentication, your callback_url would receive a request containing the oauth_token and oauth_verifier parameters. Your application should verify that the token matches the request token received in step 1."
@@ -11575,7 +11575,7 @@ Thanks for using pol.is!
             pgQueryP("update users set hname = ($2) where uid = ($1) and hname is NULL;", [uid, u.name]).then(function() {
               // OK, ready
               u.uid = uid;
-              maybeAddToIntercom(u);
+              //maybeAddToIntercom(u);
               res.redirect(dest);
             }, function(err) {
               fail(res, 500, "polis_err_twitter_auth_update", err);
