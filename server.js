@@ -11283,7 +11283,8 @@ Thanks for using pol.is!
       }
 
       getTwitterUserInfoBulk(twitter_user_ids).then(function(info) {
-        console.dir(info);
+        // Uncomment to log out lots of twitter crap for a good time
+        //console.dir(info);
 
         let updateQueries = info.map(function(u) {
           let q = "update twitter_users set " +
@@ -11297,7 +11298,8 @@ Thanks for using pol.is!
             "modified = now_as_millis() " +
             "where twitter_user_id = ($1);";
 
-          console.log(q);
+          // uncomment to see some other twitter crap
+          //console.log(q);
           return pgQueryP(q, [
             u.id,
             u.screen_name,
