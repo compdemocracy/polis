@@ -355,7 +355,7 @@
   (let [math-env (-> postgres :config :math-env-string)]
     (query postgres
            ["insert into math_main (zid, math_env, last_vote_timestamp, math_tick, data, caching_tick)
-             values (?,?,?,?,?, (select max(caching_tick) + 1 from math_main where math_env = (?)))
+             values (?,?,?,?,?, COALESCE((select max(caching_tick) + 1 from math_main where math_env = (?)), 1))
              on conflict (zid, math_env)
              do update set modified = now_as_millis(),
                            data = excluded.data,
