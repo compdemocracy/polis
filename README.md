@@ -5,8 +5,8 @@
 Same environment variables as the rest of the apps.
 Once you have the npm modules set up (`npm install`?), you can run the development server (with hot code reloading) by running `./x`.
 
-Note that there should be a file at `.env_dev` which will be read from and should contain a `SERVICE_URL`
-environment variable.
+Note that there should be a file at `.env_dev` which will be read from when you call `./x`.
+This shell script file should contain a line like `export SERVICE_URL=https://polis.yourlocalns`.
 This should point to whichever `polisServer` instance you like (likely either `http://localhost:5000` for a local dev instance).
 
 ## Deployment
