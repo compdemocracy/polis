@@ -14,6 +14,7 @@ This should point to whichever `polisServer` instance you like (likely either `h
 Deploy using the `deployPreprod` and `deploy_TO_PRODUCTION`, as appropriate.
 
 Note that you will first have to copy over the `polis.config.template.js` file to `polis.config.js`, and edit appropriately.
+In particular, here you can specify the service url for the static build, as well as the uploader method and s3 bucket information.
 
 You will also need to have AWS credentials set up at `.polis_s3_creds_client.json` if you are using S3 buckets for deployment (as specified in `polis.config.js`; other option is scp to a static file server).
 The credential file should be a json that looks more or less like
