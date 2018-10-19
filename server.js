@@ -10937,7 +10937,7 @@ Email verified! You can close this tab or hit the back button.
       return fail(res, 403, "polis_err_sending_export_link_to_email_auth");
     }
 
-    const domain = process.env.primary_polis_url;
+    const domain = process.env.PRIMARY_POLIS_URL;
     const email = req.p.email;
     const subject = "Data export for pol.is conversation pol.is/" + req.p.conversation_id;
     const fromAddress = `Polis Team <${adminEmailDataExport}>`;
