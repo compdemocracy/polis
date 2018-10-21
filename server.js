@@ -12,14 +12,14 @@ const httpProxy = require('http-proxy');
 // const Promise = require('es6-promise').Promise,
 const sql = require("sql"); // see here for useful syntax: https://github.com/brianc/node-sql/blob/bbd6ed15a02d4ab8fbc5058ee2aff1ad67acd5dc/lib/node/valueExpression.js
 const escapeLiteral = require('pg').Client.prototype.escapeLiteral;
-const pg = require('pg').native; //.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
-const parsePgConnectionString = require('pg-connection-string').parse;
 const async = require('async');
 const FB = require('fb');
 const fs = require('fs');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
-const Intercom = require('intercom.io'); // https://github.com/tarunc/intercom.io
+// May not need this anymore; looks like we're just using the other Intercom api, but need to figure out
+// what's going on here
+//const Intercom = require('intercom.io'); // https://github.com/tarunc/intercom.io
 const IntercomOfficial = require('intercom-client');
 const isTrue = require('boolean');
 const OAuth = require('oauth');
@@ -42,9 +42,176 @@ const Translate = require('@google-cloud/translate');
 const isValidUrl = require('valid-url');
 const zlib = require('zlib');
 const _ = require('underscore');
+
+
+
+
+
+
+
+// # DB Connections
+//
+// heroku pg standard plan has 120 connections
+// plus a dev poller connection and a direct db connection
+// 3 devs * (2 + 1 + 1) = 12 for devs
+// plus the prod and preprod pollers = 14
+// round up to 20
+// so we can have 25 connections per server, of of which is the preprod server
+// so we can have 1 preprod/3 prod servers, or 2 preprod / 2 prod.
+//
+// Note we use native
+const pgnative = require('pg').native; //.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
+const parsePgConnectionString = require('pg-connection-string').parse;
+
+const usingReplica = process.env.DATABASE_URL !== process.env[process.env.DATABASE_FOR_READS_NAME];
+const poolSize = devMode ? 2 : (usingReplica ? 3 : 12)
+
+// not sure how many of these config options we really need anymore
+const pgConnection = Object.assign(parsePgConnectionString(process.env.DATABASE_URL),
+  {max: poolSize,
+    isReadOnly: false,
+   poolLog: function(str, level) {
+     if (pgPoolLevelRanks.indexOf(level) <= pgPoolLoggingLevel) {
+       console.log("pool.primary." + level + " " + str);
+     }
+   }})
+const readsPgConnection = Object.assign(parsePgConnectionString(process.env[process.env.DATABASE_FOR_READS_NAME]),
+  {max: poolSize,
+   isReadOnly: true,
+   poolLog: function(str, level) {
+     if (pgPoolLevelRanks.indexOf(level) <= pgPoolLoggingLevel) {
+       console.log("pool.replica." + level + " " + str);
+     }
+   }})
+
+// split requests into centralized read/write transactor pool vs read pool for scalability concerns in keeping
+// pressure down on the transactor (read+write) server
+const readWritePool = new pgnative.Pool(pgConnection)
+const readPool = new pgnative.Pool(readsPgConnection)
+
+// Same syntax as pg.client.query, but uses connection pool
+// Also takes care of calling 'done'.
+function pgQueryImpl(pool, queryString, ...args) {
+  // variable arity depending on whether or not query has params (default to [])
+  let params, callback;
+  if (_.isFunction(args[1])) {
+    params = args[0];
+    callback = args[1];
+  } else if (_.isFunction(args[0])) {
+    params = [];
+    callback = args[0];
+  } else {
+    throw "unexpected db query syntax";
+  }
+
+  // Not sure whether we have to be this careful in calling release for these query results. There may or may
+  // not have been a good reason why Mike did this. If just using pool.query works and doesn't exhibit scale
+  // under load, might be worth stripping
+  pool.connect((err, client, release) => {
+    if (err) {
+      callback(err);
+      // force the pool to destroy and remove a client by passing an instance of Error (or anything truthy, actually) to the done() callback
+      release(err);
+      yell("pg_connect_pool_fail");
+      return;
+    }
+    // Anyway, here's the actual query call
+    client.query(queryString, params, function(err, results) {
+      if (err) {
+        // force the pool to destroy and remove a client by passing an instance of Error (or anything truthy, actually) to the release() callback
+        release(err);
+      } else {
+        release();
+      }
+      callback(err, results)
+    });
+  });
+}
+
+
+const pgPoolLevelRanks = ["info", "verbose"]; // TODO investigate
+const pgPoolLoggingLevel = -1; // -1 to get anything more important than info and verbose. // pgPoolLevelRanks.indexOf("info");
+
+// remove queryreadwriteobj
+// remove queryreadonlyobj
+
+function pgQuery(...args) {
+  return pgQueryImpl(readWritePool, ...args);
+}
+
+function pgQuery_readOnly(...args) {
+  return pgQueryImpl(readPool, ...args);
+}
+
+function pgQueryP_impl(config, queryString, params) {
+  if (!_.isString(queryString)) {
+    return Promise.reject("query_was_not_string");
+  }
+  let f = config.isReadOnly ? pgQuery_readOnly : pgQuery;
+  return new Promise(function(resolve, reject) {
+    f(queryString, params, function(err, result) {
+      if (err) {
+        return reject(err);
+      }
+      if (!result || !result.rows) {
+        // caller is responsible for testing if there are results
+        return resolve([]);
+      }
+      resolve(result.rows);
+    });
+  });
+}
+
+function pgQueryP(...args) {
+  return pgQueryP_impl(readWritePool, ...args);
+}
+
+function pgQueryP_readOnly(...args) {
+  return pgQueryP_impl(readPool, ...args);
+}
+
+function pgQueryP_readOnly_wRetryIfEmpty(...args) {
+  return pgQueryP_impl(readPool, ...args).then(function(rows) {
+    if (!rows.length) {
+      // the replica DB didn't have it (yet?) so try the master.
+      return pgQueryP(...args);
+    }
+    return rows;
+  }); // NOTE: this does not retry in case of errors. Not sure what's best in that case.
+}
+
+
+
+function pgQueryP_metered_impl(isReadOnly, name, queryString, params) {
+  let f = isReadOnly ? pgQueryP_readOnly : pgQueryP;
+  if (_.isUndefined(name) || _.isUndefined(queryString) || _.isUndefined(params)) {
+    throw new Error("polis_err_pgQueryP_metered_impl missing params");
+  }
+  return new MPromise(name, function(resolve, reject) {
+    f(queryString, params).then(resolve, reject);
+  });
+}
+
+function pgQueryP_metered(name, queryString, params) {
+  return pgQueryP_metered_impl(false, ...arguments);
+}
+
+function pgQueryP_metered_readOnly(name, queryString, params) {
+  return pgQueryP_metered_impl(true, ...arguments);
+}
+
+
+
+
+
+// # Slack setup
+
 var WebClient = require('@slack/client').WebClient;
 var web = new WebClient(process.env.SLACK_API_TOKEN);
 // const winston = require("winston");
+
+
+// # notifications
 const winston = console;
 const emailSenders = require('./email/sendEmailSesMailgun').EmailSenders(AWS);
 const sendTextEmail = emailSenders.sendTextEmail;
@@ -70,6 +237,10 @@ if (useTranslateApi) {
   });
 }
 
+
+//var SegfaultHandler = require('segfault-handler');
+ 
+//SegfaultHandler.registerHandler("segfault.log");
 
 // var conversion = {
 //   contact: { user_id: '8634dd66-f75e-428d-a2bf-930baa0571e9' },
@@ -117,24 +288,17 @@ Promise.onPossiblyUnhandledRejection(function(err) {
 });
 
 
-function requiredConfig(name) {
-  if (_.isUndefined(process.env[name])) {
-    throw "be sure to set the "+name+" environment variable";
-  }
-}
 
-requiredConfig("ADMIN_UIDS"); // for testing
-requiredConfig("ADMIN_EMAILS"); // for notifying the team
-requiredConfig("ADMIN_EMAIL_DATA_EXPORT"); // a "send as" address for data export
-requiredConfig("ADMIN_EMAIL_DATA_EXPORT_TEST"); // for notifying of the outcome of automated data export testing 
-requiredConfig("ADMIN_EMAIL_EMAIL_TEST"); // for notifying of the outcome of email system testing
+const adminEmailDataExport = process.env.ADMIN_EMAIL_DATA_EXPORT || ""
+const adminEmailDataExportTest = process.env.ADMIN_EMAIL_DATA_EXPORT_TEST || ""
+const adminEmailEmailTest = process.env.ADMIN_EMAIL_EMAIL_TEST || ""
 
-
-const admin_emails = JSON.parse(process.env.ADMIN_EMAILS);
-const polisDevs = JSON.parse(process.env.ADMIN_UIDS);
+const admin_emails = process.env.ADMIN_EMAILS ? JSON.parse(process.env.ADMIN_EMAILS) : [];
+const polisDevs = process.env.ADMIN_UIDS ? JSON.parse(process.env.ADMIN_UIDS) : [];
 
 
 function isPolisDev(uid) {
+  console.log("polisDevs", polisDevs)
   return polisDevs.indexOf(uid) >= 0;
 }
 
@@ -197,20 +361,6 @@ akismet.verifyKey(function(err, verified) {
   }
 });
 
-
-// heroku pg standard plan has 120 connections
-// plus a dev poller connection and a direct db connection
-// 3 devs * (2 + 1 + 1) = 12 for devs
-// plus the prod and preprod pollers = 14
-// round up to 20
-// so we can have 25 connections per server, of of which is the preprod server
-// so we can have 1 preprod/3 prod servers, or 2 preprod / 2 prod.
-
-if (devMode) {
-  pg.defaults.poolSize = 2;
-} else {
-  pg.defaults.poolSize = 12;
-}
 
 // let SELF_HOSTNAME = "localhost:" + process.env.PORT;
 // if (!devMode) {
@@ -376,9 +526,9 @@ const errorNotifications = (function() {
 }());
 const yell = errorNotifications.add;
 
-
-const intercom = new Intercom(process.env.INTERCOM_ACCESS_TOKEN);
-
+// TODO clean this up
+// const intercom = new Intercom(process.env.INTERCOM_ACCESS_TOKEN);
+const intercom = intercomClient;
 
 //first we define our tables
 const sql_conversations = sql.define({
@@ -577,7 +727,7 @@ function encrypt(text) {
   crypted += cipher.final('hex');
   return crypted;
 }
- 
+
 function decrypt(text) {
   const algorithm = 'aes-256-ctr';
   const password = process.env.ENCRYPTION_PASSWORD_00001;
@@ -738,141 +888,6 @@ function clearPwResetToken(pwresettoken, cb) {
 }
 
 
-
-// Same syntax as pg.client.query, but uses connection pool
-// Also takes care of calling 'done'.
-function pgQueryImpl() {
-  let args = arguments;
-  let queryString = args[0];
-  let params;
-  let callback;
-  if (_.isFunction(args[2])) {
-    params = args[1];
-    callback = args[2];
-  } else if (_.isFunction(args[1])) {
-    params = [];
-    callback = args[1];
-  } else {
-    throw "unexpected db query syntax";
-  }
-
-  pg.connect(this.pgConfig, function(err, client, done) {
-    if (err) {
-      callback(err);
-      // force the pool to destroy and remove a client by passing an instance of Error (or anything truthy, actually) to the done() callback
-      done(err);
-      yell("pg_connect_pool_fail");
-      return;
-    }
-    client.query(queryString, params, function(err) {
-      if (err) {
-        // force the pool to destroy and remove a client by passing an instance of Error (or anything truthy, actually) to the done() callback
-        done(err);
-      } else {
-        done();
-      }
-      callback.apply(this, arguments);
-    });
-  });
-}
-
-
-const usingReplica = process.env.DATABASE_URL !== process.env[process.env.DATABASE_FOR_READS_NAME];
-const prodPoolSize = usingReplica ? 3 : 12; /// 39
-const pgPoolLevelRanks = ["info", "verbose"]; // TODO investigate
-const pgPoolLoggingLevel = -1; // -1 to get anything more important than info and verbose. // pgPoolLevelRanks.indexOf("info");
-
-const queryReadWriteObj = {
-  isReadOnly: false,
-  pgConfig: Object.assign(parsePgConnectionString(process.env.DATABASE_URL), {
-    poolSize: (devMode ? 2 : prodPoolSize),
-    // poolIdleTimeout: 30000, // max milliseconds a client can go unused before it is removed from the pool and destroyed
-    // reapIntervalMillis: 1000, //frequeny to check for idle clients within the client pool
-    poolLog: function(str, level) {
-      if (pgPoolLevelRanks.indexOf(level) <= pgPoolLoggingLevel) {
-        console.log("pool.primary." + level + " " + str);
-      }
-    },
-  }),
-};
-const queryReadOnlyObj = {
-  isReadOnly: true,
-  pgConfig: Object.assign(parsePgConnectionString(process.env[process.env.DATABASE_FOR_READS_NAME]), {
-    poolSize: (devMode ? 2 : prodPoolSize),
-    // poolIdleTimeout: 30000, // max milliseconds a client can go unused before it is removed from the pool and destroyed
-    // reapIntervalMillis: 1000, //frequeny to check for idle clients within the client pool
-    poolLog: function(str, level) {
-      if (pgPoolLevelRanks.indexOf(level) <= pgPoolLoggingLevel) {
-        console.log("pool.replica." + level + " " + str);
-      }
-    },
-  }),
-};
-
-function pgQuery() {
-  return pgQueryImpl.apply(queryReadWriteObj, arguments);
-}
-
-function pgQuery_readOnly() {
-  return pgQueryImpl.apply(queryReadOnlyObj, arguments);
-}
-
-function pgQueryP_impl(queryString, params) {
-  if (!_.isString(queryString)) {
-    return Promise.reject("query_was_not_string");
-  }
-  let f = this.isReadOnly ? pgQuery_readOnly : pgQuery;
-  return new Promise(function(resolve, reject) {
-    f(queryString, params, function(err, result) {
-      if (err) {
-        return reject(err);
-      }
-      if (!result || !result.rows) {
-        // caller is responsible for testing if there are results
-        return resolve([]);
-      }
-      resolve(result.rows);
-    });
-  });
-}
-
-function pgQueryP(queryString, params) {
-  return pgQueryP_impl.apply(queryReadWriteObj, arguments);
-}
-
-function pgQueryP_readOnly(queryString, params) {
-  return pgQueryP_impl.apply(queryReadOnlyObj, arguments);
-}
-
-function pgQueryP_readOnly_wRetryIfEmpty(queryString, params) {
-  return pgQueryP_impl.apply(queryReadOnlyObj, arguments).then(function(rows) {
-    if (!rows.length) {
-      // the replica DB didn't have it (yet?) so try the master.
-      return pgQueryP(queryString, params);
-    }
-    return rows;
-  }); // NOTE: this does not retry in case of errors. Not sure what's best in that case.
-}
-
-
-
-function pgQueryP_metered_impl(name, queryString, params) {
-  let f = this.isReadOnly ? pgQueryP_readOnly : pgQueryP;
-  if (_.isUndefined(name) || _.isUndefined(queryString) || _.isUndefined(params)) {
-    throw new Error("polis_err_pgQueryP_metered_impl missing params");
-  }
-  return new MPromise(name, function(resolve, reject) {
-    f(queryString, params).then(resolve, reject);
-  });
-}
-
-function pgQueryP_metered(name, queryString, params) {
-  return pgQueryP_metered_impl.apply(queryReadWriteObj, arguments);
-}
-
-function pgQueryP_metered_readOnly(name, queryString, params) {
-  return pgQueryP_metered_impl.apply(queryReadOnlyObj, arguments);
-}
 
 function hasAuthToken(req) {
   return !!req.cookies[COOKIES.TOKEN];
@@ -2537,7 +2552,7 @@ function initializePolisHelpers() {
     });
 
 
-    
+
 
     if (!domainOverride && !hasWhitelistMatches(host) && !routeIsWhitelistedForAnyDomain) {
       winston.log("info", 'not whitelisted');
@@ -2687,7 +2702,7 @@ function initializePolisHelpers() {
 
       let results = rows.map((row) => {
         let item = row.data;
-        
+
         if (row.math_tick) {
           item.math_tick = Number(row.math_tick);
         }
@@ -2763,8 +2778,8 @@ function initializePolisHelpers() {
     return o;
   }
 
-  function packGids(o) {  
-    
+  function packGids(o) {
+
     // TODO start index at 1
 
     function remapGid(g) {
@@ -2928,7 +2943,7 @@ function initializePolisHelpers() {
       addInRamMetric("pcaGetQuery", queryDuration);
 
       if (!rows || !rows.length) {
-        INFO("mathpoll related", "after cache miss, unable to find item", zid, math_tick);
+        INFO("mathpoll related; after cache miss, unable to find data for", {zid, math_tick, math_env: process.env.MATH_ENV});
         return null;
       }
       let item = rows[0].data;
@@ -3181,52 +3196,6 @@ function initializePolisHelpers() {
     });
 
 
-    // var done = Math.random() < 0.2;
-    // if (!done) {
-    //   res.status(202).json({
-    //     status: "pending",
-    //   });
-    //   return;
-    // }
-    // res.json({
-    //   "matrix": [
-    //     [1.0, 0.41889890522025547, -0.09482093118615209, -0.11102002708218564, 0.37779844424083436, 0.2942584724580842, -0.16945162028333594, -0.22171001521237543, 0.06799846696093532, 0.20753464963878243, -0.034759399705716, -0.19546566523636957, 0.10976883626535841, -0.13587324409735146, -0.2788995520575488, 0.22880215766121473, -0.20921530482028258, -0.23388213848187442, -0.054133196196076636, 0.0584705346204686, -0.07606116650384086, 0.2148344622118299, 0.16343011261515336, 0.2619884624021186, -0.2710098294963041, 0.07945828703757722, 0.07945828703757722, "NaN", "NaN", "NaN", -0.38862073398616154, -0.09007912422186246, -0.06537204504606133, -3.342519574279657E-17],
-    //     [0.4188989052202554, 0.9999999999999999, 0.0344243330303984, -0.00818228816971933, -0.08410354277620183, 0.2719007580650806, 0.17182805156410513, 0.20401971951673648, 0.020198088205401227, 0.170179810915754, 0.17847226723249662, 0.042577783651345374, 0.437022632590343, 0.105703284516338, 0.06166553635366571, 0.015256954942433868, 0.15775211186016916, 0.1364623535237338, 1.0519884110039048E-17, 0.1364623535237338, 0.12228915780408103, 0.16713156761621892, 0.1678265043667722, -0.035503303878604155, 0.009730776075422559, 0.058282695813706084, 0.058282695813706084, "NaN", "NaN", "NaN", -0.2551865828770433, -0.5241798119398976, -0.3966808285032798, -0.263710903396537],
-    //     [-0.09482093118615209, 0.03442433303039837, 1.0, 0.24249088321482887, -0.3892787764150708, -0.1455831866406245, -0.0024008998338102133, -0.007808450035558122, -0.327659270696807, 0.3341821185593342, 0.23327779761117742, -0.20881906335700118, -0.03979675956138829, -0.04652421051992354, -0.19903729886263885, -0.16116459280507608, 0.0859646234263, 0.3603749850782236, 0.33364240464065265, 0.1801874925391118, -0.19793456520497674, -0.36780617896031226, -0.36262033381142106, 0.3576712318616246, -0.05996061025135969, 0.013992287710810751, 0.013992287710810751, "NaN", "NaN", "NaN", 0.2192225819671123, 0.02220760474179017, 0.16116459280507603, 0.09774284999977495],
-    //     [-0.11102002708218564, -0.00818228816971932, 0.24249088321482887, 0.9999999999999998, 0.1417238433379289, -0.20390670160242616, 0.011984021304926729, 0.0678465018351329, -0.3366794990886646, 0.07030139075130942, 0.050166863456958415, 0.09205624410122329, -0.30164514149785143, 0.15481615745733243, -0.11038765070286913, -0.052140170940021685, 0.34107146195770455, 0.13324453323468297, 1.3695763085128792E-17, -0.13324453323468297, -0.20607086063747782, -0.24478583808021614, -0.2755980463972575, -0.05199918913282152, 0.2517850241591943, -0.17331186511463129, -0.17331186511463129, "NaN", "NaN", "NaN", 0.10657237389508652, -0.02873852841376479, 0.23835506715438487, 0.05420895302605719],
-    //     [0.37779844424083436, -0.0841035427762018, -0.3892787764150709, 0.1417238433379289, 1.0, 0.009528890837087026, -0.4066282234088238, -0.2599005854810114, -0.06025405888526919, 0.04450085467436676, -0.09717714877357984, 0.020677054784064022, -0.21223135966732956, -0.1539981007018036, -0.26951978419614986, 0.37787109080322906, -0.2152353130927389, -0.46389161728440087, -0.3681258714839093, -0.39762138624377213, -0.22797060362020027, 0.24349237677883698, 0.15559397856603555, 0.0019157193581529118, -0.08978560371673268, 0.0025730757621289777, 0.0025730757621289777, "NaN", "NaN", "NaN", 0.04031337289720655, -0.023141592032925637, 0.02963694829829247, -0.026961255027101585],
-    //     [0.2942584724580842, 0.27190075806508057, -0.14558318664062453, -0.20390670160242616, 0.009528890837086995, 1.0, -0.12453362312631393, -0.137974147416399, 0.3778717691136935, 0.045978461976996905, -0.056985952368227885, -0.21058421624163354, 0.1436650892644834, -0.318222913670292, -0.182208061845287, 0.09951829597116883, -0.3279192069171666, -0.2738826766725869, -0.3169576088037349, -0.3423533458407337, -0.0930284603444689, 0.41929550452218967, 0.022965760608731265, -0.48889424904433665, -0.13182657172133413, -0.12495007448863578, -0.12495007448863578, "NaN", "NaN", "NaN", -0.4766833015221901, -0.1139240506329114, 0.01531050707248751, 0.1253541469448205],
-    //     [-0.16945162028333594, 0.17182805156410516, -0.0024008998338101916, 0.011984021304926753, -0.4066282234088238, -0.12453362312631393, 1.0000000000000002, 0.4518288313701401, -0.0014087008330069893, -0.3259428116651619, 0.002640361234576747, -0.09205624410122328, 0.3016451414978514, 0.10321077163822157, 0.11038765070286917, -0.0223457875457236, 0.0990207470199787, 0.46635586632139026, 0.24672093410696258, 0.19986679985202446, 0.2831066963898059, -0.16319055872014412, 0.126626129425767, 0.12903502488514967, 0.12826784249619336, -0.033627675320749326, -0.033627675320749326, "NaN", "NaN", "NaN", -0.16661314792048723, -0.026001525707691958, -0.3873269841258753, -0.2574925268737716],
-    //     [-0.22171001521237538, 0.20401971951673642, -0.007808450035558121, 0.0678465018351329, -0.2599005854810114, -0.137974147416399, 0.45182883137014024, 1.0000000000000004, -0.03512498495184796, -0.09007082137665746, 0.06583558869201925, 0.15130697725471492, 0.18344667875074716, 0.11189084777289188, 0.21395778926550094, -0.07267523746672637, 0.24252795713797384, 0.21667569500871978, 0.1337351423808399, 0.21667569500871975, 0.043845158194857695, 9.820753329712242E-18, 0.008075026385191827, -0.03966942884296652, 0.005150193721742474, 0.05889010483595748, 0.05889010483595748, "NaN", "NaN", "NaN", -0.053699441686256816, -0.3516115369643715, -0.5329517414226601, -0.029383976181417346],
-    //     [0.06799846696093532, 0.020198088205401234, -0.32765927069680695, -0.3366794990886646, -0.06025405888526919, 0.3778717691136935, -0.0014087008330069678, -0.03512498495184797, 1.0, -0.07437425441240121, 0.08100653467832687, -0.12252222452442302, -0.05448403037469441, -0.21838043617304564, -0.010616625890873548, 0.18124288018974274, -0.2211546107931839, -0.2819279308119059, -0.3915218175494215, -0.14096396540595293, 0.16911012400623732, 0.0863224468409811, 0.10244162793333282, -0.40138186059311753, -0.08544008179925003, -0.3201828481040126, -0.3201828481040126, "NaN", "NaN", "NaN", -0.2524888032110222, 0.09989713436339029, 0.015760250451281987, -0.014337378040116458],
-    //     [0.20753464963878243, 0.170179810915754, 0.3341821185593343, 0.07030139075130942, 0.044500854674366805, 0.04597846197699683, -0.3259428116651619, -0.09007082137665742, -0.07437425441240121, 1.0000000000000002, 0.4435499766228348, 0.21379324806735375, 0.16243569767172075, 0.24768870230903492, -0.016055273911852047, -0.03575078473833759, 0.22883210465040374, 0.1918588438173238, 0.23683569856693473, 0.12790589587821585, -0.43445203278610045, -0.23497813499638714, -0.178753923691688, 0.30504078897747483, 0.1140079662429357, 0.11173961513891367, 0.11173961513891367, "NaN", "NaN", "NaN", -0.1512922752764111, -0.2167556064629853, 0.07150156947667523, 0.19513871975911856],
-    //     [-0.03475939970571601, 0.17847226723249654, 0.23327779761117742, 0.05016686345695846, -0.09717714877357984, -0.056985952368227906, 0.0026403612345767295, 0.06583558869201922, 0.08100653467832687, 0.4435499766228348, 0.9999999999999998, 0.11187896594090531, 0.2188300813884953, 0.20465780403866035, -0.04643098272115409, 0.1772388573802174, 0.12362737288162413, 0.1321060444521854, 0.12230643125527942, 0.19815906667827815, -0.1642118703468693, -0.24269430063396505, 0.1772388573802174, 0.2176762002272454, 0.16014236278987978, -0.1179735407660183, -0.1179735407660183, "NaN", "NaN", "NaN", -0.06250415246524017, -0.512873571314051, -0.2510883812886412, -0.24185597584698548],
-    //     [-0.19546566523636963, 0.04257778365134542, -0.20881906335700115, 0.09205624410122329, 0.02067705478406404, -0.21058421624163357, -0.09205624410122328, 0.15130697725471492, -0.122522224524423, 0.21379324806735375, 0.11187896594090534, 1.0000000000000002, 0.24611338397364296, 0.23017413505937442, 0.42521923452102306, -0.2823935850286656, 0.5970583675211649, 0.14857676530210895, 0.27511071135176296, 0.0, -0.11596530277275467, -0.2729529469675646, -0.19933664825552871, -0.030065078496640113, 0.24367633639721478, -0.2711332913395208, -0.2711332913395208, "NaN", "NaN", "NaN", -0.23097601095947934, -0.2472075581967004, -0.3820619091564299, -0.2568984291953569],
-    //     [0.10976883626535841, 0.437022632590343, -0.03979675956138828, -0.30164514149785143, -0.21223135966732956, 0.1436650892644834, 0.3016451414978514, 0.1834466787507472, -0.05448403037469444, 0.16243569767172075, 0.2188300813884953, 0.24611338397364296, 1.0000000000000002, 0.28513297425610057, 0.35116608567858476, -0.12346619958119869, 0.10131759061334411, 0.29448406953292416, 0.34079908829549843, 0.22086305214969304, -0.031923204269841035, -0.18033392693348646, 0.20577699930199786, 0.22346242988888743, 0.23623756094342002, -0.042877273650049536, -0.042877273650049536, "NaN", "NaN", "NaN", -0.140989778221336, -0.34025942194219755, -0.5761755980455939, -0.14975917496100663],
-    //     [-0.13587324409735152, 0.10570328451633801, -0.046524210519923566, 0.15481615745733243, -0.1539981007018036, -0.318222913670292, 0.1032107716382215, 0.11189084777289189, -0.21838043617304562, 0.24768870230903497, 0.2046578040386605, 0.2301741350593744, 0.2851329742561005, 0.9999999999999998, 0.3889222341312988, -0.07216878364870319, 0.1421338109037403, 0.32274861218395146, 0.2988071523335984, 0.19364916731037085, 0.07463933708620756, -0.2371708245126285, 0.21650635094610962, 0.22391801125862282, 0.3682298471593293, 0.1002509414234171, 0.1002509414234171, "NaN", "NaN", "NaN", -1.614624343013599E-17, -0.15911145683514596, -0.1443375672974064, 0.13130643285972254],
-    //     [-0.2788995520575488, 0.06166553635366571, -0.19903729886263885, -0.11038765070286913, -0.26951978419614986, -0.182208061845287, 0.11038765070286917, 0.21395778926550094, -0.010616625890873543, -0.01605527391185199, -0.0464309827211541, 0.42521923452102306, 0.35116608567858476, 0.3889222341312988, 1.0000000000000004, -0.4490887131390719, 0.3777398284289011, 0.33473096350228926, 0.3099006540266517, 0.08368274087557231, 0.10160114206776434, -0.20498001542269695, -0.07484811885651198, -0.18868783526870514, 0.3699663349801687, -0.2534338307290487, -0.2534338307290487, "NaN", "NaN", "NaN", 0.02639555626736971, 0.010313663878035137, -0.11227217828476795, -0.06809065496481952],
-    //     [0.22880215766121473, 0.015256954942433851, -0.16116459280507608, -0.05214017094002168, 0.377871090803229, 0.09951829597116883, -0.0223457875457236, -0.07267523746672645, 0.18124288018974274, -0.03575078473833761, 0.1772388573802174, -0.2823935850286656, -0.12346619958119871, -0.07216878364870319, -0.4490887131390719, 0.9999999999999999, -0.4308202184276645, -0.18633899812498236, -0.3450327796711771, -0.1863389981249825, -0.11850586373685719, 0.3423265984407289, 0.3750000000000001, 0.09695934305742866, -0.02657470017263669, -0.01446997700433084, -0.01446997700433084, "NaN", "NaN", "NaN", -0.05877581755031912, -0.0229657606087313, -0.0625, -0.03790490217894519],
-    //     [-0.20921530482028255, 0.15775211186016916, 0.08596462342630005, 0.34107146195770455, -0.2152353130927389, -0.3279192069171666, 0.09902074701997868, 0.24252795713797393, -0.2211546107931839, 0.2288321046504038, 0.12362737288162415, 0.597058367521165, 0.1013175906133441, 0.14213381090374025, 0.3777398284289011, -0.4308202184276645, 0.9999999999999998, 0.2752409412815901, 0.25482359571881275, 0.1834939608543934, -0.11139212094561134, -0.44946657497549464, -0.3282439759448873, -0.005304386711695776, 0.3794498581231155, -0.14961500768757807, -0.14961500768757807, "NaN", "NaN", "NaN", 0.053744250974499544, -0.3128424617715498, -0.0820609939862218, -0.29860933917645555],
-    //     [-0.23388213848187442, 0.1364623535237338, 0.36037498507822363, 0.133244533234683, -0.46389161728440087, -0.2738826766725869, 0.46635586632139026, 0.21667569500871983, -0.2819279308119059, 0.19185884381732385, 0.1321060444521854, 0.14857676530210895, 0.29448406953292416, 0.3227486121839514, 0.33473096350228926, -0.18633899812498236, 0.27524094128159016, 1.0000000000000002, 0.6943650748294137, 0.33333333333333326, 0.09635896983561452, -0.20412414523193145, 1.2929865381496215E-17, 0.2890769095068436, 0.3565370164061463, 0.12942340885816994, 0.12942340885816994, "NaN", "NaN", "NaN", 0.07510098484322218, 0.06847066916814674, -0.18633899812498247, 0.08475793795260127],
-    //     [-0.05413319619607664, 7.013256073359364E-18, 0.33364240464065265, 6.847881542564396E-18, -0.3681258714839093, -0.3169576088037349, 0.24672093410696247, 0.13373514238083986, -0.3915218175494215, 0.23683569856693476, 0.1223064312552794, 0.27511071135176296, 0.34079908829549843, 0.2988071523335984, 0.3099006540266517, -0.3450327796711771, 0.2548235957188127, 0.6943650748294137, 1.0000000000000002, 0.6172133998483678, 0.08921107106718891, -0.2834733547569204, -4.070047947564445E-17, 0.5352664264031337, 0.22005942406783074, 0.11982279330197458, 0.11982279330197458, "NaN", "NaN", "NaN", 0.06953000128056881, 0.06339152176074697, -0.25877458475338283, 0.07847060257179306],
-    //     [0.05847053462046862, 0.1364623535237338, 0.18018749253911182, -0.13324453323468297, -0.39762138624377213, -0.3423533458407337, 0.19986679985202446, 0.21667569500871975, -0.14096396540595293, 0.12790589587821588, 0.19815906667827815, -4.948600372881883E-17, 0.22086305214969304, 0.1936491673103708, 0.0836827408755723, -0.18633899812498247, 0.1834939608543934, 0.33333333333333326, 0.6172133998483678, 1.0000000000000002, 0.3854358793424581, -0.10206207261596574, 0.2795084971874738, 0.4817948491780727, 0.11884567213538215, 0.38827022657450977, 0.38827022657450977, "NaN", "NaN", "NaN", 0.22530295452966645, -0.273882676672587, -0.1863389981249825, 1.8820042846945668E-17],
-    //     [-0.07606116650384089, 0.12228915780408105, -0.19793456520497676, -0.20607086063747782, -0.22797060362020027, -0.0930284603444689, 0.2831066963898058, 0.04384515819485768, 0.16911012400623732, -0.43445203278610045, -0.16421187034686924, -0.11596530277275467, -0.03192320426984107, 0.07463933708620756, 0.10160114206776434, -0.11850586373685719, -0.11139212094561134, 0.09635896983561452, 0.08921107106718891, 0.3854358793424581, 1.0, 0.1180151541187457, 0.5278897566460004, -0.11420612813370476, -0.006871107921831959, 0.14591194429718557, 0.14591194429718557, "NaN", "NaN", "NaN", -0.05861689361837718, 0.033648592039488764, -0.15082564475600008, -0.156810001660869],
-    //     [0.2148344622118299, 0.16713156761621892, -0.36780617896031237, -0.24478583808021614, 0.243492376778837, 0.41929550452218967, -0.16319055872014412, 0.0, 0.08632244684098112, -0.2349781349963872, -0.24269430063396505, -0.2729529469675646, -0.18033392693348646, -0.2371708245126285, -0.20498001542269695, 0.3423265984407289, -0.44946657497549464, -0.20412414523193145, -0.2834733547569205, -0.10206207261596574, 0.1180151541187457, 1.0000000000000002, 0.3423265984407289, -0.23603030823749147, -0.14555562743489545, 0.31702131247412074, 0.31702131247412074, "NaN", "NaN", "NaN", -0.09197954602319379, -0.08385910090443789, 1.2668629051016909E-17, 0.20761369963434986],
-    //     [0.16343011261515336, 0.1678265043667722, -0.36262033381142106, -0.27559804639725743, 0.15559397856603555, 0.022965760608731213, 0.126626129425767, 0.008075026385191779, 0.10244162793333284, -0.17875392369168802, 0.17723885738021739, -0.1993366482555287, 0.20577699930199786, 0.21650635094610957, -0.07484811885651198, 0.3750000000000001, -0.32824397594488736, 1.2929865381496215E-17, 0.0, 0.2795084971874738, 0.5278897566460004, 0.3423265984407289, 0.9999999999999999, 0.20469194645457167, 0.10629880069054676, 0.4196293331255936, 0.4196293331255936, "NaN", "NaN", "NaN", 0.10915508973630697, -0.1760708313336064, -0.2708333333333334, -0.037904902178945196],
-    //     [0.2619884624021186, -0.035503303878604134, 0.3576712318616246, -0.0519991891328215, 0.0019157193581529459, -0.48889424904433665, 0.12903502488514965, -0.03966942884296652, -0.4013818605931176, 0.30504078897747483, 0.2176762002272454, -0.030065078496640103, 0.22346242988888743, 0.22391801125862282, -0.18868783526870514, 0.09695934305742866, -0.005304386711695788, 0.2890769095068436, 0.5352664264031337, 0.4817948491780727, -0.11420612813370476, -0.23603030823749147, 0.20469194645457167, 1.0000000000000007, -0.006871107921831981, 0.44521849670166896, 0.44521849670166896, "NaN", "NaN", "NaN", 0.1150627911768145, 0.03364859203948875, -0.15082564475600013, 0.03920250041521724],
-    //     [-0.2710098294963041, 0.009730776075422543, -0.059960610251359674, 0.2517850241591943, -0.08978560371673265, -0.13182657172133413, 0.12826784249619338, 0.005150193721742485, -0.08544008179925001, 0.11400796624293576, 0.16014236278987978, 0.24367633639721478, 0.23623756094341997, 0.3682298471593293, 0.3699663349801687, -0.026574700172636675, 0.3794498581231155, 0.3565370164061463, 0.22005942406783074, 0.11884567213538216, -0.006871107921831975, -0.14555562743489545, 0.10629880069054676, -0.006871107921831966, 0.9999999999999998, -0.009228847209480933, -0.009228847209480933, "NaN", "NaN", "NaN", 0.17672345503009332, -0.014647396857926013, 0.026574700172636696, -0.1450528431089171],
-    //     [0.07945828703757722, 0.05828269581370606, 0.013992287710810772, -0.1733118651146313, 0.0025730757621289777, -0.12495007448863578, -0.03362767532074934, 0.05889010483595748, -0.3201828481040126, 0.1117396151389137, -0.11797354076601826, -0.2711332913395208, -0.042877273650049536, 0.1002509414234171, -0.2534338307290487, -0.014469977004330808, -0.14961500768757807, 0.12942340885816994, 0.11982279330197458, 0.38827022657450977, 0.14591194429718557, 0.31702131247412074, 0.41962933312559364, 0.44521849670166896, -0.009228847209480957, 1.0000000000000004, 1.0000000000000004, "NaN", "NaN", "NaN", 0.2711831305297342, -0.061145781132736665, 0.0868198620259849, 0.3159262442193095],
-    //     [0.07945828703757722, 0.05828269581370606, 0.013992287710810772, -0.1733118651146313, 0.0025730757621289777, -0.12495007448863578, -0.03362767532074934, 0.05889010483595748, -0.3201828481040126, 0.1117396151389137, -0.11797354076601826, -0.2711332913395208, -0.042877273650049536, 0.1002509414234171, -0.2534338307290487, -0.014469977004330808, -0.14961500768757807, 0.12942340885816994, 0.11982279330197458, 0.38827022657450977, 0.14591194429718557, 0.31702131247412074, 0.41962933312559364, 0.44521849670166896, -0.009228847209480957, 1.0000000000000004, 1.0000000000000004, "NaN", "NaN", "NaN", 0.2711831305297342, -0.061145781132736665, 0.0868198620259849, 0.3159262442193095],
-    //     ["NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN"],
-    //     ["NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN"],
-    //     ["NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN"],
-    //     [-0.38862073398616154, -0.2551865828770433, 0.2192225819671123, 0.10657237389508649, 0.04031337289720657, -0.47668330152219013, -0.16661314792048731, -0.05369944168625679, -0.25248880321102224, -0.15129227527641115, -0.06250415246524015, -0.23097601095947928, -0.14098977822133604, 9.687746058081595E-18, 0.026395556267369717, -0.058775817550319125, 0.05374425097449951, 0.07510098484322218, 0.06953000128056878, 0.22530295452966645, -0.0586168936183772, -0.0919795460231938, 0.10915508973630693, 0.1150627911768145, 0.17672345503009326, 0.2711831305297342, 0.2711831305297342, "NaN", "NaN", "NaN", 1.0000000000000002, 0.09101719996702012, 0.2686894516586018, 0.061107884289802294],
-    //     [-0.0900791242218625, -0.5241798119398976, 0.022207604741790184, -0.028738528413764765, -0.023141592032925623, -0.1139240506329114, -0.026001525707691965, -0.3516115369643715, 0.09989713436339029, -0.2167556064629853, -0.5128735713140511, -0.2472075581967003, -0.34025942194219755, -0.159111456835146, 0.01031366387803513, -0.022965760608731286, -0.3128424617715498, 0.06847066916814672, 0.06339152176074699, -0.2738826766725869, 0.033648592039488764, -0.08385910090443795, -0.1760708313336064, 0.03364859203948877, -0.01464739685792603, -0.06114578113273667, -0.06114578113273667, "NaN", "NaN", "NaN", 0.09101719996702012, 0.9999999999999999, 0.4440047051021377, 0.2924930095379144],
-    //     [-0.06537204504606133, -0.3966808285032797, 0.16116459280507603, 0.23835506715438487, 0.029636948298292467, 0.015310507072487494, -0.38732698412587546, -0.5329517414226601, 0.015760250451281998, 0.07150156947667523, -0.2510883812886412, -0.3820619091564299, -0.5761755980455938, -0.1443375672974064, -0.11227217828476792, -0.06250000000000004, -0.08206099398622178, -0.18633899812498247, -0.25877458475338283, -0.18633899812498247, -0.15082564475600008, -3.8005887153050735E-17, -0.2708333333333334, -0.1508256447560002, 0.026574700172636728, 0.08681986202598488, 0.08681986202598488, "NaN", "NaN", "NaN", 0.2686894516586018, 0.4440047051021378, 0.9999999999999998, 0.41695392396839687],
-    //     [-8.253134751307795E-19, -0.263710903396537, 0.09774284999977499, 0.05420895302605719, -0.026961255027101547, 0.12535414694482047, -0.2574925268737716, -0.029383976181417294, -0.014337378040116474, 0.19513871975911862, -0.24185597584698554, -0.2568984291953568, -0.14975917496100663, 0.13130643285972257, -0.06809065496481952, -0.0379049021789452, -0.29860933917645555, 0.08475793795260128, 0.07847060257179306, 0.0, -0.15681000166086906, 0.20761369963434986, -0.03790490217894515, 0.03920250041521724, -0.1450528431089171, 0.3159262442193095, 0.3159262442193095, "NaN", "NaN", "NaN", 0.06110788428980231, 0.2924930095379144, 0.41695392396839687, 0.9999999999999997],
-    //   ],
-    //   "comments": [6, 11, 0, 17, 22, 15, 7, 8, 12, 13, 4, 10, 3, 19, 29, 27, 21, 23, 28, 25, 18, 26, 20, 30, 31, 32, 33, 9, 14, 16, 5, 1, 2, 24],
-    // });
   }
 
 
@@ -3248,7 +3217,7 @@ function initializePolisHelpers() {
   if (process.env.RUN_PERIODIC_EXPORT_TESTS && !devMode && process.env.MATH_ENV === "preprod") {
     let runExportTest = () => {
       let math_env = "prod";
-      let email = process.env.ADMIN_EMAIL_DATA_EXPORT_TEST;
+      let email = adminEmailDataExportTest;
       let zid = 12480;
       let atDate = Date.now();
       let format = "csv";
@@ -4814,7 +4783,7 @@ ${serverName}/pwreset/${pwresettoken}
     if (d.getDay() === 1) {
       // send the monday backup email system test
       // If the sending fails, we should get an error ping.
-      sendTextEmailWithBackupOnly(POLIS_FROM_ADDRESS, process.env.ADMIN_EMAIL_EMAIL_TEST, "monday backup email system test", "seems to be working");
+      sendTextEmailWithBackupOnly(POLIS_FROM_ADDRESS, adminEmailEmailTest, "monday backup email system test", "seems to be working");
     }
   }
   setInterval(trySendingBackupEmailTest, 1000 * 60 * 60 * 23); // try every 23 hours (so it should only try roughly once a day)
@@ -5365,7 +5334,9 @@ Email verified! You can close this tab or hit the back button.
     body += "You're receiving this message because you're signed up to receive Polis notifications for this conversation. You can unsubscribe from these emails by clicking this link:\n";
     body += createNotificationsUnsubscribeUrl(conversation_id, email) + "\n";
     body += "\n";
+    body += "If for some reason the above link does not work, please reply directly to this email with the message 'Unsubscribe' and we will remove you within 24 hours.";
     body += "\n";
+    body += "Thanks for your participation";
     return sendEmailByUid(uid, subject, body);
   }
 
@@ -5440,7 +5411,7 @@ Email verified! You can close this tab or hit the back button.
     let email = req.p.email;
     let params = {
       conversation_id: req.p.conversation_id,
-      email: req.p.email,
+      email: email,
     };
     params[HMAC_SIGNATURE_PARAM_NAME] = req.p[HMAC_SIGNATURE_PARAM_NAME];
     verifyHmacForQueryParams("api/v3/notifications/unsubscribe", params).then(function() {
@@ -7286,7 +7257,7 @@ Email verified! You can close this tab or hit the back button.
 
 
     getUserInfoForUid2(uid).then((user) => {
-      
+
       emailBadProblemTime("User cancelled subscription: " + user.email);
 
       return pgQueryP("select * from stripe_subscriptions where uid = ($1);", [uid]).then((rows) => {
@@ -7349,13 +7320,13 @@ Email verified! You can close this tab or hit the back button.
   function _getCommentsForModerationList(o) {
     var strictCheck = Promise.resolve(null);
     var include_voting_patterns = o.include_voting_patterns;
-    
+
     if (o.modIn) {
       strictCheck = pgQueryP("select strict_moderation from conversations where zid = ($1);", [o.zid]).then((c) => {
         return o.strict_moderation;
       });
     }
-    
+
     return strictCheck.then((strict_moderation) => {
 
       let modClause = "";
@@ -7705,7 +7676,7 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
-  
+
   function getAgeRange(demo) {
     var currentYear = (new Date()).getUTCFullYear();
     var birthYear = demo.ms_birth_year_estimate_fb;
@@ -7742,7 +7713,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
 
-  
+
 
   function getDemographicsForVotersOnComments(zid, comments) {
     function isAgree(v) {
@@ -7782,7 +7753,7 @@ Email verified! You can close this tab or hit the back button.
         };
       });
       var demoByPid = _.indexBy(demo, "pid");
-      
+
       votes = votes.map((v) => {
         return _.extend(v, demoByPid[v.pid]);
       });
@@ -7914,13 +7885,13 @@ Email verified! You can close this tab or hit the back button.
       if (req.p.include_demographics) {
         isModerator(req.p.zid, req.p.uid).then((owner) => {
           if (owner || isReportQuery) {
-            return getDemographicsForVotersOnComments(req.p.zid, comments).then((commentsWithDemographics) => {              
+            return getDemographicsForVotersOnComments(req.p.zid, comments).then((commentsWithDemographics) => {
               finishArray(res, commentsWithDemographics);
             }).catch((err) => {
               fail(res, 500, "polis_err_get_comments3", err);
             });
           } else {
-            fail(res, 500, "polis_err_get_comments_permissions");            
+            fail(res, 500, "polis_err_get_comments_permissions");
           }
         }).catch((err) => {
           fail(res, 500, "polis_err_get_comments2", err);
@@ -8459,7 +8430,7 @@ Email verified! You can close this tab or hit the back button.
                   });
                 } else {
                   addNotificationTask(zid);
-                  sendCommentModerationEmail(req, 125, zid, "?"); // email mike for all comments, since some people may not have turned on strict moderation, and we may want to babysit evaluation conversations of important customers.              
+                  sendCommentModerationEmail(req, 125, zid, "?"); // email mike for all comments, since some people may not have turned on strict moderation, and we may want to babysit evaluation conversations of important customers.
                   sendSlackEvent({
                     type: "comment_mod_needed",
                     data: comment,
@@ -10486,7 +10457,7 @@ Email verified! You can close this tab or hit the back button.
   function handle_POST_reports(req, res) {
     let zid = req.p.zid;
     let uid = req.p.uid;
-    
+
     return isModerator(zid, uid).then((isMod) => {
       if (!isMod) {
         return fail(res, 403, "polis_err_post_reports_permissions", err);
@@ -10538,7 +10509,7 @@ Email verified! You can close this tab or hit the back button.
 
       let query  = q.toString();
       query = query.replace("'now_as_millis()'", "now_as_millis()"); // remove quotes added by sql lib
-      
+
       return pgQueryP(query, []).then((result) => {
         res.json({});
       });
@@ -10962,23 +10933,23 @@ Email verified! You can close this tab or hit the back button.
 
   function handle_POST_sendEmailExportReady(req, res) {
 
-    if (req.p.webserver_pass !== process.env.WEBSERVER_PASS || req.p.webserver_username !== process.env.WEBSERVER_USERNAME) {      
+    if (req.p.webserver_pass !== process.env.WEBSERVER_PASS || req.p.webserver_username !== process.env.WEBSERVER_USERNAME) {
       return fail(res, 403, "polis_err_sending_export_link_to_email_auth");
     }
 
-    const domain = process.env.primary_polis_url;
+    const domain = process.env.PRIMARY_POLIS_URL;
     const email = req.p.email;
-    const subject = "Data export for pol.is conversation pol.is/" + req.p.conversation_id;
-    const fromAddress = `Polis Team <${process.env.ADMIN_EMAIL_DATA_EXPORT}>`;
+    const subject = "Polis data export for conversation pol.is/" + req.p.conversation_id;
+    const fromAddress = `Polis Team <${adminEmailDataExport}>`;
     const body = `Greetings
 
-You created a data export for pol.is conversation ${domain}/${req.p.conversation_id} that has just completed. You can download the results for this conversation at the following url:
+You created a data export for conversation ${domain}/${req.p.conversation_id} that has just completed. You can download the results for this conversation at the following url:
 
 https://${domain}/api/v3/dataExport/results?filename=${req.p.filename}&conversation_id=${req.p.conversation_id}
 
 Please let us know if you have any questons about the data.
 
-Thanks for using pol.is!
+Thanks for using Polis!
 `;
 
     console.log("SENDING EXPORT EMAIL");
@@ -11314,7 +11285,8 @@ Thanks for using pol.is!
       }
 
       getTwitterUserInfoBulk(twitter_user_ids).then(function(info) {
-        console.dir(info);
+        // Uncomment to log out lots of twitter crap for a good time
+        //console.dir(info);
 
         let updateQueries = info.map(function(u) {
           let q = "update twitter_users set " +
@@ -11328,7 +11300,8 @@ Thanks for using pol.is!
             "modified = now_as_millis() " +
             "where twitter_user_id = ($1);";
 
-          console.log(q);
+          // uncomment to see some other twitter crap
+          //console.log(q);
           return pgQueryP(q, [
             u.id,
             u.screen_name,
@@ -11499,43 +11472,44 @@ Thanks for using pol.is!
 
   function handle_GET_twitter_oauth_callback(req, res) {
     let uid = req.p.uid;
+    winston.log("info", "twitter oauth callback req.p", req.p);
 
 
-
-    function maybeAddToIntercom(o) {
-      let shouldAddToIntercom = req.p.owner;
-      if (shouldAddToIntercom) {
-        let params = {
-          "email": o.email,
-          "name": o.name,
-          "user_id": o.uid,
-        };
-        let customData = {};
-        // if (referrer) {
-        //     customData.referrer = o.referrer;
-        // }
-        // if (organization) {
-        //     customData.org = organization;
-        // }
-        // customData.fb = true; // mark this user as a facebook auth user
-        customData.tw = true; // mark this user as a twitter auth user
-        customData.twitterScreenName = o.screen_name;
-        customData.uid = o.uid;
-        if (_.keys(customData).length) {
-          params.custom_data = customData;
-        }
-        intercom.createUser(params, function(err, res) {
-          if (err) {
-            winston.log("info", err);
-            console.error("polis_err_intercom_create_user_tw_fail");
-            winston.log("info", params);
-            yell("polis_err_intercom_create_user_tw_fail");
-            return;
-          }
-        });
-      }
-    }
-
+    // commenting this out for now because all objects end up getting owner = t, but we don't really want to
+    // add all twitter/facebook logins to intercom, so turning this off for now.
+    //function maybeAddToIntercom(o) {
+      //let shouldAddToIntercom = req.p.owner;
+      //if (shouldAddToIntercom) {
+        //let params = {
+          //"email": o.email,
+          //"name": o.name,
+          //"user_id": o.uid,
+        //};
+        //let customData = {};
+        //// if (referrer) {
+        ////     customData.referrer = o.referrer;
+        //// }
+        //// if (organization) {
+        ////     customData.org = organization;
+        //// }
+        //// customData.fb = true; // mark this user as a facebook auth user
+        //customData.tw = true; // mark this user as a twitter auth user
+        //customData.twitterScreenName = o.screen_name;
+        //customData.uid = o.uid;
+        //if (_.keys(customData).length) {
+          //params.custom_data = customData;
+        //}
+        //intercom.createUser(params, function(err, res) {
+          //if (err) {
+            //winston.log("info", err);
+            //console.error("polis_err_intercom_create_user_tw_fail");
+            //winston.log("info", params);
+            //yell("polis_err_intercom_create_user_tw_fail");
+            //return;
+          //}
+        //});
+      //}
+    //}
 
 
     // TODO "Upon a successful authentication, your callback_url would receive a request containing the oauth_token and oauth_verifier parameters. Your application should verify that the token matches the request token received in step 1."
@@ -11560,9 +11534,10 @@ Thanks for using pol.is!
         let pairSplit = pair.split("=");
         let k = pairSplit[0];
         let v = pairSplit[1];
-        if (k === "user_id") {
-          v = parseInt(v);
-        }
+        // can't do this anymore, because now twitter uses integers which overflow js max resolution
+        //if (k === "user_id") {
+          //v = parseInt(v);
+        //}
         kv[k] = v;
       });
       winston.log("info", kv);
@@ -11606,7 +11581,7 @@ Thanks for using pol.is!
             pgQueryP("update users set hname = ($2) where uid = ($1) and hname is NULL;", [uid, u.name]).then(function() {
               // OK, ready
               u.uid = uid;
-              maybeAddToIntercom(u);
+              //maybeAddToIntercom(u);
               res.redirect(dest);
             }, function(err) {
               fail(res, 500, "polis_err_twitter_auth_update", err);
@@ -11665,6 +11640,7 @@ Thanks for using pol.is!
             }
           });
       },function(err) {
+        winston.log("error", "failed to getTwitterUserInfo");
         fail(res, 500, "polis_err_twitter_auth_041", err);
       }).catch(function(err) {
         fail(res, 500, "polis_err_twitter_auth_04", err);
@@ -12261,7 +12237,7 @@ Thanks for using pol.is!
           break;
         }
       }
-      
+
 
       meta = _.indexBy(meta, 'pid');
       let pidToMetaVotes = _.groupBy(metaVotes, 'pid');
@@ -12549,7 +12525,7 @@ Thanks for using pol.is!
     let zid = o.zid;
     let math_tick = o.math_tick;
 
-    // NOTE: if this API is running slow, it's probably because fetching the PCA from mongo is slow, and PCA caching is disabled
+    // NOTE: if this API is running slow, it's probably because fetching the PCA from pg is slow, and PCA caching is disabled
 
     // let twitterLimit = 999; // we can actually check a lot of these, since they might be among the fb users
     // let softLimit = 26;
@@ -12632,7 +12608,7 @@ Thanks for using pol.is!
         //         return stuff;
         //     }
         // }).then(function(stuff) {
-          
+
         let participantsWithSocialInfo = stuff[0] || [];
         // let facebookFriends = stuff[0] || [];
         // let twitterParticipants = stuff[1] || [];
@@ -12876,7 +12852,7 @@ CREATE TABLE slack_user_invites (
         slack_team,
         slack_user_id,
       ]).then((rows) => {
-        
+
         if (!rows || !rows.length) {
           // create new user (or use existing user) and associate a new slack_user entry
           const uidPromise = existing_uid_for_client ? Promise.resolve(existing_uid_for_client) : createDummyUser();
@@ -13851,7 +13827,7 @@ CREATE TABLE slack_user_invites (
       status: "ok",
     });
   }
-  
+
   function hangle_GET_testDatabase(req, res) {
     pgQueryP("select uid from users limit 1", []).then((rows) => {
       res.status(200).json({
