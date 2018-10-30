@@ -42,8 +42,8 @@ const Translate = require('@google-cloud/translate');
 const isValidUrl = require('valid-url');
 const zlib = require('zlib');
 const _ = require('underscore');
-
-
+const Mailgun = require('mailgun-js');
+const path = require('path');
 
 
 
@@ -3242,18 +3242,87 @@ function initializePolisHelpers() {
     setInterval(runExportTest, 6 * 60 * 60 * 1000); // every 6 hours
   }
 
-
   function handle_GET_dataExport(req, res) {
-
     getUserInfoForUid2(req.p.uid).then((user) => {
+      pgQuery("SELECT tid, uid, txt FROM comments WHERE zid=($1)", [req.p.zid], function (err, results) {
+        let comments = {};
+        for (let i in results.rows) {
+          let row = results.rows[i];
+          comments[row.tid] = {}; 
+          comments[row.tid].txt = row.txt;
+          comments[row.tid].uid = row.uid;
+          comments[row.tid].agree = 0;
+          comments[row.tid].disagree = 0;
+          comments[row.tid].skip = 0;
+        }
+        pgQuery("SELECT tid, pid, vote FROM votes WHERE zid=($1);", [req.p.zid], function (err, results) {
+          for (let i in results.rows) {
+            let row = results.rows[i];
+            switch (row.vote) {
+            case 0:
+              comments[row.tid].skip++;
+              break;
+            case 1:
+              comments[row.tid].agree++;
+              break;
+            case -1:
+              comments[row.tid].disagree++;
+              break;
+            }
+          }
+          // Fix to CSV
+          let csv = '';
+          csv += 'comment_body,id,idx,n_agree,n_disagree,percentage\n';
+          for (let tid in comments) {
+            let c = comments[tid];
+            csv += c.txt + ',';
+            csv += tid + ',';
+            csv += c.uid + ',';
+            csv += c.agree + ',';
+            csv += c.disagree + ',';
+            if (c.agree + c.disagree === 0) {
+              csv += '0';
+            } else {
+              csv += (100 * c.agree / (c.agree + c.disagree)).toFixed(2);
+            }
+            csv += '\n';
+          }
 
+          let tallyPath = path.join(__dirname, 'tally.csv');
+          fs.writeFile(tallyPath, csv, (err) => {
+            let mailgun = new Mailgun({apiKey: process.env.MAILGUN_API_KEY, domain: process.env.MAILGUN_DOMAIN});
+            let data = {
+              from: process.env.MAILGUN_FROM,
+              to: user.email,
+              subject: 'Polis exported data',
+              text: 'This is polis, your requesting CSV file is attached.',
+              attachment: [tallyPath],
+            };
+            mailgun.messages().send(data, (error, body) => {
+              if (error) {
+                console.log('Mailgun error:');
+                console.log(error);
+              }
+              console.log('Data export mail sent');
+              console.log(body);
+            });
+            res.json({});
+          });
+        });
+      });
+    });
+  }
+/*
+  function handle_GET_dataExport(req, res) {
+    getUserInfoForUid2(req.p.uid).then((user) => {
+      let task_bucket = Math.random() * 999999999999 >> 0;
       return doAddDataExportTask(
         process.env.MATH_ENV,
         user.email,
         req.p.zid,
         req.p.unixTimestamp * 1000,
         req.p.format,
-        Math.abs(Math.random() * 999999999999 >> 0))
+        task_bucket)
       .then(() => {
         res.json({});
       }).catch((err) => {
@@ -3263,7 +3332,7 @@ function initializePolisHelpers() {
       fail(res, 500, "polis_err_data_export123b", err);
     });
   }
-
+*/
 
   function handle_GET_dataExport_results(req, res) {
 
