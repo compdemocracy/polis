@@ -42,6 +42,13 @@
     {:darwin      (component/using (darwin/create-darwin) [:config :postgres :conversation-manager])
      :task-poller (component/using (tasks/create-task-poller) [:config :darwin :postgres :conversation-manager])}))
 
+(defn export-system
+  [config-overrides]
+  (log/info "export system overrides:" config-overrides)
+  (merge
+    (base-system config-overrides)
+    {:darwin      (component/using (darwin/create-darwin) [:config :postgres :conversation-manager])}))
+
 (defn full-system
   [config-overrides]
   (merge

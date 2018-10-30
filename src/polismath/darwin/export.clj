@@ -62,7 +62,8 @@
 
 
 (defn full-path [darwin filename]
-  (str (or (-> darwin :config :export :temp-dir) "/tmp/")
+  (str (or (-> darwin :config :export :temp-dir) "/tmp")
+       "/"
        filename))
 
 
@@ -581,7 +582,7 @@
         votes (get-conversation-votes darwin zid at-date)
         conv (assoc (conv/new-conv) :zid zid)
         conv (conv/conv-update conv votes)
-        _ (println "Done with conv update")
+        _ (log/info "Done with conv update")
         comments (enriched-comments-data (get-comments-data darwin zid at-date) votes)
         participants (get-participation-data darwin zid at-date)]
     {:votes votes
