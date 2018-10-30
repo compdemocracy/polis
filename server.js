@@ -3244,8 +3244,10 @@ function initializePolisHelpers() {
 
   function handle_GET_dataExport(req, res) {
     getUserInfoForUid2(req.p.uid).then((user) => {
-      pgQuery("SELECT tid, uid, txt FROM comments WHERE zid=($1)", [req.p.zid], function (err, results) {
+      pgQuery("SELECT tid, pid, uid, txt FROM comments WHERE zid=($1)", [req.p.zid], function (err, results) {
         let comments = {};
+        let tids = [];
+        let parts = [];
         for (let i in results.rows) {
           let row = results.rows[i];
           comments[row.tid] = {}; 
@@ -3254,26 +3256,42 @@ function initializePolisHelpers() {
           comments[row.tid].agree = 0;
           comments[row.tid].disagree = 0;
           comments[row.tid].skip = 0;
+          if (!(row.pid in parts)) {
+            parts[row.pid] = {};
+            parts[row.pid].n_comments = 0;
+            parts[row.pid].n_votes = 0;
+            parts[row.pid].n_agree = 0;
+            parts[row.pid].n_disagree = 0;
+            parts[row.pid].detail = {};
+          }
+          parts[row.pid].n_comments++;
         }
         pgQuery("SELECT tid, pid, vote FROM votes WHERE zid=($1);", [req.p.zid], function (err, results) {
           for (let i in results.rows) {
             let row = results.rows[i];
+            parts[row.pid].n_votes++;
+            parts[row.pid].detail[row.tid] = row.vote;
             switch (row.vote) {
             case 0:
               comments[row.tid].skip++;
               break;
             case 1:
               comments[row.tid].agree++;
+              parts[row.pid].n_agree++;
               break;
             case -1:
               comments[row.tid].disagree++;
+              parts[row.pid].n_disagree++;
               break;
             }
           }
           // Fix to CSV
           let csv = '';
+          let csv2 = '';
           csv += 'comment_body,id,idx,n_agree,n_disagree,percentage\n';
+          csv2 += 'participant,group-id,n-comments,n-votes,n-agree,n-disagree';
           for (let tid in comments) {
+            tids.push(tid);
             let c = comments[tid];
             csv += c.txt + ',';
             csv += tid + ',';
@@ -3287,26 +3305,50 @@ function initializePolisHelpers() {
             }
             csv += '\n';
           }
+          tids.sort((a,b)=>{return a-b;});
+          for (let i in tids) {
+            csv2 += ',' + tids[i];
+          }
+          csv2 += '\n';
+          for (let pid in parts) {
+            let p = parts[pid];
+            csv2 += pid + ',';
+            csv2 += ','; // group_id
+            csv2 += p.n_comments + ',';
+            csv2 += p.n_votes + ',';
+            csv2 += p.n_agree + ',';
+            csv2 += p.n_disagree;
+            for (let i in tids) {
+              let tid = tids[i];
+              if (tid in p.detail) {
+                csv2 += ',' + p.detail[tid];
+              }
+            }
+            csv2 += '\n';
+          }
 
           let tallyPath = path.join(__dirname, 'tally.csv');
+          let pvPath = path.join(__dirname, 'participant-votes.csv');
           fs.writeFile(tallyPath, csv, (err) => {
-            let mailgun = new Mailgun({apiKey: process.env.MAILGUN_API_KEY, domain: process.env.MAILGUN_DOMAIN});
-            let data = {
-              from: process.env.MAILGUN_FROM,
-              to: user.email,
-              subject: 'Polis exported data',
-              text: 'This is polis, your requesting CSV file is attached.',
-              attachment: [tallyPath],
-            };
-            mailgun.messages().send(data, (error, body) => {
-              if (error) {
-                console.log('Mailgun error:');
-                console.log(error);
-              }
-              console.log('Data export mail sent');
-              console.log(body);
+            fs.writeFile(pvPath, csv2, (err) => {
+              let mailgun = new Mailgun({apiKey: process.env.MAILGUN_API_KEY, domain: process.env.MAILGUN_DOMAIN});
+              let data = {
+                from: process.env.MAILGUN_FROM,
+                to: user.email,
+                subject: 'Polis exported data',
+                text: 'This is polis, your requesting CSV file is attached.',
+                attachment: [tallyPath, pvPath],
+              };
+              mailgun.messages().send(data, (error, body) => {
+                if (error) {
+                  console.log('Mailgun error:');
+                  console.log(error);
+                }
+                console.log('Data export mail sent');
+                console.log(body);
+              });
+              res.json({});
             });
-            res.json({});
           });
         });
       });
