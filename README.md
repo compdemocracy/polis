@@ -64,6 +64,6 @@ Please help us out as you go in setting things up by improving the deployment co
 
 * General/system-wide issues you come across can go in https://github.com/pol-is/polis-issues/issues, and repo specific issues in their respective issues lists
 * PRs improving either documentation or deployment code are welcome, but please submit an issue to discuss before making any substantial code changes
-
+* After you've made an issue, you can try to chat folks up at https://gitter.im/pol-is/polisDeployment
 
 
