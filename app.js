@@ -12,10 +12,10 @@ const polisServerBrand = optional('polisServerBrand');
 const app = express();
 
 
-console.log('init 1');
+console.log('Server initilizing starts');
 
 var helpersInitialized = new Promise(function(resolve, reject) {
-  resolve(server.initializePolisHelpers());
+    resolve(server.initializePolisHelpers());
 });
 
 
@@ -67,7 +67,6 @@ helpersInitialized.then(function(o) {
     redirectIfApiDomain,
     redirectIfHasZidButNoConversationId,
     redirectIfNotHttps,
-    redirectIfWrongDomain,
     resolve_pidThing,
     timeout,
     want,
@@ -243,7 +242,6 @@ helpersInitialized.then(function(o) {
   app.use(express.cookieParser());
   app.use(express.bodyParser());
   app.use(writeDefaultHead);
-  app.use(redirectIfWrongDomain);
   app.use(redirectIfApiDomain);
 
   if (devMode) {

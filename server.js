@@ -2,6 +2,7 @@
 
 "use strict";
 
+const PolisConfig = require('./polisConfig');
 const akismetLib = require('akismet');
 const AWS = require('aws-sdk');
 AWS.config.set('region', 'us-east-1');
@@ -44,7 +45,7 @@ const zlib = require('zlib');
 const _ = require('underscore');
 const Mailgun = require('mailgun-js');
 const path = require('path');
-
+const localServer = isTrue(PolisConfig.get('LOCAL_SERVER'));
 
 
 
@@ -1645,7 +1646,6 @@ const COOKIES_TO_CLEAR = {
 
 function initializePolisHelpers() {
 
-
   let polisTypes = {
     reactions: {
       push: 1,
@@ -2162,20 +2162,6 @@ function initializePolisHelpers() {
     return next();
   }
 
-  function redirectIfWrongDomain(req, res, next) {
-    // let reServiceHostname = new RegExp(process.env.SERVICE_HOSTNAME);
-    if (
-      // reServiceHostname.test(req.headers.host) || // needed for heroku integrations (like slack?)
-      /www.pol.is/.test(req.headers.host)
-    ) {
-      res.writeHead(302, {
-        Location: "https://pol.is" + req.url,
-      });
-      return res.end();
-    }
-    return next();
-  }
-
   function redirectIfApiDomain(req, res, next) {
     if (/api.pol.is/.test(req.headers.host)) {
       if (req.url === "/" || req.url === "") {
@@ -2424,41 +2410,6 @@ function initializePolisHelpers() {
   }
 
 
-  /*
-  function meter(name) {
-      return function (req, res, next){
-          let start = Date.now();
-          setTimeout(function() {
-              metric(name + ".go", 1, start);
-          }, 1);
-          res.on('finish', function(){
-            let end = Date.now();
-            let duration = end - start;
-            let status = ".ok";
-            if (!res.statusCode || res.statusCode >= 500) {
-              status = ".fail";
-            } else if (res.statusCode >= 400) {
-              status = ".4xx";
-            }
-            setTimeout(function() {
-                metric(name + status, duration, end);
-            }, 1);
-          });
-          next();
-      };
-  }
-  */
-
-
-  // 2xx
-  // 4xx
-  // 5xx
-  // logins
-  // failed logins
-  // forgot password
-
-
-
   let whitelistedCrossDomainRoutes = [
     /^\/api\/v[0-9]+\/launchPrep/,
     /^\/api\/v[0-9]+\/setFirstCookie/,
@@ -2520,7 +2471,6 @@ function initializePolisHelpers() {
     }
     return false;
   }
-
 
   function addCorsHeader(req, res, next) {
 
@@ -2734,76 +2684,6 @@ function initializePolisHelpers() {
   // don't start immediately, let other things load first.
   // setTimeout(fetchAndCacheLatestPcaData, 5000);
   fetchAndCacheLatestPcaData; // TODO_DELETE
-
-  /*
-  function splitTopLevelGroup(o, gid) {
-    function shouldKeepGroup(g) {
-      return g.id !== gid;
-    }
-    function uniquifySubgroupId(g) {
-      g.id = g.id + 100;
-      return g;
-    }
-    function withGid(g) {
-      return g.id === gid;
-    }
-
-    let newGroupClusters = o['group-clusters'].filter(shouldKeepGroup);
-    let subgroupClusterTop = _.find(o['subgroup-clusters'], withGid);
-    if (!subgroupClusterTop || !subgroupClusterTop.val) {
-      return o;
-    }
-    let subGroupClustersToAdd = subgroupClusterTop.val.map(uniquifySubgroupId);
-    newGroupClusters = newGroupClusters.concat(subGroupClustersToAdd);
-
-    let newRepness = o['repness'].filter(shouldKeepGroup);
-    let subgroupRepnessTop = _.find(o['subgroup-repness'], withGid);
-    if (!subgroupRepnessTop || !subgroupRepnessTop.val) {
-      return o;
-    }
-    let repnessToAdd = subgroupRepnessTop.val.map(uniquifySubgroupId);
-    newRepness = newRepness.concat(repnessToAdd);
-
-    let newGroupVotes = o['group-votes'].filter(shouldKeepGroup);
-    let subgroupVotesTop = _.find(o['subgroup-votes'], withGid);
-    if (!subgroupVotesTop || !subgroupVotesTop.val) {
-      return o;
-    }
-    let subGroupVotesToAdd = subgroupVotesTop.val.map(uniquifySubgroupId);
-    newGroupVotes = newGroupVotes.concat(subGroupVotesToAdd);
-
-    o['repness'] = _.sortBy(newRepness, "id");
-    o['group-clusters'] = _.sortBy(newGroupClusters, "id");
-    o['group-votes'] = _.sortBy(newGroupVotes, "id");
-    return o;
-  }
-
-  function packGids(o) {
-
-    // TODO start index at 1
-
-    function remapGid(g) {
-      g.id = gid2newGid[g.id];
-      return g;
-    }
-    let origGids = _.map(o['group-clusters'], (g) => {return g.id;});
-    origGids.sort();
-    let gid2newGid = {};
-    for (let i = 0; i < origGids.length; i++) {
-      gid2newGid[origGids[i]] = i;
-    }
-    o['group-clusters'] = _.sortBy(_.map(o['group-clusters'], remapGid), 'id');
-    o['group-votes'] = _.sortBy(_.map(o['group-votes'], remapGid), 'id');
-    o['repness'] = _.sortBy(_.map(o['repness'], remapGid), 'id');
-
-    o['subgroup-clusters'] = _.sortBy(_.map(o['subgroup-clusters'], remapGid), 'id');
-    o['subgroup-votes'] = _.sortBy(_.map(o['subgroup-votes'], remapGid), 'id');
-    o['subgroup-repness'] = _.sortBy(_.map(o['subgroup-repness'], remapGid), 'id');
-
-
-    return o;
-  }
-  */
 
   function processMathObject(o) {
 
@@ -3081,20 +2961,6 @@ function initializePolisHelpers() {
   }
 
 
-  /*
-      addConversationId(o).then(function(item) {
-          // ensure we don't expose zid
-          if (item.zid) {
-              delete item.zid;
-          }
-          res.status(200).json(item);
-      }, function(err) {
-          fail(res, 500, "polis_err_finishing_responseA", err);
-      }).catch(function(err) {
-          fail(res, 500, "polis_err_finishing_response", err);
-      });
-  */
-
   function getZidForRid(rid) {
     return pgQueryP("select zid from reports where rid = ($1);", [rid]).then((row) => {
       if (!row || !row.length) {
@@ -3354,27 +3220,6 @@ function initializePolisHelpers() {
       });
     });
   }
-/*
-  function handle_GET_dataExport(req, res) {
-    getUserInfoForUid2(req.p.uid).then((user) => {
-      let task_bucket = Math.random() * 999999999999 >> 0;
-      return doAddDataExportTask(
-        process.env.MATH_ENV,
-        user.email,
-        req.p.zid,
-        req.p.unixTimestamp * 1000,
-        req.p.format,
-        task_bucket)
-      .then(() => {
-        res.json({});
-      }).catch((err) => {
-        fail(res, 500, "polis_err_data_export123", err);
-      });
-    }).catch((err) => {
-      fail(res, 500, "polis_err_data_export123b", err);
-    });
-  }
-*/
 
   function handle_GET_dataExport_results(req, res) {
 
@@ -3617,6 +3462,10 @@ function initializePolisHelpers() {
 
 
   function getServerNameWithProtocol(req) {
+    let serviceUrl = PolisConfig.get('SERVICE_URL');
+	if (serviceUrl) {
+	  return serviceUrl;
+	}
     let server = "https://pol.is";
     if (devMode) {
       // usually localhost:5000
@@ -5132,7 +4981,6 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
-
   function handle_POST_participants(req, res) {
     let zid = req.p.zid;
     let uid = req.p.uid;
@@ -5237,7 +5085,6 @@ Email verified! You can close this tab or hit the back button.
       }
     });
   }
-
 
   function checkPassword(uid, password) {
     return pgQueryP_readOnly_wRetryIfEmpty("select pwhash from jianiuevyew where uid = ($1);", [uid]).then(function(rows) {
@@ -5410,7 +5257,6 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
-
   function doNotificationBatch() {
     return claimNextNotificationTask().then((task) => {
       if (!task) {
@@ -5452,12 +5298,9 @@ Email verified! You can close this tab or hit the back button.
   }
 
   let shouldSendNotifications = !devMode;
-  // let shouldSendNotifications = true;
-  // let shouldSendNotifications = false;
   if (shouldSendNotifications) {
     doNotificationLoop();
   }
-
 
   function createNotificationsUnsubscribeUrl(conversation_id, email) {
     let params = {
@@ -5541,7 +5384,6 @@ Email verified! You can close this tab or hit the back button.
       fail(res, 500, "polis_err_unsubscribe_misc", err);
     });
   }
-
 
   function handle_POST_convSubscriptions(req, res) {
     let zid = req.p.zid;
@@ -6161,8 +6003,6 @@ Email verified! You can close this tab or hit the back button.
       next("polis_err_domain_misc");
     });
   }
-
-
 
   function setDomainWhitelist(uid, newWhitelist) {
     // TODO_UPSERT
@@ -6824,7 +6664,6 @@ Email verified! You can close this tab or hit the back button.
         });
     });
   } // end do_handle_POST_auth_facebook
-
 
   function handle_POST_auth_new(req, res) {
     let hname = req.p.hname;
@@ -7698,17 +7537,17 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
-  /*
-   Rename column 'zid' to 'conversation_id', add a new column called 'zid' and have that be a VARCHAR of limited length.
-   Use conversation_id internally, refactor math poller to use conversation_id
-   continue to use zid externally, but it will be a string of limited length
-   Don't expose the conversation_id to the client.
+  
+ //  Rename column 'zid' to 'conversation_id', add a new column called 'zid' and have that be a VARCHAR of limited length.
+ //  Use conversation_id internally, refactor math poller to use conversation_id
+ //  continue to use zid externally, but it will be a string of limited length
+ //  Don't expose the conversation_id to the client.
 
-   plan:
-   add the new column conversation_id, copy values from zid
-   change the code to look things up by conversation_id
+ //  plan:
+ //  add the new column conversation_id, copy values from zid
+ //  change the code to look things up by conversation_id
 
-  */
+  
 
 
 
@@ -12902,24 +12741,6 @@ Thanks for using pol.is!
   }
 
 
-/*
-
-CREATE TABLE slack_users (
-    uid INTEGER NOT NULL REFERENCES users(uid),
-    slack_team VARCHAR(20) NOT NULL,
-    slack_user_id VARCHAR(20) NOT NULL,
-    created BIGINT DEFAULT now_as_millis(),
-    UNIQUE(slack_team, slack_user_id)
-);
-CREATE TABLE slack_user_invites (
-    slack_team VARCHAR(20) NOT NULL,
-    slack_user_id VARCHAR(20) NOT NULL,
-    token VARCHAR(100) NOT NULL,
-    created BIGINT DEFAULT now_as_millis()
-);
-*/
-
-
 
   function handle_GET_slack_login(req, res) {
 
@@ -13353,38 +13174,6 @@ CREATE TABLE slack_user_invites (
   // accessibility - Teach Act: those who don't have dexterity
   // colors
   // screen readers
-  /*
-2014-09-21T23:16:15.351247+00:00 app[web.1]: course_setup
-2014-09-21T23:16:15.188414+00:00 app[web.1]: { oauth_consumer_key: 'asdfasdf',
-2014-09-21T23:16:15.188418+00:00 app[web.1]:   oauth_signature_method: 'HMAC-SHA1',
-2014-09-21T23:16:15.188420+00:00 app[web.1]:   oauth_timestamp: '1411341372',
-2014-09-21T23:16:15.188422+00:00 app[web.1]:   oauth_nonce: 'JHnE7tcVBHYx9MjLcQS2jWNTGCD56F5wqwePk4tnk',
-2014-09-21T23:16:15.188423+00:00 app[web.1]:   oauth_version: '1.0',
-2014-09-21T23:16:15.188425+00:00 app[web.1]:   context_id: '543f4cb8ba0ad2939faa5b2643cb1415d3ada3c5',
-2014-09-21T23:16:15.188426+00:00 app[web.1]:   context_label: 'polis_demo_course_code',
-2014-09-21T23:16:15.188428+00:00 app[web.1]:   context_title: 'polis demo course',
-2014-09-21T23:16:15.188430+00:00 app[web.1]:   custom_canvas_enrollment_state: 'active',
-2014-09-21T23:16:15.188432+00:00 app[web.1]:   custom_canvas_xapi_url: 'https://canvas.instructure.com/api/lti/v1/tools/46849/xapi',
-2014-09-21T23:16:15.188433+00:00 app[web.1]:   launch_presentation_document_target: 'iframe',
-2014-09-21T23:16:15.188435+00:00 app[web.1]:   launch_presentation_height: '400',
-2014-09-21T23:16:15.188436+00:00 app[web.1]:   launch_presentation_locale: 'en',
-2014-09-21T23:16:15.188437+00:00 app[web.1]:   launch_presentation_return_url: 'https://canvas.instructure.com/courses/875179',
-2014-09-21T23:16:15.188439+00:00 app[web.1]:   launch_presentation_width: '800',
-2014-09-21T23:16:15.188441+00:00 app[web.1]:   lti_message_type: 'basic-lti-launch-request',
-2014-09-21T23:16:15.188442+00:00 app[web.1]:   lti_version: 'LTI-1p0',
-2014-09-21T23:16:15.188443+00:00 app[web.1]:   oauth_callback: 'about:blank',
-2014-09-21T23:16:15.188445+00:00 app[web.1]:   resource_link_id: '543f4cb8ba0ad2939faa5b2643cb1415d3ada3c5',
-2014-09-21T23:16:15.188447+00:00 app[web.1]:   resource_link_title: 'polis nav',
-2014-09-21T23:16:15.188448+00:00 app[web.1]:   roles: 'Instructor',
-2014-09-21T23:16:15.188450+00:00 app[web.1]:   tool_consumer_info_product_family_code: 'canvas',
-2014-09-21T23:16:15.188451+00:00 app[web.1]:   tool_consumer_info_version: 'cloud',
-2014-09-21T23:16:15.188453+00:00 app[web.1]:   tool_consumer_instance_contact_email: 'notifications@instructure.com',
-2014-09-21T23:16:15.188454+00:00 app[web.1]:   tool_consumer_instance_guid: '07adb3e60637ff02d9ea11c7c74f1ca921699bd7.canvas.instructure.com',
-2014-09-21T23:16:15.188456+00:00 app[web.1]:   tool_consumer_instance_name: 'Free For Teachers',
-2014-09-21T23:16:15.188457+00:00 app[web.1]:   user_id: '15bbe33bd1cf5355011a9ce6ebe1072256beea01',
-2014-09-21T23:16:15.188459+00:00 app[web.1]:   user_image: 'https://secure.gravatar.com/avatar/256caee7b9886c54155ef0d316dffabc?s=50&d=https%3A%2F%2Fcanvas.instructure.com%2Fimages%2Fmessages%2Favatar-50.png',
-2014-09-21T23:16:15.188461+00:00 app[web.1]:   oauth_signature: 'jJ3TbKvalDUYvELXNvnzOfdCwGo=' }
-*/
   // A compromise would be this:
   // Instructors see a custom inbox for the course, and can create conversations there. make it easy to copy and paste links..
   // how do we deal with sections? can't do this.
@@ -14368,22 +14157,28 @@ CREATE TABLE slack_user_invites (
   }
 
   function proxy(req, res) {
-    let hostname = buildStaticHostname(req, res);
-    if (!hostname) {
-
-      let host = req.headers.host || "";
-      let re = new RegExp(process.env.SERVICE_HOSTNAME + "$");
-      if (host.match(re)) {
-        // don't alert for this, it's probably DNS related
-        // TODO_SEO what should we return?
-        userFail(res, 500, "polis_err_proxy_serving_to_domain", new Error(host));
-      } else {
-        fail(res, 500, "polis_err_proxy_serving_to_domain", new Error(host));
+		let hostname;
+    if (localServer) {
+      let origin = PolisConfig.get('STATIC_FILES_ORIGIN');
+      hostname = /^https?:\/\/([^\/:]+).*$/.exec(origin)[1];
+    } else {
+      hostname = buildStaticHostname(req, res);
+      if (!hostname) {
+        let host = req.headers.host || "";
+        let re = new RegExp(process.env.SERVICE_HOSTNAME + "$");
+        if (host.match(re)) {
+          // don't alert for this, it's probably DNS related
+          // TODO_SEO what should we return?
+          userFail(res, 500, "polis_err_proxy_serving_to_domain", new Error(host));
+        } else {
+          fail(res, 500, "polis_err_proxy_serving_to_domain", new Error(host));
+        }
+        console.error(req.headers.host);
+        console.error(req.path);
+        return;
       }
-      console.error(req.headers.host);
-      console.error(req.path);
-      return;
     }
+	
 
     if (devMode) {
       addStaticFileHeaders(res);
@@ -14398,7 +14193,7 @@ CREATE TABLE slack_user_invites (
     // } else {
 
 
-    let port = process.env.STATIC_FILES_PORT;
+    let port = getStaticFilePort();
     // set the host header too, since S3 will look at that (or the routing proxy will patch up the request.. not sure which)
     req.headers.host = hostname;
     routingProxy.proxyRequest(req, res, {
@@ -14409,11 +14204,42 @@ CREATE TABLE slack_user_invites (
     // }
   }
 
+	function getStaticFilePort() {
+	  if (process.env.STATIC_FILES_PORT) {
+	    return process.env.STATIC_FILES_PORT;
+	  }
+	  let origin = PolisConfig.get('STATIC_FILES_ORIGIN');
+	  if (!origin) {
+	    console.error('STATIC_FILES_ORIGIN and STATIC_FILES_PORT is not set.');
+	    return 80;
+	  }
+	  let exp = /^.+:\/\/.+:(\d+)$/g;
+	  let match = exp.exec(origin);
+	  if (match != null) {
+	    return parseInt(match[1]);
+	  } else {
+	    if (origin.indexOf('https') >= 0) {
+  	    return 443;
+	    } else if (origin.indexOf('http') >= 0) {
+	      return 80;
+	    } else {
+	      console.error('STATIC_FILES_ORIGIN does not have a http or https sceheme');
+	      return 80;
+	    }
+	  }
+	}
+
   function buildStaticHostname(req, res) {
+    // Cannot understand why this need to be whitelisted
+		if (localServer) {
+			return PolisConfig.get('STATIC_FILES_ORIGIN').split('//')[1];
+		}
+
     if (devMode) {
       return process.env.STATIC_FILES_HOST;
     } else {
       let origin = req.headers.host;
+	  console.log(origin);
       if (!whitelistedBuckets[origin]) {
         if (hasWhitelistMatches(origin)) {
           // Use the prod bucket for non pol.is domains
@@ -14452,16 +14278,20 @@ CREATE TABLE slack_user_invites (
         return;
       }
       let url;
-      if (devMode) {
-        url = "http://" + hostname + ":" + port + path;
-      } else {
-        // pol.is.s3-website-us-east-1.amazonaws.com
-        // preprod.pol.is.s3-website-us-east-1.amazonaws.com
-
-        // TODO https - buckets would need to be renamed to have dashes instead of dots.
-        // http://stackoverflow.com/questions/3048236/amazon-s3-https-ssl-is-it-possible
-        url = "http://" + hostname + path;
-      }
+		  if (localServer) {
+		    url = process.env.STATIC_FILES_ORIGIN + path;
+		  } else {
+	      if (devMode) {
+	        url = "http://" + hostname + ":" + port + path;
+	      } else {
+	        // pol.is.s3-website-us-east-1.amazonaws.com
+	        // preprod.pol.is.s3-website-us-east-1.amazonaws.com
+	
+	        // TODO https - buckets would need to be renamed to have dashes instead of dots.
+	        // http://stackoverflow.com/questions/3048236/amazon-s3-https-ssl-is-it-possible
+	        url = "http://" + hostname + path;
+	      }
+		  }
       winston.log("info", "fetch file from " + url);
       let x = request(url);
       req.pipe(x);
@@ -14717,8 +14547,7 @@ CREATE TABLE slack_user_invites (
         return fetchIndexForAdminPage(req, res);
       } else {
         // user not signed in, redirect to landing page
-        let url = getServerNameWithProtocol(req) + "/home";
-        res.redirect(url);
+        res.redirect('/home');
       }
     };
   }());
@@ -14807,7 +14636,6 @@ CREATE TABLE slack_user_invites (
     }
   });
 
-
   console.log('end initializePolisHelpers');
 
   return {
@@ -14863,7 +14691,6 @@ CREATE TABLE slack_user_invites (
     redirectIfApiDomain,
     redirectIfHasZidButNoConversationId,
     redirectIfNotHttps,
-    redirectIfWrongDomain,
     resolve_pidThing,
     sendTextEmail,
     timeout,
