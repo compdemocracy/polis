@@ -6384,7 +6384,8 @@ Email verified! You can close this tab or hit the back button.
     let fb_login_status = response.status;
     // let fb_auth_response = response.authResponse.
     let fb_access_token = response.authResponse.accessToken;
-    let verified = o.info.verified;
+    // verified field is deprecated
+		let verified = new Boolean(fb_user_id);
 
     // let existingUid = req.p.existingUid;
     let referrer = req.cookies[COOKIES.REFERRER];
@@ -6624,6 +6625,8 @@ Email verified! You can close this tab or hit the back button.
       emailVerifiedPromise,
     ]).then(function(a) {
       let isVerifiedByPolisOrFacebook = a[0];
+
+console.log(a);
 
       if (!isVerifiedByPolisOrFacebook) {
         if (email) {
