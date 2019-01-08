@@ -25,4 +25,4 @@ RUN \
   #apk del $BUILD_DEPS && \
   #rm -rf /tmp/* /var/cache/*
 
-ENTRYPOINT ["./bin/run"]
+ENTRYPOINT ["./bin/dockerRun"]
