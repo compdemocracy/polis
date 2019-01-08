@@ -6,8 +6,8 @@ module.exports = {
     PCA: 1,
     TOP_COMMENTS: 2,
   },
-  CHARACTER_LIMIT: 140, // we can import tweets, so 140
-  commentCarouselMinHeight: 135, // based on CHARACTER_LIMIT and font size
+  CHARACTER_LIMIT: 280, // we can import tweets, so 280
+  commentCarouselMinHeight: 275, // based on CHARACTER_LIMIT and font size
   REACTIONS: {
     AGREE: -1,
     PASS: 0,
