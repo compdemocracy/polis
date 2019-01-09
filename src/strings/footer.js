@@ -1,6 +1,6 @@
 export default {
   footer: {
-    copyright: "Polis Technology Inc. All Rights Reserved.",
+    copyright: "The Authors. All Rights Reserved.",
     social: ["https://github.com/pol-is/", "https://twitter.com/usepolis"],
     groups: [
       {

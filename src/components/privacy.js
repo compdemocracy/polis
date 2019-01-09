@@ -1,4 +1,4 @@
-// Copyright (C) 2012-present, Polis Technology Inc. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import React from "react";
 
@@ -15,7 +15,7 @@ class Privacy extends React.Component {
       <p>Last Updated: <strong><em>6/26/2014 <strong><em>_</em></strong></em></strong></p>
 
       <p>"This privacy policy (this 'Policy') describes the collection of personal
-      information by Polis Technology Inc., a Delaware corporation ('Pol.is,' 'we,' or
+      information by The Authors., a Delaware corporation ('Pol.is,' 'we,' or
       'us') from users of our Web site at <a href='http://polis/'>'http://pol.is/'</a> (the
       'Website'), as well as all related applications, widgets, software, tools, and other
       services provided by us and on which a link to this Policy is displayed
@@ -298,7 +298,7 @@ class Privacy extends React.Component {
       <p>"If you have any questions or comments about this Policy, please contact us using
       the following contact information:"</p>
 
-      <p>"Polis Technology Inc 3601 Fremont Ave. N, Suite 300 Seattle, WA 98103
+      <p>"The Authors 3601 Fremont Ave. N, Suite 300 Seattle, WA 98103
       [info@pol.is]"</p>
   </ContainerInner>
     </LanderContainer>
