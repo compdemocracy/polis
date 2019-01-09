@@ -1,4 +1,4 @@
-// Copyright (C) 2012-present, Polis Technology Inc. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import React from "react";
 import { connect } from "react-redux";
@@ -88,7 +88,7 @@ class Footer extends React.Component {
             <p><a style={this.styles().link} href="https://pol.is/privacy"> Privacy Policy </a></p>
           </div>
         </div>
-        <p style={this.styles().copyright}> @ 2017 Polis Technology Inc. All Rights Reserved. </p>
+        <p style={this.styles().copyright}> @ 2017 The Authors. All Rights Reserved. </p>
       </div>
     );
   }
@@ -112,7 +112,7 @@ export default Footer;
 //   fontSize: 12
 // }
 
-// <p style={{marginLeft: 20, fontSize: 12}}>© Polis Technology Inc. 2016 </p>
+// <p style={{marginLeft: 20, fontSize: 12}}>© The Authors. 2016 </p>
 // <div style={{marginRight: 20}}>
 //   <Link
 //     style={this.styles(this.props).link}

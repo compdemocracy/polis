@@ -1,4 +1,4 @@
-// Copyright (C) 2012-present, Polis Technology Inc. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import React from "react";
 import Radium from "radium";
@@ -154,7 +154,7 @@ class ComponentName extends React.Component {
             </Flex>
             <textarea style={styles.agreement} readOnly>
               {`
-                This Polis Contributor Agreement (“PCA”) applies to any contribution that you make to any product or project managed by us (the “project”), and sets out the intellectual property rights you grant to us in the contributed materials. The term “us” shall mean Polis Technology Inc. The term “you” shall mean the person or entity identified below. If you agree to be bound by these terms, fill in the information requested below and sign the PCA where indicated below. Read this agreement carefully before signing. These terms and conditions constitute a binding legal agreement.
+                This Polis Contributor Agreement (“PCA”) applies to any contribution that you make to any product or project managed by us (the “project”), and sets out the intellectual property rights you grant to us in the contributed materials. The term “us” shall mean The Authors. The term “you” shall mean the person or entity identified below. If you agree to be bound by these terms, fill in the information requested below and sign the PCA where indicated below. Read this agreement carefully before signing. These terms and conditions constitute a binding legal agreement.
 
                 1. The term 'contribution' or ‘contributed materials’ means any source code, object code, patch, tool, sample, graphic, specification, manual, documentation, or any other material posted or submitted by you to the project.
 
