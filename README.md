@@ -23,6 +23,9 @@ The ones you're most frequently to need to tweak for one reason or another:
 * `POLL_FROM_DAYS_AGO`: This defaults to 10 (at the time of this writing).
   Conversations which have had vote or moderation activity in the specified range will be loaded into memory, and will be updated.
   This prevents old inactive conversations from being loaded into memory every time the poller starts.
+* `DATABASE_URL`: url for the database, in heroku format: 
+  `postgres://<username>:<password>@<url>:<port>/<database-id>`
+
   
 You'll also need to pass database credentials and such.
 
