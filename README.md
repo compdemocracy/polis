@@ -33,9 +33,6 @@ Some of these are a little out of date, so bare with us as we clean house and cl
   `postgres://<username>:<password>@<url>:<port>/<database-id>`
 * `WEBSERVER_PASS` & `WEBSERVER_USERNAME`, to the polisServer instance, primarily for uathenticated api calls to send
   email notifications to users when their exports are done, via the polisServer.
-* `AWS_ACCESS_KEY` & `AWS_SECRET_KEY` are necessary for AWS S3, which is used for sharing the export blobs;
-  This assumption will eventually be relaxed.
-
 
 
 ## Dev setup
