@@ -7,6 +7,8 @@ RUN npm link gulp
 ADD package*.json .
 RUN npm install
 
+ADD polis.config.template.js polis.config.js
+
 ADD . .
 
 RUN gulp dist

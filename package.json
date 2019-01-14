@@ -39,6 +39,7 @@
     "file-loader": "https://registry.npmjs.org/file-loader/-/file-loader-0.8.5.tgz",
     "glob": "^7.1.2",
     "gulp": "^3.9.0",
+    "gulp-cli": "^1.4.0",
     "gulp-gzip": "0.0.4",
     "gulp-rename": "~1.0.0",
     "gulp-s3": "git://github.com/mbjorkegren/gulp-s3#847e2b372204b4ceeccb0e9b567f28ff00e7fa1d",
