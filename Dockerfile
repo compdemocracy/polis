@@ -12,4 +12,4 @@ RUN bower install --allow-root
 
 ADD . .
 
-CMD gulp prodBuildNoDeploy
+RUN gulp prodBuildNoDeploy
