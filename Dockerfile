@@ -5,8 +5,8 @@ RUN npm install -g bower
 RUN npm install gulp
 RUN npm link gulp
 
-ADD package*.json .
-ADD bower.json .
+COPY package*.json ./
+COPY bower.json ./
 RUN npm install
 RUN bower install --allow-root
 
