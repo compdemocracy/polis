@@ -10,6 +10,8 @@ COPY bower.json ./
 RUN npm install
 RUN bower install --allow-root
 
+ADD polis.config.template.js polis.config.js
+
 ADD . .
 
 RUN gulp prodBuildNoDeploy
