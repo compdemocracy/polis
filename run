@@ -13,6 +13,8 @@ export ADMIN_EMAILS='["romulus@ey.gov.tw"]'
 export ADMIN_EMAIL_DATA_EXPORT="[]"
 export ADMIN_EMAIL_DATA_EXPORT_TEST=[]
 export ADMIN_EMAIL_EMAIL_TEST=[]
+export SHOULD_USE_TRANSLATION_API=true
+export GOOGLE_APPLICATION_CREDENTIALS=translate-creds.json
 export DISABLE_SPAM_CHECK=false
 source ./HIDDEN_ENV_EXPORT
 
