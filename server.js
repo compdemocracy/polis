@@ -2027,6 +2027,10 @@ function initializePolisHelpers() {
 
   function translateString(txt, target_lang) {
     if (useTranslateApi) {
+      // Let traditional Chinese has higher priority
+      if (target_lang == 'zh') {
+        target_lang = 'zh-TW';
+      }
       return translateClient.translate(txt, target_lang);
     }
     return Promise.resolve(null);
