@@ -27,7 +27,6 @@ The ones you're most frequently to need to tweak for one reason or another:
 You'll also need to pass database credentials and such.
 
 Please see [`src/polismath/components/config.clj`](https://github.com/pol-is/polisMath/blob/master/src/polismath/components/config.clj#L51) for the complete listing of environment variables.
-Some of these are a little out of date, so bare with us as we clean house and clarify documentation there.
 
 * `DATABASE_URL`: url for the database, in heroku format: 
   `postgres://<username>:<password>@<url>:<port>/<database-id>`
@@ -37,7 +36,7 @@ Some of these are a little out of date, so bare with us as we clean house and cl
 
 ## Dev setup
 
-Once you have all that stuff set up, you an run `lein repl`.
+Once you have all that stuff set up, you can run `lein repl`.
 From there you can run `(run! system/poller-system)` to start the poller, and `(stop!)` to stop it.
 
 This application uses Stuart Sierra's Component library for REPL-reloadability, and places the system in the `system` var.
