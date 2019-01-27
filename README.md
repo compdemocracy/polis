@@ -32,6 +32,7 @@ Please see [`src/polismath/components/config.clj`](https://github.com/pol-is/pol
   `postgres://<username>:<password>@<url>:<port>/<database-id>`
 * `WEBSERVER_PASS` & `WEBSERVER_USERNAME`, to the polisServer instance, primarily for uathenticated api calls to send
   email notifications to users when their exports are done, via the polisServer.
+* `DATABASE_IGNORE_SSL` - certain database deployments (Docker in particular) may not accept ssl
 
 
 ## Dev setup
