@@ -18,7 +18,7 @@
             [clj-time.core :as t]
             [clj-time.coerce :as co]
     ;; Think I'm going to use the second one here, since it's simpler (less mutable)
-            [dk.ative.docjure.spreadsheet :as spreadsheet]
+            ;[dk.ative.docjure.spreadsheet :as spreadsheet]
             [clj-excel.core :as excel]
             [semantic-csv.core :as scsv]
             [clojure-csv.core :as csv]
