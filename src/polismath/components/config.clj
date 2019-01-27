@@ -27,7 +27,8 @@
 
 (defn ->boolean [x]
   (when x
-    (not= x "false")))
+    ;; anything other than these values will be considered truthy
+    (not (#{"false" "0" "no"} x))))
 
 
 ;; XXX This should be computed; that is be a function of the rules.
