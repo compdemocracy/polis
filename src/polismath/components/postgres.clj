@@ -26,15 +26,17 @@
 
 (defn heroku-db-spec
   "Create a korma db-spec given a heroku db-uri"
-  [db-uri]
+  [db-uri ignore-ssl]
   (let [[_ user password host port db] (re-matches #"postgres://(?:(.+):(.*)@)?([^:]+)(?::(\d+))?/(.+)" db-uri)
         settings {:user user
                   :password password
                   :host host
                   :port (or port 80)
                   :db db
-                  :ssl true
-                  :sslfactory "org.postgresql.ssl.NonValidatingFactory"}]
+                  :ssl true}
+        settings (if ignore-ssl
+                   (merge settings {:sslfactory "org.postgresql.ssl.NonValidatingFactory"})
+                   settings)]
     (kdb/postgres settings)))
 
 

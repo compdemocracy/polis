@@ -25,6 +25,10 @@
   (when (and x (not (= x "")))
     (keyword x)))
 
+(defn ->boolean [x]
+  (when x
+    (not= x "false")))
+
 
 ;; XXX This should be computed; that is be a function of the rules.
 ;; :default specification should be in the rules themselves
@@ -56,7 +60,7 @@
    :database-url               {:path [:database :url]}
    :database-for-reads-name    {:path [:database :reads-name]}
    :database-pool-size         {:path [:database :pool-size] :parse ->long}
-   :mongolab-uri               {:path [:mongo :url]}
+   :database-ignore-ssl        {:path [:database :ignore-ssl] :parse ->boolean}
    :mailgun-api-key            {:path [:email :api-key]}
    :mailgun-url                {:path [:email :url]}
    :aws-secret-key             {:path [:aws :secret-key]}
@@ -91,7 +95,7 @@
    ;                             :doc "The initial vote and mod polling timestamp (only load convs with votes later than this)"}
    :poll-from-days-ago         {:parse ->long :path [:poller :poll-from-days-ago]}
    ;; Need to think more about the semantics of a recompute; once; always; only if not booted; etc? XXX
-   :recompute                  {:parse boolean
+   :recompute                  {:parse ->boolean
                                 :doc "Whether or not to perform a recompute"}
    ;; Need to think about how to handle options
    :logging-level              {:path [:logging :level] :parse ->keyword
