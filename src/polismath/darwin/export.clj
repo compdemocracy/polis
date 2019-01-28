@@ -4,8 +4,6 @@
   (:require [taoensso.timbre.profiling :as profiling
              :refer (pspy pspy* profile defnp p p*)]
             [clojure.java.io :as io]
-            [korma.core :as ko]
-            [korma.db :as kdb]
             [polismath.components.postgres :as db]
     ;; Probably should move the function we need out, since this should be meta only XXX
             [polismath.meta.microscope :as micro]
@@ -75,36 +73,37 @@
 (defn get-zids-for-uid
   [darwin uid]
   (map :zid
-    (kdb/with-db (db-spec darwin)
-      (ko/select "conversations"
-        (ko/fields :zid)
-        (ko/where {:owner uid})))))
-
+    (db/query (:postgres darwin)
+              {:select [:*]
+               :from [:conversations]
+               :where [:= :owner uid]})))
 
 
 (defn get-zinvite-from-zid
   [darwin zid]
   (->
-    (kdb/with-db (db-spec darwin)
-      (ko/select "zinvites"
-        (ko/fields :zid :zinvite)
-        (ko/where {:zid zid})))
+    (db/query (:postgres darwin)
+              {:select [:zid :zinvite]
+               :from [:zinvites]
+               :where [:= :zid zid]})
     first
     :zinvite))
 
 
 (defn get-conversation-votes*
   ([darwin zid]
-   (kdb/with-db (db-spec darwin)
-     (ko/select db/votes
-       (ko/where {:zid zid})
-       (ko/order [:zid :tid :pid :created] :asc))))
+   (db/query (:postgres darwin)
+             {:select [:*]
+              :from [:votes]
+              :where [:= :zid zid]
+              :order-by [:zid :tid :pid :created]}))
   ([darwin zid final-vote-timestamp]
-   (kdb/with-db (db-spec darwin)
-     (ko/select db/votes
-       (ko/where {:zid zid :created [<= final-vote-timestamp]})
-       ; ordering by tid is important, since we rely on this ordering to determine the index within the comps, which needs to correspond to the tid
-       (ko/order [:zid :tid :pid :created] :asc)))))
+   (db/query (:postgres darwin)
+             {:select [:*]
+              :from [:votes]
+              :where [:and [:= :zid zid]
+                           [:<= :created final-vote-timestamp]]
+              :order-by [:zid :tid :pid :created]})))
 
 (defn get-conversation-votes
   [darwin & args]
@@ -118,23 +117,24 @@
   "Return a map with :topic and :description keys"
   [darwin zid]
   (->
-    (kdb/with-db (db-spec darwin)
-      (ko/select "conversations"
-        (ko/fields :zid :topic :description :created)
-        (ko/where {:zid zid})))
+    (db/query (:postgres darwin)
+              {:select [:zid :topic :description :created]
+               :from [:conversations]
+               :where [:= :zid zid]})
     first))
 
 (defn get-participation-data*
   ([darwin zid]
-   (kdb/with-db (db-spec darwin)
-     (ko/select "participants"
-       (ko/fields :zid :pid :vote_count :created)
-       (ko/where {:zid zid}))))
+   (db/query (:postgres darwin)
+             {:select [:zid :pid :vote_count :created]
+              :from [:participants]
+              :where [:= :zid zid]}))
   ([darwin zid final-timestamp]
-   (kdb/with-db (db-spec darwin)
-     (ko/select "participants"
-       (ko/fields :zid :pid :vote_count :created)
-       (ko/where {:zid zid :created [<= final-timestamp]})))))
+   (db/query (:postgres darwin)
+             {:select [:zid :pid :vote_count :created]
+              :from [:participants]
+              :where [:and [:= :zid zid]
+                           [:<= :created final-timestamp]]})))
 
 (defn get-participation-data
   [& args]
@@ -145,15 +145,16 @@
 
 (defn get-comments-data
   ([darwin zid]
-   (kdb/with-db (db-spec darwin)
-     (ko/select "comments"
-       (ko/fields :zid :tid :pid :txt :mod :created)
-       (ko/where {:zid zid}))))
+   (db/query (:postgres darwin)
+             {:select [:zid :tid :pid :txt :mod :created]
+              :from [:comments]
+              :where [:= :zid zid]}))
   ([darwin zid final-timestamp]
-   (kdb/with-db (db-spec darwin)
-     (ko/select "comments"
-       (ko/fields :zid :tid :pid :txt :mod :created)
-       (ko/where {:zid zid :created [<= final-timestamp]})))))
+   (db/query (:postgres darwin)
+             {:select [:zid :tid :pid :txt :mod :created]
+              :from [:comments]
+              :where [:and [:= :zid zid]
+                           [:<= :created final-timestamp]]})))
 
 
 
