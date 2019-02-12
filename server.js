@@ -3213,7 +3213,7 @@ function initializePolisHelpers() {
             fs.writeFile(pvPath, csv2, (err) => {
               let mailgun = new Mailgun({apiKey: process.env.MAILGUN_API_KEY, domain: process.env.MAILGUN_DOMAIN});
               let data = {
-                from: process.env.MAILGUN_FROM,
+                from: POLIS_FROM_ADDRESS,
                 to: user.email,
                 subject: 'Polis exported data',
                 text: 'This is polis, your requesting CSV file is attached.',
