@@ -1,13 +1,13 @@
 export DEV_MODE=false
 export LOCAL_SERVER=true
 export MATH_ENV=prod
-#export STATIC_FILES_ORIGIN=https://polis-files.pdis.nat.gov.tw
 export STATIC_FILES_ORIGIN=http://ait-polis.pdis.nat.gov.tw:8080
 export SERIVICE_URL=https://ait-polis.pdis.nat.gov.tw
 export DOMAIN_OVERRIDE=ait-polis.pdis.nat.gov.tw
 export PORT=5000
 export DATABASE_URL=postgres://polis:polis@localhost:5432/polis
 export DATABASE_FOR_READS_NAME=DATABASE_URL
+export POLIS_FROM_ADDRESS="polis-noreply <polis-noreply@pdis.nat.gov.tw>"
 export DISABLE_INTERCOM=true
 export ADMIN_UIDS="[]"
 export ADMIN_EMAILS='["romulus@ey.gov.tw"]'
