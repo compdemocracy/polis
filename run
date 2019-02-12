@@ -6,6 +6,7 @@ export DOMAIN_OVERRIDE=ait-polis.pdis.nat.gov.tw
 export SERVICE_URL=https://ait-polis.pdis.nat.gov.tw
 export PORT=5000
 export DATABASE_URL=postgres://polis:polis@localhost:5432/polis
+export POLIS_FROM_ADDRESS="polis-noreply <polis-noreply@pdis.nat.gov.tw>"
 export DATABASE_FOR_READS_NAME=DATABASE_URL
 export DISABLE_INTERCOM=true
 export ADMIN_UIDS="[]"
