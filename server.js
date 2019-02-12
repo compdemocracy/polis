@@ -6822,15 +6822,18 @@ Email verified! You can close this tab or hit the back button.
                   if (_.keys(customData).length) {
                     params.custom_data = customData;
                   }
-                  intercom.createUser(params, function(err, res) {
-                    if (err) {
-                      winston.log("info", err);
-                      console.error("polis_err_intercom_create_user_fail");
-                      winston.log("info", params);
-                      yell("polis_err_intercom_create_user_fail");
-                      return;
-                    }
-                  });
+                  // Do not know what is intercom, just skip
+                  if (intercom.createUser) {
+                      intercom.createUser(params, function (err, res) {
+                          if (err) {
+                              winston.log("info", err);
+                              console.error("polis_err_intercom_create_user_fail");
+                              winston.log("info", params);
+                              yell("polis_err_intercom_create_user_fail");
+                              return;
+                          }
+                      });
+                  }
                 }
               }, function(err) {
                 fail(res, 500, "polis_err_adding_cookies", err);
@@ -14851,8 +14854,11 @@ Thanks for using pol.is!
 //};
 
 
-
+function initi18n(app) {
+  app.use(i18n.init);
+}
 
 module.exports = {
   initializePolisHelpers,
+  initi18n
 };

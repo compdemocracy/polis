@@ -11,9 +11,9 @@ const polisServerBrand = optional('polisServerBrand');
 
 const app = express();
 
-
 console.log('Server initilizing starts');
 
+server.initi18n(app);
 var helpersInitialized = new Promise(function(resolve, reject) {
     resolve(server.initializePolisHelpers());
 });
