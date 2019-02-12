@@ -43,7 +43,7 @@ function EmailSenders(AWS) {
   
   function sendTextEmailWithMailgun(sender, recipient, subject, text) {
     console.log("sending email with Mailgun: " + [sender, recipient, subject, text].join("\n"));
-    
+  
     return new Promise(function(resolve, reject) {
         var data = {
             from: sender,
@@ -52,10 +52,11 @@ function EmailSenders(AWS) {
             text: text
         };
         mailgun.messages().send(data, function (error, body) {
-            console.log("Mailgun sent: " + body);
+            console.log("Mailgun sent");
+						console.log(body);
             if (error) {
-                console.error(error);
-                reject(error);
+              console.error(error);
+              reject(error);
             } else {
               resolve();
             }
