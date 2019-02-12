@@ -32,6 +32,7 @@
     "express": "3.21.2",
     "fb": "1.0.2",
     "http-proxy": "0.10.4",
+    "i18n": "^0.8.3",
     "intercom-client": "2.9.4",
     "intercom.io": "1.5.0",
     "lru-cache": "3.0.0",

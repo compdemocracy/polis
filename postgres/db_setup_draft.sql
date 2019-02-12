@@ -1098,6 +1098,17 @@ CREATE TABLE stripe_subscriptions (
     UNIQUE(uid)
 );
 
-
+CREATE TABLE demographic_data (
+	  uid INTEGER REFERENCES users(uid),
+		fb_gender INTEGER,
+		ms_birth_year_estimate_fb INTEGER,
+		ms_gender_estimate_fb INTEGER,
+		fb_timestamp BIGINT DEFAULT now_as_millis(),
+		ms_fb_timestamp BIGINT DEFAULT now_as_millis(),
+		ms_response VARCHAR(9999),
+		gender_guess INTEGER,
+		birth_year_guess INTEGER,
+    UNIQUE (uid)
+);
 
 
