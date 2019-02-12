@@ -46,9 +46,12 @@ const _ = require('underscore');
 const Mailgun = require('mailgun-js');
 const path = require('path');
 const localServer = isTrue(PolisConfig.get('LOCAL_SERVER'));
+const i18n = require("i18n");
 
-
-
+i18n.configure({
+    locales:['en', 'zh-TW'],
+    directory: __dirname + '/locales'
+});
 
 // # DB Connections
 //
@@ -4763,35 +4766,21 @@ ${serverName}/pwreset/${pwresettoken}
 
   function sendEinviteEmail(req, email, einvite) {
     let serverName = getServerNameWithProtocol(req);
-    const body =
-`Welcome to pol.is!
-
-Click this link to open your account:
-
-${serverName}/welcome/${einvite}
-
-Thank you for using Polis`;
-
+    const body = i18n.__('WelcomeToPolis', serverName, einvite);
     return sendTextEmail(
       POLIS_FROM_ADDRESS,
       email,
-      "Get Started with Polis",
+      i18n.__("Get Started with Polis"),
       body);
   }
 
   function sendVerificaionEmail(req, email, einvite) {
     let serverName = getServerNameWithProtocol(req);
-    let body =
-`Welcome to pol.is!
-
-Click this link to verify your email address:
-
-${serverName}/api/v3/verify?e=${einvite}`;
-
+    let body = i18n.__("PolisVerification", serverName, einvite);
     return sendTextEmail(
       POLIS_FROM_ADDRESS,
       email,
-      "Polis verification",
+      i18n.__("Polis verification"),
       body);
   }
 
@@ -6637,8 +6626,6 @@ Email verified! You can close this tab or hit the back button.
     ]).then(function(a) {
       let isVerifiedByPolisOrFacebook = a[0];
 
-console.log(a);
-
       if (!isVerifiedByPolisOrFacebook) {
         if (email) {
           doSendVerification(req, email);
@@ -6761,6 +6748,8 @@ console.log(a);
         if (site_id) {
           vals.push(site_id); // TODO use sql query builder
         }
+    
+        doSendVerification(req, email);
 
         pgQuery(query, vals, function(err, result) {
           if (err) {
