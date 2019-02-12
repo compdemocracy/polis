@@ -36,7 +36,6 @@
     "intercom-client": "2.9.4",
     "intercom.io": "1.5.0",
     "lru-cache": "3.0.0",
-    "mailgun": "0.4.3",
     "mailgun-js": "^0.22.0",
     "mimelib": "0.2.19",
     "oauth": "0.9.14",

@@ -54,7 +54,7 @@ function EmailSenders(AWS) {
         mailgun.messages().send(data, function (error, body) {
             console.log("Mailgun sent: " + body);
             if (error) {
-                console.err(error);
+                console.error(error);
                 reject(error);
             } else {
               resolve();
@@ -83,15 +83,7 @@ function EmailSenders(AWS) {
   }
 
   function sendTextEmail(sender, recipient, subject, text) {
-    let promise = sendTextEmailWithMailgun(sender, recipient, subject, text).catch(function(err) {
-      console.error("polis_err_primary_email_sender_failed");
-      console.error(err);
-      return sendTextEmailWithBackup(sender, recipient, subject, text);
-    });
-    promise.catch(function(err) {
-      console.error(err);
-    });
-    return promise;
+    return sendTextEmailWithMailgun(sender, recipient, subject, text);
   }
 
   return {
