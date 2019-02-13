@@ -6898,7 +6898,7 @@ Email verified! You can close this tab or hit the back button.
       getFacebookInfo([uid]),
       getTwitterInfo([uid]),
       xidInfoPromise,
-      getEmailVerifiedInfo(uid)
+      getEmailVerifiedInfo([uid])
     ]).then(function(o) {
       let info = o[0];
       let fbInfo = o[1];
@@ -11619,9 +11619,9 @@ Thanks for using pol.is!
     return pgQueryP_readOnly("select * from facebook_users where uid in ($1);", uids);
   }
 
-  function getEmailVerifiedInfo(uid) {
+  function getEmailVerifiedInfo(uids) {
     return pgQueryP_readOnly("SELECT * FROM email_validations WHERE email=" +
-      "(SELECT email FROM users WHERE uid=$1);", uid);
+      "(SELECT email FROM users WHERE uid in ($1));", uids);
   }
 
   function getSocialParticipantsForMod_timed() {
