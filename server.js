@@ -6898,11 +6898,13 @@ Email verified! You can close this tab or hit the back button.
       getFacebookInfo([uid]),
       getTwitterInfo([uid]),
       xidInfoPromise,
+      getEmailVerifiedInfo(uid)
     ]).then(function(o) {
       let info = o[0];
       let fbInfo = o[1];
       let twInfo = o[2];
       let xInfo = o[3];
+      let mvInfo = o[4];
 
       let hasFacebook = fbInfo && fbInfo.length && fbInfo[0];
       let hasTwitter = twInfo && twInfo.length && twInfo[0];
@@ -6925,6 +6927,7 @@ Email verified! You can close this tab or hit the back button.
         uid: uid,
         email: info.email,
         hname: info.hname,
+        emailVerified: mvInfo && mvInfo.length > 0 && mvInfo[0],
         hasFacebook: !!hasFacebook,
         facebook: fbInfo && fbInfo[0],
         twitter: twInfo && twInfo[0],
@@ -11614,6 +11617,11 @@ Thanks for using pol.is!
 
   function getFacebookInfo(uids) {
     return pgQueryP_readOnly("select * from facebook_users where uid in ($1);", uids);
+  }
+
+  function getEmailVerifiedInfo(uid) {
+    return pgQueryP_readOnly("SELECT * FROM email_validations WHERE email=" +
+      "(SELECT email FROM users WHERE uid=$1);", uid);
   }
 
   function getSocialParticipantsForMod_timed() {
