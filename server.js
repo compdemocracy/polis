@@ -6927,7 +6927,7 @@ Email verified! You can close this tab or hit the back button.
         uid: uid,
         email: info.email,
         hname: info.hname,
-        emailVerified: mvInfo && mvInfo.length > 0 && mvInfo[0],
+        emailVerified: !!(mvInfo && mvInfo.length > 0 && mvInfo[0]),
         hasFacebook: !!hasFacebook,
         facebook: fbInfo && fbInfo[0],
         twitter: twInfo && twInfo[0],
