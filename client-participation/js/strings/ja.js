@@ -71,9 +71,9 @@ s.commentTooLongByChars = "Statement length limit exceeded by {{CHARACTERS_COUNT
 s.notSentSinceDemo = "(not really, this is a demo)";
 s.submitComment = "提出";
 s.tipStarred = "Marked as important.";
-s.participantHelpWelcomeText = "Welcome to a new kind of conversation - <em>vote</em> on other people's statements.";
-s.participantHelpGroupsText = "People who vote similarly <span style='font-weight: 700;'>are grouped.</span> Click a group to see which viewpoints they share. <a style='font-weight: 700; cursor: pointer; text-decoration: underline' id='helpTextGroupsExpand'>...more</a>";
-s.participantHelpGroupsNotYetText = "The visualization will appear once 7 participants have begun voting";
+s.participantHelpWelcomeText = "新しい形式の会話へようこそ。他の人の意見に<em>投票</em>してみてください。";
+s.participantHelpGroupsText = "意見が似ている人は<span style='font-weight: 700;'>グループにまとめられます。</span>グループをクリックすると、そこの人の視点になれます。<a style='font-weight: 700; cursor: pointer; text-decoration: underline' id='helpTextGroupsExpand'>...more</a>";
+s.participantHelpGroupsNotYetText = "7人以上が投票していると、図形が表示されます。";
 s.helpWhatAreGroupsDetail = "<p>Amazonの「お勧めの商品」、Netflixの「お勧めの映画」は、統計を使用して、類似のものを購入したり視聴しているユーザをグループ化し、同じグループの他のユーザが購入または視聴しているものを表示します。</p><p>Pol.isでも同様です。グループは以下で確認でき、似たような意見を持つ人々で構成されています。グループをクリックすると、何がそのグループの特徴となっているのかがわかります。</p>";
 s.socialConnectPrompt = "Optionally connect to see friends and people you follow in the visualization.";
 s.connectFbButton = "Facebookでログイン";
