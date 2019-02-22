@@ -33,6 +33,9 @@ var translations = {
 
   // Brazilian Portuguese (all portuguese speakers are temporarily using the same file.)
   pt_br: require("./strings/pt_br.js"),
+
+  // Japanese
+  ja: require("./strings/ja.js")
 };
 
 
