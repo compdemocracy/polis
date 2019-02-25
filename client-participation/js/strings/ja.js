@@ -89,42 +89,16 @@ s.noCommentsYetSoWrite = "意見を付けて会話を始めましょう。";
 s.noCommentsYetSoInvite = "他の人を招待するか、意見を付けて会話を始めましょう。";
 s.noCommentsYouVotedOnAll = "ありがとうございます！すべての質問への投票が完了しました。";
 s.noCommentsTryWritingOne = "何か言いたいことが有りましたら、意見を書いてみてください。";
-
-82
-
 s.notificationsGetNotified = "新しい質問が追加されたときに通知を受け取る場合、Subscribeボタンを押してください。";
-
-83
-
 s.notificationsEnterEmail = "メールアドレスを登録すると、新しい意見が有るときに通知を受け取れます。";
-
-84
-
 s.labelEmail = "メール";
-
-85
-
 s.notificationsSubscribeButton = "購読";
-
-86
-
 s.noCommentsYet = "まだ意見はありません。";
-
-87
-
 s.noCommentsYetSoWrite = "意見を付けて会話を始めましょう。";
-
-88
-
 s.noCommentsYetSoInvite = "他の人を招待するか、意見を付けて会話を始めましょう。";
-
-89
-
 s.noCommentsYouVotedOnAll = "ありがとうございます！すべての質問への投票が完了しました。";
-
-90
-
 s.noCommentsTryWritingOne = "何か言いたいことが有りましたら、意見を書いてみてください。";
+s.convIsClosed = "この";
 s.noMoreVotingAllowed = "投票は締め切りました。";
 
 
