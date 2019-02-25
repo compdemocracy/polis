@@ -78,20 +78,53 @@ s.helpWhatAreGroupsDetail = "<p>Amazonの「お勧めの商品」、Netflixの�
 s.socialConnectPrompt = "ログインしていると、ビジュアルにあなたの位置が表示それます。";
 s.connectFbButton = "Facebookでログイン";
 s.connectTwButton = "Twitterでログイン";
-s.polis_err_reg_fb_verification_email_sent = "Please check your email for a verification link, then return here to continue.";
-s.polis_err_reg_fb_verification_noemail_unverified = "Your Facebook account is unverified. Please verify your email address with Facebook, then return here to continue.";
 
 s.notificationsAlreadySubscribed = "この会話を購読しました。";
 s.notificationsGetNotified = "新しい質問が追加されたときに通知を受け取る場合、Subscribeボタンを押してください。";
-s.notificationsEnterEmail = "Enter your email address to get notified when more statements arrive:";
+s.notificationsEnterEmail = "メールアドレスを登録すると、新しい意見が有るときに通知を受け取れます。";
 s.labelEmail = "メール";
 s.notificationsSubscribeButton = "購読";
 s.noCommentsYet = "まだ意見はありません。";
-s.noCommentsYetSoWrite = "Get this conversation started by adding a statement.";
-s.noCommentsYetSoInvite = "Get this conversation started by inviting more participants, or add a statement.";
+s.noCommentsYetSoWrite = "意見を付けて会話を始めましょう。";
+s.noCommentsYetSoInvite = "他の人を招待するか、意見を付けて会話を始めましょう。";
 s.noCommentsYouVotedOnAll = "ありがとうございます！すべての質問への投票が完了しました。";
-s.noCommentsTryWritingOne = "If you have something to add, try writing your own statement.";
-s.convIsClosed = "This conversation is closed.";
+s.noCommentsTryWritingOne = "何か言いたいことが有りましたら、意見を書いてみてください。";
+
+82
+
+s.notificationsGetNotified = "新しい質問が追加されたときに通知を受け取る場合、Subscribeボタンを押してください。";
+
+83
+
+s.notificationsEnterEmail = "メールアドレスを登録すると、新しい意見が有るときに通知を受け取れます。";
+
+84
+
+s.labelEmail = "メール";
+
+85
+
+s.notificationsSubscribeButton = "購読";
+
+86
+
+s.noCommentsYet = "まだ意見はありません。";
+
+87
+
+s.noCommentsYetSoWrite = "意見を付けて会話を始めましょう。";
+
+88
+
+s.noCommentsYetSoInvite = "他の人を招待するか、意見を付けて会話を始めましょう。";
+
+89
+
+s.noCommentsYouVotedOnAll = "ありがとうございます！すべての質問への投票が完了しました。";
+
+90
+
+s.noCommentsTryWritingOne = "何か言いたいことが有りましたら、意見を書いてみてください。";
 s.noMoreVotingAllowed = "投票は締め切りました。";
 
 
