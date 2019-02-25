@@ -98,7 +98,7 @@ s.noCommentsYetSoWrite = "意見を付けて会話を始めましょう。";
 s.noCommentsYetSoInvite = "他の人を招待するか、意見を付けて会話を始めましょう。";
 s.noCommentsYouVotedOnAll = "ありがとうございます！すべての質問への投票が完了しました。";
 s.noCommentsTryWritingOne = "何か言いたいことが有りましたら、意見を書いてみてください。";
-s.convIsClosed = "この";
+s.convIsClosed = "この会話は終了しました。";
 s.noMoreVotingAllowed = "投票は締め切りました。";
 
 
