@@ -47,7 +47,6 @@ const Mailgun = require('mailgun-js');
 const path = require('path');
 const localServer = isTrue(config.get('LOCAL_SERVER'));
 const i18n = require('i18n');
-const joinSignIn = require('./signin/join.js');
 
 i18n.configure({
     locales:['en', 'zh-TW'],
@@ -3438,15 +3437,6 @@ function initializePolisHelpers() {
     }).catch(function(err) {
       fail(res, 500, "polis_err_get_bid_misc", err);
     });
-  }
-
-  function signInJoin(req, res) {
-    let ret = joinSignIn.signIn(req, res);
-    if (ret == null) {
-      return fetchIndexForAdminPage(req, res);
-    } else {
-      return ret;
-    }
   }
 
   function handle_POST_auth_password(req, res) {
@@ -14715,7 +14705,6 @@ Thanks for using pol.is!
     redirectIfNotHttps,
     resolve_pidThing,
     sendTextEmail,
-    signInJoin,
     timeout,
     want,
     wantCookie,
