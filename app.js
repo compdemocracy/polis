@@ -68,6 +68,7 @@ helpersInitialized.then(function(o) {
     redirectIfHasZidButNoConversationId,
     redirectIfNotHttps,
     resolve_pidThing,
+    signIn,
     timeout,
     want,
     wantCookie,
@@ -1330,7 +1331,7 @@ helpersInitialized.then(function(o) {
   app.get(/^\/bot(\/.*)?/, fetchIndexForAdminPage);
   app.get(/^\/conversations(\/.*)?/, fetchIndexForAdminPage);
   app.get(/^\/signout(\/.*)?/, fetchIndexForAdminPage);
-  app.get(/^\/signin(\/.*)?/, fetchIndexForAdminPage);
+  app.get(/^\/signin(\/.*)?/, signIn);
   app.get(/^\/dist\/admin_bundle.js$/, makeFileFetcher(hostname, portForAdminFiles, "/dist/admin_bundle.js", {
     'Content-Type': "application/javascript",
   }));

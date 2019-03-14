@@ -2,7 +2,7 @@
 
 "use strict";
 
-const PolisConfig = require('./polisConfig');
+const config = require('./accessConfig');
 const akismetLib = require('akismet');
 const AWS = require('aws-sdk');
 AWS.config.set('region', 'us-east-1');
@@ -45,8 +45,9 @@ const zlib = require('zlib');
 const _ = require('underscore');
 const Mailgun = require('mailgun-js');
 const path = require('path');
-const localServer = isTrue(PolisConfig.get('LOCAL_SERVER'));
-const i18n = require("i18n");
+const localServer = isTrue(config.get('LOCAL_SERVER'));
+const i18n = require('i18n');
+const authSrc = require('./auth.js');
 
 i18n.configure({
     locales:['en', 'zh-TW'],
@@ -3439,7 +3440,14 @@ function initializePolisHelpers() {
     });
   }
 
-
+  function signIn(req, res) {
+    let ret = authSrc.signIn(req, res);
+    if (ret == null) {
+      return fetchIndexForAdminPage(req, res);
+    } else {
+      return ret;
+    }
+  }
 
   function handle_POST_auth_password(req, res) {
     let pwresettoken = req.p.pwresettoken;
@@ -3476,7 +3484,7 @@ function initializePolisHelpers() {
 
 
   function getServerNameWithProtocol(req) {
-    let serviceUrl = PolisConfig.get('SERVICE_URL');
+    let serviceUrl = config.get('SERVICE_URL');
 	if (serviceUrl) {
 	  return serviceUrl;
 	}
@@ -14173,7 +14181,7 @@ Thanks for using pol.is!
   function proxy(req, res) {
 		let hostname;
     if (localServer) {
-      let origin = PolisConfig.get('STATIC_FILES_ORIGIN');
+      let origin = config.get('STATIC_FILES_ORIGIN');
       hostname = /^https?:\/\/([^\/:]+).*$/.exec(origin)[1];
     } else {
       hostname = buildStaticHostname(req, res);
@@ -14222,7 +14230,7 @@ Thanks for using pol.is!
 	  if (process.env.STATIC_FILES_PORT) {
 	    return process.env.STATIC_FILES_PORT;
 	  }
-	  let origin = PolisConfig.get('STATIC_FILES_ORIGIN');
+	  let origin = config.get('STATIC_FILES_ORIGIN');
 	  if (!origin) {
 	    console.error('STATIC_FILES_ORIGIN and STATIC_FILES_PORT is not set.');
 	    return 80;
@@ -14246,7 +14254,7 @@ Thanks for using pol.is!
   function buildStaticHostname(req, res) {
     // Cannot understand why this need to be whitelisted
 		if (localServer) {
-			return PolisConfig.get('STATIC_FILES_ORIGIN').split('//')[1];
+			return config.get('STATIC_FILES_ORIGIN').split('//')[1];
 		}
 
     if (devMode) {
@@ -14707,6 +14715,7 @@ Thanks for using pol.is!
     redirectIfNotHttps,
     resolve_pidThing,
     sendTextEmail,
+    signIn,
     timeout,
     want,
     wantCookie,
