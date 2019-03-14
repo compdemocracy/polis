@@ -1,5 +1,5 @@
 const request = require('request');
-const config = require('./accessConfig');
+const config = require('../accessConfig');
 
 function signIn(req, res) {
   if ('code' in req.params && !!req.params.code) {
