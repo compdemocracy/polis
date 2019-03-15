@@ -1,4 +1,4 @@
-// Copyright (C) 2012-present, Polis Technology Inc. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 "use strict";
 
@@ -11048,19 +11048,19 @@ Email verified! You can close this tab or hit the back button.
       return fail(res, 403, "polis_err_sending_export_link_to_email_auth");
     }
 
-    const domain = process.env.primary_polis_url;
+    const domain = process.env.PRIMARY_POLIS_URL;
     const email = req.p.email;
-    const subject = "Data export for pol.is conversation pol.is/" + req.p.conversation_id;
+    const subject = "Polis data export for conversation pol.is/" + req.p.conversation_id;
     const fromAddress = `Polis Team <${adminEmailDataExport}>`;
     const body = `Greetings
 
-You created a data export for pol.is conversation ${domain}/${req.p.conversation_id} that has just completed. You can download the results for this conversation at the following url:
+You created a data export for conversation ${domain}/${req.p.conversation_id} that has just completed. You can download the results for this conversation at the following url:
 
 https://${domain}/api/v3/dataExport/results?filename=${req.p.filename}&conversation_id=${req.p.conversation_id}
 
 Please let us know if you have any questons about the data.
 
-Thanks for using pol.is!
+Thanks for using Polis!
 `;
 
     console.log("SENDING EXPORT EMAIL");
