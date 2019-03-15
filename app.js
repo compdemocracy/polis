@@ -11,11 +11,11 @@ const polisServerBrand = optional('polisServerBrand');
 
 const app = express();
 
+console.log('Server initilizing starts');
 
-console.log('init 1');
-
+server.initi18n(app);
 var helpersInitialized = new Promise(function(resolve, reject) {
-  resolve(server.initializePolisHelpers());
+    resolve(server.initializePolisHelpers());
 });
 
 
@@ -67,8 +67,8 @@ helpersInitialized.then(function(o) {
     redirectIfApiDomain,
     redirectIfHasZidButNoConversationId,
     redirectIfNotHttps,
-    redirectIfWrongDomain,
     resolve_pidThing,
+    signInJoin,
     timeout,
     want,
     wantCookie,
@@ -243,7 +243,6 @@ helpersInitialized.then(function(o) {
   app.use(express.cookieParser());
   app.use(express.bodyParser());
   app.use(writeDefaultHead);
-  app.use(redirectIfWrongDomain);
   app.use(redirectIfApiDomain);
 
   if (devMode) {
@@ -741,6 +740,11 @@ helpersInitialized.then(function(o) {
     want('lang', getStringLimitLength(1,10), assignToP), // language of the next comment to be returned
     handle_POST_votes);
 
+  app.get("/api/v3/logMaxmindResponse",
+    auth(assignToP),
+    need('user_uid', getInt, assignToP),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    handle_GET_logMaxmindResponse);
 
   app.put("/api/v3/participants_extended",
     auth(assignToP),
@@ -1327,6 +1331,7 @@ helpersInitialized.then(function(o) {
   app.get(/^\/bot(\/.*)?/, fetchIndexForAdminPage);
   app.get(/^\/conversations(\/.*)?/, fetchIndexForAdminPage);
   app.get(/^\/signout(\/.*)?/, fetchIndexForAdminPage);
+  app.get(/^\/signin-join/, require('./signin/join.js').signIn);
   app.get(/^\/signin(\/.*)?/, fetchIndexForAdminPage);
   app.get(/^\/dist\/admin_bundle.js$/, makeFileFetcher(hostname, portForAdminFiles, "/dist/admin_bundle.js", {
     'Content-Type': "application/javascript",

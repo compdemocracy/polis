@@ -1,0 +1,1 @@
+forever start -o log/fsOut.log -e log/fsErr.log --sourceDir ../polisFileServer --workingDir ../polisFileServer fileServer.js

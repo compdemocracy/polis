@@ -1,0 +1,8 @@
+if [ "$#" -lt 3 ]; then
+	echo "Usage: ./modifyUserNamePic uid name picture_url"
+	exit 1
+fi
+TIME=$( date +%s )
+ZERO=000
+TIME="$TIME$ZERO"
+psql polis -c "INSERT INTO twitter_users ( uid, twitter_user_id, screen_name, name, followers_count, friends_count, verified, profile_image_url_https, location, response, modified, created) VALUES ( '$1', '$1', 'dummy', '$2', 0, 0, true, '$3', null, null, $TIME, $TIME ) ON CONFLICT (uid) DO UPDATE SET name = excluded.name, profile_image_url_https = excluded.profile_image_url_https;"

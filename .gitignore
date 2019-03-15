@@ -3,3 +3,8 @@
 .google_creds_temp
 npm-debug.log
 node_modules
+log
+/.idea
+HIDDEN_ENV_EXPORT
+package-lock.json
+translate-creds.json

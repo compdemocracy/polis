@@ -1,0 +1,6 @@
+{
+  "WelcomeToPolis": "歡迎來到 Polis！\n\n請點擊此連結開啟您的帳號：\n\n%s/welcome/%s\n\n感謝您使用 Polis！",
+  "Get Started with Polis": "註冊您的 Polis 帳號",
+  "PolisVerification": "歡迎來到 Polis！\n\n請點擊此連結認證您的帳號：\n\n%s/api/v3/verify?e=%s",
+  "Polis verification": "Polis 帳號認證"
+}
