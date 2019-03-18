@@ -1,4 +1,4 @@
--- Copyright (C) 2012-present, Polis Technology Inc. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+-- Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 -- NOTE: use \d TABLENAME to see info, like indexes
 
@@ -1098,6 +1098,15 @@ CREATE TABLE stripe_subscriptions (
     UNIQUE(uid)
 );
 
-
-
-
+CREATE TABLE demographic_data (
+    uid INTEGER REFERENCES users(uid),
+    fb_gender INTEGER,
+    ms_birth_year_estimate_fb INTEGER,
+    ms_gender_estimate_fb INTEGER,
+    fb_timestamp BIGINT DEFAULT now_as_millis(),
+    ms_fb_timestamp BIGINT DEFAULT now_as_millis(),
+    ms_response VARCHAR(9999),
+    gender_guess INTEGER,
+    birth_year_guess INTEGER,
+    UNIQUE (uid)
+);

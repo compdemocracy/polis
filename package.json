@@ -32,10 +32,10 @@
     "express": "3.21.2",
     "fb": "1.0.2",
     "http-proxy": "0.10.4",
+    "i18n": "^0.8.3",
     "intercom-client": "2.9.4",
     "intercom.io": "1.5.0",
     "lru-cache": "3.0.0",
-    "mailgun": "0.4.3",
     "mailgun-js": "^0.22.0",
     "mimelib": "0.2.19",
     "oauth": "0.9.14",
@@ -56,8 +56,5 @@
     "underscore": "1.8.3",
     "valid-url": "1.0.9",
     "winston": "1.0.2"
-  },
-  "optionalDependencies": {
-    "polisServerBrand": "git+https://github.com/colinmegill/polisServerBrand.git#master"
   }
 }

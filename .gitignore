@@ -4,3 +4,8 @@
 npm-debug.log
 node_modules
 .idea
+log
+/.idea
+HIDDEN_ENV_EXPORT
+package-lock.json
+translate-creds.json

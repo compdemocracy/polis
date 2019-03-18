@@ -1,8 +1,8 @@
 // Copyright (C) 2012-present, Polis Technology Inc. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 "use strict"
 
-const Mailgun = require('mailgun').Mailgun;
-const mailgun = new Mailgun(process.env.MAILGUN_API_KEY);
+const mailgun = require("mailgun-js")(
+    {apiKey: process.env.MAILGUN_API_KEY, domain: process.env.MAILGUN_DOMAIN});
 
 function EmailSenders(AWS) {
   const sesClient = new AWS.SES({apiVersion: '2010-12-01'}); // reads AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY from process.env
@@ -40,6 +40,29 @@ function EmailSenders(AWS) {
       });
     });
   }
+  
+  function sendTextEmailWithMailgun(sender, recipient, subject, text) {
+    console.log("sending email with Mailgun: " + [sender, recipient, subject, text].join("\n"));
+  
+    return new Promise(function(resolve, reject) {
+        var data = {
+            from: sender,
+            to: recipient,
+            subject: subject,
+            text: text
+        };
+        mailgun.messages().send(data, function (error, body) {
+            console.log("Mailgun sent");
+						console.log(body);
+            if (error) {
+              console.error(error);
+              reject(error);
+            } else {
+              resolve();
+            }
+        });
+    });
+  }
 
 
   function sendTextEmailWithBackup(sender, recipient, subject, text) {
@@ -61,15 +84,7 @@ function EmailSenders(AWS) {
   }
 
   function sendTextEmail(sender, recipient, subject, text) {
-    let promise = sendTextEmailWithSes(sender, recipient, subject, text).catch(function(err) {
-      console.error("polis_err_primary_email_sender_failed");
-      console.error(err);
-      return sendTextEmailWithBackup(sender, recipient, subject, text);
-    });
-    promise.catch(function(err) {
-      console.error(err);
-    });
-    return promise;
+    return sendTextEmailWithMailgun(sender, recipient, subject, text);
   }
 
   return {
