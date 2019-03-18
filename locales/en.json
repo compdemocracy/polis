@@ -1,6 +1,0 @@
-{
-  "WelcomeToPolis": "Welcome to pol.is!\n\nClick this link to open your account:\n\n%s/welcome/%s\n\nThank you for using Polis",
-  "Get Started with Polis": "Get Started with Polis",
-  "PolisVerification": "Welcome to pol.is!\n\nClick this link to verify your email address:\n\n%s/api/v3/verify?e=%s",
-  "Polis verification": "Polis verification"
-}

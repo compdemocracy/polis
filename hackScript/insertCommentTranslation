@@ -1,9 +1,0 @@
-if [ "$#" -lt 4 ]; then
-	echo "Usage: ./insertCommentTranslation zid tid language text"
-	exit 1
-fi
-TIME=$( date +%s )
-ZERO=000
-TIME="$TIME$ZERO"
-psql polis -c "INSERT INTO comment_translations ( zid, tid, src, txt, lang, created, modified ) VALUES ( $1, $2, -1, '$4', '$3', $TIME, $TIME ) ON CONFLICT (zid, tid, src, lang) DO UPDATE SET txt=excluded.txt;"
-
