@@ -219,7 +219,6 @@ var web = new WebClient(process.env.SLACK_API_TOKEN);
 const winston = console;
 const emailSenders = require('./email/sendEmailSesMailgun').EmailSenders(AWS);
 const sendTextEmail = emailSenders.sendTextEmail;
-const sendTextEmailWithBackupOnly = emailSenders.sendTextEmailWithBackupOnly;
 
 const resolveWith = (x) => { return Promise.resolve(x);};
 const intercomClient = !isTrue(process.env.DISABLE_INTERCOM) ? new IntercomOfficial.Client({'token': process.env.INTERCOM_ACCESS_TOKEN}) : {
@@ -4746,21 +4745,6 @@ ${serverName}/pwreset/${pwresettoken}
       return promise;
     }));
   }
-
-  function trySendingBackupEmailTest() {
-    if (devMode) {
-      return;
-    }
-    let d = new Date();
-    if (d.getDay() === 1) {
-      // send the monday backup email system test
-      // If the sending fails, we should get an error ping.
-      sendTextEmailWithBackupOnly(POLIS_FROM_ADDRESS, adminEmailEmailTest, "monday backup email system test", "seems to be working");
-    }
-  }
-  setInterval(trySendingBackupEmailTest, 1000 * 60 * 60 * 23); // try every 23 hours (so it should only try roughly once a day)
-  trySendingBackupEmailTest();
-
 
   function sendEinviteEmail(req, email, einvite) {
     let serverName = getServerNameWithProtocol(req);

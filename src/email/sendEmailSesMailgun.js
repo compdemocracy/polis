@@ -64,32 +64,8 @@ function EmailSenders(AWS) {
     });
   }
 
-
-  function sendTextEmailWithBackup(sender, recipient, subject, text) {
-    console.log("sending email with mailgun: " + [sender, recipient, subject, text].join(" "));
-    let servername = "";
-    let options = {};
-    return new Promise(function(resolve, reject) {
-      mailgun.sendText(sender, [recipient], subject, text, servername, options, function(err) {
-        if (err) {
-          console.error("Unable to send email via mailgun to " + recipient + " " + err);
-          console.error("polis_err_mailgun_email_send_failed");
-          reject(err);
-        } else {
-          console.log("sent email with mailgun to " + recipient);
-          resolve();
-        }
-      });
-    });
-  }
-
-  function sendTextEmail(sender, recipient, subject, text) {
-    return sendTextEmailWithMailgun(sender, recipient, subject, text);
-  }
-
   return {
-    sendTextEmail: sendTextEmail,
-    sendTextEmailWithBackupOnly: sendTextEmailWithBackup,
+    sendTextEmail: sendTextEmailWithMailgun
   };
 }
 
