@@ -54,6 +54,7 @@ const addInRamMetric = require('./utils/metered').addInRamMetric;
 const MPromise = require('./utils/metered').MPromise;
 const yell = require('./log').yell;
 
+const pg = require('./db/pg-query');
 const pgQuery = pg.query;
 const pgQuery_readOnly = pg.query_readOnly;
 const pgQueryP = pg.queryP;
