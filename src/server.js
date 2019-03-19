@@ -1,4 +1,4 @@
-P// Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 "use strict";
 
@@ -50,9 +50,10 @@ const localServer = isTrue(Config.get('LOCAL_SERVER'));
 const i18n = require('i18n');
 
 // Re-import disassembled code to promise existing code will work
+const Log = require('./log');
 const addInRamMetric = require('./utils/metered').addInRamMetric;
 const MPromise = require('./utils/metered').MPromise;
-const yell = require('./log').yell;
+const yell = Log.yell;
 
 const pg = require('./db/pg-query');
 const pgQuery = pg.query;
@@ -810,8 +811,8 @@ String.prototype.hashCode = function() {
   return hash;
 };
 
-const fail = log.fail;
-const userFail = log.userFail;
+const fail = Log.fail;
+const userFail = Log.userFail;
 
 function isEmail(s) {
   return typeof s === "string" && s.length < 999 && s.indexOf("@") > 0;

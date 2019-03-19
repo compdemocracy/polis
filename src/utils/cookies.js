@@ -1,8 +1,8 @@
 const _ = require('underscore');
-const PolisUser = require('./user');
-const Session = require('./session');
+const PolisUser = require('../user');
+const Session = require('../session');
 
-const domainOverride = require('./polis-config').get('DOMAIN_OVERRIDE') || null;
+const domainOverride = require('../polis-config').get('DOMAIN_OVERRIDE') || null;
 
 const COOKIES = {
   COOKIE_TEST: 'ct',
