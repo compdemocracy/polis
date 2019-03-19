@@ -5,7 +5,7 @@ const Promise = require('bluebird');
 const express = require('express');
 const optional = require("optional");
 
-const server = require('./src/server.js');
+const server = require('./src/server');
 
 const polisServerBrand = optional('polisServerBrand');
 
