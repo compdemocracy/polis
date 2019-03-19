@@ -1,4 +1,4 @@
-const devMode = require('boolean').isTrue(get('DEV_MODE'));
+const devMode = require('boolean')(get('DEV_MODE'));
 
 function get(key) {
 	return process.env[key];
