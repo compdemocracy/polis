@@ -153,6 +153,7 @@ function queryP_metered_readOnly(name, queryString, params) {
 
 module.exports = {
   query,
+  query_readOnly,
   queryP,
   queryP_metered,
   queryP_metered_readOnly,

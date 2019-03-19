@@ -1094,7 +1094,7 @@ function getZidFromConversationId(conversation_id) {
       resolve(cachedZid);
       return;
     }
-    pgQuery_readOnly("select zid from zinvites where zinvite = ($1);", [conversation_id], function(err, results) {
+    pg.query_readOnly("select zid from zinvites where zinvite = ($1);", [conversation_id], function(err, results) {
       if (err) {
         return reject(err);
       } else if (!results || !results.rows || !results.rows.length) {
@@ -1115,7 +1115,7 @@ function getRidFromReportId(report_id) {
       resolve(cachedRid);
       return;
     }
-    pgQuery_readOnly("select rid from reports where report_id = ($1);", [report_id], function(err, results) {
+    pg.query_readOnly("select rid from reports where report_id = ($1);", [report_id], function(err, results) {
       if (err) {
         return reject(err);
       } else if (!results || !results.rows || !results.rows.length) {
@@ -1627,7 +1627,7 @@ function initializePolisHelpers() {
       callback(null, cachedPid);
       return;
     }
-    pgQuery_readOnly("SELECT pid FROM participants WHERE zid = ($1) AND uid = ($2);", [zid, uid], function(err, docs) {
+    pg.query_readOnly("SELECT pid FROM participants WHERE zid = ($1) AND uid = ($2);", [zid, uid], function(err, docs) {
       let pid = -1;
       if (docs && docs.rows && docs.rows[0]) {
         pid = docs.rows[0].pid;
@@ -1646,7 +1646,7 @@ function initializePolisHelpers() {
         resolve(cachedPid);
         return;
       }
-      const f = usePrimary ? pgQuery : pgQuery_readOnly;
+      const f = usePrimary ? pg.query : pg.query_readOnly;
       f("SELECT pid FROM participants WHERE zid = ($1) AND uid = ($2);", [zid, uid], function(err, results) {
         if (err) {
           return reject(err);
@@ -1897,7 +1897,7 @@ function initializePolisHelpers() {
       if (!_.isUndefined(p.tid)) {
         q = q.where(sql_votes_latest_unique.tid.equals(p.tid));
       }
-      pgQuery_readOnly(q.toString(), function(err, results) {
+      pg.query_readOnly(q.toString(), function(err, results) {
         if (err) {
           reject(err);
         } else {
@@ -3050,7 +3050,7 @@ function initializePolisHelpers() {
 
   function getXids(zid) {
     return new MPromise("getXids", function(resolve, reject) {
-      pgQuery_readOnly("select pid, xid from xids inner join " +
+      pg.query_readOnly("select pid, xid from xids inner join " +
         "(select * from participants where zid = ($1)) as p on xids.uid = p.uid " +
         " where owner in (select org_id from conversations where zid = ($1));", [zid],
         function(err, result) {
@@ -3543,7 +3543,7 @@ Feel free to reply to this email if you need help.`;
 
   function handle_GET_zinvites(req, res) {
     // if uid is not conversation owner, fail
-    pgQuery_readOnly('SELECT * FROM conversations WHERE zid = ($1) AND owner = ($2);', [req.p.zid, req.p.uid], function(err, results) {
+    pg.query_readOnly('SELECT * FROM conversations WHERE zid = ($1) AND owner = ($2);', [req.p.zid, req.p.uid], function(err, results) {
       if (err) {
         fail(res, 500, "polis_err_fetching_zinvite_invalid_conversation_or_owner", err);
         return;
@@ -3555,7 +3555,7 @@ Feel free to reply to this email if you need help.`;
         });
         return;
       }
-      pgQuery_readOnly('SELECT * FROM zinvites WHERE zid = ($1);', [req.p.zid], function(err, results) {
+      pg.query_readOnly('SELECT * FROM zinvites WHERE zid = ($1);', [req.p.zid], function(err, results) {
         if (err) {
           fail(res, 500, "polis_err_fetching_zinvite_invalid_conversation_or_owner_or_something", err);
           return;
@@ -3789,7 +3789,7 @@ Feel free to reply to this email if you need help.`;
   }
 
   function checkZinviteCodeValidity(zid, zinvite, callback) {
-    pgQuery_readOnly('SELECT * FROM zinvites WHERE zid = ($1) AND zinvite = ($2);', [zid, zinvite], function(err, results) {
+    pg.query_readOnly('SELECT * FROM zinvites WHERE zid = ($1) AND zinvite = ($2);', [zid, zinvite], function(err, results) {
       if (err || !results || !results.rows || !results.rows.length) {
         callback(1);
       } else {
@@ -3852,7 +3852,7 @@ Feel free to reply to this email if you need help.`;
         resolve(makeZidToConversationIdMap([zidsWithCachedConversationIds]));
         return;
       }
-      pgQuery_readOnly("select * from zinvites where zid in (" + uncachedZids.join(",") + ");", [], function(err, result) {
+      pg.query_readOnly("select * from zinvites where zid in (" + uncachedZids.join(",") + ");", [], function(err, result) {
         if (err) {
           reject(err);
         } else {
@@ -4304,7 +4304,7 @@ Feel free to reply to this email if you need help.`;
     //     callback(null); // TODO remove!
     //     return;
     // }
-    pgQuery_readOnly("SELECT * FROM conversations WHERE zid = ($1) AND owner = ($2);", [zid, uid], function(err, docs) {
+    pg.query_readOnly("SELECT * FROM conversations WHERE zid = ($1) AND owner = ($2);", [zid, uid], function(err, docs) {
       if (!docs || !docs.rows || docs.rows.length === 0) {
         err = err || 1;
       }
@@ -4333,7 +4333,7 @@ Feel free to reply to this email if you need help.`;
   // returns null if it's missing
   function getParticipant(zid, uid) {
     return new MPromise("getParticipant", function(resolve, reject) {
-      pgQuery_readOnly("SELECT * FROM participants WHERE zid = ($1) AND uid = ($2);", [zid, uid], function(err, results) {
+      pg.query_readOnly("SELECT * FROM participants WHERE zid = ($1) AND uid = ($2);", [zid, uid], function(err, results) {
         if (err) {
           return reject(err);
         }
@@ -4347,7 +4347,7 @@ Feel free to reply to this email if you need help.`;
 
 
   function getAnswersForConversation(zid, callback) {
-    pgQuery_readOnly("SELECT * from participant_metadata_answers WHERE zid = ($1) AND alive=TRUE;", [zid], function(err, x) {
+    pg.query_readOnly("SELECT * from participant_metadata_answers WHERE zid = ($1) AND alive=TRUE;", [zid], function(err, x) {
       if (err) {
         callback(err);
         return;
@@ -4358,7 +4358,7 @@ Feel free to reply to this email if you need help.`;
 
   function getChoicesForConversation(zid) {
     return new Promise(function(resolve, reject) {
-      pgQuery_readOnly("select * from participant_metadata_choices where zid = ($1) and alive = TRUE;", [zid], function(err, x) {
+      pg.query_readOnly("select * from participant_metadata_choices where zid = ($1) and alive = TRUE;", [zid], function(err, x) {
         if (err) {
           reject(err);
           return;
@@ -4374,7 +4374,7 @@ Feel free to reply to this email if you need help.`;
 
 
   function getUserInfoForUid(uid, callback) {
-    pgQuery_readOnly("SELECT email, hname from users where uid = $1", [uid], function(err, results) {
+    pg.query_readOnly("SELECT email, hname from users where uid = $1", [uid], function(err, results) {
       if (err) {
         return callback(err);
       }
@@ -4387,7 +4387,7 @@ Feel free to reply to this email if you need help.`;
 
   function getUserInfoForUid2(uid) {
     return new MPromise("getUserInfoForUid2", function(resolve, reject) {
-      pgQuery_readOnly("SELECT * from users where uid = $1", [uid], function(err, results) {
+      pg.query_readOnly("SELECT * from users where uid = $1", [uid], function(err, results) {
         if (err) {
           return reject(err);
         }
@@ -7448,7 +7448,7 @@ Email verified! You can close this tab or hit the back button.
 
   function getNumberOfCommentsWithModerationStatus(zid, mod) {
     return new MPromise("getNumberOfCommentsWithModerationStatus", function(resolve, reject) {
-      pgQuery_readOnly("select count(*) from comments where zid = ($1) and mod = ($2);", [zid, mod], function(err, result) {
+      pg.query_readOnly("select count(*) from comments where zid = ($1) and mod = ($2);", [zid, mod], function(err, result) {
         if (err) {
           reject(err);
         } else {
@@ -8058,7 +8058,7 @@ Email verified! You can close this tab or hit the back button.
         fail(res, 500, "polis_err_getting_pid", err);
         return;
       }
-      pgQuery_readOnly("SELECT * FROM votes WHERE zid = ($1) AND pid = ($2);", [req.p.zid, req.p.pid], function(err, docs) {
+      pg.query_readOnly("SELECT * FROM votes WHERE zid = ($1) AND pid = ($2);", [req.p.zid, req.p.pid], function(err, docs) {
         if (err) {
           fail(res, 500, "polis_err_get_votes_by_me", err);
           return;
@@ -8794,7 +8794,7 @@ Email verified! You can close this tab or hit the back button.
   function verifyMetadataAnswersExistForEachQuestion(zid) {
     let errorcode = "polis_err_missing_metadata_answers";
     return new Promise(function(resolve, reject) {
-      pgQuery_readOnly("select pmqid from participant_metadata_questions where zid = ($1);", [zid], function(err, results) {
+      pg.query_readOnly("select pmqid from participant_metadata_questions where zid = ($1);", [zid], function(err, results) {
         if (err) {
           reject(err);
           return;
@@ -8806,7 +8806,7 @@ Email verified! You can close this tab or hit the back button.
         let pmqids = results.rows.map(function(row) {
           return Number(row.pmqid);
         });
-        pgQuery_readOnly(
+        pg.query_readOnly(
           "select pmaid, pmqid from participant_metadata_answers where pmqid in (" + pmqids.join(",") + ") and alive = TRUE and zid = ($1);", [zid],
           function(err, results) {
             if (err) {
@@ -9494,10 +9494,10 @@ Email verified! You can close this tab or hit the back button.
 
       async.parallel([
         function(callback) {
-          pgQuery_readOnly("SELECT * FROM participant_metadata_questions WHERE alive = true AND zid = ($1);", [zid], callback);
+          pg.query_readOnly("SELECT * FROM participant_metadata_questions WHERE alive = true AND zid = ($1);", [zid], callback);
         },
-        //function(callback) { pgQuery_readOnly("SELECT * FROM participant_metadata_answers WHERE alive = true AND zid = ($1);", [zid], callback); },
-        //function(callback) { pgQuery_readOnly("SELECT * FROM participant_metadata_choices WHERE alive = true AND zid = ($1);", [zid], callback); },
+        //function(callback) { pg.query_readOnly("SELECT * FROM participant_metadata_answers WHERE alive = true AND zid = ($1);", [zid], callback); },
+        //function(callback) { pg.query_readOnly("SELECT * FROM participant_metadata_choices WHERE alive = true AND zid = ($1);", [zid], callback); },
       ], function(err, result) {
         if (err) {
           fail(res, 500, "polis_err_get_participant_metadata_questions", err);
@@ -9608,7 +9608,7 @@ Email verified! You can close this tab or hit the back button.
       if (pmqid) {
         query = query.where(sql_participant_metadata_answers.pmqid.equals(pmqid));
       }
-      pgQuery_readOnly(query.toString(), function(err, result) {
+      pg.query_readOnly(query.toString(), function(err, result) {
         if (err) {
           fail(res, 500, "polis_err_get_participant_metadata_answers", err);
           return;
@@ -9643,13 +9643,13 @@ Email verified! You can close this tab or hit the back button.
       }
       async.parallel([
         function(callback) {
-          pgQuery_readOnly("SELECT * FROM participant_metadata_questions WHERE zid = ($1);", [zid], callback);
+          pg.query_readOnly("SELECT * FROM participant_metadata_questions WHERE zid = ($1);", [zid], callback);
         },
         function(callback) {
-          pgQuery_readOnly("SELECT * FROM participant_metadata_answers WHERE zid = ($1);", [zid], callback);
+          pg.query_readOnly("SELECT * FROM participant_metadata_answers WHERE zid = ($1);", [zid], callback);
         },
         function(callback) {
-          pgQuery_readOnly("SELECT * FROM participant_metadata_choices WHERE zid = ($1);", [zid], callback);
+          pg.query_readOnly("SELECT * FROM participant_metadata_choices WHERE zid = ($1);", [zid], callback);
         },
       ], function(err, result) {
         if (err) {
@@ -9709,7 +9709,7 @@ Email verified! You can close this tab or hit the back button.
 
   function getConversationHasMetadata(zid) {
     return new Promise(function(resolve, reject) {
-      pgQuery_readOnly('SELECT * from participant_metadata_questions where zid = ($1)', [zid], function(err, metadataResults) {
+      pg.query_readOnly('SELECT * from participant_metadata_questions where zid = ($1)', [zid], function(err, metadataResults) {
         if (err) {
           return reject("polis_err_get_conversation_metadata_by_zid");
         }
@@ -9804,7 +9804,7 @@ Email verified! You can close this tab or hit the back button.
     zidListQuery += ";";
 
 
-    pgQuery_readOnly(zidListQuery, [uid], function(err, results) {
+    pg.query_readOnly(zidListQuery, [uid], function(err, results) {
       if (err) {
         fail(res, 500, "polis_err_get_conversations_participated_in", err);
         return;
@@ -9867,7 +9867,7 @@ Email verified! You can close this tab or hit the back button.
       } else {
         query = query.limit(999); // TODO paginate
       }
-      pgQuery_readOnly(query.toString(), function(err, result) {
+      pg.query_readOnly(query.toString(), function(err, result) {
         if (err) {
           fail(res, 500, "polis_err_get_conversations", err);
           return;
@@ -10384,7 +10384,7 @@ Email verified! You can close this tab or hit the back button.
 
     function doneChecking() {
       // find list of participants who are not eliminated by the list of excluded choices.
-      pgQuery_readOnly(
+      pg.query_readOnly(
         // 3. invert the selection of participants, so we get those who passed the filter.
         "select pid from participants where zid = ($1) and pid not in " +
         // 2. find the people who chose those answers
@@ -10408,14 +10408,14 @@ Email verified! You can close this tab or hit the back button.
 
   function handle_POST_sendCreatedLinkToEmail(req, res) {
     winston.log("info", req.p);
-    pgQuery_readOnly("SELECT * FROM users WHERE uid = $1", [req.p.uid], function(err, results) {
+    pg.query_readOnly("SELECT * FROM users WHERE uid = $1", [req.p.uid], function(err, results) {
       if (err) {
         fail(res, 500, "polis_err_get_email_db", err);
         return;
       }
       let email = results.rows[0].email;
       let fullname = results.rows[0].hname;
-      pgQuery_readOnly("select * from zinvites where zid = $1", [req.p.zid], function(err, results) {
+      pg.query_readOnly("select * from zinvites where zid = $1", [req.p.zid], function(err, results) {
         let zinvite = results.rows[0].zinvite;
         let server = getServerNameWithProtocol(req);
         let createdLink = server + "/#" + req.p.zid + "/" + zinvite;
