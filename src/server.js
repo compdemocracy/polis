@@ -2,7 +2,7 @@ P// Copyright (C) 2012-present, The Authors. This program is free software: you 
 
 "use strict";
 
-const polisConfig = require('./polis-config');
+const Config = require('./polis-config');
 
 const akismetLib = require('akismet');
 const AWS = require('aws-sdk');
@@ -46,7 +46,7 @@ const zlib = require('zlib');
 const _ = require('underscore');
 const Mailgun = require('mailgun-js');
 const path = require('path');
-const localServer = isTrue(polisConfig.get('LOCAL_SERVER'));
+const localServer = isTrue(Config.get('LOCAL_SERVER'));
 const i18n = require('i18n');
 
 // Re-import disassembled code to promise existing code will work
@@ -72,6 +72,15 @@ const generateAndRegisterZinvite = createUser.generateAndRegisterZinvite;
 // TODO: Maybe able to remove
 const generateHashedPassword = require('./auth/password').generateHashedPassword;
 const checkPassword = require('./auth/password').checkPassword;
+
+const cookies = require('./utils/cookies');
+const COOKIES = cookies.COOKIES;
+const COOKIES_TO_CLEAR = cookies.COOKIES_TO_CLEAR;
+
+const User = require('./user');
+const Session = require('./session');
+const Utils = require('./utils/common');
+
 // End of re-import
 
 i18n.configure({
@@ -121,7 +130,7 @@ if (useTranslateApi) {
 
 
 //var SegfaultHandler = require('segfault-handler');
- 
+
 //SegfaultHandler.registerHandler("segfault.log");
 
 // var conversion = {
@@ -506,180 +515,20 @@ const sql_reports = sql.define({
 //     };
 // }());
 
-
-
-
-
-
-function encrypt(text) {
-  const algorithm = 'aes-256-ctr';
-  const password = process.env.ENCRYPTION_PASSWORD_00001;
-  const cipher = crypto.createCipher(algorithm, password);
-  var crypted = cipher.update(text,'utf8','hex');
-  crypted += cipher.final('hex');
-  return crypted;
-}
-
-function decrypt(text) {
-  const algorithm = 'aes-256-ctr';
-  const password = process.env.ENCRYPTION_PASSWORD_00001;
-  const decipher = crypto.createDecipher(algorithm, password);
-  var dec = decipher.update(text,'hex','utf8');
-  dec += decipher.final('utf8');
-  return dec;
-}
-decrypt; // appease linter
-
-
-function makeSessionToken() {
-  // These can probably be shortened at some point.
-  return crypto.randomBytes(32).toString('base64').replace(/[^A-Za-z0-9]/g, "").substr(0, 20);
-}
-
-// But we need to squeeze a bit more out of the db right now,
-// and generally remove sources of uncertainty about what makes
-// various queries slow. And having every single query talk to PG
-// adds a lot of variability across the board.
-const userTokenCache = new LruCache({
-  max: 9000,
-});
-
-function getUserInfoForSessionToken(sessionToken, res, cb) {
-  let cachedUid = userTokenCache.get(sessionToken);
-  if (cachedUid) {
-    cb(null, cachedUid);
-    return;
-  }
-  pgQuery("select uid from auth_tokens where token = ($1);", [sessionToken], function(err, results) {
-    if (err) {
-      console.error("token_fetch_error");
-      cb(500);
-      return;
-    }
-    if (!results || !results.rows || !results.rows.length) {
-      console.error("token_expired_or_missing");
-
-      cb(403);
-      return;
-    }
-    let uid = results.rows[0].uid;
-    userTokenCache.set(sessionToken, uid);
-    cb(null, uid);
-  });
-}
-
-
-function createPolisLtiToken(tool_consumer_instance_guid, lti_user_id) {
-  return ["xPolisLtiToken", tool_consumer_instance_guid, lti_user_id].join(":::");
-}
-
-function isPolisLtiToken(token) {
-  return token.match(/^xPolisLtiToken/);
-}
-function isPolisSlackTeamUserToken(token) {
-  return token.match(/^xPolisSlackTeamUserToken/);
-}
-
-// function sendSlackEvent(slack_team, o) {
-//   return pgQueryP("insert into slack_bot_events (slack_team, event) values ($1, $2);", [slack_team, o]);
-// }
-function sendSlackEvent(o) {
-  return pgQueryP("insert into slack_bot_events (event) values ($1);", [o]);
-}
-
-function parsePolisLtiToken(token) {
-  let parts = token.split(/:::/);
-  let o = {
-    // parts[0] === "xPolisLtiToken", don't need that
-    tool_consumer_instance_guid: parts[1],
-    lti_user_id: parts[2],
-  };
-  return o;
-}
-
-
-
-
-function getUserInfoForPolisLtiToken(token) {
-  let o = parsePolisLtiToken(token);
-  return pgQueryP("select uid from lti_users where tool_consumer_instance_guid = $1 and lti_user_id = $2", [
-    o.tool_consumer_instance_guid,
-    o.lti_user_id,
-  ]).then(function(rows) {
-    return rows[0].uid;
-  });
-}
-
-function startSession(uid, cb) {
-  let token = makeSessionToken();
-  //winston.log("info",'startSession: token will be: ' + sessionToken);
-  winston.log("info", 'startSession');
-  pgQuery("insert into auth_tokens (uid, token, created) values ($1, $2, default);", [uid, token], function(err, repliesSetToken) {
-    if (err) {
-      cb(err);
-      return;
-    }
-    winston.log("info", 'startSession: token set.');
-    cb(null, token);
-  });
-}
-
-function endSession(sessionToken, cb) {
-  pgQuery("delete from auth_tokens where token = ($1);", [sessionToken], function(err, results) {
-    if (err) {
-      cb(err);
-      return;
-    }
-    cb(null);
-  });
-}
-
-
-function setupPwReset(uid, cb) {
-  function makePwResetToken() {
-    // These can probably be shortened at some point.
-    return crypto.randomBytes(140).toString('base64').replace(/[^A-Za-z0-9]/g, "").substr(0, 100);
-  }
-  let token = makePwResetToken();
-  pgQuery("insert into pwreset_tokens (uid, token, created) values ($1, $2, default);", [uid, token], function(errSetToken, repliesSetToken) {
-    if (errSetToken) {
-      cb(errSetToken);
-      return;
-    }
-    cb(null, token);
-  });
-}
-
-function getUidForPwResetToken(pwresettoken, cb) {
-  // TODO "and created > timestamp - x"
-  pgQuery("select uid from pwreset_tokens where token = ($1);", [pwresettoken], function(errGetToken, results) {
-    if (errGetToken) {
-      console.error("pwresettoken_fetch_error");
-      cb(500);
-      return;
-    }
-    if (!results || !results.rows || !results.rows.length) {
-      console.error("token_expired_or_missing");
-      cb(403);
-      return;
-    }
-    cb(null, {
-      uid: results.rows[0].uid,
-    });
-  });
-}
-
-function clearPwResetToken(pwresettoken, cb) {
-  pgQuery("delete from pwreset_tokens where token = ($1);", [pwresettoken], function(errDelToken, repliesSetToken) {
-    if (errDelToken) {
-      cb(errDelToken);
-      return;
-    }
-    cb(null);
-  });
-}
-
-
+const encrypt = Session.encrypt;
+const decrypt = Session.decrypt;
+const makeSessionToken = Session.makeSessionToken;
+const getUserInfoForSessionToken = Session.getUserInfoForSessionToken;
+const createPolisLtiToken = Session.createPolisLtiToken;
+const isPolisLtiToken = Session.isPolisLtiToken;
+const isPolisSlackTeamUserToken = Session.isPolisSlackTeamUserToken;
+const sendSlackEvent = Session.sendSlackEvent;
+const getUserInfoForPolisLtiToken = Session.getUserInfoForPolisLtiToken;
+const startSession = Session.startSession;
+const endSession = Session.endSession;
+const setupPwReset = Session.setupPwReset;
+const getUidForPwResetToken = Session.getUidForPwResetToken;
+const clearPwResetToken = Session.clearPwResetToken;
 
 function hasAuthToken(req) {
   return !!req.cookies[COOKIES.TOKEN];
@@ -1395,31 +1244,6 @@ const wantCookie = prrrams.wantCookie;
 const needHeader = prrrams.needHeader;
 const wantHeader = prrrams.wantHeader;
 
-const COOKIES = {
-  COOKIE_TEST: 'ct',
-  HAS_EMAIL: 'e',
-  TOKEN: 'token2',
-  UID: 'uid2',
-  REFERRER: 'ref',
-  PARENT_REFERRER: 'referrer',
-  PARENT_URL: 'parent_url',
-  USER_CREATED_TIMESTAMP: 'uc',
-  PERMANENT_COOKIE: 'pc',
-  TRY_COOKIE: 'tryCookie',
-  PLAN_NUMBER: 'plan', // not set if trial user
-};
-const COOKIES_TO_CLEAR = {
-  e: true,
-  token2: true,
-  uid2: true,
-  uc: true,
-  plan: true,
-  referrer: true,
-  parent_url: true,
-};
-
-
-
 function initializePolisHelpers() {
 
   let polisTypes = {
@@ -1485,124 +1309,15 @@ function initializePolisHelpers() {
   //     });
   // });
 
-
-
-  let oneYear = 1000 * 60 * 60 * 24 * 365;
-
-  function setCookie(req, res, setOnPolisDomain, name, value, options) {
-    let o = _.clone(options || {});
-    o.path = _.isUndefined(o.path) ? '/' : o.path;
-    o.maxAge = _.isUndefined(o.maxAge) ? oneYear : o.maxAge;
-    if (setOnPolisDomain) {
-      o.secure = _.isUndefined(o.secure) ? true : o.secure;
-      o.domain = _.isUndefined(o.domain) ? '.pol.is' : o.domain;
-      // if (/pol.is/.test(req.headers.host)) {
-      //   o.domain = '.pol.is';
-      // }
-    }
-    res.cookie(name, value, o);
-  }
-
-  function setParentReferrerCookie(req, res, setOnPolisDomain, referrer) {
-    setCookie(req, res, setOnPolisDomain, COOKIES.PARENT_REFERRER, referrer, {
-      httpOnly: true,
-    });
-  }
-
-  function setParentUrlCookie(req, res, setOnPolisDomain, parent_url) {
-    setCookie(req, res, setOnPolisDomain, COOKIES.PARENT_URL, parent_url, {
-      httpOnly: true,
-    });
-  }
-
-  function setPlanCookie(req, res, setOnPolisDomain, planNumber) {
-    if (planNumber > 0) {
-      setCookie(req, res, setOnPolisDomain, COOKIES.PLAN_NUMBER, planNumber, {
-        // not httpOnly - needed by JS
-      });
-    }
-    // else falsy
-
-  }
-
-  function setHasEmailCookie(req, res, setOnPolisDomain, email) {
-    if (email) {
-      setCookie(req, res, setOnPolisDomain, COOKIES.HAS_EMAIL, 1, {
-        // not httpOnly - needed by JS
-      });
-    }
-    // else falsy
-  }
-
-  function setUserCreatedTimestampCookie(req, res, setOnPolisDomain, timestamp) {
-    setCookie(req, res, setOnPolisDomain, COOKIES.USER_CREATED_TIMESTAMP, timestamp, {
-      // not httpOnly - needed by JS
-    });
-  }
-
-  function setTokenCookie(req, res, setOnPolisDomain, token) {
-    setCookie(req, res, setOnPolisDomain, COOKIES.TOKEN, token, {
-      httpOnly: true,
-    });
-  }
-
-  function setUidCookie(req, res, setOnPolisDomain, uid) {
-    setCookie(req, res, setOnPolisDomain, COOKIES.UID, uid, {
-      // not httpOnly - needed by JS
-    });
-  }
-
-  function setPermanentCookie(req, res, setOnPolisDomain, token) {
-    setCookie(req, res, setOnPolisDomain, COOKIES.PERMANENT_COOKIE, token, {
-      httpOnly: true,
-    });
-  }
-
-  function setCookieTestCookie(req, res, setOnPolisDomain) {
-    setCookie(req, res, setOnPolisDomain, COOKIES.COOKIE_TEST, 1, {
-      // not httpOnly - needed by JS
-    });
-  }
-
-  function shouldSetCookieOnPolisDomain(req) {
-    let setOnPolisDomain = !domainOverride;
-    let origin = req.headers.origin || "";
-    if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
-      setOnPolisDomain = false;
-    }
-    return setOnPolisDomain;
-  }
-
-  function addCookies(req, res, token, uid) {
-    return getUserInfoForUid2(uid).then(function(o) {
-      let email = o.email;
-      let created = o.created;
-      let plan = o.plan;
-
-      let setOnPolisDomain = shouldSetCookieOnPolisDomain(req);
-
-      setTokenCookie(req, res, setOnPolisDomain, token);
-      setUidCookie(req, res, setOnPolisDomain, uid);
-      setPlanCookie(req, res, setOnPolisDomain, plan);
-      setHasEmailCookie(req, res, setOnPolisDomain, email);
-      setUserCreatedTimestampCookie(req, res, setOnPolisDomain, created);
-      if (!req.cookies[COOKIES.PERMANENT_COOKIE]) {
-        setPermanentCookie(req, res, setOnPolisDomain, makeSessionToken());
-      }
-      res.header("x-polis", token);
-    });
-  }
-
-  function getPermanentCookieAndEnsureItIsSet(req, res) {
-    let setOnPolisDomain = shouldSetCookieOnPolisDomain(req);
-    if (!req.cookies[COOKIES.PERMANENT_COOKIE]) {
-      let token = makeSessionToken();
-      setPermanentCookie(req, res, setOnPolisDomain, token);
-      return token;
-    } else {
-      return req.cookies[COOKIES.PERMANENT_COOKIE];
-    }
-  }
+  const setCookie = cookies.setCookie;
+  const setParentReferrerCookie = cookies.setParentReferrerCookie;
+  const setParentUrlCookie = cookies.setParentUrlCookie;
+  const setPlanCookie = cookies.setPlanCookie;
+  const setPermanentCookie = cookies.setPermanentCookie;
+  const setCookieTestCookie = cookies.setCookieTestCookie;
+  const shouldSetCookieOnPolisDomain = cookies.shouldSetCookieOnPolisDomain;
+  const addCookies = cookies.addCookies;
+  const getPermanentCookieAndEnsureItIsSet = cookies.getPermanentCookieAndEnsureItIsSet;
 
   let pidCache = new LruCache({
     max: 9000,
@@ -2306,28 +2021,8 @@ function initializePolisHelpers() {
   ////////////////////////////////////////////
   ////////////////////////////////////////////
 
-  function strToHex(str) {
-    let hex, i;
-    // let str = "\u6f22\u5b57"; // "\u6f22\u5b57" === "漢字"
-    let result = "";
-    for (i = 0; i < str.length; i++) {
-      hex = str.charCodeAt(i).toString(16);
-      result += ("000" + hex).slice(-4);
-    }
-    return result;
-  }
-
-  function hexToStr(hexString) {
-    let j;
-    let hexes = hexString.match(/.{1,4}/g) || [];
-    let str = "";
-    for (j = 0; j < hexes.length; j++) {
-      str += String.fromCharCode(parseInt(hexes[j], 16));
-    }
-    return str;
-  }
-
-
+  const strToHex = Utils.strToHex;
+  const hexToStr = Utils.hexToStr;
 
   function handle_GET_launchPrep(req, res) {
 
@@ -3226,7 +2921,7 @@ function initializePolisHelpers() {
 
 
   function getServerNameWithProtocol(req) {
-    let serviceUrl = polisConfig.get('SERVICE_URL');
+    let serviceUrl = Config.get('SERVICE_URL');
 	if (serviceUrl) {
 	  return serviceUrl;
 	}
@@ -4194,35 +3889,8 @@ Feel free to reply to this email if you need help.`;
     });
   }
 
-
-  function getUserInfoForUid(uid, callback) {
-    pgQuery_readOnly("SELECT email, hname from users where uid = $1", [uid], function(err, results) {
-      if (err) {
-        return callback(err);
-      }
-      if (!results.rows || !results.rows.length) {
-        return callback(null);
-      }
-      callback(null, results.rows[0]);
-    });
-  }
-
-  function getUserInfoForUid2(uid) {
-    return new MPromise("getUserInfoForUid2", function(resolve, reject) {
-      pgQuery_readOnly("SELECT * from users where uid = $1", [uid], function(err, results) {
-        if (err) {
-          return reject(err);
-        }
-        if (!results.rows || !results.rows.length) {
-          return reject(null);
-        }
-        let o = results.rows[0];
-        resolve(o);
-      });
-    });
-  }
-
-
+  const getUserInfoForUid = User.getUserInfoForUid;
+  const getUserInfoForUid2 = User.getUserInfoForUid2;
 
   function emailFeatureRequest(message) {
     const body =
@@ -4627,22 +4295,8 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
-  function addLtiUserifNeeded(uid, lti_user_id, tool_consumer_instance_guid, lti_user_image) {
-    lti_user_image = lti_user_image || null;
-    return pgQueryP("select * from lti_users where lti_user_id = ($1) and tool_consumer_instance_guid = ($2);", [lti_user_id, tool_consumer_instance_guid]).then(function(rows) {
-      if (!rows || !rows.length) {
-        return pgQueryP("insert into lti_users (uid, lti_user_id, tool_consumer_instance_guid, lti_user_image) values ($1, $2, $3, $4);", [uid, lti_user_id, tool_consumer_instance_guid, lti_user_image]);
-      }
-    });
-  }
-
-  function addLtiContextMembership(uid, lti_context_id, tool_consumer_instance_guid) {
-    return pgQueryP("select * from lti_context_memberships where uid = $1 and lti_context_id = $2 and tool_consumer_instance_guid = $3;", [uid, lti_context_id, tool_consumer_instance_guid]).then(function(rows) {
-      if (!rows || !rows.length) {
-        return pgQueryP("insert into lti_context_memberships (uid, lti_context_id, tool_consumer_instance_guid) values ($1, $2, $3);", [uid, lti_context_id, tool_consumer_instance_guid]);
-      }
-    });
-  }
+  const addLtiUserifNeeded = User.addLtiUserIfNeeded;
+  const addLtiContextMembership = User.addLtiContextMembership;
 
   function subscribeToNotifications(zid, uid, email) {
     let type = 1; // 1 for email
@@ -5024,7 +4678,7 @@ Email verified! You can close this tab or hit the back button.
                   if (afterJoinRedirectUrl) {
                     res.redirect(afterJoinRedirectUrl);
                   } else {
-                    renderLtiLinkageSuccessPage(req, res, {
+                    User.renderLtiLinkageSuccessPage(req, res, {
                       // may include token here too
                       context_id: lti_context_id,
                       uid: uid,
@@ -5282,36 +4936,6 @@ Email verified! You can close this tab or hit the back button.
         resolve(addCookies(req, res, token, uid));
       });
     });
-  }
-
-  function renderLtiLinkageSuccessPage(req, res, o) {
-    res.set({
-      'Content-Type': 'text/html',
-    });
-    let html = "" +
-      "<!DOCTYPE html><html lang='en'>" +
-      '<head>' +
-      '<meta name="viewport" content="width=device-width, initial-scale=1;">' +
-      '</head>' +
-      "<body style='max-width:320px'>" +
-      "<p>You are signed in as polis user " + o.email + "</p>" +
-      // "<p><a href='https://pol.is/user/logout'>Change pol.is users</a></p>" +
-      // "<p><a href='https://preprod.pol.is/inbox/context="+ o.context_id +"'>inbox</a></p>" +
-      // "<p><a href='https://preprod.pol.is/2demo' target='_blank'>2demo</a></p>" +
-      // "<p><a href='https://preprod.pol.is/conversation/create/context="+ o.context_id +"'>create</a></p>" +
-
-      // form for sign out
-      '<p><form role="form" class="FormVertical" action="' + getServerNameWithProtocol(req) + '/api/v3/auth/deregister" method="POST">' +
-      '<input type="hidden" name="showPage" value="canvas_assignment_deregister">' +
-      '<button type="submit" class="Btn Btn-primary">Change pol.is users</button>' +
-      '</form></p>' +
-
-      // "<p style='background-color: yellow;'>" +
-      //     JSON.stringify(req.body)+
-      //     (o.user_image ? "<img src='"+o.user_image+"'></img>" : "") +
-      // "</p>"+
-      "</body></html>";
-    res.status(200).send(html);
   }
 
   function deleteFacebookUserRecord(o) {
@@ -12576,7 +12200,7 @@ Thanks for using Polis!
             //     // you're good!
             // } else {
             //     if (you paid) {
-            renderLtiLinkageSuccessPage(req, res, {
+            User.renderLtiLinkageSuccessPage(req, res, {
               context_id: context_id,
               // user_image: userForLtiUserId.user_image,
               email: userForLtiUserId.email,
@@ -12643,7 +12267,7 @@ Thanks for using Polis!
   //             //     if (you paid) {
 
 
-  //                     // renderLtiLinkageSuccessPage(req, res, {
+  //                     // User.renderLtiLinkageSuccessPage(req, res, {
   //                     //     context_id: context_id,
   //                     //     // user_image: userForLtiUserId.user_image,
   //                     //     email: userForLtiUserId.email,
@@ -13507,7 +13131,7 @@ Thanks for using Polis!
   function proxy(req, res) {
 		let hostname;
     if (localServer) {
-      let origin = polisConfig.get('STATIC_FILES_ORIGIN');
+      let origin = Config.get('STATIC_FILES_ORIGIN');
       hostname = /^https?:\/\/([^\/:]+).*$/.exec(origin)[1];
     } else {
       hostname = buildStaticHostname(req, res);
@@ -13556,7 +13180,7 @@ Thanks for using Polis!
 	  if (process.env.STATIC_FILES_PORT) {
 	    return process.env.STATIC_FILES_PORT;
 	  }
-	  let origin = polisConfig.get('STATIC_FILES_ORIGIN');
+	  let origin = Config.get('STATIC_FILES_ORIGIN');
 	  if (!origin) {
 	    console.error('STATIC_FILES_ORIGIN and STATIC_FILES_PORT is not set.');
 	    return 80;
@@ -13580,7 +13204,7 @@ Thanks for using Polis!
   function buildStaticHostname(req, res) {
     // Cannot understand why this need to be whitelisted
 		if (localServer) {
-			return polisConfig.get('STATIC_FILES_ORIGIN').split('//')[1];
+			return Config.get('STATIC_FILES_ORIGIN').split('//')[1];
 		}
 
     if (devMode) {

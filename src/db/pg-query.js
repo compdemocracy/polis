@@ -1,5 +1,5 @@
 const _ = require('underscore');
-const polisConfig = require('../polis-config');
+const Config = require('../polis-config');
 const yell = require('../log').yell;
 const MPromise = require('../utils/metered').MPromise;
 
@@ -18,7 +18,7 @@ const pgnative = require('pg').native; //.native, // native provides ssl (needed
 const parsePgConnectionString = require('pg-connection-string').parse;
 
 const usingReplica = process.env.DATABASE_URL !== process.env[process.env.DATABASE_FOR_READS_NAME];
-const poolSize = polisConfig.isDevMode() ? 2 : (usingReplica ? 3 : 12);
+const poolSize = Config.isDevMode() ? 2 : (usingReplica ? 3 : 12);
 
 // not sure how many of these config options we really need anymore
 const pgConnection = Object.assign(parsePgConnectionString(process.env.DATABASE_URL),

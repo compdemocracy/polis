@@ -1,8 +1,12 @@
 const _ = require('underscore');
 const pg = require('../db/pg-query');
 const fail = require('../log').fail;
-const polisConfig = require('../polis-config');
+const Config = require('../polis-config');
 const i18n = require('i18n');
+const Cookies = require('../utils/cookies');
+const User = require('../user');
+const Session = require('../session');
+const Utils = require('../utils/common');
 
 i18n.configure({
   locales:['en', 'zh-TW'],
@@ -102,33 +106,32 @@ function createUser(req, res, COOKIES) {
         }
         let uid = result && result.rows && result.rows[0] && result.rows[0].uid;
 
-        pg.query("insert into jianiuevyew (uid, pwhash) values ($1, $2);", [uid, hashedPassword], function (err, results) {
+        pg.query("insert into jianiuevyew (uid, pwhash) values ($1, $2);", [uid, hashedPassword], function (err) {
           if (err) {
             winston.log("info", err);
             fail(res, 500, "polis_err_reg_failed_to_add_user_record", err);
             return;
           }
 
-
-          startSession(uid, function (err, token) {
+          Session.startSession(uid, function (err, token) {
             if (err) {
               fail(res, 500, "polis_err_reg_failed_to_start_session", err);
               return;
             }
-            addCookies(req, res, token, uid).then(function () {
+            Cookies.addCookies(req, res, token, uid).then(function () {
 
               let ltiUserPromise = lti_user_id ?
-                addLtiUserifNeeded(uid, lti_user_id, tool_consumer_instance_guid, lti_user_image) :
+                User.addLtiUserIfNeeded(uid, lti_user_id, tool_consumer_instance_guid, lti_user_image) :
                 Promise.resolve();
               let ltiContextMembershipPromise = lti_context_id ?
-                addLtiContextMembership(uid, lti_context_id, tool_consumer_instance_guid) :
+                User.addLtiContextMembership(uid, lti_context_id, tool_consumer_instance_guid) :
                 Promise.resolve();
               Promise.all([ltiUserPromise, ltiContextMembershipPromise]).then(function () {
                 if (lti_user_id) {
                   if (afterJoinRedirectUrl) {
                     res.redirect(afterJoinRedirectUrl);
                   } else {
-                    renderLtiLinkageSuccessPage(req, res, {
+                    User.renderLtiLinkageSuccessPage(req, res, {
                       // may include token here too
                       context_id: lti_context_id,
                       uid: uid,
@@ -165,18 +168,6 @@ function createUser(req, res, COOKIES) {
                 if (_.keys(customData).length) {
                   params.custom_data = customData;
                 }
-                // Do not know what is intercom, just skip
-                if (intercom.createUser) {
-                  intercom.createUser(params, function (err, res) {
-                    if (err) {
-                      winston.log("info", err);
-                      console.error("polis_err_intercom_create_user_fail");
-                      winston.log("info", params);
-                      yell("polis_err_intercom_create_user_fail");
-                      return;
-                    }
-                  });
-                }
               }
             }, function (err) {
               fail(res, 500, "polis_err_adding_cookies", err);
@@ -202,14 +193,14 @@ function doSendVerification(req, email) {
 }
 
 function sendVerificationEmail(req, email, einvite) {
-  let serverName = polisConfig.get('SERVICE_URL');
+  let serverName = Config.get('SERVICE_URL');
   if (!serverName) {
     console.error('Config SERVICE_URL is not set!');
     return;
   }
   let body = i18n.__("PolisVerification", serverName, einvite);
   return require('../email/mailgun').sendText(
-    polisConfig.get('POLIS_FROM_ADDRESS'),
+    Config.get('POLIS_FROM_ADDRESS'),
     email,
     i18n.__("Polis verification"),
     body);
@@ -224,7 +215,7 @@ function decodeParams(encodedStringifiedJson) {
   } else {
     encodedStringifiedJson = encodedStringifiedJson.slice(4);
   }
-  let stringifiedJson = hexToStr(encodedStringifiedJson);
+  let stringifiedJson = Utils.hexToStr(encodedStringifiedJson);
   let o = JSON.parse(stringifiedJson);
   return o;
 }
