@@ -2,9 +2,6 @@
 
 "use strict";
 
-const config = require('./config');
-const pg = require('./db/pg-query');
-
 const akismetLib = require('akismet');
 const AWS = require('aws-sdk');
 AWS.config.set('region', 'us-east-1');
@@ -50,13 +47,16 @@ const path = require('path');
 const localServer = isTrue(config.get('LOCAL_SERVER'));
 const i18n = require('i18n');
 
+const config = require('./config');
+const pg = require('./db/pg-query');
+const MPromise = require('./utils/metered').MPromise;
+const addInRamMetric = require('./utils/metered').addInRamMetric;
+const yell = require('./log').yell;
+
 i18n.configure({
     locales:['en', 'zh-TW'],
     directory: __dirname + '/locales'
 });
-
-const addInRamMetric = require('./utils/metered').addInRamMetric;
-const yell = require('./log').yell;
 
 // # Slack setup
 
