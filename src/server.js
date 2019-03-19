@@ -49,8 +49,19 @@ const path = require('path');
 const localServer = isTrue(polisConfig.get('LOCAL_SERVER'));
 const i18n = require('i18n');
 
+// Re-import disassembled code to promise existing code will work
 const addInRamMetric = require('./utils/metered').addInRamMetric;
+const MPromise = require('./utils/metered').MPromise;
 const yell = require('./log').yell;
+
+const pgQuery = pg.query;
+const pgQuery_readOnly = pg.query_readOnly;
+const pgQueryP = pg.queryP;
+const pgQueryP_metered = pg.queryP_metered;
+const pgQueryP_metered_readOnly = pg.queryP_metered_readOnly;
+const pgQueryP_readOnly = pg.queryP_readOnly;
+const pgQueryP_readOnly_wRetryIfEmpty = pg.queryP_readOnly_wRetryIfEmpty;
+// End of re-import
 
 i18n.configure({
     locales:['en', 'zh-TW'],
@@ -14435,11 +14446,6 @@ Thanks for using Polis!
     moveToBody,
     need,
     needHeader,
-    pgQueryP,
-    pgQueryP_metered,
-    pgQueryP_metered_readOnly,
-    pgQueryP_readOnly,
-    pgQueryP_readOnly_wRetryIfEmpty,
     pidCache,
     portForAdminFiles,
     portForParticipationFiles,
