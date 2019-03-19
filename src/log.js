@@ -1,4 +1,4 @@
-const config = require('./config');
+const polisConfig = require('./polis-config');
 const _ = require('underscore');
 
 const errorNotifications = (function() {
@@ -21,7 +21,7 @@ const errorNotifications = (function() {
   setInterval(sendAll, 60 * 1000);
   return {
     add: function(token) {
-      if (config.isDevMode() && !_.isString(token)) {
+      if (polisConfig.isDevMode() && !_.isString(token)) {
         throw new Error("empty token for pushover");
       }
       console.error(token);
