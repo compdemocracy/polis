@@ -1,7 +1,7 @@
 const polisConfig = require('./polis-config');
 const _ = require('underscore');
 
-const errorNotifications = (function() {
+const errorNotifications = (function () {
   let errors = [];
 
   function sendAll() {
@@ -18,9 +18,10 @@ const errorNotifications = (function() {
     // });
     errors = [];
   }
+
   setInterval(sendAll, 60 * 1000);
   return {
-    add: function(token) {
+    add: function (token) {
       if (polisConfig.isDevMode() && !_.isString(token)) {
         throw new Error("empty token for pushover");
       }
@@ -29,8 +30,29 @@ const errorNotifications = (function() {
     },
   };
 }());
+
 const yell = errorNotifications.add;
 
+function fail(res, httpCode, clientVisibleErrorString, err) {
+  emitTheFailure(res, httpCode, "polis_err", clientVisibleErrorString, err);
+  yell(clientVisibleErrorString);
+}
+
+function userFail(res, httpCode, clientVisibleErrorString, err) {
+  emitTheFailure(res, httpCode, "polis_user_err", clientVisibleErrorString, err);
+}
+
+function emitTheFailure(res, httpCode, extraErrorCodeForLogs, clientVisibleErrorString, err) {
+  console.error(clientVisibleErrorString, extraErrorCodeForLogs, err);
+  if (err && err.stack) {
+    console.error(err.stack);
+  }
+  res.writeHead(httpCode || 500);
+  res.end(clientVisibleErrorString);
+}
+
 module.exports = {
-  yell
+  yell,
+  fail,
+  userFail
 };
