@@ -5830,7 +5830,7 @@ Email verified! You can close this tab or hit the back button.
   } // end do_handle_POST_auth_facebook
 
   function handle_POST_auth_new(req, res) {
-    require('./auth/create-user').createUser(req, res, COOKIES);
+    require('./auth/create-user').createUser(req, res);
   } // end /api/v3/auth/new
 
 
