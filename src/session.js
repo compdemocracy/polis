@@ -100,13 +100,13 @@ function getUserInfoForPolisLtiToken(token) {
 
 function startSession(uid, cb) {
   let token = makeSessionToken();
-  winston.log("info", 'startSession');
+  console.log("info", 'startSession');
   pg.query("insert into auth_tokens (uid, token, created) values ($1, $2, default);", [uid, token], function(err, repliesSetToken) {
     if (err) {
       cb(err);
       return;
     }
-    winston.log("info", 'startSession: token set.');
+    console.log("info", 'startSession: token set.');
     cb(null, token);
   });
 }
