@@ -13,7 +13,8 @@ i18n.configure({
   directory: __dirname + '/locales'
 });
 
-function createUser(req, res, COOKIES) {
+function createUser(req, res) {
+  const COOKIES = require('../utils/cookies').COOKIES;
   let hname = req.p.hname;
   let password = req.p.password;
   let password2 = req.p.password2; // for verification
