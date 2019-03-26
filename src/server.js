@@ -79,6 +79,7 @@ const COOKIES = cookies.COOKIES;
 const COOKIES_TO_CLEAR = cookies.COOKIES_TO_CLEAR;
 
 const User = require('./user');
+const Conversation = require('./conversation');
 const Session = require('./session');
 const Utils = require('./utils/common');
 
@@ -193,14 +194,6 @@ function isPolisDev(uid) {
   console.log("polisDevs", polisDevs)
   return polisDevs.indexOf(uid) >= 0;
 }
-
-// so we can grant extra days to users
-// eventually we should probably move this to db.
-// for now, use git blame to see when these were added
-const  usersToAdditionalTrialDays = {
-  50756: 14, // julien
-  85423: 100, // mike test
-};
 
 // log heap stats
 setInterval(function() {
@@ -574,98 +567,12 @@ function doApiKeyAuth(assigner, apikey, isOptional, req, res, next) {
 // }
 
 
-function createDummyUser() {
-  return new MPromise("createDummyUser", function(resolve, reject) {
-    pgQuery("INSERT INTO users (created) VALUES (default) RETURNING uid;", [], function(err, results) {
-      if (err || !results || !results.rows || !results.rows.length) {
-        console.error(err);
-        reject(new Error("polis_err_create_empty_user"));
-        return;
-      }
-      resolve(results.rows[0].uid);
-    });
-  });
-}
+const createDummyUser = User.createDummyUser;
 
-function createXidRecord(ownerUid, uid, xid, x_profile_image_url, x_name, x_email) {
-  return pgQueryP("insert into xids (owner, uid, xid, x_profile_image_url, x_name, x_email) values ($1, $2, $3, $4, $5, $6) " +
-    "on conflict (owner, xid) do nothing;", [
-      ownerUid,
-      uid,
-      xid,
-      x_profile_image_url || null,
-      x_name || null,
-      x_email || null,
-    ]);
-}
-
-
-
-function getConversationInfo(zid) {
-  return new MPromise("getConversationInfo", function(resolve, reject) {
-    pgQuery("SELECT * FROM conversations WHERE zid = ($1);", [zid], function(err, result) {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(result.rows[0]);
-      }
-    });
-  });
-}
-
-function getConversationInfoByConversationId(conversation_id) {
-  return new MPromise("getConversationInfoByConversationId", function(resolve, reject) {
-    pgQuery("SELECT * FROM conversations WHERE zid = (select zid from zinvites where zinvite = ($1));", [conversation_id], function(err, result) {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(result.rows[0]);
-      }
-    });
-  });
-}
-
-function isXidWhitelisted(owner, xid) {
-  return pgQueryP("select * from xid_whitelist where owner = ($1) and xid = ($2);", [owner, xid]).then((rows) => {
-    return !!rows && rows.length > 0;
-  });
-}
-
-function getXidRecordByXidOwnerId(xid, owner, zid_optional, x_profile_image_url, x_name, x_email, createIfMissing) {
-  return pgQueryP("select * from xids where xid = ($1) and owner = ($2);", [xid, owner]).then(function(rows) {
-    if (!rows || !rows.length) {
-      console.log('no xInfo yet');
-      if (!createIfMissing) {
-        return null;
-      }
-
-      var shouldCreateXidEntryPromise = !zid_optional ? Promise.resolve(true) : getConversationInfo(zid_optional).then((conv) => {
-        return conv.use_xid_whitelist ? isXidWhitelisted(owner, xid) : Promise.resolve(true);
-      });
-
-      return shouldCreateXidEntryPromise.then((should) => {
-        if (!should) {
-          return null;
-        }
-        return createDummyUser().then((newUid) => {
-          console.log('created dummy');
-          return createXidRecord(owner, newUid, xid, x_profile_image_url||null, x_name||null, x_email||null).then(() => {
-            console.log('created xInfo');
-            return [{
-              uid: newUid,
-              owner: owner,
-              xid: xid,
-              x_profile_image_url: x_profile_image_url,
-              x_name: x_name,
-              x_email: x_email,
-            }];
-          });
-        });
-      });
-    }
-    return rows;
-  });
-}
+const getConversationInfo = Conversation.getConversationInfo;
+const getConversationInfoByConversationId = Conversation.getConversationInfoByConversationId;
+const isXidWhitelisted = Conversation.isXidWhitelisted;
+const getXidRecordByXidOwnerId = Conversation.getXidRecordByXidOwnerId;
 
 // function doXidOwnerConversationIdAuth(assigner, xid, conversation_id, req, res, next) {
 //   getXidRecordByXidConversationId(xid, conversation_id).then(function(rows) {
@@ -895,43 +802,6 @@ function getUrlLimitLength(limit) {
   };
 }
 
-
-function getBool(s) {
-  return new Promise(function(resolve, reject) {
-    let type = typeof s;
-    if ("boolean" === type) {
-      return resolve(s);
-    }
-    if ("number" === type) {
-      if (s === 0) {
-        return resolve(false);
-      }
-      return resolve(true);
-    }
-    s = s.toLowerCase();
-    if (s === 't' || s === 'true' || s === 'on' || s === '1') {
-      return resolve(true);
-    } else if (s === 'f' || s === 'false' || s === 'off' || s === '0') {
-      return resolve(false);
-    }
-    reject("polis_fail_parse_boolean");
-  });
-}
-
-function getInt(s) {
-  return new Promise(function(resolve, reject) {
-    if (_.isNumber(s) && s >> 0 === s) {
-      return resolve(s);
-    }
-    let x = parseInt(s);
-    if (isNaN(x)) {
-      return reject("polis_fail_parse_int " + s);
-    }
-    resolve(x);
-  });
-}
-
-
 const conversationIdToZidCache = new LruCache({
   max: 1000,
 });
@@ -1076,17 +946,6 @@ function getArrayOfInt(a) {
   return Promise.resolve(a.map(integer));
 }
 
-function getIntInRange(min, max) {
-  return function(s) {
-    return getInt(s).then(function(x) {
-      if (x < min || max < x) {
-        throw "polis_fail_parse_int_out_of_range";
-      }
-      return x;
-    });
-  };
-}
-
 function assignToP(req, name, x) {
   req.p = req.p || {};
   if (!_.isUndefined(req.p[name])) {
@@ -1104,26 +963,9 @@ function assignToPCustom(name) {
 }
 
 
-function extractFromBody(req, name) {
-  if (!req.body) {
-    return void 0;
-  }
-  return req.body[name];
-}
-
-function extractFromCookie(req, name) {
-  if (!req.cookies) {
-    return void 0;
-  }
-  return req.cookies[name];
-}
-
-function extractFromHeader(req, name) {
-  if (!req.headers) {
-    return void 0;
-  }
-  return req.headers[name.toLowerCase()];
-}
+const extractFromBody = Utils.extractFromBody;
+const extractFromCookie = Utils.extractFromCookie;
+const extractFromHeader = Utils.extractFromHeader;
 
 
 const prrrams = (function() {
@@ -1320,123 +1162,10 @@ function initializePolisHelpers() {
   const addCookies = cookies.addCookies;
   const getPermanentCookieAndEnsureItIsSet = cookies.getPermanentCookieAndEnsureItIsSet;
 
-  let pidCache = new LruCache({
-    max: 9000,
-  });
-
-  // returns a pid of -1 if it's missing
-  function getPid(zid, uid, callback) {
-    let cacheKey = zid + "_" + uid;
-    let cachedPid = pidCache.get(cacheKey);
-    if (!_.isUndefined(cachedPid)) {
-      callback(null, cachedPid);
-      return;
-    }
-    pgQuery_readOnly("SELECT pid FROM participants WHERE zid = ($1) AND uid = ($2);", [zid, uid], function(err, docs) {
-      let pid = -1;
-      if (docs && docs.rows && docs.rows[0]) {
-        pid = docs.rows[0].pid;
-        pidCache.set(cacheKey, pid);
-      }
-      callback(err, pid);
-    });
-  }
-
-  // returns a pid of -1 if it's missing
-  function getPidPromise(zid, uid, usePrimary) {
-    let cacheKey = zid + "_" + uid;
-    let cachedPid = pidCache.get(cacheKey);
-    return new MPromise("getPidPromise", function(resolve, reject) {
-      if (!_.isUndefined(cachedPid)) {
-        resolve(cachedPid);
-        return;
-      }
-      const f = usePrimary ? pgQuery : pgQuery_readOnly;
-      f("SELECT pid FROM participants WHERE zid = ($1) AND uid = ($2);", [zid, uid], function(err, results) {
-        if (err) {
-          return reject(err);
-        }
-        if (!results || !results.rows || !results.rows.length) {
-          resolve(-1);
-          return;
-        }
-        let pid = results.rows[0].pid;
-        pidCache.set(cacheKey, pid);
-        resolve(pid);
-      });
-    });
-  }
-
-
-  function resolve_pidThing(pidThingStringName, assigner, loggingString) {
-    if (_.isUndefined(loggingString)) {
-      loggingString = "";
-    }
-    return function(req, res, next) {
-      if (!req.p) {
-        fail(res, 500, "polis_err_this_middleware_should_be_after_auth_and_zid");
-        next("polis_err_this_middleware_should_be_after_auth_and_zid");
-      }
-      console.dir(req.p);
-
-      let existingValue = extractFromBody(req, pidThingStringName) || extractFromCookie(req, pidThingStringName);
-
-      if (existingValue === "mypid" && req.p.zid && req.p.uid) {
-        getPidPromise(req.p.zid, req.p.uid).then(function(pid) {
-          if (pid >= 0) {
-            assigner(req, pidThingStringName, pid);
-          }
-          next();
-        }).catch(function(err) {
-          fail(res, 500, "polis_err_mypid_resolve_error", err);
-          next(err);
-        });
-      } else if (existingValue === "mypid") {
-        // don't assign anything, since we have no uid to look it up.
-        next();
-      } else if (!_.isUndefined(existingValue)) {
-        getInt(existingValue).then(function(pidNumber) {
-          assigner(req, pidThingStringName, pidNumber);
-          next();
-        }).catch(function(err) {
-          fail(res, 500, "polis_err_pid_error", err);
-          next(err);
-        });
-      } else {
-        next();
-      }
-    };
-  }
-
-
-  // must follow auth and need('zid'...) middleware
-  function getPidForParticipant(assigner, cache) {
-    return function(req, res, next) {
-      let zid = req.p.zid;
-      let uid = req.p.uid;
-
-      function finish(pid) {
-        assigner(req, "pid", pid);
-        next();
-      }
-      getPidPromise(zid, uid).then(function(pid) {
-        if (pid === -1) {
-          let msg = "polis_err_get_pid_for_participant_missing";
-          yell(msg);
-
-          winston.log("info", zid);
-          winston.log("info", uid);
-          winston.log("info", req.p);
-          next(msg);
-        }
-        finish(pid);
-      }, function(err) {
-        yell("polis_err_get_pid_for_participant");
-        next(err);
-      });
-    };
-  }
-
+  const getPid = User.getPid;
+  const getPidPromise = User.getPidPromise;
+  const resolve_pidThing = User.resolve_pidThing;
+  const getPidForParticipant = User.getPidForParticipant;
 
   function recordPermanentCookieZidJoin(permanentCookieToken, zid) {
     function doInsert() {
@@ -5863,69 +5592,7 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
-  function getUser(uid, zid_optional, xid_optional, owner_uid_optional) {
-    if (!uid) {
-      // this api may be called by a new user, so we don't want to trigger a failure here.
-      return Promise.resolve({});
-    }
-
-    let xidInfoPromise = Promise.resolve(null);
-    if (zid_optional && xid_optional) {
-      xidInfoPromise = getXidRecord(xid_optional, zid_optional);
-    } else if (xid_optional && owner_uid_optional) {
-      xidInfoPromise = getXidRecordByXidOwnerId(xid_optional, owner_uid_optional, zid_optional);
-    }
-
-    return Promise.all([
-      getUserInfoForUid2(uid),
-      getFacebookInfo([uid]),
-      getTwitterInfo([uid]),
-      xidInfoPromise,
-      getEmailVerifiedInfo([uid])
-    ]).then(function(o) {
-      let info = o[0];
-      let fbInfo = o[1];
-      let twInfo = o[2];
-      let xInfo = o[3];
-      let mvInfo = o[4];
-
-      let hasFacebook = fbInfo && fbInfo.length && fbInfo[0];
-      let hasTwitter = twInfo && twInfo.length && twInfo[0];
-      let hasXid = xInfo && xInfo.length && xInfo[0];
-      if (hasFacebook) {
-        let width = 40;
-        let height = 40;
-        fbInfo.fb_picture = "https://graph.facebook.com/v2.2/" + fbInfo.fb_user_id + "/picture?width=" + width + "&height=" + height;
-        delete fbInfo[0].response;
-      }
-      if (hasTwitter) {
-        delete twInfo[0].response;
-      }
-      if (hasXid) {
-        delete xInfo[0].owner;
-        delete xInfo[0].created;
-        delete xInfo[0].uid;
-      }
-      return {
-        uid: uid,
-        email: info.email,
-        hname: info.hname,
-        emailVerified: !!(mvInfo && mvInfo.length > 0 && mvInfo[0]),
-        hasFacebook: !!hasFacebook,
-        facebook: fbInfo && fbInfo[0],
-        twitter: twInfo && twInfo[0],
-        hasTwitter: !!hasTwitter,
-        hasXid: !!hasXid,
-        xInfo: xInfo && xInfo[0],
-        finishedTutorial: !!info.tut,
-        site_ids: [info.site_id],
-        created: Number(info.created),
-        daysInTrial: 10 + (usersToAdditionalTrialDays[uid] || 0),
-        // plan: planCodeToPlanName[info.plan],
-        planCode: info.plan,
-      };
-    });
-  }
+  const getUser = User.getUser;
 
   // These map from non-ui string codes to number codes used in the DB
   // The string representation ("sites", etc) is also used in intercom.
@@ -5952,7 +5619,6 @@ Email verified! You can close this tab or hit the back button.
   //   100: "Site",
   //   1000: "Organization",
   // };
-
 
   function changePlan(uid, planCode) {
     return new Promise(function(resolve, reject) {
@@ -7877,47 +7543,8 @@ Email verified! You can close this tab or hit the back button.
     return pgQueryP(query, params);
   }
 
-
-
-  function createXidRecordByZid(zid, uid, xid, x_profile_image_url, x_name, x_email) {
-    return getConversationInfo(zid).then((conv) => {
-      const shouldCreateXidRecord = conv.use_xid_whitelist ? isXidWhitelisted(conv.owner, xid) : Promise.resolve(true);
-      return shouldCreateXidRecord.then((should) => {
-        if (!should) {
-          throw new Error("polis_err_xid_not_whitelisted_2");
-        }
-        return pgQueryP("insert into xids (owner, uid, xid, x_profile_image_url, x_name, x_email) values ((select org_id from conversations where zid = ($1)), $2, $3, $4, $5, $6) " +
-          "on conflict (owner, xid) do nothing;", [
-            zid,
-            uid,
-            xid,
-            x_profile_image_url || null,
-            x_name || null,
-            x_email || null,
-          ]);
-      });
-    });
-  }
-
-  function getXidRecord(xid, zid) {
-    return pgQueryP("select * from xids where xid = ($1) and owner = (select org_id from conversations where zid = ($2));", [xid, zid]);
-  }
-
-  function getXidStuff(xid, zid) {
-    return getXidRecord(xid, zid).then((rows) => {
-      if (!rows || !rows.length) {
-        return "noXidRecord";
-      }
-      let xidRecordForPtpt = rows[0];
-      if (xidRecordForPtpt) {
-        return getPidPromise(zid, xidRecordForPtpt.uid, true).then((pidForXid) => {
-          xidRecordForPtpt.pid = pidForXid;
-          return xidRecordForPtpt;
-        });
-      }
-      return xidRecordForPtpt;
-    });
-  }
+  const createXidRecordByZid = Conversation.createXidRecordByZid;
+  const getXidStuff = Conversation.getXidStuff;
 
   function handle_PUT_participants_extended(req, res) {
     let zid = req.p.zid;
@@ -10578,19 +10205,6 @@ Thanks for using Polis!
     }).catch(function(err) {
       fail(res, 500, "polis_err_twitter_auth_misc", err);
     });
-  }
-
-  function getTwitterInfo(uids) {
-    return pgQueryP_readOnly("select * from twitter_users where uid in ($1);", uids);
-  }
-
-  function getFacebookInfo(uids) {
-    return pgQueryP_readOnly("select * from facebook_users where uid in ($1);", uids);
-  }
-
-  function getEmailVerifiedInfo(uids) {
-    return pgQueryP_readOnly("SELECT * FROM email_validations WHERE email=" +
-      "(SELECT email FROM users WHERE uid in ($1));", uids);
   }
 
   function getSocialParticipantsForMod_timed() {
@@ -13631,11 +13245,8 @@ Thanks for using Polis!
     getArrayOfStringLimitLength,
     getArrayOfStringNonEmpty,
     getArrayOfStringNonEmptyLimitLength,
-    getBool,
     getConversationIdFetchZid,
     getEmail,
-    getInt,
-    getIntInRange,
     getNumberInRange,
     getOptionalStringLimitLength,
     getPassword,
