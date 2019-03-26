@@ -1162,6 +1162,7 @@ function initializePolisHelpers() {
   const addCookies = cookies.addCookies;
   const getPermanentCookieAndEnsureItIsSet = cookies.getPermanentCookieAndEnsureItIsSet;
 
+  const pidCache = User.pidCache;
   const getPid = User.getPid;
   const getPidPromise = User.getPidPromise;
   const resolve_pidThing = User.resolve_pidThing;

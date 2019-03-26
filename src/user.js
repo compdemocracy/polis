@@ -298,6 +298,7 @@ function getPidForParticipant(assigner, cache) {
 }
 
 module.exports = {
+  pidCache,
   getUserInfoForUid,
   getUserInfoForUid2,
   addLtiUserIfNeeded,
