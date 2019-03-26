@@ -802,6 +802,10 @@ function getUrlLimitLength(limit) {
   };
 }
 
+const getBool = Utils.getBool;
+const getInt = Utils.getInt;
+const getIntInRange = Utils.getIntInRange;
+
 const conversationIdToZidCache = new LruCache({
   max: 1000,
 });
@@ -13246,8 +13250,11 @@ Thanks for using Polis!
     getArrayOfStringLimitLength,
     getArrayOfStringNonEmpty,
     getArrayOfStringNonEmptyLimitLength,
+    getBool,
     getConversationIdFetchZid,
     getEmail,
+    getInt,
+    getIntInRange,
     getNumberInRange,
     getOptionalStringLimitLength,
     getPassword,
@@ -13257,6 +13264,9 @@ Thanks for using Polis!
     getStringLimitLength,
     getUrlLimitLength,
     haltOnTimeout,
+    getInt,
+    getBool,
+    getIntInRange,
     HMAC_SIGNATURE_PARAM_NAME,
     hostname,
     makeFileFetcher,
