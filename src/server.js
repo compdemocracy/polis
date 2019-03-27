@@ -64,11 +64,12 @@ const pgQueryP_metered_readOnly = pg.queryP_metered_readOnly;
 const pgQueryP_readOnly = pg.queryP_readOnly;
 const pgQueryP_readOnly_wRetryIfEmpty = pg.queryP_readOnly_wRetryIfEmpty;
 
-const createUser = require('./auth/create-user');
-const doSendVerification = createUser.doSendVerification;
-const generateToken = createUser.generateToken;
-const generateTokenP = createUser.generateTokenP;
-const generateAndRegisterZinvite = createUser.generateAndRegisterZinvite;
+const CreateUser = require('./auth/create-user');
+const Password = require('./auth/password');
+const doSendVerification = CreateUser.doSendVerification;
+const generateAndRegisterZinvite = CreateUser.generateAndRegisterZinvite;
+const generateToken = Password.generateToken;
+const generateTokenP = Password.generateTokenP;
 
 // TODO: Maybe able to remove
 const generateHashedPassword = require('./auth/password').generateHashedPassword;
