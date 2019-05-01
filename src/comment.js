@@ -1,4 +1,5 @@
 const _ = require('underscore');
+const fs = require('fs');
 const pg = require('./db/pg-query');
 const Conversation = require('./conversation');
 const User = require('./user');
@@ -217,7 +218,7 @@ function _getCommentsForModerationList(o) {
 
 function _getCommentsList(o) {
   return new MPromise("_getCommentsList", function (resolve, reject) {
-    User.getConversationInfo(o.zid).then(function (conv) {
+    Conversation.getConversationInfo(o.zid).then(function (conv) {
 
       let q = SQL.sql_comments.select(SQL.sql_comments.star())
         .where(
