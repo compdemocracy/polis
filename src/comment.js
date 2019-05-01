@@ -143,8 +143,8 @@ function getComments(o) {
 
 
 function _getCommentsForModerationList(o) {
-  const strictCheck = Promise.resolve(null);
-  const include_voting_patterns = o.include_voting_patterns;
+  let strictCheck = Promise.resolve(null);
+  let include_voting_patterns = o.include_voting_patterns;
 
   if (o.modIn) {
     strictCheck = pg.queryP("select strict_moderation from conversations where zid = ($1);", [o.zid]).then((c) => {
