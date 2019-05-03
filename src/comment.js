@@ -238,7 +238,7 @@ function _getCommentsList(o) {
         // 'SELECT * FROM comments WHERE zid = 12 AND tid NOT IN (SELECT tid FROM votes WHERE pid = 1);'
         // Don't return comments the user has already voted on.
         q = q.and(
-          SQL.SQL.sql_comments.tid.notIn(
+          SQL.sql_comments.tid.notIn(
             SQL.sql_votes_latest_unique.subQuery().select(SQL.sql_votes_latest_unique.tid)
               .where(
                 SQL.sql_votes_latest_unique.zid.equals(o.zid)
