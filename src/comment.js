@@ -7,6 +7,7 @@ const MPromise = require('./utils/metered').MPromise;
 const SQL = require('./db/sql');
 const Translate = require('@google-cloud/translate');
 const isTrue = require('boolean');
+const Utils = require('./utils/common');
 
 const useTranslateApi = isTrue(process.env.SHOULD_USE_TRANSLATION_API);
 let translateClient = null;
@@ -192,11 +193,11 @@ function _getCommentsForModerationList(o) {
           disagree_count: 0,
           pass_count: 0,
         };
-        if (row.vote === polisTypes.reactions.pull) {
+        if (row.vote === Utils.polisTypes.reactions.pull) {
           o.agree_count = Number(row.count);
-        } else if (row.vote === polisTypes.reactions.push) {
+        } else if (row.vote === Utils.polisTypes.reactions.push) {
           o.disagree_count = Number(row.count);
-        } else if (row.vote === polisTypes.reactions.pass) {
+        } else if (row.vote === Utils.polisTypes.reactions.pass) {
           o.pass_count = Number(row.count);
         }
       }
@@ -256,9 +257,9 @@ function _getCommentsList(o) {
       } else {
         q = q.and(SQL.sql_comments.active.equals(true));
         if (conv.strict_moderation) {
-          q = q.and(SQL.sql_comments.mod.equals(polisTypes.mod.ok));
+          q = q.and(SQL.sql_comments.mod.equals(Utils.polisTypes.mod.ok));
         } else {
-          q = q.and(SQL.sql_comments.mod.notEquals(polisTypes.mod.ban));
+          q = q.and(SQL.sql_comments.mod.notEquals(Utils.polisTypes.mod.ban));
         }
       }
 

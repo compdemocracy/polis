@@ -67,6 +67,22 @@ function getIntInRange(min, max) {
   };
 }
 
+function extractFromQureyOrBody(req, name) {
+  let ret = extractFromQuery(req, name);
+  if (ret) {
+    return ret;
+  } else {
+    return extractFromBody(req, name);
+  }
+}
+
+function extractFromQuery(req, name) {
+  if (name in req.query) {
+    return req.query[name];
+  }
+  return void 0;
+}
+
 function extractFromBody(req, name) {
   if (!req.body) {
     return void 0;
@@ -114,6 +130,8 @@ module.exports = {
   getInt,
   getBool,
   getIntInRange,
+  extractFromQueryOrBody,
+  extractFromQuery,
   extractFromBody,
   extractFromCookie,
   extractFromHeader,

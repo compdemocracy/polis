@@ -878,7 +878,7 @@ const prrrams = (function () {
     need: function (name, parserWhichReturnsPromise, assigner) {
       return buildCallback({
         name: name,
-        extractor: extractFromBody,
+        extractor: Utils.extractFromQueryOrBody,
         parserWhichReturnsPromise: parserWhichReturnsPromise,
         assigner: assigner,
         required: true,
@@ -887,7 +887,7 @@ const prrrams = (function () {
     want: function (name, parserWhichReturnsPromise, assigner, defaultVal) {
       return buildCallback({
         name: name,
-        extractor: extractFromBody,
+        extractor: Utils.extractFromQueryOrBody,
         parserWhichReturnsPromise: parserWhichReturnsPromise,
         assigner: assigner,
         required: false,
@@ -5975,7 +5975,6 @@ Email verified! You can close this tab or hit the back button.
   function handle_GET_comments_translations(req, res) {
     const zid = req.p.zid;
     const tid = req.p.tid;
-    const firstTwoCharsOfLang = req.p.lang.substr(0, 2);
 
     Comment.getCommentTranslations(zid, tid, req.p.lang)
       .then((translations) => {
