@@ -312,8 +312,8 @@ function getCommentTranslations(zid, tid, lang) {
   }
   return new Promise((resolve, reject) => {
     getComment(zid, tid).then((comment) => {
-      pg.queryP("select * from comment_translations where zid = ($1) and tid = ($2) and lang LIKE '$3%';",
-        [zid, tid, language]).then((existingTranslations) => {
+      pg.queryP("select * from comment_translations where zid=$1 and tid=$2 and lang LIKE $3;",
+        [zid, tid, language + '%']).then((existingTranslations) => {
         if (existingTranslations) {
           // If exact existing translation exists, just use it
           if (existingTranslations.length > 1) {
