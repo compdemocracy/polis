@@ -67,7 +67,7 @@ function getIntInRange(min, max) {
   };
 }
 
-function extractFromQureyOrBody(req, name) {
+function extractFromQueryOrBody(req, name) {
   let ret = extractFromQuery(req, name);
   if (ret) {
     return ret;
