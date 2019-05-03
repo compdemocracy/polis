@@ -314,18 +314,17 @@ function getCommentTranslations(zid, tid, lang) {
     getComment(zid, tid).then((comment) => {
       pg.queryP("select * from comment_translations where zid=$1 and tid=$2 and lang LIKE $3;",
         [zid, tid, language + '%']).then((existingTranslations) => {
-        if (existingTranslations) {
+        if (existingTranslations && existingTranslations.length > 0) {
           // If exact existing translation exists, just use it
-          if (existingTranslations.length > 1) {
             for (let i in existingTranslations) {
               if (existingTranslations[i].lang === lang) {
                 existingTranslations = [existingTranslations[i]];
                 break;
               }
             }
-          }
-          resolve(existingTranslations);
+          resolve(existingTranslations[0]);
         } else {
+          // Else we translate then store
           resolve(translateAndStoreComment(zid, tid, comment.txt, lang));
         }
       });
