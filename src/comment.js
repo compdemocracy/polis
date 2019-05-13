@@ -389,5 +389,6 @@ module.exports = {
   _getCommentsList,
   getNumberOfCommentsRemaining,
   getCommentTranslations,
-  translateAndStoreComment
+  translateAndStoreComment,
+  appendTranslationToComments
 };
