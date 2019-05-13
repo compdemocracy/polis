@@ -4,6 +4,7 @@
 const Promise = require('bluebird');
 const express = require('express');
 const optional = require("optional");
+const Parameter = require('./src/utils/parameter');
 
 const server = require('./src/server');
 
@@ -14,17 +15,14 @@ const app = express();
 console.log('Server initilizing starts');
 
 server.initi18n(app);
-var helpersInitialized = new Promise(function(resolve, reject) {
-    resolve(server.initializePolisHelpers());
+var helpersInitialized = new Promise(function (resolve, reject) {
+  resolve(server.initializePolisHelpers());
 });
 
 
-
-helpersInitialized.then(function(o) {
+helpersInitialized.then(function (o) {
   const {
     addCorsHeader,
-    assignToP,
-    assignToPCustom,
     auth,
     authOptional,
     COOKIES,
@@ -35,31 +33,12 @@ helpersInitialized.then(function(o) {
     fetchIndexForConversation,
     fetchIndexForReportPage,
     fetchIndexWithoutPreloadData,
-    getArrayOfInt,
-    // getArrayOfStringLimitLength,
-    getArrayOfStringNonEmpty,
-    getArrayOfStringNonEmptyLimitLength,
-    getBool,
-    getConversationIdFetchZid,
-    getEmail,
-    getInt,
-    getIntInRange,
-    getNumberInRange,
-    getOptionalStringLimitLength,
-    getPassword,
-    getPasswordWithCreatePasswordRules,
     getPidForParticipant,
-    getReportIdFetchRid,
-    getStringLimitLength,
-    getUrlLimitLength,
     haltOnTimeout,
     HMAC_SIGNATURE_PARAM_NAME,
     hostname,
     makeFileFetcher,
     makeRedirectorTo,
-    moveToBody,
-    need,
-    // needHeader,
     pidCache,
     portForAdminFiles,
     portForParticipationFiles,
@@ -70,9 +49,6 @@ helpersInitialized.then(function(o) {
     resolve_pidThing,
     signInJoin,
     timeout,
-    want,
-    wantCookie,
-    wantHeader,
     winston,
     writeDefaultHead,
 
@@ -151,7 +127,6 @@ helpersInitialized.then(function(o) {
     handle_GET_zinvites,
 
 
-
     handle_POST_auth_deregister,
     handle_POST_auth_facebook,
     handle_POST_auth_login,
@@ -208,6 +183,33 @@ helpersInitialized.then(function(o) {
     handle_PUT_users,
   } = o;
 
+  const {
+    assignToP,
+    assignToPCustom,
+    getArrayOfInt,
+    getArrayOfStringNonEmpty,
+    getArrayOfStringNonEmptyLimitLength,
+    getBool,
+    getConversationIdFetchZid,
+    getEmail,
+    getInt,
+    getIntInRange,
+    getNumberInRange,
+    getOptionalStringLimitLength,
+    getPassword,
+    getPasswordWithCreatePasswordRules,
+    getReportIdFetchRid,
+    getStringLimitLength,
+    getUrlLimitLength,
+    moveToBody,
+    need,
+    needCookie,
+    needHeader,
+    want,
+    wantCookie,
+    wantHeader,
+  } = require('./src/utils/parameter');
+
   console.log('begin route config');
 
   app.disable('x-powered-by');
@@ -230,7 +232,7 @@ helpersInitialized.then(function(o) {
   ////////////////////////////////////////////
   ////////////////////////////////////////////
 
-  app.use(function(req, res, next) {
+  app.use(function (req, res, next) {
     // console.log("before");
     // console.log(req.body);
     // console.log(req.headers);
@@ -255,13 +257,13 @@ helpersInitialized.then(function(o) {
   app.use(middleware_log_request_body);
   app.use(middleware_log_middleware_errors);
 
-  app.use(function(req, res, next) {
+  app.use(function (req, res, next) {
     // console.log("part2");
     // console.log(req.body);
     // console.log(req.headers);
     next();
   });
-
+  
   app.all("/api/v3/*", addCorsHeader);
   app.all("/font/*", addCorsHeader);
   app.all("/api/v3/*", middleware_check_if_options);
@@ -283,7 +285,6 @@ helpersInitialized.then(function(o) {
   ////////////////////////////////////////////
 
 
-
   app.get("/api/v3/math/pca",
     handle_GET_math_pca);
 
@@ -301,7 +302,6 @@ helpersInitialized.then(function(o) {
     need('report_id', getReportIdFetchRid, assignToPCustom('rid')),
     want('math_tick', getInt, assignToP, -1),
     handle_GET_math_correlationMatrix);
-
 
 
   app.get("/api/v3/dataExport",
@@ -670,7 +670,7 @@ helpersInitialized.then(function(o) {
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('tid', getInt, assignToP),
-    want('lang', getStringLimitLength(1,10), assignToP),
+    want('lang', getStringLimitLength(1, 10), assignToP),
     handle_GET_comments_translations);
 
   app.get("/api/v3/votes/me",
@@ -695,7 +695,7 @@ helpersInitialized.then(function(o) {
     resolve_pidThing('not_voted_by_pid', assignToP, "get:nextComment"),
     want('without', getArrayOfInt, assignToP),
     want('include_social', getBool, assignToP),
-    want('lang', getStringLimitLength(1,10), assignToP), // preferred language of nextComment
+    want('lang', getStringLimitLength(1, 10), assignToP), // preferred language of nextComment
     haltOnTimeout,
     handle_GET_nextComment);
 
@@ -708,7 +708,7 @@ helpersInitialized.then(function(o) {
     hangle_GET_testDatabase);
 
   app.get("/robots.txt",
-    function(req, res) {
+    function (req, res) {
       res.send("User-agent: *\n" +
         "Disallow: /api/");
     });
@@ -719,7 +719,7 @@ helpersInitialized.then(function(o) {
     want('ptptoiLimit', getInt, assignToP),
     want('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('conversation_id', getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
-    want('lang', getStringLimitLength(1,10), assignToP), // preferred language of nextComment
+    want('lang', getStringLimitLength(1, 10), assignToP), // preferred language of nextComment
 
     want('domain_whitelist_override_key', getStringLimitLength(1, 1000), assignToP),
     denyIfNotFromWhitelistedDomain, // this seems like the easiest place to enforce the domain whitelist. The index.html is cached on cloudflare, so that's not the right place.
@@ -737,7 +737,7 @@ helpersInitialized.then(function(o) {
     want('weight', getNumberInRange(-1, 1), assignToP, 0),
     resolve_pidThing('pid', assignToP, "post:votes"),
     want('xid', getStringLimitLength(1, 999), assignToP),
-    want('lang', getStringLimitLength(1,10), assignToP), // language of the next comment to be returned
+    want('lang', getStringLimitLength(1, 10), assignToP), // language of the next comment to be returned
     handle_POST_votes);
 
   app.get("/api/v3/logMaxmindResponse",
@@ -816,7 +816,6 @@ helpersInitialized.then(function(o) {
     need('tid', getInt, assignToP),
     need('include', getBool, assignToP),
     handle_POST_reportCommentSelections);
-    
 
 
   // use this to generate them
@@ -1223,7 +1222,7 @@ helpersInitialized.then(function(o) {
     want('ui_lang', getStringLimitLength(1, 10), assignToP), // not persisted
     want('dwok', getStringLimitLength(1, 1000), assignToP), // not persisted
     want('xid', getStringLimitLength(1, 999), assignToP), // not persisted
-    want('subscribe_type', getStringLimitLength(1,9), assignToP), // not persisted
+    want('subscribe_type', getStringLimitLength(1, 9), assignToP), // not persisted
     want('x_name', getStringLimitLength(1, 746), assignToP),  // not persisted here, but later on POST vote/comment
     want('x_profile_image_url', getStringLimitLength(1, 3000), assignToP),  // not persisted here, but later on POST vote/comment
     want('x_email', getStringLimitLength(256), assignToP),  // not persisted here, but later on POST vote/comment
@@ -1282,12 +1281,12 @@ helpersInitialized.then(function(o) {
     handle_POST_waitinglist);
 
   app.post("/api/v3/metrics",
-      authOptional(assignToP),
-      need('types', getArrayOfInt, assignToP),
-      need('times', getArrayOfInt, assignToP),
-      need('durs', getArrayOfInt, assignToP),
-      need('clientTimestamp', getInt, assignToP),
-      handle_POST_metrics);
+    authOptional(assignToP),
+    need('types', getArrayOfInt, assignToP),
+    need('times', getArrayOfInt, assignToP),
+    need('durs', getArrayOfInt, assignToP),
+    need('clientTimestamp', getInt, assignToP),
+    handle_POST_metrics);
 
   if (polisServerBrand && polisServerBrand.registerRoutes) {
     polisServerBrand.registerRoutes(app, o);
@@ -1295,7 +1294,7 @@ helpersInitialized.then(function(o) {
 
   function makeFetchIndexWithoutPreloadData() {
     let port = portForParticipationFiles;
-    return function(req, res) {
+    return function (req, res) {
       return fetchIndexWithoutPreloadData(req, res, port);
     };
   }
@@ -1364,7 +1363,7 @@ helpersInitialized.then(function(o) {
   app.get(/^\/company$/, fetchIndexForAdminPage);
 
   app.get(/^\/report\/r?[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForReportPage);
-  
+
   app.get(/^\/embed$/, makeFileFetcher(hostname, portForAdminFiles, "/embed.html", {
     'Content-Type': "text/html",
   }));
@@ -1405,27 +1404,27 @@ helpersInitialized.then(function(o) {
 
   // ends in slash? redirect to non-slash version
   app.get(/.*\//,
-  function(req, res) {
-    let pathAndQuery = req.originalUrl;
+    function (req, res) {
+      let pathAndQuery = req.originalUrl;
 
-    // remove slash at end
-    if (pathAndQuery.endsWith("/")) {
-      pathAndQuery = pathAndQuery.slice(0, pathAndQuery.length-1);
-    }
+      // remove slash at end
+      if (pathAndQuery.endsWith("/")) {
+        pathAndQuery = pathAndQuery.slice(0, pathAndQuery.length - 1);
+      }
 
-    // remove slashes before "?"
-    if (pathAndQuery.indexOf("?") >= 1) {
-      pathAndQuery = pathAndQuery.replace("/\?", "?");
-    }
+      // remove slashes before "?"
+      if (pathAndQuery.indexOf("?") >= 1) {
+        pathAndQuery = pathAndQuery.replace("/\?", "?");
+      }
 
-    let fullUrl = req.protocol + '://' + req.get('host') + pathAndQuery;
+      let fullUrl = req.protocol + '://' + req.get('host') + pathAndQuery;
 
-    if (pathAndQuery !== req.originalUrl) {
-      res.redirect(fullUrl);
-    } else {
-      proxy(req, res);
-    }
-  });
+      if (pathAndQuery !== req.originalUrl) {
+        res.redirect(fullUrl);
+      } else {
+        proxy(req, res);
+      }
+    });
 
 
   var missingFilesGet404 = false;
@@ -1443,7 +1442,8 @@ helpersInitialized.then(function(o) {
 
   winston.log("info", 'started on port ' + process.env.PORT);
 
-}, function(err) {
+}, function (err) {
   console.error("failed to init server");
   console.error(err);
 });
+

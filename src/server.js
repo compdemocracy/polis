@@ -40,7 +40,6 @@ const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const LruCache = require("lru-cache");
 const timeout = require('connect-timeout');
 
-const isValidUrl = require('valid-url');
 const zlib = require('zlib');
 const _ = require('underscore');
 const Mailgun = require('mailgun-js');
@@ -531,21 +530,6 @@ function doPolisSlackTeamUserTokenHeaderAuth(assigner, isOptional, req, res, nex
 }
 
 
-// Consolidate query/body items in one place so other middleware has one place to look.
-function moveToBody(req, res, next) {
-  if (req.query) {
-    req.body = req.body || {};
-    Object.assign(req.body, req.query);
-  }
-  if (req.params) {
-    req.body = req.body || {};
-    Object.assign(req.body, req.params);
-  }
-  // inti req.p if not there already
-  req.p = req.p || {};
-  next();
-}
-
 // function logPath(req, res, next) {
 //     winston.log("info",req.method + " " + req.url);
 //     next();
@@ -570,377 +554,6 @@ String.prototype.hashCode = function () {
 const fail = Log.fail;
 const userFail = Log.userFail;
 
-function isEmail(s) {
-  return typeof s === "string" && s.length < 999 && s.indexOf("@") > 0;
-}
-
-function getEmail(s) {
-  return new Promise(function (resolve, reject) {
-    if (!isEmail(s)) {
-      return reject("polis_fail_parse_email");
-    }
-    resolve(s);
-  });
-}
-
-function getPassword(s) {
-  return new Promise(function (resolve, reject) {
-    if (typeof s !== "string" || s.length > 999 || s.length === 0) {
-      return reject("polis_fail_parse_password");
-    }
-    resolve(s);
-  });
-}
-
-function getPasswordWithCreatePasswordRules(s) {
-  return getPassword(s).then(function (s) {
-    if (typeof s !== "string" || s.length < 6) {
-      throw new Error("polis_err_password_too_short");
-    }
-    return s;
-  });
-}
-
-function getOptionalStringLimitLength(limit) {
-  return function (s) {
-    return new Promise(function (resolve, reject) {
-      if (s.length && s.length > limit) {
-        return reject("polis_fail_parse_string_too_long");
-      }
-      // strip leading/trailing spaces
-      s = s.replace(/^ */, "").replace(/ *$/, "");
-      resolve(s);
-    });
-  };
-}
-
-function getStringLimitLength(min, max) {
-  if (_.isUndefined(max)) {
-    max = min;
-    min = 1;
-  }
-  return function (s) {
-    return new Promise(function (resolve, reject) {
-      if (typeof s !== "string") {
-        return reject("polis_fail_parse_string_missing");
-      }
-      if (s.length && s.length > max) {
-        return reject("polis_fail_parse_string_too_long");
-      }
-      if (s.length && s.length < min) {
-        return reject("polis_fail_parse_string_too_short");
-      }
-      // strip leading/trailing spaces
-      s = s.replace(/^ */, "").replace(/ *$/, "");
-      resolve(s);
-    });
-  };
-}
-
-function getUrlLimitLength(limit) {
-  return function (s) {
-    getStringLimitLength(limit)(s).then(function (s) {
-      return new Promise(function (resolve, reject) {
-        if (isValidUrl(s)) {
-          return resolve(s);
-        } else {
-          return reject("polis_fail_parse_url_invalid");
-        }
-      });
-    });
-  };
-}
-
-const getBool = Utils.getBool;
-const getInt = Utils.getInt;
-const getIntInRange = Utils.getIntInRange;
-
-const conversationIdToZidCache = new LruCache({
-  max: 1000,
-});
-const reportIdToRidCache = new LruCache({
-  max: 1000,
-});
-
-// NOTE: currently conversation_id is stored as zinvite
-function getZidFromConversationId(conversation_id) {
-  return new MPromise("getZidFromConversationId", function (resolve, reject) {
-    let cachedZid = conversationIdToZidCache.get(conversation_id);
-    if (cachedZid) {
-      resolve(cachedZid);
-      return;
-    }
-    pgQuery_readOnly("select zid from zinvites where zinvite = ($1);", [conversation_id], function (err, results) {
-      if (err) {
-        return reject(err);
-      } else if (!results || !results.rows || !results.rows.length) {
-        console.error("polis_err_fetching_zid_for_conversation_id " + conversation_id);
-        return reject("polis_err_fetching_zid_for_conversation_id");
-      } else {
-        let zid = results.rows[0].zid;
-        conversationIdToZidCache.set(conversation_id, zid);
-        return resolve(zid);
-      }
-    });
-  });
-}
-
-function getRidFromReportId(report_id) {
-  return new MPromise("getRidFromReportId", function (resolve, reject) {
-    let cachedRid = reportIdToRidCache.get(report_id);
-    if (cachedRid) {
-      resolve(cachedRid);
-      return;
-    }
-    pgQuery_readOnly("select rid from reports where report_id = ($1);", [report_id], function (err, results) {
-      if (err) {
-        return reject(err);
-      } else if (!results || !results.rows || !results.rows.length) {
-        console.error("polis_err_fetching_rid_for_report_id " + report_id);
-        return reject("polis_err_fetching_rid_for_report_id");
-      } else {
-        let rid = results.rows[0].rid;
-        reportIdToRidCache.set(report_id, rid);
-        return resolve(rid);
-      }
-    });
-  });
-}
-
-// conversation_id is the client/ public API facing string ID
-const parseConversationId = getStringLimitLength(1, 100);
-
-function getConversationIdFetchZid(s) {
-  return parseConversationId(s).then(function (conversation_id) {
-    return getZidFromConversationId(conversation_id).then(function (zid) {
-      return Number(zid);
-    });
-  });
-}
-
-const parseReportId = getStringLimitLength(1, 100);
-
-function getReportIdFetchRid(s) {
-  return parseReportId(s).then(function (report_id) {
-    console.log(report_id);
-    return getRidFromReportId(report_id).then(function (rid) {
-      console.log(rid);
-      return Number(rid);
-    });
-  });
-}
-
-
-function getNumber(s) {
-  return new Promise(function (resolve, reject) {
-    if (_.isNumber(s)) {
-      return resolve(s);
-    }
-    let x = parseFloat(s);
-    if (isNaN(x)) {
-      return reject("polis_fail_parse_number");
-    }
-    resolve(x);
-  });
-}
-
-function getNumberInRange(min, max) {
-  return function (s) {
-    return getNumber(s).then(function (x) {
-      if (x < min || max < x) {
-        throw "polis_fail_parse_number_out_of_range";
-      }
-      return x;
-    });
-  };
-}
-
-function getArrayOfString(a, maxStrings, maxLength) {
-  return new Promise(function (resolve, reject) {
-    if (_.isString(a)) {
-      a = a.split(',');
-    }
-    if (!_.isArray(a)) {
-      return reject("polis_fail_parse_int_array");
-    }
-    resolve(a);
-  });
-}
-
-function getArrayOfStringNonEmpty(a, maxStrings, maxLength) {
-  if (!a || !a.length) {
-    return Promise.reject("polis_fail_parse_string_array_empty");
-  }
-  return getArrayOfString(a);
-}
-
-function getArrayOfStringLimitLength(maxStrings, maxLength) {
-  return function (a) {
-    return getArrayOfString(a, maxStrings || 999999999, maxLength);
-  };
-}
-
-function getArrayOfStringNonEmptyLimitLength(maxStrings, maxLength) {
-  return function (a) {
-    return getArrayOfStringNonEmpty(a, maxStrings || 999999999, maxLength);
-  };
-}
-
-function getArrayOfInt(a) {
-  if (_.isString(a)) {
-    a = a.split(',');
-  }
-  if (!_.isArray(a)) {
-    return Promise.reject("polis_fail_parse_int_array");
-  }
-
-  function integer(i) {
-    return Number(i) >> 0;
-  }
-
-  return Promise.resolve(a.map(integer));
-}
-
-function assignToP(req, name, x) {
-  req.p = req.p || {};
-  if (!_.isUndefined(req.p[name])) {
-    let s = "clobbering " + name;
-    console.error(s);
-    yell(s);
-  }
-  req.p[name] = x;
-}
-
-function assignToPCustom(name) {
-  return function (req, ignoredName, x) {
-    assignToP(req, name, x);
-  };
-}
-
-
-const extractFromBody = Utils.extractFromBody;
-const extractFromCookie = Utils.extractFromCookie;
-const extractFromHeader = Utils.extractFromHeader;
-
-
-const prrrams = (function () {
-  function buildCallback(config) {
-    let name = config.name;
-    let parserWhichReturnsPromise = config.parserWhichReturnsPromise;
-    let assigner = config.assigner;
-    let required = config.required;
-    let defaultVal = config.defaultVal;
-    let extractor = config.extractor;
-
-    if (typeof assigner !== "function") {
-      throw "bad arg for assigner";
-    }
-    if (typeof parserWhichReturnsPromise !== "function") {
-      throw "bad arg for parserWhichReturnsPromise";
-    }
-
-    let f = function (req, res, next) {
-      let val = extractor(req, name);
-      if (!_.isUndefined(val) && !_.isNull(val)) {
-        parserWhichReturnsPromise(val).then(function (parsed) {
-          assigner(req, name, parsed);
-          next();
-        }, function (e) {
-          let s = "polis_err_param_parse_failed_" + name;
-          console.error(s);
-          console.error(e);
-          yell(s);
-          res.status(400);
-          next(s);
-          return;
-        }).catch(function (err) {
-          fail(res, "polis_err_misc", err);
-          return;
-        });
-      } else if (!required) {
-        if (typeof defaultVal !== "undefined") {
-          assigner(req, name, defaultVal);
-        }
-        next();
-      } else {
-        // winston.log("info",req);
-        let s = "polis_err_param_missing_" + name;
-        console.error(s);
-        yell(s);
-        res.status(400);
-        next(s);
-      }
-    };
-    return f;
-  }
-
-  return {
-    need: function (name, parserWhichReturnsPromise, assigner) {
-      return buildCallback({
-        name: name,
-        extractor: Utils.extractFromQueryOrBody,
-        parserWhichReturnsPromise: parserWhichReturnsPromise,
-        assigner: assigner,
-        required: true,
-      });
-    },
-    want: function (name, parserWhichReturnsPromise, assigner, defaultVal) {
-      return buildCallback({
-        name: name,
-        extractor: Utils.extractFromQueryOrBody,
-        parserWhichReturnsPromise: parserWhichReturnsPromise,
-        assigner: assigner,
-        required: false,
-        defaultVal: defaultVal,
-      });
-    },
-    needCookie: function (name, parserWhichReturnsPromise, assigner) {
-      return buildCallback({
-        name: name,
-        extractor: extractFromCookie,
-        parserWhichReturnsPromise: parserWhichReturnsPromise,
-        assigner: assigner,
-        required: true,
-      });
-    },
-    wantCookie: function (name, parserWhichReturnsPromise, assigner, defaultVal) {
-      return buildCallback({
-        name: name,
-        extractor: extractFromCookie,
-        parserWhichReturnsPromise: parserWhichReturnsPromise,
-        assigner: assigner,
-        required: false,
-        defaultVal: defaultVal,
-      });
-    },
-    needHeader: function (name, parserWhichReturnsPromise, assigner, defaultVal) {
-      return buildCallback({
-        name: name,
-        extractor: extractFromHeader,
-        parserWhichReturnsPromise: parserWhichReturnsPromise,
-        assigner: assigner,
-        required: true,
-        defaultVal: defaultVal,
-      });
-    },
-    wantHeader: function (name, parserWhichReturnsPromise, assigner, defaultVal) {
-      return buildCallback({
-        name: name,
-        extractor: extractFromHeader,
-        parserWhichReturnsPromise: parserWhichReturnsPromise,
-        assigner: assigner,
-        required: false,
-        defaultVal: defaultVal,
-      });
-    },
-  };
-}());
-const need = prrrams.need;
-const want = prrrams.want;
-// let needCookie = prrrams.needCookie;
-const wantCookie = prrrams.wantCookie;
-const needHeader = prrrams.needHeader;
-const wantHeader = prrrams.wantHeader;
 
 function initializePolisHelpers() {
 
@@ -12710,8 +12323,6 @@ Thanks for using Polis!
 
   return {
     addCorsHeader,
-    assignToP,
-    assignToPCustom,
     auth,
     authOptional,
     COOKIES,
@@ -12724,34 +12335,11 @@ Thanks for using Polis!
     fetchIndexForConversation,
     fetchIndexForReportPage,
     fetchIndexWithoutPreloadData,
-    getArrayOfInt,
-    getArrayOfStringLimitLength,
-    getArrayOfStringNonEmpty,
-    getArrayOfStringNonEmptyLimitLength,
-    getBool,
-    getConversationIdFetchZid,
-    getEmail,
-    getInt,
-    getIntInRange,
-    getNumberInRange,
-    getOptionalStringLimitLength,
-    getPassword,
-    getPasswordWithCreatePasswordRules,
     getPidForParticipant,
-    getReportIdFetchRid,
-    getStringLimitLength,
-    getUrlLimitLength,
-    haltOnTimeout,
-    getInt,
-    getBool,
-    getIntInRange,
     HMAC_SIGNATURE_PARAM_NAME,
     hostname,
     makeFileFetcher,
     makeRedirectorTo,
-    moveToBody,
-    need,
-    needHeader,
     pidCache,
     portForAdminFiles,
     portForParticipationFiles,
@@ -12762,9 +12350,6 @@ Thanks for using Polis!
     resolve_pidThing,
     sendTextEmail,
     timeout,
-    want,
-    wantCookie,
-    wantHeader,
     winston,
     writeDefaultHead,
     yell,
