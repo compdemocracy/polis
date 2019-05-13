@@ -356,6 +356,31 @@ function translateString(txt, target_lang) {
   return Promise.resolve(null);
 }
 
+function appendTranslationToComments(comments, option) {
+  return new Promise((resolve, reject) => {
+    // As policy of polis, remove region code
+    let lang = option.lang;
+    if (lang.indexOf('-') > 0) {
+      lang = lang.split('-')[0];
+    }
+    pg.queryP('SELECT * FROM comment_translations WHERE zid=$1 AND lang LIKE $2;', [option.zid, lang + "%"])
+      .then(rows => {
+        resolve(comments.map((c) => {
+          for (let i in rows) {
+            let row = rows[i];
+            // noinspection EqualityComparisonWithCoercionJS
+            if (c.tid == row.tid) {
+              c.translatedText = {};
+              c.translatedText[lang] = row.txt;
+              return c;
+            }
+          }
+          return c;
+        }));
+      })
+      .catch(error => reject(error));
+  });
+}
 
 module.exports = {
   getComment,

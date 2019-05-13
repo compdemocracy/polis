@@ -46,7 +46,6 @@ helpersInitialized.then(function (o) {
     redirectIfApiDomain,
     redirectIfHasZidButNoConversationId,
     redirectIfNotHttps,
-    signInJoin,
     timeout,
     winston,
     writeDefaultHead,
@@ -629,6 +628,8 @@ helpersInitialized.then(function (o) {
     want('include_demographics', getBool, assignToP),
     //    need('lastServerToken', _.identity, assignToP),
     want('include_voting_patterns', getBool, assignToP, false),
+    want('translate', getBool, assignToP, false),
+    want('lang', getStringLimitLength(0, 6), assignToP),
     resolve_pidThing('not_voted_by_pid', assignToP, "get:comments:not_voted_by_pid"),
     resolve_pidThing('pid', assignToP, "get:comments:pid"),
     handle_GET_comments);
