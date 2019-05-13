@@ -614,7 +614,6 @@ function initializePolisHelpers() {
   const pidCache = User.pidCache;
   const getPid = User.getPid;
   const getPidPromise = User.getPidPromise;
-  const resolve_pidThing = User.resolve_pidThing;
   const getPidForParticipant = User.getPidForParticipant;
 
   function recordPermanentCookieZidJoin(permanentCookieToken, zid) {
@@ -8506,7 +8505,7 @@ Email verified! You can close this tab or hit the back button.
           let zid = result && result.rows && result.rows[0] && result.rows[0].zid;
 
           const zinvitePromise = req.p.conversation_id ?
-            getZidFromConversationId(req.p.conversation_id).then((zid) => {
+            Conversation.getZidFromConversationId(req.p.conversation_id).then((zid) => {
               return zid === 0 ? req.p.conversation_id : null;
             }) :
             generateAndRegisterZinvite(zid, generateShortUrl);
@@ -11632,7 +11631,7 @@ Thanks for using Polis!
 
   function doGetConversationPreloadInfo(conversation_id) {
     // return Promise.resolve({});
-    return getZidFromConversationId(conversation_id).then(function (zid) {
+    return Conversation.getZidFromConversationId(conversation_id).then(function (zid) {
       return Promise.all([
         getConversationInfo(zid),
       ]);
@@ -12337,6 +12336,7 @@ Thanks for using Polis!
     fetchIndexWithoutPreloadData,
     getPidForParticipant,
     HMAC_SIGNATURE_PARAM_NAME,
+    haltOnTimeout,
     hostname,
     makeFileFetcher,
     makeRedirectorTo,
@@ -12347,7 +12347,6 @@ Thanks for using Polis!
     redirectIfApiDomain,
     redirectIfHasZidButNoConversationId,
     redirectIfNotHttps,
-    resolve_pidThing,
     sendTextEmail,
     timeout,
     winston,

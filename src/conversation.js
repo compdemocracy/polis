@@ -1,6 +1,7 @@
 const pg = require('./db/pg-query');
 const User = require('./user');
 const MPromise = require('./utils/metered').MPromise;
+const LruCache = require("lru-cache");
 
 function createXidRecord(ownerUid, uid, xid, x_profile_image_url, x_name, x_email) {
   return pg.queryP("insert into xids (owner, uid, xid, x_profile_image_url, x_name, x_email) values ($1, $2, $3, $4, $5, $6) " +
@@ -120,6 +121,33 @@ function getConversationInfoByConversationId(conversation_id) {
   });
 }
 
+const conversationIdToZidCache = new LruCache({
+  max: 1000,
+});
+
+// NOTE: currently conversation_id is stored as zinvite
+function getZidFromConversationId(conversation_id) {
+  return new MPromise("getZidFromConversationId", function (resolve, reject) {
+    let cachedZid = conversationIdToZidCache.get(conversation_id);
+    if (cachedZid) {
+      resolve(cachedZid);
+      return;
+    }
+    pg.query_readOnly("select zid from zinvites where zinvite = ($1);", [conversation_id], function (err, results) {
+      if (err) {
+        return reject(err);
+      } else if (!results || !results.rows || !results.rows.length) {
+        console.error("polis_err_fetching_zid_for_conversation_id " + conversation_id);
+        return reject("polis_err_fetching_zid_for_conversation_id");
+      } else {
+        let zid = results.rows[0].zid;
+        conversationIdToZidCache.set(conversation_id, zid);
+        return resolve(zid);
+      }
+    });
+  });
+}
+
 module.exports = {
   createXidRecordByZid,
   getXidRecord,
@@ -127,5 +155,6 @@ module.exports = {
   getXidStuff,
   isXidWhitelisted,
   getConversationInfo,
-  getConversationInfoByConversationId
+  getConversationInfoByConversationId,
+  getZidFromConversationId,
 };

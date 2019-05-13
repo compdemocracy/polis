@@ -226,49 +226,6 @@ function getPidPromise(zid, uid, usePrimary) {
   });
 }
 
-
-function resolve_pidThing(pidThingStringName, assigner, loggingString) {
-  if (_.isUndefined(loggingString)) {
-    loggingString = "";
-  }
-  return function(req, res, next) {
-    if (!req.p) {
-      Log.fail(res, 500, "polis_err_this_middleware_should_be_after_auth_and_zid");
-      next("polis_err_this_middleware_should_be_after_auth_and_zid");
-    }
-    console.dir(req.p);
-
-    let existingValue = Utils.extractFromBody(req, pidThingStringName) ||
-      Utils.extractFromCookie(req, pidThingStringName);
-
-    if (existingValue === "mypid" && req.p.zid && req.p.uid) {
-      getPidPromise(req.p.zid, req.p.uid).then(function(pid) {
-        if (pid >= 0) {
-          assigner(req, pidThingStringName, pid);
-        }
-        next();
-      }).catch(function(err) {
-        Log.fail(res, 500, "polis_err_mypid_resolve_error", err);
-        next(err);
-      });
-    } else if (existingValue === "mypid") {
-      // don't assign anything, since we have no uid to look it up.
-      next();
-    } else if (!_.isUndefined(existingValue)) {
-      Utils.getInt(existingValue).then(function(pidNumber) {
-        assigner(req, pidThingStringName, pidNumber);
-        next();
-      }).catch(function(err) {
-        Log.fail(res, 500, "polis_err_pid_error", err);
-        next(err);
-      });
-    } else {
-      next();
-    }
-  };
-}
-
-
 // must follow auth and need('zid'...) middleware
 function getPidForParticipant(assigner, cache) {
   return function(req, res, next) {
@@ -327,7 +284,6 @@ module.exports = {
   createDummyUser,
   getPid,
   getPidPromise,
-  resolve_pidThing,
   getPidForParticipant,
   getSocialInfoForUsers
 };

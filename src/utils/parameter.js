@@ -2,6 +2,8 @@ const _ = require('underscore');
 const pg = require('../db/pg-query');
 const MPromise = require('./metered').MPromise;
 const Log = require('../log');
+const Conversation = require('../conversation');
+const User = require('../user');
 const isValidUrl = require('valid-url');
 const LruCache = require("lru-cache");
 
@@ -281,35 +283,11 @@ function getIntInRange(min, max) {
   };
 }
 
-const conversationIdToZidCache = new LruCache({
-  max: 1000,
-});
 const reportIdToRidCache = new LruCache({
   max: 1000,
 });
 
-// NOTE: currently conversation_id is stored as zinvite
-function getZidFromConversationId(conversation_id) {
-  return new MPromise("getZidFromConversationId", function (resolve, reject) {
-    let cachedZid = conversationIdToZidCache.get(conversation_id);
-    if (cachedZid) {
-      resolve(cachedZid);
-      return;
-    }
-    pg.query_readOnly("select zid from zinvites where zinvite = ($1);", [conversation_id], function (err, results) {
-      if (err) {
-        return reject(err);
-      } else if (!results || !results.rows || !results.rows.length) {
-        console.error("polis_err_fetching_zid_for_conversation_id " + conversation_id);
-        return reject("polis_err_fetching_zid_for_conversation_id");
-      } else {
-        let zid = results.rows[0].zid;
-        conversationIdToZidCache.set(conversation_id, zid);
-        return resolve(zid);
-      }
-    });
-  });
-}
+const getZidFromConversationId = Conversation.getZidFromConversationId;
 
 function getRidFromReportId(report_id) {
   return new MPromise("getRidFromReportId", function (resolve, reject) {
@@ -440,6 +418,47 @@ function assignToPCustom(name) {
   };
 }
 
+function resolve_pidThing(pidThingStringName, assigner, loggingString) {
+  if (_.isUndefined(loggingString)) {
+    loggingString = "";
+  }
+  return function(req, res, next) {
+    if (!req.p) {
+      Log.fail(res, 500, "polis_err_this_middleware_should_be_after_auth_and_zid");
+      next("polis_err_this_middleware_should_be_after_auth_and_zid");
+    }
+    console.dir(req.p);
+
+    let existingValue = extractFromBody(req, pidThingStringName) ||
+      extractFromCookie(req, pidThingStringName);
+
+    if (existingValue === "mypid" && req.p.zid && req.p.uid) {
+      User.getPidPromise(req.p.zid, req.p.uid).then(function(pid) {
+        if (pid >= 0) {
+          assigner(req, pidThingStringName, pid);
+        }
+        next();
+      }).catch(function(err) {
+        Log.fail(res, 500, "polis_err_mypid_resolve_error", err);
+        next(err);
+      });
+    } else if (existingValue === "mypid") {
+      // don't assign anything, since we have no uid to look it up.
+      next();
+    } else if (!_.isUndefined(existingValue)) {
+      getInt(existingValue).then(function(pidNumber) {
+        assigner(req, pidThingStringName, pidNumber);
+        next();
+      }).catch(function(err) {
+        Log.fail(res, 500, "polis_err_pid_error", err);
+        next(err);
+      });
+    } else {
+      next();
+    }
+  };
+}
+
 module.exports = {
   assignToP,
   assignToPCustom,
@@ -462,6 +481,7 @@ module.exports = {
   need,
   needCookie,
   needHeader,
+  resolve_pidThing,
   want,
   wantCookie,
   wantHeader,
