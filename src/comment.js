@@ -366,12 +366,19 @@ function appendTranslationToComments(comments, option) {
     pg.queryP('SELECT * FROM comment_translations WHERE zid=$1 AND lang LIKE $2;', [option.zid, lang + "%"])
       .then(rows => {
         resolve(comments.map((c) => {
+          // Strict language-region check here
+          if (c.lang === option.lang) {
+            return c;
+          }
           for (let i in rows) {
             let row = rows[i];
             // noinspection EqualityComparisonWithCoercionJS
             if (c.tid == row.tid) {
-              c.translatedText = {};
-              c.translatedText[lang] = row.txt;
+              // Ignore identical text (happens in the case of the same language with different region)
+              if (row.txt !== c.txt) {
+                c.translatedText = {};
+                c.translatedText[lang] = row.txt;
+              }
               return c;
             }
           }
