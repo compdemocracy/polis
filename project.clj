@@ -7,7 +7,7 @@
   ;:aot :all
   ;:jvm-opts ^:replace []
   :jvm-opts ["-Xmx4g"]
-  :repl-options {:timeout 120000
+  :repl-options {:timeout 220000
                  ;:nrepl-middleware [com.gfredericks.debug-repl/wrap-debug-repl]
                  :port 34344}
   :target-path "target/%s"
@@ -30,6 +30,8 @@
                  [org.clojure/tools.logging "0.4.1"]
                  [org.clojure/tools.trace "0.7.10"]
                  [org.clojure/tools.reader "1.3.2"]
+
+                 [org.flatland/ordered "1.5.7"] 
                  ;; Other stuff
                  [commons-collections/commons-collections "20040616"]
                  [cheshire "5.8.1"]
@@ -72,7 +74,7 @@
                  [environ "1.1.0"]
                  [mount "0.1.15"]
                  [honeysql "0.9.4"]
-                 [metasoarous/oz "1.5.2"]
+                 [metasoarous/oz "1.6.0-alpha3"]
 
                  ;; Dev
                  [org.clojure/test.check "0.9.0"]
@@ -81,7 +83,7 @@
 
   :gorilla-options {:keymap {"command:app:save" "alt+g alt+w"}
                     :port 989796}
-  :main polismath.runner
+  :main ^:skip-aot polismath.runner
   :min-lein-version "2.3.0"
   :profiles {:dev {:dependencies []
                    :source-paths ["src" "dev"]}
