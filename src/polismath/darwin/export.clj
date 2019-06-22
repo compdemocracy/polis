@@ -483,7 +483,7 @@
 
 (defn move-to-zip-stream
   [zip-stream input-filename entry-point]
-  (with-open [input  (io/input-stream input-filename)]
+  (with-open [input (io/input-stream input-filename)]
     (with-entry zip-stream entry-point
       (io/copy input zip-stream))))
 
@@ -506,22 +506,22 @@
 (defn save-to-csv-zip
   ([filename data]
    (with-open [file (io/output-stream filename)
-               zip  (ZipOutputStream. file)]
-     (save-to-csv-zip zip (zipfile-basename filename) data)))
-  ([zip-stream entry-point-base data]
-   (with-open [wrt  (io/writer zip-stream)]
-     (binding [*out* wrt]
-       (doto zip-stream
-         (with-entry (str entry-point-base "/summary.csv")
-           (print-csv (:summary data)))
-         (with-entry (str entry-point-base "/stats-history.csv")
-           (print-csv (:stats-history data)))
-         (with-entry (str entry-point-base "/comments.csv")
-           (print-csv (:comments data)))
-         (with-entry (str entry-point-base "/votes.csv")
-           (print-csv (:votes data)))
-         (with-entry (str entry-point-base "/participants-votes.csv")
-           (print-csv (:participants-votes data))))))))
+               zip  (ZipOutputStream. file)
+               writer (io/writer zip)]
+     (save-to-csv-zip zip writer (zipfile-basename filename) data)))
+  ([zip-stream writer entry-point-base data]
+   (binding [*out* writer]
+     (doto zip-stream
+       (with-entry (str entry-point-base "/summary.csv")
+         (print-csv (:summary data)))
+       (with-entry (str entry-point-base "/stats-history.csv")
+         (print-csv (:stats-history data)))
+       (with-entry (str entry-point-base "/comments.csv")
+         (print-csv (:comments data)))
+       (with-entry (str entry-point-base "/votes.csv")
+         (print-csv (:votes data)))
+       (with-entry (str entry-point-base "/participants-votes.csv")
+         (print-csv (:participants-votes data)))))))
 
 
 (defn save-to-excel
@@ -577,17 +577,17 @@
      :participants-votes (participants-votes-table darwin conv votes comments kw-args)
      :comments comments}))
 
-(defn get-export-data-at-date
-  [darwin {:keys [zid zinvite env-overrides at-date] :as kw-args}]
+(defn get-export-data-at-time
+  [darwin {:keys [zid zinvite env-overrides at-time] :as kw-args}]
   (let [zid (or zid (postgres/get-zid-from-zinvite (:postgres darwin) zinvite))
-        votes (get-conversation-votes darwin zid at-date)
+        votes (get-conversation-votes darwin zid at-time)
         conv (assoc (conv/new-conv) :zid zid)
         conv (conv/conv-update conv votes)
         _ (log/info "Done with conv update")
-        comments (enriched-comments-data (get-comments-data darwin zid at-date) votes)
-        participants (get-participation-data darwin zid at-date)]
+        comments (enriched-comments-data (get-comments-data darwin zid at-time) votes)
+        participants (get-participation-data darwin zid at-time)]
     {:votes votes
-     :summary (assoc (summary-data darwin conv votes comments participants) :at-date at-date)
+     :summary (assoc (summary-data darwin conv votes comments participants) :at-time at-time)
      :stats-history (stats-history votes participants comments)
      :participants-votes (participants-votes-table darwin conv votes comments kw-args)
      :comments comments}))
@@ -600,16 +600,16 @@
   specified, which can be used for biulding up items in a zip file. This is used in export/-main to export all
   convs for a given uid, for example."
   ;; Don't forget env-overrides {:math-env "prod"}; should clean up with system
-  [darwin {:keys [zid zinvite format filename zip-stream entry-point env-overrides at-date include-xid] :as kw-args}]
+  [darwin {:keys [zid zinvite format filename zip-stream writer entry-point env-overrides at-time include-xid] :as kw-args}]
   (log/info "Exporting data for zid =" zid ", zinvite =" zinvite)
-  (let [export-data (if at-date
-                      (get-export-data-at-date darwin kw-args)
+  (let [export-data (if at-time
+                      (get-export-data-at-time darwin kw-args)
                       (get-export-data darwin kw-args))
         [formatter saver] (case format :excel [excel-format save-to-excel] :csv [csv-format save-to-csv-zip])
         formatted (formatter export-data)]
     (if zip-stream
       (if (-> export-data :summary :n-voters (> 0))
-        (saver zip-stream entry-point formatted)
+        (saver zip-stream writer entry-point formatted)
         (log/debug "Skipping conv" zid zinvite ", since no votes"))
       (saver (full-path darwin filename) formatted)))
   (log/info "Finished exporting data for zid =" zid ", zinvite =" zinvite))

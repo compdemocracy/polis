@@ -110,9 +110,9 @@
 
 (defn generate-filename
   "Generates a filename based on request-params"
-  [{:as request-params :keys [zinvite at-date format]}]
+  [{:as request-params :keys [zinvite at-time format]}]
   {:pre [zinvite format]}
-  (let [last-updated (or at-date (System/currentTimeMillis))
+  (let [last-updated (or at-time (System/currentTimeMillis))
         ext (case format :excel "xlsx" :csv "zip")
         filename (str "polis-export-" zinvite "-" last-updated "." ext)]
     filename))
@@ -140,7 +140,7 @@
     (assert (and x (< 0 x) (>= 29000 x)) "Invalid timout value")
     x))
 
-(def parsers {:at-date ->long
+(def parsers {:at-time ->long
               :format  keyword
               :timeout parse-and-validate-timeout})
 
