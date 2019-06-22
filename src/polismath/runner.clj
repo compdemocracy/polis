@@ -2,6 +2,7 @@
 
 (ns polismath.runner
   "This namespace is responsible for running systems"
+  (:refer-clojure :exclude [run!])
   (:require [polismath.system :as system]
     ;[polismath.stormspec :as stormspec :refer [storm-system]]
             [polismath.utils :as utils]
@@ -11,6 +12,7 @@
             [taoensso.timbre :as log]
             [clojure.string :as string]
             [clj-time.core :as t]
+            [clojure.edn :as edn]
             [clj-time.coerce :as co]
             [clojure.java.io :as io]
             [com.stuartsierra.component :as component]
@@ -114,20 +116,27 @@
 
 ;; This needs to be cleaned up and integrated somehow; Different mode though, not sure exactly how to..
 ;
-(defn parse-date
+(defn parse-time
   [s]
-  (->> (clojure.string/split s #"\s+")
+  (->> (clojure.string/split s #"-")
        (map #(Integer/parseInt %))
        (apply t/date-time)
        co/to-long))
+
+(defn parse-times
+  [s]
+  (->> (clojure.string/split s #":")
+       (map parse-time)))
 
 
 (def export-cli-options
   [["-z" "--zid ZID"           "ZID on which to do an export" :parse-fn #(Integer/parseInt %)]
    ["-Z" "--zinvite ZINVITE"   "ZINVITE code on which to perform an export"]
+   ["-X" "--include-xid"      "Include user xids in output"]
    ["-u" "--user-id USER_ID"   "Export all conversations associated with USER_ID, and place in zip file" :parse-fn #(Integer/parseInt %)]
    ["-f" "--filename FILENAME" "filename" "Name of output file (should be zip for csv out)"]
-   ["-a" "--at-date AT_DATE"   "A string of YYYY MM DD HH MM SS (in UTC)" :parse-fn parse-date]
+   ["-t" "--at-time AT_TIME"   "A string of YYYY-MM-DD-HH-MM-SS (in UTC)" :parse-fn parse-time]
+   ["-T" "--at-times AT_TIMES" "A vector of strings of --at-time format" :parse-fn parse-times]
    ["-F" "--format FORMAT"     "Either csv, excel or (soon) json" :parse-fn keyword :validate [#{:csv :excel} "Must be either csv or excel"] :default :csv]
    ["-h" "--help"              "Print help and exit"]])
 
@@ -145,24 +154,41 @@
 
 (defn run-export
   [system {:as options
-           :keys [filename]
+           :keys [filename user-id at-times]
            :or {filename (str "export." (System/currentTimeMillis) ".zip")}}]
   (let [darwin (:darwin system)]
     (log/info "config" (-> system :config :math-env))
     (log/info "config" (-> system :config :export))
-    (if-let [uid (:user-id options)]
+    (cond
+      ;; In this case, build all exports for this particular user
+      user-id
       ;; maybe here check if filename ends in zip and add if not; safest, and easiest... XXX
       (with-open [file (io/output-stream filename)
-                  zip  (ZipOutputStream. file)]
-        (doseq [zid (export/get-zids-for-uid darwin uid)]
-          (let [zinvite (export/get-zinvite-from-zid darwin zid)
-                ext (case (:format options) :excel "xls" :csv "csv")]
+                  zip  (ZipOutputStream. file)
+                  writer (io/writer zip)]
+        (doseq [zid (export/get-zids-for-uid darwin user-id)]
+          (let [zinvite (export/get-zinvite-from-zid darwin zid)]
             (log/info "Now working on conv:" zid zinvite)
             (export/export-conversation darwin
                                  (assoc options
                                    :zid zid
                                    :zip-stream zip
-                                   :entry-point (str (export/zipfile-basename filename) "/" zinvite "." ext))))))
+                                   :writer writer
+                                   :entry-point (str (export/zipfile-basename filename) "/" zinvite))))))
+      ;; Want to print the status of the conversation at each time t in at-times
+      at-times
+      (with-open [file (io/output-stream filename)
+                  zip  (ZipOutputStream. file)
+                  writer (io/writer zip)]
+        (doseq [at-time at-times]
+            (log/info "Now working on conv:" (:zid options) (:zinvite options))
+            (export/export-conversation darwin
+                                 (assoc options
+                                   :at-time at-time
+                                   :zip-stream zip
+                                   :writer writer
+                                   :entry-point (str (export/zipfile-basename filename) "/" at-time)))))
+      :else
       (export/export-conversation darwin options))
     (utils/exit 0 "Export complete")))
 

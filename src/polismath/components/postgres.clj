@@ -32,10 +32,12 @@
                   :host host
                   :port (or port 80)
                   :db db
-                  :ssl true}
-        settings (if ignore-ssl
-                   (merge settings {:sslfactory "org.postgresql.ssl.NonValidatingFactory"})
-                   settings)]
+                  :ssl false
+                  ;:ssl (-> ignore-ssl boolean not)
+                  :sslfactory "org.postgresql.ssl.NonValidatingFactory"}]
+        ;settings (if ignore-ssl
+                   ;(merge settings {:sslfactory "org.postgresql.ssl.NonValidatingFactory"})
+                   ;settings)]
     (kdb/postgres settings)))
 
 
