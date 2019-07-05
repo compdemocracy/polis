@@ -1,0 +1,30 @@
+# Snyk (https://snyk.io) policy file, patches or ignores known vulnerabilities.
+version: v1.13.5
+ignore: {}
+# patches apply the minimum changes required to fix a vulnerability
+patch:
+  SNYK-JS-LODASH-450202:
+    - eslint > inquirer > lodash:
+        patched: '2019-07-05T22:56:30.211Z'
+    - request-promise > lodash:
+        patched: '2019-07-05T22:56:30.211Z'
+    - intercom.io > lodash:
+        patched: '2019-07-05T22:56:30.211Z'
+    - eslint > lodash:
+        patched: '2019-07-05T22:56:30.211Z'
+    - babel-eslint > babel-types > lodash:
+        patched: '2019-07-05T22:56:30.211Z'
+    - babel-eslint > babel-traverse > lodash:
+        patched: '2019-07-05T22:56:30.211Z'
+    - '@slack/client > lodash':
+        patched: '2019-07-05T22:56:30.211Z'
+    - eslint > table > lodash:
+        patched: '2019-07-05T22:56:30.211Z'
+    - babel-eslint > babel-traverse > babel-types > lodash:
+        patched: '2019-07-05T22:56:30.211Z'
+    - '@google-cloud/translate > @google-cloud/common > split-array-stream > async > lodash':
+        patched: '2019-07-05T22:56:30.211Z'
+    - '@google-cloud/translate > @google-cloud/common > google-auto-auth > async > lodash':
+        patched: '2019-07-05T22:56:30.211Z'
+    - intercom-client > sinon > nise > @sinonjs/formatio > @sinonjs/samsam > lodash:
+        patched: '2019-07-05T22:56:30.211Z'
