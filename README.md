@@ -66,9 +66,7 @@ For S3 deployment, place your AWS credentials in a JSON file at `.polis_s3_creds
 * Science by Akriti Bhusal from the Noun Project
 * Success File by Ben Davis from the Noun Project
 
-## Collections to look into
+### Collections to look into
 
 * https://thenounproject.com/vectorsmarket/collection/project-management-line-icon/?i=1326778
 
-
-**Want to contribute to this project?** See the [Contribution Guide](CONTRIBUTING.md) for more informations.
