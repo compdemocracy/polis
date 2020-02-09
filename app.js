@@ -31,6 +31,8 @@ helpersInitialized.then(function(o) {
     denyIfNotFromWhitelistedDomain,
     devMode,
     enableAgid,
+    fetchThirdPartyCookieTestPt1,
+    fetchThirdPartyCookieTestPt2,
     fetchIndexForAdminPage,
     fetchIndexForConversation,
     fetchIndexForReportPage,
@@ -1360,6 +1362,9 @@ helpersInitialized.then(function(o) {
 
   app.get(/^\/report\/r?[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForReportPage);
   
+  app.get(/^\/thirdPartyCookieTestPt1\.html$/, fetchThirdPartyCookieTestPt1);
+  app.get(/^\/thirdPartyCookieTestPt2\.html$/, fetchThirdPartyCookieTestPt2);
+
   app.get(/^\/embed$/, makeFileFetcher(hostname, portForAdminFiles, "/embed.html", {
     'Content-Type': "text/html",
   }));

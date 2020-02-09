@@ -14329,6 +14329,34 @@ CREATE TABLE slack_user_invites (
     };
   }
 
+  // https://github.com/mindmup/3rdpartycookiecheck/
+  // https://stackoverflow.com/questions/32601424/render-raw-html-in-response-with-express
+  function fetchThirdPartyCookieTestPt1(req, res) {
+    res.set({'Content-Type': 'text/html'});
+    res.send(new Buffer(
+      "<body>" +
+      "<script>" +
+      "  document.cookie=\"thirdparty=yes; Max-Age=3600; SameSite=None; Secure\";" +
+      "  document.location=\"thirdPartyCookieTestPt1.html\";" +
+      "</script>" +
+      "</body>"));
+  };
+  function fetchThirdPartyCookieTestPt2(req, res) {
+    res.set({'Content-Type': 'text/html'});
+    res.send(new Buffer(
+      "<body>" +
+      "<script>" +
+      "  if (window.parent) {" +
+      "   if (/thirdparty=yes/.test(document.cookie)) {" +
+      "     window.parent.postMessage('MM:3PCsupported', '*');" +
+      "   } else {" +
+      "     window.parent.postMessage('MM:3PCunsupported', '*');" +
+      "   }" +
+      "   document.cookie = 'thirdparty=; expires=Thu, 01 Jan 1970 00:00:01 GMT;';" +
+      "  }" +
+      "</script>" +
+      "</body>"));
+  };
 
   function makeFileFetcher(hostname, port, path, headers, preloadData) {
 
@@ -14711,6 +14739,8 @@ CREATE TABLE slack_user_invites (
     emailTeam,
     enableAgid,
     fail,
+    fetchThirdPartyCookieTestPt1,
+    fetchThirdPartyCookieTestPt2,
     fetchIndexForAdminPage,
     fetchIndexForConversation,
     fetchIndexForReportPage,
