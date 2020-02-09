@@ -14334,27 +14334,27 @@ CREATE TABLE slack_user_invites (
   function fetchThirdPartyCookieTestPt1(req, res) {
     res.set({'Content-Type': 'text/html'});
     res.send(new Buffer(
-      "<body>" +
-      "<script>" +
-      "  document.cookie=\"thirdparty=yes; Max-Age=3600; SameSite=None; Secure\";" +
-      "  document.location=\"thirdPartyCookieTestPt2.html\";" +
-      "</script>" +
+      "<body>\n" +
+      "<script>\n" +
+      "  document.cookie=\"thirdparty=yes; Max-Age=3600; SameSite=None; Secure\";\n" +
+      "  document.location=\"thirdPartyCookieTestPt2.html\";\n" +
+      "</script>\n" +
       "</body>"));
   };
   function fetchThirdPartyCookieTestPt2(req, res) {
     res.set({'Content-Type': 'text/html'});
     res.send(new Buffer(
-      "<body>" +
-      "<script>" +
-      "  if (window.parent) {" +
-      "   if (/thirdparty=yes/.test(document.cookie)) {" +
-      "     window.parent.postMessage('MM:3PCsupported', '*');" +
-      "   } else {" +
-      "     window.parent.postMessage('MM:3PCunsupported', '*');" +
-      "   }" +
-      "   document.cookie = 'thirdparty=; expires=Thu, 01 Jan 1970 00:00:01 GMT;';" +
-      "  }" +
-      "</script>" +
+      "<body>\n" +
+      "<script>\n" +
+      "  if (window.parent) {\n" +
+      "   if (/thirdparty=yes/.test(document.cookie)) {\n" +
+      "     window.parent.postMessage('MM:3PCsupported', '*');\n" +
+      "   } else {\n" +
+      "     window.parent.postMessage('MM:3PCunsupported', '*');\n" +
+      "   }\n" +
+      "   document.cookie = 'thirdparty=; expires=Thu, 01 Jan 1970 00:00:01 GMT;';\n" +
+      "  }\n" +
+      "</script>\n" +
       "</body>"));
   };
 
