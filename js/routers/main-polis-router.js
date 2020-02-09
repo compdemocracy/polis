@@ -277,7 +277,9 @@ var polisRouter = Backbone.Router.extend({
       } else if (ua.match(/Chrome/)) {
         return false;
       } else if (ua.match(/Safari/)) { // would include Chrome, but we handled Chrome above
-        return true;
+        // Turning this off since not working any longer
+        //return true;
+        return false;
       } else {
         return false;
       }
