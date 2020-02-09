@@ -14337,7 +14337,7 @@ CREATE TABLE slack_user_invites (
       "<body>" +
       "<script>" +
       "  document.cookie=\"thirdparty=yes; Max-Age=3600; SameSite=None; Secure\";" +
-      "  document.location=\"thirdPartyCookieTestPt1.html\";" +
+      "  document.location=\"thirdPartyCookieTestPt2.html\";" +
       "</script>" +
       "</body>"));
   };
