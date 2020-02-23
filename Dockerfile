@@ -1,29 +1,51 @@
-FROM node:6
+FROM node:10.9.0
 
-# For admin functionality, fill this out
-ENV ADMIN_EMAILS []
-ENV ADMIN_EMAIL_DATA_EXPORT ""
-ENV ADMIN_EMAIL_DATA_EXPORT_TEST ""
-ENV ADMIN_EMAIL_EMAIL_TEST ""
-ENV ADMIN_UIDS []
+# sudo docker image build -t polis-server:1.0 .
+# sudo docker container run --network="host" --publish 5000:5000 --detach --name polis-server polis-server:1.0
+# sudo docker container kill polis-server
+# sudo docker container rm polis-server
+# sudo docker logs polis-server
+# --network="host"
 
-ENV DATABASE_FOR_READS_NAME DATABASE_URL
-ENV DATABASE_URL postgres://postgres:oiPorg3Nrz0yqDLE@postgres:5432/polis-dev
-ENV DEV_MODE true
-ENV DISABLE_INTERCOM true
-ENV DOMAIN_OVERRIDE localhost:5000
-ENV PORT 5000
-ENV STATIC_FILES_ADMINDASH_PORT 5002
-ENV STATIC_FILES_HOST localhost
-ENV STATIC_FILES_PORT 5001
-ENV STRIPE_SECRET_KEY sk_test_NFBDEThkpHCYBzXPJuBlY8TW
+# sudo docker container kill polis-server; sudo docker container rm polis-server; sudo docker image build -t polis-server:1.0 .
+# sudo docker container run --network="host" --publish 5000:5000 --detach --name polis-server polis-server:1.0
+
+
+ARG host=localhost
+ARG port=5000
+
+ARG static_files_host=localhost
+ARG static_files_port=5001
+
+ARG static_files_admin_host=localhost
+ARG static_files_admin_port=5002
+
+# database credentials are defined in .env file
+#ARG postgres_host=localhost
+#ARG postgres_port=5432
+#ARG postgres_uid=postgres
+#ARG postgres_pwd=postgres
+#ARG postgres_db=polis-dev
+#ENV DATABASE_URL postgres://${postgres_uid}:${postgres_pwd}@${postgres_host}:${postgres_port}/${postgres_db}
+
+ENV DOMAIN_OVERRIDE ${host}:${port}
+ENV PORT ${port}
+
+ENV STATIC_FILES_HOST ${static_files_host}
+ENV STATIC_FILES_PORT ${static_files_port}
+ENV STATIC_FILES_ADMINDASH_PORT ${static_files_admin_port}
+ENV DISABLE_INTERCOM="true"
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY . .
+
 RUN npm install
 
-ADD . .
+EXPOSE ${port}
 
-EXPOSE 5000
-CMD node --max_old_space_size=400 --gc_interval=100 --harmony app.js
+#CMD npm run docker
+
+CMD ["node", "--max_old_space_size=400", "--gc_interval=100", "--harmony", "app.js" ]
+
+
