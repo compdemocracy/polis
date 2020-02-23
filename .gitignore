@@ -3,3 +3,8 @@
 .google_creds_temp
 npm-debug.log
 node_modules
+*~
+*#
+env_dev
+
+
