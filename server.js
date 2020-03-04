@@ -14435,6 +14435,7 @@ CREATE TABLE slack_user_invites (
 
   // serve up index.html in response to anything starting with a number
   let hostname = process.env.STATIC_FILES_HOST;
+  let hostnameForAdminFiles = process.env.STATIC_FILES_ADMINDASH;
   let portForParticipationFiles = process.env.STATIC_FILES_PORT;
   let portForAdminFiles = process.env.STATIC_FILES_ADMINDASH_PORT;
 
@@ -14494,7 +14495,7 @@ CREATE TABLE slack_user_invites (
   }
 
 
-  let fetch404Page = makeFileFetcher(hostname, portForAdminFiles, "/404.html", {
+  let fetch404Page = makeFileFetcher(hostnameForAdminFiles, portForAdminFiles, "/404.html", {
     'Content-Type': "text/html",
   });
 
@@ -14538,10 +14539,10 @@ CREATE TABLE slack_user_invites (
   }
 
 
-  let fetchIndexForAdminPage = makeFileFetcher(hostname, portForAdminFiles, "/index_admin.html", {
+  let fetchIndexForAdminPage = makeFileFetcher(hostnameForAdminFiles, portForAdminFiles, "/index_admin.html", {
     'Content-Type': "text/html",
   });
-  let fetchIndexForReportPage = makeFileFetcher(hostname, portForAdminFiles, "/index_report.html", {
+  let fetchIndexForReportPage = makeFileFetcher(hostnameForAdminFiles, portForAdminFiles, "/index_report.html", {
     'Content-Type': "text/html",
   });
 
