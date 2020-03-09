@@ -2474,6 +2474,7 @@ function initializePolisHelpers() {
     process.env.DOMAIN_WHITELIST_ITEM_06,
     process.env.DOMAIN_WHITELIST_ITEM_07,
     process.env.DOMAIN_WHITELIST_ITEM_08,
+    "localhost:5000",
     "localhost:5001",
     "localhost:5002",
     "canvas.instructure.com", // LTI
@@ -14359,9 +14360,11 @@ CREATE TABLE slack_user_invites (
   };
 
   function makeFileFetcher(hostname, port, path, headers, preloadData) {
-
     return function(req, res) {
-      let hostname = buildStaticHostname(req, res);
+      if (!(isTrue(process.env.USE_DOCKER_COMPOSE) &&
+            isTrue(process.env.DEV_MODE))){
+	let hostname = buildStaticHostname(req, res);
+      }
       if (!hostname) {
         fail(res, 500, "polis_err_file_fetcher_serving_to_domain");
         console.error(req.headers.host);
@@ -14438,7 +14441,8 @@ CREATE TABLE slack_user_invites (
   let hostnameForAdminFiles = process.env.STATIC_FILES_ADMINDASH;
   let portForParticipationFiles = process.env.STATIC_FILES_PORT;
   let portForAdminFiles = process.env.STATIC_FILES_ADMINDASH_PORT;
-
+  winston.log("info", 'host for user files (server.js): ' + hostname + ':' + portForParticipationFiles);
+  winston.log("info", 'host for admin files (server.js): ' + hostnameForAdminFiles + ':' + portForAdminFiles);
 
   let fetchUnsupportedBrowserPage = makeFileFetcher(hostname, portForParticipationFiles, "/unsupportedBrowser.html", {
     'Content-Type': "text/html",
@@ -14766,6 +14770,7 @@ CREATE TABLE slack_user_invites (
     haltOnTimeout,
     HMAC_SIGNATURE_PARAM_NAME,
     hostname,
+    hostnameForAdminFiles,
     makeFileFetcher,
     makeRedirectorTo,
     moveToBody,

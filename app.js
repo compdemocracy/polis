@@ -57,6 +57,7 @@ helpersInitialized.then(function(o) {
     haltOnTimeout,
     HMAC_SIGNATURE_PARAM_NAME,
     hostname,
+    hostnameForAdminFiles,
     makeFileFetcher,
     makeRedirectorTo,
     moveToBody,
@@ -1330,10 +1331,10 @@ helpersInitialized.then(function(o) {
   app.get(/^\/conversations(\/.*)?/, fetchIndexForAdminPage);
   app.get(/^\/signout(\/.*)?/, fetchIndexForAdminPage);
   app.get(/^\/signin(\/.*)?/, fetchIndexForAdminPage);
-  app.get(/^\/dist\/admin_bundle.js$/, makeFileFetcher(hostname, portForAdminFiles, "/dist/admin_bundle.js", {
+  app.get(/^\/dist\/admin_bundle.js$/, makeFileFetcher(hostnameForAdminFiles, portForAdminFiles, "/dist/admin_bundle.js", {
     'Content-Type': "application/javascript",
   }));
-  app.get(/^\/__webpack_hmr$/, makeFileFetcher(hostname, portForAdminFiles, "/__webpack_hmr", {
+  app.get(/^\/__webpack_hmr$/, makeFileFetcher(hostnameForAdminFiles, portForAdminFiles, "/__webpack_hmr", {
     'Content-Type': "eventsource",
   }));
   app.get(/^\/privacy$/, fetchIndexForAdminPage);
@@ -1365,16 +1366,16 @@ helpersInitialized.then(function(o) {
   app.get(/^\/thirdPartyCookieTestPt1\.html$/, fetchThirdPartyCookieTestPt1);
   app.get(/^\/thirdPartyCookieTestPt2\.html$/, fetchThirdPartyCookieTestPt2);
 
-  app.get(/^\/embed$/, makeFileFetcher(hostname, portForAdminFiles, "/embed.html", {
+  app.get(/^\/embed$/, makeFileFetcher(hostnameForAdminFiles, portForAdminFiles, "/embed.html", {
     'Content-Type': "text/html",
   }));
-  app.get(/^\/embedPreprod$/, makeFileFetcher(hostname, portForAdminFiles, "/embedPreprod.html", {
+  app.get(/^\/embedPreprod$/, makeFileFetcher(hostnameForAdminFiles, portForAdminFiles, "/embedPreprod.html", {
     'Content-Type': "text/html",
   }));
-  app.get(/^\/embedReport$/, makeFileFetcher(hostname, portForAdminFiles, "/embedReport.html", {
+  app.get(/^\/embedReport$/, makeFileFetcher(hostnameForAdminFiles, portForAdminFiles, "/embedReport.html", {
     'Content-Type': "text/html",
   }));
-  app.get(/^\/embedReportPreprod$/, makeFileFetcher(hostname, portForAdminFiles, "/embedReportPreprod.html", {
+  app.get(/^\/embedReportPreprod$/, makeFileFetcher(hostnameForAdminFiles, portForAdminFiles, "/embedReportPreprod.html", {
     'Content-Type': "text/html",
   }));
   app.get(/^\/canvas_setup_backup_instructions$/, makeFileFetcher(hostname, portForParticipationFiles, "/canvas_setup_backup_instructions.html", {
@@ -1431,7 +1432,7 @@ helpersInitialized.then(function(o) {
   var missingFilesGet404 = false;
   if (missingFilesGet404) {
     // 404 everything else
-    app.get(/^\/[^(api\/)]?.*/, makeFileFetcher(hostname, portForAdminFiles, "/404.html", {
+    app.get(/^\/[^(api\/)]?.*/, makeFileFetcher(hostnameForAdminFiles, portForAdminFiles, "/404.html", {
       'Content-Type': "text/html",
     }));
   } else {
@@ -1442,6 +1443,8 @@ helpersInitialized.then(function(o) {
   app.listen(process.env.PORT);
 
   winston.log("info", 'started on port ' + process.env.PORT);
+  winston.log("info", 'host for user files (app.js): ' + hostname + ':' + portForParticipationFiles);
+  winston.log("info", 'host for admin files (app.js): ' + hostnameForAdminFiles + ':' + portForAdminFiles);
 
 }, function(err) {
   console.error("failed to init server");
