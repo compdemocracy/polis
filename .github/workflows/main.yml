@@ -1,0 +1,41 @@
+name: Test Docker Build
+
+on:
+  push:
+
+jobs:
+  test-docker-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - uses: docker/build-push-action@v1
+      env:
+        DOCKER_BUILDKIT: 1
+      with:
+        repository: polis-server
+        push: false
+        tags: latest
+
+    - uses: actions/setup-ruby@v1
+      with:
+        ruby-version: '2.6'
+
+    - run: |
+        gem install inspec-bin --no-document
+
+    - name: Start container
+      run: |
+        docker run --detach --name build --publish 5000:5000 polis-server
+
+    - name: Smoke test endpoint
+      env:
+        CHEF_LICENSE: accept-silent
+      run: |
+        inspec exec inspec/tests.rb --target docker://build --color
+
+    - name: Kill container
+      run: docker kill build
