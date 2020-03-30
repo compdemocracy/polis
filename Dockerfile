@@ -1,4 +1,4 @@
-FROM node:6
+FROM node:10
 
 # For admin functionality, fill this out
 ENV ADMIN_EMAILS []
