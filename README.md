@@ -49,11 +49,20 @@ Of particular note, the polisServer runs on environment variables which tell it 
 TODO Compile complete starter template somewhere in this repo...
 
 
-## Basic deployment
+## Development environment
 
-* Best place to start is the main server repo: https://github.com/pol-is/polisServer, which has instructions on setting up the database.
-* Then math server: https://github.com/pol-is/polisMath
-* Then build client repos and serve from some static file server...
+1) Get the main server running using the Readme here: https://github.com/pol-is/polisServer
+   * This includes instructions on setting up a local postgres database
+2) Get the math server running using the Readme here: https://github.com/pol-is/polisMath
+3) Build client repo assets using the instructions in the repsective Readmes:
+   * https://github.com/pol-is/polisClientParticipation
+   * https://github.com/pol-is/polisAdmin
+   * https://github.com/pol-is/polisReport
+4) Each of the above repos also contains instructions for running a server with HMR; By default, the server should forward requests for these compiled assets to the HMR server.
+
+## Basic/Manual deployment
+
+Go through all steps in the Development environment, but at step (4) take compiled assets and serve with a/several static webserver(s), making sure to configure ports as described in the main polisServer Readme.
 
 ## Docker deployment
 
