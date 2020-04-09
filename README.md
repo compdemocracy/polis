@@ -1,7 +1,7 @@
 # Polis
 pol.is an AI powered sentiment gathering platform. More organic than surveys, less effort than focus groups.
 
-## Deployment
+## :rocket: Deployment
 
 Please see [`docs/deployment.md`](/docs/deployment.md)
 
