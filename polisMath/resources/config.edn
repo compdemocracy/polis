@@ -1,0 +1,87 @@
+{
+ ;; Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+ ;; TODO This is a work in progress... really think we need to move to aero though: https://github.com/juxt/aero
+ ;; Soon...
+
+ :math-env #or [#keyword #env MATH_ENV, :dev]
+ :darwin {:server-port #or [#long #env SERVER_PORT, 3123]}
+
+ ;; TODO Oy vey; Need to fix this, or figure out if I even need it; if so may just in darwin?
+ ;:primary-polis-url #or [#env PRIMARY_POLIS_URL
+ ;                        :localhost]
+
+ :database {:pool-size #or [#long #env DATABASE_POOL_SIZE, 3]
+            :url #env DATABASE_URL}
+
+ :math-schema-date "2014_08_22"
+ :export {:expiry-days 10}
+
+ ;; TODO This poller config hasn't been hooked up yet... ghost
+ :poller {:votes {:polling-interval 2000}
+          :moderation {:polling-interval 5000}}
+
+ :math {:matrix-implementation :vectorz
+        :cutoffs {:medium 100
+                  :large 10000}}
+        ;; These are copied over from the conv update opts; Should expose them through more generally
+        ;; A little messy because these get used in different places than above...
+        ;:n-comps 2
+        ;:pca-iters 10
+        ;:base-iters 10
+        ;:base-k 50
+        ;:max-k 5
+        ;:group-iters 10
+        ;:max-ptpts 80000
+        ;:max-cmts 800
+        ;:group-k-buffer 4}}
+
+ :logging {:file "log/dev.log"
+           :level :info}
+
+ ;:math-env                   {:parse ->keyword}
+ ;; Have to use :port since that's what heroku expects...
+ ;:port                       {:path [:darwin :server-port] :parse ->long}
+ ;:database-url               {:path [:database :url]}
+ :database-for-reads-name    {:path [:database :reads-name]}
+ ;:database-pool-size         {:path [:database :pool-size] :parse ->long}
+ :mongolab-uri               {:path [:mongo :url]}
+ :mailgun-api-key            {:path [:email :api-key]}
+ :mailgun-url                {:path [:email :url]}
+ ;; TODO Oy vey; Need to fix this, or figure out if I even need it
+ ;:primary-polis-url          {:path [:email :api-key]}
+ ;:math-matrix-implementation {:path [:math :matrix-implementation] :parse ->keyword}
+ :math-cutoff-medium         {:path [:math :cutoffs :medium] :parse ->long
+                              :doc "This is the maximum size of a conversation before running in :medium mode"}
+ :math-cutoff-large          {:path [:math :cutoffs :large] :parse ->long
+                              :doc "This is the maximum size of a conversation before running in :large mode"}
+ :math-cutoff-max-ptpts      {:path [:math :cutoffs :max-ptpts] :parse ->long
+                              :doc "This is the maximum number of participants before the conversation stops accepting new participants"}
+ :math-cutoff-max-cmnts      {:path [:math :cutoffs :max-ptpts] :parse ->long
+                              :doc "This is the maximum number of comments before the conversation stops accepting new comments"}
+ :math-schema-date           {:doc "This helps us version our mongo buckets."}
+ ;; Should change these to be more abstract in key name; not hostedgraphite-apikey; just graphite-apikey etc XXX
+ :hostedgraphite-apikey      {:path [:meta :graphite :api-key]
+                              :doc "API key for graphite db (perf monitoring)"}
+ :hostedgraphite-hostname    {:path [:meta :graphite :hostname]
+                              :doc "The hostname for sending messages to graphite"}
+ :export-expiry-days         {:path [:export :expiry-days] :parse ->long
+                              :doc "The number of days before a mongo record representing a data exports gets removed"}
+ :vote-polling-interval      {:parse ->long :path [:storm :spouts :votes :polling-interval]
+                              :doc "The polling interval for votes, in milliseconds"}
+ :mod-polling-interval       {:parse ->long :path [:storm :spouts :moderation :polling-interval]
+                              :doc "The polling interval for moderation, in milliseconds"}
+ ;; Need to think more about the semantics of a recompute; once; always; only if not booted; etc? XXX
+ :recompute                  {:parse boolean
+                              :doc "Whether or not to perform a recompute"}
+ ;; Need to think about how to handle options
+ :storm-execution            {:path [:storm :execution] :options [:local :distributed] :parse ->keyword
+                              :doc "Whether to run storm as a distributed cluster (StormSubmitter) or in local mode (LocalCluster)"}
+ :storm-cluster-name         {:path [:storm :cluster-name]
+                              :doc "Name of the cluster to run on in distributed mode"}
+ :storm-workers              {:path [:storm :workers] :parse ->long
+                              :doc "Number of storm cluster workers for distributed mode"}
+ :logging-level              {:path [:logging :level] :parse ->keyword
+                              :doc "Logging level for timbre; info, debug, error, etc"}
+ :logging-file               {:path [:logging :file]
+                              :doc "If set, a file to which the log will be appended"}}

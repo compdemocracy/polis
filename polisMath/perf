@@ -1,0 +1,324 @@
+
+The following was computed on the a 5000x10 conversation; it seems that reflection is one of our problems here
+
+    2014-May-09 11:27:06 -0700 fullerine INFO [polismath.simulation] - Profiling: :user/clusters
+                              Id  Calls       Min        Max       MAD      Mean   Time% Time
+      :user/clean-start-clusters      2     9.0ms       4.4s      2.2s      2.2s      30 4.4s
+    :user/safe-recenter-clusters      2     5.0ms       2.2s      1.1s      1.1s      15 2.2s
+                :user/row-subset    106   260.0μs     68.0ms     8.0ms    20.0ms      15 2.2s
+         :user/recenter-clusters      2     3.0ms       2.1s      1.1s      1.1s      14 2.1s
+            :user/rowname-subset     53   462.0μs     47.0ms     8.0ms    20.0ms       7 1.0s
+          :user/posible-clusters      2   306.0μs     23.0ms    12.0ms    12.0ms       0 24.0ms
+          :user/uniqify-clusters      2    20.0μs      1.0ms   737.0μs   757.0μs       0 2.0ms
+                      Clock Time                                                     100 14.8s
+                  Accounted Time                                                      81 12.0s
+
+Here are the reflection warnings that matter to our lib
+
+    Auto-boxing loop arg: current-indent
+    exception.clj:44 recur arg for primitive local: i is not matching primitive, had: Object, needed: long
+    Auto-boxing loop arg: i
+
+    # The main culprit?
+    Reflection warning, polismath/named_matrix.clj:21:41 - call to indexOf can't be resolved.
+    Reflection warning, polismath/named_matrix.clj:46:11 - call to indexOf can't be resolved.
+    Reflection warning, polismath/named_matrix.clj:55:11 - call to indexOf can't be resolved.
+    Reflection warning, polismath/named_matrix.clj:61:34 - call to indexOf can't be resolved.
+    Reflection warning, polismath/named_matrix.clj:67:24 - call to indexOf can't be resolved.
+
+    pca.clj:51 recur arg for primitive local: last_eigval is not matching primitive, had: Object, needed: long
+    Auto-boxing loop arg: last-eigval
+
+    Reflection warning, polismath/clusters.clj:136:27 - call to indexOf can't be resolved.
+    Reflection warning, polismath/clusters.clj:136:27 - call to indexOf can't be resolved.
+    Performance warning, polismath/clusters.clj:201:25 - case has int tests, but tested expression is not primitive.
+    Reflection warning, polismath/conversation.clj:22:13 - call to indexOf can't be resolved.
+    Reflection warning, polismath/simulation.clj:78:3 - reference to field nextElement can't be resolved.
+
+
+Fuck... this doesn't seem to be working. I took away all of the reflection warnings with a type-indexof
+function, but still no dice. What's left of the reflections:
+
+    (defn typed-indexof [^java.util.List coll item]
+      (.indexOf coll item))
+
+    # Other libraries...
+    Reflection warning, /tmp/form-init1039726133741870246.clj:1:911 - call to invokeStaticMethod can't be resolved.
+    Reflection warning, alex_and_georges/debug_repl.clj:101:8 - reference to field getCause can't be resolved.
+    Reflection warning, alex_and_georges/debug_repl.clj:102:8 - reference to field getCause can't be resolved.
+    Reflection warning, plumbing/fnk/schema.clj:93:37 - call to java.lang.IllegalArgumentException ctor can't be resolved.
+    Reflection warning, clojure/tools/trace.clj:231:9 - call to setStackTrace can't be resolved.
+    Reflection warning, clojure/tools/trace.clj:242:11 - call to setStackTrace can't be resolved.
+    Reflection warning, clojure/tools/trace.clj:244:49 - call to java.lang.Exception ctor can't be resolved.
+    Reflection warning, clojure/tools/trace.clj:244:11 - call to setStackTrace can't be resolved.
+    Reflection warning, clojure/tools/trace.clj:276:9 - call to setStackTrace can't be resolved.
+    Reflection warning, clojure/tools/trace.clj:277:15 - call to setStackTrace can't be resolved.
+    Reflection warning, bigml/sampling/random.clj:11:11 - call to cern.jet.random.tdouble.engine.MersenneTwister64 vector can't be resolved.
+    Reflection warning, clj_time/core.clj:577:10 - reference to field getDayOfMonth can't be resolved.
+
+    # Us????
+    columns.clj:125 recur arg for primitive local: current_indent is not matching primitive, had: Object, needed: long
+    Auto-boxing loop arg: current-indent
+    exception.clj:44 recur arg for primitive local: i is not matching primitive, had: Object, needed: long
+    Auto-boxing loop arg: i
+    pca.clj:51 recur arg for primitive local: last_eigval is not matching primitive, had: Object, needed: long
+    Auto-boxing loop arg: last-eigval
+
+    Performance warning, polismath/clusters.clj:201:25 - case has int tests, but tested expression is not primitive.
+    Reflection warning, polismath/conversation.clj:22:13 - call to indexOf can't be resolved.
+    Reflection warning, polismath/simulation.clj:78:3 - reference to field nextElement can't be resolved.
+
+
+May 12, 2014
+
+WOOT! It seems I've sorted out the biggest culrpit here.
+It turned out to be the filter-by-index function.
+It was creating a new set each time, which was absolutely killing performance.
+I was able to cut down an order of magnitude by doing this alone.
+
+So now on to other things...
+
+For starters, I tried running on 100,000 ptpts 10 cmts.
+There are the big and big-part update times
+
+    N-ptpts: 99998
+    Starting new conv update!
+    1399963793428 rating-mat 1292120.671242 msecs #=> 1,292.120s #=> 20 minutes
+    1399963793436 mat 7.876006 msecs
+    1399963800685 pca 7249.400704 msecs # 7 sec
+    1399963802045 proj 1359.328171 msecs # 1.3 sec
+    1399963848873 base-clusters 46828.255953 msecs # 46 sec
+    1399963848873 bid-to-pid 0.054336 msecs 
+    1399963849626 votes-base 752.377173 msecs
+    1399963849626 counting-ptpts 0.003771 msecs
+    1399963849628 group-clusters 2.392552 msecs
+    1399963849628 CONVUP big 1353257.322353 msecs
+
+    N-ptpts: 99998
+    1399963849843 rating-mat 140.33363 msecs
+    1399963849849 mat 5.574799 msecs
+    1399963855133 pca 5283.952589 msecs
+    1399963856372 proj 1238.580412 msecs
+    1399964442254 base-clusters 585882.249774 msecs # 585.882 # 10 min
+    1399964442254 bid-to-pid 0.056502 msecs
+    1399964442916 votes-base 661.268519 msecs
+    1399964442916 counting-ptpts 0.003702 msecs
+    1399964442917 group-clusters 1.644483 msecs
+    1399964442918 CONVUP big-part 593284.9938 msecs
+
+    2014-May-13 00:00:42 -0700 noether INFO [polismath.simulation] - Profiling: :user/clusters
+                              Id  Calls       Min        Max       MAD      Mean   Time% Time
+                    :user/kmeans      2     2.0ms     585.9s    292.9s    292.9s      99 585.9s
+      :user/clean-start-clusters      2     1.0ms     546.2s    273.1s    273.1s      92 546.2s
+    :user/safe-recenter-clusters      2   604.0μs     276.2s    138.1s    138.1s      47 276.2s
+         :user/safe-recenter-map      2   552.0μs     276.2s    138.1s    138.1s      47 276.2s
+       :user/safe-rowname-subset     53    90.0μs       9.6s      1.7s      5.2s      46 274.5s
+         :user/recenter-clusters      2   485.0μs     269.9s    135.0s    135.0s      45 269.9s
+            :user/rowname-subset     53    82.0μs       8.7s      1.6s      5.1s      45 268.4s
+                :user/row-subset    106    46.0μs     47.0ms     3.0ms    28.0ms       1 3.0s
+           :user/filter-by-index    212     5.0μs    862.0μs   129.0μs   439.0μs       0 93.0ms
+          :user/uniqify-clusters      2    12.0μs      1.0ms   510.0μs   522.0μs       0 1.0ms
+       :user/safe-recenter-empty      2     3.0μs    301.0μs   149.0μs   152.0μs       0 303.0μs
+         :user/safe-recenter-nil      2    21.0μs    155.0μs    67.0μs    88.0μs       0 175.0μs
+                      Clock Time                                                     100 593.3s
+                  Accounted Time                                                     421 2500.3s
+
+
+Hmm.... This is suggesting that performance on the rating-mat update may actually become a problem if we can't
+keep everything else moving quickly enough.
+Of course, this corresponds to 1,000,000 votes.
+If we ever get 1,000,000 votes at once then (for a specific conv), God help us for now... XXX
+
+On the other hand, note that the base clustering takes QUITE a long time in this second one here (10 minutes).
+Again, this seems to be due largely due to the clean-start-clusters.
+We really have to figure out how to speed that up. XXX
+
+Another thought: initially I was concerned that something might not be quite right given that the second
+(partial) updata would always take so much longer than the full matrix population.
+But this actually makes sense: most of the time is in the clean-start-clusters, but the clean-start-clusters
+is going to be a lot simpler if the last round didn't have that many members.
+
+Also, note that there are still some strange "unable to slice nil" errors cropping up every now and again.
+A few of those leading to a backlog, and it might put us on ice while the conversation catches up. XXX
+
+One last thing:
+Note that the PCA grows as a function of the number of comments, but that downstream analyses don't, because
+they're just on projections.
+
+    # 10 cmts
+    big
+    1399967451528 pca 942.879957 msecs # 1 sec
+    1399967451706 proj 177.306975 msecs # 0.2 sec
+    big-part
+    1399967458208 pca 751.15802 msecs # < 1sec
+    1399967458369 proj 161.097721 msecs 
+
+    # 100 cmts
+    big
+    1399967669033 pca 6840.381594 msecs # 7 sec
+    1399967669866 proj 833.318748 msecs # 0.8 sec
+    big-part
+    1399967679124 pca 3850.089523 msecs # 4 sec
+    1399967679911 proj 786.742437 msecs # 0.8 sec
+
+Something interesting here: Note the second times are a lot shorter in each case (1/2-ish).
+This is likely because the power-iteration is working exactly as planned.
+Which is good.
+Still, if it's another 7x to increase both the cmts and ptpts 10x, then we could easily expect to see minute long
+compute times for our PCA step.
+So we'll either want to fix our Batch PCA or try to speed this bit up XXX
+
+Also note here that the time for update is much lower than it was when there were 10x more people (80sec).
+Could this let us use a tranpose for this messy operation? XXX
+In general this may also point to where some of the possible optimizations are with respect to this update
+implementation.
+
+
+May 18, 2014
+
+Been a little while since I checked in...
+
+I've figured out what is causing the slow rating mtarix update.
+Silly me... I was doing indexOf on the rows list to get to the matrix indices.
+Bad idea...
+I'm going to switch to hash-maos, through which I think we can cut the matrix-update code to seconds with 500k ptpts
+This was what we had from that count:
+
+
+    2014-May-17 22:27:26 -0700 noether INFO [polismath.simulation] - Profiling: :user/clusters
+                              Id  Calls       Min        Max       MAD      Mean   Time% Time
+               :user/update-nmat      1    392.2s     392.2s       0ns    392.2s      92 392.2s
+                :user/MU-indices 600000     2.0μs      3.0ms   324.0μs   627.0μs      88 376.2s
+            :user/rowname-subset     54    47.0μs      15.7s   571.0ms   298.0ms       4 16.1s
+                    :user/kmeans      2     2.0ms      12.1s      6.1s      6.1s       3 12.1s
+              :user/MU-rows-cols 600000     1.0μs       1.3s     4.0μs     4.0μs       1 2.6s
+      :user/clean-start-clusters      2     1.0ms       1.6s   818.0ms   819.0ms       0 1.6s
+               :user/MU-assoc-in 600000     1.0μs      4.0ms     278ns     2.0μs       0 1.4s
+              :user/MU-indices-2 600000     1.0μs    219.0μs     247ns     2.0μs       0 1.2s
+    :user/safe-recenter-clusters      2   576.0μs    820.0ms   410.0ms   410.0ms       0 820.0ms
+         :user/safe-recenter-map      2   564.0μs    819.0ms   409.0ms   410.0ms       0 820.0ms
+                :user/row-subset    107    29.0μs     45.0ms   988.0μs     7.0ms       0 771.0ms
+         :user/recenter-clusters      2   351.0μs    768.0ms   384.0ms   384.0ms       0 768.0ms
+                  :user/MU-assoc 600000     698ns      1.0ms     226ns     1.0μs       0 626.0ms
+                :user/MU-row-add 600000     488ns    197.0μs     492ns     966ns       0 580.0ms
+                :user/MU-col-add 600000     488ns    293.0μs     101ns     911ns       0 547.0ms
+       :user/safe-rowname-subset     53    57.0μs     12.0ms   856.0μs     8.0ms       0 401.0ms
+                      Clock Time                                                     100 428.3s
+                  Accounted Time                                                     189 808.8s
+
+Will want to keep an eye on the other MU items on that list, as they are liable to be the next points for speeding things up.
+
+
+May 21, 2014
+
+Woot! I seem to have stamped this shit.
+At least largely.
+Before I go on though, I should make a correction.
+I'm pretty sure the above was actually on 600,000 new _comments_, not  ptpts.
+The latter would not make sense with the call counts shown above.
+
+Anyway; it seems that using indexOf on matrices was basically just a terrible idea.
+I thought lookup was constant time.
+Which is silly in retrospect.
+Anyway.
+It's not.
+
+I've implemented a custom data type which maintains both a vector and a hash-map so we can quickly get (the
+former equivalent of) indexOf.
+Now look at the times:
+
+    Starting new conv update!
+    N-ptpts: 60000
+    count 720000
+    1400735231267 rating-mat 3003.265079 msecs
+    1400735231267 counting-comments 0.0044 msecs
+    1400735231336 user-vote-count 68.865603 msecs
+    1400735231381 mat 5.540164 msecs
+    1400735235871 pca 4489.99813 msecs
+    1400735236737 proj 865.464804 msecs
+    1400735256213 base-clusters 19475.856953 msecs
+    1400735256213 bid-to-pid 0.054686 msecs
+    1400735256715 votes-base 501.544857 msecs
+    1400735256715 counting-ptpts 0.004539 msecs
+    1400735256717 group-clusters 1.903313 msecs
+    1400735256717 CONVUP big-part 31481.174735 msecs
+    2014-May-21 22:07:36 -0700 noether INFO [polismath.simulation] - Profiling: :user/clusters
+                              Id  Calls       Min        Max       MAD      Mean   Time% Time
+                    :user/kmeans      2     2.0ms      19.3s      9.6s      9.6s      61 19.3s
+               :user/update-nmat      1      2.9s       2.9s       0ns      2.9s       9 2.9s
+      :user/clean-start-clusters      2   928.0μs       1.8s   921.0ms   921.0ms       6 1.8s
+    :user/safe-recenter-clusters      2   505.0μs    944.0ms   472.0ms   472.0ms       3 945.0ms
+         :user/safe-recenter-map      2   492.0μs    944.0ms   472.0ms   472.0ms       3 944.0ms
+         :user/recenter-clusters      2   268.0μs    837.0ms   418.0ms   418.0ms       3 837.0ms
+       :user/safe-rowname-subset     53    37.0μs      4.0ms   345.0μs     3.0ms       1 164.0ms
+                      Clock Time                                                     100 31.5s
+                  Accounted Time                                                      85 26.9s
+
+
+Damn son.
+Down to 30 seconds.
+Still some room for improvment given I'm looking at some new reflection/performance warnings.
+We'll see how things do after that.
+
+
+Hmmm... I tried running on 1mil ptpts and 100 cmts and got this.
+
+    Starting new conv update!
+    N-ptpts: 100000
+    count 10200000
+    1400736772092 rating-mat 454258.957733 msecs
+    1400736772093 counting-comments 0.005029 msecs
+    1400736778787 user-vote-count 6694.438309 msecs
+    1400736778866 mat 8.482992 msecs
+    1400736853808 pca 74942.795939 msecs
+    1400736863400 proj 9591.412637 msecs
+    1400736914508 base-clusters 51108.178211 msecs
+    1400736914509 bid-to-pid 0.065022 msecs
+    Exception in thread "main" java.lang.OutOfMemoryError: GC overhead limit exceeded
+            at clojure.lang.PersistentHashMap$ArrayNode.assoc(PersistentHashMap.java:364)
+            at clojure.lang.PersistentHashMap$ArrayNode.assoc(PersistentHashMap.java:361)
+            at clojure.lang.PersistentHashMap.assoc(PersistentHashMap.java:142)
+            at clojure.lang.PersistentHashMap.assoc(PersistentHashMap.java:28)
+            at clojure.lang.RT.assoc(RT.java:702)
+            at clojure.core$assoc.invoke(core.clj:187)
+            at clojure.core$zipmap.invoke(core.clj:2715)
+            at polismath.conversation$agg_bucket_votes_for_tid.invoke(conversation.clj:24)
+            at polismath.conversation$fn__4283$fnk4280_positional__4284$fn__4287.invoke(conversation.clj:168)
+
+
+Can probably fix this with JVM settings, but for now we seem to have found an upper limit.
+However, of interest is that the rating-mat update, while significant is operating on 100mil votes, which
+we'll liekly never see in a single update.
+If we have a milion people probably more like 10 per user minute, tops.
+So if we keep everything else moving quickly enough, we might be fine.
+
+Here is some data for 30k x 20cmts:
+
+    Starting new conv update!
+    N-ptpts: 30000
+    count 660000
+    1400746217528 rating-mat 1503.576119 msecs
+    1400746217529 counting-comments 0.0044 msecs
+    1400746217583 user-vote-count 54.830368 msecs
+    1400746217621 mat 4.400001 msecs
+    1400746221937 pca 4316.419774 msecs
+    1400746222599 proj 661.168579 msecs
+    1400746234367 base-clusters 11768.231347 msecs
+    1400746234367 bid-to-pid 0.054615 msecs
+    1400746234788 votes-base 420.764263 msecs
+    1400746234788 counting-ptpts 0.004191 msecs
+    1400746234790 group-clusters 1.557323 msecs
+    1400746234790 CONVUP big-part 21241.605796 msecs
+    2014-May-22 01:10:34 -0700 noether INFO [polismath.simulation] - Profiling: :user/clusters
+                              Id  Calls       Min        Max       MAD      Mean   Time% Time
+                    :user/kmeans      2     1.0ms      11.7s      5.8s      5.8s      55 11.7s
+               :user/update-nmat      1      1.4s       1.4s       0ns      1.4s       6 1.4s
+      :user/clean-start-clusters      2   891.0μs       1.2s   588.0ms   589.0ms       6 1.2s
+    :user/safe-recenter-clusters      2   470.0μs    585.0ms   292.0ms   293.0ms       3 585.0ms
+         :user/safe-recenter-map      2   457.0μs    585.0ms   292.0ms   293.0ms       3 585.0ms
+         :user/recenter-clusters      2   260.0μs    520.0ms   260.0ms   260.0ms       2 521.0ms
+       :user/safe-rowname-subset     53    33.0μs      3.0ms   222.0μs     2.0ms       0 105.0ms
+                      Clock Time                                                     100 21.2s
+                  Accounted Time                                                      75 16.0s
+
+
