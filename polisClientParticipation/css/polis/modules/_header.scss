@@ -1,0 +1,45 @@
+// Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+//
+// Header/banner
+//
+// .Header            <header> element
+// .Logo              <a> container
+// .Logo--blue        for the blue dot !
+// .polisLogo         <img> of the logo
+//
+
+.Header {
+  margin: 0;
+  padding: 30px 0 15px 0;
+  border-bottom: 3px solid #eeeff0;
+
+  vertical-align: bottom;
+}
+
+.Logo {
+  display: inline-block;
+
+  color: $medium-gray;
+  font-family: $headline-font;
+  font-size: 28px;
+  font-weight: normal;
+  letter-spacing: 0.07em;
+}
+
+.Logo--blue {
+  color: $brand-color;
+  font-weight: bold;
+}
+
+.polisLogo {
+  height: 30px;
+
+  @media screen and (min-width: $sm-screen) {
+    height: 37px;
+  }
+
+  @media screen and (min-width: $md-screen) {
+    height: 40px;
+  }
+}

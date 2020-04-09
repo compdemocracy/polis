@@ -1,0 +1,323 @@
+{{!-- Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>. --}}
+
+{{!-- ================ PROTIPS ================ --}}
+
+<div
+  style="
+    {{#if no_write_hint}}visibility: hidden;{{/if}}
+    {{!--
+    width: 40%;
+    {{#if desktop}}width: 60%;{{/if}}
+     --}}
+    margin-top: 0px;
+
+    color: black;
+    padding: 5px 0px 5px 0px;
+    font-style: italic;
+    font-family: chaparral-pro;
+
+    "> {{! protips column }}
+
+  <p
+    style="{{#unless desktop}}font-size:12px;{{/unless}}"
+    >
+      {{!-- present all hints to screen reader --}}
+      <label for="comment_form_textarea" style="display:block">
+        {{{s.writeCommentHelpText}}}
+      </label>
+
+      <p>
+        {{{s.helpWriteListIntro}}}
+      </p>
+      <ul>
+        <li>{{{s.helpWriteListStandalone}}}</li>
+        <li>{{{s.helpWriteListRaisNew}}}</li>
+        <li>{{{s.helpWriteListShort}}}</li>
+      </ul>
+      <label for="comment_form_textarea" style="display:block">
+        {{{s.tipCommentsRandom}}}
+      </label>
+      {{!-- end screen-reader-text --}}
+  </p>
+
+  {{!-- present all hints to screen reader --}}
+  <div class="screen-reader-text">
+    <h2>{{s.commentWritingTipsHintsHeader}}</h2>
+    <label for="comment_form_textarea" style="display:block">{{charLimitString}}</label>
+    <label for="comment_form_textarea" style="display:block">{{s.tipNoQuestions}}</label>
+    <label for="comment_form_textarea" style="display:block">{{s.tipOneIdea}}</label>
+  </div> {{!-- end screen-reader-text --}}
+
+
+  <p
+    id="char_limit_exceeded_message"
+    class="protip"
+    aria-hidden="true"
+    style="display:none; {{#unless desktop}}font-size:12px{{/unless}}"
+    >
+      <span aria-invalid="true" role="alert">
+        {{charLimitString}}
+      </span>
+  </p>
+
+
+  <p
+    id="one_idea_per_comment_message"
+    class="protip"
+    aria-hidden="true"
+    style="
+      display: none;
+      {{#unless desktop}}font-size:12px{{/unless}}
+      ">
+      <span>
+        {{s.tipOneIdea}}
+      </span>
+  </p>
+
+  <p
+    id="commentNotQuestionAlert"
+    class="protip"
+    aria-hidden="true"
+    role="alert"
+    style="
+      display:none;
+      {{#unless desktop}}font-size:12px{{/unless}}
+      ">
+        <span aria-invalid="true" role="alert">
+          {{s.tipNoQuestions}}
+        </span>
+  </p>
+
+</div> {{! end protips column}}
+
+
+
+
+
+  <form
+    role="form"
+    style="padding-bottom: 1px; {{! no stripe of background_content color mobile }}
+    ">
+
+    {{!-- ================ SOCIAL PICTURE && TEXT AREA ================ --}}
+    <div style="display: table; width: 100%">
+      {{#unless is_anon}}
+      <span style="display: table-cell">
+        {{view profilePicView}}
+      </span>
+      {{/unless}}
+      <span style="display: table-cell; width: 100%">
+        <textarea
+          class="form-control"
+          id="comment_form_textarea"
+          rows="1"
+          style="
+          display: inline-block;
+            width: 100%;
+            font-size: 16px; {{!-- 16px to prevent zooming on iOS. http://stackoverflow.com/questions/2989263/disable-auto-zoom-in-input-text-tag-safari-on-iphone --}}
+            line-height: 23px;
+            vertical-align: middle;
+          "
+          name="txt"
+          type="text"
+          maxlength="400"
+          {{!-- placeholder="Submit your own opinions here. Shorter is better - break up your ideas. You are not responding to anyone else directly - comments are sent out randomly to all participants."  --}}
+          placeholder="{{s.writePrompt}}"
+          {{#if shouldAutofocusOnTextarea}}autofocus{{/if}}
+
+          ></textarea>
+        {{!-- <p
+          id="commentSentAlert"
+          class="protip"
+          style="display: none;"
+          role="alert">
+            <strong>
+              <i
+                class="fa fa-bullhorn">
+              </i>
+              {{s.commentSent}}
+              </strong>
+        </p> --}}
+      </span>
+    </div>
+
+    {{!-- ================ CONNECT FACEBOOK / TWITTER ================ --}}
+    <div
+      id="socialButtonsCommentForm"
+      style="
+        display: none;
+        margin-top: 10px;
+        ">
+      <div class="protip"><p><i class="fa fa-microphone"></i>&nbsp; {{s.connectToPostPrompt}}</p></div>
+      {{#unless hasFacebook}}
+        <button id="facebookButtonCommentForm" class="facebookButton" style="padding-top: 0px;">
+          <i class="svgIcon" style="
+            display: inline-block;
+            position: relative;
+            margin-right: 2px;
+            top: 6px;
+            width: 25px;
+            fill: white;
+          ">{{> iconFaFacebookSquare25}}</i>
+          {{s.connectFacebook}}</button>
+      {{/unless}}
+      {{#unless hasTwitter}}
+        <button id="twitterButtonCommentForm" class="twitterButton" style="padding-top: 0px;">
+        <i class="svgIcon" style="
+          display: inline-block;
+          position: relative;
+          margin-right: 2px;
+          top: 8px;
+          width: 25px;
+          fill: white;
+        ">{{> iconFaTwitter25}}</i>
+          {{s.connectTwitter}}</button>
+      {{/unless}}
+    </div>
+
+    {{!-- ================ LOWER CONTAINER ================ --}}
+    <div
+      id="comment_form_controls"
+      style="margin-top: 12px; position: relative;"
+      class="
+        comment_form_control_hideable
+      ">
+
+   {{!-- ================ CHARACTER COUNT && BUTTON ================ --}}
+   <div
+    style="
+      right: 0px;
+      top: 0px;
+
+      text-align: right;
+      ">
+      <span
+        id="commentCharCount"
+        aria-hidden="true" {{!-- don't show this to screen reader, since there's no problem --}}
+        style="display: none; color: gray; {{#if desktop}}min-width: 20px;{{/if}}"
+        class="comment_form_control_hideable unselectable">
+      </span>
+      <label
+        id="commentCharCountExceeded"
+        for="comment_form_textarea"
+        role="alert"
+        style="display: none; color: red; {{#if desktop}}min-width: 20px;{{/if}}"
+        class="comment_form_control_hideable unselectable">
+      </label>
+      <button
+        class="
+          Btn
+          Btn-primary
+          unselectable
+          "
+        id="comment_button"
+
+        type="submit"
+        style="
+          text-transform: none;
+          font-size: 16px;
+          font-weight: 500;
+          cursor: pointer;
+          border: none;
+          border-radius: 4px;
+          background-color: #0090ff;
+          color: white;
+          letter-spacing; 0.07em;
+          min-width: 110px;
+          height: 40px;
+          margin-left: 5px;
+          {{customBtnStyles}}
+          ">
+        {{s.submitComment}}
+      </button>
+   </div>
+
+      {{!-- ================ SUBMIT BUTTON CLICKED RESPONSE AREA ================ --}}
+      <div
+        style="
+          {{#if no_write_hint}}visibility: hidden;{{/if}}
+          width: 40%;
+          {{#if desktop}}{{!-- margin-right: 20px; --}}width: 60%;{{/if}}
+          margin-top: 0px;
+          "> {{! protips column }}
+
+        <p
+          id="comment_sent_message"
+          style="display: none; {{#unless desktop}}font-size:12px{{/unless}}"
+          role="alert"
+          >
+            <span style="margin-left: 5px">
+              {{{s.commentSent}}}
+            </span>
+        </p>
+
+        <p
+          id="comment_send_failed_message"
+          style="display: none; {{#unless desktop}}font-size:12px{{/unless}}"
+          role="alert"
+          >
+            <span style="margin-left: 5px">
+              <i
+                class="fa fa-bullhorn">
+              </i>
+              {{{s.commentSendFailed}}}
+            </span>
+        </p>
+
+        <p
+          id="comment_send_failed_duplicate_message"
+          style="display: none; {{#unless desktop}}font-size:12px{{/unless}}"
+          role="alert"
+          >
+            <span style="margin-left: 5px">
+              <i
+                class="fa fa-bullhorn">
+              </i>
+              {{{s.commentSendFailedDuplicate}}}
+            </span>
+        </p>
+
+        <p
+          id="comment_send_failed_conversation_closed_message"
+          style="display: none; {{#unless desktop}}font-size:12px{{/unless}}"
+          role="alert"
+          >
+            <span style="margin-left: 5px">
+              <i
+                class="fa fa-bullhorn">
+              </i>
+              {{{s.commentErrorConversationClosed}}}
+            </span>
+        </p>
+
+        <p
+          id="comment_send_failed_empty_message"
+          style="display: none; {{#unless desktop}}font-size:12px{{/unless}}"
+          role="alert"
+          >
+            <span style="margin-left: 5px">
+              <i
+                class="fa fa-bullhorn">
+              </i>
+              {{{s.commentSendFailedEmpty}}}
+            </span>
+        </p>
+
+        <p
+          id="comment_send_failed_too_long_message"
+          style="display: none; {{#unless desktop}}font-size:12px{{/unless}}"
+          role="alert"
+          >
+            <span style="margin-left: 5px">
+              <i
+                class="fa fa-bullhorn">
+              </i>
+              {{{s.commentSendFailedTooLong}}}
+            </span>
+        </p>
+      </div> {{! end SUBMIT BUTTON CLICKED RESPONSE AREA  column}}
+
+   {{!-- ================ END LOWER CONTAINER ================ --}}
+    </div>
+
+  </form>

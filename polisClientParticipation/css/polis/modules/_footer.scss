@@ -1,0 +1,67 @@
+// Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+// STICKY FOOTER
+
+// TO MAKE SHORT FOOTER STICKY...
+
+//// for #footer-conversation-view, root needs height: 100%;
+//// but for #footer, it needs height: auto;
+//// if [data-view-name="root"] ~ #footer then height: auto;
+//[data-view-name="root"] {
+  // height: 100%;
+//}
+
+.wrap {
+  min-height: 100%;
+  margin: 0 auto (-$short-footer-height);
+  height: auto;
+}
+
+.wrap:after {
+  height: 100px; /*short footerheight plus... svg translate plus a lil*/
+  content: "";
+  display: block;
+}
+
+.participationView {
+  height: 100%;
+}
+
+// SHORT FOOTER
+#footer-conversation-view {
+  margin-top: 30px;
+  margin-bottom: 30px;
+  // height: $short-footer-height;
+  background-color: transparent;
+  // border-color: #e7e7e7;
+  // border-top: 1px solid lightgrey;
+}
+
+.footer-conversation-view-item {
+  position: relative;
+  top: 14px;
+}
+
+// TALL FOOTER
+#footer {
+  height: $tall-footer-height;
+  background-color: $header-footer-color;
+  padding-top: 30px;
+  border-color: #e7e7e7;
+  border-top: 1px solid transparent;
+}
+
+.footer_item {
+  margin-right: 40px;
+  position: relative;
+  top: 14px;
+}
+
+.footerCol {
+  padding-top: 17px;
+}
+
+.footerSocial {
+  display: block;
+  vertical-align: middle;
+}

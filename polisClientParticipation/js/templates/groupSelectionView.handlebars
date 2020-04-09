@@ -1,0 +1,30 @@
+{{!-- Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>. --}}
+
+<div
+  class="unselectable"
+	style="
+    margin: auto;
+    margin-bottom: 1px; {{!-- workaround for bug --}}
+    {{#unless visible}}
+      display: none;
+    {{/unless}}
+    ">
+    Opinion Group:
+{{!--   <span style="margin-right: 7px">
+    {{s.group_123}}
+  </span> --}}
+  {{#each groups2}}<span
+      style="
+        cursor: pointer;
+        font-weight: 700;
+        display: inline-block;
+        {{this.styles}}
+      "
+      data-gid="{{this.gid}}"
+      class="
+        groupButton
+        {{#if this.selected}}
+          selectedGroupButton
+        {{/if}}
+      ">{{this.name}}</span>{{/each}}
+</div>

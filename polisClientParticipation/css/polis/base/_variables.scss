@@ -1,0 +1,114 @@
+// Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+// VARIABLES
+//
+
+// ----------------------------------------------------------------------------
+// COLORS
+// ----------------------------------------------------------------------------
+//
+$light-gray: #717171;
+$medium-gray: #555555;
+$dark-gray: #171717;
+
+$darker1: rgba(0,0,0, 0.1);
+$darker2: rgba(0,0,0, 0.2);
+$darker3: rgba(0,0,0, 0.3);
+$darker4: rgba(0,0,0, 0.4);
+$darker5: rgba(0,0,0, 0.5);
+$darker6: rgba(0,0,0, 0.6);
+$darker7: rgba(0,0,0, 0.7);
+$darker8: rgba(0,0,0, 0.8);
+$darker9: rgba(0,0,0, 0.9);
+$darker10: rgba(0,0,0, 1);
+
+
+$light-blue-gray: #6f7c80;
+$blue-gray: #555f61;
+$dark-blue-gray: #373d3f;
+
+$green: #2ecc71;
+$dark-green: #27ae60;
+
+$header-footer-color: #F4F4F4;
+
+// $brand-light-color: #4daae8;
+$brand-color: #3498db;
+$brand-text-color: #0a77bf;
+
+$panel-color: #f7f7f7;
+
+$bg-color: #f7f7f7;
+$bg-alt-color: #e3e4e5;
+$text-color: $darker5; //contrast ratio 4.5
+
+$default-border-color: #e4e4e4;
+
+// Links
+$link-color: $brand-text-color;
+$hover-color: #0565a6;
+
+// Buttons
+$btn-hover-color: #0a77bf;
+
+// Notifications
+$warning-bg-color: #eeeff0;
+$warning-text-color: $medium-gray;
+
+$danger-bg-color: red;
+$danger-text-color: white;
+
+$positive-bg-color: $green;
+$positive-text-color: white;
+
+// ----------------------------------------------------------------------------
+// CONTENT
+// ----------------------------------------------------------------------------
+$default-gutter: 12px;
+
+$default-whitespace: 24px;
+$default-leading: 1.5;
+
+// ----------------------------------------------------------------------------
+// FONTS
+// ----------------------------------------------------------------------------
+// weight options: thin: 100; light: 300; regular: 400; medium: 500; bold: 700; black: 900
+// "brandon-grotesque", "Brandon Grotesque",
+
+ // "canada-type-gibson","Futura", "Gill Sans",
+
+$headline-font: "Helvetica Neue", Helvetica, sans-serif;
+$sans-font: "Helvetica Neue", Helvetica, sans-serif;
+//  alternate sans-serif (?): "Droid Sans", sans-serif;
+// "chaparral-pro", "Chaparral Pro",
+// "chaparral-pro-display",
+
+$serif-font: "Helvetica Neue", Helvetica, sans-serif;
+$serif-headline-font: "Helvetica Neue", Helvetica, sans-serif;
+
+
+// $serif-font: "canada-type-gibson", "Hoefler Text", "Baskerville", "Garamond", "Cambria", Georgia, serif;
+// $serif-headline-font:  "Chaparral Pro", "Hoefler Text", "Baskerville", "Garamond", "Cambria", Georgia, serif;
+
+// ----------------------------------------------------------------------------
+// LAYOUT
+// ----------------------------------------------------------------------------
+$lg-screen: 1200px;
+$md-screen: 992px;
+$sm-screen: 768px;
+
+// ----------------------------------------------------------------------------
+// FOOTER
+// ----------------------------------------------------------------------------
+$short-footer-height: 50px;
+$tall-footer-height: 250px;
+
+// ----------------------------------------------------------------------------
+// VISUALIZATIONS
+// ----------------------------------------------------------------------------
+$color_agree: rgb(0, 181, 77);
+$color_disagree: #e74c3c; // ALIZARIN
+$color_pass: #BDC3C7; // SILVER
+$color_self: #0CF; // blue like the dot on a map
+$color_star: yellow; // TODO find right color
+$color_selected_comment: #f7f7f7;
