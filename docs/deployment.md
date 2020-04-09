@@ -8,20 +8,20 @@ First things first, it helps to understand a bit how the system is set up.
 
 | Component Name | Tech | Description |
 |----------------|------|-------------|
-| [`polisServer`][repo-server] | Node.js | The main server. Handles client web requests (page loads, vote activity, etc.) |
-| [`polisMath`][repo-math] | Clojure/JVM | The math engine.  |
-| [`polisClientParticipation`][repo-participation] | Javascript | The client code for end-users. |
-| [`polisClientAdmin`][repo-admin] | Javascript | The client code for administrators. |
+| [`server`][dir-server] | Node.js | The main server. Handles client web requests (page loads, vote activity, etc.) |
+| [`math`][dir-math] | Clojure/JVM | The math engine.  |
+| [`clientParticipation`][dir-participation] | Javascript | The client code for end-users. |
+| [`clientAdmin`][dir-admin] | Javascript | The client code for administrators. |
 
 The code in the two client-side repos compile to static assets.
 We push these to s3 for CDN via `deployPreprod` and `deploy_TO_PRODUCTION`, but there is a config file for each of these projects which will allow you to configure the behavior of these scripts as described in the READMEs.
 Of note though, you can use a static file server, and deploy via these scripts over `sshfs`.
 Finally, for local development, these repos have hot-reload able servers you can run with the `./x` command, but note that this is not the recommended approach for serving the client assets in production.
 
-   [repo-server]: https://github.com/pol-is/polisServer
-   [repo-math]: https://github.com/pol-is/polisMath
-   [repo-participation]: https://github.com/pol-is/polisClientParticipation
-   [repo-admin]: https://github.com/pol-is/polisClientAdmin
+   [dir-server]: /server
+   [dir-math]: /math
+   [dir-participation]: /clientParticipation
+   [dir-admin]: /clientAdmin
 
 ### Environment variables and configuration
 
