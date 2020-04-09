@@ -1,0 +1,40 @@
+// Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+// Flat UI main stylesheet that aggregates all modules
+
+// Loading custom fonts
+@import "../../bower_components/flatui/less/icon-font";
+
+// Loading config with variables (changing them leads to changing a color scheme)
+@import "config";
+
+// Utility mixins for greater good
+@import "../../bower_components/flatui/less/mixins";
+
+// Modules
+@import "../../bower_components/flatui/less/modules/demo";
+@import "../../bower_components/flatui/less/modules/type";
+@import "../../bower_components/flatui/less/modules/buttons";
+@import "../../bower_components/flatui/less/modules/caret";
+@import "../../bower_components/flatui/less/modules/navbar";
+@import "../../bower_components/flatui/less/modules/select";
+@import "../../bower_components/flatui/less/modules/input";
+@import "../../bower_components/flatui/less/modules/checkbox-and-radio";
+@import "../../bower_components/flatui/less/modules/tagsinput";
+@import "../../bower_components/flatui/less/modules/progress";
+@import "../../bower_components/flatui/less/modules/ui-slider";
+@import "../../bower_components/flatui/less/modules/pager";
+@import "../../bower_components/flatui/less/modules/pagination";
+@import "../../bower_components/flatui/less/modules/tooltip";
+@import "../../bower_components/flatui/less/modules/dropdown";
+@import "../../bower_components/flatui/less/modules/switch";
+@import "../../bower_components/flatui/less/modules/share";
+@import "../../bower_components/flatui/less/modules/palette";
+@import "../../bower_components/flatui/less/modules/tile";
+@import "../../bower_components/flatui/less/modules/todo";
+@import "../../bower_components/flatui/less/modules/footer";
+@import "../../bower_components/flatui/less/modules/video";
+@import "../../bower_components/flatui/less/modules/login";
+
+// Spaces
+@import "../../bower_components/flatui/less/spaces";

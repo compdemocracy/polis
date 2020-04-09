@@ -1,0 +1,63 @@
+// Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+// BASE
+// Styles applied directly to elements usually using the element selector
+//
+
+html {
+  box-sizing: border-box;
+}
+
+// Responsive typography
+// html {
+//   font-size: 62.5%;
+// }
+
+/* necessary for footer */
+// html,
+// body {
+  // height: 100%;
+  /* The html and body elements cannot have any padding or margin. */
+// }
+
+*, *:before, *:after {
+  box-sizing: inherit;
+}
+
+body {
+  // background: $bg-color;
+  color: rgb(0,0,0);
+  font-family: $sans-font;
+  line-height: $default-leading;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4, h5, h6, p, ul, ol {
+  margin-top: 0;
+
+  font-family: inherit;
+}
+
+// bootstrap override
+p, ul, ol {
+  font-size: 16px;
+  font-weight: 300;
+  line-height: $default-leading;
+}
+
+//
+// Links
+//
+a {
+  &, &:link {
+    color: $link-color;
+    text-decoration: none;
+  }
+  &:hover {
+    color: $hover-color;
+  }
+}
+
+pre, code {
+  font-size: 14px
+}

@@ -1,0 +1,104 @@
+{{!-- Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>. --}}
+
+<div
+  style="
+    color: {{bodyColor}};
+    background-color: {{backgroundColor}};
+    cursor: -moz-grab;
+    cursor: -webkit-grab;
+    cursor: grab;
+  "
+  class="query_result_item"
+  data-idx="{{index}}"
+>
+{{tid}}
+  {{!-- SOCIAL IMAGE --}}
+  <img
+    style="
+      border-radius: 3px;
+      width: 40px;
+      border: 1px solid lightgrey;
+      position: absolute;
+    "
+    src="{{socialCtx.img}}">
+  </img>
+  <div
+    style='
+      margin-left: 51px;
+      position: relative;
+      top: -4px;
+    '>
+    {{!-- SOCIAL NAME || ANONYMOUS --}}
+    <div style='margin: 0px; color: gray; font-size:13px; vertical-align: middle; margin-left: 5px; display: inline-block;'>
+      {{#unless socialCtx.anon}}
+        <a href="{{socialCtx.link}}">
+      {{/unless}}
+      <span
+        style="
+        font-weight: 700;
+        ">{{socialCtx.name}}</span>
+      {{#unless socialCtx.anon}}
+        </a>
+      {{/unless}}
+      {{!-- WROTE --}}
+      <span>
+        {{#if tweet_id}}
+          <a href="https://twitter.com/{{socialCtx.screen_name}}/status/{{tweet_id}}" target="_blank">{{s.x_tweeted}}</a>
+        {{/if}}
+      </span>
+
+      {{!-- COMMENT TEXT --}}
+      <p style="
+        margin:0px;
+          {{!-- this is responsible for normalizing the comment heights --}}
+          {{!-- min-height: {{commentCarouselMinHeight}}px;  --}}
+        ">{{txt}}</p>
+
+      {{!-- PERCENTAGE AND AGREED / DISAGREED --}}
+      <p
+        class="{{leClass}}"
+        style="
+          margin: 0px;
+          font-size: 35px;
+          font-weight: 100;
+          ">{{{agreedOrDisagreed}}}
+      </p>
+
+      {{!-- COMMENT VOTE DETAILS --}}
+      <div style="display:none">
+        {{!-- OF N PARTICIPANTS IN (GROUP x / CONVERSATION) --}}
+        <p style="
+          font-size:12px;
+          color: gray;
+          margin: 0px
+          ">
+          <em>Of</em>
+          <strong>{{total}}</strong>
+          <em>participants in {{groupOrConversatonString}}</em>
+        </p>
+
+        {{!-- N PARTICIPANTS SAW X COMMENT --}}
+        <p style="
+          font-size:12px;
+          color: gray;
+          margin: 0px
+          ">
+          <strong>{{nTrials}}</strong>
+          <em>{{s.xPtptsSawThisComment}}</em>
+        </p>
+        {{!-- N OF THOSE PARTICIPANTS AGREED / DISAGREED --}}
+        <p style="
+          font-size:12px;
+          color: gray;
+          margin: 0px;
+          ">
+          <strong>{{count}}</strong>
+          <em>{{#if repfullForAgree}}{{s.xOfThoseAgreed}}{{else}}{{s.xOfthoseDisagreed}}{{/if}}</em>
+        </p>
+        {{!-- DATE OF COMMENT --}}
+        {{!-- <p style="font-size: 12px; color: gray; margin-bottom: 0px;"><em>Comment submitted {createdString}</em></p> --}}
+
+      </div>
+    </div>
+  </div>
+</div>
