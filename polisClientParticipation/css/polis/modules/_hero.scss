@@ -1,0 +1,152 @@
+// Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+// HERO
+// The best part of the page, the winner, the gold medalist
+//
+// .hero                  <section>
+// .hero-heading          Heading in <section>
+// .spot                  lil white bubble!
+// .spot-text             the content of bubble w/manual vertical-align
+// .spotList              <ul> of checks
+// .spotList-item         <li> descendant of above
+// .bgOverlay             100% wide white band, outside of .container
+// .learnMore             Learn More
+// .learnMore-link        <a>
+//
+
+.hero {
+  margin: 0;
+  padding: $default-whitespace 0;
+  width: 100%;
+
+  background: url("https://pol.is/landerImages/profBg_xlarge_mini.jpg") top center;
+  background-size: $sm-screen;
+
+  @media screen and (min-width: $sm-screen) {
+    padding: $default-whitespace*2 0 $default-whitespace;
+
+    background-size: 100%;
+  }
+}
+
+.hero-heading {
+  margin: 0.5em 0;
+  padding: 0;
+
+  color: $dark-blue-gray;
+  font-family: $serif-headline-font;
+  @include font-size(30px);
+  font-weight: 100;
+  letter-spacing: 0;
+  text-align: center;
+
+  @media screen and (min-width: $sm-screen) {
+    margin: 0.5em 0 1em 0;
+
+    @include font-size(60px);
+  }
+
+  @media screen and (min-width: $md-screen) {
+    @include font-size(72px);
+  }
+}
+
+.spot--exterior {
+  position: relative;
+
+  margin: $default-gutter auto;
+  padding: 0;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+
+  background-color: rgba(255,255,255,0.5);
+
+  @media screen and (min-width: $sm-screen) {
+    width: 160px;
+    height: 160px;
+  }
+}
+
+.spot--interior {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+
+  margin: -60px 0 0 -60px;
+  padding: 27px 5px;
+  width: 120px;
+  height: 120px;
+  display: inline-block;
+  border-radius: 50%;
+
+  background-color: #FFFFFF;
+  color: #000;
+  @include font-size(18px);
+  font-weight: normal;
+  line-height: 1.25em;
+  text-align: center;
+
+  @media screen and (min-width: $sm-screen) {
+    margin: -70px 0 0 -70px;
+    padding: 35px 10px;
+    width: 140px;
+    height: 140px;
+  }
+}
+
+.spotList {
+  margin: $default-gutter auto 0 auto;
+  padding: 0;
+  width: 250px;
+  list-style: none;
+
+  color: $dark-blue-gray;
+  @include font-size(18px);
+
+  @media screen and (min-width: $sm-screen) {
+    margin: 50px auto 0 auto;
+  }
+}
+
+.spotList-item {
+  &:before {
+    color: $green;
+    @include fa-checkmark();
+    margin-right: 0.5em;
+  }
+  text-align: center;
+
+  @media screen and (min-width: $sm-screen) {
+    text-align: left;
+  }
+}
+
+.bgOverlay {
+  padding: $default-whitespace 0;
+
+  background-color: rgba(255,255,255,0.7);
+}
+
+.learnMore {
+  padding: $default-whitespace 0 0;
+
+  text-align: center;
+  font-family: $sans-font;
+}
+
+.learnMore-link {
+  position: relative;
+
+  font-weight: bold;
+
+  &:after {
+    position: absolute;
+    top: 100%;
+    left: 60%;
+    @include fa-angle-down();
+    width: 18px;
+    margin-left: -18px;
+    font-size: 2em;
+  }
+}

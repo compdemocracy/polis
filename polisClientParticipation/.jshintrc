@@ -1,0 +1,20 @@
+{
+    "es3": true,
+    "eqeqeq": true,
+    "boss": true,
+    "strict": false,
+    "unused": false,
+    "undef": false,
+    "quotmark": true,
+    "globals": {
+        "$": true,
+        "jQuery": true,
+        "console": true,
+        "require": true,
+        "define": true,
+        "requirejs": true,
+        "describe": true,
+        "expect": true,
+        "module": true
+    }
+}

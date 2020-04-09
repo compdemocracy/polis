@@ -1,0 +1,228 @@
+// Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
+$COLOR_SELECTED_HULL: true;
+
+
+
+//TUTORIAL OCTOBER 2014
+
+.tutorial-slide {
+  // border: 1px dotted $medium-gray;
+  border-radius: 4px;
+  text-align: center;
+  padding: 20px;
+  height:100%;
+  position: relative;
+}
+
+.tutorial-title {
+  border-bottom: 1px dotted $medium-gray;
+  padding-bottom: 15px;
+  margin-bottom: 15px;
+}
+
+.tutorial-body {
+  font-size: 1.5em;
+}
+
+.tutorial-svg {
+  margin-top: 10px;
+  // border: 1px dotted $medium-gray;
+  width: 250px;
+  height: 125px;
+  margin: auto;
+
+}
+
+.circle {
+
+}
+
+.tutorial-pointer {
+  cursor: pointer;
+}
+
+.tutorial-hull {
+  fill: #eee;
+  stroke: #eee;
+  stroke-width: 6px;
+  stroke-linejoin: round;
+  cursor: pointer;
+}
+
+.tutorial-arrow {
+  font-size: 3em;
+  position: relative;
+  // top: 22px;
+  color: rgba(52, 152, 219, 0.4);
+  cursor: pointer;
+
+}
+
+.tutorial-arrow:hover {
+  color: rgba(52, 152, 219, 0.8);
+}
+
+.tutorial-arrow-container {
+  height: 100%;
+}
+
+.tutSlidesBtn {
+  position: absolute;
+  top: 45px;
+}
+
+//VISUALIZATION
+
+.visualization {
+  border: none;
+  // background: $bg-color;
+  -moz-user-select: none;
+  -khtml-user-select: none;
+  -webkit-user-select: none;
+  -o-user-select: none;
+}
+.hull {
+  fill: white;
+  // stroke: rgb(119, 119, 119);
+  // stroke-width: 1px;
+  // stroke-dasharray: 2px 4px;
+  // stroke-linejoin: round;
+  z-index: 402;
+  cursor: pointer;
+}
+
+$HULL_HOVER_COLOR: #f5f5f5;
+
+// NOTE: we also rely on the .hovered_group class
+.hull:hover {
+  fill: $HULL_HOVER_COLOR;
+}
+// NOTE: we also rely on the .hull:hover
+.hovered_group {
+  fill: $HULL_HOVER_COLOR;
+}
+
+.hull.active_group {
+  fill-opacity: 0;
+}
+.hull_shadow {
+  fill: #d4d4d4;
+  stroke: #d4d4d4;
+  stroke-width: 8px;
+  stroke-linejoin: round;
+  z-index: 400;
+}
+.hull_shadow.active {
+  @if $COLOR_SELECTED_HULL {
+    fill: #f1f1f1;
+    stroke: #f1f1f1;
+  }
+}
+
+.hull_selection {
+  // stroke: rgba(0,0,0,0);
+  // border-color: rgba(0,0,0,0);
+  // stroke-width: 9px;
+  // border-width: 2px;  // for html elements
+  // border-style: dashed; // for html elements
+  // border-radius: 5px; // for html elements
+  // stroke-linejoin: round;
+  // stroke-dasharray: 5px;
+  // stroke-dashoffset: 1px;
+  fill: rgba(255,255,255,0); // animates from here
+  // -webkit-transition: background-color 0.1s, fill 0.1s;
+  // transition: background-color 0.1s, fill 0.1s;
+  z-index: 401;
+}
+.hull_selection.active_group {
+  @if $COLOR_SELECTED_HULL {
+    stroke: #6FBAFF;
+    border-color: #6FBAFF; // for html elements
+
+    stroke-width: 1px;
+    stroke: blue;
+    stroke-dasharray: 2px 4px;
+    fill-opacity: 1;
+    fill: #f5f5f5;
+    // -webkit-transition: background-color 0.1s, fill 0.1s;
+    // transition: background-color 0.1s, fill 0.1s;
+  }
+}
+
+.active_group {
+  @if $COLOR_SELECTED_HULL {
+    fill: #f5f5f5;
+    background-color: #e9f0f7; // for html elements
+    stroke: #e9f0f7;
+    // -webkit-transition: background-color 0.1s, fill 0.1s;
+    // transition: background-color 0.1s, fill 0.1s;
+  }
+}
+.ptpt {
+  z-index: 500;
+  cursor: pointer;
+ /* pointer-events: none; */
+}
+.hidden {
+  display: none;
+}
+.enter {
+  fill: green;
+}
+.update {
+  fill: #333;
+}
+.exit {
+  fill: brown;
+}
+
+/* http://stackoverflow.com/questions/16489307/how-to-remove-gutter-space-for-a-specific-div-only-bootstrap  */
+.row.no-gutter [class*='col-']:not(:first-child),.row.no-gutter [class*='col-']:not(:last-child) {
+  padding-right:0;
+  padding-left:0;
+}
+
+.help_text_you {
+  font-family: $sans-font;
+}
+
+
+
+
+/*XS XS XS XS XS XS XS */
+/*  @screen-sm-min  */
+@media(max-width:767px){
+
+  #vis_sibling_bottom {
+    margin-top: 30px;
+  }
+
+}
+
+/*SM SM SM SM SM SM SM */
+/* @screen-sm-min  */
+@media(min-width:768px){
+
+  // #vis_sibling_bottom {
+  //   margin-top: 30px;
+  // }
+
+}
+
+/*MD MD MD MD MD MD MD MD */
+/* @screen-md-min */
+@media(min-width:992px){
+
+
+
+}
+
+/*LG LG LG LG LG LG LG LG */
+/* @screen-lg-min  */
+@media(min-width:1200px){
+
+
+
+}
