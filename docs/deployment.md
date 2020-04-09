@@ -12,6 +12,7 @@ First things first, it helps to understand a bit how the system is set up.
 | [`math`][dir-math] | Clojure/JVM | The math engine.  |
 | [`clientParticipation`][dir-participation] | Javascript | The client code for end-users. |
 | [`clientAdmin`][dir-admin] | Javascript | The client code for administrators. |
+| [`report`][dir-report] | Node.js | The code for detailed analytics reports. |
 
 The code in the two client-side repos compile to static assets.
 We push these to s3 for CDN via `deployPreprod` and `deploy_TO_PRODUCTION`, but there is a config file for each of these projects which will allow you to configure the behavior of these scripts as described in the READMEs.
@@ -22,6 +23,7 @@ Finally, for local development, these repos have hot-reload able servers you can
    [dir-math]: /math
    [dir-participation]: /clientParticipation
    [dir-admin]: /clientAdmin
+   [dir-report]: /report
 
 ### Environment variables and configuration
 
@@ -51,13 +53,13 @@ TODO Compile complete starter template somewhere in this repo...
 
 ## Development environment
 
-1) Get the main server running using the Readme here: https://github.com/pol-is/polisServer
+1) Get the main server running using the Readme here: [`/server`][dir-server]
    * This includes instructions on setting up a local postgres database
-2) Get the math server running using the Readme here: https://github.com/pol-is/polisMath
-3) Build client repo assets using the instructions in the repsective Readmes:
-   * https://github.com/pol-is/polisClientParticipation
-   * https://github.com/pol-is/polisAdmin
-   * https://github.com/pol-is/polisReport
+2) Get the math server running using the Readme here: [`/math`][dir-math]
+3) Build client repo assets using the instructions in the respective Readmes:
+   * [`/clientParticipation`][dir-participation]
+   * [`/clientAdmin`][dir-admin]
+   * [`/report`][dir-report]
 4) Each of the above repos also contains instructions for running a server with HMR; By default, the server should forward requests for these compiled assets to the HMR server.
 
 ## Basic/Manual deployment
@@ -66,10 +68,10 @@ Go through all steps in the Development environment, but at step (4) take compil
 
 ## Docker deployment
 
-* There's a docker-compose.yml file in https://github.com/pol-is/polisServer/blob/master/docker-compose.yml which has some instructions on running a partial dev environment with docker-compose.
+* There's a [`docker-compose.yml` file in the project root](/docker-compose.yml), which has some instructions on running a partial dev environment with docker-compose.
 * Some one else did some dockerization work here https://github.com/uzzal2k5/polis_container.
 
-Ultimately, it would be great if all of this content was merged into this `polis-deploy` repo.
+Ultimately, it would be great if all of this content was merged into this repo.
 
 
 ## Contribution notes
