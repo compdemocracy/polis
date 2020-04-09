@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Polis Embed Demo</title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+  .banner {
+    background-color: #ccc;
+    border-radius: 3px;
+    height: 80px;
+    width: 620px;
+    margin-top: 40px;
+    margin-left: 10px;
+    margin-right: 10px;
+    margin-bottom: 40px;
+  }
+  .paragraph {
+    background-color: #ddd;
+    border-radius: 3px;
+    height: 20px;
+    width: 620px;
+    margin-top: 20px;
+    margin-left: 10px;
+    margin-right: 10px;
+  }
+  .last-line {
+    width: 100px;
+  }
+  .spacer {
+    height: 20px;
+  }
+  </style>
+
+</head>
+
+<body style="width: 100%">
+
+  <script>
+  var polis = window.polis = window.polis || {};
+  polis.on = polis.on || {};
+  polis.on.resize = [
+    function(o) {
+      var iframe = o.iframe;
+      var data = o.data;
+      // Here's where you can do something with the resize event
+      console.dir(data);
+      return false; // Return true to prevent default resize handler found in https://pol.is/embed.js
+    }
+  ];
+  polis.on.init = [
+    function(o) {
+      if (o.status === "ok") {
+        console.log("polis loaded");
+        console.log(o.conversation);
+      } else {
+        console.error("error loading");
+      }
+    }
+  ];
+  </script>
+
+  <div style="width: 620px; margin: auto;">
+    <div class="banner"></div>
+
+    <div class="paragraph"></div>
+    <div class="paragraph"></div>
+    <div class="paragraph"></div>
+    <div class="paragraph"></div>
+    <div class="paragraph"></div>
+    <div class="paragraph last-line"></div>
+    <div class="spacer"></div>
+
+    <div class="paragraph"></div>
+    <div class="paragraph"></div>
+    <div class="paragraph"></div>
+    <div class="paragraph"></div>
+    <div class="paragraph"></div>
+    <div class="paragraph last-line"></div>
+    <div class="spacer"></div>
+
+
+
+  <!--
+
+      data-ucv="0"
+      data-ucw="0"
+      data-ucst="0"
+      data-ucsd="0"
+      data-ucsv="1"
+
+      data-show_vis="false"
+      data-auth_needed_to_vote="true"
+      data-auth_needed_to_write="false"
+      data-auth_opt_fb="true"
+      data-auth_opt_tw="false"
+      data-auth_opt_allow_3rdparty="true"
+  -->
+
+    <div
+      class="polis"
+
+      data-border="none"
+      data-border_radius="0px";
+      data-padding="0px";
+
+      data-width="320px"
+
+      data-ucsf="0"
+      data-ui_lang="es"
+
+      data-demo="true"
+      data-conversation_id="2arcefpshi"
+    >
+    </div>
+  </div>
+
+  <script async="true" src="https://preprod.pol.is/embedPreprod.js"></script>
+
+
+</body>
+</html>
