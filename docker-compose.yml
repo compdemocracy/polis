@@ -10,7 +10,7 @@ services:
   node:
     container_name: polis-server
     build:
-      context: .
+      context: ./server
       dockerfile: Dockerfile
     depends_on:
       - 'postgres'
@@ -26,14 +26,14 @@ services:
     depends_on:
       - 'postgres'
     build:
-      context: https://github.com/pol-is/polisMath.git
+      context: ./math
 
 
   postgres:
     container_name: polis-db
     restart: always
     build:
-      context: .
+      context: ./server
       dockerfile: Dockerfile-db
     networks:
       - 'polis-dev'
