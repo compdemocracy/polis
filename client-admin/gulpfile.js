@@ -52,6 +52,10 @@ function prepPathForTemplate(path) {
 
 function getGitHash() {
   return new Promise(function(resolve, reject) {
+    if (process.env.GIT_HASH) {
+      resolve(process.env.GIT_HASH)
+      return
+    }
     exec("git log --pretty=\"%h\" -n 1", function(error, stdout, stderr) {
       if (error) {
         console.error('FAILED TO GET GIT HASH: ' + error);

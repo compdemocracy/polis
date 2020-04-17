@@ -1,9 +1,9 @@
 FROM node:10.15.0
 
+ARG GIT_HASH
+
 RUN npm install -g gulp
 RUN npm install -g bower
-RUN npm install gulp
-RUN npm link gulp
 
 COPY package*.json ./
 COPY bower.json ./

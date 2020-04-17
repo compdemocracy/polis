@@ -12,9 +12,13 @@ services:
     build:
       context: ./server
       dockerfile: Dockerfile
+    environment:
+      STATIC_FILES_HOST: static
+      STATIC_FILES_PORT: 80
+      STATIC_FILES_ADMINDASH_PORT: 80
+      SHOULD_USE_TRANSLATION_API: 'false'
     depends_on:
       - 'postgres'
-      - 'static'
     networks:
       - 'polis-dev'
     ports:
@@ -41,14 +45,32 @@ services:
       - 'backups:/backups'
       - 'postgres:/var/lib/postgresql/data'
 
-
   static:
     container_name: polis-static
-    image: nginx:1.14
+    build:
+      context: ./fileServer
+    depends_on:
+      - 'client'
+      - 'client-admin'
+      - 'node'
     networks:
       - 'polis-dev'
     ports:
-      - '5002:80'
+      - '80:80'
+
+  client:
+    image: polis-participation
+    build:
+      context: ./clientParticipation
+      args:
+        GIT_HASH: null
+
+  client-admin:
+    image: polis-admin
+    build:
+      context: ./clientAdmin
+      args:
+        GIT_HASH: null
 
 
 
