@@ -197,7 +197,7 @@ gulp.task("scripts", function() {
       // remove .gz extension
       var ext = path.extname;
       console.log("foo", path);
-      path.extname = ext.substr(0, ext.length- ".gz".length);
+      //path.extname = ext.substr(0, ext.length- ".gz".length);
     }));
   return s.pipe(gulp.dest(destRoot() + "/js"));
 });
