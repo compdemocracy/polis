@@ -22,10 +22,12 @@
     style="{{#unless desktop}}font-size:12px;{{/unless}}"
     >
       {{!-- present all hints to screen reader --}}
-      <label for="comment_form_textarea" style="display:block">
+      <label for="comment_form_textarea"
+             style="display:{{#if hideHelp}}none{{else}}block{{/if}};">
         {{{s.writeCommentHelpText}}}
       </label>
 
+      {{#if hideHelp}}
       <p>
         {{{s.helpWriteListIntro}}}
       </p>
@@ -37,6 +39,8 @@
       <label for="comment_form_textarea" style="display:block">
         {{{s.tipCommentsRandom}}}
       </label>
+      {{/if}}
+
       {{!-- end screen-reader-text --}}
   </p>
 
