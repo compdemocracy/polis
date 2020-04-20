@@ -2,6 +2,8 @@ FROM node:6.10
 
 ARG GIT_HASH
 
+WORKDIR /app
+
 RUN npm install -g gulp
 
 ADD package*.json npm-shrinkwrap.json ./

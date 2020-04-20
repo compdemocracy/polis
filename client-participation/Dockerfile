@@ -2,6 +2,8 @@ FROM node:10.15.0
 
 ARG GIT_HASH
 
+WORKDIR /app
+
 RUN npm install -g gulp
 RUN npm install -g bower
 
