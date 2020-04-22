@@ -10,8 +10,8 @@ First things first, it helps to understand a bit how the system is set up.
 |----------------|------|-------------|
 | [`server`][dir-server] | Node.js | The main server. Handles client web requests (page loads, vote activity, etc.) |
 | [`math`][dir-math] | Clojure/JVM | The math engine.  |
-| [`clientParticipation`][dir-participation] | Javascript | The client code for end-users. |
-| [`clientAdmin`][dir-admin] | Javascript | The client code for administrators. |
+| [`client-participation`][dir-participation] | Javascript | The client code for end-users. |
+| [`client-admin`][dir-admin] | Javascript | The client code for administrators. |
 | [`report`][dir-report] | Node.js | The code for detailed analytics reports. |
 
 The code in the two client-side repos compile to static assets.
@@ -21,8 +21,8 @@ Finally, for local development, these repos have hot-reload able servers you can
 
    [dir-server]: /server
    [dir-math]: /math
-   [dir-participation]: /clientParticipation
-   [dir-admin]: /clientAdmin
+   [dir-participation]: /client-participation
+   [dir-admin]: /client-admin
    [dir-report]: /report
 
 ### Environment variables and configuration
@@ -57,8 +57,8 @@ TODO Compile complete starter template somewhere in this repo...
    * This includes instructions on setting up a local postgres database
 2) Get the math server running using the Readme here: [`/math`][dir-math]
 3) Build client repo assets using the instructions in the respective Readmes:
-   * [`/clientParticipation`][dir-participation]
-   * [`/clientAdmin`][dir-admin]
+   * [`/client-participation`][dir-participation]
+   * [`/client-admin`][dir-admin]
    * [`/report`][dir-report]
 4) Each of the above repos also contains instructions for running a server with HMR; By default, the server should forward requests for these compiled assets to the HMR server.
 
