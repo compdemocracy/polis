@@ -52,7 +52,7 @@ services:
       context: ./fileServer
       dockerfile: nginx.Dockerfile
     depends_on:
-      - 'static'
+      - 'node'
     networks:
       - 'polis-dev'
     ports:
