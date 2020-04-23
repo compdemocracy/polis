@@ -138,12 +138,10 @@ var p = window.preload;
 
 
 function fixupConversation(c) {
-  if (c && 'translations' in c) {
-    var t = c.translations
-    if (t && t.length) {
-      c.topic = t[0].topic;
-      c.description = t[0].description;
-    }
+  var t = c.translations
+  if (t && t.length) {
+    c.topic = t[0].topic;
+    c.description = t[0].description;
   }
   return c;
 }
