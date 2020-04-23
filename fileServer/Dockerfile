@@ -12,5 +12,5 @@ ADD . .
 COPY --from=polis-admin:latest /app/build/ ./build/
 COPY --from=polis-participation:latest /app/build/ ./build/
 
-EXPOSE 80
+EXPOSE 8080
 CMD node --max_old_space_size=400 --gc_interval=100 --harmony app.js
