@@ -15,8 +15,10 @@ docker-machine ip
 
 Visit your instance at: `http://123.45.67.89.xip.io/`
 
-Sign up at `/createuser` path.
+Sign up at `/createuser` path. You'll be logged in right away; no email validation required!
 
+**What doesn't work yet?**
+- Generated reports are not yet viewable.
 
 ## :rocket: Deployment
 
