@@ -1,4 +1,4 @@
-FROM node:6.10
+FROM node:7
 
 ARG GIT_HASH
 
