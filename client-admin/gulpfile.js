@@ -197,7 +197,7 @@ gulp.task("scripts", function() {
       // remove .gz extension
       var ext = path.extname;
       console.log("foo", path);
-      //path.extname = ext.substr(0, ext.length- ".gz".length);
+      path.extname = ext.substr(0, ext.length- ".gz".length);
     }));
   return s.pipe(gulp.dest(destRoot() + "/js"));
 });
@@ -250,6 +250,10 @@ gulp.task('deploy_TO_PRODUCTION', [
       },
     });
   }
+  if ('local' === polisConfig.UPLOADER) {
+    uploader = localUploader
+    uploader.needsHeadersJson = true
+  }
   return deploy(uploader);
 });
 
@@ -271,6 +275,10 @@ function doUpload() {
        });
       },
     });
+  }
+  if ('local' === polisConfig.UPLOADER) {
+    uploader = localUploader
+    uploader.needsHeadersJson = true
   }
   return deploy(uploader);
 }
@@ -305,6 +313,11 @@ gulp.task('fontsProd', [
 
 
 
+
+function localUploader(params) {
+  params.subdir = params.subdir || ''
+  return gulp.dest(path.join(polisConfig.LOCAL_OUTPUT_PATH, params.subdir))
+}
 
 function s3uploader(params) {
   var creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'));

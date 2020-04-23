@@ -16,4 +16,4 @@ ADD polis.config.template.js polis.config.js
 
 ADD . .
 
-RUN gulp prodBuildNoDeploy
+RUN gulp deployPreprod

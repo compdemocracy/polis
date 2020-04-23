@@ -400,7 +400,7 @@ gulp.task('scriptsVis2', ['jshint'], function() {
   return gulp.src('./vis2/vis2.js')
     .pipe(webpackStream(configProd))
     .pipe(gzip())
-    //.pipe(renameToRemoveGzExtention())
+    .pipe(renameToRemoveGzExtention())
     .pipe(gulp.dest(destRoot() + "/js"));
 });
 
@@ -517,7 +517,7 @@ gulp.task('scripts', ['templates', 'jshint'], function() {
       if (!devMode) {
         s = s.pipe(gzip());
       }
-      //s = s.pipe(rename('polis.js'));
+      s = s.pipe(rename('polis.js'));
       return s.pipe(gulp.dest(destRoot() + "/js"));
 });
 
@@ -551,7 +551,7 @@ gulp.task("scriptsOther", function() {
     s = s
       .pipe(uglify())
       .pipe(gzip())
-      //.pipe(renameToRemoveGzExtention());
+      .pipe(renameToRemoveGzExtention());
   }
   return s.pipe(gulp.dest(destRoot() + "/js"));
 });
@@ -565,7 +565,7 @@ gulp.task("scriptsTemp", function() {
     s = s
       .pipe(uglify())
       .pipe(gzip())
-      //.pipe(renameToRemoveGzExtention());
+      .pipe(renameToRemoveGzExtention());
   }
   return s.pipe(gulp.dest(destRoot() + "/js"));
 });
@@ -706,6 +706,10 @@ gulp.task('deploy_TO_PRODUCTION', [
       },
     });
   }
+  if ('local' === polisConfig.UPLOADER) {
+    uploader = localUploader
+    uploader.needsHeadersJson = true
+  }
   return deploy(uploader);
 });
 
@@ -728,6 +732,10 @@ function doUpload() {
         });
       },
     });
+  }
+  if ('local' === polisConfig.UPLOADER) {
+    uploader = localUploader
+    uploader.needsHeadersJson = true
   }
   return deploy(uploader);
 }
@@ -753,6 +761,11 @@ gulp.task('deploySurvey', [
   });
   return deploy(uploader);
 });
+
+function localUploader(params) {
+  params.subdir = params.subdir || ''
+  return gulp.dest(path.join(polisConfig.LOCAL_OUTPUT_PATH, params.subdir))
+}
 
 function s3uploader(params) {
     var creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'));
