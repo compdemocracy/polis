@@ -19,6 +19,7 @@ services:
       SHOULD_USE_TRANSLATION_API: 'false'
     depends_on:
       - 'postgres'
+      - 'static'
     networks:
       - 'polis-dev'
     ports:
@@ -45,14 +46,28 @@ services:
       - 'backups:/backups'
       - 'postgres:/var/lib/postgresql/data'
 
-  static:
-    container_name: polis-static
+  static-nginx:
+    container_name: polis-static-nginx
     build:
       context: ./fileServer
+      dockerfile: nginx.Dockerfile
     depends_on:
       - 'client'
       - 'client-admin'
       - 'node'
+    networks:
+      - 'polis-dev'
+    ports:
+      - '80:80'
+
+  static:
+    container_name: polis-static
+    build:
+      context: ./fileServer
+      dockerfile: Dockerfile
+    depends_on:
+      - 'client'
+      - 'client-admin'
     networks:
       - 'polis-dev'
     ports:

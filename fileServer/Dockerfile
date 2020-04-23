@@ -1,9 +1,16 @@
-FROM nginx:1.14
+FROM node:10.15.0
 
-WORKDIR /usr/share/nginx/html
+WORKDIR /app
 
-COPY --from=polis-admin:latest /app/dist/ ./
-COPY --from=polis-participation:latest /app/dist/ ./
+COPY package*.json ./
+RUN npm install
 
-COPY nginx.conf /etc/nginx/nginx.conf
-COPY nginx.site.default.conf /etc/nginx/conf.d/default.conf
+ADD fs_config.template.json fs_config.json
+
+ADD . .
+
+COPY --from=polis-admin:latest /app/build/ ./build/
+COPY --from=polis-participation:latest /app/build/ ./build/
+
+EXPOSE 80
+CMD node --max_old_space_size=400 --gc_interval=100 --harmony app.js
