@@ -1,0 +1,65 @@
+# Snyk (https://snyk.io) policy file, patches or ignores known vulnerabilities.
+version: v1.14.1
+ignore: {}
+# patches apply the minimum changes required to fix a vulnerability
+patch:
+  'npm:extend:20180424':
+    - request > extend:
+        patched: '2020-04-24T22:56:57.375Z'
+    - '@google-cloud/translate > extend':
+        patched: '2020-04-24T22:56:57.375Z'
+    - fb > request > extend:
+        patched: '2020-04-24T22:56:57.375Z'
+    - intercom-client > request > extend:
+        patched: '2020-04-24T22:56:57.375Z'
+    - intercom.io > request > extend:
+        patched: '2020-04-24T22:56:57.375Z'
+    - request-promise > request > extend:
+        patched: '2020-04-24T22:56:57.375Z'
+    - '@google-cloud/translate > @google-cloud/common > extend':
+        patched: '2020-04-24T22:56:57.375Z'
+    - '@slack/client > https-proxy-agent > extend':
+        patched: '2020-04-24T22:56:57.375Z'
+    - '@slack/client > request > extend':
+        patched: '2020-04-24T22:56:57.375Z'
+    - '@google-cloud/translate > @google-cloud/common > request > extend':
+        patched: '2020-04-24T22:56:57.375Z'
+    - '@slack/client > https-proxy-agent > agent-base > extend':
+        patched: '2020-04-24T22:56:57.375Z'
+    - '@google-cloud/translate > @google-cloud/common > retry-request > request > extend':
+        patched: '2020-04-24T22:56:57.375Z'
+    - '@google-cloud/translate > @google-cloud/common > google-auto-auth > request > extend':
+        patched: '2020-04-24T22:56:57.375Z'
+    - '@google-cloud/translate > @google-cloud/common > google-auto-auth > gcp-metadata > extend':
+        patched: '2020-04-24T22:56:57.375Z'
+    - '@google-cloud/translate > @google-cloud/common > google-auto-auth > google-auth-library > request > extend':
+        patched: '2020-04-24T22:56:57.375Z'
+    - '@google-cloud/translate > @google-cloud/common > google-auto-auth > gcp-metadata > retry-request > request > extend':
+        patched: '2020-04-24T22:56:57.375Z'
+    - '@google-cloud/translate > @google-cloud/common > google-auto-auth > google-auth-library > gtoken > request > extend':
+        patched: '2020-04-24T22:56:57.375Z'
+  'npm:stringstream:20180511':
+    - request > stringstream:
+        patched: '2020-04-24T22:56:57.375Z'
+    - fb > request > stringstream:
+        patched: '2020-04-24T22:56:57.375Z'
+    - intercom-client > request > stringstream:
+        patched: '2020-04-24T22:56:57.375Z'
+    - intercom.io > request > stringstream:
+        patched: '2020-04-24T22:56:57.375Z'
+    - request-promise > request > stringstream:
+        patched: '2020-04-24T22:56:57.375Z'
+    - '@slack/client > request > stringstream':
+        patched: '2020-04-24T22:56:57.375Z'
+    - '@google-cloud/translate > @google-cloud/common > request > stringstream':
+        patched: '2020-04-24T22:56:57.375Z'
+    - '@google-cloud/translate > @google-cloud/common > retry-request > request > stringstream':
+        patched: '2020-04-24T22:56:57.375Z'
+    - '@google-cloud/translate > @google-cloud/common > google-auto-auth > request > stringstream':
+        patched: '2020-04-24T22:56:57.375Z'
+    - '@google-cloud/translate > @google-cloud/common > google-auto-auth > google-auth-library > request > stringstream':
+        patched: '2020-04-24T22:56:57.375Z'
+    - '@google-cloud/translate > @google-cloud/common > google-auto-auth > gcp-metadata > retry-request > request > stringstream':
+        patched: '2020-04-24T22:56:57.375Z'
+    - '@google-cloud/translate > @google-cloud/common > google-auto-auth > google-auth-library > gtoken > request > stringstream':
+        patched: '2020-04-24T22:56:57.375Z'
