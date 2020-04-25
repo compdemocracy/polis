@@ -18,6 +18,9 @@ services:
       STATIC_FILES_ADMINDASH_PORT: 8080
       SHOULD_USE_TRANSLATION_API: 'false'
       DATABASE_URL: postgres://postgres:oiPorg3Nrz0yqDLE@postgres:5432/polis-dev
+      WEBSERVER_USERNAME: ws-user
+      WEBSERVER_PASS: ws-pass
+      MATH_ENV: dev
     depends_on:
       - 'postgres'
       - 'static'
@@ -35,6 +38,8 @@ services:
       context: ./math
     environment:
       DATABASE_URL: postgres://postgres:oiPorg3Nrz0yqDLE@postgres:5432/polis-dev
+      WEBSERVER_USERNAME: ws-user
+      WEBSERVER_PASS: ws-pass
     networks:
       - 'polis-dev'
 
