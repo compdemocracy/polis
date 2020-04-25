@@ -9,5 +9,5 @@ do
   echo "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
   echo "                                                           "
   # Time was with -t 86400b efore cause amazon ami; now ubuntu, so like this
-  timeout -t 86400 lein with-profile production trampoline run full
+  timeout 86400 lein with-profile production trampoline run full
 done
