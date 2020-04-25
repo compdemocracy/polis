@@ -1,4 +1,5 @@
-FROM node:7
+# Requires a very specific version due to package bugs and version compatibility
+FROM node:6.10.3
 
 ARG GIT_HASH
 
