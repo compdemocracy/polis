@@ -22,21 +22,31 @@
     style="{{#unless desktop}}font-size:12px;{{/unless}}"
     >
       {{!-- present all hints to screen reader --}}
-      <label for="comment_form_textarea" style="display:block">
-        {{{s.writeCommentHelpText}}}
-      </label>
 
-      <p>
-        {{{s.helpWriteListIntro}}}
-      </p>
-      <ul>
-        <li>{{{s.helpWriteListStandalone}}}</li>
-        <li>{{{s.helpWriteListRaisNew}}}</li>
-        <li>{{{s.helpWriteListShort}}}</li>
-      </ul>
-      <label for="comment_form_textarea" style="display:block">
-        {{{s.tipCommentsRandom}}}
-      </label>
+      {{#if hideHelp}}
+        {{!-- even if help text is hidden, still screen read the main comment box label/prompt --}}
+        <label for="comment_form_textarea"
+               style="display:none;">
+          {{{s.writeCommentHelpText}}}
+        </label>
+      {{else}}
+        <label for="comment_form_textarea"
+               style="display:block;">
+          {{{s.writeCommentHelpText}}}
+        </label>
+        <p>
+          {{{s.helpWriteListIntro}}}
+        </p>
+        <ul>
+          <li>{{{s.helpWriteListStandalone}}}</li>
+          <li>{{{s.helpWriteListRaisNew}}}</li>
+          <li>{{{s.helpWriteListShort}}}</li>
+        </ul>
+        <label for="comment_form_textarea" style="display:block">
+          {{{s.tipCommentsRandom}}}
+        </label>
+      {{/if}}
+
       {{!-- end screen-reader-text --}}
   </p>
 
