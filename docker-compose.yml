@@ -76,6 +76,7 @@ services:
     depends_on:
       - 'client'
       - 'client-admin'
+      - 'client-report'
     networks:
       - 'polis-dev'
     ports:
@@ -92,6 +93,13 @@ services:
     image: polis-admin
     build:
       context: ./clientAdmin
+      args:
+        GIT_HASH: null
+
+  client-report:
+    image: polis-report
+    build:
+      context: ./report
       args:
         GIT_HASH: null
 
