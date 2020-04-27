@@ -68,10 +68,21 @@ Go through all steps in the Development environment, but at step (4) take compil
 
 ## Docker deployment
 
-* There's a [`docker-compose.yml` file in the project root](/docker-compose.yml), which has some instructions on running a partial dev environment with docker-compose.
-* Some one else did some dockerization work here https://github.com/uzzal2k5/polis_container.
+There's a [`docker-compose.yml` file in the project root](/docker-compose.yml), which can be used for running a fully functional docker development environment.
 
-Ultimately, it would be great if all of this content was merged into this repo.
+It is NOT suited for production, but it may be in the future.
+
+### Architecture
+
+[![architecture diagram of docker setup][arch-image]][arch-edit]
+
+   [arch-image]: docker-architecture.png
+   [arch-edit]: https://www.draw.io/#R7Vpdb5swFP01ecyEDQTy2rRrHjapUzqt3ZsHLngjGDkmkP36mWBCwCRjKHxUWh8qfP19ju%2Fx9W1n%2BmqbPjIU%2BZ%2Bpi4MZ1Nx0pt%2FPIFzqlvidGQ65wVhoucFjxM1NoDRsyG8sjUWzmLh4V2nIKQ04iapGh4YhdnjFhhijSbXZGw2qs0bIw4ph46BAtX4jLvdzq21qpX2NiecXMwNN1vxAzi%2BP0TiU882g%2Fnb8yau3qBhLtt%2F5yKXJmUl%2FmOkrRinPv7bpCgcZtAVseb%2BPF2pP62Y45G06zJcbO%2FkSWwisdTd1Vsnz5nl%2BWhw%2FFIBgV%2BAji5Rxn3o0RMFDab07bhpnw2qiVLb5RGkkjEAYf2LOD5JsFHMqTD7fBrIWp4S%2FZN0%2FmLL0KgfLvu%2FT88KhKIScHc46ZcXXYrysUHY7lop%2BKkwSuR2NmYOvYFOcRsQ8zK%2B0M%2FN2GW5nE0gSHjHdYrEe0YDhAHGyr547JI%2Bvd2pXUig%2BJIv%2FwKgcd4%2BCWM4UeiRMFZqrJCY%2B4XgToSMgiXD0KmEXQdxjxnF6dduydmHIoyZ1AkBbGpLS7UBxHv0zlysE5eZQQQWqNxLg%2BQ4zsa3RAbNgDTDNUAGDxpCAgUUHtXBiAacrcelJOkAn6dB6kw69pXTASUmHrviDExCx9zlytyScnEMsG%2FzBHtQdrP%2Fu0ModjHfpDsYldxAQcOKQSKyBju8WtjY1t7An6hZTCzDNd%2BkWOhyf3o5UdTkWA9Br3Jpf2fWJErHmMgLXzWpACeyaBORbkt1qx%2BS0ju4nx1QEdSKhtvI2AaO%2FTRYKVhHdcY%2Fh3ehomXaLhwkAg1455viaJLUFnCvLSWf%2BduVU4rBS1G5%2B5VgtNWkx1pVz97J%2Feln5ceqC72vt6xKtn%2B6Kh8nk2LX6pLeGfb98m2NGFJaidcfk6dg6Z2htdG7YjJWa3bM1W83hllCBYd4gSq6q4QJtSlXB3pBSk3sTwGlRvzp1ODZOatLH1LQJIgVHR0rNB5hGw2NocKRALawf3%2FfUQF8HUL3Eh0bKqIf5QyLVGNhM4CndIYE46xSfNALQz0vXVog2agzmAdEtXrqXt9WUOmQ4EiRd8YTWoY1y7BsIuHxf19S1x5yhKJZ%2F487xLf%2BPQH%2F4Aw%3D%3D
+
+:tada: Contributors to Docker support:
+- [@uzzal2k5](https://github.com/uzzal2k5) via [`uzzal2k5/polis_container`](https://github.com/uzzal2k5/polis_container)
+- [@crkrenn](https://github.com/crkrenn) & [@david-nadaraia](https://github.com/david-nadaraia)
+- [@patcon](https://github.com/patcon)
 
 
 ## Contribution notes
