@@ -34,7 +34,7 @@ if (document.domain === "localhost" && document.location.port === "5010") {
   urlPrefix = localhost5010;
 }
 
-if (0 === document.domain.indexOf("192.168")) {
+if (0 === document.domain.indexOf("192.168") || document.domain.includes(".xip.io")) {
   urlPrefix = "http://" + document.location.hostname + ":" + document.location.port + "/";
 }
 
