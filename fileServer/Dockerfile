@@ -9,6 +9,7 @@ ADD fs_config.template.json fs_config.json
 
 ADD . .
 
+COPY --from=polis-report:latest /app/build/ ./build/
 COPY --from=polis-admin:latest /app/build/ ./build/
 COPY --from=polis-participation:latest /app/build/ ./build/
 
