@@ -2,7 +2,6 @@
 
 import React from "react";
 import CommentList from "../lists/commentList";
-import drawBeeswarm from "./drawBeeswarm";
 import * as globals from "../globals";
 import _ from "lodash";
 import Flex from "../framework/flex"
