@@ -249,6 +249,15 @@
       "contributions": [
         "review"
       ]
+    },
+    {
+      "login": "ballPointPenguin",
+      "name": "Benjamin Rosas",
+      "avatar_url": "https://avatars0.githubusercontent.com/u/35609?v=4",
+      "profile": "https://sudo-science.com",
+      "contributions": [
+        "review"
+      ]
     }
   ],
   "contributorsPerLine": 7
