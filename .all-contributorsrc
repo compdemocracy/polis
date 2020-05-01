@@ -99,6 +99,15 @@
       "contributions": [
         "translation"
       ]
+    },
+    {
+      "login": "PLrolle",
+      "name": "Pierre-Louis Rolle",
+      "avatar_url": "https://avatars3.githubusercontent.com/u/12126587?v=4",
+      "profile": "http://www.societenumerique.gouv.fr",
+      "contributions": [
+        "translation"
+      ]
     }
   ],
   "contributorsPerLine": 7
