@@ -133,22 +133,21 @@
       ]
     },
     {
-      "login": "lizbarry",
-      "name": "lizbarry",
-      "avatar_url": "https://avatars3.githubusercontent.com/u/25355768?v=4",
-      "profile": "https://github.com/lizbarry",
-      "contributions": [
-        "blog",
-        "talk"
-      ]
-    },
-    {
       "login": "joel-zilliqa",
       "name": "Joel Lim",
       "avatar_url": "https://avatars0.githubusercontent.com/u/56012934?v=4",
       "profile": "https://github.com/joel-zilliqa",
       "contributions": [
         "bug"
+      ]
+    },
+    {
+      "login": "ebarry",
+      "name": "Liz Barry",
+      "avatar_url": "https://avatars1.githubusercontent.com/u/161439?v=4",
+      "profile": "https://github.com/ebarry",
+      "contributions": [
+        "talk"
       ]
     }
   ],
