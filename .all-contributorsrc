@@ -72,6 +72,15 @@
       "contributions": [
         "a11y"
       ]
+    },
+    {
+      "login": "huulbaek",
+      "name": "Thomas Huulbæk",
+      "avatar_url": "https://avatars0.githubusercontent.com/u/1862741?v=4",
+      "profile": "https://github.com/huulbaek",
+      "contributions": [
+        "translation"
+      ]
     }
   ],
   "contributorsPerLine": 7
