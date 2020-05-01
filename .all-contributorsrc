@@ -258,6 +258,15 @@
       "contributions": [
         "review"
       ]
+    },
+    {
+      "login": "kennyrowe",
+      "name": "Kenny Rowe",
+      "avatar_url": "https://avatars3.githubusercontent.com/u/6291612?v=4",
+      "profile": "http://onchain.consulting",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "contributorsPerLine": 7
