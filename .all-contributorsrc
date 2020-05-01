@@ -162,6 +162,16 @@
         "blog",
         "code"
       ]
+    },
+    {
+      "login": "ajsmitha7",
+      "name": "Andrew Smith",
+      "avatar_url": "https://avatars3.githubusercontent.com/u/8118319?v=4",
+      "profile": "http://pol.is",
+      "contributions": [
+        "content",
+        "video"
+      ]
     }
   ],
   "contributorsPerLine": 7
