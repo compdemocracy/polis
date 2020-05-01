@@ -1,6 +1,6 @@
 # Polis
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-31-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-32-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 pol.is an AI powered sentiment gathering platform. More organic than surveys, less effort than focus groups.
 
@@ -150,6 +150,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <td align="center"><a href="http://deepwinterdevelopment.com"><img src="https://avatars2.githubusercontent.com/u/581906?v=4" width="100px;" alt=""/><br /><sub><b>light24bulbs</b></sub></a><br /><a href="https://github.com/pol-is-trial-balloon/polis/commits?author=light24bulbs" title="Code">💻</a></td>
     <td align="center"><a href="https://github.com/fractalcactus"><img src="https://avatars2.githubusercontent.com/u/8527715?v=4" width="100px;" alt=""/><br /><sub><b>Gabrielle Young</b></sub></a><br /><a href="https://github.com/pol-is-trial-balloon/polis/commits?author=fractalcactus" title="Documentation">📖</a></td>
     <td align="center"><a href="http://TBD"><img src="https://avatars2.githubusercontent.com/u/416681?v=4" width="100px;" alt=""/><br /><sub><b>Heather</b></sub></a><br /><a href="https://github.com/pol-is-trial-balloon/polis/commits?author=heatherm" title="Documentation">📖</a></td>
+    <td align="center"><a href="https://github.com/dav-idcox"><img src="https://avatars1.githubusercontent.com/u/10424822?v=4" width="100px;" alt=""/><br /><sub><b>dav-idcox</b></sub></a><br /><a href="https://github.com/pol-is-trial-balloon/polis/commits?author=dav-idcox" title="Documentation">📖</a></td>
   </tr>
 </table>
 
