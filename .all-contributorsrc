@@ -9,6 +9,7 @@
   "imageSize": 100,
   "commit": true,
   "commitConvention": "none",
+  "contributorsSortAlphabetically": true,
   "contributors": [
     {
       "login": "metasoarous",
@@ -312,6 +313,15 @@
       "profile": "https://github.com/dav-idcox",
       "contributions": [
         "doc"
+      ]
+    },
+    {
+      "login": "sk44p",
+      "name": "sk44p",
+      "avatar_url": "https://avatars1.githubusercontent.com/u/36816860?v=4",
+      "profile": "https://github.com/sk44p",
+      "contributions": [
+        "bug"
       ]
     }
   ],
