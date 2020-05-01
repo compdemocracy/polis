@@ -295,6 +295,15 @@
       "contributions": [
         "doc"
       ]
+    },
+    {
+      "login": "heatherm",
+      "name": "Heather",
+      "avatar_url": "https://avatars2.githubusercontent.com/u/416681?v=4",
+      "profile": "http://TBD",
+      "contributions": [
+        "doc"
+      ]
     }
   ],
   "contributorsPerLine": 7
