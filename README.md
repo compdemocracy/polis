@@ -129,7 +129,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <td align="center"><a href="https://github.com/joel-zilliqa"><img src="https://avatars0.githubusercontent.com/u/56012934?v=4" width="100px;" alt=""/><br /><sub><b>Joel Lim</b></sub></a><br /><a href="https://github.com/pol-is-trial-balloon/polis/issues?q=author%3Ajoel-zilliqa" title="Bug reports">🐛</a></td>
   </tr>
   <tr>
-    <td align="center"><a href="https://github.com/ebarry"><img src="https://avatars1.githubusercontent.com/u/161439?v=4" width="100px;" alt=""/><br /><sub><b>Liz Barry</b></sub></a><br /><a href="#talk-ebarry" title="Talks">📢</a></td>
+    <td align="center"><a href="https://github.com/ebarry"><img src="https://avatars1.githubusercontent.com/u/161439?v=4" width="100px;" alt=""/><br /><sub><b>Liz Barry</b></sub></a><br /><a href="#talk-ebarry" title="Talks">📢</a> <a href="#blog-ebarry" title="Blogposts">📝</a></td>
   </tr>
 </table>
 
