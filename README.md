@@ -1,6 +1,6 @@
 # Polis
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-4-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-5-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 pol.is an AI powered sentiment gathering platform. More organic than surveys, less effort than focus groups.
 
@@ -111,10 +111,11 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
 <!-- markdownlint-disable -->
 <table>
   <tr>
-    <td align="center"><a href="http://www.metasoarous.com"><img src="https://avatars3.githubusercontent.com/u/88556?v=4" width="100px;" alt=""/><br /><sub><b>Christopher Small</b></sub></a><br /><a href="https://github.com/pol-is/polis/commits?author=metasoarous" title="Code">💻</a></td>
-    <td align="center"><a href="https://pol.is"><img src="https://avatars3.githubusercontent.com/u/1770265?v=4" width="100px;" alt=""/><br /><sub><b>Colin Megill</b></sub></a><br /><a href="https://github.com/pol-is/polis/commits?author=colinmegill" title="Code">💻</a></td>
-    <td align="center"><a href="https://github.com/misscs"><img src="https://avatars1.githubusercontent.com/u/51812?v=4" width="100px;" alt=""/><br /><sub><b>cs</b></sub></a><br /><a href="https://github.com/pol-is/polis/commits?author=misscs" title="Code">💻</a></td>
-    <td align="center"><a href="https://github.com/mbjorkegren"><img src="https://avatars3.githubusercontent.com/u/2016166?v=4" width="100px;" alt=""/><br /><sub><b>mbjorkegren</b></sub></a><br /><a href="https://github.com/pol-is/polis/commits?author=mbjorkegren" title="Code">💻</a></td>
+    <td align="center"><a href="http://www.metasoarous.com"><img src="https://avatars3.githubusercontent.com/u/88556?v=4" width="100px;" alt=""/><br /><sub><b>Christopher Small</b></sub></a><br /><a href="https://github.com/pol-is-trial-balloon/polis/commits?author=metasoarous" title="Code">💻</a></td>
+    <td align="center"><a href="https://pol.is"><img src="https://avatars3.githubusercontent.com/u/1770265?v=4" width="100px;" alt=""/><br /><sub><b>Colin Megill</b></sub></a><br /><a href="https://github.com/pol-is-trial-balloon/polis/commits?author=colinmegill" title="Code">💻</a></td>
+    <td align="center"><a href="https://github.com/misscs"><img src="https://avatars1.githubusercontent.com/u/51812?v=4" width="100px;" alt=""/><br /><sub><b>cs</b></sub></a><br /><a href="https://github.com/pol-is-trial-balloon/polis/commits?author=misscs" title="Code">💻</a></td>
+    <td align="center"><a href="https://github.com/mbjorkegren"><img src="https://avatars3.githubusercontent.com/u/2016166?v=4" width="100px;" alt=""/><br /><sub><b>mbjorkegren</b></sub></a><br /><a href="https://github.com/pol-is-trial-balloon/polis/commits?author=mbjorkegren" title="Code">💻</a></td>
+    <td align="center"><a href="http://nodescription.net"><img src="https://avatars2.githubusercontent.com/u/305339?v=4" width="100px;" alt=""/><br /><sub><b>Patrick Connolly</b></sub></a><br /><a href="https://github.com/pol-is-trial-balloon/polis/commits?author=patcon" title="Code">💻</a></td>
   </tr>
 </table>
 
