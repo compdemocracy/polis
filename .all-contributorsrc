@@ -220,6 +220,15 @@
       "contributions": [
         "infra"
       ]
+    },
+    {
+      "login": "joenio",
+      "name": "Joenio Costa",
+      "avatar_url": "https://avatars0.githubusercontent.com/u/44172?v=4",
+      "profile": "http://joenio.me",
+      "contributions": [
+        "doc"
+      ]
     }
   ],
   "contributorsPerLine": 7
