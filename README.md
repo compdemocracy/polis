@@ -1,6 +1,6 @@
 # Polis
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-5-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-6-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 pol.is an AI powered sentiment gathering platform. More organic than surveys, less effort than focus groups.
 
@@ -116,6 +116,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <td align="center"><a href="https://github.com/misscs"><img src="https://avatars1.githubusercontent.com/u/51812?v=4" width="100px;" alt=""/><br /><sub><b>cs</b></sub></a><br /><a href="https://github.com/pol-is-trial-balloon/polis/commits?author=misscs" title="Code">💻</a></td>
     <td align="center"><a href="https://github.com/mbjorkegren"><img src="https://avatars3.githubusercontent.com/u/2016166?v=4" width="100px;" alt=""/><br /><sub><b>mbjorkegren</b></sub></a><br /><a href="https://github.com/pol-is-trial-balloon/polis/commits?author=mbjorkegren" title="Code">💻</a></td>
     <td align="center"><a href="http://nodescription.net"><img src="https://avatars2.githubusercontent.com/u/305339?v=4" width="100px;" alt=""/><br /><sub><b>Patrick Connolly</b></sub></a><br /><a href="https://github.com/pol-is-trial-balloon/polis/commits?author=patcon" title="Code">💻</a></td>
+    <td align="center"><a href="http://virgile-dev.github.io"><img src="https://avatars0.githubusercontent.com/u/11473995?v=4" width="100px;" alt=""/><br /><sub><b>virgile-dev</b></sub></a><br /><a href="#translation-virgile-dev" title="Translation">🌍</a></td>
   </tr>
 </table>
 
