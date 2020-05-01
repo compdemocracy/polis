@@ -63,6 +63,15 @@
       "contributions": [
         "translation"
       ]
+    },
+    {
+      "login": "mgifford",
+      "name": "Mike Gifford",
+      "avatar_url": "https://avatars0.githubusercontent.com/u/116832?v=4",
+      "profile": "http://openconcept.ca",
+      "contributions": [
+        "a11y"
+      ]
     }
   ],
   "contributorsPerLine": 7
