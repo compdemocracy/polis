@@ -202,6 +202,15 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "DylanGuedes",
+      "name": "Dylan Guedes",
+      "avatar_url": "https://avatars3.githubusercontent.com/u/7079397?v=4",
+      "profile": "https://www.ime.usp.br/~dguedes/",
+      "contributions": [
+        "test"
+      ]
     }
   ],
   "contributorsPerLine": 7
