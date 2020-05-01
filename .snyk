@@ -1,0 +1,32 @@
+# Snyk (https://snyk.io) policy file, patches or ignores known vulnerabilities.
+version: v1.14.1
+ignore: {}
+# patches apply the minimum changes required to fix a vulnerability
+patch:
+  SNYK-JS-LODASH-567746:
+    - '@slack/client > lodash':
+        patched: '2020-05-01T22:57:22.504Z'
+    - intercom.io > lodash:
+        patched: '2020-05-01T22:57:22.504Z'
+    - aws-sdk > xmlbuilder > lodash:
+        patched: '2020-05-01T22:57:22.504Z'
+    - aws-sdk > xml2js > xmlbuilder > lodash:
+        patched: '2020-05-01T22:57:22.504Z'
+    - '@google-cloud/translate > @google-cloud/common > google-auto-auth > async > lodash':
+        patched: '2020-05-01T22:57:22.504Z'
+    - '@google-cloud/translate > @google-cloud/common > split-array-stream > async > lodash':
+        patched: '2020-05-01T22:57:22.504Z'
+    - eslint > lodash:
+        patched: '2020-05-01T22:57:22.504Z'
+    - request-promise > lodash:
+        patched: '2020-05-01T22:57:22.504Z'
+    - babel-eslint > babel-types > lodash:
+        patched: '2020-05-01T22:57:22.504Z'
+    - babel-eslint > babel-traverse > lodash:
+        patched: '2020-05-01T22:57:22.504Z'
+    - eslint > inquirer > lodash:
+        patched: '2020-05-01T22:57:22.504Z'
+    - eslint > table > lodash:
+        patched: '2020-05-01T22:57:22.504Z'
+    - babel-eslint > babel-traverse > babel-types > lodash:
+        patched: '2020-05-01T22:57:22.504Z'
