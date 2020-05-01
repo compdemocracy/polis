@@ -130,6 +130,15 @@
       "contributions": [
         "infra"
       ]
+    },
+    {
+      "login": "lizbarry",
+      "name": "lizbarry",
+      "avatar_url": "https://avatars3.githubusercontent.com/u/25355768?v=4",
+      "profile": "https://github.com/lizbarry",
+      "contributions": [
+        "blog"
+      ]
     }
   ],
   "contributorsPerLine": 7
