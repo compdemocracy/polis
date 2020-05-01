@@ -286,6 +286,15 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "fractalcactus",
+      "name": "Gabrielle Young",
+      "avatar_url": "https://avatars2.githubusercontent.com/u/8527715?v=4",
+      "profile": "https://github.com/fractalcactus",
+      "contributions": [
+        "doc"
+      ]
     }
   ],
   "contributorsPerLine": 7
