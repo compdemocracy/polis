@@ -267,6 +267,15 @@
       "contributions": [
         "bug"
       ]
+    },
+    {
+      "login": "Jdesk",
+      "name": "James Barlow",
+      "avatar_url": "https://avatars1.githubusercontent.com/u/9715064?v=4",
+      "profile": "https://triumphtech.io",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "contributorsPerLine": 7
