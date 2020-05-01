@@ -1,6 +1,6 @@
 # Polis
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-19-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-20-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 pol.is an AI powered sentiment gathering platform. More organic than surveys, less effort than focus groups.
 
@@ -134,6 +134,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <td align="center"><a href="http://pol.is"><img src="https://avatars3.githubusercontent.com/u/8118319?v=4" width="100px;" alt=""/><br /><sub><b>Andrew Smith</b></sub></a><br /><a href="#content-ajsmitha7" title="Content">🖋</a> <a href="#video-ajsmitha7" title="Videos">📹</a> <a href="https://github.com/pol-is-trial-balloon/polis/issues?q=author%3Aajsmitha7" title="Bug reports">🐛</a></td>
     <td align="center"><a href="http://sais.tw/"><img src="https://avatars3.githubusercontent.com/u/2368060?v=4" width="100px;" alt=""/><br /><sub><b>蔡仲明 (Romulus Urakagi Tsai)</b></sub></a><br /><a href="https://github.com/pol-is-trial-balloon/polis/commits?author=urakagi" title="Code">💻</a></td>
     <td align="center"><a href="https://herman-wu.github.io/blogs/"><img src="https://avatars3.githubusercontent.com/u/10748637?v=4" width="100px;" alt=""/><br /><sub><b>Herman Wu </b></sub></a><br /><a href="https://github.com/pol-is-trial-balloon/polis/issues?q=author%3AHerman-Wu" title="Bug reports">🐛</a></td>
+    <td align="center"><a href="http://kenwheeler.github.io"><img src="https://avatars2.githubusercontent.com/u/286616?v=4" width="100px;" alt=""/><br /><sub><b>Ken Wheeler</b></sub></a><br /><a href="https://github.com/pol-is-trial-balloon/polis/commits?author=kenwheeler" title="Code">💻</a></td>
   </tr>
 </table>
 
