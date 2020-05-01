@@ -130,7 +130,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
   </tr>
   <tr>
     <td align="center"><a href="https://github.com/ebarry"><img src="https://avatars1.githubusercontent.com/u/161439?v=4" width="100px;" alt=""/><br /><sub><b>Liz Barry</b></sub></a><br /><a href="#talk-ebarry" title="Talks">📢</a> <a href="#blog-ebarry" title="Blogposts">📝</a></td>
-    <td align="center"><a href="http://www.linkedin.com/in/tangaudrey"><img src="https://avatars1.githubusercontent.com/u/20723?v=4" width="100px;" alt=""/><br /><sub><b>唐鳳</b></sub></a><br /><a href="https://github.com/pol-is-trial-balloon/polis/issues?q=author%3Aaudreyt" title="Bug reports">🐛</a> <a href="#blog-audreyt" title="Blogposts">📝</a></td>
+    <td align="center"><a href="http://www.linkedin.com/in/tangaudrey"><img src="https://avatars1.githubusercontent.com/u/20723?v=4" width="100px;" alt=""/><br /><sub><b>唐鳳</b></sub></a><br /><a href="https://github.com/pol-is-trial-balloon/polis/issues?q=author%3Aaudreyt" title="Bug reports">🐛</a> <a href="#blog-audreyt" title="Blogposts">📝</a> <a href="https://github.com/pol-is-trial-balloon/polis/commits?author=audreyt" title="Code">💻</a></td>
   </tr>
 </table>
 
