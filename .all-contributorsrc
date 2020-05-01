@@ -151,6 +151,15 @@
         "talk",
         "blog"
       ]
+    },
+    {
+      "login": "audreyt",
+      "name": "唐鳳",
+      "avatar_url": "https://avatars1.githubusercontent.com/u/20723?v=4",
+      "profile": "http://www.linkedin.com/in/tangaudrey",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "contributorsPerLine": 7
