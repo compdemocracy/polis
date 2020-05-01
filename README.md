@@ -1,6 +1,6 @@
 # Polis
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-23-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-24-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 pol.is an AI powered sentiment gathering platform. More organic than surveys, less effort than focus groups.
 
@@ -140,6 +140,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
   <tr>
     <td align="center"><a href="https://linktr.ee/vital.edu"><img src="https://avatars0.githubusercontent.com/u/5282301?v=4" width="100px;" alt=""/><br /><sub><b>Eduardo Vital</b></sub></a><br /><a href="#infra-vital-edu" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
     <td align="center"><a href="http://joenio.me"><img src="https://avatars0.githubusercontent.com/u/44172?v=4" width="100px;" alt=""/><br /><sub><b>Joenio Costa</b></sub></a><br /><a href="https://github.com/pol-is-trial-balloon/polis/commits?author=joenio" title="Documentation">📖</a></td>
+    <td align="center"><a href="https://github.com/tallysmartins"><img src="https://avatars3.githubusercontent.com/u/3032943?v=4" width="100px;" alt=""/><br /><sub><b>Tallys Martins</b></sub></a><br /><a href="https://github.com/pol-is-trial-balloon/polis/issues?q=author%3Atallysmartins" title="Bug reports">🐛</a></td>
   </tr>
 </table>
 

@@ -230,6 +230,15 @@
       "contributions": [
         "doc"
       ]
+    },
+    {
+      "login": "tallysmartins",
+      "name": "Tallys Martins",
+      "avatar_url": "https://avatars3.githubusercontent.com/u/3032943?v=4",
+      "profile": "https://github.com/tallysmartins",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "contributorsPerLine": 7
