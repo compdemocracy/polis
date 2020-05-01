@@ -17,8 +17,9 @@ Visit your instance at: `http://123.45.67.89.xip.io/`
 
 Sign up at `/createuser` path. You'll be logged in right away; no email validation required!
 
-**What doesn't work yet?**
-- Generated reports are not yet viewable.
+**What features still need work?**
+- ~~Generated reports~~
+- Data export [`polis-issues#137`](https://github.com/pol-is/polis-issues/issues/137)
 
 ## :rocket: Deployment
 
