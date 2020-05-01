@@ -211,6 +211,15 @@
       "contributions": [
         "test"
       ]
+    },
+    {
+      "login": "vital-edu",
+      "name": "Eduardo Vital",
+      "avatar_url": "https://avatars0.githubusercontent.com/u/5282301?v=4",
+      "profile": "https://linktr.ee/vital.edu",
+      "contributions": [
+        "infra"
+      ]
     }
   ],
   "contributorsPerLine": 7
