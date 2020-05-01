@@ -170,7 +170,8 @@
       "profile": "http://pol.is",
       "contributions": [
         "content",
-        "video"
+        "video",
+        "bug"
       ]
     }
   ],

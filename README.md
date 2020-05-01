@@ -131,7 +131,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
   <tr>
     <td align="center"><a href="https://github.com/ebarry"><img src="https://avatars1.githubusercontent.com/u/161439?v=4" width="100px;" alt=""/><br /><sub><b>Liz Barry</b></sub></a><br /><a href="#talk-ebarry" title="Talks">📢</a> <a href="#blog-ebarry" title="Blogposts">📝</a></td>
     <td align="center"><a href="http://www.linkedin.com/in/tangaudrey"><img src="https://avatars1.githubusercontent.com/u/20723?v=4" width="100px;" alt=""/><br /><sub><b>唐鳳</b></sub></a><br /><a href="https://github.com/pol-is-trial-balloon/polis/issues?q=author%3Aaudreyt" title="Bug reports">🐛</a> <a href="#blog-audreyt" title="Blogposts">📝</a> <a href="https://github.com/pol-is-trial-balloon/polis/commits?author=audreyt" title="Code">💻</a></td>
-    <td align="center"><a href="http://pol.is"><img src="https://avatars3.githubusercontent.com/u/8118319?v=4" width="100px;" alt=""/><br /><sub><b>Andrew Smith</b></sub></a><br /><a href="#content-ajsmitha7" title="Content">🖋</a> <a href="#video-ajsmitha7" title="Videos">📹</a></td>
+    <td align="center"><a href="http://pol.is"><img src="https://avatars3.githubusercontent.com/u/8118319?v=4" width="100px;" alt=""/><br /><sub><b>Andrew Smith</b></sub></a><br /><a href="#content-ajsmitha7" title="Content">🖋</a> <a href="#video-ajsmitha7" title="Videos">📹</a> <a href="https://github.com/pol-is-trial-balloon/polis/issues?q=author%3Aajsmitha7" title="Bug reports">🐛</a></td>
   </tr>
 </table>
 
