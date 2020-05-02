@@ -1,19 +1,4 @@
-
 module.exports = {
-
-  domainWhitelist: [
-    "^localhost$",
-    "^192\\.168\\.1\\.140$",
-    "^pol\\.is",
-    ".+\\.pol\\.is$",
-    "^xip\\.io$",
-    ".+\\.xip\\.io$",
-  ],
-
-  DISABLE_INTERCOM: true,
-  DISABLE_PLANS: true,
-
-  FB_APP_ID: '661042417336977',
 
   //SERVICE_URL: 'http://localhost:5000',
   SERVICE_URL: 'https://preprod.pol.is',
