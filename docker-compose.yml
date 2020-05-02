@@ -7,13 +7,13 @@ version: "3.1"
 
 services:
 
-  node:
+  server:
     container_name: polis-server
     build:
       context: ./server
       dockerfile: Dockerfile
     environment:
-      STATIC_FILES_HOST: static
+      STATIC_FILES_HOST: file-server
       STATIC_FILES_PORT: 8080
       STATIC_FILES_ADMINDASH_PORT: 8080
       SHOULD_USE_TRANSLATION_API: 'false'
@@ -23,7 +23,7 @@ services:
       MATH_ENV: dev
     depends_on:
       - 'postgres'
-      - 'static'
+      - 'file-server'
     networks:
       - 'polis-dev'
     ports:
@@ -45,7 +45,7 @@ services:
 
 
   postgres:
-    container_name: polis-db
+    container_name: polis-postgres
     restart: always
     build:
       context: ./server
@@ -59,22 +59,22 @@ services:
   nginx-proxy:
     container_name: polis-nginx-proxy
     build:
-      context: ./fileServer
+      context: ./file-server
       dockerfile: nginx.Dockerfile
     depends_on:
-      - 'node'
+      - 'server'
     networks:
       - 'polis-dev'
     ports:
       - '80:80'
 
-  static:
-    container_name: polis-static
+  file-server:
+    container_name: polis-file-server
     build:
-      context: ./fileServer
+      context: ./file-server
       dockerfile: Dockerfile
     depends_on:
-      - 'client'
+      - 'client-participation'
       - 'client-admin'
       - 'client-report'
     networks:
@@ -82,24 +82,24 @@ services:
     ports:
       - '8080:8080'
 
-  client:
-    image: polis-participation
+  client-participation:
+    image: polis/client-participation
     build:
-      context: ./clientParticipation
+      context: ./client-participation
       args:
         GIT_HASH: null
 
   client-admin:
-    image: polis-admin
+    image: polis/client-admin
     build:
-      context: ./clientAdmin
+      context: ./client-admin
       args:
         GIT_HASH: null
 
   client-report:
-    image: polis-report
+    image: polis/client-report
     build:
-      context: ./report
+      context: ./client-report
       args:
         GIT_HASH: null
 
