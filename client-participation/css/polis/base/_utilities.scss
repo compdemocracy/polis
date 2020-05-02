@@ -1,0 +1,61 @@
+// Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+// UTILITIES
+
+//
+// Visibility
+//
+// Hide from browsers and screen readers
+.is-hidden {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+// Hide from browsers, but let screen readers access
+.is-visually-hidden {
+  position: absolute !important;
+  padding: 0;
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  clip: rect(1px, 1px, 1px, 1px);
+  border: 0;
+}
+
+// Hide from browsers but don't remove from flow
+.is-invisible {
+  visibility: hidden;
+}
+
+.is-visible {
+  visibility: visible;
+}
+
+// Alignment
+.pull-left {
+  float: left;
+}
+.pull-right {
+  float: right;
+}
+
+.align-left {
+  text-align: left;
+}
+.align-right {
+  text-align: right;
+}
+
+// Display
+.u-inlineBlock {
+  display: inline-block;
+}
+
+// Margin
+.u-space-below {
+  margin-bottom: $default-whitespace !important;
+}
+
+.u-noMargin {
+  margin: 0 !important;
+}

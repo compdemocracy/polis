@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Please wait ...</title>
+<script type="text/javascript">
+    var path = window.location.pathname.split("/");
+    var clickSrc = path.length >= 3 ? path[path.length - 1] : "";
+
+    var main = function () {
+        function notifyParent() {
+            var opener = window.opener;
+            if (opener && opener.postMessage) {
+                opener.postMessage("twitterConnected" + clickSrc, "*");
+            }
+        };
+
+        try {
+            notifyParent();
+            setTimeout(function() {
+                window.close();
+            }, 300);  // close the window no matter what
+        } finally {
+            // setTimeout needed for iOS6
+            setTimeout('close()', 500);
+        }
+    }
+</script>
+</head>
+<body onload="main()">
+    <p style="text-align: center">
+        <!-- http://stackoverflow.com/questions/25804730/window-close-doesnt-work-on-ios-8-gm-seed -->
+        Please close this tab to continue to pol.is
+    </p>
+</body>
+</html>

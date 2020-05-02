@@ -1,0 +1,164 @@
+// Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
+// CONTENT
+// Universal text and content styles
+//
+
+//
+// Headings
+//
+.HeadingA {
+  // color: $dark-gray;
+  color: rgb(0,0,0);
+  font-family: $headline-font;
+  font-weight: 700;
+  font-size: 36px;
+  line-height: $default-leading;
+}
+
+.HeadingA-aside {
+  // color: $darker4;
+  color: rgb(0,0,0);
+
+  font-family: $serif-font;
+  font-weight: normal;
+  font-size: 18px;
+  white-space: nowrap;
+}
+
+.HeadingB {
+  // color: $dark-gray;
+  color: rgb(0,0,0);
+
+  font-family: $headline-font;
+  font-weight: 900;
+  font-size: 18px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.HeadingB--inline {
+  display: inline;
+}
+
+.HeadingC {
+  border-bottom: 1px solid $default-border-color;
+  // color: $darker5;
+  color: rgb(0,0,0);
+
+  font-weight: normal;
+  font-family: $headline-font;
+  font-size: 18px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* colin created for tabs in conversation view, modify or rename if necessary and update conversationTabs.handlebars */
+.HeadingD {
+  // color: $dark-gray;
+  color: rgb(0,0,0);
+
+  font-family: $headline-font;
+  font-weight: 900;
+  font-size: 13px;
+  text-transform: uppercase;
+  // letter-spacing: 0.04em; // causes tabs to be too wide on Chrome on Linux
+  letter-spacing: 0.01em;
+}
+
+.HeadingD--lineheight {
+  line-height: $default-leading;
+}
+
+// colin created this as a color-free variant of heading B for the green text that shows when a group is clicked, modifies commentCarouselGroup.js and analyze global
+.HeadingE {
+  font-family: $headline-font;
+  font-weight: 700;
+  font-size: 18px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+//micro caps
+.HeadingF {
+  font-family: $headline-font;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.HeadingF--light {
+  font-weight: 300;
+}
+
+.HeadingF--heavy {
+  font-weight: 700;
+}
+
+.Heading--darkgray {
+  // color: $dark-gray;
+  color: rgb(0,0,0);
+
+}
+
+.Heading--gray {
+  // color: $gray;
+  color: rgb(0,0,0);
+
+}
+
+/**** Begin Lander Headings ****/
+.HeadingL {
+  font-size: 44px;
+  font-weight: 300;
+  font-family: $headline-font;
+  letter-spacing: 0.04em;
+  // color: $dark-gray;
+  color: rgb(0,0,0);
+
+}
+
+.HeadingG {
+  font-size: 24px;
+  font-weight: 300;
+  font-family: $headline-font;
+  letter-spacing: 0.04em;
+  // color: $darker4;
+  color: rgb(0,0,0);
+
+}
+
+
+.HeadingH {
+  font-family: $headline-font;
+  font-weight: 700;
+  font-size: 14px;
+  text-style: italic;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.HeadingH--dark {
+  // color: $dark-gray;
+  color: rgb(0,0,0);
+
+}
+/**** End Lander Headings ****/
+
+.Smallcaps {
+  font-size: 0.85em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.LargeText {
+  color: $blue-gray;
+  @include font-size(18px);
+  line-height: 24px;
+
+  @media screen and (min-width: $sm-screen) {
+    @include font-size(24px);
+    line-height: 32px;
+  }
+}

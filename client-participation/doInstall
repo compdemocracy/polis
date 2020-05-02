@@ -1,0 +1,5 @@
+#!/bin/sh
+. ${NVM_DIR}/nvm.sh
+nvm use `node ./bin/printNodeVersion`
+npm install
+bower install

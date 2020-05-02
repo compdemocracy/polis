@@ -1,0 +1,47 @@
+{{!-- Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>. --}}
+
+{{!
+  NOTE: the menu items in the drop-down are still nested in the drop-down when the responsive navbar collapses. Ideally we would explode the nested items out into a flat menu, like this:
+
+  http://stackoverflow.com/questions/18939015/remove-dropdown-link-and-show-all-of-its-items-in-navbar-menu
+}}
+
+<div class="navbar navbar-default logo_and_login_section" role="navigation">
+  {{#if authStyleHeader}}
+    <div style="text-align: center">
+      {{> polisLogo}}
+    </div>
+  {{else}}
+  <div class="
+  col-xs-offset-0 col-xs-12
+  col-sm-offset-0 col-xs-12
+  col-md-offset-0 col-md-12
+  col-lg-offset-0 col-lg-12">
+
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="fa fa-bars"></span>
+      </button>
+      {{> polisLogo}}
+    </div>
+    <div class="navbar-collapse collapse">
+      <ul class="nav navbar-nav navbar-right">
+        <li>
+          <a href="{{whatIsPolisHref}}" title="What is Polis" class="HeadingD">What is Polis?</a>
+        </li>
+        {{#ifAuthenticated}}
+            {{!-- <li><a href="{{settings_href}}" class="HeadingD"><i class="fa fa-code"></i>&nbsp;Embed</a></li> --}}
+            {{!-- <li><a href="{{settings_href}}" class="HeadingD"><i class="fa fa-cog"></i>&nbsp;Settings</a></li> --}}
+            <li class="divider"></li>
+            <li><a href="/user/logout/inbox" class="HeadingD">
+              {{#ifNotIE8}}
+              <i class="fa fa-sign-out"></i>
+              {{/ifNotIE8}}
+              &nbsp; Signout</a></li>
+        {{/ifAuthenticated}}
+      </ul>
+    </div>{{! /.nav-collapse }}
+  </div> {{! /.container }}
+  {{/if}} {{! /else !authStyleHeader}}
+</div> {{! navbar }}
