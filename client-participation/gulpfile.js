@@ -194,6 +194,10 @@ gulp.task('connect', [], function() {
 
 function getGitHash() {
   return new Promise(function(resolve, reject) {
+    if (process.env.GIT_HASH) {
+      resolve(process.env.GIT_HASH)
+      return
+    }
     exec("git log --pretty=\"%h\" -n 1", function(error, stdout, stderr) {
       if (error) {
         console.error('FAILED TO GET GIT HASH: ' + error);
@@ -702,6 +706,10 @@ gulp.task('deploy_TO_PRODUCTION', [
       },
     });
   }
+  if ('local' === polisConfig.UPLOADER) {
+    uploader = localUploader
+    uploader.needsHeadersJson = true
+  }
   return deploy(uploader);
 });
 
@@ -724,6 +732,10 @@ function doUpload() {
         });
       },
     });
+  }
+  if ('local' === polisConfig.UPLOADER) {
+    uploader = localUploader
+    uploader.needsHeadersJson = true
   }
   return deploy(uploader);
 }
@@ -749,6 +761,11 @@ gulp.task('deploySurvey', [
   });
   return deploy(uploader);
 });
+
+function localUploader(params) {
+  params.subdir = params.subdir || ''
+  return gulp.dest(path.join(polisConfig.LOCAL_OUTPUT_PATH, params.subdir))
+}
 
 function s3uploader(params) {
     var creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'));
