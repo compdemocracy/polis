@@ -1,0 +1,146 @@
+
+
+<div style="margin: 0 auto; width: 600px">
+
+<h1 class="HeadingA">Settings</h1>
+
+
+
+  <div class="panel panel-default">
+    <div class="panel-heading">
+      <h3 class="panel-title HeadingB">Name</h3>
+    </div>
+    <div class="panel-body">
+      {{hname}}
+    </div>
+  </div>
+
+
+  <div class="panel panel-default">
+    <div class="panel-heading">
+      <h3 class="panel-title HeadingB">Email</h3>
+    </div>
+    <div class="panel-body">
+      {{email}}
+    </div>
+  </div>
+
+{{!--
+  <div class="panel panel-default">
+    <div class="panel-heading">
+      <h3 class="panel-title HeadingB">Team Members</h3>
+    </div>
+    <div class="panel-body">
+      <div>
+        {{email}}
+      </div>
+      {{#each teamMembers}}
+        <div>{{this}}</div>
+      {{/each}}
+      <div>
+
+        <form role="form" id="addUser">
+          <div>
+            <input type="text" id="teamMemberEmail" name="teamMemberEmail" placeholder="joe@myCompany.com"/>
+            <button type="submit" class="Btn Btn-small">Add Team Member</button>
+          </div>
+          <div class="row" id="errorDiv"> </div>
+        </form>
+
+
+      </div>
+    </div>
+  </div>
+ --}}
+
+  <div class="panel panel-default">
+    <div class="panel-heading">
+      <h3 class="panel-title HeadingB">Plan</h3>
+    </div>
+    <div class="panel-body">
+{{!--       {{#ifTrial}}
+        <div class="Notification Notification--warning" role="alert">
+          <i class="fa fa-bell-o"></i>&nbsp;{{> trialRemainingStatement}}
+        </div>
+      {{/ifTrial}} --}}
+
+
+      <table class="table">
+        <thead>
+        <tr>
+          <th class="HeadingF">Plan
+          </th>
+          <th class="HeadingF">Price
+          </th>
+          <th> {{! buttons column}}
+          </th>
+        </tr>
+        </thead>
+        <tr>
+          <td>Org99{{#ifDefined proposal.maxUsers}} ({{proposal.maxUsers}} users){{/ifDefined}}</td>
+          <td>{{#ifDefined proposal.monthly}} ${{proposal.monthly}}/month{{/ifDefined}}</td>
+          <td>
+            {{#ifTrial}}<form action="/api/v3/charge" method="POST" id="stripeForm"></form>
+             {{/ifTrial}}
+            {{#ifEnterprise}}Your plan{{/ifEnterprise}}
+          </td>
+        </tr>
+        {{!-- <tr>
+          <td>Teacher</td>
+          <td>Free (students will pay $3/month)</td>
+          <td>
+            {{#ifTrial}}<button id="participantsPayButton">Choose</button>
+             {{/ifTrial}}
+            {{#ifParticipantPays}}Your plan{{/ifParticipantPays}}
+          </td>
+        </tr>
+        <tr>
+          <td>Student</td>
+          <td>$3/month</td>
+          <td>
+            {{#ifTrial}}<form action="/api/v3/charge" method="POST" id="stripeFormStudents"></form>
+             {{/ifTrial}}
+            {{#ifStudent}}Your plan{{/ifStudent}}
+          </td>
+        </tr> --}}
+{{!--
+        <tr>
+          <td>Trial</td>
+          <td>Free for 10 days</td>
+          <td>
+            {{#ifTrial}} Your plan {{/ifTrial}}
+            {{#ifIndividual}} {{! should probably be a downgrade button }} {{/ifIndividual}}
+          </td>
+        </tr> --}}
+
+      </table>
+    </div>
+  </div>
+
+  <!--This script tag should really be in the head, but for now...-->
+  <script type="text/javascript" src="https://js.stripe.com/v2/"></script>
+  <script type="text/javascript">
+    // This identifies your website in the createToken call below
+    var stripeKey = /localhost|preprod.pol.is/.test(document.domain) ? "pk_test_x6ETDQy1aCvKnaIJ2dyYFVVj" : "pk_live_zSFep14gq0gqnVkKVp6vI9eM";
+    Stripe.setPublishableKey(stripeKey);
+    // ...
+  </script>
+
+
+{{!
+  <div class="panel panel-default">
+    <div class="panel-heading">
+      <h3 class="panel-title">Notification</h3>
+    </div>
+    <div class="panel-body">
+      <div class="checkbox">
+        <label>
+          <input type="checkbox" id="notify_me" name="notify_me" checked="checked"> Notify me of updates
+        </label>
+      </div>
+    </div>
+  </div>
+}}
+
+
+</div>
