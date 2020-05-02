@@ -1,14 +1,20 @@
-FROM node:10.15.0
+# Requires a very specific version due to package bugs and version compatibility
+FROM node:6.10.3
+
+ARG GIT_HASH
+
+WORKDIR /app
 
 RUN npm install -g gulp
-RUN npm install gulp
-RUN npm link gulp
 
-ADD package*.json .
+ADD package*.json npm-shrinkwrap.json ./
+# envvar hides core-js sponsorship message that errors in postinstall.
+# See: https://github.com/zloirock/core-js/pull/799#issuecomment-611437614
+ENV ADBLOCK=1
 RUN npm install
 
 ADD polis.config.template.js polis.config.js
 
 ADD . .
 
-RUN gulp dist
+RUN gulp deployPreprod

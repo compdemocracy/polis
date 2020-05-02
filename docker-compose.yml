@@ -7,14 +7,23 @@ version: "3.1"
 
 services:
 
-  node:
+  server:
     container_name: polis-server
     build:
       context: ./server
       dockerfile: Dockerfile
+    environment:
+      STATIC_FILES_HOST: file-server
+      STATIC_FILES_PORT: 8080
+      STATIC_FILES_ADMINDASH_PORT: 8080
+      SHOULD_USE_TRANSLATION_API: 'false'
+      DATABASE_URL: postgres://postgres:oiPorg3Nrz0yqDLE@postgres:5432/polis-dev
+      WEBSERVER_USERNAME: ws-user
+      WEBSERVER_PASS: ws-pass
+      MATH_ENV: dev
     depends_on:
       - 'postgres'
-      - 'static'
+      - 'file-server'
     networks:
       - 'polis-dev'
     ports:
@@ -27,10 +36,16 @@ services:
       - 'postgres'
     build:
       context: ./math
+    environment:
+      DATABASE_URL: postgres://postgres:oiPorg3Nrz0yqDLE@postgres:5432/polis-dev
+      WEBSERVER_USERNAME: ws-user
+      WEBSERVER_PASS: ws-pass
+    networks:
+      - 'polis-dev'
 
 
   postgres:
-    container_name: polis-db
+    container_name: polis-postgres
     restart: always
     build:
       context: ./server
@@ -41,14 +56,52 @@ services:
       - 'backups:/backups'
       - 'postgres:/var/lib/postgresql/data'
 
-
-  static:
-    container_name: polis-static
-    image: nginx:1.14
+  nginx-proxy:
+    container_name: polis-nginx-proxy
+    build:
+      context: ./file-server
+      dockerfile: nginx.Dockerfile
+    depends_on:
+      - 'server'
     networks:
       - 'polis-dev'
     ports:
-      - '5002:80'
+      - '80:80'
+
+  file-server:
+    container_name: polis-file-server
+    build:
+      context: ./file-server
+      dockerfile: Dockerfile
+    depends_on:
+      - 'client-participation'
+      - 'client-admin'
+      - 'client-report'
+    networks:
+      - 'polis-dev'
+    ports:
+      - '8080:8080'
+
+  client-participation:
+    image: polis/client-participation
+    build:
+      context: ./client-participation
+      args:
+        GIT_HASH: null
+
+  client-admin:
+    image: polis/client-admin
+    build:
+      context: ./client-admin
+      args:
+        GIT_HASH: null
+
+  client-report:
+    image: polis/client-report
+    build:
+      context: ./client-report
+      args:
+        GIT_HASH: null
 
 
 
