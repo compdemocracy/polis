@@ -1,0 +1,184 @@
+{{!-- Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>. --}}
+
+<div id="conversationTabs" class="
+  custom_gutter_via_padding
+  {{#if use_background_content_class}}background_content{{/if}}
+  "
+  style="display:none"
+  >
+
+ <table>
+  <tr>
+  <td style="width:100%">
+  <ul class="nav nav-tabs tab-conv"
+    style="border-bottom: 0px">
+    <li
+      id="voteTab"
+      {{#if voteActive}} class="active" {{/if}}
+    >
+      <a
+        href="#commentView"
+        id="commentViewTab"
+        class="HeadingC polis-tab"
+        style="padding: 10px 5px !important; border: none;  text-transform: none;"
+        data-toggle="tab">
+        {{!-- {{#ifNotIE8}}<i style="font-size: 16px" class="fa fa-align-justify"></i>{{/ifNotIE8}}{{#if showTabs}}READ &amp; REACT{{/if}} --}}
+        {{#ifNotIE8}}<i style="font-size: 16px" class="fa fa-comments"></i>{{/ifNotIE8}}
+        React
+      </a>
+    </li>
+    <li
+      class="{{#if writeActive}}active{{/if}}"
+    >
+      <a
+        href="#commentForm"
+        id="commentFormTab"
+        class="HeadingC polis-tab"
+        style="padding: 10px 5px !important; border: none; text-transform: none;"
+        data-toggle="tab">
+        {{!-- {{#ifNotIE8}}<i style="font-size: 16px" class="fa fa-pencil"></i>{{/ifNotIE8}}{{#if showTabs}} WRITE{{/if}} --}}
+        {{#ifNotIE8}}<i style="font-size: 16px" class="fa fa-pencil"></i>{{/ifNotIE8}}
+        Write
+      </a>
+    </li>
+    {{#if allowMajority}}
+    <li
+      class="{{#if majorityActive}}active{{/if}}"
+    >
+      <a
+        href="#majority"
+        id="majorityTab"
+        class="HeadingC polis-tab"
+        style="
+          padding: 10px 5px !important;
+          border: none;
+          text-transform: none;
+          {{#unless showMajorityTab}}display: none;{{/unless}}
+          "
+        data-toggle="tab">
+        {{!-- See Consensus --}}
+        {{#ifNotIE8}}<i style="font-size: 16px" class="fa fa-globe"></i>{{/ifNotIE8}}
+        Majority
+        {{!-- {{#ifNotIE8}}<i style="font-size: 16px" class="fa fa-coffee"></i>{{/ifNotIE8}}{{#if showTabs}} ANALYZE{{/if}} --}}
+      </a>
+    </li>
+    {{/if}}
+    <li
+      class="{{#if groupActive}}active{{/if}}"
+    >
+      <a
+        href="#group"
+        id="groupTab"
+        class="polis-tab"
+        style="display:none;"
+        data-toggle="tab">
+      {{! Group (nothing to show) }}
+      </a>
+    </li>
+    <li
+      class="{{#if legendActive}}active{{/if}}"
+    >
+      <a
+        href="#legend"
+        id="legendTab"
+        class="polis-tab"
+        style="display:none;"
+        data-toggle="tab">
+        legend
+      {{! nothing to show }}
+      </a>
+    </li>
+    <li
+      class="{{#if infoPaneActive}}active{{/if}}"
+    >
+      <a
+        href="#infoSlidePane"
+        id="infoPaneTab"
+        class="polis-tab"
+        style="display:none;"
+        data-toggle="tab">
+        infoPane
+      {{! nothing to show }}
+      </a>
+    </li>
+  </ul>
+  </td>
+  <td>
+
+
+{{!--   <a
+    href="#commentForm"
+    id="commentFormTab"
+    class="HeadingD polis-tab pull-right"
+    style="padding: 10px 5px !important; border: none; margin-top: -42px; color: #777"
+    data-toggle="tab">
+
+    <img src="https://pol.is/polis-favicon_favicon.png" height="16px" id="opinion_groups_logo">
+  Login
+  </a>
+ --}}
+
+{{#if showLogout}}
+<div class="dropdown">
+  <button
+  id='loginButtonInTabsBar'
+  style='
+    border: none;
+    color: #777;
+    font-family: "brandon-grotesque", "Brandon Grotesque", "Futura", "Gill Sans", "Helvetica Neue", Helvetica, sans-serif;
+    font-size: 18px;
+    ' class="btn btn-default dropdown-toggle" type="button" id="dropdownMenu1" data-toggle="dropdown" aria-expanded="true">
+    {{!-- <img src="https://pol.is/polis-favicon_favicon.png" height="16px" id="opinion_groups_logo"> --}}
+    {{#unless smallMenu}}
+    {{dropdownLabel}}
+    {{/unless}}
+    <span class="caret"></span>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-right" role="menu" aria-labelledby="dropdownMenu1" style='font-family: brandon-grotesque", "Brandon Grotesque", "Futura", "Gill Sans", "Helvetica Neue", Helvetica, sans-serif'>
+    {{#if smallMenu}}
+      <li role="presentation" style="padding-left: 20px; color:gray;"> Logged in as <div>{{dropdownLabel}}</div> </li>
+      <li role="presentation" class="divider"></li>
+    {{/if}}
+{{!-- {{#ifNotAuthenticated}}
+    <li role="presentation"><a id="twitterLoginBtn" role="menuitem" href="#"><div style="display: inline-block; width: 20px"><i class="fa fa-twitter"></i></div> Twitter</a></li>
+    <li role="presentation"><a id="fbLoginBtn" role="menuitem" href="#"><div style="display: inline-block; width: 20px"><i class="fa fa-facebook"></i></div> Facebook</a></li>
+    <li role="presentation"><a role="menuitem" href="#"><div style="display: inline-block; width: 20px"><img src="https://pol.is/polis-favicon_favicon.png" height="16px" id="opinion_groups_logo"/></div> Polis</a></li>
+{{/ifNotAuthenticated}} --}}
+
+{{!-- {{#ifAuthenticated}} --}}
+  {{#unless hasTwitter}}
+    <li role="presentation"><a id="twitterConnectBtn" role="menuitem" href="#"><div style="display: inline-block; width: 20px"><i class="fa fa-twitter"></i></div>Connect Twitter</a></li>
+  {{/unless}}
+  {{#unless hasFacebook}}
+    <li role="presentation"><a id="fbConnectBtn" role="menuitem" href="#"><div style="display: inline-block; width: 20px"><i class="fa fa-facebook"></i></div>Connect Facebook</a></li>
+  {{/unless}}
+    {{!-- <li role="presentation"><a role="menuitem" href="#"><div style="display: inline-block; width: 20px"><img src="https://pol.is/polis-favicon_favicon.png" height="16px" id="opinion_groups_logo"/></div> Polis</a></li> --}}
+
+  {{#if selfUrl}}
+    <li role="presentation" class="divider"></li>
+    <li role="presentation">
+      <a href={{selfUrl}} role="menuitem" target="_blank">
+        <div style="display: inline-block; width: 20px"><i class="fa fa-external-link-square"></i></div>View on pol.is
+      </a>
+    </li>
+  {{/if}}
+
+  {{#if showLogout}}
+    <li role="presentation" class="divider"></li>
+    <li role="presentation"><a role="menuitem" href="/user/logout{{logoutDest}}">Logout</a></li>
+  {{/if}}
+{{!-- {{/ifAuthenticated}} --}}
+
+  </ul>
+</div>
+
+{{/if}} {{! showLogout}}
+
+</td>
+</table>
+
+</div>
+
+<div class="HRule"></div>
+
+

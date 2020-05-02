@@ -1,0 +1,51 @@
+// Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+//
+// Switch forms
+// between Sign up/Log in
+//
+.SwitchForms {
+    position: relative;
+    text-align: center;
+}
+
+.SwitchForms-text {
+    text-align: center;
+    position: relative;
+    padding-left: 10px;
+    padding-right: 10px;
+    background-color: $bg-color;
+    font-weight: 400;
+}
+
+.SwitchForms-line {
+    border-bottom: 1px solid #dfe0e6;
+    content: '';
+    display: block;
+    position: absolute;
+    top: 49%;
+    width: 100%;
+    z-index: -2;
+}
+
+.SwitchForms-submit {
+    padding-top: $default-whitespace + ($default-whitespace/2);
+
+    border-top: 1px solid $default-border-color;
+}
+
+.line-thru {
+    box-sizing: border-box;
+    color: rgb(136, 137, 140);
+    display: block;
+    font-family: proxima_nova, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    height: 21px;
+    line-height: 21px;
+    margin-bottom: 14px;
+    position: relative;
+    text-align: center;
+    width: 430px;
+    z-index: 1;
+}

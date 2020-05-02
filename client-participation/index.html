@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="globalsign-domain-verification" content="Dp-UFZfqPtVw6GK7XwmqFPmgjnUyTmU7xNGwpMnr-K" />
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Polis</title>
+
+    <!-- REPLACE_THIS_WITH_FB_META_TAGS -->
+
+    <!-- script type="text/javascript" src="//use.typekit.net/wzs2fuq.js"></script -->
+    <!-- script type="text/javascript">try{Typekit.load();}catch(e){}</script -->
+
+    <!-- script type="text/javascript" src="https://js.stripe.com/v2/"></script -->
+    <!-- script type="text/javascript">
+      var stripeKey = /localhost|preprod.pol.is/.test(document.domain) ? "pk_test_x6ETDQy1aCvKnaIJ2dyYFVVj" : "pk_live_zSFep14gq0gqnVkKVp6vI9eM";
+      Stripe.setPublishableKey(stripeKey);
+    </script -->
+    <link rel="stylesheet" type="text/css" href="<%= basepath %>/css/polis.css"> <!-- proxy all CSS through server for respond.js -->
+
+
+    <script>
+      window.domainWhitelist = <%= domainWhitelist %>;
+      window.preload = "REPLACE_THIS_WITH_PRELOAD_DATA";
+      window.version = "<%= versionString %>";
+    </script>
+    <style>
+    .displaynone {
+      display: none;
+    }
+    .hidden {
+      visibility: hidden;
+    }
+    .screen-reader-text {
+        border: 0;
+        clip: rect( 1px, 1px, 1px, 1px );
+        clip-path: inset( 50% );
+        height: 1px;
+        margin: -1px;
+        overflow: hidden;
+        padding: 0;
+        position: absolute;
+        width: 1px;
+        word-wrap: normal;
+    }
+    </style>
+
+<script> // Fire off this ajax first. it's slower than the other CDN delivered things.
+(function() {
+
+function parseQueryParams(s) {
+  if (typeof s !== "string") {
+    return {};
+  }
+  if (s.charAt(0) === "?") {
+    s = s.slice(1);
+  }
+  var pairStrings = s.split("&");
+  var o = {};
+  for (var i = 0; i < pairStrings.length; i++) {
+    var pair = pairStrings[i].split("=");
+    o[pair[0]] = decodeURIComponent(pair[1]);
+  }
+  return o;
+}
+
+function getXid() {
+  var params = parseQueryParams(window.location.search);
+  return params.xid;
+}
+function get_x_profile_image_url() {
+  var params = parseQueryParams(window.location.search);
+  return params.x_profile_image_url;
+}
+function get_x_name() {
+  var params = parseQueryParams(window.location.search);
+  return params.x_name;
+}
+function get_domain_whitelist_override_key() {
+  var params = parseQueryParams(window.location.search);
+  return params.dwok;
+}
+function getUiLang() {
+  var params = parseQueryParams(window.location.search);
+  return params.ui_lang;
+}
+
+function ajaxGet(url, success, fail) {
+  var xmlhttp;
+  if (window.XMLHttpRequest) {
+    // code for IE7+, Firefox, Chrome, Opera, Safari
+    xmlhttp = new XMLHttpRequest();
+  } else {
+    // code for IE6, IE5
+    xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
+  }
+
+  xmlhttp.onreadystatechange = function() {
+    if (xmlhttp.readyState == XMLHttpRequest.DONE ) {
+      if(xmlhttp.status == 200){
+        success(JSON.parse(xmlhttp.responseText));
+      } else {
+        fail(xmlhttp.status, xmlhttp.responseText);
+      }
+    }
+  }
+
+  xmlhttp.open("GET", url, true);
+  xmlhttp.send();
+}
+
+
+function getWindowSize() {
+  var w = 0, h = 0;
+  if( typeof( window.innerWidth ) == 'number' ) {
+    //Non-IE
+    w = window.innerWidth;
+    h = window.innerHeight;
+  } else if( document.documentElement && ( document.documentElement.clientWidth || document.documentElement.clientHeight ) ) {
+    //IE 6+ in 'standards compliant mode'
+    w = document.documentElement.clientWidth;
+    h = document.documentElement.clientHeight;
+  } else if( document.body && ( document.body.clientWidth || document.body.clientHeight ) ) {
+    //IE 4 compatible
+    w = document.body.clientWidth;
+    h = document.body.clientHeight;
+  }
+  return {
+    w: w,
+    h: h,
+  };
+}
+
+
+// bootstrap initial bulk ajax call.
+// we don't have promises until main bundle loads, so this is going to be a bit messy.
+var p = window.preload;
+
+
+function fixupConversation(c) {
+  var t = c.translations
+  if (t && t.length) {
+    c.topic = t[0].topic;
+    c.description = t[0].description;
+  }
+  return c;
+}
+
+function onPreloadOk(response) {
+  var things = [
+    {src:"nextComment", dst:"firstComment", cb:"firstCommentListener"},
+    {src:"conversation", dst:"firstConv", cb:"firstConvListener", fn:fixupConversation},
+    {src:"user", dst:"firstUser", cb:"firstUserListener"},
+    {src:"ptpt", dst:"firstPtpt", cb:"firstPtptListener"},
+    {src:"votes", dst:"firstVotesByMe", cb:"firstVotesByMeListener"},
+    {src:"pca", dst:"firstMath", cb:"firstMathListener", JSON: true},
+    {src:"famous", dst:"firstFamous", cb:"firstFamousListener"},
+    {src:"acceptLanguage", dst:"acceptLanguage", cb:"acceptLanguageListener"},
+  ];
+  for (var i = 0; i < things.length; i++) {
+    var r = things[i], src = r.src, dst = r.dst, cb = r.cb;
+    if (response) {
+      p[dst] = r.JSON ? JSON.parse(response[src]) : response[src];
+    }
+    if (r.fn) {
+      p[dst] = r.fn(p[dst]);
+    }
+
+    // weird issue probably due to setting a prop named bgcolor on a global?
+    // manually set the prop
+    if (response && response[src] && response[src].bgcolor) {
+      p[dst].bgcolor = response[src].bgcolor;
+    }
+
+    if (p[cb]) {
+      p[cb](0, p[dst]);
+    }
+  }
+}
+
+function onPreloadFail(statusCode, failResponse) {
+  var cbs = [
+    "firstCommentListener",
+    "firstConvListener",
+    "firstUserListener",
+    "firstPtptListener",
+    "firstVotesByMeListener",
+    "firstMathListener",
+    "firstFamousListener",
+    "acceptLanguageListener",
+  ];
+  for (var i = 0; i < cbs.length; i++) {
+    if (p[cbs[i]]) {
+      p[cbs[i]](1);
+    }
+  }
+  if (statusCode === 403 && failResponse.match(/^polis_err_domain/)) {
+    function updateDomainMessage() {
+      var el = document.getElementById("badDomainMessage");
+      if (el) {
+        el.className = el.className.replace( /(?:^|\s)displaynone(?!\S)/g , '');
+        document.getElementById("mainSpinner").className += " displaynone";
+        clearInterval(updateDomainIntervalRef);
+      }
+    }
+    var updateDomainIntervalRef = setInterval(updateDomainMessage, 100);
+
+  }
+}
+
+
+var path = document.location.pathname;
+var shouldPreload =
+  path.match(/^([0-9][0-9A-Za-z]+)/) ||
+  path.match(/^ot\/([0-9][0-9A-Za-z]+)/) ||
+  path.match(/^demo\/([0-9][0-9A-Za-z]+)/) ||
+  path.match(/^share\/([0-9][0-9A-Za-z]+)$/) ||
+  path.match(/^m\/([0-9][0-9A-Za-z]+)\/?(.*)$/);
+
+
+window.xsThresh = 600; // nexus 7
+var wh = getWindowSize();
+
+window.getPtptoiLimitForWidth = function(w) {
+  return w < window.xsThresh ? 25 : void 0;
+};
+
+// var ptptoiLimit = getPtptoiLimitForWidth(wh.w);
+var qp = [];
+// if (ptptoiLimit) {
+//   qp.push("ptptoiLimit=" + ptptoiLimit);
+// }
+if (p.conversation && p.conversation.conversation_id) {
+  qp.push("conversation_id=" + p.conversation.conversation_id);
+}
+qp.push("pid=mypid");
+
+var xid = getXid();
+if (typeof xid !== "undefined") {
+  window.preload.xid = xid;
+  qp.push("xid=" + encodeURIComponent(xid));
+}
+var x_profile_image_url = get_x_profile_image_url();
+if (typeof x_profile_image_url !== "undefined") {
+  window.preload.x_profile_image_url = x_profile_image_url;
+  qp.push("x_profile_image_url=" + encodeURIComponent(x_profile_image_url));
+}
+var x_name = get_x_name();
+if (typeof x_name !== "undefined") {
+  window.preload.x_name = x_name;
+  qp.push("x_name=" + encodeURIComponent(x_name));
+}
+var dwok = get_domain_whitelist_override_key();
+if (typeof dwok !== "undefined") {
+  qp.push("domain_whitelist_override_key=" + encodeURIComponent(dwok));
+}
+
+var ui_lang = getUiLang();
+if (ui_lang) {
+  qp.push("lang=" + ui_lang);
+  window.ui_lang = ui_lang;
+} else {
+  qp.push("lang=acceptLang");
+}
+
+var qp = qp.join("&");
+qp = qp.length > 1 ? ("?" + qp) : "";
+
+
+
+
+ajaxGet("/api/v3/participationInit" + qp,
+  onPreloadOk,
+  onPreloadFail);
+
+
+}());
+</script>
+
+
+    <script>
+// // add error alerting
+// if (document.domain.indexOf("preprod") || document.domain.indexOf("localhost")) {
+//   if (window.addEventListener) {
+//     window.addEventListener('error', function (evt) {
+//       var s = evt.message + "' from " + evt.filename + ":" + evt.lineno;
+//         console.log("Caught[via 'error' event]:  '" + s);
+//         console.log(evt); // has srcElement / target / etc
+//         alert(s);
+//         evt.preventDefault();
+//     });
+//   } else {
+//       window.onerror = function (msg, url, line) {
+//         var s = msg + "' from " + url + ":" + line;
+//         console.log("Caught[via window.onerror]: '" + s);
+//         alert(s);
+//         return true; // same as preventDefault
+//     };
+//   }
+// }
+
+
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+      ga('create', 'UA-49459311-1', 'pol.is');
+      ga('require', 'displayfeatures');
+      ga('send', 'pageview');
+</script>
+
+
+<script>
+if (<%= useIntercom %>) {
+  window.useIntercom = true;
+  window.initIntercom = function(){
+
+    var w=window;var ic=w.Intercom;
+    if(typeof ic==="function"){
+      // ic('reattach_activator');
+      // ic('update',intercomSettings);
+    }else{
+      var d=document;
+      var i=function(){
+        i.c(arguments)
+      };
+      i.q=[];
+      i.c=function(args){
+        i.q.push(args)
+      };
+      w.Intercom=i;
+      function l(){
+        var s=d.createElement('script');
+        s.type='text/javascript';
+        s.async=true;
+        s.src='https://widget.intercom.io/widget/nb5hla8s';
+        var x=d.getElementsByTagName('script')[0];
+        x.parentNode.insertBefore(s,x);
+      }
+      $(l); // custom - using jQuery's ready listener
+    }
+  };
+}
+</script>
+
+  </head>
+  <body class="clickDeselectsHull" style="margin:0; background-color: white;">
+
+
+<!-- <div id="fb-root"></div> -->
+<script>
+// (function(d, s, id) {
+//   var js, fjs = d.getElementsByTagName(s)[0];
+//   if (d.getElementById(id)) return;
+//   js = d.createElement(s); js.id = id;
+//   js.src = "//connect.facebook.net/en_US/sdk.js#xfbml=1&appId=661042417336977&version=v2.0";
+//   fjs.parentNode.insertBefore(js, fjs);
+// }(document, 'script', 'facebook-jssdk'));
+</script>
+
+
+<div id="fb-root"></div>
+<script>
+  window.fbAsyncInit = function() {
+    FB.init({
+      appId      : '<%= fbAppId %>',
+      xfbml      : true,
+      version    : 'v2.1'
+    });
+  };
+
+  (function(d, s, id){
+     var js, fjs = d.getElementsByTagName(s)[0];
+     if (d.getElementById(id)) {return;}
+     js = d.createElement(s); js.id = id;
+     // js.src = "//connect.facebook.net/en_US/sdk.js";
+    js.src = "//connect.facebook.net/en_US/sdk/debug.js"; // unminified
+     fjs.parentNode.insertBefore(js, fjs);
+   }(document, 'script', 'facebook-jssdk'));
+</script>
+
+<script src="<%= basepath %>/js/<%= d3Filename %>"></script>
+<script> d3_old = d3; delete d3;</script>
+<script src="<%= basepath %>/js/d3.v4.min.js"></script>
+
+<script src="<%= basepath %>/js/polis.js"></script>
+
+<script src="<%= basepath_visbundle %>/js/vis_bundle.js"></script>
+
+
+<p id="mainSpinner" style="text-align:center; margin: auto; width:100%; display: none">
+  <svg version="1.1" id="loader-1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+     width="40px" height="40px" viewBox="0 0 50 50" style="enable-background:new 0 0 50 50;" xml:space="preserve">
+  <path fill="rgba(0,0,0,0.5)" d="M43.935,25.145c0-10.318-8.364-18.683-18.683-18.683c-10.318,0-18.683,8.365-18.683,18.683h4.068c0-8.071,6.543-14.615,14.615-14.615c8.072,0,14.615,6.543,14.615,14.615H43.935z">
+    <animateTransform attributeType="xml"
+      attributeName="transform"
+      type="rotate"
+      from="0 25 25"
+      to="360 25 25"
+      dur="1.0s"
+      repeatCount="indefinite"/>
+    </path>
+  </svg>
+</p>
+<p id="badDomainMessage" class="HeadingC displaynone" style="text-align:center; margin: 40px;">This conversation can't be viewed from this domain. Contact the creator of the conversation to find out where you can access it.</p>
+
+<script>
+  if (window.top !== window) {
+    document.getElementById("mainSpinner").classList.add("hidden");
+  }
+
+  if (window.ui_lang) {
+    document.getElementsByTagName("body")[0].setAttribute("lang", ui_lang);
+  }
+</script>
+
+<!--
+<div id="google_translate_element"></div><script type="text/javascript">
+function googleTranslateElementInit() {
+  new google.translate.TranslateElement({pageLanguage: 'en', includedLanguages: 'fr', layout: google.translate.TranslateElement.InlineLayout.HORIZONTAL, multilanguagePage: true}, 'google_translate_element');
+}
+</script><script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+-->
+
+</body>
+</html>

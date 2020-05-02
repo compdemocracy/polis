@@ -1,0 +1,79 @@
+// Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+// MIXINS
+// Created by Dame Mix A Lot
+//
+//-----------------------------------------------------------------------------
+// Icons
+//-----------------------------------------------------------------------------
+// fa()           include FontAwesome
+// fa-login       icon for Login link
+// fa-inbox       icon for Inbox link
+// fa-settings    icon for Settings link
+// fa-signout     icon for Sign out link
+//
+@mixin fa() {
+  display: inline-block;
+  font-family: FontAwesome;
+  font-style: normal;
+  font-weight: normal;
+  line-height: 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@mixin fa-login() {
+  @include fa();
+  content: "\f090";
+}
+
+@mixin fa-inbox() {
+  @include fa();
+  content: "\f01c";
+}
+
+@mixin fa-settings() {
+  @include fa();
+  content: "\f013";
+}
+
+@mixin fa-signout() {
+  @include fa();
+  content: "\f08b";
+}
+
+@mixin fa-checkmark() {
+  @include fa();
+  content: "\f00c";
+}
+
+@mixin fa-angle-down() {
+  @include fa();
+  content: "\f107";
+}
+
+@mixin fa-bar-chart() {
+  @include fa();
+  content: "\f080";
+}
+// end icon mixins
+
+//-----------------------------------------------------------------------------
+// Font sizing
+//-----------------------------------------------------------------------------
+// calculateRem($size)          convert 16px -> 1rem
+// font-size($size)             use rem & fall-back pixel styles
+//
+// @function calculateRem($size) {
+//   $remSize: $size / 16px;
+//   @return #{$remSize}rem;
+// }
+// @mixin font-size($size) {
+//   font-size: $size;
+//   font-size: calculateRem($size);
+// }
+@mixin font-size($sizeValue: 16px) {
+  font-size: $sizeValue;
+  font-size: ($sizeValue / 10px) + rem;
+}
+// end font sizing
