@@ -20,6 +20,7 @@ services:
       DATABASE_URL: postgres://postgres:oiPorg3Nrz0yqDLE@postgres:5432/polis-dev
       WEBSERVER_USERNAME: ws-user
       WEBSERVER_PASS: ws-pass
+      # Options: prod, preprod, dev
       MATH_ENV: dev
     depends_on:
       - 'postgres'
