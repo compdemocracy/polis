@@ -13,7 +13,8 @@ module.exports = {
   DISABLE_INTERCOM: true,
   DISABLE_PLANS: true,
 
-  FB_APP_ID: '661042417336977',
+  // must register with facebook and get a facebook app id to use the facebook auth features
+  FB_APP_ID: '000000000000000',
 
   //SERVICE_URL: 'http://localhost:5000',
   SERVICE_URL: 'https://preprod.pol.is',

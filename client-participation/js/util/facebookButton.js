@@ -68,14 +68,7 @@ function fbLoginPrompt() {
       }
     }, {
       return_scopes: true, // response should contain the scopes the user allowed
-      scope: [
-        // 'taggable_friends', // requires review.
-        // invitable_friends NOTE: only for games with a fb Canvas presence, so don't use this
-        'public_profile',
-        'user_location',
-        'user_friends',
-        'email'
-      ].join(',')
+      scope: window.SERVER_DATA.extendedFacebookPermissions,
     });
   return dfd.promise();
 }
