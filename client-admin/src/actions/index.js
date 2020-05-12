@@ -3,6 +3,7 @@
 import $ from "jquery";
 import PolisNet from "../util/net";
 
+const SERVER_DATA = window.SERVER_DATA;
 
 /* ======= Types ======= */
 export const REQUEST_USER = "REQUEST_USER";
@@ -569,7 +570,7 @@ const callFacebookLoginAPI = (dest, dispatch, optionalPassword) => {
       return onFbLoginOk(res, dest, dispatch, optionalPassword);
     }, {
       return_scopes: true, // response should contain the scopes the user allowed
-      scope: window.SERVER_DATA.extendedFacebookPermissions,
+      scope: SERVER_DATA.EXTRA_FACEBOOK_PERMS,
     });
 }
 

@@ -3,6 +3,8 @@
 var Strings = require("../strings");
 var M = require("../util/metrics");
 
+var SERVER_DATA = window.SERVER_DATA;
+
 // FB.getLoginStatus(function(response) {
 //   if (response.status === 'connected') {
 //     alert(1);
@@ -68,7 +70,7 @@ function fbLoginPrompt() {
       }
     }, {
       return_scopes: true, // response should contain the scopes the user allowed
-      scope: window.SERVER_DATA.extendedFacebookPermissions,
+      scope: SERVER_DATA.EXTRA_FACEBOOK_PERMS,
     });
   return dfd.promise();
 }
