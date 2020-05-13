@@ -104,7 +104,10 @@ A Facebook app is required for sign-in via Facebook Login.
     </details>
 5. Note the _App ID_.
 6. Configure `FB_APP_ID` within `polis.config.js` of both the participation and admin client components.
-7. Rebuild your docker environment.
+7. Configure `EXTRA_FACEBOOK_PERMS` within `docker-compose.yml`. Useable permission scopes are:
+    - `email` - required?
+    - `user_friends` - optional. allows account-holders to see their friends in visualizations if those friends have also connected Facebook to Polis.
+8. Rebuild your docker environment.
 
 ## Contribution notes
 

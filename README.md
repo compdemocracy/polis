@@ -82,7 +82,7 @@ Sign up at `/createuser` path. You'll be logged in right away; no email validati
 ### Misc Notes
 
 - HTTPS is served via a self-signed SSL certificate. It's intended only for development purposes, e.g., Facebook auth.
-- Facebook Login requires a Facebook app. See [`docs/deployment.md`](/docs/deployment.md#) for instructions.
+- Facebook Login requires a Facebook app. See [`docs/deployment.md`](/docs/deployment.md#creating-a-facebook-app) for instructions.
 
 **What features still need work?**
 - ~~Generated reports~~
