@@ -1,7 +1,23 @@
 # Polis
 pol.is an AI powered sentiment gathering platform. More organic than surveys, less effort than focus groups.
 
-## Development
+## 🙋🏾‍♀️ Get Involved
+
+1. Say hi in our **chat** [:speech_balloon:][chat] [`gitter.com/pol-is/polisDeployment`][chat]
+2. Join one of our **open calls** [:microphone:][calls-room] [`meet.jit.si/pol.is`][calls-room]
+    - Weekly community calls, [every Saturday at 19:00 UTC][calls-time] (noon PT / 3pm ET)
+    - Newcomers welcome!
+3. Visit our [**issue tracker**][issues] [:white_check_mark:][issues] to offer your skills & energies
+    - :ear: Pssssst! [Learn how...][contributing] (labels, etc.)
+
+   [chat]: https://gitter.im/pol-is/polisDeployment
+   [calls-room]: https://meet.jit.si/pol.is
+   [calls-time]: https://www.worldtimebuddy.com/event?lid=100%2C8%2C1668341%2C5&h=100&sts=26493120&sln=19-20&a=show&euid=d53410dd-f948-c1a4-3dde-31ac0adf894d
+   [calls-about]: /CONTRIBUTING.md#open-calls
+   [issues]: https://github.com/pol-is/polisServer/issues
+   [contributing]: /CONTRIBUTING.md#how-we-work
+
+## 💻 Development
 
 Recommendations: Docker-Machine (on [DigitalOcean with 2GB memory][do-tut])
 
@@ -21,10 +37,10 @@ Sign up at `/createuser` path. You'll be logged in right away; no email validati
 - ~~Generated reports~~
 - Data export [`polis-issues#137`](https://github.com/pol-is/polis-issues/issues/137)
 
-## :rocket: Deployment
+## 🚀 Deployment
 
 Please see [`docs/deployment.md`](/docs/deployment.md)
 
-## :copyright: License
+## ©️  License
 
 [AGPLv3](/LICENSE)
