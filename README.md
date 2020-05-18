@@ -19,6 +19,8 @@ pol.is an AI powered sentiment gathering platform. More organic than surveys, le
    [board]: https://github.com/orgs/pol-is/projects/1
    [contributing]: /CONTRIBUTING.md#how-we-work
 
+<div align="right"><sup>Inspired by <a href="https://tomesh.net/get-involved/">Toronto Mesh content</a>.</sup></div>
+
 ## 💻 Development
 
 Recommendations: Docker-Machine (on [DigitalOcean with 2GB memory][do-tut])
