@@ -1,7 +1,5 @@
 FROM node:10.15.0
 
-ARG GIT_HASH
-
 WORKDIR /app
 
 RUN npm install -g gulp
@@ -16,4 +14,5 @@ ADD polis.config.template.js polis.config.js
 
 ADD . .
 
+ARG GIT_HASH
 RUN gulp deployPreprod

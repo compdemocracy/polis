@@ -1,8 +1,6 @@
 # Requires a very specific version due to package bugs and version compatibility
 FROM node:6.10.3
 
-ARG GIT_HASH
-
 WORKDIR /app
 
 RUN npm install -g gulp
@@ -17,4 +15,5 @@ ADD polis.config.template.js polis.config.js
 
 ADD . .
 
+ARG GIT_HASH
 RUN gulp deployPreprod
