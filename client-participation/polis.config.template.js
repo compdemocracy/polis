@@ -6,13 +6,14 @@ module.exports = {
     "^192\\.168\\.1\\.140$",
     "^pol\\.is",
     ".+\\.pol\\.is$",
+    ".+\\.polisdemo\\.tech$",
     "^xip\\.io$",
     ".+\\.xip\\.io$",
   ],
 
   // Point to a polisServer instance (local recommended for dev)
   //SERVICE_URL: "http://localhost:5000", // local server; recommended for dev
-  SERVICE_URL: "https://preprod.pol.is",
+  SERVICE_URL: "http:localhost:5000",
 
   // Note that this must match the participation client port specified in polisServer instance
   PORT: 5001,
