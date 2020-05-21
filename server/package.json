@@ -37,6 +37,7 @@
     "lru-cache": "3.0.0",
     "mailgun": "0.4.3",
     "mimelib": "0.2.19",
+    "nodemailer": "^6.4.6",
     "oauth": "0.9.14",
     "optimist": "0.3.7",
     "p3p": "0.0.2",
