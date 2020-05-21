@@ -1,19 +1,24 @@
-FROM node:10.15.0
+# The version of node-sass in use requires node 8.x
+FROM node:8-alpine
 
 ARG GIT_HASH
 
 WORKDIR /app
 
-RUN npm install -g gulp
+RUN apk add --no-cache --virtual .build \
+  g++ git make python
+
 RUN npm install -g bower
 
 COPY package*.json ./
 COPY bower.json ./
-RUN npm install
-RUN bower install --allow-root
 
-ADD polis.config.template.js polis.config.js
+RUN npm ci --silent
+RUN bower install --allow-root --silent
 
-ADD . .
+RUN apk del .build
 
-RUN gulp deployPreprod
+COPY . .
+COPY polis.config.template.js polis.config.js
+
+RUN npm run build:preprod

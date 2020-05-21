@@ -1,20 +1,16 @@
 # Requires a very specific version due to package bugs and version compatibility
-FROM node:6.10.3
+FROM node:6.10.3-alpine
 
 ARG GIT_HASH
 
 WORKDIR /app
 
-RUN npm install -g gulp
+RUN apk add git --no-cache
 
-ADD package*.json npm-shrinkwrap.json ./
-# envvar hides core-js sponsorship message that errors in postinstall.
-# See: https://github.com/zloirock/core-js/pull/799#issuecomment-611437614
-ENV ADBLOCK=1
-RUN npm install
+COPY package*.json npm-shrinkwrap.json ./
+RUN npm install --silent
 
-ADD polis.config.template.js polis.config.js
+COPY . .
+COPY polis.config.template.js polis.config.js
 
-ADD . .
-
-RUN gulp deployPreprod
+RUN npm run build:preprod
