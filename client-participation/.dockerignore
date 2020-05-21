@@ -17,3 +17,6 @@ polis.config.js
 .env_always
 polisStatic/
 scratch
+
+# VCS
+.git
