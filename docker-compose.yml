@@ -1,60 +1,51 @@
 # first build or re-build:
-# docker-compose up --build
+# docker-compose build --build-arg GIT_HASH $(git rev-parse --short HEAD) --parallel
+# full re-build with no cache from previous buils:
+# docker-compose build --build-arg GIT_HASH $(git rev-parse --short HEAD) --parallel --no-cache
 # otherwise:
-# docker-compose up
+# docker-compose up --detach
+# to stop:
+# docker-compose down
 
 version: "3.1"
 
 services:
-
   server:
     container_name: polis-server
     build:
       context: ./server
       dockerfile: Dockerfile
-    environment:
-      STATIC_FILES_HOST: file-server
-      STATIC_FILES_PORT: 8080
-      STATIC_FILES_ADMINDASH_PORT: 8080
-      SHOULD_USE_TRANSLATION_API: 'false'
-      DATABASE_URL: postgres://postgres:oiPorg3Nrz0yqDLE@postgres:5432/polis-dev
-      WEBSERVER_USERNAME: ws-user
-      WEBSERVER_PASS: ws-pass
-      MATH_ENV: dev
+    env_file: ./server/docker-dev.env
     depends_on:
-      - 'postgres'
-      - 'file-server'
+      - "postgres"
+      - "file-server"
     networks:
-      - 'polis-dev'
+      - "polis-dev"
     ports:
       - "5000:5000"
-
 
   math:
     container_name: polis-math
     depends_on:
-      - 'postgres'
+      - "postgres"
     build:
       context: ./math
-    environment:
-      DATABASE_URL: postgres://postgres:oiPorg3Nrz0yqDLE@postgres:5432/polis-dev
-      WEBSERVER_USERNAME: ws-user
-      WEBSERVER_PASS: ws-pass
+    env_file: ./math/docker-dev.env
     networks:
-      - 'polis-dev'
-
+      - "polis-dev"
 
   postgres:
     container_name: polis-postgres
     restart: always
+    env_file: ./server/docker-db-dev.env
     build:
       context: ./server
       dockerfile: Dockerfile-db
     networks:
-      - 'polis-dev'
+      - "polis-dev"
     volumes:
-      - 'backups:/backups'
-      - 'postgres:/var/lib/postgresql/data'
+      - "backups:/backups"
+      - "postgres:/var/lib/postgresql/data"
 
   nginx-proxy:
     container_name: polis-nginx-proxy
@@ -62,11 +53,11 @@ services:
       context: ./file-server
       dockerfile: nginx.Dockerfile
     depends_on:
-      - 'server'
+      - "server"
     networks:
-      - 'polis-dev'
+      - "polis-dev"
     ports:
-      - '80:80'
+      - "80:80"
 
   file-server:
     container_name: polis-file-server
@@ -74,36 +65,31 @@ services:
       context: ./file-server
       dockerfile: Dockerfile
     depends_on:
-      - 'client-participation'
-      - 'client-admin'
-      - 'client-report'
+      - "client-participation"
+      - "client-admin"
+      - "client-report"
     networks:
-      - 'polis-dev'
+      - "polis-dev"
     ports:
-      - '8080:8080'
+      - "8080:8080"
 
   client-participation:
+    container_name: polis-client-participation
     image: polis/client-participation
     build:
       context: ./client-participation
-      args:
-        GIT_HASH: null
 
   client-admin:
+    container_name: polis-client-admin
     image: polis/client-admin
     build:
       context: ./client-admin
-      args:
-        GIT_HASH: null
 
   client-report:
+    container_name: polis-client-report
     image: polis/client-report
     build:
       context: ./client-report
-      args:
-        GIT_HASH: null
-
-
 
 networks:
   polis-dev:
@@ -111,4 +97,3 @@ networks:
 volumes:
   backups:
   postgres:
-

@@ -22,8 +22,17 @@ Recommendations: Docker-Machine (on [DigitalOcean with 2GB memory][do-tut])
 
    [do-tut]: https://www.digitalocean.com/community/tutorials/how-to-provision-and-manage-remote-docker-hosts-with-docker-machine-on-ubuntu-16-04
 
+
 ```
-GIT_HASH=$(git log --pretty="%h" -n 1) docker-compose up --build --detach
+# first build or re-build:
+docker-compose build --build-arg GIT_HASH $(git rev-parse --short HEAD) --parallel
+# otherwise:
+docker-compose up --detach
+# to stop:
+docker-compose down
+# (or Ctrl+C if you did not run with --detach)
+
+# check your ip (only necessary on docker-machine):
 docker-machine ip
 >>> 123.45.67.89
 ```
