@@ -1,16 +1,15 @@
-FROM node:10.15.0
+FROM node:10-alpine
 
 ARG GIT_HASH
 
 WORKDIR /app
 
-RUN npm install -g gulp
+RUN apk add git --no-cache
 
-ADD package*.json ./
-RUN npm install
+COPY package*.json ./
+RUN npm ci --silent
 
-ADD polis.config.template.js polis.config.js
+COPY . .
+COPY polis.config.template.js polis.config.js
 
-ADD . .
-
-RUN gulp deployPreprod
+RUN npm run build:preprod
