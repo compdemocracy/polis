@@ -1,8 +1,6 @@
 # The version of node-sass in use requires node 8.x
 FROM node:8.17.0-alpine
 
-ARG GIT_HASH
-
 WORKDIR /app
 
 RUN apk add --no-cache --virtual .build \
@@ -21,4 +19,5 @@ RUN apk del .build
 COPY . .
 COPY polis.config.template.js polis.config.js
 
+ARG GIT_HASH
 RUN npm run build:preprod
