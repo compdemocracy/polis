@@ -106,7 +106,14 @@ services:
     build:
       context: ./client-report
       args:
-        GIT_HASH: "${GIT_HASH}"
+        GIT_HASH: null
+
+  maildev:
+    image: maildev/maildev:1.1.0
+    networks:
+      - 'polis-dev'
+    ports:
+      - 1080:80
 
 networks:
   polis-dev:
