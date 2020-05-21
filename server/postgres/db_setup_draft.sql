@@ -335,11 +335,11 @@ CREATE TABLE zinvites (
 CREATE INDEX zinvites_zid_idx ON zinvites USING btree (zid);
 
 -- TODO flush regularly
-CREATE TABLE password_reset_tokens (
+CREATE TABLE pwreset_tokens (
     uid INTEGER REFERENCES users(uid),
     created BIGINT DEFAULT now_as_millis(),
-    pwresettoken VARCHAR(250),
-    UNIQUE (pwresettoken)
+    token VARCHAR(250),
+    UNIQUE (token)
 );
 
 CREATE TABLE beta(
