@@ -1,5 +1,4 @@
 import React from "react";
-import { SocialIcon } from "tachyons-react-social-icons";
 
 import Logo from "../../Core/Logo/Logo";
 import ListItem from "../../Core/List/ListItem";
@@ -34,7 +33,9 @@ const Footer = ({ social, content, data }) => {
             &copy; {currentYear} {data.copyright}
           </p>
           {social.map((url, i) => (
-            <SocialIcon key={`icon-${i}`} url={url} color="white" className="mr3" />
+            <p>
+              {url} {i}
+            </p>
           ))}
         </div>
       </div>
