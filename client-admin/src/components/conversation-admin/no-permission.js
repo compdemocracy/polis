@@ -2,7 +2,6 @@
 
 import React from "react";
 import Radium from "radium";
-import Awesome from "react-fontawesome";
 import strings from "../../strings/strings";
 
 const cardPadding = 10;
@@ -15,14 +14,14 @@ const styles = {
     borderRadius: 3,
     padding: "10px 10px",
     WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
-    BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
+    BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
   },
   notification: {
     fontSize: 16,
     fontWeight: 500,
-    color: "rgb(160,160,160)"
-  }
-}
+    color: "rgb(160,160,160)",
+  },
+};
 
 @Radium
 class NoPermission extends React.Component {
