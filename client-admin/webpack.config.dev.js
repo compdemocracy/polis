@@ -3,15 +3,17 @@
 var path = require("path");
 var webpack = require("webpack");
 
+const BundleAnalyzerPlugin = require("webpack-bundle-analyzer").BundleAnalyzerPlugin;
+
 module.exports = {
-  devtool: ["eval", "sourcemap"],
+  // devtool: ["eval", "sourcemap"],
   entry: ["./src/index"],
   output: {
     path: path.join(__dirname, "devel"),
     filename: "admin_bundle.js",
     publicPath: "/dist/",
   },
-  plugins: [new webpack.NoErrorsPlugin()],
+  // plugins: [new BundleAnalyzerPlugin()],
   resolve: {
     extensions: [".js", ".css", ".png", ".svg"],
   },
@@ -22,10 +24,7 @@ module.exports = {
         loaders: ["babel-loader"],
         include: path.join(__dirname, "src"),
       },
-      {
-        test: /\.json$/,
-        loader: "json-loader",
-      },
+
       {
         test: /\.(png|jpg|gif|svg)$/,
         loader: "file-loader",

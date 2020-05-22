@@ -44,4 +44,4 @@ class Button extends React.Component {
   }
 }
 
-module.exports = Button;
+export default Button;
