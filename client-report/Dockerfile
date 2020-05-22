@@ -1,4 +1,4 @@
-FROM node:10-alpine
+FROM node:10.20.1-alpine
 
 ARG GIT_HASH
 
