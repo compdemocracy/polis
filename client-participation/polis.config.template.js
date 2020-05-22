@@ -12,7 +12,7 @@ module.exports = {
 
   // Point to a polisServer instance (local recommended for dev)
   //SERVICE_URL: "http://localhost:5000", // local server; recommended for dev
-  SERVICE_URL: "https://preprod.pol.is",
+  SERVICE_URL: "http:localhost:5000",
 
   // Note that this must match the participation client port specified in polisServer instance
   PORT: 5001,
