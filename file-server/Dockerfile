@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY package*.json ./
 
-RUN npm ci --silent
+RUN npm ci
 
 COPY . .
 COPY fs_config.template.json fs_config.json
