@@ -5,7 +5,7 @@ import React from "react";
 import Radium from "radium";
 import Flex from "../framework/flex";
 import Button from "../framework/generic-button";
-import Checkbox from "material-ui/Checkbox";
+import Checkbox from "@material-ui/core/Checkbox";
 import ParticipantHeader from "./participant-header";
 import { connect } from "react-redux";
 import settings from "../../settings";

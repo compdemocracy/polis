@@ -5,9 +5,7 @@ import { connect } from "react-redux";
 
 import _ from "lodash";
 import Flex from "./flex";
-import Awesome from "react-fontawesome";
 import { Link } from "react-router";
-import PolisLogo from "./polis-logo";
 import HexLogo from "./hex-logo-tiny-long";
 
 @connect()

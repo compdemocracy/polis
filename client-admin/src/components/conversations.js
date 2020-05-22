@@ -6,12 +6,7 @@ import { populateConversationsStore } from "../actions";
 import { browserHistory } from "react-router";
 import Radium from "radium";
 // import _ from "lodash";
-import Spinner from "./framework/spinner";
 import Flex from "./framework/flex";
-import * as globals from "./framework/global-styles";
-import Awesome from "react-fontawesome";
-import ConversationFilters from "./conversation-filters";
-// import ConversationsTutorialCard from "./conversations-tutorial-card";
 import { handleCreateConversationSubmit } from "../actions";
 import Url from "../util/url";
 import { s } from "./framework/global-styles";
@@ -146,7 +141,6 @@ class Conversations extends React.Component {
   }
   render() {
     const err = this.props.error;
-    const noMoreTutorialsAfterThisNumber = 5;
     return (
       <div style={s.container}>
         <p style={{ paddingLeft: 20, textAlign: "center" }}>
@@ -157,42 +151,9 @@ class Conversations extends React.Component {
         <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
           <Explainer />
         </div>
-        {/*
-          !this.props.loading && this.props.conversations && this.props.conversations.length < noMoreTutorialsAfterThisNumber && !err ?
-            this.renderTutorialCards() :
-            ""
-        */}
       </div>
     );
   }
 }
 
 export default Conversations;
-
-/*
-    for later when we're showing convos you ptpt i
-        <Flex
-          wrap="wrap"
-          justifyContent="flex-start"
-          styleOverrides={styles.navContainer}>
-          <NavTab
-            active={this.props.routes[3].path ? false : true}
-            url={`/m/${this.props.params.conversation_id}/participants/`}
-            text="Conversations I Started"
-            number={300}/>
-          <NavTab
-            active={this.props.routes[3].path === "featured"}
-            url={`/m/${this.props.params.conversation_id}/participants/featured`}
-            text="Conversations I'm In"
-            number={10}/>
-        </Flex> */
-
-/*
-  todo
-    sorts and filters - by #'s of ptpt etc
-*/
-
-// <span>
-//   {"Admin: " + conversation.conversation_id}
-// </span>
-// <button onClick={this.firePopulateInboxAction.bind(this)}> Refresh </button>
