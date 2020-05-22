@@ -1,21 +1,4 @@
 {
-  "env": {
-    "development": {
-      "plugins": ["react-transform"]
-    },
-    "test": {
-      "presets": ["@babel/preset-env", "@babel/preset-react"],
-      "plugins": [
-        [
-          "@babel/plugin-syntax-decorators",
-          {
-            "legacy": true
-          }
-        ],
-        "@babel/plugin-proposal-class-properties",
-        "@babel/plugin-transform-computed-properties",
-        "@babel/plugin-proposal-object-rest-spread"
-      ]
-    }
-  }
+  "presets": ["@babel/preset-env", "@babel/preset-react"],
+  "plugins": [["@babel/plugin-proposal-decorators", { "decoratorsBeforeExport": true }]]
 }
