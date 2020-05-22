@@ -8,7 +8,6 @@ import Awesome from "react-fontawesome";
 import Button from "../framework/generic-button";
 import ParticipantHeader from "./participant-header";
 
-
 const styles = {
   card: {
     margin: "10px 20px 10px 20px",
@@ -16,32 +15,26 @@ const styles = {
     borderRadius: 3,
     padding: 10,
     WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
-    BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
+    BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
   },
   buttons: {
-    marginTop: 20
-  }
+    marginTop: 20,
+  },
 };
 
 @Radium
 class Participant extends React.Component {
-  static propTypes = {
-    /* react */
-    params: React.PropTypes.object
-    /* component api */
-  }
-
   onFeatureClicked() {
-    this.props.featureClickHandler(this.props.participant)
+    this.props.featureClickHandler(this.props.participant);
   }
   onUnfeatureClicked() {
-    this.props.unfeatureClickHandler(this.props.participant)
+    this.props.unfeatureClickHandler(this.props.participant);
   }
   onHideClicked() {
-    this.props.hideClickHandler(this.props.participant)
+    this.props.hideClickHandler(this.props.participant);
   }
   onUnhideClicked() {
-    this.props.unhideClickHandler(this.props.participant)
+    this.props.unhideClickHandler(this.props.participant);
   }
   makeFeatureButton() {
     return (
@@ -49,12 +42,13 @@ class Participant extends React.Component {
         style={{
           backgroundColor: "#03a9f4",
           color: "white",
-          marginRight: 20
+          marginRight: 20,
         }}
-        onClick={this.onFeatureClicked.bind(this)}>
-        <Awesome name="chevron-up"/> feature
+        onClick={this.onFeatureClicked.bind(this)}
+      >
+        <Awesome name="chevron-up" /> feature
       </Button>
-    )
+    );
   }
   makeUnfeatureButton() {
     return (
@@ -62,12 +56,13 @@ class Participant extends React.Component {
         style={{
           backgroundColor: "#03a9f4",
           color: "white",
-          marginRight: 20
+          marginRight: 20,
         }}
-        onClick={this.onUnfeatureClicked.bind(this)}>
+        onClick={this.onUnfeatureClicked.bind(this)}
+      >
         unfeature
       </Button>
-    )
+    );
   }
   makeHideButton() {
     return (
@@ -76,10 +71,11 @@ class Participant extends React.Component {
           backgroundColor: "#03a9f4",
           color: "white",
         }}
-        onClick={this.onHideClicked.bind(this)}>
-        <Awesome name="ban"/> hide
+        onClick={this.onHideClicked.bind(this)}
+      >
+        <Awesome name="ban" /> hide
       </Button>
-    )
+    );
   }
   makeUnhideButton() {
     return (
@@ -88,23 +84,21 @@ class Participant extends React.Component {
           backgroundColor: "#03a9f4",
           color: "white",
         }}
-        onClick={this.onUnhideClicked.bind(this)}>
+        onClick={this.onUnhideClicked.bind(this)}
+      >
         unhide
       </Button>
-    )
+    );
   }
   render() {
     return (
       <div style={styles.card}>
-        <Flex
-          direction="column"
-          wrap="wrap"
-          justifyContent="space-between"
-          alignItems={"baseline"}>
+        <Flex direction="column" wrap="wrap" justifyContent="space-between" alignItems={"baseline"}>
           <ParticipantHeader
             {...this.props.participant.xInfo}
             {...this.props.participant.facebook}
-            {...this.props.participant.twitter} />
+            {...this.props.participant.twitter}
+          />
           <Flex styleOverrides={styles.buttons}>
             {this.props.featureButton ? this.makeFeatureButton() : ""}
             {this.props.unfeatureButton ? this.makeUnfeatureButton() : ""}

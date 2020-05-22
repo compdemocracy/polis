@@ -22,8 +22,8 @@ const styles = {
     // backgroundColor: "rgb(240,240,247)",
     backgroundColor: "white",
     height: "100%",
-    margin: 0
-  }
+    margin: 0,
+  },
 };
 
 @connect((state) => {
@@ -34,25 +34,14 @@ class App extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      sidebarOpen: false
+      sidebarOpen: false,
       // sidebarDocked: true,
     };
   }
-  static propTypes = {
-    /* react */
-    dispatch: React.PropTypes.func,
-    params: React.PropTypes.object,
-    /* component api */
-    error: React.PropTypes.object,
-    loading: React.PropTypes.bool,
-    user: React.PropTypes.object,
-    routes: React.PropTypes.array,
-    isLoggedIn: React.PropTypes.bool,
-    // foo: React.PropTypes.string
-  }
+
   static defaultProps = {
     // foo: "bar"
-  }
+  };
 
   loadUserData() {
     this.props.dispatch(populateUserStore());
@@ -62,7 +51,7 @@ class App extends React.Component {
     this.loadUserData();
     let mql = window.matchMedia(`(min-width: 800px)`);
     mql.addListener(this.mediaQueryChanged.bind(this));
-    this.setState({mql: mql, docked: mql.matches});
+    this.setState({ mql: mql, docked: mql.matches });
     this.checkForAuth(this.props);
   }
 
@@ -72,10 +61,9 @@ class App extends React.Component {
 
   checkForAuth(props) {
     if (!_.isUndefined(props.isLoggedIn)) {
-
-      var shouldRedirect = props.error ?
-        (props.status === 401 || props.status === 403) :
-        !props.isLoggedIn;
+      var shouldRedirect = props.error
+        ? props.status === 401 || props.status === 403
+        : !props.isLoggedIn;
 
       if (shouldRedirect) {
         window.location = "/signin" + this.props.location.pathname;
@@ -99,8 +87,8 @@ class App extends React.Component {
           /* jshint ignore:start */
           Intercom("boot", {
             app_id: "nb5hla8s",
-            created_at: user.created / 1000 >> 0,
-            user_id: user.uid
+            created_at: (user.created / 1000) >> 0,
+            user_id: user.uid,
           });
           /* jshint ignore:end */
           /*eslint-enable */
@@ -117,8 +105,8 @@ class App extends React.Component {
       window.intercomOptions = {
         app_id: "nb5hla8s",
         widget: {
-          activator: "#IntercomDefaultWidget"
-        }
+          activator: "#IntercomDefaultWidget",
+        },
       };
       if (user && user.uid) {
         intercomOptions.user_id = user.uid + "";
@@ -127,12 +115,12 @@ class App extends React.Component {
         intercomOptions.email = user.email;
       }
       if (user && user.created) {
-        intercomOptions.created_at = user.created / 1000 >> 0;
+        intercomOptions.created_at = (user.created / 1000) >> 0;
       }
       if (user && user.hname) {
         intercomOptions.name = user.hname;
       }
-      Intercom('update', intercomOptions);
+      Intercom("update", intercomOptions);
     }
   }
 
@@ -145,15 +133,15 @@ class App extends React.Component {
   }
 
   mediaQueryChanged() {
-    this.setState({sidebarDocked: this.state.mql.matches});
+    this.setState({ sidebarDocked: this.state.mql.matches });
   }
 
   onSetSidebarOpen(open) {
-    this.setState({sidebarOpen: open});
+    this.setState({ sidebarOpen: open });
   }
 
   handleMenuButtonClick() {
-    this.setState({sidebarOpen: !this.state.sidebarOpen});
+    this.setState({ sidebarOpen: !this.state.sidebarOpen });
   }
   getTitleFromRoute() {
     /* ugly, but... is what it is for now */
@@ -190,57 +178,62 @@ class App extends React.Component {
     return title;
   }
   onSidebarItemClicked() {
-    this.setState({sidebarOpen: false});
+    this.setState({ sidebarOpen: false });
   }
 
   renderConsole() {
-
     let sidebar = null;
     if (this.props.params.report_id) {
-      sidebar = <SidebarContentReport
-        {...this.props}
-        onSidebarItemClicked={ this.onSidebarItemClicked.bind(this) } />;
+      sidebar = (
+        <SidebarContentReport
+          {...this.props}
+          onSidebarItemClicked={this.onSidebarItemClicked.bind(this)}
+        />
+      );
     } else if (this.props.params.conversation_id) {
-      sidebar = <SidebarContentConversation
-        {...this.props}
-        conversation_id={this.props.params.conversation_id}
-        onSidebarItemClicked={ this.onSidebarItemClicked.bind(this) }/>;
+      sidebar = (
+        <SidebarContentConversation
+          {...this.props}
+          conversation_id={this.props.params.conversation_id}
+          onSidebarItemClicked={this.onSidebarItemClicked.bind(this)}
+        />
+      );
     } else {
-      sidebar = <SidebarContentHome
-        {...this.props}
-        onSidebarItemClicked={ this.onSidebarItemClicked.bind(this) } />;
+      sidebar = (
+        <SidebarContentHome
+          {...this.props}
+          onSidebarItemClicked={this.onSidebarItemClicked.bind(this)}
+        />
+      );
     }
 
     return (
       <Sidebar
-          sidebar={sidebar}
-          open={ this.state.sidebarOpen }
-          docked={ this.state.sidebarDocked }
-
-          onSetOpen={ this.onSetSidebarOpen.bind(this) }>
-          <MaterialTitlePanel
-            handleHamburgerClick={this.handleMenuButtonClick.bind(this)}
-            showHamburger={this.state.sidebarDocked}
-            name={this.props.user.hname}
-            title={this.getTitleFromRoute()}>
-            {
-              /*trial condition*/ true ?
-              <Trial title={"You have x days remaining on your trial. *Upgrade*"}/> :
-                ""
-              }
-              <div style={styles.container}>
-                { this.props.children }
-              </div>
-            </MaterialTitlePanel>
+        sidebar={sidebar}
+        open={this.state.sidebarOpen}
+        docked={this.state.sidebarDocked}
+        onSetOpen={this.onSetSidebarOpen.bind(this)}
+      >
+        <MaterialTitlePanel
+          handleHamburgerClick={this.handleMenuButtonClick.bind(this)}
+          showHamburger={this.state.sidebarDocked}
+          name={this.props.user.hname}
+          title={this.getTitleFromRoute()}
+        >
+          {
+            /*trial condition*/ true ? (
+              <Trial title={"You have x days remaining on your trial. *Upgrade*"} />
+            ) : (
+              ""
+            )
+          }
+          <div style={styles.container}>{this.props.children}</div>
+        </MaterialTitlePanel>
       </Sidebar>
-    )
+    );
   }
   renderSpinner() {
-    return (
-      <Flex styleOverrides={{height: "100%"}}>
-        {"Loading pol.is..."}
-      </Flex>
-    )
+    return <Flex styleOverrides={{ height: "100%" }}>{"Loading pol.is..."}</Flex>;
     // return (
     //   <StarsSpinner
     //     text={""}
@@ -254,10 +247,8 @@ class App extends React.Component {
   }
   render() {
     return (
-      <div style={{height: "100%"}}>
-        {
-          !this.props.isLoggedIn ? this.renderSpinner() : this.renderConsole()
-        }
+      <div style={{ height: "100%" }}>
+        {!this.props.isLoggedIn ? this.renderSpinner() : this.renderConsole()}
       </div>
     );
   }

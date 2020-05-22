@@ -5,29 +5,18 @@ import React from "react";
 import Radium from "radium";
 import Flex from "../framework/flex";
 import Button from "../framework/generic-button";
-import Checkbox from "material-ui/lib/checkbox";
+import Checkbox from "material-ui/Checkbox";
 import ParticipantHeader from "./participant-header";
 import { connect } from "react-redux";
 import settings from "../../settings";
 
 @connect((state) => {
   return {
-    conversation: state.zid_metadata.zid_metadata
-  }
+    conversation: state.zid_metadata.zid_metadata,
+  };
 })
 @Radium
 class Comment extends React.Component {
-  static propTypes = {
-    dispatch: React.PropTypes.func,
-    params: React.PropTypes.object,
-    acceptButton: React.PropTypes.bool,
-    rejectButton: React.PropTypes.bool,
-    isMetaCheckbox: React.PropTypes.bool,
-    acceptClickHandler: React.PropTypes.func,
-    rejectClickHandler: React.PropTypes.func,
-    acceptButtonText: React.PropTypes.string,
-    rejectButtonText: React.PropTypes.string,
-  }
   getStyles() {
     return {
       card: {
@@ -37,26 +26,26 @@ class Comment extends React.Component {
         maxWidth: 800,
         padding: 10,
         WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
-        BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
+        BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
       },
       commentBody: {
         maxWidth: 550,
         fontWeight: 300,
-        marginLeft: 10
+        marginLeft: 10,
       },
       info: {
         fontWeight: 300,
         fontSize: 14,
         marginTop: 0,
         marginLeft: 10,
-      }
-    }
+      },
+    };
   }
   onAcceptClicked() {
-    this.props.acceptClickHandler(this.props.comment)
+    this.props.acceptClickHandler(this.props.comment);
   }
   onRejectClicked() {
-    this.props.rejectClickHandler(this.props.comment)
+    this.props.rejectClickHandler(this.props.comment);
   }
   onIsMetaClicked() {
     this.props.toggleIsMetaHandler(this.props.comment, this.refs.is_meta.isChecked());
@@ -67,12 +56,13 @@ class Comment extends React.Component {
         style={{
           backgroundColor: "#03a9f4",
           color: "white",
-          marginRight: 20
+          marginRight: 20,
         }}
-        onClick={this.onAcceptClicked.bind(this)}>
+        onClick={this.onAcceptClicked.bind(this)}
+      >
         {this.props.acceptButtonText}
       </Button>
-    )
+    );
   }
   makeRejectButton() {
     return (
@@ -81,23 +71,28 @@ class Comment extends React.Component {
           backgroundColor: "#03a9f4",
           color: "white",
         }}
-        onClick={this.onRejectClicked.bind(this)}>
+        onClick={this.onRejectClicked.bind(this)}
+      >
         {this.props.rejectButtonText}
       </Button>
-    )
+    );
   }
   getDate() {
     const date = new Date(+this.props.comment.created);
-    return `${date.getMonth()+1} / ${date.getUTCDate()} / ${date.getFullYear()}`
+    return `${date.getMonth() + 1} / ${date.getUTCDate()} / ${date.getFullYear()}`;
   }
   getVoteBreakdown(comment) {
     if (typeof this.props.comment.agree_count !== "undefined") {
-      return <span>({this.props.comment.agree_count} agreed, {this.props.comment.disagree_count} disagreed, {this.props.comment.pass_count} passed)</span>;
+      return (
+        <span>
+          ({this.props.comment.agree_count} agreed, {this.props.comment.disagree_count} disagreed,{" "}
+          {this.props.comment.pass_count} passed)
+        </span>
+      );
     }
     return "";
   }
   createBarChart() {
-
     const rectStartX = 70;
     const barHeight = 12;
     const leftTextOffset = 63;
@@ -105,32 +100,32 @@ class Comment extends React.Component {
     const arr = [
       {
         label: "voted",
-        percent: (this.props.conversation.participant_count ?
-          this.props.comment.count / this.props.conversation.participant_count * 100 :
-          0),
-        fill: "rgb(180,180,180)"
+        percent: this.props.conversation.participant_count
+          ? (this.props.comment.count / this.props.conversation.participant_count) * 100
+          : 0,
+        fill: "rgb(180,180,180)",
       },
       {
         label: "agreed",
-        percent: (this.props.comment.count ?
-          this.props.comment.agree_count / this.props.comment.count * 100 :
-          0),
-        fill: "rgb(46, 204, 113)"
+        percent: this.props.comment.count
+          ? (this.props.comment.agree_count / this.props.comment.count) * 100
+          : 0,
+        fill: "rgb(46, 204, 113)",
       },
       {
         label: "disagreed",
-        percent: (this.props.comment.count ?
-          this.props.comment.disagree_count / this.props.comment.count * 100 :
-          0),
-        fill: "rgb(231, 76, 60)"
+        percent: this.props.comment.count
+          ? (this.props.comment.disagree_count / this.props.comment.count) * 100
+          : 0,
+        fill: "rgb(231, 76, 60)",
       },
       {
         label: "passed",
-        percent: (this.props.comment.count ?
-          this.props.comment.pass_count / this.props.comment.count * 100 :
-          0),
-        fill: "rgb(230,230,230)"
-      }
+        percent: this.props.comment.count
+          ? (this.props.comment.pass_count / this.props.comment.count) * 100
+          : 0,
+        fill: "rgb(230,230,230)",
+      },
     ];
 
     if (!_.isNumber(this.props.comment.agree_count)) {
@@ -142,66 +137,74 @@ class Comment extends React.Component {
         {arr.map((d, i) => {
           return (
             <g key={i}>
-              <text x={leftTextOffset} y={(i+1) * 15} fontFamily="Helvetica" fontSize="10" textAnchor={"end"}>
+              <text
+                x={leftTextOffset}
+                y={(i + 1) * 15}
+                fontFamily="Helvetica"
+                fontSize="10"
+                textAnchor={"end"}
+              >
                 {d.label}
               </text>
               <rect
                 width={d.percent}
                 height={barHeight}
                 x={rectStartX}
-                y={((i+1) * 15) - 9}
-                fill={d.fill}/>
-              <text x={leftTextOffset + d.percent + 10} y={(i+1) * 15} fontFamily="Helvetica" fontSize="10" textAnchor={"start"}>
+                y={(i + 1) * 15 - 9}
+                fill={d.fill}
+              />
+              <text
+                x={leftTextOffset + d.percent + 10}
+                y={(i + 1) * 15}
+                fontFamily="Helvetica"
+                fontSize="10"
+                textAnchor={"start"}
+              >
                 {Math.floor(d.percent) + "%"}
               </text>
             </g>
-          )
+          );
         })}
       </g>
-    )
+    );
   }
   render() {
     const styles = this.getStyles();
-    const showAsAnon = !this.props.comment.social || this.props.comment.anon || this.props.comment.is_seed;
+    const showAsAnon =
+      !this.props.comment.social || this.props.comment.anon || this.props.comment.is_seed;
 
     return (
       <div style={styles.card}>
-        <Flex
-          direction="column"
-          wrap="wrap"
-          justifyContent="space-between"
-          alignItems={"baseline"}>
-          {
-            showAsAnon ?
-              "Anonymous" :
-              <ParticipantHeader {...this.props.comment.social} />
-          }
-          <Flex styleOverrides={{width: "100%"}}>
-            <p style={styles.commentBody}>{ this.props.comment.txt }</p>
+        <Flex direction="column" wrap="wrap" justifyContent="space-between" alignItems={"baseline"}>
+          {showAsAnon ? "Anonymous" : <ParticipantHeader {...this.props.comment.social} />}
+          <Flex styleOverrides={{ width: "100%" }}>
+            <p style={styles.commentBody}>{this.props.comment.txt}</p>
           </Flex>
-          <Flex justifyContent="space-between" alignItems="flex-end" styleOverrides={{width: "100%"}}>
+          <Flex
+            justifyContent="space-between"
+            alignItems="flex-end"
+            styleOverrides={{ width: "100%" }}
+          >
             <svg width={250} height={70}>
-              <line
-                x1="120"
-                y1="0"
-                x2="120"
-                y2="65"
-                strokeWidth="2"
-                stroke="rgb(245,245,245)"/>
+              <line x1="120" y1="0" x2="120" y2="65" strokeWidth="2" stroke="rgb(245,245,245)" />
               {this.createBarChart()}
             </svg>
             <div>
-              { this.props.isMetaCheckbox ?
+              {this.props.isMetaCheckbox ? (
                 <Checkbox
                   label="metadata"
                   ref="is_meta"
                   checked={this.props.comment.is_meta}
-                  onCheck={ this.onIsMetaClicked.bind(this) }
+                  onCheck={this.onIsMetaClicked.bind(this)}
                   labelWrapperColor={settings.darkerGray}
-                  color={settings.polisBlue}/> : ""}
-              <div style={{marginTop: 10}}/>
-              { this.props.acceptButton ? this.makeAcceptButton() : "" }
-              { this.props.rejectButton ? this.makeRejectButton() : "" }
+                  color={settings.polisBlue}
+                />
+              ) : (
+                ""
+              )}
+              <div style={{ marginTop: 10 }} />
+              {this.props.acceptButton ? this.makeAcceptButton() : ""}
+              {this.props.rejectButton ? this.makeRejectButton() : ""}
             </div>
           </Flex>
         </Flex>

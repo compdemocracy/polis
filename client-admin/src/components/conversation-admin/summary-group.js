@@ -4,23 +4,16 @@ import React from "react";
 import Radium from "radium";
 import Comment from "./summary-comment";
 
-
 @Radium
 class SummaryGroup extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
       pagination: 0,
-      showHowOtherGroupsFelt: false
+      showHowOtherGroupsFelt: false,
     };
   }
-  static propTypes = {
-    /* react */
-    params: React.PropTypes.object,
-    routes: React.PropTypes.array,
-    /* component api */
-    style: React.PropTypes.object,
-  }
+
   getStyles() {
     return {
       numberBadge: {
@@ -28,8 +21,8 @@ class SummaryGroup extends React.Component {
         padding: "3px 6px",
         borderRadius: 3,
         color: "white",
-        fontWeight: 300
-      }
+        fontWeight: 300,
+      },
     };
   }
   groupComments() {
@@ -38,22 +31,23 @@ class SummaryGroup extends React.Component {
 
     return this.props.groupComments.map((comment, i) => {
       const groupVotes = math["group-votes"][this.props.repnessIndex].votes[comment.tid];
-      const isBestAgree = comment["best-agree"] && (groupVotes && groupVotes.A > 0);
+      const isBestAgree = comment["best-agree"] && groupVotes && groupVotes.A > 0;
       const agree = isBestAgree || comment["repful-for"] === "agree";
-      const percent = agree ?
-        Math.floor(groupVotes.A / groupVotes.S * 100) :
-        Math.floor(groupVotes.D / groupVotes.S * 100);
-        return (
-          <Comment
-            key={i}
-            showHowOtherGroupsFelt={this.props.showHowOtherGroupsFelt}
-            majority={false}
-            agree={agree}
-            percent={percent}
-            {...comment}
-            {...comments[comment.tid]}/>
-        )
-    })
+      const percent = agree
+        ? Math.floor((groupVotes.A / groupVotes.S) * 100)
+        : Math.floor((groupVotes.D / groupVotes.S) * 100);
+      return (
+        <Comment
+          key={i}
+          showHowOtherGroupsFelt={this.props.showHowOtherGroupsFelt}
+          majority={false}
+          agree={agree}
+          percent={percent}
+          {...comment}
+          {...comments[comment.tid]}
+        />
+      );
+    });
   }
   render() {
     const styles = this.getStyles();
@@ -61,16 +55,17 @@ class SummaryGroup extends React.Component {
     return (
       <div
         style={{
-          marginBottom: 70
-        }}>
-          <p>
-            <span style={{fontSize: 18, fontWeight: 100}}>
-              {`GROUP ${+this.props.repnessIndex + 1} `}
-            </span>
-            <span style={{fontSize: 18, fontWeight: 500}}>
-              {` • ${math["group-votes"][this.props.repnessIndex]["n-members"]} participants`}
-            </span>
-          </p>
+          marginBottom: 70,
+        }}
+      >
+        <p>
+          <span style={{ fontSize: 18, fontWeight: 100 }}>
+            {`GROUP ${+this.props.repnessIndex + 1} `}
+          </span>
+          <span style={{ fontSize: 18, fontWeight: 500 }}>
+            {` • ${math["group-votes"][this.props.repnessIndex]["n-members"]} participants`}
+          </span>
+        </p>
         {this.groupComments()}
       </div>
     );
