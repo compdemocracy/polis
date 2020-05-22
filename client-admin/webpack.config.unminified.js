@@ -6,14 +6,13 @@ var webpack = require("webpack");
 module.exports = {
   // devtool: "source-map",
   // devtool: ['eval','sourcemap'],
-  devtool: ["sourcemap"],
+  devtool: "sourcemap",
   entry: ["./src/index"],
   output: {
     path: path.join(__dirname, "dist"),
     filename: "admin_bundle.js",
     publicPath: "/dist/",
   },
-  plugins: [new webpack.optimize.OccurenceOrderPlugin()],
   resolve: {
     extensions: [".js", ".css", ".png", ".svg"],
   },

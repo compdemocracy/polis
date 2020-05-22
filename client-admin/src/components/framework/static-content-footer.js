@@ -4,9 +4,6 @@ import React from "react";
 import { connect } from "react-redux";
 
 import _ from "lodash";
-import Flex from "./flex";
-import Awesome from "react-fontawesome";
-import { Link } from "react-router";
 import HexLogo from "./hex-logo-large-short";
 
 @connect()
@@ -117,13 +114,13 @@ class Footer extends React.Component {
             <p>
               <a style={this.styles().link} href="https://twitter.com/usepolis">
                 {" "}
-                <Awesome name="twitter" /> Twitter{" "}
+                Twitter{" "}
               </a>
             </p>
             <p>
               <a style={this.styles().link} href="https://blog.pol.is/">
                 {" "}
-                <Awesome name="medium" /> Medium{" "}
+                Medium{" "}
               </a>
             </p>
           </div>

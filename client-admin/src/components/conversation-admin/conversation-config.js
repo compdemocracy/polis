@@ -7,12 +7,11 @@ import { connect } from "react-redux";
 import Radium from "radium";
 import _ from "lodash";
 import { handleZidMetadataUpdate, optimisticZidMetadataUpdateOnTyping } from "../../actions";
-import Checkbox from "material-ui/Checkbox";
+import Checkbox from "@material-ui/core/Checkbox";
 import ComponentHelpers from "../../util/component-helpers";
 import NoPermission from "./no-permission";
-import InputField from "material-ui/TextField";
+import InputField from "@material-ui/core/TextField";
 import settings from "../../settings";
-import Spinner from "../framework/spinner";
 import Awesome from "react-fontawesome";
 
 import ModerateCommentsSeed from "./moderate-comments-seed";
