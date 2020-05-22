@@ -6,25 +6,7 @@ import { populateUserStore } from "../actions";
 
 import Radium from "radium";
 import _ from "lodash";
-// import {Link} from "react-router";
-import StarsSpinner from "./framework/stars-spinner";
-// import Awesome from "react-fontawesome";
-import Sidebar from "react-sidebar";
-import SidebarContentConversation from "./sidebar-content-conversation";
-import SidebarContentHome from "./sidebar-content-home";
-import SidebarContentReport from "./sidebar-content-report";
-import MaterialTitlePanel from "./material-title-panel";
-import Trial from "./framework/trial-banner";
 import Flex from "./framework/flex";
-
-const styles = {
-  container: {
-    // backgroundColor: "rgb(240,240,247)",
-    backgroundColor: "white",
-    height: "100%",
-    margin: 0,
-  },
-};
 
 @connect((state) => {
   return state.user;
@@ -38,10 +20,6 @@ class App extends React.Component {
       // sidebarDocked: true,
     };
   }
-
-  static defaultProps = {
-    // foo: "bar"
-  };
 
   loadUserData() {
     this.props.dispatch(populateUserStore());
@@ -182,73 +160,47 @@ class App extends React.Component {
   }
 
   renderConsole() {
-    let sidebar = null;
-    if (this.props.params.report_id) {
-      sidebar = (
-        <SidebarContentReport
-          {...this.props}
-          onSidebarItemClicked={this.onSidebarItemClicked.bind(this)}
-        />
-      );
-    } else if (this.props.params.conversation_id) {
-      sidebar = (
-        <SidebarContentConversation
-          {...this.props}
-          conversation_id={this.props.params.conversation_id}
-          onSidebarItemClicked={this.onSidebarItemClicked.bind(this)}
-        />
-      );
-    } else {
-      sidebar = (
-        <SidebarContentHome
-          {...this.props}
-          onSidebarItemClicked={this.onSidebarItemClicked.bind(this)}
-        />
-      );
-    }
-
-    return (
-      <Sidebar
-        sidebar={sidebar}
-        open={this.state.sidebarOpen}
-        docked={this.state.sidebarDocked}
-        onSetOpen={this.onSetSidebarOpen.bind(this)}
-      >
-        <MaterialTitlePanel
-          handleHamburgerClick={this.handleMenuButtonClick.bind(this)}
-          showHamburger={this.state.sidebarDocked}
-          name={this.props.user.hname}
-          title={this.getTitleFromRoute()}
-        >
-          {
-            /*trial condition*/ true ? (
-              <Trial title={"You have x days remaining on your trial. *Upgrade*"} />
-            ) : (
-              ""
-            )
-          }
-          <div style={styles.container}>{this.props.children}</div>
-        </MaterialTitlePanel>
-      </Sidebar>
-    );
+    // let sidebar = null;
+    // if (this.props.params.report_id) {
+    //   sidebar = (
+    //     <SidebarContentReport
+    //       {...this.props}
+    //       onSidebarItemClicked={this.onSidebarItemClicked.bind(this)}
+    //     />
+    //   );
+    // } else if (this.props.params.conversation_id) {
+    //   sidebar = (
+    //     <SidebarContentConversation
+    //       {...this.props}
+    //       conversation_id={this.props.params.conversation_id}
+    //       onSidebarItemClicked={this.onSidebarItemClicked.bind(this)}
+    //     />
+    //   );
+    // } else {
+    //   sidebar = (
+    //     <SidebarContentHome
+    //       {...this.props}
+    //       onSidebarItemClicked={this.onSidebarItemClicked.bind(this)}
+    //     />
+    //   );
+    // }
+    // sidebar = sidebar
+    //   open={this.state.sidebarOpen}
+    //   docked={this.state.sidebarDocked}
+    //   onSetOpen={this.onSetSidebarOpen.bind(this)}
+    //     handleHamburgerClick={this.handleMenuButtonClick.bind(this)}
+    //     showHamburger={this.state.sidebarDocked}
+    //     name={this.props.user.hname}
+    //     title={this.getTitleFromRoute()}
+    //  style={styles.container}></div>
   }
   renderSpinner() {
     return <Flex styleOverrides={{ height: "100%" }}>{"Loading pol.is..."}</Flex>;
-    // return (
-    //   <StarsSpinner
-    //     text={""}
-    //     nodeColor={ "rgb(150,150,150)" }
-    //     count={ Math.floor(window.innerWidth / 10) }
-    //     width={ window.innerWidth }
-    //     height={ window.innerHeight }
-    //     radius={ 1.5 }
-    //     lineWidth={ 1 }/>
-    // )
   }
   render() {
     return (
       <div style={{ height: "100%" }}>
-        {!this.props.isLoggedIn ? this.renderSpinner() : this.renderConsole()}
+        {!this.props.isLoggedIn ? this.renderSpinner() : this.props.children}
       </div>
     );
   }
