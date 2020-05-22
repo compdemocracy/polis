@@ -9,36 +9,31 @@ module.exports = {
   output: {
     path: path.join(__dirname, "dist"),
     filename: "admin_bundle.js",
-    publicPath: "/dist/"
+    publicPath: "/dist/",
   },
   plugins: [
-    new webpack.optimize.OccurenceOrderPlugin(),
     new webpack.DefinePlugin({
-      "process.env": {
-        NODE_ENV: JSON.stringify("production")
-      }
+      "process.env.NODE_ENV": JSON.stringify("production"),
     }),
-    new webpack.optimize.UglifyJsPlugin({
-      compressor: {
-        warnings: false
-      }
-    })
   ],
   resolve: {
-    extentions: [ '', '.js', '.css', '.png', '.svg' ]
+    extensions: [".js", ".css", ".png", ".svg"],
+  },
+  optimization: {
+    minimize: true, //Update this to true or false
   },
   module: {
-    preLoaders: [{ test: /\.json$/, loader: "json" }],
-    loaders: [
+    rules: [
+      { test: /\.json$/, loader: "json-loader" },
       {
         test: /\.js$/,
-        loaders: ["babel"],
-        include: path.join(__dirname, "src")
+        loaders: ["babel-loader"],
+        include: path.join(__dirname, "src"),
       },
       {
         test: /\.(png|jpg|gif|svg)$/,
-        loader: "file-loader"
-      }
-    ]
-  }
+        loader: "file-loader",
+      },
+    ],
+  },
 };

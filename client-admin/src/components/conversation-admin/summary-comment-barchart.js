@@ -4,7 +4,6 @@ import React from "react";
 import Radium from "radium";
 import { connect } from "react-redux";
 
-
 @connect((state) => {
   return {
     comments: state.comments,
@@ -15,26 +14,12 @@ import { connect } from "react-redux";
 class SummaryBarchart extends React.Component {
   constructor(props) {
     super(props);
-    this.state = {
-
-    };
-  }
-  static propTypes = {
-    /* react */
-    params: React.PropTypes.object,
-    routes: React.PropTypes.array,
-    /* component api */
-    style: React.PropTypes.object,
-    math: React.PropTypes.object,
-    comments: React.PropTypes.object
-    // foo: React.PropTypes.string
+    this.state = {};
   }
 
   getStyles() {
     return {
-      base: {
-
-      }
+      base: {},
     };
   }
   barchart() {
@@ -42,39 +27,37 @@ class SummaryBarchart extends React.Component {
     const comments = this.props.comments.comments;
 
     return _.map(math["group-votes"], (votes, i) => {
-      console.log(votes)
+      console.log(votes);
       return (
         <div>
           <p>
-            <span style={{
-              backgroundColor: "rgb(240,240,240)",
-              padding: "3px 6px",
-              borderRadius: 3,
-              color: "rgb(170,170,170)",
-              fontWeight: 300
-            }}> Group {++i}:</span>
-            <span style={{fontWeight: 300}}>
+            <span
+              style={{
+                backgroundColor: "rgb(240,240,240)",
+                padding: "3px 6px",
+                borderRadius: 3,
+                color: "rgb(170,170,170)",
+                fontWeight: 300,
+              }}
+            >
+              {" "}
+              Group {++i}:
+            </span>
+            <span style={{ fontWeight: 300 }}>
               {` ${votes.votes[this.props.tid].A} agreed & `}
               {`${votes.votes[this.props.tid].D} disagreed`}
             </span>
           </p>
         </div>
-      )
-    })
+      );
+    });
   }
   render() {
     const math = this.props.math.math;
     const styles = this.getStyles();
     return (
-      <div style={[
-        styles.base,
-        this.props.style
-      ]}>
-        {
-          math && !this.props.math.loading && !this.props.comments.loading ?
-            this.barchart() :
-            ""
-        }
+      <div style={[styles.base, this.props.style]}>
+        {math && !this.props.math.loading && !this.props.comments.loading ? this.barchart() : ""}
       </div>
     );
   }

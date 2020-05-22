@@ -13,7 +13,7 @@ import Flex from "./framework/flex";
 import { connect } from "react-redux";
 import { handleContribSubmit } from "../actions";
 
-@connect(state => state.contrib)
+@connect((state) => state.contrib)
 @Radium
 class ComponentName extends React.Component {
   constructor(props) {
@@ -23,19 +23,10 @@ class ComponentName extends React.Component {
       submitSuccess: false,
     };
   }
-  static propTypes = {
-    /* react */
-    params: React.PropTypes.object,
-    routes: React.PropTypes.array,
-    /* component api */
-    style: React.PropTypes.object,
-  }
 
   getStyles() {
     return {
-      base: {
-
-      },
+      base: {},
       input: {
         display: "block",
         margin: "10px 0px",
@@ -50,7 +41,7 @@ class ComponentName extends React.Component {
         fontSize: 36,
         display: "block",
         marginBottom: 20,
-        marginTop: 0
+        marginTop: 0,
       },
       card: {
         position: "relative",
@@ -58,12 +49,12 @@ class ComponentName extends React.Component {
         maxWidth: 600,
         padding: 20,
         borderRadius: 3,
-        color: "rgb(130,130,130)"
+        color: "rgb(130,130,130)",
       },
       button: {
         display: "block",
         backgroundColor: "#03a9f4",
-        color: "white"
+        color: "white",
       },
       agreement: {
         width: 600,
@@ -75,10 +66,10 @@ class ComponentName extends React.Component {
         color: "rgb(100,100,100)",
         fontFamily: "Georgia, serif",
         marginBottom: 20,
-      }
+      },
     };
   }
-  handleSubmit () {
+  handleSubmit() {
     const data = {
       name: this.refs.name.value,
       email: this.refs.email.value,
@@ -89,18 +80,20 @@ class ComponentName extends React.Component {
       agreement_version: 1,
     };
 
-    PolisNet.polisPost("/api/v3/contributors", data)
-      .then(() => {
+    PolisNet.polisPost("/api/v3/contributors", data).then(
+      () => {
         this.setState({
           submitSuccess: true,
-          submitError: false
-        })
-      }, () => {
+          submitError: false,
+        });
+      },
+      () => {
         this.setState({
           submitSuccess: false,
-          submitError: true
-        })
-      });
+          submitError: true,
+        });
+      }
+    );
   }
   render() {
     const styles = this.getStyles();
@@ -109,7 +102,8 @@ class ComponentName extends React.Component {
         backgroundColor={"#03a9f4"}
         headerBackgroundColor={"#03a9f4"}
         footerBackgroundColor={"#03a9f4"}
-        image={false}>
+        image={false}
+      >
         <Flex>
           <div style={styles.card}>
             <p style={styles.heading}>
@@ -123,34 +117,22 @@ class ComponentName extends React.Component {
                 You only need to complete this form once to contribute to all pol.is repositories.
               `}
             </p>
-            <Flex
-              wrap="wrap"
-              justifyContent="space-between">
-              <input
-                style={styles.input}
-                type="text"
-                placeholder="Name"
-                ref="name"/>
-              <input
-                style={styles.input}
-                type="email"
-                placeholder="Email"
-                ref="email"/>
+            <Flex wrap="wrap" justifyContent="space-between">
+              <input style={styles.input} type="text" placeholder="Name" ref="name" />
+              <input style={styles.input} type="email" placeholder="Email" ref="email" />
               <input
                 style={styles.input}
                 type="text"
                 placeholder="Github Username"
-                ref="github_username"/>
+                ref="github_username"
+              />
               <input
                 style={styles.input}
                 type="text"
                 placeholder="Company name (if applicable)"
-                ref="company_name"/>
-              <input
-                style={styles.input}
-                type="text"
-                value={new Date()}
-                ref="date"/>
+                ref="company_name"
+              />
+              <input style={styles.input} type="text" value={new Date()} ref="date" />
             </Flex>
             <textarea style={styles.agreement} readOnly>
               {`
@@ -181,15 +163,17 @@ class ComponentName extends React.Component {
                 6. This PCA is governed by the laws of the State of California and applicable U.S. Federal law. Any choice of law rules will not apply.
               `}
             </textarea>
-            { this.state.submitSuccess === true ? "Success. Thanks for contributing to pol.is!" : "" }
-            { this.state.submitError === true ? "Error saving submission - try again, and message us if you continue to experience problems." : "" }
-            {
-              this.state.submitSuccess === false ?
+            {this.state.submitSuccess === true ? "Success. Thanks for contributing to pol.is!" : ""}
+            {this.state.submitError === true
+              ? "Error saving submission - try again, and message us if you continue to experience problems."
+              : ""}
+            {this.state.submitSuccess === false ? (
               <Button style={styles.button} onClick={this.handleSubmit.bind(this)}>
                 I Agree
-              </Button> :
+              </Button>
+            ) : (
               ""
-            }
+            )}
           </div>
         </Flex>
       </StaticContentContainer>

@@ -7,23 +7,14 @@ import Radium from "radium";
 class SummaryStats extends React.Component {
   constructor(props) {
     super(props);
-    this.state = {
-
-    };
-  }
-  static propTypes = {
-    /* react */
-    params: React.PropTypes.object,
-    routes: React.PropTypes.array,
-    /* component api */
-    style: React.PropTypes.object,
+    this.state = {};
   }
 
   getStyles() {
     return {
       text: {
-        fontWeight: 300
-      }
+        fontWeight: 300,
+      },
     };
   }
   render() {

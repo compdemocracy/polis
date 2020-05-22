@@ -6,15 +6,6 @@ import Color from "color";
 
 @Radium
 class Button extends React.Component {
-  static propTypes = {
-    style: React.PropTypes.object
-  }
-  static defaultProps = {
-    style: {
-      backgroundColor: "orange",
-      color: "white"
-    }
-  }
   getStyles() {
     return {
       base: {
@@ -29,38 +20,28 @@ class Button extends React.Component {
         outline: "none",
 
         ":hover": {
-          backgroundColor: Color(this.props.style.backgroundColor).darken(.1).rgbString()
+          backgroundColor: Color(this.props.style.backgroundColor).darken(0.1).rgbString(),
         },
 
         ":focus": {
-          backgroundColor: Color(this.props.style.backgroundColor).darken(.2).rgbString()
+          backgroundColor: Color(this.props.style.backgroundColor).darken(0.2).rgbString(),
         },
 
         ":active": {
-          backgroundColor: Color(this.props.style.backgroundColor).darken(.2).rgbString(),
+          backgroundColor: Color(this.props.style.backgroundColor).darken(0.2).rgbString(),
           transform: "translateY(2px)",
-        }
-      }
-    }
+        },
+      },
+    };
   }
   render() {
     const styles = this.getStyles();
     return (
-      <button
-        onClick={this.props.onClick}
-        style={[
-          styles.base,
-          this.props.style
-        ]}>
+      <button onClick={this.props.onClick} style={[styles.base, this.props.style]}>
         {this.props.children}
       </button>
     );
   }
 }
-
-Button.propTypes = {
-  color: React.PropTypes.string,
-  onClick: React.PropTypes.func
-};
 
 module.exports = Button;

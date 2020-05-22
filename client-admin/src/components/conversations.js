@@ -12,11 +12,10 @@ import * as globals from "./framework/global-styles";
 import Awesome from "react-fontawesome";
 import ConversationFilters from "./conversation-filters";
 // import ConversationsTutorialCard from "./conversations-tutorial-card";
-import {handleCreateConversationSubmit} from "../actions";
+import { handleCreateConversationSubmit } from "../actions";
 import Url from "../util/url";
-import {s} from "./framework/global-styles";
+import { s } from "./framework/global-styles";
 import Explainer from "./explainer";
-
 
 @connect((state) => state.conversations)
 @Radium
@@ -25,22 +24,10 @@ class Conversations extends React.Component {
     super(props);
     this.state = {
       filterMinParticipantCount: 0,
-      sort: "participant_count"
+      sort: "participant_count",
     };
   }
-  static propTypes = {
-    /* react */
-    dispatch: React.PropTypes.func,
-    params: React.PropTypes.object,
-    conversations: React.PropTypes.array,
-    error: React.PropTypes.object,
-    loading: React.PropTypes.bool
-    /* component api */
-    // foo: React.PropTypes.string
-  }
-  static defaultProps = {
-    // foo: "bar"
-  }
+
   componentDidMount() {
     this.props.dispatch(populateConversationsStore());
     // loading true or just do that in constructor
@@ -63,7 +50,7 @@ class Conversations extends React.Component {
   }
 
   goToDocs() {
-    window.location = "http://docs.pol.is"
+    window.location = "http://docs.pol.is";
   }
   onNewClicked() {
     this.props.dispatch(handleCreateConversationSubmit());
@@ -94,22 +81,19 @@ class Conversations extends React.Component {
       let markup = "";
       if (this.filterCheck(c)) {
         markup = (
-          <div
-            style={s.conversation}
-            onClick={this.goToConversation(c.conversation_id)}
-            key={i}>
-              <p ref={`statNumber${i}`} style={s.statNumber}>
-                {c.participant_count} participants
-              </p>
-              <p ref={`topic${i}`} style={s.topic}>
-                {c.topic}
-              </p>
-              <p ref={`description${i}`} style={s.description}>
-                {c.description}
-              </p>
-              <p ref={`parentUrl${i}`} style={s.parentUrl}>
-                {c.parent_url ? `Embedded on ${c.parent_url}` : ""}
-              </p>
+          <div style={s.conversation} onClick={this.goToConversation(c.conversation_id)} key={i}>
+            <p ref={`statNumber${i}`} style={s.statNumber}>
+              {c.participant_count} participants
+            </p>
+            <p ref={`topic${i}`} style={s.topic}>
+              {c.topic}
+            </p>
+            <p ref={`description${i}`} style={s.description}>
+              {c.description}
+            </p>
+            <p ref={`parentUrl${i}`} style={s.parentUrl}>
+              {c.parent_url ? `Embedded on ${c.parent_url}` : ""}
+            </p>
           </div>
         );
       }
@@ -121,14 +105,11 @@ class Conversations extends React.Component {
     this.props.dispatch(populateConversationsStore());
   }
   onFilterChange() {
-    this.setState()
+    this.setState();
   }
   renderTutorialCards() {
     return (
-      <Flex
-        direction="row"
-        alignItems="baseline"
-        wrap="wrap">
+      <Flex direction="row" alignItems="baseline" wrap="wrap">
         <ConversationsTutorialCard
           awesome="plus"
           clickHandler={this.onNewClicked.bind(this)}
@@ -138,7 +119,8 @@ class Conversations extends React.Component {
             Great for playing around with pol.is or embedding pol.is as a feature
             on a single page.
           `}
-          title="Start a single conversation"/>
+          title="Start a single conversation"
+        />
         <ConversationsTutorialCard
           awesome="code"
           clickHandler={this.goTo(`/integrate`)}
@@ -147,7 +129,8 @@ class Conversations extends React.Component {
             a script tag into your templates. pol.is will keep track of which conversations
             belong on which pages, and create new ones automatically when needed.
           `}
-          title="Integrate polis into your site"/>
+          title="Integrate polis into your site"
+        />
         <ConversationsTutorialCard
           awesome="align-left"
           clickHandler={this.goToDocs}
@@ -156,26 +139,23 @@ class Conversations extends React.Component {
             settings are. Check out the data pol.is produces and what you can do with it.
             Learn about different ways to authenticate users.
           `}
-          title={"Read the overview & documentation"}/>
+          title={"Read the overview & documentation"}
+        />
       </Flex>
-    )
+    );
   }
   render() {
     const err = this.props.error;
     const noMoreTutorialsAfterThisNumber = 5;
     return (
       <div style={s.container}>
-        <p style={{paddingLeft: 20, textAlign: "center"}}>
+        <p style={{ paddingLeft: 20, textAlign: "center" }}>
           {this.props.loading ? "Loading conversations..." : ""}
         </p>
-        {
-          err ?
-          "Error loading conversations: " + err.status + " " + err.statusText :
-          ""
-        }
-        { this.props.conversations ? this.renderFilteredConversations() : ""}
-        <div style={{display: "flex", justifyContent: "center", width: "100%"}}>
-          <Explainer/>
+        {err ? "Error loading conversations: " + err.status + " " + err.statusText : ""}
+        {this.props.conversations ? this.renderFilteredConversations() : ""}
+        <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
+          <Explainer />
         </div>
         {/*
           !this.props.loading && this.props.conversations && this.props.conversations.length < noMoreTutorialsAfterThisNumber && !err ?
@@ -188,7 +168,6 @@ class Conversations extends React.Component {
 }
 
 export default Conversations;
-
 
 /*
     for later when we're showing convos you ptpt i
@@ -213,7 +192,7 @@ export default Conversations;
     sorts and filters - by #'s of ptpt etc
 */
 
-            // <span>
-            //   {"Admin: " + conversation.conversation_id}
-            // </span>
+// <span>
+//   {"Admin: " + conversation.conversation_id}
+// </span>
 // <button onClick={this.firePopulateInboxAction.bind(this)}> Refresh </button>
