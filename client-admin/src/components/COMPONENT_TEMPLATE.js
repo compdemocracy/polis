@@ -15,10 +15,7 @@ class ComponentName extends React.Component {
   constructor(props) {
     super(props);
     this.state = {};
-  }
-  static defaultProps = {
-    // foo: "bar"
-  };
+
   getStyles() {
     return {
       base: {},
