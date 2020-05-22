@@ -5,15 +5,8 @@ import { connect } from "react-redux";
 import Radium from "radium";
 import { startDataExport } from "../../actions";
 import _ from "lodash";
-import RadioButton from "material-ui/RadioButton";
-import RadioButtonGroup from "material-ui/RadioButton/RadioButtonGroup";
-import SelectField from "material-ui/SelectField";
 import Button from "../framework/generic-button";
 import dateSetupUtil from "../../util/data-export-date-setup";
-import Flex from "../framework/flex";
-import Awesome from "react-fontawesome";
-import Checkbox from "material-ui/Checkbox";
-import settings from "../../settings";
 
 const styles = {
   container: {
@@ -46,8 +39,7 @@ class DataExport extends React.Component {
       const month = this.refs.exportSelectMonth.value;
       const dayOfMonth = this.refs.exportSelectDay.value;
       const tz = this.refs.exportSelectHour.value;
-      const format = this.refs.chooseFormat.getSelectedValue();
-      console.log("format", format);
+      const format = "csv";
 
       const dateString = [year, month, dayOfMonth, tz].join(" ");
       const dddate = new Date(dateString);
@@ -72,8 +64,8 @@ class DataExport extends React.Component {
             borderRadius: 3,
           }}
         >
-          <Awesome name="cloud-download" /> Data from this conversation will be sent to your email.
-          (This can take a little while, especially for larger conversations).
+          Data from this conversation will be sent to your email. (This can take a little while,
+          especially for larger conversations).
         </p>
       </div>
     );
@@ -171,16 +163,6 @@ class DataExport extends React.Component {
               "(By default, the entire dataset is returned. To limit the last timestamp returned, enter a date here.)"
             }{" "}
           </p>
-          <p> Format: </p>
-          <RadioButtonGroup ref="chooseFormat" name="format" defaultSelected="csv">
-            <RadioButton value="csv" label="CSV" style={{ marginBottom: 5 }} />
-            <RadioButton
-              disabled
-              value="xls"
-              label="XLS (coming soon)"
-              style={{ marginBottom: 5 }}
-            />
-          </RadioButtonGroup>
           <Button
             style={{
               backgroundColor: "#03a9f4",

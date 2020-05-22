@@ -2,7 +2,6 @@
 
 import React from "react";
 import Radium from "radium";
-import Awesome from "react-fontawesome";
 import StaticContentContainer from "./framework/static-content-container";
 import Button from "./framework/generic-button";
 
@@ -106,9 +105,7 @@ class ComponentName extends React.Component {
       >
         <Flex>
           <div style={styles.card}>
-            <p style={styles.heading}>
-              <Awesome name={"code"} /> Pol.is Contributor Agreement
-            </p>
+            <p style={styles.heading}>Pol.is Contributor Agreement</p>
             <p>
               {`
                 You are welcome to fork and hack on any pol.is repository.
