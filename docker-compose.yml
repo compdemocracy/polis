@@ -13,6 +13,7 @@ services:
   server:
     container_name: polis-server
     env_file: ./server/docker-dev.env
+    image: polisdemo/polis-server:dev
     build:
       context: ./server
       dockerfile: Dockerfile
@@ -27,6 +28,7 @@ services:
   math:
     container_name: polis-math
     env_file: ./math/docker-dev.env
+    image: polisdemo/polis-math:dev
     depends_on:
       - "postgres"
     build:
@@ -37,6 +39,7 @@ services:
   postgres:
     container_name: polis-postgres
     env_file: ./server/docker-db-dev.env
+    image: polisdemo/polis-postgres:dev
     restart: always
     build:
       context: ./server
@@ -49,6 +52,7 @@ services:
 
   nginx-proxy:
     container_name: polis-nginx-proxy
+    image: polisdemo/polis-nginx-proxy:dev
     build:
       context: ./file-server
       dockerfile: nginx.Dockerfile
@@ -61,6 +65,7 @@ services:
 
   file-server:
     container_name: polis-file-server
+    image: polisdemo/polis-file-server:dev
     build:
       context: ./file-server
       dockerfile: Dockerfile
@@ -75,7 +80,7 @@ services:
 
   client-participation:
     container_name: polis-client-participation
-    image: polis/client-participation
+    image: polisdemo/client-participation:dev
     build:
       context: ./client-participation
       args:
@@ -83,7 +88,7 @@ services:
 
   client-admin:
     container_name: polis-client-admin
-    image: polis/client-admin
+    image: polisdemo/client-admin:dev
     build:
       context: ./client-admin
       args:
@@ -91,7 +96,7 @@ services:
 
   client-report:
     container_name: polis-client-report
-    image: polis/client-report
+    image: polisdemo/client-report:dev
     build:
       context: ./client-report
       args:
