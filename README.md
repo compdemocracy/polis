@@ -25,9 +25,11 @@ Recommendations: Docker-Machine (on [DigitalOcean with 2GB memory][do-tut])
 
 ```
 # first build or re-build:
-docker-compose build --build-arg GIT_HASH $(git rev-parse --short HEAD) --parallel
-# otherwise:
+GIT_HASH $(git rev-parse --short HEAD) docker-compose up --detach
+# subsequently you should only need to run:
 docker-compose up --detach
+# full re-build with no cache from previous builds:
+docker-compose build --build-arg GIT_HASH $(git rev-parse --short HEAD) --parallel --no-cache
 # to stop:
 docker-compose down
 # (or Ctrl+C if you did not run with --detach)

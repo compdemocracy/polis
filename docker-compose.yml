@@ -1,9 +1,9 @@
 # first build or re-build:
-# docker-compose build --build-arg GIT_HASH $(git rev-parse --short HEAD) --parallel
-# full re-build with no cache from previous buils:
-# docker-compose build --build-arg GIT_HASH $(git rev-parse --short HEAD) --parallel --no-cache
-# otherwise:
+# GIT_HASH $(git rev-parse --short HEAD) docker-compose up --detach
+# subsequently you should only need to run:
 # docker-compose up --detach
+# full re-build with no cache from previous builds:
+# docker-compose build --build-arg GIT_HASH $(git rev-parse --short HEAD) --parallel --no-cache
 # to stop:
 # docker-compose down
 
@@ -12,10 +12,10 @@ version: "3.1"
 services:
   server:
     container_name: polis-server
+    env_file: ./server/docker-dev.env
     build:
       context: ./server
       dockerfile: Dockerfile
-    env_file: ./server/docker-dev.env
     depends_on:
       - "postgres"
       - "file-server"
@@ -26,18 +26,18 @@ services:
 
   math:
     container_name: polis-math
+    env_file: ./math/docker-dev.env
     depends_on:
       - "postgres"
     build:
       context: ./math
-    env_file: ./math/docker-dev.env
     networks:
       - "polis-dev"
 
   postgres:
     container_name: polis-postgres
-    restart: always
     env_file: ./server/docker-db-dev.env
+    restart: always
     build:
       context: ./server
       dockerfile: Dockerfile-db
@@ -78,18 +78,24 @@ services:
     image: polis/client-participation
     build:
       context: ./client-participation
+      args:
+        GIT_HASH: "${GIT_HASH}"
 
   client-admin:
     container_name: polis-client-admin
     image: polis/client-admin
     build:
       context: ./client-admin
+      args:
+        GIT_HASH: "${GIT_HASH}"
 
   client-report:
     container_name: polis-client-report
     image: polis/client-report
     build:
       context: ./client-report
+      args:
+        GIT_HASH: "${GIT_HASH}"
 
 networks:
   polis-dev:
