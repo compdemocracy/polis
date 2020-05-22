@@ -23,23 +23,38 @@ Recommendations: Docker-Machine (on [DigitalOcean with 2GB memory][do-tut])
    [do-tut]: https://www.digitalocean.com/community/tutorials/how-to-provision-and-manage-remote-docker-hosts-with-docker-machine-on-ubuntu-16-04
 
 
-```
-# first build or re-build:
-GIT_HASH $(git rev-parse --short HEAD) docker-compose up --detach
-# subsequently you should only need to run:
-docker-compose up --detach
-# full re-build with no cache from previous builds:
-docker-compose build --build-arg GIT_HASH $(git rev-parse --short HEAD) --parallel --no-cache
-# to stop:
-docker-compose down
-# (or Ctrl+C if you did not run with --detach)
+### Running with docker-compose:
 
-# check your ip (only necessary on docker-machine):
+Before running docker-compose up for the first time,
+either do a pull (faster):
+
+`docker-compose pull`
+
+or do a build (to utilize recent or local changes):
+
+`GIT_HASH $(git rev-parse --short HEAD) docker-compose up --detach`
+
+subsequently you should only need to run:
+
+`docker-compose up --detach`
+
+To force a full re-build with no cache from previous builds:
+`docker-compose build --build-arg GIT_HASH $(git rev-parse --short HEAD) --parallel --no-cache`
+
+And to stop:
+`docker-compose down`
+
+_(or Ctrl+C if you did not run with --detach)_
+
+### check your ip (only necessary on docker-machine):
+```
 docker-machine ip
 >>> 123.45.67.89
 ```
 
 Visit your instance at: `http://123.45.67.89.xip.io/`
+
+Or visit a native docker instance at `http://localhost:80/`
 
 Sign up at `/createuser` path. You'll be logged in right away; no email validation required!
 
