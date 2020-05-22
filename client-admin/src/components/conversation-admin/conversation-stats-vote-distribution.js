@@ -3,26 +3,20 @@
 import React from "react";
 import { connect } from "react-redux";
 import Radium from "radium";
-import {VictoryChart} from "victory-chart";
-import {VictoryLine} from "victory-line";
-import {VictoryBar} from "victory-bar";
-import {VictoryAxis} from "victory-axis";
+import { VictoryChart } from "victory-chart";
+import { VictoryLine } from "victory-line";
+import { VictoryBar } from "victory-bar";
+import { VictoryAxis } from "victory-axis";
 
 @Radium
 class VotesDistribution extends React.Component {
-  static propTypes = {
-    dispatch: React.PropTypes.func,
-    params: React.PropTypes.object,
-    data: React.PropTypes.object,
-    chartWidth: React.PropTypes.number,
-    chartHeight: React.PropTypes.number
-  }
   render() {
     return (
       <VictoryChart
         width={this.props.chartWidth}
         height={this.props.chartHeight}
-        domainPadding={{x: 30, y: 30}}>
+        domainPadding={{ x: 30, y: 30 }}
+      >
         <VictoryAxis
           tickCount={20}
           label="Vote count"
@@ -30,16 +24,17 @@ class VotesDistribution extends React.Component {
             data: {
               axis: {
                 stroke: "black",
-                strokeWidth: 1
+                strokeWidth: 1,
               },
               ticks: {
-                stroke: "transparent"
+                stroke: "transparent",
               },
               tickLabels: {
-                fill: "black"
-              }
-            }
-          }}/>
+                fill: "black",
+              },
+            },
+          }}
+        />
         <VictoryAxis
           label="Participant count"
           orientation={"left"}
@@ -48,22 +43,23 @@ class VotesDistribution extends React.Component {
             data: {
               axis: {
                 stroke: "black",
-                strokeWidth: 1
+                strokeWidth: 1,
               },
               ticks: {
-                stroke: "transparent"
+                stroke: "transparent",
               },
               tickLabels: {
-                fill: "black"
-              }
-            }
-          }}/>
+                fill: "black",
+              },
+            },
+          }}
+        />
         <VictoryBar
           style={{
             data: {
               fill: "cornflowerblue",
-              width: 1
-            }
+              width: 1,
+            },
           }}
           data={this.props.data.votesHistogram.map((d) => {
             return {
@@ -71,9 +67,9 @@ class VotesDistribution extends React.Component {
               y: d.n_ptpts,
             };
           })}
-          />
+        />
       </VictoryChart>
-    )
+    );
   }
 }
 

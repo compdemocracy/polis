@@ -8,9 +8,9 @@ import NoPermission from "./no-permission";
 import PolisNet from "../../util/net";
 import Radium from "radium";
 import React from "react";
-import InputField from "material-ui/lib/text-field";
+import InputField from "material-ui/TextField";
 import Awesome from "react-fontawesome";
-import Alert from 'react-s-alert';
+import Alert from "react-s-alert";
 
 import { connect } from "react-redux";
 import { Link } from "react-router";
@@ -23,7 +23,7 @@ const styles = {
   container: {
     backgroundColor: "rgb(240,240,247)",
     minHeight: "100vh",
-    paddingBottom: 10
+    paddingBottom: 10,
   },
   configCard: {
     margin: 10,
@@ -32,14 +32,14 @@ const styles = {
     borderRadius: cardBorderRadius,
     padding: cardPadding,
     WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
-    BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
+    BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
   },
   sectionHeader: {
     fontSize: 22,
     marginTop: 0,
     marginBottom: 0,
     fontWeight: 500,
-    color: "rgb(160,160,160)"
+    color: "rgb(160,160,160)",
   },
   button: {
     margin: "10px 20px 10px 10px",
@@ -55,13 +55,12 @@ const styles = {
   notification: {
     fontSize: 16,
     fontWeight: 500,
-    color: "rgb(160,160,160)"
-  }
-}
+    color: "rgb(160,160,160)",
+  },
+};
 
 @Radium
 class ReportConfig extends React.Component {
-
   constructor(props) {
     super(props);
     this.state = {
@@ -87,7 +86,7 @@ class ReportConfig extends React.Component {
     this.getData();
   }
 
-  updateReport () {
+  updateReport() {
     let data = {
       report_id: this.props.params.report_id,
       conversation_id: this.props.params.conversation_id,
@@ -99,7 +98,7 @@ class ReportConfig extends React.Component {
     data.label_y_neg = this.state.report.label_y_neg;
     data.label_y_pos = this.state.report.label_y_pos;
     for (let i = 0; i < 10; i++) {
-      let s = 'label_group_' + i;
+      let s = "label_group_" + i;
       if (this.state.report[s]) {
         data[s] = this.state.report[s];
       }
@@ -113,24 +112,25 @@ class ReportConfig extends React.Component {
       xhrFields: { withCredentials: true },
       dataType: "json",
       data: JSON.stringify(data),
-    }).then(() => {
-      Alert.info('Saved!', {
-        position: 'top-right',
-        beep: false,
-        timeout: 1500,
-        offset: 80
-      });
-    }).fail((err) => {
+    })
+      .then(() => {
+        Alert.info("Saved!", {
+          position: "top-right",
+          beep: false,
+          timeout: 1500,
+          offset: 80,
+        });
+      })
+      .fail((err) => {
+        console.error(err);
 
-      console.error(err);
-
-      Alert.error('Error saving. Check your internet connection and try again.', {
-        position: 'top-right',
-        beep: true,
-        timeout: 5000,
-        offset: 80
+        Alert.error("Error saving. Check your internet connection and try again.", {
+          position: "top-right",
+          beep: true,
+          timeout: 5000,
+          offset: 80,
+        });
       });
-    });
   }
 
   // handleIntegerBoolValueChange (field) {
@@ -145,71 +145,75 @@ class ReportConfig extends React.Component {
   //   }
   // }
 
-  handleConfigInputTyping (field) {
+  handleConfigInputTyping(field) {
     return (e) => {
       this.setState({
         report: Object.assign({}, this.state.report, { [field]: e.target.value }),
       });
-    }
+    };
   }
 
   createMarkup() {
     return (
       <div>
-          <Alert />
-          <button style={styles.button} onClick={this.updateReport.bind(this)}>
-          <Awesome name="floppy-o"/>
-          <span style={{marginLeft: 10}}>{"Save"}</span>
+        <Alert />
+        <button style={styles.button} onClick={this.updateReport.bind(this)}>
+          <Awesome name="floppy-o" />
+          <span style={{ marginLeft: 10 }}>{"Save"}</span>
         </button>
         {/* error and loading may go here - see conversation-config.js */}
         <div style={styles.configCard}>
           <p style={styles.sectionHeader}>Report {this.props.params.report_id}</p>
           <InputField
             ref={"report_name"}
-            style={{width: 360}}
+            style={{ width: 360 }}
             onChange={this.handleConfigInputTyping("report_name").bind(this)}
             value={this.state.report["report_name"]}
             hintText="ie., 'Monthly check-in (August)'"
             floatingLabelText={"Report name"}
-            multiLine={true} />
-            <p style={{fontSize: 10, fontStyle: "italic"}}> </p>
+            multiLine={true}
+          />
+          <p style={{ fontSize: 10, fontStyle: "italic" }}> </p>
         </div>
-
         <div style={styles.configCard}>
           <p style={styles.sectionHeader}> Create axis labels </p>
           <div>
             <InputField
               ref={"label_x_neg"}
-              style={{width: 360}}
+              style={{ width: 360 }}
               onChange={this.handleConfigInputTyping("label_x_neg").bind(this)}
               value={this.state.report["label_x_neg"]}
               hintText="ie., 'In favor of more regulation'"
               floatingLabelText={"Label for negative x axis (←)"}
-              multiLine={true} />
+              multiLine={true}
+            />
             <InputField
               ref={"label_x_pos"}
-              style={{width: 360}}
+              style={{ width: 360 }}
               onChange={this.handleConfigInputTyping("label_x_pos").bind(this)}
               value={this.state.report["label_x_pos"]}
               hintText="ie., 'Opposed to more regulation'"
               floatingLabelText={"Label for positive x axis (→)"}
-              multiLine={true} />
+              multiLine={true}
+            />
             <InputField
               ref={"label_y_neg"}
-              style={{width: 360}}
+              style={{ width: 360 }}
               onChange={this.handleConfigInputTyping("label_y_neg").bind(this)}
               value={this.state.report["label_y_neg"]}
               hintText="ie., 'Individuals are responsible'"
               floatingLabelText={"Label for negative y axis (↓)"}
-              multiLine={true} />
+              multiLine={true}
+            />
             <InputField
               ref={"label_y_pos"}
-              style={{width: 360}}
+              style={{ width: 360 }}
               onChange={this.handleConfigInputTyping("label_y_pos").bind(this)}
               value={this.state.report["label_y_pos"]}
               hintText="ie., 'Society is responsible'"
               floatingLabelText={"Label for positive y axis (↑)"}
-              multiLine={true} />
+              multiLine={true}
+            />
           </div>
         </div>
         <div style={styles.configCard}>
@@ -217,32 +221,32 @@ class ReportConfig extends React.Component {
           <div>
             {
               /* we have 10 groups max hardcoded for now */
-              [0,1,2,3,4,5,6,7,8,9].map((d, i) => {
+              [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((d, i) => {
                 // if (!this.state.report["label_group_" + i]) {return}
-                let userVisibleGroupId = i+1;
+                let userVisibleGroupId = i + 1;
                 return (
                   <InputField
                     ref={"label_group_" + i}
-                    style={{width: 360}}
+                    style={{ width: 360 }}
                     onChange={this.handleConfigInputTyping("label_group_" + i).bind(this)}
                     value={this.state.report["label_group_" + i]}
                     hintText="ie., 'Dog lovers'"
-                    floatingLabelText={"Group "+ userVisibleGroupId +" nickname"}
-                    multiLine={true} />
-                )
+                    floatingLabelText={"Group " + userVisibleGroupId + " nickname"}
+                    multiLine={true}
+                  />
+                );
               })
             }
           </div>
         </div>
-      {/* container */} </div>
-    )
+        {/* container */}{" "}
+      </div>
+    );
   }
 
   render() {
     return (
-      <div style={styles.container}>
-        {this.state.report ? this.createMarkup() : "Loading"}
-      </div>
+      <div style={styles.container}>{this.state.report ? this.createMarkup() : "Loading"}</div>
     );
   }
 }

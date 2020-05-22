@@ -2,19 +2,16 @@
 
 import React from "react";
 import { connect } from "react-redux";
-import Radium from "radium";
+
 import _ from "lodash";
 import Flex from "./flex";
 import Awesome from "react-fontawesome";
-import {Link} from "react-router";
+import { Link } from "react-router";
 import HexLogo from "./hex-logo-large-short";
 
-const RadiumLink = Radium(Link);
-
 @connect()
-@Radium
 class Footer extends React.Component {
-  styles () {
+  styles() {
     return {
       container: {
         backgroundColor: "#03a9f4",
@@ -23,9 +20,7 @@ class Footer extends React.Component {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        "@media (min-width: 768px)": {
-
-        }
+        "@media (min-width: 768px)": {},
       },
       innerContainer: {
         margin: "60px 100px",
@@ -37,7 +32,7 @@ class Footer extends React.Component {
           width: "100%",
           flexDirection: "row",
           alignItems: "flex-start",
-        }
+        },
       },
       link: {
         textDecoration: "none",
@@ -47,45 +42,105 @@ class Footer extends React.Component {
       header: {
         fontWeight: 700,
         color: "white",
-        fontSize: "1.7em"
+        fontSize: "1.7em",
       },
       copyright: {
         width: "100%",
         textAlign: "center",
         fontWeight: 300,
         color: "white",
-        marginBottom: 20
-      }
-    }
+        marginBottom: 20,
+      },
+    };
   }
   render() {
     return (
       <div style={this.styles().container}>
         <div style={this.styles().innerContainer}>
-          <HexLogo invert/>
+          <HexLogo invert />
           <div>
             <p style={this.styles().header}> pol.is </p>
-            <p><a style={this.styles().link} href="https://pol.is"> Home </a></p>
-            <p><a style={this.styles().link} href="https://pol.is/company"> Company </a></p>
-            <p><a style={this.styles().link} href="https://pol.is/company#press"> Press </a></p>
-            <p><a style={this.styles().link} href="http://docs.pol.is"> Docs </a></p>
-            <p><a style={this.styles().link} href="http://pol.is/pricing"> Pricing </a></p>
-            <p><a style={this.styles().link} href="https://github.com/pol-is/"> Github </a></p>
+            <p>
+              <a style={this.styles().link} href="https://pol.is">
+                {" "}
+                Home{" "}
+              </a>
+            </p>
+            <p>
+              <a style={this.styles().link} href="https://pol.is/company">
+                {" "}
+                Company{" "}
+              </a>
+            </p>
+            <p>
+              <a style={this.styles().link} href="https://pol.is/company#press">
+                {" "}
+                Press{" "}
+              </a>
+            </p>
+            <p>
+              <a style={this.styles().link} href="http://docs.pol.is">
+                {" "}
+                Docs{" "}
+              </a>
+            </p>
+            <p>
+              <a style={this.styles().link} href="http://pol.is/pricing">
+                {" "}
+                Pricing{" "}
+              </a>
+            </p>
+            <p>
+              <a style={this.styles().link} href="https://github.com/pol-is/">
+                {" "}
+                Github{" "}
+              </a>
+            </p>
           </div>
           <div>
             <p style={this.styles().header}> web </p>
-            <p><a style={this.styles().link} href="https://pol.is/createuser"> Sign up </a></p>
-            <p><a style={this.styles().link} href="https://pol.is/signin"> Sign in </a></p>
+            <p>
+              <a style={this.styles().link} href="https://pol.is/createuser">
+                {" "}
+                Sign up{" "}
+              </a>
+            </p>
+            <p>
+              <a style={this.styles().link} href="https://pol.is/signin">
+                {" "}
+                Sign in{" "}
+              </a>
+            </p>
           </div>
           <div>
             <p style={this.styles().header}> connect </p>
-            <p><a style={this.styles().link} href="https://twitter.com/usepolis"> <Awesome name="twitter"/> Twitter </a></p>
-            <p><a style={this.styles().link} href="https://blog.pol.is/"> <Awesome name="medium"/> Medium </a></p>
+            <p>
+              <a style={this.styles().link} href="https://twitter.com/usepolis">
+                {" "}
+                <Awesome name="twitter" /> Twitter{" "}
+              </a>
+            </p>
+            <p>
+              <a style={this.styles().link} href="https://blog.pol.is/">
+                {" "}
+                <Awesome name="medium" /> Medium{" "}
+              </a>
+            </p>
           </div>
           <div>
             <p style={this.styles().header}> legal </p>
-            <p><a style={this.styles().link} href="https://pol.is/tos"> Terms & Conditions </a></p>
-            <p><a style={this.styles().link} href="https://pol.is/privacy"> Privacy Policy </a></p>
+            <p>
+              <a style={this.styles().link} href="https://pol.is/tos">
+                {" "}
+                Terms & Conditions{" "}
+              </a>
+            </p>
+            <p>
+              <a style={this.styles().link} href="https://pol.is/privacy">
+                {" "}
+                Privacy Policy{" "}
+              </a>
+            </p>
           </div>
         </div>
         <p style={this.styles().copyright}> @ 2017 The Authors. All Rights Reserved. </p>

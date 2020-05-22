@@ -15,45 +15,29 @@ import Group from "./summary-group";
 class SummaryGroups extends React.Component {
   constructor(props) {
     super(props);
-    this.state = {
-    };
-  }
-  static propTypes = {
-    /* react */
-    params: React.PropTypes.object,
-    routes: React.PropTypes.array,
-    /* component api */
-    style: React.PropTypes.object,
+    this.state = {};
   }
 
   getStyles() {
     return {
-      base: {
-
-      },
+      base: {},
       sectionHeader: {
         fontWeight: 500,
-        fontSize: 24
+        fontSize: 24,
       },
       text: {
         fontWeight: 300,
-        maxWidth: 600
+        maxWidth: 600,
       },
       mostAgreedUpon: {
-        backgroundColor: "rgb(46, 204, 113)"
+        backgroundColor: "rgb(46, 204, 113)",
       },
     };
   }
   groups() {
     const math = this.props.math.math;
     return _.map(math["repness"], (comments, i) => {
-      return (
-        <Group
-          key={i}
-          repnessIndex={i}
-          groupComments={comments}
-          {...this.props}/>
-      );
+      return <Group key={i} repnessIndex={i} groupComments={comments} {...this.props} />;
     });
   }
   render() {

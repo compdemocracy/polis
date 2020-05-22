@@ -3,13 +3,9 @@
 import React from "react";
 import Radium from "radium";
 import _ from "lodash";
-import Flex from '../framework/flex';
+import Flex from "../framework/flex";
 import { connect } from "react-redux";
-import {
-  populateCommentsStore,
-  populateMathStore,
-  populateParticipantsStore
-} from "../../actions";
+import { populateCommentsStore, populateMathStore, populateParticipantsStore } from "../../actions";
 import Comment from "./summary-comment";
 import SummaryStats from "./summary-stats";
 import Consensus from "./summary-consensus";
@@ -19,26 +15,14 @@ import Groups from "./summary-groups";
   return {
     comments: state.comments,
     math: state.math,
-    participants: state.participants
+    participants: state.participants,
   };
 })
 @Radium
 class Summary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = {
-
-    };
-  }
-  static propTypes = {
-    /* react */
-    dispatch: React.PropTypes.func,
-    params: React.PropTypes.object,
-    routes: React.PropTypes.array,
-    /* component api */
-    style: React.PropTypes.object,
-    math: React.PropTypes.object,
-    comments: React.PropTypes.object
+    this.state = {};
   }
 
   componentWillMount() {
@@ -54,12 +38,12 @@ class Summary extends React.Component {
         borderRadius: 3,
         padding: 10,
         WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
-        BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
+        BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
       },
       innerContent: {
         maxWidth: 600,
-        lineHeight: 1.6
-      }
+        lineHeight: 1.6,
+      },
     };
   }
   render() {
@@ -71,14 +55,14 @@ class Summary extends React.Component {
         <Flex styleOverrides={styles.innerContent}>
           {this.props.math.loading || this.props.comments.loading ? "Loading summary... " : ""}
           {this.props.math.error || this.props.comments.error ? "Error loading summary" : ""}
-          {
-            math && !this.props.math.loading && !this.props.comments.loading ?
-              <span>
-                <Consensus {...this.props}/>
-                <Groups {...this.props}/>
-              </span> :
+          {math && !this.props.math.loading && !this.props.comments.loading ? (
+            <span>
+              <Consensus {...this.props} />
+              <Groups {...this.props} />
+            </span>
+          ) : (
             ""
-          }
+          )}
         </Flex>
       </Flex>
     );

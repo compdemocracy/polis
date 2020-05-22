@@ -2,32 +2,17 @@
 
 import React from "react";
 import Radium from "radium";
-import {Link} from "react-router";
+import { Link } from "react-router";
 import Awesome from "react-fontawesome";
-import {s} from "./framework/global-styles";
+import { s } from "./framework/global-styles";
 
 @Radium
 class SidebarItem extends React.Component {
   constructor(props) {
     super(props);
-    this.state = {
+    this.state = {};
+  }
 
-    };
-  }
-  static propTypes = {
-    /* react */
-    params: React.PropTypes.object,
-    routes: React.PropTypes.array,
-    /* component api */
-    enabled: React.PropTypes.bool,
-    style: React.PropTypes.object,
-    selected: React.PropTypes.bool,
-    to: React.PropTypes.string,
-    icon: React.PropTypes.string
-  }
-  static defaultProps = {
-    enabled: true,
-  }
   getStyles() {
     let color = {
       fontWeight: this.props.selected ? 500 : 300,
@@ -39,7 +24,7 @@ class SidebarItem extends React.Component {
       fontSize: 14,
       padding: 0,
       margin: "0px 0px 20px 20px",
-    }
+    };
     return {
       color: color,
       disabled: disabled,
@@ -52,15 +37,17 @@ class SidebarItem extends React.Component {
     return (
       <Link
         to={this.props.to}
-        style={
-          Object.assign(
-            {},
-            s.sidebarLink,
-            this.props.enabled ? styles.color : styles.disabled,
-            this.props.small ? styles.small : {}
-          )
-        }>
-        <span style={{position: "relative", left: -5}}> {this.props.showIcon ? <Awesome name={this.props.icon} /> : null} </span>
+        style={Object.assign(
+          {},
+          s.sidebarLink,
+          this.props.enabled ? styles.color : styles.disabled,
+          this.props.small ? styles.small : {}
+        )}
+      >
+        <span style={{ position: "relative", left: -5 }}>
+          {" "}
+          {this.props.showIcon ? <Awesome name={this.props.icon} /> : null}{" "}
+        </span>
         {this.props.text}
       </Link>
     );
