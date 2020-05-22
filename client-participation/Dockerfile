@@ -1,5 +1,5 @@
 # The version of node-sass in use requires node 8.x
-FROM node:8-alpine
+FROM node:8.17.0-alpine
 
 ARG GIT_HASH
 
