@@ -1,15 +1,16 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import $ from 'jquery';
+import $ from "jquery";
 
-import Alert from 'react-s-alert';
-import React from 'react';
-import ReactDOM from 'react-dom';
-import { Router, Route, Link, IndexRoute, browserHistory } from 'react-router';
-import { Provider, connect } from 'react-redux';
-import { DevTools, DebugPanel, LogMonitor } from 'redux-devtools/lib/react';
+import Alert from "react-s-alert";
+import React from "react";
+import ReactDOM from "react-dom";
+import { Router, Route, IndexRoute, browserHistory } from "react-router";
+import { Provider } from "react-redux";
 
 import configureStore from "./store";
+import { ThemeProvider } from "theme-ui";
+import theme from "./theme";
 
 // controller view
 import Console from "./components/console";
@@ -23,12 +24,8 @@ import CreateUser from "./components/createuser";
 import Contributor from "./components/contributors";
 
 /* landers */
-import Demo from "./components/landers/demo";
-import Bot from "./components/landers/bot";
-import BotInstall from "./components/landers/bot-install";
-import Gov from "./components/landers/gov";
+
 import Home from "./components/landers/home";
-import Company from "./components/landers/company";
 
 import TOS from "./components/tos";
 import Privacy from "./components/privacy";
@@ -70,9 +67,8 @@ import ReportCommentsIncluded from "./components/conversation-admin/report-comme
 import ReportCommentsExcluded from "./components/conversation-admin/report-comments-excluded";
 import ReportsList from "./components/conversation-admin/reports-list";
 
-
 const alertClear = () => {
-    Alert.closeAll();
+  Alert.closeAll();
 };
 
 const store = configureStore();
@@ -81,88 +77,82 @@ class Root extends React.Component {
   render() {
     return (
       <div>
-        <Provider store={store}>
-          <Router history={browserHistory}>
-            <Route path="/" component={Console} onEnter={alertClear}>
-              <IndexRoute component={Conversations}/>
-              <Route path="other-conversations" component={Conversations}/>
-              <Route path="integrate" component={Integrate}/>
-              <Route path="overall-stats" component={OverallStats}/>
-              <Route path="account" component={Account}/>
-              <Route path="m/:conversation_id" component={ConversationAdminContainer}>
-                <IndexRoute component={ConversationConfig}/>
-                <Route path="live" component={Live}/>
-                <Route path="share" component={ShareAndEmbed}/>
-                <Route path="summary" component={Summary}/>
-                <Route path="reports" component={Reports}>
-                  <IndexRoute component={ReportsList}/>
-                  <Route path=":report_id" component={Container}>
-                    <IndexRoute component={ReportConfig}/>
-                  <Route path="comments" component={ReportComments}>
-                    <IndexRoute component={ReportCommentsIncluded}/>
-                    <Route path="included" component={ReportCommentsIncluded}/>
-                    <Route path="excluded" component={ReportCommentsExcluded}/>
+        <ThemeProvider theme={theme}>
+          <Provider store={store}>
+            <Router history={browserHistory}>
+              <Route path="/" component={Console} onEnter={alertClear}>
+                <IndexRoute component={Conversations} />
+                <Route path="other-conversations" component={Conversations} />
+                <Route path="integrate" component={Integrate} />
+                <Route path="overall-stats" component={OverallStats} />
+                <Route path="account" component={Account} />
+                <Route path="m/:conversation_id" component={ConversationAdminContainer}>
+                  <IndexRoute component={ConversationConfig} />
+                  <Route path="live" component={Live} />
+                  <Route path="share" component={ShareAndEmbed} />
+                  <Route path="summary" component={Summary} />
+                  <Route path="reports" component={Reports}>
+                    <IndexRoute component={ReportsList} />
+                    <Route path=":report_id" component={Container}>
+                      <IndexRoute component={ReportConfig} />
+                      <Route path="comments" component={ReportComments}>
+                        <IndexRoute component={ReportCommentsIncluded} />
+                        <Route path="included" component={ReportCommentsIncluded} />
+                        <Route path="excluded" component={ReportCommentsExcluded} />
+                      </Route>
+                    </Route>
                   </Route>
+                  <Route path="reports" component={Reports} />
+                  <Route path="comments" component={ModerateComments}>
+                    <IndexRoute component={ModerateCommentsTodo} />
+                    <Route path="accepted" component={ModerateCommentsAccepted} />
+                    <Route path="rejected" component={ModerateCommentsRejected} />
+                    <Route path="seed" component={ModerateCommentsSeed} />
+                    <Route path="seed_tweet" component={ModerateCommentsSeedTweet} />
                   </Route>
+                  <Route path="participants" component={ParticipantModeration}>
+                    <IndexRoute component={ParticipantModerationDefault} />
+                    <Route path="featured" component={ParticipantModerationFeatured} />
+                    <Route path="hidden" component={ParticipantModerationHidden} />
+                  </Route>
+                  <Route path="stats" component={ConversationStats} />
+                  <Route path="export" component={DataExport} />
                 </Route>
-                <Route path="reports" component={Reports}/>
-                <Route path="comments" component={ModerateComments}>
-                  <IndexRoute component={ModerateCommentsTodo}/>
-                  <Route path="accepted" component={ModerateCommentsAccepted}/>
-                  <Route path="rejected" component={ModerateCommentsRejected}/>
-                  <Route path="seed" component={ModerateCommentsSeed}/>
-                  <Route path="seed_tweet" component={ModerateCommentsSeedTweet}/>
-                </Route>
-                <Route path="participants" component={ParticipantModeration}>
-                  <IndexRoute component={ParticipantModerationDefault}/>
-                  <Route path="featured" component={ParticipantModerationFeatured}/>
-                  <Route path="hidden" component={ParticipantModerationHidden}/>
-                </Route>
-                <Route path="stats" component={ConversationStats}/>
-                <Route path="export" component={DataExport}/>
               </Route>
-            </Route>
-            <Route path="demo" component={Demo}/>
-            <Route path="home" component={Home}/>
-            <Route path="company" component={Company}/>
-            <Route path="bot" component={Bot}/>
-            <Route path="bot/install" component={BotInstall}/>
-            <Route path="gov" component={Gov}/>
-            <Route path="signin" component={SignIn}/>
-            <Route path="signin/*" component={SignIn}/>
-            <Route path="signin/**/*" component={SignIn}/>
-            <Route path="signout" component={SignOut}/>
-            <Route path="signout/*" component={SignOut}/>
-            <Route path="signout/**/*" component={SignOut}/>
-            <Route path="createuser" component={CreateUser}/>
-            <Route path="createuser/*" component={CreateUser}/>
-            <Route path="createuser/**/*" component={CreateUser}/>
-            <Route path="pwreset/*" component={PasswordReset}/>
-            <Route path="pwresetinit" component={PasswordResetInit}/>
-            <Route path="pwresetinit/done" component={PasswordResetInitDone}/>
-            <Route path="contrib" component={Contributor}/>
-            <Route path="tos" component={TOS}/>
-            <Route path="privacy" component={Privacy}/>
-          </Router>
-        </Provider>
-        <DebugPanel top right bottom>
-          <DevTools store={store} visibleOnLoad={false} monitor={LogMonitor} />
-        </DebugPanel>
+              <Route path="home" component={Home} />
+
+              <Route path="signin" component={SignIn} />
+              <Route path="signin/*" component={SignIn} />
+              <Route path="signin/**/*" component={SignIn} />
+              <Route path="signout" component={SignOut} />
+              <Route path="signout/*" component={SignOut} />
+              <Route path="signout/**/*" component={SignOut} />
+              <Route path="createuser" component={CreateUser} />
+              <Route path="createuser/*" component={CreateUser} />
+              <Route path="createuser/**/*" component={CreateUser} />
+              <Route path="pwreset/*" component={PasswordReset} />
+              <Route path="pwresetinit" component={PasswordResetInit} />
+              <Route path="pwresetinit/done" component={PasswordResetInitDone} />
+              <Route path="contrib" component={Contributor} />
+              <Route path="tos" component={TOS} />
+              <Route path="privacy" component={Privacy} />
+            </Router>
+          </Provider>
+        </ThemeProvider>
       </div>
     );
   }
 }
 
 // for material ui
-import injectTapEventPlugin from "react-tap-event-plugin";
+// import injectTapEventPlugin from "react-tap-event-plugin";
 
 //Needed for onTouchTap
 //Can go away when react 1.0 release
 //Check this repo:
 //https://github.com/zilverline/react-tap-event-plugin
-injectTapEventPlugin();
-
+// injectTapEventPlugin();
 
 window.$ = $;
 
-ReactDOM.render(<Root/>, document.getElementById("root"));
+ReactDOM.render(<Root />, document.getElementById("root"));

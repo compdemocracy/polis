@@ -3,20 +3,13 @@
 import React from "react";
 import { connect } from "react-redux";
 import Radium from "radium";
-import {VictoryChart} from "victory-chart";
-import {VictoryLine} from "victory-line";
-import {VictoryBar} from "victory-bar";
-import {VictoryAxis} from "victory-axis";
+import { VictoryChart } from "victory-chart";
+import { VictoryLine } from "victory-line";
+import { VictoryBar } from "victory-bar";
+import { VictoryAxis } from "victory-axis";
 
 @Radium
 class VotesTimescale extends React.Component {
-  static propTypes = {
-    dispatch: React.PropTypes.func,
-    params: React.PropTypes.object,
-    data: React.PropTypes.object,
-    chartWidth: React.PropTypes.number,
-    chartHeight: React.PropTypes.number
-  }
   render() {
     return (
       <VictoryChart
@@ -24,26 +17,24 @@ class VotesTimescale extends React.Component {
         height={this.props.chartHeight}
         scale={{
           x: d3.time.scale(this.props.data.voteTimes),
-          y: d3.scale.linear()
-        }}>
+          y: d3.scale.linear(),
+        }}
+      >
         <VictoryLine
           style={{
             data: {
               strokeWidth: 2,
-              stroke: "gold"
-            }
+              stroke: "gold",
+            },
           }}
           data={this.props.data.voteTimes.map((timestamp, i) => {
-            return {x: timestamp, y: i}
-          })}/>
-        <VictoryAxis
-          orientation="bottom"/>
-        <VictoryAxis
-          dependentAxis
-          label={"Votes"}
-          orientation={"left"}/>
+            return { x: timestamp, y: i };
+          })}
+        />
+        <VictoryAxis orientation="bottom" />
+        <VictoryAxis dependentAxis label={"Votes"} orientation={"left"} />
       </VictoryChart>
-    )
+    );
   }
 }
 

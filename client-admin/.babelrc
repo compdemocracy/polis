@@ -1,31 +1,20 @@
 {
   "env": {
-    "production": {
-      "stage": 0
-    },
     "development": {
-      "stage": 0,
-      "plugins": ["react-transform"],
-      "extra": {
-        "react-transform": {
-          "transforms": [{
-            "transform": "react-transform-hmr",
-            "imports": ["react"],
-            "locals": ["module"]
-          }, {
-            "transform": "react-transform-catch-errors",
-            "imports": ["react", "redbox-react"]
-          }]
-        }
-      }
+      "plugins": ["react-transform"]
     },
     "test": {
-      "presets": ["es2015", "react"],
+      "presets": ["@babel/preset-env", "@babel/preset-react"],
       "plugins": [
-        "syntax-decorators",
-        "transform-class-properties",
-        "transform-es2015-computed-properties",
-        "transform-object-rest-spread"
+        [
+          "@babel/plugin-syntax-decorators",
+          {
+            "legacy": true
+          }
+        ],
+        "@babel/plugin-proposal-class-properties",
+        "@babel/plugin-transform-computed-properties",
+        "@babel/plugin-proposal-object-rest-spread"
       ]
     }
   }
