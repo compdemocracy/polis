@@ -1,20 +1,10 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import _ from "lodash";
-import ComponentHelpers from "../../util/component-helpers";
-import Flex from "../framework/flex";
-import NavTab from "../framework/nav-tab";
-import NoPermission from "./no-permission";
+
 import PolisNet from "../../util/net";
 import Radium from "radium";
 import React from "react";
-import InputField from "material-ui/TextField";
-import Awesome from "react-fontawesome";
-import Alert from "react-s-alert";
-
-import { connect } from "react-redux";
-import { Link } from "react-router";
-import { populateAllCommentStores } from "../../actions";
 
 const cardPadding = 10;
 const cardBorderRadius = 3;
@@ -114,22 +104,23 @@ class ReportConfig extends React.Component {
       data: JSON.stringify(data),
     })
       .then(() => {
-        Alert.info("Saved!", {
-          position: "top-right",
-          beep: false,
-          timeout: 1500,
-          offset: 80,
-        });
+        console.log("saved");
+        // Alert.info("Saved!", {
+        //   position: "top-right",
+        //   beep: false,
+        //   timeout: 1500,
+        //   offset: 80,
+        // });
       })
       .fail((err) => {
         console.error(err);
 
-        Alert.error("Error saving. Check your internet connection and try again.", {
-          position: "top-right",
-          beep: true,
-          timeout: 5000,
-          offset: 80,
-        });
+        // Alert.error("Error saving. Check your internet connection and try again.", {
+        //   position: "top-right",
+        //   beep: true,
+        //   timeout: 5000,
+        //   offset: 80,
+        // });
       });
   }
 
@@ -153,106 +144,107 @@ class ReportConfig extends React.Component {
     };
   }
 
-  createMarkup() {
-    return (
-      <div>
-        <Alert />
-        <button style={styles.button} onClick={this.updateReport.bind(this)}>
-          <Awesome name="floppy-o" />
-          <span style={{ marginLeft: 10 }}>{"Save"}</span>
-        </button>
-        {/* error and loading may go here - see conversation-config.js */}
-        <div style={styles.configCard}>
-          <p style={styles.sectionHeader}>Report {this.props.params.report_id}</p>
-          <InputField
-            ref={"report_name"}
-            style={{ width: 360 }}
-            onChange={this.handleConfigInputTyping("report_name").bind(this)}
-            value={this.state.report["report_name"]}
-            hintText="ie., 'Monthly check-in (August)'"
-            floatingLabelText={"Report name"}
-            multiLine={true}
-          />
-          <p style={{ fontSize: 10, fontStyle: "italic" }}> </p>
-        </div>
-        <div style={styles.configCard}>
-          <p style={styles.sectionHeader}> Create axis labels </p>
-          <div>
-            <InputField
-              ref={"label_x_neg"}
-              style={{ width: 360 }}
-              onChange={this.handleConfigInputTyping("label_x_neg").bind(this)}
-              value={this.state.report["label_x_neg"]}
-              hintText="ie., 'In favor of more regulation'"
-              floatingLabelText={"Label for negative x axis (←)"}
-              multiLine={true}
-            />
-            <InputField
-              ref={"label_x_pos"}
-              style={{ width: 360 }}
-              onChange={this.handleConfigInputTyping("label_x_pos").bind(this)}
-              value={this.state.report["label_x_pos"]}
-              hintText="ie., 'Opposed to more regulation'"
-              floatingLabelText={"Label for positive x axis (→)"}
-              multiLine={true}
-            />
-            <InputField
-              ref={"label_y_neg"}
-              style={{ width: 360 }}
-              onChange={this.handleConfigInputTyping("label_y_neg").bind(this)}
-              value={this.state.report["label_y_neg"]}
-              hintText="ie., 'Individuals are responsible'"
-              floatingLabelText={"Label for negative y axis (↓)"}
-              multiLine={true}
-            />
-            <InputField
-              ref={"label_y_pos"}
-              style={{ width: 360 }}
-              onChange={this.handleConfigInputTyping("label_y_pos").bind(this)}
-              value={this.state.report["label_y_pos"]}
-              hintText="ie., 'Society is responsible'"
-              floatingLabelText={"Label for positive y axis (↑)"}
-              multiLine={true}
-            />
-          </div>
-        </div>
-        <div style={styles.configCard}>
-          <p style={styles.sectionHeader}> Create group nicknames </p>
-          <div>
-            {
-              /* we have 10 groups max hardcoded for now */
-              [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((d, i) => {
-                // if (!this.state.report["label_group_" + i]) {return}
-                let userVisibleGroupId = i + 1;
-                return (
-                  <InputField
-                    ref={"label_group_" + i}
-                    style={{ width: 360 }}
-                    onChange={this.handleConfigInputTyping("label_group_" + i).bind(this)}
-                    value={this.state.report["label_group_" + i]}
-                    hintText="ie., 'Dog lovers'"
-                    floatingLabelText={"Group " + userVisibleGroupId + " nickname"}
-                    multiLine={true}
-                  />
-                );
-              })
-            }
-          </div>
-        </div>
-        {/* container */}{" "}
-      </div>
-    );
-  }
+  // createMarkup() {
+  //   return (
+  //     <div>
+  //       <Alert />
+  //       <button style={styles.button} onClick={this.updateReport.bind(this)}>
+  //         <Awesome name="floppy-o" />
+  //         <span style={{ marginLeft: 10 }}>{"Save"}</span>
+  //       </button>
+  //       {/* error and loading may go here - see conversation-config.js */}
+  //       <div style={styles.configCard}>
+  //         <p style={styles.sectionHeader}>Report {this.props.params.report_id}</p>
+  //         <InputField
+  //           ref={"report_name"}
+  //           style={{ width: 360 }}
+  //           onChange={this.handleConfigInputTyping("report_name").bind(this)}
+  //           value={this.state.report["report_name"]}
+  //           hintText="ie., 'Monthly check-in (August)'"
+  //           floatingLabelText={"Report name"}
+  //           multiLine={true}
+  //         />
+  //         <p style={{ fontSize: 10, fontStyle: "italic" }}> </p>
+  //       </div>
+  //       <div style={styles.configCard}>
+  //         <p style={styles.sectionHeader}> Create axis labels </p>
+  //         <div>
+  //           <InputField
+  //             ref={"label_x_neg"}
+  //             style={{ width: 360 }}
+  //             onChange={this.handleConfigInputTyping("label_x_neg").bind(this)}
+  //             value={this.state.report["label_x_neg"]}
+  //             hintText="ie., 'In favor of more regulation'"
+  //             floatingLabelText={"Label for negative x axis (←)"}
+  //             multiLine={true}
+  //           />
+  //           <InputField
+  //             ref={"label_x_pos"}
+  //             style={{ width: 360 }}
+  //             onChange={this.handleConfigInputTyping("label_x_pos").bind(this)}
+  //             value={this.state.report["label_x_pos"]}
+  //             hintText="ie., 'Opposed to more regulation'"
+  //             floatingLabelText={"Label for positive x axis (→)"}
+  //             multiLine={true}
+  //           />
+  //           <InputField
+  //             ref={"label_y_neg"}
+  //             style={{ width: 360 }}
+  //             onChange={this.handleConfigInputTyping("label_y_neg").bind(this)}
+  //             value={this.state.report["label_y_neg"]}
+  //             hintText="ie., 'Individuals are responsible'"
+  //             floatingLabelText={"Label for negative y axis (↓)"}
+  //             multiLine={true}
+  //           />
+  //           <InputField
+  //             ref={"label_y_pos"}
+  //             style={{ width: 360 }}
+  //             onChange={this.handleConfigInputTyping("label_y_pos").bind(this)}
+  //             value={this.state.report["label_y_pos"]}
+  //             hintText="ie., 'Society is responsible'"
+  //             floatingLabelText={"Label for positive y axis (↑)"}
+  //             multiLine={true}
+  //           />
+  //         </div>
+  //       </div>
+  //       <div style={styles.configCard}>
+  //         <p style={styles.sectionHeader}> Create group nicknames </p>
+  //         <div>
+  //           {
+  //             /* we have 10 groups max hardcoded for now */
+  //             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((d, i) => {
+  //               // if (!this.state.report["label_group_" + i]) {return}
+  //               let userVisibleGroupId = i + 1;
+  //               return (
+  //                 <InputField
+  //                   ref={"label_group_" + i}
+  //                   style={{ width: 360 }}
+  //                   onChange={this.handleConfigInputTyping("label_group_" + i).bind(this)}
+  //                   value={this.state.report["label_group_" + i]}
+  //                   hintText="ie., 'Dog lovers'"
+  //                   floatingLabelText={"Group " + userVisibleGroupId + " nickname"}
+  //                   multiLine={true}
+  //                 />
+  //               );
+  //             })
+  //           }
+  //         </div>
+  //       </div>
+  //       {/* container */}{" "}
+  //     </div>
+  //   );
+  // }
 
   render() {
-    return (
-      <div style={styles.container}>{this.state.report ? this.createMarkup() : "Loading"}</div>
-    );
+    return <div> Report configuration (construction in progress) </div>;
   }
 }
 
 export default ReportConfig;
 
+{
+  /* <div style={styles.container}>{this.state.report ? this.createMarkup() : "Loading"}</div> */
+}
 // {
 //   "report_id":"r6ehukhk29tcfmuc57vrj",
 //   "created":"1488835750478",
