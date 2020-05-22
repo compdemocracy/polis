@@ -4,42 +4,32 @@ import React from "react";
 import Radium from "radium";
 import Comment from "./summary-comment";
 
-
 @Radium
 class SummaryConsensus extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      pagination: 0
+      pagination: 0,
     };
-  }
-  static propTypes = {
-    /* react */
-    params: React.PropTypes.object,
-    routes: React.PropTypes.array,
-    /* component api */
-    style: React.PropTypes.object,
   }
 
   getStyles() {
     return {
-      base: {
-
-      },
+      base: {},
       sectionHeader: {
         fontWeight: 500,
-        fontSize: 24
+        fontSize: 24,
       },
       container: {
         fontWeight: 300,
         maxWidth: 600,
-        marginBottom: 70
+        marginBottom: 70,
       },
       mostAgreedUpon: {
         backgroundColor: "rgb(46, 204, 113)",
         padding: "3px 6px",
         borderRadius: 3,
-        color: "white"
+        color: "white",
       },
       mostDisgreedUpon: {
         backgroundColor: "rgb(231, 76, 60)",
@@ -54,15 +44,16 @@ class SummaryConsensus extends React.Component {
     const math = this.props.math.math;
     const styles = this.getStyles();
     return math.consensus.agree.map((comment, i) => {
-        return (
-          <Comment
-            key={i}
-            majority={true}
-            agree={true}
-            first={i === 0 ? true : false}
-            {...comment}
-            {...comments[comment.tid]} />
-        );
+      return (
+        <Comment
+          key={i}
+          majority={true}
+          agree={true}
+          first={i === 0 ? true : false}
+          {...comment}
+          {...comments[comment.tid]}
+        />
+      );
     });
   }
   getConsensusDisagreeComments() {
@@ -70,13 +61,7 @@ class SummaryConsensus extends React.Component {
     const math = this.props.math.math;
     const styles = this.getStyles();
     return math.consensus.disagree.map((comment, i) => {
-      return (
-        <Comment
-          key={i}
-          majority={true}
-          {...comment}
-          {...comments[comment.tid]} />
-      );
+      return <Comment key={i} majority={true} {...comment} {...comments[comment.tid]} />;
     });
   }
   render() {
