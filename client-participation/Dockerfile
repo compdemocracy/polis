@@ -13,8 +13,8 @@ RUN npm install -g bower
 COPY package*.json ./
 COPY bower.json ./
 
-RUN npm ci --silent
-RUN bower install --allow-root --silent
+RUN npm ci
+RUN bower install --allow-root
 
 RUN apk del .build
 
