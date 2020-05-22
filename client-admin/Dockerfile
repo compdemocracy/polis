@@ -8,7 +8,7 @@ WORKDIR /app
 RUN apk add git --no-cache
 
 COPY package*.json npm-shrinkwrap.json ./
-RUN npm install --silent
+RUN npm install
 
 COPY . .
 COPY polis.config.template.js polis.config.js

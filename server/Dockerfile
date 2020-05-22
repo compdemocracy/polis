@@ -9,7 +9,7 @@ RUN apk add --no-cache --virtual .build \
 
 COPY package*.json ./
 # TODO get `npm ci` to work
-RUN npm install --silent
+RUN npm install
 
 RUN apk del .build
 

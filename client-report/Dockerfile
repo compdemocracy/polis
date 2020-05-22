@@ -7,7 +7,7 @@ WORKDIR /app
 RUN apk add git --no-cache
 
 COPY package*.json ./
-RUN npm ci --silent
+RUN npm ci
 
 COPY . .
 COPY polis.config.template.js polis.config.js
