@@ -5,34 +5,33 @@ import { connect } from "react-redux";
 import Radium from "radium";
 import _ from "lodash";
 import Awesome from "react-fontawesome";
-import {Link} from "react-router";
+import { Link } from "react-router-dom";
 import MaterialTitlePanel from "./material-title-panel-sidebar";
 import SidebarItem from "./sidebar-item";
 
 const styles = {
   sidebar: {
     width: 256,
-    height: "100%"
+    height: "100%",
   },
   sidebarLink: {
     display: "block",
     padding: "16px 0px 16px 16px",
     color: "#757575",
-    textDecoration: "none"
+    textDecoration: "none",
   },
   divider: {
     height: 1,
-    backgroundColor: "#757575"
+    backgroundColor: "#757575",
   },
   content: {
     height: "100%",
-    backgroundColor: "white"
-  }
+    backgroundColor: "white",
+  },
 };
 
 @Radium
 class SidebarContentReport extends React.Component {
-
   handleClick() {
     if (this.props.onSidebarItemClicked) {
       this.props.onSidebarItemClicked();
@@ -45,36 +44,40 @@ class SidebarContentReport extends React.Component {
     return (
       <MaterialTitlePanel
         showHamburger={false}
-        title={"Pol.is/"+this.props.report_id}
-        style={this.props.style ? {...styles.sidebar, ...this.props.style} : styles.sidebar}>
+        title={"Pol.is/" + this.props.report_id}
+        style={this.props.style ? { ...styles.sidebar, ...this.props.style } : styles.sidebar}
+      >
         <div style={styles.content} onClick={this.handleClick.bind(this)}>
           <SidebarItem
             to={"/m/" + p.conversation_id + "/reports"}
             selected={false}
             icon="chevron-left"
-            text="All Reports"/>
+            text="All Reports"
+          />
           <SidebarItem
-            to={"/m/"+p.conversation_id + "/reports/" + p.report_id}
+            to={"/m/" + p.conversation_id + "/reports/" + p.report_id}
             selected={this.props.routes[4] && !this.props.routes[4].path}
             icon="gears"
-            text="Configure Report"/>
+            text="Configure Report"
+          />
           <SidebarItem
-            to={"/m/"+p.conversation_id + "/reports/" + p.report_id + "/comments"}
+            to={"/m/" + p.conversation_id + "/reports/" + p.report_id + "/comments"}
             selected={this.props.routes[4] && this.props.routes[4].path === "comments"}
             icon="comments"
-            text="Matrix Comments"/>
+            text="Matrix Comments"
+          />
           <div style={styles.divider} />
           <a style={styles.sidebarLink} target="blank" href="http://docs.pol.is">
-            <Awesome name="align-left"/><span style={{marginLeft: 10}}>Docs</span>
+            <Awesome name="align-left" />
+            <span style={{ marginLeft: 10 }}>Docs</span>
           </a>
           <a style={styles.sidebarLink} target="blank" href="https://twitter.com/UsePolis">
-            <Awesome style={{color: "#4099FF"}} name="twitter"/><span style={{marginLeft: 10}}>@UsePolis</span>
+            <Awesome style={{ color: "#4099FF" }} name="twitter" />
+            <span style={{ marginLeft: 10 }}>@UsePolis</span>
           </a>
-          <Link
-            style={styles.sidebarLink}
-            to={"/signout"}>
-            <Awesome name="sign-out"/>
-            <span style={{marginLeft: 10}}>Sign Out</span>
+          <Link style={styles.sidebarLink} to={"/signout"}>
+            <Awesome name="sign-out" />
+            <span style={{ marginLeft: 10 }}>Sign Out</span>
           </Link>
         </div>
       </MaterialTitlePanel>
