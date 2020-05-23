@@ -9,7 +9,7 @@ import PolisNet from "../../util/net";
 import Radium from "radium";
 import React from "react";
 import { connect } from "react-redux";
-import { Link } from "react-router";
+import { Link } from "react-router-dom";
 import { populateAllCommentStores } from "../../actions";
 
 const mapStateToProps = (state, ownProps) => {
@@ -17,14 +17,13 @@ const mapStateToProps = (state, ownProps) => {
     unmoderated: state.mod_comments_unmoderated,
     accepted: state.mod_comments_accepted,
     rejected: state.mod_comments_rejected,
-    seed: state.seed_comments
+    seed: state.seed_comments,
   };
 };
 
 const pollFrequency = 7000;
 
-
-@connect(state => state.zid_metadata)
+@connect((state) => state.zid_metadata)
 @connect(mapStateToProps)
 @Radium
 class CommentModeration extends React.Component {
@@ -32,7 +31,7 @@ class CommentModeration extends React.Component {
     return {
       navContainer: {
         margin: "10px 20px 20px 20px",
-      }
+      },
     };
   }
   loadComments() {
@@ -44,8 +43,12 @@ class CommentModeration extends React.Component {
       report_id: this.props.params.report_id,
     });
     commentsPromise.then((comments) => {
-      let included = comments.filter((c) => { return c.includeInReport; });
-      let excluded = comments.filter((c) => { return !c.includeInReport; });
+      let included = comments.filter((c) => {
+        return c.includeInReport;
+      });
+      let excluded = comments.filter((c) => {
+        return !c.includeInReport;
+      });
       this.setState({
         loading: false,
         includedComments: included,
@@ -66,7 +69,9 @@ class CommentModeration extends React.Component {
     this.state.excludedComments.push(excluded);
     this.setState({
       excludedComments: this.state.excludedComments,
-      includedComments: this.state.includedComments.filter((c) => { return c.tid !== excluded.tid;}),
+      includedComments: this.state.includedComments.filter((c) => {
+        return c.tid !== excluded.tid;
+      }),
     });
     PolisNet.polisPost("/api/v3/reportCommentSelections", {
       include: false,
@@ -79,7 +84,9 @@ class CommentModeration extends React.Component {
     this.state.includedComments.push(included);
     this.setState({
       includedComments: this.state.includedComments,
-      excludedComments: this.state.excludedComments.filter((c) => { return c.tid !== included.tid;}),
+      excludedComments: this.state.excludedComments.filter((c) => {
+        return c.tid !== included.tid;
+      }),
     });
     PolisNet.polisPost("/api/v3/reportCommentSelections", {
       include: true,
@@ -90,7 +97,7 @@ class CommentModeration extends React.Component {
   }
   render() {
     if (ComponentHelpers.shouldShowPermissionsError(this.props)) {
-      return <NoPermission/>;
+      return <NoPermission />;
     }
 
     const styles = this.getStyles();
@@ -98,30 +105,21 @@ class CommentModeration extends React.Component {
 
     return (
       <div>
-        <Flex
-          wrap="wrap"
-          justifyContent="flex-start"
-          styleOverrides={styles.navContainer}>
+        <Flex wrap="wrap" justifyContent="flex-start" styleOverrides={styles.navContainer}>
           <NavTab
-            active={this.props.routes[numRouteElements-1].path === "included"}
+            active={this.props.routes[numRouteElements - 1].path === "included"}
             url={`/m/${this.props.params.conversation_id}/reports/${this.props.params.report_id}/comments/included`}
             empty={0}
             text="Included"
-            number={
-              this.state.includedComments ?
-                this.state.includedComments.length :
-                "..."
-              }/>
+            number={this.state.includedComments ? this.state.includedComments.length : "..."}
+          />
           <NavTab
-            active={this.props.routes[numRouteElements-1].path === "excluded"}
+            active={this.props.routes[numRouteElements - 1].path === "excluded"}
             url={`/m/${this.props.params.conversation_id}/reports/${this.props.params.report_id}/comments/excluded`}
             empty={0}
             text="Excluded"
-            number={
-              this.state.excludedComments ?
-                this.state.excludedComments.length :
-                "..."
-              }/>
+            number={this.state.excludedComments ? this.state.excludedComments.length : "..."}
+          />
         </Flex>
 
         {React.cloneElement(this.props.children, {
@@ -130,14 +128,12 @@ class CommentModeration extends React.Component {
           commentWasIncluded: this.commentWasIncluded.bind(this),
           commentWasExcluded: this.commentWasExcluded.bind(this),
         })}
-
       </div>
     );
   }
 }
 
 export default CommentModeration;
-
 
 // <p style={{fontSize: 12}}>
 //   {"Read about "}

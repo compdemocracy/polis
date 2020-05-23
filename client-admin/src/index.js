@@ -4,8 +4,10 @@ import $ from "jquery";
 
 import React from "react";
 import ReactDOM from "react-dom";
-import { Router, Route, IndexRoute, browserHistory } from "react-router";
 import { Provider } from "react-redux";
+
+import { Router, Switch, Route, Link } from "react-router-dom";
+import history from "./history";
 
 import configureStore from "./store";
 import { ThemeProvider } from "theme-ui";
@@ -74,24 +76,24 @@ class Root extends React.Component {
       <div>
         <ThemeProvider theme={theme}>
           <Provider store={store}>
-            <Router history={browserHistory}>
+            <Router history={history}>
               <Route path="/" component={Console}>
-                <IndexRoute component={Conversations} />
+                <Route exact component={Conversations} />
                 <Route path="other-conversations" component={Conversations} />
                 <Route path="integrate" component={Integrate} />
                 <Route path="overall-stats" component={OverallStats} />
                 <Route path="account" component={Account} />
                 <Route path="m/:conversation_id" component={ConversationAdminContainer}>
-                  <IndexRoute component={ConversationConfig} />
+                  <Route exact component={ConversationConfig} />
                   <Route path="live" component={Live} />
                   <Route path="share" component={ShareAndEmbed} />
                   <Route path="summary" component={Summary} />
                   <Route path="reports" component={Reports}>
-                    <IndexRoute component={ReportsList} />
+                    <Route exact component={ReportsList} />
                     <Route path=":report_id" component={Container}>
-                      <IndexRoute component={ReportConfig} />
+                      <Route exact component={ReportConfig} />
                       <Route path="comments" component={ReportComments}>
-                        <IndexRoute component={ReportCommentsIncluded} />
+                        <Route exact component={ReportCommentsIncluded} />
                         <Route path="included" component={ReportCommentsIncluded} />
                         <Route path="excluded" component={ReportCommentsExcluded} />
                       </Route>
@@ -99,14 +101,14 @@ class Root extends React.Component {
                   </Route>
                   <Route path="reports" component={Reports} />
                   <Route path="comments" component={ModerateComments}>
-                    <IndexRoute component={ModerateCommentsTodo} />
+                    <Route exact component={ModerateCommentsTodo} />
                     <Route path="accepted" component={ModerateCommentsAccepted} />
                     <Route path="rejected" component={ModerateCommentsRejected} />
                     <Route path="seed" component={ModerateCommentsSeed} />
                     <Route path="seed_tweet" component={ModerateCommentsSeedTweet} />
                   </Route>
                   <Route path="participants" component={ParticipantModeration}>
-                    <IndexRoute component={ParticipantModerationDefault} />
+                    <Route exact component={ParticipantModerationDefault} />
                     <Route path="featured" component={ParticipantModerationFeatured} />
                     <Route path="hidden" component={ParticipantModerationHidden} />
                   </Route>

@@ -4,21 +4,20 @@ var path = require("path");
 var webpack = require("webpack");
 
 module.exports = {
-  // devtool: "source-map",
   entry: ["./src/index"],
   output: {
     path: path.join(__dirname, "dist"),
     filename: "admin_bundle.js",
     publicPath: "/dist/",
   },
+  resolve: {
+    extensions: [".js", ".css", ".png", ".svg"],
+  },
   plugins: [
     new webpack.DefinePlugin({
       "process.env.NODE_ENV": JSON.stringify("production"),
     }),
   ],
-  resolve: {
-    extensions: [".js", ".css", ".png", ".svg"],
-  },
   optimization: {
     minimize: true, //Update this to true or false
   },

@@ -2,7 +2,7 @@
 
 import React from "react";
 import Radium from "radium";
-import { Link } from "react-router";
+import { Link } from "react-router-dom";
 import Awesome from "react-fontawesome";
 import { s } from "./framework/global-styles";
 
