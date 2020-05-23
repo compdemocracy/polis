@@ -8,7 +8,7 @@ import NoPermission from "./no-permission";
 import Radium from "radium";
 import React from "react";
 import { connect } from "react-redux";
-import { Link } from "react-router";
+import { Link } from "react-router-dom";
 import { populateAllCommentStores } from "../../actions";
 
 const mapStateToProps = (state, ownProps) => {
@@ -16,14 +16,13 @@ const mapStateToProps = (state, ownProps) => {
     unmoderated: state.mod_comments_unmoderated,
     accepted: state.mod_comments_accepted,
     rejected: state.mod_comments_rejected,
-    seed: state.seed_comments
+    seed: state.seed_comments,
   };
 };
 
 const pollFrequency = 60000;
 
-
-@connect(state => state.zid_metadata)
+@connect((state) => state.zid_metadata)
 @connect(mapStateToProps)
 @Radium
 class CommentModeration extends React.Component {
@@ -31,13 +30,11 @@ class CommentModeration extends React.Component {
     return {
       navContainer: {
         margin: "10px 20px 20px 20px",
-      }
+      },
     };
   }
   loadComments() {
-    this.props.dispatch(
-      populateAllCommentStores(this.props.params.conversation_id)
-    );
+    this.props.dispatch(populateAllCommentStores(this.props.params.conversation_id));
   }
   componentWillMount() {
     this.getCommentsRepeatedly = setInterval(() => {
@@ -52,48 +49,48 @@ class CommentModeration extends React.Component {
   }
   render() {
     if (ComponentHelpers.shouldShowPermissionsError(this.props)) {
-      return <NoPermission/>;
+      return <NoPermission />;
     }
 
     const styles = this.getStyles();
 
     return (
       <div>
-        <Flex
-          wrap="wrap"
-          justifyContent="flex-start"
-          styleOverrides={styles.navContainer}>
+        <Flex wrap="wrap" justifyContent="flex-start" styleOverrides={styles.navContainer}>
           <NavTab
             active={this.props.routes[3].path ? false : true}
             url={`/m/${this.props.params.conversation_id}/comments/`}
             empty={0}
             text="Unmoderated"
             number={
-              this.props.unmoderated.unmoderated_comments ?
-                this.props.unmoderated.unmoderated_comments.length :
-                "..."
-              }/>
+              this.props.unmoderated.unmoderated_comments
+                ? this.props.unmoderated.unmoderated_comments.length
+                : "..."
+            }
+          />
           <NavTab
             active={this.props.routes[3].path === "accepted"}
             url={`/m/${this.props.params.conversation_id}/comments/accepted`}
             empty={0}
             text="Accepted"
             number={
-              this.props.accepted.accepted_comments ?
-                this.props.accepted.accepted_comments.length :
-                "..."
-              }/>
+              this.props.accepted.accepted_comments
+                ? this.props.accepted.accepted_comments.length
+                : "..."
+            }
+          />
           <NavTab
             active={this.props.routes[3].path === "rejected"}
             url={`/m/${this.props.params.conversation_id}/comments/rejected`}
             empty={0}
             text="Rejected"
             number={
-              this.props.rejected.rejected_comments ?
-                this.props.rejected.rejected_comments.length :
-                "..."
-              }/>
-            {/* <NavTab
+              this.props.rejected.rejected_comments
+                ? this.props.rejected.rejected_comments.length
+                : "..."
+            }
+          />
+          {/* <NavTab
             active={this.props.routes[3].path === "seed"}
             url={`/m/${this.props.params.conversation_id}/comments/seed`}
             empty={""}
@@ -110,7 +107,6 @@ class CommentModeration extends React.Component {
 }
 
 export default CommentModeration;
-
 
 // <p style={{fontSize: 12}}>
 //   {"Read about "}

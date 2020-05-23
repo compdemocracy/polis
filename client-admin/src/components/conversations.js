@@ -3,10 +3,9 @@
 import React from "react";
 import { connect } from "react-redux";
 import { populateConversationsStore } from "../actions";
-import { browserHistory } from "react-router";
+// import history from "../history";
 import Radium from "radium";
 // import _ from "lodash";
-import Flex from "./framework/flex";
 import { handleCreateConversationSubmit } from "../actions";
 import Url from "../util/url";
 import { s } from "./framework/global-styles";
@@ -31,7 +30,7 @@ class Conversations extends React.Component {
 
   goTo(r) {
     return () => {
-      browserHistory.push(r);
+      // history.push(r); /* Colin 2020 TODO */
     };
   }
   goToConversation(conversation_id) {
@@ -40,7 +39,7 @@ class Conversations extends React.Component {
         window.open(`${Url.urlPrefix}${conversation_id}`, "_blank");
         return;
       }
-      browserHistory.push(`/m/${conversation_id}`);
+      // history.push(`/m/${conversation_id}`); /* Colin 2020 TODO */
     };
   }
 
@@ -102,43 +101,7 @@ class Conversations extends React.Component {
   onFilterChange() {
     this.setState();
   }
-  renderTutorialCards() {
-    return (
-      <Flex direction="row" alignItems="baseline" wrap="wrap">
-        <ConversationsTutorialCard
-          awesome="plus"
-          clickHandler={this.onNewClicked.bind(this)}
-          body={`
-            Single conversations are quick and flexible. You're in control. Drop in a title and
-            description, choose moderation settings and send a link to participants.
-            Great for playing around with pol.is or embedding pol.is as a feature
-            on a single page.
-          `}
-          title="Start a single conversation"
-        />
-        <ConversationsTutorialCard
-          awesome="code"
-          clickHandler={this.goTo(`/integrate`)}
-          body={`
-            Embed pol.is as a comment system across your entire site by dropping
-            a script tag into your templates. pol.is will keep track of which conversations
-            belong on which pages, and create new ones automatically when needed.
-          `}
-          title="Integrate polis into your site"
-        />
-        <ConversationsTutorialCard
-          awesome="align-left"
-          clickHandler={this.goToDocs}
-          body={`
-            Get oriented! Get the big picture of what pol.is can do and what the default
-            settings are. Check out the data pol.is produces and what you can do with it.
-            Learn about different ways to authenticate users.
-          `}
-          title={"Read the overview & documentation"}
-        />
-      </Flex>
-    );
-  }
+
   render() {
     const err = this.props.error;
     return (

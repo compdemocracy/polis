@@ -5,7 +5,7 @@ import { connect } from "react-redux";
 
 import _ from "lodash";
 import Flex from "./flex";
-import { Link } from "react-router";
+import { Link } from "react-router-dom";
 import HexLogo from "./hex-logo-tiny-long";
 
 @connect()
