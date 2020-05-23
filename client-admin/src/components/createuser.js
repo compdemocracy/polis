@@ -7,7 +7,7 @@ import Radium from "radium";
 import Flex from "./framework/flex";
 import Button from "./framework/generic-button";
 import Awesome from "react-fontawesome";
-import {Link} from "react-router";
+import { Link } from "react-router-dom";
 import StaticContentContainer from "./framework/static-content-container";
 import strings from "../strings/strings";
 
@@ -16,19 +16,19 @@ const styles = {
     fontSize: 36,
     display: "block",
     marginBottom: 20,
-    marginTop: 0
+    marginTop: 0,
   },
   card: {
     position: "relative",
     zIndex: 10,
     padding: 20,
     borderRadius: 3,
-    color: "rgb(130,130,130)"
+    color: "rgb(130,130,130)",
   },
   button: {
     display: "block",
     backgroundColor: "#03a9f4",
-    color: "white"
+    color: "white",
   },
   input: {
     display: "block",
@@ -50,28 +50,27 @@ const styles = {
   },
   termsContainer: {
     marginTop: 20,
-    marginBottom: 20
+    marginBottom: 20,
   },
   links: {
     color: "rgb(130,130,130)",
-    textDecoration: "underline"
+    textDecoration: "underline",
   },
   signinContainer: {
-    marginTop: 20
+    marginTop: 20,
   },
   termsSmallprint: {
     fontSize: 12,
     maxWidth: 400,
     fontWeight: 300,
     lineHeight: 1.3,
-    color: "rgb(130,130,130)"
-  }
+    color: "rgb(130,130,130)",
+  },
 };
 
-@connect(state => state.signin)
+@connect((state) => state.signin)
 @Radium
 class SignIn extends React.Component {
-
   getDest() {
     return this.props.location.pathname.slice("/createuser".length);
   }
@@ -101,7 +100,7 @@ class SignIn extends React.Component {
     if (!dest.length) {
       dest = "/";
     }
-    this.props.dispatch(doFacebookSignin(dest))
+    this.props.dispatch(doFacebookSignin(dest));
   }
 
   handleFacebookPasswordSubmit() {
@@ -109,17 +108,13 @@ class SignIn extends React.Component {
     if (!dest.length) {
       dest = "/";
     }
-    const optionalPassword = this.refs.facebook_password.value
-    this.props.dispatch(doFacebookSignin(dest, optionalPassword))
+    const optionalPassword = this.refs.facebook_password.value;
+    this.props.dispatch(doFacebookSignin(dest, optionalPassword));
   }
   maybeErrorMessage() {
-    let markup = ""
+    let markup = "";
     if (this.props.error) {
-      markup = (
-        <div style={styles.error}>
-          { strings(this.props.error.responseText) }
-        </div>
-      );
+      markup = <div style={styles.error}>{strings(this.props.error.responseText)}</div>;
     }
     return markup;
   }
@@ -127,33 +122,30 @@ class SignIn extends React.Component {
     return (
       <div>
         <form>
-          <input
-            style={styles.input}
-            ref="hname"
-            placeholder="name"
-            type="text"/>
-          <input
-            style={styles.input}
-            ref="email"
-            placeholder="email"
-            type="email"/>
-          <input
-            style={styles.input}
-            ref="password"
-            placeholder="password"
-            type="password"/>
+          <input style={styles.input} ref="hname" placeholder="name" type="text" />
+          <input style={styles.input} ref="email" placeholder="email" type="email" />
+          <input style={styles.input} ref="password" placeholder="password" type="password" />
           <input
             style={styles.input}
             ref="password2"
             placeholder="repeat password"
-            type="password"/>
+            type="password"
+          />
 
           {this.maybeErrorMessage()}
 
           <div style={styles.termsContainer}>
-            <p style={styles.termsSmallprint}>{"I agree to the "}
+            <p style={styles.termsSmallprint}>
+              {"I agree to the "}
               <a href="https://pol.is/tos" tabindex="110" style={styles.links}>
-              pol.is terms</a> and <a href="https://pol.is/privacy" tabindex="111" style={styles.links} > privacy agreement</a>.
+                pol.is terms
+              </a>{" "}
+              and{" "}
+              <a href="https://pol.is/privacy" tabindex="111" style={styles.links}>
+                {" "}
+                privacy agreement
+              </a>
+              .
             </p>
           </div>
 
@@ -166,27 +158,32 @@ class SignIn extends React.Component {
             "If you click 'Sign in with Facebook' and are not a pol.is user, you will be registered and you agree to the pol.is terms and privacy policy"
           }
         </p>
-        <Button
-          style={styles.facebookButton}
-          onClick={this.facebookButtonClicked.bind(this)}>
-          <Awesome style={{
-            color: "#3b5998",
-            backgroundColor: "rgb(255,255,255)",
-            padding: "3px 5px",
-            borderRadius: 3,
-          }} name="facebook"/>
-        <span style={{marginLeft: 10}}>{"Sign up with Facebook"}</span>
+        <Button style={styles.facebookButton} onClick={this.facebookButtonClicked.bind(this)}>
+          <Awesome
+            style={{
+              color: "#3b5998",
+              backgroundColor: "rgb(255,255,255)",
+              padding: "3px 5px",
+              borderRadius: 3,
+            }}
+            name="facebook"
+          />
+          <span style={{ marginLeft: 10 }}>{"Sign up with Facebook"}</span>
         </Button>
 
         <div style={styles.signinContainer}>
           {"Already have an account? "}
-          <Link style={styles.links} tabindex="6" to={"/signin" + this.getDest()} data-section="signup-select">
+          <Link
+            style={styles.links}
+            tabindex="6"
+            to={"/signin" + this.getDest()}
+            data-section="signup-select"
+          >
             Sign in
           </Link>
         </div>
-
       </div>
-    )
+    );
   }
 
   drawPasswordConnectFacebookForm() {
@@ -197,8 +194,9 @@ class SignIn extends React.Component {
             fontSize: 16,
             maxWidth: 400,
             fontWeight: 100,
-            lineHeight: 1.4
-          }}>
+            lineHeight: 1.4,
+          }}
+        >
           {
             "A pol.is user already exists with the email address associated with this Facebook account."
           }
@@ -208,22 +206,20 @@ class SignIn extends React.Component {
             fontSize: 16,
             maxWidth: 400,
             fontWeight: 100,
-            lineHeight: 1.4
-          }}>
-          {
-            "Please enter the password to your pol.is account to enable Facebook login."
-          }
+            lineHeight: 1.4,
+          }}
+        >
+          {"Please enter the password to your pol.is account to enable Facebook login."}
         </p>
         <input
           style={styles.input}
           ref="facebook_password"
           placeholder="polis password"
-          type="password"/>
-          <Button
-            style={styles.button}
-            onClick={this.handleFacebookPasswordSubmit.bind(this)}>
-            { "Connect Facebook Account" }
-          </Button>
+          type="password"
+        />
+        <Button style={styles.button} onClick={this.handleFacebookPasswordSubmit.bind(this)}>
+          {"Connect Facebook Account"}
+        </Button>
       </span>
     );
   }
@@ -234,16 +230,16 @@ class SignIn extends React.Component {
         backgroundColor={"#03a9f4"}
         headerBackgroundColor={"#03a9f4"}
         footerBackgroundColor={"#03a9f4"}
-        image={false}>
+        image={false}
+      >
         <Flex>
           <div style={styles.card}>
             <p style={styles.heading}>
               <Awesome name={"sign-in"} /> Create Account
             </p>
-            {
-              this.props.facebookError !== "polis_err_user_with_this_email_exists" ?
-                this.drawForm() : this.drawPasswordConnectFacebookForm()
-            }
+            {this.props.facebookError !== "polis_err_user_with_this_email_exists"
+              ? this.drawForm()
+              : this.drawPasswordConnectFacebookForm()}
           </div>
         </Flex>
       </StaticContentContainer>

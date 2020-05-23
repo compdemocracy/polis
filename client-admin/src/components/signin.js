@@ -4,7 +4,7 @@ import React from "react";
 import { connect } from "react-redux";
 import { doSignin, doFacebookSignin } from "../actions";
 import Radium from "radium";
-import { Link } from "react-router";
+import { Link } from "react-router-dom";
 
 import Button from "./framework/generic-button";
 import LanderContainer from "./App/Container/LanderContainer";
@@ -58,6 +58,15 @@ const styles = {
 @connect((state) => state.signin)
 @Radium
 class SignIn extends React.Component {
+  static getDerivedStateFromError(error) {
+    // Update state so the next render will show the fallback UI.
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    // You can also log the error to an error reporting service
+    console.log(error, errorInfo);
+  }
   getDest() {
     return this.props.location.pathname.slice("/signin".length);
   }
