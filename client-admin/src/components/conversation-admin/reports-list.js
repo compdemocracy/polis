@@ -8,8 +8,7 @@ import PolisNet from "../../util/net";
 import Radium from "radium";
 import React from "react";
 import { connect } from "react-redux";
-import { Link } from "react-router";
-
+import { Link } from "react-router-dom";
 
 const styles = {
   card: {
@@ -18,7 +17,7 @@ const styles = {
     borderRadius: 3,
     padding: "10px 10px",
     WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
-    BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
+    BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
   },
   button: {
     margin: "10px 20px 10px 20px",
@@ -29,13 +28,12 @@ const styles = {
     padding: "10px 20px",
     cursor: "pointer",
     borderRadius: 3,
-  }
-}
+  },
+};
 
-@connect(state => state.zid_metadata)
+@connect((state) => state.zid_metadata)
 @Radium
 class ReportsList extends React.Component {
-
   constructor(props) {
     super(props);
     this.state = {
@@ -74,31 +72,33 @@ class ReportsList extends React.Component {
     }
     return (
       <div>
-        <div style={styles.button} onClick={this.createReportClicked.bind(this)}><Awesome name="plus"/>
-          <span style={{marginLeft: 10}}>{"Create new report"}</span>
+        <div style={styles.button} onClick={this.createReportClicked.bind(this)}>
+          <Awesome name="plus" />
+          <span style={{ marginLeft: 10 }}>{"Create new report"}</span>
         </div>
         {this.state.reports.map((report) => {
-          return (<div style={styles.card} key={report.report_id}>
-            {report.report_id}
-            {' '}
-            <Link
-              to={"/m/" + this.props.params.conversation_id + "/reports/" + report.report_id}
-              style={styles.base}>
-              <Awesome style={{marginRight: 10}} name="gears"/>
-              Edit
-            </Link>
-            {' '}
-            <a href={"/report/" + report.report_id}>View</a>
-          </div>);
+          return (
+            <div style={styles.card} key={report.report_id}>
+              {report.report_id}{" "}
+              <Link
+                to={"/m/" + this.props.params.conversation_id + "/reports/" + report.report_id}
+                style={styles.base}
+              >
+                <Awesome style={{ marginRight: 10 }} name="gears" />
+                Edit
+              </Link>{" "}
+              <a href={"/report/" + report.report_id}>View</a>
+            </div>
+          );
         })}
       </div>
     );
   }
 }
-            // <Link
-            //   to={"/reports/" + report.report_id}
-            //   style={styles.base}>
-            //   View
-            // </Link>
+// <Link
+//   to={"/reports/" + report.report_id}
+//   style={styles.base}>
+//   View
+// </Link>
 
 export default ReportsList;

@@ -5,7 +5,7 @@ import { connect } from "react-redux";
 import Radium from "radium";
 // import _ from "lodash";
 import Awesome from "react-fontawesome";
-import { Link } from "react-router";
+import { Link } from "react-router-dom";
 import MaterialTitlePanel from "./material-title-panel-sidebar";
 import { handleCreateConversationSubmit } from "../actions";
 import SidebarItem from "./sidebar-item";
