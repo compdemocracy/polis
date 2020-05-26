@@ -2,51 +2,17 @@
 
 import React from "react";
 import { connect } from "react-redux";
-import Radium from "radium";
 import _ from "lodash";
 import Highlight from "react-highlight";
-import MaterialTitlePanel from './material-title-panel';
-import Flex from "./framework/flex";
 
-const styles = {
-  container: {
-    margin: 0,
-    padding: 10
-  },
-  card: {
-    backgroundColor: "rgb(253,253,253)",
-    borderRadius: 3,
-    padding: 10,
-    WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
-    BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
-  },
-  code: {
-    backgroundColor: "rgb(240,240,240)",
-    padding: "10px 20px",
-    borderRadius: 3,
-    fontSize: 12
-  },
-  body: {
-    userSelect: "none",
-    fontWeight: 300,
-    lineHeight: 1.5,
-    maxWidth: 700,
-  }
-}
-
-@connect(state => state.user)
-@Radium
+@connect((state) => state.user)
 class Integrate extends React.Component {
   render() {
     return (
-      <Flex styleOverrides={styles.container}>
-        <div style={styles.card}>
-          <p style={{
-            fontSize: 24,
-            fontWeight: 700
-          }}> {"Embed Code"} </p>
-        <p
-          style={styles.body}>
+      <div>
+        <div>
+          <p>Embed Code</p>
+          <p>
             {`
               Copy and paste this code into your content management template.
               Each page (article, post) requires a unique string in the \"PAGE_ID\" field.
@@ -54,8 +20,7 @@ class Integrate extends React.Component {
               each of your pages (like the article title).
             `}
           </p>
-          <ul
-            style={styles.body}>
+          <ul>
             <li>
               {`
                 When this embed code loads on your website, it will either
@@ -76,19 +41,23 @@ class Integrate extends React.Component {
               `}
             </li>
             <li>
-                {`Check out `}
-                <a href="http://docs.pol.is" style={{color: "black"}}>the docs</a>
-                {` for advanced functionality, including per-user configuration,
+              {`Check out `}
+              <a href="http://docs.pol.is" style={{ color: "black" }}>
+                the docs
+              </a>
+              {` for advanced functionality, including per-user configuration,
                 use with proprietary authorization, and eventing.`}
             </li>
           </ul>
-          <div style={styles.code}>
+          <div>
             <Highlight>
               {"<div\n"}
               {"  class='polis'\n"}
               {"  data-page_id='PAGE_ID'\n"}
               {"  data-site_id='"}
-              {this.props.user === null ? "__loading, try refreshing__" : this.props.user.site_ids[0]}
+              {this.props.user === null
+                ? "__loading, try refreshing__"
+                : this.props.user.site_ids[0]}
               {"'>\n"}
               {"</div>\n"}
               {"<script async\n"}
@@ -97,7 +66,7 @@ class Integrate extends React.Component {
             </Highlight>
           </div>
         </div>
-      </Flex>
+      </div>
     );
   }
 }
