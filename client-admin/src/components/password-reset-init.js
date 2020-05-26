@@ -43,10 +43,8 @@ class PasswordResetInit extends React.Component {
         <ContainerInner>
           <h1> Password Reset</h1>
           <form>
-            <input style={styles.input} ref="email" placeholder="email" type="text" />
-            <Button style={styles.button} onClick={this.handleClick.bind(this)}>
-              Send password reset email
-            </Button>
+            <input ref="email" placeholder="email" type="text" />
+            <button onClick={this.handleClick.bind(this)}>Send password reset email</button>
           </form>
         </ContainerInner>
       </LanderContainer>

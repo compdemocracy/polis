@@ -3,16 +3,11 @@
 import React from "react";
 import { connect } from "react-redux";
 import { populateConversationsStore } from "../actions";
-// import history from "../history";
-import Radium from "radium";
-// import _ from "lodash";
 import { handleCreateConversationSubmit } from "../actions";
 import Url from "../util/url";
-import { s } from "./framework/global-styles";
 import Explainer from "./explainer";
 
 @connect((state) => state.conversations)
-@Radium
 class Conversations extends React.Component {
   constructor(props) {
     super(props);
@@ -30,16 +25,16 @@ class Conversations extends React.Component {
 
   goTo(r) {
     return () => {
-      // history.push(r); /* Colin 2020 TODO */
+      this.props.history.push(r);
     };
   }
   goToConversation(conversation_id) {
     return () => {
-      if (this.props.route.path === "other-conversations") {
+      if (this.props.history.pathname === "other-conversations") {
         window.open(`${Url.urlPrefix}${conversation_id}`, "_blank");
         return;
       }
-      // history.push(`/m/${conversation_id}`); /* Colin 2020 TODO */
+      this.props.history.push(`/m/${conversation_id}`);
     };
   }
 
@@ -50,19 +45,18 @@ class Conversations extends React.Component {
     this.props.dispatch(handleCreateConversationSubmit());
   }
   filterCheck(c) {
-    // console.log('filtering', c, this.state.filterMinParticipantCount)
     let include = true;
 
     if (c.participant_count < this.state.filterMinParticipantCount) {
       include = false;
     }
 
-    if (this.props.route.path === "other-conversations") {
+    if (this.props.history.pathname === "other-conversations") {
       // filter out conversations i do own
       include = c.is_owner ? false : true;
     }
 
-    if (this.props.route.path !== "other-conversations" && !c.is_owner) {
+    if (this.props.history.pathname !== "other-conversations" && !c.is_owner) {
       // if it's not other convos and i'm not the owner, don't show it
       // filter out convos i don't own
       include = false;
@@ -75,19 +69,11 @@ class Conversations extends React.Component {
       let markup = "";
       if (this.filterCheck(c)) {
         markup = (
-          <div style={s.conversation} onClick={this.goToConversation(c.conversation_id)} key={i}>
-            <p ref={`statNumber${i}`} style={s.statNumber}>
-              {c.participant_count} participants
-            </p>
-            <p ref={`topic${i}`} style={s.topic}>
-              {c.topic}
-            </p>
-            <p ref={`description${i}`} style={s.description}>
-              {c.description}
-            </p>
-            <p ref={`parentUrl${i}`} style={s.parentUrl}>
-              {c.parent_url ? `Embedded on ${c.parent_url}` : ""}
-            </p>
+          <div onClick={this.goToConversation(c.conversation_id)} key={i}>
+            <p ref={`statNumber${i}`}>{c.participant_count} participants</p>
+            <p ref={`topic${i}`}>{c.topic}</p>
+            <p ref={`description${i}`}>{c.description}</p>
+            <p ref={`parentUrl${i}`}>{c.parent_url ? `Embedded on ${c.parent_url}` : ""}</p>
           </div>
         );
       }
@@ -105,13 +91,11 @@ class Conversations extends React.Component {
   render() {
     const err = this.props.error;
     return (
-      <div style={s.container}>
-        <p style={{ paddingLeft: 20, textAlign: "center" }}>
-          {this.props.loading ? "Loading conversations..." : ""}
-        </p>
+      <div>
+        <p>{this.props.loading ? "Loading conversations..." : ""}</p>
         {err ? "Error loading conversations: " + err.status + " " + err.statusText : ""}
         {this.props.conversations ? this.renderFilteredConversations() : ""}
-        <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
+        <div>
           <Explainer />
         </div>
       </div>
