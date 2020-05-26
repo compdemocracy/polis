@@ -16,3 +16,9 @@ COPY --from=polisdemo/client-participation:dev /app/build/ ./build/
 EXPOSE 8080
 
 CMD node --max_old_space_size=400 --gc_interval=100 --harmony app.js
+
+
+
+
+
+
