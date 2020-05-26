@@ -137,11 +137,11 @@ class SignIn extends React.Component {
           <div style={styles.termsContainer}>
             <p style={styles.termsSmallprint}>
               {"I agree to the "}
-              <a href="https://pol.is/tos" tabindex="110" style={styles.links}>
+              <a href="https://pol.is/tos" tabIndex="110" style={styles.links}>
                 pol.is terms
               </a>{" "}
               and{" "}
-              <a href="https://pol.is/privacy" tabindex="111" style={styles.links}>
+              <a href="https://pol.is/privacy" tabIndex="111" style={styles.links}>
                 {" "}
                 privacy agreement
               </a>
