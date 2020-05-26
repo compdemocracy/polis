@@ -2,13 +2,8 @@
 
 import React from "react";
 
-
 const ContainerInner = ({ children }) => {
-  return (
-    <div className="mw8 center ph3 ph4-m">
-        {children}    
-    </div>
-  );
-}
+  return <div id="containerInner">{children}</div>;
+};
 
 export default ContainerInner;
