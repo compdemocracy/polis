@@ -15,13 +15,9 @@ class LanderContainer extends React.Component {
   render() {
     return (
       <div>
-        <Nav />
-        <main className="pt5 pt4-m pt0-l mt5 mt6-l">{this.props.children}</main>
-        <Footer
-          social={FooterData.footer.social}
-          content={FooterData.footer.groups}
-          data={FooterData.footer}
-        />
+        <div> Navigation </div>
+        <main>{this.props.children}</main>
+        <div> Footer </div>
       </div>
     );
   }
