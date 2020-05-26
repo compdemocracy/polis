@@ -2,69 +2,34 @@
 
 import React from "react";
 import { connect } from "react-redux";
-import { populateZidMetadataStore, resetMetadataStore } from '../../actions'
-import Radium from "radium";
+import { populateZidMetadataStore, resetMetadataStore } from "../../actions";
 import _ from "lodash";
-import Markdown from "react-markdown";
-import Spinner from "../framework/spinner";
-import StarsSpinner from "../framework/stars-spinner";
 
-const styles = {
-  container: {
-    backgroundColor: "rgb(240,240,247)",
-    paddingTop: 10,
-    minHeight: "100vh"
-  }
-}
-
-@connect(state => state.zid_metadata)
-@Radium
+@connect((state) => state.zid_metadata)
 class ConversationAdminContainer extends React.Component {
-
   loadZidMetadata() {
-    this.props.dispatch(
-      populateZidMetadataStore(this.props.params.conversation_id)
-    )
+    this.props.dispatch(populateZidMetadataStore(this.props.params.conversation_id));
   }
 
   resetMetadata() {
-    this.props.dispatch(
-      resetMetadataStore()
-    )
+    this.props.dispatch(resetMetadataStore());
   }
 
-  componentWillMount () {
+  componentWillMount() {
     this.loadZidMetadata();
   }
 
-  componentWillUnmount () {
+  componentWillUnmount() {
     this.resetMetadata();
   }
 
-  componentDidUpdate () {
+  componentDidUpdate() {
     this.loadZidMetadata();
   }
-  renderSpinner() {
-    return (
-      <StarsSpinner
-        text={"Loading conversation..."}
-        nodeColor={ "rgb(150,150,150)" }
-        count={ Math.floor(window.innerWidth / 10) }
-        width={ window.innerWidth }
-        height={ window.innerHeight }
-        radius={ 1.5 }
-        lineWidth={ 1 }/>
-    )
-  }
+
   render() {
     return (
-      <div style={styles.container}>
-        {
-          this.props.zid_metadata.conversation_id ?
-            this.props.children :
-            this.renderSpinner()
-        }
-      </div>
+      <div>{this.props.zid_metadata.conversation_id ? this.props.children : "Loading..."}</div>
     );
   }
 }

@@ -4,45 +4,16 @@ import React from "react";
 import { connect } from "react-redux";
 
 import _ from "lodash";
-import Flex from "./flex";
 import { Link } from "react-router-dom";
-import HexLogo from "./hex-logo-tiny-long";
 
 @connect()
 class Header extends React.Component {
-  styles() {
-    return {
-      topBar: {
-        width: "100%",
-        // height: 70,
-        fontSize: 18,
-        fontWeight: 400,
-        color: "white",
-        backgroundColor: this.props.backgroundColor ? this.props.backgroundColor : "rgba(0,0,0,.3)",
-        zIndex: 10,
-      },
-    };
-  }
   render() {
     return (
-      <Flex
-        justifyContent={this.props.nologo ? "flex-end" : "space-between"}
-        styleOverrides={this.styles().topBar}
-      >
-        {this.props.nologo ? "" : <HexLogo />}
-        <Link
-          style={{
-            textDecoration: "none",
-            color: "white",
-            marginRight: 20,
-            marginTop: 20,
-            marginBottom: 20,
-          }}
-          to={"signin"}
-        >
-          Sign In
-        </Link>
-      </Flex>
+      <div>
+        Logomark
+        <Link to={"signin"}>Sign In</Link>
+      </div>
     );
   }
 }

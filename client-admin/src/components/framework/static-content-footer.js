@@ -82,12 +82,6 @@ class Footer extends React.Component {
               </a>
             </p>
             <p>
-              <a style={this.styles().link} href="http://pol.is/pricing">
-                {" "}
-                Pricing{" "}
-              </a>
-            </p>
-            <p>
               <a style={this.styles().link} href="https://github.com/pol-is/">
                 {" "}
                 Github{" "}

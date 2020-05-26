@@ -7,14 +7,12 @@ import { connect } from "react-redux";
 import Radium from "radium";
 import { populateConversationStatsStore } from "../../actions";
 import _ from "lodash";
-import Spinner from "../framework/spinner";
 import Flex from "../framework/flex";
 import NumberCards from "./conversation-stats-number-cards";
 import Votes from "./conversation-stats-votes-timescale";
 import VotesDistribution from "./conversation-stats-vote-distribution";
 import CommentsTimescale from "./conversation-stats-comments-timescale";
 import CommentersVoters from "./conversation-stats-commenters-voters";
-import StarsSpinner from "../framework/stars-spinner";
 
 const style = {
   chartCard: {
@@ -209,7 +207,7 @@ class ConversationStats extends React.Component {
             );
           })}
         </select>
-        <Button
+        <button
           style={{
             backgroundColor: "#03a9f4",
             color: "white",
@@ -218,38 +216,20 @@ class ConversationStats extends React.Component {
           onClick={this.handleUntilButtonClicked.bind(this)}
         >
           Set Until
-        </Button>
+        </button>
       </div>
     );
   }
-  renderSpinner() {
-    return (
-      <StarsSpinner
-        text={"Crunching the numbers, hold on a sec..."}
-        nodeColor={"rgb(150,150,150)"}
-        count={Math.floor(window.innerWidth / 10)}
-        width={window.innerWidth}
-        height={window.innerHeight}
-        radius={1.5}
-        lineWidth={1}
-      />
-    );
-  }
+
   render() {
     return (
       <div>
         {this.props.conversation_stats.voteTimes
           ? this.createCharts(this.props.conversation_stats)
-          : this.renderSpinner()}
+          : "Loading..."}
       </div>
     );
   }
 }
 
 export default ConversationStats;
-
-// var styles = (i) => {
-//   return {
-//     backgroundColor: `rgb(${i * 50}, 50, 50)`
-//   };
-// };
