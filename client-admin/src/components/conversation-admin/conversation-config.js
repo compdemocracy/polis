@@ -4,7 +4,6 @@ import Features from "../../util/plan-features";
 import { lockedIcon } from "../../util/plan-features";
 import React from "react";
 import { connect } from "react-redux";
-import Radium from "radium";
 import _ from "lodash";
 import { handleZidMetadataUpdate, optimisticZidMetadataUpdateOnTyping } from "../../actions";
 import Checkbox from "@material-ui/core/Checkbox";
@@ -12,48 +11,13 @@ import ComponentHelpers from "../../util/component-helpers";
 import NoPermission from "./no-permission";
 import InputField from "@material-ui/core/TextField";
 import settings from "../../settings";
-import Awesome from "react-fontawesome";
+import { Heading, Box, Flex } from "theme-ui";
 
-import ModerateCommentsSeed from "./moderate-comments-seed";
-import ModerateCommentsSeedTweet from "./moderate-comments-seed-tweet";
-
-/* check if refer came from 'new' and if it did, show modal saying 'get started by...' */
-
-const cardPadding = 10;
-const cardBorderRadius = 3;
-
-const styles = {
-  container: {
-    backgroundColor: "rgb(240,240,247)",
-    minHeight: "100vh",
-    paddingBottom: 10,
-  },
-  configCard: {
-    margin: 10,
-    maxWidth: 400,
-    backgroundColor: "rgb(253,253,253)",
-    borderRadius: cardBorderRadius,
-    padding: cardPadding,
-    WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
-    BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
-  },
-  sectionHeader: {
-    fontSize: 22,
-    marginTop: 0,
-    marginBottom: 0,
-    fontWeight: 500,
-    color: "rgb(160,160,160)",
-  },
-  notification: {
-    fontSize: 16,
-    fontWeight: 500,
-    color: "rgb(160,160,160)",
-  },
-};
+import ModerateCommentsSeed from "./seed-comment";
+import ModerateCommentsSeedTweet from "./seed-tweet";
 
 @connect((state) => state.user)
 @connect((state) => state.zid_metadata)
-@Radium
 class ConversationConfig extends React.Component {
   handleBoolValueChange(field) {
     return () => {
@@ -105,8 +69,6 @@ class ConversationConfig extends React.Component {
   }
 
   render() {
-    console.log(this.props);
-
     if (ComponentHelpers.shouldShowPermissionsError(this.props)) {
       return <NoPermission />;
     }
@@ -117,30 +79,23 @@ class ConversationConfig extends React.Component {
     const canCustomizeColors = Features.canCustomizeColors(this.props.user);
 
     return (
-      <div style={styles.container}>
-        <div style={styles.configCard}>
-          {this.props.loading ? (
-            <div style={styles.notification}>
-              {" "}
-              <Awesome name="cloud-upload" /> <span>Saving</span>{" "}
-            </div>
-          ) : (
-            <div style={styles.notification}>
-              {" "}
-              <Awesome name="bolt" /> <span>Up to date</span>{" "}
-            </div>
-          )}
-          {this.props.error ? (
-            <div style={styles.notification}>
-              {" "}
-              <Awesome name="exclamation-circle" /> Error Saving{" "}
-            </div>
-          ) : (
-            ""
-          )}
+      <div>
+        <Heading
+          as="h3"
+          sx={{
+            fontSize: [3, null, 4],
+            lineHeight: "body",
+            mb: [3, null, 4],
+          }}
+        >
+          Configure
+        </Heading>
+        <div>
+          {this.props.loading ? <div>Saving</div> : <div>Up to date</div>}
+          {this.props.error ? <div>Error Saving</div> : ""}
         </div>
-        <div style={styles.configCard}>
-          <p style={styles.sectionHeader}>Topic</p>
+        <div>
+          <p>Topic</p>
           <InputField
             ref={"topic"}
             style={{ width: 360 }}
@@ -151,8 +106,8 @@ class ConversationConfig extends React.Component {
             multiLine={true}
           />
         </div>
-        <div style={styles.configCard}>
-          <p style={styles.sectionHeader}>Description</p>
+        <div>
+          <p>Description</p>
           <InputField
             hintText="Can include markdown!"
             style={{ width: 360 }}
@@ -172,8 +127,8 @@ class ConversationConfig extends React.Component {
           params={{ conversation_id: this.props.zid_metadata.conversation_id }}
         />
 
-        <div style={styles.configCard}>
-          <p style={styles.sectionHeader}> Customize the User Interface </p>
+        <div>
+          <p> Customize the User Interface </p>
           <div style={{ marginTop: 20 }}> </div>
           <Checkbox
             label={"Visualization" + (canToggleVis ? "" : lockedIcon)}
@@ -200,21 +155,7 @@ class ConversationConfig extends React.Component {
             color={settings.polisBlue}
           />
           <p style={{ fontSize: 10, fontStyle: "italic" }}> Users can submit comments </p>
-          {false ? (
-            <span>
-              <Checkbox
-                label="Voting pane"
-                ref={"upvotes"}
-                disabled
-                checked={this.props.zid_metadata.upvotes === 1 ? true : false}
-                onCheck={this.handleIntegerBoolValueChange("upvotes").bind(this)}
-                labelPosition={"left"}
-                labelWrapperColor={settings.darkerGray}
-                color={settings.polisBlue}
-              />
-              <p style={{ fontSize: 10, fontStyle: "italic" }}> Users can vote on comments </p>
-            </span>
-          ) : null}
+
           <Checkbox
             label="Help text"
             ref={"help_type"}
@@ -333,8 +274,8 @@ class ConversationConfig extends React.Component {
             />
           </div>
         </div>
-        <div style={styles.configCard}>
-          <p style={styles.sectionHeader}> Schemes </p>
+        <div>
+          <p> Schemes </p>
           <div style={{ marginTop: 20 }}> </div>
           <Checkbox
             label={"Strict Moderation" + (canToggleStrictMod ? "" : lockedIcon)}
@@ -347,8 +288,7 @@ class ConversationConfig extends React.Component {
             color={settings.polisBlue}
           />
           <p style={{ fontSize: 10, fontStyle: "italic" }}>
-            {" "}
-            no comments shown without moderator approval{" "}
+            no comments shown without moderator approval
           </p>
           <Checkbox
             label="Require Auth to Comment"
@@ -360,8 +300,7 @@ class ConversationConfig extends React.Component {
             color={settings.polisBlue}
           />
           <p style={{ fontSize: 10, fontStyle: "italic" }}>
-            {" "}
-            Users cannot submit comments without first connecting either Facebook or Twitter{" "}
+            Users cannot submit comments without first connecting either Facebook or Twitter
           </p>
           <Checkbox
             label="Require Auth to Vote"
@@ -373,8 +312,7 @@ class ConversationConfig extends React.Component {
             color={settings.polisBlue}
           />
           <p style={{ fontSize: 10, fontStyle: "italic" }}>
-            {" "}
-            Users cannot vote without first connecting either Facebook or Twitter{" "}
+            Users cannot vote without first connecting either Facebook or Twitter
           </p>
           <Checkbox
             label="Open Data"
@@ -386,29 +324,8 @@ class ConversationConfig extends React.Component {
             color={settings.polisBlue}
           />
           <p style={{ fontSize: 10, fontStyle: "italic" }}>
-            {" "}
-            Comments, votes, and group data can be exported by any user{" "}
+            Comments, votes, and group data can be exported by any user
           </p>
-          {false ? (
-            <span>
-              <Checkbox
-                label="Preserve Anonymity"
-                ref={"is_anon"}
-                disabled
-                checked={this.props.zid_metadata.is_anon}
-                onCheck={this.handleBoolValueChange("is_anon").bind(this)}
-                labelPosition={"left"}
-                labelWrapperColor={settings.darkerGray}
-              />
-              <p style={{ fontSize: 10, fontStyle: "italic" }}>
-                {" "}
-                Disables visualization, does not transmit any participant statistics to you,
-                requires social authorization for both writing and voting.{" "}
-              </p>
-            </span>
-          ) : (
-            ""
-          )}
         </div>
       </div>
     );
@@ -416,12 +333,3 @@ class ConversationConfig extends React.Component {
 }
 
 export default ConversationConfig;
-
-// <Checkbox
-//   label="Read Only"
-//   disabled
-//   checked={false}
-//   onCheck={ () => {console.log("this should be an action")} }
-//   labelPosition={"left"}
-//   labelWrapperColor={settings.darkerGray}/>
-//   <p style={{fontSize: 10, fontStyle: "italic"}}> Disables writing and commenting, enables visualization. </p>
