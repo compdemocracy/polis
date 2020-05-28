@@ -1,7 +1,6 @@
 import React from "react";
-import Layout from "./layout";
+import Layout from "./lander-layout";
 import { Heading, Box, Text, Link } from "theme-ui";
-import emoji from "react-easy-emoji";
 import ExploreKnowledgeBase from "./exploreKnowledgeBase";
 import Press from "./press";
 
@@ -45,22 +44,6 @@ const Index = () => {
         Explore the code and join the community{" "}
         <Link target="_blank" href="https://github.com/pol-is/">
           on Github
-        </Link>
-      </Box>
-      <Heading as="h3" sx={{ fontSize: [4], lineHeight: "body", my: [2, null, 3] }}>
-        Legal
-      </Heading>
-      <Box sx={{ mb: [2, null, 3], maxWidth: "30em" }}>
-        Polis is built for the public with {emoji("❤️")} in Seattle {emoji("🇺🇸")}, with
-        contributions from around the {emoji("🌍🌏🌎")}
-      </Box>
-      <Box sx={{ mb: [2, null, 3] }}>
-        © {new Date().getFullYear()} The Authors{" "}
-        <Link target="_blank" href="tos">
-          TOS
-        </Link>{" "}
-        <Link target="_blank" href="privacy">
-          Privacy
         </Link>
       </Box>
     </Layout>
