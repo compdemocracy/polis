@@ -1,34 +1,26 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import $ from "jquery";
+import _ from "lodash";
 
 import React from "react";
-import ReactDOM from "react-dom";
-import { Provider } from "react-redux";
 
-import configureStore from "./store";
-import { ThemeProvider } from "theme-ui";
-import theme from "./theme";
-import App from "./app";
+import ReportsList from "./reports-list";
+import { Switch, Route, Link, Redirect } from "react-router-dom";
 
-import { BrowserRouter as Router } from "react-router-dom";
-
-const store = configureStore();
-
-class Root extends React.Component {
+class Reports extends React.Component {
   render() {
     return (
-      <ThemeProvider theme={theme}>
-        <Provider store={store}>
-          <Router>
-            <App />
-          </Router>
-        </Provider>
-      </ThemeProvider>
+      <div>
+        <Switch>
+          <Route exact component={ReportsList} />
+        </Switch>
+      </div>
     );
   }
 }
 
-window.$ = $;
+export default Reports;
 
-ReactDOM.render(<Root />, document.getElementById("root"));
+//
+// <Route path=":report_id" component={Container}>
+// </Route>

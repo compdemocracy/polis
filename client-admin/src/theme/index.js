@@ -41,6 +41,19 @@ export default {
       fontWeight: "bold",
       cursor: "pointer",
     },
+    header: {
+      color: "inherit",
+      "&.active": {
+        color: "background",
+      },
+      "&:hover": {
+        color: "background",
+      },
+      textDecoration: "none",
+      fontSize: [2],
+      fontWeight: "bold",
+      cursor: "pointer",
+    },
   },
   buttons: {
     primary: {

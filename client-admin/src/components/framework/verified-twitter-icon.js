@@ -2,31 +2,8 @@
 
 import React from "react";
 
-// import _ from 'lodash';
-// import Flex from './framework/flex';
-// import { connect } from 'react-redux';
-// import { FOO } from '../actions';
-
-// const style = {
-// };
-
-// @connect(state => {
-//   return state.FOO;
-// })
-
-class ComponentName extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = {};
-  }
-
-  getStyles() {
-    return {
-      base: {},
-    };
-  }
+class TwitterIcon extends React.Component {
   render() {
-    const styles = this.getStyles();
     return (
       <svg width="20" height="20">
         <path
@@ -82,4 +59,4 @@ class ComponentName extends React.Component {
   }
 }
 
-export default ComponentName;
+export default TwitterIcon;
