@@ -54,21 +54,3 @@ const Press = () => {
 };
 
 export default Press;
-
-// <Card
-// sx={{
-//   borderRadius: "3",
-//   boxShadow:
-//     "0 8px 16px -4px rgba(0,0,0,.1), 0 0 8px -3px rgba(0,0,0,.1)",
-// }}
-// >
-// <VTaiwan />
-// <Box sx={{ p: "3" }}>
-//   <Heading as="h2" mb={2}>
-//     The New York Times
-//   </Heading>
-//   <Text>A Strong Democracy Is a Digital Democracy</Text>
-// </Box>
-// </Card>
-
-// https://theme-ui-gallery.netlify.app/cards/
