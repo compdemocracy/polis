@@ -47,7 +47,7 @@ jobs:
         if: env.GHA_COMMITS_TODAY == 'true'
 
       - name: Build full project via docker-compose
-        run: GIT_HASH=${GITHUB_SHA:0:6} docker-compose up --detach
+        run: docker-compose build --parallel --build-arg GIT_HASH=${GITHUB_SHA:0:6}
         if: env.GHA_COMMITS_TODAY == 'true'
 
       - name: Push images to Docker Hub
