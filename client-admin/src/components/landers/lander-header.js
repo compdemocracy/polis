@@ -19,7 +19,7 @@ class Header extends Component {
           }}
         >
           <Box sx={{ zIndex: 1000 }}>
-            <Link sx={{ variant: "links.nav" }} to="/">
+            <Link sx={{ variant: "links.nav" }} to="/home">
               <Logomark
                 style={{ marginRight: 10, position: "relative", top: 6 }}
                 fill={"#03a9f4"}
