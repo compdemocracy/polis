@@ -11,7 +11,7 @@ import { ThemeProvider } from "theme-ui";
 import theme from "./theme";
 import App from "./app";
 
-import { BrowserRouter as Router } from "react-router-dom";
+import { BrowserRouter as Router, Route } from "react-router-dom";
 
 const store = configureStore();
 
@@ -21,7 +21,7 @@ class Root extends React.Component {
       <ThemeProvider theme={theme}>
         <Provider store={store}>
           <Router>
-            <App />
+            <Route render={(routeProps) => <App {...routeProps} />}></Route>
           </Router>
         </Provider>
       </ThemeProvider>

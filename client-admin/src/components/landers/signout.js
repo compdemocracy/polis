@@ -3,20 +3,24 @@
 import React from "react";
 import { connect } from "react-redux";
 import StaticLayout from "./lander-layout";
+import { Heading } from "theme-ui";
 
 import { doSignout } from "../../actions";
 
 @connect((state) => state.signout)
 class SignOut extends React.Component {
   componentWillMount() {
-    var dest = this.props.location.pathname.slice("/signout".length);
-    this.props.dispatch(doSignout(dest));
+    console.log("in signout", this.props);
+
+    this.props.dispatch(doSignout("/home"));
   }
 
   render() {
     return (
       <StaticLayout>
-        <h1>Signing Out</h1>
+        <Heading as="h1" sx={{ my: [4, null, 5], fontSize: [6, null, 7] }}>
+          Signing Out
+        </Heading>
       </StaticLayout>
     );
   }
