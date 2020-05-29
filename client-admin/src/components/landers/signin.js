@@ -3,7 +3,7 @@
 import React from "react";
 import { connect } from "react-redux";
 import { doSignin, doFacebookSignin } from "../../actions";
-import { Link } from "react-router-dom";
+import { Link, Redirect } from "react-router-dom";
 import { Heading, Box, Text } from "theme-ui";
 import StaticLayout from "./lander-layout";
 
@@ -15,14 +15,22 @@ class SignIn extends React.Component {
     // Update state so the next render will show the fallback UI.
     return { hasError: true };
   }
+  constructor(props) {
+    super(props);
+  }
+
+  componentDidMount() {
+    this.props.dispatch({ type: "signin reset state" });
+  }
 
   componentDidCatch(error, errorInfo) {
     // You can also log the error to an error reporting service
     console.log(error, errorInfo);
   }
-  getDest() {
-    return this.props.location.pathname.slice("/signin".length);
-  }
+
+  // getDest() {
+  //   return this.props.location.pathname.slice("/signin".length);
+  // }
 
   handleLoginClicked(e) {
     e.preventDefault();
@@ -31,11 +39,11 @@ class SignIn extends React.Component {
       password: this.refs.password.value,
     };
 
-    var dest = this.getDest();
-    if (!dest.length) {
-      dest = "/";
-    }
-    this.props.dispatch(doSignin(attrs, dest));
+    // var dest = this.getDest();
+    // if (!dest.length) {
+    //   dest = "/";
+    // }
+    this.props.dispatch(doSignin(attrs));
   }
 
   facebookButtonClicked() {
@@ -109,6 +117,12 @@ class SignIn extends React.Component {
   }
 
   render() {
+    const { signInSuccessful } = this.props;
+
+    if (signInSuccessful) {
+      return <Redirect to={"/"} />;
+    }
+
     return (
       <StaticLayout>
         <Heading as="h1" sx={{ my: [4, null, 5], fontSize: [6, null, 7] }}>

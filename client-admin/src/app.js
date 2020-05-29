@@ -5,7 +5,6 @@ import React from "react";
 import { connect } from "react-redux";
 import { populateUserStore } from "./actions";
 
-import Radium from "radium";
 import _ from "lodash";
 
 import { Switch, Route, Link, Redirect } from "react-router-dom";
@@ -31,10 +30,25 @@ import Integrate from "./components/conversations-and-account/integrate";
 
 import InteriorHeader from "./components/interior-header";
 
+const PrivateRoute = ({ component: Component, nameee, authed, ...rest }) => {
+  console.log("inside privateroute, authed:", nameee, authed);
+  return (
+    <Route
+      {...rest}
+      render={(props) =>
+        authed === true ? (
+          <Component {...props} />
+        ) : (
+          <Redirect to={{ pathname: "/signin", state: { from: props.location } }} />
+        )
+      }
+    />
+  );
+};
+
 @connect((state) => {
   return state.user;
 })
-@Radium
 class App extends React.Component {
   constructor(props) {
     super(props);
@@ -53,23 +67,22 @@ class App extends React.Component {
     let mql = window.matchMedia(`(min-width: 800px)`);
     mql.addListener(this.mediaQueryChanged.bind(this));
     this.setState({ mql: mql, docked: mql.matches });
-    this.checkForAuth(this.props);
   }
 
-  componentWillReceiveProps(nextProps) {
-    this.checkForAuth(nextProps);
-  }
+  isAuthed(props) {
+    const { location } = this.props;
+    let authed = false;
 
-  checkForAuth(props) {
-    if (!_.isUndefined(props.isLoggedIn)) {
-      var shouldRedirect = props.error
-        ? props.status === 401 || props.status === 403
-        : !props.isLoggedIn;
-
-      if (shouldRedirect) {
-        window.location = "/signin" + this.props.location.pathname;
-      }
+    if (!_.isUndefined(props.isLoggedIn) && props.isLoggedIn) {
+      authed = true;
     }
+
+    if ((props.error && props.status === 401) || props.status === 403) {
+      authed = false;
+    }
+
+    console.log("authed? ", authed, this.props);
+    return authed;
   }
 
   componentDidMount() {
@@ -145,7 +158,6 @@ class App extends React.Component {
     this.setState({ sidebarOpen: !this.state.sidebarOpen });
   }
   getTitleFromRoute() {
-    /* ugly, but... is what it is for now */
     let title = "Admin Dashboard"; /* in leiu of default */
 
     if (this.props.routes[1] && this.props.routes[1].path === "integrate") {
@@ -219,9 +231,9 @@ class App extends React.Component {
     return <Flex styleOverrides={{ height: "100%" }}>{"Loading pol.is..."}</Flex>;
   }
   render() {
-    if (!this.props.isLoggedIn) {
-      return this.renderSpinner();
-    }
+    // if (!this.props.isLoggedIn) {
+    //   return this.renderSpinner();
+    // }
 
     return (
       <>
@@ -229,12 +241,17 @@ class App extends React.Component {
           <Route exact path="/home" component={Home} />
 
           <Route exact path="/signin" component={SignIn} />
+          <Route exact path="/signin/*" component={SignIn} />
+          <Route exact path="/signin/**/*" component={SignIn} />
           <Route exact path="/signout" component={SignOut} />
+          <Route exact path="/signout/*" component={SignOut} />
+          <Route exact path="/signout/**/*" component={SignOut} />
           <Route exact path="/createuser" component={CreateUser} />
           <Route exact path="/createuser/*" component={CreateUser} />
           <Route exact path="/createuser/**/*" component={CreateUser} />
 
-          <Route exact path="/pwreset/*" component={PasswordReset} />
+          <Route exact path="/pwreset" component={PasswordReset} />
+          <Route path="/pwreset/*" component={PasswordReset} />
           <Route exact path="/pwresetinit" component={PasswordResetInit} />
           <Route exact path="/pwresetinit/done" component={PasswordResetInitDone} />
           <Route exact path="/tos" component={TOS} />
@@ -243,12 +260,6 @@ class App extends React.Component {
           <InteriorHeader>
             <Route
               render={(routeProps) => {
-                console.log(
-                  "routeprops",
-                  routeProps,
-                  routeProps.location.pathname.split("/")[0],
-                  routeProps.location.pathname.split("/")
-                );
                 if (routeProps.location.pathname.split("/")[1] === "m") {
                   return null;
                 }
@@ -272,16 +283,39 @@ class App extends React.Component {
                       </Box>
                     </Box>
                     <Box sx={{ p: [4], flex: "0 0 auto", maxWidth: "35em", mx: [4] }}>
-                      <Route exact path="/" component={Conversations} />
-                      <Route exact path="/account" component={Account} />
-                      <Route exact path="/integrate" component={Integrate} />
+                      <PrivateRoute
+                        authed={this.isAuthed(this.props)}
+                        exact
+                        nameee="empty slash"
+                        path="/"
+                        component={Conversations}
+                      />
+                      <PrivateRoute
+                        authed={this.isAuthed(this.props)}
+                        exact
+                        nameee="account page"
+                        path="/account"
+                        component={Account}
+                      />
+                      <PrivateRoute
+                        authed={this.isAuthed(this.props)}
+                        exact
+                        nameee="integrate page"
+                        path="/integrate"
+                        component={Integrate}
+                      />
                     </Box>
                   </Flex>
                 );
               }}
             />
 
-            <Route path="/m/:conversation_id" component={ConversationAdminContainer} />
+            <PrivateRoute
+              path="/m/:conversation_id"
+              nameee="m interior page for convo"
+              authed={this.isAuthed(this.props)}
+              component={ConversationAdminContainer}
+            />
           </InteriorHeader>
         </Switch>
       </>
