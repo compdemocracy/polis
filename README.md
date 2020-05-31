@@ -1,6 +1,22 @@
 # Polis
 pol.is an AI powered sentiment gathering platform. More organic than surveys, less effort than focus groups.
 
+## :construction: Disclaimer
+
+- The documentation and configuration in this code repository is **for development ONLY**,
+and emphatically **NOT intended for production deployment**.
+- We do NOT make guarantees of easy setup or management, push-button deployment, security,
+firm development timelines, technical support, future migration paths, data integrity,
+existence of bugs, or completeness of existing features.
+All of the above is actively in flux on `dev` branch.
+- Work in the issue queue and codebase is being done in part by passionate volunteer contributors.
+They will often be experimenting with unproven project infrastructure that is unsupported by the Polis organization,
+e.g. pre-built docker images.
+
+Having said this, we are enthusiastic about your support in moving toward deployment-readiness.
+We aspire to see future third-party deployments of polis as we cultivate a growing community of diverse contributors!
+We look forward to working together :tada:
+
 ## 🙋🏾‍♀️ Get Involved
 
 1. Say hi in our **chat** [:speech_balloon:][chat] [`gitter.com/pol-is/polisDeployment`][chat]
