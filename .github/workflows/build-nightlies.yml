@@ -19,37 +19,19 @@ jobs:
       # Use buildkit to speed up docker command
       DOCKER_BUILDKIT: 1
     steps:
-      - name: Detect if commits in past day
-        run: |
-          # Default branch assumed
-          curl -sL https://api.github.com/repos/$GITHUB_REPOSITORY/commits?sha=${{ env.GHA_BRANCH }} \
-            | jq -r '[.[]][0]' \
-            > $HOME/last-commit.json
-          date="$(jq -r '.commit.author.date' $HOME/last-commit.json)"
-          timestamp=$(date --utc -d "$date" +%s)
-          days=$(( ( $(date --utc +%s) - $timestamp ) / 86400 ))
-          # Check if commits in past day
-          if [ "$days" -le 1 ]; then
-            echo '::set-env name=GHA_COMMITS_TODAY::true'
-          fi
-
       - name: Checkout
         uses: actions/checkout@v2
         with:
           ref: ${{ env.GHA_BRANCH }}
-        if: env.GHA_COMMITS_TODAY == 'true'
 
       - name: Login to Docker Hub
         uses: azure/docker-login@v1
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
-        if: env.GHA_COMMITS_TODAY == 'true'
 
       - name: Build full project via docker-compose
         run: docker-compose build --parallel --build-arg GIT_HASH=${GITHUB_SHA:0:6}
-        if: env.GHA_COMMITS_TODAY == 'true'
 
       - name: Push images to Docker Hub
         run: docker-compose push --ignore-push-failures
-        if: env.GHA_COMMITS_TODAY == 'true'
