@@ -57,7 +57,7 @@
     "gulp-scp2": "^0.2.0",
     "history": "^1.12.5",
     "hull.js": "^0.2.10",
-    "jquery": "^2.1.4",
+    "jquery": "^3.5.0",
     "lodash": "4.16.4",
     "moment": "^2.14.1",
     "moment-range": "^2.2.0",
