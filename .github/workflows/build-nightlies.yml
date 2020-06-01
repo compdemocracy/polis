@@ -9,7 +9,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      GHA_COMMITS_TODAY: false
       GHA_BRANCH: dev
       # Use native docker command within docker-compose
       COMPOSE_DOCKER_CLI_BUILD: 1
