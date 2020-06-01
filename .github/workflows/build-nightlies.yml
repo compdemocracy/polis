@@ -4,16 +4,13 @@ on:
   schedule:
     # Every night at 4am ET
     - cron: '0 8 * * *'
-  push: # TODO remove
-    branches:
-      - patcon/67-build-server-actions
 
 jobs:
   build:
     runs-on: ubuntu-latest
     env:
       GHA_COMMITS_TODAY: false
-      GHA_BRANCH: patcon/67-build-server-actions # TODO set to dev
+      GHA_BRANCH: dev
       # Use native docker command within docker-compose
       COMPOSE_DOCKER_CLI_BUILD: 1
       # Use buildkit to speed up docker command
