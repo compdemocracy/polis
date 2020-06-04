@@ -4,7 +4,11 @@
   "description": "End to End testing for pol.is",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "cypress": "cypress open",
+    "test": "cypress open"
   },
-  "author": "Benjamin Rosas <ben@aliencyb.org>"
+  "author": "Benjamin Rosas <ben@aliencyb.org>",
+  "devDependencies": {
+    "cypress": "^4.7.0"
+  }
 }
