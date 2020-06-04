@@ -58,7 +58,7 @@
     "history": "^1.12.5",
     "hull.js": "^0.2.10",
     "jquery": "^2.1.4",
-    "lodash": "4.16.4",
+    "lodash": "4.17.13",
     "moment": "^2.14.1",
     "moment-range": "^2.2.0",
     "prop-types": "^15.5.10",
