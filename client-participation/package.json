@@ -2,23 +2,32 @@
   "name": "dashboard-require",
   "appName": "DashboardRequire",
   "version": "0.0.0",
+  "scripts": {
+    "build:preprod": "gulp deployPreprod",
+    "start": "node ./node_modules/.bin/grunt",
+    "test": "node ./node_modules/.bin/grunt test"
+  },
+  "engines": {
+    "node": "~8.12"
+  },
   "dependencies": {
     "autosize": "^3.0.3",
     "boolean": "^0.1.3",
     "brain": "~0.6.3",
     "combine-css": "0.0.2",
-    "d3-force": "^1.0.6",
+    "d3-force": "^1.2.1",
     "es6-promise": "~1.0.0",
     "express": "~4.6.1",
     "glob": "^7.1.2",
-    "gulp-sass": "^3.1.0",
+    "gulp": "~3.8.6",
+    "gulp-sass": "^4.0.1",
     "gulp-scp2": "^0.2.0",
     "handlebars": "~1.3.0",
     "hull.js": "^0.2.10",
     "jquery": "~1.11",
     "lodash": "4.16.4",
     "map-stream": "~0.1.0",
-    "prop-types": "^15.5.10",
+    "prop-types": "^15.7.2",
     "proxy-middleware": "~0.5.0",
     "react": "15.3.1",
     "react-dom": "15.3.1",
@@ -38,7 +47,6 @@
     "babel-loader": "^5.3.2",
     "babel-plugin-react-transform": "^1.1.1",
     "bower": "^1.8.4",
-    "gulp": "~3.8.6",
     "gulp-browserify": "~0.4.2",
     "gulp-clean": "~0.2.4",
     "gulp-cli": "^1.4.0",
@@ -53,7 +61,7 @@
     "gulp-markdown": "~0.1.2",
     "gulp-minify-css": "~0.3.0",
     "gulp-rename": "~1.0.0",
-    "gulp-s3": "git://github.com/mbjorkegren/gulp-s3#847e2b372204b4ceeccb0e9b567f28ff00e7fa1d",
+    "gulp-s3": "git://github.com/mbjorkegren/gulp-s3.git#847e2b372204b4ceeccb0e9b567f28ff00e7fa1d",
     "gulp-tap": "~0.1.1",
     "gulp-template": "~0.1.1",
     "gulp-uglify": "~0.3.1",
@@ -61,7 +69,7 @@
     "gulp-watch": "~0.5.0",
     "hbsfy": "~1.3.1",
     "matchdep": "~0.1.2",
-    "node-sass": "~4.5.3",
+    "node-sass": "^4.11.0",
     "open": "0.0.3",
     "react-transform-catch-errors": "^1.0.0",
     "react-transform-hmr": "^1.0.1",
@@ -69,12 +77,5 @@
     "webpack": "^1.12.2",
     "webpack-dev-middleware": "^1.2.0",
     "webpack-hot-middleware": "^2.4.1"
-  },
-  "scripts": {
-    "start": "node ./node_modules/.bin/grunt",
-    "test": "node ./node_modules/.bin/grunt test"
-  },
-  "engines": {
-    "node": "6.2.0"
   }
 }
