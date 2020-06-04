@@ -1,0 +1,10 @@
+{
+  "name": "polis-cypress",
+  "version": "0.0.1",
+  "description": "End to End testing for pol.is",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Benjamin Rosas <ben@aliencyb.org>"
+}
