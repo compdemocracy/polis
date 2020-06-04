@@ -54,16 +54,10 @@ function getGitHash() {
   return new Promise(function(resolve, reject) {
     if (process.env.GIT_HASH) {
       resolve(process.env.GIT_HASH)
-      return
+    } else {
+      console.log('Not GIT_HASH provided. Skipping use.');
+      resolve()
     }
-    exec("git log --pretty=\"%h\" -n 1", function(error, stdout, stderr) {
-      if (error) {
-        console.error('FAILED TO GET GIT HASH: ' + error);
-        reject(stderr);
-      } else {
-        resolve(stdout);
-      }
-    })
   });
 }
 
@@ -171,10 +165,15 @@ gulp.task("configureForProduction", function(callback) {
   console.log('getGitHash begin');
   // NOTE using callback instead of returning a promise since the promise isn't doing the trick - haven't tried updating gulp yet.
   getGitHash().then(function(hash) {
-    hash = hash.toString().match(/[A-Za-z0-9]+/)[0];
-
     var d = new Date();
-    var unique_token = [d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds(), hash].join("_");
+    var tokenParts = [d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds()];
+
+    if (hash) {
+      hash = hash.toString().match(/[A-Za-z0-9]+/)[0];
+      tokenParts.push(hash);
+    }
+
+    var unique_token = tokenParts.join("_");
     destRootRest = [staticFilesPrefix, unique_token].join("/");
     versionString = unique_token;
 

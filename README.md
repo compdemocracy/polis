@@ -48,14 +48,14 @@ either do a pull (faster):
 
 or do a build (to utilize recent or local changes):
 
-`GIT_HASH=$(git rev-parse --short HEAD) docker-compose up --detach`
+`docker-compose up --build --detach`
 
 subsequently you should only need to run:
 
 `docker-compose up --detach`
 
 To force a full re-build with no cache from previous builds:
-`docker-compose build --build-arg GIT_HASH=$(git rev-parse --short HEAD) --parallel --no-cache`
+`docker-compose build --parallel --no-cache`
 
 And to stop:
 `docker-compose down`
