@@ -48,11 +48,10 @@ class ModerateCommentsSeed extends React.Component {
     return (
       <Box sx={{ mb: [4] }}>
         <Text sx={{ mb: [2] }}>
-          Add
+          Add{" "}
           <Link target="_blank" href="https://roamresearch.com/#/app/polis-methods/page/RkWuTgZfs">
-            {" "}
-            seed comments{" "}
-          </Link>
+            seed comments
+          </Link>{" "}
           for participants to vote on:
         </Text>
         <Box sx={{ mb: [2] }}>

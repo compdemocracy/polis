@@ -9,7 +9,7 @@ import _ from "lodash";
 import { Switch, Route, Link, Redirect } from "react-router-dom";
 
 import ConversationConfig from "./conversation-config";
-// import ConversationStats from "./stats/conversation-stats";
+import ConversationStats from "./stats";
 
 import ModerateComments from "./comment-moderation/";
 
@@ -66,6 +66,11 @@ class ConversationAdminContainer extends React.Component {
             </Link>
           </Box>
           <Box sx={{ mb: [3] }}>
+            <Link sx={{ variant: "links.nav" }} to={`${match.url}/stats`}>
+              Monitor
+            </Link>
+          </Box>
+          <Box sx={{ mb: [3] }}>
             <Link sx={{ variant: "links.nav" }} to={`${match.url}/reports`}>
               Report
             </Link>
@@ -78,8 +83,7 @@ class ConversationAdminContainer extends React.Component {
             <Route exact path={`${match.path}/share`} component={ShareAndEmbed} />
             <Route exact path={`${match.path}/reports`} component={Reports} />
             <Route path={`${match.path}/comments`} component={ModerateComments} />
-
-            {/* <Route exact path={`${match.path}/stats`} component={ConversationStats} /> */}
+            <Route exact path={`${match.path}/stats`} component={ConversationStats} />
             {/* <Route exact path={`${match.path}/export`} component={DataExport} /> */}
           </Switch>
         </Box>

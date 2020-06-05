@@ -3,16 +3,14 @@
 import React from "react";
 import Radium from "radium";
 import _ from "lodash";
-import Awesome from "react-fontawesome";
 import Flex from "../../framework/flex";
 import NumberCard from "./conversation-stats-number-card";
 
-@Radium
 class NumberCards extends React.Component {
   render() {
     const data = this.props.data;
     return (
-      <Flex justifyContent="space-around" alignItems="flex-start" wrap="wrap">
+      <div>
         <NumberCard datum={data.firstVoteTimes.length} subheading="voted" icon="users" />
         <NumberCard datum={data.voteTimes.length} subheading="votes cast" icon="tags" />
         <NumberCard
@@ -29,7 +27,7 @@ class NumberCards extends React.Component {
           datum={(data.commentTimes.length / data.firstCommentTimes.length).toFixed(2)}
           subheading="comments per commenter on average"
         />
-      </Flex>
+      </div>
     );
   }
 }
