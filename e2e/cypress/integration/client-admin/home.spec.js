@@ -6,7 +6,7 @@ describe('Home Page', () => {
   })
 
   it('has Sign up and Sign in links', () => {
-    cy.get('#root').find('a[href="/createuser"]')
+    cy.get('#root').find('a[href="/demo"]')
     cy.get('#root').find('a[href="/signin"]').should('have.length', 2)
   })
 })
