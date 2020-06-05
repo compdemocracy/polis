@@ -1,10 +1,11 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+/** @jsx jsx */
 
 import React from "react";
 import { connect } from "react-redux";
 import { doSignin, doFacebookSignin } from "../../actions";
 import { Link, Redirect } from "react-router-dom";
-import { Heading, Box, Text } from "theme-ui";
+import { Heading, Box, Text, Button, jsx } from "theme-ui";
 import StaticLayout from "./lander-layout";
 
 import strings from "../../strings/strings";
@@ -72,30 +73,61 @@ class SignIn extends React.Component {
   }
   drawLoginForm() {
     return (
-      <div>
+      <Box>
         <form>
-          <input id="signinEmailInput" ref="email" placeholder="email" type="email" />
-          <input id="signinPasswordInput" ref="password" placeholder="password" type="password" />
+          <Box sx={{ my: [2] }}>
+            <input
+              sx={{
+                fontFamily: "body",
+                fontSize: [2],
+                width: "35em",
+                borderRadius: 2,
+                padding: [2],
+                border: "1px solid",
+                borderColor: "mediumGray",
+              }}
+              id="signinEmailInput"
+              ref="email"
+              placeholder="email"
+              type="email"
+            />
+          </Box>
+          <Box sx={{ my: [2] }}>
+            <input
+              sx={{
+                fontFamily: "body",
+                fontSize: [2],
+                width: "35em",
+                borderRadius: 2,
+                padding: [2],
+                border: "1px solid",
+                borderColor: "mediumGray",
+              }}
+              id="signinPasswordInput"
+              ref="password"
+              placeholder="password"
+              type="password"
+            />
+          </Box>
           {this.maybeErrorMessage()}
-          <button id="signinButton" onClick={this.handleLoginClicked.bind(this)}>
+          <Button sx={{ my: [2] }} id="signinButton" onClick={this.handleLoginClicked.bind(this)}>
             {this.props.pending ? "Signing in..." : "Sign In"}
-          </button>
-          <p>
+          </Button>
+          <Text sx={{ my: 4 }}>
             {"Forgot your password? "}
             <Link to={"/pwresetinit"}>Reset Password</Link>
-          </p>
+          </Text>
         </form>
-        <div>
-          <button id="facebookSigninButton" onClick={this.facebookButtonClicked.bind(this)}>
-            <span>{"Sign in with Facebook"}</span>
-          </button>
-          <p>
-            {
-              "If you click 'Sign in with Facebook' and are not a pol.is user, you will be registered and you agree to the pol.is terms and privacy policy"
-            }
-          </p>
-        </div>
-      </div>
+        <Box sx={{ my: 4 }}>
+          <Button id="facebookSigninButton" onClick={this.facebookButtonClicked.bind(this)}>
+            Sign in with Facebook
+          </Button>
+          <Text sx={{ my: 2 }}>
+            If you click 'Sign in with Facebook' and are not a pol.is user, you will be registered
+            and you agree to the pol.is terms and privacy policy
+          </Text>
+        </Box>
+      </Box>
     );
   }
 
