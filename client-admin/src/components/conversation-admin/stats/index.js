@@ -3,29 +3,15 @@
 import dateSetupUtil from "../../../util/data-export-date-setup";
 import React from "react";
 import { connect } from "react-redux";
-import Radium from "radium";
 import { populateConversationStatsStore } from "../../../actions";
 import _ from "lodash";
-import Flex from "../../framework/flex";
 import NumberCards from "./conversation-stats-number-cards";
 import Votes from "./conversation-stats-votes-timescale";
 import VotesDistribution from "./conversation-stats-vote-distribution";
 import CommentsTimescale from "./conversation-stats-comments-timescale";
 import CommentersVoters from "./conversation-stats-commenters-voters";
 
-const style = {
-  chartCard: {
-    backgroundColor: "rgb(253,253,253)",
-    marginBottom: 14,
-    borderRadius: 3,
-    padding: 10,
-    WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
-    BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
-  },
-};
-
 @connect((state) => state.stats)
-@Radium
 class ConversationStats extends React.Component {
   constructor(props) {
     super(props);
@@ -51,8 +37,10 @@ class ConversationStats extends React.Component {
     );
   }
   loadStats() {
+    const { match } = this.props;
+
     var until = this.state.until;
-    this.props.dispatch(populateConversationStatsStore(this.props.params.conversation_id, until));
+    this.props.dispatch(populateConversationStatsStore(match.params.conversation_id, until));
   }
   componentWillMount() {
     this.loadStats();
@@ -67,11 +55,11 @@ class ConversationStats extends React.Component {
   createCharts(data) {
     return (
       <div ref="chartContainer">
-        <Flex direction="column" justifyContent="center" styleOverrides={{ width: "100%" }}>
+        <div>
           <NumberCards data={data} />
-          <Flex wrap="wrap" justifyContent="space-around">
-            <div style={style.chartCard}>
-              <h3 style={{ marginBottom: 0, marginLeft: 50 }}>
+          <div>
+            <div>
+              <h3>
                 <span style={{ color: "gold" }}>Voters </span>
                 <span style={{ color: "tomato" }}>Commenters</span>
               </h3>
@@ -87,8 +75,8 @@ class ConversationStats extends React.Component {
                 data={data}
               />
             </div>
-            <div style={style.chartCard}>
-              <h3 style={{ marginBottom: 0, marginLeft: 50 }}>
+            <div>
+              <h3>
                 <span style={{ color: "tomato" }}>Comments</span>
               </h3>
               <CommentsTimescale
@@ -103,8 +91,8 @@ class ConversationStats extends React.Component {
                 data={data}
               />
             </div>
-            <div style={style.chartCard}>
-              <h3 style={{ marginBottom: 0, marginLeft: 50 }}>
+            <div>
+              <h3>
                 <span style={{ color: "gold" }}>Votes</span>
               </h3>
               <Votes
@@ -119,8 +107,8 @@ class ConversationStats extends React.Component {
                 data={data}
               />
             </div>
-            <div style={style.chartCard}>
-              <h3 style={{ marginBottom: 0, marginLeft: 50 }}>
+            <div>
+              <h3>
                 <span>Votes per participant distribution</span>
               </h3>
               <VotesDistribution
@@ -135,17 +123,10 @@ class ConversationStats extends React.Component {
                 data={data}
               />
             </div>
-          </Flex>
-        </Flex>
+          </div>
+        </div>
 
-        <select
-          style={{
-            marginRight: 10,
-            cursor: "pointer",
-            fontSize: 16,
-          }}
-          ref="exportSelectYear"
-        >
+        <select ref="exportSelectYear">
           {this.state.years.map((year, i) => {
             return (
               <option selected={year.selected} key={i} value={year.name}>
@@ -155,14 +136,7 @@ class ConversationStats extends React.Component {
             );
           })}
         </select>
-        <select
-          style={{
-            marginRight: 10,
-            cursor: "pointer",
-            fontSize: 16,
-          }}
-          ref="exportSelectMonth"
-        >
+        <select ref="exportSelectMonth">
           {this.state.months.map((month, i) => {
             return (
               <option selected={month.selected} key={i} value={month.name}>
@@ -172,14 +146,7 @@ class ConversationStats extends React.Component {
             );
           })}
         </select>
-        <select
-          style={{
-            marginRight: 10,
-            cursor: "pointer",
-            fontSize: 16,
-          }}
-          ref="exportSelectDay"
-        >
+        <select ref="exportSelectDay">
           {this.state.days.map((day, i) => {
             return (
               <option selected={day.selected} key={i} value={day.name}>
@@ -206,16 +173,7 @@ class ConversationStats extends React.Component {
             );
           })}
         </select>
-        <button
-          style={{
-            backgroundColor: "#03a9f4",
-            color: "white",
-            marginTop: 20,
-          }}
-          onClick={this.handleUntilButtonClicked.bind(this)}
-        >
-          Set Until
-        </button>
+        <button onClick={this.handleUntilButtonClicked.bind(this)}>Set Until</button>
       </div>
     );
   }
