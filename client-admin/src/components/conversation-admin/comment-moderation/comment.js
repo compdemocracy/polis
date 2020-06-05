@@ -3,6 +3,7 @@
 import _ from "lodash";
 import React from "react";
 import { connect } from "react-redux";
+import { Flex, Box, Text, Button, Card, Link } from "theme-ui";
 
 @connect((state) => {
   return {
@@ -17,38 +18,48 @@ class Comment extends React.Component {
     this.props.rejectClickHandler(this.props.comment);
   }
   onIsMetaClicked() {
-    this.props.toggleIsMetaHandler(this.props.comment, this.refs.is_meta.isChecked());
-  }
-  makeAcceptButton() {
-    return <button onClick={this.onAcceptClicked.bind(this)}>{this.props.acceptButtonText}</button>;
-  }
-  makeRejectButton() {
-    return <button onClick={this.onRejectClicked.bind(this)}>{this.props.rejectButtonText}</button>;
+    this.props.toggleIsMetaHandler(this.props.comment, this.refs.is_meta.checked);
   }
 
   render() {
     return (
-      <div>
-        <div>
-          <p>{this.props.comment.txt}</p>
-          <div>
-            {this.props.isMetaCheckbox ? "metadata" : null}
-            {this.props.isMetaCheckbox ? (
-              <input
-                type="checkbox"
-                label="metadata"
-                ref="is_meta"
-                checked={this.props.comment.is_meta}
-                onCheck={this.onIsMetaClicked.bind(this)}
-              />
-            ) : (
-              ""
-            )}
-            {this.props.acceptButton ? this.makeAcceptButton() : ""}
-            {this.props.rejectButton ? this.makeRejectButton() : ""}
-          </div>
-        </div>
-      </div>
+      <Card sx={{ mb: [3], minWidth: "35em" }}>
+        <Box>
+          <Text sx={{ mb: [3] }}>{this.props.comment.txt}</Text>
+          <Flex sx={{ justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+            <Box>
+              {this.props.acceptButton ? (
+                <Button sx={{ mr: [3] }} onClick={this.onAcceptClicked.bind(this)}>
+                  {this.props.acceptButtonText}
+                </Button>
+              ) : null}
+              {this.props.rejectButton ? (
+                <Button onClick={this.onRejectClicked.bind(this)}>
+                  {this.props.rejectButtonText}
+                </Button>
+              ) : null}
+            </Box>
+            <Flex sx={{ alignItems: "center" }}>
+              <Link
+                target="_blank"
+                sx={{ mr: [2] }}
+                href="https://roamresearch.com/#/app/polis-methods/page/Q5VQKsuU5"
+              >
+                {this.props.isMetaCheckbox ? "metadata" : null}
+              </Link>
+              {this.props.isMetaCheckbox ? (
+                <input
+                  type="checkbox"
+                  label="metadata"
+                  ref="is_meta"
+                  checked={this.props.comment.is_meta}
+                  onChange={this.onIsMetaClicked.bind(this)}
+                />
+              ) : null}
+            </Flex>
+          </Flex>
+        </Box>
+      </Card>
     );
   }
 }

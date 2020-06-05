@@ -30,8 +30,10 @@ import Integrate from "./components/conversations-and-account/integrate";
 
 import InteriorHeader from "./components/interior-header";
 
-const PrivateRoute = ({ component: Component, nameee, authed, ...rest }) => {
-  console.log("inside privateroute, authed:", nameee, authed);
+const PrivateRoute = ({ component: Component, isLoading, authed, ...rest }) => {
+  if (isLoading) {
+    return null;
+  }
   return (
     <Route
       {...rest}
@@ -69,20 +71,24 @@ class App extends React.Component {
     this.setState({ mql: mql, docked: mql.matches });
   }
 
-  isAuthed(props) {
-    const { location } = this.props;
+  isAuthed() {
     let authed = false;
 
-    if (!_.isUndefined(props.isLoggedIn) && props.isLoggedIn) {
+    if (!_.isUndefined(this.props.isLoggedIn) && this.props.isLoggedIn) {
       authed = true;
     }
 
-    if ((props.error && props.status === 401) || props.status === 403) {
+    if ((this.props.error && this.props.status === 401) || this.props.status === 403) {
       authed = false;
     }
 
-    console.log("authed? ", authed, this.props);
     return authed;
+  }
+
+  isLoading() {
+    const { isLoggedIn } = this.props;
+
+    return _.isUndefined(isLoggedIn); /* if isLoggedIn is undefined, the app is loading */
   }
 
   componentDidMount() {
@@ -157,92 +163,27 @@ class App extends React.Component {
   handleMenuButtonClick() {
     this.setState({ sidebarOpen: !this.state.sidebarOpen });
   }
-  getTitleFromRoute() {
-    let title = "Admin Dashboard"; /* in leiu of default */
 
-    if (this.props.routes[1] && this.props.routes[1].path === "integrate") {
-      title = "Integrate";
-    } else if (this.props.routes[1] && !this.props.routes[1].path) {
-      title = "My Conversations";
-    } else if (this.props.routes[1] && this.props.routes[1].path === "account") {
-      title = "Account Management";
-    } else if (this.props.routes[2] && this.props.routes[2].path === "comments") {
-      title = "Moderate Comments";
-    } else if (this.props.routes[2] && !this.props.routes[2].path) {
-      title = "Configure Conversation";
-    } else if (this.props.routes[2] && this.props.routes[2].path === "participants") {
-      title = "Moderate Participants";
-    } else if (this.props.routes[2] && this.props.routes[2].path === "stats") {
-      title = "Conversation Statistics";
-    } else if (this.props.routes[2] && this.props.routes[2].path === "export") {
-      title = "Data Export";
-    } else if (this.props.routes[2] && this.props.routes[2].path === "share") {
-      title = "Distribute";
-    } else if (this.props.routes[2] && this.props.routes[2].path === "reports") {
-      title = "Reports";
-    } else if (this.props.routes[2] && this.props.routes[2].path === "live") {
-      title = "See Conversation Live";
-    } else if (this.props.routes[2] && this.props.routes[2].path === "summary") {
-      title = "Summary";
-    }
-
-    return title;
-  }
-  onSidebarItemClicked() {
-    this.setState({ sidebarOpen: false });
-  }
-
-  renderConsole() {
-    // let sidebar = null;
-    // if (this.props.params.report_id) {
-    //   sidebar = (
-    //     <SidebarContentReport
-    //       {...this.props}
-    //       onSidebarItemClicked={this.onSidebarItemClicked.bind(this)}
-    //     />
-    //   );
-    // } else if (this.props.params.conversation_id) {
-    //   sidebar = (
-    //     <SidebarContentConversation
-    //       {...this.props}
-    //       conversation_id={this.props.params.conversation_id}
-    //       onSidebarItemClicked={this.onSidebarItemClicked.bind(this)}
-    //     />
-    //   );
-    // } else {
-    //   sidebar = (
-    //     <SidebarContentHome
-    //       {...this.props}
-    //       onSidebarItemClicked={this.onSidebarItemClicked.bind(this)}
-    //     />
-    //   );
-    // }
-    // sidebar = sidebar
-    //   open={this.state.sidebarOpen}
-    //   docked={this.state.sidebarDocked}
-    //   onSetOpen={this.onSetSidebarOpen.bind(this)}
-    //     handleHamburgerClick={this.handleMenuButtonClick.bind(this)}
-    //     showHamburger={this.state.sidebarDocked}
-    //     name={this.props.user.hname}
-    //     title={this.getTitleFromRoute()}
-    //  style={styles.container}></div>
-  }
-  renderSpinner() {
-    return <Flex styleOverrides={{ height: "100%" }}>{"Loading pol.is..."}</Flex>;
-  }
   render() {
-    // if (!this.props.isLoggedIn) {
-    //   return this.renderSpinner();
-    // }
-
     return (
       <>
         <Switch>
           <Route exact path="/home" component={Home} />
-
-          <Route exact path="/signin" component={SignIn} />
-          <Route exact path="/signin/*" component={SignIn} />
-          <Route exact path="/signin/**/*" component={SignIn} />
+          <Route
+            exact
+            path="/signin"
+            render={() => <SignIn {...this.props} authed={this.isAuthed()} />}
+          />
+          <Route
+            exact
+            path="/signin/*"
+            render={() => <SignIn {...this.props} authed={this.isAuthed()} />}
+          />
+          <Route
+            exact
+            path="/signin/**/*"
+            render={() => <SignIn {...this.props} authed={this.isAuthed()} />}
+          />
           <Route exact path="/signout" component={SignOut} />
           <Route exact path="/signout/*" component={SignOut} />
           <Route exact path="/signout/**/*" component={SignOut} />
@@ -284,23 +225,30 @@ class App extends React.Component {
                     </Box>
                     <Box sx={{ p: [4], flex: "0 0 auto", maxWidth: "35em", mx: [4] }}>
                       <PrivateRoute
-                        authed={this.isAuthed(this.props)}
+                        isLoading={this.isLoading()}
+                        authed={this.isAuthed()}
                         exact
-                        nameee="empty slash"
                         path="/"
                         component={Conversations}
                       />
                       <PrivateRoute
-                        authed={this.isAuthed(this.props)}
+                        isLoading={this.isLoading()}
+                        authed={this.isAuthed()}
                         exact
-                        nameee="account page"
+                        path="/conversations"
+                        component={Conversations}
+                      />
+                      <PrivateRoute
+                        isLoading={this.isLoading()}
+                        authed={this.isAuthed()}
+                        exact
                         path="/account"
                         component={Account}
                       />
                       <PrivateRoute
-                        authed={this.isAuthed(this.props)}
+                        isLoading={this.isLoading()}
+                        authed={this.isAuthed()}
                         exact
-                        nameee="integrate page"
                         path="/integrate"
                         component={Integrate}
                       />
@@ -311,9 +259,9 @@ class App extends React.Component {
             />
 
             <PrivateRoute
+              isLoading={this.isLoading()}
               path="/m/:conversation_id"
-              nameee="m interior page for convo"
-              authed={this.isAuthed(this.props)}
+              authed={this.isAuthed()}
               component={ConversationAdminContainer}
             />
           </InteriorHeader>

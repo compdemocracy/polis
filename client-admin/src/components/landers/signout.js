@@ -10,8 +10,6 @@ import { doSignout } from "../../actions";
 @connect((state) => state.signout)
 class SignOut extends React.Component {
   componentWillMount() {
-    console.log("in signout", this.props);
-
     this.props.dispatch(doSignout("/home"));
   }
 

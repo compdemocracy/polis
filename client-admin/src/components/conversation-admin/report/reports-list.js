@@ -4,8 +4,7 @@ import _ from "lodash";
 import PolisNet from "../../../util/net";
 import React from "react";
 import { connect } from "react-redux";
-import { Link } from "react-router-dom";
-import { Heading, Flex, Box } from "theme-ui";
+import { Heading, Box, Button } from "theme-ui";
 
 @connect((state) => state.zid_metadata)
 class ReportsList extends React.Component {
@@ -48,7 +47,7 @@ class ReportsList extends React.Component {
       return <div>Loading Reports...</div>;
     }
     return (
-      <div>
+      <Box>
         <Heading
           as="h3"
           sx={{
@@ -59,15 +58,19 @@ class ReportsList extends React.Component {
         >
           Report
         </Heading>
-        <button onClick={this.createReportClicked.bind(this)}>Create new report</button>
+        <Box sx={{ mb: [3, null, 4] }}>
+          <Button onClick={this.createReportClicked.bind(this)}>Create report url</Button>
+        </Box>
         {this.state.reports.map((report) => {
           return (
-            <div key={report.report_id}>
-              <a href={"/report/" + report.report_id}>View report {report.report_id}</a>
-            </div>
+            <Box sx={{ mb: [2] }} key={report.report_id}>
+              <a target="_blank" href={"/report/" + report.report_id}>
+                pol.is/report/{report.report_id}
+              </a>
+            </Box>
           );
         })}
-      </div>
+      </Box>
     );
   }
 }
