@@ -5,13 +5,18 @@ export default {
       // 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif',
       "'Space Mono', monospace",
     heading: "inherit",
-    monospace: "Menlo, monospace",
+    monospace: "'Space Mono', monospace",
   },
   fontSizes: [12, 14, 16, 20, 24, 32, 48, 64, 96],
   fontWeights: {
     body: 400,
     heading: 700,
     bold: 700,
+  },
+  sizes: {
+    maxWidth: {
+      paragraph: "35em", // right syntax? https://theme-ui.com/theme-spec
+    },
   },
   lineHeights: {
     body: 1.5,
@@ -35,11 +40,31 @@ export default {
       },
       "&:hover": {
         color: "primary",
+        borderBottom: "2px solid",
+        borderBottomColor: "primary",
       },
       textDecoration: "none",
       fontSize: [2],
       fontWeight: "bold",
       cursor: "pointer",
+      borderBottom: "2px solid",
+      borderBottomColor: "background",
+    },
+    activeNav: {
+      color: "inherit",
+      "&.active": {
+        color: "primary",
+      },
+      "&:hover": {
+        color: "primary",
+        borderBottomColor: "primary",
+      },
+      textDecoration: "none",
+      fontSize: [2],
+      fontWeight: "bold",
+      cursor: "pointer",
+      borderBottom: "2px solid",
+      borderBottomColor: "mediumGray",
     },
     header: {
       color: "inherit",
@@ -59,13 +84,15 @@ export default {
     primary: {
       color: "background",
       bg: "primary",
+      fontFamily: "body",
+      cursor: "pointer",
     },
   },
   cards: {
     primary: {
-      backgroundColor: "primary",
+      backgroundColor: "background",
       color: "mediumGray",
-      padding: 2,
+      padding: 3,
       borderRadius: 4,
       boxShadow: "0 0 8px rgba(0, 0, 0, 0.125)",
     },
@@ -90,6 +117,9 @@ export default {
       textDecoration: "none",
       fontWeight: "bold",
       cursor: "pointer",
+      borderBottom: "solid",
+      borderWidth: 2,
+      borderColor: "background",
     },
   },
 };

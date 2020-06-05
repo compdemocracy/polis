@@ -74,10 +74,10 @@ class SignIn extends React.Component {
     return (
       <div>
         <form>
-          <input ref="email" placeholder="email" type="email" />
-          <input ref="password" placeholder="password" type="password" />
+          <input id="signinEmailInput" ref="email" placeholder="email" type="email" />
+          <input id="signinPasswordInput" ref="password" placeholder="password" type="password" />
           {this.maybeErrorMessage()}
-          <button onClick={this.handleLoginClicked.bind(this)}>
+          <button id="signinButton" onClick={this.handleLoginClicked.bind(this)}>
             {this.props.pending ? "Signing in..." : "Sign In"}
           </button>
           <p>
@@ -86,7 +86,7 @@ class SignIn extends React.Component {
           </p>
         </form>
         <div>
-          <button onClick={this.facebookButtonClicked.bind(this)}>
+          <button id="facebookSigninButton" onClick={this.facebookButtonClicked.bind(this)}>
             <span>{"Sign in with Facebook"}</span>
           </button>
           <p>
@@ -117,9 +117,9 @@ class SignIn extends React.Component {
   }
 
   render() {
-    const { signInSuccessful } = this.props;
+    const { signInSuccessful, authed } = this.props;
 
-    if (signInSuccessful) {
+    if (signInSuccessful || authed) {
       return <Redirect to={"/"} />;
     }
 

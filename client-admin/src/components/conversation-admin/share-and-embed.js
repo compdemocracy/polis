@@ -49,14 +49,7 @@ class ShareAndEmbed extends React.Component {
         </div>
         <div>
           <p> Embed</p>
-          <div
-            style={{
-              background: "rgb(238,238,238)",
-              display: "inline-block",
-              padding: "0px 20px",
-              borderRadius: 3,
-            }}
-          >
+          <div>
             <Highlight>
               {"<div"}
               {" class='polis'"}

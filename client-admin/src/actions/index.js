@@ -217,7 +217,7 @@ const signinPost = (attrs) => {
   return PolisNet.polisPost("/api/v3/auth/login", attrs);
 };
 
-export const doSignin = (attrs, signinShouldNowRedirect) => {
+export const doSignin = (attrs) => {
   return (dispatch) => {
     dispatch(signinInitiated());
     return signinPost(attrs).then(
@@ -436,8 +436,6 @@ const getInfo = () => {
     if (response && !response.error) {
       if (response.location && response.location.id) {
         FB.api("/" + response.location.id, (locationResponse) => {
-          // console.log("locationResponse");
-          // console.dir(locationResponse);
           if (locationResponse) {
             response.locationInfo = locationResponse;
           }
@@ -479,7 +477,6 @@ const saveFacebookFriendsData = (data, dest, dispatch) => {
       console.dir(err);
 
       if (err.responseText && /polis_err_user_with_this_email_exists/.test(err.responseText)) {
-        console.log("thats a user already enter your password");
         // Todo handle
 
         // var password = prompt("A pol.is user "+data.fb_email+", the same email address as associted with your facebook account, already exists. Enter your pol.is password to enable facebook login for your pol.is account.");
@@ -502,7 +499,6 @@ const saveFacebookFriendsData = (data, dest, dispatch) => {
 const processFacebookFriendsData = (response, dest, dispatch, optionalPassword) => {
   return (fb_public_profile, friendsData) => {
     // alert(JSON.stringify(friendsData));
-    console.log("got info and friends");
 
     let data = {
       fb_public_profile: JSON.stringify(fb_public_profile),
@@ -537,9 +533,6 @@ const processFacebookFriendsData = (response, dest, dispatch, optionalPassword) 
 };
 
 const onFbLoginOk = (response, dest, dispatch, optionalPassword) => {
-  console.log("onFbLoginOk");
-  console.dir(response);
-
   $.when(getInfo(), getFriends()).then(
     processFacebookFriendsData(response, dest, dispatch, optionalPassword),
     (err) => {
@@ -573,7 +566,6 @@ const callFacebookLoginAPI = (dest, dispatch, optionalPassword) => {
 export const doFacebookSignin = (dest, optionalPassword) => {
   return (dispatch) => {
     dispatch(facebookSigninInitiated());
-    console.log("facebook sign in initiated", dest);
     return callFacebookLoginAPI(dest, dispatch, optionalPassword);
   };
 };
@@ -791,6 +783,7 @@ const submitSeedCommentStart = () => {
 };
 
 const submitSeedCommentPostSuccess = () => {
+  console.log("seed comment post success");
   return {
     type: SUBMIT_SEED_COMMENT_SUCCESS,
   };
@@ -946,7 +939,7 @@ const postCreateConversation = () => {
 };
 
 export const handleCreateConversationSubmit = (routeTo) => {
-  return (dispatch, getState) => {
+  return (dispatch) => {
     dispatch(createConversationStart());
     return postCreateConversation()
       .then(
@@ -1619,7 +1612,6 @@ const conversationStatsFetchError = (err) => {
 };
 
 const fetchConversationStats = (conversation_id, until) => {
-  console.log("calling", conversation_id, until);
   return $.get(
     "/api/v3/conversationStats?conversation_id=" +
       conversation_id +
