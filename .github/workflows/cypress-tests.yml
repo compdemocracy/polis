@@ -13,18 +13,21 @@ jobs:
       # Use buildkit to speed up docker command
       DOCKER_BUILDKIT: 1
     steps:
-      - name: Checkout app repo
+      - name: Checkout
         uses: actions/checkout@v2
 
       - name: Build full project via docker-compose
         run: docker-compose build --parallel
 
-      - run: docker-compose up --detach
+      - name: Serve app via docker-compose
+        run: docker-compose up --detach
 
-      - run: |
+      - name: Generate Cypress config
+        run: |
           echo '{"projectId": "4rbrm6"}' > e2e/cypress.json
 
-      - uses: cypress-io/github-action@v1
+      - name: Run Cypress tests
+        uses: cypress-io/github-action@v1
         env:
           CYPRESS_BASE_URL: http://localhost
           CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
@@ -37,14 +40,16 @@ jobs:
 
       # NOTE: screenshots will be generated only if E2E test failed
       # thus we store screenshots only on failures
-      - uses: actions/upload-artifact@v1
+      - name: Save screenshot artefacts
+        uses: actions/upload-artifact@v1
         if: failure()
         with:
           name: cypress-screenshots
           path: e2e/cypress/screenshots
 
       # Test run video was always captured, so this action uses "always()" condition
-      - uses: actions/upload-artifact@v1
+      - name: Save video artefacts
+        uses: actions/upload-artifact@v1
         if: always()
         with:
           name: cypress-videos
