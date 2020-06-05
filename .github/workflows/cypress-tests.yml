@@ -21,12 +21,18 @@ jobs:
 
       - run: docker-compose up --detach
 
+      - run: |
+          echo '{"projectId": "4rbrm6"}' > e2e/cypress.json
+
       - uses: cypress-io/github-action@v1
         env:
           CYPRESS_BASE_URL: http://localhost
+          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           working-directory: ./e2e
           spec: cypress/integration/client-admin/**/*
+          record: true
           browser: chrome
 
       # NOTE: screenshots will be generated only if E2E test failed
