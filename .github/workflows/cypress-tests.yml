@@ -1,0 +1,37 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [patcon/236-cypress-gha]
+
+jobs:
+  cypress-run:
+    runs-on: ubuntu-16.04
+    env:
+      # Use native docker command within docker-compose
+      COMPOSE_DOCKER_CLI_BUILD: 1
+      # Use buildkit to speed up docker command
+      DOCKER_BUILDKIT: 1
+      TESTS_CHECKOUT_DIR: e2e
+    steps:
+      - name: Checkout app repo
+        uses: actions/checkout@v2
+
+      - name: Build full project via docker-compose
+        run: docker-compose build --parallel
+
+      - run: docker-compose up --detach
+
+      - name: Checkout tests repo
+        uses: actions/checkout@v2
+        with:
+          repository: pol-is/polis-cypress
+          path: ${{ env.TESTS_CHECKOUT_DIR }}
+
+      - uses: cypress-io/github-action@v1
+        env:
+          CYPRESS_BASE_URL: http://localhost
+        with:
+          working-directory: ${{ env.TESTS_CHECKOUT_DIR }}
+          spec: cypress/integration/client-admin/**/*
+          browser: chrome
