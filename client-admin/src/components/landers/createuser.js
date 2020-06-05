@@ -58,10 +58,20 @@ class Createuser extends React.Component {
     return (
       <div>
         <form>
-          <input ref="hname" placeholder="name" type="text" />
-          <input ref="email" placeholder="email" type="email" />
-          <input ref="password" placeholder="password" type="password" />
-          <input ref="password2" placeholder="repeat password" type="password" />
+          <input id="createUserNameInput" ref="hname" placeholder="name" type="text" />
+          <input id="createUserEmailInput" ref="email" placeholder="email" type="email" />
+          <input
+            id="createUserPasswordInput"
+            ref="password"
+            placeholder="password"
+            type="password"
+          />
+          <input
+            id="createUserPasswordRepeatInput"
+            ref="password2"
+            placeholder="repeat password"
+            type="password"
+          />
 
           {this.maybeErrorMessage()}
 
@@ -80,7 +90,7 @@ class Createuser extends React.Component {
             </p>
           </div>
 
-          <button onClick={this.handleLoginClicked.bind(this)}>
+          <button id="createUserButton" onClick={this.handleLoginClicked.bind(this)}>
             {this.props.pending ? "Creating Account..." : "Create Account"}
           </button>
         </form>
@@ -88,7 +98,7 @@ class Createuser extends React.Component {
           If you click 'Sign in with Facebook' and are not a pol.is user, you will be registered and
           you agree to the pol.is terms and privacy policy
         </p>
-        <button onClick={this.facebookButtonClicked.bind(this)}>
+        <button id="signupFacebookButton" onClick={this.facebookButtonClicked.bind(this)}>
           <span>{"Sign up with Facebook"}</span>
         </button>
 

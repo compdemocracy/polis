@@ -30,13 +30,6 @@ const pollFrequency = 60000;
 @connect((state) => state.zid_metadata)
 @connect(mapStateToProps)
 class CommentModeration extends React.Component {
-  getStyles() {
-    return {
-      navContainer: {
-        margin: "10px 20px 20px 20px",
-      },
-    };
-  }
   loadComments() {
     const { match } = this.props;
     this.props.dispatch(populateAllCommentStores(match.params.conversation_id));
@@ -52,11 +45,14 @@ class CommentModeration extends React.Component {
   componentWillUnmount() {
     clearInterval(this.getCommentsRepeatedly);
   }
+
   render() {
     if (ComponentHelpers.shouldShowPermissionsError(this.props)) {
       return <NoPermission />;
     }
-    const { match } = this.props;
+    const { match, location } = this.props;
+
+    const url = location.pathname.split("/")[4];
 
     return (
       <Box>
@@ -70,62 +66,49 @@ class CommentModeration extends React.Component {
         >
           Moderate
         </Heading>
-        <Flex>
-          <Link sx={{ mr: [4], variant: "links.nav" }} to={`${match.url}`}>
-            Unmoderated
+        <Flex sx={{ mb: [4] }}>
+          <Link
+            sx={{
+              mr: [4],
+              variant: url ? "links.nav" : "links.activeNav",
+            }}
+            to={`${match.url}`}
+          >
+            Unmoderated{" "}
+            {this.props.unmoderated.unmoderated_comments
+              ? this.props.unmoderated.unmoderated_comments.length
+              : null}
           </Link>
-          <Link sx={{ mr: [4], variant: "links.nav" }} to={`${match.url}/accepted`}>
-            Accepted
+          <Link
+            sx={{ mr: [4], variant: url === "accepted" ? "links.activeNav" : "links.nav" }}
+            to={`${match.url}/accepted`}
+          >
+            Accepted{" "}
+            {this.props.accepted.accepted_comments
+              ? this.props.accepted.accepted_comments.length
+              : null}
           </Link>
-          <Link sx={{ mr: [4], variant: "links.nav" }} to={`${match.url}/rejected`}>
-            Rejected
+          <Link
+            sx={{ mr: [4], variant: url === "rejected" ? "links.activeNav" : "links.nav" }}
+            to={`${match.url}/rejected`}
+          >
+            Rejected{" "}
+            {this.props.rejected.rejected_comments
+              ? this.props.rejected.rejected_comments.length
+              : null}
           </Link>
         </Flex>
-        <Switch>
-          <Redirect from="/:url*(/+)" to={match.path.slice(0, -1)} />
-          <Route exact path={`${match.url}`} component={ModerateCommentsTodo} />
-          <Route exact path={`${match.url}/accepted`} component={ModerateCommentsAccepted} />
-          <Route exact path={`${match.url}/rejected`} component={ModerateCommentsRejected} />
-        </Switch>
+        <Box>
+          <Switch>
+            <Redirect from="/:url*(/+)" to={match.path.slice(0, -1)} />
+            <Route exact path={`${match.url}`} component={ModerateCommentsTodo} />
+            <Route exact path={`${match.url}/accepted`} component={ModerateCommentsAccepted} />
+            <Route exact path={`${match.url}/rejected`} component={ModerateCommentsRejected} />
+          </Switch>
+        </Box>
       </Box>
     );
   }
 }
 
 export default CommentModeration;
-
-// <NavTab
-//   active={this.props.routes[3].path ? false : true}
-//   url={`/m/${this.props.params.conversation_id}/comments/`}
-//   empty={0}
-//   text="Unmoderated"
-//   number={
-//     this.props.unmoderated.unmoderated_comments
-//       ? this.props.unmoderated.unmoderated_comments.length
-//       : "..."
-//   }
-// />
-// <NavTab
-//   active={this.props.routes[3].path === "accepted"}
-//   url={`/m/${this.props.params.conversation_id}/comments/accepted`}
-//   empty={0}
-//   text="Accepted"
-//   number={
-//     this.props.accepted.accepted_comments
-//       ? this.props.accepted.accepted_comments.length
-//       : "..."
-//   }
-// />
-// <NavTab
-//   active={this.props.routes[3].path === "rejected"}
-//   url={`/m/${this.props.params.conversation_id}/comments/rejected`}
-//   empty={0}
-//   text="Rejected"
-//   number={
-//     this.props.rejected.rejected_comments
-//       ? this.props.rejected.rejected_comments.length
-//       : "..."
-//   }
-// />
-
-// </Flex>
