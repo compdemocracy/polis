@@ -37,7 +37,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           working-directory: ./e2e
-          spec: cypress/integration/client-admin/**/*
+          spec: cypress/integration/polis/**/*
           record: true
           browser: chrome
 
