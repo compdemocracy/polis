@@ -2,9 +2,7 @@
 
 import _ from "lodash";
 import Flex from "../framework/flex";
-import Radium from "radium";
 import React from "react";
-import Spinner from "../framework/spinner";
 import strings from "../../strings/strings";
 import { connect } from "react-redux";
 import { populateAllCommentStores, changeCommentStatusToRejected } from "../../actions";
@@ -12,7 +10,6 @@ import { populateAllCommentStores, changeCommentStatusToRejected } from "../../a
 @connect((state) => state.mod_comments_accepted)
 @connect((state) => state.mod_comments_rejected)
 @connect((state) => state.mod_comments_unmoderated)
-@Radium
 class ConversationHasCommentsCheck extends React.Component {
   componentWillMount() {
     this.props.dispatch(populateAllCommentStores(this.props.conversation_id));
@@ -32,50 +29,20 @@ class ConversationHasCommentsCheck extends React.Component {
       } else {
         s = strings("share_but_no_comments_warning");
       }
-      return (
-        <Flex styleOverrides={this.getStyles().card} alignItems="center">
-          {s}
-        </Flex>
-      );
+      return <div>{s}</div>;
     } else {
       return null;
     }
   }
-  renderSpinner() {
-    return (
-      <Flex>
-        <Spinner />
-        <span
-          style={{
-            marginLeft: 10,
-            position: "relative",
-            top: -2,
-          }}
-        >
-          {" "}
-          Loading accepted comments...{" "}
-        </span>
-      </Flex>
-    );
-  }
-  getStyles() {
-    return {
-      card: {
-        margin: "10px 20px 10px 20px",
-        backgroundColor: "rgb(253,253,253)",
-        borderRadius: 3,
-        padding: "0px 20px",
-        WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
-        BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
-      },
-    };
-  }
+
   render() {
     return (
       <div>
-        {this.props.accepted_comments !== null && this.props.rejected_comments !== null
-          ? this.createCommentMarkup()
-          : this.renderSpinner()}
+        {this.props.accepted_comments !== null && this.props.rejected_comments !== null ? (
+          this.createCommentMarkup()
+        ) : (
+          <span> Loading accepted comments... </span>
+        )}
       </div>
     );
   }

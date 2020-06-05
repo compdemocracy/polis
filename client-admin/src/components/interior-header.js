@@ -26,7 +26,7 @@ class InteriorHeader extends React.Component {
             <Logomark style={{ marginRight: 10, position: "relative", top: 6 }} fill={"white"} />
             Polis
           </Link>
-          <Link sx={{ variant: "links.header" }} to="signout">
+          <Link id="signoutLink" sx={{ variant: "links.header" }} to="/signout">
             sign out
           </Link>
         </Box>

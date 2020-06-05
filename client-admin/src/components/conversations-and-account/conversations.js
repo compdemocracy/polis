@@ -5,7 +5,8 @@ import { connect } from "react-redux";
 import { populateConversationsStore } from "../../actions";
 import { handleCreateConversationSubmit } from "../../actions";
 import Url from "../../util/url";
-import { Box, Heading, Button } from "theme-ui";
+import { Box, Heading, Button, Text } from "theme-ui";
+import Conversation from "./conversation";
 
 @connect((state) => state.conversations)
 class Conversations extends React.Component {
@@ -25,12 +26,7 @@ class Conversations extends React.Component {
     // check your connectivity and try again
   }
 
-  goTo(r) {
-    return () => {
-      this.props.history.push(r);
-    };
-  }
-  goToConversation(conversation_id) {
+  goToConversation = (conversation_id) => {
     return () => {
       if (this.props.history.pathname === "other-conversations") {
         window.open(`${Url.urlPrefix}${conversation_id}`, "_blank");
@@ -38,14 +34,8 @@ class Conversations extends React.Component {
       }
       this.props.history.push(`/m/${conversation_id}`);
     };
-  }
+  };
 
-  goToDocs() {
-    window.location = "http://docs.pol.is";
-  }
-  onNewClicked() {
-    this.props.dispatch(handleCreateConversationSubmit());
-  }
   filterCheck(c) {
     let include = true;
 
@@ -66,23 +56,7 @@ class Conversations extends React.Component {
 
     return include;
   }
-  renderFilteredConversations() {
-    const conversationsMarkup = this.props.conversations.map((c, i) => {
-      let markup = "";
-      if (this.filterCheck(c)) {
-        markup = (
-          <div onClick={this.goToConversation(c.conversation_id)} key={i}>
-            <p ref={`statNumber${i}`}>{c.participant_count} participants</p>
-            <p ref={`topic${i}`}>{c.topic}</p>
-            <p ref={`description${i}`}>{c.description}</p>
-            <p ref={`parentUrl${i}`}>{c.parent_url ? `Embedded on ${c.parent_url}` : ""}</p>
-          </div>
-        );
-      }
-      return markup;
-    });
-    return conversationsMarkup;
-  }
+
   firePopulateInboxAction() {
     this.props.dispatch(populateConversationsStore());
   }
@@ -92,6 +66,8 @@ class Conversations extends React.Component {
 
   render() {
     const err = this.props.error;
+    const { conversations } = this.props;
+
     return (
       <Box>
         <Heading
@@ -104,11 +80,26 @@ class Conversations extends React.Component {
         >
           All Conversations
         </Heading>
-        <Button onClick={this.onNewClicked.bind(this)}>Create New Conversation</Button>
+        <Box sx={{ mb: [3, null, 4] }}>
+          <Button onClick={this.onNewClicked.bind(this)}>Create new conversation</Button>
+        </Box>
         <Box>
-          <p>{this.props.loading ? "Loading conversations..." : null}</p>
-          {err ? "Error loading conversations: " + err.status + " " + err.statusText : ""}
-          {this.props.conversations ? this.renderFilteredConversations() : null}
+          <Box sx={{ mb: [3] }}>{this.props.loading ? "Loading conversations..." : null}</Box>
+          {err ? (
+            <Text>{"Error loading conversations: " + err.status + " " + err.statusText}</Text>
+          ) : null}
+          {conversations
+            ? conversations.map((c, i) => {
+                return this.filterCheck(c) ? (
+                  <Conversation
+                    key={c.conversation_id}
+                    c={c}
+                    i={i}
+                    goToConversation={this.goToConversation(c.conversation_id)}
+                  />
+                ) : null;
+              })
+            : null}
         </Box>
       </Box>
     );
