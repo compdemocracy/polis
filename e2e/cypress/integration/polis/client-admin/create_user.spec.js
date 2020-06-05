@@ -12,19 +12,19 @@ describe('Create User', () => {
   })
 
   it('Does not create a new user with existing email address', () => {
-    cy.get('form').within(async function () {
+    cy.get('form').within(function () {
       cy.get('input[placeholder=name]').type(this.user.name)
       cy.get('input[placeholder=email]').type(this.user.email)
       cy.get('input[placeholder=password]').type(this.user.password)
       cy.get('input[placeholder="repeat password"]').type(this.user.password)
 
-      cy.get('button')[0].click()
-
-      cy.get('form').contains(
-        'Email address already in use, Try logging in instead.'
-      )
-      cy.url().should('eq', Cypress.config().baseUrl + '/createuser')
+      cy.get('button').click()
     })
+
+    cy.get('form').contains(
+      'Email address already in use, Try logging in instead.'
+    )
+    cy.url().should('eq', Cypress.config().baseUrl + '/createuser')
   })
 
   it('Creates a new user', () => {
@@ -47,7 +47,7 @@ describe('Create User', () => {
       cy.get('input[placeholder=password]').type(newUser.password)
       cy.get('input[placeholder="repeat password"]').type(newUser.password)
 
-      cy.get('button')[0].click()
+      cy.get('button').click()
 
       const xhr = await cy.wait('@authNew')
       expect(xhr.status).to.equal(200)
