@@ -7,7 +7,7 @@ import { connect } from "react-redux";
 import { handleSeedCommentSubmit, seedCommentChanged } from "../../actions";
 import _ from "lodash";
 import strings from "../../strings/strings";
-import { Flex, Box, Text, Button, jsx } from "theme-ui";
+import { Flex, Box, Text, Button, jsx, Link } from "theme-ui";
 
 @connect((state) => state.seed_comments)
 class ModerateCommentsSeed extends React.Component {
@@ -47,7 +47,14 @@ class ModerateCommentsSeed extends React.Component {
   render() {
     return (
       <Box sx={{ mb: [4] }}>
-        <Text sx={{ mb: [2] }}> Add comments for participants to vote on: </Text>
+        <Text sx={{ mb: [2] }}>
+          Add
+          <Link target="_blank" href="https://roamresearch.com/#/app/polis-methods/page/RkWuTgZfs">
+            {" "}
+            seed comments{" "}
+          </Link>
+          for participants to vote on:
+        </Text>
         <Box sx={{ mb: [2] }}>
           <textarea
             sx={{
