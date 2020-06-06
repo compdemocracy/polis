@@ -235,7 +235,6 @@ gulp.task('embedJs', function() {
   return gulp.src([
     'api/embed.js',
     'api/embedPreprod.js',
-    'api/embed_helper.js',
     'api/twitterAuthReturn.html',
     ])
   // .pipe(template({
@@ -960,41 +959,6 @@ function deploy(uploader) {
       },
       subdir: null,
     }));
-
-    // TODO remove this duplication!
-    var embedJsCacheSeconds = 60;
-    promises.push(deployBatch({
-      srcKeep: destRootBase + '/**/embed_helper.js',
-      headers: {
-        'x-amz-acl': 'public-read',
-        'Content-Type': 'application/javascript',
-  //      'Content-Encoding': 'gzip', //causing issues (with s3), not sure why
-        'Cache-Control': 'no-cache'.replace(/MAX_AGE/g, embedJsCacheSeconds),
-      },
-      logStatement: function(file) {
-        console.log("upload path cached_embedJs_"+embedJsCacheSeconds+" /embed_helper.js");
-        return "/embed_helper.js";
-      },
-      subdir: null,
-    }));
-
-    // TODO remove this duplication!
-    var embedJsCacheSeconds = 60;
-    promises.push(deployBatch({
-      srcKeep: destRootBase + '/**/embed_helper.js',
-      headers: {
-        'x-amz-acl': 'public-read',
-        'Content-Type': 'application/javascript',
-  //      'Content-Encoding': 'gzip', //causing issues (with s3), not sure why
-        'Cache-Control': 'no-cache'.replace(/MAX_AGE/g, embedJsCacheSeconds),
-      },
-      logStatement: function(file) {
-        console.log("upload path cached_embedJs_"+embedJsCacheSeconds+" /embed_helper.js");
-        return "/embed_helper.js";
-      },
-      subdir: null,
-    }));
-
 
     // TODO remove this duplication!
     var twitterAuthReturnCacheSeconds = 60;
