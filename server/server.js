@@ -3507,6 +3507,10 @@ function initializePolisHelpers() {
 
   function getServerNameWithProtocol(req) {
     let server = "https://pol.is";
+
+    if (domainOverride) {
+      server = req.protocol + "://" + domainOverride;
+    }
     if (devMode) {
       // usually localhost:5000
       server = "http://" + req.headers.host;
@@ -7977,6 +7981,9 @@ Email verified! You can close this tab or hit the back button.
 
   function createModerationUrl(req, zinvite) {
     let server = devMode ? "http://localhost:5000" : "https://pol.is";
+    if (domainOverride) {
+      server = req.protocol + "://" + domainOverride;
+    }
 
     if (req.headers.host.includes("preprod.pol.is")) {
       server = "https://preprod.pol.is";
@@ -14299,7 +14306,7 @@ CREATE TABLE slack_user_invites (
   }
 
   function buildStaticHostname(req, res) {
-    if (devMode) {
+    if (devMode || domainOverride) {
       return process.env.STATIC_FILES_HOST;
     } else {
       let origin = req.headers.host;
@@ -14368,17 +14375,12 @@ CREATE TABLE slack_user_invites (
         console.error(req.path);
         return;
       }
-      let url;
-      if (devMode) {
-        url = "http://" + hostname + ":" + port + path;
-      } else {
-        // pol.is.s3-website-us-east-1.amazonaws.com
-        // preprod.pol.is.s3-website-us-east-1.amazonaws.com
+      // pol.is.s3-website-us-east-1.amazonaws.com
+      // preprod.pol.is.s3-website-us-east-1.amazonaws.com
 
-        // TODO https - buckets would need to be renamed to have dashes instead of dots.
-        // http://stackoverflow.com/questions/3048236/amazon-s3-https-ssl-is-it-possible
-        url = "http://" + hostname + path;
-      }
+      // TODO https - buckets would need to be renamed to have dashes instead of dots.
+      // http://stackoverflow.com/questions/3048236/amazon-s3-https-ssl-is-it-possible
+      let url = "http://" + hostname + ":" + port + path;
       winston.log("info", "fetch file from " + url);
       let x = request(url);
       req.pipe(x);
