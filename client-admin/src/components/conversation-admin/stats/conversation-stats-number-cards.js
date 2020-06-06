@@ -11,21 +11,21 @@ class NumberCards extends React.Component {
     const data = this.props.data;
     return (
       <div>
-        <NumberCard datum={data.firstVoteTimes.length} subheading="voted" icon="users" />
-        <NumberCard datum={data.voteTimes.length} subheading="votes cast" icon="tags" />
+        <NumberCard
+          datum={data.firstVoteTimes.length}
+          subheading="participants voted"
+          icon="users"
+        />
+        <NumberCard datum={data.voteTimes.length} subheading="votes were cast" icon="tags" />
         <NumberCard
           datum={(data.voteTimes.length / data.firstVoteTimes.length).toFixed(2)}
-          subheading="votes per voter on average"
+          subheading="votes per participant on average"
         />
         <NumberCard datum={data.firstCommentTimes.length} subheading="commented" icon="users" />
         <NumberCard
           datum={data.commentTimes.length}
           subheading="comments submitted"
           icon="comments"
-        />
-        <NumberCard
-          datum={(data.commentTimes.length / data.firstCommentTimes.length).toFixed(2)}
-          subheading="comments per commenter on average"
         />
       </div>
     );
