@@ -1,4 +1,5 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+/** @jsx jsx */
 
 import dateSetupUtil from "../../../util/data-export-date-setup";
 import React from "react";
@@ -10,6 +11,7 @@ import Votes from "./conversation-stats-votes-timescale";
 import VotesDistribution from "./conversation-stats-vote-distribution";
 import CommentsTimescale from "./conversation-stats-comments-timescale";
 import CommentersVoters from "./conversation-stats-commenters-voters";
+import { Heading, Box, Flex, Text, Input, jsx } from "theme-ui";
 
 @connect((state) => state.stats)
 class ConversationStats extends React.Component {
@@ -55,6 +57,16 @@ class ConversationStats extends React.Component {
   createCharts(data) {
     return (
       <div ref="chartContainer">
+        <Heading
+          as="h3"
+          sx={{
+            fontSize: [3, null, 4],
+            lineHeight: "body",
+            mb: [3, null, 4],
+          }}
+        >
+          Monitor
+        </Heading>
         <div>
           <NumberCards data={data} />
           <div>

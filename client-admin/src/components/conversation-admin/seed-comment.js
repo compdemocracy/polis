@@ -27,6 +27,7 @@ class ModerateCommentsSeed extends React.Component {
       is_seed: true,
     };
     this.props.dispatch(handleSeedCommentSubmit(comment));
+    this.refs.seed_form.value = "";
   }
   handleTextareaChange(e) {
     this.props.dispatch(seedCommentChanged(e.target.value));
