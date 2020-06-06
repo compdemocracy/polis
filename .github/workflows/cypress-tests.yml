@@ -4,6 +4,7 @@ on:
   push:
     branches:
     - dev
+    - patcon/236-cypress-gha
 
 jobs:
   cypress-run:
