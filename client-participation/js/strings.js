@@ -60,7 +60,7 @@ preloadHelper.acceptLanguagePromise.then(function() {
       _.extend(strings, translations.en_us);
     }
     else if (languageCode.match(/^ja/)) {
-      strings = _.extend(strings, translations.ja);
+      _.extend(strings, translations.ja);
     }
     else if (
       languageCode.match(/^zh-CN/) ||
