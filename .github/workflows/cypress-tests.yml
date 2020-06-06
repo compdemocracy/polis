@@ -25,20 +25,14 @@ jobs:
       - name: Serve app via docker-compose
         run: docker-compose up --detach
 
-      - name: Generate Cypress config
-        run: |
-          echo '{"projectId": "4rbrm6"}' > e2e/cypress.json
-
       - name: Run Cypress tests
         uses: cypress-io/github-action@v1
         env:
           CYPRESS_BASE_URL: http://localhost
-          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           working-directory: ./e2e
           spec: cypress/integration/polis/**/*
-          record: true
           browser: chrome
 
       # NOTE: screenshots will be generated only if E2E test failed
