@@ -137,55 +137,6 @@ class ConversationStats extends React.Component {
             </div>
           </div>
         </div>
-
-        <select ref="exportSelectYear">
-          {this.state.years.map((year, i) => {
-            return (
-              <option selected={year.selected} key={i} value={year.name}>
-                {" "}
-                {year.name}{" "}
-              </option>
-            );
-          })}
-        </select>
-        <select ref="exportSelectMonth">
-          {this.state.months.map((month, i) => {
-            return (
-              <option selected={month.selected} key={i} value={month.name}>
-                {" "}
-                {month.name}{" "}
-              </option>
-            );
-          })}
-        </select>
-        <select ref="exportSelectDay">
-          {this.state.days.map((day, i) => {
-            return (
-              <option selected={day.selected} key={i} value={day.name}>
-                {" "}
-                {day.name}{" "}
-              </option>
-            );
-          })}
-        </select>
-        <select
-          style={{
-            marginRight: 10,
-            cursor: "pointer",
-            fontSize: 16,
-          }}
-          ref="exportSelectHour"
-        >
-          {this.state.tzs.map((tz, i) => {
-            return (
-              <option selected={tz.selected} key={i} value={tz.name}>
-                {" "}
-                {tz.name}{" "}
-              </option>
-            );
-          })}
-        </select>
-        <button onClick={this.handleUntilButtonClicked.bind(this)}>Set Until</button>
       </div>
     );
   }
@@ -202,3 +153,52 @@ class ConversationStats extends React.Component {
 }
 
 export default ConversationStats;
+
+// <select ref="exportSelectYear">
+// {this.state.years.map((year, i) => {
+//   return (
+//     <option selected={year.selected} key={i} value={year.name}>
+//       {" "}
+//       {year.name}{" "}
+//     </option>
+//   );
+// })}
+// </select>
+// <select ref="exportSelectMonth">
+// {this.state.months.map((month, i) => {
+//   return (
+//     <option selected={month.selected} key={i} value={month.name}>
+//       {" "}
+//       {month.name}{" "}
+//     </option>
+//   );
+// })}
+// </select>
+// <select ref="exportSelectDay">
+// {this.state.days.map((day, i) => {
+//   return (
+//     <option selected={day.selected} key={i} value={day.name}>
+//       {" "}
+//       {day.name}{" "}
+//     </option>
+//   );
+// })}
+// </select>
+// <select
+// style={{
+//   marginRight: 10,
+//   cursor: "pointer",
+//   fontSize: 16,
+// }}
+// ref="exportSelectHour"
+// >
+// {this.state.tzs.map((tz, i) => {
+//   return (
+//     <option selected={tz.selected} key={i} value={tz.name}>
+//       {" "}
+//       {tz.name}{" "}
+//     </option>
+//   );
+// })}
+// </select>
+// <button onClick={this.handleUntilButtonClicked.bind(this)}>Set Until</button>
