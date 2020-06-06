@@ -78,6 +78,12 @@ Sign up at `/createuser` path. You'll be logged in right away; no email validati
 - ~~Generated reports~~
 - Data export [`polis-issues#137`](https://github.com/pol-is/polis-issues/issues/137)
 
+**Note:** Due to past file re-organizations, you may find the following git configuration helpful for looking at history:
+
+```
+git config --local include.path ../.gitconfig
+```
+
 ## 🚀 Deployment
 
 Please see [`docs/deployment.md`](/docs/deployment.md)
