@@ -12,6 +12,18 @@ describe('Create User', () => {
   })
 
   it('Does not create a new user with existing email address', () => {
+    // Create user.
+    cy.get('form').within(function () {
+      cy.get('input[placeholder=name]').type(this.user.name)
+      cy.get('input[placeholder=email]').type(this.user.email)
+      cy.get('input[placeholder=password]').type(this.user.password)
+      cy.get('input[placeholder="repeat password"]').type(this.user.password)
+
+      cy.get('button').click()
+    })
+
+    // Attempt to recreate user.
+    cy.visit('/createuser')
     cy.get('form').within(function () {
       cy.get('input[placeholder=name]').type(this.user.name)
       cy.get('input[placeholder=email]').type(this.user.email)
