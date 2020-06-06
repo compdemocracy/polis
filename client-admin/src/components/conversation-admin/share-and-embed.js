@@ -60,7 +60,7 @@ class ShareAndEmbed extends React.Component {
           </div>
           <p>
             This embed code can only be used to embed a single conversation.{" "}
-            <Link to="integrate">I want to integrate pol.is on my entire site.</Link>
+            <Link to="/integrate">I want to integrate pol.is on my entire site.</Link>
           </p>
           <div>{this.props.zid_metadata.parent_url ? this.constructEmbeddedOnMarkup() : ""}</div>
         </div>
