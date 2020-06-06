@@ -2,7 +2,8 @@ name: E2E Tests
 
 on:
   push:
-    branches: [patcon/236-cypress-gha]
+    branches:
+    - dev
 
 jobs:
   cypress-run:
