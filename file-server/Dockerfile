@@ -1,4 +1,4 @@
-ARG TAG=latest
+ARG TAG=dev
 
 FROM polisdemo/client-admin:${TAG}          as admin
 FROM polisdemo/client-participation:${TAG}  as participation
