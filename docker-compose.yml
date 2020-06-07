@@ -86,7 +86,7 @@ services:
 
   client-participation:
     container_name: polis-client-participation
-    image: polisdemo/client-participation:dev
+    image: polisdemo/client-participation:latest
     build:
       context: ./client-participation
       args:
@@ -94,7 +94,7 @@ services:
 
   client-admin:
     container_name: polis-client-admin
-    image: polisdemo/client-admin:dev
+    image: polisdemo/client-admin:latest
     build:
       context: ./client-admin
       args:
@@ -102,7 +102,7 @@ services:
 
   client-report:
     container_name: polis-client-report
-    image: polisdemo/client-report:dev
+    image: polisdemo/client-report:latest
     build:
       context: ./client-report
       args:
