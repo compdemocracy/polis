@@ -3,8 +3,14 @@ name: E2E Tests
 on:
   push:
     branches:
-    - dev
-    - patcon/236-cypress-gha
+      - dev
+    paths-ignore:
+      - "**.md"
+
+  pull_request:
+    paths-ignore:
+      - "**.md"
+
 
 jobs:
   cypress-run:
@@ -31,7 +37,6 @@ jobs:
         uses: cypress-io/github-action@v1
         env:
           CYPRESS_BASE_URL: http://localhost
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           working-directory: ./e2e
           spec: cypress/integration/polis/**/*
