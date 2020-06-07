@@ -9,12 +9,10 @@ RUN npm ci
 COPY . .
 COPY fs_config.template.json fs_config.json
 
-ARG TAG=latest
-
 RUN mkdir /app/build
-COPY --from=polisdemo/client-admin:${TAG}         /app/build/ ./build
-COPY --from=polisdemo/client-participation:${TAG} /app/build/ ./build
-COPY --from=polisdemo/client-report:${TAG}        /app/build/ ./build
+COPY --from=polisdemo/client-admin:dev         /app/build/ ./build
+COPY --from=polisdemo/client-participation:dev /app/build/ ./build
+COPY --from=polisdemo/client-report:dev        /app/build/ ./build
 
 EXPOSE 8080
 
