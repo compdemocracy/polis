@@ -5,8 +5,8 @@ describe('Home Page', () => {
     cy.url().should('eq', Cypress.config().baseUrl + '/home')
   })
 
-  it('has Demo and Sign in links', () => {
-    cy.get('#root').find('a[href="/demo"]')
+  it('has Sign up and Sign in links', () => {
+    cy.get('#root').find('a[href="/createuser"]')
     cy.get('#root').find('a[href="/signin"]').should('have.length', 2)
   })
 })
