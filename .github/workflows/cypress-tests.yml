@@ -4,13 +4,13 @@ on:
   push:
     branches:
       - dev
+      - patcon/236-cypress-gha
     paths-ignore:
       - "**.md"
 
   pull_request:
     paths-ignore:
       - "**.md"
-
 
 jobs:
   cypress-run:
@@ -24,6 +24,12 @@ jobs:
       # Use buildkit to speed up docker command
       DOCKER_BUILDKIT: 1
     steps:
+      # This ensures only the most recently push commit will keep running.
+      - name: Cancel other active runs of this workflow
+        uses: rokroskar/workflow-run-cleanup-action@v0.2.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Checkout
         uses: actions/checkout@v2
 
