@@ -1,9 +1,3 @@
-ARG TAG=latest
-
-FROM polisdemo/client-admin:${TAG}          as admin
-FROM polisdemo/client-participation:${TAG}  as participation
-FROM polisdemo/client-report:${TAG}         as report
-
 FROM node:10.20.1-alpine
 
 WORKDIR /app
@@ -15,10 +9,12 @@ RUN npm ci
 COPY . .
 COPY fs_config.template.json fs_config.json
 
+ARG TAG=latest
+
 RUN mkdir /app/build
-COPY --from=admin         /app/build/ ./build
-COPY --from=participation /app/build/ ./build
-COPY --from=report        /app/build/ ./build
+COPY --from=polisdemo/client-admin:${TAG}         /app/build/ ./build
+COPY --from=polisdemo/client-participation:${TAG} /app/build/ ./build
+COPY --from=polisdemo/client-report:${TAG}        /app/build/ ./build
 
 EXPOSE 8080
 
