@@ -33,7 +33,11 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Build full project via docker-compose
-        run: docker-compose build --parallel
+        run: |
+          docker-compose build --parallel
+          # Must rebuild due to build no following depends_on order,
+          # and so newest version of client apps may not have been copied in.
+          docker-compose build file-server
 
       - name: Serve app via docker-compose
         run: docker-compose up --detach
