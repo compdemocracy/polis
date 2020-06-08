@@ -23,3 +23,31 @@
 //
 // -- This will overwrite an existing command --
 // Cypress.Commands.overwrite("visit", (originalFn, url, options) => { ... })
+
+Cypress.Commands.add("logout", () => {
+  cy.visit('/signout')
+})
+
+Cypress.Commands.add("signup", (name, email, password) => {
+  cy.visit('/createuser')
+
+  cy.get('form').within(function () {
+    cy.get('input#createUserNameInput').type(name)
+    cy.get('input#createUserEmailInput').type(email)
+    cy.get('input#createUserPasswordInput').type(password)
+    cy.get('input#createUserPasswordRepeatInput').type(password)
+
+    cy.get('button#createUserButton').click()
+  })
+})
+
+Cypress.Commands.add("login", (email, password) => {
+  cy.visit('/signin')
+
+  cy.get('form').within(function () {
+    cy.get('input#signinEmailInput').type(email)
+    cy.get('input#signinPasswordInput').type(password)
+
+    cy.get('button#signinButton').click()
+  })
+})
