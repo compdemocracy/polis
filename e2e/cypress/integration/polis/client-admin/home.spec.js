@@ -1,5 +1,5 @@
 describe('Home Page', () => {
-  beforeEach(() => cy.visit(''))
+  beforeEach(() => cy.visit('/'))
 
   it('bare Url redirects to /home', () => {
     cy.url().should('eq', Cypress.config().baseUrl + '/home')
