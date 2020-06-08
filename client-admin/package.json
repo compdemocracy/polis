@@ -4,7 +4,7 @@
   "repository": "github:pol-is/polisClientAdmin",
   "description": "Polis Admin Console",
   "engines": {
-    "node": "10.20.1"
+    "node": "8.17.0"
   },
   "scripts": {
     "clean": "rimraf dist",
