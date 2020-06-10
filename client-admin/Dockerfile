@@ -5,7 +5,7 @@ WORKDIR /app
 
 RUN apk add git --no-cache
 
-COPY package*.json npm-shrinkwrap.json ./
+COPY package*.json ./
 RUN npm install
 
 COPY . .
