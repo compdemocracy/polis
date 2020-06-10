@@ -11,35 +11,30 @@ export default class Checkbox extends React.Component {
     super(props);
     this.state = {
       checked: this.props.checked,
-      active: false
+      active: false,
     };
   }
 
-  static defaultProps = {
-      checked: true,
-      clickHandler: (x) => { return x },
-      color: settings.darkGray,
-
-  }
-
-  activeHandler () {
+  activeHandler() {
     this.setState({ active: !this.state.active });
   }
 
-  clickHandler () {
+  clickHandler() {
     this.setState({ checked: !this.state.checked });
-    if (this.props.clickHandler) { this.props.clickHandler(); }
+    if (this.props.clickHandler) {
+      this.props.clickHandler();
+    }
   }
 
-  getWrapperStyles () {
+  getWrapperStyles() {
     return {
       display: "block",
       marginBottom: 10,
-      position: "relative"
+      position: "relative",
     };
   }
 
-  getLabelWrapperStyles () {
+  getLabelWrapperStyles() {
     return {
       color: this.props.labelWrapperColor,
       cursor: "pointer",
@@ -49,11 +44,11 @@ export default class Checkbox extends React.Component {
       fontWeight: 400,
       lineHeight: "20px",
       paddingLeft: 22,
-      "-webkit-user-select": "none"
+      "-webkit-user-select": "none",
     };
   }
 
-  getCheckboxStyles () {
+  getCheckboxStyles() {
     const activeColor = Color(this.props.color).lighten(0.2).hexString();
 
     return {
@@ -66,27 +61,27 @@ export default class Checkbox extends React.Component {
         position: "relative",
         top: 1,
         transition: "background-color ease .3s",
-        width: 12
+        width: 12,
       },
       checked: {
-        backgroundColor: this.props.color
+        backgroundColor: this.props.color,
       },
       active: {
-        backgroundColor: activeColor
-      }
+        backgroundColor: activeColor,
+      },
     };
   }
 
-  getLabelStyles () {
+  getLabelStyles() {
     return {
       display: "inline",
       left: -12,
       marginRight: 4,
-      position: "relative"
+      position: "relative",
     };
   }
 
-  getHelpTextStyles () {
+  getHelpTextStyles() {
     return {
       color: "#ccc",
       cursor: "pointer",
@@ -95,11 +90,11 @@ export default class Checkbox extends React.Component {
       fontSize: 12,
       fontWeight: 200,
       lineHeight: "20px",
-      marginLeft: 5
+      marginLeft: 5,
     };
   }
 
-  render () {
+  render() {
     const checkboxStyles = this.getCheckboxStyles();
 
     return (
@@ -108,20 +103,20 @@ export default class Checkbox extends React.Component {
           style={this.getLabelWrapperStyles()}
           onClick={this.clickHandler.bind(this)}
           onMouseDown={this.activeHandler.bind(this)}
-          onMouseUp={this.activeHandler.bind(this)}>
-          <span style={[
-            checkboxStyles.base,
-            this.state.checked && checkboxStyles.checked,
-            this.state.active && checkboxStyles.active
-          ]}>
-          </span>
+          onMouseUp={this.activeHandler.bind(this)}
+        >
+          <span
+            style={[
+              checkboxStyles.base,
+              this.state.checked && checkboxStyles.checked,
+              this.state.active && checkboxStyles.active,
+            ]}
+          ></span>
           <span style={this.getLabelStyles()}>
             {this.props.label}
             {this.props.helpText ? (
-              <span style={this.getHelpTextStyles()}>
-                ({this.props.helpText})
-              </span>
-            ) : null }
+              <span style={this.getHelpTextStyles()}>({this.props.helpText})</span>
+            ) : null}
           </span>
         </span>
       </div>

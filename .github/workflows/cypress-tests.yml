@@ -35,6 +35,8 @@ jobs:
       - name: Build full project via docker-compose
         run: |
           docker-compose build --parallel --no-cache
+          # Must rebuild due to build no following depends_on order,
+          # and so newest version of client apps may not have been copied in.
           docker-compose build file-server
 
       - name: Serve app via docker-compose

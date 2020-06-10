@@ -1,54 +1,14 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import React from 'react';
-import Radium from 'radium';
-// import _ from 'lodash';
-// import Flex from './framework/flex';
-// import { connect } from 'react-redux';
-// import { FOO } from '../actions';
+import React from "react";
 
-// const style = {
-// };
-
-// @connect(state => {
-//   return state.FOO;
-// })
-@Radium
-class ComponentName extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-
-    };
-  }
-  static propTypes = {
-    /* react */
-    // dispatch: React.PropTypes.func,
-    params: React.PropTypes.object,
-    routes: React.PropTypes.array,
-    /* component api */
-    style: React.PropTypes.object,
-    // foo: React.PropTypes.string
-  }
-  static defaultProps = {
-    // foo: "bar"
-  }
-  getStyles() {
-    return {
-      base: {
-
-      }
-    };
-  }
+class TwitterIcon extends React.Component {
   render() {
-    const styles = this.getStyles();
     return (
-        <svg
-          width="20"
-          height="20">
-          <path
-            style={{fill:"#88c9f9"}}
-            d={`
+      <svg width="20" height="20">
+        <path
+          style={{ fill: "#88c9f9" }}
+          d={`
               m 14.5436,18.0924 c -0.160467,0 -0.3878,-0.03 -0.682,-0.09 -0.2942,
               -0.06 -0.488133,-0.1102 -0.5818,-0.1506 -0.33428,0.669333 -0.78895,
               1.194767 -1.36401,1.5763 -0.57506,0.381533 -1.216987,0.5723 -1.92578,
@@ -79,10 +39,10 @@ class ComponentName extends React.Component {
               0.04 -0.02667,0.08017 0,0.1205 -0.02667,1.070933 -0.394433,
               1.974567 -1.1033,2.7109 -0.7088,0.736267 -1.558033,1.1044 -2.5477,
               1.1044`}
-            />
-          <path
-            style={{fill:"#ffffff"}}
-            d={`
+        />
+        <path
+          style={{ fill: "#ffffff" }}
+          d={`
               M 13.2598,6.58635 8.42528,11.40562 6.76028,9.71888 C 6.51956,
               9.5180733 6.28218,9.41767 6.04814,9.41767 5.8141067,
               9.41767 5.5633567,9.5180733 5.29589,9.71888 5.0952833,
@@ -93,65 +53,10 @@ class ComponentName extends React.Component {
               7.3478056 14.827995,6.7252711 14.674931,6.5787563 14.521867,
               6.4322415 13.835901,6.0147732 13.2598,6.58635 z
               `}
-            />
-        </svg>
+        />
+      </svg>
     );
   }
 }
 
-export default ComponentName;
-
-/*
-
-propTypes: {
-    // You can declare that a prop is a specific JS primitive. By default, these
-    // are all optional.
-    optionalArray: React.PropTypes.array,
-    optionalBool: React.PropTypes.bool,
-    optionalFunc: React.PropTypes.func,
-    optionalNumber: React.PropTypes.number,
-    optionalObject: React.PropTypes.object,
-    optionalString: React.PropTypes.string,
-
-    // Anything that can be rendered: numbers, strings, elements or an array
-    // (or fragment) containing these types.
-    optionalNode: React.PropTypes.node,
-
-    // A React element.
-    optionalElement: React.PropTypes.element,
-
-    // You can also declare that a prop is an instance of a class. This uses
-    // JS's instanceof operator.
-    optionalMessage: React.PropTypes.instanceOf(Message),
-
-    // You can ensure that your prop is limited to specific values by treating
-    // it as an enum.
-    optionalEnum: React.PropTypes.oneOf(['News', 'Photos']),
-
-    // An object that could be one of many types
-    optionalUnion: React.PropTypes.oneOfType([
-      React.PropTypes.string,
-      React.PropTypes.number,
-      React.PropTypes.instanceOf(Message)
-    ]),
-
-    // An array of a certain type
-    optionalArrayOf: React.PropTypes.arrayOf(React.PropTypes.number),
-
-    // An object with property values of a certain type
-    optionalObjectOf: React.PropTypes.objectOf(React.PropTypes.number),
-
-    // An object taking on a particular shape
-    optionalObjectWithShape: React.PropTypes.shape({
-      color: React.PropTypes.string,
-      fontSize: React.PropTypes.number
-    }),
-
-    // You can chain any of the above with `isRequired` to make sure a warning
-    // is shown if the prop isn't provided.
-    requiredFunc: React.PropTypes.func.isRequired,
-
-    // A value of any data type
-    requiredAny: React.PropTypes.any.isRequired,
-
-*/
+export default TwitterIcon;
