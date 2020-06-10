@@ -64,5 +64,5 @@ Cypress.Commands.add("createConvo", (adminEmail, adminPassword) => {
   cy.login(adminEmail, adminPassword)
   cy.visit('/')
 
-  cy.get('#root').get('span').contains('New').click()
+  cy.get('button').contains('Create new conversation').click()
 })
