@@ -4,31 +4,39 @@ var path = require("path");
 var webpack = require("webpack");
 
 module.exports = {
-  // devtool: "source-map",
-  // devtool: ['eval','sourcemap'],
-  devtool: ["sourcemap"],
   entry: ["./src/index"],
   output: {
     path: path.join(__dirname, "dist"),
     filename: "admin_bundle.js",
-    publicPath: "/dist/"
+    publicPath: "/dist/",
   },
-  plugins: [new webpack.optimize.OccurenceOrderPlugin()],
   resolve: {
-    extentions: ["", ".js", ".css", ".png", '.svg']
+    extensions: [".js", ".css", ".png", ".svg"],
+  },
+  plugins: [
+    new webpack.DefinePlugin({
+      "process.env.NODE_ENV": JSON.stringify("development"),
+    }),
+  ],
+  optimization: {
+    minimize: false, //Update this to true or false
   },
   module: {
-    preLoaders: [{ test: /\.json$/, loader: "json" }],
-    loaders: [
+    rules: [
       {
-        test: /\.js$/,
-        loaders: ["babel"],
-        include: path.join(__dirname, "src")
+        test: /\.m?js$/,
+        exclude: /(node_modules|bower_components)/,
+        use: {
+          loader: "babel-loader",
+          options: {
+            presets: ["@babel/preset-env"],
+          },
+        },
       },
       {
         test: /\.(png|jpg|gif|svg)$/,
-        loader: "file-loader"
-      }
-    ]
-  }
+        loader: "file-loader",
+      },
+    ],
+  },
 };
