@@ -33,7 +33,9 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Build full project via docker-compose
-        run: docker-compose build --parallel
+        run: |
+          docker-compose build --parallel --no-cache
+          docker-compose build file-server
 
       - name: Serve app via docker-compose
         run: docker-compose up --detach
