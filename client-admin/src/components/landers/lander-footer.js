@@ -20,13 +20,8 @@ class Header extends Component {
           contributions from around the {emoji("🌍🌏🌎")}
         </Box>
         <Box sx={{ mb: [2, null, 3] }}>
-          © {new Date().getFullYear()} The Authors{" "}
-          <Link target="_blank" href="tos">
-            TOS
-          </Link>{" "}
-          <Link target="_blank" href="privacy">
-            Privacy
-          </Link>
+          © {new Date().getFullYear()} The Authors <Link href="tos">TOS</Link>{" "}
+          <Link href="privacy">Privacy</Link>
         </Box>
       </Box>
     );
