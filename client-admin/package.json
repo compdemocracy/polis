@@ -74,7 +74,9 @@
     "history": "4.10.1",
     "jquery": "^2.1.4",
     "lodash": "^3.10.1",
+    "mime": "^1.6.0",
     "moment": "^2.10.6",
+    "natives": "^1.1.6",
     "prop-types": "^15.7.2",
     "radium": "0.20.1",
     "react": "^16.4.0",
@@ -96,10 +98,7 @@
     "redux-thunk": "^1.0.0",
     "request": "^2.65.0",
     "theme-ui": "^0.3.1",
-    "victory-axis": "34.3.7",
-    "victory-bar": "34.3.7",
-    "victory-chart": "34.3.6",
-    "victory-line": "34.3.7",
+    "victory": "^34.3.11",
     "whatwg-fetch": "^0.10.1"
   },
   "jest": {
