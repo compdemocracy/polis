@@ -7,14 +7,10 @@ import {
   changeCommentStatusToRejected,
   changeCommentCommentIsMeta,
 } from "../../../actions";
-import Radium from "radium";
 import _ from "lodash";
 import Comment from "./comment";
-import Spinner from "../../framework/spinner";
-import Flex from "../../framework/flex";
 
 @connect((state) => state.mod_comments_unmoderated)
-@Radium
 class ModerateCommentsTodo extends React.Component {
   onCommentAccepted(comment) {
     this.props.dispatch(changeCommentStatusToAccepted(comment));

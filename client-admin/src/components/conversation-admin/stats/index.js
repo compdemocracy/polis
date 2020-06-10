@@ -7,17 +7,16 @@ import { connect } from "react-redux";
 import { populateConversationStatsStore } from "../../../actions";
 import _ from "lodash";
 import NumberCards from "./conversation-stats-number-cards";
-import Votes from "./conversation-stats-votes-timescale";
-import VotesDistribution from "./conversation-stats-vote-distribution";
-import CommentsTimescale from "./conversation-stats-comments-timescale";
-import CommentersVoters from "./conversation-stats-commenters-voters";
-import { Heading, Box, Flex, Text, Input, jsx } from "theme-ui";
+import Voters from "./voters";
+import { Heading, Box, jsx } from "theme-ui";
 
 @connect((state) => state.stats)
 class ConversationStats extends React.Component {
   constructor(props) {
     super(props);
     var times = dateSetupUtil();
+    this.chartSize = 500;
+    this.chartMargins = { top: 20, right: 20, bottom: 50, left: 70 };
     this.state = Object.assign({}, times);
   }
 
@@ -50,13 +49,18 @@ class ConversationStats extends React.Component {
       this.loadStats();
     }, 10000);
   }
-  componentDidMount() {}
   componentWillUnmount() {
     clearInterval(this.getStatsRepeatedly);
   }
-  createCharts(data) {
+
+  render() {
+    const { conversation_stats } = this.props;
+    const loading = !conversation_stats.firstCommentTimes || !conversation_stats.firstVoteTimes;
+
+    if (loading) return <Box>Loading...</Box>;
+
     return (
-      <div ref="chartContainer">
+      <div>
         <Heading
           as="h3"
           sx={{
@@ -67,138 +71,15 @@ class ConversationStats extends React.Component {
         >
           Monitor
         </Heading>
-        <div>
-          <NumberCards data={data} />
-          <div>
-            <div>
-              <h3>
-                <span style={{ color: "gold" }}>Voters </span>
-                <span style={{ color: "tomato" }}>Commenters</span>
-              </h3>
-              <CommentersVoters
-                chartHeight={
-                  this.refs.chartContainer ? this.refs.chartContainer.offsetWidth * 0.45 : 400
-                }
-                chartWidth={
-                  this.refs.chartContainer
-                    ? this.refs.chartContainer.offsetWidth * 0.9
-                    : window.innerWidth * 0.5
-                }
-                data={data}
-              />
-            </div>
-            <div>
-              <h3>
-                <span style={{ color: "tomato" }}>Comments</span>
-              </h3>
-              <CommentsTimescale
-                chartHeight={
-                  this.refs.chartContainer ? this.refs.chartContainer.offsetWidth * 0.45 : 400
-                }
-                chartWidth={
-                  this.refs.chartContainer
-                    ? this.refs.chartContainer.offsetWidth * 0.9
-                    : window.innerWidth * 0.5
-                }
-                data={data}
-              />
-            </div>
-            <div>
-              <h3>
-                <span style={{ color: "gold" }}>Votes</span>
-              </h3>
-              <Votes
-                chartHeight={
-                  this.refs.chartContainer ? this.refs.chartContainer.offsetWidth * 0.45 : 400
-                }
-                chartWidth={
-                  this.refs.chartContainer
-                    ? this.refs.chartContainer.offsetWidth * 0.9
-                    : window.innerWidth * 0.5
-                }
-                data={data}
-              />
-            </div>
-            <div>
-              <h3>
-                <span>Votes per participant distribution</span>
-              </h3>
-              <VotesDistribution
-                chartHeight={
-                  this.refs.chartContainer ? this.refs.chartContainer.offsetWidth * 0.45 : 400
-                }
-                chartWidth={
-                  this.refs.chartContainer
-                    ? this.refs.chartContainer.offsetWidth * 0.9
-                    : window.innerWidth * 0.5
-                }
-                data={data}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  render() {
-    return (
-      <div>
-        {this.props.conversation_stats.voteTimes
-          ? this.createCharts(this.props.conversation_stats)
-          : "Loading..."}
+        <NumberCards data={conversation_stats} />
+        <Voters
+          firstVoteTimes={conversation_stats.firstVoteTimes}
+          size={this.chartSize}
+          margin={this.chartMargins}
+        />
       </div>
     );
   }
 }
 
 export default ConversationStats;
-
-// <select ref="exportSelectYear">
-// {this.state.years.map((year, i) => {
-//   return (
-//     <option selected={year.selected} key={i} value={year.name}>
-//       {" "}
-//       {year.name}{" "}
-//     </option>
-//   );
-// })}
-// </select>
-// <select ref="exportSelectMonth">
-// {this.state.months.map((month, i) => {
-//   return (
-//     <option selected={month.selected} key={i} value={month.name}>
-//       {" "}
-//       {month.name}{" "}
-//     </option>
-//   );
-// })}
-// </select>
-// <select ref="exportSelectDay">
-// {this.state.days.map((day, i) => {
-//   return (
-//     <option selected={day.selected} key={i} value={day.name}>
-//       {" "}
-//       {day.name}{" "}
-//     </option>
-//   );
-// })}
-// </select>
-// <select
-// style={{
-//   marginRight: 10,
-//   cursor: "pointer",
-//   fontSize: 16,
-// }}
-// ref="exportSelectHour"
-// >
-// {this.state.tzs.map((tz, i) => {
-//   return (
-//     <option selected={tz.selected} key={i} value={tz.name}>
-//       {" "}
-//       {tz.name}{" "}
-//     </option>
-//   );
-// })}
-// </select>
-// <button onClick={this.handleUntilButtonClicked.bind(this)}>Set Until</button>
