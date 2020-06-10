@@ -27,7 +27,6 @@ class ModerateCommentsSeed extends React.Component {
       is_seed: true,
     };
     this.props.dispatch(handleSeedCommentSubmit(comment));
-    this.refs.seed_form.value = "";
   }
   handleTextareaChange(e) {
     this.props.dispatch(seedCommentChanged(e.target.value));
@@ -46,6 +45,7 @@ class ModerateCommentsSeed extends React.Component {
     return text;
   }
   render() {
+    const { seedText } = this.props;
     return (
       <Box sx={{ mb: [4] }}>
         <Text sx={{ mb: [2] }}>
@@ -70,6 +70,7 @@ class ModerateCommentsSeed extends React.Component {
             }}
             onChange={this.handleTextareaChange.bind(this)}
             maxLength="400"
+            value={seedText}
             ref="seed_form"
           />
         </Box>

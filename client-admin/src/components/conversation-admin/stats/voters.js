@@ -3,21 +3,9 @@
 /** @jsx jsx */
 
 import React from "react";
-import * as d3 from "d3";
 import { jsx, Box, Heading } from "theme-ui";
 import { VictoryChart, VictoryArea } from "victory";
 import victoryTheme from "./victoryTheme";
-
-// x: d3.scaleTime(this.props.data.firstVoteTimes),
-// y: d3.scaleLinear(),
-
-// data={this.props.data.firstCommentTimes.map((timestamp, i) => {
-//   return { x: timestamp, y: i };
-// })}
-
-// data={this.props.data.firstVoteTimes.map((timestamp, i) => {
-//   return { x: timestamp, y: i };
-// })}
 
 class Voters extends React.Component {
   render() {
@@ -54,68 +42,3 @@ class Voters extends React.Component {
 }
 
 export default Voters;
-
-{
-  /* <svg
-ref="votersSVG"
-width={size + margin.left + margin.right}
-height={size + margin.top + margin.bottom}
-></svg> */
-}
-
-// drawChart(data, size, margin) {
-//   const svg = d3.select(this.refs.votersSVG);
-//   const width = size - margin.left - margin.right;
-//   const height = size - margin.top - margin.bottom;
-//   // parse the date / time
-//   // const parseTime = d3.timeParse("%d-%b-%y");
-
-//   // set the ranges
-//   const x = d3
-//     .scaleTime()
-//     .range([0, width])
-//     .domain(d3.extent(data, (d) => d));
-//   const y = d3
-//     .scaleLinear()
-//     .range([height, 0])
-//     .domain([0, data.length /*that's the number of voters*/]);
-
-//   // /* Remove everything */
-//   svg.selectAll("*").remove();
-
-//   // Add the valueline path.
-//   svg
-//     .append("path")
-//     .datum(data)
-//     .style("fill", "none")
-//     .style("stroke", "black")
-//     .style("strokeWidth", 2)
-//     .attr(
-//       "d",
-//       d3
-//         .line()
-//         .x((d) => {
-//           return x(d);
-//         })
-//         .y((d, i) => {
-//           return y(i);
-//         })
-//     );
-
-//   // Add the x Axis
-//   svg
-//     .append("g")
-//     .attr("transform", "translate(0," + height + ")")
-//     .call(d3.axisBottom(x));
-
-//   // Add the y Axis
-//   svg.append("g").call(d3.axisLeft(y));
-// }
-// componentDidUpdate() {
-//   const { firstVoteTimes: data, size, margin } = this.props;
-//   this.drawChart(data, size, margin);
-// }
-// componentDidMount() {
-//   const { firstVoteTimes: data, size, margin } = this.props;
-//   this.drawChart(data, size, margin);
-// }
