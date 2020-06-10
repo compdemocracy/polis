@@ -32,12 +32,12 @@ Cypress.Commands.add("signup", (name, email, password) => {
   cy.visit('/createuser')
 
   cy.get('form').within(function () {
-    cy.get('input[placeholder=name]').type(name)
-    cy.get('input[placeholder=email]').type(email)
-    cy.get('input[placeholder=password]').type(password)
-    cy.get('input[placeholder="repeat password"]').type(password)
+    cy.get('input#createUserNameInput').type(name)
+    cy.get('input#createUserEmailInput').type(email)
+    cy.get('input#createUserPasswordInput').type(password)
+    cy.get('input#createUserPasswordRepeatInput').type(password)
 
-    cy.get('button').click()
+    cy.get('button#createUserButton').click()
   })
 })
 
@@ -51,10 +51,10 @@ Cypress.Commands.add("login", (email, password) => {
   }).as('authLogin')
 
   cy.get('form').within(function () {
-    cy.get('input[placeholder=email]').type(email)
-    cy.get('input[placeholder=password]').type(password)
+    cy.get('input#signinEmailInput').type(email)
+    cy.get('input#signinPasswordInput').type(password)
 
-    cy.get('button').click()
+    cy.get('button#signinButton').click()
   })
 
   cy.wait('@authLogin').its('status').should('eq', 200)
@@ -64,5 +64,5 @@ Cypress.Commands.add("createConvo", (adminEmail, adminPassword) => {
   cy.login(adminEmail, adminPassword)
   cy.visit('/')
 
-  cy.get('#root').get('span').contains('New').click()
+  cy.get('button').contains('Create new conversation').click()
 })
