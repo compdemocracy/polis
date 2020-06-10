@@ -33,6 +33,9 @@ var translations = {
 
   // Brazilian Portuguese (all portuguese speakers are temporarily using the same file.)
   pt_br: require("./strings/pt_br.js"),
+
+  // Japanese
+  ja: require("./strings/ja.js")
 };
 
 
@@ -56,9 +59,9 @@ preloadHelper.acceptLanguagePromise.then(function() {
     if (languageCode.match(/^en/)) {
       _.extend(strings, translations.en_us);
     }
-    // else if (languageCode.match(/^ja/)) {
-    //   strings = _.extend(strings, translations.ja);
-    // }
+    else if (languageCode.match(/^ja/)) {
+      _.extend(strings, translations.ja);
+    }
     else if (
       languageCode.match(/^zh-CN/) ||
       languageCode.match(/^zh-SG/) ||
