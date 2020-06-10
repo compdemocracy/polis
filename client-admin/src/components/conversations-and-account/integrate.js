@@ -24,7 +24,7 @@ class Integrate extends React.Component {
           </Heading>
           <Text>
             Copy and paste this code into your content management template. Each page (article,
-            post) requires a unique string in the \"PAGE_ID\" field. This should be consistent over
+            post) requires a unique string in the "PAGE_ID" field. This should be consistent over
             time and unique to each of your pages (like the article title).
           </Text>
           <ul>
@@ -38,7 +38,7 @@ class Integrate extends React.Component {
               data-page_id HTML attribute.
             </li>
             <li>
-              Simply replace \"PAGE_ID\", either manually or in your templates, to create new
+              Simply replace "PAGE_ID", either manually or in your templates, to create new
               conversations and load existing ones in the right place.
             </li>
           </ul>
