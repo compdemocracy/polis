@@ -8,6 +8,7 @@ import { populateConversationStatsStore } from "../../../actions";
 import _ from "lodash";
 import NumberCards from "./conversation-stats-number-cards";
 import Voters from "./voters";
+import Commenters from "./commenters";
 import { Heading, Box, jsx } from "theme-ui";
 
 @connect((state) => state.stats)
@@ -74,6 +75,11 @@ class ConversationStats extends React.Component {
         <NumberCards data={conversation_stats} />
         <Voters
           firstVoteTimes={conversation_stats.firstVoteTimes}
+          size={this.chartSize}
+          margin={this.chartMargins}
+        />
+        <Commenters
+          firstCommentTimes={conversation_stats.firstCommentTimes}
           size={this.chartSize}
           margin={this.chartMargins}
         />
