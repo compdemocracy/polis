@@ -1,4 +1,4 @@
-name: Build nightlies
+name: Nightly Docker Builds
 
 on:
   schedule:
