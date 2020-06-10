@@ -40,3 +40,29 @@ Cypress.Commands.add("signup", (name, email, password) => {
     cy.get('button').click()
   })
 })
+
+Cypress.Commands.add("login", (email, password) => {
+  cy.visit('/signin')
+
+  cy.server()
+  cy.route({
+    method: 'POST',
+    url: Cypress.config().apiPath + '/auth/login'
+  }).as('authLogin')
+
+  cy.get('form').within(function () {
+    cy.get('input[placeholder=email]').type(email)
+    cy.get('input[placeholder=password]').type(password)
+
+    cy.get('button').click()
+  })
+
+  cy.wait('@authLogin').its('status').should('eq', 200)
+})
+
+Cypress.Commands.add("createConvo", (adminEmail, adminPassword) => {
+  cy.login(adminEmail, adminPassword)
+  cy.visit('/')
+
+  cy.get('#root').get('span').contains('New').click()
+})
