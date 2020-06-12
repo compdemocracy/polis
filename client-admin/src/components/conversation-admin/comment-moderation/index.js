@@ -100,7 +100,6 @@ class CommentModeration extends React.Component {
         </Flex>
         <Box>
           <Switch>
-            <Redirect from="/:url*(/+)" to={match.url.slice(0, -1)} />
             <Route exact path={`${match.url}`} component={ModerateCommentsTodo} />
             <Route exact path={`${match.url}/accepted`} component={ModerateCommentsAccepted} />
             <Route exact path={`${match.url}/rejected`} component={ModerateCommentsRejected} />
