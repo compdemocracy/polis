@@ -10,4 +10,9 @@
 /.github/**  @metasoarous
 /server/**   @metasoarous
 /math/**     @metasoarous
-Dockerfile*  @metasoarous
+
+docker-compose.yml @metasoarous @patcon @ballpointpenguin
+Dockerfile*        @metasoarous @patcon @ballpointpenguin
+*.env*             @metasoarous @patcon @ballpointpenguin
+
+/e2e/**            @patcon @ballpointpenguin
