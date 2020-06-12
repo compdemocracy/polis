@@ -13,9 +13,10 @@ describe('Create User', () => {
     const user = this.users[0]
 
     // Create user.
+    // TODO: Remove first signup once we have a way to seed default users.
     cy.signup(user.name, user.email, user.password)
 
-    // Attempt to recreate user.
+    // Attempt to recreate existing user.
     cy.signup(user.name, user.email, user.password)
 
     cy.get('form').contains(
