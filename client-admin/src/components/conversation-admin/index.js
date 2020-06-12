@@ -78,7 +78,7 @@ class ConversationAdminContainer extends React.Component {
         </Box>
         <Box sx={{ p: [4], flex: "0 0 auto", maxWidth: "35em", mx: [4] }}>
           <Switch>
-            <Redirect from="/:url*(/+)" to={match.path.slice(0, -1)} />
+            <Redirect from="/:url*(/+)" to={match.url.slice(0, -1)} />
             <Route exact path={`${match.path}/`} component={ConversationConfig} />
             <Route exact path={`${match.path}/share`} component={ShareAndEmbed} />
             <Route exact path={`${match.path}/reports`} component={Reports} />
