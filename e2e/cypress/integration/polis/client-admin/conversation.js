@@ -3,9 +3,6 @@ describe('Conversation Admin', () => {
     cy.fixture('users.json').then((users) => {
       const user = users[0]
 
-      // TODO: Remove signup once we have a way to seed default users.
-      cy.signup(user.name, user.email, user.password)
-
       cy.createConvo(user.email, user.password)
     })
     cy.url('pathname').as('adminPath')

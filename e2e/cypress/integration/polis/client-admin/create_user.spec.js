@@ -12,10 +12,6 @@ describe('Create User', () => {
   it('Does not create a new user with existing email address', function () {
     const user = this.users[0]
 
-    // Create user.
-    // TODO: Remove first signup once we have a way to seed default users.
-    cy.signup(user.name, user.email, user.password)
-
     // Attempt to recreate existing user.
     cy.signup(user.name, user.email, user.password)
 
