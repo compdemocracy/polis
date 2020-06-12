@@ -13,7 +13,7 @@ describe('Conversation Admin', () => {
     cy.get('h3').should('have.text', 'Configure')
   })
 
-  it('Page render properly without trailing slash', function () {
+  it('Page render with trailing slash', function () {
     cy.visit(this.adminPath + '/')
     cy.get('h3').should('have.text', 'Configure')
   })
