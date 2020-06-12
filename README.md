@@ -1,6 +1,7 @@
 # Polis
 pol.is an AI powered sentiment gathering platform. More organic than surveys, less effort than focus groups.
 
+<!-- Changes to badge text in URLs below, require changes to "name" value in .github/workflows/*.yml -->
 [![Nightly Docker Builds](https://github.com/pol-is/polisServer/workflows/Build%20nightlies/badge.svg)][nightlies]
 [![E2E Tests](https://github.com/pol-is/polisServer/workflows/E2E%20Tests/badge.svg)][e2e-tests]
 
