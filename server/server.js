@@ -228,13 +228,11 @@ const intercomClient = !isTrue(process.env.DISABLE_INTERCOM) ? new IntercomOffic
 const useTranslateApi = isTrue(process.env.SHOULD_USE_TRANSLATION_API);
 let translateClient = null;
 if (useTranslateApi) {
-  const GOOGLE_CREDS_TEMP_FILENAME = ".google_creds_temp";
-
-  fs.writeFileSync(GOOGLE_CREDS_TEMP_FILENAME, process.env.GOOGLE_CREDS_STRINGIFIED);
-
-  translateClient = Translate({
-    projectId: JSON.parse(fs.readFileSync(GOOGLE_CREDS_TEMP_FILENAME)).project_id,
-  });
+  // Tell translation library where to find credentials, and write them to disk.
+  process.env.GOOGLE_APPLICATION_CREDENTIALS = '.google_creds_temp'
+  let creds_string = new Buffer(process.env.GOOGLE_CREDENTIALS_BASE64, 'base64').toString('ascii');
+  fs.writeFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS, creds_string);
+  translateClient = Translate();
 }
 
 

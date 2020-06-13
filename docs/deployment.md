@@ -84,6 +84,27 @@ It is NOT suited for production, but it may be in the future.
 - [@crkrenn](https://github.com/crkrenn) & [@david-nadaraia](https://github.com/david-nadaraia)
 - [@patcon](https://github.com/patcon)
 
+## Enabling Comment Translation
+
+**Note:** This feature is optional.
+
+We use Google to automatically translate submitted comments into the language of participants, as detected by the browser's language.
+
+1. Ensure the `client-participation` [user interface is manually translated][translate-ui] into participant language(s).
+    - Noteworthy strings include: [`showTranslationButton`, `hideTranslationButton`, `thirdPartyTranslationDisclaimer`][translate-strings]
+1. Click `Set up a project` button within the [Cloud Translation Quickstart Guide][gtranslate-quickstart].
+    - Follow the wizard and download the JSON private key, aka credentials file.
+1. Convert the file contents into a base64-encoded string. You can do this in many ways, including:
+    - copying its contents into [a client-side base64 encoder web app][base64-encoder] (inspect the simple JS code), or
+    - using your workstation terminal: `cat path/to/My-Project-abcdef0123456789.json | base64` (linux/mac)
+1. Configure `GOOGLE_CREDENTIALS_BASE64` within `server/docker-dev.env`
+1. Configure `SHOULD_USE_TRANSLATION_API=true` within `server/docker-dev.env`
+
+   [translate-ui]: #translating-the-user-interface
+   [translate-strings]: /client-participation/js/strings/en_us.js#L96-L98
+   [gtranslate-quickstart]: https://cloud.google.com/translate/docs/basic/setup-basic
+   [base64-encoder]: https://codepen.io/bsngr/pen/awuDh
+
 
 ## Contribution notes
 
