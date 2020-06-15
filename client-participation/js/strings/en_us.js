@@ -102,6 +102,7 @@ s.notificationsGetNotified = "Get notified when more statements arrive:";
 s.notificationsEnterEmail = "Enter your email address to get notified when more statements arrive:";
 s.labelEmail = "Email";
 s.notificationsSubscribeButton = "Subscribe";
+s.notificationsSubscribeErrorAlert = "Error subscribing";
 s.noCommentsYet = "There aren't any statements yet.";
 s.noCommentsYetSoWrite = "Get this conversation started by adding a statement.";
 s.noCommentsYetSoInvite = "Get this conversation started by inviting more participants, or add a statement.";
