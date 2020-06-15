@@ -73,7 +73,7 @@
     "highlight.js": "^8.9.1",
     "history": "4.10.1",
     "jquery": "^2.1.4",
-    "lodash": "^3.10.1",
+    "lodash": "^4.17.15",
     "mime": "^1.6.0",
     "moment": "^2.10.6",
     "natives": "^1.1.6",
