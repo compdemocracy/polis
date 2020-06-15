@@ -1,5 +1,5 @@
 # The version of node-sass in use requires node 8.x
-FROM node:8.17.0-alpine
+FROM node:14.4.0-alpine
 
 WORKDIR /app
 
