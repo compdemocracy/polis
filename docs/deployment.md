@@ -83,6 +83,7 @@ It is NOT suited for production, but it may be in the future.
 - [@uzzal2k5](https://github.com/uzzal2k5) via [`uzzal2k5/polis_container`](https://github.com/uzzal2k5/polis_container)
 - [@crkrenn](https://github.com/crkrenn) & [@david-nadaraia](https://github.com/david-nadaraia)
 - [@patcon](https://github.com/patcon)
+- [@ballPointPenguin](https://github.com/ballPointPenguin)
 
 ## Enabling Comment Translation
 
@@ -113,5 +114,4 @@ Please help us out as you go in setting things up by improving the deployment co
 * General/system-wide issues you come across can go in https://github.com/pol-is/polis-issues/issues, and repo specific issues in their respective issues lists
 * PRs improving either documentation or deployment code are welcome, but please submit an issue to discuss before making any substantial code changes
 * After you've made an issue, you can try to chat folks up at https://gitter.im/pol-is/polisDeployment
-
 
