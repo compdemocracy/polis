@@ -1,51 +1,79 @@
-version: 1
-# Config Docs: https://dependabot.com/docs/config-file/#available-configuration-options
+version: 2
+# Config Docs: https://help.github.com/en/github/administering-a-repository/configuration-options-for-dependency-updates#about-the-dependabotyml-file
 
-update_configs:
-  # Javascript package.json updates
-  - directory: "/server"
-    package_manager: "javascript"
-    update_schedule: "weekly"
-    target_branch:   "dev"
-  - directory: "/file-server"
-    package_manager: "javascript"
-    update_schedule: "weekly"
-    target_branch:   "dev"
+updates:
+  # JAVASCRIPT package.json updates
+
   - directory: "/client-admin"
-    package_manager: "javascript"
-    update_schedule: "weekly"
-    target_branch:   "dev"
-  - directory: "/client-participation"
-    package_manager: "javascript"
-    update_schedule: "weekly"
-    target_branch:   "dev"
-  - directory: "/client-report"
-    package_manager: "javascript"
-    update_schedule: "weekly"
-    target_branch:   "dev"
+    package-ecosystem: "npm"
+    schedule:
+      interval: "weekly"
 
-  # Docker image updates
+  - directory: "/file-server"
+    package-ecosystem: "npm"
+    schedule:
+      interval: "weekly"
+
+  ## Disabled (until major manual update)
+
+  - directory: "/server"
+    package-ecosystem: "npm"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "*"
+
+  - directory: "/client-participation"
+    package-ecosystem: "npm"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "*"
+
+  - directory: "/client-report"
+    package-ecosystem: "npm"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "*"
+
+  # DOCKER image updates
+
   - directory: "/math"
-    package_manager: "docker"
-    update_schedule: "weekly"
-    target_branch:   "dev"
+    package-ecosystem: "docker"
+    schedule:
+      interval: "weekly"
+
   - directory: "/server"
-    package_manager: "docker"
-    update_schedule: "weekly"
-    target_branch:   "dev"
+    package-ecosystem: "docker"
+    schedule:
+      interval: "weekly"
+
   - directory: "/file-server"
-    package_manager: "docker"
-    update_schedule: "weekly"
-    target_branch:   "dev"
+    package-ecosystem: "docker"
+    schedule:
+      interval: "weekly"
+
   - directory: "/client-admin"
-    package_manager: "docker"
-    update_schedule: "weekly"
-    target_branch:   "dev"
+    package-ecosystem: "docker"
+    schedule:
+      interval: "weekly"
+
   - directory: "/client-participation"
-    package_manager: "docker"
-    update_schedule: "weekly"
-    target_branch:   "dev"
+    package-ecosystem: "docker"
+    schedule:
+      interval: "weekly"
+
   - directory: "/client-report"
-    package_manager: "docker"
-    update_schedule: "weekly"
-    target_branch:   "dev"
+    package-ecosystem: "docker"
+    schedule:
+      interval: "weekly"
+
+  # GITHUB ACTIONS external action updates
+
+  - package-ecosystem: "github-actions"
+    # Workflow files stored in the
+    # default location of `.github/workflows`
+    directory: "/"
+    schedule:
+      interval: "daily"
