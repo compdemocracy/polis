@@ -4,38 +4,38 @@ var preloadHelper = require("./util/preloadHelper");
 var Utils = require("./util/utils");
 
 var translations = {
-  en_us: require("./strings/en_us.js"),
+  en_us: require("./strings/en-US.js"),
   // ja:  require("./strings/ja.js"),
 
   // zh-Hant is Traditional Chinese (TW, MO and HK can use the same file.)
-  zh_Hant: require("./strings/zh_Hant.js"),
+  zh_Hant: require("./strings/zh-TW.js"),
 
   // zh-Hans is Simplified Chinese. (CN, SG and MY can use the same file.)
-  zh_Hans: require("./strings/zh_Hans.js"),
+  zh_Hans: require("./strings/zh-CN.js"),
 
   // Danish
-  da: require("./strings/da_dk.js"),
+  da: require("./strings/da-DK.js"),
 
   // German
-  de: require("./strings/de_de.js"),
+  de: require("./strings/de-DE.js"),
 
   // Spanish
-  es: require("./strings/es_la.js"),
+  es: require("./strings/es-419.js"),
 
   // French
-  fr: require("./strings/fr.js"),
+  fr: require("./strings/fr-FR.js"),
 
   // Italian
-  it: require("./strings/it.js"),
+  it: require("./strings/it-IT.js"),
 
   // Dutch
-  nl: require("./strings/nl.js"),
+  nl: require("./strings/nl-NL.js"),
 
   // Brazilian Portuguese (all portuguese speakers are temporarily using the same file.)
-  pt_br: require("./strings/pt_br.js"),
+  pt_br: require("./strings/pt-BR.js"),
 
   // Japanese
-  ja: require("./strings/ja.js")
+  ja: require("./strings/ja-JP.js")
 };
 
 
