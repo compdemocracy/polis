@@ -1,6 +1,6 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-export default {
+module.exports = {
   "agree": "Acordar",
   "disagree": "Discrepar",
   "pass": "Pasar / Indeciso",
@@ -8,8 +8,8 @@ export default {
   "modSpam": "Spam",
   "modOffTopic": "Fuera de Contexto",
   "modImportant": "Importante",
-  "modSubmitInitialState": "Saltártelo (ninguna de las anteriores), próximo comentario";  //This could sound/be wrong in context
-  "modSubmit": "Terminado, próximo comentario";   //Ditto above
+  "modSubmitInitialState": "Saltártelo (ninguna de las anteriores), próximo comentario",  //This could sound/be wrong in context
+  "modSubmit": "Terminado, próximo comentario",   //Ditto above
 
   "x_wrote": "escribió:",
   "x_tweeted": "tuiteó:",
@@ -37,7 +37,7 @@ export default {
   "heresHowGroupVoted": "Aquí está como votó el Grupo {{GROUP_NUMBER}}:",
   "one_person": "{{x}} persona",
   "x_people": "{{x}} personas",
-  "acrossAllPtpts": "Por todos los participantes:";  //this may sound weird depending on the use context...?
+  "acrossAllPtpts": "Por todos los participantes:",  //this may sound weird depending on the use context...?
   "xPtptsSawThisComment": " vio este comentario",
   "xOfThoseAgreed": "de esos participantes acordaron",
   "xOfthoseDisagreed": "de esos participantes discreparon",
@@ -109,4 +109,4 @@ export default {
   "topic_bad_01_reason": "personas de varios equipos van a votar por las repuestas, pero tal vez no tengan el sabimiento de votar confidentamente.",
   "topic_bad_02": "what are our launch blockers?",
   "topic_bad_02_reason": "",
-}
+};

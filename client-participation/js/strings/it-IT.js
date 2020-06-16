@@ -1,6 +1,6 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-export default {
+module.exports = {
   "agree": "Son d'accordo",
   "disagree": "Non la penso così",
   "pass": "Passo / Non so",
@@ -58,4 +58,4 @@ export default {
   "connectTwButton": "Collegati tramite Twitter",
   "polis_err_reg_fb_verification_email_sent": "Per favore, controlla la mail e cerca il link di attivazione, poi continua da qui.",
   "polis_err_reg_fb_verification_noemail_unverified": "Il tuo account Facebook non è verificato. Per favore verifica il tuo indirizzo mail di Facebook, poi torna qui per proseguire.",
-}
+};

@@ -2,7 +2,7 @@
 
 // Translation comment: Formal German "Sie" is used - alternative: informal "Du"
 
-export default {
+module.exports = {
   "agree": "Ich stimme zu",
   "disagree": "Ich stimme nicht zu",
   "pass": "Weiter / Ich bin mir unsicher",
@@ -120,4 +120,4 @@ export default {
   "topic_bad_01_reason": "TeilnehmerInnen aus verschiedenen Teams werden über die Antworten abstimmen, dabei jedoch unter Umständen nicht genügend Informationen besitzen, um sinnvoll abstimmen zu können.",
   "topic_bad_02": "Welche Hindernisse verhindern einen Projektstart?",
   "topic_bad_02_reason": "",
-}
+};

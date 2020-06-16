@@ -1,6 +1,6 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-export default {
+module.exports = {
   "agree": "贊成",
   "disagree": "反對",
   "pass": "略過 / 不確定",
@@ -56,4 +56,4 @@ export default {
   "showTranslationButton": "啟用外部翻譯",
   "hideTranslationButton": "停用外部翻譯",
   "thirdPartyTranslationDisclaimer": "翻譯服務由第三方提供",
-}
+};

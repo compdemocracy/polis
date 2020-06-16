@@ -1,6 +1,6 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-export default {
+module.exports = {
   "agree": "En accord",
   "disagree": "En désaccord",
   "pass": "Neutre / Incertain",
@@ -69,7 +69,6 @@ export default {
   "helpWriteListStandalone": "présente une seule idée;",
   "helpWriteListRaisNew": "présente un nouveau point de vue, de nouvelles expériences ou de nouveaux enjeux;",
   "helpWriteListShort": "est claire et concise (compte au plus 140 caractères)",
-  "heresHowGroupVoted": "Here's how Group {{GROUP_NUMBER}} voted:",
   "tipOneIdea": "Subdivisez en plusieurs affirmations les affirmations trop longues qui traitent de plus d’une idée. Cela facilitera le vote.",
   "tipNoQuestions": "Une affirmation ne doit pas être présentée sous la forme d’une question. Les participants indiqueront s’ils sont en accord ou en désaccord avec votre affirmation.",
   "commentTooLongByChars": "L’affirmation compte {{CHARACTERS_COUNT}} caractères en trop.",
@@ -102,4 +101,4 @@ export default {
   "noCommentsTryWritingOne": "Si vous souhaitez ajouter quelque chose, rédigez votre propre affirmation.",
   "convIsClosed": "Cette conversation est fermée.",
   "noMoreVotingAllowed": "Aucun autre vote n’est autorisé.",
-}
+};

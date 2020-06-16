@@ -1,6 +1,6 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-export default {
+module.exports = {
   "agree": "Enig",
   "disagree": "Uenig",
   "pass": "Spring over / Usikker",
@@ -112,4 +112,4 @@ export default {
   "topic_bad_01_reason": "personer fra forskellige teams vil stemme på svar, men de har måske ikke nok viden til at stemme.",
   "topic_bad_02": "hvorfor har vi ikke lanceret endnu?",
   "topic_bad_02_reason": "",
-}
+};

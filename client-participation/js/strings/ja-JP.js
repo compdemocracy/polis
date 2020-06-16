@@ -1,6 +1,6 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-export default {
+module.exports = {
   "agree": "賛成",
   "disagree": "反対",
   "pass": "わからない/どちらでもない",
@@ -87,15 +87,6 @@ export default {
   "noCommentsYetSoInvite": "他の人を招待するか、意見を付けて会話を始めましょう。",
   "noCommentsYouVotedOnAll": "ありがとうございます！すべての質問への投票が完了しました。",
   "noCommentsTryWritingOne": "何か言いたいことが有りましたら、意見を書いてみてください。",
-  "notificationsGetNotified": "新しい質問が追加されたときに通知を受け取る場合、Subscribeボタンを押してください。",
-  "notificationsEnterEmail": "メールアドレスを登録すると、新しい意見が有るときに通知を受け取れます。",
-  "labelEmail": "メール",
-  "notificationsSubscribeButton": "購読",
-  "noCommentsYet": "まだ意見はありません。",
-  "noCommentsYetSoWrite": "意見を付けて会話を始めましょう。",
-  "noCommentsYetSoInvite": "他の人を招待するか、意見を付けて会話を始めましょう。",
-  "noCommentsYouVotedOnAll": "ありがとうございます！すべての質問への投票が完了しました。",
-  "noCommentsTryWritingOne": "何か言いたいことが有りましたら、意見を書いてみてください。",
   "convIsClosed": "この会話は終了しました。",
   "noMoreVotingAllowed": "投票は締め切りました。",
 
@@ -103,4 +94,4 @@ export default {
   "showTranslationButton": "日本語に翻訳する",
   "hideTranslationButton": "元の言語に戻す",
   "thirdPartyTranslationDisclaimer": "翻訳サービスは外部から提供されたものです",
-}
+};
