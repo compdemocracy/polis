@@ -1,5 +1,5 @@
 # Requires a very specific version due to package bugs and version compatibility
-FROM node:14.4.0-alpine
+FROM node:11.15.0-alpine
 
 WORKDIR /app
 
