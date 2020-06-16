@@ -1,95 +1,93 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-var s = {};
+export default {
+  "agree": "Concordo",
+  "disagree": "Discordo",
+  "pass": "Passo / Indeciso",
 
-s.agree = "Concordo";
-s.disagree = "Discordo";
-s.pass = "Passo / Indeciso";
+  "modSpam": "Spam",
+  "modOffTopic": "Fora do assunto",
+  "modImportant": "Importante",
+  "modSubmitInitialState": "Passar (nenhuma das anteriores), próximo comentário",
+  "modSubmit": "Finalizado, próximo comentário",
 
-s.modSpam = "Spam";
-s.modOffTopic = "Fora do assunto";
-s.modImportant = "Importante";
-s.modSubmitInitialState = "Passar (nenhuma das anteriores), próximo comentário";
-s.modSubmit = "Finalizado, próximo comentário";
+  "x_wrote": "escreveu:",
+  "x_tweeted": "tuítou:",
+  "comments_remaining": "faltam {{num_comments}}",
+  "group_123": "Grupo:",
+  "comment_123": "Commentário:",
+  "majorityOpinion": "Opinião da maioria",
+  "majorityOpinionShort": "Maioria",
+  "info": "Info",
+  "addPolisToYourSite": "<img style='height: 20px; margin: 0px 4px;' src='{{URL}}'/>",
+  "privacy": "Privacidade",
+  "TOS": "Termos de uso",
+  "writePrompt": "Inclua seu comentário...",
+  "anonPerson": "Da criadora",
+  "helpWhatAmISeeingTitle": "O que estou vendo?",
+  "helpWhatAmISeeing": "Pessoas que opinaram nos comentários de forma parecida estão agrupadas. Clique num grupo pra ver as opiniões que elas compartilham.",
+  "helpWhatDoIDoTitle": " Que faço?",
+  "helpWhatDoIDo": "Opine nos comentários das outras pessoas clicando em 'concordo' ou 'discordo'. Escreva comentários diretos e objetivos. Chame os amigos para a conversa!",
+  "writeCommentHelpText": "Se o sua opinião não está representada ainda, <strong>escreva</strong> um comentário!</i>",
+  "heresHowGroupVoted": "Aqui é como o Grupo {{GROUP_NUMBER}} está decidindo:",
+  "one_person": "{{x}} pessoa",
+  "x_people": "{{x}} pessoas",
+  "acrossAllPtpts": "De todos os participantes:",
+  "xPtptsSawThisComment": " viram esse comentário",
+  "xOfThoseAgreed": "desses participantes concordaram",
+  "xOfthoseDisagreed": "desses participantes discordaram",
+  "opinionGroups": "Grupos de Opinião",
+  "pctAgreed": "{{pct}}% Concordaram",
+  "pctDisagreed": "{{pct}}% Discordaram",
+  "pctAgreedLong": "{{pct}}% de todos que opinaram no comentário {{comment_id}} concordaram.",
+  "pctAgreedOfGroup": "{{pct}}% do Grupo {{group}} Concordaram",
+  "pctDisagreedOfGroup": "{{pct}}% do Grupo {{group}} Discordaram",
+  "pctDisagreedLong": "{{pct}}% de todos que opinaram no comentário {{comment_id}} discordaram.",
+  "pctAgreedOfGroupLong": "{{pct}}% de todos do grupo {{group}} que opinaram no comentário {{comment_id}} concordaram.",
+  "pctDisagreedOfGroupLong": "{{pct}}% de todos do grupo {{group}} que opinaram no comentário {{comment_id}} discordaram.",
+  "commentSent": "Comentário Enviado! Outros participantes vão ver seu comentário, podendo concordar ou discordar.",
+  "connectFacebook": "Conectar Facebook",
+  "connectTwitter": "Conectar Twitter",
+  "connectToPostPrompt": "Conectar uma conta para comentar. Não vamos publicar na sua timeline.",
+  "connectToVotePrompt": "Se conecte para opinar. Nós não vamos publicar na sua timeline.",
+  "tip": "Dica:",
+  "tipCommentsRandom": "Comentários são embaralhados para ser exibidos. Quando escreve um comentário, você não está respondendo diretamente para ninguém.",
+  "tipOneIdea": "Divida comentários longos que contenham muitas ideias. Isso facilita para as pessoas entenderem e reagirem ao seu comentário.",
+  "tipNoQuestions": "Comentários podem ser afirmações em vez de perguntas. Os participantes vão concordar ou discordar das afirmações que você fizer.",
+  "notSentSinceDemo": "(na real não, esse é um demo)",
+  "submitComment": "Enviar",
+  "tipStarred": "Marcado como importante.",
+  "participantHelpWelcomeText": "Bem vindo a um novo jeito de discutir - <span style='font-weight: 700;'>opine</span> sobre os comentários das pessoas e <span style='font-weight: 700;'>contribua</span> com o seu.",
+  "participantHelpGroupsText": "Pessoas que participam de forma parecida <span style='font-weight: 700;'>são agrupadas.</span> Clique num grupo para ver que pontos de vista elas compartilham <a style='font-weight: 700; cursor: pointer; text-decoration: underline' id='helpTextGroupsExpand'>...mais</a>",
+  "participantHelpGroupsNotYetText": "A visualização dos grupos ira aparecer só depois de 7 participantes terem opinado",
+  "helpWhatAreGroupsDetail": "<p> Quando você opina sobre um ou mais comentários, é agrupado com pessoas que opinaram de um jeito parecido contigo! Você pode ver esses grupos abaixo. Cada um é formado por pessoas que tem opiniões parecidas. Há ideias fascinantes para descobrir em cada conversa. Vá em frente - clique num grupo para ver o que os uniu e o que faz eles serem únicos! </p>",
+  "socialConnectPrompt": "Conecte para visualizar os amigos e pessoas que você segue.",
+  "connectFbButton": "Conecte com Facebook",
+  "connectTwButton": "Conecte com Twitter",
+  "polis_err_reg_fb_verification_email_sent": "Por favor acesse seu email e clique no link de verificação, então retorne aqui para continuar.",
+  "polis_err_reg_fb_verification_noemail_unverified": "Sua conta no Facebook não foi verificada. Por favor verifique seu endereço de email com o Facebook, então retorne aqui para continuar",
 
-s.x_wrote = "escreveu:";
-s.x_tweeted = "tuítou:";
-s.comments_remaining = "faltam {{num_comments}}";
-s.group_123 = "Grupo:";
-s.comment_123 = "Commentário:";
-s.majorityOpinion = "Opinião da maioria";
-s.majorityOpinionShort = "Maioria";
-s.info = "Info";
-s.addPolisToYourSite = "<img style='height: 20px; margin: 0px 4px;' src='{{URL}}'/>";
-s.privacy = "Privacidade";
-s.TOS = "Termos de uso";
-s.writePrompt = "Inclua seu comentário...";
-s.anonPerson = "Da criadora";
-s.helpWhatAmISeeingTitle = "O que estou vendo?";
-s.helpWhatAmISeeing = "Pessoas que opinaram nos comentários de forma parecida estão agrupadas. Clique num grupo pra ver as opiniões que elas compartilham.";
-s.helpWhatDoIDoTitle = " Que faço?";
-s.helpWhatDoIDo = "Opine nos comentários das outras pessoas clicando em 'concordo' ou 'discordo'. Escreva comentários diretos e objetivos. Chame os amigos para a conversa!";
-s.writeCommentHelpText = "Se o sua opinião não está representada ainda, <strong>escreva</strong> um comentário!</i>";
-s.heresHowGroupVoted = "Aqui é como o Grupo {{GROUP_NUMBER}} está decidindo:";
-s.one_person = "{{x}} pessoa";
-s.x_people = "{{x}} pessoas";
-s.acrossAllPtpts = "De todos os participantes:";
-s.xPtptsSawThisComment = " viram esse comentário";
-s.xOfThoseAgreed = "desses participantes concordaram";
-s.xOfthoseDisagreed = "desses participantes discordaram";
-s.opinionGroups = "Grupos de Opinião";
-s.pctAgreed = "{{pct}}% Concordaram";
-s.pctDisagreed = "{{pct}}% Discordaram";
-s.pctAgreedLong = "{{pct}}% de todos que opinaram no comentário {{comment_id}} concordaram.";
-s.pctAgreedOfGroup = "{{pct}}% do Grupo {{group}} Concordaram";
-s.pctDisagreedOfGroup = "{{pct}}% do Grupo {{group}} Discordaram";
-s.pctDisagreedLong = "{{pct}}% de todos que opinaram no comentário {{comment_id}} discordaram.";
-s.pctAgreedOfGroupLong = "{{pct}}% de todos do grupo {{group}} que opinaram no comentário {{comment_id}} concordaram.";
-s.pctDisagreedOfGroupLong = "{{pct}}% de todos do grupo {{group}} que opinaram no comentário {{comment_id}} discordaram.";
-s.commentSent = "Comentário Enviado! Outros participantes vão ver seu comentário, podendo concordar ou discordar.";
-s.connectFacebook = "Conectar Facebook";
-s.connectTwitter = "Conectar Twitter";
-s.connectToPostPrompt = "Conectar uma conta para comentar. Não vamos publicar na sua timeline.";
-s.connectToVotePrompt = "Se conecte para opinar. Nós não vamos publicar na sua timeline.";
-s.tip = "Dica:";
-s.tipCommentsRandom = "Comentários são embaralhados para ser exibidos. Quando escreve um comentário, você não está respondendo diretamente para ninguém.";
-s.tipOneIdea = "Divida comentários longos que contenham muitas ideias. Isso facilita para as pessoas entenderem e reagirem ao seu comentário.";
-s.tipNoQuestions = "Comentários podem ser afirmações em vez de perguntas. Os participantes vão concordar ou discordar das afirmações que você fizer.";
-s.notSentSinceDemo = "(na real não, esse é um demo)";
-s.submitComment = "Enviar";
-s.tipStarred = "Marcado como importante.";
-s.participantHelpWelcomeText = "Bem vindo a um novo jeito de discutir - <span style='font-weight: 700;'>opine</span> sobre os comentários das pessoas e <span style='font-weight: 700;'>contribua</span> com o seu.";
-s.participantHelpGroupsText = "Pessoas que participam de forma parecida <span style='font-weight: 700;'>são agrupadas.</span> Clique num grupo para ver que pontos de vista elas compartilham <a style='font-weight: 700; cursor: pointer; text-decoration: underline' id='helpTextGroupsExpand'>...mais</a>";
-s.participantHelpGroupsNotYetText = "A visualização dos grupos ira aparecer só depois de 7 participantes terem opinado";
-s.helpWhatAreGroupsDetail = "<p> Quando você opina sobre um ou mais comentários, é agrupado com pessoas que opinaram de um jeito parecido contigo! Você pode ver esses grupos abaixo. Cada um é formado por pessoas que tem opiniões parecidas. Há ideias fascinantes para descobrir em cada conversa. Vá em frente - clique num grupo para ver o que os uniu e o que faz eles serem únicos! </p>";
-s.socialConnectPrompt = "Conecte para visualizar os amigos e pessoas que você segue.";
-s.connectFbButton = "Conecte com Facebook";
-s.connectTwButton = "Conecte com Twitter";
-s.polis_err_reg_fb_verification_email_sent = "Por favor acesse seu email e clique no link de verificação, então retorne aqui para continuar.";
-s.polis_err_reg_fb_verification_noemail_unverified = "Sua conta no Facebook não foi verificada. Por favor verifique seu endereço de email com o Facebook, então retorne aqui para continuar";
+  "notificationsAlreadySubscribed": "Você está inscrito para receber atualizações dessa discussão.",
+  "notificationsGetNotified": "Seja notificado quando mais comentários chegarem:",
+  "notificationsEnterEmail": "Coloque aqui seu email para ser notificado quando mais comentários chegarem:",
+  "labelEmail": "Email",
+  "notificationsSubscribeButton": "Inscreva-se",
+  "noCommentsYet": "Ainda não há nenhum comentário aqui.",
+  "noCommentsYetSoWrite": "Inicie essa discussão adicionando um comentário.",
+  "noCommentsYetSoInvite": "Inicie essa discussão convidando mais participantes, ou acrescentando um comentário.",
+  "noCommentsYouVotedOnAll": "Você já opinou em todos os comentários.",
+  "noCommentsTryWritingOne": "Se você quer acrescentar algo, tente escrever seu próprio comentário.",
+  "convIsClosed": "Esta conversa está fechada.",
+  "noMoreVotingAllowed": "Não é mais possível reagir às propostas.",
 
-s.notificationsAlreadySubscribed = "Você está inscrito para receber atualizações dessa discussão.";
-s.notificationsGetNotified = "Seja notificado quando mais comentários chegarem:";
-s.notificationsEnterEmail = "Coloque aqui seu email para ser notificado quando mais comentários chegarem:";
-s.labelEmail = "Email";
-s.notificationsSubscribeButton = "Inscreva-se";
-s.noCommentsYet = "Ainda não há nenhum comentário aqui.";
-s.noCommentsYetSoWrite = "Inicie essa discussão adicionando um comentário.";
-s.noCommentsYetSoInvite = "Inicie essa discussão convidando mais participantes, ou acrescentando um comentário.";
-s.noCommentsYouVotedOnAll = "Você já opinou em todos os comentários.";
-s.noCommentsTryWritingOne = "Se você quer acrescentar algo, tente escrever seu próprio comentário.";
-s.convIsClosed = "Esta conversa está fechada.";
-s.noMoreVotingAllowed = "Não é mais possível reagir às propostas.";
-
-s.topic_good_01 = "O que devemos fazer em relação à sala dos video games?";
-s.topic_good_01_reason = "pergunta bem definida, todos podem ter opinião e respostas a essa questão";
-s.topic_good_02 = "O que você acha da nova proposta?";
-s.topic_good_02_reason = "pergunta bem definida, todos podem ter opinião e respostas a essa questão";
-s.topic_good_03 = "Você pode pensar em algo que está atrapalhando o grupo?";
-s.topic_good_03_reason = "pergunta bem definida, todos podem ter opinião e respostas a essa questão";
-s.topic_bad_01 = "O que você acha da lei que foi aprovada ontem?";
-s.topic_bad_01_reason = "As pessoas podem até tentar participar, mas podem não ter o conhecimento suficiente pra interagir com confiança.";
-s.topic_bad_02 = "O que a gente deve fazer?";
-s.topic_bad_02_reason = "Aberta demais, não explica o objetivo da discussão, o resultado pode não ser aproveitável";
-
-module.exports = s;
+  "topic_good_01": "O que devemos fazer em relação à sala dos video games?",
+  "topic_good_01_reason": "pergunta bem definida, todos podem ter opinião e respostas a essa questão",
+  "topic_good_02": "O que você acha da nova proposta?",
+  "topic_good_02_reason": "pergunta bem definida, todos podem ter opinião e respostas a essa questão",
+  "topic_good_03": "Você pode pensar em algo que está atrapalhando o grupo?",
+  "topic_good_03_reason": "pergunta bem definida, todos podem ter opinião e respostas a essa questão",
+  "topic_bad_01": "O que você acha da lei que foi aprovada ontem?",
+  "topic_bad_01_reason": "As pessoas podem até tentar participar, mas podem não ter o conhecimento suficiente pra interagir com confiança.",
+  "topic_bad_02": "O que a gente deve fazer?",
+  "topic_bad_02_reason": "Aberta demais, não explica o objetivo da discussão, o resultado pode não ser aproveitável",
+}
