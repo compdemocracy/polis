@@ -11,10 +11,6 @@ module.exports = {
   "pass": "Pass / Unsure",
 
   "importantCheckbox": "This comment is important",
-  "howImportantPrompt": "How important is this statement?",
-  "howImportantLow": "Low",
-  "howImportantMedium": "Medium",
-  "howImportantHigh": "High",
 
   "modSpam": "Spam",
   "modOffTopic": "Off Topic",
@@ -78,7 +74,6 @@ module.exports = {
   "connectTwitter": "Connect Twitter",
   "connectToPostPrompt": "Connect an identity to submit a statement. We will not post to your timeline.",
   "connectToVotePrompt": "Connect an identity to vote. We will not post to your timeline.",
-  "tip": "Tip:",
   "commentWritingTipsHintsHeader": "Tips for writing statements",
   "tipCharLimit": "Statements are limited to {{char_limit}} characters.",
   "tipCommentsRandom": "Please remember, statements are displayed randomly and you are not replying directly to other participants' statements.",
@@ -114,16 +109,4 @@ module.exports = {
   "noCommentsTryWritingOne": "If you have something to add, try writing your own statement.",
   "convIsClosed": "This conversation is closed.",
   "noMoreVotingAllowed": "No further voting is allowed.",
-
-
-  "topic_good_01": "What should we do about the pingpong room?",
-  "topic_good_01_reason": "open ended, anyone can have an opinion on answers to this question",
-  "topic_good_02": "What do you think about the new proposal?",
-  "topic_good_02_reason": "open ended, anyone can have an opinion on answers to this question",
-  "topic_good_03": "Can you think of anything that's slowing productivity?",
-
-  "topic_bad_01": "everyone report your launch readiness",
-  "topic_bad_01_reason": "people from various teams will be voting on the responses, but may not have enough knowledge to vote confidently.",
-  "topic_bad_02": "what are our launch blockers?",
-  "topic_bad_02_reason": "",
 };
