@@ -8,16 +8,19 @@ updates:
     package-ecosystem: "npm"
     schedule:
       interval: "weekly"
+    labels: ["dependencies", "🔩 p:client-admin"]
 
   - directory: "/file-server"
     package-ecosystem: "npm"
     schedule:
       interval: "weekly"
+    labels: ["dependencies"]
 
   ## Disabled (until major manual update)
 
   - directory: "/server"
     package-ecosystem: "npm"
+    labels: ["dependencies", "🔩 p:server"]
     schedule:
       interval: "weekly"
     ignore:
@@ -25,6 +28,7 @@ updates:
 
   - directory: "/client-participation"
     package-ecosystem: "npm"
+    labels: ["dependencies", "🔩 p:client-participation"]
     schedule:
       interval: "weekly"
     ignore:
@@ -32,6 +36,7 @@ updates:
 
   - directory: "/client-report"
     package-ecosystem: "npm"
+    labels: ["dependencies", "🔩 p:client-report"]
     schedule:
       interval: "weekly"
     ignore:
@@ -41,31 +46,37 @@ updates:
 
   - directory: "/math"
     package-ecosystem: "docker"
+    labels: ["dependencies", "⚒️ infrastructure", "🔩 p:math"]
     schedule:
       interval: "weekly"
 
   - directory: "/server"
     package-ecosystem: "docker"
+    labels: ["dependencies", "⚒️ infrastructure", "🔩 p:server"]
     schedule:
       interval: "weekly"
 
   - directory: "/file-server"
     package-ecosystem: "docker"
+    labels: ["dependencies", "⚒️ infrastructure"]
     schedule:
       interval: "weekly"
 
   - directory: "/client-admin"
     package-ecosystem: "docker"
+    labels: ["dependencies", "⚒️ infrastructure", "🔩 p:client-admin"]
     schedule:
       interval: "weekly"
 
   - directory: "/client-participation"
     package-ecosystem: "docker"
+    labels: ["dependencies", "⚒️ infrastructure", "🔩 p:client-participation"]
     schedule:
       interval: "weekly"
 
   - directory: "/client-report"
     package-ecosystem: "docker"
+    labels: ["dependencies", "⚒️ infrastructure", "🔩 p:client-report"]
     schedule:
       interval: "weekly"
 
@@ -75,5 +86,6 @@ updates:
     # Workflow files stored in the
     # default location of `.github/workflows`
     directory: "/"
+    labels: ["dependencies", "⚒️ infrastructure"]
     schedule:
       interval: "daily"
