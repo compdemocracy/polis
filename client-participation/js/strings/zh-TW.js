@@ -1,9 +1,15 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+// Do not delete empty comment line below. It's required to mitigate a bug.
+// See: https://github.com/box/mojito/issues/588
+
+//
+
 module.exports = {
   "agree": "贊成",
   "disagree": "反對",
   "pass": "略過 / 不確定",
+
   "x_wrote": "表示：",
   "x_tweeted": "推文：",
   "group_123": "群組：",
@@ -36,10 +42,10 @@ module.exports = {
   "commentSendFailedEmpty": "送出意見時發生錯誤：意見不可為空白。",
   "commentSendFailedTooLong": "送出意見時發生錯誤：意見過長。",
   "commentSendFailedDuplicate": "送出意見時發生錯誤：完全相同的意見已存在。",
+
   "connectFacebook": "連結 Facebook",
   "connectTwitter": "連結 Twitter",
   "connectToPostPrompt": "發表意見前，請先連結登入帳號。我們不會貼文在您的牆上。",
-  "tip": "祕訣：",
   "tipCommentsRandom": "意見會隨機顯示。您不需要回覆別人的看法。",
   "tipOneIdea": "有多個意見請分開來寫，一次一個，好讓其他人表達贊成或反對。",
   "tipNoQuestions": "請直接陳述您的感受或觀點，不要使用問句。",
@@ -52,7 +58,6 @@ module.exports = {
   "socialConnectPrompt": "連結帳號，就可以看到您的朋友、追蹤的人的立場如何。",
   "connectFbButton": "與 Facebook 連結",
   "connectTwButton": "與 Twitter 連結",
-
   "showTranslationButton": "啟用外部翻譯",
   "hideTranslationButton": "停用外部翻譯",
   "thirdPartyTranslationDisclaimer": "翻譯服務由第三方提供",

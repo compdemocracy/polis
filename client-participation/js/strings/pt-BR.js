@@ -1,5 +1,10 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+// Do not delete empty comment line below. It's required to mitigate a bug.
+// See: https://github.com/box/mojito/issues/588
+
+//
+
 module.exports = {
   "agree": "Concordo",
   "disagree": "Discordo",
@@ -46,11 +51,11 @@ module.exports = {
   "pctAgreedOfGroupLong": "{{pct}}% de todos do grupo {{group}} que opinaram no comentário {{comment_id}} concordaram.",
   "pctDisagreedOfGroupLong": "{{pct}}% de todos do grupo {{group}} que opinaram no comentário {{comment_id}} discordaram.",
   "commentSent": "Comentário Enviado! Outros participantes vão ver seu comentário, podendo concordar ou discordar.",
+
   "connectFacebook": "Conectar Facebook",
   "connectTwitter": "Conectar Twitter",
   "connectToPostPrompt": "Conectar uma conta para comentar. Não vamos publicar na sua timeline.",
   "connectToVotePrompt": "Se conecte para opinar. Nós não vamos publicar na sua timeline.",
-  "tip": "Dica:",
   "tipCommentsRandom": "Comentários são embaralhados para ser exibidos. Quando escreve um comentário, você não está respondendo diretamente para ninguém.",
   "tipOneIdea": "Divida comentários longos que contenham muitas ideias. Isso facilita para as pessoas entenderem e reagirem ao seu comentário.",
   "tipNoQuestions": "Comentários podem ser afirmações em vez de perguntas. Os participantes vão concordar ou discordar das afirmações que você fizer.",
@@ -79,15 +84,4 @@ module.exports = {
   "noCommentsTryWritingOne": "Se você quer acrescentar algo, tente escrever seu próprio comentário.",
   "convIsClosed": "Esta conversa está fechada.",
   "noMoreVotingAllowed": "Não é mais possível reagir às propostas.",
-
-  "topic_good_01": "O que devemos fazer em relação à sala dos video games?",
-  "topic_good_01_reason": "pergunta bem definida, todos podem ter opinião e respostas a essa questão",
-  "topic_good_02": "O que você acha da nova proposta?",
-  "topic_good_02_reason": "pergunta bem definida, todos podem ter opinião e respostas a essa questão",
-  "topic_good_03": "Você pode pensar em algo que está atrapalhando o grupo?",
-  "topic_good_03_reason": "pergunta bem definida, todos podem ter opinião e respostas a essa questão",
-  "topic_bad_01": "O que você acha da lei que foi aprovada ontem?",
-  "topic_bad_01_reason": "As pessoas podem até tentar participar, mas podem não ter o conhecimento suficiente pra interagir com confiança.",
-  "topic_bad_02": "O que a gente deve fazer?",
-  "topic_bad_02_reason": "Aberta demais, não explica o objetivo da discussão, o resultado pode não ser aproveitável",
 };

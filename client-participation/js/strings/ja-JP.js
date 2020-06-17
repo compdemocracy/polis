@@ -1,5 +1,10 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+// Do not delete empty comment line below. It's required to mitigate a bug.
+// See: https://github.com/box/mojito/issues/588
+
+//
+
 module.exports = {
   "agree": "賛成",
   "disagree": "反対",
@@ -21,7 +26,7 @@ module.exports = {
   "anonPerson": "匿名",
   "helpWhatAmISeeing": "投票傾向が似ている人々がグループ化されます。グループをクリックすると、どの視点を共有しているのかを確認できます。",
   "writeCommentHelpText": "上記の質問に、あなたの意見やアイデアが含まれていない場合、",
-  "helpWriteListIntro": "",
+  "helpWriteListIntro": "What makes a good statement?",
   "helpWriteListStandalone": "独立したアイデアであること",
   "helpWriteListRaisNew": "新しい視点、経験または問題を提起するものであること",
   "helpWriteListShort": "以上を確認し、下のボックスにできるだけ簡潔に追加してください（280字まで）。",
@@ -54,12 +59,10 @@ module.exports = {
   "commentIsTooLong": "意見が長すぎます。",
   "hereIsNextStatement": "投票に成功しました。次の意見に行きましょう。",
 
-  "emailLogin": "メールでログイン",
   "connectFacebook": "Facebookでログイン",
   "connectTwitter": "Twitterでログイン",
   "connectToPostPrompt": "意見するにはメールアドレスまたはFacebookIDでアクセスしてください。あなたのタイムラインには何も表示されません。",
   "connectToVotePrompt": "投票するにはメールアドレスまたはFacebookIDでアクセスしてください。あなたのタイムラインには何も表示されません。",
-  "tip": "Tip:",
   "commentWritingTipsHintsHeader": "意見を書くためのコツ",
   "tipCharLimit": "意見は最大で {{char_limit}} 文字です。",
   "tipCommentsRandom": "質問は、管理者の確認後追加され、ランダムに表示されます。",
@@ -76,6 +79,9 @@ module.exports = {
   "socialConnectPrompt": "ログインしていると、ビジュアルにあなたの位置が表示それます。",
   "connectFbButton": "Facebookでログイン",
   "connectTwButton": "Twitterでログイン",
+  "showTranslationButton": "日本語に翻訳する",
+  "hideTranslationButton": "元の言語に戻す",
+  "thirdPartyTranslationDisclaimer": "翻訳サービスは外部から提供されたものです",
 
   "notificationsAlreadySubscribed": "この会話を購読しました。",
   "notificationsGetNotified": "新しい質問が追加されたときに通知を受け取る場合、Subscribeボタンを押してください。",
@@ -89,9 +95,4 @@ module.exports = {
   "noCommentsTryWritingOne": "何か言いたいことが有りましたら、意見を書いてみてください。",
   "convIsClosed": "この会話は終了しました。",
   "noMoreVotingAllowed": "投票は締め切りました。",
-
-
-  "showTranslationButton": "日本語に翻訳する",
-  "hideTranslationButton": "元の言語に戻す",
-  "thirdPartyTranslationDisclaimer": "翻訳サービスは外部から提供されたものです",
 };

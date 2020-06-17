@@ -1,5 +1,10 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+// Do not delete empty comment line below. It's required to mitigate a bug.
+// See: https://github.com/box/mojito/issues/588
+
+//
+
 module.exports = {
   "agree": "En accord",
   "disagree": "En désaccord",
@@ -30,6 +35,10 @@ module.exports = {
   "helpWhatDoIDoTitle": "Que dois-je faire?",
   "helpWhatDoIDo": "Votez sur les affirmations des autres participants. Pour ce faire, cliquez sur « En accord » ou « En désaccord », puis rédigez une affirmation (une idée = une affirmation). Invitez vos amis à participer à la conversation!",
   "writeCommentHelpText": "Vous souhaitez faire connaître votre point de vue ou partager votre expérience dans une conversation? Il vous suffit de <b>les ajouter</b> dans le champ ci-dessous.",
+  "helpWriteListIntro": "Une bonne affirmation:",
+  "helpWriteListStandalone": "présente une seule idée;",
+  "helpWriteListRaisNew": "présente un nouveau point de vue, de nouvelles expériences ou de nouveaux enjeux;",
+  "helpWriteListShort": "est claire et concise (compte au plus 140 caractères)",
   "heresHowGroupVoted": "Voici comment le groupe {{GROUP_NUMBER}} a voté :",
   "one_person": "{{x}} personne",
   "x_people": "{{x}} personnes",
@@ -49,7 +58,7 @@ module.exports = {
   "commentSent": "Énoncé publié! Les autres participants verront votre publication et indiqueront s’ils sont en accord ou en désaccord avec l’affirmation.",
   "commentSendFailed": "Une erreur est survenue. Impossible de publier l’affirmation.",
   "commentSendFailedEmpty": "Une erreur s’est produite lors de la soumission de votre affirmation - L’affirmation ne devrait pas être vide.",
-  "commentSendFailedTooLong":  "Une erreur s’est produite lors de la soumission de votre affirmation – L’affirmation est trop longue ",
+  "commentSendFailedTooLong": "Une erreur s’est produite lors de la soumission de votre affirmation – L’affirmation est trop longue ",
   "commentSendFailedDuplicate": "Une erreur s’est produite lors de la soumission de votre affirmation – Une affirmation identique existe déjà.",
   "commentErrorDuplicate": "Une erreur s’est produite lors de la soumission de votre affirmation – Une affirmation identique existe déjà.",
   "commentErrorConversationClosed": "Cette conversation est fermée. Impossible de publier de nouvelles affirmations.",
@@ -61,14 +70,9 @@ module.exports = {
   "connectTwitter": "Connexion à Twitter",
   "connectToPostPrompt": "Connectez-vous pour publier une affirmation. Nous ne publierons pas votre journal.",
   "connectToVotePrompt": "Connectez-vous pour voter. Nous ne publierons pas votre journal.",
-  "tip": "Conseil :",
   "commentWritingTipsHintsHeader": "Conseils pour rédiger une affirmation",
   "tipCharLimit": "Les énoncés doivent compter au plus {{char_limit}} caractères.",
   "tipCommentsRandom": "Gardez à l’esprit que les énoncés sont affichés de façon aléatoire et que vous ne répondez pas directement à l'affirmation d'un autre participant.",
-  "helpWriteListIntro": "Une bonne affirmation:",
-  "helpWriteListStandalone": "présente une seule idée;",
-  "helpWriteListRaisNew": "présente un nouveau point de vue, de nouvelles expériences ou de nouveaux enjeux;",
-  "helpWriteListShort": "est claire et concise (compte au plus 140 caractères)",
   "tipOneIdea": "Subdivisez en plusieurs affirmations les affirmations trop longues qui traitent de plus d’une idée. Cela facilitera le vote.",
   "tipNoQuestions": "Une affirmation ne doit pas être présentée sous la forme d’une question. Les participants indiqueront s’ils sont en accord ou en désaccord avec votre affirmation.",
   "commentTooLongByChars": "L’affirmation compte {{CHARACTERS_COUNT}} caractères en trop.",
@@ -86,7 +90,6 @@ module.exports = {
   "polis_err_reg_fb_verification_noemail_unverified": "Votre compte Facebook n’a pas été confirmé. Veuillez vérifier l’adresse de courriel que vous utilisez avec votre compte Facebook, puis revenez ici pour continuer.",
   "showTranslationButton": "Activer la traduction par un tiers",
   "hideTranslationButton": "Désactiver le service de traduction",
-
   "thirdPartyTranslationDisclaimer": "Traduction fournie par un tiers",
 
   "notificationsAlreadySubscribed": "Vous êtes abonné aux mises jour de cette conversation.",

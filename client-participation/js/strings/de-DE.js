@@ -1,6 +1,9 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// Translation comment: Formal German "Sie" is used - alternative: informal "Du"
+// Do not delete empty comment line below. It's required to mitigate a bug.
+// See: https://github.com/box/mojito/issues/588
+
+//
 
 module.exports = {
   "agree": "Ich stimme zu",
@@ -8,10 +11,6 @@ module.exports = {
   "pass": "Weiter / Ich bin mir unsicher",
 
   "importantCheckbox": "Dieses Statement ist wichtig.",
-  "howImportantPrompt": "Wie wichtig ist dieser Statement?",
-  "howImportantLow": "Wenig",
-  "howImportantMedium": "Mittel",
-  "howImportantHigh": "Sehr",
 
   "modSpam": "Spam",
   "modOffTopic": "Kein Bezug zum Thema/Off-Topic",
@@ -75,7 +74,6 @@ module.exports = {
   "connectTwitter": "Mit Twitter verbinden",
   "connectToPostPrompt": "Verknüpfen Sie eine Identität, um ein Statement zu verfassen. Wir werden keine Inhalte auf Ihrer Pinnwand posten.",
   "connectToVotePrompt": "Verknüpfen Sie eine Identität, um abstimmen zu können. Wir werden keine Inhalte auf Ihrer Pinnwand posten.",
-  "tip": "Tipp:",
   "commentWritingTipsHintsHeader": "Hinweise für dein Statement.",
   "tipCharLimit": "Kommentare sind auf 140 Zeichen limitiert.",
   "tipCommentsRandom": "Statements werden in zufälliger Reihenfolge angezeigt. Ihre Antwort bezieht sich dabei nicht auf eine bestimmte Person.",
@@ -109,15 +107,4 @@ module.exports = {
   "noCommentsTryWritingOne": "Wenn Sie noch etwas hinzufügen möchten, erstellen Sie einfach ein eigenes Statement.",
   "convIsClosed": "Diese Diskussion ist bereits geschlossen.",
   "noMoreVotingAllowed": "Abstimmungen sind nicht mehr möglich.",
-
-  "topic_good_01": "Wie sollen wir unseren Tischtennis-Raum gestalten?",
-  "topic_good_01_reason": "offene Frage, alle TeilnehmerInnen können sich eine Meinung zu den Antworten auf diese Frage bilden",
-  "topic_good_02": "Was ist Ihre Meinung zu diesem neuen Vorschlag?",
-  "topic_good_02_reason": "offene Frage, alle TeilnehmerInnen können sich eine Meinung zu den Antworten auf diese Frage bilden",
-  "topic_good_03": "Welche Hindernisse verringern Ihrer Meinung nach die Produktiviät?",
-
-  "topic_bad_01": "Alle geben Bescheid, ob sie bereit sind, das Projekt zu starten",
-  "topic_bad_01_reason": "TeilnehmerInnen aus verschiedenen Teams werden über die Antworten abstimmen, dabei jedoch unter Umständen nicht genügend Informationen besitzen, um sinnvoll abstimmen zu können.",
-  "topic_bad_02": "Welche Hindernisse verhindern einen Projektstart?",
-  "topic_bad_02_reason": "",
 };

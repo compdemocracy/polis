@@ -1,9 +1,15 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+// Do not delete empty comment line below. It's required to mitigate a bug.
+// See: https://github.com/box/mojito/issues/588
+
+//
+
 module.exports = {
   "agree": "赞成",
   "disagree": "反对",
   "pass": "略过 / 不确定",
+
   "x_wrote": "表示：",
   "x_tweeted": "推文：",
   "group_123": "群组：",
@@ -32,10 +38,10 @@ module.exports = {
   "pctAgreedOfGroup": "群组 {{group}} 里，有 {{pct}}% 的人赞成",
   "pctDisagreedOfGroup": "群组 {{group}} 里，有 {{pct}}% 的人反对",
   "commentSent": "意见已送出！",
+
   "connectFacebook": "链接 Facebook",
   "connectTwitter": "链接 Twitter",
   "connectToPostPrompt": "发表意见前，请先链接登录帐号。我们不会贴文在您的墙上。",
-  "tip": "秘诀：",
   "tipCommentsRandom": "意见会随机显示。您不需要回复别人的看法。",
   "tipOneIdea": "有多个意见请分开来写，一次一个，好让其他人表达赞成或反对。",
   "tipNoQuestions": "请直接陈述您的感受或观点，不要使用问句。",

@@ -1,11 +1,14 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+// Do not delete empty comment line below. It's required to mitigate a bug.
+// See: https://github.com/box/mojito/issues/588
+
+//
+
 module.exports = {
   "agree": "Enig",
   "disagree": "Uenig",
   "pass": "Spring over / Usikker",
-
-  "modSpam": "Spam",
   "modOffTopic": "Off topic",
   "modImportant": "Vigtigt",
   "modSubmitInitialState": "Spring over (ingen af ovenstående), næste kommentar",
@@ -19,8 +22,6 @@ module.exports = {
   "comment_123": "Kommentar:",
   "majorityOpinion": "Flertallets mening",
   "majorityOpinionShort": "Flertallet",
-  "info": "Info",
-  "addPolisToYourSite": "<img style='height: 20px; margin: 0px 4px;' src='{{URL}}'/>",
   "privacy": "Privatliv",
   "TOS": "Vilkår for brug",
   "writePrompt": "Del dit perspektiv...",
@@ -35,7 +36,6 @@ module.exports = {
   "helpWriteListRaisNew": "Rejser nye perspektiver, erfaringer eller problemstillinger",
   "helpWriteListShort": "Klar og præcis (begrænset til 140 tegn)",
   "heresHowGroupVoted": "Her er hvordan gruppe {{GROUP_NUMBER}} stemte:",
-  "one_person": "{{x}} person",
   "x_people": "{{x}} personer",
   "acrossAllPtpts": "På tværs af alle deltagere:",
   "xPtptsSawThisComment": " så denne kommentar",
@@ -65,14 +65,12 @@ module.exports = {
   "connectTwitter": "Forbind Twitter",
   "connectToPostPrompt": "Forbind en identitet for at kommentere. Vi poster ikke på din tidslinje.",
   "connectToVotePrompt": "orbind en identitet for at kommentere. Vi poster ikke på din tidslinje.",
-  "tip": "Tip:",
   "commentWritingTipsHintsHeader": "Råd til at skrive kommentarer",
   "tipCharLimit": "Kommentarer er begrænset til {{char_limit}} tegn.",
   "tipCommentsRandom": "Kommentarer vises tilfældigt. Du svarer ikke direkte til nogen.",
   "tipOneIdea": "Bryd længere kommentarer op i flere. Det gør det nemmere for andre at stemme på din kommentar.",
   "tipNoQuestions": "Kommentarer bør udtrykke holdninger i stedet for spørgsmål. Deltagere skal enten være enige eller uenige i dine kommentarer.",
   "commentTooLongByChars": "Længde på kommentar overskrider grænsen med {{CHARACTERS_COUNT}} tegn.",
-  "notSentSinceDemo": "(not really, this is a demo)",
   "submitComment": "Indsend",
   "tipStarred": "Markeret som vigtig.",
   "participantHelpWelcomeText": "Velkommen til en ny slags samtale - <span style='font-weight: 700;'>stem</span> på personers holdninger og <span style='font-weight: 700;'>bidrag</span> med dine egne.",
@@ -85,13 +83,11 @@ module.exports = {
   "polis_err_reg_fb_verification_email_sent": "Check din email for et link, så vi kan verificere dig.",
   "polis_err_reg_fb_verification_noemail_unverified": "Din Facebook-konto er ikke verificeret, Verificer den og kom tilbage..",
   "showTranslationButton": "Aktiver oversættelse",
-
   "hideTranslationButton": "Deaktiver oversættelse",
 
   "notificationsAlreadySubscribed": "Du abonnerer på opdateringer for denne samtale.",
   "notificationsGetNotified": "Få notifikationer når der kommer flere kommentarer:",
   "notificationsEnterEmail": "Indtast din email og få besked, når der kommer flere kommentarer:",
-  "labelEmail": "Email",
   "notificationsSubscribeButton": "Abonner",
   "noCommentsYet": "Der er endnu ingen kommentarer.",
   "noCommentsYetSoWrite": "Start samtalen ved at tilføje en kommentar.",
@@ -100,16 +96,4 @@ module.exports = {
   "noCommentsTryWritingOne": "Hvis du har noget at tilføje, så prøv at skrive en kommentar.",
   "convIsClosed": "Samtalen er lukket.",
   "noMoreVotingAllowed": "Det er ikke muligt at stemme mere.",
-
-
-  "topic_good_01": "Hvad skal vi gøre med bordtennis-rummet?",
-  "topic_good_01_reason": "åben samtale, enhver kan have en holdning til svar på dette spørgsmål",
-  "topic_good_02": "Hvad synes du om det nye forslag??",
-  "topic_good_02_reason": "åben samtale, enhver kan have en holdning til svar på dette spørgsmål",
-  "topic_good_03": "Kan du komme i tanke om noget, der sænker produktiviteten?",
-
-  "topic_bad_01": "alle må godt rapportere hvornår vi er klar",
-  "topic_bad_01_reason": "personer fra forskellige teams vil stemme på svar, men de har måske ikke nok viden til at stemme.",
-  "topic_bad_02": "hvorfor har vi ikke lanceret endnu?",
-  "topic_bad_02_reason": "",
 };

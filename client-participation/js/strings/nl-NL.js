@@ -1,4 +1,9 @@
-// Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY. without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>,
+// Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+// Do not delete empty comment line below. It's required to mitigate a bug.
+// See: https://github.com/box/mojito/issues/588
+
+//
 
 module.exports = {
   "agree": "Akkoord",
@@ -61,7 +66,6 @@ module.exports = {
   "connectTwitter": "Verbinden met Twitter",
   "connectToPostPrompt": "Verbindt om te reageren, we zullen niets publiceren op uw tijdlijn.",
   "connectToVotePrompt": "Verbindt om te stemmen, we zullen niets publiceren op uw tijdlijn.",
-  "tip": "Tip:",
   "commentWritingTipsHintsHeader": "Tips om reacties te schrijven",
   "tipCharLimit": "De lengte van reacties zijn beperkt to {{char_limit}} tekens.",
   "tipCommentsRandom": "Reacties zijn willekeurig gesorteerd. U bent op niemand aan het reageren",
@@ -95,15 +99,4 @@ module.exports = {
   "noCommentsTryWritingOne": "Als u zelf iets wilt toevoegen aan het gesprek, probeer dan een reactie te schrijven.",
   "convIsClosed": "Dit gesprek is afgesloten.",
   "noMoreVotingAllowed": "Er mag niet meer gestemd worden.",
-
-  "topic_good_01": "Wat zouden we kunnen doen met de pingpong kamer?",
-  "topic_good_01_reason": "vrijblijvend, iedereen kan een opinie of vraag hebben voor deze vraag",
-  "topic_good_02": "Wat denkt u over het nieuwe voorstel?",
-  "topic_good_02_reason": "vrijblijvend, iedereen kan een opinie of vraag hebben voor deze vraag",
-  "topic_good_03": "Kan u iets bedenken dat de productiviteit vertraagt?",
-
-  "topic_bad_01": "iedereen moet rapporteren over hun vorderingen i.v.m. de start",
-  "topic_bad_01_reason": "verschillende mensen van verschillende teams zullen reageren op het antwoord, zij zullen echt niet allemaal de kennis hebben om vastbesloten te kunnen stemmen.",
-  "topic_bad_02": "welke factoren remmen onze start af?",
-  "topic_bad_02_reason": "",
 };

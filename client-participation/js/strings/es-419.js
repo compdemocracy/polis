@@ -1,5 +1,10 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+// Do not delete empty comment line below. It's required to mitigate a bug.
+// See: https://github.com/box/mojito/issues/588
+
+//
+
 module.exports = {
   "agree": "Acordar",
   "disagree": "Discrepar",
@@ -8,8 +13,8 @@ module.exports = {
   "modSpam": "Spam",
   "modOffTopic": "Fuera de Contexto",
   "modImportant": "Importante",
-  "modSubmitInitialState": "Saltártelo (ninguna de las anteriores), próximo comentario",  //This could sound/be wrong in context
-  "modSubmit": "Terminado, próximo comentario",   //Ditto above
+  "modSubmitInitialState": "Saltártelo (ninguna de las anteriores), próximo comentario",
+  "modSubmit": "Terminado, próximo comentario",
 
   "x_wrote": "escribió:",
   "x_tweeted": "tuiteó:",
@@ -37,12 +42,11 @@ module.exports = {
   "heresHowGroupVoted": "Aquí está como votó el Grupo {{GROUP_NUMBER}}:",
   "one_person": "{{x}} persona",
   "x_people": "{{x}} personas",
-  "acrossAllPtpts": "Por todos los participantes:",  //this may sound weird depending on the use context...?
+  "acrossAllPtpts": "Por todos los participantes:",
   "xPtptsSawThisComment": " vio este comentario",
   "xOfThoseAgreed": "de esos participantes acordaron",
   "xOfthoseDisagreed": "de esos participantes discreparon",
   "opinionGroups": "Grupos de Opinión",
-
   "pctAgreed": "{{pct}}% Acordaron",
   "pctDisagreed": "{{pct}}% Discreparon",
   "pctAgreedLong": "{{pct}}% de groupo que acordaron con el comentario {{comment_id}}.",
@@ -61,11 +65,11 @@ module.exports = {
   "commentIsEmpty": "Comentario incompleto",
   "commentIsTooLong": "Comentario es demasiado largo",
   "hereIsNextStatement": "Voto procesado. Navigue arriba para ver el comentario próximo.",
+
   "connectFacebook": "Conecta a Facebook",
   "connectTwitter": "Conecta a Twitter",
   "connectToPostPrompt": "Conecta a una identidad para comentar. No publicaremos tu línea de tiempo.",
   "connectToVotePrompt": "Conecta a una identidad para votar. No publicaremos tu línea de tiempo.",
-  "tip": "Consejo:",
   "commentWritingTipsHintsHeader": "Cómo escribir un comentario",
   "tipCharLimit": "Comentarios son limitados a {{char_limit}} carácteres.",
   "tipCommentsRandom": "Los comentarios se exponen aleatoriamente. No puedes responder directamente a una persona.",
@@ -87,6 +91,7 @@ module.exports = {
   "showTranslationButton": "Active Traducción",
   "hideTranslationButton": "Deactive el servicio traducción",
   "thirdPartyTranslationDisclaimer": "Traducción proporcionada por un tercero",
+
   "notificationsAlreadySubscribed": "Está suscrito para recibir actualizaciones a esta conversación.",
   "notificationsGetNotified": "Recibe notificaciones cuando comentarios nuevos aparecen:",
   "notificationsEnterEmail": "Ingrese su dirección de email para recibir notificaciones cuando lleguen más comentarios:",
@@ -100,13 +105,4 @@ module.exports = {
   "noCommentsTryWritingOne": "Si tiene algo más para decir, escriba un comentario nuevo.",
   "convIsClosed": "Esta conversación está cerrada",
   "noMoreVotingAllowed": "No puede votar más.",
-  "topic_good_01": "Qué deberíamos hacer con el cuarto de ping pong?",
-  "topic_good_01_reason": "respuesta libre; cualquier persona puede expresar una opinión a esta pregunta",
-  "topic_good_02": "Qué le parece la propuesta nueva?",
-  "topic_good_02_reason": "respuesta libre; cualquier persona puede expresar una opinión a esta pregunta",
-  "topic_good_03": "Hay algo que está limitando productividad?",
-  "topic_bad_01": "everyone report your launch readiness",
-  "topic_bad_01_reason": "personas de varios equipos van a votar por las repuestas, pero tal vez no tengan el sabimiento de votar confidentamente.",
-  "topic_bad_02": "what are our launch blockers?",
-  "topic_bad_02_reason": "",
 };

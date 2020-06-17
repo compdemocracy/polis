@@ -1,5 +1,10 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+// Do not delete empty comment line below. It's required to mitigate a bug.
+// See: https://github.com/box/mojito/issues/588
+
+//
+
 module.exports = {
   "agree": "Son d'accordo",
   "disagree": "Non la penso così",
@@ -40,10 +45,10 @@ module.exports = {
   "pctAgreedOfGroup": "{{pct}}% del Gruppo {{group}} è d'accordo",
   "pctDisagreedOfGroup": "{{pct}}% del Gruppo {{group}} non la pensa così",
   "commentSent": "Commento Inviato! Altri partecipanti vedranno il tuo commento e saranno d'accordo o meno.",
+
   "connectFacebook": "Collegati tramite Facebook",
   "connectTwitter": "Collegati tramite Twitter",
   "connectToPostPrompt": "Collega un identità al commento. Non posteremo nulla sul tuo profilo.",
-  "tip": "Attenzione:",
   "tipCommentsRandom": "I commenti vengono mostrati casualmente. Non stai rispondendo a nessuno.",
   "tipOneIdea": "Spezza i commenti lunghi quando essi contengono più idee. Questo renderà più facile per gli altri votare sul tuo commento.",
   "tipNoQuestions": "I commenti dovrebbero contenere affermazioni ed evitare di avere la forma di una domanda. I partecipanti saranno d'accordo con i tuoi commenti singoli o la penseranno diversamente.",
