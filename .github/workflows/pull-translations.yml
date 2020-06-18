@@ -25,7 +25,7 @@ jobs:
           path: ${{ env.CHECKOUT_DIR }}
 
       - run: |
-          wget --continue --progress=bar --output-document mojito-cli.jar https://github.com/box/mojito/releases/download/v${MOJITO_VERSION}/mojito-cli-${MOJITO_VERSION}.jar
+          wget --continue --progress=dot:giga --output-document mojito-cli.jar https://github.com/box/mojito/releases/download/v${MOJITO_VERSION}/mojito-cli-${MOJITO_VERSION}.jar
           cat <<-EOF > application.properties
             l10n.resttemplate.host=${MOJITO_CLI_SERVER}
             l10n.resttemplate.port=443
