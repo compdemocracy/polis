@@ -3,7 +3,7 @@ name: Pull & Commit Translations from Mojito
 on:
   schedule:
     # Run every hour.
-    - cron: '30 * * * *'
+    - cron: '45 * * * *'
 
 jobs:
   pull-translations:
@@ -34,7 +34,7 @@ jobs:
             l10n.resttemplate.authentication.username=${MOJITO_CLI_USERNAME}
             l10n.resttemplate.authentication.password=${MOJITO_CLI_PASSWORD}
           EOF
-          java -jar mojito-cli.jar pull --repository ${MOJITO_REPO} --source-directory ${CHECKOUT_DIR}/client-participation/js/strings/
+          java -jar mojito-cli.jar pull --repository ${MOJITO_REPO} --source-directory ${CHECKOUT_DIR}/client-participation/js/strings/ --inheritance-mode REMOVE_UNTRANSLATED
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v2.8.0
