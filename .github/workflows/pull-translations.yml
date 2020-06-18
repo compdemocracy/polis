@@ -3,7 +3,7 @@ name: Pull & Commit Translations from Mojito
 on:
   schedule:
     # Run every hour.
-    - cron: '45 * * * *'
+    - cron: '0 * * * *'
 
 jobs:
   pull-translations:
@@ -42,3 +42,11 @@ jobs:
           path: code
           title: Update translations
           branch: auto/translations
+          labels: "♿ accessibility, 🔩 p:client-participation"
+          body: |
+            This is an automated pull request, created by the translation platform that we use.
+
+            https://polis-translations.herokuapp.com/
+
+            If you need to make changes to any of the localized strings in this pull request, please use the translation system.
+            (If you make any changes within GitHub, they will get overridden next time the system runs, every hour.)
