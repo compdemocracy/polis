@@ -1,0 +1,34 @@
+name: Push Translations to Mojito
+
+on:
+  push:
+    paths:
+      - client-participation/js/strings/en.js
+    branches:
+      - 320-continuous-localization
+
+jobs:
+  push-translations:
+    runs-on: ubuntu-latest
+    env:
+      MOJITO_VERSION: "0.110"
+      MOJITO_REPO: polis
+      MOJITO_CLI_SERVER: polis-translations.herokuapp.com
+      MOJITO_CLI_USERNAME: admin
+      MOJITO_CLI_PASSWORD: ChangeMe
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2.3.0
+
+      - run: |
+          wget --continue --progress=bar --output-document mojito-cli.jar https://github.com/box/mojito/releases/download/v${MOJITO_VERSION}/mojito-cli-${MOJITO_VERSION}.jar
+          cat <<-EOF > application.properties
+            l10n.resttemplate.host=${MOJITO_CLI_SERVER}
+            l10n.resttemplate.port=443
+            l10n.resttemplate.scheme=https
+            l10n.resttemplate.authentication.credentialProvider=CONFIG
+            l10n.resttemplate.authentication.username=${MOJITO_CLI_USERNAME}
+            l10n.resttemplate.authentication.password=${MOJITO_CLI_PASSWORD}
+          EOF
+          cat application.properties
+          java -jar mojito-cli.jar push --repository ${MOJITO_REPO} --source-directory client-participation/js/strings/

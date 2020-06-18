@@ -1,0 +1,44 @@
+name: Pull & Commit Translations from Mojito
+
+on:
+  schedule:
+    # Run every hour.
+    - cron: '0 * * * *'
+
+jobs:
+  pull-translations:
+    if: repo.owner == "patcon"
+    runs-on: ubuntu-latest
+    env:
+      BRANCH: 320-continuous-localization
+      CHECKOUT_DIR: code
+      MOJITO_VERSION: "0.110"
+      MOJITO_REPO: polis
+      MOJITO_CLI_SERVER: polis-translations.herokuapp.com
+      MOJITO_CLI_USERNAME: admin
+      MOJITO_CLI_PASSWORD: ChangeMe
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2.3.0
+        with:
+          ref: ${{ env.BRANCH }}
+          path: ${{ env.CHECKOUT_DIR }}
+
+      - run: |
+          wget --continue --progress=bar --output-document mojito-cli.jar https://github.com/box/mojito/releases/download/v${MOJITO_VERSION}/mojito-cli-${MOJITO_VERSION}.jar
+          cat <<-EOF > application.properties
+            l10n.resttemplate.host=${MOJITO_CLI_SERVER}
+            l10n.resttemplate.port=443
+            l10n.resttemplate.scheme=https
+            l10n.resttemplate.authentication.credentialProvider=CONFIG
+            l10n.resttemplate.authentication.username=${MOJITO_CLI_USERNAME}
+            l10n.resttemplate.authentication.password=${MOJITO_CLI_PASSWORD}
+          EOF
+          java -jar mojito-cli.jar pull --repository ${MOJITO_REPO} --source-directory ${CHECKOUT_DIR}/client-participation/js/strings/
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v2.8.0`
+        with:
+          path: code
+          title: Update translations
+          branch: auto/translations
