@@ -323,6 +323,16 @@
       "contributions": [
         "bug"
       ]
+    },
+    {
+      "login": "rohanrichards",
+      "name": "Rohan Richards",
+      "avatar_url": "https://avatars2.githubusercontent.com/u/16222002?v=4",
+      "profile": "https://github.com/rohanrichards",
+      "contributions": [
+        "infra",
+        "bug"
+      ]
     }
   ],
   "contributorsPerLine": 7
