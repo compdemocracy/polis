@@ -109,4 +109,6 @@ module.exports = {
   "noCommentsTryWritingOne": "If you have something to add, try writing your own statement.",
   "convIsClosed": "This conversation is closed.",
   "noMoreVotingAllowed": "No further voting is allowed.",
+
+  "demo": "This is a demo string!"
 };

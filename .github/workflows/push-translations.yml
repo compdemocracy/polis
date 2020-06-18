@@ -30,5 +30,4 @@ jobs:
             l10n.resttemplate.authentication.username=${MOJITO_CLI_USERNAME}
             l10n.resttemplate.authentication.password=${MOJITO_CLI_PASSWORD}
           EOF
-          cat application.properties
           java -jar mojito-cli.jar push --repository ${MOJITO_REPO} --source-directory client-participation/js/strings/
