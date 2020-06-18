@@ -3,11 +3,11 @@ name: Pull & Commit Translations from Mojito
 on:
   schedule:
     # Run every hour.
-    - cron: '10 * * * *'
+    - cron: '30 * * * *'
 
 jobs:
   pull-translations:
-    if: github.repository_owner == "patcon"
+    if: github.repository_owner == 'patcon'
     runs-on: ubuntu-latest
     env:
       BRANCH: 320-continuous-localization
