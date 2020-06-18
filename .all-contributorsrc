@@ -1,6 +1,6 @@
 {
-  "projectName": "polis",
-  "projectOwner": "pol-is-trial-balloon",
+  "projectName": "polisServer",
+  "projectOwner": "pol-is",
   "repoType": "github",
   "repoHost": "https://github.com",
   "files": [
