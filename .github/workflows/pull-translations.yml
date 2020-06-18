@@ -24,8 +24,18 @@ jobs:
           ref: ${{ env.BRANCH }}
           path: ${{ env.CHECKOUT_DIR }}
 
-      - run: |
+      - name: Cache Mojito CLI
+        uses: actions/cache@v2.0.0
+        with:
+          path: moojito-cli.jar
+          key: ${{ env.MOJITO_VERSION }}-cli
+
+      - name: Download Mojito CLI
+        run: |
           wget --continue --progress=dot:giga --output-document mojito-cli.jar https://github.com/box/mojito/releases/download/v${MOJITO_VERSION}/mojito-cli-${MOJITO_VERSION}.jar
+
+      - name: Write Mojito CLI config
+        run: |
           cat <<-EOF > application.properties
             l10n.resttemplate.host=${MOJITO_CLI_SERVER}
             l10n.resttemplate.port=443
@@ -34,6 +44,16 @@ jobs:
             l10n.resttemplate.authentication.username=${MOJITO_CLI_USERNAME}
             l10n.resttemplate.authentication.password=${MOJITO_CLI_PASSWORD}
           EOF
+
+      - name: Pull translations from Mojito server
+        run: |
+          # Setting "inheritance-mode" to "REMOVE_UNTRANSLATED" ensures that
+          # when a specific string has no translations written (e.g., no French
+          # string for "hideTranslationButton") then the locale file will NOT
+          # be populated with an English placeholder (e.g., no "Deactivate
+          # translation" as "hideTranslationButton" in fr-FR.js). Instead, the
+          # key will be absent from `fr-FR.js`. This works fine since our app's
+          # translation setup falls back to English strings on its own.
           java -jar mojito-cli.jar pull --repository ${MOJITO_REPO} --source-directory ${CHECKOUT_DIR}/client-participation/js/strings/ --inheritance-mode REMOVE_UNTRANSLATED
 
       - name: Create Pull Request

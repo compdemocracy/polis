@@ -20,8 +20,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2.3.0
 
-      - run: |
+      - name: Cache Mojito CLI
+        uses: actions/cache@v2.0.0
+        with:
+          path: moojito-cli.jar
+          key: ${{ env.MOJITO_VERSION }}-cli
+
+      - name: Download Mojito CLI
+        run: |
           wget --continue --progress=dot:giga --output-document mojito-cli.jar https://github.com/box/mojito/releases/download/v${MOJITO_VERSION}/mojito-cli-${MOJITO_VERSION}.jar
+
+      - name: Write Mojito CLI config
+        run: |
           cat <<-EOF > application.properties
             l10n.resttemplate.host=${MOJITO_CLI_SERVER}
             l10n.resttemplate.port=443
@@ -30,4 +40,7 @@ jobs:
             l10n.resttemplate.authentication.username=${MOJITO_CLI_USERNAME}
             l10n.resttemplate.authentication.password=${MOJITO_CLI_PASSWORD}
           EOF
+
+      - name: Push translations to Mojito server
+        run: |
           java -jar mojito-cli.jar push --repository ${MOJITO_REPO} --source-directory client-participation/js/strings/
