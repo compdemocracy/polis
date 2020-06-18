@@ -15,7 +15,7 @@ jobs:
       MOJITO_REPO: polis
       MOJITO_CLI_SERVER: polis-translations.herokuapp.com
       MOJITO_CLI_USERNAME: admin
-      MOJITO_CLI_PASSWORD: ChangeMe
+      MOJITO_CLI_PASSWORD: ${{ secrets.MOJITO_CLI_PASSWORD }}
     steps:
       - name: Checkout
         uses: actions/checkout@v2.3.0
