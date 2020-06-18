@@ -15,7 +15,7 @@ jobs:
       BRANCH: 320-continuous-localization
       CHECKOUT_DIR: code
       MOJITO_VERSION: "0.110"
-      MOJITO_REPO: polis
+      MOJITO_REPO: polis:client-participation
       MOJITO_CLI_SERVER: polis-translations.herokuapp.com
       MOJITO_CLI_USERNAME: admin
       MOJITO_CLI_PASSWORD: ${{ secrets.MOJITO_CLI_PASSWORD }}
