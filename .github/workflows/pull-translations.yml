@@ -2,8 +2,10 @@ name: Pull & Commit Translations from Mojito
 
 on:
   schedule:
-    # Run every hour.
-    - cron: '0 * * * *'
+    # Run every day at 9am and 9pm ET.
+    # Note: We only run every 12 hours, otherwise our Mojito webapp (on Heroku)
+    # wouldn't be able to sleep, and would go over its free hours.
+    - cron: '0 13,1 * * *'
 
 jobs:
   pull-translations:
