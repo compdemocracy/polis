@@ -353,6 +353,16 @@
         "doc",
         "bug"
       ]
+    },
+    {
+      "login": "DZNarayanan",
+      "name": "Darshana Narayanan",
+      "avatar_url": "https://avatars3.githubusercontent.com/u/17834398?v=4",
+      "profile": "https://github.com/DZNarayanan",
+      "contributions": [
+        "talk",
+        "blog"
+      ]
     }
   ],
   "contributorTemplate": "<a href='https://github.com/<%= contributor.login %>'><img src='<%= contributor.avatar_url %>' width='<%= options.imageSize %>px;' alt=''/><br /><sub><b><%= contributor.login %></b></sub></a><br /><%= contributions %>",
