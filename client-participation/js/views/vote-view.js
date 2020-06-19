@@ -468,7 +468,7 @@ module.exports = Handlebones.ModelView.extend({
         that.model.set("foo", Math.random()); // trigger render
         // alert("you have subscribed");
       }, function(err) {
-        alert("Error subscribing");
+        alert(Strings.notificationsSubscribeErrorAlert);
         console.error(err);
       });
       return false;
