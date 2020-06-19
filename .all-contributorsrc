@@ -83,7 +83,8 @@
         "talk",
         "review",
         "maintenance",
-        "projectManagement"
+        "projectManagement",
+        "test"
       ]
     },
     {
