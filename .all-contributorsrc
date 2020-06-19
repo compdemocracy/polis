@@ -342,6 +342,16 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "joshsmith2",
+      "name": "Josh Smith",
+      "avatar_url": "https://avatars3.githubusercontent.com/u/3437989?v=4",
+      "profile": "https://github.com/joshsmith2",
+      "contributions": [
+        "doc",
+        "bug"
+      ]
     }
   ],
   "contributorsPerLine": 7
