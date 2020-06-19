@@ -6,6 +6,23 @@
   "files": [
     "README.md"
   ],
+  "types": {
+    "bug": {
+      "symbol": "🐛",
+      "description": "Bug reports",
+      "link": "https://github.com/search?q=involves:<%= contributor.login %>+org:pol-is&type=Issues"
+    },
+    "code": {
+      "symbol": "💻",
+      "description": "Code",
+      "link": "https://github.com/search?q=author:<%= contributor.login %>+repo:pol-is/polisServer+repo:pol-is/polis-documentation&type=Commits"
+    },
+    "doc": {
+      "symbol": "📖",
+      "description": "Documentation",
+      "link": "https://github.com/search?q=author:<%= contributor.login %>+repo:pol-is/polisServer+repo:pol-is/polis-documentation&type=Commits"
+    }
+  },
   "imageSize": 100,
   "commit": true,
   "commitConvention": "none",
