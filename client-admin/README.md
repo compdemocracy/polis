@@ -11,7 +11,7 @@ Install the NVM following the instructions: [NVM Installation Guide](https://git
 Them run the commands below to install the correct Node.JS version and the application dependencies.
 
 ```sh
-nvm install 6.2.0
+nvm install 8.17.0
 npm install
 ```
 
