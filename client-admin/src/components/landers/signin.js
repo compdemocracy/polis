@@ -8,7 +8,7 @@ import { Link, Redirect } from "react-router-dom";
 import { Heading, Box, Text, Button, jsx } from "theme-ui";
 import StaticLayout from "./lander-layout";
 
-import strings from "../../strings/strings";
+import strings from "../../strings";
 
 @connect((state) => state.signin)
 class SignIn extends React.Component {

@@ -8,7 +8,7 @@ import { Heading, Box, Text, Button, jsx, Link as ThemeUILink } from "theme-ui";
 
 import { Link } from "react-router-dom";
 import StaticLayout from "./lander-layout";
-import strings from "../../strings/strings";
+import strings from "../../strings";
 
 @connect((state) => state.signin)
 class Createuser extends React.Component {

@@ -3,7 +3,7 @@
 import _ from "lodash";
 import Flex from "../framework/flex";
 import React from "react";
-import strings from "../../strings/strings";
+import strings from "../../strings";
 import { connect } from "react-redux";
 import { populateAllCommentStores, changeCommentStatusToRejected } from "../../actions";
 
