@@ -1,3 +1,4 @@
+# Changes to workflow name require changes to badge URL in README.md
 name: E2E Tests
 
 on:
@@ -54,7 +55,7 @@ jobs:
       # NOTE: screenshots will be generated only if E2E test failed
       # thus we store screenshots only on failures
       - name: Save screenshot artefacts
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v2.0.1
         if: failure()
         with:
           name: cypress-screenshots
@@ -62,7 +63,7 @@ jobs:
 
       # Test run video was always captured, so this action uses "always()" condition
       - name: Save video artefacts
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v2.0.1
         if: always()
         with:
           name: cypress-videos

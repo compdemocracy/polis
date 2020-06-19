@@ -1,4 +1,5 @@
-name: Build nightlies
+# Changes to workflow name require changes to badge URL in README.md
+name: Nightly Docker Builds
 
 on:
   schedule:
