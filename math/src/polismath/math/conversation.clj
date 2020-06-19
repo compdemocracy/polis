@@ -144,7 +144,7 @@
                           :group-iters 10
                           ;; These three in particular we should be able to tune quickly
                           :max-ptpts 100000
-                          :max-cmts 1500
+                          :max-cmts 10000
                           :group-k-buffer 4}
                     opts))
 
@@ -344,7 +344,7 @@
     (assoc pca
            :comment-projection (matrix/transpose cmnt-proj)
            :comment-extremity cmnt-extremity)))
-  
+
 (def small-conv-update-graph
   "For computing small conversation updates (those without need for base clustering)"
   (merge
@@ -406,7 +406,7 @@
       :base-clusters-proj
       (plmb/fnk [base-clusters]
         (clusters/xy-clusters-to-nmat2 base-clusters))
-      
+
       :bucket-dists
       (plmb/fnk [base-clusters-proj]
         (clusters/named-dist-matrix base-clusters-proj))
@@ -699,7 +699,7 @@
 
 (defn partial-pca
   "This function takes in the rating matrix, the current pca and a set of row indices and
-  computes the partial pca off of those, returning a lambda that will take the latest PCA 
+  computes the partial pca off of those, returning a lambda that will take the latest PCA
   and make the update on that in case there have been other mini batch updates since started"
   [mat pca indices & {:keys [n-comps iters learning-rate]
                       :or {n-comps 2 iters 10 learning-rate 0.01}}]
@@ -726,7 +726,7 @@
   (let [slope (/ (- stop-y start-y) (- stop-x start-x))
         start (- (* slope start-x) start-y)]
     (fn [size]
-      (max 
+      (max
         (long (min (+ start (* slope size)) stop-y))
         start-y))))
 ; For now... Will want this constructed with opts eventually XXX
