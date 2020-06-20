@@ -29,6 +29,10 @@ module.exports = {
         test: /\.(png|jpg|gif|svg)$/,
         loader: "file-loader",
       },
+      {
+        test: /\.mdx?$/,
+        use: ['babel-loader', '@mdx-js/loader']
+      }
     ],
   },
 };
