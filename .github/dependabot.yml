@@ -6,21 +6,24 @@ updates:
 
   - directory: "/client-admin"
     package-ecosystem: "npm"
+    labels: ["dependencies", "🔩 p:client-admin"]
+    target-branch: "dev"
     schedule:
       interval: "weekly"
-    labels: ["dependencies", "🔩 p:client-admin"]
 
   - directory: "/file-server"
     package-ecosystem: "npm"
+    labels: ["dependencies"]
+    target-branch: "dev"
     schedule:
       interval: "weekly"
-    labels: ["dependencies"]
 
   ## Disabled (until major manual update)
 
   - directory: "/server"
     package-ecosystem: "npm"
     labels: ["dependencies", "🔩 p:server"]
+    target-branch: "dev"
     schedule:
       interval: "weekly"
     ignore:
@@ -29,6 +32,7 @@ updates:
   - directory: "/client-participation"
     package-ecosystem: "npm"
     labels: ["dependencies", "🔩 p:client-participation"]
+    target-branch: "dev"
     schedule:
       interval: "weekly"
     ignore:
@@ -37,6 +41,7 @@ updates:
   - directory: "/client-report"
     package-ecosystem: "npm"
     labels: ["dependencies", "🔩 p:client-report"]
+    target-branch: "dev"
     schedule:
       interval: "weekly"
     ignore:
@@ -47,45 +52,52 @@ updates:
   - directory: "/math"
     package-ecosystem: "docker"
     labels: ["dependencies", "⚒️ infrastructure", "🔩 p:math"]
+    target-branch: "dev"
     schedule:
       interval: "weekly"
 
   - directory: "/server"
     package-ecosystem: "docker"
     labels: ["dependencies", "⚒️ infrastructure", "🔩 p:server"]
+    target-branch: "dev"
     schedule:
       interval: "weekly"
 
   - directory: "/file-server"
     package-ecosystem: "docker"
     labels: ["dependencies", "⚒️ infrastructure"]
+    target-branch: "dev"
     schedule:
       interval: "weekly"
 
   - directory: "/client-admin"
     package-ecosystem: "docker"
     labels: ["dependencies", "⚒️ infrastructure", "🔩 p:client-admin"]
+    target-branch: "dev"
     schedule:
       interval: "weekly"
 
   - directory: "/client-participation"
     package-ecosystem: "docker"
     labels: ["dependencies", "⚒️ infrastructure", "🔩 p:client-participation"]
+    target-branch: "dev"
     schedule:
       interval: "weekly"
 
   - directory: "/client-report"
     package-ecosystem: "docker"
     labels: ["dependencies", "⚒️ infrastructure", "🔩 p:client-report"]
+    target-branch: "dev"
     schedule:
       interval: "weekly"
 
   # GITHUB ACTIONS external action updates
 
-  - package-ecosystem: "github-actions"
     # Workflow files stored in the
     # default location of `.github/workflows`
-    directory: "/"
+  - directory: "/"
+    package-ecosystem: "github-actions"
     labels: ["dependencies", "⚒️ infrastructure"]
+    target-branch: "dev"
     schedule:
       interval: "daily"
