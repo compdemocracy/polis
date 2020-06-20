@@ -40,13 +40,13 @@ jobs:
             l10n.resttemplate.authentication.password=${MOJITO_CLI_PASSWORD}
           EOF
 
-      - name: Push translations to Mojito server: client-participation
+      - name: "Push translations to Mojito server: client-participation"
         env:
           MOJITO_REPO: client-participation
         run: |
           java -jar mojito-cli.jar push --repository polis:${MOJITO_REPO} --source-directory ${MOJITO_REPO}/js/strings/
 
-      - name: Push translations to Mojito server: client-admin
+      - name: "Push translations to Mojito server: client-admin"
         env:
           MOJITO_REPO: client-admin
         run: |

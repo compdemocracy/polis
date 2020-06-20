@@ -54,13 +54,13 @@ jobs:
       # from `fr-FR.js`. This works fine since our app's translation setup
       # falls back to English strings on its own.
 
-      - name: Pull translations from Mojito server: client-participation
+      - name: "Pull translations from Mojito server: client-participation"
         env:
           MOJITO_REPO: client-participation
         run: |
           java -jar mojito-cli.jar pull --repository polis:${MOJITO_REPO} --source-directory ${CHECKOUT_DIR}/${MOJITO_REPO}/js/strings/ --inheritance-mode REMOVE_UNTRANSLATED
 
-      - name: Pull translations from Mojito server: client-admin
+      - name: "Pull translations from Mojito server: client-admin"
         env:
           MOJITO_REPO: client-admin
         run: |
