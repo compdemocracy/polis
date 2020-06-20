@@ -1,4 +1,4 @@
-# Requires a very specific version due to package bugs and version compatibility
+# Gulp v3 stops us from upgrading beyond Node v11
 FROM node:11.15.0-alpine
 
 WORKDIR /app
