@@ -4,6 +4,8 @@ on:
   push:
     paths:
       - client-participation/js/strings/en.js
+      # Rebuild on change to workflow itself.
+      - .github/workflows/push-translations.yml
     branches:
       - 320-continuous-localization
 
