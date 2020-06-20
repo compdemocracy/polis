@@ -15,7 +15,6 @@ jobs:
       BRANCH: 320-continuous-localization
       CHECKOUT_DIR: code
       MOJITO_VERSION: "0.110"
-      MOJITO_REPO: polis:client-participation
       MOJITO_CLI_SERVER: polis-translations.herokuapp.com
       MOJITO_CLI_USERNAME: admin
       MOJITO_CLI_PASSWORD: ${{ secrets.MOJITO_CLI_PASSWORD }}
@@ -47,16 +46,25 @@ jobs:
             l10n.resttemplate.authentication.password=${MOJITO_CLI_PASSWORD}
           EOF
 
-      - name: Pull translations from Mojito server
+      # Setting "inheritance-mode" to "REMOVE_UNTRANSLATED" ensures that when a
+      # specific string has no translations written (e.g., no French string for
+      # "hideTranslationButton") then the locale file will NOT be populated
+      # with an English placeholder (e.g., no "Deactivate translation" as
+      # "hideTranslationButton" in fr-FR.js). Instead, the key will be absent
+      # from `fr-FR.js`. This works fine since our app's translation setup
+      # falls back to English strings on its own.
+
+      - name: Pull translations from Mojito server: client-participation
+        env:
+          MOJITO_REPO: client-participation
         run: |
-          # Setting "inheritance-mode" to "REMOVE_UNTRANSLATED" ensures that
-          # when a specific string has no translations written (e.g., no French
-          # string for "hideTranslationButton") then the locale file will NOT
-          # be populated with an English placeholder (e.g., no "Deactivate
-          # translation" as "hideTranslationButton" in fr-FR.js). Instead, the
-          # key will be absent from `fr-FR.js`. This works fine since our app's
-          # translation setup falls back to English strings on its own.
-          java -jar mojito-cli.jar pull --repository ${MOJITO_REPO} --source-directory ${CHECKOUT_DIR}/client-participation/js/strings/ --inheritance-mode REMOVE_UNTRANSLATED
+          java -jar mojito-cli.jar pull --repository polis:${MOJITO_REPO} --source-directory ${CHECKOUT_DIR}/${MOJITO_REPO}/js/strings/ --inheritance-mode REMOVE_UNTRANSLATED
+
+      - name: Pull translations from Mojito server: client-admin
+        env:
+          MOJITO_REPO: client-admin
+        run: |
+          java -jar mojito-cli.jar pull --repository polis:${MOJITO_REPO} --source-directory ${CHECKOUT_DIR}/${MOJITO_REPO}/src/strings/ --inheritance-mode REMOVE_UNTRANSLATED
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v2.8.0
@@ -64,7 +72,7 @@ jobs:
           path: code
           title: Update translations
           branch: auto/translations
-          labels: "♿ accessibility, 🔩 p:client-participation"
+          labels: "♿ accessibility, 🔩 p:client-participation, 🔩 p:client-admin"
           body: |
             This is an automated pull request, created by the translation platform that we use.
 

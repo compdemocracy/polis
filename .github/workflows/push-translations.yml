@@ -12,7 +12,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       MOJITO_VERSION: "0.110"
-      MOJITO_REPO: polis:client-participation
       MOJITO_CLI_SERVER: polis-translations.herokuapp.com
       MOJITO_CLI_USERNAME: admin
       MOJITO_CLI_PASSWORD: ${{ secrets.MOJITO_CLI_PASSWORD }}
@@ -41,6 +40,14 @@ jobs:
             l10n.resttemplate.authentication.password=${MOJITO_CLI_PASSWORD}
           EOF
 
-      - name: Push translations to Mojito server
+      - name: Push translations to Mojito server: client-participation
+        env:
+          MOJITO_REPO: client-participation
         run: |
-          java -jar mojito-cli.jar push --repository ${MOJITO_REPO} --source-directory client-participation/js/strings/
+          java -jar mojito-cli.jar push --repository polis:${MOJITO_REPO} --source-directory ${MOJITO_REPO}/js/strings/
+
+      - name: Push translations to Mojito server: client-admin
+        env:
+          MOJITO_REPO: client-admin
+        run: |
+          java -jar mojito-cli.jar push --repository polis:${MOJITO_REPO} --source-directory ${MOJITO_REPO}/src/strings/
