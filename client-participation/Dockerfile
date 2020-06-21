@@ -6,6 +6,7 @@ WORKDIR /app
 RUN apk add --no-cache --virtual .build \
   g++ git make python
 
+RUN npm config set unsafe-perm true
 RUN npm install -g bower
 
 COPY package*.json ./
