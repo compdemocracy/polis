@@ -13,8 +13,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added support for configuring comment translation credentials via base64-encoded string, stored in `GOOGLE_CREDENTIALS_BASE64` envvar. [`#319`][]
 
-### Removed
-- Removed support for configuring comment translation credentials via cumbersome `GOOGLE_CREDS_STRINGIFIED` envvar. [`#319`][]
-
    [`#319`]: https://github.com/pol-is/polisServer/issues/319
-
