@@ -65,5 +65,11 @@ Cypress.Commands.add("createConvo", (adminEmail, adminPassword) => {
   cy.login(adminEmail, adminPassword)
   cy.visit('/')
 
+  cy.server()
+  cy.route('GET', Cypress.config().apiPath + '/conversations**')
+    .as('getNewConvo')
+
   cy.get('button').contains('Create new conversation').click()
+
+  cy.wait('@getNewConvo').its('status').should('eq', 200)
 })
