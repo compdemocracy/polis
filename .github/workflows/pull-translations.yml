@@ -35,7 +35,7 @@ jobs:
       - name: Cache Mojito CLI
         uses: actions/cache@v2.0.0
         with:
-          path: moojito-cli.jar
+          path: mojito-cli.jar
           key: ${{ env.MOJITO_VERSION }}-cli
 
       - name: Download Mojito CLI
