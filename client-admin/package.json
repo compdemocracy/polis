@@ -38,7 +38,7 @@
     "babel-plugin-transform-decorators": "^6.24.1",
     "bluebird": "^3.7.2",
     "es6-promise": "~4.2.8",
-    "eslint": "3.11.1",
+    "eslint": "4.18.2",
     "eslint-config-defaults": "^7.0.1",
     "eslint-plugin-filenames": "^0.1.2",
     "eslint-plugin-react": "^3.5.1",
