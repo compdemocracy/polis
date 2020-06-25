@@ -42,6 +42,7 @@ Cypress.Commands.add("signup", (name, email, password) => {
 })
 
 Cypress.Commands.add("login", (email, password) => {
+  cy.logout()
   cy.visit('/signin')
 
   cy.server()
