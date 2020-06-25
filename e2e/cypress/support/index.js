@@ -18,3 +18,12 @@ import './commands'
 
 // Alternatively you can use CommonJS syntax:
 // require('./commands')
+
+before(() => {
+  cy.fixture('users.json').then((users) => {
+    // Ensure a default user is present for each spec.
+    // TODO: Move this into a true database seeding process.
+    const user = users[0]
+    cy.signup(user.name, user.email, user.password)
+  })
+})

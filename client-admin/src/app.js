@@ -165,9 +165,11 @@ class App extends React.Component {
   }
 
   render() {
+    const { location } = this.props;
     return (
       <>
         <Switch>
+          <Redirect from="/:url*(/+)" to={location.pathname.slice(0, -1)} />
           <Route exact path="/home" component={Home} />
           <Route
             exact
