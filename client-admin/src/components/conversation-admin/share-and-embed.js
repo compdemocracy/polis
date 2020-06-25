@@ -2,7 +2,6 @@
 
 import _ from "lodash";
 import ConversationHasCommentsCheck from "./conversation-has-comments-check";
-import Highlight from "react-highlight";
 import React from "react";
 import Url from "../../util/url";
 import { connect } from "react-redux";
@@ -50,13 +49,13 @@ class ShareAndEmbed extends React.Component {
         <div>
           <p> Embed</p>
           <div>
-            <Highlight>
+            <pre>
               {"<div"}
               {" class='polis'"}
               {" data-conversation_id='" + match.params.conversation_id + "'>"}
               {"</div>\n"}
               {"<script async src='https://pol.is/embed.js'></script>"}
-            </Highlight>
+            </pre>
           </div>
           <p>
             This embed code can only be used to embed a single conversation.{" "}
