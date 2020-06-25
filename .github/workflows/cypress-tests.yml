@@ -31,14 +31,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Build full project via docker-compose
-        run: |
-          docker-compose build --parallel --no-cache
-          # Must rebuild due to build no following depends_on order,
-          # and so newest version of client apps may not have been copied in.
-          docker-compose build file-server
+        uses: actions/checkout@v2.3.0
 
       - name: Serve app via docker-compose
         run: docker-compose up --detach
