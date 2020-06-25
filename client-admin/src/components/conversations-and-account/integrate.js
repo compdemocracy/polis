@@ -2,7 +2,6 @@
 
 import React from "react";
 import { connect } from "react-redux";
-import _ from "lodash";
 import { Box, Heading, Text } from "theme-ui";
 
 @connect((state) => state.user)

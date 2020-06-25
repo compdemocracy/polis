@@ -2,7 +2,6 @@
 
 import React from "react";
 
-import _ from "lodash";
 import { VictoryChart } from "victory-chart";
 import { VictoryLine } from "victory-line";
 import { VictoryAxis } from "victory-axis";
