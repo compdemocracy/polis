@@ -3,8 +3,12 @@ name: Pull & Commit Translations from Mojito
 on:
   push:
     paths:
+      # If someone manually changes any auto-generated locale files,
+      # force a pull from translation server to override in a PR.
+      - "client-participation/js/strings/*.js"
+      - "!client-participation/js/strings/en.js"
       # Rebuild on change to workflow itself.
-      - .github/workflows/pull-translations.yml
+      - ".github/workflows/pull-translations.yml"
     branches:
       - 320-continuous-localization
 
@@ -16,10 +20,9 @@ on:
 
 jobs:
   pull-translations:
-    if: github.repository_owner == 'patcon'
     runs-on: ubuntu-latest
     env:
-      BRANCH: 320-continuous-localization
+      TRANSLATION_BRANCH: 320-continuous-localization
       CHECKOUT_DIR: code
       MOJITO_VERSION: "0.110"
       MOJITO_CLI_SERVER: polis-translations.herokuapp.com
@@ -29,7 +32,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2.3.0
         with:
-          ref: ${{ env.BRANCH }}
+          ref: ${{ env.TRANSLATION_BRANCH }}
           path: ${{ env.CHECKOUT_DIR }}
 
       - name: Cache Mojito CLI
@@ -43,7 +46,7 @@ jobs:
           wget --continue --progress=dot:giga --output-document mojito-cli.jar https://github.com/box/mojito/releases/download/v${MOJITO_VERSION}/mojito-cli-${MOJITO_VERSION}.jar
 
       - name: Write Mojito CLI config
-        run: cp ${{ env.CHECKOUT_DIR }}/.github/support/mojito-cli/application.properties .
+        run: cp ${CHECKOUT_DIR}/.github/support/mojito-cli/application.properties .
 
       # Setting "inheritance-mode" to "REMOVE_UNTRANSLATED" ensures that when a
       # specific string has no translations written (e.g., no French string for

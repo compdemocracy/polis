@@ -3,9 +3,9 @@ name: Push Translations to Mojito
 on:
   push:
     paths:
-      - client-participation/js/strings/en.js
+      - "client-participation/js/strings/en.js"
       # Rebuild on change to workflow itself.
-      - .github/workflows/push-translations.yml
+      - ".github/workflows/push-translations.yml"
     branches:
       - 320-continuous-localization
 
@@ -13,6 +13,8 @@ jobs:
   push-translations:
     runs-on: ubuntu-latest
     env:
+      TRANSLATION_BRANCH: 320-continuous-localization
+      CHECKOUT_DIR: code
       MOJITO_VERSION: "0.110"
       MOJITO_CLI_SERVER: polis-translations.herokuapp.com
       MOJITO_CLI_USERNAME: admin
@@ -20,6 +22,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2.3.0
+        with:
+          ref: ${{ env.TRANSLATION_BRANCH }}
+          path: ${{ env.CHECKOUT_DIR }}
 
       - name: Cache Mojito CLI
         uses: actions/cache@v2.0.0
@@ -32,16 +37,16 @@ jobs:
           wget --continue --progress=dot:giga --output-document mojito-cli.jar https://github.com/box/mojito/releases/download/v${MOJITO_VERSION}/mojito-cli-${MOJITO_VERSION}.jar
 
       - name: Write Mojito CLI config
-        run: cp .github/support/mojito-cli/application.properties .
+        run: cp ${CHECKOUT_DIR}/.github/support/mojito-cli/application.properties .
 
       - name: "Push translations to Mojito server: client-participation"
         env:
           MOJITO_REPO: client-participation
         run: |
-          java -jar mojito-cli.jar push --repository polis:${MOJITO_REPO} --source-directory ${MOJITO_REPO}/js/strings/
+          java -jar mojito-cli.jar push --repository polis:${MOJITO_REPO} --source-directory ${CHECKOUT_DIR}/${MOJITO_REPO}/js/strings/
 
       - name: "Push translations to Mojito server: client-admin"
         env:
           MOJITO_REPO: client-admin
         run: |
-          java -jar mojito-cli.jar push --repository polis:${MOJITO_REPO} --source-directory ${MOJITO_REPO}/src/strings/
+          java -jar mojito-cli.jar push --repository polis:${MOJITO_REPO} --source-directory ${CHECKOUT_DIR}/${MOJITO_REPO}/src/strings/
