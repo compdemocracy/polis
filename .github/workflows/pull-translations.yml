@@ -86,4 +86,4 @@ jobs:
             https://polis-translations.herokuapp.com/
 
             If you need to make changes to any of the localized strings in this pull request, please use the translation system.
-            (If you make any changes within GitHub, they will get overridden next time the system runs, every hour.)
+            (If you make any changes within GitHub, they will get overridden next time the system runs on its regular schedule.)
