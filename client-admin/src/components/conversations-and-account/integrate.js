@@ -3,7 +3,6 @@
 import React from "react";
 import { connect } from "react-redux";
 import _ from "lodash";
-import Highlight from "react-highlight";
 import { Box, Heading, Text } from "theme-ui";
 
 @connect((state) => state.user)
@@ -43,7 +42,7 @@ class Integrate extends React.Component {
             </li>
           </ul>
           <Box>
-            <Highlight>
+            <pre>
               {"<div\n"}
               {"  class='polis'\n"}
               {"  data-page_id='PAGE_ID'\n"}
@@ -56,7 +55,7 @@ class Integrate extends React.Component {
               {"<script async\n"}
               {"  src='https://pol.is/embed.js'>\n"}
               {"</script>"}
-            </Highlight>
+            </pre>
           </Box>
         </Box>
       </Box>
