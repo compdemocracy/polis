@@ -43,15 +43,7 @@ jobs:
           wget --continue --progress=dot:giga --output-document mojito-cli.jar https://github.com/box/mojito/releases/download/v${MOJITO_VERSION}/mojito-cli-${MOJITO_VERSION}.jar
 
       - name: Write Mojito CLI config
-        run: |
-          cat <<-EOF > application.properties
-            l10n.resttemplate.host=${MOJITO_CLI_SERVER}
-            l10n.resttemplate.port=443
-            l10n.resttemplate.scheme=https
-            l10n.resttemplate.authentication.credentialProvider=CONFIG
-            l10n.resttemplate.authentication.username=${MOJITO_CLI_USERNAME}
-            l10n.resttemplate.authentication.password=${MOJITO_CLI_PASSWORD}
-          EOF
+        run: cp ${{ env.CHECKOUT_DIR }}/.github/support/mojito-cli/application.properties .
 
       # Setting "inheritance-mode" to "REMOVE_UNTRANSLATED" ensures that when a
       # specific string has no translations written (e.g., no French string for
@@ -76,7 +68,7 @@ jobs:
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v2.8.0
         with:
-          path: code
+          path: ${{ env.CHECKOUT_DIR }}
           title: Update translations
           branch: auto/translations
           labels: "♿ accessibility, 🔩 p:client-participation, 🔩 p:client-admin"

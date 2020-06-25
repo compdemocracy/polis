@@ -32,15 +32,7 @@ jobs:
           wget --continue --progress=dot:giga --output-document mojito-cli.jar https://github.com/box/mojito/releases/download/v${MOJITO_VERSION}/mojito-cli-${MOJITO_VERSION}.jar
 
       - name: Write Mojito CLI config
-        run: |
-          cat <<-EOF > application.properties
-            l10n.resttemplate.host=${MOJITO_CLI_SERVER}
-            l10n.resttemplate.port=443
-            l10n.resttemplate.scheme=https
-            l10n.resttemplate.authentication.credentialProvider=CONFIG
-            l10n.resttemplate.authentication.username=${MOJITO_CLI_USERNAME}
-            l10n.resttemplate.authentication.password=${MOJITO_CLI_PASSWORD}
-          EOF
+        run: cp .github/support/mojito-cli/application.properties .
 
       - name: "Push translations to Mojito server: client-participation"
         env:
