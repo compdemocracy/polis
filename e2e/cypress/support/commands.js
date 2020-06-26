@@ -72,4 +72,8 @@ Cypress.Commands.add("createConvo", (adminEmail, adminPassword) => {
   cy.get('button').contains('Create new conversation').click()
 
   cy.wait('@getNewConvo').its('status').should('eq', 200)
+  // TODO: Remove this ugly way to ensure pageload.
+  // Page needs to load before url pathname is grabbed in test itself. For some
+  // reason the front page was what was being grabbed.
+  cy.wait(500)
 })
