@@ -33,16 +33,35 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2.3.1
 
+      - name: Enable comment translation
+        # If we're in a pull_request from a main repo branch, NOT a fork.
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          echo GOOGLE_CREDENTIALS_BASE64=${{ secrets.GOOGLE_CREDENTIALS_BASE64 }} > server/docker-dev.env
+          echo SHOULD_USE_TRANSLATION_API=true > server/docker-dev.env
+
       - name: Serve app via docker-compose
         run: docker-compose up --detach
 
-      - name: Run Cypress tests
+      - name: Run Cypress tests: default
         uses: cypress-io/github-action@v1
         env:
           CYPRESS_BASE_URL: http://localhost
         with:
           working-directory: ./e2e
-          spec: cypress/integration/polis/**/*
+          spec: cypress/integration/polis/**/*.spec.js
+          config: ignoreTestFiles='**/polis/**/comment-translation.spec.js'
+          browser: chrome
+
+      - name: Run Cypress tests: comment translation
+        # If we're in a pull_request from a main repo branch, NOT a fork.
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        uses: cypress-io/github-action@v1
+        env:
+          CYPRESS_BASE_URL: http://localhost
+        with:
+          working-directory: ./e2e
+          spec: cypress/integration/polis/**/comment-translation.spec.js
           browser: chrome
 
       # NOTE: screenshots will be generated only if E2E test failed
