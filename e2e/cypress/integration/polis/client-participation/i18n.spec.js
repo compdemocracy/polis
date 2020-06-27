@@ -9,13 +9,11 @@ describe('Interface internationalization', () => {
   before(() => {
     cy.fixture('users.json').then((users) => {
       const user = users[0]
-
       cy.createConvo(user.email, user.password)
-    })
-
-    cy.location('pathname').then((adminPath) => {
-      const convoPath = adminPath.replace('/m/', '/')
-      cy.wrap(convoPath).as('convoPath')
+      cy.url('pathname').then((adminPath) => {
+        const convoPath = adminPath.replace('/m/', '/')
+        cy.wrap(convoPath).as('convoPath')
+      })
     })
   })
 
