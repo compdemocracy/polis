@@ -72,4 +72,5 @@ Cypress.Commands.add("createConvo", (adminEmail, adminPassword) => {
   cy.get('button').contains('Create new conversation').click()
 
   cy.wait('@getNewConvo').its('status').should('eq', 200)
+  cy.contains('h3', 'Configure')
 })
