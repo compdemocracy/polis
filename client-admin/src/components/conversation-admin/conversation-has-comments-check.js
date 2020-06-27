@@ -13,6 +13,7 @@ class ConversationHasCommentsCheck extends React.Component {
   componentWillMount() {
     this.props.dispatch(populateAllCommentStores(this.props.conversation_id));
   }
+
   createCommentMarkup() {
     const numAccepted = this.props.accepted_comments.length;
     const numRejected = this.props.rejected_comments.length;
@@ -37,7 +38,7 @@ class ConversationHasCommentsCheck extends React.Component {
   render() {
     return (
       <div>
-        {this.props.accepted_comments !== null && this.props.rejected_comments !== null ? (
+        {this.props.accepted_comments > 0 && this.props.rejected_comments > 0 ? (
           this.createCommentMarkup()
         ) : (
           <span> Loading accepted comments... </span>
@@ -46,5 +47,11 @@ class ConversationHasCommentsCheck extends React.Component {
     );
   }
 }
+
+ConversationHasCommentsCheck.defaultProps = {
+  accepted_comments: [],
+  rejected_comments: [],
+  unmoderated_comments: [],
+};
 
 export default ConversationHasCommentsCheck;
