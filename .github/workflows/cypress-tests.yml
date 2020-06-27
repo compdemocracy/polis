@@ -35,7 +35,7 @@ jobs:
 
       - name: Enable comment translation
         # If we're in a pull_request from a main repo branch, NOT a fork.
-        if: github.event.pull_request.head.repo.full_name == github.repository
+        #if: github.event.pull_request.head.repo.full_name == github.repository
         run: |
           echo GOOGLE_CREDENTIALS_BASE64=${{ secrets.GOOGLE_CREDENTIALS_BASE64 }} > server/docker-dev.env
           echo SHOULD_USE_TRANSLATION_API=true > server/docker-dev.env
