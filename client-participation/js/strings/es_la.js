@@ -93,6 +93,7 @@ s.notificationsGetNotified = "Recibe notificaciones cuando comentarios nuevos ap
 s.notificationsEnterEmail = "Ingrese su dirección de email para recibir notificaciones cuando lleguen más comentarios:";
 s.labelEmail = "Email";
 s.notificationsSubscribeButton = "Subscribe";
+s.notificationsSubscribeErrorAlert = "Error al suscribirse";
 s.noCommentsYet = "Aún no hay comentarios";
 s.noCommentsYetSoWrite = "Agregue un comentario para comenzar esta conversación.";
 s.noCommentsYetSoInvite = "Comience esta conversación - invite más participantes o agregue un comentario.";
