@@ -4,7 +4,6 @@
 
 import React from "react";
 import { connect } from "react-redux";
-import _ from "lodash";
 import { handleZidMetadataUpdate, optimisticZidMetadataUpdateOnTyping } from "../../actions";
 import ComponentHelpers from "../../util/component-helpers";
 import NoPermission from "./no-permission";
@@ -329,7 +328,7 @@ export default ConversationConfig;
 
 /* <InputField
             ref={"style_btn"}
-           
+
             style={{ width: 360 }}
             onBlur={this.handleStringValueChange("style_btn").bind(this)}
             hintText="ie., #e63082"
@@ -343,7 +342,7 @@ export default ConversationConfig;
 
 /* <InputField
             ref={"help_bgcolor"}
-           
+
             style={{ width: 360 }}
             onBlur={this.handleStringValueChange("help_bgcolor").bind(this)}
             onChange={this.handleConfigInputTyping("help_bgcolor")}
@@ -357,7 +356,7 @@ export default ConversationConfig;
 
 /* <InputField
             ref={"help_color"}
-           
+
             style={{ width: 360 }}
             onBlur={this.handleStringValueChange("help_color").bind(this)}
             onChange={this.handleConfigInputTyping("help_color")}
@@ -372,6 +371,6 @@ export default ConversationConfig;
             ref={"socialbtn_type"}
             checked={this.props.zid_metadata.socialbtn_type === 1 ? true : false}
             onCheck={this.handleIntegerBoolValueChange("socialbtn_type").bind(this)}
-           
-           
+
+
           /> */

@@ -7,7 +7,6 @@ import {
   changeCommentStatusToRejected,
   changeCommentCommentIsMeta,
 } from "../../../actions";
-import _ from "lodash";
 import Comment from "./comment";
 
 @connect((state) => state.mod_comments_accepted)

@@ -4,7 +4,6 @@ import React from "react";
 import { connect } from "react-redux";
 import { handleSeedCommentTweetSubmit, seedCommentTweetChanged } from "../../actions";
 import Radium from "radium";
-import _ from "lodash";
 import strings from "../../strings/strings";
 
 const styles = {

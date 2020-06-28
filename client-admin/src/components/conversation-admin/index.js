@@ -5,7 +5,6 @@ import React from "react";
 import { connect } from "react-redux";
 import { Flex, Box, jsx } from "theme-ui";
 import { populateZidMetadataStore, resetMetadataStore } from "../../actions";
-import _ from "lodash";
 import { Switch, Route, Link, Redirect } from "react-router-dom";
 
 import ConversationConfig from "./conversation-config";

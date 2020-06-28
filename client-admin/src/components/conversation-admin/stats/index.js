@@ -5,7 +5,6 @@ import dateSetupUtil from "../../../util/data-export-date-setup";
 import React from "react";
 import { connect } from "react-redux";
 import { populateConversationStatsStore } from "../../../actions";
-import _ from "lodash";
 import NumberCards from "./conversation-stats-number-cards";
 import Voters from "./voters";
 import Commenters from "./commenters";

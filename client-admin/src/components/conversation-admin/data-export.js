@@ -3,7 +3,6 @@
 import React from "react";
 import { connect } from "react-redux";
 import { startDataExport } from "../../actions";
-import _ from "lodash";
 import dateSetupUtil from "../../util/data-export-date-setup";
 import { Heading, Flex, Box } from "theme-ui";
 

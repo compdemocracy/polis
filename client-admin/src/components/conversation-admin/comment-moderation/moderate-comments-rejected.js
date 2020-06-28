@@ -3,7 +3,6 @@
 import React from "react";
 import { changeCommentStatusToAccepted, changeCommentCommentIsMeta } from "../../../actions";
 import { connect } from "react-redux";
-import _ from "lodash";
 import Comment from "./comment";
 import Spinner from "../../framework/spinner";
 import Flex from "../../framework/flex";

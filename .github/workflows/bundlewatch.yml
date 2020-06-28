@@ -7,12 +7,12 @@ on:
     # Note: Only configured for client-admin right now.
     paths:
       - .github/workflows/bundlewatch.yml
-      - client-admin
+      - client-admin/**
   pull_request:
     types: ["opened", "reopened", "synchronize"]
     paths:
       - .github/workflows/bundlewatch.yml
-      - client-admin
+      - client-admin/**
 
 jobs:
   bundlewatch:

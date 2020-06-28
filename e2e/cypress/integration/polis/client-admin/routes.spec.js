@@ -2,7 +2,6 @@ describe('Routes', () => {
   before(() => {
     cy.fixture('users.json').then((users) => {
       const user = users[0]
-
       cy.createConvo(user.email, user.password)
     })
     cy.location('pathname').as('adminPath')

@@ -5,7 +5,6 @@
 import React from "react";
 import { connect } from "react-redux";
 import { handleSeedCommentSubmit, seedCommentChanged } from "../../actions";
-import _ from "lodash";
 import strings from "../../strings/strings";
 import { Flex, Box, Text, Button, jsx, Link } from "theme-ui";
 
