@@ -2,6 +2,7 @@
 
 var path = require("path");
 var webpack = require("webpack");
+var LodashModuleReplacementPlugin = require('lodash-webpack-plugin');
 
 module.exports = {
   entry: ["./src/index"],
@@ -14,6 +15,13 @@ module.exports = {
     extensions: [".js", ".css", ".png", ".svg"],
   },
   plugins: [
+    new LodashModuleReplacementPlugin({
+      "currying": true,
+      "flattening": true,
+      "paths": true,
+      "placeholders": true,
+      "shorthands": true
+    }),
     new webpack.DefinePlugin({
       "process.env.NODE_ENV": JSON.stringify("production"),
     }),
