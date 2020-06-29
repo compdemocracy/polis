@@ -1,5 +1,5 @@
 # Gulp v3 stops us from upgrading beyond Node v11
-FROM node:11.15.0-alpine
+FROM node:13.14.0-alpine
 
 WORKDIR /app
 
