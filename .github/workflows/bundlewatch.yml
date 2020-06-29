@@ -62,7 +62,7 @@ jobs:
         PR_BRANCH_BASE: ${{ github.event.pull_request.base.ref }}
 
         PUSH_COMMIT_SHA: ${{ github.event.after }}
-        # Note: can't use `env` within `env` hash, so this is more for documentation of intention
-        PUSH_BRANCH: ${{ env.GITHUB_REF }}
+        # PUSH_BRANCH: see below (needs processing)
         PUSH_BRANCH_BASE: ${{ github.event.repository.default_branch }}
-      run: npx bundlewatch --config .bundlewatch.config.js
+      # GITHUB_REF is in format `refs/heads/branch-name`, so need to strip first part.
+      run: PUSH_BRANCH=${GITHUB_REF#refs/heads/} npx bundlewatch --config .bundlewatch.config.js
