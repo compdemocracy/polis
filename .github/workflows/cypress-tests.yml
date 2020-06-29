@@ -43,7 +43,7 @@ jobs:
       - name: Serve app via docker-compose
         run: docker-compose up --detach
 
-      - name: Run Cypress tests: default
+      - name: "Run Cypress tests: default"
         uses: cypress-io/github-action@v1
         env:
           CYPRESS_BASE_URL: http://localhost
@@ -53,7 +53,7 @@ jobs:
           config: ignoreTestFiles='**/polis/**/comment-translation.spec.js'
           browser: chrome
 
-      - name: Run Cypress tests: comment translation
+      - name: "Run Cypress tests: comment translation"
         # If we're in a pull_request from a main repo branch, NOT a fork.
         if: github.event.pull_request.head.repo.full_name == github.repository
         uses: cypress-io/github-action@v1
