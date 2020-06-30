@@ -6,9 +6,5 @@ extends:
   - standard
   - standard-jsx
   - standard-react
-  - defaults/configurations/walmart/es6-react
 rules:
-  - comma-dangle: ["error", "never"]
-parserOptions:
-  - ecmaFeatures:
-    - jsx: true
+  comma-dangle: ["error", "never"]
