@@ -12,7 +12,7 @@ First things first, it helps to understand a bit how the system is set up.
 | [`math`][dir-math] | Clojure/JVM | The math engine.  |
 | [`client-participation`][dir-participation] | Javascript | The client code for end-users. |
 | [`client-admin`][dir-admin] | Javascript | The client code for administrators. |
-| [`report`][dir-report] | Node.js | The code for detailed analytics reports. |
+| [`client-report`][dir-report] | Node.js | The code for detailed analytics reports. |
 
 The code in the two client-side repos compile to static assets.
 We push these to s3 for CDN via `deployPreprod` and `deploy_TO_PRODUCTION`, but there is a config file for each of these projects which will allow you to configure the behavior of these scripts as described in the READMEs.
@@ -23,7 +23,7 @@ Finally, for local development, these repos have hot-reload able servers you can
    [dir-math]: /math
    [dir-participation]: /client-participation
    [dir-admin]: /client-admin
-   [dir-report]: /report
+   [dir-report]: /client-report
 
 ### Environment variables and configuration
 
@@ -59,7 +59,7 @@ TODO Compile complete starter template somewhere in this repo...
 3) Build client repo assets using the instructions in the respective Readmes:
    * [`/client-participation`][dir-participation]
    * [`/client-admin`][dir-admin]
-   * [`/report`][dir-report]
+   * [`/client-report`][dir-report]
 4) Each of the above repos also contains instructions for running a server with HMR; By default, the server should forward requests for these compiled assets to the HMR server.
 
 ## Basic/Manual deployment
