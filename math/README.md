@@ -5,6 +5,10 @@ The machine learning and data flow system powering pol.is.
 
 ## Setup
 
+The below instructions are no longer officially supported; if you'd like to use them as a reference, we suggest you check out the official [Dockerfile](Dockerfile) to understand the latest build process and specific package versions.
+
+---
+
 To get running, you'll need to [install Leinengen](https://github.com/technomancy/leiningen) (v at least 2.0).
 From there, all clojure dependencies can be installed using `lein deps`.
 However, you'll also need the postgresql (client) installed (sudo `apt-get install postgresql postgresql-client` on ubuntu).
