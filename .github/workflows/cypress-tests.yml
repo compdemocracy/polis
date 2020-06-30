@@ -33,9 +33,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2.3.1
 
+      # This step helps us know when to skip future steps, particularly if
+      # we're on a fork where upstream secrets won't be available.
+      - name: Ensure secrets available
+        env:
+          GOOGLE_CREDENTIALS_BASE64: ${{ secrets.GOOGLE_CREDENTIALS_BASE64 }}
+        run: |
+          if [ -n "$GOOGLE_CREDENTIALS_BASE64" ]; then
+            echo "::set-env name=DO_COMMENT_TRANSLATION::true"
+          fi
+
       - name: Enable comment translation
-        # If we're in a pull_request from a main repo branch, NOT a fork.
-        #if: github.event.pull_request.head.repo.full_name == github.repository
+        if: ${{ env.DO_COMMENT_TRANSLATION }} == 'true'
         run: |
           echo GOOGLE_CREDENTIALS_BASE64=${{ secrets.GOOGLE_CREDENTIALS_BASE64 }} > server/docker-dev.env
           echo SHOULD_USE_TRANSLATION_API=true > server/docker-dev.env
@@ -54,8 +63,7 @@ jobs:
           browser: chrome
 
       - name: "Run Cypress tests: comment translation"
-        # If we're in a pull_request from a main repo branch, NOT a fork.
-        if: github.event.pull_request.head.repo.full_name == github.repository
+        if: ${{ env.DO_COMMENT_TRANSLATION }} == 'true'
         uses: cypress-io/github-action@v1
         env:
           CYPRESS_BASE_URL: http://localhost
