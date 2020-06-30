@@ -71,6 +71,8 @@ jobs:
           install: false
           working-directory: ./e2e
           spec: "**/comment-translation.secrets.spec.js"
+          # Prevent cypress from discarding screenshots/videos from default test run.
+          config: "trashAssetsBeforeRuns=false"
           browser: chrome
 
       # NOTE: screenshots will be generated only if E2E test failed
