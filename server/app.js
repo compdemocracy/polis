@@ -3,11 +3,8 @@
 
 const Promise = require('bluebird');
 const express = require('express');
-const optional = require("optional");
 
 const server = require('./server');
-
-const polisServerBrand = optional('polisServerBrand');
 
 const app = express();
 
@@ -1286,10 +1283,6 @@ helpersInitialized.then(function(o) {
       need('durs', getArrayOfInt, assignToP),
       need('clientTimestamp', getInt, assignToP),
       handle_POST_metrics);
-
-  if (polisServerBrand && polisServerBrand.registerRoutes) {
-    polisServerBrand.registerRoutes(app, o);
-  }
 
   function makeFetchIndexWithoutPreloadData() {
     let port = portForParticipationFiles;

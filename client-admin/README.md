@@ -3,6 +3,10 @@
 Polis Admin Console
 ===================
 
+The below instructions are no longer officially supported; if you'd like to use them as a reference, we suggest you check out the official [Dockerfile](Dockerfile) to understand the latest build process and specific package versions.
+
+---
+
 Configuration
 -------------
 
