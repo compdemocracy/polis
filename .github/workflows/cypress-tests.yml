@@ -59,7 +59,7 @@ jobs:
         with:
           working-directory: ./e2e
           spec: cypress/integration/polis/**/*.spec.js
-          config: ignoreTestFiles='**/polis/**/comment-translation.spec.js'
+          config: ignoreTestFiles='**/comment-translation.spec.js'
           browser: chrome
 
       - name: "Run Cypress tests: comment translation"
