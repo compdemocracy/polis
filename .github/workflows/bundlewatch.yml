@@ -7,12 +7,12 @@ on:
     # Note: Only configured for client-admin right now.
     paths:
       - .github/workflows/bundlewatch.yml
-      - client-admin
+      - client-admin/**
   pull_request:
     types: ["opened", "reopened", "synchronize"]
     paths:
       - .github/workflows/bundlewatch.yml
-      - client-admin
+      - client-admin/**
 
 jobs:
   bundlewatch:
@@ -62,6 +62,7 @@ jobs:
         PR_BRANCH_BASE: ${{ github.event.pull_request.base.ref }}
 
         PUSH_COMMIT_SHA: ${{ github.event.after }}
-        PUSH_BRANCH: ${{ env.GITHUB_REF }}
+        # PUSH_BRANCH: see below (needs processing)
         PUSH_BRANCH_BASE: ${{ github.event.repository.default_branch }}
-      run: npx bundlewatch --config .bundlewatch.config.js
+      # GITHUB_REF is in format `refs/heads/branch-name`, so need to strip first part.
+      run: PUSH_BRANCH=${GITHUB_REF#refs/heads/} npx bundlewatch --config .bundlewatch.config.js

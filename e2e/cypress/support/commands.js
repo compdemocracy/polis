@@ -72,5 +72,6 @@ Cypress.Commands.add("createConvo", (adminEmail, adminPassword) => {
   cy.get('button').contains('Create new conversation').click()
 
   cy.wait('@getNewConvo').its('status').should('eq', 200)
+  // Wait for header of convo admin page to be available.
   cy.contains('h3', 'Configure')
 })
