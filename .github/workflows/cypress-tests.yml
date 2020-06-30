@@ -58,7 +58,8 @@ jobs:
           CYPRESS_BASE_URL: http://localhost
         with:
           working-directory: ./e2e
-          config: testFiles='**/polis/**/*.spec.js',ignoreTestFiles='*.secrets.spec.js'
+          # Ignore all tests with pattern *.secrets.spec.js
+          spec: "**/polis/**/!(*.secrets).spec.js"
           browser: chrome
 
       - name: "Run Cypress tests: comment translation"
@@ -69,7 +70,7 @@ jobs:
         with:
           install: false
           working-directory: ./e2e
-          config: testFiles='**/comment-translation.secrets.spec.js'
+          spec: "**/comment-translation.secrets.spec.js"
           browser: chrome
 
       # NOTE: screenshots will be generated only if E2E test failed
