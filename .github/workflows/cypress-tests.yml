@@ -46,8 +46,8 @@ jobs:
       - name: Enable comment translation
         if: ${{ env.DO_COMMENT_TRANSLATION }} == 'true'
         run: |
-          echo GOOGLE_CREDENTIALS_BASE64=${{ secrets.GOOGLE_CREDENTIALS_BASE64 }} > server/docker-dev.env
-          echo SHOULD_USE_TRANSLATION_API=true > server/docker-dev.env
+          echo GOOGLE_CREDENTIALS_BASE64=${{ secrets.GOOGLE_CREDENTIALS_BASE64 }} >> server/docker-dev.env
+          echo SHOULD_USE_TRANSLATION_API=true >> server/docker-dev.env
 
       - name: Serve app via docker-compose
         run: docker-compose up --detach
