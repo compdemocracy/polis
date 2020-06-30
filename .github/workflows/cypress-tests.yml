@@ -88,3 +88,7 @@ jobs:
         with:
           name: cypress-videos
           path: e2e/cypress/videos
+
+      - name: Check status of containers
+        if: failure()
+        run: docker-compose ps
