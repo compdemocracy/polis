@@ -22,7 +22,7 @@ const signout = (
         signout: true,
         error: false
       })
-    case types.SIGNOUT_SUCCESSFUL:
+    case types.SIGNOUT_ERROR:
       return Object.assign({}, state, {
         loading: false,
         signout: false,
