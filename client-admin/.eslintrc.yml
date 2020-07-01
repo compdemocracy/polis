@@ -11,6 +11,7 @@ extends:
   - plugin:react/recommended
   - prettier/react
 rules: {}
+parser: babel-eslint
 parserOptions:
   ecmaFeatures:
     jsx: true
