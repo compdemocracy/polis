@@ -1,0 +1,18 @@
+env:
+  browser: true
+  es2020: true
+plugins:
+  - babel
+  - react
+extends:
+  - standard
+  - prettier-standard
+  - eslint:recommended
+  - plugin:react/recommended
+  - prettier/react
+rules: {}
+parserOptions:
+  ecmaFeatures:
+    jsx: true
+  ecmaVersion: 11
+  sourceType: module
