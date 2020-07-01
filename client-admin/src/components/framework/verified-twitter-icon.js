@@ -1,13 +1,13 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import React from "react";
+import React from 'react'
 
 class TwitterIcon extends React.Component {
   render() {
     return (
       <svg width="20" height="20">
         <path
-          style={{ fill: "#88c9f9" }}
+          style={{ fill: '#88c9f9' }}
           d={`
               m 14.5436,18.0924 c -0.160467,0 -0.3878,-0.03 -0.682,-0.09 -0.2942,
               -0.06 -0.488133,-0.1102 -0.5818,-0.1506 -0.33428,0.669333 -0.78895,
@@ -41,7 +41,7 @@ class TwitterIcon extends React.Component {
               1.1044`}
         />
         <path
-          style={{ fill: "#ffffff" }}
+          style={{ fill: '#ffffff' }}
           d={`
               M 13.2598,6.58635 8.42528,11.40562 6.76028,9.71888 C 6.51956,
               9.5180733 6.28218,9.41767 6.04814,9.41767 5.8141067,
@@ -55,8 +55,8 @@ class TwitterIcon extends React.Component {
               `}
         />
       </svg>
-    );
+    )
   }
 }
 
-export default TwitterIcon;
+export default TwitterIcon
