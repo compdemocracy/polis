@@ -1,6 +1,7 @@
 env:
   browser: true
   es2020: true
+  jquery: true
 plugins:
   - babel
   - react
