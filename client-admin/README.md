@@ -39,9 +39,10 @@ npm start
 Running Tests
 -------------
 
-We use the Jest Testing Framework.
+We aspire to use the Jest Testing Framework. We welcome contributors to help us write tests!
 
 ```sh
+# Doesn't work right now. Will need to reinstall jest.
 npm test
 ```
 
