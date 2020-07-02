@@ -11,7 +11,21 @@ extends:
   - eslint:recommended
   - plugin:react/recommended
   - prettier/react
-rules: {}
+rules: #{}
+  camelcase: off
+  eqeqeq: off
+  handle-callback-err: off
+  no-const-assign: off
+  no-throw-literal: off
+  no-undef: off
+  no-unused-vars: off
+  no-useless-constructor: off
+  react/display-name: off
+  react/jsx-no-target-blank: off
+  react/no-deprecated: off
+  react/no-string-refs: off
+  react/no-unescaped-entities: off
+  react/prop-types: off
 parser: babel-eslint
 parserOptions:
   ecmaFeatures:
