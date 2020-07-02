@@ -28,7 +28,7 @@ class ReportsList extends React.Component {
     })
   }
 
-  componentWillMount() {
+  componentDidMount() {
     this.getData()
   }
 

@@ -13,7 +13,7 @@ import {
 @connect(state => state.mod_comments_rejected)
 @connect(state => state.mod_comments_unmoderated)
 class ConversationHasCommentsCheck extends React.Component {
-  componentWillMount() {
+  componentDidMount() {
     this.props.dispatch(populateAllCommentStores(this.props.conversation_id))
   }
 

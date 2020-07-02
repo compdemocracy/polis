@@ -9,7 +9,7 @@ import { doSignout } from '../../actions'
 
 @connect(state => state.signout)
 class SignOut extends React.Component {
-  componentWillMount() {
+  componentDidMount() {
     this.props.dispatch(doSignout('/home'))
   }
 
