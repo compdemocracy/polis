@@ -22,7 +22,6 @@ rules: #{}
   no-useless-constructor: off
   react/display-name: off
   react/jsx-no-target-blank: off
-  react/no-deprecated: off
   react/no-string-refs: off
   react/no-unescaped-entities: off
   react/prop-types: off
