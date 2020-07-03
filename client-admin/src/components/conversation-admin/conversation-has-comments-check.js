@@ -39,10 +39,12 @@ class ConversationHasCommentsCheck extends React.Component {
   }
 
   render() {
+    const { accepted_comments, rejected_comments, unmoderated_comments } = this.props;
     return (
       <div>
-        {this.props.accepted_comments > 0 &&
-        this.props.rejected_comments > 0 ? (
+        {accepted_comments !== null &&
+          rejected_comments !== null &&
+          unmoderated_comments !== null ? (
           this.createCommentMarkup()
         ) : (
           <span> Loading accepted comments... </span>
@@ -50,12 +52,6 @@ class ConversationHasCommentsCheck extends React.Component {
       </div>
     )
   }
-}
-
-ConversationHasCommentsCheck.defaultProps = {
-  accepted_comments: [],
-  rejected_comments: [],
-  unmoderated_comments: []
 }
 
 export default ConversationHasCommentsCheck
