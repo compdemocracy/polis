@@ -25,7 +25,13 @@
 // Cypress.Commands.overwrite("visit", (originalFn, url, options) => { ... })
 
 Cypress.Commands.add("logout", () => {
+  cy.server()
+  cy.route('POST', Cypress.config().apiPath + '/auth/deregister')
+    .as('authLogout')
+
   cy.visit('/signout')
+
+  cy.wait('@authLogout').its('status').should('eq', 200)
 })
 
 Cypress.Commands.add("signup", (name, email, password) => {
