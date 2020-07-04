@@ -166,7 +166,8 @@ class ConversationConfig extends React.Component {
           <Box sx={{ flexShrink: 0, position: "relative", top: -0.5 }}>
             <input
               type="checkbox"
-              label="Visualization"
+              aria-label="Visualization"
+              id="vis_type"
               ref="vis_type"
               checked={this.props.zid_metadata.vis_type === 1 ? true : false}
               onChange={this.handleIntegerBoolValueChange("vis_type").bind(this)}
@@ -181,7 +182,8 @@ class ConversationConfig extends React.Component {
           <Box sx={{ flexShrink: 0, position: "relative", top: -0.5 }}>
             <input
               type="checkbox"
-              label="Comment form"
+              aria-label="Comment form"
+              id="write_type"
               ref="write_type"
               checked={this.props.zid_metadata.write_type === 1 ? true : false}
               onChange={this.handleIntegerBoolValueChange("write_type").bind(this)}
@@ -196,7 +198,8 @@ class ConversationConfig extends React.Component {
           <Box sx={{ flexShrink: 0, position: "relative", top: -0.5 }}>
             <input
               type="checkbox"
-              label="Help text"
+              aria-label="Help text"
+              id="help_type"
               ref="help_type"
               checked={this.props.zid_metadata.help_type === 1 ? true : false}
               onChange={this.handleIntegerBoolValueChange("help_type").bind(this)}
@@ -211,7 +214,8 @@ class ConversationConfig extends React.Component {
           <Box sx={{ flexShrink: 0, position: "relative", top: -0.5 }}>
             <input
               type="checkbox"
-              label="Prompt participants to subscribe to updates"
+              aria-label="Prompt participants to subscribe to updates"
+              id="subscribe_type"
               ref="subscribe_type"
               checked={this.props.zid_metadata.subscribe_type === 1 ? true : false}
               onChange={this.handleIntegerBoolValueChange("subscribe_type").bind(this)}
@@ -231,14 +235,14 @@ class ConversationConfig extends React.Component {
           <Box sx={{ flexShrink: 0, position: "relative", top: -0.5 }}>
             <input
               type="checkbox"
-              label="Facebook login prompt"
+              id="auth_opt_fb"
               ref="auth_opt_fb"
               checked={this.props.zid_metadata.auth_opt_fb}
               onChange={this.handleBoolValueChange("auth_opt_fb").bind(this)}
             />
           </Box>
           <Box sx={{ ml: [2], flexShrink: 0, maxWidth: "35em" }}>
-            <Text>Show Facebook login prompt</Text>
+            <label htmlFor="auth_opt_fb">Show Facebook login prompt</label>
           </Box>
         </Flex>
 
@@ -246,14 +250,14 @@ class ConversationConfig extends React.Component {
           <Box sx={{ flexShrink: 0, position: "relative", top: -0.5 }}>
             <input
               type="checkbox"
-              label="Twitter login prompt"
+              id="auth_opt_tw"
               ref="auth_opt_tw"
               checked={this.props.zid_metadata.auth_opt_tw}
               onChange={this.handleBoolValueChange("auth_opt_tw").bind(this)}
             />
           </Box>
           <Box sx={{ ml: [2], flexShrink: 0, maxWidth: "35em" }}>
-            <Text>Show Twitter login prompt</Text>
+            <label htmlFor="auth_opt_tw">Show Twitter login prompt</label>
           </Box>
         </Flex>
 
@@ -272,13 +276,14 @@ class ConversationConfig extends React.Component {
           <Box sx={{ flexShrink: 0, position: "relative", top: -0.5 }}>
             <input
               type="checkbox"
-              ref={"strict_moderation"}
+              id="strict_moderation"
+              ref="strict_moderation"
               checked={this.props.zid_metadata.strict_moderation}
               onChange={this.handleBoolValueChange("strict_moderation").bind(this)}
             />
           </Box>
           <Box sx={{ ml: [2], flexShrink: 0, maxWidth: "35em" }}>
-            <Text>No comments shown without moderator approval</Text>
+            <label htmlFor="strict_moderation">No comments shown without moderator approval</label>
           </Box>
         </Flex>
 
@@ -286,7 +291,8 @@ class ConversationConfig extends React.Component {
           <Box sx={{ flexShrink: 0, position: "relative", top: -0.5 }}>
             <input
               type="checkbox"
-              label="Require Auth to Comment"
+              aria-label="Require Auth to Comment"
+              id="auth_needed_to_write"
               ref="auth_needed_to_write"
               checked={this.props.zid_metadata.auth_needed_to_write}
               onChange={this.handleBoolValueChange("auth_needed_to_write").bind(this)}
@@ -304,7 +310,8 @@ class ConversationConfig extends React.Component {
           <Box sx={{ flexShrink: 0, position: "relative", top: -0.5 }}>
             <input
               type="checkbox"
-              label="Require Auth to Vote"
+              aria-label="Require Auth to Vote"
+              id="auth_needed_to_vote"
               ref="auth_needed_to_vote"
               checked={this.props.zid_metadata.auth_needed_to_vote}
               onChange={this.handleBoolValueChange("auth_needed_to_vote").bind(this)}
