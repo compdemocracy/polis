@@ -1,0 +1,28 @@
+{{!-- Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>. --}}
+
+<div>
+
+  <h3 style="margin-top: 40px">
+  	<span style="color:{{votesColor}}">Votes</span>
+  </h3>
+  <svg id="voteCountsVis" width="1000" height="200"></svg>
+
+  <h3 style="margin-top: 40px">
+  	<span style="color:{{commentsColor}}">Comments</span>
+  </h3>
+  <svg id="commentCountsVis" width="1000" height="200"></svg>
+
+  <h3 style="margin-top: 40px">
+  	{{!-- <span style="color:{{viewTimesColor}}">Unique Hits</span>, --}}
+  	<span style="color:{{firstVoteTimesColor}}">Voters</span>,
+  	<span style="color:{{firstCommentTimesColor}}">Commenters</span>
+    {{!--, <span style="color:{{firstCommentTimesColor}}">Social Users</span> --}}
+  </h3>
+  <svg id="ptptCountsVis" width="1000" height="200"></svg>
+
+  <h3 style="margin-top: 40px">
+    <span>Vote Count Histogram</span>
+  </h3>
+  <svg id="votesHistogram" width="1000" height="400"></svg>
+
+</div>

@@ -1,0 +1,179 @@
+// Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+// LANDER
+// The first page when you first visit pol.is
+//
+// .SectionLander               <section> on the homepage
+// .SectionLander-Heading       main title for <section>
+//
+
+.SectionLander {
+  margin: 0;
+  padding: ($default-whitespace*2) 5px;
+  width: 100%;
+
+  color: $light-blue-gray;
+  @include font-size(18px);
+  line-height: 24px;
+
+  p {
+    margin-bottom: 1.5em;
+
+    @include font-size(18px);
+    line-height: 24px;
+  }
+
+  @media screen and (min-width: $sm-screen) {
+    padding: ($default-whitespace*3) $default-whitespace;
+
+    @include font-size(24px);
+    line-height: 32px;
+
+    p {
+      @include font-size(24px);
+      line-height: 32px;
+    }
+  }
+}
+
+.SectionLander--white {
+  background-color: #fff;
+}
+
+.SectionLander--alt {
+  background-color: #ebedee;
+}
+
+.SectionLander--spark {
+  padding-left: 0;
+  padding-right: 0;
+  background: #686b6c url("https://pol.is/landerImages/bg-spark_medium.jpg") center center no-repeat;
+  color: #fff;
+
+  @media screen and (min-width: $sm-screen) {
+    padding: ($default-whitespace*5) $default-whitespace;
+    background-image: url("https://pol.is/landerImages/bg-spark_large.jpg");
+  }
+
+  @media screen and (min-width: $md-screen) {
+    background-image: url("https://pol.is/landerImages/bg-spark_xlarge.jpg");
+  }
+}
+
+.SectionLander-Heading {
+  margin-bottom: 1.5em;
+
+  color: $dark-blue-gray;
+  font-family: $sans-font;
+  @include font-size(24px);
+  line-height: 32px;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+
+  @media screen and (min-width: $sm-screen) {
+    @include font-size(32px);
+    line-height: 48px;
+  }
+}
+
+.SectionLander-Heading--spark {
+  margin-bottom: 0.5em;
+
+  color: #fff;
+  font-family: $serif-headline-font;
+  @include font-size(30px);
+  line-height: 1.25em;
+  font-weight: 100;
+  letter-spacing: 0;
+  text-align: center;
+  text-transform: none;
+
+  @media screen and (min-width: $sm-screen) {
+    @include font-size(60px);
+  }
+}
+
+.LanderSubheading {
+  font-family: $sans-font;
+  color: $dark-blue-gray;
+  @include font-size(20px);
+  line-height: 24px;
+
+  @media screen and (min-width: $sm-screen) {
+    @include font-size(30px);
+    line-height: 36px;
+  }
+}
+
+.LanderSubheading--spark {
+  color: #000;
+  @include font-size(30px);
+}
+
+.LanderText--football p {
+  font-size: 1.7rem;
+  line-height: 24px;
+}
+
+.LanderText--indent {
+  margin-left: 0;
+
+  @media screen and (min-width: $sm-screen) {
+    margin-left: 4.5rem;
+  }
+}
+
+.spot--align {
+  @media screen and (min-width: $sm-screen) {
+    display: inline-block;
+    margin-right: 25px;
+    vertical-align: middle;
+  }
+}
+
+.spotIcon {
+  color: $dark-blue-gray;
+  transition: 1s color;
+
+  &:hover {
+    color: $brand-primary;
+  }
+}
+
+.spotText {
+  margin: 0 auto;
+  text-align: center;
+
+  @media screen and (min-width: $sm-screen) {
+    display: inline-block;
+    vertical-align: middle;
+    width: calc(100% - 200px);
+
+    text-align: left;
+  }
+}
+
+.SchoolLogo {
+  margin: 0 auto;
+  display: block;
+  max-width: 250px;
+  max-height: 100px;
+  opacity: 0.7;
+}
+
+.SparkList {
+  text-align: center;
+}
+
+.SparkList-item {
+  @include font-size(30px);
+}
+
+.NewsFeature-text {
+  margin-right: 0.5em;
+  vertical-align: text-bottom;
+}
+.logoGeekWire-link {
+  vertical-align: text-top;
+}

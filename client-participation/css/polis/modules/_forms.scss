@@ -1,0 +1,108 @@
+// Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+// FORMS
+//
+
+.FormHorizontal {
+  margin: 0 auto ($default-whitespace*2);
+  border: 0;
+
+  text-align: center;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.FormHorizontal-group {
+  @media screen and (min-width: $sm-screen) {
+    .FormLabel {
+      width: 50%;
+    }
+  }
+}
+
+.FormVertical {
+  margin-bottom: ($default-whitespace*2);
+  border: 0;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.FormVertical-group {
+  margin-bottom: $default-whitespace;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.FormLabel {
+  display: inline-block;
+
+  color: $text-color;
+  font-family: $sans-font;
+  font-size: 22px;
+  font-weight: 400;
+  text-align: left;
+}
+
+.FormControl {
+  min-height: 36px;
+  height: auto;
+  width: 100%;
+  position: relative;
+  display: block;
+  padding: 0 10px;
+  margin-bottom: 2px;
+  border-radius: 2px;
+
+  background-color: #fff;
+  border: 1px solid $default-border-color;
+  color: $dark-gray;
+  font-size: 22px;
+  font-family: $serif-font;
+  font-weight: normal;
+  line-height: 2;
+  box-shadow: none;
+
+  &:hover {
+    border-color: #aaa;
+  }
+
+  &:focus {
+    border-color: $brand-color;
+    outline: none;
+    box-shadow: none;
+  }
+}
+
+.FormControl--title {
+  font-size: 30px;
+}
+
+.FormLink {
+  display: block;
+
+  font-family: $serif-font;
+  line-height: 2;
+  text-align: right;
+}
+
+//
+// Checkbox and radio buttons
+
+.Checkbox,
+.Radio {
+  position: relative;
+  top: -2px;
+  margin: 0 6px 0 0 !important;
+}
+
+
+// used for grayed-out email form, etc
+input:read-only {
+  background-color: #fafafa;
+}

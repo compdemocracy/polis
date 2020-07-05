@@ -1,0 +1,34 @@
+# Changes to workflow name require changes to badge URL in README.md
+name: Nightly Docker Builds
+
+on:
+  schedule:
+    # Every night at 4am ET
+    - cron: '0 8 * * *'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      GHA_BRANCH: dev
+      # Use native docker command within docker-compose
+      COMPOSE_DOCKER_CLI_BUILD: 1
+      # Use buildkit to speed up docker command
+      DOCKER_BUILDKIT: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2.3.1
+        with:
+          ref: ${{ env.GHA_BRANCH }}
+
+      - name: Login to Docker Hub
+        uses: azure/docker-login@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+
+      - name: Build full project via docker-compose
+        run: docker-compose build --parallel --build-arg GIT_HASH=${GITHUB_SHA:0:6}
+
+      - name: Push images to Docker Hub
+        run: docker-compose push --ignore-push-failures

@@ -1,0 +1,938 @@
+// Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+body {
+  min-height: 300px; // if we're slow to load while in an iframe, we want to indicate that something will appear (TODO spinner)
+}
+
+.top-comments-item, .divisive-comments-item {
+  list-style: none;
+  text-align: left;
+}
+
+.top-comments-list, .divisive-comments-list {
+  padding-left: 20px;
+}
+
+.svgCenter {
+  display: block;
+  margin: auto;
+}
+
+.weight-label {
+  position: relative;
+  padding: 10px;
+}
+.weight-radio {
+  position: absolute;
+  left: 0px;
+}
+
+.form-control {
+  display: block;
+  width: 100%;
+  height: 34px;
+  padding: 6px 12px;
+  font-size: 14px;
+  line-height: 1.42857;
+  color: #000;
+  background-color: #fff;
+  background-image: none;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  -webkit-box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075);
+  -webkit-transition: border-color ease-in-out 0.15s, box-shadow ease-in-out 0.15s;
+  -o-transition: border-color ease-in-out 0.15s, box-shadow ease-in-out 0.15s;
+  transition: border-color ease-in-out 0.15s, box-shadow ease-in-out 0.15s;
+}
+
+p {
+  margin: 0 0 10px;
+}
+img {
+  vertical-align: middle;
+}
+img {
+  border: 0;
+}
+.Btn-alt {
+  background-color: #e3e4e5;
+  color: #3498db;
+  letter-spacing: 0.05em;
+}
+.Btn-small {
+  padding: 0.4em 1em;
+  border-radius: 4px;
+  border: 0;
+  font-size: 12px;
+  font-family: "Helvetica Neue", Helvetica, sans-serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  -webkit-box-shadow: 2px 2px 2px -2px #ACACAC;
+}
+
+.Btn {
+  padding: 0.5em 1.25em;
+  border-radius: 4px;
+  border: 0;
+  font-size: 16px;
+  font-family: "Helvetica Neue", Helvetica, sans-serif;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+@-webkit-keyframes pulse {
+  from { background-color: rgba(0,0,0,0);  }
+  10% { background-color: rgb(202, 227, 255); }
+  to { background-color: rgba(0,0,0,0);  }
+}
+
+.pulseEffect {
+  -webkit-animation-name: pulse;
+  -webkit-animation-duration: 1s;
+  -webkit-animation-iteration-count: infinite;
+}
+
+.filledStar {
+  color: #FEE577;
+  // text-shadow: 1px 1px 2px #AB732B;
+}
+
+.emptyStar {
+  color: rgb(207, 207, 207);
+}
+
+.conversationViewRoot {
+  overflow: hidden; // trim carousel contents. carousel lives in an overflow: visible container, this crops it.
+  padding: 10px;
+}
+
+.write-hint-pane {
+  font-size: 16px;
+}
+
+.nav-tabs {
+  // background-color: $bg-color;
+}
+
+.displayNone {
+  display: none;
+}
+
+.config-option-row {
+  margin-left: 20px;
+}
+
+
+// .helpArrow {
+//   fill: #6FBAFF;
+// }
+// .helpArrowLine {
+//   fill: none;
+//   stroke: #6FBAFF;
+//   stroke-width: 2px;
+// }
+
+// #helpTextBox {
+
+//   margin-left:auto;
+//   margin-right:auto;
+//   max-width:70%;
+//   min-width: 280px;
+//   text-align: center;
+//   background-color: rgb(235, 235, 235);
+//   /*position: relative;*/
+//   /*top: -5px;*/
+//   border-radius: 3px;
+//   border-style: solid;
+//   font-size: 18px;
+//   /* color: white; */
+//   /* text-align: center; */
+//   padding: 10px;
+//   border-width: 1px;
+//   border-color: #333;
+// }
+
+.affix {
+  position: fixed;
+  // top: 200px;
+}
+
+.lightPanel {
+  background-color: white;
+  border: solid 1px lightgray;
+  border-radius: 5px;
+}
+.darkPanel {
+  background-color: $panel-color;
+}
+.darkPanelBorderTop {
+  border-top: 1px solid lightgray;
+}
+.darkPanelBorderBottom {
+  border-bottom: 1px solid lightgray;
+}
+
+#agreeButton, #disagreeButton {
+  border-right: 0px
+}
+
+#agreeButton {
+  border-left: 0;
+  border-radius: 0 0 0 8px;
+}
+
+#passButton {
+  border-radius: 0 0 8px 0;
+}
+
+#agreeButton, #disagreeButton, #passButton {
+  border-bottom: 0;
+  // background: #fafafa;
+  -webkit-font-smoothing: antialiased;
+
+  // prevent clipped right edge and extra padding on left edge on mobile
+  padding-left: 0px;
+  padding-right: 0px;
+
+  // Only allow hovering when not on iOS ( see https://github.com/twbs/bootstrap/issues/12832 )
+  &.vote-btn-w-hover {
+    &:hover {
+      border-color: #bbb;
+      background: #eee;
+    }
+  }
+}
+
+.groupButton {
+    color: rgb(0,0,0);
+    text-shadow: 0px 1px 0px rgba(255,255,255,0.59);
+    font-size: 12px;
+    display: inline;
+    position: relative;
+    margin: 0px 1px 0px 1px;
+    width: auto;
+    height: auto;
+    background: #ececec;
+    padding: 6px 10px 6px 10px;
+    outline: none;
+    border: 1px solid #d8d8d8;
+    border-bottom: 1px solid #ccc;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.groupButton:hover {
+    background: #D2D2D2;
+}
+
+.selectedGroupButton {
+    color: rgb(0,0,0);
+    background: #D2D2D2;
+    text-shadow: 0px 1px 0px rgba(255,255,255,0.53);
+    border: 1px solid #d2d2d2;
+    border-bottom: 1px solid #d8d8d8;
+    -webkit-box-shadow: 0px 1px 0px rgba(255,255,255,0.58), inset 0px 1px 6px rgba(0,0,0,0.07), inset 0px -14px 13px rgba(255,255,255,0.20);
+    -moz-box-shadow: 0px 1px 0px rgba(255,255,255,0.58), inset 0px 1px 6px rgba(0,0,0,0.07), inset 0px -14px 13px rgba(255,255,255,0.20);
+    -o-box-shadow: 0px 1px 0px rgba(255,255,255,0.58), inset 0px 1px 6px rgba(0,0,0,0.07), inset 0px -14px 13px rgba(255,255,255,0.20);
+    box-shadow: 0px 1px 0px rgba(255,255,255,0.58), inset 0px 1px 6px rgba(0,0,0,0.07), inset 0px -14px 13px rgba(255,255,255,0.20);
+}
+
+
+.btn-vote {
+  // set this independently of the overall font size, since they're difficult to get right.
+  font-family: $sans-font;
+  font-size: 14px;
+  font-weight: 700;
+  display: inline;
+  padding: 10px 0px; // no horizontal padding - to prevent the right edge of "disagree" from being clipped on iOS
+}
+
+.tab-conv {
+  // set this independently of the overall font size, since they're difficult to get right.
+  font-size: 16px;
+}
+.control {
+  // set this independently of the overall font size, since they're difficult to get right.
+  font-size: 16px;
+}
+
+.conversationViewHeadline {
+  margin-bottom: 20px;
+}
+
+.modToggle {
+  cursor: pointer;
+  padding: 10px 20px 10px 20px;
+}
+
+.modButtonContainer {
+  display: block;
+  margin-left: 55px;
+  margin-bottom: 25px;
+}
+
+.moderateButton {
+  background-color: rgb(230,230,230);
+  margin-right: 20px;
+  border-radius: 3px;
+  font-weight: 500;
+  transition: all .2s ease-in-out;
+}
+
+.moderateButton:hover {
+  -ms-transform: scale(1.12,1.12); /* IE 9 */
+  -webkit-transform: scale(1.12,1.12); /* Safari */
+  transform: scale(1.12,1.12);
+
+}
+
+.moderateSubmitButton {
+  font-size: 16px;
+  border-radius: 3px;
+  background-color: #3498db;
+  color: white;
+  font-weight: 500;
+  display: inline;
+}
+
+.selectedModerateButton {
+  background-color: #3498db;
+  color: white;
+}
+
+.reactionButton{
+  cursor: pointer;
+  transition: all .2s ease-in-out;
+  color: rgb(0,0,0);
+  border-color: rgba(0,0,0,0);
+  background-color: rgba(0,0,0,0);
+  text-decoration: none;
+  font-size: 14px;
+  font-family: "Helvetica Neue", Helvetica, sans-serif;
+  text-rendering: optimizeLegibility;
+}
+.reactionButton:hover{
+  -ms-transform: scale(1.12,1.12); /* IE 9 */
+  -webkit-transform: scale(1.12,1.12); /* Safari */
+  transform: scale(1.12,1.12);
+}
+
+#visualization_div {
+  width: 100%;
+}
+.vis_container {
+  margin: 0px;
+  // max-width: 900px;
+  min-width: 270px;
+  min-height: 145px;
+  text-align: right; // for the "show legend" button
+}
+
+.nudgeLeft {
+  margin-left: -20px;
+}
+
+.icon-remove {
+  cursor: hand;
+  cursor: pointer;
+}
+
+.cursorPointer {
+  cursor: pointer;
+}
+
+.popover_helper_class {
+  cursor: pointer;
+  text-decoration: underline;
+}
+.popover_helper_class:hover{
+  color: #7f8c8d;
+}
+
+svg {
+  border: none;
+  display: block; /* prevent weird margins under vis */
+}
+
+.flexbox {
+  display: -webkit-box;      /* OLD - iOS 6-, Safari 3.1-6 */
+  display: -moz-box;         /* OLD - Firefox 19- (buggy but mostly works) */
+  display: -ms-flexbox;      /* TWEENER - IE 10 */
+  display: -webkit-flex;     /* NEW - Chrome */
+  display: flex;             /* NEW, Spec - Opera 12.1, Firefox 20+ */
+}
+
+.flex-wrap {
+  -webkit-flex-wrap: wrap;
+  -moz-flex-wrap: wrap;
+  -ms-flex-wrap: wrap;
+  flex-wrap: wrap;
+}
+
+.flex-wrap-reverse {
+  -webkit-flex-wrap: wrap-reverse;
+  -moz-flex-wrap: wrap-reverse;
+  -ms-flex-wrap: wrap-reverse;
+  flex-wrap: wrap-reverse;
+}
+
+.justify-content-flex-end {
+  -webkit-justify-content: flex-end;
+  -moz-justify-content: flex-end;
+  -ms-justify-content: flex-end;
+  justify-content: flex-end;
+}
+
+.justify-content-space-around {
+  -webkit-justify-content: space-around;
+  -moz-justify-content: space-around;
+  -ms-justify-content: space-around;
+  justify-content: space-around;
+}
+
+.justify-content-space-between {
+  -webkit-justify-content: space-between;
+  -moz-justify-content: space-between;
+  -ms-justify-content: space-between;
+  justify-content: space-between;
+}
+
+.align-items-flex-end {
+  -webkit-align-items: flex-end;
+  -moz-align-items: flex-end;
+  -ms-align-items: flex-end;
+  align-items: flex-end;
+}
+.align-items-flex-start {
+  -webkit-align-items: flex-start;
+  -moz-align-items: flex-start;
+  -ms-align-items: flex-start;
+  align-items: flex-start;
+}
+
+.align-self-flex-start {
+  -webkit-align-self: flex-start;
+  -moz-align-self: flex-start;
+  -ms-align-self: flex-start;
+  align-self: flex-start;
+}
+
+.align-items-center {
+  -webkit-align-items: center;
+  -moz-align-items: center;
+  -ms-align-items: center;
+  align-items: center;
+}
+
+.align-items-baseline {
+  -webkit-align-items: baseline;
+  -moz-align-items: baseline;
+  -ms-align-items: baseline;
+  align-items: baseline;
+}
+
+.flex-row-reverse {
+  flex-direction: row-reverse;
+  -webkit-flex-direction: row-reverse;
+  -moz-flex-direction: row-reverse;
+  -ms-flex-direction: row-reverse;
+}
+
+.flex-direction-column {
+  flex-direction: column;
+  -webkit-flex-direction: column;
+  -moz-flex-direction: column;
+  -ms-flex-direction: column;
+}
+
+.flex-grow-1 {
+  -webkit-flex-grow: 1;
+  -moz-flex-grow: 1;
+  -ms-flex-grow: 1;
+  flex-grow: 1;
+}
+
+.flex-grow-2 {
+  -webkit-flex-grow: 2;
+  -moz-flex-grow: 2;
+  -ms-flex-grow: 2;
+  flex-grow: 2;
+}
+
+.flex-shrink-2 {
+  -webkit-flex-shrink: 2;
+  -moz-flex-shrink: 2;
+  -ms-flex-shrink: 2;
+  flex-shrink: 2;
+}
+
+.flex-shrink-3 {
+  -webkit-flex-shrink: 3;
+  -moz-flex-shrink: 3;
+  -ms-flex-shrink: 3;
+  flex-shrink: 3;
+}
+
+/* Comment Shower */
+
+.nav-tabs > li.active {
+  background-color: rgba(0,0,0,0) !important;
+  border-bottom: 4px solid rgb(13, 121, 192);
+}
+
+
+.nav-tabs > li > a, .nav-tabs > li > a:hover, .nav-tabs > li > a:focus {
+  color: #777;
+}
+
+
+.nav-tabs > li.active > a, .nav-tabs > li.active > a:hover, .nav-tabs > li.active > a:focus {
+  background-color: rgba(0,0,0,0) !important;
+  color: #0a77bf;
+}
+
+#comment_shower p, #comment_shower h3 {
+   font-weight: normal;
+   line-height: normal;
+   // background-color: $panel-color;
+   // border-radius: 10px;
+}
+
+/* Comment Input Form */
+
+#comment_form_textarea{
+    white-space: pre-wrap;
+    resize: none;
+}
+
+.margin_bottom_20 {
+    margin-bottom: 20px;
+}
+
+.gray_out {
+  color: #888;
+}
+
+.icon-star {
+  color: #f39c12;
+}
+
+.exploreCheckbox {
+  display: inline;
+}
+
+.query_result_item.selected {
+  background-color: $color_selected_comment;
+}
+
+.vote-histogram-bar:hover {
+    fill: red !important;
+}
+
+.query_results_div {
+  padding-top: 10px;
+}
+
+.query_results {
+  margin-left: 0px;
+  list-style: none;
+  padding-left:0px;
+}
+
+.query_result_item {
+    min-height: 50px;
+    padding: 0px 10px 0px 10px;
+    background-color: rgba(255,255,255,0.7);
+    margin-right: 10px;
+    cursor: hand;
+}
+
+.active_result_item {
+  background-color: #FFFBE8;
+}
+
+// needed if transitioning from gray to white
+.floating-side-panel-gradients {
+  background: #fafafa;
+  background: -moz-linear-gradient(top, #fafafa 0%, #FFFFFF 99%);
+  background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,#fafafa), color-stop(99%,#FFFFFF));
+  background: -webkit-linear-gradient(top, #fafafa 0%,#FFFFFF 99%);
+  background: -o-linear-gradient(top, #fafafa 0%,#FFFFFF 99%);
+  background: -ms-linear-gradient(top, #fafafa 0%,#FFFFFF 99%);
+  background: linear-gradient(to bottom, #fafafa 0%,#FFFFFF 99%);
+}
+
+// .hover {
+//   background-color: $color_selected_comment;
+// }
+
+.a {
+  color: $color_agree;
+}
+.d {
+  color: $color_disagree;
+}
+
+
+
+.write-pane {
+  // background-color: white;
+  // border-style: solid;
+  // border-width: 0px;
+  // border-top-width: 1px;
+  // border-color: lightgray;
+}
+
+// override bootstrap's negative margin on xs
+.row {
+  margin-left: 0px;
+  margin-right: 0px;
+}
+
+.voteMoreText {
+  font-size: 30px;
+  margin: 20px;
+}
+.participationCount {
+  // float: right;
+}
+.writingTipsParent {
+  display: block;
+}
+#carousel, #carouselForGroup {
+  overflow: hidden;
+}
+
+// .owl-wrapper-outer, .owl-controls {
+//   margin-top: 20px !important;
+//   margin-bottom: 20px !important;
+// }
+
+
+.analyze-group-member-container {
+  position: relative;
+  // top: -130px;
+  // padding-left: 20px;
+  left: 10%;
+  // text-align: center
+}
+
+.analyze-group-member {
+  margin-bottom: 5px;
+}
+
+.analyze-group-member p {
+  display: inline;
+}
+
+.analyze-group-member-city {
+  font-style: italic;
+  font-family: $sans-font;
+  font-size: 14px;
+}
+
+.analyze-group-member img {
+  width: 40px;
+  border-radius: 20px;
+  position: relative;
+  top: -2px;
+}
+
+.analyze-group-member-others p {
+
+}
+
+.HRule {
+  border-bottom: solid 2px #eee;
+}
+
+.majority-tab {
+  // // margin-top: 20px;
+  // border-radius: 10px 10px 10px 10px;
+  // border: 3px;
+  // border-top: 1px;
+  // border-left: 1px;
+  // border-style:solid;
+  // border-color: lightgray;
+  // // background-color: white;
+}
+
+  .fa-twitter {
+    color: #55ACEE;
+  }
+
+  .fa-facebook {
+    color: #3b5998;
+  }
+
+.facebookButton, .twitterButton {
+  cursor: pointer;
+  border: 0px;
+  color: white;
+  font-family: $sans-font;
+  font-weight: 300;
+  padding: 8px 12px;
+  border-radius: 5px;
+  font-size: 14px;
+
+  i {
+    font-size: 24px;
+    color: white;
+    position: relative;
+    top: 4px;
+  }
+}
+
+.twitterButton {
+  background-color: #55ACEE;
+}
+
+.facebookButton {
+  margin-right: 10px;
+  background-color: #3b5998;
+}
+
+.facebookCaveatText {
+  font-size: 14px;
+  list-style: none;
+  margin-left: 0px;
+  width: 65%;
+}
+
+.socialButtonText {
+  vertical-align: middle;
+  display: inline-block;
+  line-height: 24px;
+  position: relative;
+  top: -2px;
+}
+
+#fbNotNowBtn {
+  border-bottom: 1px solid gray;
+  padding-bottom: 2px;
+}
+
+#fbNotNowBtn:hover {
+  color: $hover-color;
+  border-bottom: 1px solid $hover-color;
+}
+
+.twitterShareButton {
+    cursor: pointer;
+    border: 0px;
+    color: white;
+    font-family: $sans-font;
+    font-weight: 500;
+    padding: 2px 6px;
+    border-radius: 2px;
+    background-color: #55ACEE;
+    font-size: 12px;
+    position: relative;
+}
+
+.twitterShareButton i {
+  font-size: 16px;
+  position: relative;
+  top: 2px;
+  color: white;
+}
+
+.facebookShareButton {
+  cursor: pointer;
+  border: 0px;
+  color: white;
+  font-family: $sans-font;
+  font-weight: 500;
+  padding: 2px 6px;
+  border-radius: 2px;
+  background-color: #3b5998;
+  font-size: 12px;
+  position: relative;
+
+}
+
+.facebookShareButton i {
+  font-size: 16px;
+  position: relative;
+  top: 2px
+}
+
+.arrow_box {
+  // text-align: center;
+  position: relative;
+  top: 0px;
+  background: #ffffff;
+  border: 1px solid rgb(155,155,155);
+  display: inline;
+  margin: 0px 10px 0px 5px;
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.arrow_box:after, .arrow_box:before {
+  right: 100%;
+  top: 50%;
+  border: solid transparent;
+  content: " ";
+  height: 0;
+  width: 0;
+  position: absolute;
+  pointer-events: none;
+}
+
+.arrow_box:after {
+  border-top: 4px solid transparent;
+  border-right: 5px solid #fff;
+  border-bottom: 4px solid transparent;
+  margin-top: -4px;
+}
+.arrow_box:before {
+  border-top: 5px solid transparent;
+  border-right: 6.5px solid #9b9b9b;
+  border-bottom: 5px solid transparent;
+  margin-top: -5px;
+}
+
+.x .axis {
+  font-size: 6px;
+}
+
+.y .axis {
+  font-size: 10px;
+}
+
+
+
+/* mobile */
+@media (max-width: 767px) {
+
+  #carousel {
+    overflow: visible;
+  }
+
+  .writingTipsParent {
+    display: none;
+  }
+
+}
+
+@media (max-width: 380px) {
+
+  .nav-tabs > li > a {
+    font-size: 14px;
+  }
+  #loginButtonInTabsBar {
+    font-size: 14px !important; // !important since there are inline styles
+  }
+}
+
+/* Everything but mobile */
+@media (min-width: 768px) {
+
+
+  #opinion_groups_label {
+    margin-left: 30px;
+  }
+
+  // make flush with tab pane so we can draw the arrow pointint to the selected hull
+  #vis_sibling_bottom {
+    margin-left: -30px;
+  }
+
+  #groupStats {
+    display: auto;
+  }
+
+
+  .write-pane {
+  //   border-right: 3px solid lightgrey;
+  //   border-bottom: 3px solid lightgrey;
+  //   border-left: 1px solid lightgrey;
+  // // padding-bottom: 48px;
+  //   border-bottom-right-radius: 10px;
+  //   border-bottom-left-radius: 10px;
+  //   border-top-right-radius: 10px;
+  //   border-top-left-radius: 10px;
+  }
+
+}
+
+  .nav-tabs > li > a:hover {
+    background-color: rgba(0,0,0,0);
+    color: black;
+  }
+
+
+/* Large desktop */
+@media (min-width: 1200px) {
+
+}
+
+/* LITTLE TABLET to BIG TABLET and DESKTOP */
+@media (min-width: 1024px) and (max-width: 1199px) {
+  #agreeButton, #disagreeButton, #passButton, #trashButton {
+    // padding: 10px 10px;
+  }
+}
+
+
+/* BIG PHONE to LITTLE tablet */
+@media only screen and (min-width : 768px) and (max-width : 1024px) {
+
+  #comment_shower {
+    //margin-top: 20px;
+  }
+  .dropdown-menu {
+    right: 0;
+    left: auto;
+  }
+}
+
+/* LITTLE TABLET and down */
+@media only screen and (min-width : 320px) and (max-width : 1024px) {
+  #comment_shower_frame {
+    padding: 5px;
+  }
+
+  // Prevent bootstrap tabs from wrapping
+  #commentViewTab, #commentFormTab, #majorityTab {
+    padding: 10px 10px; // overriding from 10px 15px
+  }
+}
+
+/* BIG PHONE and down */
+@media only screen and (max-width : 568px) {
+  body{
+    margin: 0px;
+  }
+
+  .voteMoreText {
+    // the vote more screen looks funny at the bottom of the page. There's nothing else to do but vote, so people should just get it.
+    // display: none;
+  }
+
+  #comment_shower {
+    // margin-top: 20px;
+  }
+  .nav-tabs > li > a {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+  .dropdown-menu {
+    right: 0;
+    left: auto;
+  }
+  #groupStats {
+    display: none;
+  }
+
+
+  .polis-tab {
+    // font-size:10px; // not needed since we're hiding the analyze tab, which makes space for the other tabs
+  }
+  #vis_sibling_bottom {
+    margin-left: auto;
+  }
+}
