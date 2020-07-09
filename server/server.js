@@ -11,20 +11,17 @@
 "use strict";
 
 // for some reason, this cannot be done in the dockerfile
-console.log('start copy');
 const childProcess = require('child_process');
 childProcess.execSync('cp /config/* ./config');
-console.log('done copy');
 
 // example code node-convict
 // https://medium.com/@sherryhsu/managing-configurations-in-node-js-apps-with-dotenv-and-convict-d74070d37373
 var config = require('./config/config.js');
 console.log('done config');
 
-  // apiKey: config.get('akismet_antispam_api_key'),
-console.log('akismet_antispam_api_key: ' + config.get('akismet_antispam_api_key'));
-console.log('foo: ' + config.get('foo'));
-console.log('bar: ' + config.get('bar'));
+// uncomment for testing.akismet_antispam_api_key
+// console.log('foo: ' + config.get('foo'));
+// console.log('bar: ' + config.get('bar'));
 
 const akismetLib = require('akismet');
 const AWS = require('aws-sdk');
@@ -372,10 +369,8 @@ setInterval(function() {
 
 const POLIS_FROM_ADDRESS = process.env.POLIS_FROM_ADDRESS;
 
-// node-convict testing
 const akismet = akismetLib.client({
   blog: 'https://pol.is', // required: your root level url
-  // apiKey: config.get('akismet_antispam_api_key'),
   apiKey: process.env.AKISMET_ANTISPAM_API_KEY
 });
 

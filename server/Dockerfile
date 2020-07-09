@@ -14,7 +14,6 @@ RUN npm install
 RUN apk del .build
 
 COPY . .
-# COPY /config/* ./config/
 
 EXPOSE 5000
 
