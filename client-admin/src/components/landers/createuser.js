@@ -167,9 +167,9 @@ class Createuser extends React.Component {
           Sign up with Facebook
         </Button>
         <Text>
-          If you click 'Sign in with Facebook' and are not a pol.is user, you
-          will be registered and you agree to the pol.is terms and privacy
-          policy
+          If you click &apos;Sign in with Facebook&apos; and are not a pol.is
+          user, you will be registered and you agree to the pol.is terms and
+          privacy policy
         </Text>
       </Box>
     )
