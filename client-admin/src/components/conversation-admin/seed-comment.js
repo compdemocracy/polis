@@ -20,7 +20,7 @@ class ModerateCommentsSeed extends React.Component {
 
   handleSubmitSeed() {
     const comment = {
-      txt: this.refs.seed_form.value,
+      txt: this.seed_form.value,
       pid: 'mypid',
       conversation_id: this.props.params.conversation_id,
       // vote: 0,
@@ -76,7 +76,7 @@ class ModerateCommentsSeed extends React.Component {
             onChange={this.handleTextareaChange.bind(this)}
             maxLength="400"
             value={seedText}
-            ref="seed_form"
+            ref={c => (this.seed_form = c)}
           />
         </Box>
         <Box>

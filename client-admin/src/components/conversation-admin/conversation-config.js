@@ -21,7 +21,7 @@ import ModerateCommentsSeed from './seed-comment'
 class ConversationConfig extends React.Component {
   handleBoolValueChange(field) {
     return () => {
-      var val = this.refs[field].checked
+      var val = this[field].checked
       if (field === 'bgcolor') {
         // gray checked=default, unchecked white
         val = val ? 'default' : '#fff'
@@ -42,7 +42,7 @@ class ConversationConfig extends React.Component {
         handleZidMetadataUpdate(
           this.props.zid_metadata,
           field,
-          this.transformBoolToInt(this.refs[field].checked)
+          this.transformBoolToInt(this[field].checked)
         )
       )
     }
@@ -50,7 +50,7 @@ class ConversationConfig extends React.Component {
 
   handleStringValueChange(field) {
     return () => {
-      let val = this.refs[field].value
+      let val = this[field].value
       if (field === 'help_bgcolor' || field === 'help_color') {
         if (!val.length) {
           val = 'default'
@@ -101,7 +101,7 @@ class ConversationConfig extends React.Component {
         <Box sx={{ mb: [3] }}>
           <Text sx={{ mb: [2] }}>Topic</Text>
           <input
-            ref="topic"
+            ref={c => (this.topic = c)}
             sx={{
               fontFamily: 'body',
               fontSize: [2],
@@ -120,7 +120,7 @@ class ConversationConfig extends React.Component {
         <Box sx={{ mb: [3] }}>
           <Text sx={{ mb: [2] }}>Description</Text>
           <textarea
-            ref="description"
+            ref={c => (this.description = c)}
             sx={{
               fontFamily: 'body',
               fontSize: [2],
@@ -170,7 +170,7 @@ class ConversationConfig extends React.Component {
             <input
               type="checkbox"
               label="Visualization"
-              ref="vis_type"
+              ref={c => (this.vis_type = c)}
               checked={this.props.zid_metadata.vis_type === 1}
               onChange={this.handleIntegerBoolValueChange('vis_type').bind(
                 this
@@ -187,7 +187,7 @@ class ConversationConfig extends React.Component {
             <input
               type="checkbox"
               label="Comment form"
-              ref="write_type"
+              ref={c => (this.write_type = c)}
               checked={this.props.zid_metadata.write_type === 1}
               onChange={this.handleIntegerBoolValueChange('write_type').bind(
                 this
@@ -204,7 +204,7 @@ class ConversationConfig extends React.Component {
             <input
               type="checkbox"
               label="Help text"
-              ref="help_type"
+              ref={c => (this.help_type = c)}
               checked={this.props.zid_metadata.help_type === 1}
               onChange={this.handleIntegerBoolValueChange('help_type').bind(
                 this
@@ -221,7 +221,7 @@ class ConversationConfig extends React.Component {
             <input
               type="checkbox"
               label="Prompt participants to subscribe to updates"
-              ref="subscribe_type"
+              ref={c => (this.subscribe_type = c)}
               checked={this.props.zid_metadata.subscribe_type === 1}
               onChange={this.handleIntegerBoolValueChange(
                 'subscribe_type'
@@ -243,7 +243,7 @@ class ConversationConfig extends React.Component {
             <input
               type="checkbox"
               label="Facebook login prompt"
-              ref="auth_opt_fb"
+              ref={c => (this.auth_opt_fb = c)}
               checked={this.props.zid_metadata.auth_opt_fb}
               onChange={this.handleBoolValueChange('auth_opt_fb').bind(this)}
             />
@@ -258,7 +258,7 @@ class ConversationConfig extends React.Component {
             <input
               type="checkbox"
               label="Twitter login prompt"
-              ref="auth_opt_tw"
+              ref={c => (this.auth_opt_tw = c)}
               checked={this.props.zid_metadata.auth_opt_tw}
               onChange={this.handleBoolValueChange('auth_opt_tw').bind(this)}
             />
@@ -282,7 +282,7 @@ class ConversationConfig extends React.Component {
           <Box sx={{ flexShrink: 0, position: 'relative', top: -0.5 }}>
             <input
               type="checkbox"
-              ref={'strict_moderation'}
+              ref={c => (this.strict_moderation = c)}
               checked={this.props.zid_metadata.strict_moderation}
               onChange={this.handleBoolValueChange('strict_moderation').bind(
                 this
@@ -299,7 +299,7 @@ class ConversationConfig extends React.Component {
             <input
               type="checkbox"
               label="Require Auth to Comment"
-              ref="auth_needed_to_write"
+              ref={c => (this.auth_needed_to_write = c)}
               checked={this.props.zid_metadata.auth_needed_to_write}
               onChange={this.handleBoolValueChange('auth_needed_to_write').bind(
                 this
@@ -319,7 +319,7 @@ class ConversationConfig extends React.Component {
             <input
               type="checkbox"
               label="Require Auth to Vote"
-              ref="auth_needed_to_vote"
+              ref={c => (this.auth_needed_to_vote = c)}
               checked={this.props.zid_metadata.auth_needed_to_vote}
               onChange={this.handleBoolValueChange('auth_needed_to_vote').bind(
                 this
