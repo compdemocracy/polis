@@ -51,7 +51,7 @@ class ConversationConfig extends React.Component {
 
   handleStringValueChange(field) {
     return () => {
-      const val = this.refs[field].value
+      let val = this.refs[field].value
       if (field === 'help_bgcolor' || field === 'help_color') {
         if (!val.length) {
           val = 'default'
