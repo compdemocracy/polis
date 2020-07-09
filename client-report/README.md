@@ -2,6 +2,10 @@
 
 ## Development
 
+The below instructions are no longer officially supported; if you'd like to use them as a reference, we suggest you check out the official [Dockerfile](Dockerfile) to understand the latest build process and specific package versions.
+
+---
+
 Same environment variables as the rest of the apps.
 Once you have the npm modules set up (`npm install`?), you can run the development server (with hot code reloading) by running `./x`.
 
