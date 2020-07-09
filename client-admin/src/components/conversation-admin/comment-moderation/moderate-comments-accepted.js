@@ -3,7 +3,6 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import {
-  populateAcceptedCommentsStore,
   changeCommentStatusToRejected,
   changeCommentCommentIsMeta
 } from '../../../actions'

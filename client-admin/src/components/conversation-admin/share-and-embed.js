@@ -5,7 +5,7 @@ import React from 'react'
 import Url from '../../util/url'
 import { connect } from 'react-redux'
 import { Link } from 'react-router-dom'
-import { Heading, Box, Flex } from 'theme-ui'
+import { Heading } from 'theme-ui'
 
 @connect(state => state.zid_metadata)
 class ShareAndEmbed extends React.Component {
