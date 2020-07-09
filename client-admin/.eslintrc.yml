@@ -2,6 +2,9 @@ env:
   browser: true
   es2020: true
   jquery: true
+globals:
+  Intercom: readonly
+  FB: readonly
 plugins:
   - babel
   - react
@@ -13,7 +16,6 @@ extends:
   - prettier/react
 rules: #{}
   camelcase: off
-  no-undef: off
   no-unused-vars: off
   react/no-string-refs: off
   react/prop-types: off
