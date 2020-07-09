@@ -20,10 +20,6 @@ import ModerateCommentsSeed from './seed-comment'
 @connect(state => state.user)
 @connect(state => state.zid_metadata)
 class ConversationConfig extends React.Component {
-  constructor(props) {
-    super(props)
-  }
-
   handleBoolValueChange(field) {
     return () => {
       var val = this.refs[field].checked

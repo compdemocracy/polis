@@ -5,10 +5,6 @@ import { Box, Link, Heading, jsx } from 'theme-ui'
 import emoji from 'react-easy-emoji'
 
 class Header extends Component {
-  constructor(props) {
-    super(props)
-  }
-
   render() {
     return (
       <Box sx={{ mt: [3, null, 4] }}>
