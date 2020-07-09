@@ -6,6 +6,10 @@ Polis [can be easily embedded](http://docs.pol.is/usage/Embedding.html) on your 
 
 ## Installation
 
+The below instructions are no longer officially supported; if you'd like to use them as a reference, we suggest you check out the official [Dockerfile](Dockerfile) to understand the latest build process and specific package versions.
+
+---
+
 ### Dependencies
 
 * PostgreSql `(>= 9.5.4.1)`
@@ -53,7 +57,7 @@ We recommend installing [nvm](https://github.com/creationix/nvm) so you can easi
     ```sh
     $ ./x
     ```
-1. In another shell, start the [polisClientAdmin](https://github.com/pol-is/polisClientAdmin). Follow installation directions on the project README.
+1. In another shell, start the [client-admin](../client-admin). Follow installation directions on the component README.
     ```
     $ ./x
     ```
