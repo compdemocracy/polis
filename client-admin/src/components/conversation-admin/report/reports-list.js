@@ -64,7 +64,10 @@ class ReportsList extends React.Component {
         {this.state.reports.map(report => {
           return (
             <Box sx={{ mb: [2] }} key={report.report_id}>
-              <a target="_blank" href={'/report/' + report.report_id}>
+              <a
+                target="_blank"
+                rel="noreferrer"
+                href={'/report/' + report.report_id}>
                 pol.is/report/{report.report_id}
               </a>
             </Box>
