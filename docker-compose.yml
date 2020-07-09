@@ -60,6 +60,7 @@ services:
       - "polis-dev"
     volumes:
       - "backups:/backups"
+      - "config:/config"
       - "postgres:/var/lib/postgresql/data"
 
   nginx-proxy:
@@ -72,6 +73,8 @@ services:
       - "server"
     networks:
       - "polis-dev"
+    volumes:
+      - "config:/config"
     ports:
       - "80:80"
 
@@ -87,6 +90,8 @@ services:
       - "client-report"
     networks:
       - "polis-dev"
+    volumes:
+      - "config:/config"
     ports:
       - "8080:8080"
 
