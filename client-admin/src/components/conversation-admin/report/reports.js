@@ -3,7 +3,7 @@
 import React from 'react'
 
 import ReportsList from './reports-list'
-import { Switch, Route, Link, Redirect } from 'react-router-dom'
+import { Switch, Route } from 'react-router-dom'
 
 class Reports extends React.Component {
   render() {

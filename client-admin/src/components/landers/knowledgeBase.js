@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Link, Styled } from 'theme-ui'
+import { Box, Link } from 'theme-ui'
 import emoji from 'react-easy-emoji'
 
 const KnowledgeBase = ({ e, url, txt }) => {

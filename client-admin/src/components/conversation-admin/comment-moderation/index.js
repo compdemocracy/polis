@@ -13,7 +13,7 @@ import ModerateCommentsTodo from './moderate-comments-todo'
 import ModerateCommentsAccepted from './moderate-comments-accepted'
 import ModerateCommentsRejected from './moderate-comments-rejected'
 
-import { Switch, Route, Link, Redirect } from 'react-router-dom'
+import { Switch, Route, Link } from 'react-router-dom'
 
 const mapStateToProps = (state, ownProps) => {
   return {

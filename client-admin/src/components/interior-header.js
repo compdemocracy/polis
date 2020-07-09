@@ -6,7 +6,6 @@ import Logomark from './framework/logomark'
 
 class InteriorHeader extends React.Component {
   render() {
-    const globalWidth = '45em'
     return (
       <Box>
         <Box

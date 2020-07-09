@@ -7,8 +7,6 @@ import {
 } from '../../../actions'
 import { connect } from 'react-redux'
 import Comment from './comment'
-import Spinner from '../../framework/spinner'
-import Flex from '../../framework/flex'
 
 @connect(state => state.mod_comments_rejected)
 class ModerateCommentsRejected extends React.Component {

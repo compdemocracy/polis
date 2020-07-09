@@ -4,7 +4,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import { doCreateUser, doFacebookSignin } from '../../actions'
-import { Heading, Box, Text, Button, jsx, Link as ThemeUILink } from 'theme-ui'
+import { Heading, Box, Text, Button, jsx } from 'theme-ui'
 
 import { Link } from 'react-router-dom'
 import StaticLayout from './lander-layout'

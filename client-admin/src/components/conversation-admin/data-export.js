@@ -4,7 +4,7 @@ import React from 'react'
 import { connect } from 'react-redux'
 import { startDataExport } from '../../actions'
 import dateSetupUtil from '../../util/data-export-date-setup'
-import { Heading, Flex, Box } from 'theme-ui'
+import { Heading } from 'theme-ui'
 
 @connect(state => state.zid_metadata)
 class DataExport extends React.Component {
