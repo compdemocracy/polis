@@ -18,7 +18,6 @@ rules: #{}
   no-throw-literal: off
   no-undef: off
   no-unused-vars: off
-  no-useless-constructor: off
   react/display-name: off
   react/jsx-no-target-blank: off
   react/no-string-refs: off

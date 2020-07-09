@@ -18,10 +18,6 @@ class SignIn extends React.Component {
     return { hasError: true }
   }
 
-  constructor(props) {
-    super(props)
-  }
-
   componentDidMount() {
     this.props.dispatch({ type: 'signin reset state' })
   }
