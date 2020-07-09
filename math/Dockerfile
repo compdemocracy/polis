@@ -6,7 +6,7 @@ ENV BUILD_DEPS="bash build-base libpng-dev zlib-dev autoconf automake libtool na
 
 WORKDIR /build
 COPY . .
-COPY /config/config.js ./config/
+# COPY /config/config.js ./config/
 
 RUN \
   apk update && \

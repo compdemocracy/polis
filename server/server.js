@@ -10,18 +10,21 @@
 
 "use strict";
 
+// for some reason, this cannot be done in the dockerfile
+console.log('start copy');
+const childProcess = require('child_process');
+childProcess.execSync('cp /config/* ./config');
+console.log('done copy');
+
 // example code node-convict
-// var config = require('./config/config.js');
-
 // https://medium.com/@sherryhsu/managing-configurations-in-node-js-apps-with-dotenv-and-convict-d74070d37373
- 
-// // Consume
-// server.listen(config.get('port'), config.get('ip'), function(x) {
-//   var addy = server.address();
-//   console.log('running on http://' + addy.address + ':' + addy.port);
-// });
-
 var config = require('./config/config.js');
+console.log('done config');
+
+  // apiKey: config.get('akismet_antispam_api_key'),
+console.log('akismet_antispam_api_key: ' + config.get('akismet_antispam_api_key'));
+console.log('foo: ' + config.get('foo'));
+console.log('bar: ' + config.get('bar'));
 
 const akismetLib = require('akismet');
 const AWS = require('aws-sdk');

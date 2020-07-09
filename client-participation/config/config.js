@@ -1,4 +1,5 @@
 const convict = require('convict');
+
  
 // convict.addFormat(require('convict-format-with-validator').ipaddress);
  
@@ -14,13 +15,25 @@ var config = convict({
     doc: 'akismet_antispam_api_key (ex. a1a11111aa11)',
     format: String,
     default: '',
-    env: 'AKISMET_ANTISPAM_API_KEY'
+    env: 'AKISMET_ANTISPAM_API_KEYx'
+  },
+  foo: {
+    doc: 'node-convict debug',
+    format: String,
+    default: 'foo-text',
+    env: 'FOO'
+  },
+  bar: {
+    doc: 'node-convict debug',
+    format: String,
+    default: 'bar-text',
+    env: 'BAR'
   }
 });
  
 // Load environment dependent configuration
 var env = config.get('env');
-config.loadFile('/config/' + env + '.json');
+config.loadFile('./config/' + env + '.json');
  
 // Perform validation
 config.validate({allowed: 'strict'});
