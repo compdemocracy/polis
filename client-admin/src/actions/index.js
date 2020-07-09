@@ -716,7 +716,7 @@ export const populateZidMetadataStore = conversation_id => {
     var isLoading = state.zid_metadata.loading
     // NOTE: if there are multiple calls outstanding this may be wrong.
     var isLoadingThisConversation =
-      state.zid_metadata.conversation_id == conversation_id && isLoading
+      state.zid_metadata.conversation_id === conversation_id && isLoading
 
     if (isLoadingThisConversation) {
       return
@@ -725,7 +725,7 @@ export const populateZidMetadataStore = conversation_id => {
     // don"t fetch again if we already have data loaded for that conversation.
     if (
       hasConversationId &&
-      state.zid_metadata.zid_metadata.conversation_id == conversation_id
+      state.zid_metadata.zid_metadata.conversation_id === conversation_id
     ) {
       return
     }
