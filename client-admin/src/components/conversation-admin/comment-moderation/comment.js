@@ -19,10 +19,7 @@ class Comment extends React.Component {
   }
 
   onIsMetaClicked() {
-    this.props.toggleIsMetaHandler(
-      this.props.comment,
-      this.refs.is_meta.checked
-    )
+    this.props.toggleIsMetaHandler(this.props.comment, this.is_meta.checked)
   }
 
   render() {
@@ -61,7 +58,7 @@ class Comment extends React.Component {
                 <input
                   type="checkbox"
                   label="metadata"
-                  ref="is_meta"
+                  ref={c => (this.is_meta = c)}
                   checked={this.props.comment.is_meta}
                   onChange={this.onIsMetaClicked.bind(this)}
                 />

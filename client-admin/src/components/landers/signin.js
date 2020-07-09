@@ -34,8 +34,8 @@ class SignIn extends React.Component {
   handleLoginClicked(e) {
     e.preventDefault()
     const attrs = {
-      email: this.refs.email.value,
-      password: this.refs.password.value
+      email: this.email.value,
+      password: this.password.value
     }
 
     // var dest = this.getDest();
@@ -58,7 +58,7 @@ class SignIn extends React.Component {
     if (!dest.length) {
       dest = '/'
     }
-    const optionalPassword = this.refs.facebook_password.value
+    const optionalPassword = this.facebook_password.value
     this.props.dispatch(doFacebookSignin(dest, optionalPassword))
   }
 
@@ -86,7 +86,7 @@ class SignIn extends React.Component {
                 borderColor: 'mediumGray'
               }}
               id="signinEmailInput"
-              ref="email"
+              ref={c => (this.email = c)}
               placeholder="email"
               type="email"
             />
@@ -103,7 +103,7 @@ class SignIn extends React.Component {
                 borderColor: 'mediumGray'
               }}
               id="signinPasswordInput"
-              ref="password"
+              ref={c => (this.password = c)}
               placeholder="password"
               type="password"
             />
@@ -150,7 +150,7 @@ class SignIn extends React.Component {
           }
         </p>
         <input
-          ref="facebook_password"
+          ref={c => (this.facebook_password = c)}
           placeholder="polis password"
           type="password"
         />

@@ -32,7 +32,7 @@ class ModerateCommentsSeed extends React.Component {
   }
 
   handleSubmitSeed() {
-    var val = this.refs.seed_form_tweet.value
+    var val = this.seed_form_tweet.value
     var match = val && val.match(/[a-zA-Z0-9]+$/)
     var tweet_id = ''
     if (match && match.length) {
@@ -103,7 +103,7 @@ class ModerateCommentsSeed extends React.Component {
               fontSize: 16,
               padding: 10
             }}
-            ref="seed_form_tweet"
+            ref={c => (this.seed_form_tweet = c)}
           />
         </div>
         <div>
