@@ -1,4 +1,4 @@
-var convict = require('convict');
+const convict = require('convict');
  
 // convict.addFormat(require('convict-format-with-validator').ipaddress);
  

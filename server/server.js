@@ -11,7 +11,7 @@
 "use strict";
 
 // example code node-convict
-// var config = require('./config.js');
+var config = require('./config.js');
 
 // https://medium.com/@sherryhsu/managing-configurations-in-node-js-apps-with-dotenv-and-convict-d74070d37373
  
@@ -371,8 +371,8 @@ const POLIS_FROM_ADDRESS = process.env.POLIS_FROM_ADDRESS;
 
 const akismet = akismetLib.client({
   blog: 'https://pol.is', // required: your root level url
-  // apiKey: config.get('akismet_antispam_api_key'),
-  apiKey: process.env.AKISMET_ANTISPAM_API_KEY
+  apiKey: config.get('akismet_antispam_api_key'),
+  // apiKey: process.env.AKISMET_ANTISPAM_API_KEY
 });
 
 // winston.log("info", 'Akismet key: ' 
