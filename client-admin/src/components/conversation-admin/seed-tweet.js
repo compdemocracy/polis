@@ -53,7 +53,7 @@ class ModerateCommentsSeed extends React.Component {
   }
 
   handleKey(e) {
-    if (e.charCode == 13) {
+    if (e.charCode === 13) {
       e.preventDefault()
       this.handleSubmitSeed()
     }
