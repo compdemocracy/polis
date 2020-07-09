@@ -1,7 +1,7 @@
 /** @jsx jsx */
 import { jsx, Text, Card } from 'theme-ui'
 
-export default ({ c, i, goToConversation }) => {
+function Conversation({ c, i, goToConversation }) {
   return (
     <Card
       onClick={goToConversation}
@@ -14,3 +14,5 @@ export default ({ c, i, goToConversation }) => {
     </Card>
   )
 }
+
+export default Conversation
