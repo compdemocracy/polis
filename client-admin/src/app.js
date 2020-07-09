@@ -129,7 +129,7 @@ class App extends React.Component {
     this.initIntercom()
     if (this.intercomInitialized) {
       const user = this.props.user
-      window.intercomOptions = {
+      const intercomOptions = {
         app_id: 'nb5hla8s',
         widget: {
           activator: '#IntercomDefaultWidget'

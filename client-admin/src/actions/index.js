@@ -559,7 +559,6 @@ const onFbLoginOk = (response, dest, dispatch, optionalPassword) => {
     processFacebookFriendsData(response, dest, dispatch, optionalPassword),
     err => {
       console.error(err)
-      console.dir(arguments)
     }
   )
 }
