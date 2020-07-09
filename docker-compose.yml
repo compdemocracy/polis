@@ -28,6 +28,8 @@ services:
       - "file-server"
     networks:
       - "polis-dev"
+    volumes:
+      - "config:/config"
     ports:
       - "5000:5000"
 
@@ -39,8 +41,12 @@ services:
       - "postgres"
     build:
       context: ./math
+    depends_on:
+      - "client-participation"
     networks:
       - "polis-dev"
+    volumes:
+      - "config:/config"
 
   postgres:
     container_name: polis-postgres
@@ -84,13 +90,17 @@ services:
     ports:
       - "8080:8080"
 
-  client-participation:
-    container_name: polis-client-participation
-    image: polisdemo/client-participation:dev
+  client-report:
+    container_name: polis-client-report
+    image: polisdemo/client-report:dev
     build:
-      context: ./client-participation
+      context: ./client-report
       args:
-        GIT_HASH: "${GIT_HASH}"
+        GIT_HASH: "${GIT_HASH}" 
+    depends_on:
+      - "client-participation"
+    volumes:
+      - "config:/config"
 
   client-admin:
     container_name: polis-client-admin
@@ -99,18 +109,25 @@ services:
       context: ./client-admin
       args:
         GIT_HASH: "${GIT_HASH}"
+    depends_on:
+      - "client-participation"        
+    volumes:
+      - "config:/config"
 
-  client-report:
-    container_name: polis-client-report
-    image: polisdemo/client-report:dev
+  client-participation:
+    container_name: polis-client-participation
+    image: polisdemo/client-participation:dev
     build:
-      context: ./client-report
+      context: ./client-participation
       args:
         GIT_HASH: "${GIT_HASH}"
+    volumes:
+      - "config:/config"
 
 networks:
   polis-dev:
 
 volumes:
   backups:
+  config:
   postgres:

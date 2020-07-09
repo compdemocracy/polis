@@ -19,6 +19,7 @@ RUN apk del .build
 
 COPY . .
 COPY polis.config.template.js polis.config.js
+COPY ./config/* /config/
 
 ARG GIT_HASH
 RUN npm run build:preprod
