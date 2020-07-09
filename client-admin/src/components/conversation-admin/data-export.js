@@ -18,10 +18,10 @@ class DataExport extends React.Component {
     return () => {
       this.setState({ showHelpMessage: true })
 
-      const year = this.refs.exportSelectYear.value
-      const month = this.refs.exportSelectMonth.value
-      const dayOfMonth = this.refs.exportSelectDay.value
-      const tz = this.refs.exportSelectHour.value
+      const year = this.exportSelectYear.value
+      const month = this.exportSelectMonth.value
+      const dayOfMonth = this.exportSelectDay.value
+      const tz = this.exportSelectHour.value
       const format = 'csv'
 
       const dateString = [year, month, dayOfMonth, tz].join(' ')
@@ -70,7 +70,7 @@ class DataExport extends React.Component {
           <input onClick={this.handleUntilToggled.bind(this)} type="checkbox" />
           <select
             disabled={this.state.untilEnabled ? '' : 'disabled'}
-            ref="exportSelectYear">
+            ref={c => (this.exportSelectYear = c)}>
             {this.state.years.map((year, i) => {
               return (
                 <option selected={year.selected} key={i} value={year.name}>
@@ -81,7 +81,7 @@ class DataExport extends React.Component {
           </select>
           <select
             disabled={this.state.untilEnabled ? '' : 'disabled'}
-            ref="exportSelectMonth">
+            ref={c => (this.exportSelectMonth = c)}>
             {this.state.months.map((month, i) => {
               return (
                 <option selected={month.selected} key={i} value={month.name}>
@@ -92,7 +92,7 @@ class DataExport extends React.Component {
           </select>
           <select
             disabled={this.state.untilEnabled ? '' : 'disabled'}
-            ref="exportSelectDay">
+            ref={c => (this.exportSelectDay = c)}>
             {this.state.days.map((day, i) => {
               return (
                 <option selected={day.selected} key={i} value={day.name}>
@@ -104,7 +104,7 @@ class DataExport extends React.Component {
           </select>
           <select
             disabled={this.state.untilEnabled ? '' : 'disabled'}
-            ref="exportSelectHour">
+            ref={c => (this.exportSelectHour = c)}>
             {this.state.tzs.map((tz, i) => {
               return (
                 <option selected={tz.selected} key={i} value={tz.name}>

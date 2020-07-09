@@ -12,7 +12,7 @@ class PasswordResetInit extends React.Component {
     e.preventDefault()
 
     const attrs = {
-      email: this.refs.email.value
+      email: this.email.value
     }
 
     this.props.dispatch(doPasswordResetInit(attrs))
@@ -23,7 +23,7 @@ class PasswordResetInit extends React.Component {
       <StaticLayout>
         <h1> Password Reset</h1>
         <form>
-          <input ref="email" placeholder="email" type="text" />
+          <input ref={c => (this.email = c)} placeholder="email" type="text" />
           <button onClick={this.handleClick.bind(this)}>
             Send password reset email
           </button>
