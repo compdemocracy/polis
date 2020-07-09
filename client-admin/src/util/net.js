@@ -10,7 +10,7 @@ var basePath = ''
 
 function polisAjax(api, data, type) {
   if (!_.isString(api)) {
-    throw 'api param should be a string'
+    throw new Error('api param should be a string')
   }
 
   if (api && api.length && api[0] === '/') {

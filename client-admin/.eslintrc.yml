@@ -13,7 +13,6 @@ extends:
   - prettier/react
 rules: #{}
   camelcase: off
-  no-throw-literal: off
   no-undef: off
   no-unused-vars: off
   react/no-string-refs: off
