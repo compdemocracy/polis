@@ -10,8 +10,7 @@ import {
 } from '../../actions'
 import ComponentHelpers from '../../util/component-helpers'
 import NoPermission from './no-permission'
-import settings from '../../settings'
-import { Heading, Box, Flex, Text, Input, jsx } from 'theme-ui'
+import { Heading, Box, Flex, Text, jsx } from 'theme-ui'
 import emoji from 'react-easy-emoji'
 
 import ModerateCommentsSeed from './seed-comment'
