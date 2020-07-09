@@ -6,7 +6,7 @@ import { doPasswordReset } from '../../actions'
 import StaticLayout from './lander-layout'
 
 @connect()
-class SignIn extends React.Component {
+class PasswordReset extends React.Component {
   handleClick(e) {
     e.preventDefault()
     const attrs = {
@@ -42,4 +42,4 @@ class SignIn extends React.Component {
   }
 }
 
-export default SignIn
+export default PasswordReset
