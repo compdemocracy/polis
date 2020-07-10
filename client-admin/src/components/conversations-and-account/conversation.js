@@ -1,5 +1,6 @@
 /** @jsx jsx */
 import { jsx, Text, Card } from 'theme-ui'
+import PropTypes from 'prop-types'
 
 function Conversation({ c, i, goToConversation }) {
   return (
@@ -13,6 +14,17 @@ function Conversation({ c, i, goToConversation }) {
       <Text sx={{ mt: [2] }}>{c.participant_count} participants</Text>
     </Card>
   )
+}
+
+Conversation.propTypes = {
+  c: PropTypes.shape({
+    topic: PropTypes.string,
+    description: PropTypes.string,
+    parent_url: PropTypes.string,
+    participant_count: PropTypes.number
+  }),
+  i: PropTypes.number.isRequired,
+  goToConversation: PropTypes.func.isRequired
 }
 
 export default Conversation

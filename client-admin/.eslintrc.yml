@@ -17,7 +17,6 @@ extends:
 rules: #{}
   camelcase: off
   no-unused-vars: off
-  react/prop-types: off
 parser: babel-eslint
 parserOptions:
   ecmaFeatures:

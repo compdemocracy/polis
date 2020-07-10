@@ -1,4 +1,5 @@
 import React from 'react'
+import PropTypes from 'prop-types'
 import Header from './lander-header'
 import Footer from './lander-footer'
 import { Box } from 'theme-ui'
@@ -17,6 +18,10 @@ const Layout = ({ children }) => {
       <Footer />
     </Box>
   )
+}
+
+Layout.propTypes = {
+  children: PropTypes.element
 }
 
 export default Layout
