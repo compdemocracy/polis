@@ -19,7 +19,10 @@ childProcess.execSync('cp /config/* ./config');
 var config = require('./config/config.js');
 console.log('done config');
 
-// uncomment for testing.akismet_antispam_api_key
+// uncomment for testing
+// console.log('.akismet_antispam_api_key:
+// console.log('akismet_antispam_api_key: ' 
+//      + config.get('akismet_antispam_api_key'));
 // console.log('foo: ' + config.get('foo'));
 // console.log('bar: ' + config.get('bar'));
 

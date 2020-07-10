@@ -26,6 +26,7 @@ services:
     depends_on:
       - "postgres"
       - "file-server"
+      - "config"
     networks:
       - "polis-dev"
     volumes:
@@ -42,7 +43,7 @@ services:
     build:
       context: ./math
     depends_on:
-      - "client-participation"
+      - "config"
     networks:
       - "polis-dev"
     volumes:
@@ -56,6 +57,8 @@ services:
     build:
       context: ./server
       dockerfile: Dockerfile-db
+    depends_on:
+      - "config"
     networks:
       - "polis-dev"
     volumes:
@@ -71,6 +74,7 @@ services:
       dockerfile: nginx.Dockerfile
     depends_on:
       - "server"
+      - "config"
     networks:
       - "polis-dev"
     volumes:
@@ -88,6 +92,7 @@ services:
       - "client-participation"
       - "client-admin"
       - "client-report"
+      - "config"
     networks:
       - "polis-dev"
     volumes:
@@ -103,7 +108,7 @@ services:
       args:
         GIT_HASH: "${GIT_HASH}" 
     depends_on:
-      - "client-participation"
+      - "config"
     volumes:
       - "config:/config"
 
@@ -115,7 +120,7 @@ services:
       args:
         GIT_HASH: "${GIT_HASH}"
     depends_on:
-      - "client-participation"        
+      - "config"        
     volumes:
       - "config:/config"
 
@@ -124,6 +129,18 @@ services:
     image: polisdemo/client-participation:dev
     build:
       context: ./client-participation
+      args:
+        GIT_HASH: "${GIT_HASH}"
+    depends_on:
+      - "config"  
+    volumes:
+      - "config:/config"
+
+  config:
+    container_name: polis-config
+    image: polisdemo/config:dev
+    build:
+      context: ./config
       args:
         GIT_HASH: "${GIT_HASH}"
     volumes:
