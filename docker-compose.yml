@@ -100,18 +100,18 @@ services:
     ports:
       - "8080:8080"
 
-  client-report:
-    container_name: polis-client-report
-    image: polisdemo/client-report:dev
+  client-participation:
+    container_name: polis-client-participation
+    image: polisdemo/client-participation:dev
     build:
-      context: ./client-report
+      context: ./client-participation
       args:
-        GIT_HASH: "${GIT_HASH}" 
+        GIT_HASH: "${GIT_HASH}"
     depends_on:
-      - "config"
+      - "config"  
     volumes:
       - "config:/config"
-
+ 
   client-admin:
     container_name: polis-client-admin
     image: polisdemo/client-admin:dev
@@ -124,15 +124,15 @@ services:
     volumes:
       - "config:/config"
 
-  client-participation:
-    container_name: polis-client-participation
-    image: polisdemo/client-participation:dev
+  client-report:
+    container_name: polis-client-report
+    image: polisdemo/client-report:dev
     build:
-      context: ./client-participation
+      context: ./client-report
       args:
-        GIT_HASH: "${GIT_HASH}"
+        GIT_HASH: "${GIT_HASH}" 
     depends_on:
-      - "config"  
+      - "config"
     volumes:
       - "config:/config"
 
