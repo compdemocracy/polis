@@ -2,6 +2,7 @@
 
 import ConversationHasCommentsCheck from './conversation-has-comments-check'
 import React from 'react'
+import PropTypes from 'prop-types'
 import Url from '../../util/url'
 import { connect } from 'react-redux'
 import { Link } from 'react-router-dom'
@@ -76,6 +77,18 @@ class ShareAndEmbed extends React.Component {
       </div>
     )
   }
+}
+
+ShareAndEmbed.propTypes = {
+  match: PropTypes.shape({
+    params: PropTypes.shape({
+      conversation_id: PropTypes.string
+    })
+  }),
+  zid_metadata: PropTypes.shape({
+    parent_url: PropTypes.string,
+    strict_moderation: PropTypes.bool
+  })
 }
 
 export default ShareAndEmbed

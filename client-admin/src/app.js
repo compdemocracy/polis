@@ -2,6 +2,7 @@
 /** @jsx jsx */
 
 import React from 'react'
+import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { populateUserStore } from './actions'
 
@@ -48,6 +49,13 @@ const PrivateRoute = ({ component: Component, isLoading, authed, ...rest }) => {
       }
     />
   )
+}
+
+PrivateRoute.propTypes = {
+  component: PropTypes.element,
+  isLoading: PropTypes.bool,
+  location: PropTypes.object,
+  authed: PropTypes.bool
 }
 
 @connect(state => {
@@ -104,7 +112,7 @@ class App extends React.Component {
 
   initIntercom() {
     if (window.useIntercom && !this.intercomInitialized) {
-      const user = this.props.user
+      const { user } = this.props
       if (user) {
         if (!window.Intercom && user && user.uid) {
           window.initIntercom()
@@ -128,7 +136,7 @@ class App extends React.Component {
   updateIntercomSettings() {
     this.initIntercom()
     if (this.intercomInitialized) {
-      const user = this.props.user
+      const { user } = this.props
       const intercomOptions = {
         app_id: 'nb5hla8s',
         widget: {
@@ -288,6 +296,20 @@ class App extends React.Component {
       </>
     )
   }
+}
+
+App.propTypes = {
+  dispatch: PropTypes.func,
+  isLoggedIn: PropTypes.bool,
+  location: PropTypes.shape({
+    pathname: PropTypes.string
+  }),
+  user: PropTypes.shape({
+    uid: PropTypes.string,
+    email: PropTypes.string,
+    created: PropTypes.number,
+    hname: PropTypes.string
+  })
 }
 
 export default App
