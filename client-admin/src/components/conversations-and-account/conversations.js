@@ -127,7 +127,7 @@ Conversations.propTypes = {
     status: PropTypes.number,
     statusText: PropTypes.string
   }),
-  loading: PropTypes.any,
+  loading: PropTypes.bool,
   conversations: PropTypes.arrayOf(
     PropTypes.shape({
       conversation_id: PropTypes.string
