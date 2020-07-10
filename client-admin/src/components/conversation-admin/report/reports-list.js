@@ -2,6 +2,7 @@
 
 import PolisNet from '../../../util/net'
 import React from 'react'
+import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { Heading, Box, Button } from 'theme-ui'
 
@@ -76,6 +77,14 @@ class ReportsList extends React.Component {
       </Box>
     )
   }
+}
+
+ReportsList.propTypes = {
+  match: PropTypes.shape({
+    params: PropTypes.shape({
+      conversation_id: PropTypes.string
+    })
+  })
 }
 
 export default ReportsList
