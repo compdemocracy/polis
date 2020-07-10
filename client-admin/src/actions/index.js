@@ -369,6 +369,8 @@ const facebookSigninInitiated = () => {
   }
 }
 
+// FIXME
+// eslint-disable-next-line no-unused-vars
 const facebookSigninSuccessful = () => {
   return {
     type: FACEBOOK_SIGNIN_SUCCESSFUL
@@ -835,17 +837,25 @@ export const handleSeedCommentSubmit = comment => {
   }
 }
 
+// FIXME
+// eslint-disable-next-line no-unused-vars
 const makeStandardStart = type => {
   return {
     type: type
   }
 }
+
+// FIXME
+// eslint-disable-next-line no-unused-vars
 const makeStandardError = (type, err) => {
   return {
     type: type,
     data: err
   }
 }
+
+// FIXME
+// eslint-disable-next-line no-unused-vars
 const makeStandardSuccess = (type, data) => {
   return {
     type: type,
@@ -1585,6 +1595,8 @@ const optimisticUnmoderateParticipant = participant => {
   }
 }
 
+// FIXME
+// eslint-disable-next-line no-unused-vars
 const unmoderateParticipantSuccess = data => {
   return {
     type: FEATURE_PARTICIPANT_SUCCESS,
@@ -1592,6 +1604,8 @@ const unmoderateParticipantSuccess = data => {
   }
 }
 
+// FIXME
+// eslint-disable-next-line no-unused-vars
 const unmoderateParticipantError = err => {
   return {
     type: FEATURE_PARTICIPANT_ERROR,

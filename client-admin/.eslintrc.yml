@@ -14,9 +14,8 @@ extends:
   - eslint:recommended
   - plugin:react/recommended
   - prettier/react
-rules: #{}
+rules:
   camelcase: off
-  no-unused-vars: off
 parser: babel-eslint
 parserOptions:
   ecmaFeatures:
