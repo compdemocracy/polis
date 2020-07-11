@@ -15,6 +15,8 @@ extends:
   - plugin:react/recommended
   - prettier/react
 rules:
+  # TODO: Migrate to camelcase.
+  # snake_case API params and properties makes this a tangled process.
   camelcase: off
 parser: babel-eslint
 parserOptions:
