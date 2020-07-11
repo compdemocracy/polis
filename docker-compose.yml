@@ -111,7 +111,7 @@ services:
       - "config"  
     volumes:
       - "config:/config"
- 
+
   client-admin:
     container_name: polis-client-admin
     image: polisdemo/client-admin:dev
