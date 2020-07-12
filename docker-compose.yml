@@ -26,11 +26,10 @@ services:
     depends_on:
       - "postgres"
       - "file-server"
-      - "config"
     networks:
       - "polis-dev"
     volumes:
-      - "config:/config"
+      - "./config:/app/config"
     ports:
       - "5000:5000"
 
@@ -42,12 +41,10 @@ services:
       - "postgres"
     build:
       context: ./math
-    depends_on:
-      - "config"
     networks:
       - "polis-dev"
     volumes:
-      - "config:/config"
+      - "./config:/app/config"
 
   postgres:
     container_name: polis-postgres
@@ -57,13 +54,11 @@ services:
     build:
       context: ./server
       dockerfile: Dockerfile-db
-    depends_on:
-      - "config"
     networks:
       - "polis-dev"
     volumes:
       - "backups:/backups"
-      - "config:/config"
+      - "./config:/app/config"
       - "postgres:/var/lib/postgresql/data"
 
   nginx-proxy:
@@ -74,11 +69,10 @@ services:
       dockerfile: nginx.Dockerfile
     depends_on:
       - "server"
-      - "config"
     networks:
       - "polis-dev"
     volumes:
-      - "config:/config"
+      - "./config:/app/config"
     ports:
       - "80:80"
 
@@ -92,11 +86,10 @@ services:
       - "client-participation"
       - "client-admin"
       - "client-report"
-      - "config"
     networks:
       - "polis-dev"
     volumes:
-      - "config:/config"
+      - "./config:/app/config"
     ports:
       - "8080:8080"
 
@@ -107,10 +100,8 @@ services:
       context: ./client-participation
       args:
         GIT_HASH: "${GIT_HASH}"
-    depends_on:
-      - "config"  
     volumes:
-      - "config:/config"
+      - "./config:/app/config"
 
   client-admin:
     container_name: polis-client-admin
@@ -119,10 +110,8 @@ services:
       context: ./client-admin
       args:
         GIT_HASH: "${GIT_HASH}"
-    depends_on:
-      - "config"        
     volumes:
-      - "config:/config"
+      - "./config:/app/config"
 
   client-report:
     container_name: polis-client-report
@@ -130,26 +119,13 @@ services:
     build:
       context: ./client-report
       args:
-        GIT_HASH: "${GIT_HASH}" 
-    depends_on:
-      - "config"
-    volumes:
-      - "config:/config"
-
-  config:
-    container_name: polis-config
-    image: polisdemo/config:dev
-    build:
-      context: ./config
-      args:
         GIT_HASH: "${GIT_HASH}"
     volumes:
-      - "config:/config"
+      - "./config:/app/config"
 
 networks:
   polis-dev:
 
 volumes:
   backups:
-  config:
   postgres:

@@ -1,30 +1,15 @@
-// Copyright (C) 2012-present, The Authors. This program is free software: you
-// can redistribute it and/or  modify it under the terms of the GNU Affero
-// General Public License, version 3, as published by the Free Software
-// Foundation. This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero
-// General Public License for more details. You should have received a copy of
-// the GNU Affero General Public License along with this program.  If not, see
-// <http://www.gnu.org/licenses/>.
+// Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 "use strict";
-
-// for some reason, this cannot be done in the dockerfile
-const childProcess = require('child_process');
-childProcess.execSync('cp /config/* ./config');
 
 // example code node-convict
 // https://medium.com/@sherryhsu/managing-configurations-in-node-js-apps-with-dotenv-and-convict-d74070d37373
 var config = require('./config/config.js');
-console.log('done config');
 
-// uncomment for testing
-// console.log('.akismet_antispam_api_key:
-// console.log('akismet_antispam_api_key: ' 
-//      + config.get('akismet_antispam_api_key'));
-// console.log('foo: ' + config.get('foo'));
-// console.log('bar: ' + config.get('bar'));
+console.log('akismet_antispam_api_key: '
+     + config.get('akismet_antispam_api_key'));
+console.log('foo: ' + config.get('foo'));
+console.log('bar: ' + config.get('bar'));
 
 const akismetLib = require('akismet');
 const AWS = require('aws-sdk');
@@ -374,11 +359,8 @@ const POLIS_FROM_ADDRESS = process.env.POLIS_FROM_ADDRESS;
 
 const akismet = akismetLib.client({
   blog: 'https://pol.is', // required: your root level url
-  apiKey: process.env.AKISMET_ANTISPAM_API_KEY
+  apiKey: process.env.AKISMET_ANTISPAM_API_KEY,
 });
-
-// winston.log("info", 'Akismet key: ' 
-//   + config.get('akismet_antispam_api_key'));
 
 akismet.verifyKey(function(err, verified) {
   if (verified) {
