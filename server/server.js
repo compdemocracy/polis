@@ -6,11 +6,6 @@
 // https://medium.com/@sherryhsu/managing-configurations-in-node-js-apps-with-dotenv-and-convict-d74070d37373
 var config = require('./config/config.js');
 
-console.log('akismet_antispam_api_key: '
-     + config.get('akismet_antispam_api_key'));
-console.log('foo: ' + config.get('foo'));
-console.log('bar: ' + config.get('bar'));
-
 const akismetLib = require('akismet');
 const AWS = require('aws-sdk');
 AWS.config.set('region', 'us-east-1');
