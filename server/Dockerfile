@@ -8,8 +8,7 @@ RUN apk add --no-cache --virtual .build \
   g++ git make python
 
 COPY package*.json ./
-# TODO get `npm ci` to work
-RUN npm install
+RUN npm ci
 
 RUN apk del .build
 
