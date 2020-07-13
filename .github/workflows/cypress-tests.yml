@@ -33,6 +33,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2.3.1
 
+      - name: Push config to mounted volume
+        run: make config-push-local
+
       - name: Serve app via docker-compose
         run: docker-compose up --detach
 
