@@ -13,8 +13,7 @@ try {
   }
 } catch(err) {
   console.error(err)
-  // TODO: Throw real error once app will crash without it.
-  //throw new Error('could not load schema file: ' + SCHEMA_FILE);
+  throw new Error('could not load schema file: ' + SCHEMA_FILE);
 }
 
 const env = config.get('env');
@@ -23,13 +22,13 @@ try {
   if (fs.existsSync(configFile)) {
     // Load environment dependent configuration
     config.loadFile(configFile);
-    // Perform validation
-    config.validate({allowed: 'strict'});
   }
 } catch(err) {
   console.error(err)
-  // TODO: Throw real error once app will crash without it.
-  //throw new Error('could not load config file:' + configFile);
+  throw new Error('could not load config file:' + configFile);
 }
+
+// Perform validation
+config.validate({allowed: 'strict'});
 
 module.exports = config;
