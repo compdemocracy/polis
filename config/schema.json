@@ -9,7 +9,7 @@
     "doc": "akismet_antispam_api_key (ex. a1a11111aa11)",
     "format": "String",
     "default": "",
-    "env": "AKISMET_ANTISPAM_API_KEYx"
+    "env": "AKISMET_ANTISPAM_API_KEY"
   },
   "foo": {
     "doc": "node-convict debug",
