@@ -6,29 +6,30 @@ const ENV_CONFIG_PATH = './config/environments/';
 
 let config;
 
-// Define a schema
 try {
   if (fs.existsSync(SCHEMA_FILE)) {
+    // Define a schema
     config = convict(SCHEMA_FILE);
   }
 } catch(err) {
   console.error(err)
-  throw new Error('could not load schema file: ' + SCHEMA_FILE);
+  // TODO: Throw real error once app will crash without it.
+  //throw new Error('could not load schema file: ' + SCHEMA_FILE);
 }
 
-// Load environment dependent configuration
 const env = config.get('env');
 const configFile = ENV_CONFIG_PATH + env + '.json';
 try {
   if (fs.existsSync(configFile)) {
+    // Load environment dependent configuration
     config.loadFile(configFile);
+    // Perform validation
+    config.validate({allowed: 'strict'});
   }
 } catch(err) {
   console.error(err)
-  throw new Error('could not load config file:' + configFile);
+  // TODO: Throw real error once app will crash without it.
+  //throw new Error('could not load config file:' + configFile);
 }
-
-// Perform validation
-config.validate({allowed: 'strict'});
 
 module.exports = config;

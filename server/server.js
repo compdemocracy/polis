@@ -4,7 +4,7 @@
 
 // example code node-convict
 // https://medium.com/@sherryhsu/managing-configurations-in-node-js-apps-with-dotenv-and-convict-d74070d37373
-var config = require('./config.js');
+const config = require('./config.js');
 
 const akismetLib = require('akismet');
 const AWS = require('aws-sdk');
