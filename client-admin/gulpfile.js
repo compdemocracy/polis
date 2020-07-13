@@ -3,7 +3,7 @@
 var _ = require("lodash");
 var exec = require("child_process").exec;
 var gulp = require("gulp");
-var isTrue = require("boolean");
+var { boolean: isTrue } = require("boolean");
 var s3 = require("gulp-s3");
 var rename = require("gulp-rename");
 var glob = require("glob");
