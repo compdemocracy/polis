@@ -123,6 +123,13 @@ services:
     volumes:
       - "config:/app/config"
 
+  config:
+    container_name: polis-config
+    build:
+      context: ./config
+    volumes:
+      - "config:/app/config"
+
 networks:
   polis-dev:
 
