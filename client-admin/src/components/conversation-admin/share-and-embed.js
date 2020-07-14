@@ -2,6 +2,8 @@
 
 import ConversationHasCommentsCheck from "./conversation-has-comments-check";
 import React from "react";
+import ComponentHelpers from "../../util/component-helpers";
+import NoPermission from "./no-permission";
 import Url from "../../util/url";
 import { connect } from "react-redux";
 import { Link } from "react-router-dom";
@@ -20,6 +22,10 @@ class ShareAndEmbed extends React.Component {
     );
   }
   render() {
+    if (ComponentHelpers.shouldShowPermissionsError(this.props)) {
+      return <NoPermission />;
+    }
+
     const { match } = this.props;
     return (
       <div>
