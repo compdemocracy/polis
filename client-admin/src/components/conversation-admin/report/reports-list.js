@@ -31,7 +31,11 @@ class ReportsList extends React.Component {
   }
 
   componentWillMount() {
-    this.getData();
+    const { zid_metadata } = this.props;
+
+    if (zid_metadata.is_mod) {
+      this.getData();
+    }
   }
 
   createReportClicked() {

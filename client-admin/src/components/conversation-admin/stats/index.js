@@ -47,13 +47,21 @@ class ConversationStats extends React.Component {
     this.props.dispatch(populateConversationStatsStore(match.params.conversation_id, until));
   }
   componentWillMount() {
-    this.loadStats();
-    this.getStatsRepeatedly = setInterval(() => {
+    const { zid_metadata } = this.props;
+
+    if (zid_metadata.is_mod) {
       this.loadStats();
-    }, 10000);
+      this.getStatsRepeatedly = setInterval(() => {
+        this.loadStats();
+      }, 10000);
+    }
   }
   componentWillUnmount() {
-    clearInterval(this.getStatsRepeatedly);
+    const { zid_metadata } = this.props;
+
+    if (zid_metadata.is_mod) {
+      clearInterval(this.getStatsRepeatedly);
+    }
   }
 
   render() {
