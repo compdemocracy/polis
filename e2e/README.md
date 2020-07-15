@@ -18,11 +18,14 @@ To run these tests:
 
 ## Notes
 
-- The default base url is https://preprod.pol.is
+- We keep some helper scripts in `package.json`.
+- The default base url for running tests against, is https://preprod.pol.is
   - You may override this like so: `CYPRESS_BASE_URL=http://123.45.67.89.xip.io npm test`
-- We store our tests in `cypress/integration/polis/`
-- We store templated examples in `cypress/integration/examples/`
+- `cypress/integration/polis/`: where we store our tests
+- `cypress/integration/examples`: where we store boilerplate examples
+- `cypress/support/commands.js`: where we keep oft-used commands, e.g., for logging in, creating conversations, etc.
+- `cypress/support/index.js`: where we keep code we wish to run during initial setup, e.g., to ensure default users present.
 - For tests against features that require third-party credentials when self-hosted, we use filenames like `*.secrets.spec.js`.
-  - This allows someone to easily exclude them from test runs. (See `package.json` for helper commands.)
+  - This allows someone to easily exclude them from test runs.
 - These tests are run automatically on pull requests and mainline branch.
   - We use a GitHub Actions workflow, configured via [`.github/workflows/cypress-tests.yml`](/.github/workflows/cypress-tests.yml).
