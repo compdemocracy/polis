@@ -39,170 +39,33 @@ const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const LruCache = require("lru-cache");
 const timeout = require('connect-timeout');
 const Translate = require('@google-cloud/translate');
-const isValidUrl = require('valid-url');
 const zlib = require('zlib');
 const _ = require('underscore');
 
+// Re-import disassembled code to promise existing code will work
+const Log = require('./log');
+const yell = Log.yell;
+const fail = Log.fail;
+const userFail = Log.userFail;
 
+const addInRamMetric = require('./utils/metered').addInRamMetric;
+const MPromise = require('./utils/metered').MPromise;
 
+const pg = require('./db/pg-query');
+const pgQuery = pg.pgQuery;
+const pgQuery_readOnly = pg.pgQuery_readOnly;
+const pgQueryP = pg.pgQueryP;
+const pgQueryP_metered = pg.pgQueryP_metered;
+const pgQueryP_metered_readOnly = pg.pgQueryP_metered_readOnly;
+const pgQueryP_readOnly = pg.pgQueryP_readOnly;
+const pgQueryP_readOnly_wRetryIfEmpty = pg.pgQueryP_readOnly_wRetryIfEmpty;
 
+const User = require('./user');
+const pidCache = User.pidCache;
+const getPidPromise = User.getPidPromise;
 
-
-
-// # DB Connections
-//
-// heroku pg standard plan has 120 connections
-// plus a dev poller connection and a direct db connection
-// 3 devs * (2 + 1 + 1) = 12 for devs
-// plus the prod and preprod pollers = 14
-// round up to 20
-// so we can have 25 connections per server, of of which is the preprod server
-// so we can have 1 preprod/3 prod servers, or 2 preprod / 2 prod.
-//
-// Note we use native
-const pgnative = require('pg').native; //.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
-const parsePgConnectionString = require('pg-connection-string').parse;
-
-const usingReplica = process.env.DATABASE_URL !== process.env[process.env.DATABASE_FOR_READS_NAME];
-const poolSize = devMode ? 2 : (usingReplica ? 3 : 12)
-
-// not sure how many of these config options we really need anymore
-const pgConnection = Object.assign(parsePgConnectionString(process.env.DATABASE_URL),
-  {max: poolSize,
-    isReadOnly: false,
-   poolLog: function(str, level) {
-     if (pgPoolLevelRanks.indexOf(level) <= pgPoolLoggingLevel) {
-       console.log("pool.primary." + level + " " + str);
-     }
-   }})
-const readsPgConnection = Object.assign(parsePgConnectionString(process.env[process.env.DATABASE_FOR_READS_NAME]),
-  {max: poolSize,
-   isReadOnly: true,
-   poolLog: function(str, level) {
-     if (pgPoolLevelRanks.indexOf(level) <= pgPoolLoggingLevel) {
-       console.log("pool.replica." + level + " " + str);
-     }
-   }})
-
-// split requests into centralized read/write transactor pool vs read pool for scalability concerns in keeping
-// pressure down on the transactor (read+write) server
-const readWritePool = new pgnative.Pool(pgConnection)
-const readPool = new pgnative.Pool(readsPgConnection)
-
-// Same syntax as pg.client.query, but uses connection pool
-// Also takes care of calling 'done'.
-function pgQueryImpl(pool, queryString, ...args) {
-  // variable arity depending on whether or not query has params (default to [])
-  let params, callback;
-  if (_.isFunction(args[1])) {
-    params = args[0];
-    callback = args[1];
-  } else if (_.isFunction(args[0])) {
-    params = [];
-    callback = args[0];
-  } else {
-    throw "unexpected db query syntax";
-  }
-
-  // Not sure whether we have to be this careful in calling release for these query results. There may or may
-  // not have been a good reason why Mike did this. If just using pool.query works and doesn't exhibit scale
-  // under load, might be worth stripping
-  pool.connect((err, client, release) => {
-    if (err) {
-      callback(err);
-      // force the pool to destroy and remove a client by passing an instance of Error (or anything truthy, actually) to the done() callback
-      release(err);
-      yell("pg_connect_pool_fail");
-      return;
-    }
-    // Anyway, here's the actual query call
-    client.query(queryString, params, function(err, results) {
-      if (err) {
-        // force the pool to destroy and remove a client by passing an instance of Error (or anything truthy, actually) to the release() callback
-        release(err);
-      } else {
-        release();
-      }
-      callback(err, results)
-    });
-  });
-}
-
-
-const pgPoolLevelRanks = ["info", "verbose"]; // TODO investigate
-const pgPoolLoggingLevel = -1; // -1 to get anything more important than info and verbose. // pgPoolLevelRanks.indexOf("info");
-
-// remove queryreadwriteobj
-// remove queryreadonlyobj
-
-function pgQuery(...args) {
-  return pgQueryImpl(readWritePool, ...args);
-}
-
-function pgQuery_readOnly(...args) {
-  return pgQueryImpl(readPool, ...args);
-}
-
-function pgQueryP_impl(config, queryString, params) {
-  if (!_.isString(queryString)) {
-    return Promise.reject("query_was_not_string");
-  }
-  let f = config.isReadOnly ? pgQuery_readOnly : pgQuery;
-  return new Promise(function(resolve, reject) {
-    f(queryString, params, function(err, result) {
-      if (err) {
-        return reject(err);
-      }
-      if (!result || !result.rows) {
-        // caller is responsible for testing if there are results
-        return resolve([]);
-      }
-      resolve(result.rows);
-    });
-  });
-}
-
-function pgQueryP(...args) {
-  return pgQueryP_impl(readWritePool, ...args);
-}
-
-function pgQueryP_readOnly(...args) {
-  return pgQueryP_impl(readPool, ...args);
-}
-
-function pgQueryP_readOnly_wRetryIfEmpty(...args) {
-  return pgQueryP_impl(readPool, ...args).then(function(rows) {
-    if (!rows.length) {
-      // the replica DB didn't have it (yet?) so try the master.
-      return pgQueryP(...args);
-    }
-    return rows;
-  }); // NOTE: this does not retry in case of errors. Not sure what's best in that case.
-}
-
-
-
-function pgQueryP_metered_impl(isReadOnly, name, queryString, params) {
-  let f = isReadOnly ? pgQueryP_readOnly : pgQueryP;
-  if (_.isUndefined(name) || _.isUndefined(queryString) || _.isUndefined(params)) {
-    throw new Error("polis_err_pgQueryP_metered_impl missing params");
-  }
-  return new MPromise(name, function(resolve, reject) {
-    f(queryString, params).then(resolve, reject);
-  });
-}
-
-function pgQueryP_metered(name, queryString, params) {
-  return pgQueryP_metered_impl(false, ...arguments);
-}
-
-function pgQueryP_metered_readOnly(name, queryString, params) {
-  return pgQueryP_metered_impl(true, ...arguments);
-}
-
-
-
-
+const Conversation = require('./conversation');
+const getZidFromConversationId = Conversation.getZidFromConversationId;
 
 // # Slack setup
 
@@ -370,59 +233,6 @@ akismet.verifyKey(function(err, verified) {
 
 
 
-// metric name => {
-//    values: [circular buffers of values (holds 1000 items)]
-//    index: index in circular buffer
-//}
-const METRICS_IN_RAM = {};
-const SHOULD_ADD_METRICS_IN_RAM = false;
-
-function addInRamMetric(metricName, val) {
-  if (!SHOULD_ADD_METRICS_IN_RAM) {
-    return;
-  }
-  if (!METRICS_IN_RAM[metricName]) {
-    METRICS_IN_RAM[metricName] = {
-      values: new Array(1000),
-      index: 0,
-    };
-  }
-  let index = METRICS_IN_RAM[metricName].index;
-  METRICS_IN_RAM[metricName].values[index] = val;
-  METRICS_IN_RAM[metricName].index = (index + 1) % 1000;
-}
-
-
-
-// metered promise
-function MPromise(name, f) {
-  let p = new Promise(f);
-  let start = Date.now();
-  setTimeout(function() {
-    addInRamMetric(name + ".go", 1, start);
-  }, 100);
-  p.then(function() {
-    let end = Date.now();
-    let duration = end - start;
-    setTimeout(function() {
-      addInRamMetric(name + ".ok", duration, end);
-    }, 100);
-  }, function() {
-    let end = Date.now();
-    let duration = end - start;
-    setTimeout(function() {
-      addInRamMetric(name + ".fail", duration, end);
-    }, 100);
-  }).catch(function(err) {
-    let end = Date.now();
-    let duration = end - start;
-    setTimeout(function() {
-      addInRamMetric(name + ".fail", duration, end);
-      console.log("MPromise internal error");
-    }, 100);
-  });
-  return p;
-}
 
 
 
@@ -496,35 +306,6 @@ function ifDefinedSet(name, source, dest) {
 
 //metric("api.process.launch", 1);
 
-const errorNotifications = (function() {
-  let errors = [];
-
-  function sendAll() {
-    if (errors.length === 0) {
-      return;
-    }
-    // pushoverInstance.send({
-    //     title: "err",
-    //     message: _.uniq(errors).join("\n"),
-    // }, function(err, result) {
-    //     winston.log("info","pushover " + err?"failed":"ok");
-    //     winston.log("info",err);
-    //     winston.log("info",result);
-    // });
-    errors = [];
-  }
-  setInterval(sendAll, 60 * 1000);
-  return {
-    add: function(token) {
-      if (devMode && !_.isString(token)) {
-        throw new Error("empty token for pushover");
-      }
-      console.error(token);
-      errors.push(token);
-    },
-  };
-}());
-const yell = errorNotifications.add;
 
 // TODO clean this up
 // const intercom = new Intercom(process.env.INTERCOM_ACCESS_TOKEN);
@@ -1133,21 +914,6 @@ function doPolisSlackTeamUserTokenHeaderAuth(assigner, isOptional, req, res, nex
 }
 
 
-// Consolidate query/body items in one place so other middleware has one place to look.
-function moveToBody(req, res, next) {
-  if (req.query) {
-    req.body = req.body || {};
-    Object.assign(req.body, req.query);
-  }
-  if (req.params) {
-    req.body = req.body || {};
-    Object.assign(req.body, req.params);
-  }
-  // inti req.p if not there already
-  req.p = req.p || {};
-  next();
-}
-
 // function logPath(req, res, next) {
 //     winston.log("info",req.method + " " + req.url);
 //     next();
@@ -1168,455 +934,6 @@ String.prototype.hashCode = function() {
   }
   return hash;
 };
-
-function fail(res, httpCode, clientVisibleErrorString, err) {
-  emitTheFailure(res, httpCode, "polis_err", clientVisibleErrorString, err);
-  yell(clientVisibleErrorString);
-}
-
-function userFail(res, httpCode, clientVisibleErrorString, err) {
-  emitTheFailure(res, httpCode, "polis_user_err", clientVisibleErrorString, err);
-}
-
-function emitTheFailure(res, httpCode, extraErrorCodeForLogs, clientVisibleErrorString, err) {
-  console.error(clientVisibleErrorString, extraErrorCodeForLogs, err);
-  if (err && err.stack) {
-    console.error(err.stack);
-  }
-  res.writeHead(httpCode || 500);
-  res.end(clientVisibleErrorString);
-}
-
-function isEmail(s) {
-  return typeof s === "string" && s.length < 999 && s.indexOf("@") > 0;
-}
-
-function getEmail(s) {
-  return new Promise(function(resolve, reject) {
-    if (!isEmail(s)) {
-      return reject("polis_fail_parse_email");
-    }
-    resolve(s);
-  });
-}
-
-function getPassword(s) {
-  return new Promise(function(resolve, reject) {
-    if (typeof s !== "string" || s.length > 999 || s.length === 0) {
-      return reject("polis_fail_parse_password");
-    }
-    resolve(s);
-  });
-}
-
-function getPasswordWithCreatePasswordRules(s) {
-  return getPassword(s).then(function(s) {
-    if (typeof s !== "string" || s.length < 6) {
-      throw new Error("polis_err_password_too_short");
-    }
-    return s;
-  });
-}
-
-function getOptionalStringLimitLength(limit) {
-  return function(s) {
-    return new Promise(function(resolve, reject) {
-      if (s.length && s.length > limit) {
-        return reject("polis_fail_parse_string_too_long");
-      }
-      // strip leading/trailing spaces
-      s = s.replace(/^ */, "").replace(/ *$/, "");
-      resolve(s);
-    });
-  };
-}
-
-function getStringLimitLength(min, max) {
-  if (_.isUndefined(max)) {
-    max = min;
-    min = 1;
-  }
-  return function(s) {
-    return new Promise(function(resolve, reject) {
-      if (typeof s !== "string") {
-        return reject("polis_fail_parse_string_missing");
-      }
-      if (s.length && s.length > max) {
-        return reject("polis_fail_parse_string_too_long");
-      }
-      if (s.length && s.length < min) {
-        return reject("polis_fail_parse_string_too_short");
-      }
-      // strip leading/trailing spaces
-      s = s.replace(/^ */, "").replace(/ *$/, "");
-      resolve(s);
-    });
-  };
-}
-
-function getUrlLimitLength(limit) {
-  return function(s) {
-    getStringLimitLength(limit)(s).then(function(s) {
-      return new Promise(function(resolve, reject) {
-        if (isValidUrl(s)) {
-          return resolve(s);
-        } else {
-          return reject("polis_fail_parse_url_invalid");
-        }
-      });
-    });
-  };
-}
-
-
-function getBool(s) {
-  return new Promise(function(resolve, reject) {
-    let type = typeof s;
-    if ("boolean" === type) {
-      return resolve(s);
-    }
-    if ("number" === type) {
-      if (s === 0) {
-        return resolve(false);
-      }
-      return resolve(true);
-    }
-    s = s.toLowerCase();
-    if (s === 't' || s === 'true' || s === 'on' || s === '1') {
-      return resolve(true);
-    } else if (s === 'f' || s === 'false' || s === 'off' || s === '0') {
-      return resolve(false);
-    }
-    reject("polis_fail_parse_boolean");
-  });
-}
-
-function getInt(s) {
-  return new Promise(function(resolve, reject) {
-    if (_.isNumber(s) && s >> 0 === s) {
-      return resolve(s);
-    }
-    let x = parseInt(s);
-    if (isNaN(x)) {
-      return reject("polis_fail_parse_int " + s);
-    }
-    resolve(x);
-  });
-}
-
-
-const conversationIdToZidCache = new LruCache({
-  max: 1000,
-});
-const reportIdToRidCache = new LruCache({
-  max: 1000,
-});
-
-// NOTE: currently conversation_id is stored as zinvite
-function getZidFromConversationId(conversation_id) {
-  return new MPromise("getZidFromConversationId", function(resolve, reject) {
-    let cachedZid = conversationIdToZidCache.get(conversation_id);
-    if (cachedZid) {
-      resolve(cachedZid);
-      return;
-    }
-    pgQuery_readOnly("select zid from zinvites where zinvite = ($1);", [conversation_id], function(err, results) {
-      if (err) {
-        return reject(err);
-      } else if (!results || !results.rows || !results.rows.length) {
-        console.error("polis_err_fetching_zid_for_conversation_id " + conversation_id);
-        return reject("polis_err_fetching_zid_for_conversation_id");
-      } else {
-        let zid = results.rows[0].zid;
-        conversationIdToZidCache.set(conversation_id, zid);
-        return resolve(zid);
-      }
-    });
-  });
-}
-function getRidFromReportId(report_id) {
-  return new MPromise("getRidFromReportId", function(resolve, reject) {
-    let cachedRid = reportIdToRidCache.get(report_id);
-    if (cachedRid) {
-      resolve(cachedRid);
-      return;
-    }
-    pgQuery_readOnly("select rid from reports where report_id = ($1);", [report_id], function(err, results) {
-      if (err) {
-        return reject(err);
-      } else if (!results || !results.rows || !results.rows.length) {
-        console.error("polis_err_fetching_rid_for_report_id " + report_id);
-        return reject("polis_err_fetching_rid_for_report_id");
-      } else {
-        let rid = results.rows[0].rid;
-        reportIdToRidCache.set(report_id, rid);
-        return resolve(rid);
-      }
-    });
-  });
-}
-
-// conversation_id is the client/ public API facing string ID
-const parseConversationId = getStringLimitLength(1, 100);
-
-function getConversationIdFetchZid(s) {
-  return parseConversationId(s).then(function(conversation_id) {
-    return getZidFromConversationId(conversation_id).then(function(zid) {
-      return Number(zid);
-    });
-  });
-}
-
-const parseReportId = getStringLimitLength(1, 100);
-function getReportIdFetchRid(s) {
-  return parseReportId(s).then(function(report_id) {
-    console.log(report_id);
-    return getRidFromReportId(report_id).then(function(rid) {
-      console.log(rid);
-      return Number(rid);
-    });
-  });
-}
-
-
-
-function getNumber(s) {
-  return new Promise(function(resolve, reject) {
-    if (_.isNumber(s)) {
-      return resolve(s);
-    }
-    let x = parseFloat(s);
-    if (isNaN(x)) {
-      return reject("polis_fail_parse_number");
-    }
-    resolve(x);
-  });
-}
-
-function getNumberInRange(min, max) {
-  return function(s) {
-    return getNumber(s).then(function(x) {
-      if (x < min || max < x) {
-        throw "polis_fail_parse_number_out_of_range";
-      }
-      return x;
-    });
-  };
-}
-
-function getArrayOfString(a, maxStrings, maxLength) {
-  return new Promise(function(resolve, reject) {
-    if (_.isString(a)) {
-      a = a.split(',');
-    }
-    if (!_.isArray(a)) {
-      return reject("polis_fail_parse_int_array");
-    }
-    resolve(a);
-  });
-}
-
-function getArrayOfStringNonEmpty(a, maxStrings, maxLength) {
-  if (!a || !a.length) {
-    return Promise.reject("polis_fail_parse_string_array_empty");
-  }
-  return getArrayOfString(a);
-}
-
-function getArrayOfStringLimitLength(maxStrings, maxLength) {
-  return function(a) {
-    return getArrayOfString(a, maxStrings||999999999, maxLength);
-  };
-}
-
-function getArrayOfStringNonEmptyLimitLength(maxStrings, maxLength) {
-  return function(a) {
-    return getArrayOfStringNonEmpty(a, maxStrings||999999999, maxLength);
-  };
-}
-
-function getArrayOfInt(a) {
-  if (_.isString(a)) {
-    a = a.split(',');
-  }
-  if (!_.isArray(a)) {
-    return Promise.reject("polis_fail_parse_int_array");
-  }
-
-  function integer(i) {
-    return Number(i) >> 0;
-  }
-  return Promise.resolve(a.map(integer));
-}
-
-function getIntInRange(min, max) {
-  return function(s) {
-    return getInt(s).then(function(x) {
-      if (x < min || max < x) {
-        throw "polis_fail_parse_int_out_of_range";
-      }
-      return x;
-    });
-  };
-}
-
-function assignToP(req, name, x) {
-  req.p = req.p || {};
-  if (!_.isUndefined(req.p[name])) {
-    let s = "clobbering " + name;
-    console.error(s);
-    yell(s);
-  }
-  req.p[name] = x;
-}
-
-function assignToPCustom(name) {
-  return function(req, ignoredName, x) {
-    assignToP(req, name, x);
-  };
-}
-
-
-function extractFromBody(req, name) {
-  if (!req.body) {
-    return void 0;
-  }
-  return req.body[name];
-}
-
-function extractFromCookie(req, name) {
-  if (!req.cookies) {
-    return void 0;
-  }
-  return req.cookies[name];
-}
-
-function extractFromHeader(req, name) {
-  if (!req.headers) {
-    return void 0;
-  }
-  return req.headers[name.toLowerCase()];
-}
-
-
-const prrrams = (function() {
-  function buildCallback(config) {
-    let name = config.name;
-    let parserWhichReturnsPromise = config.parserWhichReturnsPromise;
-    let assigner = config.assigner;
-    let required = config.required;
-    let defaultVal = config.defaultVal;
-    let extractor = config.extractor;
-
-    if (typeof assigner !== "function") {
-      throw "bad arg for assigner";
-    }
-    if (typeof parserWhichReturnsPromise !== "function") {
-      throw "bad arg for parserWhichReturnsPromise";
-    }
-
-    let f = function(req, res, next) {
-      let val = extractor(req, name);
-      if (!_.isUndefined(val) && !_.isNull(val)) {
-        parserWhichReturnsPromise(val).then(function(parsed) {
-          assigner(req, name, parsed);
-          next();
-        }, function(e) {
-          let s = "polis_err_param_parse_failed_" + name;
-          console.error(s);
-          console.error(e);
-          yell(s);
-          res.status(400);
-          next(s);
-          return;
-        }).catch(function(err) {
-          fail(res, "polis_err_misc", err);
-          return;
-        });
-      } else if (!required) {
-        if (typeof defaultVal !== "undefined") {
-          assigner(req, name, defaultVal);
-        }
-        next();
-      } else {
-        // winston.log("info",req);
-        let s = "polis_err_param_missing_" + name;
-        console.error(s);
-        yell(s);
-        res.status(400);
-        next(s);
-      }
-    };
-    return f;
-  }
-
-  return {
-    need: function(name, parserWhichReturnsPromise, assigner) {
-      return buildCallback({
-        name: name,
-        extractor: extractFromBody,
-        parserWhichReturnsPromise: parserWhichReturnsPromise,
-        assigner: assigner,
-        required: true,
-      });
-    },
-    want: function(name, parserWhichReturnsPromise, assigner, defaultVal) {
-      return buildCallback({
-        name: name,
-        extractor: extractFromBody,
-        parserWhichReturnsPromise: parserWhichReturnsPromise,
-        assigner: assigner,
-        required: false,
-        defaultVal: defaultVal,
-      });
-    },
-    needCookie: function(name, parserWhichReturnsPromise, assigner) {
-      return buildCallback({
-        name: name,
-        extractor: extractFromCookie,
-        parserWhichReturnsPromise: parserWhichReturnsPromise,
-        assigner: assigner,
-        required: true,
-      });
-    },
-    wantCookie: function(name, parserWhichReturnsPromise, assigner, defaultVal) {
-      return buildCallback({
-        name: name,
-        extractor: extractFromCookie,
-        parserWhichReturnsPromise: parserWhichReturnsPromise,
-        assigner: assigner,
-        required: false,
-        defaultVal: defaultVal,
-      });
-    },
-    needHeader: function(name, parserWhichReturnsPromise, assigner, defaultVal) {
-      return buildCallback({
-        name: name,
-        extractor: extractFromHeader,
-        parserWhichReturnsPromise: parserWhichReturnsPromise,
-        assigner: assigner,
-        required: true,
-        defaultVal: defaultVal,
-      });
-    },
-    wantHeader: function(name, parserWhichReturnsPromise, assigner, defaultVal) {
-      return buildCallback({
-        name: name,
-        extractor: extractFromHeader,
-        parserWhichReturnsPromise: parserWhichReturnsPromise,
-        assigner: assigner,
-        required: false,
-        defaultVal: defaultVal,
-      });
-    },
-  };
-}());
-const need = prrrams.need;
-const want = prrrams.want;
-// let needCookie = prrrams.needCookie;
-const wantCookie = prrrams.wantCookie;
-const needHeader = prrrams.needHeader;
-const wantHeader = prrrams.wantHeader;
 
 const COOKIES = {
   COOKIE_TEST: 'ct',
@@ -1842,10 +1159,6 @@ function initializePolisHelpers() {
     });
   }
 
-  let pidCache = new LruCache({
-    max: 9000,
-  });
-
   // returns a pid of -1 if it's missing
   function getPid(zid, uid, callback) {
     let cacheKey = zid + "_" + uid;
@@ -1864,71 +1177,7 @@ function initializePolisHelpers() {
     });
   }
 
-  // returns a pid of -1 if it's missing
-  function getPidPromise(zid, uid, usePrimary) {
-    let cacheKey = zid + "_" + uid;
-    let cachedPid = pidCache.get(cacheKey);
-    return new MPromise("getPidPromise", function(resolve, reject) {
-      if (!_.isUndefined(cachedPid)) {
-        resolve(cachedPid);
-        return;
-      }
-      const f = usePrimary ? pgQuery : pgQuery_readOnly;
-      f("SELECT pid FROM participants WHERE zid = ($1) AND uid = ($2);", [zid, uid], function(err, results) {
-        if (err) {
-          return reject(err);
-        }
-        if (!results || !results.rows || !results.rows.length) {
-          resolve(-1);
-          return;
-        }
-        let pid = results.rows[0].pid;
-        pidCache.set(cacheKey, pid);
-        resolve(pid);
-      });
-    });
-  }
 
-
-  function resolve_pidThing(pidThingStringName, assigner, loggingString) {
-    if (_.isUndefined(loggingString)) {
-      loggingString = "";
-    }
-    return function(req, res, next) {
-      if (!req.p) {
-        fail(res, 500, "polis_err_this_middleware_should_be_after_auth_and_zid");
-        next("polis_err_this_middleware_should_be_after_auth_and_zid");
-      }
-      console.dir(req.p);
-
-      let existingValue = extractFromBody(req, pidThingStringName) || extractFromCookie(req, pidThingStringName);
-
-      if (existingValue === "mypid" && req.p.zid && req.p.uid) {
-        getPidPromise(req.p.zid, req.p.uid).then(function(pid) {
-          if (pid >= 0) {
-            assigner(req, pidThingStringName, pid);
-          }
-          next();
-        }).catch(function(err) {
-          fail(res, 500, "polis_err_mypid_resolve_error", err);
-          next(err);
-        });
-      } else if (existingValue === "mypid") {
-        // don't assign anything, since we have no uid to look it up.
-        next();
-      } else if (!_.isUndefined(existingValue)) {
-        getInt(existingValue).then(function(pidNumber) {
-          assigner(req, pidThingStringName, pidNumber);
-          next();
-        }).catch(function(err) {
-          fail(res, 500, "polis_err_pid_error", err);
-          next(err);
-        });
-      } else {
-        next();
-      }
-    };
-  }
 
 
   // must follow auth and need('zid'...) middleware
@@ -14731,8 +13980,6 @@ CREATE TABLE slack_user_invites (
 
   return {
     addCorsHeader,
-    assignToP,
-    assignToPCustom,
     auth,
     authOptional,
     COOKIES,
@@ -14747,36 +13994,12 @@ CREATE TABLE slack_user_invites (
     fetchIndexForConversation,
     fetchIndexForReportPage,
     fetchIndexWithoutPreloadData,
-    getArrayOfInt,
-    getArrayOfStringLimitLength,
-    getArrayOfStringNonEmpty,
-    getArrayOfStringNonEmptyLimitLength,
-    getBool,
-    getConversationIdFetchZid,
-    getEmail,
-    getInt,
-    getIntInRange,
-    getNumberInRange,
-    getOptionalStringLimitLength,
-    getPassword,
-    getPasswordWithCreatePasswordRules,
     getPidForParticipant,
-    getReportIdFetchRid,
-    getStringLimitLength,
-    getUrlLimitLength,
     haltOnTimeout,
     HMAC_SIGNATURE_PARAM_NAME,
     hostname,
     makeFileFetcher,
     makeRedirectorTo,
-    moveToBody,
-    need,
-    needHeader,
-    pgQueryP,
-    pgQueryP_metered,
-    pgQueryP_metered_readOnly,
-    pgQueryP_readOnly,
-    pgQueryP_readOnly_wRetryIfEmpty,
     pidCache,
     portForAdminFiles,
     portForParticipationFiles,
@@ -14785,12 +14008,8 @@ CREATE TABLE slack_user_invites (
     redirectIfHasZidButNoConversationId,
     redirectIfNotHttps,
     redirectIfWrongDomain,
-    resolve_pidThing,
     sendTextEmail,
     timeout,
-    want,
-    wantCookie,
-    wantHeader,
     winston,
     writeDefaultHead,
     yell,
