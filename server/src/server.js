@@ -10,7 +10,6 @@ const Promise = require('bluebird');
 const http = require('http');
 const httpProxy = require('http-proxy');
 // const Promise = require('es6-promise').Promise,
-const sql = require("sql"); // see here for useful syntax: https://github.com/brianc/node-sql/blob/bbd6ed15a02d4ab8fbc5058ee2aff1ad67acd5dc/lib/node/valueExpression.js
 const escapeLiteral = require('pg').Client.prototype.escapeLiteral;
 const async = require('async');
 const FB = require('fb');
@@ -68,6 +67,7 @@ const User = require('./user');
 const Conversation = require('./conversation');
 const Session = require('./session');
 const Utils = require('./utils/common');
+const SQL = require('./db/sql');
 
 // # Slack setup
 
@@ -276,155 +276,13 @@ function ifDefinedSet(name, source, dest) {
 // const intercom = new Intercom(process.env.INTERCOM_ACCESS_TOKEN);
 const intercom = intercomClient;
 
-//first we define our tables
-const sql_conversations = sql.define({
-  name: 'conversations',
-  columns: [
-    "zid",
-    "topic",
-    "description",
-    "participant_count",
-    "is_anon",
-    "is_active",
-    "is_draft",
-    "is_public", // TODO remove this column
-    "is_data_open",
-    "is_slack",
-    "profanity_filter",
-    "spam_filter",
-    "strict_moderation",
-    "email_domain",
-    "owner",
-    "org_id",
-    "owner_sees_participation_stats",
-    "context",
-    "course_id",
-    "lti_users_only",
-    "modified",
-    "created",
-    "link_url",
-    "parent_url",
-    "vis_type",
-    "write_type",
-    "help_type",
-    "socialbtn_type",
-    "subscribe_type",
-    "bgcolor",
-    "help_color",
-    "help_bgcolor",
-    "style_btn",
-    "auth_needed_to_vote",
-    "auth_needed_to_write",
-    "auth_opt_fb",
-    "auth_opt_tw",
-    "auth_opt_allow_3rdparty",
-  ],
-});
-
-// const sql_votes = sql.define({
-//   name: 'votes',
-//   columns: [
-//     "zid",
-//     "tid",
-//     "pid",
-//     "created",
-//     "vote",
-//   ],
-// });
-
-const sql_votes_latest_unique = sql.define({
-  name: 'votes_latest_unique',
-  columns: [
-    "zid",
-    "tid",
-    "pid",
-    "modified",
-    "vote",
-  ],
-});
-const sql_comments = sql.define({
-  name: 'comments',
-  columns: [
-    "tid",
-    "zid",
-    "pid",
-    "uid",
-    "created",
-    "txt",
-    "velocity",
-    "active",
-    "mod",
-    "quote_src_url",
-    "anon",
-  ],
-});
-
-const sql_participant_metadata_answers = sql.define({
-  name: 'participant_metadata_answers',
-  columns: [
-    "pmaid",
-    "pmqid",
-    "zid",
-    "value",
-    "alive",
-  ],
-});
-
-const sql_participants_extended = sql.define({
-  name: 'participants_extended',
-  columns: [
-    "uid",
-    "zid",
-    "referrer",
-    "parent_url",
-    "created",
-    "modified",
-
-    "show_translation_activated",
-
-    "permanent_cookie",
-    "origin",
-    "encrypted_ip_address",
-    "encrypted_x_forwarded_for",
-  ],
-});
-
-//first we define our tables
-const sql_users = sql.define({
-  name: 'users',
-  columns: [
-    "uid",
-    "hname",
-    "email",
-    "created",
-  ],
-});
-
-const sql_reports = sql.define({
-  name: 'reports',
-  columns: [
-    "rid",
-    "report_id",
-    "zid",
-    "created",
-    "modified",
-    "report_name",
-    "label_x_neg",
-    "label_x_pos",
-    "label_y_neg",
-    "label_y_pos",
-    "label_group_0",
-    "label_group_1",
-    "label_group_2",
-    "label_group_3",
-    "label_group_4",
-    "label_group_5",
-    "label_group_6",
-    "label_group_7",
-    "label_group_8",
-    "label_group_9",
-  ],
-});
+const sql_comments = SQL.sql_comments;
+const sql_votes_latest_unique = SQL.sql_votes_latest_unique;
+const sql_conversations = SQL.sql_conversations;
+const sql_participant_metadata_answers = SQL.sql_participant_metadata_answers;
+const sql_participants_extended = SQL.sql_participants_extended;
+const sql_reports = SQL.sql_reports;
+const sql_users = SQL.sql_users;
 
 // // Eventually, the plan is to support a larger number-space by using some lowercase letters.
 // // Waiting to implement that since there's cognitive overhead with mapping the IDs to/from
