@@ -237,6 +237,19 @@ function getUrlLimitLength(limit) {
   };
 }
 
+function getInt(s) {
+  return new Promise(function(resolve, reject) {
+    if (_.isNumber(s) && s >> 0 === s) {
+      return resolve(s);
+    }
+    let x = parseInt(s);
+    if (isNaN(x)) {
+      return reject("polis_fail_parse_int " + s);
+    }
+    resolve(x);
+  });
+}
+
 function getBool(s) {
   return new Promise(function(resolve, reject) {
     let type = typeof s;
@@ -256,19 +269,6 @@ function getBool(s) {
       return resolve(false);
     }
     reject("polis_fail_parse_boolean");
-  });
-}
-
-function getInt(s) {
-  return new Promise(function(resolve, reject) {
-    if (_.isNumber(s) && s >> 0 === s) {
-      return resolve(s);
-    }
-    let x = parseInt(s);
-    if (isNaN(x)) {
-      return reject("polis_fail_parse_int " + s);
-    }
-    resolve(x);
   });
 }
 
