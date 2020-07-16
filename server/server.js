@@ -23,8 +23,10 @@ console.log('done config');
 // console.log('.akismet_antispam_api_key:
 // console.log('akismet_antispam_api_key: ' 
 //      + config.get('akismet_antispam_api_key'));
-// console.log('foo: ' + config.get('foo'));
-// console.log('bar: ' + config.get('bar'));
+console.log('foo: ' + config.get('foo'));
+console.log('bar: ' + config.get('bar'));
+console.log('foo: ' + config.get('foo'));
+console.log('bar: ' + config.get('bar'));
 
 const akismetLib = require('akismet');
 const AWS = require('aws-sdk');
