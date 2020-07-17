@@ -34,8 +34,8 @@ function isDevMode() {
 }
 
 module.exports = {
-  domainOverride,
-  getServerNameWithProtocol,
+	domainOverride,
+	getServerNameWithProtocol,
 	get,
 	isDevMode
 };

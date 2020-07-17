@@ -22,7 +22,7 @@ if (useTranslateApi) {
 }
 
 function getComment(zid, tid) {
-  return pgQueryP("select * from comments where zid = ($1) and tid = ($2);", [zid, tid]).then((rows) => {
+  return pg.queryP("select * from comments where zid = ($1) and tid = ($2);", [zid, tid]).then((rows) => {
     return (rows && rows[0]) || null;
   });
 }

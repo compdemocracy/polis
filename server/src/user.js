@@ -67,7 +67,7 @@ function renderLtiLinkageSuccessPage(req, res, o) {
     // "<p><a href='https://preprod.pol.is/conversation/create/context="+ o.context_id +"'>create</a></p>" +
 
     // form for sign out
-    '<p><form role="form" class="FormVertical" action="' + getServerNameWithProtocol(req) + '/api/v3/auth/deregister" method="POST">' +
+    '<p><form role="form" class="FormVertical" action="' + Config.getServerNameWithProtocol(req) + '/api/v3/auth/deregister" method="POST">' +
     '<input type="hidden" name="showPage" value="canvas_assignment_deregister">' +
     '<button type="submit" class="Btn Btn-primary">Change pol.is users</button>' +
     '</form></p>' +
