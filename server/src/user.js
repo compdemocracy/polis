@@ -7,7 +7,7 @@ const MPromise = require('./utils/metered').MPromise;
 const LruCache = require("lru-cache");
 
 function getUserInfoForUid(uid, callback) {
-  pg.pgQuery_readOnly("SELECT email, hname from users where uid = $1", [uid], function(err, results) {
+  pg.query_readOnly("SELECT email, hname from users where uid = $1", [uid], function(err, results) {
     if (err) {
       return callback(err);
     }
@@ -20,7 +20,7 @@ function getUserInfoForUid(uid, callback) {
 
 function getUserInfoForUid2(uid) {
   return new MPromise("getUserInfoForUid2", function(resolve, reject) {
-    pg.pgQuery_readOnly("SELECT * from users where uid = $1", [uid], function(err, results) {
+    pg.query_readOnly("SELECT * from users where uid = $1", [uid], function(err, results) {
       if (err) {
         return reject(err);
       }
@@ -35,17 +35,17 @@ function getUserInfoForUid2(uid) {
 
 function addLtiUserIfNeeded(uid, lti_user_id, tool_consumer_instance_guid, lti_user_image) {
   lti_user_image = lti_user_image || null;
-  return pg.pgQueryP("select * from lti_users where lti_user_id = ($1) and tool_consumer_instance_guid = ($2);", [lti_user_id, tool_consumer_instance_guid]).then(function(rows) {
+  return pg.queryP("select * from lti_users where lti_user_id = ($1) and tool_consumer_instance_guid = ($2);", [lti_user_id, tool_consumer_instance_guid]).then(function(rows) {
     if (!rows || !rows.length) {
-      return pg.pgQueryP("insert into lti_users (uid, lti_user_id, tool_consumer_instance_guid, lti_user_image) values ($1, $2, $3, $4);", [uid, lti_user_id, tool_consumer_instance_guid, lti_user_image]);
+      return pg.queryP("insert into lti_users (uid, lti_user_id, tool_consumer_instance_guid, lti_user_image) values ($1, $2, $3, $4);", [uid, lti_user_id, tool_consumer_instance_guid, lti_user_image]);
     }
   });
 }
 
 function addLtiContextMembership(uid, lti_context_id, tool_consumer_instance_guid) {
-  return pg.pgQueryP("select * from lti_context_memberships where uid = $1 and lti_context_id = $2 and tool_consumer_instance_guid = $3;", [uid, lti_context_id, tool_consumer_instance_guid]).then(function(rows) {
+  return pg.queryP("select * from lti_context_memberships where uid = $1 and lti_context_id = $2 and tool_consumer_instance_guid = $3;", [uid, lti_context_id, tool_consumer_instance_guid]).then(function(rows) {
     if (!rows || !rows.length) {
-      return pg.pgQueryP("insert into lti_context_memberships (uid, lti_context_id, tool_consumer_instance_guid) values ($1, $2, $3);", [uid, lti_context_id, tool_consumer_instance_guid]);
+      return pg.queryP("insert into lti_context_memberships (uid, lti_context_id, tool_consumer_instance_guid) values ($1, $2, $3);", [uid, lti_context_id, tool_consumer_instance_guid]);
     }
   });
 }
@@ -142,11 +142,11 @@ function getUser(uid, zid_optional, xid_optional, owner_uid_optional) {
 }
 
 function getTwitterInfo(uids) {
-  return pg.pgQueryP_readOnly("select * from twitter_users where uid in ($1);", uids);
+  return pg.queryP_readOnly("select * from twitter_users where uid in ($1);", uids);
 }
 
 function getFacebookInfo(uids) {
-  return pg.pgQueryP_readOnly("select * from facebook_users where uid in ($1);", uids);
+  return pg.queryP_readOnly("select * from facebook_users where uid in ($1);", uids);
 }
 
 // so we can grant extra days to users
@@ -159,7 +159,7 @@ const  usersToAdditionalTrialDays = {
 
 function createDummyUser() {
   return new MPromise("createDummyUser", function(resolve, reject) {
-    pg.pgQuery("INSERT INTO users (created) VALUES (default) RETURNING uid;", [], function(err, results) {
+    pg.query("INSERT INTO users (created) VALUES (default) RETURNING uid;", [], function(err, results) {
       if (err || !results || !results.rows || !results.rows.length) {
         console.error(err);
         reject(new Error("polis_err_create_empty_user"));
@@ -182,7 +182,7 @@ function getPid(zid, uid, callback) {
     callback(null, cachedPid);
     return;
   }
-  pg.pgQuery_readOnly("SELECT pid FROM participants WHERE zid = ($1) AND uid = ($2);", [zid, uid], function(err, docs) {
+  pg.query_readOnly("SELECT pid FROM participants WHERE zid = ($1) AND uid = ($2);", [zid, uid], function(err, docs) {
     let pid = -1;
     if (docs && docs.rows && docs.rows[0]) {
       pid = docs.rows[0].pid;
@@ -201,7 +201,7 @@ function getPidPromise(zid, uid, usePrimary) {
       resolve(cachedPid);
       return;
     }
-    const f = usePrimary ? pg.pgQuery : pg.pgQuery_readOnly;
+    const f = usePrimary ? pg.query : pg.pgQuery_readOnly;
     f("SELECT pid FROM participants WHERE zid = ($1) AND uid = ($2);", [zid, uid], function(err, results) {
       if (err) {
         return reject(err);
@@ -256,7 +256,7 @@ function getSocialInfoForUsers(uids, zid) {
     return Promise.resolve([]);
   }
   let uidString = uids.join(",");
-  return pg.pgQueryP_metered_readOnly("getSocialInfoForUsers", "with "+
+  return pg.queryP_metered_readOnly("getSocialInfoForUsers", "with "+
     "x as (select * from xids where uid in (" + uidString + ") and owner  in (select org_id from conversations where zid = ($1))), "+
     "fb as (select * from facebook_users where uid in (" + uidString + ")), "+
     "tw as (select * from twitter_users where uid in (" + uidString + ")), "+

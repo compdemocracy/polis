@@ -50,13 +50,13 @@ const MPromise = require('./utils/metered').MPromise;
 const yell = Log.yell;
 
 const pg = require('./db/pg-query');
-const pgQuery = pg.pgQuery;
-const pgQuery_readOnly = pg.pgQuery_readOnly;
-const pgQueryP = pg.pgQueryP;
-const pgQueryP_metered = pg.pgQueryP_metered;
-const pgQueryP_metered_readOnly = pg.pgQueryP_metered_readOnly;
-const pgQueryP_readOnly = pg.pgQueryP_readOnly;
-const pgQueryP_readOnly_wRetryIfEmpty = pg.pgQueryP_readOnly_wRetryIfEmpty;
+const pgQuery = pg.query;
+const pgQuery_readOnly = pg.query_readOnly;
+const pgQueryP = pg.queryP;
+const pgQueryP_metered = pg.queryP_metered;
+const pgQueryP_metered_readOnly = pg.queryP_metered_readOnly;
+const pgQueryP_readOnly = pg.queryP_readOnly;
+const pgQueryP_readOnly_wRetryIfEmpty = pg.queryP_readOnly_wRetryIfEmpty;
 
 const CreateUser = require('./auth/create-user');
 const Password = require('./auth/password');
@@ -3046,7 +3046,7 @@ Thank you for using Polis`;
   }
 
   function isEmailVerified(email) {
-    return pg.pgQueryP("select * from email_validations where email = ($1);", [email]).then(function(rows) {
+    return pg.queryP("select * from email_validations where email = ($1);", [email]).then(function(rows) {
       return rows.length > 0;
     });
   }
@@ -5345,7 +5345,7 @@ Email verified! You can close this tab or hit the back button.
     const firstTwoCharsOfLang = req.p.lang.substr(0,2);
 
     getComment(zid, tid).then((comment) => {
-      return pg.pgQueryP("select * from comment_translations where zid = ($1) and tid = ($2) and lang LIKE '$3%';", [zid, tid, firstTwoCharsOfLang]).then((existingTranslations) => {
+      return pg.queryP("select * from comment_translations where zid = ($1) and tid = ($2) and lang LIKE '$3%';", [zid, tid, firstTwoCharsOfLang]).then((existingTranslations) => {
         if (existingTranslations) {
           return existingTranslations;
         }
@@ -6198,7 +6198,7 @@ Email verified! You can close this tab or hit the back button.
   // }
 
   function getCommentTranslations(zid, tid) {
-    return pg.pgQueryP("select * from comment_translations where zid = ($1) and tid = ($2);", [zid, tid]);
+    return pg.queryP("select * from comment_translations where zid = ($1) and tid = ($2);", [zid, tid]);
   }
 
   function getNextComment(zid, pid, withoutTids, include_social, lang) {
@@ -11676,7 +11676,6 @@ CREATE TABLE slack_user_invites (
     }, 100);
 
     doGetConversationPreloadInfo(conversation_id).then(function(x) {
-      console.log(x);
       let preloadData = {
         conversation: x,
         // Nothing user-specific can go here, since we want to cache these per-conv index files on the CDN.
