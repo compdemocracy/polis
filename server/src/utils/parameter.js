@@ -296,7 +296,7 @@ function getRidFromReportId(report_id) {
       resolve(cachedRid);
       return;
     }
-    pg.pgQuery_readOnly("select rid from reports where report_id = ($1);", [report_id], function(err, results) {
+    pg.query_readOnly("select rid from reports where report_id = ($1);", [report_id], function(err, results) {
       if (err) {
         return reject(err);
       } else if (!results || !results.rows || !results.rows.length) {

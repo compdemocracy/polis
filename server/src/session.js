@@ -39,7 +39,7 @@ function getUserInfoForSessionToken(sessionToken, res, cb) {
     cb(null, cachedUid);
     return;
   }
-  pg.pgQuery("select uid from auth_tokens where token = ($1);", [sessionToken], function(err, results) {
+  pg.query("select uid from auth_tokens where token = ($1);", [sessionToken], function(err, results) {
     if (err) {
       console.error("token_fetch_error");
       cb(500);
@@ -69,11 +69,11 @@ function isPolisSlackTeamUserToken(token) {
 }
 
 // function sendSlackEvent(slack_team, o) {
-//   return pg.pgQueryP("insert into slack_bot_events (slack_team, event) values ($1, $2);", [slack_team, o]);
+//   return pg.queryP("insert into slack_bot_events (slack_team, event) values ($1, $2);", [slack_team, o]);
 // }
 
 function sendSlackEvent(o) {
-  return pg.pgQueryP("insert into slack_bot_events (event) values ($1);", [o]);
+  return pg.queryP("insert into slack_bot_events (event) values ($1);", [o]);
 }
 
 function parsePolisLtiToken(token) {
@@ -88,7 +88,7 @@ function parsePolisLtiToken(token) {
 
 function getUserInfoForPolisLtiToken(token) {
   let o = parsePolisLtiToken(token);
-  return pg.pgQueryP("select uid from lti_users where tool_consumer_instance_guid = $1 and lti_user_id = $2", [
+  return pg.queryP("select uid from lti_users where tool_consumer_instance_guid = $1 and lti_user_id = $2", [
     o.tool_consumer_instance_guid,
     o.lti_user_id,
   ]).then(function(rows) {
@@ -100,7 +100,7 @@ function startSession(uid, cb) {
   let token = makeSessionToken();
   //console.log("info",'startSession: token will be: ' + sessionToken);
   console.log("info", 'startSession');
-  pg.pgQuery("insert into auth_tokens (uid, token, created) values ($1, $2, default);", [uid, token], function(err, repliesSetToken) {
+  pg.query("insert into auth_tokens (uid, token, created) values ($1, $2, default);", [uid, token], function(err, repliesSetToken) {
     if (err) {
       cb(err);
       return;
@@ -111,7 +111,7 @@ function startSession(uid, cb) {
 }
 
 function endSession(sessionToken, cb) {
-  pg.pgQuery("delete from auth_tokens where token = ($1);", [sessionToken], function(err, results) {
+  pg.query("delete from auth_tokens where token = ($1);", [sessionToken], function(err, results) {
     if (err) {
       cb(err);
       return;
@@ -125,7 +125,7 @@ function setupPwReset(uid, cb) {
     return crypto.randomBytes(140).toString('base64').replace(/[^A-Za-z0-9]/g, "").substr(0, 100);
   }
   let token = makePwResetToken();
-  pg.pgQuery("insert into pwreset_tokens (uid, token, created) values ($1, $2, default);", [uid, token], function(errSetToken, repliesSetToken) {
+  pg.query("insert into pwreset_tokens (uid, token, created) values ($1, $2, default);", [uid, token], function(errSetToken, repliesSetToken) {
     if (errSetToken) {
       cb(errSetToken);
       return;
@@ -136,7 +136,7 @@ function setupPwReset(uid, cb) {
 
 function getUidForPwResetToken(pwresettoken, cb) {
   // TODO "and created > timestamp - x"
-  pg.pgQuery("select uid from pwreset_tokens where token = ($1);", [pwresettoken], function(errGetToken, results) {
+  pg.query("select uid from pwreset_tokens where token = ($1);", [pwresettoken], function(errGetToken, results) {
     if (errGetToken) {
       console.error("pwresettoken_fetch_error");
       cb(500);
@@ -154,7 +154,7 @@ function getUidForPwResetToken(pwresettoken, cb) {
 }
 
 function clearPwResetToken(pwresettoken, cb) {
-  pg.pgQuery("delete from pwreset_tokens where token = ($1);", [pwresettoken], function(errDelToken, repliesSetToken) {
+  pg.query("delete from pwreset_tokens where token = ($1);", [pwresettoken], function(errDelToken, repliesSetToken) {
     if (errDelToken) {
       cb(errDelToken);
       return;

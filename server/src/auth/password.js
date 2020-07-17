@@ -18,7 +18,7 @@ function generateHashedPassword(password, callback) {
 }
 
 function checkPassword(uid, password) {
-  return pg.pgQueryP_readOnly_wRetryIfEmpty("select pwhash from jianiuevyew where uid = ($1);", [uid]).then(function(rows) {
+  return pg.queryP_readOnly_wRetryIfEmpty("select pwhash from jianiuevyew where uid = ($1);", [uid]).then(function(rows) {
     if (!rows || !rows.length) {
       return null;
     } else if (!rows[0].pwhash) {
@@ -106,11 +106,11 @@ function generateTokenP(len, pseudoRandomOk) {
 
 // function addApiKeyForUser(uid, optionalPrefix) {
 //   return generateApiKeyForUser(uid, optionalPrefix).then(function(apikey) {
-//     return pg.pgQueryP("insert into apikeysndvweifu (uid, apikey)  VALUES ($1, $2);", [uid, apikey]);
+//     return pg.queryP("insert into apikeysndvweifu (uid, apikey)  VALUES ($1, $2);", [uid, apikey]);
 //   });
 // }
 // function getApiKeysTruncated(uid) {
-//   return pg.pgQueryP_readOnly("select * from apikeysndvweifu WHERE uid = ($1);", [uid]).then(function(rows) {
+//   return pg.queryP_readOnly("select * from apikeysndvweifu WHERE uid = ($1);", [uid]).then(function(rows) {
 //     if (!rows || !rows.length) {
 //       return [];
 //     }
@@ -126,7 +126,7 @@ function generateTokenP(len, pseudoRandomOk) {
 // function createApiKey(uid) {
 //   return generateTokenP(17, false).then(function(token) {
 //     let apikey = "pkey_" + token;
-//     return pg.pgQueryP("insert into apikeysndvweifu (uid, apikey) values ($1, $2) returning *;", [uid, apikey]).then(function(row) {
+//     return pg.queryP("insert into apikeysndvweifu (uid, apikey) values ($1, $2) returning *;", [uid, apikey]).then(function(row) {
 //       return {
 //         apikey: apikey,
 //         created: row.created,
@@ -140,7 +140,7 @@ function generateTokenP(len, pseudoRandomOk) {
 //   apikeyTruncated = apikeyTruncated.slice(0, apikeyTruncated.indexOf("."));
 //   // basic sanitizing - replace unexpected characters with x's.
 //   apikeyTruncated = apikeyTruncated.replace(/[^a-zA-Z0-9_]/g, 'x');
-//   return pg.pgQueryP("delete from apikeysndvweifu where uid = ($1) and apikey ~ '^" + apikeyTruncated + "';", [uid]);
+//   return pg.queryP("delete from apikeysndvweifu where uid = ($1) and apikey ~ '^" + apikeyTruncated + "';", [uid]);
 // }
 
 // function addApiKeyForUsersBulk(uids, optionalPrefix) {
@@ -157,7 +157,7 @@ function generateTokenP(len, pseudoRandomOk) {
 //         }
 //         query += pairs.join(',');
 //         query += 'returning uid;';
-//         return pg.pgQueryP(query, []);
+//         return pg.queryP(query, []);
 //     });
 // }
 
