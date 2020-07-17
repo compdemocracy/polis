@@ -45,7 +45,7 @@
     "glob": "^7.1.2",
     "gulp": "^3.9.0",
     "gulp-cli": "^1.4.0",
-    "gulp-gzip": "0.0.4",
+    "gulp-gzip": "1.4.2",
     "gulp-rename": "~2.0.0",
     "gulp-s3": "git://github.com/mbjorkegren/gulp-s3#847e2b372204b4ceeccb0e9b567f28ff00e7fa1d",
     "gulp-scp2": "^0.2.0",
