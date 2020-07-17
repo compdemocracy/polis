@@ -14,14 +14,7 @@
 const childProcess = require('child_process');
 childProcess.execSync('cp /config/* ./config');
 
-// example code node-convict
-// https://medium.com/@sherryhsu/managing-configurations-in-node-js-apps-with-dotenv-and-convict-d74070d37373
 var config = require('./config/config.js');
-console.log('done config');
-
-// quick test for schema,config, env 
-console.log('foo: ' + config.get('foo'));
-console.log('bar: ' + config.get('bar'));
 
 const akismetLib = require('akismet');
 const AWS = require('aws-sdk');

@@ -1,4 +1,15 @@
-# https://www.json2yaml.com/
+# Precedence order (https://www.npmjs.com/package/convict)
+# When merging configuration values from different sources, Convict follows precedence rules. The order, from lowest to highest, for config.loadFile(file) and config.load(json) is:
+
+# Default value
+# File or json set in function argument
+# Environment variables (only used when env property is set in schema)
+# Command line arguments (only used when arg property is set in schema)
+
+# for easy json/yaml conversion: https://www.json2yaml.com/
+
+# @TODO: update all formats (https://www.npmjs.com/package/convict)
+
 env:
   doc: The application environment
   format:
@@ -8,27 +19,17 @@ env:
   default: development
   env: NODE_ENV
 
-# for testing
-foo:
-  doc: node-convict debug
-  format: String
-  default: foo-text
-  env: FOO
-bar:
-  doc: node-convict debug
-  format: String
-  default: bar-text
-  env: BAR
-
 # for server
 aws_access_key_id:
   doc: aws_access_key_id
   default: NA
   env: AWS_ACCESS_KEY_ID
+  sensitive: true
 aws_secret_access_key:
   doc: aws_secret_access_key
   default: NA
   env: AWS_SECRET_ACCESS_KEY
+  sensitive: true
 aws_region:
   doc: aws_region
   default: us-east-1
@@ -219,6 +220,10 @@ static_files_admindash_port:
   doc: static_files_admindash_port
   default: 8080
   env: STATIC_FILES_ADMINDASH_PORT
+static_files_report_port:
+  doc: static_files_report_port
+  default: 8080
+  env: STATIC_FILES_REPORT_PORT
 static_files_host:
   doc: static_files_host
   default: file-server
