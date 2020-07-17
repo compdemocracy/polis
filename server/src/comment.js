@@ -141,7 +141,7 @@ function _getCommentsForModerationList(o) {
   var include_voting_patterns = o.include_voting_patterns;
 
   if (o.modIn) {
-    strictCheck = pg.pgQueryP("select strict_moderation from conversations where zid = ($1);", [o.zid]).then((c) => {
+    strictCheck = pg.queryP("select strict_moderation from conversations where zid = ($1);", [o.zid]).then((c) => {
       return o.strict_moderation;
     });
   }
@@ -172,10 +172,10 @@ function _getCommentsForModerationList(o) {
       }
     }
     if (!include_voting_patterns) {
-      return pg.pgQueryP_metered_readOnly("_getCommentsForModerationList", "select * from comments where comments.zid = ($1)" + modClause, params);
+      return pg.queryP_metered_readOnly("_getCommentsForModerationList", "select * from comments where comments.zid = ($1)" + modClause, params);
     }
 
-    return pg.pgQueryP_metered_readOnly("_getCommentsForModerationList", "select * from (select tid, vote, count(*) from votes_latest_unique where zid = ($1) group by tid, vote) as foo full outer join comments on foo.tid = comments.tid where comments.zid = ($1)" + modClause, params).then((rows) => {
+    return pg.queryP_metered_readOnly("_getCommentsForModerationList", "select * from (select tid, vote, count(*) from votes_latest_unique where zid = ($1) group by tid, vote) as foo full outer join comments on foo.tid = comments.tid where comments.zid = ($1)" + modClause, params).then((rows) => {
 
       // each comment will have up to three rows. merge those into one with agree/disagree/pass counts.
       let adp = {};
@@ -272,7 +272,7 @@ function _getCommentsList(o) {
       } else {
         q = q.limit(999); // TODO paginate
       }
-      return pg.pgQuery(q.toString(), [], function(err, docs) {
+      return pg.query(q.toString(), [], function(err, docs) {
         if (err) {
           reject(err);
           return;
@@ -288,7 +288,7 @@ function _getCommentsList(o) {
 }
 
 function getNumberOfCommentsRemaining(zid, pid) {
-  return pg.pgQueryP("with " +
+  return pg.queryP("with " +
     "v as (select * from votes_latest_unique where zid = ($1) and pid = ($2)), " +
     "c as (select * from get_visible_comments($1)), " +
     "remaining as (select count(*) as remaining from c left join v on c.tid = v.tid where v.vote is null), " +
@@ -301,7 +301,7 @@ function translateAndStoreComment(zid, tid, txt, lang) {
     return translateString(txt, lang).then((results) => {
       const translation = results[0];
       const src = -1; // Google Translate of txt with no added context
-      return pg.pgQueryP("insert into comment_translations (zid, tid, txt, lang, src) values ($1, $2, $3, $4, $5) returning *;", [zid, tid, translation, lang, src]).then((rows) => {
+      return pg.queryP("insert into comment_translations (zid, tid, txt, lang, src) values ($1, $2, $3, $4, $5) returning *;", [zid, tid, translation, lang, src]).then((rows) => {
         return rows[0];
       });
     });

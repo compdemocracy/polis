@@ -69,7 +69,7 @@ function createUser(req, res) {
     return;
   }
 
-  pg.pgQueryP("SELECT * FROM users WHERE email = ($1)", [email]).then(function(rows) {
+  pg.queryP("SELECT * FROM users WHERE email = ($1)", [email]).then(function(rows) {
 
     if (rows.length > 0) {
       fail(res, 403, "polis_err_reg_user_with_that_email_exists");
@@ -91,7 +91,7 @@ function createUser(req, res) {
         vals.push(site_id); // TODO use sql query builder
       }
 
-      pg.pgQuery(query, vals, function(err, result) {
+      pg.query(query, vals, function(err, result) {
         if (err) {
           winston.log("info", err);
           fail(res, 500, "polis_err_reg_failed_to_add_user_record", err);
@@ -99,7 +99,7 @@ function createUser(req, res) {
         }
         let uid = result && result.rows && result.rows[0] && result.rows[0].uid;
 
-        pg.pgQuery("insert into jianiuevyew (uid, pwhash) values ($1, $2);", [uid, hashedPassword], function(err, results) {
+        pg.query("insert into jianiuevyew (uid, pwhash) values ($1, $2);", [uid, hashedPassword], function(err, results) {
           if (err) {
             winston.log("info", err);
             fail(res, 500, "polis_err_reg_failed_to_add_user_record", err);
@@ -159,7 +159,7 @@ function createUser(req, res) {
 
 function doSendVerification(req, email) {
   return Password.generateTokenP(30, false).then(function(einvite) {
-    return pg.pgQueryP("insert into einvites (email, einvite) values ($1, $2);", [email, einvite]).then(function(rows) {
+    return pg.queryP("insert into einvites (email, einvite) values ($1, $2);", [email, einvite]).then(function(rows) {
       return sendVerificationEmail(req, email, einvite);
     });
   });
@@ -201,7 +201,7 @@ function generateAndRegisterZinvite(zid, generateShort) {
     len = 6;
   }
   return Password.generateTokenP(len, false).then(function(zinvite) {
-    return pg.pgQueryP('INSERT INTO zinvites (zid, zinvite, created) VALUES ($1, $2, default);', [zid, zinvite]).then(function(rows) {
+    return pg.queryP('INSERT INTO zinvites (zid, zinvite, created) VALUES ($1, $2, default);', [zid, zinvite]).then(function(rows) {
       return zinvite;
     });
   });

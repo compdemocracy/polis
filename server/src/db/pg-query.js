@@ -45,7 +45,7 @@ const readPool = new pgnative.Pool(readsPgConnection)
 
 // Same syntax as pg.client.query, but uses connection pool
 // Also takes care of calling 'done'.
-function pgQueryImpl(pool, queryString, ...args) {
+function queryImpl(pool, queryString, ...args) {
   // variable arity depending on whether or not query has params (default to [])
   let params, callback;
   if (_.isFunction(args[1])) {
@@ -88,19 +88,19 @@ const pgPoolLoggingLevel = -1; // -1 to get anything more important than info an
 // remove queryreadwriteobj
 // remove queryreadonlyobj
 
-function pgQuery(...args) {
-  return pgQueryImpl(readWritePool, ...args);
+function query(...args) {
+  return queryImpl(readWritePool, ...args);
 }
 
-function pgQuery_readOnly(...args) {
-  return pgQueryImpl(readPool, ...args);
+function query_readOnly(...args) {
+  return queryImpl(readPool, ...args);
 }
 
-function pgQueryP_impl(config, queryString, params) {
+function queryP_impl(config, queryString, params) {
   if (!_.isString(queryString)) {
     return Promise.reject("query_was_not_string");
   }
-  let f = config.isReadOnly ? pgQuery_readOnly : pgQuery;
+  let f = config.isReadOnly ? query_readOnly : query;
   return new Promise(function(resolve, reject) {
     f(queryString, params, function(err, result) {
       if (err) {
@@ -115,48 +115,48 @@ function pgQueryP_impl(config, queryString, params) {
   });
 }
 
-function pgQueryP(...args) {
-  return pgQueryP_impl(readWritePool, ...args);
+function queryP(...args) {
+  return queryP_impl(readWritePool, ...args);
 }
 
-function pgQueryP_readOnly(...args) {
-  return pgQueryP_impl(readPool, ...args);
+function queryP_readOnly(...args) {
+  return queryP_impl(readPool, ...args);
 }
 
-function pgQueryP_readOnly_wRetryIfEmpty(...args) {
-  return pgQueryP_impl(readPool, ...args).then(function(rows) {
+function queryP_readOnly_wRetryIfEmpty(...args) {
+  return queryP_impl(readPool, ...args).then(function(rows) {
     if (!rows.length) {
       // the replica DB didn't have it (yet?) so try the master.
-      return pgQueryP(...args);
+      return queryP(...args);
     }
     return rows;
   }); // NOTE: this does not retry in case of errors. Not sure what's best in that case.
 }
 
-function pgQueryP_metered_impl(isReadOnly, name, queryString, params) {
-  let f = isReadOnly ? pgQueryP_readOnly : pgQueryP;
+function queryP_metered_impl(isReadOnly, name, queryString, params) {
+  let f = isReadOnly ? queryP_readOnly : queryP;
   if (_.isUndefined(name) || _.isUndefined(queryString) || _.isUndefined(params)) {
-    throw new Error("polis_err_pgQueryP_metered_impl missing params");
+    throw new Error("polis_err_queryP_metered_impl missing params");
   }
   return new MPromise(name, function(resolve, reject) {
     f(queryString, params).then(resolve, reject);
   });
 }
 
-function pgQueryP_metered(name, queryString, params) {
-  return pgQueryP_metered_impl(false, ...arguments);
+function queryP_metered(name, queryString, params) {
+  return queryP_metered_impl(false, ...arguments);
 }
 
-function pgQueryP_metered_readOnly(name, queryString, params) {
-  return pgQueryP_metered_impl(true, ...arguments);
+function queryP_metered_readOnly(name, queryString, params) {
+  return queryP_metered_impl(true, ...arguments);
 }
 
 module.exports = {
-  pgQuery,
-  pgQuery_readOnly,
-  pgQueryP,
-  pgQueryP_metered,
-  pgQueryP_metered_readOnly,
-  pgQueryP_readOnly,
-  pgQueryP_readOnly_wRetryIfEmpty,
+  query,
+  query_readOnly,
+  queryP,
+  queryP_metered,
+  queryP_metered_readOnly,
+  queryP_readOnly,
+  queryP_readOnly_wRetryIfEmpty,
 };
