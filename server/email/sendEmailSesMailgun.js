@@ -1,11 +1,14 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 "use strict"
 
+var config = require('../config/config.js');
+
 const Mailgun = require('mailgun').Mailgun;
-const mailgun = new Mailgun(process.env.MAILGUN_API_KEY);
+const mailgun = new Mailgun(config.get('mailgun_api_key'));
 
 function EmailSenders(AWS) {
-  const sesClient = new AWS.SES({apiVersion: '2010-12-01'}); // reads AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY from process.env
+  const sesClient = new AWS.SES({apiVersion: config.get('aws_ses_api_version')}); 
+  // AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY from config.get in server.js
 
   function sendTextEmailWithSes(sender, recipient, subject, text) {
     console.log("sending email with SES: " + [sender, recipient, subject, text].join(" "));

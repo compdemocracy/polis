@@ -1,17 +1,14 @@
 # https://www.json2yaml.com/
 env:
-  doc: The application environment.
+  doc: The application environment
   format:
   - production
   - development
   - test
   default: development
   env: NODE_ENV
-akismet_antispam_api_key:
-  doc: akismet_antispam_api_key (ex. a1a11111aa11)
-  format: String
-  default: ''
-  env: AKISMET_ANTISPAM_API_KEY
+
+# for testing
 foo:
   doc: node-convict debug
   format: String
@@ -22,7 +19,229 @@ bar:
   format: String
   default: bar-text
   env: BAR
+
+# for server
+aws_access_key_id:
+  doc: aws_access_key_id
+  default: NA
+  env: AWS_ACCESS_KEY_ID
+aws_secret_access_key:
+  doc: aws_secret_access_key
+  default: NA
+  env: AWS_SECRET_ACCESS_KEY
 aws_region:
   doc: aws_region
   default: us-east-1
   env: AWS_REGION
+dev_mode:
+  doc: dev_mode
+  default: true
+  env: DEV_MODE
+aws_s3_api_version:
+  doc: aws_s3_api_version
+  default: 2006-03-01
+  env: AWS_S3_API_VERSION
+stripe_client_id:
+  doc: stripe_client_id
+  default: NA
+  env: STRIPE_CLIENT_ID
+stripe_secret_key:
+  doc: stripe_secret_key
+  default: sk_test_NFBDEThkpHCYBzXPJuBlY8TW
+  env: STRIPE_SECRET_KEY
+database_url:
+  doc: database_url 
+  default: postgres://postgres:oiPorg3Nrz0yqDLE@postgres:5432/polis-dev
+  env: DATABASE_URL
+database_for_reads_name:
+  doc: database_for_reads_name (often is the same as database_url)
+  default: postgres://postgres:oiPorg3Nrz0yqDLE@postgres:5432/polis-dev
+  env: DATABASE_FOR_READS_NAME
+slack_api_token:
+  doc: slack_api_token
+  default: NA
+  env: SLACK_API_TOKEN
+polis_slack_app_client_id:
+  doc: polis_slack_app_client_id
+  default: X
+  env: POLIS_SLACK_APP_CLIENT_ID
+polis_slack_app_client_secret:
+  doc: polis_slack_app_client_secret
+  default: X
+  env: POLIS_SLACK_APP_CLIENT_SECRET
+disable_intercom:
+  doc: disable_intercom
+  default: true
+  env: DISABLE_INTERCOM
+intercom_access_token:
+  doc: intercom_access_token
+  default: NA
+  env: INTERCOM_ACCESS_TOKEN
+should_use_translation_api:
+  doc: should_use_translation_api
+  default: false
+  env: SHOULD_USE_TRANSLATION_API
+google_api_key:
+  doc: google_api_key
+  default: NA
+  env: GOOGLE_API_KEY
+
+google_creds_stringified:
+  doc: google_creds_stringified
+  default: X
+  env: GOOGLE_CREDS_STRINGIFIED
+admin_emails:
+  doc: admin_emails
+  default: []
+  env: ADMIN_EMAILS
+admin_uids:
+  doc: admin_uids
+  default: []
+  env: ADMIN_UIDS
+admin_email_data_export:
+  doc: admin_email_data_export
+  default: ''
+  env: ADMIN_EMAIL_DATA_EXPORT
+admin_email_data_export_test:
+  doc: admin_email_data_export_test
+  default: ''
+  env: ADMIN_EMAIL_DATA_EXPORT_TEST
+admin_email_email_test:
+  doc: admin_email_email_test
+  default: ''
+  env: ADMIN_EMAIL_EMAIL_TEST
+polis_from_address:
+  doc: polis_from_address
+  default: ''
+  env: POLIS_FROM_ADDRESS
+akismet_antispam_api_key:
+  doc: akismet_antispam_api_key (ex. a1a11111aa11)
+  format: String
+  default: ''
+  env: AKISMET_ANTISPAM_API_KEY
+akismet_root_url:
+  doc: akismet_root_url
+  default: https://pol.is
+  env: AKISMET_ROOT_URL
+domain_override:
+  doc: domain_override
+  default: ''
+  env: DOMAIN_OVERRIDE
+encryption_password_00001:
+  doc: encryption_password_00001
+  default: c9336642-2024-43a8-99cd-77ee38e82a9c
+  env: ENCRYPTION_PASSWORD_00001
+backfill_comment_lang_detection:
+  doc: backfill_comment_lang_detection
+  default: false
+  env: BACKFILL_COMMENT_LANG_DETECTION
+domain_whitelist_item_01:
+  doc: domain_whitelist_item_01
+  default: ''
+  env: DOMAIN_WHITELIST_ITEM_01
+domain_whitelist_item_02:
+  doc: domain_whitelist_item_02
+  default: ''
+  env: DOMAIN_WHITELIST_ITEM_02
+domain_whitelist_item_03:
+  doc: domain_whitelist_item_03
+  default: ''
+  env: DOMAIN_WHITELIST_ITEM_03
+domain_whitelist_item_04:
+  doc: domain_whitelist_item_04
+  default: ''
+  env: DOMAIN_WHITELIST_ITEM_04
+domain_whitelist_item_05:
+  doc: domain_whitelist_item_05
+  default: ''
+  env: DOMAIN_WHITELIST_ITEM_05
+domain_whitelist_item_06:
+  doc: domain_whitelist_item_06
+  default: ''
+  env: DOMAIN_WHITELIST_ITEM_06
+domain_whitelist_item_07:
+  doc: domain_whitelist_item_07
+  default: ''
+  env: DOMAIN_WHITELIST_ITEM_07
+domain_whitelist_item_08:
+  doc: domain_whitelist_item_08
+  default: ''
+  env: DOMAIN_WHITELIST_ITEM_08
+cache_math_results:
+  doc: cache_math_results
+  default: false
+  env: CACHE_MATH_RESULTS
+math_env:
+  doc: math_env
+  default: dev
+  env: MATH_ENV
+run_periodic_export_tests:
+  doc: run_periodic_export_tests
+  default: false
+  env: RUN_PERIODIC_EXPORT_TESTS
+maxmind_userid:
+  doc: maxmind_userid
+  default: NA
+  env: MAXMIND_USERID
+maxmind_licensekey:
+  doc: maxmind_licensekey
+  default: NA
+  env: MAXMIND_LICENSEKEY
+primary_polis_url:
+  doc: primary_polis_url
+  default: pol.is
+  env: PRIMARY_POLIS_URL
+webserver_pass:
+  doc: webserver_pass
+  default: 8a7157439f50
+  env: WEBSERVER_PASS
+webserver_username:
+  doc: webserver_username
+  default: f4c19337e502
+  env: WEBSERVER_USERNAME
+twitter_consumer_key:
+  doc: twitter_consumer_key
+  default: NA
+  env: TWITTER_CONSUMER_KEY
+twitter_consumer_secret:
+  doc: twitter_consumer_secret
+  default: NA
+  env: TWITTER_CONSUMER_SECRET
+service_hostname:
+  doc: service_hostname
+  default: X
+  env: SERVICE_HOSTNAME
+static_files_port:
+  doc: static_files_port
+  default: 8080
+  env: STATIC_FILES_PORT  
+static_files_admindash_port:
+  doc: static_files_admindash_port
+  default: 8080
+  env: STATIC_FILES_ADMINDASH_PORT
+static_files_host:
+  doc: static_files_host
+  default: file-server
+  env: STATIC_FILES_HOST
+
+# for sendEmailSesMailgun
+mailgun_api_key:
+  doc: mailgun_api_key
+  default: NA
+  env: MAILGUN_API_KEY
+aws_ses_api_version:
+  doc: aws_s3_api_version
+  default: 2010-12-01
+  env: AWS_S3_API_VERSION
+# config.get('aws_ses_api_version')
+
+
+
+
+
+
+
+
+
+
+
