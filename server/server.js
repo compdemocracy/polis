@@ -19,18 +19,13 @@ childProcess.execSync('cp /config/* ./config');
 var config = require('./config/config.js');
 console.log('done config');
 
-// uncomment for testing
-// console.log('.akismet_antispam_api_key:
-// console.log('akismet_antispam_api_key: ' 
-//      + config.get('akismet_antispam_api_key'));
-console.log('foo: ' + config.get('foo'));
-console.log('bar: ' + config.get('bar'));
+// quick test for schema,config, env 
 console.log('foo: ' + config.get('foo'));
 console.log('bar: ' + config.get('bar'));
 
 const akismetLib = require('akismet');
 const AWS = require('aws-sdk');
-AWS.config.set('region', 'us-east-1');
+AWS.config.set('region', config.get('aws_region'));
 const badwords = require('badwords/object');
 const Promise = require('bluebird');
 const http = require('http');

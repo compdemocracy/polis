@@ -22,3 +22,7 @@ bar:
   format: String
   default: bar-text
   env: BAR
+aws_region:
+  doc: aws_region
+  default: us-east-1
+  env: AWS_REGION
