@@ -1,5 +1,5 @@
 
-# Po.lis Terms of Use
+# Pol.is Terms of Use
 Last Updated: 6/12/2020
 
 Welcome, and thank you for your interest in Math & Democracy ("we," or "us") and our Web site at <https://pol.is/> (the "Site"), as well as all related web sites, networks, embeddable widgets, downloadable software, mobile applications (including tablet applications), and other services provided by us and on which a link to these Terms of Use is displayed (collectively, together with the Site, our "Service").
