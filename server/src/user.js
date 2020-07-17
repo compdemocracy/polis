@@ -201,7 +201,7 @@ function getPidPromise(zid, uid, usePrimary) {
       resolve(cachedPid);
       return;
     }
-    const f = usePrimary ? pg.query : pg.pgQuery_readOnly;
+    const f = usePrimary ? pg.query : pg.query_readOnly;
     f("SELECT pid FROM participants WHERE zid = ($1) AND uid = ($2);", [zid, uid], function(err, results) {
       if (err) {
         return reject(err);
