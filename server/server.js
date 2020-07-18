@@ -4,7 +4,7 @@
 
 const akismetLib = require('akismet');
 const AWS = require('aws-sdk');
-AWS.config.set('region', 'us-east-1');
+AWS.config.set('region', process.env.AWS_REGION);
 const badwords = require('badwords/object');
 const Promise = require('bluebird');
 const http = require('http');
