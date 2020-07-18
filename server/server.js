@@ -213,7 +213,7 @@ var web = new WebClient(process.env.SLACK_API_TOKEN);
 
 // # notifications
 const winston = console;
-const emailSenders = require('./email/sendEmailSesMailgun').EmailSenders(AWS);
+const emailSenders = require('./email/senders');
 const sendTextEmail = emailSenders.sendTextEmail;
 const sendTextEmailWithBackupOnly = emailSenders.sendTextEmailWithBackupOnly;
 
