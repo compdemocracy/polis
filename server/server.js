@@ -2,9 +2,9 @@
 
 "use strict";
 
-// for some reason, this cannot be done in the dockerfile
-const childProcess = require('child_process');
-childProcess.execSync('cp /config/* ./config');
+// // for some reason, this cannot be done in the dockerfile
+// const childProcess = require('child_process');
+// childProcess.execSync('cp /config/* ./config');
 
 var config = require('./config/config.js');
 
