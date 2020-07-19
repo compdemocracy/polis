@@ -1,4 +1,5 @@
 {
+  "chromeWebSecurity": false,
   "apiPath": "/api/v3",
   "baseUrl": "https://preprod.pol.is"
 }

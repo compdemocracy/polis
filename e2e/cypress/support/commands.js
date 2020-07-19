@@ -75,3 +75,17 @@ Cypress.Commands.add("createConvo", (adminEmail, adminPassword) => {
   // Wait for header of convo admin page to be available.
   cy.contains('h3', 'Configure')
 })
+
+// Allow visiting maildev inbox urls, to test sending of emails.
+// See: https://github.com/cypress-io/cypress/issues/944#issuecomment-651503805
+Cypress.Commands.overwrite(
+  'visit',
+  (originalFn, url, options) => {
+    if (url.includes(':1080')) {
+      cy.window().then(win => {
+        return win.open(url, '_self');
+      });
+    }
+    else { return originalFn(url, options); }
+  }
+);
