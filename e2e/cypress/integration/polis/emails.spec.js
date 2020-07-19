@@ -39,4 +39,23 @@ describe('Emails', () => {
     // Has password reset link with proper hostname.
     cy.get('.email-content').should('contain', `${Cypress.config().baseUrl}/pwreset/`)
   })
+
+  // TODO: Re-enabled account verification.
+  it.skip('sends when new account requires verification', function () {
+  })
+
+  // TODO: Allow batch interval to be skipped or reduced for tests.
+  it.skip('sends when new statements arrive', function () {
+  })
+
+  // TODO: Fix data export.
+  it.skip('sends when data export is run', function () {
+  })
+
+  // TODO: Find way to test embedded iframe.
+  it.skip('sends when new conversation is auto-created', function () {
+  })
+  
+  it.skip('sends when new statement available for moderation', function () {
+  })
 })
