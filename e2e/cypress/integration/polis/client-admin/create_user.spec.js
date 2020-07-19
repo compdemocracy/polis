@@ -1,11 +1,5 @@
 describe('Create User', () => {
   beforeEach(() => {
-    // Cypress doesn't believe in cleanup.
-    // See: https://docs.cypress.io/guides/references/best-practices.html#State-reset-should-go-before-each-test
-    cy.logout()
-  })
-
-  before(() => {
     cy.fixture('users.json').as('users')
   })
 
