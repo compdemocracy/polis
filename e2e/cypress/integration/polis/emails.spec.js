@@ -25,19 +25,76 @@ describe('Emails', () => {
   })
 
   it('sends for successful password reset', function () {
-    const existingEmail = this.user.email
+    // Create a new user account
+    const randomInt = Math.floor(Math.random() * 10000)
+    const newUser = {
+      email: `user${randomInt}@polis.test`,
+      name: `Test User ${randomInt}`,
+      password: 'testpassword',
+      newPassword: 'newpassword',
+    }
+
+    cy.server()
+    cy.route({
+      method: 'POST',
+      url: Cypress.config().apiPath + '/auth/new'
+    }).as('authNew')
+
+    cy.signup(newUser.name, newUser.email, newUser.password)
+
+    cy.wait('@authNew').then((xhr) => {
+      expect(xhr.status).to.equal(200)
+    })
+
+    cy.logout()
+
+    // Request password reset on new account
     cy.visit('/pwresetinit')
-    cy.get('input[placeholder="email"]').type(existingEmail)
+    cy.get('input[placeholder="email"]').type(newUser.email)
     cy.contains('button', 'Send password reset email').click()
 
     cy.visit(`${Cypress.config().baseUrl}:${EMAIL_PORT}/`)
     cy.get('a.email-item').first().within(() => {
       cy.get('.title').should('contain', 'Polis Password Reset')
-      cy.get('.subline').should('contain', existingEmail)
+      cy.get('.subline').should('contain', newUser.email)
       cy.root().click()
     })
     // Has password reset link with proper hostname.
     cy.get('.email-content').should('contain', `${Cypress.config().baseUrl}/pwreset/`)
+    cy.get('.email-content').then(($elem) => {
+      const emailContent = $elem.text()
+      // Had to remove one single-quote from regex so as not to confuse IDE.
+      // See: https://www.regextester.com/94502
+      const urlRegex = new RegExp(/(?:http(s)?:\/\/)?[\w.-]+(?:\.[\w\.-]+)+[\w\-\._~:/?#[\]@!\$&\(\)\*\+,;=.]+/g)
+      const match = emailContent.match(urlRegex)
+      // First "url" is email domain. Second url is the one we want.
+      const passwordResetUrl = match[1]
+
+      // Submit password reset form with new password.
+      cy.visit(passwordResetUrl)
+
+      cy.route({
+        method: 'POST',
+        url: Cypress.config().apiPath + '/auth/password'
+      }).as('authPassword')
+
+      cy.get('form').within(() => {
+        cy.get('input[placeholder="new password"]').type(newUser.newPassword)
+        cy.get('input[placeholder="repeat new password"]').type(newUser.newPassword)
+        cy.get('button').click()
+      })
+
+      cy.wait('@authPassword').then((xhr) => {
+        expect(xhr.status).to.equal(200)
+      })
+    })
+
+    cy.logout()
+
+    // Login with new password.
+    cy.login(newUser.email, newUser.newPassword)
+
+    cy.url().should('eq', Cypress.config().baseUrl + '/')
   })
 
   // TODO: Re-enabled account verification.
