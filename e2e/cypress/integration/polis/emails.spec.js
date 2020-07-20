@@ -67,6 +67,7 @@ describe('Emails', () => {
       // See: https://www.regextester.com/94502
       const urlRegex = new RegExp(/(?:http(s)?:\/\/)?[\w.-]+(?:\.[\w\.-]+)+[\w\-\._~:/?#[\]@!\$&\(\)\*\+,;=.]+/g)
       const match = emailContent.match(urlRegex)
+      cy.log(match)
       // First "url" is email domain. Second url is the one we want.
       const passwordResetUrl = match[1]
 
