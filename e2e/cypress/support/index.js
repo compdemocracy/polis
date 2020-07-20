@@ -27,3 +27,6 @@ before(() => {
     cy.signup(user.name, user.email, user.password)
   })
 })
+
+// Register the log collector for logging activity to terminal.
+require('cypress-terminal-report/src/installLogsCollector')()
