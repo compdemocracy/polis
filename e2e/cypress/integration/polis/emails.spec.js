@@ -63,16 +63,14 @@ describe('Emails', () => {
     cy.get('.email-content').should('contain', `${Cypress.config().baseUrl}/pwreset/`)
     cy.get('.email-content').then(($elem) => {
       const emailContent = $elem.text()
-      // Had to remove one single-quote from regex so as not to confuse IDE.
-      // See: https://www.regextester.com/94502
-      const urlRegex = new RegExp(/(?:http(s)?:\/\/)?[\w.-]+(?:\.[\w\.-]+)+[\w\-\._~:/?#[\]@!\$&\(\)\*\+,;=.]+/g)
-      const match = emailContent.match(urlRegex)
-      cy.log(match)
+      const tokenRegex = new RegExp('/pwreset/([a-zA-Z0-9]+)\n', 'g')
+      const match = tokenRegex.exec(emailContent)
       // First "url" is email domain. Second url is the one we want.
-      const passwordResetUrl = match[1]
+      cy.log(JSON.stringify(match))
+      const passwordResetToken = match[1]
 
       // Submit password reset form with new password.
-      cy.visit(passwordResetUrl)
+      cy.visit(`/pwreset/${passwordResetToken}`)
 
       cy.route({
         method: 'POST',
