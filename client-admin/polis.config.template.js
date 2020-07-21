@@ -6,10 +6,10 @@ module.exports = {
     "^192\\.168\\.1\\.140$",
     "^pol\\.is",
     ".+\\.pol\\.is$",
+    ".+\\.demos-surveys\\.co\\.uk$",
+    "^demos-surveys\\.co\\.uk"
     "^xip\\.io$",
     ".+\\.xip\\.io$",
-	".+\\.demos-surveys\\.co\\.uk$",
-	"^demos-surveys\\.co\\.uk",
   ],
 
   DISABLE_INTERCOM: true,
