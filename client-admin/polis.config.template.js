@@ -7,9 +7,9 @@ module.exports = {
     "^pol\\.is",
     ".+\\.pol\\.is$",
     ".+\\.demos-surveys\\.co\\.uk$",
-    "^demos-surveys\\.co\\.uk"
+    "^demos-surveys\\.co\\.uk",
     "^xip\\.io$",
-    ".+\\.xip\\.io$",
+    ".+\\.xip\\.io$"
   ],
 
   DISABLE_INTERCOM: true,
