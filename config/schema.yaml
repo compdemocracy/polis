@@ -54,10 +54,10 @@ database_url:
   doc: database_url 
   default: postgres://postgres:oiPorg3Nrz0yqDLE@postgres:5432/polis-dev
   env: DATABASE_URL
-database_for_reads_name:
-  doc: database_for_reads_name (often is the same as database_url)
+database_for_reads_url:
+  doc: database_for_reads_url #(often is the same as database_url)
   default: postgres://postgres:oiPorg3Nrz0yqDLE@postgres:5432/polis-dev
-  env: DATABASE_FOR_READS_NAME
+  env: DATABASE_FOR_READS_URL
 slack_api_token:
   doc: slack_api_token
   default: NA

@@ -76,7 +76,11 @@ console.log("config database >>"+config.get('database_url')+"<<")
 const pgnative = require('pg').native; //.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
 const parsePgConnectionString = require('pg-connection-string').parse;
 
-const usingReplica = config.get('database_url') !== config.get('database_for_reads');
+const usingReplica = config.get('database_url') !== config.get('database_for_reads_url');
+console.log("usingReplica >>"+usingReplica+"<<")
+// const usingReplica = process.env.DATABASE_URL !== process.env[process.env.DATABASE_FOR_READS_NAME];
+// console.log("usingReplica >>"+usingReplica+"<<")
+
 const poolSize = devMode ? 2 : (usingReplica ? 3 : 12)
 
 // not sure how many of these config options we really need anymore
