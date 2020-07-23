@@ -2478,8 +2478,8 @@ function initializePolisHelpers() {
     "localhost:5002",
     "canvas.instructure.com", // LTI
     "canvas.uw.edu", // LTI
-    "canvas.shoreline.edu", // LTI
-    "shoreline.instructure.com", // LTI
+    "survey-test.demos.co.uk",
+    "demos-surveys.co.uk",
     "facebook.com",
     "api.twitter.com",
     "connect.stripe.com",
