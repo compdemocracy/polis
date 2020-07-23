@@ -2,10 +2,14 @@
 
 "use strict";
 
-// config goes here 
+var config = require('./config/config.js');
 
 const akismetLib = require('akismet');
 const AWS = require('aws-sdk');
+AWS.config.set('region', config.get('aws_region'));
+AWS.config.set('accessKeyId', config.get('aws_access_key_id'));
+AWS.config.set('secretAccessKey', config.get('aws_secret_access_key'));
+
 AWS.config.set('region', 'us-east-1');
 const badwords = require('badwords/object');
 const Promise = require('bluebird');
@@ -32,12 +36,12 @@ const OAuth = require('oauth');
 // });
 // const postmark = require("postmark")(process.env.POSTMARK_API_KEY);
 const querystring = require('querystring');
-const devMode = isTrue(process.env.DEV_MODE);
+const devMode = isTrue(config.get('dev_mode'));
 const replaceStream = require('replacestream');
 const responseTime = require('response-time');
 const request = require('request-promise'); // includes Request, but adds promise methods
-const s3Client = new AWS.S3({apiVersion: '2006-03-01'});
-const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+const s3Client = new AWS.S3({apiVersion: config.get('aws_s3_api_version')});
+const stripe = require("stripe")(config.get('stripe_secret_key'));
 const LruCache = require("lru-cache");
 const timeout = require('connect-timeout');
 const Translate = require('@google-cloud/translate');
@@ -209,7 +213,7 @@ function pgQueryP_metered_readOnly(name, queryString, params) {
 // # Slack setup
 
 var WebClient = require('@slack/client').WebClient;
-var web = new WebClient(process.env.SLACK_API_TOKEN);
+var web = new WebClient(config.get('slack_api_token'));
 // const winston = require("winston");
 
 
@@ -220,19 +224,20 @@ const sendTextEmail = emailSenders.sendTextEmail;
 const sendTextEmailWithBackupOnly = emailSenders.sendTextEmailWithBackupOnly;
 
 const resolveWith = (x) => { return Promise.resolve(x);};
-const intercomClient = !isTrue(process.env.DISABLE_INTERCOM) ? new IntercomOfficial.Client({'token': process.env.INTERCOM_ACCESS_TOKEN}) : {
+const intercomClient = !isTrue(config.get('disable_intercom')) ? new IntercomOfficial.Client(
+  {'token': config.get('intercom_access_token')}) : {
   leads: {
     create: resolveWith({body: {user_id: "null_intercom_user_id"}}),
     update: resolveWith({}),
   },
 };
 
-const useTranslateApi = isTrue(process.env.SHOULD_USE_TRANSLATION_API);
+const useTranslateApi = isTrue(config.get('should_use_translation_api'));
 let translateClient = null;
 if (useTranslateApi) {
   const GOOGLE_CREDS_TEMP_FILENAME = ".google_creds_temp";
 
-  fs.writeFileSync(GOOGLE_CREDS_TEMP_FILENAME, process.env.GOOGLE_CREDS_STRINGIFIED);
+  fs.writeFileSync(GOOGLE_CREDS_TEMP_FILENAME, config.get('google_creds_stringified'));
 
   translateClient = Translate({
     projectId: JSON.parse(fs.readFileSync(GOOGLE_CREDS_TEMP_FILENAME)).project_id,
@@ -290,13 +295,12 @@ Promise.onPossiblyUnhandledRejection(function(err) {
 });
 
 
+const adminEmailDataExport = config.get('admin_email_data_export');
+const adminEmailDataExportTest = config.get('admin_email_data_export_test');
+const adminEmailEmailTest = config.get('admin_email_email_test');
 
-const adminEmailDataExport = process.env.ADMIN_EMAIL_DATA_EXPORT || ""
-const adminEmailDataExportTest = process.env.ADMIN_EMAIL_DATA_EXPORT_TEST || ""
-const adminEmailEmailTest = process.env.ADMIN_EMAIL_EMAIL_TEST || ""
-
-const admin_emails = process.env.ADMIN_EMAILS ? JSON.parse(process.env.ADMIN_EMAILS) : [];
-const polisDevs = process.env.ADMIN_UIDS ? JSON.parse(process.env.ADMIN_UIDS) : [];
+const admin_emails = config.get('admin_emails');
+const polisDevs = config.get('admin_uids');
 
 
 function isPolisDev(uid) {
@@ -348,11 +352,11 @@ setInterval(function() {
 // // END GITHUB OAUTH2
 
 
-const POLIS_FROM_ADDRESS = process.env.POLIS_FROM_ADDRESS;
+const POLIS_FROM_ADDRESS = config.get('polis_from_address');
 
 const akismet = akismetLib.client({
-  blog: 'https://pol.is', // required: your root level url
-  apiKey: process.env.AKISMET_ANTISPAM_API_KEY,
+  blog: config.get('akismet_root_url'), // required: your root level url
+  apiKey: config.get('akismet_antispam_api_key')
 });
 
 akismet.verifyKey(function(err, verified) {
