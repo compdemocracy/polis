@@ -2,6 +2,8 @@
 
 "use strict";
 
+// config goes here 
+
 const akismetLib = require('akismet');
 const AWS = require('aws-sdk');
 AWS.config.set('region', 'us-east-1');
