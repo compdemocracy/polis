@@ -66,14 +66,18 @@ const _ = require('underscore');
 // so we can have 1 preprod/3 prod servers, or 2 preprod / 2 prod.
 //
 // Note we use native
+
+console.log("env database >>"+process.env.DATABASE_URL+"<<")
+console.log("config database >>"+config.get('database_url')+"<<")
+
 const pgnative = require('pg').native; //.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
 const parsePgConnectionString = require('pg-connection-string').parse;
 
-const usingReplica = process.env.DATABASE_URL !== process.env[process.env.DATABASE_FOR_READS_NAME];
+const usingReplica = config.get('database_url') !== process.env[process.env.DATABASE_FOR_READS_NAME];
 const poolSize = devMode ? 2 : (usingReplica ? 3 : 12)
 
 // not sure how many of these config options we really need anymore
-const pgConnection = Object.assign(parsePgConnectionString(process.env.DATABASE_URL),
+const pgConnection = Object.assign(parsePgConnectionString(config.get('database_url')),
   {max: poolSize,
     isReadOnly: false,
    poolLog: function(str, level) {
@@ -215,7 +219,6 @@ function pgQueryP_metered_readOnly(name, queryString, params) {
 var WebClient = require('@slack/client').WebClient;
 var web = new WebClient(config.get('slack_api_token'));
 // const winston = require("winston");
-
 
 // # notifications
 const winston = console;
@@ -3293,7 +3296,6 @@ function initializePolisHelpers() {
 
     return pgQueryP_readOnly("select * from math_bidtopid where zid = ($1) and math_env = ($2);", [zid,
            config.get('math_env')]).then((rows) => {
-           config.get('math_env')]).then((rows) => {
 
       if (zid === 12480) {
         console.log("bidToPid", rows[0].data);
@@ -3541,11 +3543,11 @@ function initializePolisHelpers() {
     // const state = req.p.state;
     console.log("handle_POST_auth_slack_redirect_uri 1");
 
-    console.log(process.env.POLIS_SLACK_APP_CLIENT_ID);
+    console.log(config.get('polis_slack_app_client_id'));
 
     request.get("https://slack.com/api/oauth.access?" + querystring.stringify({
-      client_id: process.env.POLIS_SLACK_APP_CLIENT_ID,
-      client_secret: process.env.POLIS_SLACK_APP_CLIENT_SECRET,
+      client_id: config.get('polis_slack_app_client_id'),
+      client_secret: config.get('polis_slack_app_client_secret'),
       code: code,
       redirect_uri:  getServerNameWithProtocol(req) + "/api/v3/auth/slack/redirect_uri",
     }))
@@ -4396,8 +4398,8 @@ Feel free to reply to this email if you need help.`;
 
 
   function populateGeoIpInfo(zid, uid, ipAddress) {
-    var userId = process.env.MAXMIND_USERID;
-    var licenseKey = process.env.MAXMIND_LICENSEKEY;
+    var userId = config.get('maxmind_userid');
+    var licenseKey = config.get('maxmind_licensekey');
 
     var url = "https://geoip.maxmind.com/geoip/v2.1/city/";
     var contentType = "application/vnd.maxmind.com-city+json; charset=UTF-8; version=2.1";
@@ -5370,7 +5372,7 @@ Email verified! You can close this tab or hit the back button.
 
     let server = "http://localhost:5000";
     if (!devMode) {
-      server = "https://" + process.env.PRIMARY_POLIS_URL;
+      server = "https://" + config.get('primary_polis_url');
     }
     return server + "/" + path + "?" + paramsToStringSortedByName(params);
   }
@@ -5385,7 +5387,7 @@ Email verified! You can close this tab or hit the back button.
 
     let server = "http://localhost:5000";
     if (!devMode) {
-      server = "https://" + process.env.PRIMARY_POLIS_URL;
+      server = "https://" + config.get('primary_polis_url');
     }
     return server + "/" + path + "?" + paramsToStringSortedByName(params);
   }
