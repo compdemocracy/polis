@@ -1,0 +1,16 @@
+{
+  "name": "polisconfig",
+  "version": "1.0.0",
+  "description": "",
+  "main": "export_config.js",
+  "scripts": {
+    "start": "node export_config.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "convict": "6.0.0",
+    "js-yaml": "3.14.0"
+  }
+}

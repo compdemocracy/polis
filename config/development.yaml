@@ -1,0 +1,20 @@
+# Precedence order (https://www.npmjs.com/package/convict)
+# When merging configuration values from different sources, Convict follows precedence rules. The order, from lowest to highest, for config.loadFile(file) and config.load(json) is:
+
+# Default value
+# File or json set in function argument
+# Environment variables (only used when env property is set in schema)
+# Command line arguments (only used when arg property is set in schema)
+
+# for easy json/yaml conversion: https://www.json2yaml.com/
+
+# aws_access_key_id:
+#   doc: aws_access_key_id
+#   default: NA
+#   env: AWS_ACCESS_KEY_ID
+#   sensitive: true
+# aws_secret_access_key:
+#   doc: aws_secret_access_key
+#   default: NA
+#   env: AWS_SECRET_ACCESS_KEY
+#   sensitive: true
