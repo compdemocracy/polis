@@ -484,8 +484,8 @@ DD.prototype.s = DA.prototype.s = function(k, v) {
 
 
 
-const domainOverride = process.env.DOMAIN_OVERRIDE || null;
-
+// const domainOverride = process.env.DOMAIN_OVERRIDE || null;
+const domainOverride = config.get('domain_override') || null;
 function haltOnTimeout(req, res, next) {
   if (req.timedout) {
     fail(res, 500, "polis_err_timeout_misc");
@@ -727,7 +727,7 @@ const sql_reports = sql.define({
 
 function encrypt(text) {
   const algorithm = 'aes-256-ctr';
-  const password = process.env.ENCRYPTION_PASSWORD_00001;
+  const password = config.get('encryption_password_00001');
   const cipher = crypto.createCipher(algorithm, password);
   var crypted = cipher.update(text,'utf8','hex');
   crypted += cipher.final('hex');
@@ -736,7 +736,7 @@ function encrypt(text) {
 
 function decrypt(text) {
   const algorithm = 'aes-256-ctr';
-  const password = process.env.ENCRYPTION_PASSWORD_00001;
+  const password = config.get('encryption_password_00001');
   const decipher = crypto.createDecipher(algorithm, password);
   var dec = decipher.update(text,'hex','utf8');
   dec += decipher.final('utf8');
@@ -1996,7 +1996,7 @@ function initializePolisHelpers() {
   }
 
 
-  if (isTrue(process.env.BACKFILL_COMMENT_LANG_DETECTION)) {
+  if (isTrue(config.get('backfill_comment_lang_detection'))) {
     pgQueryP("select tid, txt, zid from comments where lang is null;", []).then((comments) => {
       let i = 0;
       function doNext() {
@@ -2472,14 +2472,14 @@ function initializePolisHelpers() {
 
   let whitelistedDomains = [
     "pol.is",
-    process.env.DOMAIN_WHITELIST_ITEM_01,
-    process.env.DOMAIN_WHITELIST_ITEM_02,
-    process.env.DOMAIN_WHITELIST_ITEM_03,
-    process.env.DOMAIN_WHITELIST_ITEM_04,
-    process.env.DOMAIN_WHITELIST_ITEM_05,
-    process.env.DOMAIN_WHITELIST_ITEM_06,
-    process.env.DOMAIN_WHITELIST_ITEM_07,
-    process.env.DOMAIN_WHITELIST_ITEM_08,
+    config.get('domain_whitelist_item_01'),
+    config.get('domain_whitelist_item_02'),
+    config.get('domain_whitelist_item_03'),
+    config.get('domain_whitelist_item_04'),
+    config.get('domain_whitelist_item_05'),
+    config.get('domain_whitelist_item_06'),
+    config.get('domain_whitelist_item_07'),
+    config.get('domain_whitelist_item_08'),
     "localhost:5001",
     "localhost:5002",
     "canvas.instructure.com", // LTI
@@ -2679,7 +2679,7 @@ function initializePolisHelpers() {
   }
 
 
-  let pcaCacheSize = (process.env.CACHE_MATH_RESULTS === "true") ? 300 : 1;
+  let pcaCacheSize = isTrue(config.get('cache_math_results')) ? 300 : 1;
   let pcaCache = new LruCache({
     max: pcaCacheSize,
   });
@@ -3113,7 +3113,7 @@ function initializePolisHelpers() {
   function handle_POST_math_update(req, res) {
     let zid = req.p.zid;
     let uid = req.p.uid;
-    let math_env = process.env.MATH_ENV;
+    let math_env = config.get('math_env');
     let math_update_type = req.p.math_update_type;
 
     isModerator(zid, uid).then((hasPermission) => {
@@ -3137,7 +3137,7 @@ function initializePolisHelpers() {
 
   function handle_GET_math_correlationMatrix(req, res) {
     let rid = req.p.rid;
-    let math_env = process.env.MATH_ENV;
+    let math_env = config.get('math_env');
     let math_tick = req.p.math_tick;
 
     console.log(req.p);
@@ -3220,7 +3220,7 @@ function initializePolisHelpers() {
   }
 
 
-  if (process.env.RUN_PERIODIC_EXPORT_TESTS && !devMode && process.env.MATH_ENV === "preprod") {
+  if (isTrue(config.get('run_periodic_export_tests')) && !devMode && config.get('math_env') === "preprod") {
     let runExportTest = () => {
       let math_env = "prod";
       let email = adminEmailDataExportTest;
@@ -3254,7 +3254,7 @@ function initializePolisHelpers() {
     getUserInfoForUid2(req.p.uid).then((user) => {
 
       return doAddDataExportTask(
-        process.env.MATH_ENV,
+        config.get('math_env'),
         user.email,
         req.p.zid,
         req.p.unixTimestamp * 1000,
@@ -3275,7 +3275,7 @@ function initializePolisHelpers() {
 
     var url = s3Client.getSignedUrl('getObject', {
       Bucket: 'polis-datadump',
-      Key: process.env.MATH_ENV + "/" + req.p.filename,
+      Key: config.get('math_env') + "/" + req.p.filename,
       Expires: 60*60*24*7,
     });
     res.redirect(url);
@@ -3291,7 +3291,9 @@ function initializePolisHelpers() {
     math_tick = math_tick || -1;
 
 
-    return pgQueryP_readOnly("select * from math_bidtopid where zid = ($1) and math_env = ($2);", [zid, process.env.MATH_ENV]).then((rows) => {
+    return pgQueryP_readOnly("select * from math_bidtopid where zid = ($1) and math_env = ($2);", [zid,
+           config.get('math_env')]).then((rows) => {
+           config.get('math_env')]).then((rows) => {
 
       if (zid === 12480) {
         console.log("bidToPid", rows[0].data);
