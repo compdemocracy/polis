@@ -8,7 +8,8 @@ To run these tests:
     * `npm install`
 
 2. For "headless" testing:
-    * `$(npm bin)/cypress run`
+    * `$(npm bin)/cypress run`, or
+    * `$(npm bin)/cypress run --spec cypress/integration/polis/client-participation/i18n.spec.js` 
 
 3. For gui testing, open up the Cypress App:
     * `npm test`
