@@ -8,6 +8,9 @@
 
 # for easy json/yaml conversion: https://www.json2yaml.com/
 
+# NOTE: Please be careful when chosing defaults for undefined 
+#       environment variables. "undefined" is recommended
+
 # @TODO: update all formats (https://www.npmjs.com/package/convict)
 
 env:
@@ -22,12 +25,12 @@ env:
 # for server
 aws_access_key_id:
   doc: aws_access_key_id
-  default: NA
+  default: undefined
   env: AWS_ACCESS_KEY_ID
   sensitive: true
 aws_secret_access_key:
   doc: aws_secret_access_key
-  default: NA
+  default: undefined
   env: AWS_SECRET_ACCESS_KEY
   sensitive: true
 aws_region:
@@ -44,7 +47,7 @@ aws_s3_api_version:
   env: AWS_S3_API_VERSION
 stripe_client_id:
   doc: stripe_client_id
-  default: NA
+  default: undefined
   env: STRIPE_CLIENT_ID
 stripe_secret_key:
   doc: stripe_secret_key
@@ -55,12 +58,12 @@ database_url:
   default: postgres://postgres:oiPorg3Nrz0yqDLE@postgres:5432/polis-dev
   env: DATABASE_URL
 database_for_reads_url:
-  doc: database_for_reads_url #(often is the same as database_url)
+  doc: database_for_reads_url (often is the same as database_url)
   default: postgres://postgres:oiPorg3Nrz0yqDLE@postgres:5432/polis-dev
   env: DATABASE_FOR_READS_URL
 slack_api_token:
   doc: slack_api_token
-  default: NA
+  default: undefined
   env: SLACK_API_TOKEN
 polis_slack_app_client_id:
   doc: polis_slack_app_client_id
@@ -76,7 +79,7 @@ disable_intercom:
   env: DISABLE_INTERCOM
 intercom_access_token:
   doc: intercom_access_token
-  default: NA
+  default: undefined
   env: INTERCOM_ACCESS_TOKEN
 should_use_translation_api:
   doc: should_use_translation_api
@@ -84,7 +87,7 @@ should_use_translation_api:
   env: SHOULD_USE_TRANSLATION_API
 google_api_key:
   doc: google_api_key
-  default: NA
+  default: undefined
   env: GOOGLE_API_KEY
 
 google_creds_stringified:
@@ -182,11 +185,11 @@ run_periodic_export_tests:
   env: RUN_PERIODIC_EXPORT_TESTS
 maxmind_userid:
   doc: maxmind_userid
-  default: NA
+  default: undefined
   env: MAXMIND_USERID
 maxmind_licensekey:
   doc: maxmind_licensekey
-  default: NA
+  default: undefined
   env: MAXMIND_LICENSEKEY
 primary_polis_url:
   doc: primary_polis_url
@@ -202,15 +205,15 @@ webserver_username:
   env: WEBSERVER_USERNAME
 twitter_consumer_key:
   doc: twitter_consumer_key
-  default: NA
+  default: undefined
   env: TWITTER_CONSUMER_KEY
 twitter_consumer_secret:
   doc: twitter_consumer_secret
-  default: NA
+  default: undefined
   env: TWITTER_CONSUMER_SECRET
 service_hostname:
   doc: service_hostname
-  default: X
+  default: undefined
   env: SERVICE_HOSTNAME
 static_files_port:
   doc: static_files_port
@@ -232,7 +235,7 @@ static_files_host:
 # for sendEmailSesMailgun
 mailgun_api_key:
   doc: mailgun_api_key
-  default: NA
+  default: undefined
   env: MAILGUN_API_KEY
 aws_ses_api_version:
   doc: aws_s3_api_version

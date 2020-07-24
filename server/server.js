@@ -6,6 +6,12 @@
 
 var config = require('./config/config.js');
 
+// keep these lines to help with debugging conversion
+// from process.env to config.get
+// console.log("process.env >>"+process.env.GOOGLE_API_KEY+"<<")
+// console.log("config.get >>"+config.get('google_api_key')+"<<")
+
+
 const akismetLib = require('akismet');
 const AWS = require('aws-sdk');
 AWS.config.set('region', config.get('aws_region'));
@@ -73,7 +79,6 @@ const pgnative = require('pg').native; //.native, // native provides ssl (needed
 const parsePgConnectionString = require('pg-connection-string').parse;
 
 const usingReplica = config.get('database_url') !== config.get('database_for_reads_url');
-
 const poolSize = devMode ? 2 : (usingReplica ? 3 : 12)
 
 // not sure how many of these config options we really need anymore
@@ -85,7 +90,8 @@ const pgConnection = Object.assign(parsePgConnectionString(config.get('database_
        console.log("pool.primary." + level + " " + str);
      }
    }})
-const readsPgConnection = Object.assign(parsePgConnectionString(config.get('database_for_reads_url')),
+const readsPgConnection = Object.assign(parsePgConnectionString(
+  config.get('database_for_reads_url')),
   {max: poolSize,
    isReadOnly: true,
    poolLog: function(str, level) {
@@ -12098,6 +12104,7 @@ Thanks for using Polis!
 
   function geoCodeWithGoogleApi(locationString) {
     let googleApiKey = config.get('google_api_key');
+
     let address = encodeURI(locationString);
 
     return new Promise(function(resolve, reject) {
@@ -14456,7 +14463,9 @@ CREATE TABLE slack_user_invites (
 
   // serve up index.html in response to anything starting with a number
   let hostname = config.get('static_files_host');
-  let portForParticipationFiles = config.get('static_files_host');
+
+  let portForParticipationFiles = config.get('static_files_port');
+
   let portForAdminFiles = config.get('static_files_admindash_port');
 
 
