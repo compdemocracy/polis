@@ -388,6 +388,16 @@
         "talk",
         "blog"
       ]
+    },
+    {
+      "login": "devvmh",
+      "name": "Devin Howard",
+      "avatar_url": "https://avatars3.githubusercontent.com/u/1393708?v=4",
+      "profile": "https://twitter.com/devvmh",
+      "contributions": [
+        "code",
+        "doc"
+      ]
     }
   ],
   "contributorTemplate": "<a href='https://github.com/<%= contributor.login %>'><img src='<%= contributor.avatar_url %>' width='<%= options.imageSize %>px;' alt=''/><br /><sub><b><%= contributor.login %></b></sub></a><br /><%= contributions %>",
