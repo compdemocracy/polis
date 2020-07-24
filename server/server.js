@@ -14457,9 +14457,9 @@ CREATE TABLE slack_user_invites (
   }
 
   // serve up index.html in response to anything starting with a number
-  let hostname = process.env.STATIC_FILES_HOST;
-  let portForParticipationFiles = process.env.STATIC_FILES_PORT;
-  let portForAdminFiles = process.env.STATIC_FILES_ADMINDASH_PORT;
+  let hostname = config.get('static_files_host');
+  let portForParticipationFiles = config.get('static_files_port');
+  let portForAdminFiles = config.get('static_files_admindash_port');
 
 
   let fetchUnsupportedBrowserPage = makeFileFetcher(hostname, portForParticipationFiles, "/unsupportedBrowser.html", {
