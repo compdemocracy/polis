@@ -1,5 +1,7 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+// TTD ;remove console log using replica
+
 "use strict";
 
 var config = require('./config/config.js');
@@ -67,19 +69,10 @@ const _ = require('underscore');
 //
 // Note we use native
 
-//PROBLEM AREA START
-
-console.log("env database >>"+process.env.DATABASE_URL+"<<")
-console.log("[env[env]] database >>"+process.env[process.env.DATABASE_URL]+"<<")
-console.log("config database >>"+config.get('database_url')+"<<")
-
 const pgnative = require('pg').native; //.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
 const parsePgConnectionString = require('pg-connection-string').parse;
 
 const usingReplica = config.get('database_url') !== config.get('database_for_reads_url');
-console.log("usingReplica >>"+usingReplica+"<<")
-// const usingReplica = process.env.DATABASE_URL !== process.env[process.env.DATABASE_FOR_READS_NAME];
-// console.log("usingReplica >>"+usingReplica+"<<")
 
 const poolSize = devMode ? 2 : (usingReplica ? 3 : 12)
 
@@ -92,7 +85,7 @@ const pgConnection = Object.assign(parsePgConnectionString(config.get('database_
        console.log("pool.primary." + level + " " + str);
      }
    }})
-const readsPgConnection = Object.assign(parsePgConnectionString(process.env[process.env.DATABASE_FOR_READS_NAME]),
+const readsPgConnection = Object.assign(parsePgConnectionString(config.get('database_for_reads_url')),
   {max: poolSize,
    isReadOnly: true,
    poolLog: function(str, level) {
@@ -496,7 +489,6 @@ DD.prototype.s = DA.prototype.s = function(k, v) {
 
 
 
-// const domainOverride = process.env.DOMAIN_OVERRIDE || null;
 const domainOverride = config.get('domain_override') || null;
 function haltOnTimeout(req, res, next) {
   if (req.timedout) {
@@ -3304,7 +3296,8 @@ function initializePolisHelpers() {
   function getBidIndexToPidMapping(zid, math_tick) {
     math_tick = math_tick || -1;
 
-    return pgQueryP_readOnly("select * from math_bidtopid where zid = ($1) and math_env = ($2);", [zid, process.env.MATH_ENV]).then((rows) => {
+    return pgQueryP_readOnly("select * from math_bidtopid where zid = ($1) and math_env = ($2);", 
+      [zid, config.get('math_env')]).then((rows) => {
     // return pgQueryP_readOnly("select * from math_bidtopid where zid = ($1) and math_env = ($2);", 
     //   [zid, config.get('math_env')]).then((rows) => {
 
