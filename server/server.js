@@ -14289,7 +14289,7 @@ CREATE TABLE slack_user_invites (
     if (!hostname) {
 
       let host = req.headers.host || "";
-      let re = new RegExp(process.env.SERVICE_HOSTNAME + "$");
+      let re = new RegExp(config.get('service_hostname') + "$");
       if (host.match(re)) {
         // don't alert for this, it's probably DNS related
         // TODO_SEO what should we return?
