@@ -9,3 +9,5 @@
 var config = require('./config/config.js');
 
 console.log('aws_region:' + config.get('aws_region'));
+console.log('all config parameters:\n', config.getProperties())
+
