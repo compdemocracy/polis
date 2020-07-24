@@ -4,6 +4,12 @@
 
 var config = require('./config/config.js');
 
+// keep these lines to help with debugging conversion
+// from process.env to config.get
+// console.log("process.env >>"+process.env.GOOGLE_API_KEY+"<<")
+// console.log("config.get >>"+config.get('google_api_key')+"<<")
+
+
 const akismetLib = require('akismet');
 const AWS = require('aws-sdk');
 AWS.config.set('region', config.get('aws_region'));
@@ -67,13 +73,10 @@ const _ = require('underscore');
 //
 // Note we use native
 
-console.log("env database >>"+process.env.DATABASE_URL+"<<")
-console.log("config database >>"+config.get('database_url')+"<<")
-
 const pgnative = require('pg').native; //.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
 const parsePgConnectionString = require('pg-connection-string').parse;
 
-const usingReplica = config.get('database_url') !== process.env[process.env.DATABASE_FOR_READS_NAME];
+const usingReplica = config.get('database_url') !== config.get('database_for_reads_url') 
 const poolSize = devMode ? 2 : (usingReplica ? 3 : 12)
 
 // not sure how many of these config options we really need anymore
@@ -85,7 +88,7 @@ const pgConnection = Object.assign(parsePgConnectionString(config.get('database_
        console.log("pool.primary." + level + " " + str);
      }
    }})
-const readsPgConnection = Object.assign(parsePgConnectionString(process.env[process.env.DATABASE_FOR_READS_NAME]),
+const readsPgConnection = Object.assign(parsePgConnectionString(config.get('database_for_reads_url')), 
   {max: poolSize,
    isReadOnly: true,
    poolLog: function(str, level) {
@@ -2945,14 +2948,16 @@ function initializePolisHelpers() {
 
     let queryStart = Date.now();
 
-    return pgQueryP_readOnly("select * from math_main where zid = ($1) and math_env = ($2);", [zid, process.env.MATH_ENV]).then((rows) => {
+    return pgQueryP_readOnly("select * from math_main where zid = ($1) and math_env = ($2);", 
+      [zid, config.get('math_env')]).then((rows) => {
 
       let queryEnd = Date.now();
       let queryDuration = queryEnd - queryStart;
       addInRamMetric("pcaGetQuery", queryDuration);
 
       if (!rows || !rows.length) {
-        INFO("mathpoll related; after cache miss, unable to find data for", {zid, math_tick, math_env: process.env.MATH_ENV});
+        INFO("mathpoll related; after cache miss, unable to find data for", {zid, math_tick, 
+          math_env: config.get('math_env')});
         return null;
       }
       let item = rows[0].data;
@@ -3293,9 +3298,12 @@ function initializePolisHelpers() {
   function getBidIndexToPidMapping(zid, math_tick) {
     math_tick = math_tick || -1;
 
+    return pgQueryP_readOnly("select * from math_bidtopid where zid = ($1) and math_env = ($2);", [zid, process.env.MATH_ENV]).then((rows) => {
+    // return pgQueryP_readOnly("select * from math_bidtopid where zid = ($1) and math_env = ($2);", 
+    //   [zid, config.get('math_env')]).then((rows) => {
 
-    return pgQueryP_readOnly("select * from math_bidtopid where zid = ($1) and math_env = ($2);", [zid,
-           config.get('math_env')]).then((rows) => {
+    // return pgQueryP_readOnly("select * from math_bidtopid where zid = ($1) and math_env = ($2);", [zid,
+    //        config.get('math_env')]).then((rows) => {
 
       if (zid === 12480) {
         console.log("bidToPid", rows[0].data);
@@ -10630,7 +10638,7 @@ Email verified! You can close this tab or hit the back button.
 
 
   function handle_GET_stripe_account_connect(req, res) {
-    var stripe_client_id = process.env.STRIPE_CLIENT_ID;
+    var stripe_client_id = config.get('stripe_client_id');
 
     var stripeUrl = "https://connect.stripe.com/oauth/authorize?response_type=code&client_id=" + stripe_client_id + "&scope=read_write";
     res.set({
@@ -10657,9 +10665,9 @@ Email verified! You can close this tab or hit the back button.
       url: 'https://connect.stripe.com/oauth/token',
       form: {
         grant_type: 'authorization_code',
-        client_id: process.env.STRIPE_CLIENT_ID,
+        client_id: config.get('stripe_client_id'),
         code: code,
-        client_secret: process.env.STRIPE_SECRET_KEY,
+        client_secret: config.get('stripe_secret_key'),
       },
     }, function(err, r, body) {
       if (err) {
@@ -10936,7 +10944,8 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function handle_POST_notifyTeam(req, res) {
-    if (req.p.webserver_pass !== process.env.WEBSERVER_PASS || req.p.webserver_username !== process.env.WEBSERVER_USERNAME) {
+    if (req.p.webserver_pass !== config.get('webserver_pass') || 
+        req.p.webserver_username !== config.get('f4c19337e502')) {
       return fail(res, 403, "polis_err_notifyTeam_auth");
     }
     let subject = req.p.subject;
@@ -10950,11 +10959,12 @@ Email verified! You can close this tab or hit the back button.
 
   function handle_POST_sendEmailExportReady(req, res) {
 
-    if (req.p.webserver_pass !== process.env.WEBSERVER_PASS || req.p.webserver_username !== process.env.WEBSERVER_USERNAME) {
+    if (req.p.webserver_pass !== config.get('webserver_pass') || 
+        req.p.webserver_username !== config.get('webserver_username')) {
       return fail(res, 403, "polis_err_sending_export_link_to_email_auth");
     }
 
-    const domain = process.env.PRIMARY_POLIS_URL;
+    const domain = config.get('primary_polis_url');
     const email = req.p.email;
     const subject = "Polis data export for conversation pol.is/" + req.p.conversation_id;
     const fromAddress = `Polis Team <${adminEmailDataExport}>`;
@@ -10994,8 +11004,8 @@ Thanks for using Polis!
     let oauth = new OAuth.OAuth(
       'https://api.twitter.com/oauth/request_token', // null
       'https://api.twitter.com/oauth/access_token', // null
-      process.env.TWITTER_CONSUMER_KEY, //'your application consumer key',
-      process.env.TWITTER_CONSUMER_SECRET, //'your application secret',
+      config.get('twitter_consumer_key'), //'your application consumer key',
+      config.get('twitter_consumer_secret'), //'your application secret',
       '1.0A',
       null,
       'HMAC-SHA1'
@@ -11044,8 +11054,8 @@ Thanks for using Polis!
     let oauth = new OAuth.OAuth(
       'https://api.twitter.com/oauth/request_token', // null
       'https://api.twitter.com/oauth/access_token', // null
-      process.env.TWITTER_CONSUMER_KEY, //'your application consumer key',
-      process.env.TWITTER_CONSUMER_SECRET, //'your application secret',
+      config.get('twitter_consumer_key'), //'your application consumer key',
+      config.get('twitter_consumer_secret'), //'your application secret',
       '1.0A',
       null,
       'HMAC-SHA1'
@@ -11098,8 +11108,8 @@ Thanks for using Polis!
     let oauth = new OAuth.OAuth(
       'https://api.twitter.com/oauth/request_token', // null
       'https://api.twitter.com/oauth/access_token', // null
-      process.env.TWITTER_CONSUMER_KEY, //'your application consumer key',
-      process.env.TWITTER_CONSUMER_SECRET, //'your application secret',
+      config.get('twitter_consumer_key'), //'your application consumer key',
+      config.get('twitter_consumer_secret'), //'your application secret',
       '1.0A',
       null,
       'HMAC-SHA1'
@@ -11140,8 +11150,8 @@ Thanks for using Polis!
     let oauth = new OAuth.OAuth(
       'https://api.twitter.com/oauth/request_token', // null
       'https://api.twitter.com/oauth/access_token', // null
-      process.env.TWITTER_CONSUMER_KEY, //'your application consumer key',
-      process.env.TWITTER_CONSUMER_SECRET, //'your application secret',
+      config.get('twitter_consumer_key'), //'your application consumer key',
+      config.get('twitter_consumer_secret'), //'your application secret',
       '1.0A',
       null,
       'HMAC-SHA1'
@@ -11214,8 +11224,8 @@ Thanks for using Polis!
     let oauth = new OAuth.OAuth(
       'https://api.twitter.com/oauth/request_token', // null
       'https://api.twitter.com/oauth/access_token', // null
-      process.env.TWITTER_CONSUMER_KEY, //'your application consumer key',
-      process.env.TWITTER_CONSUMER_SECRET, //'your application secret',
+      config.get('twitter_consumer_key'), //'your application consumer key',
+      config.get('twitter_consumer_secret'), //'your application secret',
       '1.0A',
       null,
       'HMAC-SHA1'
@@ -12088,7 +12098,8 @@ Thanks for using Polis!
 
 
   function geoCodeWithGoogleApi(locationString) {
-    let googleApiKey = process.env.GOOGLE_API_KEY;
+    // let googleApiKey = process.env.GOOGLE_API_KEY;
+    let googleApiKey = condif.get('google_api_key')
     let address = encodeURI(locationString);
 
     return new Promise(function(resolve, reject) {
