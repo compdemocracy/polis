@@ -32,6 +32,7 @@ services:
       - "config:/app/config"
     ports:
       - "5000:5000"
+      - "9229:9229"
 
   math:
     container_name: polis-math
@@ -60,6 +61,8 @@ services:
       - "backups:/backups"
       - "config:/app/config"
       - "postgres:/var/lib/postgresql/data"
+    ports:
+      - "5432:5432"
 
   nginx-proxy:
     container_name: polis-nginx-proxy
