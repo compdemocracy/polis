@@ -12,18 +12,16 @@ To run these tests:
 
 3. Open up the Cypress App: `npm run cypress`
     - By default, we run tests against `http://localhost`
-    - To override, just set `CYPRESS_BASE_URL` envvar to base URL of the app your wish to test.
-      - E.g., `CYPRESS_BASE_URL=https://preprod.pol.is npm run cypress`
+    - See note below about overriding the base URL.
 
 4. Click on tests to run
     - Alternatively, you can run all tests automatically: `npm test`
-    - You may set `CYPRESS_BASE_URL` on any cypress-related command.
 
 ## Notes
 
 - We keep some helper scripts in `package.json`.
-- The default base url for running tests against, is https://preprod.pol.is
-  - You may override this like so: `CYPRESS_BASE_URL=http://123.45.67.89.xip.io npm test`
+- The default base url for running tests against, is https://localhist
+  - You may override any cypress-related command this like so: `CYPRESS_BASE_URL=http://123.45.67.89.xip.io npm test`
 - `cypress/integration/polis/`: where we store our tests
 - `cypress/integration/examples`: where we store boilerplate examples
 - `cypress/support/commands.js`: where we keep oft-used commands, e.g., for logging in, creating conversations, etc.
