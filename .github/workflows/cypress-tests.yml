@@ -33,16 +33,46 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2.3.1
 
+      # This step helps us know when to skip future steps, particularly if
+      # we're on a fork where upstream secrets won't be available.
+      - name: Ensure secrets available
+        env:
+          GOOGLE_CREDENTIALS_BASE64: ${{ secrets.GOOGLE_CREDENTIALS_BASE64 }}
+        run: |
+          if [ -n "$GOOGLE_CREDENTIALS_BASE64" ]; then
+            echo "::set-env name=DO_COMMENT_TRANSLATION::true"
+          fi
+
+      - name: Enable comment translation
+        if: env.DO_COMMENT_TRANSLATION
+        run: |
+          echo GOOGLE_CREDENTIALS_BASE64=${{ secrets.GOOGLE_CREDENTIALS_BASE64 }} >> server/docker-dev.env
+          echo SHOULD_USE_TRANSLATION_API=true >> server/docker-dev.env
+
       - name: Serve app via docker-compose
         run: docker-compose up --detach
 
-      - name: Run Cypress tests
+      - name: "Run Cypress tests: default"
         uses: cypress-io/github-action@v1
         env:
           CYPRESS_BASE_URL: http://localhost
         with:
           working-directory: ./e2e
-          spec: cypress/integration/polis/**/*
+          # Ignore all tests with pattern *.secrets.spec.js
+          spec: "**/polis/**/!(*.secrets).spec.js"
+          browser: chrome
+
+      - name: "Run Cypress tests: comment translation"
+        if: env.DO_COMMENT_TRANSLATION
+        uses: cypress-io/github-action@v1
+        env:
+          CYPRESS_BASE_URL: http://localhost
+        with:
+          install: false
+          working-directory: ./e2e
+          spec: "**/comment-translation.secrets.spec.js"
+          # Prevent cypress from discarding screenshots/videos from default test run.
+          config: "trashAssetsBeforeRuns=false"
           browser: chrome
 
       # NOTE: screenshots will be generated only if E2E test failed
@@ -61,3 +91,7 @@ jobs:
         with:
           name: cypress-videos
           path: e2e/cypress/videos
+
+      - name: Check status of containers
+        if: failure()
+        run: docker-compose ps
