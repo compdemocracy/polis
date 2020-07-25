@@ -1,4 +1,4 @@
 {
   "apiPath": "/api/v3",
-  "baseUrl": "https://preprod.pol.is"
+  "baseUrl": "http://localhost"
 }
