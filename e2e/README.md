@@ -10,11 +10,14 @@ To run these tests:
 2. Install npm dependencies
 `npm install`
 
-3. Open up the Cypress App
-`npm run cypress`
+3. Open up the Cypress App: `npm run cypress`
+    - By default, we run tests against `http://localhost`
+    - To override, just set `CYPRESS_BASE_URL` envvar to base URL of the app your wish to test.
+      - E.g., `CYPRESS_BASE_URL=https://preprod.pol.is npm run cypress`
 
 4. Click on tests to run
     - Alternatively, you can run all tests automatically: `npm test`
+    - You may set `CYPRESS_BASE_URL` on any cypress-related command.
 
 ## Notes
 
