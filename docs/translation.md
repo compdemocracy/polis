@@ -9,6 +9,7 @@ As much as possible, we try to manage localization from our continuous integrati
 A project (aka _repository_ in Mojito's terminology) is a component with a set of localizations, e.g., `client-admin`.
 
 2. Note the path of the project's `strings` directory in this repo.
+    - Minimally, ensure that at least `path/to/strings/en.js` exists.
 3. Update [`.github/workflows/push-translations.yml`][push-workflow]
     - Add appropriate paths to `on.push.paths`.
     - Add new entry to the `PROJECTS` envvar of step `Ensure translation projects exist`.
