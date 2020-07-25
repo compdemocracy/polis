@@ -42,10 +42,11 @@ jobs:
 
       - name: Ensure translation projects exist
         env:
-          PROJECTS: client-participation client-admin client-report
+          PROJECTS: client-participation client-admin
         run: |
           for p in $PROJECTS; do
-            java -jar mojito-cli.jar repo-view -n polis:$p || java -jar mojito-cli.jar repo-create -n polis:$p
+            # Add "en-CA" as a dummy locale, since this is a required argument. We'll override with real locales in next step. 
+            java -jar mojito-cli.jar repo-view --name polis:$p || java -jar mojito-cli.jar repo-create --locales en-CA --name polis:$p
           done
 
       # For documentation on locale notation:
