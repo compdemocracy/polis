@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - "client-participation/js/strings/en.js"
+      - "client-admin/src/strings/en.js"
       # Rebuild on change to workflow itself.
       - ".github/workflows/push-translations.yml"
     branches:
@@ -39,28 +40,28 @@ jobs:
       - name: Write Mojito CLI config
         run: cp ${CHECKOUT_DIR}/.github/support/mojito-cli/application.properties .
 
+      - name: Ensure translation projects exist
+        env:
+          PROJECTS: client-participation client-admin client-report
+        run: |
+          for p in $PROJECTS; do
+            java -jar mojito-cli.jar repo-view -n polis:$p || java -jar mojito-cli.jar repo-create -n polis:$p
+          done
 
       # For documentation on locale notation:
       # https://www.mojito.global/docs/guides/managing-locales/
       #
       # For a list of all possible locale options:
       # https://www.mojito.global/docs/refs/mojito-locales/
-      - name: Update available locales for localization
+      - name: Update available locales
         env:
           LOCALES_PARTICIPATION: '"pt-BR" "uk-UA" "es-419" "da-DK" "de-DE" "fr-FR" "it-IT" "ja-JP" "nl-NL" "zh-TW" "(zh-CN)"'
           LOCALES_ADMIN:         '"pt-BR" "uk-UA"'
         run: |
           java -jar mojito-cli.jar repo-update --name polis:client-participation --locales ${LOCALES_PARTICIPATION}
-          java -jar mojito-cli.jar repo-update --name polis:client-admin --locales ${LOCALES_ADMIN}
+          java -jar mojito-cli.jar repo-update --name polis:client-admin         --locales ${LOCALES_ADMIN}
 
-      - name: "Push translations to Mojito server: client-participation"
-        env:
-          MOJITO_REPO: client-participation
+      - name: Push translations to Mojito server
         run: |
-          java -jar mojito-cli.jar push --repository polis:${MOJITO_REPO} --source-directory ${CHECKOUT_DIR}/${MOJITO_REPO}/js/strings/
-
-      - name: "Push translations to Mojito server: client-admin"
-        env:
-          MOJITO_REPO: client-admin
-        run: |
-          java -jar mojito-cli.jar push --repository polis:${MOJITO_REPO} --source-directory ${CHECKOUT_DIR}/${MOJITO_REPO}/src/strings/
+          java -jar mojito-cli.jar push --repository polis:client-participation --source-directory ${CHECKOUT_DIR}/client-participation/js/strings/
+          java -jar mojito-cli.jar push --repository polis:client-admin         --source-directory ${CHECKOUT_DIR}/client-admin/src/strings/

@@ -91,6 +91,12 @@ Sign up at `/createuser` path. You'll be logged in right away; no email validati
 git config --local include.path ../.gitconfig
 ```
 
+## 🔣 Localization
+
+We'd love your help with translating our interfaces! Drop into our chat and introduce yourself! (details above)
+
+For technical administration of our localization server, see [`docs/translation.md`](/docs/translation.md)
+
 ## 🚀 Deployment
 
 Please see [`docs/deployment.md`](/docs/deployment.md)

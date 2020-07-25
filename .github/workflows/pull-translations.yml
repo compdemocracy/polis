@@ -4,9 +4,11 @@ on:
   push:
     paths:
       # If someone manually changes any auto-generated locale files,
-      # force a pull from translation server to override in a PR.
+      # force a pull from translation server to immediately revert via PR.
       - "client-participation/js/strings/*.js"
       - "!client-participation/js/strings/en.js"
+      - "client-admin/src/strings/*.js"
+      - "!client-admin/src/strings/en.js"
       # Rebuild on change to workflow itself.
       - ".github/workflows/pull-translations.yml"
     branches:
@@ -56,17 +58,10 @@ jobs:
       # from `fr-FR.js`. This works fine since our app's translation setup
       # falls back to English strings on its own.
 
-      - name: "Pull translations from Mojito server: client-participation"
-        env:
-          MOJITO_REPO: client-participation
+      - name: Pull translations from Mojito server
         run: |
-          java -jar mojito-cli.jar pull --repository polis:${MOJITO_REPO} --source-directory ${CHECKOUT_DIR}/${MOJITO_REPO}/js/strings/ --inheritance-mode REMOVE_UNTRANSLATED
-
-      - name: "Pull translations from Mojito server: client-admin"
-        env:
-          MOJITO_REPO: client-admin
-        run: |
-          java -jar mojito-cli.jar pull --repository polis:${MOJITO_REPO} --source-directory ${CHECKOUT_DIR}/${MOJITO_REPO}/src/strings/ --inheritance-mode REMOVE_UNTRANSLATED
+          java -jar mojito-cli.jar pull --inheritance-mode REMOVE_UNTRANSLATED --repository polis:client-participation --source-directory ${CHECKOUT_DIR}/client-participation/js/strings/
+          java -jar mojito-cli.jar pull --inheritance-mode REMOVE_UNTRANSLATED --repository polis:client-admin         --source-directory ${CHECKOUT_DIR}/client-admin/src/strings/
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v2.8.0
