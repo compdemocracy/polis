@@ -1,7 +1,7 @@
 describe('Comment translation', () => {
   let browserLanguage
-  const commentFrench = 'Ce commentaire est écrit en francais.'
-  const commentEnglish = 'This comment is written in French.'
+  const commentFrench = 'Cette déclaration est en français.'
+  const commentEnglish = 'This statement is in French.'
 
   before(() => {
     cy.fixture('users.json').then((users) => {
