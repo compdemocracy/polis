@@ -5,7 +5,6 @@ var exec = require("child_process").exec;
 var gulp = require("gulp");
 var { boolean: isTrue } = require("boolean");
 var s3 = require("gulp-s3");
-var rename = require("gulp-rename");
 var glob = require("glob");
 var gzip = require("gulp-gzip");
 var path = require("path");
@@ -193,14 +192,10 @@ gulp.task("configureForProduction", function (callback) {
 gulp.task("scripts", function () {
   var files = ["dist/admin_bundle.js"];
   var s = gulp.src(files);
-  s = s.pipe(gzip()).pipe(
-    rename(function (path) {
-      // remove .gz extension
-      var ext = path.extname;
-      console.log("foo", path);
-      path.extname = ext.substr(0, ext.length - ".gz".length);
-    })
-  );
+  s = s.pipe(gzip({
+    // Don't append .gz extension.
+    append: false
+  }))
   return s.pipe(gulp.dest(destRoot() + "/js"));
 });
 
