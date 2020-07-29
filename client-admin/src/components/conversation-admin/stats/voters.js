@@ -2,25 +2,25 @@
 
 /** @jsx jsx */
 
-import React from "react";
-import { jsx, Box, Heading } from "theme-ui";
-import { VictoryChart, VictoryArea } from "victory";
-import victoryTheme from "./victoryTheme";
+import React from 'react'
+import { jsx, Box, Heading } from 'theme-ui'
+import { VictoryChart, VictoryArea } from 'victory'
+import victoryTheme from './victoryTheme'
 
 class Voters extends React.Component {
   render() {
-    const { size, firstVoteTimes } = this.props;
-    if (firstVoteTimes.length <= 1) return null; /* no area chart with 1 data point */
+    const { size, firstVoteTimes } = this.props
+    if (firstVoteTimes.length <= 1)
+      return null /* no area chart with 1 data point */
     return (
       <Box sx={{ mt: [5] }}>
         <Heading
           as="h6"
           sx={{
             fontSize: [2, null, 3],
-            lineHeight: "body",
-            my: [2],
-          }}
-        >
+            lineHeight: 'body',
+            my: [2]
+          }}>
           Voters over time, by time of first vote
         </Heading>
         <VictoryChart
@@ -28,18 +28,17 @@ class Voters extends React.Component {
           height={size}
           width={size}
           domainPadding={{ x: 0, y: [0, 20] }}
-          scale={{ x: "time" }}
-        >
+          scale={{ x: 'time' }}>
           <VictoryArea
-            style={{ data: { fill: "#03a9f4" } }}
+            style={{ data: { fill: '#03a9f4' } }}
             data={firstVoteTimes.map((d, i) => {
-              return { x: new Date(d), y: i };
+              return { x: new Date(d), y: i }
             })}
           />
         </VictoryChart>
       </Box>
-    );
+    )
   }
 }
 
-export default Voters;
+export default Voters
