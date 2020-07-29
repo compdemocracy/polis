@@ -1,7 +1,12 @@
-[
-  {
-    "name": "Test User 0001",
-    "email": "user0001@polis.test",
+{
+  "moderator": {
+    "name": "Dummy Moderator",
+    "email": "moderator@polis.test",
+    "password": "testpassword"
+  },
+  "participant": {
+    "name": "Dummy Participant",
+    "email": "participant@polis.test",
     "password": "testpassword"
   }
-]
+}

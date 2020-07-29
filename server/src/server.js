@@ -7161,6 +7161,8 @@ Email verified! You can close this tab or hit the back button.
               return;
             }
             let conv = result && result.rows && result.rows[0];
+            // The first check with isModerator implictly tells us this can be returned in HTTP response.
+            conv.is_mod = true;
 
             let promise = generateShortUrl ?
               generateAndReplaceZinvite(req.p.zid, generateShortUrl) :

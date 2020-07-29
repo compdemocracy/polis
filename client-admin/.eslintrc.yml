@@ -1,0 +1,29 @@
+env:
+  browser: true
+  es2020: true
+  jquery: true
+globals:
+  Intercom: readonly
+  FB: readonly
+plugins:
+  - babel
+  - react
+extends:
+  - standard
+  - prettier-standard
+  - eslint:recommended
+  - plugin:react/recommended
+  - prettier/react
+rules:
+  # TODO: Migrate to camelcase.
+  # snake_case API params and properties makes this a tangled process.
+  camelcase: off
+parser: babel-eslint
+parserOptions:
+  ecmaFeatures:
+    jsx: true
+  ecmaVersion: 11
+  sourceType: module
+settings:
+  react:
+    version: detect
