@@ -7,6 +7,8 @@ import Url from '../../util/url'
 import { connect } from 'react-redux'
 import { Link } from 'react-router-dom'
 import { Heading } from 'theme-ui'
+import ComponentHelpers from '../../util/component-helpers'
+import NoPermission from './no-permission'
 
 @connect(state => state.zid_metadata)
 class ShareAndEmbed extends React.Component {
@@ -25,6 +27,10 @@ class ShareAndEmbed extends React.Component {
   }
 
   render() {
+    if (ComponentHelpers.shouldShowPermissionsError(this.props)) {
+      return <NoPermission />
+    }
+
     const { match } = this.props
     return (
       <div>
