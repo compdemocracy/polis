@@ -91,6 +91,12 @@ Sign up at `/createuser` path. You'll be logged in right away; no email validati
 git config --local include.path ../.gitconfig
 ```
 
+## 🔍 Testing
+
+We use Cypress for automated, end-to-end browser testing! (See badge above.)
+
+Please see [`e2e/README.md`](/e2e/README.md).
+
 ## 🚀 Deployment
 
 Please see [`docs/deployment.md`](/docs/deployment.md)

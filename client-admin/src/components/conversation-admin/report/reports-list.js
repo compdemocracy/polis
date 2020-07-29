@@ -5,6 +5,8 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { Heading, Box, Button } from 'theme-ui'
+import ComponentHelpers from '../../../util/component-helpers'
+import NoPermission from '../no-permission'
 
 @connect(state => state.zid_metadata)
 class ReportsList extends React.Component {
@@ -30,7 +32,11 @@ class ReportsList extends React.Component {
   }
 
   componentDidMount() {
-    this.getData()
+    const { zid_metadata } = this.props
+
+    if (zid_metadata.is_mod) {
+      this.getData()
+    }
   }
 
   createReportClicked() {
@@ -43,6 +49,10 @@ class ReportsList extends React.Component {
   }
 
   render() {
+    if (ComponentHelpers.shouldShowPermissionsError(this.props)) {
+      return <NoPermission />
+    }
+
     if (this.state.loading) {
       return <div>Loading Reports...</div>
     }
@@ -84,6 +94,9 @@ ReportsList.propTypes = {
     params: PropTypes.shape({
       conversation_id: PropTypes.string
     })
+  }),
+  zid_metadata: PropTypes.shape({
+    is_mod: PropTypes.bool
   })
 }
 
