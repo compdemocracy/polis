@@ -97,7 +97,7 @@
     "request": "^2.65.0",
     "theme-ui": "^0.3.1",
     "victory": "^34.3.11",
-    "whatwg-fetch": "^0.10.1"
+    "whatwg-fetch": "^3.2.0"
   },
   "jest": {
     "collectCoverage": true,
