@@ -1,106 +1,121 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 /** @jsx jsx */
 
-import React from "react";
-import { connect } from "react-redux";
-import { populateUserStore } from "./actions";
+import React from 'react'
+import PropTypes from 'prop-types'
+import { connect } from 'react-redux'
+import { populateUserStore } from './actions'
 
-import _ from "lodash";
+import _ from 'lodash'
 
-import { Switch, Route, Link, Redirect } from "react-router-dom";
-import { Flex, Box, jsx } from "theme-ui";
+import { Switch, Route, Link, Redirect } from 'react-router-dom'
+import { Flex, Box, jsx } from 'theme-ui'
 
 /* landers */
-import Home from "./components/landers/home";
-import TOS from "./components/landers/tos";
-import Privacy from "./components/landers/privacy";
-import PasswordReset from "./components/landers/password-reset";
-import PasswordResetInit from "./components/landers/password-reset-init";
-import PasswordResetInitDone from "./components/landers/password-reset-init-done";
-import SignIn from "./components/landers/signin";
-import SignOut from "./components/landers/signout";
-import CreateUser from "./components/landers/createuser";
+import Home from './components/landers/home'
+import TOS from './components/landers/tos'
+import Privacy from './components/landers/privacy'
+import PasswordReset from './components/landers/password-reset'
+import PasswordResetInit from './components/landers/password-reset-init'
+import PasswordResetInitDone from './components/landers/password-reset-init-done'
+import SignIn from './components/landers/signin'
+import SignOut from './components/landers/signout'
+import CreateUser from './components/landers/createuser'
 
 // /conversation-admin
-import ConversationAdminContainer from "./components/conversation-admin/index";
+import ConversationAdminContainer from './components/conversation-admin/index'
 
-import Conversations from "./components/conversations-and-account/conversations";
-import Account from "./components/conversations-and-account/account";
-import Integrate from "./components/conversations-and-account/integrate";
+import Conversations from './components/conversations-and-account/conversations'
+import Account from './components/conversations-and-account/account'
+import Integrate from './components/conversations-and-account/integrate'
 
-import InteriorHeader from "./components/interior-header";
+import InteriorHeader from './components/interior-header'
 
 const PrivateRoute = ({ component: Component, isLoading, authed, ...rest }) => {
   if (isLoading) {
-    return null;
+    return null
   }
   return (
     <Route
       {...rest}
-      render={(props) =>
+      render={props =>
         authed === true ? (
           <Component {...props} />
         ) : (
-          <Redirect to={{ pathname: "/signin", state: { from: props.location } }} />
+          <Redirect
+            to={{ pathname: '/signin', state: { from: props.location } }}
+          />
         )
       }
     />
-  );
-};
+  )
+}
 
-@connect((state) => {
-  return state.user;
+PrivateRoute.propTypes = {
+  component: PropTypes.element,
+  isLoading: PropTypes.bool,
+  location: PropTypes.object,
+  authed: PropTypes.bool
+}
+
+@connect(state => {
+  return state.user
 })
 class App extends React.Component {
   constructor(props) {
-    super(props);
+    super(props)
     this.state = {
-      sidebarOpen: false,
+      sidebarOpen: false
       // sidebarDocked: true,
-    };
+    }
   }
 
   loadUserData() {
-    this.props.dispatch(populateUserStore());
+    this.props.dispatch(populateUserStore())
   }
 
   componentWillMount() {
-    this.loadUserData();
-    let mql = window.matchMedia(`(min-width: 800px)`);
-    mql.addListener(this.mediaQueryChanged.bind(this));
-    this.setState({ mql: mql, docked: mql.matches });
+    this.loadUserData()
+    const mql = window.matchMedia(`(min-width: 800px)`)
+    mql.addListener(this.mediaQueryChanged.bind(this))
+    this.setState({ mql: mql, docked: mql.matches })
   }
 
   isAuthed() {
-    let authed = false;
+    let authed = false
 
     if (!_.isUndefined(this.props.isLoggedIn) && this.props.isLoggedIn) {
-      authed = true;
+      authed = true
     }
 
-    if ((this.props.error && this.props.status === 401) || this.props.status === 403) {
-      authed = false;
+    if (
+      (this.props.error && this.props.status === 401) ||
+      this.props.status === 403
+    ) {
+      authed = false
     }
 
-    return authed;
+    return authed
   }
 
   isLoading() {
-    const { isLoggedIn } = this.props;
+    const { isLoggedIn } = this.props
 
-    return _.isUndefined(isLoggedIn); /* if isLoggedIn is undefined, the app is loading */
+    return _.isUndefined(
+      isLoggedIn
+    ) /* if isLoggedIn is undefined, the app is loading */
   }
 
   componentDidMount() {
-    this.mediaQueryChanged();
+    this.mediaQueryChanged()
   }
 
   initIntercom() {
     if (window.useIntercom && !this.intercomInitialized) {
-      const user = this.props.user;
+      const { user } = this.props
       if (user) {
         if (!window.Intercom && user && user.uid) {
-          window.initIntercom();
+          window.initIntercom()
         }
         if (user.email) {
           /*eslint-disable */
@@ -111,61 +126,61 @@ class App extends React.Component {
             user_id: user.uid,
           });
           /* jshint ignore:end */
-          /*eslint-enable */
+          /* eslint-enable */
         }
-        this.intercomInitialized = true;
+        this.intercomInitialized = true
       }
     }
   }
 
   updateIntercomSettings() {
-    this.initIntercom();
+    this.initIntercom()
     if (this.intercomInitialized) {
-      const user = this.props.user;
-      window.intercomOptions = {
-        app_id: "nb5hla8s",
+      const { user } = this.props
+      const intercomOptions = {
+        app_id: 'nb5hla8s',
         widget: {
-          activator: "#IntercomDefaultWidget",
-        },
-      };
+          activator: '#IntercomDefaultWidget'
+        }
+      }
       if (user && user.uid) {
-        intercomOptions.user_id = user.uid + "";
+        intercomOptions.user_id = user.uid + ''
       }
       if (user && user.email) {
-        intercomOptions.email = user.email;
+        intercomOptions.email = user.email
       }
       if (user && user.created) {
-        intercomOptions.created_at = (user.created / 1000) >> 0;
+        intercomOptions.created_at = (user.created / 1000) >> 0
       }
       if (user && user.hname) {
-        intercomOptions.name = user.hname;
+        intercomOptions.name = user.hname
       }
-      Intercom("update", intercomOptions);
+      Intercom('update', intercomOptions)
     }
   }
 
   componentDidUpdate() {
-    this.updateIntercomSettings();
+    this.updateIntercomSettings()
   }
 
   componentWillUnmount() {
-    this.state.mql.removeListener(this.mediaQueryChanged.bind(this));
+    this.state.mql.removeListener(this.mediaQueryChanged.bind(this))
   }
 
   mediaQueryChanged() {
-    this.setState({ sidebarDocked: this.state.mql.matches });
+    this.setState({ sidebarDocked: this.state.mql.matches })
   }
 
   onSetSidebarOpen(open) {
-    this.setState({ sidebarOpen: open });
+    this.setState({ sidebarOpen: open })
   }
 
   handleMenuButtonClick() {
-    this.setState({ sidebarOpen: !this.state.sidebarOpen });
+    this.setState({ sidebarOpen: !this.state.sidebarOpen })
   }
 
   render() {
-    const { location } = this.props;
+    const { location } = this.props
     return (
       <>
         <Switch>
@@ -196,36 +211,46 @@ class App extends React.Component {
           <Route exact path="/pwreset" component={PasswordReset} />
           <Route path="/pwreset/*" component={PasswordReset} />
           <Route exact path="/pwresetinit" component={PasswordResetInit} />
-          <Route exact path="/pwresetinit/done" component={PasswordResetInitDone} />
+          <Route
+            exact
+            path="/pwresetinit/done"
+            component={PasswordResetInitDone}
+          />
           <Route exact path="/tos" component={TOS} />
           <Route exact path="/privacy" component={Privacy} />
 
           <InteriorHeader>
             <Route
-              render={(routeProps) => {
-                if (routeProps.location.pathname.split("/")[1] === "m") {
-                  return null;
+              render={routeProps => {
+                if (routeProps.location.pathname.split('/')[1] === 'm') {
+                  return null
                 }
                 return (
                   <Flex>
-                    <Box sx={{ mr: [5], p: [4], flex: "0 0 auto" }}>
+                    <Box sx={{ mr: [5], p: [4], flex: '0 0 auto' }}>
                       <Box sx={{ mb: [3] }}>
-                        <Link sx={{ variant: "links.nav" }} to={`/`}>
+                        <Link sx={{ variant: 'links.nav' }} to={`/`}>
                           Conversations
                         </Link>
                       </Box>
                       <Box sx={{ mb: [3] }}>
-                        <Link sx={{ variant: "links.nav" }} to={`/integrate`}>
+                        <Link sx={{ variant: 'links.nav' }} to={`/integrate`}>
                           Integrate
                         </Link>
                       </Box>
                       <Box sx={{ mb: [3] }}>
-                        <Link sx={{ variant: "links.nav" }} to={`/account`}>
+                        <Link sx={{ variant: 'links.nav' }} to={`/account`}>
                           Account
                         </Link>
                       </Box>
                     </Box>
-                    <Box sx={{ p: [4], flex: "0 0 auto", maxWidth: "35em", mx: [4] }}>
+                    <Box
+                      sx={{
+                        p: [4],
+                        flex: '0 0 auto',
+                        maxWidth: '35em',
+                        mx: [4]
+                      }}>
                       <PrivateRoute
                         isLoading={this.isLoading()}
                         authed={this.isAuthed()}
@@ -256,7 +281,7 @@ class App extends React.Component {
                       />
                     </Box>
                   </Flex>
-                );
+                )
               }}
             />
 
@@ -269,8 +294,22 @@ class App extends React.Component {
           </InteriorHeader>
         </Switch>
       </>
-    );
+    )
   }
 }
 
-export default App;
+App.propTypes = {
+  dispatch: PropTypes.func,
+  isLoggedIn: PropTypes.bool,
+  location: PropTypes.shape({
+    pathname: PropTypes.string
+  }),
+  user: PropTypes.shape({
+    uid: PropTypes.string,
+    email: PropTypes.string,
+    created: PropTypes.number,
+    hname: PropTypes.string
+  })
+}
+
+export default App
