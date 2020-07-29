@@ -1,43 +1,44 @@
 export default {
   footer: {
-    copyright: "The Authors. All Rights Reserved.",
-    social: ["https://github.com/pol-is/", "https://twitter.com/usepolis"],
+    copyright: 'The Authors. All Rights Reserved.',
+    social: ['https://github.com/pol-is/', 'https://twitter.com/usepolis'],
     groups: [
       {
-        heading: "Company",
+        heading: 'Company',
         links: [
           {
-            title: "About",
-            url: "https://pol.is/company"
+            title: 'About',
+            url: 'https://pol.is/company'
           },
           {
-            title: "Blog",
-            url: "https://blog.pol.is/"
+            title: 'Blog',
+            url: 'https://blog.pol.is/'
           }
         ]
       },
       {
-        heading: "Support",
+        heading: 'Support',
         links: [
           {
-            title: "FAQ",
-            url: "https://intercom.help/polis/frequently-asked-questions/polis-faq"
+            title: 'FAQ',
+            url:
+              'https://intercom.help/polis/frequently-asked-questions/polis-faq'
           }
         ]
       },
       {
-        heading: "Legal",
+        heading: 'Legal',
         links: [
           {
-            title: "Terms",
-            url: "https://pol.is/tos"
+            title: 'Terms',
+            url: 'https://pol.is/tos'
           },
           {
-            title: "Privacy",
-            url: "https://pol.is/privacy"
+            title: 'Privacy',
+            url: 'https://pol.is/privacy'
           }
         ]
       }
     ]
   }
-};
+}
