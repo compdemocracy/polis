@@ -1,7 +1,7 @@
 describe('Routes', () => {
   before(() => {
     cy.fixture('users.json').then((users) => {
-      const user = users[0]
+      const user = users.moderator
       cy.createConvo(user.email, user.password)
     })
     cy.location('pathname').as('adminPath')
@@ -9,7 +9,7 @@ describe('Routes', () => {
 
   beforeEach(() => {
     cy.fixture('users.json').then((users) => {
-      const user = users[0]
+      const user = users.moderator
       cy.login(user.email, user.password)
     })
   })
