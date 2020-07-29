@@ -9,7 +9,11 @@ import NumberCards from './conversation-stats-number-cards'
 import Voters from './voters'
 import Commenters from './commenters'
 import { Heading, Box, jsx } from 'theme-ui'
+import ComponentHelpers from '../../../util/component-helpers'
+import NoPermission from '../no-permission'
 
+@connect(state => state.stats)
+@connect(state => state.zid_metadata)
 @connect(state => state.stats)
 class ConversationStats extends React.Component {
   constructor(props) {
@@ -47,18 +51,30 @@ class ConversationStats extends React.Component {
     )
   }
 
-  componentWillMount() {
-    this.loadStats()
-    this.getStatsRepeatedly = setInterval(() => {
+  componentDidMount() {
+    const { zid_metadata } = this.props
+
+    if (zid_metadata.is_mod) {
       this.loadStats()
-    }, 10000)
+      this.getStatsRepeatedly = setInterval(() => {
+        this.loadStats()
+      }, 10000)
+    }
   }
 
   componentWillUnmount() {
-    clearInterval(this.getStatsRepeatedly)
+    const { zid_metadata } = this.props
+
+    if (zid_metadata.is_mod) {
+      clearInterval(this.getStatsRepeatedly)
+    }
   }
 
   render() {
+    if (ComponentHelpers.shouldShowPermissionsError(this.props)) {
+      return <NoPermission />
+    }
+
     const { conversation_stats } = this.props
     const loading =
       !conversation_stats.firstCommentTimes ||
