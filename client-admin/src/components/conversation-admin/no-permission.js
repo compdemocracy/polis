@@ -6,7 +6,7 @@ import strings from "../../strings/strings";
 class NoPermission extends React.Component {
   render() {
     return (
-      <div>
+      <div id="no-permission-warning">
         <div>{strings("no_permission")}</div>
       </div>
     );

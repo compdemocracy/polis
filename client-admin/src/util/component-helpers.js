@@ -3,8 +3,7 @@
 const helpers = {};
 
 helpers.shouldShowPermissionsError = (props) => {
-  return false;
-  //return props.zid_metadata && !props.zid_metadata.is_owner && !props.zid_metadata.is_mod;
+  return props.zid_metadata && !props.zid_metadata.is_owner && !props.zid_metadata.is_mod;
 };
 
 

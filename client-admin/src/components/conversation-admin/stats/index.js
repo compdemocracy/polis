@@ -3,6 +3,8 @@
 
 import dateSetupUtil from "../../../util/data-export-date-setup";
 import React from "react";
+import ComponentHelpers from "../../../util/component-helpers";
+import NoPermission from "../no-permission";
 import { connect } from "react-redux";
 import { populateConversationStatsStore } from "../../../actions";
 import NumberCards from "./conversation-stats-number-cards";
@@ -10,6 +12,7 @@ import Voters from "./voters";
 import Commenters from "./commenters";
 import { Heading, Box, jsx } from "theme-ui";
 
+@connect((state) => state.zid_metadata)
 @connect((state) => state.stats)
 class ConversationStats extends React.Component {
   constructor(props) {
@@ -44,16 +47,28 @@ class ConversationStats extends React.Component {
     this.props.dispatch(populateConversationStatsStore(match.params.conversation_id, until));
   }
   componentWillMount() {
-    this.loadStats();
-    this.getStatsRepeatedly = setInterval(() => {
+    const { zid_metadata } = this.props;
+
+    if (zid_metadata.is_mod) {
       this.loadStats();
-    }, 10000);
+      this.getStatsRepeatedly = setInterval(() => {
+        this.loadStats();
+      }, 10000);
+    }
   }
   componentWillUnmount() {
-    clearInterval(this.getStatsRepeatedly);
+    const { zid_metadata } = this.props;
+
+    if (zid_metadata.is_mod) {
+      clearInterval(this.getStatsRepeatedly);
+    }
   }
 
   render() {
+    if (ComponentHelpers.shouldShowPermissionsError(this.props)) {
+      return <NoPermission />;
+    }
+
     const { conversation_stats } = this.props;
     const loading = !conversation_stats.firstCommentTimes || !conversation_stats.firstVoteTimes;
 
