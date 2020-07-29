@@ -23,7 +23,7 @@ To run these tests:
 - The default base url for running tests against, is https://localhist
   - You may override any cypress-related command this like so: `CYPRESS_BASE_URL=http://123.45.67.89.xip.io npm test`
 - `cypress/integration/polis/`: where we store our tests
-- `cypress/integration/examples`: where we store boilerplate examples
+- `cypress/integration/examples`: where we store boilerplate examples (ignored by test runner)
 - `cypress/support/commands.js`: where we keep oft-used commands, e.g., for logging in, creating conversations, etc.
 - `cypress/support/index.js`: where we keep code we wish to run during initial setup, e.g., to ensure default users present.
 - For tests against features that require third-party credentials when self-hosted, we use filenames like `*.secrets.spec.js`.
