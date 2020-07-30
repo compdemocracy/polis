@@ -82,8 +82,6 @@
     "react-router-dom": "^5.2.0",
     "react-transition-group": "^4.4.1",
     "redux": "^3.0.2",
-    "redux-actions": "^0.9.0",
-    "redux-logger": "^2.0.4",
     "redux-thunk": "^2.3.0",
     "request": "^2.65.0",
     "theme-ui": "^0.3.1",
