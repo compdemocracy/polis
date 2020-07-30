@@ -84,7 +84,6 @@
     "react-redux": "7.2.0",
     "react-router": "5.2.0",
     "react-router-dom": "^5.2.0",
-    "react-tap-event-plugin": "^2.0.0",
     "react-transition-group": "^4.4.1",
     "redux": "^3.0.2",
     "redux-actions": "^0.9.0",
