@@ -1,4 +1,5 @@
-name: Build nightlies
+# Changes to workflow name require changes to badge URL in README.md
+name: Nightly Docker Builds
 
 on:
   schedule:
@@ -16,7 +17,7 @@ jobs:
       DOCKER_BUILDKIT: 1
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v2.3.1
         with:
           ref: ${{ env.GHA_BRANCH }}
 

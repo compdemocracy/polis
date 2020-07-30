@@ -1,0 +1,18 @@
+# This is used to auto-assign reviewers to pull requests, among other things.
+#
+# Note: Currently only works for users/teams with write access.
+# See: https://help.github.com/en/github/creating-cloning-and-archiving-reposoitories/about-code-owners
+
+*            @pol-is/core @pol-is/community
+
+/client-*/** @colinmegill
+
+/.github/**  @metasoarous
+/server/**   @metasoarous
+/math/**     @metasoarous
+
+docker-compose.yml @metasoarous @patcon @ballpointpenguin
+Dockerfile*        @metasoarous @patcon @ballpointpenguin
+*.env*             @metasoarous @patcon @ballpointpenguin
+
+/e2e/**            @patcon @ballpointpenguin

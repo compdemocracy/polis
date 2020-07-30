@@ -3,6 +3,10 @@
 Polis Admin Console
 ===================
 
+The below instructions are no longer officially supported; if you'd like to use them as a reference, we suggest you check out the official [Dockerfile](Dockerfile) to understand the latest build process and specific package versions.
+
+---
+
 Configuration
 -------------
 
@@ -11,7 +15,7 @@ Install the NVM following the instructions: [NVM Installation Guide](https://git
 Them run the commands below to install the correct Node.JS version and the application dependencies.
 
 ```sh
-nvm install 6.2.0
+nvm install 8.17.0
 npm install
 ```
 
@@ -35,9 +39,10 @@ npm start
 Running Tests
 -------------
 
-We use the Jest Testing Framework.
+We aspire to use the Jest Testing Framework. We welcome contributors to help us write tests!
 
 ```sh
+# Doesn't work right now. Will need to reinstall jest.
 npm test
 ```
 

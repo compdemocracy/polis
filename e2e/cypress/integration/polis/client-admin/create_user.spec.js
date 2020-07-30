@@ -10,12 +10,9 @@ describe('Create User', () => {
   })
 
   it('Does not create a new user with existing email address', function () {
-    const user = this.users[0]
+    const user = this.users.moderator
 
-    // Create user.
-    cy.signup(user.name, user.email, user.password)
-
-    // Attempt to recreate user.
+    // Attempt to recreate existing user.
     cy.signup(user.name, user.email, user.password)
 
     cy.get('form').contains(

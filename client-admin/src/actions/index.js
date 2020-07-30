@@ -1,154 +1,158 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import $ from "jquery";
-import PolisNet from "../util/net";
+import $ from 'jquery'
+import PolisNet from '../util/net'
 
-const SERVER_DATA = window.SERVER_DATA;
+const SERVER_DATA = window.SERVER_DATA
 
 /* ======= Types ======= */
-export const REQUEST_USER = "REQUEST_USER";
-export const RECEIVE_USER = "RECEIVE_USER";
-export const USER_FETCH_ERROR = "USER_FETCH_ERROR";
+export const REQUEST_USER = 'REQUEST_USER'
+export const RECEIVE_USER = 'RECEIVE_USER'
+export const USER_FETCH_ERROR = 'USER_FETCH_ERROR'
 
-export const CREATE_NEW_CONVERSATION = "CREATE_NEW_CONVERSATION";
-export const CREATE_NEW_CONVERSATION_SUCCESS = "CREATE_NEW_CONVERSATION_SUCCESS";
-export const CREATE_NEW_CONVERSATION_ERROR = "CREATE_NEW_CONVERSATION_ERROR";
+export const CREATE_NEW_CONVERSATION = 'CREATE_NEW_CONVERSATION'
+export const CREATE_NEW_CONVERSATION_SUCCESS = 'CREATE_NEW_CONVERSATION_SUCCESS'
+export const CREATE_NEW_CONVERSATION_ERROR = 'CREATE_NEW_CONVERSATION_ERROR'
 
-export const REQUEST_CONVERSATIONS = "REQUEST_CONVERSATIONS";
-export const RECEIVE_CONVERSATIONS = "RECEIVE_CONVERSATIONS";
-export const CONVERSATIONS_FETCH_ERROR = "CONVERSATIONS_FETCH_ERROR";
+export const REQUEST_CONVERSATIONS = 'REQUEST_CONVERSATIONS'
+export const RECEIVE_CONVERSATIONS = 'RECEIVE_CONVERSATIONS'
+export const CONVERSATIONS_FETCH_ERROR = 'CONVERSATIONS_FETCH_ERROR'
 
 /* zid for clarity - this is conversation config */
-export const REQUEST_ZID_METADATA = "REQUEST_ZID_METADATA";
-export const RECEIVE_ZID_METADATA = "RECEIVE_ZID_METADATA";
-export const ZID_METADATA_FETCH_ERROR = "ZID_METADATA_FETCH_ERROR";
-export const ZID_METADATA_RESET = "ZID_METADATA_RESET";
+export const REQUEST_ZID_METADATA = 'REQUEST_ZID_METADATA'
+export const RECEIVE_ZID_METADATA = 'RECEIVE_ZID_METADATA'
+export const ZID_METADATA_FETCH_ERROR = 'ZID_METADATA_FETCH_ERROR'
+export const ZID_METADATA_RESET = 'ZID_METADATA_RESET'
 
-export const UPDATE_ZID_METADATA_STARTED = "UPDATE_ZID_METADATA_STARTED";
-export const UPDATE_ZID_METADATA_SUCCESS = "UPDATE_ZID_METADATA_SUCCESS";
-export const UPDATE_ZID_METADATA_ERROR = "UPDATE_ZID_METADATA_ERROR";
+export const UPDATE_ZID_METADATA_STARTED = 'UPDATE_ZID_METADATA_STARTED'
+export const UPDATE_ZID_METADATA_SUCCESS = 'UPDATE_ZID_METADATA_SUCCESS'
+export const UPDATE_ZID_METADATA_ERROR = 'UPDATE_ZID_METADATA_ERROR'
 
-export const OPTIMISTIC_ZID_METADATA_UPDATE = "OPTIMISTIC_ZID_METADATA_UPDATE";
+export const OPTIMISTIC_ZID_METADATA_UPDATE = 'OPTIMISTIC_ZID_METADATA_UPDATE'
 
 /* report */
-export const UPDATE_REPORT_STARTED = "UPDATE_REPORT_STARTED";
-export const UPDATE_REPORT_SUCCESS = "UPDATE_REPORT_SUCCESS";
-export const UPDATE_REPORT_ERROR = "UPDATE_REPORT_ERROR";
+export const UPDATE_REPORT_STARTED = 'UPDATE_REPORT_STARTED'
+export const UPDATE_REPORT_SUCCESS = 'UPDATE_REPORT_SUCCESS'
+export const UPDATE_REPORT_ERROR = 'UPDATE_REPORT_ERROR'
 
-export const OPTIMISTIC_REPORT_UPDATE = "OPTIMISTIC_REPORT_UPDATE";
+export const OPTIMISTIC_REPORT_UPDATE = 'OPTIMISTIC_REPORT_UPDATE'
 
 /* moderation */
-export const REQUEST_COMMENTS = "REQUEST_COMMENTS";
-export const RECEIVE_COMMENTS = "RECEIVE_COMMENTS";
-export const COMMENTS_FETCH_ERROR = "COMMENTS_FETCH_ERROR";
+export const REQUEST_COMMENTS = 'REQUEST_COMMENTS'
+export const RECEIVE_COMMENTS = 'RECEIVE_COMMENTS'
+export const COMMENTS_FETCH_ERROR = 'COMMENTS_FETCH_ERROR'
 
-export const REQUEST_UNMODERATED_COMMENTS = "REQUEST_UNMODERATED_COMMENTS";
-export const RECEIVE_UNMODERATED_COMMENTS = "RECEIVE_UNMODERATED_COMMENTS";
-export const UNMODERATED_COMMENTS_FETCH_ERROR = "UNMODERATED_COMMENTS_FETCH_ERROR";
+export const REQUEST_UNMODERATED_COMMENTS = 'REQUEST_UNMODERATED_COMMENTS'
+export const RECEIVE_UNMODERATED_COMMENTS = 'RECEIVE_UNMODERATED_COMMENTS'
+export const UNMODERATED_COMMENTS_FETCH_ERROR =
+  'UNMODERATED_COMMENTS_FETCH_ERROR'
 
-export const REQUEST_ACCEPTED_COMMENTS = "REQUEST_ACCEPTED_COMMENTS";
-export const RECEIVE_ACCEPTED_COMMENTS = "RECEIVE_ACCEPTED_COMMENTS";
-export const ACCEPTED_COMMENTS_FETCH_ERROR = "ACCEPTED_COMMENTS_FETCH_ERROR";
+export const REQUEST_ACCEPTED_COMMENTS = 'REQUEST_ACCEPTED_COMMENTS'
+export const RECEIVE_ACCEPTED_COMMENTS = 'RECEIVE_ACCEPTED_COMMENTS'
+export const ACCEPTED_COMMENTS_FETCH_ERROR = 'ACCEPTED_COMMENTS_FETCH_ERROR'
 
-export const REQUEST_REJECTED_COMMENTS = "REQUEST_REJECTED_COMMENTS";
-export const RECEIVE_REJECTED_COMMENTS = "RECEIVE_REJECTED_COMMENTS";
-export const REJECTED_COMMENTS_FETCH_ERROR = "REJECTED_COMMENTS_FETCH_ERROR";
+export const REQUEST_REJECTED_COMMENTS = 'REQUEST_REJECTED_COMMENTS'
+export const RECEIVE_REJECTED_COMMENTS = 'RECEIVE_REJECTED_COMMENTS'
+export const REJECTED_COMMENTS_FETCH_ERROR = 'REJECTED_COMMENTS_FETCH_ERROR'
 
-export const ACCEPT_COMMENT = "ACCEPT_COMMENT";
-export const ACCEPT_COMMENT_SUCCESS = "ACCEPT_COMMENT_SUCCESS";
-export const ACCEPT_COMMENT_ERROR = "ACCEPT_COMMENT_ERROR";
+export const ACCEPT_COMMENT = 'ACCEPT_COMMENT'
+export const ACCEPT_COMMENT_SUCCESS = 'ACCEPT_COMMENT_SUCCESS'
+export const ACCEPT_COMMENT_ERROR = 'ACCEPT_COMMENT_ERROR'
 
-export const REJECT_COMMENT = "REJECT_COMMENT";
-export const REJECT_COMMENT_SUCCESS = "REJECT_COMMENT_SUCCESS";
-export const REJECT_COMMENT_ERROR = "REJECT_COMMENT_ERROR";
+export const REJECT_COMMENT = 'REJECT_COMMENT'
+export const REJECT_COMMENT_SUCCESS = 'REJECT_COMMENT_SUCCESS'
+export const REJECT_COMMENT_ERROR = 'REJECT_COMMENT_ERROR'
 
-export const COMMENT_IS_META = "COMMENT_IS_META";
-export const COMMENT_IS_META_SUCCESS = "COMMENT_IS_META_SUCCESS";
-export const COMMENT_IS_META_ERROR = "COMMENT_IS_META_ERROR";
+export const COMMENT_IS_META = 'COMMENT_IS_META'
+export const COMMENT_IS_META_SUCCESS = 'COMMENT_IS_META_SUCCESS'
+export const COMMENT_IS_META_ERROR = 'COMMENT_IS_META_ERROR'
 
-export const REQUEST_PARTICIPANTS = "REQUEST_PARTICIPANTS";
-export const RECEIVE_PARTICIPANTS = "RECEIVE_PARTICIPANTS";
-export const PARTICIPANTS_FETCH_ERROR = "PARTICIPANTS_FETCH_ERROR";
+export const REQUEST_PARTICIPANTS = 'REQUEST_PARTICIPANTS'
+export const RECEIVE_PARTICIPANTS = 'RECEIVE_PARTICIPANTS'
+export const PARTICIPANTS_FETCH_ERROR = 'PARTICIPANTS_FETCH_ERROR'
 
-export const REQUEST_DEFAULT_PARTICIPANTS = "REQUEST_DEFAULT_PARTICIPANTS";
-export const RECEIVE_DEFAULT_PARTICIPANTS = "RECEIVE_DEFAULT_PARTICIPANTS";
-export const DEFAULT_PARTICIPANTS_FETCH_ERROR = "DEFAULT_PARTICIPANTS_FETCH_ERROR";
+export const REQUEST_DEFAULT_PARTICIPANTS = 'REQUEST_DEFAULT_PARTICIPANTS'
+export const RECEIVE_DEFAULT_PARTICIPANTS = 'RECEIVE_DEFAULT_PARTICIPANTS'
+export const DEFAULT_PARTICIPANTS_FETCH_ERROR =
+  'DEFAULT_PARTICIPANTS_FETCH_ERROR'
 
-export const REQUEST_FEATURED_PARTICIPANTS = "REQUEST_FEATURED_PARTICIPANTS";
-export const RECEIVE_FEATURED_PARTICIPANTS = "RECEIVE_FEATURED_PARTICIPANTS";
-export const FEATURED_PARTICIPANTS_FETCH_ERROR = "FEATURED_PARTICIPANTS_FETCH_ERROR";
+export const REQUEST_FEATURED_PARTICIPANTS = 'REQUEST_FEATURED_PARTICIPANTS'
+export const RECEIVE_FEATURED_PARTICIPANTS = 'RECEIVE_FEATURED_PARTICIPANTS'
+export const FEATURED_PARTICIPANTS_FETCH_ERROR =
+  'FEATURED_PARTICIPANTS_FETCH_ERROR'
 
-export const REQUEST_HIDDEN_PARTICIPANTS = "REQUEST_HIDDEN_PARTICIPANTS";
-export const RECEIVE_HIDDEN_PARTICIPANTS = "RECEIVE_HIDDEN_PARTICIPANTS";
-export const HIDDEN_PARTICIPANTS_FETCH_ERROR = "HIDDEN_PARTICIPANTS_FETCH_ERROR";
+export const REQUEST_HIDDEN_PARTICIPANTS = 'REQUEST_HIDDEN_PARTICIPANTS'
+export const RECEIVE_HIDDEN_PARTICIPANTS = 'RECEIVE_HIDDEN_PARTICIPANTS'
+export const HIDDEN_PARTICIPANTS_FETCH_ERROR = 'HIDDEN_PARTICIPANTS_FETCH_ERROR'
 
 /* participant actions */
-export const FEATURE_PARTICIPANT = "FEATURE_PARTICIPANT";
-export const FEATURE_PARTICIPANT_SUCCESS = "FEATURE_PARTICIPANT_SUCCESS";
-export const FEATURE_PARTICIPANT_ERROR = "FEATURE_PARTICIPANT_ERROR";
+export const FEATURE_PARTICIPANT = 'FEATURE_PARTICIPANT'
+export const FEATURE_PARTICIPANT_SUCCESS = 'FEATURE_PARTICIPANT_SUCCESS'
+export const FEATURE_PARTICIPANT_ERROR = 'FEATURE_PARTICIPANT_ERROR'
 
-export const HIDE_PARTICIPANT = "HIDE_PARTICIPANT";
-export const HIDE_PARTICIPANT_SUCCESS = "HIDE_PARTICIPANT_SUCCESS";
-export const HIDE_PARTICIPANT_ERROR = "HIDE_PARTICIPANT_ERROR";
+export const HIDE_PARTICIPANT = 'HIDE_PARTICIPANT'
+export const HIDE_PARTICIPANT_SUCCESS = 'HIDE_PARTICIPANT_SUCCESS'
+export const HIDE_PARTICIPANT_ERROR = 'HIDE_PARTICIPANT_ERROR'
 
 /* submit seed comment */
-export const SEED_COMMENT_LOCAL_UPDATE = "SEED_COMMENT_LOCAL_UPDATE";
-export const SUBMIT_SEED_COMMENT = "SUBMIT_SEED_COMMENT";
-export const SUBMIT_SEED_COMMENT_SUCCESS = "SUBMIT_SEED_COMMENT_SUCCESS";
-export const SUBMIT_SEED_COMMENT_ERROR = "SUBMIT_SEED_COMMENT_ERROR";
+export const SEED_COMMENT_LOCAL_UPDATE = 'SEED_COMMENT_LOCAL_UPDATE'
+export const SUBMIT_SEED_COMMENT = 'SUBMIT_SEED_COMMENT'
+export const SUBMIT_SEED_COMMENT_SUCCESS = 'SUBMIT_SEED_COMMENT_SUCCESS'
+export const SUBMIT_SEED_COMMENT_ERROR = 'SUBMIT_SEED_COMMENT_ERROR'
 
 /* submit tweet seed comment */
-export const SEED_COMMENT_TWEET_LOCAL_UPDATE = "SEED_COMMENT_TWEET_LOCAL_UPDATE";
-export const SUBMIT_SEED_COMMENT_TWEET = "SUBMIT_SEED_COMMENT_TWEET";
-export const SUBMIT_SEED_COMMENT_TWEET_SUCCESS = "SUBMIT_SEED_COMMENT_TWEET_SUCCESS";
-export const SUBMIT_SEED_COMMENT_TWEET_ERROR = "SUBMIT_SEED_COMMENT_TWEET_ERROR";
+export const SEED_COMMENT_TWEET_LOCAL_UPDATE = 'SEED_COMMENT_TWEET_LOCAL_UPDATE'
+export const SUBMIT_SEED_COMMENT_TWEET = 'SUBMIT_SEED_COMMENT_TWEET'
+export const SUBMIT_SEED_COMMENT_TWEET_SUCCESS =
+  'SUBMIT_SEED_COMMENT_TWEET_SUCCESS'
+export const SUBMIT_SEED_COMMENT_TWEET_ERROR = 'SUBMIT_SEED_COMMENT_TWEET_ERROR'
 
-export const REQUEST_SEED_COMMENTS = "REQUEST_SEED_COMMENTS";
-export const RECEIVE_SEED_COMMENTS = "RECEIVE_SEED_COMMENTS";
-export const SEED_COMMENTS_FETCH_ERROR = "SEED_COMMENTS_FETCH_ERROR";
+export const REQUEST_SEED_COMMENTS = 'REQUEST_SEED_COMMENTS'
+export const RECEIVE_SEED_COMMENTS = 'RECEIVE_SEED_COMMENTS'
+export const SEED_COMMENTS_FETCH_ERROR = 'SEED_COMMENTS_FETCH_ERROR'
 
 /* conversation stats */
-export const REQUEST_CONVERSATION_STATS = "REQUEST_CONVERSATION_STATS";
-export const RECEIVE_CONVERSATION_STATS = "RECEIVE_CONVERSATION_STATS";
-export const CONVERSATION_STATS_FETCH_ERROR = "CONVERSATION_STATS_FETCH_ERROR";
+export const REQUEST_CONVERSATION_STATS = 'REQUEST_CONVERSATION_STATS'
+export const RECEIVE_CONVERSATION_STATS = 'RECEIVE_CONVERSATION_STATS'
+export const CONVERSATION_STATS_FETCH_ERROR = 'CONVERSATION_STATS_FETCH_ERROR'
 
-export const DATA_EXPORT_STARTED = "DATA_EXPORT_STARTED";
-export const DATA_EXPORT_SUCCESS = "DATA_EXPORT_SUCCESS";
-export const DATA_EXPORT_ERROR = "DATA_EXPORT_ERROR";
+export const DATA_EXPORT_STARTED = 'DATA_EXPORT_STARTED'
+export const DATA_EXPORT_SUCCESS = 'DATA_EXPORT_SUCCESS'
+export const DATA_EXPORT_ERROR = 'DATA_EXPORT_ERROR'
 
-export const CREATEUSER_INITIATED = "CREATEUSER_INITIATED";
+export const CREATEUSER_INITIATED = 'CREATEUSER_INITIATED'
 // export const CREATEUSER_SUCCESSFUL = "CREATEUSER_SUCCESSFUL";
-export const CREATEUSER_ERROR = "CREATEUSER_ERROR";
+export const CREATEUSER_ERROR = 'CREATEUSER_ERROR'
 
-export const SIGNIN_INITIATED = "SIGNIN_INITIATED";
+export const SIGNIN_INITIATED = 'SIGNIN_INITIATED'
 // export const SIGNIN_SUCCESSFUL = "SIGNIN_SUCCESSFUL";
-export const SIGNIN_ERROR = "SIGNIN_ERROR";
+export const SIGNIN_ERROR = 'SIGNIN_ERROR'
 
-export const SIGNOUT_INITIATED = "SIGNOUT_INITIATED";
-export const SIGNOUT_SUCCESSFUL = "SIGNOUT_SUCCESSFUL";
-export const SIGNOUT_ERROR = "SIGNOUT_ERROR";
+export const SIGNOUT_INITIATED = 'SIGNOUT_INITIATED'
+export const SIGNOUT_SUCCESSFUL = 'SIGNOUT_SUCCESSFUL'
+export const SIGNOUT_ERROR = 'SIGNOUT_ERROR'
 
-export const PWRESET_INIT_INITIATED = "PWRESET_INIT_INITIATED";
-export const PWRESET_INIT_SUCCESS = "PWRESET_INIT_SUCCESS";
-export const PWRESET_INIT_ERROR = "PWRESET_INIT_ERROR";
+export const PWRESET_INIT_INITIATED = 'PWRESET_INIT_INITIATED'
+export const PWRESET_INIT_SUCCESS = 'PWRESET_INIT_SUCCESS'
+export const PWRESET_INIT_ERROR = 'PWRESET_INIT_ERROR'
 
-export const PWRESET_INITIATED = "PWRESET_INITIATED";
-export const PWRESET_SUCCESS = "PWRESET_SUCCESS";
-export const PWRESET_ERROR = "PWRESET_ERROR";
+export const PWRESET_INITIATED = 'PWRESET_INITIATED'
+export const PWRESET_SUCCESS = 'PWRESET_SUCCESS'
+export const PWRESET_ERROR = 'PWRESET_ERROR'
 
-export const FACEBOOK_SIGNIN_INITIATED = "FACEBOOK_SIGNIN_INITIATED";
-export const FACEBOOK_SIGNIN_SUCCESSFUL = "FACEBOOK_SIGNIN_SUCCESSFUL";
-export const FACEBOOK_SIGNIN_FAILED = "FACEBOOK_SIGNIN_FAILED";
+export const FACEBOOK_SIGNIN_INITIATED = 'FACEBOOK_SIGNIN_INITIATED'
+export const FACEBOOK_SIGNIN_SUCCESSFUL = 'FACEBOOK_SIGNIN_SUCCESSFUL'
+export const FACEBOOK_SIGNIN_FAILED = 'FACEBOOK_SIGNIN_FAILED'
 
-export const SUBMIT_CONTRIB = "SUBMIT_CONTRIB";
-export const SUBMIT_CONTRIB_SUCCESS = "SUBMIT_CONTRIB_SUCCESS";
-export const SUBMIT_CONTRIB_ERROR = "SUBMIT_CONTRIB_ERROR";
+export const SUBMIT_CONTRIB = 'SUBMIT_CONTRIB'
+export const SUBMIT_CONTRIB_SUCCESS = 'SUBMIT_CONTRIB_SUCCESS'
+export const SUBMIT_CONTRIB_ERROR = 'SUBMIT_CONTRIB_ERROR'
 
 /* MATH */
 
-export const REQUEST_MATH = "REQUEST_MATH";
-export const RECEIVE_MATH = "RECEIVE_MATH";
-export const MATH_FETCH_ERROR = "MATH_FETCH_ERROR";
+export const REQUEST_MATH = 'REQUEST_MATH'
+export const RECEIVE_MATH = 'RECEIVE_MATH'
+export const MATH_FETCH_ERROR = 'MATH_FETCH_ERROR'
 
 /* ======= Actions ======= */
 
@@ -166,17 +170,17 @@ export const MATH_FETCH_ERROR = "MATH_FETCH_ERROR";
 const requestUser = () => {
   return {
     type: REQUEST_USER
-  };
-};
+  }
+}
 
-const receiveUser = (data) => {
+const receiveUser = data => {
   return {
     type: RECEIVE_USER,
     data: data
-  };
-};
+  }
+}
 
-const userFetchError = (err) => {
+const userFetchError = err => {
   return {
     type: USER_FETCH_ERROR,
     status: err.status,
@@ -185,11 +189,11 @@ const userFetchError = (err) => {
 }
 
 const fetchUser = () => {
-  return PolisNet.polisGet("/api/v3/users", {errIfNoAuth: true});
+  return PolisNet.polisGet('/api/v3/users', { errIfNoAuth: true })
 }
 
 export const populateUserStore = () => {
-  return (dispatch) => {
+  return dispatch => {
     dispatch(requestUser())
     return fetchUser().then(
       res => dispatch(receiveUser(res)),
@@ -198,231 +202,232 @@ export const populateUserStore = () => {
   }
 }
 
-
 /* signin */
 
 const signinInitiated = () => {
   return {
     type: SIGNIN_INITIATED
-  };
-};
+  }
+}
 
 // SIGNIN_SUCCESSFUL Not needed since redirecting to clear password from memory
 
-const signinError = (err) => {
+const signinError = err => {
   return {
     type: SIGNIN_ERROR,
     data: err
-  };
-};
+  }
+}
 
-const signinPost = (attrs) => {
-  return PolisNet.polisPost("/api/v3/auth/login", attrs);
-};
+const signinPost = attrs => {
+  return PolisNet.polisPost('/api/v3/auth/login', attrs)
+}
 
-export const doSignin = (attrs, dest) => {
-  return (dispatch) => {
-    dispatch(signinInitiated());
+export const doSignin = attrs => {
+  return dispatch => {
+    dispatch(signinInitiated())
     return signinPost(attrs).then(
       () => {
         setTimeout(() => {
           // Force page to load so we can be sure the password is cleared from memory
           // delay a bit so the cookie has time to set
-          window.location = dest||"";
-        }, 3000);
+          dispatch({ type: 'signin completed successfully' })
+          window.location = '/'
+        }, 3000)
       },
-      (err) => dispatch(signinError(err))
-    );
-  };
-};
+      err => dispatch(signinError(err))
+    )
+  }
+}
 
 /* createUser */
 
 const createUserInitiated = () => {
   return {
     type: CREATEUSER_INITIATED
-  };
-};
+  }
+}
 
 // SIGNIN_SUCCESSFUL Not needed since redirecting to clear password from memory
 
-const createUserError = (err) => {
+const createUserError = err => {
   return {
     type: CREATEUSER_ERROR,
     data: err
-  };
-};
+  }
+}
 
-const createUserPost = (attrs) => {
-  return PolisNet.polisPost("/api/v3/auth/new", attrs);
-};
+const createUserPost = attrs => {
+  return PolisNet.polisPost('/api/v3/auth/new', attrs)
+}
 
 export const doCreateUser = (attrs, dest) => {
-  return (dispatch) => {
-    dispatch(createUserInitiated());
+  return dispatch => {
+    dispatch(createUserInitiated())
     return createUserPost(attrs).then(
       () => {
         setTimeout(() => {
           // Force page to load so we can be sure the password is cleared from memory
           // delay a bit so the cookie has time to set
-          window.location = dest||"";
-        }, 3000);
+          window.location = dest || ''
+        }, 3000)
       },
-      (err) => dispatch(createUserError(err))
-    );
-  };
-};
+      err => dispatch(createUserError(err))
+    )
+  }
+}
 
 /* passwordResetInit */
 
 const passwordResetInitInitiated = () => {
   return {
     type: PWRESET_INIT_INITIATED
-  };
-};
+  }
+}
 
 const passwordResetInitSuccess = () => {
   return {
     type: PWRESET_INIT_SUCCESS
-  };
-};
+  }
+}
 
-const passwordResetInitError = (err) => {
+const passwordResetInitError = err => {
   return {
     type: PWRESET_INIT_ERROR,
     data: err
-  };
-};
+  }
+}
 
-const passwordResetInitPost = (attrs) => {
-  return PolisNet.polisPost("/api/v3/auth/pwresettoken", attrs);
-};
+const passwordResetInitPost = attrs => {
+  return PolisNet.polisPost('/api/v3/auth/pwresettoken', attrs)
+}
 
-export const doPasswordResetInit = (attrs) => {
-  return (dispatch) => {
-    dispatch(passwordResetInitInitiated());
+export const doPasswordResetInit = attrs => {
+  return dispatch => {
+    dispatch(passwordResetInitInitiated())
     return passwordResetInitPost(attrs).then(
       () => {
         setTimeout(() => {
           // Force page to load so we can be sure the password is cleared from memory
           // delay a bit so the cookie has time to set
-          window.location = "/pwresetinit/done";
-        }, 3000);
+          window.location = '/pwresetinit/done'
+        }, 3000)
 
-        return dispatch(passwordResetInitSuccess());
+        return dispatch(passwordResetInitSuccess())
       },
-      (err) => dispatch(passwordResetInitError(err))
-    );
-  };
-};
+      err => dispatch(passwordResetInitError(err))
+    )
+  }
+}
 
 /* passwordReset */
 
 const passwordResetInitiated = () => {
   return {
     type: PWRESET_INITIATED
-  };
-};
+  }
+}
 
 const passwordResetSuccess = () => {
   return {
     type: PWRESET_SUCCESS
-  };
-};
+  }
+}
 
-const passwordResetError = (err) => {
+const passwordResetError = err => {
   return {
     type: PWRESET_ERROR,
     data: err
-  };
-};
+  }
+}
 
-const passwordResetPost = (attrs) => {
-  return PolisNet.polisPost("/api/v3/auth/password", attrs);
-};
+const passwordResetPost = attrs => {
+  return PolisNet.polisPost('/api/v3/auth/password', attrs)
+}
 
-export const doPasswordReset = (attrs) => {
-  return (dispatch) => {
-    dispatch(passwordResetInitiated());
+export const doPasswordReset = attrs => {
+  return dispatch => {
+    dispatch(passwordResetInitiated())
     return passwordResetPost(attrs).then(
       () => {
         setTimeout(() => {
           // Force page to load so we can be sure the password is cleared from memory
           // delay a bit so the cookie has time to set
-          window.location = "/";
-        }, 3000);
+          window.location = '/'
+        }, 3000)
 
-        return dispatch(passwordResetSuccess());
+        return dispatch(passwordResetSuccess())
       },
-      (err) => dispatch(passwordResetError(err))
-    );
-  };
-};
+      err => dispatch(passwordResetError(err))
+    )
+  }
+}
 
 /* facebook */
 
 const facebookSigninInitiated = () => {
   return {
     type: FACEBOOK_SIGNIN_INITIATED
-  };
-};
+  }
+}
 
+// FIXME
+// eslint-disable-next-line no-unused-vars
 const facebookSigninSuccessful = () => {
   return {
     type: FACEBOOK_SIGNIN_SUCCESSFUL
-  };
-};
+  }
+}
 
-const facebookSigninFailed = (errorCode) => {
+const facebookSigninFailed = errorCode => {
   return {
     type: FACEBOOK_SIGNIN_FAILED,
     errorCode: errorCode
-  };
-};
+  }
+}
 
 const getFriends = () => {
-  var dfd = $.Deferred();
+  var dfd = $.Deferred()
 
   const getMoreFriends = (friendsSoFar, urlForNextCall) => {
-
-    return $.get(urlForNextCall).then((response) => {
+    return $.get(urlForNextCall).then(response => {
       if (response.data.length) {
         for (let i = 0; i < response.data.length; i++) {
-          friendsSoFar.push(response.data[i]);
+          friendsSoFar.push(response.data[i])
         }
         if (response.paging.next) {
-          return getMoreFriends(friendsSoFar, response.paging.next);
+          return getMoreFriends(friendsSoFar, response.paging.next)
         }
-        return friendsSoFar;
+        return friendsSoFar
       } else {
-        return friendsSoFar;
+        return friendsSoFar
       }
-    });
+    })
   }
 
-  FB.api("/me/friends", (response) => {
+  FB.api('/me/friends', response => {
     if (response && !response.error) {
-
-      var friendsSoFar = response.data;
+      var friendsSoFar = response.data
       if (response.data.length && response.paging.next) {
         getMoreFriends(friendsSoFar, response.paging.next).then(
           dfd.resolve,
-          dfd.reject);
+          dfd.reject
+        )
       } else {
-        dfd.resolve(friendsSoFar || []);
+        dfd.resolve(friendsSoFar || [])
       }
     } else {
       // "failed to find friends"
-      dfd.reject(response);
+      dfd.reject(response)
     }
-  });
-  return dfd.promise();
+  })
+  return dfd.promise()
 }
 
 const getInfo = () => {
-  var dfd = $.Deferred();
+  var dfd = $.Deferred()
 
-  FB.api("/me", (response) => {
+  FB.api('/me', response => {
     // {"id":"10152802017421079"
     //   "email":"michael@bjorkegren.com"
     //   "first_name":"Mike"
@@ -441,143 +446,144 @@ const getInfo = () => {
 
     if (response && !response.error) {
       if (response.location && response.location.id) {
-        FB.api("/" + response.location.id, (locationResponse) => {
-          // console.log("locationResponse");
-          // console.dir(locationResponse);
+        FB.api('/' + response.location.id, locationResponse => {
           if (locationResponse) {
-            response.locationInfo = locationResponse;
+            response.locationInfo = locationResponse
           }
-          dfd.resolve(response);
-        });
+          dfd.resolve(response)
+        })
       } else {
-        dfd.resolve(response);
+        dfd.resolve(response)
       }
     } else {
       // alert("failed to find data");
-      dfd.reject(response);
+      dfd.reject(response)
     }
-  });
-  return dfd.promise();
+  })
+  return dfd.promise()
 }
 
 const saveFacebookFriendsData = (data, dest, dispatch) => {
   $.ajax({
-    url: "/api/v3/auth/facebook",
-    contentType: "application/json; charset=utf-8",
+    url: '/api/v3/auth/facebook',
+    contentType: 'application/json; charset=utf-8',
     headers: {
-      "Cache-Control": "max-age=0"
+      'Cache-Control': 'max-age=0'
     },
     xhrFields: {
-        withCredentials: true
+      withCredentials: true
     },
-    dataType: "json",
+    dataType: 'json',
     data: JSON.stringify(data),
-    type: "POST"
-  }).then(() => {
-    setTimeout(() => {
+    type: 'POST'
+  }).then(
+    () => {
+      setTimeout(() => {
         // Force page to load so we can be sure the old user"s state is cleared from memory
         // delay a bit so the cookies have time to clear too.
-        window.location = dest || "/";
-      }, 1000);
-    }, (err) => {
-    console.dir(err);
+        window.location = dest || '/'
+      }, 1000)
+    },
+    err => {
+      console.dir(err)
 
-    if ( err.responseText && /polis_err_user_with_this_email_exists/.test(err.responseText) ) {
+      if (
+        err.responseText &&
+        /polis_err_user_with_this_email_exists/.test(err.responseText)
+      ) {
+        // Todo handle
 
-      console.log("thats a user already enter your password")
-      // Todo handle
+        // var password = prompt("A pol.is user "+data.fb_email+", the same email address as associted with your facebook account, already exists. Enter your pol.is password to enable facebook login for your pol.is account.");
+        // that.linkMode = true;
 
-      // var password = prompt("A pol.is user "+data.fb_email+", the same email address as associted with your facebook account, already exists. Enter your pol.is password to enable facebook login for your pol.is account.");
-      // that.linkMode = true;
+        dispatch(facebookSigninFailed('polis_err_user_with_this_email_exists')) // handle case user already exists enter your password
 
-      dispatch(facebookSigninFailed("polis_err_user_with_this_email_exists")) //handle case user already exists enter your password
-
-      // that.model.set({
-      //   create: false, // don"t show create account stuff, account exists.
-      //   linkMode: true,
-      //   email: data.fb_email,
-      // });
-    } else {
-      alert("error logging in with Facebook");
+        // that.model.set({
+        //   create: false, // don"t show create account stuff, account exists.
+        //   linkMode: true,
+        //   email: data.fb_email,
+        // });
+      } else {
+        alert('error logging in with Facebook')
+      }
     }
-  });
-};
+  )
+}
 
-const processFacebookFriendsData = (response, dest, dispatch, optionalPassword) => {
-
+const processFacebookFriendsData = (
+  response,
+  dest,
+  dispatch,
+  optionalPassword
+) => {
   return (fb_public_profile, friendsData) => {
     // alert(JSON.stringify(friendsData));
-    console.log("got info and friends");
 
-    let data = {
+    const data = {
       fb_public_profile: JSON.stringify(fb_public_profile),
       fb_friends_response: JSON.stringify(friendsData),
       response: JSON.stringify(response)
-    };
+    }
 
     // cleaner as fb_email: fb_public_profile.email ? fb_public_profile.email : null
 
     if (fb_public_profile.email) {
-      data.fb_email = fb_public_profile.email;
+      data.fb_email = fb_public_profile.email
     } else {
-      data.provided_email = prompt("Please enter your email address.");
+      data.provided_email = prompt('Please enter your email address.')
     }
 
-    let hname = [
+    const hname = [
       fb_public_profile.first_name,
       fb_public_profile.last_name
-    ].join(" ");
+    ].join(' ')
 
     if (hname.length) {
-      data.hname = hname;
+      data.hname = hname
     }
 
-    if (response && response.authResponse && response.authResponse.grantedScopes) {
-      data.fb_granted_scopes = response.authResponse.grantedScopes;
+    if (
+      response &&
+      response.authResponse &&
+      response.authResponse.grantedScopes
+    ) {
+      data.fb_granted_scopes = response.authResponse.grantedScopes
     }
 
     if (optionalPassword) {
-      data.password = optionalPassword;
+      data.password = optionalPassword
     }
 
     saveFacebookFriendsData(data, dest, dispatch)
   }
-
 }
 
 const onFbLoginOk = (response, dest, dispatch, optionalPassword) => {
-
-  console.log("onFbLoginOk");
-  console.dir(response);
-
-  $.when(
-    getInfo(),
-    getFriends()
-  ).then(
+  $.when(getInfo(), getFriends()).then(
     processFacebookFriendsData(response, dest, dispatch, optionalPassword),
-    (err) => {
-      console.error(err);
-      console.dir(arguments);
+    err => {
+      console.error(err)
     }
-  );
+  )
 }
 
 const callFacebookLoginAPI = (dest, dispatch, optionalPassword) => {
-  console.log("ringing facebook...");
-  const password = "THIS_STRING_SHOULD_NOT_BE_HERE"
+  console.log('ringing facebook...')
 
-  FB.login((res) =>  {
-      return onFbLoginOk(res, dest, dispatch, optionalPassword);
-    }, {
+  FB.login(
+    res => {
+      return onFbLoginOk(res, dest, dispatch, optionalPassword)
+    },
+    {
       return_scopes: true, // response should contain the scopes the user allowed
       scope: SERVER_DATA.EXTRA_FACEBOOK_PERMS,
-    });
+    }
+  )
 }
 
 export const doFacebookSignin = (dest, optionalPassword) => {
-  return (dispatch) => {
+  return dispatch => {
     dispatch(facebookSigninInitiated())
-    console.log("facebook sign in initiated", dest)
     return callFacebookLoginAPI(dest, dispatch, optionalPassword)
   }
 }
@@ -587,38 +593,38 @@ export const doFacebookSignin = (dest, optionalPassword) => {
 const signoutInitiated = () => {
   return {
     type: SIGNOUT_INITIATED
-  };
-};
+  }
+}
 
 // SIGNOUT_SUCCESSFUL Not needed since redirecting to clear old user"s state from memory
 
-const signoutError = (err) => {
+const signoutError = err => {
   return {
     type: SIGNOUT_ERROR,
     data: err
   }
 }
 
-const signoutPost = (dest) => {
+const signoutPost = dest => {
   // relying on server to clear cookies
   return $.ajax({
-    type: "POST",
-    url: "/api/v3/auth/deregister",
+    type: 'POST',
+    url: '/api/v3/auth/deregister',
     data: {},
-    dataType: "text", // server returns an empty response, so can"t parse as JSON
-    });
+    dataType: 'text' // server returns an empty response, so can"t parse as JSON
+  })
 }
 
-export const doSignout = (dest) => {
-  return (dispatch) => {
-    dispatch(signoutInitiated());
+export const doSignout = dest => {
+  return dispatch => {
+    dispatch(signoutInitiated())
     return signoutPost().then(
       res => {
         setTimeout(() => {
           // Force page to load so we can be sure the old user"s state is cleared from memory
           // delay a bit so the cookies have time to clear too.
-          window.location = dest || "/about";
-        }, 1000);
+          window.location = dest || '/home'
+        }, 1000)
       },
       err => dispatch(signoutError(err))
     )
@@ -630,17 +636,17 @@ export const doSignout = (dest) => {
 const requestConversations = () => {
   return {
     type: REQUEST_CONVERSATIONS
-  };
-};
+  }
+}
 
-const receiveConversations = (data) => {
+const receiveConversations = data => {
   return {
     type: RECEIVE_CONVERSATIONS,
     data: data
-  };
-};
+  }
+}
 
-const conversationsError = (err) => {
+const conversationsError = err => {
   return {
     type: CONVERSATIONS_FETCH_ERROR,
     data: err
@@ -648,11 +654,11 @@ const conversationsError = (err) => {
 }
 
 const fetchConversations = () => {
-  return $.get("/api/v3/conversations?include_all_conversations_i_am_in=true");
+  return $.get('/api/v3/conversations?include_all_conversations_i_am_in=true')
 }
 
 export const populateConversationsStore = () => {
-  return (dispatch) => {
+  return dispatch => {
     dispatch(requestConversations())
     return fetchConversations().then(
       res => dispatch(receiveConversations(res)),
@@ -663,23 +669,23 @@ export const populateConversationsStore = () => {
 
 /* zid metadata */
 
-const requestZidMetadata = (conversation_id) => {
+const requestZidMetadata = conversation_id => {
   return {
     type: REQUEST_ZID_METADATA,
     data: {
       conversation_id: conversation_id
     }
-  };
-};
+  }
+}
 
-const receiveZidMetadata = (data) => {
+const receiveZidMetadata = data => {
   return {
     type: RECEIVE_ZID_METADATA,
     data: data
-  };
-};
+  }
+}
 
-const zidMetadataFetchError = (err) => {
+const zidMetadataFetchError = err => {
   return {
     type: ZID_METADATA_FETCH_ERROR,
     data: err
@@ -692,37 +698,40 @@ export const resetMetadataStore = () => {
   }
 }
 
-const fetchZidMetadata = (conversation_id) => {
-  return $.get("/api/v3/conversations?conversation_id=" + conversation_id);
+const fetchZidMetadata = conversation_id => {
+  return $.get('/api/v3/conversations?conversation_id=' + conversation_id)
 }
 
-export const populateZidMetadataStore = (conversation_id) => {
+export const populateZidMetadataStore = conversation_id => {
   return (dispatch, getState) => {
-
-    var state = getState();
-    var hasConversationId = state.zid_metadata &&
+    var state = getState()
+    var hasConversationId =
+      state.zid_metadata &&
       state.zid_metadata.zid_metadata &&
-      state.zid_metadata.zid_metadata.conversation_id;
+      state.zid_metadata.zid_metadata.conversation_id
 
-    var isLoading = state.zid_metadata.loading;
+    var isLoading = state.zid_metadata.loading
     // NOTE: if there are multiple calls outstanding this may be wrong.
-    var isLoadingThisConversation = (state.zid_metadata.conversation_id == conversation_id) && isLoading;
-
+    var isLoadingThisConversation =
+      state.zid_metadata.conversation_id === conversation_id && isLoading
 
     if (isLoadingThisConversation) {
-      return;
+      return
     }
 
     // don"t fetch again if we already have data loaded for that conversation.
-    if (hasConversationId && state.zid_metadata.zid_metadata.conversation_id == conversation_id) {
-      return;
+    if (
+      hasConversationId &&
+      state.zid_metadata.zid_metadata.conversation_id === conversation_id
+    ) {
+      return
     }
 
     dispatch(requestZidMetadata(conversation_id))
     return fetchZidMetadata(conversation_id).then(
       res => dispatch(receiveZidMetadata(res)),
       err => dispatch(zidMetadataFetchError(err))
-    );
+    )
   }
 }
 
@@ -734,14 +743,14 @@ const updateZidMetadataStarted = () => {
   }
 }
 
-const updateZidMetadataSuccess = (data) => {
+const updateZidMetadataSuccess = data => {
   return {
     type: UPDATE_ZID_METADATA_SUCCESS,
     data: data
   }
 }
 
-const updateZidMetadataError = (err) => {
+const updateZidMetadataError = err => {
   return {
     type: UPDATE_ZID_METADATA_ERROR,
     data: err
@@ -749,21 +758,21 @@ const updateZidMetadataError = (err) => {
 }
 
 const updateZidMetadata = (zm, field, value) => {
-  let data = {};
-  data[field] = value;
+  const data = {}
+  data[field] = value
   return $.ajax({
-    url: "/api/v3/conversations",
-    method: "PUT",
-    contentType: "application/json; charset=utf-8",
-    headers: { "Cache-Control": "max-age=0" },
+    url: '/api/v3/conversations',
+    method: 'PUT',
+    contentType: 'application/json; charset=utf-8',
+    headers: { 'Cache-Control': 'max-age=0' },
     xhrFields: { withCredentials: true },
-    dataType: "json",
+    dataType: 'json',
     data: JSON.stringify(Object.assign({}, zm, data))
   })
 }
 
 export const handleZidMetadataUpdate = (zm, field, value) => {
-  return (dispatch) => {
+  return dispatch => {
     dispatch(updateZidMetadataStarted())
     return updateZidMetadata(zm, field, value)
       .then(res => dispatch(updateZidMetadataSuccess(res)))
@@ -781,7 +790,7 @@ export const optimisticZidMetadataUpdateOnTyping = (zm, field, value) => {
 
 /* seed comments submit */
 
-export const seedCommentChanged = (text) => {
+export const seedCommentChanged = text => {
   return {
     type: SEED_COMMENT_LOCAL_UPDATE,
     text: text
@@ -795,57 +804,64 @@ const submitSeedCommentStart = () => {
 }
 
 const submitSeedCommentPostSuccess = () => {
+  console.log('seed comment post success')
   return {
     type: SUBMIT_SEED_COMMENT_SUCCESS
   }
 }
 
-const submitSeedCommentPostError = (err) => {
+const submitSeedCommentPostError = err => {
   return {
     type: SUBMIT_SEED_COMMENT_ERROR,
-    data: err,
+    data: err
   }
 }
 
-const postSeedComment = (comment) => {
-  return PolisNet.polisPost("/api/v3/comments", comment);
-};
+const postSeedComment = comment => {
+  return PolisNet.polisPost('/api/v3/comments', comment)
+}
 
-export const handleSeedCommentSubmit = (comment) => {
-  return (dispatch) => {
-    dispatch(submitSeedCommentStart());
-    return postSeedComment(comment).then(
-      (res) => dispatch(submitSeedCommentPostSuccess(res)),
-      (err) => dispatch(submitSeedCommentPostError(err))
-    ).then(dispatch(
-      populateAllCommentStores(comment.conversation_id)
-    ));
-  };
-};
+export const handleSeedCommentSubmit = comment => {
+  return dispatch => {
+    dispatch(submitSeedCommentStart())
+    return postSeedComment(comment)
+      .then(
+        res => dispatch(submitSeedCommentPostSuccess(res)),
+        err => dispatch(submitSeedCommentPostError(err))
+      )
+      .then(dispatch(populateAllCommentStores(comment.conversation_id)))
+  }
+}
 
-const makeStandardStart = (type) => {
+// FIXME
+// eslint-disable-next-line no-unused-vars
+const makeStandardStart = type => {
   return {
-    type: type,
-  };
-};
+    type: type
+  }
+}
+
+// FIXME
+// eslint-disable-next-line no-unused-vars
 const makeStandardError = (type, err) => {
   return {
     type: type,
-    data: err,
+    data: err
   }
-};
+}
+
+// FIXME
+// eslint-disable-next-line no-unused-vars
 const makeStandardSuccess = (type, data) => {
   return {
     type: type,
-    data: data,
+    data: data
   }
-};
-
-
+}
 
 /* seed tweets submit */
 
-export const seedCommentTweetChanged = (text) => {
+export const seedCommentTweetChanged = text => {
   return {
     type: SEED_COMMENT_TWEET_LOCAL_UPDATE,
     text: text
@@ -863,24 +879,26 @@ const submitSeedCommentPostTweetSuccess = () => {
   }
 }
 
-const submitSeedCommentPostTweetError = (err) => {
+const submitSeedCommentPostTweetError = err => {
   return {
     type: SUBMIT_SEED_COMMENT_TWEET_ERROR,
-    data: err,
+    data: err
   }
 }
 
-const postSeedCommentTweet = (o) => {
-  return PolisNet.polisPost('/api/v3/comments', o);
+const postSeedCommentTweet = o => {
+  return PolisNet.polisPost('/api/v3/comments', o)
 }
 
-export const handleSeedCommentTweetSubmit = (o) => {
-  return (dispatch) => {
+export const handleSeedCommentTweetSubmit = o => {
+  return dispatch => {
     dispatch(submitSeedCommentTweetStart())
-    return postSeedCommentTweet(o).then(
-      res => dispatch(submitSeedCommentPostTweetSuccess(res)),
-      err => dispatch(submitSeedCommentPostTweetError(err))
-    ).then(dispatch(populateAllCommentStores(o.conversation_id)))
+    return postSeedCommentTweet(o)
+      .then(
+        res => dispatch(submitSeedCommentPostTweetSuccess(res)),
+        err => dispatch(submitSeedCommentPostTweetError(err))
+      )
+      .then(dispatch(populateAllCommentStores(o.conversation_id)))
   }
 }
 
@@ -920,8 +938,6 @@ export const handleSeedCommentTweetSubmit = (o) => {
 //   }
 // }
 
-
-
 /* create conversation */
 
 const createConversationStart = () => {
@@ -930,42 +946,43 @@ const createConversationStart = () => {
   }
 }
 
-const createConversationPostSuccess = (res) => {
+const createConversationPostSuccess = res => {
   return {
     type: CREATE_NEW_CONVERSATION_SUCCESS,
-    data: res,
+    data: res
   }
 }
 
-const createConversationPostError = (err) => {
+const createConversationPostError = err => {
   return {
     type: CREATE_NEW_CONVERSATION_ERROR,
-    data: err,
+    data: err
   }
 }
 
 const postCreateConversation = () => {
-  return PolisNet.polisPost("/api/v3/conversations", {
+  return PolisNet.polisPost('/api/v3/conversations', {
     is_draft: true,
-    is_active: true,
-  });
+    is_active: true
+  })
 }
 
-export const handleCreateConversationSubmit = (routeTo) => {
-  return (dispatch, getState) => {
+export const handleCreateConversationSubmit = routeTo => {
+  return dispatch => {
     dispatch(createConversationStart())
-    return postCreateConversation().then(
-      (res) => {
-        dispatch(createConversationPostSuccess(res));
-        return res;
-      },
-      (err) => dispatch(createConversationPostError(err))
-    ).then((res) => {
-      window.location = "/m/" + res.conversation_id;
-    });
-  };
-};
-
+    return postCreateConversation()
+      .then(
+        res => {
+          dispatch(createConversationPostSuccess(res))
+          return res
+        },
+        err => dispatch(createConversationPostError(err))
+      )
+      .then(res => {
+        window.location = '/m/' + res.conversation_id
+      })
+  }
+}
 
 /* request all comments */
 
@@ -973,105 +990,120 @@ const requestComments = () => {
   return {
     type: REQUEST_COMMENTS
   }
-};
+}
 
-const receiveComments = (data) => {
+const receiveComments = data => {
   return {
     type: RECEIVE_COMMENTS,
     data: data
   }
-};
+}
 
-const commentsFetchError = (err) => {
+const commentsFetchError = err => {
   return {
     type: COMMENTS_FETCH_ERROR,
     data: err
   }
 }
 
-const fetchAllComments = (conversation_id) => {
+const fetchAllComments = conversation_id => {
   // let includeSocial = "include_social=true&";
-  let includeSocial = "";
-  return $.get("/api/v3/comments?moderation=true&include_voting_patterns=false&"+includeSocial+"conversation_id=" + conversation_id);
-};
+  const includeSocial = ''
+  return $.get(
+    '/api/v3/comments?moderation=true&include_voting_patterns=false&' +
+      includeSocial +
+      'conversation_id=' +
+      conversation_id
+  )
+}
 
-export const populateCommentsStore = (conversation_id) => {
-  return (dispatch) => {
-    dispatch(requestComments());
+export const populateCommentsStore = conversation_id => {
+  return dispatch => {
+    dispatch(requestComments())
     return fetchAllComments(conversation_id).then(
-      (res) => dispatch(receiveComments(res)),
-      (err) => dispatch(commentsFetchError(err))
-    );
-  };
-};
+      res => dispatch(receiveComments(res)),
+      err => dispatch(commentsFetchError(err))
+    )
+  }
+}
 
 /* request math */
 
 const requestMath = () => {
   return {
     type: REQUEST_MATH
-  };
-};
+  }
+}
 
-const receiveMath = (data) => {
+const receiveMath = data => {
   return {
     type: RECEIVE_MATH,
     data: data
   }
-};
+}
 
-const mathFetchError = (err) => {
+const mathFetchError = err => {
   return {
     type: MATH_FETCH_ERROR,
     data: err
-  };
-};
+  }
+}
 
 const fetchMath = (conversation_id, math_tick) => {
-  return $.get("/api/v3/math/pca2?&math_tick="+ math_tick +"&conversation_id=" + conversation_id);
-};
+  return $.get(
+    '/api/v3/math/pca2?&math_tick=' +
+      math_tick +
+      '&conversation_id=' +
+      conversation_id
+  )
+}
 
-export const populateMathStore = (conversation_id) => {
+export const populateMathStore = conversation_id => {
   return (dispatch, getState) => {
-    dispatch(requestMath());
+    dispatch(requestMath())
     const math_tick = getState().math.math_tick
     return fetchMath(conversation_id, math_tick).then(
-      (res) => dispatch(receiveMath(res)),
-      (err) => dispatch(mathFetchError(err))
-    );
-  };
-};
+      res => dispatch(receiveMath(res)),
+      err => dispatch(mathFetchError(err))
+    )
+  }
+}
 
 /* unmoderated comments */
 
 const requestUnmoderatedComments = () => {
   return {
-    type: REQUEST_UNMODERATED_COMMENTS,
-  };
-};
+    type: REQUEST_UNMODERATED_COMMENTS
+  }
+}
 
-const receiveUnmoderatedComments = (data) => {
+const receiveUnmoderatedComments = data => {
   return {
     type: RECEIVE_UNMODERATED_COMMENTS,
     data: data
-  };
-};
+  }
+}
 
-const unmoderatedCommentsFetchError = (err) => {
+const unmoderatedCommentsFetchError = err => {
   return {
     type: UNMODERATED_COMMENTS_FETCH_ERROR,
     data: err
   }
 }
 
-const fetchUnmoderatedComments = (conversation_id) => {
+const fetchUnmoderatedComments = conversation_id => {
   // let includeSocial = "include_social=true&";
-  let includeSocial = "";
-  return $.get("/api/v3/comments?moderation=true&include_voting_patterns=false&" +includeSocial+"mod=0&conversation_id=" + conversation_id);
+  const includeSocial = ''
+  return $.get(
+    '/api/v3/comments?moderation=true&include_voting_patterns=false&' +
+      includeSocial +
+      'mod=0&conversation_id=' +
+      conversation_id
+  )
 }
 
-export const populateUnmoderatedCommentsStore = (conversation_id) => {
-  return (dispatch) => {
+export const populateUnmoderatedCommentsStore = conversation_id => {
+  return dispatch => {
     dispatch(requestUnmoderatedComments())
     return fetchUnmoderatedComments(conversation_id).then(
       res => dispatch(receiveUnmoderatedComments(res)),
@@ -1084,32 +1116,37 @@ export const populateUnmoderatedCommentsStore = (conversation_id) => {
 
 const requestAcceptedComments = () => {
   return {
-    type: REQUEST_ACCEPTED_COMMENTS,
-  };
-};
+    type: REQUEST_ACCEPTED_COMMENTS
+  }
+}
 
-const receiveAcceptedComments = (data) => {
+const receiveAcceptedComments = data => {
   return {
     type: RECEIVE_ACCEPTED_COMMENTS,
     data: data
-  };
-};
+  }
+}
 
-const acceptedCommentsFetchError = (err) => {
+const acceptedCommentsFetchError = err => {
   return {
     type: ACCEPTED_COMMENTS_FETCH_ERROR,
     data: err
   }
 }
 
-const fetchAcceptedComments = (conversation_id) => {
+const fetchAcceptedComments = conversation_id => {
   // let includeSocial = "include_social=true&";
-  let includeSocial = "";
-  return $.get("/api/v3/comments?moderation=true&include_voting_patterns=false&mod=1&"+includeSocial+"conversation_id=" + conversation_id);
+  const includeSocial = ''
+  return $.get(
+    '/api/v3/comments?moderation=true&include_voting_patterns=false&mod=1&' +
+      includeSocial +
+      'conversation_id=' +
+      conversation_id
+  )
 }
 
-export const populateAcceptedCommentsStore = (conversation_id) => {
-  return (dispatch) => {
+export const populateAcceptedCommentsStore = conversation_id => {
+  return dispatch => {
     dispatch(requestAcceptedComments())
     return fetchAcceptedComments(conversation_id).then(
       res => dispatch(receiveAcceptedComments(res)),
@@ -1122,95 +1159,99 @@ export const populateAcceptedCommentsStore = (conversation_id) => {
 
 const requestRejectedComments = () => {
   return {
-    type: REQUEST_REJECTED_COMMENTS,
-  };
-};
+    type: REQUEST_REJECTED_COMMENTS
+  }
+}
 
-const receiveRejectedComments = (data) => {
+const receiveRejectedComments = data => {
   return {
     type: RECEIVE_REJECTED_COMMENTS,
     data: data
-  };
-};
+  }
+}
 
-const rejectedCommentsFetchError = (err) => {
+const rejectedCommentsFetchError = err => {
   return {
     type: REJECTED_COMMENTS_FETCH_ERROR,
     data: err
   }
 }
 
-
-const fetchRejectedComments = (conversation_id) => {
+const fetchRejectedComments = conversation_id => {
   // let includeSocial = "include_social=true&";
-  let includeSocial = "";
-  return $.get("/api/v3/comments?moderation=true&include_voting_patterns=false&"+includeSocial+"mod=-1&conversation_id=" + conversation_id);
+  const includeSocial = ''
+  return $.get(
+    '/api/v3/comments?moderation=true&include_voting_patterns=false&' +
+      includeSocial +
+      'mod=-1&conversation_id=' +
+      conversation_id
+  )
 }
 
-export const populateRejectedCommentsStore = (conversation_id) => {
-  return (dispatch) => {
+export const populateRejectedCommentsStore = conversation_id => {
+  return dispatch => {
     dispatch(requestRejectedComments())
     return fetchRejectedComments(conversation_id).then(
       res => dispatch(receiveRejectedComments(res)),
       err => dispatch(rejectedCommentsFetchError(err))
-    );
-  };
-};
+    )
+  }
+}
 
 /* populate ALL stores todo/accept/reject/seed */
 
-export const populateAllCommentStores = (conversation_id) => {
-  return (dispatch) => {
+export const populateAllCommentStores = conversation_id => {
+  return dispatch => {
     return $.when(
       dispatch(populateUnmoderatedCommentsStore(conversation_id)),
       dispatch(populateAcceptedCommentsStore(conversation_id)),
       dispatch(populateRejectedCommentsStore(conversation_id))
-    );
-  };
-};
+    )
+  }
+}
 
 // export const populateAllCommentStores = (conversation) => {
 // }
 
 /* moderator clicked accept comment */
 
-const optimisticCommentAccepted = (comment) => {
+const optimisticCommentAccepted = comment => {
   return {
     type: ACCEPT_COMMENT,
     comment: comment
   }
 }
 
-const acceptCommentSuccess = (data) => {
+const acceptCommentSuccess = data => {
   return {
     type: ACCEPT_COMMENT_SUCCESS,
     data: data
   }
 }
 
-const acceptCommentError = (err) => {
+const acceptCommentError = err => {
   return {
     type: ACCEPT_COMMENT_ERROR,
     data: err
   }
 }
 
-const putCommentAccepted = (comment) => {
+const putCommentAccepted = comment => {
   return $.ajax({
-    method: "PUT",
-    url: "/api/v3/comments",
-    data: Object.assign(comment, {mod: 1})
+    method: 'PUT',
+    url: '/api/v3/comments',
+    data: Object.assign(comment, { mod: 1 })
   })
 }
 
-export const changeCommentStatusToAccepted = (comment) => {
-  comment.active = true;
-  return (dispatch) => {
+export const changeCommentStatusToAccepted = comment => {
+  comment.active = true
+  return dispatch => {
     dispatch(optimisticCommentAccepted(comment))
     return putCommentAccepted(comment).then(
       res => {
-        dispatch(acceptCommentSuccess(res));
-        dispatch(populateAllCommentStores(comment.conversation_id));
+        dispatch(acceptCommentSuccess(res))
+        dispatch(populateAllCommentStores(comment.conversation_id))
       },
       err => dispatch(acceptCommentError(err))
     )
@@ -1219,66 +1260,65 @@ export const changeCommentStatusToAccepted = (comment) => {
 
 /* moderator clicked reject comment */
 
-const optimisticCommentRejected = (comment) => {
+const optimisticCommentRejected = comment => {
   return {
     type: REJECT_COMMENT,
     comment: comment
   }
 }
 
-const rejectCommentSuccess = (data) => {
+const rejectCommentSuccess = data => {
   return {
     type: REJECT_COMMENT_SUCCESS,
     data: data
   }
 }
 
-const rejectCommentError = (err) => {
+const rejectCommentError = err => {
   return {
     type: REJECT_COMMENT_ERROR,
     data: err
   }
 }
 
-const putCommentRejected = (comment) => {
-
+const putCommentRejected = comment => {
   return $.ajax({
-    method: "PUT",
-    url: "/api/v3/comments",
-    data: Object.assign(comment, {mod: -1})
+    method: 'PUT',
+    url: '/api/v3/comments',
+    data: Object.assign(comment, { mod: -1 })
   })
 }
 
-export const changeCommentStatusToRejected = (comment) => {
-  return (dispatch) => {
+export const changeCommentStatusToRejected = comment => {
+  return dispatch => {
     dispatch(optimisticCommentRejected())
     return putCommentRejected(comment).then(
-      (res) => {
-        dispatch(rejectCommentSuccess(res));
-        dispatch(populateAllCommentStores(comment.conversation_id));
+      res => {
+        dispatch(rejectCommentSuccess(res))
+        dispatch(populateAllCommentStores(comment.conversation_id))
       },
       err => dispatch(rejectCommentError(err))
     )
-  };
-};
+  }
+}
 
 /* moderator changed comment's is_meta flag */
 
-const optimisticCommentIsMetaChanged = (comment) => {
+const optimisticCommentIsMetaChanged = comment => {
   return {
     type: COMMENT_IS_META,
     comment: comment
   }
 }
 
-const commentIsMetaChangeSuccess = (data) => {
+const commentIsMetaChangeSuccess = data => {
   return {
     type: COMMENT_IS_META_SUCCESS,
     data: data
   }
 }
 
-const commentIsMetaChangeError = (err) => {
+const commentIsMetaChangeError = err => {
   return {
     type: COMMENT_IS_META_ERROR,
     data: err
@@ -1287,90 +1327,89 @@ const commentIsMetaChangeError = (err) => {
 
 const putCommentCommentIsMetaChange = (comment, is_meta) => {
   return $.ajax({
-    method: "PUT",
-    url: "/api/v3/comments",
-    data: Object.assign(comment, {is_meta: is_meta})
+    method: 'PUT',
+    url: '/api/v3/comments',
+    data: Object.assign(comment, { is_meta: is_meta })
   })
 }
 
 export const changeCommentCommentIsMeta = (comment, is_meta) => {
-  return (dispatch) => {
+  return dispatch => {
     dispatch(optimisticCommentIsMetaChanged())
     return putCommentCommentIsMetaChange(comment, is_meta).then(
-      (res) => {
-        dispatch(commentIsMetaChangeSuccess(res));
-        dispatch(populateAllCommentStores(comment.conversation_id));
+      res => {
+        dispatch(commentIsMetaChangeSuccess(res))
+        dispatch(populateAllCommentStores(comment.conversation_id))
       },
       err => dispatch(commentIsMetaChangeError(err))
     )
-  };
-};
+  }
+}
 
 /* request participants */
 
 const requestParticipants = () => {
   return {
     type: REQUEST_PARTICIPANTS
-  };
-};
+  }
+}
 
-const receiveParticipants = (data) => {
+const receiveParticipants = data => {
   return {
     type: RECEIVE_PARTICIPANTS,
     data: data
-  };
-};
+  }
+}
 
-const participantsFetchError = (err) => {
+const participantsFetchError = err => {
   return {
     type: PARTICIPANTS_FETCH_ERROR,
     data: err
-  };
-};
+  }
+}
 
-const fetchParticipants = (conversation_id) => {
-  return $.get("/api/v3/ptptois?conversation_id=" + conversation_id);
-};
+const fetchParticipants = conversation_id => {
+  return $.get('/api/v3/ptptois?conversation_id=' + conversation_id)
+}
 
-export const populateParticipantsStore = (conversation_id) => {
-  return (dispatch) => {
-    dispatch(requestParticipants());
+export const populateParticipantsStore = conversation_id => {
+  return dispatch => {
+    dispatch(requestParticipants())
     return fetchParticipants(conversation_id).then(
-      (res) => dispatch(receiveParticipants(res)),
-      (err) => dispatch(participantsFetchError(err))
-    );
-  };
-};
-
+      res => dispatch(receiveParticipants(res)),
+      err => dispatch(participantsFetchError(err))
+    )
+  }
+}
 
 /* request default participants for ptpt moderation view */
 
 const requestDefaultParticipants = () => {
   return {
-    type: REQUEST_DEFAULT_PARTICIPANTS,
-  };
-};
+    type: REQUEST_DEFAULT_PARTICIPANTS
+  }
+}
 
-const receiveDefaultParticipants = (data) => {
+const receiveDefaultParticipants = data => {
   return {
     type: RECEIVE_DEFAULT_PARTICIPANTS,
     data: data
-  };
-};
+  }
+}
 
-const defaultParticipantFetchError = (err) => {
+const defaultParticipantFetchError = err => {
   return {
     type: DEFAULT_PARTICIPANTS_FETCH_ERROR,
     data: err
   }
 }
 
-const fetchDefaultParticipants = (conversation_id) => {
-  return $.get("/api/v3/ptptois?mod=0&conversation_id=" + conversation_id);
+const fetchDefaultParticipants = conversation_id => {
+  return $.get('/api/v3/ptptois?mod=0&conversation_id=' + conversation_id)
 }
 
-export const populateDefaultParticipantStore = (conversation_id) => {
-  return (dispatch) => {
+export const populateDefaultParticipantStore = conversation_id => {
+  return dispatch => {
     dispatch(requestDefaultParticipants())
     return fetchDefaultParticipants(conversation_id).then(
       res => dispatch(receiveDefaultParticipants(res)),
@@ -1383,30 +1422,30 @@ export const populateDefaultParticipantStore = (conversation_id) => {
 
 const requestFeaturedParticipants = () => {
   return {
-    type: REQUEST_FEATURED_PARTICIPANTS,
-  };
-};
+    type: REQUEST_FEATURED_PARTICIPANTS
+  }
+}
 
-const receiveFeaturedParticipants = (data) => {
+const receiveFeaturedParticipants = data => {
   return {
     type: RECEIVE_FEATURED_PARTICIPANTS,
     data: data
-  };
-};
+  }
+}
 
-const featuredParticipantFetchError = (err) => {
+const featuredParticipantFetchError = err => {
   return {
     type: FEATURED_PARTICIPANTS_FETCH_ERROR,
     data: err
   }
 }
 
-const fetchFeaturedParticipants = (conversation_id) => {
-  return $.get("/api/v3/ptptois?mod=1&conversation_id=" + conversation_id);
+const fetchFeaturedParticipants = conversation_id => {
+  return $.get('/api/v3/ptptois?mod=1&conversation_id=' + conversation_id)
 }
 
-export const populateFeaturedParticipantStore = (conversation_id) => {
-  return (dispatch) => {
+export const populateFeaturedParticipantStore = conversation_id => {
+  return dispatch => {
     dispatch(requestFeaturedParticipants())
     return fetchFeaturedParticipants(conversation_id).then(
       res => dispatch(receiveFeaturedParticipants(res)),
@@ -1419,30 +1458,30 @@ export const populateFeaturedParticipantStore = (conversation_id) => {
 
 const requestHiddenParticipants = () => {
   return {
-    type: REQUEST_HIDDEN_PARTICIPANTS,
-  };
-};
+    type: REQUEST_HIDDEN_PARTICIPANTS
+  }
+}
 
-const receiveHiddenParticipants = (data) => {
+const receiveHiddenParticipants = data => {
   return {
     type: RECEIVE_HIDDEN_PARTICIPANTS,
     data: data
-  };
-};
+  }
+}
 
-const hiddenParticipantFetchError = (err) => {
+const hiddenParticipantFetchError = err => {
   return {
     type: HIDDEN_PARTICIPANTS_FETCH_ERROR,
     data: err
   }
 }
 
-const fetchHiddenParticipants = (conversation_id) => {
-  return $.get("/api/v3/ptptois?mod=-1&conversation_id=" + conversation_id);
+const fetchHiddenParticipants = conversation_id => {
+  return $.get('/api/v3/ptptois?mod=-1&conversation_id=' + conversation_id)
 }
 
-export const populateHiddenParticipantStore = (conversation_id) => {
-  return (dispatch) => {
+export const populateHiddenParticipantStore = conversation_id => {
+  return dispatch => {
     dispatch(requestHiddenParticipants())
     return fetchHiddenParticipants(conversation_id).then(
       res => dispatch(receiveHiddenParticipants(res)),
@@ -1453,8 +1492,8 @@ export const populateHiddenParticipantStore = (conversation_id) => {
 
 /* populate ALL stores todo/accept/reject/seed */
 
-export const populateAllParticipantStores = (conversation_id) => {
-  return (dispatch) => {
+export const populateAllParticipantStores = conversation_id => {
+  return dispatch => {
     return $.when(
       dispatch(populateDefaultParticipantStore(conversation_id)),
       dispatch(populateFeaturedParticipantStore(conversation_id)),
@@ -1463,40 +1502,39 @@ export const populateAllParticipantStores = (conversation_id) => {
   }
 }
 
-
 /* moderator clicked feature ptpt */
 
-const optimisticFeatureParticipant = (participant) => {
+const optimisticFeatureParticipant = participant => {
   return {
     type: FEATURE_PARTICIPANT,
     participant: participant
   }
 }
 
-const featureParticipantSuccess = (data) => {
+const featureParticipantSuccess = data => {
   return {
     type: FEATURE_PARTICIPANT_SUCCESS,
     data: data
   }
 }
 
-const featureParticipantError = (err) => {
+const featureParticipantError = err => {
   return {
     type: FEATURE_PARTICIPANT_ERROR,
     data: err
   }
 }
 
-const putFeatureParticipant = (participant) => {
+const putFeatureParticipant = participant => {
   return $.ajax({
-    method: "PUT",
-    url: "/api/v3/ptptois",
-    data: Object.assign(participant, {mod: 1})
+    method: 'PUT',
+    url: '/api/v3/ptptois',
+    data: Object.assign(participant, { mod: 1 })
   })
 }
 
-export const changeParticipantStatusToFeatured = (participant) => {
-  return (dispatch) => {
+export const changeParticipantStatusToFeatured = participant => {
+  return dispatch => {
     dispatch(optimisticFeatureParticipant(participant))
     return putFeatureParticipant(participant).then(
       res => dispatch(featureParticipantSuccess(res)),
@@ -1506,37 +1544,37 @@ export const changeParticipantStatusToFeatured = (participant) => {
 }
 /* moderator clicked hide ptpt */
 
-const optimisticHideParticipant = (participant) => {
+const optimisticHideParticipant = participant => {
   return {
     type: FEATURE_PARTICIPANT,
     participant: participant
   }
 }
 
-const hideParticipantSuccess = (data) => {
+const hideParticipantSuccess = data => {
   return {
     type: FEATURE_PARTICIPANT_SUCCESS,
     data: data
   }
 }
 
-const hideParticipantError = (err) => {
+const hideParticipantError = err => {
   return {
     type: FEATURE_PARTICIPANT_ERROR,
     data: err
   }
 }
 
-const putHideParticipant = (participant) => {
+const putHideParticipant = participant => {
   return $.ajax({
-    method: "PUT",
-    url: "/api/v3/ptptois",
-    data: Object.assign(participant, {mod: -1})
+    method: 'PUT',
+    url: '/api/v3/ptptois',
+    data: Object.assign(participant, { mod: -1 })
   })
 }
 
-export const changeParticipantStatusToHidden = (participant) => {
-  return (dispatch) => {
+export const changeParticipantStatusToHidden = participant => {
+  return dispatch => {
     dispatch(optimisticHideParticipant(participant))
     return putHideParticipant(participant).then(
       res => dispatch(hideParticipantSuccess(res)),
@@ -1546,37 +1584,41 @@ export const changeParticipantStatusToHidden = (participant) => {
 }
 
 /* moderator clicked unmoderate ptpt */
-const optimisticUnmoderateParticipant = (participant) => {
+const optimisticUnmoderateParticipant = participant => {
   return {
     type: FEATURE_PARTICIPANT,
     participant: participant
   }
 }
 
-const unmoderateParticipantSuccess = (data) => {
+// FIXME
+// eslint-disable-next-line no-unused-vars
+const unmoderateParticipantSuccess = data => {
   return {
     type: FEATURE_PARTICIPANT_SUCCESS,
     data: data
   }
 }
 
-const unmoderateParticipantError = (err) => {
+// FIXME
+// eslint-disable-next-line no-unused-vars
+const unmoderateParticipantError = err => {
   return {
     type: FEATURE_PARTICIPANT_ERROR,
     data: err
   }
 }
 
-const putUnmoderateParticipant = (participant) => {
+const putUnmoderateParticipant = participant => {
   return $.ajax({
-    method: "PUT",
-    url: "/api/v3/ptptois",
-    data: Object.assign(participant, {mod: 0})
+    method: 'PUT',
+    url: '/api/v3/ptptois',
+    data: Object.assign(participant, { mod: 0 })
   })
 }
 
-export const changeParticipantStatusToUnmoderated = (participant) => {
-  return (dispatch) => {
+export const changeParticipantStatusToUnmoderated = participant => {
+  return dispatch => {
     dispatch(optimisticUnmoderateParticipant(participant))
     return putUnmoderateParticipant(participant).then(
       res => dispatch(hideParticipantSuccess(res)),
@@ -1589,18 +1631,18 @@ export const changeParticipantStatusToUnmoderated = (participant) => {
 
 const requestConversationStats = () => {
   return {
-    type: REQUEST_CONVERSATION_STATS,
-  };
-};
+    type: REQUEST_CONVERSATION_STATS
+  }
+}
 
-const receiveConversationStats = (data) => {
+const receiveConversationStats = data => {
   return {
     type: RECEIVE_CONVERSATION_STATS,
     data: data
-  };
-};
+  }
+}
 
-const conversationStatsFetchError = (err) => {
+const conversationStatsFetchError = err => {
   return {
     type: CONVERSATION_STATS_FETCH_ERROR,
     data: err
@@ -1608,12 +1650,15 @@ const conversationStatsFetchError = (err) => {
 }
 
 const fetchConversationStats = (conversation_id, until) => {
-  console.log("calling", conversation_id, until);
-  return $.get("/api/v3/conversationStats?conversation_id=" + conversation_id + (until ? "&until="+until : ""));
+  return $.get(
+    '/api/v3/conversationStats?conversation_id=' +
+      conversation_id +
+      (until ? '&until=' + until : '')
+  )
 }
 
 export const populateConversationStatsStore = (conversation_id, until) => {
-  return (dispatch) => {
+  return dispatch => {
     dispatch(requestConversationStats())
     return fetchConversationStats(conversation_id, until).then(
       res => dispatch(receiveConversationStats(res)),
@@ -1627,36 +1672,51 @@ export const populateConversationStatsStore = (conversation_id, until) => {
 const dataExportStarted = () => {
   return {
     type: DATA_EXPORT_STARTED
-  };
-};
+  }
+}
 
 const dataExportSuccess = () => {
   return {
     type: DATA_EXPORT_SUCCESS
-  };
-};
+  }
+}
 
 const dataExportError = () => {
   return {
     type: DATA_EXPORT_ERROR
-  };
-};
+  }
+}
 
-const dataExportGet = (conversation_id, format, unixTimestamp, untilEnabled) => {
+const dataExportGet = (
+  conversation_id,
+  format,
+  unixTimestamp,
+  untilEnabled
+) => {
   //       url += ("&unixTimestamp=" + ((ctx.date/1000) << 0));
 
   /* https://pol.is/api/v3/dataExport?conversation_id=2arcefpshi&format=csv&unixTimestamp=1447362000 */
-  var url = `/api/v3/dataExport?conversation_id=${conversation_id}&format=${format}`;
+  var url = `/api/v3/dataExport?conversation_id=${conversation_id}&format=${format}`
   if (untilEnabled) {
-    url += `&unixTimestamp=${unixTimestamp}`;
+    url += `&unixTimestamp=${unixTimestamp}`
   }
-  return $.get(url);
+  return $.get(url)
 }
 
-export const startDataExport = (conversation_id, format, unixTimestamp, untilEnabled) => {
-  return (dispatch) => {
-    dispatch(dataExportStarted() )
-    return dataExportGet(conversation_id, format, unixTimestamp, untilEnabled).then(
+export const startDataExport = (
+  conversation_id,
+  format,
+  unixTimestamp,
+  untilEnabled
+) => {
+  return dispatch => {
+    dispatch(dataExportStarted())
+    return dataExportGet(
+      conversation_id,
+      format,
+      unixTimestamp,
+      untilEnabled
+    ).then(
       res => dispatch(dataExportSuccess(res)),
       err => dispatch(dataExportError(err))
     )

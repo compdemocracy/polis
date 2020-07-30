@@ -1,11 +1,11 @@
-# Requires a very specific version due to package bugs and version compatibility
-FROM node:6.10.3-alpine
+# Gulp v3 stops us from upgrading beyond Node v11
+FROM node:11.15.0-alpine
 
 WORKDIR /app
 
 RUN apk add git --no-cache
 
-COPY package*.json npm-shrinkwrap.json ./
+COPY package*.json ./
 RUN npm install
 
 COPY . .

@@ -1,93 +1,60 @@
-// Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+import React from 'react'
+import { Box, Link, Heading } from 'theme-ui'
 
-import React from "react";
-import Radium from "radium";
-// import _ from "lodash";
-import Flex from "../framework/flex";
-// import { connect } from "react-redux";
-// import { FOO } from "../actions";
-
-
-// @connect(state => {
-//   return state.FOO;
-// })
-@Radium
-class Press extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-
-    };
-  }
-  static propTypes = {
-    /* react */
-
-    params: React.PropTypes.object,
-    routes: React.PropTypes.array,
-    /* component api */
-    style: React.PropTypes.object,
-  }
-  static defaultProps = {
-    // foo: "bar"
-  }
-  getStyles() {
-    return {
-      pressSection: {
-        backgroundColor: "rgb(247,247,247)",
-        color: "darkgray",
-        width: "100%",
-      },
-      article: {
-        padding: 30
-      },
-      newsLogo: {
-        margin: 0,
-        width: 170,
-        filter: "grayscale(100%) opacity(0.4)",
-        ":hover": {
-          filter: "none"
-        }
-      },
-    };
-  }
-  render() {
-    return (
-      <Flex
-        styleOverrides={this.getStyles().pressSection}
-        direction="column"
-        alignItems={"center"}>
-        <Flex
-          styleOverrides={{width: "100%"}}
-          wrap="wrap"
-          justifyContent={"space-around"}>
-          <a style={this.getStyles().article} href="http://www.geekwire.com/2014/startup-spotlight-polis/">
-            <img
-              key="1"
-              style={this.getStyles().newsLogo}
-              src="http://cdn.geekwire.com/wp-content/uploads/2015/02/GeekWire-logo-transparent.png"/>
-          </a>
-          <a style={this.getStyles().article} href="http://www.poynter.org/2016/here-are-27-ways-to-think-about-comments/401728/">
-            <img
-              key="3"
-              style={this.getStyles().newsLogo}
-              src="http://atendesigngroup.com/sites/all/themes/aten2014/images/logos/logo--poynter.png"/>
-          </a>
-          <a style={this.getStyles().article} href="http://www.mobilisationlab.org/blooming-digital-democracy-taiwan-sunflower-movement/#.Vur9oxIrLUI">
-            <img
-              key="4"
-              style={this.getStyles().newsLogo}
-              src="http://www.mobilisationlab.org/wp-content/themes/eleven40/images/logo-mob-lab-sq.png"/>
-          </a>
-          <a style={this.getStyles().article} href="https://coralproject.net/new-community-tools-polis/">
-            <img
-              key="kabillion"
-              style={this.getStyles().newsLogo}
-              src="https://coralproject.net/wp-content/uploads/2015/10/coralWordMark-1.5.png"/>
-          </a>
-        </Flex>
-      </Flex>
-    );
-  }
+const Press = () => {
+  return (
+    <Box>
+      <Heading
+        as="h3"
+        sx={{ fontSize: [4], lineHeight: 'body', my: [2, null, 3] }}>
+        Read
+      </Heading>
+      <Box sx={{ mb: [4, null, 5], maxWidth: '35em' }}>
+        Press coverage from{' '}
+        <Link
+          target="_blank"
+          href="https://www.nytimes.com/2019/10/15/opinion/taiwan-digital-democracy.html">
+          The New York Times
+        </Link>
+        ,{' '}
+        <Link
+          target="_blank"
+          href="https://www.technologyreview.com/2018/08/21/240284/the-simple-but-ingenious-system-taiwan-uses-to-crowdsource-its-laws/">
+          MIT Tech Review
+        </Link>
+        ,{' '}
+        <Link
+          target="_blank"
+          href="https://www.wired.co.uk/article/taiwan-democracy-social-media">
+          Wired
+        </Link>
+        ,{' '}
+        <Link
+          target="_blank"
+          href="https://www.economist.com/open-future/2019/03/22/technology-and-political-will-can-create-better-governance">
+          The Economist
+        </Link>
+        ,{' '}
+        <Link
+          target="_blank"
+          href="https://www.centreforpublicimpact.org/case-study/building-consensus-compromise-uber-taiwan/#evidence">
+          Center for Public Impact
+        </Link>
+        ,{' '}
+        <Link
+          target="_blank"
+          href="https://civichall.org/civicist/vtaiwan-democracy-frontier/">
+          Civicist
+        </Link>
+        ,{' and a mini documentary from '}
+        <Link
+          target="_blank"
+          href="https://www.youtube.com/watch?v=VbCZvU7i7VY">
+          BBC
+        </Link>
+      </Box>
+    </Box>
+  )
 }
 
-export default Press;
+export default Press

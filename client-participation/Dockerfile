@@ -1,11 +1,12 @@
-# The version of node-sass in use requires node 8.x
-FROM node:8.17.0-alpine
+# Gulp v3 stops us from upgrading beyond Node v11
+FROM node:11.15.0-alpine
 
 WORKDIR /app
 
 RUN apk add --no-cache --virtual .build \
   g++ git make python
 
+RUN npm config set unsafe-perm true
 RUN npm install -g bower
 
 COPY package*.json ./

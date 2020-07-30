@@ -2,43 +2,53 @@
 
 var path = require("path");
 var webpack = require("webpack");
+var LodashModuleReplacementPlugin = require('lodash-webpack-plugin');
 
 module.exports = {
-  // devtool: "source-map",
   entry: ["./src/index"],
   output: {
     path: path.join(__dirname, "dist"),
     filename: "admin_bundle.js",
-    publicPath: "/dist/"
+    publicPath: "/dist/",
+  },
+  resolve: {
+    extensions: [".js", ".css", ".png", ".svg"],
   },
   plugins: [
-    new webpack.optimize.OccurenceOrderPlugin(),
-    new webpack.DefinePlugin({
-      "process.env": {
-        NODE_ENV: JSON.stringify("production")
-      }
+    new LodashModuleReplacementPlugin({
+      "currying": true,
+      "flattening": true,
+      "paths": true,
+      "placeholders": true,
+      "shorthands": true
     }),
-    new webpack.optimize.UglifyJsPlugin({
-      compressor: {
-        warnings: false
-      }
-    })
+    new webpack.DefinePlugin({
+      "process.env.NODE_ENV": JSON.stringify("production"),
+    }),
   ],
-  resolve: {
-    extentions: [ '', '.js', '.css', '.png', '.svg' ]
+  optimization: {
+    minimize: true, //Update this to true or false
   },
   module: {
-    preLoaders: [{ test: /\.json$/, loader: "json" }],
-    loaders: [
+    rules: [
       {
-        test: /\.js$/,
-        loaders: ["babel"],
-        include: path.join(__dirname, "src")
+        test: /\.m?js$/,
+        exclude: /(node_modules|bower_components)/,
+        use: {
+          loader: "babel-loader",
+          options: {
+            presets: ["@babel/preset-env"],
+          },
+        },
       },
       {
         test: /\.(png|jpg|gif|svg)$/,
-        loader: "file-loader"
+        loader: "file-loader",
+      },
+      {
+        test: /\.mdx?$/,
+        use: ['babel-loader', '@mdx-js/loader']
       }
-    ]
-  }
+    ],
+  },
 };
