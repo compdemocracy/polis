@@ -78,7 +78,6 @@
     "prop-types": "^15.7.2",
     "react": "^16.4.0",
     "react-addons-pure-render-mixin": "^15.6.2",
-    "react-addons-update": "^15.6.2",
     "react-dom": "^16.4.0",
     "react-easy-emoji": "^1.4.0",
     "react-redux": "7.2.0",
