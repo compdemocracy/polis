@@ -88,8 +88,7 @@
     "redux-thunk": "^2.3.0",
     "request": "^2.65.0",
     "theme-ui": "^0.3.1",
-    "victory": "^34.3.11",
-    "whatwg-fetch": "^0.10.1"
+    "victory": "^34.3.11"
   },
   "jest": {
     "collectCoverage": true,
