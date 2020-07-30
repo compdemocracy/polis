@@ -68,7 +68,7 @@
     "webpack-dev-middleware": "^1.2.0"
   },
   "dependencies": {
-    "@babel/runtime": "^7.10.4",
+    "@babel/runtime": "^7.10.5",
     "boolean": "^3.0.1",
     "d3": "^5.16.0",
     "jquery": "^2.1.4",
