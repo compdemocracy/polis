@@ -55,7 +55,6 @@
     "gulp-scp2": "^0.2.0",
     "json-loader": "^0.5.1",
     "lodash-webpack-plugin": "^0.11.5",
-    "prettier": "2.0.5",
     "prettier-config-standard": "^1.0.1",
     "rimraf": "^3.0.2",
     "run-sequence": "~2.2.1",
