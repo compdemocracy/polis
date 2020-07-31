@@ -29,8 +29,11 @@ jobs:
 
       - uses: actions/checkout@v2.3.1
 
-      - working-directory: client-admin
-        run: npm install
+
+      - run: npm install -g depcheck webpack @babel/core eslint prettier
+
+        #- working-directory: client-admin
+        #run: npm install
 
       - id: depcheck
         working-directory: client-admin
@@ -44,7 +47,7 @@ jobs:
         run: |
           # Note: Commit status descriptions can have 140 characters max. (We add an ellipsis in the final step as final char)
           # Suppress failing exit codes with `true`.
-          npx depcheck --specials "$DEPCHECK_SPECIALS" --ignores "$DEPCHECK_IGNORES" --json > .results.json || true
+          depcheck --specials "$DEPCHECK_SPECIALS" --ignores "$DEPCHECK_IGNORES" --json > .results.json || true
           echo ::set-output name=dependencies::$(cat .results.json | jq '.dependencies | join(", ") | .[:139]' --raw-output)
           echo ::set-output name=devdependencies::$(cat .results.json | jq '.devDependencies | join(", ") | .[:139]' --raw-output)
 
