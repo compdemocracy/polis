@@ -47,7 +47,7 @@ jobs:
           # Why?
           # - runtime: never imported or mentioned in codebase
           # - depcheck: not sure why it doesn't ignore itself :)
-          DEPCHECK_IGNORES: "@babel/runtime,depcheck"
+          DEPCHECK_IGNORES: "@babel/runtime"
         run: |
           # Note: Commit status descriptions can have 140 characters max. (We add an ellipsis in the final step as final char)
           # Suppress failing exit codes with `true`.
