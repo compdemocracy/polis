@@ -44,9 +44,10 @@ jobs:
         env:
           # See: https://github.com/depcheck/depcheck#special
           DEPCHECK_SPECIALS: "webpack,babel,eslint,prettier,bin"
-          # Why ignoring? (currently none)
-          # - foo: some reason
-          DEPCHECK_IGNORES: ""
+          # Why ignoring?
+          # - prettier: because it's needed by eslint-plugin-prettier, but peerDependencies aren't yet supported.
+          #   See: https://github.com/depcheck/depcheck/issues/522
+          DEPCHECK_IGNORES: "prettier"
         run: |
           # Note: Commit status descriptions can have 140 characters max. (We add an ellipsis in the final step as final char)
           # Suppress failing exit codes with `true`.
