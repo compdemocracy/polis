@@ -20,21 +20,26 @@ jobs:
           node-version: 14.4.0
 
       # See: https://github.com/taskworld/commit-status
-      - run: npm install -g commit-status
+      - name: Install commit-status CLI tool
+        run: npm install -g commit-status
 
-      - run: |
+      - name: Initiate commit status placeholders
+        run: |
           # commit-status <state> <context> <description> <link>
           commit-status pending "DepCheck / dependencies"    "Detecting unused packages..."
           commit-status pending "DepCheck / devDependencies" "Detecting unused packages..."
 
       - uses: actions/checkout@v2.3.1
 
-      - run: npm install -g depcheck
+      - name: Install depcheck CLI tool
+        run: npm install -g depcheck
 
-      - working-directory: client-admin
+      - name: Install project dependencies
+        working-directory: client-admin
         run: npm install
 
-      - id: depcheck
+      - name: Run depcheck and save output
+        id: depcheck
         working-directory: client-admin
         env:
           # See: https://github.com/depcheck/depcheck#special
@@ -50,7 +55,8 @@ jobs:
           echo ::set-output name=dependencies::$(cat .results.json | jq '.dependencies | join(", ") | .[:139]' --raw-output)
           echo ::set-output name=devdependencies::$(cat .results.json | jq '.devDependencies | join(", ") | .[:139]' --raw-output)
 
-      - run: |
+      - name: Set commit status messages and success states
+        run: |
           if [ "${{ steps.depcheck.outputs.dependencies }}" = "" ]; then
             commit-status success "DepCheck / dependencies" "No unused packages detected."
           else
