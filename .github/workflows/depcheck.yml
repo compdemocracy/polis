@@ -44,10 +44,9 @@ jobs:
         env:
           # See: https://github.com/depcheck/depcheck#special
           DEPCHECK_SPECIALS: "webpack,babel,eslint,prettier,bin"
-          # Why?
-          # - runtime: never imported or mentioned in codebase
-          # - depcheck: not sure why it doesn't ignore itself :)
-          DEPCHECK_IGNORES: "@babel/runtime"
+          # Why ignoring? (currently none)
+          # - foo: some reason
+          DEPCHECK_IGNORES: ""
         run: |
           # Note: Commit status descriptions can have 140 characters max. (We add an ellipsis in the final step as final char)
           # Suppress failing exit codes with `true`.
