@@ -44,7 +44,7 @@
     "eslint-plugin-react": "^7.20.5",
     "eslint-plugin-standard": "^4.0.1",
     "express": "^4.17.1",
-    "file-loader": "0.8.5",
+    "file-loader": "~6.0.0",
     "glob": "^7.1.2",
     "gulp": "^3.9.0",
     "gulp-cli": "^1.4.0",
