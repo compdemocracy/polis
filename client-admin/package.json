@@ -57,7 +57,7 @@
     "request": "^2.88.2",
     "rimraf": "^3.0.2",
     "run-sequence": "~2.2.1",
-    "webpack": "^4.43.0",
+    "webpack": "^4.44.1",
     "webpack-bundle-analyzer": "^3.8.0",
     "webpack-cli": "^3.3.11",
     "webpack-dev-middleware": "^3.7.2"
