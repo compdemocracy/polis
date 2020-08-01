@@ -3,6 +3,7 @@
 # cd top level
 # cd `git rev-parse --show-toplevel`
 
+
 # verify that we are in a polis repo
 # git remote -v | grep -E "(polisServer.git|polis.git) .*(fetch)"
 # use tail +4 client-report/config/config.js  | diff config/config.js -
