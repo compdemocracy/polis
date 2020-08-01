@@ -46,7 +46,7 @@
     "express": "^4.17.1",
     "file-loader": "~6.0.0",
     "glob": "^7.1.2",
-    "gulp": "^3.9.0",
+    "gulp": "^4.0.2",
     "gulp-cli": "^1.4.0",
     "gulp-gzip": "1.4.2",
     "gulp-s3": "git://github.com/mbjorkegren/gulp-s3#847e2b372204b4ceeccb0e9b567f28ff00e7fa1d",
