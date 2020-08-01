@@ -24,6 +24,7 @@ env:
 
 # for server
 aws_access_key_id:
+  tag: api
   doc: aws_access_key_id
   default: undefined
   env: AWS_ACCESS_KEY_ID

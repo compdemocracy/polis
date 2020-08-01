@@ -30,4 +30,6 @@ config.validate({allowed: 'strict'});
  
 module.exports = config;
 
+console.log('aws_region:' + config.get('aws_region'));
+
 console.log('finishing yaml config.js')

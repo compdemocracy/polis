@@ -1,4 +1,7 @@
-.PHONY: config start stop clean
+.PHONY: init config start stop clean 
+
+init:
+	git config core.hooksPath .githooks
 
 config:
 	@echo "--- Sending contents of `config/shared/` to named volume `config`..."
