@@ -18,52 +18,52 @@ version: "3.1"
 services:
   server:
     container_name: polis-server
-    env_file: ./server/docker-dev.env
+    #env_file: ./server/docker-dev.env
+    env_file: ./.universal.env
     build:
       context: ./server
       dockerfile: Dockerfile
     depends_on:
       - "postgres"
       - "file-server"
-    networks:
-      - "polis-dev"
+    #networks:
+    #  - "polis-dev"
     ports:
       - "5000:5000"
+    environment:
+      - PORT=5000
+      - HSTS=off
+      - VIRTUAL_HOST=demos-surveys.co.uk,www.demos-surveys.co.uk
+      - LETSENCRYPT_HOST=demos-surveys.co.uk,www.demos-surveys.co.uk
+      - VIRTUAL_PORT=5000
+    network_mode: bridge
 
   math:
     container_name: polis-math
     env_file: ./math/docker-dev.env
+    #env_file: ./.universal.env
     depends_on:
       - "postgres"
     build:
       context: ./math
-    networks:
-      - "polis-dev"
+    #networks:
+    #  - "polis-dev"
+    network_mode: bridge
 
   postgres:
     container_name: polis-postgres
-    env_file: ./server/docker-db-dev.env
+    #env_file: ./server/docker-db-dev.env
+    env_file: ./.universal.env
     restart: always
     build:
       context: ./server
       dockerfile: Dockerfile-db
-    networks:
-      - "polis-dev"
+    #networks:
+    #  - "polis-dev"
     volumes:
       - "backups:/backups"
       - "postgres:/var/lib/postgresql/data"
-
-  nginx-proxy:
-    container_name: polis-nginx-proxy
-    build:
-      context: ./file-server
-      dockerfile: nginx.Dockerfile
-    depends_on:
-      - "server"
-    networks:
-      - "polis-dev"
-    ports:
-      - "80:80"
+    network_mode: bridge
 
   file-server:
     container_name: polis-file-server
@@ -74,10 +74,11 @@ services:
       - "client-participation"
       - "client-admin"
       - "client-report"
-    networks:
-      - "polis-dev"
+    #networks:
+    #  - "polis-dev"
     ports:
       - "8080:8080"
+    network_mode: bridge
 
   client-participation:
     container_name: polis-client-participation
@@ -103,8 +104,8 @@ services:
       args:
         GIT_HASH: "${GIT_HASH}"
 
-networks:
-  polis-dev:
+#networks:
+#  polis-dev:
 
 volumes:
   backups:
