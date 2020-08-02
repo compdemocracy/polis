@@ -5,5 +5,7 @@
 var config = require('./config/config.js');
 const fs = require('fs');
 
+console.log('export_config aws_region:' + config.get('aws_region'));
+
 let data = JSON.stringify(config.getProperties(), null, 2);
 fs.writeFileSync('export_config.json', data);

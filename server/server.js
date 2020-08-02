@@ -8,6 +8,7 @@ var config = require('./config/config.js');
 
 console.log('server aws_region:' + config.get('aws_region'));
 
+
 // keep these lines to help with debugging conversion
 // from process.env to config.get
 // console.log("process.env >>"+process.env.GOOGLE_API_KEY+"<<")
