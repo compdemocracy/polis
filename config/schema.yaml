@@ -13,6 +13,8 @@
 
 # @TODO: update all formats (https://www.npmjs.com/package/convict)
 
+# The defaults for all variables below are currently for development builds.
+
 env:
   doc: The application environment
   format:

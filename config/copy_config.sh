@@ -1,29 +1,26 @@
 #!/usr/bin/env bash
 
-# cd top level
-# cd `git rev-parse --show-toplevel`
+docker_directories=( server math client-admin client-participation client-report )
+yaml_files=( development.yaml schema.yaml )
+js_files=( config.js )
+config_directory=config
+repo_egrep="(polisServer.git|polis.git).*(fetch)"
+repo_root_directory=`git rev-parse --show-toplevel`
 
+if ! git remote -v | grep -E $repo_egrep; then
+    echo "Error! This script must be run in a 'polis' directory."
+    echo "Please edit ${0} if you believe you should not be getting this error."
+    exit 1
+fi
 
-# verify that we are in a polis repo
-# git remote -v | grep -E "(polisServer.git|polis.git) .*(fetch)"
-# use tail +4 client-report/config/config.js  | diff config/config.js -
+# for automatic verification that `client-report/config/config.js` and `config/config.js`
+# are consistent, use tail +4 client-report/config/config.js  | diff config/config.js -
 
-# OUTPUT='blah blah (Status: 200)'
-# if ! echo "$OUTPUT" | grep -q "(Status:\s200)"; then
-#     echo "NO MATCH"
-#     exit 1
-# fi
+cd $repo_root_directory
 
-# https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks
-# rename .git/hooks/pre-commit.sample -> pre-commit
+echo "Copying config files from '${config_directory}' to (${docker_directories[*]})"
 
-# use tail +4 client-report/config/config.js  | diff config/config.js -
-
-source "$(dirname "$0")/common_config.sh"
-
-echo "Copying config files from '${config_directory}' to (${static_node_directories[*]})"
-
-for directory in "${static_node_directories[@]}"
+for directory in "${docker_directories[@]}"
 do
     :
     for file in "${yaml_files[@]}"
