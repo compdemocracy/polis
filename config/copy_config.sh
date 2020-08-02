@@ -17,23 +17,15 @@
 # https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks
 # rename .git/hooks/pre-commit.sample -> pre-commit
 
-# TTD move next 4 lines into common_config.sh
-# TTD make check_config.sh
-
-static_node_directories=( client-admin client-participation client-report )
-yaml_files=( development.yaml schema.yaml )
-js_files=( config.js )
-config_directory=config
-repo_egrep="(polisServer.git|polis.git) .*(fetch)"
-
-
 # use tail +4 client-report/config/config.js  | diff config/config.js -
 
+source "$(dirname "$0")/common_config.sh"
+
+echo "Copying config files from '${config_directory}' to (${static_node_directories[*]})"
 
 for directory in "${static_node_directories[@]}"
 do
     :
-    mkdir ${directory}/${config_directory}
     for file in "${yaml_files[@]}"
     do
        : 
@@ -43,7 +35,6 @@ do
             >> ${directory}/${config_directory}/${file}       
        echo "#" >> ${directory}/${config_directory}/${file}
        cat ${config_directory}/${file} >> ${directory}/${config_directory}/${file}
-       echo "${file} -> ${directory}"
     done
     for file in "${js_files[@]}"
     do
@@ -54,6 +45,5 @@ do
             >> ${directory}/${config_directory}/${file}
        echo "//" >> ${directory}/${config_directory}/${file}
        cat ${config_directory}/${file} >> ${directory}/${config_directory}/${file}
-       echo "${file} -> ${directory}"
     done
 done

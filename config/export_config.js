@@ -7,7 +7,7 @@
 // childProcess.execSync('cp /config/* ./config');
 
 var config = require('./config/config.js');
+const fs = require('fs');
 
-console.log('aws_region:' + config.get('aws_region'));
-
-console.log('all config parameters:\n', config.getProperties())
+let data = JSON.stringify(config.getProperties(), null, 2);
+fs.writeFileSync('export_config.json', data);
