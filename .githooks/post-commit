@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+export GIT_HASH=`git rev-parse --show-toplevel`
+
