@@ -9,5 +9,8 @@
     -  `primary_polis_url` & `SERVICE_URL`
 * Some config variables can not be easily be managed by `node-convict`:
     - `GIT_HASH`
-
+* Work in progress:
+    - Test whether docker config volume will override `server/config` directory
+    - Write code to read json config into math
+    - Write code to allow math to run in docker or locally
 

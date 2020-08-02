@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-docker_directories=( server math client-admin client-participation client-report )
+docker_directories=( server client-admin client-participation client-report )
 yaml_files=( development.yaml schema.yaml )
 js_files=( config.js )
 config_directory=config
