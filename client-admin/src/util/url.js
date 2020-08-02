@@ -2,23 +2,23 @@
 
 // build may prepend 'devWithPreprod'
 
-var urlPrefix = "_domainWhitelistError_";
+var urlPrefix = '_domainWhitelistError_'
 
-var wl = window.domainWhitelist.map(function(x) {
-  return new RegExp(x);
-});
+var wl = window.domainWhitelist.map(function (x) {
+  return new RegExp(x)
+})
 
 for (var i = 0; i < wl.length; i++) {
   if (document.domain.match(wl[i])) {
-    urlPrefix = document.location.protocol + "//" + document.location.hostname;
+    urlPrefix = document.location.protocol + '//' + document.location.hostname
     if (document.location.port) {
-      urlPrefix = urlPrefix + ":" + document.location.port;
+      urlPrefix = urlPrefix + ':' + document.location.port
     }
-    urlPrefix = urlPrefix + "/";
-    break;
+    urlPrefix = urlPrefix + '/'
+    break
   }
 }
 
 export default {
-  urlPrefix: urlPrefix,
-};
+  urlPrefix: urlPrefix
+}

@@ -1,19 +1,23 @@
-import React from "react";
-import { Box, Link, Heading } from "theme-ui";
-import KnowledgeBase from "./knowledgeBase";
+import React from 'react'
+import { Box, Link, Heading } from 'theme-ui'
+import KnowledgeBase from './knowledgeBase'
 
 const ExploreKnowledgeBase = () => {
   return (
     <Box>
-      <Heading as="h3" sx={{ fontSize: [4], lineHeight: "body", my: [2, null, 3] }}>
+      <Heading
+        as="h3"
+        sx={{ fontSize: [4], lineHeight: 'body', my: [2, null, 3] }}>
         Explore
       </Heading>
-      <Box sx={{ mb: [4, null, 5], maxWidth: "35em" }}>
+      <Box sx={{ mb: [4, null, 5], maxWidth: '35em' }}>
         <Box style={{ mb: [5, null, 6] }}>
-          Onboard with a{" "}
-          <Link target="_blank" href="https://roamresearch.com/#/app/polis-methods/page/1GR4r4LX8">
+          Onboard with a{' '}
+          <Link
+            target="_blank"
+            href="https://roamresearch.com/#/app/polis-methods/page/1GR4r4LX8">
             comprehensive knowledge base
-          </Link>{" "}
+          </Link>{' '}
           including
         </Box>
         <KnowledgeBase
@@ -58,7 +62,7 @@ const ExploreKnowledgeBase = () => {
         />
       </Box>
     </Box>
-  );
-};
+  )
+}
 
-export default ExploreKnowledgeBase;
+export default ExploreKnowledgeBase
