@@ -173,7 +173,9 @@ class ConversationConfig extends React.Component {
               id="vis_type"
               ref={c => (this.vis_type = c)}
               checked={this.props.zid_metadata.vis_type === 1}
-              onChange={this.handleIntegerBoolValueChange("vis_type").bind(this)}
+              onChange={this.handleIntegerBoolValueChange('vis_type').bind(
+                this
+              )}
             />
           </Box>
           <Box sx={{ ml: [2], flexShrink: 0, maxWidth: '35em' }}>
@@ -189,7 +191,9 @@ class ConversationConfig extends React.Component {
               id="write_type"
               ref={c => (this.write_type = c)}
               checked={this.props.zid_metadata.write_type === 1}
-              onChange={this.handleIntegerBoolValueChange("write_type").bind(this)}
+              onChange={this.handleIntegerBoolValueChange('write_type').bind(
+                this
+              )}
             />
           </Box>
           <Box sx={{ ml: [2], flexShrink: 0, maxWidth: '35em' }}>
@@ -291,7 +295,9 @@ class ConversationConfig extends React.Component {
             />
           </Box>
           <Box sx={{ ml: [2], flexShrink: 0, maxWidth: '35em' }}>
-            <label htmlFor="strict_moderation">No comments shown without moderator approval</label>
+            <label htmlFor="strict_moderation">
+              No comments shown without moderator approval
+            </label>
           </Box>
         </Flex>
 
