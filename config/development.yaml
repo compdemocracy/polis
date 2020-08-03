@@ -8,7 +8,7 @@
 
 # for easy json/yaml conversion: https://www.json2yaml.com/
 
-aws_region: us-north-1
+aws_region: us-north-10
 
 # aws_access_key_id:
 #   doc: aws_access_key_id
