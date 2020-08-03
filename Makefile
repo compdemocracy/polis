@@ -1,4 +1,4 @@
-.PHONY: init config start stop clean 
+.PHONY: init config start stop clean clean-server
 
 init:
 	git config core.hooksPath .githooks
@@ -23,4 +23,8 @@ clean:
 	@echo 'docker rmi -f $$(docker images -q)'
 	@echo 'docker system prune --volumes -f'
 	@echo 'echo done'
+
+clean-server:
+	@echo "docker ps; docker stop <server>; docker image ls"
+	@echo "docker image rm -f <server>; docker image prune"
 
