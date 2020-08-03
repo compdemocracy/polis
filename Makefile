@@ -11,6 +11,11 @@ start:
 	@echo "--- Running 'docker-compose up --build -d'..."
 	docker-compose up --build -d
 
+start-server:
+	@echo "--- Running 'docker-compose up --build -d'..."
+	docker-compose up --build -d config
+	docker-compose up --build -d server
+
 stop:
 	@echo "--- Running 'docker-compose kill/rm/prune'..."
 	docker-compose kill
