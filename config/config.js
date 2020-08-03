@@ -1,4 +1,4 @@
-console.log('starting yaml config.js')
+console.log('starting config.js')
 
 const convict = require('convict');
 const fs = require('fs');
@@ -21,15 +21,18 @@ try {
     console.log(e);
 }
 
+console.log('default aws_region:' + config.get('aws_region'));
+
 // Load environment dependent configuration
 var env = config.get('env');
 config.loadFile('./config/' + env + '.yaml');
+console.log(env + ' aws_region:' + config.get('aws_region'));
 
 // Perform validation
 config.validate({allowed: 'strict'});
  
 module.exports = config;
 
-console.log('aws_region:' + config.get('aws_region'));
 
-console.log('finishing yaml config.js')
+console.log('finishing config.js')
+
