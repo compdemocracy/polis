@@ -28,4 +28,5 @@ jobs:
           tools-deps: 1.10.1
           lein: 2.9.4
 
-      - run: lein test
+      - working-directory: math
+        run: lein test
