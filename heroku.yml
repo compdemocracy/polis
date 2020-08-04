@@ -1,4 +1,5 @@
 build:
   docker:
     web: server/Dockerfile
+    math: math/Dockerfile
 
