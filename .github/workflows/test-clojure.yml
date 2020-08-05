@@ -29,4 +29,5 @@ jobs:
           lein: 2.9.4
 
       - working-directory: math
-        run: lein test
+        # Runs all except integration tests which require database and setup/teardown
+        run: "lein test :default"

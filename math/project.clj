@@ -87,5 +87,10 @@
   :min-lein-version "2.3.0"
   :profiles {:dev {:dependencies []
                    :source-paths ["src" "dev"]}
-             :production {:env {}}})
-
+             :production {:env {}}}
+  :test-selectors {:default (fn [m]
+                              (not (or (clojure.string/includes? (str (:ns m)) "conv-man-tests")
+                                       (clojure.string/includes? (str (:name m)) "conv-man-tests"))))
+                   :integration (fn [m]
+                                  (or (clojure.string/includes? (str (:ns m)) "conv-man-tests")
+                                      (clojure.string/includes? (str (:name m)) "conv-man-tests")))})
