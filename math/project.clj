@@ -11,7 +11,7 @@
                  ;:nrepl-middleware [com.gfredericks.debug-repl/wrap-debug-repl]
                  :port 34344}
   :target-path "target/%s"
-  :javac-target "1.7"
+  :javac-target "1.8"
   :repositories {"twitter4j" "https://twitter4j.org/maven2"}
   :plugins [];; need to add profiles to use this to avoid clout dep issue
             ;[lein-gorilla "0.4.0"]
@@ -87,5 +87,10 @@
   :min-lein-version "2.3.0"
   :profiles {:dev {:dependencies []
                    :source-paths ["src" "dev"]}
-             :production {:env {}}})
-
+             :production {:env {}}}
+  :test-selectors {:default (fn [m]
+                              (not (or (clojure.string/includes? (str (:ns m)) "conv-man-tests")
+                                       (clojure.string/includes? (str (:name m)) "conv-man-tests"))))
+                   :integration (fn [m]
+                                  (or (clojure.string/includes? (str (:ns m)) "conv-man-tests")
+                                      (clojure.string/includes? (str (:name m)) "conv-man-tests")))})
