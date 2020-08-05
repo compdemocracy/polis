@@ -1,0 +1,33 @@
+name: Test Math/Clojure
+
+on:
+  push:
+    branches: ["dev", "504-clj-tests"]
+    # Note: Only configured for client-admin right now.
+    paths:
+      - .github/workflows/test-clojure.yml
+      - math/**
+  pull_request:
+    types: ["opened", "reopened", "synchronize"]
+    paths:
+      - .github/workflows/test-clojure.yml
+      - math/**
+
+jobs:
+  test-clj:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2.3.1
+
+      - uses: actions/setup-java@v1.4.0
+        with:
+          java-version: 1.8
+
+      - uses: DeLaGuardo/setup-clojure@master
+        with:
+          tools-deps: 1.10.1
+          lein: 2.9.4
+
+      - working-directory: math
+        # Runs all except integration tests which require database and setup/teardown
+        run: "lein test :default"
