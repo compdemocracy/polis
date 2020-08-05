@@ -11,7 +11,7 @@
                  ;:nrepl-middleware [com.gfredericks.debug-repl/wrap-debug-repl]
                  :port 34344}
   :target-path "target/%s"
-  :javac-target "1.7"
+  :javac-target "1.8"
   :repositories {"twitter4j" "https://twitter4j.org/maven2"}
   :plugins [];; need to add profiles to use this to avoid clout dep issue
             ;[lein-gorilla "0.4.0"]
