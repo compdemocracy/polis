@@ -1,5 +1,5 @@
-# heroku create
-heroku_docker="dgps-polis-docker-test-3"
+# docker/heroku.yml
+heroku_docker="dgps-polis-docker-test-4"
 heroku create ${heroku_docker}
 heroku stack:set container
 git push heroku master
@@ -26,8 +26,8 @@ git push heroku master
 https://medium.com/inato/how-to-setup-heroku-with-yarn-workspaces-d8eac0db0256
 
 https://github.com/heroku/heroku-buildpack-multi-procfile
-heroku_math="dgps-polis-docker-test-math-5"
-heroku_server="dgps-polis-docker-test-serv-5"
+heroku_math="dgps-polis-docker-test-math-A"
+heroku_server="dgps-polis-docker-test-serv-A"
 heroku create -a ${heroku_math}
 heroku create -a ${heroku_server}
 heroku buildpacks:add -a ${heroku_math} https://github.com/heroku/heroku-buildpack-multi-procfile
