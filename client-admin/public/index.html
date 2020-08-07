@@ -21,7 +21,7 @@
     <script>
       window.fbAsyncInit = function () {
         FB.init({
-          appId: "%REACT_APP_FB_APP_ID%",
+          appId: "<%= process.env.RAZZLE_FB_APP_ID %>",
           xfbml: true,
           version: "v2.1",
         });
@@ -41,7 +41,7 @@
       })(document, "script", "facebook-jssdk");
     </script>
     <script>
-      if (!%REACT_APP_DISABLE_INTERCOM%) {
+      if (!<%= process.env.RAZZLE_DISABLE_INTERCOM %>) {
         window.initIntercom = function(){
           var w=window;var ic=w.Intercom;
           if(typeof ic==="function"){

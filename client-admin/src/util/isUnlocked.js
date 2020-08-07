@@ -1,5 +1,5 @@
 function canDoAnything() {
-  return process.env.REACT_APP_DISABLE_PLANS
+  return process.env.RAZZLE_DISABLE_PLANS
 }
 
 export default user => {
