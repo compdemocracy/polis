@@ -4,8 +4,6 @@ module.exports = {
   DISABLE_INTERCOM: true,
   DISABLE_PLANS: true,
 
-  FB_APP_ID: '661042417336977',
-
   //SERVICE_URL: 'http://localhost:5000',
   SERVICE_URL: 'https://preprod.pol.is',
 
