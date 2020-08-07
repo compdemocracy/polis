@@ -3,6 +3,8 @@
 import URLs from './url'
 import _ from 'lodash'
 
+const $ = window.$
+
 var urlPrefix = URLs.urlPrefix
 var basePath = ''
 

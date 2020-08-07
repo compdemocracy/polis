@@ -3,6 +3,8 @@
 import $ from 'jquery'
 import PolisNet from '../util/net'
 
+const FB = window.FB
+
 /* ======= Types ======= */
 export const REQUEST_USER = 'REQUEST_USER'
 export const RECEIVE_USER = 'RECEIVE_USER'

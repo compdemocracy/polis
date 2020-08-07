@@ -31,6 +31,8 @@ import Integrate from './components/conversations-and-account/integrate'
 
 import InteriorHeader from './components/interior-header'
 
+const Intercom = window.Intercom
+
 const PrivateRoute = ({ component: Component, isLoading, authed, ...rest }) => {
   if (isLoading) {
     return null
@@ -114,7 +116,7 @@ class App extends React.Component {
     if (!process.env.REACT_APP_DISABLE_INTERCOM && !this.intercomInitialized) {
       const { user } = this.props
       if (user) {
-        if (!window.Intercom && user && user.uid) {
+        if (!Intercom && user && user.uid) {
           window.initIntercom()
         }
         if (user.email) {
