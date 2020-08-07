@@ -2,8 +2,7 @@
 
 import URLs from './url'
 import _ from 'lodash'
-
-const $ = window.$
+import $ from 'jquery'
 
 var urlPrefix = URLs.urlPrefix
 var basePath = ''
