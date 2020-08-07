@@ -3,6 +3,7 @@ module.exports = {
 
   domainWhitelist: [
     "^localhost$",
+    "^192\\.168\\.1\\.141$",
     "^192\\.168\\.1\\.140$",
     "^pol\\.is",
     ".+\\.pol\\.is$",
@@ -15,7 +16,8 @@ module.exports = {
   SERVICE_URL: "http:localhost:5000",
 
   // Note that this must match the participation client port specified in polisServer instance
-  PORT: 5001,
+  // PORT: 5001,
+  PORT: 5008,
 
   DISABLE_INTERCOM: true,
 

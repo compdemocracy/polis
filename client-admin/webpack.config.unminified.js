@@ -16,6 +16,7 @@ module.exports = {
   plugins: [
     new webpack.DefinePlugin({
       "process.env.NODE_ENV": JSON.stringify("development"),
+      "config.get('node_env')": JSON.stringify("development")
     }),
   ],
   optimization: {

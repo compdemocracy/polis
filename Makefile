@@ -5,16 +5,16 @@ init:
 
 config:
 	@echo "--- Sending contents of `config/shared/` to named volume `config`..."
-	docker-compose up --build config
+	GIT_HASH=$(git log --pretty="%h" -n 1) docker-compose up --build config
 
 start:
 	@echo "--- Running 'docker-compose up --build -d'..."
-	docker-compose up --build -d
+	GIT_HASH=$(git log --pretty="%h" -n 1)  docker-compose up --build -d
 
 start-server:
 	@echo "--- Running 'docker-compose up --build -d'..."
-	docker-compose up --build -d config
-	docker-compose up --build -d server
+	GIT_HASH=$(git log --pretty="%h" -n 1) docker-compose up --build -d config
+	GIT_HASH=$(git log --pretty="%h" -n 1) docker-compose up --build -d server
 
 stop:
 	@echo "--- Running 'docker-compose kill/rm/prune'..."
