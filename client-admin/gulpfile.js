@@ -79,8 +79,6 @@ gulp.task("index", [], function () {
   );
   html = html.replace("NULL_VERSION", versionString);
 
-  html = html.replace("<%= useIntercom %>", !isTrue(polisConfig.DISABLE_INTERCOM));
-
   // index goes to the root of the dist folder.
   var indexDest = [destRootBase, "index_admin.html"].join("/");
   // fs.mkdirSync(destRootBase);

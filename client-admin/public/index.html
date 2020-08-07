@@ -41,8 +41,7 @@
       })(document, "script", "facebook-jssdk");
     </script>
     <script>
-      if (<%= useIntercom %>) {
-        window.useIntercom = true;
+      if (!%REACT_APP_DISABLE_INTERCOM%) {
         window.initIntercom = function(){
           var w=window;var ic=w.Intercom;
           if(typeof ic==="function"){

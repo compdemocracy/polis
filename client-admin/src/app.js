@@ -111,7 +111,7 @@ class App extends React.Component {
   }
 
   initIntercom() {
-    if (window.useIntercom && !this.intercomInitialized) {
+    if (!process.env.REACT_APP_DISABLE_INTERCOM && !this.intercomInitialized) {
       const { user } = this.props
       if (user) {
         if (!window.Intercom && user && user.uid) {
