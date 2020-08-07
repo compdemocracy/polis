@@ -25,6 +25,16 @@ try {
 var env = config.get('env');
 config.loadFile('./config/' + env + '.yaml');
 
+const path = './config/config_private.yaml';
+
+try {
+  if (fs.existsSync(path)) {
+    config.loadFile(path);
+  }
+} catch(err) {
+  console.error(err)
+}
+
 // Perform validation
 config.validate({allowed: 'strict'});
  
