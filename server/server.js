@@ -1,16 +1,12 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// TTD ;remove console log using replica
-
 "use strict";
 
+// // for some reason, this cannot be done in the dockerfile
+// const childProcess = require('child_process');
+// childProcess.execSync('cp /config/* ./config');
 
 var config = require('./config/config.js');
-
-// keep these lines to help with debugging conversion
-// from process.env to config.get
-// console.log("process.env >>"+process.env.GOOGLE_API_KEY+"<<")
-// console.log("config.get >>"+config.get('google_api_key')+"<<")
 
 const akismetLib = require('akismet');
 const AWS = require('aws-sdk');
@@ -56,7 +52,7 @@ const isValidUrl = require('valid-url');
 const zlib = require('zlib');
 const _ = require('underscore');
 
-
+// debugger;
 
 
 
@@ -73,16 +69,17 @@ const _ = require('underscore');
 // so we can have 1 preprod/3 prod servers, or 2 preprod / 2 prod.
 //
 // Note we use native
-
 const pgnative = require('pg').native; //.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
 const parsePgConnectionString = require('pg-connection-string').parse;
 
+// const usingReplica = config.get('database_url') !== config.get('database_for_reads_name');
+const usingReplica = process.env.DATABASE_URL !== process.env[process.env.DATABASE_FOR_READS_NAME];
 
-const usingReplica = config.get('database_url') !== config.get('database_for_reads_url');
 const poolSize = devMode ? 2 : (usingReplica ? 3 : 12)
 
 // not sure how many of these config options we really need anymore
-const pgConnection = Object.assign(parsePgConnectionString(config.get('database_url')),
+// const pgConnection = Object.assign(parsePgConnectionString(config.get('database_url')),
+const pgConnection = Object.assign(parsePgConnectionString(process.env.DATABASE_URL),
   {max: poolSize,
     isReadOnly: false,
    poolLog: function(str, level) {
@@ -91,7 +88,7 @@ const pgConnection = Object.assign(parsePgConnectionString(config.get('database_
      }
    }})
 const readsPgConnection = Object.assign(parsePgConnectionString(
-  config.get('database_for_reads_url')),
+      config.get('database_for_reads_name')),
   {max: poolSize,
    isReadOnly: true,
    poolLog: function(str, level) {
@@ -99,8 +96,6 @@ const readsPgConnection = Object.assign(parsePgConnectionString(
        console.log("pool.replica." + level + " " + str);
      }
    }})
-
-// problem area end
 
 // split requests into centralized read/write transactor pool vs read pool for scalability concerns in keeping
 // pressure down on the transactor (read+write) server
@@ -227,6 +222,7 @@ function pgQueryP_metered_readOnly(name, queryString, params) {
 var WebClient = require('@slack/client').WebClient;
 var web = new WebClient(config.get('slack_api_token'));
 // const winston = require("winston");
+
 
 // # notifications
 const winston = console;
@@ -493,6 +489,9 @@ DD.prototype.s = DA.prototype.s = function(k, v) {
 //   return [];
 // }
 
+
+
+// const domainOverride = process.env.DOMAIN_OVERRIDE || null;
 const domainOverride = config.get('domain_override') || null;
 function haltOnTimeout(req, res, next) {
   if (req.timedout) {
@@ -3300,8 +3299,12 @@ function initializePolisHelpers() {
   function getBidIndexToPidMapping(zid, math_tick) {
     math_tick = math_tick || -1;
 
-    return pgQueryP_readOnly("select * from math_bidtopid where zid = ($1) and math_env = ($2);", 
-      [zid, config.get('math_env')]).then((rows) => {
+    return pgQueryP_readOnly("select * from math_bidtopid where zid = ($1) and math_env = ($2);", [zid, process.env.MATH_ENV]).then((rows) => {
+    // return pgQueryP_readOnly("select * from math_bidtopid where zid = ($1) and math_env = ($2);", 
+    //   [zid, config.get('math_env')]).then((rows) => {
+
+    // return pgQueryP_readOnly("select * from math_bidtopid where zid = ($1) and math_env = ($2);", [zid,
+    //        config.get('math_env')]).then((rows) => {
 
       if (zid === 12480) {
         console.log("bidToPid", rows[0].data);
@@ -12097,7 +12100,6 @@ Thanks for using Polis!
 
   function geoCodeWithGoogleApi(locationString) {
     let googleApiKey = config.get('google_api_key');
-
     let address = encodeURI(locationString);
 
     return new Promise(function(resolve, reject) {
@@ -14456,9 +14458,7 @@ CREATE TABLE slack_user_invites (
 
   // serve up index.html in response to anything starting with a number
   let hostname = config.get('static_files_host');
-
-  let portForParticipationFiles = config.get('static_files_port');
-
+  let portForParticipationFiles = config.get('static_files_host');
   let portForAdminFiles = config.get('static_files_admindash_port');
 
 
