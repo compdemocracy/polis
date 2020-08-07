@@ -2,7 +2,6 @@
 module.exports = {
 
   DISABLE_INTERCOM: true,
-  DISABLE_PLANS: true,
 
   //SERVICE_URL: 'http://localhost:5000',
   SERVICE_URL: 'https://preprod.pol.is',

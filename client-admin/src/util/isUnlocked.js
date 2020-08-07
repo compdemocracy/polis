@@ -1,5 +1,5 @@
 function canDoAnything() {
-  return !window.usePlans
+  return process.env.REACT_APP_DISABLE_PLANS
 }
 
 export default user => {
