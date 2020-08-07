@@ -2,9 +2,11 @@
 
 // build may prepend 'devWithPreprod'
 
+import * as Constants from '../constants'
+
 var urlPrefix = '_domainWhitelistError_'
 
-var wl = window.domainWhitelist.map(function (x) {
+var wl = Constants.domainWhitelist.map(function (x) {
   return new RegExp(x)
 })
 

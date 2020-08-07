@@ -1,15 +1,6 @@
 
 module.exports = {
 
-  domainWhitelist: [
-    "^localhost$",
-    "^192\\.168\\.1\\.140$",
-    "^pol\\.is",
-    ".+\\.pol\\.is$",
-    "^xip\\.io$",
-    ".+\\.xip\\.io$",
-  ],
-
   DISABLE_INTERCOM: true,
   DISABLE_PLANS: true,
 
