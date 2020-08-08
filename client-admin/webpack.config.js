@@ -23,8 +23,7 @@ module.exports = {
       "shorthands": true
     }),
     new webpack.DefinePlugin({
-      "process.env.NODE_ENV": JSON.stringify("production"),
-      "config.get('node_env')": JSON.stringify("production")
+      "process.env.NODE_ENV": JSON.stringify("production")
     }),
   ],
   optimization: {

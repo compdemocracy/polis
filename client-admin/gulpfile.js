@@ -1,5 +1,8 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+var polisConfig2 = require('./config/config.js');
+console.log('client-admin convict env:' + polisConfig2.get('env'));
+
 var _ = require("lodash");
 var exec = require("child_process").exec;
 var gulp = require("gulp");
@@ -17,7 +20,7 @@ var scp = require("gulp-scp2");
 
 var polisConfig = require("./polis.config");
 
-console.log("Uploader: " + polisConfig.UPLOADER);
+console.log("Uploader: " + polisConfig2.get('uploader'));
 
 const staticFilesPrefix = "cached";
 const baseDistRoot = "dist";
@@ -84,7 +87,7 @@ gulp.task("index", [], function () {
   html = html.replace("<%= useIntercom %>", !isTrue(polisConfig.DISABLE_INTERCOM));
   html = html.replace("<%= usePlans %>", !isTrue(polisConfig.DISABLE_PLANS));
 
-  var domainWhitelist = '["' + polisConfig.domainWhitelist.join('","') + '"]';
+  var domainWhitelist = '["' + polisConfig2.get('domainWhitelist').join('","') + '"]';
   html = html.replace("<%= domainWhitelist %>", domainWhitelist);
 
   // index goes to the root of the dist folder.
@@ -131,8 +134,8 @@ gulp.task("404", [], function () {
 gulp.task("preprodConfig", function () {
   preprodMode = true;
   minified = true;
-  scpSubdir = polisConfig.SCP_SUBDIR_PREPROD;
-  s3Subdir = polisConfig.S3_BUCKET_PREPROD;
+  scpSubdir = polisConfig2.get('scp_subdir_preprod');
+  s3subdir = polisConfig2.get('s3_bucket_preprod');
 });
 
 gulp.task("unminifiedConfig", function () {
