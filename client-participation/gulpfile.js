@@ -1,8 +1,8 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-var config = require('./config/config.js');
+var polisConfig2 = require('./config/config.js');
 
-console.log('server aws_region:' + config.get('aws_region'));
+console.log('server aws_region:' + polisConfig2.get('aws_region'));
 
 var _ = require('underscore');
 var Promise = require('bluebird');
@@ -58,8 +58,10 @@ var url = require('url');
 var polisConfig = require('./polis.config');
 
 
-console.log("Uploader: " + polisConfig.UPLOADER);
-console.log("domainWhitelist: " + polisConfig.domainWhitelist);
+console.log("Uploader: >" + polisConfig.UPLOADER + "<");
+console.log("domainWhitelist: >" + polisConfig.domainWhitelist + "<");
+console.log("Uploader2: >" + polisConfig2.get('uploader') + "<");
+console.log("domainWhitelist2: >" + polisConfig2.get('domainWhitelist') + "<");
 
 // WARNING: useJsHint gets mutated in watch builds
 var useJsHint = true;
