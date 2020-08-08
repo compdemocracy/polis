@@ -249,12 +249,27 @@ aws_ses_api_version:
   env: AWS_S3_API_VERSION
 # config.get('aws_ses_api_version')
 
+# polis.config
+domainWhitelist: 
+  doc: domainWhitelist
+  default:
+    - ^localhost$
+    - ^192\\.168\\.1\\.141$
+    - ^192\\.168\\.1\\.140$
+    - ^pol\\.is
+    - .+\\.pol\\.is$
+    - ^xip\\.io$
+    - .+\\.xip\\.io$
+  env: DOMAIN_WHITELIST
 
-
-
-
-
-
+uploader:
+  doc: uploader for compiled static javascript
+  format:
+    - local
+    - s3
+    - scp
+  default: local
+  env: UPLOADER
 
 
 
