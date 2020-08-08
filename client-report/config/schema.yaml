@@ -27,15 +27,6 @@ env:
   default: development
   env: NODE_ENV
 
-env:
-  doc: The application environment
-  format:
-  - production
-  - development
-  - test
-  default: development
-  env: NODE_ENV
-
 # for server
 aws_access_key_id:
   tag: api
@@ -290,26 +281,35 @@ client_participation_port:
   default: 5001
   env: CLIENT_PARTICIPATION_PORT
 
-# fb_app_id:
+fb_app_id:
+  doc: must register with facebook and get a facebook app id to use the facebook auth features
+  default: 661042417336977
+  env: FB_APP_ID
 
-#   // must register with facebook and get a facebook app id to use the facebook auth features
-#   FB_APP_ID: '661042417336977',
+local_output_path:
+  doc: Uploader settings local
+  default: ./build
+  env: LOCAL_OUTPUT_PATH
 
-#   // For data exports
+s3_bucket_prod:
+  doc: uploader settings s3
+  default: pol.is
+  env: S3_BUCKET_PROD
 
-#   UPLOADER: 'local', // alt: s3, scp
+s3_bucket_preprod:
+  doc: uploader settings s3
+  default: preprod.pol.is
+  env: S3_BUCKET_PREPROD
 
-#   // Uploader settings: local
-#   LOCAL_OUTPUT_PATH: './build',
+scp_subdir_preprod:
+  doc: uploader settings scp
+  default: preprod
+  env: SCP_SUBDIR_PREPROD
 
-#   // Uploader settings: s3
-#   S3_BUCKET_PROD: 'pol.is',
-#   S3_BUCKET_PREPROD: 'preprod.pol.is',
-
-#   // Uploader settings: scp
-#   SCP_SUBDIR_PREPROD: 'preprod',
-#   SCP_SUBDIR_PROD: 'prod',
-# };
+scp_subdir_prod:
+  doc: uploader settings scp
+  default: prod
+  env: SCP_SUBDIR_PROD
 
 
 
