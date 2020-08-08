@@ -83,9 +83,9 @@ gulp.task("index", [], function () {
   );
   html = html.replace("NULL_VERSION", versionString);
 
-  html = html.replace("<%= fbAppId %>", polisConfig.FB_APP_ID);
-  html = html.replace("<%= useIntercom %>", !isTrue(polisConfig.DISABLE_INTERCOM));
-  html = html.replace("<%= usePlans %>", !isTrue(polisConfig.DISABLE_PLANS));
+  html = html.replace("<%= fbAppId %>", polisConfig2.get('fb_app_id'));
+  html = html.replace("<%= useIntercom %>", !isTrue(polisConfig2.get('disable_intercom')));
+  html = html.replace("<%= usePlans %>", !isTrue(polisConfig2.get('disable_plans')));
 
   var domainWhitelist = '["' + polisConfig2.get('domainWhitelist').join('","') + '"]';
   html = html.replace("<%= domainWhitelist %>", domainWhitelist);
@@ -145,8 +145,8 @@ gulp.task("unminifiedConfig", function () {
 gulp.task("prodConfig", function () {
   prodMode = true;
   minified = true;
-  scpSubdir = polisConfig.SCP_SUBDIR_PROD;
-  s3Subdir = polisConfig.S3_BUCKET_PROD;
+  scpSubdir = polisConfig2.get('scp_subdir_prod');
+  s3Subdir = polisConfig2.get('s3_bucket_prod');
 });
 
 gulp.task("configureForProduction", function (callback) {
@@ -233,12 +233,12 @@ gulp.task("dist", ["configureForProduction"], function (callback) {
 
 gulp.task("deploy_TO_PRODUCTION", ["prodConfig", "dist"], function () {
   var uploader;
-  if ("s3" === polisConfig.UPLOADER) {
+  if ("s3" === polisConfig2.get('uploader')) {
     uploader = s3uploader({
       bucket: s3Subdir,
     });
   }
-  if ("scp" === polisConfig.UPLOADER) {
+  if ("scp" === polisConfig2.get('uploader')) {
     uploader = scpUploader({
       // subdir: "cached",
       watch: function (client) {
@@ -248,7 +248,7 @@ gulp.task("deploy_TO_PRODUCTION", ["prodConfig", "dist"], function () {
       },
     });
   }
-  if ('local' === polisConfig.UPLOADER) {
+  if ('local' === polisConfig2.get('uploader')) {
     uploader = localUploader
     uploader.needsHeadersJson = true
   }
@@ -257,12 +257,12 @@ gulp.task("deploy_TO_PRODUCTION", ["prodConfig", "dist"], function () {
 
 function doUpload() {
   var uploader;
-  if ("s3" === polisConfig.UPLOADER) {
+  if ("s3" === polisConfig2.get('uploader')) {
     uploader = s3uploader({
       bucket: s3Subdir,
     });
   }
-  if ("scp" === polisConfig.UPLOADER) {
+  if ("scp" === polisConfig2.get('uploader')) {
     uploader = scpUploader({
       // subdir: "cached",
       watch: function (client) {
@@ -272,7 +272,7 @@ function doUpload() {
       },
     });
   }
-  if ('local' === polisConfig.UPLOADER) {
+  if ('local' === polisConfig2.get('uploader')) {
     uploader = localUploader
     uploader.needsHeadersJson = true
   }
@@ -285,19 +285,19 @@ gulp.task("deployPreprodUnminified", ["preprodConfig", "unminifiedConfig", "dist
 
 gulp.task("fontsPreprod", ["preprodConfig"], function () {
   return deployFonts({
-    bucket: polisConfig.S3_BUCKET_PREPROD,
+    bucket: polisConfig2.get('s3_bucket_preprod'),
   });
 });
 
 gulp.task("fontsProd", ["prodConfig"], function () {
   return deployFonts({
-    bucket: polisConfig.S3_BUCKET_PROD,
+    bucket: polisConfig2.get('s3_bucket_prod'),
   });
 });
 
 function localUploader(params) {
   params.subdir = params.subdir || ''
-  return gulp.dest(path.join(polisConfig.LOCAL_OUTPUT_PATH, params.subdir))
+  return gulp.dest(path.join(polisConfig2.get('local_output_path'), params.subdir))
 }
 
 function s3uploader(params) {

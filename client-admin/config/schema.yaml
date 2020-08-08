@@ -79,6 +79,10 @@ polis_slack_app_client_secret:
   doc: polis_slack_app_client_secret
   default: X
   env: POLIS_SLACK_APP_CLIENT_SECRET
+disable_plans:
+  doc: disable_plans
+  default: true
+  env: DISABLE_PLANS
 disable_intercom:
   doc: disable_intercom
   default: true

@@ -4,7 +4,8 @@ docker_directories=( server client-admin client-participation client-report )
 yaml_files=( development.yaml schema.yaml )
 js_files=( config.js )
 config_directory=config
-repo_egrep="(polisServer.git|polis.git).*(fetch)"
+# repo_egrep="(polisServer.git|polis.git).*(fetch)"
+repo_egrep="(polisServer|polis).*(fetch)"
 repo_root_directory=`git rev-parse --show-toplevel`
 
 if ! git remote -v | grep -E $repo_egrep; then
