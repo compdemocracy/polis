@@ -1,5 +1,7 @@
 finish copying polis.config to schema.yaml
 
+rename polisConfig2 polisConfig
+
 move .polis_s3_creds_client.json, etc. into schema.yaml
 
 # fix this in ./config/copy_config.sh
