@@ -26,6 +26,7 @@
     "handlebars": "~1.3.0",
     "hull.js": "^0.2.10",
     "jquery": "~1.11",
+    "js-yaml": "3.14.0",
     "lodash": "4.16.4",
     "map-stream": "~0.1.0",
     "prop-types": "^15.7.2",
