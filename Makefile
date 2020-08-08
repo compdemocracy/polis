@@ -1,20 +1,20 @@
-.PHONY: init config start stop clean clean-server
+.PHONY: init config start start-server stop clean clean-server git-hash
 
 init:
 	git config core.hooksPath .githooks
 
 config:
 	@echo "--- Sending contents of `config/shared/` to named volume `config`..."
-	GIT_HASH=$(git log --pretty="%h" -n 1) docker-compose up --build config
+	GIT_HASH=`git log --pretty="%h" -n 1` docker-compose up --build config
 
 start:
 	@echo "--- Running 'docker-compose up --build -d'..."
-	GIT_HASH=$(git log --pretty="%h" -n 1)  docker-compose up --build -d
+	GIT_HASH=`git log --pretty="%h" -n 1`  docker-compose up --build -d
 
 start-server:
 	@echo "--- Running 'docker-compose up --build -d'..."
-	GIT_HASH=$(git log --pretty="%h" -n 1) docker-compose up --build -d config
-	GIT_HASH=$(git log --pretty="%h" -n 1) docker-compose up --build -d server
+	GIT_HASH=`git log --pretty="%h" -n 1` docker-compose up --build -d config
+	GIT_HASH=`git log --pretty="%h" -n 1` docker-compose up --build -d server
 
 stop:
 	@echo "--- Running 'docker-compose kill/rm/prune'..."
@@ -32,4 +32,6 @@ clean:
 clean-server:
 	@echo "docker ps; docker stop <server>; docker image ls"
 	@echo "docker image rm -f <server>; docker image prune"
+
+
 
