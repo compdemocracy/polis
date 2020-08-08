@@ -1,8 +1,8 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-var polisConfig2 = require('./config/config.js');
+var polisConfig = require('./config/config.js');
 
-console.log('server aws_region:' + polisConfig2.get('aws_region'));
+console.log('server aws_region:' + polisConfig.get('aws_region'));
 
 var _ = require('underscore');
 var Promise = require('bluebird');
@@ -55,13 +55,7 @@ var Stream = require('stream');
 var sys = require('sys');
 var url = require('url');
 
-var polisConfig = require('./polis.config');
-
-
-console.log("Uploader: >" + polisConfig2.get('uploader') + "<");
-console.log("domainWhitelist: >" + polisConfig.domainWhitelist + "<");
-console.log("Uploader2: >" + polisConfig2.get('uploader') + "<");
-console.log("domainWhitelist2: >" + polisConfig2.get('domainWhitelist') + "<");
+console.log("Uploader: >" + polisConfig.get('uploader') + "<");
 
 // WARNING: useJsHint gets mutated in watch builds
 var useJsHint = true;
@@ -113,7 +107,7 @@ function prepPathForTemplate(path) {
 gulp.task('connect', [], function() {
 
   function proxyToPreprod(req, response) {
-    var x = request((polisConfig2.get("service_url") || "https://preprod.pol.is") + req.originalUrl);
+    var x = request((polisConfig.get("service_url") || "https://preprod.pol.is") + req.originalUrl);
     x.on("error", function(err) {
       response.status(500).end();
     });
@@ -195,8 +189,8 @@ gulp.task('connect', [], function() {
   app.use(/^\/try$/, express.static(path.join(destRootBase, "try.html")));
 
 
-  app.listen(polisConfig2.get('client_participation_port'));
-  console.log('listening on localhost:' + polisConfig2.get('client_participation_port'));
+  app.listen(polisConfig.get('client_participation_port'));
+  console.log('listening on localhost:' + polisConfig.get('client_participation_port'));
 });
 
 function getGitHash() {
@@ -255,14 +249,14 @@ gulp.task('index', [
 ], function() {
   var s = gulp.src('index.html');
   var basepath = prepPathForTemplate(destRootRest);
-  var domainWhitelist = '["' + polisConfig2.get('domainWhitelist').join('","') + '"]';
+  var domainWhitelist = '["' + polisConfig.get('domainWhitelist').join('","') + '"]';
   if (devMode) {
     s = s.pipe(template({
       basepath: basepath,
       basepath_visbundle: basepath_visbundle_dev,
       d3Filename: 'd3.js',
-      fbAppId: polisConfig2.get('fb_app_id'),
-      useIntercom: !isTrue(polisConfig2.get('disable_intercom')),
+      fbAppId: polisConfig.get('fb_app_id'),
+      useIntercom: !isTrue(polisConfig.get('disable_intercom')),
       versionString: versionString,
       domainWhitelist: domainWhitelist,
     }));
@@ -272,8 +266,8 @@ gulp.task('index', [
       basepath: basepath, // proxy through server (cached by cloudflare, and easier than choosing a bucket for preprod, etc)
       basepath_visbundle: basepath,
       d3Filename: 'd3.min.js',
-      fbAppId: polisConfig2.get('fb_app_id'),
-      useIntercom: !isTrue(polisConfig2.get('disable_intercom')),
+      fbAppId: polisConfig.get('fb_app_id'),
+      useIntercom: !isTrue(polisConfig.get('disable_intercom')),
       versionString: versionString,
       domainWhitelist: domainWhitelist,
     }));
@@ -573,15 +567,15 @@ gulp.task("scriptsTemp", function() {
 gulp.task("preprodConfig", function() {
   preprodMode = true;
   minified = true;
-  scpSubdir = polisConfig2.get('scp_subdir_preprod');
-  s3subdir = polisConfig2.get('s3_bucket_preprod');
+  scpSubdir = polisConfig.get('scp_subdir_preprod');
+  s3subdir = polisConfig.get('s3_bucket_preprod');
 });
 
 gulp.task("prodConfig", function() {
   prodMode = true;
   minified = true;
-  scpSubdir = polisConfig2.get('scp_subdir_prod');
-  s3subdir = polisConfig2.get('s3_bucket_prod');
+  scpSubdir = polisConfig.get('scp_subdir_prod');
+  s3subdir = polisConfig.get('s3_bucket_prod');
 });
 
 gulp.task("unminifiedConfig", function() {
@@ -696,12 +690,12 @@ gulp.task('deploy_TO_PRODUCTION', [
   notifySlackOfDeployment("prod");
 
   var uploader;
-  if ('s3' === polisConfig2.get('uploader')) {
+  if ('s3' === polisConfig.get('uploader')) {
     uploader = s3uploader({
       bucket: s3Subdir,
     });
   }
-  if ('scp' === polisConfig2.get('uploader')) {
+  if ('scp' === polisConfig.get('uploader')) {
     uploader = scpUploader({ // TODO needs to upload as prod somehow.
       // subdir: "cached",
       watch: function(client) {
@@ -711,7 +705,7 @@ gulp.task('deploy_TO_PRODUCTION', [
       },
     });
   }
-  if ('local' === polisConfig2.get('uploader')) {
+  if ('local' === polisConfig.get('uploader')) {
     uploader = localUploader
     uploader.needsHeadersJson = true
   }
@@ -723,12 +717,12 @@ function doUpload() {
   notifySlackOfDeployment("preprod");
 
   var uploader;
-  if ('s3' === polisConfig2.get('uploader')) {
+  if ('s3' === polisConfig.get('uploader')) {
     uploader = s3uploader({
       bucket: s3Subdir,
     });
   }
-  if ('scp' === polisConfig2.get('uploader')) {
+  if ('scp' === polisConfig.get('uploader')) {
     uploader = scpUploader({ // TODO needs to upload as PREprod somehow.
       // subdir: "cached",
       watch: function(client) {
@@ -738,7 +732,7 @@ function doUpload() {
       },
     });
   }
-  if ('local' === polisConfig2.get('uploader')) {
+  if ('local' === polisConfig.get('uploader')) {
     uploader = localUploader
     uploader.needsHeadersJson = true
   }
@@ -769,7 +763,7 @@ gulp.task('deploySurvey', [
 
 function localUploader(params) {
   params.subdir = params.subdir || ''
-  return gulp.dest(path.join(polisConfig2.get('local_output_path'), params.subdir))
+  return gulp.dest(path.join(polisConfig.get('local_output_path'), params.subdir))
 }
 
 function s3uploader(params) {
