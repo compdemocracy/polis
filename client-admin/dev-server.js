@@ -64,7 +64,7 @@ app.get("*", function (req, res) {
   html = html.replace("<%= fbAppId %>", polisConfig.FB_APP_ID);
   html = html.replace("<%= useIntercom %>", !isTrue(polisConfig.DISABLE_INTERCOM));
   html = html.replace("<%= usePlans %>", !isTrue(polisConfig.DISABLE_PLANS));
-  var domainWhitelist = '["' + polisConfig.domainWhitelist.join('","') + '"]';
+  var domainWhitelist = '["' + polisConfig.get('domainWhitelist').join('","') + '"]';
   html = html.replace("<%= domainWhitelist %>", domainWhitelist);
 
   res.set({
