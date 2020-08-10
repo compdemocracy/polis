@@ -1,5 +1,7 @@
 const CompressionPlugin = require('compression-webpack-plugin')
 const EventHooksPlugin = require('event-hooks-webpack-plugin')
+const LodashModuleReplacementPlugin = require('lodash-webpack-plugin')
+
 const glob = require('glob')
 const fs = require('fs')
 
@@ -7,6 +9,15 @@ module.exports = {
   plugins: ["mdx"],
   modify: (config, { target, dev }, webpack) => {
     const appConfig = config
+
+    // Help minimize bundle size due to lodash duplication.
+    appConfig.plugins.push(new LodashModuleReplacementPlugin({
+      "currying": true,
+      "flattening": true,
+      "paths": true,
+      "placeholders": true,
+      "shorthands": true,
+    }))
 
     // When building production SPA type app.
     if (!dev && target === 'web') {
