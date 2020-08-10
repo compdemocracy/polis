@@ -16,9 +16,9 @@ COPY . .
 COPY fs_config.template.json fs_config.json
 
 RUN mkdir /app/build
-COPY --from=admin         /app/build/ /app/build
-COPY --from=participation /app/build/ /app/build
-COPY --from=report        /app/build/ /app/build
+COPY --from=admin         /app/build/public/ /app/build
+COPY --from=participation /app/build/        /app/build
+COPY --from=report        /app/build/        /app/build
 
 EXPOSE 8080
 
