@@ -8,8 +8,8 @@ RUN apk add git --no-cache
 COPY package*.json ./
 RUN npm install
 
+COPY .sample.env .env
 COPY . .
-COPY polis.config.template.js polis.config.js
 
 ARG GIT_HASH
 RUN npm run build
