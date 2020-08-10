@@ -1,4 +1,5 @@
 const CompressionPlugin = require('compression-webpack-plugin')
+const BundleAnalyzerPlugin = require("webpack-bundle-analyzer").BundleAnalyzerPlugin;
 const EventHooksPlugin = require('event-hooks-webpack-plugin')
 const LodashModuleReplacementPlugin = require('lodash-webpack-plugin')
 
@@ -18,6 +19,10 @@ module.exports = {
       "placeholders": true,
       "shorthands": true,
     }))
+
+    if (dev && target === 'web') {
+      //appConfig.plugins = [...appConfig.plugins, new BundleAnalyzerPlugin()]
+    }
 
     // When building production SPA type app.
     if (!dev && target === 'web') {
@@ -81,6 +86,8 @@ module.exports = {
         }
       }))
     }
+
+    console.log(appConfig)
 
     return appConfig
   },
