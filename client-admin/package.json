@@ -71,6 +71,7 @@
     "@testing-library/react": "^9.5.0",
     "@testing-library/user-event": "^7.2.1",
     "boolean": "^3.0.1",
+    "compression-webpack-plugin": "^4.0.0",
     "d3": "^5.16.0",
     "jquery": "^2.1.4",
     "lodash": "^4.17.19",
