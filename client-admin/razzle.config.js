@@ -87,8 +87,6 @@ module.exports = {
       }))
     }
 
-    console.log(appConfig)
-
     return appConfig
   },
 };
