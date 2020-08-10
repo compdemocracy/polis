@@ -24,6 +24,7 @@ jobs:
         run: npm install -g commit-status
 
       - name: Initiate commit status placeholders
+        if: github.repository_owner == 'pol-is'
         run: |
           # commit-status <state> <context> <description> <link>
           commit-status pending "DepCheck / dependencies"    "Detecting unused packages..."
@@ -57,6 +58,7 @@ jobs:
           echo ::set-output name=devdependencies::$(cat .results.json | jq '.devDependencies | join(", ") | .[:139]' --raw-output)
 
       - name: Set commit status messages and success states
+        if: github.repository_owner == 'pol-is'
         run: |
           if [ "${{ steps.depcheck.outputs.dependencies }}" = "" ]; then
             commit-status success "DepCheck / dependencies" "No unused packages detected."
