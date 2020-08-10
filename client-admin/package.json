@@ -7,21 +7,14 @@
     "node": "8.17.0"
   },
   "scripts": {
-    "clean": "rimraf dist",
-    "build:webpack": "npm run clean && NODE_ENV=production webpack --config webpack.config.js",
-    "build:webpack_unminified": "npm run clean && NODE_ENV=development webpack --config webpack.config.unminified.js",
-    "build": "npm run build:webpack",
-    "build:preprod": "gulp deployPreprod",
-    "build-debug": "npm run build:webpack_unminified",
+    "build:razzle": "razzle build --type=spa",
+    "build": "npm run build:razzle",
     "deploy:prod": "./deploy_TO_PRODUCTION",
     "deploy:preprod": "./deployPreprod",
-    "start": "./x",
+    "start": "razzle start --type=spa",
+    "start:prod": "serve -s build/public",
     "lint": "eslint src",
-    "test": "jest",
-    "cra-start": "razzle start --type=spa",
-    "cra-build": "razzle build --type=spa",
-    "cra-test": "razzle test --env=jsdom",
-    "cra-start:prod": "serve -s build/public"
+    "test": "razzle test --env=jsdom"
   },
   "author": "Colin Megill",
   "devDependencies": {
@@ -49,22 +42,14 @@
     "express": "^4.17.1",
     "file-loader": "~6.0.0",
     "glob": "^7.1.2",
-    "gulp": "^3.9.0",
-    "gulp-cli": "^1.4.0",
-    "gulp-gzip": "1.4.2",
-    "gulp-s3": "git://github.com/mbjorkegren/gulp-s3#847e2b372204b4ceeccb0e9b567f28ff00e7fa1d",
-    "gulp-scp2": "^0.2.0",
     "lodash-webpack-plugin": "^0.11.5",
     "prettier": "^2.0.5",
     "prettier-config-standard": "^1.0.1",
     "request": "^2.88.2",
-    "rimraf": "^3.0.2",
-    "run-sequence": "~2.2.1",
     "serve": "^11.3.2",
     "webpack": "^4.44.1",
     "webpack-bundle-analyzer": "^3.8.0",
-    "webpack-cli": "^3.3.12",
-    "webpack-dev-middleware": "^3.7.2"
+    "webpack-cli": "^3.3.12"
   },
   "dependencies": {
     "@testing-library/jest-dom": "^4.2.4",
