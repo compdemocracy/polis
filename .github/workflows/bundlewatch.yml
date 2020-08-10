@@ -48,7 +48,7 @@ jobs:
       working-directory: client-admin
       run: |
         npm install
-        npm run build:webpack
+        npm run build
 
     - name: Run Bundlewatch
       # TODO: Move config to root directory, so easier to run against all components.

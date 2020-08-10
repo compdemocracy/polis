@@ -10,7 +10,7 @@ module.exports = {
   },
   "files": [
     {
-      "path": "dist/*.js",
+      "path": "build/public/**/*.js",
       "maxSize": "250 kB",
     },
   ]
