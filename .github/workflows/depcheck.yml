@@ -49,7 +49,8 @@ jobs:
           # - prettier: because it's needed by eslint-plugin-prettier, but peerDependencies aren't yet supported.
           #   See: https://github.com/depcheck/depcheck/issues/522
           # - webpack-cli: Needed for `webpack` command, but provide `webpack-cli` bin, which confuses depcheck.
-          DEPCHECK_IGNORES: "prettier,webpack-cli"
+          # - razzle-plugin-*: Razzle plugins need a "special" like webpack.
+          DEPCHECK_IGNORES: "prettier,webpack-cli,razzle-plugin-*"
         run: |
           # Note: Commit status descriptions can have 140 characters max. (We add an ellipsis in the final step as final char)
           # Suppress failing exit codes with `true`.
