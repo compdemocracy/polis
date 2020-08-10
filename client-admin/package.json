@@ -9,8 +9,8 @@
   "scripts": {
     "build:razzle": "razzle build --type=spa",
     "build": "npm run build:razzle",
-    "deploy:prod": "./deploy_TO_PRODUCTION",
-    "deploy:preprod": "./deployPreprod",
+    "deploy:prod": "echo TODO",
+    "deploy:preprod": "echo TODO",
     "start": "razzle start --type=spa",
     "start:prod": "serve -s build/public",
     "lint": "eslint src",
@@ -18,11 +18,7 @@
   },
   "author": "Colin Megill",
   "devDependencies": {
-    "@babel/plugin-proposal-class-properties": "^7.10.4",
     "@babel/plugin-proposal-decorators": "^7.10.5",
-    "@babel/plugin-transform-runtime": "^7.11.0",
-    "@babel/preset-env": "^7.11.0",
-    "@babel/preset-react": "^7.10.4",
     "babel-eslint": "^10.1.0",
     "babel-plugin-lodash": "^3.3.4",
     "eslint": "^7.6.0",
