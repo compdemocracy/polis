@@ -42,9 +42,6 @@
     "webpack-cli": "^3.3.12"
   },
   "dependencies": {
-    "@testing-library/jest-dom": "^4.2.4",
-    "@testing-library/react": "^9.5.0",
-    "@testing-library/user-event": "^7.2.1",
     "compression-webpack-plugin": "^4.0.0",
     "d3": "^5.16.0",
     "event-hooks-webpack-plugin": "^2.1.7",
