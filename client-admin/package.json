@@ -14,7 +14,7 @@
     "deploy:prod": "razzle build --type=spa --deploy --prod",
     "start": "razzle start --type=spa",
     "start:prod": "serve -s build/public",
-    "lint": "eslint src",
+    "lint": "eslint .",
     "test": "razzle test --env=jsdom"
   },
   "author": "Colin Megill",

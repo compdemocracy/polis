@@ -27,3 +27,6 @@ parserOptions:
 settings:
   react:
     version: detect
+ignorePatterns:
+  - build/*
+  - node_modules/*
