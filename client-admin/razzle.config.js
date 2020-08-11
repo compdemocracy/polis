@@ -100,16 +100,22 @@ module.exports = {
       } else {
         console.log('Configuring for S3 deploy...')
 
+        // Format: {"key": "xxx", "secret": "xxx"}
         const creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'))
-        // {key: "xxx", secret: "xxx"}
 
+        // See: https://github.com/MikaAK/s3-plugin-webpack
         appConfig.plugins.push(new S3Plugin({
+          // Despite warnings in README, deploy fails without `directory` set.
+          directory: 'build/public',
+          // Output is broken for some reason.
+          // See: https://github.com/MikaAK/s3-plugin-webpack/issues/137
+          progress: false,
           s3Options: {
             accessKeyId: creds.key,
-            secretAccessKey: creds.secret,
-            region: 'us-east-1'
+            secretAccessKey: creds.secret
           },
           s3UploadOptions: {
+            // Choose bucket based on `--prod` flag when running `razzle build`.
             Bucket: cliArgs.prod ? process.env.S3_BUCKET_PROD : process.env.S3_BUCKET_PREPROD
           }
         }))
