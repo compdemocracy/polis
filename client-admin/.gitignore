@@ -27,7 +27,6 @@ $RECYCLE.BIN/
 
 # App specific
 build
-dist
 coverage
 node_modules
 bower_components
@@ -36,5 +35,4 @@ lib
 npm-debug.log
 .polis_s3_creds_client.json
 .env_dev
-polis.config.js
 .env
