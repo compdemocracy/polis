@@ -7,10 +7,10 @@
     "node": "8.17.0"
   },
   "scripts": {
-    "build:razzle": "razzle build --type=spa",
     "build": "npm run build:razzle",
-    "deploy:prod": "echo TODO",
-    "deploy:preprod": "echo TODO",
+    "build:razzle": "razzle build --type=spa",
+    "deploy:preprod": "razzle build --type=spa --deploy",
+    "deploy:prod": "razzle build --type=spa --deploy --prod",
     "start": "razzle start --type=spa",
     "start:prod": "serve -s build/public",
     "lint": "eslint src",
@@ -58,7 +58,8 @@
     "redux": "^3.0.2",
     "redux-thunk": "^2.3.0",
     "theme-ui": "^0.3.1",
-    "victory": "^34.3.11"
+    "victory": "^34.3.11",
+    "webpack-s3-plugin": "^1.0.3"
   },
   "jest": {
     "collectCoverage": true,

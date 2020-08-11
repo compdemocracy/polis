@@ -2,9 +2,16 @@ const CompressionPlugin = require('compression-webpack-plugin')
 const BundleAnalyzerPlugin = require("webpack-bundle-analyzer").BundleAnalyzerPlugin;
 const EventHooksPlugin = require('event-hooks-webpack-plugin')
 const LodashModuleReplacementPlugin = require('lodash-webpack-plugin')
+const S3Plugin = require('webpack-s3-plugin')
 
 const glob = require('glob')
 const fs = require('fs')
+const mri = require('mri')
+
+// CLI commands for deploying built artefact.
+// mri is also used by razzle and
+const argv = process.argv.slice(2)
+const cliArgs = mri(argv)
 
 module.exports = {
   plugins: ["mdx"],
@@ -87,6 +94,28 @@ module.exports = {
       }))
     }
 
+    if (cliArgs.deploy || cliArgs.deploy == 's3') {
+      if (dev) {
+        console.log('Deploy only possible during build. Skipped.')
+      } else {
+        console.log('Configuring for S3 deploy...')
+
+        const creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'))
+        // {key: "xxx", secret: "xxx"}
+
+        appConfig.plugins.push(new S3Plugin({
+          s3Options: {
+            accessKeyId: creds.key,
+            secretAccessKey: creds.secret,
+            region: 'us-east-1'
+          },
+          s3UploadOptions: {
+            Bucket: cliArgs.prod ? process.env.S3_BUCKET_PROD : process.env.S3_BUCKET_PREPROD
+          }
+        }))
+      }
+    }
+
     return appConfig
-  },
-};
+  }
+}
