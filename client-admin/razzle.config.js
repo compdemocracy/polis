@@ -38,7 +38,9 @@ module.exports = {
         if (dev) {
           // Note: Analysis doesn't work well for in-memory development builds.
           // See: https://github.com/webpack-contrib/webpack-bundle-analyzer#i-dont-see-gzip-or-parsed-sizes-it-only-shows-stat-size
-          console.log('Bundle analysis only possible during production build. Skipped.')
+          console.log(
+            'Bundle analysis only possible during production build. Skipped.'
+          )
         } else {
           appConfig.plugins.push(
             new BundleAnalyzerPlugin({
@@ -130,7 +132,9 @@ module.exports = {
           console.log('Configuring for S3 deploy...')
 
           // Format: {"key": "xxx", "secret": "xxx"}
-          const creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'))
+          const creds = JSON.parse(
+            fs.readFileSync('.polis_s3_creds_client.json')
+          )
 
           // See: https://github.com/MikaAK/s3-plugin-webpack
           appConfig.plugins.push(
