@@ -7,6 +7,7 @@
     "node": "8.17.0"
   },
   "scripts": {
+    "analyze": "razzle build --type=spa --analyze",
     "build": "npm run build:razzle",
     "build:razzle": "razzle build --type=spa",
     "deploy": "npm run deploy:preprod",
