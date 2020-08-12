@@ -8,7 +8,7 @@ describe('Interface internationalization', () => {
 
   before(() => {
     cy.fixture('users.json').then((users) => {
-      const user = users[0]
+      const user = users.moderator
       cy.createConvo(user.email, user.password)
       cy.location('pathname').then((adminPath) => {
         const convoPath = adminPath.replace('/m/', '/')

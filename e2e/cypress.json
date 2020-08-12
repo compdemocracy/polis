@@ -1,5 +1,6 @@
 {
   "chromeWebSecurity": false,
   "apiPath": "/api/v3",
-  "baseUrl": "https://preprod.pol.is"
+  "ignoreTestFiles": "**/examples/*.spec.js",
+  "baseUrl": "http://localhost"
 }

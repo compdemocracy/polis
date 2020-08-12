@@ -1,0 +1,3 @@
+# This helps prevent conflicts (well, at last when GitHub implements it...)
+# See: https://github.com/isaacs/github/issues/487
+CHANGELOG.md merge=union
