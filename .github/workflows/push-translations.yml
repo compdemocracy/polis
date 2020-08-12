@@ -56,8 +56,8 @@ jobs:
       # https://www.mojito.global/docs/refs/mojito-locales/
       - name: Update available locales
         env:
-          LOCALES_PARTICIPATION: '"ar-LB" "pt-BR" "uk-UA" "es-419" "da-DK" "de-DE" "fr-FR" "it-IT" "ja-JP" "nl-NL" "zh-TW" "(zh-CN)"'
-          LOCALES_ADMIN:         '"ar-LB" "pt-BR" "uk-UA"'
+          LOCALES_PARTICIPATION: '"ar-LB" "he-IL" "pt-BR" "uk-UA" "es-419" "da-DK" "de-DE" "fr-FR" "it-IT" "ja-JP" "nl-NL" "zh-TW" "(zh-CN)"'
+          LOCALES_ADMIN:         '"ar-LB" "he-IL" "pt-BR" "uk-UA"'
         run: |
           java -jar mojito-cli.jar repo-update --name polis:client-participation --locales ${LOCALES_PARTICIPATION}
           java -jar mojito-cli.jar repo-update --name polis:client-admin         --locales ${LOCALES_ADMIN}
