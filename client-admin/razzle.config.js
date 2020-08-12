@@ -42,7 +42,7 @@ module.exports = {
         } else {
           appConfig.plugins.push(
             new BundleAnalyzerPlugin({
-              generateStatsFile: true
+              defaultSizes: 'gzip'
             })
           )
         }
