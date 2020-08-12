@@ -1,0 +1,69 @@
+name: "Bundlewatch Github Action"
+
+on:
+  push:
+    # Required so that baseline for comparison is pushed to bundlewatch service.
+    branches: ["dev"]
+    # Note: Only configured for client-admin right now.
+    paths:
+      - .github/workflows/bundlewatch.yml
+      - client-admin/**
+  pull_request:
+    types: ["opened", "reopened", "synchronize"]
+    paths:
+      - .github/workflows/bundlewatch.yml
+      - client-admin/**
+
+jobs:
+  bundlewatch:
+    runs-on: ubuntu-latest
+    env:
+      BUNDLEWATCH_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+    - uses: actions/checkout@v2.3.2
+
+    - name: Use Node.js
+      uses: actions/setup-node@v2.1.1
+      with:
+        node-version: 14.4.0
+
+    - name: Get npm cache directory
+      id: npm-cache
+      run: |
+        echo "::set-output name=dir::$(npm config get cache)"
+
+    - name: Restore npm cache directory
+      uses: actions/cache@v2.1.0
+      with:
+        path: ${{ steps.npm-cache.outputs.dir }}
+        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
+
+    - name: Install Bundlewatch
+      run: npm install -g bundlewatch@0.2.6
+
+    - name: "Install & Build: client-admin"
+      working-directory: client-admin
+      run: |
+        npm install
+        npm run build:webpack
+
+    - name: Run Bundlewatch
+      # TODO: Move config to root directory, so easier to run against all components.
+      # See: https://github.com/bundlewatch/bundlewatch/pull/170
+      working-directory: client-admin
+      env:
+        CI_BRANCH_DEFAULT: ${{ github.event.repository.default_branch }}
+
+        PR_COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
+        PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+        # Overrides `ci.repoBranchBase` (bundlewatch config)
+        PR_BRANCH_BASE: ${{ github.event.pull_request.base.ref }}
+
+        PUSH_COMMIT_SHA: ${{ github.event.after }}
+        # PUSH_BRANCH: see below (needs processing)
+        PUSH_BRANCH_BASE: ${{ github.event.repository.default_branch }}
+      # GITHUB_REF is in format `refs/heads/branch-name`, so need to strip first part.
+      run: PUSH_BRANCH=${GITHUB_REF#refs/heads/} npx bundlewatch --config .bundlewatch.config.js

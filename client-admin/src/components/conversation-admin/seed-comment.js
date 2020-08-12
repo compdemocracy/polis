@@ -2,87 +2,94 @@
 
 /** @jsx jsx */
 
-import React from "react";
-import { connect } from "react-redux";
-import { handleSeedCommentSubmit, seedCommentChanged } from "../../actions";
-import _ from "lodash";
-import strings from "../../strings";
-import { Flex, Box, Text, Button, jsx, Link } from "theme-ui";
+import React from 'react'
+import { connect } from 'react-redux'
+import { handleSeedCommentSubmit, seedCommentChanged } from '../../actions'
+import strings from '../../strings'
+import { Box, Text, Button, jsx, Link } from 'theme-ui'
 
-@connect((state) => state.seed_comments)
+@connect(state => state.seed_comments)
 class ModerateCommentsSeed extends React.Component {
   constructor(props) {
-    super(props);
+    super(props)
     this.state = {
       showErrorDialogue: false,
-      showSuccessDialogue: false,
-    };
+      showSuccessDialogue: false
+    }
   }
+
   handleSubmitSeed() {
     const comment = {
-      txt: this.refs.seed_form.value,
-      pid: "mypid",
+      txt: this.seed_form.value,
+      pid: 'mypid',
       conversation_id: this.props.params.conversation_id,
       // vote: 0,
-      is_seed: true,
-    };
-    this.props.dispatch(handleSeedCommentSubmit(comment));
+      is_seed: true
+    }
+    this.props.dispatch(handleSeedCommentSubmit(comment))
   }
+
   handleTextareaChange(e) {
-    this.props.dispatch(seedCommentChanged(e.target.value));
+    this.props.dispatch(seedCommentChanged(e.target.value))
   }
+
   getButtonText() {
-    let text = "Submit";
+    let text = 'Submit'
 
     if (this.props.success) {
-      text = "Success!";
+      text = 'Success!'
     }
 
     if (this.props.loading) {
-      text = "Saving...";
+      text = 'Saving...'
     }
 
-    return text;
+    return text
   }
+
   render() {
-    const { seedText } = this.props;
+    const { seedText } = this.props
     return (
       <Box sx={{ mb: [4] }}>
         <Text sx={{ mb: [2] }}>
-          Add{" "}
-          <Link target="_blank" href="https://roamresearch.com/#/app/polis-methods/page/RkWuTgZfs">
+          Add{' '}
+          <Link
+            target="_blank"
+            href="https://roamresearch.com/#/app/polis-methods/page/RkWuTgZfs">
             seed comments
-          </Link>{" "}
+          </Link>{' '}
           for participants to vote on:
         </Text>
         <Box sx={{ mb: [2] }}>
           <textarea
             sx={{
-              fontFamily: "body",
+              fontFamily: 'body',
               fontSize: [2],
-              width: "35em",
-              height: "7em",
-              resize: "none",
+              width: '35em',
+              height: '7em',
+              resize: 'none',
               padding: [2],
               borderRadius: 2,
-              border: "1px solid",
-              borderColor: "mediumGray",
+              border: '1px solid',
+              borderColor: 'mediumGray'
             }}
             onChange={this.handleTextareaChange.bind(this)}
             maxLength="400"
             value={seedText}
-            ref="seed_form"
+            ref={c => (this.seed_form = c)}
           />
         </Box>
         <Box>
-          <Button onClick={this.handleSubmitSeed.bind(this)}>{this.getButtonText()}</Button>
+          <Button onClick={this.handleSubmitSeed.bind(this)}>
+            {this.getButtonText()}
+          </Button>
           {this.props.error ? <Text>{strings(this.props.error)}</Text> : null}
         </Box>
       </Box>
-    );
+    )
   }
 }
 
-export default ModerateCommentsSeed;
+export default ModerateCommentsSeed
 
 // value={this.props.seedText}

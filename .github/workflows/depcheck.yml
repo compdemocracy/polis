@@ -1,0 +1,71 @@
+name: DepCheck
+on:
+  pull_request:
+    types: ["opened", "reopened", "synchronize"]
+    paths:
+      - .github/workflows/depcheck.yml
+      - client-admin/**
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      CI_COMMIT_ID: ${{ github.event.pull_request.head.sha || github.sha }}
+      CI_REPO_NAME: ${{ github.repository }}
+    steps:
+      - name: Use Node.js
+        uses: actions/setup-node@v2.1.1
+        with:
+          node-version: 14.4.0
+
+      # See: https://github.com/taskworld/commit-status
+      - name: Install commit-status CLI tool
+        run: npm install -g commit-status
+
+      - name: Initiate commit status placeholders
+        run: |
+          # commit-status <state> <context> <description> <link>
+          commit-status pending "DepCheck / dependencies"    "Detecting unused packages..."
+          commit-status pending "DepCheck / devDependencies" "Detecting unused packages..."
+
+      - uses: actions/checkout@v2.3.2
+
+      - name: Install depcheck CLI tool
+        run: npm install -g depcheck
+
+      - name: Install project dependencies
+        working-directory: client-admin
+        run: npm install
+
+      - name: Run depcheck and save output
+        id: depcheck
+        working-directory: client-admin
+        env:
+          # See: https://github.com/depcheck/depcheck#special
+          DEPCHECK_SPECIALS: "webpack,babel,eslint,prettier,bin"
+          # Why ignoring?
+          # - prettier: because it's needed by eslint-plugin-prettier, but peerDependencies aren't yet supported.
+          #   See: https://github.com/depcheck/depcheck/issues/522
+          # - webpack-cli: Needed for `webpack` command, but provide `webpack-cli` bin, which confuses depcheck.
+          DEPCHECK_IGNORES: "prettier,webpack-cli"
+        run: |
+          # Note: Commit status descriptions can have 140 characters max. (We add an ellipsis in the final step as final char)
+          # Suppress failing exit codes with `true`.
+          depcheck --specials "$DEPCHECK_SPECIALS" --ignores "$DEPCHECK_IGNORES" --json > .results.json || true
+          echo ::set-output name=dependencies::$(cat .results.json | jq '.dependencies | join(", ") | .[:139]' --raw-output)
+          echo ::set-output name=devdependencies::$(cat .results.json | jq '.devDependencies | join(", ") | .[:139]' --raw-output)
+
+      - name: Set commit status messages and success states
+        run: |
+          if [ "${{ steps.depcheck.outputs.dependencies }}" = "" ]; then
+            commit-status success "DepCheck / dependencies" "No unused packages detected."
+          else
+            commit-status failure "DepCheck / dependencies" "${{ steps.depcheck.outputs.dependencies }}…"
+          fi
+
+          if [ "${{ steps.depcheck.outputs.devdependencies }}" = "" ]; then
+            commit-status success "DepCheck / devDependencies" "No unused packages detected."
+          else
+            commit-status failure "DepCheck / devDependencies" "${{ steps.depcheck.outputs.devdependencies }}…"
+          fi

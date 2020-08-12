@@ -6,6 +6,10 @@ Polis [can be easily embedded](http://docs.pol.is/usage/Embedding.html) on your 
 
 ## Installation
 
+The below instructions are no longer officially supported; if you'd like to use them as a reference, we suggest you check out the official [Dockerfile](Dockerfile) to understand the latest build process and specific package versions.
+
+---
+
 ### Dependencies
 
 * PostgreSql `(>= 9.5.4.1)`
@@ -53,27 +57,8 @@ We recommend installing [nvm](https://github.com/creationix/nvm) so you can easi
     ```sh
     $ ./x
     ```
-1. In another shell, start the [polisClientAdmin](https://github.com/pol-is/polisClientAdmin). Follow installation directions on the project README.
+1. In another shell, start the [client-admin](../client-admin). Follow installation directions on the component README.
     ```
     $ ./x
     ```
 1. Navigate to `localhost:5000`. Voila, Polis.
-
-
-## Optional config
-
-### Google Translate API
-
-Polis can automatically translate comment text for users based on their browser's language preferences.
-To turn this on, the following steps need to be taken:
-
-* Set env variable `SHOULD_USE_TRANSLATION_API=true`
-* Ensure there are translations in the [strings file](https://github.com/pol-is/polisClientParticipation/tree/master/js/strings) for any language for which you'd like to provide translations (we can't show a button offering a translation if we don't know how to offer said translation).
-  Specifically, you must specify the `showTranslationButton`, `hideTranslationButton`, `thirdPartyTranslationDisclaimer` translations, and may wish to refer to the [en_us translation file](https://github.com/pol-is/polisClientParticipation/blob/master/js/strings/en_us.js):
-    s.showTranslationButton = "Activate third-party translation";
-    s.hideTranslationButton = "Deactivate Translation";
-    s.thirdPartyTranslationDisclaimer = "Translation provided by a third party";
-* Authentication: You'll have to obtain Google API credential files from Google.
-  You should be able to obtain a file called something like `GoogleCredsMasterCopy.json` and run `node bin/stringifyGoogleCreds.js GoogleCredsMasterCopy.json` in order to produce a value for the `GOOGLE_CREDS_STRINGIFIED` environment variable.
-
-

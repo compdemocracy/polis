@@ -6,21 +6,29 @@
 //
 
 export default {
-  "polis_err_param_parse_failed_email": "Please enter a valid email address.",
-  "polis_err_reg_bad_email": "Please enter a valid email address.",
-  "polis_err_param_parse_failed_password": "Please enter a valid password.",
-  "polis_err_login_unknown_user_or_password_noresults": "Login failed: invalid username/password combination.",
-  "polis_err_login_unknown_user_or_password": "Login failed: invalid username/password combination.",
-  "polis_err_reg_user_with_that_email_exists": "Email address already in use, Try logging in instead.",
-  "polis_err_reg_need_name": "Please include your name.",
+  polis_err_param_parse_failed_email: 'Please enter a valid email address.',
+  polis_err_reg_bad_email: 'Please enter a valid email address.',
+  polis_err_param_parse_failed_password: 'Please enter a valid password.',
+  polis_err_login_unknown_user_or_password_noresults:
+    'Login failed: invalid username/password combination.',
+  polis_err_login_unknown_user_or_password:
+    'Login failed: invalid username/password combination.',
+  polis_err_reg_user_with_that_email_exists:
+    'Email address already in use, Try logging in instead.',
+  polis_err_reg_need_name: 'Please include your name.',
 
-  "polis_err_post_comment_duplicate": "Error posting: This comment already exists!",
-  "waitinglist_add_success": "You've been added to the waiting list! We'll be in touch.",
+  polis_err_post_comment_duplicate:
+    'Error posting: This comment already exists!',
+  waitinglist_add_success:
+    "You've been added to the waiting list! We'll be in touch.",
 
-  "polis_err_fetching_tweet": "Error fetching tweet. Expected a URL to a twitter tweet.",
+  polis_err_fetching_tweet:
+    'Error fetching tweet. Expected a URL to a twitter tweet.',
 
-  "share_but_no_comments_warning": "This conversation has no comments. We recommend you add a few comments before inviting participants. This will help participants get started. Go to 'Configure' and then 'Seed Comments'.",
-  "share_but_no_visible_comments_warning": "This conversation has no visible comments. We recommend you add a few comments (or moderate the comments that exist) before inviting participants, since this will help them understand what kind of comments they should submit.",
+  share_but_no_comments_warning:
+    "This conversation has no comments. We recommend you add a few comments before inviting participants. This will help participants get started. Go to 'Configure' and then 'Seed Comments'.",
+  share_but_no_visible_comments_warning:
+    'This conversation has no visible comments. We recommend you add a few comments (or moderate the comments that exist) before inviting participants, since this will help them understand what kind of comments they should submit.',
 
-  "no_permission": "Your account does not have the permissions to view this page.",
-};
+  no_permission: 'Your account does not have the permissions to view this page.'
+}

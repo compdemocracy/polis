@@ -97,6 +97,12 @@ We'd love your help with translating our interfaces! Drop into our chat and intr
 
 For technical administration of our localization server, see [`docs/translation.md`](/docs/translation.md)
 
+## 🔍 Testing
+
+We use Cypress for automated, end-to-end browser testing! (See badge above.)
+
+Please see [`e2e/README.md`](/e2e/README.md).
+
 ## 🚀 Deployment
 
 Please see [`docs/deployment.md`](/docs/deployment.md)
