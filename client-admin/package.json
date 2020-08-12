@@ -4,7 +4,7 @@
   "repository": "github:pol-is/polisClientAdmin",
   "description": "Polis Admin Console",
   "engines": {
-    "node": "8.17.0"
+    "node": "11.15.0"
   },
   "scripts": {
     "analyze": "razzle build --type=spa --analyze",
