@@ -60,9 +60,13 @@ module.exports = {
         })
 
         // Prefix files with `admin_` to easier to tell apart in combined file server.
-        appConfig.output.filename = 'static/js/admin_bundle.[chunkhash:8].js'
-        appConfig.output.chunkFilename =
-          'static/js/admin_[name].[chunkhash:8].chunk.js'
+        // Skip hashes when doing bundlewatch CI runs, to allow bundle size comparison.
+        // See: https://github.com/bundlewatch/bundlewatch/issues/30#issuecomment-511563935
+        const chunkHashFragment = process.env.SKIP_CHUNK_HASHING
+          ? ''
+          : '.[chunkhash:8]'
+        appConfig.output.filename = `static/js/admin_bundle${chunkHashFragment}.js`
+        appConfig.output.chunkFilename = `static/js/admin_[name]${chunkHashFragment}.chunk.js`
 
         // Gzipping files prevents bundle analyzer from working, so skip when analyzing.
         if (!cliArgs.analyze) {

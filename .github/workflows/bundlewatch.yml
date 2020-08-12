@@ -46,6 +46,8 @@ jobs:
 
     - name: "Install & Build: client-admin"
       working-directory: client-admin
+      env:
+        SKIP_CHUNK_HASHING: true
       run: |
         npm install
         npm run build
