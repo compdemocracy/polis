@@ -16,6 +16,7 @@
     "start": "razzle start --type=spa",
     "start:prod": "serve -s build/public",
     "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "test": "razzle test --env=jsdom"
   },
   "author": "Colin Megill",
