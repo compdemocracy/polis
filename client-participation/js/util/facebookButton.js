@@ -84,31 +84,6 @@ function fbLoginPrompt() {
 }
 
 
-function old_fbLoginPrompt() {
-  var dfd = $.Deferred();
-  FB.login(
-    function(response) {
-      if (response.authResponse) {
-        return facebookLoginOkHandler(response).then(dfd.resolve, dfd.reject);
-      } else {
-        return dfd.reject();
-      }
-    }, {
-      return_scopes: true, // response should contain the scopes the user allowed
-      scope: [
-        // 'taggable_friends', // requires review.
-        // invitable_friends NOTE: only for games with a fb Canvas presence, so don't use this
-        'public_profile',
-        'user_location',
-        'user_friends',
-        'email'
-      ].join(',')
-    });
-  return dfd.promise();
-}
-
-
-
 function connect() {
 
   M.add(M.FB_CONNECT_INIT);
