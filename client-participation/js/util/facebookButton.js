@@ -59,6 +59,33 @@ function facebookLoginOkHandler(response, optionalPassword) {
 
 function fbLoginPrompt() {
   var dfd = $.Deferred();
+  FB.getLoginStatus(function(response) {
+    if (response.status !== 'connected') {
+      return FB.login(function(response) {
+      if (response.authResponse) {
+        return facebookLoginOkHandler(response).then(dfd.resolve, dfd.reject);
+      } else {
+        return dfd.reject();
+      }
+    } , {
+      return_scopes: true, // response should contain the scopes the user allowed
+      //scope: ['public_profile','user_location','user_friends','email'].join(',')
+      scope: ['public_profile','email'].join(',')
+    });
+    } else {
+      if (response.authResponse) {
+        return facebookLoginOkHandler(response).then(dfd.resolve, dfd.reject);
+      } else {
+        return dfd.reject();
+      }
+    }
+  });
+  return dfd.promise();
+}
+
+
+function old_fbLoginPrompt() {
+  var dfd = $.Deferred();
   FB.login(
     function(response) {
       if (response.authResponse) {
@@ -79,7 +106,6 @@ function fbLoginPrompt() {
     });
   return dfd.promise();
 }
-
 
 
 
