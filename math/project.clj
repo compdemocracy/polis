@@ -31,7 +31,7 @@
                  [org.clojure/tools.trace "0.7.10"]
                  [org.clojure/tools.reader "1.3.3"]
 
-                 [org.flatland/ordered "1.5.7"] 
+                 [org.flatland/ordered "1.5.9"]
                  ;; Other stuff
                  [commons-collections/commons-collections "20040616"]
                  [cheshire "5.10.0"]
@@ -64,7 +64,7 @@
                  ;[com.fasterxml.jackson.core/jackson-core "2.5.3"]
                  ;[com.fasterxml.jackson.core/jackson-databind "2.5.3"]
                  ;[org.clojure/java.jdbc "0.7.0-alpha1"]
-                 [org.postgresql/postgresql "42.2.14"]
+                 [org.postgresql/postgresql "42.2.15"]
                  [korma "0.4.3"]
                  [clj-time "0.15.2"]
                  [clj-excel "0.0.1"]
