@@ -106,4 +106,4 @@ Please see [`docs/deployment.md`](/docs/deployment.md)
 
 ## ©️  License
 
-[AGPLv3](/LICENSE)
+[AGPLv3 with additional permission under section 7](/LICENSE)
