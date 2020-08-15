@@ -42,6 +42,8 @@ module.exports = Handlebones.ModelView.extend({
     ctx.shouldAutofocusOnTextarea = this.shouldAutofocusOnTextarea || Utils.shouldFocusOnTextareaWhenWritePaneShown();
     ctx.hasTwitter = userObject.hasTwitter;
     ctx.hasFacebook = userObject.hasFacebook;
+    ctx.auth_opt_tw = preload.firstConv.auth_opt_tw;
+    ctx.auth_opt_fb = preload.firstConv.auth_opt_fb;
     ctx.s = Strings;
     ctx.desktop = !display.xs();
     ctx.hideHelp = !Utils.userCanSeeHelp() || preload.firstConv.help_type === 0;

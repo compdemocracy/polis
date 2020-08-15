@@ -159,6 +159,7 @@
         margin-top: 10px;
         ">
       <div class="protip"><p><i class="fa fa-microphone"></i>&nbsp; {{s.connectToPostPrompt}}</p></div>
+      {{#if auth_opt_fb}}
       {{#unless hasFacebook}}
         <button id="facebookButtonCommentForm" class="facebookButton" style="padding-top: 0px;">
           <i class="svgIcon" style="
@@ -171,6 +172,8 @@
           ">{{> iconFaFacebookSquare25}}</i>
           {{s.connectFacebook}}</button>
       {{/unless}}
+      {{/if}}
+      {{#if auth_opt_tw}}
       {{#unless hasTwitter}}
         <button id="twitterButtonCommentForm" class="twitterButton" style="padding-top: 0px;">
         <i class="svgIcon" style="
@@ -183,6 +186,7 @@
         ">{{> iconFaTwitter25}}</i>
           {{s.connectTwitter}}</button>
       {{/unless}}
+      {{/if}}
     </div>
 
     {{!-- ================ LOWER CONTAINER ================ --}}
