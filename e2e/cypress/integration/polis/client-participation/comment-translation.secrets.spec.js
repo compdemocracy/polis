@@ -10,7 +10,7 @@ describe('Comment translation', () => {
     })
 
     cy.route('POST', Cypress.config().apiPath + '/comments').as('newSeed')
-    cy.get('textarea[maxlength="400"]').type(commentFrench)
+    cy.get('textarea[data-test-id="seed_form"]').type(commentFrench)
 
     // This button sometimes doesn't succeed. Can possibly fix if needed.
     // See: https://docs.cypress.io/guides/core-concepts/retry-ability.html#Why-are-some-commands-NOT-retried
