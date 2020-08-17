@@ -28,7 +28,6 @@ describe('Create User page', () => {
     cy.get('button#createUserButton').click()
 
     cy.wait('@authNew').then(xhr => {
-      console.log(xhr)
       cy.wrap(xhr).its('status').should('eq', 403)
       cy.wrap(xhr).its('response.body').should('eq', 'polis_err_reg_user_with_that_email_exists')
     })

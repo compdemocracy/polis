@@ -108,7 +108,5 @@ Cypress.Commands.add('seedComment', (...args) => {
     pid: 'mypid',
     conversation_id: convoId,
     is_seed: true
-  }).then(resp => {
-    console.log(resp)
   })
 })
