@@ -72,13 +72,12 @@ Cypress.Commands.add("login", (...args) => {
   switch (args.length) {
     case 0:
     case 1:
-      const [userRole] = args ? args : ['moderator']
+      const [userRole] = args.length ? args : ['moderator']
       loginByRole(userRole)
       break
     default:
     case 2:
       const [email, password, ...rest] = args
-      console.log(args)
       loginByPassword(email, password)
   }
 })
