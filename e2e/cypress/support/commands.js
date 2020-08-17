@@ -35,15 +35,22 @@ Cypress.Commands.add("logout", () => {
 })
 
 Cypress.Commands.add("signup", (name, email, password) => {
-  cy.visit('/createuser')
-
-  cy.get('form').within(function () {
-    cy.get('input#createUserNameInput').type(name)
-    cy.get('input#createUserEmailInput').type(email)
-    cy.get('input#createUserPasswordInput').type(password)
-    cy.get('input#createUserPasswordRepeatInput').type(password)
-
-    cy.get('button#createUserButton').click()
+  cy.request({
+    method: 'POST',
+    url: Cypress.config().apiPath + '/auth/new',
+    body: {
+      email: email,
+      hname: name,
+      gatekeeperTosPrivacy: true,
+      password: password
+    },
+    failOnStatusCode: false
+  }).then(resp => {
+    // Expand success criteria to allow user already existing.
+    // TODO: Be smarter with seeding users so we only create once.
+    if (!(resp.status === 200 || (resp.status === 403 && resp.body === 'polis_err_reg_user_with_that_email_exists'))) {
+      throw new Error(`Unexpected error code ${resp.status} returned during signup: ${resp.body}`)
+    }
   })
 })
 
