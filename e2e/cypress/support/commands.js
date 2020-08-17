@@ -92,3 +92,16 @@ Cypress.Commands.add("createConvo", (...args) => {
     cy.visit('/m/'+x)
   })
 })
+
+Cypress.Commands.add('seedComment', (...args) => {
+  const [commentText, convoId, ...rest] = args
+  cy.login(...rest)
+  cy.request('POST', Cypress.config().apiPath + '/comments', {
+    txt: commentText,
+    pid: 'mypid',
+    conversation_id: convoId,
+    is_seed: true
+  }).then(resp => {
+    console.log(resp)
+  })
+})

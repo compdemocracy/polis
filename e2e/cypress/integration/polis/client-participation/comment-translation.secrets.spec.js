@@ -4,29 +4,13 @@ describe('Comment translation', () => {
   const commentEnglish = 'This statement is in French.'
 
   before(() => {
-    cy.fixture('users.json').then((users) => {
-      const user = users.moderator
-      cy.createConvo(user.email, user.password)
-    })
-
-    cy.route('POST', Cypress.config().apiPath + '/comments').as('newSeed')
-    cy.get('textarea[data-test-id="seed_form"]').type(commentFrench)
-
-    // This button sometimes doesn't succeed. Can possibly fix if needed.
-    // See: https://docs.cypress.io/guides/core-concepts/retry-ability.html#Why-are-some-commands-NOT-retried
-    cy.contains('button', 'Submit').click()
-    cy.wait('@newSeed').then((xhr) => {
-      expect(xhr.status).to.equal(200)
-    })
-
-    cy.location('pathname').then((adminPath) => {
-      const convoId = adminPath.replace('/m/', '')
-      cy.wrap(convoId).as('convoId')
+    cy.createConvo('moderator').then(() => {
+      cy.seedComment(commentFrench, this.convoId)
     })
 
     // Moderator will have implicitly voted on seed comment, so log out.
     // See: https://github.com/pol-is/polisServer/issues/373
-    cy.clearCookies()
+    cy.logout()
   })
 
   it("prevents translation when comment already in browser language", function () {

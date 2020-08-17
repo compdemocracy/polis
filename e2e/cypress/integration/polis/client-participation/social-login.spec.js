@@ -1,30 +1,12 @@
 describe('Social login', () => {
   before(function () {
-    cy.fixture('users.json').then((users) => {
-      const user = users.moderator
-      cy.createConvo(user.email, user.password)
-    })
-
-    cy.location('pathname').then((adminPath) => {
-      const convoId = adminPath.replace('/m/', '')
-      cy.wrap(convoId).as('convoId')
+    cy.createConvo('moderator').then(() => {
+      cy.seedComment('I feel like foo.', this.convoId)
     })
 
     // Ensure social login is enabled for all participant interactions.
     cy.get('input[data-test-id="auth_needed_to_write"]').check()
     cy.get('input[data-test-id="auth_needed_to_vote"]').check()
-
-    // Ensure at least one comment to vote on.
-    // TODO: Refactor as command.
-    cy.route('POST', Cypress.config().apiPath + '/comments').as('newSeed')
-    cy.get('textarea[data-test-id="seed_form"]').type('I feel that foo.')
-
-    // This button sometimes doesn't succeed. Can possibly fix if needed.
-    // See: https://docs.cypress.io/guides/core-concepts/retry-ability.html#Why-are-some-commands-NOT-retried
-    cy.contains('button', 'Submit').click()
-    cy.wait('@newSeed').then((xhr) => {
-      expect(xhr.status).to.equal(200)
-    })
   })
 
   beforeEach(function () {
