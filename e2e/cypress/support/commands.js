@@ -72,7 +72,7 @@ Cypress.Commands.add("login", (...args) => {
   switch (args.length) {
     case 0:
     case 1:
-      const [userRole] = args ? args : ['participant']
+      const [userRole] = args ? args : ['moderator']
       loginByRole(userRole)
       break
     default:
@@ -83,17 +83,13 @@ Cypress.Commands.add("login", (...args) => {
   }
 })
 
-Cypress.Commands.add("createConvo", (adminEmail, adminPassword) => {
-  cy.login(adminEmail, adminPassword)
-  cy.visit('/')
-
-  cy.server()
-  cy.route('GET', Cypress.config().apiPath + '/conversations**')
-    .as('getNewConvo')
-
-  cy.get('button').contains('Create new conversation').click()
-
-  cy.wait('@getNewConvo').its('status').should('eq', 200)
-  // Wait for header of convo admin page to be available.
-  cy.contains('h3', 'Configure')
+Cypress.Commands.add("createConvo", (...args) => {
+  cy.login(...args)
+  cy.request('POST', Cypress.config().apiPath + '/conversations', {
+    is_active: true,
+    is_draft: true
+  }).its('body.conversation_id').as('convoId').then(x => {
+    // TODO: Remove this once other tests no longer rely on assumption of pageload.
+    cy.visit('/m/'+x)
+  })
 })
