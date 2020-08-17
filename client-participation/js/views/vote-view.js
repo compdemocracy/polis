@@ -66,6 +66,8 @@ module.exports = Handlebones.ModelView.extend({
       ctx.customBtnStyles = "background-color: " + btnBg + ";";
     }
 
+    ctx.auth_opt_tw = preload.firstConv.auth_opt_tw;
+    ctx.auth_opt_fb = preload.firstConv.auth_opt_fb;
     var social = ctx.social;
     var socialCtx = {
       name: Strings.anonPerson,

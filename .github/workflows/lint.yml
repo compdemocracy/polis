@@ -2,13 +2,13 @@ name: Lint
 
 on:
   pull_request:
+    types: ["opened", "reopened", "synchronize"]
 
 jobs:
   eslint:
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository }} 
     steps:
-    - uses: actions/checkout@v2.3.1
+    - uses: actions/checkout@v2.3.2
 
     - name: Use Node.js
       uses: actions/setup-node@v2.1.0
