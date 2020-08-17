@@ -34,6 +34,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2.3.2
 
+      - name: Generate self-signed (snakeoil) SSL certs
+        uses: kofemann/action-create-certificate@v0.0.2
+        with:
+          hostcert: 'hostcert.pem'
+          hostkey:  'hostkey.pem'
+          cachain:  'ca-chain.pem'
+
+      - name: Convert SSL cert format and config Nginx
+        run: |
+          openssl x509 -in hostcert.pem -out file-server/nginx/certs/snakeoil.crt
+          openssl x509 -in hostkey.pem -out file-server/nginx/certs/snakeoil.key
+          # Override default nginx config file to allow HTTPS.
+          cp file-server/nginx/nginx-ssl.site.default.conf file-server/nginx/nginx.site.default.conf
+
       # This step helps us know when to skip future steps, particularly if
       # we're on a fork where upstream secrets won't be available.
       - name: Ensure secrets available
