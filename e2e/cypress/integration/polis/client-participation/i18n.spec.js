@@ -1,19 +1,12 @@
 describe('Interface internationalization', () => {
-  let lang
-
   const openTranslated = (path, lang, string) => {
     cy.visit(path, {qs: {ui_lang: lang}})
     cy.get('textarea#comment_form_textarea').should('have.attr', 'placeholder', string)
   }
 
-  before(() => {
-    cy.fixture('users.json').then((users) => {
-      const user = users.moderator
-      cy.createConvo(user.email, user.password)
-      cy.location('pathname').then((adminPath) => {
-        const convoPath = adminPath.replace('/m/', '/')
-        cy.wrap(convoPath).as('convoPath')
-      })
+  before(function () {
+    cy.createConvo('moderator').then(() => {
+      cy.wrap(`/${this.convoId}`).as('convoPath')
     })
   })
 
@@ -21,58 +14,58 @@ describe('Interface internationalization', () => {
     cy.fixture('writePrompt_strings.json').as('strings')
   })
 
-  it('translates into German', function () {
-    lang = 'de'
+  it('translates into Danish', function () {
+    const lang = 'da'
     openTranslated(this.convoPath, lang, this.strings[lang])
   })
 
-  it('translates into Danish', function () {
-    lang = 'da'
+  it('translates into German', function () {
+    const lang = 'de'
     openTranslated(this.convoPath, lang, this.strings[lang])
   })
 
   it('translates into English', function () {
-    lang = 'en'
+    const lang = 'en'
     openTranslated(this.convoPath, lang, this.strings[lang])
   })
 
   it('translates into Spanish', function () {
-    lang = 'es'
+    const lang = 'es'
     openTranslated(this.convoPath, lang, this.strings[lang])
   })
 
   it('translates into French', function () {
-    lang = 'fr'
+    const lang = 'fr'
     openTranslated(this.convoPath, lang, this.strings[lang])
   })
 
   it('translates into Italian', function () {
-    lang = 'it'
+    const lang = 'it'
     openTranslated(this.convoPath, lang, this.strings[lang])
   })
 
   it('translates into Japanese', function () {
-    lang = 'ja'
+    const lang = 'ja'
     openTranslated(this.convoPath, lang, this.strings[lang])
   })
 
   it('translates into Dutch', function () {
-    lang = 'nl'
+    const lang = 'nl'
     openTranslated(this.convoPath, lang, this.strings[lang])
   })
 
   it('translates into Portugese', function () {
-    lang = 'pt'
+    const lang = 'pt'
     openTranslated(this.convoPath, lang, this.strings[lang])
   })
 
   it('translates into Simplified Chinese', function () {
-    lang = 'zh-CN'
+    const lang = 'zh-CN'
     openTranslated(this.convoPath, lang, this.strings[lang])
   })
 
   it('translates into Traditional Chinese', function () {
-    lang = 'zh-TW'
+    const lang = 'zh-TW'
     openTranslated(this.convoPath, lang, this.strings[lang])
   })
 })
