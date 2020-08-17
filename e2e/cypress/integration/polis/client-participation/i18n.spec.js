@@ -11,7 +11,30 @@ describe('Interface internationalization', () => {
   })
 
   beforeEach(() => {
-    cy.fixture('writePrompt_strings.json').as('strings')
+    const translations = {}
+    const locales = {
+      // <lang>: <filename>
+      da: 'da_dk',
+      de: 'de_de',
+      en: 'en_us',
+      es: 'es_la',
+      fr: 'fr',
+      it: 'it',
+      ja: 'ja',
+      nl: 'nl',
+      pt: 'pt_br',
+      'zh-CN': 'zh_Hans',
+      'zh-TW': 'zh_Hant'
+    }
+    for (let [lang, filename] of Object.entries(locales)) {
+      cy.readFile(`../client-participation/js/strings/${filename}.js`).then(contents => {
+        // The string key we're using to validate working.
+        const targetStringKey = 'writePrompt'
+        const string = eval(contents)[targetStringKey] || ''
+        translations[lang] = string
+      })
+    }
+    cy.wrap(translations).as('strings')
   })
 
   it('translates into Danish', function () {
