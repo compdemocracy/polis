@@ -1,35 +1,27 @@
 describe('Share page', () => {
-  before(() => {
-    cy.fixture('users.json').then((users) => {
-      const user = users[0]
-      cy.createConvo(user.email, user.password)
+  before(function () {
+    cy.createConvo('moderator').then(() => {
+      cy.wrap(`/m/${this.convoId}`).as('adminPath')
+      cy.wrap(`/${this.convoId}`).as('convoPath')
     })
 
-    cy.get('#strict_moderation').check()
-    cy.get('#auth_needed_to_write').uncheck()
-
-    cy.location('pathname').then((adminPath) => {
-      cy.wrap(adminPath).as('adminPath')
-      cy.wrap(adminPath.replace('/m/', '/')).as('convoPath')
-    })
+    cy.get('input[data-test-id="strict_moderation"]').check()
+    cy.get('input[data-test-id="auth_needed_to_write"]').uncheck()
   })
 
   beforeEach(() => {
-    cy.fixture('users.json').then((users) => {
-      const user = users[0]
-      cy.login(user.email, user.password)
-    })
+    cy.server()
+    cy.login('moderator')
   })
 
   it('has link with proper domain', function () {
     cy.visit(this.adminPath + '/share')
-
     cy.contains('#root', Cypress.config().baseUrl)
   })
 
   it('shows warnings when no comments', function () {
-
     cy.route('POST', Cypress.config().apiPath + '/comments').as('newComment')
+    cy.route('PUT', Cypress.config().apiPath + '/comments').as('updateComment')
 
     cy.visit(this.adminPath + '/share')
     cy.contains('#root', 'has no comments').should('exist')
@@ -44,6 +36,7 @@ describe('Share page', () => {
     cy.visit(this.adminPath + '/comments')
     cy.contains('button', 'reject').should('exist')
     cy.contains('button', 'reject').click()
+    cy.wait('@updateComment').its('status').should('eq', 200)
     cy.visit(this.adminPath + '/share')
     cy.contains('#root', 'has no comments').should('exist')
 
@@ -54,6 +47,7 @@ describe('Share page', () => {
     cy.visit(this.adminPath + '/comments')
     cy.contains('button', 'accept').should('exist')
     cy.contains('button', 'accept').click()
+    cy.wait('@updateComment').its('status').should('eq', 200)
     cy.visit(this.adminPath + '/share')
     cy.contains('#root', 'has no comments').should('not.exist')
     cy.contains('#root', 'has no visible comments').should('not.exist')
