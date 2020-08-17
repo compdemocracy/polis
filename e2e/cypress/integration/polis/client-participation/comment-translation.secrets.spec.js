@@ -3,7 +3,7 @@ describe('Comment translation', () => {
   const commentFrench = 'Cette déclaration est en français.'
   const commentEnglish = 'This statement is in French.'
 
-  before(() => {
+  before(function () {
     cy.createConvo('moderator').then(() => {
       cy.seedComment(commentFrench, this.convoId)
     })
