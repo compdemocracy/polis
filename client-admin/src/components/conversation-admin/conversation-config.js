@@ -243,6 +243,7 @@ class ConversationConfig extends React.Component {
             <input
               type="checkbox"
               label="Facebook login prompt"
+              data-test-id="auth_opt_fb"
               ref={c => (this.auth_opt_fb = c)}
               checked={this.props.zid_metadata.auth_opt_fb}
               onChange={this.handleBoolValueChange('auth_opt_fb').bind(this)}
@@ -258,6 +259,7 @@ class ConversationConfig extends React.Component {
             <input
               type="checkbox"
               label="Twitter login prompt"
+              data-test-id="auth_opt_tw"
               ref={c => (this.auth_opt_tw = c)}
               checked={this.props.zid_metadata.auth_opt_tw}
               onChange={this.handleBoolValueChange('auth_opt_tw').bind(this)}
@@ -299,6 +301,7 @@ class ConversationConfig extends React.Component {
             <input
               type="checkbox"
               label="Require Auth to Comment"
+              data-test-id="auth_needed_to_write"
               ref={c => (this.auth_needed_to_write = c)}
               checked={this.props.zid_metadata.auth_needed_to_write}
               onChange={this.handleBoolValueChange('auth_needed_to_write').bind(
@@ -319,6 +322,7 @@ class ConversationConfig extends React.Component {
             <input
               type="checkbox"
               label="Require Auth to Vote"
+              data-test-id="auth_needed_to_vote"
               ref={c => (this.auth_needed_to_vote = c)}
               checked={this.props.zid_metadata.auth_needed_to_vote}
               onChange={this.handleBoolValueChange('auth_needed_to_vote').bind(
