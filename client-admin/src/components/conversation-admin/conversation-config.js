@@ -169,8 +169,8 @@ class ConversationConfig extends React.Component {
           <Box sx={{ flexShrink: 0, position: 'relative', top: -0.5 }}>
             <input
               type="checkbox"
-              aria-label="Visualization"
-              id="vis_type"
+              label="Visualization"
+              data-test-id="vis_type"
               ref={c => (this.vis_type = c)}
               checked={this.props.zid_metadata.vis_type === 1}
               onChange={this.handleIntegerBoolValueChange('vis_type').bind(
@@ -187,8 +187,8 @@ class ConversationConfig extends React.Component {
           <Box sx={{ flexShrink: 0, position: 'relative', top: -0.5 }}>
             <input
               type="checkbox"
-              aria-label="Comment form"
-              id="write_type"
+              label="Comment form"
+              data-test-id="write_type"
               ref={c => (this.write_type = c)}
               checked={this.props.zid_metadata.write_type === 1}
               onChange={this.handleIntegerBoolValueChange('write_type').bind(
@@ -205,8 +205,8 @@ class ConversationConfig extends React.Component {
           <Box sx={{ flexShrink: 0, position: 'relative', top: -0.5 }}>
             <input
               type="checkbox"
-              aria-label="Help text"
-              id="help_type"
+              label="Help text"
+              data-test-id="help_type"
               ref={c => (this.help_type = c)}
               checked={this.props.zid_metadata.help_type === 1}
               onChange={this.handleIntegerBoolValueChange('help_type').bind(
@@ -223,8 +223,8 @@ class ConversationConfig extends React.Component {
           <Box sx={{ flexShrink: 0, position: 'relative', top: -0.5 }}>
             <input
               type="checkbox"
-              aria-label="Prompt participants to subscribe to updates"
-              id="subscribe_type"
+              label="Prompt participants to subscribe to updates"
+              data-test-id="subscribe_type"
               ref={c => (this.subscribe_type = c)}
               checked={this.props.zid_metadata.subscribe_type === 1}
               onChange={this.handleIntegerBoolValueChange(
@@ -246,7 +246,7 @@ class ConversationConfig extends React.Component {
           <Box sx={{ flexShrink: 0, position: 'relative', top: -0.5 }}>
             <input
               type="checkbox"
-              id="auth_opt_fb"
+              label="Facebook login prompt"
               data-test-id="auth_opt_fb"
               ref={c => (this.auth_opt_fb = c)}
               checked={this.props.zid_metadata.auth_opt_fb}
@@ -254,7 +254,7 @@ class ConversationConfig extends React.Component {
             />
           </Box>
           <Box sx={{ ml: [2], flexShrink: 0, maxWidth: '35em' }}>
-            <label htmlFor="auth_opt_fb">Show Facebook login prompt</label>
+            <Text>Show Facebook login prompt</Text>
           </Box>
         </Flex>
 
@@ -262,7 +262,7 @@ class ConversationConfig extends React.Component {
           <Box sx={{ flexShrink: 0, position: 'relative', top: -0.5 }}>
             <input
               type="checkbox"
-              id="auth_opt_tw"
+              label="Twitter login prompt"
               data-test-id="auth_opt_tw"
               ref={c => (this.auth_opt_tw = c)}
               checked={this.props.zid_metadata.auth_opt_tw}
@@ -270,7 +270,7 @@ class ConversationConfig extends React.Component {
             />
           </Box>
           <Box sx={{ ml: [2], flexShrink: 0, maxWidth: '35em' }}>
-            <label htmlFor="auth_opt_tw">Show Twitter login prompt</label>
+            <Text>Show Twitter login prompt</Text>
           </Box>
         </Flex>
 
@@ -288,7 +288,7 @@ class ConversationConfig extends React.Component {
           <Box sx={{ flexShrink: 0, position: 'relative', top: -0.5 }}>
             <input
               type="checkbox"
-              id="strict_moderation"
+              data-test-id="strict_moderation"
               ref={c => (this.strict_moderation = c)}
               checked={this.props.zid_metadata.strict_moderation}
               onChange={this.handleBoolValueChange('strict_moderation').bind(
@@ -297,9 +297,7 @@ class ConversationConfig extends React.Component {
             />
           </Box>
           <Box sx={{ ml: [2], flexShrink: 0, maxWidth: '35em' }}>
-            <label htmlFor="strict_moderation">
-              No comments shown without moderator approval
-            </label>
+            <Text>No comments shown without moderator approval</Text>
           </Box>
         </Flex>
 
@@ -307,8 +305,7 @@ class ConversationConfig extends React.Component {
           <Box sx={{ flexShrink: 0, position: 'relative', top: -0.5 }}>
             <input
               type="checkbox"
-              aria-label="Require Auth to Comment"
-              id="auth_needed_to_write"
+              label="Require Auth to Comment"
               data-test-id="auth_needed_to_write"
               ref={c => (this.auth_needed_to_write = c)}
               checked={this.props.zid_metadata.auth_needed_to_write}
@@ -329,8 +326,7 @@ class ConversationConfig extends React.Component {
           <Box sx={{ flexShrink: 0, position: 'relative', top: -0.5 }}>
             <input
               type="checkbox"
-              aria-label="Require Auth to Vote"
-              id="auth_needed_to_vote"
+              label="Require Auth to Vote"
               data-test-id="auth_needed_to_vote"
               ref={c => (this.auth_needed_to_vote = c)}
               checked={this.props.zid_metadata.auth_needed_to_vote}
