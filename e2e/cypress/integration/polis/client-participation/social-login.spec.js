@@ -1,4 +1,4 @@
-describe('Social login', () => {
+describe('Social login buttons', () => {
   before(function () {
     cy.createConvo('moderator').then(() => {
       cy.seedComment('I feel like foo.', this.convoId)
