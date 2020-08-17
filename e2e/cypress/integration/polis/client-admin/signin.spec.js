@@ -20,6 +20,6 @@ describe('Signin page', () => {
   it('signs in successfully', function () {
     cy.get('button#signinButton').click()
     cy.wait('@authLogin').its('status').should('eq', 200)
-    cy.url().should('eq', Cypress.config().baseUrl + '/')
+    cy.location('pathname').should('eq', '/')
   })
 })
