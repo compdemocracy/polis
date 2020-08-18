@@ -117,6 +117,9 @@ be applied in order, and you won't need to think about this.
 But if we update the database schema after your initial provisioning of your
 server via Docker, you'll need to manually apply each new SQL migration.
 
+- Please note: **Backups are your responsibility.** These instructions assume
+  the data is disposable, and do not attempt to make backups.
+    - Pull requests are welcome if you'd like to see more guidance on this.
 - Your database data is stored on a docker volume, which means that it will
   persist even when you destroy all your docker containers. Be mindful of this.
     - You can remove ALL volumes defined within a `docker-compose` file via: `docker-compose down --volumes`
