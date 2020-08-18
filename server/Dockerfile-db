@@ -1,3 +1,3 @@
 FROM postgres:12.4-alpine
 
-COPY ./postgres/db_setup_draft.sql /docker-entrypoint-initdb.d/
+COPY ./postgres/migrations/*.sql /docker-entrypoint-initdb.d/
