@@ -53,7 +53,9 @@ jobs:
         - name: Set server configuration
           run: |
             # Test email transport failovers
-            echo EMAIL_TRANSPORT_TYPES=mailgun,noop,maildev >> server/docker-dev.env
+            # mailgun: unconfigured transport (will fail)
+            # nonexistent: nonexistent transport (will fail)
+            echo EMAIL_TRANSPORT_TYPES=mailgun,nonexistent,maildev >> server/docker-dev.env
 
       - name: Serve app via docker-compose
         run: docker-compose up --detach
