@@ -1,14 +1,13 @@
 describe('Emails', () => {
-  const EMAIL_PORT = '1080'
+  const MAILDEV_HTTP_PORT = '1080'
+  // See: https://github.com/maildev/maildev/blob/master/docs/rest.md
+  const MAILDEV_API_BASE = `${Cypress.config().baseUrl}:${MAILDEV_HTTP_PORT}`
 
   beforeEach(() => {
-    cy.visit(`${Cypress.config().baseUrl}:${EMAIL_PORT}`)
-    cy.contains('Clear Inbox').click()
-    cy.contains('Now receiving all emails')
+    cy.server()
+    cy.route('POST', Cypress.config().apiPath + '/auth/pwresettoken').as('resetPassword')
 
-    cy.fixture('users.json').then((users) => {
-      cy.wrap(users[0]).as('user')
-    })
+    cy.request('DELETE', MAILDEV_API_BASE + '/email/all')
   })
 
   it('sends for failed password reset', function () {
@@ -16,16 +15,20 @@ describe('Emails', () => {
     cy.visit('/pwresetinit')
     cy.get('input[placeholder="email"]').type(nonExistingEmail)
     cy.contains('button', 'Send password reset email').click()
+    cy.wait('@resetPassword').its('status').should('eq', 200)
+    cy.location('pathname').should('eq', '/pwresetinit/done')
 
-    cy.visit(`${Cypress.config().baseUrl}:${EMAIL_PORT}/`)
-    cy.get('a.email-item').first().within(() => {
-      cy.get('.title').should('contain', 'Password Reset Failed')
-      cy.get('.subline').should('contain', nonExistingEmail)
-    })
+    cy.request('GET', MAILDEV_API_BASE + '/email')
+      .then(resp => {
+        const email = resp.body.shift()
+        console.log(email)
+        cy.wrap(email).its('subject').should('contain', 'Password Reset Failed')
+        cy.wrap(email).its('to').its(0).its('address').should('contain', nonExistingEmail)
+      })
   })
 
   it('sends for successful password reset', function () {
-    // Create a new user account
+    // Create a new user account, so we can actually change password.
     const randomInt = Math.floor(Math.random() * 10000)
     const newUser = {
       email: `user${randomInt}@polis.test`,
@@ -34,17 +37,8 @@ describe('Emails', () => {
       newPassword: 'newpassword',
     }
 
-    cy.server()
-    cy.route({
-      method: 'POST',
-      url: Cypress.config().apiPath + '/auth/new'
-    }).as('authNew')
-
-    cy.signup(newUser.name, newUser.email, newUser.password)
-
-    cy.wait('@authNew').then((xhr) => {
-      expect(xhr.status).to.equal(200)
-    })
+    const strictFail = true
+    cy.signup(newUser.name, newUser.email, newUser.password, strictFail)
 
     cy.logout()
 
@@ -52,41 +46,41 @@ describe('Emails', () => {
     cy.visit('/pwresetinit')
     cy.get('input[placeholder="email"]').type(newUser.email)
     cy.contains('button', 'Send password reset email').click()
+    cy.wait('@resetPassword').its('status').should('eq', 200)
+    cy.location('pathname').should('eq', '/pwresetinit/done')
 
-    cy.visit(`${Cypress.config().baseUrl}:${EMAIL_PORT}/`)
-    cy.get('a.email-item').first().within(() => {
-      cy.get('.title').should('contain', 'Polis Password Reset')
-      cy.get('.subline').should('contain', newUser.email)
-      cy.root().click()
-    })
-    // Has password reset link with proper hostname.
-    cy.get('.email-content').should('contain', `${Cypress.config().baseUrl}/pwreset/`)
-    cy.get('.email-content').then(($elem) => {
-      const emailContent = $elem.text()
-      const tokenRegex = new RegExp('/pwreset/([a-zA-Z0-9]+)\n', 'g')
-      const match = tokenRegex.exec(emailContent)
-      // First "url" is email domain. Second url is the one we want.
-      cy.log(JSON.stringify(match))
-      const passwordResetToken = match[1]
+    cy.request('GET', MAILDEV_API_BASE + '/email')
+      .then(resp => {
+        const email = resp.body.shift()
+        cy.wrap(email).its('subject').should('contain', 'Polis Password Reset')
+        cy.wrap(email).its('to').its(0).its('address').should('contain', newUser.email)
 
-      // Submit password reset form with new password.
-      cy.visit(`/pwreset/${passwordResetToken}`)
+        // Has password reset link with proper hostname.
+        cy.wrap(email).its('text').should('contain', `${Cypress.config().baseUrl}/pwreset/`)
 
-      cy.route({
-        method: 'POST',
-        url: Cypress.config().apiPath + '/auth/password'
-      }).as('authPassword')
+        const emailContent = email.text
+        console.log(email)
+        const tokenRegex = new RegExp('/pwreset/([a-zA-Z0-9]+)\n', 'g')
+        const match = tokenRegex.exec(emailContent)
+        // First "url" is email domain. Second url is the one we want.
+        cy.log(JSON.stringify(match))
+        const passwordResetToken = match[1]
 
-      cy.get('form').within(() => {
-        cy.get('input[placeholder="new password"]').type(newUser.newPassword)
-        cy.get('input[placeholder="repeat new password"]').type(newUser.newPassword)
-        cy.get('button').click()
+        // Submit password reset form with new password.
+        cy.visit(`/pwreset/${passwordResetToken}`)
+
+        cy.route('POST', Cypress.config().apiPath + '/auth/password').as('newPassword')
+
+        cy.get('form').within(() => {
+          cy.get('input[placeholder="new password"]').type(newUser.newPassword)
+          cy.get('input[placeholder="repeat new password"]').type(newUser.newPassword)
+          cy.get('button').click()
+        })
+
+        cy.wait('@newPassword').then((xhr) => {
+          expect(xhr.status).to.equal(200)
+        })
       })
-
-      cy.wait('@authPassword').then((xhr) => {
-        expect(xhr.status).to.equal(200)
-      })
-    })
 
     cy.logout()
 

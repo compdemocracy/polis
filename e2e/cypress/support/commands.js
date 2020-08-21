@@ -34,7 +34,7 @@ Cypress.Commands.add("logout", () => {
     })
 })
 
-Cypress.Commands.add("signup", (name, email, password) => {
+Cypress.Commands.add("signup", (name, email, password, strictFail=false) => {
   cy.request({
     method: 'POST',
     url: Cypress.config().apiPath + '/auth/new',
@@ -44,7 +44,7 @@ Cypress.Commands.add("signup", (name, email, password) => {
       gatekeeperTosPrivacy: true,
       password: password
     },
-    failOnStatusCode: false
+    failOnStatusCode: strictFail
   }).then(resp => {
     // Expand success criteria to allow user already existing.
     // TODO: Be smarter with seeding users so we only create once.
