@@ -7,7 +7,9 @@ const AWS = require('aws-sdk');
 AWS.config.set('region', process.env.AWS_REGION);
 
 function sendTextEmailWithBackup(sender, recipient, subject, text) {
-  const transportTypes = process.env.EMAIL_TRANSPORT_TYPES.split(',')
+  const transportTypes = process.env.EMAIL_TRANSPORT_TYPES
+    ? process.env.EMAIL_TRANSPORT_TYPES.split(',')
+    : ['aws-ses', 'mailgun']
   if (transportTypes.length < 2) {
     new Error('No backup email transport available.');
   }
