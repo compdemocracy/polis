@@ -107,22 +107,20 @@ We use Google to automatically translate submitted comments into the language of
    [base64-encoder]: https://codepen.io/bsngr/pen/awuDh
 
 
-# Enabling/disabling SSL/HTTPS
+# About SSL/HTTPS
 
 **Important:** These instructions use an insecure, self-signed SSL certificate,
-which is pre-generated and stored publicly in the source code. This method is
-only suitable for testing.
+which is pre-generated and stored publicly in the source code. This method of
+implementing HTTPS is **ONLY suitable for testing.**
 
-For testing some functionality (e.g., social login via Facebook), our docker
-setup must serve the Polis app via HTTPS.
+For testing some functionality (e.g., social login via Facebook), some external
+services must interact with the Polis app via HTTPS.
 
-This may be done by replacing `file-server/nginx/nginx.site.default.conf` with
-an alternative configuration file before building the `nginx-proxy` docker
-container:
+To modify these settings, edit `file-server/nginx/nginx-ssl.site.default.conf`
+before building the `nginx-proxy` docker container:
 
 ```
-cd file-server/nginx
-cp nginx-ssl.site.default.conf nginx.site.default.conf
+vim file-server/nginx/nginx-ssl.site.default.conf
 docker-compose up --detach --build --no-deps nginx-proxy
 ```
 
