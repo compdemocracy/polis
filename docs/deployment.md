@@ -107,7 +107,7 @@ We use Google to automatically translate submitted comments into the language of
    [base64-encoder]: https://codepen.io/bsngr/pen/awuDh
 
 
-# Enabling SSL/HTTPS
+# Enabling/disabling SSL/HTTPS
 
 **Important:** These instructions use an insecure, self-signed SSL certificate,
 which is pre-generated and stored publicly in the source code. This method is
