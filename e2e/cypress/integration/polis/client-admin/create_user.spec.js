@@ -1,8 +1,4 @@
 describe('Create User page', () => {
-  before(() => {
-    cy.fixture('users.json').as('users')
-  })
-
   beforeEach(() => {
     const [name, email, password] = ['Dummy', 'test@polis.test', 'testpassword']
 
@@ -21,11 +17,12 @@ describe('Create User page', () => {
   })
 
   it('does not create a new user with existing email address', function () {
-    const existingUser = this.users.moderator
-
     // Attempt to recreate existing user.
-    cy.get('input#createUserEmailInput').clear().type(existingUser.email)
-    cy.get('button#createUserButton').click()
+    cy.fixture('users.json').then(users => {
+      const existingUser = users.moderator
+      cy.get('input#createUserEmailInput').clear().type(existingUser.email)
+      cy.get('button#createUserButton').click()
+    })
 
     cy.wait('@authNew').then(xhr => {
       cy.wrap(xhr).its('status').should('eq', 403)
