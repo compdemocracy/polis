@@ -34,12 +34,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2.3.2
 
-      - name: Use nginx config with snakeoil SSL certs
-        working-directory: file-server/nginx/
-        run: |
-          # Override default nginx config file to allow HTTPS.
-          cp nginx-ssl.site.default.conf nginx.site.default.conf
-
       # This step helps us know when to skip future steps, particularly if
       # we're on a fork where upstream secrets won't be available.
       - name: Ensure secrets available
