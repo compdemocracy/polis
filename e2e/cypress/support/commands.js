@@ -34,7 +34,7 @@ Cypress.Commands.add("logout", () => {
     })
 })
 
-Cypress.Commands.add("signup", (name, email, password) => {
+Cypress.Commands.add("signup", (name, email, password, strictFail=false) => {
   cy.request({
     method: 'POST',
     url: Cypress.config().apiPath + '/auth/new',
@@ -44,7 +44,7 @@ Cypress.Commands.add("signup", (name, email, password) => {
       gatekeeperTosPrivacy: true,
       password: password
     },
-    failOnStatusCode: false
+    failOnStatusCode: strictFail
   }).then(resp => {
     // Expand success criteria to allow user already existing.
     // TODO: Be smarter with seeding users so we only create once.
@@ -110,3 +110,17 @@ Cypress.Commands.add('seedComment', (...args) => {
     is_seed: true
   })
 })
+
+// Allow visiting maildev inbox urls, to test sending of emails.
+// See: https://github.com/cypress-io/cypress/issues/944#issuecomment-651503805
+Cypress.Commands.overwrite(
+  'visit',
+  (originalFn, url, options) => {
+    if (url.includes(':1080')) {
+      cy.window().then(win => {
+        return win.open(url, '_self');
+      });
+    }
+    else { return originalFn(url, options); }
+  }
+);
