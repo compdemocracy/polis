@@ -1,4 +1,4 @@
-FROM nginx:1.19.1-alpine
+FROM nginx:1.19.2-alpine
 
 COPY nginx/nginx-https.site.default.conf /etc/nginx/conf.d/default.conf
 

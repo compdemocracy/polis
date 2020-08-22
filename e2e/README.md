@@ -17,6 +17,16 @@ To run these tests:
 4. Click on tests to run
     - Alternatively, you can run all tests automatically: `npm test`
 
+## Debugging
+
+- We use [`cypress-terminal-report`][] to ensure that logs display not only in
+  Cypress's [Test Runner][test-runner] browser UI, but also in the console.
+    - These only print when a test has failed, to reduce noise.
+    - Logs of failed tests can be seen on CI server (GitHub Actions).
+
+   [`cypress-terminal-report`]: https://github.com/archfz/cypress-terminal-report#readme
+   [test-runner]: https://docs.cypress.io/guides/core-concepts/test-runner.html
+
 ## Notes
 
 - We keep some helper scripts in `package.json`.

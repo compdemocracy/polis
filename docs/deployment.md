@@ -127,6 +127,60 @@ docker-compose up --detach --build --no-deps nginx-proxy
 ```
 
 
+## Email Transports
+
+We use [Nodemailer][] to send email. Nodemailer uses various built-in and
+packaged _email transports_ to send email via SMTP or API, either directly or
+via third-party platforms.
+
+Each transport needs a bit of hardcoded scaffold configuration to make it work,
+which we welcome via code contribution. But after this, others can easily use
+the same email transport by setting some configuration values via environment
+variable or otherwise.
+
+We use `EMAIL_TRANSPORT_TYPES` to set email transports and their fallback
+order. Each transport has a keyword (e.g., `maildev`). You may set one or more
+transports, separated by commas. If you set more than one, then each transport
+will "fallback" to the next on failure.
+
+For example, if you set `aws-ses,mailgun`, then we'll try to send via
+`aws-ses`, but on failure, we'll try to send via `mailgun`. If Mailgun fails,
+the email will not be sent.
+
+   [Nodemailer]: https://nodemailer.com/about/
+
+### Configuring transport: `maildev`
+
+Note: The [MailDev][] email transport is for **development purposes only**. Ensure it's disabled in production!
+
+1. Add `maildev` into the `EMAIL_TRANSPORT_TYPES` configuration.
+
+This transport will work automatically when running via Docker Compose, accessible on port 1080.
+
+   [MailDev]: https://github.com/maildev/maildev
+
+### Configuring transport: `aws-ses`
+
+1. Add `aws-ses` into the `EMAIL_TRANSPORT_TYPES` configuration.
+2. Set the `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` configuration.
+
+### Configuring transport: `mailgun`
+
+1. Add `mailgun` into the `EMAIL_TRANSPORT_TYPES` configuration.
+2. Set the `MAILGUN_API_KEY` and `MAILGUN_DOMAIN` configuration.
+
+### Adding a new transport
+
+1. [Find a transport for the service you require][transports] (or write your
+   own!)
+2. Add any new transport configuration to `getMailOptions(...)` in
+   [`server/email/senders.js`][mail-senders].
+3. Submit a pull request.
+
+   [transports]: https://github.com/search?q=nodemailer+transport
+   [mail-senders]: /server/email/senders.js
+
+
 ## Database Migrations
 
 When we need to update the Polis database, we use SQL migration files.
