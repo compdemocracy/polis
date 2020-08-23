@@ -1,7 +1,8 @@
 describe('Emails', () => {
   const MAILDEV_HTTP_PORT = '1080'
   // See: https://github.com/maildev/maildev/blob/master/docs/rest.md
-  const MAILDEV_API_BASE = `${Cypress.config().baseUrl}:${MAILDEV_HTTP_PORT}`
+  // Maildev only available over HTTP, even if using SSL for app.
+  const MAILDEV_API_BASE = `${Cypress.config().baseUrl}:${MAILDEV_HTTP_PORT}`.replace('https://', 'http://')
 
   beforeEach(() => {
     cy.server()
