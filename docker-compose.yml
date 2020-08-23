@@ -68,6 +68,7 @@ services:
       - "polis-dev"
     ports:
       - "80:80"
+      - "443:443"
 
   file-server:
     container_name: polis-file-server
