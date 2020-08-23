@@ -54,8 +54,10 @@ jobs:
         run: |
           # Test email transport failovers
           # mailgun: unconfigured transport (will fail)
+          # aws-ses: unconfigured transport (will fail)
           # nonexistent: nonexistent transport (will fail)
-          echo EMAIL_TRANSPORT_TYPES=mailgun,nonexistent,maildev >> server/docker-dev.env
+          # maildev: catch-all dev email server running in container (will work)
+          echo EMAIL_TRANSPORT_TYPES=mailgun,aws-ses,nonexistent,maildev >> server/docker-dev.env
 
       - name: Serve app via docker-compose
         run: docker-compose up --detach
