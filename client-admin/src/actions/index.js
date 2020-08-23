@@ -576,7 +576,7 @@ const callFacebookLoginAPI = (dest, dispatch, optionalPassword) => {
     },
     {
       return_scopes: true, // response should contain the scopes the user allowed
-      scope: SERVER_DATA.EXTRA_FACEBOOK_PERMS,
+      scope: SERVER_DATA.EXTRA_FACEBOOK_PERMS
     }
   )
 }
