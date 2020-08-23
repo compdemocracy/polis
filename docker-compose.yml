@@ -64,9 +64,6 @@ services:
       dockerfile: nginx.Dockerfile
     depends_on:
       - "server"
-      - "omgwtfssl"
-    volumes:
-      - certs:/etc/nginx/certs:ro
     networks:
       - "polis-dev"
     ports:
@@ -128,4 +125,3 @@ networks:
 volumes:
   backups:
   postgres:
-  certs:
