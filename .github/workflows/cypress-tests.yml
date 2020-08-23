@@ -103,3 +103,11 @@ jobs:
       - name: Check status of containers
         if: failure()
         run: docker-compose ps
+
+      - name: 'Check logs: server'
+        if: failure()
+        run: docker-compose logs server
+
+      - name: 'Check logs: nginx-proxy'
+        if: failure()
+        run: docker-compose logs nginx-proxy
