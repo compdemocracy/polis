@@ -21,7 +21,7 @@ jobs:
       BUNDLEWATCH_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
-    - uses: actions/checkout@v2.3.1
+    - uses: actions/checkout@v2.3.2
 
     - name: Use Node.js
       uses: actions/setup-node@v2.1.1
@@ -32,8 +32,9 @@ jobs:
       id: npm-cache
       run: |
         echo "::set-output name=dir::$(npm config get cache)"
+
     - name: Restore npm cache directory
-      uses: actions/cache@v2.1.0
+      uses: actions/cache@v2.1.1
       with:
         path: ${{ steps.npm-cache.outputs.dir }}
         key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}

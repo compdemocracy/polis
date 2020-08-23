@@ -1,17 +1,12 @@
 describe('Routes', () => {
-  before(() => {
-    cy.fixture('users.json').then((users) => {
-      const user = users[0]
-      cy.createConvo(user.email, user.password)
+  before(function () {
+    cy.createConvo('moderator').then(() => {
+      cy.wrap(`/m/${this.convoId}`).as('adminPath')
     })
-    cy.location('pathname').as('adminPath')
   })
 
   beforeEach(() => {
-    cy.fixture('users.json').then((users) => {
-      const user = users[0]
-      cy.login(user.email, user.password)
-    })
+    cy.login('moderator')
   })
 
   it('Page renders without trailing slash for /m/:id', function () {

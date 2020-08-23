@@ -83,6 +83,117 @@ It is NOT suited for production, but it may be in the future.
 - [@uzzal2k5](https://github.com/uzzal2k5) via [`uzzal2k5/polis_container`](https://github.com/uzzal2k5/polis_container)
 - [@crkrenn](https://github.com/crkrenn) & [@david-nadaraia](https://github.com/david-nadaraia)
 - [@patcon](https://github.com/patcon)
+- [@ballPointPenguin](https://github.com/ballPointPenguin)
+
+## Enabling Comment Translation
+
+**Note:** This feature is optional.
+
+We use Google to automatically translate submitted comments into the language of participants, as detected by the browser's language.
+
+1. Ensure the `client-participation` [user interface is manually translated][translate-ui] into participant language(s).
+    - Noteworthy strings include: [`showTranslationButton`, `hideTranslationButton`, `thirdPartyTranslationDisclaimer`][translate-strings]
+1. Click `Set up a project` button within the [Cloud Translation Quickstart Guide][gtranslate-quickstart].
+    - Follow the wizard and download the JSON private key, aka credentials file.
+1. Convert the file contents into a base64-encoded string. You can do this in many ways, including:
+    - copying its contents into [a client-side base64 encoder web app][base64-encoder] (inspect the simple JS code), or
+    - using your workstation terminal: `cat path/to/My-Project-abcdef0123456789.json | base64` (linux/mac)
+1. Configure `GOOGLE_CREDENTIALS_BASE64` within `server/docker-dev.env`
+1. Configure `SHOULD_USE_TRANSLATION_API=true` within `server/docker-dev.env`
+
+   [translate-ui]: #translating-the-user-interface
+   [translate-strings]: /client-participation/js/strings/en_us.js#L96-L98
+   [gtranslate-quickstart]: https://cloud.google.com/translate/docs/basic/setup-basic
+   [base64-encoder]: https://codepen.io/bsngr/pen/awuDh
+
+
+## Email Transports
+
+We use [Nodemailer][] to send email. Nodemailer uses various built-in and
+packaged _email transports_ to send email via SMTP or API, either directly or
+via third-party platforms.
+
+Each transport needs a bit of hardcoded scaffold configuration to make it work,
+which we welcome via code contribution. But after this, others can easily use
+the same email transport by setting some configuration values via environment
+variable or otherwise.
+
+We use `EMAIL_TRANSPORT_TYPES` to set email transports and their fallback
+order. Each transport has a keyword (e.g., `maildev`). You may set one or more
+transports, separated by commas. If you set more than one, then each transport
+will "fallback" to the next on failure.
+
+For example, if you set `aws-ses,mailgun`, then we'll try to send via
+`aws-ses`, but on failure, we'll try to send via `mailgun`. If Mailgun fails,
+the email will not be sent.
+
+   [Nodemailer]: https://nodemailer.com/about/
+
+### Configuring transport: `maildev`
+
+Note: The [MailDev][] email transport is for **development purposes only**. Ensure it's disabled in production!
+
+1. Add `maildev` into the `EMAIL_TRANSPORT_TYPES` configuration.
+
+This transport will work automatically when running via Docker Compose, accessible on port 1080.
+
+   [MailDev]: https://github.com/maildev/maildev
+
+### Configuring transport: `aws-ses`
+
+1. Add `aws-ses` into the `EMAIL_TRANSPORT_TYPES` configuration.
+2. Set the `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` configuration.
+
+### Configuring transport: `mailgun`
+
+1. Add `mailgun` into the `EMAIL_TRANSPORT_TYPES` configuration.
+2. Set the `MAILGUN_API_KEY` and `MAILGUN_DOMAIN` configuration.
+
+### Adding a new transport
+
+1. [Find a transport for the service you require][transports] (or write your
+   own!)
+2. Add any new transport configuration to `getMailOptions(...)` in
+   [`server/email/senders.js`][mail-senders].
+3. Submit a pull request.
+
+   [transports]: https://github.com/search?q=nodemailer+transport
+   [mail-senders]: /server/email/senders.js
+
+
+## Database Migrations
+
+When we need to update the Polis database, we use SQL migration files.
+
+During initial provisioning of your Docker containers, all the migrations will
+be applied in order, and you won't need to think about this.
+
+But if we update the database schema after your initial provisioning of your
+server via Docker, you'll need to manually apply each new SQL migration.
+
+- Please note: **Backups are your responsibility.** These instructions assume
+  the data is disposable, and do not attempt to make backups.
+    - Pull requests are welcome if you'd like to see more guidance on this.
+- Your database data is stored on a docker volume, which means that it will
+  persist even when you destroy all your docker containers. Be mindful of this.
+    - You can remove ALL volumes defined within a `docker-compose` file via: `docker-compose down --volumes`
+    - You can remove ONE volume via `docker volume ls` and `docker volume rm <name>`
+- SQL migrations can be found in [`server/postgres/migrations/`][] of this
+  repo.
+- The path to the SQL file will be relative to its location in the docker
+  container filesystem, not your host system.
+
+For example, if we add the migration file
+`server/postgres/migrations/000001_update_pwreset_table.sql`, you'd run on your
+host system:
+
+```
+docker-compose exec postgres psql --username postgres --dbname polis-dev --file=/docker-entrypoint-initdb.d/000001_update_pwreset_table.sql
+```
+
+You'd do this for each new file.
+
+   [`server/postgres/migrations/`]: /server/postgres/migrations
 
 
 ## Contribution notes
@@ -92,5 +203,4 @@ Please help us out as you go in setting things up by improving the deployment co
 * General/system-wide issues you come across can go in https://github.com/pol-is/polis-issues/issues, and repo specific issues in their respective issues lists
 * PRs improving either documentation or deployment code are welcome, but please submit an issue to discuss before making any substantial code changes
 * After you've made an issue, you can try to chat folks up at https://gitter.im/pol-is/polisDeployment
-
 

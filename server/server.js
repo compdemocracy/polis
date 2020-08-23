@@ -4,7 +4,7 @@
 
 const akismetLib = require('akismet');
 const AWS = require('aws-sdk');
-AWS.config.set('region', 'us-east-1');
+AWS.config.set('region', process.env.AWS_REGION);
 const badwords = require('badwords/object');
 const Promise = require('bluebird');
 const http = require('http');
@@ -213,7 +213,7 @@ var web = new WebClient(process.env.SLACK_API_TOKEN);
 
 // # notifications
 const winston = console;
-const emailSenders = require('./email/sendEmailSesMailgun').EmailSenders(AWS);
+const emailSenders = require('./email/senders');
 const sendTextEmail = emailSenders.sendTextEmail;
 const sendTextEmailWithBackupOnly = emailSenders.sendTextEmailWithBackupOnly;
 
@@ -228,13 +228,14 @@ const intercomClient = !isTrue(process.env.DISABLE_INTERCOM) ? new IntercomOffic
 const useTranslateApi = isTrue(process.env.SHOULD_USE_TRANSLATION_API);
 let translateClient = null;
 if (useTranslateApi) {
-  const GOOGLE_CREDS_TEMP_FILENAME = ".google_creds_temp";
-
-  fs.writeFileSync(GOOGLE_CREDS_TEMP_FILENAME, process.env.GOOGLE_CREDS_STRINGIFIED);
-
-  translateClient = Translate({
-    projectId: JSON.parse(fs.readFileSync(GOOGLE_CREDS_TEMP_FILENAME)).project_id,
-  });
+  // Tell translation library where to find credentials, and write them to disk.
+  process.env.GOOGLE_APPLICATION_CREDENTIALS = '.google_creds_temp'
+  // TODO: Consider deprecating GOOGLE_CREDS_STRINGIFIED in future.
+  const creds_string = process.env.GOOGLE_CREDENTIALS_BASE64 ?
+    new Buffer(process.env.GOOGLE_CREDENTIALS_BASE64, 'base64').toString('ascii') :
+    process.env.GOOGLE_CREDS_STRINGIFIED;
+  fs.writeFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS, creds_string);
+  translateClient = Translate();
 }
 
 
@@ -9750,6 +9751,8 @@ Email verified! You can close this tab or hit the back button.
               return;
             }
             let conv = result && result.rows && result.rows[0];
+            // The first check with isModerator implictly tells us this can be returned in HTTP response.
+            conv.is_mod = true;
 
             let promise = generateShortUrl ?
               generateAndReplaceZinvite(req.p.zid, generateShortUrl) :

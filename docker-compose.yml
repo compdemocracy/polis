@@ -108,6 +108,16 @@ services:
       args:
         GIT_HASH: "${GIT_HASH}"
 
+  maildev:
+    image: maildev/maildev:1.1.0
+    networks:
+      - "polis-dev"
+    ports:
+      # User interface
+      - "1080:80"
+      # SMTP port
+      - "25:25"
+
 networks:
   polis-dev:
 
