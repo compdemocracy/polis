@@ -86,7 +86,9 @@ Visit your instance at one of: \
 `http://123.45.67.89.xip.io/` \
 `https://123.45.67.89.xip.io/` (insecure; browser warning)
 
-Or visit a native docker instance at `http://localhost:80/`
+Or visit a native docker instance at one of: \
+`http://localhost/` \
+`https://localhost/` (insecure; browser warning)
 
 Sign up at `/createuser` path. You'll be logged in right away; no email validation required!
 
