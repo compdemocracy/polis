@@ -19,6 +19,7 @@ All of the above is actively in flux on `dev` branch.
 - Work in the issue queue and codebase is being done in part by passionate volunteer contributors.
 They will often be experimenting with unproven project infrastructure that is unsupported by the Polis organization,
 e.g. pre-built docker images.
+- See also: [Deployment: About SSL/HTTPS](docs/deployment.md#about-sslhttps)
 
 Having said this, we are enthusiastic about your support in moving toward deployment-readiness.
 We aspire to see future third-party deployments of polis as we cultivate a growing community of diverse contributors!
@@ -26,14 +27,17 @@ We look forward to working together :tada:
 
 ## 🙋🏾‍♀️ Get Involved
 
-1. Say hi in our **chat** [:speech_balloon:][chat] [`gitter.com/pol-is/polisDeployment`][chat]
+1. Say hi in one of our **chat rooms** :speech_balloon:
+    - 🦸🏼 General [`gitter.im/pol-is/polis-community`][chat]
+    - 👩🏿‍💻 Software Development [`gitter.com/pol-is/polisDeployment`][chat-dev]
 2. Join one of our weekly **open calls** :microphone:
     - Please please please... Newcomers welcome! [Learn more...][calls-about]
 3. Visit our [**issue tracker**][issues] [:white_check_mark:][issues] to offer your skills & energies
     - We also keep a [project kanban board][board] [:checkered_flag:][board]
     - :ear: Pssssst! [Learn how...][contributing] (labels, etc.)
 
-   [chat]: https://gitter.im/pol-is/polisDeployment
+   [chat]: https://gitter.im/pol-is/polis-community
+   [chat-dev]: https://gitter.im/pol-is/polisDeployment
    [calls-about]: /CONTRIBUTING.md#telephone_receiver-open-calls
    [issues]: https://github.com/pol-is/polisServer/issues
    [board]: https://github.com/orgs/pol-is/projects/1
@@ -113,4 +117,4 @@ Please see [`docs/deployment.md`](/docs/deployment.md)
 
 ## ©️  License
 
-[AGPLv3](/LICENSE)
+[AGPLv3 with additional permission under section 7](/LICENSE)

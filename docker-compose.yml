@@ -112,17 +112,15 @@ services:
       args:
         GIT_HASH: "${GIT_HASH}"
 
-  omgwtfssl:
-    image: paulczar/omgwtfssl
-    restart: "no"
-    volumes:
-      - certs:/certs
-    environment:
-      - SSL_SUBJECT=example.com
-      - CA_SUBJECT=my@example.com
-      - SSL_KEY=/certs/snakeoil.key
-      - SSL_CSR=/certs/snakeoil.csr
-      - SSL_CERT=/certs/snakeoil.crt
+  maildev:
+    image: maildev/maildev:1.1.0
+    networks:
+      - "polis-dev"
+    ports:
+      # User interface
+      - "1080:80"
+      # SMTP port
+      - "25:25"
 
 networks:
   polis-dev:

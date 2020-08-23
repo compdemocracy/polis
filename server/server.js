@@ -4,7 +4,7 @@
 
 const akismetLib = require('akismet');
 const AWS = require('aws-sdk');
-AWS.config.set('region', 'us-east-1');
+AWS.config.set('region', process.env.AWS_REGION);
 const badwords = require('badwords/object');
 const Promise = require('bluebird');
 const http = require('http');
@@ -213,7 +213,7 @@ var web = new WebClient(process.env.SLACK_API_TOKEN);
 
 // # notifications
 const winston = console;
-const emailSenders = require('./email/sendEmailSesMailgun').EmailSenders(AWS);
+const emailSenders = require('./email/senders');
 const sendTextEmail = emailSenders.sendTextEmail;
 const sendTextEmailWithBackupOnly = emailSenders.sendTextEmailWithBackupOnly;
 
@@ -3514,7 +3514,7 @@ function initializePolisHelpers() {
     }
     if (devMode) {
       // usually localhost:5000
-      server = "http://" + req.headers.host;
+      server = req.protocol + "://" + req.headers.host;
     }
 
     if (req.headers.host.includes("preprod.pol.is")) {
