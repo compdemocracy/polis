@@ -19,6 +19,7 @@ All of the above is actively in flux on `dev` branch.
 - Work in the issue queue and codebase is being done in part by passionate volunteer contributors.
 They will often be experimenting with unproven project infrastructure that is unsupported by the Polis organization,
 e.g. pre-built docker images.
+- See also: [Deployment: About SSL/HTTPS](docs/deployment.md#about-sslhttps)
 
 Having said this, we are enthusiastic about your support in moving toward deployment-readiness.
 We aspire to see future third-party deployments of polis as we cultivate a growing community of diverse contributors!
