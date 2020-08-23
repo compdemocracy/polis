@@ -35,8 +35,11 @@ function getMailOptions(transportType) {
       const mg = require('nodemailer-mailgun-transport');
       const mailgunAuth = {
         auth: {
-          api_key: process.env.MAILGUN_API_KEY,
-          domain: process.env.MAILGUN_DOMAIN
+          // This forces fake credentials if envvars unset, so error is caught
+          // in auth and failover works without crashing server process.
+          // TODO: Suppress error thrown by mailgun library when unset.
+          api_key: process.env.MAILGUN_API_KEY || 'unset-value',
+          domain: process.env.MAILGUN_DOMAIN || 'unset-value',
         }
       }
       return mg(mailgunAuth)
