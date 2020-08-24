@@ -125,6 +125,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <td align="center"><a href='http://nodescription.net/'><img src='https://avatars2.githubusercontent.com/u/305339?v=4?s=100' width='100px;' alt=''/><br /><sub><b>Patrick Connolly</b></sub></a></td>
     <td align="center"><a href='https://github.com/misscs'><img src='https://avatars1.githubusercontent.com/u/51812?v=4?s=100' width='100px;' alt=''/><br /><sub><b>cs</b></sub></a></td>
     <td align="center"><a href='https://github.com/mbjorkegren'><img src='https://avatars3.githubusercontent.com/u/2016166?v=4?s=100' width='100px;' alt=''/><br /><sub><b>mbjorkegren</b></sub></a></td>
+    <td align="center"><a href='http://sais.tw/'><img src='https://avatars3.githubusercontent.com/u/2368060?v=4?s=100' width='100px;' alt=''/><br /><sub><b>蔡仲明 (Romulus Urakagi Tsai)</b></sub></a></td>
   </tr>
 </table>
 
