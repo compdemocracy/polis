@@ -31,6 +31,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Add test host to /etc/hosts
+        run: echo "127.0.0.1 polis.test" | sudo tee -a /etc/hosts
+
       - name: Checkout
         uses: actions/checkout@v2.3.2
 
@@ -65,7 +68,7 @@ jobs:
       - name: "Run Cypress tests: default"
         uses: cypress-io/github-action@v1
         env:
-          CYPRESS_BASE_URL: https://localhost
+          CYPRESS_BASE_URL: https://polis.test
         with:
           working-directory: ./e2e
           # Ignore all tests with pattern *.secrets.spec.js
@@ -76,7 +79,7 @@ jobs:
         if: env.DO_COMMENT_TRANSLATION
         uses: cypress-io/github-action@v1
         env:
-          CYPRESS_BASE_URL: https://localhost
+          CYPRESS_BASE_URL: https://polis.test
         with:
           install: false
           working-directory: ./e2e
