@@ -229,6 +229,16 @@
       "contributions": [
         "translation"
       ]
+    },
+    {
+      "login": "devvmh",
+      "name": "Devin Howard",
+      "avatar_url": "https://avatars3.githubusercontent.com/u/1393708?v=4",
+      "profile": "https://twitter.com/devvmh",
+      "contributions": [
+        "doc",
+        "code"
+      ]
     }
   ]
 }
