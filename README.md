@@ -128,6 +128,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <td align="center"><a href='https://github.com/rohanrichards'><img src='https://avatars2.githubusercontent.com/u/16222002?v=4?s=100' width='100px;' alt=''/><br /><sub><b>Rohan Richards</b></sub></a></td>
   </tr>
   <tr>
+    <td align="center"><a href='https://github.com/willcohen'><img src='https://avatars0.githubusercontent.com/u/5185341?v=4?s=100' width='100px;' alt=''/><br /><sub><b>Will Cohen</b></sub></a></td>
     <td align="center"><a href='https://github.com/crkrenn'><img src='https://avatars2.githubusercontent.com/u/6069975?v=4?s=100' width='100px;' alt=''/><br /><sub><b>crkrenn</b></sub></a></td>
     <td align="center"><a href='https://github.com/misscs'><img src='https://avatars1.githubusercontent.com/u/51812?v=4?s=100' width='100px;' alt=''/><br /><sub><b>cs</b></sub></a></td>
     <td align="center"><a href='https://github.com/light24bulbs'><img src='https://avatars2.githubusercontent.com/u/581906?v=4?s=100' width='100px;' alt=''/><br /><sub><b>light24bulbs</b></sub></a></td>

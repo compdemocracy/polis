@@ -129,6 +129,15 @@
       "contributions": [
         "translation"
       ]
+    },
+    {
+      "login": "willcohen",
+      "name": "Will Cohen",
+      "avatar_url": "https://avatars0.githubusercontent.com/u/5185341?v=4",
+      "profile": "https://github.com/willcohen",
+      "contributions": [
+        "code"
+      ]
     }
   ]
 }
