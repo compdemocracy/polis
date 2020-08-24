@@ -193,6 +193,15 @@
       "contributions": [
         "test"
       ]
+    },
+    {
+      "login": "riley",
+      "name": "Riley Davis",
+      "avatar_url": "https://avatars0.githubusercontent.com/u/282503?v=4",
+      "profile": "http://rileydav.is/",
+      "contributions": [
+        "code"
+      ]
     }
   ]
 }
