@@ -4,7 +4,7 @@
 const Promise = require('bluebird');
 const express = require('express');
 
-const server = require('./server');
+const server = require('./src/server');
 
 const app = express();
 
@@ -24,8 +24,6 @@ var helpersInitialized = new Promise(function(resolve, reject) {
 helpersInitialized.then(function(o) {
   const {
     addCorsHeader,
-    assignToP,
-    assignToPCustom,
     auth,
     authOptional,
     COOKIES,
@@ -38,31 +36,12 @@ helpersInitialized.then(function(o) {
     fetchIndexForConversation,
     fetchIndexForReportPage,
     fetchIndexWithoutPreloadData,
-    getArrayOfInt,
-    // getArrayOfStringLimitLength,
-    getArrayOfStringNonEmpty,
-    getArrayOfStringNonEmptyLimitLength,
-    getBool,
-    getConversationIdFetchZid,
-    getEmail,
-    getInt,
-    getIntInRange,
-    getNumberInRange,
-    getOptionalStringLimitLength,
-    getPassword,
-    getPasswordWithCreatePasswordRules,
     getPidForParticipant,
-    getReportIdFetchRid,
-    getStringLimitLength,
-    getUrlLimitLength,
     haltOnTimeout,
     HMAC_SIGNATURE_PARAM_NAME,
     hostname,
     makeFileFetcher,
     makeRedirectorTo,
-    moveToBody,
-    need,
-    // needHeader,
     pidCache,
     portForAdminFiles,
     portForParticipationFiles,
@@ -71,11 +50,7 @@ helpersInitialized.then(function(o) {
     redirectIfHasZidButNoConversationId,
     redirectIfNotHttps,
     redirectIfWrongDomain,
-    resolve_pidThing,
     timeout,
-    want,
-    wantCookie,
-    wantHeader,
     winston,
     writeDefaultHead,
 
@@ -210,6 +185,34 @@ helpersInitialized.then(function(o) {
     handle_PUT_reports,
     handle_PUT_users,
   } = o;
+
+  const {
+    assignToP,
+    assignToPCustom,
+    getArrayOfInt,
+    getArrayOfStringNonEmpty,
+    getArrayOfStringNonEmptyLimitLength,
+    getBool,
+    getConversationIdFetchZid,
+    getEmail,
+    getInt,
+    getIntInRange,
+    getNumberInRange,
+    getOptionalStringLimitLength,
+    getPassword,
+    getPasswordWithCreatePasswordRules,
+    getReportIdFetchRid,
+    getStringLimitLength,
+    getUrlLimitLength,
+    moveToBody,
+    need,
+    needCookie,
+    needHeader,
+    resolve_pidThing,
+    want,
+    wantCookie,
+    wantHeader,
+  } = require('./src/utils/parameter');
 
   console.log('begin route config');
 
