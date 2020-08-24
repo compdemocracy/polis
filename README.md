@@ -137,6 +137,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <td align="center"><a href='http://virgile-dev.github.io/'><img src='https://avatars0.githubusercontent.com/u/11473995?v=4?s=100' width='100px;' alt=''/><br /><sub><b>virgile-dev</b></sub></a></td>
   </tr>
   <tr>
+    <td align="center"><a href='http://www.linkedin.com/in/tangaudrey'><img src='https://avatars1.githubusercontent.com/u/20723?v=4?s=100' width='100px;' alt=''/><br /><sub><b>唐鳳</b></sub></a></td>
     <td align="center"><a href='http://sais.tw/'><img src='https://avatars3.githubusercontent.com/u/2368060?v=4?s=100' width='100px;' alt=''/><br /><sub><b>蔡仲明 (Romulus Urakagi Tsai)</b></sub></a></td>
   </tr>
 </table>
