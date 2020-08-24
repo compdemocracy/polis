@@ -1,0 +1,25 @@
+{
+  "projectName": "polis",
+  "projectOwner": "pol-is",
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "files": [
+    "README.md"
+  ],
+  "types": {},
+  "imageSize": 100,
+  "commit": true,
+  "commitConvention": "none",
+  "contributorsSortAlphabetically": true,
+  "contributors": [
+    {
+      "login": "mbjorkegren",
+      "name": "mbjorkegren",
+      "avatar_url": "https://avatars3.githubusercontent.com/u/2016166?v=4",
+      "profile": "https://github.com/mbjorkegren",
+      "contributions": [
+        "code"
+      ]
+    }
+  ]
+}
