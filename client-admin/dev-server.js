@@ -63,6 +63,10 @@ app.get("*", function (req, res) {
   html = html.replace("<%= usePlans %>", !isTrue(polisConfig.DISABLE_PLANS));
   var domainWhitelist = '["' + polisConfig.domainWhitelist.join('","') + '"]';
   html = html.replace("<%= domainWhitelist %>", domainWhitelist);
+  var serverData = {
+    EXTRA_FACEBOOK_PERMS: polisConfig.EXTRA_FACEBOOK_PERMS || '',
+  };
+  html = html.replace("<%= SERVER_DATA %>", JSON.stringify(serverData));
 
   res.set({
     "Content-Type": "text/html",

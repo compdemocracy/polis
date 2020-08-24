@@ -3,6 +3,8 @@
 import $ from 'jquery'
 import PolisNet from '../util/net'
 
+const SERVER_DATA = window.SERVER_DATA
+
 /* ======= Types ======= */
 export const REQUEST_USER = 'REQUEST_USER'
 export const RECEIVE_USER = 'RECEIVE_USER'
@@ -574,13 +576,7 @@ const callFacebookLoginAPI = (dest, dispatch, optionalPassword) => {
     },
     {
       return_scopes: true, // response should contain the scopes the user allowed
-      scope: [
-        // "taggable_friends", // requires review.
-        // invitable_friends NOTE: only for games with a fb Canvas presence, so don"t use this
-        'public_profile',
-        'user_friends',
-        'email'
-      ].join(',')
+      scope: SERVER_DATA.EXTRA_FACEBOOK_PERMS
     }
   )
 }

@@ -14402,6 +14402,11 @@ CREATE TABLE slack_user_invites (
       }
       x = x.pipe(replaceStream("<!-- REPLACE_THIS_WITH_FB_META_TAGS -->", fbMetaTagsString));
 
+      var serverData = {
+        EXTRA_FACEBOOK_PERMS: process.env.EXTRA_FACEBOOK_PERMS || '',
+      }
+      x = x.pipe(replaceStream('<%= SERVER_DATA %>', JSON.stringify(serverData)));
+
       res.set(headers);
 
       x.pipe(res);

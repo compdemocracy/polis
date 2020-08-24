@@ -249,6 +249,9 @@ gulp.task('index', [
   var s = gulp.src('index.html');
   var basepath = prepPathForTemplate(destRootRest);
   var domainWhitelist = '["' + polisConfig.domainWhitelist.join('","') + '"]';
+  var serverData = {
+    EXTRA_FACEBOOK_PERMS: polisConfig.EXTRA_FACEBOOK_PERMS || '',
+  };
   if (devMode) {
     s = s.pipe(template({
       basepath: basepath,
@@ -258,6 +261,7 @@ gulp.task('index', [
       useIntercom: !isTrue(polisConfig.DISABLE_INTERCOM),
       versionString: versionString,
       domainWhitelist: domainWhitelist,
+      SERVER_DATA: serverData,
     }));
   } else {
     s = s.pipe(template({
