@@ -50,6 +50,11 @@ jobs:
           echo GOOGLE_CREDENTIALS_BASE64=${{ secrets.GOOGLE_CREDENTIALS_BASE64 }} >> server/docker-dev.env
           echo SHOULD_USE_TRANSLATION_API=true >> server/docker-dev.env
 
+      - name: Configure Facebook login
+        run: |
+          sed -i .bak "s/000000000000000/${{ secrets.FB_APP_ID }}/" client-admin/polis.config.template.js
+          sed -i .bak "s/000000000000000/${{ secrets.FB_APP_ID }}/" client-participation/polis.config.template.js
+
       - name: Set server configuration
         run: |
           # Test email transport failovers
