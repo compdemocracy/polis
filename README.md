@@ -4,6 +4,7 @@ pol.is an AI powered sentiment gathering platform. More organic than surveys, le
 <!-- Changes to badge text in URLs below, require changes to "name" value in .github/workflows/*.yml -->
 [![Nightly Docker Builds](https://github.com/pol-is/polisServer/workflows/Nightly%20Docker%20Builds/badge.svg)][nightlies]
 [![E2E Tests](https://github.com/pol-is/polisServer/workflows/E2E%20Tests/badge.svg)][e2e-tests]
+[![All Contributors](https://img.shields.io/github/all-contributors/pol-is/polis/all-contributors-redux)](#-contributors)
 
    [nightlies]: https://hub.docker.com/u/polisdemo
    [e2e-tests]: https://github.com/pol-is/polisServer/actions?query=workflow%3A%22E2E+Tests%22
@@ -108,3 +109,23 @@ Please see [`docs/deployment.md`](/docs/deployment.md)
 ## ©️  License
 
 [AGPLv3 with additional permission under section 7](/LICENSE)
+
+## ✨ Contributors
+
+Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+<table>
+  <tr>
+    <td align="center"><a href='https://pol.is/'><img src='https://avatars3.githubusercontent.com/u/1770265?v=4?s=100' width='100px;' alt=''/><br /><sub><b>Colin Megill</b></sub></a></td>
+    <td align="center"><a href='https://github.com/mbjorkegren'><img src='https://avatars3.githubusercontent.com/u/2016166?v=4?s=100' width='100px;' alt=''/><br /><sub><b>mbjorkegren</b></sub></a></td>
+  </tr>
+</table>
+
+<!-- markdownlint-enable -->
+<!-- prettier-ignore-end -->
+<!-- ALL-CONTRIBUTORS-LIST:END -->
+
+This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind welcome!
