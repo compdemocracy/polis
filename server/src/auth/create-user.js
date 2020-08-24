@@ -8,7 +8,7 @@ const Session = require('../session');
 const Utils = require('../utils/common');
 const Password = require('./password');
 
-const emailSenders = require('./email/senders');
+const emailSenders = require('../email/senders');
 const sendTextEmail = emailSenders.sendTextEmail;
 
 function createUser(req, res) {
