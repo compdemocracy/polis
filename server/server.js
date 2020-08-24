@@ -14405,7 +14405,7 @@ CREATE TABLE slack_user_invites (
       var serverData = {
         EXTRA_FACEBOOK_PERMS: process.env.EXTRA_FACEBOOK_PERMS || '',
       }
-      x = x.pipe(replaceStream('__SERVER_DATA__', JSON.stringify(serverData)));
+      x = x.pipe(replaceStream('<%= SERVER_DATA %>', JSON.stringify(serverData)));
 
       res.set(headers);
 
