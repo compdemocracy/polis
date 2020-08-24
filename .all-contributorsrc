@@ -239,6 +239,15 @@
         "doc",
         "code"
       ]
+    },
+    {
+      "login": "bamstam",
+      "name": "Bamstam",
+      "avatar_url": "https://avatars3.githubusercontent.com/u/9203888?v=4",
+      "profile": "https://github.com/bamstam",
+      "contributions": [
+        "translation"
+      ]
     }
   ]
 }
