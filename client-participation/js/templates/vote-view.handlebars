@@ -12,6 +12,7 @@
     margin: 10px;
     ">
   <div class="protip"><p><i class="fa fa-microphone"></i>&nbsp; {{s.connectToVotePrompt}}</p></div>
+  {{#if auth_opt_fb}}
   {{#unless hasFacebook}}
     <button id="facebookButtonVoteView" class="facebookButton" style="padding-top: 0px; margin-bottom: 4px;">
       <i class="svgIcon" style="
@@ -24,6 +25,8 @@
       ">{{> iconFaFacebookSquare25}}</i>
       {{s.connectFacebook}}</button>
   {{/unless}}
+  {{/if}}
+  {{#if auth_opt_tw}}
   {{#unless hasTwitter}}
     <button id="twitterButtonVoteView" class="twitterButton" style="padding-top: 0px; margin-bottom: 4px;">
     <i class="svgIcon" style="
@@ -36,6 +39,7 @@
     ">{{> iconFaTwitter25}}</i>
       {{s.connectTwitter}}</button>
   {{/unless}}
+  {{/if}}
 </div>
 
 {{else}}  {{!-- !needSocial --}}

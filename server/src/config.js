@@ -10,7 +10,7 @@ function getServerNameWithProtocol(req) {
   }
   if (devMode) {
     // usually localhost:5000
-    server = "http://" + req.headers.host;
+    server = req.protocol + "://" + req.headers.host;
   }
 
   if (req.headers.host.includes("preprod.pol.is")) {

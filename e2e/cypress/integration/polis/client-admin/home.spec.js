@@ -2,7 +2,7 @@ describe('Home Page', () => {
   beforeEach(() => cy.visit('/'))
 
   it('bare Url redirects to /home', () => {
-    cy.url().should('eq', Cypress.config().baseUrl + '/home')
+    cy.location('pathname').should('eq', '/home')
   })
 
   it('has Sign up and Sign in links', () => {

@@ -8,6 +8,10 @@ const server = require('./src/server');
 
 const app = express();
 
+// Trust the X-Forwarded-Proto and X-Forwarded-Host, but only on private subnets.
+// See: https://github.com/pol-is/polis/issues/546
+// See: https://expressjs.com/en/guide/behind-proxies.html
+app.set('trust proxy', 'uniquelocal');
 
 console.log('init 1');
 
