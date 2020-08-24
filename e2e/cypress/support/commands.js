@@ -25,59 +25,102 @@
 // Cypress.Commands.overwrite("visit", (originalFn, url, options) => { ... })
 
 Cypress.Commands.add("logout", () => {
-  cy.server()
-  cy.route('POST', Cypress.config().apiPath + '/auth/deregister')
-    .as('authLogout')
-
-  cy.visit('/signout')
-
-  cy.wait('@authLogout').its('status').should('eq', 200)
+  cy.request('POST', Cypress.config().apiPath + '/auth/deregister')
+    .then(resp => {
+      window.localStorage.removeItem('token2')
+      window.localStorage.removeItem('uid2')
+      window.localStorage.removeItem('uc')
+      window.localStorage.removeItem('e')
+    })
 })
 
-Cypress.Commands.add("signup", (name, email, password) => {
-  cy.visit('/createuser')
-
-  cy.get('form').within(function () {
-    cy.get('input#createUserNameInput').type(name)
-    cy.get('input#createUserEmailInput').type(email)
-    cy.get('input#createUserPasswordInput').type(password)
-    cy.get('input#createUserPasswordRepeatInput').type(password)
-
-    cy.get('button#createUserButton').click()
-  })
-})
-
-Cypress.Commands.add("login", (email, password) => {
-  cy.logout()
-  cy.visit('/signin')
-
-  cy.server()
-  cy.route({
+Cypress.Commands.add("signup", (name, email, password, strictFail=false) => {
+  cy.request({
     method: 'POST',
-    url: Cypress.config().apiPath + '/auth/login'
-  }).as('authLogin')
-
-  cy.get('form').within(function () {
-    cy.get('input#signinEmailInput').type(email)
-    cy.get('input#signinPasswordInput').type(password)
-
-    cy.get('button#signinButton').click()
+    url: Cypress.config().apiPath + '/auth/new',
+    body: {
+      email: email,
+      hname: name,
+      gatekeeperTosPrivacy: true,
+      password: password
+    },
+    failOnStatusCode: strictFail
+  }).then(resp => {
+    // Expand success criteria to allow user already existing.
+    // TODO: Be smarter with seeding users so we only create once.
+    if (!(resp.status === 200 || (resp.status === 403 && resp.body === 'polis_err_reg_user_with_that_email_exists'))) {
+      throw new Error(`Unexpected error code ${resp.status} returned during signup: ${resp.body}`)
+    }
   })
-
-  cy.wait('@authLogin').its('status').should('eq', 200)
 })
 
-Cypress.Commands.add("createConvo", (adminEmail, adminPassword) => {
-  cy.login(adminEmail, adminPassword)
-  cy.visit('/')
+function loginByPassword (email, password) {
+  cy.request('POST', Cypress.config().apiPath + '/auth/login', {
+    email: email,
+    password: password
+  }).then(resp => {
+    window.localStorage.setItem('token2', resp.body.token)
+    window.localStorage.setItem('uid2', resp.body.uid)
+    window.localStorage.setItem('uc', Date.now())
+    window.localStorage.setItem('e', 1)
+  })
+}
 
-  cy.server()
-  cy.route('GET', Cypress.config().apiPath + '/conversations**')
-    .as('getNewConvo')
+function loginByRole (userRole) {
+  cy.fixture('users.json').then((users) => {
+    const user = users[userRole]
+    loginByPassword(user.email, user.password)
+  })
+}
 
-  cy.get('button').contains('Create new conversation').click()
+Cypress.Commands.add("login", (...args) => {
+  cy.logout()
 
-  cy.wait('@getNewConvo').its('status').should('eq', 200)
-  // Wait for header of convo admin page to be available.
-  cy.contains('h3', 'Configure')
+  switch (args.length) {
+    case 0:
+    case 1:
+      const [userRole] = args.length ? args : ['moderator']
+      loginByRole(userRole)
+      break
+    default:
+    case 2:
+      const [email, password, ...rest] = args
+      loginByPassword(email, password)
+  }
 })
+
+Cypress.Commands.add("createConvo", (...args) => {
+  cy.login(...args)
+  cy.request('POST', Cypress.config().apiPath + '/conversations', {
+    is_active: true,
+    is_draft: true
+  }).its('body.conversation_id').as('convoId').then(x => {
+    // TODO: Remove this once other tests no longer rely on assumption of pageload.
+    cy.visit('/m/'+x)
+  })
+})
+
+Cypress.Commands.add('seedComment', (...args) => {
+  const [commentText, convoId, ...rest] = args
+  cy.login(...rest)
+  cy.request('POST', Cypress.config().apiPath + '/comments', {
+    txt: commentText,
+    pid: 'mypid',
+    conversation_id: convoId,
+    is_seed: true
+  })
+})
+
+// Allow visiting maildev inbox urls, to test sending of emails.
+// See: https://github.com/cypress-io/cypress/issues/944#issuecomment-651503805
+Cypress.Commands.overwrite(
+  'visit',
+  (originalFn, url, options) => {
+    if (url.includes(':1080')) {
+      cy.window().then(win => {
+        return win.open(url, '_self');
+      });
+    }
+    else { return originalFn(url, options); }
+  }
+);

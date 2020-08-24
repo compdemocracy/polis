@@ -1,17 +1,12 @@
 describe('Access control', () => {
-  before(() => {
-    cy.fixture('users.json').then((users) => {
-      const user = users.moderator
-      cy.createConvo(user.email, user.password)
+  before(function () {
+    cy.createConvo('moderator').then(() => {
+      cy.wrap(`/m/${this.convoId}`).as('adminPath')
     })
-    cy.location('pathname').as('adminPath')
   })
 
   beforeEach(() => {
-    cy.fixture('users.json').then((users) => {
-      const user = users.participant
-      cy.login(user.email, user.password)
-    })
+    cy.login('participant')
   })
 
   it('Cannot access /m/:id', function () {

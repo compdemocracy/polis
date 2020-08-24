@@ -8,8 +8,7 @@ const Session = require('../session');
 const Utils = require('../utils/common');
 const Password = require('./password');
 
-const AWS = require('aws-sdk');
-const emailSenders = require('../email/sendEmailSesMailgun').EmailSenders(AWS);
+const emailSenders = require('./email/senders');
 const sendTextEmail = emailSenders.sendTextEmail;
 
 function createUser(req, res) {

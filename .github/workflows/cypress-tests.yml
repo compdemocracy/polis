@@ -32,7 +32,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout
-        uses: actions/checkout@v2.3.1
+        uses: actions/checkout@v2.3.2
 
       # This step helps us know when to skip future steps, particularly if
       # we're on a fork where upstream secrets won't be available.
@@ -50,13 +50,22 @@ jobs:
           echo GOOGLE_CREDENTIALS_BASE64=${{ secrets.GOOGLE_CREDENTIALS_BASE64 }} >> server/docker-dev.env
           echo SHOULD_USE_TRANSLATION_API=true >> server/docker-dev.env
 
+      - name: Set server configuration
+        run: |
+          # Test email transport failovers
+          # mailgun: unconfigured transport (will fail)
+          # aws-ses: unconfigured transport (will fail)
+          # nonexistent: nonexistent transport (will fail)
+          # maildev: catch-all dev email server running in container (will work)
+          echo EMAIL_TRANSPORT_TYPES=mailgun,aws-ses,nonexistent,maildev >> server/docker-dev.env
+
       - name: Serve app via docker-compose
         run: docker-compose up --detach
 
       - name: "Run Cypress tests: default"
         uses: cypress-io/github-action@v1
         env:
-          CYPRESS_BASE_URL: http://localhost
+          CYPRESS_BASE_URL: https://localhost
         with:
           working-directory: ./e2e
           # Ignore all tests with pattern *.secrets.spec.js
@@ -67,7 +76,7 @@ jobs:
         if: env.DO_COMMENT_TRANSLATION
         uses: cypress-io/github-action@v1
         env:
-          CYPRESS_BASE_URL: http://localhost
+          CYPRESS_BASE_URL: https://localhost
         with:
           install: false
           working-directory: ./e2e
@@ -79,7 +88,7 @@ jobs:
       # NOTE: screenshots will be generated only if E2E test failed
       # thus we store screenshots only on failures
       - name: Save screenshot artefacts
-        uses: actions/upload-artifact@v2.1.1
+        uses: actions/upload-artifact@v2.1.4
         if: failure()
         with:
           name: cypress-screenshots
@@ -87,7 +96,7 @@ jobs:
 
       # Test run video was always captured, so this action uses "always()" condition
       - name: Save video artefacts
-        uses: actions/upload-artifact@v2.1.1
+        uses: actions/upload-artifact@v2.1.4
         if: always()
         with:
           name: cypress-videos
@@ -96,3 +105,11 @@ jobs:
       - name: Check status of containers
         if: failure()
         run: docker-compose ps
+
+      - name: 'Check logs: server'
+        if: failure()
+        run: docker-compose logs server
+
+      - name: 'Check logs: nginx-proxy'
+        if: failure()
+        run: docker-compose logs nginx-proxy
