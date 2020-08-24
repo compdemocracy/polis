@@ -124,10 +124,11 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <td align="center"><a href='https://pol.is/'><img src='https://avatars3.githubusercontent.com/u/1770265?v=4?s=100' width='100px;' alt=''/><br /><sub><b>Colin Megill</b></sub></a></td>
     <td align="center"><a href='http://kenwheeler.github.io/'><img src='https://avatars2.githubusercontent.com/u/286616?v=4?s=100' width='100px;' alt=''/><br /><sub><b>Ken Wheeler</b></sub></a></td>
     <td align="center"><a href='http://nodescription.net/'><img src='https://avatars2.githubusercontent.com/u/305339?v=4?s=100' width='100px;' alt=''/><br /><sub><b>Patrick Connolly</b></sub></a></td>
+    <td align="center"><a href='https://github.com/rohanrichards'><img src='https://avatars2.githubusercontent.com/u/16222002?v=4?s=100' width='100px;' alt=''/><br /><sub><b>Rohan Richards</b></sub></a></td>
     <td align="center"><a href='https://github.com/misscs'><img src='https://avatars1.githubusercontent.com/u/51812?v=4?s=100' width='100px;' alt=''/><br /><sub><b>cs</b></sub></a></td>
-    <td align="center"><a href='https://github.com/light24bulbs'><img src='https://avatars2.githubusercontent.com/u/581906?v=4?s=100' width='100px;' alt=''/><br /><sub><b>light24bulbs</b></sub></a></td>
   </tr>
   <tr>
+    <td align="center"><a href='https://github.com/light24bulbs'><img src='https://avatars2.githubusercontent.com/u/581906?v=4?s=100' width='100px;' alt=''/><br /><sub><b>light24bulbs</b></sub></a></td>
     <td align="center"><a href='https://github.com/mbjorkegren'><img src='https://avatars3.githubusercontent.com/u/2016166?v=4?s=100' width='100px;' alt=''/><br /><sub><b>mbjorkegren</b></sub></a></td>
     <td align="center"><a href='http://virgile-dev.github.io/'><img src='https://avatars0.githubusercontent.com/u/11473995?v=4?s=100' width='100px;' alt=''/><br /><sub><b>virgile-dev</b></sub></a></td>
     <td align="center"><a href='http://sais.tw/'><img src='https://avatars3.githubusercontent.com/u/2368060?v=4?s=100' width='100px;' alt=''/><br /><sub><b>蔡仲明 (Romulus Urakagi Tsai)</b></sub></a></td>
