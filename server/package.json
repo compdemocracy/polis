@@ -7,8 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "engines": {
-    "node": "10.9.0",
-    "npm": "6.4.1"
+    "node": "14.7.0"
   },
   "repository": {
     "type": "git",
@@ -24,7 +23,7 @@
     "aws-sdk": "^2.78.0",
     "babel-eslint": "^6.0.4",
     "badwords": "0.0.3",
-    "bcrypt": "3.0.8",
+    "bcrypt": "5.0.0",
     "bluebird": "3.5.0",
     "boolean": "^0.1.3",
     "connect-timeout": "1.9.0",
@@ -35,8 +34,9 @@
     "intercom-client": "2.9.4",
     "intercom.io": "1.5.0",
     "lru-cache": "3.0.0",
-    "mailgun": "0.4.3",
     "mimelib": "0.2.19",
+    "nodemailer": "^6.4.6",
+    "nodemailer-mailgun-transport": "^2.0.0",
     "oauth": "0.9.14",
     "optimist": "0.3.7",
     "p3p": "0.0.2",

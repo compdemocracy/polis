@@ -1,78 +1,94 @@
 describe('Interface internationalization', () => {
-  let lang
-
   const openTranslated = (path, lang, string) => {
     cy.visit(path, {qs: {ui_lang: lang}})
     cy.get('textarea#comment_form_textarea').should('have.attr', 'placeholder', string)
   }
 
-  before(() => {
-    cy.fixture('users.json').then((users) => {
-      const user = users.moderator
-      cy.createConvo(user.email, user.password)
-      cy.location('pathname').then((adminPath) => {
-        const convoPath = adminPath.replace('/m/', '/')
-        cy.wrap(convoPath).as('convoPath')
-      })
+  before(function () {
+    cy.createConvo('moderator').then(() => {
+      cy.wrap(`/${this.convoId}`).as('convoPath')
     })
   })
 
   beforeEach(() => {
-    cy.fixture('writePrompt_strings.json').as('strings')
-  })
-
-  it('translates into German', function () {
-    lang = 'de'
-    openTranslated(this.convoPath, lang, this.strings[lang])
+    const translations = {}
+    const locales = {
+      // <lang>: <filename>
+      da: 'da_dk',
+      de: 'de_de',
+      en: 'en_us',
+      es: 'es_la',
+      fr: 'fr',
+      it: 'it',
+      ja: 'ja',
+      nl: 'nl',
+      pt: 'pt_br',
+      'zh-CN': 'zh_Hans',
+      'zh-TW': 'zh_Hant'
+    }
+    for (let [lang, filename] of Object.entries(locales)) {
+      cy.readFile(`../client-participation/js/strings/${filename}.js`).then(contents => {
+        // The string key we're using to validate working.
+        const targetStringKey = 'writePrompt'
+        const string = eval(contents)[targetStringKey] || ''
+        translations[lang] = string
+      })
+    }
+    cy.wrap(translations).as('strings')
   })
 
   it('translates into Danish', function () {
-    lang = 'da'
+    const lang = 'da'
+    openTranslated(this.convoPath, lang, this.strings[lang])
+  })
+
+  it('translates into German', function () {
+    const lang = 'de'
     openTranslated(this.convoPath, lang, this.strings[lang])
   })
 
   it('translates into English', function () {
-    lang = 'en'
+    const lang = 'en'
     openTranslated(this.convoPath, lang, this.strings[lang])
   })
 
   it('translates into Spanish', function () {
-    lang = 'es'
+    const lang = 'es'
     openTranslated(this.convoPath, lang, this.strings[lang])
   })
 
   it('translates into French', function () {
-    lang = 'fr'
+    const lang = 'fr'
     openTranslated(this.convoPath, lang, this.strings[lang])
   })
 
   it('translates into Italian', function () {
-    lang = 'it'
+    const lang = 'it'
     openTranslated(this.convoPath, lang, this.strings[lang])
   })
 
   it('translates into Japanese', function () {
-    lang = 'ja'
+    const lang = 'ja'
     openTranslated(this.convoPath, lang, this.strings[lang])
   })
 
   it('translates into Dutch', function () {
-    lang = 'nl'
+    const lang = 'nl'
     openTranslated(this.convoPath, lang, this.strings[lang])
   })
 
   it('translates into Portugese', function () {
-    lang = 'pt'
+    const lang = 'pt'
     openTranslated(this.convoPath, lang, this.strings[lang])
   })
 
   it('translates into Simplified Chinese', function () {
-    lang = 'zh-CN'
+    const lang = 'zh-CN'
     openTranslated(this.convoPath, lang, this.strings[lang])
   })
 
   it('translates into Traditional Chinese', function () {
-    lang = 'zh-TW'
+    const lang = 'zh-TW'
     openTranslated(this.convoPath, lang, this.strings[lang])
   })
 })
