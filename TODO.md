@@ -1,3 +1,5 @@
+edit docker-compose
+
 client-report; finish copying polis.config to schema.yaml
 
 rename polisConfig2 polisConfig

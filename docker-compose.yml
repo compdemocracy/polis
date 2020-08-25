@@ -21,8 +21,8 @@ services:
     env_file: ./server/docker-dev.env
     image: polisdemo/server:dev
     build:
-      context: ./server
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: server/Dockerfile
     depends_on:
       - "postgres"
       - "file-server"
@@ -41,7 +41,8 @@ services:
     depends_on:
       - "postgres"
     build:
-      context: ./math
+      context: .
+      dockerfile: math/Dockerfile
     networks:
       - "polis-dev"
     volumes:
@@ -53,8 +54,8 @@ services:
     image: polisdemo/postgres:dev
     restart: always
     build:
-      context: ./server
-      dockerfile: Dockerfile-db
+      context: .
+      dockerfile: server/Dockerfile-db
     networks:
       - "polis-dev"
     volumes:
@@ -68,8 +69,8 @@ services:
     container_name: polis-nginx-proxy
     image: polisdemo/nginx-proxy:dev
     build:
-      context: ./file-server
-      dockerfile: nginx.Dockerfile
+      context: .
+      dockerfile: file-server/nginx.Dockerfile
     depends_on:
       - "server"
     networks:
@@ -83,8 +84,8 @@ services:
     container_name: polis-file-server
     image: polisdemo/file-server:dev
     build:
-      context: ./file-server
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: file-server/Dockerfile
     depends_on:
       - "client-participation"
       - "client-admin"
@@ -100,7 +101,8 @@ services:
     container_name: polis-client-participation
     image: polisdemo/client-participation:dev
     build:
-      context: ./client-participation
+      context: .
+      dockerfile: client-participation/Dockerfile
       args:
         GIT_HASH: "${GIT_HASH}"
     volumes:
@@ -110,7 +112,8 @@ services:
     container_name: polis-client-admin
     image: polisdemo/client-admin:dev
     build:
-      context: ./client-admin
+      context: .
+      dockerfile: client-admin/Dockerfile
       args:
         GIT_HASH: "${GIT_HASH}"
     volumes:
@@ -120,7 +123,8 @@ services:
     container_name: polis-client-report
     image: polisdemo/client-report:dev
     build:
-      context: ./client-report
+      context: .
+      dockerfile: client-report/Dockerfile
       args:
         GIT_HASH: "${GIT_HASH}"
     volumes:
@@ -130,7 +134,8 @@ services:
     container_name: polis-config
     image: polisdemo/config:dev
     build:
-      context: ./config
+      context: .
+      dockerfile: config/Dockerfile
       args:
         GIT_HASH: "${GIT_HASH}"
     volumes:

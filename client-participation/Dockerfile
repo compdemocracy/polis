@@ -9,15 +9,15 @@ RUN apk add --no-cache --virtual .build \
 RUN npm config set unsafe-perm true
 RUN npm install -g bower
 
-COPY package*.json ./
-COPY bower.json ./
+COPY client-participation/package*.json ./
+COPY client-participation/bower.json ./
 
 RUN npm ci
 RUN bower install --allow-root
 
 RUN apk del .build
 
-COPY . .
+COPY client-participation/* ./
 
 ARG GIT_HASH
 RUN npm run build:preprod
