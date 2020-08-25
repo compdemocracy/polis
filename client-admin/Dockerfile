@@ -10,6 +10,8 @@ RUN npm install
 
 COPY client-admin/* ./
 COPY client-admin/polis.config.template.js polis.config.js
+RUN mkdir config
+COPY config/* ./config/
 
 ARG GIT_HASH
 RUN npm run build:preprod
