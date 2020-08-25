@@ -18,6 +18,7 @@ RUN bower install --allow-root
 RUN apk del .build
 
 COPY client-participation/* ./
+COPY config ./
 
 ARG GIT_HASH
 RUN npm run build:preprod

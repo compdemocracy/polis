@@ -11,6 +11,10 @@ start:
 	@echo "--- Running 'docker-compose up --build -d'..."
 	GIT_HASH=`git log --pretty="%h" -n 1`  docker-compose up --build -d
 
+start-debug:
+	@echo "--- Running 'docker-compose --log-level DEBUG --verbose up --build -d'..."
+	GIT_HASH=`git log --pretty="%h" -n 1`  docker-compose --log-level DEBUG --verbose up --build -d
+
 start-server:
 	@echo "--- Running 'docker-compose up --build -d'..."
 	GIT_HASH=`git log --pretty="%h" -n 1` docker-compose up --build -d config
