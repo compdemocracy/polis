@@ -15,7 +15,6 @@ COPY client-participation/bower.json ./
 RUN npm ci
 RUN bower install --allow-root
 
-
 RUN apk del .build
 
 COPY client-participation/* ./

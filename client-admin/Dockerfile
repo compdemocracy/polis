@@ -6,7 +6,8 @@ WORKDIR /app
 RUN apk add git --no-cache
 
 COPY client-admin/package*.json ./
-RUN npm install
+#RUN npm install
+RUN npm ci
 
 COPY client-admin/* ./
 COPY client-admin/polis.config.template.js polis.config.js
