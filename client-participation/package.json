@@ -3,7 +3,8 @@
   "appName": "DashboardRequire",
   "version": "0.0.0",
   "scripts": {
-    "build:preprod": "gulp deployPreprod",
+    "build:preprod": "echo foobar",
+    "build:preprod-old": "gulp ./deployPreprod",
     "start": "node ./node_modules/.bin/grunt",
     "test": "node ./node_modules/.bin/grunt test"
   },

@@ -13,12 +13,14 @@ COPY client-participation/package*.json ./
 COPY client-participation/bower.json ./
 
 RUN npm ci
-RUN bower install --allow-root
+#RUN bower install --allow-root
+RUN bower install 
 
 RUN apk del .build
 
 COPY client-participation/* ./
 COPY config ./
 
+WORKDIR /app
 ARG GIT_HASH
 RUN npm run build:preprod
