@@ -19,6 +19,8 @@ RUN apk del .build
 
 COPY client-participation/* ./
 COPY client-participation/polis.config.template.js polis.config.js
+RUN ls -ltr .
+RUN ls -ltr vis2/*
 
 ARG GIT_HASH
 RUN npm run build:preprod

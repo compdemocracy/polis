@@ -86,6 +86,15 @@ services:
     ports:
       - "8080:8080"
 
+  client-report:
+    container_name: polis-client-report
+    image: polisdemo/client-report:dev
+    build:
+      context: .
+      dockerfile: client-report/Dockerfile    
+      args:
+        GIT_HASH: "${GIT_HASH}"
+
   client-participation:
     container_name: polis-client-participation
     image: polisdemo/client-participation:dev
@@ -101,15 +110,6 @@ services:
     build:
       context: .
       dockerfile: client-admin/Dockerfile   
-      args:
-        GIT_HASH: "${GIT_HASH}"
-
-  client-report:
-    container_name: polis-client-report
-    image: polisdemo/client-report:dev
-    build:
-      context: .
-      dockerfile: client-report/Dockerfile    
       args:
         GIT_HASH: "${GIT_HASH}"
 

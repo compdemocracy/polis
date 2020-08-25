@@ -9,7 +9,7 @@ COPY client-report/package*.json ./
 RUN npm ci
 
 COPY client-report/* ./
-COPY polis.config.template.js polis.config.js
+COPY client-report/polis.config.template.js polis.config.js
 
 ARG GIT_HASH
 RUN npm run build:preprod
