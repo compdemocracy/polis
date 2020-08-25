@@ -8,7 +8,7 @@ RUN apk add git --no-cache
 COPY client-report/package*.json ./
 RUN npm ci
 
-COPY client-report/* ./
+COPY client-report/ ./
 COPY client-report/polis.config.template.js polis.config.js
 
 ARG GIT_HASH

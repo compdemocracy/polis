@@ -17,7 +17,7 @@ RUN bower install --allow-root
 
 RUN apk del .build
 
-COPY client-participation/* ./
+COPY client-participation/ ./
 COPY client-participation/polis.config.template.js polis.config.js
 RUN ls -ltr .
 RUN ls -ltr vis2/*

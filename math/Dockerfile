@@ -5,7 +5,7 @@ ENV BUILD_DEPS="bash build-base libpng-dev zlib-dev autoconf automake libtool na
   LEIN_ROOT=1
 
 WORKDIR /build
-COPY math/* ./
+COPY math/ ./
 
 RUN \
   apk update && \

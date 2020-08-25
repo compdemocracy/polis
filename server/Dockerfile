@@ -13,7 +13,7 @@ RUN npm install
 
 RUN apk del .build
 
-COPY server/* ./
+COPY server/ ./
 
 EXPOSE 5000
 

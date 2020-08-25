@@ -12,7 +12,7 @@ COPY file-server/package*.json ./
 
 RUN npm ci
 
-COPY file-server/* ./
+COPY file-server/ ./
 COPY file-server/fs_config.template.json fs_config.json
 
 RUN mkdir /app/build
