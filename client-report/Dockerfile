@@ -5,10 +5,10 @@ WORKDIR /app
 
 RUN apk add git --no-cache
 
-COPY package*.json ./
+COPY client-report/package*.json ./
 RUN npm ci
 
-COPY . .
+COPY client-report/* ./
 COPY polis.config.template.js polis.config.js
 
 ARG GIT_HASH

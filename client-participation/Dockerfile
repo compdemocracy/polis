@@ -9,16 +9,16 @@ RUN apk add --no-cache --virtual .build \
 RUN npm config set unsafe-perm true
 RUN npm install -g bower
 
-COPY package*.json ./
-COPY bower.json ./
+COPY client-participation/package*.json ./
+COPY client-participation/bower.json ./
 
 RUN npm ci
 RUN bower install --allow-root
 
 RUN apk del .build
 
-COPY . .
-COPY polis.config.template.js polis.config.js
+COPY client-participation/* ./
+COPY client-participation/polis.config.template.js polis.config.js
 
 ARG GIT_HASH
 RUN npm run build:preprod
