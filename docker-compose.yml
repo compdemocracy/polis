@@ -23,6 +23,15 @@ services:
     build:
       context: ./server
       dockerfile: Dockerfile
+    command:
+      - "./node_modules/.bin/nodemon"
+      - "--max_old_space_size=400"
+      - "--gc_interval=100"
+      - "--harmony"
+      - "app.js"
+    volumes:
+      - './server:/app'
+      - '/app/node_modules'
     depends_on:
       - "postgres"
       - "file-server"
@@ -31,16 +40,16 @@ services:
     ports:
       - "5000:5000"
 
-  math:
-    container_name: polis-math
-    env_file: ./math/docker-dev.env
-    image: polisdemo/math:dev
-    depends_on:
-      - "postgres"
-    build:
-      context: ./math
-    networks:
-      - "polis-dev"
+  #math:
+    #container_name: polis-math
+    #env_file: ./math/docker-dev.env
+    #image: polisdemo/math:dev
+    #depends_on:
+      #- "postgres"
+    #build:
+      #context: ./math
+    #networks:
+      #- "polis-dev"
 
   postgres:
     container_name: polis-postgres
@@ -76,38 +85,38 @@ services:
     build:
       context: ./file-server
       dockerfile: Dockerfile
-    depends_on:
-      - "client-participation"
-      - "client-admin"
-      - "client-report"
+    #depends_on:
+      #- "client-participation"
+      #- "client-admin"
+      #- "client-report"
     networks:
       - "polis-dev"
     ports:
       - "8080:8080"
 
-  client-participation:
-    container_name: polis-client-participation
-    image: polisdemo/client-participation:dev
-    build:
-      context: ./client-participation
-      args:
-        GIT_HASH: "${GIT_HASH}"
+  #client-participation:
+    #container_name: polis-client-participation
+    #image: polisdemo/client-participation:dev
+    #build:
+      #context: ./client-participation
+      #args:
+        #GIT_HASH: "${GIT_HASH}"
 
-  client-admin:
-    container_name: polis-client-admin
-    image: polisdemo/client-admin:dev
-    build:
-      context: ./client-admin
-      args:
-        GIT_HASH: "${GIT_HASH}"
+  #client-admin:
+    #container_name: polis-client-admin
+    #image: polisdemo/client-admin:dev
+    #build:
+      #context: ./client-admin
+      #args:
+        #GIT_HASH: "${GIT_HASH}"
 
-  client-report:
-    container_name: polis-client-report
-    image: polisdemo/client-report:dev
-    build:
-      context: ./client-report
-      args:
-        GIT_HASH: "${GIT_HASH}"
+  #client-report:
+    #container_name: polis-client-report
+    #image: polisdemo/client-report:dev
+    #build:
+      #context: ./client-report
+      #args:
+        #GIT_HASH: "${GIT_HASH}"
 
   maildev:
     image: maildev/maildev:1.1.0
