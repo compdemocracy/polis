@@ -128,7 +128,7 @@ module.exports = {
 
       // Deployment via --deploy flag.
       if (cliArgs.deploy || cliArgs.deploy === 's3') {
-        if (!cliArgs.analyze) {
+        if (cliArgs.analyze) {
           console.log('Deploy not possible during analysis. Skipped.')
         } else if (dev) {
           console.log('Deploy only possible during build. Skipped.')
