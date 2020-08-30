@@ -140,7 +140,8 @@ module.exports = {
             fs.readFileSync('.polis_s3_creds_client.json')
           )
 
-          // See: https://github.com/MikaAK/s3-plugin-webpack
+          // S3 Bucket and IAM user configuration:
+          // https://github.com/MikaAK/s3-plugin-webpack/issues/139#issuecomment-683459109
           appConfig.plugins.push(
             new S3Plugin({
               // Despite warnings in README, deploy fails without `directory` set.
@@ -153,6 +154,7 @@ module.exports = {
                 secretAccessKey: creds.secret
               },
               s3UploadOptions: {
+                ACL: '',
                 // Choose bucket based on `--prod` flag when running `razzle build`.
                 Bucket: cliArgs.prod
                   ? process.env.S3_BUCKET_PROD
