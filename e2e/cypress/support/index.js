@@ -28,3 +28,11 @@ before(() => {
     }
   })
 })
+
+// Register the log collector for logging activity to terminal.
+const reporterOptions = {
+  // When to print terminal logs for tests.
+  // Options: onFail, always
+  printLogs: 'onFail',
+}
+require('cypress-terminal-report/src/installLogsCollector')(reporterOptions)
