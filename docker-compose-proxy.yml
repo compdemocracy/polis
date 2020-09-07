@@ -40,8 +40,8 @@ services:
     environment:
       # Uncomment when testing
       - DEBUG=true
-      # This will generate unlimited test certificates - not trusted by
-      # browsers but you can get > 5 per week
+      # Uncommenting ACME_CA_URI will generate unlimited test certificates -
+      # not trusted by browsers but you can get > 5 per week.
       - ACME_CA_URI=https://acme-staging-v02.api.letsencrypt.org/directory
 
 volumes:
