@@ -84,6 +84,7 @@ services:
 
   client-report:
     container_name: polis-client-report
+    env_file: ./.universal.env
     image: polisdemo/client-report:dev
     build:
       context: ./client-report
@@ -92,15 +93,11 @@ services:
 
   maildev:
     image: maildev/maildev:1.1.0
-    networks:
-      - "polis-dev"
     ports:
       # User interface
       - "1080:80"
       # SMTP port
       - "25:25"
-
-networks:
 
 volumes:
   backups:
