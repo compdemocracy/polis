@@ -4,6 +4,7 @@ module.exports = {
   domainWhitelist: [
     "^localhost$",
     "^192\\.168\\.1\\.140$",
+    "^192\\.168\\.+",
     "^pol\\.is",
     ".+\\.pol\\.is$",
     "^xip\\.io$",
