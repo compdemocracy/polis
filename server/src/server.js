@@ -11413,7 +11413,7 @@ CREATE TABLE slack_user_invites (
     });
   }
 
-  let proxy = new httpProxy.createProxyServer();
+  let routingProxy = new httpProxy.createProxyServer();
 
   function addStaticFileHeaders(res) {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -11453,7 +11453,7 @@ CREATE TABLE slack_user_invites (
     let port = process.env.STATIC_FILES_PORT;
     // set the host header too, since S3 will look at that (or the routing proxy will patch up the request.. not sure which)
     req.headers.host = hostname;
-    proxy.web(req, res, {
+    routingProxy.web(req, res, {
       target: {
         host: hostname,
         port: port,
