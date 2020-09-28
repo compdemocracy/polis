@@ -1,4 +1,4 @@
-FROM postgres:12.4-alpine
+FROM postgres:13.0-alpine
 
 # Used when no existing database on postgres volume, including first initialization.
 # See: docs/deployment.md#database-migrations
