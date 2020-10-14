@@ -34,7 +34,7 @@ jobs:
         echo "::set-output name=dir::$(npm config get cache)"
 
     - name: Restore npm cache directory
-      uses: actions/cache@v2.1.1
+      uses: actions/cache@v2.1.2
       with:
         path: ${{ steps.npm-cache.outputs.dir }}
         key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
