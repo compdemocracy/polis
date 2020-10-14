@@ -4,7 +4,7 @@ FROM polisdemo/client-admin:${TAG}          as admin
 FROM polisdemo/client-participation:${TAG}  as participation
 FROM polisdemo/client-report:${TAG}         as report
 
-FROM node:14.12.0-alpine
+FROM node:14.13.1-alpine
 
 WORKDIR /app
 
