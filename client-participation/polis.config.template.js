@@ -8,8 +8,8 @@ module.exports = {
     ".+\\.pol\\.is$",
     "^xip\\.io$",
     ".+\\.xip\\.io$",
-    ".+\\.demos-surveys\\.co\\.uk$",
-    "^demos-surveys\\.co\\.uk"
+    ".+\\.josh.demos-surveys\\.co\\.uk$",
+    "^josh.demos-surveys\\.co\\.uk"
   ],
 
   // Point to a polisServer instance (local recommended for dev)

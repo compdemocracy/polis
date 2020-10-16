@@ -30,14 +30,14 @@ services:
     environment:
       - PORT=5000
       - HSTS=off
-      - VIRTUAL_HOST=demos-surveys.co.uk,www.demos-surveys.co.uk
-      - LETSENCRYPT_HOST=demos-surveys.co.uk,www.demos-surveys.co.uk
+      - VIRTUAL_HOST=josh.demos-surveys.co.uk,www.josh.demos-surveys.co.uk
+      - LETSENCRYPT_HOST=josh.demos-surveys.co.uk,www.josh.demos-surveys.co.uk
       - VIRTUAL_PORT=5000
 
   math:
     container_name: polis-math
-    env_file: ./math/docker-dev.env
-    #env_file: ./.universal.env
+    #env_file: ./math/docker-dev.env
+    env_file: ./.universal.env
     depends_on:
       - "postgres"
     build:

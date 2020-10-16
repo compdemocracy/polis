@@ -3,7 +3,7 @@
   var firstRun = !window.polis._hasRun;
   polis._hasRun = 1;
   var iframes = [];
-  var polisUrl = "https://demos-surveys.co.uk";
+  var polisUrl = "https://josh.demos-surveys.co.uk";
   var maxHeightsSeen = {};
 
   polis.on = polis.on || {};
@@ -162,7 +162,7 @@
     iframe.width = "100%"; // may be constrained by parent div
     iframe.style.maxWidth = window.innerWidth + "px";
     iframe.height = o.height || 930;
-    iframe.style.border = o.border || "1px solid #ccc";
+    //iframe.style.border = o.border || "1px solid #ccc";
     iframe.style.borderRadius = o.border_radius || "4px";
     iframe.style.padding = o.padding || "4px"; // 1px ensures that right border shows up on default wordpress theme
     iframe.style.backgroundColor = "white";
@@ -209,6 +209,7 @@
     window.addEventListener(
       "message",
       function (event) {
+        // Exit the event  listener if the data origin isn't our expected value
         var data = event.data || {};
         var domain = event.origin.replace(/^https?:\/\//, "");
         if (!domain.match(/(^|\.)pol.is$/)) {

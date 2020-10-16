@@ -1,4 +1,7 @@
+export/
+.DS_Store
 *~
 .idea/
 *.swp
 *.swo
+*.zip

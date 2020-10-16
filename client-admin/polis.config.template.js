@@ -6,8 +6,8 @@ module.exports = {
     "^192\\.168\\.1\\.140$",
     "^pol\\.is",
     ".+\\.pol\\.is$",
-    ".+\\.demos-surveys\\.co\\.uk$",
-    "^demos-surveys\\.co\\.uk",
+    ".+\\.josh.demos-surveys\\.co\\.uk$",
+    "^josh.demos-surveys\\.co\\.uk",
     "^xip\\.io$",
     ".+\\.xip\\.io$"
   ],
@@ -18,7 +18,9 @@ module.exports = {
   FB_APP_ID: '661042417336977',
 
   //SERVICE_URL: 'http://localhost:5000',
-  SERVICE_URL: 'https://preprod.pol.is',
+  //SERVICE_URL: 'https://preprod.pol.is',
+  SERVICE_URL: 'https://josh.demos-surveys.co.uk',
+
 
   UPLOADER: 'local', // alt: s3, scp
 
