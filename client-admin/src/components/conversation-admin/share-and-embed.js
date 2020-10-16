@@ -30,7 +30,6 @@ class ShareAndEmbed extends React.Component {
     if (ComponentHelpers.shouldShowPermissionsError(this.props)) {
       return <NoPermission />
     }
-
     const { match } = this.props
     return (
       <div>
@@ -58,14 +57,14 @@ class ShareAndEmbed extends React.Component {
           </p>
         </div>
         <div>
-          <p> Embed</p>
+          <p> Embed conversation</p>
           <div>
             <pre>
               {'<div'}
               {" class='polis'"}
               {" data-conversation_id='" + match.params.conversation_id + "'>"}
               {'</div>\n'}
-              {"<script async src='https://pol.is/embed.js'></script>"}
+              {"<script async src='https://josh.demos-surveys.co.uk/embed.js'></script>"}
             </pre>
           </div>
           <p>

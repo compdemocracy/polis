@@ -76,6 +76,7 @@ services:
 
   client-admin:
     container_name: polis-client-admin
+    env_file: ./.universal.env
     image: polisdemo/client-admin:dev
     build:
       context: ./client-admin
