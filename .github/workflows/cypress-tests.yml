@@ -32,7 +32,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout
-        uses: actions/checkout@v2.3.2
+        uses: actions/checkout@v2.3.3
 
       # This step helps us know when to skip future steps, particularly if
       # we're on a fork where upstream secrets won't be available.
@@ -88,7 +88,7 @@ jobs:
       # NOTE: screenshots will be generated only if E2E test failed
       # thus we store screenshots only on failures
       - name: Save screenshot artefacts
-        uses: actions/upload-artifact@v2.1.4
+        uses: actions/upload-artifact@v2.2.0
         if: failure()
         with:
           name: cypress-screenshots
@@ -96,7 +96,7 @@ jobs:
 
       # Test run video was always captured, so this action uses "always()" condition
       - name: Save video artefacts
-        uses: actions/upload-artifact@v2.1.4
+        uses: actions/upload-artifact@v2.2.0
         if: always()
         with:
           name: cypress-videos
