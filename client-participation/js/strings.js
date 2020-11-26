@@ -35,7 +35,10 @@ var translations = {
   pt_br: require("./strings/pt_br.js"),
 
   // Japanese
-  ja: require("./strings/ja.js")
+  ja: require("./strings/ja.js"),
+  
+  // Croatian
+  hr: require("./strings/hr.js")
 };
 
 
