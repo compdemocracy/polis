@@ -2,9 +2,9 @@
 
 var s = {};
 
-s.agree = "Slažem se";
-s.disagree = "Ne slažem se";
-s.pass = "Neutralan sam / Nisam siguran";
+s.agree = "DA";
+s.disagree = "NE";
+s.pass = "Dalje";
 
 s.importantCheckbox = "Ovaj komentar je bitan";
 s.howImportantPrompt = "Koliko bitna je ova izjava?";
@@ -18,8 +18,8 @@ s.modImportant = "Bitno";
 s.modSubmitInitialState = "Preskoči (ništa od navedenog), sljedeća izjava";
 s.modSubmit = "Gotovo, sljedeća izjava";
 
-s.x_wrote = "napisano:";
-s.x_tweeted = "tweetano:";
+s.x_wrote = "napisao/la:";
+s.x_tweeted = "tweetao/la:";
 s.comments_remaining = "{{num_comments}} preostalo";
 s.comments_remaining2 = "{{num_comments}} preostalih izjava";
 s.group_123 = "Grupa:";
@@ -31,12 +31,12 @@ s.addPolisToYourSite = "<img style='height: 20px; margin: 0px 4px;' src='{{URL}}
 s.privacy = "Obavijest o privatnosti";
 s.TOS = "Pravila korištenja";
 s.writePrompt = "Podijelite svoje viđenje...";
-s.anonPerson = "Anonimno";
+s.anonPerson = "Nepoznat";
 s.helpWhatAmISeeingTitle = "Što vidim?";
 s.helpWhatAmISeeing = "Ljudi koji glasaju slično grupirani su. Kliknite grupu da biste vidjeli koja gledišta dijele.";
 s.helpWhatDoIDoTitle = "Što da radim?";
-s.helpWhatDoIDo = "Glasajte o izjavama drugih klikom na "Slažem se" ili "Ne slažem se". Napišite svoju izjavu (neka se svaka izjava tiče samo jedne ideje). Pozovite svoje prijatelje na razgovor!";
-s.writeCommentHelpText = "Vaša gledišta ili iskustva nisu zastupljena dosadašnjim razgovorom? <b>Dodajte ih</b> koristeći donji okvir.";
+s.helpWhatDoIDo = "Glasajte o izjavama drugih klikom na 'DA' ili 'NE'. Napišite svoju izjavu (neka se svaka izjava tiče samo jedne ideje). Pozovite svoje prijatelje na razgovor!";
+s.writeCommentHelpText = "Vaša gledišta ili iskustva nisu zastupljena dosadašnjim razgovorom? Dodajte ih koristeći donji okvir.";
 s.helpWriteListIntro = "Kako znam da je izjava dobro sročena?";
 s.helpWriteListStandalone = "Jedna ideja";
 s.helpWriteListRaisNew = "Novo viđenje, iskustvo ili problem";
@@ -62,12 +62,12 @@ s.pctDisagreedOfGroupLong = "{{pct}}% onih u Grupi {{group}} koji su glasali o i
 s.commentSent = "Izjava je objavljena! Ostali sudionici će vidjeti vašu izjavu te mogu glasati slažu li se ili ne slažu.";
 s.commentSendFailed = "Pojavila se greška prilikom objavljivanja vaše izjave - Vaša izjava ne može biti objavljena.";
 s.commentSendFailedEmpty = "Pojavila se greška prilikom objavljivanja vaše izjave - Izjava ne može biti prazna.";
-s.commentSendFailedTooLong = "Pojavila se greška prilikom objavljivanja vaše izjave - Izjava je predugačka.";
+s.commentSendFailedTooLong = "Pojavila se greška prilikom objavljivanja vaše izjave - Izjava je preduga.";
 s.commentSendFailedDuplicate = "Pojavila se greška prilikom objavljivanja vaše izjave - Već postoji izjava identična vašoj.";
 s.commentErrorDuplicate = "Ponovljeno! Već postoji izjava identična vašoj.";
 s.commentErrorConversationClosed = "Ovaj razgovor je završen. Više nije moguće objavljivati nove izjave.";
 s.commentIsEmpty = "Izjava je prazna.";
-s.commentIsTooLong = "Izjava je predugačka.";
+s.commentIsTooLong = "Izjava je preduga.";
 s.hereIsNextStatement = "Vaše glasanje je uspjelo. Pomaknite se prema gore kako biste vidjeli sljedeću izjavu.";
 
 s.connectFacebook = "Spojite se pomoću Facebooka";
@@ -80,13 +80,13 @@ s.tipCharLimit = "Izjava može sadržavati najviše {{char_limit}} znakova.";
 s.tipCommentsRandom = "Imajte na umu da se izjave prikazuju nasumično i da nije moguće izravno odgovarati na izjave drugih sudionika.";
 s.tipOneIdea = "Razdvojite duge izjave koje sadrže više ideja u više kraćih rečenica. To drugima olakšava razumijevanje vaše izjave i glasanje o njoj.";
 s.tipNoQuestions = "Izjave ne mogu biti u obliku pitanja. Ostali sudionici će se složiti ili ne s izjavama koje date.";
-s.commentTooLongByChars = "Vaša izjava je {{CHARACTERS_COUNT}} znakova predugačka.";
+s.commentTooLongByChars = "Vaša izjava je {{CHARACTERS_COUNT}} znakova preduga.";
 s.notSentSinceDemo = "(Ovo je samo pokazni primjer)";
 s.submitComment = "Objavi";
 s.tipStarred = "Označeno kao bitno.";
-s.participantHelpWelcomeText = "Dobro došli u novi oblik razgovora - <em>glasajte</em> o izjavama drugih ljudi.";
+s.participantHelpWelcomeText = "Dobro došli u novi oblik razgovora - glasajte o mišljenjima drugih ljudi.";
 s.participantHelpGroupsText = "Svi koji glasaju slično <span style='font-weight: 700;'>čine grupu.</span> Kliknite grupu kako biste vidjeli gledišta njenih članova. <a style='font-weight: 700; cursor: pointer; text-decoration: underline' id='helpTextGroupsExpand'>...više</a>";
-s.participantHelpGroupsNotYetText = "Vizualni pregled glasanja pojavit će se nakon glasa 7 sudionika.";
+s.participantHelpGroupsNotYetText = "Vizualni pregled glasanja pojavit će se nakon što glasa 7 sudionika.";
 s.helpWhatAreGroupsDetail = "<p>Vjerojatno znate za odjeljak 'Preporučeni proizvodi' na Amazonu ili 'Preporučeni filmovi' na Netflixu. Te usluge koriste statističke metode za grupiranje nekog korisnika s drugim ljudima koji kupuju slične proizvode ili gledaju slične filmove, a zatim tom korisniku preporučuju proizvode ili filmove koje su kupili ili pogledali ti ljudi sa sličnim ukusom.</p> <p> Takav sustav koristi se i ovdje - nakon što sudionik glasa o nekoj izjavi ili više izjava, grupira ga se s ostalim sudionicima koji su glasali slično! Tako formirane grupe možete vidjeti u nastavku. Svaka grupa okuplja ljude koji imaju slična mišljenja. Ovaj pristup nudi mogućnost da o svakom vođenom razgovoru dobijete zanimljive uvide, a možda i otkrijete nešto fascinantno ili neočekivano. Samo naprijed - kliknite na neku grupu kako biste vidjeli što je spojilo njene članove i po čemu su jedinstveni! </p>";
 s.socialConnectPrompt = "Ukoliko želite, spojite se preko društvene mreže kako biste mogli vidjeti gdje se u vizualnom pregledu nalaze vaši prijatelji.";
 s.connectFbButton = "Spojite se pomoću Facebooka";
