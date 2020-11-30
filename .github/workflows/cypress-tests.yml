@@ -41,7 +41,7 @@ jobs:
           GOOGLE_CREDENTIALS_BASE64: ${{ secrets.GOOGLE_CREDENTIALS_BASE64 }}
         run: |
           if [ -n "$GOOGLE_CREDENTIALS_BASE64" ]; then
-            echo "::set-env name=DO_COMMENT_TRANSLATION::true"
+            echo "DO_COMMENT_TRANSLATION=true" >> $GITHUB_ENV
           fi
 
       - name: Enable comment translation
