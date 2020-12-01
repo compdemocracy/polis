@@ -22,7 +22,7 @@
     "gulp": "~3.8.6",
     "gulp-sass": "^4.0.1",
     "gulp-scp2": "^0.2.0",
-    "handlebars": "^1.3.0",
+    "handlebars": "^4.5.3",
     "hull.js": "^0.2.10",
     "jquery": "~1.11",
     "lodash": "4.17.19",
