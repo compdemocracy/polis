@@ -189,8 +189,7 @@
 (comment
   ;; Here we're putting everything together
   ;; This may not all be 100% correct, as it was copied over from the repl... but I ran through all but the spit and sanity checks pass
-  (require '[incanter.charts :as charts]
-           '[polismath.runner :as runner]
+  (require '[polismath.runner :as runner]
            '[polismath.system :as system])
   ;(runner/run! system/base-system {:math-env :preprod})
   ;; Load the data for 15117 (zinvite 2ez5beswtc)

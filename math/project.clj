@@ -1,5 +1,5 @@
-;; Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+;; Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 (defproject polismath "0.1.0-SNAPSHOT"
   :source-paths ["src/"]
   ;; TODO Need to replace .lein-git-deps with proper checkouts
@@ -56,7 +56,7 @@
                  [bidi "2.1.6" :exclusions [prismatic/schema]]
                  ;; Taking out storm cause yeah...
                  ;[org.apache.storm/storm-core "0.9.2-incubating"]
-                 [incanter "1.9.3" :exclusions [org.clojure/clojure]]
+                 ;[incanter "1.9.3" :exclusions [org.clojure/clojure]]
                  [bigml/sampling "3.2"]
                  [amazonica "0.3.152" :exclusions [org.apache.httpcomponents/httpclient
                                                    org.apache.httpcomponents/httpcore]]

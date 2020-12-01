@@ -56,7 +56,7 @@
 (defn- count-votes
   [votes & [vote]]
   "Utility function for counting the number of votes matching `vote`. Not specifying `vote` returns
-  length of vote vector."
+  length of vote vector, sans any missed votes."
   (let [filt-fn (if vote #(= vote %) identity)]
     (count (filter filt-fn votes))))
 
@@ -324,7 +324,7 @@
 ;; Participant analyses
 ;; ====================
 
-;; We'd like to characterize various interesting participanti archetypes.
+;; We'd like to characterize various interesting participant archetypes.
 
 ;; * bridge: individuals who have the potential of "bridging" the divide between groups
 ;;     * high a-repness in multiple groups, or
