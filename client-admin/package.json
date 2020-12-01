@@ -76,7 +76,7 @@
     "redux": "^3.0.2",
     "redux-thunk": "^2.3.0",
     "theme-ui": "^0.3.1",
-    "victory": "^34.3.11"
+    "victory": "^35.4.0"
   },
   "jest": {
     "collectCoverage": true,
