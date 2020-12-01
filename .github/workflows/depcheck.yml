@@ -21,7 +21,7 @@ jobs:
         run: |
           unset HAS_SECRET
           if [ -n "$GITHUB_TOKEN" ]; then HAS_SECRET=true; fi
-          echo ::set-env name=HAS_SECRET::${HAS_SECRET}
+          echo "name=HAS_SECRET" >> $GITHUB_ENV
 
       - name: Use Node.js
         uses: actions/setup-node@v2.1.2
