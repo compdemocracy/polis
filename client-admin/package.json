@@ -68,7 +68,7 @@
     "jquery": "^2.1.4",
     "lodash": "^4.17.20",
     "prop-types": "^15.7.2",
-    "react": "^16.4.0",
+    "react": "^16.14.0",
     "react-dom": "^16.4.0",
     "react-easy-emoji": "^1.4.0",
     "react-redux": "7.2.1",
