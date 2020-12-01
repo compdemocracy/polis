@@ -63,7 +63,7 @@ jobs:
         run: docker-compose up --detach
 
       - name: "Run Cypress tests: default"
-        uses: cypress-io/github-action@v1
+        uses: cypress-io/github-action@v2
         env:
           CYPRESS_BASE_URL: https://localhost
         with:
@@ -74,7 +74,7 @@ jobs:
 
       - name: "Run Cypress tests: comment translation"
         if: env.DO_COMMENT_TRANSLATION
-        uses: cypress-io/github-action@v1
+        uses: cypress-io/github-action@v2
         env:
           CYPRESS_BASE_URL: https://localhost
         with:
