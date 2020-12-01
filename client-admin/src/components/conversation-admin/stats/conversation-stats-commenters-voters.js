@@ -5,7 +5,7 @@ import PropTypes from 'prop-types'
 import { VictoryChart } from 'victory-chart'
 import { VictoryLine } from 'victory-line'
 import { VictoryAxis } from 'victory-axis'
-import * as d3 from 'd3'
+import { scaleLinear, scaleTime } from 'd3-scale'
 
 class CommentersVoters extends React.Component {
   render() {
@@ -14,8 +14,8 @@ class CommentersVoters extends React.Component {
         width={this.props.chartWidth}
         height={this.props.chartHeight}
         scale={{
-          x: d3.scaleTime(this.props.data.firstVoteTimes),
-          y: d3.scaleLinear()
+          x: scaleTime(this.props.data.firstVoteTimes),
+          y: scaleLinear()
         }}>
         <VictoryLine
           style={{
