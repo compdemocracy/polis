@@ -8,7 +8,7 @@
     "test": "node ./node_modules/.bin/grunt test"
   },
   "engines": {
-    "node": "~8.12"
+    "node": "11.15.0"
   },
   "dependencies": {
     "autosize": "^3.0.3",
