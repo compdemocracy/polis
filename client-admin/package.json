@@ -73,7 +73,7 @@
     "react-easy-emoji": "^1.4.0",
     "react-redux": "7.2.1",
     "react-router-dom": "^5.2.0",
-    "redux": "^3.0.2",
+    "redux": "^4.0.5",
     "redux-thunk": "^2.3.0",
     "theme-ui": "^0.3.1",
     "victory": "^35.4.0"
