@@ -17,3 +17,4 @@ polis.config.js
 .env_always
 polisStatic/
 scratch
+polis.config
