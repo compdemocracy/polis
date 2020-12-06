@@ -120,13 +120,14 @@ A Facebook app is required for sign-in via Facebook Login.
       ![screenshot](/docs/images/facebook-app-1.png)
     </details>
 4. Click `Settings > Basic` and add your domain (or IP) to _App Domains_.
+    - E.g., `123.45.67.89.xip.io` or `localhost` or `example.com`
     <details>
       <summary>Screenshot</summary>
 
       ![screenshot](/docs/images/facebook-app-2.png)
     </details>
 5. Note the _App ID_.
-6. Configure `FB_APP_ID` within `polis.config.js` of both the participation and admin client components.
+6. Configure `FB_APP_ID` within `polis.config.js` of both `client-participation` and `client-admin` subdirs.
 7. Rebuild your docker environment.
 
 
