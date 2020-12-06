@@ -52,8 +52,8 @@ jobs:
 
       - name: Configure Facebook login
         run: |
-          sed -i .bak "s/000000000000000/${{ secrets.FB_APP_ID }}/" client-admin/polis.config.template.js
-          sed -i .bak "s/000000000000000/${{ secrets.FB_APP_ID }}/" client-participation/polis.config.template.js
+          sed -i .bak "s/661042417336977/${{ secrets.FB_APP_ID }}/" client-admin/polis.config.template.js
+          sed -i .bak "s/661042417336977/${{ secrets.FB_APP_ID }}/" client-participation/polis.config.template.js
 
       - name: Set server configuration
         run: |
