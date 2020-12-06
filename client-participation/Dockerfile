@@ -17,8 +17,10 @@ RUN bower install --allow-root
 
 RUN apk del .build
 
-COPY . .
 COPY polis.config.template.js polis.config.js
+# Note: This will not only copy all remaining files, but also
+# override the above template with `polis.config.js` (if it exists)
+COPY . .
 
 ARG GIT_HASH
 RUN npm run build:preprod

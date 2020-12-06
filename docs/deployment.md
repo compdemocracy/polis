@@ -107,6 +107,30 @@ We use Google to automatically translate submitted comments into the language of
    [base64-encoder]: https://codepen.io/bsngr/pen/awuDh
 
 
+## Creating a Facebook App
+
+A Facebook app is required for sign-in via Facebook Login.
+
+1. Visit [`developers.facebook.com`](https://developers.facebook.com/) and create an app via "My Apps".
+2. Enter any _Display Name_ and click `Create App ID`.
+3. Click `Set Up` under "Facebook Login" (ignore the setup wizard that appears).
+    <details>
+      <summary>Screenshot</summary>
+
+      ![screenshot](/docs/images/facebook-app-1.png)
+    </details>
+4. Click `Settings > Basic` and add your domain (or IP) to _App Domains_.
+    - E.g., `123.45.67.89.xip.io` or `localhost` or `example.com`
+    <details>
+      <summary>Screenshot</summary>
+
+      ![screenshot](/docs/images/facebook-app-2.png)
+    </details>
+5. Note the _App ID_.
+6. Configure `FB_APP_ID` within `polis.config.js` of both `client-participation` and `client-admin` subdirs.
+7. Rebuild your docker environment.
+
+
 # About SSL/HTTPS
 
 **Important:** These instructions use an insecure, self-signed SSL certificate,

@@ -19,7 +19,7 @@ module.exports = {
 
   DISABLE_INTERCOM: true,
 
-  // must register with facebook and get a facebook app id to use the facebook auth features
+  // must register with facebook and get YOUR OWN facebook app id to use the facebook auth features
   FB_APP_ID: '661042417336977',
 
   // For data exports
