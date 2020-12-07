@@ -4,17 +4,17 @@ var s = {};
 
 s.agree = "Akkoord";
 s.disagree = "Niet akkoord";
-s.pass = "Pass / onzeke";
+s.pass = "Geen mening";
 
 s.modSpam = "Spam";
-s.modOffTopic = "Off Topic";
+s.modOffTopic = "Niet relevant";
 s.modImportant = "Belangrijk";
 s.modSubmitInitialState = "Overslaan (geen enkel van bovenstaande), volgende reactie";
 s.modSubmit = "Klaar, ga naar volgende reactie";
 
 s.x_wrote = "schreef:";
 s.x_tweeted = "tweette:";
-s.comments_remaining = "{{num_comments}} overblijvend";
+s.comments_remaining = "{{num_comments}} resterend";
 s.comments_remaining2 = "{{num_comments}} resterende reacties";
 s.group_123 = "Groep:";
 s.comment_123 = "Reactie:";
