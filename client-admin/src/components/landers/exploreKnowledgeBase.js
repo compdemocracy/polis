@@ -35,11 +35,7 @@ const ExploreKnowledgeBase = () => {
           e="🔩"
           txt="Usage Overview"
         />
-        <KnowledgeBase
-          url="https://compdemocracy.org/FAQ"
-          e="📖"
-          txt="FAQ"
-        />
+        <KnowledgeBase url="https://compdemocracy.org/FAQ" e="📖" txt="FAQ" />
         <KnowledgeBase
           url="https://compdemocracy.org/Case-studies"
           e="⚗️"
