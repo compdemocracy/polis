@@ -4,7 +4,7 @@ var s = {};
 
 s.agree = "Akkoord";
 s.disagree = "Niet akkoord";
-s.pass = "Geen mening";
+s.pass = "Onzeker";
 
 s.modSpam = "Spam";
 s.modOffTopic = "Niet relevant";
