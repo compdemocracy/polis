@@ -63,7 +63,7 @@
     "webpack-dev-middleware": "^3.7.2"
   },
   "dependencies": {
-    "boolean": "^3.0.1",
+    "boolean": "^3.0.2",
     "d3-scale": "^3.2.3",
     "jquery": "^2.1.4",
     "lodash": "^4.17.20",
