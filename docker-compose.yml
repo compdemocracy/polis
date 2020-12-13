@@ -18,61 +18,44 @@ version: "3.1"
 services:
   server:
     container_name: polis-server
-    env_file: ./server/docker-dev.env
-    image: polisdemo/server:dev
+    env_file: ./.universal.env
     build:
       context: ./server
       dockerfile: Dockerfile
     depends_on:
       - "postgres"
       - "file-server"
-    networks:
-      - "polis-dev"
     ports:
       - "5000:5000"
+    environment:
+      - PORT=5000
+      - HSTS=off
+      - VIRTUAL_HOST=josh.demos-surveys.co.uk,www.josh.demos-surveys.co.uk
+      - LETSENCRYPT_HOST=josh.demos-surveys.co.uk,www.josh.demos-surveys.co.uk
+      - VIRTUAL_PORT=5000
 
   math:
     container_name: polis-math
-    env_file: ./math/docker-dev.env
-    image: polisdemo/math:dev
+    #env_file: ./math/docker-dev.env
+    env_file: ./.universal.env
     depends_on:
       - "postgres"
     build:
       context: ./math
-    networks:
-      - "polis-dev"
 
   postgres:
     container_name: polis-postgres
-    env_file: ./server/docker-db-dev.env
-    image: polisdemo/postgres:dev
+    env_file: ./.universal.env
     restart: always
     build:
       context: ./server
       dockerfile: Dockerfile-db
-    networks:
-      - "polis-dev"
     volumes:
       - "backups:/backups"
       - "postgres:/var/lib/postgresql/data"
 
-  nginx-proxy:
-    container_name: polis-nginx-proxy
-    image: polisdemo/nginx-proxy:dev
-    build:
-      context: ./file-server
-      dockerfile: nginx.Dockerfile
-    depends_on:
-      - "server"
-    networks:
-      - "polis-dev"
-    ports:
-      - "80:80"
-      - "443:443"
-
   file-server:
     container_name: polis-file-server
-    image: polisdemo/file-server:dev
     build:
       context: ./file-server
       dockerfile: Dockerfile
@@ -80,8 +63,6 @@ services:
       - "client-participation"
       - "client-admin"
       - "client-report"
-    networks:
-      - "polis-dev"
     ports:
       - "8080:8080"
 
@@ -95,6 +76,7 @@ services:
 
   client-admin:
     container_name: polis-client-admin
+    env_file: ./.universal.env
     image: polisdemo/client-admin:dev
     build:
       context: ./client-admin
@@ -103,6 +85,7 @@ services:
 
   client-report:
     container_name: polis-client-report
+    env_file: ./.universal.env
     image: polisdemo/client-report:dev
     build:
       context: ./client-report
@@ -111,16 +94,11 @@ services:
 
   maildev:
     image: maildev/maildev:1.1.0
-    networks:
-      - "polis-dev"
     ports:
       # User interface
       - "1080:80"
       # SMTP port
       - "25:25"
-
-networks:
-  polis-dev:
 
 volumes:
   backups:

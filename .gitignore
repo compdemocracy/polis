@@ -1,1 +1,9 @@
+export/
+.DS_Store
 *~
+.idea/
+*.swp
+*.swo
+*.zip
+.ssh/
+cached-files/
