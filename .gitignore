@@ -5,3 +5,5 @@ export/
 *.swp
 *.swo
 *.zip
+.ssh/
+cached-files/
