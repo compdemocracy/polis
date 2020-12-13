@@ -4,12 +4,8 @@ module.exports = {
   domainWhitelist: [
     "^localhost$",
     "^192\\.168\\.+",
-    "^pol\\.is",
-    ".+\\.pol\\.is$",
-    ".+\\.josh.demos-surveys\\.co\\.uk$",
-    "^josh.demos-surveys\\.co\\.uk",
-    "^xip\\.io$",
-    ".+\\.xip\\.io$"
+    ".+\\.coin\\.demos\\.co\\.uk$",
+    "^coin\\.demos\\.co\\.uk",
   ],
 
   DISABLE_INTERCOM: true,
@@ -19,7 +15,7 @@ module.exports = {
 
   //SERVICE_URL: 'http://localhost:5000',
   //SERVICE_URL: 'https://preprod.pol.is',
-  SERVICE_URL: 'https://josh.demos-surveys.co.uk',
+  SERVICE_URL: 'https://coin.demos.co.uk',
 
 
   UPLOADER: 'local', // alt: s3, scp

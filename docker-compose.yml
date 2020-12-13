@@ -30,8 +30,8 @@ services:
     environment:
       - PORT=5000
       - HSTS=off
-      - VIRTUAL_HOST=josh.demos-surveys.co.uk,www.josh.demos-surveys.co.uk
-      - LETSENCRYPT_HOST=josh.demos-surveys.co.uk,www.josh.demos-surveys.co.uk
+      - VIRTUAL_HOST=coin.demos.co.uk,www.coin.demos.co.uk
+      - LETSENCRYPT_HOST=coin.demos.co.uk,www.coin.demos.co.uk
       - VIRTUAL_PORT=5000
 
   math:

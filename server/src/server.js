@@ -1047,7 +1047,7 @@ function initializePolisHelpers() {
     "facebook.com",
     "api.twitter.com",
     "connect.stripe.com",
-    "demos-surveys.co.uk",
+    "demos.co.uk",
     "", // for API
   ];
 
