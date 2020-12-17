@@ -15,7 +15,7 @@ module.exports = {
 
   //SERVICE_URL: 'http://localhost:5000',
   //SERVICE_URL: 'https://preprod.pol.is',
-  SERVICE_URL: 'https://coin.demos.co.uk',
+  SERVICE_URL: 'https://coin-panel.demos.co.uk',
 
 
   UPLOADER: 'local', // alt: s3, scp
