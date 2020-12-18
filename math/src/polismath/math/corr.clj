@@ -21,8 +21,9 @@
     ;[incanter.charts :as charts]
     ;[polismath.conv-man :as conv-man]
     [clojure.set :as set]
-    [polismath.components.postgres :as postgres]
-    [incanter.stats :as ic-stats]))
+    [polismath.components.postgres :as postgres]))
+    ;; Can't use ic-stats anymore; It's turned to shit and can't be imported in clj/deps.edn
+    ;[incanter.stats :as ic-stats]))
 
 
 
@@ -128,10 +129,12 @@
 ;; The actual correlation matrix stuff
 
 
-(defn correlation-matrix
-  [nmat]
-  {:matrix (ic-stats/correlation (matrix/matrix (nm/get-matrix nmat)))
-   :comments (nm/colnames nmat)})
+;; See above
+;; Can't use ic-stats anymore; It's turned to shit and can't be imported in clj/deps.edn
+;(defn correlation-matrix
+  ;[nmat]
+  ;{:matrix (ic-stats/correlation (matrix/matrix (nm/get-matrix nmat)))
+   ;:comments (nm/colnames nmat)})
 
 
 ;; Here's some stuff for spitting out the actual results.
@@ -161,22 +164,24 @@
           repness)))))
 
 
-(defn compute-corr
-  ([conv tids]
-   (let [matrix (:rating-mat conv)
-         subset-matrix (if tids (nm/colname-subset matrix tids) matrix)
-         cleaned-matrix (cleaned-nmat subset-matrix)
-         transposed-matrix (transpose-nmat cleaned-matrix)
-         corr-mat (prof/profile :info :corr-mat (correlation-matrix cleaned-matrix))
-         hclusters (prof/profile :info ::hclust (hclust transposed-matrix))
-         corr-mat' (blockify-corr-matrix corr-mat hclusters)
-         corr-mat'
-         ;; Prep for export...
-         (update corr-mat' :matrix (comp (partial mapv (fn [row] (into [] row)))
-                                         matrix/rows))]
-     corr-mat'))
-  ([conv]
-   (compute-corr conv (default-tids conv))))
+;; See above:
+;; Can't use ic-stats anymore; It's turned to shit and can't be imported in clj/deps.edn
+;(defn compute-corr
+  ;([conv tids]
+   ;(let [matrix (:rating-mat conv)
+         ;subset-matrix (if tids (nm/colname-subset matrix tids) matrix)
+         ;cleaned-matrix (cleaned-nmat subset-matrix)
+         ;transposed-matrix (transpose-nmat cleaned-matrix)
+         ;corr-mat (prof/profile :info :corr-mat (correlation-matrix cleaned-matrix))
+         ;hclusters (prof/profile :info ::hclust (hclust transposed-matrix))
+         ;corr-mat' (blockify-corr-matrix corr-mat hclusters)
+         ;corr-mat'
+         ;;; Prep for export...
+         ;(update corr-mat' :matrix (comp (partial mapv (fn [row] (into [] row)))
+                                         ;matrix/rows))]
+     ;corr-mat'))
+  ;([conv]
+   ;(compute-corr conv (default-tids conv))))
 
 
 (defn spit-json
