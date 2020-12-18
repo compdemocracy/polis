@@ -4,8 +4,8 @@ module.exports = {
   domainWhitelist: [
     "^localhost$",
     "^192\\.168\\.+",
-    ".+\\.coin\\.demos\\.co\\.uk$",
-    "^coin\\.demos\\.co\\.uk",
+    ".+\\.coin-panel\\.demos\\.co\\.uk$",
+    "^coin-panel\\.demos\\.co\\.uk",
   ],
 
   DISABLE_INTERCOM: true,
