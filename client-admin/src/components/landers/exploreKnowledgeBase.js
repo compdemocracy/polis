@@ -21,42 +21,43 @@ const ExploreKnowledgeBase = () => {
           including
         </Box>
         <KnowledgeBase
-          url="https://roamresearch.com/#/app/polis-methods/page/1GR4r4LX8"
+          url="https://compdemocracy.org/Welcome"
           e="👋"
           txt="Welcome Guide"
         />
         <KnowledgeBase
-          url="https://roamresearch.com/#/app/polis-methods/page/M3kl50tZp"
+          url="https://compdemocracy.org/Quickstart"
           e="🏎"
           txt="Quickstart"
         />
         <KnowledgeBase
-          url="https://roamresearch.com/#/app/polis-methods/page/yOgKP4cOJ"
+          url="https://compdemocracy.org/Usage"
           e="🔩"
           txt="Usage Overview"
         />
+        {/* prettier-ignore */}
         <KnowledgeBase
-          url="https://roamresearch.com/#/app/polis-methods/page/yYRydgFpz"
+          url="https://compdemocracy.org/FAQ"
           e="📖"
           txt="FAQ"
         />
         <KnowledgeBase
-          url="https://roamresearch.com/#/app/polis-methods/page/FFCfORSze"
+          url="https://compdemocracy.org/Case-studies"
           e="⚗️"
           txt="Case Studies"
         />
         <KnowledgeBase
-          url="https://roamresearch.com/#/app/polis-methods/page/ciPWF73Ss"
+          url="https://compdemocracy.org/algorithms"
           e="👾"
           txt="Algorithms"
         />
         <KnowledgeBase
-          url="https://roamresearch.com/#/app/polis-methods/page/nCWjNfNRP"
+          url="https://compdemocracy.org/Moderation"
           e="👹"
           txt="Best Practices for Moderation"
         />
         <KnowledgeBase
-          url="https://roamresearch.com/#/app/polis-methods/page/CHakFRWFR"
+          url="https://compdemocracy.org/Media-coverage"
           e="🗞"
           txt="Press"
         />

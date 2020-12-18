@@ -21,10 +21,10 @@ jobs:
         run: |
           unset HAS_SECRET
           if [ -n "$GITHUB_TOKEN" ]; then HAS_SECRET=true; fi
-          echo ::set-env name=HAS_SECRET::${HAS_SECRET}
+          echo "name=HAS_SECRET" >> $GITHUB_ENV
 
       - name: Use Node.js
-        uses: actions/setup-node@v2.1.1
+        uses: actions/setup-node@v2.1.4
         with:
           node-version: 14.4.0
 
@@ -39,7 +39,7 @@ jobs:
           commit-status pending "DepCheck / dependencies"    "Detecting unused packages..."
           commit-status pending "DepCheck / devDependencies" "Detecting unused packages..."
 
-      - uses: actions/checkout@v2.3.2
+      - uses: actions/checkout@v2.3.4
 
       - name: Install depcheck CLI tool
         run: npm install -g depcheck
