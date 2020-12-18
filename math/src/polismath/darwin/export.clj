@@ -17,7 +17,7 @@
             [clj-time.coerce :as co]
     ;; Think I'm going to use the second one here, since it's simpler (less mutable)
             ;[dk.ative.docjure.spreadsheet :as spreadsheet]
-            [clj-excel.core :as excel]
+            ;[clj-excel.core :as excel]
             [semantic-csv.core :as scsv]
             [clojure-csv.core :as csv]
             [clojure.pprint :refer [pprint]]
@@ -524,18 +524,18 @@
          (print-csv (:participants-votes data)))))))
 
 
-(defn save-to-excel
-  ([filename data]
-   (-> (excel/build-workbook data)
-       (excel/save filename)))
-  ;; Should really change both this and the above to use the .zip filename, and take basename for the main dir
-  ;; XXX
-  ([zip-stream entry-point data]
-   ;; Would be nice if we could write directly to the zip stream, but the excel library seems to be doing
-   ;; weird things...
-   (let [tmp-file-path (str "tmp/rand-" (rand-int Integer/MAX_VALUE) ".xml")]
-     (save-to-excel tmp-file-path data)
-     (move-to-zip-stream zip-stream tmp-file-path entry-point))))
+;(defn save-to-excel
+  ;([filename data]
+   ;(-> (excel/build-workbook data)
+       ;(excel/save filename)))
+  ;;; Should really change both this and the above to use the .zip filename, and take basename for the main dir
+  ;;; XXX
+  ;([zip-stream entry-point data]
+   ;;; Would be nice if we could write directly to the zip stream, but the excel library seems to be doing
+   ;;; weird things...
+   ;(let [tmp-file-path (str "tmp/rand-" (rand-int Integer/MAX_VALUE) ".xml")]
+     ;(save-to-excel tmp-file-path data)
+     ;(move-to-zip-stream zip-stream tmp-file-path entry-point))))
 
 
 ;; Putting it all together
@@ -605,7 +605,9 @@
   (let [export-data (if at-time
                       (get-export-data-at-time darwin kw-args)
                       (get-export-data darwin kw-args))
-        [formatter saver] (case format :excel [excel-format save-to-excel] :csv [csv-format save-to-csv-zip])
+        ;; Had to remove excel support because lib outdated vs tech.ml.dataset java dep
+        ;[formatter saver] (case format :excel [excel-format save-to-excel] :csv [csv-format save-to-csv-zip])
+        [formatter saver] [csv-format save-to-csv-zip]
         formatted (formatter export-data)]
     (if zip-stream
       (if (-> export-data :summary :n-voters (> 0))
