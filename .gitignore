@@ -8,3 +8,4 @@ export/
 .ssh/
 cached-files/
 file-server/custom_*
+.vscode
