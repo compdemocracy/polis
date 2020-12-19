@@ -27,12 +27,14 @@ services:
       - "file-server"
     ports:
       - "5000:5000"
+      - "9229:9229"
     environment:
       - PORT=5000
       - HSTS=off
-      - VIRTUAL_HOST=coin-panel.demos.co.uk,www.coin-panel.demos.co.uk
-      - LETSENCRYPT_HOST=coin-panel.demos.co.uk,www.coin-panel.demos.co.uk
+      - VIRTUAL_HOST=polis-dev.demos.co.uk,www.polis-dev.demos.co.uk
+      - LETSENCRYPT_HOST=polis-dev.demos.co.uk,www.polis-dev.demos.co.uk
       - VIRTUAL_PORT=5000
+      - NODE_ENV=development
 
   math:
     container_name: polis-math
