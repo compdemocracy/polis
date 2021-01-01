@@ -48,7 +48,6 @@ var sass = require('gulp-sass');
 var scp = require('gulp-scp2');
 var spawn = require('child_process').spawn;
 var Stream = require('stream');
-var sys = require('sys');
 var url = require('url');
 
 var polisConfig = require('./polis.config');
