@@ -71,11 +71,11 @@
     "react": "^16.14.0",
     "react-dom": "^16.4.0",
     "react-easy-emoji": "^1.4.0",
-    "react-redux": "7.2.1",
+    "react-redux": "7.2.2",
     "react-router-dom": "^5.2.0",
     "redux": "^4.0.5",
     "redux-thunk": "^2.3.0",
-    "theme-ui": "^0.3.1",
+    "theme-ui": "^0.3.5",
     "victory": "^35.4.0"
   },
   "jest": {
