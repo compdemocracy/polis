@@ -8,12 +8,12 @@ FROM node:15.5.0-alpine
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY file-server/package*.json ./
 
 RUN npm ci
 
-COPY . .
-COPY fs_config.template.json fs_config.json
+COPY file-server/ ./
+COPY file-server/fs_config.template.json fs_config.json
 
 RUN mkdir /app/build
 COPY --from=admin         /app/build/ /app/build

@@ -5,11 +5,11 @@ WORKDIR /app
 
 RUN apk add git --no-cache
 
-COPY package*.json ./
+COPY client-admin/package*.json ./
 RUN npm install
 
-COPY . .
-COPY polis.config.template.js polis.config.js
+COPY client-admin/ ./
+COPY client-admin/polis.config.template.js polis.config.js
 
 ARG GIT_HASH
 RUN npm run build:preprod
