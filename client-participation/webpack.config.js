@@ -12,27 +12,22 @@ module.exports = {
     publicPath: "SET_THIS_FROM_GULP"
   },
   plugins: [
-    new webpack.optimize.OccurenceOrderPlugin(),
     new webpack.DefinePlugin({
-      "process.env": {
-        "NODE_ENV": JSON.stringify("production")
-      }
+      "process.env.NODE_ENV": JSON.stringify("production")
     }),
     new webpack.optimize.UglifyJsPlugin({
-      compressor: {
-        warnings: false
-      }
+      sourceMap: true
     })
   ],
   module: {
-
-    preLoaders: [
-      { test: /\.json$/, loader: "json"}
-    ],
-    loaders: [{
-      test: /\.js$/,
-      loaders: ["babel"],
-      include: path.join(__dirname, "vis2")
-    }]
+    rules: [
+      {
+        test: /\.js$/,
+        use: [
+          { loader: "babel-loader" }
+        ],
+        include: path.join(__dirname, "vis2")
+      }
+    ]
   }
 };
