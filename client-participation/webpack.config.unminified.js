@@ -2,6 +2,7 @@ var path = require("path");
 var webpack = require("webpack");
 
 module.exports = {
+  mode: 'production',
   devtool: "source-map",
   entry: [
     "./vis2/vis2"
@@ -15,10 +16,8 @@ module.exports = {
     rules: [
       {
         test: /\.js$/,
-        use: [
-          { loader: "babel-loader" }
-        ],
-        include: path.join(__dirname, "vis2")
+        loader: "babel-loader",
+        include: path.join(__dirname, "vis2"),
       },
     ]
   }

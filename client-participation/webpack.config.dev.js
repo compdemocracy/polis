@@ -12,22 +12,13 @@ module.exports = {
     filename: "vis_bundle.js",
     publicPath: "SET_THIS_FROM_GULP"
   },
-  plugins: [
-    // new webpack.HotModuleReplacementPlugin(),
-    // perf test on nodes - remove this line to get warnings back.
-    new webpack.DefinePlugin({
-      "process.env.NODE_ENV": JSON.stringify("dev")
-    })
-    // new webpack.NoErrorsPlugin()
-  ],
+  mode: 'development',
   module: {
     rules: [
       {
         test: /\.js$/,
-        use: [
-          { loader: "babel-loader" }
-        ],
-        include: path.join(__dirname, "vis2")
+        loader: "babel-loader",
+        include: path.join(__dirname, "vis2"),
       },
     ]
   }

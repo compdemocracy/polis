@@ -11,22 +11,16 @@ module.exports = {
     filename: "vis_bundle.js",
     publicPath: "SET_THIS_FROM_GULP"
   },
-  plugins: [
-    new webpack.DefinePlugin({
-      "process.env.NODE_ENV": JSON.stringify("production")
-    }),
-    new webpack.optimize.UglifyJsPlugin({
-      sourceMap: true
-    })
-  ],
+  mode: 'production',
+  optimization: {
+    minimize: true,
+  },
   module: {
     rules: [
       {
         test: /\.js$/,
-        use: [
-          { loader: "babel-loader" }
-        ],
-        include: path.join(__dirname, "vis2")
+        loader: "babel-loader",
+        include: path.join(__dirname, "vis2"),
       }
     ]
   }
