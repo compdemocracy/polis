@@ -11,9 +11,6 @@
     "lint": "eslint src",
     "postinstall": "npm run build"
   },
-  "engines": {
-    "node": ">= 10.3"
-  },
   "author": "Colin Megill",
   "license": "",
   "devDependencies": {

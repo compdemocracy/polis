@@ -7,9 +7,6 @@
     "start": "node ./node_modules/.bin/grunt",
     "test": "node ./node_modules/.bin/grunt test"
   },
-  "engines": {
-    "node": "11.15.0"
-  },
   "dependencies": {
     "autosize": "^3.0.3",
     "boolean": "^0.1.3",
