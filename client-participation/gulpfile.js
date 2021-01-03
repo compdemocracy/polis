@@ -294,7 +294,6 @@ gulp.task('templates', function(){
     .pipe(tap(function(file) {
 
       if(needsHeaderAndFooter(file) || needsBanner(file)) {
-        console.log(file.path)
         file._contents = Buffer.concat([
             // new Buffer.from(
             //   needsHeaderAndFooter(file) ? '<div class="wrap">' : ''
