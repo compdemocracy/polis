@@ -51,7 +51,7 @@
     "thorax": "^2.0.3",
     "underscore": "^1.6.0",
     "victory": "^0.20.0",
-    "webpack-stream": "^5.0.0"
+    "webpack-stream": "^6.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.0.0",
