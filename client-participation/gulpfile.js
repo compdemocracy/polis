@@ -221,7 +221,7 @@ gulp.task('css', function(){
 });
 
 gulp.task('fontawesome', function() {
-  gulp.src('bower_components/font-awesome/fonts/**/*')
+  gulp.src('node_modules/font-awesome/fonts/**/*')
     .pipe(gulp.dest(destRoot() + "/fonts"));
 });
 // TODO remove
