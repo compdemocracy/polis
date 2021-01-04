@@ -464,7 +464,7 @@ gulp.task('scripts', ['templates', 'jshint'], function() {
             exports: null,
           },
           d3tooltips: {
-            path: 'bower_components/d3-tip/index',
+            path: 'node_modules/d3-tip/index',
             depends: { jquery: "jQuery" },
             exports: null,
           },
