@@ -489,7 +489,7 @@ gulp.task('scripts', ['templates', 'jshint'], function() {
             exports: null,
           },
           markdown: {
-            path: 'bower_components/markdown/lib/markdown.js',
+            path: 'node_modules/markdown/lib/markdown.js',
             depends: { jquery: "jQuery" },
             exports: "markdown",
           },
