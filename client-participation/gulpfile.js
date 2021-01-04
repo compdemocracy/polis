@@ -533,9 +533,9 @@ gulp.task("scriptsOther", function() {
 
   var files = [];
   if (devMode) {
-    files.push('bower_components/d3/d3.js');
+    files.push('node_modules/d3/d3.js');
   } else {
-    files.push('bower_components/d3/d3.min.js');
+    files.push('node_modules/d3/d3.min.js');
   }
   files.push('d3.v4.min.js');
   var s = gulp.src(files);
