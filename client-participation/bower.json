@@ -2,13 +2,12 @@
   "name": "dashboard-require",
   "version": "0.0.0",
   "dependencies": {
-    "backbone": "https://github.com/mbjorkegren/backbone.git#polis",
     "thorax": "~2.0",
     "handlebones": "https://github.com/mbjorkegren/handlebones.git#master"
   },
   "resolutions": {
     "underscore": "1.6.0",
     "handlebars": "1.1.2",
-    "backbone": "polis"
+    "backbone": "1.1.2"
   }
 }

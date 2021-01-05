@@ -415,7 +415,7 @@ gulp.task('scripts', ['templates', 'jshint'], function() {
             exports: 'Handlebars',
           },
           originalbackbone: {
-            path: 'bower_components/backbone/backbone', // backbone before modifications
+            path: 'node_modules/backbone/backbone', // backbone before modifications
             depends: { jquery: '$', underscore: '_' },
             exports: 'Backbone',
           },
