@@ -2,8 +2,7 @@
   "name": "dashboard-require",
   "version": "0.0.0",
   "dependencies": {
-    "thorax": "~2.0",
-    "handlebones": "https://github.com/mbjorkegren/handlebones.git#master"
+    "thorax": "~2.0"
   },
   "resolutions": {
     "underscore": "1.6.0",

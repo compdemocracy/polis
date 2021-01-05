@@ -429,7 +429,7 @@ gulp.task('scripts', ['templates', 'jshint'], function() {
             exports: '_',
           },
           handlebones: {
-            path: 'bower_components/handlebones/handlebones',
+            path: 'node_modules/handlebones/handlebones',
             depends: { handlebars: 'Handlebars', backbone: 'Backbone' },
             exports: 'Handlebones',
           },
