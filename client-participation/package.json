@@ -44,7 +44,7 @@
     "run-sequence": "~0.3.6",
     "scp2": "^0.5.0",
     "simple-lru-cache": "0.0.1",
-    "underscore": "~1.5.2",
+    "underscore": "^1.6.0",
     "victory": "^0.20.0",
     "webpack-stream": "^3.2.0"
   },
