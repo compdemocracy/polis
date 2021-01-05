@@ -67,7 +67,7 @@ jobs:
         cp polis.config.template.js polis.config.js
         npm run build:preprod
         # So directory stays consistent between builds for comparison.
-        cp -r dist/cached/* dist/cached/xxxxxxxxx
+        mv dist/cached/* dist/cached/xxxxxxxxx
 
     - name: Use Node version for bundlewatch run
       uses: actions/setup-node@v2.1.4
