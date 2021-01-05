@@ -2,11 +2,6 @@
   "name": "dashboard-require",
   "version": "0.0.0",
   "dependencies": {
-    "thorax": "~2.0"
-  },
-  "resolutions": {
-    "underscore": "1.6.0",
-    "handlebars": "1.1.2",
-    "backbone": "1.1.2"
+    "handlebars": "1.1.2"
   }
 }
