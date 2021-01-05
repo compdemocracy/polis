@@ -69,6 +69,7 @@ jobs:
       run: |
         npx bower install
         npm install
+        cp polis.config.template.js polis.config.js
         npm run build:preprod
 
     ### client-participation
