@@ -14,7 +14,7 @@
   },
   "author": "Benjamin Rosas <ben@aliencyb.org>",
   "devDependencies": {
-    "cypress": "^4.9.0",
+    "cypress": "^5.6.0",
     "cypress-terminal-report": "^1.4.1",
     "eslint": "^7.1.0",
     "eslint-config-prettier": "^6.11.0",
