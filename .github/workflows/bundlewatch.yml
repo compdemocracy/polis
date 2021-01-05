@@ -44,16 +44,60 @@ jobs:
     - name: Install Bundlewatch
       run: npm install -g bundlewatch@0.2.6
 
+    - uses: dorny/paths-filter@v2
+      id: changes
+      with:
+        filters: |
+          client-participation:
+            - '.github/workflows/bundlewatch.yml'
+            - 'client-participation/**'
+          client-admin:
+            - '.github/workflows/bundlewatch.yml'
+            - 'client-admin/**'
+
+    ### client-admin
+
     - name: "Install & Build: client-admin"
+      if: steps.changes.outputs.client-admin == 'true'
       working-directory: client-admin
       run: |
         npm install
         npm run build:webpack
 
-    - name: Run Bundlewatch
+    - name: "Run Bundlewatch: client-admin"
+      if: steps.changes.outputs.client-admin == 'true'
       # TODO: Move config to root directory, so easier to run against all components.
       # See: https://github.com/bundlewatch/bundlewatch/pull/170
       working-directory: client-admin
+      env:
+        CI_BRANCH_DEFAULT: ${{ github.event.repository.default_branch }}
+
+        PR_COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
+        PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+        # Overrides `ci.repoBranchBase` (bundlewatch config)
+        PR_BRANCH_BASE: ${{ github.event.pull_request.base.ref }}
+
+        PUSH_COMMIT_SHA: ${{ github.event.after }}
+        # PUSH_BRANCH: see below (needs processing)
+        PUSH_BRANCH_BASE: ${{ github.event.repository.default_branch }}
+      # GITHUB_REF is in format `refs/heads/branch-name`, so need to strip first part.
+      run: PUSH_BRANCH=${GITHUB_REF#refs/heads/} npx bundlewatch --config .bundlewatch.config.js
+
+    ### client-participation
+
+    - name: "Install & Build: client-participation"
+      if: steps.changes.outputs.client-participation == 'true'
+      working-directory: client-participation
+      run: |
+        npx bower install
+        npm install
+        npm run build:preprod
+
+    - name: "Run Bundlewatch: client-participation"
+      if: steps.changes.outputs.client-participation == 'true'
+      # TODO: Move config to root directory, so easier to run against all components.
+      # See: https://github.com/bundlewatch/bundlewatch/pull/170
+      working-directory: client-participation
       env:
         CI_BRANCH_DEFAULT: ${{ github.event.repository.default_branch }}
 
