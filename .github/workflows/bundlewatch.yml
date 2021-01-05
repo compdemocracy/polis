@@ -23,10 +23,22 @@ jobs:
     steps:
     - uses: actions/checkout@v2.3.4
 
-    - name: Use Node.js
+    - uses: dorny/paths-filter@v2
+      id: changes
+      with:
+        filters: |
+          client-participation:
+            - '.github/workflows/bundlewatch.yml'
+            - 'client-participation/**'
+          client-admin:
+            - '.github/workflows/bundlewatch.yml'
+            - 'client-admin/**'
+
+    # Both components use this version
+    - name: Use Node version for app builds
       uses: actions/setup-node@v2.1.4
       with:
-        node-version: 14.4.0
+        node-version: 11.15.0
 
     - name: Get npm cache directory
       id: npm-cache
@@ -41,19 +53,6 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-node-
 
-    - name: Install Bundlewatch
-      run: npm install -g bundlewatch@0.2.6
-
-    - uses: dorny/paths-filter@v2
-      id: changes
-      with:
-        filters: |
-          client-participation:
-            - '.github/workflows/bundlewatch.yml'
-            - 'client-participation/**'
-          client-admin:
-            - '.github/workflows/bundlewatch.yml'
-            - 'client-admin/**'
 
     ### client-admin
 
@@ -63,6 +62,32 @@ jobs:
       run: |
         npm install
         npm run build:webpack
+
+    - name: "Install & Build: client-participation"
+      if: steps.changes.outputs.client-participation == 'true'
+      working-directory: client-participation
+      run: |
+        npx bower install
+        npm install
+        npm run build:preprod
+
+    ### client-participation
+
+    - name: "Install & Build: client-participation"
+      if: steps.changes.outputs.client-participation == 'true'
+      working-directory: client-participation
+      run: |
+        npx bower install
+        npm install
+        npm run build:preprod
+
+    - name: Use Node version for bundlewatch run
+      uses: actions/setup-node@v2.1.4
+      with:
+        node-version: 14.4.0
+
+    - name: Install Bundlewatch
+      run: npm install -g bundlewatch@0.2.6
 
     - name: "Run Bundlewatch: client-admin"
       if: steps.changes.outputs.client-admin == 'true'
@@ -82,16 +107,6 @@ jobs:
         PUSH_BRANCH_BASE: ${{ github.event.repository.default_branch }}
       # GITHUB_REF is in format `refs/heads/branch-name`, so need to strip first part.
       run: PUSH_BRANCH=${GITHUB_REF#refs/heads/} npx bundlewatch --config .bundlewatch.config.js
-
-    ### client-participation
-
-    - name: "Install & Build: client-participation"
-      if: steps.changes.outputs.client-participation == 'true'
-      working-directory: client-participation
-      run: |
-        npx bower install
-        npm install
-        npm run build:preprod
 
     - name: "Run Bundlewatch: client-participation"
       if: steps.changes.outputs.client-participation == 'true'
