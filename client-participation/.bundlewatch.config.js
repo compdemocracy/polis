@@ -10,12 +10,12 @@ module.exports = {
   },
   "files": [
     {
-      "path": "build/cached/*/js/polis.js",
-      "maxSize": "250 kB",
+      "path": "dist/cached/*/js/polis.js",
+      "maxSize": "140 kB",
     },
     {
-      "path": "build/cached/*/js/vis_bundle.js",
-      "maxSize": "250 kB",
+      "path": "dist/cached/*/js/vis_bundle.js",
+      "maxSize": "210 kB",
     },
   ]
 };
