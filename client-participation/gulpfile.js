@@ -411,7 +411,7 @@ gulp.task('scripts', ['templates', 'jshint'], function() {
           },
           //TODO 'handlebars': 'templates/helpers/handlebarsWithHelpers', //this one has polis custom template helpers
           handlebars: {
-            path : 'bower_components/handlebars/handlebars.runtime.js', //original handlebars
+            path : 'node_modules/handlebars-v1/dist/handlebars.runtime.js', //original handlebars
             exports: 'Handlebars',
           },
           originalbackbone: {

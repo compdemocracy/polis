@@ -30,6 +30,7 @@
     "gulp-sass": "^4.0.1",
     "gulp-scp2": "^0.2.0",
     "handlebars": "^4.5.3",
+    "handlebars-v1": "npm:handlebars@^1.1.2",
     "handlebones": "github:mbjorkegren/handlebones#master",
     "hull.js": "^0.2.10",
     "jquery": "~1.11",
