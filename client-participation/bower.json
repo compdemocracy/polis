@@ -3,7 +3,6 @@
   "version": "0.0.0",
   "dependencies": {
     "backbone": "https://github.com/mbjorkegren/backbone.git#polis",
-    "underscore": "~1.5.2",
     "thorax": "~2.0",
     "handlebones": "https://github.com/mbjorkegren/handlebones.git#master",
     "bootstrap-sass-official": "~3.2.0"

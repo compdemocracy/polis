@@ -425,7 +425,7 @@ gulp.task('scripts', ['templates', 'jshint'], function() {
             exports: "Backbone",
           },
           underscore: {
-            path: 'bower_components/underscore/underscore',
+            path: 'node_modules/underscore/underscore',
             exports: '_',
           },
           handlebones: {
