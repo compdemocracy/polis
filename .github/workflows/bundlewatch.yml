@@ -71,6 +71,8 @@ jobs:
         npm install
         cp polis.config.template.js polis.config.js
         npm run build:preprod
+        # So directory stays consistent between builds for comparison.
+        cp -r dist/cached/* dist/cached/xxxxxxxxx
 
     ### client-participation
 
