@@ -23,17 +23,6 @@ jobs:
     steps:
     - uses: actions/checkout@v2.3.4
 
-    - uses: dorny/paths-filter@v2
-      id: changes
-      with:
-        filters: |
-          client-participation:
-            - '.github/workflows/bundlewatch.yml'
-            - 'client-participation/**'
-          client-admin:
-            - '.github/workflows/bundlewatch.yml'
-            - 'client-admin/**'
-
     # Both components use this version
     - name: Use Node version for app builds
       uses: actions/setup-node@v2.1.4
@@ -68,11 +57,6 @@ jobs:
         npm run build:preprod
         # So directory stays consistent between builds for comparison.
         mv dist/cached/* dist/cached/xxxxxxxxx
-
-    - name: Use Node version for bundlewatch run
-      uses: actions/setup-node@v2.1.4
-      with:
-        node-version: 14.4.0
 
     - name: Install Bundlewatch
       run: npm install -g bundlewatch@0.2.6
