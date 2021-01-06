@@ -49,7 +49,7 @@
     "gulp": "^3.9.0",
     "gulp-cli": "^1.4.0",
     "gulp-gzip": "1.4.2",
-    "gulp-s3": "git://github.com/mbjorkegren/gulp-s3#847e2b372204b4ceeccb0e9b567f28ff00e7fa1d",
+    "gulp-s3": "github:pol-is/gulp-s3#master",
     "gulp-scp2": "^0.2.0",
     "lodash-webpack-plugin": "^0.11.6",
     "prettier": "^2.2.1",
