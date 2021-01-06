@@ -537,7 +537,6 @@ gulp.task("scriptsOther", function() {
   } else {
     files.push('node_modules/d3/d3.min.js');
   }
-  files.push('d3.v4.min.js');
   var s = gulp.src(files);
   if (!devMode) {
     s = s
@@ -548,18 +547,19 @@ gulp.task("scriptsOther", function() {
   return s.pipe(gulp.dest(destRoot() + "/js"));
 });
 
-gulp.task("scriptsTemp", function() {
+gulp.task("scriptsD3v4", function() {
 
   var files = [];
-  files.push('d3.v4.min.js');
+  files.push('node_modules/d3-v4/build/d3.min.js');
   var s = gulp.src(files);
   if (!devMode) {
     s = s
       .pipe(uglify())
       .pipe(gzip())
-      .pipe(renameToRemoveGzExtention());
+      .pipe(renameToRemoveGzExtention())
+      .pipe(rename('d3.v4.min.js'));
   }
-  return s.pipe(gulp.dest(destRoot() + "/js"));
+  return s.pipe(gulp.dest(destRoot() + "/js/"));
 });
 
 gulp.task("preprodConfig", function() {
@@ -611,7 +611,7 @@ gulp.task("configureForProduction", function(callback) {
 
 gulp.task('common', [
   "scriptsOther",
-  "scriptsTemp",
+  "scriptsD3v4",
   "scripts",
   "css",
   "fontawesome",
