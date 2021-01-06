@@ -27,7 +27,7 @@ jobs:
     steps:
       # This ensures only the most recently push commit will keep running.
       - name: Cancel other active runs of this workflow
-        uses: rokroskar/workflow-run-cleanup-action@v0.2.2
+        uses: rokroskar/workflow-run-cleanup-action@v0.3.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
