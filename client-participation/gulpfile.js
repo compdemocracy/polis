@@ -406,6 +406,8 @@ gulp.task('scripts', ['templates', 'jshint'], function() {
         // transform: ['hbsfy'],
         shim : {
           jquery: {
+            // Custom build from minimally patched jQuery for IE8 support.
+            // See: https://github.com/pol-is/jquery/tree/1.9-callbacks-array-fix
             path : devMode ? 'js/3rdparty/jquery.js' : 'js/3rdparty/jquery.min.js',
             exports: '$',
           },
