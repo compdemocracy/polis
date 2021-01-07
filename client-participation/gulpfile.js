@@ -390,7 +390,7 @@ gulp.task('scriptsVis2', ['jshint'], function() {
   config.output.publicPath = destRoot() + "/js/";
 
   return gulp.src('./vis2/vis2.js')
-    .pipe(webpackStream(configProd))
+    .pipe(webpackStream(configProd, webpack))
     .pipe(gzip())
     .pipe(renameToRemoveGzExtention())
     .pipe(gulp.dest(destRoot() + "/js"));
