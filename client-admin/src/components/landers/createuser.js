@@ -25,7 +25,7 @@ class Createuser extends React.Component {
       gatekeeperTosPrivacy: true
     }
 
-    var dest = this.getDest()
+    let dest = this.getDest()
     if (!dest.length) {
       dest = '/'
     }
@@ -33,7 +33,7 @@ class Createuser extends React.Component {
   }
 
   facebookButtonClicked() {
-    var dest = this.getDest()
+    let dest = this.getDest()
     if (!dest.length) {
       dest = '/'
     }
@@ -41,7 +41,7 @@ class Createuser extends React.Component {
   }
 
   handleFacebookPasswordSubmit() {
-    var dest = this.getDest()
+    let dest = this.getDest()
     if (!dest.length) {
       dest = '/'
     }
