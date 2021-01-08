@@ -385,7 +385,7 @@ const facebookSigninFailed = errorCode => {
 }
 
 const getFriends = () => {
-  var dfd = $.Deferred()
+  const dfd = $.Deferred()
 
   const getMoreFriends = (friendsSoFar, urlForNextCall) => {
     return $.get(urlForNextCall).then(response => {
@@ -405,7 +405,7 @@ const getFriends = () => {
 
   FB.api('/me/friends', response => {
     if (response && !response.error) {
-      var friendsSoFar = response.data
+      const friendsSoFar = response.data
       if (response.data.length && response.paging.next) {
         getMoreFriends(friendsSoFar, response.paging.next).then(
           dfd.resolve,
@@ -423,7 +423,7 @@ const getFriends = () => {
 }
 
 const getInfo = () => {
-  var dfd = $.Deferred()
+  const dfd = $.Deferred()
 
   FB.api('/me', response => {
     // {"id":"10152802017421079"
@@ -708,15 +708,15 @@ const fetchZidMetadata = conversation_id => {
 
 export const populateZidMetadataStore = conversation_id => {
   return (dispatch, getState) => {
-    var state = getState()
-    var hasConversationId =
+    const state = getState()
+    const hasConversationId =
       state.zid_metadata &&
       state.zid_metadata.zid_metadata &&
       state.zid_metadata.zid_metadata.conversation_id
 
-    var isLoading = state.zid_metadata.loading
+    const isLoading = state.zid_metadata.loading
     // NOTE: if there are multiple calls outstanding this may be wrong.
-    var isLoadingThisConversation =
+    const isLoadingThisConversation =
       state.zid_metadata.conversation_id === conversation_id && isLoading
 
     if (isLoadingThisConversation) {
@@ -1700,7 +1700,7 @@ const dataExportGet = (
   //       url += ("&unixTimestamp=" + ((ctx.date/1000) << 0));
 
   /* https://pol.is/api/v3/dataExport?conversation_id=2arcefpshi&format=csv&unixTimestamp=1447362000 */
-  var url = `/api/v3/dataExport?conversation_id=${conversation_id}&format=${format}`
+  let url = `/api/v3/dataExport?conversation_id=${conversation_id}&format=${format}`
   if (untilEnabled) {
     url += `&unixTimestamp=${unixTimestamp}`
   }

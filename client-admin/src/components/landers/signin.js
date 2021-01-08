@@ -46,7 +46,7 @@ class SignIn extends React.Component {
   }
 
   facebookButtonClicked() {
-    var dest = this.getDest()
+    let dest = this.getDest()
     if (!dest.length) {
       dest = '/'
     }
@@ -54,7 +54,7 @@ class SignIn extends React.Component {
   }
 
   handleFacebookPasswordSubmit() {
-    var dest = this.getDest()
+    let dest = this.getDest()
     if (!dest.length) {
       dest = '/'
     }
