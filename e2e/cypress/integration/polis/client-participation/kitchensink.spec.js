@@ -42,11 +42,11 @@ describe('Kitchen Sink Participation', () => {
       cy.logout()
 
       const preVisualizationVotes = [
-        'AAA',
-        'AAA',
+        'AAD',
+        'AAD',
         'AAA',
         'DDD',
-        'DDD',
+        'DAD',
       ]
 
       submitVotes(preVisualizationVotes, this.convoId)
