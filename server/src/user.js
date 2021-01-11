@@ -90,7 +90,7 @@ function getUser(uid, zid_optional, xid_optional, owner_uid_optional) {
   if (zid_optional && xid_optional) {
     xidInfoPromise = Conversation.getXidRecord(xid_optional, zid_optional);
   } else if (xid_optional && owner_uid_optional) {
-    xidInfoPromise = Conversation.getXidRecordByXidOwnerId(xid_optional, owner_uid_optional, zid_optional);
+    xidInfoPromise = getXidRecordByXidOwnerId(xid_optional, owner_uid_optional, zid_optional);
   }
 
   return Promise.all([
@@ -264,8 +264,63 @@ function getSocialInfoForUsers(uids, zid) {
     "select *, coalesce(foo.foouid, x.uid) as uid from foo full outer join x on x.uid = foo.foouid;", [zid]);
 }
 
+function getXidRecordByXidOwnerId(xid, owner, zid_optional, x_profile_image_url, x_name, x_email, createIfMissing) {
+  return pg.queryP("select * from xids where xid = ($1) and owner = ($2);", [xid, owner]).then(function(rows) {
+    if (!rows || !rows.length) {
+      console.log('no xInfo yet');
+      if (!createIfMissing) {
+        return null;
+      }
+
+      var shouldCreateXidEntryPromise = !zid_optional ? Promise.resolve(true) : Conversation.getConversationInfo(zid_optional).then((conv) => {
+        return conv.use_xid_whitelist ? Conversation.isXidWhitelisted(owner, xid) : Promise.resolve(true);
+      });
+
+      return shouldCreateXidEntryPromise.then((should) => {
+        if (!should) {
+          return null;
+        }
+        return createDummyUser().then((newUid) => {
+          console.log('created dummy');
+          return Conversation.createXidRecord(owner, newUid, xid, x_profile_image_url||null, x_name||null, x_email||null).then(() => {
+            console.log('created xInfo');
+            return [{
+              uid: newUid,
+              owner: owner,
+              xid: xid,
+              x_profile_image_url: x_profile_image_url,
+              x_name: x_name,
+              x_email: x_email,
+            }];
+          });
+        });
+      });
+    }
+    return rows;
+  });
+}
+
+function getXidStuff(xid, zid) {
+  return Conversation.getXidRecord(xid, zid).then((rows) => {
+    if (!rows || !rows.length) {
+      return "noXidRecord";
+    }
+    let xidRecordForPtpt = rows[0];
+    if (xidRecordForPtpt) {
+      return getPidPromise(zid, xidRecordForPtpt.uid, true).then((pidForXid) => {
+        xidRecordForPtpt.pid = pidForXid;
+        return xidRecordForPtpt;
+      });
+    }
+    return xidRecordForPtpt;
+  });
+}
+
+
 module.exports = {
   pidCache,
+  getXidRecordByXidOwnerId,
+  getXidStuff,
   getUserInfoForUid,
   getUserInfoForUid2,
   addLtiUserIfNeeded,
