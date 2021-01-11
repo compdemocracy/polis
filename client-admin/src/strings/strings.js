@@ -2,7 +2,7 @@
 
 import en_us from './en_us'
 
-var s = {}
+let s = {}
 
 // TODO port language choosing code
 s = en_us

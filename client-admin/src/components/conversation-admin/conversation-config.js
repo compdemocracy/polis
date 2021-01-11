@@ -21,7 +21,7 @@ import ModerateCommentsSeed from './seed-comment'
 class ConversationConfig extends React.Component {
   handleBoolValueChange(field) {
     return () => {
-      var val = this[field].checked
+      let val = this[field].checked
       if (field === 'bgcolor') {
         // gray checked=default, unchecked white
         val = val ? 'default' : '#fff'
