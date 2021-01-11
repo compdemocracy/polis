@@ -1,13 +1,13 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 const setupBasedOnCurrentDate = () => {
-  var d = new Date()
-  var month = d.getMonth() + 1 || 12
-  var year = d.getUTCFullYear() || 2030
-  var dayOfMonth = d.getDate() || 31
-  var tzKey = d.getTimezoneOffset() || 480
+  const d = new Date()
+  const month = d.getMonth() + 1 || 12
+  const year = d.getUTCFullYear() || 2030
+  const dayOfMonth = d.getDate() || 31
+  let tzKey = d.getTimezoneOffset() || 480
   tzKey = tzKey / 60
-  var tzWasNegative = tzKey < 0
+  const tzWasNegative = tzKey < 0
   tzKey = Math.abs(tzKey)
   if (tzKey < 10) {
     tzKey = '0' + tzKey
@@ -18,7 +18,7 @@ const setupBasedOnCurrentDate = () => {
     tzKey = 'UTC-' + tzKey + '00'
   }
 
-  var months = [
+  const months = [
     { num: 1, name: 'january' },
     { num: 2, name: 'february' },
     { num: 3, name: 'march' },
@@ -38,16 +38,16 @@ const setupBasedOnCurrentDate = () => {
     return m
   })
 
-  var years = []
-  for (var i = 2012; i <= year; i++) {
+  const years = []
+  for (let i = 2012; i <= year; i++) {
     years.push({ name: i, selected: i === year })
   }
 
-  var days = []
-  for (var day = 1; day <= 31; day++) {
+  const days = []
+  for (let day = 1; day <= 31; day++) {
     days.push({ name: day, selected: day === dayOfMonth })
   }
-  var tzs = [
+  const tzs = [
     'UTC-1200',
     'UTC-1100',
     'UTC-1000',
