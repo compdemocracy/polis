@@ -21,7 +21,7 @@
     "@slack/client": "^3.5.3",
     "akismet": "0.0.11",
     "async": "0.1.22",
-    "aws-sdk": "^2.78.0",
+    "aws-sdk": "^2.814.0",
     "babel-eslint": "^6.0.4",
     "badwords": "0.0.3",
     "bcrypt": "3.0.0",
