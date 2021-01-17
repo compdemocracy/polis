@@ -38,11 +38,11 @@ describe('Social login buttons', () => {
     cy.visit(`/${this.convoId}`)
     cy.get('@voteButton').click()
     cy.get('@onVoteTwitterButton').should('be.visible')
-    cy.get('@onVoteFacebookButton').should('not.be.visible')
+    cy.get('@onVoteFacebookButton').should('not.exist')
 
     cy.get('@commentButton').click()
     cy.get('@onCommentTwitterButton').should('be.visible')
-    cy.get('@onCommentFacebookButton').should('not.be.visible')
+    cy.get('@onCommentFacebookButton').should('not.exist')
   })
 
   it('allows Twitter to be disabled', function () {
@@ -53,11 +53,11 @@ describe('Social login buttons', () => {
 
     cy.visit(`/${this.convoId}`)
     cy.get('@voteButton').click()
-    cy.get('@onVoteTwitterButton').should('not.be.visible')
+    cy.get('@onVoteTwitterButton').should('not.exist')
     cy.get('@onVoteFacebookButton').should('be.visible')
 
     cy.get('@commentButton').click()
-    cy.get('@onCommentTwitterButton').should('not.be.visible')
+    cy.get('@onCommentTwitterButton').should('not.exist')
     cy.get('@onCommentFacebookButton').should('be.visible')
   })
 
@@ -84,11 +84,11 @@ describe('Social login buttons', () => {
 
     cy.visit(`/${this.convoId}`)
     cy.get('@voteButton').click()
-    cy.get('@onVoteTwitterButton').should('not.be.visible')
-    cy.get('@onVoteFacebookButton').should('not.be.visible')
+    cy.get('@onVoteTwitterButton').should('not.exist')
+    cy.get('@onVoteFacebookButton').should('not.exist')
 
     cy.get('@commentButton').click()
-    cy.get('@onCommentTwitterButton').should('not.be.visible')
-    cy.get('@onCommentFacebookButton').should('not.be.visible')
+    cy.get('@onCommentTwitterButton').should('not.exist')
+    cy.get('@onCommentFacebookButton').should('not.exist')
   })
 })
