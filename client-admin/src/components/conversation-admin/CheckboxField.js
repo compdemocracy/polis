@@ -1,27 +1,32 @@
 import React, { useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { Box, Flex, Text, jsx } from 'theme-ui'
+import { Box, Flex, Text } from 'theme-ui'
 import PropTypes from 'prop-types'
 
 import { handleZidMetadataUpdate } from '../../actions'
 
-export const CheckboxField = ({ field, label = '', children, isIntegerBool = false }) => {
+export const CheckboxField = ({
+  field,
+  label = '',
+  children,
+  isIntegerBool = false
+}) => {
   const { zid_metadata } = useSelector(state => state.zid_metadata)
-  const [ state, setState ] = useState(zid_metadata[field])
+  const [state, setState] = useState(zid_metadata[field])
   const dispatch = useDispatch()
 
-  const handleBoolValueChange = (field) => {
-    let val = !state
+  const handleBoolValueChange = field => {
+    const val = !state
     setState(val)
     dispatch(handleZidMetadataUpdate(zid_metadata, field, val))
   }
 
-  const transformBoolToInt = (value) => {
+  const transformBoolToInt = value => {
     return value ? 1 : 0
   }
 
-  const handleIntegerBoolValueChange = (field) => {
-    let val = transformBoolToInt(!state)
+  const handleIntegerBoolValueChange = field => {
+    const val = transformBoolToInt(!state)
     setState(val)
     dispatch(handleZidMetadataUpdate(zid_metadata, field, val))
   }
@@ -33,13 +38,13 @@ export const CheckboxField = ({ field, label = '', children, isIntegerBool = fal
           type="checkbox"
           label={label}
           data-test-id={field}
-          checked={isIntegerBool
-            ? zid_metadata[field] === 1
-            : zid_metadata[field]
+          checked={
+            isIntegerBool ? zid_metadata[field] === 1 : zid_metadata[field]
           }
-          onChange={isIntegerBool
-            ? () => handleIntegerBoolValueChange(field)
-            : () => handleBoolValueChange(field)
+          onChange={
+            isIntegerBool
+              ? () => handleIntegerBoolValueChange(field)
+              : () => handleBoolValueChange(field)
           }
         />
       </Box>
@@ -53,5 +58,5 @@ CheckboxField.propTypes = {
   field: PropTypes.string.isRequired,
   label: PropTypes.string,
   children: PropTypes.string.isRequired,
-  isIntegerBool: PropTypes.bool,
+  isIntegerBool: PropTypes.bool
 }

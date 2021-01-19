@@ -149,11 +149,14 @@ class ConversationConfig extends React.Component {
           Show explanation text above voting and visualization
         </CheckboxField>
 
-        <CheckboxField field="subscribe_type" label="Prompt participants to subscribe to updates" isIntegerBool>
+        <CheckboxField
+          field="subscribe_type"
+          label="Prompt participants to subscribe to updates"
+          isIntegerBool>
           Prompt participants to subscribe to updates. A prompt is shown to
-          users once they finish voting on all available comments. If
-          enabled, participants may optionally provide their email address
-          to receive notifications when there are new comments to vote on.
+          users once they finish voting on all available comments. If enabled,
+          participants may optionally provide their email address to receive
+          notifications when there are new comments to vote on.
         </CheckboxField>
 
         <CheckboxField field="auth_opt_fb" label="Facebook login prompt">
@@ -182,14 +185,16 @@ class ConversationConfig extends React.Component {
           No comments shown without moderator approval
         </CheckboxField>
 
-        <CheckboxField field="auth_needed_to_write" label="Require Auth to Comment">
-          Participants cannot submit comments without first connecting
-          either Facebook or Twitter
+        <CheckboxField
+          field="auth_needed_to_write"
+          label="Require Auth to Comment">
+          Participants cannot submit comments without first connecting either
+          Facebook or Twitter
         </CheckboxField>
 
         <CheckboxField field="auth_needed_to_vote" label="Require Auth to Vote">
-          Participants cannot vote without first connecting either Facebook
-          or Twitter
+          Participants cannot vote without first connecting either Facebook or
+          Twitter
         </CheckboxField>
       </Box>
     )
