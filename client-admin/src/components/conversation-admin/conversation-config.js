@@ -10,44 +10,16 @@ import {
 } from '../../actions'
 import ComponentHelpers from '../../util/component-helpers'
 import NoPermission from './no-permission'
-import { Heading, Box, Flex, Text, jsx } from 'theme-ui'
+import { Heading, Box, Text, jsx } from 'theme-ui'
 import emoji from 'react-easy-emoji'
 
+import { CheckboxField } from './CheckboxField'
 import ModerateCommentsSeed from './seed-comment'
 // import ModerateCommentsSeedTweet from "./seed-tweet";
 
 @connect(state => state.user)
 @connect(state => state.zid_metadata)
 class ConversationConfig extends React.Component {
-  handleBoolValueChange(field) {
-    return () => {
-      let val = this[field].checked
-      if (field === 'bgcolor') {
-        // gray checked=default, unchecked white
-        val = val ? 'default' : '#fff'
-      }
-      this.props.dispatch(
-        handleZidMetadataUpdate(this.props.zid_metadata, field, val)
-      )
-    }
-  }
-
-  transformBoolToInt(value) {
-    return value ? 1 : 0
-  }
-
-  handleIntegerBoolValueChange(field) {
-    return () => {
-      this.props.dispatch(
-        handleZidMetadataUpdate(
-          this.props.zid_metadata,
-          field,
-          this.transformBoolToInt(this[field].checked)
-        )
-      )
-    }
-  }
-
   handleStringValueChange(field) {
     return () => {
       let val = this[field].value
@@ -165,114 +137,32 @@ class ConversationConfig extends React.Component {
           Customize the user interface
         </Heading>
 
-        <Flex sx={{ alignItems: 'flex-start', mb: [3] }}>
-          <Box sx={{ flexShrink: 0, position: 'relative', top: -0.5 }}>
-            <input
-              type="checkbox"
-              label="Visualization"
-              data-test-id="vis_type"
-              ref={c => (this.vis_type = c)}
-              checked={this.props.zid_metadata.vis_type === 1}
-              onChange={this.handleIntegerBoolValueChange('vis_type').bind(
-                this
-              )}
-            />
-          </Box>
-          <Box sx={{ ml: [2], flexShrink: 0, maxWidth: '35em' }}>
-            <Text>Participants can see the visualization</Text>
-          </Box>
-        </Flex>
+        <CheckboxField field="vis_type" label="Visualization" isIntegerBool>
+          Participants can see the visualization
+        </CheckboxField>
 
-        <Flex sx={{ alignItems: 'flex-start', mb: [3] }}>
-          <Box sx={{ flexShrink: 0, position: 'relative', top: -0.5 }}>
-            <input
-              type="checkbox"
-              label="Comment form"
-              data-test-id="write_type"
-              ref={c => (this.write_type = c)}
-              checked={this.props.zid_metadata.write_type === 1}
-              onChange={this.handleIntegerBoolValueChange('write_type').bind(
-                this
-              )}
-            />
-          </Box>
-          <Box sx={{ ml: [2], flexShrink: 0, maxWidth: '35em' }}>
-            <Text>Participants can submit comments</Text>
-          </Box>
-        </Flex>
+        <CheckboxField field="write_type" label="Comment form" isIntegerBool>
+          Participants can submit comments
+        </CheckboxField>
 
-        <Flex sx={{ alignItems: 'flex-start', mb: [3] }}>
-          <Box sx={{ flexShrink: 0, position: 'relative', top: -0.5 }}>
-            <input
-              type="checkbox"
-              label="Help text"
-              data-test-id="help_type"
-              ref={c => (this.help_type = c)}
-              checked={this.props.zid_metadata.help_type === 1}
-              onChange={this.handleIntegerBoolValueChange('help_type').bind(
-                this
-              )}
-            />
-          </Box>
-          <Box sx={{ ml: [2], flexShrink: 0, maxWidth: '35em' }}>
-            <Text>Show explanation text above voting and visualization</Text>
-          </Box>
-        </Flex>
+        <CheckboxField field="help_type" label="Help text" isIntegerBool>
+          Show explanation text above voting and visualization
+        </CheckboxField>
 
-        <Flex sx={{ alignItems: 'flex-start', mb: [3] }}>
-          <Box sx={{ flexShrink: 0, position: 'relative', top: -0.5 }}>
-            <input
-              type="checkbox"
-              label="Prompt participants to subscribe to updates"
-              data-test-id="subscribe_type"
-              ref={c => (this.subscribe_type = c)}
-              checked={this.props.zid_metadata.subscribe_type === 1}
-              onChange={this.handleIntegerBoolValueChange(
-                'subscribe_type'
-              ).bind(this)}
-            />
-          </Box>
-          <Box sx={{ ml: [2], flexShrink: 0, maxWidth: '35em' }}>
-            <Text>
-              Prompt participants to subscribe to updates. A prompt is shown to
-              users once they finish voting on all available comments. If
-              enabled, participants may optionally provide their email address
-              to receive notifications when there are new comments to vote on.
-            </Text>
-          </Box>
-        </Flex>
+        <CheckboxField field="subscribe_type" label="Prompt participants to subscribe to updates" isIntegerBool>
+          Prompt participants to subscribe to updates. A prompt is shown to
+          users once they finish voting on all available comments. If
+          enabled, participants may optionally provide their email address
+          to receive notifications when there are new comments to vote on.
+        </CheckboxField>
 
-        <Flex sx={{ alignItems: 'flex-start', mb: [3] }}>
-          <Box sx={{ flexShrink: 0, position: 'relative', top: -0.5 }}>
-            <input
-              type="checkbox"
-              label="Facebook login prompt"
-              data-test-id="auth_opt_fb"
-              ref={c => (this.auth_opt_fb = c)}
-              checked={this.props.zid_metadata.auth_opt_fb}
-              onChange={this.handleBoolValueChange('auth_opt_fb').bind(this)}
-            />
-          </Box>
-          <Box sx={{ ml: [2], flexShrink: 0, maxWidth: '35em' }}>
-            <Text>Show Facebook login prompt</Text>
-          </Box>
-        </Flex>
+        <CheckboxField field="auth_opt_fb" label="Facebook login prompt">
+          Show Facebook login prompt
+        </CheckboxField>
 
-        <Flex sx={{ alignItems: 'flex-start', mb: [3] }}>
-          <Box sx={{ flexShrink: 0, position: 'relative', top: -0.5 }}>
-            <input
-              type="checkbox"
-              label="Twitter login prompt"
-              data-test-id="auth_opt_tw"
-              ref={c => (this.auth_opt_tw = c)}
-              checked={this.props.zid_metadata.auth_opt_tw}
-              onChange={this.handleBoolValueChange('auth_opt_tw').bind(this)}
-            />
-          </Box>
-          <Box sx={{ ml: [2], flexShrink: 0, maxWidth: '35em' }}>
-            <Text>Show Twitter login prompt</Text>
-          </Box>
-        </Flex>
+        <CheckboxField field="auth_opt_tw" label="Twitter login prompt">
+          Show Twitter login prompt
+        </CheckboxField>
 
         <Heading
           as="h6"
@@ -284,64 +174,19 @@ class ConversationConfig extends React.Component {
           Schemes
         </Heading>
 
-        <Flex sx={{ alignItems: 'flex-start', mb: [3] }}>
-          <Box sx={{ flexShrink: 0, position: 'relative', top: -0.5 }}>
-            <input
-              type="checkbox"
-              data-test-id="strict_moderation"
-              ref={c => (this.strict_moderation = c)}
-              checked={this.props.zid_metadata.strict_moderation}
-              onChange={this.handleBoolValueChange('strict_moderation').bind(
-                this
-              )}
-            />
-          </Box>
-          <Box sx={{ ml: [2], flexShrink: 0, maxWidth: '35em' }}>
-            <Text>No comments shown without moderator approval</Text>
-          </Box>
-        </Flex>
+        <CheckboxField field="strict_moderation">
+          No comments shown without moderator approval
+        </CheckboxField>
 
-        <Flex sx={{ alignItems: 'flex-start', mb: [3] }}>
-          <Box sx={{ flexShrink: 0, position: 'relative', top: -0.5 }}>
-            <input
-              type="checkbox"
-              label="Require Auth to Comment"
-              data-test-id="auth_needed_to_write"
-              ref={c => (this.auth_needed_to_write = c)}
-              checked={this.props.zid_metadata.auth_needed_to_write}
-              onChange={this.handleBoolValueChange('auth_needed_to_write').bind(
-                this
-              )}
-            />
-          </Box>
-          <Box sx={{ ml: [2], flexShrink: 0, maxWidth: '35em' }}>
-            <Text>
-              Participants cannot submit comments without first connecting
-              either Facebook or Twitter
-            </Text>
-          </Box>
-        </Flex>
+        <CheckboxField field="auth_needed_to_write" label="Require Auth to Comment">
+          Participants cannot submit comments without first connecting
+          either Facebook or Twitter
+        </CheckboxField>
 
-        <Flex sx={{ alignItems: 'flex-start', mb: [3] }}>
-          <Box sx={{ flexShrink: 0, position: 'relative', top: -0.5 }}>
-            <input
-              type="checkbox"
-              label="Require Auth to Vote"
-              data-test-id="auth_needed_to_vote"
-              ref={c => (this.auth_needed_to_vote = c)}
-              checked={this.props.zid_metadata.auth_needed_to_vote}
-              onChange={this.handleBoolValueChange('auth_needed_to_vote').bind(
-                this
-              )}
-            />
-          </Box>
-          <Box sx={{ ml: [2], flexShrink: 0, maxWidth: '35em' }}>
-            <Text>
-              Participants cannot vote without first connecting either Facebook
-              or Twitter
-            </Text>
-          </Box>
-        </Flex>
+        <CheckboxField field="auth_needed_to_vote" label="Require Auth to Vote">
+          Participants cannot vote without first connecting either Facebook
+          or Twitter
+        </CheckboxField>
       </Box>
     )
   }
