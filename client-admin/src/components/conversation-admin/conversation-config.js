@@ -72,7 +72,9 @@ class ConversationConfig extends React.Component {
         </Box>
 
         <CheckboxField field="is_active" label="Participants Can Vote">
-          {"Participants can vote. If unchecked, the conversation is considered 'closed' to participation."}
+          {
+            "Participants can vote. If unchecked, the conversation is considered 'closed' to participation."
+          }
         </CheckboxField>
 
         <Box sx={{ mb: [3] }}>
