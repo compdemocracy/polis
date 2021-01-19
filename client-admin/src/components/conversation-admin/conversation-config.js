@@ -71,8 +71,8 @@ class ConversationConfig extends React.Component {
           {this.props.error ? <Text>Error Saving</Text> : null}
         </Box>
 
-        <CheckboxField field="is_active" label="Conversation Is Active">
-          Conversation is ACTIVE. Participants can vote and comment.
+        <CheckboxField field="is_active" label="Participants Can Vote">
+          {"Participants can vote. If unchecked, the conversation is considered 'closed' to participation."}
         </CheckboxField>
 
         <Box sx={{ mb: [3] }}>
