@@ -70,6 +70,11 @@ class ConversationConfig extends React.Component {
           )}
           {this.props.error ? <Text>Error Saving</Text> : null}
         </Box>
+
+        <CheckboxField field="is_active" label="Conversation Is Active">
+          Conversation is ACTIVE. Participants can vote and comment.
+        </CheckboxField>
+
         <Box sx={{ mb: [3] }}>
           <Text sx={{ mb: [2] }}>Topic</Text>
           <input
@@ -177,10 +182,6 @@ class ConversationConfig extends React.Component {
           }}>
           Schemes
         </Heading>
-
-        <CheckboxField field="is_active" label="Conversation Is Open">
-          Conversation is open to participation
-        </CheckboxField>
 
         <CheckboxField field="strict_moderation">
           No comments shown without moderator approval
