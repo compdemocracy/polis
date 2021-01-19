@@ -174,6 +174,10 @@ class ConversationConfig extends React.Component {
           Schemes
         </Heading>
 
+        <CheckboxField field="is_active" label="Conversation Is Open">
+          Conversation is open to participation
+        </CheckboxField>
+
         <CheckboxField field="strict_moderation">
           No comments shown without moderator approval
         </CheckboxField>
