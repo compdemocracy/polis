@@ -8177,6 +8177,12 @@ Email verified! You can close this tab or hit the back button.
           strict_moderation: req.p.strict_moderation,
           context: req.p.context || null,
           owner_sees_participation_stats: !!req.p.owner_sees_participation_stats,
+          // Set defaults for fields that aren't set at postgres level.
+          auth_needed_to_vote: req.p.auth_needed_to_vote || false,
+          auth_needed_to_write: req.p.auth_needed_to_write || true,
+          auth_opt_allow_3rdparty: req.p.auth_opt_allow_3rdparty || true,
+          auth_opt_fb: req.p.auth_opt_fb || true,
+          auth_opt_tw: req.p.auth_opt_tw || true,
         }).returning('*').toString();
 
         pgQuery(q, [], function(err, result) {
