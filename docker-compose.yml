@@ -23,7 +23,7 @@ services:
       context: ./server
       dockerfile: Dockerfile
     depends_on:
-      - "postgres"
+      #- "postgres"
       - "file-server"
     ports:
       - "5000:5000"
@@ -35,26 +35,6 @@ services:
       - LETSENCRYPT_HOST=polis-dev.demos.co.uk,www.polis-dev.demos.co.uk
       - VIRTUAL_PORT=5000
       - NODE_ENV=development
-
-  math:
-    container_name: polis-math
-    #env_file: ./math/docker-dev.env
-    env_file: ./.universal.env
-    depends_on:
-      - "postgres"
-    build:
-      context: ./math
-
-  postgres:
-    container_name: polis-postgres
-    env_file: ./.universal.env
-    restart: always
-    build:
-      context: ./server
-      dockerfile: Dockerfile-db
-    volumes:
-      - "backups:/backups"
-      - "postgres:/var/lib/postgresql/data"
 
   file-server:
     container_name: polis-file-server
@@ -94,14 +74,5 @@ services:
       args:
         GIT_HASH: "${GIT_HASH}"
 
-  maildev:
-    image: maildev/maildev:1.1.0
-    ports:
-      # User interface
-      - "1080:80"
-      # SMTP port
-      - "25:25"
-
 volumes:
   backups:
-  postgres:

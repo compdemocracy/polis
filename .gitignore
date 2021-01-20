@@ -9,3 +9,5 @@ export/
 cached-files/
 file-server/custom_*
 .vscode
+htpasswd/
+!htpasswd/.keep

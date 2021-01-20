@@ -40,10 +40,10 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
       # Uncomment when testing
-      - DEBUG=true
+       - DEBUG=false
       # Uncommenting ACME_CA_URI will generate unlimited test certificates -
       # not trusted by browsers but you can get > 5 per week.
-      - ACME_CA_URI=https://acme-staging-v02.api.letsencrypt.org/directory
+      # - ACME_CA_URI=https://acme-staging-v02.api.letsencrypt.org/directory
 
 volumes:
   conf:

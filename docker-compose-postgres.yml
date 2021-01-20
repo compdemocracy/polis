@@ -1,0 +1,32 @@
+# before running docker-compose up for the first time,
+# either do a pull:
+# docker-compose pull
+# or do a build:
+# GIT_HASH $(git rev-parse --short HEAD) docker-compose up --detach
+
+# subsequently you should only need to run:
+# docker-compose up --detach
+
+# force a full re-build with no cache from previous builds:
+# docker-compose build --build-arg GIT_HASH $(git rev-parse --short HEAD) --parallel --no-cache
+
+# to stop:
+# docker-compose down
+
+version: "3.1"
+
+services:
+  postgres:
+    container_name: polis-postgres
+    env_file: ./.universal.env
+    restart: always
+    build:
+      context: ./server
+      dockerfile: Dockerfile-db
+    volumes:
+      - "backups:/backups"
+      - "postgres:/var/lib/postgresql/data"
+
+volumes:
+  backups:
+  postgres:
