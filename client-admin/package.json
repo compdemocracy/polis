@@ -17,6 +17,7 @@
     "deploy:preprod": "./deployPreprod",
     "start": "./x",
     "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
     "test": "jest"
   },
   "author": "Colin Megill",
