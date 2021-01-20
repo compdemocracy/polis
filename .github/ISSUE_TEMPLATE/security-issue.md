@@ -3,7 +3,7 @@ name: Security issue
 about: If you have found an exploit or have concerns about security
 title: PLEASE SEND AN EMAIL INSTEAD OF SUBMITTING AN ISSUE!
 labels: ''
-assignees: metasoarous, colinmegill
+assignees: colinmegill, metasoarous
 
 ---
 

@@ -1,8 +1,8 @@
 ---
 name: Bug report
 about: Something doesn't seem to be working correctly
-title: ''
-labels: ''
+title: Please write a concise description of the problem
+labels: "\U0001F41B bug"
 assignees: ''
 
 ---
