@@ -2,7 +2,7 @@
 name: Feature request
 about: Suggest an idea for this project
 title: Please write a concise description of the problem here
-labels: ''
+labels: feature-request
 assignees: ''
 
 ---
