@@ -73,6 +73,9 @@ const cookies = require('./utils/cookies');
 const COOKIES = cookies.COOKIES;
 const COOKIES_TO_CLEAR = cookies.COOKIES_TO_CLEAR;
 
+const constants = require('./utils/constants');
+const DEFAULTS = constants.DEFAULTS;
+
 const User = require('./user');
 const Conversation = require('./conversation');
 const Session = require('./session');
@@ -8178,11 +8181,11 @@ Email verified! You can close this tab or hit the back button.
           context: req.p.context || null,
           owner_sees_participation_stats: !!req.p.owner_sees_participation_stats,
           // Set defaults for fields that aren't set at postgres level.
-          auth_needed_to_vote: req.p.auth_needed_to_vote || false,
-          auth_needed_to_write: req.p.auth_needed_to_write || true,
-          auth_opt_allow_3rdparty: req.p.auth_opt_allow_3rdparty || true,
-          auth_opt_fb: req.p.auth_opt_fb || true,
-          auth_opt_tw: req.p.auth_opt_tw || true,
+          auth_needed_to_vote: req.p.auth_needed_to_vote || DEFAULTS.auth_needed_to_vote,
+          auth_needed_to_write: req.p.auth_needed_to_write || DEFAULTS.auth_needed_to_write,
+          auth_opt_allow_3rdparty: req.p.auth_opt_allow_3rdparty || DEFAULTS.auth_opt_allow_3rdparty,
+          auth_opt_fb: req.p.auth_opt_fb || DEFAULTS.auth_opt_fb,
+          auth_opt_tw: req.p.auth_opt_tw || DEFAULTS.auth_opt_tw,
         }).returning('*').toString();
 
         pgQuery(q, [], function(err, result) {
@@ -11227,9 +11230,9 @@ CREATE TABLE slack_user_invites (
     }).then(function(a) {
       let conv = a[0];
 
-      let auth_opt_allow_3rdparty = ifDefinedFirstElseSecond(conv.auth_opt_allow_3rdparty, true);
-      let auth_opt_fb_computed = auth_opt_allow_3rdparty && ifDefinedFirstElseSecond(conv.auth_opt_fb, true);
-      let auth_opt_tw_computed = auth_opt_allow_3rdparty && ifDefinedFirstElseSecond(conv.auth_opt_tw, true);
+      let auth_opt_allow_3rdparty = ifDefinedFirstElseSecond(conv.auth_opt_allow_3rdparty, DEFAULTS.auth_opt_allow_3rdparty);
+      let auth_opt_fb_computed = auth_opt_allow_3rdparty && ifDefinedFirstElseSecond(conv.auth_opt_fb, DEFAULTS.auth_opt_fb);
+      let auth_opt_tw_computed = auth_opt_allow_3rdparty && ifDefinedFirstElseSecond(conv.auth_opt_tw, DEFAULTS.auth_opt_tw);
 
       conv = {
         topic: conv.topic,
@@ -11245,8 +11248,8 @@ CREATE TABLE slack_user_invites (
         help_color: conv.help_color,
         help_bgcolor: conv.help_bgcolor,
         style_btn: conv.style_btn,
-        auth_needed_to_vote: ifDefinedFirstElseSecond(conv.auth_needed_to_vote, false),
-        auth_needed_to_write: ifDefinedFirstElseSecond(conv.auth_needed_to_write, true),
+        auth_needed_to_vote: ifDefinedFirstElseSecond(conv.auth_needed_to_vote, DEFAULTS.auth_needed_to_vote),
+        auth_needed_to_write: ifDefinedFirstElseSecond(conv.auth_needed_to_write, DEFAULTS.auth_needed_to_write),
         auth_opt_allow_3rdparty: auth_opt_allow_3rdparty,
         auth_opt_fb_computed: auth_opt_fb_computed,
         auth_opt_tw_computed: auth_opt_tw_computed,
