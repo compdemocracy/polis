@@ -2,6 +2,7 @@
 
 var path = require("path");
 var webpack = require("webpack");
+var CompressionPlugin = require('compression-webpack-plugin')
 var LodashModuleReplacementPlugin = require('lodash-webpack-plugin');
 
 module.exports = {
@@ -21,6 +22,12 @@ module.exports = {
       "paths": true,
       "placeholders": true,
       "shorthands": true
+    }),
+    new CompressionPlugin({
+      test: /\.js$/,
+      // Leave unmodified without gz ext.
+      // See: https://webpack.js.org/plugins/compression-webpack-plugin/#options
+      filename: '[path][query]',
     }),
     new webpack.DefinePlugin({
       "process.env.NODE_ENV": JSON.stringify("production"),

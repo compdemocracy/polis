@@ -6,7 +6,6 @@ var gulp = require("gulp");
 var { boolean: isTrue } = require("boolean");
 var s3 = require("gulp-s3");
 var glob = require("glob");
-var gzip = require("gulp-gzip");
 var path = require("path");
 var Promise = require("bluebird");
 var fs = require("fs");
@@ -192,10 +191,6 @@ gulp.task("configureForProduction", function (callback) {
 gulp.task("scripts", function () {
   var files = ["dist/admin_bundle.js"];
   var s = gulp.src(files);
-  s = s.pipe(gzip({
-    // Don't append .gz extension.
-    append: false
-  }))
   return s.pipe(gulp.dest(destRoot() + "/js"));
 });
 
