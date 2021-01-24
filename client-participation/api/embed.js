@@ -3,7 +3,7 @@
   var firstRun = !window.polis._hasRun;
   polis._hasRun = 1;
   var iframes = [];
-  var polisUrl = "https://pol.is";
+  var polisUrl = "https://<%= polisHostName %>";
   var maxHeightsSeen = {};
 
   polis.on = polis.on || {};
@@ -212,7 +212,7 @@
     window.addEventListener("message", function(event) {
       var data = event.data||{};
       var domain = event.origin.replace(/^https?:\/\//,'');
-      if (!domain.match(/(^|\.)pol.is$/)) {
+      if (!domain.match(/(^|\.)<%= polisHostName %>$/)) {
         return;
       }
 
