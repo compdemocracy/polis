@@ -1,0 +1,60 @@
+<script type="text/javascript">
+  // Inspiration: https://github.com/Demos-thinktank/dynata-id/blob/master/site-content/js/index.js
+
+  document.addEventListener('readystatechange', event => {
+    if (event.target.readyState === 'complete') {
+      let polisDomain = getQueryParam('polisDomain') || 'pol.is';
+      let convoId = getQueryParam('convoId') || '2demo';
+      let xid = getQueryParam('xid');
+      setConvoAttrs(polisDomain, convoId, xid);
+    }
+  });
+
+  function getQueryParam (name) {
+    const queryParamRe = '[?&]' + encodeURIComponent(name) + '=([^&]*)';
+    const queryString = location.search;
+    const match = new RegExp(queryParamRe).exec(queryString);
+    if (match) {
+      return decodeURIComponent(match[1]);
+    }
+  }
+
+  function setConvoAttrs (polisDomain, convoId, xid) {
+    // Handles the initial handshake between server and iframe
+    let messageElem = document.getElementById('message');
+    if (typeof convoId === 'undefined') {
+      messageElem.innerHTML = getMessage('error');
+    } else {
+      messageElem.innerHTML = getMessage('success');
+      attachPolis(polisDomain, convoId, xid);
+    }
+  }
+
+  function getMessage (type) {
+    let message;
+    switch (type) {
+      case 'error':
+        message = "You have a missing or malformed value in polisUrl, convoId or xid in your URL."
+        break;
+      case 'success':
+        message=null;
+        break;
+    }
+    return message;
+  }
+
+  function attachPolis (polisDomain, convoId, xid) {
+    let polisContainer = document.getElementById('polis-container');
+    let polisHtml = `<div class="polis" data-conversation_id="${convoId}" data-xid="${xid}"></div>`
+
+    let embedScript = document.createElement('script');
+    embedScript.src = `//${polisDomain}/embed.js`;
+    embedScript.type = 'text/javascript';
+    embedScript.async = true;
+
+    polisContainer.innerHTML = polisHtml;
+    polisContainer.appendChild(embedScript);
+  }
+</script>
+<p id="message">Loading...</p>
+<div id="polis-container"></div>

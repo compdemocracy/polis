@@ -59,6 +59,11 @@ jobs:
           # maildev: catch-all dev email server running in container (will work)
           echo EMAIL_TRANSPORT_TYPES=mailgun,aws-ses,nonexistent,maildev >> server/docker-dev.env
 
+      - name: Serve embed test assets
+        run: |
+          npm install --global serve forever
+          forever start -c serve e2e/cypress/fixtures/html
+
       - name: Serve app via docker-compose
         run: docker-compose up --detach
 
