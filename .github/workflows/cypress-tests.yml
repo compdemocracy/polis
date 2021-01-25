@@ -60,7 +60,7 @@ jobs:
           echo EMAIL_TRANSPORT_TYPES=mailgun,aws-ses,nonexistent,maildev >> server/docker-dev.env
 
       - name: Ensure embed test html is served
-      - run: cp e2e/cypress/fixtures/html/embed.html client-admin/embed.html
+        run: cp e2e/cypress/fixtures/html/embed.html client-admin/embed.html
 
       - name: Serve app via docker-compose
         run: docker-compose up --detach
