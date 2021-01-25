@@ -3,30 +3,37 @@
 
   document.addEventListener('readystatechange', event => {
     if (event.target.readyState === 'complete') {
-      let polisDomain = getQueryParam('polisDomain') || 'pol.is';
-      let convoId = getQueryParam('convoId') || '2demo';
-      let xid = getQueryParam('xid');
-      setConvoAttrs(polisDomain, convoId, xid);
+      const urlParams = new URLSearchParams(window.location.search);
+      let params = paramsToObject(urlParams.entries());
+      params['data-conversation_id'] = params['data-conversation_id'] || '2demo';
+      let polisDomain = params.polisDomain || 'pol.is';
+      const dataParams = Object.keys(params)
+        .filter(key => key.startsWith('data-'))
+        .reduce((obj, key) => {
+          // Remove data-* prefix from key when setting.
+          obj[key.replace('data-', '')] = params[key];
+          return obj;
+        }, {});
+      setConvoAttrs(polisDomain, dataParams);
     }
   });
 
-  function getQueryParam (name) {
-    const queryParamRe = '[?&]' + encodeURIComponent(name) + '=([^&]*)';
-    const queryString = location.search;
-    const match = new RegExp(queryParamRe).exec(queryString);
-    if (match) {
-      return decodeURIComponent(match[1]);
+  function paramsToObject(entries) {
+    const result = {}
+    for(const [key, value] of entries) { // each 'entry' is a [key, value] tupple
+      result[key] = value;
     }
+    return result;
   }
 
-  function setConvoAttrs (polisDomain, convoId, xid) {
+  function setConvoAttrs (polisDomain, dataParams) {
     // Handles the initial handshake between server and iframe
     let messageElem = document.getElementById('message');
-    if (typeof convoId === 'undefined') {
+    if (typeof dataParams.conversation_id === 'undefined') {
       messageElem.innerHTML = getMessage('error');
     } else {
       messageElem.innerHTML = getMessage('success');
-      attachPolis(polisDomain, convoId, xid);
+      attachPolis(polisDomain, dataParams);
     }
   }
 
@@ -34,7 +41,7 @@
     let message;
     switch (type) {
       case 'error':
-        message = "You have a missing or malformed value in polisUrl, convoId or xid in your URL."
+        message = "You have a missing or malformed value in polisUrl, or data- params in your URL."
         break;
       case 'success':
         message=null;
@@ -43,16 +50,19 @@
     return message;
   }
 
-  function attachPolis (polisDomain, convoId, xid) {
+  function attachPolis (polisDomain, dataParams) {
     let polisContainer = document.getElementById('polis-container');
-    let polisHtml = `<div class="polis" data-conversation_id="${convoId}" data-xid="${xid}"></div>`
+
+    let polisElem = document.createElement('div');
+    polisElem.className = 'polis';
+    Object.assign(polisElem.dataset, dataParams)
 
     let embedScript = document.createElement('script');
     embedScript.src = `//${polisDomain}/embed.js`;
     embedScript.type = 'text/javascript';
     embedScript.async = true;
 
-    polisContainer.innerHTML = polisHtml;
+    polisContainer.innerHTML = polisElem.outerHTML;
     polisContainer.appendChild(embedScript);
   }
 </script>
