@@ -5,7 +5,7 @@
     if (event.target.readyState === 'complete') {
       const urlParams = new URLSearchParams(window.location.search);
       let params = paramsToObject(urlParams.entries());
-      params['data-conversation_id'] = params['data-conversation_id'] || '2demo';
+      //params['data-conversation_id'] = params['data-conversation_id'] || '2demo';
       let polisDomain = params.polisDomain || 'pol.is';
       const dataParams = Object.keys(params)
         .filter(key => key.startsWith('data-'))
@@ -29,7 +29,8 @@
   function setConvoAttrs (polisDomain, dataParams) {
     // Handles the initial handshake between server and iframe
     let messageElem = document.getElementById('message');
-    if (typeof dataParams.conversation_id === 'undefined') {
+    // Disabling errors for now
+    if (false && typeof dataParams.conversation_id === 'undefined') {
       messageElem.innerHTML = getMessage('error');
     } else {
       messageElem.innerHTML = getMessage('success');
