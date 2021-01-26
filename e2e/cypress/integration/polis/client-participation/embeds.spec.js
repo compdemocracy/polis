@@ -127,7 +127,7 @@ describe('Embedded Conversations', () => {
   // See: https://roamresearch.com/#/app/polis-methods/page/hwRb6tXIA
 
   // This is currently broken and has a pending PR to fix.
-  // TODO fix
+  // TODO fix later
   it.skip('creates xid when provided', function () {
     cy.logout()
     cy.visit(`${Cypress.config().baseUrl}/embed.html?polisDomain=${POLIS_DOMAIN}&data-conversation_id=${this.convoId}`)
@@ -153,16 +153,4 @@ describe('Embedded Conversations', () => {
   })
 
   // TODO: test postMessage events
-
-  // TODO: test integration (that creates new convos), and related data-* params:
-  //   - data-subscribe_type
-  //   - data-show_share
-  //   - data-auth_needed_to_vote
-  //   - data-auth_needed_to_write
-  //   - data-auth_opt_fb
-  //   - data-auth_opt_tw
-  //   - data-auth_opt_allow_3rdparty
-  //   - data-dwok
-  //   - data-topic
-  //   - data-bg_white
 })
