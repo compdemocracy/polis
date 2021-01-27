@@ -23,10 +23,11 @@ jobs:
     steps:
     - uses: actions/checkout@v2.3.4
 
-    - name: Use Node.js
+    # Both components use this version
+    - name: Use Node version for app builds
       uses: actions/setup-node@v2.1.4
       with:
-        node-version: 14.4.0
+        node-version: 11.15.0
 
     - name: Get npm cache directory
       id: npm-cache
@@ -41,19 +42,28 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-node-
 
-    - name: Install Bundlewatch
-      run: npm install -g bundlewatch@0.2.6
-
     - name: "Install & Build: client-admin"
       working-directory: client-admin
       run: |
         npm install
         npm run build:webpack
 
-    - name: Run Bundlewatch
+    - name: "Install & Build: client-participation"
+      working-directory: client-participation
+      run: |
+        npx bower install
+        npm install
+        cp polis.config.template.js polis.config.js
+        npm run build:preprod
+        # So directory stays consistent between builds for comparison.
+        mv dist/cached/* dist/cached/xxxxxxxxx
+
+    - name: Install Bundlewatch
+      run: npm install -g bundlewatch@0.2.6
+
+    - name: "Run Bundlewatch"
       # TODO: Move config to root directory, so easier to run against all components.
       # See: https://github.com/bundlewatch/bundlewatch/pull/170
-      working-directory: client-admin
       env:
         CI_BRANCH_DEFAULT: ${{ github.event.repository.default_branch }}
 
