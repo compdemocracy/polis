@@ -1048,7 +1048,7 @@ function initializePolisHelpers() {
     "api.twitter.com",
     "connect.stripe.com",
     "demos.co.uk",
-    "cabinetoffice.gov.uk"
+    "cabinetoffice.gov.uk",
     "", // for API
   ];
 
