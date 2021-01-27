@@ -12,7 +12,7 @@ services:
       - vhost:/etc/nginx/vhost.d
       - html:/usr/share/nginx/html
       - /home/ubuntu/certs:/etc/nginx/certs
-      - /home/ubuntu/panel-polis/htpasswd:/etc/nginx/htpasswd
+      - /home/ubuntu/polis/htpasswd:/etc/nginx/htpasswd
     environment:
       - RESOLVERS=4.4.4.4
 
