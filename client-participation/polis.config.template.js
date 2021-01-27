@@ -4,8 +4,8 @@ module.exports = {
   domainWhitelist: [
     "^localhost$",
     "^192\\.168\\.+",
-    ".+\\.polis-dev\\.demos\\.co\\.uk$",
-    "^polis-dev\\.demos\\.co\\.uk"
+    ".+\\.polis-test\\.demos\\.co\\.uk$",
+    "^polis-test\\.demos\\.co\\.uk"
   ],
 
   // Point to a polisServer instance (local recommended for dev)

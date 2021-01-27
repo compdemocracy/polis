@@ -81,7 +81,7 @@ var basepath_visbundle_dev = "/foo";
 var webpack = require("webpack");
 var config = require("./webpack.config.dev");
 config.output.publicPath = basepath_visbundle_dev + "/js/";
-// console.log(config.output.publicPath);
+console.log(config.output.publicPath);
 var compiler = webpack(config);
 var webpackStream = require('webpack-stream');
 

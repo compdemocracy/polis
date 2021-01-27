@@ -11,8 +11,8 @@ services:
       - conf:/etc/nginx/conf.d
       - vhost:/etc/nginx/vhost.d
       - html:/usr/share/nginx/html
-      - certs:/etc/nginx/certs:ro
-      - /home/ubuntu/polis/htpasswd:/etc/nginx/htpasswd
+      - /home/ubuntu/certs:/etc/nginx/certs
+      - /home/ubuntu/panel-polis/htpasswd:/etc/nginx/htpasswd
     environment:
       - RESOLVERS=4.4.4.4
 
@@ -25,25 +25,7 @@ services:
     volumes:
       - /opt/containerd/nginx.tmpl:/etc/docker-gen/templates/nginx.tmpl:ro
       - /var/run/docker.sock:/tmp/docker.sock:ro
-    labels:
-      - "com.github.jrcs.letsencrypt_nginx_proxy_companion.docker_gen"
-
-  letsencrypt:
-    image: jrcs/letsencrypt-nginx-proxy-companion
-    depends_on:
-    - nginx-proxy
-    container_name: nginx-proxy-le
-    volumes_from:
-      - nginx-proxy
-    volumes:
-      - certs:/etc/nginx/certs:rw
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    environment:
-      # Uncomment when testing
-       - DEBUG=false
-      # Uncommenting ACME_CA_URI will generate unlimited test certificates -
-      # not trusted by browsers but you can get > 5 per week.
-      # - ACME_CA_URI=https://acme-staging-v02.api.letsencrypt.org/directory
+      - /home/ubuntu/certs:/etc/nginx/certs
 
 volumes:
   conf:
