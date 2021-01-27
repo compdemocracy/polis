@@ -10,8 +10,16 @@ module.exports = {
   },
   "files": [
     {
-      "path": "dist/*.js",
+      "path": "client-admin/dist/*.js",
       "maxSize": "250 kB",
+    },
+    {
+      "path": "client-participation/dist/cached/*/js/polis.js",
+      "maxSize": "140 kB",
+    },
+    {
+      "path": "client-participation/dist/cached/*/js/vis_bundle.js",
+      "maxSize": "210 kB",
     },
   ]
 };
