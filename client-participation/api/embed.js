@@ -3,7 +3,7 @@
   var firstRun = !window.polis._hasRun;
   polis._hasRun = 1;
   var iframes = [];
-  var polisUrl = "https://polis-test.demos.co.uk";
+  var polisUrl = "https://polis.collectiveintelligence.service.cabinetoffice.gov.uk";
   var maxHeightsSeen = {};
 
   polis.on = polis.on || {};

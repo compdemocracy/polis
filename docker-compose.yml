@@ -31,7 +31,7 @@ services:
     environment:
       - PORT=5000
       - HSTS=off
-      - VIRTUAL_HOST=polis-test.demos.co.uk,www.polis-test.demos.co.uk
+      - VIRTUAL_HOST=polis.collectiveintelligence.service.cabinetoffice.gov.uk,www.polis.collectiveintelligence.service.cabinetoffice.gov.uk
       - VIRTUAL_PORT=5000
       - NODE_ENV=development
       - CERT_NAME=polis-selfsigned

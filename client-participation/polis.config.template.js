@@ -4,13 +4,13 @@ module.exports = {
   domainWhitelist: [
     "^localhost$",
     "^192\\.168\\.+",
-    ".+\\.polis-test\\.demos\\.co\\.uk$",
-    "^polis-test\\.demos\\.co\\.uk"
+    ".+\\polis\\.collectiveintelligence\\.service\\.cabinetoffice\\.gov\\.uk$",
+    "^polis\\.collectiveintelligence\\.service\\.cabinetoffice\\.gov\\.uk"
   ],
 
   // Point to a polisServer instance (local recommended for dev)
   //SERVICE_URL: "http://localhost:5000", // local server; recommended for dev
-  SERVICE_URL: "http:localhost:5000",
+  SERVICE_URL: "https://polis.collectiveintelligence.service.cabinetoffice.gov.uk",
 
   // Note that this must match the participation client port specified in polisServer instance
   PORT: 5001,

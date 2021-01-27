@@ -4,8 +4,8 @@ module.exports = {
   domainWhitelist: [
     "^localhost$",
     "^192\\.168\\.+",
-    ".+\\.polis-test\\.demos\\.co\\.uk$",
-    "^polis-test\\.demos\\.co\\.uk",
+    ".+\\polis\\.collectiveintelligence\\.service\\.cabinetoffice\\.gov\\.uk$",
+    "^polis\\.collectiveintelligence\\.service\\.cabinetoffice\\.gov\\.uk"
   ],
 
   DISABLE_INTERCOM: true,
@@ -14,8 +14,7 @@ module.exports = {
   FB_APP_ID: '661042417336977',
 
   //SERVICE_URL: 'http://localhost:5000',
-  //SERVICE_URL: 'https://preprod.pol.is',
-  SERVICE_URL: 'https://polis-test.demos.co.uk',
+  SERVICE_URL: 'https://polis.collectiveintelligence.service.cabinetoffice.gov.uk',
 
 
   UPLOADER: 'local', // alt: s3, scp
