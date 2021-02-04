@@ -28,8 +28,8 @@ We look forward to working together :tada:
 ## 🙋🏾‍♀️ Get Involved
 
 1. Say hi in one of our **chat rooms** :speech_balloon:
-    - 🦸🏼 General [`gitter.im/pol-is/polis-community`][chat]
-    - 👩🏿‍💻 Software Development [`gitter.com/pol-is/polisDeployment`][chat-dev]
+    - 🦸🏼 General (Usage, Theory & Practice) [`gitter.im/pol-is/polis-community`][chat]
+    - 👩🏿‍💻 Technical (Software & Math) [`gitter.com/pol-is/polisDeployment`][chat-dev]
 2. Join one of our weekly **open calls** :microphone:
     - Please please please... Newcomers welcome! [Learn more...][calls-about]
 3. Visit our [**issue tracker**][issues] [:white_check_mark:][issues] to offer your skills & energies
