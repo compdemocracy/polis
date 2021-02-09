@@ -17,8 +17,8 @@ import { CheckboxField } from './CheckboxField'
 import ModerateCommentsSeed from './seed-comment'
 // import ModerateCommentsSeedTweet from "./seed-tweet";
 
-@connect(state => state.user)
-@connect(state => state.zid_metadata)
+@connect((state) => state.user)
+@connect((state) => state.zid_metadata)
 class ConversationConfig extends React.Component {
   handleStringValueChange(field) {
     return () => {
@@ -35,7 +35,7 @@ class ConversationConfig extends React.Component {
   }
 
   handleConfigInputTyping(field) {
-    return e => {
+    return (e) => {
       this.props.dispatch(
         optimisticZidMetadataUpdateOnTyping(
           this.props.zid_metadata,
@@ -78,7 +78,7 @@ class ConversationConfig extends React.Component {
         <Box sx={{ mb: [3] }}>
           <Text sx={{ mb: [2] }}>Topic</Text>
           <input
-            ref={c => (this.topic = c)}
+            ref={(c) => (this.topic = c)}
             sx={{
               fontFamily: 'body',
               fontSize: [2],
@@ -98,7 +98,7 @@ class ConversationConfig extends React.Component {
         <Box sx={{ mb: [3] }}>
           <Text sx={{ mb: [2] }}>Description</Text>
           <textarea
-            ref={c => (this.description = c)}
+            ref={(c) => (this.description = c)}
             sx={{
               fontFamily: 'body',
               fontSize: [2],

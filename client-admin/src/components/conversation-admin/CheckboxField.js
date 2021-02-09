@@ -11,21 +11,21 @@ export const CheckboxField = ({
   children,
   isIntegerBool = false
 }) => {
-  const { zid_metadata } = useSelector(state => state.zid_metadata)
+  const { zid_metadata } = useSelector((state) => state.zid_metadata)
   const [state, setState] = useState(zid_metadata[field])
   const dispatch = useDispatch()
 
-  const handleBoolValueChange = field => {
+  const handleBoolValueChange = (field) => {
     const val = !state
     setState(val)
     dispatch(handleZidMetadataUpdate(zid_metadata, field, val))
   }
 
-  const transformBoolToInt = value => {
+  const transformBoolToInt = (value) => {
     return value ? 1 : 0
   }
 
-  const handleIntegerBoolValueChange = field => {
+  const handleIntegerBoolValueChange = (field) => {
     const val = transformBoolToInt(!state)
     setState(val)
     dispatch(handleZidMetadataUpdate(zid_metadata, field, val))

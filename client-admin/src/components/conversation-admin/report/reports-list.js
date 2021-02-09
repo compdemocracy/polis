@@ -9,7 +9,7 @@ import { Heading, Box, Button } from 'theme-ui'
 import ComponentHelpers from '../../../util/component-helpers'
 import NoPermission from '../no-permission'
 
-@connect(state => state.zid_metadata)
+@connect((state) => state.zid_metadata)
 class ReportsList extends React.Component {
   constructor(props) {
     super(props)
@@ -24,7 +24,7 @@ class ReportsList extends React.Component {
     const reportsPromise = PolisNet.polisGet('/api/v3/reports', {
       conversation_id: match.params.conversation_id
     })
-    reportsPromise.then(reports => {
+    reportsPromise.then((reports) => {
       this.setState({
         loading: false,
         reports: reports
@@ -73,7 +73,7 @@ class ReportsList extends React.Component {
             Create report url
           </Button>
         </Box>
-        {this.state.reports.map(report => {
+        {this.state.reports.map((report) => {
           return (
             <Box sx={{ mb: [2] }} key={report.report_id}>
               <a
