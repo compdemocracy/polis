@@ -9,7 +9,7 @@ import { Heading } from 'theme-ui'
 import ComponentHelpers from '../../util/component-helpers'
 import NoPermission from './no-permission'
 
-@connect(state => state.zid_metadata)
+@connect((state) => state.zid_metadata)
 class DataExport extends React.Component {
   constructor(props) {
     super(props)
@@ -77,7 +77,7 @@ class DataExport extends React.Component {
           <input onClick={this.handleUntilToggled.bind(this)} type="checkbox" />
           <select
             disabled={this.state.untilEnabled ? '' : 'disabled'}
-            ref={c => (this.exportSelectYear = c)}>
+            ref={(c) => (this.exportSelectYear = c)}>
             {this.state.years.map((year, i) => {
               return (
                 <option selected={year.selected} key={i} value={year.name}>
@@ -88,7 +88,7 @@ class DataExport extends React.Component {
           </select>
           <select
             disabled={this.state.untilEnabled ? '' : 'disabled'}
-            ref={c => (this.exportSelectMonth = c)}>
+            ref={(c) => (this.exportSelectMonth = c)}>
             {this.state.months.map((month, i) => {
               return (
                 <option selected={month.selected} key={i} value={month.name}>
@@ -99,7 +99,7 @@ class DataExport extends React.Component {
           </select>
           <select
             disabled={this.state.untilEnabled ? '' : 'disabled'}
-            ref={c => (this.exportSelectDay = c)}>
+            ref={(c) => (this.exportSelectDay = c)}>
             {this.state.days.map((day, i) => {
               return (
                 <option selected={day.selected} key={i} value={day.name}>
@@ -111,7 +111,7 @@ class DataExport extends React.Component {
           </select>
           <select
             disabled={this.state.untilEnabled ? '' : 'disabled'}
-            ref={c => (this.exportSelectHour = c)}>
+            ref={(c) => (this.exportSelectHour = c)}>
             {this.state.tzs.map((tz, i) => {
               return (
                 <option selected={tz.selected} key={i} value={tz.name}>

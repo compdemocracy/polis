@@ -171,14 +171,14 @@ const requestUser = () => {
   }
 }
 
-const receiveUser = data => {
+const receiveUser = (data) => {
   return {
     type: RECEIVE_USER,
     data: data
   }
 }
 
-const userFetchError = err => {
+const userFetchError = (err) => {
   return {
     type: USER_FETCH_ERROR,
     status: err.status,
@@ -191,11 +191,11 @@ const fetchUser = () => {
 }
 
 export const populateUserStore = () => {
-  return dispatch => {
+  return (dispatch) => {
     dispatch(requestUser())
     return fetchUser().then(
-      res => dispatch(receiveUser(res)),
-      err => dispatch(userFetchError(err))
+      (res) => dispatch(receiveUser(res)),
+      (err) => dispatch(userFetchError(err))
     )
   }
 }
@@ -210,19 +210,19 @@ const signinInitiated = () => {
 
 // SIGNIN_SUCCESSFUL Not needed since redirecting to clear password from memory
 
-const signinError = err => {
+const signinError = (err) => {
   return {
     type: SIGNIN_ERROR,
     data: err
   }
 }
 
-const signinPost = attrs => {
+const signinPost = (attrs) => {
   return PolisNet.polisPost('/api/v3/auth/login', attrs)
 }
 
-export const doSignin = attrs => {
-  return dispatch => {
+export const doSignin = (attrs) => {
+  return (dispatch) => {
     dispatch(signinInitiated())
     return signinPost(attrs).then(
       () => {
@@ -233,7 +233,7 @@ export const doSignin = attrs => {
           window.location = '/'
         }, 3000)
       },
-      err => dispatch(signinError(err))
+      (err) => dispatch(signinError(err))
     )
   }
 }
@@ -248,19 +248,19 @@ const createUserInitiated = () => {
 
 // SIGNIN_SUCCESSFUL Not needed since redirecting to clear password from memory
 
-const createUserError = err => {
+const createUserError = (err) => {
   return {
     type: CREATEUSER_ERROR,
     data: err
   }
 }
 
-const createUserPost = attrs => {
+const createUserPost = (attrs) => {
   return PolisNet.polisPost('/api/v3/auth/new', attrs)
 }
 
 export const doCreateUser = (attrs, dest) => {
-  return dispatch => {
+  return (dispatch) => {
     dispatch(createUserInitiated())
     return createUserPost(attrs).then(
       () => {
@@ -270,7 +270,7 @@ export const doCreateUser = (attrs, dest) => {
           window.location = dest || ''
         }, 3000)
       },
-      err => dispatch(createUserError(err))
+      (err) => dispatch(createUserError(err))
     )
   }
 }
@@ -289,19 +289,19 @@ const passwordResetInitSuccess = () => {
   }
 }
 
-const passwordResetInitError = err => {
+const passwordResetInitError = (err) => {
   return {
     type: PWRESET_INIT_ERROR,
     data: err
   }
 }
 
-const passwordResetInitPost = attrs => {
+const passwordResetInitPost = (attrs) => {
   return PolisNet.polisPost('/api/v3/auth/pwresettoken', attrs)
 }
 
-export const doPasswordResetInit = attrs => {
-  return dispatch => {
+export const doPasswordResetInit = (attrs) => {
+  return (dispatch) => {
     dispatch(passwordResetInitInitiated())
     return passwordResetInitPost(attrs).then(
       () => {
@@ -313,7 +313,7 @@ export const doPasswordResetInit = attrs => {
 
         return dispatch(passwordResetInitSuccess())
       },
-      err => dispatch(passwordResetInitError(err))
+      (err) => dispatch(passwordResetInitError(err))
     )
   }
 }
@@ -332,19 +332,19 @@ const passwordResetSuccess = () => {
   }
 }
 
-const passwordResetError = err => {
+const passwordResetError = (err) => {
   return {
     type: PWRESET_ERROR,
     data: err
   }
 }
 
-const passwordResetPost = attrs => {
+const passwordResetPost = (attrs) => {
   return PolisNet.polisPost('/api/v3/auth/password', attrs)
 }
 
-export const doPasswordReset = attrs => {
-  return dispatch => {
+export const doPasswordReset = (attrs) => {
+  return (dispatch) => {
     dispatch(passwordResetInitiated())
     return passwordResetPost(attrs).then(
       () => {
@@ -356,7 +356,7 @@ export const doPasswordReset = attrs => {
 
         return dispatch(passwordResetSuccess())
       },
-      err => dispatch(passwordResetError(err))
+      (err) => dispatch(passwordResetError(err))
     )
   }
 }
@@ -377,7 +377,7 @@ const facebookSigninSuccessful = () => {
   }
 }
 
-const facebookSigninFailed = errorCode => {
+const facebookSigninFailed = (errorCode) => {
   return {
     type: FACEBOOK_SIGNIN_FAILED,
     errorCode: errorCode
@@ -388,7 +388,7 @@ const getFriends = () => {
   const dfd = $.Deferred()
 
   const getMoreFriends = (friendsSoFar, urlForNextCall) => {
-    return $.get(urlForNextCall).then(response => {
+    return $.get(urlForNextCall).then((response) => {
       if (response.data.length) {
         for (let i = 0; i < response.data.length; i++) {
           friendsSoFar.push(response.data[i])
@@ -403,7 +403,7 @@ const getFriends = () => {
     })
   }
 
-  FB.api('/me/friends', response => {
+  FB.api('/me/friends', (response) => {
     if (response && !response.error) {
       const friendsSoFar = response.data
       if (response.data.length && response.paging.next) {
@@ -425,7 +425,7 @@ const getFriends = () => {
 const getInfo = () => {
   const dfd = $.Deferred()
 
-  FB.api('/me', response => {
+  FB.api('/me', (response) => {
     // {"id":"10152802017421079"
     //   "email":"michael@bjorkegren.com"
     //   "first_name":"Mike"
@@ -444,7 +444,7 @@ const getInfo = () => {
 
     if (response && !response.error) {
       if (response.location && response.location.id) {
-        FB.api('/' + response.location.id, locationResponse => {
+        FB.api('/' + response.location.id, (locationResponse) => {
           if (locationResponse) {
             response.locationInfo = locationResponse
           }
@@ -482,7 +482,7 @@ const saveFacebookFriendsData = (data, dest, dispatch) => {
         window.location = dest || '/'
       }, 1000)
     },
-    err => {
+    (err) => {
       console.dir(err)
 
       if (
@@ -559,7 +559,7 @@ const processFacebookFriendsData = (
 const onFbLoginOk = (response, dest, dispatch, optionalPassword) => {
   $.when(getInfo(), getFriends()).then(
     processFacebookFriendsData(response, dest, dispatch, optionalPassword),
-    err => {
+    (err) => {
       console.error(err)
     }
   )
@@ -569,7 +569,7 @@ const callFacebookLoginAPI = (dest, dispatch, optionalPassword) => {
   console.log('ringing facebook...')
 
   FB.login(
-    res => {
+    (res) => {
       return onFbLoginOk(res, dest, dispatch, optionalPassword)
     },
     {
@@ -586,7 +586,7 @@ const callFacebookLoginAPI = (dest, dispatch, optionalPassword) => {
 }
 
 export const doFacebookSignin = (dest, optionalPassword) => {
-  return dispatch => {
+  return (dispatch) => {
     dispatch(facebookSigninInitiated())
     return callFacebookLoginAPI(dest, dispatch, optionalPassword)
   }
@@ -602,14 +602,14 @@ const signoutInitiated = () => {
 
 // SIGNOUT_SUCCESSFUL Not needed since redirecting to clear old user"s state from memory
 
-const signoutError = err => {
+const signoutError = (err) => {
   return {
     type: SIGNOUT_ERROR,
     data: err
   }
 }
 
-const signoutPost = dest => {
+const signoutPost = (dest) => {
   // relying on server to clear cookies
   return $.ajax({
     type: 'POST',
@@ -619,18 +619,18 @@ const signoutPost = dest => {
   })
 }
 
-export const doSignout = dest => {
-  return dispatch => {
+export const doSignout = (dest) => {
+  return (dispatch) => {
     dispatch(signoutInitiated())
     return signoutPost().then(
-      res => {
+      (res) => {
         setTimeout(() => {
           // Force page to load so we can be sure the old user"s state is cleared from memory
           // delay a bit so the cookies have time to clear too.
           window.location = dest || '/home'
         }, 1000)
       },
-      err => dispatch(signoutError(err))
+      (err) => dispatch(signoutError(err))
     )
   }
 }
@@ -643,14 +643,14 @@ const requestConversations = () => {
   }
 }
 
-const receiveConversations = data => {
+const receiveConversations = (data) => {
   return {
     type: RECEIVE_CONVERSATIONS,
     data: data
   }
 }
 
-const conversationsError = err => {
+const conversationsError = (err) => {
   return {
     type: CONVERSATIONS_FETCH_ERROR,
     data: err
@@ -662,18 +662,18 @@ const fetchConversations = () => {
 }
 
 export const populateConversationsStore = () => {
-  return dispatch => {
+  return (dispatch) => {
     dispatch(requestConversations())
     return fetchConversations().then(
-      res => dispatch(receiveConversations(res)),
-      err => dispatch(conversationsError(err))
+      (res) => dispatch(receiveConversations(res)),
+      (err) => dispatch(conversationsError(err))
     )
   }
 }
 
 /* zid metadata */
 
-const requestZidMetadata = conversation_id => {
+const requestZidMetadata = (conversation_id) => {
   return {
     type: REQUEST_ZID_METADATA,
     data: {
@@ -682,14 +682,14 @@ const requestZidMetadata = conversation_id => {
   }
 }
 
-const receiveZidMetadata = data => {
+const receiveZidMetadata = (data) => {
   return {
     type: RECEIVE_ZID_METADATA,
     data: data
   }
 }
 
-const zidMetadataFetchError = err => {
+const zidMetadataFetchError = (err) => {
   return {
     type: ZID_METADATA_FETCH_ERROR,
     data: err
@@ -702,11 +702,11 @@ export const resetMetadataStore = () => {
   }
 }
 
-const fetchZidMetadata = conversation_id => {
+const fetchZidMetadata = (conversation_id) => {
   return $.get('/api/v3/conversations?conversation_id=' + conversation_id)
 }
 
-export const populateZidMetadataStore = conversation_id => {
+export const populateZidMetadataStore = (conversation_id) => {
   return (dispatch, getState) => {
     const state = getState()
     const hasConversationId =
@@ -733,8 +733,8 @@ export const populateZidMetadataStore = conversation_id => {
 
     dispatch(requestZidMetadata(conversation_id))
     return fetchZidMetadata(conversation_id).then(
-      res => dispatch(receiveZidMetadata(res)),
-      err => dispatch(zidMetadataFetchError(err))
+      (res) => dispatch(receiveZidMetadata(res)),
+      (err) => dispatch(zidMetadataFetchError(err))
     )
   }
 }
@@ -747,14 +747,14 @@ const updateZidMetadataStarted = () => {
   }
 }
 
-const updateZidMetadataSuccess = data => {
+const updateZidMetadataSuccess = (data) => {
   return {
     type: UPDATE_ZID_METADATA_SUCCESS,
     data: data
   }
 }
 
-const updateZidMetadataError = err => {
+const updateZidMetadataError = (err) => {
   return {
     type: UPDATE_ZID_METADATA_ERROR,
     data: err
@@ -776,11 +776,11 @@ const updateZidMetadata = (zm, field, value) => {
 }
 
 export const handleZidMetadataUpdate = (zm, field, value) => {
-  return dispatch => {
+  return (dispatch) => {
     dispatch(updateZidMetadataStarted())
     return updateZidMetadata(zm, field, value)
-      .then(res => dispatch(updateZidMetadataSuccess(res)))
-      .fail(err => dispatch(updateZidMetadataError(err)))
+      .then((res) => dispatch(updateZidMetadataSuccess(res)))
+      .fail((err) => dispatch(updateZidMetadataError(err)))
   }
 }
 
@@ -794,7 +794,7 @@ export const optimisticZidMetadataUpdateOnTyping = (zm, field, value) => {
 
 /* seed comments submit */
 
-export const seedCommentChanged = text => {
+export const seedCommentChanged = (text) => {
   return {
     type: SEED_COMMENT_LOCAL_UPDATE,
     text: text
@@ -814,24 +814,24 @@ const submitSeedCommentPostSuccess = () => {
   }
 }
 
-const submitSeedCommentPostError = err => {
+const submitSeedCommentPostError = (err) => {
   return {
     type: SUBMIT_SEED_COMMENT_ERROR,
     data: err
   }
 }
 
-const postSeedComment = comment => {
+const postSeedComment = (comment) => {
   return PolisNet.polisPost('/api/v3/comments', comment)
 }
 
-export const handleSeedCommentSubmit = comment => {
-  return dispatch => {
+export const handleSeedCommentSubmit = (comment) => {
+  return (dispatch) => {
     dispatch(submitSeedCommentStart())
     return postSeedComment(comment)
       .then(
-        res => dispatch(submitSeedCommentPostSuccess(res)),
-        err => dispatch(submitSeedCommentPostError(err))
+        (res) => dispatch(submitSeedCommentPostSuccess(res)),
+        (err) => dispatch(submitSeedCommentPostError(err))
       )
       .then(dispatch(populateAllCommentStores(comment.conversation_id)))
   }
@@ -839,7 +839,7 @@ export const handleSeedCommentSubmit = comment => {
 
 // FIXME
 // eslint-disable-next-line no-unused-vars
-const makeStandardStart = type => {
+const makeStandardStart = (type) => {
   return {
     type: type
   }
@@ -865,7 +865,7 @@ const makeStandardSuccess = (type, data) => {
 
 /* seed tweets submit */
 
-export const seedCommentTweetChanged = text => {
+export const seedCommentTweetChanged = (text) => {
   return {
     type: SEED_COMMENT_TWEET_LOCAL_UPDATE,
     text: text
@@ -883,24 +883,24 @@ const submitSeedCommentPostTweetSuccess = () => {
   }
 }
 
-const submitSeedCommentPostTweetError = err => {
+const submitSeedCommentPostTweetError = (err) => {
   return {
     type: SUBMIT_SEED_COMMENT_TWEET_ERROR,
     data: err
   }
 }
 
-const postSeedCommentTweet = o => {
+const postSeedCommentTweet = (o) => {
   return PolisNet.polisPost('/api/v3/comments', o)
 }
 
-export const handleSeedCommentTweetSubmit = o => {
-  return dispatch => {
+export const handleSeedCommentTweetSubmit = (o) => {
+  return (dispatch) => {
     dispatch(submitSeedCommentTweetStart())
     return postSeedCommentTweet(o)
       .then(
-        res => dispatch(submitSeedCommentPostTweetSuccess(res)),
-        err => dispatch(submitSeedCommentPostTweetError(err))
+        (res) => dispatch(submitSeedCommentPostTweetSuccess(res)),
+        (err) => dispatch(submitSeedCommentPostTweetError(err))
       )
       .then(dispatch(populateAllCommentStores(o.conversation_id)))
   }
@@ -950,14 +950,14 @@ const createConversationStart = () => {
   }
 }
 
-const createConversationPostSuccess = res => {
+const createConversationPostSuccess = (res) => {
   return {
     type: CREATE_NEW_CONVERSATION_SUCCESS,
     data: res
   }
 }
 
-const createConversationPostError = err => {
+const createConversationPostError = (err) => {
   return {
     type: CREATE_NEW_CONVERSATION_ERROR,
     data: err
@@ -971,18 +971,18 @@ const postCreateConversation = () => {
   })
 }
 
-export const handleCreateConversationSubmit = routeTo => {
-  return dispatch => {
+export const handleCreateConversationSubmit = (routeTo) => {
+  return (dispatch) => {
     dispatch(createConversationStart())
     return postCreateConversation()
       .then(
-        res => {
+        (res) => {
           dispatch(createConversationPostSuccess(res))
           return res
         },
-        err => dispatch(createConversationPostError(err))
+        (err) => dispatch(createConversationPostError(err))
       )
-      .then(res => {
+      .then((res) => {
         window.location = '/m/' + res.conversation_id
       })
   }
@@ -996,21 +996,21 @@ const requestComments = () => {
   }
 }
 
-const receiveComments = data => {
+const receiveComments = (data) => {
   return {
     type: RECEIVE_COMMENTS,
     data: data
   }
 }
 
-const commentsFetchError = err => {
+const commentsFetchError = (err) => {
   return {
     type: COMMENTS_FETCH_ERROR,
     data: err
   }
 }
 
-const fetchAllComments = conversation_id => {
+const fetchAllComments = (conversation_id) => {
   // let includeSocial = "include_social=true&";
   const includeSocial = ''
   return $.get(
@@ -1021,12 +1021,12 @@ const fetchAllComments = conversation_id => {
   )
 }
 
-export const populateCommentsStore = conversation_id => {
-  return dispatch => {
+export const populateCommentsStore = (conversation_id) => {
+  return (dispatch) => {
     dispatch(requestComments())
     return fetchAllComments(conversation_id).then(
-      res => dispatch(receiveComments(res)),
-      err => dispatch(commentsFetchError(err))
+      (res) => dispatch(receiveComments(res)),
+      (err) => dispatch(commentsFetchError(err))
     )
   }
 }
@@ -1039,14 +1039,14 @@ const requestMath = () => {
   }
 }
 
-const receiveMath = data => {
+const receiveMath = (data) => {
   return {
     type: RECEIVE_MATH,
     data: data
   }
 }
 
-const mathFetchError = err => {
+const mathFetchError = (err) => {
   return {
     type: MATH_FETCH_ERROR,
     data: err
@@ -1062,13 +1062,13 @@ const fetchMath = (conversation_id, math_tick) => {
   )
 }
 
-export const populateMathStore = conversation_id => {
+export const populateMathStore = (conversation_id) => {
   return (dispatch, getState) => {
     dispatch(requestMath())
     const math_tick = getState().math.math_tick
     return fetchMath(conversation_id, math_tick).then(
-      res => dispatch(receiveMath(res)),
-      err => dispatch(mathFetchError(err))
+      (res) => dispatch(receiveMath(res)),
+      (err) => dispatch(mathFetchError(err))
     )
   }
 }
@@ -1081,21 +1081,21 @@ const requestUnmoderatedComments = () => {
   }
 }
 
-const receiveUnmoderatedComments = data => {
+const receiveUnmoderatedComments = (data) => {
   return {
     type: RECEIVE_UNMODERATED_COMMENTS,
     data: data
   }
 }
 
-const unmoderatedCommentsFetchError = err => {
+const unmoderatedCommentsFetchError = (err) => {
   return {
     type: UNMODERATED_COMMENTS_FETCH_ERROR,
     data: err
   }
 }
 
-const fetchUnmoderatedComments = conversation_id => {
+const fetchUnmoderatedComments = (conversation_id) => {
   // let includeSocial = "include_social=true&";
   const includeSocial = ''
   return $.get(
@@ -1106,12 +1106,12 @@ const fetchUnmoderatedComments = conversation_id => {
   )
 }
 
-export const populateUnmoderatedCommentsStore = conversation_id => {
-  return dispatch => {
+export const populateUnmoderatedCommentsStore = (conversation_id) => {
+  return (dispatch) => {
     dispatch(requestUnmoderatedComments())
     return fetchUnmoderatedComments(conversation_id).then(
-      res => dispatch(receiveUnmoderatedComments(res)),
-      err => dispatch(unmoderatedCommentsFetchError(err))
+      (res) => dispatch(receiveUnmoderatedComments(res)),
+      (err) => dispatch(unmoderatedCommentsFetchError(err))
     )
   }
 }
@@ -1124,21 +1124,21 @@ const requestAcceptedComments = () => {
   }
 }
 
-const receiveAcceptedComments = data => {
+const receiveAcceptedComments = (data) => {
   return {
     type: RECEIVE_ACCEPTED_COMMENTS,
     data: data
   }
 }
 
-const acceptedCommentsFetchError = err => {
+const acceptedCommentsFetchError = (err) => {
   return {
     type: ACCEPTED_COMMENTS_FETCH_ERROR,
     data: err
   }
 }
 
-const fetchAcceptedComments = conversation_id => {
+const fetchAcceptedComments = (conversation_id) => {
   // let includeSocial = "include_social=true&";
   const includeSocial = ''
   return $.get(
@@ -1149,12 +1149,12 @@ const fetchAcceptedComments = conversation_id => {
   )
 }
 
-export const populateAcceptedCommentsStore = conversation_id => {
-  return dispatch => {
+export const populateAcceptedCommentsStore = (conversation_id) => {
+  return (dispatch) => {
     dispatch(requestAcceptedComments())
     return fetchAcceptedComments(conversation_id).then(
-      res => dispatch(receiveAcceptedComments(res)),
-      err => dispatch(acceptedCommentsFetchError(err))
+      (res) => dispatch(receiveAcceptedComments(res)),
+      (err) => dispatch(acceptedCommentsFetchError(err))
     )
   }
 }
@@ -1167,21 +1167,21 @@ const requestRejectedComments = () => {
   }
 }
 
-const receiveRejectedComments = data => {
+const receiveRejectedComments = (data) => {
   return {
     type: RECEIVE_REJECTED_COMMENTS,
     data: data
   }
 }
 
-const rejectedCommentsFetchError = err => {
+const rejectedCommentsFetchError = (err) => {
   return {
     type: REJECTED_COMMENTS_FETCH_ERROR,
     data: err
   }
 }
 
-const fetchRejectedComments = conversation_id => {
+const fetchRejectedComments = (conversation_id) => {
   // let includeSocial = "include_social=true&";
   const includeSocial = ''
   return $.get(
@@ -1192,20 +1192,20 @@ const fetchRejectedComments = conversation_id => {
   )
 }
 
-export const populateRejectedCommentsStore = conversation_id => {
-  return dispatch => {
+export const populateRejectedCommentsStore = (conversation_id) => {
+  return (dispatch) => {
     dispatch(requestRejectedComments())
     return fetchRejectedComments(conversation_id).then(
-      res => dispatch(receiveRejectedComments(res)),
-      err => dispatch(rejectedCommentsFetchError(err))
+      (res) => dispatch(receiveRejectedComments(res)),
+      (err) => dispatch(rejectedCommentsFetchError(err))
     )
   }
 }
 
 /* populate ALL stores todo/accept/reject/seed */
 
-export const populateAllCommentStores = conversation_id => {
-  return dispatch => {
+export const populateAllCommentStores = (conversation_id) => {
+  return (dispatch) => {
     return $.when(
       dispatch(populateUnmoderatedCommentsStore(conversation_id)),
       dispatch(populateAcceptedCommentsStore(conversation_id)),
@@ -1219,28 +1219,28 @@ export const populateAllCommentStores = conversation_id => {
 
 /* moderator clicked accept comment */
 
-const optimisticCommentAccepted = comment => {
+const optimisticCommentAccepted = (comment) => {
   return {
     type: ACCEPT_COMMENT,
     comment: comment
   }
 }
 
-const acceptCommentSuccess = data => {
+const acceptCommentSuccess = (data) => {
   return {
     type: ACCEPT_COMMENT_SUCCESS,
     data: data
   }
 }
 
-const acceptCommentError = err => {
+const acceptCommentError = (err) => {
   return {
     type: ACCEPT_COMMENT_ERROR,
     data: err
   }
 }
 
-const putCommentAccepted = comment => {
+const putCommentAccepted = (comment) => {
   return $.ajax({
     method: 'PUT',
     url: '/api/v3/comments',
@@ -1248,44 +1248,44 @@ const putCommentAccepted = comment => {
   })
 }
 
-export const changeCommentStatusToAccepted = comment => {
+export const changeCommentStatusToAccepted = (comment) => {
   comment.active = true
-  return dispatch => {
+  return (dispatch) => {
     dispatch(optimisticCommentAccepted(comment))
     return putCommentAccepted(comment).then(
-      res => {
+      (res) => {
         dispatch(acceptCommentSuccess(res))
         dispatch(populateAllCommentStores(comment.conversation_id))
       },
-      err => dispatch(acceptCommentError(err))
+      (err) => dispatch(acceptCommentError(err))
     )
   }
 }
 
 /* moderator clicked reject comment */
 
-const optimisticCommentRejected = comment => {
+const optimisticCommentRejected = (comment) => {
   return {
     type: REJECT_COMMENT,
     comment: comment
   }
 }
 
-const rejectCommentSuccess = data => {
+const rejectCommentSuccess = (data) => {
   return {
     type: REJECT_COMMENT_SUCCESS,
     data: data
   }
 }
 
-const rejectCommentError = err => {
+const rejectCommentError = (err) => {
   return {
     type: REJECT_COMMENT_ERROR,
     data: err
   }
 }
 
-const putCommentRejected = comment => {
+const putCommentRejected = (comment) => {
   return $.ajax({
     method: 'PUT',
     url: '/api/v3/comments',
@@ -1293,36 +1293,36 @@ const putCommentRejected = comment => {
   })
 }
 
-export const changeCommentStatusToRejected = comment => {
-  return dispatch => {
+export const changeCommentStatusToRejected = (comment) => {
+  return (dispatch) => {
     dispatch(optimisticCommentRejected())
     return putCommentRejected(comment).then(
-      res => {
+      (res) => {
         dispatch(rejectCommentSuccess(res))
         dispatch(populateAllCommentStores(comment.conversation_id))
       },
-      err => dispatch(rejectCommentError(err))
+      (err) => dispatch(rejectCommentError(err))
     )
   }
 }
 
 /* moderator changed comment's is_meta flag */
 
-const optimisticCommentIsMetaChanged = comment => {
+const optimisticCommentIsMetaChanged = (comment) => {
   return {
     type: COMMENT_IS_META,
     comment: comment
   }
 }
 
-const commentIsMetaChangeSuccess = data => {
+const commentIsMetaChangeSuccess = (data) => {
   return {
     type: COMMENT_IS_META_SUCCESS,
     data: data
   }
 }
 
-const commentIsMetaChangeError = err => {
+const commentIsMetaChangeError = (err) => {
   return {
     type: COMMENT_IS_META_ERROR,
     data: err
@@ -1338,14 +1338,14 @@ const putCommentCommentIsMetaChange = (comment, is_meta) => {
 }
 
 export const changeCommentCommentIsMeta = (comment, is_meta) => {
-  return dispatch => {
+  return (dispatch) => {
     dispatch(optimisticCommentIsMetaChanged())
     return putCommentCommentIsMetaChange(comment, is_meta).then(
-      res => {
+      (res) => {
         dispatch(commentIsMetaChangeSuccess(res))
         dispatch(populateAllCommentStores(comment.conversation_id))
       },
-      err => dispatch(commentIsMetaChangeError(err))
+      (err) => dispatch(commentIsMetaChangeError(err))
     )
   }
 }
@@ -1358,30 +1358,30 @@ const requestParticipants = () => {
   }
 }
 
-const receiveParticipants = data => {
+const receiveParticipants = (data) => {
   return {
     type: RECEIVE_PARTICIPANTS,
     data: data
   }
 }
 
-const participantsFetchError = err => {
+const participantsFetchError = (err) => {
   return {
     type: PARTICIPANTS_FETCH_ERROR,
     data: err
   }
 }
 
-const fetchParticipants = conversation_id => {
+const fetchParticipants = (conversation_id) => {
   return $.get('/api/v3/ptptois?conversation_id=' + conversation_id)
 }
 
-export const populateParticipantsStore = conversation_id => {
-  return dispatch => {
+export const populateParticipantsStore = (conversation_id) => {
+  return (dispatch) => {
     dispatch(requestParticipants())
     return fetchParticipants(conversation_id).then(
-      res => dispatch(receiveParticipants(res)),
-      err => dispatch(participantsFetchError(err))
+      (res) => dispatch(receiveParticipants(res)),
+      (err) => dispatch(participantsFetchError(err))
     )
   }
 }
@@ -1394,30 +1394,30 @@ const requestDefaultParticipants = () => {
   }
 }
 
-const receiveDefaultParticipants = data => {
+const receiveDefaultParticipants = (data) => {
   return {
     type: RECEIVE_DEFAULT_PARTICIPANTS,
     data: data
   }
 }
 
-const defaultParticipantFetchError = err => {
+const defaultParticipantFetchError = (err) => {
   return {
     type: DEFAULT_PARTICIPANTS_FETCH_ERROR,
     data: err
   }
 }
 
-const fetchDefaultParticipants = conversation_id => {
+const fetchDefaultParticipants = (conversation_id) => {
   return $.get('/api/v3/ptptois?mod=0&conversation_id=' + conversation_id)
 }
 
-export const populateDefaultParticipantStore = conversation_id => {
-  return dispatch => {
+export const populateDefaultParticipantStore = (conversation_id) => {
+  return (dispatch) => {
     dispatch(requestDefaultParticipants())
     return fetchDefaultParticipants(conversation_id).then(
-      res => dispatch(receiveDefaultParticipants(res)),
-      err => dispatch(defaultParticipantFetchError(err))
+      (res) => dispatch(receiveDefaultParticipants(res)),
+      (err) => dispatch(defaultParticipantFetchError(err))
     )
   }
 }
@@ -1430,30 +1430,30 @@ const requestFeaturedParticipants = () => {
   }
 }
 
-const receiveFeaturedParticipants = data => {
+const receiveFeaturedParticipants = (data) => {
   return {
     type: RECEIVE_FEATURED_PARTICIPANTS,
     data: data
   }
 }
 
-const featuredParticipantFetchError = err => {
+const featuredParticipantFetchError = (err) => {
   return {
     type: FEATURED_PARTICIPANTS_FETCH_ERROR,
     data: err
   }
 }
 
-const fetchFeaturedParticipants = conversation_id => {
+const fetchFeaturedParticipants = (conversation_id) => {
   return $.get('/api/v3/ptptois?mod=1&conversation_id=' + conversation_id)
 }
 
-export const populateFeaturedParticipantStore = conversation_id => {
-  return dispatch => {
+export const populateFeaturedParticipantStore = (conversation_id) => {
+  return (dispatch) => {
     dispatch(requestFeaturedParticipants())
     return fetchFeaturedParticipants(conversation_id).then(
-      res => dispatch(receiveFeaturedParticipants(res)),
-      err => dispatch(featuredParticipantFetchError(err))
+      (res) => dispatch(receiveFeaturedParticipants(res)),
+      (err) => dispatch(featuredParticipantFetchError(err))
     )
   }
 }
@@ -1466,38 +1466,38 @@ const requestHiddenParticipants = () => {
   }
 }
 
-const receiveHiddenParticipants = data => {
+const receiveHiddenParticipants = (data) => {
   return {
     type: RECEIVE_HIDDEN_PARTICIPANTS,
     data: data
   }
 }
 
-const hiddenParticipantFetchError = err => {
+const hiddenParticipantFetchError = (err) => {
   return {
     type: HIDDEN_PARTICIPANTS_FETCH_ERROR,
     data: err
   }
 }
 
-const fetchHiddenParticipants = conversation_id => {
+const fetchHiddenParticipants = (conversation_id) => {
   return $.get('/api/v3/ptptois?mod=-1&conversation_id=' + conversation_id)
 }
 
-export const populateHiddenParticipantStore = conversation_id => {
-  return dispatch => {
+export const populateHiddenParticipantStore = (conversation_id) => {
+  return (dispatch) => {
     dispatch(requestHiddenParticipants())
     return fetchHiddenParticipants(conversation_id).then(
-      res => dispatch(receiveHiddenParticipants(res)),
-      err => dispatch(hiddenParticipantFetchError(err))
+      (res) => dispatch(receiveHiddenParticipants(res)),
+      (err) => dispatch(hiddenParticipantFetchError(err))
     )
   }
 }
 
 /* populate ALL stores todo/accept/reject/seed */
 
-export const populateAllParticipantStores = conversation_id => {
-  return dispatch => {
+export const populateAllParticipantStores = (conversation_id) => {
+  return (dispatch) => {
     return $.when(
       dispatch(populateDefaultParticipantStore(conversation_id)),
       dispatch(populateFeaturedParticipantStore(conversation_id)),
@@ -1508,28 +1508,28 @@ export const populateAllParticipantStores = conversation_id => {
 
 /* moderator clicked feature ptpt */
 
-const optimisticFeatureParticipant = participant => {
+const optimisticFeatureParticipant = (participant) => {
   return {
     type: FEATURE_PARTICIPANT,
     participant: participant
   }
 }
 
-const featureParticipantSuccess = data => {
+const featureParticipantSuccess = (data) => {
   return {
     type: FEATURE_PARTICIPANT_SUCCESS,
     data: data
   }
 }
 
-const featureParticipantError = err => {
+const featureParticipantError = (err) => {
   return {
     type: FEATURE_PARTICIPANT_ERROR,
     data: err
   }
 }
 
-const putFeatureParticipant = participant => {
+const putFeatureParticipant = (participant) => {
   return $.ajax({
     method: 'PUT',
     url: '/api/v3/ptptois',
@@ -1537,39 +1537,39 @@ const putFeatureParticipant = participant => {
   })
 }
 
-export const changeParticipantStatusToFeatured = participant => {
-  return dispatch => {
+export const changeParticipantStatusToFeatured = (participant) => {
+  return (dispatch) => {
     dispatch(optimisticFeatureParticipant(participant))
     return putFeatureParticipant(participant).then(
-      res => dispatch(featureParticipantSuccess(res)),
-      err => dispatch(featureParticipantError(err))
+      (res) => dispatch(featureParticipantSuccess(res)),
+      (err) => dispatch(featureParticipantError(err))
     )
   }
 }
 /* moderator clicked hide ptpt */
 
-const optimisticHideParticipant = participant => {
+const optimisticHideParticipant = (participant) => {
   return {
     type: FEATURE_PARTICIPANT,
     participant: participant
   }
 }
 
-const hideParticipantSuccess = data => {
+const hideParticipantSuccess = (data) => {
   return {
     type: FEATURE_PARTICIPANT_SUCCESS,
     data: data
   }
 }
 
-const hideParticipantError = err => {
+const hideParticipantError = (err) => {
   return {
     type: FEATURE_PARTICIPANT_ERROR,
     data: err
   }
 }
 
-const putHideParticipant = participant => {
+const putHideParticipant = (participant) => {
   return $.ajax({
     method: 'PUT',
     url: '/api/v3/ptptois',
@@ -1577,18 +1577,18 @@ const putHideParticipant = participant => {
   })
 }
 
-export const changeParticipantStatusToHidden = participant => {
-  return dispatch => {
+export const changeParticipantStatusToHidden = (participant) => {
+  return (dispatch) => {
     dispatch(optimisticHideParticipant(participant))
     return putHideParticipant(participant).then(
-      res => dispatch(hideParticipantSuccess(res)),
-      err => dispatch(hideParticipantError(err))
+      (res) => dispatch(hideParticipantSuccess(res)),
+      (err) => dispatch(hideParticipantError(err))
     )
   }
 }
 
 /* moderator clicked unmoderate ptpt */
-const optimisticUnmoderateParticipant = participant => {
+const optimisticUnmoderateParticipant = (participant) => {
   return {
     type: FEATURE_PARTICIPANT,
     participant: participant
@@ -1597,7 +1597,7 @@ const optimisticUnmoderateParticipant = participant => {
 
 // FIXME
 // eslint-disable-next-line no-unused-vars
-const unmoderateParticipantSuccess = data => {
+const unmoderateParticipantSuccess = (data) => {
   return {
     type: FEATURE_PARTICIPANT_SUCCESS,
     data: data
@@ -1606,14 +1606,14 @@ const unmoderateParticipantSuccess = data => {
 
 // FIXME
 // eslint-disable-next-line no-unused-vars
-const unmoderateParticipantError = err => {
+const unmoderateParticipantError = (err) => {
   return {
     type: FEATURE_PARTICIPANT_ERROR,
     data: err
   }
 }
 
-const putUnmoderateParticipant = participant => {
+const putUnmoderateParticipant = (participant) => {
   return $.ajax({
     method: 'PUT',
     url: '/api/v3/ptptois',
@@ -1621,12 +1621,12 @@ const putUnmoderateParticipant = participant => {
   })
 }
 
-export const changeParticipantStatusToUnmoderated = participant => {
-  return dispatch => {
+export const changeParticipantStatusToUnmoderated = (participant) => {
+  return (dispatch) => {
     dispatch(optimisticUnmoderateParticipant(participant))
     return putUnmoderateParticipant(participant).then(
-      res => dispatch(hideParticipantSuccess(res)),
-      err => dispatch(hideParticipantError(err))
+      (res) => dispatch(hideParticipantSuccess(res)),
+      (err) => dispatch(hideParticipantError(err))
     )
   }
 }
@@ -1639,14 +1639,14 @@ const requestConversationStats = () => {
   }
 }
 
-const receiveConversationStats = data => {
+const receiveConversationStats = (data) => {
   return {
     type: RECEIVE_CONVERSATION_STATS,
     data: data
   }
 }
 
-const conversationStatsFetchError = err => {
+const conversationStatsFetchError = (err) => {
   return {
     type: CONVERSATION_STATS_FETCH_ERROR,
     data: err
@@ -1662,11 +1662,11 @@ const fetchConversationStats = (conversation_id, until) => {
 }
 
 export const populateConversationStatsStore = (conversation_id, until) => {
-  return dispatch => {
+  return (dispatch) => {
     dispatch(requestConversationStats())
     return fetchConversationStats(conversation_id, until).then(
-      res => dispatch(receiveConversationStats(res)),
-      err => dispatch(conversationStatsFetchError(err))
+      (res) => dispatch(receiveConversationStats(res)),
+      (err) => dispatch(conversationStatsFetchError(err))
     )
   }
 }
@@ -1713,7 +1713,7 @@ export const startDataExport = (
   unixTimestamp,
   untilEnabled
 ) => {
-  return dispatch => {
+  return (dispatch) => {
     dispatch(dataExportStarted())
     return dataExportGet(
       conversation_id,
@@ -1721,8 +1721,8 @@ export const startDataExport = (
       unixTimestamp,
       untilEnabled
     ).then(
-      res => dispatch(dataExportSuccess(res)),
-      err => dispatch(dataExportError(err))
+      (res) => dispatch(dataExportSuccess(res)),
+      (err) => dispatch(dataExportError(err))
     )
   }
 }

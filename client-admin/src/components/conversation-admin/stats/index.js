@@ -12,9 +12,9 @@ import { Heading, Box, jsx } from 'theme-ui'
 import ComponentHelpers from '../../../util/component-helpers'
 import NoPermission from '../no-permission'
 
-@connect(state => state.stats)
-@connect(state => state.zid_metadata)
-@connect(state => state.stats)
+@connect((state) => state.stats)
+@connect((state) => state.zid_metadata)
+@connect((state) => state.stats)
 class ConversationStats extends React.Component {
   constructor(props) {
     super(props)

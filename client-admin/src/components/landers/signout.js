@@ -8,7 +8,7 @@ import { Heading } from 'theme-ui'
 
 import { doSignout } from '../../actions'
 
-@connect(state => state.signout)
+@connect((state) => state.signout)
 class SignOut extends React.Component {
   componentDidMount() {
     this.props.dispatch(doSignout('/home'))

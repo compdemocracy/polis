@@ -8,7 +8,7 @@ import { handleSeedCommentSubmit, seedCommentChanged } from '../../actions'
 import strings from '../../strings/strings'
 import { Box, Text, Button, jsx, Link } from 'theme-ui'
 
-@connect(state => state.seed_comments)
+@connect((state) => state.seed_comments)
 class ModerateCommentsSeed extends React.Component {
   constructor(props) {
     super(props)
@@ -77,7 +77,7 @@ class ModerateCommentsSeed extends React.Component {
             maxLength="400"
             data-test-id="seed_form"
             value={seedText}
-            ref={c => (this.seed_form = c)}
+            ref={(c) => (this.seed_form = c)}
           />
         </Box>
         <Box>
