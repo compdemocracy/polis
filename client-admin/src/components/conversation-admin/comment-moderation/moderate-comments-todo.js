@@ -10,7 +10,7 @@ import {
 } from '../../../actions'
 import Comment from './comment'
 
-@connect(state => state.mod_comments_unmoderated)
+@connect((state) => state.mod_comments_unmoderated)
 class ModerateCommentsTodo extends React.Component {
   onCommentAccepted(comment) {
     this.props.dispatch(changeCommentStatusToAccepted(comment))

@@ -7,7 +7,7 @@ import { Box, Heading } from 'theme-ui'
 
 import Spinner from '../framework/spinner'
 
-@connect(state => state.user)
+@connect((state) => state.user)
 class Account extends React.Component {
   buildAccountMarkup() {
     return (
