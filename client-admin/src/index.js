@@ -21,7 +21,7 @@ class Root extends React.Component {
       <ThemeProvider theme={theme}>
         <Provider store={store}>
           <Router>
-            <Route render={routeProps => <App {...routeProps} />}></Route>
+            <Route render={(routeProps) => <App {...routeProps} />}></Route>
           </Router>
         </Provider>
       </ThemeProvider>

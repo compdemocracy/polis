@@ -5,7 +5,7 @@ import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { Flex, Box, Text, Button, Card, Link } from 'theme-ui'
 
-@connect(state => {
+@connect((state) => {
   return {
     conversation: state.zid_metadata.zid_metadata
   }
@@ -59,7 +59,7 @@ class Comment extends React.Component {
                 <input
                   type="checkbox"
                   label="metadata"
-                  ref={c => (this.is_meta = c)}
+                  ref={(c) => (this.is_meta = c)}
                   checked={this.props.comment.is_meta}
                   onChange={this.onIsMetaClicked.bind(this)}
                 />

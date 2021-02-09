@@ -26,7 +26,7 @@ const mapStateToProps = (state, ownProps) => {
 
 const pollFrequency = 60000
 
-@connect(state => state.zid_metadata)
+@connect((state) => state.zid_metadata)
 @connect(mapStateToProps)
 class CommentModeration extends React.Component {
   loadComments() {

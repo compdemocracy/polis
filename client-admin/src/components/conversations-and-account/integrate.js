@@ -5,7 +5,7 @@ import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { Box, Heading, Text } from 'theme-ui'
 
-@connect(state => state.user)
+@connect((state) => state.user)
 class Integrate extends React.Component {
   render() {
     return (

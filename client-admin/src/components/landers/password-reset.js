@@ -29,12 +29,12 @@ class PasswordReset extends React.Component {
         <h1>Password Reset</h1>
         <form>
           <input
-            ref={c => (this.password = c)}
+            ref={(c) => (this.password = c)}
             placeholder="new password"
             type="password"
           />
           <input
-            ref={c => (this.passwordRepeat = c)}
+            ref={(c) => (this.passwordRepeat = c)}
             placeholder="repeat new password"
             type="password"
           />
