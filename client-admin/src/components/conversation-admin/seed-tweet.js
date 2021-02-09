@@ -21,7 +21,7 @@ const styles = {
   }
 }
 
-@connect(state => state.seed_comments_tweet)
+@connect((state) => state.seed_comments_tweet)
 @Radium
 class ModerateCommentsSeed extends React.Component {
   constructor(props) {
@@ -104,7 +104,7 @@ class ModerateCommentsSeed extends React.Component {
               fontSize: 16,
               padding: 10
             }}
-            ref={c => (this.seed_form_tweet = c)}
+            ref={(c) => (this.seed_form_tweet = c)}
           />
         </div>
         <div>
