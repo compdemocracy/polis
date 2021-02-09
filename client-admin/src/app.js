@@ -38,7 +38,7 @@ const PrivateRoute = ({ component: Component, isLoading, authed, ...rest }) => {
   return (
     <Route
       {...rest}
-      render={props =>
+      render={(props) =>
         authed === true ? (
           <Component {...props} />
         ) : (
@@ -58,7 +58,7 @@ PrivateRoute.propTypes = {
   authed: PropTypes.bool
 }
 
-@connect(state => {
+@connect((state) => {
   return state.user
 })
 class App extends React.Component {
@@ -221,7 +221,7 @@ class App extends React.Component {
 
           <InteriorHeader>
             <Route
-              render={routeProps => {
+              render={(routeProps) => {
                 if (routeProps.location.pathname.split('/')[1] === 'm') {
                   return null
                 }
