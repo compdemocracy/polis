@@ -2,6 +2,7 @@
   "name": "dashboard-require",
   "appName": "DashboardRequire",
   "version": "0.0.0",
+  "license": "AGPL-3.0",
   "scripts": {
     "build:preprod": "gulp deployPreprod",
     "start": "node ./node_modules/.bin/grunt",
