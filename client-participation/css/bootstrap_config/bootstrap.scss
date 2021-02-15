@@ -1,7 +1,7 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // Core variables and mixins
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/variables";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/variables";
 @import "variables"; // overrides
 
 
@@ -38,48 +38,48 @@ img {
 //
 //
 //
-// FROM @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/mixins";
+// FROM @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/mixins";
 // Mixins
 // --------------------------------------------------
 
 // Utilities
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/mixins/hide-text";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/mixins/opacity";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/mixins/image";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/mixins/labels";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/mixins/reset-filter";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/mixins/resize";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/mixins/responsive-visibility";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/mixins/size";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/mixins/tab-focus";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/mixins/text-emphasis";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/mixins/text-overflow";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/mixins/vendor-prefixes";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/mixins/hide-text";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/mixins/opacity";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/mixins/image";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/mixins/labels";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/mixins/reset-filter";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/mixins/resize";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/mixins/responsive-visibility";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/mixins/size";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/mixins/tab-focus";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/mixins/text-emphasis";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/mixins/text-overflow";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/mixins/vendor-prefixes";
 
 // Components
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/mixins/alerts";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/mixins/buttons";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/mixins/panels";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/mixins/pagination";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/mixins/list-group";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/mixins/nav-divider";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/mixins/forms";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/mixins/progress-bar";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/mixins/table-row";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/mixins/alerts";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/mixins/buttons";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/mixins/panels";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/mixins/pagination";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/mixins/list-group";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/mixins/nav-divider";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/mixins/forms";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/mixins/progress-bar";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/mixins/table-row";
 
 // Skins
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/mixins/background-variant";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/mixins/border-radius";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/mixins/gradients";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/mixins/background-variant";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/mixins/border-radius";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/mixins/gradients";
 
 // Layout
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/mixins/clearfix";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/mixins/center-block";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/mixins/nav-vertical-align";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/mixins/grid-framework";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/mixins/grid";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/mixins/clearfix";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/mixins/center-block";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/mixins/nav-vertical-align";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/mixins/grid-framework";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/mixins/grid";
 
-// END FROM "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/mixins";
+// END FROM "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/mixins";
 //
 //
 //
@@ -87,49 +87,49 @@ img {
 
 
 // Reset
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/normalize";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/print";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/normalize";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/print";
 
 // Core CSS
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/scaffolding";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/type";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/code";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/grid";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/tables";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/forms";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/buttons";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/scaffolding";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/type";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/code";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/grid";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/tables";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/forms";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/buttons";
 
 // Components
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/component-animations";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/component-animations";
 
 // @import "../awesome_config/font-awesome";
 
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/dropdowns";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/button-groups";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/input-groups";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/navs";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/navbar";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/breadcrumbs";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/pagination";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/pager";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/labels";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/badges";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/jumbotron";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/thumbnails";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/alerts";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/progress-bars";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/media";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/list-group";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/panels";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/wells";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/close";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/dropdowns";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/button-groups";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/input-groups";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/navs";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/navbar";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/breadcrumbs";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/pagination";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/pager";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/labels";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/badges";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/jumbotron";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/thumbnails";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/alerts";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/progress-bars";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/media";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/list-group";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/panels";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/wells";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/close";
 
 // Components w/ JavaScript
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/modals";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/tooltip";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/popovers";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/carousel";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/modals";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/tooltip";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/popovers";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/carousel";
 
 // Utility classes
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/utilities";
-// @import "../../bower_components/bootstrap-sass-official/assets/stylesheets/bootstrap/responsive-utilities";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/utilities";
+// @import "../../node_modules/bootstrap-sass/assets/stylesheets/bootstrap/responsive-utilities";

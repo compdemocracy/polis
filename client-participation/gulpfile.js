@@ -221,7 +221,7 @@ gulp.task('css', function(){
 });
 
 gulp.task('fontawesome', function() {
-  gulp.src('bower_components/font-awesome/fonts/**/*')
+  gulp.src('node_modules/font-awesome/fonts/**/*')
     .pipe(gulp.dest(destRoot() + "/fonts"));
 });
 // TODO remove
@@ -406,16 +406,18 @@ gulp.task('scripts', ['templates', 'jshint'], function() {
         // transform: ['hbsfy'],
         shim : {
           jquery: {
+            // Custom build from minimally patched jQuery for IE8 support.
+            // See: https://github.com/pol-is/jquery/tree/1.9-callbacks-array-fix
             path : devMode ? 'js/3rdparty/jquery.js' : 'js/3rdparty/jquery.min.js',
             exports: '$',
           },
           //TODO 'handlebars': 'templates/helpers/handlebarsWithHelpers', //this one has polis custom template helpers
           handlebars: {
-            path : 'bower_components/handlebars/handlebars.runtime.js', //original handlebars
+            path : 'node_modules/handlebars-v1/dist/handlebars.runtime.js', //original handlebars
             exports: 'Handlebars',
           },
           originalbackbone: {
-            path: 'bower_components/backbone/backbone', // backbone before modifications
+            path: 'node_modules/backbone/backbone', // backbone before modifications
             depends: { jquery: '$', underscore: '_' },
             exports: 'Backbone',
           },
@@ -425,71 +427,71 @@ gulp.task('scripts', ['templates', 'jshint'], function() {
             exports: "Backbone",
           },
           underscore: {
-            path: 'bower_components/underscore/underscore',
+            path: 'node_modules/underscore/underscore',
             exports: '_',
           },
           handlebones: {
-            path: 'bower_components/handlebones/handlebones',
+            path: 'node_modules/handlebones/handlebones',
             depends: { handlebars: 'Handlebars', backbone: 'Backbone' },
             exports: 'Handlebones',
           },
           bootstrap_alert: {  //all bootstrap files need to be added to the dependency array of js/main.js
-            path: 'bower_components/bootstrap-sass-official/assets/javascripts/bootstrap/alert',
+            path: 'node_modules/bootstrap-sass/assets/javascripts/bootstrap/alert',
             depends: { jquery: "jQuery" },
             exports: null,
           },
           bootstrap_tab: {
-            path : 'bower_components/bootstrap-sass-official/assets/javascripts/bootstrap/tab',
+            path : 'node_modules/bootstrap-sass/assets/javascripts/bootstrap/tab',
             depends: { jquery: "jQuery" },
             exports: null,
           },
           bootstrap_popover: {
-            path: 'bower_components/bootstrap-sass-official/assets/javascripts/bootstrap/popover',
+            path: 'node_modules/bootstrap-sass/assets/javascripts/bootstrap/popover',
             depends: { jquery: "jQuery" },
             exports: null,
           },
           bootstrap_collapse: {
-            path: 'bower_components/bootstrap-sass-official/assets/javascripts/bootstrap/collapse',
+            path: 'node_modules/bootstrap-sass/assets/javascripts/bootstrap/collapse',
             depends: { jquery: "jQuery" },
             exports: null,
           },
           bootstrap_dropdown: {
-            path: 'bower_components/bootstrap-sass-official/assets/javascripts/bootstrap/dropdown',
+            path: 'node_modules/bootstrap-sass/assets/javascripts/bootstrap/dropdown',
             depends: { jquery: "jQuery" },
             exports: null,
           },
           bootstrap_affix: {
-            path: 'bower_components/bootstrap-sass-official/assets/javascripts/bootstrap/affix',
+            path: 'node_modules/bootstrap-sass/assets/javascripts/bootstrap/affix',
             depends: { jquery: "jQuery" },
             exports: null,
           },
           d3tooltips: {
-            path: 'bower_components/d3-tip/index',
+            path: 'node_modules/d3-tip/index',
             depends: { jquery: "jQuery" },
             exports: null,
           },
           bootstrap_tooltip: {
-            path: 'bower_components/bootstrap-sass-official/assets/javascripts/bootstrap/tooltip',
+            path: 'node_modules/bootstrap-sass/assets/javascripts/bootstrap/tooltip',
             depends: { jquery: "jQuery" },
             exports: null,
           },
           bootstrap_button: {
-            path: 'bower_components/bootstrap-sass-official/assets/javascripts/bootstrap/button',
+            path: 'node_modules/bootstrap-sass/assets/javascripts/bootstrap/button',
             depends: { jquery: "jQuery" },
             exports: null,
           },
           bootstrap_transition: {
-            path: 'bower_components/bootstrap-sass-official/assets/javascripts/bootstrap/transition',
+            path: 'node_modules/bootstrap-sass/assets/javascripts/bootstrap/transition',
             depends: { jquery: "jQuery" },
             exports: null,
           },
           deepcopy: {
-            path: 'bower_components/deepcopy/deepcopy.min.js',
+            path: 'node_modules/deepcopy/deepcopy.js',
             depends: { jquery: "jQuery" },
             exports: null,
           },
           markdown: {
-            path: 'bower_components/markdown/lib/markdown.js',
+            path: 'node_modules/markdown/lib/markdown.js',
             depends: { jquery: "jQuery" },
             exports: "markdown",
           },
@@ -533,11 +535,10 @@ gulp.task("scriptsOther", function() {
 
   var files = [];
   if (devMode) {
-    files.push('bower_components/d3/d3.js');
+    files.push('node_modules/d3/d3.js');
   } else {
-    files.push('bower_components/d3/d3.min.js');
+    files.push('node_modules/d3/d3.min.js');
   }
-  files.push('d3.v4.min.js');
   var s = gulp.src(files);
   if (!devMode) {
     s = s
@@ -548,18 +549,19 @@ gulp.task("scriptsOther", function() {
   return s.pipe(gulp.dest(destRoot() + "/js"));
 });
 
-gulp.task("scriptsTemp", function() {
+gulp.task("scriptsD3v4", function() {
 
   var files = [];
-  files.push('d3.v4.min.js');
+  files.push('node_modules/d3-v4/build/d3.min.js');
   var s = gulp.src(files);
   if (!devMode) {
     s = s
       .pipe(uglify())
       .pipe(gzip())
-      .pipe(renameToRemoveGzExtention());
+      .pipe(renameToRemoveGzExtention())
+      .pipe(rename('d3.v4.min.js'));
   }
-  return s.pipe(gulp.dest(destRoot() + "/js"));
+  return s.pipe(gulp.dest(destRoot() + "/js/"));
 });
 
 gulp.task("preprodConfig", function() {
@@ -611,7 +613,7 @@ gulp.task("configureForProduction", function(callback) {
 
 gulp.task('common', [
   "scriptsOther",
-  "scriptsTemp",
+  "scriptsD3v4",
   "scripts",
   "css",
   "fontawesome",
