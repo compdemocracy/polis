@@ -3,9 +3,6 @@
   "version": "0.0.1",
   "repository": "github:pol-is/polisClientAdmin",
   "description": "Polis Admin Console",
-  "engines": {
-    "node": "8.17.0"
-  },
   "scripts": {
     "clean": "rimraf dist",
     "build:webpack": "npm run clean && NODE_ENV=production webpack --config webpack.config.js",
