@@ -5,6 +5,7 @@
   "license": "AGPL-3.0",
   "scripts": {
     "build:preprod": "gulp deployPreprod",
+    "build:preprod:unminified": "gulp deployPreprodUnminified",
     "start": "node ./node_modules/.bin/grunt",
     "test": "node ./node_modules/.bin/grunt test"
   },
