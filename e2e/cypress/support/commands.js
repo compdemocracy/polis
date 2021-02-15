@@ -24,6 +24,10 @@
 // -- This will overwrite an existing command --
 // Cypress.Commands.overwrite("visit", (originalFn, url, options) => { ... })
 
+// Adds commands for using iframes.
+// See: https://gitlab.com/kgroat/cypress-iframe
+require('cypress-iframe')
+
 Cypress.Commands.add("logout", () => {
   cy.request('POST', Cypress.config().apiPath + '/auth/deregister')
     .then(resp => {

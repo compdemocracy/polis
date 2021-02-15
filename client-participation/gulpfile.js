@@ -235,7 +235,10 @@ gulp.task('embedJs', function() {
     'api/embed.js',
     'api/embedPreprod.js',
     'api/twitterAuthReturn.html',
-    ])
+  ])
+  .pipe(template({
+    polisHostName: polisConfig.SERVICE_HOSTNAME || 'pol.is',
+  }))
   // .pipe(template({
   //   polisHostName: (preprodMode ? "preprod.pol.is" : "pol.is"),
   // }))

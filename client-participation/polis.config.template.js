@@ -14,6 +14,10 @@ module.exports = {
   //SERVICE_URL: "http://localhost:5000", // local server; recommended for dev
   SERVICE_URL: "http:localhost:5000",
 
+  // Used for setting appropriate hostname for embedding.
+  //SERVICE_HOSTNAME: "123.45.67.89.xip.io",
+  SERVICE_HOSTNAME: "localhost",
+
   // Note that this must match the participation client port specified in polisServer instance
   PORT: 5001,
 

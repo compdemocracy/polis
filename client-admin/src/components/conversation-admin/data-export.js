@@ -13,7 +13,7 @@ import NoPermission from './no-permission'
 class DataExport extends React.Component {
   constructor(props) {
     super(props)
-    var times = dateSetupUtil()
+    const times = dateSetupUtil()
     this.state = Object.assign({}, times, { showHelpMessage: false })
   }
 

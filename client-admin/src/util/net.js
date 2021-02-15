@@ -3,8 +3,8 @@
 import URLs from './url'
 import _ from 'lodash'
 
-var urlPrefix = URLs.urlPrefix
-var basePath = ''
+const urlPrefix = URLs.urlPrefix
+const basePath = ''
 
 // var pid = "unknownpid";
 
@@ -17,7 +17,7 @@ function polisAjax(api, data, type) {
     api = api.slice(1)
   }
 
-  var url = urlPrefix + basePath + api
+  const url = urlPrefix + basePath + api
 
   // Add the auth token if needed.
   // if (_.contains(authenticatedCalls, api)) {
@@ -30,8 +30,8 @@ function polisAjax(api, data, type) {
   //     //data = $.extend({ token: token}, data); // moving to cookies
   // }
 
-  var promise
-  var config = {
+  let promise
+  const config = {
     url: url,
     contentType: 'application/json; charset=utf-8',
     headers: {

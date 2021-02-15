@@ -33,9 +33,9 @@ class ModerateCommentsSeed extends React.Component {
   }
 
   handleSubmitSeed() {
-    var val = this.seed_form_tweet.value
-    var match = val && val.match(/[a-zA-Z0-9]+$/)
-    var tweet_id = ''
+    const val = this.seed_form_tweet.value
+    const match = val && val.match(/[a-zA-Z0-9]+$/)
+    let tweet_id = ''
     if (match && match.length) {
       tweet_id = match[0]
     }
