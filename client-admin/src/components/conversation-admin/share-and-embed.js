@@ -14,7 +14,7 @@ import NoPermission from './no-permission'
 class ShareAndEmbed extends React.Component {
   constructEmbeddedOnMarkup() {
     return (
-      <p>
+      <p data-test-id="embed-page">
         {'Embedded on: '}
         <a
           style={{ color: 'black' }}
