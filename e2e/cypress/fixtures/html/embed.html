@@ -1,0 +1,71 @@
+<script type="text/javascript">
+  // Inspiration: https://github.com/Demos-thinktank/dynata-id/blob/master/site-content/js/index.js
+
+  document.addEventListener('readystatechange', event => {
+    if (event.target.readyState === 'complete') {
+      const urlParams = new URLSearchParams(window.location.search);
+      let params = paramsToObject(urlParams.entries());
+      //params['data-conversation_id'] = params['data-conversation_id'] || '2demo';
+      let polisDomain = params.polisDomain || 'pol.is';
+      const dataParams = Object.keys(params)
+        .filter(key => key.startsWith('data-'))
+        .reduce((obj, key) => {
+          // Remove data-* prefix from key when setting.
+          obj[key.replace('data-', '')] = params[key];
+          return obj;
+        }, {});
+      setConvoAttrs(polisDomain, dataParams);
+    }
+  });
+
+  function paramsToObject(entries) {
+    const result = {}
+    for(const [key, value] of entries) { // each 'entry' is a [key, value] tupple
+      result[key] = value;
+    }
+    return result;
+  }
+
+  function setConvoAttrs (polisDomain, dataParams) {
+    // Handles the initial handshake between server and iframe
+    let messageElem = document.getElementById('message');
+    // Disabling errors for now
+    if (false && typeof dataParams.conversation_id === 'undefined') {
+      messageElem.innerHTML = getMessage('error');
+    } else {
+      messageElem.innerHTML = getMessage('success');
+      attachPolis(polisDomain, dataParams);
+    }
+  }
+
+  function getMessage (type) {
+    let message;
+    switch (type) {
+      case 'error':
+        message = "You have a missing or malformed value in polisUrl, or data- params in your URL."
+        break;
+      case 'success':
+        message=null;
+        break;
+    }
+    return message;
+  }
+
+  function attachPolis (polisDomain, dataParams) {
+    let polisContainer = document.getElementById('polis-container');
+
+    let polisElem = document.createElement('div');
+    polisElem.className = 'polis';
+    Object.assign(polisElem.dataset, dataParams)
+
+    let embedScript = document.createElement('script');
+    embedScript.src = `//${polisDomain}/embed.js`;
+    embedScript.type = 'text/javascript';
+    embedScript.async = true;
+
+    polisContainer.innerHTML = polisElem.outerHTML;
+    polisContainer.appendChild(embedScript);
+  }
+</script>
+<p id="message">Loading...</p>
+<div id="polis-container"></div>
