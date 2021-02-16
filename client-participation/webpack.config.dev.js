@@ -2,7 +2,7 @@ var path = require("path");
 var webpack = require("webpack");
 
 module.exports = {
-  devtool: ["eval", "sourcemap"],
+  devtool: "eval-source-map",
   entry: [
     // 'webpack-hot-middleware/client',
     "./vis2/vis2"
@@ -12,27 +12,14 @@ module.exports = {
     filename: "vis_bundle.js",
     publicPath: "SET_THIS_FROM_GULP"
   },
-  plugins: [
-    // new webpack.HotModuleReplacementPlugin(),
-    // perf test on nodes - remove this line to get warnings back.
-    new webpack.DefinePlugin({
-      "process.env": {
-        NODE_ENV: JSON.stringify("dev")
-      }
-    })
-    // new webpack.NoErrorsPlugin()
-  ],
+  mode: 'development',
   module: {
-    loaders: [
+    rules: [
       {
         test: /\.js$/,
-        loaders: ["babel"],
-        include: path.join(__dirname, "vis2")
+        loader: "babel-loader",
+        include: path.join(__dirname, "vis2"),
       },
-      {
-        test: /\.json$/,
-        loader: "json-loader"
-      }
     ]
   }
 };

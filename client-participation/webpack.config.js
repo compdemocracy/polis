@@ -11,28 +11,17 @@ module.exports = {
     filename: "vis_bundle.js",
     publicPath: "SET_THIS_FROM_GULP"
   },
-  plugins: [
-    new webpack.optimize.OccurenceOrderPlugin(),
-    new webpack.DefinePlugin({
-      "process.env": {
-        "NODE_ENV": JSON.stringify("production")
-      }
-    }),
-    new webpack.optimize.UglifyJsPlugin({
-      compressor: {
-        warnings: false
-      }
-    })
-  ],
+  mode: 'production',
+  optimization: {
+    minimize: true,
+  },
   module: {
-
-    preLoaders: [
-      { test: /\.json$/, loader: "json"}
-    ],
-    loaders: [{
-      test: /\.js$/,
-      loaders: ["babel"],
-      include: path.join(__dirname, "vis2")
-    }]
+    rules: [
+      {
+        test: /\.js$/,
+        loader: "babel-loader",
+        include: path.join(__dirname, "vis2"),
+      }
+    ]
   }
 };
