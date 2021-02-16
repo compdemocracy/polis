@@ -297,20 +297,19 @@ gulp.task('templates', function(){
     .pipe(tap(function(file) {
 
       if(needsHeaderAndFooter(file) || needsBanner(file)) {
-        console.log(file.path)
         file._contents = Buffer.concat([
-            // new Buffer(
+            // new Buffer.from(
             //   needsHeaderAndFooter(file) ? '<div class="wrap">' : ''
             // ),
-            new Buffer(
+            new Buffer.from(
               (needsHeaderAndFooter(file) ? '{{#ifNotEmbedded}}{{> header}}{{/ifNotEmbedded}}' : '') +
               (needsBanner(file) ? '{{#ifTrial}}{{> banner}}{{/ifTrial}}' : '')
             ),
             file._contents,
-            // new Buffer(
+            // new Buffer.from(
               // needsHeaderAndFooter(file) ? '</div>' : ''
             // ),
-            // new Buffer(
+            // new Buffer.from(
               // needsHeaderAndFooter(file) ? '{{> footer}}' : ''
             // ),
         ]);
@@ -393,7 +392,7 @@ gulp.task('scriptsVis2', ['jshint'], function() {
   config.output.publicPath = destRoot() + "/js/";
 
   return gulp.src('./vis2/vis2.js')
-    .pipe(webpackStream(configProd))
+    .pipe(webpackStream(configProd, webpack))
     .pipe(gzip())
     .pipe(renameToRemoveGzExtention())
     .pipe(gulp.dest(destRoot() + "/js"));
