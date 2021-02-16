@@ -445,6 +445,8 @@ module.exports = Handlebones.ModelView.extend({
     this.onButtonClicked = function() {
       this.animateOut();
     };
+
+
     this.starBtn = function(e) {
       var starred = !that.model.get("starred");
 
@@ -475,6 +477,7 @@ module.exports = Handlebones.ModelView.extend({
       });
       return false;
     };
+    // importance-metric
     this.getWeight = function() {
       if ($("#weight_low").prop("checked")) {
         return -1;
@@ -483,9 +486,11 @@ module.exports = Handlebones.ModelView.extend({
       }
       return 0;
     };
+
     this.participantAgreed = function(e) {
       this.mostRecentVoteType = "agree";
       var tid = this.model.get("tid");
+      // importance-metric
       var starred = this.model.get("starred");
       if (!starred) {
         starred = void 0; // don't bother sending up false, no need to put a vote value of 0 in the db.

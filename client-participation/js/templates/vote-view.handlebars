@@ -219,7 +219,6 @@
 
 {{!--   </div> --}}
 
-
 {{#if empty}}
   {{!-- nothing --}}
 {{else}} {{!-- !empty --}}
@@ -254,6 +253,7 @@
         >
         {{s.modOffTopic}}
       </div>
+      {{!-- importance-metric, but this was an old idea that included participants signaling that comments were spam or off topic --}}
       <div
         id="importantToggle"
         class="modToggle moderateButton {{#if importantOn}}selectedModerateButton{{/if}}"
@@ -324,6 +324,7 @@
       </button>
     </div>
 
+    {{!-- importance-metric --}}
     {{#if showImportantCheckbox}}
     <div style="text-align: center; margin-bottom: 20px">
       <label class="weight-label">

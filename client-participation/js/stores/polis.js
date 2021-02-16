@@ -413,6 +413,7 @@ module.exports = function(params) {
     return promise;
   }
 
+  // importance-metric
   function agree(commentId, starred, weight) {
     clearComment(commentId);
     var o = {
@@ -453,6 +454,7 @@ module.exports = function(params) {
     });
   }
 
+  // importance-metric
   function doStarAction(params) {
     if (params.conversation_id && params.conversation_id !== conversation_id) {
       console.error("wrong stimulus");

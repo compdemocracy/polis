@@ -6644,6 +6644,8 @@ Email verified! You can close this tab or hit the back button.
       fail(res, 500, "polis_err_upvote_check", err);
     });
   }
+
+  // importance-metric
   function addStar(zid, tid, pid, starred, created) {
     starred = starred ? 1 : 0;
     let query = "INSERT INTO stars (pid, zid, tid, starred, created) VALUES ($1, $2, $3, $4, default) RETURNING created;";

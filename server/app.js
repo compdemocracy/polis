@@ -740,7 +740,7 @@ helpersInitialized.then(function(o) {
     need('tid', getInt, assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('vote', getIntInRange(-1, 1), assignToP),
-    want('starred', getBool, assignToP),
+    want('starred', getBool, assignToP), // importance-metric
     want('weight', getNumberInRange(-1, 1), assignToP, 0),
     resolve_pidThing('pid', assignToP, "post:votes"),
     want('xid', getStringLimitLength(1, 999), assignToP),
@@ -787,7 +787,7 @@ helpersInitialized.then(function(o) {
     auth(assignToP),
     need('tid', getInt, assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-    need('starred', getIntInRange(0, 1), assignToP),
+    need('starred', getIntInRange(0, 1), assignToP), // importance-metric
     getPidForParticipant(assignToP, pidCache),
     handle_POST_stars);
 
