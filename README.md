@@ -52,26 +52,37 @@ Recommendations: Docker-Machine (on [DigitalOcean with 2GB memory][do-tut])
 
 ### Running with docker-compose:
 
-Before running docker-compose up for the first time,
-either do a pull (faster):
+Before running docker-compose up for the first time:
+
+After cloning, navigate via command line to the root of this repository.
+
+Next, either do a pull (faster):
 
 `docker-compose pull`
 
+If you get a permission error, try running `sudo docker-compose pull`, and sudo will be necessary for all other commands as well. To avoid having to run `sudo` in the future, you can follow setup instruction here: https://docs.docker.com/engine/install/linux-postinstall/
+
 or do a build (to utilize recent or local changes):
 
-`docker-compose up --build --detach`
+`docker-compose up --build`
 
-subsequently you should only need to run:
+once you've either pulled or built, you can run the following when you want to run the project:
 
-`docker-compose up --detach`
+`docker-compose up`
 
 To force a full re-build with no cache from previous builds:
 `docker-compose build --parallel --no-cache`
 
+You can end the process using `Ctrl+C`
+
+###### Running as a background process
+
+If you would like to run docker compose as a background process, run the `up` commands with the `--detach` flag, e.g.,: 
+
+`docker-compose up --detach`
+
 And to stop:
 `docker-compose down`
-
-_(or Ctrl+C if you did not run with --detach)_
 
 ### check your ip (only necessary on docker-machine):
 ```
