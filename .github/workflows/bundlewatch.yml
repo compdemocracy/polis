@@ -51,7 +51,6 @@ jobs:
     - name: "Install & Build: client-participation"
       working-directory: client-participation
       run: |
-        npx bower install
         npm install
         cp polis.config.template.js polis.config.js
         npm run build:preprod
