@@ -47,8 +47,7 @@ We look forward to working together :tada:
 
 Recommendations: Docker-Machine (on [DigitalOcean with 2GB memory][do-tut])
 
-   [do-tut]: https://www.digitalocean.com/community/tu
-   orials/how-to-provision-and-manage-remote-docker-hosts-with-docker-machine-on-ubuntu-16-04
+   [do-tut]: https://www.digitalocean.com/community/tutorials/how-to-provision-and-manage-remote-docker-hosts-with-docker-machine-on-ubuntu-16-04
 
 
 ### Running with docker-compose:
