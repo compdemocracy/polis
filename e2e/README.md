@@ -30,7 +30,7 @@ To run these tests:
 ## Notes
 
 - We keep some helper scripts in `package.json`.
-- The default base url for running tests against, is https://localhist
+- The default base url for running tests against, is https://localhost
   - You may override any cypress-related command this like so: `CYPRESS_BASE_URL=http://123.45.67.89.xip.io npm test`
 - `cypress/integration/polis/`: where we store our tests
 - `cypress/integration/examples`: where we store boilerplate examples (ignored by test runner)
