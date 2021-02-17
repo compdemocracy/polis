@@ -95,6 +95,20 @@ Sign up at `/createuser` path. You'll be logged in right away; no email validati
 git config --local include.path ../.gitconfig
 ```
 
+### Development flow
+
+While `docker-compose up` is great for testing the whole system, it helps to have some guidance about how you use it in development.
+
+If you are doing some development work on one of the clients, you should be able to just run as above.
+Then, follow the instructions for running a dev-time version of whichever of the clients you are interested in working on.
+These will each have their own localhost ports that they like to run on.
+The docker-compose system should only expose the port 5000, so by accessing (e.g.) localhost:5001 directly, you bypass whatever is being served via docker and going straight to what is running locally (complete with live code reloading where supported).
+Meanwhile, the client being served up can still refer to the server (running in docker at localhost:5000, with the port exposed to the rest of your system) for data and api calls.
+
+If however you want to work on either the server or the math piece, you are going to have to turn off those parts of the system and run `docker-compose up` with the `--scale <component>=0` flag (where `<component>` is either `polis-server` or `polis-math`, as appropriate).
+Depending on the specifics of what you might want to do, you may also need to open some additional ports, but we haven't had to do too much of this yet, and will update when this pathway is better trod.
+
+
 ## 🔍 Testing
 
 We use Cypress for automated, end-to-end browser testing! (See badge above.)
