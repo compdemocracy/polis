@@ -2,7 +2,7 @@
 
 ## :telephone_receiver: Open Calls
 
-:clock10: **When?** Every Saturday at 19:00 UTC (noon PT / 3pm ET / [your timezone][]) \
+:clock10: **When?** Every Saturday at 19:00 GMT (noon PT / 3pm ET / [your timezone][]) \
 :raising_hand: **Where?** [`meet.jit.si/pol.is`](https://meet.jit.si/pol.is) (video chatroom) \
 :pencil: **Call Notes**: [`bit.ly/polis-calls2`](https://bit.ly/polis-calls2)
 
