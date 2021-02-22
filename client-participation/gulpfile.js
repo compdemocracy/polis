@@ -661,7 +661,7 @@ gulp.task("watchForDev", [
       console.log("watch saw: " + e.path + " " + e.type);
       gulp.run("dev");
     });
-});S
+});
 
 gulp.task('prodBuildNoDeploy', [
   "prodConfig",
