@@ -52,7 +52,7 @@ class Comment extends React.Component {
               <Link
                 target="_blank"
                 sx={{ mr: [2] }}
-                href="https://roamresearch.com/#/app/polis-methods/page/Q5VQKsuU5">
+                href="https://compdemocracy.org/metadata">
                 {this.props.isMetaCheckbox ? 'metadata' : null}
               </Link>
               {this.props.isMetaCheckbox ? (
