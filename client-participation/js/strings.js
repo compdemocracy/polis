@@ -38,7 +38,10 @@ var translations = {
   ja: require("./strings/ja.js"),
   
   // Croatian
-  hr: require("./strings/hr.js")
+  hr: require("./strings/hr.js"),
+  
+  // Slovak
+  sk: require("./strings/sk.js")
 };
 
 
