@@ -23,7 +23,7 @@
     "@babel/plugin-proposal-class-properties": "^7.12.13",
     "@babel/plugin-proposal-decorators": "^7.12.13",
     "@babel/plugin-transform-runtime": "^7.12.15",
-    "@babel/preset-env": "^7.12.16",
+    "@babel/preset-env": "^7.12.17",
     "@babel/preset-react": "^7.12.13",
     "@mdx-js/loader": "^1.6.22",
     "babel-eslint": "^10.1.0",
@@ -54,7 +54,7 @@
     "request": "^2.88.2",
     "rimraf": "^3.0.2",
     "run-sequence": "~2.2.1",
-    "webpack": "^5.21.2",
+    "webpack": "^5.24.0",
     "webpack-bundle-analyzer": "^4.4.0",
     "webpack-cli": "^4.5.0",
     "webpack-dev-middleware": "^4.1.0"
