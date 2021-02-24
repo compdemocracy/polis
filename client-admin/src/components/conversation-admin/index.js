@@ -55,27 +55,45 @@ class ConversationAdminContainer extends React.Component {
             </Link>
           </Box>
           <Box sx={{ mb: [3] }}>
-            <Link sx={{ variant: url ? 'links.nav' : 'links.activeNav' }} to={`${match.url}`}>
+            <Link
+              sx={{ variant: url ? 'links.nav' : 'links.activeNav' }}
+              to={`${match.url}`}>
               Configure
             </Link>
           </Box>
           <Box sx={{ mb: [3] }}>
-            <Link sx={{ variant: url === 'share' ? 'links.activeNav' : 'links.nav' }} to={`${match.url}/share`}>
+            <Link
+              sx={{
+                variant: url === 'share' ? 'links.activeNav' : 'links.nav'
+              }}
+              to={`${match.url}/share`}>
               Distribute
             </Link>
           </Box>
           <Box sx={{ mb: [3] }}>
-            <Link sx={{ variant: url === 'comments' ? 'links.activeNav' : 'links.nav' }} to={`${match.url}/comments`}>
+            <Link
+              sx={{
+                variant: url === 'comments' ? 'links.activeNav' : 'links.nav'
+              }}
+              to={`${match.url}/comments`}>
               Moderate
             </Link>
           </Box>
           <Box sx={{ mb: [3] }}>
-            <Link sx={{ variant: url === 'stats' ? 'links.activeNav' : 'links.nav' }} to={`${match.url}/stats`}>
+            <Link
+              sx={{
+                variant: url === 'stats' ? 'links.activeNav' : 'links.nav'
+              }}
+              to={`${match.url}/stats`}>
               Monitor
             </Link>
           </Box>
           <Box sx={{ mb: [3] }}>
-            <Link sx={{ variant: url === 'reports' ? 'links.activeNav' : 'links.nav' }} to={`${match.url}/reports`}>
+            <Link
+              sx={{
+                variant: url === 'reports' ? 'links.activeNav' : 'links.nav'
+              }}
+              to={`${match.url}/reports`}>
               Report
             </Link>
           </Box>
