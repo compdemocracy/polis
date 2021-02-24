@@ -27,7 +27,8 @@ module.exports = {
       test: /\.js$/,
       // Leave unmodified without gz ext.
       // See: https://webpack.js.org/plugins/compression-webpack-plugin/#options
-      filename: '[path][query]',
+      filename: '[path][base]',
+      deleteOriginalAssets: true,
     }),
     new webpack.DefinePlugin({
       "process.env.NODE_ENV": JSON.stringify("production"),
