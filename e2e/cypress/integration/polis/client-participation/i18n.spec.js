@@ -24,7 +24,8 @@ describe('Interface internationalization', () => {
       nl: 'nl',
       pt: 'pt_br',
       'zh-CN': 'zh_Hans',
-      'zh-TW': 'zh_Hant'
+      'zh-TW': 'zh_Hant',
+      sk: 'sk',
     }
     for (let [lang, filename] of Object.entries(locales)) {
       cy.readFile(`../client-participation/js/strings/${filename}.js`).then(contents => {
@@ -89,6 +90,11 @@ describe('Interface internationalization', () => {
 
   it('translates into Traditional Chinese', function () {
     const lang = 'zh-TW'
+    openTranslated(this.convoPath, lang, this.strings[lang])
+  })
+
+  it('translates into Slovak', function () {
+    const lang = 'sk'
     openTranslated(this.convoPath, lang, this.strings[lang])
   })
 })
