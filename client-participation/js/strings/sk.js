@@ -4,7 +4,7 @@ var s = {};
 
 s.agree = "Súhlasím";
 s.disagree = "Nesúhlasím";
-s.pass = "Zdržiavam sa / Nie som si istý/á";
+s.pass = "Preskočiť";
 
 s.importantCheckbox = "Tento komentár je dôležitý";
 s.howImportantPrompt = "Ako dôležitý je tento výrok?";
