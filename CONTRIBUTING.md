@@ -8,9 +8,11 @@ Requirements: Docker & docker-compose installed locally.
 
 Though these tests are useful when developing new features on your own feature branch,
 it's first helpful to ensure you can run them against a known-good version of the application.
-The project builds working docker container images nightly,
+The project builds [working docker container images nightly][nightlies],
 using the codebase on the mainline `dev` branch,
 so we'll pull and run those first.
+
+   [nightlies]: https://hub.docker.com/u/polisdemo
 
 ```
 git clone https://github.com/compdemocracy/polis
