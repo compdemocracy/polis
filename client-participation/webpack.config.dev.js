@@ -3,16 +3,13 @@ var webpack = require("webpack");
 
 module.exports = {
   devtool: "eval-source-map",
-  entry: [
-    // 'webpack-hot-middleware/client',
-    "./vis2/vis2"
-  ],
+  entry: ["./vis2/vis2"],
   output: {
     path: path.join(__dirname, "develvis2"),
     filename: "vis_bundle.js",
-    publicPath: "SET_THIS_FROM_GULP"
+    publicPath: "SET_THIS_FROM_GULP",
   },
-  mode: 'development',
+  mode: "development",
   module: {
     rules: [
       {
@@ -20,6 +17,6 @@ module.exports = {
         loader: "babel-loader",
         include: path.join(__dirname, "vis2"),
       },
-    ]
-  }
+    ],
+  },
 };
