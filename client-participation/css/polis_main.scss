@@ -1,7 +1,5 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// @import 'rainbow/themes/github.scss';
-
 .svgIcon {
   display: inline-block;
   position: relative;
@@ -10,7 +8,6 @@
   width: 22px;
   fill: black;
 }
-
 
 body {
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
@@ -24,25 +21,24 @@ textarea {
   font-family: Helvetica, Arial, sans-serif;
 }
 
-@import 'bootstrap_config/bootstrap';
+@import "bootstrap_config/bootstrap";
 
 // 4KB
 // @import 'awesome_config/font-awesome';
 
 // @import 'base';
 
-@import 'polis/polis';
+@import "polis/polis";
 
 // 3KB
-@import 'conversationView';
+@import "conversationView";
 
-@import 'pca_vis';
-
+@import "pca_vis";
 
 // TODO set the bootstrap variable instead.
 .navbar-default {
-	background-color: $header-footer-color;
-	padding: 10px 0px 10px 0px;
+  background-color: $header-footer-color;
+  padding: 10px 0px 10px 0px;
 }
 
 .tab-content {
