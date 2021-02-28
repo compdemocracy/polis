@@ -6,8 +6,7 @@
   "scripts": {
     "build:preprod": "gulp deployPreprod",
     "build:preprod:unminified": "gulp deployPreprodUnminified",
-    "start": "node ./node_modules/.bin/grunt",
-    "test": "node ./node_modules/.bin/grunt test"
+    "start": "gulp"
   },
   "dependencies": {
     "autosize": "^3.0.3",
