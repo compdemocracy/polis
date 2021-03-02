@@ -36,10 +36,10 @@ var translations = {
 
   // Japanese
   ja: require("./strings/ja.js"),
-  
+
   // Croatian
   hr: require("./strings/hr.js"),
-  
+
   // Slovak
   sk: require("./strings/sk.js")
 };
@@ -95,8 +95,8 @@ preloadHelper.acceptLanguagePromise.then(function() {
     else if (languageCode.match(/^nl/)) {
       _.extend(strings, translations.nl);
     }
-    else if (languageCode.match(/^sk/)) { 
-      _.extend(strings, translations.sk); 
+    else if (languageCode.match(/^sk/)) {
+      _.extend(strings, translations.sk);
     }
     else if (
       languageCode.match(/^pt/) ||  // To help other Portuguese speaker participants until its specific translation is not here
