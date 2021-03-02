@@ -159,9 +159,14 @@ function onPreloadOk(response) {
   ];
   for (var i = 0; i < things.length; i++) {
     var r = things[i], src = r.src, dst = r.dst, cb = r.cb;
+
+  
     if (response) {
       p[dst] = r.JSON ? JSON.parse(response[src]) : response[src];
     }
+
+    console.log("in index.html in participation: response, p, r, ", response, p, r)
+
     if (r.fn) {
       p[dst] = r.fn(p[dst]);
     }
