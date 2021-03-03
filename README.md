@@ -10,31 +10,26 @@ pol.is an AI powered sentiment gathering platform. More organic than surveys, le
 
 ## :construction: Disclaimer
 
-- The documentation and configuration in this code repository is **for development ONLY**,
-and emphatically **NOT intended for production deployment**.
-- We do NOT make guarantees of easy setup or management, push-button deployment, security,
-firm development timelines, technical support, future migration paths, data integrity,
-existence of bugs, or completeness of existing features.
-All of the above is actively in flux on `dev` branch.
-- Work in the issue queue and codebase is being done in part by passionate volunteer contributors.
-They will often be experimenting with unproven project infrastructure that is unsupported by the Polis organization,
-e.g. pre-built docker images.
+The installation instructions below are currently focused on setting up a **development environment**.
+These instructions should **NOT** be considered sufficient for _production_ deployment without additional setup.
+We do **NOT** make guarantees of easy setup or management, push-button deployment, security, technical support, future migration paths, data integrity, etc.
+
+Having said this, some of the core pieces of infrastructure described below are potentially useful in a production context, if used correctly.
+In particular, each subdirectory of the project has its own `Dockerfile` which could potentially be used as part of a deploy strategy.
+The `docker-compose.yml` is specifically focused on development environment flow.
+
 - See also: [Deployment: About SSL/HTTPS](docs/deployment.md#about-sslhttps)
 
-Having said this, we are enthusiastic about your support in moving toward deployment-readiness.
-We aspire to see future third-party deployments of polis as we cultivate a growing community of diverse contributors!
+If you'd like to set up your own deployment of Polis, we encourage your to [reach out to us](hello@compdemocracy.org) for support.
 We look forward to working together :tada:
+
 
 ## 🙋🏾‍♀️ Get Involved
 
-1. Say hi in one of our **chat rooms** :speech_balloon:
-    - 🦸🏼 General (Usage, Theory & Practice) [`gitter.im/pol-is/polis-community`][chat]
-    - 👩🏿‍💻 Technical (Software & Math) [`gitter.com/pol-is/polisDeployment`][chat-dev]
-2. Join one of our weekly **open calls** :microphone:
-    - Please please please... Newcomers welcome! [Learn more...][calls-about]
-3. Visit our [**issue tracker**][issues] [:white_check_mark:][issues] to offer your skills & energies
-    - We also keep a [project kanban board][board] [:checkered_flag:][board]
-    - :ear: Pssssst! [Learn how...][contributing] (labels, etc.)
+If you're interested in contributing to the codebase, please visit our [**issue tracker**][issues] [:white_check_mark:][issues].
+Please also see:
+- [**discussions**][discussions] [:speach_balloon:][discussions]
+- [project kanban board][board] [:checkered_flag:][board]
 
    [chat]: https://gitter.im/pol-is/polis-community
    [chat-dev]: https://gitter.im/pol-is/polisDeployment
@@ -42,10 +37,11 @@ We look forward to working together :tada:
    [issues]: https://github.com/pol-is/polisServer/issues
    [board]: https://github.com/orgs/pol-is/projects/1
    [contributing]: /CONTRIBUTING.md#how-we-work
+   [discussions]: https://github.com/
 
 ## 💻 Development
 
-Recommendations: Docker-Machine (on [DigitalOcean with 2GB memory][do-tut])
+If you have a small machine or little hard drive space, you may want to consider running the below with Docker-Machine ([DigitalOcean with 2GB memory][do-tut] should be sufficient)
 
    [do-tut]: https://www.digitalocean.com/community/tutorials/how-to-provision-and-manage-remote-docker-hosts-with-docker-machine-on-ubuntu-16-04
 
