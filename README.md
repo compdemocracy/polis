@@ -28,7 +28,7 @@ We look forward to working together :tada:
 
 If you're interested in contributing to the codebase, please visit our [**issue tracker**][issues] [:white_check_mark:][issues].
 Please also see:
-- [**discussions**][discussions] [:speach_balloon:][discussions]
+- [**discussions**][discussions] [:speech_balloon:][discussions]
 - [project kanban board][board] [:checkered_flag:][board]
 
    [chat]: https://gitter.im/pol-is/polis-community
