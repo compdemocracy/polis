@@ -3,6 +3,7 @@
 import PolisNet from '../../../util/net'
 import React from 'react'
 import PropTypes from 'prop-types'
+import Url from '../../../util/url'
 import { connect } from 'react-redux'
 import { Heading, Box, Button } from 'theme-ui'
 import ComponentHelpers from '../../../util/component-helpers'
@@ -78,8 +79,8 @@ class ReportsList extends React.Component {
               <a
                 target="_blank"
                 rel="noreferrer"
-                href={'/report/' + report.report_id}>
-                pol.is/report/{report.report_id}
+                href={Url.urlPrefix + 'report/' + report.report_id}>
+                {Url.urlPrefix}report/{report.report_id}
               </a>
             </Box>
           )
