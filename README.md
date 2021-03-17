@@ -20,7 +20,7 @@ The `docker-compose.yml` is specifically focused on development environment flow
 
 - See also: [Deployment: About SSL/HTTPS](docs/deployment.md#about-sslhttps)
 
-If you'd like to set up your own deployment of Polis, we encourage your to [reach out to us](hello@compdemocracy.org) for support.
+If you'd like to set up your own deployment of Polis, we encourage your to [reach out to us](mailto:hello@compdemocracy.org) for support.
 We look forward to working together :tada:
 
 
