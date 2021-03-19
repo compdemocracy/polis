@@ -4,10 +4,11 @@
   "version": "0.0.0",
   "license": "AGPL-3.0",
   "scripts": {
-    "build:preprod": "gulp deployPreprod",
-    "build:preprod:unminified": "gulp deployPreprodUnminified",
     "start": "gulp",
-    "prodBuild": "gulp prodBuildNoDeploy"
+    "build:prod": "gulp prodBuildNoDeploy",
+    "deploy:preprod": "gulp deployPreprod",
+    "deploy:prod": "gulp deploy_TO_PRODUCTION",
+    "deploy:preprod:unminified": "gulp deployPreprodUnminified"
   },
   "dependencies": {
     "autosize": "^3.0.3",
