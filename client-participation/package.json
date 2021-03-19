@@ -6,7 +6,8 @@
   "scripts": {
     "build:preprod": "gulp deployPreprod",
     "build:preprod:unminified": "gulp deployPreprodUnminified",
-    "start": "gulp"
+    "start": "gulp",
+    "prodBuild": "gulp prodBuildNoDeploy"
   },
   "dependencies": {
     "autosize": "^3.0.3",
