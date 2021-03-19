@@ -1,8 +1,28 @@
-setup:
-  addons:
-    - plan: heroku-postgresql
-      as: DATABASE
+## If we add the beta update channel, we can use the setup definition below to automatically provision
+## database etc; Leaving out for now, since not necessary and don't want to nuke existing prod db
+## accidentailly when we push this to prod.
+#setup:
+  #addons:
+    #- plan: heroku-postgresql
+      #as: DATABASE
+
 build:
   docker:
+    ## Don't want this for now, but could potentially use for specifying custom image for building images
+    ## (including stuff like database migrations), so they don't appear in prod runtime images
+    #release:
+      #dockerfile: Dockerfile
+      #target: builder
     web: server/Dockerfile
-    #worker: math/Dockerfile
+    ## For when we turn on dedicated math worker in edge
+    worker: math/Dockerfile
+
+## TODO Blocked on not knowing how to deal with needing multiple potential release images
+
+## If we decide to have release tasks, which run before a new release is deployed to production
+## (e.g. sending CSS/JS etc assets to CDN/S3, priming cache stores, or running database schema migrations)
+#release:
+  #image: release
+  #command:
+    #- ./bin/deployment-tasks.sh
+
