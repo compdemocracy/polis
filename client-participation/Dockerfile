@@ -24,4 +24,7 @@ COPY polis.config.template.js polis.config.js
 COPY . .
 
 ARG GIT_HASH
-RUN npm run build:preprod
+ARG BABEL_ENV=production
+
+RUN npm run deploy:prod
+
