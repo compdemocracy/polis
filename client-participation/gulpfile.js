@@ -101,6 +101,7 @@ function prepPathForTemplate(path) {
     path = "/" + path;
   }
   path = path.replace(/\/*$/, ""); // remove trailing slash
+  // */                 // <- fix for bad js syntax parsing (comment vs regex) in vim
   return path;
 }
 
@@ -992,6 +993,8 @@ function deploy(uploader) {
 
   const cachedSubdir = "cached";
 
+  // It's unclear here what is being processed with this one
+  // It's marking content type as js, but seems to be configured to ignore the js directory
   promises.push(
     deployBatch({
       srcKeep: destRoot() + "**/**",
