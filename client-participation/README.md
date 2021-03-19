@@ -45,8 +45,8 @@ Deployment
 
 Before pushing to s3: `gulp dist`
 
-Then use the `deployToPreprod` script to deploy to your preprod server to test.
-Then `deploy_TO_PRODUCTION` when you are ready.
+Then run `npm run deploy:preprod` or `npm run deploy:prod` scripts to deploy to preprod and prod environments
+respectively.
 
 
 ### Other Requirements
