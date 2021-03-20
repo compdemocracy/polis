@@ -165,8 +165,6 @@ function onPreloadOk(response) {
       p[dst] = r.JSON ? JSON.parse(response[src]) : response[src];
     }
 
-    console.log("in index.html in participation: response, p, r, ", response, p, r)
-
     if (r.fn) {
       p[dst] = r.fn(p[dst]);
     }
