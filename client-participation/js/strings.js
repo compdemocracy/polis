@@ -42,6 +42,9 @@ var translations = {
 
   // Slovak
   sk: require("./strings/sk.js")
+  
+  // Hebrew 
+  he: require("./strings/he.js")
 };
 
 
@@ -103,6 +106,9 @@ preloadHelper.acceptLanguagePromise.then(function() {
       languageCode.match(/^pt-PT/) ||  // To help Portuguese participantes until an specific translation is not here
       languageCode.match(/^pt-BR/)) {
       _.extend(strings, translations.pt_br);
+    }
+     else if (languageCode.match(/^he/)) {
+      _.extend(strings, translations.he);
     }
   });
 });
