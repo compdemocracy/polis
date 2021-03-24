@@ -98,7 +98,7 @@ describe('Interface internationalization', () => {
     const lang = 'sk'
     openTranslated(this.convoPath, lang, this.strings[lang])
   })
-  
+
   it('translates into Hebrew', function () {
     const lang = 'he'
     openTranslated(this.convoPath, lang, this.strings[lang])

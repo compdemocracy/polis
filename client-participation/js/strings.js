@@ -41,9 +41,9 @@ var translations = {
   hr: require("./strings/hr.js"),
 
   // Slovak
-  sk: require("./strings/sk.js")
-  
-  // Hebrew 
+  sk: require("./strings/sk.js"),
+
+  // Hebrew
   he: require("./strings/he.js")
 };
 
