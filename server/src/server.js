@@ -2,11 +2,22 @@
 
 "use strict";
 
+let POLIS_ROOT = process.env.POLIS_ROOT
+var config = require(POLIS_ROOT + 'config/config.js');
+
+// keep these lines to help with debugging conversion
+// from process.env to config.get
+// console.log("process.env >>"+process.env.GOOGLE_API_KEY+"<<")
+// console.log("config.get >>"+config.get('google_api_key')+"<<")
+
 const Config = require('./config');
 
 const akismetLib = require('akismet');
 const AWS = require('aws-sdk');
-AWS.config.set('region', process.env.AWS_REGION);
+AWS.config.set('region', config.get('aws_region'));
+AWS.config.set('accessKeyId', config.get('aws_access_key_id'));
+AWS.config.set('secretAccessKey', config.get('aws_secret_access_key'));
+
 const badwords = require('badwords/object');
 const Promise = require('bluebird');
 const http = require('http');
