@@ -19,10 +19,10 @@ build:
 
 ## TODO Blocked on not knowing how to deal with needing multiple potential release images
 
-## If we decide to have release tasks, which run before a new release is deployed to production
-## (e.g. sending CSS/JS etc assets to CDN/S3, priming cache stores, or running database schema migrations)
-#release:
-  #image: release
-  #command:
-    #- ./bin/deployment-tasks.sh
+# If we decide to have release tasks, which run before a new release is deployed to production
+# (e.g. sending CSS/JS etc assets to CDN/S3, priming cache stores, or running database schema migrations)
+release:
+  image: release
+  command:
+    - echo "$PRIMARY_POLIS_URL" && ./bin/deployment-tasks.sh "$PRIMARY_POLIS_URL"
 
