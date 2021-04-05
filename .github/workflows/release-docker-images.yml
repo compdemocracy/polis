@@ -1,5 +1,5 @@
 # Changes to workflow name require changes to badge URL in README.md
-name: Docker image publishing
+name: Docker image builds
 
 on:
   push:

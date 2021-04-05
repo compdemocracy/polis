@@ -1,0 +1,31 @@
+on:
+  push:
+    branches: ["dev"]
+
+  paths:
+    - .github/workflows/deploy-preprod.yml
+    - client-admin
+    - client-participation
+    - client-report
+
+
+jobs:
+  deploy-admin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2.3.4
+
+      - uses: DeLaGuardo/setup-clojure@master
+        with:
+          tools-deps: 1.10.1
+          lein: 2.9.4
+
+      - name: Build full project via docker-compose
+        run: docker-compose build --parallel --build-arg GIT_HASH=${GITHUB_SHA:0:6}
+
+      - working-directory: client-admin
+        # Runs all except integration tests which require database and setup/teardown
+        run: docker build -t client-admin && docker run client-admin node gulpfile.js deployPreprod
+
+      - name: Build full project via docker-compose
+
