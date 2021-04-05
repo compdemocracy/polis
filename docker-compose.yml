@@ -19,7 +19,7 @@ services:
   server:
     container_name: polis-server
     env_file: ./server/docker-dev.env
-    image: polisdemo/server:dev
+    image: compdem/polis-server:${TAG}
     build:
       context: ./server
       dockerfile: Dockerfile
@@ -27,52 +27,54 @@ services:
       - "postgres"
       - "file-server"
     networks:
-      - "polis-dev"
+      - "polis-net"
     ports:
       - "5000:5000"
 
   math:
     container_name: polis-math
     env_file: ./math/docker-dev.env
-    image: polisdemo/math:dev
+    image: compdem/polis-math:${TAG}
     depends_on:
       - "postgres"
     build:
       context: ./math
     networks:
-      - "polis-dev"
+      - "polis-net"
 
   postgres:
     container_name: polis-postgres
     env_file: ./server/docker-db-dev.env
-    image: polisdemo/postgres:dev
+    image: compdem/polis-postgres:${TAG}
     restart: always
     build:
       context: ./server
       dockerfile: Dockerfile-db
     networks:
-      - "polis-dev"
+      - "polis-net"
     volumes:
       - "backups:/backups"
       - "postgres:/var/lib/postgresql/data"
 
   nginx-proxy:
     container_name: polis-nginx-proxy
-    image: polisdemo/nginx-proxy:dev
+    image: compdem/polis-nginx-proxy:${TAG}
     build:
       context: ./file-server
       dockerfile: nginx.Dockerfile
+    environment:
+      - TAG
     depends_on:
       - "server"
     networks:
-      - "polis-dev"
+      - "polis-net"
     ports:
       - "80:80"
       - "443:443"
 
   file-server:
     container_name: polis-file-server
-    image: polisdemo/file-server:dev
+    image: compdem/polis-file-server:${TAG}
     build:
       context: ./file-server
       dockerfile: Dockerfile
@@ -81,13 +83,13 @@ services:
       - "client-admin"
       - "client-report"
     networks:
-      - "polis-dev"
+      - "polis-net"
     ports:
       - "8080:8080"
 
   client-participation:
     container_name: polis-client-participation
-    image: polisdemo/client-participation:dev
+    image: compdem/polis-client-participation:${TAG}
     build:
       context: ./client-participation
       args:
@@ -95,7 +97,7 @@ services:
 
   client-admin:
     container_name: polis-client-admin
-    image: polisdemo/client-admin:dev
+    image: compdem/polis-client-admin:${TAG}
     build:
       context: ./client-admin
       args:
@@ -103,7 +105,7 @@ services:
 
   client-report:
     container_name: polis-client-report
-    image: polisdemo/client-report:dev
+    image: compdem/polis-client-report:${TAG}
     build:
       context: ./client-report
       args:
@@ -112,7 +114,7 @@ services:
   maildev:
     image: maildev/maildev:1.1.0
     networks:
-      - "polis-dev"
+      - "polis-net"
     ports:
       # User interface
       - "1080:80"
@@ -120,7 +122,7 @@ services:
       - "25:25"
 
 networks:
-  polis-dev:
+  polis-net:
 
 volumes:
   backups:
