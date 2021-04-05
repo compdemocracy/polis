@@ -10,9 +10,9 @@ build:
   docker:
     ## Don't want this for now, but could potentially use for specifying custom image for building images
     ## (including stuff like database migrations), so they don't appear in prod runtime images
-    #release:
-      #dockerfile: Dockerfile
-      #target: builder
+    release:
+      dockerfile: Dockerfile
+      target: builder
     web: server/Dockerfile
     ## For when we turn on dedicated math worker in edge
     worker: math/Dockerfile
