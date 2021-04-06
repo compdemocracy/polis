@@ -16,7 +16,7 @@ We do **NOT** make guarantees of easy setup or management, push-button deploymen
 
 Having said this, some of the core pieces of infrastructure described below are potentially useful in a production context, if used correctly.
 In particular, each subdirectory of the project has its own `Dockerfile` which could potentially be used as part of a deploy strategy.
-The `docker-compose.yml` is specifically focused on development environment flow.
+The `docker-compose.yml` is currently focused on development environment, but will soon transition to being production focused, with development conveniences extracted as a separate compose file.
 
 - See also: [Deployment: About SSL/HTTPS](docs/deployment.md#about-sslhttps)
 
