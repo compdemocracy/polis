@@ -5,7 +5,7 @@ pol.is an AI powered sentiment gathering platform. More organic than surveys, le
 [![Docker Image Builds](https://github.com/compdemocracy/polis/workflows/Docker%20image%20Builds/badge.svg)][docker-image-builds]
 [![E2E Tests](https://github.com/compdemocracy/polis/workflows/E2E%20Tests/badge.svg)][e2e-tests]
 
-   [nightlies]: https://hub.docker.com/u/polisdemo
+   [nightlies]: https://hub.docker.com/u/compdem
    [e2e-tests]: https://github.com/compdemocracy/polis/actions?query=workflow%3A%22E2E+Tests%22
 
 ## :construction: Disclaimer
