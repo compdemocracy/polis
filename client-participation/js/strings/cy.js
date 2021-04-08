@@ -60,10 +60,8 @@ s.pctDisagreedLong = "Anghytunodd {{pct}}% o bawb sydd wedi pleidleisio ar ddatg
 s.pctAgreedOfGroupLong = "Cytunodd {{pct}}% o'r rheiny yng Nghrŵp {{group}} a bleidleisiodd ar ddatganiad {{comment_id}}.";
 s.pctDisagreedOfGroupLong = "Anghytunodd {{pct}}% o'r rheiny yng Nghrŵp {{group}} a bleidleisiodd ar ddatganiad {{comment_id}}.";
 s.commentSent = "Cyflwynwyd eich datganiad! Dim ond cyfranogwyr eraill fydd yn gweld eich datganiad ac yn cytuno neu'n anghytuno.";
-s.commentSendFailed = "Roedd gwall wrth gyflwyno'ch datganiad.
-";
-s.commentSendFailedEmpty = "Roedd gwall wrth gyflwyno'ch datganiad - Ni ddylai'r datganiad fod yn wag.
-";
+s.commentSendFailed = "Roedd gwall wrth gyflwyno'ch datganiad.";
+s.commentSendFailedEmpty = "Roedd gwall wrth gyflwyno'ch datganiad - Ni ddylai'r datganiad fod yn wag.";
 s.commentSendFailedTooLong = "Cafwyd gwall wrth gyflwyno'ch datganiad - Mae'r datganiad yn rhy hir.";
 s.commentSendFailedDuplicate = "Roedd gwall wrth gyflwyno'ch datganiad - Mae datganiad union yr un fath yn bodoli eisoes.";
 s.commentErrorDuplicate = "Dyblygiad! Mae'r datganiad hwnnw eisoes yn bodoli.";
@@ -71,6 +69,7 @@ s.commentErrorConversationClosed = "Mae'r sgwrs hon ar gau. Ni ellir cyflwyno da
 s.commentIsEmpty = "Mae'r datganiad yn wag";
 s.commentIsTooLong = "Mae'r datganiad rhy hir";
 s.hereIsNextStatement = "Llwyddiant pleidleisio. Ewch i fyny i weld y datganiad nesaf.";
+
 s.connectFacebook = "Cysylltu Facebook";
 s.connectTwitter = "Cysylltu Twitter";
 s.connectToPostPrompt = "Cysylltwch broffil i gyflwyno datganiad. Ni fyddwn yn postio i'ch llinell amser.";
