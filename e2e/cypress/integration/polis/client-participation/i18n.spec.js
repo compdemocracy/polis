@@ -103,4 +103,9 @@ describe('Interface internationalization', () => {
     const lang = 'he'
     openTranslated(this.convoPath, lang, this.strings[lang])
   })
+
+  it('translates into Welsh', function () {
+    const lang = 'cy'
+    openTranslated(this.convoPath, lang, this.strings[lang])
+  })
 })
