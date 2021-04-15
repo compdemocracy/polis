@@ -1,3 +1,6 @@
 {
-  "note": "Just a workaround, as bundlewatch needs a package.json file to read."
+  "note": "Just a workaround, as bundlewatch needs a package.json file to read.",
+  "devDependencies": {
+    "@types/underscore": "^1.11.1"
+  }
 }
