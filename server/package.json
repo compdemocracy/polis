@@ -48,9 +48,11 @@
     "simple-oauth2": "0.2.1",
     "sql": "0.34.0",
     "stripe": "~2.5.0",
-    "typescript": "^4.2.4",
     "underscore": "1.8.3",
     "valid-url": "1.0.9",
     "winston": "1.0.2"
+  },
+  "devDependencies": {
+    "typescript": "^4.2.4"
   }
 }
