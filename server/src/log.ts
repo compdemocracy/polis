@@ -1,5 +1,6 @@
+import _ from "underscore";
+
 const Config = require("./config");
-const _ = require("underscore");
 
 const errorNotifications = (function () {
   let errors = [];
