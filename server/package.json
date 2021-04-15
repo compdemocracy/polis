@@ -12,7 +12,7 @@
     "url": "git://github.com/pol-is/polisServer.git"
   },
   "author": "",
-  "license": "",
+  "license": "AGPL-3.0",
   "dependencies": {
     "@google-cloud/translate": "^1.0.0",
     "@slack/client": "^3.5.3",
