@@ -1,6 +1,10 @@
 on:
   push:
-    branches: ["dev"]
+    branches:
+      - dev
+      - main
+      - edge
+      - stable
 
   paths:
     - .github/workflows/deploy-preprod.yml
@@ -13,19 +17,25 @@ jobs:
   deploy-admin:
     runs-on: ubuntu-latest
     steps:
+
       - uses: actions/checkout@v2.3.4
 
-      - uses: DeLaGuardo/setup-clojure@master
-        with:
-          tools-deps: 1.10.1
-          lein: 2.9.4
+      - name: Extract branch name
+        shell: bash
+        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+        id: extract_branch
 
-      - name: Build full project via docker-compose
-        run: docker-compose build --parallel --build-arg GIT_HASH=${GITHUB_SHA:0:6}
+      #- uses: DeLaGuardo/setup-clojure@3.2
+        #with:
+          #tools-deps: 1.10.1
+          #cli:  1.10.1.693
+          #lein: 2.9.4
 
-      - working-directory: client-admin
+      - name: Build
         # Runs all except integration tests which require database and setup/teardown
-        run: docker build -t client-admin && docker run client-admin node gulpfile.js deployPreprod
+        run: ./bin/build-static-assets.clj
 
-      - name: Build full project via docker-compose
+      #- name: Push
+        ## Runs all except integration tests which require database and setup/teardown
+        #run: ./bin/deploy-static-assets.clj
 
