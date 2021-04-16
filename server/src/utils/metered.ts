@@ -25,7 +25,7 @@ function addInRamMetric(metricName: string, val: number) {
 }
 
 // metered promise
-function MPromise(
+export function MPromise(
   name: string,
   f: (resolve: (value: unknown) => void, reject: (reason?: any) => void) => void
 ) {
