@@ -55,6 +55,7 @@
     "winston": "1.0.2"
   },
   "devDependencies": {
+    "@types/bcrypt": "^3.0.1",
     "@types/lru-cache": "^5.1.0",
     "@types/node": "^14.14.39",
     "@types/nodemailer": "^6.4.1",
