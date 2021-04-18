@@ -1,19 +1,51 @@
-const crypto = require("crypto");
-const LruCache = require("lru-cache");
-const pg = require("./db/pg-query");
+import crypto from "crypto";
+import LruCache from "lru-cache";
 
-function encrypt(text) {
+import pg from "./db/pg-query";
+
+function encrypt(text: string) {
   const algorithm = "aes-256-ctr";
   const password = process.env.ENCRYPTION_PASSWORD_00001;
+  //
+  // TODO replace deprecated createCipher method with current createCipheriv method
+  //
+  //  function createCipher(algorithm: crypto.CipherCCMTypes, password: crypto.BinaryLike, options: crypto.CipherCCMOptions): crypto.CipherCCM (+2 overloads)
+  //
+  // @deprecated — since v10.0.0 use createCipheriv()
+  //
+  // The signature '(algorithm: string, password: BinaryLike, options: TransformOptions | undefined): CipherCCM & CipherGCM & Cipher' of 'crypto.createCipher' is deprecated.ts(6387)
+  // crypto.d.ts(207, 9): The declaration was marked as deprecated here.
+  // No overload matches this call.
+  //   Overload 1 of 3, '(algorithm: CipherGCMTypes, password: BinaryLike, options?: CipherGCMOptions | undefined): CipherGCM', gave the following error.
+  //     Argument of type '"aes-256-ctr"' is not assignable to parameter of type 'CipherGCMTypes'.
+  //   Overload 2 of 3, '(algorithm: string, password: BinaryLike, options?: TransformOptions | undefined): Cipher', gave the following error.
+  //     Argument of type 'string | undefined' is not assignable to parameter of type 'BinaryLike'.
+  //       Type 'undefined' is not assignable to type 'BinaryLike'.ts(2769)
+  // @ts-ignore
   const cipher = crypto.createCipher(algorithm, password);
   var crypted = cipher.update(text, "utf8", "hex");
   crypted += cipher.final("hex");
   return crypted;
 }
 
-function decrypt(text) {
+function decrypt(text: string) {
   const algorithm = "aes-256-ctr";
   const password = process.env.ENCRYPTION_PASSWORD_00001;
+  //
+  // TODO replace deprecated createDecipher method with current createDecipheriv method
+  //
+  //  function createDecipher(algorithm: crypto.CipherCCMTypes, password: crypto.BinaryLike, options: crypto.CipherCCMOptions): crypto.DecipherCCM (+2 overloads)
+  //
+  // @deprecated — since v10.0.0 use createDecipheriv()
+  //
+  // The signature '(algorithm: string, password: BinaryLike, options: TransformOptions | undefined): DecipherCCM & DecipherGCM & Decipher' of 'crypto.createDecipher' is deprecated.ts(6387)
+  // crypto.d.ts(253, 9): The declaration was marked as deprecated here.
+  // No overload matches this call.
+  //   Overload 1 of 3, '(algorithm: CipherGCMTypes, password: BinaryLike, options?: CipherGCMOptions | undefined): DecipherGCM', gave the following error.
+  //     Argument of type '"aes-256-ctr"' is not assignable to parameter of type 'CipherGCMTypes'.
+  //   Overload 2 of 3, '(algorithm: string, password: BinaryLike, options?: TransformOptions | undefined): Decipher', gave the following error.
+  //     Argument of type 'string | undefined' is not assignable to parameter of type 'BinaryLike'.ts(2769)
+  // @ts-ignore
   const decipher = crypto.createDecipher(algorithm, password);
   var dec = decipher.update(text, "hex", "utf8");
   dec += decipher.final("utf8");
@@ -37,7 +69,11 @@ const userTokenCache = new LruCache({
   max: 9000,
 });
 
-function getUserInfoForSessionToken(sessionToken, res, cb) {
+function getUserInfoForSessionToken(
+  sessionToken: unknown,
+  res: any,
+  cb: (arg0: number | null, arg1?: unknown) => void
+) {
   let cachedUid = userTokenCache.get(sessionToken);
   if (cachedUid) {
     cb(null, cachedUid);
@@ -46,7 +82,7 @@ function getUserInfoForSessionToken(sessionToken, res, cb) {
   pg.query(
     "select uid from auth_tokens where token = ($1);",
     [sessionToken],
-    function (err, results) {
+    function (err: any, results: { rows: string | any[] }) {
       if (err) {
         console.error("token_fetch_error");
         cb(500);
@@ -65,16 +101,19 @@ function getUserInfoForSessionToken(sessionToken, res, cb) {
   );
 }
 
-function createPolisLtiToken(tool_consumer_instance_guid, lti_user_id) {
+function createPolisLtiToken(
+  tool_consumer_instance_guid: any,
+  lti_user_id: any
+) {
   return ["xPolisLtiToken", tool_consumer_instance_guid, lti_user_id].join(
     ":::"
   );
 }
 
-function isPolisLtiToken(token) {
+function isPolisLtiToken(token: string) {
   return token.match(/^xPolisLtiToken/);
 }
-function isPolisSlackTeamUserToken(token) {
+function isPolisSlackTeamUserToken(token: string) {
   return token.match(/^xPolisSlackTeamUserToken/);
 }
 
@@ -82,11 +121,11 @@ function isPolisSlackTeamUserToken(token) {
 //   return pg.queryP("insert into slack_bot_events (slack_team, event) values ($1, $2);", [slack_team, o]);
 // }
 
-function sendSlackEvent(o) {
+function sendSlackEvent(o: any) {
   return pg.queryP("insert into slack_bot_events (event) values ($1);", [o]);
 }
 
-function parsePolisLtiToken(token) {
+function parsePolisLtiToken(token: string) {
   let parts = token.split(/:::/);
   let o = {
     // parts[0] === "xPolisLtiToken", don't need that
@@ -96,7 +135,7 @@ function parsePolisLtiToken(token) {
   return o;
 }
 
-function getUserInfoForPolisLtiToken(token) {
+function getUserInfoForPolisLtiToken(token: any) {
   let o = parsePolisLtiToken(token);
   return pg
     .queryP(
@@ -104,18 +143,21 @@ function getUserInfoForPolisLtiToken(token) {
       [o.tool_consumer_instance_guid, o.lti_user_id]
     )
     .then(function (rows) {
+      // (parameter) rows: unknown
+      // Object is of type 'unknown'.ts(2571)
+      // @ts-ignore
       return rows[0].uid;
     });
 }
 
-function startSession(uid, cb) {
+function startSession(uid: any, cb: (arg0: null, arg1?: string) => void) {
   let token = makeSessionToken();
   //console.log("info",'startSession: token will be: ' + sessionToken);
   console.log("info", "startSession");
   pg.query(
     "insert into auth_tokens (uid, token, created) values ($1, $2, default);",
     [uid, token],
-    function (err, repliesSetToken) {
+    function (err: any, repliesSetToken: any) {
       if (err) {
         cb(err);
         return;
@@ -126,11 +168,11 @@ function startSession(uid, cb) {
   );
 }
 
-function endSession(sessionToken, cb) {
+function endSession(sessionToken: any, cb: (arg0: null) => void) {
   pg.query(
     "delete from auth_tokens where token = ($1);",
     [sessionToken],
-    function (err, results) {
+    function (err: any, results: any) {
       if (err) {
         cb(err);
         return;
@@ -139,7 +181,7 @@ function endSession(sessionToken, cb) {
     }
   );
 }
-function setupPwReset(uid, cb) {
+function setupPwReset(uid: any, cb: (arg0: null, arg1?: string) => void) {
   function makePwResetToken() {
     // These can probably be shortened at some point.
     return crypto
@@ -152,7 +194,7 @@ function setupPwReset(uid, cb) {
   pg.query(
     "insert into pwreset_tokens (uid, token, created) values ($1, $2, default);",
     [uid, token],
-    function (errSetToken, repliesSetToken) {
+    function (errSetToken: any, repliesSetToken: any) {
       if (errSetToken) {
         cb(errSetToken);
         return;
@@ -162,12 +204,15 @@ function setupPwReset(uid, cb) {
   );
 }
 
-function getUidForPwResetToken(pwresettoken, cb) {
+function getUidForPwResetToken(
+  pwresettoken: any,
+  cb: (arg0: number | null, arg1?: { uid: any }) => void
+) {
   // TODO "and created > timestamp - x"
   pg.query(
     "select uid from pwreset_tokens where token = ($1);",
     [pwresettoken],
-    function (errGetToken, results) {
+    function (errGetToken: any, results: { rows: string | any[] }) {
       if (errGetToken) {
         console.error("pwresettoken_fetch_error");
         cb(500);
@@ -185,11 +230,11 @@ function getUidForPwResetToken(pwresettoken, cb) {
   );
 }
 
-function clearPwResetToken(pwresettoken, cb) {
+function clearPwResetToken(pwresettoken: any, cb: (arg0: null) => void) {
   pg.query(
     "delete from pwreset_tokens where token = ($1);",
     [pwresettoken],
-    function (errDelToken, repliesSetToken) {
+    function (errDelToken: any, repliesSetToken: any) {
       if (errDelToken) {
         cb(errDelToken);
         return;
