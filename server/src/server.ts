@@ -2,6 +2,8 @@
 
 "use strict";
 
+import { Headers } from "./d";
+
 const Config = require("./config");
 
 const akismetLib = require("akismet");
@@ -275,12 +277,12 @@ if (devMode) {
 }
 
 // basic defaultdict implementation
-function DD(f: () => { votes: number; comments: number }) {
+function DD(this: any, f: () => { votes: number; comments: number }) {
   this.m = {};
   this.f = f;
 }
 // basic defaultarray implementation
-function DA(f: any) {
+function DA(this: any, f: any) {
   this.m = [];
   this.f = f;
 }
@@ -412,7 +414,7 @@ function doApiKeyAuth(
   isOptional: any,
   req: any,
   res: { status: (arg0: number) => void },
-  next: { (err: any): void; (err: any): void; (arg0: string | undefined): void }
+  next: { (err: any): void; (err: any): void; (arg0?: string): void }
 ) {
   getUidForApiKey(apikey)
     .then(function (rows: string | any[]) {
@@ -464,7 +466,11 @@ function doXidApiKeyAuth(
     query: { x_profile_image_url: any; x_name: any; x_email: any; agid: any };
   },
   res: { status: (arg0: number) => void },
-  next: { (err: any): void; (err: any): void; (arg0: string | undefined): void }
+  next: {
+    (err: any): void;
+    (err: any): void;
+    (arg0?: string | undefined): void;
+  }
 ) {
   getUidForApiKey(apikey)
     .then(
@@ -517,11 +523,12 @@ function doXidApiKeyAuth(
 function doHeaderAuth(
   assigner: (arg0: any, arg1: string, arg2: number) => void,
   isOptional: any,
-  req: { headers: { [x: string]: any }; body: { uid: any } },
+  req: { headers?: { [x: string]: any }; body: { uid: any } },
   res: { status: (arg0: number) => void },
-  next: { (err: any): void; (arg0: string | undefined): void }
+  next: { (err: any): void; (arg0?: string | undefined): void }
 ) {
-  let token = req.headers["x-polis"];
+  let token = "";
+  if (req && req.headers) token = req?.headers?.["x-polis"];
 
   //if (req.body.uid) { next(401); return; } // shouldn't be in the post - TODO - see if we can do the auth in parallel for non-destructive operations
   getUserInfoForSessionToken(token, res, function (err: any, uid: any) {
@@ -543,11 +550,11 @@ function doHeaderAuth(
 function doPolisLtiTokenHeaderAuth(
   assigner: (arg0: any, arg1: string, arg2: number) => void,
   isOptional: any,
-  req: { headers: { [x: string]: any } },
+  req: { headers?: { [x: string]: any } },
   res: { status: (arg0: number) => void },
-  next: { (err: any): void; (arg0: string | undefined): void }
+  next: { (err: any): void; (arg0?: string): void }
 ) {
-  let token = req.headers["x-polis"];
+  let token = req?.headers?.["x-polis"];
 
   getUserInfoForPolisLtiToken(token)
     .then(function (uid: any) {
@@ -564,11 +571,11 @@ function doPolisLtiTokenHeaderAuth(
 function doPolisSlackTeamUserTokenHeaderAuth(
   assigner: (arg0: any, arg1: string, arg2: number) => void,
   isOptional: any,
-  req: { headers: { [x: string]: any } },
+  req: { headers?: { [x: string]: any } },
   res: { status: (arg0: number) => void },
-  next: { (err: any): void; (arg0: string | undefined): void }
+  next: { (err: any): void; (arg0?: string): void }
 ) {
-  let token = req.headers["x-polis"];
+  let token = req?.headers?.["x-polis"];
 
   getUserInfoForPolisLtiToken(token)
     .then(function (uid: any) {
@@ -871,7 +878,7 @@ function initializePolisHelpers() {
   }
 
   function redirectIfNotHttps(
-    req: { headers: { [x: string]: string; host: string }; url: string },
+    req: { headers?: { [x: string]: string; host: string }; url: string },
     res: {
       writeHead: (arg0: number, arg1: { Location: string }) => void;
       end: () => any;
@@ -882,13 +889,13 @@ function initializePolisHelpers() {
 
     // IE is picky, so use HTTP.
     // TODO figure out IE situation, (proxy static files in worst-case)
-    // exempt = exempt || /MSIE/.test(req.headers['user-agent']); // TODO test IE11
+    // exempt = exempt || /MSIE/.test(req?.headers?.['user-agent']); // TODO test IE11
 
     if (exempt) {
       return next();
     }
 
-    if (!/https/.test(req.headers["x-forwarded-proto"])) {
+    if (!/https/.test(req?.headers?.["x-forwarded-proto"])) {
       // assuming we're running on Heroku, where we're behind a proxy.
       res.writeHead(302, {
         Location: "https://" + req.headers.host + req.url,
@@ -899,7 +906,7 @@ function initializePolisHelpers() {
   }
 
   function redirectIfWrongDomain(
-    req: { headers: { host: string }; url: string },
+    req: { headers?: { host: string }; url: string },
     res: {
       writeHead: (arg0: number, arg1: { Location: string }) => void;
       end: () => any;
@@ -920,7 +927,7 @@ function initializePolisHelpers() {
   }
 
   function redirectIfApiDomain(
-    req: { headers: { host: string }; url: string },
+    req: { headers?: { host: string }; url: string },
     res: {
       writeHead: (arg0: number, arg1: { Location: string }) => void;
       end: () => any;
@@ -978,7 +985,7 @@ function initializePolisHelpers() {
       query: { x_profile_image_url: any; x_name: any; x_email: any; agid: any };
     },
     res: { status: (arg0: number) => void },
-    onDone: { (err: any): void; (arg0: string | undefined): void }
+    onDone: { (err: any): void; (arg0?: string): void }
   ) {
     return getConversationInfoByConversationId(conversation_id)
       .then((conv: { org_id: any; zid: any }) => {
@@ -1014,18 +1021,18 @@ function initializePolisHelpers() {
     function getKey(
       req: {
         body: { [x: string]: any };
-        headers: { [x: string]: any };
+        headers?: { [x: string]: any };
         query: { [x: string]: any };
       },
       key: string
     ) {
-      return req.body[key] || req.headers[key] || req.query[key];
+      return req.body[key] || req?.headers?.[key] || req.query[key];
     }
 
     function doAuth(
       req: {
         cookies: { [x: string]: any };
-        headers: { [x: string]: any; authorization: any };
+        headers?: { [x: string]: any; authorization: any };
         p: { uid?: any };
         body: { [x: string]: any; agid: any; xid: any };
       },
@@ -1033,7 +1040,7 @@ function initializePolisHelpers() {
     ) {
       //var token = req.body.token;
       let token = req.cookies[COOKIES.TOKEN];
-      let xPolisToken = req.headers["x-polis"];
+      let xPolisToken = req?.headers?.["x-polis"];
 
       return new Promise(function (
         resolve: (arg0: any) => void,
@@ -1085,12 +1092,12 @@ function initializePolisHelpers() {
             res,
             onDone
           );
-          // } else if (req.headers["x-sandstorm-app-polis-apikey"] && req.headers["x-sandstorm-app-polis-xid"] && req.headers["x-sandstorm-app-polis-owner-xid"]) {
+          // } else if (req?.headers?.["x-sandstorm-app-polis-apikey"] && req?.headers?.["x-sandstorm-app-polis-xid"] && req?.headers?.["x-sandstorm-app-polis-owner-xid"]) {
           //   doXidApiKeyAuth(
           //     assigner,
-          //     req.headers["x-sandstorm-app-polis-apikey"],
-          //     req.headers["x-sandstorm-app-polis-owner-xid"],
-          //     req.headers["x-sandstorm-app-polis-xid"],
+          //     req?.headers?.["x-sandstorm-app-polis-apikey"],
+          //     req?.headers?.["x-sandstorm-app-polis-owner-xid"],
+          //     req?.headers?.["x-sandstorm-app-polis-xid"],
           //     isOptional, req, res, onDone);
         } else if (getKey(req, "xid") && getKey(req, "conversation_id")) {
           console.log("authtype", "doXidConversationIdAuth");
@@ -1103,11 +1110,11 @@ function initializePolisHelpers() {
             res,
             onDone
           );
-        } else if (req.headers["x-sandstorm-app-polis-apikey"]) {
+        } else if (req?.headers?.["x-sandstorm-app-polis-apikey"]) {
           console.log("authtype", "doApiKeyAuth");
           doApiKeyAuth(
             assigner,
-            req.headers["x-sandstorm-app-polis-apikey"],
+            req?.headers?.["x-sandstorm-app-polis-apikey"],
             isOptional,
             req,
             res,
@@ -1183,7 +1190,7 @@ function initializePolisHelpers() {
     return function (
       req: any,
       res: { status: (arg0: number) => void },
-      next: (arg0: undefined) => void
+      next: (arg0?: undefined) => void
     ) {
       doAuth(req, res)
         .then(() => {
@@ -1360,10 +1367,10 @@ function initializePolisHelpers() {
       protocol: string;
       get: (arg0: string) => any;
       path: any;
-      headers: any;
+      headers: Headers;
     },
     res: { header: (arg0: string, arg1: string | boolean) => void },
-    next: (arg0: string | undefined) => any
+    next: (arg0?: string) => any
   ) {
     let host = "";
     if (domainOverride) {
@@ -1442,7 +1449,7 @@ function initializePolisHelpers() {
 
   function handle_GET_launchPrep(
     req: {
-      headers: { origin: string };
+      headers?: { origin: string };
       cookies: { [x: string]: any };
       p: { dest: any };
     },
@@ -1484,7 +1491,7 @@ function initializePolisHelpers() {
   // });
 
   function handle_GET_tryCookie(
-    req: { headers: { origin: string }; cookies: { [x: string]: any } },
+    req: { headers?: { origin: string }; cookies: { [x: string]: any } },
     res: {
       status: (
         arg0: number
@@ -2693,7 +2700,7 @@ Feel free to reply to this email if you need help.`;
   }
 
   function clearCookie(
-    req: { headers: { origin: string } },
+    req: { headers?: { origin: string } },
     res: {
       clearCookie: (arg0: any, arg1: { path: string; domain?: string }) => void;
     },
@@ -2714,13 +2721,13 @@ Feel free to reply to this email if you need help.`;
   }
 
   function clearCookies(
-    req: { headers: { origin: string }; cookies: any },
+    req: { headers?: { origin: string }; cookies: any },
     res: {
       clearCookie: (
         arg0: string,
         arg1: { path: string; domain?: string }
       ) => void;
-      _headers: { [x: string]: any };
+      _headers?: { [x: string]: any };
     }
   ) {
     let origin = req.headers.origin || "";
@@ -2759,7 +2766,7 @@ Feel free to reply to this email if you need help.`;
     isOptional: any,
     req: { cookies: { [x: string]: any }; body: { uid: any } },
     res: { status: (arg0: number) => void },
-    next: { (err: any): void; (arg0: string | undefined): void }
+    next: { (err: any): void; (arg0?: string): void }
   ) {
     let token = req.cookies[COOKIES.TOKEN];
 
@@ -3084,7 +3091,7 @@ Feel free to reply to this email if you need help.`;
     max: 1000,
   });
 
-  function getZinvite(zid: any, dontUseCache: undefined) {
+  function getZinvite(zid: any, dontUseCache: boolean) {
     let cachedConversationId = zidToConversationIdCache.get(zid);
     if (!dontUseCache && cachedConversationId) {
       return Promise.resolve(cachedConversationId);
@@ -3526,7 +3533,7 @@ Feel free to reply to this email if you need help.`;
       [zid, uid]
     );
   }
-  function populateGeoIpInfo(zid: any, uid: any, ipAddress: string) {
+  function populateGeoIpInfo(zid: any, uid: any, ipAddress: string | null) {
     var userId = process.env.MAXMIND_USERID;
     var licenseKey = process.env.MAXMIND_LICENSEKEY;
 
@@ -3639,16 +3646,16 @@ Feel free to reply to this email if you need help.`;
     req: {
       cookies: { [x: string]: any };
       p: { parent_url: any };
-      headers: { [x: string]: any };
+      headers?: { [x: string]: any };
     },
     permanent_cookie: any
   ) {
-    let info = {};
+    let info: { [key: string]: string } = {};
     let parent_url = req.cookies[COOKIES.PARENT_URL] || req.p.parent_url;
     let referer =
       req.cookies[COOKIES.PARENT_REFERRER] ||
-      req.headers["referer"] ||
-      req.headers["referrer"];
+      req?.headers?.["referer"] ||
+      req?.headers?.["referrer"];
     if (parent_url) {
       info.parent_url = parent_url;
     }
@@ -3656,7 +3663,7 @@ Feel free to reply to this email if you need help.`;
     if (referer) {
       info.referrer = referer;
     }
-    let x_forwarded_for = req.headers["x-forwarded-for"];
+    let x_forwarded_for = req?.headers?.["x-forwarded-for"];
     let ip: null = null;
     if (x_forwarded_for) {
       let ips = x_forwarded_for;
@@ -3669,8 +3676,8 @@ Feel free to reply to this email if you need help.`;
     if (permanent_cookie) {
       info.permanent_cookie = permanent_cookie;
     }
-    if (req.headers["origin"]) {
-      info.origin = req.headers["origin"];
+    if (req?.headers?.["origin"]) {
+      info.origin = req?.headers?.["origin"];
     }
     return addParticipant(zid, uid).then((rows: any[]) => {
       let ptpt = rows[0];
@@ -3891,7 +3898,7 @@ ${message}`;
     uid: any,
     pwresettoken: any,
     serverName: any,
-    callback: { (err: any): void; (arg0: string | undefined): void }
+    callback: { (err: any): void; (arg0?: string): void }
   ) {
     getUserInfoForUid(
       uid,
@@ -5506,11 +5513,11 @@ Email verified! You can close this tab or hit the back button.
   }
   function denyIfNotFromWhitelistedDomain(
     req: {
-      headers: { referer: string | string[] };
+      headers?: { referer: string | string[] };
       p: { zid: any; domain_whitelist_override_key: any };
     },
     res: { send: (arg0: number, arg1: string) => void },
-    next: (arg0: string | undefined) => void
+    next: (arg0?: string) => void
   ) {
     let isWithinIframe =
       req.headers &&
@@ -5969,7 +5976,7 @@ Email verified! You can close this tab or hit the back button.
   function handle_POST_auth_facebook(
     req: {
       p: { response: string; locationInfo: any; fb_friends_response: string };
-      headers: { referer: string };
+      headers?: { referer: string };
     },
     res: any
   ) {
@@ -6704,7 +6711,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function updatePlan(
-    req: { headers: { origin: string } },
+    req: { headers?: Headers },
     res: any,
     uid: string,
     planCode: number
@@ -6720,7 +6727,7 @@ Email verified! You can close this tab or hit the back button.
     return changePlan(uid, planCode).then(function () {
       // Set cookie
       var setOnPolisDomain = !domainOverride;
-      var origin = req.headers.origin || "";
+      const origin = req?.headers?.origin || "";
       if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
         setOnPolisDomain = false;
       }
@@ -6728,7 +6735,7 @@ Email verified! You can close this tab or hit the back button.
     });
   }
   function updatePlanOld(
-    req: { headers: { origin: string; host: string } },
+    req: { headers?: { origin: string; host: string } },
     res: {
       writeHead: (arg0: number, arg1: { Location: string }) => void;
       end: () => any;
@@ -7237,12 +7244,13 @@ Email verified! You can close this tab or hit the back button.
 
   function handle_GET_comments(
     req: {
-      headers: { [x: string]: string };
+      headers?: Headers;
       p: { rid: any; include_demographics: any; zid: any; uid: any };
     },
     res: any
   ) {
-    let rid = req.headers["x-request-id"] + " " + req.headers["user-agent"];
+    const rid =
+      req?.headers?.["x-request-id"] + " " + req?.headers?.["user-agent"];
     winston.log("info", "getComments " + rid + " begin");
 
     const isReportQuery = !_.isUndefined(req.p.rid);
@@ -7420,7 +7428,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function createModerationUrl(
-    req: { protocol: string; headers: { host: string | string[] } },
+    req: { protocol: string; headers?: Headers },
     zinvite: string
   ) {
     let server = devMode ? "http://localhost:5000" : "https://pol.is";
@@ -7428,7 +7436,7 @@ Email verified! You can close this tab or hit the back button.
       server = req.protocol + "://" + domainOverride;
     }
 
-    if (req.headers.host.includes("preprod.pol.is")) {
+    if (req?.headers?.host?.includes("preprod.pol.is")) {
       server = "https://preprod.pol.is";
     }
     let url = server + "/m/" + zinvite;
@@ -7634,7 +7642,7 @@ Email verified! You can close this tab or hit the back button.
         anon: any;
         is_seed: any;
       };
-      headers: { [x: string]: any; referer: any };
+      headers?: Headers;
       connection: { remoteAddress: any; socket: { remoteAddress: any } };
       socket: { remoteAddress: any };
     },
@@ -7737,7 +7745,7 @@ Email verified! You can close this tab or hit the back button.
           }
 
           let ip =
-            req.headers["x-forwarded-for"] || // TODO This header may contain multiple IP addresses. Which should we report?
+            req?.headers?.["x-forwarded-for"] || // TODO This header may contain multiple IP addresses. Which should we report?
             req.connection.remoteAddress ||
             req.socket.remoteAddress ||
             req.connection.socket.remoteAddress;
@@ -7747,7 +7755,7 @@ Email verified! You can close this tab or hit the back button.
             comment_author: uid,
             permalink: "https://pol.is/" + zid,
             user_ip: ip,
-            user_agent: req.headers["user-agent"],
+            user_agent: req?.headers?.["user-agent"],
             referrer: req.headers.referer,
           });
           isSpamPromise.catch(function (err: any) {
@@ -8443,7 +8451,7 @@ Email verified! You can close this tab or hit the back button.
         owner_uid: any;
         pid: any;
       };
-      headers: { [x: string]: any };
+      headers?: Headers;
     },
     res: {
       status: (
@@ -8545,8 +8553,8 @@ Email verified! You can close this tab or hit the back button.
     }
 
     let acceptLanguage =
-      req.headers["accept-language"] ||
-      req.headers["Accept-Language"] ||
+      req?.headers?.["accept-language"] ||
+      req?.headers?.["Accept-Language"] ||
       "en-US";
 
     if (req.p.lang === "acceptLang") {
@@ -8673,7 +8681,7 @@ Email verified! You can close this tab or hit the back button.
         starred: any;
       };
       cookies: { [x: string]: any };
-      headers: { [x: string]: any; authorization: any };
+      headers?: Headers;
     },
     res: any
   ) {
@@ -8684,8 +8692,8 @@ Email verified! You can close this tab or hit the back button.
 
     // We allow viewing (and possibly writing) without cookies enabled, but voting requires cookies (except the auto-vote on your own comment, which seems ok)
     let token = req.cookies[COOKIES.TOKEN];
-    let apiToken = req.headers.authorization;
-    let xPolisHeaderToken = req.headers["x-polis"];
+    let apiToken = req?.headers?.authorization || "";
+    let xPolisHeaderToken = req?.headers?.["x-polis"];
     if (!uid && !token && !apiToken && !xPolisHeaderToken) {
       fail(res, 403, "polis_err_vote_noauth");
       return;
@@ -10860,7 +10868,7 @@ Email verified! You can close this tab or hit the back button.
     req: { p: { monthly: any; maxUsers: any; plan_name: any; plan_id: any } },
     res: { send: (arg0: string) => void }
   ) {
-    var o = {
+    var o: { [key: string]: string } = {
       monthly: req.p.monthly,
     };
     if (req.p.maxUsers) {
@@ -10946,7 +10954,7 @@ Email verified! You can close this tab or hit the back button.
           fail(res, 500, "polis_err_stripe_oauth", err);
           return;
         }
-        body = JSON.parse(body);
+        const parsedBody = JSON.parse(body);
         pgQueryP(
           "INSERT INTO stripe_accounts (" +
             "stripe_account_token_type, " +
@@ -10958,13 +10966,13 @@ Email verified! You can close this tab or hit the back button.
             "stripe_account_access_token " +
             ") VALUES ($1, $2, $3, $4, $5, $6, $7);",
           [
-            body.token_type,
-            body.stripe_publishable_key,
-            body.scope,
-            body.livemode,
-            body.stripe_user_id,
-            body.refresh_token,
-            body.access_token,
+            parsedBody.token_type,
+            parsedBody.stripe_publishable_key,
+            parsedBody.scope,
+            parsedBody.livemode,
+            parsedBody.stripe_user_id,
+            parsedBody.refresh_token,
+            parsedBody.access_token,
           ]
         ).then(
           function () {
@@ -13889,7 +13897,7 @@ CREATE TABLE slack_user_invites (
         return intercom_lead_user_id;
       })
       .then(() => {
-        var custom = {
+        const custom: { [key: string]: string } = {
           campaign: req.p.campaign,
         };
         if (req.p.affiliation) {
@@ -14786,13 +14794,13 @@ CREATE TABLE slack_user_invites (
     res.status(200).send(xml);
   }
   function handle_GET_canvas_app_instructions_png(
-    req: { headers: { [x: string]: string } },
+    req: { headers?: { [x: string]: string } },
     res: any
   ) {
     let path = "/landerImages/";
-    if (/Android/.exec(req.headers["user-agent"])) {
+    if (/Android/.exec(req?.headers?.["user-agent"])) {
       path += "app_instructions_android.png";
-    } else if (/iPhone.*like Mac OS X/.exec(req.headers["user-agent"])) {
+    } else if (/iPhone.*like Mac OS X/.exec(req?.headers?.["user-agent"])) {
       path += "app_instructions_ios.png";
     } else {
       path += "app_instructions_blank.png";
@@ -15264,7 +15272,7 @@ CREATE TABLE slack_user_invites (
         show_share: any;
         referrer: any;
       };
-      headers: { origin: string };
+      headers?: { origin: string };
     },
     res: { redirect: (arg0: string) => void }
   ) {
@@ -15440,7 +15448,7 @@ CREATE TABLE slack_user_invites (
     res.setHeader("Expires", 0);
   }
 
-  function proxy(req: { headers: { host: string }; path: any }, res: any) {
+  function proxy(req: { headers?: { host: string }; path: any }, res: any) {
     let hostname = buildStaticHostname(req, res);
     if (!hostname) {
       let host = req.headers.host || "";
@@ -15465,7 +15473,7 @@ CREATE TABLE slack_user_invites (
     if (devMode) {
       addStaticFileHeaders(res);
     }
-    // if (/MSIE [^1]/.exec(req.headers['user-agent'])) { // older than 10
+    // if (/MSIE [^1]/.exec(req?.headers?.['user-agent'])) { // older than 10
     //     // http.get(process.env.STATIC_FILES_HOST + "/unsupportedBrowser.html", function(page) {
     //     //     res.status(200).end(page);
     //     // }).on('error', function(e) {
@@ -15485,7 +15493,7 @@ CREATE TABLE slack_user_invites (
     // }
   }
 
-  function buildStaticHostname(req: { headers: { host: string } }, res: any) {
+  function buildStaticHostname(req: { headers?: { host: string } }, res: any) {
     if (devMode || domainOverride) {
       return process.env.STATIC_FILES_HOST;
     } else {
@@ -15512,7 +15520,7 @@ CREATE TABLE slack_user_invites (
 
   function makeRedirectorTo(path: string) {
     return function (
-      req: { headers: { host: string } },
+      req: { headers?: { host: string } },
       res: {
         writeHead: (arg0: number, arg1: { Location: string }) => void;
         end: () => void;
@@ -15578,13 +15586,13 @@ CREATE TABLE slack_user_invites (
     hostname: string | undefined,
     port: string | undefined,
     path: string,
-    headers: { "Content-Type": string },
+    headers?: { "Content-Type": string },
     preloadData:
       | { conversation: { topic: string; description: string } }
       | undefined
   ) {
     return function (
-      req: { headers: { host: any }; path: any; pipe: (arg0: any) => void },
+      req: { headers?: { host: any }; path: any; pipe: (arg0: any) => void },
       res: { set: (arg0: any) => void }
     ) {
       let hostname = buildStaticHostname(req, res);
@@ -15659,16 +15667,18 @@ CREATE TABLE slack_user_invites (
   }
 
   // function isIE(req) {
-  //   let h = req.headers['user-agent'];
+  //   let h = req?.headers?.['user-agent'];
   //   return /MSIE [0-9]/.test(h) || /Trident/.test(h);
   // }
 
-  function isUnsupportedBrowser(req: { headers: { [x: string]: string } }) {
-    return /MSIE [234567]/.test(req.headers["user-agent"]);
+  function isUnsupportedBrowser(req: { headers?: { [x: string]: string } }) {
+    return /MSIE [234567]/.test(req?.headers?.["user-agent"]);
   }
 
-  function browserSupportsPushState(req: { headers: { [x: string]: string } }) {
-    return !/MSIE [23456789]/.test(req.headers["user-agent"]);
+  function browserSupportsPushState(req: {
+    headers?: { [x: string]: string };
+  }) {
+    return !/MSIE [23456789]/.test(req?.headers?.["user-agent"]);
   }
 
   // serve up index.html in response to anything starting with a number
@@ -15685,7 +15695,7 @@ CREATE TABLE slack_user_invites (
   );
 
   function fetchIndex(
-    req: { path: string | any[]; headers: { host: string } },
+    req: { path: string | any[]; headers?: { host: string } },
     res: {
       writeHead: (arg0: number, arg1: { Location: string }) => void;
       end: () => any;
@@ -15893,15 +15903,13 @@ CREATE TABLE slack_user_invites (
       },
       true
     )
-      .then(function (data: string | any[]) {
-        data = JSON.parse(data);
-        if (!data || !data.length) {
+      .then(function (data: string) {
+        let parsedData = JSON.parse(data);
+        if (!parsedData || !parsedData.length) {
           fail(res, 500, "polis_err_finding_twitter_user_info");
           return;
         }
-        data = data[0];
-        let url = data.profile_image_url; // not https to save a round-trip
-
+        const url = parsedData[0].profile_image_url; // not https to save a round-trip
         let finished = false;
         http
           .get(url, function (twitterResponse: { pipe: (arg0: any) => void }) {
@@ -15962,9 +15970,9 @@ CREATE TABLE slack_user_invites (
     res: {
       writeHead: (
         arg0: number,
-        arg1: { "Content-Type": string } | undefined
+        arg1?: { "Content-Type": string } | undefined
       ) => void;
-      end: (arg0: undefined, arg1: string | undefined) => void;
+      end: (arg0?: undefined, arg1?: string) => void;
     }
   ) {
     const filenameParts = String(req.path).split("/");
@@ -16028,7 +16036,7 @@ CREATE TABLE slack_user_invites (
     err: { stack: any },
     req: any,
     res: any,
-    next: (arg0: undefined) => void
+    next: (arg0?: { stack: any }) => void
   ) {
     if (!err) {
       return next();
