@@ -7,6 +7,7 @@ import { MPromise } from "./utils/metered";
 import Config from "./config";
 import Conversation from "./conversation";
 import Log from "./log";
+import LRUCache from "lru-cache";
 
 function getUserInfoForUid(
   uid: any,
@@ -58,19 +59,27 @@ function addLtiUserIfNeeded(
   lti_user_image: null
 ) {
   lti_user_image = lti_user_image || null;
-  return pg
-    .queryP(
-      "select * from lti_users where lti_user_id = ($1) and tool_consumer_instance_guid = ($2);",
-      [lti_user_id, tool_consumer_instance_guid]
-    )
-    .then(function (rows: string | any[]) {
-      if (!rows || !rows.length) {
-        return pg.queryP(
-          "insert into lti_users (uid, lti_user_id, tool_consumer_instance_guid, lti_user_image) values ($1, $2, $3, $4);",
-          [uid, lti_user_id, tool_consumer_instance_guid, lti_user_image]
-        );
-      }
-    });
+  return (
+    pg
+      .queryP(
+        "select * from lti_users where lti_user_id = ($1) and tool_consumer_instance_guid = ($2);",
+        [lti_user_id, tool_consumer_instance_guid]
+      )
+      //     (local function)(rows: string | any[]): Promise<unknown> | undefined
+      // Argument of type '(rows: string | any[]) => Promise<unknown> | undefined' is not assignable to parameter of type '(value: unknown) => unknown'.
+      //   Types of parameters 'rows' and 'value' are incompatible.
+      //     Type 'unknown' is not assignable to type 'string | any[]'.
+      //       Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+      // @ts-ignore
+      .then(function (rows: string | any[]) {
+        if (!rows || !rows.length) {
+          return pg.queryP(
+            "insert into lti_users (uid, lti_user_id, tool_consumer_instance_guid, lti_user_image) values ($1, $2, $3, $4);",
+            [uid, lti_user_id, tool_consumer_instance_guid, lti_user_image]
+          );
+        }
+      })
+  );
 }
 
 function addLtiContextMembership(
@@ -78,19 +87,27 @@ function addLtiContextMembership(
   lti_context_id: any,
   tool_consumer_instance_guid: any
 ) {
-  return pg
-    .queryP(
-      "select * from lti_context_memberships where uid = $1 and lti_context_id = $2 and tool_consumer_instance_guid = $3;",
-      [uid, lti_context_id, tool_consumer_instance_guid]
-    )
-    .then(function (rows: string | any[]) {
-      if (!rows || !rows.length) {
-        return pg.queryP(
-          "insert into lti_context_memberships (uid, lti_context_id, tool_consumer_instance_guid) values ($1, $2, $3);",
-          [uid, lti_context_id, tool_consumer_instance_guid]
-        );
-      }
-    });
+  return (
+    pg
+      .queryP(
+        "select * from lti_context_memberships where uid = $1 and lti_context_id = $2 and tool_consumer_instance_guid = $3;",
+        [uid, lti_context_id, tool_consumer_instance_guid]
+      )
+      //     (local function)(rows: string | any[]): Promise<unknown> | undefined
+      // Argument of type '(rows: string | any[]) => Promise<unknown> | undefined' is not assignable to parameter of type '(value: unknown) => unknown'.
+      //   Types of parameters 'rows' and 'value' are incompatible.
+      //     Type 'unknown' is not assignable to type 'string | any[]'.
+      //       Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+      // @ts-ignore
+      .then(function (rows: string | any[]) {
+        if (!rows || !rows.length) {
+          return pg.queryP(
+            "insert into lti_context_memberships (uid, lti_context_id, tool_consumer_instance_guid) values ($1, $2, $3);",
+            [uid, lti_context_id, tool_consumer_instance_guid]
+          );
+        }
+      })
+  );
 }
 
 function renderLtiLinkageSuccessPage(
@@ -136,8 +153,8 @@ function renderLtiLinkageSuccessPage(
   res.status(200).send(html);
 }
 
-function getUser(
-  uid: string | number,
+async function getUser(
+  uid: number,
   zid_optional: any,
   xid_optional: any,
   owner_uid_optional: any
@@ -158,58 +175,56 @@ function getUser(
     );
   }
 
-  return Promise.all([
+  const o: any[] = await Promise.all([
     getUserInfoForUid2(uid),
     getFacebookInfo([uid]),
     getTwitterInfo([uid]),
     xidInfoPromise,
-  ]).then(function (o) {
-    let info = o[0];
-    let fbInfo = o[1];
-    let twInfo = o[2];
-    let xInfo = o[3];
-
-    let hasFacebook = fbInfo && fbInfo.length && fbInfo[0];
-    let hasTwitter = twInfo && twInfo.length && twInfo[0];
-    let hasXid = xInfo && xInfo.length && xInfo[0];
-    if (hasFacebook) {
-      let width = 40;
-      let height = 40;
-      fbInfo.fb_picture =
-        "https://graph.facebook.com/v2.2/" +
-        fbInfo.fb_user_id +
-        "/picture?width=" +
-        width +
-        "&height=" +
-        height;
-      delete fbInfo[0].response;
-    }
-    if (hasTwitter) {
-      delete twInfo[0].response;
-    }
-    if (hasXid) {
-      delete xInfo[0].owner;
-      delete xInfo[0].created;
-      delete xInfo[0].uid;
-    }
-    return {
-      uid: uid,
-      email: info.email,
-      hname: info.hname,
-      hasFacebook: !!hasFacebook,
-      facebook: fbInfo && fbInfo[0],
-      twitter: twInfo && twInfo[0],
-      hasTwitter: !!hasTwitter,
-      hasXid: !!hasXid,
-      xInfo: xInfo && xInfo[0],
-      finishedTutorial: !!info.tut,
-      site_ids: [info.site_id],
-      created: Number(info.created),
-      daysInTrial: 10 + (usersToAdditionalTrialDays[uid] || 0),
-      // plan: planCodeToPlanName[info.plan],
-      planCode: info.plan,
-    };
-  });
+  ]);
+  let info = o[0];
+  let fbInfo = o[1];
+  let twInfo = o[2];
+  let xInfo = o[3];
+  let hasFacebook = fbInfo && fbInfo.length && fbInfo[0];
+  let hasTwitter = twInfo && twInfo.length && twInfo[0];
+  let hasXid = xInfo && xInfo.length && xInfo[0];
+  if (hasFacebook) {
+    let width = 40;
+    let height = 40;
+    fbInfo.fb_picture =
+      "https://graph.facebook.com/v2.2/" +
+      fbInfo.fb_user_id +
+      "/picture?width=" +
+      width +
+      "&height=" +
+      height;
+    delete fbInfo[0].response;
+  }
+  if (hasTwitter) {
+    delete twInfo[0].response;
+  }
+  if (hasXid) {
+    delete xInfo[0].owner;
+    delete xInfo[0].created;
+    delete xInfo[0].uid;
+  }
+  return {
+    uid: uid,
+    email: info.email,
+    hname: info.hname,
+    hasFacebook: !!hasFacebook,
+    facebook: fbInfo && fbInfo[0],
+    twitter: twInfo && twInfo[0],
+    hasTwitter: !!hasTwitter,
+    hasXid: !!hasXid,
+    xInfo: xInfo && xInfo[0],
+    finishedTutorial: !!info.tut,
+    site_ids: [info.site_id],
+    created: Number(info.created),
+    daysInTrial: 10 + (usersToAdditionalTrialDays[uid] || 0),
+    // plan: planCodeToPlanName[info.plan],
+    planCode: info.plan,
+  };
 }
 
 function getTwitterInfo(uids: any[]) {
@@ -229,12 +244,15 @@ function getFacebookInfo(uids: any[]) {
 // so we can grant extra days to users
 // eventually we should probably move this to db.
 // for now, use git blame to see when these were added
-const usersToAdditionalTrialDays = {
+const usersToAdditionalTrialDays: { [key: number]: number } = {
   50756: 14, // julien
   85423: 100, // mike test
 };
 
 function createDummyUser() {
+  // (parameter) resolve: (arg0: any) => void
+  //   'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
+  // @ts-ignore
   return new MPromise(
     "createDummyUser",
     function (resolve: (arg0: any) => void, reject: (arg0: Error) => void) {
@@ -254,7 +272,7 @@ function createDummyUser() {
   );
 }
 
-let pidCache = new LruCache({
+let pidCache: LRUCache<string, number> = new LruCache({
   max: 9000,
 });
 
@@ -285,9 +303,13 @@ function getPid(
 }
 
 // returns a pid of -1 if it's missing
-function getPidPromise(zid: string, uid: string, usePrimary: undefined) {
+function getPidPromise(zid: string, uid: string, usePrimary?: undefined) {
   let cacheKey = zid + "_" + uid;
   let cachedPid = pidCache.get(cacheKey);
+  //   (alias) function MPromise(name: string, f: (resolve: (value: unknown) => void, reject: (reason?: any) => void) => void): Promise<unknown>
+  // import MPromise
+  // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
+  // @ts-ignore
   return new MPromise(
     "getPidPromise",
     function (resolve: (arg0: number) => void, reject: (arg0: any) => any) {
@@ -324,7 +346,7 @@ function getPidForParticipant(
   return function (
     req: { p: { zid: any; uid: any } },
     res: any,
-    next: (arg0: string | undefined) => void
+    next: (arg0?: string) => void
   ) {
     let zid = req.p.zid;
     let uid = req.p.uid;
