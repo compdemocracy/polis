@@ -2,7 +2,16 @@
 
 "use strict";
 
-import { Headers } from "./d";
+import {
+  Body,
+  DetectLanguageResult,
+  Headers,
+  Query,
+  AuthRequest,
+  AuthBody,
+  AuthQuery,
+  ParticipantInfo,
+} from "./d";
 
 const Config = require("./config");
 
@@ -166,7 +175,7 @@ const admin_emails = process.env.ADMIN_EMAILS
 const polisDevs = process.env.ADMIN_UIDS
   ? JSON.parse(process.env.ADMIN_UIDS)
   : [];
-function isPolisDev(uid: any) {
+function isPolisDev(uid?: any) {
   console.log("polisDevs", polisDevs);
   return polisDevs.indexOf(uid) >= 0;
 }
@@ -461,10 +470,7 @@ function doXidApiKeyAuth(
   apikey: any,
   xid: any,
   isOptional: any,
-  req: {
-    body: { x_profile_image_url: any; x_name: any; x_email: any; agid: any };
-    query: { x_profile_image_url: any; x_name: any; x_email: any; agid: any };
-  },
+  req: AuthRequest,
   res: { status: (arg0: number) => void },
   next: {
     (err: any): void;
@@ -485,10 +491,10 @@ function doXidApiKeyAuth(
           xid,
           uidForApiKey,
           void 0, //zid_optional,
-          req.body.x_profile_image_url || req.query.x_profile_image_url,
-          req.body.x_name || req.query.x_name || null,
-          req.body.x_email || req.query.x_email || null,
-          !!req.body.agid || !!req.query.agid || null
+          req.body.x_profile_image_url || req?.query?.x_profile_image_url,
+          req.body.x_name || req?.query?.x_name || null,
+          req.body.x_email || req?.query?.x_email || null,
+          !!req.body.agid || !!req?.query?.agid || null
         ).then((rows: string | any[]) => {
           if (!rows || !rows.length) {
             if (isOptional) {
@@ -523,7 +529,7 @@ function doXidApiKeyAuth(
 function doHeaderAuth(
   assigner: (arg0: any, arg1: string, arg2: number) => void,
   isOptional: any,
-  req: { headers?: { [x: string]: any }; body: { uid: any } },
+  req: { headers?: { [x: string]: any }; body: { uid?: any } },
   res: { status: (arg0: number) => void },
   next: { (err: any): void; (arg0?: string | undefined): void }
 ) {
@@ -531,7 +537,7 @@ function doHeaderAuth(
   if (req && req.headers) token = req?.headers?.["x-polis"];
 
   //if (req.body.uid) { next(401); return; } // shouldn't be in the post - TODO - see if we can do the auth in parallel for non-destructive operations
-  getUserInfoForSessionToken(token, res, function (err: any, uid: any) {
+  getUserInfoForSessionToken(token, res, function (err: any, uid?: any) {
     if (err) {
       res.status(403);
       next("polis_err_auth_no_such_token");
@@ -557,7 +563,7 @@ function doPolisLtiTokenHeaderAuth(
   let token = req?.headers?.["x-polis"];
 
   getUserInfoForPolisLtiToken(token)
-    .then(function (uid: any) {
+    .then(function (uid?: any) {
       assigner(req, "uid", Number(uid));
       next();
     })
@@ -578,7 +584,7 @@ function doPolisSlackTeamUserTokenHeaderAuth(
   let token = req?.headers?.["x-polis"];
 
   getUserInfoForPolisLtiToken(token)
-    .then(function (uid: any) {
+    .then(function (uid?: any) {
       assigner(req, "uid", Number(uid));
       next();
     })
@@ -592,6 +598,8 @@ function doPolisSlackTeamUserTokenHeaderAuth(
 //     winston.log("info",req.method + " " + req.url);
 //     next();
 // }
+// Property 'hashCode' does not exist on type 'String'.ts(2339)
+// @ts-ignore
 String.prototype.hashCode = function () {
   let hash = 0;
   let i;
@@ -704,12 +712,12 @@ function initializePolisHelpers() {
           if (i < comments.length) {
             let c = comments[i];
             i += 1;
-            detectLanguage(c.txt).then((x: any[]) => {
-              x = x[0];
-              console.log("backfill", x.language + "\t\t" + c.txt);
+            detectLanguage(c.txt).then((x: DetectLanguageResult[]) => {
+              const firstResult = x[0];
+              console.log("backfill", firstResult.language + "\t\t" + c.txt);
               pgQueryP(
                 "update comments set lang = ($1), lang_confidence = ($2) where zid = ($3) and tid = ($4)",
-                [x.language, x.confidence, c.zid, c.tid]
+                [firstResult.language, firstResult.confidence, c.zid, c.tid]
               ).then(() => {
                 doNext();
               });
@@ -722,15 +730,15 @@ function initializePolisHelpers() {
   }
 
   function doVotesPost(
-    uid: any,
-    pid: any,
-    conv: { zid: any; is_slack: any },
-    tid: any,
-    voteType: any,
-    weight: number,
-    shouldNotify: any
+    uid?: any,
+    pid?: any,
+    conv?: { zid: any; is_slack: any },
+    tid?: any,
+    voteType?: any,
+    weight?: number,
+    shouldNotify?: any
   ) {
-    let zid = conv.zid;
+    let zid = conv?.zid;
     weight = weight || 0;
     let weight_x_32767 = Math.trunc(weight * 32767); // weight is stored as a SMALLINT, so convert from a [-1,1] float to [-32767,32767] int
     return new Promise(function (
@@ -774,13 +782,13 @@ function initializePolisHelpers() {
   }
 
   function votesPost(
-    uid: any,
-    pid: any,
-    zid: any,
-    tid: any,
-    voteType: any,
-    weight: number,
-    shouldNotify: boolean
+    uid?: any,
+    pid?: any,
+    zid?: any,
+    tid?: any,
+    voteType?: any,
+    weight?: number,
+    shouldNotify?: boolean
   ) {
     return pgQueryP_readOnly("select * from conversations where zid = ($1);", [
       zid,
@@ -804,6 +812,8 @@ function initializePolisHelpers() {
                 [conv.owner, uid]
               ),
               getSocialInfoForUsers([uid], zid),
+              // Binding elements 'xids' and 'info' implicitly have an 'any' type.ts(7031)
+              // @ts-ignore
             ]).then(([xids, info]) => {
               var socialAccountIsLinked = info.length > 0;
               var hasXid = xids.length > 0;
@@ -828,7 +838,7 @@ function initializePolisHelpers() {
     return votesGet(p);
   }
 
-  function votesGet(p: { zid: any; pid: any; tid: any }) {
+  function votesGet(p: { zid?: any; pid?: any; tid?: any }) {
     return new MPromise(
       "votesGet",
       function (resolve: (arg0: any) => void, reject: (arg0: any) => void) {
@@ -895,10 +905,10 @@ function initializePolisHelpers() {
       return next();
     }
 
-    if (!/https/.test(req?.headers?.["x-forwarded-proto"])) {
+    if (!/https/.test(req?.headers?.["x-forwarded-proto"] || "")) {
       // assuming we're running on Heroku, where we're behind a proxy.
       res.writeHead(302, {
-        Location: "https://" + req.headers.host + req.url,
+        Location: "https://" + req?.headers?.host + req.url,
       });
       return res.end();
     }
@@ -915,8 +925,8 @@ function initializePolisHelpers() {
   ) {
     // let reServiceHostname = new RegExp(process.env.SERVICE_HOSTNAME);
     if (
-      // reServiceHostname.test(req.headers.host) || // needed for heroku integrations (like slack?)
-      /www.pol.is/.test(req.headers.host)
+      // reServiceHostname.test(req?.headers?.host) || // needed for heroku integrations (like slack?)
+      /www.pol.is/.test(req?.headers?.host || "")
     ) {
       res.writeHead(302, {
         Location: "https://pol.is" + req.url,
@@ -934,7 +944,7 @@ function initializePolisHelpers() {
     },
     next: () => any
   ) {
-    if (/api.pol.is/.test(req.headers.host)) {
+    if (/api.pol.is/.test(req?.headers?.host || "")) {
       if (req.url === "/" || req.url === "") {
         res.writeHead(302, {
           Location: "https://pol.is/docs/api",
@@ -980,10 +990,7 @@ function initializePolisHelpers() {
     xid: any,
     conversation_id: any,
     isOptional: any,
-    req: {
-      body: { x_profile_image_url: any; x_name: any; x_email: any; agid: any };
-      query: { x_profile_image_url: any; x_name: any; x_email: any; agid: any };
-    },
+    req: AuthRequest,
     res: { status: (arg0: number) => void },
     onDone: { (err: any): void; (arg0?: string): void }
   ) {
@@ -993,10 +1000,10 @@ function initializePolisHelpers() {
           xid,
           conv.org_id,
           conv.zid,
-          req.body.x_profile_image_url || req.query.x_profile_image_url,
-          req.body.x_name || req.query.x_name || null,
-          req.body.x_email || req.query.x_email || null,
-          !!req.body.agid || !!req.query.agid || null
+          req.body.x_profile_image_url || req?.query?.x_profile_image_url,
+          req.body.x_name || req?.query?.x_name || null,
+          req.body.x_email || req?.query?.x_email || null,
+          !!req.body.agid || !!req?.query?.agid || null
         ).then((rows: string | any[]) => {
           if (!rows || !rows.length) {
             if (isOptional) {
@@ -1020,13 +1027,13 @@ function initializePolisHelpers() {
   function _auth(assigner: any, isOptional: boolean) {
     function getKey(
       req: {
-        body: { [x: string]: any };
-        headers?: { [x: string]: any };
-        query: { [x: string]: any };
+        body: Body;
+        headers?: Headers;
+        query?: Query;
       },
       key: string
     ) {
-      return req.body[key] || req?.headers?.[key] || req.query[key];
+      return req.body[key] || req?.headers?.[key] || req?.query?.[key];
     }
 
     function doAuth(
@@ -1034,7 +1041,7 @@ function initializePolisHelpers() {
         cookies: { [x: string]: any };
         headers?: { [x: string]: any; authorization: any };
         p: { uid?: any };
-        body: { [x: string]: any; agid: any; xid: any };
+        body: Body;
       },
       res: { status: (arg0: number) => void }
     ) {
@@ -1046,7 +1053,7 @@ function initializePolisHelpers() {
         resolve: (arg0: any) => void,
         reject: (arg0: string) => void
       ) {
-        function onDone(err: string | undefined) {
+        function onDone(err?: string) {
           if (err) {
             reject(err);
           }
@@ -1133,7 +1140,7 @@ function initializePolisHelpers() {
         } else if (token) {
           console.log("authtype", "doCookieAuth");
           doCookieAuth(assigner, isOptional, req, res, onDone);
-        } else if (req.headers.authorization) {
+        } else if (req?.headers?.authorization) {
           console.log("authtype", "doApiKeyBasicAuth");
           doApiKeyBasicAuth(
             assigner,
@@ -1148,7 +1155,7 @@ function initializePolisHelpers() {
           console.log("authtype", "no auth but agid");
           createDummyUser()
             .then(
-              function (uid: any) {
+              function (uid?: any) {
                 let shouldAddCookies = _.isUndefined(req.body.xid);
                 if (!shouldAddCookies) {
                   req.p = req.p || {};
@@ -1264,11 +1271,7 @@ function initializePolisHelpers() {
     return _auth(assigner, false);
   }
 
-  function enableAgid(
-    req: { body: { agid: number } },
-    res: any,
-    next: () => void
-  ) {
+  function enableAgid(req: { body: Body }, res: any, next: () => void) {
     req.body.agid = 1;
     next();
   }
@@ -1346,14 +1349,15 @@ function initializePolisHelpers() {
 
     for (let i = 0; i < whitelistedDomains.length; i++) {
       let w = whitelistedDomains[i];
-      if (hostWithoutProtocol.endsWith(w)) {
+      if (hostWithoutProtocol.endsWith(w || "")) {
         // ok, the ending matches, now we need to make sure it's the same, or a subdomain.
         if (hostWithoutProtocol === w) {
           return true;
         }
         if (
-          hostWithoutProtocol[hostWithoutProtocol.length - (w.length + 1)] ===
-          "."
+          hostWithoutProtocol[
+            hostWithoutProtocol.length - ((w || "").length + 1)
+          ] === "."
         ) {
           // separated by a dot, so it's a subdomain.
           return true;
@@ -1456,7 +1460,7 @@ function initializePolisHelpers() {
     res: { redirect: (arg0: any) => void }
   ) {
     let setOnPolisDomain = !domainOverride;
-    let origin = req.headers.origin || "";
+    let origin = req?.headers?.origin || "";
     if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
       setOnPolisDomain = false;
     }
@@ -1476,7 +1480,7 @@ function initializePolisHelpers() {
   }
   // function handle_GET_setFirstCookie(req, res) {
   //     let setOnPolisDomain = !domainOverride;
-  //     let origin = req.headers.origin || "";
+  //     let origin = req?.headers?.origin || "";
   //     if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
   //         setOnPolisDomain = false;
   //     }
@@ -1499,7 +1503,7 @@ function initializePolisHelpers() {
     }
   ) {
     let setOnPolisDomain = !domainOverride;
-    let origin = req.headers.origin || "";
+    let origin = req?.headers?.origin || "";
     if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
       setOnPolisDomain = false;
     }
@@ -1647,11 +1651,11 @@ function initializePolisHelpers() {
   function processMathObject(o: { [x: string]: any }) {
     function remapSubgroupStuff(g: { val: any[] }) {
       if (_.isArray(g.val)) {
-        g.val = g.val.map((x: { id: any }) => {
+        g.val = g.val.map((x: { id: number }) => {
           return { id: Number(x.id), val: x };
         });
       } else {
-        g.val = _.keys(g.val).map((id: string | number) => {
+        g.val = _.keys(g.val).map((id: number) => {
           return { id: Number(id), val: g.val[id] };
         });
       }
@@ -1732,7 +1736,14 @@ function initializePolisHelpers() {
         return obj;
       }
       for (let i = 0; i < a.length; i++) {
+        let i: number;
+        // Element implicitly has an 'any' type
+        // because expression of type 'any' can't be used to index type '{ } '.ts(7053)
+        // @ts-ignore
         obj[a[i].id] = a[i].val;
+        // Element implicitly has an 'any' type
+        // because expression of type 'any' can't be used to index type '{ } '.ts(7053)
+        // @ts-ignore
         obj[a[i].id].id = a[i].id;
       }
       return obj;
@@ -1948,6 +1959,10 @@ function initializePolisHelpers() {
       math_tick = -1;
     }
     function finishWith304or404() {
+      let pcaResultsExistForZid: {};
+      // Element implicitly has an 'any' type
+      // because expression of type 'any' can't be used to index type '{ } '.ts(7053)
+      // @ts-ignore
       if (pcaResultsExistForZid[zid]) {
         res.status(304).end();
       } else {
@@ -1976,11 +1991,17 @@ function initializePolisHelpers() {
           res.send(data.asBufferOfGzippedJson);
         } else {
           // check whether we should return a 304 or a 404
+          // Element implicitly has an 'any' type
+          // because expression of type 'any' can't be used to index type '{ } '.ts(7053)
+          // @ts-ignore
           if (_.isUndefined(pcaResultsExistForZid[zid])) {
             // This server doesn't know yet if there are any PCA results in the DB
             // So try querying from -1
             return getPca(zid, -1).then(function (data: any) {
               let exists = !!data;
+              // Element implicitly has an 'any' type
+              // because expression of type 'any' can't be used to index type '{ } '.ts(7053)
+              // @ts-ignore
               pcaResultsExistForZid[zid] = exists;
               finishWith304or404();
             });
@@ -2019,7 +2040,7 @@ function initializePolisHelpers() {
   }
 
   function handle_POST_math_update(
-    req: { p: { zid: any; uid: any; math_update_type: any } },
+    req: { p: { zid: any; uid?: any; math_update_type: any } },
     res: {
       status: (
         arg0: number
@@ -2190,10 +2211,11 @@ function initializePolisHelpers() {
             [task_bucket]
           ).then((rows: string | any[]) => {
             let ok = rows && rows.length;
+            let newOk;
             if (ok) {
-              ok = rows[0].finished_time > 0;
+              newOk = rows[0].finished_time > 0;
             }
-            if (ok) {
+            if (ok && newOk) {
               console.log("runExportTest success");
             } else {
               console.log("runExportTest failed");
@@ -2206,7 +2228,7 @@ function initializePolisHelpers() {
     setInterval(runExportTest, 6 * 60 * 60 * 1000); // every 6 hours
   }
   function handle_GET_dataExport(
-    req: { p: { uid: any; zid: any; unixTimestamp: number; format: any } },
+    req: { p: { uid?: any; zid: any; unixTimestamp: number; format: any } },
     res: { json: (arg0: {}) => void }
   ) {
     getUserInfoForUid2(req.p.uid)
@@ -2242,7 +2264,7 @@ function initializePolisHelpers() {
     res.redirect(url);
 
     // res.writeHead(302, {
-    //   Location: protocol + "://" + req.headers.host + path,
+    //   Location: protocol + "://" + req?.headers?.host + path,
     // });
     // return res.end();
   }
@@ -2310,7 +2332,7 @@ function initializePolisHelpers() {
     );
   }
   function handle_GET_xids(
-    req: { p: { uid: any; zid: any } },
+    req: { p: { uid?: any; zid: any } },
     res: {
       status: (
         arg0: number
@@ -2341,7 +2363,7 @@ function initializePolisHelpers() {
     );
   }
   function handle_POST_xidWhitelist(
-    req: { p: { xid_whitelist: any; uid: any } },
+    req: { p: { xid_whitelist: any; uid?: any } },
     res: {
       status: (
         arg0: number
@@ -2380,6 +2402,8 @@ function initializePolisHelpers() {
     return Promise.all([dataPromise, mathResultsPromise]).then(function (
       items: { asPOJO: any }[]
     ) {
+      // Property 'bidToPid' does not exist on type '{ asPOJO: any; }'.ts(2339)
+      // @ts-ignore
       let b2p = items[0].bidToPid || []; // not sure yet if "|| []" is right here.
       let mathResults = items[1].asPOJO;
       function findBidForPid(pid: any) {
@@ -2424,7 +2448,7 @@ function initializePolisHelpers() {
   //   });
   // }
   function handle_GET_bid(
-    req: { p: { uid: any; zid: any; math_tick: any } },
+    req: { p: { uid?: any; zid: any; math_tick: any } },
     res: {
       json: (arg0: { bid: any }) => void;
       status: (
@@ -2443,10 +2467,12 @@ function initializePolisHelpers() {
     Promise.all([dataPromise, pidPromise, mathResultsPromise])
       .then(
         function (items: { asPOJO: any }[]) {
+          // Property 'bidToPid' does not exist on type '{ asPOJO: any; }'.ts(2339)
+          // @ts-ignore
           let b2p = items[0].bidToPid || []; // not sure yet if "|| []" is right here.
           let pid = items[1];
           let mathResults = items[2].asPOJO;
-          if (pid < 0) {
+          if (((pid as unknown) as number) < 0) {
             // NOTE: this API should not be called in /demo mode
             fail(res, 500, "polis_err_get_bid_bad_pid");
             return;
@@ -2507,7 +2533,7 @@ function initializePolisHelpers() {
 
     getUidForPwResetToken(
       pwresettoken,
-      function (err: any, userParams: { uid: any }) {
+      function (err: any, userParams: { uid?: any }) {
         if (err) {
           console.error(err);
           fail(
@@ -2595,20 +2621,20 @@ function initializePolisHelpers() {
       //     redirect_uri:  getServerNameWithProtocol(req) + "/api/v3/auth/slack/redirect_uri",
       //   }
       // })
-      .then((slack_response: string) => {
-        slack_response = JSON.parse(slack_response);
-        if (slack_response && slack_response.ok === false) {
-          fail(res, 500, "polis_err_slack_oauth 3", slack_response);
+      .then((slackResponse: string) => {
+        const parsedSlackResponse = JSON.parse(slackResponse);
+        if (parsedSlackResponse && parsedSlackResponse.ok === false) {
+          fail(res, 500, "polis_err_slack_oauth 3", parsedSlackResponse);
           return;
         }
         console.log("handle_POST_auth_slack_redirect_uri 2");
-        console.log(slack_response);
+        console.log(parsedSlackResponse);
         return pgQueryP(
           "insert into slack_oauth_access_tokens (slack_access_token, slack_scope, slack_auth_response) values ($1, $2, $3);",
           [
-            slack_response.access_token,
-            slack_response.scope,
-            slack_response,
+            parsedSlackResponse.access_token,
+            parsedSlackResponse.scope,
+            parsedSlackResponse,
             // state,
           ]
         ).then(() => {
@@ -2645,7 +2671,7 @@ function initializePolisHelpers() {
     }
 
     getUidByEmail(email).then(
-      function (uid: any) {
+      function (uid?: any) {
         setupPwReset(uid, function (err: any, pwresettoken: any) {
           sendPasswordResetEmail(
             uid,
@@ -2700,19 +2726,23 @@ Feel free to reply to this email if you need help.`;
   }
 
   function clearCookie(
-    req: { headers?: { origin: string } },
+    req: { [key: string]: any; headers?: { origin: string } },
     res: {
-      clearCookie: (arg0: any, arg1: { path: string; domain?: string }) => void;
+      [key: string]: any;
+      clearCookie?: (
+        arg0: any,
+        arg1: { path: string; domain?: string }
+      ) => void;
     },
     cookieName: any
   ) {
-    let origin = req.headers.origin || "";
+    let origin = req?.headers?.origin || "";
     if (domainOverride || origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
-      res.clearCookie(cookieName, {
+      res?.clearCookie?.(cookieName, {
         path: "/",
       });
     } else {
-      res.clearCookie(cookieName, {
+      res?.clearCookie?.(cookieName, {
         path: "/",
         domain: ".pol.is",
       });
@@ -2721,21 +2751,22 @@ Feel free to reply to this email if you need help.`;
   }
 
   function clearCookies(
-    req: { headers?: { origin: string }; cookies: any },
+    req: { headers?: Headers; cookies?: any; p?: any },
     res: {
-      clearCookie: (
+      clearCookie?: (
         arg0: string,
         arg1: { path: string; domain?: string }
       ) => void;
+      status?: (arg0: number) => void;
       _headers?: { [x: string]: any };
     }
   ) {
-    let origin = req.headers.origin || "";
+    let origin = req?.headers?.origin || "";
     let cookieName;
     if (domainOverride || origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
       for (cookieName in req.cookies) {
         if (COOKIES_TO_CLEAR[cookieName]) {
-          res.clearCookie(cookieName, {
+          res?.clearCookie?.(cookieName, {
             path: "/",
           });
         }
@@ -2743,7 +2774,7 @@ Feel free to reply to this email if you need help.`;
     } else {
       for (cookieName in req.cookies) {
         if (COOKIES_TO_CLEAR[cookieName]) {
-          res.clearCookie(cookieName, {
+          res?.clearCookie?.(cookieName, {
             path: "/",
             domain: ".pol.is",
           });
@@ -2758,20 +2789,20 @@ Feel free to reply to this email if you need help.`;
     winston.log(
       "info",
       "after clear res set-cookie: " +
-        JSON.stringify(res._headers["set-cookie"])
+        JSON.stringify(res?._headers?.["set-cookie"])
     );
   }
   function doCookieAuth(
     assigner: (arg0: any, arg1: string, arg2: number) => void,
     isOptional: any,
-    req: { cookies: { [x: string]: any }; body: { uid: any } },
+    req: { cookies: { [x: string]: any }; body: { uid?: any } },
     res: { status: (arg0: number) => void },
     next: { (err: any): void; (arg0?: string): void }
   ) {
     let token = req.cookies[COOKIES.TOKEN];
 
     //if (req.body.uid) { next(401); return; } // shouldn't be in the post - TODO - see if we can do the auth in parallel for non-destructive operations
-    getUserInfoForSessionToken(token, res, function (err: any, uid: any) {
+    getUserInfoForSessionToken(token, res, function (err: any, uid?: any) {
       if (err) {
         clearCookies(req, res); // TODO_MULTI_DATACENTER_CONSIDERATION
         if (isOptional) {
@@ -2929,7 +2960,7 @@ Feel free to reply to this email if you need help.`;
   }
 
   function handle_GET_zinvites(
-    req: { p: { zid: any; uid: any } },
+    req: { p: { zid: any; uid?: any } },
     res: {
       writeHead: (arg0: number) => void;
       json: (arg0: { status: number }) => void;
@@ -3011,9 +3042,9 @@ Feel free to reply to this email if you need help.`;
             return;
           }
           winston.log("info", longStringOfTokens);
-          let otzinviteArray = longStringOfTokens.match(/.{1,31}/g);
-          otzinviteArray = otzinviteArray.slice(0, numTokens); // Base64 encoding expands to extra characters, so trim to the number of tokens we want.
-          otzinviteArray = otzinviteArray.map(function (suzinvite: string) {
+          let otzinviteArrayRegexMatch = longStringOfTokens.match(/.{1,31}/g);
+          let otzinviteArray = otzinviteArrayRegexMatch?.slice(0, numTokens); // Base64 encoding expands to extra characters, so trim to the number of tokens we want.
+          otzinviteArray = otzinviteArray?.map(function (suzinvite: string) {
             return generateConversationURLPrefix() + suzinvite;
           });
           winston.log("info", otzinviteArray);
@@ -3024,7 +3055,7 @@ Feel free to reply to this email if you need help.`;
   }
 
   function handle_POST_zinvites(
-    req: { p: { short_url: any; zid: any; uid: any } },
+    req: { p: { short_url: any; zid: any; uid?: any } },
     res: {
       status: (
         arg0: number
@@ -3091,7 +3122,7 @@ Feel free to reply to this email if you need help.`;
     max: 1000,
   });
 
-  function getZinvite(zid: any, dontUseCache: boolean) {
+  function getZinvite(zid: any, dontUseCache?: boolean) {
     let cachedConversationId = zidToConversationIdCache.get(zid);
     if (!dontUseCache && cachedConversationId) {
       return Promise.resolve(cachedConversationId);
@@ -3136,6 +3167,10 @@ Feel free to reply to this email if you need help.`;
       let zid2conversation_id = {};
       arrays.forEach(function (a: any[]) {
         a.forEach(function (o: { zid: string | number; zinvite: any }) {
+          // (property) zid: string | number
+          // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+          //           No index signature with a parameter of type 'string' was found onpe '{}'.ts(7053)
+          // @ts-ignore
           zid2conversation_id[o.zid] = o.zinvite;
         });
       });
@@ -3172,7 +3207,7 @@ Feel free to reply to this email if you need help.`;
   }
 
   function addConversationId(
-    o: { zid: any; conversation_id: any },
+    o: { zid?: any; conversation_id?: any },
     dontUseCache: any
   ) {
     if (!o.zid) {
@@ -3329,7 +3364,7 @@ Feel free to reply to this email if you need help.`;
     });
   }
 
-  function xidExists(xid: any, owner: any, uid: any) {
+  function xidExists(xid: any, owner: any, uid?: any) {
     return pgQueryP(
       "select * from xids where xid = ($1) and owner = ($2) and uid = ($3);",
       [xid, owner, uid]
@@ -3338,7 +3373,7 @@ Feel free to reply to this email if you need help.`;
     });
   }
 
-  function createXidEntry(xid: any, owner: any, uid: any) {
+  function createXidEntry(xid: any, owner: any, uid?: any) {
     return new Promise(function (
       resolve: () => void,
       reject: (arg0: Error) => void
@@ -3443,11 +3478,11 @@ Feel free to reply to this email if you need help.`;
 
   function createParticpantLocationRecord(
     zid: any,
-    uid: any,
-    pid: any,
-    lat: any,
-    lng: any,
-    source: any
+    uid?: any,
+    pid?: any,
+    lat?: any,
+    lng?: any,
+    source?: any
   ) {
     return pgQueryP(
       "insert into participant_locations (zid, uid, pid, lat, lng, source) values ($1,$2,$3,$4,$5,$6);",
@@ -3463,7 +3498,7 @@ Feel free to reply to this email if you need help.`;
     manual_entry: 1,
   };
 
-  function getUsersLocationName(uid: any) {
+  function getUsersLocationName(uid?: any) {
     return Promise.all([
       pgQueryP_readOnly("select * from facebook_users where uid = ($1);", [
         uid,
@@ -3489,8 +3524,8 @@ Feel free to reply to this email if you need help.`;
 
   function populateParticipantLocationRecordIfPossible(
     zid: any,
-    uid: any,
-    pid: any
+    uid?: any,
+    pid?: any
   ) {
     INFO("asdf1", zid, uid, pid);
     getUsersLocationName(uid)
@@ -3527,13 +3562,13 @@ Feel free to reply to this email if you need help.`;
       });
   }
 
-  function updateLastInteractionTimeForConversation(zid: any, uid: any) {
+  function updateLastInteractionTimeForConversation(zid: any, uid?: any) {
     return pgQueryP(
       "update participants set last_interaction = now_as_millis(), nsli = 0 where zid = ($1) and uid = ($2);",
       [zid, uid]
     );
   }
-  function populateGeoIpInfo(zid: any, uid: any, ipAddress: string | null) {
+  function populateGeoIpInfo(zid: any, uid?: any, ipAddress?: string | null) {
     var userId = process.env.MAXMIND_USERID;
     var licenseKey = process.env.MAXMIND_LICENSEKEY;
 
@@ -3585,7 +3620,7 @@ Feel free to reply to this email if you need help.`;
       });
   }
 
-  function addExtendedParticipantInfo(zid: any, uid: any, data: {}) {
+  function addExtendedParticipantInfo(zid: any, uid?: any, data?: {}) {
     if (!data || !_.keys(data).length) {
       return Promise.resolve();
     }
@@ -3606,9 +3641,9 @@ Feel free to reply to this email if you need help.`;
 
   function tryToJoinConversation(
     zid: any,
-    uid: any,
-    info: any,
-    pmaid_answers: string | any[]
+    uid?: any,
+    info?: any,
+    pmaid_answers?: string | any[]
   ) {
     console.log("tryToJoinConversation");
     console.dir(arguments);
@@ -3619,7 +3654,7 @@ Feel free to reply to this email if you need help.`;
       }
     }
 
-    function saveMetadataChoices(pid: undefined) {
+    function saveMetadataChoices(pid?: number) {
       if (pmaid_answers && pmaid_answers.length) {
         saveParticipantMetadataChoicesP(zid, pid, pmaid_answers);
       }
@@ -3642,18 +3677,18 @@ Feel free to reply to this email if you need help.`;
 
   function addParticipantAndMetadata(
     zid: any,
-    uid: any,
-    req: {
+    uid?: any,
+    req?: {
       cookies: { [x: string]: any };
       p: { parent_url: any };
       headers?: { [x: string]: any };
     },
-    permanent_cookie: any
+    permanent_cookie?: any
   ) {
     let info: { [key: string]: string } = {};
-    let parent_url = req.cookies[COOKIES.PARENT_URL] || req.p.parent_url;
+    let parent_url = req?.cookies?.[COOKIES.PARENT_URL] || req?.p?.parent_url;
     let referer =
-      req.cookies[COOKIES.PARENT_REFERRER] ||
+      req?.cookies[COOKIES.PARENT_REFERRER] ||
       req?.headers?.["referer"] ||
       req?.headers?.["referrer"];
     if (parent_url) {
@@ -3691,7 +3726,12 @@ Feel free to reply to this email if you need help.`;
     });
   }
 
-  function joinConversation(zid: any, uid: any, info: {}, pmaid_answers: any) {
+  function joinConversation(
+    zid: any,
+    uid?: any,
+    info?: {},
+    pmaid_answers?: any
+  ) {
     function tryJoin() {
       return tryToJoinConversation(zid, uid, info, pmaid_answers);
     }
@@ -3727,26 +3767,26 @@ Feel free to reply to this email if you need help.`;
 
   function isOwnerOrParticipant(
     zid: any,
-    uid: any,
-    callback: { (): void; (arg0: null): void }
+    uid?: any,
+    callback?: { (): void; (arg0: null): void }
   ) {
     // TODO should be parallel.
     // look into bluebird, use 'some' https://github.com/petkaantonov/bluebird
     getPid(zid, uid, function (err: any, pid: number) {
       if (err || pid < 0) {
         isConversationOwner(zid, uid, function (err: any) {
-          callback(err);
+          callback?.(err);
         });
       } else {
-        callback(null);
+        callback?.(null);
       }
     });
   }
 
   function isConversationOwner(
     zid: any,
-    uid: any,
-    callback: {
+    uid?: any,
+    callback?: {
       (err: any): void;
       (err: any): void;
       (err: any): void;
@@ -3766,7 +3806,7 @@ Feel free to reply to this email if you need help.`;
         if (!docs || !docs.rows || docs.rows.length === 0) {
           err = err || 1;
         }
-        callback(err);
+        callback?.(err);
       }
     );
   }
@@ -3780,7 +3820,7 @@ Feel free to reply to this email if you need help.`;
     });
   }
 
-  function isModerator(zid: any, uid: any) {
+  function isModerator(zid: any, uid?: any) {
     if (isPolisDev(uid)) {
       return Promise.resolve(true);
     }
@@ -3793,7 +3833,7 @@ Feel free to reply to this email if you need help.`;
   }
 
   // returns null if it's missing
-  function getParticipant(zid: any, uid: any) {
+  function getParticipant(zid: any, uid?: any) {
     return new MPromise(
       "getParticipant",
       function (resolve: (arg0: any) => void, reject: (arg0: Error) => any) {
@@ -3817,7 +3857,7 @@ Feel free to reply to this email if you need help.`;
     zid: any,
     callback: {
       (err: any, available_answers: any): any;
-      (arg0: number, arg1: undefined): void;
+      (arg0: number, arg1?: undefined): void;
     }
   ) {
     pgQuery_readOnly(
@@ -3883,6 +3923,9 @@ ${message}`;
       body
     ).catch(function (err: any) {
       yell("polis_err_failed_to_email_team");
+      // Cannot find name 'message'. Did you mean 'onmessage'?ts(2552)
+      //     lib.dom.d.ts(20013, 13): 'onmessage' is declared here.
+      // @ts-ignore
       yell(message);
     });
   }
@@ -3895,19 +3938,19 @@ ${message}`;
     return emailTeam("Polis Bad Problems!!!", body);
   }
   function sendPasswordResetEmail(
-    uid: any,
-    pwresettoken: any,
-    serverName: any,
-    callback: { (err: any): void; (arg0?: string): void }
+    uid?: any,
+    pwresettoken?: any,
+    serverName?: any,
+    callback?: { (err: any): void; (arg0?: string): void }
   ) {
     getUserInfoForUid(
       uid,
       function (err: any, userInfo: { hname: any; email: any }) {
         if (err) {
-          return callback(err);
+          return callback?.(err);
         }
         if (!userInfo) {
-          return callback("missing user info");
+          return callback?.("missing user info");
         }
         let body = `Hi ${userInfo.hname},
 
@@ -3925,11 +3968,11 @@ ${serverName}/pwreset/${pwresettoken}
           body
         )
           .then(function () {
-            callback();
+            callback?.();
           })
           .catch(function (err: any) {
             yell("polis_err_failed_to_email_password_reset_code");
-            callback(err);
+            callback?.(err);
           });
       }
     );
@@ -4060,8 +4103,8 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function paramsToStringSortedByName(params: {
-    conversation_id: any;
-    email: any;
+    conversation_id?: any;
+    email?: any;
   }) {
     let pairs = _.pairs(params).sort(function (a: number[], b: number[]) {
       return a[0] > b[0];
@@ -4081,7 +4124,7 @@ Email verified! You can close this tab or hit the back button.
 
   function createHmacForQueryParams(
     path: string,
-    params: { conversation_id: any; email: any }
+    params: { conversation_id?: any; email?: any }
   ) {
     path = path.replace(/\/$/, ""); // trim trailing "/"
     let s = path + "?" + paramsToStringSortedByName(params);
@@ -4117,7 +4160,7 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
-  function sendEmailByUid(uid: any, subject: string, body: string) {
+  function sendEmailByUid(uid?: any, subject?: string, body?: string) {
     return getUserInfoForUid2(uid).then(function (userInfo: {
       hname: any;
       email: any;
@@ -4134,7 +4177,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function handle_GET_participants(
-    req: { p: { uid: any; zid: any } },
+    req: { p: { uid?: any; zid: any } },
     res: {
       status: (
         arg0: number
@@ -4202,7 +4245,7 @@ Email verified! You can close this tab or hit the back button.
     res.status(200).end();
   }
   function doGetConversationsRecent(
-    req: { p: { uid: any; sinceUnixTimestamp: any } },
+    req: { p: { uid?: any; sinceUnixTimestamp: any } },
     res: { json: (arg0: any) => void },
     field: string
   ) {
@@ -4273,7 +4316,7 @@ Email verified! You can close this tab or hit the back button.
   }
   function handle_POST_participants(
     req: {
-      p: { zid: any; uid: any; answers: any; parent_url: any; referrer: any };
+      p: { zid: any; uid?: any; answers: any; parent_url: any; referrer: any };
       cookies: { [x: string]: any };
     },
     res: {
@@ -4285,7 +4328,7 @@ Email verified! You can close this tab or hit the back button.
     let zid = req.p.zid;
     let uid = req.p.uid;
     let answers = req.p.answers;
-    let info = {};
+    let info: ParticipantInfo = {};
 
     let parent_url = req.cookies[COOKIES.PARENT_URL] || req.p.parent_url;
     let referrer = req.cookies[COOKIES.PARENT_REFERRER] || req.p.referrer;
@@ -4406,7 +4449,7 @@ Email verified! You can close this tab or hit the back button.
   const addLtiUserIfNeeded = User.addLtiUserIfNeeded;
   const addLtiContextMembership = User.addLtiContextMembership;
 
-  function subscribeToNotifications(zid: any, uid: any, email: any) {
+  function subscribeToNotifications(zid: any, uid?: any, email?: any) {
     let type = 1; // 1 for email
     winston.log("info", "subscribeToNotifications", zid, uid);
     return pgQueryP(
@@ -4422,7 +4465,7 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
-  function unsubscribeFromNotifications(zid: any, uid: any) {
+  function unsubscribeFromNotifications(zid: any, uid?: any) {
     let type = 0; // 1 for nothing
     return pgQueryP(
       "update participants set subscribed = ($3) where zid = ($1) and uid = ($2);",
@@ -4496,6 +4539,9 @@ Email verified! You can close this tab or hit the back button.
 
           let pid_to_ptpt = {};
           candidates.forEach((c: { pid: string | number }) => {
+            // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+            // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+            // @ts-ignore
             pid_to_ptpt[c.pid] = c;
           });
           return Promise.mapSeries(
@@ -4510,6 +4556,9 @@ Email verified! You can close this tab or hit the back button.
           ).then((results: any[]) => {
             const needNotification = results.filter(
               (result: { pid: string | number; remaining: number }) => {
+                // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+                // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+                // @ts-ignore
                 let ptpt = pid_to_ptpt[result.pid];
                 let needs = true;
 
@@ -4590,6 +4639,9 @@ Email verified! You can close this tab or hit the back button.
               let uidToEmail = {};
               rows.forEach(
                 (row: { uid: string | number; subscribe_email: any }) => {
+                  // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+                  // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+                  // @ts-ignore
                   uidToEmail[row.uid] = row.subscribe_email;
                 }
               );
@@ -4601,11 +4653,17 @@ Email verified! You can close this tab or hit the back button.
                   index: any,
                   length: any
                 ) => {
+                  // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+                  // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+                  // @ts-ignore
                   const uid = pid_to_ptpt[item.pid].uid;
                   return sendNotificationEmail(
                     uid,
                     url,
                     conversation_id,
+                    // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+                    // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+                    // @ts-ignore
                     uidToEmail[uid],
                     item.remaining
                   ).then(() => {
@@ -4659,11 +4717,11 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function sendNotificationEmail(
-    uid: any,
-    url: string,
-    conversation_id: string,
-    email: any,
-    remaining: any
+    uid?: any,
+    url?: string,
+    conversation_id?: string,
+    email?: any,
+    remaining?: any
   ) {
     let subject =
       "New statements to vote on (conversation " + conversation_id + ")"; // Not sure if putting the conversation_id is ideal, but we need some way to ensure that the notifications for each conversation appear in separte threads.
@@ -4694,6 +4752,9 @@ Email verified! You can close this tab or hit the back button.
       email: email,
     };
     let path = "api/v3/notifications/unsubscribe";
+    // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+    // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+    // @ts-ignore
     params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
 
     let server = "http://localhost:5000";
@@ -4709,6 +4770,9 @@ Email verified! You can close this tab or hit the back button.
       email: email,
     };
     let path = "api/v3/notifications/subscribe";
+    // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+    // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+    // @ts-ignore
     params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
 
     let server = "http://localhost:5000";
@@ -4733,6 +4797,9 @@ Email verified! You can close this tab or hit the back button.
       conversation_id: req.p.conversation_id,
       email: req.p.email,
     };
+    // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+    // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+    // @ts-ignore
     params[HMAC_SIGNATURE_PARAM_NAME] = req.p[HMAC_SIGNATURE_PARAM_NAME];
     verifyHmacForQueryParams("api/v3/notifications/subscribe", params)
       .then(
@@ -4776,6 +4843,9 @@ Email verified! You can close this tab or hit the back button.
       conversation_id: req.p.conversation_id,
       email: email,
     };
+    // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+    // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+    // @ts-ignore
     params[HMAC_SIGNATURE_PARAM_NAME] = req.p[HMAC_SIGNATURE_PARAM_NAME];
     verifyHmacForQueryParams("api/v3/notifications/unsubscribe", params)
       .then(
@@ -4805,7 +4875,7 @@ Email verified! You can close this tab or hit the back button.
       });
   }
   function handle_POST_convSubscriptions(
-    req: { p: { zid: any; uid: any; type: any; email: any } },
+    req: { p: { zid: any; uid?: any; type: any; email: any } },
     res: {
       status: (
         arg0: number
@@ -4858,13 +4928,13 @@ Email verified! You can close this tab or hit the back button.
         lti_user_id: any;
         lti_user_image: any;
         lti_context_id: any;
-        tool_consumer_instance_guid: any;
+        tool_consumer_instance_guid?: any;
         afterJoinRedirectUrl: any;
       };
     },
     res: {
       redirect: (arg0: any) => void;
-      json: (arg0: { uid: any; email: any; token: any }) => void;
+      json: (arg0: { uid?: any; email: any; token: any }) => void;
     }
   ) {
     let password = req.p.password;
@@ -4883,7 +4953,7 @@ Email verified! You can close this tab or hit the back button.
     pgQuery(
       "SELECT * FROM users WHERE LOWER(email) = ($1);",
       [email],
-      function (err: any, docs: { uid: any }[]) {
+      function (err: any, docs: { uid?: any }[]) {
         docs = docs.rows;
         if (err) {
           fail(res, 403, "polis_err_login_unknown_user_or_password", err);
@@ -5000,7 +5070,7 @@ Email verified! You can close this tab or hit the back button.
     req: {
       p: {
         answers: any;
-        uid: any;
+        uid?: any;
         suzinvite: any;
         permanentCookieToken: any;
         zid: any;
@@ -5014,7 +5084,7 @@ Email verified! You can close this tab or hit the back button.
       ) => {
         (): any;
         new (): any;
-        json: { (arg0: { pid: any; uid: any }): void; new (): any };
+        json: { (arg0: { pid: any; uid?: any }): void; new (): any };
       };
     }
   ) {
@@ -5041,7 +5111,7 @@ Email verified! You can close this tab or hit the back button.
       referrer: req.p.referrer,
       parent_url: req.p.parent_url,
     })
-      .then(function (o: { uid: any; existingAuth: string }) {
+      .then(function (o: { uid?: any; existingAuth: string }) {
         let uid = o.uid;
         winston.log(
           "info",
@@ -5119,7 +5189,7 @@ Email verified! You can close this tab or hit the back button.
     existingAuth: boolean;
     suzinvite: any;
     permanentCookieToken: any;
-    uid: any;
+    uid?: any;
     zid: any; // since the zid is looked up using the conversation_id, it's safe to use zid as an invite token. TODO huh?
     referrer: any;
     parent_url: any;
@@ -5147,7 +5217,7 @@ Email verified! You can close this tab or hit the back button.
             return o;
           });
         })
-        .then(function (o: { lti_users_only: any; uid: any }) {
+        .then(function (o: { lti_users_only: any; uid?: any }) {
           if (o.lti_users_only) {
             if (o.uid) {
               return pgQueryP("select * from lti_users where uid = ($1)", [
@@ -5166,7 +5236,7 @@ Email verified! You can close this tab or hit the back button.
             return o;
           }
         })
-        .then(function (o: { uid: any; user: any }) {
+        .then(function (o: { uid?: any; user: any }) {
           winston.log("info", "joinWithZidOrSuzinvite userinfo begin");
           if (!o.uid) {
             winston.log("info", "joinWithZidOrSuzinvite userinfo nope");
@@ -5190,12 +5260,12 @@ Email verified! You can close this tab or hit the back button.
         // }
         // return o;
         // })
-        .then(function (o: { uid: any }) {
+        .then(function (o: { uid?: any }) {
           // winston.log("info","joinWithZidOrSuzinvite check email done");
           if (o.uid) {
             return o;
           } else {
-            return createDummyUser().then(function (uid: any) {
+            return createDummyUser().then(function (uid?: any) {
               return Object.assign(o, {
                 uid: uid,
               });
@@ -5212,7 +5282,7 @@ Email verified! You can close this tab or hit the back button.
           referrer: any;
           parent_url: any;
           zid: any;
-          uid: any;
+          uid?: any;
           answers: any;
         }) {
           let info = {};
@@ -5232,7 +5302,7 @@ Email verified! You can close this tab or hit the back button.
         .then(function (o: {
           xid: any;
           conv: { org_id: any; use_xid_whitelist: any; owner: any };
-          uid: any;
+          uid?: any;
         }) {
           if (o.xid) {
             // used for suzinvite case
@@ -5274,7 +5344,7 @@ Email verified! You can close this tab or hit the back button.
         })
     );
   }
-  function startSessionAndAddCookies(req: any, res: any, uid: any) {
+  function startSessionAndAddCookies(req: any, res: any, uid?: any) {
     return new Promise(function (
       resolve: (arg0: any) => void,
       reject: (arg0: Error) => void
@@ -5289,7 +5359,7 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
-  function deleteFacebookUserRecord(o: { uid: any }) {
+  function deleteFacebookUserRecord(o: { uid?: any }) {
     if (!isPolisDev(o.uid)) {
       // limit to test accounts for now
       return Promise.reject("polis_err_not_implemented");
@@ -5298,7 +5368,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function createFacebookUserRecord(
-    o: { uid: any } & {
+    o: { uid?: any } & {
       // uid provided later
       fb_user_id: any;
       fb_public_profile: any;
@@ -5340,7 +5410,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function updateFacebookUserRecord(
-    o: { uid: any } & {
+    o: { uid?: any } & {
       // uid provided later
       fb_user_id: any;
       fb_public_profile: any;
@@ -5375,7 +5445,7 @@ Email verified! You can close this tab or hit the back button.
     );
   }
 
-  function addFacebookFriends(uid: any, fb_friends_response: any[]) {
+  function addFacebookFriends(uid?: any, fb_friends_response?: any[]) {
     let fbFriendIds = fb_friends_response
       .map(function (friend: { id: string }) {
         return friend.id + "";
@@ -5417,8 +5487,14 @@ Email verified! You can close this tab or hit the back button.
     let firstVotes = [];
     for (var i = 0; i < len; i++) {
       let vote = votes[i];
+      // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+      // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+      // @ts-ignore
       if (!seen[vote.pid]) {
         firstVotes.push(vote);
+        // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+        // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+        // @ts-ignore
         seen[vote.pid] = true;
       }
     }
@@ -5569,7 +5645,7 @@ Email verified! You can close this tab or hit the back button.
       });
   }
 
-  function setDomainWhitelist(uid: any, newWhitelist: any) {
+  function setDomainWhitelist(uid?: any, newWhitelist?: any) {
     // TODO_UPSERT
     return pgQueryP(
       "select * from site_domain_whitelist where site_id = (select site_id from users where uid = ($1));",
@@ -5589,7 +5665,7 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
-  function getDomainWhitelist(uid: any) {
+  function getDomainWhitelist(uid?: any) {
     return pgQueryP(
       "select * from site_domain_whitelist where site_id = (select site_id from users where uid = ($1));",
       [uid]
@@ -5601,7 +5677,7 @@ Email verified! You can close this tab or hit the back button.
     });
   }
   function handle_GET_domainWhitelist(
-    req: { p: { uid: any } },
+    req: { p: { uid?: any } },
     res: { json: (arg0: { domain_whitelist: any }) => void }
   ) {
     getDomainWhitelist(req.p.uid)
@@ -5615,7 +5691,7 @@ Email verified! You can close this tab or hit the back button.
       });
   }
   function handle_POST_domainWhitelist(
-    req: { p: { uid: any; domain_whitelist: any } },
+    req: { p: { uid?: any; domain_whitelist: any } },
     res: { json: (arg0: { domain_whitelist: any }) => void }
   ) {
     setDomainWhitelist(req.p.uid, req.p.domain_whitelist)
@@ -5629,7 +5705,7 @@ Email verified! You can close this tab or hit the back button.
       });
   }
   function handle_GET_conversationStats(
-    req: { p: { zid: any; uid: any; until: any; rid: any } },
+    req: { p: { zid: any; uid?: any; until: any; rid: any } },
     res: {
       status: (
         arg0: number
@@ -5712,7 +5788,13 @@ Email verified! You can close this tab or hit the back button.
           _.each(
             votesGroupedByPid,
             function (votesByParticipant: string | any[], pid: any) {
+              // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+              // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+              // @ts-ignore
               votesHistogramObj[votesByParticipant.length] =
+                // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+                // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+                // @ts-ignore
                 votesHistogramObj[votesByParticipant.length] + 1 || 1;
             }
           );
@@ -5735,6 +5817,9 @@ Email verified! You can close this tab or hit the back button.
               votesByParticipant: string | any[],
               pid: string | number
             ) {
+              // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+              // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+              // @ts-ignore
               burstsForPid[pid] = 1;
               let prevCreated = votesByParticipant.length
                 ? votesByParticipant[0]
@@ -5742,6 +5827,9 @@ Email verified! You can close this tab or hit the back button.
               for (var v = 1; v < votesByParticipant.length; v++) {
                 let vote = votesByParticipant[v];
                 if (interBurstGap + prevCreated < vote.created) {
+                  // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+                  // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+                  // @ts-ignore
                   burstsForPid[pid] += 1;
                 }
                 prevCreated = vote.created;
@@ -5750,6 +5838,9 @@ Email verified! You can close this tab or hit the back button.
           );
           let burstHistogramObj = {};
           _.each(burstsForPid, function (bursts: string | number, pid: any) {
+            // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+            // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+            // @ts-ignore
             burstHistogramObj[bursts] = burstHistogramObj[bursts] + 1 || 1;
           });
           let burstHistogram: { n_ptpts: any; n_bursts: number }[] = [];
@@ -5800,7 +5891,7 @@ Email verified! You can close this tab or hit the back button.
       });
   }
   function handle_GET_snapshot(
-    req: { p: { uid: any; zid: any } },
+    req: { p: { uid?: any; zid: any } },
     res: {
       status: (
         arg0: number
@@ -6057,21 +6148,21 @@ Email verified! You can close this tab or hit the back button.
       p: {
         response: string;
         password: any;
-        uid: any;
+        uid?: any;
         fb_granted_scopes: any;
         fb_friends_response: any;
       };
       cookies: { [x: string]: any };
     },
     res: {
-      json: (arg0: { uid: any; hname: any; email: any }) => void;
+      json: (arg0: { uid?: any; hname: any; email: any }) => void;
       status: (
         arg0: number
       ) => {
         (): any;
         new (): any;
         json: {
-          (arg0: { uid: any; hname: any; email: any }): void;
+          (arg0: { uid?: any; hname: any; email: any }): void;
           new (): any;
         };
         send: { (arg0: string): void; new (): any };
@@ -6181,7 +6272,7 @@ Email verified! You can close this tab or hit the back button.
       }
     } // doFbUserHasAccountLinked
 
-    function doFbNotLinkedButUserWithEmailExists(user: { uid: any }) {
+    function doFbNotLinkedButUserWithEmailExists(user: { uid?: any }) {
       // user for this email exists, but does not have FB account linked.
       // user will be prompted for their password, and client will repeat the call with password
       // fail(res, 409, "polis_err_reg_user_exits_with_email_but_has_no_facebook_linked")
@@ -6224,7 +6315,7 @@ Email verified! You can close this tab or hit the back button.
                         }
                       )
                       .then(
-                        function (user: { uid: any; hname: any; email: any }) {
+                        function (user: { uid?: any; hname: any; email: any }) {
                           res.status(200).json({
                             uid: user.uid,
                             hname: user.hname,
@@ -6318,7 +6409,7 @@ Email verified! You can close this tab or hit the back button.
           });
         })
         .then(
-          function (user: { uid: any }) {
+          function (user: { uid?: any }) {
             winston.log("info", "fb1 3");
             winston.log("info", user);
             winston.log("info", "end fb1 3");
@@ -6338,7 +6429,7 @@ Email verified! You can close this tab or hit the back button.
           }
         )
         .then(
-          function (user: { uid: any }) {
+          function (user: { uid?: any }) {
             winston.log("info", "fb1 2");
             winston.log("info", user);
             winston.log("info", "end fb1 2");
@@ -6357,7 +6448,7 @@ Email verified! You can close this tab or hit the back button.
           }
         )
         .then(
-          function (user: { uid: any; hname: any; email: any }) {
+          function (user: { uid?: any; hname: any; email: any }) {
             winston.log("info", "fb1");
             winston.log("info", user);
             winston.log("info", "end fb1");
@@ -6443,7 +6534,7 @@ Email verified! You can close this tab or hit the back button.
   } // end /api/v3/auth/new
 
   function handle_POST_tutorial(
-    req: { p: { uid: any; step: any } },
+    req: { p: { uid?: any; step: any } },
     res: {
       status: (
         arg0: number
@@ -6462,7 +6553,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function handle_GET_users(
-    req: { p: { uid: any; errIfNoAuth: any; xid: any; owner_uid: any } },
+    req: { p: { uid?: any; errIfNoAuth: any; xid: any; owner_uid?: any } },
     res: {
       status: (
         arg0: number
@@ -6517,7 +6608,7 @@ Email verified! You can close this tab or hit the back button.
   //   100: "Site",
   //   1000: "Organization",
   // };
-  function changePlan(uid: any, planCode: any) {
+  function changePlan(uid?: any, planCode?: any) {
     return new Promise(function (
       resolve: () => void,
       reject: (arg0: any) => void
@@ -6536,7 +6627,7 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
-  function setUsersPlanInIntercom(uid: any, planCode: any) {
+  function setUsersPlanInIntercom(uid?: any, planCode?: any) {
     return new Promise(function (
       resolve: (arg0: any) => void,
       reject: (arg0: any) => void
@@ -6560,7 +6651,7 @@ Email verified! You can close this tab or hit the back button.
     card: any;
     description: any;
     email: any;
-    metadata: { uid: any; polisEmail: any };
+    metadata: { uid?: any; polisEmail: any };
   }) {
     return new Promise(function (
       resolve: (arg0: any) => void,
@@ -6613,7 +6704,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function updateStripePlan(
-    user: { stripeCustomerId: any; hname: any; uid: any; email: any },
+    user: { stripeCustomerId: any; hname: any; uid?: any; email: any },
     stripeToken: any,
     stripeEmail: any,
     plan: any
@@ -6648,7 +6739,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function handle_GET_createPlanChangeCoupon(
-    req: { p: { uid: any; planCode: any } },
+    req: { p: { uid?: any; planCode: any } },
     res: {
       status: (
         arg0: number
@@ -6678,7 +6769,7 @@ Email verified! You can close this tab or hit the back button.
       });
   }
   function handle_GET_changePlanWithCoupon(
-    req: { p: { uid: any; code: any } },
+    req: { p: { uid?: any; code: any } },
     res: any
   ) {
     var uid = req.p.uid;
@@ -6765,7 +6856,7 @@ Email verified! You can close this tab or hit the back button.
         if (isCurrentUser) {
           var protocol = devMode ? "http" : "https";
           var setOnPolisDomain = !domainOverride;
-          var origin = req.headers.origin || "";
+          var origin = req?.headers?.origin || "";
           if (
             setOnPolisDomain &&
             origin.match(/^http:\/\/localhost:[0-9]{4}/)
@@ -6780,7 +6871,7 @@ Email verified! You can close this tab or hit the back button.
             path = "/settings/enterprise";
           }
           res.writeHead(302, {
-            Location: protocol + "://" + req.headers.host + path,
+            Location: protocol + "://" + req?.headers?.host + path,
           });
           return res.end();
         } else {
@@ -6803,11 +6894,14 @@ Email verified! You can close this tab or hit the back button.
     console.log("info", "XXX - Got the params!");
   }
   function handle_POST_stripe_upgrade(
-    req: { p: { uid: any; plan: any; stripeResponse: string } },
+    req: { p: { uid?: any; plan: any; stripeResponse: string } },
     res: { json: (arg0: {}) => void }
   ) {
     var uid = req.p.uid;
     var planName = req.p.plan;
+    // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+    // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+    // @ts-ignore
     var planCode = planCodes[planName];
 
     getUserInfoForUid2(uid)
@@ -6859,7 +6953,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function handle_POST_stripe_cancel(
-    req: { p: { uid: any } },
+    req: { p: { uid?: any } },
     res: { json: (arg0: {}) => void }
   ) {
     const uid = req.p.uid;
@@ -6899,13 +6993,16 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function handle_POST_charge(
-    req: { p: { stripeToken: any; stripeEmail: any; uid: any; plan: any } },
+    req: { p: { stripeToken: any; stripeEmail: any; uid?: any; plan: any } },
     res: any
   ) {
     var stripeToken = req.p.stripeToken;
     var stripeEmail = req.p.stripeEmail;
     var uid = req.p.uid;
     var plan = req.p.plan;
+    // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+    // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+    // @ts-ignore
     var planCode = planCodes[plan];
 
     if (plan !== "pp") {
@@ -6958,7 +7055,7 @@ Email verified! You can close this tab or hit the back button.
   */
 
   function handle_GET_participation(
-    req: { p: { zid: any; uid: any; strict: any } },
+    req: { p: { zid: any; uid?: any; strict: any } },
     res: {
       status: (
         arg0: number
@@ -7026,11 +7123,17 @@ Email verified! You can close this tab or hit the back button.
             // Convert from {pid -> foo} to {xid -> foo}
             let pidToXid = {};
             for (i = 0; i < pidXidRows.length; i++) {
+              // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+              // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+              // @ts-ignore
               pidToXid[pidXidRows[i].pid] = pidXidRows[i].xid;
             }
             let xidBasedResult = {};
             let size = 0;
             _.each(result, function (val: any, key: string | number) {
+              // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+              // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+              // @ts-ignore
               xidBasedResult[pidToXid[key]] = val;
               size += 1;
             });
@@ -7245,7 +7348,7 @@ Email verified! You can close this tab or hit the back button.
   function handle_GET_comments(
     req: {
       headers?: Headers;
-      p: { rid: any; include_demographics: any; zid: any; uid: any };
+      p: { rid: any; include_demographics: any; zid: any; uid?: any };
     },
     res: any
   ) {
@@ -7583,7 +7686,7 @@ Email verified! You can close this tab or hit the back button.
 
   function handle_POST_comments_slack(
     req: {
-      p: { slack_team: any; slack_user_id: any; zid: any; uid: any; pid: any };
+      p: { slack_team: any; slack_user_id: any; zid: any; uid?: any; pid: any };
     },
     res: any
   ) {
@@ -7596,7 +7699,7 @@ Email verified! You can close this tab or hit the back button.
       .then((rows: string | any[]) => {
         if (!rows || !rows.length) {
           const uidPromise = createDummyUser();
-          return uidPromise.then((uid: any) => {
+          return uidPromise.then((uid?: any) => {
             return pgQueryP(
               "insert into slack_users (uid, slack_team, slack_user_id) values ($1, $2, $3) returning *;",
               [uid, slack_team, slack_user_id]
@@ -7631,7 +7734,7 @@ Email verified! You can close this tab or hit the back button.
     req: {
       p: {
         zid: any;
-        uid: any;
+        uid?: any;
         txt: any;
         pid: any;
         vote: any;
@@ -7963,7 +8066,7 @@ Email verified! You can close this tab or hit the back button.
                                   186, // colin
                                   36140, // chris
                                 ]);
-                                uids.forEach(function (uid: any) {
+                                uids.forEach(function (uid?: any) {
                                   sendCommentModerationEmail(req, uid, zid, n);
                                   sendSlackEvent({
                                     type: "comment_mod_needed",
@@ -8095,7 +8198,7 @@ Email verified! You can close this tab or hit the back button.
     //}); // BEGIN
   } // end POST /api/v3/comments
   function handle_GET_votes_me(
-    req: { p: { zid: any; uid: any; pid: any } },
+    req: { p: { zid: any; uid?: any; pid: any } },
     res: any
   ) {
     getPid(req.p.zid, req.p.uid, function (err: any, pid: number) {
@@ -8444,11 +8547,11 @@ Email verified! You can close this tab or hit the back button.
     req: {
       p: {
         conversation_id: any;
-        uid: any;
+        uid?: any;
         lang: string;
         zid: any;
         xid: any;
-        owner_uid: any;
+        owner_uid?: any;
         pid: any;
       };
       headers?: Headers;
@@ -8530,7 +8633,7 @@ Email verified! You can close this tab or hit the back button.
           include_social: any,
           lang: any
         ): any;
-        (zid: any, uid: any, lang: any): any;
+        (zid: any, uid?: any, lang?: any): any;
         (p: any): any;
         (zid: any, math_tick: any): any;
         (o: any, req: any): any;
@@ -8545,7 +8648,7 @@ Email verified! You can close this tab or hit the back button.
       }
     }
 
-    function ifConvAndAuth(f: (zid: any, uid: any) => any, args: any[]) {
+    function ifConvAndAuth(f: (zid: any, uid?: any) => any, args: any[]) {
       if (req.p.uid) {
         return ifConv(f, args);
       } else {
@@ -8644,7 +8747,7 @@ Email verified! You can close this tab or hit the back button.
   const getXidStuff = Conversation.getXidStuff;
 
   function handle_PUT_participants_extended(
-    req: { p: { zid: any; uid: any; show_translation_activated: any } },
+    req: { p: { zid: any; uid?: any; show_translation_activated: any } },
     res: { json: (arg0: any) => void }
   ) {
     let zid = req.p.zid;
@@ -8672,7 +8775,7 @@ Email verified! You can close this tab or hit the back button.
   function handle_POST_votes(
     req: {
       p: {
-        uid: any;
+        uid?: any;
         zid: any;
         pid: any;
         lang: any;
@@ -8809,7 +8912,7 @@ Email verified! You can close this tab or hit the back button.
       p: {
         zid: any;
         pid: any;
-        uid: any;
+        uid?: any;
         tid: any;
         as_abusive: any;
         as_factual: any;
@@ -8912,7 +9015,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function handle_POST_upvotes(
-    req: { p: { uid: any; zid: any } },
+    req: { p: { uid?: any; zid: any } },
     res: {
       status: (
         arg0: number
@@ -9096,7 +9199,7 @@ Email verified! You can close this tab or hit the back button.
 
   function handle_PUT_comments(
     req: {
-      p: { uid: any; zid: any; tid: any; active: any; mod: any; is_meta: any };
+      p: { uid?: any; zid: any; tid: any; active: any; mod: any; is_meta: any };
     },
     res: {
       status: (
@@ -9132,7 +9235,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function handle_POST_reportCommentSelections(
-    req: { p: { uid: any; zid: any; rid: any; tid: any; include: any } },
+    req: { p: { uid?: any; zid: any; rid: any; tid: any; include: any } },
     res: { json: (arg0: {}) => void }
   ) {
     let uid = req.p.uid;
@@ -9354,7 +9457,7 @@ Email verified! You can close this tab or hit the back button.
     return Promise.all(
       listOfGradingContexts.map(function (gradingContext: {
         gradeFromZeroToOne: string;
-        tool_consumer_instance_guid: any;
+        tool_consumer_instance_guid?: any;
         lti_context_id: any;
         lti_user_id: any;
         custom_canvas_assignment_id: any;
@@ -9410,7 +9513,7 @@ Email verified! You can close this tab or hit the back button.
     );
   }
   function handle_POST_conversation_close(
-    req: { p: { zid: any; uid: any } },
+    req: { p: { zid: any; uid?: any } },
     res: {
       status: (
         arg0: number
@@ -9476,7 +9579,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function handle_POST_conversation_reopen(
-    req: { p: { zid: any; uid: any } },
+    req: { p: { zid: any; uid?: any } },
     res: {
       status: (
         arg0: number
@@ -9519,7 +9622,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function handle_PUT_users(
-    req: { p: { uid: any; uid_of_user: any; email: any; hname: any } },
+    req: { p: { uid?: any; uid_of_user: any; email: any; hname: any } },
     res: { json: (arg0: any) => void }
   ) {
     let uid = req.p.uid;
@@ -9551,7 +9654,7 @@ Email verified! You can close this tab or hit the back button.
       p: {
         short_url: any;
         zid: any;
-        uid: any;
+        uid?: any;
         verifyMeta: any;
         is_active: any;
         is_anon: any;
@@ -9576,7 +9679,7 @@ Email verified! You can close this tab or hit the back button.
         send_created_email: any;
         conversation_id: string;
         custom_canvas_assignment_id: any;
-        tool_consumer_instance_guid: any;
+        tool_consumer_instance_guid?: any;
         context: any;
       };
     },
@@ -9822,7 +9925,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function handle_DELETE_metadata_questions(
-    req: { p: { uid: any; pmqid: any } },
+    req: { p: { uid?: any; pmqid: any } },
     res: { send: (arg0: number) => void }
   ) {
     let uid = req.p.uid;
@@ -9869,7 +9972,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function handle_DELETE_metadata_answers(
-    req: { p: { uid: any; pmaid: any } },
+    req: { p: { uid?: any; pmaid: any } },
     res: { send: (arg0: number) => void }
   ) {
     let uid = req.p.uid;
@@ -10062,7 +10165,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function handle_POST_metadata_questions(
-    req: { p: { zid: any; key: any; uid: any } },
+    req: { p: { zid: any; key: any; uid?: any } },
     res: any
   ) {
     let zid = req.p.zid;
@@ -10092,7 +10195,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function handle_POST_metadata_answers(
-    req: { p: { zid: any; uid: any; pmqid: any; value: any } },
+    req: { p: { zid: any; uid?: any; pmqid: any; value: any } },
     res: any
   ) {
     let zid = req.p.zid;
@@ -10265,20 +10368,35 @@ Email verified! You can close this tab or hit the back button.
           for (i = 0; i < keys.length; i++) {
             // Add a map for each keyId
             k = keys[i];
+            // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+            // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+            // @ts-ignore
             o[k.pmqid] = {};
             // keep the user-facing key name
+            // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+            // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+            // @ts-ignore
             keyNames[k.pmqid] = k.key;
           }
           for (i = 0; i < vals.length; i++) {
             // Add an array for each possible valueId
             k = vals[i];
             v = vals[i];
+            // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+            // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+            // @ts-ignore
             o[k.pmqid][v.pmaid] = [];
             // keep the user-facing value string
+            // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+            // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+            // @ts-ignore
             valueNames[v.pmaid] = v.value;
           }
           for (i = 0; i < choices.length; i++) {
             // Append a pid for each person who has seleted that value for that key.
+            // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+            // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+            // @ts-ignore
             o[choices[i].pmqid][choices[i].pmaid] = choices[i].pid;
           }
           // TODO cache
@@ -10346,7 +10464,7 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
-  function getOneConversation(zid: any, uid: any, lang: null) {
+  function getOneConversation(zid: any, uid?: any, lang?: null) {
     return Promise.all([
       pgQueryP_readOnly(
         "select * from conversations left join  (select uid, site_id, plan from users) as u on conversations.owner = u.uid where conversations.zid = ($1);",
@@ -10396,7 +10514,7 @@ Email verified! You can close this tab or hit the back button.
   function getConversations(
     req: {
       p: {
-        uid: any;
+        uid?: any;
         zid: any;
         xid: any;
         include_all_conversations_i_am_in: any;
@@ -10701,7 +10819,7 @@ Email verified! You can close this tab or hit the back button.
     });
   }
   function handle_POST_reports(
-    req: { p: { zid: any; uid: any } },
+    req: { p: { zid: any; uid?: any } },
     res: { json: (arg0: {}) => void }
   ) {
     let zid = req.p.zid;
@@ -10722,7 +10840,7 @@ Email verified! You can close this tab or hit the back button.
   }
   function handle_PUT_reports(
     req: {
-      p: { [x: string]: any; rid: any; uid: any; zid: any; report_name: any };
+      p: { [x: string]: any; rid: any; uid?: any; zid: any; report_name: any };
     },
     res: { json: (arg0: {}) => void }
   ) {
@@ -10772,7 +10890,7 @@ Email verified! You can close this tab or hit the back button.
       });
   }
   function handle_GET_reports(
-    req: { p: { zid: any; rid: any; uid: any } },
+    req: { p: { zid: any; rid: any; uid?: any } },
     res: { json: (arg0: any) => void }
   ) {
     let zid = req.p.zid;
@@ -10996,7 +11114,7 @@ Email verified! You can close this tab or hit the back button.
         course_invite: any;
         course_id: any;
         zid: any;
-        uid: any;
+        uid?: any;
         context: any;
       };
     },
@@ -11063,7 +11181,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function handle_POST_contexts(
-    req: { p: { uid: any; name: any } },
+    req: { p: { uid?: any; name: any } },
     res: {
       status: (
         arg0: number
@@ -11109,8 +11227,8 @@ Email verified! You can close this tab or hit the back button.
       });
   }
   function isUserAllowedToCreateConversations(
-    uid: any,
-    callback: {
+    uid?: any,
+    callback?: {
       (err: any, isAllowed: any): void;
       (err: any, isAllowed: any): void;
       (arg0: null, arg1: boolean): void;
@@ -11148,7 +11266,7 @@ Email verified! You can close this tab or hit the back button.
       p: {
         context: any;
         short_url: any;
-        uid: any;
+        uid?: any;
         org_id: any;
         topic: any;
         description: any;
@@ -11287,7 +11405,7 @@ Email verified! You can close this tab or hit the back button.
   } // end post conversations
 
   function handle_POST_query_participants_by_metadata(
-    req: { p: { uid: any; zid: any; pmaids: any } },
+    req: { p: { uid?: any; zid: any; pmaids: any } },
     res: {
       status: (
         arg0: number
@@ -11334,7 +11452,7 @@ Email verified! You can close this tab or hit the back button.
     isOwnerOrParticipant(zid, uid, doneChecking);
   }
   function handle_POST_sendCreatedLinkToEmail(
-    req: { p: { uid: any; zid: string } },
+    req: { p: { uid?: any; zid: string } },
     res: {
       status: (
         arg0: number
@@ -11773,7 +11891,7 @@ Thanks for using Polis!
       );
     });
   }
-  function switchToUser(req: any, res: any, uid: any) {
+  function switchToUser(req: any, res: any, uid?: any) {
     return new Promise(function (
       resolve: () => void,
       reject: (arg0: string) => void
@@ -11894,7 +12012,7 @@ Thanks for using Polis!
   //     console.dir(tweet);
   // });
   function createUserFromTwitterInfo(o: any) {
-    return createDummyUser().then(function (uid: any) {
+    return createDummyUser().then(function (uid?: any) {
       return getAndInsertTwitterUser(o, uid).then(function (result: {
         twitterUser: any;
         twitterUserDbRecord: any;
@@ -11955,7 +12073,11 @@ Thanks for using Polis!
     zid: any,
     tweet: null
   ) {
-    function addParticipantAndFinish(uid: any, twitterUser: any, tweet: any) {
+    function addParticipantAndFinish(
+      uid?: any,
+      twitterUser?: any,
+      tweet?: any
+    ) {
       return addParticipant(zid, uid).then(function (rows: any[]) {
         let ptpt = rows[0];
         return {
@@ -11986,7 +12108,7 @@ Thanks for using Polis!
       } else {
         // no user records yet
         return createUserFromTwitterInfo(o).then(function (twitterUser: {
-          uid: any;
+          uid?: any;
         }) {
           let uid = twitterUser.uid;
           return addParticipant(zid, uid).then(function (rows: any[]) {
@@ -12014,7 +12136,7 @@ Thanks for using Polis!
     //       * create a twitter record
   }
 
-  function addParticipant(zid: any, uid: any) {
+  function addParticipant(zid: any, uid?: any) {
     return pgQueryP(
       "INSERT INTO participants_extended (zid, uid) VALUES ($1, $2);",
       [zid, uid]
@@ -12025,7 +12147,7 @@ Thanks for using Polis!
       );
     });
   }
-  function getAndInsertTwitterUser(o: any, uid: any) {
+  function getAndInsertTwitterUser(o: any, uid?: any) {
     return getTwitterUserInfo(o, false).then(function (u: string) {
       u = JSON.parse(u)[0];
       winston.log("info", "TWITTER USER INFO");
@@ -12069,7 +12191,7 @@ Thanks for using Polis!
   }
 
   function handle_GET_twitter_oauth_callback(
-    req: { p: { uid: any; dest: any; oauth_verifier: any; oauth_token: any } },
+    req: { p: { uid?: any; dest: any; oauth_verifier: any; oauth_token: any } },
     res: { redirect: (arg0: any) => void }
   ) {
     let uid = req.p.uid;
@@ -12349,11 +12471,11 @@ Thanks for using Polis!
 
   function getSocialParticipants(
     zid: any,
-    uid: any,
-    limit: any,
-    mod: number,
-    math_tick: any,
-    authorUids: any[]
+    uid?: any,
+    limit?: any,
+    mod?: number,
+    math_tick?: any,
+    authorUids?: any[]
   ) {
     // NOTE ignoring authorUids as part of cacheKey for now, just because.
     let cacheKey = [zid, limit, mod, math_tick].join("_");
@@ -12361,7 +12483,7 @@ Thanks for using Polis!
       return socialParticipantsCache.get(cacheKey);
     }
 
-    let authorsQuery = authorUids.map(function (authorUid: any) {
+    let authorsQuery = authorUids.map(function (authoruid?: any) {
       return "select " + Number(authorUid) + " as uid, 900 as priority";
     });
     authorsQuery = "(" + authorsQuery.join(" union ") + ")";
@@ -12561,6 +12683,9 @@ Thanks for using Polis!
     function toObj(items: string | any[]) {
       let o = {};
       for (var i = 0; i < items.length; i++) {
+        // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+        // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+        // @ts-ignore
         o[items[i].pid] = items[i].votes;
       }
       return o;
@@ -12618,14 +12743,26 @@ Thanks for using Polis!
       let v = votes[i];
       // set up a vector for the participant, if not there already
 
+      // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+      // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+      // @ts-ignore
       vectors[v.pid] = vectors[v.pid] || createEmptyVoteVector(greatestTid);
       // assign a vote value at that location
       let vote = v.vote;
       if (polisTypes.reactions.push === vote) {
+        // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+        // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+        // @ts-ignore
         vectors[v.pid][v.tid] = "d";
       } else if (polisTypes.reactions.pull === vote) {
+        // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+        // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+        // @ts-ignore
         vectors[v.pid][v.tid] = "a";
       } else if (polisTypes.reactions.pass === vote) {
+        // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+        // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+        // @ts-ignore
         vectors[v.pid][v.tid] = "p";
       } else {
         console.error("unknown vote value");
@@ -12807,7 +12944,7 @@ Thanks for using Polis!
     );
   }
   function handle_GET_groupDemographics(
-    req: { p: { zid: any; uid: any; rid: any } },
+    req: { p: { zid: any; uid?: any; rid: any } },
     res: {
       json: (
         arg0: {
@@ -12974,13 +13111,31 @@ Thanks for using Polis!
               for (let v = 0; v < ptptMetaVotes.length; v++) {
                 let vote = ptptMetaVotes[v];
                 if (vote.vote === polisTypes.reactions.pass) {
+                  // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+                  // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+                  // @ts-ignore
                   s.meta_comment_passes[vote.tid] =
+                    // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+                    // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+                    // @ts-ignore
                     1 + (s.meta_comment_passes[vote.tid] || 0);
                 } else if (vote.vote === polisTypes.reactions.pull) {
+                  // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+                  // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+                  // @ts-ignore
                   s.meta_comment_agrees[vote.tid] =
+                    // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+                    // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+                    // @ts-ignore
                     1 + (s.meta_comment_agrees[vote.tid] || 0);
                 } else if (vote.vote === polisTypes.reactions.push) {
+                  // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+                  // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+                  // @ts-ignore
                   s.meta_comment_disagrees[vote.tid] =
+                    // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+                    // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+                    // @ts-ignore
                     1 + (s.meta_comment_disagrees[vote.tid] || 0);
                 }
               }
@@ -13001,7 +13156,7 @@ Thanks for using Polis!
 
   // this is for testing the encryption
   function handle_GET_logMaxmindResponse(
-    req: { p: { uid: any; zid: any; user_uid: any } },
+    req: { p: { uid?: any; zid: any; user_uid?: any } },
     res: { json: (arg0: {}) => void }
   ) {
     if (!isPolisDev(req.p.uid) || !devMode) {
@@ -13134,7 +13289,7 @@ Thanks for using Polis!
     return x;
   }
   function handle_PUT_ptptois(
-    req: { p: { zid: any; uid: any; pid: any; mod: any } },
+    req: { p: { zid: any; uid?: any; pid: any; mod: any } },
     res: {
       status: (
         arg0: number
@@ -13163,7 +13318,7 @@ Thanks for using Polis!
       });
   }
   function handle_GET_ptptois(
-    req: { p: { zid: any; mod: any; uid: any; conversation_id: any } },
+    req: { p: { zid: any; mod: any; uid?: any; conversation_id: any } },
     res: {
       status: (
         arg0: number
@@ -13227,7 +13382,7 @@ Thanks for using Polis!
   }
 
   function doFamousQuery(
-    o: { uid: any; zid: any; math_tick: any; ptptoiLimit: any },
+    o: { uid?: any; zid: any; math_tick: any; ptptoiLimit: any },
     req: any
   ) {
     let uid = o.uid;
@@ -13483,7 +13638,7 @@ Thanks for using Polis!
   } // end doFamousQuery
 
   function handle_GET_twitter_users(
-    req: { p: { uid: any; twitter_user_id: any } },
+    req: { p: { uid?: any; twitter_user_id: any } },
     res: {
       status: (
         arg0: number
@@ -13546,7 +13701,7 @@ CREATE TABLE slack_user_invites (
 */
 
   function handle_GET_slack_login(
-    req: { p: { uid: any }; path: string },
+    req: { p: { uid?: any }; path: string },
     res: {
       set: (arg0: { "Content-Type": string }) => void;
       status: (
@@ -13558,7 +13713,7 @@ CREATE TABLE slack_user_invites (
       };
     }
   ) {
-    function finish(uid: any) {
+    function finish(uid?: any) {
       startSessionAndAddCookies(req, res, uid)
         .then(function () {
           res.set({
@@ -13609,7 +13764,7 @@ CREATE TABLE slack_user_invites (
                 ? Promise.resolve(existing_uid_for_client)
                 : createDummyUser();
               uidPromise
-                .then((uid: any) => {
+                .then((uid?: any) => {
                   return pgQueryP(
                     "insert into slack_users (uid, slack_team, slack_user_id) values ($1, $2, $3);",
                     [uid, slack_team, slack_user_id]
@@ -14006,7 +14161,7 @@ CREATE TABLE slack_user_invites (
         context_id: any;
         user_id: any;
         user_image: any;
-        tool_consumer_instance_guid: any;
+        tool_consumer_instance_guid?: any;
         lis_person_contact_email_primary: any;
         lis_person_name_full: any;
       };
@@ -14200,9 +14355,9 @@ CREATE TABLE slack_user_invites (
       p: {
         user_id: any;
         context_id: any;
-        tool_consumer_instance_guid: any;
+        tool_consumer_instance_guid?: any;
         lis_outcome_service_url: any;
-        uid: any;
+        uid?: any;
       };
     },
     res: any
@@ -14244,7 +14399,7 @@ CREATE TABLE slack_user_invites (
             .then(function (rows: any) {
               // find the correct one - note: this loop may be useful in warning when people have multiple linkages
               let userForLtiUserId = null;
-              (rows || []).forEach(function (row: { uid: any }) {
+              (rows || []).forEach(function (row: { uid?: any }) {
                 if (row.uid === req.p.uid) {
                   userForLtiUserId = row;
                 }
@@ -14353,9 +14508,9 @@ CREATE TABLE slack_user_invites (
 
   function addCanvasAssignmentConversationInfoIfNeeded(
     zid: any,
-    tool_consumer_instance_guid: any,
-    lti_context_id: any,
-    custom_canvas_assignment_id: any
+    tool_consumer_instance_guid?: any,
+    lti_context_id?: any,
+    custom_canvas_assignment_id?: any
   ) {
     return getCanvasAssignmentInfo(
       tool_consumer_instance_guid,
@@ -14404,10 +14559,10 @@ CREATE TABLE slack_user_invites (
     lti_user_id: any,
     lti_context_id: any,
     custom_canvas_assignment_id: any,
-    tool_consumer_instance_guid: any,
-    lis_outcome_service_url: any,
-    lis_result_sourcedid: any,
-    stringified_json_of_post_content: string
+    tool_consumer_instance_guid?: any,
+    lis_outcome_service_url?: any,
+    lis_result_sourcedid?: any,
+    stringified_json_of_post_content?: string
   ) {
     return getCanvasAssignmentConversationCallbackParams(
       lti_user_id,
@@ -14452,7 +14607,7 @@ CREATE TABLE slack_user_invites (
     lti_user_id: any,
     lti_context_id: any,
     custom_canvas_assignment_id: any,
-    tool_consumer_instance_guid: any
+    tool_consumer_instance_guid?: any
   ) {
     return pgQueryP(
       "select * from canvas_assignment_callback_info where lti_user_id = ($1) and lti_context_id = ($2) and custom_canvas_assignment_id = ($3) and tool_consumer_instance_guid = ($4);",
@@ -14470,7 +14625,7 @@ CREATE TABLE slack_user_invites (
         roles: any;
         user_id: any;
         context_id: any;
-        tool_consumer_instance_guid: any;
+        tool_consumer_instance_guid?: any;
         lis_result_sourcedid: any;
         custom_canvas_assignment_id: any;
         lis_outcome_service_url: any;
@@ -14922,7 +15077,7 @@ CREATE TABLE slack_user_invites (
     );
   }
 
-  function addInviter(inviter_uid: any, invited_email: any) {
+  function addInviter(inviter_uid?: any, invited_email?: any) {
     return pgQueryP(
       "insert into inviters (inviter_uid, invited_email) VALUES ($1, $2);",
       [inviter_uid, invited_email]
@@ -14930,7 +15085,7 @@ CREATE TABLE slack_user_invites (
   }
 
   function handle_POST_users_invite(
-    req: { p: { uid: any; emails: any; zid: any; conversation_id: any } },
+    req: { p: { uid?: any; emails: any; zid: any; conversation_id: any } },
     res: {
       status: (
         arg0: number
@@ -15319,7 +15474,7 @@ CREATE TABLE slack_user_invites (
     o.socialbtn_type = req.p.show_share ? 1 : 0;
     // Set stuff in cookies to be retrieved when POST participants is called.
     let setOnPolisDomain = !domainOverride;
-    let origin = req.headers.origin || "";
+    let origin = req?.headers?.origin || "";
     if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
       setOnPolisDomain = false;
     }
@@ -15452,7 +15607,7 @@ CREATE TABLE slack_user_invites (
   function proxy(req: { headers?: { host: string }; path: any }, res: any) {
     let hostname = buildStaticHostname(req, res);
     if (!hostname) {
-      let host = req.headers.host || "";
+      let host = req?.headers?.host || "";
       let re = new RegExp(process.env.SERVICE_HOSTNAME + "$");
       if (host.match(re)) {
         // don't alert for this, it's probably DNS related
@@ -15466,7 +15621,7 @@ CREATE TABLE slack_user_invites (
       } else {
         fail(res, 500, "polis_err_proxy_serving_to_domain", new Error(host));
       }
-      console.error(req.headers.host);
+      console.error(req?.headers?.host);
       console.error(req.path);
       return;
     }
@@ -15484,7 +15639,7 @@ CREATE TABLE slack_user_invites (
     // } else {
     let port = process.env.STATIC_FILES_PORT;
     // set the host header too, since S3 will look at that (or the routing proxy will patch up the request.. not sure which)
-    req.headers.host = hostname;
+    req?.headers?.host = hostname;
     routingProxy.web(req, res, {
       target: {
         host: hostname,
@@ -15498,7 +15653,7 @@ CREATE TABLE slack_user_invites (
     if (devMode || domainOverride) {
       return process.env.STATIC_FILES_HOST;
     } else {
-      let origin = req.headers.host;
+      let origin = req?.headers?.host;
       if (!whitelistedBuckets[origin]) {
         if (hasWhitelistMatches(origin)) {
           // Use the prod bucket for non pol.is domains
@@ -15508,7 +15663,7 @@ CREATE TABLE slack_user_invites (
         } else {
           console.error(
             "got request with host that's not whitelisted: (" +
-              req.headers.host +
+              req?.headers?.host +
               ")"
           );
           return;
@@ -15528,7 +15683,7 @@ CREATE TABLE slack_user_invites (
       }
     ) {
       let protocol = devMode ? "http://" : "https://";
-      let url = protocol + req.headers.host + path;
+      let url = protocol + req?.headers?.host + path;
       res.writeHead(302, {
         Location: url,
       });
@@ -15588,7 +15743,7 @@ CREATE TABLE slack_user_invites (
     port: string | undefined,
     path: string,
     headers?: { "Content-Type": string },
-    preloadData:
+    preloadData?:
       | { conversation: { topic: string; description: string } }
       | undefined
   ) {
@@ -15599,7 +15754,7 @@ CREATE TABLE slack_user_invites (
       let hostname = buildStaticHostname(req, res);
       if (!hostname) {
         fail(res, 500, "polis_err_file_fetcher_serving_to_domain");
-        console.error(req.headers.host);
+        console.error(req?.headers?.host);
         console.error(req.path);
         return;
       }
@@ -15740,7 +15895,7 @@ CREATE TABLE slack_user_invites (
     ) {
       // Redirect to the same URL with the path behind the fragment "#"
       res.writeHead(302, {
-        Location: "https://" + req.headers.host + "/#" + req.path,
+        Location: "https://" + req?.headers?.host + "/#" + req.path,
       });
 
       return res.end();
@@ -15760,7 +15915,7 @@ CREATE TABLE slack_user_invites (
   });
 
   function fetchIndexForConversation(
-    req: { path: string; query: { build: any } },
+    req: { path: string; query?: { build: any } },
     res: any
   ) {
     console.log("fetchIndexForConversation", req.path);
