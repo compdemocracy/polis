@@ -5446,7 +5446,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function addFacebookFriends(uid?: any, fb_friends_response?: any[]) {
-    let fbFriendIds = fb_friends_response
+    let fbFriendIds = (fb_friends_response || [])
       .map(function (friend: { id: string }) {
         return friend.id + "";
       })
@@ -5603,7 +5603,7 @@ Email verified! You can close this tab or hit the back button.
     // next("polis_err_domain");
     // return;
 
-    let ref = req.headers.referer;
+    let ref = req?.headers?.referer;
     if (isWithinIframe) {
       if (ref) {
         ref = decodeURIComponent(
@@ -6077,7 +6077,7 @@ Email verified! You can close this tab or hit the back button.
     if (!fb_access_token) {
       emailBadProblemTime(
         "polis_err_missing_fb_access_token " +
-          req.headers.referer +
+          req?.headers?.referer +
           "\n\n" +
           req.p.response
       );
@@ -7859,7 +7859,7 @@ Email verified! You can close this tab or hit the back button.
             permalink: "https://pol.is/" + zid,
             user_ip: ip,
             user_agent: req?.headers?.["user-agent"],
-            referrer: req.headers.referer,
+            referrer: req?.headers?.referer,
           });
           isSpamPromise.catch(function (err: any) {
             console.error("isSpam failed");
@@ -11233,7 +11233,7 @@ Email verified! You can close this tab or hit the back button.
       (arg0: null, arg1: boolean): void;
     }
   ) {
-    callback(null, true);
+    callback?.(null, true);
     // pgQuery("select is_owner from users where uid = ($1);", [uid], function(err, results) {
     //     if (err) { return callback(err); }
     //     if (!results || !results.rows || !results.rows.length) {
@@ -12482,11 +12482,19 @@ Thanks for using Polis!
       return socialParticipantsCache.get(cacheKey);
     }
 
-    let authorsQuery = authorUids.map(function (authoruid?: any) {
+    const authorsQueryParts = (authorUids || []).map(function (
+      authoruid?: any
+    ) {
+      // TODO investigate this one.
+      // TODO looks like a possible typo bug
+      // Cannot find name 'authorUid'. Did you mean 'authoruid'?ts(2552)
+      // server.ts(12486, 7): 'authoruid' is declared here.
+      // @ts-ignore
       return "select " + Number(authorUid) + " as uid, 900 as priority";
     });
-    authorsQuery = "(" + authorsQuery.join(" union ") + ")";
-    if (authorUids.length === 0) {
+    let authorsQuery: string | null =
+      "(" + authorsQueryParts.join(" union ") + ")";
+    if (!authorUids || authorUids.length === 0) {
       authorsQuery = null;
     }
 
@@ -15924,7 +15932,7 @@ CREATE TABLE slack_user_invites (
       conversation_id = match[0];
     }
     let buildNumber: null = null;
-    if (req.query.build) {
+    if (req?.query?.build) {
       buildNumber = req.query.build;
       console.log("loading_build", buildNumber);
     }
