@@ -15967,10 +15967,10 @@ CREATE TABLE slack_user_invites (
       end: (arg0: undefined, arg1: string | undefined) => void;
     }
   ) {
-    let filename = String(req.path).split("/");
-    filename.shift();
-    filename.shift();
-    filename = filename.join("/");
+    const filenameParts = String(req.path).split("/");
+    filenameParts.shift();
+    filenameParts.shift();
+    const filename = filenameParts.join("/");
     if (!devMode) {
       // pretend this route doesn't exist.
       return proxy(req, res);
