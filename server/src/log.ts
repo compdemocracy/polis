@@ -74,3 +74,4 @@ function emitTheFailure(
 }
 
 export { yell, fail, userFail };
+export default { yell, fail, userFail };
