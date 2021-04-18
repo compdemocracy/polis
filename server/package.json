@@ -4,7 +4,7 @@
   "description": "polis =====",
   "main": "./dist/app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "npm run format:check",
     "build": "./node_modules/typescript/bin/tsc",
     "type:check:watch": "tsc --watch",
     "format": "prettier --config ./prettier.config.js --no-editorconfig 'src/**/*.{js,ts}' --write",
