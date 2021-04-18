@@ -166,8 +166,15 @@ async function getUser(
 
   let xidInfoPromise = Promise.resolve(null);
   if (zid_optional && xid_optional) {
+    //     let xidInfoPromise: Promise<null>
+    // Type 'Promise<unknown>' is not assignable to type 'Promise<null>'.
+    //       Type 'unknown' is not assignable to type 'null'.ts(2322)
+    // @ts-ignore
     xidInfoPromise = Conversation.getXidRecord(xid_optional, zid_optional);
   } else if (xid_optional && owner_uid_optional) {
+    // let xidInfoPromise: Promise<null>
+    // Type 'Promise<unknown>' is not assignable to type 'Promise<null>'.ts(2322)
+    // @ts-ignore
     xidInfoPromise = Conversation.getXidRecordByXidOwnerId(
       xid_optional,
       owner_uid_optional,
@@ -303,7 +310,7 @@ function getPid(
 }
 
 // returns a pid of -1 if it's missing
-function getPidPromise(zid: string, uid: string, usePrimary?: undefined) {
+function getPidPromise(zid: string, uid: string, usePrimary?: boolean) {
   let cacheKey = zid + "_" + uid;
   let cachedPid = pidCache.get(cacheKey);
   //   (alias) function MPromise(name: string, f: (resolve: (value: unknown) => void, reject: (reason?: any) => void) => void): Promise<unknown>
@@ -405,7 +412,22 @@ function getSocialInfoForUsers(uids: any[], zid: any) {
   );
 }
 
-module.exports = {
+export {
+  pidCache,
+  getUserInfoForUid,
+  getUserInfoForUid2,
+  addLtiUserIfNeeded,
+  addLtiContextMembership,
+  renderLtiLinkageSuccessPage,
+  getUser,
+  createDummyUser,
+  getPid,
+  getPidPromise,
+  getPidForParticipant,
+  getSocialInfoForUsers,
+};
+
+export default {
   pidCache,
   getUserInfoForUid,
   getUserInfoForUid2,
