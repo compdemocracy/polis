@@ -1,6 +1,6 @@
 import _ from "underscore";
 
-const Config = require("./config");
+import Config from "./config";
 
 const errorNotifications = (function () {
   let errors = [];
@@ -73,8 +73,4 @@ function emitTheFailure(
   res.end(clientVisibleErrorString);
 }
 
-module.exports = {
-  yell,
-  fail,
-  userFail,
-};
+export { yell, fail, userFail };

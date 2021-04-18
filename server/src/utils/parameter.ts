@@ -351,7 +351,7 @@ function getRidFromReportId(report_id: string) {
   //     ~~~~~
   // 369   );
   // ~~~
-  // @ts-expect-error
+  // @ts-ignore
   return new MPromise(
     "getRidFromReportId",
     function (resolve: any, reject: any) {

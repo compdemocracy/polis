@@ -36,7 +36,7 @@ export function MPromise(
     // TODO or remove this arg from the function call
     //     TS2554: Expected 2 arguments, but got 3.
     // 35     addInRamMetric(name + ".go", 1, start);
-    // @ts-expect-error                        ~~~~~
+    // @ts-ignore                        ~~~~~
     addInRamMetric(name + ".go", 1, start);
   }, 100);
   p.then(
@@ -48,7 +48,7 @@ export function MPromise(
         // TODO or remove this arg from the function call
         //  TS2554: Expected 2 arguments, but got 3.
         // 45         addInRamMetric(name + ".ok", duration, end);
-        // @ts-expect-error
+        // @ts-ignore
         addInRamMetric(name + ".ok", duration, end);
       }, 100);
     },
@@ -60,7 +60,7 @@ export function MPromise(
         // TODO or remove this arg from the function call
         // TS2554: Expected 2 arguments, but got 3.
         // 59         addInRamMetric(name + ".fail", duration, end);
-        // @ts-expect-error
+        // @ts-ignore
         addInRamMetric(name + ".fail", duration, end);
       }, 100);
     }
@@ -72,7 +72,7 @@ export function MPromise(
       // TODO or remove this arg from the function call
       //       TS2554: Expected 2 arguments, but got 3.
       // 73       addInRamMetric(name + ".fail", duration, end);
-      // @ts-expect-error
+      // @ts-ignore
       addInRamMetric(name + ".fail", duration, end);
       console.log("MPromise internal error");
     }, 100);

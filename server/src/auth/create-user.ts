@@ -104,7 +104,7 @@ function createUser(req: any, res: any) {
               if (err) {
                 // TS2304: Cannot find name 'winston'.
                 // 117   winston.log("info", err);
-                // @ts-expect-error
+                // @ts-ignore
                 winston.log("info", err);
                 fail(res, 500, "polis_err_reg_failed_to_add_user_record", err);
                 return;
@@ -119,7 +119,7 @@ function createUser(req: any, res: any) {
                   if (err) {
                     // TS2304: Cannot find name 'winston'.
                     // 120  winston.log("info", err);
-                    // @ts-expect-error
+                    // @ts-ignore
                     winston.log("info", err);
                     fail(
                       res,
