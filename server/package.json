@@ -6,7 +6,9 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "./node_modules/typescript/bin/tsc",
-    "type:check:watch": "tsc --watch"
+    "type:check:watch": "tsc --watch",
+    "format": "prettier --config ./prettier.config.js --no-editorconfig 'src/**/*.{js,ts}' --write",
+    "format:check": "prettier --config ./prettier.config.js --no-editorconfig 'src/**/*.{js,ts}' --check"
   },
   "repository": {
     "type": "git",
