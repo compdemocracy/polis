@@ -1,16 +1,21 @@
-const pg = require("./db/pg-query");
-const Config = require("./config");
-const Conversation = require("./conversation");
-const Log = require("./log");
-const _ = require("underscore");
-const MPromise = require("./utils/metered").MPromise;
-const LruCache = require("lru-cache");
+import _ from "underscore";
+import LruCache from "lru-cache";
 
-function getUserInfoForUid(uid, callback) {
+import pg from "./db/pg-query";
+import { MPromise } from "./utils/metered";
+
+import Config from "./config";
+import Conversation from "./conversation";
+import Log from "./log";
+
+function getUserInfoForUid(
+  uid: any,
+  callback: (arg0: null, arg1?: undefined) => void
+) {
   pg.query_readOnly(
     "SELECT email, hname from users where uid = $1",
     [uid],
-    function (err, results) {
+    function (err: any, results: { rows: string | any[] }) {
       if (err) {
         return callback(err);
       }
@@ -22,30 +27,35 @@ function getUserInfoForUid(uid, callback) {
   );
 }
 
-function getUserInfoForUid2(uid) {
-  return new MPromise("getUserInfoForUid2", function (resolve, reject) {
-    pg.query_readOnly(
-      "SELECT * from users where uid = $1",
-      [uid],
-      function (err, results) {
-        if (err) {
-          return reject(err);
+function getUserInfoForUid2(uid: any) {
+  // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
+  // @ts-ignore
+  return new MPromise(
+    "getUserInfoForUid2",
+    function (resolve: (arg0: any) => void, reject: (arg0: null) => any) {
+      pg.query_readOnly(
+        "SELECT * from users where uid = $1",
+        [uid],
+        function (err: any, results: { rows: string | any[] }) {
+          if (err) {
+            return reject(err);
+          }
+          if (!results.rows || !results.rows.length) {
+            return reject(null);
+          }
+          let o = results.rows[0];
+          resolve(o);
         }
-        if (!results.rows || !results.rows.length) {
-          return reject(null);
-        }
-        let o = results.rows[0];
-        resolve(o);
-      }
-    );
-  });
+      );
+    }
+  );
 }
 
 function addLtiUserIfNeeded(
-  uid,
-  lti_user_id,
-  tool_consumer_instance_guid,
-  lti_user_image
+  uid: any,
+  lti_user_id: any,
+  tool_consumer_instance_guid: any,
+  lti_user_image: null
 ) {
   lti_user_image = lti_user_image || null;
   return pg
@@ -53,7 +63,7 @@ function addLtiUserIfNeeded(
       "select * from lti_users where lti_user_id = ($1) and tool_consumer_instance_guid = ($2);",
       [lti_user_id, tool_consumer_instance_guid]
     )
-    .then(function (rows) {
+    .then(function (rows: string | any[]) {
       if (!rows || !rows.length) {
         return pg.queryP(
           "insert into lti_users (uid, lti_user_id, tool_consumer_instance_guid, lti_user_image) values ($1, $2, $3, $4);",
@@ -64,16 +74,16 @@ function addLtiUserIfNeeded(
 }
 
 function addLtiContextMembership(
-  uid,
-  lti_context_id,
-  tool_consumer_instance_guid
+  uid: any,
+  lti_context_id: any,
+  tool_consumer_instance_guid: any
 ) {
   return pg
     .queryP(
       "select * from lti_context_memberships where uid = $1 and lti_context_id = $2 and tool_consumer_instance_guid = $3;",
       [uid, lti_context_id, tool_consumer_instance_guid]
     )
-    .then(function (rows) {
+    .then(function (rows: string | any[]) {
       if (!rows || !rows.length) {
         return pg.queryP(
           "insert into lti_context_memberships (uid, lti_context_id, tool_consumer_instance_guid) values ($1, $2, $3);",
@@ -83,7 +93,16 @@ function addLtiContextMembership(
     });
 }
 
-function renderLtiLinkageSuccessPage(req, res, o) {
+function renderLtiLinkageSuccessPage(
+  req: any,
+  res: {
+    set: (arg0: { "Content-Type": string }) => void;
+    status: (
+      arg0: number
+    ) => { (): any; new (): any; send: { (arg0: string): void; new (): any } };
+  },
+  o: { email: string }
+) {
   res.set({
     "Content-Type": "text/html",
   });
@@ -117,7 +136,12 @@ function renderLtiLinkageSuccessPage(req, res, o) {
   res.status(200).send(html);
 }
 
-function getUser(uid, zid_optional, xid_optional, owner_uid_optional) {
+function getUser(
+  uid: string | number,
+  zid_optional: any,
+  xid_optional: any,
+  owner_uid_optional: any
+) {
   if (!uid) {
     // this api may be called by a new user, so we don't want to trigger a failure here.
     return Promise.resolve({});
@@ -188,14 +212,14 @@ function getUser(uid, zid_optional, xid_optional, owner_uid_optional) {
   });
 }
 
-function getTwitterInfo(uids) {
+function getTwitterInfo(uids: any[]) {
   return pg.queryP_readOnly(
     "select * from twitter_users where uid in ($1);",
     uids
   );
 }
 
-function getFacebookInfo(uids) {
+function getFacebookInfo(uids: any[]) {
   return pg.queryP_readOnly(
     "select * from facebook_users where uid in ($1);",
     uids
@@ -211,20 +235,23 @@ const usersToAdditionalTrialDays = {
 };
 
 function createDummyUser() {
-  return new MPromise("createDummyUser", function (resolve, reject) {
-    pg.query(
-      "INSERT INTO users (created) VALUES (default) RETURNING uid;",
-      [],
-      function (err, results) {
-        if (err || !results || !results.rows || !results.rows.length) {
-          console.error(err);
-          reject(new Error("polis_err_create_empty_user"));
-          return;
+  return new MPromise(
+    "createDummyUser",
+    function (resolve: (arg0: any) => void, reject: (arg0: Error) => void) {
+      pg.query(
+        "INSERT INTO users (created) VALUES (default) RETURNING uid;",
+        [],
+        function (err: any, results: { rows: string | any[] }) {
+          if (err || !results || !results.rows || !results.rows.length) {
+            console.error(err);
+            reject(new Error("polis_err_create_empty_user"));
+            return;
+          }
+          resolve(results.rows[0].uid);
         }
-        resolve(results.rows[0].uid);
-      }
-    );
-  });
+      );
+    }
+  );
 }
 
 let pidCache = new LruCache({
@@ -232,7 +259,11 @@ let pidCache = new LruCache({
 });
 
 // returns a pid of -1 if it's missing
-function getPid(zid, uid, callback) {
+function getPid(
+  zid: string,
+  uid: string,
+  callback: (arg0: null, arg1: number) => void
+) {
   let cacheKey = zid + "_" + uid;
   let cachedPid = pidCache.get(cacheKey);
   if (!_.isUndefined(cachedPid)) {
@@ -242,7 +273,7 @@ function getPid(zid, uid, callback) {
   pg.query_readOnly(
     "SELECT pid FROM participants WHERE zid = ($1) AND uid = ($2);",
     [zid, uid],
-    function (err, docs) {
+    function (err: any, docs: { rows: { pid: number }[] }) {
       let pid = -1;
       if (docs && docs.rows && docs.rows[0]) {
         pid = docs.rows[0].pid;
@@ -254,46 +285,56 @@ function getPid(zid, uid, callback) {
 }
 
 // returns a pid of -1 if it's missing
-function getPidPromise(zid, uid, usePrimary) {
+function getPidPromise(zid: string, uid: string, usePrimary: undefined) {
   let cacheKey = zid + "_" + uid;
   let cachedPid = pidCache.get(cacheKey);
-  return new MPromise("getPidPromise", function (resolve, reject) {
-    if (!_.isUndefined(cachedPid)) {
-      resolve(cachedPid);
-      return;
-    }
-    const f = usePrimary ? pg.query : pg.query_readOnly;
-    f(
-      "SELECT pid FROM participants WHERE zid = ($1) AND uid = ($2);",
-      [zid, uid],
-      function (err, results) {
-        if (err) {
-          return reject(err);
-        }
-        if (!results || !results.rows || !results.rows.length) {
-          resolve(-1);
-          return;
-        }
-        let pid = results.rows[0].pid;
-        pidCache.set(cacheKey, pid);
-        resolve(pid);
+  return new MPromise(
+    "getPidPromise",
+    function (resolve: (arg0: number) => void, reject: (arg0: any) => any) {
+      if (!_.isUndefined(cachedPid)) {
+        resolve(cachedPid);
+        return;
       }
-    );
-  });
+      const f = usePrimary ? pg.query : pg.query_readOnly;
+      f(
+        "SELECT pid FROM participants WHERE zid = ($1) AND uid = ($2);",
+        [zid, uid],
+        function (err: any, results: { rows: string | any[] }) {
+          if (err) {
+            return reject(err);
+          }
+          if (!results || !results.rows || !results.rows.length) {
+            resolve(-1);
+            return;
+          }
+          let pid = results.rows[0].pid;
+          pidCache.set(cacheKey, pid);
+          resolve(pid);
+        }
+      );
+    }
+  );
 }
 
 // must follow auth and need('zid'...) middleware
-function getPidForParticipant(assigner, cache) {
-  return function (req, res, next) {
+function getPidForParticipant(
+  assigner: (arg0: any, arg1: string, arg2: any) => void,
+  cache: any
+) {
+  return function (
+    req: { p: { zid: any; uid: any } },
+    res: any,
+    next: (arg0: string | undefined) => void
+  ) {
     let zid = req.p.zid;
     let uid = req.p.uid;
 
-    function finish(pid) {
+    function finish(pid: any) {
       assigner(req, "pid", pid);
       next();
     }
     getPidPromise(zid, uid).then(
-      function (pid) {
+      function (pid: number) {
         if (pid === -1) {
           let msg = "polis_err_get_pid_for_participant_missing";
           Log.yell(msg);
@@ -305,7 +346,7 @@ function getPidForParticipant(assigner, cache) {
         }
         finish(pid);
       },
-      function (err) {
+      function (err: any) {
         Log.yell("polis_err_get_pid_for_participant");
         next(err);
       }
@@ -313,9 +354,9 @@ function getPidForParticipant(assigner, cache) {
   };
 }
 
-function getSocialInfoForUsers(uids, zid) {
+function getSocialInfoForUsers(uids: any[], zid: any) {
   uids = _.uniq(uids);
-  uids.forEach(function (uid) {
+  uids.forEach(function (uid: string) {
     if (!_.isNumber(uid)) {
       throw "polis_err_123123_invalid_uid got:" + uid;
     }
