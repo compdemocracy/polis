@@ -6078,12 +6078,17 @@ Email verified! You can close this tab or hit the back button.
   }
   function handle_POST_auth_facebook(
     req: {
-      p: { response: string; locationInfo: any; fb_friends_response: string };
+      p: {
+        response?: string;
+        locationInfo?: any;
+        fb_friends_response?: string;
+      };
       headers?: { referer: string };
+      cookies?: any;
     },
     res: any
   ) {
-    let response = JSON.parse(req.p.response);
+    let response = JSON.parse(req?.p?.response || "");
     let fb_access_token =
       response && response.authResponse && response.authResponse.accessToken;
     if (!fb_access_token) {
@@ -6158,13 +6163,13 @@ Email verified! You can close this tab or hit the back button.
   function do_handle_POST_auth_facebook(
     req: {
       p: {
-        response: string;
-        password: any;
+        response?: string;
+        password?: any;
         uid?: any;
-        fb_granted_scopes: any;
-        fb_friends_response: any;
+        fb_granted_scopes?: any;
+        fb_friends_response?: any;
       };
-      cookies: { [x: string]: any };
+      cookies?: { [x: string]: any };
     },
     res: {
       json: (arg0: { uid?: any; hname: any; email: any }) => void;
