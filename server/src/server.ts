@@ -20,6 +20,7 @@ import {
   TwitterParameters,
   ParticipantSocialNetworkInfo,
 } from "./d";
+import { METRICS_IN_RAM } from "./utils/metered";
 
 const Config = require("./config");
 
