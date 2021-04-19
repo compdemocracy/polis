@@ -6043,7 +6043,7 @@ Email verified! You can close this tab or hit the back button.
         "/me/friends",
         function (response: {
           error: any;
-          data: string | any[];
+          data: any[];
           paging: { next: any };
         }) {
           if (response && !response.error) {
@@ -15871,7 +15871,7 @@ CREATE TABLE slack_user_invites (
   );
 
   function fetchIndex(
-    req: { path: string | any[]; headers?: { host: string } },
+    req: { path: string; headers?: { host: string } },
     res: {
       writeHead: (arg0: number, arg1: { Location: string }) => void;
       end: () => any;
