@@ -2768,9 +2768,7 @@ Feel free to reply to this email if you need help.`;
       status?: (arg0: number) => void;
       _headers?: { [x: string]: any };
       redirect?: (arg0: string) => void;
-      set?: (arg0: {
-        "Content-Type": string;
-      }) => void
+      set?: (arg0: { "Content-Type": string }) => void;
     }
   ) {
     let origin = req?.headers?.origin || "";
@@ -9964,21 +9962,18 @@ Email verified! You can close this tab or hit the back button.
           return;
         }
 
-        deleteMetadataQuestionAndAnswers(
-          pmqid,
-          function (err?: string | null) {
-            if (err) {
-              fail(
-                res,
-                500,
-                "polis_err_delete_participant_metadata_question",
-                new Error(err)
-              );
-              return;
-            }
-            res.send(200);
+        deleteMetadataQuestionAndAnswers(pmqid, function (err?: string | null) {
+          if (err) {
+            fail(
+              res,
+              500,
+              "polis_err_delete_participant_metadata_question",
+              new Error(err)
+            );
+            return;
           }
-        );
+          res.send(200);
+        });
       });
     });
   }
@@ -10709,7 +10704,6 @@ Email verified! You can close this tab or hit the back button.
                       inbox_item_participant_html: string;
                       inbox_item_participant_html_escaped: any;
                       url: string;
-                      zid: string | number;
                       upvoted: boolean;
                       modified: number;
                       is_mod: any;
@@ -10717,7 +10711,8 @@ Email verified! You can close this tab or hit the back button.
                       is_active: any;
                       is_draft: any;
                       is_public: any;
-                      context: string;
+                      zid?: string | number;
+                      context?: string;
                     }) {
                       conv.is_owner = conv.owner === uid;
                       let root = getServerNameWithProtocol(req);
@@ -10955,8 +10950,8 @@ Email verified! You can close this tab or hit the back button.
         ).then((zinvite_entries: any) => {
           let zidToZinvite = _.indexBy(zinvite_entries, "zid");
           reports = reports.map(
-            (report: { conversation_id: any; zid: string | number }) => {
-              report.conversation_id = zidToZinvite[report.zid].zinvite;
+            (report: { conversation_id: any; zid?: string | number }) => {
+              report.conversation_id = zidToZinvite[(report.zid || "")]?.zinvite;
               delete report.zid;
               return report;
             }
@@ -14976,7 +14971,9 @@ CREATE TABLE slack_user_invites (
     let path = "/landerImages/";
     if (/Android/.exec(req?.headers?.["user-agent"] || "")) {
       path += "app_instructions_android.png";
-    } else if (/iPhone.*like Mac OS X/.exec(req?.headers?.["user-agent"]|| "")) {
+    } else if (
+      /iPhone.*like Mac OS X/.exec(req?.headers?.["user-agent"] || "")
+    ) {
       path += "app_instructions_ios.png";
     } else {
       path += "app_instructions_blank.png";
@@ -15848,13 +15845,13 @@ CREATE TABLE slack_user_invites (
   // }
 
   function isUnsupportedBrowser(req: { headers?: { [x: string]: string } }) {
-    return /MSIE [234567]/.test(req?.headers?.["user-agent"]|| "");
+    return /MSIE [234567]/.test(req?.headers?.["user-agent"] || "");
   }
 
   function browserSupportsPushState(req: {
     headers?: { [x: string]: string };
   }) {
-    return !/MSIE [23456789]/.test(req?.headers?.["user-agent"]|| "");
+    return !/MSIE [23456789]/.test(req?.headers?.["user-agent"] || "");
   }
 
   // serve up index.html in response to anything starting with a number
