@@ -10769,14 +10769,14 @@ Email verified! You can close this tab or hit the back button.
                       }
 
                       if (suurlData) {
-                        conv.url = suurlData[conv.zid].suurl;
+                        conv.url = suurlData[conv.zid || ""].suurl;
                       } else {
                         conv.url = buildConversationUrl(
                           req,
                           conv.conversation_id
                         );
                       }
-                      if (upvotes && upvotes[conv.zid]) {
+                      if (upvotes && upvotes[conv.zid || ""]) {
                         conv.upvoted = true;
                       }
                       conv.created = Number(conv.created);
@@ -10787,7 +10787,8 @@ Email verified! You can close this tab or hit the back button.
                         conv.topic = new Date(conv.created).toUTCString();
                       }
 
-                      conv.is_mod = conv.is_owner || isSiteAdmin[conv.zid];
+                      conv.is_mod =
+                        conv.is_owner || isSiteAdmin[conv.zid || ""];
 
                       // Make sure zid is not exposed
                       delete conv.zid;
@@ -10952,7 +10953,7 @@ Email verified! You can close this tab or hit the back button.
           let zidToZinvite = _.indexBy(zinvite_entries, "zid");
           reports = reports.map(
             (report: { conversation_id: any; zid?: string | number }) => {
-              report.conversation_id = zidToZinvite[(report.zid || "")]?.zinvite;
+              report.conversation_id = zidToZinvite[report.zid || ""]?.zinvite;
               delete report.zid;
               return report;
             }
@@ -15672,7 +15673,7 @@ CREATE TABLE slack_user_invites (
       return process.env.STATIC_FILES_HOST;
     } else {
       let origin = req?.headers?.host;
-      if (!whitelistedBuckets[origin]) {
+      if (!whitelistedBuckets[origin || ""]) {
         if (hasWhitelistMatches(origin || "")) {
           // Use the prod bucket for non pol.is domains
           return (
@@ -15687,7 +15688,7 @@ CREATE TABLE slack_user_invites (
           return;
         }
       }
-      origin = whitelistedBuckets[origin];
+      origin = whitelistedBuckets[origin || ""];
       return origin + "." + process.env.STATIC_FILES_HOST;
     }
   }
