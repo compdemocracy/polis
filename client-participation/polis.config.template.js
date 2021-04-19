@@ -1,6 +1,4 @@
-
 module.exports = {
-
   domainWhitelist: [
     "^localhost$",
     "^127\\.0\\.0\\.1$",
@@ -17,7 +15,7 @@ module.exports = {
 
   // Used for setting appropriate hostname for embedding.
   //SERVICE_HOSTNAME: "123.45.67.89.xip.io",
-  SERVICE_HOSTNAME: "localhost",
+  SERVICE_HOSTNAME: "localhost", 
 
   // Note that this must match the participation client port specified in polisServer instance
   PORT: 5001,
@@ -25,20 +23,20 @@ module.exports = {
   DISABLE_INTERCOM: true,
 
   // must register with facebook and get a facebook app id to use the facebook auth features
-  FB_APP_ID: '661042417336977',
+  FB_APP_ID: "661042417336977",
 
   // For data exports
 
-  UPLOADER: 'local', // alt: s3, scp
+  UPLOADER: "local", // alt: s3, scp
 
   // Uploader settings: local
-  LOCAL_OUTPUT_PATH: './build',
+  LOCAL_OUTPUT_PATH: "./build",
 
   // Uploader settings: s3
-  S3_BUCKET_PROD: 'pol.is',
-  S3_BUCKET_PREPROD: 'preprod.pol.is',
+  S3_BUCKET_PROD: "pol.is",
+  S3_BUCKET_PREPROD: "preprod.pol.is",
 
   // Uploader settings: scp
-  SCP_SUBDIR_PREPROD: 'preprod',
-  SCP_SUBDIR_PROD: 'prod',
+  SCP_SUBDIR_PREPROD: "preprod",
+  SCP_SUBDIR_PROD: "prod",
 };

@@ -1,8 +1,8 @@
 ARG TAG=dev
 
-FROM polisdemo/client-admin:${TAG}          as admin
-FROM polisdemo/client-participation:${TAG}  as participation
-FROM polisdemo/client-report:${TAG}         as report
+FROM compdem/polis-client-admin:${TAG}          as admin
+FROM compdem/polis-client-participation:${TAG}  as participation
+FROM compdem/polis-client-report:${TAG}         as report
 
 FROM node:15.9.0-alpine
 
