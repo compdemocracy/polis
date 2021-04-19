@@ -11,6 +11,14 @@ import {
   AuthBody,
   AuthQuery,
   ParticipantInfo,
+  PidReadyResult,
+  CommentOptions,
+  ParticipantFields,
+  ParticipantCommentModerationResult,
+  User,
+  Conversation,
+  TwitterParameters,
+  ParticipantSocialNetworkInfo,
 } from "./d";
 
 const Config = require("./config");
@@ -3252,8 +3260,8 @@ Feel free to reply to this email if you need help.`;
       ) => { (): any; new (): any; json: { (arg0: any): void; new (): any } };
     },
     o: { url?: string; zid?: any },
-    dontUseCache: boolean | undefined,
-    altStatusCode: number | undefined
+    dontUseCache?: boolean | undefined,
+    altStatusCode?: number | undefined
   ) {
     addConversationId(o, dontUseCache)
       .then(
@@ -4953,32 +4961,33 @@ Email verified! You can close this tab or hit the back button.
     pgQuery(
       "SELECT * FROM users WHERE LOWER(email) = ($1);",
       [email],
-      function (err: any, docs: { uid?: any }[]) {
-        docs = docs.rows;
+      function (err: any, docs: { rows?: any[] }) {
+        const { rows } = docs;
         if (err) {
           fail(res, 403, "polis_err_login_unknown_user_or_password", err);
           console.error("polis_err_login_unknown_user_or_password_err");
           return;
         }
-        if (!docs || docs.length === 0) {
+        if (!rows || rows.length === 0) {
           fail(res, 403, "polis_err_login_unknown_user_or_password_noresults");
           console.error("polis_err_login_unknown_user_or_password_noresults");
           return;
         }
 
-        let uid = docs[0].uid;
+        let uid = rows[0].uid;
 
         pgQuery(
           "select pwhash from jianiuevyew where uid = ($1);",
           [uid],
-          function (err: any, results: { pwhash: any }[]) {
-            results = results.rows;
+          function (err: any, results: { rows: any[] }) {
+            // results: { pwhash: any }[]
+            const { rows } = results;
             if (err) {
               fail(res, 403, "polis_err_login_unknown_user_or_password", err);
               console.error("polis_err_login_unknown_user_or_password_err");
               return;
             }
-            if (!results || results.length === 0) {
+            if (!results || rows.length === 0) {
               fail(res, 403, "polis_err_login_unknown_user_or_password");
               console.error(
                 "polis_err_login_unknown_user_or_password_noresults"
@@ -4986,7 +4995,7 @@ Email verified! You can close this tab or hit the back button.
               return;
             }
 
-            let hashedPassword = results[0].pwhash;
+            let hashedPassword = rows[0].pwhash;
 
             bcrypt.compare(
               password,
@@ -5285,7 +5294,7 @@ Email verified! You can close this tab or hit the back button.
           uid?: any;
           answers: any;
         }) {
-          let info = {};
+          let info: ParticipantInfo = {};
           if (o.referrer) {
             info.referrer = o.referrer;
           }
@@ -8522,7 +8531,7 @@ Email verified! You can close this tab or hit the back button.
             }
             finishOne(res, c);
           } else {
-            let o = {};
+            let o: CommentOptions = {};
             if (!_.isUndefined(req.p.not_voted_by_pid)) {
               o.currentPid = req.p.not_voted_by_pid;
             }
@@ -8752,7 +8761,7 @@ Email verified! You can close this tab or hit the back button.
     let zid = req.p.zid;
     let uid = req.p.uid;
 
-    let fields = {};
+    let fields: ParticipantFields = {};
     if (!_.isUndefined(req.p.show_translation_activated)) {
       fields.show_translation_activated = req.p.show_translation_activated;
     }
@@ -8862,7 +8871,7 @@ Email verified! You can close this tab or hit the back button.
             return getNextComment(zid, pid, [], true, lang);
           })
           .then(function (nextComment: any) {
-            let result = {};
+            let result: PidReadyResult = {};
             if (nextComment) {
               result.nextComment = nextComment;
             } else {
@@ -8991,7 +9000,7 @@ Email verified! You can close this tab or hit the back button.
         return getNextComment(req.p.zid, pid, [], true, req.p.lang); // TODO req.p.lang is probably not defined
       })
       .then(function (nextComment: any) {
-        let result = {};
+        let result: ParticipantCommentModerationResult = {};
         if (nextComment) {
           result.nextComment = nextComment;
         } else {
@@ -9629,7 +9638,7 @@ Email verified! You can close this tab or hit the back button.
       uid = req.p.uid_of_user;
     }
 
-    let fields = {};
+    let fields: User = {};
     if (!_.isUndefined(req.p.email)) {
       fields.email = req.p.email;
     }
@@ -9701,7 +9710,7 @@ Email verified! You can close this tab or hit the back button.
           verifyMetaPromise = Promise.resolve();
         }
 
-        let fields = {};
+        let fields: Conversation = {};
         if (!_.isUndefined(req.p.is_active)) {
           fields.is_active = req.p.is_active;
         }
@@ -11462,7 +11471,7 @@ Email verified! You can close this tab or hit the back button.
     pgQuery_readOnly(
       "SELECT * FROM users WHERE uid = $1",
       [req.p.uid],
-      function (err: any, results: { rows: { hname: any }[] }) {
+      function (err: any, results: { rows: User[] }) {
         if (err) {
           fail(res, 500, "polis_err_get_email_db", err);
           return;
@@ -11707,7 +11716,7 @@ Thanks for using Polis!
 
     let twitter_user_id = o.twitter_user_id;
     let twitter_screen_name = o.twitter_screen_name;
-    let params = {
+    let params: TwitterParameters = {
       // oauth_verifier: req.p.oauth_verifier,
       // oauth_token: req.p.oauth_token, // confused. needed, but docs say this: "The request token is also passed in the oauth_token portion of the header, but this will have been added by the signing process."
     };
@@ -12215,7 +12224,7 @@ Thanks for using Polis!
         function (o: string) {
           winston.log("info", "TWITTER ACCESS TOKEN");
           let pairs = o.split("&");
-          let kv = {};
+          let kv: TwitterParameters = {};
           pairs.forEach(function (pair: string) {
             let pairSplit = pair.split("=");
             let k = pairSplit[0];
@@ -13253,7 +13262,7 @@ Thanks for using Polis!
 
   function pullFbTwIntoSubObjects(ptptoiRecord: any) {
     let p = ptptoiRecord;
-    let x = {};
+    let x: ParticipantSocialNetworkInfo = {};
     _.each(p, function (val: null, key: string) {
       let fbMatch = /fb__(.*)/.exec(key);
       let twMatch = /tw__(.*)/.exec(key);
@@ -15464,7 +15473,7 @@ CREATE TABLE slack_user_invites (
     let parent_url = req.p.parent_url;
     let dwok = req.p.dwok;
     let build = req.p.build;
-    let o = {};
+    let o: Conversation = {};
     ifDefinedSet("parent_url", req.p, o);
     ifDefinedSet("auth_needed_to_vote", req.p, o);
     ifDefinedSet("auth_needed_to_write", req.p, o);

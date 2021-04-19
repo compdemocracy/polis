@@ -1,3 +1,5 @@
+import { any } from "underscore";
+
 export type Headers = {
   [key: string]: any;
   host?: string;
@@ -47,4 +49,64 @@ export type AuthRequest = {
 export type ParticipantInfo = {
   parent_url?: string;
   referrer?: string;
+};
+
+export type PidReadyResult = {
+  modOptions?: any;
+  nextComment?: any;
+  currentPid?: any;
+  shouldMod?: any;
+};
+
+export type CommentOptions = {
+  currentPid?: any;
+};
+
+export type ParticipantFields = {
+  show_translation_activated?: any;
+};
+
+export type ParticipantCommentModerationResult = {
+  nextComment?: any;
+  currentPid?: any;
+};
+
+export type User = {
+  email?: any;
+  hname?: any;
+};
+
+export type Conversation = {
+  is_active?: any;
+  is_anon?: any;
+  is_draft?: any;
+  is_data_open?: any;
+  profanity_filter?: any;
+  spam_filter?: any;
+  strict_moderation?: any;
+  topic?: any;
+  description?: any;
+  vis_type?: any;
+  help_type?: any;
+  socialbtn_type?: any;
+  bgcolor?: any;
+  help_color?: any;
+  help_bgcolor?: any;
+  style_btn?: any;
+  write_type?: any;
+  owner_sees_participation_stats?: any;
+  lti_users_only?: any;
+  link_url?: any;
+};
+
+export type TwitterParameters = {
+  [key: string]: any;
+  user_id?: any;
+  screen_name?: any;
+};
+
+export type ParticipantSocialNetworkInfo = {
+  [key: string]: any;
+  facebook?: any;
+  twitter?: any;
 };
