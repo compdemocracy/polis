@@ -5615,8 +5615,8 @@ Email verified! You can close this tab or hit the back button.
     // return;
 
     let ref = req?.headers?.referrer;
-    let resultRef = "";
     let refParts: string[] = [];
+    let resultRef = "";
     if (isWithinIframe) {
       if (ref) {
         const decodedRefString = decodeURIComponent(
