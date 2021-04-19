@@ -2767,6 +2767,10 @@ Feel free to reply to this email if you need help.`;
       ) => void;
       status?: (arg0: number) => void;
       _headers?: { [x: string]: any };
+      redirect?: (arg0: string) => void;
+      set?: (arg0: {
+        "Content-Type": string;
+      }) => void
     }
   ) {
     let origin = req?.headers?.origin || "";
@@ -3259,7 +3263,7 @@ Feel free to reply to this email if you need help.`;
         arg0: any
       ) => { (): any; new (): any; json: { (arg0: any): void; new (): any } };
     },
-    o: { url?: string; zid?: any },
+    o: { url?: string; zid?: any; currentPid?: any },
     dontUseCache?: boolean | undefined,
     altStatusCode?: number | undefined
   ) {
@@ -4168,7 +4172,7 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
-  function sendEmailByUid(uid?: any, subject?: string, body?: string) {
+  function sendEmailByUid(uid?: any, subject?: string, body?: string | number) {
     return getUserInfoForUid2(uid).then(function (userInfo: {
       hname: any;
       email: any;
@@ -9962,7 +9966,7 @@ Email verified! You can close this tab or hit the back button.
 
         deleteMetadataQuestionAndAnswers(
           pmqid,
-          function (err: string | undefined) {
+          function (err?: string | null) {
             if (err) {
               fail(
                 res,
@@ -14970,9 +14974,9 @@ CREATE TABLE slack_user_invites (
     res: any
   ) {
     let path = "/landerImages/";
-    if (/Android/.exec(req?.headers?.["user-agent"])) {
+    if (/Android/.exec(req?.headers?.["user-agent"] || "")) {
       path += "app_instructions_android.png";
-    } else if (/iPhone.*like Mac OS X/.exec(req?.headers?.["user-agent"])) {
+    } else if (/iPhone.*like Mac OS X/.exec(req?.headers?.["user-agent"]|| "")) {
       path += "app_instructions_ios.png";
     } else {
       path += "app_instructions_blank.png";
@@ -15671,7 +15675,7 @@ CREATE TABLE slack_user_invites (
     } else {
       let origin = req?.headers?.host;
       if (!whitelistedBuckets[origin]) {
-        if (hasWhitelistMatches(origin)) {
+        if (hasWhitelistMatches(origin || "")) {
           // Use the prod bucket for non pol.is domains
           return (
             whitelistedBuckets["pol.is"] + "." + process.env.STATIC_FILES_HOST
@@ -15844,13 +15848,13 @@ CREATE TABLE slack_user_invites (
   // }
 
   function isUnsupportedBrowser(req: { headers?: { [x: string]: string } }) {
-    return /MSIE [234567]/.test(req?.headers?.["user-agent"]);
+    return /MSIE [234567]/.test(req?.headers?.["user-agent"]|| "");
   }
 
   function browserSupportsPushState(req: {
     headers?: { [x: string]: string };
   }) {
-    return !/MSIE [23456789]/.test(req?.headers?.["user-agent"]);
+    return !/MSIE [23456789]/.test(req?.headers?.["user-agent"]|| "");
   }
 
   // serve up index.html in response to anything starting with a number
