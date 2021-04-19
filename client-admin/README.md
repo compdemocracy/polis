@@ -55,7 +55,7 @@ To build static assets for a production deployment, run
 gulp dist
 ```
 
-As a convenience, the `deploy_TO_PRODUCTION` script is provided for deploying to AWS S3 or via SCP to a static file server.
+As a convenience, the `npm deploy:prod` is provided for deploying to AWS S3 or via SCP to a static file server.
 For S3 deployment, place your AWS credentials in a JSON file at `.polis_s3_creds_client.json` that looks like this:
 
 ```json

@@ -15,7 +15,7 @@ This should point to whichever `polisServer` instance you like (likely either `h
 
 ## Deployment
 
-Deploy using the `deployPreprod` and `deploy_TO_PRODUCTION`, as appropriate.
+Deploy using the `npm run deploy:preprod` and `npm run deploy:prod`, as appropriate.
 
 Note that you will first have to copy over the `polis.config.template.js` file to `polis.config.js`, and edit appropriately.
 In particular, here you can specify the service url for the static build, as well as the uploader method and s3 bucket information.

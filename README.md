@@ -2,10 +2,10 @@
 pol.is an AI powered sentiment gathering platform. More organic than surveys, less effort than focus groups.
 
 <!-- Changes to badge text in URLs below, require changes to "name" value in .github/workflows/*.yml -->
-[![Nightly Docker Builds](https://github.com/compdemocracy/polis/workflows/Nightly%20Docker%20Builds/badge.svg)][nightlies]
+[![Docker Image Builds](https://github.com/compdemocracy/polis/workflows/Docker%20image%20Builds/badge.svg)][docker-image-builds]
 [![E2E Tests](https://github.com/compdemocracy/polis/workflows/E2E%20Tests/badge.svg)][e2e-tests]
 
-   [nightlies]: https://hub.docker.com/u/polisdemo
+   [nightlies]: https://hub.docker.com/u/compdem
    [e2e-tests]: https://github.com/compdemocracy/polis/actions?query=workflow%3A%22E2E+Tests%22
 
 ## :construction: Disclaimer
@@ -16,7 +16,7 @@ We do **NOT** make guarantees of easy setup or management, push-button deploymen
 
 Having said this, some of the core pieces of infrastructure described below are potentially useful in a production context, if used correctly.
 In particular, each subdirectory of the project has its own `Dockerfile` which could potentially be used as part of a deploy strategy.
-The `docker-compose.yml` is specifically focused on development environment flow.
+The `docker-compose.yml` is currently focused on development environment, but will soon transition to being production focused, with development conveniences extracted as a separate compose file.
 
 - See also: [Deployment: About SSL/HTTPS](docs/deployment.md#about-sslhttps)
 

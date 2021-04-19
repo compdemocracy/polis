@@ -6279,6 +6279,8 @@ Email verified! You can close this tab or hit the back button.
   }
   function handle_GET_participationInit(req, res) {
 
+    console.log("logging handle_GET_participationInit req", req)
+
     // let qs = {
     //   conversation_id: req.p.conversation_id,
     // };

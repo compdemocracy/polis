@@ -1,3 +1,0 @@
-. ${NVM_DIR}/nvm.sh
-#export NODE_ENV=production
-BABEL_ENV=production nvm run `node ./bin/printNodeVersion` gulpfile.js deploy_TO_PRODUCTION

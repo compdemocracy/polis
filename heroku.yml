@@ -1,0 +1,8 @@
+
+build:
+  docker:
+    # web server container
+    web: server/Dockerfile
+    # math worker container
+    worker: math/Dockerfile
+
