@@ -364,10 +364,10 @@ class App extends React.Component {
         nothingToShow: !comments.length || !groupDemographics.length
       });
 
-    }, (err) => {
+    }).catch((err) => {
       this.setState({
         error: true,
-        errorText: err,
+        errorText: String(err),
       });
     });
   }
