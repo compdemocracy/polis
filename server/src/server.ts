@@ -5600,7 +5600,7 @@ Email verified! You can close this tab or hit the back button.
   }
   function denyIfNotFromWhitelistedDomain(
     req: {
-      headers?: { referer: string | string[] };
+      headers?: { referrer: string };
       p: { zid: any; domain_whitelist_override_key: any };
     },
     res: { send: (arg0: number, arg1: string) => void },
@@ -5608,27 +5608,27 @@ Email verified! You can close this tab or hit the back button.
   ) {
     let isWithinIframe =
       req.headers &&
-      req.headers.referer &&
-      req.headers.referer.includes("parent_url");
+      req.headers.referrer &&
+      req.headers.referrer.includes("parent_url");
     // res.status(403);
     // next("polis_err_domain");
     // return;
 
-    let ref = req?.headers?.referer;
+    let ref = req?.headers?.referrer;
+    let resultRef = "";
+    let refParts: string[] = [];
     if (isWithinIframe) {
       if (ref) {
-        ref = decodeURIComponent(
+        const decodedRefString = decodeURIComponent(
           ref.replace(/.*parent_url=/, "").replace(/&.*/, "")
         );
-
-        ref = ref && ref.length && ref.split("/");
-        ref = ref && ref.length >= 3 && ref[2];
-        ref = ref || "";
+        if (decodedRefString && decodedRefString.length)
+          refParts = decodedRefString.split("/");
+        resultRef = (refParts && refParts.length >= 3 && refParts[2]) || "";
       }
     } else {
-      ref = ref && ref.length && ref.split("/");
-      ref = ref && ref.length >= 3 && ref[2];
-      ref = ref || "";
+      if (ref && ref.length) refParts = ref.split("/");
+      if (refParts && refParts.length >= 3) resultRef = refParts[2] || "";
     }
     // let path = req.path;
     // path = path && path.split('/');
@@ -5636,7 +5636,7 @@ Email verified! You can close this tab or hit the back button.
     let zid = req.p.zid;
 
     isParentDomainWhitelisted(
-      ref,
+      resultRef,
       zid,
       isWithinIframe,
       req.p.domain_whitelist_override_key
