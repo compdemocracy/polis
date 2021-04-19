@@ -24,8 +24,8 @@ class ModerateCommentsTodo extends React.Component {
     this.props.dispatch(changeCommentCommentIsMeta(comment, is_meta))
   }
 
-  createCommentMarkup() {
-    const max = 100;
+  createCommentMarkup(max) {
+
     const _perhaps_fewer_unmoderated_comments = this.props.unmoderated_comments.slice(0,max);
     
     const comments = _perhaps_fewer_unmoderated_comments.map((comment, i) => {
@@ -48,11 +48,13 @@ class ModerateCommentsTodo extends React.Component {
   }
 
   render() {
+    const max = 100;
     return (
       <div>
         <div>
+          <p> Displays maximum {max} comments <p> 
           {this.props.unmoderated_comments !== null
-            ? this.createCommentMarkup()
+            ? this.createCommentMarkup(max)
             : 'Loading unmoderated comments...'}
         </div>
       </div>
