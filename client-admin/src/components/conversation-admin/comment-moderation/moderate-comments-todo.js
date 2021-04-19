@@ -26,9 +26,7 @@ class ModerateCommentsTodo extends React.Component {
 
   createCommentMarkup(max) {
 
-    const _perhaps_fewer_unmoderated_comments = this.props.unmoderated_comments.slice(0,max);
-    
-    const comments = _perhaps_fewer_unmoderated_comments.map((comment, i) => {
+    return this.props.unmoderated_comments.slice(0,max).map((comment, i) => {
       return (
         <Comment
           key={i}
@@ -44,7 +42,7 @@ class ModerateCommentsTodo extends React.Component {
         />
       )
     })
-    return comments
+    
   }
 
   render() {
