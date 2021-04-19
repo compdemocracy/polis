@@ -6,7 +6,7 @@ type MetricsInRam = {
 //    values: [circular buffers of values (holds 1000 items)]
 //    index: index in circular buffer
 //}
-const METRICS_IN_RAM: MetricsInRam = {};
+export const METRICS_IN_RAM: MetricsInRam = {};
 const SHOULD_ADD_METRICS_IN_RAM = false;
 
 function addInRamMetric(metricName: string, val: number) {
