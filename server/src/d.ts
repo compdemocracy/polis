@@ -67,6 +67,9 @@ export type Comment = {
   not_voted_by_pid?: any;
   include_social?: any;
   withoutTids?: any;
+  tid?: any;
+  translations?: any;
+  txt?: any;
 };
 
 export type ParticipantFields = {
@@ -144,9 +147,9 @@ export type ParticipantOption = {
 
 export type DemographicEntry = {
   count: number;
-  gender_male: boolean;
-  gender_female: boolean;
-  gender_null: boolean;
+  gender_male: number;
+  gender_female: number;
+  gender_null: number;
   birth_year: number;
   birth_year_count: number;
   ms_birth_year_estimate_fb: number;
@@ -160,4 +163,12 @@ export type Demo = {
   fb_gender?: any;
   ms_gender_estimate_fb?: any;
   ms_birth_year_estimate_fb: number;
+};
+
+export type SlackUser = {
+  slack_team?: any;
+  slack_user_id?: any;
+  zid?: any;
+  uid?: any;
+  pid?: any;
 };
