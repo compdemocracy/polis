@@ -184,3 +184,10 @@ export type Vote = {
   starred: any;
   parent_url: any;
 };
+
+export type Assignment = {
+  lti_user_id: number;
+  gradeFromZeroToOne: string;
+  lis_outcome_service_url: any;
+  lis_result_sourcedid: any;
+};
