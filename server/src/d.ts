@@ -154,3 +154,10 @@ export type DemographicEntry = {
   birth_year_guess: number;
   birth_year_guess_count: number;
 };
+
+export type Demo = {
+  pid?: any;
+  fb_gender?: any;
+  ms_gender_estimate_fb?: any;
+  ms_birth_year_estimate_fb: number;
+};
