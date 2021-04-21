@@ -1,19 +1,18 @@
 import _ from "underscore";
 
-const pg = require("../db/pg-query");
-const fail = require("../log").fail;
-const Config = require("../config");
-const Cookies = require("../utils/cookies");
-const User = require("../user");
-const Session = require("../session");
-const Utils = require("../utils/common");
-const Password = require("./password");
+import pg from "../db/pg-query";
+import { fail } from "../log";
+import Config from "../config";
+import Cookies from "../utils/cookies";
+import { COOKIES } from "../utils/cookies";
+import User from "../user";
+import Session from "../session";
+import Utils from "../utils/common";
+import Password from "./password";
 
-const emailSenders = require("../email/senders");
+import emailSenders from "../email/senders";
 const sendTextEmail = emailSenders.sendTextEmail;
-
 function createUser(req: any, res: any) {
-  const COOKIES = require("../utils/cookies").COOKIES;
   let hname = req.p.hname;
   let password = req.p.password;
   let password2 = req.p.password2; // for verification
@@ -70,6 +69,11 @@ function createUser(req: any, res: any) {
   }
 
   pg.queryP("SELECT * FROM users WHERE email = ($1)", [email]).then(
+    //   Argument of type '(rows: string | any[]) => void' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.
+    // Types of parameters 'rows' and 'value' are incompatible.
+    //   Type 'unknown' is not assignable to type 'string | any[]'.
+    //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+    // @ts-ignore
     function (rows: string | any[]) {
       if (rows.length > 0) {
         fail(res, 403, "polis_err_reg_user_with_that_email_exists");
@@ -168,6 +172,12 @@ function createUser(req: any, res: any) {
                                 } else {
                                   User.renderLtiLinkageSuccessPage(req, res, {
                                     // may include token here too
+                                    // Argument of type '{ context_id: any; uid: any;
+                                    // hname: any; email: any;
+                                    // }' is not assignable to parameter of type '{ email: string; }'.
+                                    //Object literal may only specify known properties, and
+                                    // 'context_id' does not exist in type '{ email: string; }'.ts(2345)
+                                    // @ts-ignore
                                     context_id: lti_context_id,
                                     uid: uid,
                                     hname: hname,
@@ -254,7 +264,7 @@ function decodeParams(encodedStringifiedJson: string | string[]) {
   } else {
     encodedStringifiedJson = encodedStringifiedJson.slice(4);
   }
-  let stringifiedJson = Utils.hexToStr(encodedStringifiedJson);
+  let stringifiedJson = Utils.hexToStr(encodedStringifiedJson as string);
   let o = JSON.parse(stringifiedJson);
   return o;
 }
@@ -276,8 +286,6 @@ function generateAndRegisterZinvite(zid: any, generateShort: any) {
   });
 }
 
-module.exports = {
-  createUser,
-  doSendVerification,
-  generateAndRegisterZinvite,
-};
+export { createUser, doSendVerification, generateAndRegisterZinvite };
+
+export default { createUser, doSendVerification, generateAndRegisterZinvite };

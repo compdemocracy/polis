@@ -9,6 +9,7 @@
 import fs from "fs";
 import AWS from "aws-sdk";
 import nodemailer from "nodemailer";
+import mg from "nodemailer-mailgun-transport";
 
 // https://docs.aws.amazon.com/sdk-for-javascript/v2/developer-guide/setting-region.html
 // v2 docs, since we use v2 in our package.json: "aws:sdk": "2.78.0"
@@ -45,7 +46,6 @@ function getMailOptions(transportType: any) {
         ignoreTLS: true,
       };
     case "mailgun":
-      const mg = require("nodemailer-mailgun-transport");
       const mailgunAuth = {
         auth: {
           // This forces fake credentials if envvars unset, so error is caught
@@ -109,7 +109,12 @@ function sendTextEmail(
   return promise;
 }
 
-module.exports = {
+export {
+  sendTextEmail,
+  sendTextEmailWithBackup as sendTextEmailWithBackupOnly,
+};
+
+export default {
   sendTextEmail: sendTextEmail,
   sendTextEmailWithBackupOnly: sendTextEmailWithBackup,
 };

@@ -1,7 +1,7 @@
 import _ from "underscore";
 
-const User = require("../user");
-const Session = require("../session");
+import User from "../user";
+import Session from "../session";
 
 type Options = {
   maxAge?: number;
@@ -223,7 +223,21 @@ function getPermanentCookieAndEnsureItIsSet(
   }
 }
 
-module.exports = {
+export {
+  COOKIES,
+  COOKIES_TO_CLEAR,
+  setCookie,
+  setParentReferrerCookie,
+  setParentUrlCookie,
+  setPlanCookie,
+  setPermanentCookie,
+  setCookieTestCookie,
+  shouldSetCookieOnPolisDomain,
+  addCookies,
+  getPermanentCookieAndEnsureItIsSet,
+};
+
+export default {
   COOKIES,
   COOKIES_TO_CLEAR,
   setCookie,

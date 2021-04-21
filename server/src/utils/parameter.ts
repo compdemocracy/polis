@@ -2,10 +2,11 @@ import _ from "underscore";
 import { isUri } from "valid-url";
 import LruCache from "lru-cache";
 
-const pg = require("../db/pg-query");
-const Log = require("../log");
-const Conversation = require("../conversation");
-const User = require("../user");
+import pg from "../db/pg-query";
+import Log from "../log";
+import Conversation from "../conversation";
+import User from "../user";
+
 import { MPromise } from "./metered";
 
 type Req = {
@@ -547,7 +548,35 @@ function resolve_pidThing(
   };
 }
 
-module.exports = {
+export {
+  assignToP,
+  assignToPCustom,
+  getArrayOfInt,
+  getArrayOfStringNonEmpty,
+  getArrayOfStringNonEmptyLimitLength,
+  getBool,
+  getConversationIdFetchZid,
+  getEmail,
+  getInt,
+  getIntInRange,
+  getNumberInRange,
+  getOptionalStringLimitLength,
+  getPassword,
+  getPasswordWithCreatePasswordRules,
+  getReportIdFetchRid,
+  getStringLimitLength,
+  getUrlLimitLength,
+  moveToBody,
+  need,
+  needCookie,
+  needHeader,
+  resolve_pidThing,
+  want,
+  wantCookie,
+  wantHeader,
+};
+
+export default {
   assignToP,
   assignToPCustom,
   getArrayOfInt,

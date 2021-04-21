@@ -2,7 +2,7 @@ import bcrypt from "bcrypt";
 import crypto from "crypto";
 import _ from "underscore";
 
-const pg = require("../db/pg-query");
+import pg from "../db/pg-query";
 
 function generateHashedPassword(
   password: any,
@@ -213,7 +213,9 @@ function generateTokenP(len: any, pseudoRandomOk: any) {
 //     console.error(err);
 // });
 
-module.exports = {
+export { generateHashedPassword, checkPassword, generateToken, generateTokenP };
+
+export default {
   generateHashedPassword,
   checkPassword,
   generateToken,

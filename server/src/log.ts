@@ -37,7 +37,7 @@ function fail(
   res: any,
   httpCode: any,
   clientVisibleErrorString: any,
-  err: any
+  err?: any
 ) {
   emitTheFailure(res, httpCode, "polis_err", clientVisibleErrorString, err);
   yell(clientVisibleErrorString);
