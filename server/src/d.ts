@@ -62,6 +62,13 @@ export type CommentOptions = {
   currentPid?: any;
 };
 
+export type Comment = {
+  zid?: any;
+  not_voted_by_pid?: any;
+  include_social?: any;
+  withoutTids?: any;
+};
+
 export type ParticipantFields = {
   show_translation_activated?: any;
 };
@@ -126,4 +133,24 @@ export type ParticipantSocialNetworkInfo = {
   [key: string]: any;
   facebook?: any;
   twitter?: any;
+};
+
+export type ParticipantOption = {
+  bidToPid?: any;
+  asPOJO?: any;
+  "group-clusters": any;
+  "base-clusters": any;
+};
+
+export type DemographicEntry = {
+  count: number;
+  gender_male: boolean;
+  gender_female: boolean;
+  gender_null: boolean;
+  birth_year: number;
+  birth_year_count: number;
+  ms_birth_year_estimate_fb: number;
+  ms_birth_year_count: number;
+  birth_year_guess: number;
+  birth_year_guess_count: number;
 };

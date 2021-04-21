@@ -17,8 +17,11 @@ import {
   ParticipantCommentModerationResult,
   UserType,
   ConversationType,
+  Comment,
   TwitterParameters,
   ParticipantSocialNetworkInfo,
+  ParticipantOption,
+  DemographicEntry,
 } from "./d";
 import { METRICS_IN_RAM } from "./utils/metered";
 
@@ -8326,7 +8329,7 @@ Email verified! You can close this tab or hit the back button.
     withoutTids: string | any[],
     include_social: any
   ) {
-    let params = {
+    let params: Comment = {
       zid: zid,
       not_voted_by_pid: pid,
       include_social: include_social,
@@ -10875,7 +10878,7 @@ Email verified! You can close this tab or hit the back button.
           return fail(res, 403, "polis_err_put_reports_permissions", err);
         }
 
-        let fields = {
+        let fields: { [key: string]: string } = {
           modified: "now_as_millis()",
         };
 
@@ -12820,7 +12823,7 @@ Thanks for using Polis!
     return Promise.all([
       getPca(zid, math_tick),
       getBidIndexToPidMapping(zid, math_tick),
-    ]).then(function (o: { bidToPid: any }[]) {
+    ]).then(function (o: ParticipantOption[]) {
       if (!o[0] || !o[0].asPOJO) {
         return [];
       }
@@ -13075,7 +13078,7 @@ Thanks for using Polis!
         let pidToMetaVotes = _.groupBy(metaVotes, "pid");
 
         for (let i = 0; i < groupStats.length; i++) {
-          let s = groupStats[i];
+          let s: DemographicEntry = groupStats[i];
           let pids = groupPids[i];
           for (let p = 0; p < pids.length; p++) {
             let pid = pids[p];
@@ -13697,7 +13700,7 @@ Thanks for using Polis!
       fail(res, 401, "polis_err_missing_uid_or_twitter_user_id");
       return;
     }
-    p.then(function (data: any[]) {
+    p.then(function (data: any) {
       data = data[0];
       data.profile_image_url_https =
         getServerNameWithProtocol(req) +
@@ -14435,7 +14438,7 @@ CREATE TABLE slack_user_invites (
           )
             .then(function (rows: any) {
               // find the correct one - note: this loop may be useful in warning when people have multiple linkages
-              let userForLtiUserId = null;
+              let userForLtiUserId: any = null;
               (rows || []).forEach(function (row: { uid?: any }) {
                 if (row.uid === req.p.uid) {
                   userForLtiUserId = row;
