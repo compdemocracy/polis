@@ -15,8 +15,8 @@ import {
   CommentOptions,
   ParticipantFields,
   ParticipantCommentModerationResult,
-  User,
-  Conversation,
+  UserType,
+  ConversationType,
   TwitterParameters,
   ParticipantSocialNetworkInfo,
 } from "./d";
@@ -6721,7 +6721,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function updateStripePlan(
-    user: User,
+    user: UserType,
     stripeToken: any,
     stripeEmail: any,
     plan: any
@@ -6925,7 +6925,7 @@ Email verified! You can close this tab or hit the back button.
     var planCode = planCodes[planName];
 
     getUserInfoForUid2(uid)
-      .then(function (user: User) {
+      .then(function (user: UserType) {
         var stripeResponse = JSON.parse(req.p.stripeResponse);
 
         const body =
@@ -7905,7 +7905,7 @@ Email verified! You can close this tab or hit the back button.
               !_.isUndefined(xid) && !_.isNull(xid)
                 ? getXidStuff(xid, zid)
                 : Promise.resolve();
-            pidPromise = xidUserPromise.then((xidUser: User) => {
+            pidPromise = xidUserPromise.then((xidUser: UserType) => {
               shouldCreateXidRecord = xidUser === "noXidRecord";
               if (xidUser && xidUser.uid) {
                 uid = xidUser.uid;
@@ -9653,7 +9653,7 @@ Email verified! You can close this tab or hit the back button.
       uid = req.p.uid_of_user;
     }
 
-    let fields: User = {};
+    let fields: UserType = {};
     if (!_.isUndefined(req.p.email)) {
       fields.email = req.p.email;
     }
@@ -9725,7 +9725,7 @@ Email verified! You can close this tab or hit the back button.
           verifyMetaPromise = Promise.resolve();
         }
 
-        let fields: Conversation = {};
+        let fields: ConversationType = {};
         if (!_.isUndefined(req.p.is_active)) {
           fields.is_active = req.p.is_active;
         }
@@ -11484,7 +11484,7 @@ Email verified! You can close this tab or hit the back button.
     pgQuery_readOnly(
       "SELECT * FROM users WHERE uid = $1",
       [req.p.uid],
-      function (err: any, results: { rows: User[] }) {
+      function (err: any, results: { rows: UserType[] }) {
         if (err) {
           fail(res, 500, "polis_err_get_email_db", err);
           return;
@@ -12170,7 +12170,7 @@ Thanks for using Polis!
   }
   function getAndInsertTwitterUser(o: any, uid?: any) {
     return getTwitterUserInfo(o, false).then(function (userString: string) {
-      const u: User = JSON.parse(userString)[0];
+      const u: UserType = JSON.parse(userString)[0];
       winston.log("info", "TWITTER USER INFO");
       winston.log("info", u);
       winston.log("info", "/TWITTER USER INFO");
@@ -12261,7 +12261,7 @@ Thanks for using Polis!
           )
             .then(
               function (userStringPayload: string) {
-                const u: User = JSON.parse(userStringPayload)[0];
+                const u: UserType = JSON.parse(userStringPayload)[0];
                 winston.log("info", "TWITTER USER INFO");
                 winston.log("info", u);
                 winston.log("info", "/TWITTER USER INFO");
@@ -15496,7 +15496,7 @@ CREATE TABLE slack_user_invites (
     let parent_url = req.p.parent_url;
     let dwok = req.p.dwok;
     let build = req.p.build;
-    let o: Conversation = {};
+    let o: ConversationType = {};
     ifDefinedSet("parent_url", req.p, o);
     ifDefinedSet("auth_needed_to_vote", req.p, o);
     ifDefinedSet("auth_needed_to_write", req.p, o);
