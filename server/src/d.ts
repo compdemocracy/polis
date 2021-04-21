@@ -98,6 +98,12 @@ export type UserType = {
   verified?: any;
   profile_image_url_https?: string;
   location?: any;
+  context_id?: any;
+  user_id?: any;
+  user_image?: any;
+  tool_consumer_instance_guid?: any;
+  lis_person_contact_email_primary?: any;
+  lis_person_name_full?: any;
 };
 
 // TODO rename this to Conversation after converting
@@ -124,6 +130,20 @@ export type ConversationType = {
   owner_sees_participation_stats?: any;
   lti_users_only?: any;
   link_url?: any;
+  course_invite?: any;
+  course_id?: any;
+  zid?: any;
+  uid?: any;
+  context?: any;
+  xid?: any;
+  include_all_conversations_i_am_in?: any;
+  want_mod_url?: any;
+  want_upvoted?: any;
+  want_inbox_item_admin_url?: any;
+  want_inbox_item_participant_url?: any;
+  want_inbox_item_admin_html?: any;
+  want_inbox_item_participant_html?: any;
+  limit?: any;
 };
 
 export type TwitterParameters = {
