@@ -13770,7 +13770,7 @@ CREATE TABLE slack_user_invites (
     }
 
     const existing_uid_for_client = req.p.uid;
-    const token = /\/slack_login_code\/([^\/]*)/.exec(req.path)[1];
+    const token = /\/slack_login_code\/([^\/]*)/.exec(req.path)?.[1];
 
     pgQueryP("select * from slack_user_invites where token = ($1);", [
       token,
@@ -15470,11 +15470,11 @@ CREATE TABLE slack_user_invites (
   ) {
     let site_id = /polis_site_id[^\/]*/.exec(req.path);
     let page_id = /\S\/([^\/]*)/.exec(req.path);
-    if (!site_id.length || page_id.length < 2) {
+    if (!site_id?.length || page_id?.length < 2) {
       fail(res, 404, "polis_err_parsing_site_id_or_page_id");
     }
-    site_id = site_id[0];
-    page_id = page_id[1];
+    site_id = site_id?.[0];
+    page_id = page_id?.[1];
 
     let demo = req.p.demo;
     let ucv = req.p.ucv;
