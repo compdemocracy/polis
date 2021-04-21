@@ -67,8 +67,6 @@ let polisTypes: PolisTypes = {
 polisTypes.reactionValues = _.values(polisTypes.reactions);
 polisTypes.starValues = _.values(polisTypes.staractions);
 
-module.exports = {
-  strToHex,
-  hexToStr,
-  polisTypes,
-};
+export { strToHex, hexToStr, polisTypes };
+
+export default { strToHex, hexToStr, polisTypes };

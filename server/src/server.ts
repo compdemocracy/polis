@@ -2,6 +2,48 @@
 
 "use strict";
 
+import akismetLib from "akismet";
+import AWS from "aws-sdk";
+import badwords from "badwords/object";
+import Promise from "bluebird";
+import http from "http";
+import httpProxy from "http-proxy";
+// const Promise = require('es6-promise').Promise,
+import async from "async";
+import FB from "fb";
+import fs from "fs";
+import bcrypt from "bcrypt";
+import crypto from "crypto";
+// May not need this anymore; looks like we're just using the other Intercom api, but need to figure out
+// what's going on here
+//const Intercom = require('intercom.io'); // https://github.com/tarunc/intercom.io
+import IntercomOfficial from "intercom-client";
+import isTrue from "boolean";
+import OAuth from "oauth";
+// const Pushover = require('pushover-notifications');
+// const pushoverInstance = new Pushover({
+//   user: process.env.PUSHOVER_GROUP_POLIS_DEV,
+//   token: process.env.PUSHOVER_POLIS_PROXY_API_KEY,
+// });
+// const postmark = require("postmark")(process.env.POSTMARK_API_KEY);
+import querystring from "querystring";
+import replaceStream from "replacestream";
+import responseTime from "response-time";
+import request from "request-promise"; // includes Request, but adds promise methods
+import LruCache from "lru-cache";
+import timeout from "connect-timeout";
+import zlib from "zlib";
+import _ from "underscore";
+import { WebClient } from "@slack/client";
+
+import { METRICS_IN_RAM, addInRamMetric, MPromise } from "./utils/metered";
+import CreateUser from "./auth/create-user";
+import Password from "./auth/password";
+import pg from "./db/pg-query";
+import Config from "./config";
+// Re-import disassembled code to promise existing code will work
+import Log from "./log";
+
 import {
   Body,
   DetectLanguageResult,
@@ -17,7 +59,7 @@ import {
   ParticipantCommentModerationResult,
   UserType,
   ConversationType,
-  Comment,
+  CommentType,
   TwitterParameters,
   ParticipantSocialNetworkInfo,
   ParticipantOption,
@@ -27,56 +69,13 @@ import {
   Vote,
   Assignment,
 } from "./d";
-import { METRICS_IN_RAM } from "./utils/metered";
 
-const Config = require("./config");
-
-const akismetLib = require("akismet");
-const AWS = require("aws-sdk");
-AWS.config.set("region", process.env.AWS_REGION);
-const badwords = require("badwords/object");
-const Promise = require("bluebird");
-const http = require("http");
-const httpProxy = require("http-proxy");
-// const Promise = require('es6-promise').Promise,
-const escapeLiteral = require("pg").Client.prototype.escapeLiteral;
-const async = require("async");
-const FB = require("fb");
-const fs = require("fs");
-const bcrypt = require("bcrypt");
-const crypto = require("crypto");
-// May not need this anymore; looks like we're just using the other Intercom api, but need to figure out
-// what's going on here
-//const Intercom = require('intercom.io'); // https://github.com/tarunc/intercom.io
-const IntercomOfficial = require("intercom-client");
-const isTrue = require("boolean");
-const OAuth = require("oauth");
-// const Pushover = require('pushover-notifications');
-// const pushoverInstance = new Pushover({
-//   user: process.env.PUSHOVER_GROUP_POLIS_DEV,
-//   token: process.env.PUSHOVER_POLIS_PROXY_API_KEY,
-// });
-// const postmark = require("postmark")(process.env.POSTMARK_API_KEY);
-const querystring = require("querystring");
+AWS.config.update({ region: process.env.AWS_REGION });
 const devMode = isTrue(process.env.DEV_MODE);
-const replaceStream = require("replacestream");
-const responseTime = require("response-time");
-const request = require("request-promise"); // includes Request, but adds promise methods
 const s3Client = new AWS.S3({ apiVersion: "2006-03-01" });
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
-const LruCache = require("lru-cache");
-const timeout = require("connect-timeout");
-const zlib = require("zlib");
-const _ = require("underscore");
-
-// Re-import disassembled code to promise existing code will work
-const Log = require("./log");
-
-const addInRamMetric = require("./utils/metered").addInRamMetric;
-const MPromise = require("./utils/metered").MPromise;
 const yell = Log.yell;
-
-const pg = require("./db/pg-query");
+const escapeLiteral = pg.Client.prototype.escapeLiteral;
 const pgQuery = pg.query;
 const pgQuery_readOnly = pg.query_readOnly;
 const pgQueryP = pg.queryP;
@@ -84,42 +83,34 @@ const pgQueryP_metered = pg.queryP_metered;
 const pgQueryP_metered_readOnly = pg.queryP_metered_readOnly;
 const pgQueryP_readOnly = pg.queryP_readOnly;
 const pgQueryP_readOnly_wRetryIfEmpty = pg.queryP_readOnly_wRetryIfEmpty;
-
-const CreateUser = require("./auth/create-user");
-const Password = require("./auth/password");
 const doSendVerification = CreateUser.doSendVerification;
 const generateAndRegisterZinvite = CreateUser.generateAndRegisterZinvite;
 const generateToken = Password.generateToken;
 const generateTokenP = Password.generateTokenP;
 
 // TODO: Maybe able to remove
-const generateHashedPassword = require("./auth/password")
-  .generateHashedPassword;
-const checkPassword = require("./auth/password").checkPassword;
-
-const cookies = require("./utils/cookies");
+import { checkPassword, generateHashedPassword } from "./auth/password";
+import cookies from "./utils/cookies";
 const COOKIES = cookies.COOKIES;
 const COOKIES_TO_CLEAR = cookies.COOKIES_TO_CLEAR;
 
-const constants = require("./utils/constants");
+import constants from "./utils/constants";
 const DEFAULTS = constants.DEFAULTS;
 
-const User = require("./user");
-const Conversation = require("./conversation");
-const Session = require("./session");
-const Comment = require("./comment");
-const Utils = require("./utils/common");
-const SQL = require("./db/sql");
+import User from "./user";
+import Conversation from "./conversation";
+import Session from "./session";
+import Comment from "./comment";
+import Utils from "./utils/common";
+import SQL from "./db/sql";
 // End of re-import
 
 // # Slack setup
-
-var WebClient = require("@slack/client").WebClient;
 var web = new WebClient(process.env.SLACK_API_TOKEN);
 // const winston = require("winston");
 // # notifications
 const winston = console;
-const emailSenders = require("./email/senders");
+import emailSenders from "./email/senders";
 const sendTextEmail = emailSenders.sendTextEmail;
 const sendTextEmailWithBackupOnly = emailSenders.sendTextEmailWithBackupOnly;
 

@@ -9,7 +9,7 @@ type MetricsInRam = {
 export const METRICS_IN_RAM: MetricsInRam = {};
 const SHOULD_ADD_METRICS_IN_RAM = false;
 
-function addInRamMetric(metricName: string, val: number) {
+export function addInRamMetric(metricName: string, val: number) {
   if (!SHOULD_ADD_METRICS_IN_RAM) {
     return;
   }
@@ -80,7 +80,4 @@ export function MPromise(
   return p;
 }
 
-module.exports = {
-  addInRamMetric,
-  MPromise,
-};
+export default { addInRamMetric, MPromise };

@@ -62,7 +62,7 @@ export type CommentOptions = {
   currentPid?: any;
 };
 
-export type Comment = {
+export type CommentType = {
   zid?: any;
   not_voted_by_pid?: any;
   include_social?: any;

@@ -3,13 +3,13 @@ import fs from "fs";
 import Translate from "@google-cloud/translate";
 import isTrue from "boolean";
 
-const pg = require("./db/pg-query");
-const SQL = require("./db/sql");
-const MPromise = require("./utils/metered").MPromise;
-const Utils = require("./utils/common");
+import pg from "./db/pg-query";
+import SQL from "./db/sql";
+import { MPromise } from "./utils/metered";
+import Utils from "./utils/common";
 
-const Conversation = require("./conversation");
-const User = require("./user");
+import Conversation from "./conversation";
+import User from "./user";
 
 // TODO should this be a number instead?
 type Id = string;
@@ -450,7 +450,17 @@ function detectLanguage(txt: any) {
   ]);
 }
 
-module.exports = {
+export {
+  getComment,
+  getComments,
+  _getCommentsForModerationList,
+  _getCommentsList,
+  getNumberOfCommentsRemaining,
+  translateAndStoreComment,
+  detectLanguage,
+};
+
+export default {
   getComment,
   getComments,
   _getCommentsForModerationList,

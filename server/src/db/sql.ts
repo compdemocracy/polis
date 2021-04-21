@@ -1,6 +1,6 @@
-const sql = require("sql"); // see here for useful syntax: https://github.com/brianc/node-sql/blob/bbd6ed15a02d4ab8fbc5058ee2aff1ad67acd5dc/lib/node/valueExpression.js
+import sql from "sql"; // see here for useful syntax: https://github.com/brianc/node-sql/blob/bbd6ed15a02d4ab8fbc5058ee2aff1ad67acd5dc/lib/node/valueExpression.js
 
-const sql_conversations = sql.define({
+const sql_conversations: any = sql.define({
   name: "conversations",
   columns: [
     "zid",
@@ -133,7 +133,17 @@ const sql_reports = sql.define({
   ],
 });
 
-module.exports = {
+export {
+  sql_conversations,
+  sql_comments,
+  sql_votes_latest_unique,
+  sql_participant_metadata_answers,
+  sql_participants_extended,
+  sql_reports,
+  sql_users,
+};
+
+export default {
   sql_conversations,
   sql_comments,
   sql_votes_latest_unique,

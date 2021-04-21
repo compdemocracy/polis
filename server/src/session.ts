@@ -244,7 +244,24 @@ function clearPwResetToken(pwresettoken: any, cb: (arg0: null) => void) {
   );
 }
 
-module.exports = {
+export {
+  encrypt,
+  decrypt,
+  makeSessionToken,
+  getUserInfoForSessionToken,
+  createPolisLtiToken,
+  isPolisLtiToken,
+  isPolisSlackTeamUserToken,
+  sendSlackEvent,
+  getUserInfoForPolisLtiToken,
+  startSession,
+  endSession,
+  setupPwReset,
+  getUidForPwResetToken,
+  clearPwResetToken,
+};
+
+export default {
   encrypt,
   decrypt,
   makeSessionToken,
