@@ -25,6 +25,7 @@ import {
   Demo,
   SlackUser,
   Vote,
+  Assignment,
 } from "./d";
 import { METRICS_IN_RAM } from "./utils/metered";
 
@@ -9445,16 +9446,15 @@ Email verified! You can close this tab or hit the back button.
         throw new Error("polis_err_lti_oauth_credentials_are_bad " + ownerUid);
       }
 
-      let promises = callbackInfos.map(function (assignmentCallbackInfo: {
-        lti_user_id: string;
-        gradeFromZeroToOne: number;
-      }) {
+      let promises = callbackInfos.map(function (
+        assignmentCallbackInfo: Assignment
+      ) {
         let gradeFromZeroToOne = isFullPointsEarningLtiUserId[
           assignmentCallbackInfo.lti_user_id
         ]
           ? 1.0
           : 0.0;
-        assignmentCallbackInfo.gradeFromZeroToOne = gradeFromZeroToOne;
+        assignmentCallbackInfo.gradeFromZeroToOne = String(gradeFromZeroToOne);
         winston.log(
           "info",
           "grades assigned" +
