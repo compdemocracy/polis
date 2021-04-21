@@ -23,6 +23,7 @@ import {
   ParticipantOption,
   DemographicEntry,
   Demo,
+  SlackUser,
 } from "./d";
 import { METRICS_IN_RAM } from "./utils/metered";
 
@@ -1782,14 +1783,14 @@ function initializePolisHelpers() {
     return o;
   }
 
-  function getPca(zid: any, math_tick: number) {
+  function getPca(zid?: any, math_tick?: number) {
     let cached = pcaCache.get(zid);
     if (cached && cached.expiration < Date.now()) {
       cached = null;
     }
     let cachedPOJO = cached && cached.asPOJO;
     if (cachedPOJO) {
-      if (cachedPOJO.math_tick <= math_tick) {
+      if (cachedPOJO.math_tick <= (math_tick || 0)) {
         INFO(
           "mathpoll related",
           "math was cached but not new: zid=",
@@ -1836,7 +1837,7 @@ function initializePolisHelpers() {
         item.math_tick = Number(rows[0].math_tick);
       }
 
-      if (item.math_tick <= math_tick) {
+      if (item.math_tick <= (math_tick || 0)) {
         INFO(
           "mathpoll related",
           "after cache miss, unable to find newer item",
@@ -7716,7 +7717,7 @@ Email verified! You can close this tab or hit the back button.
 
   function handle_POST_comments_slack(
     req: {
-      p: { slack_team: any; slack_user_id: any; zid: any; uid?: any; pid: any };
+      p: SlackUser;
     },
     res: any
   ) {
@@ -7763,21 +7764,21 @@ Email verified! You can close this tab or hit the back button.
   function handle_POST_comments(
     req: {
       p: {
-        zid: any;
+        zid?: any;
         uid?: any;
-        txt: any;
-        pid: any;
-        vote: any;
-        twitter_tweet_id: any;
-        quote_twitter_screen_name: any;
-        quote_txt: any;
-        quote_src_url: any;
-        anon: any;
-        is_seed: any;
+        txt?: any;
+        pid?: any;
+        vote?: any;
+        twitter_tweet_id?: any;
+        quote_twitter_screen_name?: any;
+        quote_txt?: any;
+        quote_src_url?: any;
+        anon?: any;
+        is_seed?: any;
       };
       headers?: Headers;
-      connection: { remoteAddress: any; socket: { remoteAddress: any } };
-      socket: { remoteAddress: any };
+      connection?: { remoteAddress: any; socket: { remoteAddress: any } };
+      socket?: { remoteAddress: any };
     },
     res: { json: (arg0: { tid: any; currentPid: any }) => void }
   ) {
@@ -7879,9 +7880,9 @@ Email verified! You can close this tab or hit the back button.
 
           let ip =
             req?.headers?.["x-forwarded-for"] || // TODO This header may contain multiple IP addresses. Which should we report?
-            req.connection.remoteAddress ||
-            req.socket.remoteAddress ||
-            req.connection.socket.remoteAddress;
+            req?.connection?.remoteAddress ||
+            req?.socket?.remoteAddress ||
+            req?.connection?.socket.remoteAddress;
 
           let isSpamPromise = isSpam({
             comment_content: txt,
@@ -8458,11 +8459,11 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function getNextComment(
-    zid: any,
-    pid: any,
-    withoutTids: never[],
-    include_social: boolean,
-    lang: string
+    zid?: any,
+    pid?: any,
+    withoutTids?: any,
+    include_social?: boolean,
+    lang?: string
   ) {
     // return getNextCommentPrioritizingNonPassedComments(zid, pid, withoutTids, !!!!!!!!!!!!!!!!TODO IMPL!!!!!!!!!!!include_social);
     //return getNextCommentRandomly(zid, pid, withoutTids, include_social).then((c) => {
@@ -8471,7 +8472,7 @@ Email verified! You can close this tab or hit the back button.
       pid,
       withoutTids,
       include_social
-    ).then((c: { tid: any; translations: any[]; txt: any }) => {
+    ).then((c: Comment) => {
       if (lang && c) {
         const firstTwoCharsOfLang = lang.substr(0, 2);
         return getCommentTranslations(zid, c.tid).then((translations: any) => {
@@ -8661,8 +8662,8 @@ Email verified! You can close this tab or hit the back button.
           pid: any,
           withoutTids: any,
           include_social: any,
-          lang: any
-        ): any;
+          lang?: any
+        ): Comment;
         (zid: any, uid?: any, lang?: any): any;
         (p: any): any;
         (zid: any, math_tick: any): any;
@@ -13426,18 +13427,18 @@ Thanks for using Polis!
   }
 
   function doFamousQuery(
-    o: { uid?: any; zid: any; math_tick: any; ptptoiLimit: any },
-    req: any
+    o?: { uid?: any; zid: any; math_tick: any; ptptoiLimit: any },
+    req?: any
   ) {
-    let uid = o.uid;
-    let zid = o.zid;
-    let math_tick = o.math_tick;
+    let uid = o?.uid;
+    let zid = o?.zid;
+    let math_tick = o?.math_tick;
 
     // NOTE: if this API is running slow, it's probably because fetching the PCA from pg is slow, and PCA caching is disabled
 
     // let twitterLimit = 999; // we can actually check a lot of these, since they might be among the fb users
     // let softLimit = 26;
-    let hardLimit = _.isUndefined(o.ptptoiLimit) ? 30 : o.ptptoiLimit;
+    let hardLimit = _.isUndefined(o?.ptptoiLimit) ? 30 : o?.ptptoiLimit;
     // let ALLOW_NON_FRIENDS_WHEN_EMPTY_SOCIAL_RESULT = true;
     let mod = 0; // for now, assume all conversations will show unmoderated and approved participants.
 
@@ -15478,8 +15479,8 @@ CREATE TABLE slack_user_invites (
     },
     res: { redirect: (arg0: string) => void }
   ) {
-    let site_id = /polis_site_id[^\/]*/.exec(req.path);
-    let page_id = /\S\/([^\/]*)/.exec(req.path);
+    let site_id = /polis_site_id[^\/]*/.exec(req.path) || "";
+    let page_id = /\S\/([^\/]*)/.exec(req.path) || "";
     if (!site_id?.length || page_id?.length < 2) {
       fail(res, 404, "polis_err_parsing_site_id_or_page_id");
     }
