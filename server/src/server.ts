@@ -7905,7 +7905,7 @@ Email verified! You can close this tab or hit the back button.
               !_.isUndefined(xid) && !_.isNull(xid)
                 ? getXidStuff(xid, zid)
                 : Promise.resolve();
-            pidPromise = xidUserPromise.then((xidUser: string) => {
+            pidPromise = xidUserPromise.then((xidUser: User) => {
               shouldCreateXidRecord = xidUser === "noXidRecord";
               if (xidUser && xidUser.uid) {
                 uid = xidUser.uid;
@@ -12259,8 +12259,8 @@ Thanks for using Polis!
             false
           )
             .then(
-              function (u: string) {
-                u = JSON.parse(u)[0];
+              function (userStringPayload: string) {
+                const u: User = JSON.parse(userStringPayload)[0];
                 winston.log("info", "TWITTER USER INFO");
                 winston.log("info", u);
                 winston.log("info", "/TWITTER USER INFO");
