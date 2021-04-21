@@ -76,6 +76,15 @@ export type User = {
   hname?: any;
   stripeCustomerId?: any;
   uid?: any;
+  pid?: any;
+  id?: any;
+  screen_name?: any;
+  name?: any;
+  followers_count?: number;
+  friends_count?: number;
+  verified?: any;
+  profile_image_url_https?: string;
+  location?: any;
 };
 
 export type Conversation = {
