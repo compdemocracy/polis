@@ -6193,7 +6193,7 @@ Email verified! You can close this tab or hit the back button.
     let hname = o.info.name;
     let fb_friends_response = o.friends;
     let fb_user_id = o.info.id;
-    let response = JSON.parse(req.p.response);
+    let response = JSON.parse(req?.p?.response || "");
     let fb_public_profile = o.info;
     let fb_login_status = response.status;
     // let fb_auth_response = response.authResponse.
@@ -6201,7 +6201,7 @@ Email verified! You can close this tab or hit the back button.
     let verified = o.info.verified;
 
     // let existingUid = req.p.existingUid;
-    let referrer = req.cookies[COOKIES.REFERRER];
+    let referrer = req?.cookies?.[COOKIES.REFERRER];
     let password = req.p.password;
     let uid = req.p.uid;
 
@@ -6721,7 +6721,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function updateStripePlan(
-    user: { stripeCustomerId: any; hname: any; uid?: any; email: any },
+    user: User,
     stripeToken: any,
     stripeEmail: any,
     plan: any
@@ -6786,7 +6786,7 @@ Email verified! You can close this tab or hit the back button.
       });
   }
   function handle_GET_changePlanWithCoupon(
-    req: { p: { uid?: any; code: any } },
+    req: { p: { uid?: any; code?: any } },
     res: any
   ) {
     var uid = req.p.uid;
@@ -6819,7 +6819,10 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function updatePlan(
-    req: { headers?: Headers },
+    req: {
+      headers?: Headers;
+      p: { uid?: any; plan: any; stripeResponse: string };
+    },
     res: any,
     uid: string,
     planCode: number
@@ -6843,7 +6846,7 @@ Email verified! You can close this tab or hit the back button.
     });
   }
   function updatePlanOld(
-    req: { headers?: { origin: string; host: string } },
+    req: { headers?: { origin: string; host: string }; p?: any },
     res: {
       writeHead: (arg0: number, arg1: { Location: string }) => void;
       end: () => any;
@@ -6922,7 +6925,7 @@ Email verified! You can close this tab or hit the back button.
     var planCode = planCodes[planName];
 
     getUserInfoForUid2(uid)
-      .then(function (user: { hname: string; email: string }) {
+      .then(function (user: User) {
         var stripeResponse = JSON.parse(req.p.stripeResponse);
 
         const body =
@@ -6947,7 +6950,7 @@ Email verified! You can close this tab or hit the back button.
       .then(function () {
         res.json({});
       })
-      .catch(function (err: string) {
+      .catch(function (err: any) {
         emailBadProblemTime(
           "FAILED Polis account upgrade: " +
             uid +
@@ -6979,7 +6982,7 @@ Email verified! You can close this tab or hit the back button.
 
       return pgQueryP("select * from stripe_subscriptions where uid = ($1);", [
         uid,
-      ]).then((rows: string | any[]) => {
+      ]).then((rows: string | any[], err: any) => {
         if (!rows || !rows.length) {
           return fail(
             res,
@@ -7115,6 +7118,9 @@ Email verified! You can close this tab or hit the back button.
           }
 
           // Build a map like this {xid -> {votes: 10, comments: 2}}
+          //           (property) votes: number
+          // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
+          // @ts-ignore
           let result = new DD(function () {
             return {
               votes: 0,
