@@ -12169,8 +12169,8 @@ Thanks for using Polis!
     });
   }
   function getAndInsertTwitterUser(o: any, uid?: any) {
-    return getTwitterUserInfo(o, false).then(function (u: string) {
-      u = JSON.parse(u)[0];
+    return getTwitterUserInfo(o, false).then(function (userString: string) {
+      const u: User = JSON.parse(userString)[0];
       winston.log("info", "TWITTER USER INFO");
       winston.log("info", u);
       winston.log("info", "/TWITTER USER INFO");
@@ -12869,7 +12869,7 @@ Thanks for using Polis!
             "&key=" +
             googleApiKey
         )
-        .then(function (response: string) {
+        .then(function (response: any) {
           response = JSON.parse(response);
           if (response.status !== "OK") {
             reject("polis_err_geocoding_failed");
