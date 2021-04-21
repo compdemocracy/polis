@@ -16333,7 +16333,7 @@ CREATE TABLE slack_user_invites (
   });
   console.log("end initializePolisHelpers");
 
-  return {
+  const returnObject: any = {
     addCorsHeader,
     auth,
     authOptional,
@@ -16500,6 +16500,7 @@ CREATE TABLE slack_user_invites (
     //getNextPrioritizedComment,
     //getPca
   };
+  return returnObject;
 } // End of initializePolisHelpers
 // debugging
 //let ph = initializePolisHelpers()
