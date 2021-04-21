@@ -10847,7 +10847,7 @@ Email verified! You can close this tab or hit the back button.
     let uid = req.p.uid;
 
     return isModerator(zid, uid)
-      .then((isMod: any) => {
+      .then((isMod: any, err: string) => {
         if (!isMod) {
           return fail(res, 403, "polis_err_post_reports_permissions", err);
         }
@@ -10870,7 +10870,7 @@ Email verified! You can close this tab or hit the back button.
     let zid = req.p.zid;
 
     return isModerator(zid, uid)
-      .then((isMod: any) => {
+      .then((isMod: any, err: string) => {
         if (!isMod) {
           return fail(res, 403, "polis_err_put_reports_permissions", err);
         }
@@ -13194,6 +13194,9 @@ Thanks for using Polis!
     res: { json: (arg0: {}) => void }
   ) {
     if (!isPolisDev(req.p.uid) || !devMode) {
+      // TODO fix this by piping the error from the usage of this in ./app
+      // Cannot find name 'err'.ts(2304)
+      // @ts-ignore
       return fail(res, 403, "polis_err_permissions", err);
     }
     pgQueryP(
