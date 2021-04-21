@@ -7564,12 +7564,12 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function createModerationUrl(
-    req: { protocol: string; headers?: Headers },
+    req: { p?: ConversationType; protocol?: string; headers?: Headers },
     zinvite: string
   ) {
     let server = devMode ? "http://localhost:5000" : "https://pol.is";
     if (domainOverride) {
-      server = req.protocol + "://" + domainOverride;
+      server = req?.protocol + "://" + domainOverride;
     }
 
     if (req?.headers?.host?.includes("preprod.pol.is")) {
@@ -10569,24 +10569,7 @@ Email verified! You can close this tab or hit the back button.
 
   function getConversations(
     req: {
-      p: {
-        uid?: any;
-        zid: any;
-        xid: any;
-        include_all_conversations_i_am_in: any;
-        want_mod_url: any;
-        want_upvoted: any;
-        want_inbox_item_admin_url: any;
-        want_inbox_item_participant_url: any;
-        want_inbox_item_admin_html: any;
-        want_inbox_item_participant_html: any;
-        context: string;
-        course_invite: any;
-        course_id: any;
-        is_active: any;
-        is_draft: any;
-        limit: any;
-      };
+      p: ConversationType;
     },
     res: {
       status: (
@@ -11167,13 +11150,7 @@ Email verified! You can close this tab or hit the back button.
   }
   function handle_GET_conversations(
     req: {
-      p: {
-        course_invite: any;
-        course_id: any;
-        zid: any;
-        uid?: any;
-        context: any;
-      };
+      p: ConversationType;
     },
     res: any
   ) {
@@ -12839,8 +12816,8 @@ Thanks for using Polis!
         // let it stay 'u'
       }
     }
-    let vectors2 = {};
-    _.each(vectors, function (val: any[], key: string | number) {
+    let vectors2: { [key: string]: any } = {};
+    _.each(vectors, function (val: any[], key: string) {
       vectors2[key] = val.join("");
     });
     return vectors2;
@@ -13111,6 +13088,14 @@ Thanks for using Polis!
         let pidToMetaVotes = _.groupBy(metaVotes, "pid");
 
         for (let i = 0; i < groupStats.length; i++) {
+          // Type '{ gid: number; count: number; gender_male: number; gender_female: number;
+          // gender_null: number; birth_year: number; birth_year_count: number;
+          // meta_comment_agrees: { }; meta_comment_disagrees: { }; meta_comment_passes: { }; }
+          // ' is missing the following properties from type 'DemographicEntry':
+          // ms_birth_year_estimate_fb, ms_birth_year_count, birth_year_guess,
+          // birth_year_guess_countts(2739)
+          //
+          // @ts-ignore
           let s: DemographicEntry = groupStats[i];
           let pids = groupPids[i];
           for (let p = 0; p < pids.length; p++) {
@@ -13680,7 +13665,7 @@ Thanks for using Polis!
                 _.each(
                   vectors,
                   function (value: any, pid: string | number, list: any) {
-                    pid = parseInt(pid);
+                    pid = parseInt(pid as string);
                     let bid = pidsToBids[pid];
                     let notInBucket = _.isUndefined(bid);
                     let isSelf = pidToData[pid].isSelf;
@@ -14230,14 +14215,7 @@ CREATE TABLE slack_user_invites (
 
   function renderLtiLinkagePage(
     req: {
-      p: {
-        context_id: any;
-        user_id: any;
-        user_image: any;
-        tool_consumer_instance_guid?: any;
-        lis_person_contact_email_primary: any;
-        lis_person_name_full: any;
-      };
+      p: UserType;
     },
     res: {
       set: (arg0: { "Content-Type": string }) => void;
@@ -14821,6 +14799,17 @@ CREATE TABLE slack_user_invites (
                 winston.log("info", "lti_linkage didnt exist");
                 // Have them sign in again, since they weren't linked.
                 // NOTE: this could be streamlined by showing a sign-in page that also says "you are signed in as foo, link account foo? OR sign in as someone else"
+                //
+                // (parameter) res: {
+                //     redirect: (arg0: string) => void;
+                //     set: (arg0: {
+                //         "Content-Type": string;
+                //     }) => void;
+                //     send: (arg0: string) => void;
+                // }
+                // Argument of type '{ redirect: (arg0: string) => void; set: (arg0: { "Content-Type": string; }) => void; send: (arg0: string) => void; }' is not assignable to parameter of type '{ set: (arg0: { "Content-Type": string; }) => void; status: (arg0: number) => { (): any; new (): any; send: { (arg0: string): void; new (): any; }; }; }'.ts(2345)
+                //
+                // @ts-ignore
                 renderLtiLinkagePage(req, res, url);
               }
             })
@@ -14860,6 +14849,9 @@ CREATE TABLE slack_user_invites (
                   custom_canvas_assignment_id:
                     req.p.custom_canvas_assignment_id,
                 });
+              // Argument of type '{ redirect: (arg0: string) => void; set: (arg0: { "Content-Type": string; }) => void; send: (arg0: string) => void; }' is not assignable to parameter of type '{ set: (arg0: { "Content-Type": string; }) => void; status: (arg0: number) => { (): any; new (): any; send: { (arg0: string): void; new (): any; }; }; }'.
+              //   Property 'status' is missing in type '{ redirect: (arg0: string) => void; set: (arg0: { "Content-Type": string; }) => void; send: (arg0: string) => void; }' but required in type '{ set: (arg0: { "Content-Type": string; }) => void; status: (arg0: number) => { (): any; new (): any; send: { (arg0: string): void; new (): any; }; }; }'.ts(2345)
+              // @ts-ignore
               renderLtiLinkagePage(req, res, url);
             }
           } else {
@@ -15039,6 +15031,9 @@ CREATE TABLE slack_user_invites (
     let doFetch = makeFileFetcher(hostname, portForParticipationFiles, path, {
       "Content-Type": "image/png",
     });
+    //   Argument of type '{ headers?: { [x: string]: string; } | undefined; }' is not assignable to parameter of type '{ headers?: { host: any; } | undefined; path: any; pipe: (arg0: any) => void; }'.
+    // Type '{ headers?: { [x: string]: string; } | undefined; }' is missing the following properties from type '{ headers?: { host: any; } | undefined; path: any; pipe: (arg0: any) => void; }': path, pipets(2345)
+    // @ts-ignore
     doFetch(req, res);
   }
 
@@ -15507,12 +15502,21 @@ CREATE TABLE slack_user_invites (
     },
     res: { redirect: (arg0: string) => void }
   ) {
-    let site_id = /polis_site_id[^\/]*/.exec(req.path) || "";
-    let page_id = /\S\/([^\/]*)/.exec(req.path) || "";
-    if (!site_id?.length || page_id?.length < 2) {
+    let site_id = /polis_site_id[^\/]*/.exec(req.path) || null;
+    let page_id = /\S\/([^\/]*)/.exec(req.path) || null;
+    if (!site_id?.length || (page_id && page_id?.length < 2)) {
       fail(res, 404, "polis_err_parsing_site_id_or_page_id");
     }
+    // TODO fix this after refactoring server.ts
+    // TODO into smaller files with one function per file
+    // TODO manually tracing scope is too difficult right now
+    //
+    // Type 'string | undefined' is not assignable to type 'RegExpExecArray | null'.
+    //   Type 'undefined' is not assignable to type 'RegExpExecArray | null'.ts(2322)
+    // @ts-ignore
     site_id = site_id?.[0];
+    // Type 'string | undefined' is not assignable to type 'RegExpExecArray | null'.ts(2322)
+    // @ts-ignore
     page_id = page_id?.[1];
 
     let demo = req.p.demo;
