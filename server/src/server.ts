@@ -15718,7 +15718,7 @@ CREATE TABLE slack_user_invites (
     // } else {
     let port = process.env.STATIC_FILES_PORT;
     // set the host header too, since S3 will look at that (or the routing proxy will patch up the request.. not sure which)
-    req?.headers?.host = hostname;
+    if (req && req.headers && req.headers.host) req.headers.host = hostname;
     routingProxy.web(req, res, {
       target: {
         host: hostname,
@@ -15733,6 +15733,9 @@ CREATE TABLE slack_user_invites (
       return process.env.STATIC_FILES_HOST;
     } else {
       let origin = req?.headers?.host;
+      // Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ "pol.is": string; "embed.pol.is": string; "survey.pol.is": string; "preprod.pol.is": string; }'.
+      // No index signature with a parameter of type 'string' was found on type '{ "pol.is": string; "embed.pol.is": string; "survey.pol.is": string; "preprod.pol.is": string; }'.ts(7053)
+      // @ts-ignore
       if (!whitelistedBuckets[origin || ""]) {
         if (hasWhitelistMatches(origin || "")) {
           // Use the prod bucket for non pol.is domains
@@ -15748,6 +15751,9 @@ CREATE TABLE slack_user_invites (
           return;
         }
       }
+      // Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ "pol.is": string; "embed.pol.is": string; "survey.pol.is": string; "preprod.pol.is": string; }'.
+      // No index signature with a parameter of type 'string' was found on type '{ "pol.is": string; "embed.pol.is": string; "survey.pol.is": string; "preprod.pol.is": string; }'.ts(7053)
+      // @ts-ignore
       origin = whitelistedBuckets[origin || ""];
       return origin + "." + process.env.STATIC_FILES_HOST;
     }
@@ -15818,13 +15824,11 @@ CREATE TABLE slack_user_invites (
   }
 
   function makeFileFetcher(
-    hostname: string | undefined,
-    port: string | undefined,
-    path: string,
+    hostname?: string,
+    port?: string,
+    path?: string,
     headers?: { "Content-Type": string },
-    preloadData?:
-      | { conversation: { topic: string; description: string } }
-      | undefined
+    preloadData?: { conversation?: ConversationType }
   ) {
     return function (
       req: { headers?: { host: any }; path: any; pipe: (arg0: any) => void },
@@ -15935,7 +15939,7 @@ CREATE TABLE slack_user_invites (
       writeHead: (arg0: number, arg1: { Location: string }) => void;
       end: () => any;
     },
-    preloadData: { conversation?: any },
+    preloadData: { conversation?: ConversationType },
     port: string | undefined,
     buildNumber?: string | null | undefined
   ) {
@@ -15966,6 +15970,9 @@ CREATE TABLE slack_user_invites (
       preloadData
     );
     if (isUnsupportedBrowser(req)) {
+      // Argument of type '{ path: string; headers?: { host: string; } | undefined; }' is not assignable to parameter of type '{ headers?: { host: any; } | undefined; path: any; pipe: (arg0: any) => void; }'.
+      //   Property 'pipe' is missing in type '{ path: string; headers?: { host: string; } | undefined; }' but required in type '{ headers?: { host: any; } | undefined; path: any; pipe: (arg0: any) => void; }'.ts(2345)
+      // @ts-ignore
       return fetchUnsupportedBrowserPage(req, res);
     } else if (
       !browserSupportsPushState(req) &&
@@ -15979,6 +15986,10 @@ CREATE TABLE slack_user_invites (
 
       return res.end();
     } else {
+      // Argument of type '{ path: string; headers?: { host: string; } | undefined; }'
+      // is not assignable to parameter of type '{ headers?: { host: any; } | undefined;
+      // path: any; pipe: (arg0: any) => void; } '.ts(2345)
+      // @ts-ignore
       return doFetch(req, res);
     }
   }
@@ -16048,6 +16059,9 @@ CREATE TABLE slack_user_invites (
         );
       })
       .catch(function (err: any) {
+        // Argument of type '{ path: string; query?: { build: any; } | undefined; }' is not assignable to parameter of type '{ headers?: { host: any; } | undefined; path: any; pipe: (arg0: any) => void; }'.
+        //   Property 'pipe' is missing in type '{ path: string; query?: { build: any; } | undefined; }' but required in type '{ headers?: { host: any; } | undefined; path: any; pipe: (arg0: any) => void; }'.ts(2345)
+        // @ts-ignore
         fetch404Page(req, res);
         // fail(res, 500, "polis_err_fetching_conversation_info2", err);
       });
@@ -16184,6 +16198,12 @@ CREATE TABLE slack_user_invites (
     return function (req: any, res: { redirect: (arg0: string) => void }) {
       if (hasAuthToken(req)) {
         // user is signed in, serve the app
+        // Argument of type '{ redirect: (arg0: string) => void; }'
+        // is not assignable to parameter of type '{ set: (arg0: any) => void; }'.
+        //
+        // Property 'set' is missing in type '{ redirect: (arg0: string) => void; }'
+        // but required in type '{ set: (arg0: any) => void; }'.ts(2345)
+        // @ts-ignore
         return fetchIndexForAdminPage(req, res);
       } else if (!browserSupportsPushState(req)) {
         // TEMPORARY: Don't show the landing page.
@@ -16191,6 +16211,10 @@ CREATE TABLE slack_user_invites (
         // which ends up here, and since there's no auth token yet,
         // we would show the lander. One fix would be to serve up the auth page
         // as a separate html file, and not rely on JS for the routing.
+        //
+        // Argument of type '{ redirect: (arg0: string) => void; }'
+        // is not assignable to parameter of type '{ set: (arg0: any) => void; }'.ts(2345)
+        // @ts-ignore
         return fetchIndexForAdminPage(req, res);
       } else {
         // user not signed in, redirect to landing page
