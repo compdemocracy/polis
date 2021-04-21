@@ -24,6 +24,7 @@ import {
   DemographicEntry,
   Demo,
   SlackUser,
+  Vote,
 } from "./d";
 import { METRICS_IN_RAM } from "./utils/metered";
 
@@ -8805,16 +8806,7 @@ Email verified! You can close this tab or hit the back button.
 
   function handle_POST_votes(
     req: {
-      p: {
-        uid?: any;
-        zid: any;
-        pid: any;
-        lang: any;
-        tid: any;
-        vote: any;
-        weight: any;
-        starred: any;
-      };
+      p: Vote;
       cookies: { [x: string]: any };
       headers?: Headers;
     },

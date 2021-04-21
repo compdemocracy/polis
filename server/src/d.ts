@@ -172,3 +172,15 @@ export type SlackUser = {
   uid?: any;
   pid?: any;
 };
+
+export type Vote = {
+  uid?: any;
+  zid: any;
+  pid: any;
+  lang: any;
+  tid: any;
+  vote: any;
+  weight: any;
+  starred: any;
+  parent_url: any;
+};
