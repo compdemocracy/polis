@@ -8753,7 +8753,7 @@ Email verified! You can close this tab or hit the back button.
       });
   }
 
-  function updateConversationModifiedTime(zid: any, t: undefined) {
+  function updateConversationModifiedTime(zid: any, t?: undefined) {
     let modified = _.isUndefined(t) ? Date.now() : Number(t);
     let query =
       "update conversations set modified = ($2) where zid = ($1) and modified < ($2);";
@@ -9089,7 +9089,7 @@ Email verified! You can close this tab or hit the back button.
     tid: any,
     pid: any,
     starred: number,
-    created: undefined
+    created?: undefined
   ) {
     starred = starred ? 1 : 0;
     let query =
@@ -10039,7 +10039,7 @@ Email verified! You can close this tab or hit the back button.
     pmaid: any,
     callback: {
       (err: any, zid: any): void;
-      (arg0: string | null, arg1: undefined): void;
+      (arg0: string | null, arg1?: undefined): void;
     }
   ) {
     pgQuery(
@@ -10062,7 +10062,7 @@ Email verified! You can close this tab or hit the back button.
   function getZidForQuestion(
     pmqid: any,
     callback: {
-      (err: any, zid: any): void;
+      (err: any, zid?: any): void;
       (arg0: string | null, arg1: undefined): void;
     }
   ) {
@@ -10142,7 +10142,7 @@ Email verified! You can close this tab or hit the back button.
     let zinvite = req.p.zinvite;
     let suzinvite = req.p.suzinvite;
 
-    function doneChecking(err: boolean, foo: undefined) {
+    function doneChecking(err: boolean, foo?: undefined) {
       if (err) {
         fail(res, 403, "polis_err_get_participant_metadata_auth", err);
         return;
@@ -10192,7 +10192,7 @@ Email verified! You can close this tab or hit the back button.
     let key = req.p.key;
     let uid = req.p.uid;
 
-    function doneChecking(err: any, foo: any) {
+    function doneChecking(err: any, foo?: any) {
       if (err) {
         fail(res, 403, "polis_err_post_participant_metadata_auth", err);
         return;
@@ -10223,7 +10223,7 @@ Email verified! You can close this tab or hit the back button.
     let pmqid = req.p.pmqid;
     let value = req.p.value;
 
-    function doneChecking(err: any, foo: any) {
+    function doneChecking(err: any, foo?: any) {
       if (err) {
         fail(res, 403, "polis_err_post_participant_metadata_auth", err);
         return;
@@ -10280,7 +10280,7 @@ Email verified! You can close this tab or hit the back button.
     let suzinvite = req.p.suzinvite;
     let pmqid = req.p.pmqid;
 
-    function doneChecking(err: boolean, foo: undefined) {
+    function doneChecking(err: boolean, foo?: undefined) {
       if (err) {
         fail(res, 403, "polis_err_get_participant_metadata_auth", err);
         return;
@@ -11755,7 +11755,7 @@ Thanks for using Polis!
       "getTwitterUserInfo",
       function (
         resolve: (arg0: any) => void,
-        reject: (arg0: undefined) => void
+        reject: (arg0?: undefined) => void
       ) {
         let cachedCopy = twitterUserInfoCache.get(identifier);
         if (useCache && cachedCopy) {
@@ -12408,10 +12408,15 @@ Thanks for using Polis!
       });
   }
 
-  function getSocialParticipantsForMod_timed() {
+  function getSocialParticipantsForMod_timed(
+    zid?: any,
+    limit?: any,
+    mod?: any,
+    convOwner?: any
+  ) {
     let start = Date.now();
     return getSocialParticipantsForMod
-      .apply(null, arguments)
+      .apply(null, [zid, limit, mod, convOwner])
       .then(function (results: any) {
         let elapsed = Date.now() - start;
         console.log("getSocialParticipantsForMod_timed", elapsed);
@@ -14205,7 +14210,7 @@ CREATE TABLE slack_user_invites (
         send: { (arg0: string): void; new (): any };
       };
     },
-    afterJoinRedirectUrl: string | undefined
+    afterJoinRedirectUrl?: string
   ) {
     let context_id = req.p.context_id;
     let user_id = req.p.user_id;
@@ -15217,7 +15222,7 @@ CREATE TABLE slack_user_invites (
       }
       return new Promise(function (
         resolve: (arg0: { owner: any; zid: any; zinvite: any }) => void,
-        reject: (arg0: string, arg1: undefined) => void
+        reject: (arg0: string, arg1?: undefined) => void
       ) {
         let uid = rows[0].uid;
         //    create a conversation for the owner we got,
@@ -15889,7 +15894,7 @@ CREATE TABLE slack_user_invites (
     },
     preloadData: { conversation?: any },
     port: string | undefined,
-    buildNumber: string | null | undefined
+    buildNumber?: string | null | undefined
   ) {
     let headers = {
       "Content-Type": "text/html",
