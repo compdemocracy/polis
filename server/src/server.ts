@@ -22,6 +22,7 @@ import {
   ParticipantSocialNetworkInfo,
   ParticipantOption,
   DemographicEntry,
+  Demo,
 } from "./d";
 import { METRICS_IN_RAM } from "./utils/metered";
 
@@ -6976,7 +6977,10 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function handle_POST_stripe_cancel(
-    req: { p: { uid?: any } },
+    req: {
+      headers?: Headers | undefined;
+      p: { uid?: any; plan: any; stripeResponse: string };
+    },
     res: { json: (arg0: {}) => void }
   ) {
     const uid = req.p.uid;
@@ -7186,7 +7190,7 @@ Email verified! You can close this tab or hit the back button.
         fail(res, 500, "polis_err_get_participation_misc", err);
       });
   }
-  function getAgeRange(demo: { ms_birth_year_estimate_fb: any }) {
+  function getAgeRange(demo: Demo) {
     var currentYear = new Date().getUTCFullYear();
     var birthYear = demo.ms_birth_year_estimate_fb;
     if (_.isNull(birthYear) || _.isUndefined(birthYear) || _.isNaN(birthYear)) {
@@ -7213,7 +7217,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   // 0 male, 1 female, 2 other, or NULL
-  function getGender(demo: { fb_gender: any; ms_gender_estimate_fb: any }) {
+  function getGender(demo: Demo) {
     var gender = demo.fb_gender;
     if (_.isNull(gender) || _.isUndefined(gender)) {
       gender = demo.ms_gender_estimate_fb;
@@ -7255,7 +7259,7 @@ Email verified! You can close this tab or hit the back button.
     ]).then((a: any[]) => {
       var votes = a[0];
       var demo = a[1];
-      demo = demo.map((d: { pid: any }) => {
+      demo = demo.map((d: Demo) => {
         return {
           pid: d.pid,
           gender: getGender(d),
