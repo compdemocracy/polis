@@ -10176,8 +10176,24 @@ Email verified! You can close this tab or hit the back button.
     }
 
     if (zinvite) {
+      //       (local function) doneChecking(err: boolean, foo?: undefined): void
+      // Argument of type '(err: boolean, foo?: undefined) => void' is not assignable to parameter of type '{ (err: any, foo: any): void; (err: any, foo: any): void; (err: any): void; (arg0: number | null): void; }'.
+      //   Types of parameters 'err' and 'arg0' are incompatible.
+      //     Type 'number | null' is not assignable to type 'boolean'.
+      //         Type 'null' is not assignable to type 'boolean'.ts(2345)
+      // @ts-ignore
       checkZinviteCodeValidity(zid, zinvite, doneChecking);
     } else if (suzinvite) {
+      //       (local function) checkSuzinviteCodeValidity(zid: any, suzinvite: any, callback: {
+      //     (err: any, foo: any): void;
+      //     (err: any, foo: any): void;
+      //     (err: any): void;
+      //     (arg0: number | null): void;
+      // }): void
+      // Argument of type '(err: boolean, foo?: undefined) => void' is not assignable to parameter of type '{ (err: any, foo: any): void; (err: any, foo: any): void; (err: any): void; (arg0: number | null): void; }'.
+      //   Types of parameters 'err' and 'arg0' are incompatible.
+      //       Type 'number | null' is not assignable to type 'boolean'.ts(2345)
+      // @ts-ignore
       checkSuzinviteCodeValidity(zid, suzinvite, doneChecking);
     } else {
       doneChecking(false);
@@ -10312,8 +10328,18 @@ Email verified! You can close this tab or hit the back button.
     }
 
     if (zinvite) {
+      //       (local function) doneChecking(err: boolean, foo?: undefined): void
+      // Argument of type '(err: boolean, foo?: undefined) => void' is not assignable to parameter of type '{ (err: any, foo: any): void; (err: any, foo: any): void; (err: any): void; (arg0: number | null): void; }'.
+      //   Types of parameters 'err' and 'arg0' are incompatible.
+      //         Type 'number | null' is not assignable to type 'boolean'.ts(2345)
+      // @ts-ignore
       checkZinviteCodeValidity(zid, zinvite, doneChecking);
     } else if (suzinvite) {
+      //       (local function) doneChecking(err: boolean, foo?: undefined): void
+      // Argument of type '(err: boolean, foo?: undefined) => void' is not assignable to parameter of type '{ (err: any, foo: any): void; (err: any, foo: any): void; (err: any): void; (arg0: number | null): void; }'.
+      //   Types of parameters 'err' and 'arg0' are incompatible.
+      //     Type 'number | null' is not assignable to type 'boolean'.ts(2345)
+      // @ts-ignore
       checkSuzinviteCodeValidity(zid, suzinvite, doneChecking);
     } else {
       doneChecking(false);
@@ -10430,8 +10456,18 @@ Email verified! You can close this tab or hit the back button.
     }
 
     if (zinvite) {
+      //       (local function) doneChecking(err: boolean): void
+      // Argument of type '(err: boolean) => void' is not assignable to parameter of type '{ (err: any, foo: any): void; (err: any, foo: any): void; (err: any): void; (arg0: number | null): void; }'.
+      //   Types of parameters 'err' and 'arg0' are incompatible.
+      //         Type 'number | null' is not assignable to type 'boolean'.ts(2345)
+      // @ts-ignore
       checkZinviteCodeValidity(zid, zinvite, doneChecking);
     } else if (suzinvite) {
+      //       (local function) doneChecking(err: boolean): void
+      // Argument of type '(err: boolean) => void' is not assignable to parameter of type '{ (err: any, foo: any): void; (err: any, foo: any): void; (err: any): void; (arg0: number | null): void; }'.
+      //   Types of parameters 'err' and 'arg0' are incompatible.
+      //         Type 'number | null' is not assignable to type 'boolean'.ts(2345)
+      // @ts-ignore
       checkSuzinviteCodeValidity(zid, suzinvite, doneChecking);
     } else {
       doneChecking(false);
@@ -12092,7 +12128,7 @@ Thanks for using Polis!
     query: Promise<any>,
     o: { twitter_screen_name?: any; twitter_user_id?: any },
     zid: any,
-    tweet: null
+    tweet: { user: any } | null
   ) {
     function addParticipantAndFinish(
       uid?: any,
@@ -13519,7 +13555,7 @@ Thanks for using Polis!
         //     }
         // }).then(function(stuff) {
 
-        let participantsWithSocialInfo = stuff[0] || [];
+        let participantsWithSocialInfo: any[] = stuff[0] || [];
         // let facebookFriends = stuff[0] || [];
         // let twitterParticipants = stuff[1] || [];
         // let polisSocialSettings = stuff[2] || [];
@@ -14140,7 +14176,7 @@ CREATE TABLE slack_user_invites (
       suzinvite
     );
   }
-  function buildConversationUrl(req: any, zinvite: string) {
+  function buildConversationUrl(req: any, zinvite: string | null) {
     return getServerNameWithProtocol(req) + "/" + zinvite;
   }
 
