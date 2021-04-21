@@ -71,7 +71,10 @@ export type ParticipantCommentModerationResult = {
   currentPid?: any;
 };
 
-export type User = {
+// TODO rename this to User after converting
+// TODO User import in server.ts to camelCase
+// TODO in standalone change
+export type UserType = {
   email?: any;
   hname?: any;
   stripeCustomerId?: any;
@@ -87,7 +90,10 @@ export type User = {
   location?: any;
 };
 
-export type Conversation = {
+// TODO rename this to Conversation after converting
+// TODO User import in server.ts to camelCase
+// TODO in standalone change
+export type ConversationType = {
   is_active?: any;
   is_anon?: any;
   is_draft?: any;
