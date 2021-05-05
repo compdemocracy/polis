@@ -23,7 +23,18 @@ function encrypt(text: string | null) {
   //       Type 'undefined' is not assignable to type 'BinaryLike'.ts(2769)
   // @ts-ignore
   const cipher = crypto.createCipher(algorithm, password);
+  // No overload matches this call.
+  // Overload 1 of 4, '(data: ArrayBufferView, input_encoding: undefined, output_encoding: Encoding): string', gave the following error.
+  //   Argument of type 'string | null' is not assignable to parameter of type 'ArrayBufferView'.
+  //     Type 'null' is not assignable to type 'ArrayBufferView'.
+  // Overload 2 of 4, '(data: string, input_encoding: Encoding | undefined, output_encoding: Encoding): string', gave the following error.
+  //   Argument of type 'string | null' is not assignable to parameter of type 'string'.
+  //   Type 'null' is not assignable to type 'string'.ts(2769)
+  // @ts-ignore
   var crypted = cipher.update(text, "utf8", "hex");
+  // Type 'string' is not assignable to type 'Buffer & string'.
+  // Type 'string' is not assignable to type 'Buffer'.ts(2322)
+  // @ts-ignore
   crypted += cipher.final("hex");
   return crypted;
 }

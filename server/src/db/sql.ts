@@ -55,6 +55,8 @@ const sql_conversations: any = sql.define({
 //   ],
 // });
 
+// 'sql_comments' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.ts(7022)
+// @ts-ignore
 const sql_comments = sql.define({
   name: "comments",
   columns: [
@@ -143,6 +145,8 @@ export {
   sql_users,
 };
 
+// 'default' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.ts(7022)
+// @ts-ignore
 export default {
   sql_conversations,
   sql_comments,
