@@ -77,14 +77,21 @@ if (useTranslateApi) {
 }
 
 function getComment(zid: Id, tid: Id) {
-  return pg
-    .queryP("select * from comments where zid = ($1) and tid = ($2);", [
-      zid,
-      tid,
-    ])
-    .then((rows: Row[]) => {
-      return (rows && rows[0]) || null;
-    });
+  return (
+    pg
+      .queryP("select * from comments where zid = ($1) and tid = ($2);", [
+        zid,
+        tid,
+      ])
+
+      // Argument of type '(rows: Row[]) => Row' is not assignable to parameter of type '(value: unknown) => Row | PromiseLike<Row>'.
+      // Types of parameters 'rows' and 'value' are incompatible.
+      // Type 'unknown' is not assignable to type 'Row[]'.ts(2345)
+      // @ts-ignore
+      .then((rows: Row[]) => {
+        return (rows && rows[0]) || null;
+      })
+  );
 }
 
 function getComments(o: O) {
@@ -323,6 +330,8 @@ function _getCommentsList(o: {
   random: any;
   limit: any;
 }) {
+  // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
+  // @ts-ignore
   return new MPromise(
     "_getCommentsList",
     function (resolve: (rows: Row[]) => void, reject: (arg0: any) => void) {
@@ -418,14 +427,20 @@ function translateAndStoreComment(zid: any, tid: any, txt: any, lang: any) {
     return translateString(txt, lang).then((results: any[]) => {
       const translation = results[0];
       const src = -1; // Google Translate of txt with no added context
-      return pg
-        .queryP(
-          "insert into comment_translations (zid, tid, txt, lang, src) values ($1, $2, $3, $4, $5) returning *;",
-          [zid, tid, translation, lang, src]
-        )
-        .then((rows: any[]) => {
-          return rows[0];
-        });
+      return (
+        pg
+          .queryP(
+            "insert into comment_translations (zid, tid, txt, lang, src) values ($1, $2, $3, $4, $5) returning *;",
+            [zid, tid, translation, lang, src]
+          )
+          //       Argument of type '(rows: Row[]) => Row' is not assignable to parameter of type '(value: unknown) => Row | PromiseLike<Row>'.
+          // Types of parameters 'rows' and 'value' are incompatible.
+          //   Type 'unknown' is not assignable to type 'Row[]'.ts(2345)
+          // @ts-ignore
+          .then((rows: Row[]) => {
+            return rows[0];
+          })
+      );
     });
   }
   return Promise.resolve(null);
