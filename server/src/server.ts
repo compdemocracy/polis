@@ -2899,6 +2899,9 @@ Feel free to reply to this email if you need help.`;
     let cookieName;
     if (domainOverride || origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
       for (cookieName in req.cookies) {
+        // Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; plan: boolean; referrer: boolean; parent_url: boolean; }'.
+        // No index signature with a parameter of type 'string' was found on type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; plan: boolean; referrer: boolean; parent_url: boolean; }'.ts(7053)
+        // @ts-ignore
         if (COOKIES_TO_CLEAR[cookieName]) {
           res?.clearCookie?.(cookieName, {
             path: "/",
@@ -2907,6 +2910,9 @@ Feel free to reply to this email if you need help.`;
       }
     } else {
       for (cookieName in req.cookies) {
+        // Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; plan: boolean; referrer: boolean; parent_url: boolean; }'.
+        // No index signature with a parameter of type 'string' was found on type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; plan: boolean; referrer: boolean; parent_url: boolean; }'.ts(7053)
+        // @ts-ignore
         if (COOKIES_TO_CLEAR[cookieName]) {
           res?.clearCookie?.(cookieName, {
             path: "/",
@@ -3579,6 +3585,8 @@ Feel free to reply to this email if you need help.`;
         }
 
         qa_results = qa_results.rows;
+        // Property 'rows' is missing in type 'Dictionary<{ pmqid: any; }>' but required in type '{ [x: string]: { pmqid: any; }; rows: any; }'.ts(2741)
+        // @ts-ignore
         qa_results = _.indexBy(qa_results, "pmaid");
         // construct an array of params arrays
         answers = answers.map(function (pmaid: string | number) {
@@ -6394,6 +6402,8 @@ Email verified! You can close this tab or hit the back button.
       });
   }
   function getFriends(fb_access_token: any) {
+    // 'getMoreFriends' implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions.ts(7023)
+    // @ts-ignore
     function getMoreFriends(friendsSoFar: any[], urlForNextCall: any) {
       // urlForNextCall includes access token
       return request.get(urlForNextCall).then(
@@ -6902,6 +6912,8 @@ Email verified! You can close this tab or hit the back button.
     let emailVerifiedPromise = Promise.resolve(true);
     if (!verified) {
       if (email) {
+        // Type 'Promise<unknown>' is missing the following properties from type 'Bluebird<boolean>': caught, error, lastly, bind, and 38 more.ts(2740)
+        // @ts-ignore
         emailVerifiedPromise = isEmailVerified(email);
       } else {
         emailVerifiedPromise = Promise.resolve(false);
@@ -7074,6 +7086,9 @@ Email verified! You can close this tab or hit the back button.
           plan_code: planCode,
         },
       };
+      // Property 'updateUser' does not exist on type 'Client | { leads: { create: Bluebird<{ body?: { user_id: string; } | undefined; }>; update: Bluebird<{ body?: { user_id: string; } | undefined; }>; }; }'.
+      // Property 'updateUser' does not exist on type 'Client'.ts(2339)
+      // @ts-ignore
       intercom.updateUser(params, function (err: any, res: any) {
         if (err) {
           reject(err);
@@ -8381,6 +8396,9 @@ Email verified! You can close this tab or hit the back button.
               } else {
                 return doGetPid().then((pid: any) => {
                   if (shouldCreateXidRecord) {
+                    // Expected 6 arguments, but got 3.ts(2554)
+                    // conversation.ts(34, 3): An argument for 'x_profile_image_url' was not provided.
+                    // @ts-ignore
                     return createXidRecordByZid(zid, uid, xid).then(() => {
                       return pid;
                     });
@@ -8593,36 +8611,48 @@ Email verified! You can close this tab or hit the back button.
                           ? Promise.resolve()
                           : votesPost(uid, pid, zid, tid, vote, 0, false);
 
-                        return votePromise.then(
-                          function (o: { vote: { created: any } }) {
-                            if (o && o.vote && o.vote.created) {
-                              createdTime = o.vote.created;
-                            }
+                        return (
+                          votePromise
+                            // This expression is not callable.
+                            //Each member of the union type '{ <U>(onFulfill?: ((value: void) => Resolvable<U>) | undefined, onReject?: ((error: any) => Resolvable<U>) | undefined): Bluebird<U>; <TResult1 = void, TResult2 = never>(onfulfilled?: ((value: void) => Resolvable<...>) | ... 1 more ... | undefined, onrejected?: ((reason: any) => Resolvable<...>) | ... 1 more ... | u...' has signatures, but none of those signatures are compatible with each other.ts(2349)
+                            // @ts-ignore
+                            .then(
+                              function (o: { vote: { created: any } }) {
+                                if (o && o.vote && o.vote.created) {
+                                  createdTime = o.vote.created;
+                                }
 
-                            setTimeout(function () {
-                              updateConversationModifiedTime(zid, createdTime);
-                              updateLastInteractionTimeForConversation(
-                                zid,
-                                uid
-                              );
-                              if (!_.isUndefined(vote)) {
-                                updateVoteCount(zid, pid);
+                                setTimeout(function () {
+                                  updateConversationModifiedTime(
+                                    zid,
+                                    createdTime
+                                  );
+                                  updateLastInteractionTimeForConversation(
+                                    zid,
+                                    uid
+                                  );
+                                  if (!_.isUndefined(vote)) {
+                                    updateVoteCount(zid, pid);
+                                  }
+                                }, 100);
+
+                                console.log(
+                                  "POST_comments sending json",
+                                  Date.now()
+                                );
+                                res.json({
+                                  tid: tid,
+                                  currentPid: currentPid,
+                                });
+                                console.log(
+                                  "POST_comments sent json",
+                                  Date.now()
+                                );
+                              },
+                              function (err: any) {
+                                fail(res, 500, "polis_err_vote_on_create", err);
                               }
-                            }, 100);
-
-                            console.log(
-                              "POST_comments sending json",
-                              Date.now()
-                            );
-                            res.json({
-                              tid: tid,
-                              currentPid: currentPid,
-                            });
-                            console.log("POST_comments sent json", Date.now());
-                          },
-                          function (err: any) {
-                            fail(res, 500, "polis_err_vote_on_create", err);
-                          }
+                            )
                         );
                       },
                       function (err: { code: string | number }) {
@@ -8784,7 +8814,7 @@ Email verified! You can close this tab or hit the back button.
     // that does a bisectional lookup if performance becomes an issue. But I want to keep the implementation
     // simple to reason about all other things being equal.
     let result = _.find(lookup.lookup, (x: number[]) => x[0] > randomN);
-    let c = result[1];
+    let c = result?.[1];
     c.randomN = randomN;
     return c;
   }
@@ -8797,6 +8827,8 @@ Email verified! You can close this tab or hit the back button.
     withoutTids: string | any[],
     include_social: any
   ) {
+    // Type '{ zid: string; not_voted_by_pid: string; include_social: any; }' is missing the following properties from type 'CommentType': withoutTids, include_voting_patterns, modIn, pid, and 7 more.ts(2740)
+    // @ts-ignore
     let params: CommentType = {
       zid: zid,
       not_voted_by_pid: pid,
@@ -11715,6 +11747,8 @@ Email verified! You can close this tab or hit the back button.
   ) {
     let courseIdPromise = Promise.resolve();
     if (req.p.course_invite) {
+      // Type 'Promise<void>' is missing the following properties from type 'Bluebird<void>': caught, error, lastly, bind, and 38 more.ts(2740)
+      // @ts-ignore
       courseIdPromise = pgQueryP_readOnly(
         "select course_id from courses where course_invite = ($1);",
         [req.p.course_invite]
@@ -13600,6 +13634,8 @@ Thanks for using Polis!
         })
     );
   }
+  // Value of type 'typeof LRUCache' is not callable. Did you mean to include 'new'? ts(2348)
+  // @ts-ignore
   let twitterShareCountCache = LruCache({
     maxAge: 1000 * 60 * 30, // 30 minutes
     max: 999,
@@ -13634,6 +13670,8 @@ Thanks for using Polis!
     );
   }
 
+  // Value of type 'typeof LRUCache' is not callable. Did you mean to include 'new'? ts(2348)
+  // @ts-ignore
   let fbShareCountCache = LruCache({
     maxAge: 1000 * 60 * 30, // 30 minutes
     max: 999,
@@ -14155,6 +14193,9 @@ Thanks for using Polis!
         let groupTids: never[] = [];
         for (var gid in pcaData.repness) {
           let commentData = pcaData.repness[gid];
+          // Type 'any[]' is not assignable to type 'never[]'.
+          // Type 'any' is not assignable to type 'never'.ts(2322)
+          // @ts-ignore
           groupTids = _.union(groupTids, _.pluck(commentData, "tid"));
         }
         let featuredTids = _.union(consensusTids, groupTids);
@@ -14805,6 +14846,10 @@ CREATE TABLE slack_user_invites (
   ) {
     let intercom_lead_user_id: any;
     intercomClient.leads
+      // This expression is not callable.
+      // Not all constituents of type 'Bluebird<{ body?: { user_id: string; } | undefined; }> | { (lead: Partial<Lead>): Promise<ApiResponse<Lead>>; (lead: Partial<Lead>, cb: callback<...>): void; }' are callable.
+      // Type 'Bluebird<{ body?: { user_id: string; } | undefined; }>' has no call signatures.ts(2349)
+      // @ts-ignore
       .create()
       .then((x: { body: { user_id: any } }) => {
         intercom_lead_user_id = x.body.user_id;
@@ -14820,13 +14865,20 @@ CREATE TABLE slack_user_invites (
         if (req.p.role) {
           custom.role = req.p.role;
         }
-        return intercomClient.leads.update({
-          user_id: intercom_lead_user_id,
-          email: req.p.email,
-          last_request_at: Date.now(),
-          name: req.p.name,
-          custom_attributes: custom,
-        });
+        return (
+          intercomClient.leads
+            // This expression is not callable.
+            // Not all constituents of type 'Bluebird<{ body?: { user_id: string; } | undefined; }> | { (lead: UserIdentifier & Partial<Lead>): Promise<ApiResponse<Lead>>; (lead: UserIdentifier & Partial<...>, cb: callback<...>): void; }' are callable.
+            // Type 'Bluebird<{ body?: { user_id: string; } | undefined; }>' has no call signatures.ts(2349)
+            // @ts-ignore
+            .update({
+              user_id: intercom_lead_user_id,
+              email: req.p.email,
+              last_request_at: Date.now(),
+              name: req.p.name,
+              custom_attributes: custom,
+            })
+        );
       })
       .then(() => {
         return pgQueryP(
