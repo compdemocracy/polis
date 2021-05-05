@@ -1,7 +1,7 @@
 const sql = require("sql"); // see here for useful syntax: https://github.com/brianc/node-sql/blob/bbd6ed15a02d4ab8fbc5058ee2aff1ad67acd5dc/lib/node/valueExpression.js
 
 const sql_conversations = sql.define({
-  name: 'conversations',
+  name: "conversations",
   columns: [
     "zid",
     "topic",
@@ -56,7 +56,7 @@ const sql_conversations = sql.define({
 // });
 
 const sql_comments = sql.define({
-  name: 'comments',
+  name: "comments",
   columns: [
     "tid",
     "zid",
@@ -73,29 +73,17 @@ const sql_comments = sql.define({
 });
 
 const sql_votes_latest_unique = sql.define({
-  name: 'votes_latest_unique',
-  columns: [
-    "zid",
-    "tid",
-    "pid",
-    "modified",
-    "vote",
-  ],
+  name: "votes_latest_unique",
+  columns: ["zid", "tid", "pid", "modified", "vote"],
 });
 
 const sql_participant_metadata_answers = sql.define({
-  name: 'participant_metadata_answers',
-  columns: [
-    "pmaid",
-    "pmqid",
-    "zid",
-    "value",
-    "alive",
-  ],
+  name: "participant_metadata_answers",
+  columns: ["pmaid", "pmqid", "zid", "value", "alive"],
 });
 
 const sql_participants_extended = sql.define({
-  name: 'participants_extended',
+  name: "participants_extended",
   columns: [
     "uid",
     "zid",
@@ -115,17 +103,12 @@ const sql_participants_extended = sql.define({
 
 //first we define our tables
 const sql_users = sql.define({
-  name: 'users',
-  columns: [
-    "uid",
-    "hname",
-    "email",
-    "created",
-  ],
+  name: "users",
+  columns: ["uid", "hname", "email", "created"],
 });
 
 const sql_reports = sql.define({
-  name: 'reports',
+  name: "reports",
   columns: [
     "rid",
     "report_id",
@@ -157,5 +140,5 @@ module.exports = {
   sql_participant_metadata_answers,
   sql_participants_extended,
   sql_reports,
-  sql_users
+  sql_users,
 };
