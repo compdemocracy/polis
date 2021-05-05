@@ -10,6 +10,8 @@ import http from "http";
 import httpProxy from "http-proxy";
 // const Promise = require('es6-promise').Promise,
 import async from "async";
+// npm list types-at-fb
+// @ts-ignore
 import FB from "fb";
 import fs from "fs";
 import bcrypt from "bcrypt";
@@ -75,6 +77,12 @@ const devMode = isTrue(process.env.DEV_MODE);
 const s3Client = new AWS.S3({ apiVersion: "2006-03-01" });
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const yell = Log.yell;
+// Property 'Client' does not exist on type '{ query: (...args: any[]) => void; query_readOnly:
+// (...args: any[]) => void; queryP: (...args: any[]) => Promise<unknown>; queryP_metered:
+// (name: any, queryString: any, params: any) => any; queryP_metered_readOnly:
+// (name: any, queryString: any, params: any) => any; queryP_readOnly:
+// (...args: any[]) => Promise <...>; ...'.ts(2339)
+// @ts-ignore
 const escapeLiteral = pg.Client.prototype.escapeLiteral;
 const pgQuery = pg.query;
 const pgQuery_readOnly = pg.query_readOnly;
@@ -118,7 +126,10 @@ const resolveWith = (x: { body?: { user_id: string } }) => {
   return Promise.resolve(x);
 };
 const intercomClient = !isTrue(process.env.DISABLE_INTERCOM)
-  ? new IntercomOfficial.Client({ token: process.env.INTERCOM_ACCESS_TOKEN })
+  ? // Type 'string | undefined' is not assignable to type 'string'.
+    // Type 'undefined' is not assignable to type 'string'.ts(2322)
+    // @ts-ignore
+    new IntercomOfficial.Client({ token: process.env.INTERCOM_ACCESS_TOKEN })
   : {
       leads: {
         create: resolveWith({ body: { user_id: "null_intercom_user_id" } }),
@@ -254,6 +265,8 @@ function isSpam(o: {
   user_agent: any;
   referrer: any;
 }) {
+  // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
+  // @ts-ignore
   return new MPromise(
     "isSpam",
     function (resolve: (arg0: any) => void, reject: (arg0: any) => void) {
@@ -846,6 +859,8 @@ function initializePolisHelpers() {
   }
 
   function votesGet(p: { zid?: any; pid?: any; tid?: any }) {
+    // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
+    // @ts-ignore
     return new MPromise(
       "votesGet",
       function (resolve: (arg0: any) => void, reject: (arg0: any) => void) {
@@ -2319,6 +2334,8 @@ function initializePolisHelpers() {
   }
 
   function getXids(zid: any) {
+    // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
+    // @ts-ignore
     return new MPromise(
       "getXids",
       function (resolve: (arg0: any) => void, reject: (arg0: string) => void) {
@@ -3186,6 +3203,8 @@ Feel free to reply to this email if you need help.`;
       return zid2conversation_id;
     }
 
+    // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
+    // @ts-ignore
     return new MPromise(
       "getZinvites",
       function (resolve: (arg0: {}) => void, reject: (arg0: any) => void) {
@@ -3843,6 +3862,8 @@ Feel free to reply to this email if you need help.`;
 
   // returns null if it's missing
   function getParticipant(zid: any, uid?: any) {
+    // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
+    // @ts-ignore
     return new MPromise(
       "getParticipant",
       function (resolve: (arg0: any) => void, reject: (arg0: Error) => any) {
@@ -4290,6 +4311,8 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function userHasAnsweredZeQuestions(zid: any, answers: string | any[]) {
+    // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
+    // @ts-ignore
     return new MPromise(
       "userHasAnsweredZeQuestions",
       function (resolve: () => any, reject: (arg0: Error) => void) {
@@ -7482,6 +7505,8 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function getNumberOfCommentsWithModerationStatus(zid: any, mod: any) {
+    // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
+    // @ts-ignore
     return new MPromise(
       "getNumberOfCommentsWithModerationStatus",
       function (resolve: (arg0: any) => void, reject: (arg0: any) => void) {
@@ -11754,6 +11779,9 @@ Thanks for using Polis!
       null,
       "HMAC-SHA1"
     );
+
+    // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
+    // @ts-ignore
     return new MPromise(
       "getTwitterUserInfo",
       function (
@@ -11804,6 +11832,9 @@ Thanks for using Polis!
       null,
       "HMAC-SHA1"
     );
+
+    // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
+    // @ts-ignore
     return new MPromise(
       "getTwitterTweet",
       function (resolve: (arg0: any) => void, reject: (arg0: any) => void) {
@@ -15663,6 +15694,8 @@ CREATE TABLE slack_user_invites (
       });
   }
 
+  // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
+  // @ts-ignore
   let routingProxy = new httpProxy.createProxyServer();
 
   function addStaticFileHeaders(res: {
