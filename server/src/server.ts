@@ -865,6 +865,8 @@ function initializePolisHelpers() {
                 // @ts-ignore
               ]).then(([xids, info]) => {
                 var socialAccountIsLinked = info.length > 0;
+                // Object is of type 'unknown'.ts(2571)
+                // @ts-ignore
                 var hasXid = xids.length > 0;
                 if (socialAccountIsLinked || hasXid) {
                   return conv;
@@ -1855,9 +1857,13 @@ function initializePolisHelpers() {
 
   function getPca(zid?: any, math_tick?: number) {
     let cached = pcaCache.get(zid);
+    // Object is of type 'unknown'.ts(2571)
+    // @ts-ignore
     if (cached && cached.expiration < Date.now()) {
       cached = null;
     }
+    // Object is of type 'unknown'.ts(2571)
+    // @ts-ignore
     let cachedPOJO = cached && cached.asPOJO;
     if (cachedPOJO) {
       if (cachedPOJO.math_tick <= (math_tick || 0)) {
@@ -13330,6 +13336,8 @@ Thanks for using Polis!
     let key = zid + "_" + pid;
     let cachedVotes = votesForZidPidCache.get(key);
     if (cachedVotes) {
+      // Object is of type 'unknown'.ts(2571)
+      // @ts-ignore
       let pair = cachedVotes.split(":");
       let cachedTime = Number(pair[0]);
       let votes = pair[1];
