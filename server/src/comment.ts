@@ -10,6 +10,7 @@ import Utils from "./utils/common";
 
 import Conversation from "./conversation";
 import User from "./user";
+import { CommentType } from "./d";
 
 // TODO should this be a number instead?
 type Id = string;
@@ -41,24 +42,6 @@ type InfoToReturn = {
 
 type UidToSocialInfo = {
   [key: string]: any;
-};
-
-// TODO change `O` to a more descriptive variable and type name
-type O = {
-  include_voting_patterns: any;
-  modIn: boolean;
-  zid: any;
-  pid: any;
-  tids: any;
-  random: any;
-  not_voted_by_pid: any;
-  withoutTids: any;
-  limit: any;
-  moderation: any;
-  strict_moderation: any;
-  mod: any;
-  mod_gt: any;
-  include_social: any;
 };
 
 const useTranslateApi = isTrue(process.env.SHOULD_USE_TRANSLATION_API);
@@ -94,7 +77,7 @@ function getComment(zid: Id, tid: Id) {
   );
 }
 
-function getComments(o: O) {
+function getComments(o: CommentType) {
   let commentListPromise = o.moderation
     ? _getCommentsForModerationList(o)
     : _getCommentsList(o);
