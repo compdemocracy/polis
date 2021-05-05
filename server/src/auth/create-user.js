@@ -1,18 +1,18 @@
-const _ = require('underscore');
-const pg = require('../db/pg-query');
-const fail = require('../log').fail;
-const Config = require('../config');
-const Cookies = require('../utils/cookies');
-const User = require('../user');
-const Session = require('../session');
-const Utils = require('../utils/common');
-const Password = require('./password');
+const _ = require("underscore");
+const pg = require("../db/pg-query");
+const fail = require("../log").fail;
+const Config = require("../config");
+const Cookies = require("../utils/cookies");
+const User = require("../user");
+const Session = require("../session");
+const Utils = require("../utils/common");
+const Password = require("./password");
 
-const emailSenders = require('../email/senders');
+const emailSenders = require("../email/senders");
 const sendTextEmail = emailSenders.sendTextEmail;
 
 function createUser(req, res) {
-  const COOKIES = require('../utils/cookies').COOKIES;
+  const COOKIES = require("../utils/cookies").COOKIES;
   let hname = req.p.hname;
   let password = req.p.password;
   let password2 = req.p.password2; // for verification
@@ -39,7 +39,7 @@ function createUser(req, res) {
     }
   }
 
-  if (password2 && (password !== password2)) {
+  if (password2 && password !== password2) {
     fail(res, 400, "Passwords do not match.");
     return;
   }
@@ -68,116 +68,151 @@ function createUser(req, res) {
     return;
   }
 
-  pg.queryP("SELECT * FROM users WHERE email = ($1)", [email]).then(function(rows) {
-
-    if (rows.length > 0) {
-      fail(res, 403, "polis_err_reg_user_with_that_email_exists");
-      return;
-    }
-
-    Password.generateHashedPassword(password, function(err, hashedPassword) {
-      if (err) {
-        fail(res, 500, "polis_err_generating_hash", err);
+  pg.queryP("SELECT * FROM users WHERE email = ($1)", [email]).then(
+    function (rows) {
+      if (rows.length > 0) {
+        fail(res, 403, "polis_err_reg_user_with_that_email_exists");
         return;
       }
-      let query = "insert into users " +
-        "(email, hname, zinvite, oinvite, is_owner" + (site_id ? ", site_id" : "") + ") VALUES " + // TODO use sql query builder
-        "($1, $2, $3, $4, $5" + (site_id ? ", $6" : "") + ") " + // TODO use sql query builder
-        "returning uid;";
-      let vals =
-        [email, hname, zinvite || null, oinvite || null, true];
-      if (site_id) {
-        vals.push(site_id); // TODO use sql query builder
-      }
 
-      pg.query(query, vals, function(err, result) {
+      Password.generateHashedPassword(password, function (err, hashedPassword) {
         if (err) {
-          winston.log("info", err);
-          fail(res, 500, "polis_err_reg_failed_to_add_user_record", err);
+          fail(res, 500, "polis_err_generating_hash", err);
           return;
         }
-        let uid = result && result.rows && result.rows[0] && result.rows[0].uid;
+        let query =
+          "insert into users " +
+          "(email, hname, zinvite, oinvite, is_owner" +
+          (site_id ? ", site_id" : "") +
+          ") VALUES " + // TODO use sql query builder
+          "($1, $2, $3, $4, $5" +
+          (site_id ? ", $6" : "") +
+          ") " + // TODO use sql query builder
+          "returning uid;";
+        let vals = [email, hname, zinvite || null, oinvite || null, true];
+        if (site_id) {
+          vals.push(site_id); // TODO use sql query builder
+        }
 
-        pg.query("insert into jianiuevyew (uid, pwhash) values ($1, $2);", [uid, hashedPassword], function(err, results) {
+        pg.query(query, vals, function (err, result) {
           if (err) {
             winston.log("info", err);
             fail(res, 500, "polis_err_reg_failed_to_add_user_record", err);
             return;
           }
-          Session.startSession(uid, function(err, token) {
-            if (err) {
-              fail(res, 500, "polis_err_reg_failed_to_start_session", err);
-              return;
-            }
-            Cookies.addCookies(req, res, token, uid).then(function() {
+          let uid =
+            result && result.rows && result.rows[0] && result.rows[0].uid;
 
-              let ltiUserPromise = lti_user_id ?
-                User.addLtiUserIfNeeded(uid, lti_user_id, tool_consumer_instance_guid, lti_user_image) :
-                Promise.resolve();
-              let ltiContextMembershipPromise = lti_context_id ?
-                User.addLtiContextMembership(uid, lti_context_id, tool_consumer_instance_guid) :
-                Promise.resolve();
-              Promise.all([ltiUserPromise, ltiContextMembershipPromise]).then(function() {
-                if (lti_user_id) {
-                  if (afterJoinRedirectUrl) {
-                    res.redirect(afterJoinRedirectUrl);
-                  } else {
-                    User.renderLtiLinkageSuccessPage(req, res, {
-                      // may include token here too
-                      context_id: lti_context_id,
-                      uid: uid,
-                      hname: hname,
-                      email: email,
-                    });
-                  }
-                } else {
-                  res.json({
-                    uid: uid,
-                    hname: hname,
-                    email: email,
-                    // token: token
-                  });
+          pg.query(
+            "insert into jianiuevyew (uid, pwhash) values ($1, $2);",
+            [uid, hashedPassword],
+            function (err, results) {
+              if (err) {
+                winston.log("info", err);
+                fail(res, 500, "polis_err_reg_failed_to_add_user_record", err);
+                return;
+              }
+              Session.startSession(uid, function (err, token) {
+                if (err) {
+                  fail(res, 500, "polis_err_reg_failed_to_start_session", err);
+                  return;
                 }
-              }).catch(function(err) {
-                fail(res, 500, "polis_err_creating_user_associating_with_lti_user", err);
-              });
-            }, function(err) {
-              fail(res, 500, "polis_err_adding_cookies", err);
-            }).catch(function(err) {
-              fail(res, 500, "polis_err_adding_user", err);
-            });
-          }); // end startSession
-        }); // end insert pwhash
-      }); // end insert user
-    }); // end generateHashedPassword
-
-  }, function(err) {
-    fail(res, 500, "polis_err_reg_checking_existing_users", err);
-  });
+                Cookies.addCookies(req, res, token, uid)
+                  .then(
+                    function () {
+                      let ltiUserPromise = lti_user_id
+                        ? User.addLtiUserIfNeeded(
+                            uid,
+                            lti_user_id,
+                            tool_consumer_instance_guid,
+                            lti_user_image
+                          )
+                        : Promise.resolve();
+                      let ltiContextMembershipPromise = lti_context_id
+                        ? User.addLtiContextMembership(
+                            uid,
+                            lti_context_id,
+                            tool_consumer_instance_guid
+                          )
+                        : Promise.resolve();
+                      Promise.all([ltiUserPromise, ltiContextMembershipPromise])
+                        .then(function () {
+                          if (lti_user_id) {
+                            if (afterJoinRedirectUrl) {
+                              res.redirect(afterJoinRedirectUrl);
+                            } else {
+                              User.renderLtiLinkageSuccessPage(req, res, {
+                                // may include token here too
+                                context_id: lti_context_id,
+                                uid: uid,
+                                hname: hname,
+                                email: email,
+                              });
+                            }
+                          } else {
+                            res.json({
+                              uid: uid,
+                              hname: hname,
+                              email: email,
+                              // token: token
+                            });
+                          }
+                        })
+                        .catch(function (err) {
+                          fail(
+                            res,
+                            500,
+                            "polis_err_creating_user_associating_with_lti_user",
+                            err
+                          );
+                        });
+                    },
+                    function (err) {
+                      fail(res, 500, "polis_err_adding_cookies", err);
+                    }
+                  )
+                  .catch(function (err) {
+                    fail(res, 500, "polis_err_adding_user", err);
+                  });
+              }); // end startSession
+            }
+          ); // end insert pwhash
+        }); // end insert user
+      }); // end generateHashedPassword
+    },
+    function (err) {
+      fail(res, 500, "polis_err_reg_checking_existing_users", err);
+    }
+  );
 }
 
 function doSendVerification(req, email) {
-  return Password.generateTokenP(30, false).then(function(einvite) {
-    return pg.queryP("insert into einvites (email, einvite) values ($1, $2);", [email, einvite]).then(function(rows) {
-      return sendVerificationEmail(req, email, einvite);
-    });
+  return Password.generateTokenP(30, false).then(function (einvite) {
+    return pg
+      .queryP("insert into einvites (email, einvite) values ($1, $2);", [
+        email,
+        einvite,
+      ])
+      .then(function (rows) {
+        return sendVerificationEmail(req, email, einvite);
+      });
   });
 }
 
 function sendVerificationEmail(req, email, einvite) {
   let serverName = Config.getServerNameWithProtocol(req);
-  let body =
-`Welcome to pol.is!
+  let body = `Welcome to pol.is!
 
 Click this link to verify your email address:
 
 ${serverName}/api/v3/verify?e=${einvite}`;
 
   return sendTextEmail(
-    Config.get('POLIS_FROM_ADDRESS'),
+    Config.get("POLIS_FROM_ADDRESS"),
     email,
     "Polis verification",
-    body);
+    body
+  );
 }
 
 function decodeParams(encodedStringifiedJson) {
@@ -199,15 +234,20 @@ function generateAndRegisterZinvite(zid, generateShort) {
   if (generateShort) {
     len = 6;
   }
-  return Password.generateTokenP(len, false).then(function(zinvite) {
-    return pg.queryP('INSERT INTO zinvites (zid, zinvite, created) VALUES ($1, $2, default);', [zid, zinvite]).then(function(rows) {
-      return zinvite;
-    });
+  return Password.generateTokenP(len, false).then(function (zinvite) {
+    return pg
+      .queryP(
+        "INSERT INTO zinvites (zid, zinvite, created) VALUES ($1, $2, default);",
+        [zid, zinvite]
+      )
+      .then(function (rows) {
+        return zinvite;
+      });
   });
 }
 
 module.exports = {
   createUser,
   doSendVerification,
-  generateAndRegisterZinvite
+  generateAndRegisterZinvite,
 };

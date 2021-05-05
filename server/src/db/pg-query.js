@@ -1,7 +1,7 @@
-const _ = require('underscore');
-const Config = require('../config');
-const yell = require('../log').yell;
-const MPromise = require('../utils/metered').MPromise;
+const _ = require("underscore");
+const Config = require("../config");
+const yell = require("../log").yell;
+const MPromise = require("../utils/metered").MPromise;
 
 // # DB Connections
 //
@@ -14,34 +14,43 @@ const MPromise = require('../utils/metered').MPromise;
 // so we can have 1 preprod/3 prod servers, or 2 preprod / 2 prod.
 //
 // Note we use native
-const pgnative = require('pg').native; //.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
-const parsePgConnectionString = require('pg-connection-string').parse;
+const pgnative = require("pg").native; //.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
+const parsePgConnectionString = require("pg-connection-string").parse;
 
-const usingReplica = process.env.DATABASE_URL !== process.env[process.env.DATABASE_FOR_READS_NAME];
-const poolSize = Config.isDevMode() ? 2 : (usingReplica ? 3 : 12)
+const usingReplica =
+  process.env.DATABASE_URL !== process.env[process.env.DATABASE_FOR_READS_NAME];
+const poolSize = Config.isDevMode() ? 2 : usingReplica ? 3 : 12;
 
 // not sure how many of these config options we really need anymore
-const pgConnection = Object.assign(parsePgConnectionString(process.env.DATABASE_URL),
-  {max: poolSize,
+const pgConnection = Object.assign(
+  parsePgConnectionString(process.env.DATABASE_URL),
+  {
+    max: poolSize,
     isReadOnly: false,
-   poolLog: function(str, level) {
-     if (pgPoolLevelRanks.indexOf(level) <= pgPoolLoggingLevel) {
-       console.log("pool.primary." + level + " " + str);
-     }
-   }})
-const readsPgConnection = Object.assign(parsePgConnectionString(process.env[process.env.DATABASE_FOR_READS_NAME]),
-  {max: poolSize,
-   isReadOnly: true,
-   poolLog: function(str, level) {
-     if (pgPoolLevelRanks.indexOf(level) <= pgPoolLoggingLevel) {
-       console.log("pool.replica." + level + " " + str);
-     }
-   }})
+    poolLog: function (str, level) {
+      if (pgPoolLevelRanks.indexOf(level) <= pgPoolLoggingLevel) {
+        console.log("pool.primary." + level + " " + str);
+      }
+    },
+  }
+);
+const readsPgConnection = Object.assign(
+  parsePgConnectionString(process.env[process.env.DATABASE_FOR_READS_NAME]),
+  {
+    max: poolSize,
+    isReadOnly: true,
+    poolLog: function (str, level) {
+      if (pgPoolLevelRanks.indexOf(level) <= pgPoolLoggingLevel) {
+        console.log("pool.replica." + level + " " + str);
+      }
+    },
+  }
+);
 
 // split requests into centralized read/write transactor pool vs read pool for scalability concerns in keeping
 // pressure down on the transactor (read+write) server
-const readWritePool = new pgnative.Pool(pgConnection)
-const readPool = new pgnative.Pool(readsPgConnection)
+const readWritePool = new pgnative.Pool(pgConnection);
+const readPool = new pgnative.Pool(readsPgConnection);
 
 // Same syntax as pg.client.query, but uses connection pool
 // Also takes care of calling 'done'.
@@ -70,14 +79,14 @@ function queryImpl(pool, queryString, ...args) {
       return;
     }
     // Anyway, here's the actual query call
-    client.query(queryString, params, function(err, results) {
+    client.query(queryString, params, function (err, results) {
       if (err) {
         // force the pool to destroy and remove a client by passing an instance of Error (or anything truthy, actually) to the release() callback
         release(err);
       } else {
         release();
       }
-      callback(err, results)
+      callback(err, results);
     });
   });
 }
@@ -101,8 +110,8 @@ function queryP_impl(config, queryString, params) {
     return Promise.reject("query_was_not_string");
   }
   let f = config.isReadOnly ? query_readOnly : query;
-  return new Promise(function(resolve, reject) {
-    f(queryString, params, function(err, result) {
+  return new Promise(function (resolve, reject) {
+    f(queryString, params, function (err, result) {
       if (err) {
         return reject(err);
       }
@@ -124,7 +133,7 @@ function queryP_readOnly(...args) {
 }
 
 function queryP_readOnly_wRetryIfEmpty(...args) {
-  return queryP_impl(readPool, ...args).then(function(rows) {
+  return queryP_impl(readPool, ...args).then(function (rows) {
     if (!rows.length) {
       // the replica DB didn't have it (yet?) so try the master.
       return queryP(...args);
@@ -135,10 +144,14 @@ function queryP_readOnly_wRetryIfEmpty(...args) {
 
 function queryP_metered_impl(isReadOnly, name, queryString, params) {
   let f = isReadOnly ? queryP_readOnly : queryP;
-  if (_.isUndefined(name) || _.isUndefined(queryString) || _.isUndefined(params)) {
+  if (
+    _.isUndefined(name) ||
+    _.isUndefined(queryString) ||
+    _.isUndefined(params)
+  ) {
     throw new Error("polis_err_queryP_metered_impl missing params");
   }
-  return new MPromise(name, function(resolve, reject) {
+  return new MPromise(name, function (resolve, reject) {
     f(queryString, params).then(resolve, reject);
   });
 }
