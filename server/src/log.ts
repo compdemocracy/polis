@@ -47,7 +47,7 @@ function userFail(
   res: any,
   httpCode: any,
   clientVisibleErrorString: any,
-  err: any
+  err?: any
 ) {
   emitTheFailure(
     res,

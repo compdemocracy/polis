@@ -3,7 +3,7 @@ import LruCache from "lru-cache";
 
 import pg from "./db/pg-query";
 
-function encrypt(text: string) {
+function encrypt(text: string | null) {
   const algorithm = "aes-256-ctr";
   const password = process.env.ENCRYPTION_PASSWORD_00001;
   //
@@ -168,7 +168,7 @@ function startSession(uid: any, cb: (arg0: null, arg1?: string) => void) {
   );
 }
 
-function endSession(sessionToken: any, cb: (arg0: null) => void) {
+function endSession(sessionToken: any, cb: (err: any, data?: any) => void) {
   pg.query(
     "delete from auth_tokens where token = ($1);",
     [sessionToken],
