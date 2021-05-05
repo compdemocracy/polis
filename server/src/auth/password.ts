@@ -22,32 +22,39 @@ function generateHashedPassword(
 }
 
 function checkPassword(uid: any, password: any) {
-  return pg
-    .queryP_readOnly_wRetryIfEmpty(
-      "select pwhash from jianiuevyew where uid = ($1);",
-      [uid]
-    )
-    .then(function (rows: string | any[]) {
-      if (!rows || !rows.length) {
-        return null;
-      } else if (!rows[0].pwhash) {
-        return void 0;
-      }
-      let hashedPassword = rows[0].pwhash;
-      return new Promise(function (resolve, reject) {
-        bcrypt.compare(
-          password,
-          hashedPassword,
-          function (errCompare: any, result: any) {
-            if (errCompare) {
-              reject(errCompare);
-            } else {
-              resolve(result ? "ok" : 0);
+  return (
+    pg
+      .queryP_readOnly_wRetryIfEmpty(
+        "select pwhash from jianiuevyew where uid = ($1);",
+        [uid]
+      )
+      //   Argument of type '(rows: string | any[]) => Promise<unknown> | null | undefined' is not assignable to parameter of type '(value: unknown) => unknown'.
+      // Types of parameters 'rows' and 'value' are incompatible.
+      //   Type 'unknown' is not assignable to type 'string | any[]'.
+      //   Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+      // @ts-ignore
+      .then(function (rows: string | any[]) {
+        if (!rows || !rows.length) {
+          return null;
+        } else if (!rows[0].pwhash) {
+          return void 0;
+        }
+        let hashedPassword = rows[0].pwhash;
+        return new Promise(function (resolve, reject) {
+          bcrypt.compare(
+            password,
+            hashedPassword,
+            function (errCompare: any, result: any) {
+              if (errCompare) {
+                reject(errCompare);
+              } else {
+                resolve(result ? "ok" : 0);
+              }
             }
-          }
-        );
-      });
-    });
+          );
+        });
+      })
+  );
 }
 
 function generateToken(
@@ -55,7 +62,7 @@ function generateToken(
   pseudoRandomOk: any,
   callback: {
     (err: any, token: any): void;
-    (arg0: number, arg1?: undefined): void;
+    (arg0: number, longStringOfTokens?: string): void;
   }
 ) {
   // TODO store up a buffer of random bytes sampled at random times to reduce predictability. (or see if crypto module does this for us)

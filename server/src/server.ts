@@ -446,6 +446,11 @@ function doApiKeyAuth(
   next: { (err: any): void; (err: any): void; (arg0?: string): void }
 ) {
   getUidForApiKey(apikey)
+    //   Argument of type '(rows: string | any[]) => void' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.
+    // Types of parameters 'rows' and 'value' are incompatible.
+    //   Type 'unknown' is not assignable to type 'string | any[]'.
+    //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+    // @ts-ignore
     .then(function (rows: string | any[]) {
       if (!rows || !rows.length) {
         res.status(403);
@@ -500,6 +505,11 @@ function doXidApiKeyAuth(
 ) {
   getUidForApiKey(apikey)
     .then(
+      //     Argument of type '(rows: string | any[]) => Promise<void> | undefined' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void | undefined> | undefined'.
+      // Types of parameters 'rows' and 'value' are incompatible.
+      //   Type 'unknown' is not assignable to type 'string | any[]'.
+      //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+      // @ts-ignore
       function (rows: string | any[]) {
         if (!rows || !rows.length) {
           res.status(403);
@@ -515,6 +525,11 @@ function doXidApiKeyAuth(
           req.body.x_name || req?.query?.x_name || null,
           req.body.x_email || req?.query?.x_email || null,
           !!req.body.agid || !!req?.query?.agid || null
+          //         Argument of type '(rows: string | any[]) => void' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.
+          // Types of parameters 'rows' and 'value' are incompatible.
+          //   Type 'unknown' is not assignable to type 'string | any[]'.
+          //         Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+          // @ts-ignore
         ).then((rows: string | any[]) => {
           if (!rows || !rows.length) {
             if (isOptional) {
@@ -707,6 +722,11 @@ function initializePolisHelpers() {
       "select zid from permanentCookieZidJoins where cookie = ($1) and zid = ($2);",
       [permanentCookieToken, zid]
     ).then(
+      //     Argument of type '(rows: string | any[]) => Promise<unknown> | undefined' is not assignable to parameter of type '(value: unknown) => unknown'.
+      // Types of parameters 'rows' and 'value' are incompatible.
+      //   Type 'unknown' is not assignable to type 'string | any[]'.
+      //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+      // @ts-ignore
       function (rows: string | any[]) {
         if (rows && rows.length) {
           // already there
@@ -726,6 +746,11 @@ function initializePolisHelpers() {
 
   if (isTrue(process.env.BACKFILL_COMMENT_LANG_DETECTION)) {
     pgQueryP("select tid, txt, zid from comments where lang is null;", []).then(
+      //   Argument of type '(comments: string | any[]) => void' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.
+      // Types of parameters 'comments' and 'value' are incompatible.
+      //   Type 'unknown' is not assignable to type 'string | any[]'.
+      //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+      // @ts-ignore
       (comments: string | any[]) => {
         let i = 0;
         function doNext() {
@@ -810,46 +835,59 @@ function initializePolisHelpers() {
     weight?: number,
     shouldNotify?: boolean
   ) {
-    return pgQueryP_readOnly("select * from conversations where zid = ($1);", [
-      zid,
-    ])
-      .then(function (rows: string | any[]) {
-        if (!rows || !rows.length) {
-          throw "polis_err_unknown_conversation";
-        }
-        let conv = rows[0];
-        if (!conv.is_active) {
-          throw "polis_err_conversation_is_closed";
-        }
-        if (conv.auth_needed_to_vote) {
-          return isModerator(zid, uid).then((is_mod: any) => {
-            if (is_mod) {
-              return conv;
-            }
-            return Promise.all([
-              pgQueryP(
-                "select * from xids where owner = ($1) and uid = ($2);",
-                [conv.owner, uid]
-              ),
-              getSocialInfoForUsers([uid], zid),
-              // Binding elements 'xids' and 'info' implicitly have an 'any' type.ts(7031)
-              // @ts-ignore
-            ]).then(([xids, info]) => {
-              var socialAccountIsLinked = info.length > 0;
-              var hasXid = xids.length > 0;
-              if (socialAccountIsLinked || hasXid) {
+    return (
+      pgQueryP_readOnly("select * from conversations where zid = ($1);", [zid])
+        //     Argument of type '(rows: string | any[]) => any' is not assignable to parameter of type '(value: unknown) => any'.
+        // Types of parameters 'rows' and 'value' are incompatible.
+        //   Type 'unknown' is not assignable to type 'string | any[]'.
+        //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+        // @ts-ignore
+        .then(function (rows: string | any[]) {
+          if (!rows || !rows.length) {
+            throw "polis_err_unknown_conversation";
+          }
+          let conv = rows[0];
+          if (!conv.is_active) {
+            throw "polis_err_conversation_is_closed";
+          }
+          if (conv.auth_needed_to_vote) {
+            return isModerator(zid, uid).then((is_mod: any) => {
+              if (is_mod) {
                 return conv;
-              } else {
-                throw "polis_err_post_votes_social_needed";
               }
+              return Promise.all([
+                pgQueryP(
+                  "select * from xids where owner = ($1) and uid = ($2);",
+                  [conv.owner, uid]
+                ),
+                getSocialInfoForUsers([uid], zid),
+                // Binding elements 'xids' and 'info' implicitly have an 'any' type.ts(7031)
+                // @ts-ignore
+              ]).then(([xids, info]) => {
+                var socialAccountIsLinked = info.length > 0;
+                var hasXid = xids.length > 0;
+                if (socialAccountIsLinked || hasXid) {
+                  return conv;
+                } else {
+                  throw "polis_err_post_votes_social_needed";
+                }
+              });
             });
-          });
-        }
-        return conv;
-      })
-      .then(function (conv: any) {
-        return doVotesPost(uid, pid, conv, tid, voteType, weight, shouldNotify);
-      });
+          }
+          return conv;
+        })
+        .then(function (conv: any) {
+          return doVotesPost(
+            uid,
+            pid,
+            conv,
+            tid,
+            voteType,
+            weight,
+            shouldNotify
+          );
+        })
+    );
   }
   function getVotesForSingleParticipant(p: { pid: any }) {
     if (_.isUndefined(p.pid)) {
@@ -1026,6 +1064,11 @@ function initializePolisHelpers() {
           req.body.x_name || req?.query?.x_name || null,
           req.body.x_email || req?.query?.x_email || null,
           !!req.body.agid || !!req?.query?.agid || null
+          //         Argument of type '(rows: string | any[]) => void' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.
+          // Types of parameters 'rows' and 'value' are incompatible.
+          //   Type 'unknown' is not assignable to type 'string | any[]'.
+          //         Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+          // @ts-ignore
         ).then((rows: string | any[]) => {
           if (!rows || !rows.length) {
             if (isOptional) {
@@ -1492,6 +1535,9 @@ function initializePolisHelpers() {
     }
     setCookieTestCookie(req, res, setOnPolisDomain);
 
+    // Argument of type '{ redirect: (arg0: any) => void; }' is not assignable to parameter of type '{ cookie: (arg0: any, arg1: any, arg2: any) => void; }'.
+    // Property 'cookie' is missing in type '{ redirect: (arg0: any) => void; }' but required in type '{ cookie: (arg0: any, arg1: any, arg2: any) => void; }'.ts(2345)
+    // @ts-ignore
     setCookie(req, res, setOnPolisDomain, "top", "ok", {
       httpOnly: false, // not httpOnly - needed by JS
     });
@@ -1531,6 +1577,13 @@ function initializePolisHelpers() {
     }
 
     if (!req.cookies[COOKIES.TRY_COOKIE]) {
+      // Argument of type '{ status: (arg0: number) => { (): any; new (): any; json:
+      // { (arg0: {}): void; new (): any; }; }; }' is not assignable to parameter of type
+      // '{ cookie: (arg0: any, arg1: any, arg2: any) => void; }'.
+      //   Property 'cookie' is missing in type '{ status: (arg0: number) =>
+      // { (): any; new (): any; json: { (arg0: {}): void; new (): any; }; };
+      // } ' but required in type '{ cookie: (arg0: any, arg1: any, arg2: any) => void; } '.ts(2345)
+      // @ts-ignore
       setCookie(req, res, setOnPolisDomain, COOKIES.TRY_COOKIE, "ok", {
         httpOnly: false, // not httpOnly - needed by JS
       });
@@ -1557,6 +1610,10 @@ function initializePolisHelpers() {
       "select * from math_main where caching_tick > ($1) order by caching_tick limit 10;",
       [lastPrefetchedMathTick]
     )
+      // Argument of type '(rows: any[]) => void' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.
+      // Types of parameters 'rows' and 'value' are incompatible.
+      //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+      // @ts-ignore
       .then((rows: any[]) => {
         if (!rows || !rows.length) {
           // call again
@@ -1677,6 +1734,11 @@ function initializePolisHelpers() {
           return { id: Number(x.id), val: x };
         });
       } else {
+        // Argument of type '(id: number) => { id: number; val: any; }'
+        // is not assignable to parameter of type '(value: string, index: number, array: string[]) => { id: number; val: any; }'.
+        // Types of parameters 'id' and 'value' are incompatible.
+        //         Type 'string' is not assignable to type 'number'.ts(2345)
+        // @ts-ignore
         g.val = _.keys(g.val).map((id: number) => {
           return { id: Number(id), val: g.val[id] };
         });
@@ -1826,6 +1888,11 @@ function initializePolisHelpers() {
     return pgQueryP_readOnly(
       "select * from math_main where zid = ($1) and math_env = ($2);",
       [zid, process.env.MATH_ENV]
+      //     Argument of type '(rows: string | any[]) => Promise<any> | null' is not assignable to parameter of type '(value: unknown) => any'.
+      // Types of parameters 'rows' and 'value' are incompatible.
+      //   Type 'unknown' is not assignable to type 'string | any[]'.
+      //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+      // @ts-ignore
     ).then((rows: string | any[]) => {
       let queryEnd = Date.now();
       let queryDuration = queryEnd - queryStart;
@@ -2052,6 +2119,11 @@ function initializePolisHelpers() {
 
   function getZidForRid(rid: any) {
     return pgQueryP("select zid from reports where rid = ($1);", [rid]).then(
+      //     Argument of type '(row: string | any[]) => any' is not assignable to parameter of type '(value: unknown) => any'.
+      // Types of parameters 'row' and 'value' are incompatible.
+      //   Type 'unknown' is not assignable to type 'string | any[]'.
+      //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+      // @ts-ignore
       (row: string | any[]) => {
         if (!row || !row.length) {
           return null;
@@ -2126,6 +2198,11 @@ function initializePolisHelpers() {
       return pgQueryP(
         "select * from report_comment_selections where rid = ($1) and selection = 1;",
         [rid]
+        // Argument of type '(rows: string | any[]) => boolean' is not assignable to parameter of type '(value: unknown) => boolean | PromiseLike<boolean>'.
+        // Types of parameters 'rows' and 'value' are incompatible.
+        // Type 'unknown' is not assignable to type 'string | any[]'.
+        //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+        // @ts-ignore
       ).then((rows: string | any[]) => {
         return rows.length > 0;
       });
@@ -2150,6 +2227,11 @@ function initializePolisHelpers() {
         let rows = a[0];
         let zid = a[1];
         if (!rows || !rows.length) {
+          //         Argument of type '(requests_rows: string | any[]) => globalThis.Promise<void> | undefined' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void | undefined> | undefined'.
+          // Types of parameters 'requests_rows' and 'value' are incompatible.
+          //   Type 'unknown' is not assignable to type 'string | any[]'.
+          //           Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+          // @ts-ignore
           return requestExistsPromise.then((requests_rows: string | any[]) => {
             const shouldAddTask = !requests_rows || !requests_rows.length;
             // const shouldAddTask = true;
@@ -2231,6 +2313,11 @@ function initializePolisHelpers() {
           pgQueryP(
             "select * from worker_tasks where task_type = 'generate_export_data' and task_bucket = ($1);",
             [task_bucket]
+            //           Argument of type '(rows: string | any[]) => void' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.
+            // Types of parameters 'rows' and 'value' are incompatible.
+            //   Type 'unknown' is not assignable to type 'string | any[]'.
+            //           Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+            // @ts-ignore
           ).then((rows: string | any[]) => {
             let ok = rows && rows.length;
             let newOk;
@@ -2295,6 +2382,11 @@ function initializePolisHelpers() {
     return pgQueryP_readOnly(
       "select * from math_bidtopid where zid = ($1) and math_env = ($2);",
       [zid, process.env.MATH_ENV]
+      //     Argument of type '(rows: string | any[]) => any' is not assignable to parameter of type '(value: unknown) => any'.
+      // Types of parameters 'rows' and 'value' are incompatible.
+      //   Type 'unknown' is not assignable to type 'string | any[]'.
+      //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+      // @ts-ignore
     ).then((rows: string | any[]) => {
       if (zid === 12480) {
         console.log("bidToPid", rows[0].data);
@@ -2557,6 +2649,11 @@ function initializePolisHelpers() {
 
     getUidForPwResetToken(
       pwresettoken,
+      //     Argument of type '(err: any, userParams: { uid?: any; }) => void' is not assignable to parameter of type '(arg0: number | null, arg1?: { uid: any; } | undefined) => void'.
+      // Types of parameters 'userParams' and 'arg1' are incompatible.
+      //   Type '{ uid: any; } | undefined' is not assignable to type '{ uid?: any; }'.
+      //     Type 'undefined' is not assignable to type '{ uid?: any; }'.ts(2345)
+      // @ts-ignore
       function (err: any, userParams: { uid?: any }) {
         if (err) {
           console.error(err);
@@ -2741,6 +2838,11 @@ Feel free to reply to this email if you need help.`;
     return pgQueryP_readOnly(
       "SELECT uid FROM users where LOWER(email) = ($1);",
       [email]
+      // Argument of type '(rows: string | any[]) => any' is not assignable to parameter of type '(value: unknown) => any'.
+      //   Types of parameters 'rows' and 'value' are incompatible.
+      //     Type 'unknown' is not assignable to type 'string | any[]'.
+      //       Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+      // @ts-ignore
     ).then(function (rows: string | any[]) {
       if (!rows || !rows.length) {
         throw new Error("polis_err_no_user_matching_email");
@@ -3062,13 +3164,13 @@ Feel free to reply to this email if you need help.`;
       generateToken(
         31 * numTokens,
         true, // For now, pseodorandom bytes are probably ok. Anticipating API call will generate lots of these at once, possibly draining the entropy pool. Revisit this if the otzinvites really need to be unguessable.
-        function (err: any, longStringOfTokens: string) {
+        function (err: any, longStringOfTokens?: string) {
           if (err) {
             reject(new Error("polis_err_creating_otzinvite"));
             return;
           }
           winston.log("info", longStringOfTokens);
-          let otzinviteArrayRegexMatch = longStringOfTokens.match(/.{1,31}/g);
+          let otzinviteArrayRegexMatch = longStringOfTokens?.match(/.{1,31}/g);
           let otzinviteArray = otzinviteArrayRegexMatch?.slice(0, numTokens); // Base64 encoding expands to extra characters, so trim to the number of tokens we want.
           otzinviteArray = otzinviteArray?.map(function (suzinvite: string) {
             return generateConversationURLPrefix() + suzinvite;
@@ -3396,6 +3498,11 @@ Feel free to reply to this email if you need help.`;
     return pgQueryP(
       "select * from xids where xid = ($1) and owner = ($2) and uid = ($3);",
       [xid, owner, uid]
+      //     Argument of type '(rows: string | any[]) => number | ""' is not assignable to parameter of type '(value: unknown) => number | "" | PromiseLike<number | "">'.
+      // Types of parameters 'rows' and 'value' are incompatible.
+      //   Type 'unknown' is not assignable to type 'string | any[]'.
+      //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+      // @ts-ignore
     ).then(function (rows: string | any[]) {
       return rows && rows.length;
     });
@@ -3532,6 +3639,17 @@ Feel free to reply to this email if you need help.`;
         uid,
       ]),
       pgQueryP_readOnly("select * from twitter_users where uid = ($1);", [uid]),
+      //     No overload matches this call.
+      // Overload 1 of 2, '(onFulfill?: ((value: [unknown, unknown]) => Resolvable<{ location: any; source: number; } | null>) | undefined, onReject?: ((error: any) => Resolvable<{ location: any; source: number; } | null>) | undefined): Bluebird<...>', gave the following error.
+      //   Argument of type '(o: any[][]) => { location: any; source: number; } | null' is not assignable to parameter of type '(value: [unknown, unknown]) => Resolvable<{ location: any; source: number; } | null>'.
+      //     Types of parameters 'o' and 'value' are incompatible.
+      //       Type '[unknown, unknown]' is not assignable to type 'any[][]'.
+      //         Type 'unknown' is not assignable to type 'any[]'.
+      // Overload 2 of 2, '(onfulfilled?: ((value: [unknown, unknown]) => Resolvable<{ location: any; source: number; } | null>) | null | undefined, onrejected?: ((reason: any) => PromiseLike<never>) | null | undefined): Bluebird<...>', gave the following error.
+      //   Argument of type '(o: any[][]) => { location: any; source: number; } | null' is not assignable to parameter of type '(value: [unknown, unknown]) => Resolvable<{ location: any; source: number; } | null>'.
+      //     Types of parameters 'o' and 'value' are incompatible.
+      //       Type '[unknown, unknown]' is not assignable to type 'any[][]'.ts(2769)
+      // @ts-ignore
     ]).then(function (o: any[][]) {
       let fb = o[0] && o[0][0];
       let tw = o[1] && o[1][0];
@@ -3557,6 +3675,16 @@ Feel free to reply to this email if you need help.`;
   ) {
     INFO("asdf1", zid, uid, pid);
     getUsersLocationName(uid)
+      //     No overload matches this call.
+      // Overload 1 of 2, '(onFulfill?: ((value: unknown) => Resolvable<void>) | undefined, onReject?: ((error: any) => Resolvable<void>) | undefined): Bluebird<void>', gave the following error.
+      //   Argument of type '(locationData: { location: any; source: any; }) => void' is not assignable to parameter of type '(value: unknown) => Resolvable<void>'.
+      //     Types of parameters 'locationData' and 'value' are incompatible.
+      //       Type 'unknown' is not assignable to type '{ location: any; source: any; }'.
+      // Overload 2 of 2, '(onfulfilled?: ((value: unknown) => Resolvable<void>) | null | undefined, onrejected?: ((reason: any) => PromiseLike<never>) | null | undefined): Bluebird<void>', gave the following error.
+      //   Argument of type '(locationData: { location: any; source: any; }) => void' is not assignable to parameter of type '(value: unknown) => Resolvable<void>'.
+      //     Types of parameters 'locationData' and 'value' are incompatible.
+      //     Type 'unknown' is not assignable to type '{ location: any; source: any; }'.ts(2769)
+      // @ts-ignore
       .then(function (locationData: { location: any; source: any }) {
         if (!locationData) {
           INFO("asdf1.nope");
@@ -3564,6 +3692,10 @@ Feel free to reply to this email if you need help.`;
         }
         INFO(locationData);
         geoCode(locationData.location)
+          //         Argument of type '(o: { lat: any; lng: any; }) => void' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.
+          // Types of parameters 'o' and 'value' are incompatible.
+          //         Type 'unknown' is not assignable to type '{ lat: any; lng: any; }'.ts(2345)
+          // @ts-ignore
           .then(function (o: { lat: any; lng: any }) {
             createParticpantLocationRecord(
               zid,
@@ -3613,6 +3745,16 @@ Feel free to reply to this email if you need help.`;
       contentType =
         "application/vnd.maxmind.com-insights+json; charset=UTF-8; version=2.1";
     }
+    //   No overload matches this call.
+    // Overload 1 of 3, '(uri: string, options?: RequestPromiseOptions | undefined, callback?: RequestCallback | undefined): RequestPromise<any>', gave the following error.
+    //   Argument of type '{ method: string; contentType: string; headers: { Authorization: string; }; }' is not assignable to parameter of type 'RequestPromiseOptions'.
+    //     Object literal may only specify known properties, and 'contentType' does not exist in type 'RequestPromiseOptions'.
+    // Overload 2 of 3, '(uri: string, callback?: RequestCallback | undefined): RequestPromise<any>', gave the following error.
+    //   Argument of type '{ method: string; contentType: string; headers: { Authorization: string; }; }' is not assignable to parameter of type 'RequestCallback'.
+    //     Object literal may only specify known properties, and 'method' does not exist in type 'RequestCallback'.
+    // Overload 3 of 3, '(options: RequiredUriUrl & RequestPromiseOptions, callback?: RequestCallback | undefined): RequestPromise<any>', gave the following error.
+    //   Argument of type 'string' is not assignable to parameter of type 'RequiredUriUrl & RequestPromiseOptions'.ts(2769)
+    // @ts-ignore
     return request
       .get(url + ipAddress, {
         method: "GET",
@@ -3689,6 +3831,10 @@ Feel free to reply to this email if you need help.`;
     }
 
     // there was no participant row, so create one
+    //   Argument of type '(rows: any[]) => any' is not assignable to parameter of type '(value: unknown) => any'.
+    // Types of parameters 'rows' and 'value' are incompatible.
+    //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+    // @ts-ignore
     return addParticipant(zid, uid).then(function (rows: any[]) {
       let pid = rows && rows[0] && rows[0].pid;
       let ptpt = rows[0];
@@ -3727,7 +3873,7 @@ Feel free to reply to this email if you need help.`;
       info.referrer = referer;
     }
     let x_forwarded_for = req?.headers?.["x-forwarded-for"];
-    let ip: null = null;
+    let ip: string | null = null;
     if (x_forwarded_for) {
       let ips = x_forwarded_for;
       ips = ips && ips.split(", ");
@@ -3742,6 +3888,10 @@ Feel free to reply to this email if you need help.`;
     if (req?.headers?.["origin"]) {
       info.origin = req?.headers?.["origin"];
     }
+    //   Argument of type '(rows: any[]) => any[]' is not assignable to parameter of type '(value: unknown) => any[] | PromiseLike<any[]>'.
+    // Types of parameters 'rows' and 'value' are incompatible.
+    //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+    // @ts-ignore
     return addParticipant(zid, uid).then((rows: any[]) => {
       let ptpt = rows[0];
       let pid = ptpt.pid;
@@ -3855,6 +4005,10 @@ Feel free to reply to this email if you need help.`;
     return pgQueryP_readOnly(
       "select count(*) from conversations where owner in (select uid from users where site_id = (select site_id from users where uid = ($2))) and zid = ($1);",
       [zid, uid]
+      //     Argument of type '(rows: { count: number; }[]) => boolean' is not assignable to parameter of type '(value: unknown) => boolean | PromiseLike<boolean>'.
+      // Types of parameters 'rows' and 'value' are incompatible.
+      //     Type 'unknown' is not assignable to type '{ count: number; }[]'.ts(2345)
+      // @ts-ignore
     ).then(function (rows: { count: number }[]) {
       return rows[0].count >= 1;
     });
@@ -3975,6 +4129,10 @@ ${message}`;
   ) {
     getUserInfoForUid(
       uid,
+      //     Argument of type '(err: any, userInfo: { hname: any; email: any; }) => void' is not assignable to parameter of type '(arg0: null, arg1?: undefined) => void'.
+      // Types of parameters 'userInfo' and 'arg1' are incompatible.
+      //     Type 'undefined' is not assignable to type '{ hname: any; email: any; }'.ts(2345)
+      // @ts-ignore
       function (err: any, userInfo: { hname: any; email: any }) {
         if (err) {
           return callback?.(err);
@@ -4083,11 +4241,18 @@ Thank you for using Polis`;
   }
 
   function isEmailVerified(email: any) {
-    return pg
-      .queryP("select * from email_validations where email = ($1);", [email])
-      .then(function (rows: string | any[]) {
-        return rows.length > 0;
-      });
+    return (
+      pg
+        .queryP("select * from email_validations where email = ($1);", [email])
+        //     Argument of type '(rows: string | any[]) => boolean' is not assignable to parameter of type '(value: unknown) => boolean | PromiseLike<boolean>'.
+        // Types of parameters 'rows' and 'value' are incompatible.
+        //   Type 'unknown' is not assignable to type 'string | any[]'.
+        //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+        // @ts-ignore
+        .then(function (rows: string | any[]) {
+          return rows.length > 0;
+        })
+    );
   }
 
   function handle_GET_verification(
@@ -4099,6 +4264,11 @@ Thank you for using Polis`;
   ) {
     let einvite = req.p.e;
     pgQueryP("select * from einvites where einvite = ($1);", [einvite])
+      //     Argument of type '(rows: string | any[]) => Promise<unknown>' is not assignable to parameter of type '(value: unknown) => unknown'.
+      // Types of parameters 'rows' and 'value' are incompatible.
+      //   Type 'unknown' is not assignable to type 'string | any[]'.
+      //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+      // @ts-ignore
       .then(function (rows: string | any[]) {
         if (!rows.length) {
           fail(res, 500, "polis_err_verification_missing");
@@ -4107,6 +4277,11 @@ Thank you for using Polis`;
         return pgQueryP(
           "select email from email_validations where email = ($1);",
           [email]
+          //         Argument of type '(rows: string | any[]) => true | Promise<unknown>' is not assignable to parameter of type '(value: unknown) => unknown'.
+          // Types of parameters 'rows' and 'value' are incompatible.
+          //   Type 'unknown' is not assignable to type 'string | any[]'.
+          //         Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+          // @ts-ignore
         ).then(function (rows: string | any[]) {
           if (rows && rows.length > 0) {
             return true;
@@ -4136,13 +4311,16 @@ Email verified! You can close this tab or hit the back button.
     conversation_id?: any;
     email?: any;
   }) {
+    // Argument of type '(a: number[], b: number[]) => boolean' is not assignable to parameter of type '(a: ["email" | "conversation_id", any], b: ["email" | "conversation_id", any]) => number'.
+    //   Type 'boolean' is not assignable to type 'number'.ts(2345)
+    // @ts-ignore
     let pairs = _.pairs(params).sort(function (a: number[], b: number[]) {
       return a[0] > b[0];
     });
-    pairs = pairs.map(function (pair: any[]) {
+    const pairsList = pairs.map(function (pair: any[]) {
       return pair.join("=");
     });
-    return pairs.join("&");
+    return pairsList.join("&");
   }
 
   // // units are seconds
@@ -4222,6 +4400,11 @@ Email verified! You can close this tab or hit the back button.
       "select * from participants where uid = ($1) and zid = ($2)",
       [uid, zid]
     )
+      //     Argument of type '(rows: string | any[]) => void' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.
+      // Types of parameters 'rows' and 'value' are incompatible.
+      //   Type 'unknown' is not assignable to type 'string | any[]'.
+      //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+      // @ts-ignore
       .then(function (rows: string | any[]) {
         let ptpt = (rows && rows.length && rows[0]) || null;
         res.status(200).json(ptpt);
@@ -4315,6 +4498,10 @@ Email verified! You can close this tab or hit the back button.
     // @ts-ignore
     return new MPromise(
       "userHasAnsweredZeQuestions",
+      //     Argument of type '(resolve: () => any, reject: (arg0: Error) => void) => void'
+      // is not assignable to parameter of type '(resolve: (value: unknown) => void, reject: (reason?: any) => void) => void'.
+      // Types of parameters 'resolve' and 'resolve' are incompatible.ts(2345)
+      // @ts-ignore
       function (resolve: () => any, reject: (arg0: Error) => void) {
         getAnswersForConversation(
           zid,
@@ -4428,6 +4615,11 @@ Email verified! You can close this tab or hit the back button.
               if (conv.lti_users_only) {
                 if (uid) {
                   pgQueryP("select * from lti_users where uid = ($1)", [uid])
+                    // Argument of type '(rows: string | any[]) => void' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.
+                    // Types of parameters 'rows' and 'value' are incompatible.
+                    //   Type 'unknown' is not assignable to type 'string | any[]'.
+                    //    Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+                    // @ts-ignore
                     .then(function (rows: string | any[]) {
                       if (rows && rows.length) {
                         // found a record in lti_users
@@ -4524,6 +4716,11 @@ Email verified! You can close this tab or hit the back button.
   function claimNextNotificationTask() {
     return pgQueryP(
       "delete from notification_tasks where zid = (select zid from notification_tasks order by random() for update skip locked limit 1) returning *;"
+      //   Argument of type '(rows: string | any[]) => any' is not assignable to parameter of type '(value: unknown) => any'.
+      // Types of parameters 'rows' and 'value' are incompatible.
+      //   Type 'unknown' is not assignable to type 'string | any[]'.
+      //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+      // @ts-ignore
     ).then((rows: string | any[]) => {
       if (!rows || !rows.length) {
         return null;
@@ -4534,6 +4731,10 @@ Email verified! You can close this tab or hit the back button.
 
   function getDbTime() {
     return pgQueryP("select now_as_millis();", []).then(
+      //     Argument of type '(rows: {    now_as_millis: any;}[]) => any' is not assignable to parameter of type '(value: unknown) => any'.
+      // Types of parameters 'rows' and 'value' are incompatible.
+      //   Type 'unknown' is not assignable to type '{ now_as_millis: any; }[]'.ts(2345)
+      // @ts-ignore
       (rows: { now_as_millis: any }[]) => {
         return rows[0].now_as_millis;
       }
@@ -4543,176 +4744,194 @@ Email verified! You can close this tab or hit the back button.
   function doNotificationsForZid(zid: any, timeOfLastEvent: any) {
     let shouldTryAgain = false;
 
-    return pgQueryP(
-      "select * from participants where zid = ($1) and last_notified < ($2) and subscribed > 0;",
-      [zid, timeOfLastEvent]
-    )
-      .then((candidates: any[]) => {
-        if (!candidates || !candidates.length) {
-          return null;
-        }
-        candidates = candidates.map(
-          (ptpt: { last_notified: number; last_interaction: number }) => {
-            ptpt.last_notified = Number(ptpt.last_notified);
-            ptpt.last_interaction = Number(ptpt.last_interaction);
-            return ptpt;
+    return (
+      pgQueryP(
+        "select * from participants where zid = ($1) and last_notified < ($2) and subscribed > 0;",
+        [zid, timeOfLastEvent]
+      )
+        // Argument of type '(candidates: any[]) => Promise<{ pid: string | number; remaining: any; }[]
+        // | null > | null' is not assignable to parameter of type '(value: unknown) => { pid: string | number; remaining: any; } []
+        // | PromiseLike<{ pid: string | number; remaining: any; }[] | null> | null'.
+        // Types of parameters 'candidates' and 'value' are incompatible.
+        //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+        // @ts-ignore
+        .then((candidates: any[]) => {
+          if (!candidates || !candidates.length) {
+            return null;
           }
-        );
-        return Promise.all([
-          getDbTime(),
-          getConversationInfo(zid),
-          getZinvite(zid),
-        ]).then((a: any[]) => {
-          let dbTimeMillis = a[0];
-          let conv = a[1];
-          let conversation_id = a[2];
-
-          let url = conv.parent_url || "https://pol.is/" + conversation_id;
-
-          let pid_to_ptpt = {};
-          candidates.forEach((c: { pid: string | number }) => {
-            // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-            // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-            // @ts-ignore
-            pid_to_ptpt[c.pid] = c;
-          });
-          return Promise.mapSeries(
-            candidates,
-            (item: { zid: any; pid: any }, index: any, length: any) => {
-              return getNumberOfCommentsRemaining(item.zid, item.pid).then(
-                (rows: any[]) => {
-                  return rows[0];
-                }
-              );
+          candidates = candidates.map(
+            (ptpt: { last_notified: number; last_interaction: number }) => {
+              ptpt.last_notified = Number(ptpt.last_notified);
+              ptpt.last_interaction = Number(ptpt.last_interaction);
+              return ptpt;
             }
-          ).then((results: any[]) => {
-            const needNotification = results.filter(
-              (result: { pid: string | number; remaining: number }) => {
-                // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-                // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-                // @ts-ignore
-                let ptpt = pid_to_ptpt[result.pid];
-                let needs = true;
+          );
+          return Promise.all([
+            getDbTime(),
+            getConversationInfo(zid),
+            getZinvite(zid),
+          ]).then((a: any[]) => {
+            let dbTimeMillis = a[0];
+            let conv = a[1];
+            let conversation_id = a[2];
 
-                needs = needs && result.remaining > 0;
+            let url = conv.parent_url || "https://pol.is/" + conversation_id;
 
-                // if (needs && result.remaining < 5) {
-                //   // no need to try again for this user since new comments will create new tasks
-                //   console.log('doNotificationsForZid', 'not enough remaining');
-                //   needs = false;
-                // }
-
-                let waitTime = 60 * 60 * 1000;
-
-                // notifications since last interation
-                if (ptpt.nsli === 0) {
-                  // first notification since last interaction
-                  waitTime = 60 * 60 * 1000; // 1 hour
-                } else if (ptpt.nsli === 1) {
-                  // second notification since last interaction
-                  waitTime = 2 * 60 * 60 * 1000; // 4 hours
-                } else if (ptpt.nsli === 2) {
-                  // third notification since last interaction
-                  waitTime = 24 * 60 * 60 * 1000; // 24 hours
-                } else if (ptpt.nsli === 3) {
-                  // third notification since last interaction
-                  waitTime = 48 * 60 * 60 * 1000; // 48 hours
-                } else {
-                  // give up, if they vote again nsli will be set to zero again.
-                  console.log("doNotificationsForZid", "nsli");
-                  needs = false;
-                }
-
-                if (needs && dbTimeMillis < ptpt.last_notified + waitTime) {
-                  // Limit to one per hour.
-                  console.log(
-                    "doNotificationsForZid",
-                    "shouldTryAgain",
-                    "last_notified"
-                  );
-                  shouldTryAgain = true;
-                  needs = false;
-                }
-                if (
-                  needs &&
-                  dbTimeMillis < ptpt.last_interaction + 5 * 60 * 1000
-                ) {
-                  // Wait until 5 minutes after their last interaction.
-                  console.log(
-                    "doNotificationsForZid",
-                    "shouldTryAgain",
-                    "last_interaction"
-                  );
-                  shouldTryAgain = true;
-                  needs = false;
-                }
-
-                if (devMode) {
-                  needs = needs && isPolisDev(ptpt.uid);
-                }
-                return needs;
+            let pid_to_ptpt = {};
+            candidates.forEach((c: { pid: string | number }) => {
+              // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+              // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+              // @ts-ignore
+              pid_to_ptpt[c.pid] = c;
+            });
+            return Promise.mapSeries(
+              candidates,
+              (item: { zid: any; pid: any }, index: any, length: any) => {
+                return getNumberOfCommentsRemaining(item.zid, item.pid).then(
+                  // Argument of type '(rows: any[]) => any' is not assignable to parameter of type '(value: unknown) => any'.
+                  // Types of parameters 'rows' and 'value' are incompatible.
+                  //  Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+                  // @ts-ignore
+                  (rows: any[]) => {
+                    return rows[0];
+                  }
+                );
               }
-            );
-
-            if (needNotification.length === 0) {
-              return null;
-            }
-            const pids = _.pluck(needNotification, "pid");
-
-            // return pgQueryP("select p.uid, p.pid, u.email from participants as p left join users as u on p.uid = u.uid where p.pid in (" + pids.join(",") + ")", []).then((rows) => {
-
-            // })
-            return pgQueryP(
-              "select uid, subscribe_email from participants_extended where uid in (select uid from participants where pid in (" +
-                pids.join(",") +
-                "));",
-              []
-            ).then((rows: any[]) => {
-              let uidToEmail = {};
-              rows.forEach(
-                (row: { uid: string | number; subscribe_email: any }) => {
+            ).then((results: any[]) => {
+              const needNotification = results.filter(
+                (result: { pid: string | number; remaining: number }) => {
                   // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
                   // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
                   // @ts-ignore
-                  uidToEmail[row.uid] = row.subscribe_email;
+                  let ptpt = pid_to_ptpt[result.pid];
+                  let needs = true;
+
+                  needs = needs && result.remaining > 0;
+
+                  // if (needs && result.remaining < 5) {
+                  //   // no need to try again for this user since new comments will create new tasks
+                  //   console.log('doNotificationsForZid', 'not enough remaining');
+                  //   needs = false;
+                  // }
+
+                  let waitTime = 60 * 60 * 1000;
+
+                  // notifications since last interation
+                  if (ptpt.nsli === 0) {
+                    // first notification since last interaction
+                    waitTime = 60 * 60 * 1000; // 1 hour
+                  } else if (ptpt.nsli === 1) {
+                    // second notification since last interaction
+                    waitTime = 2 * 60 * 60 * 1000; // 4 hours
+                  } else if (ptpt.nsli === 2) {
+                    // third notification since last interaction
+                    waitTime = 24 * 60 * 60 * 1000; // 24 hours
+                  } else if (ptpt.nsli === 3) {
+                    // third notification since last interaction
+                    waitTime = 48 * 60 * 60 * 1000; // 48 hours
+                  } else {
+                    // give up, if they vote again nsli will be set to zero again.
+                    console.log("doNotificationsForZid", "nsli");
+                    needs = false;
+                  }
+
+                  if (needs && dbTimeMillis < ptpt.last_notified + waitTime) {
+                    // Limit to one per hour.
+                    console.log(
+                      "doNotificationsForZid",
+                      "shouldTryAgain",
+                      "last_notified"
+                    );
+                    shouldTryAgain = true;
+                    needs = false;
+                  }
+                  if (
+                    needs &&
+                    dbTimeMillis < ptpt.last_interaction + 5 * 60 * 1000
+                  ) {
+                    // Wait until 5 minutes after their last interaction.
+                    console.log(
+                      "doNotificationsForZid",
+                      "shouldTryAgain",
+                      "last_interaction"
+                    );
+                    shouldTryAgain = true;
+                    needs = false;
+                  }
+
+                  if (devMode) {
+                    needs = needs && isPolisDev(ptpt.uid);
+                  }
+                  return needs;
                 }
               );
 
-              return Promise.each(
-                needNotification,
-                (
-                  item: { pid: string | number; remaining: any },
-                  index: any,
-                  length: any
-                ) => {
-                  // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-                  // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-                  // @ts-ignore
-                  const uid = pid_to_ptpt[item.pid].uid;
-                  return sendNotificationEmail(
-                    uid,
-                    url,
-                    conversation_id,
+              if (needNotification.length === 0) {
+                return null;
+              }
+              const pids = _.pluck(needNotification, "pid");
+
+              // return pgQueryP("select p.uid, p.pid, u.email from participants as p left join users as u on p.uid = u.uid where p.pid in (" + pids.join(",") + ")", []).then((rows) => {
+
+              // })
+              return pgQueryP(
+                "select uid, subscribe_email from participants_extended where uid in (select uid from participants where pid in (" +
+                  pids.join(",") +
+                  "));",
+                []
+                // Argument of type '(rows: any[]) => Promise<{ pid: string | number; remaining: any; }[]>'
+                // is not assignable to parameter of type '(value: unknown) => { pid: string | number; remaining: any; }[]
+                // | PromiseLike < { pid: string | number; remaining: any; }[] > '.
+                // Types of parameters 'rows' and 'value' are incompatible.
+                //   Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+                // @ts-ignore
+              ).then((rows: any[]) => {
+                let uidToEmail = {};
+                rows.forEach(
+                  (row: { uid: string | number; subscribe_email: any }) => {
                     // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
                     // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
                     // @ts-ignore
-                    uidToEmail[uid],
-                    item.remaining
-                  ).then(() => {
-                    return pgQueryP(
-                      "update participants set last_notified = now_as_millis(), nsli = nsli + 1 where uid = ($1) and zid = ($2);",
-                      [uid, zid]
-                    );
-                  });
-                }
-              );
+                    uidToEmail[row.uid] = row.subscribe_email;
+                  }
+                );
+
+                return Promise.each(
+                  needNotification,
+                  (
+                    item: { pid: string | number; remaining: any },
+                    index: any,
+                    length: any
+                  ) => {
+                    // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+                    // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+                    // @ts-ignore
+                    const uid = pid_to_ptpt[item.pid].uid;
+                    return sendNotificationEmail(
+                      uid,
+                      url,
+                      conversation_id,
+                      // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+                      // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+                      // @ts-ignore
+                      uidToEmail[uid],
+                      item.remaining
+                    ).then(() => {
+                      return pgQueryP(
+                        "update participants set last_notified = now_as_millis(), nsli = nsli + 1 where uid = ($1) and zid = ($2);",
+                        [uid, zid]
+                      );
+                    });
+                  }
+                );
+              });
             });
           });
-        });
-      })
-      .then(() => {
-        return shouldTryAgain;
-      });
+        })
+        .then(() => {
+          return shouldTryAgain;
+        })
+    );
   }
   function doNotificationBatch() {
     return claimNextNotificationTask().then(
@@ -5040,6 +5259,13 @@ Email verified! You can close this tab or hit the back button.
                     email: email,
                     token: token,
                   };
+                  // Argument of type '{ p: { password: any; email: string; lti_user_id: any; lti_user_image: any;
+                  // lti_context_id: any; tool_consumer_instance_guid?: any; afterJoinRedirectUrl: any; }; }' is not assignable to parameter of type
+                  // '{ cookies: { [x: string]: any; }; }'.
+                  //  Property 'cookies' is missing in type '{ p: { password: any; email: string; lti_user_id: any;
+                  // lti_user_image: any; lti_context_id: any; tool_consumer_instance_guid?: any; afterJoinRedirectUrl: any; }; }' but required in type
+                  // '{ cookies: { [x: string]: any; }; }'.ts(2345)
+                  // @ts-ignore
                   addCookies(req, res, token, uid)
                     .then(function () {
                       winston.log("info", "uid", uid);
@@ -5066,6 +5292,13 @@ Email verified! You can close this tab or hit the back button.
                             if (afterJoinRedirectUrl) {
                               res.redirect(afterJoinRedirectUrl);
                             } else {
+                              // Argument of type '{ redirect: (arg0: any) => void; json: (arg0: { uid?: any; email: any; token: any; }) => void; }'
+                              // is not assignable to parameter of type '{ set: (arg0: { "Content-Type": string; }) => void; status:
+                              // (arg0: number) => { (): any; new (): any; send: { (arg0: string): void; new (): any; }; }; }'.
+                              // Type '{ redirect: (arg0: any) => void; json: (arg0: { uid?: any; email: any; token: any; }) => void; }'
+                              // is missing the following properties from type '{ set: (arg0: { "Content-Type": string; }) => void;
+                              // status: (arg0: number) => { (): any; new (): any; send: { (arg0: string): void; new (): any; }; }; }': set, statusts(2345)
+                              // @ts-ignore
                               User.renderLtiLinkageSuccessPage(req, res, {
                                 // may include token here too
                                 context_id: lti_context_id,
@@ -5134,70 +5367,106 @@ Email verified! You can close this tab or hit the back button.
     //     else
     //         let them join without forcing a sign in (assuming conversation allows that)
 
-    return joinWithZidOrSuzinvite({
-      answers: req.p.answers,
-      existingAuth: !!req.p.uid,
-      suzinvite: req.p.suzinvite,
-      permanentCookieToken: req.p.permanentCookieToken,
-      uid: req.p.uid,
-      zid: req.p.zid, // since the zid is looked up using the conversation_id, it's safe to use zid as an invite token. TODO huh?
-      referrer: req.p.referrer,
-      parent_url: req.p.parent_url,
-    })
-      .then(function (o: { uid?: any; existingAuth: string }) {
-        let uid = o.uid;
-        winston.log(
-          "info",
-          "startSessionAndAddCookies " + uid + " existing " + o.existingAuth
-        );
-        // TODO check for possible security implications
-        if (!o.existingAuth) {
-          return startSessionAndAddCookies(req, res, uid).then(function () {
-            return o;
-          });
-        }
-        return Promise.resolve(o);
+    return (
+      joinWithZidOrSuzinvite({
+        answers: req.p.answers,
+        existingAuth: !!req.p.uid,
+        suzinvite: req.p.suzinvite,
+        permanentCookieToken: req.p.permanentCookieToken,
+        uid: req.p.uid,
+        zid: req.p.zid, // since the zid is looked up using the conversation_id, it's safe to use zid as an invite token. TODO huh?
+        referrer: req.p.referrer,
+        parent_url: req.p.parent_url,
       })
-      .then(function (o: { permanentCookieToken: any; zid: any }) {
-        winston.log("info", "permanentCookieToken", o.permanentCookieToken);
-        if (o.permanentCookieToken) {
-          return recordPermanentCookieZidJoin(
-            o.permanentCookieToken,
-            o.zid
-          ).then(
-            function () {
-              return o;
-            },
-            function () {
-              return o;
-            }
+        //     No overload matches this call.
+        // Overload 1 of 2, '(onFulfill?: ((value: unknown) => Resolvable<{ uid?: any; existingAuth: string; }>) | undefined, onReject?: ((error: any) => Resolvable<{ uid?: any; existingAuth: string; }>) | undefined): Bluebird<...>', gave the following error.
+        //   Argument of type '(o: { uid?: any; existingAuth: string; }) => Bluebird<{ uid?: any; existingAuth: string; }>' is not assignable to parameter of type '(value: unknown) => Resolvable<{ uid?: any; existingAuth: string; }>'.
+        //     Types of parameters 'o' and 'value' are incompatible.
+        //       Type 'unknown' is not assignable to type '{ uid?: any; existingAuth: string; }'.
+        // Overload 2 of 2, '(onfulfilled?: ((value: unknown) => Resolvable<{ uid?: any; existingAuth: string; }>) | null | undefined, onrejected?: ((reason: any) => PromiseLike<never>) | null | undefined): Bluebird<...>', gave the following error.
+        //   Argument of type '(o: { uid?: any; existingAuth: string; }) => Bluebird<{ uid?: any; existingAuth: string; }>' is not assignable to parameter of type '(value: unknown) => Resolvable<{ uid?: any; existingAuth: string; }>'.
+        //     Types of parameters 'o' and 'value' are incompatible.
+        //     Type 'unknown' is not assignable to type '{ uid?: any; existingAuth: string; }'.ts(2769)
+        // @ts-ignore
+        .then(function (o: { uid?: any; existingAuth: string }) {
+          let uid = o.uid;
+          winston.log(
+            "info",
+            "startSessionAndAddCookies " + uid + " existing " + o.existingAuth
           );
-        } else {
-          return o;
-        }
-      })
-      .then(function (o: { pid: any }) {
-        let pid = o.pid;
-        res.status(200).json({
-          pid: pid,
-          uid: req.p.uid,
-        });
-      })
-      .catch(function (err: { message: string }) {
-        if (
-          err &&
-          err.message &&
-          err.message.match(/polis_err_need_full_user/)
-        ) {
-          userFail(res, 403, err.message, err);
-        } else if (err && err.message) {
-          fail(res, 500, err.message, err);
-        } else if (err) {
-          fail(res, 500, "polis_err_joinWithZidOrSuzinvite", err);
-        } else {
-          fail(res, 500, "polis_err_joinWithZidOrSuzinvite");
-        }
-      });
+          // TODO check for possible security implications
+          if (!o.existingAuth) {
+            return startSessionAndAddCookies(req, res, uid).then(function () {
+              return o;
+            });
+          }
+          return Promise.resolve(o);
+        })
+        //       No overload matches this call.
+        // Overload 1 of 2, '(onFulfill?: ((value: unknown) => Resolvable<{ permanentCookieToken: any; zid: any; }>) | undefined,
+        //  onReject ?: ((error: any) => Resolvable<{ permanentCookieToken: any; zid: any; }>) | undefined): Bluebird <...> ', gave the following error.
+        //   Argument of type '(o: { permanentCookieToken: any; zid: any; }) => { permanentCookieToken: any; zid: any; } |
+        // Promise < { permanentCookieToken: any; zid: any; } > ' is not assignable to parameter of type '(value: unknown) => Resolvable < { permanentCookieToken: any; zid: any; } > '.
+        //     Types of parameters 'o' and 'value' are incompatible.
+        //       Type 'unknown' is not assignable to type '{ permanentCookieToken: any; zid: any; }'.
+        // Overload 2 of 2, '(onfulfilled?: ((value: unknown) => Resolvable<{ permanentCookieToken: any; zid: any; }>) |
+        //  null | undefined, onrejected ?: ((reason: any) => PromiseLike<never>) | null | undefined): Bluebird <...> ', gave the following error.
+        //   Argument of type '(o: { permanentCookieToken: any; zid: any; }) => { permanentCookieToken: any; zid: any; } |
+        // Promise < { permanentCookieToken: any; zid: any; } > ' is not assignable to parameter of type '(value: unknown) => Resolvable < { permanentCookieToken: any; zid: any; } > '.
+        //     Types of parameters 'o' and 'value' are incompatible.
+        //     Type 'unknown' is not assignable to type '{ permanentCookieToken: any; zid: any; }'.ts(2769)
+        // @ts-ignore
+        .then(function (o: { permanentCookieToken: any; zid: any }) {
+          winston.log("info", "permanentCookieToken", o.permanentCookieToken);
+          if (o.permanentCookieToken) {
+            return recordPermanentCookieZidJoin(
+              o.permanentCookieToken,
+              o.zid
+            ).then(
+              function () {
+                return o;
+              },
+              function () {
+                return o;
+              }
+            );
+          } else {
+            return o;
+          }
+        })
+        //       No overload matches this call.
+        // Overload 1 of 2, '(onFulfill?: ((value: unknown) => Resolvable<void>) | undefined, onReject?: ((error: any) => Resolvable<void>) | undefined): Bluebird<void>', gave the following error.
+        //   Argument of type '(o: { pid: any; }) => void' is not assignable to parameter of type '(value: unknown) => Resolvable<void>'.
+        //     Types of parameters 'o' and 'value' are incompatible.
+        //       Type 'unknown' is not assignable to type '{ pid: any; }'.
+        // Overload 2 of 2, '(onfulfilled?: ((value: unknown) => Resolvable<void>) | null | undefined, onrejected?: ((reason: any) => PromiseLike<never>) | null | undefined): Bluebird<void>', gave the following error.
+        //   Argument of type '(o: { pid: any; }) => void' is not assignable to parameter of type '(value: unknown) => Resolvable<void>'.
+        //     Types of parameters 'o' and 'value' are incompatible.
+        //     Type 'unknown' is not assignable to type '{ pid: any; }'.ts(2769)
+        // @ts-ignore
+        .then(function (o: { pid: any }) {
+          let pid = o.pid;
+          res.status(200).json({
+            pid: pid,
+            uid: req.p.uid,
+          });
+        })
+        .catch(function (err: { message: string }) {
+          if (
+            err &&
+            err.message &&
+            err.message.match(/polis_err_need_full_user/)
+          ) {
+            userFail(res, 403, err.message, err);
+          } else if (err && err.message) {
+            fail(res, 500, err.message, err);
+          } else if (err) {
+            fail(res, 500, "polis_err_joinWithZidOrSuzinvite", err);
+          } else {
+            fail(res, 500, "polis_err_joinWithZidOrSuzinvite");
+          }
+        })
+    );
   }
   // Test for deadlock condition
   // _.times(2, function() {
@@ -5255,6 +5524,12 @@ Email verified! You can close this tab or hit the back button.
             if (o.uid) {
               return pgQueryP("select * from lti_users where uid = ($1)", [
                 o.uid,
+                //               Argument of type '(rows: string | any[]) => { lti_users_only: any; uid?: any; }' is not assignable to parameter of type
+                // '(value: unknown) => { lti_users_only: any; uid?: any; } | PromiseLike<{ lti_users_only: any; uid?: any; }>'.
+                // Types of parameters 'rows' and 'value' are incompatible.
+                //   Type 'unknown' is not assignable to type 'string | any[]'.
+                //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+                // @ts-ignore
               ]).then(function (rows: string | any[]) {
                 if (rows && rows.length) {
                   return o;
@@ -5269,6 +5544,16 @@ Email verified! You can close this tab or hit the back button.
             return o;
           }
         })
+        //       No overload matches this call.
+        // Overload 1 of 2, '(onFulfill?: ((value: unknown) => any) | undefined, onReject?: ((error: any) => any) | undefined): Bluebird<any>', gave the following error.
+        //   Argument of type '(o: { uid?: any; user: any; }) => any' is not assignable to parameter of type '(value: unknown) => any'.
+        //     Types of parameters 'o' and 'value' are incompatible.
+        //       Type 'unknown' is not assignable to type '{ uid?: any; user: any; }'.
+        // Overload 2 of 2, '(onfulfilled?: ((value: unknown) => any) | null | undefined, onrejected?: ((reason: any) => PromiseLike<never>) | null | undefined): Bluebird<any>', gave the following error.
+        //   Argument of type '(o: { uid?: any; user: any; }) => any' is not assignable to parameter of type '(value: unknown) => any'.
+        //     Types of parameters 'o' and 'value' are incompatible.
+        //     Type 'unknown' is not assignable to type '{ uid?: any; user: any; }'.ts(2769)
+        // @ts-ignore
         .then(function (o: { uid?: any; user: any }) {
           winston.log("info", "joinWithZidOrSuzinvite userinfo begin");
           if (!o.uid) {
@@ -5293,6 +5578,7 @@ Email verified! You can close this tab or hit the back button.
         // }
         // return o;
         // })
+        // @ts-ignore
         .then(function (o: { uid?: any }) {
           // winston.log("info","joinWithZidOrSuzinvite check email done");
           if (o.uid) {
@@ -5305,12 +5591,32 @@ Email verified! You can close this tab or hit the back button.
             });
           }
         })
+        // No overload matches this call.
+        // Overload 1 of 2, '(onFulfill?: ((value: unknown) => any) | undefined, onReject?: ((error: any) => any) | undefined): Bluebird<any>', gave the following error.
+        //   Argument of type '(o: { zid: any; answers: any; }) => any' is not assignable to parameter of type '(value: unknown) => any'.
+        //     Types of parameters 'o' and 'value' are incompatible.
+        //       Type 'unknown' is not assignable to type '{ zid: any; answers: any; }'.
+        // Overload 2 of 2, '(onfulfilled?: ((value: unknown) => any) | null | undefined, onrejected?: ((reason: any) => PromiseLike<never>) | null | undefined): Bluebird<any>', gave the following error.
+        //   Argument of type '(o: { zid: any; answers: any; }) => any' is not assignable to parameter of type '(value: unknown) => any'.
+        //     Types of parameters 'o' and 'value' are incompatible.
+        //     Type 'unknown' is not assignable to type '{ zid: any; answers: any; }'.ts(2769)
+        // @ts-ignore
         .then(function (o: { zid: any; answers: any }) {
           return userHasAnsweredZeQuestions(o.zid, o.answers).then(function () {
             // looks good, pass through
             return o;
           });
         })
+        //       No overload matches this call.
+        // Overload 1 of 2, '(onFulfill?: ((value: unknown) => any) | undefined, onReject?: ((error: any) => any) | undefined): Bluebird<any>', gave the following error.
+        //   Argument of type '(o: { referrer: any; parent_url: any; zid: any; uid?: any; answers: any; }) => any' is not assignable to parameter of type '(value: unknown) => any'.
+        //     Types of parameters 'o' and 'value' are incompatible.
+        //       Type 'unknown' is not assignable to type '{ referrer: any; parent_url: any; zid: any; uid?: any; answers: any; }'.
+        // Overload 2 of 2, '(onfulfilled?: ((value: unknown) => any) | null | undefined, onrejected?: ((reason: any) => PromiseLike<never>) | null | undefined): Bluebird<any>', gave the following error.
+        //   Argument of type '(o: { referrer: any; parent_url: any; zid: any; uid?: any; answers: any; }) => any' is not assignable to parameter of type '(value: unknown) => any'.
+        //     Types of parameters 'o' and 'value' are incompatible.
+        //     Type 'unknown' is not assignable to type '{ referrer: any; parent_url: any; zid: any; uid?: any; answers: any; }'.ts(2769)
+        // @ts-ignore
         .then(function (o: {
           referrer: any;
           parent_url: any;
@@ -5332,6 +5638,22 @@ Email verified! You can close this tab or hit the back button.
             return Object.assign(o, ptpt);
           });
         })
+        //       No overload matches this call.
+        // Overload 1 of 2, '(onFulfill?: ((value: unknown) => Resolvable<{ xid: any; conv: { org_id: any; use_xid_whitelist: any; owner: any; };
+        // uid?: any; } | undefined>) | undefined, onReject?: ((error: any) => Resolvable<{ xid: any; conv: { ...; }; uid?: any; } | undefined>) | undefined): Bluebird<...>', gave the following error.
+        //   Argument of type '(o: { xid: any; conv: { org_id: any; use_xid_whitelist: any; owner: any; }; uid?: any; }) =>
+        // { xid: any; conv: { org_id: any; use_xid_whitelist: any; owner: any; }; uid ?: any; } | Promise < { xid: any; conv: { org_id: any; use_xid_whitelist: any; owner: any; }; uid?: any; } |
+        // undefined > ' is not assignable to parameter of type '(value: unknown) => Resolvable < { xid: any; conv: { org_id: any; use_xid_whitelist: any; owner: any; }; uid?: any; } | undefined > '.
+        //     Types of parameters 'o' and 'value' are incompatible.
+        //       Type 'unknown' is not assignable to type '{ xid: any; conv: { org_id: any; use_xid_whitelist: any; owner: any; }; uid?: any; }'.
+        // Overload 2 of 2, '(onfulfilled?: ((value: unknown) => Resolvable<{ xid: any; conv: { org_id: any; use_xid_whitelist: any; owner: any; }; uid?: any; }
+        // | undefined >) | null | undefined, onrejected ?: ((reason: any) => PromiseLike<never>) | null | undefined): Bluebird <...> ', gave the following error.
+        //   Argument of type '(o: { xid: any; conv: { org_id: any; use_xid_whitelist: any; owner: any; }; uid?: any; }) =>
+        // { xid: any; conv: { org_id: any; use_xid_whitelist: any; owner: any; }; uid ?: any; } | Promise < { xid: any; conv: { org_id: any; use_xid_whitelist: any; owner: any; }; uid?: any; }
+        // | undefined > ' is not assignable to parameter of type '(value: unknown) => Resolvable < { xid: any; conv: { org_id: any; use_xid_whitelist: any; owner: any; }; uid?: any; } | undefined > '.
+        //     Types of parameters 'o' and 'value' are incompatible.
+        //       Type 'unknown' is not assignable to type '{ xid: any; conv: { org_id: any; use_xid_whitelist: any; owner: any; }; uid?: any; }'.ts(2769)
+        // @ts-ignore
         .then(function (o: {
           xid: any;
           conv: { org_id: any; use_xid_whitelist: any; owner: any };
