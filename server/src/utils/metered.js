@@ -20,31 +20,32 @@ function addInRamMetric(metricName, val) {
   METRICS_IN_RAM[metricName].index = (index + 1) % 1000;
 }
 
-
-
 // metered promise
 function MPromise(name, f) {
   let p = new Promise(f);
   let start = Date.now();
-  setTimeout(function() {
+  setTimeout(function () {
     addInRamMetric(name + ".go", 1, start);
   }, 100);
-  p.then(function() {
+  p.then(
+    function () {
+      let end = Date.now();
+      let duration = end - start;
+      setTimeout(function () {
+        addInRamMetric(name + ".ok", duration, end);
+      }, 100);
+    },
+    function () {
+      let end = Date.now();
+      let duration = end - start;
+      setTimeout(function () {
+        addInRamMetric(name + ".fail", duration, end);
+      }, 100);
+    }
+  ).catch(function (err) {
     let end = Date.now();
     let duration = end - start;
-    setTimeout(function() {
-      addInRamMetric(name + ".ok", duration, end);
-    }, 100);
-  }, function() {
-    let end = Date.now();
-    let duration = end - start;
-    setTimeout(function() {
-      addInRamMetric(name + ".fail", duration, end);
-    }, 100);
-  }).catch(function(err) {
-    let end = Date.now();
-    let duration = end - start;
-    setTimeout(function() {
+    setTimeout(function () {
       addInRamMetric(name + ".fail", duration, end);
       console.log("MPromise internal error");
     }, 100);
@@ -54,5 +55,5 @@ function MPromise(name, f) {
 
 module.exports = {
   addInRamMetric,
-  MPromise
+  MPromise,
 };
