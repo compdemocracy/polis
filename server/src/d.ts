@@ -63,13 +63,23 @@ export type CommentOptions = {
 };
 
 export type CommentType = {
-  zid?: any;
-  not_voted_by_pid?: any;
+  zid: any;
+  not_voted_by_pid: any;
   include_social?: any;
-  withoutTids?: any;
+  withoutTids: any;
   tid?: any;
   translations?: any;
   txt?: any;
+  include_voting_patterns: any;
+  modIn: boolean;
+  pid: any;
+  tids: any;
+  random: any;
+  limit: any;
+  moderation: any;
+  strict_moderation: any;
+  mod: any;
+  mod_gt: any;
 };
 
 export type ParticipantFields = {
