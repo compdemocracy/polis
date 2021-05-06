@@ -1,4 +1,4 @@
-const devMode = require('boolean')(get('DEV_MODE'));
+const devMode = require("boolean")(get("DEV_MODE"));
 
 const domainOverride = process.env.DOMAIN_OVERRIDE || null;
 
@@ -26,16 +26,16 @@ function getServerNameWithProtocol(req) {
 }
 
 function get(key) {
-	return process.env[key];
+  return process.env[key];
 }
 
 function isDevMode() {
-	return devMode;
+  return devMode;
 }
 
 module.exports = {
-	domainOverride,
-	getServerNameWithProtocol,
-	get,
-	isDevMode
+  domainOverride,
+  getServerNameWithProtocol,
+  get,
+  isDevMode,
 };
