@@ -1,4 +1,4 @@
-const _ = require('underscore');
+const _ = require("underscore");
 
 function strToHex(str) {
   let hex, i;
@@ -44,5 +44,5 @@ polisTypes.starValues = _.values(polisTypes.staractions);
 module.exports = {
   strToHex,
   hexToStr,
-  polisTypes
+  polisTypes,
 };

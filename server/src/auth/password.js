@@ -1,14 +1,14 @@
-const bcrypt = require('bcrypt');
-const crypto = require('crypto');
-const _ = require('underscore');
-const pg = require('../db/pg-query');
+const bcrypt = require("bcrypt");
+const crypto = require("crypto");
+const _ = require("underscore");
+const pg = require("../db/pg-query");
 
 function generateHashedPassword(password, callback) {
-  bcrypt.genSalt(12, function(errSalt, salt) {
+  bcrypt.genSalt(12, function (errSalt, salt) {
     if (errSalt) {
       return callback("polis_err_salt");
     }
-    bcrypt.hash(password, salt, function(errHash, hashedPassword) {
+    bcrypt.hash(password, salt, function (errHash, hashedPassword) {
       if (errHash) {
         return callback("polis_err_hash");
       }
@@ -18,23 +18,28 @@ function generateHashedPassword(password, callback) {
 }
 
 function checkPassword(uid, password) {
-  return pg.queryP_readOnly_wRetryIfEmpty("select pwhash from jianiuevyew where uid = ($1);", [uid]).then(function(rows) {
-    if (!rows || !rows.length) {
-      return null;
-    } else if (!rows[0].pwhash) {
-      return void 0;
-    }
-    let hashedPassword = rows[0].pwhash;
-    return new Promise(function(resolve, reject) {
-      bcrypt.compare(password, hashedPassword, function(errCompare, result) {
-        if (errCompare) {
-          reject(errCompare);
-        } else {
-          resolve(result ? "ok" : 0);
-        }
+  return pg
+    .queryP_readOnly_wRetryIfEmpty(
+      "select pwhash from jianiuevyew where uid = ($1);",
+      [uid]
+    )
+    .then(function (rows) {
+      if (!rows || !rows.length) {
+        return null;
+      } else if (!rows[0].pwhash) {
+        return void 0;
+      }
+      let hashedPassword = rows[0].pwhash;
+      return new Promise(function (resolve, reject) {
+        bcrypt.compare(password, hashedPassword, function (errCompare, result) {
+          if (errCompare) {
+            reject(errCompare);
+          } else {
+            resolve(result ? "ok" : 0);
+          }
+        });
       });
     });
-  });
 }
 
 function generateToken(len, pseudoRandomOk, callback) {
@@ -46,25 +51,26 @@ function generateToken(len, pseudoRandomOk, callback) {
   } else {
     gen = crypto.randomBytes;
   }
-  gen(len, function(err, buf) {
+  gen(len, function (err, buf) {
     if (err) {
       return callback(err);
     }
 
-    let prettyToken = buf.toString('base64')
-      .replace(/\//g, 'A').replace(/\+/g, 'B') // replace url-unsafe tokens (ends up not being a proper encoding since it maps onto A and B. Don't want to use any punctuation.)
-      .replace(/l/g, 'C') // looks like '1'
-      .replace(/L/g, 'D') // looks like '1'
-      .replace(/o/g, 'E') // looks like 0
-      .replace(/O/g, 'F') // looks lke 0
-      .replace(/1/g, 'G') // looks like 'l'
-      .replace(/0/g, 'H') // looks like 'O'
-      .replace(/I/g, 'J') // looks like 'l'
-      .replace(/g/g, 'K') // looks like 'g'
-      .replace(/G/g, 'M') // looks like 'g'
-      .replace(/q/g, 'N') // looks like 'q'
-      .replace(/Q/g, 'R') // looks like 'q'
-    ;
+    let prettyToken = buf
+      .toString("base64")
+      .replace(/\//g, "A")
+      .replace(/\+/g, "B") // replace url-unsafe tokens (ends up not being a proper encoding since it maps onto A and B. Don't want to use any punctuation.)
+      .replace(/l/g, "C") // looks like '1'
+      .replace(/L/g, "D") // looks like '1'
+      .replace(/o/g, "E") // looks like 0
+      .replace(/O/g, "F") // looks lke 0
+      .replace(/1/g, "G") // looks like 'l'
+      .replace(/0/g, "H") // looks like 'O'
+      .replace(/I/g, "J") // looks like 'l'
+      .replace(/g/g, "K") // looks like 'g'
+      .replace(/G/g, "M") // looks like 'g'
+      .replace(/q/g, "N") // looks like 'q'
+      .replace(/Q/g, "R"); // looks like 'q'
     // replace first character with a number between 2 and 9 (avoiding 0 and 1 since they look like l and O)
     prettyToken = _.random(2, 9) + prettyToken.slice(1);
     prettyToken = prettyToken.toLowerCase();
@@ -75,8 +81,8 @@ function generateToken(len, pseudoRandomOk, callback) {
 }
 
 function generateTokenP(len, pseudoRandomOk) {
-  return new Promise(function(resolve, reject) {
-    generateToken(len, pseudoRandomOk, function(err, token) {
+  return new Promise(function (resolve, reject) {
+    generateToken(len, pseudoRandomOk, function (err, token) {
       if (err) {
         reject(err);
       } else {
@@ -190,5 +196,5 @@ module.exports = {
   generateHashedPassword,
   checkPassword,
   generateToken,
-  generateTokenP
+  generateTokenP,
 };
