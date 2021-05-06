@@ -27,6 +27,7 @@ describe('Interface internationalization', () => {
       'zh-TW': 'zh_Hant',
       sk: 'sk',
       he: 'he',
+      cy: 'cy',
     }
     for (let [lang, filename] of Object.entries(locales)) {
       cy.readFile(`../client-participation/js/strings/${filename}.js`).then(contents => {
@@ -101,6 +102,11 @@ describe('Interface internationalization', () => {
 
   it('translates into Hebrew', function () {
     const lang = 'he'
+    openTranslated(this.convoPath, lang, this.strings[lang])
+  })
+
+  it('translates into Welsh', function () {
+    const lang = 'cy'
     openTranslated(this.convoPath, lang, this.strings[lang])
   })
 })
