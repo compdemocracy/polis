@@ -44,7 +44,10 @@ var translations = {
   sk: require("./strings/sk.js"),
 
   // Hebrew
-  he: require("./strings/he.js")
+  he: require("./strings/he.js"),
+
+  // Welsh
+  cy: require("./strings/cy.js"),
 };
 
 
@@ -109,6 +112,9 @@ preloadHelper.acceptLanguagePromise.then(function() {
     }
      else if (languageCode.match(/^he/)) {
       _.extend(strings, translations.he);
+    }
+     else if (languageCode.match(/^cy/)) {
+      _.extend(strings, translations.cy);
     }
   });
 });
