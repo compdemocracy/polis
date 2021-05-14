@@ -7,8 +7,8 @@ module.exports = {
     "^192\\.168\\.1\\.140$",
     "^pol\\.is",
     ".+\\.pol\\.is$",
-    "^xip\\.io$",
-    ".+\\.xip\\.io$",
+    "^(n|x|ssl)ip\\.io$",
+    ".+\\.(n|x|ssl)ip\\.io$",
   ],
 
   DISABLE_INTERCOM: true,
