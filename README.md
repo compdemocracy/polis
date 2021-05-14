@@ -86,7 +86,7 @@ docker-machine ip
 >>> 123.45.67.89
 ```
 
-Visit your instance at: `http://123.45.67.89.xip.io/`
+Visit your instance at: `http://123.45.67.89.sslip.io/`
 
 Or visit a native docker instance at `http://localhost:80/`
 
