@@ -1,0 +1,6 @@
+export PGDATABASE=polis
+export PGUSER=polis
+export PGPASSWORD=polis
+
+echo 'Usage: ./run <zinvite>'
+node app.js $1

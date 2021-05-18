@@ -1,0 +1,1 @@
+psql polis -c "SELECT subscribe_email FROM participants_extended WHERE zid=$1 AND subscribe_email <> '';"
