@@ -35,7 +35,7 @@
     "handlebones": "github:pol-is/handlebones#master",
     "hull.js": "^0.2.10",
     "jquery": "~1.11",
-    "lodash": "4.17.19",
+    "lodash": "4.17.21",
     "map-stream": "~0.1.0",
     "markdown": "^0.5.0",
     "prop-types": "^15.7.2",
