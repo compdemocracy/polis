@@ -37,11 +37,13 @@ import timeout from "connect-timeout";
 import zlib from "zlib";
 import _ from "underscore";
 import { WebClient } from "@slack/client";
+import pg from "pg";
 
 import { METRICS_IN_RAM, addInRamMetric, MPromise } from "./utils/metered";
 import CreateUser from "./auth/create-user";
 import Password from "./auth/password";
-import pg from "./db/pg-query";
+import dbPgQuery from "./db/pg-query";
+
 import Config from "./config";
 // Re-import disassembled code to promise existing code will work
 import Log from "./log";
@@ -84,13 +86,13 @@ const yell = Log.yell;
 // (...args: any[]) => Promise <...>; ...'.ts(2339)
 // @ts-ignore
 const escapeLiteral = pg.Client.prototype.escapeLiteral;
-const pgQuery = pg.query;
-const pgQuery_readOnly = pg.query_readOnly;
-const pgQueryP = pg.queryP;
-const pgQueryP_metered = pg.queryP_metered;
-const pgQueryP_metered_readOnly = pg.queryP_metered_readOnly;
-const pgQueryP_readOnly = pg.queryP_readOnly;
-const pgQueryP_readOnly_wRetryIfEmpty = pg.queryP_readOnly_wRetryIfEmpty;
+const pgQuery = dbPgQuery.query;
+const pgQuery_readOnly = dbPgQuery.query_readOnly;
+const pgQueryP = dbPgQuery.queryP;
+const pgQueryP_metered = dbPgQuery.queryP_metered;
+const pgQueryP_metered_readOnly = dbPgQuery.queryP_metered_readOnly;
+const pgQueryP_readOnly = dbPgQuery.queryP_readOnly;
+const pgQueryP_readOnly_wRetryIfEmpty = dbPgQuery.queryP_readOnly_wRetryIfEmpty;
 const doSendVerification = CreateUser.doSendVerification;
 const generateAndRegisterZinvite = CreateUser.generateAndRegisterZinvite;
 const generateToken = Password.generateToken;
@@ -4256,7 +4258,7 @@ Thank you for using Polis`;
 
   function isEmailVerified(email: any) {
     return (
-      pg
+      dbPgQuery
         .queryP("select * from email_validations where email = ($1);", [email])
         //     Argument of type '(rows: string | any[]) => boolean' is not assignable to parameter of type '(value: unknown) => boolean | PromiseLike<boolean>'.
         // Types of parameters 'rows' and 'value' are incompatible.
@@ -7801,7 +7803,7 @@ Email verified! You can close this tab or hit the back button.
       //   Property 'txt' is missing in type 'Row' but required in type '{ txt: any; }'.ts(2345)
       // @ts-ignore
       .then((comment: { txt: any }) => {
-        return pg
+        return dbPgQuery
           .queryP(
             "select * from comment_translations where zid = ($1) and tid = ($2) and lang LIKE '$3%';",
             [zid, tid, firstTwoCharsOfLang]
@@ -8947,7 +8949,7 @@ Email verified! You can close this tab or hit the back button.
   // }
 
   function getCommentTranslations(zid: any, tid: any) {
-    return pg.queryP(
+    return dbPgQuery.queryP(
       "select * from comment_translations where zid = ($1) and tid = ($2);",
       [zid, tid]
     );
