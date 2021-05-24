@@ -24,7 +24,7 @@ const poolSize = isDevMode() ? 2 : usingReplica ? 3 : 12;
 
 // not sure how many of these config options we really need anymore
 const pgConnection = Object.assign(
-  parsePgConnectionString(process.env.DATABASE_URL as string),
+  parsePgConnectionString(process.env.DATABASE_URL || ""),
   {
     max: poolSize,
     isReadOnly: false,
@@ -37,10 +37,10 @@ const pgConnection = Object.assign(
 );
 const readsPgConnection = Object.assign(
   parsePgConnectionString(
-    //   Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
-    // Type 'undefined' is not assignable to type 'string'.ts(2345)
+    //     (property) NodeJS.Process.env: NodeJS.ProcessEnv
+    // Type 'undefined' cannot be used as an index type.ts(2538)
     // @ts-ignore
-    process.env[process.env.DATABASE_FOR_READS_NAME as string]
+    process.env[process.env.DATABASE_FOR_READS_NAME] || ""
   ),
   {
     max: poolSize,
