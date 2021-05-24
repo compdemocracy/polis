@@ -19,7 +19,7 @@ import crypto from "crypto";
 // May not need this anymore; looks like we're just using the other Intercom api, but need to figure out
 // what's going on here
 //const Intercom = require('intercom.io'); // https://github.com/tarunc/intercom.io
-import IntercomOfficial from "intercom-client";
+import * as IntercomOfficial from "intercom-client";
 import isTrue from "boolean";
 import OAuth from "oauth";
 // const Pushover = require('pushover-notifications');
@@ -127,17 +127,18 @@ const sendTextEmailWithBackupOnly = emailSenders.sendTextEmailWithBackupOnly;
 const resolveWith = (x: { body?: { user_id: string } }) => {
   return Promise.resolve(x);
 };
-const intercomClient = !isTrue(process.env.DISABLE_INTERCOM)
-  ? // Type 'string | undefined' is not assignable to type 'string'.
-    // Type 'undefined' is not assignable to type 'string'.ts(2322)
-    // @ts-ignore
-    new IntercomOfficial.Client({ token: process.env.INTERCOM_ACCESS_TOKEN })
-  : {
-      leads: {
-        create: resolveWith({ body: { user_id: "null_intercom_user_id" } }),
-        update: resolveWith({}),
-      },
-    };
+
+const intercomClient =
+  !isTrue(process.env.DISABLE_INTERCOM) && process.env.INTERCOM_ACCESS_TOKEN
+    ? new IntercomOfficial.Client({
+        token: process.env.INTERCOM_ACCESS_TOKEN,
+      })
+    : {
+        leads: {
+          create: resolveWith({ body: { user_id: "null_intercom_user_id" } }),
+          update: resolveWith({}),
+        },
+      };
 
 //var SegfaultHandler = require('segfault-handler');
 
