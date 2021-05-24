@@ -42,7 +42,7 @@
     "optimist": "0.3.7",
     "p3p": "0.0.2",
     "pg": "7.4.3",
-    "pg-connection-string": "2.0.0",
+    "pg-connection-string": "2.5.0",
     "pg-native": "3.0.0",
     "pushover-notifications": "0.1.9",
     "replacestream": "4.0.0",
