@@ -106,7 +106,7 @@ git config --local include.path ../.gitconfig
 
 We use Cypress for automated, end-to-end browser testing! (See badge above.)
 
-Please see [`e2e/README.md`](/e2e/README.md).
+Please see [`e2e/README.md`](/e2e/README.md) and [`CONTRIBUTING.md`](/CONTRIBUTING.md#running-e2e-tests).
 
 ## 🚀 Deployment
 
