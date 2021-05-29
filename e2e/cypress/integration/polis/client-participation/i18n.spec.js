@@ -28,7 +28,7 @@ describe('Interface internationalization', () => {
       sk: 'sk',
       he: 'he',
       cy: 'cy',
-	  gr: 'gr',
+      gr: 'gr',
     }
     for (let [lang, filename] of Object.entries(locales)) {
       cy.readFile(`../client-participation/js/strings/${filename}.js`).then(contents => {
