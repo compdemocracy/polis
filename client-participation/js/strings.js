@@ -119,7 +119,7 @@ preloadHelper.acceptLanguagePromise.then(function() {
     else if (languageCode.match(/^cy/)) {
       _.extend(strings, translations.cy);
     }
-	else if (languageCode.match(/^gr/)) {
+    else if (languageCode.match(/^gr/)) {
       _.extend(strings, translations.gr);
     }
   });
