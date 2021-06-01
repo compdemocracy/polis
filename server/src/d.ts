@@ -62,6 +62,10 @@ export type CommentOptions = {
   currentPid?: any;
 };
 
+type ModerationState = -1 | 0 | 1;
+
+type ModerationObject = { isMod: ModerationState | undefined };
+
 export type CommentType = {
   zid: any;
   not_voted_by_pid: any;
@@ -78,7 +82,7 @@ export type CommentType = {
   limit: any;
   moderation: any;
   strict_moderation: any;
-  mod: any;
+  mod: ModerationState;
   mod_gt: any;
 };
 
