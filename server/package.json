@@ -80,6 +80,7 @@
     "@types/underscore": "^1.11.1",
     "@types/valid-url": "^1.0.3",
     "prettier": "^2.2.1",
-    "typescript": "^4.2.4"
+    "typescript": "^4.2.4",
+    "nodemon": "^2.0.7"
   }
 }
