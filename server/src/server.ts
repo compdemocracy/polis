@@ -8053,11 +8053,11 @@ Email verified! You can close this tab or hit the back button.
   // }
 
   function moderateComment(
-    zid: any,
-    tid: any,
-    active: any,
-    mod: any,
-    is_meta: any
+    zid: string,
+    tid: number,
+    active: boolean,
+    mod: boolean,
+    is_meta: boolean
   ) {
     return new Promise(function (
       resolve: () => void,
