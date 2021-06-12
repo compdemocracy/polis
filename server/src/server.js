@@ -13179,7 +13179,6 @@ CREATE TABLE slack_user_invites (
       site_id,
     ]).then(function (rows) {
       let emails = _.pluck(rows, "email");
-      emails = _.union(emails, ["m@bjorkegren.com"]);
 
       return sendMultipleTextEmails(
         POLIS_FROM_ADDRESS,
