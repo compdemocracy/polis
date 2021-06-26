@@ -63,7 +63,10 @@
             :extra-deps {cider/cider-nrepl {:mvn/version "0.26.0"}}
             :main-opts ["-m" "nrepl.cmdline" "--middleware" "[cider.nrepl/cider-middleware]"]}
            :run
-           {:main-opts ["-m" "polismath.runner"]}}
+           {:main-opts ["-m" "polismath.runner"]}
+           :test
+           {:extra-paths ["test"]
+            :main-opts ["-m" "test-runner"]}}
  ;:jvm-opts ^:replace []
  :jvm-opts ["-Xmx4g"]}
  ;:mvn/repos {"twitter4j" {:url "https://twitter4j.org/maven2"}}}
