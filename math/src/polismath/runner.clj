@@ -80,7 +80,9 @@
 (def cli-options
   "Has the same options as simulation if simulations are run"
   [["-r" "--recompute" "Recompute conversations from scratch instead of starting from most recent values"]
-   ["-h" "--help" "Print help and exit"]])
+   ["-h" "--help" "Print help and exit"]
+   ["-z" "--zid ZID"           "ZID on which to do an export" :parse-fn #(Integer/parseInt %)]
+   ["-Z" "--zinvite ZINVITE"   "ZINVITE code on which to perform an export"]])
 
 (defn usage [options-summary]
   (->> ["Usage: lein run [subcommand] [options]"
@@ -219,6 +221,10 @@
           (update-all-convs system)
           "export"
           (run-export system options)
+          "update"
+          (let [zid (:zid options)]
+            (println "zid is: " zid)
+            (update-conv system zid))
           ;; Otherwise, default to keeping the main thread spinning while the system runs
           (loop []
             (Thread/sleep 1000)
