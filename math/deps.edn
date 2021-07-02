@@ -64,6 +64,10 @@
             :main-opts ["-m" "nrepl.cmdline" "--middleware" "[cider.nrepl/cider-middleware]"]}
            :run
            {:main-opts ["-m" "polismath.runner"]}
+           :dev-poller
+           {:extra-paths ["dev" "test"]
+            :extra-deps {cider/cider-nrepl {:mvn/version "0.26.0"}}
+            :exec-fn user/run-with-repl}
            :test
            {:extra-paths ["test"]
             :main-opts ["-m" "test-runner"]}}
