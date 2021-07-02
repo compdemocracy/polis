@@ -4,6 +4,6 @@ WORKDIR /build
 COPY . .
 
 # Install clojure and fetch dependencies
-RUN clojure -P
+RUN clojure -A:dev -P
 
 CMD ["./bin/run"]
