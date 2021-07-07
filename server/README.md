@@ -14,7 +14,7 @@ The below instructions are no longer officially supported; if you'd like to use 
 
 * PostgreSql `(>= 9.5.4.1)`
 * Node `6.11.1`
-We recommend installing [nvm](https://github.com/creationix/nvm) so you can easily switch between your favorite flavors of node.
+We recommend installing [nvm](https://github.com/creationix/nvm) so that you can easily switch between your favorite flavors of node.
 * NPM `3.3.8`
 
 ### Setup
