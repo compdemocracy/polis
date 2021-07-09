@@ -8,11 +8,11 @@
   It seems like it should be possible to add this, and maybe if we end up caring enough I can do so.
   For now, not super vital."
   (:require
-    [vizard.core :as viz]))
+    [oz.core :as oz]))
 
 
-(defonce start-viz
-  (viz/start-plot-server!))
+;(defonce start-viz
+  ;(viz/start-plot-server!))
 
 
 (def data-values
@@ -50,5 +50,5 @@
 
 
 ;(viz/to-json plot-spec-2)
-(viz/p! plot-spec-2)
+;(oz/view! plot-spec-2)
 
