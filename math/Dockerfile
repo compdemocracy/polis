@@ -1,6 +1,6 @@
 FROM clojure:tools-deps
 
-WORKDIR /build
+WORKDIR /app
 COPY . .
 
 # Install clojure and fetch dependencies
