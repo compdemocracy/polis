@@ -26,6 +26,7 @@ jobs:
       - uses: DeLaGuardo/setup-clojure@master
         with:
           cli: 1.10.1
+          tools-deps: 1.10.1
 
       - working-directory: math
         # Runs all except integration tests which require database and setup/teardown
