@@ -1,4 +1,4 @@
-name: Test Math/Clojure
+name: Test Math
 
 on:
   push:
@@ -25,9 +25,8 @@ jobs:
 
       - uses: DeLaGuardo/setup-clojure@master
         with:
-          tools-deps: 1.10.1
-          lein: 2.9.4
+          cli: 1.10.1
 
       - working-directory: math
         # Runs all except integration tests which require database and setup/teardown
-        run: "lein test :default"
+        run: "clj -M:test"
