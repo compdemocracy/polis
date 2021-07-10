@@ -14,25 +14,21 @@
             [clojure.test :as test]))
 
 
-(defn -main []
+(defn -main
   "Run all the pure tests for polisapp. The one integration test is in conv-man-tests, and should be run separately (and
   needs to be cleaned up to run on a separate poller system)"
-  ;(try
-    (apply
-      test/run-tests
-      '[cluster-tests
-        conversation-test
-        index-hash-test
-        named-matrix-test
-        pca-test
-        silhouette-test
-        stats-test
-        utils-test
-        ptpt-stats-test]))
-    ;(catch Exception e
-    ;  (println "XXX Error executing tests!")
-    ;  (.printStackTrace e))))
+  []
+  (apply
+    test/run-tests
+    '[cluster-tests
+      conversation-test
+      index-hash-test
+      named-matrix-test
+      pca-test
+      silhouette-test
+      stats-test
+      utils-test
+      ptpt-stats-test]))
 
 ;(-main)
-
 ;(test/run-tests 'conversation-test)
