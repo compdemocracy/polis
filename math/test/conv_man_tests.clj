@@ -39,7 +39,7 @@
           ;; Since the conversation manager is asynchronous, we'll create a channel where we'll put the
           ;; results of the conversation update.
           ;; Should add an error listener as well... so we can catch information there as well
-          (conv-man/add-listener! conv-man (fn [conv] (async/>!! result-chan conv)))
+          (conv-man/add-listener! conv-man 0 (fn [conv] (async/>!! result-chan conv)))
           (conv-man/queue-message-batch! conv-man :votes 0 messages)
           ;; For right now, let's just use a timeout to check for whether the conversation updated; Really
           ;; need to fix this... XXX
