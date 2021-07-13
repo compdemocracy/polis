@@ -1,0 +1,15 @@
+version: "3.1"
+
+# Questions/todo:
+# * Do we want to use different tags for dev vs prod builds? how is this controlled?
+# * Definitely want to have different env var files for prod vs dev
+
+services:
+  math:
+    command: clojure -X:dev-poller
+    volumes:
+      - "./math:/app"
+    ports:
+      - 18975:18975
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
