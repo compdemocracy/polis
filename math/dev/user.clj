@@ -20,7 +20,9 @@
             [taoensso.timbre.profiling :as prof]
             [oz.core :as oz]
             [cheshire.core :as chesh]
-            [tentacles.gists :as gists]))
+            [tentacles.gists :as gists]
+            [nrepl.server :as nrepl-server]
+            [cider.nrepl]))
 
 
 ;; Conv loading utilities
@@ -320,6 +322,13 @@
           (take-last (log/spy :info (int (* (count comment-priorities) percentile)))
                      comment-priorities)))
       (set sample))))
+
+
+(defn run-with-repl
+  [_]
+  (runner/run! system/full-system)
+  (log/info "System running; starting nREPL on port 18975")
+  (nrepl-server/start-server :bind "0.0.0.0" :port 18975 :handler cider.nrepl/cider-nrepl-handler))
 
 
 

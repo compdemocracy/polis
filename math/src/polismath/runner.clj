@@ -37,6 +37,9 @@
    (init! system-map-generator {})))
 
 (defn start! []
+  ;; Make sure there's _something_ to start...
+  (when-not system
+    (init! system/poller-system))
   (alter-var-root #'system component/start))
 
 (defn stop! []
@@ -50,17 +53,15 @@
    (init! system-map-generator config-overrides)
    (start!))
   ([system-map-generator]
-   (run! system-map-generator {})))
-
-(defn -runner! [] (run! (system/base-system {})))
+   (run! system-map-generator {}))
+  ([]
+   (run! system/poller-system)))
 
 (defn system-reset!
-  ([system-map-generator config-overrides]
+  ([]
    (stop!)
-   (alter-var-root #'-runner! (partial run! system-map-generator config-overrides))
-   ;; Not sure if this -runner! thing will work, but giving it a try. If it does we can stashthe system and
-   ;; config-overrides as well.
-   (namespace.repl/refresh :after 'polismath.system/runner!)))
+   (namespace.repl/refresh :after 'polismath.runner/run!)))
+
 
 (def subcommands
   {;"storm" stormspec/storm-system ;; remove...
@@ -80,7 +81,9 @@
 (def cli-options
   "Has the same options as simulation if simulations are run"
   [["-r" "--recompute" "Recompute conversations from scratch instead of starting from most recent values"]
-   ["-h" "--help" "Print help and exit"]])
+   ["-h" "--help" "Print help and exit"]
+   ["-z" "--zid ZID"           "ZID on which to do an export" :parse-fn #(Integer/parseInt %)]
+   ["-Z" "--zinvite ZINVITE"   "ZINVITE code on which to perform an export"]])
 
 (defn usage [options-summary]
   (->> ["Usage: lein run [subcommand] [options]"
@@ -219,6 +222,10 @@
           (update-all-convs system)
           "export"
           (run-export system options)
+          "update"
+          (let [zid (:zid options)]
+            (println "zid is: " zid)
+            (update-conv system zid))
           ;; Otherwise, default to keeping the main thread spinning while the system runs
           (loop []
             (Thread/sleep 1000)
