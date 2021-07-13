@@ -1,4 +1,4 @@
-FROM nginx:1.19.10-alpine
+FROM nginx:1.21.1-alpine
 
 COPY nginx/nginx-ssl.site.default.conf /etc/nginx/conf.d/default.conf
 
