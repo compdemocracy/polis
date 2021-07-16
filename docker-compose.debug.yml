@@ -1,0 +1,14 @@
+version: '3.4'
+
+services:
+  polis:
+    image: polis
+    build:
+      context: server
+      dockerfile: ./Dockerfile
+    environment:
+      NODE_ENV: development
+    ports:
+      - 5000:5000
+      - 9229:9229
+    command: ["node", "--inspect=0.0.0.0:9229", "./dist/app.js"]
