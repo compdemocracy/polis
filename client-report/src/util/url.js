@@ -34,7 +34,7 @@ if (document.domain === "localhost" && document.location.port === "5010") {
   urlPrefix = localhost5010;
 }
 
-if (0 === document.domain.indexOf("192.168") || (new RegExp(/\.(ssl|n|x)ip\.io/)).test(document.domain) ) {
+if (0 === document.domain.indexOf("192.168") || (new RegExp(/\.(ssl|n)ip\.io/)).test(document.domain) ) {
   urlPrefix = "http://" + document.location.hostname + ":" + document.location.port + "/";
 }
 
