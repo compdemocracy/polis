@@ -31,7 +31,7 @@ describe('Integrated Conversations', () => {
   })
 
   beforeEach(function () {
-    // xip.io is maybe throttling these fast tests.
+    // sslip.io is maybe throttling these fast tests.
     cy.wait(500)
   })
 
