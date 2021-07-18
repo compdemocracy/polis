@@ -8,7 +8,7 @@
       "name": "Docker: Attach to Node",
       "type": "node",
       "request": "attach",
-      "port": 5000,
+      "port": 9229,
       "address": "localhost",
       "protocol": "inspector",
       "remoteRoot": "/app",
