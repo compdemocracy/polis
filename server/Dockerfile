@@ -16,5 +16,9 @@ RUN apk del .build
 COPY . .
 
 EXPOSE 5000
+# For vscode debug
+EXPOSE 9229
 
-CMD npm run build && npm run serve
+
+# CMD npm run build && npm run serve
+CMD npm run build:watch && npm run serve
