@@ -12,12 +12,11 @@ import server from "./src/server";
 
 const app = express();
 
+
 // Trust the X-Forwarded-Proto and X-Forwarded-Host, but only on private subnets.
 // See: https://github.com/pol-is/polis/issues/546
 // See: https://expressjs.com/en/guide/behind-proxies.html
 app.set("trust proxy", "uniquelocal");
-
-console.log("init 1");
 
 var helpersInitialized = new Promise(function (resolve, reject) {
   resolve(server.initializePolisHelpers());
@@ -214,8 +213,6 @@ helpersInitialized.then(
       wantCookie,
       wantHeader,
     } = require("./src/utils/parameter");
-
-    console.log("begin route config");
 
     app.disable("x-powered-by");
     // app.disable('etag'); // seems to be eating CPU, and we're not using etags yet. https://www.dropbox.com/s/hgfd5dm0e29728w/Screenshot%202015-06-01%2023.42.47.png?dl=0
