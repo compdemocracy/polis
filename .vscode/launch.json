@@ -12,7 +12,7 @@
       "address": "localhost",
       "protocol": "inspector",
       "remoteRoot": "/app",
-      "localRoot": "${workspaceFolder}/server/src",
+      "localRoot": "${workspaceFolder}/server",
       "restart": true
     },
     {
