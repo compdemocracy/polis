@@ -4,7 +4,7 @@ FROM compdem/polis-client-admin:${TAG}          as admin
 FROM compdem/polis-client-participation:${TAG}  as participation
 FROM compdem/polis-client-report:${TAG}         as report
 
-FROM node:16.4.2-alpine
+FROM node:16.5.0-alpine
 
 WORKDIR /app
 
