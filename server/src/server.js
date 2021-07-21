@@ -399,7 +399,7 @@ const getConversationInfo = Conversation.getConversationInfo;
 const getConversationInfoByConversationId =
   Conversation.getConversationInfoByConversationId;
 const isXidWhitelisted = Conversation.isXidWhitelisted;
-const getXidRecordByXidOwnerId = Conversation.getXidRecordByXidOwnerId;
+const getXidRecordByXidOwnerId = User.getXidRecordByXidOwnerId;
 
 // function doXidOwnerConversationIdAuth(assigner, xid, conversation_id, req, res, next) {
 //   getXidRecordByXidConversationId(xid, conversation_id).then(function(rows) {
@@ -7529,7 +7529,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   const createXidRecordByZid = Conversation.createXidRecordByZid;
-  const getXidStuff = Conversation.getXidStuff;
+  const getXidStuff = User.getXidStuff;
 
   function handle_PUT_participants_extended(req, res) {
     let zid = req.p.zid;

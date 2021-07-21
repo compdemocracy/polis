@@ -1,6 +1,5 @@
-const pg = require("./db/pg-query");
-const User = require("./user");
-const MPromise = require("./utils/metered").MPromise;
+const pg = require('./db/pg-query');
+const MPromise = require('./utils/metered').MPromise;
 const LruCache = require("lru-cache");
 
 function createXidRecord(
@@ -62,86 +61,6 @@ function getXidRecord(xid, zid) {
     "select * from xids where xid = ($1) and owner = (select org_id from conversations where zid = ($2));",
     [xid, zid]
   );
-}
-
-function getXidRecordByXidOwnerId(
-  xid,
-  owner,
-  zid_optional,
-  x_profile_image_url,
-  x_name,
-  x_email,
-  createIfMissing
-) {
-  return pg
-    .queryP("select * from xids where xid = ($1) and owner = ($2);", [
-      xid,
-      owner,
-    ])
-    .then(function (rows) {
-      if (!rows || !rows.length) {
-        console.log("no xInfo yet");
-        if (!createIfMissing) {
-          return null;
-        }
-
-        var shouldCreateXidEntryPromise = !zid_optional
-          ? Promise.resolve(true)
-          : getConversationInfo(zid_optional).then((conv) => {
-              return conv.use_xid_whitelist
-                ? isXidWhitelisted(owner, xid)
-                : Promise.resolve(true);
-            });
-
-        return shouldCreateXidEntryPromise.then((should) => {
-          if (!should) {
-            return null;
-          }
-          return User.createDummyUser().then((newUid) => {
-            console.log("created dummy");
-            return createXidRecord(
-              owner,
-              newUid,
-              xid,
-              x_profile_image_url || null,
-              x_name || null,
-              x_email || null
-            ).then(() => {
-              console.log("created xInfo");
-              return [
-                {
-                  uid: newUid,
-                  owner: owner,
-                  xid: xid,
-                  x_profile_image_url: x_profile_image_url,
-                  x_name: x_name,
-                  x_email: x_email,
-                },
-              ];
-            });
-          });
-        });
-      }
-      return rows;
-    });
-}
-
-function getXidStuff(xid, zid) {
-  return getXidRecord(xid, zid).then((rows) => {
-    if (!rows || !rows.length) {
-      return "noXidRecord";
-    }
-    let xidRecordForPtpt = rows[0];
-    if (xidRecordForPtpt) {
-      return User.getPidPromise(zid, xidRecordForPtpt.uid, true).then(
-        (pidForXid) => {
-          xidRecordForPtpt.pid = pidForXid;
-          return xidRecordForPtpt;
-        }
-      );
-    }
-    return xidRecordForPtpt;
-  });
 }
 
 function isXidWhitelisted(owner, xid) {
@@ -225,9 +144,8 @@ function getZidFromConversationId(conversation_id) {
 
 module.exports = {
   createXidRecordByZid,
+  createXidRecord,
   getXidRecord,
-  getXidRecordByXidOwnerId,
-  getXidStuff,
   isXidWhitelisted,
   getConversationInfo,
   getConversationInfoByConversationId,
