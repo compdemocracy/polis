@@ -6933,28 +6933,13 @@ Email verified! You can close this tab or hit the back button.
                                 [zid, conv.owner]
                               ).then(function (users) {
                                 let uids = _.pluck(users, "uid");
-                                // also notify polis team for moderation
-                                uids = _.union(uids, [
-                                  125, // mike
-                                  186, // colin
-                                  36140, // chris
-                                ]);
                                 uids.forEach(function (uid) {
                                   sendCommentModerationEmail(req, uid, zid, n);
-                                  sendSlackEvent({
-                                    type: "comment_mod_needed",
-                                    data: comment,
-                                  });
                                 });
                               });
                             });
                         } else {
                           addNotificationTask(zid);
-                          sendCommentModerationEmail(req, 125, zid, "?"); // email mike for all comments, since some people may not have turned on strict moderation, and we may want to babysit evaluation conversations of important customers.
-                          sendSlackEvent({
-                            type: "comment_mod_needed",
-                            data: comment,
-                          });
                         }
 
                         console.log(
