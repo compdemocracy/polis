@@ -1,11 +1,11 @@
 # Polis
-pol.is an AI powered sentiment gathering platform. More organic than surveys, less effort than focus groups.
+Polis is an AI powered sentiment gathering platform. More organic than surveys and less effort than focus groups, Polis meets a basic human need to be understood, at scale.
 
 <!-- Changes to badge text in URLs below, require changes to "name" value in .github/workflows/*.yml -->
-[![Nightly Docker Builds](https://github.com/compdemocracy/polis/workflows/Nightly%20Docker%20Builds/badge.svg)][nightlies]
+[![Docker Image Builds](https://github.com/compdemocracy/polis/workflows/Docker%20image%20Builds/badge.svg)][docker-image-builds]
 [![E2E Tests](https://github.com/compdemocracy/polis/workflows/E2E%20Tests/badge.svg)][e2e-tests]
 
-   [nightlies]: https://hub.docker.com/u/polisdemo
+   [nightlies]: https://hub.docker.com/u/compdem
    [e2e-tests]: https://github.com/compdemocracy/polis/actions?query=workflow%3A%22E2E+Tests%22
 
 ## :construction: Disclaimer
@@ -16,7 +16,7 @@ We do **NOT** make guarantees of easy setup or management, push-button deploymen
 
 Having said this, some of the core pieces of infrastructure described below are potentially useful in a production context, if used correctly.
 In particular, each subdirectory of the project has its own `Dockerfile` which could potentially be used as part of a deploy strategy.
-The `docker-compose.yml` is specifically focused on development environment flow.
+The `docker-compose.yml` is currently focused on development environment, but will soon transition to being production focused, with development conveniences extracted as a separate compose file.
 
 - See also: [Deployment: About SSL/HTTPS](docs/deployment.md#about-sslhttps)
 
@@ -26,18 +26,17 @@ We look forward to working together :tada:
 
 ## 🙋🏾‍♀️ Get Involved
 
-If you're interested in contributing to the codebase, please visit our [**issue tracker**][issues] [:white_check_mark:][issues].
-Please also see:
-- [**discussions**][discussions] [:speech_balloon:][discussions]
-- [project kanban board][board] [:checkered_flag:][board]
+If you're interested in contributing to the codebase, please see the following:
+- [:white_check_mark:][issues] [**issues**][issues]: for well-defined technical issues
+- [:speech_balloon:][discussions] [**discussions**][discussions]: for questions about the software, or more open ended ideas and conversation which don't properly fit in issues (to be clear, not technical support)
+- [:speech_balloon:][chat-dev] [**chat**][chat-dev]: if you're interested in connecting with other developers to get orientation around the project
+- more to come soon, hopefully (including kanban board and orientation documentation)!
 
-   [chat]: https://gitter.im/pol-is/polis-community
    [chat-dev]: https://gitter.im/pol-is/polisDeployment
-   [calls-about]: /CONTRIBUTING.md#telephone_receiver-open-calls
    [issues]: https://github.com/compdemocracy/polis/issues
-   [board]: https://github.com/orgs/pol-is/projects/1
+   [board]: https://github.com/orgs/compdemocracy/projects/1
    [contributing]: /CONTRIBUTING.md#how-we-work
-   [discussions]: https://github.com/
+   [discussions]: https://github.com/compdemocracy/polis/discussions
 
 ## 💻 Development
 
@@ -86,7 +85,7 @@ docker-machine ip
 >>> 123.45.67.89
 ```
 
-Visit your instance at: `http://123.45.67.89.xip.io/`
+Visit your instance at: `http://123.45.67.89.sslip.io/`
 
 Or visit a native docker instance at `http://localhost:80/`
 
@@ -106,7 +105,7 @@ git config --local include.path ../.gitconfig
 
 We use Cypress for automated, end-to-end browser testing! (See badge above.)
 
-Please see [`e2e/README.md`](/e2e/README.md).
+Please see [`e2e/README.md`](/e2e/README.md) and [`CONTRIBUTING.md`](/CONTRIBUTING.md#running-e2e-tests).
 
 ## 🚀 Deployment
 

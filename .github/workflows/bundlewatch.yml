@@ -35,7 +35,7 @@ jobs:
         echo "::set-output name=dir::$(npm config get cache)"
 
     - name: Restore npm cache directory
-      uses: actions/cache@v2.1.4
+      uses: actions/cache@v2.1.5
       with:
         path: ${{ steps.npm-cache.outputs.dir }}
         key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
@@ -53,7 +53,7 @@ jobs:
       run: |
         npm install
         cp polis.config.template.js polis.config.js
-        npm run build:preprod
+        npm run deploy:prod
         # So directory stays consistent between builds for comparison.
         mv dist/cached/* dist/cached/xxxxxxxxx
 

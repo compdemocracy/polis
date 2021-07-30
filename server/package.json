@@ -4,7 +4,9 @@
   "description": "polis =====",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npm format:check",
+    "format": "prettier --config ./prettier.config.js --no-editorconfig 'src/**/*.{js,ts}' --write",
+    "format:check": "prettier --config ./prettier.config.js --no-editorconfig 'src/**/*.{js,ts}' --check"
   },
   "repository": {
     "type": "git",
@@ -32,7 +34,7 @@
     "intercom.io": "1.5.0",
     "lru-cache": "3.0.0",
     "mimelib": "0.2.19",
-    "nodemailer": "^6.4.6",
+    "nodemailer": "^6.4.16",
     "nodemailer-mailgun-transport": "^2.0.0",
     "oauth": "0.9.14",
     "optimist": "0.3.7",
@@ -48,8 +50,11 @@
     "simple-oauth2": "0.2.1",
     "sql": "0.34.0",
     "stripe": "~2.5.0",
-    "underscore": "1.8.3",
+    "underscore": "1.12.1",
     "valid-url": "1.0.9",
     "winston": "1.0.2"
+  },
+  "devDependencies": {
+    "prettier": "^2.2.1"
   }
 }
