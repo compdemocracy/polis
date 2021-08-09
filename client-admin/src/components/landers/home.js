@@ -45,8 +45,8 @@ const Index = () => {
         Contribute
       </Heading>
       <Box sx={{ mb: [4, null, 5] }}>
-        Explore the code and join the community{' '}
-        <Link target="_blank" href="https://github.com/pol-is/">
+        Explore the code and join the developer community{' '}
+        <Link target="_blank" href="https://github.com/compdemocracy/">
           on Github
         </Link>
       </Box>
