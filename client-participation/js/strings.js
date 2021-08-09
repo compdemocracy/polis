@@ -48,6 +48,9 @@ var translations = {
 
   // Welsh
   cy: require("./strings/cy.js"),
+  
+  // Greek
+  gr: require("./strings/gr.js"),
 };
 
 
@@ -110,11 +113,14 @@ preloadHelper.acceptLanguagePromise.then(function() {
       languageCode.match(/^pt-BR/)) {
       _.extend(strings, translations.pt_br);
     }
-     else if (languageCode.match(/^he/)) {
+    else if (languageCode.match(/^he/)) {
       _.extend(strings, translations.he);
     }
-     else if (languageCode.match(/^cy/)) {
+    else if (languageCode.match(/^cy/)) {
       _.extend(strings, translations.cy);
+    }
+    else if (languageCode.match(/^gr/)) {
+      _.extend(strings, translations.gr);
     }
   });
 });
