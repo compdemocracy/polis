@@ -51,6 +51,9 @@ var translations = {
   
   // Greek
   gr: require("./strings/gr.js"),
+
+  // Ukrainian
+  uk: require("./strings/uk.js"),
 };
 
 
@@ -121,6 +124,9 @@ preloadHelper.acceptLanguagePromise.then(function() {
     }
     else if (languageCode.match(/^gr/)) {
       _.extend(strings, translations.gr);
+    }
+    else if (languageCode.match(/^uk/)) {
+      _.extend(strings, translations.uk);
     }
   });
 });
