@@ -1718,6 +1718,7 @@ module.exports = function(params) {
   }
 
   function getFancyComments(options) {
+    options = $.extend(options, { translate: true, lang: navigator.language });
     return $.when(getComments(options), votesForTidBidPromise).then(function(args /* , dont need second arg */ ) {
 
       var comments = args[0];
