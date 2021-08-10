@@ -56,7 +56,7 @@ class VotesDistribution extends React.Component {
               width: 1
             }
           }}
-          data={this.props.data.votesHistogram.map(d => {
+          data={this.props.data.votesHistogram.map((d) => {
             return {
               x: d.n_votes,
               y: d.n_ptpts
