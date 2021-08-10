@@ -6,9 +6,9 @@ import strings from '../../strings/strings'
 import { connect } from 'react-redux'
 import { populateAllCommentStores } from '../../actions'
 
-@connect(state => state.mod_comments_accepted)
-@connect(state => state.mod_comments_rejected)
-@connect(state => state.mod_comments_unmoderated)
+@connect((state) => state.mod_comments_accepted)
+@connect((state) => state.mod_comments_rejected)
+@connect((state) => state.mod_comments_unmoderated)
 class ConversationHasCommentsCheck extends React.Component {
   componentDidMount() {
     this.props.dispatch(populateAllCommentStores(this.props.conversation_id))
