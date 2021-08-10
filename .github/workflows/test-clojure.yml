@@ -23,7 +23,7 @@ jobs:
         uses: actions/setup-java@v2.2.0
         with:
           distribution: adopt
-          java-version: 1.8
+          java-version: 16.0.2
 
       - name: Install Clojure tooling
         uses: DeLaGuardo/setup-clojure@3.4
