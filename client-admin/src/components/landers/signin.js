@@ -10,7 +10,7 @@ import StaticLayout from './lander-layout'
 
 import strings from '../../strings/strings'
 
-@connect(state => state.signin)
+@connect((state) => state.signin)
 class SignIn extends React.Component {
   // eslint-disable-next-line node/handle-callback-err
   static getDerivedStateFromError(error) {
@@ -86,7 +86,7 @@ class SignIn extends React.Component {
                 borderColor: 'mediumGray'
               }}
               id="signinEmailInput"
-              ref={c => (this.email = c)}
+              ref={(c) => (this.email = c)}
               placeholder="email"
               type="email"
             />
@@ -103,7 +103,7 @@ class SignIn extends React.Component {
                 borderColor: 'mediumGray'
               }}
               id="signinPasswordInput"
-              ref={c => (this.password = c)}
+              ref={(c) => (this.password = c)}
               placeholder="password"
               type="password"
             />
@@ -150,7 +150,7 @@ class SignIn extends React.Component {
           }
         </p>
         <input
-          ref={c => (this.facebook_password = c)}
+          ref={(c) => (this.facebook_password = c)}
           placeholder="polis password"
           type="password"
         />

@@ -12,7 +12,7 @@ import Url from '../../util/url'
 import { Box, Heading, Button, Text } from 'theme-ui'
 import Conversation from './conversation'
 
-@connect(state => state.conversations)
+@connect((state) => state.conversations)
 class Conversations extends React.Component {
   constructor(props) {
     super(props)
@@ -32,7 +32,7 @@ class Conversations extends React.Component {
     // check your connectivity and try again
   }
 
-  goToConversation = conversation_id => {
+  goToConversation = (conversation_id) => {
     return () => {
       if (this.props.history.pathname === 'other-conversations') {
         window.open(`${Url.urlPrefix}${conversation_id}`, '_blank')

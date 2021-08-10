@@ -17,7 +17,7 @@ import ShareAndEmbed from './share-and-embed'
 
 import Reports from './report/reports'
 
-@connect(state => state.zid_metadata)
+@connect((state) => state.zid_metadata)
 class ConversationAdminContainer extends React.Component {
   loadZidMetadata() {
     this.props.dispatch(
