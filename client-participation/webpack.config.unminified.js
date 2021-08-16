@@ -2,7 +2,8 @@ var path = require("path");
 var webpack = require("webpack");
 
 module.exports = {
-  devtool: ["source-map"],
+  mode: 'production',
+  devtool: "source-map",
   entry: [
     "./vis2/vis2"
   ],
@@ -11,18 +12,13 @@ module.exports = {
     filename: "vis_bundle.js",
     publicPath: "SET_THIS_FROM_GULP"
   },
-  plugins: [
-    new webpack.optimize.OccurenceOrderPlugin(),
-  ],
   module: {
-
-    preLoaders: [
-      { test: /\.json$/, loader: "json"}
-    ],
-    loaders: [{
-      test: /\.js$/,
-      loaders: ["babel"],
-      include: path.join(__dirname, "vis2")
-    }]
+    rules: [
+      {
+        test: /\.js$/,
+        loader: "babel-loader",
+        include: path.join(__dirname, "vis2"),
+      },
+    ]
   }
 };

@@ -3,7 +3,7 @@
   var firstRun = !window.polis._hasRun;
   polis._hasRun = 1;
   var iframes = [];
-  var polisUrl = "https://polis.collectiveintelligence.service.cabinetoffice.gov.uk";
+  var polisUrl = "https://<%= polisHostName %>";
   var maxHeightsSeen = {};
 
   polis.on = polis.on || {};
@@ -206,15 +206,21 @@
     //   }
     // }
 
-    window.addEventListener(
-      "message",
-      function (event) {
-        // Exit the event  listener if the data origin isn't our expected value
-        var data = event.data || {};
-        var domain = event.origin.replace(/^https?:\/\//, "");
-        if (!domain.match(/(^|\.)pol.is$/)) {
-          return;
-        }
+    window.addEventListener("message", function(event) {
+      var data = event.data||{};
+      var domain = event.origin.replace(/^https?:\/\//,'');
+      if (!domain.match(/(^|\.)<%= polisHostName %>$/)) {
+        return;
+      }
+
+      var cbList = polis.on[data.name]||[];
+      var cbResults = [];
+      for (var i = 0; i < cbList.length; i++) {
+        cbResults.push(cbList[i]({
+          iframe: document.getElementById("polis_" + data.polisFrameId),
+          data: data
+        }));
+      }
 
         var cbList = polis.on[data.name] || [];
         var cbResults = [];

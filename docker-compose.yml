@@ -18,26 +18,63 @@ version: "3.1"
 services:
   server:
     container_name: polis-server
-    env_file: ./.universal.env
+    env_file: ./server/docker-dev.env
+    image: compdem/polis-server:${TAG}
     build:
       context: ./server
       dockerfile: Dockerfile
     depends_on:
       #- "postgres"
       - "file-server"
+    networks:
+      - "polis-net"
     ports:
       - "5000:5000"
-      - "9229:9229"
+
+  math:
+    container_name: polis-math
+    env_file: ./math/docker-dev.env
+    image: compdem/polis-math:${TAG}
+    depends_on:
+      - "postgres"
+    build:
+      context: ./math
+    networks:
+      - "polis-net"
+
+  postgres:
+    container_name: polis-postgres
+    env_file: ./server/docker-db-dev.env
+    image: compdem/polis-postgres:${TAG}
+    restart: always
+    build:
+      context: ./server
+      dockerfile: Dockerfile-db
+    networks:
+      - "polis-net"
+    volumes:
+      - "backups:/backups"
+      - "postgres:/var/lib/postgresql/data"
+
+  nginx-proxy:
+    container_name: polis-nginx-proxy
+    image: compdem/polis-nginx-proxy:${TAG}
+    build:
+      context: ./file-server
+      dockerfile: nginx.Dockerfile
     environment:
-      - PORT=5000
-      - HSTS=off
-      - VIRTUAL_HOST=polis.collectiveintelligence.service.cabinetoffice.gov.uk,www.polis.collectiveintelligence.service.cabinetoffice.gov.uk
-      - VIRTUAL_PORT=5000
-      - NODE_ENV=development
-      - CERT_NAME=polis-selfsigned
+      - TAG
+    depends_on:
+      - "server"
+    networks:
+      - "polis-net"
+    ports:
+      - "80:80"
+      - "443:443"
 
   file-server:
     container_name: polis-file-server
+    image: compdem/polis-file-server:${TAG}
     build:
       context: ./file-server
       dockerfile: Dockerfile
@@ -50,7 +87,7 @@ services:
 
   client-participation:
     container_name: polis-client-participation
-    image: polisdemo/client-participation:dev
+    image: compdem/polis-client-participation:${TAG}
     build:
       context: ./client-participation
       args:
@@ -58,8 +95,6 @@ services:
 
   client-admin:
     container_name: polis-client-admin
-    env_file: ./.universal.env
-    image: polisdemo/client-admin:dev
     build:
       context: ./client-admin
       args:
@@ -67,12 +102,9 @@ services:
 
   client-report:
     container_name: polis-client-report
-    env_file: ./.universal.env
-    image: polisdemo/client-report:dev
     build:
       context: ./client-report
       args:
         GIT_HASH: "${GIT_HASH}"
-
 volumes:
   backups:

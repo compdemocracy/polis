@@ -36,9 +36,24 @@ var translations = {
 
   // Japanese
   ja: require("./strings/ja.js"),
-  
+
   // Croatian
-  hr: require("./strings/hr.js")
+  hr: require("./strings/hr.js"),
+
+  // Slovak
+  sk: require("./strings/sk.js"),
+
+  // Hebrew
+  he: require("./strings/he.js"),
+
+  // Welsh
+  cy: require("./strings/cy.js"),
+  
+  // Greek
+  gr: require("./strings/gr.js"),
+
+  // Ukrainian
+  uk: require("./strings/uk.js"),
 };
 
 
@@ -92,11 +107,26 @@ preloadHelper.acceptLanguagePromise.then(function() {
     else if (languageCode.match(/^nl/)) {
       _.extend(strings, translations.nl);
     }
+    else if (languageCode.match(/^sk/)) {
+      _.extend(strings, translations.sk);
+    }
     else if (
       languageCode.match(/^pt/) ||  // To help other Portuguese speaker participants until its specific translation is not here
       languageCode.match(/^pt-PT/) ||  // To help Portuguese participantes until an specific translation is not here
       languageCode.match(/^pt-BR/)) {
       _.extend(strings, translations.pt_br);
+    }
+    else if (languageCode.match(/^he/)) {
+      _.extend(strings, translations.he);
+    }
+    else if (languageCode.match(/^cy/)) {
+      _.extend(strings, translations.cy);
+    }
+    else if (languageCode.match(/^gr/)) {
+      _.extend(strings, translations.gr);
+    }
+    else if (languageCode.match(/^uk/)) {
+      _.extend(strings, translations.uk);
     }
   });
 });

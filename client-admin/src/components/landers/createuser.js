@@ -10,7 +10,7 @@ import { Link } from 'react-router-dom'
 import StaticLayout from './lander-layout'
 import strings from '../../strings/strings'
 
-@connect(state => state.signin)
+@connect((state) => state.signin)
 class Createuser extends React.Component {
   getDest() {
     return this.props.location.pathname.slice('/createuser'.length)
@@ -25,7 +25,7 @@ class Createuser extends React.Component {
       gatekeeperTosPrivacy: true
     }
 
-    var dest = this.getDest()
+    let dest = this.getDest()
     if (!dest.length) {
       dest = '/'
     }
@@ -33,7 +33,7 @@ class Createuser extends React.Component {
   }
 
   facebookButtonClicked() {
-    var dest = this.getDest()
+    let dest = this.getDest()
     if (!dest.length) {
       dest = '/'
     }
@@ -41,7 +41,7 @@ class Createuser extends React.Component {
   }
 
   handleFacebookPasswordSubmit() {
-    var dest = this.getDest()
+    let dest = this.getDest()
     if (!dest.length) {
       dest = '/'
     }
@@ -73,7 +73,7 @@ class Createuser extends React.Component {
                 borderColor: 'mediumGray'
               }}
               id="createUserNameInput"
-              ref={c => (this.hname = c)}
+              ref={(c) => (this.hname = c)}
               placeholder="name"
               type="text"
             />
@@ -90,7 +90,7 @@ class Createuser extends React.Component {
                 borderColor: 'mediumGray'
               }}
               id="createUserEmailInput"
-              ref={c => (this.email = c)}
+              ref={(c) => (this.email = c)}
               placeholder="email"
               type="email"
             />
@@ -107,7 +107,7 @@ class Createuser extends React.Component {
                 borderColor: 'mediumGray'
               }}
               id="createUserPasswordInput"
-              ref={c => (this.password = c)}
+              ref={(c) => (this.password = c)}
               placeholder="password"
               type="password"
             />
@@ -124,7 +124,7 @@ class Createuser extends React.Component {
                 borderColor: 'mediumGray'
               }}
               id="createUserPasswordRepeatInput"
-              ref={c => (this.password2 = c)}
+              ref={(c) => (this.password2 = c)}
               placeholder="repeat password"
               type="password"
             />
@@ -188,7 +188,7 @@ class Createuser extends React.Component {
           login.
         </Text>
         <input
-          ref={c => (this.facebook_password = c)}
+          ref={(c) => (this.facebook_password = c)}
           placeholder="polis password"
           type="password"
         />

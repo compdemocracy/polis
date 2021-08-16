@@ -10,11 +10,11 @@ import { Heading } from 'theme-ui'
 import ComponentHelpers from '../../util/component-helpers'
 import NoPermission from './no-permission'
 
-@connect(state => state.zid_metadata)
+@connect((state) => state.zid_metadata)
 class ShareAndEmbed extends React.Component {
   constructEmbeddedOnMarkup() {
     return (
-      <p>
+      <p data-test-id="embed-page">
         {'Embedded on: '}
         <a
           style={{ color: 'black' }}

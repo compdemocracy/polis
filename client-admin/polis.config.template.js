@@ -2,11 +2,16 @@
 module.exports = {
 
   domainWhitelist: [
+    // local ports
     "^localhost$",
-    "^192\\.168\\.+",
-    ".+\\polis\\.collectiveintelligence\\.service\\.cabinetoffice\\.gov\\.uk$",
-    "^polis\\.collectiveintelligence\\.service\\.cabinetoffice\\.gov\\.uk"
-  ],
+    "^127\\.0\\.0\\.1$",
+    "^192\\.168\\.1\\.140$",
+    // sample configuration for main pol.is deployment
+    "^pol\\.is",
+    ".+\\.pol\\.is$",
+    // These allow for local ip routing for remote dev deployment
+    "^(n|ssl)ip\\.io$",
+    ".+\\.(n|ssl)ip\\.io$",
 
   DISABLE_INTERCOM: true,
   DISABLE_PLANS: true,

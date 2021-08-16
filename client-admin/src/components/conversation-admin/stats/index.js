@@ -12,13 +12,13 @@ import { Heading, Box, jsx } from 'theme-ui'
 import ComponentHelpers from '../../../util/component-helpers'
 import NoPermission from '../no-permission'
 
-@connect(state => state.stats)
-@connect(state => state.zid_metadata)
-@connect(state => state.stats)
+@connect((state) => state.stats)
+@connect((state) => state.zid_metadata)
+@connect((state) => state.stats)
 class ConversationStats extends React.Component {
   constructor(props) {
     super(props)
-    var times = dateSetupUtil()
+    const times = dateSetupUtil()
     this.chartSize = 500
     this.chartMargins = { top: 20, right: 20, bottom: 50, left: 70 }
     this.state = Object.assign({}, times)
@@ -45,7 +45,7 @@ class ConversationStats extends React.Component {
   loadStats() {
     const { match } = this.props
 
-    var until = this.state.until
+    const until = this.state.until
     this.props.dispatch(
       populateConversationStatsStore(match.params.conversation_id, until)
     )

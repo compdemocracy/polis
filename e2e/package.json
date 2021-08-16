@@ -9,12 +9,14 @@
     "lint:fix": "eslint --fix .",
     "test": "npm run e2e:all",
     "e2e:all": "cypress run --spec 'cypress/integration/polis/**' --browser=chrome",
+    "e2e:minimal": "cypress run --spec '**/polis/**/!(*.secrets).spec.js,!**/embeds.spec.js' --browser=chrome",
     "e2e:standalone": "cypress run --spec '**/polis/**/!(*.secrets).spec.js' --browser=chrome",
-    "e2e:secret": "cypress run --spec '**/*.secrets.spec.js' --browser=chrome"
+    "e2e:secret": "cypress run --spec '**/(*.secrets).spec.js' --browser=chrome"
   },
   "author": "Benjamin Rosas <ben@aliencyb.org>",
   "devDependencies": {
-    "cypress": "^4.9.0",
+    "cypress": "^6.8.0",
+    "cypress-iframe": "git+http://git@gitlab.com/patcon/cypress-iframe.git#cc50356ac674641c2d4735e837b47ff30c947a21",
     "cypress-terminal-report": "^1.4.1",
     "eslint": "^7.1.0",
     "eslint-config-prettier": "^6.11.0",

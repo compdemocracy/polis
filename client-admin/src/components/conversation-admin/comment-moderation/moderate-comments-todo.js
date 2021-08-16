@@ -10,7 +10,7 @@ import {
 } from '../../../actions'
 import Comment from './comment'
 
-@connect(state => state.mod_comments_unmoderated)
+@connect((state) => state.mod_comments_unmoderated)
 class ModerateCommentsTodo extends React.Component {
   onCommentAccepted(comment) {
     this.props.dispatch(changeCommentStatusToAccepted(comment))
@@ -24,8 +24,9 @@ class ModerateCommentsTodo extends React.Component {
     this.props.dispatch(changeCommentCommentIsMeta(comment, is_meta))
   }
 
-  createCommentMarkup() {
-    const comments = this.props.unmoderated_comments.map((comment, i) => {
+  createCommentMarkup(max) {
+
+    return this.props.unmoderated_comments.slice(0,max).map((comment, i) => {
       return (
         <Comment
           key={i}
@@ -41,15 +42,17 @@ class ModerateCommentsTodo extends React.Component {
         />
       )
     })
-    return comments
+    
   }
 
   render() {
+    const max = 100;
     return (
       <div>
         <div>
+          <p> Displays maximum {max} comments </p> 
           {this.props.unmoderated_comments !== null
-            ? this.createCommentMarkup()
+            ? this.createCommentMarkup(max)
             : 'Loading unmoderated comments...'}
         </div>
       </div>

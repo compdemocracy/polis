@@ -21,7 +21,7 @@ const styles = {
   }
 }
 
-@connect(state => state.seed_comments_tweet)
+@connect((state) => state.seed_comments_tweet)
 @Radium
 class ModerateCommentsSeed extends React.Component {
   constructor(props) {
@@ -33,9 +33,9 @@ class ModerateCommentsSeed extends React.Component {
   }
 
   handleSubmitSeed() {
-    var val = this.seed_form_tweet.value
-    var match = val && val.match(/[a-zA-Z0-9]+$/)
-    var tweet_id = ''
+    const val = this.seed_form_tweet.value
+    const match = val && val.match(/[a-zA-Z0-9]+$/)
+    let tweet_id = ''
     if (match && match.length) {
       tweet_id = match[0]
     }
@@ -104,7 +104,7 @@ class ModerateCommentsSeed extends React.Component {
               fontSize: 16,
               padding: 10
             }}
-            ref={c => (this.seed_form_tweet = c)}
+            ref={(c) => (this.seed_form_tweet = c)}
           />
         </div>
         <div>

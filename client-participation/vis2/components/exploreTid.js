@@ -211,6 +211,15 @@ class ExploreTid extends React.Component {
   }
   render() {
     if (!this.props.selectedComment) {return null}
+    let translatedText = null;
+    if (this.props.selectedComment.translatedText) {
+      let lang = navigator.language;
+      if (lang.indexOf('-') > 0) {
+        lang = lang.split('-')[0];
+        // Do not need undefined check, will just not appear
+        translatedText = this.props.selectedComment.translatedText[lang];
+      }
+    }
     return (
       <div style={{
           borderRadius: 4,
@@ -241,6 +250,8 @@ class ExploreTid extends React.Component {
             fontFamily: "Georgia, serif",
           }}>
             {this.props.selectedComment ? this.props.selectedComment.txt : null}
+            {translatedText ? <hr/> : null}
+            {translatedText ? translatedText : null}
           </p>
           <DataSentence
             math={this.props.math}

@@ -8,7 +8,7 @@ import { handleSeedCommentSubmit, seedCommentChanged } from '../../actions'
 import strings from '../../strings/strings'
 import { Box, Text, Button, jsx, Link } from 'theme-ui'
 
-@connect(state => state.seed_comments)
+@connect((state) => state.seed_comments)
 class ModerateCommentsSeed extends React.Component {
   constructor(props) {
     super(props)
@@ -53,9 +53,7 @@ class ModerateCommentsSeed extends React.Component {
       <Box sx={{ mb: [4] }}>
         <Text sx={{ mb: [2] }}>
           Add{' '}
-          <Link
-            target="_blank"
-            href="https://roamresearch.com/#/app/polis-methods/page/RkWuTgZfs">
+          <Link target="_blank" href="https://compdemocracy.org/seed-comments">
             seed comments
           </Link>{' '}
           for participants to vote on:
@@ -77,7 +75,7 @@ class ModerateCommentsSeed extends React.Component {
             maxLength="400"
             data-test-id="seed_form"
             value={seedText}
-            ref={c => (this.seed_form = c)}
+            ref={(c) => (this.seed_form = c)}
           />
         </Box>
         <Box>
