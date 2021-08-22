@@ -9,7 +9,7 @@ import {
 } from '../../../actions'
 import Comment from './comment'
 
-@connect(state => state.mod_comments_accepted)
+@connect((state) => state.mod_comments_accepted)
 class ModerateCommentsAccepted extends React.Component {
   onCommentRejected(comment) {
     this.props.dispatch(changeCommentStatusToRejected(comment))

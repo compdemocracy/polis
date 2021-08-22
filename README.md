@@ -26,18 +26,17 @@ We look forward to working together :tada:
 
 ## 🙋🏾‍♀️ Get Involved
 
-If you're interested in contributing to the codebase, please visit our [**issue tracker**][issues] [:white_check_mark:][issues].
-Please also see:
-- [**discussions**][discussions] [:speech_balloon:][discussions]
-- [project kanban board][board] [:checkered_flag:][board]
+If you're interested in contributing to the codebase, please see the following:
+- [:white_check_mark:][issues] [**issues**][issues]: for well-defined technical issues
+- [:speech_balloon:][discussions] [**discussions**][discussions]: for questions about the software, or more open ended ideas and conversation which don't properly fit in issues (to be clear, not technical support)
+- [:speech_balloon:][chat-dev] [**chat**][chat-dev]: if you're interested in connecting with other developers to get orientation around the project
+- more to come soon, hopefully (including kanban board and orientation documentation)!
 
-   [chat]: https://gitter.im/pol-is/polis-community
    [chat-dev]: https://gitter.im/pol-is/polisDeployment
-   [calls-about]: /CONTRIBUTING.md#telephone_receiver-open-calls
    [issues]: https://github.com/compdemocracy/polis/issues
-   [board]: https://github.com/orgs/pol-is/projects/1
+   [board]: https://github.com/orgs/compdemocracy/projects/1
    [contributing]: /CONTRIBUTING.md#how-we-work
-   [discussions]: https://github.com/
+   [discussions]: https://github.com/compdemocracy/polis/discussions
 
 ## 💻 Development
 
@@ -86,7 +85,7 @@ docker-machine ip
 >>> 123.45.67.89
 ```
 
-Visit your instance at: `http://123.45.67.89.xip.io/`
+Visit your instance at: `http://123.45.67.89.sslip.io/`
 
 Or visit a native docker instance at `http://localhost:80/`
 

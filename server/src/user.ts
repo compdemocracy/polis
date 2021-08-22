@@ -412,6 +412,101 @@ function getSocialInfoForUsers(uids: any[], zid: any) {
   );
 }
 
+function getXidRecordByXidOwnerId(
+  xid: any,
+  owner: any,
+  zid_optional: any,
+  x_profile_image_url: any,
+  x_name: any,
+  x_email: any,
+  createIfMissing: any
+) {
+  return (
+    pg
+      .queryP("select * from xids where xid = ($1) and owner = ($2);", [
+        xid,
+        owner,
+      ])
+      //     (local function)(rows: string | any[]): any
+      // Argument of type '(rows: string | any[]) => any' is not assignable to parameter of type '(value: unknown) => any'.
+      //   Types of parameters 'rows' and 'value' are incompatible.
+      //     Type 'unknown' is not assignable to type 'string | any[]'.
+      //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+      // @ts-ignore
+      .then(function (rows: string | any[]) {
+        if (!rows || !rows.length) {
+          console.log("no xInfo yet");
+          if (!createIfMissing) {
+            return null;
+          }
+
+          var shouldCreateXidEntryPromise = !zid_optional
+            ? Promise.resolve(true)
+            : Conversation.getConversationInfo(zid_optional).then(
+                (conv: { use_xid_whitelist: any }) => {
+                  return conv.use_xid_whitelist
+                    ? Conversation.isXidWhitelisted(owner, xid)
+                    : Promise.resolve(true);
+                }
+              );
+
+          return shouldCreateXidEntryPromise.then((should: any) => {
+            if (!should) {
+              return null;
+            }
+            return createDummyUser().then((newUid: any) => {
+              console.log("created dummy");
+              return Conversation.createXidRecord(
+                owner,
+                newUid,
+                xid,
+                x_profile_image_url || null,
+                x_name || null,
+                x_email || null
+              ).then(() => {
+                console.log("created xInfo");
+                return [
+                  {
+                    uid: newUid,
+                    owner: owner,
+                    xid: xid,
+                    x_profile_image_url: x_profile_image_url,
+                    x_name: x_name,
+                    x_email: x_email,
+                  },
+                ];
+              });
+            });
+          });
+        }
+        return rows;
+      })
+  );
+}
+
+function getXidStuff(xid: any, zid: any) {
+  // Argument of type '(rows: string | any[]) => any' is not assignable to parameter of type '(value: unknown) => any'.
+  // Types of parameters 'rows' and 'value' are incompatible.
+  //   Type 'unknown' is not assignable to type 'string | any[]'.
+  //   Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+  // @ts-ignore
+  return Conversation.getXidRecord(xid, zid).then((rows: string | any[]) => {
+    if (!rows || !rows.length) {
+      return "noXidRecord";
+    }
+    let xidRecordForPtpt = rows[0];
+    if (xidRecordForPtpt) {
+      return getPidPromise(zid, xidRecordForPtpt.uid, true).then(
+        (pidForXid: any) => {
+          xidRecordForPtpt.pid = pidForXid;
+          return xidRecordForPtpt;
+        }
+      );
+    }
+    return xidRecordForPtpt;
+  });
+}
+
 export {
   pidCache,
   getUserInfoForUid,
@@ -429,6 +524,8 @@ export {
 
 export default {
   pidCache,
+  getXidRecordByXidOwnerId,
+  getXidStuff,
   getUserInfoForUid,
   getUserInfoForUid2,
   addLtiUserIfNeeded,

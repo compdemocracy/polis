@@ -58,6 +58,7 @@ function getMailOptions(transportType: any) {
       return mg(mailgunAuth);
     case "aws-ses":
       return {
+        // reads AWS_REGION, AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY from process.env
         // reads AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY from process.env
         SES: new AWS.SES({ apiVersion: "2010-12-01" }),
       };
