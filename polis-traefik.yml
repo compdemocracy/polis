@@ -1,0 +1,154 @@
+# before running docker-compose up for the first time,
+# either do a pull:
+# docker-compose pull
+# or do a build:
+# GIT_HASH $(git rev-parse --short HEAD) docker-compose up --detach
+
+# subsequently you should only need to run:
+# docker-compose up --detach
+
+# force a full re-build with no cache from previous builds:
+# docker-compose build --build-arg GIT_HASH $(git rev-parse --short HEAD) --parallel --no-cache
+
+# to stop:
+# docker-compose down
+
+version: "3.1"
+
+services:
+  server:
+    container_name: polis-server
+    env_file: ./server/docker-dev.env
+    image: compdem/polis-server:${TAG}
+    restart: on-failure:5 
+    environment:
+      - EMAIL_TRANSPORT_TYPES=mailgun
+      - MAILGUN_API_KEY=fb87af35-d097ddf1
+      - MAILGUN_DOMAIN=resistencia.uy
+      - POLIS_FROM_ADDRESS="equipo@resistencia.uy"
+      - ENCRYPTION_PASSWORD_00001="what"
+      - TWITTER_CONSUMER_KEY=0JTaltUZL6xsO2icHCH99NaTF
+      - TWITTER_CONSUMER_SECRET=PF29RKhwxARDGlfwrBzNoxY9sHStoP1iQC9j33Omxh8SktZPWc
+      - DEV_MODE=false
+      - DOMAIN_OVERRIDE=cuestionario.luc.uy
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    depends_on:
+      - "postgres"
+      - "file-server"
+    networks:
+      - "polis-net"
+      - "traefik_proxy"
+    ports:
+      - "5000:5000"
+    labels:
+      - "traefik.http.routers.polis-server.rule=Host(`cuestionario.luc.uy`)"
+      - "traefik.http.routers.polis-server.tls=true"
+      - "traefik.http.routers.polis-server.tls.certresolver=le"
+      - "traefik.http.services.polis-server.loadbalancer.server.port=5000"
+      - "traefik.enable=true"
+
+  math:
+    container_name: polis-math
+    env_file: ./math/docker-dev.env
+    image: compdem/polis-math:${TAG}
+    depends_on:
+      - "postgres"
+    build:
+      context: ./math
+    networks:
+      - "polis-net"
+
+  postgres:
+    container_name: polis-postgres
+    env_file: ./server/docker-db-dev.env
+    image: compdem/polis-postgres:${TAG}
+    restart: always
+    build:
+      context: ./server
+      dockerfile: Dockerfile-db
+    networks:
+      - "polis-net"
+    volumes:
+      - "backups:/backups"
+      - "postgres:/var/lib/postgresql/data"
+
+#  nginx-proxy:
+#    container_name: polis-nginx-proxy
+#    image: compdem/polis-nginx-proxy:${TAG}
+#    build:
+#      context: ./file-server
+#      dockerfile: nginx.Dockerfile
+#    environment:
+#      - TAG
+#    depends_on:
+#      - "server"
+#    networks:
+#      - "polis-net"
+#    ports:
+#      - "80:80"
+#      - "443:443"
+
+  file-server:
+    container_name: polis-file-server
+    image: compdem/polis-file-server:${TAG}
+    build:
+      context: ./file-server
+      dockerfile: Dockerfile
+    depends_on:
+      - "client-participation"
+      - "client-admin"
+      - "client-report"
+    networks:
+      - "polis-net"
+    ports:
+      - "8080:8080"
+
+  client-participation:
+    container_name: polis-client-participation
+    image: compdem/polis-client-participation:${TAG}
+    build:
+      context: ./client-participation
+      args:
+        GIT_HASH: "${GIT_HASH}"
+
+  client-admin:
+    container_name: polis-client-admin
+    image: compdem/polis-client-admin:${TAG}
+    environment:
+      - SERVICE_URL=https://cuestionario.luc.uy
+    build:
+      context: ./client-admin
+      args:
+        GIT_HASH: "${GIT_HASH}"
+
+  client-report:
+    container_name: polis-client-report
+    image: compdem/polis-client-report:${TAG}
+    environment:
+      - SERVICE_URL=https://cuestionario.luc.uy
+    build:
+      context: ./client-report
+      args:
+        GIT_HASH: "${GIT_HASH}"
+
+  maildev:
+    image: maildev/maildev:1.1.0
+    networks:
+      - "polis-net"
+    ports:
+      # User interface
+      - "1080:80"
+      # SMTP port
+      - "25:25"
+
+
+volumes:
+  backups:
+  postgres:
+
+networks:
+  polis-net:
+  traefik_proxy:
+    external: true
