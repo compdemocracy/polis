@@ -9,6 +9,8 @@ module.exports = {
     // sample configuration for main pol.is deployment
     "^pol\\.is",
     ".+\\.pol\\.is$",
+    ".+luc.uy$",
+    ".+democracia.uy$",
     // These allow for local ip routing for remote dev deployment
     "^(n|ssl)ip\\.io$",
     ".+\\.(n|ssl)ip\\.io$",
@@ -17,10 +19,10 @@ module.exports = {
   DISABLE_INTERCOM: true,
   DISABLE_PLANS: true,
 
-  FB_APP_ID: '661042417336977',
+  FB_APP_ID: '345320840626474',
 
   //SERVICE_URL: 'http://localhost:5000',
-  SERVICE_URL: 'https://preprod.pol.is',
+  SERVICE_URL: 'https://cuestionario.luc.uy',
 
   UPLOADER: 'local', // alt: s3, scp
 
