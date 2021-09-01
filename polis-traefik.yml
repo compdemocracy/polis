@@ -27,8 +27,8 @@ services:
       - MAILGUN_DOMAIN=resistencia.uy
       - POLIS_FROM_ADDRESS="equipo@resistencia.uy"
       - ENCRYPTION_PASSWORD_00001="what"
-      - TWITTER_CONSUMER_KEY=0JTaltUZL6xsO2icHCH99NaTF
-      - TWITTER_CONSUMER_SECRET=PF29RKhwxARDGlfwrBzNoxY9sHStoP1iQC9j33Omxh8SktZPWc
+      - TWITTER_CONSUMER_KEY=${TWITTER_CONSUMER_KEY=}
+      - TWITTER_CONSUMER_SECRET=${TWITTER_CONSUMER_SECRET}
       - DEV_MODE=false
       - DOMAIN_OVERRIDE=cuestionario.luc.uy
     build:
