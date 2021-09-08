@@ -118,9 +118,6 @@ function renderLtiLinkageSuccessPage(req, res, o) {
 }
 
 function getUser(uid, zid_optional, xid_optional, owner_uid_optional) {
-  console.log(uid);
-  console.log(owner_uid_optional);
-  console.log(xid_optional);
   if (!uid) {
     // this api may be called by a new user, so we don't want to trigger a failure here.
     return Promise.resolve({});
@@ -342,8 +339,6 @@ function getSocialInfoForUsers(uids, zid) {
 }
 
 function getXidRecordByXidOwnerId(xid, owner, zid_optional, x_profile_image_url, x_name, x_email, createIfMissing) {
-  console.log("User.getXidRecordByXidOwnerId Owner:")
-  console.log(owner)
   return pg.queryP("select * from xids where xid = ($1) and owner = ($2);", [xid, owner]).then(function(rows) {
     if (!rows || !rows.length) {
       console.log('no xInfo yet');
@@ -352,7 +347,6 @@ function getXidRecordByXidOwnerId(xid, owner, zid_optional, x_profile_image_url,
       }
 
       var shouldCreateXidEntryPromise = !zid_optional ? Promise.resolve(true) : Conversation.getConversationInfo(zid_optional).then((conv) => {
-        console.log("shouldCreateXidEntryPromise")
         return conv.use_xid_whitelist ? Conversation.isXidWhitelisted(owner, xid) : Promise.resolve(true);
       });
 
