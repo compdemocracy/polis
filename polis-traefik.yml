@@ -23,9 +23,9 @@ services:
     restart: on-failure:5 
     environment:
       - EMAIL_TRANSPORT_TYPES=mailgun
-      - MAILGUN_API_KEY=fb87af35-d097ddf1
-      - MAILGUN_DOMAIN=resistencia.uy
-      - POLIS_FROM_ADDRESS="equipo@resistencia.uy"
+      - MAILGUN_API_KEY=${MAILGUN_API_KEY}
+      - MAILGUN_DOMAIN=${MAILGUN_DOMAIN}
+      - POLIS_FROM_ADDRESS=${POLIS_FROM_ADDRESS}
       - ENCRYPTION_PASSWORD_00001="what"
       - TWITTER_CONSUMER_KEY=${TWITTER_CONSUMER_KEY}
       - TWITTER_CONSUMER_SECRET=${TWITTER_CONSUMER_SECRET}
