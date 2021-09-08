@@ -10,6 +10,8 @@ function createXidRecord(
   x_name,
   x_email
 ) {
+  console.log(ownerUid);
+  console.log(xid);
   return pg.queryP(
     "insert into xids (owner, uid, xid, x_profile_image_url, x_name, x_email) values ($1, $2, $3, $4, $5, $6) " +
       "on conflict (owner, xid) do nothing;",
@@ -32,6 +34,8 @@ function createXidRecordByZid(
   x_name,
   x_email
 ) {
+  console.log(zid);
+  console.log(xid);
   return getConversationInfo(zid).then((conv) => {
     const shouldCreateXidRecord = conv.use_xid_whitelist
       ? isXidWhitelisted(conv.owner, xid)
