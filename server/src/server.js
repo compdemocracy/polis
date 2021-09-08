@@ -422,7 +422,12 @@ function doXidApiKeyAuth(assigner, apikey, xid, isOptional, req, res, next) {
           next("polis_err_auth_no_such_api_token4");
           return;
         }
+        winston.log("doXidApiKeyAuth")
+        winston.log("rwos")
+        winston.log(rows)
         let uidForApiKey = Number(rows[0].uid);
+        winston.log(uidForApiKey)
+        winston.log("*****")
         return getXidRecordByXidOwnerId(
           xid,
           uidForApiKey,
@@ -859,6 +864,8 @@ function initializePolisHelpers() {
   ) {
     return getConversationInfoByConversationId(conversation_id)
       .then((conv) => {
+        winston.log("****")
+        winston.log(conv)
         return getXidRecordByXidOwnerId(
           xid,
           conv.org_id,
