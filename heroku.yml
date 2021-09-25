@@ -10,6 +10,6 @@ build:
 release:
   image: release
   command:
-    - ./bin/build-static-assets.clj && deploy-static-assets.clj
+    - ./bin/build-static-assets.clj && ./bin/deploy-static-assets.clj
 
 
