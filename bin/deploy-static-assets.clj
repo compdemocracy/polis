@@ -9,8 +9,8 @@
          '[clojure.java.io :as io]
          '[clojure.string :as string])
 
-(pods/load-pod 'org.babashka/postgresql "0.0.1")
-(pods/load-pod 'org.babashka/aws "0.0.5")
+(pods/load-pod 'org.babashka/postgresql "0.0.7")
+(pods/load-pod 'org.babashka/aws "0.0.6")
 (deps/add-deps '{:deps {honeysql/honeysql {:mvn/version "1.0.444"}}})
 
 (require '[pod.babashka.postgresql :as pg]
