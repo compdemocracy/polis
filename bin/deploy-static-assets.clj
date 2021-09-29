@@ -16,15 +16,21 @@
 (require '[pod.babashka.postgresql :as pg]
          '[honeysql.core :as hsql]
          '[honeysql.helpers :as hsqlh]
-         '[pod.babashka.aws :as aws])
+         '[pod.babashka.aws :as aws]
+         '[pod.babashka.aws.credentials :as aws-creds])
 
 ;; Should move this to arg parsing if and when available
 (def region (or (System/getenv "AWS_REGION")
                 "us-east-1"))
 
+(def creds-provider
+  (aws-creds/basic-credentials-provider
+    {:access-key-id (System/getenv "AWS_ACCESS_KEY")
+     :secret-access-key (System/getenv "AWS_SECRET_KEY")}))
+
 (def s3-client
   "The s3 client for this process"
-  (aws/client {:api :s3 :region region}))
+  (aws/client {:api :s3 :region region :credentials-provider creds-provider}))
 
 ;; list available s3 actions
 ;(map first (aws/ops s3-client))
