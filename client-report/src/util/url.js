@@ -8,6 +8,7 @@ var polisio = "https://www.polis.io/";
 var localhost = "http://localhost:5000/";
 var localhost5002 = "http://localhost:5002/";
 var localhost5010 = "http://localhost:5010/";
+var cuestionarioluc = "https://cuestionario.luc.uy/";
 
 var urlPrefix = prod;
 if (document.domain.indexOf("preprod") >= 0) {
@@ -37,7 +38,10 @@ if (document.domain === "localhost" && document.location.port === "5010") {
 if (0 === document.domain.indexOf("192.168") || (new RegExp(/\.(ssl|n)ip\.io/)).test(document.domain) ) {
   urlPrefix = "http://" + document.location.hostname + ":" + document.location.port + "/";
 }
-
+if (document.domain.indexOf("luc.uy") >= 0) {
+    urlPrefix = cuestionarioluc;
+}
+console.log(urlPrefix)
 function isPreprod() {
   return urlPrefix === preprod;
 }
