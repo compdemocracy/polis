@@ -33,9 +33,9 @@ const ParticipantGroup = ({
         width: "100%",
       }}>
       <p style={globals.secondaryHeading}>
-        {groupLabel}: {groupVotesForThisGroup["n-members"]} participants
+        {groupLabel}: {groupVotesForThisGroup["n-members"]} participantes
       </p>
-      <p style={globals.paragraph}> Statements which make this group unique, by their votes: </p>
+      <p style={globals.paragraph}> Enunciados que hacen este grupo único, por sus votos: </p>
       <CommentList
         conversation={conversation}
         ptptCount={ptptCount}
