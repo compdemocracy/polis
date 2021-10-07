@@ -25,13 +25,12 @@ const MajorityStrict = ({conversation, comments, ptptCount, consensus, formatTid
 
   return (
     <div>
-      <p style={globals.primaryHeading}> Majority </p>
+      <p style={globals.primaryHeading}> Mayorías </p>
       <p style={globals.paragraph}>
-        Here's what most people agreed with.
+        Esto es en lo que las personas estuvieron más de acuerdo.
       </p>
       <p style={globals.paragraph}>
-        60% or more of all participants voted one way or the other,
-        regardless of whether large amounts of certain minority opinion groups voted the other way.
+        60% o más del total de participantes votaron en una forma u otra. Sin tener en cuenta si grandes cantidades de grupos de opinión minoritarios votaron en forma contraria.
       </p>
       <Legend voteColors={voteColors}/>
       <div style={{marginTop: 20}}>

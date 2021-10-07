@@ -33,10 +33,10 @@ const ProbabilityLegend = () => {
         src={"https://raw.githubusercontent.com/d3/d3-scale-chromatic/master/img/PuOr.png"}/>
       <Flex justifyContent={"space-between"} alignItems={"baseline"}>
         <span style={{fontSize: 10, width: 150}}>
-          These two comments are in opposition. Participants who agreed with one comment tended to disagree with the other, or vice versa.
+          Estos dos comentarios son opuestos. Los participantes que estén de acuerdo con uno de ellos tienden a estar en desacuerdo con el otro y viceversa.
         </span>
         <span style={{fontSize: 10, width: 150, textAlign: "right"}}>
-          These two comments are harmonious. Participants tended to vote the same way on both comments, either agreeing or disagreeing with both.
+          Estos dos comentarios son armoniosos. Los participantes tienden a votar de la misma manera en ambos comentarios, ya sea estando de acuerdo con ambos o en desacuerdo con ambos.
         </span>
       </Flex>
     </div>
