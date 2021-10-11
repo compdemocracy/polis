@@ -146,14 +146,14 @@ class Matrix extends React.Component {
       <div>
         <p style={globals.primaryHeading}>{this.props.title}</p>
         <p style={globals.paragraph}>
-          What is the chance that a participant who agreed (or disagreed) with a
-          given comment also agreed (or disagreed) with another given comment?
+          ¿Cuáles son las posibilidades de que un participante que estuvo de acuerdo (o en desacuerdo) con un comentario esté también de acuerdo (o en desacuerdo) con otro comentario?
         </p>
         <p style={globals.paragraph}>
-          Patterns emerge when we evaluate groups of statements that tended to be voted on similarly.
+          Los patrones emergen cuando evaluamos grupos de enunciados que tienen a ser votados en forma similar.
         </p>
         <p style={globals.paragraph}>
           This is an important bit of math (called a correlation matrix) that goes into making the graph above.
+		  Esto es una parte importante de la matemática (llamado correlación de la matriz) utilizada para realizar la gráfica anterior.
         </p>
 
 
@@ -208,7 +208,7 @@ class Matrix extends React.Component {
   }
   renderLoading() {
     return (
-      <div>loading matrix... (may take up to a minute)</div>
+      <div>Cargando matriz … (puede tardar unos minutos)</div>
     );
   }
   render() {
