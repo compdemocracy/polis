@@ -181,12 +181,12 @@ class Beeswarm extends React.Component {
   render() {
     return (
       <div style={{width: this.svgWidth}}>
-        <p style={globals.primaryHeading}> How divisive was the conversation? </p>
+        <p style={globals.primaryHeading}>¿Qué tan divisoria fue esta conversación? </p>
         <p style={globals.paragraph}>
-          Statements (here as little circles) to the left were voted on the same way—either everyone agreed or everyone disagreed. Statements to the right were divisive—participants were split between agreement and disagreement.
+          Los enunciados (aquí aparecen como pequeños círculos) a la izquierda fueron votados de la misma manera -ya sea que todos estuvieron de acuerdo o todos estuvieron en desacuerdo. Los enunciados a la derecha fueron divisorios -los participantes se dividieron entre quienes estuvieron de acuerdo y quienes estuvieron en desacuerdo. 
         </p>
         <p style={globals.paragraph}>
-          <strong>How to use this:</strong> Hover to see the statement text. Start on the far right to find out what the most divisive statement was.
+          <strong>¿Cómo se usa?</strong> Mouse sobre el enunciado para ver el texto. Empezá por la extrema derecha para encontrar el enunciado más divisorio.
         </p>
         <svg width={this.svgWidth} height={this.svgHeight}>
           <g id="beeswarmAxisAttachPointD3" transform={"translate(" + this.margin.left + "," + this.margin.top + ")"}>
