@@ -9,17 +9,17 @@ import style from "../../util/style";
 const Uncertainty = ({conversation, comments, ptptCount, uncertainty, formatTid, math, voteColors}) => {
 
   if (!conversation) {
-    return <div>Loading Uncertainty...</div>
+    return <div>Cargando incertidumbre...</div>
   }
   return (
     <div>
-      <p style={globals.primaryHeading}> Areas of uncertainty </p>
+      <p style={globals.primaryHeading}> Areas de incertidumbre </p>
       <p style={globals.paragraph}>
-        Across all {ptptCount} participants, there was uncertainty about the following statements.
-        Greater than 30% of participants who saw these statements 'passed'.
+		Al cabo de {ptptCount} participantes, hay incertidumbre acerca de los siguientes enunciados. 
+		Más del 30% de los participantes que vieron ese enunciado "pasaron".
       </p>
       <p style={globals.paragraph}>
-        Areas of uncertainty can provide avenues to educate and open dialogue with your community.
+        Las áreas de incertidumbre pueden indicar caminos para abrir el diálogo con tu comunidad. 
       </p>
       <div style={{marginTop: 50}}>
         <CommentList
