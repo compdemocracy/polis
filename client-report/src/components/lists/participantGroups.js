@@ -33,9 +33,10 @@ class ParticipantGroups extends React.Component {
         this.props.style
       )}>
       <div>
-        <p style={globals.primaryHeading}> Opinion Groups </p>
-        <p style={globals.paragraph}>
-          Across {this.props.ptptCount} total participants, {this.props.math["group-votes"].length} opinion groups emerged. There are two factors that define an opinion group. First, each opinion group is made up of a number of participants who tended to vote similarly on multiple statements. Second, each group of participants who voted similarly will have also voted distinctly differently from other groups.
+        <p style={globals.primaryHeading}> Grupos de opinión </p>
+        <p style={globals.paragraph}>		  
+		  Al cabo de {this.props.ptptCount} total de participantes, se identificaron {this.props.math["group-votes"].length} grupos. Hay dos factores que definen la opinión de un grupo. Primero, cada grupo de opinión está conformado por participantes que tienden a votar en forma similar en varios enunciados. Segundo, cada grupo de participantes que votaron en forma similar votarán también en forma diferente de otros grupos. 
+
         </p>
       <Metadata
         math={this.props.math}

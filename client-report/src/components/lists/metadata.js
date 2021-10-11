@@ -29,8 +29,7 @@ const Metadata = ({conversation, comments, ptptCount, formatTid, math, voteColor
     <div>
       <p style={globals.primaryHeading}> Metadata </p>
       <p style={globals.paragraph}>
-        The demographic breakdown of each group, as self reported by agreeing and disagreeing on statements
-        marked 'metadata' by moderators.
+		El desglose demográfico de cada grupo, auto reportado como "de acuerdo" y "en desacuerdo" en enunciados marcados "metadata" por moderadores
       </p>
       <div style={{marginTop: 50}}>
         <CommentList

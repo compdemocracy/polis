@@ -44,21 +44,21 @@ const Overview = ({
     <div >
       <p style={globals.primaryHeading}>Overview</p>
       <p style={globals.paragraph}>
-        Pol.is is a real-time survey system that helps identify the different ways a large group of people think about a divisive or complicated topic. Here’s a basic breakdown of some terms you’ll need to know in order to understand this report.
+        Pol.is es un sistema de encuestas en tiempo real que ayuda a identificar diferentes formas en que un grupo grande de personas piensa acerca de un tema complejo o divisorio. Aquí se muestra un desglose básico de algunos términos que se necesitan para entender este reporte.
       </p>
       <p style={globals.paragraph}>
-        <strong>Participants:</strong> These are the people who participated in the conversation by voting and writing statements. Based on how they voted, each participant is sorted into an opinion group.
+        <strong>Participantes:</strong> Son las personas que participaron en la conversación, votando y escribiendo enunciados. Basados en cómo votaron, cada participante es clasificado en un grupo de opinión.
       </p>
       <p style={globals.paragraph}>
-        <strong>Statements:</strong> Participants may submit statements for other participants to vote on. Statements are assigned a number in the order they’re submitted.
+        <strong>Enunciados:</strong> Los participantes deberán añadir enunciados para que otros participantes voten.  Se asignará un número a cada enunciado a medida que sean añadidos. 
       </p>
       <p style={globals.paragraph}>
-        <strong>Opinion groups:</strong> Groups are made of participants who voted similarly to each other, and differently from the other groups.
+        <strong>Grupos de Opinión:</strong> Los grupos se forman con participantes que votaron en forma similar unos a otros, y en forma diferente a otros grupos. 
       </p>
 
       <p style={globals.paragraph}>
-        {conversation && conversation.ownername ? "This pol.is conversation was run by "+conversation.ownername+". " : null}
-        {conversation && conversation.topic ? "The topic was '"+conversation.topic+"'. " : null}
+        {conversation && conversation.ownername ? "Esta conversación pol.is fue ejecutada por "+conversation.ownername+". " : null}
+        {conversation && conversation.topic ? "El tema fue '"+conversation.topic+"'. " : null}
       </p>
       <div style={{maxWidth: 1200, display: "flex", justifyContent: "space-between"}}>
         <Number number={ptptCountTotal} label={"people voted"} />
@@ -69,9 +69,9 @@ const Overview = ({
           label={"votes were cast"} />
         {/* Leaving this out for now until we get smarter conversationStats */}
         {/* <Number number={comments.length} label={"people submitted statements"} /> */}
-        <Number number={math["n-cmts"]} label={"statements were submitted"} />
-        <Number number={computedStats.votesPerVoterAvg.toFixed(2)} label={"votes per voter on average"} />
-        <Number number={computedStats.commentsPerCommenterAvg.toFixed(2)} label={"statements per author on average"} />
+        <Number number={math["n-cmts"]} label={"se enviaron enunciados"} />
+        <Number number={computedStats.votesPerVoterAvg.toFixed(2)} label={"Promedio de votos por votante"} />
+        <Number number={computedStats.commentsPerCommenterAvg.toFixed(2)} label={"Promedio de enunciados por autor"} />
 
       </div>
 
