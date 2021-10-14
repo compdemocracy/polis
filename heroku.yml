@@ -5,11 +5,11 @@ build:
     web: server/Dockerfile
     # math worker container
     worker: math/Dockerfile
-    release: ./Dockerfile
+    #release: ./Dockerfile
 
-release:
-  image: release
-  command:
-    - ./bin/build-static-assets.clj && ./bin/deploy-static-assets.clj
+#release:
+  #image: release
+  #command:
+    #- ./bin/build-static-assets.clj && ./bin/deploy-static-assets.clj
 
 
