@@ -64,8 +64,8 @@
    :database-ignore-ssl        {:path [:database :ignore-ssl] :parse ->boolean}
    :mailgun-api-key            {:path [:email :api-key]}
    :mailgun-url                {:path [:email :url]}
-   :aws-secret-key             {:path [:aws :secret-key]}
-   :aws-access-key             {:path [:aws :access-key]}
+   :aws-secret-key             {:path [:aws :secret-access-key]}
+   :aws-access-key             {:path [:aws :access-key-id]}
    :webserver-username         {:path [:webserver-username]}
    :webserver-pass             {:path [:webserver-pass]}
    :export-server-auth-username {:path [:darwin :server-auth-username]}
