@@ -4,7 +4,7 @@
          '[babashka.deps :as deps]
          '[clojure.pprint :as pp])
 
-(pods/load-pod 'org.babashka/postgresql "0.0.1")
+(pods/load-pod 'org.babashka/postgresql "0.0.7")
 (deps/add-deps '{:deps {honeysql/honeysql {:mvn/version "1.0.444"}}})
 
 (require '[pod.babashka.postgresql :as pg]
