@@ -37,12 +37,10 @@
         ;; Can't find bouncycastle trying to use this
         ;incanter {:mvn/version "1.9.3" :exclusions [org.clojure/clojure]}
         bigml/sampling {:mvn/version "3.2"}
-        amazonica/amazonica {:mvn/version "0.3.152"};:exclusions [org.apache.httpcomponents/httpclient
-                                         ;             org.apache.httpcomponents/httpcore}
-                                                       ;com.fasterxml.jackson.core/jackson-core]]
-        ;[com.fasterxml.jackson.core/jackson-core "2.5.3"]
-        ;[com.fasterxml.jackson.core/jackson-databind "2.5.3"]
-        ;[org.clojure/java.jdbc "0.7.0-alpha1"]
+        com.cognitect.aws/api {:mvn/version "0.8.524"}
+        com.cognitect.aws/endpoints {:mvn/version "1.1.12.69"}
+        com.cognitect.aws/s3 {:mvn/version "814.2.991.0"}
+
         org.postgresql/postgresql {:mvn/version "42.2.5"}
         korma/korma {:mvn/version "0.4.3"}
         clj-time/clj-time {:mvn/version "0.15.1"}
