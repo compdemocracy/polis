@@ -5,9 +5,9 @@ build:
     web: server/Dockerfile
     # math worker container
     worker: math/Dockerfile
-    compodem/polis-client-participation: client-participation/Dockerfile
-    compodem/polis-client-admin: client-admin/Dockerfile
-    compodem/polis-client-report: client-report/Dockerfile
+    compdem/polis-client-participation: client-participation/Dockerfile
+    compdem/polis-client-admin: client-admin/Dockerfile
+    compdem/polis-client-report: client-report/Dockerfile
     release: ./Dockerfile
 
 release:
