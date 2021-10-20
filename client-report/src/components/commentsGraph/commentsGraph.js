@@ -48,25 +48,23 @@ class CommentsGraph extends React.Component {
     return (
       <div style={{position: "relative"}}>
         <div>
-          <p style={globals.primaryHeading}> Statements </p>
+          <p style={globals.primaryHeading}> Enunciados </p>
           <p style={globals.paragraph}>
-          How do statements relate to each other? Did people who agreed with one comment also agree with another?
-          </p>
+          ¿Cómo se relacionan entre sí los enunciados? ¿Las personas que estuvieron de acuerdo en un enunciado también están de acuerdo con otro?
+		  </p>
           <p style={globals.paragraph}>
-          In this graph, statements that met disagreement are closer together if they were voted on similarly.
-          Those statements which were voted on differently are further apart.
-          </p>
+          En este gráfico los enunciados que produjeron desacuerdos se encuentran más relacionados si fueron votados en forma similar.
+		  Los enunciados que fueron votados en forma diferente se encuentran apartados entre sí.
+		  </p>
           <p style={Object.assign({}, globals.paragraph, {fontStyle: "italic"})}>
-          This is important because it is the basis on which we will lay out and cluster participants in a 2d space in later steps
-          (closer to the statements on which they agreed). There are no meaningful axes, but there are regions of statements that lend a
-          certain personality to a given area.
+          Esto es importante porque es la base en la cual trazaremos y agruparemos a los participantes en pasos siguientes (más cercanos a los enunciados en los cuales estuvieron de acuerdo). No hay ejes significativos pero hay áreas de enunciados que otorgan cierta personalidad a un área dada.
           </p>
         </div>
         <p style={{fontWeight: 500, maxWidth: 600, lineHeight: 1.4, minHeight: 50}}>
           {
             this.state.selectedComment ?
             "#" + this.state.selectedComment.tid + ". " + this.state.selectedComment.txt :
-            "Click a statement, identified by its number, to explore regions of the graph."
+            "Click en un enunciado, identificado por su número, para explorar las regiones del gráfico"
           }
         </p>
           <svg
