@@ -1,4 +1,4 @@
-FROM alpine:latest
+FROM docker.io/alpine:latest
 
 ENV BUILD_DEPS="bash build-base libpng-dev zlib-dev autoconf automake libtool nasm curl" \
   RUN_DEPS="openssh-client openjdk8-jre"

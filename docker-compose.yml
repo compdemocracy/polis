@@ -19,7 +19,7 @@ services:
   server:
     container_name: polis-server
     env_file: ./server/docker-dev.env
-    image: compdem/polis-server:${TAG}
+    image: docker.io/compdem/polis-server:${TAG}
     build:
       context: ./server
       dockerfile: Dockerfile
@@ -34,7 +34,7 @@ services:
   math:
     container_name: polis-math
     env_file: ./math/docker-dev.env
-    image: compdem/polis-math:${TAG}
+    image: docker.io/compdem/polis-math:${TAG}
     depends_on:
       - "postgres"
     build:
@@ -45,7 +45,7 @@ services:
   postgres:
     container_name: polis-postgres
     env_file: ./server/docker-db-dev.env
-    image: compdem/polis-postgres:${TAG}
+    image: docker.io/compdem/polis-postgres:${TAG}
     restart: always
     build:
       context: ./server
@@ -58,7 +58,7 @@ services:
 
   nginx-proxy:
     container_name: polis-nginx-proxy
-    image: compdem/polis-nginx-proxy:${TAG}
+    image: docker.io/compdem/polis-nginx-proxy:${TAG}
     build:
       context: ./file-server
       dockerfile: nginx.Dockerfile
@@ -74,7 +74,7 @@ services:
 
   file-server:
     container_name: polis-file-server
-    image: compdem/polis-file-server:${TAG}
+    image: docker.io/compdem/polis-file-server:${TAG}
     build:
       context: ./file-server
       dockerfile: Dockerfile
@@ -89,7 +89,7 @@ services:
 
   client-participation:
     container_name: polis-client-participation
-    image: compdem/polis-client-participation:${TAG}
+    image: docker.io/compdem/polis-client-participation:${TAG}
     build:
       context: ./client-participation
       args:
@@ -97,7 +97,7 @@ services:
 
   client-admin:
     container_name: polis-client-admin
-    image: compdem/polis-client-admin:${TAG}
+    image: docker.io/compdem/polis-client-admin:${TAG}
     build:
       context: ./client-admin
       args:
@@ -105,14 +105,14 @@ services:
 
   client-report:
     container_name: polis-client-report
-    image: compdem/polis-client-report:${TAG}
+    image: docker.io/compdem/polis-client-report:${TAG}
     build:
       context: ./client-report
       args:
         GIT_HASH: "${GIT_HASH}"
 
   maildev:
-    image: maildev/maildev:1.1.0
+    image: docker.io/maildev/maildev:1.1.0
     networks:
       - "polis-net"
     ports:
