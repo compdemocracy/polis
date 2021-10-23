@@ -1,3 +1,8 @@
+# Docker
+
+tiene que haber un .env 
+mirar .env.example
+
 # Polis
 Polis is an AI powered sentiment gathering platform. More organic than surveys and less effort than focus groups, Polis meets a basic human need to be understood, at scale.
 
