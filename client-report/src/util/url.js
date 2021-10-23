@@ -38,7 +38,7 @@ if (document.domain === "localhost" && document.location.port === "5010") {
 if (0 === document.domain.indexOf("192.168") || (new RegExp(/\.(ssl|n)ip\.io/)).test(document.domain) ) {
   urlPrefix = "http://" + document.location.hostname + ":" + document.location.port + "/";
 }
-if (document.domain.indexOf("luc.uy") >= 0) {
+if (document.domain.indexOf("luc.com.uy") >= 0) {
     urlPrefix = cuestionarioluc;
 }
 console.log(urlPrefix)
