@@ -117,7 +117,7 @@ services:
 
   client-participation:
     container_name: polis-client-participation
-    image: compdem/polis-clicuestionario.luc.com.uy{TAG}
+    image: compdem/polis-client-participation:${TAG}
     build:
       context: ./client-participation
       args:
