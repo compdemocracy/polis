@@ -7,6 +7,13 @@ This is the code for the view that conversation participants see.
 Development
 -----------
 
+install nvm
+nvm install v.11.15.0
+nvm use v.11.15.0
+npm install -g npm@6.9.2
+npm install
+npm start
+
 The below instructions are no longer officially supported; if you'd like to use them as a reference, we suggest you check out the official [Dockerfile](Dockerfile) to understand the latest build process and specific package versions.
 
 ---

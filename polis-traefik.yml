@@ -30,7 +30,7 @@ services:
       - TWITTER_CONSUMER_KEY=${TWITTER_CONSUMER_KEY}
       - TWITTER_CONSUMER_SECRET=${TWITTER_CONSUMER_SECRET}
       - DEV_MODE=false
-      - DOMAIN_OVERRIDE=cuestionario.luc.uy
+      - DOMAIN_OVERRIDE=cuestionario.luc.com.uy
     build:
       context: ./server
       dockerfile: Dockerfile
@@ -43,7 +43,7 @@ services:
     ports:
       - "5000:5000"
     labels:
-      - "traefik.http.routers.polis-server.rule=Host(`cuestionario.luc.uy`)"
+      - "traefik.http.routers.polis-server.rule=Host(`cuestionario.luc.com.uy`)"
       - "traefik.http.routers.polis-server.tls=true"
       - "traefik.http.routers.polis-server.tls.certresolver=le"
       - "traefik.http.services.polis-server.loadbalancer.server.port=5000"
@@ -117,7 +117,7 @@ services:
 
   client-participation:
     container_name: polis-client-participation
-    image: compdem/polis-client-participation:${TAG}
+    image: compdem/polis-clicuestionario.luc.com.uy{TAG}
     build:
       context: ./client-participation
       args:
@@ -127,7 +127,7 @@ services:
     container_name: polis-client-admin
     image: compdem/polis-client-admin:${TAG}
     environment:
-      - SERVICE_URL=https://cuestionario.luc.uy
+      - SERVICE_URL=https://cuestionario.luc.com.uy
     build:
       context: ./client-admin
       args:
