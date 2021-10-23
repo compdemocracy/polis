@@ -16,12 +16,12 @@ module.exports = {
 
   // Point to a polisServer instance (local recommended for dev)
   //SERVICE_URL: "http://localhost:5000", // local server; recommended for dev
-  SERVICE_URL: "https://cuestionario.luc.uy",
+  SERVICE_URL: "https://cuestionario.luc.com.uy",
 
   // Used for setting appropriate hostname for embedding.
   //SERVICE_HOSTNAME: "123.45.67.89.sslip.io",
-  SERVICE_HOSTNAME: "cuestionario.luc.uy",
-  DOMAIN_OVERRIDE: "cuestionario.luc.uy",
+  SERVICE_HOSTNAME: "cuestionario.luc.com.uy",
+  DOMAIN_OVERRIDE: "cuestionario.luc.com.uy",
 
   // Note that this must match the participation client port specified in polisServer instance
   PORT: 5001,

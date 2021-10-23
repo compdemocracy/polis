@@ -8,7 +8,7 @@ var polisio = "https://www.polis.io/";
 var localhost = "http://localhost:5000/";
 var localhost5002 = "http://localhost:5002/";
 var localhost5010 = "http://localhost:5010/";
-var cuestionarioluc = "https://cuestionario.luc.uy/";
+var cuestionarioluc = "https://cuestionario.luc.com.uy/";
 
 var urlPrefix = prod;
 if (document.domain.indexOf("preprod") >= 0) {
