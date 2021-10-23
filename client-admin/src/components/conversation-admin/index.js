@@ -97,6 +97,15 @@ class ConversationAdminContainer extends React.Component {
               Report
             </Link>
           </Box>
+          <Box sx={{ mb: [3] }}>
+            <Link
+              sx={{
+                variant: url === 'export' ? 'links.activeNav' : 'links.nav'
+              }}
+              to={`${match.url}/export`}>
+              Export
+            </Link>
+          </Box>
         </Box>
         <Box sx={{ p: [4], flex: '0 0 auto', maxWidth: '35em', mx: [4] }}>
           <Switch>
