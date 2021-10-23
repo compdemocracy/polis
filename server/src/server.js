@@ -1960,6 +1960,7 @@ function initializePolisHelpers() {
     setInterval(runExportTest, 6 * 60 * 60 * 1000); // every 6 hours
   }
   function handle_GET_dataExport(req, res) {
+    console.log("handle_GET_dataExport ############");
     getUserInfoForUid2(req.p.uid)
       .then((user) => {
         return doAddDataExportTask(
