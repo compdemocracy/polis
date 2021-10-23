@@ -48,6 +48,16 @@ services:
       - "traefik.http.routers.polis-server.tls.certresolver=le"
       - "traefik.http.services.polis-server.loadbalancer.server.port=5000"
       - "traefik.enable=true"
+      - "traefik.http.routers.polis-poll.rule=Host(`luc.com.uy`)"
+      - "traefik.http.routers.polis-poll.tls=true"
+      - "traefik.http.routers.polis-poll.tls.certresolver=le"
+      - "traefik.http.middlewares.redirectpoll.redirectregex.regex=(.*luc.com.uy.*)"
+      - "traefik.http.middlewares.redirectpoll.redirectregex.replacement=https://cuestionario.luc.uy/4j2c2pfca5"
+      - "traefik.http.middlewares.redirectpoll.redirectregex.permanent=true"
+      - "traefik.http.routers.polis-poll.middlewares=redirectpoll"
+      - "traefik.http.routers.poliscreateuser.rule=Host(`cuestionario.luc.uy`) && PathPrefix(`/createuser`)"
+      - "traefik.http.middlewares.poliscreateuser.basicauth.users=${ADMIN_USER}:${ADMIN_PASS}"
+      - "traefik.http.routers.poliscreateuser.middlewares=poliscreateuser"
 
   math:
     container_name: polis-math
