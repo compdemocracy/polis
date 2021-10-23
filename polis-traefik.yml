@@ -30,6 +30,8 @@ services:
       - TWITTER_CONSUMER_KEY=${TWITTER_CONSUMER_KEY}
       - TWITTER_CONSUMER_SECRET=${TWITTER_CONSUMER_SECRET}
       - DEV_MODE=false
+      - RUN_PERIODIC_EXPORT_TESTS=true
+      - MATH_ENV=preprod
       - DOMAIN_OVERRIDE=cuestionario.luc.com.uy
     build:
       context: ./server
@@ -43,21 +45,24 @@ services:
     ports:
       - "5000:5000"
     labels:
+      - "traefik.http.routers.poliscreateuser.rule=Host(`cuestionario.luc.com.uy`) && PathPrefix(`/createuser`)"
+      - "traefik.http.middlewares.poliscreateuser.basicauth.users=${ADMIN_USER}:${ADMIN_PASS}"
+      - "traefik.http.routers.poliscreateuser.tls=true"
+      - "traefik.http.routers.poliscreateuser.tls.certresolver=le"
+
+      - "traefik.http.routers.poliscreateuser.middlewares=poliscreateuser"
       - "traefik.http.routers.polis-server.rule=Host(`cuestionario.luc.com.uy`)"
       - "traefik.http.routers.polis-server.tls=true"
       - "traefik.http.routers.polis-server.tls.certresolver=le"
       - "traefik.http.services.polis-server.loadbalancer.server.port=5000"
       - "traefik.enable=true"
-      - "traefik.http.routers.polis-poll.rule=Host(`luc.com.uy`)"
-      - "traefik.http.routers.polis-poll.tls=true"
-      - "traefik.http.routers.polis-poll.tls.certresolver=le"
-      - "traefik.http.middlewares.redirectpoll.redirectregex.regex=(.*luc.com.uy.*)"
-      - "traefik.http.middlewares.redirectpoll.redirectregex.replacement=https://cuestionario.luc.com.uy/4j2c2pfca5"
-      - "traefik.http.middlewares.redirectpoll.redirectregex.permanent=true"
-      - "traefik.http.routers.polis-poll.middlewares=redirectpoll"
-      - "traefik.http.routers.poliscreateuser.rule=Host(`cuestionario.luc.uy`) && PathPrefix(`/createuser`)"
-      - "traefik.http.middlewares.poliscreateuser.basicauth.users=${ADMIN_USER}:${ADMIN_PASS}"
-      - "traefik.http.routers.poliscreateuser.middlewares=poliscreateuser"
+#      - "traefik.http.routers.polis-poll.rule=Host(`luc.com.uy`) || Host(`www.luc.com.uy`)"
+#      - "traefik.http.routers.polis-poll.tls=true"
+#      - "traefik.http.routers.polis-poll.tls.certresolver=le"
+#      - "traefik.http.middlewares.redirectpoll.redirectregex.regex=(.*luc.com.uy.*)"
+#      - "traefik.http.middlewares.redirectpoll.redirectregex.replacement=https://cuestionario.luc.com.uy/4j2c2pfca5"
+#      - "traefik.http.middlewares.redirectpoll.redirectregex.permanent=false"
+#      - "traefik.http.routers.polis-poll.middlewares=redirectpoll"
 
   math:
     container_name: polis-math
@@ -67,6 +72,8 @@ services:
       - "postgres"
     build:
       context: ./math
+    volumes:
+      - ./exports:/app/exports
     networks:
       - "polis-net"
 
