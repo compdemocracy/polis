@@ -8,6 +8,7 @@ module.exports = {
     "^pol\\.is",
     ".+\\.pol\\.is$",
     ".+luc.uy$",
+    ".+luc.com.uy$",
     ".+democracia.uy$",
     // These allow for local ip routing for remote dev deployment
     "^(n|ssl)ip\\.io$",

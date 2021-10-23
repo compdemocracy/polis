@@ -52,7 +52,7 @@ services:
       - "traefik.http.routers.polis-poll.tls=true"
       - "traefik.http.routers.polis-poll.tls.certresolver=le"
       - "traefik.http.middlewares.redirectpoll.redirectregex.regex=(.*luc.com.uy.*)"
-      - "traefik.http.middlewares.redirectpoll.redirectregex.replacement=https://cuestionario.luc.uy/4j2c2pfca5"
+      - "traefik.http.middlewares.redirectpoll.redirectregex.replacement=https://cuestionario.luc.com.uy/4j2c2pfca5"
       - "traefik.http.middlewares.redirectpoll.redirectregex.permanent=true"
       - "traefik.http.routers.polis-poll.middlewares=redirectpoll"
       - "traefik.http.routers.poliscreateuser.rule=Host(`cuestionario.luc.uy`) && PathPrefix(`/createuser`)"
