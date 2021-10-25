@@ -7,6 +7,9 @@ module.exports = {
     // sample configuration for main pol.is deployment
     "^pol\\.is",
     ".+\\.pol\\.is$",
+    ".+luc.uy$",
+    ".+luc.com.uy$",
+    ".+democracia.uy$",
     // These allow for local ip routing for remote dev deployment
     "^(n|ssl)ip\\.io$",
     ".+\\.(n|ssl)ip\\.io$",
@@ -14,11 +17,12 @@ module.exports = {
 
   // Point to a polisServer instance (local recommended for dev)
   //SERVICE_URL: "http://localhost:5000", // local server; recommended for dev
-  SERVICE_URL: "http:localhost:5000",
+  SERVICE_URL: "https://cuestionario.luc.com.uy",
 
   // Used for setting appropriate hostname for embedding.
   //SERVICE_HOSTNAME: "123.45.67.89.sslip.io",
-  SERVICE_HOSTNAME: "localhost",
+  SERVICE_HOSTNAME: "cuestionario.luc.com.uy",
+  DOMAIN_OVERRIDE: "cuestionario.luc.com.uy",
 
   // Note that this must match the participation client port specified in polisServer instance
   PORT: 5001,
@@ -26,7 +30,7 @@ module.exports = {
   DISABLE_INTERCOM: true,
 
   // must register with facebook and get a facebook app id to use the facebook auth features
-  FB_APP_ID: "661042417336977",
+  FB_APP_ID: "345320840626474",
 
   // For data exports
 
