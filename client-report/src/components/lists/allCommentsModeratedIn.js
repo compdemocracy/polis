@@ -69,18 +69,18 @@ class allCommentsModeratedIn extends React.Component {
 
     return (
       <div>
-        <p style={globals.primaryHeading}> All statements </p>
+        <p style={globals.primaryHeading}> Todos los enunciados </p>
         <p style={globals.paragraph}>
-          Group votes across all statements, excluding those statements which were moderated out.
+          Los grupos votaron a lo largo de todos los enunciados, excluyendo aquellos enunciados que se eliminaron. 
         </p>
-        <label for="allCommentsSortMode">Sort by: </label>
+        <label for="allCommentsSortMode">Ordenar po: </label>
         <select id="allCommentsSortMode" onChange={this.onSortChanged.bind(this)} value={this.state.sortStyle}>
-          <option value="tid">Statement Id</option>
-          <option value="consensus">Group-informed Consensus</option>
-          <option value="numvotes">Number of votes</option>
-          <option value="pctAgreed">% Agreed</option>
-          <option value="pctDisagreed">% Disagreed</option>
-          <option value="pctPassed">% Passed</option>
+          <option value="tid">Id del enunciado</option>
+          <option value="consensus">Grupos de Consenso</option>
+          <option value="numvotes">Número de votos</option>
+          <option value="pctAgreed">% Acuerdo</option>
+          <option value="pctDisagreed">% Desacuerdo</option>
+          <option value="pctPassed">% Pasaron</option>
         </select>
         <div style={{marginTop: 50}}>
           <CommentList

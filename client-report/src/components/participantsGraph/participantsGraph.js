@@ -135,15 +135,14 @@ class ParticipantsGraph extends React.Component {
     return (
       <div style={{position: "relative"}}>
         <div>
-          <p style={globals.primaryHeading}> Graph </p>
+          <p style={globals.primaryHeading}> Gráfica </p>
           <p style={globals.paragraph}>
-          Which statements were voted on similarly? How do participants relate to each other?
+			¿Qué enunciados fueron votados en forma similar? ¿Cómo se relacionan los participantes entre si?
           </p>
           <p style={globals.paragraph}>
-            In this graph, statements are positioned more closely to statements which were voted on similarly.
-            Participants, in turn, are positioned more closely to statements on which they agreed,
-            and further from statements on which they disagreed.
-            This means participants who voted similarly are closer together.
+		  En este gráfico los enunciados se posicionan más cercanos a enunciados que fueron votados en forma similar.
+		  Los participantes, en orden, son posicionados más cerca a enunciados en los que están de acuerdo y más lejos de los cuales están en desacuerdo.
+		  Esto significa que los participantes que votaron en forma similar son más cercanos entre sí. 
           </p>
         </div>
           <div>
@@ -276,7 +275,7 @@ class ParticipantsGraph extends React.Component {
                 comments={this.props.comments}
                 voteColors={this.props.voteColors}/>
               :
-              <p>Click a statement, identified by its number, to explore regions of the graph.</p>
+              <p>Click en un enunciado, identificado por su número para explorar las regiones del gráfico.</p>
             }
           </div>
 

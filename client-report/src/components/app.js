@@ -137,9 +137,9 @@ class App extends React.Component {
         } else if (globals.enableMatrix && response && response.status === "polis_report_needs_comment_selection") {
           this.setState({
             errorLink: "http://localhost:5002/m/36jajfnhhn/reports/r6ehukhk29tcfmuc57vrj/comments",
-            errorLinkText: "Select some comments",
+            errorLinkText: "Seleccioná algunos comentarios",
           });
-          reject("Currently, No comments are selected for display in the matrix.");
+          reject("Actualmente no hay comentarios seleccionados para desplegar.");
         } else {
           resolve(response);
         }

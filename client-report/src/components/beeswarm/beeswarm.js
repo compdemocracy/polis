@@ -33,10 +33,10 @@ const ProbabilityLegend = () => {
         src={"https://raw.githubusercontent.com/d3/d3-scale-chromatic/master/img/PuOr.png"}/>
       <Flex justifyContent={"space-between"} alignItems={"baseline"}>
         <span style={{fontSize: 10, width: 150}}>
-          These two comments are in opposition. Participants who agreed with one comment tended to disagree with the other, or vice versa.
+          Estos dos comentarios son opuestos. Los participantes que estén de acuerdo con uno de ellos tienden a estar en desacuerdo con el otro y viceversa.
         </span>
         <span style={{fontSize: 10, width: 150, textAlign: "right"}}>
-          These two comments are harmonious. Participants tended to vote the same way on both comments, either agreeing or disagreeing with both.
+          Estos dos comentarios son armoniosos. Los participantes tienden a votar de la misma manera en ambos comentarios, ya sea estando de acuerdo con ambos o en desacuerdo con ambos.
         </span>
       </Flex>
     </div>
@@ -181,12 +181,12 @@ class Beeswarm extends React.Component {
   render() {
     return (
       <div style={{width: this.svgWidth}}>
-        <p style={globals.primaryHeading}> How divisive was the conversation? </p>
+        <p style={globals.primaryHeading}>¿Qué tan divisoria fue esta conversación? </p>
         <p style={globals.paragraph}>
-          Statements (here as little circles) to the left were voted on the same way—either everyone agreed or everyone disagreed. Statements to the right were divisive—participants were split between agreement and disagreement.
+          Los enunciados (aquí aparecen como pequeños círculos) a la izquierda fueron votados de la misma manera -ya sea que todos estuvieron de acuerdo o todos estuvieron en desacuerdo. Los enunciados a la derecha fueron divisorios -los participantes se dividieron entre quienes estuvieron de acuerdo y quienes estuvieron en desacuerdo. 
         </p>
         <p style={globals.paragraph}>
-          <strong>How to use this:</strong> Hover to see the statement text. Start on the far right to find out what the most divisive statement was.
+          <strong>¿Cómo se usa?</strong> Mouse sobre el enunciado para ver el texto. Empezá por la extrema derecha para encontrar el enunciado más divisorio.
         </p>
         <svg width={this.svgWidth} height={this.svgHeight}>
           <g id="beeswarmAxisAttachPointD3" transform={"translate(" + this.margin.left + "," + this.margin.top + ")"}>

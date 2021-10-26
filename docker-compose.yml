@@ -35,7 +35,7 @@ services:
     container_name: polis-math
     env_file: ./math/docker-dev.env
     image: compdem/polis-math:${TAG}
-        volumes:
+    volumes:
       - ./exports:/app/exports
     depends_on:
       - "postgres"
@@ -52,6 +52,8 @@ services:
     build:
       context: ./server
       dockerfile: Dockerfile-db
+    ports:
+      - "5432:5432"
     networks:
       - "polis-net"
     volumes:
