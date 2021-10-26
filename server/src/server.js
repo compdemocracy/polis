@@ -1918,11 +1918,13 @@ function initializePolisHelpers() {
       ]
     );
   }
+  console.log('check condition export ###')
   if (
     process.env.RUN_PERIODIC_EXPORT_TESTS &&
     !devMode &&
     process.env.MATH_ENV === "preprod"
   ) {
+    console.log('true condition export')
     let runExportTest = () => {
       let math_env = "prod";
       let email = adminEmailDataExportTest;
@@ -1960,8 +1962,10 @@ function initializePolisHelpers() {
     setInterval(runExportTest, 6 * 60 * 60 * 1000); // every 6 hours
   }
   function handle_GET_dataExport(req, res) {
+    console.log("handle_GET_dataExport ############");
     getUserInfoForUid2(req.p.uid)
       .then((user) => {
+	console.log(user)
         return doAddDataExportTask(
           process.env.MATH_ENV,
           user.email,
@@ -1974,10 +1978,12 @@ function initializePolisHelpers() {
             res.json({});
           })
           .catch((err) => {
+		console.error('error uno')
             fail(res, 500, "polis_err_data_export123", err);
           });
       })
       .catch((err) => {
+	cosole.error('error dos')
         fail(res, 500, "polis_err_data_export123b", err);
       });
   }

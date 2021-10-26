@@ -29,20 +29,19 @@ class BoxPlot extends React.Component {
   render() {
     return (
       <div>
-        <p style={globals.primaryHeading}> Average level of agreement per group </p>
+        <p style={globals.primaryHeading}>Promedio de nivel de acuerdo por grupo</p>
         <p style={globals.paragraph}>
-          Which group agreed the most, across all statements?
-          The line in the middle of the blue boxes below shows the mean (average) percentage agreement by a given group across all statements.
-          The lower the line in the middle of the blue box, the more a group disagreed. The higher the line, the more they agreed.
+          ¿Qué grupo estuvo más de acuerdo en todos los enunciados?
+		  La linea en el medio del recuadro azul abajo muestra el porcentaje promedio de acuerdo en un grupo dado a los largo de todos los enunciados. 
+		  Cuanto más baja se encuentre la línea en el medio del recuadro azul, más desacuerdo hubo en el grupo. Cuando más alta se encuentre la línea, más acuerdo hubo en el grupo
         </p>
         <p style={globals.paragraph}>
-          If the mean, and the colored box is higher, it means people in the group agreed more overall.
-          This would suggest their views are represented.
+          Si el promedio y el recuadro coloreado son altos significa que la gente en el grupo estuvo de acuerdo en todo.
+		  Esto sugeriría que sus puntos de vista están representados. 
         </p>
         <p style={globals.paragraph}>
-          If the colored box is lower, it means the group, on avereage, disagreed on more across all statements.
-          A group with a lower than average agreement may be a group that needs to comment more,
-          so that its views are properly represented.
+          Si el recuadro coloreado está más bajo significa que el grupo en promedio estuvo en desacuerdo en la mayoría de los enunciados.
+          Un grupo con un promedio más bajo de acuerdos puede ser un grupo que necesite comentar más, para que sus puntos de vista estén adecuadamente representados.
         </p>
         <p style={globals.paragraph}>
           <a target="_blank" href="https://www.khanacademy.org/math/probability/data-distributions-a1/box--whisker-plots-a1/v/reading-box-and-whisker-plots">
