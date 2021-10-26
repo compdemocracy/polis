@@ -1,18 +1,3 @@
-# before running docker-compose up for the first time,
-# either do a pull:
-# docker-compose pull
-# or do a build:
-# GIT_HASH $(git rev-parse --short HEAD) docker-compose up --detach
-
-# subsequently you should only need to run:
-# docker-compose up --detach
-
-# force a full re-build with no cache from previous builds:
-# docker-compose build --build-arg GIT_HASH $(git rev-parse --short HEAD) --parallel --no-cache
-
-# to stop:
-# docker-compose down
-
 version: "3.1"
 
 services:
@@ -30,8 +15,7 @@ services:
       - TWITTER_CONSUMER_KEY=${TWITTER_CONSUMER_KEY}
       - TWITTER_CONSUMER_SECRET=${TWITTER_CONSUMER_SECRET}
       - DEV_MODE=false
-      - RUN_PERIODIC_EXPORT_TESTS=true
-      - MATH_ENV=preprod
+      - MATH_ENV=dev
       - DOMAIN_OVERRIDE=cuestionario.luc.com.uy
     build:
       context: ./server
@@ -46,23 +30,15 @@ services:
       - "5000:5000"
     labels:
       - "traefik.http.routers.poliscreateuser.rule=Host(`cuestionario.luc.com.uy`) && PathPrefix(`/createuser`)"
-      - "traefik.http.middlewares.poliscreateuser.basicauth.users=${ADMIN_USER}:${ADMIN_PASS}"
+      - "traefik.http.middlewares.poliscreateuser.basicauth.users=magnesium:$$apr1$$72myha9j$$1/phpaxGdbPUt9eV4it2j1"
       - "traefik.http.routers.poliscreateuser.tls=true"
       - "traefik.http.routers.poliscreateuser.tls.certresolver=le"
-
       - "traefik.http.routers.poliscreateuser.middlewares=poliscreateuser"
       - "traefik.http.routers.polis-server.rule=Host(`cuestionario.luc.com.uy`)"
       - "traefik.http.routers.polis-server.tls=true"
       - "traefik.http.routers.polis-server.tls.certresolver=le"
       - "traefik.http.services.polis-server.loadbalancer.server.port=5000"
       - "traefik.enable=true"
-#      - "traefik.http.routers.polis-poll.rule=Host(`luc.com.uy`) || Host(`www.luc.com.uy`)"
-#      - "traefik.http.routers.polis-poll.tls=true"
-#      - "traefik.http.routers.polis-poll.tls.certresolver=le"
-#      - "traefik.http.middlewares.redirectpoll.redirectregex.regex=(.*luc.com.uy.*)"
-#      - "traefik.http.middlewares.redirectpoll.redirectregex.replacement=https://cuestionario.luc.com.uy/4j2c2pfca5"
-#      - "traefik.http.middlewares.redirectpoll.redirectregex.permanent=false"
-#      - "traefik.http.routers.polis-poll.middlewares=redirectpoll"
 
   math:
     container_name: polis-math
@@ -72,8 +48,6 @@ services:
       - "postgres"
     build:
       context: ./math
-    volumes:
-      - ./exports:/app/exports
     networks:
       - "polis-net"
 
@@ -85,27 +59,13 @@ services:
     build:
       context: ./server
       dockerfile: Dockerfile-db
+    ports:
+      - 5432:5432
     networks:
       - "polis-net"
     volumes:
       - "backups:/backups"
       - "postgres:/var/lib/postgresql/data"
-
-#  nginx-proxy:
-#    container_name: polis-nginx-proxy
-#    image: compdem/polis-nginx-proxy:${TAG}
-#    build:
-#      context: ./file-server
-#      dockerfile: nginx.Dockerfile
-#    environment:
-#      - TAG
-#    depends_on:
-#      - "server"
-#    networks:
-#      - "polis-net"
-#    ports:
-#      - "80:80"
-#      - "443:443"
 
   file-server:
     container_name: polis-file-server
