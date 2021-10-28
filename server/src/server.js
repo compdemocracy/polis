@@ -7124,6 +7124,18 @@ Email verified! You can close this tab or hit the back button.
   //}
   function selectProbabilistically(comments, priorities, nTotal, nRemaining) {
     // Here we go through all of the comments we might select for the user and add their priority values
+	console.log(Config.enunciadosfijos)
+	for (let ci in comments){
+		let c = comments[ci]
+		for (let cf in Config.enunciadosfijos){
+			let ccf = Config.enunciadosfijos[cf]
+			console.log("comparo con " + c.tid)
+			if (c.tid == ccf){
+				return c
+			}
+		}
+	}
+
     let lookup = _.reduce(
       comments,
       (o, comment) => {
