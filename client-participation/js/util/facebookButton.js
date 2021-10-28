@@ -41,6 +41,7 @@ function facebookLoginOkHandler(response, optionalPassword) {
     type: "POST"
   });
   promise.fail(function(o) {
+    console.log(o);
     if ("polis_err_reg_fb_verification_email_sent" === o.responseText) {
       alert(Strings.polis_err_reg_fb_verification_email_sent);
     }
@@ -63,6 +64,7 @@ function fbLoginPrompt() {
     if (response.status !== 'connected') {
       return FB.login(function(response) {
         if (response.authResponse) {
+          console.log(response.authResponse);
           return facebookLoginOkHandler(response).then(dfd.resolve, dfd.reject);
         } else {
           return dfd.reject();
@@ -73,6 +75,7 @@ function fbLoginPrompt() {
       });
     } else {
       if (response.authResponse) {
+        console.log(response.authResponse);
         return facebookLoginOkHandler(response).then(dfd.resolve, dfd.reject);
       } else {
         return dfd.reject();
