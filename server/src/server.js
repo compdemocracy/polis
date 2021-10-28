@@ -5256,7 +5256,7 @@ Email verified! You can close this tab or hit the back button.
     let fb_login_status = response.status;
     // let fb_auth_response = response.authResponse.
     let fb_access_token = response.authResponse.accessToken;
-    let verified = o.info.verified;
+    let verified = true //CHANGED THIS, SUPPOUSE IS VERIFIEDo.info.verified;
 
     // let existingUid = req.p.existingUid;
     let referrer = req.cookies[COOKIES.REFERRER];

@@ -69,7 +69,7 @@ function fbLoginPrompt() {
         }
       }, {
         return_scopes: true, // response should contain the scopes the user allowed
-        scope: ['public_profile', 'user_location', 'user_friends','email'].join(',')
+        scope: ['public_profile','email'].join(',')
       });
     } else {
       if (response.authResponse) {
