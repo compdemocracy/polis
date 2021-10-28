@@ -170,6 +170,9 @@
         class="HeadingA"
         style="
          margin-bottom: 10px;
+		 font-family: Montserrat regular;
+		 color: #3f4bff;
+		 
         ">
         {{topic}}
         {{#unless is_active}}
@@ -229,10 +232,10 @@
     {{!-- border: 1px solid rgb(85, 172, 238); --}}
     {{!-- color: rgb(68, 136, 189); --}}
     {{!-- color: {{help_color}}; --}}
-    color: black;
+    color: #7f7f7f;
     padding: 5px 0px 5px 0px;
-    font-style: italic;
-    font-family: chaparral-pro;
+    font-family: Montserrat semibold;
+    font-size: 15px;
   " class="
   clickDoesNotDeselectHull
   {{#if hideHelp}} displayNone{{/if}}
@@ -266,7 +269,6 @@
   style="
     margin-left: 8px;
     margin-bottom: 20px;
-    display: none; {{! waiting to be shown }}
   ">
   <p style="font-size: 14px;">
     {{s.socialConnectPrompt}}

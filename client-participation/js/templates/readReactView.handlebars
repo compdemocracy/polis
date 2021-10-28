@@ -2,7 +2,7 @@
 
 <div
   id="readReactView"
-  style="margin-bottom: -40px;"
+  <!--style="margin-bottom: -40px;"-->
   >
 
   {{!-- Top of "Card stack" --}}
@@ -12,7 +12,7 @@
   		lightPanel
   		"
   	style="
-  		position:relative;
+		position:relative;
   		top: 0px;
   		z-index: 3;
   		{{!-- min-height: 144px; attempt to avoid flashing on vote view load--}}
@@ -38,30 +38,5 @@
 	  {{else}}
   		{{view voteView}}
 	  {{/if}}
-	</div>
-
-  {{!-- Empty "Card stack" div1 (notice css "top" and "width") --}}
-	<div
-		style="
-			min-height: 30px;
-			position:relative;
-			top: -26px;
-			z-index: 2;
-			margin: 0 auto;
-			width: 99%;
-		"
-		class="lightPanel">
-	</div>
-  {{!-- Empty "Card stack" div2 (notice css "top" and "width") --}}
-	<div
-		style="
-			min-height: 30px;
-			position:relative;
-			top: -52px;
-			z-index: 1;
-			margin: 0 auto;
-			width: 98%;
-		"
-		class="lightPanel">
 	</div>
 </div>

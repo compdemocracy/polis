@@ -159,9 +159,11 @@ img {
 }
 
 .lightPanel {
-  background-color: white;
+  border-radius: 0 12px 12px 0;
   border: solid 1px lightgray;
-  border-radius: 5px;
+  background-color: white;
+  border-left-color: #3f4bff;
+  border-left-width: 25px;
 }
 .darkPanel {
   background-color: $panel-color;
@@ -173,32 +175,38 @@ img {
   border-bottom: 1px solid lightgray;
 }
 
+
 #agreeButton, #disagreeButton {
-  border-right: 0px
+  border-right: 0px;
+  background-color: #d93124;
+  color: rgba(255,255,255,255);
 }
 
 #agreeButton {
   border-left: 0;
-  border-radius: 0 0 0 8px;
+  background-color: #79d679;
 }
 
 #passButton {
-  border-radius: 0 0 8px 0;
+  /*border-radius: 0 0 8px 0;*/
+  border-color: #3f4bff;
+  color: #3f4bff;
 }
 
 #agreeButton, #disagreeButton, #passButton {
-  border-bottom: 0;
+  /*border-bottom: 0;*/
   // background: #fafafa;
-  -webkit-font-smoothing: antialiased;
-
-  // prevent clipped right edge and extra padding on left edge on mobile
+  /*-webkit-font-smoothing: antialiased;*/
+  font-family: Montserrat Extrabold;
+   // prevent clipped right edge and extra padding on left edge on mobile
   padding-left: 0px;
   padding-right: 0px;
-
+  border-radius: 5px;
+  
   // Only allow hovering when not on iOS ( see https://github.com/twbs/bootstrap/issues/12832 )
   &.vote-btn-w-hover {
     &:hover {
-      border-color: #bbb;
+      /*border-color: #bbb;*/
       background: #eee;
     }
   }
@@ -304,19 +312,23 @@ img {
 .reactionButton{
   cursor: pointer;
   transition: all .2s ease-in-out;
-  color: rgb(0,0,0);
+  /*color: rgb(0,0,0);*/
   border-color: rgba(0,0,0,0);
-  background-color: rgba(0,0,0,0);
+  /*background-color: rgba(0,0,0,0);*/
+  background-color: rgba(255,255,255,255);
   text-decoration: none;
-  font-size: 14px;
   font-family: "Helvetica Neue", Helvetica, sans-serif;
   text-rendering: optimizeLegibility;
+  height: 33px;
+  margin-right: 20px;
 }
 .reactionButton:hover{
   -ms-transform: scale(1.12,1.12); /* IE 9 */
   -webkit-transform: scale(1.12,1.12); /* Safari */
   transform: scale(1.12,1.12);
 }
+
+	
 
 #visualization_div {
   width: 100%;
@@ -396,6 +408,13 @@ svg {
   -moz-justify-content: space-between;
   -ms-justify-content: space-between;
   justify-content: space-between;
+}
+
+.adjust-content{
+ -webkit-justify-content: flex-end;
+ -moz-justify-content: flex-end;
+ -ms-justify-content: flex-end;
+ justify-content: flex-end;
 }
 
 .align-items-flex-end {
@@ -815,7 +834,22 @@ svg {
   .writingTipsParent {
     display: none;
   }
-
+  
+  .reactionButton{
+	 width: 70%;
+	 height: 40px;
+	 margin-right: 0px;
+	 margin-bottom: 10px;
+	 font-size: 14px;
+  }
+  
+  .adjust-content{
+   -webkit-justify-content: space-around;
+   -moz-justify-content: space-around;
+   -ms-justify-content: space-around;
+   justify-content: space-around;
+  }
+  
 }
 
 @media (max-width: 380px) {
@@ -826,7 +860,10 @@ svg {
   #loginButtonInTabsBar {
     font-size: 14px !important; // !important since there are inline styles
   }
+
 }
+
+
 
 /* Everything but mobile */
 @media (min-width: 768px) {
@@ -856,8 +893,18 @@ svg {
   //   border-top-right-radius: 10px;
   //   border-top-left-radius: 10px;
   }
-
-}
+  
+  .reactionButton{
+   width: 145px;
+   font-size: 12px;
+  }
+  
+  .adjust-content{
+   -webkit-justify-content: flex-end;
+   -moz-justify-content: flex-end;
+   -ms-justify-content: flex-end;
+   justify-content: flex-end;
+  }
 
   .nav-tabs > li > a:hover {
     background-color: rgba(0,0,0,0);
@@ -875,6 +922,7 @@ svg {
   #agreeButton, #disagreeButton, #passButton, #trashButton {
     // padding: 10px 10px;
   }
+ }
 }
 
 
@@ -888,10 +936,12 @@ svg {
     right: 0;
     left: auto;
   }
+
 }
 
 /* LITTLE TABLET and down */
 @media only screen and (min-width : 320px) and (max-width : 1024px) {
+   
   #comment_shower_frame {
     padding: 5px;
   }
@@ -900,6 +950,8 @@ svg {
   #commentViewTab, #commentFormTab, #majorityTab {
     padding: 10px 10px; // overriding from 10px 15px
   }
+  
+  
 }
 
 /* BIG PHONE and down */
@@ -927,8 +979,6 @@ svg {
   #groupStats {
     display: none;
   }
-
-
   .polis-tab {
     // font-size:10px; // not needed since we're hiding the analyze tab, which makes space for the other tabs
   }
@@ -936,3 +986,4 @@ svg {
     margin-left: auto;
   }
 }
+
