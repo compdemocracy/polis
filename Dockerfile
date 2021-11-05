@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ARG TAG=dev
+=======
+FROM docker.io/alpine:latest
+>>>>>>> podman-compatibility
 
 FROM compdem/polis-client-admin:${TAG}          as admin
 FROM compdem/polis-client-participation:${TAG}  as participation
