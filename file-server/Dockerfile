@@ -73,8 +73,6 @@ FROM docker.io/node:16.9.0-alpine
 
 WORKDIR ../../file-server/app
 
-COPY ../bin/deploy-static-assets.clj ./
-
 COPY file-server/package*.json ./
 
 RUN npm ci
