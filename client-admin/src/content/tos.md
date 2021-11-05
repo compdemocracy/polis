@@ -1,6 +1,6 @@
 
 # Pol.is Terms of Use
-Last Updated: 6/12/2020
+Last Updated: 11/05/2021
 
 Welcome, and thank you for your interest in Math & Democracy ("we," or "us") and our Web site at <https://pol.is/> (the "Site"), as well as all related web sites, networks, embeddable widgets, downloadable software, mobile applications (including tablet applications), and other services provided by us and on which a link to these Terms of Use is displayed (collectively, together with the Site, our "Service").
 These Terms of Use are a legally binding contract between you and Math & Democracy regarding your use of the Service.
@@ -17,7 +17,7 @@ These Terms of Use are a legally binding contract between you and Math & Democra
  When you register, you will be asked to provide a password.
  You are solely responsible for maintaining the confidentiality of your account and password.
  Math & Democracy will not be held liable for actions which occur under your account due to your credentials having been discovered due to no fault of Math & Democracy.
- If you have reason to believe that your account is no longer secure, then you must immediately notify us at <contact@mathdem.org>.
+ If you have reason to believe that your account is no longer secure, then you must immediately notify us at <security@compdemocracy.org>.
 
 3. **Payment.** &nbsp;
  Access to the Service, or to certain features of the Service, may require you to pay fees.
@@ -59,7 +59,7 @@ These Terms of Use are a legally binding contract between you and Math & Democra
   For clarity, Math & Democracy does not permit copyright-infringing activities on the Service.
 
   6. **DMCA Takedown Requests.** &nbsp;
-  If you believe your copyright-protected work was posted to our Service without authorization, you may notify in accordance with the Digital Millenium Copyright Act at the following email address: <contact@mathdem.org>.
+  If you believe your copyright-protected work was posted to our Service without authorization, you may notify in accordance with the Digital Millenium Copyright Act at the following email address: <hello@compdemocracy.org>.
 
 5. **Prohibited Conduct.** &nbsp;
 **BY USING THE SERVICE YOU AGREE NOT TO:**
@@ -77,7 +77,7 @@ These Terms of Use are a legally binding contract between you and Math & Democra
  Additionally, Math & Democracy, in its sole discretion may terminate your user account on the Service or suspend or terminate your access to the Service at any time, with or without notice.
  We also reserve the right to modify or discontinue the Service at any time (including, without limitation, by limiting or discontinuing certain features of the Service) without notice to you.
  We will have no liability whatsoever on account of any change to the Service or any suspension or termination of your access to or use of the Service.
- You may terminate your account at any time by contacting customer service at <contact@mathdem.org>.
+ You may terminate your account at any time by contacting customer service at <admin@compdemocracy.org>.
  If you terminate your account, you will remain obligated to pay all outstanding fees, if any, relating to your use of the Service incurred prior to termination.
  To the extent permitted by applicable laws and regulations, no unused portions of pre-paid fees will be refunded following termination.
 
@@ -187,6 +187,6 @@ We reserve the right, at our own expense, to assume the exclusive defense and co
 
 18. **Contact Information.** &nbsp;
  The services hereunder are offered by Math & Democracy, located at PO BOX 30877 Seattle, WA 98113.
- You may contact us by sending correspondence to the foregoing address or by emailing us at <contact@mathdem.org>.
+ You may contact us by sending correspondence to the foregoing address or by emailing us at <hello@compdemocracy.org>.
  If you are a California resident, you may have these Terms mailed to you electronically by sending a letter to the foregoing address with your electronic mail address and a request for these Terms.
 
