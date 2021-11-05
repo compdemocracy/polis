@@ -22,7 +22,7 @@ RUN npm run deploy:prod
 # # Gulp v3 stops us from upgrading beyond Node v11
 FROM docker.io/node:11.15.0-alpine
 
-WORKDIR ../../client-participation/app
+WORKDIR /client-participation/app
 
 RUN apk add --no-cache --virtual .build \
   g++ git make python
@@ -54,7 +54,7 @@ RUN npm run deploy:prod
 # Gulp v3 stops us from upgrading beyond Node v11
 FROM docker.io/node:11.15.0-alpine
 
-WORKDIR ../../client-report/app
+WORKDIR /client-report/app
 
 RUN apk add git --no-cache
 
@@ -69,18 +69,12 @@ ARG GIT_HASH
 RUN npm run deploy:prod
 
 
-FROM docker.io/node:16.9.0-alpine
+#FROM docker.io/node:16.9.0-alpine
+FROM docker.io/babashka/babashka
 
-WORKDIR ../../file-server/app
+WORKDIR .
 
 COPY ./bin/deploy-static-assets.clj ./
-
-COPY file-server/package*.json ./
-
-RUN npm ci
-
-COPY file-server/. .
-COPY file-server/fs_config.template.json fs_config.json
 
 RUN mkdir /app
 RUN mkdir /app/build
