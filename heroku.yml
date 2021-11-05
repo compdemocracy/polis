@@ -5,10 +5,7 @@ build:
     web: server/Dockerfile
     # math worker container
     worker: math/Dockerfile
-    compdem/polis-client-participation: client-participation/Dockerfile
-    compdem/polis-client-admin: client-admin/Dockerfile
-    compdem/polis-client-report: client-report/Dockerfile
-    release: ./file-server/Dockerfile
+    release: Dockerfile
 
 release:
   image: release
