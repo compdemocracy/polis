@@ -1,0 +1,282 @@
+database_url:
+  doc: database_url
+  default: postgres://postgres:oiPorg3Nrz0yqDLE@postgres:5432/polis-dev
+  env: DATABASE_URL
+  
+webserver_username:
+  doc: webserver_username
+  default: ws-user
+  env: WEBSERVER_USERNAME
+  
+webserver_pass:
+  doc: webserver_pass
+  default: ws-passPOSTGRES_DB=polis-dev
+  env: WEBSERVER_PASS
+  
+postgres_password:
+  doc: postgres_password
+  default: oiPorg3Nrz0yqDLE
+  env: POSTGRES_PASSWORD
+  
+postgres_user:
+  doc: postgres_user
+  default: postgres# For admin functionality, fill this out
+  env: POSTGRES_USER
+  
+admin_emails:
+  doc: admin_emails
+  default: []
+  env: ADMIN_EMAILS
+  
+admin_email_data_export:
+  doc: admin_email_data_export
+  default: ""
+  env: ADMIN_EMAIL_DATA_EXPORT
+  
+admin_email_data_export_test:
+  doc: admin_email_data_export_test
+  default: ""
+  env: ADMIN_EMAIL_DATA_EXPORT_TEST
+  
+admin_email_email_test:
+  doc: admin_email_email_test
+  default: ""
+  env: ADMIN_EMAIL_EMAIL_TEST
+  
+admin_uids:
+  doc: admin_uids
+  default: []
+  env: ADMIN_UIDS
+  
+
+database_for_reads_name:
+  doc: database_for_reads_name
+  default: DATABASE_URL
+  env: DATABASE_FOR_READS_NAME
+  
+database_url:
+  doc: database_url
+  default: postgres://postgres:oiPorg3Nrz0yqDLE@postgres:5432/polis-dev
+  env: DATABASE_URL
+  
+
+webserver_username:
+  doc: webserver_username
+  default: ws-user
+  env: WEBSERVER_USERNAME
+  
+webserver_pass:
+  doc: webserver_pass
+  default: ws-pass
+  env: WEBSERVER_PASS
+  
+stripe_secret_key:
+  doc: stripe_secret_key
+  default: sk_test_NFBDEThkpHCYBzXPJuBlY8TW
+  env: STRIPE_SECRET_KEY
+  
+
+dev_mode:
+  doc: dev_mode
+  default: true
+  env: DEV_MODE
+  
+disable_intercom:
+  doc: disable_intercom
+  default: true
+  env: DISABLE_INTERCOM
+  
+domain_override:
+  doc: domain_override
+  default: localhost:5000
+  env: DOMAIN_OVERRIDE
+  
+# Options: prod, preprod, dev
+math_env:
+  doc: math_env ex. prod, preprod, dev
+  default: dev
+  env: MATH_ENV
+  
+port:
+  doc: port
+  default: 5000
+  env: PORT
+  
+
+should_use_translation_api:
+  doc: should_use_translation_api
+  default: false
+  env: SHOULD_USE_TRANSLATION_API
+  
+google_credentials_base64:
+  doc: google_credentials_base64
+  default: xxxxxxxxxxxxxxxxxxxxxxx...
+  env: GOOGLE_CREDENTIALS_BASE64
+  
+google_creds_stringified:
+  doc: google_creds_stringified
+  default: xxxxxxxxxxxxxxxxxxxxxxx...
+  env: GOOGLE_CREDS_STRINGIFIED
+  
+
+static_files_admindash_port:
+  doc: static_files_admindash_port
+  default: 8080
+  env: STATIC_FILES_ADMINDASH_PORT
+  
+static_files_host:
+  doc: static_files_host
+  default: file-server
+  env: STATIC_FILES_HOST
+  
+static_files_port:
+  doc: static_files_port
+  default: 8080
+  env: STATIC_FILES_PORT
+  
+
+aws_region:
+  doc: aws_region
+  default: us-east-1
+  env: AWS_REGION
+  
+
+# Options: maildev, aws-ses, mailgun
+# Example: `aws-ses,mailgun` would try sending via AWS SES first, and fallback to Mailgun on error.
+email_transport_types:
+  doc: email_transport_types ex. maildev, aws-ses, mailgun
+  default: maildev
+  env: EMAIL_TRANSPORT_TYPES
+  
+polis_from_address:
+  doc: polis_from_address
+  default: "Example <team@example.com>"
+  env: POLIS_FROM_ADDRESS
+  
+database_url:
+  doc: database_url
+  default: postgres://postgres:oiPorg3Nrz0yqDLE@postgres:5432/polis-dev
+  env: DATABASE_URL
+  
+webserver_username:
+  doc: webserver_username
+  default: ws-user
+  env: WEBSERVER_USERNAME
+  
+webserver_pass:
+  doc: webserver_pass
+  default: ws-passPOSTGRES_DB=polis-dev
+  env: WEBSERVER_PASS
+  
+postgres_password:
+  doc: postgres_password
+  default: oiPorg3Nrz0yqDLE
+  env: POSTGRES_PASSWORD
+  
+postgres_user:
+  doc: postgres_user
+  default: postgres# For admin functionality, fill this out
+  env: POSTGRES_USER
+  
+admin_emails:
+  doc: admin_emails
+  default: []
+  env: ADMIN_EMAILS
+  
+admin_email_data_export:
+  doc: admin_email_data_export
+  default: ""
+  env: ADMIN_EMAIL_DATA_EXPORT
+  
+admin_email_data_export_test:
+  doc: admin_email_data_export_test
+  default: ""
+  env: ADMIN_EMAIL_DATA_EXPORT_TEST
+  
+admin_email_email_test:
+  doc: admin_email_email_test
+  default: ""
+  env: ADMIN_EMAIL_EMAIL_TEST
+  
+admin_uids:
+  doc: admin_uids
+  default: []
+  env: ADMIN_UIDS
+  
+
+database_for_reads_name:
+  doc: database_for_reads_name
+  default: DATABASE_URL
+  env: DATABASE_FOR_READS_NAME
+  
+database_url:
+  doc: database_url
+  default: postgres://postgres:oiPorg3Nrz0yqDLE@postgres:5432/polis-dev
+  env: DATABASE_URL
+  
+
+webserver_username:
+  doc: webserver_username
+  default: ws-user
+  env: WEBSERVER_USERNAME
+  
+webserver_pass:
+  doc: webserver_pass
+  default: ws-pass
+  env: WEBSERVER_PASS
+  
+stripe_secret_key:
+  doc: stripe_secret_key
+  default: sk_test_NFBDEThkpHCYBzXPJuBlY8TW
+  env: STRIPE_SECRET_KEY
+  
+
+dev_mode:
+  doc: dev_mode
+  default: true
+  env: DEV_MODE
+  
+disable_intercom:
+  doc: disable_intercom
+  default: true
+  env: DISABLE_INTERCOM
+  
+domain_override:
+  doc: domain_override
+  default: localhost:5000
+  env: DOMAIN_OVERRIDE
+  
+# Options: prod, preprod, dev
+math_env:
+  doc: math_env
+  default: dev
+  env: MATH_ENV
+  
+port:
+  doc: port
+  default: 5000
+  env: PORT
+  
+
+
+static_files_admindash_port:
+  doc: static_files_admindash_port
+  default: 8080
+  env: STATIC_FILES_ADMINDASH_PORT
+  
+static_files_host:
+  doc: static_files_host
+  default: file-server
+  env: STATIC_FILES_HOST
+  
+static_files_port:
+  doc: static_files_port
+  default: 8080
+  env: STATIC_FILES_PORT
+  
+
+aws_region:
+  doc: aws_region
+  default: us-east-1
+  env: AWS_REGION
+  
