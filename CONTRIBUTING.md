@@ -38,11 +38,11 @@ make e2e-run-minimal
 If for whatever reason, Docker is serving your application from a remote IP or URL instead of `http://127.0.0.1`, then there are work-arounds:
 
 ```
-make e2e-run-minimal BASEURL=https://123.45.67.89.xip.io
+make e2e-run-minimal BASEURL=https://123.45.67.89.sslip.io
 make e2e-run-minimal BASEURL=https://mydomain.dev # Won't work right now
 ```
 
-(Specifically, [xip.io](https://xip.io) is a free third-party support service that allows any IP to "pretend" it's a domain.
+(Specifically, [sslip.io](https://sslip.io) is a free third-party support service that allows any IP to "pretend" it's a domain.
 There is currently a hardcoded "allow list" in the codebase,
 that lets this service work in the "development mode" that our Docker environment currently uses.)
 
