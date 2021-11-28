@@ -4,7 +4,7 @@
 const Promise = require('bluebird');
 const express = require('express');
 
-const server = require('./src/server');
+const server = require('./server');
 
 const app = express();
 
@@ -212,7 +212,7 @@ helpersInitialized.then(function(o) {
     want,
     wantCookie,
     wantHeader,
-  } = require('./src/utils/parameter');
+  } = require('./utils/parameter');
 
   console.log('begin route config');
 

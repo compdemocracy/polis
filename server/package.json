@@ -2,7 +2,7 @@
   "name": "polis",
   "version": "0.0.0",
   "description": "polis =====",
-  "main": "app.js",
+  "main": "src/app.js",
   "scripts": {
     "test": "npm format:check",
     "format": "prettier --config ./prettier.config.js --no-editorconfig 'src/**/*.{js,ts}' --write",
