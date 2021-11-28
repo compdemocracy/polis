@@ -19,6 +19,7 @@
   "dependencies": {
     "@google-cloud/translate": "^1.0.0",
     "@slack/client": "^3.5.3",
+    "@types/lru-cache": "^5.1.1",
     "akismet": "0.0.11",
     "async": "0.1.22",
     "aws-sdk": "^2.78.0",
