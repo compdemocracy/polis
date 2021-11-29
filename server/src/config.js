@@ -1,8 +1,8 @@
-import { DEV_MODE as devMode } from "boolean";
+const devMode = require("boolean")(get("DEV_MODE"));
 
 const domainOverride = process.env.DOMAIN_OVERRIDE || null;
 
-function getServerNameWithProtocol(req: any) {
+function getServerNameWithProtocol(req) {
   let server = "https://pol.is";
 
   if (domainOverride) {
@@ -25,7 +25,7 @@ function getServerNameWithProtocol(req: any) {
   return server;
 }
 
-function get(key: any) {
+function get(key) {
   return process.env[key];
 }
 
@@ -33,5 +33,9 @@ function isDevMode() {
   return devMode;
 }
 
-export { domainOverride, getServerNameWithProtocol, get, isDevMode };
-export default { domainOverride, getServerNameWithProtocol, get, isDevMode }
+module.exports = {
+  domainOverride,
+  getServerNameWithProtocol,
+  get,
+  isDevMode,
+};

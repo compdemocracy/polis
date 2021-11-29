@@ -59,7 +59,6 @@
     "winston": "1.0.2"
   },
   "devDependencies": {
-    "@types/node": "^16.11.10",
     "prettier": "^2.2.1"
   }
 }
