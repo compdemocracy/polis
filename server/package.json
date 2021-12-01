@@ -61,6 +61,8 @@
   },
   "devDependencies": {
     "@types/node": "^16.11.11",
+    "@types/nodemailer": "^6.4.4",
+    "@types/nodemailer-mailgun-transport": "^1.4.3",
     "prettier": "^2.2.1"
   }
 }
