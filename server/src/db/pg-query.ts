@@ -207,6 +207,16 @@ function queryP_metered_readOnly(name: any, queryString: any, params: any) {
   return queryP_metered_impl(true, ...arguments);
 }
 
+export {
+  query,
+  query_readOnly,
+  queryP,
+  queryP_metered,
+  queryP_metered_readOnly,
+  queryP_readOnly,
+  queryP_readOnly_wRetryIfEmpty,
+};
+
 export default {
   query,
   query_readOnly,
