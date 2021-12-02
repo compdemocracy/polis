@@ -19,7 +19,7 @@ module.exports = {
     },
     {
       "path": "client-participation/dist/cached/*/js/vis_bundle.js",
-      "maxSize": "200 kB",
+      "maxSize": "115 kB",
     },
   ]
 };
