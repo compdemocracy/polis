@@ -1825,7 +1825,6 @@ function initializePolisHelpers() {
         return obj;
       }
       for (let i = 0; i < a.length; i++) {
-        let i: number;
         // Element implicitly has an 'any' type
         // because expression of type 'any' can't be used to index type '{ } '.ts(7053)
         // @ts-ignore
