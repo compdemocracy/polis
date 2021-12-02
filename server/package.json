@@ -60,11 +60,20 @@
     "winston": "1.0.2"
   },
   "devDependencies": {
+    "@types/async": "^3.2.10",
     "@types/bcrypt": "^5.0.0",
+    "@types/bluebird": "^3.5.36",
+    "@types/connect-timeout": "0.0.35",
+    "@types/http-proxy": "^1.17.7",
+    "@types/intercom-client": "^2.11.11",
     "@types/node": "^16.11.11",
     "@types/nodemailer": "^6.4.4",
     "@types/nodemailer-mailgun-transport": "^1.4.3",
+    "@types/oauth": "^0.9.1",
     "@types/pg": "^7.14.11",
+    "@types/replacestream": "^4.0.1",
+    "@types/request-promise": "^4.1.48",
+    "@types/response-time": "^2.3.5",
     "@types/valid-url": "^1.0.3",
     "prettier": "^2.2.1"
   }
