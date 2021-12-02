@@ -1,4 +1,5 @@
-import { DEV_MODE as devMode } from "boolean";
+import boolean from "boolean";
+const devMode = boolean(get('DEV_MODE'));
 
 const domainOverride = process.env.DOMAIN_OVERRIDE || null;
 
