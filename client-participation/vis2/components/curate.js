@@ -1,4 +1,5 @@
-import _ from "lodash";
+import isNull from "lodash/isNull";
+import map from "lodash/map";
 import React from "react";
 import * as globals from "./globals";
 
@@ -17,9 +18,9 @@ class Button extends React.Component {
         marginRight: 5,
         cursor: "pointer",
         padding: "6px 12px",
-        fontWeight: (!_.isNull(this.props.selectedTidCuration) && this.props.selectedTidCuration === this.props.identifier) ? 700 : 500,
-        backgroundColor: (!_.isNull(this.props.selectedTidCuration) && this.props.selectedTidCuration === this.props.identifier) ? "#03a9f4" : "rgb(235,235,235)",
-        color: (!_.isNull(this.props.selectedTidCuration) && this.props.selectedTidCuration === this.props.identifier) ? "rgb(255,255,255)" : "rgb(100,100,100)",
+        fontWeight: (!isNull(this.props.selectedTidCuration) && this.props.selectedTidCuration === this.props.identifier) ? 700 : 500,
+        backgroundColor: (!isNull(this.props.selectedTidCuration) && this.props.selectedTidCuration === this.props.identifier) ? "#03a9f4" : "rgb(235,235,235)",
+        color: (!isNull(this.props.selectedTidCuration) && this.props.selectedTidCuration === this.props.identifier) ? "rgb(255,255,255)" : "rgb(100,100,100)",
         borderRadius: 4,
       }}
       onClick={this.handleClick.bind(this)}>
@@ -71,7 +72,7 @@ class Curate extends React.Component {
             {this.props.Strings.group_123}
           </p>
           {
-            _.map(this.props.math["group-votes"], (group) => {
+            map(this.props.math["group-votes"], (group) => {
               return (
                 <Button
                   key={globals.groupLabels[group.id]}

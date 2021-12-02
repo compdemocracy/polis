@@ -1,8 +1,9 @@
 import React from "react";
+import isNumber from "lodash/isNumber";
 import * as globals from "./globals";
 
 const GraphAxes = ({yCenter, xCenter, report}) => {
-  if (!_.isNumber(yCenter) || !_.isNumber(xCenter) || !report) {
+  if (!isNumber(yCenter) || !isNumber(xCenter) || !report) {
     return null;
   }
   let padding = 0;

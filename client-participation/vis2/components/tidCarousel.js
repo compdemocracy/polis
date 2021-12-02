@@ -1,6 +1,7 @@
 import React from "react";
 import * as globals from "./globals";
-import _ from "lodash";
+import isNull from "lodash/isNull";
+import map from "lodash/map";
 
 class PaginateButton extends React.Component {
 
@@ -98,7 +99,7 @@ class TidCarousel extends React.Component {
 
   render() {
 
-    if (_.isNull(this.props.selectedTidCuration)) { return null }
+    if (isNull(this.props.selectedTidCuration)) { return null }
 
     return (
       <div style={{
@@ -125,7 +126,7 @@ class TidCarousel extends React.Component {
             {this.props.Strings.comment_123}
           </p>
           {
-            this.props.commentsToShow && _.map(
+            this.props.commentsToShow && map(
               this.props.commentsToShow.slice(
                 (this.state.page * this.state.perPage),
                 ((this.state.page * this.state.perPage) + this.state.perPage)

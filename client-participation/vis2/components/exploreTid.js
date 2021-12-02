@@ -1,4 +1,5 @@
-import _ from "lodash";
+import isNumber from "lodash/isNumber";
+import find from "lodash/find";
 import React from "react";
 import * as globals from "./globals";
 import BarChart from "./barChart";
@@ -10,12 +11,12 @@ const DataSentence = ({math, selectedTidCuration, selectedComment, repfulFor, St
 
   let markup = null;
 
-  if (_.isNumber(selectedTidCuration)) {
+  if (isNumber(selectedTidCuration)) {
     const gid = selectedTidCuration;
     const tid = selectedComment.tid;
     const groupVotes = math["group-votes"][gid];
 
-    const repness = _.find(math.repness[gid], (r) => { return r.tid === selectedComment.tid })
+    const repness = find(math.repness[gid], (r) => { return r.tid === selectedComment.tid })
     let repfulForAgree = repness["repful-for"] === "agree";
     const v = groupVotes.votes[tid];
     const denominator = v.S; // (seen)
@@ -58,8 +59,8 @@ const DataSentence = ({math, selectedTidCuration, selectedComment, repfulFor, St
       </div>
     )
   } else if (selectedTidCuration === globals.tidCuration.majority) {
-    const repfulForAgree = _.find(math.consensus.agree, (r) => { return r.tid === selectedComment.tid });
-    const repfulForDisagree = _.find(math.consensus.disagree, (r) => { return r.tid === selectedComment.tid });
+    const repfulForAgree = find(math.consensus.agree, (r) => { return r.tid === selectedComment.tid });
+    const repfulForDisagree = find(math.consensus.disagree, (r) => { return r.tid === selectedComment.tid });
     const repness = repfulForAgree || repfulForDisagree;
 
     const percent = (repness["n-success"] / repness["n-trials"] * 100) >> 0;
@@ -118,7 +119,7 @@ class ExploreTid extends React.Component {
     let currentVote = null;
     if (this.props.selectedComment) {
       let selectedTid = this.props.selectedComment.tid;
-      let voteForSelectedComment = _.find(this.props.votesByMe, (v) => {
+      let voteForSelectedComment = find(this.props.votesByMe, (v) => {
         return v.tid === selectedTid;
       });
       currentVote = voteForSelectedComment && voteForSelectedComment.vote;
@@ -181,7 +182,7 @@ class ExploreTid extends React.Component {
     // Conditionally show change votes buttons
     let buttons = null;
     if (window.preload.firstConv.is_active) {
-      if (!_.isNumber(currentVote)) {
+      if (!isNumber(currentVote)) {
         buttons = <span>{agreeButton} {disagreeButton} {passButton}</span>
       } else if (currentVote === window.polisTypes.reactions.pass) {
         buttons = <span>Change vote: {agreeButton} {disagreeButton}</span>
@@ -193,7 +194,7 @@ class ExploreTid extends React.Component {
     }
 
     let changeVotesElements = null;
-    if (!_.isNumber(currentVote)) {
+    if (!isNumber(currentVote)) {
       changeVotesElements = <span> {buttons}</span>
     } else if (currentVote === window.polisTypes.reactions.pass) {
       changeVotesElements = <span> You passed. {buttons}</span>

@@ -1,5 +1,12 @@
 import * as globals from "../components/globals";
-import _ from "lodash";
+import clone from "lodash/clone";
+import min from "lodash/min";
+import max from "lodash/max";
+import keyBy from "lodash/keyBy";
+import maxBy from "lodash/maxBy";
+import minBy from "lodash/minBy";
+import assign from "lodash/assign";
+import each from "lodash/each";
 import createHull from "hull.js";
 
 import { forceSimulation, forceCollide, forceX, forceY } from 'd3-force';
@@ -54,32 +61,32 @@ function getGroupCornerAssignments(math) {
   for (let i = 0; i < 4; i++) { // nw
     candidate.nw = {
       gid: i,
-      pos: clusters[i] && _.clone(clusters[i].center),
+      pos: clusters[i] && clone(clusters[i].center),
     };
     for (let j = 0; j < 4; j++) { // sw
       if (j === i) { continue; }
       candidate.sw = {
         gid: j,
-        pos: clusters[j] && _.clone(clusters[j].center),
+        pos: clusters[j] && clone(clusters[j].center),
       };
 
       for (let k = 0; k < 4; k++) { // ne
         if (k === i || k === j) { continue; }
         candidate.ne = {
           gid: k,
-          pos: clusters[k] && _.clone(clusters[k].center),
+          pos: clusters[k] && clone(clusters[k].center),
         };
 
         for (let m = 0; m < 4; m++) { // se
           if (m === i || m === j || m === k) { continue; }
           candidate.se = {
             gid: m,
-            pos: clusters[m] && _.clone(clusters[m].center),
+            pos: clusters[m] && clone(clusters[m].center),
           };
 
           let score = getScore(candidate);
           if (score < bestScore) {
-            bestCandidate = _.clone(candidate);
+            bestCandidate = clone(candidate);
             bestScore = score;
           }
         }
@@ -117,7 +124,7 @@ function mixedForce(arrays, strength) {
 
 const doMapCornerPointer = (corner, xx, yy) => {
   if (corner.pos) {
-    corner.pos = _.clone(corner.pos);
+    corner.pos = clone(corner.pos);
     corner.pos[0] = xx(corner.pos[0]);
     corner.pos[1] = yy(corner.pos[1]);
   }
@@ -127,7 +134,7 @@ const graphUtil = (comments, math, badTids, ptptois) => {
     const allXs = [];
     const allYs = [];
 
-    const commentsByTid = _.keyBy(comments, "tid");
+    const commentsByTid = keyBy(comments, "tid");
 
     // comments
     const commentsPoints = [];
@@ -191,25 +198,25 @@ const graphUtil = (comments, math, badTids, ptptois) => {
 
 
     let border = 20;
-    let minClusterX = _.min(allXs);
-    let maxClusterX = _.max(allXs);
-    let minClusterY = _.min(allYs);
-    let maxClusterY = _.max(allYs);
+    let minClusterX = min(allXs);
+    let maxClusterX = max(allXs);
+    let minClusterY = min(allYs);
+    let maxClusterY = max(allYs);
     const xx = d3.scaleLinear().domain([minClusterX, maxClusterX]).range([border, globals.side - border]);
     const yy = d3.scaleLinear().domain([minClusterY, maxClusterY]).range([border, globals.svgHeightWithoutPadding - border]);
 
     const xCenter = xx(0);
     const yCenter = yy(0);
 
-    var greatestAbsPtptX = (_.maxBy(baseClusters, (pt) => { return Math.abs(pt.x); }) || {x: 1}).x;
-    var greatestAbsPtptY = (_.maxBy(baseClusters, (pt) => { return Math.abs(pt.y); }) || {y: 1}).y;
-    var greatestAbsCommentX = (_.maxBy(commentsPoints, (pt) => { return Math.abs(pt.x); }) || {x: 1}).x;
-    var greatestAbsCommentY = (_.maxBy(commentsPoints, (pt) => { return Math.abs(pt.y); }) || {y: 1}).y;
+    var greatestAbsPtptX = (maxBy(baseClusters, (pt) => { return Math.abs(pt.x); }) || {x: 1}).x;
+    var greatestAbsPtptY = (maxBy(baseClusters, (pt) => { return Math.abs(pt.y); }) || {y: 1}).y;
+    var greatestAbsCommentX = (maxBy(commentsPoints, (pt) => { return Math.abs(pt.x); }) || {x: 1}).x;
+    var greatestAbsCommentY = (maxBy(commentsPoints, (pt) => { return Math.abs(pt.y); }) || {y: 1}).y;
 
-    var maxCommentX = (_.maxBy(commentsPoints, (pt) => { return pt.x; }) || {x: 1}).x;
-    var minCommentX = (_.minBy(commentsPoints, (pt) => { return pt.x; }) || {x: 1}).x;
-    var maxCommentY = (_.maxBy(commentsPoints, (pt) => { return pt.y; }) || {y: 1}).y;
-    var minCommentY = (_.minBy(commentsPoints, (pt) => { return pt.y; }) || {y: 1}).y;
+    var maxCommentX = (maxBy(commentsPoints, (pt) => { return pt.x; }) || {x: 1}).x;
+    var minCommentX = (minBy(commentsPoints, (pt) => { return pt.x; }) || {x: 1}).x;
+    var maxCommentY = (maxBy(commentsPoints, (pt) => { return pt.y; }) || {y: 1}).y;
+    var minCommentY = (minBy(commentsPoints, (pt) => { return pt.y; }) || {y: 1}).y;
 
     // xGreatestMapped = xCenter + xScale * maxCommentX
     // globals.side - border = xCenter + xScale * maxCommentX
@@ -234,7 +241,7 @@ const graphUtil = (comments, math, badTids, ptptois) => {
       Math.abs(yScaleCandidateForTopSide));
 
     const baseClustersScaled = baseClusters.map((p) => {
-      return _.assign({}, p, {
+      return assign({}, p, {
         gid: p.gid,
         bid: p.bid,
         x: xx(p.x),
@@ -257,7 +264,7 @@ const graphUtil = (comments, math, badTids, ptptois) => {
     });
 
     let ptptoisProjected = ptptois.map((p) => {
-      let p2 = _.clone(p);
+      let p2 = clone(p);
       p2.x = xx(p.x);
       p2.y = yy(p.y);
       return p2;
@@ -280,7 +287,7 @@ const graphUtil = (comments, math, badTids, ptptois) => {
 
     const hulls = [];
 
-    _.each(pointsForHullGeneration, (group) => {
+    each(pointsForHullGeneration, (group) => {
       const pairs = group.map((g) => { /* create an array of arrays */
         return [g.x, g.y]
       })

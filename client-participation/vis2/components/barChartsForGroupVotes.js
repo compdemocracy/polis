@@ -1,5 +1,6 @@
 import React from "react";
-import _ from "lodash";
+import each from "lodash/each";
+import maxBy from "lodash/maxBy";
 import * as globals from "./globals";
 import BarChartCompact from "./barChartCompact";
 import closestPoint from "../util/closestPointOnPath";
@@ -43,7 +44,7 @@ const BarChartsForGroupVotes = ({
         dist: Math.sqrt(dx*dx + dy*dy),
       };
     });
-    let pt = _.maxBy(candidates, (c) => {
+    let pt = maxBy(candidates, (c) => {
       return -c.dist;
     }).pt;
 
@@ -64,7 +65,7 @@ const BarChartsForGroupVotes = ({
 
   const drawBarChartsForGroupVotesOnSelectedComment = () => {
     let arr = []
-    _.each(groups, (group, i) => {
+    each(groups, (group, i) => {
 
       const closestPair = getLabelAnchorForHull(hullElems[group.id]);
 

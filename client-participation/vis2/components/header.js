@@ -1,5 +1,4 @@
 import React from "react";
-import _ from "lodash";
 import Logo from "./hexLogo";
 import Gear from "./gear";
 

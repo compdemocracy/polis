@@ -1,6 +1,6 @@
-
 import * as globals from "./components/globals";
-import _ from "lodash";
+import each from "lodash/each";
+import keyBy from "lodash/keyBy";
 import Graph from "./components/graph";
 import Header from "./components/header";
 import React from 'react';
@@ -49,7 +49,7 @@ class Root extends React.Component {
     let repfulAgreeTidsByGroup = {};
     let repfulDisageeTidsByGroup = {};
     if (mathResult.repness) {
-      _.each(mathResult.repness, (entries, gid) => {
+      each(mathResult.repness, (entries, gid) => {
         entries.forEach((entry) => {
           if (entry['repful-for'] === 'agree') {
             repfulAgreeTidsByGroup[gid] = repfulAgreeTidsByGroup[gid] || [];
@@ -62,7 +62,7 @@ class Root extends React.Component {
       });
     }
 
-    let badTids = _.keyBy(this.props.math_main['mod-out']);
+    let badTids = keyBy(this.props.math_main['mod-out']);
 
     comments = comments.filter((c) => {
       return !c.is_meta;

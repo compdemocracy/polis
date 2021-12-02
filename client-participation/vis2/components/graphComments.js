@@ -1,5 +1,7 @@
 import React from "react";
-import _ from "lodash";
+import each from "lodash/each";
+import isNumber from "lodash/isNumber";
+import isNull from "lodash/isNull";
 import * as globals from "./globals";
 
 /* https://bl.ocks.org/mbostock/2206590 */
@@ -57,7 +59,7 @@ class GraphComment extends React.Component {
 class GraphComments extends React.Component {
 
   drawComments() {
-    let shouldShowOnlyOneGroup = _.isNumber(this.props.showOnlyGroup);
+    let shouldShowOnlyOneGroup = isNumber(this.props.showOnlyGroup);
 
     return this.props.points.map((pt, i) => {
 
@@ -65,21 +67,21 @@ class GraphComments extends React.Component {
       let antiRepfulForGid = null;
       if (globals.shouldColorizeTidsByRepfulness) {
         let tid = pt.tid;
-        _.each(this.props.repfulAgreeTidsByGroup, (tids, gid) => {
+        each(this.props.repfulAgreeTidsByGroup, (tids, gid) => {
           if (tids && tids.indexOf(tid) >= 0) {
             // console.log('rep', tid, gid);
             repfulForGid = Number(gid);
           }
         });
-        _.each(this.props.repfulDisageeTidsByGroup, (tids, gid) => {
+        each(this.props.repfulDisageeTidsByGroup, (tids, gid) => {
           if (tids && tids.indexOf(tid) >= 0) {
             // console.log('!rep', tid, gid);
             antiRepfulForGid = Number(gid);
           }
         });
-        if (!_.isNull(repfulForGid) && repfulForGid === this.props.showOnlyGroup) {
+        if (!isNull(repfulForGid) && repfulForGid === this.props.showOnlyGroup) {
           color = globals.groupColor(repfulForGid);
-        } else if (!_.isNull(antiRepfulForGid)) {
+        } else if (!isNull(antiRepfulForGid)) {
           color = globals.antiRepfulColor;
         }
       }

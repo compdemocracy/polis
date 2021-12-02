@@ -1,5 +1,7 @@
 import React from "react";
-import _ from "lodash";
+import keyBy from "lodash/keyBy";
+import isUndefined from "lodash/isUndefined";
+import isNumber from "lodash/isNumber";
 // import {ReactSVGPanZoom} from 'react-svg-pan-zoom';
 import * as globals from "./globals";
 import graphUtil from "../util/graphUtil";
@@ -45,7 +47,7 @@ class Graph extends React.Component {
       return;
     }
 
-    let tidsToShowSet = _.keyBy(nextProps.tidsToShow);
+    let tidsToShowSet = keyBy(nextProps.tidsToShow);
 
     let {
       xx,
@@ -63,11 +65,11 @@ class Graph extends React.Component {
     } = graphUtil(nextProps.comments, nextProps.math, nextProps.badTids, nextProps.ptptois);
 
     commentsPoints = commentsPoints.filter((c) => {
-      return !_.isUndefined(tidsToShowSet[c.tid]);
+      return !isUndefined(tidsToShowSet[c.tid]);
     });
 
     let tidCarouselComments = nextProps.comments.filter((c) => {
-      return !_.isUndefined(tidsToShowSet[c.tid]);
+      return !isUndefined(tidsToShowSet[c.tid]);
     });
 
     let selectedComment = this.state.selectedComment
@@ -180,16 +182,16 @@ class Graph extends React.Component {
               report={this.props.report}/>
             <Hulls
               handleClick={this.handleCurateButtonClick.bind(this)}
-              selectedGroup={_.isNumber(this.state.selectedTidCuration) ? this.state.selectedTidCuration : null}
+              selectedGroup={isNumber(this.state.selectedTidCuration) ? this.state.selectedTidCuration : null}
               getHullElems={this.getHullElems.bind(this)}
               hulls={this.state.hulls} />
             <Participants
-              selectedGroup={_.isNumber(this.state.selectedTidCuration) ? this.state.selectedTidCuration : null}
+              selectedGroup={isNumber(this.state.selectedTidCuration) ? this.state.selectedTidCuration : null}
               points={this.state.baseClustersScaled}
               ptptois={this.state.ptptoisProjected}/>
             <HullLabels
               handleClick={this.handleCurateButtonClick.bind(this)}
-              selectedGroup={_.isNumber(this.state.selectedTidCuration) ? this.state.selectedTidCuration : null}
+              selectedGroup={isNumber(this.state.selectedTidCuration) ? this.state.selectedTidCuration : null}
               groups={this.props.math["group-votes"] || window.preload.firstMath["group-votes"] /* for labels */}
               centroids={this.state.groupCentroids}
               />

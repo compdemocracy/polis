@@ -1,5 +1,4 @@
 import React from "react";
-import _ from "lodash";
 import * as globals from "./globals";
 
 const BarChartCompact = ({selectedComment, groupVotes, translate}) => {

@@ -1,5 +1,5 @@
 import React from "react";
-import _ from "lodash";
+import reduce from "lodash/reduce";
 
 const BarChart = ({selectedComment, groupVotes, groups, translate}) => {
 
@@ -17,23 +17,23 @@ const BarChart = ({selectedComment, groupVotes, groups, translate}) => {
 
   // it's the global barchart, so add everything up
   if (groups) {
-    ptptCount = _.reduce(groups, (accumulator, group, key) => {
+    ptptCount = reduce(groups, (accumulator, group, key) => {
       return accumulator += group["n-members"]
     }, 0);
 
-    commentCount = _.reduce(groups, (accumulator, group, key) => {
+    commentCount = reduce(groups, (accumulator, group, key) => {
       return accumulator += group.votes[selectedComment.tid].S
     }, 0);
 
-    commentAgreeCount = _.reduce(groups, (accumulator, group, key) => {
+    commentAgreeCount = reduce(groups, (accumulator, group, key) => {
       return accumulator += group.votes[selectedComment.tid].A
     }, 0);
 
-    commentDisagreeCount = _.reduce(groups, (accumulator, group, key) => {
+    commentDisagreeCount = reduce(groups, (accumulator, group, key) => {
       return accumulator += group.votes[selectedComment.tid].D
     }, 0);
 
-    commentPassCount = _.reduce(groups, (accumulator, group, key) => {
+    commentPassCount = reduce(groups, (accumulator, group, key) => {
       return accumulator += (group.votes[selectedComment.tid].S - (group.votes[selectedComment.tid].A + group.votes[selectedComment.tid].D))
     }, 0);
   }
