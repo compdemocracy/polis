@@ -1,7 +1,7 @@
 import React from "react";
 import _ from "lodash";
 import * as globals from "./globals";
-import {VictoryAnimation} from "victory";
+import {VictoryAnimation} from "victory-core";
 
 const Participant = ({ptpt, tweenX, tweenY}) => {
   let picSize = ptpt.picture_size;

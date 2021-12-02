@@ -49,7 +49,7 @@
     "simple-lru-cache": "0.0.1",
     "thorax": "^2.0.3",
     "underscore": "^1.12.1",
-    "victory": "^0.20.0",
+    "victory-core": "^15.1.0",
     "webpack-stream": "^6.0.0"
   },
   "devDependencies": {

@@ -1,6 +1,6 @@
 import React from "react";
 import * as globals from "./globals";
-import {VictoryAnimation} from "victory";
+import {VictoryAnimation} from "victory-core";
 
 class Hull extends React.Component {
   render () {
