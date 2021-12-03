@@ -26,8 +26,8 @@ e2e-run-standalone: ## Run E2E tests: standalone (no credentials required)
 e2e-run-secret: ## Run E2E tests: secret (credentials required)
 	$(E2E_RUN) npm run e2e:secret
 
-e2e-run-subset: ## Run E2E tests: filter tests by TEST_FILTER envvar
-	$(E2E_RUN) ./node_modules/.bin/cypress run --spec **/*$(TEST_FILTER)*.spec.js --browser=chrome --no-exit
+e2e-run-subset: ## Run E2E tests: filter tests by TEST_FILTER envvar (without browser exit)
+	$(E2E_RUN) npm run e2e:subset
 
 e2e-run-all: ## Run E2E tests: all
 	$(E2E_RUN) npm run e2e:all
