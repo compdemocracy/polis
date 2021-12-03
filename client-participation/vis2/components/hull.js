@@ -7,6 +7,7 @@ class Hull extends React.Component {
     return (
       <g>
         <path
+          data-testid={`hull-${this.props.gid}`}
           onClick={() => {this.props.handleClick(this.props.gid)}}
           d={this.props.pathString}
           ref={this.props.getHullElems(this.props.gid)}
