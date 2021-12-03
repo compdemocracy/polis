@@ -5,7 +5,12 @@
     if (event.target.readyState === 'complete') {
       const urlParams = new URLSearchParams(window.location.search);
       let params = paramsToObject(urlParams.entries());
-      params['data-conversation_id'] = params['data-conversation_id'] || '2arcefpshi';
+      // Set the default the `conversation_id` only if not using
+      // `site_id` for integration and dynamic convo creation.
+      const defaultConvoId = '2arcefpshi';
+      if (!('data-site_id' in params)) {
+        params['data-conversation_id'] = params['data-conversation_id'] || defaultConvoId;
+      };
       let polisDomain = params.polisDomain || 'pol.is';
       const dataParams = Object.keys(params)
         .filter(key => key.startsWith('data-'))
