@@ -1,5 +1,6 @@
 {
   "chromeWebSecurity": false,
+  "videoCompression": 15,
   "apiPath": "/api/v3",
   "ignoreTestFiles": "**/examples/*.spec.js",
   "baseUrl": "http://localhost"

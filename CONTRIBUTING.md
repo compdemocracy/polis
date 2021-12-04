@@ -35,6 +35,12 @@ You can then run a minimal test suite with:
 make e2e-run-minimal
 ```
 
+You can also run a subset of tests (even just one) with:
+
+```
+make e2e-run-subset TEST_FILTER=kitchensink
+```
+
 If for whatever reason, Docker is serving your application from a remote IP or URL instead of `http://127.0.0.1`, then there are work-arounds:
 
 ```
