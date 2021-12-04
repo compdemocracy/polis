@@ -63,9 +63,9 @@ describe('Kitchen Sink Participation', () => {
 
     // Confirm visualization does show after 7 participants.
     submitVotes(['DDD'], this.convoId)
-    cy.wait(2000)
+    cy.wait(4000)
     cy.get('#vis_not_yet_label').should('not.be.visible')
     cy.get('#vis2_root > div').should('exist')
-
+    cy.get('[data-testid="hull-0"]').should('exist')
   })
 })
