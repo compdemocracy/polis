@@ -27,7 +27,6 @@ const COOKIES = {
   USER_CREATED_TIMESTAMP: "uc",
   PERMANENT_COOKIE: "pc",
   TRY_COOKIE: "tryCookie",
-  PLAN_NUMBER: "plan", // not set if trial user
 };
 
 const COOKIES_TO_CLEAR = {
@@ -35,7 +34,6 @@ const COOKIES_TO_CLEAR = {
   token2: true,
   uid2: true,
   uc: true,
-  plan: true,
   referrer: true,
   parent_url: true,
 };
@@ -83,20 +81,6 @@ function setParentUrlCookie(
   setCookie(req, res, setOnPolisDomain, COOKIES.PARENT_URL, parent_url, {
     httpOnly: true,
   });
-}
-
-function setPlanCookie(
-  req: any,
-  res: any,
-  setOnPolisDomain: boolean,
-  planNumber: number
-) {
-  if (planNumber > 0) {
-    setCookie(req, res, setOnPolisDomain, COOKIES.PLAN_NUMBER, planNumber, {
-      // not httpOnly - needed by JS
-    });
-  }
-  // else falsy
 }
 
 function setHasEmailCookie(
@@ -184,17 +168,14 @@ function addCookies(
   return User.getUserInfoForUid2(uid).then(function (o: {
     email: any;
     created: any;
-    plan: any;
   }) {
     let email = o.email;
     let created = o.created;
-    let plan = o.plan;
 
     let setOnPolisDomain = shouldSetCookieOnPolisDomain(req);
 
     setTokenCookie(req, res, setOnPolisDomain, token);
     setUidCookie(req, res, setOnPolisDomain, uid);
-    setPlanCookie(req, res, setOnPolisDomain, plan);
     setHasEmailCookie(req, res, setOnPolisDomain, email);
     setUserCreatedTimestampCookie(req, res, setOnPolisDomain, created);
     if (!req.cookies[COOKIES.PERMANENT_COOKIE]) {
@@ -229,7 +210,6 @@ export {
   setCookie,
   setParentReferrerCookie,
   setParentUrlCookie,
-  setPlanCookie,
   setPermanentCookie,
   setCookieTestCookie,
   shouldSetCookieOnPolisDomain,
@@ -243,7 +223,6 @@ export default {
   setCookie,
   setParentReferrerCookie,
   setParentUrlCookie,
-  setPlanCookie,
   setPermanentCookie,
   setCookieTestCookie,
   shouldSetCookieOnPolisDomain,
