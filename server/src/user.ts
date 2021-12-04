@@ -229,8 +229,6 @@ async function getUser(
     site_ids: [info.site_id],
     created: Number(info.created),
     daysInTrial: 10 + (usersToAdditionalTrialDays[uid] || 0),
-    // plan: planCodeToPlanName[info.plan],
-    planCode: info.plan,
   };
 }
 

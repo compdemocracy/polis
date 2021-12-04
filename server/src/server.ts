@@ -70,7 +70,6 @@ import {
 AWS.config.update({ region: Config.awsRegion });
 const devMode = Config.isDevMode;
 const s3Client = new AWS.S3({ apiVersion: "2006-03-01" });
-const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const yell = Log.yell;
 // Property 'Client' does not exist on type '{ query: (...args: any[]) => void; query_readOnly:
 // (...args: any[]) => void; queryP: (...args: any[]) => Promise<unknown>; queryP_metered:
@@ -643,7 +642,6 @@ function initializePolisHelpers() {
   const setCookie = cookies.setCookie;
   const setParentReferrerCookie = cookies.setParentReferrerCookie;
   const setParentUrlCookie = cookies.setParentUrlCookie;
-  const setPlanCookie = cookies.setPlanCookie;
   const setPermanentCookie = cookies.setPermanentCookie;
   const setCookieTestCookie = cookies.setCookieTestCookie;
   const shouldSetCookieOnPolisDomain = cookies.shouldSetCookieOnPolisDomain;
@@ -1313,7 +1311,6 @@ function initializePolisHelpers() {
     "shoreline.instructure.com", // LTI
     "facebook.com",
     "api.twitter.com",
-    "connect.stripe.com",
     "", // for API
   ];
 
@@ -6870,448 +6867,6 @@ Email verified! You can close this tab or hit the back button.
   }
 
   const getUser = User.getUser;
-
-  // These map from non-ui string codes to number codes used in the DB
-  var planCodes = {
-    mike: 9999,
-    trial: 0,
-    free: 0,
-    individuals: 1,
-    students: 2,
-    pp: 3,
-    sites: 100,
-    org99: 99,
-    pro: 300,
-    organizations: 1000,
-  };
-
-  // // These are for customer to see in UI
-  // var planCodeToPlanName = {
-  //   9999: "MikePlan",
-  //   0: "Trial",
-  //   1: "Individual",
-  //   2: "Student",
-  //   3: "Participants Pay",
-  //   100: "Site",
-  //   1000: "Organization",
-  // };
-  function changePlan(uid?: any, planCode?: any) {
-    return new Promise(function (
-      resolve: () => void,
-      reject: (arg0: any) => void
-    ) {
-      pgQuery(
-        "update users set plan = ($1) where uid = ($2);",
-        [planCode, uid],
-        function (err: any, results: any) {
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
-          }
-        }
-      );
-    });
-  }
-
-  function createStripeUser(o: {
-    card: any;
-    description: any;
-    email: any;
-    metadata: { uid?: any; polisEmail: any };
-  }) {
-    return new Promise(function (
-      resolve: (arg0: any) => void,
-      reject: (arg0: any) => void
-    ) {
-      stripe.customers.create(o, function (err: any, customer: any) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(customer);
-        }
-      });
-    });
-  }
-
-  function getStripeUser(customerId: any) {
-    return new Promise(function (
-      resolve: (arg0: any) => void,
-      reject: (arg0: any) => void
-    ) {
-      stripe.customers.retrieve(customerId, function (err: any, customer: any) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(customer);
-        }
-      });
-    });
-  }
-
-  function createStripeSubscription(customerId: any, planId: any) {
-    return new Promise(function (
-      resolve: (arg0: any) => void,
-      reject: (arg0: any) => void
-    ) {
-      stripe.customers.createSubscription(
-        customerId,
-        {
-          plan: planId,
-        },
-        function (err: any, subscription: any) {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(subscription);
-          }
-        }
-      );
-    });
-  }
-
-  function updateStripePlan(
-    user: UserType,
-    stripeToken: any,
-    stripeEmail: any,
-    plan: any
-  ) {
-    var customerPromise = user.stripeCustomerId
-      ? getStripeUser(user.stripeCustomerId)
-      : createStripeUser({
-          card: stripeToken,
-          description: user.hname,
-          email: stripeEmail,
-          metadata: {
-            uid: user.uid,
-            polisEmail: user.email,
-          },
-        });
-
-    return customerPromise.then(function (customer: { id: any }) {
-      // throw new Error("TODO"); // TODO is "plan" the right identifier?
-
-      // TODO may need to wrangle existing plans..
-
-      return createStripeSubscription(customer.id, plan).then(function (
-        data: any
-      ) {
-        return pgQueryP(
-          "insert into stripe_subscriptions (uid, stripe_subscription_data) values ($1, $2) " +
-            "on conflict  (uid) do update set stripe_subscription_data = ($2), modified = now_as_millis();",
-          [user.uid, data]
-        );
-      });
-    });
-  }
-
-  function handle_GET_createPlanChangeCoupon(
-    req: { p: { uid?: any; planCode: any } },
-    res: {
-      status: (
-        arg0: number
-      ) => { (): any; new (): any; json: { (arg0: any): void; new (): any } };
-    }
-  ) {
-    var uid = req.p.uid;
-    var planCode = req.p.planCode;
-    generateTokenP(30, false)
-      .then(function (code: any) {
-        return (
-          pgQueryP(
-            "insert into coupons_for_free_upgrades (uid, code, plan) values ($1, $2, $3) returning *;",
-            [uid, code, planCode]
-          )
-            //       Argument of type '(rows: any[]) => void' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.
-            // Types of parameters 'rows' and 'value' are incompatible.
-            //         Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-            // @ts-ignore
-            .then(function (rows: any[]) {
-              var row = rows[0];
-              row.url =
-                "https://pol.is/api/v3/changePlanWithCoupon?code=" + row.code;
-              res.status(200).json(row);
-            })
-            .catch(function (err: any) {
-              fail(res, 500, "polis_err_creating_coupon", err);
-            })
-        );
-      })
-      .catch(function (err: any) {
-        fail(res, 500, "polis_err_creating_coupon_code", err);
-      });
-  }
-  function handle_GET_changePlanWithCoupon(
-    req: { p: { uid?: any; code?: any } },
-    res: any
-  ) {
-    var uid = req.p.uid;
-    var code = req.p.code;
-    var isCurrentUser = true;
-    getCouponInfo(code)
-      //     Argument of type '(infos: any[]) => Bluebird<any>' is not assignable to parameter of type '(value: unknown) => any'.
-      // Types of parameters 'infos' and 'value' are incompatible.
-      //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-      // @ts-ignore
-      .then(function (infos: any[]) {
-        var info = infos[0];
-        if (uid) {
-          if (uid !== info.uid) {
-            // signed in user is someone else!
-            // This could easily happen if someone is testing an auto-join conversation in another browser.
-            // So don't set the cookies in this case.
-            isCurrentUser = false;
-          }
-        }
-        return updatePlanOld(req, res, info.uid, info.plan, isCurrentUser);
-      })
-      .catch(function (err: any) {
-        emailBadProblemTime("changePlanWithCoupon failed");
-        fail(res, 500, "polis_err_changing_plan_with_coupon", err);
-      });
-  }
-
-  function getCouponInfo(couponCode: any) {
-    return pgQueryP(
-      "select * from coupons_for_free_upgrades where code = ($1);",
-      [couponCode]
-    );
-  }
-
-  function updatePlan(
-    req: {
-      headers?: Headers;
-      p: { uid?: any; plan: any; stripeResponse: string };
-    },
-    res: any,
-    uid: string,
-    planCode: number
-  ) {
-    winston.log("info", "updatePlan", uid, planCode);
-
-    // update DB and finish
-    return changePlan(uid, planCode).then(function () {
-      // Set cookie
-      var setOnPolisDomain = !domainOverride;
-      const origin = req?.headers?.origin || "";
-      if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
-        setOnPolisDomain = false;
-      }
-      setPlanCookie(req, res, setOnPolisDomain, planCode);
-    });
-  }
-  function updatePlanOld(
-    req: { headers?: { origin: string; host: string }; p?: any },
-    res: {
-      writeHead: (arg0: number, arg1: { Location: string }) => void;
-      end: () => any;
-      status: (
-        arg0: number
-      ) => {
-        (): any;
-        new (): any;
-        json: { (arg0: { status: string }): void; new (): any };
-      };
-    },
-    uid: string,
-    planCode: number,
-    isCurrentUser: boolean
-  ) {
-    winston.log("info", "updatePlan", uid, planCode);
-
-    // update DB and finish
-    return changePlan(uid, planCode)
-      .then(function () {
-        // Set cookie
-        if (isCurrentUser) {
-          var protocol = devMode ? "http" : "https";
-          var setOnPolisDomain = !domainOverride;
-          var origin = req?.headers?.origin || "";
-          if (
-            setOnPolisDomain &&
-            origin.match(/^http:\/\/localhost:[0-9]{4}/)
-          ) {
-            setOnPolisDomain = false;
-          }
-          setPlanCookie(req, res, setOnPolisDomain, planCode);
-
-          // Redirect to the same URL with the path behind the fragment "#"
-          var path = "/settings";
-          if (planCode >= 99) {
-            path = "/settings/enterprise";
-          }
-          res.writeHead(302, {
-            Location: protocol + "://" + req?.headers?.host + path,
-          });
-          return res.end();
-        } else {
-          res.status(200).json({
-            status: "upgraded!",
-          });
-        }
-      })
-      .catch(function (err: any) {
-        emailBadProblemTime(
-          "User changed their plan, but we failed to update the DB."
-        );
-        fail(res, 500, "polis_err_changing_plan", err);
-      });
-  }
-
-  function handle_POST_stripe_save_token(req: { body: any }, res: any) {
-    console.log("info", "XXX - Got the params!");
-    console.log(req.body);
-    console.log("info", "XXX - Got the params!");
-  }
-  function handle_POST_stripe_upgrade(
-    req: { p: { uid?: any; plan: any; stripeResponse: string } },
-    res: { json: (arg0: {}) => void }
-  ) {
-    var uid = req.p.uid;
-    var planName = req.p.plan;
-    // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-    // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-    // @ts-ignore
-    var planCode = planCodes[planName];
-
-    getUserInfoForUid2(uid)
-      .then(function (user: UserType) {
-        var stripeResponse = JSON.parse(req.p.stripeResponse);
-
-        const body =
-          "Polis account upgrade: " +
-          user.hname +
-          "\n" +
-          user.email +
-          "\n" +
-          "planName " +
-          planName +
-          "\n" +
-          "planCode " +
-          planCode +
-          "\n";
-
-        emailTeam("Polis account upgraded", body);
-        return updateStripePlan(user, stripeResponse.id, user.email, planName);
-      })
-      .then(function () {
-        return updatePlan(req, res, uid, planCode);
-      })
-      .then(function () {
-        res.json({});
-      })
-      .catch(function (err: any) {
-        emailBadProblemTime(
-          "FAILED Polis account upgrade: " +
-            uid +
-            " err.type: " +
-            (err && err.type) +
-            "\n\n" +
-            err
-        );
-
-        if (err) {
-          if (err.type === "StripeCardError") {
-            return fail(res, 500, "polis_err_stripe_card_declined", err);
-          } else {
-            return fail(res, 500, "polis_err_stripe3", err);
-          }
-        } else {
-          return fail(res, 500, "polis_err_stripe2");
-        }
-      });
-  }
-
-  function handle_POST_stripe_cancel(
-    req: {
-      headers?: Headers | undefined;
-      p: { uid?: any; plan: any; stripeResponse: string };
-    },
-    res: { json: (arg0: {}) => void }
-  ) {
-    const uid = req.p.uid;
-    getUserInfoForUid2(uid).then((user: { email: string }) => {
-      emailBadProblemTime("User cancelled subscription: " + user.email);
-
-      return pgQueryP("select * from stripe_subscriptions where uid = ($1);", [
-        uid,
-        // Argument of type '(rows: string | any[], err: any) => void' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.ts(2345)
-        // @ts-ignore
-      ]).then((rows: string | any[], err: any) => {
-        if (!rows || !rows.length) {
-          return fail(
-            res,
-            500,
-            "polis_err_stripe_cancel_no_subscription_record",
-            err
-          );
-        }
-        const record = rows[0].stripe_subscription_data;
-
-        stripe.customers.cancelSubscription(
-          record.customer,
-          record.id,
-          (err: any) => {
-            if (err) {
-              emailBadProblemTime(
-                "User cancel subscription failed: " + user.email
-              );
-              return fail(res, 500, "polis_err_stripe_cancel_failed", err);
-            }
-            return updatePlan(req, res, uid, planCodes.free).then(function () {
-              res.json({});
-            });
-          }
-        );
-      });
-    });
-  }
-
-  function handle_POST_charge(
-    req: { p: { stripeToken: any; stripeEmail: any; uid?: any; plan: any } },
-    res: any
-  ) {
-    var stripeToken = req.p.stripeToken;
-    var stripeEmail = req.p.stripeEmail;
-    var uid = req.p.uid;
-    var plan = req.p.plan;
-    // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-    // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-    // @ts-ignore
-    var planCode = planCodes[plan];
-
-    if (plan !== "pp") {
-      if (!stripeToken) {
-        return fail(res, 500, "polis_err_changing_plan_missing_stripeToken");
-      }
-      if (!stripeEmail) {
-        return fail(res, 500, "polis_err_changing_plan_missing_stripeEmail");
-      }
-    }
-
-    var updateStripePromise = Promise.resolve();
-    if (plan !== "pp") {
-      // not a participant pays plan, so we actually have to update stripe.
-      getUserInfoForUid2(uid).then(function (user: any) {
-        return updateStripePlan(user, stripeToken, stripeEmail, plan);
-      });
-    }
-
-    updateStripePromise
-      .then(function () {
-        return updatePlanOld(req, res, uid, planCode, true);
-      })
-      .catch(function (err: { type: string }) {
-        if (err) {
-          if (err.type === "StripeCardError") {
-            return fail(res, 500, "polis_err_stripe_card_declined", err);
-          } else {
-            return fail(res, 500, "polis_err_stripe", err);
-          }
-        }
-      });
-  }
-
   const getComments = Comment.getComments;
   const _getCommentsForModerationList = Comment._getCommentsForModerationList;
   const _getCommentsList = Comment._getCommentsList;
@@ -10825,7 +10380,7 @@ Email verified! You can close this tab or hit the back button.
   function getOneConversation(zid: any, uid?: any, lang?: null) {
     return Promise.all([
       pgQueryP_readOnly(
-        "select * from conversations left join  (select uid, site_id, plan from users) as u on conversations.owner = u.uid where conversations.zid = ($1);",
+        "select * from conversations left join  (select uid, site_id from users) as u on conversations.owner = u.uid where conversations.zid = ($1);",
         [zid]
       ),
       getConversationHasMetadata(zid),
@@ -11341,131 +10896,6 @@ Email verified! You can close this tab or hit the back button.
     return encoded;
   }
 
-  function handle_GET_enterprise_deal_url(
-    req: { p: { monthly: any; maxUsers: any; plan_name: any; plan_id: any } },
-    res: { send: (arg0: string) => void }
-  ) {
-    var o: { [key: string]: string } = {
-      monthly: req.p.monthly,
-    };
-    if (req.p.maxUsers) {
-      o.maxUsers = req.p.maxUsers;
-    }
-    if (req.p.plan_name) {
-      o.plan_name = req.p.plan_name;
-    }
-    if (req.p.plan_id) {
-      o.plan_id = req.p.plan_id;
-    }
-    res.send("https://pol.is/settings/enterprise/" + encodeParams(o));
-  }
-  function handle_GET_stripe_account_connect(
-    req: any,
-    res: {
-      set: (arg0: {
-        "Content-Type": string;
-      }) => {
-        (): any;
-        new (): any;
-        send: { (arg0: string): void; new (): any };
-      };
-    }
-  ) {
-    var stripe_client_id = process.env.STRIPE_CLIENT_ID;
-
-    var stripeUrl =
-      "https://connect.stripe.com/oauth/authorize?response_type=code&client_id=" +
-      stripe_client_id +
-      "&scope=read_write";
-    res
-      .set({
-        "Content-Type": "text/html",
-      })
-      .send(
-        "<html><body>" +
-          "<a href ='" +
-          stripeUrl +
-          "'>Connect Pol.is to Stripe</a>" +
-          "</body></html>"
-      );
-  }
-  function handle_GET_stripe_account_connected_oauth_callback(
-    req: { p: { code: any; error: string; error_description: any } },
-    res: {
-      set: (arg0: {
-        "Content-Type": string;
-      }) => {
-        (): any;
-        new (): any;
-        send: { (arg0: string): void; new (): any };
-      };
-    }
-  ) {
-    var code = req.p.code;
-    // var access_token = req.p.access_token;
-    // var error = req.p.error;
-    // var error_description = req.p.error_description;
-    if (req.p.error) {
-      fail(
-        res,
-        500,
-        "polis_err_fetching_stripe_info_" + req.p.error,
-        req.p.error_description
-      );
-      return;
-    }
-
-    // Make /oauth/token endpoint POST request
-    request.post(
-      {
-        url: "https://connect.stripe.com/oauth/token",
-        form: {
-          grant_type: "authorization_code",
-          client_id: process.env.STRIPE_CLIENT_ID,
-          code: code,
-          client_secret: process.env.STRIPE_SECRET_KEY,
-        },
-      },
-      function (err: any, r: any, body: string) {
-        if (err) {
-          fail(res, 500, "polis_err_stripe_oauth", err);
-          return;
-        }
-        const parsedBody = JSON.parse(body);
-        pgQueryP(
-          "INSERT INTO stripe_accounts (" +
-            "stripe_account_token_type, " +
-            "stripe_account_stripe_publishable_key, " +
-            "stripe_account_scope, " +
-            "stripe_account_livemode, " +
-            "stripe_account_stripe_user_id, " +
-            "stripe_account_refresh_token, " +
-            "stripe_account_access_token " +
-            ") VALUES ($1, $2, $3, $4, $5, $6, $7);",
-          [
-            parsedBody.token_type,
-            parsedBody.stripe_publishable_key,
-            parsedBody.scope,
-            parsedBody.livemode,
-            parsedBody.stripe_user_id,
-            parsedBody.refresh_token,
-            parsedBody.access_token,
-          ]
-        ).then(
-          function () {
-            res
-              .set({
-                "Content-Type": "text/html",
-              })
-              .send("<html><body>success!</body></html>");
-          },
-          function (err: any) {
-            fail(res, 500, "polis_err_saving_stripe_info", err);
-          }
-        );
-      }
-    );
-  }
   function handle_GET_conversations(
     req: {
       p: ConversationType;
@@ -16576,7 +16006,6 @@ Thanks for using Polis!
     handle_GET_bid,
     handle_GET_bidToPid,
     handle_GET_canvas_app_instructions_png,
-    handle_GET_changePlanWithCoupon,
     handle_GET_comments,
     handle_GET_comments_translations,
     handle_GET_conditionalIndexFetcher,
@@ -16587,8 +16016,6 @@ Thanks for using Polis!
     handle_GET_conversationsRecentActivity,
     handle_GET_conversationsRecentlyStarted,
     handle_GET_conversationStats,
-    handle_GET_createPlanChangeCoupon,
-    handle_GET_enterprise_deal_url,
     handle_GET_math_correlationMatrix,
     handle_GET_dataExport,
     handle_GET_dataExport_results,
@@ -16622,8 +16049,6 @@ Thanks for using Polis!
     handle_GET_reports,
     handle_GET_setup_assignment_xml,
     handle_GET_snapshot,
-    handle_GET_stripe_account_connect,
-    handle_GET_stripe_account_connected_oauth_callback,
     handle_GET_testConnection,
     handle_GET_testDatabase,
     handle_GET_tryCookie,
@@ -16644,7 +16069,6 @@ Thanks for using Polis!
     handle_POST_auth_new,
     handle_POST_auth_password,
     handle_POST_auth_pwresettoken,
-    handle_POST_charge,
     handle_POST_comments,
     handle_POST_contexts,
     handle_POST_contributors,
@@ -16671,9 +16095,6 @@ Thanks for using Polis!
     handle_POST_sendCreatedLinkToEmail,
     handle_POST_sendEmailExportReady,
     handle_POST_stars,
-    handle_POST_stripe_cancel,
-    handle_POST_stripe_save_token,
-    handle_POST_stripe_upgrade,
     handle_POST_trashes,
     handle_POST_tutorial,
     handle_POST_upvotes,
