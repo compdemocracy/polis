@@ -14,7 +14,6 @@ module.exports = {
     ".+\\.(n|ssl)ip\\.io$",
   ],
 
-  DISABLE_INTERCOM: true,
   DISABLE_PLANS: true,
 
   FB_APP_ID: '661042417336977',

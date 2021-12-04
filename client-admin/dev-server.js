@@ -59,7 +59,6 @@ app.get("*", function (req, res) {
   var html = fs.readFileSync(path.join(__dirname, "index.html"), { encoding: "utf8" });
 
   html = html.replace("<%= fbAppId %>", polisConfig.FB_APP_ID);
-  html = html.replace("<%= useIntercom %>", !isTrue(polisConfig.DISABLE_INTERCOM));
   html = html.replace("<%= usePlans %>", !isTrue(polisConfig.DISABLE_PLANS));
   var domainWhitelist = '["' + polisConfig.domainWhitelist.join('","') + '"]';
   html = html.replace("<%= domainWhitelist %>", domainWhitelist);
