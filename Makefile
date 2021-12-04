@@ -17,7 +17,7 @@ e2e-prepare: ## Prepare to run Cypress E2E tests
 	@# Testing embeds requires a override of a file prior to build.
 	cp e2e/cypress/fixtures/html/embed.html client-admin/embed.html
 
-e2e-run-minimal: ## Run E2E tests: minimal (for nightly builds)
+e2e-run-minimal: ## Run E2E tests: minimal (smoke test)
 	$(E2E_RUN) npm run e2e:minimal
 
 e2e-run-standalone: ## Run E2E tests: standalone (no credentials required)
@@ -25,6 +25,9 @@ e2e-run-standalone: ## Run E2E tests: standalone (no credentials required)
 
 e2e-run-secret: ## Run E2E tests: secret (credentials required)
 	$(E2E_RUN) npm run e2e:secret
+
+e2e-run-subset: ## Run E2E tests: filter tests by TEST_FILTER envvar (without browser exit)
+	$(E2E_RUN) npm run e2e:subset
 
 e2e-run-all: ## Run E2E tests: all
 	$(E2E_RUN) npm run e2e:all
