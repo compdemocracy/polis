@@ -24,7 +24,6 @@ import OAuth from "oauth";
 //   token: process.env.PUSHOVER_POLIS_PROXY_API_KEY,
 // });
 // const postmark = require("postmark")(process.env.POSTMARK_API_KEY);
-import querystring from "querystring";
 import replaceStream from "replacestream";
 import responseTime from "response-time";
 import request from "request-promise"; // includes Request, but adds promise methods
@@ -727,7 +726,6 @@ function initializePolisHelpers() {
     tid?: any,
     voteType?: any,
     weight?: number,
-    shouldNotify?: any
   ) {
     let zid = conv?.zid;
     weight = weight || 0;
@@ -767,7 +765,6 @@ function initializePolisHelpers() {
     tid?: any,
     voteType?: any,
     weight?: number,
-    shouldNotify?: boolean
   ) {
     return (
       pgQueryP_readOnly("select * from conversations where zid = ($1);", [zid])
@@ -820,7 +817,6 @@ function initializePolisHelpers() {
             tid,
             voteType,
             weight,
-            shouldNotify
           );
         })
     );
@@ -923,7 +919,7 @@ function initializePolisHelpers() {
   ) {
     // let reServiceHostname = new RegExp(Config.getServerHostname());
     if (
-      // reServiceHostname.test(req?.headers?.host) || // needed for heroku integrations (like slack?)
+      // reServiceHostname.test(req?.headers?.host) || // needed for heroku integrations
       /www.pol.is/.test(req?.headers?.host || "")
     ) {
       res.writeHead(302, {
@@ -8354,7 +8350,7 @@ Email verified! You can close this tab or hit the back button.
                         let createdTime = comment.created;
                         let votePromise = _.isUndefined(vote)
                           ? Promise.resolve()
-                          : votesPost(uid, pid, zid, tid, vote, 0, false);
+                          : votesPost(uid, pid, zid, tid, vote, 0);
 
                         return (
                           votePromise
@@ -9122,7 +9118,6 @@ Email verified! You can close this tab or hit the back button.
               req.p.tid,
               req.p.vote,
               req.p.weight,
-              true
             );
           })
           .then(function (o: { vote: any }) {
