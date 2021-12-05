@@ -21,7 +21,6 @@ const sql_conversations: any = sql.define({
     "owner_sees_participation_stats",
     "context",
     "course_id",
-    "lti_users_only",
     "modified",
     "created",
     "link_url",

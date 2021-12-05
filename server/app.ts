@@ -68,12 +68,10 @@ helpersInitialized.then(
       handle_DELETE_metadata_questions,
       handle_GET_bid,
       handle_GET_bidToPid,
-      handle_GET_canvas_app_instructions_png,
       handle_GET_comments,
       handle_GET_comments_translations,
       handle_GET_conditionalIndexFetcher,
       handle_GET_contexts,
-      handle_GET_conversation_assigmnent_xml,
       handle_GET_conversationPreloadInfo,
       handle_GET_conversations,
       handle_GET_conversationsRecentActivity,
@@ -94,7 +92,6 @@ helpersInitialized.then(
       handle_GET_localFile_dev_only,
       handle_GET_locations,
       handle_GET_logMaxmindResponse,
-      handle_GET_lti_oauthv1_credentials,
       handle_GET_math_pca,
       handle_GET_math_pca2,
       handle_GET_metadata,
@@ -110,7 +107,6 @@ helpersInitialized.then(
       handle_GET_perfStats,
       handle_GET_ptptois,
       handle_GET_reports,
-      handle_GET_setup_assignment_xml,
       handle_GET_snapshot,
 
       handle_GET_testConnection,
@@ -144,8 +140,6 @@ helpersInitialized.then(
       handle_POST_domainWhitelist,
       handle_POST_einvites,
       handle_POST_joinWithInvite,
-      handle_POST_lti_conversation_assignment,
-      handle_POST_lti_setup_assignment,
       handle_POST_math_update,
       handle_POST_metadata_answers,
       handle_POST_metadata_questions,
@@ -520,14 +514,6 @@ helpersInitialized.then(
       "/api/v3/auth/login",
       need("password", getPassword, assignToP),
       want("email", getEmail, assignToP),
-      want("lti_user_id", getStringLimitLength(1, 9999), assignToP),
-      want("lti_user_image", getStringLimitLength(1, 9999), assignToP),
-      want("lti_context_id", getStringLimitLength(1, 9999), assignToP),
-      want(
-        "tool_consumer_instance_guid",
-        getStringLimitLength(1, 9999),
-        assignToP
-      ),
       want("afterJoinRedirectUrl", getStringLimitLength(1, 9999), assignToP),
       handle_POST_auth_login
     );
@@ -666,14 +652,6 @@ helpersInitialized.then(
       want("zinvite", getOptionalStringLimitLength(999), assignToP),
       want("organization", getOptionalStringLimitLength(999), assignToP),
       want("gatekeeperTosPrivacy", getBool, assignToP),
-      want("lti_user_id", getStringLimitLength(1, 9999), assignToP),
-      want("lti_user_image", getStringLimitLength(1, 9999), assignToP),
-      want("lti_context_id", getStringLimitLength(1, 9999), assignToP),
-      want(
-        "tool_consumer_instance_guid",
-        getStringLimitLength(1, 9999),
-        assignToP
-      ),
       want("afterJoinRedirectUrl", getStringLimitLength(1, 9999), assignToP),
       want("owner", getBool, assignToP, true),
       handle_POST_auth_new
@@ -995,14 +973,6 @@ helpersInitialized.then(
       handle_POST_reportCommentSelections
     );
 
-    // use this to generate them
-    app.get(
-      "/api/v3/lti_oauthv1_credentials",
-      moveToBody,
-      want("uid", getInt, assignToP),
-      handle_GET_lti_oauthv1_credentials
-    );
-
     app.post(
       "/api/v3/conversation/close",
       moveToBody,
@@ -1063,18 +1033,7 @@ helpersInitialized.then(
       want("auth_opt_allow_3rdparty", getBool, assignToP),
       want("verifyMeta", getBool, assignToP),
       want("send_created_email", getBool, assignToP), // ideally the email would be sent on the post, but we post before they click create to allow owner to prepopulate comments.
-      want(
-        "launch_presentation_return_url_hex",
-        getStringLimitLength(1, 9999),
-        assignToP
-      ), // LTI editor tool redirect url (once conversation editing is done)
       want("context", getOptionalStringLimitLength(999), assignToP),
-      want(
-        "tool_consumer_instance_guid",
-        getOptionalStringLimitLength(999),
-        assignToP
-      ),
-      want("custom_canvas_assignment_id", getInt, assignToP),
       want("link_url", getStringLimitLength(1, 9999), assignToP),
       want("subscribe_type", getInt, assignToP),
       handle_PUT_conversations
@@ -1443,79 +1402,6 @@ helpersInitialized.then(
     );
 
     app.post(
-      "/api/v3/LTI/setup_assignment",
-      authOptional(assignToP),
-      need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school
-      need("user_id", getStringLimitLength(1, 9999), assignToP),
-      need("context_id", getStringLimitLength(1, 9999), assignToP),
-      want(
-        "tool_consumer_instance_guid",
-        getStringLimitLength(1, 9999),
-        assignToP
-      ), //  scope to the right LTI/canvas? instance
-      want("roles", getStringLimitLength(1, 9999), assignToP),
-      want("user_image", getStringLimitLength(1, 9999), assignToP),
-      want(
-        "lis_person_contact_email_primary",
-        getStringLimitLength(1, 9999),
-        assignToP
-      ),
-      want("lis_person_name_full", getStringLimitLength(1, 9999), assignToP),
-      want("lis_outcome_service_url", getStringLimitLength(1, 9999), assignToP), //  send grades here!
-      want(
-        "launch_presentation_return_url",
-        getStringLimitLength(1, 9999),
-        assignToP
-      ),
-      want(
-        "ext_content_return_types",
-        getStringLimitLength(1, 9999),
-        assignToP
-      ),
-      handle_POST_lti_setup_assignment
-    );
-
-    app.post(
-      "/api/v3/LTI/conversation_assignment",
-      need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school    need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school
-      need("oauth_signature_method", getStringLimitLength(1, 9999), assignToP), // probably "HMAC-SHA-1"
-      need("oauth_nonce", getStringLimitLength(1, 9999), assignToP), //rK81yoLBZhxVeaQHOUQQV8Ug5AObZtWv4R0ezQN20
-      need("oauth_version", getStringLimitLength(1, 9999), assignToP), //'1.0'
-      need("oauth_timestamp", getStringLimitLength(1, 9999), assignToP), //?
-      need("oauth_callback", getStringLimitLength(1, 9999), assignToP), // about:blank
-
-      need("user_id", getStringLimitLength(1, 9999), assignToP),
-      need("context_id", getStringLimitLength(1, 9999), assignToP),
-      want("roles", getStringLimitLength(1, 9999), assignToP),
-      want("user_image", getStringLimitLength(1, 9999), assignToP),
-      // per assignment stuff
-      want("custom_canvas_assignment_id", getInt, assignToP), // NOTE: it enters our system as an int, but we'll
-      want("lis_outcome_service_url", getStringLimitLength(1, 9999), assignToP), //  send grades here!
-      want("lis_result_sourcedid", getStringLimitLength(1, 9999), assignToP), //  grading context
-      want(
-        "tool_consumer_instance_guid",
-        getStringLimitLength(1, 9999),
-        assignToP
-      ), //  canvas instance
-      handle_POST_lti_conversation_assignment
-    );
-
-    app.get(
-      "/api/v3/LTI/setup_assignment.xml",
-      handle_GET_setup_assignment_xml
-    );
-
-    app.get(
-      "/api/v3/LTI/conversation_assignment.xml",
-      handle_GET_conversation_assigmnent_xml
-    );
-
-    app.get(
-      "/canvas_app_instructions.png",
-      handle_GET_canvas_app_instructions_png
-    );
-
-    app.post(
       "/api/v3/users/invite",
       // authWithApiKey(assignToP),
       auth(assignToP),
@@ -1732,17 +1618,6 @@ helpersInitialized.then(
       makeFileFetcher(hostname, staticFilesAdminPort, "/embedReportPreprod.html", {
         "Content-Type": "text/html",
       })
-    );
-    app.get(
-      /^\/canvas_setup_backup_instructions$/,
-      makeFileFetcher(
-        hostname,
-        staticFilesClientPort,
-        "/canvas_setup_backup_instructions.html",
-        {
-          "Content-Type": "text/html",
-        }
-      )
     );
     app.get(
       /^\/styleguide$/,

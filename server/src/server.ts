@@ -64,7 +64,6 @@ import {
   DemographicEntry,
   Demo,
   Vote,
-  Assignment,
 } from "./d";
 
 AWS.config.update({ region: Config.awsRegion });
@@ -364,9 +363,6 @@ const encrypt = Session.encrypt;
 const decrypt = Session.decrypt;
 const makeSessionToken = Session.makeSessionToken;
 const getUserInfoForSessionToken = Session.getUserInfoForSessionToken;
-const createPolisLtiToken = Session.createPolisLtiToken;
-const isPolisLtiToken = Session.isPolisLtiToken;
-const getUserInfoForPolisLtiToken = Session.getUserInfoForPolisLtiToken;
 const startSession = Session.startSession;
 const endSession = Session.endSession;
 const setupPwReset = Session.setupPwReset;
@@ -550,27 +546,6 @@ function doHeaderAuth(
     assigner(req, "uid", Number(uid));
     next();
   });
-}
-
-function doPolisLtiTokenHeaderAuth(
-  assigner: (arg0: any, arg1: string, arg2: number) => void,
-  isOptional: any,
-  req: { headers?: { [x: string]: any } },
-  res: { status: (arg0: number) => void },
-  next: { (err: any): void; (arg0?: string): void }
-) {
-  let token = req?.headers?.["x-polis"];
-
-  getUserInfoForPolisLtiToken(token)
-    .then(function (uid?: any) {
-      assigner(req, "uid", Number(uid));
-      next();
-    })
-    .catch(function (err: any) {
-      res.status(403);
-      next("polis_err_auth_no_such_token");
-      return;
-    });
 }
 
 // function logPath(req, res, next) {
@@ -1059,10 +1034,7 @@ function initializePolisHelpers() {
           }
           resolve(req.p && req.p.uid);
         }
-        if (xPolisToken && isPolisLtiToken(xPolisToken)) {
-          console.log("authtype", "doPolisLtiTokenHeaderAuth");
-          doPolisLtiTokenHeaderAuth(assigner, isOptional, req, res, onDone);
-        } else if (xPolisToken) {
+        if (xPolisToken) {
           console.log("authtype", "doHeaderAuth");
           doHeaderAuth(assigner, isOptional, req, res, onDone);
         } else if (getKey(req, "polisApiKey") && getKey(req, "ownerXid")) {
@@ -1305,10 +1277,6 @@ function initializePolisHelpers() {
     "localhost:5000",
     "localhost:5001",
     "localhost:5002",
-    "canvas.instructure.com", // LTI
-    "canvas.uw.edu", // LTI
-    "canvas.shoreline.edu", // LTI
-    "shoreline.instructure.com", // LTI
     "facebook.com",
     "api.twitter.com",
     "", // for API
@@ -2828,16 +2796,6 @@ Feel free to reply to this email if you need help.`;
     function finish() {
       if (!req.p.showPage) {
         res.status(200).end();
-      } else if (req.p.showPage === "canvas_assignment_deregister") {
-        res.set({
-          "Content-Type": "text/html",
-        });
-        let html = `<!DOCTYPE html><html lang='en'>
-<body>
-<h1>You are now signed out of pol.is</h1>
-<p>Please return to the 'setup pol.is' assignment to sign in as another user.</p>
-</body></html>`;
-        res.status(200).send(html);
       }
     }
     if (!token) {
@@ -4468,46 +4426,8 @@ Email verified! You can close this tab or hit the back button.
           }
 
           getConversationInfo(zid)
-            .then(function (conv: { lti_users_only: any }) {
-              if (conv.lti_users_only) {
-                if (uid) {
-                  pgQueryP("select * from lti_users where uid = ($1)", [uid])
-                    // Argument of type '(rows: string | any[]) => void' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.
-                    // Types of parameters 'rows' and 'value' are incompatible.
-                    //   Type 'unknown' is not assignable to type 'string | any[]'.
-                    //    Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-                    // @ts-ignore
-                    .then(function (rows: string | any[]) {
-                      if (rows && rows.length) {
-                        // found a record in lti_users
-                        doJoin();
-                      } else {
-                        userFail(
-                          res,
-                          403,
-                          "polis_err_post_participants_missing_lti_user_for_uid_1"
-                        );
-                      }
-                    })
-                    .catch(function (err: any) {
-                      fail(
-                        res,
-                        500,
-                        "polis_err_post_participants_missing_lti_user_for_uid_2",
-                        err
-                      );
-                    });
-                } else {
-                  userFail(
-                    res,
-                    403,
-                    "polis_err_post_participants_need_uid_to_check_lti_users_3"
-                  );
-                }
-              } else {
-                // no LTI stuff to worry about
-                doJoin();
-              }
+            .then(function () {
+              doJoin();
             })
             .catch(function (err: any) {
               fail(
@@ -4526,9 +4446,6 @@ Email verified! You can close this tab or hit the back button.
         fail(res, 500, "polis_err_post_participants_misc", err);
       });
   }
-
-  const addLtiUserIfNeeded = User.addLtiUserIfNeeded;
-  const addLtiContextMembership = User.addLtiContextMembership;
 
   function subscribeToNotifications(zid: any, uid?: any, email?: any) {
     let type = 1; // 1 for email
@@ -5027,10 +4944,6 @@ Email verified! You can close this tab or hit the back button.
       p: {
         password: any;
         email: string;
-        lti_user_id: any;
-        lti_user_image: any;
-        lti_context_id: any;
-        tool_consumer_instance_guid?: any;
         afterJoinRedirectUrl: any;
       };
     },
@@ -5041,10 +4954,6 @@ Email verified! You can close this tab or hit the back button.
   ) {
     let password = req.p.password;
     let email = req.p.email || "";
-    let lti_user_id = req.p.lti_user_id;
-    let lti_user_image = req.p.lti_user_image;
-    let lti_context_id = req.p.lti_context_id;
-    let tool_consumer_instance_guid = req.p.tool_consumer_instance_guid;
     let afterJoinRedirectUrl = req.p.afterJoinRedirectUrl;
 
     email = email.toLowerCase();
@@ -5118,59 +5027,6 @@ Email verified! You can close this tab or hit the back button.
                   // '{ cookies: { [x: string]: any; }; }'.ts(2345)
                   // @ts-ignore
                   addCookies(req, res, token, uid)
-                    .then(function () {
-                      winston.log("info", "uid", uid);
-                      winston.log("info", "lti_user_id", lti_user_id);
-                      winston.log("info", "lti_context_id", lti_context_id);
-                      let ltiUserPromise = lti_user_id
-                        ? addLtiUserIfNeeded(
-                            uid,
-                            lti_user_id,
-                            tool_consumer_instance_guid,
-                            lti_user_image
-                          )
-                        : Promise.resolve();
-                      let ltiContextMembershipPromise = lti_context_id
-                        ? addLtiContextMembership(
-                            uid,
-                            lti_context_id,
-                            tool_consumer_instance_guid
-                          )
-                        : Promise.resolve();
-                      Promise.all([ltiUserPromise, ltiContextMembershipPromise])
-                        .then(function () {
-                          if (lti_user_id) {
-                            if (afterJoinRedirectUrl) {
-                              res.redirect(afterJoinRedirectUrl);
-                            } else {
-                              // Argument of type '{ redirect: (arg0: any) => void; json: (arg0: { uid?: any; email: any; token: any; }) => void; }'
-                              // is not assignable to parameter of type '{ set: (arg0: { "Content-Type": string; }) => void; status:
-                              // (arg0: number) => { (): any; new (): any; send: { (arg0: string): void; new (): any; }; }; }'.
-                              // Type '{ redirect: (arg0: any) => void; json: (arg0: { uid?: any; email: any; token: any; }) => void; }'
-                              // is missing the following properties from type '{ set: (arg0: { "Content-Type": string; }) => void;
-                              // status: (arg0: number) => { (): any; new (): any; send: { (arg0: string): void; new (): any; }; }; }': set, statusts(2345)
-                              // @ts-ignore
-                              User.renderLtiLinkageSuccessPage(req, res, {
-                                // may include token here too
-                                context_id: lti_context_id,
-                                uid: uid,
-                                // hname: hname,
-                                email: email,
-                              });
-                            }
-                          } else {
-                            res.json(response_data);
-                          }
-                        })
-                        .catch(function (err: any) {
-                          fail(
-                            res,
-                            500,
-                            "polis_err_adding_associating_with_lti_user",
-                            err
-                          );
-                        });
-                    })
                     .catch(function (err: any) {
                       fail(res, 500, "polis_err_adding_cookies", err);
                     });
@@ -5370,30 +5226,8 @@ Email verified! You can close this tab or hit the back button.
             return o;
           });
         })
-        .then(function (o: { lti_users_only: any; uid?: any }) {
-          if (o.lti_users_only) {
-            if (o.uid) {
-              return pgQueryP("select * from lti_users where uid = ($1)", [
-                o.uid,
-                //               Argument of type '(rows: string | any[]) => { lti_users_only: any; uid?: any; }' is not assignable to parameter of type
-                // '(value: unknown) => { lti_users_only: any; uid?: any; } | PromiseLike<{ lti_users_only: any; uid?: any; }>'.
-                // Types of parameters 'rows' and 'value' are incompatible.
-                //   Type 'unknown' is not assignable to type 'string | any[]'.
-                //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-                // @ts-ignore
-              ]).then(function (rows: string | any[]) {
-                if (rows && rows.length) {
-                  return o;
-                } else {
-                  throw new Error("polis_err_missing_lti_user_for_uid");
-                }
-              });
-            } else {
-              throw new Error("polis_err_need_uid_to_check_lti_users");
-            }
-          } else {
-            return o;
-          }
+        .then(function (o: any) {
+          return o;
         })
         //       No overload matches this call.
         // Overload 1 of 2, '(onFulfill?: ((value: unknown) => any) | undefined, onReject?: ((error: any) => any) | undefined): Bluebird<any>', gave the following error.
@@ -9141,234 +8975,6 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
-  function sendGradeForAssignment(
-    oauth_consumer_key: any,
-    oauth_consumer_secret: any,
-    params: {
-      lis_result_sourcedid: string;
-      gradeFromZeroToOne: string;
-      lis_outcome_service_url: any;
-    }
-  ) {
-    let replaceResultRequestBody =
-      "" +
-      '<?xml version="1.0" encoding="UTF-8"?>' +
-      '<imsx_POXEnvelopeRequest xmlns="http://www.imsglobal.org/services/ltiv1p1/xsd/imsoms_v1p0">' +
-      "<imsx_POXHeader>" +
-      "<imsx_POXRequestHeaderInfo>" +
-      "<imsx_version>V1.0</imsx_version>" +
-      "<imsx_messageIdentifier>999999123</imsx_messageIdentifier>" +
-      "</imsx_POXRequestHeaderInfo>" +
-      "</imsx_POXHeader>" +
-      "<imsx_POXBody>" +
-      "<replaceResultRequest>" + // parser has???  xml.at_css('imsx_POXBody *:first').name.should == 'replaceResultResponse'
-      "<resultRecord>" +
-      "<sourcedGUID>" +
-      "<sourcedId>" +
-      params.lis_result_sourcedid +
-      "</sourcedId>" +
-      "</sourcedGUID>" +
-      "<result>" +
-      "<resultScore>" +
-      "<language>en</language>" + // this is the formatting of the resultScore (for example europe might use a comma. Just stick to en formatting here.)
-      "<textString>" +
-      params.gradeFromZeroToOne +
-      "</textString>" +
-      "</resultScore>" +
-      "</result>" +
-      "</resultRecord>" +
-      "</replaceResultRequest>" +
-      "</imsx_POXBody>" +
-      "</imsx_POXEnvelopeRequest>";
-
-    let oauth = new OAuth.OAuth(
-      // Argument of type 'null' is not assignable to parameter of type 'string'.ts(2345)
-      // @ts-ignore
-      null, //'https://api.twitter.com/oauth/request_token',
-      null, //'https://api.twitter.com/oauth/access_token',
-      oauth_consumer_key, //'your application consumer key',
-      oauth_consumer_secret, //'your application secret',
-      "1.0", //'1.0A',
-      null,
-      "HMAC-SHA1"
-    );
-    return new Promise(function (
-      resolve: (arg0: any, arg1: any) => void,
-      reject: (arg0: any) => void
-    ) {
-      oauth.post(
-        params.lis_outcome_service_url, //'https://api.twitter.com/1.1/trends/place.json?id=23424977',
-        // Argument of type 'undefined' is not assignable to parameter of type 'string'.ts(2345)
-        // @ts-ignore
-        void 0, //'your user token for this app', //test user token
-        void 0, //'your user secret for this app', //test user secret
-        replaceResultRequestBody,
-        "application/xml",
-        function (e: any, data: any, res: any) {
-          if (e) {
-            winston.log("info", "grades foo failed");
-            console.error(e);
-            reject(e);
-          } else {
-            winston.log("info", "grades foo ok!");
-            resolve(params, data);
-          }
-          // winston.log("info",require('util').inspect(data));
-        }
-      );
-    });
-  }
-
-  function sendCanvasGradesIfNeeded(zid: any, ownerUid: string) {
-    // get the lti_user_ids for participants who voted or commented
-    let goodLtiUserIdsPromise = pgQueryP(
-      "select lti_user_id from " +
-        "(select distinct uid from " +
-        "(select distinct pid from votes where zid = ($1) UNION " +
-        "select distinct pid from comments where zid = ($1)) as x " +
-        "inner join participants p on x.pid = p.pid where p.zid = ($1)) as good_uids " +
-        "inner join lti_users on good_uids.uid = lti_users.uid;",
-      [zid]
-    );
-
-    let callbackInfoPromise = pgQueryP(
-      "select * from canvas_assignment_conversation_info ai " +
-        "inner join canvas_assignment_callback_info ci " +
-        "on ai.custom_canvas_assignment_id = ci.custom_canvas_assignment_id " +
-        "where ai.zid = ($1);",
-      [zid]
-    );
-
-    let ownerLtiCredsPromise = pgQueryP(
-      "select * from lti_oauthv1_credentials where uid = ($1);",
-      [ownerUid]
-    );
-
-    return Promise.all([
-      goodLtiUserIdsPromise,
-      callbackInfoPromise,
-      ownerLtiCredsPromise,
-    ]).then(function (results: any[]) {
-      let isFullPointsEarningLtiUserId = _.indexBy(results[0], "lti_user_id");
-      let callbackInfos = results[1];
-      if (!callbackInfos || !callbackInfos.length) {
-        // TODO may be able to check for scenarios like missing callback infos, where votes and comments and canvas_assignment_conversation_info exist, and then throw an error
-        return;
-      }
-      let ownerLtiCreds = results[2];
-      if (!ownerLtiCreds || !ownerLtiCreds.length) {
-        throw new Error(
-          "polis_err_lti_oauth_credentials_are_missing " + ownerUid
-        );
-      }
-      ownerLtiCreds = ownerLtiCreds[0];
-      if (
-        !ownerLtiCreds.oauth_shared_secret ||
-        !ownerLtiCreds.oauth_consumer_key
-      ) {
-        throw new Error("polis_err_lti_oauth_credentials_are_bad " + ownerUid);
-      }
-
-      let promises = callbackInfos.map(function (
-        assignmentCallbackInfo: Assignment
-      ) {
-        let gradeFromZeroToOne = isFullPointsEarningLtiUserId[
-          assignmentCallbackInfo.lti_user_id
-        ]
-          ? 1.0
-          : 0.0;
-        assignmentCallbackInfo.gradeFromZeroToOne = String(gradeFromZeroToOne);
-        winston.log(
-          "info",
-          "grades assigned" +
-            gradeFromZeroToOne +
-            " lti_user_id " +
-            assignmentCallbackInfo.lti_user_id
-        );
-        return sendGradeForAssignment(
-          ownerLtiCreds.oauth_consumer_key,
-          ownerLtiCreds.oauth_shared_secret,
-          assignmentCallbackInfo
-        );
-      });
-      return Promise.all(promises);
-    });
-  }
-
-  function updateLocalRecordsToReflectPostedGrades(
-    listOfGradingContexts: any[]
-  ) {
-    listOfGradingContexts = listOfGradingContexts || [];
-    return Promise.all(
-      listOfGradingContexts.map(function (gradingContext: {
-        gradeFromZeroToOne: string;
-        tool_consumer_instance_guid?: any;
-        lti_context_id: any;
-        lti_user_id: any;
-        custom_canvas_assignment_id: any;
-      }) {
-        winston.log(
-          "info",
-          "grading set to " + gradingContext.gradeFromZeroToOne
-        );
-        return pgQueryP(
-          "update canvas_assignment_callback_info set grade_assigned = ($1) where tool_consumer_instance_guid = ($2) and lti_context_id = ($3) and lti_user_id = ($4) and custom_canvas_assignment_id = ($5);",
-          [
-            gradingContext.gradeFromZeroToOne,
-            gradingContext.tool_consumer_instance_guid,
-            gradingContext.lti_context_id,
-            gradingContext.lti_user_id,
-            gradingContext.custom_canvas_assignment_id,
-          ]
-        );
-      })
-    );
-  }
-
-  function handle_GET_lti_oauthv1_credentials(
-    req: { p: { uid: string } },
-    res: {
-      status: (
-        arg0: number
-      ) => {
-        (): any;
-        new (): any;
-        json: { (arg0: string): void; new (): any };
-      };
-    }
-  ) {
-    let uid = "FOO";
-    if (req.p && req.p.uid) {
-      uid = req.p.uid;
-    }
-    Promise.all([generateTokenP(40, false), generateTokenP(40, false)]).then(
-      // No overload matches this call.
-      // Overload 1 of 2, '(onFulfill?: ((value: [unknown, unknown]) => Resolvable<void>) | undefined, onReject?: ((error: any) => Resolvable<void>) | undefined):
-      //     Bluebird<void>', gave the following error.
-      //   Argument of type '(results: string[]) => void' is not assignable to parameter of type '(value: [unknown, unknown]) => Resolvable<void>'.
-      //     Types of parameters 'results' and 'value' are incompatible.
-      //       Type '[unknown, unknown]' is not assignable to type 'string[]'.
-      //         Type 'unknown' is not assignable to type 'string'.
-      // Overload 2 of 2, '(onfulfilled?: ((value: [unknown, unknown]) => Resolvable<void>) | null | undefined, onrejected?: ((reason: any) => PromiseLike<never>) | null | undefined): Bluebird<void>', gave the following error.
-      //   Argument of type '(results: string[]) => void' is not assignable to parameter of type '(value: [unknown, unknown]) => Resolvable<void>'.
-      //     Types of parameters 'results' and 'value' are incompatible.
-      //     Type '[unknown, unknown]' is not assignable to type 'string[]'.ts(2769)
-      // @ts-ignore
-      function (results: string[]) {
-        let key = "polis_oauth_consumer_key_" + results[0];
-        let secret = "polis_oauth_shared_secret_" + results[1];
-        let x = [uid, "'" + key + "'", "'" + secret + "'"].join(",");
-        // return the query, they we can manually run this in the pg shell, and email? the keys to the instructor
-        res
-          .status(200)
-          .json(
-            "INSERT INTO lti_oauthv1_credentials (uid, oauth_consumer_key, oauth_shared_secret) values (" +
-              x +
-              ") returning oauth_consumer_key, oauth_shared_secret;"
-          );
-      }
-    );
-  }
   function handle_POST_conversation_close(
     req: { p: { zid: any; uid?: any } },
     res: {
@@ -9395,38 +9001,10 @@ Email verified! You can close this tab or hit the back button.
           return;
         }
         let conv = rows[0];
-        // if (conv.is_active) {
-        // regardless of old state, go ahead and close it, and update grades. will make testing easier.
         pgQueryP(
           "update conversations set is_active = false where zid = ($1);",
           [conv.zid]
         )
-          .then(function () {
-            // might need to send some grades
-            let ownerUid = req.p.uid;
-            sendCanvasGradesIfNeeded(conv.zid, ownerUid)
-              .then(function (listOfContexts: any) {
-                return updateLocalRecordsToReflectPostedGrades(listOfContexts);
-              })
-              .then(function () {
-                res.status(200).json({});
-              })
-              .catch(function (err: any) {
-                fail(
-                  res,
-                  500,
-                  "polis_err_closing_conversation_sending_grades",
-                  err
-                );
-              });
-          })
-          .catch(function (err: any) {
-            fail(res, 500, "polis_err_closing_conversation2", err);
-          });
-        // } else {
-        //     // was already closed.
-        //     res.status(204).send("");
-        // }
       })
       .catch(function (err: any) {
         fail(res, 500, "polis_err_closing_conversation", err);
@@ -9532,8 +9110,6 @@ Email verified! You can close this tab or hit the back button.
         link_url: any;
         send_created_email: any;
         conversation_id: string;
-        custom_canvas_assignment_id: any;
-        tool_consumer_instance_guid?: any;
         context: any;
       };
     },
@@ -9630,9 +9206,6 @@ Email verified! You can close this tab or hit the back button.
           fields.owner_sees_participation_stats = !!req.p
             .owner_sees_participation_stats;
         }
-        if (!_.isUndefined(req.p.launch_presentation_return_url_hex)) {
-          fields.lti_users_only = true;
-        }
         if (!_.isUndefined(req.p.link_url)) {
           fields.link_url = req.p.link_url;
         }
@@ -9696,72 +9269,9 @@ Email verified! You can close this tab or hit the back button.
                       });
                   }
 
-                  if (req.p.launch_presentation_return_url_hex) {
-                    // conv.lti_redirect = {
-                    //     return_type: "iframe",
-                    //     launch_presentation_return_url: hexToStr(req.p.launch_presentation_return_url_hex),
-                    //     width: 320,
-                    //     height: 900,
-                    //     url: getServerNameWithProtocol(req) + "/" + req.p.conversation_id,
-                    // };
-
-                    // using links because iframes are pretty crappy within Canvas assignments.
-                    let linkText = "pol.is conversation";
-                    if (req.p.topic) {
-                      linkText += " (" + req.p.topic + ")";
-                    }
-                    let linkTitle = "";
-                    if (req.p.description) {
-                      linkTitle += req.p.description;
-                    }
-                    conv.lti_redirect = {
-                      return_type: "url",
-                      launch_presentation_return_url: hexToStr(
-                        req.p.launch_presentation_return_url_hex
-                      ),
-                      url:
-                        getServerNameWithProtocol(req) +
-                        "/" +
-                        req.p.conversation_id,
-                      text: linkText,
-                      title: linkTitle,
-                      target: "_blank", // Open in a new window.
-                    };
-                  }
-
-                  if (req.p.custom_canvas_assignment_id) {
-                    addCanvasAssignmentConversationInfoIfNeeded(
-                      req.p.zid,
-                      req.p.tool_consumer_instance_guid,
-                      req.p.context, // lti_context_id,
-                      req.p.custom_canvas_assignment_id
-                    )
-                      .then(function () {
-                        finishOne(res, conv, true, successCode);
-                      })
-                      .catch(function (err: any) {
-                        fail(
-                          res,
-                          500,
-                          "polis_err_saving_assignment_grading_context",
-                          err
-                        );
-                        emailBadProblemTime(
-                          "PUT conversation worked, but couldn't save assignment context"
-                        );
-                      });
-                  } else {
-                    finishOne(res, conv, true, successCode);
-                  }
+                  finishOne(res, conv, true, successCode);
 
                   updateConversationModifiedTime(req.p.zid);
-
-                  //     // LTI redirect to create e
-                  //     // let url = getServerNameWithProtocol(req) + "/" + req.p.conversation_id;
-                  //     // redirectToLtiEditorDestinationWithDetailsAboutIframe(req, res, req.p.launch_presentation_return_url, url, 320, 900);
-                  // // } else {
-                  // finishOne(res, conv);
-                  // // }
                 })
                 .catch(function (err: any) {
                   fail(res, 500, "polis_err_update_conversation", err);
@@ -10885,10 +10395,7 @@ Email verified! You can close this tab or hit the back button.
   function encodeParams(o: {
     monthly?: any;
     forceEmbedded?: boolean;
-    xPolisLti?: any;
-    tool_consumer_instance_guid?: any;
     context?: any;
-    custom_canvas_assignment_id?: any;
   }) {
     let stringifiedJson = JSON.stringify(o);
     let encoded = "ep1_" + strToHex(stringifiedJson);
@@ -13783,857 +13290,6 @@ Thanks for using Polis!
     });
   }
 
-  function renderLtiLinkagePage(
-    req: {
-      p: UserType;
-    },
-    res: {
-      set: (arg0: { "Content-Type": string }) => void;
-      status: (
-        arg0: number
-      ) => {
-        (): any;
-        new (): any;
-        send: { (arg0: string): void; new (): any };
-      };
-    },
-    afterJoinRedirectUrl?: string
-  ) {
-    let context_id = req.p.context_id;
-    let user_id = req.p.user_id;
-    let user_image = req.p.user_image;
-    let tool_consumer_instance_guid = req.p.tool_consumer_instance_guid;
-
-    let greeting = "";
-    // TODO If we're doing this basic form, we can't just return json from the /login call
-
-    let form1 =
-      "" +
-      '<h2>create a new <img src="https://pol.is/polis-favicon_favicon.png" height="20px"> pol<span class="Logo--blue">.</span>is account</h2>' +
-      '<p><form role="form" class="FormVertical" action="' +
-      getServerNameWithProtocol(req) +
-      '/api/v3/auth/new" method="POST">' +
-      '<div class="FormVertical-group">' +
-      '<label class="FormLabel" for="gatekeeperLoginEmail">Email</label>' +
-      '<input type="text" id="email" name="email" id="gatekeeperLoginEmail" style="width: 100%;"  class="FormControl" value="' +
-      (req.p.lis_person_contact_email_primary || "") +
-      '">' +
-      "</div>" +
-      '<label class="FormLabel" for="gatekeeperLoginName">Full Name</label>' +
-      '<input type="text" id="hname" name="hname" id="gatekeeperLoginName" style="width: 100%;"  class="FormControl" value="' +
-      (req.p.lis_person_name_full || "") +
-      '">' +
-      '<div class="FormVertical-group">' +
-      '<label class="FormLabel" for="gatekeeperLoginPassword">' +
-      "Password" +
-      "</label>" +
-      '<input type="password" id="password" name="password" style="width: 100%;" id="gatekeeperLoginPassword" class="FormControl">' +
-      "<div>" +
-      '<label class="FormLabel" for="gatekeeperLoginPassword2">' +
-      "Repeat Password" +
-      "</label>" +
-      '<input type="password" id="password2" name="password2" style="width: 100%;" id="gatekeeperLoginPassword2" class="FormControl">' +
-      "</div>" +
-      '<input type="hidden" name="lti_user_id" value="' +
-      user_id +
-      '">' +
-      '<input type="hidden" name="lti_user_image" value="' +
-      user_image +
-      '">' +
-      '<input type="hidden" name="lti_context_id" value="' +
-      context_id +
-      '">' +
-      '<input type="hidden" name="tool_consumer_instance_guid" value="' +
-      tool_consumer_instance_guid +
-      '">' +
-      '<input type="hidden" name="afterJoinRedirectUrl" value="' +
-      afterJoinRedirectUrl +
-      '">' +
-      "</div>" +
-      '<input type="checkbox" name="gatekeeperTosPrivacy" id="gatekeeperTosPrivacy" style="position: relative; top: -1px"> &nbsp; By signing up, you agree to our <a href="https://pol.is/tos"> terms of use</a> and <a href="https://pol.is/privacy"> privacy policy </a>' +
-      '<div class="row" id="errorDiv"></div>' +
-      '<div class="FormVertical-group">' +
-      '<button type="submit" class="Btn Btn-primary">Create new pol.is account</button>' +
-      "</div>" +
-      "</form></p>";
-
-    let form2 =
-      "" +
-      "<p> - OR - </p>" +
-      "<h2>sign in with an existing pol.is account</h2>" +
-      '<p><form role="form" class="FormVertical" action="' +
-      getServerNameWithProtocol(req) +
-      '/api/v3/auth/login" method="POST">' +
-      '<div class="FormVertical-group">' +
-      '<label class="FormLabel" for="gatekeeperLoginEmail">Email</label>' +
-      '<input type="text" id="email" name="email" id="gatekeeperLoginEmail" style="width: 100%;" class="FormControl">' +
-      "</div>" +
-      '<div class="FormVertical-group">' +
-      '<label class="FormLabel" for="gatekeeperLoginPassword">' +
-      "Password" +
-      "</label>" +
-      '<input type="password" id="password" name="password" id="gatekeeperLoginPassword" style="width: 100%;" class="FormControl">' +
-      '<input type="hidden" name="lti_user_id" value="' +
-      user_id +
-      '">' +
-      '<input type="hidden" name="lti_user_image" value="' +
-      user_image +
-      '">' +
-      '<input type="hidden" name="lti_context_id" value="' +
-      context_id +
-      '">' +
-      '<input type="hidden" name="tool_consumer_instance_guid" value="' +
-      tool_consumer_instance_guid +
-      '">' +
-      '<input type="hidden" name="afterJoinRedirectUrl" value="' +
-      afterJoinRedirectUrl +
-      '">' +
-      '<a href="/pwresetinit" class="FormLink">Forgot your password?</a>' +
-      "</div>" +
-      "" +
-      '<div class="row" id="errorDiv"></div>' +
-      '<div class="FormVertical-group">' +
-      '<button type="submit" class="Btn Btn-primary">Sign In</button>' +
-      "</div>" +
-      "</form></p>";
-    res.set({
-      "Content-Type": "text/html",
-    });
-    // let customPart = isInstructor ? "you are the instructor" : "you are a Student";
-
-    let html =
-      "" +
-      "<!DOCTYPE html><html lang='en'>" +
-      "<head>" +
-      '<meta name="viewport" content="width=device-width, initial-scale=1;">' +
-      "</head>" +
-      "<body style='max-width:320px; font-family: Futura, Helvetica, sans-serif;'>" +
-      greeting +
-      form1 +
-      form2 +
-      // " <p style='background-color: yellow;'>" +
-      //     JSON.stringify(req.body)+
-      //     "<img src='"+req.p.user_image+"'></img>"+
-      // "</p>"+
-      "</body></html>";
-
-    res.status(200).send(html);
-  }
-  // team meetings - schedule with others, smart converence room
-  // or redirect tool
-  // students already pay an online fee
-
-  // ADA? 508 compliance
-  // accessibility - Teach Act: those who don't have dexterity
-  // colors
-  // screen readers
-  /*
-2014-09-21T23:16:15.351247+00:00 app[web.1]: course_setup
-2014-09-21T23:16:15.188414+00:00 app[web.1]: { oauth_consumer_key: 'asdfasdf',
-2014-09-21T23:16:15.188418+00:00 app[web.1]:   oauth_signature_method: 'HMAC-SHA1',
-2014-09-21T23:16:15.188420+00:00 app[web.1]:   oauth_timestamp: '1411341372',
-2014-09-21T23:16:15.188422+00:00 app[web.1]:   oauth_nonce: 'JHnE7tcVBHYx9MjLcQS2jWNTGCD56F5wqwePk4tnk',
-2014-09-21T23:16:15.188423+00:00 app[web.1]:   oauth_version: '1.0',
-2014-09-21T23:16:15.188425+00:00 app[web.1]:   context_id: '543f4cb8ba0ad2939faa5b2643cb1415d3ada3c5',
-2014-09-21T23:16:15.188426+00:00 app[web.1]:   context_label: 'polis_demo_course_code',
-2014-09-21T23:16:15.188428+00:00 app[web.1]:   context_title: 'polis demo course',
-2014-09-21T23:16:15.188430+00:00 app[web.1]:   custom_canvas_enrollment_state: 'active',
-2014-09-21T23:16:15.188432+00:00 app[web.1]:   custom_canvas_xapi_url: 'https://canvas.instructure.com/api/lti/v1/tools/46849/xapi',
-2014-09-21T23:16:15.188433+00:00 app[web.1]:   launch_presentation_document_target: 'iframe',
-2014-09-21T23:16:15.188435+00:00 app[web.1]:   launch_presentation_height: '400',
-2014-09-21T23:16:15.188436+00:00 app[web.1]:   launch_presentation_locale: 'en',
-2014-09-21T23:16:15.188437+00:00 app[web.1]:   launch_presentation_return_url: 'https://canvas.instructure.com/courses/875179',
-2014-09-21T23:16:15.188439+00:00 app[web.1]:   launch_presentation_width: '800',
-2014-09-21T23:16:15.188441+00:00 app[web.1]:   lti_message_type: 'basic-lti-launch-request',
-2014-09-21T23:16:15.188442+00:00 app[web.1]:   lti_version: 'LTI-1p0',
-2014-09-21T23:16:15.188443+00:00 app[web.1]:   oauth_callback: 'about:blank',
-2014-09-21T23:16:15.188445+00:00 app[web.1]:   resource_link_id: '543f4cb8ba0ad2939faa5b2643cb1415d3ada3c5',
-2014-09-21T23:16:15.188447+00:00 app[web.1]:   resource_link_title: 'polis nav',
-2014-09-21T23:16:15.188448+00:00 app[web.1]:   roles: 'Instructor',
-2014-09-21T23:16:15.188450+00:00 app[web.1]:   tool_consumer_info_product_family_code: 'canvas',
-2014-09-21T23:16:15.188451+00:00 app[web.1]:   tool_consumer_info_version: 'cloud',
-2014-09-21T23:16:15.188453+00:00 app[web.1]:   tool_consumer_instance_contact_email: 'notifications@instructure.com',
-2014-09-21T23:16:15.188454+00:00 app[web.1]:   tool_consumer_instance_guid: '07adb3e60637ff02d9ea11c7c74f1ca921699bd7.canvas.instructure.com',
-2014-09-21T23:16:15.188456+00:00 app[web.1]:   tool_consumer_instance_name: 'Free For Teachers',
-2014-09-21T23:16:15.188457+00:00 app[web.1]:   user_id: '15bbe33bd1cf5355011a9ce6ebe1072256beea01',
-2014-09-21T23:16:15.188459+00:00 app[web.1]:   user_image: 'https://secure.gravatar.com/avatar/256caee7b9886c54155ef0d316dffabc?s=50&d=https%3A%2F%2Fcanvas.instructure.com%2Fimages%2Fmessages%2Favatar-50.png',
-2014-09-21T23:16:15.188461+00:00 app[web.1]:   oauth_signature: 'jJ3TbKvalDUYvELXNvnzOfdCwGo=' }
-*/
-  // A compromise would be this:
-  // Instructors see a custom inbox for the course, and can create conversations there. make it easy to copy and paste links..
-  // how do we deal with sections? can't do this.
-  // Conversations created here will be under the uid of the account owner... which may be problematic later with school-wide accounts... if we ever offer that
-  //
-  // Complication: sections -- are they needed this quarter? maybe better to just do the linkage, and then try to make it easy to post the stuff...
-  //  it is possible for teachers to create a duplicate assignment, and have it show for certain sections...
-  //     so we can rely on custom_canvas_assignment_id
-
-  // TODO rename to LTI/launch
-  // TODO save launch contexts in mongo. For now, to err on the side of collecting extra data, let them be duplicated. Attach a timestamp too.
-  // TODO return HTML from the auth functions. the html should contain the token? so that ajax calls can be made.
-  function handle_POST_lti_setup_assignment(
-    req: {
-      p: {
-        user_id: any;
-        context_id: any;
-        tool_consumer_instance_guid?: any;
-        lis_outcome_service_url: any;
-        uid?: any;
-      };
-    },
-    res: any
-  ) {
-    winston.log("info", req);
-    // let roles = req.p.roles;
-    // let isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
-    let user_id = req.p.user_id;
-    let context_id = req.p.context_id;
-    // let user_image = req.p.user_image || "";
-    if (!req.p.tool_consumer_instance_guid) {
-      emailBadProblemTime(
-        "couldn't find tool_consumer_instance_guid, maybe this isn't Canvas?"
-      );
-    }
-
-    // TODO SECURITY we need to verify the signature
-    // let oauth_consumer_key = req.p.oauth_consumer_key;
-
-    let dataSavedPromise = pgQueryP(
-      "insert into lti_single_assignment_callback_info (lti_user_id, lti_context_id, lis_outcome_service_url, stringified_json_of_post_content) values ($1, $2, $3, $4);",
-      [
-        user_id,
-        context_id,
-        req.p.lis_outcome_service_url || "",
-        JSON.stringify(req.p),
-      ]
-    );
-
-    Promise.all([dataSavedPromise])
-      .then(function () {
-        // check if signed in (NOTE that if they're in the Canvas mobile app, the cookies may be shared with the browser on the device)
-        if (req.p.uid) {
-          // Check if linked to this uid.
-          pgQueryP(
-            "select * from lti_users left join users on lti_users.uid = users.uid where lti_user_id = ($1);",
-            [user_id]
-          )
-            .then(function (rows: any) {
-              // find the correct one - note: this loop may be useful in warning when people have multiple linkages
-              let userForLtiUserId: any = null;
-              (rows || []).forEach(function (row: { uid?: any }) {
-                if (row.uid === req.p.uid) {
-                  userForLtiUserId = row;
-                }
-              });
-              if (userForLtiUserId) {
-                // if (teacher pays) {
-                //     // you're good!
-                // } else {
-                //     if (you paid) {
-                User.renderLtiLinkageSuccessPage(req, res, {
-                  // Argument of type '{ context_id: any; email: any; }' is not assignable to parameter of type '{ email: string; }'.
-                  // Object literal may only specify known properties, and 'context_id' does not exist in type '{ email: string; }'.ts(2345)
-                  // @ts-ignore
-                  context_id: context_id,
-                  // user_image: userForLtiUserId.user_image,
-                  email: userForLtiUserId.email,
-                });
-                // } else { // you (student) have not yet paid
-                //     // gotta pay
-                // }
-                // }
-              } else {
-                // you are signed in, but not linked to the signed in user
-                // WARNING! CLEARING COOKIES - since it's difficult to have them click a link to sign out, and then re-initiate the LTI POST request from Canvas, just sign them out now and move on.
-                clearCookies(req, res);
-                winston.log("info", "lti_linkage didnt exist");
-                // Have them sign in again, since they weren't linked.
-                // NOTE: this could be streamlined by showing a sign-in page that also says "you are signed in as foo, link account foo? OR sign in as someone else"
-                renderLtiLinkagePage(req, res);
-              }
-            })
-            .catch(function (err: any) {
-              fail(res, 500, "polis_err_launching_lti_finding_user", err);
-            });
-        } else {
-          // no uid (no cookies)
-          // Have them sign in to set up the linkage
-          winston.log("info", "lti_linkage - no uid");
-          renderLtiLinkagePage(req, res);
-        }
-      })
-      .catch(function (err: any) {
-        fail(res, 500, "polis_err_launching_lti_save", err);
-      });
-  } // end /api/v3/LTI/setup_assignment
-
-  // function handle_POST_lti_canvas_nav(req, res) {
-  //     winston.log("info",req);
-  //     let roles = req.p.roles;
-  //     let isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
-  //     let user_id = req.p.user_id;
-  //     let context_id = req.p.context_id;
-  //     let user_image = req.p.user_image || "";
-  //     // if (!req.p.tool_consumer_instance_guid) {
-  //     //     emailBadProblemTime("couldn't find tool_consumer_instance_guid, maybe this isn't Canvas?");
-  //     // }
-
-  //     winston.log("info",req.p);
-
-  //     // // TODO SECURITY we need to verify the signature
-  //     // let oauth_consumer_key = req.p.oauth_consumer_key;
-
-  //     // Check if linked to this uid.
-  //     pgQueryP("select * from lti_users left join users on lti_users.uid = users.uid where lti_users.lti_user_id = ($1) and lti_users.tool_consumer_instance_guid = ($2);", [user_id, req.p.tool_consumer_instance_guid]).then(function(rows) {
-  //         let userForLtiUserId = null;
-  //         if (rows.length) {
-  //             userForLtiUserId = rows[0];
-  //         }
-
-  //         winston.log("info",'got user for lti_user_id:' + JSON.stringify(userForLtiUserId));
-
-  //         if (userForLtiUserId) {
-  //             // if (teacher pays) {
-  //             //     // you're good!
-  //             // } else {
-  //             //     if (you paid) {
-  //                     // renderLtiLinkageSuccessPage(req, res, {
-  //                     //     context_id: context_id,
-  //                     //     // user_image: userForLtiUserId.user_image,
-  //                     //     email: userForLtiUserId.email,
-  //                     // });
-  //                     let inboxLaunchParams = encodeParams({
-  //                         context: context_id, // we're using the LTI context_id as a polis conversation context. scope the inbox to the course
-  //                         xPolisLti: createPolisLtiToken(req.p.tool_consumer_instance_guid, req.p.user_id),  // x-polis-lti header
-  //                         // TODO add token
-  //                     });
-  //                     res.redirect("https://preprod.pol.is/inbox/" + inboxLaunchParams);
-
-  //                 // } else { // you (student) have not yet paid
-  //                 //     // gotta pay
-  //                 // }
-  //             // }
-  //         } else {
-  //             // not linked yet. send them to an auth page, which should do the linkage, then send them to inbox with the funky params...
-
-  //             // you are signed in, but not linked to the signed in user
-  //             // WARNING! CLEARING COOKIES - since it's difficult to have them click a link to sign out, and then re-initiate the LTI POST request from Canvas, just sign them out now and move on.
-  //             clearCookies(req, res);
-  //             winston.log("info",'lti_linkage didnt exist');
-  //             // Have them sign in again, since they weren't linked.
-  //             // NOTE: this could be streamlined by showing a sign-in page that also says "you are signed in as foo, link account foo? OR sign in as someone else"
-  //             renderLtiLinkagePage(req, res);
-  //         }
-  //     }).catch(function(err) {
-  //         fail(res, 500, "polis_err_launching_lti_finding_user", err);
-  //     });
-
-  // } // end /api/v3/LTI/canvas_nav
-
-  function addCanvasAssignmentConversationInfoIfNeeded(
-    zid: any,
-    tool_consumer_instance_guid?: any,
-    lti_context_id?: any,
-    custom_canvas_assignment_id?: any
-  ) {
-    return (
-      getCanvasAssignmentInfo(
-        tool_consumer_instance_guid,
-        lti_context_id,
-        custom_canvas_assignment_id
-      )
-        //     Argument of type '(rows: string | any[]) => number | Promise<unknown>' is not assignable to parameter of type '(value: unknown) => unknown'.
-        // Types of parameters 'rows' and 'value' are incompatible.
-        //   Type 'unknown' is not assignable to type 'string | any[]'.
-        //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-        // @ts-ignore
-        .then(function (rows: string | any[]) {
-          let exists = rows && rows.length;
-          if (exists) {
-            return exists;
-          } else {
-            return pgQueryP(
-              "insert into canvas_assignment_conversation_info (zid, tool_consumer_instance_guid, lti_context_id, custom_canvas_assignment_id) values ($1, $2, $3, $4);",
-              [
-                zid,
-                tool_consumer_instance_guid,
-                lti_context_id,
-                custom_canvas_assignment_id,
-              ]
-            );
-          }
-        })
-    );
-  }
-
-  function getCanvasAssignmentInfo(
-    tool_consumer_instance_guid: string,
-    lti_context_id: string,
-    custom_canvas_assignment_id: string
-  ) {
-    winston.log(
-      "info",
-      "grades select * from canvas_assignment_conversation_info where tool_consumer_instance_guid = " +
-        tool_consumer_instance_guid +
-        " and lti_context_id = " +
-        lti_context_id +
-        " and custom_canvas_assignment_id = " +
-        custom_canvas_assignment_id +
-        ";"
-    );
-    return pgQueryP(
-      "select * from canvas_assignment_conversation_info where tool_consumer_instance_guid = ($1) and lti_context_id = ($2) and custom_canvas_assignment_id = ($3);",
-      [tool_consumer_instance_guid, lti_context_id, custom_canvas_assignment_id]
-    );
-  }
-
-  function addCanvasAssignmentConversationCallbackParamsIfNeeded(
-    lti_user_id: any,
-    lti_context_id: any,
-    custom_canvas_assignment_id: any,
-    tool_consumer_instance_guid?: any,
-    lis_outcome_service_url?: any,
-    lis_result_sourcedid?: any,
-    stringified_json_of_post_content?: string
-  ) {
-    return (
-      getCanvasAssignmentConversationCallbackParams(
-        lti_user_id,
-        lti_context_id,
-        custom_canvas_assignment_id,
-        tool_consumer_instance_guid
-      )
-        //     Argument of type '(rows: string | any[]) => Promise<unknown>' is not assignable to parameter of type '(value: unknown) => unknown'.
-        // Types of parameters 'rows' and 'value' are incompatible.
-        //   Type 'unknown' is not assignable to type 'string | any[]'.
-        //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-        // @ts-ignore
-        .then(function (rows: string | any[]) {
-          if (rows && rows.length) {
-            // update
-            // this is failing, but it has been ok, since the insert worked (i assume)
-            return pgQueryP(
-              "update canvas_assignment_callback_info set lis_outcome_service_url = ($5), lis_result_sourcedid = ($6), stringified_json_of_post_content = ($7) where lti_user_id = ($1) and lti_context_id = ($2) and custom_canvas_assignment_id = ($3) and tool_consumer_instance_guid = ($4);",
-              [
-                lti_user_id,
-                lti_context_id,
-                custom_canvas_assignment_id,
-                tool_consumer_instance_guid,
-                lis_outcome_service_url,
-                lis_result_sourcedid,
-                stringified_json_of_post_content,
-              ]
-            );
-          } else {
-            // insert
-            return pgQueryP(
-              "insert into canvas_assignment_callback_info (lti_user_id, lti_context_id, custom_canvas_assignment_id, tool_consumer_instance_guid, lis_outcome_service_url, lis_result_sourcedid, stringified_json_of_post_content) values ($1, $2, $3, $4, $5, $6, $7);",
-              [
-                lti_user_id,
-                lti_context_id,
-                custom_canvas_assignment_id,
-                tool_consumer_instance_guid,
-                lis_outcome_service_url,
-                lis_result_sourcedid,
-                stringified_json_of_post_content,
-              ]
-            );
-          }
-        })
-    );
-  }
-
-  function getCanvasAssignmentConversationCallbackParams(
-    lti_user_id: any,
-    lti_context_id: any,
-    custom_canvas_assignment_id: any,
-    tool_consumer_instance_guid?: any
-  ) {
-    return pgQueryP(
-      "select * from canvas_assignment_callback_info where lti_user_id = ($1) and lti_context_id = ($2) and custom_canvas_assignment_id = ($3) and tool_consumer_instance_guid = ($4);",
-      [
-        lti_user_id,
-        lti_context_id,
-        custom_canvas_assignment_id,
-        tool_consumer_instance_guid,
-      ]
-    );
-  }
-  function handle_POST_lti_conversation_assignment(
-    req: {
-      p: {
-        roles: any;
-        user_id: any;
-        context_id: any;
-        tool_consumer_instance_guid?: any;
-        lis_result_sourcedid: any;
-        custom_canvas_assignment_id: any;
-        lis_outcome_service_url: any;
-        oauth_consumer_key: string;
-      };
-      body: any;
-    },
-    res: {
-      redirect: (arg0: string) => void;
-      set: (arg0: { "Content-Type": string }) => void;
-      send: (arg0: string) => void;
-    }
-  ) {
-    let roles = req.p.roles;
-    let isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
-    // let isLearner = /[lL]earner/.exec(roles);
-    let user_id = req.p.user_id;
-    let context_id = req.p.context_id;
-    // let user_image = req.p.user_image || "";
-
-    winston.log("info", "grades req.body " + JSON.stringify(req.body));
-    winston.log("info", "grades req.p " + JSON.stringify(req.p));
-
-    // TODO SECURITY we need to verify the signature
-    // let oauth_consumer_key = req.p.oauth_consumer_key;
-
-    function getPolisUserForLtiUser() {
-      return (
-        pgQueryP(
-          "select * from lti_users left join users on lti_users.uid = users.uid where lti_users.lti_user_id = ($1) and lti_users.tool_consumer_instance_guid = ($2);",
-          [user_id, req.p.tool_consumer_instance_guid]
-        )
-          //       Argument of type '(rows: string | any[]) => any' is not assignable to parameter of type '(value: unknown) => any'.
-          // Types of parameters 'rows' and 'value' are incompatible.
-          //   Type 'unknown' is not assignable to type 'string | any[]'.
-          //       Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-          // @ts-ignore
-          .then(function (rows: string | any[]) {
-            let userForLtiUserId = null;
-            if (rows.length) {
-              userForLtiUserId = rows[0];
-              winston.log(
-                "info",
-                "got user for lti_user_id:" + JSON.stringify(userForLtiUserId)
-              );
-            }
-            return userForLtiUserId;
-          })
-      );
-    }
-
-    if (req.p.lis_result_sourcedid) {
-      addCanvasAssignmentConversationCallbackParamsIfNeeded(
-        req.p.user_id,
-        req.p.context_id,
-        req.p.custom_canvas_assignment_id,
-        req.p.tool_consumer_instance_guid,
-        req.p.lis_outcome_service_url,
-        req.p.lis_result_sourcedid,
-        JSON.stringify(req.body)
-      )
-        .then(function () {
-          winston.log("info", "grading info added");
-        })
-        .catch(function (err: any) {
-          winston.log("info", "grading info error ");
-          winston.log("info", err);
-        });
-    }
-    function constructConversationUrl(zid: any) {
-      // sweet! the instructor has created the conversation. send students here. (instructors too)
-      return getZinvite(zid).then(function (zinvite: string) {
-        return (
-          getServerNameWithProtocol(req) +
-          "/" +
-          zinvite +
-          "/" +
-          encodeParams({
-            forceEmbedded: true,
-            // this token is used to support cookie-less participation, mainly needed within Canvas's Android webview
-            xPolisLti: createPolisLtiToken(
-              req.p.tool_consumer_instance_guid,
-              req.p.user_id
-            ), // x-polis-lti header
-          })
-        );
-      });
-    }
-
-    // pgQueryP("insert into lti_single_assignment_callback_info (lti_user_id, lti_context_id, lis_outcome_service_url, lis_result_sourcedid, custom_canvas_assignment_id, tool_consumer_instance_guid, stringified_json_of_post_content) values ($1, $2, $3, $4, $5, $6, $7);", [
-    //     req.p.lti_user_id,
-    //     req.p.lti_context_id,
-    //     req.p.lis_outcome_service_url,
-    //     req.p.lis_result_sourcedid,
-    //     req.p.custom_canvas_assignment_id,
-    //     req.p.tool_consumer_instance_guid,
-    //     JSON.stringify(req.body),
-    // ]).thennnnn
-
-    Promise.all([
-      getCanvasAssignmentInfo(
-        req.p.tool_consumer_instance_guid,
-        req.p.context_id,
-        req.p.custom_canvas_assignment_id
-      ),
-      getPolisUserForLtiUser(),
-    ])
-      .then(function (results: any[]) {
-        let infos = results[0];
-        let exists = infos && infos.length;
-        let info = infos[0];
-
-        let user = results[1];
-
-        if (exists) {
-          return constructConversationUrl(info.zid)
-            .then(function (url: any) {
-              if (user) {
-                // we're in business, user can join the conversation
-                res.redirect(url);
-              } else {
-                // not linked yet.
-                // send them to an auth page, which should do the linkage, then send them to inbox with the funky params...
-
-                // you are signed in, but not linked to the signed in user
-                // WARNING! CLEARING COOKIES - since it's difficult to have them click a link to sign out, and then re-initiate the LTI POST request from Canvas, just sign them out now and move on.
-                clearCookies(req, res);
-                winston.log("info", "lti_linkage didnt exist");
-                // Have them sign in again, since they weren't linked.
-                // NOTE: this could be streamlined by showing a sign-in page that also says "you are signed in as foo, link account foo? OR sign in as someone else"
-                //
-                // (parameter) res: {
-                //     redirect: (arg0: string) => void;
-                //     set: (arg0: {
-                //         "Content-Type": string;
-                //     }) => void;
-                //     send: (arg0: string) => void;
-                // }
-                // Argument of type '{ redirect: (arg0: string) => void; set: (arg0: { "Content-Type": string; }) => void; send: (arg0: string) => void; }' is not assignable to parameter of type '{ set: (arg0: { "Content-Type": string; }) => void; status: (arg0: number) => { (): any; new (): any; send: { (arg0: string): void; new (): any; }; }; }'.ts(2345)
-                //
-                // @ts-ignore
-                renderLtiLinkagePage(req, res, url);
-              }
-            })
-            .catch(function (err: any) {
-              fail(res, 500, "polis_err_lti_generating_conversation_url", err);
-            });
-        } else {
-          // uh oh, not ready. If this is an instructor, we'll send them to the create/conversation page.
-          if (isInstructor) {
-            if (user) {
-              res.redirect(
-                getServerNameWithProtocol(req) +
-                  "/conversation/create/" +
-                  encodeParams({
-                    forceEmbedded: true,
-                    // this token is used to support cookie-less participation, mainly needed within Canvas's Android webview. It is needed to ensure the canvas user is bound to the polis user, regardless of who is signed in on pol.is
-                    xPolisLti: createPolisLtiToken(
-                      req.p.tool_consumer_instance_guid,
-                      req.p.user_id
-                    ), // x-polis-lti header
-                    tool_consumer_instance_guid:
-                      req.p.tool_consumer_instance_guid,
-                    context: context_id,
-                    custom_canvas_assignment_id:
-                      req.p.custom_canvas_assignment_id,
-                  })
-              );
-            } else {
-              let url =
-                getServerNameWithProtocol(req) +
-                "/conversation/create/" +
-                encodeParams({
-                  forceEmbedded: true,
-                  tool_consumer_instance_guid:
-                    req.p.tool_consumer_instance_guid,
-                  context: context_id,
-                  custom_canvas_assignment_id:
-                    req.p.custom_canvas_assignment_id,
-                });
-              // Argument of type '{ redirect: (arg0: string) => void; set: (arg0: { "Content-Type": string; }) => void; send: (arg0: string) => void; }' is not assignable to parameter of type '{ set: (arg0: { "Content-Type": string; }) => void; status: (arg0: number) => { (): any; new (): any; send: { (arg0: string): void; new (): any; }; }; }'.
-              //   Property 'status' is missing in type '{ redirect: (arg0: string) => void; set: (arg0: { "Content-Type": string; }) => void; send: (arg0: string) => void; }' but required in type '{ set: (arg0: { "Content-Type": string; }) => void; status: (arg0: number) => { (): any; new (): any; send: { (arg0: string): void; new (): any; }; }; }'.ts(2345)
-              // @ts-ignore
-              renderLtiLinkagePage(req, res, url);
-            }
-          } else {
-            // double uh-oh, a student is seeing this before the instructor created a conversation...
-
-            // TODO email polis team, email instructor?
-            // TODO or just auto-generate a conversation for the instructor, and have no topic and description, then show that?
-            // TODO or make a dummy "not ready yet" page
-
-            console.error(
-              "Student saw conversation before it was set up. For instructor with key: oauth_consumer_key: " +
-                req.p.oauth_consumer_key
-            );
-            res.set({
-              "Content-Type": "text/html",
-            });
-            res.send(
-              '<head><meta name="viewport" content="width=device-width, initial-scale=1;"></head>' +
-                "<body><h1 style='max-width:320px'>Sorry, the pol.is conversation has not been created yet. Please try back later.</h1></body>"
-            );
-          }
-        }
-      })
-      .catch(function (err: any) {
-        fail(res, 500, "polis_err_checking_grading_context", err);
-      });
-
-    // store info about class, if not there already
-    // pgQueryP("insert into canvas_assignment_conversation_info (
-
-    // we could store them all
-    // we could upsert
-    // but we'll need to know the uid to post the grades when the vote happens.
-    // ON VOTE?
-    // nope. Canvas sends them an email. It would be weird to vote once and then get an email saying you have 10/10.
-    //check if conversation has context
-    // if so, fetch lti_user_id for the uid and the correct tool_consumer_instance_guid (TODO)
-    // lti_single_assignment_callback_info for the context, custom_canvas_assignment_id, lti_user_id
-    // and do the post with that info...
-
-    // ON CLOSE?
-    // teacher has to manually close the conversation.
-    // we need to provide UI for that. either in the custom inbox, or in the conversation itself.
-    // so, on conversation close... we should keep "canvas_assignment_conversation_info": a many-to-many mapping of {zid <=> (tool_consumer_instance_guid, lti_context_id, custom_canvas_assignment_id)}
-    // so iterate over all triples for the zid, and find the corresponding callback record, and make a signed request for each student's record.
-    // Note that if the student somehow joined the conversation, but not through canvas, then they can't get credit.
-    // wait! how do we know what the conversation should have for topic / description?
-  }
-
-  function handle_GET_setup_assignment_xml(
-    req: any,
-    res: {
-      set: (arg0: string, arg1: string) => void;
-      status: (
-        arg0: number
-      ) => {
-        (): any;
-        new (): any;
-        send: { (arg0: string): void; new (): any };
-      };
-    }
-  ) {
-    let xml =
-      "" +
-      '<cartridge_basiclti_link xmlns="http://www.imsglobal.org/xsd/imslticc_v1p0" xmlns:blti="http://www.imsglobal.org/xsd/imsbasiclti_v1p0" xmlns:lticm="http://www.imsglobal.org/xsd/imslticm_v1p0" xmlns:lticp="http://www.imsglobal.org/xsd/imslticp_v1p0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsglobal.org/xsd/imslticc_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticc_v1p0.xsd http://www.imsglobal.org/xsd/imsbasiclti_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imsbasiclti_v1p0.xsd http://www.imsglobal.org/xsd/imslticm_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticm_v1p0.xsd http://www.imsglobal.org/xsd/imslticp_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticp_v1p0.xsd">' +
-      "<blti:title>Polis Setup Assignment</blti:title>" +
-      "<blti:description>based on Minecraft LMS integration</blti:description>" +
-      "<blti:icon>" +
-      "http://minecraft.inseng.net:8133/minecraft-16x16.png" +
-      "</blti:icon>" +
-      "<blti:launch_url>https://preprod.pol.is/api/v3/LTI/setup_assignment</blti:launch_url>" +
-      "<blti:custom>" +
-      '<lticm:property name="custom_canvas_xapi_url">$Canvas.xapi.url</lticm:property>' +
-      "</blti:custom>" +
-      '<blti:extensions platform="canvas.instructure.com">' +
-      '<lticm:property name="tool_id">polis_lti</lticm:property>' +
-      '<lticm:property name="privacy_level">public</lticm:property>' +
-      // homework 1 (link accounts)
-      // https://canvas.instructure.com/doc/api/file.homework_submission_tools.html
-      '<lticm:options name="homework_submission">' +
-      // This is the URL that will be POSTed to when users click the button in any rich editor.
-      '<lticm:property name="url">https://preprod.pol.is/api/v3/LTI/setup_assignment</lticm:property>' +
-      '<lticm:property name="icon_url">' +
-      "http://minecraft.inseng.net:8133/minecraft-16x16.png" +
-      "</lticm:property>" +
-      '<lticm:property name="text">polis accout setup (first assignment)</lticm:property>' +
-      '<lticm:property name="selection_width">400</lticm:property>' +
-      '<lticm:property name="selection_height">300</lticm:property>' +
-      '<lticm:property name="enabled">true</lticm:property>' +
-      "</lticm:options>" +
-      // nav
-      // '<lticm:options name="course_navigation">' +
-      //     '<lticm:property name="url">https://preprod.pol.is/api/v3/LTI/setup_assignment</lticm:property>' +
-      //     '<lticm:property name="text">polis setup from nav</lticm:property>' +
-      //     '<lticm:property name="visibility">public</lticm:property>' +
-      //     '<lticm:property name="default">enabled</lticm:property>' +
-      //     '<lticm:property name="enabled">true</lticm:property>' +
-      // '</lticm:options>' +
-
-      "</blti:extensions>" +
-      '<cartridge_bundle identifierref="BLTI001_Bundle"/>' +
-      '<cartridge_icon identifierref="BLTI001_Icon"/>' +
-      "</cartridge_basiclti_link>";
-
-    res.set("Content-Type", "text/xml");
-    res.status(200).send(xml);
-  }
-  function handle_GET_conversation_assigmnent_xml(
-    req: any,
-    res: {
-      set: (arg0: string, arg1: string) => void;
-      status: (
-        arg0: number
-      ) => {
-        (): any;
-        new (): any;
-        send: { (arg0: string): void; new (): any };
-      };
-    }
-  ) {
-    let serverName = getServerNameWithProtocol(req);
-
-    let xml =
-      "" +
-      '<cartridge_basiclti_link xmlns="http://www.imsglobal.org/xsd/imslticc_v1p0" xmlns:blti="http://www.imsglobal.org/xsd/imsbasiclti_v1p0" xmlns:lticm="http://www.imsglobal.org/xsd/imslticm_v1p0" xmlns:lticp="http://www.imsglobal.org/xsd/imslticp_v1p0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsglobal.org/xsd/imslticc_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticc_v1p0.xsd http://www.imsglobal.org/xsd/imsbasiclti_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imsbasiclti_v1p0.xsd http://www.imsglobal.org/xsd/imslticm_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticm_v1p0.xsd http://www.imsglobal.org/xsd/imslticp_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticp_v1p0.xsd">' +
-      "<blti:title>Polis Conversation Setup</blti:title>" +
-      "<blti:description>Polis conversation</blti:description>" +
-      // '<blti:icon>' +
-      // 'http://minecraft.inseng.net:8133/minecraft-16x16.png' +
-      // '</blti:icon>' +
-      "<blti:launch_url>" +
-      serverName +
-      "/api/v3/LTI/conversation_assignment</blti:launch_url>" +
-      "<blti:custom>" +
-      '<lticm:property name="custom_canvas_xapi_url">$Canvas.xapi.url</lticm:property>' +
-      "</blti:custom>" +
-      '<blti:extensions platform="canvas.instructure.com">' +
-      '<lticm:property name="tool_id">polis_conversation_lti</lticm:property>' +
-      '<lticm:property name="privacy_level">public</lticm:property>' +
-      // homework 2 (polis discussions)
-      // https://canvas.instructure.com/doc/api/file.homework_submission_tools.html
-      '<lticm:options name="homework_submission">' +
-      // '<lticm:property name="url">https://preprod.pol.is/api/v3/LTI/homework_submission</lticm:property>' +
-      '<lticm:property name="url">' +
-      serverName +
-      "/api/v3/LTI/conversation_assignment</lticm:property>" + // ?
-      '<lticm:property name="icon_url">' +
-      "http://minecraft.inseng.net:8133/minecraft-16x16.png" +
-      "</lticm:property>" +
-      '<lticm:property name="text">polis setup</lticm:property>' +
-      '<lticm:property name="selection_width">400</lticm:property>' +
-      '<lticm:property name="selection_height">300</lticm:property>' +
-      '<lticm:property name="enabled">true</lticm:property>' +
-      "</lticm:options>" +
-      "</blti:extensions>" +
-      '<cartridge_bundle identifierref="BLTI001_Bundle"/>' +
-      '<cartridge_icon identifierref="BLTI001_Icon"/>' +
-      "</cartridge_basiclti_link>";
-
-    res.set("Content-Type", "text/xml");
-    res.status(200).send(xml);
-  }
-  function handle_GET_canvas_app_instructions_png(
-    req: { headers?: { [x: string]: string } },
-    res: any
-  ) {
-    let path = "/landerImages/";
-    if (/Android/.exec(req?.headers?.["user-agent"] || "")) {
-      path += "app_instructions_android.png";
-    } else if (
-      /iPhone.*like Mac OS X/.exec(req?.headers?.["user-agent"] || "")
-    ) {
-      path += "app_instructions_ios.png";
-    } else {
-      path += "app_instructions_blank.png";
-    }
-    let doFetch = makeFileFetcher(hostname, staticFilesClientPort, path, {
-      "Content-Type": "image/png",
-    });
-    //   Argument of type '{ headers?: { [x: string]: string; } | undefined; }' is not assignable to parameter of type '{ headers?: { host: any; } | undefined; path: any; pipe: (arg0: any) => void; }'.
-    // Type '{ headers?: { [x: string]: string; } | undefined; }' is missing the following properties from type '{ headers?: { host: any; } | undefined; path: any; pipe: (arg0: any) => void; }': path, pipets(2345)
-    // @ts-ignore
-    doFetch(req, res);
-  }
-
   // function handle_POST_users_invite(req, res) {
   //     let owner = req.p.uid;
   //     let xids = req.p.xids;
@@ -16004,12 +14660,10 @@ Thanks for using Polis!
     handle_DELETE_metadata_questions,
     handle_GET_bid,
     handle_GET_bidToPid,
-    handle_GET_canvas_app_instructions_png,
     handle_GET_comments,
     handle_GET_comments_translations,
     handle_GET_conditionalIndexFetcher,
     handle_GET_contexts,
-    handle_GET_conversation_assigmnent_xml,
     handle_GET_conversationPreloadInfo,
     handle_GET_conversations,
     handle_GET_conversationsRecentActivity,
@@ -16030,7 +14684,6 @@ Thanks for using Polis!
     handle_GET_localFile_dev_only,
     handle_GET_locations,
     handle_GET_logMaxmindResponse,
-    handle_GET_lti_oauthv1_credentials,
     handle_GET_math_pca,
     handle_GET_math_pca2,
     handle_GET_metadata,
@@ -16046,7 +14699,6 @@ Thanks for using Polis!
     handle_GET_perfStats,
     handle_GET_ptptois,
     handle_GET_reports,
-    handle_GET_setup_assignment_xml,
     handle_GET_snapshot,
     handle_GET_testConnection,
     handle_GET_testDatabase,
@@ -16078,8 +14730,6 @@ Thanks for using Polis!
     handle_POST_domainWhitelist,
     handle_POST_einvites,
     handle_POST_joinWithInvite,
-    handle_POST_lti_conversation_assignment,
-    handle_POST_lti_setup_assignment,
     handle_POST_math_update,
     handle_POST_metadata_answers,
     handle_POST_metadata_questions,

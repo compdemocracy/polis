@@ -141,7 +141,6 @@ export type ConversationType = {
   style_btn?: any;
   write_type?: any;
   owner_sees_participation_stats?: any;
-  lti_users_only?: any;
   link_url?: any;
   course_invite?: any;
   course_id?: any;
@@ -208,11 +207,4 @@ export type Vote = {
   weight: any;
   starred: any;
   parent_url: any;
-};
-
-export type Assignment = {
-  lti_user_id: number;
-  gradeFromZeroToOne: string;
-  lis_outcome_service_url: any;
-  lis_result_sourcedid: any;
 };
