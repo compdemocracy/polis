@@ -57,8 +57,8 @@ module.exports = (env, options) => {
         test: /\.js$/,
         // Leave unmodified without gz ext.
         // See: https://webpack.js.org/plugins/compression-webpack-plugin/#options
-        filename: '[path][base]',
-        deleteOriginalAssets: true,
+        filename: isDev ? '[path][base].gz' : '[path][base]',
+        deleteOriginalAssets: isDev ? false : true,
       }),
       new EventHooksPlugin({
         afterEmit: () => {
