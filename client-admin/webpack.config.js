@@ -2,26 +2,53 @@
 
 var path = require("path");
 var webpack = require("webpack");
-var CompressionPlugin = require('compression-webpack-plugin')
+var CompressionPlugin = require('compression-webpack-plugin');
 var LodashModuleReplacementPlugin = require('lodash-webpack-plugin');
+var HtmlWebPackPlugin = require('html-webpack-plugin');
+var EventHooksPlugin = require('event-hooks-webpack-plugin');
+var CopyPlugin = require("copy-webpack-plugin");
+var mri = require('mri');
+var glob = require('glob');
+var fs = require('fs');
+
+// CLI commands for deploying built artefact.
+var argv = process.argv.slice(2)
+var cliArgs = mri(argv)
+
+var polisConfig = require("./polis.config");
 
 module.exports = {
   entry: ["./src/index"],
   output: {
-    path: path.join(__dirname, "dist"),
-    filename: "admin_bundle.js",
-    publicPath: "/dist/",
+    filename: "static/js/admin_bundle.js",
+    publicPath: 'public',
+    path: path.resolve(__dirname, "dist"),
   },
   resolve: {
     extensions: [".js", ".css", ".png", ".svg"],
   },
   plugins: [
+    new CopyPlugin({
+      patterns: [
+        { from: 'public', globOptions: { ignore: ['**/index.html']}},
+      ],
+    }),
+    new HtmlWebPackPlugin({
+      template: path.resolve( __dirname, 'public/index.html' ),
+      filename: 'index.html',
+      templateParameters: {
+        domainWhitelist: JSON.stringify(polisConfig.domainWhitelist),
+        fbAppId: polisConfig.FB_APP_ID,
+        usePlans: polisConfig.DISABLE_PLANS,
+        useIntercom: polisConfig.DISABLE_INTERCOM,
+      },
+    }),
     new LodashModuleReplacementPlugin({
-      "currying": true,
-      "flattening": true,
-      "paths": true,
-      "placeholders": true,
-      "shorthands": true
+      currying: true,
+      flattening: true,
+      paths: true,
+      placeholders: true,
+      shorthands: true
     }),
     new CompressionPlugin({
       test: /\.js$/,
@@ -30,9 +57,47 @@ module.exports = {
       filename: '[path][base]',
       deleteOriginalAssets: true,
     }),
-    new webpack.DefinePlugin({
-      "process.env.NODE_ENV": JSON.stringify("production"),
-    }),
+    new EventHooksPlugin({
+      afterEmit: () => {
+        console.log('Writing *.headersJson files...')
+
+        function writeHeadersJson(matchGlob, headersData = {}) {
+          const files = glob.sync(path.resolve(__dirname, "dist", matchGlob))
+          files.forEach((f, i) => {
+            const headersFilePath = f + '.headersJson'
+            fs.writeFileSync(headersFilePath, JSON.stringify(headersData))
+          })
+        }
+
+        function writeHeadersJsonHtml() {
+          const headersData = {
+            'x-amz-acl': 'public-read',
+            'Content-Type': 'text/html; charset=UTF-8',
+            'Cache-Control': 'no-cache'
+          }
+          writeHeadersJson('*.html', headersData)
+        }
+
+        function writeHeadersJsonJs() {
+          const headersData = {
+            'x-amz-acl': 'public-read',
+            'Content-Encoding': 'gzip',
+            'Content-Type': 'application/javascript',
+            'Cache-Control':
+              'no-transform,public,max-age=31536000,s-maxage=31536000'
+          }
+          writeHeadersJson('static/js/*.js?(.map)', headersData)
+        }
+
+        function writeHeadersJsonMisc() {
+          writeHeadersJson('favicon.ico')
+        }
+
+        writeHeadersJsonHtml()
+        writeHeadersJsonJs()
+        writeHeadersJsonMisc()
+      }
+    })
   ],
   optimization: {
     minimize: true, //Update this to true or false
@@ -43,15 +108,15 @@ module.exports = {
         test: /\.m?js$/,
         exclude: /(node_modules|bower_components)/,
         use: {
-          loader: "babel-loader",
+          loader: 'babel-loader',
           options: {
-            presets: ["@babel/preset-env"],
+            presets: ['@babel/preset-env', '@babel/preset-react'],
           },
         },
       },
       {
         test: /\.(png|jpg|gif|svg)$/,
-        loader: "file-loader",
+        loader: 'file-loader',
       },
       {
         test: /\.mdx?$/,

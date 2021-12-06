@@ -5,6 +5,9 @@
   "description": "Polis Admin Console",
   "scripts": {
     "clean": "rimraf dist",
+    "build:dev": "webpack --mode='development'",
+    "build:prod": "webpack --mode='production'",
+    "dev": "webpack-dev-server",
     "build:webpack": "npm run clean && NODE_ENV=production webpack --config webpack.config.js",
     "build:webpack_unminified": "npm run clean && NODE_ENV=development webpack --config webpack.config.unminified.js",
     "build": "npm run build:webpack",
@@ -18,46 +21,45 @@
   },
   "author": "Colin Megill",
   "devDependencies": {
-    "@babel/core": "^7.13.1",
+    "@babel/core": "^7.16.0",
     "@babel/plugin-proposal-class-properties": "^7.13.0",
     "@babel/plugin-proposal-decorators": "^7.13.5",
     "@babel/plugin-transform-runtime": "^7.13.7",
-    "@babel/preset-env": "^7.13.5",
-    "@babel/preset-react": "^7.12.13",
+    "@babel/preset-env": "^7.16.4",
+    "@babel/preset-react": "^7.16.0",
     "@mdx-js/loader": "^1.6.22",
     "babel-eslint": "^10.1.0",
-    "babel-loader": "^8.2.2",
+    "babel-loader": "^8.2.3",
     "babel-plugin-lodash": "^3.3.4",
     "bluebird": "^3.7.2",
     "compression-webpack-plugin": "^7.1.2",
+    "copy-webpack-plugin": "^9.0.0",
     "eslint": "^7.20.0",
     "eslint-config-prettier": "^8.1.0",
+    "eslint-config-prettier-standard": "^3.0.1",
     "eslint-config-standard": "^16.0.2",
     "eslint-plugin-babel": "^5.3.1",
     "eslint-plugin-import": "^2.22.1",
     "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-prettier": "^3.1.4",
     "eslint-plugin-promise": "^4.3.1",
     "eslint-plugin-react": "^7.22.0",
-    "express": "^4.17.1",
-    "file-loader": "~6.2.0",
+    "eslint-plugin-standard": "^4.0.1",
+    "event-hooks-webpack-plugin": "^2.1.7",
     "glob": "^7.1.2",
-    "gulp": "^3.9.0",
-    "gulp-cli": "^1.4.0",
-    "gulp-s3": "github:pol-is/gulp-s3#master",
-    "gulp-scp2": "^0.2.0",
+    "html-webpack-plugin": "^5.5.0",
     "lodash-webpack-plugin": "^0.11.6",
+    "mri": "^1.2.0",
     "prettier": "^2.2.1",
     "prettier-config-standard": "^4.0.0",
-    "request": "^2.88.2",
-    "rimraf": "^3.0.2",
-    "run-sequence": "~2.2.1",
+    "serve": "^11.3.2",
     "webpack": "^5.64.2",
     "webpack-bundle-analyzer": "^4.4.0",
     "webpack-cli": "^4.5.0",
-    "webpack-dev-middleware": "^4.1.0"
+    "webpack-dev-server": "^4.6.0",
+    "webpack-s3-plugin": "^1.0.3"
   },
   "dependencies": {
-    "boolean": "^3.0.2",
     "d3-scale": "^3.2.3",
     "jquery": "^2.1.4",
     "lodash": "^4.17.21",
@@ -79,6 +81,21 @@
       "json",
       "lcov",
       "text-summary"
+    ]
+  },
+  "eslintConfig": {
+    "extends": "react-app"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
     ]
   }
 }
