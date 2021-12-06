@@ -8,6 +8,8 @@ var HtmlWebPackPlugin = require('html-webpack-plugin');
 var EventHooksPlugin = require('event-hooks-webpack-plugin');
 var CopyPlugin = require("copy-webpack-plugin");
 var TerserPlugin = require("terser-webpack-plugin");
+var BundleAnalyzerPlugin = require('webpack-bundle-analyzer')
+  .BundleAnalyzerPlugin
 var mri = require('mri');
 var glob = require('glob');
 var fs = require('fs');
@@ -32,6 +34,7 @@ module.exports = (env, options) => {
       extensions: [".js", ".css", ".png", ".svg"],
     },
     plugins: [
+      ...(cliArgs.analyze ? [new BundleAnalyzerPlugin({ defaultSizes: 'gzip' })] : []),
       new CopyPlugin({
         patterns: [
           { from: 'public', globOptions: { ignore: ['**/index.html']}},
@@ -60,8 +63,9 @@ module.exports = (env, options) => {
         // See: https://webpack.js.org/plugins/compression-webpack-plugin/#options
         filename: '[path][base]',
         deleteOriginalAssets: true,
-        // Exclude all files (ie. no compression) in dev mode.
-        exclude: isDev ? /.*/ : undefined,
+        // Exclude all (aka disable) files from compression in dev mode.
+        // Also disable when analyzing, as that confuses BundleAnalyzerPlugin.
+        exclude: (isDev || cliArgs.analyze) ? /.*/ : undefined,
       }),
       new EventHooksPlugin({
         afterEmit: () => {
