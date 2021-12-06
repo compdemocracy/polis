@@ -7,6 +7,7 @@ var LodashModuleReplacementPlugin = require('lodash-webpack-plugin');
 var HtmlWebPackPlugin = require('html-webpack-plugin');
 var EventHooksPlugin = require('event-hooks-webpack-plugin');
 var CopyPlugin = require("copy-webpack-plugin");
+var TerserPlugin = require("terser-webpack-plugin");
 var mri = require('mri');
 var glob = require('glob');
 var fs = require('fs');
@@ -105,7 +106,8 @@ module.exports = (env, options) => {
       })
     ],
     optimization: {
-      minimize: true, //Update this to true or false
+      minimize: !isDev,
+      minimizer: [new TerserPlugin()],
     },
     module: {
       rules: [
