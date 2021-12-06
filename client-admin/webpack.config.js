@@ -17,111 +17,115 @@ var cliArgs = mri(argv)
 
 var polisConfig = require("./polis.config");
 
-module.exports = {
-  entry: ["./src/index"],
-  output: {
-    filename: "static/js/admin_bundle.js",
-    publicPath: 'public',
-    path: path.resolve(__dirname, "dist"),
-  },
-  resolve: {
-    extensions: [".js", ".css", ".png", ".svg"],
-  },
-  plugins: [
-    new CopyPlugin({
-      patterns: [
-        { from: 'public', globOptions: { ignore: ['**/index.html']}},
-      ],
-    }),
-    new HtmlWebPackPlugin({
-      template: path.resolve( __dirname, 'public/index.html' ),
-      filename: 'index.html',
-      templateParameters: {
-        domainWhitelist: JSON.stringify(polisConfig.domainWhitelist),
-        fbAppId: polisConfig.FB_APP_ID,
-        usePlans: polisConfig.DISABLE_PLANS,
-        useIntercom: polisConfig.DISABLE_INTERCOM,
-      },
-    }),
-    new LodashModuleReplacementPlugin({
-      currying: true,
-      flattening: true,
-      paths: true,
-      placeholders: true,
-      shorthands: true
-    }),
-    new CompressionPlugin({
-      test: /\.js$/,
-      // Leave unmodified without gz ext.
-      // See: https://webpack.js.org/plugins/compression-webpack-plugin/#options
-      filename: '[path][base]',
-      deleteOriginalAssets: true,
-    }),
-    new EventHooksPlugin({
-      afterEmit: () => {
-        console.log('Writing *.headersJson files...')
+module.exports = (env, options) => {
+  var isDev = options.mode === 'development';
+  var chunkHashFragment = isDev ? '' : '.[chunkhash:8]';
+  return {
+    entry: ["./src/index"],
+    output: {
+      filename: `static/js/admin_bundle${chunkHashFragment}.js`,
+      path: path.resolve(__dirname, "dist"),
+      clean: true,
+    },
+    resolve: {
+      extensions: [".js", ".css", ".png", ".svg"],
+    },
+    plugins: [
+      new CopyPlugin({
+        patterns: [
+          { from: 'public', globOptions: { ignore: ['**/index.html']}},
+        ],
+      }),
+      new HtmlWebPackPlugin({
+        template: path.resolve( __dirname, 'public/index.html' ),
+        filename: isDev ? 'index.html' : 'index_admin.html',
+        templateParameters: {
+          domainWhitelist: JSON.stringify(polisConfig.domainWhitelist),
+          fbAppId: polisConfig.FB_APP_ID,
+          usePlans: polisConfig.DISABLE_PLANS,
+          useIntercom: polisConfig.DISABLE_INTERCOM,
+        },
+      }),
+      new LodashModuleReplacementPlugin({
+        currying: true,
+        flattening: true,
+        paths: true,
+        placeholders: true,
+        shorthands: true
+      }),
+      new CompressionPlugin({
+        test: /\.js$/,
+        // Leave unmodified without gz ext.
+        // See: https://webpack.js.org/plugins/compression-webpack-plugin/#options
+        filename: '[path][base]',
+        deleteOriginalAssets: true,
+      }),
+      new EventHooksPlugin({
+        afterEmit: () => {
+          console.log('Writing *.headersJson files...')
 
-        function writeHeadersJson(matchGlob, headersData = {}) {
-          const files = glob.sync(path.resolve(__dirname, "dist", matchGlob))
-          files.forEach((f, i) => {
-            const headersFilePath = f + '.headersJson'
-            fs.writeFileSync(headersFilePath, JSON.stringify(headersData))
-          })
-        }
-
-        function writeHeadersJsonHtml() {
-          const headersData = {
-            'x-amz-acl': 'public-read',
-            'Content-Type': 'text/html; charset=UTF-8',
-            'Cache-Control': 'no-cache'
+          function writeHeadersJson(matchGlob, headersData = {}) {
+            const files = glob.sync(path.resolve(__dirname, "dist", matchGlob))
+            files.forEach((f, i) => {
+              const headersFilePath = f + '.headersJson'
+              fs.writeFileSync(headersFilePath, JSON.stringify(headersData))
+            })
           }
-          writeHeadersJson('*.html', headersData)
-        }
 
-        function writeHeadersJsonJs() {
-          const headersData = {
-            'x-amz-acl': 'public-read',
-            'Content-Encoding': 'gzip',
-            'Content-Type': 'application/javascript',
-            'Cache-Control':
-              'no-transform,public,max-age=31536000,s-maxage=31536000'
+          function writeHeadersJsonHtml() {
+            const headersData = {
+              'x-amz-acl': 'public-read',
+              'Content-Type': 'text/html; charset=UTF-8',
+              'Cache-Control': 'no-cache'
+            }
+            writeHeadersJson('*.html', headersData)
           }
-          writeHeadersJson('static/js/*.js?(.map)', headersData)
-        }
 
-        function writeHeadersJsonMisc() {
-          writeHeadersJson('favicon.ico')
-        }
+          function writeHeadersJsonJs() {
+            const headersData = {
+              'x-amz-acl': 'public-read',
+              'Content-Encoding': 'gzip',
+              'Content-Type': 'application/javascript',
+              'Cache-Control':
+                'no-transform,public,max-age=31536000,s-maxage=31536000'
+            }
+            writeHeadersJson('static/js/*.js?(.map)', headersData)
+          }
 
-        writeHeadersJsonHtml()
-        writeHeadersJsonJs()
-        writeHeadersJsonMisc()
-      }
-    })
-  ],
-  optimization: {
-    minimize: true, //Update this to true or false
-  },
-  module: {
-    rules: [
-      {
-        test: /\.m?js$/,
-        exclude: /(node_modules|bower_components)/,
-        use: {
-          loader: 'babel-loader',
-          options: {
-            presets: ['@babel/preset-env', '@babel/preset-react'],
+          function writeHeadersJsonMisc() {
+            writeHeadersJson('favicon.ico')
+          }
+
+          writeHeadersJsonHtml()
+          writeHeadersJsonJs()
+          writeHeadersJsonMisc()
+        }
+      })
+    ],
+    optimization: {
+      minimize: true, //Update this to true or false
+    },
+    module: {
+      rules: [
+        {
+          test: /\.m?js$/,
+          exclude: /(node_modules|bower_components)/,
+          use: {
+            loader: 'babel-loader',
+            options: {
+              presets: ['@babel/preset-env', '@babel/preset-react'],
+            },
           },
         },
-      },
-      {
-        test: /\.(png|jpg|gif|svg)$/,
-        loader: 'file-loader',
-      },
-      {
-        test: /\.mdx?$/,
-        use: ['babel-loader', '@mdx-js/loader']
-      }
-    ],
-  },
-};
+        {
+          test: /\.(png|jpg|gif|svg)$/,
+          loader: 'file-loader',
+        },
+        {
+          test: /\.mdx?$/,
+          use: ['babel-loader', '@mdx-js/loader']
+        }
+      ],
+    },
+  };
+}
