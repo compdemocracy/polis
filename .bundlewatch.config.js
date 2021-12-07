@@ -10,7 +10,7 @@ module.exports = {
   },
   "files": [
     {
-      "path": "client-admin/dist/**/*.js",
+      "path": "client-admin/build/**/*.js",
       "maxSize": "180 kB",
     },
     {
