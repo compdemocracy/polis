@@ -22,8 +22,9 @@ var cliArgs = mri(argv)
 var polisConfig = require("./polis.config");
 
 module.exports = (env, options) => {
-  var isDev = options.mode === 'development';
-  var chunkHashFragment = isDev ? '' : '.[chunkhash:8]';
+  var isDevBuild = options.mode === 'development';
+  var isDevServer = process.env.WEBPACK_SERVE;
+  var chunkHashFragment = (isDevBuild || isDevServer) ? '' : '.[chunkhash:8]';
   return {
     entry: ["./src/index"],
     output: {
@@ -44,7 +45,7 @@ module.exports = (env, options) => {
       }),
       new HtmlWebPackPlugin({
         template: path.resolve( __dirname, 'public/index.html' ),
-        filename: isDev ? 'index.html' : 'index_admin.html',
+        filename: (isDevBuild || isDevServer) ? 'index.html' : 'index_admin.html',
         templateParameters: {
           domainWhitelist: `["${polisConfig.domainWhitelist.join('","')}"]`,
           fbAppId: polisConfig.FB_APP_ID,
@@ -65,9 +66,10 @@ module.exports = (env, options) => {
         // See: https://webpack.js.org/plugins/compression-webpack-plugin/#options
         filename: '[path][base]',
         deleteOriginalAssets: true,
-        // Exclude all (aka disable) files from compression in dev mode.
+        // Exclude all (aka disable) files from compression for development mode builds.
+        // Also disable when running webpack-dev-server.
         // Also disable when analyzing, as that confuses BundleAnalyzerPlugin.
-        exclude: (isDev || cliArgs.analyze) ? /.*/ : undefined,
+        exclude: (isDevBuild || isDevServer || cliArgs.analyze) ? /.*/ : undefined,
       }),
       new EventHooksPlugin({
         afterEmit: () => {
@@ -112,7 +114,7 @@ module.exports = (env, options) => {
       })
     ],
     optimization: {
-      minimize: !isDev,
+      minimize: !isDevBuild,
       minimizer: [new TerserPlugin()],
     },
     module: {
