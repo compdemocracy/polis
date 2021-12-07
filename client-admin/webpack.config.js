@@ -50,7 +50,6 @@ module.exports = (env, options) => {
       **/
     },
     plugins: [
-      ...(cliArgs.analyze ? [new BundleAnalyzerPlugin({ defaultSizes: 'gzip' })] : []),
       new CopyPlugin({
         patterns: [
           { from: 'public', globOptions: { ignore: ['**/index.html']}},
@@ -73,58 +72,59 @@ module.exports = (env, options) => {
         placeholders: true,
         shorthands: true
       }),
-      new CompressionPlugin({
-        test: /\.js$/,
-        // Leave unmodified without gz ext.
-        // See: https://webpack.js.org/plugins/compression-webpack-plugin/#options
-        filename: '[path][base]',
-        deleteOriginalAssets: true,
-        // Exclude all (aka disable) files from compression for development mode builds.
-        // Also disable when running webpack-dev-server.
-        // Also disable when analyzing, as that confuses BundleAnalyzerPlugin.
-        exclude: (isDevBuild || isDevServer || cliArgs.analyze) ? /.*/ : undefined,
-      }),
-      ...(isDevBuild ? [] : [new EventHooksPlugin({
-        afterEmit: () => {
-          console.log('Writing *.headersJson files...')
+      // Only run analyzer when specified in flag.
+      ...(cliArgs.analyze ? [new BundleAnalyzerPlugin({ defaultSizes: 'gzip' })] : []),
+      // Only compress and create headerJson files during production builds.
+      ...((isDevBuild || isDevServer || cliArgs.analyze) ? [] : [
+        new CompressionPlugin({
+          test: /\.js$/,
+          // Leave unmodified without gz ext.
+          // See: https://webpack.js.org/plugins/compression-webpack-plugin/#options
+          filename: '[path][base]',
+          deleteOriginalAssets: true,
+        }),
+        new EventHooksPlugin({
+          afterEmit: () => {
+            console.log('Writing *.headersJson files...')
 
-          function writeHeadersJson(matchGlob, headersData = {}) {
-            const files = glob.sync(path.resolve(__dirname, "build", matchGlob))
-            files.forEach((f, i) => {
-              const headersFilePath = f + '.headersJson'
-              fs.writeFileSync(headersFilePath, JSON.stringify(headersData))
-            })
-          }
-
-          function writeHeadersJsonHtml() {
-            const headersData = {
-              'x-amz-acl': 'public-read',
-              'Content-Type': 'text/html; charset=UTF-8',
-              'Cache-Control': 'no-cache'
+            function writeHeadersJson(matchGlob, headersData = {}) {
+              const files = glob.sync(path.resolve(__dirname, "dist", matchGlob))
+              files.forEach((f, i) => {
+                const headersFilePath = f + '.headersJson'
+                fs.writeFileSync(headersFilePath, JSON.stringify(headersData))
+              })
             }
-            writeHeadersJson('*.html', headersData)
-          }
 
-          function writeHeadersJsonJs() {
-            const headersData = {
-              'x-amz-acl': 'public-read',
-              'Content-Encoding': 'gzip',
-              'Content-Type': 'application/javascript',
-              'Cache-Control':
-                'no-transform,public,max-age=31536000,s-maxage=31536000'
+            function writeHeadersJsonHtml() {
+              const headersData = {
+                'x-amz-acl': 'public-read',
+                'Content-Type': 'text/html; charset=UTF-8',
+                'Cache-Control': 'no-cache'
+              }
+              writeHeadersJson('*.html', headersData)
             }
-            writeHeadersJson('static/js/*.js?(.map)', headersData)
-          }
 
-          function writeHeadersJsonMisc() {
-            writeHeadersJson('favicon.ico')
-          }
+            function writeHeadersJsonJs() {
+              const headersData = {
+                'x-amz-acl': 'public-read',
+                'Content-Encoding': 'gzip',
+                'Content-Type': 'application/javascript',
+                'Cache-Control':
+                  'no-transform,public,max-age=31536000,s-maxage=31536000'
+              }
+              writeHeadersJson('static/js/*.js?(.map)', headersData)
+            }
 
-          writeHeadersJsonHtml()
-          writeHeadersJsonJs()
-          writeHeadersJsonMisc()
-        }
-      })])
+            function writeHeadersJsonMisc() {
+              writeHeadersJson('favicon.ico')
+            }
+
+            writeHeadersJsonHtml()
+            writeHeadersJsonJs()
+            writeHeadersJsonMisc()
+          }
+        }),
+      ])
     ],
     optimization: {
       minimize: !isDevBuild,
