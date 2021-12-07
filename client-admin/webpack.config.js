@@ -36,6 +36,19 @@ module.exports = (env, options) => {
     resolve: {
       extensions: [".js", ".css", ".png", ".svg"],
     },
+    devServer: {
+      historyApiFallback: true,
+      /**
+      // TODO: Set up API proxy later for server component.
+      // See: https://webpack.js.org/configuration/dev-server/#devserverproxy
+      proxy: {
+        '/api': {
+        target: 'https://pol.is',
+        secure: false,
+        },
+      },
+      **/
+    },
     plugins: [
       ...(cliArgs.analyze ? [new BundleAnalyzerPlugin({ defaultSizes: 'gzip' })] : []),
       new CopyPlugin({
