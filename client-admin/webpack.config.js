@@ -30,7 +30,7 @@ module.exports = (env, options) => {
     output: {
       publicPath: '/',
       filename: `static/js/admin_bundle${chunkHashFragment}.js`,
-      path: path.resolve(__dirname, "build"),
+      path: path.resolve(__dirname, "dist"),
       clean: true,
     },
     resolve: {
