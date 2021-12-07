@@ -65,7 +65,7 @@ jobs:
       - name: "Run Cypress tests: default"
         uses: cypress-io/github-action@v2
         env:
-          CYPRESS_BASE_URL: https://localhost
+          CYPRESS_BASE_URL: https://127.0.0.1.sslip.io
         with:
           working-directory: ./e2e
           # Ignore all tests with pattern *.secrets.spec.js
@@ -76,7 +76,7 @@ jobs:
         if: env.DO_COMMENT_TRANSLATION
         uses: cypress-io/github-action@v2
         env:
-          CYPRESS_BASE_URL: https://localhost
+          CYPRESS_BASE_URL: https://127.0.0.1.sslip.io
         with:
           install: false
           working-directory: ./e2e
