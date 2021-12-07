@@ -13,6 +13,7 @@ var BundleAnalyzerPlugin = require('webpack-bundle-analyzer')
 var mri = require('mri');
 var glob = require('glob');
 var fs = require('fs');
+var { boolean: isTrue } = require("boolean");
 
 // CLI commands for deploying built artefact.
 var argv = process.argv.slice(2)
@@ -46,8 +47,8 @@ module.exports = (env, options) => {
         templateParameters: {
           domainWhitelist: `["${polisConfig.domainWhitelist.join('","')}"]`,
           fbAppId: polisConfig.FB_APP_ID,
-          usePlans: polisConfig.DISABLE_PLANS,
-          useIntercom: polisConfig.DISABLE_INTERCOM,
+          usePlans: !isTrue(polisConfig.DISABLE_PLANS),
+          useIntercom: !isTrue(polisConfig.DISABLE_INTERCOM),
         },
       }),
       new LodashModuleReplacementPlugin({
