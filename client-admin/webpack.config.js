@@ -44,7 +44,7 @@ module.exports = (env, options) => {
         template: path.resolve( __dirname, 'public/index.html' ),
         filename: isDev ? 'index.html' : 'index_admin.html',
         templateParameters: {
-          domainWhitelist: JSON.stringify(polisConfig.domainWhitelist),
+          domainWhitelist: `["${polisConfig.domainWhitelist.join('","')}"]`,
           fbAppId: polisConfig.FB_APP_ID,
           usePlans: polisConfig.DISABLE_PLANS,
           useIntercom: polisConfig.DISABLE_INTERCOM,

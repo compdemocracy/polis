@@ -7,7 +7,7 @@ module.exports = {
     "^127\\.0\\.0\\.1$",
     "^192\\.168\\.1\\.140$",
     // sample configuration for main pol.is deployment
-    "^pol\\.is",
+    "^pol\.is",
     ".+\\.pol\\.is$",
     // These allow for local ip routing for remote dev deployment
     "^(n|ssl)ip\\.io$",
