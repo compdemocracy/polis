@@ -27,6 +27,7 @@ module.exports = (env, options) => {
   return {
     entry: ["./src/index"],
     output: {
+      publicPath: '/',
       filename: `static/js/admin_bundle${chunkHashFragment}.js`,
       path: path.resolve(__dirname, "dist"),
       clean: true,
