@@ -85,6 +85,10 @@ jobs:
           config: "trashAssetsBeforeRuns=false"
           browser: chrome
 
+      - name: "Debug index_admin.html"
+        run: |
+          curl https://localhost/account
+
       # NOTE: screenshots will be generated only if E2E test failed
       # thus we store screenshots only on failures
       - name: Save screenshot artefacts
