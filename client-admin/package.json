@@ -4,18 +4,12 @@
   "repository": "github:pol-is/polisClientAdmin",
   "description": "Polis Admin Console",
   "scripts": {
-    "clean": "rimraf dist",
     "build:dev": "webpack --mode=development",
     "build:prod": "webpack --mode=production",
     "analyze": "webpack --mode=production --analyze",
-    "dev": "webpack-dev-server",
-    "build:webpack": "npm run build:prod",
-    "build:webpack_unminified": "npm run build:dev",
-    "build": "npm run build:webpack",
-    "build-debug": "npm run build:webpack_unminified",
-    "deploy:prod": "node gulpfile.js deploy_TO_PRODUCTION",
-    "deploy:preprod": "node gulpfile.js deployPreprod",
-    "start": "./x",
+    "dev": "webpack-dev-server --mode=development",
+    "build": "npm run build:prod",
+    "start": "npm run dev",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "test": "jest"
@@ -81,21 +75,6 @@
       "json",
       "lcov",
       "text-summary"
-    ]
-  },
-  "eslintConfig": {
-    "extends": "react-app"
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
     ]
   }
 }

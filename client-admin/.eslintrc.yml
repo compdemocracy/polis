@@ -10,9 +10,9 @@ plugins:
   - react
 extends:
   - standard
+  - prettier
   - eslint:recommended
   - plugin:react/recommended
-  - prettier
 rules:
   # TODO: Migrate to camelcase.
   # snake_case API params and properties makes this a tangled process.
@@ -26,6 +26,3 @@ parserOptions:
 settings:
   react:
     version: detect
-ignorePatterns:
-  - build/*
-  - node_modules/*

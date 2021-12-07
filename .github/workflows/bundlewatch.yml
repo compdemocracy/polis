@@ -48,7 +48,7 @@ jobs:
       run: |
         npm install
         cp polis.config.template.js polis.config.js
-        npm run build:webpack
+        npm run build:prod
         mv dist/static/js/admin_bundle.*.js dist/static/js/admin_bundle.xxxxxxxx.js
 
     - name: "Install & Build: client-participation"
