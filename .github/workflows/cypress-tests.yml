@@ -85,9 +85,8 @@ jobs:
           config: "trashAssetsBeforeRuns=false"
           browser: chrome
 
-      - name: "Debug index_admin.html"
-        run: |
-          curl https://localhost/account
+      - name: Setup upterm session for debugging
+        uses: lhotari/action-upterm@v1
 
       # NOTE: screenshots will be generated only if E2E test failed
       # thus we store screenshots only on failures
