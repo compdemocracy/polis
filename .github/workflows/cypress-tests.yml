@@ -85,10 +85,6 @@ jobs:
           config: "trashAssetsBeforeRuns=false"
           browser: chrome
 
-      - name: Setup upterm session for debugging
-        uses: lhotari/action-upterm@v1
-        if: failure()
-
       # NOTE: screenshots will be generated only if E2E test failed
       # thus we store screenshots only on failures
       - name: Save screenshot artefacts
