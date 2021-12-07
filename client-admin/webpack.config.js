@@ -84,7 +84,7 @@ module.exports = (env, options) => {
         // Also disable when analyzing, as that confuses BundleAnalyzerPlugin.
         exclude: (isDevBuild || isDevServer || cliArgs.analyze) ? /.*/ : undefined,
       }),
-      new EventHooksPlugin({
+      ...(isDevBuild ? [] : [new EventHooksPlugin({
         afterEmit: () => {
           console.log('Writing *.headersJson files...')
 
@@ -124,7 +124,7 @@ module.exports = (env, options) => {
           writeHeadersJsonJs()
           writeHeadersJsonMisc()
         }
-      })
+      })])
     ],
     optimization: {
       minimize: !isDevBuild,
