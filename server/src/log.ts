@@ -1,5 +1,6 @@
-const Config = require("./config");
-const _ = require("underscore");
+import _ from "underscore";
+
+import Config from "./config";
 
 const errorNotifications = (function () {
   let errors = [];
@@ -20,7 +21,7 @@ const errorNotifications = (function () {
   }
   setInterval(sendAll, 60 * 1000);
   return {
-    add: function (token) {
+    add: function (token: any) {
       if (Config.isDevMode() && !_.isString(token)) {
         throw new Error("empty token for pushover");
       }
@@ -32,12 +33,22 @@ const errorNotifications = (function () {
 
 const yell = errorNotifications.add;
 
-function fail(res, httpCode, clientVisibleErrorString, err) {
+function fail(
+  res: any,
+  httpCode: any,
+  clientVisibleErrorString: any,
+  err?: any
+) {
   emitTheFailure(res, httpCode, "polis_err", clientVisibleErrorString, err);
   yell(clientVisibleErrorString);
 }
 
-function userFail(res, httpCode, clientVisibleErrorString, err) {
+function userFail(
+  res: any,
+  httpCode: any,
+  clientVisibleErrorString: any,
+  err?: any
+) {
   emitTheFailure(
     res,
     httpCode,
@@ -48,11 +59,11 @@ function userFail(res, httpCode, clientVisibleErrorString, err) {
 }
 
 function emitTheFailure(
-  res,
-  httpCode,
-  extraErrorCodeForLogs,
-  clientVisibleErrorString,
-  err
+  res: { writeHead: (arg0: any) => void; end: (arg0: any) => void },
+  httpCode: any,
+  extraErrorCodeForLogs: string,
+  clientVisibleErrorString: any,
+  err: { stack: any }
 ) {
   console.error(clientVisibleErrorString, extraErrorCodeForLogs, err);
   if (err && err.stack) {
@@ -62,8 +73,5 @@ function emitTheFailure(
   res.end(clientVisibleErrorString);
 }
 
-module.exports = {
-  yell,
-  fail,
-  userFail,
-};
+export { yell, fail, userFail };
+export default { yell, fail, userFail };

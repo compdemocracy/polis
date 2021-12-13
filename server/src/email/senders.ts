@@ -1,12 +1,26 @@
-// Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"use strict";
+// Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute
+// it and / or  modify it under the terms of the GNU Affero General Public License, version 3,
+// as published by the Free Software Foundation.This program is distributed in the hope that it
+// will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+// or FITNESS FOR A PARTICULAR PURPOSE.See the GNU Affero General Public License for more details.
+// You should have received a copy of the GNU Affero General Public License along with this program.
+// If not, see < http://www.gnu.org/licenses/>.
 
-const fs = require("fs");
-const nodemailer = require("nodemailer");
-const AWS = require("aws-sdk");
-AWS.config.set("region", process.env.AWS_REGION);
+import fs from "fs";
+import AWS from "aws-sdk";
+import nodemailer from "nodemailer";
+import mg from "nodemailer-mailgun-transport";
 
-function sendTextEmailWithBackup(sender, recipient, subject, text) {
+// https://docs.aws.amazon.com/sdk-for-javascript/v2/developer-guide/setting-region.html
+// v2 docs, since we use v2 in our package.json: "aws:sdk": "2.78.0"
+AWS.config.update({ region: process.env.AWS_REGION });
+
+function sendTextEmailWithBackup(
+  sender: any,
+  recipient: any,
+  subject: any,
+  text: any
+) {
   const transportTypes = process.env.EMAIL_TRANSPORT_TYPES
     ? process.env.EMAIL_TRANSPORT_TYPES.split(",")
     : ["aws-ses", "mailgun"];
@@ -22,7 +36,7 @@ function isDocker() {
   return fs.existsSync("/.dockerenv");
 }
 
-function getMailOptions(transportType) {
+function getMailOptions(transportType: any) {
   switch (transportType) {
     case "maildev":
       return {
@@ -32,7 +46,6 @@ function getMailOptions(transportType) {
         ignoreTLS: true,
       };
     case "mailgun":
-      const mg = require("nodemailer-mailgun-transport");
       const mailgunAuth = {
         auth: {
           // This forces fake credentials if envvars unset, so error is caught
@@ -55,10 +68,10 @@ function getMailOptions(transportType) {
 }
 
 function sendTextEmail(
-  sender,
-  recipient,
-  subject,
-  text,
+  sender: any,
+  recipient: any,
+  subject: any,
+  text: any,
   transportTypes = process.env.EMAIL_TRANSPORT_TYPES,
   priority = 1
 ) {
@@ -67,16 +80,16 @@ function sendTextEmail(
     return;
   }
 
-  transportTypes = transportTypes.split(",");
+  const transportTypesArray = transportTypes.split(",");
   // Shift first index and clone to rename.
-  const thisTransportType = transportTypes.shift();
-  const nextTransportTypes = [...transportTypes];
+  const thisTransportType = transportTypesArray.shift();
+  const nextTransportTypes = [...transportTypesArray];
   const mailOptions = getMailOptions(thisTransportType);
   const transporter = nodemailer.createTransport(mailOptions);
 
-  let promise = transporter
+  let promise: any = transporter
     .sendMail({ from: sender, to: recipient, subject: subject, text: text })
-    .catch(function (err) {
+    .catch(function (err: any) {
       console.error(
         "polis_err_email_sender_failed_transport_priority_" +
           priority.toString()
@@ -97,7 +110,12 @@ function sendTextEmail(
   return promise;
 }
 
-module.exports = {
+export {
+  sendTextEmail,
+  sendTextEmailWithBackup as sendTextEmailWithBackupOnly,
+};
+
+export default {
   sendTextEmail: sendTextEmail,
   sendTextEmailWithBackupOnly: sendTextEmailWithBackup,
 };

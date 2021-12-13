@@ -1,14 +1,24 @@
-const _ = require("underscore");
-const pg = require("../db/pg-query");
-const MPromise = require("./metered").MPromise;
-const Log = require("../log");
-const Conversation = require("../conversation");
-const User = require("../user");
-const isValidUrl = require("valid-url");
-const LruCache = require("lru-cache");
+import _ from "underscore";
+import { isUri } from "valid-url";
+import LruCache from "lru-cache";
+
+import pg from "../db/pg-query";
+import Log from "../log";
+import Conversation from "../conversation";
+import User from "../user";
+
+import { MPromise } from "./metered";
+
+type Req = {
+  query?: any;
+  body?: { [x: string]: any };
+  params?: any;
+  p?: { zid?: any; uid?: any };
+  cookies: { [x: string]: any };
+};
 
 // Consolidate query/body items in one place so other middleware has one place to look.
-function moveToBody(req, res, next) {
+function moveToBody(req: Req, res: any, next: () => void) {
   if (req.query) {
     req.body = req.body || {};
     Object.assign(req.body, req.query);
@@ -17,12 +27,12 @@ function moveToBody(req, res, next) {
     req.body = req.body || {};
     Object.assign(req.body, req.params);
   }
-  // inti req.p if not there already
+  // init req.p if not there already
   req.p = req.p || {};
   next();
 }
 
-function need(name, parserWhichReturnsPromise, assigner) {
+function need(name: any, parserWhichReturnsPromise: any, assigner: any) {
   return buildCallback({
     name: name,
     extractor: extractFromBody,
@@ -32,7 +42,12 @@ function need(name, parserWhichReturnsPromise, assigner) {
   });
 }
 
-function want(name, parserWhichReturnsPromise, assigner, defaultVal) {
+function want(
+  name: any,
+  parserWhichReturnsPromise: any,
+  assigner: any,
+  defaultVal: any
+) {
   return buildCallback({
     name: name,
     extractor: extractFromBody,
@@ -43,7 +58,7 @@ function want(name, parserWhichReturnsPromise, assigner, defaultVal) {
   });
 }
 
-function needCookie(name, parserWhichReturnsPromise, assigner) {
+function needCookie(name: any, parserWhichReturnsPromise: any, assigner: any) {
   return buildCallback({
     name: name,
     extractor: extractFromCookie,
@@ -53,7 +68,12 @@ function needCookie(name, parserWhichReturnsPromise, assigner) {
   });
 }
 
-function wantCookie(name, parserWhichReturnsPromise, assigner, defaultVal) {
+function wantCookie(
+  name: any,
+  parserWhichReturnsPromise: any,
+  assigner: any,
+  defaultVal: any
+) {
   return buildCallback({
     name: name,
     extractor: extractFromCookie,
@@ -64,7 +84,12 @@ function wantCookie(name, parserWhichReturnsPromise, assigner, defaultVal) {
   });
 }
 
-function needHeader(name, parserWhichReturnsPromise, assigner, defaultVal) {
+function needHeader(
+  name: any,
+  parserWhichReturnsPromise: any,
+  assigner: any,
+  defaultVal: any
+) {
   return buildCallback({
     name: name,
     extractor: extractFromHeader,
@@ -75,7 +100,12 @@ function needHeader(name, parserWhichReturnsPromise, assigner, defaultVal) {
   });
 }
 
-function wantHeader(name, parserWhichReturnsPromise, assigner, defaultVal) {
+function wantHeader(
+  name: any,
+  parserWhichReturnsPromise: any,
+  assigner: any,
+  defaultVal: any
+) {
   return buildCallback({
     name: name,
     extractor: extractFromHeader,
@@ -86,28 +116,41 @@ function wantHeader(name, parserWhichReturnsPromise, assigner, defaultVal) {
   });
 }
 
-function extractFromBody(req, name) {
+function extractFromBody(req: Req, name: string | number) {
   if (!req.body) {
     return void 0;
   }
   return req.body[name];
 }
 
-function extractFromCookie(req, name) {
+function extractFromCookie(
+  req: { cookies: { [x: string]: any } },
+  name: string | number
+) {
   if (!req.cookies) {
     return void 0;
   }
   return req.cookies[name];
 }
 
-function extractFromHeader(req, name) {
+function extractFromHeader(
+  req: { headers: { [x: string]: any } },
+  name: string
+) {
   if (!req.headers) {
     return void 0;
   }
   return req.headers[name.toLowerCase()];
 }
 
-function buildCallback(config) {
+function buildCallback(config: {
+  name: any;
+  extractor: any;
+  parserWhichReturnsPromise: any;
+  assigner: any;
+  required: any;
+  defaultVal?: any;
+}) {
   let name = config.name;
   let parserWhichReturnsPromise = config.parserWhichReturnsPromise;
   let assigner = config.assigner;
@@ -122,16 +165,20 @@ function buildCallback(config) {
     throw "bad arg for parserWhichReturnsPromise";
   }
 
-  return function (req, res, next) {
+  return function (
+    req: any,
+    res: { status: (arg0: number) => void },
+    next: (arg0?: string) => void
+  ) {
     let val = extractor(req, name);
     if (!_.isUndefined(val) && !_.isNull(val)) {
       parserWhichReturnsPromise(val)
         .then(
-          function (parsed) {
+          function (parsed: any) {
             assigner(req, name, parsed);
             next();
           },
-          function (e) {
+          function (e: any) {
             let s = "polis_err_param_parse_failed_" + name;
             console.error(s);
             console.error(e);
@@ -141,7 +188,7 @@ function buildCallback(config) {
             return;
           }
         )
-        .catch(function (err) {
+        .catch(function (err: any) {
           Log.fail(res, "polis_err_misc", err);
           return;
         });
@@ -161,11 +208,11 @@ function buildCallback(config) {
   };
 }
 
-function isEmail(s) {
+function isEmail(s: string | string[]) {
   return typeof s === "string" && s.length < 999 && s.indexOf("@") > 0;
 }
 
-function getEmail(s) {
+function getEmail(s: string) {
   return new Promise(function (resolve, reject) {
     if (!isEmail(s)) {
       return reject("polis_fail_parse_email");
@@ -174,7 +221,7 @@ function getEmail(s) {
   });
 }
 
-function getPassword(s) {
+function getPassword(s: string) {
   return new Promise(function (resolve, reject) {
     if (typeof s !== "string" || s.length > 999 || s.length === 0) {
       return reject("polis_fail_parse_password");
@@ -183,7 +230,7 @@ function getPassword(s) {
   });
 }
 
-function getPasswordWithCreatePasswordRules(s) {
+function getPasswordWithCreatePasswordRules(s: any) {
   return getPassword(s).then(function (s) {
     if (typeof s !== "string" || s.length < 6) {
       throw new Error("polis_err_password_too_short");
@@ -192,8 +239,8 @@ function getPasswordWithCreatePasswordRules(s) {
   });
 }
 
-function getOptionalStringLimitLength(limit) {
-  return function (s) {
+function getOptionalStringLimitLength(limit: number) {
+  return function (s: string) {
     return new Promise(function (resolve, reject) {
       if (s.length && s.length > limit) {
         return reject("polis_fail_parse_string_too_long");
@@ -205,17 +252,17 @@ function getOptionalStringLimitLength(limit) {
   };
 }
 
-function getStringLimitLength(min, max) {
+function getStringLimitLength(min: number, max?: number) {
   if (_.isUndefined(max)) {
     max = min;
     min = 1;
   }
-  return function (s) {
+  return function (s: string): Promise<string> {
     return new Promise(function (resolve, reject) {
       if (typeof s !== "string") {
         return reject("polis_fail_parse_string_missing");
       }
-      if (s.length && s.length > max) {
+      if (s.length && s.length > (max as number)) {
         return reject("polis_fail_parse_string_too_long");
       }
       if (s.length && s.length < min) {
@@ -228,11 +275,11 @@ function getStringLimitLength(min, max) {
   };
 }
 
-function getUrlLimitLength(limit) {
-  return function (s) {
+function getUrlLimitLength(limit: any) {
+  return function (s: any) {
     getStringLimitLength(limit)(s).then(function (s) {
       return new Promise(function (resolve, reject) {
-        if (isValidUrl(s)) {
+        if (isUri(s)) {
           return resolve(s);
         } else {
           return reject("polis_fail_parse_url_invalid");
@@ -242,12 +289,12 @@ function getUrlLimitLength(limit) {
   };
 }
 
-function getInt(s) {
+function getInt(s: string): Promise<number> {
   return new Promise(function (resolve, reject) {
     if (_.isNumber(s) && s >> 0 === s) {
       return resolve(s);
     }
-    let x = parseInt(s);
+    let x: number = parseInt(s);
     if (isNaN(x)) {
       return reject("polis_fail_parse_int " + s);
     }
@@ -255,7 +302,7 @@ function getInt(s) {
   });
 }
 
-function getBool(s) {
+function getBool(s: string | number) {
   return new Promise(function (resolve, reject) {
     let type = typeof s;
     if ("boolean" === type) {
@@ -267,7 +314,7 @@ function getBool(s) {
       }
       return resolve(true);
     }
-    s = s.toLowerCase();
+    s = (s as string).toLowerCase();
     if (s === "t" || s === "true" || s === "on" || s === "1") {
       return resolve(true);
     } else if (s === "f" || s === "false" || s === "off" || s === "0") {
@@ -277,9 +324,9 @@ function getBool(s) {
   });
 }
 
-function getIntInRange(min, max) {
-  return function (s) {
-    return getInt(s).then(function (x) {
+function getIntInRange(min: number, max: number) {
+  return function (s: string): Promise<number> {
+    return getInt(s).then(function (x: number) {
       if (x < min || max < x) {
         throw "polis_fail_parse_int_out_of_range";
       }
@@ -294,38 +341,52 @@ const reportIdToRidCache = new LruCache({
 
 const getZidFromConversationId = Conversation.getZidFromConversationId;
 
-function getRidFromReportId(report_id) {
-  return new MPromise("getRidFromReportId", function (resolve, reject) {
-    let cachedRid = reportIdToRidCache.get(report_id);
-    if (cachedRid) {
-      resolve(cachedRid);
-      return;
-    }
-    pg.query_readOnly(
-      "select rid from reports where report_id = ($1);",
-      [report_id],
-      function (err, results) {
-        if (err) {
-          return reject(err);
-        } else if (!results || !results.rows || !results.rows.length) {
-          console.error("polis_err_fetching_rid_for_report_id " + report_id);
-          return reject("polis_err_fetching_rid_for_report_id");
-        } else {
-          let rid = results.rows[0].rid;
-          reportIdToRidCache.set(report_id, rid);
-          return resolve(rid);
-        }
+function getRidFromReportId(report_id: string) {
+  //   TS7009: 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.
+  // 344   return new MPromise(
+  //              ~~~~~~~~~~~~~
+  // 345     "getRidFromReportId",
+  //     ~~~~~~~~~~~~~~~~~~~~~~~~~
+  // ...
+  // 368     }
+  //     ~~~~~
+  // 369   );
+  // ~~~
+  // @ts-ignore
+  return new MPromise(
+    "getRidFromReportId",
+    function (resolve: any, reject: any) {
+      let cachedRid = reportIdToRidCache.get(report_id);
+      if (cachedRid) {
+        resolve(cachedRid);
+        return;
       }
-    );
-  });
+      pg.query_readOnly(
+        "select rid from reports where report_id = ($1);",
+        [report_id],
+        function (err: any, results: { rows: string | any[] }) {
+          if (err) {
+            return reject(err);
+          } else if (!results || !results.rows || !results.rows.length) {
+            console.error("polis_err_fetching_rid_for_report_id " + report_id);
+            return reject("polis_err_fetching_rid_for_report_id");
+          } else {
+            let rid = results.rows[0].rid;
+            reportIdToRidCache.set(report_id, rid);
+            return resolve(rid);
+          }
+        }
+      );
+    }
+  );
 }
 
 // conversation_id is the client/ public API facing string ID
 const parseConversationId = getStringLimitLength(1, 100);
 
-function getConversationIdFetchZid(s) {
+function getConversationIdFetchZid(s: any) {
   return parseConversationId(s).then(function (conversation_id) {
-    return getZidFromConversationId(conversation_id).then(function (zid) {
+    return getZidFromConversationId(conversation_id).then(function (zid: any) {
       return Number(zid);
     });
   });
@@ -333,22 +394,22 @@ function getConversationIdFetchZid(s) {
 
 const parseReportId = getStringLimitLength(1, 100);
 
-function getReportIdFetchRid(s) {
+function getReportIdFetchRid(s: any) {
   return parseReportId(s).then(function (report_id) {
     console.log(report_id);
-    return getRidFromReportId(report_id).then(function (rid) {
+    return getRidFromReportId(report_id).then(function (rid: any) {
       console.log(rid);
       return Number(rid);
     });
   });
 }
 
-function getNumber(s) {
+function getNumber(s: string): Promise<number> {
   return new Promise(function (resolve, reject) {
     if (_.isNumber(s)) {
       return resolve(s);
     }
-    let x = parseFloat(s);
+    let x: number = parseFloat(s);
     if (isNaN(x)) {
       return reject("polis_fail_parse_number");
     }
@@ -356,9 +417,9 @@ function getNumber(s) {
   });
 }
 
-function getNumberInRange(min, max) {
-  return function (s) {
-    return getNumber(s).then(function (x) {
+function getNumberInRange(min: number, max: number) {
+  return function (s: string) {
+    return getNumber(s).then(function (x: number) {
       if (x < min || max < x) {
         throw "polis_fail_parse_number_out_of_range";
       }
@@ -367,38 +428,43 @@ function getNumberInRange(min, max) {
   };
 }
 
-function getArrayOfString(a, maxStrings, maxLength) {
+function getArrayOfString(
+  a: string,
+  maxStrings?: undefined,
+  maxLength?: undefined
+): Promise<string[]> {
   return new Promise(function (resolve, reject) {
+    let result;
     if (_.isString(a)) {
-      a = a.split(",");
+      result = a.split(",");
     }
-    if (!_.isArray(a)) {
+    if (!_.isArray(result)) {
       return reject("polis_fail_parse_int_array");
     }
-    resolve(a);
+    resolve(result);
   });
 }
 
-function getArrayOfStringNonEmpty(a, maxStrings, maxLength) {
+function getArrayOfStringNonEmpty(a: string, maxStrings: any, maxLength: any) {
   if (!a || !a.length) {
     return Promise.reject("polis_fail_parse_string_array_empty");
   }
   return getArrayOfString(a);
 }
 
-function getArrayOfStringLimitLength(maxStrings, maxLength) {
-  return function (a) {
+function getArrayOfStringLimitLength(maxStrings: any, maxLength: any) {
+  return function (a: any) {
     return getArrayOfString(a, maxStrings || 999999999, maxLength);
   };
 }
 
-function getArrayOfStringNonEmptyLimitLength(maxStrings, maxLength) {
-  return function (a) {
+function getArrayOfStringNonEmptyLimitLength(maxStrings: any, maxLength: any) {
+  return function (a: any) {
     return getArrayOfStringNonEmpty(a, maxStrings || 999999999, maxLength);
   };
 }
 
-function getArrayOfInt(a) {
+function getArrayOfInt(a: string[]) {
   if (_.isString(a)) {
     a = a.split(",");
   }
@@ -406,13 +472,13 @@ function getArrayOfInt(a) {
     return Promise.reject("polis_fail_parse_int_array");
   }
 
-  function integer(i) {
+  function integer(i: any) {
     return Number(i) >> 0;
   }
   return Promise.resolve(a.map(integer));
 }
 
-function assignToP(req, name, x) {
+function assignToP(req: { p: { [x: string]: any } }, name: string, x: any) {
   req.p = req.p || {};
   if (!_.isUndefined(req.p[name])) {
     let s = "clobbering " + name;
@@ -422,17 +488,21 @@ function assignToP(req, name, x) {
   req.p[name] = x;
 }
 
-function assignToPCustom(name) {
-  return function (req, ignoredName, x) {
+function assignToPCustom(name: any) {
+  return function (req: any, ignoredName: any, x: any) {
     assignToP(req, name, x);
   };
 }
 
-function resolve_pidThing(pidThingStringName, assigner, loggingString) {
+function resolve_pidThing(
+  pidThingStringName: any,
+  assigner: (arg0: any, arg1: any, arg2: number) => void,
+  loggingString: string
+) {
   if (_.isUndefined(loggingString)) {
     loggingString = "";
   }
-  return function (req, res, next) {
+  return function (req: Req, res: any, next: (arg0?: string) => void) {
     if (!req.p) {
       Log.fail(
         res,
@@ -447,15 +517,15 @@ function resolve_pidThing(pidThingStringName, assigner, loggingString) {
       extractFromBody(req, pidThingStringName) ||
       extractFromCookie(req, pidThingStringName);
 
-    if (existingValue === "mypid" && req.p.zid && req.p.uid) {
+    if (existingValue === "mypid" && req?.p?.zid && req.p.uid) {
       User.getPidPromise(req.p.zid, req.p.uid)
-        .then(function (pid) {
+        .then(function (pid: number) {
           if (pid >= 0) {
             assigner(req, pidThingStringName, pid);
           }
           next();
         })
-        .catch(function (err) {
+        .catch(function (err: any) {
           Log.fail(res, 500, "polis_err_mypid_resolve_error", err);
           next(err);
         });
@@ -464,7 +534,7 @@ function resolve_pidThing(pidThingStringName, assigner, loggingString) {
       next();
     } else if (!_.isUndefined(existingValue)) {
       getInt(existingValue)
-        .then(function (pidNumber) {
+        .then(function (pidNumber: number) {
           assigner(req, pidThingStringName, pidNumber);
           next();
         })
@@ -478,7 +548,35 @@ function resolve_pidThing(pidThingStringName, assigner, loggingString) {
   };
 }
 
-module.exports = {
+export {
+  assignToP,
+  assignToPCustom,
+  getArrayOfInt,
+  getArrayOfStringNonEmpty,
+  getArrayOfStringNonEmptyLimitLength,
+  getBool,
+  getConversationIdFetchZid,
+  getEmail,
+  getInt,
+  getIntInRange,
+  getNumberInRange,
+  getOptionalStringLimitLength,
+  getPassword,
+  getPasswordWithCreatePasswordRules,
+  getReportIdFetchRid,
+  getStringLimitLength,
+  getUrlLimitLength,
+  moveToBody,
+  need,
+  needCookie,
+  needHeader,
+  resolve_pidThing,
+  want,
+  wantCookie,
+  wantHeader,
+};
+
+export default {
   assignToP,
   assignToPCustom,
   getArrayOfInt,
