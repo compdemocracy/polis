@@ -2,7 +2,7 @@ FROM node:14.14.0-alpine
 
 WORKDIR /app
 
-RUN apk add postgresql-dev python-dev build-base
+RUN apk add postgresql-dev
 
 RUN apk add --no-cache --virtual .build \
   g++ git make python
@@ -14,11 +14,8 @@ RUN npm install
 RUN apk del .build
 
 COPY . .
+RUN npm run build
 
 EXPOSE 5000
-# For vscode debug
-EXPOSE 9229
 
-
-# CMD npm run build && npm run serve
-CMD npm run build:watch && npm run serve
+CMD npm run serve
