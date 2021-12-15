@@ -19,6 +19,7 @@ var helpersInitialized = new Promise(function(resolve, reject) {
   resolve(server.initializePolisHelpers());
 });
 
+let POLIS_ROOT = process.env.POLIS_ROOT
 var config = require(POLIS_ROOT + 'config/config.js');
 
 
