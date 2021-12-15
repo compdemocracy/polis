@@ -19,6 +19,8 @@ var helpersInitialized = new Promise(function(resolve, reject) {
   resolve(server.initializePolisHelpers());
 });
 
+var config = require(POLIS_ROOT + 'config/config.js');
+
 
 
 helpersInitialized.then(function(o) {
@@ -1439,9 +1441,9 @@ helpersInitialized.then(function(o) {
     app.get(/^\/[^(api\/)]?.*/, proxy);
   }
 
-  app.listen(process.env.PORT);
+  app.listen(config.get('port'));
 
-  winston.log("info", 'started on port ' + process.env.PORT);
+  winston.log("info", 'started on port ' + config.get('port'));
 
 }, function(err) {
   console.error("failed to init server");
