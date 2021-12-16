@@ -43,12 +43,12 @@ const OAuth = require("oauth");
 // });
 // const postmark = require("postmark")(process.env.POSTMARK_API_KEY);
 const querystring = require("querystring");
-const devMode = isTrue(process.env.DEV_MODE);
+const devMode = isTrue(config.get('dev_mode'));
 const replaceStream = require("replacestream");
 const responseTime = require("response-time");
 const request = require("request-promise"); // includes Request, but adds promise methods
 const s3Client = new AWS.S3({ apiVersion: "2006-03-01" });
-const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+const stripe = require("stripe")(config.get('stripe_secret_key'));
 const LruCache = require("lru-cache");
 const timeout = require("connect-timeout");
 const zlib = require("zlib");
@@ -100,7 +100,7 @@ const SQL = require("./db/sql");
 // # Slack setup
 
 var WebClient = require("@slack/client").WebClient;
-var web = new WebClient(process.env.SLACK_API_TOKEN);
+var web = new WebClient(config.get('slack_api_token'));
 // const winston = require("winston");
 // # notifications
 const winston = console;
@@ -111,8 +111,8 @@ const sendTextEmailWithBackupOnly = emailSenders.sendTextEmailWithBackupOnly;
 const resolveWith = (x) => {
   return Promise.resolve(x);
 };
-const intercomClient = !isTrue(process.env.DISABLE_INTERCOM)
-  ? new IntercomOfficial.Client({ token: process.env.INTERCOM_ACCESS_TOKEN })
+const intercomClient = !isTrue(config.get('disable_intercom'))
+  ? new IntercomOfficial.Client({ token: config.get('intercom_access_token') })
   : {
       leads: {
         create: resolveWith({ body: { user_id: "null_intercom_user_id" } }),
@@ -166,15 +166,15 @@ Promise.onPossiblyUnhandledRejection(function (err) {
   // throw err; // not throwing since we're printing stack traces anyway
 });
 
-const adminEmailDataExport = process.env.ADMIN_EMAIL_DATA_EXPORT || "";
-const adminEmailDataExportTest = process.env.ADMIN_EMAIL_DATA_EXPORT_TEST || "";
-const adminEmailEmailTest = process.env.ADMIN_EMAIL_EMAIL_TEST || "";
+const adminEmailDataExport = config.get('admin_email_data_export') || "";
+const adminEmailDataExportTest = config.get('admin_email_data_export_test') || "";
+const adminEmailEmailTest = config.get('admin_email_email_test') || "";
 
-const admin_emails = process.env.ADMIN_EMAILS
-  ? JSON.parse(process.env.ADMIN_EMAILS)
+const admin_emails = config.get('admin_emails')
+  ? JSON.parse(config.get('admin_emails'))
   : [];
-const polisDevs = process.env.ADMIN_UIDS
-  ? JSON.parse(process.env.ADMIN_UIDS)
+const polisDevs = config.get('admin_uids')
+  ? JSON.parse(config.get('admin_uids'))
   : [];
 function isPolisDev(uid) {
   console.log("polisDevs", polisDevs);
@@ -220,11 +220,11 @@ setInterval(function () {
 //   state: '3(#0/!~'
 // });
 // // END GITHUB OAUTH2
-const POLIS_FROM_ADDRESS = process.env.POLIS_FROM_ADDRESS;
+const POLIS_FROM_ADDRESS = config.get('polis_from_address');
 
 const akismet = akismetLib.client({
   blog: "https://pol.is", // required: your root level url
-  apiKey: process.env.AKISMET_ANTISPAM_API_KEY,
+  apiKey: config.get('akismet_antispam_api_key'),
 });
 
 akismet.verifyKey(function (err, verified) {
@@ -637,7 +637,7 @@ function initializePolisHelpers() {
 
   const detectLanguage = Comment.detectLanguage;
 
-  if (isTrue(process.env.BACKFILL_COMMENT_LANG_DETECTION)) {
+  if (isTrue(config.get('backfill_comment_lang_detection'))) {
     pgQueryP("select tid, txt, zid from comments where lang is null;", []).then(
       (comments) => {
         let i = 0;
@@ -1166,14 +1166,14 @@ function initializePolisHelpers() {
 
   let whitelistedDomains = [
     "pol.is",
-    process.env.DOMAIN_WHITELIST_ITEM_01,
-    process.env.DOMAIN_WHITELIST_ITEM_02,
-    process.env.DOMAIN_WHITELIST_ITEM_03,
-    process.env.DOMAIN_WHITELIST_ITEM_04,
-    process.env.DOMAIN_WHITELIST_ITEM_05,
-    process.env.DOMAIN_WHITELIST_ITEM_06,
-    process.env.DOMAIN_WHITELIST_ITEM_07,
-    process.env.DOMAIN_WHITELIST_ITEM_08,
+    config.get('domain_whitelist_item_01'),
+    config.get('domain_whitelist_item_02'),
+    config.get('domain_whitelist_item_03'),
+    config.get('domain_whitelist_item_04'),
+    config.get('domain_whitelist_item_05'),
+    config.get('domain_whitelist_item_06'),
+    config.get('domain_whitelist_item_07'),
+    config.get('domain_whitelist_item_08'),
     "localhost:5001",
     "localhost:5002",
     "canvas.instructure.com", // LTI
@@ -1344,7 +1344,7 @@ function initializePolisHelpers() {
     }
     res.status(200).json({});
   }
-  let pcaCacheSize = process.env.CACHE_MATH_RESULTS === "true" ? 300 : 1;
+  let pcaCacheSize = config.get('cache_math_results') === "true" ? 300 : 1;
   let pcaCache = new LruCache({
     max: pcaCacheSize,
   });
@@ -1615,7 +1615,7 @@ function initializePolisHelpers() {
 
     return pgQueryP_readOnly(
       "select * from math_main where zid = ($1) and math_env = ($2);",
-      [zid, process.env.MATH_ENV]
+      [zid, config.get('math_env')]
     ).then((rows) => {
       let queryEnd = Date.now();
       let queryDuration = queryEnd - queryStart;
@@ -1625,7 +1625,7 @@ function initializePolisHelpers() {
         INFO("mathpoll related; after cache miss, unable to find data for", {
           zid,
           math_tick,
-          math_env: process.env.MATH_ENV,
+          math_env: config.get('math_env'),
         });
         return null;
       }
@@ -1806,7 +1806,7 @@ function initializePolisHelpers() {
   function handle_POST_math_update(req, res) {
     let zid = req.p.zid;
     let uid = req.p.uid;
-    let math_env = process.env.MATH_ENV;
+    let math_env = config.get('math_env');
     let math_update_type = req.p.math_update_type;
 
     isModerator(zid, uid).then((hasPermission) => {
@@ -1835,7 +1835,7 @@ function initializePolisHelpers() {
 
   function handle_GET_math_correlationMatrix(req, res) {
     let rid = req.p.rid;
-    let math_env = process.env.MATH_ENV;
+    let math_env = config.get('math_env');
     let math_tick = req.p.math_tick;
 
     console.log(req.p);
@@ -1931,9 +1931,9 @@ function initializePolisHelpers() {
     );
   }
   if (
-    process.env.RUN_PERIODIC_EXPORT_TESTS &&
+    config.get('run_periodic_export_tests') &&
     !devMode &&
-    process.env.MATH_ENV === "preprod"
+    config.get('math_env') === "preprod"
   ) {
     let runExportTest = () => {
       let math_env = "prod";
@@ -1975,7 +1975,7 @@ function initializePolisHelpers() {
     getUserInfoForUid2(req.p.uid)
       .then((user) => {
         return doAddDataExportTask(
-          process.env.MATH_ENV,
+          config.get('math_env'),
           user.email,
           req.p.zid,
           req.p.unixTimestamp * 1000,
@@ -1996,7 +1996,7 @@ function initializePolisHelpers() {
   function handle_GET_dataExport_results(req, res) {
     var url = s3Client.getSignedUrl("getObject", {
       Bucket: "polis-datadump",
-      Key: process.env.MATH_ENV + "/" + req.p.filename,
+      Key: config.get('math_env') + "/" + req.p.filename,
       Expires: 60 * 60 * 24 * 7,
     });
     res.redirect(url);
@@ -2010,7 +2010,7 @@ function initializePolisHelpers() {
     math_tick = math_tick || -1;
     return pgQueryP_readOnly(
       "select * from math_bidtopid where zid = ($1) and math_env = ($2);",
-      [zid, process.env.MATH_ENV]
+      [zid, config.get('math_env')]
     ).then((rows) => {
       if (zid === 12480) {
         console.log("bidToPid", rows[0].data);
@@ -2265,14 +2265,14 @@ function initializePolisHelpers() {
     // const state = req.p.state;
     console.log("handle_POST_auth_slack_redirect_uri 1");
 
-    console.log(process.env.POLIS_SLACK_APP_CLIENT_ID);
+    console.log(config.get('polis_slack_app_client_id'));
 
     request
       .get(
         "https://slack.com/api/oauth.access?" +
           querystring.stringify({
-            client_id: process.env.POLIS_SLACK_APP_CLIENT_ID,
-            client_secret: process.env.POLIS_SLACK_APP_CLIENT_SECRET,
+            client_id: config.get('polis_slack_app_client_id'),
+            client_secret: config.get('polis_slack_app_client_secret'),
             code: code,
             redirect_uri:
               getServerNameWithProtocol(req) +
@@ -3058,8 +3058,8 @@ Feel free to reply to this email if you need help.`;
     );
   }
   function populateGeoIpInfo(zid, uid, ipAddress) {
-    var userId = process.env.MAXMIND_USERID;
-    var licenseKey = process.env.MAXMIND_LICENSEKEY;
+    var userId = config.get('maxmind_userid');
+    var licenseKey = config.get('maxmind_licensekey');
 
     var url = "https://geoip.maxmind.com/geoip/v2.1/city/";
     var contentType =
@@ -4093,7 +4093,7 @@ Email verified! You can close this tab or hit the back button.
 
     let server = "http://localhost:5000";
     if (!devMode) {
-      server = "https://" + process.env.PRIMARY_POLIS_URL;
+      server = "https://" + config.get('primary_polis_url');
     }
     return server + "/" + path + "?" + paramsToStringSortedByName(params);
   }
@@ -4108,7 +4108,7 @@ Email verified! You can close this tab or hit the back button.
 
     let server = "http://localhost:5000";
     if (!devMode) {
-      server = "https://" + process.env.PRIMARY_POLIS_URL;
+      server = "https://" + config.get('primary_polis_url');
     }
     return server + "/" + path + "?" + paramsToStringSortedByName(params);
   }
@@ -9445,7 +9445,7 @@ Email verified! You can close this tab or hit the back button.
     res.send("https://pol.is/settings/enterprise/" + encodeParams(o));
   }
   function handle_GET_stripe_account_connect(req, res) {
-    var stripe_client_id = process.env.STRIPE_CLIENT_ID;
+    var stripe_client_id = config.get('stripe_client_id');
 
     var stripeUrl =
       "https://connect.stripe.com/oauth/authorize?response_type=code&client_id=" +
@@ -9484,9 +9484,9 @@ Email verified! You can close this tab or hit the back button.
         url: "https://connect.stripe.com/oauth/token",
         form: {
           grant_type: "authorization_code",
-          client_id: process.env.STRIPE_CLIENT_ID,
+          client_id: config.get('stripe_client_id'),
           code: code,
-          client_secret: process.env.STRIPE_SECRET_KEY,
+          client_secret: config.get('stripe_secret_key'),
         },
       },
       function (err, r, body) {
@@ -9849,8 +9849,8 @@ Email verified! You can close this tab or hit the back button.
 
   function handle_POST_notifyTeam(req, res) {
     if (
-      req.p.webserver_pass !== process.env.WEBSERVER_PASS ||
-      req.p.webserver_username !== process.env.WEBSERVER_USERNAME
+      req.p.webserver_pass !== config.get('webserver_pass') ||
+      req.p.webserver_username !== config.get('webserver_username')
     ) {
       return fail(res, 403, "polis_err_notifyTeam_auth");
     }
@@ -9867,13 +9867,13 @@ Email verified! You can close this tab or hit the back button.
 
   function handle_POST_sendEmailExportReady(req, res) {
     if (
-      req.p.webserver_pass !== process.env.WEBSERVER_PASS ||
-      req.p.webserver_username !== process.env.WEBSERVER_USERNAME
+      req.p.webserver_pass !== config.get('webserver_pass') ||
+      req.p.webserver_username !== config.get('webserver_username')
     ) {
       return fail(res, 403, "polis_err_sending_export_link_to_email_auth");
     }
 
-    const domain = process.env.PRIMARY_POLIS_URL;
+    const domain = config.get('primary_polis_url');
     const email = req.p.email;
     const subject =
       "Polis data export for conversation pol.is/" + req.p.conversation_id;
@@ -9910,8 +9910,8 @@ Thanks for using Polis!
     let oauth = new OAuth.OAuth(
       "https://api.twitter.com/oauth/request_token", // null
       "https://api.twitter.com/oauth/access_token", // null
-      process.env.TWITTER_CONSUMER_KEY, //'your application consumer key',
-      process.env.TWITTER_CONSUMER_SECRET, //'your application secret',
+      config.get('twitter_consumer_key'), //'your application consumer key',
+      config.get('twitter_consumer_secret'), //'your application secret',
       "1.0A",
       null,
       "HMAC-SHA1"
@@ -9965,8 +9965,8 @@ Thanks for using Polis!
     let oauth = new OAuth.OAuth(
       "https://api.twitter.com/oauth/request_token", // null
       "https://api.twitter.com/oauth/access_token", // null
-      process.env.TWITTER_CONSUMER_KEY, //'your application consumer key',
-      process.env.TWITTER_CONSUMER_SECRET, //'your application secret',
+      config.get('twitter_consumer_key'), //'your application consumer key',
+      config.get('twitter_consumer_secret'), //'your application secret',
       "1.0A",
       null,
       "HMAC-SHA1"
@@ -10017,8 +10017,8 @@ Thanks for using Polis!
     let oauth = new OAuth.OAuth(
       "https://api.twitter.com/oauth/request_token", // null
       "https://api.twitter.com/oauth/access_token", // null
-      process.env.TWITTER_CONSUMER_KEY, //'your application consumer key',
-      process.env.TWITTER_CONSUMER_SECRET, //'your application secret',
+      config.get('twitter_consumer_key'), //'your application consumer key',
+      config.get('twitter_consumer_secret'), //'your application secret',
       "1.0A",
       null,
       "HMAC-SHA1"
@@ -10061,8 +10061,8 @@ Thanks for using Polis!
     let oauth = new OAuth.OAuth(
       "https://api.twitter.com/oauth/request_token", // null
       "https://api.twitter.com/oauth/access_token", // null
-      process.env.TWITTER_CONSUMER_KEY, //'your application consumer key',
-      process.env.TWITTER_CONSUMER_SECRET, //'your application secret',
+      config.get('twitter_consumer_key'), //'your application consumer key',
+      config.get('twitter_consumer_secret'), //'your application secret',
       "1.0A",
       null,
       "HMAC-SHA1"
@@ -10131,8 +10131,8 @@ Thanks for using Polis!
     let oauth = new OAuth.OAuth(
       "https://api.twitter.com/oauth/request_token", // null
       "https://api.twitter.com/oauth/access_token", // null
-      process.env.TWITTER_CONSUMER_KEY, //'your application consumer key',
-      process.env.TWITTER_CONSUMER_SECRET, //'your application secret',
+      config.get('twitter_consumer_key'), //'your application consumer key',
+      config.get('twitter_consumer_secret'), //'your application secret',
       "1.0A",
       null,
       "HMAC-SHA1"
@@ -11021,7 +11021,7 @@ Thanks for using Polis!
   }
 
   function geoCodeWithGoogleApi(locationString) {
-    let googleApiKey = process.env.GOOGLE_API_KEY;
+    let googleApiKey = config.get('google_api_key');
     let address = encodeURI(locationString);
 
     return new Promise(function (resolve, reject) {
@@ -13439,7 +13439,7 @@ CREATE TABLE slack_user_invites (
     let hostname = buildStaticHostname(req, res);
     if (!hostname) {
       let host = req.headers.host || "";
-      let re = new RegExp(process.env.SERVICE_HOSTNAME + "$");
+      let re = new RegExp(config.get('service_hostname') + "$");
       if (host.match(re)) {
         // don't alert for this, it's probably DNS related
         // TODO_SEO what should we return?
@@ -13468,7 +13468,7 @@ CREATE TABLE slack_user_invites (
     //     // });
     //     getStaticFile("./unsupportedBrowser.html", res);
     // } else {
-    let port = process.env.STATIC_FILES_PORT;
+    let port = config.get('static_files_port');
     // set the host header too, since S3 will look at that (or the routing proxy will patch up the request.. not sure which)
     req.headers.host = hostname;
     routingProxy.web(req, res, {
@@ -13482,14 +13482,14 @@ CREATE TABLE slack_user_invites (
 
   function buildStaticHostname(req, res) {
     if (devMode || domainOverride) {
-      return process.env.STATIC_FILES_HOST;
+      return config.get('static_files_host');
     } else {
       let origin = req.headers.host;
       if (!whitelistedBuckets[origin]) {
         if (hasWhitelistMatches(origin)) {
           // Use the prod bucket for non pol.is domains
           return (
-            whitelistedBuckets["pol.is"] + "." + process.env.STATIC_FILES_HOST
+            whitelistedBuckets["pol.is"] + "." + config.get('static_files_host')
           );
         } else {
           console.error(
@@ -13501,7 +13501,7 @@ CREATE TABLE slack_user_invites (
         }
       }
       origin = whitelistedBuckets[origin];
-      return origin + "." + process.env.STATIC_FILES_HOST;
+      return origin + "." + config.get('static_files_host');
     }
   }
 
@@ -13638,9 +13638,9 @@ CREATE TABLE slack_user_invites (
   }
 
   // serve up index.html in response to anything starting with a number
-  let hostname = process.env.STATIC_FILES_HOST;
-  let portForParticipationFiles = process.env.STATIC_FILES_PORT;
-  let portForAdminFiles = process.env.STATIC_FILES_ADMINDASH_PORT;
+  let hostname = config.get('static_files_host');
+  let portForParticipationFiles = config.get('static_files_port');
+  let portForAdminFiles = config.get('static_files_admindash_port');
   let fetchUnsupportedBrowserPage = makeFileFetcher(
     hostname,
     portForParticipationFiles,
