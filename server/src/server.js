@@ -170,10 +170,10 @@ const adminEmailDataExport = config.get('admin_email_data_export') || "";
 const adminEmailDataExportTest = config.get('admin_email_data_export_test') || "";
 const adminEmailEmailTest = config.get('admin_email_email_test') || "";
 
-const admin_emails = config.get('admin_emails')
+const admin_emails = config.get('admin_emails').length !== 0
   ? JSON.parse(config.get('admin_emails'))
   : [];
-const polisDevs = config.get('admin_uids')
+const polisDevs = config.get('admin_uids').length !== 0
   ? JSON.parse(config.get('admin_uids'))
   : [];
 function isPolisDev(uid) {
