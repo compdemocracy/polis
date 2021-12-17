@@ -5,6 +5,8 @@ var express = require("express");
 var webpack = require("webpack");
 var config = require("./webpack.config.dev");
 var request = require("request");
+let POLIS_ROOT = process.env.POLIS_ROOT
+var globalConfig = require(POLIS_ROOT + 'config/config.js');
 
 var app = express();
 var compiler = webpack(config);
@@ -26,7 +28,7 @@ app.use(require("webpack-hot-middleware")(compiler));
 
 
 
-const serviceUrl = process.env.SERVICE_URL ? process.env.SERVICE_URL : "https://preprod.pol.is";
+const serviceUrl = globalConfig.get('service_url') ? globalConfig.get('service_url') : "https://preprod.pol.is";
 
 console.log("SERVICE_URL:", serviceUrl);
 

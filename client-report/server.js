@@ -3,8 +3,11 @@
 var path = require("path");
 var express = require("express");
 
+let POLIS_ROOT = process.env.POLIS_ROOT
+var config = require(POLIS_ROOT + 'config/config.js');
+
 var app = express();
-app.set('port', process.env.PORT || 8080);
+app.set('port', config.get('port') || 8080);
 app.use('/data', express.static('data'))
 app.use('/dist', express.static('dist'))
 

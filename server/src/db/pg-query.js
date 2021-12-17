@@ -3,6 +3,9 @@ const Config = require("../config");
 const yell = require("../log").yell;
 const MPromise = require("../utils/metered").MPromise;
 
+let POLIS_ROOT = process.env.POLIS_ROOT
+var config = require(POLIS_ROOT + 'config/config.js');
+
 // # DB Connections
 //
 // heroku pg standard plan has 120 connections
@@ -18,12 +21,12 @@ const pgnative = require("pg").native; //.native, // native provides ssl (needed
 const parsePgConnectionString = require("pg-connection-string").parse;
 
 const usingReplica =
-  process.env.DATABASE_URL !== process.env[process.env.DATABASE_FOR_READS_NAME];
+config.get('database_url') !== process.env[process.env.DATABASE_FOR_READS_NAME];
 const poolSize = Config.isDevMode() ? 2 : usingReplica ? 3 : 12;
 
 // not sure how many of these config options we really need anymore
 const pgConnection = Object.assign(
-  parsePgConnectionString(process.env.DATABASE_URL),
+  parsePgConnectionString(config.get('database_url')),
   {
     max: poolSize,
     isReadOnly: false,

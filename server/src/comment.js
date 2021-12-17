@@ -9,7 +9,10 @@ const Translate = require("@google-cloud/translate");
 const isTrue = require("boolean");
 const Utils = require("./utils/common");
 
-const useTranslateApi = isTrue(process.env.SHOULD_USE_TRANSLATION_API);
+let POLIS_ROOT = process.env.POLIS_ROOT
+var config = require(POLIS_ROOT + 'config/config.js');
+
+const useTranslateApi = isTrue(config.get('should_use_translation_api'));
 let translateClient = null;
 if (useTranslateApi) {
   // Tell translation library where to find credentials, and write them to disk.

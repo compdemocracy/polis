@@ -2,6 +2,9 @@ const _ = require("underscore");
 const User = require("../user");
 const Session = require("../session");
 
+let POLIS_ROOT = process.env.POLIS_ROOT
+var config = require(POLIS_ROOT + 'config/config.js');
+
 const COOKIES = {
   COOKIE_TEST: "ct",
   HAS_EMAIL: "e",
@@ -111,7 +114,7 @@ function setCookieTestCookie(req, res, setOnPolisDomain) {
 
 function shouldSetCookieOnPolisDomain(req) {
   // FIXME domainOverride
-  let setOnPolisDomain = !(process.env.DOMAIN_OVERRIDE || null);
+  let setOnPolisDomain = !(config.get('domain_override') || null);
   let origin = req.headers.origin || "";
   if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
     setOnPolisDomain = false;

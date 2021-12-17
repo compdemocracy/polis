@@ -4,11 +4,15 @@
 const fs = require("fs");
 const nodemailer = require("nodemailer");
 const AWS = require("aws-sdk");
-AWS.config.set("region", process.env.AWS_REGION);
+
+let POLIS_ROOT = process.env.POLIS_ROOT
+var config = require(POLIS_ROOT + 'config/config.js');
+
+AWS.config.set("region", config.get('aws_region'));
 
 function sendTextEmailWithBackup(sender, recipient, subject, text) {
-  const transportTypes = process.env.EMAIL_TRANSPORT_TYPES
-    ? process.env.EMAIL_TRANSPORT_TYPES.split(",")
+  const transportTypes = config.get('email_transport_types')
+    ? config.get('email_transport_types').split(",")
     : ["aws-ses", "mailgun"];
   if (transportTypes.length < 2) {
     new Error("No backup email transport available.");
@@ -38,7 +42,7 @@ function getMailOptions(transportType) {
           // This forces fake credentials if envvars unset, so error is caught
           // in auth and failover works without crashing server process.
           // TODO: Suppress error thrown by mailgun library when unset.
-          api_key: process.env.MAILGUN_API_KEY || "unset-value",
+          api_key: config.get('mailgun_api_key') || "unset-value",
           domain: process.env.MAILGUN_DOMAIN || "unset-value",
         },
       };
@@ -59,7 +63,7 @@ function sendTextEmail(
   recipient,
   subject,
   text,
-  transportTypes = process.env.EMAIL_TRANSPORT_TYPES,
+  transportTypes = config.get('email_transport_types'),
   priority = 1
 ) {
   // Exit if empty string passed.
