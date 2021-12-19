@@ -9,6 +9,7 @@
     "build:webpack_unminified": "npm run clean && NODE_ENV=development webpack --config webpack.config.unminified.js",
     "build": "npm run build:webpack",
     "build-debug": "npm run build:webpack_unminified",
+    "convict": "6.0.0",
     "deploy:prod": "node gulpfile.js deploy_TO_PRODUCTION",
     "deploy:preprod": "node gulpfile.js deployPreprod",
     "start": "./x",
