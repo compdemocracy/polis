@@ -82,6 +82,10 @@ service_hostname:
   doc: service_hostname
   default: undefined
   env: SERVICE_HOSTNAME
+disable_plans:
+  doc: disable_plans
+  default: true
+  env: DISABLE_PLANS
 disable_intercom:
   doc: disable_intercom
   default: true
