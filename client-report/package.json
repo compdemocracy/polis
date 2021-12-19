@@ -84,6 +84,7 @@
     "svg-text-wrap": "0.0.1",
     "title-case": "^2.1.0",
     "victory": "^0.21.3",
-    "whatwg-fetch": "^0.10.1"
+    "whatwg-fetch": "^0.10.1",
+    "yargs-parser": "^21.0.0"
   }
 }
