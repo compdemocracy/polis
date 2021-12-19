@@ -1,3 +1,17 @@
+env:
+  doc: The application environment
+  format:
+  - production
+  - development
+  - test
+  default: development
+  env: NODE_ENV
+
+aws_region:
+  doc: aws_region
+  default: us-east-1
+  env: AWS_REGION
+
 domainWhitelist: 
   doc: domainWhitelist
   default:
@@ -63,3 +77,12 @@ port:
   doc: port
   default: 5000
   env: PORT
+
+service_hostname:
+  doc: service_hostname
+  default: undefined
+  env: SERVICE_HOSTNAME
+disable_intercom:
+  doc: disable_intercom
+  default: true
+  env: DISABLE_INTERCOM

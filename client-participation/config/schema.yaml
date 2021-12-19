@@ -77,3 +77,12 @@ port:
   doc: port
   default: 5000
   env: PORT
+
+service_hostname:
+  doc: service_hostname
+  default: undefined
+  env: SERVICE_HOSTNAME
+disable_intercom:
+  doc: disable_intercom
+  default: true
+  env: DISABLE_INTERCOM
