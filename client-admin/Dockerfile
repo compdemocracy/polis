@@ -8,5 +8,7 @@ RUN apk add git --no-cache
 COPY package*.json ./
 RUN npm install
 
+COPY . .
+
 ARG GIT_HASH
 RUN npm run deploy:prod

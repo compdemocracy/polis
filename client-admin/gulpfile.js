@@ -13,8 +13,7 @@ var rimraf = require("rimraf");
 var runSequence = require("run-sequence");
 var scp = require("gulp-scp2");
 
-let POLIS_ROOT = process.env.POLIS_ROOT
-var config = require(POLIS_ROOT + 'config/config.js');
+var config = require('../config/config.js');
 
 console.log("Uploader: " + config.get('uploader'));
 

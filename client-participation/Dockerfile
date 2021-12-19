@@ -19,6 +19,8 @@ RUN npm ci
 
 RUN apk del .build
 
+COPY . .
+
 ARG GIT_HASH
 ARG BABEL_ENV=production
 

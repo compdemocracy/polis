@@ -50,8 +50,7 @@ var spawn = require("child_process").spawn;
 var Stream = require("stream");
 var url = require("url");
 
-let POLIS_ROOT = process.env.POLIS_ROOT
-var config = require(POLIS_ROOT + 'config/config.js');
+var config = require('../config/config.js');
 
 console.log("Uploader: " + config.get('uploader'));
 
