@@ -14,7 +14,7 @@ var rimraf = require("rimraf");
 var runSequence = require('run-sequence');
 var scp = require('gulp-scp2');
 
-var config = require(__dirname + 'config/config.js');
+var config = require(__dirname + '/config/config.js');
 
 console.log("Uploader: " + config.get('uploader'));
 

@@ -50,7 +50,7 @@ var spawn = require("child_process").spawn;
 var Stream = require("stream");
 var url = require("url");
 
-var config = require(__dirname + 'config/config.js');
+var config = require(__dirname + '/config/config.js');
 
 console.log("Uploader: " + config.get('uploader'));
 
