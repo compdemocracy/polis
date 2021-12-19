@@ -19,10 +19,6 @@ RUN npm ci
 
 RUN apk del .build
 
-COPY polis.config.template.js polis.config.js
-# If polis.config.js exists on host, will override template here.
-COPY . .
-
 ARG GIT_HASH
 ARG BABEL_ENV=production
 
