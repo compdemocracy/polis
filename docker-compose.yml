@@ -106,6 +106,8 @@ services:
 
   client-participation:
     container_name: polis-client-participation
+    environment:
+      - POLIS_ROOT=/app/
     image: compdem/polis-client-participation:${TAG}
     build:
       context: ./client-participation
@@ -114,6 +116,8 @@ services:
 
   client-admin:
     container_name: polis-client-admin
+    environment:
+      - POLIS_ROOT=/app/
     image: compdem/polis-client-admin:${TAG}
     build:
       context: ./client-admin
@@ -122,6 +126,8 @@ services:
 
   client-report:
     container_name: polis-client-report
+    environment:
+      - POLIS_ROOT=/app/
     image: compdem/polis-client-report:${TAG}
     build:
       context: ./client-report
