@@ -109,30 +109,42 @@ services:
     environment:
       - POLIS_ROOT=/app/
     image: compdem/polis-client-participation:${TAG}
+    depends_on:
+      - "postgres"
     build:
       context: ./client-participation
       args:
         GIT_HASH: "${GIT_HASH}"
+    volumes:
+      - "config:/app/config"
 
   client-admin:
     container_name: polis-client-admin
     environment:
       - POLIS_ROOT=/app/
     image: compdem/polis-client-admin:${TAG}
+    depends_on:
+      - "postgres"
     build:
       context: ./client-admin
       args:
         GIT_HASH: "${GIT_HASH}"
+    volumes:
+      - "config:/app/config"
 
   client-report:
     container_name: polis-client-report
     environment:
       - POLIS_ROOT=/app/
     image: compdem/polis-client-report:${TAG}
+    depends_on:
+      - "postgres"
     build:
       context: ./client-report
       args:
         GIT_HASH: "${GIT_HASH}"
+    volumes:
+      - "config:/app/config"
 
   # maildev:
   #   image: maildev/maildev:1.1.0
