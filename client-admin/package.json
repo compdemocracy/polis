@@ -10,7 +10,7 @@
     "build": "npm run build:webpack",
     "build-debug": "npm run build:webpack_unminified",
     "convict": "6.0.0",
-    "deploy:prod": "node gulpfile.js deploy_TO_PRODUCTION",
+    "deploy:prod": "POLIS_ROOT=/app/ node gulpfile.js deploy_TO_PRODUCTION",
     "deploy:preprod": "node gulpfile.js deployPreprod",
     "start": "./x",
     "lint": "eslint src",
