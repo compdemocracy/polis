@@ -110,7 +110,7 @@ services:
       - POLIS_ROOT=/app/
     image: compdem/polis-client-participation:${TAG}
     depends_on:
-      - "postgres"
+      - "config"
     build:
       context: ./client-participation
       args:
@@ -124,7 +124,7 @@ services:
       - POLIS_ROOT=/app/
     image: compdem/polis-client-admin:${TAG}
     depends_on:
-      - "postgres"
+      - "config"
     build:
       context: ./client-admin
       args:
@@ -138,7 +138,7 @@ services:
       - POLIS_ROOT=/app/
     image: compdem/polis-client-report:${TAG}
     depends_on:
-      - "postgres"
+      - "config"
     build:
       context: ./client-report
       args:
