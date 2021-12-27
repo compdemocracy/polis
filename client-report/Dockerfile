@@ -11,4 +11,4 @@ RUN npm ci
 COPY . .
 
 ARG GIT_HASH
-RUN npm run deploy:prod
+CMD npm run deploy:prod

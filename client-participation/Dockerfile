@@ -24,5 +24,5 @@ COPY . .
 ARG GIT_HASH
 ARG BABEL_ENV=production
 
-RUN npm run deploy:prod
+CMD npm run deploy:prod
 
