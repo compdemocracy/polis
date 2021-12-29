@@ -42,7 +42,7 @@ npm test
 
 ## Building for Production
 
-To build static assets for a production deployment, run
+To build static assets into `dist/` for a production deployment, run
 
 ```sh
 npm run build:prod
