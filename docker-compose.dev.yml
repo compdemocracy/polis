@@ -5,6 +5,12 @@ version: "3.1"
 # * Definitely want to have different env var files for prod vs dev
 
 services:
+  server:
+    command: npm run dev
+    volumes:
+      - "./server:/app"
+    ports:
+      - "9229:9229"
   math:
     command: clojure -X:dev-poller
     volumes:
