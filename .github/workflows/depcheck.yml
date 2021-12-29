@@ -27,6 +27,9 @@ jobs:
         uses: actions/setup-node@v2.5.1
         with:
           node-version: 14.4.0
+          # For some reason, caching isn't working here right now. #TODO
+          # cache: npm
+          # cache-dependency-path: 'client-admin/package-lock.json'
 
       # See: https://github.com/taskworld/commit-status
       - name: Install commit-status CLI tool
