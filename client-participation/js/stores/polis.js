@@ -39,6 +39,7 @@ module.exports = function(params) {
   var starsPath = "api/v3/stars";
   var trashesPath = "api/v3/trashes";
   var commentsPath = "api/v3/comments";
+  var commentsPathV4 = "api/v4/comments";
   var nextCommentPath = "api/v3/nextComment";
   var finishedTutorialPath = "api/v3/tutorial";
 
@@ -1718,7 +1719,6 @@ module.exports = function(params) {
   }
 
   function getFancyComments(options) {
-    options = $.extend(options, { translate: true, lang: navigator.language });
     return $.when(getComments(options), votesForTidBidPromise).then(function(args /* , dont need second arg */ ) {
 
       var comments = args[0];
@@ -1746,7 +1746,7 @@ module.exports = function(params) {
       include_social: true,
       // not_pid: getPid() // don't want to see own coments
     }, params);
-    return polisGet(commentsPath, params);
+    return polisGet(commentsPathV4, params);
   }
 
   function getLocations(gid) {

@@ -76,7 +76,7 @@ class App extends React.Component {
   }
 
   getComments(conversation_id, isStrictMod) {
-    return net.polisGet("/api/v3/comments", {
+    return net.polisGet("/api/v4/comments", {
       conversation_id: conversation_id,
       report_id: report_id,
       moderation: true,

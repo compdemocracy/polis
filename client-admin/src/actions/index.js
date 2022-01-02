@@ -1014,7 +1014,7 @@ const fetchAllComments = (conversation_id) => {
   // let includeSocial = "include_social=true&";
   const includeSocial = ''
   return $.get(
-    '/api/v3/comments?moderation=true&include_voting_patterns=false&' +
+    '/api/v4/comments?moderation=true&include_voting_patterns=false&' +
       includeSocial +
       'conversation_id=' +
       conversation_id
@@ -1099,7 +1099,7 @@ const fetchUnmoderatedComments = (conversation_id) => {
   // let includeSocial = "include_social=true&";
   const includeSocial = ''
   return $.get(
-    '/api/v3/comments?moderation=true&include_voting_patterns=false&' +
+    '/api/v4/comments?moderation=true&include_voting_patterns=false&' +
       includeSocial +
       'mod=0&conversation_id=' +
       conversation_id
@@ -1142,7 +1142,7 @@ const fetchAcceptedComments = (conversation_id) => {
   // let includeSocial = "include_social=true&";
   const includeSocial = ''
   return $.get(
-    '/api/v3/comments?moderation=true&include_voting_patterns=false&mod=1&' +
+    '/api/v4/comments?moderation=true&include_voting_patterns=false&mod=1&' +
       includeSocial +
       'conversation_id=' +
       conversation_id
@@ -1185,7 +1185,7 @@ const fetchRejectedComments = (conversation_id) => {
   // let includeSocial = "include_social=true&";
   const includeSocial = ''
   return $.get(
-    '/api/v3/comments?moderation=true&include_voting_patterns=false&' +
+    '/api/v4/comments?moderation=true&include_voting_patterns=false&' +
       includeSocial +
       'mod=-1&conversation_id=' +
       conversation_id
