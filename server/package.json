@@ -37,6 +37,7 @@
     "cookie-parser": "^1.4.6",
     "eslint": "2.13.1",
     "express": "^4.0.0",
+    "express-openapi-validator": "^4.13.5",
     "fb": "1.0.2",
     "http-proxy": "1.18.1",
     "intercom-client": "2.11.2",

@@ -10,6 +10,7 @@ import express from "express";
 import cookieParser from 'cookie-parser';
 import bodyParser from 'body-parser';
 import compression from 'compression';
+import * as OpenApiValidator from "express-openapi-validator";
 
 import server from "./src/server";
 
@@ -290,6 +291,71 @@ helpersInitialized.then(
     ////////////////////////////////////////////
     ////////////////////////////////////////////
     ////////////////////////////////////////////
+
+    app.use(OpenApiValidator.middleware({
+      apiSpec: './openapi.yml',
+      validateRequests: true,
+      validateResponses: false,
+    }))
+
+    const assignToPV4 = (mapping) => {
+      return (req, res, next) => {
+        req.p = req.p || {};
+        for (const toKey in mapping) {
+          let [fromKey, fn] = mapping[toKey];
+          if (req.body[fromKey] !== undefined ) {
+            if (fn !== undefined) {
+              fn(req.body[fromKey])
+                .then(val => {
+                  req.p[toKey] = val;
+                  next()
+                })
+            } else {
+              req.p[toKey] = req.body[fromKey];
+              next()
+            }
+          } else {
+            next()
+          }
+        };
+      };
+    }
+
+    const assignToPV4Multi = (mappings) => {
+      let middlewares = []
+      for (const key in mappings) {
+        let mapping = {}
+        mapping[key] = mappings[key];
+        middlewares.push(assignToPV4(mapping))
+      };
+      return middlewares;
+    }
+
+    app.get(
+      "/api/v4/comments",
+      moveToBody,
+      authOptional(assignToP),
+      assignToPV4Multi({
+        zid: ['conversation_id', getConversationIdFetchZid],
+        rid: ['report_id', getReportIdFetchRid],
+        moderation: ['moderation'],
+        mod: ['mod'],
+        mod_gt: ['mod_gt'],
+        include_social: ['include_social'],
+        include_voting_patterns: ['include_voting_patterns'],
+      }),
+      (req, res, next) => { console.log('body!', req.body); console.log('p!', req.p); next() },
+      handle_GET_comments
+    );
+
+    // Add error handler for OpenAPI validator.
+    app.use((err, req, res, next) => {
+      console.error(err);
+      res.status(err.status || 500).json({
+        message: err.message,
+        errors: err.errors,
+      });
+    });
 
     app.get("/api/v3/math/pca", handle_GET_math_pca);
 
