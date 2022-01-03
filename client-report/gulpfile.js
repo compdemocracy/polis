@@ -78,6 +78,9 @@ gulp.task('index', [
   index = index.replace("/dist/report_bundle.js",  '/' + [destRootRest, "js", "report_bundle.js"].join('/'));
   index = index.replace("NULL_VERSION",  versionString);
 
+  var domainWhitelist = '["' + polisConfig.domainWhitelist.join('","') + '"]';
+  index = index.replace("<%= domainWhitelist %>", domainWhitelist);
+
   // index goes to the root of the dist folder.
   var indexDest = [destRootBase, "index_report.html"].join("/");
   // fs.mkdirSync(destRootBase);
