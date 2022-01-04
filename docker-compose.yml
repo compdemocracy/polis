@@ -114,6 +114,8 @@ services:
       context: ./client-participation
       args:
         GIT_HASH: "${GIT_HASH}"
+    volumes:
+      - "config:/app/config"
 
   client-admin:
     container_name: polis-client-admin
@@ -124,6 +126,8 @@ services:
       context: ./client-admin
       args:
         GIT_HASH: "${GIT_HASH}"
+    volumes:
+      - "config:/app/config"
 
   client-report:
     container_name: polis-client-report
@@ -134,6 +138,8 @@ services:
       context: ./client-report
       args:
         GIT_HASH: "${GIT_HASH}"
+    volumes:
+      - "config:/app/config"
 
   # maildev:
   #   image: maildev/maildev:1.1.0
