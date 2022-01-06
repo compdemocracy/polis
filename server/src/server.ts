@@ -7990,7 +7990,7 @@ Email verified! You can close this tab or hit the back button.
       .then(function (zinvite: any) {
         // NOTE: the counter goes in the email body so it doesn't create a new email thread (in Gmail, etc)
 
-        body += createProdModerationUrl(zinvite);
+        body += createModerationUrl(zinvite);
 
         body += "\n\nThank you for using Polis.";
 
@@ -8007,10 +8007,6 @@ Email verified! You can close this tab or hit the back button.
       .catch(function (err: any) {
         console.error(err);
       });
-  }
-
-  function createProdModerationUrl(zinvite: string) {
-    return "https://pol.is/m/" + zinvite;
   }
 
   function createModerationUrl(
