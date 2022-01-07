@@ -4,6 +4,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { Box, Heading, Text } from 'theme-ui'
+import Url from '../../util/url'
 
 @connect((state) => state.user)
 class Integrate extends React.Component {
@@ -53,8 +54,7 @@ class Integrate extends React.Component {
                 : this.props.user.site_ids[0]}
               {"'>\n"}
               {'</div>\n'}
-              {'<script async\n'}
-              {"  src='https://pol.is/embed.js'>\n"}
+              {"<script async src='" + Url.urlPrefix + "embed.js'></script>"}
               {'</script>'}
             </pre>
           </Box>
