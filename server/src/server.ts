@@ -7990,7 +7990,7 @@ Email verified! You can close this tab or hit the back button.
       .then(function (zinvite: any) {
         // NOTE: the counter goes in the email body so it doesn't create a new email thread (in Gmail, etc)
 
-        body += createModerationUrl(zinvite);
+        body += createModerationUrl(req, zinvite);
 
         body += "\n\nThank you for using Polis.";
 
