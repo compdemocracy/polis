@@ -13,9 +13,10 @@ var rimraf = require("rimraf");
 var runSequence = require("run-sequence");
 var scp = require("gulp-scp2");
 
-var polisConfig = require("./polis.config");
+let POLIS_ROOT = process.env.POLIS_ROOT
+var config = require(POLIS_ROOT + 'config/config.js');
 
-console.log("Uploader: " + polisConfig.UPLOADER);
+console.log("Uploader: " + config.get('uploader'));
 
 const staticFilesPrefix = "cached";
 const baseDistRoot = "dist";
@@ -78,11 +79,11 @@ gulp.task("index", [], function () {
   );
   html = html.replace("NULL_VERSION", versionString);
 
-  html = html.replace("<%= fbAppId %>", polisConfig.FB_APP_ID);
-  html = html.replace("<%= useIntercom %>", !isTrue(polisConfig.DISABLE_INTERCOM));
-  html = html.replace("<%= usePlans %>", !isTrue(polisConfig.DISABLE_PLANS));
+  html = html.replace("<%= fbAppId %>", config.get('fb_app_id'));
+  html = html.replace("<%= useIntercom %>", !isTrue(config.get('disable_intercom')));
+  html = html.replace("<%= usePlans %>", !isTrue(config.get('disable_plans')));
 
-  var domainWhitelist = '["' + polisConfig.domainWhitelist.join('","') + '"]';
+  var domainWhitelist = '["' + config.get('domainWhitelist').join('","') + '"]';
   html = html.replace("<%= domainWhitelist %>", domainWhitelist);
 
   // index goes to the root of the dist folder.
@@ -129,8 +130,8 @@ gulp.task("404", [], function () {
 gulp.task("preprodConfig", function () {
   preprodMode = true;
   minified = true;
-  scpSubdir = polisConfig.SCP_SUBDIR_PREPROD;
-  s3Subdir = polisConfig.S3_BUCKET_PREPROD;
+  scpSubdir = config.get('scp_subdir_preprod');
+  s3Subdir = config.get('s3_bucket_preprod');
 });
 
 gulp.task("unminifiedConfig", function () {
@@ -140,8 +141,8 @@ gulp.task("unminifiedConfig", function () {
 gulp.task("prodConfig", function () {
   prodMode = true;
   minified = true;
-  scpSubdir = polisConfig.SCP_SUBDIR_PROD;
-  s3Subdir = polisConfig.S3_BUCKET_PROD;
+  scpSubdir = config.get('scp_subdir_prod');
+  s3Subdir = config.get('s3_bucket_prod');
 });
 
 gulp.task("configureForProduction", function (callback) {
@@ -220,12 +221,12 @@ gulp.task("dist", ["configureForProduction"], function (callback) {
 
 gulp.task("deploy_TO_PRODUCTION", ["prodConfig", "dist"], function () {
   var uploader;
-  if ("s3" === polisConfig.UPLOADER) {
+  if ("s3" === config.get('uploader')) {
     uploader = s3uploader({
       bucket: s3Subdir,
     });
   }
-  if ("scp" === polisConfig.UPLOADER) {
+  if ("scp" === config.get('uploader')) {
     uploader = scpUploader({
       // subdir: "cached",
       watch: function (client) {
@@ -235,7 +236,7 @@ gulp.task("deploy_TO_PRODUCTION", ["prodConfig", "dist"], function () {
       },
     });
   }
-  if ('local' === polisConfig.UPLOADER) {
+  if ('local' === config.get('uploader')) {
     uploader = localUploader
     uploader.needsHeadersJson = true
   }
@@ -244,12 +245,12 @@ gulp.task("deploy_TO_PRODUCTION", ["prodConfig", "dist"], function () {
 
 function doUpload() {
   var uploader;
-  if ("s3" === polisConfig.UPLOADER) {
+  if ("s3" === config.get('uploader')) {
     uploader = s3uploader({
       bucket: s3Subdir,
     });
   }
-  if ("scp" === polisConfig.UPLOADER) {
+  if ("scp" === config.get('uploader')) {
     uploader = scpUploader({
       // subdir: "cached",
       watch: function (client) {
@@ -259,7 +260,7 @@ function doUpload() {
       },
     });
   }
-  if ('local' === polisConfig.UPLOADER) {
+  if ('local' === config.get('uploader')) {
     uploader = localUploader
     uploader.needsHeadersJson = true
   }
@@ -272,19 +273,19 @@ gulp.task("deployPreprodUnminified", ["preprodConfig", "unminifiedConfig", "dist
 
 gulp.task("fontsPreprod", ["preprodConfig"], function () {
   return deployFonts({
-    bucket: polisConfig.S3_BUCKET_PREPROD,
+    bucket: config.get('s3_bucket_preprod'),
   });
 });
 
 gulp.task("fontsProd", ["prodConfig"], function () {
   return deployFonts({
-    bucket: polisConfig.S3_BUCKET_PROD,
+    bucket: config.get('s3_bucket_prod'),
   });
 });
 
 function localUploader(params) {
   params.subdir = params.subdir || ''
-  return gulp.dest(path.join(polisConfig.LOCAL_OUTPUT_PATH, params.subdir))
+  return gulp.dest(path.join(config.get('local_output_path'), params.subdir))
 }
 
 function s3uploader(params) {

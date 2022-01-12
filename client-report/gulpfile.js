@@ -14,9 +14,10 @@ var rimraf = require("rimraf");
 var runSequence = require('run-sequence');
 var scp = require('gulp-scp2');
 
-var polisConfig = require('./polis.config');
+let POLIS_ROOT = process.env.POLIS_ROOT
+var config = require(POLIS_ROOT + 'config/config.js');
 
-console.log("Uploader: " + polisConfig.UPLOADER);
+console.log("Uploader: " + config.get('uploader'));
 
 const staticFilesPrefix = "cached";
 const baseDistRoot = "dist";
@@ -88,14 +89,14 @@ gulp.task('index', [
 
 gulp.task("preprodConfig", function() {
   preprodMode = true;
-  scpSubdir = polisConfig.SCP_SUBDIR_PREPROD;
-  s3Subdir = polisConfig.S3_BUCKET_PREPROD;
+  scpSubdir = config.get('scp_subdir_preprod');
+  s3Subdir = config.get('s3_bucket_preprod');
 });
 
 gulp.task("prodConfig", function() {
   prodMode = true;
-  scpSubdir = polisConfig.SCP_SUBDIR_PROD;
-  s3Subdir = polisConfig.S3_BUCKET_PROD;
+  scpSubdir = config.get('scp_subdir_prod');
+  s3Subdir = config.get('s3_bucket_prod');
 });
 
 
@@ -165,7 +166,7 @@ gulp.task('dist', [
 
 function localUploader(params) {
   params.subdir = params.subdir || ''
-  return gulp.dest(path.join(polisConfig.LOCAL_OUTPUT_PATH, params.subdir))
+  return gulp.dest(path.join(config.get('local_output_path'), params.subdir))
 }
 
 function s3uploader(params) {
@@ -324,12 +325,12 @@ function deploy(uploader) {
 
 function doUpload() {
   var uploader;
-  if ('s3' === polisConfig.UPLOADER) {
+  if ('s3' === config.get('uploader')) {
     uploader = s3uploader({
       bucket: s3Subdir,
     });
   }
-  if ('scp' === polisConfig.UPLOADER) {
+  if ('scp' === config.get('uploader')) {
    uploader = scpUploader({
       // subdir: "cached",
       watch: function(client) {
@@ -339,7 +340,7 @@ function doUpload() {
       },
     });
   }
-  if ('local' === polisConfig.UPLOADER) {
+  if ('local' === config.get('uploader')) {
     uploader = localUploader
     uploader.needsHeadersJson = true
   }
