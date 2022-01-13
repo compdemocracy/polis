@@ -36,7 +36,11 @@ jobs:
           password: ${{ secrets.DOCKER_TOKEN }}
 
       - name: Build full project via docker-compose
-        run: docker-compose build --parallel --build-arg GIT_HASH=${GITHUB_SHA:0:6}
+        run: |
+          docker-compose build --parallel client-admin client-participation client-report math server postgres nginx-proxy
+          # Build file-server after all client-* images, as depends_on has no effect on build order.
+          # See: https://github.com/docker/compose/issues/6802#issuecomment-573660235
+          docker-compose build file-server
 
       - name: Push images to Docker Hub
         run: docker-compose push --ignore-push-failures
