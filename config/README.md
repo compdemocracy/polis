@@ -14,5 +14,3 @@
     - Test whether docker config volume will override `server/config` directory
     - Write code to read json config into math
     - Write code to allow math to run in docker or locally
-
-
