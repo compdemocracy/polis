@@ -1,6 +1,4 @@
 # Gulp v3 stops us from upgrading beyond Node v11
-FROM polis_config AS config
-
 FROM node:11.15.0-alpine
 
 WORKDIR /app
@@ -21,8 +19,8 @@ RUN npm ci
 
 RUN apk del .build
 
-COPY --from=config /config/config.js /app/config/
-COPY --from=config /config/*.yaml /app/config/
+COPY --from=polis_config /config/config.js /app/config/
+COPY --from=polis_config /config/*.yaml /app/config/
 
 COPY . .
 
