@@ -14,11 +14,7 @@ module.exports = {
       "maxSize": "180 kB",
     },
     {
-      "path": "client-participation/dist/cached/*/js/polis.js",
-      "maxSize": "150 kB",
-    },
-    {
-      "path": "client-participation/dist/cached/*/js/vis_bundle.js",
+      "path": "client-participation/dist/*.js",
       "maxSize": "200 kB",
     },
   ]
