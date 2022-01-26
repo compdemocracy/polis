@@ -7,9 +7,9 @@ module.exports = {
     "./vis2/vis2"
   ],
   output: {
-    path: path.join(__dirname, "dist_foo"),
+    path: path.join(__dirname, "dist"),
     filename: "vis_bundle.js",
-    publicPath: "SET_THIS_FROM_GULP"
+    publicPath: "/dist/",
   },
   mode: 'production',
   optimization: {
