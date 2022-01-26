@@ -50,19 +50,19 @@ jobs:
         npm install
         npm run build:webpack
 
-    # - name: "Install & Build: client-participation"
-    #   working-directory: client-participation
-    #   run: |
-    #     npm install
-    #     npm run build:webpack
-
     - name: "Install & Build: client-participation"
       working-directory: client-participation
       run: |
         npm install
-        npm run deploy:prod
-        # So directory stays consistent between builds for comparison.
-        mv dist/cached/* dist/cached/xxxxxxxxx
+        npm run build:webpack
+
+    # - name: "Install & Build: client-participation"
+    #   working-directory: client-participation
+    #   run: |
+    #     npm install
+    #     npm run deploy:prod
+    #     # So directory stays consistent between builds for comparison.
+    #     mv dist/cached/* dist/cached/xxxxxxxxx
 
     - name: Install Bundlewatch
       run: npm install -g bundlewatch@0.2.6
