@@ -6,6 +6,7 @@
   "scripts": {
     "start": "gulp",
     "build:prod": "gulp prodBuildNoDeploy",
+    "build:webpack": "npm run clean && NODE_ENV=production webpack --config webpack.config.js",
     "deploy:preprod": "gulp deployPreprod",
     "deploy:prod": "POLIS_ROOT=/app/ gulp deploy_TO_PRODUCTION",
     "deploy:preprod:unminified": "gulp deployPreprodUnminified"
