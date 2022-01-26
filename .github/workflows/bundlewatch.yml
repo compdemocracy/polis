@@ -1,6 +1,7 @@
 name: "Bundlewatch Github Action"
 
 on:
+  workflow_dispatch:
   push:
     # Required so that baseline for comparison is pushed to bundlewatch service.
     branches: ["dev"]
