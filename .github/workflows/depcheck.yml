@@ -1,5 +1,6 @@
 name: DepCheck
 on:
+  workflow_dispatch:
   pull_request:
     types: ["opened", "reopened", "synchronize"]
     paths:
