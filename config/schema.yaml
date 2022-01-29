@@ -1,327 +1,313 @@
-# Precedence order (https://www.npmjs.com/package/convict)
-# When merging configuration values from different sources, Convict follows precedence rules. The order, from lowest to highest, for config.loadFile(file) and config.load(json) is:
-
-# Default value
-# File or json set in function argument
-# Environment variables (only used when env property is set in schema)
-# Command line arguments (only used when arg property is set in schema)
-
-# for easy json/yaml conversion: https://www.json2yaml.com/
-
-# NOTE: Please be careful when chosing defaults for undefined 
-#       environment variables. "undefined" is recommended
-
-# @TODO: update all formats (https://www.npmjs.com/package/convict)
-
-# The defaults for all variables below are currently for development builds.
-
+00documentation:
+  default:
+  - Precedence order (https://www.npmjs.com/package/convict)
+  - .
+  - When merging configuration values from different sources,
+  - Convict follows precedence rules. The order, from lowest to highest, for
+  - config.loadFile(file) and config.load(json) is
+  - .
+  - Default value
+  - File or json set in function argument
+  - Environment variables (only used when env property is set in schema)
+  - Command line arguments (only used when arg property is set in schema)
+  - .
+  - For easy json/yaml conversion: https://www.json2yaml.com/
+  - .
+  - NOTE: Please be careful when chosing defaults for undefined
+  - environment variables. "undefined" is recommended
+  - .
+  - The defaults for all variables below are currently for development builds.
+  doc: 00documentation
+  env: 00DOCUMENTATION
+admin_email_data_export:
+  default: ''
+  doc: admin_email_data_export
+  env: ADMIN_EMAIL_DATA_EXPORT
+admin_email_data_export_test:
+  default: ''
+  doc: admin_email_data_export_test
+  env: ADMIN_EMAIL_DATA_EXPORT_TEST
+admin_email_email_test:
+  default: ''
+  doc: admin_email_email_test
+  env: ADMIN_EMAIL_EMAIL_TEST
+admin_emails:
+  default: []
+  doc: admin_emails
+  env: ADMIN_EMAILS
+admin_uids:
+  default: []
+  doc: admin_uids
+  env: ADMIN_UIDS
+akismet_antispam_api_key:
+  default: ''
+  doc: akismet_antispam_api_key (ex. a1a11111aa11)
+  env: AKISMET_ANTISPAM_API_KEY
+  format: String
+akismet_root_url:
+  default: https://pol.is
+  doc: akismet_root_url
+  env: AKISMET_ROOT_URL
+aws_access_key_id:
+  default: undefined
+  doc: aws_access_key_id
+  env: AWS_ACCESS_KEY_ID
+  sensitive: true
+  tag: api
+aws_region:
+  default: us-east-1
+  doc: aws_region
+  env: AWS_REGION
+aws_s3_api_version:
+  default: 2006-03-01
+  doc: aws_s3_api_version
+  env: AWS_S3_API_VERSION
+aws_secret_access_key:
+  default: undefined
+  doc: aws_secret_access_key
+  env: AWS_SECRET_ACCESS_KEY
+  sensitive: true
+aws_ses_api_version:
+  default: 2010-12-01
+  doc: aws_s3_api_version
+  env: AWS_S3_API_VERSION
+backfill_comment_lang_detection:
+  default: false
+  doc: backfill_comment_lang_detection
+  env: BACKFILL_COMMENT_LANG_DETECTION
+cache_math_results:
+  default: false
+  doc: cache_math_results
+  env: CACHE_MATH_RESULTS
+client_participation_port:
+  default: 5001
+  doc: Note that this must match the participation client port specified in polisServer
+    instance
+  env: CLIENT_PARTICIPATION_PORT
+database_for_reads_url:
+  default: postgres://postgres:oiPorg3Nrz0yqDLE@postgres:5432/polis-dev
+  doc: database_for_reads_url (often is the same as database_url)
+  env: DATABASE_FOR_READS_URL
+database_url:
+  default: postgres://postgres:oiPorg3Nrz0yqDLE@postgres:5432/polis-dev
+  doc: database_url
+  env: DATABASE_URL
+dev_mode:
+  default: true
+  doc: dev_mode
+  env: DEV_MODE
+disable_intercom:
+  default: true
+  doc: disable_intercom
+  env: DISABLE_INTERCOM
+disable_plans:
+  default: true
+  doc: disable_plans
+  env: DISABLE_PLANS
+domainWhitelist:
+  default:
+  - ^localhost$
+  - ^192\\.168\\.1\\.141$
+  - ^192\\.168\\.1\\.140$
+  - ^pol\\.is
+  - .+\\.pol\\.is$
+  - ^xip\\.io$
+  - .+\\.xip\\.io$
+  doc: domainWhitelist
+  env: DOMAIN_WHITELIST
+domain_override:
+  default: ''
+  doc: domain_override
+  env: DOMAIN_OVERRIDE
+domain_whitelist_item_01:
+  default: ''
+  doc: domain_whitelist_item_01
+  env: DOMAIN_WHITELIST_ITEM_01
+domain_whitelist_item_02:
+  default: ''
+  doc: domain_whitelist_item_02
+  env: DOMAIN_WHITELIST_ITEM_02
+domain_whitelist_item_03:
+  default: ''
+  doc: domain_whitelist_item_03
+  env: DOMAIN_WHITELIST_ITEM_03
+domain_whitelist_item_04:
+  default: ''
+  doc: domain_whitelist_item_04
+  env: DOMAIN_WHITELIST_ITEM_04
+domain_whitelist_item_05:
+  default: ''
+  doc: domain_whitelist_item_05
+  env: DOMAIN_WHITELIST_ITEM_05
+domain_whitelist_item_06:
+  default: ''
+  doc: domain_whitelist_item_06
+  env: DOMAIN_WHITELIST_ITEM_06
+domain_whitelist_item_07:
+  default: ''
+  doc: domain_whitelist_item_07
+  env: DOMAIN_WHITELIST_ITEM_07
+domain_whitelist_item_08:
+  default: ''
+  doc: domain_whitelist_item_08
+  env: DOMAIN_WHITELIST_ITEM_08
+email_transport_types:
+  default: maildev
+  doc:
+  - email_transport_types - maildev, aws-ses, mailgun
+  - ex. `aws-ses,mailgun` would try sending via AWS SES first, and fallback to Mailgun
+    on error.
+  env: EMAIL_TRANSPORT_TYPES
+encryption_password_00001:
+  default: c9336642-2024-43a8-99cd-77ee38e82a9c
+  doc: encryption_password_00001
+  env: ENCRYPTION_PASSWORD_00001
 env:
+  default: development
   doc: The application environment
+  env: NODE_ENV
   format:
   - production
   - development
   - test
-  default: development
-  env: NODE_ENV
-
-# for server
-aws_access_key_id:
-  tag: api
-  doc: aws_access_key_id
+fb_app_id:
+  default: 661042417336977
+  doc: must register with facebook and get a facebook app id to use the facebook auth
+    features
+  env: FB_APP_ID
+google_api_key:
   default: undefined
-  env: AWS_ACCESS_KEY_ID
-  sensitive: true
-aws_secret_access_key:
-  doc: aws_secret_access_key
-  default: undefined
-  env: AWS_SECRET_ACCESS_KEY
-  sensitive: true
-aws_region:
-  doc: aws_region
-  default: us-east-1
-  env: AWS_REGION
-dev_mode:
-  doc: dev_mode
-  default: true
-  env: DEV_MODE
-aws_s3_api_version:
-  doc: aws_s3_api_version
-  default: 2006-03-01
-  env: AWS_S3_API_VERSION
-stripe_client_id:
-  doc: stripe_client_id
-  default: undefined
-  env: STRIPE_CLIENT_ID
-stripe_secret_key:
-  doc: stripe_secret_key
-  default: sk_test_NFBDEThkpHCYBzXPJuBlY8TW
-  env: STRIPE_SECRET_KEY
-database_url:
-  doc: database_url 
-  default: postgres://postgres:oiPorg3Nrz0yqDLE@postgres:5432/polis-dev
-  env: DATABASE_URL
-database_for_reads_url:
-  doc: database_for_reads_url (often is the same as database_url)
-  default: postgres://postgres:oiPorg3Nrz0yqDLE@postgres:5432/polis-dev
-  env: DATABASE_FOR_READS_URL
-slack_api_token:
-  doc: slack_api_token
-  default: undefined
-  env: SLACK_API_TOKEN
-polis_slack_app_client_id:
-  doc: polis_slack_app_client_id
+  doc: google_api_key
+  env: GOOGLE_API_KEY
+google_creds_stringified:
   default: X
+  doc: google_creds_stringified
+  env: GOOGLE_CREDS_STRINGIFIED
+intercom_access_token:
+  default: undefined
+  doc: intercom_access_token
+  env: INTERCOM_ACCESS_TOKEN
+local_output_path:
+  default: ./build
+  doc: Uploader settings local
+  env: LOCAL_OUTPUT_PATH
+mailgun_api_key:
+  default: undefined
+  doc: mailgun_api_key
+  env: MAILGUN_API_KEY
+math_env:
+  default: dev
+  doc: math_env
+  env: MATH_ENV
+maxmind_licensekey:
+  default: undefined
+  doc: maxmind_licensekey
+  env: MAXMIND_LICENSEKEY
+maxmind_userid:
+  default: undefined
+  doc: maxmind_userid
+  env: MAXMIND_USERID
+polis_from_address:
+  default: ''
+  doc: polis_from_address
+  env: POLIS_FROM_ADDRESS
+polis_slack_app_client_id:
+  default: X
+  doc: polis_slack_app_client_id
   env: POLIS_SLACK_APP_CLIENT_ID
 polis_slack_app_client_secret:
+  default: X
   doc: polis_slack_app_client_secret
-  default: X
   env: POLIS_SLACK_APP_CLIENT_SECRET
-disable_plans:
-  doc: disable_plans
-  default: true
-  env: DISABLE_PLANS
-disable_intercom:
-  doc: disable_intercom
-  default: true
-  env: DISABLE_INTERCOM
-intercom_access_token:
-  doc: intercom_access_token
-  default: undefined
-  env: INTERCOM_ACCESS_TOKEN
-should_use_translation_api:
-  doc: should_use_translation_api
-  default: false
-  env: SHOULD_USE_TRANSLATION_API
-google_api_key:
-  doc: google_api_key
-  default: undefined
-  env: GOOGLE_API_KEY
-
-google_creds_stringified:
-  doc: google_creds_stringified
-  default: X
-  env: GOOGLE_CREDS_STRINGIFIED
-admin_emails:
-  doc: admin_emails
-  default: []
-  env: ADMIN_EMAILS
-admin_uids:
-  doc: admin_uids
-  default: []
-  env: ADMIN_UIDS
-admin_email_data_export:
-  doc: admin_email_data_export
-  default: ''
-  env: ADMIN_EMAIL_DATA_EXPORT
-admin_email_data_export_test:
-  doc: admin_email_data_export_test
-  default: ''
-  env: ADMIN_EMAIL_DATA_EXPORT_TEST
-admin_email_email_test:
-  doc: admin_email_email_test
-  default: ''
-  env: ADMIN_EMAIL_EMAIL_TEST
-polis_from_address:
-  doc: polis_from_address
-  default: ''
-  env: POLIS_FROM_ADDRESS
-akismet_antispam_api_key:
-  doc: akismet_antispam_api_key (ex. a1a11111aa11)
-  format: String
-  default: ''
-  env: AKISMET_ANTISPAM_API_KEY
-akismet_root_url:
-  doc: akismet_root_url
-  default: https://pol.is
-  env: AKISMET_ROOT_URL
-domain_override:
-  doc: domain_override
-  default: ''
-  env: DOMAIN_OVERRIDE
-encryption_password_00001:
-  doc: encryption_password_00001
-  default: c9336642-2024-43a8-99cd-77ee38e82a9c
-  env: ENCRYPTION_PASSWORD_00001
-backfill_comment_lang_detection:
-  doc: backfill_comment_lang_detection
-  default: false
-  env: BACKFILL_COMMENT_LANG_DETECTION
-domain_whitelist_item_01:
-  doc: domain_whitelist_item_01
-  default: ''
-  env: DOMAIN_WHITELIST_ITEM_01
-domain_whitelist_item_02:
-  doc: domain_whitelist_item_02
-  default: ''
-  env: DOMAIN_WHITELIST_ITEM_02
-domain_whitelist_item_03:
-  doc: domain_whitelist_item_03
-  default: ''
-  env: DOMAIN_WHITELIST_ITEM_03
-domain_whitelist_item_04:
-  doc: domain_whitelist_item_04
-  default: ''
-  env: DOMAIN_WHITELIST_ITEM_04
-domain_whitelist_item_05:
-  doc: domain_whitelist_item_05
-  default: ''
-  env: DOMAIN_WHITELIST_ITEM_05
-domain_whitelist_item_06:
-  doc: domain_whitelist_item_06
-  default: ''
-  env: DOMAIN_WHITELIST_ITEM_06
-domain_whitelist_item_07:
-  doc: domain_whitelist_item_07
-  default: ''
-  env: DOMAIN_WHITELIST_ITEM_07
-domain_whitelist_item_08:
-  doc: domain_whitelist_item_08
-  default: ''
-  env: DOMAIN_WHITELIST_ITEM_08
-cache_math_results:
-  doc: cache_math_results
-  default: false
-  env: CACHE_MATH_RESULTS
-math_env:
-  doc: math_env
-  default: dev
-  env: MATH_ENV
-run_periodic_export_tests:
-  doc: run_periodic_export_tests
-  default: false
-  env: RUN_PERIODIC_EXPORT_TESTS
-maxmind_userid:
-  doc: maxmind_userid
-  default: undefined
-  env: MAXMIND_USERID
-maxmind_licensekey:
-  doc: maxmind_licensekey
-  default: undefined
-  env: MAXMIND_LICENSEKEY
+port:
+  default: 5000
+  doc: port
+  env: PORT
 primary_polis_url:
-  doc: primary_polis_url
   default: pol.is
+  doc: primary_polis_url
   env: PRIMARY_POLIS_URL
-webserver_pass:
-  doc: webserver_pass
-  default: 8a7157439f50
-  env: WEBSERVER_PASS
-webserver_username:
-  doc: webserver_username
-  default: f4c19337e502
-  env: WEBSERVER_USERNAME
-twitter_consumer_key:
-  doc: twitter_consumer_key
+run_periodic_export_tests:
+  default: false
+  doc: run_periodic_export_tests
+  env: RUN_PERIODIC_EXPORT_TESTS
+s3_bucket_preprod:
+  default: preprod.pol.is
+  doc: uploader settings s3
+  env: S3_BUCKET_PREPROD
+s3_bucket_prod:
+  default: pol.is
+  doc: uploader settings s3
+  env: S3_BUCKET_PROD
+scp_subdir_preprod:
+  default: preprod
+  doc: uploader settings scp
+  env: SCP_SUBDIR_PREPROD
+scp_subdir_prod:
+  default: prod
+  doc: uploader settings scp
+  env: SCP_SUBDIR_PROD
+service_hostname:
   default: undefined
+  doc: service_hostname
+  env: SERVICE_HOSTNAME
+service_url:
+  default: http://localhost:5000
+  doc: Point to a polisServer instance (local recommended for dev)
+  env: SERVICE_URL
+should_use_translation_api:
+  default: false
+  doc: should_use_translation_api
+  env: SHOULD_USE_TRANSLATION_API
+slack_api_token:
+  default: undefined
+  doc: slack_api_token
+  env: SLACK_API_TOKEN
+static_files_admindash_port:
+  default: 8080
+  doc: static_files_admindash_port
+  env: STATIC_FILES_ADMINDASH_PORT
+static_files_host:
+  default: file-server
+  doc: static_files_host
+  env: STATIC_FILES_HOST
+static_files_port:
+  default: 8080
+  doc: static_files_port
+  env: STATIC_FILES_PORT
+static_files_report_port:
+  default: 8080
+  doc: static_files_report_port
+  env: STATIC_FILES_REPORT_PORT
+stripe_client_id:
+  default: undefined
+  doc: stripe_client_id
+  env: STRIPE_CLIENT_ID
+stripe_secret_key:
+  default: sk_test_NFBDEThkpHCYBzXPJuBlY8TW
+  doc: stripe_secret_key
+  env: STRIPE_SECRET_KEY
+twitter_consumer_key:
+  default: undefined
+  doc: twitter_consumer_key
   env: TWITTER_CONSUMER_KEY
 twitter_consumer_secret:
+  default: undefined
   doc: twitter_consumer_secret
-  default: undefined
   env: TWITTER_CONSUMER_SECRET
-service_hostname:
-  doc: service_hostname
-  default: undefined
-  env: SERVICE_HOSTNAME
-static_files_port:
-  doc: static_files_port
-  default: 8080
-  env: STATIC_FILES_PORT  
-static_files_admindash_port:
-  doc: static_files_admindash_port
-  default: 8080
-  env: STATIC_FILES_ADMINDASH_PORT
-static_files_report_port:
-  doc: static_files_report_port
-  default: 8080
-  env: STATIC_FILES_REPORT_PORT
-static_files_host:
-  doc: static_files_host
-  default: file-server
-  env: STATIC_FILES_HOST
-
-# for sendEmailSesMailgun
-mailgun_api_key:
-  doc: mailgun_api_key
-  default: undefined
-  env: MAILGUN_API_KEY
-  
-aws_ses_api_version:
-  doc: aws_s3_api_version
-  default: 2010-12-01
-  env: AWS_S3_API_VERSION
-# config.get('aws_ses_api_version')
-
-# polis.config
-domainWhitelist: 
-  doc: domainWhitelist
-  default:
-    - ^localhost$
-    - ^192\\.168\\.1\\.141$
-    - ^192\\.168\\.1\\.140$
-    - ^pol\\.is
-    - .+\\.pol\\.is$
-    - ^xip\\.io$
-    - .+\\.xip\\.io$
-  env: DOMAIN_WHITELIST
-
 uploader:
-  doc: uploader for compiled static javascript
-  format:
-    - local
-    - s3
-    - scp
   default: local
+  doc: uploader for compiled static javascript
   env: UPLOADER
-
-service_url:
-  doc: Point to a polisServer instance (local recommended for dev)
-  default: http://localhost:5000
-  env: SERVICE_URL
-
-client_participation_port:
-  doc: Note that this must match the participation client port specified in polisServer instance
-  default: 5001
-  env: CLIENT_PARTICIPATION_PORT
-
-fb_app_id:
-  doc: must register with facebook and get a facebook app id to use the facebook auth features
-  default: 661042417336977
-  env: FB_APP_ID
-
-local_output_path:
-  doc: Uploader settings local
-  default: ./build
-  env: LOCAL_OUTPUT_PATH
-
-s3_bucket_prod:
-  doc: uploader settings s3
-  default: pol.is
-  env: S3_BUCKET_PROD
-
-s3_bucket_preprod:
-  doc: uploader settings s3
-  default: preprod.pol.is
-  env: S3_BUCKET_PREPROD
-
-scp_subdir_preprod:
-  doc: uploader settings scp
-  default: preprod
-  env: SCP_SUBDIR_PREPROD
-
-scp_subdir_prod:
-  doc: uploader settings scp
-  default: prod
-  env: SCP_SUBDIR_PROD
-
-port:
-  doc: port
-  default: 5000
-  env: PORT
-
-# Options: maildev, aws-ses, mailgun
-# Example: `aws-ses,mailgun` would try sending via AWS SES first, and fallback to Mailgun on error.
-email_transport_types:
-  doc: email_transport_types ex. maildev, aws-ses, mailgun
-  default: maildev
-  env: EMAIL_TRANSPORT_TYPES
-
+  format:
+  - local
+  - s3
+  - scp
+webserver_pass:
+  default: 8a7157439f50
+  doc: webserver_pass
+  env: WEBSERVER_PASS
+webserver_username:
+  default: f4c19337e502
+  doc: webserver_username
+  env: WEBSERVER_USERNAME
