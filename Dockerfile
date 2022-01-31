@@ -72,18 +72,18 @@ RUN npm run deploy:prod
 #FROM docker.io/node:16.9.0-alpine
 FROM docker.io/babashka/babashka
 
-WORKDIR .
+RUN apt-get update && apt-get -y install openjdk-16-jre
 
-COPY ./bin/deploy-static-assets.clj ./
 
-RUN mkdir /app
-RUN mkdir /app/build
-COPY --from=0         /client-admin/app/build/         /app/build
-COPY --from=1         /client-participation/app/build/ /app/build
-COPY --from=2         /client-report/app/build/        /app/build
+RUN mkdir /app/
 
-EXPOSE 8080
+WORKDIR /app/
 
-CMD ./deploy-static-assets.clj
+COPY ./bin/ ./bin/
 
+COPY --from=0 /client-admin/app/build/         /app/client-admin/dist
+COPY --from=1 /client-participation/app/build/ /app/client-participation/dist
+COPY --from=2 /client-report/app/build/        /app/client-report/dist
+
+ENTRYPOINT ./bin/deploy-static-assets.clj --bucket $STATIC_ASSET_DEPLOY_BUCKET
 
