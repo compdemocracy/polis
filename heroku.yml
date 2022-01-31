@@ -8,4 +8,7 @@ build:
     # build and release static assets (js, index.html, etc)
     release: Dockerfile
 
+release:
+  image: release
+
 
