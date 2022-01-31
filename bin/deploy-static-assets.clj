@@ -102,7 +102,7 @@
 
 (defn latest-version [cache-dir]
   (->> (.listFiles (io/file cache-dir))
-       (sort-by #(mapv try-int (string/split % #"_")))
+       (sort-by #(mapv try-int (string/split (str %) #"_")))
        (last)))
 
 ;(latest-version "participation-client/dist/cached")
@@ -211,15 +211,14 @@
 
 (def concurrent-requests 12)
 
-(println "arg" (pr-str (first *command-line-args*)))
-(def bucket
-  (case (first *command-line-args*)
+(defn get-bucket [bucket-arg]
+  (case bucket-arg
     "PRODUCTION" "pol.is"
     ;; else
-    "preprod.pol.is"))
+    ("preprod" "edge") "preprod.pol.is"
+    bucket-arg))
 
-
-(def responses
+(defn responses [bucket]
   (let [requests (mapcat (partial spec-requests bucket)
                          deploy-specs)
         output-chan (async/chan concurrent-requests)]
@@ -229,18 +228,25 @@
                              (async/to-chan requests))
     (async/<!! (async/into [] output-chan))))
 
-(def errors
+(defn errors [responses]
   (remove (comp :ETag second)
           responses))
 
-(if (not-empty errors)
-  (do
-    (println "Problem processing" (count errors) "requests")
-    (doseq [[request response] errors]
-      (println "Problem processing request:" request)
-      (pp/pprint response)))
-  (println "Deploy completed without error."))
+(defn -main [& {:as opts-map :strs [--bucket]}]
+  (let [bucket (get-bucket --bucket)
+        _ (println "Deploying static assets to bucket:" bucket)
+        responses (responses bucket)
+        errors (errors responses)]
+    (if (not-empty errors)
+      (do
+        (println "Problem processing" (count errors) "requests")
+        (doseq [[request response] errors]
+          (println "Problem processing request:" request)
+          (pp/pprint response)))
+      (println "Deploy completed without error."))))
 
+
+(apply -main *command-line-args*)
 
 ;; QED
 
