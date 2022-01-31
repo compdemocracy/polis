@@ -5,9 +5,7 @@ build:
     web: server/Dockerfile
     # math worker container
     worker: math/Dockerfile
+    # build and release static assets (js, index.html, etc)
     release: Dockerfile
-
-release:
-  image: release
 
 
