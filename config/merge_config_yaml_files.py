@@ -103,8 +103,9 @@ polis_path = "/Users/crkrenn/code/polis_dir/polis"
 for key in list(sorted(data.keys())):
     result = subprocess.run(
         ["grep", "-R", 
-         "-e", data[key]['env']+':', 
-         "-e", data[key]['env']+'=', 
+         "-e", data[key]['env']+'.*:', 
+         "-e", data[key]['env']+'.*=', 
+         "-e", key+'.*=', 
          polis_path],
         capture_output=True)
     print(f"schema key: {key}")

@@ -157,6 +157,7 @@ email_transport_types:
   - email_transport_types - maildev, aws-ses, mailgun
   - ex. `aws-ses,mailgun` would try sending via AWS SES first, and fallback to Mailgun
     on error.
+  - cypress-tests.yml uses - EMAIL_TRANSPORT_TYPES=mailgun,aws-ses,nonexistent,maildev
   env: EMAIL_TRANSPORT_TYPES
 encryption_password_00001:
   default: c9336642-2024-43a8-99cd-77ee38e82a9c
@@ -208,7 +209,7 @@ maxmind_userid:
   doc: maxmind_userid
   env: MAXMIND_USERID
 polis_from_address:
-  default: ''
+  default: "Example <team@example.com>"
   doc: polis_from_address
   env: POLIS_FROM_ADDRESS
 polis_slack_app_client_id:
@@ -220,11 +221,11 @@ polis_slack_app_client_secret:
   doc: polis_slack_app_client_secret
   env: POLIS_SLACK_APP_CLIENT_SECRET
 port:
-  default: 5000
+  default: undefined
   doc: port
   env: PORT
 primary_polis_url:
-  default: pol.is
+  default: undefined
   doc: primary_polis_url
   env: PRIMARY_POLIS_URL
 run_periodic_export_tests:
@@ -252,7 +253,7 @@ service_hostname:
   doc: service_hostname
   env: SERVICE_HOSTNAME
 service_url:
-  default: http://localhost:5000
+  default: undefined
   doc: Point to a polisServer instance (local recommended for dev)
   env: SERVICE_URL
 should_use_translation_api:
