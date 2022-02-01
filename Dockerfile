@@ -18,6 +18,7 @@ COPY client-admin/. .
 ARG GIT_HASH
 RUN npm run deploy:prod
 
+
 # polis-client-participation
 # # Gulp v3 stops us from upgrading beyond Node v11
 FROM docker.io/node:11.15.0-alpine
