@@ -11,7 +11,8 @@ var request = require("request");
 var app = express();
 var compiler = webpack(config);
 
-var polisConfig = require("./polis.config");
+let POLIS_ROOT = process.env.POLIS_ROOT
+var config = require(POLIS_ROOT + 'config/config.js');
 
 app.use(
   require("webpack-dev-middleware")(compiler, {
@@ -20,7 +21,7 @@ app.use(
   })
 );
 
-const serviceUrl = polisConfig.SERVICE_URL ? polisConfig.SERVICE_URL : "https://pol.is";
+const serviceUrl = config.get('service_url') ? config.get('service_url') : "https://pol.is";
 console.log("SERVICE_URL:", serviceUrl);
 
 function proxy(req, res) {
@@ -58,10 +59,10 @@ app.get(/^\/embed\/?$/, function (req, res) {
 app.get("*", function (req, res) {
   var html = fs.readFileSync(path.join(__dirname, "index.html"), { encoding: "utf8" });
 
-  html = html.replace("<%= fbAppId %>", polisConfig.FB_APP_ID);
-  html = html.replace("<%= useIntercom %>", !isTrue(polisConfig.DISABLE_INTERCOM));
-  html = html.replace("<%= usePlans %>", !isTrue(polisConfig.DISABLE_PLANS));
-  var domainWhitelist = '["' + polisConfig.domainWhitelist.join('","') + '"]';
+  html = html.replace("<%= fbAppId %>", config.get('fb_app_id'));
+  html = html.replace("<%= useIntercom %>", !isTrue(config.get('disable_intercom')));
+  html = html.replace("<%= usePlans %>", !isTrue(config.get('disable_plans')));
+  var domainWhitelist = '["' + config.get('domainWhitelist').join('","') + '"]';
   html = html.replace("<%= domainWhitelist %>", domainWhitelist);
 
   res.set({
