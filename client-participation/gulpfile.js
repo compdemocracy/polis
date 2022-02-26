@@ -235,8 +235,8 @@ gulp.task("connect", [], function () {
   app.use(/^\/wimp$/, express.static(path.join(destRootBase, "wimp.html")));
   app.use(/^\/try$/, express.static(path.join(destRootBase, "try.html")));
 
-  app.listen(polisConfig.PORT);
-  console.log("listening on localhost:" + polisConfig.PORT);
+  app.listen(yaml_config.get('port'));
+  console.log("listening on localhost:" + yaml_config.get('port'));
 });
 
 function getGitHash() {
