@@ -4,12 +4,10 @@
   "version": "0.0.0",
   "license": "AGPL-3.0",
   "scripts": {
-    "clean": "rimraf dist",
     "start": "gulp",
     "build:prod": "gulp prodBuildNoDeploy",
-    "build:webpack": "npm run clean && NODE_ENV=production webpack --config webpack.config.js",
     "deploy:preprod": "gulp deployPreprod",
-    "deploy:prod": "POLIS_ROOT=/app/ gulp deploy_TO_PRODUCTION",
+    "deploy:prod": "gulp deploy_TO_PRODUCTION",
     "deploy:preprod:unminified": "gulp deployPreprodUnminified"
   },
   "dependencies": {
@@ -19,8 +17,6 @@
     "bootstrap-sass": "^3.4.1",
     "brain": "~0.6.3",
     "combine-css": "0.0.2",
-    "compression-webpack-plugin": "^7.1.2",
-    "convict": "6.0.0",
     "d3": "^3.5.17",
     "d3-force": "^1.2.1",
     "d3-tip": "^0.6.7",
@@ -38,9 +34,7 @@
     "handlebones": "github:pol-is/handlebones#master",
     "hull.js": "^0.2.10",
     "jquery": "~1.11",
-    "js-yaml": "3.14.0",
     "lodash": "4.17.21",
-    "lodash-webpack-plugin": "^0.11.6",
     "map-stream": "~0.1.0",
     "markdown": "^0.5.0",
     "prop-types": "^15.7.2",
