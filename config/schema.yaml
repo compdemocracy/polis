@@ -249,7 +249,7 @@ scp_subdir_prod:
   doc: uploader settings scp
   env: SCP_SUBDIR_PROD
 service_hostname:
-  default: undefined
+  default: "localhost"
   doc: service_hostname
   env: SERVICE_HOSTNAME
 service_url:
