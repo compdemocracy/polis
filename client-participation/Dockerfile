@@ -21,6 +21,10 @@ RUN apk del .build
 
 COPY polis.config.template.js polis.config.js
 # If polis.config.js exists on host, will override template here.
+
+COPY --from=polis_config /config/config.js /app/config/
+COPY --from=polis_config /config/*.yaml /app/config/
+
 COPY . .
 
 ARG GIT_HASH
