@@ -54,10 +54,7 @@ jobs:
       working-directory: client-participation
       run: |
         npm install
-        cp polis.config.template.js polis.config.js
-        npm run deploy:prod
-        # So directory stays consistent between builds for comparison.
-        mv dist/cached/* dist/cached/xxxxxxxxx
+        npm run build:webpack
 
     - name: Install Bundlewatch
       run: npm install -g bundlewatch@0.2.6
