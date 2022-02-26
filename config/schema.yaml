@@ -221,7 +221,7 @@ polis_slack_app_client_secret:
   doc: polis_slack_app_client_secret
   env: POLIS_SLACK_APP_CLIENT_SECRET
 port:
-  default: undefined
+  default: 5001
   doc: port
   env: PORT
 primary_polis_url:
