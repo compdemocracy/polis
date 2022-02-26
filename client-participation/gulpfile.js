@@ -288,7 +288,7 @@ gulp.task("embedJs", function () {
       ])
       .pipe(
         template({
-          polisHostName: polisConfig.SERVICE_HOSTNAME || "pol.is",
+          polisHostName: yaml_config.get('service_hostname') || "pol.is",
         })
       )
       // .pipe(template({
@@ -301,15 +301,15 @@ gulp.task("embedJs", function () {
 gulp.task("index", [], function () {
   var s = gulp.src("index.html");
   var basepath = prepPathForTemplate(destRootRest);
-  var domainWhitelist = '["' + polisConfig.domainWhitelist.join('","') + '"]';
+  var domainWhitelist = '["' + yaml_config.get('domainWhitelist').join('","') + '"]';
   if (devMode) {
     s = s.pipe(
       template({
         basepath: basepath,
         basepath_visbundle: basepath_visbundle_dev,
         d3Filename: "d3.js",
-        fbAppId: polisConfig.FB_APP_ID,
-        useIntercom: !isTrue(polisConfig.DISABLE_INTERCOM),
+        fbAppId: yaml_config.get('fb_app_id'),
+        useIntercom: !isTrue(config.get('disable_intercom')),
         versionString: versionString,
         domainWhitelist: domainWhitelist,
       })
@@ -321,8 +321,8 @@ gulp.task("index", [], function () {
         basepath: basepath, // proxy through server (cached by cloudflare, and easier than choosing a bucket for preprod, etc)
         basepath_visbundle: basepath,
         d3Filename: "d3.min.js",
-        fbAppId: polisConfig.FB_APP_ID,
-        useIntercom: !isTrue(polisConfig.DISABLE_INTERCOM),
+        fbAppId: yaml_config.get('fb_app_id'),
+        useIntercom: !isTrue(yaml_config.get('disable_intercom')),
         versionString: versionString,
         domainWhitelist: domainWhitelist,
       })
