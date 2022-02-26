@@ -55,7 +55,7 @@ var yaml_config = require(POLIS_ROOT + 'config/config.js');
 
 var polisConfig = require("./polis.config");
 
-console.log("Uploader: " + polisConfig.UPLOADER);
+console.log("Uploader: " + yaml_config.get('uploader'));
 
 // WARNING: useJsHint gets mutated in watch builds
 var useJsHint = true;
