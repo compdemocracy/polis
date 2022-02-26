@@ -288,7 +288,7 @@ gulp.task("embedJs", function () {
       ])
       .pipe(
         template({
-          polisHostName: polisConfig.SERVICE_HOSTNAME || "pol.is",
+          polisHostName: yaml_config.get('service_hostname') || "pol.is",
         })
       )
       // .pipe(template({
