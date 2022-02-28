@@ -659,15 +659,15 @@ gulp.task("scriptsD3v4", function () {
 gulp.task("preprodConfig", function () {
   preprodMode = true;
   minified = true;
-  scpSubdir = polisConfig.SCP_SUBDIR_PREPROD;
-  s3Subdir = polisConfig.S3_BUCKET_PREPROD;
+  scpSubdir = yaml_config.get('scp_subdir_preprod');
+  s3Subdir = yaml_config.get('s3_bucket_preprod');
 });
 
 gulp.task("prodConfig", function () {
   prodMode = true;
   minified = true;
-  scpSubdir = polisConfig.SCP_SUBDIR_PROD;
-  s3Subdir = polisConfig.S3_BUCKET_PROD;
+  scpSubdir = yaml_config.get('scp_subdir_prod');
+  s3Subdir = yaml_config.get('s3_bucket_prod');
 });
 
 gulp.task("unminifiedConfig", function () {
