@@ -793,12 +793,12 @@ gulp.task("deploy_TO_PRODUCTION", ["prodConfig", "dist"], function () {
   notifySlackOfDeployment("prod");
 
   var uploader;
-  if ("s3" === polisConfig.UPLOADER) {
+  if ("s3" === yaml_config.get('uploader')) {
     uploader = s3uploader({
       bucket: s3Subdir,
     });
   }
-  if ("scp" === polisConfig.UPLOADER) {
+  if ("scp" === yaml_config.get('uploader')) {
     uploader = scpUploader({
       // TODO needs to upload as prod somehow.
       // subdir: "cached",
@@ -809,7 +809,7 @@ gulp.task("deploy_TO_PRODUCTION", ["prodConfig", "dist"], function () {
       },
     });
   }
-  if ("local" === polisConfig.UPLOADER) {
+  if ("local" === yaml_config.get('uploader')) {
     uploader = localUploader;
     uploader.needsHeadersJson = true;
   }
@@ -820,12 +820,12 @@ function doUpload() {
   notifySlackOfDeployment("preprod");
 
   var uploader;
-  if ("s3" === polisConfig.UPLOADER) {
+  if ("s3" === yaml_config.get('uploader')) {
     uploader = s3uploader({
       bucket: s3Subdir,
     });
   }
-  if ("scp" === polisConfig.UPLOADER) {
+  if ("scp" === yaml_config.get('uploader')) {
     uploader = scpUploader({
       // TODO needs to upload as PREprod somehow.
       // subdir: "cached",
@@ -836,7 +836,7 @@ function doUpload() {
       },
     });
   }
-  if ("local" === polisConfig.UPLOADER) {
+  if ("local" === yaml_config.get('uploader')) {
     uploader = localUploader;
     uploader.needsHeadersJson = true;
   }
@@ -860,7 +860,7 @@ gulp.task("deploySurvey", ["prodConfig", "dist"], function () {
 
 function localUploader(params) {
   params.subdir = params.subdir || "";
-  return gulp.dest(path.join(polisConfig.LOCAL_OUTPUT_PATH, params.subdir));
+  return gulp.dest(path.join(yaml_config.get('local_output_path'), params.subdir));
 }
 
 function s3uploader(params) {
