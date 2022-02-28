@@ -26,7 +26,7 @@ jobs:
 
     # Both components use this version
     - name: Use Node version for app builds
-      uses: actions/setup-node@v2.1.5
+      uses: actions/setup-node@v3
       with:
         node-version: 11.15.0
 
