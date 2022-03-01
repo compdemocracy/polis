@@ -11,6 +11,9 @@ import AWS from "aws-sdk";
 import nodemailer from "nodemailer";
 import mg from "nodemailer-mailgun-transport";
 
+let POLIS_ROOT = process.env.POLIS_ROOT
+var config = require(POLIS_ROOT + 'config/config.js');
+
 // https://docs.aws.amazon.com/sdk-for-javascript/v2/developer-guide/setting-region.html
 // v2 docs, since we use v2 in our package.json: "aws:sdk": "2.78.0"
 AWS.config.update({ region: process.env.AWS_REGION });
