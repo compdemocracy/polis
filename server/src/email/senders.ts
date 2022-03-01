@@ -24,7 +24,7 @@ function sendTextEmailWithBackup(
   subject: any,
   text: any
 ) {
-  const transportTypes = process.env.EMAIL_TRANSPORT_TYPES
+  const transportTypes = config.get('email_transport_types')
   ? config.get('email_transport_types').split(",")
     : ["aws-ses", "mailgun"];
   if (transportTypes.length < 2) {
