@@ -16,7 +16,7 @@ var config = require(POLIS_ROOT + 'config/config.js');
 
 // https://docs.aws.amazon.com/sdk-for-javascript/v2/developer-guide/setting-region.html
 // v2 docs, since we use v2 in our package.json: "aws:sdk": "2.78.0"
-AWS.config.update({ region: process.env.AWS_REGION });
+AWS.config.update({ region: config.get('aws_region') });
 
 function sendTextEmailWithBackup(
   sender: any,
