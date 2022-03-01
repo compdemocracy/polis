@@ -16,9 +16,6 @@ type Req = {
   cookies: { [x: string]: any };
 };
 
-let POLIS_ROOT = process.env.POLIS_ROOT
-var config = require(POLIS_ROOT + 'config/config.js');
-
 const COOKIES = {
   COOKIE_TEST: "ct",
   HAS_EMAIL: "e",
@@ -170,7 +167,7 @@ function setCookieTestCookie(req: any, res: any, setOnPolisDomain: any) {
 
 function shouldSetCookieOnPolisDomain(req: Req) {
   // FIXME domainOverride
-  let setOnPolisDomain = !(config.get('domain_override') || null);
+  let setOnPolisDomain = !(process.env.DOMAIN_OVERRIDE || null);
   let origin = req?.headers?.origin || "";
   if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
     setOnPolisDomain = false;
