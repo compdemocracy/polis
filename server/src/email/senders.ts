@@ -54,7 +54,7 @@ function getMailOptions(transportType: any) {
           // This forces fake credentials if envvars unset, so error is caught
           // in auth and failover works without crashing server process.
           // TODO: Suppress error thrown by mailgun library when unset.
-          api_key: process.env.MAILGUN_API_KEY || "unset-value",
+          api_key: config.get('mailgun_api_key') || "unset-value",
           domain: process.env.MAILGUN_DOMAIN || "unset-value",
         },
       };
