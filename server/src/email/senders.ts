@@ -75,7 +75,7 @@ function sendTextEmail(
   recipient: any,
   subject: any,
   text: any,
-  transportTypes = process.env.EMAIL_TRANSPORT_TYPES,
+  transportTypes = config.get('email_transport_types'),
   priority = 1
 ) {
   // Exit if empty string passed.
