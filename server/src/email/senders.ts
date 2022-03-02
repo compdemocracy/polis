@@ -55,7 +55,7 @@ function getMailOptions(transportType: any) {
           // in auth and failover works without crashing server process.
           // TODO: Suppress error thrown by mailgun library when unset.
           api_key: config.get('mailgun_api_key') || "unset-value",
-          domain: process.env.MAILGUN_DOMAIN || "unset-value",
+          domain: config.get('mailgun_domain') || "unset-value",
         },
       };
       return mg(mailgunAuth);
