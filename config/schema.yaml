@@ -176,6 +176,10 @@ fb_app_id:
   doc: must register with facebook and get a facebook app id to use the facebook auth
     features
   env: FB_APP_ID
+git_hash:
+  default: undefined
+  doc: git_hash
+  env: GIT_HASH
 google_api_key:
   default: undefined
   doc: google_api_key
