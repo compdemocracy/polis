@@ -50,8 +50,8 @@ function prepPathForTemplate(path) {
 
 function getGitHash() {
   return new Promise(function(resolve, reject) {
-    if (process.env.GIT_HASH) {
-      resolve(process.env.GIT_HASH)
+    if (config.get('git_hash')) {
+      resolve(config.get('git_hash'))
     } else {
       console.log('Not GIT_HASH provided. Skipping use.');
       resolve()
