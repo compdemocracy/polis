@@ -53,11 +53,11 @@ if (useTranslateApi) {
   // Tell translation library where to find credentials, and write them to disk.
   process.env.GOOGLE_APPLICATION_CREDENTIALS = ".google_creds_temp";
   // TODO: Consider deprecating GOOGLE_CREDS_STRINGIFIED in future.
-  const creds_string = process.env.GOOGLE_CREDENTIALS_BASE64
-    ? new Buffer(process.env.GOOGLE_CREDENTIALS_BASE64, "base64").toString(
+  const creds_string = config.get('google_credentials_base64')
+    ? new Buffer(config.get('google_credentials_base64'), "base64").toString(
         "ascii"
       )
-    : (process.env.GOOGLE_CREDS_STRINGIFIED as string | NodeJS.ArrayBufferView);
+    : (config.get('google_creds_stringified') as string | NodeJS.ArrayBufferView);
   fs.writeFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS, creds_string);
   translateClient = Translate();
 }
