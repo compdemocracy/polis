@@ -31,7 +31,7 @@ function getServerNameWithProtocol(req: any) {
 }
 
 function get(key: any) {
-  return process.env[key];
+  return config.get(key.toLowerCase());
 }
 
 function isDevMode() {
