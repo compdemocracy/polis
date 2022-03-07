@@ -1,7 +1,11 @@
 import boolean from "boolean";
-const devMode = boolean(get('DEV_MODE'));
 
-const domainOverride = process.env.DOMAIN_OVERRIDE || null;
+let POLIS_ROOT = process.env.POLIS_ROOT
+var config = require(POLIS_ROOT + 'config/config.js');
+
+const devMode = boolean(config.get('dev_mode'));
+
+const domainOverride = config.get('domain_override') || null;
 
 function getServerNameWithProtocol(req: any) {
   let server = "https://pol.is";
@@ -24,10 +28,6 @@ function getServerNameWithProtocol(req: any) {
     server = "https://survey.pol.is";
   }
   return server;
-}
-
-function get(key: any) {
-  return process.env[key];
 }
 
 function isDevMode() {
