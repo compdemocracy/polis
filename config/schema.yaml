@@ -184,6 +184,10 @@ google_api_key:
   default: undefined
   doc: google_api_key
   env: GOOGLE_API_KEY
+google_credentials_base64:
+  default: X
+  doc: google_credentials_base64
+  env: GOOGLE_CREDENTIALS_BASE64
 google_creds_stringified:
   default: X
   doc: google_creds_stringified
