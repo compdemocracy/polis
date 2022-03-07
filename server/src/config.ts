@@ -5,7 +5,7 @@ var config = require(POLIS_ROOT + 'config/config.js');
 
 const devMode = boolean(get('DEV_MODE'));
 
-const domainOverride = process.env.DOMAIN_OVERRIDE || null;
+const domainOverride = config.get('domain_override') || null;
 
 function getServerNameWithProtocol(req: any) {
   let server = "https://pol.is";
