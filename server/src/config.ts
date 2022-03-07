@@ -3,7 +3,7 @@ import boolean from "boolean";
 let POLIS_ROOT = process.env.POLIS_ROOT
 var config = require(POLIS_ROOT + 'config/config.js');
 
-const devMode = boolean(get('DEV_MODE'));
+const devMode = boolean(config.get('dev_mode'));
 
 const domainOverride = config.get('domain_override') || null;
 
