@@ -239,8 +239,8 @@ gulp.task("connect", [], function () {
 
 function getGitHash() {
   return new Promise(function (resolve, reject) {
-    if (config.get('git_hash')) {
-      resolve(config.get('git_hash'))
+    if (yaml_config.get('git_hash')) {
+      resolve(yaml_config.get('git_hash'))
     } else {
       console.log("No GIT_HASH provided. Skipping use.");
       resolve();
