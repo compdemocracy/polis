@@ -1,6 +1,6 @@
 
 # Pol.is Terms of Use
-Last Updated: 11/05/2021
+Last Updated: 2022/03/07
 
 Welcome, and thank you for your interest in The Computational Democracy Project ("we," or "us") and our Web site at <https://pol.is/> (the "Site"), as well as all related web sites, networks, embeddable widgets, downloadable software, mobile applications (including tablet applications), and other services provided by us and on which a link to these Terms of Use is displayed (collectively, together with the Site, our "Service").
 These Terms of Use are a legally binding contract between you and The Computational Democracy Project regarding your use of the Service.
