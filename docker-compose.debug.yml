@@ -1,0 +1,12 @@
+version: "3.4"
+
+services:
+  polis:
+    image: polis
+    build:
+      context: server
+      dockerfile: ./Dockerfile
+    environment:
+      NODE_ENV: development
+
+    command: ["npm", "run", "dev"]

@@ -1,0 +1,30 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Docker: Attach to Node",
+      "type": "node",
+      "request": "attach",
+      "port": 9229,
+      "address": "localhost",
+      "protocol": "inspector",
+      "remoteRoot": "/app",
+      "localRoot": "${workspaceFolder}/server",
+      "restart": true
+    },
+    {
+      "name": "Docker Node.js Launch",
+      "type": "docker",
+      "request": "launch",
+      "preLaunchTask": "docker-run: debug",
+      "platform": "node",
+      "node": {
+        "package": "${workspaceFolder}/server/package.json",
+        "localRoot": "${workspaceFolder}/server"
+      }
+    }
+  ]
+}

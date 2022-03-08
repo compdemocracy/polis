@@ -1,6 +1,32 @@
-const _ = require("underscore");
+import _ from "underscore";
 
-function strToHex(str) {
+type PolisTypes = {
+  reactions: Reactions;
+  staractions: StarActions;
+  mod: Mod;
+  reactionValues?: any;
+  starValues?: any;
+};
+
+type Reactions = {
+  push: number;
+  pull: number;
+  see: number;
+  pass: number;
+};
+
+type StarActions = {
+  unstar: number;
+  star: number;
+};
+
+type Mod = {
+  ban: number;
+  unmoderated: number;
+  ok: number;
+};
+
+function strToHex(str: string) {
   let hex, i;
   // let str = "\u6f22\u5b57"; // "\u6f22\u5b57" === "漢字"
   let result = "";
@@ -11,7 +37,7 @@ function strToHex(str) {
   return result;
 }
 
-function hexToStr(hexString) {
+function hexToStr(hexString: string) {
   let j;
   let hexes = hexString.match(/.{1,4}/g) || [];
   let str = "";
@@ -21,7 +47,7 @@ function hexToStr(hexString) {
   return str;
 }
 
-let polisTypes = {
+let polisTypes: PolisTypes = {
   reactions: {
     push: 1,
     pull: -1,
@@ -41,8 +67,6 @@ let polisTypes = {
 polisTypes.reactionValues = _.values(polisTypes.reactions);
 polisTypes.starValues = _.values(polisTypes.staractions);
 
-module.exports = {
-  strToHex,
-  hexToStr,
-  polisTypes,
-};
+export { strToHex, hexToStr, polisTypes };
+
+export default { strToHex, hexToStr, polisTypes };
