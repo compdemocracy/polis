@@ -22,7 +22,7 @@ var config = require(POLIS_ROOT + 'config/config.js');
 // Note we use native
 const usingReplica =
 config.get('database_url') !==
-  process.env[config.get('database_for_reads_name') as string];
+  config.get(config.get('database_for_reads_name').toLowerCase());
 const poolSize = isDevMode() ? 2 : usingReplica ? 3 : 12;
 
 // not sure how many of these config options we really need anymore
@@ -43,7 +43,7 @@ const readsPgConnection = Object.assign(
     //     (property) NodeJS.Process.env: NodeJS.ProcessEnv
     // Type 'undefined' cannot be used as an index type.ts(2538)
     // @ts-ignore
-    process.env[config.get('database_for_reads_name')] || ""
+    config.get(config.get('database_for_reads_name').toLowerCase()) || ""
   ),
   {
     max: poolSize,
