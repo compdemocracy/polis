@@ -84,6 +84,10 @@ client_participation_port:
   doc: Note that this must match the participation client port specified in polisServer
     instance
   env: CLIENT_PARTICIPATION_PORT
+database_for_reads_name:
+  default: postgres://postgres:oiPorg3Nrz0yqDLE@postgres:5432/polis-dev
+  doc: database_for_reads_name (often is the same as database_url)
+  env: DATABASE_FOR_READS_NAME
 database_for_reads_url:
   default: postgres://postgres:oiPorg3Nrz0yqDLE@postgres:5432/polis-dev
   doc: database_for_reads_url (often is the same as database_url)
