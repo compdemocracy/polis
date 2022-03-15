@@ -51,14 +51,14 @@ const useTranslateApi = isTrue(config.get('should_use_translation_api'));
 let translateClient: any = null;
 if (useTranslateApi) {
   // Tell translation library where to find credentials, and write them to disk.
-  config.set('google_application_credentials', ".google_creds_temp");
+  process.env.GOOGLE_APPLICATION_CREDENTIALS = ".google_creds_temp";
   // TODO: Consider deprecating GOOGLE_CREDS_STRINGIFIED in future.
   const creds_string = config.get('google_credentials_base64')
     ? new Buffer(config.get('google_credentials_base64'), "base64").toString(
         "ascii"
       )
     : (config.get('google_creds_stringified') as string | NodeJS.ArrayBufferView);
-  fs.writeFileSync(config.get('google_application_credentials'), creds_string);
+    fs.writeFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS, creds_string);
   translateClient = Translate();
 }
 
