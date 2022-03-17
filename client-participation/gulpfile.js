@@ -77,10 +77,10 @@ var host;
 var basepath_visbundle_dev = "/foo";
 
 var webpack = require("webpack");
-var config = require("./webpack.config.dev");
-config.output.publicPath = basepath_visbundle_dev + "/js/";
-// console.log(config.output.publicPath);
-var compiler = webpack(config);
+var webpack_config = require("./webpack.config.dev");
+webpack_config.output.publicPath = basepath_visbundle_dev + "/js/";
+// console.log(webpack_config.output.publicPath);
+var compiler = webpack(webpack_config);
 var webpackStream = require("webpack-stream");
 
 function showDesktopNotification(title, body) {
@@ -131,7 +131,7 @@ gulp.task("connect", [], function () {
 
   app.use(
     require("webpack-dev-middleware")(compiler, {
-      publicPath: config.output.publicPath,
+      publicPath: webpack_config.output.publicPath,
     })
   );
 
@@ -307,7 +307,7 @@ gulp.task("index", [], function () {
         basepath_visbundle: basepath_visbundle_dev,
         d3Filename: "d3.js",
         fbAppId: polis_config.get('fb_app_id'),
-        useIntercom: !isTrue(config.get('disable_intercom')),
+        useIntercom: !isTrue(webpack_config.get('disable_intercom')),
         versionString: versionString,
         domainWhitelist: domainWhitelist,
       })
@@ -469,7 +469,7 @@ gulp.task("scriptsVis2", ["jshint"], function () {
     : "./webpack.config.unminified.js";
 
   var configProd = require(webpackFilename);
-  config.output.publicPath = destRoot() + "/js/";
+  webpack_config.output.publicPath = destRoot() + "/js/";
 
   return gulp
     .src("./vis2/vis2.js")
