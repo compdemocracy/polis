@@ -14,7 +14,7 @@ module.exports = {
       "maxSize": "180 kB",
     },
     {
-      "path": "client-participation/dist_foo/vis_bundle.js",
+      "path": "client-participation/dist/vis_bundle.js",
       "maxSize": "900 kB",
     },
   ]
