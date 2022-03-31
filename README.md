@@ -47,21 +47,17 @@ If you have a small machine or little hard drive space, you may want to consider
 
 ### Running with docker-compose:
 
-Before running docker-compose up for the first time:
+Before running `docker-compose up` for the first time:
 
 After cloning, navigate via command line to the root of this repository.
 
-Next, either do a pull (faster):
+Next, do a build (to utilize recent or local changes):
 
-`docker-compose pull`
+`docker-compose build client-admin client-participation client-report`
 
-If you get a permission error, try running `sudo docker-compose pull`, and sudo will be necessary for all other commands as well. To avoid having to run `sudo` in the future, you can follow setup instruction here: https://docs.docker.com/engine/install/linux-postinstall/
+`docker-compose up --build --detach`
 
-or do a build (to utilize recent or local changes):
-
-`docker-compose up --build`
-
-once you've either pulled or built, you can run the following when you want to run the project:
+Once you've built for the first time, you can run the following when you want to run the project:
 
 `docker-compose up`
 
