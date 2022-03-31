@@ -19,7 +19,7 @@ We recommend installing [nvm](https://github.com/creationix/nvm) so that you can
 
 ### Setup
 
-1. Create a new datbase. You can name it whatever you please.
+1. Create a new database. You can name it whatever you please.
     ```sh
     create database polis;
     ```
