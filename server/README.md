@@ -24,12 +24,13 @@ We recommend installing [nvm](https://github.com/creationix/nvm) so that you can
     create database polis;
     ```
     Depending on your environment and postgresql version, you may instead need to run something like `createdb polis` or `sudo -u postgres createdb polis` to get this to work.
-1. Connect to the new database then run `postgres/db_setup_draft.sql` in its shell
+1. Connect to the new database then run the migrations in its shell.
     ```
-    \connect polis;
-    \i postgres/db_setup_draft.sql`;
+    \connect polis
+    \i postgres/migrations/000000_initial.sql
+    \i postgres/migrations/000001_update_pwreset_table.sql
     ```
-    You can also separately run `psql -d polis -f postgres/db_setup_draft.sql` from the shell.
+    You can also separately run `psql -d polis -f postgres/migrations/000000_initial.sql` and `psql -d polis -f postgres/migrations/000001_update_pwreset_table.sql` from the shell.
 1. Create development envs file
     ```sh
     $ cp .env_dev_local_db_template .env_dev
