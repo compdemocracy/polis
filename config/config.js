@@ -27,7 +27,7 @@ try {
     console.log(e);
 }
 
-console.log('default aws_region:' + config.get('aws_region'));
+// console.log('default aws_region:' + config.get('aws_region'));
 
 // Load environment dependent configuration
 var env = config.get('env');
