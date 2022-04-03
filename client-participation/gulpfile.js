@@ -307,7 +307,7 @@ gulp.task("index", [], function () {
         basepath_visbundle: basepath_visbundle_dev,
         d3Filename: "d3.js",
         fbAppId: polis_config.get('fb_app_id'),
-        useIntercom: !isTrue(webpack_config.get('disable_intercom')),
+        useIntercom: !isTrue(polis_config.get('disable_intercom')),
         versionString: versionString,
         domainWhitelist: domainWhitelist,
       })
