@@ -52,7 +52,7 @@
     "hull.js": "^0.2.10",
     "jquery": "^2.1.4",
     "lodash": "4.17.21",
-    "moment": "^2.14.1",
+    "moment": "^2.29.2",
     "moment-range": "^2.2.0",
     "prop-types": "^15.5.10",
     "query-string": "^4.2.3",
