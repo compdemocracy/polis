@@ -7,6 +7,8 @@ version: "3.1"
 services:
   server:
     command: npm run dev
+    # Is this what we'll want here?
+    #command: npm run build:watch && npm run serve
     volumes:
       - "./server:/app"
     ports:
