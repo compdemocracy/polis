@@ -15,7 +15,8 @@ RUN apk del .build
 
 COPY . .
 
+RUN npm run build
+
 EXPOSE 5000
 
-
-CMD npm run build && npm run serve
+CMD npm run serve
