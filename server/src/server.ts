@@ -2056,7 +2056,6 @@ function initializePolisHelpers() {
       math_tick = -1;
     }
     function finishWith304or404() {
-      let pcaResultsExistForZid: {};
       // Element implicitly has an 'any' type
       // because expression of type 'any' can't be used to index type '{ } '.ts(7053)
       // @ts-ignore
