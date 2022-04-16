@@ -1,7 +1,7 @@
 ARG TAG=dev
 
 # polis-client-admin
-FROM docker.io/node:17.3.0-alpine
+FROM docker.io/node:11.15.0-alpine
 
 WORKDIR /client-admin/app
 
