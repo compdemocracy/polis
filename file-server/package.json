@@ -10,7 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "finalhandler": "^1.1.2",
+    "finalhandler": "^1.2.0",
     "serve-static": "^1.14.1"
   }
 }
