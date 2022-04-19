@@ -6,7 +6,7 @@ version: "3.4"
 
 services:
   server:
-    command: npm run build:watch
+    command: npm run dev
     environment:
       NODE_ENV: development
     # Is this what we'll want here?
