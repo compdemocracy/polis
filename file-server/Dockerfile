@@ -1,11 +1,16 @@
 ARG TAG=dev
 
 # polis-client-admin
-FROM docker.io/node:11.15.0-alpine
+FROM docker.io/node:11.15.0-alpine AS client-base
+
+RUN apk add git g++ make python openssh --no-cache
+
+
+
+# polis-client-admin
+FROM client-base AS client-admin
 
 WORKDIR /client-admin/app
-
-RUN apk add git --no-cache
 
 COPY client-admin/package*.json ./
 RUN npm install
@@ -17,14 +22,13 @@ COPY client-admin/. .
 ARG GIT_HASH
 RUN npm run deploy:prod
 
+
+
 # polis-client-participation
 # # Gulp v3 stops us from upgrading beyond Node v11
-FROM docker.io/node:11.15.0-alpine
+FROM client-base AS client-participation
 
-WORKDIR ../../client-participation/app
-
-RUN apk add --no-cache --virtual .build \
-  g++ git make python
+WORKDIR /client-participation/app
 
 # Allow global npm installs in Docker
 RUN npm config set unsafe-perm true
@@ -35,9 +39,8 @@ RUN npm install -g npm@6.9.2
 
 COPY client-participation/package*.json ./
 
+# It would be nice if this was ci, but misbehaving for some reason
 RUN npm ci
-
-RUN apk del .build
 
 COPY client-participation/polis.config.template.js polis.config.js
 # If polis.config.js exists on host, will override template here.
@@ -51,14 +54,12 @@ RUN npm run deploy:prod
 
 # polis-client-report
 # Gulp v3 stops us from upgrading beyond Node v11
-FROM docker.io/node:11.15.0-alpine
+FROM client-base AS client-report
 
-WORKDIR ../../client-report/app
-
-RUN apk add git --no-cache
+WORKDIR /client-report/app
 
 COPY client-report/package*.json ./
-RUN npm ci
+RUN npm install
 
 COPY client-report/polis.config.template.js polis.config.js
 # If polis.config.js exists on host, will override template here.
@@ -68,6 +69,8 @@ ARG GIT_HASH
 RUN npm run deploy:prod
 
 
+
+# actual file server component
 FROM docker.io/node:16.9.0-alpine
 
 WORKDIR /app
@@ -76,13 +79,15 @@ COPY file-server/package*.json ./
 
 RUN npm ci
 
-COPY file-server/. .
 COPY file-server/fs_config.template.json fs_config.json
+# If fs_config.json exists, will override the template here.
+COPY file-server/. .
 
+# use the multi-stage builds above to copy out the resources
 RUN mkdir /app/build
-COPY --from=0         /client-admin/app/build/         /app/build
-COPY --from=1         /client-participation/app/build/ /app/build
-COPY --from=2         /client-report/app/build/        /app/build
+COPY --from=client-admin         /client-admin/app/build/         /app/build
+COPY --from=client-participation /client-participation/app/build/ /app/build
+COPY --from=client-report        /client-report/app/build/        /app/build
 
 EXPOSE 8080
 
