@@ -1,4 +1,4 @@
-FROM docker.io/nginx:1.21.5-alpine
+FROM docker.io/nginx:1.21.6-alpine
 
 COPY nginx/nginx-ssl.site.default.conf /etc/nginx/conf.d/default.conf
 
