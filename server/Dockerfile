@@ -1,4 +1,4 @@
-FROM node:14.14.0-alpine
+FROM docker.io/node:14.14.0-alpine
 
 WORKDIR /app
 
@@ -15,10 +15,8 @@ RUN apk del .build
 
 COPY . .
 
+RUN npm run build
+
 EXPOSE 5000
-# For vscode debug
-EXPOSE 9229
 
-
-# CMD npm run build && npm run serve
-CMD npm run build:watch && npm run serve
+CMD npm run serve

@@ -9,22 +9,28 @@
          '[clojure.java.io :as io]
          '[clojure.string :as string])
 
-(pods/load-pod 'org.babashka/postgresql "0.0.1")
-(pods/load-pod 'org.babashka/aws "0.0.5")
+(pods/load-pod 'org.babashka/postgresql "0.0.7")
+(pods/load-pod 'org.babashka/aws "0.0.6")
 (deps/add-deps '{:deps {honeysql/honeysql {:mvn/version "1.0.444"}}})
 
 (require '[pod.babashka.postgresql :as pg]
          '[honeysql.core :as hsql]
          '[honeysql.helpers :as hsqlh]
-         '[pod.babashka.aws :as aws])
+         '[pod.babashka.aws :as aws]
+         '[pod.babashka.aws.credentials :as aws-creds])
 
 ;; Should move this to arg parsing if and when available
 (def region (or (System/getenv "AWS_REGION")
                 "us-east-1"))
 
+(def creds-provider
+  (aws-creds/basic-credentials-provider
+    {:access-key-id (System/getenv "AWS_ACCESS_KEY")
+     :secret-access-key (System/getenv "AWS_SECRET_KEY")}))
+
 (def s3-client
   "The s3 client for this process"
-  (aws/client {:api :s3 :region region}))
+  (aws/client {:api :s3 :region region :credentials-provider creds-provider}))
 
 ;; list available s3 actions
 ;(map first (aws/ops s3-client))
@@ -96,7 +102,7 @@
 
 (defn latest-version [cache-dir]
   (->> (.listFiles (io/file cache-dir))
-       (sort-by #(mapv try-int (string/split % #"_")))
+       (sort-by #(mapv try-int (string/split (str %) #"_")))
        (last)))
 
 ;(latest-version "participation-client/dist/cached")
@@ -205,15 +211,14 @@
 
 (def concurrent-requests 12)
 
-(println "arg" (pr-str (first *command-line-args*)))
-(def bucket
-  (case (first *command-line-args*)
+(defn get-bucket [bucket-arg]
+  (case bucket-arg
     "PRODUCTION" "pol.is"
     ;; else
-    "preprod.pol.is"))
+    ("preprod" "edge") "preprod.pol.is"
+    bucket-arg))
 
-
-(def responses
+(defn responses [bucket]
   (let [requests (mapcat (partial spec-requests bucket)
                          deploy-specs)
         output-chan (async/chan concurrent-requests)]
@@ -223,18 +228,25 @@
                              (async/to-chan requests))
     (async/<!! (async/into [] output-chan))))
 
-(def errors
+(defn errors [responses]
   (remove (comp :ETag second)
           responses))
 
-(if (not-empty errors)
-  (do
-    (println "Problem processing" (count errors) "requests")
-    (doseq [[request response] errors]
-      (println "Problem processing request:" request)
-      (pp/pprint response)))
-  (println "Deploy completed without error."))
+(defn -main [& {:as opts-map :strs [--bucket]}]
+  (let [bucket (get-bucket --bucket)
+        _ (println "Deploying static assets to bucket:" bucket)
+        responses (responses bucket)
+        errors (errors responses)]
+    (if (not-empty errors)
+      (do
+        (println "Problem processing" (count errors) "requests")
+        (doseq [[request response] errors]
+          (println "Problem processing request:" request)
+          (pp/pprint response)))
+      (println "Deploy completed without error."))))
 
+
+(apply -main *command-line-args*)
 
 ;; QED
 
