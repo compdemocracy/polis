@@ -18,12 +18,15 @@
     [ring.middleware.basic-authentication :as auth :refer [wrap-basic-authentication]]
     [bidi.ring]
     [com.stuartsierra.component :as component]
-    [amazonica.aws.s3 :as s3]
+    [cognitect.aws.client.api :as aws]
+    [cognitect.aws.credentials :as aws-creds]
+    ;[amazonica.aws.s3 :as s3]
     [clj-time.core :as time]
     [clj-http.client :as client]
     [polismath.utils :as utils]
     [clojure.set :as set]
-    [polismath.components.postgres :as postgres]))
+    [polismath.components.postgres :as postgres]
+    [clojure.java.io :as io]))
 
 
 
@@ -66,12 +69,12 @@
   (str (-> darwin :config :math-env-string) "/" filename))
 
 (defn upload-to-aws
-  [darwin filename]
-  (s3/put-object (aws-cred darwin)
-                 :bucket-name "polis-datadump"
-                 :key (full-aws-path darwin filename)
-                 :file (export/full-path darwin filename)))
-
+  [{:as darwin :keys [s3-client]} filename]
+  (aws/invoke s3-client
+              {:op :PutObject
+               :request {:Bucket "polis-datadump"
+                         :Body (io/input-stream (io/file filename))
+                         :Key (full-aws-path darwin filename)}}))
 
 (defn send-email-notification-via-polis-api!
   [darwin {:as params :keys [zinvite email filename]}]
@@ -222,10 +225,14 @@
 
 
 ;; NOOP right now for compatibility
-(defrecord Darwin [config postgres conversation-manager handler]
+(defrecord Darwin [config postgres conversation-manager s3-client]
   component/Lifecycle
   (start [component]
-    component)
+    (let [creds (aws-creds/basic-credentials-provider
+                  (get config :aws))]
+      (assoc component
+             :s3-client (aws/client {:api :s3
+                                     :credentials-provider creds}))))
   (stop [component]
     component))
 

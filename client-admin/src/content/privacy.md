@@ -1,8 +1,8 @@
 
 # Pol.is Privacy Policy
-Last Updated: 6/17/2020
+Last Updated: 2022/03/07
 
-This privacy policy (this "Policy") describes the collection of personal information by Math & Democracy, a corporation Washington nonprofit ("Math & Democracy," "we," or "us") from users of our Web site at "http://pol.is/" (the "Site"), as well as all related applications, widgets, software, tools, and other services provided by us and on which a link to this Policy is displayed (collectively, together with the Site, our "Services").
+This privacy policy (this "Policy") describes the collection of personal information by The Computational Democracy Project, a corporation Washington nonprofit ("The Computational Democracy Project," "we," or "us") from users of our Web site at "http://pol.is/" (the "Site"), as well as all related applications, widgets, software, tools, and other services provided by us and on which a link to this Policy is displayed (collectively, together with the Site, our "Services").
 This Policy also describes our use and disclosure of such information.
 By using our Services, you consent to the collection, use, and disclosure of personal information in accordance with this Policy.
 This Policy is incorporated by reference into the Terms of Use (<https://pol.is/tos>) and subject to the provisions of the Terms of Use.
@@ -72,7 +72,7 @@ We may also use your Personal Information:
 * To set up and maintain your account, and to do all other things required for providing our services, such as backing up and restoring your data.
 * To understand how our services are used, to monitor and prevent problems with our Site and/or services, and to improve our Site and/or services.
 * To provide customer support.
-* To detect and prevent fraudulent transactions and other illegal activities, to report spam, and to protect the rights and interests Math & Democracy’s customers, third parties, and the public.
+* To detect and prevent fraudulent transactions and other illegal activities, to report spam, and to protect the rights and interests The Computational Democracy Project’s customers, third parties, and the public.
 * To update, modify, and analyze our records, and to identify prospective customers with their consent.
 * To identify and analyze trends, track user activity on the Site, and understand what Site visitors are looking for with their consent where necessary.
 * To create, monitor, and improve marketing campaigns with visitor consent.
@@ -126,7 +126,7 @@ Please review the relevant settings before posting User Materials.
 Please note that some interactions on the Service are dedicated non-anonymous by the moderators of those interactions.
 You will be notified that a given interaction is non-anonymous before posting any User Materials to such an interaction.
 If you receive commercial e-mail from us, you may unsubscribe at any time by following the instructions contained within the e-mail.
-You may also opt-out from receiving commercial e-mail from us, and any other promotional communications that we may send to you from time to time (e.g., by postal mail) by sending your request to us by e-mail at [contact@mathdem.org] or by writing to us at the address given at the end of this policy.
+You may also opt-out from receiving commercial e-mail from us, and any other promotional communications that we may send to you from time to time (e.g., by postal mail) by sending your request to us by e-mail at <admin@compdemocracy.org> or by writing to us at the address given at the end of this policy.
 Additionally, we may allow you to view and modify settings relating to the nature and frequency of promotional communications that you receive from us.
 Please be aware that if you opt-out of receiving commercial e-mail from us, it may take up to ten business days for us to process your opt-out request, and you may receive commercial e-mail from us during that period.
 Additionally, even after you opt-out from receiving commercial messages from us, you will continue to receive administrative messages from us regarding our Services.
@@ -134,7 +134,7 @@ Additionally, even after you opt-out from receiving commercial messages from us,
 ## Access
 
 If we offer the ability to create user accounts or profiles on our Services, you may have the ability to access and update many categories of personal information that you provide to us by logging in to your account and accessing your account settings.
-If you wish to access or amend any other personal information we hold about you, you may contact us at [contact@mathdem.org].
+If you wish to access or amend any other personal information we hold about you, you may contact us at <admin@compdemocracy.org>.
 If you request that we delete your account on any of our Services (via a user settings page, by e-mail, or otherwise), we will do so within a reasonable period of time, but we may need to retain some of your Personal Information in order to satisfy our legal obligations, or where we reasonably believe that we have a legitimate reason to do so.
 
 ## Links
@@ -151,7 +151,7 @@ We encourage you to carefully review the privacy policies applicable to any Web 
 Children's safety is important to us, and we encourage parents and guardians to take an active interest in the online activities of their children.
 We do not knowingly collect Personal Information from children under the age of 16without obtaining parental consent.
 If we learn that we have collected personal information from a child under the age of 16on our Services, we will delete that information as quickly as possible.
-If you believe that we may have collected any such personal information on our Services, please notify us at contact@mathdem.org
+If you believe that we may have collected any such personal information on our Services, please notify us at <admin@compdemocracy.org>.
 
 ## Security & Retention
 
@@ -175,10 +175,10 @@ You should know that each region can have its own privacy and data security laws
 ## Supplemental Notice to EU Data Subjects
 
 For those individual users of the Site who reside in the European Economic Area or Switzerland (collectively the “EU”), and for which the General Data Protection Regulation effective 25 May 2018 (the “GDPR”) applies, we have implemented the practices described below to provide you with control over your data that comprises “Personal Data” under the GDPR.
-Under the GDPR you are defined as a “Data Subject” and Math & Democracy is a “Data Controller” for Personal Data that it obtains and processes pursuant to this Privacy Policy.
-Our Data Protection Officer is Christopher Small and can be reached at contact@mathdem.org. 
+Under the GDPR you are defined as a “Data Subject” and The Computational Democracy Project is a “Data Controller” for Personal Data that it obtains and processes pursuant to this Privacy Policy.
+Our Data Protection Officer is Christopher Small and can be reached at <admin@compdemocracy.org>. 
 
-**Lawful Grounds for Processing Personal Data of Data Subjects:** (a) your consent; (b) contract; (c) legal obligation; vital interest; (d) public task; and (e) the legitimate interest of Math & Democracy or a third-party.
+**Lawful Grounds for Processing Personal Data of Data Subjects:** (a) your consent; (b) contract; (c) legal obligation; vital interest; (d) public task; and (e) the legitimate interest of The Computational Democracy Project or a third-party.
 Where we rely on your consent as the legal grounds, you have the right to withdraw your consent at any time, but this will not affect any processing that has already taken place.
 Where we rely on legitimate interests as the legal basis and those legitimate interests are not specified above, we will explain to you what those legitimate interests are at the time that we collect your information.
 
@@ -187,7 +187,7 @@ We make the transfer to the United States in the absence of an adequacy decision
 In the event such a transfer is made, we will employ appropriate safeguards such as binding corporate rules, contractual agreements, or certification mechanisms in conjunction with binding and enforceable commitments to protect the transferred Personal Data.
 
 **Individual Rights and Data Subject Requests:** You may exercise certain rights, described below, under the GDPR.
-In order to exercise any of the rights described below, please contact us at contact@mathdem.org and provide specific and detailed information about your request necessary for us to respond to and carry out your request. 
+In order to exercise any of the rights described below, please contact us at <admin@compdemocracy.org> and provide specific and detailed information about your request necessary for us to respond to and carry out your request. 
 
 * **You may object to processing:** you may object to certain types of processing, including processing of your information for direct marketing purposes.
 * **You may request to be informed about our processing:** you may request information about how we process your Personal Data and your rights under the GDPR.
@@ -216,7 +216,7 @@ We encourage you to periodically review this Policy to stay informed about how w
 
 If you have any questions or comments about this Policy, please contact us using the following contact information:
 
-Math & Democracy<br/>
+The Computational Democracy Project<br/>
 PO Box 30877, Seattle WA, 98113, United States of America<br/>
-<contact@mathdem.org> 
+<admin@compdemocracy.org> 
 
