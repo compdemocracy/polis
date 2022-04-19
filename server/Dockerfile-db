@@ -1,4 +1,4 @@
-FROM docker.io/postgres:13.4-alpine
+FROM docker.io/postgres:14.2-alpine
 
 # Used when no existing database on postgres volume, including first initialization.
 # See: docs/deployment.md#database-migrations
