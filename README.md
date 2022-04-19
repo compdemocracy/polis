@@ -90,9 +90,7 @@ The system should start running without any configuration.
 However, as you go on (and especially if you are setting up a production deployment), you'll need to know how to configure the application.
 
 At the moment, there are a number of configuration files and environment variable options scattered across the repository.
-There _is_ currently an open PR which seeks to unify the configuration options which we're actively working on:
-
-https://github.com/compdemocracy/polis/pull/1341
+There _is_ currently an open PR which seeks to unify the configuration options which we're actively working on: https://github.com/compdemocracy/polis/pull/1341
 
 
 ### Miscellaneous & troubleshooting
@@ -120,7 +118,7 @@ If you would like to run docker compose as a background process, run the `up` co
 And to stop:
 `docker-compose down`
 
-### Using Docker Machine as your development environment
+#### Using Docker Machine as your development environment
 
 https://github.com/compdemocracy/polis/wiki/Using-Docker-Machine-as-your-development-environment
 
