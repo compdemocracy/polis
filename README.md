@@ -64,8 +64,8 @@ If you are using an older version (and don't want to upgrade), you'll need to se
 
 After cloning the repository, navigate via command line to the root directory and run the following command to build and run the docker containers:
 
-```
-docker comopse -f docker-compose.yml -f docker-compose.dev.yml up --build
+```sh
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 ```
 
 If you get a permission error, try running this command with `sudo`.
@@ -74,13 +74,15 @@ To avoid having to use `sudo` in the future (on a Linux or Windows machine with 
 
 Once you've built, you can run the following when you want to run the project:
 
-`docker compose -f docker-compose.yml -f docker-compose.dev.yml up`
+```sh
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+```
 
 That's it!
 
 ### Testing out your instance
 
-You can now test your setup by visiting `http://localhost:80/` (or localhost:5000).
+You can now test your setup by visiting `http://localhost:80/`.
 
 Once the index page loads, you can create an account using the `/createuser` path. You'll be logged in right away; email validation is not required.
 
@@ -92,6 +94,19 @@ However, as you go on (and especially if you are setting up a production deploym
 At the moment, there are a number of configuration files and environment variable options scattered across the repository.
 There _is_ currently an open PR which seeks to unify the configuration options which we're actively working on: https://github.com/compdemocracy/polis/pull/1341
 
+### Scaling the polis server
+
+If you plan on running a large conversations or lots of conversations at once,
+you might bump into performance issues.
+
+Assuming that the host has enough resources to run multiple instances of the
+polis server container, you can start polis using the following command:
+
+```sh
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --scale server=3
+```
+
+Where `3` is the number of replicas you'd like to use.
 
 ### Miscellaneous & troubleshooting
 

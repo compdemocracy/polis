@@ -17,7 +17,6 @@ version: "3.4"
 
 services:
   server:
-    container_name: polis-server
     env_file: ./server/docker-dev.env
     image: docker.io/compdem/polis-server:${TAG}
     build:
@@ -28,8 +27,8 @@ services:
       - "file-server"
     networks:
       - "polis-net"
-    ports:
-      - "5000:5000"
+    # Scale the server container to a given number of instances.
+    scale: 1
 
   math:
     container_name: polis-math
