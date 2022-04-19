@@ -59,6 +59,7 @@ FROM client-base AS client-report
 WORKDIR /client-report/app
 
 COPY client-report/package*.json ./
+# This should be working with `npm ci`, but isn't; Need to debug
 RUN npm install
 
 COPY client-report/polis.config.template.js polis.config.js
