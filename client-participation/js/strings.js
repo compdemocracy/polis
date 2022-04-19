@@ -48,12 +48,15 @@ var translations = {
 
   // Welsh
   cy: require("./strings/cy.js"),
-  
+
   // Greek
   gr: require("./strings/gr.js"),
 
   // Ukrainian
   uk: require("./strings/uk.js"),
+
+  // Russian
+  ru: require("./strings/ru.js"),
 };
 
 
@@ -127,6 +130,9 @@ preloadHelper.acceptLanguagePromise.then(function() {
     }
     else if (languageCode.match(/^uk/)) {
       _.extend(strings, translations.uk);
+    }
+    else if (languageCode.match(/^ru/)) {
+      _.extend(strings, translations.ru);
     }
   });
 });
