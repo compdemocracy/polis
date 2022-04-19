@@ -14,7 +14,7 @@ import async from "async";
 // @ts-ignore
 import FB from "fb";
 import fs from "fs";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import crypto from "crypto";
 // May not need this anymore; looks like we're just using the other Intercom api, but need to figure out
 // what's going on here
