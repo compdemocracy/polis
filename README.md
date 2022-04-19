@@ -108,6 +108,53 @@ docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --scale server
 
 Where `3` is the number of replicas you'd like to use.
 
+### Kubernetes
+
+**Warning:** This is work in progress and should not be used in production.
+
+Under the `manifests` folder you can find a first version of polis running under
+Kubernetes. It uses an in-cluster postegres as a stateful set, with a persistent
+volume claim, and exposes the polis server using the cluster's ingress.
+
+The setting of the ingress is not part of the provided resources as it will vary
+between providers.
+
+#### Todo
+
+- [ ] Use official postgres image, decouple migrations
+- [ ] Figure out and document the default resources for the services
+- [ ] Document architecture, deployement, pitfalls, and best practices
+
+### Notes
+
+- Look for `polis.local` in the `manifests/*.yaml` and replace with your hostname
+
+#### Running in Minikube
+
+Start minikube, and enable the ingress and ingress-dns addons.
+
+- `minikube start`
+- `minikube addons enable ingress`
+- `minikube addons enable ingress-dns`
+
+Until public containers are available, you can build the containers locally
+using docker-compose and push them to the minikube host.
+
+- `minikube image load docker.io/compdem/polis-server:dev`
+- `minikube image load docker.io/compdem/polis-file-server:dev`
+- `minikube image load docker.io/compdem/polis-math:dev`
+- `minikube image load docker.io/compdem/polis-postgres:dev`
+
+You can then apply the manifests required for polis to work.
+
+- `kubectl apply -f manifests`
+
+The final part is to expose the nginx ingress to your local machine and connect
+to it.
+
+- `minikube tunnel` - You need to leave this running
+- `open http://polis.local`
+
 ### Miscellaneous & troubleshooting
 
 #### Git Configuration
