@@ -70,7 +70,7 @@ RUN npm run deploy:prod
 
 FROM docker.io/node:16.9.0-alpine
 
-WORKDIR ../../file-server/app
+WORKDIR /app
 
 COPY file-server/package*.json ./
 
@@ -79,7 +79,6 @@ RUN npm ci
 COPY file-server/. .
 COPY file-server/fs_config.template.json fs_config.json
 
-RUN mkdir /app
 RUN mkdir /app/build
 COPY --from=0         /client-admin/app/build/         /app/build
 COPY --from=1         /client-participation/app/build/ /app/build
