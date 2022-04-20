@@ -75,7 +75,8 @@
    :aws-access-key             {:path [:aws :access-key-id]}
    :webserver-username         {:path [:webserver-username]}
    :webserver-pass             {:path [:webserver-pass]}
-   :worker-zid-blocklist       {:path [:poller :zid-blocklist] :parse ->long-list}
+   :math-zid-blocklist         {:path [:poller :zid-blocklist] :parse ->long-list}
+   :math-zid-allowlist         {:path [:poller :zid-allowlist] :parse ->long-list}
    :export-server-auth-username {:path [:darwin :server-auth-username]}
    :export-server-auth-pass    {:path [:darwin :server-auth-pass]}
    :math-matrix-implementation {:path [:math :matrix-implementation] :parse ->keyword}

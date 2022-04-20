@@ -14,7 +14,7 @@
   (let [poller-config (-> config :poller)
         start-polling-from (- (System/currentTimeMillis) (* (:poll-from-days-ago poller-config) 1000 60 60 24))
         polling-interval (or (-> poller-config (get message-type) :polling-interval) 1000)
-        zid-blocklist (get poller-config :zid-blocklist)
+        {:keys [zid-blocklist zid-allowlist]} poller-config
         [poll-function timestamp-key]
         (get {:votes [postgres/poll :created]
               :moderation [postgres/mod-poll :modified]}
@@ -27,8 +27,10 @@
               last-timestamp (apply max 0 last-timestamp (map timestamp-key results))]
           ; For each chunk of votes, for each conversation, send to the appropriate spout
           (doseq [[zid batch] grouped-batches]
-            (when-not (get zid-blocklist zid)
-              ;; TODO; Erm... need to sort out how we're using blocking vs non-blocking ops for threadability
+            (when (cond zid-allowlist (get zid-allowlist zid)
+                        zid-blocklist (not (get zid-blocklist zid))
+                        :else true)
+              ;; TODO; need to sort out how we're using blocking vs non-blocking ops for threadability
               (conv-man/queue-message-batch! conversation-manager message-type zid batch)))
           ; Update timestamp
           (<! (async/timeout polling-interval))
