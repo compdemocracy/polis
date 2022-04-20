@@ -1,12 +1,16 @@
 ARG TAG=dev
 
 # polis-client-admin
-# Gulp v3 stops us from upgrading beyond Node v11
-FROM docker.io/node:11.15.0-alpine
+FROM docker.io/node:11.15.0-alpine AS client-base
+
+RUN apk add git g++ make python openssh --no-cache
+
+
+
+# polis-client-admin
+FROM client-base AS client-admin
 
 WORKDIR /client-admin/app
-
-RUN apk add git --no-cache
 
 COPY client-admin/package*.json ./
 RUN npm install
@@ -19,14 +23,12 @@ ARG GIT_HASH
 RUN npm run deploy:prod
 
 
+
 # polis-client-participation
 # # Gulp v3 stops us from upgrading beyond Node v11
-FROM docker.io/node:11.15.0-alpine
+FROM client-base AS client-participation
 
 WORKDIR /client-participation/app
-
-RUN apk add --no-cache --virtual .build \
-  g++ git make python
 
 # Allow global npm installs in Docker
 RUN npm config set unsafe-perm true
@@ -37,9 +39,8 @@ RUN npm install -g npm@6.9.2
 
 COPY client-participation/package*.json ./
 
+# It would be nice if this was ci, but misbehaving for some reason
 RUN npm ci
-
-RUN apk del .build
 
 COPY client-participation/polis.config.template.js polis.config.js
 # If polis.config.js exists on host, will override template here.
@@ -53,14 +54,13 @@ RUN npm run deploy:prod
 
 # polis-client-report
 # Gulp v3 stops us from upgrading beyond Node v11
-FROM docker.io/node:11.15.0-alpine
+FROM client-base AS client-report
 
 WORKDIR /client-report/app
 
-RUN apk add git --no-cache
-
 COPY client-report/package*.json ./
-RUN npm ci
+# This should be working with `npm ci`, but isn't; Need to debug
+RUN npm install
 
 COPY client-report/polis.config.template.js polis.config.js
 # If polis.config.js exists on host, will override template here.
@@ -70,7 +70,7 @@ ARG GIT_HASH
 RUN npm run deploy:prod
 
 
-#FROM docker.io/node:16.9.0-alpine
+
 FROM docker.io/babashka/babashka
 
 RUN apt-get update && apt-get -y install openjdk-16-jre
