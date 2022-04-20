@@ -82,9 +82,9 @@ WORKDIR /app/
 
 COPY ./bin/ ./bin/
 
-COPY --from=0 /client-admin/app/dist/          /app/client-admin/dist
-COPY --from=1 /client-participation/app/build/ /app/client-participation/dist
-COPY --from=2 /client-report/app/build/        /app/client-report/dist
+COPY --from=client-admin         /client-admin/app/build/         /app/client-admin/dist
+COPY --from=client-participation /client-participation/app/build/ /app/client-participation/dist
+COPY --from=client-report        /client-report/app/build/        /app/client-report/dist
 
 CMD ./bin/deploy-static-assets.clj --bucket $STATIC_ASSET_DEPLOY_BUCKET
 
