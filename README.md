@@ -103,7 +103,7 @@ Assuming that the host has enough resources to run multiple instances of the
 polis server container, you can start polis using the following command:
 
 ```sh
-docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --scale server=3
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --scale server=3
 ```
 
 Where `3` is the number of replicas you'd like to use.
@@ -128,10 +128,10 @@ When you're done working, you can end the process using `Ctrl+C`.
 
 If you would like to run docker compose as a background process, run the `up` commands with the `--detach` flag, e.g.,: 
 
-`docker-compose up --detach`
+`docker compose up --detach`
 
 And to stop:
-`docker-compose down`
+`docker compose down`
 
 #### Using Docker Machine as your development environment
 
