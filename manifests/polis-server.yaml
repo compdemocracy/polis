@@ -46,6 +46,10 @@ data:
   # These pieces of functionality will likely be removed in the near future
   DISABLE_INTERCOM: "true"
   STRIPE_SECRET_KEY: sk_test_NFBDEThkpHCYBzXPJuBlY8TW
+
+  # Note(geoah): This seems to be needed until the following TODO is resolved:
+  # https://github.com/compdemocracy/polis/blob/9a294140bbfc50d5bbb50ce4e474f4ad72541881/server/src/session.ts#L8-L10
+  ENCRYPTION_PASSWORD_00001: "PLEASE-CHANGE-ME"
 ---
 apiVersion: apps/v1
 kind: Deployment
