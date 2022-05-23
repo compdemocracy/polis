@@ -10,6 +10,7 @@ module.exports = {
     // These allow for local ip routing for remote dev deployment
     "^(n|ssl)ip\\.io$",
     ".+\\.(n|ssl)ip\\.io$",
+    "^polis\\.local",
   ],
 
   // Point to a polisServer instance (local recommended for dev)
