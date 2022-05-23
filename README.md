@@ -129,6 +129,15 @@ between providers.
 
 - Look for `polis.local` in the `manifests/*.yaml` and replace with your hostname
 
+### Requirements
+
+- Local development:
+  - [Minikube](https://minikube.sigs.k8s.io/docs/)
+  - [Skaffold](https://skaffold.dev/)
+
+Skaffold deals with the local development flow, syncing updated files to their
+in-cluster containers.
+
 #### Running in Minikube
 
 Start minikube, and enable the ingress and ingress-dns addons.
@@ -137,17 +146,11 @@ Start minikube, and enable the ingress and ingress-dns addons.
 - `minikube addons enable ingress`
 - `minikube addons enable ingress-dns`
 
-Until public containers are available, you can build the containers locally
-using docker-compose and push them to the minikube host.
+You can now build and deploy the containers in the local cluster via either:
 
-- `minikube image load docker.io/compdem/polis-server:dev`
-- `minikube image load docker.io/compdem/polis-file-server:dev`
-- `minikube image load docker.io/compdem/polis-math:dev`
-- `minikube image load docker.io/compdem/polis-postgres:dev`
-
-You can then apply the manifests required for polis to work.
-
-- `kubectl apply -f manifests`
+- `skaffold run` - Builds and deploys everything on demand.
+- `skaffold dev` - While running will watch and automatically build and deploy
+  updated containers.
 
 The final part is to expose the nginx ingress to your local machine and connect
 to it.
