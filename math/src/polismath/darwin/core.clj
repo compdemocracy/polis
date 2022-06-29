@@ -228,11 +228,12 @@
 (defrecord Darwin [config postgres conversation-manager s3-client]
   component/Lifecycle
   (start [component]
-    (let [creds (aws-creds/basic-credentials-provider
-                  (get config :aws))]
-      (assoc component
-             :s3-client (aws/client {:api :s3
-                                     :credentials-provider creds}))))
+    (if-let [aws-config (get config :aws)]
+      (let [creds (aws-creds/basic-credentials-provider aws-config)]
+        (assoc component
+               :s3-client (aws/client {:api :s3
+                                       :credentials-provider creds})))
+      (log/info "Skipping AWS connection")))
   (stop [component]
     component))
 
