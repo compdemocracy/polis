@@ -112,6 +112,17 @@
     first
     :zid))
 
+(defn get-meta-tids
+  [component zid]
+  (->>
+    (query component
+           {:select [:tid]
+            :from [:comments]
+            :where [:and [:= :zid zid]
+                         :is_meta]})
+    (map :tid)
+    (into #{})))
+
 (defn get-zinvite-from-zid
   [component zid]
   (log/debug "get-zinvite-from-zid for zid" zid)

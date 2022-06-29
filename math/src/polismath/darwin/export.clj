@@ -105,11 +105,16 @@
                            [:<= :created final-vote-timestamp]]
               :order-by [:zid :tid :pid :created]})))
 
-(defn get-conversation-votes
+(defn get-corrected-conversation-votes
   [darwin & args]
   (->> (apply get-conversation-votes* darwin args)
        ;; Flip the signs on the votes XXX (remove when we switch)
        (map #(update-in % [:vote] (partial * -1)))
+       (map #(assoc % :datetime (datetime (:created %))))))
+
+(defn get-uncorrected-conversation-votes
+  [darwin & args]
+  (->> (apply get-conversation-votes* darwin args)
        (map #(assoc % :datetime (datetime (:created %))))))
 
 
@@ -563,14 +568,16 @@
 
 
 (defn get-export-data
-  [darwin {:keys [zid zinvite] :as kw-args}]
+  [darwin {:keys [zid zinvite update-math] :as kw-args}]
   (let [zid (or zid (postgres/get-zid-from-zinvite (:postgres darwin) zinvite))
         ;; assert zid
-        votes (get-conversation-votes darwin zid)
+        votes (get-corrected-conversation-votes darwin zid)
         comments (enriched-comments-data (get-comments-data darwin zid) votes)
         participants (get-participation-data darwin zid)
         ;; Should factor out into separate function
-        conv (utils/apply-kwargs load-conv darwin kw-args)]
+        conv (cond-> (utils/apply-kwargs load-conv darwin kw-args)
+               update-math (conv/conv-update votes))]
+    (when update-math (log/info "UPDATED MATH!"))
     {:votes votes
      :summary (summary-data darwin conv votes comments participants)
      :stats-history (stats-history votes participants comments)
@@ -578,14 +585,22 @@
      :comments comments}))
 
 (defn get-export-data-at-time
-  [darwin {:keys [zid zinvite env-overrides at-time] :as kw-args}]
+  [darwin {:keys [zid zinvite env-overrides at-time update-postgres] :as kw-args}]
   (let [zid (or zid (postgres/get-zid-from-zinvite (:postgres darwin) zinvite))
-        votes (get-conversation-votes darwin zid at-time)
-        conv (assoc (conv/new-conv) :zid zid)
-        conv (conv/conv-update conv votes)
+        votes (get-corrected-conversation-votes darwin zid at-time)
+        meta-tids (postgres/get-meta-tids (:postgres darwin) zid)
+        ;_ (log/info "META TIDS " meta-tids)
+        conv (-> (assoc (conv/new-conv) :zid zid :meta-tids meta-tids)
+                 ;; The core math still uses the uncorrected votes
+                 (conv/conv-update (get-uncorrected-conversation-votes darwin zid at-time)))
         _ (log/info "Done with conv update")
         comments (enriched-comments-data (get-comments-data darwin zid at-time) votes)
         participants (get-participation-data darwin zid at-time)]
+    (log/info "Done with conv update")
+    (when update-postgres
+      (log/info "Updating postgres")
+      (let [math-tick (postgres/inc-math-tick (:postgres darwin) zid)]
+        (conv-man/write-conv-updates! darwin conv math-tick)))
     {:votes votes
      :summary (assoc (summary-data darwin conv votes comments participants) :at-time at-time)
      :stats-history (stats-history votes participants comments)
@@ -593,15 +608,29 @@
      :comments comments}))
 
 
+;(defn load-from-timestamp
+  ;[darwin {:keys [zid zivite at-time] :as kw-args}]
+  ;(let [zid (or zid (postgres/get-zid-from-zinvite (:postgrs darwin) zinvite))
+        ;votes (get-conversation-votes darwin zid at-time)
+        ;math-tick (postgres/inc-math-tick (:postgres darwin) zid)
+        ;conv (-> (assoc (conv/new-conv) :zid zid)
+                 ;(conv/conv-update votes))]
+    ;(conv-man/write-conv-updates! {:postgres (:postgres darwin)}
+                                  ;conv
+                                  ;math-tick)
+    ;(log/info "Done with conv update")))
+
+
 
 (defn export-conversation
   "This is the main API endpoint for the export functionality. Given either :zid or :zinvite, export data to
   the specified :format and spit results out to :filename. Optionally, a :zip-stream and :entry point may be
-  specified, which can be used for biulding up items in a zip file. This is used in export/-main to export all
+  specified, which can be used for building up items in a zip file. This is used in export/-main to export all
   convs for a given uid, for example."
   ;; Don't forget env-overrides {:math-env "prod"}; should clean up with system
   [darwin {:keys [zid zinvite format filename zip-stream writer entry-point env-overrides at-time include-xid] :as kw-args}]
   (log/info "Exporting data for zid =" zid ", zinvite =" zinvite)
+  (log/info "at-time:" at-time)
   (let [export-data (if at-time
                       (get-export-data-at-time darwin kw-args)
                       (get-export-data darwin kw-args))
