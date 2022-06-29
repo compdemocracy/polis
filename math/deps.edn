@@ -55,7 +55,7 @@
         ;; Dev
         org.clojure/test.check {:mvn/version "0.9.0"}
         irresponsible/tentacles {:mvn/version "0.6.3"}
-        techascent/tech.ml.dataset {:mvn/version "2.08"}}
+        techascent/tech.ml.dataset {:mvn/version "6.085"}}
  :aliases {:dev 
            {:extra-paths ["dev" "test"]
             :extra-deps {cider/cider-nrepl {:mvn/version "0.26.0"}}
