@@ -23,8 +23,8 @@ If you're interested in contributing to the codebase, please see the following:
 - Our [Project Board][board] is somewhat incomplete, but still useful; We stopped around the time that Projects Beta came out, and we have a [Projects Beta Board][beta-board] that we'll eventually be migrating to
 
    [issues]: https://github.com/compdemocracy/polis/issues
-   [board]: https://github.com/orgs/compdemocracy/projects/1
-   [beta-board]: https://github.com/orgs/compdemocracy/projects/1
+   [board]: https://github.com/compdemocracy/polis/projects/1
+   [beta-board]: https://github.com/compdemocracy/polis/projects/1
    [contributing]: /CONTRIBUTING.md#how-we-work
    [discussions]: https://github.com/compdemocracy/polis/discussions
 
