@@ -1,5 +1,5 @@
 # Gulp v3 stops us from upgrading beyond Node v11
-FROM docker.io/node:11.15.0-alpine
+FROM docker.io/node:18.7.0-alpine
 
 WORKDIR /app
 
