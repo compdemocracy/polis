@@ -233,7 +233,8 @@
         (assoc component
                :s3-client (aws/client {:api :s3
                                        :credentials-provider creds})))
-      (log/info "Skipping AWS connection")))
+      (do (log/info "Skipping AWS connection")
+          component)))
   (stop [component]
     component))
 
