@@ -1,7 +1,7 @@
 ARG TAG=dev
 
 # polis-client-admin
-FROM docker.io/node:11.15.0-alpine AS client-base
+FROM docker.io/node:18.8.0-alpine AS client-base
 
 RUN apk add git g++ make python openssh --no-cache
 
@@ -72,7 +72,7 @@ RUN npm run deploy:prod
 
 
 # actual file server component
-FROM docker.io/node:16.9.0-alpine
+FROM docker.io/node:18.8.0-alpine
 
 WORKDIR /app
 
