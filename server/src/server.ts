@@ -39,12 +39,12 @@ import _ from "underscore";
 import { WebClient } from "@slack/client";
 import pg from "pg";
 
+import Config from "./config";
 import { METRICS_IN_RAM, addInRamMetric, MPromise } from "./utils/metered";
 import CreateUser from "./auth/create-user";
 import Password from "./auth/password";
 import dbPgQuery from "./db/pg-query";
 
-import Config from "./config";
 // Re-import disassembled code to promise existing code will work
 import Log from "./log";
 

@@ -1,6 +1,7 @@
 import boolean from "boolean";
 const devMode = boolean(get('DEV_MODE'));
-
+/* Do NOT use source-map-support in production as it uses the non-standard stack property of Errors */
+if(devMode) { require('source-map-support').install(); }
 const domainOverride = process.env.DOMAIN_OVERRIDE || null;
 
 function getServerNameWithProtocol(req: any) {
