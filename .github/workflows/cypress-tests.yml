@@ -31,6 +31,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2.3.4
 
+      # This uses GitHub Action cache for docker container layers
+      # See: https://github.com/marketplace/actions/docker-layer-caching
+      - uses: satackey/action-docker-layer-caching@v0.0.11
+        # Ignore a failure of this step and avoid terminating the job.
+        continue-on-error: true
+        # By default, this cache is keyed to the workflow name. We are
+        # setting a shared key for the docker cache to be shared
+        # across multiple workflows.
+        with:
+          key: docker-{hash}
+          restore-keys: |
+            docker-
+
       # This step helps us know when to skip future steps, particularly if
       # we're on a fork where upstream secrets won't be available.
       - name: Ensure secrets available
