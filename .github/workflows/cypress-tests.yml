@@ -59,6 +59,10 @@ jobs:
       - name: Ensure embed test html is served
         run: cp e2e/cypress/fixtures/html/embed.html client-admin/embed.html
 
+      # This ensures maildev container is running for e2e tests of email features.
+      - name: Enable docker-compose dev overrides
+        run: cp docker-compose.dev.yml docker-compose.override.yml
+
       - name: Serve app via docker-compose
         run: docker-compose up --detach
 
