@@ -12,7 +12,7 @@ There's [been some work](https://github.com/compdemocracy/polis/pull/1341) to un
 First things first, it helps to understand a bit how the system is set up.
 
 | Component Name | Tech | Config | Description |
-|----------------|------|-------------|
+|----------------|------|--------| ----------- |
 | [`server`][dir-server] | Node.js | `ENV` (`server/docker-dev.env`) | The main server. Handles client web requests (page loads, vote activity, etc.) |
 | [`math`][dir-math] | Clojure/JVM | `ENV` (`math/docker-dev.env`) | The math engine.  |
 | [`client-participation`][dir-participation] | Javascript | `client-participation/polis.config.js` | The client code for end-users. |
