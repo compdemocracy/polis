@@ -13,100 +13,124 @@ For a detailed methods paper, see [Polis: Scaling Deliberation by Mapping High D
    [docker-image-builds]: https://hub.docker.com/u/compdem
    [e2e-tests]: https://github.com/compdemocracy/polis/actions?query=workflow%3A%22E2E+Tests%22
 
+<br/>
 
 
-## 🙋🏾‍♀️ Get Involved
+### 🎈 🪁 Start here! 🪁🎈
 
-If you're interested in contributing to the codebase, please see the following:
-- [:white_check_mark:][issues] [**issues**][issues]: for well-defined technical issues
-- [:speech_balloon:][discussions] [**discussions**][discussions]: for questions about the software, or more open ended ideas and conversation which don't properly fit in issues
-- Our [Project Board][board] is somewhat incomplete, but still useful; We stopped around the time that Projects Beta came out, and we have a [Projects Beta Board][beta-board] that we'll eventually be migrating to
+If you're interested in using or contributing to Polis, please see the following:
+- [📚 **knowledge base**][knowledge-base]: for a comprehensive wiki to help you understand and use the system
+- [💬 **discussions**][discussions]: for questions (QA) and discussion
+- [✔️ **issues**][issues]: for well-defined technical issues
+- [🏗️ **project board**][board]: somewhat incomplete, but still useful; We stopped around the time that Projects Beta came out, and we have a [Projects Beta Board][beta-board] that we'll eventually be migrating to
+- [✉️ reach out][hello]: if you are applying Polis in a high-impact context, and need more help than you're able to get through the public channels above
 
+   [knowledge-base]: https://compdemocracy.org/Welcome
    [issues]: https://github.com/compdemocracy/polis/issues
    [board]: https://github.com/compdemocracy/polis/projects/1
    [beta-board]: https://github.com/compdemocracy/polis/projects/1
    [contributing]: /CONTRIBUTING.md#how-we-work
    [discussions]: https://github.com/compdemocracy/polis/discussions
+   [hello]: mailto:hello@compdemocracy.org
+
+If you're trying to set up a Polis deployment or development environment, then please read the rest of this document 👇 ⬇️ 👇
 
 
-## 🚀 Deployment
 
-The recommended path for deploying Polis is to use the Docker & Docker Compose infrastructure contained in this repository.
-In particular, the `./docker-compose.yml` file describes a basic Polis topology sufficient for relatively small deployments.
-
-The main limitation of this setup is that it only provisions a single server node, while a very active Polis conversation of tends of thousands of participants (or several smaller simultaneous sized conversations) could require multiple server nodes.
-Thus, you may need to look into alternative solutions ([Heroku](https://github.com/compdemocracy/polis/wiki/Deploying-with-Heroku), Kubernetes, etc.) if you expect to exceed this level of usage.
-In either case, you can take advantage of the underlying Docker infrastructure, sans docker-compose (see [the wiki for info on how to run on Heroku](https://github.com/compdemocracy/polis/wiki/Deploying-with-Heroku)).
-That having been said, it is our goal to [support scalable deployments out of the box](https://github.com/compdemocracy/polis/issues/1352), and we'd be happy to accept pull requests which get us closer to this goal.
-
-The one additional piece you'll need to handle yourself for a production deployment is SSL encryption.
-Our goal is to streamline this as much as possible (see [#289](https://github.com/compdemocracy/polis/issues/289)), so again if you'd like to help with this, please submit a PR!
-
-- See also: [Deployment: About SSL/HTTPS](docs/deployment.md#about-sslhttps)
-
-With all that out of the way, deploying a small Polis instance using the docker-compose infrastructure looks more or less like the development environment setup below, with one exception: Instead of running `docker-compose -f docker-compose.yml -f docker-compose.dev.yml ...`, you run `docker-compose -f docker-compose.yml ...` (or simply `docker-compose`, since `-f` defaults to `docker-compose.yml`).
-Any configuration options which are explicitly for development are placed in the `docker-compose.dev.yml` overlay, and can be omitted in production.
-
-The doc at [`docs/deployment.md`](/docs/deployment.md) is currently somewhat out of date, but may provide additional useful details.
-
-If you would like more help that you're able to get in the public channels above, we encourage your to [reach out to us](mailto:hello@compdemocracy.org).
+</br></br></br>
 
 
-## 💻 Development setup
 
-The recommended way of setting up a development environment is to use `docker-compose`.
-The only prerequisite is that you install `docker` (and Docker Desktop if you are on Mac).
+## ⚡ Running Polis
+
+Polis comes with Docker infrastructure for running a complete system.
+As a consequence, the only prerequisite to running Polis is that you install a recent `docker` (and Docker Desktop if you are on Mac).
+
+If you aren't able to use Docker for some reason, the various `Dockerfile`s found in subdirectories (`math`, `server`, `*-client`) of this repository _can_ be used as a reference for how you'd set up a system manually.
+If you're interested in doing the legwork to support alternative infrastructure, please [let us know in an issue](https://github.com/compdemocracy.org/issues).
+
+### Docker & Docker Compose
 
 Newer versions of `docker` have `docker compose` built in as a subcommand.
-If you are using an older version (and don't want to upgrade), you'll need to separately install `docker-compose`.
+If you are using an older version (and don't want to upgrade), you'll need to separately install `docker-compose`, and use that instead in the instructions that follow.
+Note however that the newer `docker compose` command is required to [take advantage of Docker Swarm](/docs/scaling#docker-compose-over-docker-swarm) as a scaling option.
 
 ### Building and running the containers
 
-After cloning the repository, navigate via command line to the root directory and run the following command to build and run the docker containers:
+First clone the repository, then navigate via command line to the root directory and run the following command to build and run the docker containers.
 
 ```sh
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+docker compose up --build
 ```
 
 If you get a permission error, try running this command with `sudo`.
 If this fixes the problem, sudo will be necessary for all other commands as well.
-To avoid having to use `sudo` in the future (on a Linux or Windows machine with WSL), you can follow setup instruction here: https://docs.docker.com/engine/install/linux-postinstall/.
+To avoid having to use `sudo` in the future (on a Linux or Windows machine with WSL), you can follow setup instruction here: <https://docs.docker.com/engine/install/linux-postinstall/>.
 
-Once you've built, you can run the following when you want to run the project:
+Once you've built the docker images, you can run without `--build`, which may be faster.
+Simply:
 
 ```sh
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+docker compose up
 ```
 
-That's it!
+Any time you want to _rebuild_ the images, just reaffix `--build` when you run.
 
 ### Testing out your instance
 
 You can now test your setup by visiting `http://localhost:80/`.
 
-Once the index page loads, you can create an account using the `/createuser` path. You'll be logged in right away; email validation is not required.
+Once the index page loads, you can create an account using the `/createuser` path.
+You'll be logged in right away; email validation is not required.
 
-### Configuration
+When you're done working, you can end the process using `Ctrl+C`.
 
-The system should start running without any configuration.
-However, as you go on (and especially if you are setting up a production deployment), you'll need to know how to configure the application.
+### Updating the system
 
-At the moment, there are a number of configuration files and environment variable options scattered across the repository.
-There _is_ currently an open PR which seeks to unify the configuration options which we're actively working on: https://github.com/compdemocracy/polis/pull/1341
+If you want to update the system, you may need to handle the following:
+* [⬆️ Run database migrations](docs/migrations.md), if there are new such
+* Update docker images by running with `--build` if there have been changes to the Dockerfiles
+  * consider using `--no-cache` if you'd like to rebuild from scratch, but note that this will take much longer
 
-### Scaling the polis server
 
-If you plan on running a large conversations or lots of conversations at once,
-you might bump into performance issues.
 
-Assuming that the host has enough resources to run multiple instances of the
-polis server container, you can start polis using the following command:
+</br>
 
-```sh
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up --scale server=3
-```
+## 🚀 Production deployment
 
-Where `3` is the number of replicas you'd like to use.
+While the commands above will get a functional Polis system up and running, additional steps must be taken to properly configure, secure and scale the system.
+In particular
+
+* [⚙️ Configure the system](docs/configuration.md), esp:
+  * the domain name you'll be serving from
+  * enable and add API keys for 3rd party services (e.g. automatic comment translation, spam filtering, etc)
+* [🔏 Set up SSL/HTTPS](docs/ssl.md), to keep the site secure
+* [📈 Scale](docs/scaling.md) for large or many concurrent conversations
+
+#### Support
+
+We encourage you to take advantage of the public channels above for support setting up a deployment.
+However, if you are deploying in a high impact context and need help, please [reach out to us][hello]
+
+</br>
+
+
+
+## 💻 Development setup
+
+In addition to the production-focused `docker-compose.yml` file, included in this repository is a `docker-compose.dev.yml` _overlay_ set up with developer conveniences:
+* Live code reloading and static type checking of the server code
+* A nREPL connection port open for connecting to the running math process
+* Ports open for connecting directly to the database container
+* Live code reloading for the client repos (in process)
+* etc.
+
+To take advantage of these conveniences, you can run `docker compose up -f docker-compose.yml -f docker-compose.dev.yml`.
+
+### Testing
+
+We use Cypress for automated, end-to-end browser testing for PRs on GitHub (see badge above).
+Please see [`e2e/README.md`](/e2e/README.md) for more information on running these tests locally.
 
 ### Miscellaneous & troubleshooting
 
@@ -118,30 +142,13 @@ Due to past file re-organizations, you may find the following git configuration 
 git config --local include.path ../.gitconfig
 ```
 
-#### Forcing a rebuild
-
-To force a full re-build with no cache from previous builds you can run with `--no-cache`.
-
-When you're done working, you can end the process using `Ctrl+C`.
-
 #### Running as a background process
 
-If you would like to run docker compose as a background process, run the `up` commands with the `--detach` flag, e.g.,: 
-
-`docker compose up --detach`
-
-And to stop:
-`docker compose down`
+If you would like to run docker compose as a background process, run the `up` commands with the `--detach` flag, and use `docker compose down` to stop.
 
 #### Using Docker Machine as your development environment
 
-https://github.com/compdemocracy/polis/wiki/Using-Docker-Machine-as-your-development-environment
-
-#### 🔍 Testing
-
-We use Cypress for automated, end-to-end browser testing! (See badge above.)
-
-Please see [`e2e/README.md`](/e2e/README.md) and https://github.com/compdemocracy/polis/wiki/Running-E2E-tests-locally.
+If your development machine is having trouble handling all of the docker containers, look into [using Docker Machine](/docs/docker-machine.md).
 
 #### Resolving problems with npm not finding libraries
 
