@@ -116,16 +116,23 @@ However, if you are deploying in a high impact context and need help, please [re
 
 
 
-## 💻 Development setup
+## 💻 Development tooling
 
-In addition to the production-focused `docker-compose.yml` file, included in this repository is a `docker-compose.dev.yml` _overlay_ set up with developer conveniences:
+Once you've gotten [Polis running (as described above)](#-running-polis), you can enable developer conveniences by executing:
+
+```bash
+docker compose up -f docker-compose.yml -f docker-compose.dev.yml
+```
+
+This enables:
 * Live code reloading and static type checking of the server code
 * A nREPL connection port open for connecting to the running math process
 * Ports open for connecting directly to the database container
 * Live code reloading for the client repos (in process)
 * etc.
 
-To take advantage of these conveniences, you can run `docker compose up -f docker-compose.yml -f docker-compose.dev.yml`.
+This command takes advantage of the `docker-compose.dev.yml` _overlay_ file, which layers the developer conveniences describe above into the base system, as described in the `docker-compose.yml` file.
+You can specify these `-f docker-compose.yml -f docker-compose.dev.yml` arguments for any `docker` command which you need to take advantage of these features (not just `docker compose up`).
 
 ### Testing
 
