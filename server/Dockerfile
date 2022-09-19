@@ -1,11 +1,11 @@
-FROM docker.io/node:14.14.0-alpine
+FROM docker.io/node:18.9.0-alpine3.15
 
 WORKDIR /app
 
-RUN apk add postgresql-dev python-dev build-base
+RUN apk add postgresql-dev python3-dev build-base
 
 RUN apk add --no-cache --virtual .build \
-  g++ git make python
+  g++ git make python3
 
 COPY package*.json ./
 
