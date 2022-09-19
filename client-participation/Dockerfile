@@ -4,7 +4,7 @@ FROM docker.io/node:11.15.0-alpine
 WORKDIR /app
 
 RUN apk add --no-cache --virtual .build \
-  g++ git make python
+  g++ git make python3
 
 # Allow global npm installs in Docker
 RUN npm config set unsafe-perm true
