@@ -16,10 +16,12 @@ For a detailed methods paper, see [Polis: Scaling Deliberation by Mapping High D
 <br/>
 
 
-### 🎈 🪁 Start here! 🪁🎈
+### 🎈 🪁 Start here! 🪁 🎈
 
 If you're interested in using or contributing to Polis, please see the following:
 - [📚 **knowledge base**][knowledge-base]: for a comprehensive wiki to help you understand and use the system
+- [🌐 **main deployment**](https://pol.is): the main deployment of Polis is at <https://pol.is>, and is
+  free to use for nonprofits and government
 - [💬 **discussions**][discussions]: for questions (QA) and discussion
 - [✔️ **issues**][issues]: for well-defined technical issues
 - [🏗️ **project board**][board]: somewhat incomplete, but still useful; We stopped around the time that Projects Beta came out, and we have a [Projects Beta Board][beta-board] that we'll eventually be migrating to
@@ -43,7 +45,7 @@ If you're trying to set up a Polis deployment or development environment, then p
 
 ## ⚡ Running Polis
 
-Polis comes with Docker infrastructure for running a complete system.
+Polis comes with Docker infrastructure for running a complete system, whether for a [production deployment](#-production-deployment) or a [development environment](#-development-tooling) (details for each can be found in later sections of this document).
 As a consequence, the only prerequisite to running Polis is that you install a recent `docker` (and Docker Desktop if you are on Mac).
 
 If you aren't able to use Docker for some reason, the various `Dockerfile`s found in subdirectories (`math`, `server`, `*-client`) of this repository _can_ be used as a reference for how you'd set up a system manually.
@@ -78,7 +80,7 @@ Any time you want to _rebuild_ the images, just reaffix `--build` when you run.
 
 ### Testing out your instance
 
-You can now test your setup by visiting `http://localhost:80/`.
+You can now test your setup by visiting `http://localhost:80/home`.
 
 Once the index page loads, you can create an account using the `/createuser` path.
 You'll be logged in right away; email validation is not required.
@@ -118,11 +120,13 @@ However, if you are deploying in a high impact context and need help, please [re
 
 ## 💻 Development tooling
 
-Once you've gotten [Polis running (as described above)](#-running-polis), you can enable developer conveniences by executing:
+Once you've gotten [Polis running (as described above)](#-running-polis), you can enable developer conveniences by running
 
 ```bash
-docker compose up -f docker-compose.yml -f docker-compose.dev.yml
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 ```
+
+(run with `--build` if this is your first time running, or if you need to rebuild containers)
 
 This enables:
 * Live code reloading and static type checking of the server code
