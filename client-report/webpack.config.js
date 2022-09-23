@@ -5,36 +5,33 @@ var webpack = require("webpack");
 
 module.exports = {
   // devtool: "source-map",
-  entry: [
-    "./src/index"
-  ],
+  entry: ["./src/index"],
   output: {
     path: path.join(__dirname, "dist"),
     filename: "report_bundle.js",
-    publicPath: "/dist/"
+    publicPath: "/dist/",
   },
   plugins: [
-    new webpack.optimize.OccurenceOrderPlugin(),
     new webpack.DefinePlugin({
       "process.env": {
-        "NODE_ENV": JSON.stringify("production")
-      }
+        NODE_ENV: JSON.stringify("production"),
+      },
     }),
-    new webpack.optimize.UglifyJsPlugin({
-      compressor: {
-        warnings: false
-      }
-    })
+    // new webpack.optimize.UglifyJsPlugin({  https://stackoverflow.com/questions/69468568/typeerror-webpack-optimize-uglifyjsplugin-is-not-a-constructor
+    //   compressor: {
+    //     warnings: false,
+    //   },
+    // }),
   ],
   module: {
-
-    preLoaders: [
-      { test: /\.json$/, loader: "json"}
+    rules: [
+      { test: /\.json$/, type: "json" },
+      {
+        test: /\.(js)$/,
+        include: path.join(__dirname, "src"),
+        exclude: /node_modules/,
+        use: ["babel-loader"],
+      },
     ],
-    loaders: [{
-      test: /\.js$/,
-      loaders: ["babel"],
-      include: path.join(__dirname, "src")
-    }]
-  }
+  },
 };
