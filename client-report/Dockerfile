@@ -4,7 +4,7 @@
 # the docker compose configuration.
 
 # Gulp v3 stops us from upgrading beyond Node v11
-FROM docker.io/node:11-alpine
+FROM docker.io/node:18.9.0-alpine
 
 WORKDIR /app
 
