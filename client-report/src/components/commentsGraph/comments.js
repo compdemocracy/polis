@@ -2,14 +2,11 @@
 
 import React from "react";
 import _ from "lodash";
-import * as globals from "../globals";
-import textWrap from 'svg-text-wrap';
+import textWrap from "svg-text-wrap";
 
 class Comments extends React.Component {
-
   createComments() {
-
-    console.log('in create comments, comments graph', this.props.points[0])
+    console.log("in create comments, comments graph", this.props.points[0]);
 
     // const _points = this.props.points.slice(0);
     //
@@ -26,29 +23,29 @@ class Comments extends React.Component {
     // console.log('simulation', _points[0])
 
     return this.props.points.map((comment, i) => {
-
       /* find the original comment */
-      const _comment = _.find(this.props.comments, (c) => { return c.tid === comment.tid});
+      const _comment = _.find(this.props.comments, (c) => {
+        return c.tid === comment.tid;
+      });
 
       /* see if it's meta or consensus */
       if (
         _comment.is_meta
         // this.props.math.pca["comment-extremity"][comment.tid] < globals.maxCommentExtremityToShow
       ) {
-        return
+        return;
       }
 
       /* break the text up into pieces */
-      const textArray = textWrap(comment.txt, 200, {'letter-spacing': '1px'})
+      const textArray = textWrap(comment.txt, 200, { "letter-spacing": "1px" });
 
-      return <text
+      return (
+        <text
           key={i}
-          transform={
-            `translate(
+          transform={`translate(
               ${this.props.xCenter + comment.x * this.props.xScaleup},
               ${this.props.yCenter + comment.y * this.props.yScaleup}
-            )`
-          }
+            )`}
           onClick={this.props.handleClick(comment)}
           style={{
             fill: "rgba(0,0,0,.5)",
@@ -56,26 +53,21 @@ class Comments extends React.Component {
             cursor: "pointer",
             fontSize: 10,
           }}
-          >
+        >
           <title>Tooltip 2</title>
           {this.props.formatTid(comment.tid)}
-          {
-            /*textArray.map((t, i) => {
+          {/*textArray.map((t, i) => {
               return (
                 <TextSegment key={i} t={t} i={i}/>
               )
-            })*/
-          }
+            })*/}
         </text>
-    })
+      );
+    });
   }
 
-  render () {
-    return (
-      <g>
-        {this.createComments()}
-      </g>
-    );
+  render() {
+    return <g>{this.createComments()}</g>;
   }
 }
 
