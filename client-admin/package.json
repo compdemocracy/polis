@@ -41,7 +41,7 @@
     "express": "^4.17.1",
     "file-loader": "~6.2.0",
     "glob": "^7.1.2",
-    "gulp": "^3.9.0",
+    "gulp": "^4.0.2",
     "gulp-cli": "^1.4.0",
     "gulp-s3": "github:pol-is/gulp-s3#master",
     "gulp-scp2": "^0.2.0",
