@@ -29,22 +29,40 @@ class ModerateCommentsSeed extends React.Component {
     this.props.dispatch(handleSeedCommentSubmit(comment))
   }
 
-  handleTextareaChange(e) {
-    this.props.dispatch(seedCommentChanged(e.target.value))
+  handleCsvSeed() {
+    document.getElementById('file-upload').click()
   }
 
-  getButtonText() {
-    let text = 'Submit'
-
-    if (this.props.success) {
-      text = 'Success!'
+  handleFileUpload(e) {
+    console.log(e.target.files[0])
+    let file = e.target.files[0]
+    if (file) {
+      if (file.type !== 'text/csv') {
+        alert('File must be in csv format')
+        return
+      }
+      let fr = new FileReader()
+      fr.onload = (e) => {
+        let commentTexts = fr.result.split(/\r?\n/);
+        console.log(commentTexts);
+        commentTexts.forEach(commentText => {
+          const comment = {
+            txt: commentText,
+            pid: 'mypid',
+            conversation_id: this.props.params.conversation_id,
+            // vote: 0,
+            is_seed: true
+          }
+          this.props.dispatch(handleSeedCommentSubmit(comment))
+          // TODO: why does it always fail for one random row?
+        });
+      }
+      fr.readAsText(file);
     }
+  }
 
-    if (this.props.loading) {
-      text = 'Saving...'
-    }
-
-    return text
+  handleTextareaChange(e) {
+    this.props.dispatch(seedCommentChanged(e.target.value))
   }
 
   render() {
@@ -56,7 +74,8 @@ class ModerateCommentsSeed extends React.Component {
           <Link target="_blank" href="https://compdemocracy.org/seed-comments">
             seed comments
           </Link>{' '}
-          for participants to vote on:
+          for participants to vote on. For CSV uploads, please ensure that each 
+          comment is in its own row and does not contain any newline characters. 
         </Text>
         <Box sx={{ mb: [2] }}>
           <textarea
@@ -79,10 +98,22 @@ class ModerateCommentsSeed extends React.Component {
           />
         </Box>
         <Box>
-          <Button onClick={this.handleSubmitSeed.bind(this)}>
-            {this.getButtonText()}
+          <Button onClick={this.handleSubmitSeed.bind(this)} sx={{ mb: [2] }}>
+            Submit
           </Button>
-          {this.props.error ? <Text>{strings(this.props.error)}</Text> : null}
+          <Button onClick={this.handleCsvSeed} sx={{ ml: [2] }}>
+            Upload from CSV
+          </Button>
+          <input id="file-upload" type="file" onChange={this.handleFileUpload.bind(this)} sx={{ display: 'none' }}/>
+          {
+            this.props.error ? 
+            <Text>{strings(this.props.error)}</Text> : 
+            this.props.loading ? 
+            <Text>Saving...</Text> : 
+            this.props.success ? 
+            <Text>Success!</Text> : 
+            null
+          }
         </Box>
       </Box>
     )
