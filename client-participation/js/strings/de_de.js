@@ -4,11 +4,11 @@
 
 var s = {};
 
-s.agree = "Ich stimme zu.";
-s.disagree = "Ich stimme nicht zu.";
-s.pass = "Weiter / Ich bin mir unsicher.";
+s.agree = "Ich stimme zu";
+s.disagree = "Ich stimme nicht zu";
+s.pass = "Weiter / Ich bin mir unsicher";
 
-s.importantCheckbox = "Dieses Statement ist wichtig.";
+s.importantCheckbox = "Dieses Statement ist wichtig";
 s.howImportantPrompt = "Wie wichtig ist dieses Statement?";
 s.howImportantLow = "Wenig";
 s.howImportantMedium = "Mittel";
@@ -20,7 +20,7 @@ s.modImportant = "Wichtig";
 s.modSubmitInitialState = "Überspringen (nichts davon ist zutreffend), nächstes Statement";
 s.modSubmit = "Fertig, nächstes Statement";
 
-s.x_wrote = "hat geschrieb:";
+s.x_wrote = "hat geschrieben:";
 s.x_tweeted = "hat getweeted:";
 s.comments_remaining = "{{num_comments}} verbleibend";
 s.comments_remaining2 = "{{num_comments}} verbleibende Statements";
