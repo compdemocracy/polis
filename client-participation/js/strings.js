@@ -22,6 +22,9 @@ var translations = {
   // Spanish
   es: require("./strings/es_la.js"),
 
+  // Farsi
+  fa: require("./strings/fa.js"),
+
   // French
   fr: require("./strings/fr.js"),
 
@@ -48,7 +51,7 @@ var translations = {
 
   // Welsh
   cy: require("./strings/cy.js"),
-  
+
   // Greek
   gr: require("./strings/gr.js"),
 
@@ -103,6 +106,9 @@ preloadHelper.acceptLanguagePromise.then(function() {
     }
     else if (languageCode.match(/^fr/)) {
       _.extend(strings, translations.fr);
+    }
+    else if (languageCode.match(/^fa/)) {
+      _.extend(strings, translations.fa);
     }
     else if (languageCode.match(/^nl/)) {
       _.extend(strings, translations.nl);
