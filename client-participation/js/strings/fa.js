@@ -20,8 +20,8 @@ s.modSubmit = "انجام شد، گفته بعدی";
 
 s.x_wrote = "نوشت";
 s.x_tweeted = "توییت کرد";
-s.comments_remaining = "{{تعداد نظرات}} باقی مانده";
-s.comments_remaining2 = "{{تعداد نظرات}} گفته‌های باقی مانده";
+s.comments_remaining = "{{num_comments}} باقی مانده";
+s.comments_remaining2 = "{{num_comments}} گفته‌های باقی مانده";
 s.group_123 = "گروه";
 s.comment_123 = "گفته";
 s.majorityOpinion = "نظر اکثریت";
