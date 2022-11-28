@@ -23,7 +23,7 @@ var translations = {
   es: require("./strings/es_la.js"),
 
   // Farsi
-  fr: require("./strings/fa.js"),
+  fa: require("./strings/fa.js"),
 
   // French
   fr: require("./strings/fr.js"),
