@@ -10232,7 +10232,7 @@ Email verified! You can close this tab or hit the back button.
         help_bgcolor: string;
         style_btn: any;
         write_type: any;
-        priority_type: any;
+        priority_type?: any;
         owner_sees_participation_stats: any;
         launch_presentation_return_url_hex: any;
         link_url: any;
@@ -10357,7 +10357,7 @@ Email verified! You can close this tab or hit the back button.
           function () {
             pgQuery(q.toString(), function (err: any, result: { rows: any[] }) {
               if (err) {
-                fail(res, 500, "polis_err_update_conversation_1", err);
+                fail(res, 500, "polis_err_update_conversation", err);
                 return;
               }
               let conv = result && result.rows && result.rows[0];
@@ -10473,7 +10473,7 @@ Email verified! You can close this tab or hit the back button.
                   // // }
                 })
                 .catch(function (err: any) {
-                  fail(res, 500, "polis_err_update_conversation_2", err);
+                  fail(res, 500, "polis_err_update_conversation", err);
                 });
             });
           },
@@ -10483,7 +10483,7 @@ Email verified! You can close this tab or hit the back button.
         );
       })
       .catch(function (err: any) {
-        fail(res, 500, "polis_err_update_conversation_3", err);
+        fail(res, 500, "polis_err_update_conversation", err);
       });
   }
 

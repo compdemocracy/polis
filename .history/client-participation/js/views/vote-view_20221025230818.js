@@ -582,7 +582,7 @@ module.exports = Handlebones.ModelView.extend({
       this.wipVote = {
         vote: 0,
         conversation_id: conversation_id,
-        weight: this.getWeight(), // TODO: specify in help text that this is for "important but unsure"
+        weight: this.getWeight(),
         tid: tid,
       };
       serverClient.addToVotesByMe(this.wipVote);

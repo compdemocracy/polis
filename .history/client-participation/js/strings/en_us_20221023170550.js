@@ -5,6 +5,7 @@ var s = {};
 s.agree = "Agree";
 s.disagree = "Disagree";
 s.pass = "Pass / Unsure";
+s.priority = "Priority test";
 
 s.importantCheckbox = "This comment is important";
 s.howImportantPrompt = "How important is this statement?";

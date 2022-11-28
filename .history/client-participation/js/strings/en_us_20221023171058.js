@@ -5,6 +5,8 @@ var s = {};
 s.agree = "Agree";
 s.disagree = "Disagree";
 s.pass = "Pass / Unsure";
+s.stronglyAgree = "Strongly Agree";
+s.stronglyDisagree = "Strongly Disagree";
 
 s.importantCheckbox = "This comment is important";
 s.howImportantPrompt = "How important is this statement?";

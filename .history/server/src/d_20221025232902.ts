@@ -218,6 +218,7 @@ export type Vote = {
   weight: any;
   starred: any;
   parent_url: any;
+  high_priority?: any;
 };
 
 export type Assignment = {

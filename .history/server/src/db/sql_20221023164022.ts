@@ -29,7 +29,6 @@ const sql_conversations: any = sql.define({
     "parent_url",
     "vis_type",
     "write_type",
-    "priority_type",
     "help_type",
     "socialbtn_type",
     "subscribe_type",
@@ -77,7 +76,7 @@ const sql_comments = sql.define({
 
 const sql_votes_latest_unique = sql.define({
   name: "votes_latest_unique",
-  columns: ["zid", "tid", "pid", "modified", "vote", "weight"],
+  columns: ["zid", "tid", "pid", "modified", "vote"],
 });
 
 const sql_participant_metadata_answers = sql.define({

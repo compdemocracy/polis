@@ -182,7 +182,9 @@ img {
 }
 
 #agreeButton,
-#disagreeButton {
+#disagreeButton,
+#passButton,
+#stronglyAgreeButton {
   border-right: 0px;
 }
 
@@ -197,7 +199,9 @@ img {
 
 #agreeButton,
 #disagreeButton,
-#passButton {
+#passButton,
+#stronglyAgreeButton,
+#stronglyDisagreeButton {
   border-bottom: 0;
   // background: #fafafa;
   -webkit-font-smoothing: antialiased;

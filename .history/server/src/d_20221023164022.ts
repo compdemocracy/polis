@@ -141,7 +141,6 @@ export type ConversationType = {
   help_bgcolor?: any;
   style_btn?: any;
   write_type?: any;
-  priority_type?: any;
   owner_sees_participation_stats?: any;
   lti_users_only?: any;
   link_url?: any;

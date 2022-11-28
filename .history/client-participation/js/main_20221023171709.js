@@ -50,6 +50,7 @@ var IconFaAngleRight = require("./tmpl/icon_fa_angle_right");
 var IconFaAsterisk = require("./tmpl/icon_fa_asterisk");
 var IconFaBan = require("./tmpl/icon_fa_ban");
 var IconFaCircleCheckPartial = require("./tmpl/icon_fa_check_circle");
+var IconFaStar = require("./tmpl/icon_fa_star");
 var iconFaFacebookSquare16 = require("./tmpl/icon_fa_facebook_square_16");
 var iconFaFacebookSquare25 = require("./tmpl/icon_fa_facebook_square_25");
 var IconFaLightBulb = require("./tmpl/icon_fa_lightbulb_o");

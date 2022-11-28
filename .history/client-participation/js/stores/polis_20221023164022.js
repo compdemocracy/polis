@@ -15,19 +15,21 @@ var polisPost = Net.polisPost;
 var polisPut = Net.polisPut;
 var polisGet = Net.polisGet;
 
-module.exports = function (params) {
+
+module.exports = function(params) {
+
   var polisTypes = {
     reactions: {
       push: 1,
       pull: -1,
       pass: 0,
       trash: "trash",
-      see: "see",
+      see: "see"
     },
     staractions: {
       unstar: 0,
-      star: 1,
-    },
+      star: 1
+    }
   };
   window.polisTypes = polisTypes;
 
@@ -112,7 +114,7 @@ module.exports = function (params) {
 
   var conversation_id = params.conversation_id;
   var myPid = "unknownpid";
-  eb.on(eb.pidChange, function (newPid) {
+  eb.on(eb.pidChange, function(newPid) {
     myPid = newPid;
     prepAndSendVisData();
   });
@@ -129,8 +131,7 @@ module.exports = function (params) {
     var buckets = projectionPeopleCache;
     for (var i = 0; i < buckets.length; i++) {
       var bucket = buckets[i];
-      if (
-        bucket.count <= 0 &&
+      if (bucket.count <= 0 &&
         !bucket.containsSelf // but don't remove PTPTOIs from cluster
       ) {
         for (var gid = 0; gid < clusters.length; gid++) {
@@ -140,11 +141,12 @@ module.exports = function (params) {
     }
   }
 
+
   function moveTowards(x, y, dest, howFar) {
     if (!dest) {
       return {
         x: x,
-        y: y,
+        y: y
       };
     }
     var vectorToCentroidX = dest[0] - x;
@@ -156,9 +158,10 @@ module.exports = function (params) {
     var adjustedVectorY = vectorToCentroidY * howFar;
     return {
       x: x + adjustedVectorX,
-      y: y + adjustedVectorY,
+      y: y + adjustedVectorY
     };
   }
+
 
   function getClusters() {
     var clusters = deepcopy(clustersCache);
@@ -176,66 +179,64 @@ module.exports = function (params) {
   //function discussionClient(params)
 
   // TODO rename
-  function syncAllCommentsForCurrentStimulus(optionalStimulusId) {
-    // more like sync?
+  function syncAllCommentsForCurrentStimulus(optionalStimulusId) { // more like sync?
     var dfd = $.Deferred();
     var params = {
-      lastServerToken: new Date(0).getTime(),
+      lastServerToken: (new Date(0)).getTime(),
       // not_pid: getPid(), // don't want to see own coments
       not_voted_by_pid: "mypid",
-      conversation_id: conversation_id,
-      //?
+      conversation_id: conversation_id
+        //?
     };
 
     function fail() {
       dfd.reject(0);
     }
-    getComments(params).then(
-      function (comments) {
-        if (!comments) {
-          logger.log("no new comments for stimulus");
-          dfd.resolve(0);
-          return;
-        }
-        // getCommentVelocities().then(function() {
-        var IDs = _.pluck(comments, "tid");
-        var oldkeys = _.keys(commentsToVoteOn).map(function (tid) {
+    getComments(params).then(function(comments) {
+      if (!comments) {
+        logger.log("no new comments for stimulus");
+        dfd.resolve(0);
+        return;
+      }
+      // getCommentVelocities().then(function() {
+      var IDs = _.pluck(comments, "tid");
+      var oldkeys = _.keys(commentsToVoteOn).map(
+        function(tid) {
           return parseInt(tid, 10);
-        });
-        var newIDs = _.difference(IDs, oldkeys);
-        comments.forEach(function (ev) {
-          var d = ev.created;
-          if (d > lastServerTokenForComments) {
-            lastServerTokenForComments = d;
-          }
-        });
-        var newComments = comments.filter(function (ev) {
-          return _.contains(newIDs, ev.tid);
-        });
-        for (var i = 0; i < newComments.length; i++) {
-          var tid = newComments[i].tid;
-          var alreadyVotedOn = !!votesByMe.findWhere({
-            tid: tid,
-          });
-          if (!alreadyVotedOn) {
-            commentsToVoteOn[tid] = newComments[i];
-          }
         }
-        var numComments = _.keys(commentsToVoteOn).length;
-        if (numComments) {
-          commentsAvailableCallbacks.fire();
-          dfd.resolve(numComments);
-        } else {
-          fail();
+      );
+      var newIDs = _.difference(IDs, oldkeys);
+      comments.forEach(function(ev) {
+        var d = ev.created;
+        if (d > lastServerTokenForComments) {
+          lastServerTokenForComments = d;
         }
-        // }, fail);
-      },
-      function (err) {
-        logger.error("failed to fetch comments");
-        logger.dir(err);
+      });
+      var newComments = comments.filter(function(ev) {
+        return _.contains(newIDs, ev.tid);
+      });
+      for (var i = 0; i < newComments.length; i++) {
+        var tid = newComments[i].tid;
+        var alreadyVotedOn = !!votesByMe.findWhere({
+          tid: tid
+        });
+        if (!alreadyVotedOn) {
+          commentsToVoteOn[tid] = newComments[i];
+        }
+      }
+      var numComments = _.keys(commentsToVoteOn).length;
+      if (numComments) {
+        commentsAvailableCallbacks.fire();
+        dfd.resolve(numComments);
+      } else {
         fail();
       }
-    );
+      // }, fail);
+    }, function(err) {
+      logger.error("failed to fetch comments");
+      logger.dir(err);
+      fail();
+    });
     return dfd.promise();
   }
 
@@ -257,11 +258,12 @@ module.exports = function (params) {
     // }
     // return dfd.promise();
 
+
     var params = {
       not_voted_by_pid: "mypid",
       limit: 1,
       include_social: true,
-      conversation_id: conversation_id,
+      conversation_id: conversation_id
     };
 
     if (Utils.uiLanguage()) {
@@ -282,8 +284,9 @@ module.exports = function (params) {
       params.without.push(o.notTid);
     }
 
+
     var p = polisGet(nextCommentPath, params);
-    p.then(function (c) {
+    p.then(function(c) {
       if (c && c.created) {
         nextCommentCache = c;
       } else {
@@ -306,6 +309,8 @@ module.exports = function (params) {
   }
 
   function submitComment(model) {
+
+
     if (Utils.isDemoMode()) {
       return $.Deferred().resolve();
     }
@@ -320,7 +325,8 @@ module.exports = function (params) {
       logger.error("bad comment");
       return $.Deferred().reject().promise();
     }
-    return polisPost(commentsPath, model).pipe(function (response) {
+    return polisPost(commentsPath, model).pipe(function(response) {
+
       setTimeout(PostMessageUtils.postCommentEvent);
 
       // PID_FLOW
@@ -346,7 +352,7 @@ module.exports = function (params) {
     var o = {
       weight: weight,
       vote: polisTypes.reactions.push,
-      tid: commentId,
+      tid: commentId
     };
     if (!_.isUndefined(starred)) {
       o.starred = starred;
@@ -367,8 +373,8 @@ module.exports = function (params) {
     }
     if (Utils.isDemoMode()) {
       return getNextComment({
-        notTid: params.tid, // Also don't show the comment that was just voted on.
-      }).then(function (c) {
+        notTid: params.tid // Also don't show the comment that was just voted on.
+      }).then(function(c) {
         var o = {};
         if (c && c.created) {
           o.nextComment = c;
@@ -380,35 +386,26 @@ module.exports = function (params) {
       });
     }
 
+
     if (Utils.uiLanguage()) {
-      params = $.extend(
-        {
-          lang: Utils.uiLanguage(),
-        },
-        params
-      );
+      params = $.extend({
+        lang: Utils.uiLanguage(),
+      }, params);
     }
 
-    var promise = polisPost(
-      votesPath,
-      $.extend({}, params, {
-        pid: "mypid",
-        conversation_id: conversation_id,
-        agid: 1,
-        weight: params.weight, // TODO: only pass it in if this exists
-      })
-    );
-    promise = promise.then(function (response) {
+    var promise = polisPost(votesPath, $.extend({}, params, {
+      pid: "mypid",
+      conversation_id: conversation_id,
+      agid: 1,
+    }));
+    promise = promise.then(function(response) {
       // PID_FLOW
       if (!_.isUndefined(response.currentPid)) {
         processPidResponse(response.currentPid);
       }
       var c = response.nextComment;
       if (c && c.translations && c.translations.length) {
-        c.translations = Utils.getBestTranslation(
-          c.translations,
-          Utils.uiLanguage()
-        );
+        c.translations = Utils.getBestTranslation(c.translations, Utils.uiLanguage());
       }
       return response;
     });
@@ -421,7 +418,7 @@ module.exports = function (params) {
     var o = {
       weight: weight,
       vote: polisTypes.reactions.pull,
-      tid: commentId,
+      tid: commentId
     };
     if (!_.isUndefined(starred)) {
       o.starred = starred;
@@ -434,7 +431,7 @@ module.exports = function (params) {
     var o = {
       weight: weight,
       vote: polisTypes.reactions.pass,
-      tid: tid,
+      tid: tid
     };
     if (!_.isUndefined(starred)) {
       o.starred = starred;
@@ -452,7 +449,7 @@ module.exports = function (params) {
     return polisPost(trashesPath, {
       tid: tid,
       trashed: 1,
-      conversation_id: conversation_id,
+      conversation_id: conversation_id
     });
   }
 
@@ -473,25 +470,22 @@ module.exports = function (params) {
       return $.Deferred().resolve();
     }
 
-    return polisPost(
-      starsPath,
-      $.extend({}, params, {
-        conversation_id: conversation_id,
-      })
-    );
+    return polisPost(starsPath, $.extend({}, params, {
+      conversation_id: conversation_id
+    }));
   }
 
   function unstar(tid) {
     return doStarAction({
       starred: polisTypes.staractions.unstar,
-      tid: tid,
+      tid: tid
     });
   }
 
   function star(tid) {
     return doStarAction({
       starred: polisTypes.staractions.star,
-      tid: tid,
+      tid: tid
     });
   }
 
@@ -505,11 +499,12 @@ module.exports = function (params) {
     });
   }
 
+
   function invite(xids) {
     return polisPost("api/v3/users/invite", {
       single_use_tokens: true,
       conversation_id: conversation_id,
-      xids: xids,
+      xids: xids
     });
   }
 
@@ -533,26 +528,21 @@ module.exports = function (params) {
       this.hasFacebook = o.hasFacebook;
       this.twitter = o.twitter;
       this.facebook = o.facebook;
-      if (o.clusterCount) {
-        // TODO stop with this pattern
+      if (o.clusterCount) { // TODO stop with this pattern
         this.clusterCount = o.clusterCount; // TODO stop with this pattern
       }
-      if (!_.isUndefined(o.ptptoiCount)) {
-        // TODO stop with this pattern
+      if (!_.isUndefined(o.ptptoiCount)) { // TODO stop with this pattern
         this.ptptoiCount = o.ptptoiCount; // TODO stop with this pattern
       }
-      if (o.containsSelf) {
-        // TODO stop with this pattern
+      if (o.containsSelf) { // TODO stop with this pattern
         this.containsSelf = true; // TODO stop with this pattern
       }
-      if (o.ptptoi) {
-        // TODO stop with this pattern
+      if (o.ptptoi) { // TODO stop with this pattern
         this.ptptoi = true; // TODO stop with this pattern
       }
       this.priority = o.priority || 0;
 
-      if (o.isSummaryBucket) {
-        // TODO stop with this pattern
+      if (o.isSummaryBucket) { // TODO stop with this pattern
         this.isSummaryBucket = true; // TODO stop with this pattern
         if (_.isUndefined(o.gid)) {
           alert("bug ID 'cricket'");
@@ -560,17 +550,18 @@ module.exports = function (params) {
       }
       this.proj = o.proj;
 
-      if (!_.isUndefined(o.gid)) {
-        // TODO stop with this pattern
+
+      if (!_.isUndefined(o.gid)) { // TODO stop with this pattern
         this.gid = parseInt(o.gid); // TODO stop with this pattern
       }
 
       this.pic = o.pic;
       this.picture_size = o.picture_size;
     }
+
   }
 
-  Bucket.prototype.containsPid = function (pid) {
+  Bucket.prototype.containsPid = function(pid) {
     if (!this.ppl) {
       // TODO dfd
       return false;
@@ -607,23 +598,20 @@ module.exports = function (params) {
   //         }
   //     }
   // };
-  Bucket.prototype.getPeople = function () {
+  Bucket.prototype.getPeople = function() {
     // return getUserInfoByBid(this.bid);
     // TODO make service call instead.
     var dfd = $.Deferred();
     if (this.ppl) {
       dfd.resolve(this.ppl);
     } else {
-      dfd.resolve([
-        {
-          pid: 123,
-          email: "person1@att.net",
-        },
-        {
-          pid: 234,
-          email: "person2@att.net",
-        },
-      ]);
+      dfd.resolve([{
+        pid: 123,
+        email: "person1@att.net"
+      }, {
+        pid: 234,
+        email: "person2@att.net"
+      }]);
     }
     return dfd.promise();
   };
@@ -641,7 +629,7 @@ module.exports = function (params) {
       count: 1,
       bid: selfDotBid,
       pic: Utils.getAnonPicUrl(),
-      picture_size: -1,
+      picture_size: -1
     });
     return bucket;
   }
@@ -651,6 +639,7 @@ module.exports = function (params) {
       if (ptptoiData.isSelf) {
         ptptoiData.picture_size = 48;
       } else {
+
         ptptoiData.picture_size = 48; // just set it for now
         // console.error('missing picture_size', ptptoiData);
       }
@@ -668,10 +657,11 @@ module.exports = function (params) {
       ptptoi: true,
       proj: o.proj,
       count: 1,
-      bid: ptptoiData.fakeBid,
+      bid: ptptoiData.fakeBid
     });
     return bucket;
   }
+
 
   // var bid = 0; // TODO expecting bid (Bucket id) to be set (or implicit in array index) in math worker
   // return people.map(function(p) {
@@ -809,6 +799,7 @@ module.exports = function (params) {
   }
   */
 
+
   function getBidToGid(clusters) {
     var bidToGid = {};
     clusters = clusters || getClusters(); // TODO cleanup
@@ -839,33 +830,35 @@ module.exports = function (params) {
   function doFindRepresentativeMetadata(choices, p2b, b2g) {
     var groupedChoices = _.groupBy(choices, "pmqid");
     var questionsWithAnswersWithChoices = {};
-    _.each(groupedChoices, function (choicesForQuestion, pmqid) {
+    _.each(groupedChoices, function(choicesForQuestion, pmqid) {
       var allChoicesForAnswer = _.groupBy(choicesForQuestion, "pmaid");
       var allChoicesForAnswerGrouped = {};
-      _.each(allChoicesForAnswer, function (choices, pmaid) {
-        _.each(choices, function (c) {
+      _.each(allChoicesForAnswer, function(choices, pmaid) {
+        _.each(choices, function(c) {
           c.bid = p2b[c.pid];
           c.gid = b2g[c.bid];
         });
       });
       var counts = {};
-      _.each(allChoicesForAnswer, function (choices, pmaid) {
+      _.each(allChoicesForAnswer, function(choices, pmaid) {
         var groupedAnswers = _.groupBy(choices, "gid");
         allChoicesForAnswerGrouped[pmaid] = groupedAnswers;
         counts[pmaid] = {};
-        _.each(groupedAnswers, function (answersForGroup, gid) {
+        _.each(groupedAnswers, function(answersForGroup, gid) {
           counts[pmaid][gid] = answersForGroup.length;
         });
       });
       questionsWithAnswersWithChoices[pmqid] = {
         groups: allChoicesForAnswerGrouped,
-        counts: counts,
+        counts: counts
       };
     });
 
     console.dir(questionsWithAnswersWithChoices);
 
+
     // ...
+
 
     return questionsWithAnswersWithChoices;
   }
@@ -876,14 +869,12 @@ module.exports = function (params) {
       getMetadataChoices(),
       getPidToBidMappingFromCache(),
       getXids(),
-      clustersCachePromise
-    ).then(function (
+      clustersCachePromise).then(function(
       // answersResponse,
       choicesResponse,
       mappings,
       xids,
-      foo
-    ) {
+      foo) {
       // var answers = answersResponse[0];
       var choices = choicesResponse[0];
       // var b2p = mappings.b2p;
@@ -896,12 +887,12 @@ module.exports = function (params) {
 
   function getXids() {
     return polisGet(xidsPath, {
-      conversation_id: conversation_id,
+      conversation_id: conversation_id
     });
   }
 
   function getXidToPid() {
-    return getXids().then(function (items) {
+    return getXids().then(function(items) {
       var x2p = {};
       for (var i = 0; i < items.length; i++) {
         x2p[items[i].xid] = items[i].pid;
@@ -910,6 +901,7 @@ module.exports = function (params) {
     });
   }
 
+
   // TODO account for "N/A", "null", etc
   // returns {
   //     info : [ {name: "city", cardinality: 2, type: "string"},...]
@@ -917,272 +909,250 @@ module.exports = function (params) {
   //     xids : [xid for row 0, xid for row 1, ...]
   // }
   function parseMetadataFromCSV(rawCsvFile) {
-    return getXidToPid().then(
-      function (x2p) {
-        var notNumberColumns = [];
-        var notIntegerColumns = [];
-        var valueSets = [];
-        var rows = d3.csv.parseRows(rawCsvFile);
-        var rowCount = rows.length;
-        var colCount = rows[0].length;
-        var xidsUnaccounted = {};
-        var xidHash = {};
+    return getXidToPid().then(function(x2p) {
+      var notNumberColumns = [];
+      var notIntegerColumns = [];
+      var valueSets = [];
+      var rows = d3.csv.parseRows(rawCsvFile);
+      var rowCount = rows.length;
+      var colCount = rows[0].length;
+      var xidsUnaccounted = {};
+      var xidHash = {};
 
-        // Check row lengths
-        for (var r = 0; r < rowCount; r++) {
-          if (rows[r].length !== colCount) {
-            alert(
-              "row length does not match length of first row. (for row number " +
-                r +
-                ")"
-            );
-            return;
-          }
-        }
-
-        // Remove redundant columns (from a SQL join, for example)
-        function columnsEqual(a, b) {
-          for (var r = 0; r < rowCount; r++) {
-            var row = rows[r];
-            if (row[a] !== row[b]) {
-              return false;
-            }
-          }
-          return true;
-        }
-        var duplicateColumns = [];
-        for (var c = 0; c < colCount - 1; c++) {
-          for (var d = c + 1; d < colCount; d++) {
-            if (columnsEqual(c, d)) {
-              duplicateColumns.push({
-                name: rows[0][d],
-                col: d,
-              });
-            }
-          }
-        }
-        if (duplicateColumns.length) {
-          alert(
-            "removing duplicate columns: " + _.pluck(duplicateColumns, "name")
-          );
-        }
-        // Remove duplicate columns
-        (function () {
-          for (var r = 0; r < rowCount; r++) {
-            var row = rows[r];
-            for (var d = 0; d < duplicateColumns.length; d++) {
-              row.splice(duplicateColumns[d].col, 1);
-            }
-          }
-        })();
-        colCount = rows[0].length;
-
-        // Replace the column names in the 0th row with objects with metadata.
-        (function () {
-          for (var c = 0; c < colCount; c++) {
-            rows[0][c] = {
-              name: rows[0][c],
-              type: "integer", // may be disproven and become "float" or "string"
-              cardinality: 0,
-            };
-          }
-        })();
-
-        _.each(x2p, function (pid, xid) {
-          xidsUnaccounted[xid] = true;
-          xidHash[xid] = true;
-        });
-
-        var xidsFoundPerColumn = [];
-        (function () {
-          for (var c = 0; c < colCount; c++) {
-            xidsFoundPerColumn[c] = 0;
-            valueSets[c] = {};
-          }
-        })();
-        // determine xid column
-        (function () {
-          for (var r = 0; r < rowCount; r++) {
-            var row = rows[r];
-            if (r > 0) {
-              for (var c = 0; c < colCount; c++) {
-                var cell = row[c];
-
-                // Determine the columns where the xids are
-                if (xidHash[cell]) {
-                  xidsFoundPerColumn[c] += 1;
-                }
-                if (xidsUnaccounted[cell]) {
-                  // Mark the xid as seen
-                  delete xidsUnaccounted[cell];
-                }
-              }
-            }
-          }
-        })();
-
-        if (_.size(xidsUnaccounted)) {
-          alert(
-            "The attached data-source is missing data on participants with these xids: " +
-              xidsUnaccounted.join(" ")
-          );
-        }
-
-        // Find the Xid Column
-        var xidColumn = 0;
-
-        function argMaxForIndexOrKey(items) {
-          var max = -Infinity;
-          var maxArg = null;
-          _.each(items, function (val, arg) {
-            if (val > max) {
-              max = val;
-              maxArg = arg;
-            }
-          });
-          return {
-            arg: maxArg,
-            max: max,
-          };
-        }
-
-        var o = argMaxForIndexOrKey(xidsFoundPerColumn);
-        xidColumn = o.arg;
-        var maxXidCount = o.max;
-        if (maxXidCount === 0) {
-          alert(
-            "xid column missing, please be sure to include a column with xids"
-          );
+      // Check row lengths
+      for (var r = 0; r < rowCount; r++) {
+        if (rows[r].length !== colCount) {
+          alert("row length does not match length of first row. (for row number " + r + ")");
           return;
         }
+      }
 
-        // TODO check xidsUnaccounted within this column only.
-        alert("the xid column appears to be called " + rows[0][xidColumn].name);
+      // Remove redundant columns (from a SQL join, for example)
+      function columnsEqual(a, b) {
+        for (var r = 0; r < rowCount; r++) {
+          var row = rows[r];
+          if (row[a] !== row[b]) {
+            return false;
+          }
+        }
+        return true;
+      }
+      var duplicateColumns = [];
+      for (var c = 0; c < colCount - 1; c++) {
+        for (var d = c + 1; d < colCount; d++) {
+          if (columnsEqual(c, d)) {
+            duplicateColumns.push({
+              name: rows[0][d],
+              col: d
+            });
+          }
+        }
+      }
+      if (duplicateColumns.length) {
+        alert('removing duplicate columns: ' + _.pluck(duplicateColumns, "name"));
+      }
+      // Remove duplicate columns
+      (function() {
+        for (var r = 0; r < rowCount; r++) {
+          var row = rows[r];
+          for (var d = 0; d < duplicateColumns.length; d++) {
+            row.splice(duplicateColumns[d].col, 1);
+          }
+        }
+      }());
+      colCount = rows[0].length;
 
-        // Remove extra rows (which have no corresponsing xids)
-        rows = _.filter(rows, function (row) {
-          var xid = row[xidColumn];
-          return !_.isUndefined(x2p[xid]);
+
+      // Replace the column names in the 0th row with objects with metadata.
+      (function() {
+        for (var c = 0; c < colCount; c++) {
+          rows[0][c] = {
+            name: rows[0][c],
+            type: "integer", // may be disproven and become "float" or "string"
+            cardinality: 0
+          };
+        }
+      }());
+
+      _.each(x2p, function(pid, xid) {
+        xidsUnaccounted[xid] = true;
+        xidHash[xid] = true;
+      });
+
+      var xidsFoundPerColumn = [];
+      (function() {
+        for (var c = 0; c < colCount; c++) {
+          xidsFoundPerColumn[c] = 0;
+          valueSets[c] = {};
+        }
+      }());
+      // determine xid column
+      (function() {
+        for (var r = 0; r < rowCount; r++) {
+          var row = rows[r];
+          if (r > 0) {
+            for (var c = 0; c < colCount; c++) {
+              var cell = row[c];
+
+              // Determine the columns where the xids are
+              if (xidHash[cell]) {
+                xidsFoundPerColumn[c] += 1;
+              }
+              if (xidsUnaccounted[cell]) {
+                // Mark the xid as seen
+                delete xidsUnaccounted[cell];
+              }
+
+            }
+          }
+        }
+      }());
+
+      if (_.size(xidsUnaccounted)) {
+        alert("The attached data-source is missing data on participants with these xids: " + xidsUnaccounted.join(" "));
+      }
+
+      // Find the Xid Column
+      var xidColumn = 0;
+
+      function argMaxForIndexOrKey(items) {
+        var max = -Infinity;
+        var maxArg = null;
+        _.each(items, function(val, arg) {
+          if (val > max) {
+            max = val;
+            maxArg = arg;
+          }
         });
-        rowCount = rows.length;
+        return {
+          arg: maxArg,
+          max: max,
+        };
+      }
 
-        (function () {
-          for (var r = 0; r < rowCount; r++) {
-            var row = rows[r];
-            if (r > 0) {
-              for (var c = 0; c < colCount; c++) {
-                var cell = row[c];
-                // find the cardinality
-                valueSets[c][cell] = true;
+      var o = argMaxForIndexOrKey(xidsFoundPerColumn);
+      xidColumn = o.arg;
+      var maxXidCount = o.max;
+      if (maxXidCount === 0) {
+        alert("xid column missing, please be sure to include a column with xids");
+        return;
+      }
 
-                // determine if the columns can be parsed as numbers
-                if (notNumberColumns[c]) {
-                  continue;
-                }
-                var n = parseFloat(cell);
-                var nInt = parseInt(cell);
-                if (isNaN(n)) {
-                  notNumberColumns[c] = true;
-                  notIntegerColumns[c] = true;
-                } else if (n !== nInt) {
-                  notIntegerColumns[c] = true;
-                }
+      // TODO check xidsUnaccounted within this column only.
+      alert("the xid column appears to be called " + rows[0][xidColumn].name);
+
+      // Remove extra rows (which have no corresponsing xids)
+      rows = _.filter(rows, function(row) {
+        var xid = row[xidColumn];
+        return !_.isUndefined(x2p[xid]);
+      });
+      rowCount = rows.length;
+
+      (function() {
+        for (var r = 0; r < rowCount; r++) {
+          var row = rows[r];
+          if (r > 0) {
+            for (var c = 0; c < colCount; c++) {
+              var cell = row[c];
+              // find the cardinality
+              valueSets[c][cell] = true;
+
+              // determine if the columns can be parsed as numbers
+              if (notNumberColumns[c]) {
+                continue;
+              }
+              var n = parseFloat(cell);
+              var nInt = parseInt(cell);
+              if (isNaN(n)) {
+                notNumberColumns[c] = true;
+                notIntegerColumns[c] = true;
+              } else if (n !== nInt) {
+                notIntegerColumns[c] = true;
               }
             }
           }
-        })();
+        }
+      }());
 
-        // Assign Cardinality
-        _.each(valueSets, function (values, c) {
-          rows[0][c].cardinality = _.keys(values).length;
-        });
+      // Assign Cardinality
+      _.each(valueSets, function(values, c) {
+        rows[0][c].cardinality = _.keys(values).length;
+      });
 
-        // Assing Types
-        _.each(notIntegerColumns, function (isNotInt, c) {
-          var isNumber = !notNumberColumns[c];
-          if (isNotInt) {
-            if (isNumber) {
-              rows[0][c].type = "float";
-            } else {
-              rows[0][c].type = "string";
-            }
+      // Assing Types
+      _.each(notIntegerColumns, function(isNotInt, c) {
+        var isNumber = !notNumberColumns[c];
+        if (isNotInt) {
+          if (isNumber) {
+            rows[0][c].type = "float";
+          } else {
+            rows[0][c].type = "string";
           }
-        });
+        }
+      });
 
-        var hasNumericalColumns = false;
-        (function () {
-          for (var c = 0; c < colCount; c++) {
-            var isNumberColumn = !notNumberColumns[c];
-            if (isNumberColumn) {
-              hasNumericalColumns = true;
-              break;
-            }
+      var hasNumericalColumns = false;
+      (function() {
+        for (var c = 0; c < colCount; c++) {
+          var isNumberColumn = !notNumberColumns[c];
+          if (isNumberColumn) {
+            hasNumericalColumns = true;
+            break;
           }
-        })();
-        if (hasNumericalColumns) {
-          (function () {
-            for (var r = 0; r < rowCount; r++) {
-              var row = rows[r];
-              if (r > 0) {
-                for (var ci = 0; ci < colCount; ci++) {
-                  if (!notNumberColumns[ci]) {
-                    row[ci] = parseFloat(row[ci]);
-                    if (isNaN(row[ci])) {
-                      alert(
-                        'expected number for cell with value "' +
-                          row[ci] +
-                          '" in column named "' +
-                          rows[0][ci].name +
-                          '"'
-                      );
-                    }
+        }
+      }());
+      if (hasNumericalColumns) {
+        (function() {
+          for (var r = 0; r < rowCount; r++) {
+            var row = rows[r];
+            if (r > 0) {
+              for (var ci = 0; ci < colCount; ci++) {
+                if (!notNumberColumns[ci]) {
+                  row[ci] = parseFloat(row[ci]);
+                  if (isNaN(row[ci])) {
+                    alert("expected number for cell with value \"" + row[ci] + "\" in column named \"" + rows[0][ci].name + "\"");
                   }
                 }
               }
             }
-          })();
-        }
-        // Remove xid column
-        var xids = [];
-        for (var ri = 0; ri < rowCount; ri++) {
-          var xid = rows[ri].splice(xidColumn, 1)[0];
-          xids.push(xid);
-        }
-        var infoRow = rows.shift();
-        xids.shift(); // Remove the info row for the xid column
-
-        var pids = _.map(xids, function (xid) {
-          return x2p[xid];
-        });
-
-        var result = {
-          info: infoRow,
-          rows: rows,
-          xids: xids,
-          pids: pids,
-        };
-        console.dir(result);
-        return result;
-      },
-      function (err) {
-        alert(err);
+          }
+        }());
       }
-    );
+      // Remove xid column
+      var xids = [];
+      for (var ri = 0; ri < rowCount; ri++) {
+        var xid = rows[ri].splice(xidColumn, 1)[0];
+        xids.push(xid);
+      }
+      var infoRow = rows.shift();
+      xids.shift(); // Remove the info row for the xid column
+
+
+      var pids = _.map(xids, function(xid) {
+        return x2p[xid];
+      });
+
+      var result = {
+        info: infoRow,
+        rows: rows,
+        xids: xids,
+        pids: pids
+      };
+      console.dir(result);
+      return result;
+    }, function(err) {
+      alert(err);
+    });
   }
 
   function shareConversationOnTwitter() {
-    window.open(
-      "https://twitter.com/intent/tweet?text=Join the conversation!&url=https://pol.is/" +
-        conversation_id
-    );
+    window.open("https://twitter.com/intent/tweet?text=Join the conversation!&url=https://pol.is/" + conversation_id);
   }
 
   function shareConversationOnFacebook() {
-    window.open(
-      "http://www.facebook.com/sharer/sharer.php?u=https://pol.is/" +
-        conversation_id
-    );
+    window.open("http://www.facebook.com/sharer/sharer.php?u=https://pol.is/" + conversation_id);
   }
+
 
   function getMathMain() {
     return cachedPcaData;
@@ -1192,6 +1162,7 @@ module.exports = function (params) {
     return fetchPca(pcaPath, lastServerTokenForPCA);
   }
 
+
   function fetchPca(path, timestamp) {
     if (Utils.isHidden() && firstPcaCallPromise.state() === "resolved") {
       // Don't poll when the document isn't visible. (and we've already fetched the pca)
@@ -1199,26 +1170,22 @@ module.exports = function (params) {
     }
 
     function fetchIt() {
-      return polisGet(
-        path,
-        {
-          // math_tick: timestamp,
-          conversation_id: conversation_id,
-          cacheBust: (Math.random() * 1e9) >> 0,
-        },
-        {
-          "If-None-Match": '"' + timestamp + '"',
-        }
-      );
+      return polisGet(path, {
+        // math_tick: timestamp,
+        conversation_id: conversation_id,
+        cacheBust: (Math.random() * 1e9 >> 0)
+      }, {
+        "If-None-Match": '"' + timestamp + '"',
+      });
     }
 
     var promise;
     if (usePreloadMath) {
-      promise = preloadHelper.firstMathPromise.pipe(function (pcaData) {
+      promise = preloadHelper.firstMathPromise.pipe(function(pcaData) {
         usePreloadMath = false;
         if (pcaData) {
           return $.Deferred().resolve(pcaData, null, {
-            status: 200,
+            status: 200
           });
         }
         return fetchIt();
@@ -1227,8 +1194,7 @@ module.exports = function (params) {
       promise = fetchIt();
     }
 
-    var p2 = promise.then(
-      function (pcaData, textStatus, xhr) {
+    var p2 = promise.then(function(pcaData, textStatus, xhr) {
         usePreloadMath = false;
         if (304 === xhr.status) {
           // not nodified
@@ -1245,15 +1211,18 @@ module.exports = function (params) {
         consensusComments = pcaData.consensus;
         groupVotes = pcaData["group-votes"];
 
+
         modOutTids = {};
         var modOut = pcaData["mod-out"];
         if (modOut) {
-          modOut.forEach(function (x) {
+          modOut.forEach(function(x) {
             modOutTids[x] = true;
           });
         }
 
-        return getFamousVotes().then(function () {
+
+        return getFamousVotes().then(function() {
+
           // Check for missing comps... TODO solve
           if (!pcaData.pca || !pcaData.pca.comps) {
             console.error("missing comps");
@@ -1284,8 +1253,11 @@ module.exports = function (params) {
           pcX = pcX || [];
           pcY = pcY || [];
 
+
+
           // gid -> {members: [bid1, bid2, ...], ...}
           var clusters = _.indexBy(pcaData["group-clusters"], "id");
+
 
           // buckets = _.map(pcaData["group-clusters"], function(cluster) {
           //     var anonBucket = _.clone(cluster);
@@ -1295,22 +1267,23 @@ module.exports = function (params) {
           //     return anonBucket;
           // });
 
+
           var bidToGid = getBidToGid(clusters);
           var bucketPerGroup = {};
-          _.each(buckets, function (bucket) {
+          _.each(buckets, function(bucket) {
             var gid = bidToGid[bucket.id];
             bucketPerGroup[gid] = bucketPerGroup[gid] || [];
             bucketPerGroup[gid].push(bucket);
             bucket.gid = gid;
           });
 
+
           bidToBigBucket = {};
           // bigBuckets = [1,2,3];
-          bigBuckets = _.map(bucketPerGroup, function (bucketsForGid, gid) {
-            gid = parseInt(gid);
-            var bigBucket = _.reduce(
-              bucketsForGid,
-              function (o, bucket) {
+          bigBuckets = _.map(bucketPerGroup,
+            function(bucketsForGid, gid) {
+              gid = parseInt(gid);
+              var bigBucket = _.reduce(bucketsForGid, function(o, bucket) {
                 if (_.contains(participantsOfInterestBids, bucket.id)) {
                   // debugger;
                   // o.ptptoiCount += 1;
@@ -1326,8 +1299,7 @@ module.exports = function (params) {
                 // o.y = ((bucket.y - o.y)) / o.bucketCount;
                 o.id = o.id + "_" + bucket.id; // TODO not sure, but this is proof-of-concept code
                 return o;
-              },
-              {
+              }, {
                 members: [],
                 id: "bigBucketBid_",
                 bids: [],
@@ -1337,17 +1309,15 @@ module.exports = function (params) {
                 // ptptoiCount: getParticipantsOfInterestForGid(gid).length,
                 x: clusters[gid].center[0],
                 y: clusters[gid].center[1],
-                isSummaryBucket: true,
+                isSummaryBucket: true
+              });
+              for (var i = 0; i < bigBucket.bids.length; i++) {
+                bidToBigBucket[bigBucket.bids[i]] = bigBucket.id;
               }
-            );
-            for (var i = 0; i < bigBucket.bids.length; i++) {
-              bidToBigBucket[bigBucket.bids[i]] = bigBucket.id;
+              clusters[gid].members = _.union(clusters[gid].members, [bigBucket.id]);
+              return bigBucket;
             }
-            clusters[gid].members = _.union(clusters[gid].members, [
-              bigBucket.id,
-            ]);
-            return bigBucket;
-          });
+          );
 
           // bigBuckets.forEach(function(bb) {
 
@@ -1357,8 +1327,11 @@ module.exports = function (params) {
           // buckets = _.values(gidToBuckets);
           // buckets = buckets2;
 
+
+
+
           // remove the buckets that only contain a ptptoi
-          buckets = _.filter(buckets, function (b) {
+          buckets = _.filter(buckets, function(b) {
             var hasPtptOI = _.contains(participantsOfInterestBids, b.id);
             if (hasPtptOI) {
               if (b.count === 1) {
@@ -1368,47 +1341,53 @@ module.exports = function (params) {
             return true;
           });
 
+
+
+
+
           // mutate - move x and y into a proj sub-object, so the vis can animate x and y
-          _.each(buckets, function (b) {
+          _.each(buckets, function(b) {
             b.proj = {
               x: b.x,
-              y: b.y,
+              y: b.y
             };
             delete b.x;
             delete b.y;
           });
 
           // Convert to Bucket objects.
-          buckets = _.map(buckets, function (b) {
+          buckets = _.map(buckets, function(b) {
             return new Bucket(b);
           });
 
           // ----------------- AGAIN for bigBuckets ---------------------
-          _.each(bigBuckets, function (b) {
+          _.each(bigBuckets, function(b) {
             b.proj = {
               x: b.x,
-              y: b.y,
+              y: b.y
             };
             delete b.x;
             delete b.y;
           });
 
           // Convert to Bucket objects.
-          bigBuckets = _.map(bigBuckets, function (b) {
+          bigBuckets = _.map(bigBuckets, function(b) {
             return new Bucket(b);
           });
 
+
+
           // -------------- PROCESS VOTES INFO --------------------------
           var gidToBigBucketId = {};
-          _.each(bigBuckets, function (b) {
+          _.each(bigBuckets, function(b) {
             gidToBigBucketId[b.gid] = b.bid;
           });
           votesForTidBid = {};
-          _.each(groupVotes[0].votes, function (o, tid) {
+          _.each(groupVotes[0].votes, function(o, tid) {
             var A = {};
             var D = {};
             var S = {};
-            _.each(clusters, function (cluster) {
+            _.each(clusters, function(cluster) {
               var gid = cluster.id;
               var bigBucketBid = gidToBigBucketId[gid];
               A[bigBucketBid] = groupVotes[gid]["votes"][tid].A;
@@ -1426,6 +1405,8 @@ module.exports = function (params) {
 
           // -------------- END PROCESS VOTES INFO --------------------------
 
+
+
           var temp = removeSelfFromBucketsAndClusters(buckets, clusters);
           buckets = temp.buckets;
           clustersCache = temp.clusters;
@@ -1437,21 +1418,21 @@ module.exports = function (params) {
           return null;
         });
       },
-      function (xhr) {
+      function(xhr) {
         if (404 === xhr.status) {
           firstPcaCallPromise.resolve();
         } else if (500 === xhr.status) {
           // alert("failed to get pca data");
         }
-      }
-    );
+      });
 
-    p2.then(function () {
+    p2.then(function() {
       firstPcaCallPromise.resolve();
       firstSuccessfulPcaCallPromise.resolve();
     });
     return p2;
   }
+
 
   function removeItemFromArray(bid, cluster) {
     var index = cluster.indexOf(bid);
@@ -1508,7 +1489,7 @@ module.exports = function (params) {
     }
     return {
       buckets: buckets,
-      clusters: clusters,
+      clusters: clusters
     };
   }
 
@@ -1537,7 +1518,7 @@ module.exports = function (params) {
   function withProjectedSelf(people) {
     people = people || [];
 
-    var alreadyHaveSelfDot = _.some(people, function (p) {
+    var alreadyHaveSelfDot = _.some(people, function(p) {
       return p.containsSelf;
     });
     if (!alreadyHaveSelfDot) {
@@ -1551,7 +1532,7 @@ module.exports = function (params) {
     if (!participantsOfInterestVotes) {
       return {
         buckets: people,
-        clusters: clusters,
+        clusters: clusters
       };
     }
     people = people || [];
@@ -1581,8 +1562,9 @@ module.exports = function (params) {
     //     };
     // }
 
+
     var bidToGid = getBidToGid();
-    _.each(participantsOfInterestVotes, function (ptpt, pid) {
+    _.each(participantsOfInterestVotes, function(ptpt, pid) {
       var magicPid = Number(pid) + 10000000000;
       var gid = bidToGid[magicPid];
       // clusters[gid].ptptoiCount = (clusters[gid].ptptoiCount || 0) + 1;
@@ -1591,7 +1573,10 @@ module.exports = function (params) {
       pid = parseInt(pid);
 
       // pid += 1000000000; // TODO figure out what bids to assign to ptptoi buckets, these fake pids are currently used for that
-      var temp = projectParticipant(pid, votesVectorInAscii_adpu_format);
+      var temp = projectParticipant(
+        pid,
+        votesVectorInAscii_adpu_format
+      );
       temp.gid = gid;
       var p = bucketizeParticipantOfInterest(temp, ptpt);
       people.push(p);
@@ -1599,7 +1584,7 @@ module.exports = function (params) {
 
     function averageTheThings(items, getter) {
       var total = 0;
-      _.each(items, function (item) {
+      _.each(items, function(item) {
         var val = getter(item);
         total += val;
       });
@@ -1640,8 +1625,8 @@ module.exports = function (params) {
       return null;
     }
 
-    _.each(clusters, function (cluster) {
-      var ptptoiMembers = cluster.members.filter(function (bid) {
+    _.each(clusters, function(cluster) {
+      var ptptoiMembers = cluster.members.filter(function(bid) {
         return bid >= 10000000000; // magicPid
       });
       // use the center of the ptpois if possible
@@ -1661,27 +1646,18 @@ module.exports = function (params) {
 
     return {
       buckets: people,
-      clusters: clusters,
+      clusters: clusters
     };
+
   }
 
-  function sendUpdatedVisData(
-    people,
-    clusters,
-    participantCount,
-    projectedComments
-  ) {
+  function sendUpdatedVisData(people, clusters, participantCount, projectedComments) {
     // make deep copy so the vis doesn't muck with the model
-    people = _.map(people, function (p) {
+    people = _.map(people, function(p) {
       var deep = true;
       return $.extend(deep, {}, p);
     });
-    personUpdateCallbacks.fire(
-      people || [],
-      clusters || [],
-      participantCount,
-      projectedComments
-    );
+    personUpdateCallbacks.fire(people || [], clusters || [], participantCount, projectedComments);
   }
 
   function authenticated() {
@@ -1703,38 +1679,33 @@ module.exports = function (params) {
 
     var comments;
     return polisGet(pcaPath, {
-      conversation_id: conversation_id,
-    })
-      .pipe(function (pcaData) {
-        comments = pcaData.pca.principal_components;
-        var keys = _.keys(comments);
-        comments = keys.map(function (key) {
-          return {
-            id: key,
-            projection: comments[key],
-          };
-        });
-        comments.sort(compare);
-        if (count >= 0) {
-          comments = comments.slice(0, count);
-        }
-        return comments;
-      })
-      .pipe(function (commentIds) {
-        return getComments(
-          commentIds.map(function (comment) {
-            return comment.id;
-          })
-        );
-      })
-      .pipe(function (results) {
-        // they arrive out of order, so map results onto the array that has the right ordering.
-        return comments.map(function (comment) {
-          return _.findWhere(results, {
-            tid: comment.id,
-          });
+      conversation_id: conversation_id
+    }).pipe(function(pcaData) {
+      comments = pcaData.pca.principal_components;
+      var keys = _.keys(comments);
+      comments = keys.map(function(key) {
+        return {
+          id: key,
+          projection: comments[key]
+        };
+      });
+      comments.sort(compare);
+      if (count >= 0) {
+        comments = comments.slice(0, count);
+      }
+      return comments;
+    }).pipe(function(commentIds) {
+      return getComments(commentIds.map(function(comment) {
+        return comment.id;
+      }));
+    }).pipe(function(results) {
+      // they arrive out of order, so map results onto the array that has the right ordering.
+      return comments.map(function(comment) {
+        return _.findWhere(results, {
+          tid: comment.id
         });
       });
+    });
   }
 
   function sum(arrayOfNumbers) {
@@ -1748,14 +1719,13 @@ module.exports = function (params) {
 
   function getFancyComments(options) {
     options = $.extend(options, { translate: true, lang: navigator.language });
-    return $.when(getComments(options), votesForTidBidPromise).then(function (
-      args /* , dont need second arg */
-    ) {
+    return $.when(getComments(options), votesForTidBidPromise).then(function(args /* , dont need second arg */ ) {
+
       var comments = args[0];
       // don't need args[1], just used as a signal
 
       // votesForTidBid should be defined since votesForTidBidPromise has resolved.
-      return _.map(comments, function (x) {
+      return _.map(comments, function(x) {
         // Count the agrees and disagrees for each comment.
         var bidToVote = votesForTidBid[x.tid];
         if (bidToVote) {
@@ -1771,21 +1741,18 @@ module.exports = function (params) {
   }
 
   function getComments(params) {
-    params = $.extend(
-      {
-        conversation_id: conversation_id,
-        include_social: true,
-        // not_pid: getPid() // don't want to see own coments
-      },
-      params
-    );
+    params = $.extend({
+      conversation_id: conversation_id,
+      include_social: true,
+      // not_pid: getPid() // don't want to see own coments
+    }, params);
     return polisGet(commentsPath, params);
   }
 
   function getLocations(gid) {
     return polisGet(particpantGeoLocationsPath, {
       conversation_id: conversation_id,
-      gid: gid,
+      gid: gid
     });
   }
 
@@ -1795,14 +1762,14 @@ module.exports = function (params) {
     }
     var x = [];
     if (consensusComments.agree && consensusComments.agree.length) {
-      var agrees = _.map(consensusComments.agree, function (c) {
+      var agrees = _.map(consensusComments.agree, function(c) {
         c.a = true;
         return c;
       });
       Array.prototype.push.apply(x, agrees);
     }
     if (consensusComments.disagree && consensusComments.disagree.length) {
-      var disagrees = _.map(consensusComments.disagree, function (c) {
+      var disagrees = _.map(consensusComments.disagree, function(c) {
         c.d = true;
         return c;
       });
@@ -1814,7 +1781,8 @@ module.exports = function (params) {
   function getTidsForGroup(gid, max) {
     var dfd = $.Deferred();
     // delay since clustersCache might not be populated yet.
-    $.when(votesForTidBidPromise, clustersCachePromise).done(function () {
+    $.when(votesForTidBidPromise, clustersCachePromise).done(function() {
+
       var tidToR = _.indexBy(repness[gid], "tid");
       var tids = _.pluck(repness[gid], "tid");
 
@@ -1853,19 +1821,20 @@ module.exports = function (params) {
       // resolve deferred
       dfd.resolve({
         tidToR: tidToR,
-        tids: tids,
+        tids: tids
       });
     });
     return dfd.promise();
   }
 
+
   function getReactionsToComment(tid) {
     var dfd = $.Deferred();
 
-    votesForTidBidPromise.then(function () {
+    votesForTidBidPromise.then(function() {
       var buckets = $.extend({}, votesForTidBid[tid]);
 
-      _.each(participantsOfInterestVotes, function (o, pid) {
+      _.each(participantsOfInterestVotes, function(o, pid) {
         pid = parseInt(pid);
         if (!o.votes || pid === myPid) {
           return;
@@ -1889,29 +1858,18 @@ module.exports = function (params) {
         }
         // buckets[o.fakeBid] = votesVectorInAscii_adpu_format[tid];
       });
-      var myVotes = votesByMe.filter(function (vote) {
+      var myVotes = votesByMe.filter(function(vote) {
         return tid === vote.get("tid");
       });
-      buckets.A[myBid] =
-        _.filter(myVotes, function (v) {
-          return v.get("vote") === polisTypes.reactions.pull;
-        }).length > 0
-          ? 1
-          : 0;
-      buckets.D[myBid] =
-        _.filter(myVotes, function (v) {
-          return v.get("vote") === polisTypes.reactions.push;
-        }).length > 0
-          ? 1
-          : 0;
-      buckets.S[myBid] =
-        buckets.A[myBid] ||
-        buckets.D[myBid] ||
-        _.filter(myVotes, function (v) {
-          return v.get("vote") === polisTypes.reactions.pass;
-        }).length > 0
-          ? 1
-          : 0;
+      buckets.A[myBid] = (_.filter(myVotes, function(v) {
+        return v.get("vote") === polisTypes.reactions.pull;
+      }).length > 0) ? 1 : 0;
+      buckets.D[myBid] = (_.filter(myVotes, function(v) {
+        return v.get("vote") === polisTypes.reactions.push;
+      }).length > 0) ? 1 : 0;
+      buckets.S[myBid] = buckets.A[myBid] || buckets.D[myBid] || (_.filter(myVotes, function(v) {
+        return v.get("vote") === polisTypes.reactions.pass;
+      }).length > 0) ? 1 : 0;
 
       // TODO reduce vote count for the bucket self is in.
       if (!buckets) {
@@ -1919,7 +1877,7 @@ module.exports = function (params) {
         buckets = {
           A: [],
           D: [],
-          S: [],
+          S: []
         };
       }
       dfd.resolve(buckets);
@@ -1930,7 +1888,7 @@ module.exports = function (params) {
   function createConversation(title, body) {
     return polisPost(conversationsPath, {
       title: title,
-      body: body,
+      body: body
     });
   }
 
@@ -1948,9 +1906,10 @@ module.exports = function (params) {
   function queryParticipantsByMetadata(pmaids) {
     return polisPost(queryParticipantsByMetadataPath, {
       pmaids: pmaids,
-      conversation_id: conversation_id,
+      conversation_id: conversation_id
     });
   }
+
 
   // basic defaultdict implementation
   function DD(f) {
@@ -1962,7 +1921,7 @@ module.exports = function (params) {
     this.m = [];
     this.f = f;
   }
-  DD.prototype.g = DA.prototype.g = function (k) {
+  DD.prototype.g = DA.prototype.g = function(k) {
     if (this.m.hasOwnProperty(k)) {
       return this.m[k];
     }
@@ -1970,27 +1929,27 @@ module.exports = function (params) {
     this.m[k] = v;
     return v;
   };
-  DD.prototype.s = DA.prototype.s = function (k, v) {
+  DD.prototype.s = DA.prototype.s = function(k, v) {
     this.m[k] = v;
   };
 
   function getFamousVotes() {
     var o = {
       conversation_id: conversation_id,
-      math_tick: lastServerTokenForPCA,
+      math_tick: lastServerTokenForPCA
     };
     // if (getPtptoiLimit()) {
     //   o.ptptoiLimit = getPtptoiLimit();
     // }
-    var promise = usePreloadFamous
-      ? preloadHelper.firstFamousPromise
-      : polisGet(votesFamousPath, o);
+    var promise = usePreloadFamous ?
+      preloadHelper.firstFamousPromise :
+      polisGet(votesFamousPath, o);
 
-    return promise.then(function (x) {
+    return promise.then(function(x) {
       usePreloadFamous = false;
       x = x || {};
       // assign fake bids for these projected participants
-      _.each(x, function (ptpt, pid) {
+      _.each(x, function(ptpt, pid) {
         pid = parseInt(pid);
         var bucketId = pid + PTPOI_BID_OFFSET; // should be safe to say there aren't 10 billion buckets, so we can use this range
         if (pid === myPid) {
@@ -2001,8 +1960,7 @@ module.exports = function (params) {
         // default anon picture, may be overwritten
         ptpt.picture = Utils.getAnonPicUrl();
 
-        if (
-          ptpt.facebook &&
+        if (ptpt.facebook &&
           ptpt.facebook.fb_user_id // TEMP - needed since I deleted some entries from facebook_users
         ) {
           ptpt.hasFacebook = true;
@@ -2017,13 +1975,7 @@ module.exports = function (params) {
           }
 
           // https://developers.facebook.com/docs/graph-api/reference/v2.2/user/picture
-          ptpt.facebook.picture =
-            "https://graph.facebook.com/v2.2/" +
-            ptpt.facebook.fb_user_id +
-            "/picture?width=" +
-            width +
-            "&height=" +
-            height;
+          ptpt.facebook.picture = "https://graph.facebook.com/v2.2/" + ptpt.facebook.fb_user_id + "/picture?width=" + width + "&height=" + height;
           ptpt.picture = ptpt.facebook.picture;
         }
 
@@ -2047,56 +1999,52 @@ module.exports = function (params) {
         }
       });
       participantsOfInterestVotes = x;
-      participantsOfInterestBids = _.pluck(
-        _.values(participantsOfInterestVotes),
-        "bid"
-      );
+      participantsOfInterestBids = _.pluck(_.values(participantsOfInterestVotes), "bid");
     });
   }
 
   function projectSelf() {
-    var votesToUseForProjection = votesByMe.map(function (v) {
+    var votesToUseForProjection = votesByMe.map(function(v) {
       return {
         vote: v.get("vote"),
-        tid: v.get("tid"),
+        tid: v.get("tid")
       };
     });
     return project({
       pid: getPid(),
       isBlueDot: true,
-      votes: votesToUseForProjection,
+      votes: votesToUseForProjection
     });
   }
 
   function projectParticipant(pid, votesVectorInAscii_adpu_format) {
     var votesToUseForProjection = [];
     if (pid === myPid) {
-      votesToUseForProjection = votesByMe.map(function (v) {
+      votesToUseForProjection = votesByMe.map(function(v) {
         return {
           vote: v.get("vote"),
-          tid: v.get("tid"),
+          tid: v.get("tid")
         };
       });
     } else {
       var len = votesVectorInAscii_adpu_format.length;
       for (var i = 0; i < len; i++) {
         var c = votesVectorInAscii_adpu_format[i];
-        if (c !== "u" /* && c !== "p" */) {
-          // TODO think about "p", and whether it should be counted in the jetpack vote count
+        if (c !== "u" /* && c !== "p" */ ) { // TODO think about "p", and whether it should be counted in the jetpack vote count
           if (c === "a") {
             votesToUseForProjection.push({
               vote: -1,
-              tid: i,
+              tid: i
             });
           } else if (c === "d") {
             votesToUseForProjection.push({
               vote: 1,
-              tid: i,
+              tid: i
             });
           } else if (c === "p") {
             votesToUseForProjection.push({
               vote: 0,
-              tid: i,
+              tid: i
             });
           } else {
             alert("bad vote encoding " + c);
@@ -2106,12 +2054,13 @@ module.exports = function (params) {
     }
     return project({
       pid: pid,
-      containsSelf: pid === myPid,
-      isBlueDot: pid === myPid, // TODO needed?
+      containsSelf: (pid === myPid),
+      isBlueDot: (pid === myPid), // TODO needed?
       isPtptoi: true,
-      votes: votesToUseForProjection,
+      votes: votesToUseForProjection
     });
   }
+
 
   function project(o) {
     var x = 0;
@@ -2125,8 +2074,8 @@ module.exports = function (params) {
         isPtptoi: o.isPtptoi,
         proj: {
           x: x,
-          y: y,
-        },
+          y: y
+        }
       };
     }
 
@@ -2151,9 +2100,7 @@ module.exports = function (params) {
 
     // https://files.slack.com/files-pri/T02G773HK-F02N30MKD/slack_for_ios_upload.jpg
     if (numVotes > 0 && (o.pid !== -1 || USE_JETPACK_FOR_SELF)) {
-      var jetpack_aka_sparsity_compensation_factor = Math.sqrt(
-        numComments / numVotes
-      );
+      var jetpack_aka_sparsity_compensation_factor = Math.sqrt(numComments / numVotes);
       x *= jetpack_aka_sparsity_compensation_factor;
       y *= jetpack_aka_sparsity_compensation_factor;
     }
@@ -2164,8 +2111,8 @@ module.exports = function (params) {
       containsSelf: o.containsSelf,
       proj: {
         x: x,
-        y: y,
-      },
+        y: y
+      }
     };
   }
 
@@ -2178,9 +2125,10 @@ module.exports = function (params) {
   }
 
   function convert_bidiToPids_to_bidToPids(bidiToPids) {
-    return firstPcaCallPromise.then(function () {
+
+    return firstPcaCallPromise.then(function() {
       var mathMain = getMathMain();
-      var indexToBid = mathMain["base-clusters"].id;
+      var indexToBid = mathMain['base-clusters'].id;
 
       var bidToPids = {};
       for (var i = 0; i < bidiToPids.length; i++) {
@@ -2194,10 +2142,8 @@ module.exports = function (params) {
   }
 
   function getPidToBidMappingFromCache() {
-    if (
-      lastServerTokenForBidiToPid >= lastServerTokenForPCA &&
-      lastServerTokenForBidiToPid > 0
-    ) {
+
+    if (lastServerTokenForBidiToPid >= lastServerTokenForPCA && lastServerTokenForBidiToPid > 0) {
       return $.Deferred().resolve({
         p2b: pidToBidCache,
         b2p: bidToPids,
@@ -2211,33 +2157,31 @@ module.exports = function (params) {
   function getPidToBidMapping() {
     return polisGet(bidiToPidsPath, {
       math_tick: lastServerTokenForBidiToPid, // use the same
-      conversation_id: conversation_id,
-    })
-      .then(function (data, textStatus, xhr) {
-        if (304 === xhr.status) {
-          return {
-            p2b: pidToBidCache,
-            b2p: bidToPids,
-          };
-        }
-        lastServerTokenForBidiToPid = data.math_tick;
-        return convert_bidiToPids_to_bidToPids(data.bidToPid);
-      })
-      .then(function (bidToPids) {
-        var p2b = {};
-        _.each(bidToPids, function (memberPids, bid) {
-          for (var i = 0; i < memberPids.length; i++) {
-            var pid = memberPids[i];
-            p2b[pid] = bid;
-          }
-        });
-        pidToBidCache = p2b;
-
+      conversation_id: conversation_id
+    }).then(function(data, textStatus, xhr) {
+      if (304 === xhr.status) {
         return {
           p2b: pidToBidCache,
           b2p: bidToPids,
         };
+      }
+      lastServerTokenForBidiToPid = data.math_tick;
+      return convert_bidiToPids_to_bidToPids(data.bidToPid);
+    }).then(function(bidToPids) {
+      var p2b = {};
+      _.each(bidToPids, function(memberPids, bid) {
+        for (var i = 0; i < memberPids.length; i++) {
+          var pid = memberPids[i];
+          p2b[pid] = bid;
+        }
       });
+      pidToBidCache = p2b;
+
+      return {
+        p2b: pidToBidCache,
+        b2p: bidToPids
+      };
+    });
   }
 
   // function reprojectForSubsetOfComments(projectionPeopleCache) {
@@ -2290,6 +2234,7 @@ module.exports = function (params) {
   //         hiddenLayers: [2]
   //     });
 
+
   //   nn.runInputLinear = function(input) {
   //     this.outputs[0] = input;  // set output state of input layer
 
@@ -2321,6 +2266,9 @@ module.exports = function (params) {
   //     return linearOutput;
   //   };
 
+
+
+
   //     nn.train(trainingSet, {
   //         errorThresh: 0.004,
   //         learningRate: 0.4,
@@ -2328,6 +2276,7 @@ module.exports = function (params) {
   //         log: true,
   //         logPeriod: 100
   //     });
+
 
   //     /// training done, now project each bucket
 
@@ -2372,10 +2321,10 @@ module.exports = function (params) {
     // }
     var pcaPromise = fetchLatestPca();
     pcaPromise.done(updateMyProjection);
-    pcaPromise.done(function () {
+    pcaPromise.done(function() {
       // TODO Trigger based on votes themselves incrementing, not waiting on the PCA.
       // TODO Look into socket.io for notifying that the math_tick has changed.
-      _.each(pollingScheduledCallbacks, function (f) {
+      _.each(pollingScheduledCallbacks, function(f) {
         f();
       });
     });
@@ -2407,12 +2356,12 @@ module.exports = function (params) {
     buckets2 = withProjectedSelf(buckets2);
 
     // remove empty buckets
-    buckets2 = _.filter(buckets2, function (bucket) {
+    buckets2 = _.filter(buckets2, function(bucket) {
       return bucket.count > 0;
     });
 
     // inset each ptptoi towards the center of its cluster
-    _.each(buckets2, function (b) {
+    _.each(buckets2, function(b) {
       var cluster = clustersCache[b.gid];
       var center = null;
       if (cluster) {
@@ -2421,9 +2370,10 @@ module.exports = function (params) {
       b.proj = moveTowards(b.proj.x, b.proj.y, center, 0.0);
     });
 
+
     return {
       buckets: buckets2,
-      clusters: clusters,
+      clusters: clusters
     };
   }
 
@@ -2435,14 +2385,14 @@ module.exports = function (params) {
           A: [],
           D: [],
           gA: 0,
-          gD: 0,
-        },
+          gD: 0
+        }
       };
     }
     return {
       count: groupVotes[gid]["n-members"],
       repness: repness[gid],
-      votes: groupVotes[gid]["votes"],
+      votes: groupVotes[gid]["votes"]
     };
   }
 
@@ -2466,9 +2416,9 @@ module.exports = function (params) {
     }
     var repfulTids = {};
     if (Utils.projectRepfulTids) {
-      _.each(repness, function (gid) {
-        _.each(repness[gid], function (c) {
-          if (c["repful-for"] === "agree") {
+      _.each(repness, function(gid) {
+        _.each(repness[gid], function(c) {
+          if (c['repful-for'] === "agree") {
             repfulTids[c.tid] = true;
           }
         });
@@ -2480,9 +2430,7 @@ module.exports = function (params) {
     // https://files.slack.com/files-pri/T02G773HK-F02N30MKD/slack_for_ios_upload.jpg
 
     var numVotes = 1; // pretend the comment is a person who voted for only itself
-    var jetpack_aka_sparsity_compensation_factor = Math.sqrt(
-      numComments / numVotes
-    );
+    var jetpack_aka_sparsity_compensation_factor = Math.sqrt(numComments / numVotes);
 
     var projectedComments = [];
     if (pcX.length && pcY.length) {
@@ -2500,8 +2448,8 @@ module.exports = function (params) {
             tid: i,
             proj: {
               x: x,
-              y: y,
-            },
+              y: y
+            }
           });
         }
       }
@@ -2511,7 +2459,7 @@ module.exports = function (params) {
 
   function finishedTutorial() {
     return polisPost(finishedTutorialPath, {
-      step: 1,
+      step: 1
     });
   }
 
@@ -2522,7 +2470,7 @@ module.exports = function (params) {
     }
     var cluster = clustersCache[gid].members;
     var items = [];
-    _.each(participantsOfInterestVotes, function (data, pid) {
+    _.each(participantsOfInterestVotes, function(data, pid) {
       var bid = data.bid;
       if (cluster.indexOf(bid) >= 0) {
         items.push(data);
@@ -2534,6 +2482,7 @@ module.exports = function (params) {
   function getParticipantsOfInterest() {
     return participantsOfInterestVotes;
   }
+
 
   function getParticipantsOfInterestIncludingSelf() {
     var alreadyHaveSelf = participantsOfInterestVotes[myPid];
@@ -2555,7 +2504,7 @@ module.exports = function (params) {
 
     var b2g = getBidToGid();
 
-    return _.keys(result).map(function (key) {
+    return _.keys(result).map(function(key) {
       var o = result[key];
       var votesVectorInAscii_adpu_format = o.votes || "";
       var pid = parseInt(o.pid);
@@ -2571,6 +2520,7 @@ module.exports = function (params) {
       //   o.x = projectedSelf.proj.x;
       //   o.y = projectedSelf.proj.y;
       // }
+
 
       return o;
     });
@@ -2589,7 +2539,7 @@ module.exports = function (params) {
   }
 
   function setNextCachedComment(firstCommentPromise) {
-    firstCommentPromise.then(function (c) {
+    firstCommentPromise.then(function(c) {
       if (c && c.created) {
         nextCommentCache = c;
       } else {
@@ -2602,21 +2552,16 @@ module.exports = function (params) {
   }
 
   function prepAndSendVisData() {
-    firstSuccessfulPcaCallPromise.then(function () {
+    firstSuccessfulPcaCallPromise.then(function() {
       var o = prepProjection(projectionPeopleCache);
       var buckets = o.buckets;
-      buckets.sort(function (a, b) {
+      buckets.sort(function(a, b) {
         return b.priority - a.priority;
       });
       var clusters = o.clusters;
       var projectedComments = prepCommentsProjection();
       if (buckets.length) {
-        sendUpdatedVisData(
-          buckets,
-          clusters,
-          participantCount,
-          projectedComments
-        );
+        sendUpdatedVisData(buckets, clusters, participantCount, projectedComments);
       }
     });
   }
@@ -2627,19 +2572,15 @@ module.exports = function (params) {
   }
 
   function getVotedOnTids() {
-    return votesByMe.map(function (vote) {
+    return votesByMe.map(function(vote) {
       return vote.get("tid");
     });
   }
 
   function getVotesByMe() {
-    return (
-      votesByMe &&
-      votesByMe.models &&
-      votesByMe.models.map(function (m) {
-        return m.attributes;
-      })
-    );
+    return votesByMe && votesByMe.models && votesByMe.models.map(function(m) {
+      return m.attributes;
+    });
   }
 
   function addToVotesByMe(o) {
@@ -2652,14 +2593,14 @@ module.exports = function (params) {
     if (!cachedPcaData) {
       return [];
     }
-    return cachedPcaData["consensus"];
+    return cachedPcaData['consensus'];
   }
 
   function getGroupAwareConsensus() {
     if (!cachedPcaData) {
       return [];
     }
-    return cachedPcaData["group-aware-consensus"];
+    return cachedPcaData['group-aware-consensus'];
   }
 
   function getGroupVotes(gid_or_all) {
@@ -2671,9 +2612,9 @@ module.exports = function (params) {
     if (gid_or_all === "all") {
       var x = {};
       var gv = cachedPcaData["group-votes"];
-      _.each(gv, function (data, gid) {
-        _.each(data.votes, function (counts, tid) {
-          var z = (x[tid] = x[tid] || { agreed: 0, disagreed: 0, saw: 0 });
+      _.each(gv, function(data, gid) {
+        _.each(data.votes, function(counts, tid) {
+          var z = x[tid] = x[tid] || {agreed:0, disagreed:0, saw:0};
           z.agreed += counts.A;
           z.disagreed += counts.D;
           z.saw += counts.S;
@@ -2746,7 +2687,7 @@ module.exports = function (params) {
     addInitReadyListener: initReadyCallbacks.add,
     addAuthStatChangeListener: authStateChangeCallbacks.add,
     removePersonUpdateListener: personUpdateCallbacks.remove,
-    addPersonUpdateListener: function () {
+    addPersonUpdateListener: function() {
       personUpdateCallbacks.add.apply(personUpdateCallbacks, arguments);
 
       prepAndSendVisData();
@@ -2764,8 +2705,7 @@ module.exports = function (params) {
 
     getParticipantsOfInterest: getParticipantsOfInterest,
     getParticipantsOfInterestForGid: getParticipantsOfInterestForGid,
-    getParticipantsOfInterestIncludingSelf:
-      getParticipantsOfInterestIncludingSelf,
+    getParticipantsOfInterestIncludingSelf: getParticipantsOfInterestIncludingSelf,
     getPtptCount: getPtptCount,
     put_participants_extended: put_participants_extended,
     updateMyProjection: updateMyProjection,
@@ -2776,7 +2716,7 @@ module.exports = function (params) {
     addPollingScheduledCallback: addPollingScheduledCallback,
     importTweet: importTweet,
     // jumpTo: jumpTo,
-    submitComment: submitComment,
+    submitComment: submitComment
   };
 };
 
