@@ -45,8 +45,8 @@
 }
 
 .SectionLander--spark {
-  padding-left: 0;
-  padding-right: 0;
+  padding-inline-start: 0;
+  padding-inline-end: 0;
   background: #686b6c url("https://pol.is/landerImages/bg-spark_medium.jpg") center center no-repeat;
   color: #fff;
 
@@ -117,17 +117,17 @@
 }
 
 .LanderText--indent {
-  margin-left: 0;
+  margin-inline-start: 0;
 
   @media screen and (min-width: $sm-screen) {
-    margin-left: 4.5rem;
+    margin-inline-start: 4.5rem;
   }
 }
 
 .spot--align {
   @media screen and (min-width: $sm-screen) {
     display: inline-block;
-    margin-right: 25px;
+    margin-inline-end: 25px;
     vertical-align: middle;
   }
 }
@@ -150,7 +150,7 @@
     vertical-align: middle;
     width: calc(100% - 200px);
 
-    text-align: left;
+    text-align: start;
   }
 }
 
@@ -171,7 +171,7 @@
 }
 
 .NewsFeature-text {
-  margin-right: 0.5em;
+  margin-inline-end: 0.5em;
   vertical-align: text-bottom;
 }
 .logoGeekWire-link {

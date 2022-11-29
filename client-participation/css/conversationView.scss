@@ -6,11 +6,11 @@ body {
 
 .top-comments-item, .divisive-comments-item {
   list-style: none;
-  text-align: left;
+  text-align: start;
 }
 
 .top-comments-list, .divisive-comments-list {
-  padding-left: 20px;
+  padding-inline-start: 20px;
 }
 
 .svgCenter {
@@ -192,8 +192,8 @@ img {
   -webkit-font-smoothing: antialiased;
 
   // prevent clipped right edge and extra padding on left edge on mobile
-  padding-left: 0px;
-  padding-right: 0px;
+  padding-inline-start: 0px;
+  padding-inline-end: 0px;
 
   // Only allow hovering when not on iOS ( see https://github.com/twbs/bootstrap/issues/12832 )
   &.vote-btn-w-hover {
@@ -537,7 +537,7 @@ svg {
 .query_results {
   margin-left: 0px;
   list-style: none;
-  padding-left:0px;
+  padding-inline-start:0px;
 }
 
 .query_result_item {
@@ -613,7 +613,7 @@ svg {
 .analyze-group-member-container {
   position: relative;
   // top: -130px;
-  // padding-left: 20px;
+  // padding-inline-start: 20px;
   left: 10%;
   // text-align: center
 }
@@ -917,8 +917,8 @@ svg {
     // margin-top: 20px;
   }
   .nav-tabs > li > a {
-    padding-left: 12px !important;
-    padding-right: 12px !important;
+    padding-inline-start: 12px !important;
+    padding-inline-end: 12px !important;
   }
   .dropdown-menu {
     right: 0;

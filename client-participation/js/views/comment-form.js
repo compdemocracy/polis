@@ -47,6 +47,7 @@ module.exports = Handlebones.ModelView.extend({
     ctx.s = Strings;
     ctx.desktop = !display.xs();
     ctx.hideHelp = !Utils.userCanSeeHelp() || preload.firstConv.help_type === 0;
+    ctx.direction = Strings.dir ? Strings.dir : 'ltr'
 
     ctx.no_write_hint = false; //preload.firstConv.write_hint_type === 0;
 
