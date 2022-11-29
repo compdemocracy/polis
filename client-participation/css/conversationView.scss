@@ -120,7 +120,7 @@ img {
 }
 
 .config-option-row {
-  margin-left: 20px;
+  margin-inline-start: 20px;
 }
 
 
@@ -135,8 +135,8 @@ img {
 
 // #helpTextBox {
 
-//   margin-left:auto;
-//   margin-right:auto;
+//   margin-inline-start:auto;
+//   margin-inline-end:auto;
 //   max-width:70%;
 //   min-width: 280px;
 //   text-align: center;
@@ -174,11 +174,11 @@ img {
 }
 
 #agreeButton, #disagreeButton {
-  border-right: 0px
+  border-inline-end: 0px
 }
 
 #agreeButton {
-  border-left: 0;
+  border-inline-start: 0;
   border-radius: 0 0 0 8px;
 }
 
@@ -268,13 +268,13 @@ img {
 
 .modButtonContainer {
   display: block;
-  margin-left: 55px;
+  margin-inline-start: 55px;
   margin-bottom: 25px;
 }
 
 .moderateButton {
   background-color: rgb(230,230,230);
-  margin-right: 20px;
+  margin-inline-end: 20px;
   border-radius: 3px;
   font-weight: 500;
   transition: all .2s ease-in-out;
@@ -330,7 +330,7 @@ img {
 }
 
 .nudgeLeft {
-  margin-left: -20px;
+  margin-inline-start: -20px;
 }
 
 .icon-remove {
@@ -535,7 +535,7 @@ svg {
 }
 
 .query_results {
-  margin-left: 0px;
+  margin-inline-start: 0px;
   list-style: none;
   padding-inline-start:0px;
 }
@@ -544,7 +544,7 @@ svg {
     min-height: 50px;
     padding: 0px 10px 0px 10px;
     background-color: rgba(255,255,255,0.7);
-    margin-right: 10px;
+    margin-inline-end: 10px;
     cursor: hand;
 }
 
@@ -586,8 +586,8 @@ svg {
 
 // override bootstrap's negative margin on xs
 .row {
-  margin-left: 0px;
-  margin-right: 0px;
+  margin-inline-start: 0px;
+  margin-inline-end: 0px;
 }
 
 .voteMoreText {
@@ -595,7 +595,7 @@ svg {
   margin: 20px;
 }
 .participationCount {
-  // float: right;
+  // float: inline-end;
 }
 .writingTipsParent {
   display: block;
@@ -652,7 +652,7 @@ svg {
   // border-radius: 10px 10px 10px 10px;
   // border: 3px;
   // border-top: 1px;
-  // border-left: 1px;
+  // border-inline-start: 1px;
   // border-style:solid;
   // border-color: lightgray;
   // // background-color: white;
@@ -689,14 +689,14 @@ svg {
 }
 
 .facebookButton {
-  margin-right: 10px;
+  margin-inline-end: 10px;
   background-color: #3b5998;
 }
 
 .facebookCaveatText {
   font-size: 14px;
   list-style: none;
-  margin-left: 0px;
+  margin-inline-start: 0px;
   width: 65%;
 }
 
@@ -784,13 +784,13 @@ svg {
 
 .arrow_box:after {
   border-top: 4px solid transparent;
-  border-right: 5px solid #fff;
+  border-inline-end: 5px solid #fff;
   border-bottom: 4px solid transparent;
   margin-top: -4px;
 }
 .arrow_box:before {
   border-top: 5px solid transparent;
-  border-right: 6.5px solid #9b9b9b;
+  border-inline-end: 6.5px solid #9b9b9b;
   border-bottom: 5px solid transparent;
   margin-top: -5px;
 }
@@ -833,12 +833,12 @@ svg {
 
 
   #opinion_groups_label {
-    margin-left: 30px;
+    margin-inline-start: 30px;
   }
 
   // make flush with tab pane so we can draw the arrow pointint to the selected hull
   #vis_sibling_bottom {
-    margin-left: -30px;
+    margin-inline-start: -30px;
   }
 
   #groupStats {
@@ -847,9 +847,9 @@ svg {
 
 
   .write-pane {
-  //   border-right: 3px solid lightgrey;
+  //   border-inline-end: 3px solid lightgrey;
   //   border-bottom: 3px solid lightgrey;
-  //   border-left: 1px solid lightgrey;
+  //   border-inline-start: 1px solid lightgrey;
   // // padding-bottom: 48px;
   //   border-bottom-right-radius: 10px;
   //   border-bottom-left-radius: 10px;
@@ -885,8 +885,8 @@ svg {
     //margin-top: 20px;
   }
   .dropdown-menu {
-    right: 0;
-    left: auto;
+    inset-inline-end: 0;
+    inset-inline-start: auto;
   }
 }
 
@@ -921,8 +921,8 @@ svg {
     padding-inline-end: 12px !important;
   }
   .dropdown-menu {
-    right: 0;
-    left: auto;
+    inset-inline-end: 0;
+    inset-inline-start: auto;
   }
   #groupStats {
     display: none;
@@ -933,6 +933,6 @@ svg {
     // font-size:10px; // not needed since we're hiding the analyze tab, which makes space for the other tabs
   }
   #vis_sibling_bottom {
-    margin-left: auto;
+    margin-inline-start: auto;
   }
 }
