@@ -156,7 +156,7 @@
     {{!-- {{social.twitter_user_id}} --}}
     {{!-- {{social.screen_name}} --}}
     <p lang="{{lang}}" style="
-      margin-inline-start: 55px; {{!-- 10 + 36 + 5 from social above --}}
+      {{pMarginStyle}} {{!-- 10 + 36 + 5 from social above --}}
       font-weight: 400;
       min-height: 65px;
       position: relative;
@@ -186,7 +186,7 @@
 
     {{#if translationTxt}}
       <p lang="{{translationLang}}" style="
-        margin-inline-start: 55px; {{!-- 10 + 36 + 5 from social above --}}
+        {{pMarginStyle}} {{!-- 10 + 36 + 5 from social above --}}
         font-weight: 400;
         min-height: 55px;
         position: relative;
@@ -200,7 +200,7 @@
       </p>
       {{#if thirdPartyTranslationDisclaimer }}
         <p lang="{{translationLang}}" style="
-          margin-inline-start: 55px; {{!-- 10 + 36 + 5 from social above --}}
+          {{pMarginStyle}}; {{!-- 10 + 36 + 5 from social above --}}
           position: relative;
           top: -8px;
           font-weight: 300;
