@@ -19,7 +19,8 @@
             [polismath.darwin.export :as export]
             [polismath.conv-man :as conv-man]
             [polismath.math.conversation :as conv]
-            [polismath.components.postgres :as postgres])
+            [polismath.components.postgres :as postgres]
+            [clojure.pprint :as pprint])
   (:import [java.util.zip ZipOutputStream ZipEntry]))
 
 
@@ -121,15 +122,26 @@
 ;
 (defn parse-time
   [s]
-  (->> (clojure.string/split s #"-")
-       (map #(Integer/parseInt %))
-       (apply t/date-time)
-       co/to-long))
+  (cond
+    ;; Then assume a ms timestamp
+    (re-matches #"\d*" s)
+    ;(re-matches #"\d*" "1649721997107")
+    (Long/parseLong s)
+    ;; Then assume a string of format YYYY-MM-DD-HH-MM-SS
+    (re-matches #"\d*(-\d*)+" s)
+    (->> (clojure.string/split s #"-")
+         (map parse-time)
+         (apply t/date-time)
+         co/to-long)
+    :else
+    (log/error "Unable to parse time: " s "\nMust use ms since epoch timestamp, or YYYY-MM-DD-HH-MM-SS")))
 
 (defn parse-times
   [s]
   (->> (clojure.string/split s #":")
        (map parse-time)))
+
+;(map Long/parseLong)
 
 
 (def export-cli-options
@@ -138,9 +150,11 @@
    ["-X" "--include-xid"      "Include user xids in output"]
    ["-u" "--user-id USER_ID"   "Export all conversations associated with USER_ID, and place in zip file" :parse-fn #(Integer/parseInt %)]
    ["-f" "--filename FILENAME" "filename" "Name of output file (should be zip for csv out)"]
-   ["-t" "--at-time AT_TIME"   "A string of YYYY-MM-DD-HH-MM-SS (in UTC)" :parse-fn parse-time]
+   ["-t" "--at-time AT_TIME"   "A string of YYYY-MM-DD-HH-MM-SS (in UTC) or ms-timestamp since epoch" :parse-fn parse-time]
    ["-T" "--at-times AT_TIMES" "A vector of strings of --at-time format" :parse-fn parse-times]
    ["-F" "--format FORMAT"     "Either csv, excel or (soon) json" :parse-fn keyword :validate [#{:csv :excel} "Must be either csv or excel"] :default :csv]
+   ["-M" "--update-math"       "Update math"]
+   ["-P" "--update-postgres"   "Update postgres"]
    ["-h" "--help"              "Print help and exit"]])
 
 (defn error-msg [errors]
@@ -160,8 +174,6 @@
            :keys [filename user-id at-times]
            :or {filename (str "export." (System/currentTimeMillis) ".zip")}}]
   (let [darwin (:darwin system)]
-    (log/info "config" (-> system :config :math-env))
-    (log/info "config" (-> system :config :export))
     (cond
       ;; In this case, build all exports for this particular user
       user-id
@@ -201,14 +213,17 @@
   ;; default to poller subcommand
   (let [subcommand (or (first args) "poller")
         parser-spec (if (= subcommand "export") export-cli-options cli-options)
-        {:keys [arguments options errors summary]} (cli/parse-opts args parser-spec)]
+        {:as parse-results :keys [arguments options errors summary]} (cli/parse-opts args parser-spec)]
+    (log/info "CLI arguments and options:\n" (with-out-str (pprint/pprint (select-keys parse-results [:arguments :options]))))
     (cond
       ;; Help message
       (:help options)
       (utils/exit 0 (usage summary))
       ;; Error in parsing (this should really catch the below condition as well
-      (:errors options)
-      (utils/exit 1 (str "Found the following errors:" \newline (:errors options)))
+      errors
+      (utils/exit 1 (apply str "Found the following errors:\n"
+                               (clojure.string/join "\n" errors) "\n" 
+                               usage summary))
       ;; otherwise, run the thing
       :else
       (let [system-map-generator (subcommands subcommand)

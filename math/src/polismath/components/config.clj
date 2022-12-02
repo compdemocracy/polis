@@ -4,7 +4,8 @@
   (:require [polismath.utils :as utils]
             [taoensso.timbre :as log]
             [com.stuartsierra.component :as component]
-            [environ.core :as environ]))
+            [environ.core :as environ]
+            [clojure.string :as string]))
 
 
 ;; I think we need to just move to this: https://github.com/juxt/aero
@@ -52,6 +53,12 @@
    :logging    {:file "log/dev.log"
                 :level :info}})
 
+(defn ->long-list [x]
+  (when x
+    (->> (string/split x #",")
+         (map ->long)
+         (set))))
+
 
 (def rules
   "Mapping of env keys to parsing options"
@@ -64,12 +71,14 @@
    :database-ignore-ssl        {:path [:database :ignore-ssl] :parse ->boolean}
    :mailgun-api-key            {:path [:email :api-key]}
    :mailgun-url                {:path [:email :url]}
-   :aws-secret-key             {:path [:aws :secret-key]}
-   :aws-access-key             {:path [:aws :access-key]}
+   :aws-secret-key             {:path [:aws :secret-access-key]}
+   :aws-access-key             {:path [:aws :access-key-id]}
    :webserver-username         {:path [:webserver-username]}
    :webserver-pass             {:path [:webserver-pass]}
+   :math-zid-blocklist         {:path [:poller :zid-blocklist] :parse ->long-list}
+   :math-zid-allowlist         {:path [:poller :zid-allowlist] :parse ->long-list}
    :export-server-auth-username {:path [:darwin :server-auth-username]}
-   :export-server-auth-pass {:path [:darwin :server-auth-pass]}
+   :export-server-auth-pass    {:path [:darwin :server-auth-pass]}
    :math-matrix-implementation {:path [:math :matrix-implementation] :parse ->keyword}
    ;; TODO Put all these within a :conv-update opt so we can just pass that through to conv-update all at once
    :math-cutoff-medium         {:path [:math :cutoffs :medium] :parse ->long

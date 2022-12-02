@@ -1,9 +1,9 @@
 
 # Pol.is Terms of Use
-Last Updated: 6/12/2020
+Last Updated: 2022/03/07
 
-Welcome, and thank you for your interest in Math & Democracy ("we," or "us") and our Web site at <https://pol.is/> (the "Site"), as well as all related web sites, networks, embeddable widgets, downloadable software, mobile applications (including tablet applications), and other services provided by us and on which a link to these Terms of Use is displayed (collectively, together with the Site, our "Service").
-These Terms of Use are a legally binding contract between you and Math & Democracy regarding your use of the Service.
+Welcome, and thank you for your interest in The Computational Democracy Project ("we," or "us") and our Web site at <https://pol.is/> (the "Site"), as well as all related web sites, networks, embeddable widgets, downloadable software, mobile applications (including tablet applications), and other services provided by us and on which a link to these Terms of Use is displayed (collectively, together with the Site, our "Service").
+These Terms of Use are a legally binding contract between you and The Computational Democracy Project regarding your use of the Service.
 
 1. **Eligibility.** &nbsp;
  You must be at least sixteen (16) years of age to use the Service.
@@ -16,18 +16,18 @@ These Terms of Use are a legally binding contract between you and Math & Democra
  You agree that the information you provide to us is accurate and that you will keep it accurate and up-to-date at all times.
  When you register, you will be asked to provide a password.
  You are solely responsible for maintaining the confidentiality of your account and password.
- Math & Democracy will not be held liable for actions which occur under your account due to your credentials having been discovered due to no fault of Math & Democracy.
- If you have reason to believe that your account is no longer secure, then you must immediately notify us at <contact@mathdem.org>.
+ The Computational Democracy Project will not be held liable for actions which occur under your account due to your credentials having been discovered due to no fault of The Computational Democracy Project.
+ If you have reason to believe that your account is no longer secure, then you must immediately notify us at <security@compdemocracy.org>.
 
 3. **Payment.** &nbsp;
  Access to the Service, or to certain features of the Service, may require you to pay fees.
  Before you are required to pay any fees you will have an opportunity to review and accept the applicable fees that you will be charged.
  All fees are in U.S.
  Dollars and are non-refundable.
- Math & Democracy may change the fees for the Service or any feature of the Service, including by adding additional fees or charges, on a going-forward basis at any time.
- Math & Democracy will charge the payment method you specify at the time of purchase.
- You authorize Math & Democracy to charge all sums described herein to such payment method.
- If you pay any applicable fees with a credit card, Math & Democracy may seek pre-authorization of your credit card account prior to your purchase to verify that the credit card is valid and has the necessary funds or credit available to cover your purchase.
+ The Computational Democracy Project may change the fees for the Service or any feature of the Service, including by adding additional fees or charges, on a going-forward basis at any time.
+ The Computational Democracy Project will charge the payment method you specify at the time of purchase.
+ You authorize The Computational Democracy Project to charge all sums described herein to such payment method.
+ If you pay any applicable fees with a credit card, The Computational Democracy Project may seek pre-authorization of your credit card account prior to your purchase to verify that the credit card is valid and has the necessary funds or credit available to cover your purchase.
 
 4. **User Content**
 
@@ -35,9 +35,9 @@ These Terms of Use are a legally binding contract between you and Math & Democra
   Certain features of the Service may permit users to post content, including messages, questions, responses, data, text, and other types of works (collectively, "User Content") and to publish User Content on the Service.
   You retain copyright and any other proprietary rights that you may hold in the User Content that you post to the Service, but grant the limited licenses below.
 
-  2. **Limited License Grant to Math & Democracy.** &nbsp;
-  By posting or publishing User Content, you grant Math & Democracy a worldwide, irrevocable, perpetual, non-exclusive, royalty-free, fully-paid-up right and license (with the right to sublicense) to host, store, transfer, display, perform, reproduce, modify, and distribute your User Content, in whole or in part, in any media formats and through any media channels (now known or hereafter developed).
-  Any such use of your User Content by Math & Democracy may be without any compensation paid to you.
+  2. **Limited License Grant to The Computational Democracy Project.** &nbsp;
+  By posting or publishing User Content, you grant The Computational Democracy Project a worldwide, irrevocable, perpetual, non-exclusive, royalty-free, fully-paid-up right and license (with the right to sublicense) to host, store, transfer, display, perform, reproduce, modify, and distribute your User Content, in whole or in part, in any media formats and through any media channels (now known or hereafter developed).
+  Any such use of your User Content by The Computational Democracy Project may be without any compensation paid to you.
 
   3. **Limited License Grant to Other Users.** &nbsp;
   By posting User Content or sharing User Content with another user of the Service, you hereby grant to other users of the Service a non-exclusive license to access and use such User Content as permitted by these Terms and the functionality of the Service.
@@ -45,21 +45,21 @@ These Terms of Use are a legally binding contract between you and Math & Democra
   4. **User Content Representations and Warranties.** &nbsp;
   You are solely responsible for your User Content and the consequences of posting or publishing User Content.
   By posting and publishing User Content, you affirm, represent, and warrant that:
-    * you are the creator and owner of, or have the necessary licenses, rights, consents, and permissions to use and to authorize Math & Democracy and users of the Service to use and distribute your User Content as necessary to exercise the licenses granted by you in this Section 4 and in the manner contemplated by Math & Democracy and these Terms;
+    * you are the creator and owner of, or have the necessary licenses, rights, consents, and permissions to use and to authorize The Computational Democracy Project and users of the Service to use and distribute your User Content as necessary to exercise the licenses granted by you in this Section 4 and in the manner contemplated by The Computational Democracy Project and these Terms;
     * and your User Content, and the use thereof as contemplated herein, does not and will not: (i) infringe, violate, or misappropriate any third-party right, including any copyright, trademark, patent, trade secret, moral right, privacy right, right of publicity, or any other intellectual property or proprietary right;
     * or (ii) slander, defame, libel, or invade the right of privacy, publicity or other property rights of any other person.
 
   5. **User Content Disclaimer.** &nbsp;
   We are under no obligation to edit or control User Content that you or other users post or publish, and will not be in any way responsible or liable for User Content.
-  Math & Democracy may, however, at any time and without prior notice, screen, remove, edit, or block any User Content that in our sole judgment violates these Terms or is otherwise objectionable.
+  The Computational Democracy Project may, however, at any time and without prior notice, screen, remove, edit, or block any User Content that in our sole judgment violates these Terms or is otherwise objectionable.
   You understand that when using the Service you will be exposed to User Content from a variety of sources and acknowledge that User Content may be inaccurate, offensive, indecent or objectionable.
-  You agree to waive, and hereby do waive, any legal or equitable rights or remedies you have or may have against Math & Democracy with respect to User Content.
+  You agree to waive, and hereby do waive, any legal or equitable rights or remedies you have or may have against The Computational Democracy Project with respect to User Content.
   We expressly disclaim any and all liability in connection with User Content.
   If notified by a user or content owner that User Content allegedly does not conform to these Terms, we may investigate the allegation and determine in our sole discretion whether to remove the User Content, which we reserve the right to do at any time and without notice.
-  For clarity, Math & Democracy does not permit copyright-infringing activities on the Service.
+  For clarity, The Computational Democracy Project does not permit copyright-infringing activities on the Service.
 
   6. **DMCA Takedown Requests.** &nbsp;
-  If you believe your copyright-protected work was posted to our Service without authorization, you may notify in accordance with the Digital Millenium Copyright Act at the following email address: <contact@mathdem.org>.
+  If you believe your copyright-protected work was posted to our Service without authorization, you may notify in accordance with the Digital Millenium Copyright Act at the following email address: <hello@compdemocracy.org>.
 
 5. **Prohibited Conduct.** &nbsp;
 **BY USING THE SERVICE YOU AGREE NOT TO:**
@@ -74,16 +74,16 @@ These Terms of Use are a legally binding contract between you and Math & Democra
 
 6. **Termination of Use; Discontinuation and Modification of the Service.** &nbsp;
  If you violate any provision of these Terms, your permission to use the Service will be terminated.
- Additionally, Math & Democracy, in its sole discretion may terminate your user account on the Service or suspend or terminate your access to the Service at any time, with or without notice.
+ Additionally, The Computational Democracy Project, in its sole discretion may terminate your user account on the Service or suspend or terminate your access to the Service at any time, with or without notice.
  We also reserve the right to modify or discontinue the Service at any time (including, without limitation, by limiting or discontinuing certain features of the Service) without notice to you.
  We will have no liability whatsoever on account of any change to the Service or any suspension or termination of your access to or use of the Service.
- You may terminate your account at any time by contacting customer service at <contact@mathdem.org>.
+ You may terminate your account at any time by contacting customer service at <admin@compdemocracy.org>.
  If you terminate your account, you will remain obligated to pay all outstanding fees, if any, relating to your use of the Service incurred prior to termination.
  To the extent permitted by applicable laws and regulations, no unused portions of pre-paid fees will be refunded following termination.
 
 7. **Privacy Policy; Additional Terms.** &nbsp;
- Please read the Math & Democracy Privacy Policy (<https://pol.is/privacy>) carefully for information relating to our collection, use, storage and disclosure of your personal information. 
- The Math & Democracy Privacy Policy is hereby incorporated by reference into, and made a part of, these Terms. 
+ Please read The Computational Democracy Project Privacy Policy (<https://pol.is/privacy>) carefully for information relating to our collection, use, storage and disclosure of your personal information. 
+ The Computational Democracy Project Privacy Policy is hereby incorporated by reference into, and made a part of, these Terms. 
 
 8. **Additional Terms.** &nbsp;
  Your use of the Service is subject to any and all additional terms, policies, rules, or guidelines applicable to the Service or certain features of the Service that we may post on or link to on the Service (the "Additional Terms"), such as end-user license agreements for any downloadable applications that we may offer, or rules applicable to particular features or content on the Service, subject to Section 9 below. 
@@ -98,14 +98,14 @@ These Terms of Use are a legally binding contract between you and Math & Democra
  For the avoidance of doubt, disputes arising under these Terms will be resolved in accordance with these Terms in effect that the time the dispute arose.
 
 10. **Ownership; Proprietary Rights.** &nbsp;
- The Service is owned and operated by Math & Democracy.
- The visual interfaces, application programming interfaces, graphics, design, compilation, information, data, computer code (including source code or object code), products, software, services, and all other elements of the Service (the "Materials") provided by Math & Democracy are protected by all relevant intellectual property and proprietary rights and applicable laws.
- All Materials contained in the Service are the property of Math & Democracy or our third-party licensors.
- Except as expressly authorized by Math & Democracy, you may not make use of the Materials.
- Math & Democracy reserves all rights to the Materials not granted expressly in these Terms.
+ The Service is owned and operated by The Computational Democracy Project.
+ The visual interfaces, application programming interfaces, graphics, design, compilation, information, data, computer code (including source code or object code), products, software, services, and all other elements of the Service (the "Materials") provided by The Computational Democracy Project are protected by all relevant intellectual property and proprietary rights and applicable laws.
+ All Materials contained in the Service are the property of The Computational Democracy Project or our third-party licensors.
+ Except as expressly authorized by The Computational Democracy Project, you may not make use of the Materials.
+ The Computational Democracy Project reserves all rights to the Materials not granted expressly in these Terms.
 
 11. **Indemnity.** &nbsp;
- You agree that you will be responsible for your use of the Service, and you agree to defend, indemnify, and hold harmless Math & Democracy and its officers, directors, employees, consultants, affiliates, subsidiaries and agents (collectively, the Math & Democracy Entities') from and against any and all claims, liabilities, damages, losses, and expenses, including reasonable attorneys' fees and costs, arising out of or in any way connected with
+ You agree that you will be responsible for your use of the Service, and you agree to defend, indemnify, and hold harmless The Computational Democracy Project and its officers, directors, employees, consultants, affiliates, subsidiaries and agents (collectively, the The Computational Democracy Project Entities') from and against any and all claims, liabilities, damages, losses, and expenses, including reasonable attorneys' fees and costs, arising out of or in any way connected with
  (i) your access to, use of, or alleged use of the Service;
  (ii) your violation of these Terms or any representation, warranty, or agreements referenced herein, or any applicable law or regulation;
  (iii) your violation of any third-party right, including without limitation any intellectual property right, publicity, confidentiality, property or privacy right; or
@@ -133,11 +133,11 @@ We reserve the right, at our own expense, to assume the exclusive defense and co
 
 14. **Governing Law.** &nbsp;
  These Terms shall be governed by the laws of the State of Washington in the United States without regard to conflict of law principles.
- To the extent that any lawsuit or court proceeding is permitted hereunder, you and Math & Democracy agree to submit to the personal and exclusive jurisdiction of the state courts and federal courts located within King County, Washington, USA for the purpose of litigating all such disputes.
+ To the extent that any lawsuit or court proceeding is permitted hereunder, you and The Computational Democracy Project agree to submit to the personal and exclusive jurisdiction of the state courts and federal courts located within King County, Washington, USA for the purpose of litigating all such disputes.
  We operate the Service from our offices in Washington, and we make no representation that Materials included in the Service are appropriate or available for use in other locations.
 
 15. **General.** &nbsp;
- These Terms, together with the Privacy Policy and any other agreements expressly incorporated by reference herein, constitute the entire and exclusive understanding and agreement between you and Math & Democracy regarding your use of and access to the Service, and except as expressly permitted above may be amended only by a written agreement signed by authorized representatives of all parties to these Terms.
+ These Terms, together with the Privacy Policy and any other agreements expressly incorporated by reference herein, constitute the entire and exclusive understanding and agreement between you and The Computational Democracy Project regarding your use of and access to the Service, and except as expressly permitted above may be amended only by a written agreement signed by authorized representatives of all parties to these Terms.
  You may not assign or transfer these Terms or your rights hereunder, in whole or in part, by operation of law or otherwise, without our prior written consent.
  We may assign these Terms at any time without notice.
  The failure to require performance of any provision will not affect our right to require performance at any time thereafter, nor shall a waiver of any breach or default of these Terms or any provision of these Terms constitute a waiver of any subsequent breach or default or a waiver of the provision itself.
@@ -148,7 +148,7 @@ We reserve the right, at our own expense, to assume the exclusive defense and co
 16. **Dispute Resolution and Arbitration**
 
   1. **Generally.** &nbsp;
-  In the interest of resolving disputes between you and Math & Democracy in the most expedient and cost effective manner, you and Math & Democracy agree that any and all disputes arising in connection with these Terms shall be resolved by binding arbitration.
+  In the interest of resolving disputes between you and The Computational Democracy Project in the most expedient and cost effective manner, you and The Computational Democracy Project agree that any and all disputes arising in connection with these Terms shall be resolved by binding arbitration.
   Arbitration is more informal than a lawsuit in court.
   Arbitration uses a neutral arbitrator instead of a judge or jury, may allow for more limited discovery than in court, and can be subject to very limited review by courts.
   Arbitrators can award the same damages and relief that a court can award.
@@ -158,24 +158,24 @@ We reserve the right, at our own expense, to assume the exclusive defense and co
   2. **Exceptions.** &nbsp;
   Notwithstanding subsection 16.1, we both agree that nothing herein will be deemed to waive, preclude, or otherwise limit either of our right to (i) bring an individual action in small claims court, (ii) pursue enforcement actions through applicable federal, state, or local agencies where such actions are available, (iii) seek injunctive relief in a court of law, or (iv) to file suit in a court of law to address intellectual property infringement claims.
   3. **Arbitrator.** &nbsp;
-  Any arbitration between you and Math & Democracy will be governed by the Commercial Dispute Resolution Procedures and the Supplementary Procedures for Consumer Related Disputes (collectively, "AAA Rules") of the American Arbitration Association ("AAA"), as modified by these Terms, and will be administered by the AAA.
-  The AAA Rules and filing forms are available online at www.adr.org, by calling the AAA at 1-800-778-7879, or by contacting Math & Democracy.
+  Any arbitration between you and The Computational Democracy Project will be governed by the Commercial Dispute Resolution Procedures and the Supplementary Procedures for Consumer Related Disputes (collectively, "AAA Rules") of the American Arbitration Association ("AAA"), as modified by these Terms, and will be administered by the AAA.
+  The AAA Rules and filing forms are available online at www.adr.org, by calling the AAA at 1-800-778-7879, or by contacting The Computational Democracy Project.
 
   4. **Notice; Process.** &nbsp;
   A party who intends to seek arbitration must first send a written notice of the dispute to the other, by certified mail or Federal Express (signature required), or in the event that we do not have a physical address on file for you, by electronic mail ("Notice").
-  The address of Math & Democracy for Notice is: PO BOX 30877Seattle, WA 98113.
+  The address of The Computational Democracy Project for Notice is: PO BOX 30877Seattle, WA 98113.
   The Notice must (i) describe the nature and basis of the claim or dispute; and (ii) set forth the specific relief sought ("Demand").
-  We agree to use good faith efforts to resolve the claim directly, but if we do not reach an agreement to do so within 30 days after the Notice is received, you or Math & Democracy may commence an arbitration proceeding. 
+  We agree to use good faith efforts to resolve the claim directly, but if we do not reach an agreement to do so within 30 days after the Notice is received, you or The Computational Democracy Project may commence an arbitration proceeding. 
 
   5. **Fees.** &nbsp;
   The fees for filing for arbitration will be borne by the party that does not substantially prevail at arbitration, or otherwise split at the arbitrator’s direction.
 
   6. **No Class Actions.** &nbsp;
   YOU AND MATH & DEMOCRACY AGREE THAT EACH MAY BRING CLAIMS AGAINST THE OTHER ONLY IN YOUR OR ITS INDIVIDUAL CAPACITY AND NOT AS A PLAINTIFF OR CLASS MEMBER IN ANY PURPORTED CLASS OR REPRESENTATIVE PROCEEDING.
-  Further, unless both you and Math & Democracy agree otherwise, the arbitrator may not consolidate more than one person's claims, and may not otherwise preside over any form of a representative or class proceeding.
+  Further, unless both you and The Computational Democracy Project agree otherwise, the arbitrator may not consolidate more than one person's claims, and may not otherwise preside over any form of a representative or class proceeding.
 
   7. **Modifications.** &nbsp;
-  In the event that Math & Democracy makes any future change to this arbitration provision (other than a change to the address of Math & Democracy for Notice), you may reject any such change by sending us written notice within 30 days of the change to the address of Math & Democracy for Notice, in which case your account with Math & Democracy shall be immediately terminated and this arbitration provision, as in effect immediately prior to the amendments you reject shall survive.
+  In the event that The Computational Democracy Project makes any future change to this arbitration provision (other than a change to the address of The Computational Democracy Project for Notice), you may reject any such change by sending us written notice within 30 days of the change to the address of The Computational Democracy Project for Notice, in which case your account with The Computational Democracy Project shall be immediately terminated and this arbitration provision, as in effect immediately prior to the amendments you reject shall survive.
 
   8. **Enforceability.** &nbsp;
   If Subsection 16.6 is found to be unenforceable or if the entirety of this Section 16 is found to be unenforceable, then the entirety of this Section 16 shall be null and void and, in such case, the parties agree that the exclusive jurisdiction and venue described in Section 14 shall govern any action arising out of or related to these Terms.
@@ -186,7 +186,7 @@ We reserve the right, at our own expense, to assume the exclusive defense and co
  You agree that any notices, agreements, disclosures, or other communications that we send to you electronically will satisfy any legal communication requirements, including that such communications be in writing. 
 
 18. **Contact Information.** &nbsp;
- The services hereunder are offered by Math & Democracy, located at PO BOX 30877 Seattle, WA 98113.
- You may contact us by sending correspondence to the foregoing address or by emailing us at <contact@mathdem.org>.
+ The services hereunder are offered by The Computational Democracy Project, located at PO BOX 30877 Seattle, WA 98113.
+ You may contact us by sending correspondence to the foregoing address or by emailing us at <hello@compdemocracy.org>.
  If you are a California resident, you may have these Terms mailed to you electronically by sending a letter to the foregoing address with your electronic mail address and a request for these Terms.
 

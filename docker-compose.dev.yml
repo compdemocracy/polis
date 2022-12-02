@@ -1,15 +1,44 @@
-version: "3.1"
+version: "3.4"
 
 # Questions/todo:
 # * Do we want to use different tags for dev vs prod builds? how is this controlled?
 # * Definitely want to have different env var files for prod vs dev
 
 services:
+  server:
+    command: npm run dev
+    environment:
+      NODE_ENV: development
+    # Is this what we'll want here?
+    #command: npm run build:watch && npm run serve
+    volumes:
+      - "./server:/app"
+    ports:
+      - "9229:9229"
+
   math:
     command: clojure -X:dev-poller
     volumes:
       - "./math:/app"
     ports:
+      # nrepl port
       - 18975:18975
     environment:
       CHOKIDAR_USEPOLLING: "true"
+
+  maildev:
+    image: docker.io/maildev/maildev:1.1.0
+    networks:
+      - "polis-net"
+    ports:
+      # User interface
+      - "1080:80"
+      # SMTP port
+      - "25:25"
+
+  # TODO: Add individual entries for each of the clients, with hot-code reloading set up
+  # Either:
+  #   * configure environment variables here so that the ports the server points to for these assets are the
+  #     live-code-reloaded ports
+  #   * leave the server pointing to the static builds, but have separate ports you can hit for the live-code
+  #     reloading (making sure to document the process)

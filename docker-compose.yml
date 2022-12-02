@@ -13,13 +13,12 @@
 # to stop:
 # docker-compose down
 
-version: "3.1"
+version: "3.4"
 
 services:
   server:
-    container_name: polis-server
     env_file: ./server/docker-dev.env
-    image: compdem/polis-server:${TAG}
+    image: docker.io/compdem/polis-server:${TAG}
     build:
       context: ./server
       dockerfile: Dockerfile
@@ -28,13 +27,13 @@ services:
       - "file-server"
     networks:
       - "polis-net"
-    ports:
-      - "5000:5000"
+    # Scale the server container to a given number of instances.
+    scale: 1
 
   math:
     container_name: polis-math
     env_file: ./math/docker-dev.env
-    image: compdem/polis-math:${TAG}
+    image: docker.io/compdem/polis-math:${TAG}
     depends_on:
       - "postgres"
     build:
@@ -45,7 +44,7 @@ services:
   postgres:
     container_name: polis-postgres
     env_file: ./server/docker-db-dev.env
-    image: compdem/polis-postgres:${TAG}
+    image: docker.io/compdem/polis-postgres:${TAG}
     restart: always
     build:
       context: ./server
@@ -58,7 +57,7 @@ services:
 
   nginx-proxy:
     container_name: polis-nginx-proxy
-    image: compdem/polis-nginx-proxy:${TAG}
+    image: docker.io/compdem/polis-nginx-proxy:${TAG}
     build:
       context: ./file-server
       dockerfile: nginx.Dockerfile
@@ -69,57 +68,19 @@ services:
     networks:
       - "polis-net"
     ports:
-      - "80:80"
-      - "443:443"
+      - ${HTTP_PORT:-80}:${HTTP_PORT:-80}
+      - ${HTTPS_PORT:-443}:${HTTPS_PORT:-443}
 
   file-server:
     container_name: polis-file-server
-    image: compdem/polis-file-server:${TAG}
+    image: docker.io/compdem/polis-file-server:${TAG}
     build:
-      context: ./file-server
-      dockerfile: Dockerfile
-    depends_on:
-      - "client-participation"
-      - "client-admin"
-      - "client-report"
+      context: ./
+      dockerfile: file-server/Dockerfile
+      args:
+        GIT_HASH: "${GIT_HASH}"
     networks:
       - "polis-net"
-    ports:
-      - "8080:8080"
-
-  client-participation:
-    container_name: polis-client-participation
-    image: compdem/polis-client-participation:${TAG}
-    build:
-      context: ./client-participation
-      args:
-        GIT_HASH: "${GIT_HASH}"
-
-  client-admin:
-    container_name: polis-client-admin
-    image: compdem/polis-client-admin:${TAG}
-    build:
-      context: ./client-admin
-      args:
-        GIT_HASH: "${GIT_HASH}"
-
-  client-report:
-    container_name: polis-client-report
-    image: compdem/polis-client-report:${TAG}
-    build:
-      context: ./client-report
-      args:
-        GIT_HASH: "${GIT_HASH}"
-
-  maildev:
-    image: maildev/maildev:1.1.0
-    networks:
-      - "polis-net"
-    ports:
-      # User interface
-      - "1080:80"
-      # SMTP port
-      - "25:25"
 
 networks:
   polis-net:
