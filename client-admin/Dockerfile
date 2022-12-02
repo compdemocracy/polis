@@ -1,5 +1,4 @@
-# Gulp v3 stops us from upgrading beyond Node v11
-FROM docker.io/node:11.15.0-alpine
+FROM docker.io/node:14.14.0-alpine
 
 WORKDIR /app
 
@@ -13,4 +12,4 @@ COPY polis.config.template.js polis.config.js
 COPY . .
 
 ARG GIT_HASH
-RUN npm run deploy:prod
+RUN npm run build:prod
