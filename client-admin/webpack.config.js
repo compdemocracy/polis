@@ -30,7 +30,7 @@ module.exports = (env, options) => {
     output: {
       publicPath: '/',
       filename: `static/js/admin_bundle${chunkHashFragment}.js`,
-      path: path.resolve(__dirname, "dist"),
+      path: path.resolve(__dirname, "build"),
       clean: true,
     },
     resolve: {
@@ -88,7 +88,7 @@ module.exports = (env, options) => {
             console.log('Writing *.headersJson files...')
 
             function writeHeadersJson(matchGlob, headersData = {}) {
-              const files = glob.sync(path.resolve(__dirname, "dist", matchGlob))
+              const files = glob.sync(path.resolve(__dirname, "build", matchGlob))
               files.forEach((f, i) => {
                 const headersFilePath = f + '.headersJson'
                 fs.writeFileSync(headersFilePath, JSON.stringify(headersData))
