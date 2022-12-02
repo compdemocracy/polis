@@ -48,10 +48,10 @@
     "prettier": "^2.2.1",
     "prettier-config-standard": "^4.0.0",
     "serve": "^11.3.2",
-    "webpack": "^5.64.2",
     "webpack-bundle-analyzer": "^4.4.0",
-    "webpack-cli": "^4.9.0",
-    "webpack-dev-server": "^4.6.0"
+    "webpack-dev-server": "^4.6.0",
+    "webpack": "5.75.0",
+    "webpack-cli": "5.0.0"
   },
   "dependencies": {
     "d3-scale": "^3.2.3",
