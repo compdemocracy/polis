@@ -21,7 +21,7 @@ COPY client-admin/polis.config.template.js polis.config.js
 COPY client-admin/. .
 
 ARG GIT_HASH
-RUN npm run deploy:prod
+RUN npm run build:prod
 
 
 
