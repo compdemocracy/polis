@@ -8,7 +8,8 @@ RUN apk add git g++ make python openssh --no-cache
 
 
 # polis-client-admin
-FROM client-base AS client-admin
+#FROM client-base AS client-admin # <- switch back to basing on client admin once we upgrade other clients
+FROM docker.io/node:14.15.0-alpine AS client-admin
 
 WORKDIR /client-admin/app
 
@@ -20,7 +21,7 @@ COPY client-admin/polis.config.template.js polis.config.js
 COPY client-admin/. .
 
 ARG GIT_HASH
-RUN npm run deploy:prod
+RUN npm run build:prod
 
 
 
