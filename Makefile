@@ -1,5 +1,6 @@
 
-BASEURL ?= https://127.0.0.1.sslip.io
+# BASEURL ?= https://127.0.0.1.sslip.io
+BASEURL ?= http://127.0.0.1
 E2E_RUN = cd e2e; CYPRESS_BASE_URL=$(BASEURL)
 
 pull: ## Pull most recent Docker container builds (nightlies)
