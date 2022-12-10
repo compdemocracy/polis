@@ -4,4 +4,4 @@ ALTER TABLE conversations
 
 ALTER TABLE votes 
   ADD high_priority BOOLEAN NOT NULL 
-    DEFAULT (false);
+    DEFAULT (null);

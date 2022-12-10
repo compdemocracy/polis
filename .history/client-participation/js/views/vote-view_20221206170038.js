@@ -102,7 +102,11 @@ module.exports = Handlebones.ModelView.extend({
       }
     }
 
-    ctx.showImportantCheckbox = true; // TODO: set up feature flagging
+    ctx.showImportantCheckbox = true; // TODO: set up feature flagging and take from conversation settings
+    /* console.log("TEST A");
+    console.log(ctx.priority_type);
+    console.log(ctx.show_important_checkbox);
+    console.log(this.model.get("priority_type")); */
 
     ctx.social = socialCtx;
     ctx.noModSet = !ctx.spamOn && !ctx.otOn && !ctx.importantOn;

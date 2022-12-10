@@ -102,7 +102,9 @@ module.exports = Handlebones.ModelView.extend({
       }
     }
 
-    ctx.showImportantCheckbox = true; // TODO: set up feature flagging
+    ctx.showImportantCheckbox = true; // TODO: set up feature flagging and take from conversation settings
+    console.log("TEST A");
+    console.log(ctx.priority_type);
 
     ctx.social = socialCtx;
     ctx.noModSet = !ctx.spamOn && !ctx.otOn && !ctx.importantOn;
@@ -582,7 +584,7 @@ module.exports = Handlebones.ModelView.extend({
       this.wipVote = {
         vote: 0,
         conversation_id: conversation_id,
-        weight: this.getWeight(),
+        weight: this.getWeight(), // TODO: specify in help text that this is for "important but unsure"
         tid: tid,
       };
       serverClient.addToVotesByMe(this.wipVote);

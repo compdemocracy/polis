@@ -10232,6 +10232,7 @@ Email verified! You can close this tab or hit the back button.
         help_bgcolor: string;
         style_btn: any;
         write_type: any;
+        priority_type: any;
         owner_sees_participation_stats: any;
         launch_presentation_return_url_hex: any;
         link_url: any;
@@ -10325,6 +10326,9 @@ Email verified! You can close this tab or hit the back button.
         if (!_.isUndefined(req.p.write_type)) {
           fields.write_type = req.p.write_type;
         }
+        if (!_.isUndefined(req.p.priority_type)) {
+          fields.priority_type = !!req.p.priority_type;
+        }
         ifDefinedSet("auth_needed_to_vote", req.p, fields);
         ifDefinedSet("auth_needed_to_write", req.p, fields);
         ifDefinedSet("auth_opt_fb", req.p, fields);
@@ -10353,7 +10357,7 @@ Email verified! You can close this tab or hit the back button.
           function () {
             pgQuery(q.toString(), function (err: any, result: { rows: any[] }) {
               if (err) {
-                fail(res, 500, "polis_err_update_conversation", err);
+                fail(res, 500, "polis_err_update_conversation_1", err);
                 return;
               }
               let conv = result && result.rows && result.rows[0];
@@ -10469,7 +10473,7 @@ Email verified! You can close this tab or hit the back button.
                   // // }
                 })
                 .catch(function (err: any) {
-                  fail(res, 500, "polis_err_update_conversation", err);
+                  fail(res, 500, "polis_err_update_conversation_2", err);
                 });
             });
           },
@@ -10479,7 +10483,7 @@ Email verified! You can close this tab or hit the back button.
         );
       })
       .catch(function (err: any) {
-        fail(res, 500, "polis_err_update_conversation", err);
+        fail(res, 500, "polis_err_update_conversation_3", err);
       });
   }
 
@@ -16201,6 +16205,7 @@ CREATE TABLE slack_user_invites (
           parent_url: conv.parent_url,
           vis_type: conv.vis_type,
           write_type: conv.write_type,
+          priority_type: conv.priority_type,
           help_type: conv.help_type,
           socialbtn_type: conv.socialbtn_type,
           bgcolor: conv.bgcolor,

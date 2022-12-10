@@ -102,7 +102,11 @@ module.exports = Handlebones.ModelView.extend({
       }
     }
 
-    ctx.showImportantCheckbox = preload.conversation.priority_type; // TODO: set up feature flagging
+    ctx.showImportantCheckbox = true; // TODO: set up feature flagging and take from conversation settings
+    console.log("TEST A");
+    console.log(ctx.priority_type);
+    console.log(ctx.show_important_checkbox);
+    console.log(this.model.get("priority_type"));
 
     ctx.social = socialCtx;
     ctx.noModSet = !ctx.spamOn && !ctx.otOn && !ctx.importantOn;
@@ -532,20 +536,13 @@ module.exports = Handlebones.ModelView.extend({
         );
       return false;
     };
-    // note: instead of -1/1/0, weight is now the boolean high_priority
-    // this.getWeight = function () {
-    //   if ($("#weight_low").prop("checked")) {
-    //     return -1;
-    //   } else if ($("#weight_high").prop("checked")) {
-    //     return 1;
-    //   }
-    //   return 0;
-    // };
-    this.highPriority = function () {
-      if ($("#weight_high").prop("checked")) {
-        return true;
+    this.getWeight = function () {
+      if ($("#weight_low").prop("checked")) {
+        return -1;
+      } else if ($("#weight_high").prop("checked")) {
+        return 1;
       }
-      return false;
+      return 0;
     };
     this.participantAgreed = function (e) {
       this.mostRecentVoteType = "agree";
@@ -557,7 +554,7 @@ module.exports = Handlebones.ModelView.extend({
       this.wipVote = {
         vote: -1,
         conversation_id: conversation_id,
-        high_priority: this.highPriority(),
+        weight: this.getWeight(),
         tid: tid,
       };
       serverClient.addToVotesByMe(this.wipVote);
@@ -573,7 +570,7 @@ module.exports = Handlebones.ModelView.extend({
       this.wipVote = {
         vote: 1,
         conversation_id: conversation_id,
-        high_priority: this.highPriority(),
+        weight: this.getWeight(),
         tid: tid,
       };
       serverClient.addToVotesByMe(this.wipVote);
@@ -589,7 +586,7 @@ module.exports = Handlebones.ModelView.extend({
       this.wipVote = {
         vote: 0,
         conversation_id: conversation_id,
-        high_priority: this.highPriority(), // TODO: specify in help text that this is for "important but unsure"
+        weight: this.getWeight(), // TODO: specify in help text that this is for "important but unsure"
         tid: tid,
       };
       serverClient.addToVotesByMe(this.wipVote);

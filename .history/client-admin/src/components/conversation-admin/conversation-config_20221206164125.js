@@ -144,8 +144,8 @@ class ConversationConfig extends React.Component {
           Customize the user interface
         </Heading>
 
-        <CheckboxField field="priority_type" label="Weight" isIntegerBool>
-          Participants can see the "This comment is important" checkbox
+        <CheckboxField field="priority_type" label="Weight">
+          [EXPERIMENTAL FEATURE] Participants can see the "This comment is important" checkbox
         </CheckboxField>
         
         <CheckboxField field="vis_type" label="Visualization" isIntegerBool>

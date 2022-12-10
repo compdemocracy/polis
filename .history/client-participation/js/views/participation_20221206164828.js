@@ -226,6 +226,8 @@ module.exports = ConversationView.extend({
       ctx.vis_type === Constants.VIS_TYPE.TOP_COMMENTS;
 
     ctx.show_pca_vis = ctx.vis_type === Constants.VIS_TYPE.PCA;
+
+    ctx.show_important_checkbox = ctx.priority_type;
     return ctx;
   },
 
