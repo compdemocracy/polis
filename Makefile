@@ -3,7 +3,6 @@
 
 BASEURL ?= https://127.0.0.1.sslip.io
 E2E_RUN = cd e2e; CYPRESS_BASE_URL=$(BASEURL)
-# export
 export GIT_HASH := $(shell git rev-parse --short HEAD)
 
 pull: ## Pull most recent Docker container builds (nightlies)
@@ -56,7 +55,6 @@ e2e-run-all: ## Run E2E tests: all
 
 # Helpful CLI shortcuts
 rbs: start-rebuild
-
 
 %:
 	@true
