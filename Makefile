@@ -20,6 +20,7 @@ stop: ## Stop all Docker containers
 clean: ## Remove all Docker images and containers
 	-docker rm -f $(shell docker ps -aq)
 	-docker rmi -f $(shell docker images -q)
+	-docker volume rm $(docker volume ls -q)
 
 hash: ## Show current short hash
 	@echo Git hash: ${GIT_HASH}
