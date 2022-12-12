@@ -1,6 +1,9 @@
+# TTD: pass GIT_HASH to docker-compose
+
 
 BASEURL ?= https://127.0.0.1.sslip.io
 E2E_RUN = cd e2e; CYPRESS_BASE_URL=$(BASEURL)
+export GIT_HASH := $(shell git rev-parse --short HEAD)
 
 pull: ## Pull most recent Docker container builds (nightlies)
 	docker-compose pull
@@ -10,6 +13,16 @@ start: ## Start all Docker containers
 
 start-rebuild: ## Start all Docker containers, [re]building as needed
 	docker-compose up --detach --build
+
+stop: ## Stop all Docker containers
+	docker-compose down
+
+clean: ## Remove all Docker images and containers
+	-docker rm -f $(shell docker ps -aq)
+	-docker rmi -f $(shell docker images -q)
+
+hash: ## Show current short hash
+	@echo Git hash: ${GIT_HASH}
 
 e2e-install: e2e/node_modules ## Install Cypress E2E testing tools
 	$(E2E_RUN) npm install
@@ -36,7 +49,6 @@ e2e-run-all: ## Run E2E tests: all
 
 # Helpful CLI shortcuts
 rbs: start-rebuild
-
 
 %:
 	@true
