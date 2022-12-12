@@ -1,10 +1,6 @@
 
-// %%%
-// client-participation/polis.config.template.js
-// %%%
-
+// @TTD: for clarity, rename "PORT" to "CLIENT_PARTICIPATION_PORT"
 // Note that this must match the participation client port specified in polisServer instance
-// rename PORT: 5001,
 
 module.exports = {
   domainWhitelist: [
