@@ -8,20 +8,6 @@ pull: ## Pull most recent Docker container builds (nightlies)
 start: ## Start all Docker containers
 	docker-compose up --detach
 
-start-rebuild: ## Start all Docker containers, [re]building as needed
-	docker-compose up --detach --build
-
-start-full-rebuild: ## Start all Docker containers, rebuilding everything
-	docker-compose build --no-cache
-	# sleep 120
-	docker-compose down
-	# sleep 120
-	docker-compose up --detach --build
-	# sleep 120
-	docker-compose down
-	# sleep 120
-	docker-compose up --detach --build
-
 stop: ## Stop all Docker containers
 	docker-compose down
 
@@ -32,6 +18,16 @@ clean: ## Remove all Docker images, containers, and volumes
 
 hash: ## Show current short hash
 	@echo Git hash: ${GIT_HASH}
+
+start-rebuild: ## Start all Docker containers, [re]building as needed
+	docker-compose up --detach --build
+
+restart-full-rebuild: stop clean ## Restart all Docker containers, rebuilding everything
+	docker-compose build --no-cache
+	docker-compose down
+	docker-compose up --detach --build
+	docker-compose down
+	docker-compose up --detach --build
 
 e2e-install: e2e/node_modules ## Install Cypress E2E testing tools
 	$(E2E_RUN) npm install
@@ -62,7 +58,7 @@ rbs: start-rebuild
 %:
 	@true
 
-.PHONY: help
+.PHONY: help clean stop
 
 help:
 	@echo 'Usage: make <command>'
