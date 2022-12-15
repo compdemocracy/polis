@@ -1,6 +1,3 @@
-# TTD: pass GIT_HASH to docker-compose
-
-
 BASEURL ?= https://127.0.0.1.sslip.io
 E2E_RUN = cd e2e; CYPRESS_BASE_URL=$(BASEURL)
 export GIT_HASH := $(shell git rev-parse --short HEAD)
@@ -14,13 +11,24 @@ start: ## Start all Docker containers
 start-rebuild: ## Start all Docker containers, [re]building as needed
 	docker-compose up --detach --build
 
+start-full-rebuild: ## Start all Docker containers, rebuilding everything
+	docker-compose build --no-cache
+	# sleep 120
+	docker-compose down
+	# sleep 120
+	docker-compose up --detach --build
+	# sleep 120
+	docker-compose down
+	# sleep 120
+	docker-compose up --detach --build
+
 stop: ## Stop all Docker containers
 	docker-compose down
 
-clean: ## Remove all Docker images and containers
+clean: ## Remove all Docker images, containers, and volumes
 	-docker rm -f $(shell docker ps -aq)
 	-docker rmi -f $(shell docker images -q)
-	-docker volume rm $(docker volume ls -q)
+	-docker volume rm $(shell docker volume ls -q)
 
 hash: ## Show current short hash
 	@echo Git hash: ${GIT_HASH}
