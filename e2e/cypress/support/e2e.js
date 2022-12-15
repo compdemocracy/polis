@@ -13,17 +13,13 @@
 // https://on.cypress.io/configuration
 // ***********************************************************
 
-// Import commands.js using ES2015 syntax:
 import './commands'
-
-// Alternatively you can use CommonJS syntax:
-// require('./commands')
 
 before(() => {
   cy.fixture('users.json').then((users) => {
     // Ensure a default user is present for each spec.
     // TODO: Move this into a true database seeding process.
-    for (let [type, user] of Object.entries(users)) {
+    for (const [type, user] of Object.entries(users)) {
       cy.signup(user.name, user.email, user.password)
     }
   })
@@ -33,6 +29,6 @@ before(() => {
 const reporterOptions = {
   // When to print terminal logs for tests.
   // Options: onFail, always
-  printLogs: 'onFail',
+  printLogs: 'onFail'
 }
 require('cypress-terminal-report/src/installLogsCollector')(reporterOptions)

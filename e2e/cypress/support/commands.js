@@ -28,41 +28,50 @@
 // See: https://gitlab.com/kgroat/cypress-iframe
 require('cypress-iframe')
 
-Cypress.Commands.add("logout", () => {
-  cy.request('POST', Cypress.config().apiPath + '/auth/deregister')
-    .then(resp => {
+Cypress.Commands.add('logout', () => {
+  cy.request('POST', Cypress.config().apiPath + '/auth/deregister').then(
+    (resp) => {
       window.localStorage.removeItem('token2')
       window.localStorage.removeItem('uid2')
       window.localStorage.removeItem('uc')
       window.localStorage.removeItem('e')
-    })
+    }
+  )
 })
 
-Cypress.Commands.add("signup", (name, email, password, strictFail=false) => {
+Cypress.Commands.add('signup', (name, email, password, strictFail = false) => {
   cy.request({
     method: 'POST',
     url: Cypress.config().apiPath + '/auth/new',
     body: {
-      email: email,
+      email,
       hname: name,
       gatekeeperTosPrivacy: true,
-      password: password
+      password
     },
     failOnStatusCode: strictFail
-  }).then(resp => {
+  }).then((resp) => {
     // Expand success criteria to allow user already existing.
     // TODO: Be smarter with seeding users so we only create once.
-    if (!(resp.status === 200 || (resp.status === 403 && resp.body === 'polis_err_reg_user_with_that_email_exists'))) {
-      throw new Error(`Unexpected error code ${resp.status} returned during signup: ${resp.body}`)
+    if (
+      !(
+        resp.status === 200 ||
+        (resp.status === 403 &&
+          resp.body === 'polis_err_reg_user_with_that_email_exists')
+      )
+    ) {
+      throw new Error(
+        `Unexpected error code ${resp.status} returned during signup: ${resp.body}`
+      )
     }
   })
 })
 
-function loginByPassword (email, password) {
+function loginByPassword(email, password) {
   cy.request('POST', Cypress.config().apiPath + '/auth/login', {
-    email: email,
-    password: password
-  }).then(resp => {
+    email,
+    password
+  }).then((resp) => {
     window.localStorage.setItem('token2', resp.body.token)
     window.localStorage.setItem('uid2', resp.body.uid)
     window.localStorage.setItem('uc', Date.now())
@@ -70,14 +79,14 @@ function loginByPassword (email, password) {
   })
 }
 
-function loginByRole (userRole) {
+function loginByRole(userRole) {
   cy.fixture('users.json').then((users) => {
     const user = users[userRole]
     loginByPassword(user.email, user.password)
   })
 }
 
-Cypress.Commands.add("login", (...args) => {
+Cypress.Commands.add('login', (...args) => {
   cy.logout()
 
   switch (args.length) {
@@ -93,15 +102,18 @@ Cypress.Commands.add("login", (...args) => {
   }
 })
 
-Cypress.Commands.add("createConvo", (...args) => {
+Cypress.Commands.add('createConvo', (...args) => {
   cy.login(...args)
   cy.request('POST', Cypress.config().apiPath + '/conversations', {
     is_active: true,
     is_draft: true
-  }).its('body.conversation_id').as('convoId').then(x => {
-    // TODO: Remove this once other tests no longer rely on assumption of pageload.
-    cy.visit('/m/'+x)
   })
+    .its('body.conversation_id')
+    .as('convoId')
+    .then((x) => {
+      // TODO: Remove this once other tests no longer rely on assumption of pageload.
+      cy.visit('/m/' + x)
+    })
 })
 
 Cypress.Commands.add('seedComment', (...args) => {
@@ -117,14 +129,12 @@ Cypress.Commands.add('seedComment', (...args) => {
 
 // Allow visiting maildev inbox urls, to test sending of emails.
 // See: https://github.com/cypress-io/cypress/issues/944#issuecomment-651503805
-Cypress.Commands.overwrite(
-  'visit',
-  (originalFn, url, options) => {
-    if (url.includes(':1080')) {
-      cy.window().then(win => {
-        return win.open(url, '_self');
-      });
-    }
-    else { return originalFn(url, options); }
+Cypress.Commands.overwrite('visit', (originalFn, url, options) => {
+  if (url.includes(':1080')) {
+    cy.window().then((win) => {
+      return win.open(url, '_self')
+    })
+  } else {
+    return originalFn(url, options)
   }
-);
+})

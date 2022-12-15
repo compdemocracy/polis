@@ -13,17 +13,17 @@ describe('Comment translation', () => {
     cy.logout()
   })
 
-  it("prevents translation when comment already in browser language", function () {
+  it('prevents translation when comment already in browser language', function () {
     browserLanguage = 'fr'
-    cy.visit(`/${this.convoId}`, {qs: {ui_lang: browserLanguage}})
+    cy.visit(`/${this.convoId}`, { qs: { ui_lang: browserLanguage } })
 
     cy.contains('p', commentFrench).should('exist')
     cy.get('button#showTranslationButtonVoteView').should('not.exist')
   })
 
-  it("allows translation when comment not in browser language", function () {
+  it('allows translation when comment not in browser language', function () {
     browserLanguage = 'en'
-    cy.visit(`/${this.convoId}`, {qs: {ui_lang: browserLanguage}})
+    cy.visit(`/${this.convoId}`, { qs: { ui_lang: browserLanguage } })
 
     cy.contains('p', commentFrench).should('exist')
 

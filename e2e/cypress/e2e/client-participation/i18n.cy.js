@@ -1,7 +1,11 @@
 describe('Interface internationalization', () => {
   const openTranslated = (path, lang, string) => {
-    cy.visit(path, {qs: {ui_lang: lang}})
-    cy.get('textarea#comment_form_textarea').should('have.attr', 'placeholder', string)
+    cy.visit(path, { qs: { ui_lang: lang } })
+    cy.get('textarea#comment_form_textarea').should(
+      'have.attr',
+      'placeholder',
+      string
+    )
   }
 
   before(function () {
@@ -29,15 +33,17 @@ describe('Interface internationalization', () => {
       he: 'he',
       cy: 'cy',
       gr: 'gr',
-      uk: 'uk',
+      uk: 'uk'
     }
-    for (let [lang, filename] of Object.entries(locales)) {
-      cy.readFile(`../client-participation/js/strings/${filename}.js`).then(contents => {
-        // The string key we're using to validate working.
-        const targetStringKey = 'writePrompt'
-        const string = eval(contents)[targetStringKey] || ''
-        translations[lang] = string
-      })
+    for (const [lang, filename] of Object.entries(locales)) {
+      cy.readFile(`../client-participation/js/strings/${filename}.js`).then(
+        (contents) => {
+          // The string key we're using to validate working.
+          const targetStringKey = 'writePrompt'
+          const string = eval(contents)[targetStringKey] || ''
+          translations[lang] = string
+        }
+      )
     }
     cy.wrap(translations).as('strings')
   })
@@ -111,7 +117,7 @@ describe('Interface internationalization', () => {
     const lang = 'cy'
     openTranslated(this.convoPath, lang, this.strings[lang])
   })
-  
+
   it('translates into Greek', function () {
     const lang = 'gr'
     openTranslated(this.convoPath, lang, this.strings[lang])
