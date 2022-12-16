@@ -2,6 +2,8 @@
 
 var s = {};
 
+s.direction = "rtl";
+
 s.agree = "מסכים";
 s.disagree = "לא מסכים";
 s.pass = "עבור / לא בטוח";
