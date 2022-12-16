@@ -65,7 +65,7 @@ module.exports = Handlebones.ModelView.extend({
     if (btnBg) {
       ctx.customBtnStyles = "background-color: " + btnBg + ";";
     }
-    if (Strings.dir == "rtl") {
+    if (Strings.direction == "rtl") {
       ctx.pMarginStyle = "margin-right: 55px;"
     } else {
       ctx.pMarginStyle = "margin-left: 55px;"
