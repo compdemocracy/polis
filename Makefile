@@ -2,6 +2,9 @@ BASEURL ?= https://127.0.0.1.sslip.io
 E2E_RUN = cd e2e; CYPRESS_BASE_URL=$(BASEURL)
 export GIT_HASH := $(shell git rev-parse --short HEAD)
 
+include .env
+export $(shell sed 's/=.*//' .env)
+
 pull: ## Pull most recent Docker container builds (nightlies)
 	docker-compose pull
 
@@ -12,9 +15,13 @@ stop: ## Stop all Docker containers
 	docker-compose down
 
 clean: ## Remove all Docker images, containers, and volumes
-	-docker rm -f $(shell docker ps -aq)
-	-docker rmi -f $(shell docker images -q)
-	-docker volume rm $(shell docker volume ls -q)
+	@echo all containers
+	@echo $(shell docker ps -aq)
+	@echo filtered containers
+	@echo $(shell docker ps -aq | grep -e ${DOCKER_ROOT}-)
+	# -docker rm -f $(shell docker ps -aq)
+	# -docker rmi -f $(shell docker images -q)
+	# -docker volume rm $(shell docker volume ls -q)
 
 hash: ## Show current short hash
 	@echo Git hash: ${GIT_HASH}

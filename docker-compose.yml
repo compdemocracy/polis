@@ -17,6 +17,7 @@ version: "3.4"
 
 services:
   server:
+    container_name: ${DOCKER_ROOT:-polis}-server
     env_file: ./server/docker-dev.env
     image: docker.io/compdem/polis-server:${TAG}
     build:
@@ -31,7 +32,7 @@ services:
     scale: 1
 
   math:
-    container_name: polis-math
+    container_name: ${DOCKER_ROOT:-polis}-math
     env_file: ./math/docker-dev.env
     image: docker.io/compdem/polis-math:${TAG}
     depends_on:
@@ -42,7 +43,7 @@ services:
       - "polis-net"
 
   postgres:
-    container_name: polis-postgres
+    container_name: ${DOCKER_ROOT:-polis}-postgres
     env_file: ./server/docker-db-dev.env
     image: docker.io/compdem/polis-postgres:${TAG}
     restart: always
@@ -56,7 +57,7 @@ services:
       - "postgres:/var/lib/postgresql/data"
 
   nginx-proxy:
-    container_name: polis-nginx-proxy
+    container_name: ${DOCKER_ROOT:-polis}-nginx-proxy
     image: docker.io/compdem/polis-nginx-proxy:${TAG}
     build:
       context: ./file-server
@@ -72,7 +73,7 @@ services:
       - ${HTTPS_PORT:-443}:${HTTPS_PORT:-443}
 
   file-server:
-    container_name: polis-file-server
+    container_name: ${DOCKER_ROOT:-polis}-file-server
     image: docker.io/compdem/polis-file-server:${TAG}
     build:
       context: ./
