@@ -1,9 +1,12 @@
 BASEURL ?= https://127.0.0.1.sslip.io
 E2E_RUN = cd e2e; CYPRESS_BASE_URL=$(BASEURL)
+
 export GIT_HASH := $(shell git rev-parse --short HEAD)
 
-include .env
-export $(shell sed 's/=.*//' .env)
+ifeq "$(origin TAG)" "undefined"
+	TAG := $(shell source .env; echo $$TAG)
+endif
+export TAG
 
 pull: ## Pull most recent Docker container builds (nightlies)
 	docker-compose pull
@@ -14,14 +17,25 @@ start: ## Start all Docker containers
 stop: ## Stop all Docker containers
 	docker-compose down
 
-clean: ## Remove all Docker images, containers, and volumes
-	@echo all containers
-	@echo $(shell docker ps -aq)
-	@echo filtered containers
-	@echo $(shell docker ps -aq | grep -e ${DOCKER_ROOT}-)
-	# -docker rm -f $(shell docker ps -aq)
-	# -docker rmi -f $(shell docker images -q)
-	# -docker volume rm $(shell docker volume ls -q)
+rm-containers: ## Remove Docker containers where (polis_tag="${TAG}")
+	@echo 'removing filtered containers (polis_tag="${TAG}")'
+	@-docker rm -f $(shell docker ps -aq --filter "label=polis_tag=${TAG}")
+
+rm-volumes: ## Remove Docker volumes where (polis_tag="${TAG}")
+	@echo 'removing filtered volumes (polis_tag="${TAG}")'
+	@-docker volume rm  -f $(shell docker volume ls -q --filter "label=polis_tag=${TAG}")
+
+rm-images: ## Remove Docker images where (polis_tag="${TAG}")
+	@echo 'removing filtered images (polis_tag="${TAG}")'
+	@-docker rmi  -f $(shell docker images -q --filter "label=polis_tag=${TAG}")
+
+rm-ALL: rm-containers rm-volumes rm-images ## Remove Docker containers, volumes, and images where (polis_tag="${TAG}")
+	@echo Done.
+
+rm-ALL-ALL-TAGS: ## Remove EVERY Docker container, volume, and image on this machine
+	-docker rm -f $(shell docker ps -aq)
+	-docker rmi -f $(shell docker images -q)
+	-docker volume rm $(shell docker volume ls -q)
 
 hash: ## Show current short hash
 	@echo Git hash: ${GIT_HASH}
@@ -29,7 +43,7 @@ hash: ## Show current short hash
 start-rebuild: ## Start all Docker containers, [re]building as needed
 	docker-compose up --detach --build
 
-restart-full-rebuild: stop clean ## Restart all Docker containers, rebuilding everything
+restart-FULL-REBUILD: stop clean-ALL ## Remove and restart all Docker containers, volumes, and images where (polis_tag="${TAG}")
 	docker-compose build --no-cache
 	docker-compose down
 	docker-compose up --detach --build
@@ -65,7 +79,8 @@ rbs: start-rebuild
 %:
 	@true
 
-.PHONY: help clean stop
+.PHONY: help pull start stop rm-containers rm-volumes rm-images rm-ALL hash start-rebuild restart-FULL-REBUILD \
+	rm-ALL-ALL-TAGS e2e-install e2e-prepare e2e-run-minimal e2e-run-standalone e2e-run-secret e2e-run-subset e2e-run-all
 
 help:
 	@echo 'Usage: make <command>'

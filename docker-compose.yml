@@ -17,12 +17,14 @@ version: "3.4"
 
 services:
   server:
-    container_name: ${DOCKER_ROOT:-polis}-server
+    # container_name: polis-server
     env_file: ./server/docker-dev.env
     image: docker.io/compdem/polis-server:${TAG}
     build:
       context: ./server
       dockerfile: Dockerfile
+      labels:
+        polis_tag: ${TAG}
     depends_on:
       - "postgres"
       - "file-server"
@@ -32,24 +34,29 @@ services:
     scale: 1
 
   math:
-    container_name: ${DOCKER_ROOT:-polis}-math
+    # container_name: polis-math
     env_file: ./math/docker-dev.env
     image: docker.io/compdem/polis-math:${TAG}
     depends_on:
       - "postgres"
     build:
       context: ./math
+      labels:
+        polis_tag: ${TAG}
     networks:
       - "polis-net"
 
   postgres:
-    container_name: ${DOCKER_ROOT:-polis}-postgres
+    # container_name: polis-postgres
     env_file: ./server/docker-db-dev.env
     image: docker.io/compdem/polis-postgres:${TAG}
     restart: always
     build:
       context: ./server
       dockerfile: Dockerfile-db
+      labels:
+        polis_tag: ${TAG}
+
     networks:
       - "polis-net"
     volumes:
@@ -57,11 +64,14 @@ services:
       - "postgres:/var/lib/postgresql/data"
 
   nginx-proxy:
-    container_name: ${DOCKER_ROOT:-polis}-nginx-proxy
+    # container_name: polis-nginx-proxy
     image: docker.io/compdem/polis-nginx-proxy:${TAG}
     build:
       context: ./file-server
       dockerfile: nginx.Dockerfile
+      labels:
+        polis_tag: ${TAG}
+
     environment:
       - TAG
     depends_on:
@@ -73,11 +83,14 @@ services:
       - ${HTTPS_PORT:-443}:${HTTPS_PORT:-443}
 
   file-server:
-    container_name: ${DOCKER_ROOT:-polis}-file-server
+    # container_name: polis-file-server
     image: docker.io/compdem/polis-file-server:${TAG}
     build:
       context: ./
       dockerfile: file-server/Dockerfile
+      labels:
+        polis_tag: ${TAG}
+
       args:
         GIT_HASH: "${GIT_HASH}"
     networks:
@@ -88,4 +101,8 @@ networks:
 
 volumes:
   backups:
+    labels:
+      polis_tag: ${TAG}
   postgres:
+    labels:
+      polis_tag: ${TAG}
