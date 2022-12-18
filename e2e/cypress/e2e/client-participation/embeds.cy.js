@@ -1,6 +1,6 @@
-describe('Embedded Conversations', () => {
+describe.skip('Embedded Conversations', () => {
   // This test requires overriding client-admin/embed.html with
-  // e2e/cypress/fixtures/html/embeds.html
+  // e2e/cypress/fixtures/html/embeds.html - see https://github.com/compdemocracy/polis/issues/839
   const POLIS_DOMAIN = Cypress.config().baseUrl.replace('https://', '')
   const CONVO_DESCRIPTION = 'This is dummy description for embed tests.'
   const CONVO_TOPIC = 'Embed test topic'
@@ -15,8 +15,14 @@ describe('Embedded Conversations', () => {
 
   it('renders a default embed', function () {
     cy.logout()
-    cy.visit(`${Cypress.config().baseUrl}/embed.html?polisDomain=${POLIS_DOMAIN}&data-conversation_id=${this.convoId}`)
-    cy.enter(`#polis_${this.convoId}`).then(cyframe => {
+    cy.visit(
+      `${
+        Cypress.config().baseUrl
+      }/embed.html?polisDomain=${POLIS_DOMAIN}&data-conversation_id=${
+        this.convoId
+      }`
+    )
+    cy.enter(`#polis_${this.convoId}`).then((cyframe) => {
       cyframe().find('div[data-view-name="root"]').as('iframe')
       cyframe().find('#readReactView').as('vote-widget')
       cyframe().find('#comment_form_textarea').as('comment-widget')
@@ -34,13 +40,19 @@ describe('Embedded Conversations', () => {
     cy.get('@footer-logo').should('be.visible')
     cy.get('@headline').should('contain', CONVO_TOPIC)
     // TODO add full votes to check this
-    //cy.get('@vis').should('be.visible')
+    // cy.get('@vis').should('be.visible')
   })
 
   it('hides voting when user-can-vote (ucv) is OFF', function () {
     cy.logout()
-    cy.visit(`${Cypress.config().baseUrl}/embed.html?polisDomain=${POLIS_DOMAIN}&data-conversation_id=${this.convoId}&data-ucv=false`)
-    cy.enter(`#polis_${this.convoId}`).then(cyframe => {
+    cy.visit(
+      `${
+        Cypress.config().baseUrl
+      }/embed.html?polisDomain=${POLIS_DOMAIN}&data-conversation_id=${
+        this.convoId
+      }&data-ucv=false`
+    )
+    cy.enter(`#polis_${this.convoId}`).then((cyframe) => {
       cyframe().find('div[data-view-name="root"]').as('iframe')
       cyframe().find('#readReactView').as('vote-widget')
     })
@@ -51,8 +63,14 @@ describe('Embedded Conversations', () => {
 
   it('hides commenting when user-can-write (ucw) is OFF', function () {
     cy.logout()
-    cy.visit(`${Cypress.config().baseUrl}/embed.html?polisDomain=${POLIS_DOMAIN}&data-conversation_id=${this.convoId}&data-ucw=false`)
-    cy.enter(`#polis_${this.convoId}`).then(cyframe => {
+    cy.visit(
+      `${
+        Cypress.config().baseUrl
+      }/embed.html?polisDomain=${POLIS_DOMAIN}&data-conversation_id=${
+        this.convoId
+      }&data-ucw=false`
+    )
+    cy.enter(`#polis_${this.convoId}`).then((cyframe) => {
       cyframe().find('div[data-view-name="root"]').as('iframe')
       cyframe().find('#comment_form_textarea').as('comment-widget')
     })
@@ -63,8 +81,14 @@ describe('Embedded Conversations', () => {
 
   it('hides help text when user-can-see-help (ucsh) is OFF', function () {
     cy.logout()
-    cy.visit(`${Cypress.config().baseUrl}/embed.html?polisDomain=${POLIS_DOMAIN}&data-conversation_id=${this.convoId}&data-ucsh=false`)
-    cy.enter(`#polis_${this.convoId}`).then(cyframe => {
+    cy.visit(
+      `${
+        Cypress.config().baseUrl
+      }/embed.html?polisDomain=${POLIS_DOMAIN}&data-conversation_id=${
+        this.convoId
+      }&data-ucsh=false`
+    )
+    cy.enter(`#polis_${this.convoId}`).then((cyframe) => {
       cyframe().find('div[data-view-name="root"]').as('iframe')
       cyframe().find('#helpTextWelcome').as('vote-help')
     })
@@ -75,8 +99,14 @@ describe('Embedded Conversations', () => {
 
   it('hides description when user-can-see-description (ucsd) is OFF', function () {
     cy.logout()
-    cy.visit(`${Cypress.config().baseUrl}/embed.html?polisDomain=${POLIS_DOMAIN}&data-conversation_id=${this.convoId}&data-ucsd=false`)
-    cy.enter(`#polis_${this.convoId}`).then(cyframe => {
+    cy.visit(
+      `${
+        Cypress.config().baseUrl
+      }/embed.html?polisDomain=${POLIS_DOMAIN}&data-conversation_id=${
+        this.convoId
+      }&data-ucsd=false`
+    )
+    cy.enter(`#polis_${this.convoId}`).then((cyframe) => {
       cyframe().find('div[data-view-name="root"]').as('iframe')
       cyframe().find('.POLIS_HEADLINE').as('headline')
     })
@@ -88,8 +118,14 @@ describe('Embedded Conversations', () => {
   // Seems convo owner needs special permission to disable branding.
   it.skip('hides footer when user-can-see-footer (ucsf) is OFF', function () {
     cy.logout()
-    cy.visit(`${Cypress.config().baseUrl}/embed.html?polisDomain=${POLIS_DOMAIN}&data-conversation_id=${this.convoId}&data-ucsf=false`)
-    cy.enter(`#polis_${this.convoId}`).then(cyframe => {
+    cy.visit(
+      `${
+        Cypress.config().baseUrl
+      }/embed.html?polisDomain=${POLIS_DOMAIN}&data-conversation_id=${
+        this.convoId
+      }&data-ucsf=false`
+    )
+    cy.enter(`#polis_${this.convoId}`).then((cyframe) => {
       cyframe().find('div[data-view-name="root"]').as('iframe')
       cyframe().find('svg.svgCenter').as('footer-logo')
     })
@@ -100,8 +136,14 @@ describe('Embedded Conversations', () => {
 
   it('hides vis when user-can-see-vis (ucsv) is OFF', function () {
     cy.logout()
-    cy.visit(`${Cypress.config().baseUrl}/embed.html?polisDomain=${POLIS_DOMAIN}&data-conversation_id=${this.convoId}&data-ucsv=false`)
-    cy.enter(`#polis_${this.convoId}`).then(cyframe => {
+    cy.visit(
+      `${
+        Cypress.config().baseUrl
+      }/embed.html?polisDomain=${POLIS_DOMAIN}&data-conversation_id=${
+        this.convoId
+      }&data-ucsv=false`
+    )
+    cy.enter(`#polis_${this.convoId}`).then((cyframe) => {
       cyframe().find('div[data-view-name="root"]').as('iframe')
       cyframe().find('#vis_section').as('vis')
     })
@@ -112,8 +154,14 @@ describe('Embedded Conversations', () => {
 
   it('hides topic when user-can-see-topic (ucst) is OFF', function () {
     cy.logout()
-    cy.visit(`${Cypress.config().baseUrl}/embed.html?polisDomain=${POLIS_DOMAIN}&data-conversation_id=${this.convoId}&data-ucst=false`)
-    cy.enter(`#polis_${this.convoId}`).then(cyframe => {
+    cy.visit(
+      `${
+        Cypress.config().baseUrl
+      }/embed.html?polisDomain=${POLIS_DOMAIN}&data-conversation_id=${
+        this.convoId
+      }&data-ucst=false`
+    )
+    cy.enter(`#polis_${this.convoId}`).then((cyframe) => {
       cyframe().find('div[data-view-name="root"]').as('iframe')
       cyframe().find('.POLIS_HEADLINE').as('headline')
     })
@@ -130,23 +178,34 @@ describe('Embedded Conversations', () => {
   // TODO fix later
   it.skip('creates xid when provided', function () {
     cy.logout()
-    cy.visit(`${Cypress.config().baseUrl}/embed.html?polisDomain=${POLIS_DOMAIN}&data-conversation_id=${this.convoId}`)
-    cy.enter(`#polis_${this.convoId}`).then(cyframe => {
+    cy.visit(
+      `${
+        Cypress.config().baseUrl
+      }/embed.html?polisDomain=${POLIS_DOMAIN}&data-conversation_id=${
+        this.convoId
+      }`
+    )
+    cy.enter(`#polis_${this.convoId}`).then((cyframe) => {
       cyframe().find('div[data-view-name="root"]').as('iframe')
       cy.get('@iframe').should('be.visible')
     })
     cy.task('dbQuery', {
       sql: `
       `,
-      values: [
-      ],
+      values: []
     })
   })
 
   it.skip('does not create xid when not provided', function () {
     cy.logout()
-    cy.visit(`${Cypress.config().baseUrl}/embed.html?polisDomain=${POLIS_DOMAIN}&data-conversation_id=${this.convoId}&xid=foobar`)
-    cy.enter(`#polis_${this.convoId}`).then(cyframe => {
+    cy.visit(
+      `${
+        Cypress.config().baseUrl
+      }/embed.html?polisDomain=${POLIS_DOMAIN}&data-conversation_id=${
+        this.convoId
+      }&xid=foobar`
+    )
+    cy.enter(`#polis_${this.convoId}`).then((cyframe) => {
       cyframe().find('div[data-view-name="root"]').as('iframe')
       cy.get('@iframe').should('be.visible')
     })

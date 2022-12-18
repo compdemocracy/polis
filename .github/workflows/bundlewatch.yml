@@ -47,7 +47,9 @@ jobs:
       working-directory: client-admin
       run: |
         npm install
-        npm run build:webpack
+        cp polis.config.template.js polis.config.js
+        npm run build:prod
+        mv dist/static/js/admin_bundle.*.js dist/static/js/admin_bundle.xxxxxxxx.js
 
     - name: "Install & Build: client-participation"
       working-directory: client-participation

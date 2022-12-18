@@ -72,7 +72,7 @@ module.exports = Handlebones.ModelView.extend({
       ctx.pMarginStyle = "margin-left: 55px;";
       ctx.floatStyle = "float:right;"
     }
-    
+
     ctx.auth_opt_tw = preload.firstConv.auth_opt_tw;
     ctx.auth_opt_fb = preload.firstConv.auth_opt_fb;
     var social = ctx.social;
