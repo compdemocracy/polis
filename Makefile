@@ -43,7 +43,7 @@ hash: ## Show current short hash
 start-rebuild: ## Start all Docker containers, [re]building as needed
 	docker-compose up --detach --build
 
-restart-FULL-REBUILD: stop clean-ALL ## Remove and restart all Docker containers, volumes, and images where (polis_tag="${TAG}")
+restart-FULL-REBUILD: stop rm-ALL ## Remove and restart all Docker containers, volumes, and images where (polis_tag="${TAG}")
 	docker-compose build --no-cache
 	docker-compose down
 	docker-compose up --detach --build
