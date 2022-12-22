@@ -21,15 +21,33 @@ var cliArgs = mri(argv)
 
 var polisConfig = require("./polis.config");
 
+
 module.exports = (env, options) => {
+
   var isDevBuild = options.mode === 'development';
   var isDevServer = process.env.WEBPACK_SERVE;
-  var chunkHashFragment = (isDevBuild || isDevServer) ? '' : '.[chunkhash:8]';
+
+  var d = new Date();
+  var tokenParts = [
+    d.getFullYear(),
+    d.getMonth() + 1,
+    d.getDate(),
+    d.getHours(),
+    d.getMinutes(),
+    d.getSeconds(),
+  ];
+  var chunkHashFragment = (isDevBuild || isDevServer) ? '' : '[chunkhash:8]';
+  if (chunkHashFragment) {
+    tokenParts.push(chunkHashFragment);
+  }
+  var unique_token = tokenParts.join("_");
+  var versionString = unique_token;
+
   return {
     entry: ["./src/index"],
     output: {
       publicPath: '/',
-      filename: `static/js/admin_bundle${chunkHashFragment}.js`,
+      filename: `cached/${versionString}/js/admin_bundle.js`,
       path: path.resolve(__dirname, "build"),
       clean: true,
     },
@@ -113,7 +131,8 @@ module.exports = (env, options) => {
                 'Cache-Control':
                   'no-transform,public,max-age=31536000,s-maxage=31536000'
               }
-              writeHeadersJson('static/js/*.js?(.map)', headersData)
+              // writeHeadersJson('cached/${versionString}/js/*.js?(.map)', headersData)
+              writeHeadersJson('cached/${versionString}/js/*.js', headersData)
             }
 
             function writeHeadersJsonMisc() {
