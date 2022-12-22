@@ -24,7 +24,7 @@ var polisConfig = require("./polis.config");
 module.exports = (env, options) => {
   var isDevBuild = options.mode === 'development';
   var isDevServer = process.env.WEBPACK_SERVE;
-
+  var chunkHashFragment = (isDevBuild || isDevServer) ? '' : '_[chunkhash:8]';
   var d = new Date();
   var tokenParts = [
     d.getFullYear(),
@@ -36,10 +36,6 @@ module.exports = (env, options) => {
   ];
   var unique_token = tokenParts.join("_");
   var versionString = unique_token;
-  var chunkHashFragment = (isDevBuild || isDevServer) ? '' : '_[chunkhash:8]';
-
-  console.log('versionString: ' + versionString)
-
   return {
     entry: ["./src/index"],
     output: {
