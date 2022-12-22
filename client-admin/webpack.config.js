@@ -36,12 +36,14 @@ module.exports = (env, options) => {
     d.getMinutes(),
     d.getSeconds(),
   ];
-  var chunkHashFragment = (isDevBuild || isDevServer) ? '' : '[chunkhash:8]';
-  if (chunkHashFragment) {
-    tokenParts.push(chunkHashFragment);
-  }
+  // @TODO: [chunkhash] is not expanded properly below, so it is omitted
+  // var chunkHashFragment = (isDevBuild || isDevServer) ? '' : '[chunkhash:8]';
+  // if (chunkHashFragment) {
+  //   tokenParts.push(chunkHashFragment);
+  // }
   var unique_token = tokenParts.join("_");
   var versionString = unique_token;
+  console.log('versionString: ' + versionString)
 
   return {
     entry: ["./src/index"],
@@ -131,8 +133,10 @@ module.exports = (env, options) => {
                 'Cache-Control':
                   'no-transform,public,max-age=31536000,s-maxage=31536000'
               }
-              // writeHeadersJson('cached/${versionString}/js/*.js?(.map)', headersData)
-              writeHeadersJson('cached/${versionString}/js/*.js', headersData)
+              // @TODO: I don't understand why "?(.map)" is used and why it matches
+              // @TODO: but, I don't want to break anything, so I am leaving it in.
+              writeHeadersJson(`cached/${versionString}/js/*.js?(.map)`, headersData)
+              writeHeadersJson(`cached/${versionString}/js/*.js`, headersData)
             }
 
             function writeHeadersJsonMisc() {
