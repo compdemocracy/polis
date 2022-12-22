@@ -21,9 +21,7 @@ var cliArgs = mri(argv)
 
 var polisConfig = require("./polis.config");
 
-
 module.exports = (env, options) => {
-
   var isDevBuild = options.mode === 'development';
   var isDevServer = process.env.WEBPACK_SERVE;
 
