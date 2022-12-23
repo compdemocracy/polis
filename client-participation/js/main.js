@@ -3,6 +3,7 @@
 // init this asap
 var preloadHelper = require("./util/preloadHelper");
 
+
 var $ = require("jquery");
 var _ = require("underscore");
 Object.defineProperty(window, "_", {
@@ -74,7 +75,7 @@ function getHeight() {
 }
 var oldDocumentHeight = getHeight();
 if (isEmbedded()) {
-  setInterval(function () {
+  setInterval(function() {
     var nu = getHeight();
     if (nu !== oldDocumentHeight) {
       oldDocumentHeight = nu;
@@ -82,6 +83,7 @@ if (isEmbedded()) {
     }
   }, 200);
 }
+
 
 function stripParams(paramsToStrip) {
   var params = Utils.decodeParams(encodedParams);
@@ -97,16 +99,18 @@ function stripParams(paramsToStrip) {
   encodedParams = newEncodedParams;
 }
 
+
 // remove wipCommentFormText after we've loaded it into the view.
-eb.on(eb.doneUsingWipCommentFormText, function () {
+eb.on(eb.doneUsingWipCommentFormText, function() {
   stripParams(["wipCommentFormText"]);
 });
 
-eb.on(eb.reload, function (params) {
+
+eb.on(eb.reload, function(params) {
   location.reload();
 });
 
-eb.on(eb.reloadWithMoreParams, function (params) {
+eb.on(eb.reloadWithMoreParams, function(params) {
   var existingParams = encodedParams ? Utils.decodeParams(encodedParams) : {};
   var combinedParams = _.extend({}, existingParams, params);
   var ep = Utils.encodeParams(combinedParams);
@@ -117,43 +121,35 @@ eb.on(eb.reloadWithMoreParams, function (params) {
   if (path[path.length - 1] === "/") {
     path = path.slice(0, path.length - 1);
   }
-  document.location =
-    document.location.protocol +
-    "//" +
-    document.location.host +
-    path +
-    "/" +
-    ep;
+  document.location = document.location.protocol + "//" + document.location.host + path + "/" + ep;
 });
 
-window.addEventListener(
-  "message",
-  function (event) {
-    // NOTE: event could have any origin, since we're embedded, so be careful here
+window.addEventListener("message", function(event) {
 
-    // this message is sent from twitterAuthReturn.html
-    if (event.data === "twitterConnected") {
-      // location.reload();
-      eb.trigger(eb.twitterConnected);
-    } else if (event.data === "twitterConnectedCommentForm") {
-      eb.trigger(eb.twitterConnectedCommentForm);
-    } else if (event.data === "twitterConnectedParticipationView") {
-      eb.trigger(eb.twitterConnectedParticipationView);
-    } else if (event.data === "twitterConnectedVoteView") {
-      eb.trigger(eb.twitterConnectedVoteView);
-    }
-  },
-  false
-);
+  // NOTE: event could have any origin, since we're embedded, so be careful here
 
-(function () {
+  // this message is sent from twitterAuthReturn.html
+  if (event.data === "twitterConnected") {
+    // location.reload();
+    eb.trigger(eb.twitterConnected);
+  } else if (event.data === "twitterConnectedCommentForm") {
+    eb.trigger(eb.twitterConnectedCommentForm);
+  } else if (event.data === "twitterConnectedParticipationView") {
+    eb.trigger(eb.twitterConnectedParticipationView);
+  } else if (event.data === "twitterConnectedVoteView") {
+    eb.trigger(eb.twitterConnectedVoteView);
+  }
+
+
+}, false);
+
+(function() {
   // auth token. keep this in this closure, don't put it on a global. used for cases where cookies are disabled.
   var token;
 
   var p = window.location.pathname;
   // check for token within URL
-  if (
-    p.match(/^\/inbox\//) ||
+  if (p.match(/^\/inbox\//) ||
     p.match(/^\/settings\/ep1_[A-Za-z0-9]+/) ||
     p.match(/^\/settings\/enterprise\/ep1_[A-Za-z0-9]+/) ||
     p.match(/^\/conversation\/create\//) ||
@@ -173,23 +169,25 @@ window.addEventListener(
     }
   }
 
-  $.ajaxPrefilter(function (options, originalOptions, jqXHR) {
+
+
+  $.ajaxPrefilter(function(options, originalOptions, jqXHR) {
     if (!options.beforeSend) {
-      options.beforeSend = function (xhr) {
+      options.beforeSend = function(xhr) {
         // TODO assert that ajax request is going to our servers (in case of XSS)
         if (token) {
-          xhr.setRequestHeader("x-polis", token);
+          xhr.setRequestHeader('x-polis', token);
         }
       };
     }
   });
-  $(document).ajaxSuccess(function (event, xhr, settings) {
-    var t = xhr.getResponseHeader("x-polis");
+  $(document).ajaxSuccess(function(event, xhr, settings) {
+    var t = xhr.getResponseHeader('x-polis');
     if (t) {
       token = t;
     }
   });
-})();
+}());
 
 function ifDefined(context, options) {
   return "undefined" !== typeof context ? options.fn(this) : "";
@@ -201,10 +199,11 @@ function ifNotDefined(context, options) {
 }
 Handlebars.registerHelper("ifNotDefined", ifNotDefined);
 
+
 function isEmbedded() {
   /*eslint-disable */
   /* jshint ignore:start */
-  return window.top != window || forceEmbedded;
+  return (window.top != window) || forceEmbedded;
   /* jshint ignore:end */
   /*eslint-enable */
 }
@@ -241,72 +240,77 @@ function ifIos(arg0) {
 }
 Handlebars.registerHelper("ifIos", ifIos);
 
-Handlebars.registerHelper("ifXs", function (arg0) {
+
+Handlebars.registerHelper("ifXs", function(arg0) {
   return display.xs() ? arg0.fn(this) : "";
 });
 
-Handlebars.registerHelper("ifNotXs", function (arg0) {
+Handlebars.registerHelper("ifNotXs", function(arg0) {
   return display.xs() ? "" : arg0.fn(this);
 });
 
 function useCarousel(arg0) {
   return !isIE8() && display.xs();
 }
-Handlebars.registerHelper("useCarousel", function (arg0) {
+Handlebars.registerHelper("useCarousel", function(arg0) {
   return useCarousel(arg0) ? arg0.fn(this) : "";
 });
-Handlebars.registerHelper("notUseCarousel", function (arg0) {
+Handlebars.registerHelper("notUseCarousel", function(arg0) {
   return useCarousel(arg0) ? "" : arg0.fn(this);
 });
 
-Handlebars.registerHelper("ifAuthenticated", function (arg0) {
+Handlebars.registerHelper("ifAuthenticated", function(arg0) {
   return PolisStorage.uid() ? arg0.fn(this) : "";
 });
-Handlebars.registerHelper("ifNotAuthenticated", function (arg0) {
+Handlebars.registerHelper("ifNotAuthenticated", function(arg0) {
   return PolisStorage.uid() ? "" : arg0.fn(this);
 });
 
-Handlebars.registerHelper("logo_href", function (arg0, options) {
+
+Handlebars.registerHelper('logo_href', function(arg0, options) {
   // var shouldSeeInbox = PolisStorage.hasEmail();
   // return shouldSeeInbox ? "/inbox" : "/about";
   return "/about";
 });
 
-Handlebars.registerHelper("settings_href", function (arg0, options) {
-  return "/settings" + (encodedParams ? "/" + encodedParams : "");
+Handlebars.registerHelper('settings_href', function(arg0, options) {
+  return "/settings" + (encodedParams ? ("/" + encodedParams) : "");
 });
 
-Handlebars.registerHelper("createConversationHref", function (arg0, options) {
-  return "/conversation/create" + (encodedParams ? "/" + encodedParams : "");
+Handlebars.registerHelper('createConversationHref', function(arg0, options) {
+  return "/conversation/create" + (encodedParams ? ("/" + encodedParams) : "");
 });
-Handlebars.registerHelper("whatIsPolisHref", function (arg0, options) {
+Handlebars.registerHelper('whatIsPolisHref', function(arg0, options) {
   return "/about";
 });
 
-Handlebars.registerHelper("inboxHref", function (arg0, options) {
-  return "/inbox" + (encodedParams ? "/" + encodedParams : "");
+Handlebars.registerHelper('inboxHref', function(arg0, options) {
+  return "/inbox" + (encodedParams ? ("/" + encodedParams) : "");
 });
 
-Handlebars.registerHelper("trialDaysRemaining", function (arg0, options) {
+
+
+Handlebars.registerHelper("trialDaysRemaining", function(arg0, options) {
   return Utils.trialDaysRemaining();
 });
-Handlebars.registerHelper("ifTrial", function (arg0) {
+Handlebars.registerHelper("ifTrial", function(arg0) {
   return Utils.isTrialUser() ? arg0.fn(this) : "";
 });
-Handlebars.registerHelper("ifIndividual", function (arg0) {
+Handlebars.registerHelper("ifIndividual", function(arg0) {
   return Utils.isIndividualUser() ? arg0.fn(this) : "";
 });
-Handlebars.registerHelper("ifStudent", function (arg0) {
+Handlebars.registerHelper("ifStudent", function(arg0) {
   return Utils.isStudentUser() ? arg0.fn(this) : "";
 });
-Handlebars.registerHelper("ifParticipantPays", function (arg0) {
+Handlebars.registerHelper("ifParticipantPays", function(arg0) {
   return Utils.isPpUser() ? arg0.fn(this) : "";
 });
-Handlebars.registerHelper("ifEnterprise", function (arg0) {
+Handlebars.registerHelper("ifEnterprise", function(arg0) {
   return Utils.isEnterpriseUser() ? arg0.fn(this) : "";
 });
 
-Handlebars.registerHelper("ifDebugCommentProjection", function (arg0) {
+
+Handlebars.registerHelper("ifDebugCommentProjection", function(arg0) {
   return Utils.debugCommentProjection ? arg0.fn(this) : "";
 });
 
@@ -320,27 +324,23 @@ function addProtocolToLinkIfNeeded(url) {
   }
 }
 
-Handlebars.registerHelper("link", function (text, url) {
+Handlebars.registerHelper('link', function(text, url) {
   text = Handlebars.Utils.escapeExpression(text);
   url = Handlebars.Utils.escapeExpression(url);
-  var result = '<a href="' + url + '">' + text + "</a>";
+  var result = '<a href="' + url + '">' + text + '</a>';
 
   return new Handlebars.SafeString(result);
 });
 
-Handlebars.registerHelper("linkExternal", function (text, url) {
+Handlebars.registerHelper('linkExternal', function(text, url) {
   text = Handlebars.Utils.escapeExpression(text);
   url = addProtocolToLinkIfNeeded(url);
   url = Handlebars.Utils.escapeExpression(url);
-  var result =
-    '<a style="color:black" href="' +
-    url +
-    '" target="_blank">' +
-    text +
-    ' &nbsp;<i class="fa fa-external-link" style="font-size: 0.7em;"></i></a>';
+  var result = '<a style="color:black" href="' + url + '" target="_blank">' + text + ' &nbsp;<i class="fa fa-external-link" style="font-size: 0.7em;"></i></a>';
 
   return new Handlebars.SafeString(result);
 });
+
 
 // Partials
 Handlebars.registerPartial("polisLogo", PolisLogoPartial);
@@ -365,10 +365,12 @@ Handlebars.registerPartial("iconFaAngleRight", IconFaAngleRight);
 Handlebars.registerPartial("logoInvert", LogoInvert);
 Handlebars.registerPartial("logo", Logo);
 
+
+
 _.mixin({
-  isId: function (n) {
+  isId: function(n) {
     return n >= 0;
-  },
+  }
 });
 
 if (!window.location.hostname.match(/polis/)) {
@@ -376,15 +378,16 @@ if (!window.location.hostname.match(/polis/)) {
 }
 
 // debug convenience function for deregistering.
-window.deregister = function (dest) {
+window.deregister = function(dest) {
   // relying on server to clear cookies
-  return $.post("/api/v3/auth/deregister", {}).always(function () {
+  return $.post("/api/v3/auth/deregister", {}).always(function() {
     window.location = dest || "/about";
     // Backbone.history.navigate("/", {trigger: true});
   });
 };
 
-window.twitterStatus = function (status) {
+
+window.twitterStatus = function(status) {
   eb.trigger(eb.twitterStatus, status);
 };
 
@@ -392,23 +395,28 @@ function isParticipationView() {
   return !!window.location.pathname.match(/^\/[0-9][A-Za-z0-9]+/);
 }
 
+
+
 // if (isEmbedded()) {
 // $(document.body).css("background-color", "#fff");
 // } else {
 // $(document.body).css("background-color", "#f7f7f7");
 // }
 
+
+
 var uidPromise;
 // if (PolisStorage.uidFromCookie()) {
 //   uidPromise = $.Deferred().resolve(PolisStorage.uidFromCookie());
 // } else {
-uidPromise = CurrentUserModel.update().then(function (user) {
+uidPromise = CurrentUserModel.update().then(function(user) {
+
   if (window.useIntercom) {
     window.intercomOptions = {
-      app_id: "nb5hla8s",
+      app_id: 'nb5hla8s',
       widget: {
-        activator: "#IntercomDefaultWidget",
-      },
+        activator: '#IntercomDefaultWidget'
+      }
     };
     if (user.uid) {
       intercomOptions.user_id = user.uid + "";
@@ -417,23 +425,25 @@ uidPromise = CurrentUserModel.update().then(function (user) {
       intercomOptions.email = user.email;
     }
     if (user.created) {
-      intercomOptions.created_at = (user.created / 1000) >> 0;
+      intercomOptions.created_at = user.created / 1000 >> 0;
     }
   }
 });
 // }
 
-preloadHelper.firstConvPromise.then(
-  function () {
-    PostMessageUtils.postInitEvent("ok");
-  },
-  function () {
-    PostMessageUtils.postInitEvent("error");
-  }
-);
 
-$.when(preloadHelper.acceptLanguagePromise, uidPromise).always(function () {
-  initialize(function (next) {
+preloadHelper.firstConvPromise.then(function() {
+  PostMessageUtils.postInitEvent("ok");
+}, function() {
+  PostMessageUtils.postInitEvent("error");
+});
+
+
+$.when(
+  preloadHelper.acceptLanguagePromise,
+  uidPromise).always(function() {
+
+  initialize(function(next) {
     // Load any data that your app requires to boot
     // and initialize all routers here, the callback
     // `next` is provided in case the operations
@@ -444,6 +454,7 @@ $.when(preloadHelper.acceptLanguagePromise, uidPromise).always(function () {
     if (!isEmbedded() && !isParticipationView()) {
       // load intercom widget
       // (function(){var w=window;var ic=w.Intercom;if(typeof ic==="function"){ic('reattach_activator');ic('update',intercomSettings);}else{var d=document;var i=function(){i.c(arguments)};i.q=[];i.c=function(args){i.q.push(args)};w.Intercom=i;function l(){var s=d.createElement('script');s.type='text/javascript';s.async=true;s.src='https://static.intercomcdn.com/intercom.v1.js';var x=d.getElementsByTagName('script')[0];x.parentNode.insertBefore(s,x);}if(w.attachEvent){w.attachEvent('onload',l);}else{w.addEventListener('load',l,false);}}})();
+
       // IntercomModalHack.init();
     }
 
@@ -455,29 +466,25 @@ $.when(preloadHelper.acceptLanguagePromise, uidPromise).always(function () {
 
     // set up the "exitConv" event
     var currentRoute;
-    router.on("route", function (route, params) {
+    router.on("route", function(route, params) {
       console.log("route changed from: " + currentRoute + " to: " + route);
       if (currentRoute === "conversationView") {
         eb.trigger(eb.exitConv);
       }
       currentRoute = route;
 
-      uidPromise.then(function () {
+      uidPromise.then(function() {
+
         var u = userObject;
-        if (
-          window.useIntercom &&
-          !isEmbedded() &&
-          !isParticipationView() &&
-          (u.email || u.hasTwitter || u.hasFacebook)
-        ) {
+        if (window.useIntercom && !isEmbedded() && !isParticipationView() && (u.email || u.hasTwitter || u.hasFacebook)) {
           var intercomWait = 0;
           if (!window.Intercom) {
             intercomWait = 4000;
           }
-          setTimeout(function () {
-            window.Intercom("boot", window.intercomOptions);
-            window.Intercom("update");
-            window.Intercom("reattach_activator");
+          setTimeout(function() {
+            window.Intercom('boot', window.intercomOptions);
+            window.Intercom('update');
+            window.Intercom('reattach_activator');
           }, intercomWait);
         }
       });
@@ -487,14 +494,16 @@ $.when(preloadHelper.acceptLanguagePromise, uidPromise).always(function () {
 
     next();
   });
+
 });
 
+
 function initialize(complete) {
-  $(function () {
+  $(function() {
     Backbone.history.start({
       pushState: true,
       root: "/",
-      silent: true,
+      silent: true
     });
 
     // RootView may use link or url helpers which
@@ -503,11 +512,13 @@ function initialize(complete) {
     // actually execute the route
     RootView.getInstance(document.body);
 
+
     // FB.Event.subscribe('auth.authResponseChange', function(response) {
     //     console.dir(response);
     //     console.log('The status of the session changed to: '+response.status);
     //     alert(response.status);
     // });
+
 
     // setTimeout(function() {
     //       $(document.body).on("click", function() {
@@ -523,7 +534,7 @@ function initialize(complete) {
     //     // });
     // }, 2000);
 
-    complete(function () {
+    complete(function() {
       Backbone.history.loadUrl();
     });
   });
