@@ -12,4 +12,4 @@ COPY polis.config.template.js polis.config.js
 COPY . .
 
 ARG GIT_HASH
-RUN npm run build:prod
+RUN npm run release:prod
