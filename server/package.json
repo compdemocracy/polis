@@ -58,7 +58,7 @@
     "stripe": "~2.5.0",
     "underscore": "1.12.1",
     "valid-url": "1.0.9",
-    "winston": "1.0.2"
+    "winston": "3.8.2"
   },
   "devDependencies": {
     "@types/async": "^3.2.6",
