@@ -7,7 +7,9 @@ describe('Conversation: Configure', () => {
         // TODO: Allow badge to display without topic set.
         cy.get('input[data-test-id="topic"]').type('Dummy topic')
         cy.seedComment('Some seed statement', this.convoId)
-        cy.get('input[data-test-id="is_active"]').uncheck().should('not.be.checked')
+        cy.get('input[data-test-id="is_active"]')
+          .uncheck()
+          .should('not.be.checked')
       })
     })
 
@@ -39,7 +41,9 @@ describe('Conversation: Configure', () => {
       cy.get('input[data-test-id="is_active"]').should('be.checked')
       cy.get('input[data-test-id="strict_moderation"]').should('not.be.checked')
       cy.get('input[data-test-id="auth_needed_to_write"]').should('be.checked')
-      cy.get('input[data-test-id="auth_needed_to_vote"]').should('not.be.checked')
+      cy.get('input[data-test-id="auth_needed_to_vote"]').should(
+        'not.be.checked'
+      )
     })
   })
 })
