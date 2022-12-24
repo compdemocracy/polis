@@ -41,19 +41,24 @@
                         [(container-name client-dir) (image-name client-dir)]
                         ;; we sleep in the container so that it doesn't just shut down immediately, before we
                         ;; copy anything
-                        '[sleep 10])]
+                        '[sleep 120])]
     (logged-command command {:dir client-dir})))
 
 (defn clean-build
-  "Remove local build/dist files"
+  "Remove local build files"
   [client-dir]
-  (logged-command '[rm -fr dist] {:dir client-dir}))
+  (logged-command '[rm -fr build] {:dir client-dir}))
 
+
+(defn build-dir [client-dir]
+  (case client-dir
+    "client-participation" "/app/dist/"
+    "/app/build"))
 
 (defn cp-client
   "Copy contents out of the running docker image"
   [client-dir]
-  (logged-command ['docker 'cp (str (container-name client-dir) ":/app/dist/") 'dist]
+  (logged-command ['docker 'cp (str (container-name client-dir) ":" (build-dir client-dir)) 'build]
                   {:dir client-dir}))
 
 (defn monitor-execution

@@ -1,5 +1,7 @@
 #!/usr/bin/env bb
 
+(ns my-script)
+
 (require '[babashka.pods :as pods]
          '[babashka.deps :as deps]
          '[babashka.process :as process]
@@ -87,9 +89,9 @@
 
 ;(file-upload-request
   ;"preprod.pol.is"
-  ;{:path "dist/"
+  ;{:path "build/"
    ;:pattern #".*\.html"}
-  ;(io/file "dist/404.html"))
+  ;(io/file "build/404.html"))
 
 
 (defn try-int [s]
@@ -105,69 +107,90 @@
        (sort-by #(mapv try-int (string/split (str %) #"_")))
        (last)))
 
-;(latest-version "participation-client/dist/cached")
+;(latest-version "participation-client/build/cached")
 
 (defn spec-requests
   [bucket {:as spec :keys [path cached-path pattern ContentEncoding]}]
-  (let [file (io/file (or path cached-path))]
-    (cond
-      cached-path
-      (->> (latest-version file)
-           (file-seq)
-           (filter #(and (.isFile %) ;; exclude subdirectories
-                         (or (not pattern) (re-matches pattern (str %))))) ;; apply pattern if present
-           (map (partial file-upload-request bucket spec)))
-      (and path (.isDirectory file))
-      (->> (file-seq file)
-           (filter #(and (.isFile %) ;; exclude subdirectories
-                         (or (not pattern) (re-matches pattern (str %))))) ;; apply pattern if present
-           (map (partial file-upload-request bucket spec)))
-      (and path (.isFile file))
-      [(file-upload-request bucket spec file)])))
+  (try
+    (let [file (io/file (or path cached-path))]
+      (cond
+        (not (.exists file))
+        [{:processing-error (str "File " file " does not exist")
+          :spec spec}]
+        cached-path
+        (->> (latest-version file)
+             (file-seq)
+             (filter #(and (.isFile %) ;; exclude subdirectories
+                           (or (not pattern) (re-matches pattern (str %))))) ;; apply pattern if present
+             (mapv (partial file-upload-request bucket spec)))
+        (and path (.isDirectory file))
+        (->> (file-seq file)
+             (filter #(and (.isFile %) ;; exclude subdirectories
+                           (or (not pattern) (re-matches pattern (str %))))) ;; apply pattern if present
+             (mapv (partial file-upload-request bucket spec)))
+        (and path (.isFile file))
+        [(file-upload-request bucket spec file)]))
+    (catch Throwable t
+      (let [error (Throwable->map t)]
+        [{:processing-error (:via error)
+          :throwable t
+          :spec spec}]))))
+
+(.exists (io/file "blahblah"))
+
+;(try 
+  ;(/ 1 0)
+  ;(catch Throwable t
+    ;(def error t)))
+
+;(:via (Throwable->map error))
 
 ;(spec-requests "preprod.pol.is"
-   ;{:cached-path "client-admin/dist/cached"
+   ;{:cached-path "client-admin/build/cached"
     ;:pattern #".*\.js"
     ;:ContentEncoding "gzip"})
 
 ;(spec-requests "preprod.pol.is"
-   ;{:cached-path "client-participation/dist/cached"
+   ;{:cached-path "client-participation/build/cached"
     ;:pattern #".*/css/.*\.css"})
 
 ;(spec-requests "preprod.pol.is"
-  ;{:path "dist/"
+  ;{:path "build/"
    ;:pattern #".*\.html"})
 
 ;(spec-requests "preprod.pol.is"
-  ;{:cached-path "dist/cached/"
+  ;{:cached-path "build/cached/"
    ;:ContentEncoding "gzip"})
+
+;; IMPORTANT NOTE: We've been transitioning away from `dist` to `build`, so there may be some differences in
+;; the paths below eventually
 
 ;(re-matches #".*\.(html|svg)" "test.svg")
 (def deploy-specs
   [
    ;; client admin
-   {:cached-path "client-admin/dist/cached"
+   {:cached-path "client-admin/build/static"
     ;; <version>/js/* -> cached/<version>/js/**
     :pattern #".*\.js"
     :ContentEncoding "gzip"}
-   {:path "client-admin/dist/"
+   {:path "client-admin/build/"
     :pattern #".*\.html"}
 
    ;; participation client files
-   {:path "client-participation/dist/"
+   {:path "client-participation/build/"
     :pattern #".*\.html"}
-   {:path "client-participation/dist/"
+   {:path "client-participation/build/"
     :pattern #"twitterAuthReturn\.html"
     :ContentEncoding "gzip"}
-   {:path "client-participation/dist/"
+   {:path "client-participation/build/"
     :pattern #"embedPreprod\.js"}
-   {:path "client-participation/dist/"
+   {:path "client-participation/build/"
     :pattern #"embed\.js"}
-   {:cached-path "client-participation/dist/cached"
+   {:cached-path "client-participation/build/cached"
     :pattern #".*/css/.*\.css"}
-   {:cached-path "client-participation/dist/cached"
+   {:cached-path "client-participation/build/cached"
     :pattern #".*\.(html|svg)"}
-   {:cached-path "client-participation/dist/cached"
+   {:cached-path "client-participation/build/cached"
     :pattern #".*/js/.*\.js"
     :ContentEncoding "gzip"}])
    
@@ -221,12 +244,23 @@
 (defn responses [bucket]
   (let [requests (mapcat (partial spec-requests bucket)
                          deploy-specs)
+        errors (filter :processing-error requests)
         output-chan (async/chan concurrent-requests)]
-    (async/pipeline-blocking concurrent-requests
-                             output-chan
-                             (map process-deploy)
-                             (async/to-chan requests))
-    (async/<!! (async/into [] output-chan))))
+    (if (empty? errors)
+      (do
+        (async/pipeline-blocking concurrent-requests
+                                 output-chan
+                                 (map process-deploy)
+                                 (async/to-chan requests))
+        (async/<!! (async/into [] output-chan)))
+      (do
+        (doseq [error errors]
+          (println "\n‼️ Error with spec:" (:spec error))
+          (println "  " (:processing-error error))
+          (when (:throwable error)
+            (.printStackTrace (:throwable error))))
+        (println "\nAborting deploy!")
+        (System/exit 1)))))
 
 (defn errors [responses]
   (remove (comp :ETag second)
@@ -237,13 +271,13 @@
         _ (println "Deploying static assets to bucket:" bucket)
         responses (responses bucket)
         errors (errors responses)]
-    (if (not-empty errors)
+    (if (seq errors)
       (do
-        (println "Problem processing" (count errors) "requests")
+        (println "\n🚫 Problem processing" (count errors) "requests")
         (doseq [[request response] errors]
           (println "Problem processing request:" request)
           (pp/pprint response)))
-      (println "Deploy completed without error."))))
+      (println "\n✅ Deploy completed without error."))))
 
 
 (apply -main *command-line-args*)
