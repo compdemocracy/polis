@@ -389,6 +389,11 @@ CREATE TABLE participants_extended(
 
     show_translation_activated BOOLEAN, -- true for activated, false for deactivated, or null for didn't click
 
+    permanent_cookie VARCHAR(9999),
+    origin VARCHAR(9999),
+    encrypted_ip_address VARCHAR(9999),
+    encrypted_x_forwarded_for VARCHAR(9999),
+
     UNIQUE (zid, uid)
 );
 
