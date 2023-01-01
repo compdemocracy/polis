@@ -50,13 +50,13 @@
     "thorax": "^2.0.3",
     "underscore": "^1.12.1",
     "victory": "^0.20.0",
-    "webpack-stream": "^6.0.0"
+    "webpack-stream": "^7.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.0.0",
     "@babel/eslint-parser": "^7.0.0",
     "@babel/preset-react": "^7.0.0",
-    "babel-loader": "^8.0.0",
+    "babel-loader": "^8.3.0",
     "bluebird": "^2.9.33",
     "gulp-browserify": "~0.4.2",
     "gulp-clean": "~0.2.4",
