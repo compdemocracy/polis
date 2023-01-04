@@ -15,13 +15,13 @@ start: ## Start all Docker containers
 	docker-compose up --detach
 
 start-prod: ## Start all Docker containers
-	docker-compose --env-file ~/.polis/prod.env up --detach
+	docker-compose --env-file prod.env up --detach
 
 stop: ## Stop all Docker containers
 	docker-compose down
 
 stop-prod: ## Stop all Docker containers
-	docker-compose --env-file ~/.polis/prod.env down
+	docker-compose --env-file prod.env down
 
 rm-containers: ## Remove Docker containers where (polis_tag="${TAG}")
 	@echo 'removing filtered containers (polis_tag="${TAG}")'
@@ -50,7 +50,7 @@ start-rebuild: ## Start all Docker containers, [re]building as needed
 	docker-compose up --detach --build
 
 start-rebuild-prod: ## Start all Docker containers, [re]building as needed
-	docker-compose --env-file ~/.polis/prod.env up --detach --build
+	docker-compose --env-file prod.env up --detach --build
 
 restart-FULL-REBUILD: stop rm-ALL ## Remove and restart all Docker containers, volumes, and images where (polis_tag="${TAG}")
 	docker-compose build --no-cache
@@ -60,11 +60,11 @@ restart-FULL-REBUILD: stop rm-ALL ## Remove and restart all Docker containers, v
 	docker-compose up --detach --build
 
 restart-FULL-REBUILD-PROD: stop rm-ALL ## Remove and restart all Docker containers, volumes, and images where (polis_tag="${TAG}")
-	docker-compose --env-file ~/.polis/prod.env build --no-cache
-	docker-compose --env-file ~/.polis/prod.env down
-	docker-compose --env-file ~/.polis/prod.env up --detach --build
-	docker-compose --env-file ~/.polis/prod.env down
-	docker-compose --env-file ~/.polis/prod.env up --detach --build
+	docker-compose --env-file prod.env build --no-cache
+	docker-compose --env-file prod.env down
+	docker-compose --env-file prod.env up --detach --build
+	docker-compose --env-file prod.env down
+	docker-compose --env-file prod.env up --detach --build
 
 e2e-install: e2e/node_modules ## Install Cypress E2E testing tools
 	$(E2E_RUN) npm install
