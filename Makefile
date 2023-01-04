@@ -12,10 +12,10 @@ pull: ## Pull most recent Docker container builds (nightlies)
 	docker-compose pull
 
 start: ## Start all Docker containers
-	docker-compose up --detach
+	docker-compose up
 
 start-prod: ## Start all Docker containers
-	docker-compose --env-file prod.env up --detach
+	docker-compose --env-file prod.env up
 
 stop: ## Stop all Docker containers
 	docker-compose down
@@ -47,24 +47,24 @@ hash: ## Show current short hash
 	@echo Git hash: ${GIT_HASH}
 
 start-rebuild: ## Start all Docker containers, [re]building as needed
-	docker-compose up --detach --build
+	docker-compose up --build
 
 start-rebuild-prod: ## Start all Docker containers, [re]building as needed
-	docker-compose --env-file prod.env up --detach --build
+	docker-compose --env-file prod.env up --build
 
 restart-FULL-REBUILD: stop rm-ALL ## Remove and restart all Docker containers, volumes, and images where (polis_tag="${TAG}")
 	docker-compose build --no-cache
 	docker-compose down
-	docker-compose up --detach --build
+	docker-compose up --build
 	docker-compose down
-	docker-compose up --detach --build
+	docker-compose up --build
 
 restart-FULL-REBUILD-PROD: stop rm-ALL ## Remove and restart all Docker containers, volumes, and images where (polis_tag="${TAG}")
 	docker-compose --env-file prod.env build --no-cache
 	docker-compose --env-file prod.env down
-	docker-compose --env-file prod.env up --detach --build
+	docker-compose --env-file prod.env up --build
 	docker-compose --env-file prod.env down
-	docker-compose --env-file prod.env up --detach --build
+	docker-compose --env-file prod.env up --build
 
 e2e-install: e2e/node_modules ## Install Cypress E2E testing tools
 	$(E2E_RUN) npm install
