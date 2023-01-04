@@ -18,14 +18,14 @@
 }
 
 .Accordion-toggle {
-  margin-right: 10px;
+  margin-inline-end: 10px;
 
   color: $dark-gray;
 }
 
 .Accordion-content {
   padding-top: $default-whitespace;
-  margin-left: $default-whitespace;
+  margin-inline-start: $default-whitespace;
 
   font-family: $serif-font;
 }

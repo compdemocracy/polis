@@ -2,6 +2,8 @@
 
 var s = {};
 
+s.direction = "rtl";
+
 s.agree = "موافق";
 s.disagree = "مخالف";
 s.pass = "رد کن/مطمئن نیستم";

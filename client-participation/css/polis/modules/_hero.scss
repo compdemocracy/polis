@@ -113,12 +113,12 @@
   &:before {
     color: $green;
     @include fa-checkmark();
-    margin-right: 0.5em;
+    margin-inline-end: 0.5em;
   }
   text-align: center;
 
   @media screen and (min-width: $sm-screen) {
-    text-align: left;
+    text-align: start;
   }
 }
 
@@ -146,7 +146,7 @@
     left: 60%;
     @include fa-angle-down();
     width: 18px;
-    margin-left: -18px;
+    margin-inline-start: -18px;
     font-size: 2em;
   }
 }

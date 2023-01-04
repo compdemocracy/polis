@@ -9,7 +9,7 @@
       cursor: -webkit-grab;
       cursor: grab;
       max-width: 400px;
-      text-align: left;
+      text-align: start;
       display: inline-block;
     "
     class="query_result_item"
@@ -24,7 +24,7 @@
       </img>
 
         {{!-- SOCIAL NAME || ANONYMOUS --}}
-        <div style='margin: 0px; color: gray; font-size:13px; vertical-align: middle; margin-left: 5px; display: inline-block;'>
+        <div style='margin: 0px; color: gray; font-size:13px; vertical-align: middle; margin-inline-start: 5px; display: inline-block;'>
           {{#unless socialCtx.anon}}
           <a href="{{socialCtx.link}}">
           {{/unless}}
