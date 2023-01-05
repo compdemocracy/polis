@@ -8,12 +8,12 @@ SHELL=/bin/bash
 BASEURL ?= https://127.0.0.1.sslip.io
 E2E_RUN = cd e2e; CYPRESS_BASE_URL=$(BASEURL)
 export ENV_FILE = .env
-export TAG = $(shell grep -e ^TAG ${ENV_FILE} | awk -F'[=]' '{print $$2}')
+export TAG = $(shell grep -e ^TAG ${ENV_FILE} | awk -F'[=]' '{gsub(/ /,""); print $$2}')
 export GIT_HASH = $(shell git rev-parse --short HEAD)
 
 PROD: ## Use with prod environment (use make PROD pull, etc.)
 	$(eval ENV_FILE = prod.env)
-	$(eval TAG = $(shell grep -e ^TAG ${ENV_FILE} | awk -F'[=]' '{print $$2}'))
+	$(eval TAG = $(shell grep -e ^TAG ${ENV_FILE} | awk -F'[=]' '{gsub(/ /,"");print $$2}'))
 
 echo_vars: 
 	@echo ENV_FILE=${ENV_FILE}
