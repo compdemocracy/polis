@@ -1,27 +1,34 @@
+## TTD:
+# make start; make stop
+# make PROD start; make PROD stop
+# update TAG
+
 BASEURL ?= https://127.0.0.1.sslip.io
 E2E_RUN = cd e2e; CYPRESS_BASE_URL=$(BASEURL)
+ENV_FILE = .env
 
 export GIT_HASH := $(shell git rev-parse --short HEAD)
 
 ifeq "$(origin TAG)" "undefined"
-	TAG := $(shell source .env; echo $$TAG)
+	TAG := $(shell source $ENV_FILE; echo $$TAG)
 endif
 export TAG
 
+PROD: ## Use with prod environment (use make PROD pull, etc.)
+	ENV_FILE = env.prod
+	ifeq "$(origin TAG)" "undefined"
+		TAG := $(shell source $ENV_FILE; echo $$TAG)
+	endif
+	export TAG
+
 pull: ## Pull most recent Docker container builds (nightlies)
-	docker-compose pull
+	docker-compose --env-file $ENV_FILE pull
 
 start: ## Start all Docker containers
-	docker-compose up
-
-start-prod: ## Start all Docker containers
-	docker-compose --env-file prod.env up
+	docker-compose --env-file $ENV_FILE up
 
 stop: ## Stop all Docker containers
-	docker-compose down
-
-stop-prod: ## Stop all Docker containers
-	docker-compose --env-file prod.env down
+	docker-compose --env-file $ENV_FILE down
 
 rm-containers: ## Remove Docker containers where (polis_tag="${TAG}")
 	@echo 'removing filtered containers (polis_tag="${TAG}")'
@@ -29,11 +36,11 @@ rm-containers: ## Remove Docker containers where (polis_tag="${TAG}")
 
 rm-volumes: ## Remove Docker volumes where (polis_tag="${TAG}")
 	@echo 'removing filtered volumes (polis_tag="${TAG}")'
-	@-docker volume rm  -f $(shell docker volume ls -q --filter "label=polis_tag=${TAG}")
+	@-docker volume rm -f $(shell docker volume ls -q --filter "label=polis_tag=${TAG}")
 
 rm-images: ## Remove Docker images where (polis_tag="${TAG}")
 	@echo 'removing filtered images (polis_tag="${TAG}")'
-	@-docker rmi  -f $(shell docker images -q --filter "label=polis_tag=${TAG}")
+	@-docker rmi -f $(shell docker images -q --filter "label=polis_tag=${TAG}")
 
 rm-ALL: rm-containers rm-volumes rm-images ## Remove Docker containers, volumes, and images where (polis_tag="${TAG}")
 	@echo Done.
@@ -47,24 +54,14 @@ hash: ## Show current short hash
 	@echo Git hash: ${GIT_HASH}
 
 start-rebuild: ## Start all Docker containers, [re]building as needed
-	docker-compose up --build
-
-start-rebuild-prod: ## Start all Docker containers, [re]building as needed
-	docker-compose --env-file prod.env up --build
+	docker-compose --env-file $ENV_FILE up --build
 
 restart-FULL-REBUILD: stop rm-ALL ## Remove and restart all Docker containers, volumes, and images where (polis_tag="${TAG}")
-	docker-compose build --no-cache
-	docker-compose down
-	docker-compose up --build
-	docker-compose down
-	docker-compose up --build
-
-restart-FULL-REBUILD-PROD: stop rm-ALL ## Remove and restart all Docker containers, volumes, and images where (polis_tag="${TAG}")
-	docker-compose --env-file prod.env build --no-cache
-	docker-compose --env-file prod.env down
-	docker-compose --env-file prod.env up --build
-	docker-compose --env-file prod.env down
-	docker-compose --env-file prod.env up --build
+	docker-compose --env-file $ENV_FILE build --no-cache
+	docker-compose --env-file $ENV_FILE down
+	docker-compose --env-file $ENV_FILE up --build
+	docker-compose --env-file $ENV_FILE down
+	docker-compose --env-file $ENV_FILE up --build
 
 e2e-install: e2e/node_modules ## Install Cypress E2E testing tools
 	$(E2E_RUN) npm install
