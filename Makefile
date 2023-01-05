@@ -18,10 +18,9 @@ export TAG
 
 PROD: ## Use with prod environment (use make PROD pull, etc.)
 	$(eval ENV_FILE = prod.env)
-	ifeq "$(origin TAG)" "undefined"
-		TAG := $(shell source $(ENV_FILE); echo $$TAG)
-	endif
-	export TAG
+	$(eval TAG = $(shell grep -e ^TAG ${ENV_FILE} | awk -F'[=]' '{print $$2}'))
+	@echo ENV_FILE=${ENV_FILE}
+	@echo TAG=${TAG}
 
 pull: ## Pull most recent Docker container builds (nightlies)
 	docker-compose --env-file ${ENV_FILE} pull
