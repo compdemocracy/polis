@@ -8,38 +8,35 @@ SHELL=/bin/bash
 BASEURL ?= https://127.0.0.1.sslip.io
 E2E_RUN = cd e2e; CYPRESS_BASE_URL=$(BASEURL)
 export ENV_FILE = .env
-
-export GIT_HASH := $(shell git rev-parse --short HEAD)
-
-ifeq "$(origin TAG)" "undefined"
-	TAG := $(shell source $(ENV_FILE); echo $$TAG)
-endif
-export TAG
+export TAG = $(shell grep -e ^TAG ${ENV_FILE} | awk -F'[=]' '{print $$2}')
+export GIT_HASH = $(shell git rev-parse --short HEAD)
 
 PROD: ## Use with prod environment (use make PROD pull, etc.)
 	$(eval ENV_FILE = prod.env)
 	$(eval TAG = $(shell grep -e ^TAG ${ENV_FILE} | awk -F'[=]' '{print $$2}'))
+
+echo_vars: 
 	@echo ENV_FILE=${ENV_FILE}
 	@echo TAG=${TAG}
 
-pull: ## Pull most recent Docker container builds (nightlies)
+pull: echo_vars ## Pull most recent Docker container builds (nightlies)
 	docker-compose --env-file ${ENV_FILE} pull
 
-start: ## Start all Docker containers
+start: echo_vars ## Start all Docker containers
 	docker-compose --env-file ${ENV_FILE} up
 
-stop: ## Stop all Docker containers
+stop: echo_vars ## Stop all Docker containers
 	docker-compose --env-file ${ENV_FILE} down
 
-rm-containers: ## Remove Docker containers where (polis_tag="${TAG}")
+rm-containers: echo_vars ## Remove Docker containers where (polis_tag="${TAG}")
 	@echo 'removing filtered containers (polis_tag="${TAG}")'
 	@-docker rm -f $(shell docker ps -aq --filter "label=polis_tag=${TAG}")
 
-rm-volumes: ## Remove Docker volumes where (polis_tag="${TAG}")
+rm-volumes: echo_vars ## Remove Docker volumes where (polis_tag="${TAG}")
 	@echo 'removing filtered volumes (polis_tag="${TAG}")'
 	@-docker volume rm -f $(shell docker volume ls -q --filter "label=polis_tag=${TAG}")
 
-rm-images: ## Remove Docker images where (polis_tag="${TAG}")
+rm-images: echo_vars ## Remove Docker images where (polis_tag="${TAG}")
 	@echo 'removing filtered images (polis_tag="${TAG}")'
 	@-docker rmi -f $(shell docker images -q --filter "label=polis_tag=${TAG}")
 
@@ -54,10 +51,10 @@ rm-ALL-ALL-TAGS: ## Remove EVERY Docker container, volume, and image on this mac
 hash: ## Show current short hash
 	@echo Git hash: ${GIT_HASH}
 
-start-rebuild: ## Start all Docker containers, [re]building as needed
+start-rebuild: echo_vars ## Start all Docker containers, [re]building as needed
 	docker-compose --env-file ${ENV_FILE} up --build
 
-restart-FULL-REBUILD: stop rm-ALL ## Remove and restart all Docker containers, volumes, and images where (polis_tag="${TAG}")
+restart-FULL-REBUILD: echo_vars stop rm-ALL ## Remove and restart all Docker containers, volumes, and images where (polis_tag="${TAG}")
 	docker-compose --env-file ${ENV_FILE} build --no-cache
 	docker-compose --env-file ${ENV_FILE} down
 	docker-compose --env-file ${ENV_FILE} up --build
