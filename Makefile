@@ -15,7 +15,7 @@ endif
 export TAG
 
 PROD: ## Use with prod environment (use make PROD pull, etc.)
-	$(eval ENV_FILE = env.prod)
+	$(eval ENV_FILE = prod.env)
 	ifeq "$(origin TAG)" "undefined"
 		TAG := $(shell source $(ENV_FILE); echo $$TAG)
 	endif
