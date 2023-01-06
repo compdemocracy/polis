@@ -141,7 +141,7 @@ module.exports = Handlebones.View.extend({
             '<i class="svgIcon" style="' +
             'display: inline-block;' +
             'position: relative;' +
-            'margin-right: 2px;' +
+            'margin-inline-end: 2px;' +
             'top: 6px;' +
             'width: 48px;' +
             'fill: black;' +
@@ -165,7 +165,7 @@ module.exports = Handlebones.View.extend({
             '<i class="svgIcon" style="' +
             'display: inline-block;' +
             'position: relative;' +
-            'margin-right: 2px;' +
+            'margin-inline-end: 2px;' +
             'top: 6px;' +
             'width: 48px;' +
             'fill: black;' +
