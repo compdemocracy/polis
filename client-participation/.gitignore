@@ -1,6 +1,5 @@
 node_modules
 bower_components
-public
 .DS_Store
 *.log
 js/tmpl/
@@ -15,6 +14,5 @@ polis.config.js
 .sass-cache/*
 .bashrc
 .env_always
-polisStatic/
 scratch
 polis.config
