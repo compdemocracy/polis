@@ -12,7 +12,7 @@ export TAG = $(shell grep -e ^TAG ${ENV_FILE} | awk -F'[=]' '{gsub(/ /,""); prin
 export GIT_HASH = $(shell git rev-parse --short HEAD)
 export COMPOSE_FILE_ARGS = -f docker-compose.yml -f docker-compose.dev.yml
 
-PROD: ## Use with prod environment (use make PROD pull, etc.)
+PROD: ## Run in prod mode (e.g. `make PROD start`, etc.)
 	$(eval ENV_FILE = prod.env)
 	$(eval TAG = $(shell grep -e ^TAG ${ENV_FILE} | awk -F'[=]' '{gsub(/ /,"");print $$2}'))
 	$(eval COMPOSE_FILE_ARGS = -f docker-compose.yml)
