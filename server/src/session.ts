@@ -124,17 +124,6 @@ function createPolisLtiToken(
 function isPolisLtiToken(token: string) {
   return token.match(/^xPolisLtiToken/);
 }
-function isPolisSlackTeamUserToken(token: string) {
-  return token.match(/^xPolisSlackTeamUserToken/);
-}
-
-// function sendSlackEvent(slack_team, o) {
-//   return pg.queryP("insert into slack_bot_events (slack_team, event) values ($1, $2);", [slack_team, o]);
-// }
-
-function sendSlackEvent(o: any) {
-  return pg.queryP("insert into slack_bot_events (event) values ($1);", [o]);
-}
 
 function parsePolisLtiToken(token: string) {
   let parts = token.split(/:::/);
@@ -262,8 +251,6 @@ export {
   getUserInfoForSessionToken,
   createPolisLtiToken,
   isPolisLtiToken,
-  isPolisSlackTeamUserToken,
-  sendSlackEvent,
   getUserInfoForPolisLtiToken,
   startSession,
   endSession,
@@ -279,8 +266,6 @@ export default {
   getUserInfoForSessionToken,
   createPolisLtiToken,
   isPolisLtiToken,
-  isPolisSlackTeamUserToken,
-  sendSlackEvent,
   getUserInfoForPolisLtiToken,
   startSession,
   endSession,
