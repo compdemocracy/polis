@@ -199,14 +199,6 @@ export type Demo = {
   ms_birth_year_estimate_fb: number;
 };
 
-export type SlackUser = {
-  slack_team?: any;
-  slack_user_id?: any;
-  zid?: any;
-  uid?: any;
-  pid?: any;
-};
-
 export type Vote = {
   uid?: any;
   zid: any;
