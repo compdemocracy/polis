@@ -23,7 +23,7 @@
   "dependencies": {
     "@google-cloud/translate": "^1.0.0",
     "akismet": "0.0.11",
-    "async": "0.1.22",
+    "async": "0.2.0",
     "aws-sdk": "^2.78.0",
     "babel-eslint": "10.1.0",
     "badwords": "0.0.3",
