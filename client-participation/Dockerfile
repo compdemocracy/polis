@@ -15,7 +15,7 @@ RUN npm install -g npm@6.9.2
 
 COPY package*.json ./
 
-RUN npm ci
+RUN npm install
 
 RUN apk del .build
 
