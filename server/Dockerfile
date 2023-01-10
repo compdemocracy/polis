@@ -1,4 +1,4 @@
-FROM docker.io/node:18.9.0-alpine3.15
+FROM docker.io/node:19.4.0-alpine3.17
 
 WORKDIR /app
 
@@ -12,6 +12,9 @@ COPY package*.json ./
 # TODO get `npm ci` to work
 RUN npm install
 RUN apk del .build
+
+# TODO This shouldn't be necessary; fix
+#RUN chown -R 1000:1000 /root/.npm
 
 COPY . .
 
