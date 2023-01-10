@@ -19,6 +19,9 @@ RUN npm install
 # TODO This shouldn't be necessary; fix
 #RUN chown -R 1000:1000 /root/.npm
 
+# TODO This shouldn't be necessary; fix
+#RUN chown -R 1000:1000 /root/.npm
+
 COPY . .
 
 RUN npm run build
