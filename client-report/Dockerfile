@@ -6,7 +6,7 @@ WORKDIR /app
 RUN apk add git --no-cache
 
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 COPY polis.config.template.js polis.config.js
 # If polis.config.js exists on host, will override template here.
