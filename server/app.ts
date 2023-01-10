@@ -110,7 +110,6 @@ helpersInitialized.then(
       handle_GET_ptptois,
       handle_GET_reports,
       handle_GET_setup_assignment_xml,
-      handle_GET_slack_login,
       handle_GET_snapshot,
       handle_GET_stripe_account_connect,
       handle_GET_stripe_account_connected_oauth_callback,
@@ -135,10 +134,8 @@ helpersInitialized.then(
       handle_POST_auth_new,
       handle_POST_auth_password,
       handle_POST_auth_pwresettoken,
-      handle_POST_auth_slack_redirect_uri,
       handle_POST_charge,
       handle_POST_comments,
-      handle_POST_comments_slack,
       handle_POST_contexts,
       handle_POST_contributors,
       handle_POST_conversation_close,
@@ -163,8 +160,6 @@ helpersInitialized.then(
       handle_POST_reserve_conversation_id,
       handle_POST_sendCreatedLinkToEmail,
       handle_POST_sendEmailExportReady,
-      handle_POST_slack_interactive_messages,
-      handle_POST_slack_user_invites,
       handle_POST_stars,
       handle_POST_stripe_cancel,
       handle_POST_stripe_save_token,
@@ -639,20 +634,6 @@ helpersInitialized.then(
       handle_GET_snapshot
     );
 
-    app.get(
-      "/api/v3/auth/slack/redirect_uri",
-      moveToBody,
-      need("code", getStringLimitLength(1, 999), assignToP),
-      want("state", getStringLimitLength(999), assignToP),
-      handle_POST_auth_slack_redirect_uri
-    );
-
-    app.post(
-      "/api/v3/slack/interactive_messages",
-      need("payload", getOptionalStringLimitLength(9999), assignToP, ""),
-      handle_POST_slack_interactive_messages
-    );
-
     // this endpoint isn't really ready for general use TODO_SECURITY
     app.get(
       "/api/v3/facebook/delete",
@@ -836,28 +817,6 @@ helpersInitialized.then(
       want("xid", getStringLimitLength(1, 999), assignToP),
       resolve_pidThing("pid", assignToP, "post:comments"),
       handle_POST_comments
-    );
-
-    app.post(
-      "/api/v3/comments/slack",
-      auth(assignToP),
-      want("slack_team", getOptionalStringLimitLength(99), assignToP),
-      want("slack_user_id", getOptionalStringLimitLength(99), assignToP),
-      need(
-        "conversation_id",
-        getConversationIdFetchZid,
-        assignToPCustom("zid")
-      ),
-      want("txt", getOptionalStringLimitLength(997), assignToP),
-      want("vote", getIntInRange(-1, 1), assignToP, -1), // default to agree
-      want("twitter_tweet_id", getStringLimitLength(999), assignToP),
-      want("quote_twitter_screen_name", getStringLimitLength(999), assignToP),
-      want("quote_txt", getStringLimitLength(999), assignToP),
-      want("quote_src_url", getUrlLimitLength(999), assignToP),
-      want("anon", getBool, assignToP),
-      want("is_seed", getBool, assignToP),
-      resolve_pidThing("pid", assignToP, "post:comments"),
-      handle_POST_comments_slack
     );
 
     app.get(
@@ -1433,7 +1392,6 @@ helpersInitialized.then(
       want("topic", getOptionalStringLimitLength(1000), assignToP, ""),
       want("description", getOptionalStringLimitLength(50000), assignToP, ""),
       want("conversation_id", getStringLimitLength(6, 300), assignToP, ""),
-      want("is_slack", getBool, assignToP, false),
       want("is_data_open", getBool, assignToP, false),
       want("ownerXid", getStringLimitLength(1, 999), assignToP),
       handle_POST_conversations
@@ -1645,20 +1603,6 @@ helpersInitialized.then(
       // need('single_use_tokens', getBool, assignToP),
       need("emails", getArrayOfStringNonEmpty, assignToP),
       handle_POST_users_invite
-    );
-
-    app.get(
-      /^\/slack_login_code.*/,
-      moveToBody,
-      authOptional(assignToP),
-      handle_GET_slack_login
-    );
-
-    app.post(
-      "/api/v3/slack/user/invites",
-      need("slack_team", getStringLimitLength(1, 20), assignToP),
-      need("slack_user_id", getStringLimitLength(1, 20), assignToP),
-      handle_POST_slack_user_invites
     );
 
     app.get(
