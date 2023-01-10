@@ -2,7 +2,7 @@ FROM docker.io/node:19.4.0-bullseye
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install postgresql-14 python3-dev build-essential g++ git make python3
+RUN apt-get update && apt-get install -y libpq-dev python3-dev build-essential g++ git make python3
 # don't know if there's equivalent of this for debian, but worth considering; I think the idea here was that
 # these are only used for building, so can be dropped once the app is ready to run
 #RUN apk add --no-cache --virtual .build \
