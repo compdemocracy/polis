@@ -13,6 +13,7 @@ services:
     #command: npm run build:watch && npm run serve
     volumes:
       - "./server:/app"
+      - "/app/node_modules"
     ports:
       - "9229:9229"
 
@@ -20,6 +21,7 @@ services:
     command: clojure -X:dev-poller
     volumes:
       - "./math:/app"
+      - "/app/.cpcache"
     ports:
       # nrepl port
       - 18975:18975
