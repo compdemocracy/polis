@@ -51,7 +51,7 @@
   background-color: $bg-alt-color;
   color: $gray;
   letter-spacing: 0.05em;
-  margin-right: 5px;
+  margin-inline-end: 5px;
 
   &:hover, &:focus {
     background-color: #d9dadc;
@@ -74,7 +74,7 @@
 // Voting buttons: agree and disagree
 //
 #agreeButton, #disagreeButton {
-  border-right: 0px
+  border-inline-end: 0px
 }
 
 .Btn-vote {
@@ -143,12 +143,12 @@
   letter-spacing: normal;
   line-height: 24px;
   margin-bottom: 16px;
-  margin-left: 0px;
-  margin-right: 0px;
+  margin-inline-start: 0px;
+  margin-inline-end: 0px;
   margin-top: 0px;
   padding-bottom: 6px;
-  padding-left: 56px;
-  padding-right: 25px;
+  padding-inline-start: 56px;
+  padding-inline-end: 25px;
   padding-top: 8px;
   position: relative;
   text-align: center;

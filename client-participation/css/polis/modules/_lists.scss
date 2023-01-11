@@ -5,20 +5,20 @@
 
 .ListPlain {
   margin-top: 0;
-  padding-left: 0;
+  padding-inline-start: 0;
   list-style: none;
 }
 
 .ListHorizontal {
   margin: 0;
-  padding-left: 0;
+  padding-inline-start: 0;
 }
 
 .ListHorizontal > li {
   display: inline-block;
-  margin-left: $default-whitespace;
+  margin-inline-start: $default-whitespace;
 
   &:first-child {
-    margin-left: 0;
+    margin-inline-start: 0;
   }
 }
