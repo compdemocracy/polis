@@ -12,19 +12,21 @@ var DivisiveCommentsView = require('../views/DivisiveCommentsView');
 var display = require("../util/display");
 var eb = require("../eventBus");
 var GroupSelectionView = require("../views/groupSelectionView");
-var markdown = require('markdown');
+var { markdown } = require('markdown');
 var ParticipantModel = require("../models/participant");
 var PolisFacebookUtils = require('../util/facebookButton');
 var polisLogoBase64 = require("../images/polis_logo");
 var preloadHelper = require("../util/preloadHelper");
 var ReadReactView = require('../views/ReadReactView');
 var Strings = require("../strings");
-var template = require('../tmpl/participation');
+var template = require('../templates/participation.handlebars');
 var TopCommentsView = require('../views/TopCommentsView');
 var Utils = require("../util/utils");
 var VisView = require("../lib/VisView");
 var VoteMoreView = require("../views/voteMoreView");
 var WritingTipsView = require("../views/writingTips");
+var $ = require("jquery");
+
 
 var VIS_SELECTOR = "#visualization_div";
 
@@ -143,7 +145,6 @@ module.exports = ConversationView.extend({
     ctx.hideSocialButtons = preload.firstConv.socialbtn_type === 0;
     ctx.hideHelp = !Utils.userCanSeeHelp() || preload.firstConv.help_type === 0;
 
-    ctx.direction = Strings.direction ? Strings.direction : 'ltr'
     // var md_content = "Hello.\n======\n* This is markdown.\n * It is fun\n * Love it or leave it.\n* This is [an example](http://example.com/ \"Title\") inline link.\n\n![Alt text](https://62e528761d0685343e1c-f3d1b99a743ffa4142d9d7f1978d9686.ssl.cf2.rackcdn.com/files/67396/width668/image-20141216-14144-1fmodw7.jpg)"
     var md_content = ctx.description || "";
 
@@ -341,7 +342,7 @@ module.exports = ConversationView.extend({
     });
 
     // remove any items from divisive list that are also in top list
-    var topTids = _.pluck(topComments, "tid");
+    var topTids = _.map(topComments, "tid");
     divisiveComments = _.filter(divisiveComments, function(c) {
       return topTids.indexOf(c.tid) >= 0;
     });

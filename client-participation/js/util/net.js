@@ -3,6 +3,7 @@
 var eb = require("../eventBus");
 var URLs = require("../util/url");
 var Utils = require("../util/utils");
+var $ = require("jquery");
 
 var urlPrefix = URLs.urlPrefix;
 var basePath = "";
@@ -17,7 +18,7 @@ function polisAjax(api, data, type, headers) {
   var url = urlPrefix + basePath + api;
 
   // Add the auth token if needed.
-  // if (_.contains(authenticatedCalls, api)) {
+  // if (_.includes(authenticatedCalls, api)) {
   //     var token = tokenStore.get();
   //     if (!token) {
   //         needAuthCallbacks.fire();
