@@ -10,6 +10,7 @@ var _ = require("lodash");
 require('../vis2/vis2') // This is to initialise the 'window' object
 var Backbone = require("backbone");
 require("./net/backbonePolis"); // Monkeypatch Backbone
+var CurrentUserModel = require("./stores/currentUser");
 var display = require("./util/display");
 var eb = require("./eventBus");
 var Handlebars = require("handlebars");
