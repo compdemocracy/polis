@@ -18,7 +18,7 @@ const outputDirectory = 'dist'
 /**
  * Generates .headersJson files alongside files served by the file-server. Reading these files instructs file-server
  * what HTML headers should be added to each file.
- * 
+ *
  * @deprecated
  */
 function writeHeadersJsonForOutputFiles(isDev) {
@@ -111,7 +111,7 @@ module.exports = (env, options) => {
         patterns: [
           { from: 'public', globOptions: { ignore: ['**/index.html'] } },
           { from: 'api', globOptions: { ignore: ['**/embed.js'] } },
-          { 
+          {
             from: 'api/embed.js',
             transform(content, absoluteFrom) {
               return lodashTemplate(content.toString())({ polisHostName: polisConfig.SERVICE_HOSTNAME })
