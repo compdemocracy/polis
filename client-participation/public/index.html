@@ -181,10 +181,6 @@
           path.match(/^m\/([0-9][0-9A-Za-z]+)\/?(.*)$/);
 
         window.xsThresh = 600; // nexus 7
-        var wh = {
-          w: window.innerWidth,
-          h: window.innerHeight,
-        };
 
         window.getPtptoiLimitForWidth = function(w) {
           return w < window.xsThresh ? 25 : void 0;
