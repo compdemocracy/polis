@@ -4,13 +4,12 @@ This is the front-end code that participants see. The site needs to be served th
 
 ## Dependencies
 
-* node `18.12.1`
+* node `18.18.0`
 * npm `8.19.2`
 
 ## Setup
 
 ```sh
-n 18.12.1
 npm install
 cp polis.config.template.js polis.config.js
 npm run build:prod
