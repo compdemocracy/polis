@@ -66,6 +66,13 @@ module.exports = Handlebones.ModelView.extend({
     if (btnBg) {
       ctx.customBtnStyles = "background-color: " + btnBg + ";";
     }
+    if (Strings.direction == "rtl") {
+      ctx.pMarginStyle = "margin-right: 55px;";
+      ctx.floatStyle = "float:left;"  // This is a hack to fix the bug in chrome, not supporting float:inline-start and end
+    } else {
+      ctx.pMarginStyle = "margin-left: 55px;";
+      ctx.floatStyle = "float:right;"
+    }
 
     ctx.auth_opt_tw = preload.firstConv.auth_opt_tw;
     ctx.auth_opt_fb = preload.firstConv.auth_opt_fb;
