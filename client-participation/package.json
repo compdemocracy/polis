@@ -21,7 +21,7 @@
     "@babel/preset-react": "^7.0.0",
     "autosize": "^3.0.3",
     "babel-loader": "^8.0.0",
-    "backbone": "~1.4.1",
+    "backbone": "github:sirodoht/compdemocracy-backbone#master",
     "bootstrap-sass": "^3.4.1",
     "compression-webpack-plugin": "^10.0.0",
     "copy-webpack-plugin": "^11.0.0",
