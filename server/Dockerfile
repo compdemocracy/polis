@@ -4,8 +4,11 @@ WORKDIR /app
 
 COPY package*.json ./
 
+# This package is needed at runtime
+RUN apk add libpq-dev
+
 RUN apk add --no-cache --virtual .build \
-  g++ libpq-dev make python3
+  g++ make python3
 
 RUN npm ci
 
