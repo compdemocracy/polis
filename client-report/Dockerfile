@@ -1,3 +1,9 @@
+# NOTE: This Dockerfile is not actually used by the docker-compose.yml.
+# Instead, the file-server Dockerfile builds and serves these assets.
+# But this file is still useful for development or deployments that do not use
+# the docker compose configuration.
+
+# Gulp v3 stops us from upgrading beyond Node v11
 FROM docker.io/node:11-alpine
 
 WORKDIR /app
@@ -15,4 +21,5 @@ COPY . .
 
 # GIT_HASH will be set properly when running `make` (see Makefile).
 ARG GIT_HASH="placeholder"
-RUN npm run deploy:prod
+
+CMD npm run deploy:prod

@@ -1,11 +1,11 @@
-# polis-client-admin
+######################## POLIS CLIENT ADMIN ########################
 #FROM client-base AS client-admin # <- switch back to basing on client admin once we upgrade other clients
 FROM docker.io/node:18-alpine AS client-admin
 
 WORKDIR /app
 
 COPY client-admin/package*.json ./
-RUN npm install
+RUN npm ci
 
 COPY client-admin/polis.config.template.js polis.config.js
 # If polis.config.js already exists in the local directory being copied,
@@ -15,7 +15,8 @@ COPY client-admin/. .
 RUN npm run build:prod
 
 
-# polis-client-participation
+
+##################### POLIS CLIENT PARTICIPATION #####################
 FROM docker.io/node:18-alpine AS client-participation
 
 WORKDIR /app
@@ -34,7 +35,8 @@ ARG NODE_ENV=production
 RUN npm run build:prod
 
 
-# polis-client-report
+
+######################## POLIS CLIENT REPORT ########################
 # Gulp v3 stops us from upgrading beyond Node v11
 # FROM client-base AS client-report # <- switch back to basing on client admin once we upgrade other clients
 FROM docker.io/node:11-alpine as client-report
@@ -58,7 +60,8 @@ ARG GIT_HASH="placeholder"
 RUN npm run deploy:prod
 
 
-# actual file server component
+
+############################ FILE SERVER ############################
 FROM docker.io/node:18-alpine
 
 WORKDIR /app
