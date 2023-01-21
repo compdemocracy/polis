@@ -1,15 +1,14 @@
-FROM docker.io/node:14.14.0-alpine
+FROM docker.io/node:18-alpine
 
 WORKDIR /app
 
-RUN apk add git --no-cache
-
 COPY package*.json ./
-RUN npm install
+
+RUN npm ci
 
 COPY polis.config.template.js polis.config.js
-# If polis.config.js exists on host, will override template here.
+# If polis.config.js already exists in the local directory being copied,
+# it will override the template from the line above.
 COPY . .
 
-ARG GIT_HASH
-RUN npm run build:prod
+CMD npm run build:prod

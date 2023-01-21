@@ -1,26 +1,15 @@
-FROM docker.io/node:19.4.0-bullseye
+FROM docker.io/node:18-alpine
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y libpq-dev python3-dev build-essential g++ git make python3
-# don't know if there's equivalent of this for debian, but worth considering; I think the idea here was that
-# these are only used for building, so can be dropped once the app is ready to run
-#RUN apk add --no-cache --virtual .build \
-  #g++ git make python3
-
 COPY package*.json ./
 
-# TODO get `npm ci` to work
-RUN npm install
+RUN apk add --no-cache --virtual .build \
+  g++ libpq-dev make python3
 
-# again, consider switching back to this
-#RUN apk del .build
+RUN npm ci
 
-# TODO This shouldn't be necessary; fix
-#RUN chown -R 1000:1000 /root/.npm
-
-# TODO This shouldn't be necessary; fix
-#RUN chown -R 1000:1000 /root/.npm
+RUN apk del .build
 
 COPY . .
 

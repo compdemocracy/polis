@@ -1,16 +1,18 @@
-# Gulp v3 stops us from upgrading beyond Node v11
-FROM docker.io/node:11.15.0-alpine
+FROM docker.io/node:11-alpine
 
 WORKDIR /app
 
-RUN apk add git --no-cache
+RUN apk add git
 
 COPY package*.json ./
-RUN npm install
+
+RUN npm ci
 
 COPY polis.config.template.js polis.config.js
-# If polis.config.js exists on host, will override template here.
+# If polis.config.js already exists in the local directory being copied,
+# it will override the template from the line above.
 COPY . .
 
-ARG GIT_HASH
+# GIT_HASH will be set properly when running `make` (see Makefile).
+ARG GIT_HASH="placeholder"
 RUN npm run deploy:prod
