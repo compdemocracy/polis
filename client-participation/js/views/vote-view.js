@@ -6,9 +6,10 @@ var M = require("../util/metrics");
 var PolisFacebookUtils = require('../util/facebookButton');
 var PostMessageUtils = require("../util/postMessageUtils");
 var preloadHelper = require("../util/preloadHelper");
-var template = require("../tmpl/vote-view");
+var template = require("../templates/vote-view.handlebars");
 var Utils = require("../util/utils");
 var Strings = require("../strings");
+var $ = require("jquery");
 
 var iOS = Utils.isIos();
 

@@ -12,19 +12,21 @@ var DivisiveCommentsView = require('../views/DivisiveCommentsView');
 var display = require("../util/display");
 var eb = require("../eventBus");
 var GroupSelectionView = require("../views/groupSelectionView");
-var markdown = require('markdown');
+var { markdown } = require('markdown');
 var ParticipantModel = require("../models/participant");
 var PolisFacebookUtils = require('../util/facebookButton');
 var polisLogoBase64 = require("../images/polis_logo");
 var preloadHelper = require("../util/preloadHelper");
 var ReadReactView = require('../views/ReadReactView');
 var Strings = require("../strings");
-var template = require('../tmpl/participation');
+var template = require('../templates/participation.handlebars');
 var TopCommentsView = require('../views/TopCommentsView');
 var Utils = require("../util/utils");
 var VisView = require("../lib/VisView");
 var VoteMoreView = require("../views/voteMoreView");
 var WritingTipsView = require("../views/writingTips");
+var $ = require("jquery");
+
 
 var VIS_SELECTOR = "#visualization_div";
 
@@ -341,7 +343,7 @@ module.exports = ConversationView.extend({
     });
 
     // remove any items from divisive list that are also in top list
-    var topTids = _.pluck(topComments, "tid");
+    var topTids = _.map(topComments, "tid");
     divisiveComments = _.filter(divisiveComments, function(c) {
       return topTids.indexOf(c.tid) >= 0;
     });

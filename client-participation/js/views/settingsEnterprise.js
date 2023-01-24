@@ -1,7 +1,7 @@
 // var Handlebars = require("handlebars");
 // var Handlebones = require("handlebones");
 var PolisModelView = require("../lib/PolisModelView");
-var template = require("../tmpl/settingsEnterprise");
+var template = require("../templates/settingsEnterprise.handlebars");
 // var URLs = require("../util/url");
 
 // var urlPrefix = URLs.urlPrefix;

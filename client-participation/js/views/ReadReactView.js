@@ -2,7 +2,7 @@
 
 var eb = require("../eventBus");
 var Handlebones = require("handlebones");
-var template = require("../tmpl/readReactView");
+var template = require("../templates/readReactView.handlebars");
 var CommentModel = require("../models/comment");
 var VoteView = require('../views/vote-view');
 var PolisFacebookUtils = require('../util/facebookButton');
