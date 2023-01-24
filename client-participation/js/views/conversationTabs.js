@@ -4,9 +4,10 @@
 var eb = require("../eventBus");
 var Handlebones = require("handlebones");
 var PolisFacebookUtils = require('../util/facebookButton');
-var template = require("../tmpl/conversationTabs");
+var template = require("../templates/conversationTabs.handlebars");
 var display = require("../util/display");
 var Utils = require("../util/utils");
+var $ = require("jquery");
 
 
 module.exports = Handlebones.ModelView.extend({

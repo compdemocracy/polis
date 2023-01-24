@@ -74,6 +74,6 @@
 // }
 @mixin font-size($sizeValue: 16px) {
   font-size: $sizeValue;
-  font-size: ($sizeValue / 10px) + rem;
+  font-size: calc($sizeValue / 10px) + rem;
 }
 // end font sizing

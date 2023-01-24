@@ -1,5 +1,5 @@
 # Gulp v3 stops us from upgrading beyond Node v11
-FROM docker.io/node:11.15.0-alpine
+FROM docker.io/node:18-alpine
 
 WORKDIR /app
 
@@ -11,7 +11,7 @@ RUN npm config set unsafe-perm true
 
 # Upgrade npm v6.7.0 -> v6.9.2 to alias multiple pkg versions.
 # See: https://stackoverflow.com/a/56134858/504018
-RUN npm install -g npm@6.9.2
+# RUN npm install -g npm@6.9.2
 
 COPY package*.json ./
 
@@ -26,5 +26,5 @@ COPY . .
 ARG GIT_HASH
 ARG BABEL_ENV=production
 
-RUN npm run deploy:prod
+RUN npm run build:prod
 

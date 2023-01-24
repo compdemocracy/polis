@@ -8,8 +8,8 @@ var Utils = require("../util/utils");
 var isMobile = Utils.isMobile();
 
 
-var iconFaAngleLeft = require("../tmpl/icon_fa_angle_left");
-var iconFaAngleRight = require("../tmpl/icon_fa_angle_right");
+var iconFaAngleLeft = require("../templates/icon_fa_angle_left.handlebars");
+var iconFaAngleRight = require("../templates/icon_fa_angle_right.handlebars");
 
 
 function addMultipleOwlItems(htmlStrings, targetPosition) {
@@ -114,7 +114,7 @@ module.exports = Handlebones.View.extend({
         el.fadeIn(0, function() {
 
           var circles = el.find(".owl-pagination").find(".owl-page > span");
-          // var colors = _.pluck(items, "color");
+          // var colors = _.map(items, "color");
           // for (var i = 0; i < circles.length; i++) {
           //   var c = circles[i];
           //   $(c).css("background", colors[i]);
@@ -227,7 +227,7 @@ module.exports = Handlebones.View.extend({
       // alert(e);
     });
 
-    that.addMultipleOwlItems.call(results.data('owlCarousel'), _.pluck(items, "html"));
+    that.addMultipleOwlItems.call(results.data('owlCarousel'), _.map(items, "html"));
     // Auto-select the first comment.
     eb.trigger(eb.commentSelected, indexToTid[0]);
     // el.find(".query_result_item").first().trigger("click");

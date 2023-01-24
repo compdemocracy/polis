@@ -27,7 +27,7 @@ RUN npm run build:prod
 
 # polis-client-participation
 # # Gulp v3 stops us from upgrading beyond Node v11
-FROM client-base AS client-participation
+FROM docker.io/node:16.18.0-alpine AS client-participation
 
 WORKDIR /client-participation/app
 
@@ -36,12 +36,12 @@ RUN npm config set unsafe-perm true
 
 # Upgrade npm v6.7.0 -> v6.9.2 to alias multiple pkg versions.
 # See: https://stackoverflow.com/a/56134858/504018
-RUN npm install -g npm@6.9.2
+RUN npm install -g npm@8.19.2
 
 COPY client-participation/package*.json ./
 
 # It would be nice if this was ci, but misbehaving for some reason
-RUN npm ci
+RUN npm install
 
 COPY client-participation/polis.config.template.js polis.config.js
 # If polis.config.js exists on host, will override template here.
@@ -50,7 +50,7 @@ COPY client-participation/. .
 ARG GIT_HASH
 ARG BABEL_ENV=production
 
-RUN npm run deploy:prod
+RUN npm run build:prod
 
 
 # polis-client-report
@@ -79,7 +79,7 @@ WORKDIR /app
 
 COPY file-server/package*.json ./
 
-RUN npm ci
+RUN npm install
 
 COPY file-server/fs_config.template.json fs_config.json
 # If fs_config.json exists, will override the template here.
@@ -88,7 +88,7 @@ COPY file-server/. .
 # use the multi-stage builds above to copy out the resources
 RUN mkdir /app/build
 COPY --from=client-admin         /client-admin/app/build/         /app/build
-COPY --from=client-participation /client-participation/app/build/ /app/build
+COPY --from=client-participation /client-participation/app/dist/  /app/build
 COPY --from=client-report        /client-report/app/build/        /app/build
 
 EXPOSE 8080

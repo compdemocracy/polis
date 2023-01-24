@@ -3,7 +3,7 @@
 // var Handlebones = require("handlebones");
 var PolisModelView = require("../lib/PolisModelView");
 // var TwitterUserModel = require("../models/twitterUser");
-var template = require("../tmpl/settings");
+var template = require("../templates/settings.handlebars");
 // var SettingsTwitterView = require("./settingsTwitter");
 // var URLs = require("../util/url");
 // var urlPrefix = URLs.urlPrefix;
