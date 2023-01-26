@@ -15,6 +15,7 @@ services:
     volumes:
       # This will mount your local polis/server directory so changes can be watched and reloaded.
       - ./server:/app
+      - /app/node_modules
     ports:
       - "5000:5000"
       - "9229:9229"
