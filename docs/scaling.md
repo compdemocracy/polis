@@ -39,7 +39,7 @@ Alternative solutions you might consider:
 These solutions will allow you to take advantage of the underlying Docker infrastructure, sans Docker Compose.
 That having been said, we'd like to be able to [support scalable deployments out of the box](https://github.com/compdemocracy/polis/issues/1352), and are happy to accept pull requests which get us closer to this goal.
 
-With all that out of the way, deploying a small Polis instance using the docker-compose infrastructure looks more or less like the development environment setup below, with one exception: Instead of running `docker-compose -f docker-compose.yml -f docker-compose.dev.yml ...`, you run `docker-compose -f docker-compose.yml ...` (or simply `docker-compose`, since `-f` defaults to `docker-compose.yml`).
+With all that out of the way, deploying a small Polis instance using the docker-compose infrastructure looks more or less like the development environment setup below, with one exception: Instead of running `docker compose -f docker-compose.yml -f docker-compose.dev.yml ...`, you run `docker compose -f docker-compose.yml ...` (or simply `docker compose`, since `-f` defaults to `docker-compose.yml`).
 Any configuration options which are explicitly for development are placed in the `docker-compose.dev.yml` overlay, and can be omitted in production.
 
 

@@ -45,10 +45,10 @@ We recommend installing [nvm](https://github.com/creationix/nvm) so that you can
 1. Install or set Node version.
     ```sh
     # Install
-    $ nvm install 10.9.0
+    $ nvm install 18
 
     # Set correct node version.
-    $ nvm use 10.9.0
+    $ nvm use 18
     ```
 1. Install depedencies
     ```sh

@@ -11,7 +11,8 @@ Install the NVM following the instructions: [NVM Installation Guide](https://git
 Them run the commands below to install the correct Node.JS version and the application dependencies.
 
 ```sh
-nvm install 14.14.0
+nvm install 18
+nvm use 18
 npm install
 ```
 
@@ -20,14 +21,13 @@ npm install
 If you having troubles with npm dependencies try run the commands below:
 
 ```sh
-npm cache clear
+rm -rf node_modules
 npm install
 ```
 
 ## Running Application
 
 ```sh
-nvm use 14.14.0
 npm start
 ```
 

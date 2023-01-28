@@ -1,40 +1,63 @@
-version: "3.4"
+# This file is an override to the original docker-compose.yml file, and as such is meant to
+# extend that configuration with some additional concerns for developers, such as a maildev
+# server, and exposing most ports. DO NOT USE THIS IN PRODUCTION.
 
-# Questions/todo:
-# * Do we want to use different tags for dev vs prod builds? how is this controlled?
-# * Definitely want to have different env var files for prod vs dev
+# This configuration does not work on its own and must be run together with docker-compose.yml,
+# like `docker compose -f docker-compose.yml -f docker-compose.dev.yml up`.
+# (Note the usage in Makefile.)
+# For more information see https://docs.docker.com/compose/extends/
 
 services:
   server:
-    command: npm run dev
+    command: npm run build:watch
     environment:
       NODE_ENV: development
-    # Is this what we'll want here?
-    #command: npm run build:watch && npm run serve
     volumes:
-      - "./server:/app"
+      # This will mount your local polis/server directory so changes can be watched and reloaded.
+      - ./server:/app
+      - /app/node_modules
     ports:
+      - "5000:5000"
       - "9229:9229"
 
   math:
     command: clojure -X:dev-poller
     volumes:
-      - "./math:/app"
+      - ./math:/app
     ports:
       # nrepl port
-      - 18975:18975
+      - "18975:18975"
     environment:
       CHOKIDAR_USEPOLLING: "true"
 
+  postgres:
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+
+  file-server:
+    ports:
+      - "8080:8080"
+    volumes:
+      # This static volume will become more useful when the client apps are configured to run
+      # in development mode.
+      - build:/app/build
+
   maildev:
-    image: docker.io/maildev/maildev:1.1.0
+    image: docker.io/maildev/maildev:1.1.1
+    labels:
+      polis_tag: ${TAG}
     networks:
-      - "polis-net"
+      - polis-net
     ports:
       # User interface
       - "1080:80"
       # SMTP port
       - "25:25"
+
+volumes:
+  build:
+    labels:
+      polis_tag: ${TAG}
 
   # TODO: Add individual entries for each of the clients, with hot-code reloading set up
   # Either:

@@ -4,13 +4,11 @@
   "description": "",
   "main": "app.js",
   "scripts": {
-    "start": "node app.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "serve": "node --max_old_space_size=400 --gc_interval=100 app.js",
+    "start": "node app.js"
   },
-  "author": "",
-  "license": "ISC",
   "dependencies": {
-    "finalhandler": "^1.1.2",
-    "serve-static": "^1.14.1"
+    "finalhandler": "~1.1.2",
+    "serve-static": "~1.14.2"
   }
 }

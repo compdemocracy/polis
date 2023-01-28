@@ -1,19 +1,19 @@
-# before running docker-compose up for the first time,
+# before running docker compose up for the first time,
 # either do a pull:
-# docker-compose pull
+# docker compose pull
 # or do a build:
-# GIT_HASH $(git rev-parse --short HEAD) docker-compose up --detach
+# GIT_HASH $(git rev-parse --short HEAD) docker compose up --build
+
+# By default, docker compose will load a local .env file if one exists.
 
 # subsequently you should only need to run:
-# docker-compose up --detach
+# docker compose up --detach
 
 # force a full re-build with no cache from previous builds:
-# docker-compose build --build-arg GIT_HASH $(git rev-parse --short HEAD) --parallel --no-cache
+# docker compose build --build-arg GIT_HASH $(git rev-parse --short HEAD) --parallel --no-cache
 
 # to stop:
-# docker-compose down
-
-version: "3.4"
+# docker compose down
 
 services:
   server:
@@ -53,7 +53,6 @@ services:
       dockerfile: Dockerfile-db
       labels:
         polis_tag: ${TAG}
-
     networks:
       - "polis-net"
     volumes:
@@ -67,9 +66,6 @@ services:
       dockerfile: nginx.Dockerfile
       labels:
         polis_tag: ${TAG}
-
-    environment:
-      - TAG
     depends_on:
       - "server"
     networks:
@@ -85,7 +81,6 @@ services:
       dockerfile: file-server/Dockerfile
       labels:
         polis_tag: ${TAG}
-
       args:
         GIT_HASH: "${GIT_HASH}"
     networks:

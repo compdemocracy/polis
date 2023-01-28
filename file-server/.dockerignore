@@ -1,0 +1,11 @@
+build/
+node_modules/
+
+client-admin/build
+client-admin/node_modules/
+
+client-participation/dist
+client-participation/node_modules
+
+client-report/build
+client-report/node_modules
