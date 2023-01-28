@@ -4,8 +4,8 @@ This is the front-end code that participants see. The site needs to be served th
 
 ## Dependencies
 
-* node `18.18.0`
-* npm `8.19.2`
+* node `>= 16`
+* npm `>= 8`
 
 ## Setup
 

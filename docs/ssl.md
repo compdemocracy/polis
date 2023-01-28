@@ -16,6 +16,6 @@ To modify these settings, edit `file-server/nginx/nginx-ssl.site.default.conf` b
 
 ```
 edit file-server/nginx/nginx-ssl.site.default.conf
-docker-compose up --detach --build --no-deps nginx-proxy
+docker compose up --detach --build --no-deps nginx-proxy
 ```
 

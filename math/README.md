@@ -16,13 +16,13 @@ This allows you to connect to and evaluate code from within the running math wor
 To use this infrastructure, run the following from the root of this repository:
 
 ```
-docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 ```
 
 The first time you run this (or if you've edited any of the docker files, or certain other parts of the system), you may need to run this command with the `--build` flag.
 In general, this shouldn't be necessary if you're just working on the Clojure code itself, however.
 
-A little while after running this, docker-compose will log out a message telling you that the system has started, and that the nREPL server is running on port `18975`.
+A little while after running this, docker compose will log out a message telling you that the system has started, and that the nREPL server is running on port `18975`.
 This message may get quickly swamped out by a stream of other logging messages relaying polling information (TODO: less verbose logging option).
 Regardless, at this point, the system is running and can be connected to.
 Most editor plugins will connect somewhat automatically if you try to evaluate code or display documentation, but you can refer to the documentation for your editor of choice if this is not the case.
@@ -56,7 +56,7 @@ We'll soon be switching to [Mount](https://github.com/tolitius/mount) over Compo
 
 ## Running commands
 
-There are also a number of commands which can be run, either locally or with `docker-compose run math ...`, from the root of the monorepo:
+There are also a number of commands which can be run, either locally or with `docker compose run math ...`, from the root of the monorepo:
 
 * `clojure -M:run --help` - print run command help (noisy; sorry)
 * `clojure -M:run export <conversation-id> -f <export-filename>.zip` - export the conversation at `<conversation-id>` to the given filename
