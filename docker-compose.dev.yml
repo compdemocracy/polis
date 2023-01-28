@@ -9,7 +9,7 @@
 
 services:
   server:
-    command: npm run build:watch && npm run serve
+    command: npm run build:watch
     environment:
       NODE_ENV: development
     volumes:
