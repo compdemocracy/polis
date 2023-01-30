@@ -6,7 +6,6 @@ export ENV_FILE = .env
 export TAG = $(shell grep -e ^TAG ${ENV_FILE} | awk -F'[=]' '{gsub(/ /,""); print $$2}')
 export GIT_HASH = $(shell git rev-parse --short HEAD)
 export COMPOSE_FILE_ARGS = -f docker-compose.yml -f docker-compose.dev.yml
-export DOCKER_DETACHED=
 
 DETACHED: ## Run docker in "detached" mode
 	$(eval DOCKER_DETACHED = --detach)
@@ -58,10 +57,9 @@ start-rebuild: echo_vars ## Start all Docker containers, [re]building as needed
 start-FULL-REBUILD: echo_vars stop rm-ALL ## Remove and restart all Docker containers, volumes, and images where (polis_tag="${TAG}")
 	docker-compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} build --no-cache
 	docker-compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} down
-	docker-compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up --detached --build
+	docker-compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up --detach --build
 	docker-compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} down
 	docker-compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up ${DOCKER_DETACHED}  --build
-
 
 e2e-install: e2e/node_modules ## Install Cypress E2E testing tools
 	$(E2E_RUN) npm install
@@ -84,7 +82,6 @@ e2e-run-subset: ## Run E2E tests: filter tests by TEST_FILTER envvar (without br
 
 e2e-run-all: ## Run E2E tests: all
 	$(E2E_RUN) npm run e2e:all
-
 
 # Helpful CLI shortcuts
 rbs: start-rebuild
