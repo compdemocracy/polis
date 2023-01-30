@@ -7,7 +7,7 @@ export TAG = $(shell grep -e ^TAG ${ENV_FILE} | awk -F'[=]' '{gsub(/ /,""); prin
 export GIT_HASH = $(shell git rev-parse --short HEAD)
 export COMPOSE_FILE_ARGS = -f docker-compose.yml -f docker-compose.dev.yml
 
-DETACHED: ## Run docker in "detached" mode
+DETACHED: ## Run docker in "detached" mode (e.g. `make DETACHED start`, etc.)
 	$(eval DOCKER_DETACHED = --detach)
 
 PROD: ## Run in prod mode (e.g. `make PROD start`, etc.)
