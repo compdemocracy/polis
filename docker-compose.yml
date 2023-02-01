@@ -71,8 +71,8 @@ services:
     networks:
       - "polis-net"
     ports:
-      - ${HTTP_PORT:-80}:${HTTP_PORT:-80}
-      - ${HTTPS_PORT:-443}:${HTTPS_PORT:-443}
+      - ${HTTP_PORT:-80}:80
+      - ${HTTPS_PORT:-443}:443
 
   file-server:
     image: docker.io/compdem/polis-file-server:${TAG}
