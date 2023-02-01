@@ -29,5 +29,4 @@ $RECYCLE.BIN/
 build
 node_modules
 npm-debug.log
-.env_dev
 polis.config.js

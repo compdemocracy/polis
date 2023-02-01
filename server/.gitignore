@@ -1,6 +1,4 @@
-.env
-.env_dev
 .google_creds_temp
-npm-debug.log
-node_modules
-dist/*
+dist
+node_modules/
+npm-debug.log*
