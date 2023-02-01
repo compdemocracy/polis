@@ -143,6 +143,56 @@ You can specify these `-f docker-compose.yml -f docker-compose.dev.yml` argument
 We use Cypress for automated, end-to-end browser testing for PRs on GitHub (see badge above).
 Please see [`e2e/README.md`](/e2e/README.md) for more information on running these tests locally.
 
+### Kubernetes
+
+**Warning:** This is work in progress and should not be used in production.
+
+Under the `manifests` folder you can find a first version of polis running under
+Kubernetes. It uses an in-cluster postegres as a stateful set, with a persistent
+volume claim, and exposes the polis server using the cluster's ingress.
+
+The setting of the ingress is not part of the provided resources as it will vary
+between providers.
+
+#### Todo
+
+- [ ] Use official postgres image, decouple migrations
+- [ ] Figure out and document the default resources for the services
+- [ ] Document architecture, deployement, pitfalls, and best practices
+
+### Notes
+
+- Look for `polis.local` in the `manifests/*.yaml` and replace with your hostname
+
+### Requirements
+
+- Local development:
+  - [Minikube](https://minikube.sigs.k8s.io/docs/)
+  - [Skaffold](https://skaffold.dev/)
+
+Skaffold deals with the local development flow, syncing updated files to their
+in-cluster containers.
+
+#### Running in Minikube
+
+Start minikube, and enable the ingress and ingress-dns addons.
+
+- `minikube start`
+- `minikube addons enable ingress`
+- `minikube addons enable ingress-dns`
+
+You can now build and deploy the containers in the local cluster via either:
+
+- `skaffold run` - Builds and deploys everything on demand.
+- `skaffold dev` - While running will watch and automatically build and deploy
+  updated containers.
+
+The final part is to expose the nginx ingress to your local machine and connect
+to it.
+
+- `minikube tunnel` - You need to leave this running
+- `open http://polis.local`
+
 ### Miscellaneous & troubleshooting
 
 #### Git Configuration

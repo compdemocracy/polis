@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: polis-math
+data:
+  DATABASE_URL: postgres://postgres:oiPorg3Nrz0yqDLE@postgres:5432/polis-dev
+  WEBSERVER_USERNAME: ws-user
+  WEBSERVER_PASS: ws-pass
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: polis-math
+spec:
+  selector:
+    matchLabels:
+      app: polis-math
+  template:
+    metadata:
+      labels:
+        app: polis-math
+    spec:
+      containers:
+        - image: docker.io/compdem/polis-math:dev
+          name: polis-math
+          envFrom:
+          - configMapRef:
+              name: polis-math
+          ports:
+            - containerPort: 5000
+          resources:
+            requests:
+              cpu: 100m
+              memory: 100Mi
+            limits:
+              cpu: 1000m
+              memory: 1000Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: polis-math
+spec:
+  ports:
+    - name: http
+      port: 80
+      targetPort: 5000
+  selector:
+    app: polis-math
+
+
