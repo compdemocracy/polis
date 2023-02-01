@@ -1,21 +1,22 @@
-{
-  "parser": "babel-eslint",
-  "parserOptions": {
-    "ecmaVersion": 7,
-    "sourceType": "module",
-    "ecmaFeatures": {
-    },
+module.exports = {
+  env: {
+    es2021: true,
+    node: true,
   },
+  extends: ["eslint:recommended", "plugin:@typescript-eslint/recommended"],
+  overrides: [],
+  parser: "@typescript-eslint/parser",
+  parserOptions: {
+    ecmaVersion: "latest",
+    sourceType: "module",
+  },
+  plugins: ["@typescript-eslint"],
   rules: {
-    "camelcase": 0,
     "comma-dangle": [1, "always-multiline"],
     "comma-spacing": 0,
     "consistent-return": 0,
-    "curly": 1,
-    "eqeqeq": 1,
     "global-strict": 0,
     "handle-callback-err": 0,
-    "indent": ["error", 2],
     "key-spacing": 0,
     "new-cap": 0,
     "no-caller": 1,
@@ -29,12 +30,18 @@
     "no-shadow": 0,
     "no-trailing-spaces": 0,
     "no-underscore-dangle": 0,
-    "no-unused-vars": ["error", { "vars": "all", "args": "none" }],
+    "no-unused-vars": ["error", { vars: "all", args: "none" }],
     "no-use-before-define": 0,
-    "quotes": 0,
+    "no-var": 1,
+    "prefer-const": 1,
     "semi-spacing": 0,
     "space-infix-ops": 0,
     "wrap-iife": 1,
-    "yoda": 0,
-  }
-}
+    camelcase: 0,
+    curly: 1,
+    eqeqeq: 1,
+    indent: ["error", 2],
+    quotes: 0,
+    yoda: 0,
+  },
+};
