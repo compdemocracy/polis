@@ -12,7 +12,9 @@
     "dev": "npm install && npm run build:watch",
     "type:check:watch": "tsc --watch",
     "format": "prettier --config ./prettier.config.js --no-editorconfig 'src/**/*.{js,ts}' --write",
-    "format:check": "prettier --config ./prettier.config.js --no-editorconfig 'src/**/*.{js,ts}' --check"
+    "format:check": "prettier --config ./prettier.config.js --no-editorconfig 'src/**/*.{js,ts}' --check",
+    "lint": "eslint --quiet .",
+    "lint:verbose": "eslint ."
   },
   "repository": {
     "type": "git",
