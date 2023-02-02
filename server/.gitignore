@@ -1,3 +1,4 @@
+.env
 .google_creds_temp
 dist
 node_modules/

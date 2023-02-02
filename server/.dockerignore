@@ -1,3 +1,4 @@
+.env
 .git
 .google_creds_temp
 node_modules/
