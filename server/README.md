@@ -12,10 +12,10 @@ The below instructions are no longer officially supported; if you'd like to use 
 
 ### Dependencies
 
-* PostgreSql `(>= 9.5.4.1)`
-* Node `6.11.1`
+* PostgreSql `(~ 13.4)`
+* Node `>= 16`
 We recommend installing [nvm](https://github.com/creationix/nvm) so that you can easily switch between your favorite flavors of node.
-* NPM `3.3.8`
+* NPM `>= 8`
 
 ### Setup
 
@@ -31,11 +31,11 @@ We recommend installing [nvm](https://github.com/creationix/nvm) so that you can
     \i postgres/migrations/000001_update_pwreset_table.sql
     ```
     You can also separately run `psql -d polis -f postgres/migrations/000000_initial.sql` and `psql -d polis -f postgres/migrations/000001_update_pwreset_table.sql` from the shell.
-1. Create development envs file
+1. Create development .env file
     ```sh
-    $ cp .env_dev_local_db_template .env_dev
+    $ cp example.env .env
     ```
-1. Update database connection settings in `.env_dev`. Replace the username, password, and database_name in the DATABASE_URL
+1. Update database connection settings in `.env`. Replace the username, password, and database_name in the DATABASE_URL
     ```
     export DATABASE_URL=postgres://your_pg_username:your_pg_password@localhost:5432/your_pg_database_name
     ```
