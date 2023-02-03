@@ -2,6 +2,7 @@ module.exports = {
   env: {
     es2021: true,
     node: true,
+    "jest/globals": true
   },
   extends: ["eslint:recommended", "plugin:@typescript-eslint/recommended"],
   overrides: [],
@@ -10,7 +11,7 @@ module.exports = {
     ecmaVersion: "latest",
     sourceType: "module",
   },
-  plugins: ["@typescript-eslint"],
+  plugins: ["@typescript-eslint", "jest"],
   rules: {
     "@typescript-eslint/ban-ts-comment": 1,
     "@typescript-eslint/ban-types": 1,
