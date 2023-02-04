@@ -7,3 +7,10 @@ describe("GET /api/v3/testConnection", () => {
       .expect(200);
   });
 });
+
+describe("GET /api/v3/testDatabase", () => {
+  it("should return 200 OK", () => {
+    return request(app).get("/api/v3/testDatabase")
+      .expect(200);
+  });
+});
