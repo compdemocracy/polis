@@ -2,7 +2,7 @@ import { isFunction, isString, isUndefined } from "underscore";
 import { native as pgnative, Pool } from "pg"; //.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
 import { parse as parsePgConnectionString } from "pg-connection-string";
 
-import { isDevMode } from "../config";
+import Config from "../config";
 import { yell } from "../log";
 import { MPromise } from "../utils/metered";
 
@@ -20,7 +20,7 @@ import { MPromise } from "../utils/metered";
 const usingReplica =
   process.env.DATABASE_URL !==
   process.env[process.env.DATABASE_FOR_READS_NAME as string];
-const poolSize = isDevMode() ? 2 : usingReplica ? 3 : 12;
+const poolSize = Config.isDevMode() ? 2 : usingReplica ? 3 : 12;
 
 // not sure how many of these config options we really need anymore
 const pgConnection = Object.assign(
