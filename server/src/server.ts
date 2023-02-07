@@ -8160,9 +8160,9 @@ Email verified! You can close this tab or hit the back button.
               !_.isUndefined(xid) && !_.isNull(xid)
                 ? getXidStuff(xid, zid)
                 : Promise.resolve();
-            pidPromise = xidUserPromise.then((xidUser: UserType) => {
+            pidPromise = xidUserPromise.then((xidUser: UserType | "noXidRecord") => {
               shouldCreateXidRecord = xidUser === "noXidRecord";
-              if (xidUser && xidUser.uid) {
+              if (typeof xidUser === 'object') {
                 uid = xidUser.uid;
                 pid = xidUser.pid;
                 return pid;
