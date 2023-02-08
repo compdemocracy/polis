@@ -14,7 +14,7 @@
     "format:check": "prettier --config ./prettier.config.js --no-editorconfig 'src/**/*.{js,ts}' --check",
     "lint": "eslint --quiet .",
     "lint:verbose": "eslint .",
-    "test": "PORT=5050 jest --forceExit test",
+    "test": "jest --forceExit test",
     "test:watch": "npm test -- --watchAll"
   },
   "repository": {
