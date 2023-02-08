@@ -27,7 +27,7 @@ describe("Config", () => {
     });
 
     test('returns domain override value when DOMAIN_OVERRIDE is set', async () => {
-      jest.replaceProperty(process, 'env', {DOMAIN_OVERRIDE: 'example.co'});
+      jest.replaceProperty(process, 'env', {DEV_MODE: 'false', DOMAIN_OVERRIDE: 'example.co'});
 
       const { default: Config } = await import('../src/config');
       const req = {
