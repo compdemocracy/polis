@@ -15263,7 +15263,7 @@ Thanks for using Polis!
   //     });
   // }
 
-  function hangle_GET_testConnection(
+  function handle_GET_testConnection(
     req: any,
     res: {
       status: (
@@ -15280,7 +15280,7 @@ Thanks for using Polis!
     });
   }
 
-  function hangle_GET_testDatabase(
+  function handle_GET_testDatabase(
     req: any,
     res: {
       status: (
@@ -16643,8 +16643,8 @@ Thanks for using Polis!
     handle_GET_snapshot,
     handle_GET_stripe_account_connect,
     handle_GET_stripe_account_connected_oauth_callback,
-    hangle_GET_testConnection,
-    hangle_GET_testDatabase,
+    handle_GET_testConnection,
+    handle_GET_testDatabase,
     handle_GET_tryCookie,
     handle_GET_twitter_image,
     handle_GET_twitter_oauth_callback,
