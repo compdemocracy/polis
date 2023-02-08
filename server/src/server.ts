@@ -69,7 +69,7 @@ import {
 } from "./d";
 
 AWS.config.update({ region: process.env.AWS_REGION });
-const devMode = isTrue(process.env.DEV_MODE);
+const devMode = Config.isDevMode;
 const s3Client = new AWS.S3({ apiVersion: "2006-03-01" });
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const yell = Log.yell;

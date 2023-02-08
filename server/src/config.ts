@@ -4,7 +4,10 @@ const devMode = isTrue(process.env.DEV_MODE);
 const domainOverride = process.env.DOMAIN_OVERRIDE || null;
 
 export default {
-  getServerNameWithProtocol: (req: any) => {
+  domainOverride: domainOverride as string | null,
+  isDevMode: devMode as boolean,
+
+  getServerNameWithProtocol: (req: any): string => {
     let server = "https://pol.is";
 
     if (domainOverride) {
@@ -26,14 +29,5 @@ export default {
       server = "https://survey.pol.is";
     }
     return server;
-  },
-
-  get: (key: string) => process.env[key],
-
-  domainOverride: domainOverride,
-
-  isDevMode: () => devMode
+  }
 }
-
-// export { domainOverride, getServerNameWithProtocol, get, isDevMode };
-// export default { domainOverride, getServerNameWithProtocol, get, isDevMode };

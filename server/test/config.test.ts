@@ -53,5 +53,21 @@ describe("Config", () => {
 
       expect(Config.getServerNameWithProtocol(req)).toBe('https://mydomain.xyz');
     });
+
+    test('returns https://embed.pol.is when req domain contains embed.pol.is', async () => {
+      jest.replaceProperty(process, 'env', {DEV_MODE: 'true', DOMAIN_OVERRIDE: 'example.co'});
+
+      const { default: Config } = await import('../src/config');
+      const req = {
+        protocol: 'https',
+        headers: {
+          host: 'embed.pol.is'
+        }
+      };
+
+      expect(Config.getServerNameWithProtocol(req)).toBe('https://embed.pol.is');
+    });
   });
+
+
 });

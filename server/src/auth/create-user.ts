@@ -245,7 +245,7 @@ Click this link to verify your email address:
 ${serverName}/api/v3/verify?e=${einvite}`;
 
   return sendTextEmail(
-    Config.get("POLIS_FROM_ADDRESS"),
+    process.env.POLIS_FROM_ADDRESS,
     email,
     "Polis verification",
     body

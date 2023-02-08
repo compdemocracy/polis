@@ -20,7 +20,7 @@ import { MPromise } from "../utils/metered";
 const usingReplica =
   process.env.DATABASE_URL !==
   process.env[process.env.DATABASE_FOR_READS_NAME as string];
-const poolSize = Config.isDevMode() ? 2 : usingReplica ? 3 : 12;
+const poolSize = Config.isDevMode ? 2 : usingReplica ? 3 : 12;
 
 // not sure how many of these config options we really need anymore
 const pgConnection = Object.assign(
