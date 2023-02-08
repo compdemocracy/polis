@@ -160,16 +160,14 @@ Promise.onPossiblyUnhandledRejection(function (err: { stack: any }) {
   // throw err; // not throwing since we're printing stack traces anyway
 });
 
-const adminEmailDataExport = process.env.ADMIN_EMAIL_DATA_EXPORT || "";
-const adminEmailDataExportTest = process.env.ADMIN_EMAIL_DATA_EXPORT_TEST || "";
-const adminEmailEmailTest = process.env.ADMIN_EMAIL_EMAIL_TEST || "";
+const adminEmails = Config.adminEmails
+  ? JSON.parse(Config.adminEmails)
+  : [];
 
-const admin_emails = process.env.ADMIN_EMAILS
-  ? JSON.parse(process.env.ADMIN_EMAILS)
+const polisDevs = Config.adminUids
+  ? JSON.parse(Config.adminUids)
   : [];
-const polisDevs = process.env.ADMIN_UIDS
-  ? JSON.parse(process.env.ADMIN_UIDS)
-  : [];
+
 function isPolisDev(uid?: any) {
   console.log("polisDevs", polisDevs);
   return polisDevs.indexOf(uid) >= 0;
@@ -216,9 +214,9 @@ setInterval(function () {
 // // END GITHUB OAUTH2
 const POLIS_FROM_ADDRESS = process.env.POLIS_FROM_ADDRESS;
 
-const akismet = akismetLib.client({
+let akismet = akismetLib.client({
   blog: "https://pol.is", // required: your root level url
-  apiKey: process.env.AKISMET_ANTISPAM_API_KEY,
+  apiKey: Config.akismetAntispamApiKey, // required: your akismet api key
 });
 
 akismet.verifyKey(function (err: any, verified: any) {
@@ -2231,7 +2229,7 @@ function initializePolisHelpers() {
   ) {
     let runExportTest = () => {
       let math_env = "prod";
-      let email = adminEmailDataExportTest;
+      let email = Config.adminEmailDataExportTest;
       let zid = 12480;
       let atDate = Date.now();
       let format = "csv";
@@ -3964,7 +3962,7 @@ ${message}`;
 
     return sendMultipleTextEmails(
       POLIS_FROM_ADDRESS,
-      admin_emails,
+      adminEmails,
       "Dummy button clicked!!!",
       body
     ).catch(function (err: any) {
@@ -3976,7 +3974,7 @@ ${message}`;
   function emailTeam(subject: string, body: string) {
     return sendMultipleTextEmails(
       POLIS_FROM_ADDRESS,
-      admin_emails,
+      adminEmails,
       subject,
       body
     ).catch(function (err: any) {
@@ -4088,7 +4086,7 @@ ${serverName}/pwreset/${pwresettoken}
       // If the sending fails, we should get an error ping.
       sendTextEmailWithBackupOnly(
         POLIS_FROM_ADDRESS,
-        adminEmailEmailTest,
+        Config.adminEmailEmailTest,
         "monday backup email system test",
         "seems to be working"
       );
@@ -11953,7 +11951,7 @@ Email verified! You can close this tab or hit the back button.
     const email = req.p.email;
     const subject =
       "Polis data export for conversation pol.is/" + req.p.conversation_id;
-    const fromAddress = `Polis Team <${adminEmailDataExport}>`;
+    const fromAddress = `Polis Team <${Config.adminEmailDataExport}>`;
     const body = `Greetings
 
 You created a data export for conversation ${domain}/${req.p.conversation_id} that has just completed. You can download the results for this conversation at the following url:

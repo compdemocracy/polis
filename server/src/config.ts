@@ -29,5 +29,12 @@ export default {
       server = "https://survey.pol.is";
     }
     return server;
-  }
+  },
+
+  adminEmailDataExportTest: process.env.ADMIN_EMAIL_DATA_EXPORT_TEST || '' as string,
+  adminEmailDataExport: process.env.ADMIN_EMAIL_DATA_EXPORT || '' as string,
+  adminEmailEmailTest: process.env.ADMIN_EMAIL_EMAIL_TEST || '' as string,
+  adminEmails: process.env.ADMIN_EMAILS || '[]' as string,
+  adminUids: process.env.ADMIN_UIDS || '[]' as string,
+  akismetAntispamApiKey: process.env.AKISMET_ANTISPAM_API_KEY || null as string | null,
 }

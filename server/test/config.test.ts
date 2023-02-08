@@ -68,6 +68,4 @@ describe("Config", () => {
       expect(Config.getServerNameWithProtocol(req)).toBe('https://embed.pol.is');
     });
   });
-
-
 });
