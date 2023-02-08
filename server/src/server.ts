@@ -905,7 +905,9 @@ function initializePolisHelpers() {
       return next();
     }
 
-    if (!/https/.test(req?.headers?.["x-forwarded-proto"] || "")) {
+    const isHttps = req?.headers?.["x-forwarded-proto"] === "https";
+
+    if (!isHttps) {
       // assuming we're running on Heroku, where we're behind a proxy.
       res.writeHead(302, {
         Location: "https://" + req?.headers?.host + req.url,
