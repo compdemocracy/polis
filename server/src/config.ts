@@ -31,6 +31,14 @@ export default {
     return server;
   },
 
+  getServerUrl: (): string => {
+    if (devMode) {
+      return process.env.DEV_URL || "http://localhost:5000";
+    } else {
+      return process.env.SERVER_URL || "https://pol.is";
+    }
+  },
+
   adminEmailDataExportTest: process.env.ADMIN_EMAIL_DATA_EXPORT_TEST || '' as string,
   adminEmailDataExport: process.env.ADMIN_EMAIL_DATA_EXPORT || '' as string,
   adminEmailEmailTest: process.env.ADMIN_EMAIL_EMAIL_TEST || '' as string,

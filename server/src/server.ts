@@ -214,9 +214,11 @@ setInterval(function () {
 // // END GITHUB OAUTH2
 const POLIS_FROM_ADDRESS = process.env.POLIS_FROM_ADDRESS;
 
+const serverUrl = Config.getServerUrl(); // typically https://pol.is or http://localhost:5000
+
 let akismet = akismetLib.client({
-  blog: "https://pol.is", // required: your root level url
-  apiKey: Config.akismetAntispamApiKey, // required: your akismet api key
+  blog: serverUrl,
+  apiKey: Config.akismetAntispamApiKey,
 });
 
 akismet.verifyKey(function (err: any, verified: any) {
@@ -929,7 +931,7 @@ function initializePolisHelpers() {
       /www.pol.is/.test(req?.headers?.host || "")
     ) {
       res.writeHead(302, {
-        Location: "https://pol.is" + req.url,
+        Location: serverUrl + req.url,
       });
       return res.end();
     }
@@ -4880,10 +4882,7 @@ Email verified! You can close this tab or hit the back button.
     // @ts-ignore
     params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
 
-    let server = "http://localhost:5000";
-    if (!devMode) {
-      server = "https://" + process.env.PRIMARY_POLIS_URL;
-    }
+    let server = Config.getServerUrl();
     return server + "/" + path + "?" + paramsToStringSortedByName(params);
   }
 
@@ -4898,10 +4897,7 @@ Email verified! You can close this tab or hit the back button.
     // @ts-ignore
     params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
 
-    let server = "http://localhost:5000";
-    if (!devMode) {
-      server = "https://" + process.env.PRIMARY_POLIS_URL;
-    }
+    let server = Config.getServerUrl();
     return server + "/" + path + "?" + paramsToStringSortedByName(params);
   }
 
@@ -7839,7 +7835,7 @@ Email verified! You can close this tab or hit the back button.
     req: { p?: ConversationType; protocol?: string; headers?: Headers },
     zinvite: string
   ) {
-    let server = devMode ? "http://localhost:5000" : "https://pol.is";
+    let server = Config.getServerUrl();
     if (domainOverride) {
       server = req?.protocol + "://" + domainOverride;
     }
@@ -7852,7 +7848,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   // function createMuteUrl(zid, tid) {
-  //     let server = devMode ? "http://localhost:5000" : "https://pol.is";
+  //     let server = Config.getServerUrl();
   //     let params = {
   //         zid: zid,
   //         tid: tid
@@ -7863,7 +7859,7 @@ Email verified! You can close this tab or hit the back button.
   // }
 
   // function createUnmuteUrl(zid, tid) {
-  //     let server = devMode ? "http://localhost:5000" : "https://pol.is";
+  //     let server = Config.getServerUrl();
   //     let params = {
   //         zid: zid,
   //         tid: tid

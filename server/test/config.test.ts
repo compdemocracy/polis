@@ -68,4 +68,38 @@ describe("Config", () => {
       expect(Config.getServerNameWithProtocol(req)).toBe('https://embed.pol.is');
     });
   });
+
+  describe("getServerUrl", () => {
+    test('returns SERVER_URL when DEV_MODE is false', async () => {
+      jest.replaceProperty(process, 'env', {DEV_MODE: 'false', SERVER_URL: 'https://example.com'});
+
+      const { default: Config } = await import('../src/config');
+
+      expect(Config.getServerUrl()).toBe('https://example.com');
+    });
+
+    test('returns https://pol.is when DEV_MODE is false and SERVER_URL is not set', async () => {
+      jest.replaceProperty(process, 'env', {DEV_MODE: 'false'});
+
+      const { default: Config } = await import('../src/config');
+
+      expect(Config.getServerUrl()).toBe('https://pol.is');
+    });
+
+    test('returns DEV_URL when DEV_MODE is true', async () => {
+      jest.replaceProperty(process, 'env', {DEV_MODE: 'true', DEV_URL: 'https://dev.example.com'});
+
+      const { default: Config } = await import('../src/config');
+
+      expect(Config.getServerUrl()).toBe('https://dev.example.com');
+    });
+
+    test('returns http://localhost:5000 when DEV_MODE is true and DEV_URL is not set', async () => {
+      jest.replaceProperty(process, 'env', {DEV_MODE: 'true'});
+
+      const { default: Config } = await import('../src/config');
+
+      expect(Config.getServerUrl()).toBe('http://localhost:5000');
+    });
+  });
 });
