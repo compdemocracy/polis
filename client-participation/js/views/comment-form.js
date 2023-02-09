@@ -3,7 +3,7 @@
 var autosize = require("autosize");
 var constants = require("../util/constants");
 var CurrentUserModel = require("../stores/currentUser");
-var template = require("../tmpl/comment-form");
+var template = require("../templates/comment-form.handlebars");
 var display = require("../util/display");
 var eb = require("../eventBus");
 var Handlebones = require("handlebones");
@@ -13,6 +13,7 @@ var ProfilePicView = require('../views/profilePicView');
 var serialize = require("../util/serialize");
 var Strings = require("../strings");
 var Utils = require("../util/utils");
+var $ = require("jquery");
 
 var CHARACTER_LIMIT = constants.CHARACTER_LIMIT;
 
@@ -47,6 +48,7 @@ module.exports = Handlebones.ModelView.extend({
     ctx.s = Strings;
     ctx.desktop = !display.xs();
     ctx.hideHelp = !Utils.userCanSeeHelp() || preload.firstConv.help_type === 0;
+    ctx.direction = Strings.direction ? Strings.direction : 'ltr'
 
     ctx.no_write_hint = false; //preload.firstConv.write_hint_type === 0;
 

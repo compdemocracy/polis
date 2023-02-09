@@ -1,20 +1,27 @@
-FROM node:14.14.0-alpine
+FROM docker.io/node:18-alpine
 
 WORKDIR /app
 
-RUN apk add postgresql-dev
+COPY package*.json ./
+
+# This package is needed at runtime
+RUN apk add libpq-dev
 
 RUN apk add --no-cache --virtual .build \
-  g++ git make python
+  g++ make python3
 
-COPY package*.json ./
-# TODO get `npm ci` to work
-RUN npm install
+# This is useful for development situations when node_modules is a volume and would
+# otherwise persist across container rebuilds.
+RUN rm -rf node_modules
+
+RUN npm ci
 
 RUN apk del .build
 
 COPY . .
 
+RUN npm run build
+
 EXPOSE 5000
 
-CMD node --max_old_space_size=400 --gc_interval=100 --harmony app.js
+CMD npm run serve

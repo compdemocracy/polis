@@ -22,6 +22,9 @@ var translations = {
   // Spanish
   es: require("./strings/es_la.js"),
 
+  // Farsi
+  fa: require("./strings/fa.js"),
+
   // French
   fr: require("./strings/fr.js"),
 
@@ -48,12 +51,15 @@ var translations = {
 
   // Welsh
   cy: require("./strings/cy.js"),
-  
+
   // Greek
   gr: require("./strings/gr.js"),
 
   // Ukrainian
   uk: require("./strings/uk.js"),
+
+  // Russian
+  ru: require("./strings/ru.js"),
 };
 
 
@@ -101,6 +107,9 @@ preloadHelper.acceptLanguagePromise.then(function() {
     else if (languageCode.match(/^es/)) {
       _.extend(strings, translations.es);
     }
+    else if (languageCode.match(/^fa/)) {
+      _.extend(strings, translations.fa);
+    }
     else if (languageCode.match(/^fr/)) {
       _.extend(strings, translations.fr);
     }
@@ -127,6 +136,9 @@ preloadHelper.acceptLanguagePromise.then(function() {
     }
     else if (languageCode.match(/^uk/)) {
       _.extend(strings, translations.uk);
+    }
+    else if (languageCode.match(/^ru/)) {
+      _.extend(strings, translations.ru);
     }
   });
 });

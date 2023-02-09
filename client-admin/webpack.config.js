@@ -2,61 +2,156 @@
 
 var path = require("path");
 var webpack = require("webpack");
-var CompressionPlugin = require('compression-webpack-plugin')
+var CompressionPlugin = require('compression-webpack-plugin');
 var LodashModuleReplacementPlugin = require('lodash-webpack-plugin');
+var HtmlWebPackPlugin = require('html-webpack-plugin');
+var EventHooksPlugin = require('event-hooks-webpack-plugin');
+var CopyPlugin = require("copy-webpack-plugin");
+var TerserPlugin = require("terser-webpack-plugin");
+var BundleAnalyzerPlugin = require('webpack-bundle-analyzer')
+  .BundleAnalyzerPlugin
+var mri = require('mri');
+var glob = require('glob');
+var fs = require('fs');
+var { boolean: isTrue } = require("boolean");
 
-module.exports = {
-  entry: ["./src/index"],
-  output: {
-    path: path.join(__dirname, "dist"),
-    filename: "admin_bundle.js",
-    publicPath: "/dist/",
-  },
-  resolve: {
-    extensions: [".js", ".css", ".png", ".svg"],
-  },
-  plugins: [
-    new LodashModuleReplacementPlugin({
-      "currying": true,
-      "flattening": true,
-      "paths": true,
-      "placeholders": true,
-      "shorthands": true
-    }),
-    new CompressionPlugin({
-      test: /\.js$/,
-      // Leave unmodified without gz ext.
-      // See: https://webpack.js.org/plugins/compression-webpack-plugin/#options
-      filename: '[path][base]',
-      deleteOriginalAssets: true,
-    }),
-    new webpack.DefinePlugin({
-      "process.env.NODE_ENV": JSON.stringify("production"),
-    }),
-  ],
-  optimization: {
-    minimize: true, //Update this to true or false
-  },
-  module: {
-    rules: [
-      {
-        test: /\.m?js$/,
-        exclude: /(node_modules|bower_components)/,
-        use: {
-          loader: "babel-loader",
-          options: {
-            presets: ["@babel/preset-env"],
-          },
+// CLI commands for deploying built artefact.
+var argv = process.argv.slice(2)
+var cliArgs = mri(argv)
+
+var polisConfig = require("./polis.config");
+
+module.exports = (env, options) => {
+  var isDevBuild = options.mode === 'development';
+  var isDevServer = process.env.WEBPACK_SERVE;
+  var chunkHashFragment = (isDevBuild || isDevServer) ? '' : '.[chunkhash:8]';
+  return {
+    entry: ["./src/index"],
+    output: {
+      publicPath: '/',
+      filename: `static/js/admin_bundle${chunkHashFragment}.js`,
+      path: path.resolve(__dirname, "build"),
+      clean: true,
+    },
+    resolve: {
+      extensions: [".js", ".css", ".png", ".svg"],
+    },
+    devServer: {
+      historyApiFallback: true,
+      /**
+      // TODO: Set up API proxy later for server component.
+      // See: https://webpack.js.org/configuration/dev-server/#devserverproxy
+      proxy: {
+        '/api': {
+        target: 'https://pol.is',
+        secure: false,
         },
       },
-      {
-        test: /\.(png|jpg|gif|svg)$/,
-        loader: "file-loader",
-      },
-      {
-        test: /\.mdx?$/,
-        use: ['babel-loader', '@mdx-js/loader']
-      }
+      **/
+    },
+    plugins: [
+      new CopyPlugin({
+        patterns: [
+          { from: 'public', globOptions: { ignore: ['**/index.html']}},
+        ],
+      }),
+      new HtmlWebPackPlugin({
+        template: path.resolve( __dirname, 'public/index.html' ),
+        filename: (isDevBuild || isDevServer) ? 'index.html' : 'index_admin.html',
+        inject: "body",
+        templateParameters: {
+          domainWhitelist: `["${polisConfig.domainWhitelist.join('","')}"]`,
+          fbAppId: polisConfig.FB_APP_ID,
+          usePlans: !isTrue(polisConfig.DISABLE_PLANS),
+          useIntercom: !isTrue(polisConfig.DISABLE_INTERCOM),
+        },
+      }),
+      new LodashModuleReplacementPlugin({
+        currying: true,
+        flattening: true,
+        paths: true,
+        placeholders: true,
+        shorthands: true
+      }),
+      // Only run analyzer when specified in flag.
+      ...(cliArgs.analyze ? [new BundleAnalyzerPlugin({ defaultSizes: 'gzip' })] : []),
+      // Only compress and create headerJson files during production builds.
+      ...((isDevBuild || isDevServer || cliArgs.analyze) ? [] : [
+        new CompressionPlugin({
+          test: /\.js$/,
+          // Leave unmodified without gz ext.
+          // See: https://webpack.js.org/plugins/compression-webpack-plugin/#options
+          filename: '[path][base]',
+          deleteOriginalAssets: true,
+        }),
+        new EventHooksPlugin({
+          afterEmit: () => {
+            console.log('Writing *.headersJson files...')
+
+            function writeHeadersJson(matchGlob, headersData = {}) {
+              const files = glob.sync(path.resolve(__dirname, "build", matchGlob))
+              files.forEach((f, i) => {
+                const headersFilePath = f + '.headersJson'
+                fs.writeFileSync(headersFilePath, JSON.stringify(headersData))
+              })
+            }
+
+            function writeHeadersJsonHtml() {
+              const headersData = {
+                'x-amz-acl': 'public-read',
+                'Content-Type': 'text/html; charset=UTF-8',
+                'Cache-Control': 'no-cache'
+              }
+              writeHeadersJson('*.html', headersData)
+            }
+
+            function writeHeadersJsonJs() {
+              const headersData = {
+                'x-amz-acl': 'public-read',
+                'Content-Encoding': 'gzip',
+                'Content-Type': 'application/javascript',
+                'Cache-Control':
+                  'no-transform,public,max-age=31536000,s-maxage=31536000'
+              }
+              writeHeadersJson('static/js/*.js?(.map)', headersData)
+            }
+
+            function writeHeadersJsonMisc() {
+              writeHeadersJson('favicon.ico')
+            }
+
+            writeHeadersJsonHtml()
+            writeHeadersJsonJs()
+            writeHeadersJsonMisc()
+          }
+        }),
+      ])
     ],
-  },
-};
+    optimization: {
+      minimize: !isDevBuild,
+      minimizer: [new TerserPlugin()],
+    },
+    module: {
+      rules: [
+        {
+          test: /\.m?js$/,
+          exclude: /node_modules/,
+          use: {
+            loader: 'babel-loader',
+            options: {
+              presets: ['@babel/preset-env', '@babel/preset-react'],
+            },
+          },
+        },
+        {
+          test: /\.(png|jpg|gif|svg)$/,
+          loader: 'file-loader',
+        },
+        {
+          test: /\.mdx?$/,
+          use: ['babel-loader', '@mdx-js/loader']
+        }
+      ],
+    },
+  };
+}

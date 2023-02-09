@@ -4,8 +4,8 @@ var $ = require("jquery");
 
 
 // not sure about these
-require("bootstrap_tooltip");
-require("bootstrap_popover");
+require("bootstrap-sass/assets/javascripts/bootstrap/tooltip");
+require("bootstrap-sass/assets/javascripts/bootstrap/popover");
 
 
 var originalPopover = $.fn.popover;

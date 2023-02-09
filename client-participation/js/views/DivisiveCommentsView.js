@@ -4,8 +4,8 @@ var Handlebones = require("handlebones");
 // var CommentModel = require("../models/comment");
 // var Utils = require("../util/utils");
 
-// var template = require("../tmpl/topComments");
-var itemTemplate = require("../tmpl/topCommentsItem");
+// var template = require("../templates/topComments.handlebars");
+var itemTemplate = require("../templates/topCommentsItem.handlebars");
 
 var width = 60;
 

@@ -21,7 +21,10 @@
     ;[alex-and-georges.debug-repl :as dbr]
     [taoensso.timbre :as log]
     [clojure.spec.gen.alpha :as gen]
-    [clojure.test.check.generators :as generators]))
+    [clojure.test.check.generators :as generators]
+    [tech.v3.dataset :as ds]
+    [tech.v3.datatype :as dt]))
+    ;[semantic-csv.core :as s.csv]))
 
 
 ;; Starting to spec out our domain model here and build generators for the pieces
@@ -137,11 +140,11 @@
                   ;; TODO Answer and resolve this question:
                   ;; QUESTION Does it make senes to have the defaults here or in the config.edn or both duplicated?
                   (merge {:n-comps 2 ; does our code even generalize to others?
-                          :pca-iters 10
-                          :base-iters 10
+                          :pca-iters 100
+                          :base-iters 100
                           :base-k 100
                           :max-k 5
-                          :group-iters 10
+                          :group-iters 100
                           ;; These three in particular we should be able to tune quickly
                           :max-ptpts 100000
                           :max-cmts 10000

@@ -1,55 +1,24 @@
-Polis Client/Participation View
-===============================
+# Polis Client Participation
 
-This is the code for the view that conversation participants see.
+This is the front-end code that participants see. The site needs to be served through the `file-server` and the `server` before it will render correctly as data payloads are injected into the HTML as it is served.
 
+## Dependencies
 
-Development
------------
+* node `>= 16`
+* npm `>= 8`
 
-The below instructions are no longer officially supported; if you'd like to use them as a reference, we suggest you check out the official [Dockerfile](Dockerfile) to understand the latest build process and specific package versions.
-
----
-
-Install with [npm](https://www.npmsjs.org/) and [bower](http://bower.io/) (`npm install --global bower`):
+## Setup
 
 ```sh
 npm install
-bower install
+cp polis.config.template.js polis.config.js
+npm run build:prod
 ```
 
-There is a `polis.config.template.js` file which will have to be copied over to `polis.config.js`, and edited as appropriate.
+From here go to `file-server` and run `make` to copy the built files across.
 
-To run: `./x`
+You can run `npm run build:dev` to get an unminified version which makes for easier in-browser debugging.
 
-The dev server should now be running at [localhost:5001](http://localhost:5001/) (or whatever port you set in your `polis.config.js`)
-So... you might think that you should now be able to go to this address and see the polis interface.
-However, this is not the case.
-Because of preprocessing required of the `index.html` file before it will load (including the embedding of the initial data payload in the html), it is necessary that the application be accessed through a running instance of the your [polisServer](https://github.com/pol-is/polisServer) (by default [localhost:5000](http://localhost:5000)).
+## Troubleshooting
 
-Also note that the polisServer process will need to know via its config the port on which this, the participation client code, will be available.
-If you don't mess with any of the default port settings you shouldn't have to worry about all this nonsense.
-Just know that if you do, you will then need to update these port variables in multiple places.
-
-
-
-Troubleshooting
----------------
-
-If you get an error running `./x` that looks something like `Error: watch /home/csmall/code/polisClientParticipation/js ENOSPC` trying to run, this may be because your system has too many watches active.
-If you see this, try running `echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf && sudo sysctl -p` to increase the number of available watches on your system.
-
-
-Deployment
-----------
-
-Before pushing to s3: `gulp dist`
-
-Then run `npm run deploy:preprod` or `npm run deploy:prod` scripts to deploy to preprod and prod environments
-respectively.
-
-
-### Other Requirements
-
-For gulp-ruby-sass to enable `sourcemap` options, it requires Sass >= 3.3.0
-
+If you get an error that looks something like `Error: watch /home/csmall/code/polisClientParticipation/js ENOSPC` trying to run, this may be because your system has too many watches active. If you see this, try running `echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf && sudo sysctl -p` to increase the number of available watches on your system.

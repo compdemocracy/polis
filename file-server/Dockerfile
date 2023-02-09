@@ -1,25 +1,86 @@
-ARG TAG=dev
-
-FROM compdem/polis-client-admin:${TAG}          as admin
-FROM compdem/polis-client-participation:${TAG}  as participation
-FROM compdem/polis-client-report:${TAG}         as report
-
-FROM node:17.1.0-alpine
+######################## POLIS CLIENT ADMIN ########################
+#FROM client-base AS client-admin # <- switch back to basing on client admin once we upgrade other clients
+FROM docker.io/node:18-alpine AS client-admin
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY client-admin/package*.json ./
+RUN npm ci
+
+COPY client-admin/polis.config.template.js polis.config.js
+# If polis.config.js already exists in the local directory being copied,
+# it will override the template from the line above.
+COPY client-admin/. .
+
+RUN npm run build:prod
+
+
+
+##################### POLIS CLIENT PARTICIPATION #####################
+FROM docker.io/node:18-alpine AS client-participation
+
+WORKDIR /app
+
+COPY client-participation/package*.json ./
 
 RUN npm ci
 
-COPY . .
-COPY fs_config.template.json fs_config.json
+COPY client-participation/polis.config.template.js polis.config.js
+# If polis.config.js already exists in the local directory being copied,
+# it will override the template from the line above.
+COPY client-participation/. .
 
+ARG NODE_ENV=production
+
+RUN npm run build:prod
+
+
+
+######################## POLIS CLIENT REPORT ########################
+# Gulp v3 stops us from upgrading beyond Node v11
+# FROM client-base AS client-report # <- switch back to basing on client admin once we upgrade other clients
+FROM docker.io/node:11-alpine as client-report
+
+WORKDIR /app
+
+RUN apk add git
+
+COPY client-report/package*.json ./
+
+RUN npm ci
+
+COPY client-report/polis.config.template.js polis.config.js
+# If polis.config.js already exists in the local directory being copied,
+# it will override the template from the line above.
+COPY client-report/. .
+
+# GIT_HASH will be set properly when running `make` (see Makefile).
+ARG GIT_HASH="placeholder"
+
+RUN npm run deploy:prod
+
+
+
+############################ FILE SERVER ############################
+FROM docker.io/node:18-alpine
+
+WORKDIR /app
+
+COPY file-server/package*.json ./
+
+RUN npm ci
+
+COPY file-server/fs_config.template.json fs_config.json
+# If fs_config.json already exists in the local directory being copied,
+# it will override the template from the line above.
+COPY file-server/. .
+
+# use the multi-stage builds above to copy out the resources
 RUN mkdir /app/build
-COPY --from=admin         /app/build/ /app/build
-COPY --from=participation /app/build/ /app/build
-COPY --from=report        /app/build/ /app/build
+COPY --from=client-admin          /app/build/       /app/build
+COPY --from=client-participation  /app/dist/        /app/build
+COPY --from=client-report         /app/build/       /app/build
 
 EXPOSE 8080
 
-CMD node --max_old_space_size=400 --gc_interval=100 --harmony app.js
+CMD npm run serve

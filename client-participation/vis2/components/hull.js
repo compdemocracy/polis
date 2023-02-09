@@ -1,12 +1,14 @@
 import React from "react";
 import * as globals from "./globals";
 import {VictoryAnimation} from "victory-core";
+import * as d3 from "../../js/3rdparty/d3.v4.min.js";
 
 class Hull extends React.Component {
   render () {
     return (
       <g>
         <path
+          data-testid={`hull-${this.props.gid}`}
           onClick={() => {this.props.handleClick(this.props.gid)}}
           d={this.props.pathString}
           ref={this.props.getHullElems(this.props.gid)}

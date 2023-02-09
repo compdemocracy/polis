@@ -1,12 +1,12 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 var CommentCarousel = require('./commentCarousel');
-var carouselCommentMobileTemplate = require("../tmpl/carouselCommentMobile");
-var carouselCommentTemplate = require("../tmpl/carouselComment");
+var carouselCommentMobileTemplate = require("../templates/carouselCommentMobile.handlebars");
+var carouselCommentTemplate = require("../templates/carouselComment.handlebars");
 var constants = require("../util/constants");
 var display = require("../util/display");
 var eb = require("../eventBus");
-var template = require("../tmpl/commentCarouselGroup");
+var template = require("../templates/commentCarouselGroup.handlebars");
 var Strings = require("../strings");
 var Utils = require("../util/utils");
 
@@ -43,12 +43,12 @@ module.exports = CommentCarousel.extend({
     $("#numMembers").text(peopleLabel).show();
     var repnessInfo = info.repness.slice(0);
 
-    var tids = _.pluck(repnessInfo, "tid");
+    var tids = _.map(repnessInfo, "tid");
 
     // Copy comments out of collection. don't want to sort collection, since it's shared with Analyze View.
     var comments = that.collection.models.slice(0);
 
-    comments = _.indexBy(comments, "id"); // id is tid
+    comments = _.KeyBy(comments, "id"); // id is tid
 
     // remove tids that are not present in the comments list (for example, tids that were moderated out)
     // TODO exclude moderated-out comments from the repfull list
