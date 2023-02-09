@@ -17,8 +17,6 @@ s.polis_err_reg_need_name = 'Por favor inclua seu nome.'
 
 s.polis_err_post_comment_duplicate =
   'Erro ao publicar. Este comentário já existe!'
-s.waitinglist_add_success =
-  'Você já foi incluído na lista de email! Manteremos contato.'
 
 s.polis_err_fetching_tweet =
   'Erro buscando tuíte. Verifique se esse link é mesmo de um tuíte.'
