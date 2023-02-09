@@ -16,10 +16,6 @@ import FB from "fb";
 import fs from "fs";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-// May not need this anymore; looks like we're just using the other Intercom api, but need to figure out
-// what's going on here
-//const Intercom = require('intercom.io'); // https://github.com/tarunc/intercom.io
-import * as IntercomOfficial from "intercom-client";
 import isTrue from "boolean";
 import OAuth from "oauth";
 // const Pushover = require('pushover-notifications');
@@ -124,17 +120,6 @@ const resolveWith = (x: { body?: { user_id: string } }) => {
   return Promise.resolve(x);
 };
 
-const intercomClient =
-  !isTrue(process.env.DISABLE_INTERCOM) && process.env.INTERCOM_ACCESS_TOKEN
-    ? new IntercomOfficial.Client({
-        token: process.env.INTERCOM_ACCESS_TOKEN,
-      })
-    : {
-        leads: {
-          create: resolveWith({ body: { user_id: "null_intercom_user_id" } }),
-          update: resolveWith({}),
-        },
-      };
 
 //var SegfaultHandler = require('segfault-handler');
 
@@ -144,13 +129,6 @@ const intercomClient =
 //   contact: { user_id: '8634dd66-f75e-428d-a2bf-930baa0571e9' },
 //   user: { email: 'asdf@adsf.com', user_id: "12345" },
 // };
-// intercomClient.leads.convert(conversion).then((o) => {
-//   console.error(o);
-//   console.error(4);
-// }).catch((err) => {
-//   console.error(5);
-//   console.error(err);
-// });
 
 if (devMode) {
   Promise.longStackTraces();
@@ -348,11 +326,6 @@ function ifDefinedSet(
     dest[name] = source[name];
   }
 }
-
-//metric("api.process.launch", 1);
-// TODO clean this up
-// const intercom = new Intercom(process.env.INTERCOM_ACCESS_TOKEN);
-const intercom = intercomClient;
 
 const sql_votes_latest_unique = SQL.sql_votes_latest_unique;
 const sql_conversations = SQL.sql_conversations;
@@ -6917,7 +6890,6 @@ Email verified! You can close this tab or hit the back button.
   const getUser = User.getUser;
 
   // These map from non-ui string codes to number codes used in the DB
-  // The string representation ("sites", etc) is also used in intercom.
   var planCodes = {
     mike: 9999,
     trial: 0,
@@ -6960,29 +6932,6 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
-  function setUsersPlanInIntercom(uid?: any, planCode?: any) {
-    return new Promise(function (
-      resolve: (arg0: any) => void,
-      reject: (arg0: any) => void
-    ) {
-      var params = {
-        user_id: uid,
-        custom_data: {
-          plan_code: planCode,
-        },
-      };
-      // Property 'updateUser' does not exist on type 'Client | { leads: { create: Bluebird<{ body?: { user_id: string; } | undefined; }>; update: Bluebird<{ body?: { user_id: string; } | undefined; }>; }; }'.
-      // Property 'updateUser' does not exist on type 'Client'.ts(2339)
-      // @ts-ignore
-      intercom.updateUser(params, function (err: any, res: any) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(res);
-        }
-      });
-    });
-  }
   function createStripeUser(o: {
     card: any;
     description: any;
@@ -7157,11 +7106,6 @@ Email verified! You can close this tab or hit the back button.
     planCode: number
   ) {
     winston.log("info", "updatePlan", uid, planCode);
-    setUsersPlanInIntercom(uid, planCode).catch(function (err: any) {
-      emailBadProblemTime(
-        "User " + uid + " changed their plan, but we failed to update Intercom"
-      );
-    });
 
     // update DB and finish
     return changePlan(uid, planCode).then(function () {
@@ -7192,11 +7136,6 @@ Email verified! You can close this tab or hit the back button.
     isCurrentUser: boolean
   ) {
     winston.log("info", "updatePlan", uid, planCode);
-    setUsersPlanInIntercom(uid, planCode).catch(function (err: any) {
-      emailBadProblemTime(
-        "User " + uid + " changed their plan, but we failed to update Intercom"
-      );
-    });
 
     // update DB and finish
     return changePlan(uid, planCode)
@@ -12791,7 +12730,6 @@ Thanks for using Polis!
                         function () {
                           // OK, ready
                           u.uid = uid;
-                          //maybeAddToIntercom(u);
                           res.redirect(dest);
                         },
                         function (err: any) {
@@ -14370,68 +14308,6 @@ Thanks for using Polis!
     );
   }
 
-  function handle_POST_waitinglist(
-    req: {
-      p: { campaign: any; affiliation: any; role: any; email: any; name: any };
-    },
-    res: { json: (arg0: {}) => void }
-  ) {
-    let intercom_lead_user_id: any;
-    intercomClient.leads
-      // This expression is not callable.
-      // Not all constituents of type 'Bluebird<{ body?: { user_id: string; } | undefined; }> | { (lead: Partial<Lead>): Promise<ApiResponse<Lead>>; (lead: Partial<Lead>, cb: callback<...>): void; }' are callable.
-      // Type 'Bluebird<{ body?: { user_id: string; } | undefined; }>' has no call signatures.ts(2349)
-      // @ts-ignore
-      .create()
-      .then((x: { body: { user_id: any } }) => {
-        intercom_lead_user_id = x.body.user_id;
-        return intercom_lead_user_id;
-      })
-      .then(() => {
-        const custom: { [key: string]: string } = {
-          campaign: req.p.campaign,
-        };
-        if (req.p.affiliation) {
-          custom.affiliation = req.p.affiliation;
-        }
-        if (req.p.role) {
-          custom.role = req.p.role;
-        }
-        return (
-          intercomClient.leads
-            // This expression is not callable.
-            // Not all constituents of type 'Bluebird<{ body?: { user_id: string; } | undefined; }> | { (lead: UserIdentifier & Partial<Lead>): Promise<ApiResponse<Lead>>; (lead: UserIdentifier & Partial<...>, cb: callback<...>): void; }' are callable.
-            // Type 'Bluebird<{ body?: { user_id: string; } | undefined; }>' has no call signatures.ts(2349)
-            // @ts-ignore
-            .update({
-              user_id: intercom_lead_user_id,
-              email: req.p.email,
-              last_request_at: Date.now(),
-              name: req.p.name,
-              custom_attributes: custom,
-            })
-        );
-      })
-      .then(() => {
-        return pgQueryP(
-          "insert into waitinglist (email, campaign, affiliation, role, intercom_lead_user_id, name) values ($1, $2, $3, $4, $5, $6);",
-          [
-            req.p.email,
-            req.p.campaign,
-            req.p.affiliation || null,
-            req.p.role || null,
-            intercom_lead_user_id,
-            req.p.name,
-          ]
-        );
-      })
-      .then(() => {
-        res.json({});
-      })
-      .catch((err: any) => {
-        fail(res, 500, "polis_err_POST_waitinglist", err);
-      });
-  }
   function generateSingleUseUrl(
     req: any,
     conversation_id: string,
@@ -16822,7 +16698,6 @@ Thanks for using Polis!
     handle_POST_upvotes,
     handle_POST_users_invite,
     handle_POST_votes,
-    handle_POST_waitinglist,
     handle_POST_xidWhitelist,
     handle_POST_zinvites,
     handle_PUT_comments,

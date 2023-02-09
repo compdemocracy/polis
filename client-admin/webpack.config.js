@@ -63,7 +63,6 @@ module.exports = (env, options) => {
           domainWhitelist: `["${polisConfig.domainWhitelist.join('","')}"]`,
           fbAppId: polisConfig.FB_APP_ID,
           usePlans: !isTrue(polisConfig.DISABLE_PLANS),
-          useIntercom: !isTrue(polisConfig.DISABLE_INTERCOM),
         },
       }),
       new LodashModuleReplacementPlugin({
