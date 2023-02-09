@@ -68,7 +68,7 @@ import {
   Assignment,
 } from "./d";
 
-AWS.config.update({ region: process.env.AWS_REGION });
+AWS.config.update({ region: Config.awsRegion });
 const devMode = Config.isDevMode;
 const s3Client = new AWS.S3({ apiVersion: "2006-03-01" });
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
@@ -164,8 +164,8 @@ const adminEmails = Config.adminEmails
   ? JSON.parse(Config.adminEmails)
   : [];
 
-const polisDevs = Config.adminUids
-  ? JSON.parse(Config.adminUids)
+const polisDevs = Config.adminUIDs
+  ? JSON.parse(Config.adminUIDs)
   : [];
 
 function isPolisDev(uid?: any) {
@@ -212,7 +212,7 @@ setInterval(function () {
 //   state: '3(#0/!~'
 // });
 // // END GITHUB OAUTH2
-const POLIS_FROM_ADDRESS = process.env.POLIS_FROM_ADDRESS;
+const polisFromAddress = Config.polisFromAddress;
 
 const serverUrl = Config.getServerUrl(); // typically https://pol.is or http://localhost:5000
 
@@ -228,11 +228,7 @@ akismet.verifyKey(function (err: any, verified: any) {
     winston.log("info", "Akismet: Unable to verify API key.");
   }
 });
-// let SELF_HOSTNAME = "localhost:" + process.env.PORT;
-// if (!devMode) {
-// ^^^ possible to use localhost on Heroku?
-//  SELF_HOSTNAME = process.env.SERVICE_HOSTNAME
-//}
+// let SELF_HOSTNAME = Config.gerServerHostname();
 
 function isSpam(o: {
   comment_content: any;
@@ -694,7 +690,7 @@ function initializePolisHelpers() {
 
   const detectLanguage = Comment.detectLanguage;
 
-  if (isTrue(process.env.BACKFILL_COMMENT_LANG_DETECTION)) {
+  if (Config.backfillCommentLangDetection) {
     pgQueryP("select tid, txt, zid from comments where lang is null;", []).then(
       //   Argument of type '(comments: string | any[]) => void' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.
       // Types of parameters 'comments' and 'value' are incompatible.
@@ -925,7 +921,7 @@ function initializePolisHelpers() {
     },
     next: () => any
   ) {
-    // let reServiceHostname = new RegExp(process.env.SERVICE_HOSTNAME);
+    // let reServiceHostname = new RegExp(Config.getServerHostname());
     if (
       // reServiceHostname.test(req?.headers?.host) || // needed for heroku integrations (like slack?)
       /www.pol.is/.test(req?.headers?.host || "")
@@ -1311,14 +1307,7 @@ function initializePolisHelpers() {
 
   let whitelistedDomains = [
     "pol.is",
-    process.env.DOMAIN_WHITELIST_ITEM_01,
-    process.env.DOMAIN_WHITELIST_ITEM_02,
-    process.env.DOMAIN_WHITELIST_ITEM_03,
-    process.env.DOMAIN_WHITELIST_ITEM_04,
-    process.env.DOMAIN_WHITELIST_ITEM_05,
-    process.env.DOMAIN_WHITELIST_ITEM_06,
-    process.env.DOMAIN_WHITELIST_ITEM_07,
-    process.env.DOMAIN_WHITELIST_ITEM_08,
+    ...Config.whitelistItems,
     "localhost:5001",
     "localhost:5002",
     "canvas.instructure.com", // LTI
@@ -1523,7 +1512,7 @@ function initializePolisHelpers() {
     }
     res.status(200).json({});
   }
-  let pcaCacheSize = process.env.CACHE_MATH_RESULTS === "true" ? 300 : 1;
+  let pcaCacheSize = Config.cacheMathResults ? 300 : 1;
   let pcaCache = new LruCache({
     max: pcaCacheSize,
   });
@@ -1823,7 +1812,7 @@ function initializePolisHelpers() {
 
     return pgQueryP_readOnly(
       "select * from math_main where zid = ($1) and math_env = ($2);",
-      [zid, process.env.MATH_ENV]
+      [zid, Config.mathEnv]
       //     Argument of type '(rows: string | any[]) => Promise<any> | null' is not assignable to parameter of type '(value: unknown) => any'.
       // Types of parameters 'rows' and 'value' are incompatible.
       //   Type 'unknown' is not assignable to type 'string | any[]'.
@@ -1838,7 +1827,7 @@ function initializePolisHelpers() {
         INFO("mathpoll related; after cache miss, unable to find data for", {
           zid,
           math_tick,
-          math_env: process.env.MATH_ENV,
+          math_env: Config.mathEnv,
         });
         return null;
       }
@@ -2078,7 +2067,7 @@ function initializePolisHelpers() {
   ) {
     let zid = req.p.zid;
     let uid = req.p.uid;
-    let math_env = process.env.MATH_ENV;
+    let math_env = Config.mathEnv;
     let math_update_type = req.p.math_update_type;
 
     isModerator(zid, uid).then((hasPermission: any) => {
@@ -2119,7 +2108,7 @@ function initializePolisHelpers() {
     }
   ) {
     let rid = req.p.rid;
-    let math_env = process.env.MATH_ENV;
+    let math_env = Config.mathEnv;
     let math_tick = req.p.math_tick;
 
     console.log(req.p);
@@ -2225,9 +2214,9 @@ function initializePolisHelpers() {
     );
   }
   if (
-    process.env.RUN_PERIODIC_EXPORT_TESTS &&
+    Config.runPeriodicExportTests &&
     !devMode &&
-    process.env.MATH_ENV === "preprod"
+    Config.mathEnv === "preprod"
   ) {
     let runExportTest = () => {
       let math_env = "prod";
@@ -2278,7 +2267,7 @@ function initializePolisHelpers() {
     getUserInfoForUid2(req.p.uid)
       .then((user: { email: any }) => {
         return doAddDataExportTask(
-          process.env.MATH_ENV,
+          Config.mathEnv,
           user.email,
           req.p.zid,
           req.p.unixTimestamp * 1000,
@@ -2302,7 +2291,7 @@ function initializePolisHelpers() {
   ) {
     var url = s3Client.getSignedUrl("getObject", {
       Bucket: "polis-datadump",
-      Key: process.env.MATH_ENV + "/" + req.p.filename,
+      Key: Config.mathEnv + "/" + req.p.filename,
       Expires: 60 * 60 * 24 * 7,
     });
     res.redirect(url);
@@ -2316,7 +2305,7 @@ function initializePolisHelpers() {
     math_tick = math_tick || -1;
     return pgQueryP_readOnly(
       "select * from math_bidtopid where zid = ($1) and math_env = ($2);",
-      [zid, process.env.MATH_ENV]
+      [zid, Config.mathEnv]
       //     Argument of type '(rows: string | any[]) => any' is not assignable to parameter of type '(value: unknown) => any'.
       // Types of parameters 'rows' and 'value' are incompatible.
       //   Type 'unknown' is not assignable to type 'string | any[]'.
@@ -2692,7 +2681,7 @@ If you need to create a new account, you can do that here ${server}/home
 Feel free to reply to this email if you need help.`;
 
     return sendTextEmail(
-      POLIS_FROM_ADDRESS,
+      polisFromAddress,
       email,
       "Password Reset Failed",
       body
@@ -3603,8 +3592,8 @@ Feel free to reply to this email if you need help.`;
     );
   }
   function populateGeoIpInfo(zid: any, uid?: any, ipAddress?: string | null) {
-    var userId = process.env.MAXMIND_USERID;
-    var licenseKey = process.env.MAXMIND_LICENSEKEY;
+    var userId = Config.maxmindUserID;
+    var licenseKey = Config.maxmindLicenseKey;
 
     var url = "https://geoip.maxmind.com/geoip/v2.1/city/";
     var contentType =
@@ -3963,7 +3952,7 @@ Feel free to reply to this email if you need help.`;
 ${message}`;
 
     return sendMultipleTextEmails(
-      POLIS_FROM_ADDRESS,
+      polisFromAddress,
       adminEmails,
       "Dummy button clicked!!!",
       body
@@ -3975,7 +3964,7 @@ ${message}`;
 
   function emailTeam(subject: string, body: string) {
     return sendMultipleTextEmails(
-      POLIS_FROM_ADDRESS,
+      polisFromAddress,
       adminEmails,
       subject,
       body
@@ -4024,7 +4013,7 @@ ${serverName}/pwreset/${pwresettoken}
 "Thank you for using Polis`;
 
         sendTextEmail(
-          POLIS_FROM_ADDRESS,
+          polisFromAddress,
           userInfo.email,
           "Polis Password Reset",
           body
@@ -4087,7 +4076,7 @@ ${serverName}/pwreset/${pwresettoken}
       // send the monday backup email system test
       // If the sending fails, we should get an error ping.
       sendTextEmailWithBackupOnly(
-        POLIS_FROM_ADDRESS,
+        polisFromAddress,
         Config.adminEmailEmailTest,
         "monday backup email system test",
         "seems to be working"
@@ -4107,7 +4096,7 @@ ${serverName}/welcome/${einvite}
 Thank you for using Polis`;
 
     return sendTextEmail(
-      POLIS_FROM_ADDRESS,
+      polisFromAddress,
       email,
       "Get Started with Polis",
       body
@@ -4248,7 +4237,7 @@ Email verified! You can close this tab or hit the back button.
       email: any;
     }) {
       return sendTextEmail(
-        POLIS_FROM_ADDRESS,
+        polisFromAddress,
         userInfo.hname
           ? `${userInfo.hname} <${userInfo.email}>`
           : userInfo.email,
@@ -11871,7 +11860,7 @@ Email verified! You can close this tab or hit the back button.
               "The team at pol.is";
 
             return sendTextEmail(
-              POLIS_FROM_ADDRESS,
+              polisFromAddress,
               email,
               "Link: " + createdLink,
               body
@@ -11904,8 +11893,8 @@ Email verified! You can close this tab or hit the back button.
     }
   ) {
     if (
-      req.p.webserver_pass !== process.env.WEBSERVER_PASS ||
-      req.p.webserver_username !== process.env.WEBSERVER_USERNAME
+      req.p.webserver_pass !== Config.webserverPass ||
+      req.p.webserver_username !== Config.webserverUsername
     ) {
       return fail(res, 403, "polis_err_notifyTeam_auth");
     }
@@ -11937,22 +11926,22 @@ Email verified! You can close this tab or hit the back button.
     }
   ) {
     if (
-      req.p.webserver_pass !== process.env.WEBSERVER_PASS ||
-      req.p.webserver_username !== process.env.WEBSERVER_USERNAME
+      req.p.webserver_pass !== Config.webserverPass ||
+      req.p.webserver_username !== Config.webserverUsername
     ) {
       return fail(res, 403, "polis_err_sending_export_link_to_email_auth");
     }
 
-    const domain = process.env.PRIMARY_POLIS_URL;
+    const serverUrl = Config.getServerUrl();
     const email = req.p.email;
     const subject =
       "Polis data export for conversation pol.is/" + req.p.conversation_id;
     const fromAddress = `Polis Team <${Config.adminEmailDataExport}>`;
     const body = `Greetings
 
-You created a data export for conversation ${domain}/${req.p.conversation_id} that has just completed. You can download the results for this conversation at the following url:
+You created a data export for conversation ${serverUrl}/${req.p.conversation_id} that has just completed. You can download the results for this conversation at the following url:
 
-https://${domain}/api/v3/dataExport/results?filename=${req.p.filename}&conversation_id=${req.p.conversation_id}
+${serverUrl}/api/v3/dataExport/results?filename=${req.p.filename}&conversation_id=${req.p.conversation_id}
 
 Please let us know if you have any questions about the data.
 
@@ -11961,7 +11950,7 @@ Thanks for using Polis!
 
     console.log("SENDING EXPORT EMAIL");
     console.log({
-      domain,
+      serverUrl,
       email,
       subject,
       fromAddress,
@@ -11983,8 +11972,8 @@ Thanks for using Polis!
       // Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
       // Type 'undefined' is not assignable to type 'string'.ts(2345)
       // @ts-ignore
-      process.env.TWITTER_CONSUMER_KEY, //'your application consumer key',
-      process.env.TWITTER_CONSUMER_SECRET, //'your application secret',
+      Config.twitterConsumerKey, //'your application consumer key',
+      Config.twitterConsumerSecret, //'your application secret',
       "1.0A",
       null,
       "HMAC-SHA1"
@@ -12052,8 +12041,8 @@ Thanks for using Polis!
       // Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
       // Type 'undefined' is not assignable to type 'string'.ts(2345)
       // @ts-ignore
-      process.env.TWITTER_CONSUMER_KEY, //'your application consumer key',
-      process.env.TWITTER_CONSUMER_SECRET, //'your application secret',
+      Config.twitterConsumerKey, //'your application consumer key',
+      Config.twitterConsumerSecret, //'your application secret',
       "1.0A",
       null,
       "HMAC-SHA1"
@@ -12115,8 +12104,8 @@ Thanks for using Polis!
       // Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
       // Type 'undefined' is not assignable to type 'string'.ts(2345)
       // @ts-ignore
-      process.env.TWITTER_CONSUMER_KEY, //'your application consumer key',
-      process.env.TWITTER_CONSUMER_SECRET, //'your application secret',
+      Config.twitterConsumerKey, //'your application consumer key',
+      Config.twitterConsumerSecret, //'your application secret',
       "1.0A",
       null,
       "HMAC-SHA1"
@@ -12173,8 +12162,8 @@ Thanks for using Polis!
       // Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
       // Type 'undefined' is not assignable to type 'string'.ts(2345)
       // @ts-ignore
-      process.env.TWITTER_CONSUMER_KEY, //'your application consumer key',
-      process.env.TWITTER_CONSUMER_SECRET, //'your application secret',
+      Config.twitterConsumerKey, //'your application consumer key',
+      Config.twitterConsumerSecret, //'your application secret',
       "1.0A",
       null,
       "HMAC-SHA1"
@@ -12213,8 +12202,8 @@ Thanks for using Polis!
   //   let oauth = new OAuth.OAuth(
   //     'https://api.twitter.com/oauth/request_token', // null
   //     'https://api.twitter.com/oauth/access_token', // null
-  //     process.env.TWITTER_CONSUMER_KEY, //'your application consumer key',
-  //     process.env.TWITTER_CONSUMER_SECRET, //'your application secret',
+  //     Config.twitterConsumerKey, //'your application consumer key',
+  //     Config.twitterConsumerSecret, //'your application secret',
   //     '1.0A',
   //     null,
   //     'HMAC-SHA1'
@@ -12255,8 +12244,8 @@ Thanks for using Polis!
       // Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
       // Type 'undefined' is not assignable to type 'string'.ts(2345)
       // @ts-ignore
-      process.env.TWITTER_CONSUMER_KEY, //'your application consumer key',
-      process.env.TWITTER_CONSUMER_SECRET, //'your application secret',
+      Config.twitterConsumerKey, //'your application consumer key',
+      Config.twitterConsumerSecret, //'your application secret',
       "1.0A",
       null,
       "HMAC-SHA1"
@@ -15323,7 +15312,7 @@ Thanks for using Polis!
       "Thank you for using Polis\n";
 
     return sendTextEmail(
-      POLIS_FROM_ADDRESS,
+      polisFromAddress,
       email,
       "Join the pol.is conversation!",
       body
@@ -15575,7 +15564,7 @@ Thanks for using Polis!
       let emails = _.pluck(rows, "email");
 
       return sendMultipleTextEmails(
-        POLIS_FROM_ADDRESS,
+        polisFromAddress,
         emails,
         "Polis conversation created",
         body
@@ -15894,7 +15883,7 @@ Thanks for using Polis!
     let hostname = buildStaticHostname(req, res);
     if (!hostname) {
       let host = req?.headers?.host || "";
-      let re = new RegExp(process.env.SERVICE_HOSTNAME + "$");
+      let re = new RegExp(Config.getServerHostname() + "$");
       if (host.match(re)) {
         // don't alert for this, it's probably DNS related
         // TODO_SEO what should we return?
@@ -15916,14 +15905,14 @@ Thanks for using Polis!
       addStaticFileHeaders(res);
     }
     // if (/MSIE [^1]/.exec(req?.headers?.['user-agent'])) { // older than 10
-    //     // http.get(process.env.STATIC_FILES_HOST + "/unsupportedBrowser.html", function(page) {
+    //     // http.get(Config.staticFilesHost + "/unsupportedBrowser.html", function(page) {
     //     //     res.status(200).end(page);
     //     // }).on('error', function(e) {
     //     //     res.status(200).end("Apollogies, this browser is not supported. We recommend Chrome, Firefox, or Safari.");
     //     // });
     //     getStaticFile("./unsupportedBrowser.html", res);
     // } else {
-    let port = process.env.STATIC_FILES_PORT;
+    let port = Config.portForParticipationFiles;
     // set the host header too, since S3 will look at that (or the routing proxy will patch up the request.. not sure which)
     if (req && req.headers && req.headers.host) req.headers.host = hostname;
     routingProxy.web(req, res, {
@@ -15937,7 +15926,7 @@ Thanks for using Polis!
 
   function buildStaticHostname(req: { headers?: { host: string } }, res: any) {
     if (devMode || domainOverride) {
-      return process.env.STATIC_FILES_HOST;
+      return Config.staticFilesHost;
     } else {
       let origin = req?.headers?.host;
       // Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ "pol.is": string; "embed.pol.is": string; "survey.pol.is": string; "preprod.pol.is": string; }'.
@@ -15947,7 +15936,7 @@ Thanks for using Polis!
         if (hasWhitelistMatches(origin || "")) {
           // Use the prod bucket for non pol.is domains
           return (
-            whitelistedBuckets["pol.is"] + "." + process.env.STATIC_FILES_HOST
+            whitelistedBuckets["pol.is"] + "." + Config.staticFilesHost
           );
         } else {
           console.error(
@@ -15962,7 +15951,7 @@ Thanks for using Polis!
       // No index signature with a parameter of type 'string' was found on type '{ "pol.is": string; "embed.pol.is": string; "survey.pol.is": string; "preprod.pol.is": string; }'.ts(7053)
       // @ts-ignore
       origin = whitelistedBuckets[origin || ""];
-      return origin + "." + process.env.STATIC_FILES_HOST;
+      return origin + "." + Config.staticFilesHost;
     }
   }
 
@@ -16032,7 +16021,7 @@ Thanks for using Polis!
 
   function makeFileFetcher(
     hostname?: string,
-    port?: string,
+    port?: string | number,
     path?: string,
     headers?: { "Content-Type": string },
     preloadData?: { conversation?: ConversationType }
@@ -16131,9 +16120,9 @@ Thanks for using Polis!
   }
 
   // serve up index.html in response to anything starting with a number
-  let hostname = process.env.STATIC_FILES_HOST;
-  let portForParticipationFiles = process.env.STATIC_FILES_PORT;
-  let portForAdminFiles = process.env.STATIC_FILES_ADMINDASH_PORT;
+  let hostname: string = Config.staticFilesHost;
+  let portForParticipationFiles: number = Config.portForParticipationFiles;
+  let portForAdminFiles: number = Config.portForAdminFiles;
   let fetchUnsupportedBrowserPage = makeFileFetcher(
     hostname,
     portForParticipationFiles,
@@ -16150,7 +16139,7 @@ Thanks for using Polis!
       end: () => any;
     },
     preloadData: { conversation?: ConversationType },
-    port: string | undefined,
+    port: string | number | undefined,
     buildNumber?: string | null | undefined
   ) {
     let headers = {

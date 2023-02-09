@@ -7,9 +7,11 @@
 
 import * as dotenv from 'dotenv';
 dotenv.config();
+
 import Promise from "bluebird";
 import express from "express";
 
+import Config from "./src/config";
 import server from "./src/server";
 
 const app = express();
@@ -1894,9 +1896,9 @@ helpersInitialized.then(
       app.get(/^\/[^(api\/)]?.*/, proxy);
     }
 
-    app.listen(process.env.PORT);
+    app.listen(Config.serverPort);
 
-    winston.log("info", "started on port " + process.env.PORT);
+    winston.log("info", "started on port " + Config.serverPort);
   },
   function (err) {
     console.error("failed to init server");

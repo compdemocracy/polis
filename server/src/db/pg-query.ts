@@ -17,14 +17,12 @@ import { MPromise } from "../utils/metered";
 // so we can have 1 preprod/3 prod servers, or 2 preprod / 2 prod.
 //
 // Note we use native
-const usingReplica =
-  process.env.DATABASE_URL !==
-  process.env[process.env.DATABASE_FOR_READS_NAME as string];
+const usingReplica = Config.databaseURL !== Config.readOnlyDatabaseURL;
 const poolSize = Config.isDevMode ? 2 : usingReplica ? 3 : 12;
 
 // not sure how many of these config options we really need anymore
 const pgConnection = Object.assign(
-  parsePgConnectionString(process.env.DATABASE_URL || ""),
+  parsePgConnectionString(Config.databaseURL),
   {
     max: poolSize,
     isReadOnly: false,
@@ -36,12 +34,7 @@ const pgConnection = Object.assign(
   }
 );
 const readsPgConnection = Object.assign(
-  parsePgConnectionString(
-    //     (property) NodeJS.Process.env: NodeJS.ProcessEnv
-    // Type 'undefined' cannot be used as an index type.ts(2538)
-    // @ts-ignore
-    process.env[process.env.DATABASE_FOR_READS_NAME] || ""
-  ),
+  parsePgConnectionString(Config.readOnlyDatabaseURL),
   {
     max: poolSize,
     isReadOnly: true,

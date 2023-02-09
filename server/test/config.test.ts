@@ -70,15 +70,15 @@ describe("Config", () => {
   });
 
   describe("getServerUrl", () => {
-    test('returns SERVER_URL when DEV_MODE is false', async () => {
-      jest.replaceProperty(process, 'env', {DEV_MODE: 'false', SERVER_URL: 'https://example.com'});
+    test('returns SERVER_HOSTNAME when DEV_MODE is false', async () => {
+      jest.replaceProperty(process, 'env', {DEV_MODE: 'false', SERVER_HOSTNAME: 'example.com'});
 
       const { default: Config } = await import('../src/config');
 
       expect(Config.getServerUrl()).toBe('https://example.com');
     });
 
-    test('returns https://pol.is when DEV_MODE is false and SERVER_URL is not set', async () => {
+    test('returns https://pol.is when DEV_MODE is false and SERVER_HOSTNAME is not set', async () => {
       jest.replaceProperty(process, 'env', {DEV_MODE: 'false'});
 
       const { default: Config } = await import('../src/config');
@@ -86,12 +86,12 @@ describe("Config", () => {
       expect(Config.getServerUrl()).toBe('https://pol.is');
     });
 
-    test('returns DEV_URL when DEV_MODE is true', async () => {
-      jest.replaceProperty(process, 'env', {DEV_MODE: 'true', DEV_URL: 'https://dev.example.com'});
+    test('returns DEV_HOSTNAME when DEV_MODE is true', async () => {
+      jest.replaceProperty(process, 'env', {DEV_MODE: 'true', DEV_HOSTNAME: 'dev.example.com'});
 
       const { default: Config } = await import('../src/config');
 
-      expect(Config.getServerUrl()).toBe('https://dev.example.com');
+      expect(Config.getServerUrl()).toBe('http://dev.example.com');
     });
 
     test('returns http://localhost:5000 when DEV_MODE is true and DEV_URL is not set', async () => {
@@ -100,6 +100,20 @@ describe("Config", () => {
       const { default: Config } = await import('../src/config');
 
       expect(Config.getServerUrl()).toBe('http://localhost:5000');
+    });
+  });
+
+  describe("whitelistItems", () => {
+    test('returns an array of whitelisted items', async () => {
+      jest.replaceProperty(process, 'env', {
+        DOMAIN_WHITELIST_ITEM_01: 'item1',
+        DOMAIN_WHITELIST_ITEM_02: '',
+        DOMAIN_WHITELIST_ITEM_03: 'item3',
+      });
+
+      const { default: Config } = await import('../src/config');
+
+      expect(Config.whitelistItems).toEqual(['item1', 'item3']);
     });
   });
 });

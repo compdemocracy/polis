@@ -9,8 +9,8 @@ import User from "../user";
 import Session from "../session";
 import Utils from "../utils/common";
 import Password from "./password";
-
 import emailSenders from "../email/senders";
+
 const sendTextEmail = emailSenders.sendTextEmail;
 function createUser(req: any, res: any) {
   let hname = req.p.hname;
@@ -245,7 +245,7 @@ Click this link to verify your email address:
 ${serverName}/api/v3/verify?e=${einvite}`;
 
   return sendTextEmail(
-    process.env.POLIS_FROM_ADDRESS,
+    Config.polisFromAddress,
     email,
     "Polis verification",
     body
