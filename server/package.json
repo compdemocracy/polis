@@ -37,7 +37,7 @@
     "http-proxy": "~1.18.1",
     "lru-cache": "~3.0.0",
     "mimelib": "~0.2.19",
-    "nodemailer": "~6.4.16",
+    "nodemailer": "~6.6.1",
     "nodemailer-mailgun-transport": "~2.0.0",
     "oauth": "~0.9.14",
     "optimist": "~0.3.7",
