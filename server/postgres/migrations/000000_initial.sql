@@ -284,7 +284,7 @@ CREATE TABLE contexts(
 CREATE TABLE slack_oauth_access_tokens (
     slack_access_token VARCHAR(100) NOT NULL,
     slack_scope VARCHAR(100) NOT NULL,
-    -- slack_team VARCHAR(100) NOT NULL,    
+    -- slack_team VARCHAR(100) NOT NULL,
     slack_auth_response json NOT NULL,
     created BIGINT DEFAULT now_as_millis()
     -- UNIQUE(slack_team)
@@ -733,7 +733,7 @@ CREATE TABLE reports (
   modified BIGINT DEFAULT now_as_millis(),
 
   report_name VARCHAR(999),
-  
+
   label_x_neg VARCHAR(999),
   label_x_pos VARCHAR(999),
   label_y_neg VARCHAR(999),
@@ -784,7 +784,7 @@ CREATE TABLE math_ticks (
     modified BIGINT NOT NULL DEFAULT now_as_millis(),
     UNIQUE (zid, math_env)
 );
--- insert into math_ticks (zid) values ($1) on conflict (zid) 
+-- insert into math_ticks (zid) values ($1) on conflict (zid)
 --    do update set modified = now_as_millis(), math_tick = (math_tick + 1) returning *;
 
 CREATE TABLE math_main (
@@ -896,7 +896,7 @@ CREATE INDEX votes_zid_pid_idx ON votes USING btree (zid, pid);
 -- if that fails, run this and retry
 -- delete from votes a where a.ctid <> (select min(b.ctid) from votes b where a.zid = b.zid and a.tid = b.tid and a.pid = b.pid and a.vote = b.vote and a.created = b.created);
 
-CREATE TABLE votes_latest_unique (    
+CREATE TABLE votes_latest_unique (
     zid INTEGER NOT NULL,
     pid INTEGER NOT NULL,
     tid INTEGER NOT NULL,
@@ -968,16 +968,6 @@ CREATE TABLE contributer_agreement_signatures(
     created BIGINT DEFAULT now_as_millis()
 );
 
-
-CREATE TABLE waitinglist (
-    email VARCHAR(256) NOT NULL,
-    campaign VARCHAR(100) NOT NULL,
-    name VARCHAR(746),
-    affiliation VARCHAR(999),
-    role VARCHAR(999),
-    intercom_lead_user_id VARCHAR(100),
-    created BIGINT DEFAULT now_as_millis()
-);
 
 -- -- This should be updated from math nodes, who will have an entire conversation loaded in memory.
 -- CREATE TABLE stats_per_comment(

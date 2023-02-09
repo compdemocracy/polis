@@ -21,7 +21,7 @@ function facebookLoginOkHandler(response, optionalPassword) {
   if (response && response.authResponse && response.authResponse.grantedScopes) {
     data.fb_granted_scopes = response.authResponse.grantedScopes;
   }
-  data.owner = false; // since this is the participation view, don't add them to intercom
+  data.owner = false; // since this is the participation view, don't assume they're an owner
 
 
   M.add(M.FB_AUTH_INIT);
