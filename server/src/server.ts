@@ -15200,7 +15200,7 @@ Thanks for using Polis!
     } else {
       path += "app_instructions_blank.png";
     }
-    let doFetch = makeFileFetcher(hostname, portForParticipationFiles, path, {
+    let doFetch = makeFileFetcher(hostname, staticFilesClientPort, path, {
       "Content-Type": "image/png",
     });
     //   Argument of type '{ headers?: { [x: string]: string; } | undefined; }' is not assignable to parameter of type '{ headers?: { host: any; } | undefined; path: any; pipe: (arg0: any) => void; }'.
@@ -15912,7 +15912,7 @@ Thanks for using Polis!
     //     // });
     //     getStaticFile("./unsupportedBrowser.html", res);
     // } else {
-    let port = Config.portForParticipationFiles;
+    let port = Config.staticFilesClientPort;
     // set the host header too, since S3 will look at that (or the routing proxy will patch up the request.. not sure which)
     if (req && req.headers && req.headers.host) req.headers.host = hostname;
     routingProxy.web(req, res, {
@@ -16121,11 +16121,11 @@ Thanks for using Polis!
 
   // serve up index.html in response to anything starting with a number
   let hostname: string = Config.staticFilesHost;
-  let portForParticipationFiles: number = Config.portForParticipationFiles;
-  let portForAdminFiles: number = Config.portForAdminFiles;
+  let staticFilesClientPort: number = Config.staticFilesClientPort;
+  let staticFilesAdminPort: number = Config.staticFilesAdminPort;
   let fetchUnsupportedBrowserPage = makeFileFetcher(
     hostname,
-    portForParticipationFiles,
+    staticFilesClientPort,
     "/unsupportedBrowser.html",
     {
       "Content-Type": "text/html",
@@ -16202,7 +16202,7 @@ Thanks for using Polis!
   function ifDefinedFirstElseSecond(first: any, second: boolean) {
     return _.isUndefined(first) ? second : first;
   }
-  let fetch404Page = makeFileFetcher(hostname, portForAdminFiles, "/404.html", {
+  let fetch404Page = makeFileFetcher(hostname, staticFilesAdminPort, "/404.html", {
     "Content-Type": "text/html",
   });
 
@@ -16256,7 +16256,7 @@ Thanks for using Polis!
           req,
           res,
           preloadData,
-          portForParticipationFiles,
+          staticFilesClientPort,
           buildNumber
         );
       })
@@ -16270,7 +16270,7 @@ Thanks for using Polis!
   }
   let fetchIndexForAdminPage = makeFileFetcher(
     hostname,
-    portForAdminFiles,
+    staticFilesAdminPort,
     "/index_admin.html",
     {
       "Content-Type": "text/html",
@@ -16278,7 +16278,7 @@ Thanks for using Polis!
   );
   let fetchIndexForReportPage = makeFileFetcher(
     hostname,
-    portForAdminFiles,
+    staticFilesAdminPort,
     "/index_report.html",
     {
       "Content-Type": "text/html",
@@ -16558,8 +16558,8 @@ Thanks for using Polis!
     makeFileFetcher,
     makeRedirectorTo,
     pidCache,
-    portForAdminFiles,
-    portForParticipationFiles,
+    staticFilesAdminPort,
+    staticFilesClientPort,
     proxy,
     redirectIfApiDomain,
     redirectIfHasZidButNoConversationId,

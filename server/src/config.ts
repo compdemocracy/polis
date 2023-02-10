@@ -1,10 +1,10 @@
 import isTrue from "boolean";
 
-const devHostname = process.env.DEV_HOSTNAME || "localhost:5000";
+const devHostname = process.env.API_DEV_HOSTNAME || "localhost:5000";
 const devMode = isTrue(process.env.DEV_MODE) as boolean;
 const domainOverride = process.env.DOMAIN_OVERRIDE || null as string | null;
-const serverHostname = process.env.SERVER_HOSTNAME || "pol.is";
-const serverPort = parseInt(process.env.PORT || "5000", 10) as number;
+const serverHostname = process.env.API_SERVER_HOSTNAME || "pol.is";
+const serverPort = parseInt(process.env.API_SERVER_PORT || "5000", 10) as number;
 
 export default {
   domainOverride: domainOverride as string | null,
@@ -70,11 +70,11 @@ export default {
   maxmindLicenseKey: process.env.MAXMIND_LICENSE_KEY as string,
   maxmindUserID: process.env.MAXMIND_USER_ID as string,
   polisFromAddress: process.env.POLIS_FROM_ADDRESS as string,
-  portForAdminFiles: parseInt(process.env.STATIC_FILES_ADMIN_DASH_PORT || '8080', 10) as number,
-  portForParticipationFiles: parseInt(process.env.STATIC_FILES_PORT || '8080', 10) as number,
   readOnlyDatabaseURL: process.env.READ_ONLY_DATABASE_URL || process.env.DATABASE_URL as string,
   runPeriodicExportTests: isTrue(process.env.RUN_PERIODIC_EXPORT_TESTS) as boolean,
   shouldUseTranslationAPI: isTrue(process.env.SHOULD_USE_TRANSLATION_API) as boolean,
+  staticFilesAdminPort: parseInt(process.env.STATIC_FILES_ADMIN_PORT || '8080', 10) as number,
+  staticFilesClientPort: parseInt(process.env.STATIC_FILES_CLIENT_PORT || '8080', 10) as number,
   staticFilesHost: process.env.STATIC_FILES_HOST as string,
   twitterConsumerKey: process.env.TWITTER_CONSUMER_KEY || null as string | null,
   twitterConsumerSecret: process.env.TWITTER_CONSUMER_SECRET || null as string | null,
