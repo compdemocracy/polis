@@ -17,13 +17,13 @@
 
 services:
   server:
-    env_file: ./server/docker-dev.env
-    image: docker.io/compdem/polis-server:${TAG}
+    env_file: ./.env
+    image: docker.io/compdem/polis-server:${TAG:-dev}
     build:
       context: ./server
       dockerfile: Dockerfile
       labels:
-        polis_tag: ${TAG}
+        polis_tag: ${TAG:-dev}
     depends_on:
       - "postgres"
       - "file-server"
@@ -34,25 +34,25 @@ services:
 
   math:
     env_file: ./math/docker-dev.env
-    image: docker.io/compdem/polis-math:${TAG}
+    image: docker.io/compdem/polis-math:${TAG:-dev}
     depends_on:
       - "postgres"
     build:
       context: ./math
       labels:
-        polis_tag: ${TAG}
+        polis_tag: ${TAG:-dev}
     networks:
       - "polis-net"
 
   postgres:
     env_file: ./server/docker-db-dev.env
-    image: docker.io/compdem/polis-postgres:${TAG}
+    image: docker.io/compdem/polis-postgres:${TAG:-dev}
     restart: always
     build:
       context: ./server
       dockerfile: Dockerfile-db
       labels:
-        polis_tag: ${TAG}
+        polis_tag: ${TAG:-dev}
     networks:
       - "polis-net"
     volumes:
@@ -60,12 +60,12 @@ services:
       - "postgres:/var/lib/postgresql/data"
 
   nginx-proxy:
-    image: docker.io/compdem/polis-nginx-proxy:${TAG}
+    image: docker.io/compdem/polis-nginx-proxy:${TAG:-dev}
     build:
       context: ./file-server
       dockerfile: nginx.Dockerfile
       labels:
-        polis_tag: ${TAG}
+        polis_tag: ${TAG:-dev}
     depends_on:
       - "server"
     networks:
@@ -75,14 +75,14 @@ services:
       - ${HTTPS_PORT:-443}:443
 
   file-server:
-    image: docker.io/compdem/polis-file-server:${TAG}
+    image: docker.io/compdem/polis-file-server:${TAG:-dev}
     build:
       context: ./
       dockerfile: file-server/Dockerfile
       labels:
-        polis_tag: ${TAG}
+        polis_tag: ${TAG:-dev}
       args:
-        GIT_HASH: "${GIT_HASH}"
+        GIT_HASH: "${GIT_HASH:-placeholder}"
     networks:
       - "polis-net"
 
@@ -92,7 +92,7 @@ networks:
 volumes:
   backups:
     labels:
-      polis_tag: ${TAG}
+      polis_tag: ${TAG:-dev}
   postgres:
     labels:
-      polis_tag: ${TAG}
+      polis_tag: ${TAG:-dev}
