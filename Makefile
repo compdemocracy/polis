@@ -1,8 +1,3 @@
-## TTD:
-# make start; make stop
-# make PROD start; make PROD stop
-# update TAG
-
 SHELL=/bin/bash
 
 BASEURL ?= https://127.0.0.1.sslip.io
@@ -12,12 +7,15 @@ export TAG = $(shell grep -e ^TAG ${ENV_FILE} | awk -F'[=]' '{gsub(/ /,""); prin
 export GIT_HASH = $(shell git rev-parse --short HEAD)
 export COMPOSE_FILE_ARGS = -f docker-compose.yml -f docker-compose.dev.yml
 
+DETACHED: ## Run docker in "detached" mode (e.g. `make DETACHED start`, etc.)
+	$(eval DOCKER_DETACHED = --detach)
+
 PROD: ## Run in prod mode (e.g. `make PROD start`, etc.)
 	$(eval ENV_FILE = prod.env)
 	$(eval TAG = $(shell grep -e ^TAG ${ENV_FILE} | awk -F'[=]' '{gsub(/ /,"");print $$2}'))
 	$(eval COMPOSE_FILE_ARGS = -f docker-compose.yml)
 
-echo_vars: 
+echo_vars:
 	@echo ENV_FILE=${ENV_FILE}
 	@echo TAG=${TAG}
 
@@ -25,7 +23,7 @@ pull: echo_vars ## Pull most recent Docker container builds (nightlies)
 	docker-compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} pull
 
 start: echo_vars ## Start all Docker containers
-	docker-compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up
+	docker-compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up ${DOCKER_DETACHED}
 
 stop: echo_vars ## Stop all Docker containers
 	docker-compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} down
@@ -54,14 +52,14 @@ hash: ## Show current short hash
 	@echo Git hash: ${GIT_HASH}
 
 start-rebuild: echo_vars ## Start all Docker containers, [re]building as needed
-	docker-compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up --build
+	docker-compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up ${DOCKER_DETACHED}  --build
 
 start-FULL-REBUILD: echo_vars stop rm-ALL ## Remove and restart all Docker containers, volumes, and images where (polis_tag="${TAG}")
 	docker-compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} build --no-cache
 	docker-compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} down
-	docker-compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up --build
+	docker-compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up --detach --build
 	docker-compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} down
-	docker-compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up --build
+	docker-compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up ${DOCKER_DETACHED}  --build
 
 e2e-install: e2e/node_modules ## Install Cypress E2E testing tools
 	$(E2E_RUN) npm install
@@ -85,7 +83,6 @@ e2e-run-subset: ## Run E2E tests: filter tests by TEST_FILTER envvar (without br
 e2e-run-all: ## Run E2E tests: all
 	$(E2E_RUN) npm run e2e:all
 
-
 # Helpful CLI shortcuts
 rbs: start-rebuild
 
@@ -101,5 +98,5 @@ help:
 	@echo 'where <command> is one of the following:'
 	@echo
 	@grep -E '^[a-z0-9A-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
-
+	@echo
 .DEFAULT_GOAL := help
