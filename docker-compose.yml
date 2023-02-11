@@ -1,19 +1,21 @@
-# before running docker compose up for the first time,
-# either do a pull:
-# docker compose pull
-# or do a build:
-# GIT_HASH $(git rev-parse --short HEAD) docker compose up --build
-
-# By default, docker compose will load a local .env file if one exists.
-
-# subsequently you should only need to run:
-# docker compose up --detach
-
-# force a full re-build with no cache from previous builds:
-# docker compose build --build-arg GIT_HASH $(git rev-parse --short HEAD) --parallel --no-cache
-
-# to stop:
-# docker compose down
+# Before running docker compose up for the first time,
+# first copy the env.example file to .env and fill in the values.
+# Then, build and run with:
+# `docker compose build`
+# `docker compose up`
+#
+# Subsequently you should only need to run:
+# `docker compose up`
+#
+# Force a full re-build with no cache from previous builds:
+# `docker compose build --no-cache`
+# `docker compose up`
+#
+# If you only changed the .env file, you can do a quick rebuild:
+# `docker compose up --force-recreate`
+#
+# To stop, press CTRL+C (if not running in --detach mode), or run:
+# `docker compose down`
 
 services:
   server:
@@ -33,7 +35,6 @@ services:
     scale: 1
 
   math:
-    env_file: ./math/docker-dev.env
     image: docker.io/compdem/polis-math:${TAG:-dev}
     depends_on:
       - "postgres"
@@ -41,11 +42,14 @@ services:
       context: ./math
       labels:
         polis_tag: ${TAG:-dev}
+    environment:
+      - DATABASE_URL=${DATABASE_URL:?error}
+      - WEBSERVER_USERNAME=${WEBSERVER_USERNAME:?error}
+      - WEBSERVER_PASS=${WEBSERVER_PASS:?error}
     networks:
       - "polis-net"
 
   postgres:
-    env_file: ./server/docker-db-dev.env
     image: docker.io/compdem/polis-postgres:${TAG:-dev}
     restart: always
     build:
@@ -53,6 +57,10 @@ services:
       dockerfile: Dockerfile-db
       labels:
         polis_tag: ${TAG:-dev}
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:?error}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?error}
+      - POSTGRES_USER=${POSTGRES_USER:?error}
     networks:
       - "polis-net"
     volumes:
