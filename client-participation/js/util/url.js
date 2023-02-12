@@ -2,18 +2,7 @@
 
 // build may prepend 'devWithPreprod'
 
-var urlPrefix = "_domainWhitelistError_";
-
-var wl = window.domainWhitelist.map(function(x) {
-  return new RegExp(x);
-});
-
-for (var i = 0; i < wl.length; i++) {
-  if (document.domain.match(wl[i])) {
-    urlPrefix = document.location.protocol + "//" + document.location.hostname + ":" + document.location.port + "/";
-    break;
-  }
-}
+urlPrefix = document.location.protocol + "//" + document.location.hostname + ":" + document.location.port + "/";
 
 module.exports = {
   urlPrefix: urlPrefix,

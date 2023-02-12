@@ -11,7 +11,6 @@ This is the front-end code that participants see. The site needs to be served th
 
 ```sh
 npm install
-cp polis.config.template.js polis.config.js
 npm run build:prod
 ```
 

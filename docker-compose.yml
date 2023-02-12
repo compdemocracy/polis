@@ -91,6 +91,16 @@ services:
         polis_tag: ${TAG:-dev}
       args:
         GIT_HASH: "${GIT_HASH:-placeholder}"
+    environment:
+      - EMBED_SERVICE_HOSTNAME=${EMBED_SERVICE_HOSTNAME}
+      - FB_APP_ID=${FB_APP_ID}
+      - PORT=${STATIC_FILES_PORT:-8080}
+      - REPORT_UPLOADER=${REPORT_UPLOADER:-local}
+      - REPORT_SERVICE_URL=${REPORT_SERVICE_URL}
+      - S3_BUCKET_PREPROD=${S3_BUCKET_PREPROD}
+      - S3_BUCKET_PROD=${S3_BUCKET_PROD}
+      - SCP_SUBDIR_PREPROD=${SCP_SUBDIR_PREPROD}
+      - SCP_SUBDIR_PROD=${SCP_SUBDIR_PROD}
     networks:
       - "polis-net"
 
