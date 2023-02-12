@@ -2,8 +2,14 @@
 
 // build may prepend 'devWithPreprod'
 
-urlPrefix = document.location.protocol + "//" + document.location.hostname + ":" + document.location.port + "/";
+let urlPrefix = document.location.protocol + '//' + document.location.hostname
+
+if (document.location.port) {
+  urlPrefix = urlPrefix + ':' + document.location.port
+}
+
+urlPrefix = urlPrefix + '/'
 
 module.exports = {
   urlPrefix: urlPrefix,
-};
+}

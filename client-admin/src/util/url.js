@@ -2,10 +2,12 @@
 
 // build may prepend 'devWithPreprod'
 
-urlPrefix = document.location.protocol + '//' + document.location.hostname
+let urlPrefix = document.location.protocol + '//' + document.location.hostname
+
 if (document.location.port) {
   urlPrefix = urlPrefix + ':' + document.location.port
 }
+
 urlPrefix = urlPrefix + '/'
 
 export default {
