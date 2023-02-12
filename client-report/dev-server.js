@@ -20,7 +20,7 @@ app.use(require("webpack-dev-middleware")(compiler, {
 
 app.use(require("webpack-hot-middleware")(compiler));
 
-const serviceUrl = process.env.REPORT_SERVICE_URL;
+const serviceUrl = process.env.REPORT_SERVICE_URL || 'http://localhost:5000';
 
 function proxy (req, res) {
   const hostHeader = serviceUrl.replace(/.*\/\//,"");
