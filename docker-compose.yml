@@ -1,5 +1,8 @@
 # Before running docker compose up for the first time,
 # first copy the env.example file to .env and fill in the values.
+# `cp env.example .env`
+# (edit values as needed)
+#
 # Then, build and run with:
 # `docker compose build`
 # `docker compose up`
@@ -44,6 +47,7 @@ services:
         polis_tag: ${TAG:-dev}
     environment:
       - DATABASE_URL=${DATABASE_URL:?error}
+      - MATH_ENV=${MATH_ENV:-dev}
       - WEBSERVER_USERNAME=${WEBSERVER_USERNAME:?error}
       - WEBSERVER_PASS=${WEBSERVER_PASS:?error}
     networks:
