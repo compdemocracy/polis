@@ -15,16 +15,6 @@ function daysSinceJoin() {
   return (millisSinceJoin() / millisPerDay) >> 0;
 }
 
-function numberOfDaysInTrial() {
-  return (window.userObject && window.userObject.daysInTrial) || 10;
-}
-
-function trialDaysRemaining() {
-  console.log('trial', numberOfDaysInTrial(), daysSinceJoin());
-
-  return Math.max(0, numberOfDaysInTrial() - daysSinceJoin());
-}
-
 function mapObj(o, f) {
   var out = {};
 
@@ -337,7 +327,7 @@ function userCanSeeFooter() {
   var params = parseQueryParams(window.location.search);
   var ucsf = params.ucsf;
   ucsf = (ucsf === "true" || ucsf === "1" || _.isUndefined(ucsf));
-  if (!ucsf && !ownerCanDisableBranding()) {
+  if (!ucsf) {
     ucsf = true;
   }
   return ucsf;
@@ -366,10 +356,6 @@ function userCanSeeSubscribePrompt() {
   // 1 is for email, there are no other options yet.
   x = (x === 1 || x === "1" || x === "true");
   return x;
-}
-
-function ownerCanDisableBranding() {
-  return window.preload.firstConv.plan >= 99;
 }
 
 function getXid() {
@@ -454,21 +440,6 @@ module.exports = {
   supportsVis: function() {
     return this.supportsSVG() && !this.isIE8();
   },
-  isTrialUser: function() {
-    return !PolisStorage.planCode();
-  },
-  isIndividualUser: function() {
-    return PolisStorage.planCode() === 1;
-  },
-  isStudentUser: function() {
-    return PolisStorage.planCode() === 2;
-  },
-  isPpUser: function() {
-    return PolisStorage.planCode() === 3;
-  },
-  isEnterpriseUser: function() {
-    return PolisStorage.planCode() === 1000;
-  },
   getAnonPicUrl: function() {
     return anonPicBase64;
   },
@@ -500,7 +471,5 @@ module.exports = {
   strToHex: strToHex,
   decodeParams: decodeParams,
   encodeParams: encodeParams,
-  numberOfDaysInTrial: numberOfDaysInTrial,
-  trialDaysRemaining: trialDaysRemaining,
   cookiesEnabled: are_cookies_enabled
 };

@@ -147,7 +147,6 @@ window.addEventListener("message", function(event) {
   // check for token within URL
   if (p.match(/^\/inbox\//) ||
     p.match(/^\/settings\/ep1_[A-Za-z0-9]+/) ||
-    p.match(/^\/settings\/enterprise\/ep1_[A-Za-z0-9]+/) ||
     p.match(/^\/conversation\/create\//) ||
     p.match(/^\/[0-9][A-Za-z0-9]+\/ep1_[A-Za-z0-9]+/)
   ) {
@@ -282,27 +281,6 @@ Handlebars.registerHelper('whatIsPolisHref', function(arg0, options) {
 
 Handlebars.registerHelper('inboxHref', function(arg0, options) {
   return "/inbox" + (encodedParams ? ("/" + encodedParams) : "");
-});
-
-
-
-Handlebars.registerHelper("trialDaysRemaining", function(arg0, options) {
-  return Utils.trialDaysRemaining();
-});
-Handlebars.registerHelper("ifTrial", function(arg0) {
-  return Utils.isTrialUser() ? arg0.fn(this) : "";
-});
-Handlebars.registerHelper("ifIndividual", function(arg0) {
-  return Utils.isIndividualUser() ? arg0.fn(this) : "";
-});
-Handlebars.registerHelper("ifStudent", function(arg0) {
-  return Utils.isStudentUser() ? arg0.fn(this) : "";
-});
-Handlebars.registerHelper("ifParticipantPays", function(arg0) {
-  return Utils.isPpUser() ? arg0.fn(this) : "";
-});
-Handlebars.registerHelper("ifEnterprise", function(arg0) {
-  return Utils.isEnterpriseUser() ? arg0.fn(this) : "";
 });
 
 
