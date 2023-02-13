@@ -13,6 +13,8 @@ describe("Config", () => {
 
   describe("getServerNameWithProtocol", () => {
     test('returns https://pol.is by default', async () => {
+      jest.replaceProperty(process, 'env', {DEV_MODE: 'false'});
+
       const { default: Config } = await import('../src/config');
       const req = {
         protocol: 'http',
