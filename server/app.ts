@@ -1656,7 +1656,6 @@ helpersInitialized.then(
     app.get(/^\/user\/login(\/.*)?$/, fetchIndexWithoutPreloadData);
 
     app.get(/^\/settings(\/.*)?$/, makeFetchIndexWithoutPreloadData());
-    app.get(/^\/settings\/enterprise}.*$/, makeFetchIndexWithoutPreloadData());
 
     app.get(/^\/user\/logout(\/.*)?$/, fetchIndexWithoutPreloadData);
 

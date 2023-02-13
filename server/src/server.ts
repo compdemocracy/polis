@@ -2742,8 +2742,8 @@ Feel free to reply to this email if you need help.`;
     let cookieName;
     if (domainOverride || origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
       for (cookieName in req.cookies) {
-        // Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; plan: boolean; referrer: boolean; parent_url: boolean; }'.
-        // No index signature with a parameter of type 'string' was found on type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; plan: boolean; referrer: boolean; parent_url: boolean; }'.ts(7053)
+        // Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; referrer: boolean; parent_url: boolean; }'.
+        // No index signature with a parameter of type 'string' was found on type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; referrer: boolean; parent_url: boolean; }'.ts(7053)
         // @ts-ignore
         if (COOKIES_TO_CLEAR[cookieName]) {
           res?.clearCookie?.(cookieName, {
@@ -2753,8 +2753,8 @@ Feel free to reply to this email if you need help.`;
       }
     } else {
       for (cookieName in req.cookies) {
-        // Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; plan: boolean; referrer: boolean; parent_url: boolean; }'.
-        // No index signature with a parameter of type 'string' was found on type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; plan: boolean; referrer: boolean; parent_url: boolean; }'.ts(7053)
+        // Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; referrer: boolean; parent_url: boolean; }'.
+        // No index signature with a parameter of type 'string' was found on type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; referrer: boolean; parent_url: boolean; }'.ts(7053)
         // @ts-ignore
         if (COOKIES_TO_CLEAR[cookieName]) {
           res?.clearCookie?.(cookieName, {
@@ -10417,7 +10417,6 @@ Email verified! You can close this tab or hit the back button.
         }
         conv.is_mod = conv.site_id === requestingUserInfo.site_id;
         conv.is_owner = conv.owner === uid;
-        conv.pp = false; // participant pays (WIP)
         delete conv.uid; // conv.owner is what you want, uid shouldn't be returned.
         return conv;
       });

@@ -228,7 +228,6 @@ async function getUser(
     finishedTutorial: !!info.tut,
     site_ids: [info.site_id],
     created: Number(info.created),
-    daysInTrial: 10 + (usersToAdditionalTrialDays[uid] || 0),
   };
 }
 
@@ -245,14 +244,6 @@ function getFacebookInfo(uids: any[]) {
     uids
   );
 }
-
-// so we can grant extra days to users
-// eventually we should probably move this to db.
-// for now, use git blame to see when these were added
-const usersToAdditionalTrialDays: { [key: number]: number } = {
-  50756: 14, // julien
-  85423: 100, // mike test
-};
 
 function createDummyUser() {
   // (parameter) resolve: (arg0: any) => void

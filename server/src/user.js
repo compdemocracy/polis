@@ -177,9 +177,6 @@ function getUser(uid, zid_optional, xid_optional, owner_uid_optional) {
       finishedTutorial: !!info.tut,
       site_ids: [info.site_id],
       created: Number(info.created),
-      daysInTrial: 10 + (usersToAdditionalTrialDays[uid] || 0),
-      // plan: planCodeToPlanName[info.plan],
-      planCode: info.plan,
     };
   });
 }
@@ -197,14 +194,6 @@ function getFacebookInfo(uids) {
     uids
   );
 }
-
-// so we can grant extra days to users
-// eventually we should probably move this to db.
-// for now, use git blame to see when these were added
-const usersToAdditionalTrialDays = {
-  50756: 14, // julien
-  85423: 100, // mike test
-};
 
 function createDummyUser() {
   return new MPromise("createDummyUser", function (resolve, reject) {
