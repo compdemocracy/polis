@@ -72,7 +72,6 @@ CREATE TABLE users(
     is_owner BOOLEAN DEFAULT FALSE, -- has the ability to start conversations
     zinvite VARCHAR(300), -- The initial zinvite used to create the user, can be used for attribution (may be null)
     oinvite VARCHAR(300), -- The oinvite used to create the user, or to upgrade the user to a conversation owner.
-    plan SMALLINT DEFAULT 0,
     tut SMALLINT DEFAULT 0,
     site_id VARCHAR(256) NOT NULL DEFAULT random_polis_site_id(), -- TODO add a separate table for this, once we have people with multiple sites
     site_owner BOOLEAN DEFAULT TRUE,
@@ -139,12 +138,6 @@ CREATE INDEX apikeysndvweifu_apikey_idx ON apikeysndvweifu USING btree (apikey);
 
 
 
-CREATE TABLE coupons_for_free_upgrades (
-    uid INTEGER NOT NULL REFERENCES users(uid),
-    plan SMALLINT DEFAULT 0,
-    code VARCHAR(32) NOT NULL,
-    created BIGINT DEFAULT now_as_millis()
-);
 
 --CREATE TABLE orgs (
     --oid SERIAL,
@@ -1066,26 +1059,6 @@ CREATE TABLE page_ids (
     page_id VARCHAR(100) NOT NULL,
     zid INTEGER NOT NULL REFERENCES conversations(zid),
     UNIQUE(site_id, page_id)
-);
-
-
-CREATE TABLE stripe_accounts (
-    stripe_account_token_type VARCHAR(999) NOT NULL, --      "bearer",
-    stripe_account_stripe_publishable_key VARCHAR(999) NOT NULL, --       PUBLISHABLE_KEY,
-    stripe_account_scope VARCHAR(999) NOT NULL, --       "read_write",
-    stripe_account_livemode BOOLEAN NOT NULL, --       false,
-    stripe_account_stripe_user_id VARCHAR(999) NOT NULL, --       USER_ID,
-    stripe_account_refresh_token VARCHAR(999) NOT NULL, --      REFRESH_TOKEN,
-    stripe_account_access_token VARCHAR(999) NOT NULL, --      ACCESS_TOKEN
-    created BIGINT DEFAULT now_as_millis()
-);
-
-CREATE TABLE stripe_subscriptions (
-    uid INTEGER NOT NULL REFERENCES users(uid),
-    stripe_subscription_data JSONB NOT NULL,
-    created BIGINT DEFAULT now_as_millis(),
-    modified BIGINT DEFAULT now_as_millis(),
-    UNIQUE(uid)
 );
 
 CREATE TABLE demographic_data (
