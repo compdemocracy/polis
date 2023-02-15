@@ -1,32 +1,27 @@
 {
   "name": "polis-e2e",
   "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
   "scripts": {
-    "cypress": "cypress open",
+    "start": "cypress open",
+    "test": "cypress run",
     "lint": "eslint .",
-    "lint:fix": "eslint --fix .",
-    "test": "npm run e2e:all",
-    "e2e:all": "cypress run --spec 'cypress/e2e/**' --browser=electron",
-    "e2e:minimal": "cypress run --spec '**/kitchensink.cy.js' --browser=electron",
-    "e2e:standalone": "cypress run --spec 'cypress/e2e/**/!(*.secrets).cy.js' --browser=electron",
-    "e2e:secret": "cypress run --spec '**/(*.secrets).cy.js' --browser=electron",
-    "e2e:subset": "cypress run --spec **/*${TEST_FILTER:-kitchensink}*.cy.js --browser=electron --no-exit"
+    "lint:fix": "eslint . --fix",
+    "prettier": "prettier --write .",
+    "e2e": "cypress run",
+    "e2e:chrome": "cypress run --browser chrome",
+    "cy:run": "cypress run",
+    "cy:open": "cypress open"
   },
+  "author": "",
+  "license": "ISC",
   "devDependencies": {
-    "cypress": "10.8.0",
-    "cypress-iframe": "^1.0.1",
-    "cypress-terminal-report": "4.1.2",
-    "eslint": "8.23.1",
-    "eslint-config-prettier": "8.5.0",
-    "eslint-config-prettier-standard": "4.0.1",
-    "eslint-config-standard": "17.0.0",
-    "eslint-plugin-cypress": "2.12.1",
-    "eslint-plugin-import": "2.26.0",
-    "eslint-plugin-node": "11.1.0",
-    "eslint-plugin-prettier": "4.2.1",
-    "eslint-plugin-promise": "6.0.1",
-    "eslint-plugin-standard": "4.1.0",
-    "prettier": "2.7.1",
-    "prettier-config-standard": "5.0.0"
+    "cypress": "^12.5.1",
+    "eslint": "^8.34.0",
+    "eslint-config-prettier": "^8.6.0",
+    "eslint-plugin-cypress": "^2.12.1",
+    "eslint-plugin-mocha": "^10.1.0",
+    "prettier": "^2.8.4"
   }
 }

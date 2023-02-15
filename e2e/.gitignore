@@ -1,3 +1,5 @@
-node_modules
+.vscode
+cypress/logs
 cypress/screenshots
 cypress/videos
+node_modules

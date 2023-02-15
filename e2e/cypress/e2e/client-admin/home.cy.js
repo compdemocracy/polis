@@ -1,12 +1,12 @@
-describe('Home Page', () => {
-  beforeEach(() => cy.visit('/'))
+describe('Home Page', function() {
+  beforeEach(function() { return cy.visit('/'); })
 
-  it('bare Url redirects to /home', () => {
+  it('bare URL redirects to /home', function() {
     cy.location('pathname').should('eq', '/home')
   })
 
-  it('has Sign up and Sign in links', () => {
-    cy.get('#root').find('a[href="/createuser"]')
-    cy.get('#root').find('a[href="/signin"]').should('have.length', 2)
+  it('has Sign up and Sign in links', function() {
+    cy.contains('a[href="/createuser"]', 'Sign up').should('be.visible')
+    cy.contains('a[href="/signin"]', 'Sign in').should('be.visible')
   })
 })
