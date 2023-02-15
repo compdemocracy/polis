@@ -20,5 +20,5 @@ jobs:
       - uses: isbang/compose-action@v1.4.1
       - uses: cypress-io/github-action@v5.0.9
         with:
-          project: ./e2e
+          working-directory: e2e
 
