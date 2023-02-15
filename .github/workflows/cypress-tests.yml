@@ -2,7 +2,7 @@ name: E2E Tests
 
 on:
   push:
-    branches: [edge]
+    branches: [1392/fix-cypress-tests]
     paths-ignore: ["**.md"]
 
   pull_request:
