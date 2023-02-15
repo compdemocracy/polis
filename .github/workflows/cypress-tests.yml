@@ -20,5 +20,6 @@ jobs:
       - uses: isbang/compose-action@v1.4.1
       - uses: cypress-io/github-action@v5.0.9
         with:
+          config: baseUrl=http://localhost
           working-directory: e2e
 
