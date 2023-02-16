@@ -228,7 +228,7 @@ akismet.verifyKey(function (err: any, verified: any) {
     winston.log("info", "Akismet: Unable to verify API key.");
   }
 });
-// let SELF_HOSTNAME = Config.gerServerHostname();
+// let SELF_HOSTNAME = Config.getServerHostname();
 
 function isSpam(o: {
   comment_content: any;
