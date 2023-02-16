@@ -31,7 +31,7 @@ the individual READMEs for more detailed descriptions of how to configure these 
 By default, `docker compose` will look for and use an `.env` file if one exists. However, any value present in your
 environment or passed in on the command line will overwrite those in the file. Thus you should be able to set your
 configuration values in whatever way suits your given scenario. (A plain text `.env` file is not always appropriate in
-production deployments.)****
+production deployments.)
 
 If you are running these applications without Docker, just make sure that any environment variables you need are set in
 the environment where the application is running.
