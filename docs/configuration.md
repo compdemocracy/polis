@@ -1,23 +1,21 @@
 # Polis configuration
 
-Several configuration files and dozens of environment variables are currently required to configure the system, a relic of Polis' pre-monorepo days..
-There's [been some work](https://github.com/compdemocracy/polis/pull/1341) to unify these configuration options, but for the moment, you'll have to configure each of the individual subcomponents of the project separately.
-
+Currently all of the configurable values are handled by environment variables. These are listed in the `env.example` file,
+which you should copy to `.env` and modify as needed.
 
 </br>
-
 
 ## Overview
 
 First things first, it helps to understand a bit how the system is set up.
 
-| Component Name | Tech | Config | Description |
-|----------------|------|--------| ----------- |
-| [`server`][dir-server] | Node.js | `ENV` (`server/docker-dev.env`) | The main server. Handles client web requests (page loads, vote activity, etc.) |
-| [`math`][dir-math] | Clojure/JVM | `ENV` (`math/docker-dev.env`) | The math engine.  |
-| [`client-participation`][dir-participation] | Javascript | `client-participation/polis.config.js` | The client code for end-users. |
-| [`client-admin`][dir-admin] | Javascript | `client-admin/polis.config.js` | The client code for administrators. |
-| [`client-report`][dir-report] | Node.js | `client-report/polis.config.js` | The code for detailed analytics reports. |
+| Component Name | Tech | Description |
+|----------------|------|--------|
+| [`server`][dir-server] | Node.js | The main server. Handles client web requests (page loads, vote activity, etc.) |
+| [`math`][dir-math] | Clojure/JVM | The math engine.  |
+| [`client-participation`][dir-participation] | Javascript | The client code for end-users. |
+| [`client-admin`][dir-admin] | Javascript | The client code for administrators. |
+| [`client-report`][dir-report] | Node.js | The code for detailed analytics reports. |
 
    [dir-server]: /server
    [dir-math]: /math
@@ -25,57 +23,52 @@ First things first, it helps to understand a bit how the system is set up.
    [dir-admin]: /client-admin
    [dir-report]: /client-report
 
-While this document will try to outline some of the more important configuration steps and options, you'll need to see the individual READMEs for more detailed descriptions of how to configure these components.
+While this document will try to outline some of the more important configuration steps and options, you'll need to see
+the individual READMEs for more detailed descriptions of how to configure these components.
 
+## Environment variables and .env
 
-## Environment variables
+By default, `docker compose` will look for and use an `.env` file if one exists. However, any value present in your
+environment or passed in on the command line will overwrite those in the file. Thus you should be able to set your
+configuration values in whatever way suits your given scenario. (A plain text `.env` file is not always appropriate in
+production deployments.)****
 
-The server and math worker are both configured via environment variables, and where configuration overlaps, the usage patterns are identical.
-If you're running Polis with Docker and Docker Compose, there's a `docker-dev.env` file in each of these repositories which can be configured, and will be passed on to the running containers when you run `docker compose up`.
-
-In production, you'll want to override these values, which you can do in a number of ways with `docker compose` ([(documentation here)](https://docs.docker.com/compose/environment-variables/)).
-It's recommended that you use an environment file with restrictive file permissions, and pass this through to `docker compose` with the `--env-file` option.
-
-You could do something like this:
-
-```sh
-mkdir ~/.polis
-touch ~/.polis/prod.env
-# set environment variables here with your default text editor (vim, emacs, nano, etc.)
-edit ~/.polis/prod.env
-# for security purposes, make sure the directory and its concents can only be read by your user
-chmod -R og-rwx ~/.polis
-# if you really want to get fancy you can encrypt the file as well... (excercise left to reader)
-
-# Once you're done, run like this
-docker compose up --env-file ~/.polis/prod.env
-```
+If you are running these applications without Docker, just make sure that any environment variables you need are set in
+the environment where the application is running.
 
 ## Enabling Comment Translation
 
 **Note:** This feature is optional.
 
-We use Google to automatically translate submitted comments into the language of participants, as detected by the browser's language.
+We use Google to automatically translate submitted comments into the language of participants, as detected by the
+browser's language.
 
-1. Ensure the `client-participation` [user interface is manually translated][translate-ui] into participant language(s).
-    - Noteworthy strings include: [`showTranslationButton`, `hideTranslationButton`, `thirdPartyTranslationDisclaimer`][translate-strings]
-1. Click `Set up a project` button within the [Cloud Translation Quickstart Guide][gtranslate-quickstart].
+1. Ensure the `client-participation` user interface is manually translated into participant language(s).
+    - Noteworthy strings include: [`showTranslationButton`, `hideTranslationButton`,
+      `thirdPartyTranslationDisclaimer`][translate-strings]
+
+2. Click `Set up a project` button within the
+   [Cloud Translation Quickstart Guide][gtranslate-quickstart].
     - Follow the wizard and download the JSON private key, aka credentials file.
-1. Convert the file contents into a base64-encoded string. You can do this in many ways, including:
-    - copying its contents into [a client-side base64 encoder web app][base64-encoder] (inspect the simple JS code), or
-    - using your workstation terminal: `cat path/to/My-Project-abcdef0123456789.json | base64` (linux/mac)
-1. Configure `GOOGLE_CREDENTIALS_BASE64` within `server/docker-dev.env`
-1. Configure `SHOULD_USE_TRANSLATION_API=true` within `server/docker-dev.env`
 
-   [translate-ui]: #translating-the-user-interface
+3. Convert the file contents into a base64-encoded string. You can do this in many ways, including:
+    - copying its contents into [a client-side base64 encoder web app][base64-encoder]
+      (inspect the simple JS code), or
+    - using your workstation terminal: `cat path/to/My-Project-abcdef0123456789.json | base64` (linux/mac)
+
+4. Set `GOOGLE_CREDENTIALS_BASE64` in `.env`
+
+5. Set `SHOULD_USE_TRANSLATION_API=true` in `.env`
+
+translate strings can be found in: `client-participation/js/strings/en_us.js`
+
    [translate-strings]: /client-participation/js/strings/en_us.js#L96-L98
    [gtranslate-quickstart]: https://cloud.google.com/translate/docs/basic/setup-basic
    [base64-encoder]: https://codepen.io/bsngr/pen/awuDh
 
-
 ## Email Transports
 
-We use [Nodemailer][] to send email. Nodemailer uses various built-in and
+We use [Nodemailer] to send email. Nodemailer uses various built-in and
 packaged _email transports_ to send email via SMTP or API, either directly or
 via third-party platforms.
 
@@ -101,7 +94,8 @@ Note: The [MailDev][] email transport is for **development purposes only**. Ensu
 
 1. Add `maildev` into the `EMAIL_TRANSPORT_TYPES` configuration.
 
-This transport will work automatically when running via Docker Compose, accessible on port 1080.
+This transport will work automatically when running via Docker Compose with the development overlay, accessible on port
+1080.
 
    [MailDev]: https://github.com/maildev/maildev
 
@@ -125,4 +119,3 @@ This transport will work automatically when running via Docker Compose, accessib
 
    [transports]: https://github.com/search?q=nodemailer+transport
    [mail-senders]: /server/email/senders.js
-
