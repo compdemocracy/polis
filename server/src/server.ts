@@ -1308,6 +1308,7 @@ function initializePolisHelpers() {
   let whitelistedDomains = [
     Config.getServerHostname(),
     ...Config.whitelistItems,
+    "localhost:5000",
     "localhost:5001",
     "localhost:5002",
     "canvas.instructure.com", // LTI

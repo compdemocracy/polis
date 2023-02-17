@@ -36,6 +36,14 @@ production deployments.)
 If you are running these applications without Docker, just make sure that any environment variables you need are set in
 the environment where the application is running.
 
+If you are doing development on a url other than `localhost` or `localhost:5000`, you need to update the
+API_DEV_HOSTNAME value to your development hostname:port, e.g. `myhost:8000` or `api.testserver.net`.
+DEV_MODE should be `true`.
+
+If you are deploying to a custom domain (not pol.is) than you need to update both the API_SERVER_HOSTNAME and
+DOMAIN_OVERRIDE values to your custom hostname (omitting http(s):// protocol).
+DEV_MODE should be `false`.
+
 ## Enabling Comment Translation
 
 **Note:** This feature is optional.
