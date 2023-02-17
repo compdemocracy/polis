@@ -86,6 +86,10 @@ e2e-run-all: ## Run E2E tests: all
 	$(E2E_RUN) npm run e2e:all
 
 
+psql-shell: ## Assuming a system is already running with `make start`, start up an interactive psql shell
+	docker-compose exec postgres psql --username postgres --dbname polis-dev
+
+
 # Helpful CLI shortcuts
 rbs: start-rebuild
 
@@ -93,7 +97,7 @@ rbs: start-rebuild
 	@true
 
 .PHONY: help pull start stop rm-containers rm-volumes rm-images rm-ALL hash start-rebuild restart-FULL-REBUILD \
-	rm-ALL-ALL-TAGS e2e-install e2e-prepare e2e-run-minimal e2e-run-standalone e2e-run-secret e2e-run-subset e2e-run-all
+	rm-ALL-ALL-TAGS e2e-install e2e-prepare e2e-run-minimal e2e-run-standalone e2e-run-secret e2e-run-subset e2e-run-all psql-shell
 
 help:
 	@echo 'Usage: make <command>'
