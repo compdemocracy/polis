@@ -219,8 +219,6 @@ CREATE TABLE conversations(
     auth_opt_tw BOOLEAN, -- if null, server will default to TRUE
     auth_opt_allow_3rdparty BOOLEAN, -- if null, server will default to TRUE -- this overrides auth_opt_fb and auth_opt_tw if false
 
-    is_slack BOOLEAN DEFAULT FALSE,
-
 --     ptpts_can_vote INTEGER DEFAULT 1,
 --     ptpts_can_write INTEGER DEFAULT 1,
 --     ptpts_can_see_vis INTEGER DEFAULT 1,
@@ -273,15 +271,6 @@ CREATE TABLE contexts(
     created BIGINT DEFAULT now_as_millis()
 );
 
-
-CREATE TABLE slack_oauth_access_tokens (
-    slack_access_token VARCHAR(100) NOT NULL,
-    slack_scope VARCHAR(100) NOT NULL,
-    -- slack_team VARCHAR(100) NOT NULL,
-    slack_auth_response json NOT NULL,
-    created BIGINT DEFAULT now_as_millis()
-    -- UNIQUE(slack_team)
-);
 
 CREATE TABLE inviters (
     inviter_uid INTEGER REFERENCES users(uid),
@@ -464,28 +453,6 @@ CREATE TABLE geolocation_cache (
     response json,
     created BIGINT DEFAULT now_as_millis(),
     UNIQUE (location)
-);
-
-
-CREATE TABLE slack_users (
-    uid INTEGER NOT NULL REFERENCES users(uid),
-    slack_team VARCHAR(20) NOT NULL,
-    slack_user_id VARCHAR(20) NOT NULL,
-    created BIGINT DEFAULT now_as_millis(),
-    UNIQUE(slack_team, slack_user_id)
-);
-CREATE TABLE slack_user_invites (
-    slack_team VARCHAR(20) NOT NULL,
-    slack_user_id VARCHAR(20) NOT NULL,
-    token VARCHAR(100) NOT NULL,
-    created BIGINT DEFAULT now_as_millis()
-);
-
-CREATE TABLE slack_bot_events (
-    -- slack_team VARCHAR(20) NOT NULL,
-    id SERIAL, -- to help with deleting
-    event json NOT NULL,
-    created BIGINT DEFAULT now_as_millis()
 );
 
 
