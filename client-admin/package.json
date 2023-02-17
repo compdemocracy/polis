@@ -46,7 +46,7 @@
     "mri": "~1.2.0",
     "prettier": "~2.2.1",
     "prettier-config-standard": "~4.0.0",
-    "serve": "~11.3.2",
+    "serve": "~14.2.0",
     "webpack-bundle-analyzer": "~4.4.0",
     "webpack-dev-server": "~4.6.0",
     "webpack": "~5.75.0",
