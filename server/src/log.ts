@@ -22,7 +22,7 @@ const errorNotifications = (function () {
   setInterval(sendAll, 60 * 1000);
   return {
     add: function (token: any) {
-      if (Config.isDevMode() && !_.isString(token)) {
+      if (Config.isDevMode && !_.isString(token)) {
         throw new Error("empty token for pushover");
       }
       console.error(token);

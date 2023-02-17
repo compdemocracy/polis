@@ -1,3 +1,9 @@
+# To build locally, for example:
+# docker build -t polis-server:local .
+# To run locally, for example:
+# docker run --rm --name polis-server --env-file .env --network polis-dev_polis_net \
+#  -p 5000:5000 polis-server:local
+
 FROM docker.io/node:18-alpine
 
 WORKDIR /app

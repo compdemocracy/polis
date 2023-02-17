@@ -110,59 +110,6 @@ class App extends React.Component {
     this.mediaQueryChanged()
   }
 
-  initIntercom() {
-    if (window.useIntercom && !this.intercomInitialized) {
-      const { user } = this.props
-      if (user) {
-        if (!window.Intercom && user && user.uid) {
-          window.initIntercom()
-        }
-        if (user.email) {
-          /*eslint-disable */
-          /* jshint ignore:start */
-          Intercom("boot", {
-            app_id: "nb5hla8s",
-            created_at: (user.created / 1000) >> 0,
-            user_id: user.uid,
-          });
-          /* jshint ignore:end */
-          /* eslint-enable */
-        }
-        this.intercomInitialized = true
-      }
-    }
-  }
-
-  updateIntercomSettings() {
-    this.initIntercom()
-    if (this.intercomInitialized) {
-      const { user } = this.props
-      const intercomOptions = {
-        app_id: 'nb5hla8s',
-        widget: {
-          activator: '#IntercomDefaultWidget'
-        }
-      }
-      if (user && user.uid) {
-        intercomOptions.user_id = user.uid + ''
-      }
-      if (user && user.email) {
-        intercomOptions.email = user.email
-      }
-      if (user && user.created) {
-        intercomOptions.created_at = (user.created / 1000) >> 0
-      }
-      if (user && user.hname) {
-        intercomOptions.name = user.hname
-      }
-      Intercom('update', intercomOptions)
-    }
-  }
-
-  componentDidUpdate() {
-    this.updateIntercomSettings()
-  }
-
   componentWillUnmount() {
     this.state.mql.removeListener(this.mediaQueryChanged.bind(this))
   }
