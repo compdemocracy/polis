@@ -30,9 +30,9 @@ To get a sense for how various parts of these system can be used, take a look at
 
 If you're not familiar with Clojure and want a fun crash course, I highly recommend [Clojure for the Brave and True](https://www.braveclojure.com/), a delightful introduction to the language.
 
-### Without docker-compose?
+### Without docker compose?
 
-If you're not using the docker-compose infrastructure, you can run `clj -M:dev` to get nREPL going, but this will not start math worker's processing queue (or obviously any other parts of the system).
+If you're not using the docker compose infrastructure, you can run `clj -M:dev` to get nREPL going, but this will not start math worker's processing queue (or obviously any other parts of the system).
 This may be preferable if you don't need the whole system running for whatever task you're working on.
 You can always manually start the polling system by manually running `(runner/run!)`, as described below, as long as you have the `DATABASE_URL` environment variable pointing to a database (see `doc/configuration.md`)
 
@@ -60,7 +60,7 @@ There are also a number of commands which can be run, either locally or with `do
 * `clojure -M:run full` - run a full system (poller plus auxiliary task processing)
 * etc.
 
-If you are exporting data, you will need to run `docker-compose` here with the same `-f docker-compose.yml -f docker-compose.dev.yml` options as described above, so that the directory (volume) mounting in the dev configuration file will mirror the generated files over onto your local filesystem.
+If you are exporting data, you will need to run `docker compose` here with the same `-f docker-compose.yml -f docker-compose.dev.yml` options as described above, so that the directory (volume) mounting in the dev configuration file will mirror the generated files over onto your local filesystem.
 
 ## Tests
 
@@ -85,7 +85,7 @@ You can see the conversation manager implementation at `src/polismath/conv_man.c
 
 The `docker-compose.yml` file  in the root of this directory, while not yet production ready, and still containing some development time artifacts, is provided as a basis for production deployment.
 Outstanding issues which need to be resolved before it would be ready include ensuring only necessary ports are exposed, etc.
-The individual `Dockerfile`s that make up this infrastructure can currently be used by themselves, separate from `docker-compose`, for deployment.
+The individual `Dockerfile`s that make up this infrastructure can currently be used by themselves, separate from `docker compose`, for deployment.
 
 Nonetheless, if you wish to run this part of the system directly on a machine (outside of docker), the only requirements are that you:
 
