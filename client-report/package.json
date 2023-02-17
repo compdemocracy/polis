@@ -17,7 +17,7 @@
   "devDependencies": {
     "knox": "github:caremerge/knox#b1e031c209b3c17cab622a458e87728c1ee88cbd",
     "babel-core": "~5.8.25",
-    "babel-eslint": "~4.1.3",
+    "babel-eslint": "~6.1.2",
     "babel-loader": "~5.4.2",
     "babel-plugin-react-transform": "~1.1.1",
     "es6-promise": "~1.0.0",
