@@ -150,12 +150,7 @@ window.addEventListener("message", function(event) {
     p.match(/^\/conversation\/create\//) ||
     p.match(/^\/[0-9][A-Za-z0-9]+\/ep1_[A-Za-z0-9]+/)
   ) {
-    // expecting params (added to support LTI)
     var params = Utils.decodeParams(encodedParams);
-    if (params.xPolisLti) {
-      token = params.xPolisLti;
-      window.authenticatedByHeader = true;
-    }
     if (params.context) {
       window.context = params.context;
     }
