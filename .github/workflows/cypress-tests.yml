@@ -60,7 +60,7 @@ jobs:
         run: cp e2e/cypress/fixtures/html/embed.html client-admin/public/embed.html
 
       - name: Serve app via docker-compose
-        run: docker-compose up --detach
+        run: docker compose up --detach
 
       - name: "Run Cypress tests: default"
         uses: cypress-io/github-action@v2
@@ -104,12 +104,12 @@ jobs:
 
       - name: Check status of containers
         if: failure()
-        run: docker-compose ps
+        run: docker compose ps
 
       - name: 'Check logs: server'
         if: failure()
-        run: docker-compose logs server
+        run: docker compose logs server
 
       - name: 'Check logs: nginx-proxy'
         if: failure()
-        run: docker-compose logs nginx-proxy
+        run: docker compose logs nginx-proxy

@@ -12,7 +12,7 @@ But if we update the database schema after your initial provisioning of your ser
     - Please submit an issue if you'd like to work on enabling backups through Docker Compose.
 - Your database data is stored on a docker volume, which means that it will
   persist even when you destroy all your docker containers. Be mindful of this.
-    - You can remove ALL volumes defined within a `docker-compose` file via: `docker-compose down --volumes`
+    - You can remove ALL volumes defined within a `docker-compose` file via: `docker compose down --volumes`
     - You can remove ONE volume via `docker volume ls` and `docker volume rm <name>`
 - SQL migrations can be found in [`server/postgres/migrations/`][] of this
   repo.

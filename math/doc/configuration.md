@@ -19,12 +19,9 @@ The ones you're most frequently to need to tweak for one reason or another:
 * `POLL_FROM_DAYS_AGO`: This defaults to 10 (at the time of this writing).
   Conversations which have had vote or moderation activity in the specified range will be loaded into memory, and will be updated.
   This prevents old inactive conversations from being loaded into memory every time the poller starts.
-  
-You'll also need to pass database credentials and such.
 
-* `DATABASE_URL`: url for the database, in heroku format: 
+You'll also need to pass database credentials. If using docker compose, this will be inheritted from the `.env` file or process environment in which docker is being run.
+
+  `DATABASE_URL`: url for the database:
+
   `postgres://<username>:<password>@<url>:<port>/<database-id>`
-* `WEBSERVER_PASS` & `WEBSERVER_USERNAME`, to the polisServer instance, primarily for uathenticated api calls to send
-  email notifications to users when their exports are done, via the polisServer.
-* `DATABASE_IGNORE_SSL` - certain database deployments (Docker in particular) may not accept ssl
-

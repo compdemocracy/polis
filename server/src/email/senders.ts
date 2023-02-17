@@ -10,10 +10,11 @@ import fs from "fs";
 import AWS from "aws-sdk";
 import nodemailer from "nodemailer";
 import mg from "nodemailer-mailgun-transport";
+import Config from "../config";
 
 // https://docs.aws.amazon.com/sdk-for-javascript/v2/developer-guide/setting-region.html
 // v2 docs, since we use v2 in our package.json: "aws:sdk": "2.78.0"
-AWS.config.update({ region: process.env.AWS_REGION });
+AWS.config.update({ region: Config.awsRegion });
 
 function sendTextEmailWithBackup(
   sender: any,
@@ -21,8 +22,8 @@ function sendTextEmailWithBackup(
   subject: any,
   text: any
 ) {
-  const transportTypes = process.env.EMAIL_TRANSPORT_TYPES
-    ? process.env.EMAIL_TRANSPORT_TYPES.split(",")
+  const transportTypes = Config.emailTransportTypes
+    ? Config.emailTransportTypes.split(",")
     : ["aws-ses", "mailgun"];
   if (transportTypes.length < 2) {
     new Error("No backup email transport available.");
@@ -37,6 +38,8 @@ function isDocker() {
 }
 
 function getMailOptions(transportType: any) {
+  let mailgunAuth;
+
   switch (transportType) {
     case "maildev":
       return {
@@ -46,13 +49,13 @@ function getMailOptions(transportType: any) {
         ignoreTLS: true,
       };
     case "mailgun":
-      const mailgunAuth = {
+      mailgunAuth = {
         auth: {
           // This forces fake credentials if envvars unset, so error is caught
           // in auth and failover works without crashing server process.
           // TODO: Suppress error thrown by mailgun library when unset.
-          api_key: process.env.MAILGUN_API_KEY || "unset-value",
-          domain: process.env.MAILGUN_DOMAIN || "unset-value",
+          api_key: Config.mailgunApiKey || "unset-value",
+          domain: Config.mailgunDomain || "unset-value",
         },
       };
       return mg(mailgunAuth);
@@ -72,7 +75,7 @@ function sendTextEmail(
   recipient: any,
   subject: any,
   text: any,
-  transportTypes = process.env.EMAIL_TRANSPORT_TYPES,
+  transportTypes = Config.emailTransportTypes,
   priority = 1
 ) {
   // Exit if empty string passed.

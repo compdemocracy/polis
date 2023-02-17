@@ -1,5 +1,6 @@
 import _ from "underscore";
 
+import Config from "../config";
 import User from "../user";
 import Session from "../session";
 
@@ -167,7 +168,7 @@ function setCookieTestCookie(req: any, res: any, setOnPolisDomain: any) {
 
 function shouldSetCookieOnPolisDomain(req: Req) {
   // FIXME domainOverride
-  let setOnPolisDomain = !(process.env.DOMAIN_OVERRIDE || null);
+  let setOnPolisDomain = !(Config.domainOverride);
   let origin = req?.headers?.origin || "";
   if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
     setOnPolisDomain = false;

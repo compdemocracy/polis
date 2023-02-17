@@ -27,7 +27,7 @@ describe("Config", () => {
     });
 
     test('returns domain override value when DOMAIN_OVERRIDE is set', async () => {
-      jest.replaceProperty(process, 'env', {DOMAIN_OVERRIDE: 'example.co'});
+      jest.replaceProperty(process, 'env', {DEV_MODE: 'false', DOMAIN_OVERRIDE: 'example.co'});
 
       const { default: Config } = await import('../src/config');
       const req = {
@@ -52,6 +52,68 @@ describe("Config", () => {
       };
 
       expect(Config.getServerNameWithProtocol(req)).toBe('https://mydomain.xyz');
+    });
+
+    test('returns https://embed.pol.is when req domain contains embed.pol.is', async () => {
+      jest.replaceProperty(process, 'env', {DEV_MODE: 'true', DOMAIN_OVERRIDE: 'example.co'});
+
+      const { default: Config } = await import('../src/config');
+      const req = {
+        protocol: 'https',
+        headers: {
+          host: 'embed.pol.is'
+        }
+      };
+
+      expect(Config.getServerNameWithProtocol(req)).toBe('https://embed.pol.is');
+    });
+  });
+
+  describe("getServerUrl", () => {
+    test('returns API_SERVER_HOSTNAME when DEV_MODE is false', async () => {
+      jest.replaceProperty(process, 'env', {DEV_MODE: 'false', API_SERVER_HOSTNAME: 'example.com'});
+
+      const { default: Config } = await import('../src/config');
+
+      expect(Config.getServerUrl()).toBe('https://example.com');
+    });
+
+    test('returns https://pol.is when DEV_MODE is false and API_SERVER_HOSTNAME is not set', async () => {
+      jest.replaceProperty(process, 'env', {DEV_MODE: 'false'});
+
+      const { default: Config } = await import('../src/config');
+
+      expect(Config.getServerUrl()).toBe('https://pol.is');
+    });
+
+    test('returns API_DEV_HOSTNAME when DEV_MODE is true', async () => {
+      jest.replaceProperty(process, 'env', {DEV_MODE: 'true', API_DEV_HOSTNAME: 'dev.example.com'});
+
+      const { default: Config } = await import('../src/config');
+
+      expect(Config.getServerUrl()).toBe('http://dev.example.com');
+    });
+
+    test('returns http://localhost:5000 when DEV_MODE is true and DEV_URL is not set', async () => {
+      jest.replaceProperty(process, 'env', {DEV_MODE: 'true'});
+
+      const { default: Config } = await import('../src/config');
+
+      expect(Config.getServerUrl()).toBe('http://localhost:5000');
+    });
+  });
+
+  describe("whitelistItems", () => {
+    test('returns an array of whitelisted items', async () => {
+      jest.replaceProperty(process, 'env', {
+        DOMAIN_WHITELIST_ITEM_01: 'item1',
+        DOMAIN_WHITELIST_ITEM_02: '',
+        DOMAIN_WHITELIST_ITEM_03: 'item3',
+      });
+
+      const { default: Config } = await import('../src/config');
+
+      expect(Config.whitelistItems).toEqual(['item1', 'item3']);
     });
   });
 });

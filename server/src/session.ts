@@ -1,11 +1,12 @@
 import crypto from "crypto";
 import LruCache from "lru-cache";
 
+import Config from "./config";
 import pg from "./db/pg-query";
 
 function encrypt(text: string | null) {
   const algorithm = "aes-256-ctr";
-  const password = process.env.ENCRYPTION_PASSWORD_00001;
+  const password = Config.encryptionPassword;
   //
   // TODO replace deprecated createCipher method with current createCipheriv method
   //
@@ -41,7 +42,7 @@ function encrypt(text: string | null) {
 
 function decrypt(text: string) {
   const algorithm = "aes-256-ctr";
-  const password = process.env.ENCRYPTION_PASSWORD_00001;
+  const password = Config.encryptionPassword;
   //
   // TODO replace deprecated createDecipher method with current createDecipheriv method
   //

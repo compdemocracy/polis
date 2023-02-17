@@ -1,29 +1,34 @@
-# before running docker compose up for the first time,
-# either do a pull:
-# docker compose pull
-# or do a build:
-# GIT_HASH $(git rev-parse --short HEAD) docker compose up --build
-
-# By default, docker compose will load a local .env file if one exists.
-
-# subsequently you should only need to run:
-# docker compose up --detach
-
-# force a full re-build with no cache from previous builds:
-# docker compose build --build-arg GIT_HASH $(git rev-parse --short HEAD) --parallel --no-cache
-
-# to stop:
-# docker compose down
+# Before running docker compose up for the first time,
+# first copy the env.example file to .env and fill in the values.
+# `cp env.example .env`
+# (edit values as needed)
+#
+# Then, build and run with:
+# `docker compose build`
+# `docker compose up`
+#
+# Subsequently you should only need to run:
+# `docker compose up`
+#
+# Force a full re-build with no cache from previous builds:
+# `docker compose build --no-cache`
+# `docker compose up`
+#
+# If you only changed the .env file, you can do a quick rebuild:
+# `docker compose up --force-recreate`
+#
+# To stop, press CTRL+C (if not running in --detach mode), or run:
+# `docker compose down`
 
 services:
   server:
-    env_file: ./server/docker-dev.env
-    image: docker.io/compdem/polis-server:${TAG}
+    env_file: ./.env
+    image: docker.io/compdem/polis-server:${TAG:-dev}
     build:
       context: ./server
       dockerfile: Dockerfile
       labels:
-        polis_tag: ${TAG}
+        polis_tag: ${TAG:-dev}
     depends_on:
       - "postgres"
       - "file-server"
@@ -33,26 +38,33 @@ services:
     scale: 1
 
   math:
-    env_file: ./math/docker-dev.env
-    image: docker.io/compdem/polis-math:${TAG}
+    image: docker.io/compdem/polis-math:${TAG:-dev}
     depends_on:
       - "postgres"
     build:
       context: ./math
       labels:
-        polis_tag: ${TAG}
+        polis_tag: ${TAG:-dev}
+    environment:
+      - DATABASE_URL=${DATABASE_URL:?error}
+      - MATH_ENV=${MATH_ENV:-dev}
+      - WEBSERVER_USERNAME=${WEBSERVER_USERNAME:?error}
+      - WEBSERVER_PASS=${WEBSERVER_PASS:?error}
     networks:
       - "polis-net"
 
   postgres:
-    env_file: ./server/docker-db-dev.env
-    image: docker.io/compdem/polis-postgres:${TAG}
+    image: docker.io/compdem/polis-postgres:${TAG:-dev}
     restart: always
     build:
       context: ./server
       dockerfile: Dockerfile-db
       labels:
-        polis_tag: ${TAG}
+        polis_tag: ${TAG:-dev}
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:?error}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?error}
+      - POSTGRES_USER=${POSTGRES_USER:?error}
     networks:
       - "polis-net"
     volumes:
@@ -60,29 +72,39 @@ services:
       - "postgres:/var/lib/postgresql/data"
 
   nginx-proxy:
-    image: docker.io/compdem/polis-nginx-proxy:${TAG}
+    image: docker.io/compdem/polis-nginx-proxy:${TAG:-dev}
     build:
       context: ./file-server
       dockerfile: nginx.Dockerfile
       labels:
-        polis_tag: ${TAG}
+        polis_tag: ${TAG:-dev}
     depends_on:
       - "server"
     networks:
       - "polis-net"
     ports:
-      - ${HTTP_PORT:-80}:${HTTP_PORT:-80}
-      - ${HTTPS_PORT:-443}:${HTTPS_PORT:-443}
+      - ${HTTP_PORT:-80}:80
+      - ${HTTPS_PORT:-443}:443
 
   file-server:
-    image: docker.io/compdem/polis-file-server:${TAG}
+    image: docker.io/compdem/polis-file-server:${TAG:-dev}
     build:
       context: ./
       dockerfile: file-server/Dockerfile
       labels:
-        polis_tag: ${TAG}
+        polis_tag: ${TAG:-dev}
       args:
-        GIT_HASH: "${GIT_HASH}"
+        GIT_HASH: "${GIT_HASH:-placeholder}"
+    environment:
+      - EMBED_SERVICE_HOSTNAME=${EMBED_SERVICE_HOSTNAME}
+      - FB_APP_ID=${FB_APP_ID}
+      - PORT=${STATIC_FILES_PORT:-8080}
+      - REPORT_UPLOADER=${REPORT_UPLOADER:-local}
+      - REPORT_SERVICE_URL=${REPORT_SERVICE_URL}
+      - S3_BUCKET_PREPROD=${S3_BUCKET_PREPROD}
+      - S3_BUCKET_PROD=${S3_BUCKET_PROD}
+      - SCP_SUBDIR_PREPROD=${SCP_SUBDIR_PREPROD}
+      - SCP_SUBDIR_PROD=${SCP_SUBDIR_PROD}
     networks:
       - "polis-net"
 
@@ -92,7 +114,7 @@ networks:
 volumes:
   backups:
     labels:
-      polis_tag: ${TAG}
+      polis_tag: ${TAG:-dev}
   postgres:
     labels:
-      polis_tag: ${TAG}
+      polis_tag: ${TAG:-dev}

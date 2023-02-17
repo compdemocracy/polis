@@ -3,7 +3,7 @@
 # server, and exposing most ports. DO NOT USE THIS IN PRODUCTION.
 
 # This configuration does not work on its own and must be run together with docker-compose.yml,
-# like `docker compose -f docker-compose.yml -f docker-compose.dev.yml up`.
+# e.g. `docker compose -f docker-compose.yml -f docker-compose.dev.yml up`.
 # (Note the usage in Makefile.)
 # For more information see https://docs.docker.com/compose/extends/
 
@@ -14,10 +14,11 @@ services:
       NODE_ENV: development
     volumes:
       # This will mount your local polis/server directory so changes can be watched and reloaded.
+      # But it will ignore your local node_modules and instead use a new container volume.
       - ./server:/app
       - /app/node_modules
     ports:
-      - "5000:5000"
+      - "${API_SERVER_PORT:-5000}:${API_SERVER_PORT:-5000}"
       - "9229:9229"
 
   math:
@@ -36,7 +37,7 @@ services:
 
   file-server:
     ports:
-      - "8080:8080"
+      - ${STATIC_FILES_PORT:-8080}:${STATIC_FILES_PORT:-8080}
     volumes:
       # This static volume will become more useful when the client apps are configured to run
       # in development mode.

@@ -47,7 +47,6 @@ jobs:
       working-directory: client-admin
       run: |
         npm install
-        cp polis.config.template.js polis.config.js
         npm run build:prod
         mv dist/static/js/admin_bundle.*.js dist/static/js/admin_bundle.xxxxxxxx.js
 
@@ -55,7 +54,6 @@ jobs:
       working-directory: client-participation
       run: |
         npm install
-        cp polis.config.template.js polis.config.js
         npm run deploy:prod
         # So directory stays consistent between builds for comparison.
         mv dist/cached/* dist/cached/xxxxxxxxx

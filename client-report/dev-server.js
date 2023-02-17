@@ -20,15 +20,7 @@ app.use(require("webpack-dev-middleware")(compiler, {
 
 app.use(require("webpack-hot-middleware")(compiler));
 
-
-
-
-
-
-
-const serviceUrl = process.env.SERVICE_URL ? process.env.SERVICE_URL : "https://preprod.pol.is";
-
-console.log("SERVICE_URL:", serviceUrl);
+const serviceUrl = process.env.REPORT_SERVICE_URL || 'http://localhost:5000';
 
 function proxy (req, res) {
   const hostHeader = serviceUrl.replace(/.*\/\//,"");

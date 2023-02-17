@@ -8,9 +8,7 @@ devel
 .polis_env
 .polis_s3_creds_client.json
 .polis_scp_creds_client.json
-polis.config.js
 .sass-cache/*
 .bashrc
 .env_always
 scratch
-polis.config
