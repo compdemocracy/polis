@@ -17,18 +17,18 @@ PROD: ## Run in prod mode (e.g. `make PROD start`, etc.)
 	$(eval TAG = $(shell grep -e ^TAG ${ENV_FILE} | awk -F'[=]' '{gsub(/ /,"");print $$2}'))
 	$(eval COMPOSE_FILE_ARGS = -f docker-compose.yml)
 
-echo_vars: 
+echo_vars:
 	@echo ENV_FILE=${ENV_FILE}
 	@echo TAG=${TAG}
 
 pull: echo_vars ## Pull most recent Docker container builds (nightlies)
-	docker-compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} pull
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} pull
 
 start: echo_vars ## Start all Docker containers
-	docker-compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up
 
 stop: echo_vars ## Stop all Docker containers
-	docker-compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} down
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} down
 
 rm-containers: echo_vars ## Remove Docker containers where (polis_tag="${TAG}")
 	@echo 'removing filtered containers (polis_tag="${TAG}")'
@@ -54,14 +54,14 @@ hash: ## Show current short hash
 	@echo Git hash: ${GIT_HASH}
 
 start-rebuild: echo_vars ## Start all Docker containers, [re]building as needed
-	docker-compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up --build
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up --build
 
 start-FULL-REBUILD: echo_vars stop rm-ALL ## Remove and restart all Docker containers, volumes, and images where (polis_tag="${TAG}")
-	docker-compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} build --no-cache
-	docker-compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} down
-	docker-compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up --build
-	docker-compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} down
-	docker-compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up --build
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} build --no-cache
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} down
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up --build
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} down
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up --build
 
 e2e-install: e2e/node_modules ## Install Cypress E2E testing tools
 	$(E2E_RUN) npm install

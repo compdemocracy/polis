@@ -45,9 +45,8 @@ function isPreprod() {
 function isLocalhost() {
   return urlPrefix === localhost || urlPrefix === localhost8000;
 }
-const foo = {
+export default {
   urlPrefix: urlPrefix,
   isPreprod: isPreprod,
   isLocalhost: isLocalhost
 };
-export default foo;

@@ -16,10 +16,6 @@ import FB from "fb";
 import fs from "fs";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-// May not need this anymore; looks like we're just using the other Intercom api, but need to figure out
-// what's going on here
-//const Intercom = require('intercom.io'); // https://github.com/tarunc/intercom.io
-import * as IntercomOfficial from "intercom-client";
 import isTrue from "boolean";
 import OAuth from "oauth";
 // const Pushover = require('pushover-notifications');
@@ -72,8 +68,8 @@ import {
   Assignment,
 } from "./d";
 
-AWS.config.update({ region: process.env.AWS_REGION });
-const devMode = isTrue(process.env.DEV_MODE);
+AWS.config.update({ region: Config.awsRegion });
+const devMode = Config.isDevMode;
 const s3Client = new AWS.S3({ apiVersion: "2006-03-01" });
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const yell = Log.yell;
@@ -124,17 +120,6 @@ const resolveWith = (x: { body?: { user_id: string } }) => {
   return Promise.resolve(x);
 };
 
-const intercomClient =
-  !isTrue(process.env.DISABLE_INTERCOM) && process.env.INTERCOM_ACCESS_TOKEN
-    ? new IntercomOfficial.Client({
-        token: process.env.INTERCOM_ACCESS_TOKEN,
-      })
-    : {
-        leads: {
-          create: resolveWith({ body: { user_id: "null_intercom_user_id" } }),
-          update: resolveWith({}),
-        },
-      };
 
 //var SegfaultHandler = require('segfault-handler');
 
@@ -144,13 +129,6 @@ const intercomClient =
 //   contact: { user_id: '8634dd66-f75e-428d-a2bf-930baa0571e9' },
 //   user: { email: 'asdf@adsf.com', user_id: "12345" },
 // };
-// intercomClient.leads.convert(conversion).then((o) => {
-//   console.error(o);
-//   console.error(4);
-// }).catch((err) => {
-//   console.error(5);
-//   console.error(err);
-// });
 
 if (devMode) {
   Promise.longStackTraces();
@@ -182,16 +160,14 @@ Promise.onPossiblyUnhandledRejection(function (err: { stack: any }) {
   // throw err; // not throwing since we're printing stack traces anyway
 });
 
-const adminEmailDataExport = process.env.ADMIN_EMAIL_DATA_EXPORT || "";
-const adminEmailDataExportTest = process.env.ADMIN_EMAIL_DATA_EXPORT_TEST || "";
-const adminEmailEmailTest = process.env.ADMIN_EMAIL_EMAIL_TEST || "";
+const adminEmails = Config.adminEmails
+  ? JSON.parse(Config.adminEmails)
+  : [];
 
-const admin_emails = process.env.ADMIN_EMAILS
-  ? JSON.parse(process.env.ADMIN_EMAILS)
+const polisDevs = Config.adminUIDs
+  ? JSON.parse(Config.adminUIDs)
   : [];
-const polisDevs = process.env.ADMIN_UIDS
-  ? JSON.parse(process.env.ADMIN_UIDS)
-  : [];
+
 function isPolisDev(uid?: any) {
   console.log("polisDevs", polisDevs);
   return polisDevs.indexOf(uid) >= 0;
@@ -236,11 +212,13 @@ setInterval(function () {
 //   state: '3(#0/!~'
 // });
 // // END GITHUB OAUTH2
-const POLIS_FROM_ADDRESS = process.env.POLIS_FROM_ADDRESS;
+const polisFromAddress = Config.polisFromAddress;
 
-const akismet = akismetLib.client({
-  blog: "https://pol.is", // required: your root level url
-  apiKey: process.env.AKISMET_ANTISPAM_API_KEY,
+const serverUrl = Config.getServerUrl(); // typically https://pol.is or http://localhost:5000
+
+let akismet = akismetLib.client({
+  blog: serverUrl,
+  apiKey: Config.akismetAntispamApiKey,
 });
 
 akismet.verifyKey(function (err: any, verified: any) {
@@ -250,11 +228,7 @@ akismet.verifyKey(function (err: any, verified: any) {
     winston.log("info", "Akismet: Unable to verify API key.");
   }
 });
-// let SELF_HOSTNAME = "localhost:" + process.env.PORT;
-// if (!devMode) {
-// ^^^ possible to use localhost on Heroku?
-//  SELF_HOSTNAME = process.env.SERVICE_HOSTNAME
-//}
+// let SELF_HOSTNAME = Config.getServerHostname();
 
 function isSpam(o: {
   comment_content: any;
@@ -348,11 +322,6 @@ function ifDefinedSet(
     dest[name] = source[name];
   }
 }
-
-//metric("api.process.launch", 1);
-// TODO clean this up
-// const intercom = new Intercom(process.env.INTERCOM_ACCESS_TOKEN);
-const intercom = intercomClient;
 
 const sql_votes_latest_unique = SQL.sql_votes_latest_unique;
 const sql_conversations = SQL.sql_conversations;
@@ -721,7 +690,7 @@ function initializePolisHelpers() {
 
   const detectLanguage = Comment.detectLanguage;
 
-  if (isTrue(process.env.BACKFILL_COMMENT_LANG_DETECTION)) {
+  if (Config.backfillCommentLangDetection) {
     pgQueryP("select tid, txt, zid from comments where lang is null;", []).then(
       //   Argument of type '(comments: string | any[]) => void' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.
       // Types of parameters 'comments' and 'value' are incompatible.
@@ -932,7 +901,9 @@ function initializePolisHelpers() {
       return next();
     }
 
-    if (!/https/.test(req?.headers?.["x-forwarded-proto"] || "")) {
+    const isHttps = req?.headers?.["x-forwarded-proto"] === "https";
+
+    if (!isHttps) {
       // assuming we're running on Heroku, where we're behind a proxy.
       res.writeHead(302, {
         Location: "https://" + req?.headers?.host + req.url,
@@ -950,13 +921,13 @@ function initializePolisHelpers() {
     },
     next: () => any
   ) {
-    // let reServiceHostname = new RegExp(process.env.SERVICE_HOSTNAME);
+    // let reServiceHostname = new RegExp(Config.getServerHostname());
     if (
       // reServiceHostname.test(req?.headers?.host) || // needed for heroku integrations (like slack?)
       /www.pol.is/.test(req?.headers?.host || "")
     ) {
       res.writeHead(302, {
-        Location: "https://pol.is" + req.url,
+        Location: serverUrl + req.url,
       });
       return res.end();
     }
@@ -1335,15 +1306,9 @@ function initializePolisHelpers() {
   ];
 
   let whitelistedDomains = [
-    "pol.is",
-    process.env.DOMAIN_WHITELIST_ITEM_01,
-    process.env.DOMAIN_WHITELIST_ITEM_02,
-    process.env.DOMAIN_WHITELIST_ITEM_03,
-    process.env.DOMAIN_WHITELIST_ITEM_04,
-    process.env.DOMAIN_WHITELIST_ITEM_05,
-    process.env.DOMAIN_WHITELIST_ITEM_06,
-    process.env.DOMAIN_WHITELIST_ITEM_07,
-    process.env.DOMAIN_WHITELIST_ITEM_08,
+    Config.getServerHostname(),
+    ...Config.whitelistItems,
+    "localhost:5000",
     "localhost:5001",
     "localhost:5002",
     "canvas.instructure.com", // LTI
@@ -1548,7 +1513,7 @@ function initializePolisHelpers() {
     }
     res.status(200).json({});
   }
-  let pcaCacheSize = process.env.CACHE_MATH_RESULTS === "true" ? 300 : 1;
+  let pcaCacheSize = Config.cacheMathResults ? 300 : 1;
   let pcaCache = new LruCache({
     max: pcaCacheSize,
   });
@@ -1848,7 +1813,7 @@ function initializePolisHelpers() {
 
     return pgQueryP_readOnly(
       "select * from math_main where zid = ($1) and math_env = ($2);",
-      [zid, process.env.MATH_ENV]
+      [zid, Config.mathEnv]
       //     Argument of type '(rows: string | any[]) => Promise<any> | null' is not assignable to parameter of type '(value: unknown) => any'.
       // Types of parameters 'rows' and 'value' are incompatible.
       //   Type 'unknown' is not assignable to type 'string | any[]'.
@@ -1863,7 +1828,7 @@ function initializePolisHelpers() {
         INFO("mathpoll related; after cache miss, unable to find data for", {
           zid,
           math_tick,
-          math_env: process.env.MATH_ENV,
+          math_env: Config.mathEnv,
         });
         return null;
       }
@@ -2103,7 +2068,7 @@ function initializePolisHelpers() {
   ) {
     let zid = req.p.zid;
     let uid = req.p.uid;
-    let math_env = process.env.MATH_ENV;
+    let math_env = Config.mathEnv;
     let math_update_type = req.p.math_update_type;
 
     isModerator(zid, uid).then((hasPermission: any) => {
@@ -2144,7 +2109,7 @@ function initializePolisHelpers() {
     }
   ) {
     let rid = req.p.rid;
-    let math_env = process.env.MATH_ENV;
+    let math_env = Config.mathEnv;
     let math_tick = req.p.math_tick;
 
     console.log(req.p);
@@ -2250,13 +2215,13 @@ function initializePolisHelpers() {
     );
   }
   if (
-    process.env.RUN_PERIODIC_EXPORT_TESTS &&
+    Config.runPeriodicExportTests &&
     !devMode &&
-    process.env.MATH_ENV === "preprod"
+    Config.mathEnv === "preprod"
   ) {
     let runExportTest = () => {
       let math_env = "prod";
-      let email = adminEmailDataExportTest;
+      let email = Config.adminEmailDataExportTest;
       let zid = 12480;
       let atDate = Date.now();
       let format = "csv";
@@ -2303,7 +2268,7 @@ function initializePolisHelpers() {
     getUserInfoForUid2(req.p.uid)
       .then((user: { email: any }) => {
         return doAddDataExportTask(
-          process.env.MATH_ENV,
+          Config.mathEnv,
           user.email,
           req.p.zid,
           req.p.unixTimestamp * 1000,
@@ -2327,7 +2292,7 @@ function initializePolisHelpers() {
   ) {
     var url = s3Client.getSignedUrl("getObject", {
       Bucket: "polis-datadump",
-      Key: process.env.MATH_ENV + "/" + req.p.filename,
+      Key: Config.mathEnv + "/" + req.p.filename,
       Expires: 60 * 60 * 24 * 7,
     });
     res.redirect(url);
@@ -2341,7 +2306,7 @@ function initializePolisHelpers() {
     math_tick = math_tick || -1;
     return pgQueryP_readOnly(
       "select * from math_bidtopid where zid = ($1) and math_env = ($2);",
-      [zid, process.env.MATH_ENV]
+      [zid, Config.mathEnv]
       //     Argument of type '(rows: string | any[]) => any' is not assignable to parameter of type '(value: unknown) => any'.
       // Types of parameters 'rows' and 'value' are incompatible.
       //   Type 'unknown' is not assignable to type 'string | any[]'.
@@ -2717,7 +2682,7 @@ If you need to create a new account, you can do that here ${server}/home
 Feel free to reply to this email if you need help.`;
 
     return sendTextEmail(
-      POLIS_FROM_ADDRESS,
+      polisFromAddress,
       email,
       "Password Reset Failed",
       body
@@ -3628,8 +3593,8 @@ Feel free to reply to this email if you need help.`;
     );
   }
   function populateGeoIpInfo(zid: any, uid?: any, ipAddress?: string | null) {
-    var userId = process.env.MAXMIND_USERID;
-    var licenseKey = process.env.MAXMIND_LICENSEKEY;
+    var userId = Config.maxmindUserID;
+    var licenseKey = Config.maxmindLicenseKey;
 
     var url = "https://geoip.maxmind.com/geoip/v2.1/city/";
     var contentType =
@@ -3988,8 +3953,8 @@ Feel free to reply to this email if you need help.`;
 ${message}`;
 
     return sendMultipleTextEmails(
-      POLIS_FROM_ADDRESS,
-      admin_emails,
+      polisFromAddress,
+      adminEmails,
       "Dummy button clicked!!!",
       body
     ).catch(function (err: any) {
@@ -4000,8 +3965,8 @@ ${message}`;
 
   function emailTeam(subject: string, body: string) {
     return sendMultipleTextEmails(
-      POLIS_FROM_ADDRESS,
-      admin_emails,
+      polisFromAddress,
+      adminEmails,
       subject,
       body
     ).catch(function (err: any) {
@@ -4049,7 +4014,7 @@ ${serverName}/pwreset/${pwresettoken}
 "Thank you for using Polis`;
 
         sendTextEmail(
-          POLIS_FROM_ADDRESS,
+          polisFromAddress,
           userInfo.email,
           "Polis Password Reset",
           body
@@ -4112,8 +4077,8 @@ ${serverName}/pwreset/${pwresettoken}
       // send the monday backup email system test
       // If the sending fails, we should get an error ping.
       sendTextEmailWithBackupOnly(
-        POLIS_FROM_ADDRESS,
-        adminEmailEmailTest,
+        polisFromAddress,
+        Config.adminEmailEmailTest,
         "monday backup email system test",
         "seems to be working"
       );
@@ -4132,7 +4097,7 @@ ${serverName}/welcome/${einvite}
 Thank you for using Polis`;
 
     return sendTextEmail(
-      POLIS_FROM_ADDRESS,
+      polisFromAddress,
       email,
       "Get Started with Polis",
       body
@@ -4273,7 +4238,7 @@ Email verified! You can close this tab or hit the back button.
       email: any;
     }) {
       return sendTextEmail(
-        POLIS_FROM_ADDRESS,
+        polisFromAddress,
         userInfo.hname
           ? `${userInfo.hname} <${userInfo.email}>`
           : userInfo.email,
@@ -4907,10 +4872,7 @@ Email verified! You can close this tab or hit the back button.
     // @ts-ignore
     params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
 
-    let server = "http://localhost:5000";
-    if (!devMode) {
-      server = "https://" + process.env.PRIMARY_POLIS_URL;
-    }
+    let server = Config.getServerUrl();
     return server + "/" + path + "?" + paramsToStringSortedByName(params);
   }
 
@@ -4925,10 +4887,7 @@ Email verified! You can close this tab or hit the back button.
     // @ts-ignore
     params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
 
-    let server = "http://localhost:5000";
-    if (!devMode) {
-      server = "https://" + process.env.PRIMARY_POLIS_URL;
-    }
+    let server = Config.getServerUrl();
     return server + "/" + path + "?" + paramsToStringSortedByName(params);
   }
 
@@ -6917,7 +6876,6 @@ Email verified! You can close this tab or hit the back button.
   const getUser = User.getUser;
 
   // These map from non-ui string codes to number codes used in the DB
-  // The string representation ("sites", etc) is also used in intercom.
   var planCodes = {
     mike: 9999,
     trial: 0,
@@ -6960,29 +6918,6 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
-  function setUsersPlanInIntercom(uid?: any, planCode?: any) {
-    return new Promise(function (
-      resolve: (arg0: any) => void,
-      reject: (arg0: any) => void
-    ) {
-      var params = {
-        user_id: uid,
-        custom_data: {
-          plan_code: planCode,
-        },
-      };
-      // Property 'updateUser' does not exist on type 'Client | { leads: { create: Bluebird<{ body?: { user_id: string; } | undefined; }>; update: Bluebird<{ body?: { user_id: string; } | undefined; }>; }; }'.
-      // Property 'updateUser' does not exist on type 'Client'.ts(2339)
-      // @ts-ignore
-      intercom.updateUser(params, function (err: any, res: any) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(res);
-        }
-      });
-    });
-  }
   function createStripeUser(o: {
     card: any;
     description: any;
@@ -7157,11 +7092,6 @@ Email verified! You can close this tab or hit the back button.
     planCode: number
   ) {
     winston.log("info", "updatePlan", uid, planCode);
-    setUsersPlanInIntercom(uid, planCode).catch(function (err: any) {
-      emailBadProblemTime(
-        "User " + uid + " changed their plan, but we failed to update Intercom"
-      );
-    });
 
     // update DB and finish
     return changePlan(uid, planCode).then(function () {
@@ -7192,11 +7122,6 @@ Email verified! You can close this tab or hit the back button.
     isCurrentUser: boolean
   ) {
     winston.log("info", "updatePlan", uid, planCode);
-    setUsersPlanInIntercom(uid, planCode).catch(function (err: any) {
-      emailBadProblemTime(
-        "User " + uid + " changed their plan, but we failed to update Intercom"
-      );
-    });
 
     // update DB and finish
     return changePlan(uid, planCode)
@@ -7900,7 +7825,7 @@ Email verified! You can close this tab or hit the back button.
     req: { p?: ConversationType; protocol?: string; headers?: Headers },
     zinvite: string
   ) {
-    let server = devMode ? "http://localhost:5000" : "https://pol.is";
+    let server = Config.getServerUrl();
     if (domainOverride) {
       server = req?.protocol + "://" + domainOverride;
     }
@@ -7913,7 +7838,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   // function createMuteUrl(zid, tid) {
-  //     let server = devMode ? "http://localhost:5000" : "https://pol.is";
+  //     let server = Config.getServerUrl();
   //     let params = {
   //         zid: zid,
   //         tid: tid
@@ -7924,7 +7849,7 @@ Email verified! You can close this tab or hit the back button.
   // }
 
   // function createUnmuteUrl(zid, tid) {
-  //     let server = devMode ? "http://localhost:5000" : "https://pol.is";
+  //     let server = Config.getServerUrl();
   //     let params = {
   //         zid: zid,
   //         tid: tid
@@ -8221,9 +8146,9 @@ Email verified! You can close this tab or hit the back button.
               !_.isUndefined(xid) && !_.isNull(xid)
                 ? getXidStuff(xid, zid)
                 : Promise.resolve();
-            pidPromise = xidUserPromise.then((xidUser: UserType) => {
+            pidPromise = xidUserPromise.then((xidUser: UserType | "noXidRecord") => {
               shouldCreateXidRecord = xidUser === "noXidRecord";
-              if (xidUser && xidUser.uid) {
+              if (typeof xidUser === 'object') {
                 uid = xidUser.uid;
                 pid = xidUser.pid;
                 return pid;
@@ -11936,7 +11861,7 @@ Email verified! You can close this tab or hit the back button.
               "The team at pol.is";
 
             return sendTextEmail(
-              POLIS_FROM_ADDRESS,
+              polisFromAddress,
               email,
               "Link: " + createdLink,
               body
@@ -11969,8 +11894,8 @@ Email verified! You can close this tab or hit the back button.
     }
   ) {
     if (
-      req.p.webserver_pass !== process.env.WEBSERVER_PASS ||
-      req.p.webserver_username !== process.env.WEBSERVER_USERNAME
+      req.p.webserver_pass !== Config.webserverPass ||
+      req.p.webserver_username !== Config.webserverUsername
     ) {
       return fail(res, 403, "polis_err_notifyTeam_auth");
     }
@@ -12002,22 +11927,22 @@ Email verified! You can close this tab or hit the back button.
     }
   ) {
     if (
-      req.p.webserver_pass !== process.env.WEBSERVER_PASS ||
-      req.p.webserver_username !== process.env.WEBSERVER_USERNAME
+      req.p.webserver_pass !== Config.webserverPass ||
+      req.p.webserver_username !== Config.webserverUsername
     ) {
       return fail(res, 403, "polis_err_sending_export_link_to_email_auth");
     }
 
-    const domain = process.env.PRIMARY_POLIS_URL;
+    const serverUrl = Config.getServerUrl();
     const email = req.p.email;
     const subject =
       "Polis data export for conversation pol.is/" + req.p.conversation_id;
-    const fromAddress = `Polis Team <${adminEmailDataExport}>`;
+    const fromAddress = `Polis Team <${Config.adminEmailDataExport}>`;
     const body = `Greetings
 
-You created a data export for conversation ${domain}/${req.p.conversation_id} that has just completed. You can download the results for this conversation at the following url:
+You created a data export for conversation ${serverUrl}/${req.p.conversation_id} that has just completed. You can download the results for this conversation at the following url:
 
-https://${domain}/api/v3/dataExport/results?filename=${req.p.filename}&conversation_id=${req.p.conversation_id}
+${serverUrl}/api/v3/dataExport/results?filename=${req.p.filename}&conversation_id=${req.p.conversation_id}
 
 Please let us know if you have any questions about the data.
 
@@ -12026,7 +11951,7 @@ Thanks for using Polis!
 
     console.log("SENDING EXPORT EMAIL");
     console.log({
-      domain,
+      serverUrl,
       email,
       subject,
       fromAddress,
@@ -12048,8 +11973,8 @@ Thanks for using Polis!
       // Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
       // Type 'undefined' is not assignable to type 'string'.ts(2345)
       // @ts-ignore
-      process.env.TWITTER_CONSUMER_KEY, //'your application consumer key',
-      process.env.TWITTER_CONSUMER_SECRET, //'your application secret',
+      Config.twitterConsumerKey, //'your application consumer key',
+      Config.twitterConsumerSecret, //'your application secret',
       "1.0A",
       null,
       "HMAC-SHA1"
@@ -12117,8 +12042,8 @@ Thanks for using Polis!
       // Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
       // Type 'undefined' is not assignable to type 'string'.ts(2345)
       // @ts-ignore
-      process.env.TWITTER_CONSUMER_KEY, //'your application consumer key',
-      process.env.TWITTER_CONSUMER_SECRET, //'your application secret',
+      Config.twitterConsumerKey, //'your application consumer key',
+      Config.twitterConsumerSecret, //'your application secret',
       "1.0A",
       null,
       "HMAC-SHA1"
@@ -12180,8 +12105,8 @@ Thanks for using Polis!
       // Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
       // Type 'undefined' is not assignable to type 'string'.ts(2345)
       // @ts-ignore
-      process.env.TWITTER_CONSUMER_KEY, //'your application consumer key',
-      process.env.TWITTER_CONSUMER_SECRET, //'your application secret',
+      Config.twitterConsumerKey, //'your application consumer key',
+      Config.twitterConsumerSecret, //'your application secret',
       "1.0A",
       null,
       "HMAC-SHA1"
@@ -12238,8 +12163,8 @@ Thanks for using Polis!
       // Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
       // Type 'undefined' is not assignable to type 'string'.ts(2345)
       // @ts-ignore
-      process.env.TWITTER_CONSUMER_KEY, //'your application consumer key',
-      process.env.TWITTER_CONSUMER_SECRET, //'your application secret',
+      Config.twitterConsumerKey, //'your application consumer key',
+      Config.twitterConsumerSecret, //'your application secret',
       "1.0A",
       null,
       "HMAC-SHA1"
@@ -12278,8 +12203,8 @@ Thanks for using Polis!
   //   let oauth = new OAuth.OAuth(
   //     'https://api.twitter.com/oauth/request_token', // null
   //     'https://api.twitter.com/oauth/access_token', // null
-  //     process.env.TWITTER_CONSUMER_KEY, //'your application consumer key',
-  //     process.env.TWITTER_CONSUMER_SECRET, //'your application secret',
+  //     Config.twitterConsumerKey, //'your application consumer key',
+  //     Config.twitterConsumerSecret, //'your application secret',
   //     '1.0A',
   //     null,
   //     'HMAC-SHA1'
@@ -12320,8 +12245,8 @@ Thanks for using Polis!
       // Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
       // Type 'undefined' is not assignable to type 'string'.ts(2345)
       // @ts-ignore
-      process.env.TWITTER_CONSUMER_KEY, //'your application consumer key',
-      process.env.TWITTER_CONSUMER_SECRET, //'your application secret',
+      Config.twitterConsumerKey, //'your application consumer key',
+      Config.twitterConsumerSecret, //'your application secret',
       "1.0A",
       null,
       "HMAC-SHA1"
@@ -12791,7 +12716,6 @@ Thanks for using Polis!
                         function () {
                           // OK, ready
                           u.uid = uid;
-                          //maybeAddToIntercom(u);
                           res.redirect(dest);
                         },
                         function (err: any) {
@@ -14370,68 +14294,6 @@ Thanks for using Polis!
     );
   }
 
-  function handle_POST_waitinglist(
-    req: {
-      p: { campaign: any; affiliation: any; role: any; email: any; name: any };
-    },
-    res: { json: (arg0: {}) => void }
-  ) {
-    let intercom_lead_user_id: any;
-    intercomClient.leads
-      // This expression is not callable.
-      // Not all constituents of type 'Bluebird<{ body?: { user_id: string; } | undefined; }> | { (lead: Partial<Lead>): Promise<ApiResponse<Lead>>; (lead: Partial<Lead>, cb: callback<...>): void; }' are callable.
-      // Type 'Bluebird<{ body?: { user_id: string; } | undefined; }>' has no call signatures.ts(2349)
-      // @ts-ignore
-      .create()
-      .then((x: { body: { user_id: any } }) => {
-        intercom_lead_user_id = x.body.user_id;
-        return intercom_lead_user_id;
-      })
-      .then(() => {
-        const custom: { [key: string]: string } = {
-          campaign: req.p.campaign,
-        };
-        if (req.p.affiliation) {
-          custom.affiliation = req.p.affiliation;
-        }
-        if (req.p.role) {
-          custom.role = req.p.role;
-        }
-        return (
-          intercomClient.leads
-            // This expression is not callable.
-            // Not all constituents of type 'Bluebird<{ body?: { user_id: string; } | undefined; }> | { (lead: UserIdentifier & Partial<Lead>): Promise<ApiResponse<Lead>>; (lead: UserIdentifier & Partial<...>, cb: callback<...>): void; }' are callable.
-            // Type 'Bluebird<{ body?: { user_id: string; } | undefined; }>' has no call signatures.ts(2349)
-            // @ts-ignore
-            .update({
-              user_id: intercom_lead_user_id,
-              email: req.p.email,
-              last_request_at: Date.now(),
-              name: req.p.name,
-              custom_attributes: custom,
-            })
-        );
-      })
-      .then(() => {
-        return pgQueryP(
-          "insert into waitinglist (email, campaign, affiliation, role, intercom_lead_user_id, name) values ($1, $2, $3, $4, $5, $6);",
-          [
-            req.p.email,
-            req.p.campaign,
-            req.p.affiliation || null,
-            req.p.role || null,
-            intercom_lead_user_id,
-            req.p.name,
-          ]
-        );
-      })
-      .then(() => {
-        res.json({});
-      })
-      .catch((err: any) => {
-        fail(res, 500, "polis_err_POST_waitinglist", err);
-      });
-  }
   function generateSingleUseUrl(
     req: any,
     conversation_id: string,
@@ -15339,7 +15201,7 @@ Thanks for using Polis!
     } else {
       path += "app_instructions_blank.png";
     }
-    let doFetch = makeFileFetcher(hostname, portForParticipationFiles, path, {
+    let doFetch = makeFileFetcher(hostname, staticFilesClientPort, path, {
       "Content-Type": "image/png",
     });
     //   Argument of type '{ headers?: { [x: string]: string; } | undefined; }' is not assignable to parameter of type '{ headers?: { host: any; } | undefined; path: any; pipe: (arg0: any) => void; }'.
@@ -15387,7 +15249,7 @@ Thanks for using Polis!
   //     });
   // }
 
-  function hangle_GET_testConnection(
+  function handle_GET_testConnection(
     req: any,
     res: {
       status: (
@@ -15404,7 +15266,7 @@ Thanks for using Polis!
     });
   }
 
-  function hangle_GET_testDatabase(
+  function handle_GET_testDatabase(
     req: any,
     res: {
       status: (
@@ -15451,7 +15313,7 @@ Thanks for using Polis!
       "Thank you for using Polis\n";
 
     return sendTextEmail(
-      POLIS_FROM_ADDRESS,
+      polisFromAddress,
       email,
       "Join the pol.is conversation!",
       body
@@ -15703,7 +15565,7 @@ Thanks for using Polis!
       let emails = _.pluck(rows, "email");
 
       return sendMultipleTextEmails(
-        POLIS_FROM_ADDRESS,
+        polisFromAddress,
         emails,
         "Polis conversation created",
         body
@@ -16022,7 +15884,7 @@ Thanks for using Polis!
     let hostname = buildStaticHostname(req, res);
     if (!hostname) {
       let host = req?.headers?.host || "";
-      let re = new RegExp(process.env.SERVICE_HOSTNAME + "$");
+      let re = new RegExp(Config.getServerHostname() + "$");
       if (host.match(re)) {
         // don't alert for this, it's probably DNS related
         // TODO_SEO what should we return?
@@ -16044,14 +15906,14 @@ Thanks for using Polis!
       addStaticFileHeaders(res);
     }
     // if (/MSIE [^1]/.exec(req?.headers?.['user-agent'])) { // older than 10
-    //     // http.get(process.env.STATIC_FILES_HOST + "/unsupportedBrowser.html", function(page) {
+    //     // http.get(Config.staticFilesHost + "/unsupportedBrowser.html", function(page) {
     //     //     res.status(200).end(page);
     //     // }).on('error', function(e) {
     //     //     res.status(200).end("Apollogies, this browser is not supported. We recommend Chrome, Firefox, or Safari.");
     //     // });
     //     getStaticFile("./unsupportedBrowser.html", res);
     // } else {
-    let port = process.env.STATIC_FILES_PORT;
+    let port = Config.staticFilesClientPort;
     // set the host header too, since S3 will look at that (or the routing proxy will patch up the request.. not sure which)
     if (req && req.headers && req.headers.host) req.headers.host = hostname;
     routingProxy.web(req, res, {
@@ -16065,7 +15927,7 @@ Thanks for using Polis!
 
   function buildStaticHostname(req: { headers?: { host: string } }, res: any) {
     if (devMode || domainOverride) {
-      return process.env.STATIC_FILES_HOST;
+      return Config.staticFilesHost;
     } else {
       let origin = req?.headers?.host;
       // Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ "pol.is": string; "embed.pol.is": string; "survey.pol.is": string; "preprod.pol.is": string; }'.
@@ -16075,7 +15937,7 @@ Thanks for using Polis!
         if (hasWhitelistMatches(origin || "")) {
           // Use the prod bucket for non pol.is domains
           return (
-            whitelistedBuckets["pol.is"] + "." + process.env.STATIC_FILES_HOST
+            whitelistedBuckets["pol.is"] + "." + Config.staticFilesHost
           );
         } else {
           console.error(
@@ -16090,7 +15952,7 @@ Thanks for using Polis!
       // No index signature with a parameter of type 'string' was found on type '{ "pol.is": string; "embed.pol.is": string; "survey.pol.is": string; "preprod.pol.is": string; }'.ts(7053)
       // @ts-ignore
       origin = whitelistedBuckets[origin || ""];
-      return origin + "." + process.env.STATIC_FILES_HOST;
+      return origin + "." + Config.staticFilesHost;
     }
   }
 
@@ -16160,7 +16022,7 @@ Thanks for using Polis!
 
   function makeFileFetcher(
     hostname?: string,
-    port?: string,
+    port?: string | number,
     path?: string,
     headers?: { "Content-Type": string },
     preloadData?: { conversation?: ConversationType }
@@ -16259,12 +16121,12 @@ Thanks for using Polis!
   }
 
   // serve up index.html in response to anything starting with a number
-  let hostname = process.env.STATIC_FILES_HOST;
-  let portForParticipationFiles = process.env.STATIC_FILES_PORT;
-  let portForAdminFiles = process.env.STATIC_FILES_ADMINDASH_PORT;
+  let hostname: string = Config.staticFilesHost;
+  let staticFilesClientPort: number = Config.staticFilesClientPort;
+  let staticFilesAdminPort: number = Config.staticFilesAdminPort;
   let fetchUnsupportedBrowserPage = makeFileFetcher(
     hostname,
-    portForParticipationFiles,
+    staticFilesClientPort,
     "/unsupportedBrowser.html",
     {
       "Content-Type": "text/html",
@@ -16278,7 +16140,7 @@ Thanks for using Polis!
       end: () => any;
     },
     preloadData: { conversation?: ConversationType },
-    port: string | undefined,
+    port: string | number | undefined,
     buildNumber?: string | null | undefined
   ) {
     let headers = {
@@ -16341,7 +16203,7 @@ Thanks for using Polis!
   function ifDefinedFirstElseSecond(first: any, second: boolean) {
     return _.isUndefined(first) ? second : first;
   }
-  let fetch404Page = makeFileFetcher(hostname, portForAdminFiles, "/404.html", {
+  let fetch404Page = makeFileFetcher(hostname, staticFilesAdminPort, "/404.html", {
     "Content-Type": "text/html",
   });
 
@@ -16395,7 +16257,7 @@ Thanks for using Polis!
           req,
           res,
           preloadData,
-          portForParticipationFiles,
+          staticFilesClientPort,
           buildNumber
         );
       })
@@ -16409,7 +16271,7 @@ Thanks for using Polis!
   }
   let fetchIndexForAdminPage = makeFileFetcher(
     hostname,
-    portForAdminFiles,
+    staticFilesAdminPort,
     "/index_admin.html",
     {
       "Content-Type": "text/html",
@@ -16417,7 +16279,7 @@ Thanks for using Polis!
   );
   let fetchIndexForReportPage = makeFileFetcher(
     hostname,
-    portForAdminFiles,
+    staticFilesAdminPort,
     "/index_report.html",
     {
       "Content-Type": "text/html",
@@ -16697,8 +16559,8 @@ Thanks for using Polis!
     makeFileFetcher,
     makeRedirectorTo,
     pidCache,
-    portForAdminFiles,
-    portForParticipationFiles,
+    staticFilesAdminPort,
+    staticFilesClientPort,
     proxy,
     redirectIfApiDomain,
     redirectIfHasZidButNoConversationId,
@@ -16767,8 +16629,8 @@ Thanks for using Polis!
     handle_GET_snapshot,
     handle_GET_stripe_account_connect,
     handle_GET_stripe_account_connected_oauth_callback,
-    hangle_GET_testConnection,
-    hangle_GET_testDatabase,
+    handle_GET_testConnection,
+    handle_GET_testDatabase,
     handle_GET_tryCookie,
     handle_GET_twitter_image,
     handle_GET_twitter_oauth_callback,
@@ -16822,7 +16684,6 @@ Thanks for using Polis!
     handle_POST_upvotes,
     handle_POST_users_invite,
     handle_POST_votes,
-    handle_POST_waitinglist,
     handle_POST_xidWhitelist,
     handle_POST_zinvites,
     handle_PUT_comments,

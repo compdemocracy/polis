@@ -22,7 +22,7 @@ export default {
           {
             title: 'FAQ',
             url:
-              'https://intercom.help/polis/frequently-asked-questions/polis-faq'
+              'https://compdemocracy.org/faq'
           }
         ]
       },

@@ -8,18 +8,16 @@ var HtmlWebPackPlugin = require('html-webpack-plugin');
 var EventHooksPlugin = require('event-hooks-webpack-plugin');
 var CopyPlugin = require("copy-webpack-plugin");
 var TerserPlugin = require("terser-webpack-plugin");
-var BundleAnalyzerPlugin = require('webpack-bundle-analyzer')
-  .BundleAnalyzerPlugin
+var BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin
 var mri = require('mri');
 var glob = require('glob');
 var fs = require('fs');
-var { boolean: isTrue } = require("boolean");
 
 // CLI commands for deploying built artefact.
 var argv = process.argv.slice(2)
 var cliArgs = mri(argv)
 
-var polisConfig = require("./polis.config");
+var fbAppId = process.env.FB_APP_ID;
 
 module.exports = (env, options) => {
   var isDevBuild = options.mode === 'development';
@@ -60,10 +58,7 @@ module.exports = (env, options) => {
         filename: (isDevBuild || isDevServer) ? 'index.html' : 'index_admin.html',
         inject: "body",
         templateParameters: {
-          domainWhitelist: `["${polisConfig.domainWhitelist.join('","')}"]`,
-          fbAppId: polisConfig.FB_APP_ID,
-          usePlans: !isTrue(polisConfig.DISABLE_PLANS),
-          useIntercom: !isTrue(polisConfig.DISABLE_INTERCOM),
+          fbAppId: fbAppId,
         },
       }),
       new LodashModuleReplacementPlugin({

@@ -1,3 +1,7 @@
 {
-    "typescript.tsdk": "node_modules/typescript/lib"
+    "jest.jestCommandLine": "npx jest --forceExit test",
+    "jest.autoRun": {
+      "watch": false,
+      "onSave": "test-src-file"
+    }
 }
