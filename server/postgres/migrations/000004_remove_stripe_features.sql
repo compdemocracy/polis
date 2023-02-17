@@ -1,5 +1,0 @@
-ALTER TABLE users DROP COLUMN IF EXISTS plan CASCADE;
-
-DROP TABLE IF EXISTS stripe_accounts CASCADE;
-DROP TABLE IF EXISTS stripe_subscriptions CASCADE;
-DROP TABLE IF EXISTS coupons_for_free_upgrades CASCADE;
