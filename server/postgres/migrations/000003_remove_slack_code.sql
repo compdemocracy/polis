@@ -1,4 +1,4 @@
-ALTER TABLE conversations DROP COLUMN is_slack CASCADE;
+ALTER TABLE conversations DROP COLUMN IF EXISTS is_slack CASCADE;
 
 DROP TABLE slack_oauth_access_tokens CASCADE;
 DROP TABLE slack_users CASCADE;
