@@ -7,10 +7,6 @@
  :math-env #or [#keyword #env MATH_ENV, :dev]
  :darwin {:server-port #or [#long #env SERVER_PORT, 3123]}
 
- ;; TODO Oy vey; Need to fix this, or figure out if I even need it; if so may just in darwin?
- ;:primary-polis-url #or [#env PRIMARY_POLIS_URL
- ;                        :localhost]
-
  :database {:pool-size #or [#long #env DATABASE_POOL_SIZE, 3]
             :url #env DATABASE_URL}
 
@@ -48,8 +44,6 @@
  :mongolab-uri               {:path [:mongo :url]}
  :mailgun-api-key            {:path [:email :api-key]}
  :mailgun-url                {:path [:email :url]}
- ;; TODO Oy vey; Need to fix this, or figure out if I even need it
- ;:primary-polis-url          {:path [:email :api-key]}
  ;:math-matrix-implementation {:path [:math :matrix-implementation] :parse ->keyword}
  :math-cutoff-medium         {:path [:math :cutoffs :medium] :parse ->long
                               :doc "This is the maximum size of a conversation before running in :medium mode"}

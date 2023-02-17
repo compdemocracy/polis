@@ -5,9 +5,13 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 "use strict";
 
+import * as dotenv from 'dotenv';
+dotenv.config();
+
 import Promise from "bluebird";
 import express from "express";
 
+import Config from "./src/config";
 import server from "./src/server";
 
 const app = express();
@@ -44,8 +48,8 @@ helpersInitialized.then(
       makeFileFetcher,
       makeRedirectorTo,
       pidCache,
-      portForAdminFiles,
-      portForParticipationFiles,
+      staticFilesAdminPort,
+      staticFilesClientPort,
       proxy,
       redirectIfApiDomain,
       redirectIfHasZidButNoConversationId,
@@ -1708,7 +1712,7 @@ helpersInitialized.then(
     );
 
     function makeFetchIndexWithoutPreloadData() {
-      let port = portForParticipationFiles;
+      let port = staticFilesClientPort;
       return function (req, res) {
         return fetchIndexWithoutPreloadData(req, res, port);
       };
@@ -1745,13 +1749,13 @@ helpersInitialized.then(
     app.get(/^\/signin(\/.*)?/, fetchIndexForAdminPage);
     app.get(
       /^\/dist\/admin_bundle.js$/,
-      makeFileFetcher(hostname, portForAdminFiles, "/dist/admin_bundle.js", {
+      makeFileFetcher(hostname, staticFilesAdminPort, "/dist/admin_bundle.js", {
         "Content-Type": "application/javascript",
       })
     );
     app.get(
       /^\/__webpack_hmr$/,
-      makeFileFetcher(hostname, portForAdminFiles, "/__webpack_hmr", {
+      makeFileFetcher(hostname, staticFilesAdminPort, "/__webpack_hmr", {
         "Content-Type": "eventsource",
       })
     );
@@ -1786,25 +1790,25 @@ helpersInitialized.then(
 
     app.get(
       /^\/embed$/,
-      makeFileFetcher(hostname, portForAdminFiles, "/embed.html", {
+      makeFileFetcher(hostname, staticFilesAdminPort, "/embed.html", {
         "Content-Type": "text/html",
       })
     );
     app.get(
       /^\/embedPreprod$/,
-      makeFileFetcher(hostname, portForAdminFiles, "/embedPreprod.html", {
+      makeFileFetcher(hostname, staticFilesAdminPort, "/embedPreprod.html", {
         "Content-Type": "text/html",
       })
     );
     app.get(
       /^\/embedReport$/,
-      makeFileFetcher(hostname, portForAdminFiles, "/embedReport.html", {
+      makeFileFetcher(hostname, staticFilesAdminPort, "/embedReport.html", {
         "Content-Type": "text/html",
       })
     );
     app.get(
       /^\/embedReportPreprod$/,
-      makeFileFetcher(hostname, portForAdminFiles, "/embedReportPreprod.html", {
+      makeFileFetcher(hostname, staticFilesAdminPort, "/embedReportPreprod.html", {
         "Content-Type": "text/html",
       })
     );
@@ -1812,7 +1816,7 @@ helpersInitialized.then(
       /^\/canvas_setup_backup_instructions$/,
       makeFileFetcher(
         hostname,
-        portForParticipationFiles,
+        staticFilesClientPort,
         "/canvas_setup_backup_instructions.html",
         {
           "Content-Type": "text/html",
@@ -1821,7 +1825,7 @@ helpersInitialized.then(
     );
     app.get(
       /^\/styleguide$/,
-      makeFileFetcher(hostname, portForParticipationFiles, "/styleguide.html", {
+      makeFileFetcher(hostname, staticFilesClientPort, "/styleguide.html", {
         "Content-Type": "text/html",
       })
     );
@@ -1830,7 +1834,7 @@ helpersInitialized.then(
     app.get(/^\/home(\/.*)?/, fetchIndexForAdminPage);
     app.get(
       /^\/s\/CTE\/?$/,
-      makeFileFetcher(hostname, portForParticipationFiles, "/football.html", {
+      makeFileFetcher(hostname, staticFilesClientPort, "/football.html", {
         "Content-Type": "text/html",
       })
     );
@@ -1838,7 +1842,7 @@ helpersInitialized.then(
       /^\/twitterAuthReturn(\/.*)?$/,
       makeFileFetcher(
         hostname,
-        portForParticipationFiles,
+        staticFilesClientPort,
         "/twitterAuthReturn.html",
         {
           "Content-Type": "text/html",
@@ -1883,7 +1887,7 @@ helpersInitialized.then(
       // 404 everything else
       app.get(
         /^\/[^(api\/)]?.*/,
-        makeFileFetcher(hostname, portForAdminFiles, "/404.html", {
+        makeFileFetcher(hostname, staticFilesAdminPort, "/404.html", {
           "Content-Type": "text/html",
         })
       );
@@ -1892,9 +1896,9 @@ helpersInitialized.then(
       app.get(/^\/[^(api\/)]?.*/, proxy);
     }
 
-    app.listen(process.env.PORT);
+    app.listen(Config.serverPort);
 
-    winston.log("info", "started on port " + process.env.PORT);
+    winston.log("info", "started on port " + Config.serverPort);
   },
   function (err) {
     console.error("failed to init server");
