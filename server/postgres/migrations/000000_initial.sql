@@ -429,23 +429,6 @@ CREATE TABLE participant_metadata_choices (
 );
 
 
--- this could probably be called external_user_links, and should have a scope for the user identities, like "canvas.instructure.com" or something like that
--- NOTE, there may be multiple uids for a given lti_user_id
-CREATE TABLE lti_users (
-    uid INTEGER NOT NULL REFERENCES users(uid),
-    lti_user_id TEXT NOT NULL, -- TODO add constraint to limit length
-    lti_user_image VARCHAR(9999), -- URL - may be null
-    tool_consumer_instance_guid TEXT NOT NULL,
-    created BIGINT DEFAULT now_as_millis(),
-    UNIQUE (lti_user_id, tool_consumer_instance_guid)
-);
-
-CREATE TABLE lti_context_memberships (
-    uid INTEGER NOT NULL REFERENCES users(uid),
-    lti_context_id TEXT NOT NULL,
-    tool_consumer_instance_guid TEXT NOT NULL
-);
-
 CREATE TABLE geolocation_cache (
     location VARCHAR(9999), -- "Seattle, WA"
     lat DOUBLE PRECISION NOT NULL, -- latitude
@@ -514,41 +497,6 @@ CREATE TABLE facebook_friends (
     uid INTEGER NOT NULL REFERENCES users(uid),
     friend INTEGER NOT NULL REFERENCES users(uid)
     -- UNIQUE(uid, friend)
-);
-
-
-
-
--- the use-case for this table is that there are many conversations, but a single grading callback for the whole course
--- allowing for duplicates (for now) by using 'created' field
--- TODO don't allow for duplicates
-CREATE TABLE canvas_assignment_callback_info (
-    tool_consumer_instance_guid VARCHAR(999) NOT NULL,
-    lti_context_id TEXT NOT NULL, -- TODO add constraint to limit length
-    lti_user_id TEXT NOT NULL, -- TODO add constraint to limit length
-    custom_canvas_assignment_id BIGINT NOT NULL,
-
-    lis_result_sourcedid VARCHAR(256),
-    lis_outcome_service_url TEXT, -- TODO add constraint to limit length
-    stringified_json_of_post_content TEXT, -- TODO add constraint to limit length
-    created BIGINT DEFAULT now_as_millis(),
-    grade_assigned DOUBLE PRECISION DEFAULT NULL, -- leave this null until we assign a grade, we want to keep track of which of these are resolved.
-    UNIQUE (lti_user_id, lti_context_id, custom_canvas_assignment_id, tool_consumer_instance_guid)
-);
-
-CREATE TABLE canvas_assignment_conversation_info (
-    zid INTEGER NOT NULL REFERENCES conversations(zid),
-    tool_consumer_instance_guid VARCHAR(999) NOT NULL,
-    lti_context_id VARCHAR(999) NOT NULL,
-    custom_canvas_assignment_id BIGINT NOT NULL,
-    UNIQUE(zid, tool_consumer_instance_guid, lti_context_id, custom_canvas_assignment_id)
-);
-
-CREATE TABLE lti_oauthv1_credentials (
-    uid INTEGER NOT NULL REFERENCES users(uid),
-    oauth_consumer_key VARCHAR(999) NOT NULL,
-    oauth_shared_secret VARCHAR(999) NOT NULL,
-    UNIQUE(uid) -- NOTE: if we want to allow multiple keys per instructor, we'd need to scope to tool_consumer_instance_guid, and maybe lti_context_id, but let's not go there yet
 );
 
 
