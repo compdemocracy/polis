@@ -905,7 +905,9 @@ function initializePolisHelpers() {
       return next();
     }
 
-    if (!/https/.test(req?.headers?.["x-forwarded-proto"] || "")) {
+    const isHttps = req?.headers?.["x-forwarded-proto"] === "https";
+
+    if (!isHttps) {
       // assuming we're running on Heroku, where we're behind a proxy.
       res.writeHead(302, {
         Location: "https://" + req?.headers?.host + req.url,
@@ -8160,9 +8162,9 @@ Email verified! You can close this tab or hit the back button.
               !_.isUndefined(xid) && !_.isNull(xid)
                 ? getXidStuff(xid, zid)
                 : Promise.resolve();
-            pidPromise = xidUserPromise.then((xidUser: UserType) => {
+            pidPromise = xidUserPromise.then((xidUser: UserType | "noXidRecord") => {
               shouldCreateXidRecord = xidUser === "noXidRecord";
-              if (xidUser && xidUser.uid) {
+              if (typeof xidUser === 'object') {
                 uid = xidUser.uid;
                 pid = xidUser.pid;
                 return pid;
@@ -15263,7 +15265,7 @@ Thanks for using Polis!
   //     });
   // }
 
-  function hangle_GET_testConnection(
+  function handle_GET_testConnection(
     req: any,
     res: {
       status: (
@@ -15280,7 +15282,7 @@ Thanks for using Polis!
     });
   }
 
-  function hangle_GET_testDatabase(
+  function handle_GET_testDatabase(
     req: any,
     res: {
       status: (
@@ -16643,8 +16645,8 @@ Thanks for using Polis!
     handle_GET_snapshot,
     handle_GET_stripe_account_connect,
     handle_GET_stripe_account_connected_oauth_callback,
-    hangle_GET_testConnection,
-    hangle_GET_testDatabase,
+    handle_GET_testConnection,
+    handle_GET_testDatabase,
     handle_GET_tryCookie,
     handle_GET_twitter_image,
     handle_GET_twitter_oauth_callback,

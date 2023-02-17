@@ -113,8 +113,8 @@ helpersInitialized.then(
       handle_GET_snapshot,
       handle_GET_stripe_account_connect,
       handle_GET_stripe_account_connected_oauth_callback,
-      hangle_GET_testConnection,
-      hangle_GET_testDatabase,
+      handle_GET_testConnection,
+      handle_GET_testDatabase,
       handle_GET_tryCookie,
       handle_GET_twitter_image,
       handle_GET_twitter_oauth_callback,
@@ -875,9 +875,9 @@ helpersInitialized.then(
       handle_GET_nextComment
     );
 
-    app.get("/api/v3/testConnection", moveToBody, hangle_GET_testConnection);
+    app.get("/api/v3/testConnection", moveToBody, handle_GET_testConnection);
 
-    app.get("/api/v3/testDatabase", moveToBody, hangle_GET_testDatabase);
+    app.get("/api/v3/testDatabase", moveToBody, handle_GET_testDatabase);
 
     app.get("/robots.txt", function (req, res) {
       res.send("User-agent: *\n" + "Disallow: /api/");
@@ -1901,3 +1901,5 @@ helpersInitialized.then(
     console.error(err);
   }
 );
+
+export default app;
