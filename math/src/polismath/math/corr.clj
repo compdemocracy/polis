@@ -4,7 +4,6 @@
   (:refer-clojure :exclude [* - + == /])
   (:require
     [taoensso.timbre :as log]
-    [taoensso.timbre.profiling :as prof]
     ;[plumbing.core :as pc
     ; :refer (fnk map-vals <-)]
     ;[plumbing.graph :as gr]
@@ -172,6 +171,7 @@
          ;subset-matrix (if tids (nm/colname-subset matrix tids) matrix)
          ;cleaned-matrix (cleaned-nmat subset-matrix)
          ;transposed-matrix (transpose-nmat cleaned-matrix)
+         ;; note: taoensso.timbre.profiling was removed from timbre; use com.taoensso/tufte now
          ;corr-mat (prof/profile :info :corr-mat (correlation-matrix cleaned-matrix))
          ;hclusters (prof/profile :info ::hclust (hclust transposed-matrix))
          ;corr-mat' (blockify-corr-matrix corr-mat hclusters)
