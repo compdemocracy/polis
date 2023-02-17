@@ -13,7 +13,7 @@ For a detailed methods paper, see [Polis: Scaling Deliberation by Mapping High D
    [docker-image-builds]: https://hub.docker.com/u/compdem
    [e2e-tests]: https://github.com/compdemocracy/polis/actions?query=workflow%3A%22E2E+Tests%22
 
-<br>
+---
 
 ## 🎈 🪁 Start here! 🪁 🎈
 
@@ -36,21 +36,34 @@ If you're interested in using or contributing to Polis, please see the following
 
 If you're trying to set up a Polis deployment or development environment, then please read the rest of this document 👇 ⬇️ 👇
 
-<br><br>
+---
 
 ## ⚡ Running Polis
 
 Polis comes with Docker infrastructure for running a complete system, whether for a [production deployment](#-production-deployment) or a [development environment](#-development-tooling) (details for each can be found in later sections of this document).
 As a consequence, the only prerequisite to running Polis is that you install a recent `docker` (and Docker Desktop if you are on Mac or Windows).
 
-If you aren't able to use Docker for some reason, the various `Dockerfile`s found in subdirectories (`math`, `server`, `*-client`) of this repository _can_ be used as a reference for how you'd set up a system manually.
+If you aren't able to use Docker for some reason, the various Dockerfiles found in subdirectories (`math`, `server`, `*-client`) of this repository _can_ be used as a reference for how you'd set up a system manually.
 If you're interested in doing the legwork to support alternative infrastructure, please [let us know in an issue](https://github.com/compdemocracy.org/issues).
+
+### Quick Start
+
+```sh
+cp example.env .env
+make start
+```
+
+That should run docker compose with the development overlay (see below) and default configuration values.
+
+Visit `localhost:80/createuser` and get started.
 
 ### Docker & Docker Compose
 
 Newer versions of `docker` have `docker compose` built in as a subcommand.
 If you are using an older version (and don't want to upgrade), you'll need to separately install `docker-compose`, and use that instead in the instructions that follow.
 Note however that the newer `docker compose` command is required to [take advantage of Docker Swarm](/docs/scaling#docker-compose-over-docker-swarm) as a scaling option.
+
+Many convenient commands are found in the Makefile. Run `make help` for a list of available commands.
 
 ### Building and running the containers
 
@@ -64,14 +77,21 @@ If you get a permission error, try running this command with `sudo`.
 If this fixes the problem, sudo will be necessary for all other commands as well.
 To avoid having to use `sudo` in the future (on a Linux or Windows machine with WSL), [you can follow setup instructions here.](https://docs.docker.com/engine/install/linux-postinstall/)
 
-Once you've built the docker images, you can run without `--build`, which may be faster.
-Simply:
+Once you've built the docker images, you can run without `--build`, which may be faster. Run
 
 ```sh
 docker compose up
 ```
 
-Any time you want to _rebuild_ the images, just reaffix `--build` when you run.
+or simply
+
+```sh
+make start
+```
+
+Any time you want to _rebuild_ the images, just reaffix `--build` when you run. Another way to
+easily rebuild and start your containers is with `make start-rebuild`.
+
 If you have only changed configuration values in .env, you can reacreate your containers without
 fully rebuilding them with `--force-recreate`. For example:
 
@@ -104,7 +124,7 @@ If you want to update the system, you may need to handle the following:
 - Update docker images by running with `--build` if there have been changes to the Dockerfiles
   - consider using `--no-cache` if you'd like to rebuild from scratch, but note that this will take much longer
 
-<br>
+---
 
 ## 🚀 Production deployment
 
@@ -122,7 +142,7 @@ In particular
 We encourage you to take advantage of the public channels above for support setting up a deployment.
 However, if you are deploying in a high impact context and need help, please [reach out to us][hello]
 
-<br>
+---
 
 ## 💻 Development tooling
 
@@ -154,6 +174,15 @@ We use Cypress for automated, end-to-end browser testing for PRs on GitHub (see 
 Please see [`e2e/README.md`](/e2e/README.md) for more information on running these tests locally.
 
 ### Miscellaneous & troubleshooting
+
+#### Docker Problems
+
+A lot of issues might be resolved by killing all docker containers and/or restarting docker entirely. If that doesn't
+work, this will wipe all of your polis containers and volumes and completely rebuild them:
+
+`make start-FULL-REBUILD`
+
+see also `make help` for additional commands that might be useful.
 
 #### Git Configuration
 
