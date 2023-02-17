@@ -141,6 +141,10 @@ e2e-run-all: ## Run E2E tests: all
 e2e-run-interactive: ## Run E2E tests: interactively
 	$(E2E_RUN) npx cypress open
 
+psql-shell: ## Assuming a system is already running with `make start`, start up an interactive psql shell
+	docker-compose exec postgres psql --username postgres --dbname polis-dev
+
+
 # Helpful CLI shortcuts
 rbs: start-rebuild
 
@@ -149,7 +153,8 @@ rbs: start-rebuild
 
 .PHONY: help pull start stop rm-containers rm-volumes rm-images rm-ALL hash build-no-cache start-rebuild \
 	start-recreate start-FULL-REBUILD rebuild-web rebuild-server e2e-install e2e-run e2e-run-all \
-	e2e-run-interactive build-web-assets extract-web-assets generate-jwt-keys regenerate-jwt-keys
+	e2e-run-interactive build-web-assets extract-web-assets generate-jwt-keys regenerate-jwt-keys \
+	psql-shell
 
 
 help:
