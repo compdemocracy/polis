@@ -3,5 +3,8 @@
     "jest.autoRun": {
       "watch": false,
       "onSave": "test-src-file"
+    },
+    "[typescript]": {
+      "editor.defaultFormatter": "dbaeumer.vscode-eslint"
     }
 }

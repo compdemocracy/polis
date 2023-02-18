@@ -1,11 +1,7 @@
-// @ts-nocheck
-// TODO ^^ enable typechecking after refactoring to use
-// TODO modern import syntax for helpers
-
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 "use strict";
 
-import * as dotenv from 'dotenv';
+import * as dotenv from "dotenv";
 dotenv.config();
 
 import Promise from "bluebird";
@@ -20,11 +16,10 @@ const app = express();
 // See: https://expressjs.com/en/guide/behind-proxies.html
 app.set("trust proxy", "uniquelocal");
 
-
-var helpersInitialized = new Promise(function (resolve, reject) {
+const helpersInitialized = new Promise(function (resolve) {
   resolve(server.initializePolisHelpers());
 });
-/* @ts-ignore */
+
 helpersInitialized.then(
   function (o) {
     const {
@@ -33,7 +28,6 @@ helpersInitialized.then(
       authOptional,
       COOKIES,
       denyIfNotFromWhitelistedDomain,
-      devMode,
       enableAgid,
       fetchThirdPartyCookieTestPt1,
       fetchThirdPartyCookieTestPt2,
@@ -203,8 +197,6 @@ helpersInitialized.then(
       getUrlLimitLength,
       moveToBody,
       need,
-      needCookie,
-      needHeader,
       resolve_pidThing,
       want,
       wantCookie,
@@ -212,7 +204,6 @@ helpersInitialized.then(
     } = require("./src/utils/parameter");
 
     app.disable("x-powered-by");
-    // app.disable('etag'); // seems to be eating CPU, and we're not using etags yet. https://www.dropbox.com/s/hgfd5dm0e29728w/Screenshot%202015-06-01%2023.42.47.png?dl=0
 
     ////////////////////////////////////////////
     ////////////////////////////////////////////
@@ -246,13 +237,8 @@ helpersInitialized.then(
     app.use(redirectIfWrongDomain);
     app.use(redirectIfApiDomain);
 
-    if (devMode) {
-      app.use(express.compress());
-    } else {
-      // Cloudflare would apply gzip if we didn't
-      // but it's about 2x faster if we do the gzip (for the inbox query on mike's account)
-      app.use(express.compress());
-    }
+    app.use(express.compress());
+
     app.use(middleware_log_request_body);
     app.use(middleware_log_middleware_errors);
 
@@ -306,7 +292,6 @@ helpersInitialized.then(
     app.get(
       "/api/v3/math/correlationMatrix",
       moveToBody,
-      // need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
       need("report_id", getReportIdFetchRid, assignToPCustom("rid")),
       want("math_tick", getInt, assignToP, -1),
       handle_GET_math_correlationMatrix
@@ -449,7 +434,7 @@ helpersInitialized.then(
     app.get(
       "/api/v3/conversations/preload",
       moveToBody,
-      need("conversation_id", getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
+      need("conversation_id", getStringLimitLength(1, 1000), assignToP),
       handle_GET_conversationPreloadInfo
     );
 
@@ -477,7 +462,8 @@ helpersInitialized.then(
         getConversationIdFetchZid,
         assignToPCustom("zid")
       ),
-      want("answers", getArrayOfInt, assignToP, []), // {pmqid: [pmaid, pmaid], ...} where the pmaids are checked choices
+      // {pmqid: [pmaid, pmaid], ...} where the pmaids are checked choices
+      want("answers", getArrayOfInt, assignToP, []),
       want("parent_url", getStringLimitLength(9999), assignToP),
       want("referrer", getStringLimitLength(9999), assignToP),
       handle_POST_participants
@@ -492,7 +478,7 @@ helpersInitialized.then(
         getConversationIdFetchZid,
         assignToPCustom("zid")
       ),
-      need("conversation_id", getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
+      need("conversation_id", getStringLimitLength(1, 1000), assignToP),
       need("email", getEmail, assignToP),
       handle_GET_notifications_subscribe
     );
@@ -506,7 +492,7 @@ helpersInitialized.then(
         getConversationIdFetchZid,
         assignToPCustom("zid")
       ),
-      need("conversation_id", getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
+      need("conversation_id", getStringLimitLength(1, 1000), assignToP),
       need("email", getEmail, assignToP),
       handle_GET_notifications_unsubscribe
     );
@@ -554,7 +540,8 @@ helpersInitialized.then(
         assignToPCustom("permanentCookieToken")
       ),
       want("suzinvite", getOptionalStringLimitLength(32), assignToP),
-      want("answers", getArrayOfInt, assignToP, []), // {pmqid: [pmaid, pmaid], ...} where the pmaids are checked choices
+      // {pmqid: [pmaid, pmaid], ...} where the pmaids are checked choices
+      want("answers", getArrayOfInt, assignToP, []),
       want("referrer", getStringLimitLength(9999), assignToP),
       want("parent_url", getStringLimitLength(9999), assignToP),
       handle_POST_joinWithInvite
@@ -567,7 +554,7 @@ helpersInitialized.then(
       need("webserver_username", getStringLimitLength(1, 999), assignToP),
       need("webserver_pass", getStringLimitLength(1, 999), assignToP),
       need("email", getEmail, assignToP),
-      need("conversation_id", getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
+      need("conversation_id", getStringLimitLength(1, 1000), assignToP),
       need("filename", getStringLimitLength(9999), assignToP),
       handle_POST_sendEmailExportReady
     );
@@ -670,7 +657,9 @@ helpersInitialized.then(
       want("email", getOptionalStringLimitLength(999), assignToP),
       want("hname", getOptionalStringLimitLength(999), assignToP),
       want("oinvite", getOptionalStringLimitLength(999), assignToP),
-      want("encodedParams", getOptionalStringLimitLength(9999), assignToP), // TODO_SECURITY we need to add an additional key param to ensure this is secure. we don't want anyone adding themselves to other people's site_id groups.
+      // TODO_SECURITY we need to add an additional key param to ensure this is secure.
+      // we don't want anyone adding themselves to other people's site_id groups.
+      want("encodedParams", getOptionalStringLimitLength(9999), assignToP),
       want("zinvite", getOptionalStringLimitLength(999), assignToP),
       want("organization", getOptionalStringLimitLength(999), assignToP),
       want("gatekeeperTosPrivacy", getBool, assignToP),
@@ -781,15 +770,17 @@ helpersInitialized.then(
         getConversationIdFetchZid,
         assignToPCustom("zid")
       ),
-      want("report_id", getReportIdFetchRid, assignToPCustom("rid")), // if you want to get report-specific info
+      // if you want to get report-specific info
+      want("report_id", getReportIdFetchRid, assignToPCustom("rid")),
       want("tids", getArrayOfInt, assignToP),
       want("moderation", getBool, assignToP),
       want("mod", getInt, assignToP),
-      want("modIn", getBool, assignToP), // set this to true if you want to see the comments that are ptpt-visible given the current "strict mod" setting, or false for ptpt-invisible comments.
+      // set this to true if you want to see the comments that are ptpt-visible given the current "strict mod" setting,
+      // or false for ptpt-invisible comments.
+      want("modIn", getBool, assignToP),
       want("mod_gt", getInt, assignToP),
       want("include_social", getBool, assignToP),
       want("include_demographics", getBool, assignToP),
-      //    need('lastServerToken', _.identity, assignToP),
       want("include_voting_patterns", getBool, assignToP, false),
       resolve_pidThing(
         "not_voted_by_pid",
@@ -800,7 +791,8 @@ helpersInitialized.then(
       handle_GET_comments
     );
 
-    // TODO probably need to add a retry mechanism like on joinConversation to handle possibility of duplicate tid race-condition exception
+    // TODO probably need to add a retry mechanism like on joinConversation to handle possibility of duplicate tid
+    // race-condition exception
     app.post(
       "/api/v3/comments",
       auth(assignToP),
@@ -874,7 +866,8 @@ helpersInitialized.then(
       resolve_pidThing("not_voted_by_pid", assignToP, "get:nextComment"),
       want("without", getArrayOfInt, assignToP),
       want("include_social", getBool, assignToP),
-      want("lang", getStringLimitLength(1, 10), assignToP), // preferred language of nextComment
+      // preferred language of nextComment
+      want("lang", getStringLimitLength(1, 10), assignToP),
       haltOnTimeout,
       handle_GET_nextComment
     );
@@ -897,15 +890,18 @@ helpersInitialized.then(
         getConversationIdFetchZid,
         assignToPCustom("zid")
       ),
-      want("conversation_id", getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
-      want("lang", getStringLimitLength(1, 10), assignToP), // preferred language of nextComment
+      want("conversation_id", getStringLimitLength(1, 1000), assignToP),
+      // preferred language of nextComment
+      want("lang", getStringLimitLength(1, 10), assignToP),
 
       want(
         "domain_whitelist_override_key",
         getStringLimitLength(1, 1000),
         assignToP
       ),
-      denyIfNotFromWhitelistedDomain, // this seems like the easiest place to enforce the domain whitelist. The index.html is cached on cloudflare, so that's not the right place.
+      // this seems like the easiest place to enforce the domain whitelist. The index.html is cached on cloudflare, so
+      // that's not the right place.
+      denyIfNotFromWhitelistedDomain,
 
       want("xid", getStringLimitLength(1, 999), assignToP),
       resolve_pidThing("pid", assignToP, "get:votes"), // must be after zid getter
@@ -926,7 +922,8 @@ helpersInitialized.then(
       want("weight", getNumberInRange(-1, 1), assignToP, 0),
       resolve_pidThing("pid", assignToP, "post:votes"),
       want("xid", getStringLimitLength(1, 999), assignToP),
-      want("lang", getStringLimitLength(1, 10), assignToP), // language of the next comment to be returned
+      // language of the next comment to be returned
+      want("lang", getStringLimitLength(1, 10), assignToP),
       handle_POST_votes
     );
 
@@ -1088,7 +1085,7 @@ helpersInitialized.then(
         getConversationIdFetchZid,
         assignToPCustom("zid")
       ),
-      need("conversation_id", getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
+      need("conversation_id", getStringLimitLength(1, 1000), assignToP),
       want("is_active", getBool, assignToP),
       want("is_anon", getBool, assignToP),
       want("is_draft", getBool, assignToP, false),
@@ -1114,7 +1111,9 @@ helpersInitialized.then(
       want("auth_opt_tw", getBool, assignToP),
       want("auth_opt_allow_3rdparty", getBool, assignToP),
       want("verifyMeta", getBool, assignToP),
-      want("send_created_email", getBool, assignToP), // ideally the email would be sent on the post, but we post before they click create to allow owner to prepopulate comments.
+      // ideally the email would be sent on the post, but we post before they click create to allow owner to
+      // prepopulate comments.
+      want("send_created_email", getBool, assignToP),
       want(
         "launch_presentation_return_url_hex",
         getStringLimitLength(1, 9999),
@@ -1303,7 +1302,8 @@ helpersInitialized.then(
         getConversationIdFetchZid,
         assignToPCustom("zid")
       ),
-      want("report_id", getReportIdFetchRid, assignToPCustom("rid")), // Knowing the report_id grants the user permission to view the report
+      // Knowing the report_id grants the user permission to view the report
+      want("report_id", getReportIdFetchRid, assignToPCustom("rid")),
       handle_GET_reports
     );
 
@@ -1316,7 +1316,8 @@ helpersInitialized.then(
         getConversationIdFetchZid,
         assignToPCustom("zid")
       ),
-      need("math_update_type", getStringLimitLength(1, 32), assignToP), // expecting "recompute" or "update"
+      // expecting "recompute" or "update"
+      need("math_update_type", getStringLimitLength(1, 32), assignToP),
       handle_POST_math_update
     );
 
@@ -1503,7 +1504,8 @@ helpersInitialized.then(
       "/api/v3/twitter_users",
       moveToBody,
       authOptional(assignToP),
-      want("twitter_user_id", getInt, assignToP), // if not provided, returns info for the signed-in user
+      // if not provided, returns info for the signed-in user
+      want("twitter_user_id", getInt, assignToP),
       handle_GET_twitter_users
     );
 
@@ -1523,7 +1525,8 @@ helpersInitialized.then(
     app.post(
       "/api/v3/LTI/setup_assignment",
       authOptional(assignToP),
-      need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school
+      // for now, this will be the professor, but may also be the school
+      need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP),
       need("user_id", getStringLimitLength(1, 9999), assignToP),
       need("context_id", getStringLimitLength(1, 9999), assignToP),
       want(
@@ -1555,7 +1558,8 @@ helpersInitialized.then(
 
     app.post(
       "/api/v3/LTI/conversation_assignment",
-      need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school    need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school
+      // for now, this will be the professor, but may also be the school
+      need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP),
       need("oauth_signature_method", getStringLimitLength(1, 9999), assignToP), // probably "HMAC-SHA-1"
       need("oauth_nonce", getStringLimitLength(1, 9999), assignToP), //rK81yoLBZhxVeaQHOUQQV8Ug5AObZtWv4R0ezQN20
       need("oauth_version", getStringLimitLength(1, 9999), assignToP), //'1.0'
@@ -1602,7 +1606,7 @@ helpersInitialized.then(
         getConversationIdFetchZid,
         assignToPCustom("zid")
       ),
-      need("conversation_id", getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
+      need("conversation_id", getStringLimitLength(1, 1000), assignToP),
       // need('single_use_tokens', getBool, assignToP),
       need("emails", getArrayOfStringNonEmpty, assignToP),
       handle_POST_users_invite
@@ -1663,7 +1667,8 @@ helpersInitialized.then(
     );
 
     // proxy for fetching twitter profile images
-    // Needed because Twitter doesn't provide profile pics in response to a request - you have to fetch the user info, then parse that to get the URL, requiring two round trips.
+    // Needed because Twitter doesn't provide profile pics in response to a request - you have to fetch the user info,
+    // then parse that to get the URL, requiring two round trips.
     // There is a bulk user data API, but it's too slow to block on in our /famous route.
     // So references to this route are injected into the twitter part of the /famous response.
     app.get(
@@ -1712,7 +1717,7 @@ helpersInitialized.then(
     );
 
     function makeFetchIndexWithoutPreloadData() {
-      let port = staticFilesClientPort;
+      const port = staticFilesClientPort;
       return function (req, res) {
         return fetchIndexWithoutPreloadData(req, res, port);
       };
@@ -1771,7 +1776,6 @@ helpersInitialized.then(
     app.get(/^\/bot\/support(\/.*)?/, fetchIndexForAdminPage);
 
     app.get(/^\/inbox(\/.*)?$/, fetchIndexWithoutPreloadData);
-    // app.get(/^\/r/, fetchIndexWithoutPreloadData);
     app.get(/^\/hk/, fetchIndexWithoutPreloadData);
     app.get(/^\/s\//, fetchIndexWithoutPreloadData);
     app.get(/^\/s$/, fetchIndexWithoutPreloadData);
@@ -1808,9 +1812,14 @@ helpersInitialized.then(
     );
     app.get(
       /^\/embedReportPreprod$/,
-      makeFileFetcher(hostname, staticFilesAdminPort, "/embedReportPreprod.html", {
-        "Content-Type": "text/html",
-      })
+      makeFileFetcher(
+        hostname,
+        staticFilesAdminPort,
+        "/embedReportPreprod.html",
+        {
+          "Content-Type": "text/html",
+        }
+      )
     );
     app.get(
       /^\/canvas_setup_backup_instructions$/,
@@ -1873,7 +1882,7 @@ helpersInitialized.then(
         pathAndQuery = pathAndQuery.replace("/?", "?");
       }
 
-      let fullUrl = req.protocol + "://" + req.get("host") + pathAndQuery;
+      const fullUrl = req.protocol + "://" + req.get("host") + pathAndQuery;
 
       if (pathAndQuery !== req.originalUrl) {
         res.redirect(fullUrl);
@@ -1882,7 +1891,7 @@ helpersInitialized.then(
       }
     });
 
-    var missingFilesGet404 = false;
+    const missingFilesGet404 = false;
     if (missingFilesGet404) {
       // 404 everything else
       app.get(
