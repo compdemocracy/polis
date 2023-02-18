@@ -51,30 +51,22 @@ if (useTranslateApi) {
   process.env.GOOGLE_APPLICATION_CREDENTIALS = ".google_creds_temp";
   // TODO: Consider deprecating GOOGLE_CREDS_STRINGIFIED in future.
   const creds_string = Config.googleCredentialsBase64
-    ? new Buffer(Config.googleCredentialsBase64, "base64").toString(
-        "ascii"
-      )
+    ? new Buffer(Config.googleCredentialsBase64, "base64").toString("ascii")
     : (Config.googleCredsStringified as string | NodeJS.ArrayBufferView);
   fs.writeFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS, creds_string);
   translateClient = Translate();
 }
 
 function getComment(zid: Id, tid: Id) {
-  return (
-    pg
-      .queryP("select * from comments where zid = ($1) and tid = ($2);", [
-        zid,
-        tid,
-      ])
+  return pg
+    .queryP("select * from comments where zid = ($1) and tid = ($2);", [
+      zid,
+      tid,
+    ])
 
-      // Argument of type '(rows: Row[]) => Row' is not assignable to parameter of type '(value: unknown) => Row | PromiseLike<Row>'.
-      // Types of parameters 'rows' and 'value' are incompatible.
-      // Type 'unknown' is not assignable to type 'Row[]'.ts(2345)
-      // @ts-ignore
-      .then((rows: Row[]) => {
-        return (rows && rows[0]) || null;
-      })
-  );
+    .then((rows: any) => {
+      return (rows && rows[0]) || null;
+    });
 }
 
 function getComments(o: CommentType) {
@@ -416,11 +408,7 @@ function translateAndStoreComment(zid: any, tid: any, txt: any, lang: any) {
             "insert into comment_translations (zid, tid, txt, lang, src) values ($1, $2, $3, $4, $5) returning *;",
             [zid, tid, translation, lang, src]
           )
-          //       Argument of type '(rows: Row[]) => Row' is not assignable to parameter of type '(value: unknown) => Row | PromiseLike<Row>'.
-          // Types of parameters 'rows' and 'value' are incompatible.
-          //   Type 'unknown' is not assignable to type 'Row[]'.ts(2345)
-          // @ts-ignore
-          .then((rows: Row[]) => {
+          .then((rows: any) => {
             return rows[0];
           })
       );

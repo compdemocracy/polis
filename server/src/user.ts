@@ -118,7 +118,7 @@ function renderLtiLinkageSuccessPage(
       arg0: number
     ) => { (): any; new (): any; send: { (arg0: string): void; new (): any } };
   },
-  o: { email: string }
+  o: any
 ) {
   res.set({
     "Content-Type": "text/html",

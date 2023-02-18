@@ -48,7 +48,7 @@ function setCookie(
   res: { cookie: (arg0: any, arg1: any, arg2: any) => void },
   setOnPolisDomain: any,
   name: string,
-  value: number,
+  value: number | string,
   options: Options
 ) {
   let o: Options = _.clone(options || {});
@@ -168,7 +168,7 @@ function setCookieTestCookie(req: any, res: any, setOnPolisDomain: any) {
 
 function shouldSetCookieOnPolisDomain(req: Req) {
   // FIXME domainOverride
-  let setOnPolisDomain = !(Config.domainOverride);
+  let setOnPolisDomain = !Config.domainOverride;
   let origin = req?.headers?.origin || "";
   if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
     setOnPolisDomain = false;

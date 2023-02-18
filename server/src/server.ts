@@ -16,7 +16,6 @@ import FB from "fb";
 import fs from "fs";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import isTrue from "boolean";
 import OAuth from "oauth";
 // const Pushover = require('pushover-notifications');
 // const pushoverInstance = new Pushover({
@@ -24,7 +23,6 @@ import OAuth from "oauth";
 //   token: process.env.PUSHOVER_POLIS_PROXY_API_KEY,
 // });
 // const postmark = require("postmark")(process.env.POSTMARK_API_KEY);
-import querystring from "querystring";
 import replaceStream from "replacestream";
 import responseTime from "response-time";
 import request from "request-promise"; // includes Request, but adds promise methods
@@ -49,8 +47,6 @@ import {
   Headers,
   Query,
   AuthRequest,
-  AuthBody,
-  AuthQuery,
   ParticipantInfo,
   PidReadyResult,
   CommentOptions,
@@ -73,12 +69,6 @@ const devMode = Config.isDevMode;
 const s3Client = new AWS.S3({ apiVersion: "2006-03-01" });
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const yell = Log.yell;
-// Property 'Client' does not exist on type '{ query: (...args: any[]) => void; query_readOnly:
-// (...args: any[]) => void; queryP: (...args: any[]) => Promise<unknown>; queryP_metered:
-// (name: any, queryString: any, params: any) => any; queryP_metered_readOnly:
-// (name: any, queryString: any, params: any) => any; queryP_readOnly:
-// (...args: any[]) => Promise <...>; ...'.ts(2339)
-// @ts-ignore
 const escapeLiteral = pg.Client.prototype.escapeLiteral;
 const pgQuery = dbPgQuery.query;
 const pgQuery_readOnly = dbPgQuery.query_readOnly;
@@ -120,7 +110,6 @@ const resolveWith = (x: { body?: { user_id: string } }) => {
   return Promise.resolve(x);
 };
 
-
 //var SegfaultHandler = require('segfault-handler');
 
 //SegfaultHandler.registerHandler("segfault.log");
@@ -160,13 +149,9 @@ Promise.onPossiblyUnhandledRejection(function (err: { stack: any }) {
   // throw err; // not throwing since we're printing stack traces anyway
 });
 
-const adminEmails = Config.adminEmails
-  ? JSON.parse(Config.adminEmails)
-  : [];
+const adminEmails = Config.adminEmails ? JSON.parse(Config.adminEmails) : [];
 
-const polisDevs = Config.adminUIDs
-  ? JSON.parse(Config.adminUIDs)
-  : [];
+const polisDevs = Config.adminUIDs ? JSON.parse(Config.adminUIDs) : [];
 
 function isPolisDev(uid?: any) {
   console.log("polisDevs", polisDevs);
@@ -174,10 +159,10 @@ function isPolisDev(uid?: any) {
 }
 // log heap stats
 setInterval(function () {
-  let mem = process.memoryUsage();
-  let heapUsed = mem.heapUsed;
-  let rss = mem.rss;
-  let heapTotal = mem.heapTotal;
+  const mem = process.memoryUsage();
+  const heapUsed = mem.heapUsed;
+  const rss = mem.rss;
+  const heapTotal = mem.heapTotal;
   winston.log(
     "info",
     "heapUsed:",
@@ -216,7 +201,7 @@ const polisFromAddress = Config.polisFromAddress;
 
 const serverUrl = Config.getServerUrl(); // typically https://pol.is or http://localhost:5000
 
-let akismet = akismetLib.client({
+const akismet = akismetLib.client({
   blog: serverUrl,
   apiKey: Config.akismetAntispamApiKey,
 });
@@ -254,7 +239,7 @@ function isSpam(o: {
   );
 }
 
-var INFO: {
+let INFO: {
   (
     arg0: string,
     arg1: string | undefined,
@@ -292,7 +277,7 @@ DD.prototype.g = DA.prototype.g = function (k: string | number) {
   if (this.m.hasOwnProperty(k)) {
     return this.m[k];
   }
-  let v = this.f(k);
+  const v = this.f(k);
   this.m[k] = v;
   return v;
 };
@@ -394,7 +379,7 @@ function doApiKeyBasicAuth(
   res: any,
   next: (err: any) => void
 ) {
-  let token = header.split(/\s+/).pop() || "", // and the encoded auth token
+  const token = header.split(/\s+/).pop() || "", // and the encoded auth token
     auth = new Buffer(token, "base64").toString(), // convert from base64
     parts = auth.split(/:/), // split on colon
     username = parts[0],
@@ -412,12 +397,7 @@ function doApiKeyAuth(
   next: { (err: any): void; (err: any): void; (arg0?: string): void }
 ) {
   getUidForApiKey(apikey)
-    //   Argument of type '(rows: string | any[]) => void' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.
-    // Types of parameters 'rows' and 'value' are incompatible.
-    //   Type 'unknown' is not assignable to type 'string | any[]'.
-    //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-    // @ts-ignore
-    .then(function (rows: string | any[]) {
+    .then(function (rows: any) {
       if (!rows || !rows.length) {
         res.status(403);
         next("polis_err_auth_no_such_api_token");
@@ -471,18 +451,13 @@ function doXidApiKeyAuth(
 ) {
   getUidForApiKey(apikey)
     .then(
-      //     Argument of type '(rows: string | any[]) => Promise<void> | undefined' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void | undefined> | undefined'.
-      // Types of parameters 'rows' and 'value' are incompatible.
-      //   Type 'unknown' is not assignable to type 'string | any[]'.
-      //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-      // @ts-ignore
-      function (rows: string | any[]) {
+      function (rows: any) {
         if (!rows || !rows.length) {
           res.status(403);
           next("polis_err_auth_no_such_api_token4");
           return;
         }
-        let uidForApiKey = Number(rows[0].uid);
+        const uidForApiKey = Number(rows[0].uid);
         return getXidRecordByXidOwnerId(
           xid,
           uidForApiKey,
@@ -491,12 +466,7 @@ function doXidApiKeyAuth(
           req.body.x_name || req?.query?.x_name || null,
           req.body.x_email || req?.query?.x_email || null,
           !!req.body.agid || !!req?.query?.agid || null
-          //         Argument of type '(rows: string | any[]) => void' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.
-          // Types of parameters 'rows' and 'value' are incompatible.
-          //   Type 'unknown' is not assignable to type 'string | any[]'.
-          //         Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-          // @ts-ignore
-        ).then((rows: string | any[]) => {
+        ).then((rows: any) => {
           if (!rows || !rows.length) {
             if (isOptional) {
               return next();
@@ -506,7 +476,7 @@ function doXidApiKeyAuth(
               return;
             }
           }
-          let uidForCurrentUser = Number(rows[0].uid);
+          const uidForCurrentUser = Number(rows[0].uid);
           assigner(req, "uid", uidForCurrentUser);
           assigner(req, "xid", xid);
           assigner(req, "owner_uid", uidForApiKey);
@@ -561,7 +531,7 @@ function doPolisLtiTokenHeaderAuth(
   res: { status: (arg0: number) => void },
   next: { (err: any): void; (arg0?: string): void }
 ) {
-  let token = req?.headers?.["x-polis"];
+  const token = req?.headers?.["x-polis"];
 
   getUserInfoForPolisLtiToken(token)
     .then(function (uid?: any) {
@@ -574,27 +544,6 @@ function doPolisLtiTokenHeaderAuth(
       return;
     });
 }
-
-// function logPath(req, res, next) {
-//     winston.log("info",req.method + " " + req.url);
-//     next();
-// }
-// Property 'hashCode' does not exist on type 'String'.ts(2339)
-// @ts-ignore
-String.prototype.hashCode = function () {
-  let hash = 0;
-  let i;
-  let character;
-  if (this.length === 0) {
-    return hash;
-  }
-  for (i = 0; i < this.length; i++) {
-    character = this.charCodeAt(i);
-    hash = (hash << 5) - hash + character;
-    hash = hash & hash; // Convert to 32bit integer
-  }
-  return hash;
-};
 
 const fail = Log.fail;
 const userFail = Log.userFail;
@@ -668,12 +617,7 @@ function initializePolisHelpers() {
       "select zid from permanentCookieZidJoins where cookie = ($1) and zid = ($2);",
       [permanentCookieToken, zid]
     ).then(
-      //     Argument of type '(rows: string | any[]) => Promise<unknown> | undefined' is not assignable to parameter of type '(value: unknown) => unknown'.
-      // Types of parameters 'rows' and 'value' are incompatible.
-      //   Type 'unknown' is not assignable to type 'string | any[]'.
-      //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-      // @ts-ignore
-      function (rows: string | any[]) {
+      function (rows: any) {
         if (rows && rows.length) {
           // already there
         } else {
@@ -692,16 +636,11 @@ function initializePolisHelpers() {
 
   if (Config.backfillCommentLangDetection) {
     pgQueryP("select tid, txt, zid from comments where lang is null;", []).then(
-      //   Argument of type '(comments: string | any[]) => void' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.
-      // Types of parameters 'comments' and 'value' are incompatible.
-      //   Type 'unknown' is not assignable to type 'string | any[]'.
-      //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-      // @ts-ignore
-      (comments: string | any[]) => {
+      (comments: any) => {
         let i = 0;
         function doNext() {
           if (i < comments.length) {
-            let c = comments[i];
+            const c = comments[i];
             i += 1;
             detectLanguage(c.txt).then((x: DetectLanguageResult[]) => {
               const firstResult = x[0];
@@ -729,16 +668,16 @@ function initializePolisHelpers() {
     weight?: number,
     shouldNotify?: any
   ) {
-    let zid = conv?.zid;
+    const zid = conv?.zid;
     weight = weight || 0;
-    let weight_x_32767 = Math.trunc(weight * 32767); // weight is stored as a SMALLINT, so convert from a [-1,1] float to [-32767,32767] int
+    const weight_x_32767 = Math.trunc(weight * 32767); // weight is stored as a SMALLINT, so convert from a [-1,1] float to [-32767,32767] int
     return new Promise(function (
       resolve: (arg0: { conv: any; vote: any }) => void,
       reject: (arg0: string) => void
     ) {
-      let query =
+      const query =
         "INSERT INTO votes (pid, zid, tid, vote, weight_x_32767, created) VALUES ($1, $2, $3, $4, $5, default) RETURNING *;";
-      let params = [pid, zid, tid, voteType, weight_x_32767];
+      const params = [pid, zid, tid, voteType, weight_x_32767];
       pgQuery(query, params, function (err: any, result: { rows: any[] }) {
         if (err) {
           if (isDuplicateKey(err)) {
@@ -769,61 +708,48 @@ function initializePolisHelpers() {
     weight?: number,
     shouldNotify?: boolean
   ) {
-    return (
-      pgQueryP_readOnly("select * from conversations where zid = ($1);", [zid])
-        //     Argument of type '(rows: string | any[]) => any' is not assignable to parameter of type '(value: unknown) => any'.
-        // Types of parameters 'rows' and 'value' are incompatible.
-        //   Type 'unknown' is not assignable to type 'string | any[]'.
-        //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-        // @ts-ignore
-        .then(function (rows: string | any[]) {
-          if (!rows || !rows.length) {
-            throw "polis_err_unknown_conversation";
-          }
-          let conv = rows[0];
-          if (!conv.is_active) {
-            throw "polis_err_conversation_is_closed";
-          }
-          if (conv.auth_needed_to_vote) {
-            return isModerator(zid, uid).then((is_mod: any) => {
-              if (is_mod) {
+    return pgQueryP_readOnly("select * from conversations where zid = ($1);", [
+      zid,
+    ])
+      .then(function (rows: any) {
+        if (!rows || !rows.length) {
+          throw "polis_err_unknown_conversation";
+        }
+        const conv = rows[0];
+        if (!conv.is_active) {
+          throw "polis_err_conversation_is_closed";
+        }
+        if (conv.auth_needed_to_vote) {
+          return isModerator(zid, uid).then((is_mod: any) => {
+            if (is_mod) {
+              return conv;
+            }
+            return Promise.all([
+              pgQueryP(
+                "select * from xids where owner = ($1) and uid = ($2);",
+                [conv.owner, uid]
+              ),
+              getSocialInfoForUsers([uid], zid),
+              // Binding elements 'xids' and 'info' implicitly have an 'any' type.ts(7031)
+              // @ts-ignore
+            ]).then(([xids, info]) => {
+              const socialAccountIsLinked = info.length > 0;
+              // Object is of type 'unknown'.ts(2571)
+              // @ts-ignore
+              const hasXid = xids.length > 0;
+              if (socialAccountIsLinked || hasXid) {
                 return conv;
+              } else {
+                throw "polis_err_post_votes_social_needed";
               }
-              return Promise.all([
-                pgQueryP(
-                  "select * from xids where owner = ($1) and uid = ($2);",
-                  [conv.owner, uid]
-                ),
-                getSocialInfoForUsers([uid], zid),
-                // Binding elements 'xids' and 'info' implicitly have an 'any' type.ts(7031)
-                // @ts-ignore
-              ]).then(([xids, info]) => {
-                var socialAccountIsLinked = info.length > 0;
-                // Object is of type 'unknown'.ts(2571)
-                // @ts-ignore
-                var hasXid = xids.length > 0;
-                if (socialAccountIsLinked || hasXid) {
-                  return conv;
-                } else {
-                  throw "polis_err_post_votes_social_needed";
-                }
-              });
             });
-          }
-          return conv;
-        })
-        .then(function (conv: any) {
-          return doVotesPost(
-            uid,
-            pid,
-            conv,
-            tid,
-            voteType,
-            weight,
-            shouldNotify
-          );
-        })
-    );
+          });
+        }
+        return conv;
+      })
+      .then(function (conv: any) {
+        return doVotesPost(uid, pid, conv, tid, voteType, weight, shouldNotify);
+      });
   }
   function getVotesForSingleParticipant(p: { pid: any }) {
     if (_.isUndefined(p.pid)) {
@@ -891,7 +817,7 @@ function initializePolisHelpers() {
     },
     next: () => any
   ) {
-    let exempt = devMode;
+    const exempt = devMode;
 
     // IE is picky, so use HTTP.
     // TODO figure out IE situation, (proxy static files in worst-case)
@@ -1002,12 +928,7 @@ function initializePolisHelpers() {
           req.body.x_name || req?.query?.x_name || null,
           req.body.x_email || req?.query?.x_email || null,
           !!req.body.agid || !!req?.query?.agid || null
-          //         Argument of type '(rows: string | any[]) => void' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.
-          // Types of parameters 'rows' and 'value' are incompatible.
-          //   Type 'unknown' is not assignable to type 'string | any[]'.
-          //         Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-          // @ts-ignore
-        ).then((rows: string | any[]) => {
+        ).then((rows: any) => {
           if (!rows || !rows.length) {
             if (isOptional) {
               return onDone();
@@ -1017,7 +938,7 @@ function initializePolisHelpers() {
               return;
             }
           }
-          let uidForCurrentUser = Number(rows[0].uid);
+          const uidForCurrentUser = Number(rows[0].uid);
           assigner(req, "uid", uidForCurrentUser);
           onDone();
         });
@@ -1049,8 +970,8 @@ function initializePolisHelpers() {
       res: { status: (arg0: number) => void }
     ) {
       //var token = req.body.token;
-      let token = req.cookies[COOKIES.TOKEN];
-      let xPolisToken = req?.headers?.["x-polis"];
+      const token = req.cookies[COOKIES.TOKEN];
+      const xPolisToken = req?.headers?.["x-polis"];
 
       return new Promise(function (
         resolve: (arg0: any) => void,
@@ -1150,7 +1071,7 @@ function initializePolisHelpers() {
           createDummyUser()
             .then(
               function (uid?: any) {
-                let shouldAddCookies = _.isUndefined(req.body.xid);
+                const shouldAddCookies = _.isUndefined(req.body.xid);
                 if (!shouldAddCookies) {
                   req.p = req.p || {};
                   req.p.uid = uid;
@@ -1300,12 +1221,12 @@ function initializePolisHelpers() {
   // failed logins
   // forgot password
 
-  let whitelistedCrossDomainRoutes = [
+  const whitelistedCrossDomainRoutes = [
     /^\/api\/v[0-9]+\/launchPrep/,
     /^\/api\/v[0-9]+\/setFirstCookie/,
   ];
 
-  let whitelistedDomains = [
+  const whitelistedDomains = [
     Config.getServerHostname(),
     ...Config.whitelistItems,
     "localhost:5000",
@@ -1321,7 +1242,7 @@ function initializePolisHelpers() {
     "", // for API
   ];
 
-  let whitelistedBuckets = {
+  const whitelistedBuckets = {
     "pol.is": "pol.is",
     "embed.pol.is": "pol.is",
     "survey.pol.is": "survey.pol.is",
@@ -1336,7 +1257,7 @@ function initializePolisHelpers() {
     }
 
     for (let i = 0; i < whitelistedDomains.length; i++) {
-      let w = whitelistedDomains[i];
+      const w = whitelistedDomains[i];
       if (hostWithoutProtocol.endsWith(w || "")) {
         // ok, the ending matches, now we need to make sure it's the same, or a subdomain.
         if (hostWithoutProtocol === w) {
@@ -1380,12 +1301,12 @@ function initializePolisHelpers() {
     host = host.replace(/#.*$/, "");
 
     // Remove characters starting with the first slash following the double slash at the beginning.
-    let result = /^[^\/]*\/\/[^\/]*/.exec(host);
+    const result = /^[^\/]*\/\/[^\/]*/.exec(host);
     if (result && result[0]) {
       host = result[0];
     }
     // check if the route is on a special list that allows it to be called cross domain (by polisHost.js for example)
-    let routeIsWhitelistedForAnyDomain = _.some(
+    const routeIsWhitelistedForAnyDomain = _.some(
       whitelistedCrossDomainRoutes,
       function (regex: { test: (arg0: any) => any }) {
         return regex.test(req.path);
@@ -1439,16 +1360,9 @@ function initializePolisHelpers() {
   const strToHex = Utils.strToHex;
   const hexToStr = Utils.hexToStr;
 
-  function handle_GET_launchPrep(
-    req: {
-      headers?: { origin: string };
-      cookies: { [x: string]: any };
-      p: { dest: any };
-    },
-    res: { redirect: (arg0: any) => void }
-  ) {
+  function handle_GET_launchPrep(req: any, res: any) {
     let setOnPolisDomain = !domainOverride;
-    let origin = req?.headers?.origin || "";
+    const origin = req?.headers?.origin || "";
     if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
       setOnPolisDomain = false;
     }
@@ -1458,63 +1372,34 @@ function initializePolisHelpers() {
     }
     setCookieTestCookie(req, res, setOnPolisDomain);
 
-    // Argument of type '{ redirect: (arg0: any) => void; }' is not assignable to parameter of type '{ cookie: (arg0: any, arg1: any, arg2: any) => void; }'.
-    // Property 'cookie' is missing in type '{ redirect: (arg0: any) => void; }' but required in type '{ cookie: (arg0: any, arg1: any, arg2: any) => void; }'.ts(2345)
-    // @ts-ignore
     setCookie(req, res, setOnPolisDomain, "top", "ok", {
       httpOnly: false, // not httpOnly - needed by JS
     });
 
     // using hex since it doesn't require escaping like base64.
-    let dest = hexToStr(req.p.dest);
+    const dest = hexToStr(req.p.dest);
     res.redirect(dest);
   }
-  // function handle_GET_setFirstCookie(req, res) {
-  //     let setOnPolisDomain = !domainOverride;
-  //     let origin = req?.headers?.origin || "";
-  //     if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
-  //         setOnPolisDomain = false;
-  //     }
-
-  //     if (!req.cookies[COOKIES.PERMANENT_COOKIE]) {
-  //         setPermanentCookie(req, res, setOnPolisDomain, makeSessionToken());
-  //     }
-  //     setCookie(req, res, setOnPolisDomain, "top", "ok", {
-  //         httpOnly: false,            // not httpOnly - needed by JS
-  //     });
-  //     res.status(200).json({});
-  // });
 
   function handle_GET_tryCookie(
     req: { headers?: { origin: string }; cookies: { [x: string]: any } },
-    res: {
-      status: (
-        arg0: number
-      ) => { (): any; new (): any; json: { (arg0: {}): void; new (): any } };
-    }
+    res: any
   ) {
     let setOnPolisDomain = !domainOverride;
-    let origin = req?.headers?.origin || "";
+    const origin = req?.headers?.origin || "";
     if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
       setOnPolisDomain = false;
     }
 
     if (!req.cookies[COOKIES.TRY_COOKIE]) {
-      // Argument of type '{ status: (arg0: number) => { (): any; new (): any; json:
-      // { (arg0: {}): void; new (): any; }; }; }' is not assignable to parameter of type
-      // '{ cookie: (arg0: any, arg1: any, arg2: any) => void; }'.
-      //   Property 'cookie' is missing in type '{ status: (arg0: number) =>
-      // { (): any; new (): any; json: { (arg0: {}): void; new (): any; }; };
-      // } ' but required in type '{ cookie: (arg0: any, arg1: any, arg2: any) => void; } '.ts(2345)
-      // @ts-ignore
       setCookie(req, res, setOnPolisDomain, COOKIES.TRY_COOKIE, "ok", {
         httpOnly: false, // not httpOnly - needed by JS
       });
     }
     res.status(200).json({});
   }
-  let pcaCacheSize = Config.cacheMathResults ? 300 : 1;
-  let pcaCache = new LruCache({
+  const pcaCacheSize = Config.cacheMathResults ? 300 : 1;
+  const pcaCache = new LruCache({
     max: pcaCacheSize,
   });
 
@@ -1522,10 +1407,10 @@ function initializePolisHelpers() {
 
   // this scheme might not last forever. For now, there are only a couple of MB worth of conversation pca data.
   function fetchAndCacheLatestPcaData() {
-    let lastPrefetchPollStartTime = Date.now();
+    const lastPrefetchPollStartTime = Date.now();
 
     function waitTime() {
-      let timePassed = Date.now() - lastPrefetchPollStartTime;
+      const timePassed = Date.now() - lastPrefetchPollStartTime;
       return Math.max(0, 2500 - timePassed);
     }
     // cursor.sort([["math_tick", "asc"]]);
@@ -1533,11 +1418,7 @@ function initializePolisHelpers() {
       "select * from math_main where caching_tick > ($1) order by caching_tick limit 10;",
       [lastPrefetchedMathTick]
     )
-      // Argument of type '(rows: any[]) => void' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.
-      // Types of parameters 'rows' and 'value' are incompatible.
-      //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-      // @ts-ignore
-      .then((rows: any[]) => {
+      .then((rows: any) => {
         if (!rows || !rows.length) {
           // call again
           INFO("mathpoll done");
@@ -1545,9 +1426,9 @@ function initializePolisHelpers() {
           return;
         }
 
-        let results = rows.map(
+        const results = rows.map(
           (row: { data: any; math_tick: any; caching_tick: any }) => {
-            let item = row.data;
+            const item = row.data;
 
             if (row.math_tick) {
               item.math_tick = Number(row.math_tick);
@@ -1582,74 +1463,6 @@ function initializePolisHelpers() {
   // setTimeout(fetchAndCacheLatestPcaData, 5000);
   fetchAndCacheLatestPcaData; // TODO_DELETE
 
-  /*
-  function splitTopLevelGroup(o, gid) {
-    function shouldKeepGroup(g) {
-      return g.id !== gid;
-    }
-    function uniquifySubgroupId(g) {
-      g.id = g.id + 100;
-      return g;
-    }
-    function withGid(g) {
-      return g.id === gid;
-    }
-
-    let newGroupClusters = o['group-clusters'].filter(shouldKeepGroup);
-    let subgroupClusterTop = _.find(o['subgroup-clusters'], withGid);
-    if (!subgroupClusterTop || !subgroupClusterTop.val) {
-      return o;
-    }
-    let subGroupClustersToAdd = subgroupClusterTop.val.map(uniquifySubgroupId);
-    newGroupClusters = newGroupClusters.concat(subGroupClustersToAdd);
-
-    let newRepness = o['repness'].filter(shouldKeepGroup);
-    let subgroupRepnessTop = _.find(o['subgroup-repness'], withGid);
-    if (!subgroupRepnessTop || !subgroupRepnessTop.val) {
-      return o;
-    }
-    let repnessToAdd = subgroupRepnessTop.val.map(uniquifySubgroupId);
-    newRepness = newRepness.concat(repnessToAdd);
-
-    let newGroupVotes = o['group-votes'].filter(shouldKeepGroup);
-    let subgroupVotesTop = _.find(o['subgroup-votes'], withGid);
-    if (!subgroupVotesTop || !subgroupVotesTop.val) {
-      return o;
-    }
-    let subGroupVotesToAdd = subgroupVotesTop.val.map(uniquifySubgroupId);
-    newGroupVotes = newGroupVotes.concat(subGroupVotesToAdd);
-
-    o['repness'] = _.sortBy(newRepness, "id");
-    o['group-clusters'] = _.sortBy(newGroupClusters, "id");
-    o['group-votes'] = _.sortBy(newGroupVotes, "id");
-    return o;
-  }
-
-  function packGids(o) {
-
-    // TODO start index at 1
-
-    function remapGid(g) {
-      g.id = gid2newGid[g.id];
-      return g;
-    }
-    let origGids = _.map(o['group-clusters'], (g) => {return g.id;});
-    origGids.sort();
-    let gid2newGid = {};
-    for (let i = 0; i < origGids.length; i++) {
-      gid2newGid[origGids[i]] = i;
-    }
-    o['group-clusters'] = _.sortBy(_.map(o['group-clusters'], remapGid), 'id');
-    o['group-votes'] = _.sortBy(_.map(o['group-votes'], remapGid), 'id');
-    o['repness'] = _.sortBy(_.map(o['repness'], remapGid), 'id');
-
-    o['subgroup-clusters'] = _.sortBy(_.map(o['subgroup-clusters'], remapGid), 'id');
-    o['subgroup-votes'] = _.sortBy(_.map(o['subgroup-votes'], remapGid), 'id');
-    o['subgroup-repness'] = _.sortBy(_.map(o['subgroup-repness'], remapGid), 'id');
-    return o;
-  }
-  */
-
   function processMathObject(o: { [x: string]: any }) {
     function remapSubgroupStuff(g: { val: any[] }) {
       if (_.isArray(g.val)) {
@@ -1657,12 +1470,7 @@ function initializePolisHelpers() {
           return { id: Number(x.id), val: x };
         });
       } else {
-        // Argument of type '(id: number) => { id: number; val: any; }'
-        // is not assignable to parameter of type '(value: string, index: number, array: string[]) => { id: number; val: any; }'.
-        // Types of parameters 'id' and 'value' are incompatible.
-        //         Type 'string' is not assignable to type 'number'.ts(2345)
-        // @ts-ignore
-        g.val = _.keys(g.val).map((id: number) => {
+        g.val = _.keys(g.val).map((id: any) => {
           return { id: Number(id), val: g.val[id] };
         });
       }
@@ -1738,7 +1546,7 @@ function initializePolisHelpers() {
     // Un-normalize to maintain API consistency.
     // This could removed in a future API version.
     function toObj(a: string | any[]) {
-      let obj = {};
+      const obj = {};
       if (!a) {
         return obj;
       }
@@ -1759,7 +1567,7 @@ function initializePolisHelpers() {
         return [];
       }
       return a.map((g: { id: any; val: any }) => {
-        let id = g.id;
+        const id = g.id;
         g = g.val;
         g.id = id;
         return g;
@@ -1784,7 +1592,7 @@ function initializePolisHelpers() {
     }
     // Object is of type 'unknown'.ts(2571)
     // @ts-ignore
-    let cachedPOJO = cached && cached.asPOJO;
+    const cachedPOJO = cached && cached.asPOJO;
     if (cachedPOJO) {
       if (cachedPOJO.math_tick <= (math_tick || 0)) {
         INFO(
@@ -1809,19 +1617,14 @@ function initializePolisHelpers() {
     // not caching these means that conversations without new votes might not be cached. (closed conversations may be slower to load)
     // It's probably not difficult to cache, but keeping things simple for now, and only caching things that come down with the poll.
 
-    let queryStart = Date.now();
+    const queryStart = Date.now();
 
     return pgQueryP_readOnly(
       "select * from math_main where zid = ($1) and math_env = ($2);",
       [zid, Config.mathEnv]
-      //     Argument of type '(rows: string | any[]) => Promise<any> | null' is not assignable to parameter of type '(value: unknown) => any'.
-      // Types of parameters 'rows' and 'value' are incompatible.
-      //   Type 'unknown' is not assignable to type 'string | any[]'.
-      //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-      // @ts-ignore
-    ).then((rows: string | any[]) => {
-      let queryEnd = Date.now();
-      let queryDuration = queryEnd - queryStart;
+    ).then((rows: any) => {
+      const queryEnd = Date.now();
+      const queryDuration = queryEnd - queryStart;
       addInRamMetric("pcaGetQuery", queryDuration);
 
       if (!rows || !rows.length) {
@@ -1832,7 +1635,7 @@ function initializePolisHelpers() {
         });
         return null;
       }
-      let item = rows[0].data;
+      const item = rows[0].data;
 
       if (rows[0].math_tick) {
         item.math_tick = Number(rows[0].math_tick);
@@ -1878,14 +1681,14 @@ function initializePolisHelpers() {
       reject: (arg0: any) => any
     ) {
       delete item.zid; // don't leak zid
-      let asJSON = JSON.stringify(item);
-      let buf = new Buffer(asJSON, "utf-8");
+      const asJSON = JSON.stringify(item);
+      const buf = new Buffer(asJSON, "utf-8");
       zlib.gzip(buf, function (err: any, jsondGzipdPcaBuffer: any) {
         if (err) {
           return reject(err);
         }
 
-        let o = {
+        const o = {
           asPOJO: item,
           asJSON: asJSON,
           asBufferOfGzippedJson: jsondGzipdPcaBuffer,
@@ -1930,7 +1733,7 @@ function initializePolisHelpers() {
   // Cache the knowledge of whether there are any pca results for a given zid.
   // Needed to determine whether to return a 404 or a 304.
   // zid -> boolean
-  let pcaResultsExistForZid = {};
+  const pcaResultsExistForZid = {};
   function handle_GET_math_pca2(
     req: { p: { zid: any; math_tick: any; ifNoneMatch: any } },
     res: {
@@ -1945,10 +1748,10 @@ function initializePolisHelpers() {
       send: (arg0: any) => void;
     }
   ) {
-    let zid = req.p.zid;
+    const zid = req.p.zid;
     let math_tick = req.p.math_tick;
 
-    let ifNoneMatch = req.p.ifNoneMatch;
+    const ifNoneMatch = req.p.ifNoneMatch;
     if (ifNoneMatch) {
       if (!_.isUndefined(math_tick)) {
         return fail(
@@ -1960,7 +1763,7 @@ function initializePolisHelpers() {
       if (ifNoneMatch.includes("*")) {
         math_tick = 0;
       } else {
-        let entries = ifNoneMatch.split(/ *, */).map((x: string) => {
+        const entries = ifNoneMatch.split(/ *, */).map((x: string) => {
           return Number(
             x
               .replace(/^[wW]\//, "")
@@ -2012,7 +1815,7 @@ function initializePolisHelpers() {
             // This server doesn't know yet if there are any PCA results in the DB
             // So try querying from -1
             return getPca(zid, -1).then(function (data: any) {
-              let exists = !!data;
+              const exists = !!data;
               // Element implicitly has an 'any' type
               // because expression of type 'any' can't be used to index type '{ } '.ts(7053)
               // @ts-ignore
@@ -2044,12 +1847,7 @@ function initializePolisHelpers() {
 
   function getZidForRid(rid: any) {
     return pgQueryP("select zid from reports where rid = ($1);", [rid]).then(
-      //     Argument of type '(row: string | any[]) => any' is not assignable to parameter of type '(value: unknown) => any'.
-      // Types of parameters 'row' and 'value' are incompatible.
-      //   Type 'unknown' is not assignable to type 'string | any[]'.
-      //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-      // @ts-ignore
-      (row: string | any[]) => {
+      (row: any) => {
         if (!row || !row.length) {
           return null;
         }
@@ -2066,10 +1864,10 @@ function initializePolisHelpers() {
       ) => { (): any; new (): any; json: { (arg0: {}): void; new (): any } };
     }
   ) {
-    let zid = req.p.zid;
-    let uid = req.p.uid;
-    let math_env = Config.mathEnv;
-    let math_update_type = req.p.math_update_type;
+    const zid = req.p.zid;
+    const uid = req.p.uid;
+    const math_env = Config.mathEnv;
+    const math_update_type = req.p.math_update_type;
 
     isModerator(zid, uid).then((hasPermission: any) => {
       if (!hasPermission) {
@@ -2108,9 +1906,9 @@ function initializePolisHelpers() {
       json: (arg0: any) => void;
     }
   ) {
-    let rid = req.p.rid;
-    let math_env = Config.mathEnv;
-    let math_tick = req.p.math_tick;
+    const rid = req.p.rid;
+    const math_env = Config.mathEnv;
+    const math_tick = req.p.math_tick;
 
     console.log(req.p);
     function finishAsPending() {
@@ -2123,17 +1921,12 @@ function initializePolisHelpers() {
       return pgQueryP(
         "select * from report_comment_selections where rid = ($1) and selection = 1;",
         [rid]
-        // Argument of type '(rows: string | any[]) => boolean' is not assignable to parameter of type '(value: unknown) => boolean | PromiseLike<boolean>'.
-        // Types of parameters 'rows' and 'value' are incompatible.
-        // Type 'unknown' is not assignable to type 'string | any[]'.
-        //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-        // @ts-ignore
-      ).then((rows: string | any[]) => {
+      ).then((rows: any) => {
         return rows.length > 0;
       });
     }
 
-    let requestExistsPromise = pgQueryP(
+    const requestExistsPromise = pgQueryP(
       "select * from worker_tasks where task_type = 'generate_report_data' and math_env=($2) " +
         "and task_bucket = ($1) " +
         // "and attempts < 3 " +
@@ -2142,22 +1935,17 @@ function initializePolisHelpers() {
       [rid, math_env, math_tick]
     );
 
-    let resultExistsPromise = pgQueryP(
+    const resultExistsPromise = pgQueryP(
       "select * from math_report_correlationmatrix where rid = ($1) and math_env = ($2) and math_tick >= ($3);",
       [rid, math_env, math_tick]
     );
 
     Promise.all([resultExistsPromise, getZidForRid(rid)])
       .then((a: any[]) => {
-        let rows = a[0];
-        let zid = a[1];
+        const rows = a[0];
+        const zid = a[1];
         if (!rows || !rows.length) {
-          //         Argument of type '(requests_rows: string | any[]) => globalThis.Promise<void> | undefined' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void | undefined> | undefined'.
-          // Types of parameters 'requests_rows' and 'value' are incompatible.
-          //   Type 'unknown' is not assignable to type 'string | any[]'.
-          //           Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-          // @ts-ignore
-          return requestExistsPromise.then((requests_rows: string | any[]) => {
+          return requestExistsPromise.then((requests_rows: any) => {
             const shouldAddTask = !requests_rows || !requests_rows.length;
             // const shouldAddTask = true;
 
@@ -2219,13 +2007,13 @@ function initializePolisHelpers() {
     !devMode &&
     Config.mathEnv === "preprod"
   ) {
-    let runExportTest = () => {
-      let math_env = "prod";
-      let email = Config.adminEmailDataExportTest;
-      let zid = 12480;
-      let atDate = Date.now();
-      let format = "csv";
-      let task_bucket = Math.abs((Math.random() * 999999999999) >> 0);
+    const runExportTest = () => {
+      const math_env = "prod";
+      const email = Config.adminEmailDataExportTest;
+      const zid = 12480;
+      const atDate = Date.now();
+      const format = "csv";
+      const task_bucket = Math.abs((Math.random() * 999999999999) >> 0);
       doAddDataExportTask(
         math_env,
         email,
@@ -2238,13 +2026,8 @@ function initializePolisHelpers() {
           pgQueryP(
             "select * from worker_tasks where task_type = 'generate_export_data' and task_bucket = ($1);",
             [task_bucket]
-            //           Argument of type '(rows: string | any[]) => void' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.
-            // Types of parameters 'rows' and 'value' are incompatible.
-            //   Type 'unknown' is not assignable to type 'string | any[]'.
-            //           Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-            // @ts-ignore
-          ).then((rows: string | any[]) => {
-            let ok = rows && rows.length;
+          ).then((rows: any) => {
+            const ok = rows && rows.length;
             let newOk;
             if (ok) {
               newOk = rows[0].finished_time > 0;
@@ -2290,7 +2073,7 @@ function initializePolisHelpers() {
     req: { p: { filename: string } },
     res: { redirect: (arg0: any) => void }
   ) {
-    var url = s3Client.getSignedUrl("getObject", {
+    const url = s3Client.getSignedUrl("getObject", {
       Bucket: "polis-datadump",
       Key: Config.mathEnv + "/" + req.p.filename,
       Expires: 60 * 60 * 24 * 7,
@@ -2307,12 +2090,7 @@ function initializePolisHelpers() {
     return pgQueryP_readOnly(
       "select * from math_bidtopid where zid = ($1) and math_env = ($2);",
       [zid, Config.mathEnv]
-      //     Argument of type '(rows: string | any[]) => any' is not assignable to parameter of type '(value: unknown) => any'.
-      // Types of parameters 'rows' and 'value' are incompatible.
-      //   Type 'unknown' is not assignable to type 'string | any[]'.
-      //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-      // @ts-ignore
-    ).then((rows: string | any[]) => {
+    ).then((rows: any) => {
       if (zid === 12480) {
         console.log("bidToPid", rows[0].data);
       }
@@ -2335,11 +2113,11 @@ function initializePolisHelpers() {
       ) => { (): any; new (): any; end: { (): void; new (): any } };
     }
   ) {
-    let zid = req.p.zid;
-    let math_tick = req.p.math_tick;
+    const zid = req.p.zid;
+    const math_tick = req.p.math_tick;
     getBidIndexToPidMapping(zid, math_tick).then(
       function (doc: { bidToPid: any }) {
-        let b2p = doc.bidToPid;
+        const b2p = doc.bidToPid;
         res.json({
           bidToPid: b2p,
         });
@@ -2380,8 +2158,8 @@ function initializePolisHelpers() {
       ) => { (): any; new (): any; json: { (arg0: any): void; new (): any } };
     }
   ) {
-    let uid = req.p.uid;
-    let zid = req.p.zid;
+    const uid = req.p.uid;
+    const zid = req.p.zid;
 
     isOwner(zid, uid).then(
       function (owner: any) {
@@ -2416,7 +2194,7 @@ function initializePolisHelpers() {
     const owner = req.p.uid;
     const entries = [];
     try {
-      for (var i = 0; i < len; i++) {
+      for (let i = 0; i < len; i++) {
         entries.push("(" + escapeLiteral(xid_whitelist[i]) + "," + owner + ")");
       }
     } catch (err) {
@@ -2437,23 +2215,21 @@ function initializePolisHelpers() {
       });
   }
   function getBidsForPids(zid: any, math_tick: number, pids: any[]) {
-    let dataPromise = getBidIndexToPidMapping(zid, math_tick);
-    let mathResultsPromise = getPca(zid, math_tick);
+    const dataPromise = getBidIndexToPidMapping(zid, math_tick);
+    const mathResultsPromise = getPca(zid, math_tick);
 
     return Promise.all([dataPromise, mathResultsPromise]).then(function (
-      items: { asPOJO: any }[]
+      items: any[]
     ) {
-      // Property 'bidToPid' does not exist on type '{ asPOJO: any; }'.ts(2339)
-      // @ts-ignore
-      let b2p = items[0].bidToPid || []; // not sure yet if "|| []" is right here.
-      let mathResults = items[1].asPOJO;
+      const b2p = items[0].bidToPid || []; // not sure yet if "|| []" is right here.
+      const mathResults = items[1].asPOJO;
       function findBidForPid(pid: any) {
         let yourBidi = -1;
         // if (!b2p) {
         //     return yourBidi;
         // }
-        for (var bidi = 0; bidi < b2p.length; bidi++) {
-          let pids = b2p[bidi];
+        for (let bidi = 0; bidi < b2p.length; bidi++) {
+          const pids = b2p[bidi];
           if (pids.indexOf(pid) !== -1) {
             yourBidi = bidi;
             break;
@@ -2476,9 +2252,9 @@ function initializePolisHelpers() {
         return yourBid;
       }
 
-      let indexToBid = mathResults["base-clusters"].id;
-      let bids = pids.map(findBidForPid);
-      let pidToBid = _.object(pids, bids);
+      const indexToBid = mathResults["base-clusters"].id;
+      const bids = pids.map(findBidForPid);
+      const pidToBid = _.object(pids, bids);
       return pidToBid;
     });
   }
@@ -2497,33 +2273,31 @@ function initializePolisHelpers() {
       ) => { (): any; new (): any; end: { (): void; new (): any } };
     }
   ) {
-    let uid = req.p.uid;
-    let zid = req.p.zid;
-    let math_tick = req.p.math_tick;
+    const uid = req.p.uid;
+    const zid = req.p.zid;
+    const math_tick = req.p.math_tick;
 
-    let dataPromise = getBidIndexToPidMapping(zid, math_tick);
-    let pidPromise = getPidPromise(zid, uid);
-    let mathResultsPromise = getPca(zid, math_tick);
+    const dataPromise = getBidIndexToPidMapping(zid, math_tick);
+    const pidPromise = getPidPromise(zid, uid);
+    const mathResultsPromise = getPca(zid, math_tick);
 
     Promise.all([dataPromise, pidPromise, mathResultsPromise])
       .then(
-        function (items: { asPOJO: any }[]) {
-          // Property 'bidToPid' does not exist on type '{ asPOJO: any; }'.ts(2339)
-          // @ts-ignore
-          let b2p = items[0].bidToPid || []; // not sure yet if "|| []" is right here.
-          let pid = items[1];
-          let mathResults = items[2].asPOJO;
+        function (items: any[]) {
+          const b2p = items[0].bidToPid || []; // not sure yet if "|| []" is right here.
+          const pid = items[1];
+          const mathResults = items[2].asPOJO;
           if (((pid as unknown) as number) < 0) {
             // NOTE: this API should not be called in /demo mode
             fail(res, 500, "polis_err_get_bid_bad_pid");
             return;
           }
 
-          let indexToBid = mathResults["base-clusters"].id;
+          const indexToBid = mathResults["base-clusters"].id;
 
           let yourBidi = -1;
-          for (var bidi = 0; bidi < b2p.length; bidi++) {
-            let pids = b2p[bidi];
+          for (let bidi = 0; bidi < b2p.length; bidi++) {
+            const pids = b2p[bidi];
             if (pids.indexOf(pid) !== -1) {
               yourBidi = bidi;
               break;
@@ -2569,55 +2343,47 @@ function initializePolisHelpers() {
       };
     }
   ) {
-    let pwresettoken = req.p.pwresettoken;
-    let newPassword = req.p.newPassword;
+    const pwresettoken = req.p.pwresettoken;
+    const newPassword = req.p.newPassword;
 
-    getUidForPwResetToken(
-      pwresettoken,
-      //     Argument of type '(err: any, userParams: { uid?: any; }) => void' is not assignable to parameter of type '(arg0: number | null, arg1?: { uid: any; } | undefined) => void'.
-      // Types of parameters 'userParams' and 'arg1' are incompatible.
-      //   Type '{ uid: any; } | undefined' is not assignable to type '{ uid?: any; }'.
-      //     Type 'undefined' is not assignable to type '{ uid?: any; }'.ts(2345)
-      // @ts-ignore
-      function (err: any, userParams: { uid?: any }) {
-        if (err) {
-          console.error(err);
-          fail(
-            res,
-            500,
-            "Password Reset failed. Couldn't find matching pwresettoken.",
-            err
-          );
-          return;
-        }
-        let uid = Number(userParams.uid);
-        generateHashedPassword(
-          newPassword,
-          function (err: any, hashedPassword: any) {
-            return pgQueryP(
-              "insert into jianiuevyew (uid, pwhash) values " +
-                "($1, $2) on conflict (uid) " +
-                "do update set pwhash = excluded.pwhash;",
-              [uid, hashedPassword]
-            ).then(
-              (rows: any) => {
-                res.status(200).json("Password reset successful.");
-                clearPwResetToken(pwresettoken, function (err: any) {
-                  if (err) {
-                    yell(err);
-                    console.error("polis_err_auth_pwresettoken_clear_fail");
-                  }
-                });
-              },
-              (err: any) => {
-                console.error(err);
-                fail(res, 500, "Couldn't reset password.", err);
-              }
-            );
-          }
+    getUidForPwResetToken(pwresettoken, function (err: any, userParams: any) {
+      if (err) {
+        console.error(err);
+        fail(
+          res,
+          500,
+          "Password Reset failed. Couldn't find matching pwresettoken.",
+          err
         );
+        return;
       }
-    );
+      const uid = Number(userParams.uid);
+      generateHashedPassword(
+        newPassword,
+        function (err: any, hashedPassword: any) {
+          return pgQueryP(
+            "insert into jianiuevyew (uid, pwhash) values " +
+              "($1, $2) on conflict (uid) " +
+              "do update set pwhash = excluded.pwhash;",
+            [uid, hashedPassword]
+          ).then(
+            (rows: any) => {
+              res.status(200).json("Password reset successful.");
+              clearPwResetToken(pwresettoken, function (err: any) {
+                if (err) {
+                  yell(err);
+                  console.error("polis_err_auth_pwresettoken_clear_fail");
+                }
+              });
+            },
+            (err: any) => {
+              console.error(err);
+              fail(res, 500, "Couldn't reset password.", err);
+            }
+          );
+        }
+      );
+    });
   }
 
   const getServerNameWithProtocol = Config.getServerNameWithProtocol;
@@ -2634,9 +2400,9 @@ function initializePolisHelpers() {
       };
     }
   ) {
-    let email = req.p.email;
+    const email = req.p.email;
 
-    let server = getServerNameWithProtocol(req);
+    const server = getServerNameWithProtocol(req);
 
     // let's clear the cookies here, in case something is borked.
     clearCookies(req, res);
@@ -2673,7 +2439,7 @@ function initializePolisHelpers() {
   }
 
   function sendPasswordResetEmailFailure(email: any, server: any) {
-    let body = `We were unable to find a pol.is account registered with the email address: ${email}
+    const body = `We were unable to find a pol.is account registered with the email address: ${email}
 
 You may have used another email address to create your account.
 
@@ -2694,12 +2460,7 @@ Feel free to reply to this email if you need help.`;
     return pgQueryP_readOnly(
       "SELECT uid FROM users where LOWER(email) = ($1);",
       [email]
-      // Argument of type '(rows: string | any[]) => any' is not assignable to parameter of type '(value: unknown) => any'.
-      //   Types of parameters 'rows' and 'value' are incompatible.
-      //     Type 'unknown' is not assignable to type 'string | any[]'.
-      //       Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-      // @ts-ignore
-    ).then(function (rows: string | any[]) {
+    ).then(function (rows: any) {
       if (!rows || !rows.length) {
         throw new Error("polis_err_no_user_matching_email");
       }
@@ -2718,7 +2479,7 @@ Feel free to reply to this email if you need help.`;
     },
     cookieName: any
   ) {
-    let origin = req?.headers?.origin || "";
+    const origin = req?.headers?.origin || "";
     if (domainOverride || origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
       res?.clearCookie?.(cookieName, {
         path: "/",
@@ -2745,7 +2506,7 @@ Feel free to reply to this email if you need help.`;
       set?: (arg0: { "Content-Type": string }) => void;
     }
   ) {
-    let origin = req?.headers?.origin || "";
+    const origin = req?.headers?.origin || "";
     let cookieName;
     if (domainOverride || origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
       for (cookieName in req.cookies) {
@@ -2789,7 +2550,7 @@ Feel free to reply to this email if you need help.`;
     res: { status: (arg0: number) => void },
     next: { (err: any): void; (arg0?: string): void }
   ) {
-    let token = req.cookies[COOKIES.TOKEN];
+    const token = req.cookies[COOKIES.TOKEN];
 
     //if (req.body.uid) { next(401); return; } // shouldn't be in the post - TODO - see if we can do the auth in parallel for non-destructive operations
     getUserInfoForSessionToken(token, res, function (err: any, uid?: any) {
@@ -2827,7 +2588,7 @@ Feel free to reply to this email if you need help.`;
     }
   ) {
     req.p = req.p || {};
-    let token = req.cookies[COOKIES.TOKEN];
+    const token = req.cookies[COOKIES.TOKEN];
 
     // clear cookies regardless of auth status
     clearCookies(req, res);
@@ -2839,7 +2600,7 @@ Feel free to reply to this email if you need help.`;
         res.set({
           "Content-Type": "text/html",
         });
-        let html = `<!DOCTYPE html><html lang='en'>
+        const html = `<!DOCTYPE html><html lang='en'>
 <body>
 <h1>You are now signed out of pol.is</h1>
 <p>Please return to the 'setup pol.is' assignment to sign in as another user.</p>
@@ -2865,7 +2626,7 @@ Feel free to reply to this email if you need help.`;
     if (typeof s !== "string" || !s.length) {
       return 99;
     }
-    for (var i = 0; i < s.length; i++) {
+    for (let i = 0; i < s.length; i++) {
       h = h * s.charCodeAt(i) * 31;
     }
     if (h < 0) {
@@ -2896,7 +2657,7 @@ Feel free to reply to this email if you need help.`;
       json: (arg0: {}) => void;
     }
   ) {
-    var enabled = false;
+    const enabled = false;
     if (!enabled) {
       return res.status(200).json({});
     }
@@ -2921,7 +2682,7 @@ Feel free to reply to this email if you need help.`;
     });
     const len = timesInTermsOfServerTime.length;
     const entries = [];
-    for (var i = 0; i < len; i++) {
+    for (let i = 0; i < len; i++) {
       entries.push(
         "(" +
           [
@@ -3032,7 +2793,9 @@ Feel free to reply to this email if you need help.`;
             return;
           }
           winston.log("info", longStringOfTokens);
-          let otzinviteArrayRegexMatch = longStringOfTokens?.match(/.{1,31}/g);
+          const otzinviteArrayRegexMatch = longStringOfTokens?.match(
+            /.{1,31}/g
+          );
           let otzinviteArray = otzinviteArrayRegexMatch?.slice(0, numTokens); // Base64 encoding expands to extra characters, so trim to the number of tokens we want.
           otzinviteArray = otzinviteArray?.map(function (suzinvite: string) {
             return generateConversationURLPrefix() + suzinvite;
@@ -3056,7 +2819,7 @@ Feel free to reply to this email if you need help.`;
       };
     }
   ) {
-    let generateShortUrl = req.p.short_url;
+    const generateShortUrl = req.p.short_url;
 
     pgQuery(
       "SELECT * FROM conversations WHERE zid = ($1) AND owner = ($2);",
@@ -3108,12 +2871,12 @@ Feel free to reply to this email if you need help.`;
     );
   }
 
-  let zidToConversationIdCache = new LruCache({
+  const zidToConversationIdCache = new LruCache({
     max: 1000,
   });
 
   function getZinvite(zid: any, dontUseCache?: boolean) {
-    let cachedConversationId = zidToConversationIdCache.get(zid);
+    const cachedConversationId = zidToConversationIdCache.get(zid);
     if (!dontUseCache && cachedConversationId) {
       return Promise.resolve(cachedConversationId);
     }
@@ -3122,7 +2885,7 @@ Feel free to reply to this email if you need help.`;
       "select * from zinvites where zid = ($1);",
       [zid]
     ).then(function (rows: { zinvite: any }[]) {
-      let conversation_id = (rows && rows[0] && rows[0].zinvite) || void 0;
+      const conversation_id = (rows && rows[0] && rows[0].zinvite) || void 0;
       if (conversation_id) {
         zidToConversationIdCache.set(zid, conversation_id);
       }
@@ -3139,10 +2902,10 @@ Feel free to reply to this email if you need help.`;
     });
     zids = _.uniq(zids);
 
-    let uncachedZids = zids.filter(function (zid: any) {
+    const uncachedZids = zids.filter(function (zid: any) {
       return !zidToConversationIdCache.get(zid);
     });
-    let zidsWithCachedConversationIds = zids
+    const zidsWithCachedConversationIds = zids
       .filter(function (zid: any) {
         return !!zidToConversationIdCache.get(zid);
       })
@@ -3154,7 +2917,7 @@ Feel free to reply to this email if you need help.`;
       });
 
     function makeZidToConversationIdMap(arrays: any[]) {
-      let zid2conversation_id = {};
+      const zid2conversation_id = {};
       arrays.forEach(function (a: any[]) {
         a.forEach(function (o: { zid: string | number; zinvite: any }) {
           // (property) zid: string | number
@@ -3215,8 +2978,8 @@ Feel free to reply to this email if you need help.`;
   }
 
   function addConversationIds(a: any[]) {
-    let zids = [];
-    for (var i = 0; i < a.length; i++) {
+    const zids = [];
+    for (let i = 0; i < a.length; i++) {
       if (a[i].zid) {
         zids.push(a[i].zid);
       }
@@ -3254,7 +3017,7 @@ Feel free to reply to this email if you need help.`;
           if (item.zid) {
             delete item.zid;
           }
-          let statusCode = altStatusCode || 200;
+          const statusCode = altStatusCode || 200;
           res.status(statusCode).json(item);
         },
         function (err: any) {
@@ -3279,7 +3042,7 @@ Feel free to reply to this email if you need help.`;
         function (items: string | any[]) {
           // ensure we don't expose zid
           if (items) {
-            for (var i = 0; i < items.length; i++) {
+            for (let i = 0; i < items.length; i++) {
               if (items[i].zid) {
                 delete items[i].zid;
               }
@@ -3360,12 +3123,7 @@ Feel free to reply to this email if you need help.`;
     return pgQueryP(
       "select * from xids where xid = ($1) and owner = ($2) and uid = ($3);",
       [xid, owner, uid]
-      //     Argument of type '(rows: string | any[]) => number | ""' is not assignable to parameter of type '(value: unknown) => number | "" | PromiseLike<number | "">'.
-      // Types of parameters 'rows' and 'value' are incompatible.
-      //   Type 'unknown' is not assignable to type 'string | any[]'.
-      //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-      // @ts-ignore
-    ).then(function (rows: string | any[]) {
+    ).then(function (rows: any) {
       return rows && rows.length;
     });
   }
@@ -3417,7 +3175,7 @@ Feel free to reply to this email if you need help.`;
       return callback(0);
     }
 
-    let q =
+    const q =
       "select * from participant_metadata_answers where zid = ($1) and pmaid in (" +
       answers.join(",") +
       ");";
@@ -3440,7 +3198,7 @@ Feel free to reply to this email if you need help.`;
         qa_results = _.indexBy(qa_results, "pmaid");
         // construct an array of params arrays
         answers = answers.map(function (pmaid: string | number) {
-          let pmqid = qa_results[pmaid].pmqid;
+          const pmqid = qa_results[pmaid].pmqid;
           return [zid, pid, pmaid, pmqid];
         });
         // make simultaneous requests to insert the choices
@@ -3489,7 +3247,7 @@ Feel free to reply to this email if you need help.`;
     );
   }
 
-  let LOCATION_SOURCES = {
+  const LOCATION_SOURCES = {
     Twitter: 400,
     Facebook: 300,
     HTML5: 200,
@@ -3505,18 +3263,9 @@ Feel free to reply to this email if you need help.`;
       pgQueryP_readOnly("select * from twitter_users where uid = ($1);", [uid]),
       //     No overload matches this call.
       // Overload 1 of 2, '(onFulfill?: ((value: [unknown, unknown]) => Resolvable<{ location: any; source: number; } | null>) | undefined, onReject?: ((error: any) => Resolvable<{ location: any; source: number; } | null>) | undefined): Bluebird<...>', gave the following error.
-      //   Argument of type '(o: any[][]) => { location: any; source: number; } | null' is not assignable to parameter of type '(value: [unknown, unknown]) => Resolvable<{ location: any; source: number; } | null>'.
-      //     Types of parameters 'o' and 'value' are incompatible.
-      //       Type '[unknown, unknown]' is not assignable to type 'any[][]'.
-      //         Type 'unknown' is not assignable to type 'any[]'.
-      // Overload 2 of 2, '(onfulfilled?: ((value: [unknown, unknown]) => Resolvable<{ location: any; source: number; } | null>) | null | undefined, onrejected?: ((reason: any) => PromiseLike<never>) | null | undefined): Bluebird<...>', gave the following error.
-      //   Argument of type '(o: any[][]) => { location: any; source: number; } | null' is not assignable to parameter of type '(value: [unknown, unknown]) => Resolvable<{ location: any; source: number; } | null>'.
-      //     Types of parameters 'o' and 'value' are incompatible.
-      //       Type '[unknown, unknown]' is not assignable to type 'any[][]'.ts(2769)
-      // @ts-ignore
-    ]).then(function (o: any[][]) {
-      let fb = o[0] && o[0][0];
-      let tw = o[1] && o[1][0];
+    ]).then(function (o: any) {
+      const fb = o[0] && o[0][0];
+      const tw = o[1] && o[1][0];
       if (fb && _.isString(fb.location)) {
         return {
           location: fb.location,
@@ -3541,26 +3290,14 @@ Feel free to reply to this email if you need help.`;
     getUsersLocationName(uid)
       //     No overload matches this call.
       // Overload 1 of 2, '(onFulfill?: ((value: unknown) => Resolvable<void>) | undefined, onReject?: ((error: any) => Resolvable<void>) | undefined): Bluebird<void>', gave the following error.
-      //   Argument of type '(locationData: { location: any; source: any; }) => void' is not assignable to parameter of type '(value: unknown) => Resolvable<void>'.
-      //     Types of parameters 'locationData' and 'value' are incompatible.
-      //       Type 'unknown' is not assignable to type '{ location: any; source: any; }'.
-      // Overload 2 of 2, '(onfulfilled?: ((value: unknown) => Resolvable<void>) | null | undefined, onrejected?: ((reason: any) => PromiseLike<never>) | null | undefined): Bluebird<void>', gave the following error.
-      //   Argument of type '(locationData: { location: any; source: any; }) => void' is not assignable to parameter of type '(value: unknown) => Resolvable<void>'.
-      //     Types of parameters 'locationData' and 'value' are incompatible.
-      //     Type 'unknown' is not assignable to type '{ location: any; source: any; }'.ts(2769)
-      // @ts-ignore
-      .then(function (locationData: { location: any; source: any }) {
+      .then(function (locationData: any) {
         if (!locationData) {
           INFO("asdf1.nope");
           return;
         }
         INFO(locationData);
         geoCode(locationData.location)
-          //         Argument of type '(o: { lat: any; lng: any; }) => void' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.
-          // Types of parameters 'o' and 'value' are incompatible.
-          //         Type 'unknown' is not assignable to type '{ lat: any; lng: any; }'.ts(2345)
-          // @ts-ignore
-          .then(function (o: { lat: any; lng: any }) {
+          .then(function (o: any) {
             createParticpantLocationRecord(
               zid,
               uid,
@@ -3593,36 +3330,26 @@ Feel free to reply to this email if you need help.`;
     );
   }
   function populateGeoIpInfo(zid: any, uid?: any, ipAddress?: string | null) {
-    var userId = Config.maxmindUserID;
-    var licenseKey = Config.maxmindLicenseKey;
+    const userId = Config.maxmindUserID;
+    const licenseKey = Config.maxmindLicenseKey;
 
-    var url = "https://geoip.maxmind.com/geoip/v2.1/city/";
-    var contentType =
+    let url = "https://geoip.maxmind.com/geoip/v2.1/city/";
+    let contentType =
       "application/vnd.maxmind.com-city+json; charset=UTF-8; version=2.1";
 
     // "city" is     $0.0004 per query
     // "insights" is $0.002  per query
-    var insights = false;
+    const insights = false;
 
     if (insights) {
       url = "https://geoip.maxmind.com/geoip/v2.1/insights/";
       contentType =
         "application/vnd.maxmind.com-insights+json; charset=UTF-8; version=2.1";
     }
-    //   No overload matches this call.
-    // Overload 1 of 3, '(uri: string, options?: RequestPromiseOptions | undefined, callback?: RequestCallback | undefined): RequestPromise<any>', gave the following error.
-    //   Argument of type '{ method: string; contentType: string; headers: { Authorization: string; }; }' is not assignable to parameter of type 'RequestPromiseOptions'.
-    //     Object literal may only specify known properties, and 'contentType' does not exist in type 'RequestPromiseOptions'.
-    // Overload 2 of 3, '(uri: string, callback?: RequestCallback | undefined): RequestPromise<any>', gave the following error.
-    //   Argument of type '{ method: string; contentType: string; headers: { Authorization: string; }; }' is not assignable to parameter of type 'RequestCallback'.
-    //     Object literal may only specify known properties, and 'method' does not exist in type 'RequestCallback'.
-    // Overload 3 of 3, '(options: RequiredUriUrl & RequestPromiseOptions, callback?: RequestCallback | undefined): RequestPromise<any>', gave the following error.
-    //   Argument of type 'string' is not assignable to parameter of type 'RequiredUriUrl & RequestPromiseOptions'.ts(2769)
-    // @ts-ignore
     return request
       .get(url + ipAddress, {
         method: "GET",
-        contentType: contentType,
+        // contentType: contentType,
         headers: {
           Authorization:
             "Basic " +
@@ -3630,7 +3357,7 @@ Feel free to reply to this email if you need help.`;
         },
       })
       .then(function (response: string) {
-        var parsedResponse = JSON.parse(response);
+        const parsedResponse = JSON.parse(response);
         console.log("BEGIN MAXMIND RESPONSE");
         console.log(response);
         console.log("END MAXMIND RESPONSE");
@@ -3659,12 +3386,12 @@ Feel free to reply to this email if you need help.`;
       return Promise.resolve();
     }
 
-    let params = Object.assign({}, data, {
+    const params = Object.assign({}, data, {
       zid: zid,
       uid: uid,
       modified: 9876543212345, // hacky string, will be replaced with the word "default".
     });
-    let qUpdate = sql_participants_extended
+    const qUpdate = sql_participants_extended
       .update(params)
       .where(sql_participants_extended.zid.equals(zid))
       .and(sql_participants_extended.uid.equals(uid));
@@ -3695,13 +3422,9 @@ Feel free to reply to this email if you need help.`;
     }
 
     // there was no participant row, so create one
-    //   Argument of type '(rows: any[]) => any' is not assignable to parameter of type '(value: unknown) => any'.
-    // Types of parameters 'rows' and 'value' are incompatible.
-    //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-    // @ts-ignore
-    return addParticipant(zid, uid).then(function (rows: any[]) {
-      let pid = rows && rows[0] && rows[0].pid;
-      let ptpt = rows[0];
+    return addParticipant(zid, uid).then(function (rows: any) {
+      const pid = rows && rows[0] && rows[0].pid;
+      const ptpt = rows[0];
 
       doAddExtendedParticipantInfo();
 
@@ -3723,9 +3446,9 @@ Feel free to reply to this email if you need help.`;
     },
     permanent_cookie?: any
   ) {
-    let info: { [key: string]: string } = {};
-    let parent_url = req?.cookies?.[COOKIES.PARENT_URL] || req?.p?.parent_url;
-    let referer =
+    const info: { [key: string]: string } = {};
+    const parent_url = req?.cookies?.[COOKIES.PARENT_URL] || req?.p?.parent_url;
+    const referer =
       req?.cookies[COOKIES.PARENT_REFERRER] ||
       req?.headers?.["referer"] ||
       req?.headers?.["referrer"];
@@ -3736,7 +3459,7 @@ Feel free to reply to this email if you need help.`;
     if (referer) {
       info.referrer = referer;
     }
-    let x_forwarded_for = req?.headers?.["x-forwarded-for"];
+    const x_forwarded_for = req?.headers?.["x-forwarded-for"];
     let ip: string | null = null;
     if (x_forwarded_for) {
       let ips = x_forwarded_for;
@@ -3752,13 +3475,9 @@ Feel free to reply to this email if you need help.`;
     if (req?.headers?.["origin"]) {
       info.origin = req?.headers?.["origin"];
     }
-    //   Argument of type '(rows: any[]) => any[]' is not assignable to parameter of type '(value: unknown) => any[] | PromiseLike<any[]>'.
-    // Types of parameters 'rows' and 'value' are incompatible.
-    //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-    // @ts-ignore
-    return addParticipant(zid, uid).then((rows: any[]) => {
-      let ptpt = rows[0];
-      let pid = ptpt.pid;
+    return addParticipant(zid, uid).then((rows: any) => {
+      const ptpt = rows[0];
+      const pid = ptpt.pid;
       populateParticipantLocationRecordIfPossible(zid, uid, pid);
       addExtendedParticipantInfo(zid, uid, info);
       if (ip) {
@@ -3784,7 +3503,7 @@ Feel free to reply to this email if you need help.`;
       //       However, that doesn't seem to be preventing duplicate pid constraint errors.
       //       Doing this retry in JS for now since it's quick and easy, rather than try to
       //       figure what's wrong with the postgres locks.
-      let promise = tryJoin()
+      const promise = tryJoin()
         .catch(tryJoin)
         .catch(tryJoin)
         .catch(tryJoin)
@@ -3869,11 +3588,7 @@ Feel free to reply to this email if you need help.`;
     return pgQueryP_readOnly(
       "select count(*) from conversations where owner in (select uid from users where site_id = (select site_id from users where uid = ($2))) and zid = ($1);",
       [zid, uid]
-      //     Argument of type '(rows: { count: number; }[]) => boolean' is not assignable to parameter of type '(value: unknown) => boolean | PromiseLike<boolean>'.
-      // Types of parameters 'rows' and 'value' are incompatible.
-      //     Type 'unknown' is not assignable to type '{ count: number; }[]'.ts(2345)
-      // @ts-ignore
-    ).then(function (rows: { count: number }[]) {
+    ).then(function (rows: any) {
       return rows[0].count >= 1;
     });
   }
@@ -3991,20 +3706,14 @@ ${message}`;
     serverName?: any,
     callback?: { (err: any): void; (arg0?: string): void }
   ) {
-    getUserInfoForUid(
-      uid,
-      //     Argument of type '(err: any, userInfo: { hname: any; email: any; }) => void' is not assignable to parameter of type '(arg0: null, arg1?: undefined) => void'.
-      // Types of parameters 'userInfo' and 'arg1' are incompatible.
-      //     Type 'undefined' is not assignable to type '{ hname: any; email: any; }'.ts(2345)
-      // @ts-ignore
-      function (err: any, userInfo: { hname: any; email: any }) {
-        if (err) {
-          return callback?.(err);
-        }
-        if (!userInfo) {
-          return callback?.("missing user info");
-        }
-        let body = `Hi ${userInfo.hname},
+    getUserInfoForUid(uid, function (err: any, userInfo: any) {
+      if (err) {
+        return callback?.(err);
+      }
+      if (!userInfo) {
+        return callback?.("missing user info");
+      }
+      const body = `Hi ${userInfo.hname},
 
 We have just received a password reset request for ${userInfo.email}
 
@@ -4013,21 +3722,20 @@ ${serverName}/pwreset/${pwresettoken}
 
 "Thank you for using Polis`;
 
-        sendTextEmail(
-          polisFromAddress,
-          userInfo.email,
-          "Polis Password Reset",
-          body
-        )
-          .then(function () {
-            callback?.();
-          })
-          .catch(function (err: any) {
-            yell("polis_err_failed_to_email_password_reset_code");
-            callback?.(err);
-          });
-      }
-    );
+      sendTextEmail(
+        polisFromAddress,
+        userInfo.email,
+        "Polis Password Reset",
+        body
+      )
+        .then(function () {
+          callback?.();
+        })
+        .catch(function (err: any) {
+          yell("polis_err_failed_to_email_password_reset_code");
+          callback?.(err);
+        });
+    });
   }
 
   // function sendTextEmailWithPostmark(sender, recipient, subject, text) {
@@ -4059,7 +3767,7 @@ ${serverName}/pwreset/${pwresettoken}
     recipientArray = recipientArray || [];
     return Promise.all(
       recipientArray.map(function (email: string) {
-        let promise = sendTextEmail(sender, email, subject, text);
+        const promise = sendTextEmail(sender, email, subject, text);
         promise.catch(function (err: any) {
           yell("polis_err_failed_to_email_for_user " + email);
         });
@@ -4072,7 +3780,7 @@ ${serverName}/pwreset/${pwresettoken}
     if (devMode) {
       return;
     }
-    let d = new Date();
+    const d = new Date();
     if (d.getDay() === 1) {
       // send the monday backup email system test
       // If the sending fails, we should get an error ping.
@@ -4087,7 +3795,7 @@ ${serverName}/pwreset/${pwresettoken}
   setInterval(trySendingBackupEmailTest, 1000 * 60 * 60 * 23); // try every 23 hours (so it should only try roughly once a day)
   trySendingBackupEmailTest();
   function sendEinviteEmail(req: any, email: any, einvite: any) {
-    let serverName = getServerNameWithProtocol(req);
+    const serverName = getServerNameWithProtocol(req);
     const body = `Welcome to pol.is!
 
 Click this link to open your account:
@@ -4105,18 +3813,11 @@ Thank you for using Polis`;
   }
 
   function isEmailVerified(email: any) {
-    return (
-      dbPgQuery
-        .queryP("select * from email_validations where email = ($1);", [email])
-        //     Argument of type '(rows: string | any[]) => boolean' is not assignable to parameter of type '(value: unknown) => boolean | PromiseLike<boolean>'.
-        // Types of parameters 'rows' and 'value' are incompatible.
-        //   Type 'unknown' is not assignable to type 'string | any[]'.
-        //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-        // @ts-ignore
-        .then(function (rows: string | any[]) {
-          return rows.length > 0;
-        })
-    );
+    return dbPgQuery
+      .queryP("select * from email_validations where email = ($1);", [email])
+      .then(function (rows: any) {
+        return rows.length > 0;
+      });
   }
 
   function handle_GET_verification(
@@ -4126,27 +3827,17 @@ Thank you for using Polis`;
       send: (arg0: string) => void;
     }
   ) {
-    let einvite = req.p.e;
+    const einvite = req.p.e;
     pgQueryP("select * from einvites where einvite = ($1);", [einvite])
-      //     Argument of type '(rows: string | any[]) => Promise<unknown>' is not assignable to parameter of type '(value: unknown) => unknown'.
-      // Types of parameters 'rows' and 'value' are incompatible.
-      //   Type 'unknown' is not assignable to type 'string | any[]'.
-      //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-      // @ts-ignore
-      .then(function (rows: string | any[]) {
+      .then(function (rows: any) {
         if (!rows.length) {
           fail(res, 500, "polis_err_verification_missing");
         }
-        let email = rows[0].email;
+        const email = rows[0].email;
         return pgQueryP(
           "select email from email_validations where email = ($1);",
           [email]
-          //         Argument of type '(rows: string | any[]) => true | Promise<unknown>' is not assignable to parameter of type '(value: unknown) => unknown'.
-          // Types of parameters 'rows' and 'value' are incompatible.
-          //   Type 'unknown' is not assignable to type 'string | any[]'.
-          //         Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-          // @ts-ignore
-        ).then(function (rows: string | any[]) {
+        ).then(function (rows: any) {
           if (rows && rows.length > 0) {
             return true;
           }
@@ -4175,11 +3866,8 @@ Email verified! You can close this tab or hit the back button.
     conversation_id?: any;
     email?: any;
   }) {
-    // Argument of type '(a: number[], b: number[]) => boolean' is not assignable to parameter of type '(a: ["email" | "conversation_id", any], b: ["email" | "conversation_id", any]) => number'.
-    //   Type 'boolean' is not assignable to type 'number'.ts(2345)
-    // @ts-ignore
-    let pairs = _.pairs(params).sort(function (a: number[], b: number[]) {
-      return a[0] > b[0];
+    const pairs = _.pairs(params).sort(function (a: number[], b: number[]) {
+      return a[0] > b[0] ? 1 : -1;
     });
     const pairsList = pairs.map(function (pair: any[]) {
       return pair.join("=");
@@ -4192,22 +3880,22 @@ Email verified! You can close this tab or hit the back button.
   //     pwreset_created : 60 * 60 * 2,
   // };
 
-  let HMAC_SIGNATURE_PARAM_NAME = "signature";
+  const HMAC_SIGNATURE_PARAM_NAME = "signature";
 
   function createHmacForQueryParams(
     path: string,
     params: { conversation_id?: any; email?: any }
   ) {
     path = path.replace(/\/$/, ""); // trim trailing "/"
-    let s = path + "?" + paramsToStringSortedByName(params);
-    let hmac = crypto.createHmac(
+    const s = path + "?" + paramsToStringSortedByName(params);
+    const hmac = crypto.createHmac(
       "sha1",
       "G7f387ylIll8yuskuf2373rNBmcxqWYFfHhdsd78f3uekfs77EOLR8wofw"
     );
     hmac.setEncoding("hex");
     hmac.write(s);
     hmac.end();
-    let hash = hmac.read();
+    const hash = hmac.read();
     return hash;
   }
 
@@ -4217,9 +3905,9 @@ Email verified! You can close this tab or hit the back button.
   ) {
     return new Promise(function (resolve: () => void, reject: () => void) {
       params = _.clone(params);
-      let hash = params[HMAC_SIGNATURE_PARAM_NAME];
+      const hash = params[HMAC_SIGNATURE_PARAM_NAME];
       delete params[HMAC_SIGNATURE_PARAM_NAME];
-      let correctHash = createHmacForQueryParams(path, params);
+      const correctHash = createHmacForQueryParams(path, params);
       // To thwart timing attacks, add some randomness to the response time with setTimeout.
       setTimeout(function () {
         winston.log("info", "comparing", correctHash, hash);
@@ -4257,20 +3945,15 @@ Email verified! You can close this tab or hit the back button.
     }
   ) {
     // let pid = req.p.pid;
-    let uid = req.p.uid;
-    let zid = req.p.zid;
+    const uid = req.p.uid;
+    const zid = req.p.zid;
 
     pgQueryP_readOnly(
       "select * from participants where uid = ($1) and zid = ($2)",
       [uid, zid]
     )
-      //     Argument of type '(rows: string | any[]) => void' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.
-      // Types of parameters 'rows' and 'value' are incompatible.
-      //   Type 'unknown' is not assignable to type 'string | any[]'.
-      //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-      // @ts-ignore
-      .then(function (rows: string | any[]) {
-        let ptpt = (rows && rows.length && rows[0]) || null;
+      .then(function (rows: any) {
+        const ptpt = (rows && rows.length && rows[0]) || null;
         res.status(200).json(ptpt);
       })
       .catch(function (err: any) {
@@ -4317,7 +4000,7 @@ Email verified! You can close this tab or hit the back button.
       ) => { (): any; new (): any; end: { (): void; new (): any } };
     }
   ) {
-    let message = req.p.button + " " + req.p.uid;
+    const message = req.p.button + " " + req.p.uid;
     emailFeatureRequest(message);
     res.status(200).end();
   }
@@ -4330,7 +4013,7 @@ Email verified! You can close this tab or hit the back button.
       fail(res, 403, "polis_err_no_access_for_this_user");
       return;
     }
-    var time = req.p.sinceUnixTimestamp;
+    let time = req.p.sinceUnixTimestamp;
     if (_.isUndefined(time)) {
       time = Date.now() - 1000 * 60 * 60 * 24 * 7;
     } else {
@@ -4362,11 +4045,7 @@ Email verified! You can close this tab or hit the back button.
     // @ts-ignore
     return new MPromise(
       "userHasAnsweredZeQuestions",
-      //     Argument of type '(resolve: () => any, reject: (arg0: Error) => void) => void'
-      // is not assignable to parameter of type '(resolve: (value: unknown) => void, reject: (reason?: any) => void) => void'.
-      // Types of parameters 'resolve' and 'resolve' are incompatible.ts(2345)
-      // @ts-ignore
-      function (resolve: () => any, reject: (arg0: Error) => void) {
+      function (resolve: any, reject: (arg0: Error) => void) {
         getAnswersForConversation(
           zid,
           function (err: any, available_answers: any) {
@@ -4375,14 +4054,14 @@ Email verified! You can close this tab or hit the back button.
               return;
             }
 
-            let q2a = _.indexBy(available_answers, "pmqid");
-            let a2q = _.indexBy(available_answers, "pmaid");
-            for (var i = 0; i < answers.length; i++) {
-              let pmqid = a2q[answers[i]].pmqid;
+            const q2a = _.indexBy(available_answers, "pmqid");
+            const a2q = _.indexBy(available_answers, "pmaid");
+            for (let i = 0; i < answers.length; i++) {
+              const pmqid = a2q[answers[i]].pmqid;
               delete q2a[pmqid];
             }
-            let remainingKeys = _.keys(q2a);
-            let missing = remainingKeys && remainingKeys.length > 0;
+            const remainingKeys = _.keys(q2a);
+            const missing = remainingKeys && remainingKeys.length > 0;
             if (missing) {
               return reject(
                 new Error(
@@ -4408,13 +4087,13 @@ Email verified! You can close this tab or hit the back button.
       ) => { (): any; new (): any; json: { (arg0: any): void; new (): any } };
     }
   ) {
-    let zid = req.p.zid;
-    let uid = req.p.uid;
-    let answers = req.p.answers;
-    let info: ParticipantInfo = {};
+    const zid = req.p.zid;
+    const uid = req.p.uid;
+    const answers = req.p.answers;
+    const info: ParticipantInfo = {};
 
-    let parent_url = req.cookies[COOKIES.PARENT_URL] || req.p.parent_url;
-    let referrer = req.cookies[COOKIES.PARENT_REFERRER] || req.p.referrer;
+    const parent_url = req.cookies[COOKIES.PARENT_URL] || req.p.parent_url;
+    const referrer = req.cookies[COOKIES.PARENT_REFERRER] || req.p.referrer;
 
     if (parent_url) {
       info.parent_url = parent_url;
@@ -4479,12 +4158,7 @@ Email verified! You can close this tab or hit the back button.
               if (conv.lti_users_only) {
                 if (uid) {
                   pgQueryP("select * from lti_users where uid = ($1)", [uid])
-                    // Argument of type '(rows: string | any[]) => void' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.
-                    // Types of parameters 'rows' and 'value' are incompatible.
-                    //   Type 'unknown' is not assignable to type 'string | any[]'.
-                    //    Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-                    // @ts-ignore
-                    .then(function (rows: string | any[]) {
+                    .then(function (rows: any) {
                       if (rows && rows.length) {
                         // found a record in lti_users
                         doJoin();
@@ -4538,7 +4212,7 @@ Email verified! You can close this tab or hit the back button.
   const addLtiContextMembership = User.addLtiContextMembership;
 
   function subscribeToNotifications(zid: any, uid?: any, email?: any) {
-    let type = 1; // 1 for email
+    const type = 1; // 1 for email
     winston.log("info", "subscribeToNotifications", zid, uid);
     return pgQueryP(
       "update participants_extended set subscribe_email = ($3) where zid = ($1) and uid = ($2);",
@@ -4554,7 +4228,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function unsubscribeFromNotifications(zid: any, uid?: any) {
-    let type = 0; // 1 for nothing
+    const type = 0; // 1 for nothing
     return pgQueryP(
       "update participants set subscribed = ($3) where zid = ($1) and uid = ($2);",
       [zid, uid, type]
@@ -4580,12 +4254,7 @@ Email verified! You can close this tab or hit the back button.
   function claimNextNotificationTask() {
     return pgQueryP(
       "delete from notification_tasks where zid = (select zid from notification_tasks order by random() for update skip locked limit 1) returning *;"
-      //   Argument of type '(rows: string | any[]) => any' is not assignable to parameter of type '(value: unknown) => any'.
-      // Types of parameters 'rows' and 'value' are incompatible.
-      //   Type 'unknown' is not assignable to type 'string | any[]'.
-      //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-      // @ts-ignore
-    ).then((rows: string | any[]) => {
+    ).then((rows: any) => {
       if (!rows || !rows.length) {
         return null;
       }
@@ -4594,208 +4263,184 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function getDbTime() {
-    return pgQueryP("select now_as_millis();", []).then(
-      //     Argument of type '(rows: {    now_as_millis: any;}[]) => any' is not assignable to parameter of type '(value: unknown) => any'.
-      // Types of parameters 'rows' and 'value' are incompatible.
-      //   Type 'unknown' is not assignable to type '{ now_as_millis: any; }[]'.ts(2345)
-      // @ts-ignore
-      (rows: { now_as_millis: any }[]) => {
-        return rows[0].now_as_millis;
-      }
-    );
+    return pgQueryP("select now_as_millis();", []).then((rows: any) => {
+      return rows[0].now_as_millis;
+    });
   }
 
   function doNotificationsForZid(zid: any, timeOfLastEvent: any) {
     let shouldTryAgain = false;
 
-    return (
-      pgQueryP(
-        "select * from participants where zid = ($1) and last_notified < ($2) and subscribed > 0;",
-        [zid, timeOfLastEvent]
-      )
-        // Argument of type '(candidates: any[]) => Promise<{ pid: string | number; remaining: any; }[]
-        // | null > | null' is not assignable to parameter of type '(value: unknown) => { pid: string | number; remaining: any; } []
-        // | PromiseLike<{ pid: string | number; remaining: any; }[] | null> | null'.
-        // Types of parameters 'candidates' and 'value' are incompatible.
-        //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-        // @ts-ignore
-        .then((candidates: any[]) => {
-          if (!candidates || !candidates.length) {
-            return null;
+    return pgQueryP(
+      "select * from participants where zid = ($1) and last_notified < ($2) and subscribed > 0;",
+      [zid, timeOfLastEvent]
+    )
+      .then((candidates: any) => {
+        if (!candidates || !candidates.length) {
+          return null;
+        }
+        candidates = candidates.map(
+          (ptpt: { last_notified: number; last_interaction: number }) => {
+            ptpt.last_notified = Number(ptpt.last_notified);
+            ptpt.last_interaction = Number(ptpt.last_interaction);
+            return ptpt;
           }
-          candidates = candidates.map(
-            (ptpt: { last_notified: number; last_interaction: number }) => {
-              ptpt.last_notified = Number(ptpt.last_notified);
-              ptpt.last_interaction = Number(ptpt.last_interaction);
-              return ptpt;
+        );
+        return Promise.all([
+          getDbTime(),
+          getConversationInfo(zid),
+          getZinvite(zid),
+        ]).then((a: any[]) => {
+          const dbTimeMillis = a[0];
+          const conv = a[1];
+          const conversation_id = a[2];
+
+          const url = conv.parent_url || "https://pol.is/" + conversation_id;
+
+          const pid_to_ptpt = {};
+          candidates.forEach((c: { pid: string | number }) => {
+            // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+            // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+            // @ts-ignore
+            pid_to_ptpt[c.pid] = c;
+          });
+          return Promise.mapSeries(
+            candidates,
+            (item: { zid: any; pid: any }, index: any, length: any) => {
+              return getNumberOfCommentsRemaining(item.zid, item.pid).then(
+                (rows: any) => {
+                  return rows[0];
+                }
+              );
             }
-          );
-          return Promise.all([
-            getDbTime(),
-            getConversationInfo(zid),
-            getZinvite(zid),
-          ]).then((a: any[]) => {
-            let dbTimeMillis = a[0];
-            let conv = a[1];
-            let conversation_id = a[2];
+          ).then((results: any[]) => {
+            const needNotification = results.filter(
+              (result: { pid: string | number; remaining: number }) => {
+                // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+                // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+                // @ts-ignore
+                const ptpt = pid_to_ptpt[result.pid];
+                let needs = true;
 
-            let url = conv.parent_url || "https://pol.is/" + conversation_id;
+                needs = needs && result.remaining > 0;
 
-            let pid_to_ptpt = {};
-            candidates.forEach((c: { pid: string | number }) => {
-              // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-              // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-              // @ts-ignore
-              pid_to_ptpt[c.pid] = c;
-            });
-            return Promise.mapSeries(
-              candidates,
-              (item: { zid: any; pid: any }, index: any, length: any) => {
-                return getNumberOfCommentsRemaining(item.zid, item.pid).then(
-                  // Argument of type '(rows: any[]) => any' is not assignable to parameter of type '(value: unknown) => any'.
-                  // Types of parameters 'rows' and 'value' are incompatible.
-                  //  Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-                  // @ts-ignore
-                  (rows: any[]) => {
-                    return rows[0];
-                  }
-                );
+                // if (needs && result.remaining < 5) {
+                //   // no need to try again for this user since new comments will create new tasks
+                //   console.log('doNotificationsForZid', 'not enough remaining');
+                //   needs = false;
+                // }
+
+                let waitTime = 60 * 60 * 1000;
+
+                // notifications since last interation
+                if (ptpt.nsli === 0) {
+                  // first notification since last interaction
+                  waitTime = 60 * 60 * 1000; // 1 hour
+                } else if (ptpt.nsli === 1) {
+                  // second notification since last interaction
+                  waitTime = 2 * 60 * 60 * 1000; // 4 hours
+                } else if (ptpt.nsli === 2) {
+                  // third notification since last interaction
+                  waitTime = 24 * 60 * 60 * 1000; // 24 hours
+                } else if (ptpt.nsli === 3) {
+                  // third notification since last interaction
+                  waitTime = 48 * 60 * 60 * 1000; // 48 hours
+                } else {
+                  // give up, if they vote again nsli will be set to zero again.
+                  console.log("doNotificationsForZid", "nsli");
+                  needs = false;
+                }
+
+                if (needs && dbTimeMillis < ptpt.last_notified + waitTime) {
+                  // Limit to one per hour.
+                  console.log(
+                    "doNotificationsForZid",
+                    "shouldTryAgain",
+                    "last_notified"
+                  );
+                  shouldTryAgain = true;
+                  needs = false;
+                }
+                if (
+                  needs &&
+                  dbTimeMillis < ptpt.last_interaction + 5 * 60 * 1000
+                ) {
+                  // Wait until 5 minutes after their last interaction.
+                  console.log(
+                    "doNotificationsForZid",
+                    "shouldTryAgain",
+                    "last_interaction"
+                  );
+                  shouldTryAgain = true;
+                  needs = false;
+                }
+
+                if (devMode) {
+                  needs = needs && isPolisDev(ptpt.uid);
+                }
+                return needs;
               }
-            ).then((results: any[]) => {
-              const needNotification = results.filter(
-                (result: { pid: string | number; remaining: number }) => {
+            );
+
+            if (needNotification.length === 0) {
+              return null;
+            }
+            const pids = _.pluck(needNotification, "pid");
+
+            // return pgQueryP("select p.uid, p.pid, u.email from participants as p left join users as u on p.uid = u.uid where p.pid in (" + pids.join(",") + ")", []).then((rows) => {
+
+            // })
+            return pgQueryP(
+              "select uid, subscribe_email from participants_extended where uid in (select uid from participants where pid in (" +
+                pids.join(",") +
+                "));",
+              []
+            ).then((rows: any) => {
+              const uidToEmail = {};
+              rows.forEach(
+                (row: { uid: string | number; subscribe_email: any }) => {
                   // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
                   // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
                   // @ts-ignore
-                  let ptpt = pid_to_ptpt[result.pid];
-                  let needs = true;
-
-                  needs = needs && result.remaining > 0;
-
-                  // if (needs && result.remaining < 5) {
-                  //   // no need to try again for this user since new comments will create new tasks
-                  //   console.log('doNotificationsForZid', 'not enough remaining');
-                  //   needs = false;
-                  // }
-
-                  let waitTime = 60 * 60 * 1000;
-
-                  // notifications since last interation
-                  if (ptpt.nsli === 0) {
-                    // first notification since last interaction
-                    waitTime = 60 * 60 * 1000; // 1 hour
-                  } else if (ptpt.nsli === 1) {
-                    // second notification since last interaction
-                    waitTime = 2 * 60 * 60 * 1000; // 4 hours
-                  } else if (ptpt.nsli === 2) {
-                    // third notification since last interaction
-                    waitTime = 24 * 60 * 60 * 1000; // 24 hours
-                  } else if (ptpt.nsli === 3) {
-                    // third notification since last interaction
-                    waitTime = 48 * 60 * 60 * 1000; // 48 hours
-                  } else {
-                    // give up, if they vote again nsli will be set to zero again.
-                    console.log("doNotificationsForZid", "nsli");
-                    needs = false;
-                  }
-
-                  if (needs && dbTimeMillis < ptpt.last_notified + waitTime) {
-                    // Limit to one per hour.
-                    console.log(
-                      "doNotificationsForZid",
-                      "shouldTryAgain",
-                      "last_notified"
-                    );
-                    shouldTryAgain = true;
-                    needs = false;
-                  }
-                  if (
-                    needs &&
-                    dbTimeMillis < ptpt.last_interaction + 5 * 60 * 1000
-                  ) {
-                    // Wait until 5 minutes after their last interaction.
-                    console.log(
-                      "doNotificationsForZid",
-                      "shouldTryAgain",
-                      "last_interaction"
-                    );
-                    shouldTryAgain = true;
-                    needs = false;
-                  }
-
-                  if (devMode) {
-                    needs = needs && isPolisDev(ptpt.uid);
-                  }
-                  return needs;
+                  uidToEmail[row.uid] = row.subscribe_email;
                 }
               );
 
-              if (needNotification.length === 0) {
-                return null;
-              }
-              const pids = _.pluck(needNotification, "pid");
-
-              // return pgQueryP("select p.uid, p.pid, u.email from participants as p left join users as u on p.uid = u.uid where p.pid in (" + pids.join(",") + ")", []).then((rows) => {
-
-              // })
-              return pgQueryP(
-                "select uid, subscribe_email from participants_extended where uid in (select uid from participants where pid in (" +
-                  pids.join(",") +
-                  "));",
-                []
-                // Argument of type '(rows: any[]) => Promise<{ pid: string | number; remaining: any; }[]>'
-                // is not assignable to parameter of type '(value: unknown) => { pid: string | number; remaining: any; }[]
-                // | PromiseLike < { pid: string | number; remaining: any; }[] > '.
-                // Types of parameters 'rows' and 'value' are incompatible.
-                //   Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-                // @ts-ignore
-              ).then((rows: any[]) => {
-                let uidToEmail = {};
-                rows.forEach(
-                  (row: { uid: string | number; subscribe_email: any }) => {
+              return Promise.each(
+                needNotification,
+                (
+                  item: { pid: string | number; remaining: any },
+                  index: any,
+                  length: any
+                ) => {
+                  // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
+                  // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
+                  // @ts-ignore
+                  const uid = pid_to_ptpt[item.pid].uid;
+                  return sendNotificationEmail(
+                    uid,
+                    url,
+                    conversation_id,
                     // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
                     // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
                     // @ts-ignore
-                    uidToEmail[row.uid] = row.subscribe_email;
-                  }
-                );
-
-                return Promise.each(
-                  needNotification,
-                  (
-                    item: { pid: string | number; remaining: any },
-                    index: any,
-                    length: any
-                  ) => {
-                    // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-                    // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-                    // @ts-ignore
-                    const uid = pid_to_ptpt[item.pid].uid;
-                    return sendNotificationEmail(
-                      uid,
-                      url,
-                      conversation_id,
-                      // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-                      // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-                      // @ts-ignore
-                      uidToEmail[uid],
-                      item.remaining
-                    ).then(() => {
-                      return pgQueryP(
-                        "update participants set last_notified = now_as_millis(), nsli = nsli + 1 where uid = ($1) and zid = ($2);",
-                        [uid, zid]
-                      );
-                    });
-                  }
-                );
-              });
+                    uidToEmail[uid],
+                    item.remaining
+                  ).then(() => {
+                    return pgQueryP(
+                      "update participants set last_notified = now_as_millis(), nsli = nsli + 1 where uid = ($1) and zid = ($2);",
+                      [uid, zid]
+                    );
+                  });
+                }
+              );
             });
           });
-        })
-        .then(() => {
-          return shouldTryAgain;
-        })
-    );
+        });
+      })
+      .then(() => {
+        return shouldTryAgain;
+      });
   }
   function doNotificationBatch() {
     return claimNextNotificationTask().then(
@@ -4838,7 +4483,7 @@ Email verified! You can close this tab or hit the back button.
     email?: any,
     remaining?: any
   ) {
-    let subject =
+    const subject =
       "New statements to vote on (conversation " + conversation_id + ")"; // Not sure if putting the conversation_id is ideal, but we need some way to ensure that the notifications for each conversation appear in separte threads.
     let body = "There are new statements available for you to vote on here:\n";
     body += "\n";
@@ -4855,39 +4500,39 @@ Email verified! You can close this tab or hit the back button.
     return sendEmailByUid(uid, subject, body);
   }
 
-  let shouldSendNotifications = !devMode;
+  const shouldSendNotifications = !devMode;
   // let shouldSendNotifications = true;
   // let shouldSendNotifications = false;
   if (shouldSendNotifications) {
     doNotificationLoop();
   }
   function createNotificationsUnsubscribeUrl(conversation_id: any, email: any) {
-    let params = {
+    const params = {
       conversation_id: conversation_id,
       email: email,
     };
-    let path = "api/v3/notifications/unsubscribe";
+    const path = "api/v3/notifications/unsubscribe";
     // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
     // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
     // @ts-ignore
     params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
 
-    let server = Config.getServerUrl();
+    const server = Config.getServerUrl();
     return server + "/" + path + "?" + paramsToStringSortedByName(params);
   }
 
   function createNotificationsSubscribeUrl(conversation_id: any, email: any) {
-    let params = {
+    const params = {
       conversation_id: conversation_id,
       email: email,
     };
-    let path = "api/v3/notifications/subscribe";
+    const path = "api/v3/notifications/subscribe";
     // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
     // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
     // @ts-ignore
     params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
 
-    let server = Config.getServerUrl();
+    const server = Config.getServerUrl();
     return server + "/" + path + "?" + paramsToStringSortedByName(params);
   }
 
@@ -4900,9 +4545,9 @@ Email verified! You can close this tab or hit the back button.
       send: (arg0: string) => void;
     }
   ) {
-    let zid = req.p.zid;
-    let email = req.p.email;
-    let params = {
+    const zid = req.p.zid;
+    const email = req.p.email;
+    const params = {
       conversation_id: req.p.conversation_id,
       email: req.p.email,
     };
@@ -4946,9 +4591,9 @@ Email verified! You can close this tab or hit the back button.
       send: (arg0: string) => void;
     }
   ) {
-    let zid = req.p.zid;
-    let email = req.p.email;
-    let params = {
+    const zid = req.p.zid;
+    const email = req.p.email;
+    const params = {
       conversation_id: req.p.conversation_id,
       email: email,
     };
@@ -4995,11 +4640,11 @@ Email verified! You can close this tab or hit the back button.
       };
     }
   ) {
-    let zid = req.p.zid;
-    let uid = req.p.uid;
-    let type = req.p.type;
+    const zid = req.p.zid;
+    const uid = req.p.uid;
+    const type = req.p.type;
 
-    let email = req.p.email;
+    const email = req.p.email;
 
     function finish(type: any) {
       res.status(200).json({
@@ -5029,30 +4674,14 @@ Email verified! You can close this tab or hit the back button.
     }
   }
 
-  function handle_POST_auth_login(
-    req: {
-      p: {
-        password: any;
-        email: string;
-        lti_user_id: any;
-        lti_user_image: any;
-        lti_context_id: any;
-        tool_consumer_instance_guid?: any;
-        afterJoinRedirectUrl: any;
-      };
-    },
-    res: {
-      redirect: (arg0: any) => void;
-      json: (arg0: { uid?: any; email: any; token: any }) => void;
-    }
-  ) {
-    let password = req.p.password;
+  function handle_POST_auth_login(req: any, res: any) {
+    const password = req.p.password;
     let email = req.p.email || "";
-    let lti_user_id = req.p.lti_user_id;
-    let lti_user_image = req.p.lti_user_image;
-    let lti_context_id = req.p.lti_context_id;
-    let tool_consumer_instance_guid = req.p.tool_consumer_instance_guid;
-    let afterJoinRedirectUrl = req.p.afterJoinRedirectUrl;
+    const lti_user_id = req.p.lti_user_id;
+    const lti_user_image = req.p.lti_user_image;
+    const lti_context_id = req.p.lti_context_id;
+    const tool_consumer_instance_guid = req.p.tool_consumer_instance_guid;
+    const afterJoinRedirectUrl = req.p.afterJoinRedirectUrl;
 
     email = email.toLowerCase();
     if (!_.isString(password) || !password.length) {
@@ -5075,7 +4704,7 @@ Email verified! You can close this tab or hit the back button.
           return;
         }
 
-        let uid = rows[0].uid;
+        const uid = rows[0].uid;
 
         pgQuery(
           "select pwhash from jianiuevyew where uid = ($1);",
@@ -5096,7 +4725,7 @@ Email verified! You can close this tab or hit the back button.
               return;
             }
 
-            let hashedPassword = rows[0].pwhash;
+            const hashedPassword = rows[0].pwhash;
 
             bcrypt.compare(
               password,
@@ -5112,24 +4741,17 @@ Email verified! You can close this tab or hit the back button.
                 }
 
                 startSession(uid, function (errSess: any, token: any) {
-                  let response_data = {
+                  const response_data = {
                     uid: uid,
                     email: email,
                     token: token,
                   };
-                  // Argument of type '{ p: { password: any; email: string; lti_user_id: any; lti_user_image: any;
-                  // lti_context_id: any; tool_consumer_instance_guid?: any; afterJoinRedirectUrl: any; }; }' is not assignable to parameter of type
-                  // '{ cookies: { [x: string]: any; }; }'.
-                  //  Property 'cookies' is missing in type '{ p: { password: any; email: string; lti_user_id: any;
-                  // lti_user_image: any; lti_context_id: any; tool_consumer_instance_guid?: any; afterJoinRedirectUrl: any; }; }' but required in type
-                  // '{ cookies: { [x: string]: any; }; }'.ts(2345)
-                  // @ts-ignore
                   addCookies(req, res, token, uid)
                     .then(function () {
                       winston.log("info", "uid", uid);
                       winston.log("info", "lti_user_id", lti_user_id);
                       winston.log("info", "lti_context_id", lti_context_id);
-                      let ltiUserPromise = lti_user_id
+                      const ltiUserPromise = lti_user_id
                         ? addLtiUserIfNeeded(
                             uid,
                             lti_user_id,
@@ -5137,7 +4759,7 @@ Email verified! You can close this tab or hit the back button.
                             lti_user_image
                           )
                         : Promise.resolve();
-                      let ltiContextMembershipPromise = lti_context_id
+                      const ltiContextMembershipPromise = lti_context_id
                         ? addLtiContextMembership(
                             uid,
                             lti_context_id,
@@ -5150,13 +4772,6 @@ Email verified! You can close this tab or hit the back button.
                             if (afterJoinRedirectUrl) {
                               res.redirect(afterJoinRedirectUrl);
                             } else {
-                              // Argument of type '{ redirect: (arg0: any) => void; json: (arg0: { uid?: any; email: any; token: any; }) => void; }'
-                              // is not assignable to parameter of type '{ set: (arg0: { "Content-Type": string; }) => void; status:
-                              // (arg0: number) => { (): any; new (): any; send: { (arg0: string): void; new (): any; }; }; }'.
-                              // Type '{ redirect: (arg0: any) => void; json: (arg0: { uid?: any; email: any; token: any; }) => void; }'
-                              // is missing the following properties from type '{ set: (arg0: { "Content-Type": string; }) => void;
-                              // status: (arg0: number) => { (): any; new (): any; send: { (arg0: string): void; new (): any; }; }; }': set, statusts(2345)
-                              // @ts-ignore
                               User.renderLtiLinkageSuccessPage(req, res, {
                                 // may include token here too
                                 context_id: lti_context_id,
@@ -5238,16 +4853,8 @@ Email verified! You can close this tab or hit the back button.
       })
         //     No overload matches this call.
         // Overload 1 of 2, '(onFulfill?: ((value: unknown) => Resolvable<{ uid?: any; existingAuth: string; }>) | undefined, onReject?: ((error: any) => Resolvable<{ uid?: any; existingAuth: string; }>) | undefined): Bluebird<...>', gave the following error.
-        //   Argument of type '(o: { uid?: any; existingAuth: string; }) => Bluebird<{ uid?: any; existingAuth: string; }>' is not assignable to parameter of type '(value: unknown) => Resolvable<{ uid?: any; existingAuth: string; }>'.
-        //     Types of parameters 'o' and 'value' are incompatible.
-        //       Type 'unknown' is not assignable to type '{ uid?: any; existingAuth: string; }'.
-        // Overload 2 of 2, '(onfulfilled?: ((value: unknown) => Resolvable<{ uid?: any; existingAuth: string; }>) | null | undefined, onrejected?: ((reason: any) => PromiseLike<never>) | null | undefined): Bluebird<...>', gave the following error.
-        //   Argument of type '(o: { uid?: any; existingAuth: string; }) => Bluebird<{ uid?: any; existingAuth: string; }>' is not assignable to parameter of type '(value: unknown) => Resolvable<{ uid?: any; existingAuth: string; }>'.
-        //     Types of parameters 'o' and 'value' are incompatible.
-        //     Type 'unknown' is not assignable to type '{ uid?: any; existingAuth: string; }'.ts(2769)
-        // @ts-ignore
-        .then(function (o: { uid?: any; existingAuth: string }) {
-          let uid = o.uid;
+        .then(function (o: any) {
+          const uid = o.uid;
           winston.log(
             "info",
             "startSessionAndAddCookies " + uid + " existing " + o.existingAuth
@@ -5263,17 +4870,6 @@ Email verified! You can close this tab or hit the back button.
         //       No overload matches this call.
         // Overload 1 of 2, '(onFulfill?: ((value: unknown) => Resolvable<{ permanentCookieToken: any; zid: any; }>) | undefined,
         //  onReject ?: ((error: any) => Resolvable<{ permanentCookieToken: any; zid: any; }>) | undefined): Bluebird <...> ', gave the following error.
-        //   Argument of type '(o: { permanentCookieToken: any; zid: any; }) => { permanentCookieToken: any; zid: any; } |
-        // Promise < { permanentCookieToken: any; zid: any; } > ' is not assignable to parameter of type '(value: unknown) => Resolvable < { permanentCookieToken: any; zid: any; } > '.
-        //     Types of parameters 'o' and 'value' are incompatible.
-        //       Type 'unknown' is not assignable to type '{ permanentCookieToken: any; zid: any; }'.
-        // Overload 2 of 2, '(onfulfilled?: ((value: unknown) => Resolvable<{ permanentCookieToken: any; zid: any; }>) |
-        //  null | undefined, onrejected ?: ((reason: any) => PromiseLike<never>) | null | undefined): Bluebird <...> ', gave the following error.
-        //   Argument of type '(o: { permanentCookieToken: any; zid: any; }) => { permanentCookieToken: any; zid: any; } |
-        // Promise < { permanentCookieToken: any; zid: any; } > ' is not assignable to parameter of type '(value: unknown) => Resolvable < { permanentCookieToken: any; zid: any; } > '.
-        //     Types of parameters 'o' and 'value' are incompatible.
-        //     Type 'unknown' is not assignable to type '{ permanentCookieToken: any; zid: any; }'.ts(2769)
-        // @ts-ignore
         .then(function (o: { permanentCookieToken: any; zid: any }) {
           winston.log("info", "permanentCookieToken", o.permanentCookieToken);
           if (o.permanentCookieToken) {
@@ -5294,16 +4890,8 @@ Email verified! You can close this tab or hit the back button.
         })
         //       No overload matches this call.
         // Overload 1 of 2, '(onFulfill?: ((value: unknown) => Resolvable<void>) | undefined, onReject?: ((error: any) => Resolvable<void>) | undefined): Bluebird<void>', gave the following error.
-        //   Argument of type '(o: { pid: any; }) => void' is not assignable to parameter of type '(value: unknown) => Resolvable<void>'.
-        //     Types of parameters 'o' and 'value' are incompatible.
-        //       Type 'unknown' is not assignable to type '{ pid: any; }'.
-        // Overload 2 of 2, '(onfulfilled?: ((value: unknown) => Resolvable<void>) | null | undefined, onrejected?: ((reason: any) => PromiseLike<never>) | null | undefined): Bluebird<void>', gave the following error.
-        //   Argument of type '(o: { pid: any; }) => void' is not assignable to parameter of type '(value: unknown) => Resolvable<void>'.
-        //     Types of parameters 'o' and 'value' are incompatible.
-        //     Type 'unknown' is not assignable to type '{ pid: any; }'.ts(2769)
-        // @ts-ignore
-        .then(function (o: { pid: any }) {
-          let pid = o.pid;
+        .then(function (o: any) {
+          const pid = o.pid;
           res.status(200).json({
             pid: pid,
             uid: req.p.uid,
@@ -5382,13 +4970,7 @@ Email verified! You can close this tab or hit the back button.
             if (o.uid) {
               return pgQueryP("select * from lti_users where uid = ($1)", [
                 o.uid,
-                //               Argument of type '(rows: string | any[]) => { lti_users_only: any; uid?: any; }' is not assignable to parameter of type
-                // '(value: unknown) => { lti_users_only: any; uid?: any; } | PromiseLike<{ lti_users_only: any; uid?: any; }>'.
-                // Types of parameters 'rows' and 'value' are incompatible.
-                //   Type 'unknown' is not assignable to type 'string | any[]'.
-                //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-                // @ts-ignore
-              ]).then(function (rows: string | any[]) {
+              ]).then(function (rows: any) {
                 if (rows && rows.length) {
                   return o;
                 } else {
@@ -5404,15 +4986,7 @@ Email verified! You can close this tab or hit the back button.
         })
         //       No overload matches this call.
         // Overload 1 of 2, '(onFulfill?: ((value: unknown) => any) | undefined, onReject?: ((error: any) => any) | undefined): Bluebird<any>', gave the following error.
-        //   Argument of type '(o: { uid?: any; user: any; }) => any' is not assignable to parameter of type '(value: unknown) => any'.
-        //     Types of parameters 'o' and 'value' are incompatible.
-        //       Type 'unknown' is not assignable to type '{ uid?: any; user: any; }'.
-        // Overload 2 of 2, '(onfulfilled?: ((value: unknown) => any) | null | undefined, onrejected?: ((reason: any) => PromiseLike<never>) | null | undefined): Bluebird<any>', gave the following error.
-        //   Argument of type '(o: { uid?: any; user: any; }) => any' is not assignable to parameter of type '(value: unknown) => any'.
-        //     Types of parameters 'o' and 'value' are incompatible.
-        //     Type 'unknown' is not assignable to type '{ uid?: any; user: any; }'.ts(2769)
-        // @ts-ignore
-        .then(function (o: { uid?: any; user: any }) {
+        .then(function (o: any) {
           winston.log("info", "joinWithZidOrSuzinvite userinfo begin");
           if (!o.uid) {
             winston.log("info", "joinWithZidOrSuzinvite userinfo nope");
@@ -5451,14 +5025,6 @@ Email verified! You can close this tab or hit the back button.
         })
         // No overload matches this call.
         // Overload 1 of 2, '(onFulfill?: ((value: unknown) => any) | undefined, onReject?: ((error: any) => any) | undefined): Bluebird<any>', gave the following error.
-        //   Argument of type '(o: { zid: any; answers: any; }) => any' is not assignable to parameter of type '(value: unknown) => any'.
-        //     Types of parameters 'o' and 'value' are incompatible.
-        //       Type 'unknown' is not assignable to type '{ zid: any; answers: any; }'.
-        // Overload 2 of 2, '(onfulfilled?: ((value: unknown) => any) | null | undefined, onrejected?: ((reason: any) => PromiseLike<never>) | null | undefined): Bluebird<any>', gave the following error.
-        //   Argument of type '(o: { zid: any; answers: any; }) => any' is not assignable to parameter of type '(value: unknown) => any'.
-        //     Types of parameters 'o' and 'value' are incompatible.
-        //     Type 'unknown' is not assignable to type '{ zid: any; answers: any; }'.ts(2769)
-        // @ts-ignore
         .then(function (o: { zid: any; answers: any }) {
           return userHasAnsweredZeQuestions(o.zid, o.answers).then(function () {
             // looks good, pass through
@@ -5467,14 +5033,6 @@ Email verified! You can close this tab or hit the back button.
         })
         //       No overload matches this call.
         // Overload 1 of 2, '(onFulfill?: ((value: unknown) => any) | undefined, onReject?: ((error: any) => any) | undefined): Bluebird<any>', gave the following error.
-        //   Argument of type '(o: { referrer: any; parent_url: any; zid: any; uid?: any; answers: any; }) => any' is not assignable to parameter of type '(value: unknown) => any'.
-        //     Types of parameters 'o' and 'value' are incompatible.
-        //       Type 'unknown' is not assignable to type '{ referrer: any; parent_url: any; zid: any; uid?: any; answers: any; }'.
-        // Overload 2 of 2, '(onfulfilled?: ((value: unknown) => any) | null | undefined, onrejected?: ((reason: any) => PromiseLike<never>) | null | undefined): Bluebird<any>', gave the following error.
-        //   Argument of type '(o: { referrer: any; parent_url: any; zid: any; uid?: any; answers: any; }) => any' is not assignable to parameter of type '(value: unknown) => any'.
-        //     Types of parameters 'o' and 'value' are incompatible.
-        //     Type 'unknown' is not assignable to type '{ referrer: any; parent_url: any; zid: any; uid?: any; answers: any; }'.ts(2769)
-        // @ts-ignore
         .then(function (o: {
           referrer: any;
           parent_url: any;
@@ -5482,7 +5040,7 @@ Email verified! You can close this tab or hit the back button.
           uid?: any;
           answers: any;
         }) {
-          let info: ParticipantInfo = {};
+          const info: ParticipantInfo = {};
           if (o.referrer) {
             info.referrer = o.referrer;
           }
@@ -5499,19 +5057,6 @@ Email verified! You can close this tab or hit the back button.
         //       No overload matches this call.
         // Overload 1 of 2, '(onFulfill?: ((value: unknown) => Resolvable<{ xid: any; conv: { org_id: any; use_xid_whitelist: any; owner: any; };
         // uid?: any; } | undefined>) | undefined, onReject?: ((error: any) => Resolvable<{ xid: any; conv: { ...; }; uid?: any; } | undefined>) | undefined): Bluebird<...>', gave the following error.
-        //   Argument of type '(o: { xid: any; conv: { org_id: any; use_xid_whitelist: any; owner: any; }; uid?: any; }) =>
-        // { xid: any; conv: { org_id: any; use_xid_whitelist: any; owner: any; }; uid ?: any; } | Promise < { xid: any; conv: { org_id: any; use_xid_whitelist: any; owner: any; }; uid?: any; } |
-        // undefined > ' is not assignable to parameter of type '(value: unknown) => Resolvable < { xid: any; conv: { org_id: any; use_xid_whitelist: any; owner: any; }; uid?: any; } | undefined > '.
-        //     Types of parameters 'o' and 'value' are incompatible.
-        //       Type 'unknown' is not assignable to type '{ xid: any; conv: { org_id: any; use_xid_whitelist: any; owner: any; }; uid?: any; }'.
-        // Overload 2 of 2, '(onfulfilled?: ((value: unknown) => Resolvable<{ xid: any; conv: { org_id: any; use_xid_whitelist: any; owner: any; }; uid?: any; }
-        // | undefined >) | null | undefined, onrejected ?: ((reason: any) => PromiseLike<never>) | null | undefined): Bluebird <...> ', gave the following error.
-        //   Argument of type '(o: { xid: any; conv: { org_id: any; use_xid_whitelist: any; owner: any; }; uid?: any; }) =>
-        // { xid: any; conv: { org_id: any; use_xid_whitelist: any; owner: any; }; uid ?: any; } | Promise < { xid: any; conv: { org_id: any; use_xid_whitelist: any; owner: any; }; uid?: any; }
-        // | undefined > ' is not assignable to parameter of type '(value: unknown) => Resolvable < { xid: any; conv: { org_id: any; use_xid_whitelist: any; owner: any; }; uid?: any; } | undefined > '.
-        //     Types of parameters 'o' and 'value' are incompatible.
-        //       Type 'unknown' is not assignable to type '{ xid: any; conv: { org_id: any; use_xid_whitelist: any; owner: any; }; uid?: any; }'.ts(2769)
-        // @ts-ignore
         .then(function (o: {
           xid: any;
           conv: { org_id: any; use_xid_whitelist: any; owner: any };
@@ -5527,7 +5072,7 @@ Email verified! You can close this tab or hit the back button.
                 // skip creating the entry (workaround for posgres's lack of upsert)
                 return o;
               }
-              var shouldCreateXidEntryPromise = o.conv.use_xid_whitelist
+              const shouldCreateXidEntryPromise = o.conv.use_xid_whitelist
                 ? isXidWhitelisted(o.conv.owner, o.xid)
                 : Promise.resolve(true);
               shouldCreateXidEntryPromise.then((should: any) => {
@@ -5548,15 +5093,7 @@ Email verified! You can close this tab or hit the back button.
         })
         //       No overload matches this call.
         // Overload 1 of 2, '(onFulfill?: ((value: unknown) => Resolvable<{ suzinvite: any; }>) | undefined, onReject?: ((error: any) => Resolvable<{ suzinvite: any; }>) | undefined): Bluebird<{ suzinvite: any; }>', gave the following error.
-        //   Argument of type '(o: { suzinvite: any; }) => { suzinvite: any; } | Bluebird<{ suzinvite: any; }>' is not assignable to parameter of type '(value: unknown) => Resolvable<{ suzinvite: any; }>'.
-        //     Types of parameters 'o' and 'value' are incompatible.
-        //       Type 'unknown' is not assignable to type '{ suzinvite: any; }'.
-        // Overload 2 of 2, '(onfulfilled?: ((value: unknown) => Resolvable<{ suzinvite: any; }>) | null | undefined, onrejected?: ((reason: any) => PromiseLike<never>) | null | undefined): Bluebird<...>', gave the following error.
-        //   Argument of type '(o: { suzinvite: any; }) => { suzinvite: any; } | Bluebird<{ suzinvite: any; }>' is not assignable to parameter of type '(value: unknown) => Resolvable<{ suzinvite: any; }>'.
-        //     Types of parameters 'o' and 'value' are incompatible.
-        //     Type 'unknown' is not assignable to type '{ suzinvite: any; }'.ts(2769)
-        // @ts-ignore
-        .then(function (o: { suzinvite: any }) {
+        .then(function (o: any) {
           if (o.suzinvite) {
             return deleteSuzinvite(o.suzinvite).then(function () {
               return o;
@@ -5607,7 +5144,7 @@ Email verified! You can close this tab or hit the back button.
     winston.log("info", "createFacebookUserRecord", JSON.stringify(o));
     winston.log("info", o);
     winston.log("info", "end createFacebookUserRecord");
-    let profileInfo = o.fb_public_profile;
+    const profileInfo = o.fb_public_profile;
     winston.log("info", "createFacebookUserRecord profileInfo");
     winston.log("info", profileInfo);
     winston.log("info", "end createFacebookUserRecord profileInfo");
@@ -5645,8 +5182,8 @@ Email verified! You can close this tab or hit the back button.
       response: any;
     }
   ) {
-    let profileInfo = o.fb_public_profile;
-    let fb_public_profile_string = JSON.stringify(o.fb_public_profile);
+    const profileInfo = o.fb_public_profile;
+    const fb_public_profile_string = JSON.stringify(o.fb_public_profile);
     // Create facebook user record
     return pgQueryP(
       "update facebook_users set modified=now_as_millis(), fb_user_id=($2), fb_name=($3), fb_link=($4), fb_public_profile=($5), fb_login_status=($6), fb_access_token=($7), fb_granted_scopes=($8), fb_location_id=($9), location=($10), fb_friends_response=($11), response=($12) where uid = ($1);",
@@ -5669,13 +5206,13 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function addFacebookFriends(uid?: any, fb_friends_response?: any[]) {
-    let fbFriendIds = (fb_friends_response || [])
+    const fbFriendIds = (fb_friends_response || [])
       .map(function (friend: { id: string }) {
         return friend.id + "";
       })
       .filter(function (id: string) {
         // NOTE: would just store facebook IDs as numbers, but they're too big for JS numbers.
-        let hasNonNumericalCharacters = /[^0-9]/.test(id);
+        const hasNonNumericalCharacters = /[^0-9]/.test(id);
         if (hasNonNumericalCharacters) {
           emailBadProblemTime(
             "found facebook ID with non-numerical characters " + id
@@ -5705,11 +5242,11 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function getFirstForPid(votes: string | any[]) {
-    let seen = {};
-    let len = votes.length;
-    let firstVotes = [];
-    for (var i = 0; i < len; i++) {
-      let vote = votes[i];
+    const seen = {};
+    const len = votes.length;
+    const firstVotes = [];
+    for (let i = 0; i < len; i++) {
+      const vote = votes[i];
       // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
       // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
       // @ts-ignore
@@ -5746,8 +5283,8 @@ Email verified! You can close this tab or hit the back button.
         console.log("isParentDomainWhitelisted", "no whitelist");
         return true;
       }
-      let whitelist = rows[0].domain_whitelist;
-      let wdomains = whitelist.split(",");
+      const whitelist = rows[0].domain_whitelist;
+      const wdomains = whitelist.split(",");
       if (!isWithinIframe && wdomains.indexOf("*.pol.is") >= 0) {
         // if pol.is is in the whitelist, then it's ok to show the conversation outside of an iframe.
         console.log("isParentDomainWhitelisted", "*.pol.is");
@@ -5761,8 +5298,8 @@ Email verified! You can close this tab or hit the back button.
       }
       let ok = false;
       console.log("isParentDomainWhitelisted", 1);
-      for (var i = 0; i < wdomains.length; i++) {
-        let w = wdomains[i];
+      for (let i = 0; i < wdomains.length; i++) {
+        const w = wdomains[i];
         let wParts = w.split(".");
 
         // example: domain might be blogs.nytimes.com, and whitelist entry might be *.nytimes.com, and that should be a match
@@ -5777,7 +5314,7 @@ Email verified! You can close this tab or hit the back button.
           wParts = wParts.reverse();
           parts = parts.reverse();
           console.log("isParentDomainWhitelisted", 3, parts, wParts);
-          for (var p = 0; p < wParts.length - 1; p++) {
+          for (let p = 0; p < wParts.length - 1; p++) {
             console.log("isParentDomainWhitelisted", 33, parts[p], wParts[p]);
             if (wParts[p] !== parts[p]) {
               bad = true;
@@ -5796,7 +5333,7 @@ Email verified! You can close this tab or hit the back button.
           }
           console.log("isParentDomainWhitelisted", 61, parts, wParts);
           // check for a match on each part
-          for (var p2 = 0; p2 < wParts.length; p2++) {
+          for (let p2 = 0; p2 < wParts.length; p2++) {
             console.log("isParentDomainWhitelisted", 66, parts[p2], wParts[p2]);
             if (wParts[p2] !== parts[p2]) {
               bad2 = true;
@@ -5823,7 +5360,7 @@ Email verified! You can close this tab or hit the back button.
     res: { send: (arg0: number, arg1: string) => void },
     next: (arg0?: string) => void
   ) {
-    let isWithinIframe =
+    const isWithinIframe =
       req.headers &&
       req.headers.referrer &&
       req.headers.referrer.includes("parent_url");
@@ -5831,7 +5368,7 @@ Email verified! You can close this tab or hit the back button.
     // next("polis_err_domain");
     // return;
 
-    let ref = req?.headers?.referrer;
+    const ref = req?.headers?.referrer;
     let refParts: string[] = [];
     let resultRef = "";
     if (isWithinIframe) {
@@ -5850,7 +5387,7 @@ Email verified! You can close this tab or hit the back button.
     // let path = req.path;
     // path = path && path.split('/');
     // let conversation_id = path && path.length >= 2 && path[1];
-    let zid = req.p.zid;
+    const zid = req.p.zid;
 
     isParentDomainWhitelisted(
       resultRef,
@@ -5965,11 +5502,11 @@ Email verified! You can close this tab or hit the back button.
       };
     }
   ) {
-    let zid = req.p.zid;
-    let uid = req.p.uid;
-    let until = req.p.until;
+    const zid = req.p.zid;
+    const uid = req.p.uid;
+    const until = req.p.until;
 
-    let hasPermission = req.p.rid
+    const hasPermission = req.p.rid
       ? Promise.resolve(!!req.p.rid)
       : isModerator(zid, uid);
 
@@ -5984,13 +5521,13 @@ Email verified! You can close this tab or hit the back button.
           return;
         }
 
-        let args = [zid];
+        const args = [zid];
 
-        let q0 = until
+        const q0 = until
           ? "select created, pid, mod from comments where zid = ($1) and created < ($2) order by created;"
           : "select created, pid, mod from comments where zid = ($1) order by created;";
 
-        let q1 = until
+        const q1 = until
           ? "select created, pid from votes where zid = ($1) and created < ($2) order by created;"
           : "select created, pid from votes where zid = ($1) order by created;";
 
@@ -6015,14 +5552,14 @@ Email verified! You can close this tab or hit the back button.
             o.created = Number(o.created);
             return o;
           }
-          let comments = _.map(a[0], castTimestamp);
-          let votes = _.map(a[1], castTimestamp);
+          const comments = _.map(a[0], castTimestamp);
+          const votes = _.map(a[1], castTimestamp);
           // let uniqueHits = _.map(a[2], castTimestamp); // participants table
           // let votesHistogram = a[2];
           // let socialUsers = _.map(a[4], castTimestamp);
 
-          let votesGroupedByPid = _.groupBy(votes, "pid");
-          let votesHistogramObj = {};
+          const votesGroupedByPid = _.groupBy(votes, "pid");
+          const votesHistogramObj = {};
           _.each(
             votesGroupedByPid,
             function (votesByParticipant: string | any[], pid: any) {
@@ -6047,8 +5584,8 @@ Email verified! You can close this tab or hit the back button.
             return a.n_ptpts - b.n_ptpts;
           });
 
-          let burstsForPid = {};
-          let interBurstGap = 10 * 60 * 1000; // a 10 minute gap between votes counts as a gap between bursts
+          const burstsForPid = {};
+          const interBurstGap = 10 * 60 * 1000; // a 10 minute gap between votes counts as a gap between bursts
           _.each(
             votesGroupedByPid,
             function (
@@ -6062,8 +5599,8 @@ Email verified! You can close this tab or hit the back button.
               let prevCreated = votesByParticipant.length
                 ? votesByParticipant[0]
                 : 0;
-              for (var v = 1; v < votesByParticipant.length; v++) {
-                let vote = votesByParticipant[v];
+              for (let v = 1; v < votesByParticipant.length; v++) {
+                const vote = votesByParticipant[v];
                 if (interBurstGap + prevCreated < vote.created) {
                   // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
                   // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
@@ -6074,7 +5611,7 @@ Email verified! You can close this tab or hit the back button.
               }
             }
           );
-          let burstHistogramObj = {};
+          const burstHistogramObj = {};
           //         Argument of type '(bursts: string | number, pid: any) => void' is not assignable to parameter of type 'CollectionIterator<unknown, void, {}>'.
           // Types of parameters 'bursts' and 'element' are incompatible.
           //   Type 'unknown' is not assignable to type 'string | number'.
@@ -6086,7 +5623,7 @@ Email verified! You can close this tab or hit the back button.
             // @ts-ignore
             burstHistogramObj[bursts] = burstHistogramObj[bursts] + 1 || 1;
           });
-          let burstHistogram: { n_ptpts: any; n_bursts: number }[] = [];
+          const burstHistogram: { n_ptpts: any; n_bursts: number }[] = [];
           _.each(burstHistogramObj, function (ptptCount: any, burstCount: any) {
             burstHistogram.push({
               n_ptpts: ptptCount,
@@ -6102,8 +5639,8 @@ Email verified! You can close this tab or hit the back button.
           let commenters = getFirstForPid(comments);
           commenters = _.pluck(commenters, "created");
 
-          let totalComments = _.pluck(comments, "created");
-          let totalVotes = _.pluck(votes, "created");
+          const totalComments = _.pluck(comments, "created");
+          const totalVotes = _.pluck(votes, "created");
           // let viewTimes = _.pluck(uniqueHits, "created");
           // let totalSocialUsers = _.pluck(socialUsers, "created");
 
@@ -6148,8 +5685,8 @@ Email verified! You can close this tab or hit the back button.
       };
     }
   ) {
-    let uid = req.p.uid;
-    let zid = req.p.zid;
+    const uid = req.p.uid;
+    const zid = req.p.zid;
 
     if (true) {
       throw new Error(
@@ -6173,10 +5710,10 @@ Email verified! You can close this tab or hit the back button.
           return;
         }
         // winston.log("info",rows);
-        let conv = result.rows[0];
+        const conv = result.rows[0];
 
         // let conv = rows[0];
-        let newZid = conv.zid;
+        const newZid = conv.zid;
         return pgQueryP(
           "insert into participants (pid, zid, uid, created, mod, subscribed) " +
             "select pid, ($2), uid, created, mod, 0 from participants where zid = ($1);",
@@ -6203,7 +5740,7 @@ Email verified! You can close this tab or hit the back button.
                     vote: any;
                     created: any;
                   }) {
-                    let q =
+                    const q =
                       "insert into votes (zid, pid, tid, vote, created) values ($1, $2, $3, $4, $5);";
                     return pgQueryP(q, [
                       newZid,
@@ -6252,9 +5789,9 @@ Email verified! You can close this tab or hit the back button.
       // urlForNextCall includes access token
       return request.get(urlForNextCall).then(
         function (response: { data: string | any[]; paging: { next: any } }) {
-          let len = response.data.length;
+          const len = response.data.length;
           if (len) {
-            for (var i = 0; i < len; i++) {
+            for (let i = 0; i < len; i++) {
               friendsSoFar.push(response.data[i]);
             }
             if (response.paging.next) {
@@ -6284,7 +5821,7 @@ Email verified! You can close this tab or hit the back button.
           paging: { next: any };
         }) {
           if (response && !response.error) {
-            let friendsSoFar = response.data;
+            const friendsSoFar = response.data;
             if (response.data.length && response.paging.next) {
               getMoreFriends(friendsSoFar, response.paging.next).then(
                 resolve,
@@ -6325,8 +5862,8 @@ Email verified! You can close this tab or hit the back button.
     },
     res: any
   ) {
-    let response = JSON.parse(req?.p?.response || "");
-    let fb_access_token =
+    const response = JSON.parse(req?.p?.response || "");
+    const fb_access_token =
       response && response.authResponse && response.authResponse.accessToken;
     if (!fb_access_token) {
       emailBadProblemTime(
@@ -6340,7 +5877,7 @@ Email verified! You can close this tab or hit the back button.
       fail(res, 500, "polis_err_missing_fb_access_token");
       return;
     }
-    let fields = [
+    const fields = [
       "email",
       "first_name",
       "friends",
@@ -6378,8 +5915,8 @@ Email verified! You can close this tab or hit the back button.
           getLocationInfo(fb_access_token, fbRes.location),
           friendsPromise,
         ]).then(function (a: any[]) {
-          let locationResponse = a[0];
-          let friends = a[1];
+          const locationResponse = a[0];
+          const friends = a[1];
 
           if (locationResponse) {
             req.p.locationInfo = locationResponse;
@@ -6425,27 +5962,27 @@ Email verified! You can close this tab or hit the back button.
     o: { locationInfo?: any; friends: any; info: any }
   ) {
     // If a pol.is user record exists, and someone logs in with a facebook account that has the same email address, we should bind that facebook account to the pol.is account, and let the user sign in.
-    let TRUST_FB_TO_VALIDATE_EMAIL = true;
-    let email = o.info.email;
-    let hname = o.info.name;
-    let fb_friends_response = o.friends;
-    let fb_user_id = o.info.id;
-    let response = JSON.parse(req?.p?.response || "");
-    let fb_public_profile = o.info;
-    let fb_login_status = response.status;
+    const TRUST_FB_TO_VALIDATE_EMAIL = true;
+    const email = o.info.email;
+    const hname = o.info.name;
+    const fb_friends_response = o.friends;
+    const fb_user_id = o.info.id;
+    const response = JSON.parse(req?.p?.response || "");
+    const fb_public_profile = o.info;
+    const fb_login_status = response.status;
     // let fb_auth_response = response.authResponse.
-    let fb_access_token = response.authResponse.accessToken;
-    let verified = o.info.verified;
+    const fb_access_token = response.authResponse.accessToken;
+    const verified = o.info.verified;
 
     // let existingUid = req.p.existingUid;
-    let referrer = req?.cookies?.[COOKIES.REFERRER];
-    let password = req.p.password;
-    let uid = req.p.uid;
+    const referrer = req?.cookies?.[COOKIES.REFERRER];
+    const password = req.p.password;
+    const uid = req.p.uid;
 
     console.log("fb_data"); // TODO_REMOVE
     console.dir(o); // TODO_REMOVE
 
-    let fbUserRecord = {
+    const fbUserRecord = {
       // uid provided later
       fb_user_id: fb_user_id,
       fb_public_profile: fb_public_profile,
@@ -6474,7 +6011,7 @@ Email verified! You can close this tab or hit the back button.
         )
           .then(
             function () {
-              let friendsAddedPromise = fb_friends_response
+              const friendsAddedPromise = fb_friends_response
                 ? addFacebookFriends(user.uid, fb_friends_response)
                 : Promise.resolve();
               return friendsAddedPromise.then(
@@ -6533,7 +6070,7 @@ Email verified! You can close this tab or hit the back button.
       if (!TRUST_FB_TO_VALIDATE_EMAIL && !password) {
         fail(res, 403, "polis_err_user_with_this_email_exists " + email);
       } else {
-        let pwPromise = TRUST_FB_TO_VALIDATE_EMAIL
+        const pwPromise = TRUST_FB_TO_VALIDATE_EMAIL
           ? Promise.resolve(true)
           : checkPassword(user.uid, password || "");
         pwPromise.then(
@@ -6550,7 +6087,7 @@ Email verified! You can close this tab or hit the back button.
               )
                 .then(
                   function () {
-                    let friendsAddedPromise = fb_friends_response
+                    const friendsAddedPromise = fb_friends_response
                       ? addFacebookFriends(user.uid, fb_friends_response)
                       : Promise.resolve();
                     return friendsAddedPromise
@@ -6642,7 +6179,7 @@ Email verified! You can close this tab or hit the back button.
           //           Type '[unknown, unknown, unknown]' is not assignable to type 'any[][]'.ts(2769)
           // @ts-ignore
         ]).then(function (o: any[][]) {
-          let user = o[0][0];
+          const user = o[0][0];
           winston.log("info", "fb1 5a");
           winston.log("info", user);
           winston.log("info", "end fb1 5a");
@@ -6651,7 +6188,7 @@ Email verified! You can close this tab or hit the back button.
         winston.log("info", "fb1 5a....");
       } else {
         winston.log("info", "fb1 5b...");
-        let query =
+        const query =
           "insert into users " +
           "(email, hname) VALUES " +
           "($1, $2) " +
@@ -6664,7 +6201,7 @@ Email verified! You can close this tab or hit the back button.
         promise = pgQueryP(query, [email, hname]).then(function (
           rows: string | any[]
         ) {
-          let user = (rows && rows.length && rows[0]) || null;
+          const user = (rows && rows.length && rows[0]) || null;
           winston.log("info", "fb1 5b");
           winston.log("info", user);
           winston.log("info", "end fb1 5b");
@@ -6713,7 +6250,7 @@ Email verified! You can close this tab or hit the back button.
             winston.log("info", "fb1 2");
             winston.log("info", user);
             winston.log("info", "end fb1 2");
-            let uid = user.uid;
+            const uid = user.uid;
             return startSessionAndAddCookies(req, res, uid).then(
               function () {
                 return user;
@@ -6765,7 +6302,7 @@ Email verified! You can close this tab or hit the back button.
     }
 
     Promise.all([emailVerifiedPromise]).then(function (a: any[]) {
-      let isVerifiedByPolisOrFacebook = a[0];
+      const isVerifiedByPolisOrFacebook = a[0];
 
       if (!isVerifiedByPolisOrFacebook) {
         if (email) {
@@ -6833,8 +6370,8 @@ Email verified! You can close this tab or hit the back button.
       ) => { (): any; new (): any; json: { (arg0: {}): void; new (): any } };
     }
   ) {
-    let uid = req.p.uid;
-    let step = req.p.step;
+    const uid = req.p.uid;
+    const step = req.p.step;
     pgQueryP("update users set tut = ($1) where uid = ($2);", [step, uid])
       .then(function () {
         res.status(200).json({});
@@ -6852,7 +6389,7 @@ Email verified! You can close this tab or hit the back button.
       ) => { (): any; new (): any; json: { (arg0: any): void; new (): any } };
     }
   ) {
-    let uid = req.p.uid;
+    const uid = req.p.uid;
 
     if (req.p.errIfNoAuth && !uid) {
       fail(res, 401, "polis_error_auth_needed");
@@ -6876,7 +6413,7 @@ Email verified! You can close this tab or hit the back button.
   const getUser = User.getUser;
 
   // These map from non-ui string codes to number codes used in the DB
-  var planCodes = {
+  const planCodes = {
     mike: 9999,
     trial: 0,
     free: 0,
@@ -6980,7 +6517,7 @@ Email verified! You can close this tab or hit the back button.
     stripeEmail: any,
     plan: any
   ) {
-    var customerPromise = user.stripeCustomerId
+    const customerPromise = user.stripeCustomerId
       ? getStripeUser(user.stripeCustomerId)
       : createStripeUser({
           card: stripeToken,
@@ -7017,8 +6554,8 @@ Email verified! You can close this tab or hit the back button.
       ) => { (): any; new (): any; json: { (arg0: any): void; new (): any } };
     }
   ) {
-    var uid = req.p.uid;
-    var planCode = req.p.planCode;
+    const uid = req.p.uid;
+    const planCode = req.p.planCode;
     generateTokenP(30, false)
       .then(function (code: any) {
         return (
@@ -7031,7 +6568,7 @@ Email verified! You can close this tab or hit the back button.
             //         Type 'unknown' is not assignable to type 'any[]'.ts(2345)
             // @ts-ignore
             .then(function (rows: any[]) {
-              var row = rows[0];
+              const row = rows[0];
               row.url =
                 "https://pol.is/api/v3/changePlanWithCoupon?code=" + row.code;
               res.status(200).json(row);
@@ -7049,16 +6586,16 @@ Email verified! You can close this tab or hit the back button.
     req: { p: { uid?: any; code?: any } },
     res: any
   ) {
-    var uid = req.p.uid;
-    var code = req.p.code;
-    var isCurrentUser = true;
+    const uid = req.p.uid;
+    const code = req.p.code;
+    let isCurrentUser = true;
     getCouponInfo(code)
       //     Argument of type '(infos: any[]) => Bluebird<any>' is not assignable to parameter of type '(value: unknown) => any'.
       // Types of parameters 'infos' and 'value' are incompatible.
       //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
       // @ts-ignore
       .then(function (infos: any[]) {
-        var info = infos[0];
+        const info = infos[0];
         if (uid) {
           if (uid !== info.uid) {
             // signed in user is someone else!
@@ -7096,7 +6633,7 @@ Email verified! You can close this tab or hit the back button.
     // update DB and finish
     return changePlan(uid, planCode).then(function () {
       // Set cookie
-      var setOnPolisDomain = !domainOverride;
+      let setOnPolisDomain = !domainOverride;
       const origin = req?.headers?.origin || "";
       if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
         setOnPolisDomain = false;
@@ -7128,9 +6665,9 @@ Email verified! You can close this tab or hit the back button.
       .then(function () {
         // Set cookie
         if (isCurrentUser) {
-          var protocol = devMode ? "http" : "https";
-          var setOnPolisDomain = !domainOverride;
-          var origin = req?.headers?.origin || "";
+          const protocol = devMode ? "http" : "https";
+          let setOnPolisDomain = !domainOverride;
+          const origin = req?.headers?.origin || "";
           if (
             setOnPolisDomain &&
             origin.match(/^http:\/\/localhost:[0-9]{4}/)
@@ -7140,7 +6677,7 @@ Email verified! You can close this tab or hit the back button.
           setPlanCookie(req, res, setOnPolisDomain, planCode);
 
           // Redirect to the same URL with the path behind the fragment "#"
-          var path = "/settings";
+          let path = "/settings";
           if (planCode >= 99) {
             path = "/settings/enterprise";
           }
@@ -7171,16 +6708,16 @@ Email verified! You can close this tab or hit the back button.
     req: { p: { uid?: any; plan: any; stripeResponse: string } },
     res: { json: (arg0: {}) => void }
   ) {
-    var uid = req.p.uid;
-    var planName = req.p.plan;
+    const uid = req.p.uid;
+    const planName = req.p.plan;
     // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
     // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
     // @ts-ignore
-    var planCode = planCodes[planName];
+    const planCode = planCodes[planName];
 
     getUserInfoForUid2(uid)
       .then(function (user: UserType) {
-        var stripeResponse = JSON.parse(req.p.stripeResponse);
+        const stripeResponse = JSON.parse(req.p.stripeResponse);
 
         const body =
           "Polis account upgrade: " +
@@ -7275,14 +6812,14 @@ Email verified! You can close this tab or hit the back button.
     req: { p: { stripeToken: any; stripeEmail: any; uid?: any; plan: any } },
     res: any
   ) {
-    var stripeToken = req.p.stripeToken;
-    var stripeEmail = req.p.stripeEmail;
-    var uid = req.p.uid;
-    var plan = req.p.plan;
+    const stripeToken = req.p.stripeToken;
+    const stripeEmail = req.p.stripeEmail;
+    const uid = req.p.uid;
+    const plan = req.p.plan;
     // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
     // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
     // @ts-ignore
-    var planCode = planCodes[plan];
+    const planCode = planCodes[plan];
 
     if (plan !== "pp") {
       if (!stripeToken) {
@@ -7293,7 +6830,7 @@ Email verified! You can close this tab or hit the back button.
       }
     }
 
-    var updateStripePromise = Promise.resolve();
+    const updateStripePromise = Promise.resolve();
     if (plan !== "pp") {
       // not a participant pays plan, so we actually have to update stripe.
       getUserInfoForUid2(uid).then(function (user: any) {
@@ -7341,9 +6878,9 @@ Email verified! You can close this tab or hit the back button.
       ) => { (): any; new (): any; json: { (arg0: {}): void; new (): any } };
     }
   ) {
-    let zid = req.p.zid;
-    let uid = req.p.uid;
-    let strict = req.p.strict;
+    const zid = req.p.zid;
+    const uid = req.p.uid;
+    const strict = req.p.strict;
     isOwner(zid, uid)
       .then(function (ok: any) {
         if (!ok) {
@@ -7362,9 +6899,9 @@ Email verified! You can close this tab or hit the back button.
           ),
           getXids(zid), //pgQueryP_readOnly("select pid, xid from xids inner join (select * from participants where zid = ($1)) as p on xids.uid = p.uid;", [zid]),
         ]).then(function (o: any[]) {
-          let voteCountRows = o[0];
-          let commentCountRows = o[1];
-          let pidXidRows = o[2];
+          const voteCountRows = o[0];
+          const commentCountRows = o[1];
+          const pidXidRows = o[2];
           let i, r;
 
           if (strict && !pidXidRows.length) {
@@ -7403,14 +6940,14 @@ Email verified! You can close this tab or hit the back button.
 
           if (pidXidRows && pidXidRows.length) {
             // Convert from {pid -> foo} to {xid -> foo}
-            let pidToXid = {};
+            const pidToXid = {};
             for (i = 0; i < pidXidRows.length; i++) {
               // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
               // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
               // @ts-ignore
               pidToXid[pidXidRows[i].pid] = pidXidRows[i].xid;
             }
-            let xidBasedResult = {};
+            const xidBasedResult = {};
             let size = 0;
             _.each(result, function (val: any, key: string | number) {
               // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
@@ -7443,12 +6980,12 @@ Email verified! You can close this tab or hit the back button.
       });
   }
   function getAgeRange(demo: Demo) {
-    var currentYear = new Date().getUTCFullYear();
-    var birthYear = demo.ms_birth_year_estimate_fb;
+    const currentYear = new Date().getUTCFullYear();
+    const birthYear = demo.ms_birth_year_estimate_fb;
     if (_.isNull(birthYear) || _.isUndefined(birthYear) || _.isNaN(birthYear)) {
       return "?";
     }
-    var age = currentYear - birthYear;
+    const age = currentYear - birthYear;
     if (age < 12) {
       return "0-11";
     } else if (age < 18) {
@@ -7470,7 +7007,7 @@ Email verified! You can close this tab or hit the back button.
 
   // 0 male, 1 female, 2 other, or NULL
   function getGender(demo: Demo) {
-    var gender = demo.fb_gender;
+    let gender = demo.fb_gender;
     if (_.isNull(gender) || _.isUndefined(gender)) {
       gender = demo.ms_gender_estimate_fb;
     }
@@ -7495,7 +7032,7 @@ Email verified! You can close this tab or hit the back button.
       return demo.gender === 1;
     }
     function isGenderUnknown(demo: { gender: any }) {
-      var gender = demo.gender;
+      const gender = demo.gender;
       return gender !== 0 && gender !== 1;
     }
 
@@ -7509,8 +7046,8 @@ Email verified! You can close this tab or hit the back button.
         [zid]
       ),
     ]).then((a: any[]) => {
-      var votes = a[0];
-      var demo = a[1];
+      let votes = a[0];
+      let demo = a[1];
       demo = demo.map((d: Demo) => {
         return {
           pid: d.pid,
@@ -7518,13 +7055,13 @@ Email verified! You can close this tab or hit the back button.
           ageRange: getAgeRange(d),
         };
       });
-      var demoByPid = _.indexBy(demo, "pid");
+      const demoByPid = _.indexBy(demo, "pid");
 
       votes = votes.map((v: { pid: string | number }) => {
         return _.extend(v, demoByPid[v.pid]);
       });
 
-      var votesByTid = _.groupBy(votes, "tid");
+      const votesByTid = _.groupBy(votes, "tid");
 
       // TODO maybe we should actually look at gender, then a/d/p %
       // TODO maybe we should actually look at each age range, then a/d/p %
@@ -7543,7 +7080,7 @@ Email verified! You can close this tab or hit the back button.
             age: any;
           };
         }) => {
-          var votesForThisComment = votesByTid[c.tid];
+          const votesForThisComment = votesByTid[c.tid];
 
           if (!votesForThisComment || !votesForThisComment.length) {
             console.log("skipping");
@@ -7551,11 +7088,11 @@ Email verified! You can close this tab or hit the back button.
             return c;
           }
 
-          var agrees = votesForThisComment.filter(isAgree);
-          var disagrees = votesForThisComment.filter(isDisgree);
-          var passes = votesForThisComment.filter(isPass);
+          const agrees = votesForThisComment.filter(isAgree);
+          const disagrees = votesForThisComment.filter(isDisgree);
+          const passes = votesForThisComment.filter(isPass);
 
-          var votesByAgeRange = _.groupBy(votesForThisComment, "ageRange");
+          const votesByAgeRange = _.groupBy(votesForThisComment, "ageRange");
 
           c.demographics = {
             gender: {
@@ -7577,7 +7114,7 @@ Email verified! You can close this tab or hit the back button.
             },
             // TODO return all age ranges even if zero.
             age: _.mapObject(votesByAgeRange, (votes: any, ageRange: any) => {
-              var o = _.countBy(votes, "vote");
+              const o = _.countBy(votes, "vote");
               return {
                 agree: o[polisTypes.reactions.pull],
                 disagree: o[polisTypes.reactions.push],
@@ -7654,7 +7191,7 @@ Email verified! You can close this tab or hit the back button.
             "select tid, selection from report_comment_selections where rid = ($1);",
             [req.p.rid]
           ).then((selections: any) => {
-            let tidToSelection = _.indexBy(selections, "tid");
+            const tidToSelection = _.indexBy(selections, "tid");
             comments = comments.map(
               (c: { includeInReport: any; tid: string | number }) => {
                 c.includeInReport =
@@ -7677,17 +7214,17 @@ Email verified! You can close this tab or hit the back button.
             fb_picture: string;
           };
         }) {
-          let hasTwitter = c.social && c.social.twitter_user_id;
+          const hasTwitter = c.social && c.social.twitter_user_id;
           if (hasTwitter) {
             c.social.twitter_profile_image_url_https =
               getServerNameWithProtocol(req) +
               "/twitter_image?id=" +
               c.social.twitter_user_id;
           }
-          let hasFacebook = c.social && c.social.fb_user_id;
+          const hasFacebook = c.social && c.social.fb_user_id;
           if (hasFacebook) {
-            let width = 40;
-            let height = 40;
+            const width = 40;
+            const height = 40;
             c.social.fb_picture = `https://graph.facebook.com/v2.2/${c.social.fb_user_id}/picture?width=${width}&height=${height}`;
           }
           return c;
@@ -7725,7 +7262,7 @@ Email verified! You can close this tab or hit the back button.
     sqlState: string | number;
     messagePrimary: string | string[];
   }) {
-    let isdup =
+    const isdup =
       err.code === 23505 ||
       err.code === "23505" ||
       err.sqlState === 23505 ||
@@ -7833,7 +7370,7 @@ Email verified! You can close this tab or hit the back button.
     if (req?.headers?.host?.includes("preprod.pol.is")) {
       server = "https://preprod.pol.is";
     }
-    let url = server + "/m/" + zinvite;
+    const url = server + "/m/" + zinvite;
     return url;
   }
 
@@ -7957,8 +7494,8 @@ Email verified! You can close this tab or hit the back button.
   // }
   function hasBadWords(txt: string) {
     txt = txt.toLowerCase();
-    let tokens = txt.split(" ");
-    for (var i = 0; i < tokens.length; i++) {
+    const tokens = txt.split(" ");
+    for (let i = 0; i < tokens.length; i++) {
       if (badwords[tokens[i]]) {
         return true;
       }
@@ -8001,20 +7538,20 @@ Email verified! You can close this tab or hit the back button.
     },
     res: { json: (arg0: { tid: any; currentPid: any }) => void }
   ) {
-    let zid = req.p.zid;
-    let xid = void 0; //req.p.xid;
+    const zid = req.p.zid;
+    const xid = void 0; //req.p.xid;
     let uid = req.p.uid;
     let txt = req.p.txt;
     let pid = req.p.pid; // PID_FLOW may be undefined
     let currentPid = pid;
     let vote = req.p.vote;
-    let twitter_tweet_id = req.p.twitter_tweet_id;
-    let quote_twitter_screen_name = req.p.quote_twitter_screen_name;
-    let quote_txt = req.p.quote_txt;
-    let quote_src_url = req.p.quote_src_url;
-    let anon = req.p.anon;
-    let is_seed = req.p.is_seed;
-    let mustBeModerator = !!quote_txt || !!twitter_tweet_id || anon;
+    const twitter_tweet_id = req.p.twitter_tweet_id;
+    const quote_twitter_screen_name = req.p.quote_twitter_screen_name;
+    const quote_txt = req.p.quote_txt;
+    const quote_src_url = req.p.quote_src_url;
+    const anon = req.p.anon;
+    const is_seed = req.p.is_seed;
+    const mustBeModerator = !!quote_txt || !!twitter_tweet_id || anon;
 
     console.log("POST_comments begin", Date.now());
     console.log("POST_comments params", req.p);
@@ -8052,7 +7589,7 @@ Email verified! You can close this tab or hit the back button.
             return addParticipant(req.p.zid, req.p.uid).then(function (
               rows: any[]
             ) {
-              let ptpt = rows[0];
+              const ptpt = rows[0];
               pid = ptpt.pid;
               currentPid = pid;
               console.log(
@@ -8097,9 +7634,9 @@ Email verified! You can close this tab or hit the back button.
         function (info: { ptpt: any; tweet: any }) {
           console.log("POST_comments after twitterPrepPromise", Date.now());
 
-          let ptpt = info && info.ptpt;
+          const ptpt = info && info.ptpt;
           // let twitterUser = info && info.twitterUser;
-          let tweet = info && info.tweet;
+          const tweet = info && info.tweet;
 
           if (tweet) {
             console.log("Post comments tweet", txt, tweet.txt);
@@ -8111,13 +7648,13 @@ Email verified! You can close this tab or hit the back button.
             console.log("Post comments txt", txt);
           }
 
-          let ip =
+          const ip =
             req?.headers?.["x-forwarded-for"] || // TODO This header may contain multiple IP addresses. Which should we report?
             req?.connection?.remoteAddress ||
             req?.socket?.remoteAddress ||
             req?.connection?.socket.remoteAddress;
 
-          let isSpamPromise = isSpam({
+          const isSpamPromise = isSpam({
             comment_content: txt,
             comment_author: uid,
             permalink: "https://pol.is/" + zid,
@@ -8130,9 +7667,9 @@ Email verified! You can close this tab or hit the back button.
             winston.log("info", err);
           });
           // let isSpamPromise = Promise.resolve(false);
-          let isModeratorPromise = isModerator(zid, uid);
+          const isModeratorPromise = isModerator(zid, uid);
 
-          let conversationInfoPromise = getConversationInfo(zid);
+          const conversationInfoPromise = getConversationInfo(zid);
 
           // return xidUserPromise.then(function(xidUser) {
 
@@ -8142,33 +7679,35 @@ Email verified! You can close this tab or hit the back button.
           if (ptpt) {
             pidPromise = Promise.resolve(ptpt.pid);
           } else {
-            let xidUserPromise =
+            const xidUserPromise =
               !_.isUndefined(xid) && !_.isNull(xid)
                 ? getXidStuff(xid, zid)
                 : Promise.resolve();
-            pidPromise = xidUserPromise.then((xidUser: UserType | "noXidRecord") => {
-              shouldCreateXidRecord = xidUser === "noXidRecord";
-              if (typeof xidUser === 'object') {
-                uid = xidUser.uid;
-                pid = xidUser.pid;
-                return pid;
-              } else {
-                return doGetPid().then((pid: any) => {
-                  if (shouldCreateXidRecord) {
-                    // Expected 6 arguments, but got 3.ts(2554)
-                    // conversation.ts(34, 3): An argument for 'x_profile_image_url' was not provided.
-                    // @ts-ignore
-                    return createXidRecordByZid(zid, uid, xid).then(() => {
-                      return pid;
-                    });
-                  }
+            pidPromise = xidUserPromise.then(
+              (xidUser: UserType | "noXidRecord") => {
+                shouldCreateXidRecord = xidUser === "noXidRecord";
+                if (typeof xidUser === "object") {
+                  uid = xidUser.uid;
+                  pid = xidUser.pid;
                   return pid;
-                });
+                } else {
+                  return doGetPid().then((pid: any) => {
+                    if (shouldCreateXidRecord) {
+                      // Expected 6 arguments, but got 3.ts(2554)
+                      // conversation.ts(34, 3): An argument for 'x_profile_image_url' was not provided.
+                      // @ts-ignore
+                      return createXidRecordByZid(zid, uid, xid).then(() => {
+                        return pid;
+                      });
+                    }
+                    return pid;
+                  });
+                }
               }
-            });
+            );
           }
 
-          let commentExistsPromise = commentExists(zid, txt);
+          const commentExistsPromise = commentExists(zid, txt);
 
           console.log("POST_comments before Promise.all", Date.now());
 
@@ -8181,10 +7720,10 @@ Email verified! You can close this tab or hit the back button.
             function (results: any[]) {
               console.log("POST_comments after Promise.all", Date.now());
 
-              let pid = results[0];
-              let conv = results[1];
-              let is_moderator = results[2];
-              let commentExists = results[3];
+              const pid = results[0];
+              const conv = results[1];
+              const is_moderator = results[2];
+              const commentExists = results[3];
 
               if (!is_moderator && mustBeModerator) {
                 fail(res, 403, "polis_err_post_comment_auth");
@@ -8212,7 +7751,7 @@ Email verified! You can close this tab or hit the back button.
                 console.log(req.p);
                 throw "polis_err_post_comments_missing_txt";
               }
-              let bad = hasBadWords(txt);
+              const bad = hasBadWords(txt);
 
               console.log("POST_comments before isSpamPromise", Date.now());
               return isSpamPromise
@@ -8235,9 +7774,9 @@ Email verified! You can close this tab or hit the back button.
                 )
                 .then(function (spammy: any) {
                   console.log("POST_comments after isSpamPromise", Date.now());
-                  let velocity = 1;
+                  const velocity = 1;
                   let active = true;
-                  let classifications = [];
+                  const classifications = [];
                   if (bad && conv.profanity_filter) {
                     active = false;
                     classifications.push("bad");
@@ -8269,7 +7808,7 @@ Email verified! You can close this tab or hit the back button.
                     mod = polisTypes.mod.ok;
                     active = true;
                   }
-                  let authorUid = ptpt ? ptpt.uid : uid;
+                  const authorUid = ptpt ? ptpt.uid : uid;
 
                   console.log(
                     "POST_comments before INSERT INTO COMMENTS",
@@ -8277,12 +7816,12 @@ Email verified! You can close this tab or hit the back button.
                   );
 
                   Promise.all([detectLanguage(txt)]).then((a: any[]) => {
-                    let detections = a[0];
-                    let detection = Array.isArray(detections)
+                    const detections = a[0];
+                    const detection = Array.isArray(detections)
                       ? detections[0]
                       : detections;
-                    let lang = detection.language;
-                    let lang_confidence = detection.confidence;
+                    const lang = detection.language;
+                    const lang_confidence = detection.confidence;
 
                     return pgQueryP(
                       "INSERT INTO COMMENTS " +
@@ -8309,8 +7848,8 @@ Email verified! You can close this tab or hit the back button.
                       //                     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
                       // @ts-ignore
                       function (docs: any[]) {
-                        let comment = docs && docs[0];
-                        let tid = comment && comment.tid;
+                        const comment = docs && docs[0];
+                        const tid = comment && comment.tid;
                         // let createdTime = comment && comment.created;
 
                         if (bad || spammy || conv.strict_moderation) {
@@ -8330,7 +7869,7 @@ Email verified! You can close this tab or hit the back button.
                                 "select * from users where site_id = (select site_id from page_ids where zid = ($1)) UNION select * from users where uid = ($2);",
                                 [zid, conv.owner]
                               ).then(function (users: any) {
-                                let uids = _.pluck(users, "uid");
+                                const uids = _.pluck(users, "uid");
                                 // also notify polis team for moderation
                                 uids.forEach(function (uid?: any) {
                                   sendCommentModerationEmail(req, uid, zid, n);
@@ -8352,7 +7891,7 @@ Email verified! You can close this tab or hit the back button.
                         }
 
                         let createdTime = comment.created;
-                        let votePromise = _.isUndefined(vote)
+                        const votePromise = _.isUndefined(vote)
                           ? Promise.resolve()
                           : votesPost(uid, pid, zid, tid, vote, 0, false);
 
@@ -8483,7 +8022,7 @@ Email verified! You can close this tab or hit the back button.
             fail(res, 500, "polis_err_get_votes_by_me", err);
             return;
           }
-          for (var i = 0; i < docs.rows.length; i++) {
+          for (let i = 0; i < docs.rows.length; i++) {
             docs.rows[i].weight = docs.rows[i].weight / 32767;
           }
           finishArray(res, docs.rows);
@@ -8537,7 +8076,7 @@ Email verified! You can close this tab or hit the back button.
     nRemaining: number
   ) {
     // Here we go through all of the comments we might select for the user and add their priority values
-    let lookup = _.reduce(
+    const lookup = _.reduce(
       comments,
       (
         o: { lastCount: any; lookup: any[][] },
@@ -8546,7 +8085,7 @@ Email verified! You can close this tab or hit the back button.
         // If we like, we can use nTotal and nRemaining here to figure out how much we should emphasize the
         // priority, potentially. Maybe we end up with different classes of priorities lists for this purpose?
         // scaling this value in some way may also be helpful.
-        let lookup_val = o.lastCount + (priorities[comment.tid] || 1);
+        const lookup_val = o.lastCount + (priorities[comment.tid] || 1);
         o.lookup.push([lookup_val, comment]);
         o.lastCount = lookup_val;
         return o;
@@ -8554,12 +8093,12 @@ Email verified! You can close this tab or hit the back button.
       { lastCount: 0, lookup: [] }
     );
     // We arrange a random number that should fall somewhere in the range of the lookup_vals
-    let randomN = Math.random() * lookup.lastCount;
+    const randomN = Math.random() * lookup.lastCount;
     // Return the first one that has a greater lookup; could eventually replace this with something smarter
     // that does a bisectional lookup if performance becomes an issue. But I want to keep the implementation
     // simple to reason about all other things being equal.
-    let result = _.find(lookup.lookup, (x: number[]) => x[0] > randomN);
-    let c = result?.[1];
+    const result = _.find(lookup.lookup, (x: number[]) => x[0] > randomN);
+    const c = result?.[1];
     c.randomN = randomN;
     return c;
   }
@@ -8574,7 +8113,7 @@ Email verified! You can close this tab or hit the back button.
   ) {
     // Type '{ zid: string; not_voted_by_pid: string; include_social: any; }' is missing the following properties from type 'CommentType': withoutTids, include_voting_patterns, modIn, pid, and 7 more.ts(2740)
     // @ts-ignore
-    let params: CommentType = {
+    const params: CommentType = {
       zid: zid,
       not_voted_by_pid: pid,
       include_social: include_social,
@@ -8588,9 +8127,9 @@ Email verified! You can close this tab or hit the back button.
       getPca(zid, 0),
       getNumberOfCommentsRemaining(zid, pid),
     ]).then((results: any[]) => {
-      let comments = results[0];
-      let math = results[1];
-      let numberOfCommentsRemainingRows = results[2];
+      const comments = results[0];
+      const math = results[1];
+      const numberOfCommentsRemainingRows = results[2];
       if (!comments || !comments.length) {
         return null;
       } else if (
@@ -8601,12 +8140,12 @@ Email verified! You can close this tab or hit the back button.
           "polis_err_getNumberOfCommentsRemaining_" + zid + "_" + pid
         );
       }
-      let commentPriorities = math
+      const commentPriorities = math
         ? math.asPOJO["comment-priorities"] || {}
         : {};
-      let nTotal = Number(numberOfCommentsRemainingRows[0].total);
-      let nRemaining = Number(numberOfCommentsRemainingRows[0].remaining);
-      let c = selectProbabilistically(
+      const nTotal = Number(numberOfCommentsRemainingRows[0].total);
+      const nRemaining = Number(numberOfCommentsRemainingRows[0].remaining);
+      const c = selectProbabilistically(
         comments,
         commentPriorities,
         nTotal,
@@ -8717,7 +8256,7 @@ Email verified! You can close this tab or hit the back button.
         const firstTwoCharsOfLang = lang.substr(0, 2);
         return getCommentTranslations(zid, c.tid).then((translations: any) => {
           c.translations = translations;
-          let hasMatch = _.some(translations, (t: { lang: string }) => {
+          const hasMatch = _.some(translations, (t: { lang: string }) => {
             return t.lang.startsWith(firstTwoCharsOfLang);
           });
           if (!hasMatch) {
@@ -8793,7 +8332,7 @@ Email verified! You can close this tab or hit the back button.
             }
             finishOne(res, c);
           } else {
-            let o: CommentOptions = {};
+            const o: CommentOptions = {};
             if (!_.isUndefined(req.p.not_voted_by_pid)) {
               o.currentPid = req.p.not_voted_by_pid;
             }
@@ -8928,7 +8467,7 @@ Email verified! You can close this tab or hit the back button.
       }
     }
 
-    let acceptLanguage =
+    const acceptLanguage =
       req?.headers?.["accept-language"] ||
       req?.headers?.["Accept-Language"] ||
       "en-US";
@@ -8975,8 +8514,8 @@ Email verified! You can close this tab or hit the back button.
     ])
       .then(
         function (arr: any[]) {
-          let conv = arr[3];
-          let o = {
+          const conv = arr[3];
+          const o = {
             user: arr[0],
             ptpt: arr[1],
             nextComment: arr[2],
@@ -8994,7 +8533,7 @@ Email verified! You can close this tab or hit the back button.
           if (o.ptpt) {
             delete o.ptpt.zid;
           }
-          for (var i = 0; i < o.votes.length; i++) {
+          for (let i = 0; i < o.votes.length; i++) {
             delete o.votes[i].zid; // strip zid for security
             // delete o.votes[i].pid; // because it's extra crap. Feel free to delete this line if you need pid.
           }
@@ -9019,7 +8558,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function updateConversationModifiedTime(zid: any, t?: undefined) {
-    let modified = _.isUndefined(t) ? Date.now() : Number(t);
+    const modified = _.isUndefined(t) ? Date.now() : Number(t);
     let query =
       "update conversations set modified = ($2) where zid = ($1) and modified < ($2);";
     let params = [zid, modified];
@@ -9038,15 +8577,15 @@ Email verified! You can close this tab or hit the back button.
     req: { p: { zid: any; uid?: any; show_translation_activated: any } },
     res: { json: (arg0: any) => void }
   ) {
-    let zid = req.p.zid;
-    let uid = req.p.uid;
+    const zid = req.p.zid;
+    const uid = req.p.uid;
 
-    let fields: ParticipantFields = {};
+    const fields: ParticipantFields = {};
     if (!_.isUndefined(req.p.show_translation_activated)) {
       fields.show_translation_activated = req.p.show_translation_activated;
     }
 
-    let q = sql_participants_extended
+    const q = sql_participants_extended
       .update(fields)
       .where(sql_participants_extended.zid.equals(zid))
       .and(sql_participants_extended.uid.equals(uid));
@@ -9068,31 +8607,31 @@ Email verified! You can close this tab or hit the back button.
     },
     res: any
   ) {
-    let uid = req.p.uid; // PID_FLOW uid may be undefined here.
-    let zid = req.p.zid;
+    const uid = req.p.uid; // PID_FLOW uid may be undefined here.
+    const zid = req.p.zid;
     let pid = req.p.pid; // PID_FLOW pid may be undefined here.
-    let lang = req.p.lang;
+    const lang = req.p.lang;
 
     // We allow viewing (and possibly writing) without cookies enabled, but voting requires cookies (except the auto-vote on your own comment, which seems ok)
-    let token = req.cookies[COOKIES.TOKEN];
-    let apiToken = req?.headers?.authorization || "";
-    let xPolisHeaderToken = req?.headers?.["x-polis"];
+    const token = req.cookies[COOKIES.TOKEN];
+    const apiToken = req?.headers?.authorization || "";
+    const xPolisHeaderToken = req?.headers?.["x-polis"];
     if (!uid && !token && !apiToken && !xPolisHeaderToken) {
       fail(res, 403, "polis_err_vote_noauth");
       return;
     }
 
-    let permanent_cookie = getPermanentCookieAndEnsureItIsSet(req, res);
+    const permanent_cookie = getPermanentCookieAndEnsureItIsSet(req, res);
 
     // PID_FLOW WIP for now assume we have a uid, but need a participant record.
-    let pidReadyPromise = _.isUndefined(req.p.pid)
+    const pidReadyPromise = _.isUndefined(req.p.pid)
       ? addParticipantAndMetadata(
           req.p.zid,
           req.p.uid,
           req,
           permanent_cookie
         ).then(function (rows: any[]) {
-          let ptpt = rows[0];
+          const ptpt = rows[0];
           pid = ptpt.pid;
         })
       : Promise.resolve();
@@ -9102,13 +8641,13 @@ Email verified! You can close this tab or hit the back button.
         let vote;
 
         // PID_FLOW WIP for now assume we have a uid, but need a participant record.
-        let pidReadyPromise = _.isUndefined(pid)
+        const pidReadyPromise = _.isUndefined(pid)
           ? //         Argument of type '(rows: any[]) => void' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.
             // Types of parameters 'rows' and 'value' are incompatible.
             //         Type 'unknown' is not assignable to type 'any[]'.ts(2345)
             // @ts-ignore
             addParticipant(zid, uid).then(function (rows: any[]) {
-              let ptpt = rows[0];
+              const ptpt = rows[0];
               pid = ptpt.pid;
             })
           : Promise.resolve();
@@ -9128,7 +8667,7 @@ Email verified! You can close this tab or hit the back button.
           .then(function (o: { vote: any }) {
             // conv = o.conv;
             vote = o.vote;
-            let createdTime = vote.created;
+            const createdTime = vote.created;
             setTimeout(function () {
               updateConversationModifiedTime(zid, createdTime);
               updateLastInteractionTimeForConversation(zid, uid);
@@ -9146,7 +8685,7 @@ Email verified! You can close this tab or hit the back button.
             return getNextComment(zid, pid, [], true, lang);
           })
           .then(function (nextComment: any) {
-            let result: PidReadyResult = {};
+            const result: PidReadyResult = {};
             if (nextComment) {
               result.nextComment = nextComment;
             } else {
@@ -9212,10 +8751,10 @@ Email verified! You can close this tab or hit the back button.
     },
     res: any
   ) {
-    let zid = req.p.zid;
-    let pid = req.p.pid;
+    const zid = req.p.zid;
+    const pid = req.p.pid;
 
-    let uid = req.p.uid;
+    const uid = req.p.uid;
 
     // need('as_important', getBool, assignToP, false),
     // need('as_spam', getBool, assignToP, false),
@@ -9275,7 +8814,7 @@ Email verified! You can close this tab or hit the back button.
         return getNextComment(req.p.zid, pid, [], true, req.p.lang); // TODO req.p.lang is probably not defined
       })
       .then(function (nextComment: any) {
-        let result: ParticipantCommentModerationResult = {};
+        const result: ParticipantCommentModerationResult = {};
         if (nextComment) {
           result.nextComment = nextComment;
         } else {
@@ -9305,8 +8844,8 @@ Email verified! You can close this tab or hit the back button.
       ) => { (): any; new (): any; json: { (arg0: {}): void; new (): any } };
     }
   ) {
-    let uid = req.p.uid;
-    let zid = req.p.zid;
+    const uid = req.p.uid;
+    const zid = req.p.zid;
 
     pgQueryP("select * from upvotes where uid = ($1) and zid = ($2);", [
       uid,
@@ -9359,7 +8898,7 @@ Email verified! You can close this tab or hit the back button.
     starred = starred ? 1 : 0;
     let query =
       "INSERT INTO stars (pid, zid, tid, starred, created) VALUES ($1, $2, $3, $4, default) RETURNING created;";
-    let params = [pid, zid, tid, starred];
+    const params = [pid, zid, tid, starred];
     if (!_.isUndefined(created)) {
       query =
         "INSERT INTO stars (pid, zid, tid, starred, created) VALUES ($1, $2, $3, $4, $5) RETURNING created;";
@@ -9381,7 +8920,7 @@ Email verified! You can close this tab or hit the back button.
       //     Type 'unknown' is not assignable to type '{ rows: { created: any; }[]; }'.ts(2345)
       // @ts-ignore
       .then(function (result: { rows: { created: any }[] }) {
-        let createdTime = result.rows[0].created;
+        const createdTime = result.rows[0].created;
         setTimeout(function () {
           updateConversationModifiedTime(req.p.zid, createdTime);
         }, 100);
@@ -9406,9 +8945,9 @@ Email verified! You can close this tab or hit the back button.
       ) => { (): any; new (): any; json: { (arg0: {}): void; new (): any } };
     }
   ) {
-    let query =
+    const query =
       "INSERT INTO trashes (pid, zid, tid, trashed, created) VALUES ($1, $2, $3, $4, default);";
-    let params = [req.p.pid, req.p.zid, req.p.tid, req.p.trashed];
+    const params = [req.p.pid, req.p.zid, req.p.tid, req.p.trashed];
     pgQuery(
       query,
       params,
@@ -9422,7 +8961,7 @@ Email verified! You can close this tab or hit the back button.
           return;
         }
 
-        let createdTime = result.rows[0].created;
+        const createdTime = result.rows[0].created;
         setTimeout(function () {
           updateConversationModifiedTime(req.p.zid, createdTime);
         }, 100);
@@ -9432,7 +8971,7 @@ Email verified! You can close this tab or hit the back button.
     );
   }
   function verifyMetadataAnswersExistForEachQuestion(zid: any) {
-    let errorcode = "polis_err_missing_metadata_answers";
+    const errorcode = "polis_err_missing_metadata_answers";
     return new Promise(function (
       resolve: () => void,
       reject: (arg0: Error) => void
@@ -9449,7 +8988,7 @@ Email verified! You can close this tab or hit the back button.
             resolve();
             return;
           }
-          let pmqids = results.rows.map(function (row: { pmqid: any }) {
+          const pmqids = results.rows.map(function (row: { pmqid: any }) {
             return Number(row.pmqid);
           });
           pgQuery_readOnly(
@@ -9466,7 +9005,7 @@ Email verified! You can close this tab or hit the back button.
                 reject(new Error(errorcode));
                 return;
               }
-              let questions = _.reduce(
+              const questions = _.reduce(
                 pmqids,
                 function (o: { [x: string]: number }, pmqid: string | number) {
                   o[pmqid] = 1;
@@ -9499,12 +9038,12 @@ Email verified! You can close this tab or hit the back button.
       ) => { (): any; new (): any; json: { (arg0: {}): void; new (): any } };
     }
   ) {
-    let uid = req.p.uid;
-    let zid = req.p.zid;
-    let tid = req.p.tid;
-    let active = req.p.active;
-    let mod = req.p.mod;
-    let is_meta = req.p.is_meta;
+    const uid = req.p.uid;
+    const zid = req.p.zid;
+    const tid = req.p.tid;
+    const active = req.p.active;
+    const mod = req.p.mod;
+    const is_meta = req.p.is_meta;
 
     isModerator(zid, uid)
       .then(function (isModerator: any) {
@@ -9530,11 +9069,11 @@ Email verified! You can close this tab or hit the back button.
     req: { p: { uid?: any; zid: any; rid: any; tid: any; include: any } },
     res: { json: (arg0: {}) => void }
   ) {
-    let uid = req.p.uid;
-    let zid = req.p.zid;
-    let rid = req.p.rid;
-    let tid = req.p.tid;
-    let selection = req.p.include ? 1 : -1;
+    const uid = req.p.uid;
+    const zid = req.p.zid;
+    const rid = req.p.rid;
+    const tid = req.p.tid;
+    const selection = req.p.include ? 1 : -1;
     isModerator(zid, uid)
       .then((isMod: any) => {
         if (!isMod) {
@@ -9600,7 +9139,7 @@ Email verified! You can close this tab or hit the back button.
       lis_outcome_service_url: any;
     }
   ) {
-    let replaceResultRequestBody =
+    const replaceResultRequestBody =
       "" +
       '<?xml version="1.0" encoding="UTF-8"?>' +
       '<imsx_POXEnvelopeRequest xmlns="http://www.imsglobal.org/services/ltiv1p1/xsd/imsoms_v1p0">' +
@@ -9631,7 +9170,7 @@ Email verified! You can close this tab or hit the back button.
       "</imsx_POXBody>" +
       "</imsx_POXEnvelopeRequest>";
 
-    let oauth = new OAuth.OAuth(
+    const oauth = new OAuth.OAuth(
       // Argument of type 'null' is not assignable to parameter of type 'string'.ts(2345)
       // @ts-ignore
       null, //'https://api.twitter.com/oauth/request_token',
@@ -9671,7 +9210,7 @@ Email verified! You can close this tab or hit the back button.
 
   function sendCanvasGradesIfNeeded(zid: any, ownerUid: string) {
     // get the lti_user_ids for participants who voted or commented
-    let goodLtiUserIdsPromise = pgQueryP(
+    const goodLtiUserIdsPromise = pgQueryP(
       "select lti_user_id from " +
         "(select distinct uid from " +
         "(select distinct pid from votes where zid = ($1) UNION " +
@@ -9681,7 +9220,7 @@ Email verified! You can close this tab or hit the back button.
       [zid]
     );
 
-    let callbackInfoPromise = pgQueryP(
+    const callbackInfoPromise = pgQueryP(
       "select * from canvas_assignment_conversation_info ai " +
         "inner join canvas_assignment_callback_info ci " +
         "on ai.custom_canvas_assignment_id = ci.custom_canvas_assignment_id " +
@@ -9689,7 +9228,7 @@ Email verified! You can close this tab or hit the back button.
       [zid]
     );
 
-    let ownerLtiCredsPromise = pgQueryP(
+    const ownerLtiCredsPromise = pgQueryP(
       "select * from lti_oauthv1_credentials where uid = ($1);",
       [ownerUid]
     );
@@ -9699,8 +9238,8 @@ Email verified! You can close this tab or hit the back button.
       callbackInfoPromise,
       ownerLtiCredsPromise,
     ]).then(function (results: any[]) {
-      let isFullPointsEarningLtiUserId = _.indexBy(results[0], "lti_user_id");
-      let callbackInfos = results[1];
+      const isFullPointsEarningLtiUserId = _.indexBy(results[0], "lti_user_id");
+      const callbackInfos = results[1];
       if (!callbackInfos || !callbackInfos.length) {
         // TODO may be able to check for scenarios like missing callback infos, where votes and comments and canvas_assignment_conversation_info exist, and then throw an error
         return;
@@ -9719,10 +9258,10 @@ Email verified! You can close this tab or hit the back button.
         throw new Error("polis_err_lti_oauth_credentials_are_bad " + ownerUid);
       }
 
-      let promises = callbackInfos.map(function (
+      const promises = callbackInfos.map(function (
         assignmentCallbackInfo: Assignment
       ) {
-        let gradeFromZeroToOne = isFullPointsEarningLtiUserId[
+        const gradeFromZeroToOne = isFullPointsEarningLtiUserId[
           assignmentCallbackInfo.lti_user_id
         ]
           ? 1.0
@@ -9805,9 +9344,9 @@ Email verified! You can close this tab or hit the back button.
       //     Type '[unknown, unknown]' is not assignable to type 'string[]'.ts(2769)
       // @ts-ignore
       function (results: string[]) {
-        let key = "polis_oauth_consumer_key_" + results[0];
-        let secret = "polis_oauth_shared_secret_" + results[1];
-        let x = [uid, "'" + key + "'", "'" + secret + "'"].join(",");
+        const key = "polis_oauth_consumer_key_" + results[0];
+        const secret = "polis_oauth_shared_secret_" + results[1];
+        const x = [uid, "'" + key + "'", "'" + secret + "'"].join(",");
         // return the query, they we can manually run this in the pg shell, and email? the keys to the instructor
         res
           .status(200)
@@ -9827,8 +9366,8 @@ Email verified! You can close this tab or hit the back button.
       ) => { (): any; new (): any; json: { (arg0: {}): void; new (): any } };
     }
   ) {
-    var q = "select * from conversations where zid = ($1)";
-    var params = [req.p.zid];
+    let q = "select * from conversations where zid = ($1)";
+    const params = [req.p.zid];
     if (!isPolisDev(req.p.uid)) {
       q = q + " and owner = ($2)";
       params.push(req.p.uid);
@@ -9844,7 +9383,7 @@ Email verified! You can close this tab or hit the back button.
           fail(res, 500, "polis_err_closing_conversation_no_such_conversation");
           return;
         }
-        let conv = rows[0];
+        const conv = rows[0];
         // if (conv.is_active) {
         // regardless of old state, go ahead and close it, and update grades. will make testing easier.
         pgQueryP(
@@ -9853,7 +9392,7 @@ Email verified! You can close this tab or hit the back button.
         )
           .then(function () {
             // might need to send some grades
-            let ownerUid = req.p.uid;
+            const ownerUid = req.p.uid;
             sendCanvasGradesIfNeeded(conv.zid, ownerUid)
               .then(function (listOfContexts: any) {
                 return updateLocalRecordsToReflectPostedGrades(listOfContexts);
@@ -9891,8 +9430,8 @@ Email verified! You can close this tab or hit the back button.
       ) => { (): any; new (): any; json: { (arg0: {}): void; new (): any } };
     }
   ) {
-    var q = "select * from conversations where zid = ($1)";
-    var params = [req.p.zid];
+    let q = "select * from conversations where zid = ($1)";
+    const params = [req.p.zid];
     if (!isPolisDev(req.p.uid)) {
       q = q + " and owner = ($2)";
       params.push(req.p.uid);
@@ -9908,7 +9447,7 @@ Email verified! You can close this tab or hit the back button.
           fail(res, 500, "polis_err_closing_conversation_no_such_conversation");
           return;
         }
-        let conv = rows[0];
+        const conv = rows[0];
         pgQueryP(
           "update conversations set is_active = true where zid = ($1);",
           [conv.zid]
@@ -9934,7 +9473,7 @@ Email verified! You can close this tab or hit the back button.
       uid = req.p.uid_of_user;
     }
 
-    let fields: UserType = {};
+    const fields: UserType = {};
     if (!_.isUndefined(req.p.email)) {
       fields.email = req.p.email;
     }
@@ -9942,7 +9481,7 @@ Email verified! You can close this tab or hit the back button.
       fields.hname = req.p.hname;
     }
 
-    let q = sql_users.update(fields).where(sql_users.uid.equals(uid));
+    const q = sql_users.update(fields).where(sql_users.uid.equals(uid));
 
     pgQueryP(q.toString(), [])
       .then((result: any) => {
@@ -9989,7 +9528,7 @@ Email verified! You can close this tab or hit the back button.
     },
     res: any
   ) {
-    let generateShortUrl = req.p.short_url;
+    const generateShortUrl = req.p.short_url;
     isModerator(req.p.zid, req.p.uid)
       .then(function (ok: any) {
         if (!ok) {
@@ -10006,7 +9545,7 @@ Email verified! You can close this tab or hit the back button.
           verifyMetaPromise = Promise.resolve();
         }
 
-        let fields: ConversationType = {};
+        const fields: ConversationType = {};
         if (!_.isUndefined(req.p.is_active)) {
           fields.is_active = req.p.is_active;
         }
@@ -10089,7 +9628,7 @@ Email verified! You can close this tab or hit the back button.
 
         ifDefinedSet("subscribe_type", req.p, fields);
 
-        let q = sql_conversations
+        const q = sql_conversations
           .update(fields)
           .where(sql_conversations.zid.equals(req.p.zid))
           // .and( sql_conversations.owner.equals(req.p.uid) )
@@ -10101,14 +9640,14 @@ Email verified! You can close this tab or hit the back button.
                 fail(res, 500, "polis_err_update_conversation", err);
                 return;
               }
-              let conv = result && result.rows && result.rows[0];
+              const conv = result && result.rows && result.rows[0];
               // The first check with isModerator implictly tells us this can be returned in HTTP response.
               conv.is_mod = true;
 
-              let promise = generateShortUrl
+              const promise = generateShortUrl
                 ? generateAndReplaceZinvite(req.p.zid, generateShortUrl)
                 : Promise.resolve();
-              let successCode = generateShortUrl ? 201 : 200;
+              const successCode = generateShortUrl ? 201 : 200;
 
               promise
                 .then(function () {
@@ -10119,8 +9658,8 @@ Email verified! You can close this tab or hit the back button.
                       getConversationUrl(req, req.p.zid, true),
                     ])
                       .then(function (results: any[]) {
-                        let hname = results[0].hname;
-                        let url = results[1];
+                        const hname = results[0].hname;
+                        const url = results[1];
                         sendEmailByUid(
                           req.p.uid,
                           "Conversation created",
@@ -10232,8 +9771,8 @@ Email verified! You can close this tab or hit the back button.
     req: { p: { uid?: any; pmqid: any } },
     res: { send: (arg0: number) => void }
   ) {
-    let uid = req.p.uid;
-    let pmqid = req.p.pmqid;
+    const uid = req.p.uid;
+    const pmqid = req.p.pmqid;
 
     getZidForQuestion(pmqid, function (err: any, zid: any) {
       if (err) {
@@ -10276,8 +9815,8 @@ Email verified! You can close this tab or hit the back button.
     req: { p: { uid?: any; pmaid: any } },
     res: { send: (arg0: number) => void }
   ) {
-    let uid = req.p.uid;
-    let pmaid = req.p.pmaid;
+    const uid = req.p.uid;
+    const pmaid = req.p.pmaid;
 
     getZidForAnswer(pmaid, function (err: any, zid: any) {
       if (err) {
@@ -10419,9 +9958,9 @@ Email verified! You can close this tab or hit the back button.
     req: { p: { zid: any; zinvite: any; suzinvite: any } },
     res: any
   ) {
-    let zid = req.p.zid;
-    let zinvite = req.p.zinvite;
-    let suzinvite = req.p.suzinvite;
+    const zid = req.p.zid;
+    const zinvite = req.p.zinvite;
+    const suzinvite = req.p.suzinvite;
 
     function doneChecking(err: boolean, foo?: undefined) {
       if (err) {
@@ -10495,9 +10034,9 @@ Email verified! You can close this tab or hit the back button.
     req: { p: { zid: any; key: any; uid?: any } },
     res: any
   ) {
-    let zid = req.p.zid;
-    let key = req.p.key;
-    let uid = req.p.uid;
+    const zid = req.p.zid;
+    const key = req.p.key;
+    const uid = req.p.uid;
 
     function doneChecking(err: any, foo?: any) {
       if (err) {
@@ -10525,10 +10064,10 @@ Email verified! You can close this tab or hit the back button.
     req: { p: { zid: any; uid?: any; pmqid: any; value: any } },
     res: any
   ) {
-    let zid = req.p.zid;
-    let uid = req.p.uid;
-    let pmqid = req.p.pmqid;
-    let value = req.p.value;
+    const zid = req.p.zid;
+    const uid = req.p.uid;
+    const pmqid = req.p.pmqid;
+    const value = req.p.value;
 
     function doneChecking(err: any, foo?: any) {
       if (err) {
@@ -10567,7 +10106,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function handle_GET_metadata_choices(req: { p: { zid: any } }, res: any) {
-    let zid = req.p.zid;
+    const zid = req.p.zid;
 
     getChoicesForConversation(zid).then(
       function (choices: any) {
@@ -10582,10 +10121,10 @@ Email verified! You can close this tab or hit the back button.
     req: { p: { zid: any; zinvite: any; suzinvite: any; pmqid: any } },
     res: any
   ) {
-    let zid = req.p.zid;
-    let zinvite = req.p.zinvite;
-    let suzinvite = req.p.suzinvite;
-    let pmqid = req.p.pmqid;
+    const zid = req.p.zid;
+    const zinvite = req.p.zinvite;
+    const suzinvite = req.p.suzinvite;
+    const pmqid = req.p.pmqid;
 
     function doneChecking(err: boolean, foo?: undefined) {
       if (err) {
@@ -10609,7 +10148,7 @@ Email verified! You can close this tab or hit the back button.
             fail(res, 500, "polis_err_get_participant_metadata_answers", err);
             return;
           }
-          let rows = result.rows.map(function (r: { is_exclusive: boolean }) {
+          const rows = result.rows.map(function (r: { is_exclusive: boolean }) {
             r.is_exclusive = true; // TODO fetch this info from the queston itself
             return r;
           });
@@ -10651,9 +10190,9 @@ Email verified! You can close this tab or hit the back button.
       };
     }
   ) {
-    let zid = req.p.zid;
-    let zinvite = req.p.zinvite;
-    let suzinvite = req.p.suzinvite;
+    const zid = req.p.zid;
+    const zinvite = req.p.zinvite;
+    const suzinvite = req.p.suzinvite;
 
     function doneChecking(err: boolean) {
       if (err) {
@@ -10700,12 +10239,12 @@ Email verified! You can close this tab or hit the back button.
             fail(res, 500, "polis_err_get_participant_metadata", err);
             return;
           }
-          let keys = result[0] && result[0].rows;
-          let vals = result[1] && result[1].rows;
-          let choices = result[2] && result[2].rows;
-          let o = {};
-          let keyNames = {};
-          let valueNames = {};
+          const keys = result[0] && result[0].rows;
+          const vals = result[1] && result[1].rows;
+          const choices = result[2] && result[2].rows;
+          const o = {};
+          const keyNames = {};
+          const valueNames = {};
           let i;
           let k;
           let v;
@@ -10787,7 +10326,7 @@ Email verified! You can close this tab or hit the back button.
           if (err) {
             return reject("polis_err_get_conversation_metadata_by_zid");
           }
-          let hasNoMetadata =
+          const hasNoMetadata =
             !metadataResults ||
             !metadataResults.rows ||
             !metadataResults.rows.length;
@@ -10837,10 +10376,10 @@ Email verified! You can close this tab or hit the back button.
       _.isUndefined(uid) ? Promise.resolve({}) : getUserInfoForUid2(uid),
       getConversationTranslationsMinimal(zid, lang),
     ]).then(function (results: any[]) {
-      let conv = results[0] && results[0][0];
-      let convHasMetadata = results[1];
-      let requestingUserInfo = results[2];
-      let translations = results[3];
+      const conv = results[0] && results[0][0];
+      const convHasMetadata = results[1];
+      const requestingUserInfo = results[2];
+      const translations = results[3];
 
       conv.auth_opt_allow_3rdparty = ifDefinedFirstElseSecond(
         conv.auth_opt_allow_3rdparty,
@@ -10858,7 +10397,7 @@ Email verified! You can close this tab or hit the back button.
       return getUserInfoForUid2(conv.owner).then(function (ownerInfo: {
         hname: any;
       }) {
-        let ownername = ownerInfo.hname;
+        const ownername = ownerInfo.hname;
         if (convHasMetadata) {
           conv.hasMetadata = true;
         }
@@ -10884,20 +10423,21 @@ Email verified! You can close this tab or hit the back button.
       ) => { (): any; new (): any; json: { (arg0: any): void; new (): any } };
     }
   ) {
-    let uid = req.p.uid;
-    let zid = req.p.zid;
-    let xid = req.p.xid;
+    const uid = req.p.uid;
+    const zid = req.p.zid;
+    const xid = req.p.xid;
     // let course_invite = req.p.course_invite;
-    let include_all_conversations_i_am_in =
+    const include_all_conversations_i_am_in =
       req.p.include_all_conversations_i_am_in;
-    let want_mod_url = req.p.want_mod_url;
-    let want_upvoted = req.p.want_upvoted;
-    let want_inbox_item_admin_url = req.p.want_inbox_item_admin_url;
-    let want_inbox_item_participant_url = req.p.want_inbox_item_participant_url;
-    let want_inbox_item_admin_html = req.p.want_inbox_item_admin_html;
-    let want_inbox_item_participant_html =
+    const want_mod_url = req.p.want_mod_url;
+    const want_upvoted = req.p.want_upvoted;
+    const want_inbox_item_admin_url = req.p.want_inbox_item_admin_url;
+    const want_inbox_item_participant_url =
+      req.p.want_inbox_item_participant_url;
+    const want_inbox_item_admin_html = req.p.want_inbox_item_admin_html;
+    const want_inbox_item_participant_html =
       req.p.want_inbox_item_participant_html;
-    let context = req.p.context;
+    const context = req.p.context;
     // let limit = req.p.limit;
     winston.log("info", "thecontext", context);
     // this statement is currently a subset of the next one
@@ -10921,15 +10461,15 @@ Email verified! You can close this tab or hit the back button.
           return;
         }
 
-        let participantInOrSiteAdminOf =
+        const participantInOrSiteAdminOf =
           (results && results.rows && _.pluck(results.rows, "zid")) || null;
-        let siteAdminOf = _.filter(
+        const siteAdminOf = _.filter(
           results.rows,
           function (row: { type: number }) {
             return row.type === 1;
           }
         );
-        let isSiteAdmin = _.indexBy(siteAdminOf, "zid");
+        const isSiteAdmin = _.indexBy(siteAdminOf, "zid");
 
         let query = sql_conversations.select(sql_conversations.star());
 
@@ -10993,7 +10533,7 @@ Email verified! You can close this tab or hit the back button.
               fail(res, 500, "polis_err_get_conversations", err);
               return;
             }
-            let data = result.rows || [];
+            const data = result.rows || [];
             addConversationIds(data)
               .then(function (data: any[]) {
                 let suurlsPromise;
@@ -11011,7 +10551,7 @@ Email verified! You can close this tab or hit the back button.
                 } else {
                   suurlsPromise = Promise.resolve();
                 }
-                let upvotesPromise =
+                const upvotesPromise =
                   uid && want_upvoted
                     ? pgQueryP_readOnly(
                         "select zid from upvotes where uid = ($1);",
@@ -11054,7 +10594,7 @@ Email verified! You can close this tab or hit the back button.
                       context?: string;
                     }) {
                       conv.is_owner = conv.owner === uid;
-                      let root = getServerNameWithProtocol(req);
+                      const root = getServerNameWithProtocol(req);
 
                       if (want_mod_url) {
                         // TODO make this into a moderation invite URL so others can join Issue #618
@@ -11173,8 +10713,8 @@ Email verified! You can close this tab or hit the back button.
     req: { p: { zid: any; uid?: any } },
     res: { json: (arg0: {}) => void }
   ) {
-    let zid = req.p.zid;
-    let uid = req.p.uid;
+    const zid = req.p.zid;
+    const uid = req.p.uid;
 
     return (
       isModerator(zid, uid)
@@ -11199,9 +10739,9 @@ Email verified! You can close this tab or hit the back button.
     },
     res: { json: (arg0: {}) => void }
   ) {
-    let rid = req.p.rid;
-    let uid = req.p.uid;
-    let zid = req.p.zid;
+    const rid = req.p.rid;
+    const uid = req.p.uid;
+    const zid = req.p.zid;
 
     return (
       isModerator(zid, uid)
@@ -11212,7 +10752,7 @@ Email verified! You can close this tab or hit the back button.
             return fail(res, 403, "polis_err_put_reports_permissions", err);
           }
 
-          let fields: { [key: string]: string } = {
+          const fields: { [key: string]: string } = {
             modified: "now_as_millis()",
           };
 
@@ -11234,7 +10774,9 @@ Email verified! You can close this tab or hit the back button.
             fields.report_name = req.p.report_name;
           }
 
-          let q = sql_reports.update(fields).where(sql_reports.rid.equals(rid));
+          const q = sql_reports
+            .update(fields)
+            .where(sql_reports.rid.equals(rid));
 
           let query = q.toString();
           query = query.replace("'now_as_millis()'", "now_as_millis()"); // remove quotes added by sql lib
@@ -11252,9 +10794,9 @@ Email verified! You can close this tab or hit the back button.
     req: { p: { zid: any; rid: any; uid?: any } },
     res: { json: (arg0: any) => void }
   ) {
-    let zid = req.p.zid;
-    let rid = req.p.rid;
-    let uid = req.p.uid;
+    const zid = req.p.zid;
+    const rid = req.p.rid;
+    const uid = req.p.uid;
 
     let reportsPromise = null;
 
@@ -11290,7 +10832,7 @@ Email verified! You can close this tab or hit the back button.
       //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
       // @ts-ignore
       .then((reports: any[]) => {
-        let zids: any[] = [];
+        const zids: any[] = [];
         reports = reports.map((report: { zid: any; rid: any }) => {
           zids.push(report.zid);
           delete report.rid;
@@ -11304,7 +10846,7 @@ Email verified! You can close this tab or hit the back button.
           "select * from zinvites where zid in (" + zids.join(",") + ");",
           []
         ).then((zinvite_entries: any) => {
-          let zidToZinvite = _.indexBy(zinvite_entries, "zid");
+          const zidToZinvite = _.indexBy(zinvite_entries, "zid");
           reports = reports.map(
             (report: { conversation_id: any; zid?: string | number }) => {
               report.conversation_id = zidToZinvite[report.zid || ""]?.zinvite;
@@ -11341,8 +10883,8 @@ Email verified! You can close this tab or hit the back button.
     context?: any;
     custom_canvas_assignment_id?: any;
   }) {
-    let stringifiedJson = JSON.stringify(o);
-    let encoded = "ep1_" + strToHex(stringifiedJson);
+    const stringifiedJson = JSON.stringify(o);
+    const encoded = "ep1_" + strToHex(stringifiedJson);
     return encoded;
   }
 
@@ -11350,7 +10892,7 @@ Email verified! You can close this tab or hit the back button.
     req: { p: { monthly: any; maxUsers: any; plan_name: any; plan_id: any } },
     res: { send: (arg0: string) => void }
   ) {
-    var o: { [key: string]: string } = {
+    const o: { [key: string]: string } = {
       monthly: req.p.monthly,
     };
     if (req.p.maxUsers) {
@@ -11376,9 +10918,9 @@ Email verified! You can close this tab or hit the back button.
       };
     }
   ) {
-    var stripe_client_id = process.env.STRIPE_CLIENT_ID;
+    const stripe_client_id = process.env.STRIPE_CLIENT_ID;
 
-    var stripeUrl =
+    const stripeUrl =
       "https://connect.stripe.com/oauth/authorize?response_type=code&client_id=" +
       stripe_client_id +
       "&scope=read_write";
@@ -11406,7 +10948,7 @@ Email verified! You can close this tab or hit the back button.
       };
     }
   ) {
-    var code = req.p.code;
+    const code = req.p.code;
     // var access_token = req.p.access_token;
     // var error = req.p.error;
     // var error_description = req.p.error_description;
@@ -11496,7 +11038,7 @@ Email verified! You can close this tab or hit the back button.
       if (course_id) {
         req.p.course_id = course_id;
       }
-      let lang = null; // for now just return the default
+      const lang = null; // for now just return the default
       if (req.p.zid) {
         getOneConversation(req.p.zid, req.p.uid, lang)
           .then(
@@ -11551,8 +11093,8 @@ Email verified! You can close this tab or hit the back button.
       ) => { (): any; new (): any; json: { (arg0: {}): void; new (): any } };
     }
   ) {
-    let uid = req.p.uid;
-    let name = req.p.name;
+    const uid = req.p.uid;
+    const name = req.p.name;
 
     function createContext() {
       return pgQueryP(
@@ -11579,7 +11121,7 @@ Email verified! You can close this tab or hit the back button.
         //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
         // @ts-ignore
         function (rows: string | any[]) {
-          let exists = rows && rows.length;
+          const exists = rows && rows.length;
           if (exists) {
             fail(res, 422, "polis_err_post_context_exists");
             return;
@@ -11656,12 +11198,12 @@ Email verified! You can close this tab or hit the back button.
     },
     res: any
   ) {
-    let xidStuffReady = Promise.resolve();
+    const xidStuffReady = Promise.resolve();
 
     xidStuffReady
       .then(() => {
         winston.log("info", "context", req.p.context);
-        let generateShortUrl = req.p.short_url;
+        const generateShortUrl = req.p.short_url;
 
         isUserAllowedToCreateConversations(
           req.p.uid,
@@ -11684,7 +11226,7 @@ Email verified! You can close this tab or hit the back button.
               );
               return;
             }
-            let q = sql_conversations
+            const q = sql_conversations
               .insert({
                 owner: req.p.uid, // creator
                 org_id: req.p.org_id || req.p.uid, // assume the owner is the creator if there's no separate owner specified (
@@ -11729,7 +11271,7 @@ Email verified! You can close this tab or hit the back button.
                   return;
                 }
 
-                let zid =
+                const zid =
                   result && result.rows && result.rows[0] && result.rows[0].zid;
 
                 const zinvitePromise = req.p.conversation_id
@@ -11782,9 +11324,9 @@ Email verified! You can close this tab or hit the back button.
       };
     }
   ) {
-    let uid = req.p.uid;
-    let zid = req.p.zid;
-    let pmaids = req.p.pmaids;
+    const uid = req.p.uid;
+    const zid = req.p.zid;
+    const pmaids = req.p.pmaids;
 
     if (!pmaids.length) {
       // empty selection
@@ -11836,16 +11378,16 @@ Email verified! You can close this tab or hit the back button.
           fail(res, 500, "polis_err_get_email_db", err);
           return;
         }
-        let email = results.rows[0].email;
-        let fullname = results.rows[0].hname;
+        const email = results.rows[0].email;
+        const fullname = results.rows[0].hname;
         pgQuery_readOnly(
           "select * from zinvites where zid = $1",
           [req.p.zid],
           function (err: any, results: { rows: { zinvite: any }[] }) {
-            let zinvite = results.rows[0].zinvite;
-            let server = getServerNameWithProtocol(req);
-            let createdLink = server + "/#" + req.p.zid + "/" + zinvite;
-            let body =
+            const zinvite = results.rows[0].zinvite;
+            const server = getServerNameWithProtocol(req);
+            const createdLink = server + "/#" + req.p.zid + "/" + zinvite;
+            const body =
               "" +
               "Hi " +
               fullname +
@@ -11899,8 +11441,8 @@ Email verified! You can close this tab or hit the back button.
     ) {
       return fail(res, 403, "polis_err_notifyTeam_auth");
     }
-    let subject = req.p.subject;
-    let body = req.p.body;
+    const subject = req.p.subject;
+    const body = req.p.body;
     emailTeam(subject, body)
       .then(() => {
         res.status(200).json({});
@@ -11967,7 +11509,7 @@ Thanks for using Polis!
   }
 
   function getTwitterRequestToken(returnUrl: string) {
-    let oauth = new OAuth.OAuth(
+    const oauth = new OAuth.OAuth(
       "https://api.twitter.com/oauth/request_token", // null
       "https://api.twitter.com/oauth/access_token", // null
       // Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
@@ -11979,7 +11521,7 @@ Thanks for using Polis!
       null,
       "HMAC-SHA1"
     );
-    let body = {
+    const body = {
       oauth_callback: returnUrl,
     };
     return new Promise(function (
@@ -12014,7 +11556,7 @@ Thanks for using Polis!
   ) {
     let dest = req.p.dest || "/inbox";
     dest = encodeURIComponent(getServerNameWithProtocol(req) + dest);
-    let returnUrl =
+    const returnUrl =
       getServerNameWithProtocol(req) +
       "/api/v3/twitter_oauth_callback?owner=" +
       req.p.owner +
@@ -12036,7 +11578,7 @@ Thanks for using Polis!
     oauth_verifier: any;
     oauth_token: any;
   }) {
-    let oauth = new OAuth.OAuth(
+    const oauth = new OAuth.OAuth(
       "https://api.twitter.com/oauth/request_token", // null
       "https://api.twitter.com/oauth/access_token", // null
       // Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
@@ -12075,7 +11617,7 @@ Thanks for using Polis!
   }
 
   // TODO expire this stuff
-  let twitterUserInfoCache = new LruCache({
+  const twitterUserInfoCache = new LruCache({
     max: 10000,
   });
   function getTwitterUserInfo(
@@ -12084,9 +11626,9 @@ Thanks for using Polis!
   ) {
     console.log("getTwitterUserInfo", o);
 
-    let twitter_user_id = o.twitter_user_id;
-    let twitter_screen_name = o.twitter_screen_name;
-    let params: TwitterParameters = {
+    const twitter_user_id = o.twitter_user_id;
+    const twitter_screen_name = o.twitter_screen_name;
+    const params: TwitterParameters = {
       // oauth_verifier: req.p.oauth_verifier,
       // oauth_token: req.p.oauth_token, // confused. needed, but docs say this: "The request token is also passed in the oauth_token portion of the header, but this will have been added by the signing process."
     };
@@ -12099,7 +11641,7 @@ Thanks for using Polis!
       identifier = twitter_screen_name;
     }
 
-    let oauth = new OAuth.OAuth(
+    const oauth = new OAuth.OAuth(
       "https://api.twitter.com/oauth/request_token", // null
       "https://api.twitter.com/oauth/access_token", // null
       // Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
@@ -12120,7 +11662,7 @@ Thanks for using Polis!
         resolve: (arg0: any) => void,
         reject: (arg0?: undefined) => void
       ) {
-        let cachedCopy = twitterUserInfoCache.get(identifier);
+        const cachedCopy = twitterUserInfoCache.get(identifier);
         if (useCache && cachedCopy) {
           return resolve(cachedCopy);
         }
@@ -12157,7 +11699,7 @@ Thanks for using Polis!
   }
 
   function getTwitterTweetById(twitter_tweet_id: string) {
-    let oauth = new OAuth.OAuth(
+    const oauth = new OAuth.OAuth(
       "https://api.twitter.com/oauth/request_token", // null
       "https://api.twitter.com/oauth/access_token", // null
       // Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
@@ -12236,10 +11778,10 @@ Thanks for using Polis!
   //  so keep a list of these for as long as the server is running,
   //  so we don't repeat requests for them.
   // This is probably not optimal, but is pretty easy.
-  let suspendedOrPotentiallyProblematicTwitterIds: any[] = [];
+  const suspendedOrPotentiallyProblematicTwitterIds: any[] = [];
   function getTwitterUserInfoBulk(list_of_twitter_user_id: any[]) {
     list_of_twitter_user_id = list_of_twitter_user_id || [];
-    let oauth = new OAuth.OAuth(
+    const oauth = new OAuth.OAuth(
       "https://api.twitter.com/oauth/request_token", // null
       "https://api.twitter.com/oauth/access_token", // null
       // Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
@@ -12365,7 +11907,7 @@ Thanks for using Polis!
               // Uncomment to log out lots of twitter crap for a good time
               //console.dir(info);
 
-              let updateQueries = info.map(function (u: {
+              const updateQueries = info.map(function (u: {
                 id: any;
                 screen_name: any;
                 name: any;
@@ -12375,7 +11917,7 @@ Thanks for using Polis!
                 profile_image_url_https: any;
                 location: any;
               }) {
-                let q =
+                const q =
                   "update twitter_users set " +
                   "screen_name = ($2)," +
                   "name = ($3)," +
@@ -12424,8 +11966,8 @@ Thanks for using Polis!
         twitterUser: any;
         twitterUserDbRecord: any;
       }) {
-        let u = result.twitterUser;
-        let twitterUserDbRecord = result.twitterUserDbRecord;
+        const u = result.twitterUser;
+        const twitterUserDbRecord = result.twitterUserDbRecord;
 
         return pgQueryP(
           "update users set hname = ($2) where uid = ($1) and hname is NULL;",
@@ -12440,7 +11982,7 @@ Thanks for using Polis!
     quote_twitter_screen_name: any,
     zid: any
   ) {
-    let query = pgQueryP(
+    const query = pgQueryP(
       "select * from twitter_users where screen_name = ($1);",
       [quote_twitter_screen_name]
     );
@@ -12461,9 +12003,9 @@ Thanks for using Polis!
     return getTwitterTweetById(twitter_tweet_id).then(function (tweet: {
       user: any;
     }) {
-      let user = tweet.user;
-      let twitter_user_id = user.id_str;
-      let query = pgQueryP(
+      const user = tweet.user;
+      const twitter_user_id = user.id_str;
+      const query = pgQueryP(
         "select * from twitter_users where twitter_user_id = ($1);",
         [twitter_user_id]
       );
@@ -12497,7 +12039,7 @@ Thanks for using Polis!
           //   Type 'unknown' is not assignable to type 'any[]'.ts(2345)
           // @ts-ignore
           .then(function (rows: any[]) {
-            let ptpt = rows[0];
+            const ptpt = rows[0];
             return {
               ptpt: ptpt,
               twitterUser: twitterUser,
@@ -12508,8 +12050,8 @@ Thanks for using Polis!
     }
     return query.then(function (rows: string | any[]) {
       if (rows && rows.length) {
-        let twitterUser = rows[0];
-        let uid = twitterUser.uid;
+        const twitterUser = rows[0];
+        const uid = twitterUser.uid;
         return getParticipant(zid, uid)
           .then(function (ptpt: any) {
             if (!ptpt) {
@@ -12529,7 +12071,7 @@ Thanks for using Polis!
         return createUserFromTwitterInfo(o).then(function (twitterUser: {
           uid?: any;
         }) {
-          let uid = twitterUser.uid;
+          const uid = twitterUser.uid;
           return (
             addParticipant(zid, uid)
               //           Argument of type '(rows: any[]) => { ptpt: any; twitterUser: { uid?: any; }; tweet: { user: any; } | null; }' is not assignable to parameter of type '(value: unknown) => { ptpt: any; twitterUser: { uid?: any; }; tweet: { user: any; } | null; } | PromiseLike<{ ptpt: any; twitterUser: { uid?: any; }; tweet: { user: any; } | null; }>'.
@@ -12537,7 +12079,7 @@ Thanks for using Polis!
               //           Type 'unknown' is not assignable to type 'any[]'.ts(2345)
               // @ts-ignore
               .then(function (rows: any[]) {
-                let ptpt = rows[0];
+                const ptpt = rows[0];
                 return {
                   ptpt: ptpt,
                   twitterUser: twitterUser,
@@ -12612,7 +12154,7 @@ Thanks for using Polis!
           //       Type 'unknown' is not assignable to type 'any[]'.ts(2345)
           // @ts-ignore
           .then(function (rows: string | any[]) {
-            let record = (rows && rows.length && rows[0]) || null;
+            const record = (rows && rows.length && rows[0]) || null;
 
             // return the twitter user record
             return {
@@ -12628,12 +12170,12 @@ Thanks for using Polis!
     req: { p: { uid?: any; dest: any; oauth_verifier: any; oauth_token: any } },
     res: { redirect: (arg0: any) => void }
   ) {
-    let uid = req.p.uid;
+    const uid = req.p.uid;
     winston.log("info", "twitter oauth callback req.p", req.p);
 
     // TODO "Upon a successful authentication, your callback_url would receive a request containing the oauth_token and oauth_verifier parameters. Your application should verify that the token matches the request token received in step 1."
 
-    let dest = req.p.dest;
+    const dest = req.p.dest;
     winston.log("info", "twitter_oauth_callback uid", uid);
     winston.log("info", "twitter_oauth_callback params");
     winston.log("info", req.p);
@@ -12649,12 +12191,12 @@ Thanks for using Polis!
       .then(
         function (o: string) {
           winston.log("info", "TWITTER ACCESS TOKEN");
-          let pairs = o.split("&");
-          let kv: TwitterParameters = {};
+          const pairs = o.split("&");
+          const kv: TwitterParameters = {};
           pairs.forEach(function (pair: string) {
-            let pairSplit = pair.split("=");
-            let k = pairSplit[0];
-            let v = pairSplit[1];
+            const pairSplit = pair.split("=");
+            const k = pairSplit[0];
+            const v = pairSplit[1];
             // can't do this anymore, because now twitter uses integers which overflow js max resolution
             //if (k === "user_id") {
             //v = parseInt(v);
@@ -12757,8 +12299,8 @@ Thanks for using Polis!
                         //                       Type '[unknown, unknown]' is not assignable to type 'any[][]'.ts(2769)
                         // @ts-ignore
                         .then(function (foo: any[][]) {
-                          let recordForUid = foo[0][0];
-                          let recordForTwitterId = foo[1][0];
+                          const recordForUid = foo[0][0];
+                          const recordForTwitterId = foo[1][0];
                           if (recordForUid && recordForTwitterId) {
                             if (recordForUid.uid === recordForTwitterId.uid) {
                               // match
@@ -12842,11 +12384,11 @@ Thanks for using Polis!
     mod?: any,
     convOwner?: any
   ) {
-    let start = Date.now();
+    const start = Date.now();
     return getSocialParticipantsForMod
       .apply(null, [zid, limit, mod, convOwner])
       .then(function (results: any) {
-        let elapsed = Date.now() - start;
+        const elapsed = Date.now() - start;
         console.log("getSocialParticipantsForMod_timed", elapsed);
         return results;
       });
@@ -12859,13 +12401,13 @@ Thanks for using Polis!
     owner: any
   ) {
     let modClause = "";
-    let params = [zid, limit, owner];
+    const params = [zid, limit, owner];
     if (!_.isUndefined(mod)) {
       modClause = " and mod = ($4)";
       params.push(mod);
     }
 
-    let q =
+    const q =
       "with " +
       "p as (select uid, pid, mod from participants where zid = ($1) " +
       modClause +
@@ -12918,7 +12460,7 @@ Thanks for using Polis!
     return pgQueryP(q, params);
   }
 
-  let socialParticipantsCache = new LruCache({
+  const socialParticipantsCache = new LruCache({
     maxAge: 1000 * 30, // 30 seconds
     max: 999,
   });
@@ -12932,7 +12474,7 @@ Thanks for using Polis!
     authorUids?: any[]
   ) {
     // NOTE ignoring authorUids as part of cacheKey for now, just because.
-    let cacheKey = [zid, limit, mod, math_tick].join("_");
+    const cacheKey = [zid, limit, mod, math_tick].join("_");
     if (socialParticipantsCache.get(cacheKey)) {
       return socialParticipantsCache.get(cacheKey);
     }
@@ -12953,7 +12495,7 @@ Thanks for using Polis!
       authorsQuery = null;
     }
 
-    let q =
+    const q =
       "with " +
       "p as (select uid, pid, mod from participants where zid = ($1) and vote_count >= 1), " +
       // "all_friends as (select  " +
@@ -13088,7 +12630,7 @@ Thanks for using Polis!
 
   // zid_pid => "math_tick:ppaddddaadadaduuuuuuuuuuuuuuuuu"; // not using objects to save some ram
   // TODO consider "p2a24a2dadadu15" format
-  let votesForZidPidCache = new LruCache({
+  const votesForZidPidCache = new LruCache({
     max: 5000,
   });
 
@@ -13097,14 +12639,14 @@ Thanks for using Polis!
     pid: string,
     math_tick: number
   ) {
-    let key = zid + "_" + pid;
-    let cachedVotes = votesForZidPidCache.get(key);
+    const key = zid + "_" + pid;
+    const cachedVotes = votesForZidPidCache.get(key);
     if (cachedVotes) {
       // Object is of type 'unknown'.ts(2571)
       // @ts-ignore
-      let pair = cachedVotes.split(":");
-      let cachedTime = Number(pair[0]);
-      let votes = pair[1];
+      const pair = cachedVotes.split(":");
+      const cachedTime = Number(pair[0]);
+      const votes = pair[1];
       if (cachedTime >= math_tick) {
         return votes;
       }
@@ -13117,8 +12659,8 @@ Thanks for using Polis!
     math_tick: string,
     votes: string
   ) {
-    let key = zid + "_" + pid;
-    let val = math_tick + ":" + votes;
+    const key = zid + "_" + pid;
+    const val = math_tick + ":" + votes;
     votesForZidPidCache.set(key, val);
   }
   // returns {pid -> "adadddadpupuuuuuuuu"}
@@ -13133,7 +12675,7 @@ Thanks for using Polis!
         votes: getVotesForZidPidWithTimestampCheck(zid, pid, math_tick),
       };
     });
-    let uncachedPids = cachedVotes
+    const uncachedPids = cachedVotes
       .filter(function (o: { votes: any }) {
         return !o.votes;
       })
@@ -13145,8 +12687,8 @@ Thanks for using Polis!
     });
 
     function toObj(items: string | any[]) {
-      let o = {};
-      for (var i = 0; i < items.length; i++) {
+      const o = {};
+      for (let i = 0; i < items.length; i++) {
         // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
         // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
         // @ts-ignore
@@ -13159,11 +12701,11 @@ Thanks for using Polis!
       return Promise.resolve(toObj(cachedVotes));
     }
     return getVotesForPids(zid, uncachedPids).then(function (votesRows: any) {
-      let newPidToVotes = aggregateVotesToPidVotesObj(votesRows);
+      const newPidToVotes = aggregateVotesToPidVotesObj(votesRows);
       _.each(newPidToVotes, function (votes: any, pid: any) {
         cacheVotesForZidPidWithTimestamp(zid, pid, math_tick, votes);
       });
-      let cachedPidToVotes = toObj(cachedVotes);
+      const cachedPidToVotes = toObj(cachedVotes);
       return Object.assign(newPidToVotes, cachedPidToVotes);
     });
   }
@@ -13184,7 +12726,7 @@ Thanks for using Polis!
         //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
         // @ts-ignore
         .then(function (votesRows: string | any[]) {
-          for (var i = 0; i < votesRows.length; i++) {
+          for (let i = 0; i < votesRows.length; i++) {
             votesRows[i].weight = votesRows[i].weight / 32767;
           }
           return votesRows;
@@ -13193,8 +12735,8 @@ Thanks for using Polis!
   }
 
   function createEmptyVoteVector(greatestTid: number) {
-    let a = [];
-    for (var i = 0; i <= greatestTid; i++) {
+    const a = [];
+    for (let i = 0; i <= greatestTid; i++) {
       a[i] = "u"; // (u)nseen
     }
     return a;
@@ -13210,9 +12752,9 @@ Thanks for using Polis!
     }
 
     // use arrays or strings?
-    let vectors = {}; // pid -> sparse array
+    const vectors = {}; // pid -> sparse array
     for (i = 0; i < votes.length; i++) {
-      let v = votes[i];
+      const v = votes[i];
       // set up a vector for the participant, if not there already
 
       // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
@@ -13220,7 +12762,7 @@ Thanks for using Polis!
       // @ts-ignore
       vectors[v.pid] = vectors[v.pid] || createEmptyVoteVector(greatestTid);
       // assign a vote value at that location
-      let vote = v.vote;
+      const vote = v.vote;
       if (polisTypes.reactions.push === vote) {
         // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
         // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
@@ -13241,7 +12783,7 @@ Thanks for using Polis!
         // let it stay 'u'
       }
     }
-    let vectors2: { [key: string]: any } = {};
+    const vectors2: { [key: string]: any } = {};
     //   Argument of type '(val: any[], key: string) => void' is not assignable to parameter of type 'CollectionIterator<unknown, void, {}>'.
     // Types of parameters 'val' and 'element' are incompatible.
     //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
@@ -13267,23 +12809,23 @@ Thanks for using Polis!
         return [];
       }
       o[0] = o[0].asPOJO;
-      let clusters = o[0]["group-clusters"];
-      let indexToBid = o[0]["base-clusters"].id; // index to bid
-      let bidToIndex = [];
+      const clusters = o[0]["group-clusters"];
+      const indexToBid = o[0]["base-clusters"].id; // index to bid
+      const bidToIndex = [];
       for (let i = 0; i < indexToBid.length; i++) {
         bidToIndex[indexToBid[i]] = i;
       }
-      let indexToPids = o[1].bidToPid; // actually index to [pid]
-      let cluster = clusters[gid];
+      const indexToPids = o[1].bidToPid; // actually index to [pid]
+      const cluster = clusters[gid];
       if (!cluster) {
         return [];
       }
-      let members = cluster.members; // bids
+      const members = cluster.members; // bids
       let pids: any[] = [];
-      for (var i = 0; i < members.length; i++) {
-        let bid = members[i];
-        let index = bidToIndex[bid];
-        let morePids = indexToPids[index];
+      for (let i = 0; i < members.length; i++) {
+        const bid = members[i];
+        const index = bidToIndex[bid];
+        const morePids = indexToPids[index];
         Array.prototype.push.apply(pids, morePids);
       }
       pids = pids.map(function (x) {
@@ -13297,8 +12839,8 @@ Thanks for using Polis!
   }
 
   function geoCodeWithGoogleApi(locationString: string) {
-    let googleApiKey = process.env.GOOGLE_API_KEY;
-    let address = encodeURI(locationString);
+    const googleApiKey = process.env.GOOGLE_API_KEY;
+    const address = encodeURI(locationString);
 
     return new Promise(function (
       resolve: (arg0: any) => void,
@@ -13317,7 +12859,7 @@ Thanks for using Polis!
             reject("polis_err_geocoding_failed");
             return;
           }
-          let bestResult = response.results[0]; // NOTE: seems like there could be multiple responses - using first for now
+          const bestResult = response.results[0]; // NOTE: seems like there could be multiple responses - using first for now
           resolve(bestResult);
         }, reject)
         .catch(reject);
@@ -13340,21 +12882,21 @@ Thanks for using Polis!
               geometry: { location: { lat: any; lng: any } };
             }) {
               winston.log("info", result);
-              let lat = result.geometry.location.lat;
-              let lng = result.geometry.location.lng;
+              const lat = result.geometry.location.lat;
+              const lng = result.geometry.location.lng;
               // NOTE: not waiting for the response to this - it might fail in the case of a race-condition, since we don't have upsert
               pgQueryP(
                 "insert into geolocation_cache (location,lat,lng,response) values ($1,$2,$3,$4);",
                 [locationString, lat, lng, JSON.stringify(result)]
               );
-              let o = {
+              const o = {
                 lat: lat,
                 lng: lng,
               };
               return o;
             });
           } else {
-            let o = {
+            const o = {
               lat: rows[0].lat,
               lng: rows[0].lng,
             };
@@ -13365,34 +12907,34 @@ Thanks for using Polis!
   }
   // Value of type 'typeof LRUCache' is not callable. Did you mean to include 'new'? ts(2348)
   // @ts-ignore
-  let twitterShareCountCache = LruCache({
+  const twitterShareCountCache = LruCache({
     maxAge: 1000 * 60 * 30, // 30 minutes
     max: 999,
   });
 
   function getTwitterShareCountForConversation(conversation_id: string) {
-    let cached = twitterShareCountCache.get(conversation_id);
+    const cached = twitterShareCountCache.get(conversation_id);
     if (cached) {
       return Promise.resolve(cached);
     }
-    let httpUrl =
+    const httpUrl =
       "https://cdn.api.twitter.com/1/urls/count.json?url=http://pol.is/" +
       conversation_id;
-    let httpsUrl =
+    const httpsUrl =
       "https://cdn.api.twitter.com/1/urls/count.json?url=https://pol.is/" +
       conversation_id;
     return Promise.all([request.get(httpUrl), request.get(httpsUrl)]).then(
       function (a: any[]) {
-        let httpResult = a[0];
-        let httpsResult = a[1];
-        let httpCount = JSON.parse(httpResult).count;
-        let httpsCount = JSON.parse(httpsResult).count;
+        const httpResult = a[0];
+        const httpsResult = a[1];
+        const httpCount = JSON.parse(httpResult).count;
+        const httpsCount = JSON.parse(httpsResult).count;
         if (httpCount > 0 && httpsCount > 0 && httpCount === httpsCount) {
           console.warn(
             "found matching http and https twitter share counts, if this is common, check twitter api to see if it has changed."
           );
         }
-        let count = httpCount + httpsCount;
+        const count = httpCount + httpsCount;
         twitterShareCountCache.set(conversation_id, count);
         return count;
       }
@@ -13401,19 +12943,20 @@ Thanks for using Polis!
 
   // Value of type 'typeof LRUCache' is not callable. Did you mean to include 'new'? ts(2348)
   // @ts-ignore
-  let fbShareCountCache = LruCache({
+  const fbShareCountCache = LruCache({
     maxAge: 1000 * 60 * 30, // 30 minutes
     max: 999,
   });
 
   function getFacebookShareCountForConversation(conversation_id: string) {
-    let cached = fbShareCountCache.get(conversation_id);
+    const cached = fbShareCountCache.get(conversation_id);
     if (cached) {
       return Promise.resolve(cached);
     }
-    let url = "http://graph.facebook.com/?id=https://pol.is/" + conversation_id;
+    const url =
+      "http://graph.facebook.com/?id=https://pol.is/" + conversation_id;
     return request.get(url).then(function (result: string) {
-      let shares = JSON.parse(result).shares;
+      const shares = JSON.parse(result).shares;
       fbShareCountCache.set(conversation_id, shares);
       return shares;
     });
@@ -13464,7 +13007,7 @@ Thanks for using Polis!
       ) => void;
     }
   ) {
-    let zid = req.p.zid;
+    const zid = req.p.zid;
     Promise.all([
       getPidsForGid(zid, 0, -1),
       getPidsForGid(zid, 1, -1),
@@ -13476,12 +13019,12 @@ Thanks for using Polis!
       isModerator(req.p.zid, req.p.uid),
     ])
       .then((o: any[]) => {
-        let groupPids = [];
-        let groupStats = [];
+        const groupPids = [];
+        const groupStats = [];
 
         let meta = o[5];
-        let metaVotes = o[6];
-        let isMod = o[7];
+        const metaVotes = o[6];
+        const isMod = o[7];
 
         const isReportQuery = !_.isUndefined(req.p.rid);
 
@@ -13526,7 +13069,7 @@ Thanks for using Polis!
           }
         }
         meta = _.indexBy(meta, "pid");
-        let pidToMetaVotes = _.groupBy(metaVotes, "pid");
+        const pidToMetaVotes = _.groupBy(metaVotes, "pid");
 
         for (let i = 0; i < groupStats.length; i++) {
           // Type '{ gid: number; count: number; gender_male: number; gender_female: number;
@@ -13537,11 +13080,11 @@ Thanks for using Polis!
           // birth_year_guess_countts(2739)
           //
           // @ts-ignore
-          let s: DemographicEntry = groupStats[i];
-          let pids = groupPids[i];
+          const s: DemographicEntry = groupStats[i];
+          const pids = groupPids[i];
           for (let p = 0; p < pids.length; p++) {
-            let pid = pids[p];
-            let ptptMeta = meta[pid];
+            const pid = pids[p];
+            const ptptMeta = meta[pid];
             if (ptptMeta) {
               s.count += 1;
               // if (ptptMeta.fb_gender === 0) {
@@ -13602,10 +13145,10 @@ Thanks for using Polis!
                 s.birth_year_count += 1;
               }
             }
-            let ptptMetaVotes = pidToMetaVotes[pid];
+            const ptptMetaVotes = pidToMetaVotes[pid];
             if (ptptMetaVotes) {
               for (let v = 0; v < ptptMetaVotes.length; v++) {
-                let vote = ptptMetaVotes[v];
+                const vote = ptptMetaVotes[v];
                 if (vote.vote === polisTypes.reactions.pass) {
                   // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
                   // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
@@ -13676,7 +13219,7 @@ Thanks for using Polis!
           console.log("NOTHING");
           return;
         }
-        var o = results[0];
+        const o = results[0];
         _.each(o, (val: any, key: string) => {
           if (key.startsWith("encrypted_")) {
             o[key] = decrypt(val);
@@ -13698,15 +13241,15 @@ Thanks for using Polis!
       ) => { (): any; new (): any; json: { (arg0: any): void; new (): any } };
     }
   ) {
-    let zid = req.p.zid;
-    let gid = req.p.gid;
+    const zid = req.p.zid;
+    const gid = req.p.gid;
 
     Promise.all([getPidsForGid(zid, gid, -1), getLocationsForParticipants(zid)])
       .then(function (o: any[]) {
-        let pids = o[0];
+        const pids = o[0];
         let locations = o[1];
         locations = locations.filter(function (locData: { pid: any }) {
-          let pidIsInGroup = _.indexOf(pids, locData.pid, true) >= 0; // uses binary search
+          const pidIsInGroup = _.indexOf(pids, locData.pid, true) >= 0; // uses binary search
           return pidIsInGroup;
         });
         locations = locations.map(function (locData: { lat: any; lng: any }) {
@@ -13723,8 +13266,8 @@ Thanks for using Polis!
       });
   }
   function removeNullOrUndefinedProperties(o: { [x: string]: any }) {
-    for (var k in o) {
-      let v = o[k];
+    for (const k in o) {
+      const v = o[k];
       if (v === null || v === undefined) {
         delete o[k];
       }
@@ -13733,7 +13276,7 @@ Thanks for using Polis!
   }
 
   function pullXInfoIntoSubObjects(ptptoiRecord: any) {
-    let p = ptptoiRecord;
+    const p = ptptoiRecord;
     if (p.x_profile_image_url || p.xid || p.x_email) {
       p.xInfo = {};
       p.xInfo.x_profile_image_url = p.x_profile_image_url;
@@ -13749,11 +13292,11 @@ Thanks for using Polis!
   }
 
   function pullFbTwIntoSubObjects(ptptoiRecord: any) {
-    let p = ptptoiRecord;
-    let x: ParticipantSocialNetworkInfo = {};
+    const p = ptptoiRecord;
+    const x: ParticipantSocialNetworkInfo = {};
     _.each(p, function (val: null, key: string) {
-      let fbMatch = /fb__(.*)/.exec(key);
-      let twMatch = /tw__(.*)/.exec(key);
+      const fbMatch = /fb__(.*)/.exec(key);
+      const twMatch = /tw__(.*)/.exec(key);
       if (fbMatch && fbMatch.length === 2 && val !== null) {
         x.facebook = x.facebook || {};
         x.facebook[fbMatch[1]] = val;
@@ -13767,7 +13310,7 @@ Thanks for using Polis!
     // extract props from fb_public_profile
     if (x.facebook && x.facebook.fb_public_profile) {
       try {
-        let temp = JSON.parse(x.facebook.fb_public_profile);
+        const temp = JSON.parse(x.facebook.fb_public_profile);
         x.facebook.verified = temp.verified;
         // shouln't return this to client
         delete x.facebook.fb_public_profile;
@@ -13779,8 +13322,8 @@ Thanks for using Polis!
       }
 
       if (!_.isUndefined(x.facebook.fb_user_id)) {
-        let width = 40;
-        let height = 40;
+        const width = 40;
+        const height = 40;
         x.facebook.fb_picture =
           "https://graph.facebook.com/v2.2/" +
           x.facebook.fb_user_id +
@@ -13800,10 +13343,10 @@ Thanks for using Polis!
       ) => { (): any; new (): any; json: { (arg0: {}): void; new (): any } };
     }
   ) {
-    let zid = req.p.zid;
-    let uid = req.p.uid;
-    let pid = req.p.pid;
-    let mod = req.p.mod;
+    const zid = req.p.zid;
+    const uid = req.p.uid;
+    const pid = req.p.pid;
+    const mod = req.p.mod;
     isModerator(zid, uid)
       .then(function (isMod: any) {
         if (!isMod) {
@@ -13829,22 +13372,22 @@ Thanks for using Polis!
       ) => { (): any; new (): any; json: { (arg0: any): void; new (): any } };
     }
   ) {
-    let zid = req.p.zid;
-    let mod = req.p.mod;
-    let uid = req.p.uid;
-    let limit = 99999;
+    const zid = req.p.zid;
+    const mod = req.p.mod;
+    const uid = req.p.uid;
+    const limit = 99999;
 
-    let convPromise = getConversationInfo(req.p.zid);
-    let socialPtptsPromise = convPromise.then((conv: { owner: any }) => {
+    const convPromise = getConversationInfo(req.p.zid);
+    const socialPtptsPromise = convPromise.then((conv: { owner: any }) => {
       return getSocialParticipantsForMod_timed(zid, limit, mod, conv.owner);
     });
 
     Promise.all([socialPtptsPromise, getConversationInfo(zid)])
       .then(function (a: any[]) {
         let ptptois = a[0];
-        let conv = a[1];
-        let isOwner = uid === conv.owner;
-        let isAllowed = isOwner || isPolisDev(req.p.uid) || conv.is_data_open;
+        const conv = a[1];
+        const isOwner = uid === conv.owner;
+        const isAllowed = isOwner || isPolisDev(req.p.uid) || conv.is_data_open;
         if (isAllowed) {
           ptptois = ptptois.map(pullXInfoIntoSubObjects);
           ptptois = ptptois.map(removeNullOrUndefinedProperties);
@@ -13889,17 +13432,17 @@ Thanks for using Polis!
     o?: { uid?: any; zid: any; math_tick: any; ptptoiLimit: any },
     req?: any
   ) {
-    let uid = o?.uid;
-    let zid = o?.zid;
-    let math_tick = o?.math_tick;
+    const uid = o?.uid;
+    const zid = o?.zid;
+    const math_tick = o?.math_tick;
 
     // NOTE: if this API is running slow, it's probably because fetching the PCA from pg is slow, and PCA caching is disabled
 
     // let twitterLimit = 999; // we can actually check a lot of these, since they might be among the fb users
     // let softLimit = 26;
-    let hardLimit = _.isUndefined(o?.ptptoiLimit) ? 30 : o?.ptptoiLimit;
+    const hardLimit = _.isUndefined(o?.ptptoiLimit) ? 30 : o?.ptptoiLimit;
     // let ALLOW_NON_FRIENDS_WHEN_EMPTY_SOCIAL_RESULT = true;
-    let mod = 0; // for now, assume all conversations will show unmoderated and approved participants.
+    const mod = 0; // for now, assume all conversations will show unmoderated and approved participants.
 
     function getAuthorUidsOfFeaturedComments() {
       return getPca(zid, 0).then(function (pcaData: {
@@ -13914,14 +13457,14 @@ Thanks for using Polis!
         pcaData.consensus = pcaData.consensus || {};
         pcaData.consensus.agree = pcaData.consensus.agree || [];
         pcaData.consensus.disagree = pcaData.consensus.disagree || [];
-        let consensusTids = _.union(
+        const consensusTids = _.union(
           _.pluck(pcaData.consensus.agree, "tid"),
           _.pluck(pcaData.consensus.disagree, "tid")
         );
 
         let groupTids: never[] = [];
-        for (var gid in pcaData.repness) {
-          let commentData = pcaData.repness[gid];
+        for (const gid in pcaData.repness) {
+          const commentData = pcaData.repness[gid];
           // Type 'any[]' is not assignable to type 'never[]'.
           // Type 'any' is not assignable to type 'never'.ts(2322)
           // @ts-ignore
@@ -13934,7 +13477,7 @@ Thanks for using Polis!
         if (featuredTids.length === 0) {
           return [];
         }
-        let q =
+        const q =
           "with " +
           "authors as (select distinct(uid) from comments where zid = ($1) and tid in (" +
           featuredTids.join(",") +
@@ -13959,8 +13502,8 @@ Thanks for using Polis!
       getConversationInfo(zid),
       getAuthorUidsOfFeaturedComments(),
     ]).then(function (a: any[]) {
-      let conv = a[0];
-      let authorUids = a[1];
+      const conv = a[0];
+      const authorUids = a[1];
 
       if (conv.is_anon) {
         return {};
@@ -14047,7 +13590,7 @@ Thanks for using Polis!
         });
         console.log("mike1234", pids.length);
 
-        let pidToData = _.indexBy(participantsWithSocialInfo, "pid"); // TODO this is extra work, probably not needed after some rethinking
+        const pidToData = _.indexBy(participantsWithSocialInfo, "pid"); // TODO this is extra work, probably not needed after some rethinking
         console.log("mike12345", pidToData);
 
         // polisSocialSettings.forEach(function(p) {
@@ -14115,16 +13658,16 @@ Thanks for using Polis!
                   vectors,
                   function (value: any, pid: string | number, list: any) {
                     pid = parseInt(pid as string);
-                    let bid = pidsToBids[pid];
-                    let notInBucket = _.isUndefined(bid);
-                    let isSelf = pidToData[pid].isSelf;
+                    const bid = pidsToBids[pid];
+                    const notInBucket = _.isUndefined(bid);
+                    const isSelf = pidToData[pid].isSelf;
                     // winston.log("info","pidToData", pid, myPid, isSelf);
                     // winston.log("info",pidToData[pid]);
                     if (notInBucket && !isSelf) {
                       // pidToData[pid].ignore = true;
                       console.log("mike12347", "deleting", pid);
                       delete pidToData[pid]; // if the participant isn't in a bucket, they probably haven't voted enough for the math worker to bucketize them.
-                    } else if (!!pidToData[pid]) {
+                    } else if (pidToData[pid]) {
                       console.log("mike12348", "keeping", pid);
                       pidToData[pid].votes = value; // no separator, like this "adupuuauuauupuuu";
                       pidToData[pid].bid = bid;
@@ -14152,7 +13695,7 @@ Thanks for using Polis!
       ) => { (): any; new (): any; json: { (arg0: any): void; new (): any } };
     }
   ) {
-    let uid = req.p.uid;
+    const uid = req.p.uid;
     let p;
     if (uid) {
       p = pgQueryP_readOnly("select * from twitter_users where uid = ($1);", [
@@ -14190,7 +13733,6 @@ Thanks for using Polis!
     });
   }
 
-
   function handle_POST_einvites(
     req: { p: { email: any } },
     res: {
@@ -14199,7 +13741,7 @@ Thanks for using Polis!
       ) => { (): any; new (): any; json: { (arg0: {}): void; new (): any } };
     }
   ) {
-    let email = req.p.email;
+    const email = req.p.email;
     doSendEinvite(req, email)
       .then(function () {
         res.status(200).json({});
@@ -14232,7 +13774,7 @@ Thanks for using Polis!
       ) => { (): any; new (): any; json: { (arg0: any): void; new (): any } };
     }
   ) {
-    let einvite = req.p.einvite;
+    const einvite = req.p.einvite;
 
     winston.log("info", "select * from einvites where einvite = ($1);", [
       einvite,
@@ -14335,7 +13877,7 @@ Thanks for using Polis!
     generateSingleUseUrl: (arg0: any, arg1: any) => any
   ) {
     return generateSUZinvites(1).then(function (suzinviteArray: any[]) {
-      let suzinvite = suzinviteArray[0];
+      const suzinvite = suzinviteArray[0];
       return pgQueryP(
         "INSERT INTO suzinvites (suzinvite, xid, zid, owner) VALUES ($1, $2, $3, $4);",
         [suzinvite, xid, zid, owner]
@@ -14375,15 +13917,15 @@ Thanks for using Polis!
     },
     afterJoinRedirectUrl?: string
   ) {
-    let context_id = req.p.context_id;
-    let user_id = req.p.user_id;
-    let user_image = req.p.user_image;
-    let tool_consumer_instance_guid = req.p.tool_consumer_instance_guid;
+    const context_id = req.p.context_id;
+    const user_id = req.p.user_id;
+    const user_image = req.p.user_image;
+    const tool_consumer_instance_guid = req.p.tool_consumer_instance_guid;
 
-    let greeting = "";
+    const greeting = "";
     // TODO If we're doing this basic form, we can't just return json from the /login call
 
-    let form1 =
+    const form1 =
       "" +
       '<h2>create a new <img src="https://pol.is/polis-favicon_favicon.png" height="20px"> pol<span class="Logo--blue">.</span>is account</h2>' +
       '<p><form role="form" class="FormVertical" action="' +
@@ -14433,7 +13975,7 @@ Thanks for using Polis!
       "</div>" +
       "</form></p>";
 
-    let form2 =
+    const form2 =
       "" +
       "<p> - OR - </p>" +
       "<h2>sign in with an existing pol.is account</h2>" +
@@ -14477,7 +14019,7 @@ Thanks for using Polis!
     });
     // let customPart = isInstructor ? "you are the instructor" : "you are a Student";
 
-    let html =
+    const html =
       "" +
       "<!DOCTYPE html><html lang='en'>" +
       "<head>" +
@@ -14562,8 +14104,8 @@ Thanks for using Polis!
     winston.log("info", req);
     // let roles = req.p.roles;
     // let isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
-    let user_id = req.p.user_id;
-    let context_id = req.p.context_id;
+    const user_id = req.p.user_id;
+    const context_id = req.p.context_id;
     // let user_image = req.p.user_image || "";
     if (!req.p.tool_consumer_instance_guid) {
       emailBadProblemTime(
@@ -14574,7 +14116,7 @@ Thanks for using Polis!
     // TODO SECURITY we need to verify the signature
     // let oauth_consumer_key = req.p.oauth_consumer_key;
 
-    let dataSavedPromise = pgQueryP(
+    const dataSavedPromise = pgQueryP(
       "insert into lti_single_assignment_callback_info (lti_user_id, lti_context_id, lis_outcome_service_url, stringified_json_of_post_content) values ($1, $2, $3, $4);",
       [
         user_id,
@@ -14607,9 +14149,6 @@ Thanks for using Polis!
                 // } else {
                 //     if (you paid) {
                 User.renderLtiLinkageSuccessPage(req, res, {
-                  // Argument of type '{ context_id: any; email: any; }' is not assignable to parameter of type '{ email: string; }'.
-                  // Object literal may only specify known properties, and 'context_id' does not exist in type '{ email: string; }'.ts(2345)
-                  // @ts-ignore
                   context_id: context_id,
                   // user_image: userForLtiUserId.user_image,
                   email: userForLtiUserId.email,
@@ -14724,7 +14263,7 @@ Thanks for using Polis!
         //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
         // @ts-ignore
         .then(function (rows: string | any[]) {
-          let exists = rows && rows.length;
+          const exists = rows && rows.length;
           if (exists) {
             return exists;
           } else {
@@ -14855,11 +14394,11 @@ Thanks for using Polis!
       send: (arg0: string) => void;
     }
   ) {
-    let roles = req.p.roles;
-    let isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
+    const roles = req.p.roles;
+    const isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
     // let isLearner = /[lL]earner/.exec(roles);
-    let user_id = req.p.user_id;
-    let context_id = req.p.context_id;
+    const user_id = req.p.user_id;
+    const context_id = req.p.context_id;
     // let user_image = req.p.user_image || "";
 
     winston.log("info", "grades req.body " + JSON.stringify(req.body));
@@ -14950,11 +14489,11 @@ Thanks for using Polis!
       getPolisUserForLtiUser(),
     ])
       .then(function (results: any[]) {
-        let infos = results[0];
-        let exists = infos && infos.length;
-        let info = infos[0];
+        const infos = results[0];
+        const exists = infos && infos.length;
+        const info = infos[0];
 
-        let user = results[1];
+        const user = results[1];
 
         if (exists) {
           return constructConversationUrl(info.zid)
@@ -15011,7 +14550,7 @@ Thanks for using Polis!
                   })
               );
             } else {
-              let url =
+              const url =
                 getServerNameWithProtocol(req) +
                 "/conversation/create/" +
                 encodeParams({
@@ -15087,7 +14626,7 @@ Thanks for using Polis!
       };
     }
   ) {
-    let xml =
+    const xml =
       "" +
       '<cartridge_basiclti_link xmlns="http://www.imsglobal.org/xsd/imslticc_v1p0" xmlns:blti="http://www.imsglobal.org/xsd/imsbasiclti_v1p0" xmlns:lticm="http://www.imsglobal.org/xsd/imslticm_v1p0" xmlns:lticp="http://www.imsglobal.org/xsd/imslticp_v1p0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsglobal.org/xsd/imslticc_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticc_v1p0.xsd http://www.imsglobal.org/xsd/imsbasiclti_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imsbasiclti_v1p0.xsd http://www.imsglobal.org/xsd/imslticm_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticm_v1p0.xsd http://www.imsglobal.org/xsd/imslticp_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticp_v1p0.xsd">' +
       "<blti:title>Polis Setup Assignment</blti:title>" +
@@ -15145,9 +14684,9 @@ Thanks for using Polis!
       };
     }
   ) {
-    let serverName = getServerNameWithProtocol(req);
+    const serverName = getServerNameWithProtocol(req);
 
-    let xml =
+    const xml =
       "" +
       '<cartridge_basiclti_link xmlns="http://www.imsglobal.org/xsd/imslticc_v1p0" xmlns:blti="http://www.imsglobal.org/xsd/imsbasiclti_v1p0" xmlns:lticm="http://www.imsglobal.org/xsd/imslticm_v1p0" xmlns:lticp="http://www.imsglobal.org/xsd/imslticp_v1p0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsglobal.org/xsd/imslticc_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticc_v1p0.xsd http://www.imsglobal.org/xsd/imsbasiclti_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imsbasiclti_v1p0.xsd http://www.imsglobal.org/xsd/imslticm_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticm_v1p0.xsd http://www.imsglobal.org/xsd/imslticp_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticp_v1p0.xsd">' +
       "<blti:title>Polis Conversation Setup</blti:title>" +
@@ -15201,7 +14740,7 @@ Thanks for using Polis!
     } else {
       path += "app_instructions_blank.png";
     }
-    let doFetch = makeFileFetcher(hostname, staticFilesClientPort, path, {
+    const doFetch = makeFileFetcher(hostname, staticFilesClientPort, path, {
       "Content-Type": "image/png",
     });
     //   Argument of type '{ headers?: { [x: string]: string; } | undefined; }' is not assignable to parameter of type '{ headers?: { host: any; } | undefined; path: any; pipe: (arg0: any) => void; }'.
@@ -15296,8 +14835,8 @@ Thanks for using Polis!
     conversation_id: string,
     suzinvite: string
   ) {
-    let serverName = getServerNameWithProtocol(req);
-    let body =
+    const serverName = getServerNameWithProtocol(req);
+    const body =
       "" +
       "Welcome to pol.is!\n" +
       "\n" +
@@ -15339,31 +14878,31 @@ Thanks for using Polis!
       };
     }
   ) {
-    let uid = req.p.uid;
-    let emails = req.p.emails;
-    let zid = req.p.zid;
-    let conversation_id = req.p.conversation_id;
+    const uid = req.p.uid;
+    const emails = req.p.emails;
+    const zid = req.p.zid;
+    const conversation_id = req.p.conversation_id;
 
     getConversationInfo(zid)
       .then(function (conv: { owner: any }) {
-        let owner = conv.owner;
+        const owner = conv.owner;
 
         // generate some tokens
         // add them to a table paired with user_ids
         // return URLs with those.
         generateSUZinvites(emails.length)
           .then(function (suzinviteArray: any) {
-            let pairs = _.zip(emails, suzinviteArray);
+            const pairs = _.zip(emails, suzinviteArray);
 
-            let valuesStatements = pairs.map(function (pair: any[]) {
-              let xid = escapeLiteral(pair[0]);
-              let suzinvite = escapeLiteral(pair[1]);
-              let statement =
+            const valuesStatements = pairs.map(function (pair: any[]) {
+              const xid = escapeLiteral(pair[0]);
+              const suzinvite = escapeLiteral(pair[1]);
+              const statement =
                 "(" + suzinvite + ", " + xid + "," + zid + "," + owner + ")";
               winston.log("info", statement);
               return statement;
             });
-            let query =
+            const query =
               "INSERT INTO suzinvites (suzinvite, xid, zid, owner) VALUES " +
               valuesStatements.join(",") +
               ";";
@@ -15376,8 +14915,8 @@ Thanks for using Polis!
 
               Promise.all(
                 pairs.map(function (pair: any[]) {
-                  let email = pair[0];
-                  let suzinvite = pair[1];
+                  const email = pair[0];
+                  const suzinvite = pair[1];
                   return sendSuzinviteEmail(
                     req,
                     email,
@@ -15438,9 +14977,9 @@ Thanks for using Polis!
             resolve: (arg0: { owner: any; zid: any; zinvite: any }) => void,
             reject: (arg0: string, arg1?: undefined) => void
           ) {
-            let uid = rows[0].uid;
+            const uid = rows[0].uid;
             //    create a conversation for the owner we got,
-            let generateShortUrl = false;
+            const generateShortUrl = false;
 
             isUserAllowedToCreateConversations(
               uid,
@@ -15454,7 +14993,7 @@ Thanks for using Polis!
                   return;
                 }
 
-                let params = Object.assign(o, {
+                const params = Object.assign(o, {
                   owner: uid,
                   org_id: uid,
                   // description: req.p.description,
@@ -15469,7 +15008,7 @@ Thanks for using Polis!
                   owner_sees_participation_stats: false, // TODO think, and test join
                 });
 
-                let q = sql_conversations
+                const q = sql_conversations
                   .insert(params)
                   .returning("*")
                   .toString();
@@ -15487,7 +15026,7 @@ Thanks for using Polis!
                       }
                     }
 
-                    let zid =
+                    const zid =
                       result &&
                       result.rows &&
                       result.rows[0] &&
@@ -15499,7 +15038,7 @@ Thanks for using Polis!
                     ])
                       .then(function (o: any[]) {
                         // let notNeeded = o[0];
-                        let zinvite = o[1];
+                        const zinvite = o[1];
                         // NOTE: OK to return conversation_id, because this conversation was just created by this user.
                         resolve({
                           owner: uid,
@@ -15530,7 +15069,7 @@ Thanks for using Polis!
     modUrl: string,
     seedUrl: string
   ) {
-    let body =
+    const body =
       "" +
       "Conversation created!" +
       "\n" +
@@ -15562,7 +15101,7 @@ Thanks for using Polis!
     return pgQueryP("select email from users where site_id = ($1)", [
       site_id,
     ]).then(function (rows: any) {
-      let emails = _.pluck(rows, "email");
+      const emails = _.pluck(rows, "email");
 
       return sendMultipleTextEmails(
         polisFromAddress,
@@ -15589,14 +15128,14 @@ Thanks for using Polis!
       .then(function (a: any[]) {
         let conv = a[0];
 
-        let auth_opt_allow_3rdparty = ifDefinedFirstElseSecond(
+        const auth_opt_allow_3rdparty = ifDefinedFirstElseSecond(
           conv.auth_opt_allow_3rdparty,
           DEFAULTS.auth_opt_allow_3rdparty
         );
-        let auth_opt_fb_computed =
+        const auth_opt_fb_computed =
           auth_opt_allow_3rdparty &&
           ifDefinedFirstElseSecond(conv.auth_opt_fb, DEFAULTS.auth_opt_fb);
-        let auth_opt_tw_computed =
+        const auth_opt_tw_computed =
           auth_opt_allow_3rdparty &&
           ifDefinedFirstElseSecond(conv.auth_opt_tw, DEFAULTS.auth_opt_tw);
 
@@ -15705,24 +15244,24 @@ Thanks for using Polis!
     // @ts-ignore
     page_id = page_id?.[1];
 
-    let demo = req.p.demo;
-    let ucv = req.p.ucv;
-    let ucw = req.p.ucw;
-    let ucsh = req.p.ucsh;
-    let ucst = req.p.ucst;
-    let ucsd = req.p.ucsd;
-    let ucsv = req.p.ucsv;
-    let ucsf = req.p.ucsf;
-    let ui_lang = req.p.ui_lang;
-    let subscribe_type = req.p.subscribe_type;
-    let xid = req.p.xid;
-    let x_name = req.p.x_name;
-    let x_profile_image_url = req.p.x_profile_image_url;
-    let x_email = req.p.x_email;
-    let parent_url = req.p.parent_url;
-    let dwok = req.p.dwok;
-    let build = req.p.build;
-    let o: ConversationType = {};
+    const demo = req.p.demo;
+    const ucv = req.p.ucv;
+    const ucw = req.p.ucw;
+    const ucsh = req.p.ucsh;
+    const ucst = req.p.ucst;
+    const ucsd = req.p.ucsd;
+    const ucsv = req.p.ucsv;
+    const ucsf = req.p.ucsf;
+    const ui_lang = req.p.ui_lang;
+    const subscribe_type = req.p.subscribe_type;
+    const xid = req.p.xid;
+    const x_name = req.p.x_name;
+    const x_profile_image_url = req.p.x_profile_image_url;
+    const x_email = req.p.x_email;
+    const parent_url = req.p.parent_url;
+    const dwok = req.p.dwok;
+    const build = req.p.build;
+    const o: ConversationType = {};
     ifDefinedSet("parent_url", req.p, o);
     ifDefinedSet("auth_needed_to_vote", req.p, o);
     ifDefinedSet("auth_needed_to_write", req.p, o);
@@ -15739,7 +15278,7 @@ Thanks for using Polis!
     o.socialbtn_type = req.p.show_share ? 1 : 0;
     // Set stuff in cookies to be retrieved when POST participants is called.
     let setOnPolisDomain = !domainOverride;
-    let origin = req?.headers?.origin || "";
+    const origin = req?.headers?.origin || "";
     if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
       setOnPolisDomain = false;
     }
@@ -15827,8 +15366,8 @@ Thanks for using Polis!
               let url = _.isUndefined(demo)
                 ? buildConversationUrl(req, conv.zinvite)
                 : buildConversationDemoUrl(req, conv.zinvite);
-              let modUrl = buildModerationUrl(req, conv.zinvite);
-              let seedUrl = buildSeedUrl(req, conv.zinvite);
+              const modUrl = buildModerationUrl(req, conv.zinvite);
+              const seedUrl = buildSeedUrl(req, conv.zinvite);
               sendImplicitConversationCreatedEmails(
                 site_id,
                 page_id,
@@ -15870,7 +15409,7 @@ Thanks for using Polis!
 
   // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
   // @ts-ignore
-  let routingProxy = new httpProxy.createProxyServer();
+  const routingProxy = new httpProxy.createProxyServer();
 
   function addStaticFileHeaders(res: {
     setHeader: (arg0: string, arg1: string | number) => void;
@@ -15881,10 +15420,10 @@ Thanks for using Polis!
   }
 
   function proxy(req: { headers?: { host: string }; path: any }, res: any) {
-    let hostname = buildStaticHostname(req, res);
+    const hostname = buildStaticHostname(req, res);
     if (!hostname) {
-      let host = req?.headers?.host || "";
-      let re = new RegExp(Config.getServerHostname() + "$");
+      const host = req?.headers?.host || "";
+      const re = new RegExp(Config.getServerHostname() + "$");
       if (host.match(re)) {
         // don't alert for this, it's probably DNS related
         // TODO_SEO what should we return?
@@ -15913,7 +15452,7 @@ Thanks for using Polis!
     //     // });
     //     getStaticFile("./unsupportedBrowser.html", res);
     // } else {
-    let port = Config.staticFilesClientPort;
+    const port = Config.staticFilesClientPort;
     // set the host header too, since S3 will look at that (or the routing proxy will patch up the request.. not sure which)
     if (req && req.headers && req.headers.host) req.headers.host = hostname;
     routingProxy.web(req, res, {
@@ -15936,9 +15475,7 @@ Thanks for using Polis!
       if (!whitelistedBuckets[origin || ""]) {
         if (hasWhitelistMatches(origin || "")) {
           // Use the prod bucket for non pol.is domains
-          return (
-            whitelistedBuckets["pol.is"] + "." + Config.staticFilesHost
-          );
+          return whitelistedBuckets["pol.is"] + "." + Config.staticFilesHost;
         } else {
           console.error(
             "got request with host that's not whitelisted: (" +
@@ -15964,8 +15501,8 @@ Thanks for using Polis!
         end: () => void;
       }
     ) {
-      let protocol = devMode ? "http://" : "https://";
-      let url = protocol + req?.headers?.host + path;
+      const protocol = devMode ? "http://" : "https://";
+      const url = protocol + req?.headers?.host + path;
       res.writeHead(302, {
         Location: url,
       });
@@ -16031,7 +15568,7 @@ Thanks for using Polis!
       req: { headers?: { host: any }; path: any; pipe: (arg0: any) => void },
       res: { set: (arg0: any) => void }
     ) {
-      let hostname = buildStaticHostname(req, res);
+      const hostname = buildStaticHostname(req, res);
       if (!hostname) {
         fail(res, 500, "polis_err_file_fetcher_serving_to_domain");
         console.error(req?.headers?.host);
@@ -16043,7 +15580,7 @@ Thanks for using Polis!
 
       // TODO https - buckets would need to be renamed to have dashes instead of dots.
       // http://stackoverflow.com/questions/3048236/amazon-s3-https-ssl-is-it-possible
-      let url = "http://" + hostname + ":" + port + path;
+      const url = "http://" + hostname + ":" + port + path;
       winston.log("info", "fetch file from " + url);
       let x = request(url);
       req.pipe(x);
@@ -16121,10 +15658,10 @@ Thanks for using Polis!
   }
 
   // serve up index.html in response to anything starting with a number
-  let hostname: string = Config.staticFilesHost;
-  let staticFilesClientPort: number = Config.staticFilesClientPort;
-  let staticFilesAdminPort: number = Config.staticFilesAdminPort;
-  let fetchUnsupportedBrowserPage = makeFileFetcher(
+  const hostname: string = Config.staticFilesHost;
+  const staticFilesClientPort: number = Config.staticFilesClientPort;
+  const staticFilesAdminPort: number = Config.staticFilesAdminPort;
+  const fetchUnsupportedBrowserPage = makeFileFetcher(
     hostname,
     staticFilesClientPort,
     "/unsupportedBrowser.html",
@@ -16143,7 +15680,7 @@ Thanks for using Polis!
     port: string | number | undefined,
     buildNumber?: string | null | undefined
   ) {
-    let headers = {
+    const headers = {
       "Content-Type": "text/html",
     };
     if (!devMode) {
@@ -16162,10 +15699,10 @@ Thanks for using Polis!
       buildNumber = null;
     }
 
-    let indexPath =
+    const indexPath =
       (buildNumber ? "/cached/" + buildNumber : "") + "/index.html";
 
-    let doFetch = makeFileFetcher(
+    const doFetch = makeFileFetcher(
       hostname,
       port,
       indexPath,
@@ -16203,21 +15740,26 @@ Thanks for using Polis!
   function ifDefinedFirstElseSecond(first: any, second: boolean) {
     return _.isUndefined(first) ? second : first;
   }
-  let fetch404Page = makeFileFetcher(hostname, staticFilesAdminPort, "/404.html", {
-    "Content-Type": "text/html",
-  });
+  const fetch404Page = makeFileFetcher(
+    hostname,
+    staticFilesAdminPort,
+    "/404.html",
+    {
+      "Content-Type": "text/html",
+    }
+  );
 
   function fetchIndexForConversation(
     req: { path: string; query?: { build: any } },
     res: any
   ) {
     console.log("fetchIndexForConversation", req.path);
-    let match = req.path.match(/[0-9][0-9A-Za-z]+/);
+    const match = req.path.match(/[0-9][0-9A-Za-z]+/);
     let conversation_id: any;
     if (match && match.length) {
       conversation_id = match[0];
     }
-    let buildNumber: null = null;
+    let buildNumber: any = null;
     if (req?.query?.build) {
       buildNumber = req.query.build;
       console.log("loading_build", buildNumber);
@@ -16249,17 +15791,11 @@ Thanks for using Polis!
 
     doGetConversationPreloadInfo(conversation_id)
       .then(function (x: any) {
-        let preloadData = {
+        const preloadData = {
           conversation: x,
           // Nothing user-specific can go here, since we want to cache these per-conv index files on the CDN.
         };
-        fetchIndex(
-          req,
-          res,
-          preloadData,
-          staticFilesClientPort,
-          buildNumber
-        );
+        fetchIndex(req, res, preloadData, staticFilesClientPort, buildNumber);
       })
       .catch(function (err: any) {
         // Argument of type '{ path: string; query?: { build: any; } | undefined; }' is not assignable to parameter of type '{ headers?: { host: any; } | undefined; path: any; pipe: (arg0: any) => void; }'.
@@ -16269,7 +15805,7 @@ Thanks for using Polis!
         // fail(res, 500, "polis_err_fetching_conversation_info2", err);
       });
   }
-  let fetchIndexForAdminPage = makeFileFetcher(
+  const fetchIndexForAdminPage = makeFileFetcher(
     hostname,
     staticFilesAdminPort,
     "/index_admin.html",
@@ -16277,7 +15813,7 @@ Thanks for using Polis!
       "Content-Type": "text/html",
     }
   );
-  let fetchIndexForReportPage = makeFileFetcher(
+  const fetchIndexForReportPage = makeFileFetcher(
     hostname,
     staticFilesAdminPort,
     "/index_report.html",
@@ -16293,7 +15829,7 @@ Thanks for using Polis!
       send: (arg0: string) => void;
     }
   ) {
-    let conversation_id = req.params.conversation_id;
+    const conversation_id = req.params.conversation_id;
     res.set({
       "Content-Type": "text/html",
     });
@@ -16312,14 +15848,14 @@ Thanks for using Polis!
       send: (arg0: string) => void;
     }
   ) {
-    let zid = req.p.zid;
-    let conversation_id = req.params.conversation_id;
+    const zid = req.p.zid;
+    const conversation_id = req.params.conversation_id;
     getConversationInfo(zid)
       .then(function (info: { topic: any; created: any; description: string }) {
         res.set({
           "Content-Type": "text/html",
         });
-        let title = info.topic || info.created;
+        const title = info.topic || info.created;
         res.send(
           "<a href='https://pol.is/" +
             conversation_id +
@@ -16356,7 +15892,7 @@ Thanks for using Polis!
       true
     )
       .then(function (data: string) {
-        let parsedData = JSON.parse(data);
+        const parsedData = JSON.parse(data);
         if (!parsedData || !parsedData.length) {
           fail(res, 500, "polis_err_finding_twitter_user_info");
           return;
@@ -16380,7 +15916,7 @@ Thanks for using Polis!
             fail(res, 500, "polis_err_finding_file " + url, err);
           });
 
-        let timeoutHandle = setTimeout(function () {
+        const timeoutHandle = setTimeout(function () {
           if (!finished) {
             finished = true;
             res.writeHead(504);
@@ -16397,7 +15933,7 @@ Thanks for using Polis!
         res.status(500).end();
       });
   }
-  let handle_GET_conditionalIndexFetcher = (function () {
+  const handle_GET_conditionalIndexFetcher = (function () {
     return function (req: any, res: { redirect: (arg0: string) => void }) {
       if (hasAuthToken(req)) {
         // user is signed in, serve the app
@@ -16421,7 +15957,7 @@ Thanks for using Polis!
         return fetchIndexForAdminPage(req, res);
       } else {
         // user not signed in, redirect to landing page
-        let url = getServerNameWithProtocol(req) + "/home";
+        const url = getServerNameWithProtocol(req) + "/home";
         res.redirect(url);
       }
     };
@@ -16466,7 +16002,7 @@ Thanks for using Polis!
     if (devMode) {
       let b = "";
       if (req.body) {
-        let temp = _.clone(req.body);
+        const temp = _.clone(req.body);
         // if (temp.email) {
         //     temp.email = "foo@foo.com";
         // }
@@ -16523,13 +16059,13 @@ Thanks for using Polis!
     return res.send(204);
   }
 
-  let middleware_responseTime_start = responseTime(function (
+  const middleware_responseTime_start = responseTime(function (
     req: { route: { path: any } },
     res: any,
     time: number
   ) {
     if (req && req.route && req.route.path) {
-      let path = req.route.path;
+      const path = req.route.path;
       time = Math.trunc(time);
       addInRamMetric(path, time);
     }

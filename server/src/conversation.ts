@@ -73,12 +73,7 @@ function isXidWhitelisted(owner: any, xid: any) {
         "select * from xid_whitelist where owner = ($1) and xid = ($2);",
         [owner, xid]
       )
-      //   Argument of type '(rows: string | any[]) => boolean' is not assignable to parameter of type '(value: unknown) => boolean | PromiseLike<boolean>'.
-      // Types of parameters 'rows' and 'value' are incompatible.
-      //   Type 'unknown' is not assignable to type 'string | any[]'.
-      //   Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-      // @ts-ignore
-      .then((rows: string | any[]) => {
+      .then((rows: any) => {
         return !!rows && rows.length > 0;
       })
   );
