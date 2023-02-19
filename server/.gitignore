@@ -1,5 +1,6 @@
 .env
 .google_creds_temp
+.vscode
 dist
 node_modules/
 npm-debug.log*
