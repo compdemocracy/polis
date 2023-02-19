@@ -10,21 +10,10 @@ function encrypt(text: any) {
   //
   // TODO replace deprecated createCipher method with current createCipheriv method
   //
-  //  function createCipher(algorithm: crypto.CipherCCMTypes, password: crypto.BinaryLike, options: crypto.CipherCCMOptions): crypto.CipherCCM (+2 overloads)
-  //
   // @deprecated — since v10.0.0 use createCipheriv()
   //
-  // The signature '(algorithm: string, password: BinaryLike, options: TransformOptions | undefined): CipherCCM & CipherGCM & Cipher' of 'crypto.createCipher' is deprecated.ts(6387)
-  // crypto.d.ts(207, 9): The declaration was marked as deprecated here.
-  // No overload matches this call.
-  //   Overload 1 of 3, '(algorithm: CipherGCMTypes, password: BinaryLike, options?: CipherGCMOptions | undefined): CipherGCM', gave the following error.
   const cipher = crypto.createCipher(algorithm, password);
-  // No overload matches this call.
-  // Overload 1 of 4, '(data: ArrayBufferView, input_encoding: undefined, output_encoding: Encoding): string', gave the following error.
   var crypted = cipher.update(text, "utf8", "hex");
-  // Type 'string' is not assignable to type 'Buffer & string'.
-  // Type 'string' is not assignable to type 'Buffer'.ts(2322)
-  // @ts-ignore
   crypted += cipher.final("hex");
   return crypted;
 }
@@ -35,14 +24,8 @@ function decrypt(text: string) {
   //
   // TODO replace deprecated createDecipher method with current createDecipheriv method
   //
-  //  function createDecipher(algorithm: crypto.CipherCCMTypes, password: crypto.BinaryLike, options: crypto.CipherCCMOptions): crypto.DecipherCCM (+2 overloads)
-  //
   // @deprecated — since v10.0.0 use createDecipheriv()
   //
-  // The signature '(algorithm: string, password: BinaryLike, options: TransformOptions | undefined): DecipherCCM & DecipherGCM & Decipher' of 'crypto.createDecipher' is deprecated.ts(6387)
-  // crypto.d.ts(253, 9): The declaration was marked as deprecated here.
-  // No overload matches this call.
-  //   Overload 1 of 3, '(algorithm: CipherGCMTypes, password: BinaryLike, options?: CipherGCMOptions | undefined): DecipherGCM', gave the following error.
   const decipher = crypto.createDecipher(algorithm, password);
   var dec = decipher.update(text, "hex", "utf8");
   dec += decipher.final("utf8");
@@ -128,10 +111,7 @@ function getUserInfoForPolisLtiToken(token: any) {
       "select uid from lti_users where tool_consumer_instance_guid = $1 and lti_user_id = $2",
       [o.tool_consumer_instance_guid, o.lti_user_id]
     )
-    .then(function (rows) {
-      // (parameter) rows: unknown
-      // Object is of type 'unknown'.ts(2571)
-      // @ts-ignore
+    .then(function (rows: any) {
       return rows[0].uid;
     });
 }

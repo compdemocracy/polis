@@ -6,6 +6,9 @@ import Config from "../config";
 import { yell } from "../log";
 import { MPromise } from "../utils/metered";
 
+// Apparently pgnative can be undefined in some cases.
+const pg = pgnative || require("pg");
+
 // # DB Connections
 //
 // heroku pg standard plan has 120 connections
@@ -48,17 +51,8 @@ const readsPgConnection = Object.assign(
 
 // split requests into centralized read/write transactor pool vs read pool for scalability concerns in keeping
 // pressure down on the transactor (read+write) server
-//
-// (alias) const pgnative: typeof Pg | null
-// import pgnative
-// Object is possibly 'null'.ts(2531)
-// @ts-ignore
-const readWritePool = new pgnative.Pool(pgConnection);
-// (alias) const pgnative: typeof Pg | null
-// import pgnative
-// Object is possibly 'null'.ts(2531)
-// @ts-ignore
-const readPool = new pgnative.Pool(readsPgConnection);
+const readWritePool = new pg.Pool(pgConnection);
+const readPool = new pg.Pool(readsPgConnection);
 
 // Same syntax as pg.client.query, but uses connection pool
 // Also takes care of calling 'done'.
@@ -126,12 +120,10 @@ function query_readOnly(...args: any[]) {
   return queryImpl(readPool, ...args);
 }
 
-function queryP_impl(config: Pool, queryString?: any, params?: undefined) {
+function queryP_impl(config: any, queryString?: any, params?: undefined) {
   if (!isString(queryString)) {
     return Promise.reject("query_was_not_string");
   }
-  // Property 'isReadOnly' does not exist on type 'Pool'.ts(2339)
-  // @ts-ignore
   let f = config.isReadOnly ? query_readOnly : query;
   return new Promise(function (resolve, reject) {
     f(queryString, params, function (err: any, result: { rows: unknown }) {
@@ -157,10 +149,7 @@ function queryP_readOnly(...args: any[]) {
 
 function queryP_readOnly_wRetryIfEmpty(...args: any[]) {
   return queryP_impl(readPool, ...args).then(function (rows) {
-    // (parameter) rows: unknown
-    // Object is of type 'unknown'.ts(2571)
-    // @ts-ignore
-    if (!rows.length) {
+    if (!Array(rows).length) {
       // the replica DB didn't have it (yet?) so try the master.
       return queryP(...args);
     }
@@ -178,26 +167,17 @@ function queryP_metered_impl(
   if (isUndefined(name) || isUndefined(queryString) || isUndefined(params)) {
     throw new Error("polis_err_queryP_metered_impl missing params");
   }
-  //   (parameter) resolve: (value: unknown) => void
-  // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
-  // @ts-ignore
-  return new MPromise(name, function (resolve, reject) {
+  return MPromise(name, function (resolve, reject) {
     f(queryString, params).then(resolve, reject);
   });
 }
 
 function queryP_metered(name: any, queryString: any, params: any) {
-  // Type 'IArguments' is not an array type or a string type.
-  // Use compiler option '--downlevelIteration' to allow iterating of iterators.ts(2569)
-  // @ts-ignore
-  return queryP_metered_impl(false, ...arguments);
+  return queryP_metered_impl(false, name, queryString, params);
 }
 
 function queryP_metered_readOnly(name: any, queryString: any, params: any) {
-  // Type 'IArguments' is not an array type or a string type.
-  // Use compiler option '--downlevelIteration' to allow iterating of iterators.ts(2569)
-  // @ts-ignore
-  return queryP_metered_impl(true, ...arguments);
+  return queryP_metered_impl(true, name, queryString, params);
 }
 
 export {

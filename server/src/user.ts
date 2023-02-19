@@ -29,9 +29,7 @@ function getUserInfoForUid(
 }
 
 function getUserInfoForUid2(uid: any) {
-  // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
-  // @ts-ignore
-  return new MPromise(
+  return MPromise(
     "getUserInfoForUid2",
     function (resolve: (arg0: any) => void, reject: (arg0: null) => any) {
       pg.query_readOnly(
@@ -151,18 +149,11 @@ async function getUser(
     return Promise.resolve({});
   }
 
-  let xidInfoPromise = Promise.resolve(null);
+  let xidInfoPromise: any = Promise.resolve(null);
   if (zid_optional && xid_optional) {
-    //     let xidInfoPromise: Promise<null>
-    // Type 'Promise<unknown>' is not assignable to type 'Promise<null>'.
-    //       Type 'unknown' is not assignable to type 'null'.ts(2322)
-    // @ts-ignore
     xidInfoPromise = Conversation.getXidRecord(xid_optional, zid_optional);
   } else if (xid_optional && owner_uid_optional) {
-    // let xidInfoPromise: Promise<null>
-    // Type 'Promise<unknown>' is not assignable to type 'Promise<null>'.ts(2322)
-    // @ts-ignore
-    xidInfoPromise = Conversation.getXidRecordByXidOwnerId(
+    xidInfoPromise = getXidRecordByXidOwnerId(
       xid_optional,
       owner_uid_optional,
       zid_optional
@@ -244,10 +235,7 @@ const usersToAdditionalTrialDays: { [key: number]: number } = {
 };
 
 function createDummyUser() {
-  // (parameter) resolve: (arg0: any) => void
-  //   'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
-  // @ts-ignore
-  return new MPromise(
+  return MPromise(
     "createDummyUser",
     function (resolve: (arg0: any) => void, reject: (arg0: Error) => void) {
       pg.query(
@@ -300,11 +288,7 @@ function getPid(
 function getPidPromise(zid: string, uid: string, usePrimary?: boolean) {
   let cacheKey = zid + "_" + uid;
   let cachedPid = pidCache.get(cacheKey);
-  //   (alias) function MPromise(name: string, f: (resolve: (value: unknown) => void, reject: (reason?: any) => void) => void): Promise<unknown>
-  // import MPromise
-  // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
-  // @ts-ignore
-  return new MPromise(
+  return MPromise(
     "getPidPromise",
     function (resolve: (arg0: number) => void, reject: (arg0: any) => any) {
       if (!_.isUndefined(cachedPid)) {
@@ -350,7 +334,7 @@ function getPidForParticipant(
       next();
     }
     getPidPromise(zid, uid).then(
-      function (pid: number) {
+      function (pid: any) {
         if (pid === -1) {
           let msg = "polis_err_get_pid_for_participant_missing";
           Log.yell(msg);
@@ -403,10 +387,10 @@ function getXidRecordByXidOwnerId(
   xid: any,
   owner: any,
   zid_optional: any,
-  x_profile_image_url: any,
-  x_name: any,
-  x_email: any,
-  createIfMissing: any
+  x_profile_image_url?: any,
+  x_name?: any,
+  x_email?: any,
+  createIfMissing?: any
 ) {
   return pg
     .queryP("select * from xids where xid = ($1) and owner = ($2);", [

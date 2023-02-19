@@ -29,9 +29,9 @@ function createXidRecordByZid(
   zid: any,
   uid: any,
   xid: any,
-  x_profile_image_url: any,
-  x_name: any,
-  x_email: any
+  x_profile_image_url?: any,
+  x_name?: any,
+  x_email?: any
 ) {
   return getConversationInfo(zid).then((conv: any) => {
     const shouldCreateXidRecord = conv.use_xid_whitelist
@@ -76,10 +76,6 @@ function isXidWhitelisted(owner: any, xid: any) {
 }
 
 function getConversationInfo(zid: any) {
-  //   (alias) function MPromise(name: string, f: (resolve: (value: unknown) => void, reject: (reason?: any) => void) => void): Promise<unknown>
-  // import MPromise
-  // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
-  //
   return MPromise(
     "getConversationInfo",
     function (resolve: (arg0: any) => void, reject: (arg0: any) => void) {
@@ -99,10 +95,6 @@ function getConversationInfo(zid: any) {
 }
 
 function getConversationInfoByConversationId(conversation_id: any) {
-  //   (alias) function MPromise(name: string, f: (resolve: (value: unknown) => void, reject: (reason?: any) => void) => void): Promise<unknown>
-  // import MPromise
-  // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
-  //
   return MPromise(
     "getConversationInfoByConversationId",
     function (resolve: (arg0: any) => void, reject: (arg0: any) => void) {
@@ -127,10 +119,6 @@ const conversationIdToZidCache = new LruCache({
 
 // NOTE: currently conversation_id is stored as zinvite
 function getZidFromConversationId(conversation_id: string) {
-  //   (alias) function MPromise(name: string, f: (resolve: (value: unknown) => void, reject: (reason?: any) => void) => void): Promise<unknown>
-  // import MPromise
-  // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
-  //
   return MPromise(
     "getZidFromConversationId",
     function (resolve: (arg0: any) => void, reject: (arg0: string) => any) {

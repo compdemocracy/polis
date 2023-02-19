@@ -31,7 +31,7 @@ const COOKIES = {
   PLAN_NUMBER: "plan", // not set if trial user
 };
 
-const COOKIES_TO_CLEAR = {
+const COOKIES_TO_CLEAR: { [key: string]: boolean } = {
   e: true,
   token2: true,
   uid2: true,
@@ -182,11 +182,7 @@ function addCookies(
   token: any,
   uid: any
 ) {
-  return User.getUserInfoForUid2(uid).then(function (o: {
-    email: any;
-    created: any;
-    plan: any;
-  }) {
+  return User.getUserInfoForUid2(uid).then(function (o: any) {
     let email = o.email;
     let created = o.created;
     let plan = o.plan;

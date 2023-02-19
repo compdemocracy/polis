@@ -342,43 +342,29 @@ const reportIdToRidCache = new LruCache({
 const getZidFromConversationId = Conversation.getZidFromConversationId;
 
 function getRidFromReportId(report_id: string) {
-  //   TS7009: 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.
-  // 344   return new MPromise(
-  //              ~~~~~~~~~~~~~
-  // 345     "getRidFromReportId",
-  //     ~~~~~~~~~~~~~~~~~~~~~~~~~
-  // ...
-  // 368     }
-  //     ~~~~~
-  // 369   );
-  // ~~~
-  // @ts-ignore
-  return new MPromise(
-    "getRidFromReportId",
-    function (resolve: any, reject: any) {
-      let cachedRid = reportIdToRidCache.get(report_id);
-      if (cachedRid) {
-        resolve(cachedRid);
-        return;
-      }
-      pg.query_readOnly(
-        "select rid from reports where report_id = ($1);",
-        [report_id],
-        function (err: any, results: { rows: string | any[] }) {
-          if (err) {
-            return reject(err);
-          } else if (!results || !results.rows || !results.rows.length) {
-            console.error("polis_err_fetching_rid_for_report_id " + report_id);
-            return reject("polis_err_fetching_rid_for_report_id");
-          } else {
-            let rid = results.rows[0].rid;
-            reportIdToRidCache.set(report_id, rid);
-            return resolve(rid);
-          }
-        }
-      );
+  return MPromise("getRidFromReportId", function (resolve: any, reject: any) {
+    let cachedRid = reportIdToRidCache.get(report_id);
+    if (cachedRid) {
+      resolve(cachedRid);
+      return;
     }
-  );
+    pg.query_readOnly(
+      "select rid from reports where report_id = ($1);",
+      [report_id],
+      function (err: any, results: { rows: string | any[] }) {
+        if (err) {
+          return reject(err);
+        } else if (!results || !results.rows || !results.rows.length) {
+          console.error("polis_err_fetching_rid_for_report_id " + report_id);
+          return reject("polis_err_fetching_rid_for_report_id");
+        } else {
+          let rid = results.rows[0].rid;
+          reportIdToRidCache.set(report_id, rid);
+          return resolve(rid);
+        }
+      }
+    );
+  });
 }
 
 // conversation_id is the client/ public API facing string ID
@@ -519,7 +505,7 @@ function resolve_pidThing(
 
     if (existingValue === "mypid" && req?.p?.zid && req.p.uid) {
       User.getPidPromise(req.p.zid, req.p.uid)
-        .then(function (pid: number) {
+        .then(function (pid: any) {
           if (pid >= 0) {
             assigner(req, pidThingStringName, pid);
           }

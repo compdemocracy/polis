@@ -123,7 +123,7 @@ function getComments(o: CommentType) {
         });
         let uids = _.pluck(nonAnonComments, "uid");
         return User.getSocialInfoForUsers(uids, o.zid).then(function (
-          socialInfos: any[]
+          socialInfos: any
         ) {
           let uidToSocialInfo: UidToSocialInfo = {};
           socialInfos.forEach(function (info: {
@@ -260,7 +260,8 @@ function _getCommentsForModerationList(o: {
           modClause,
         params
       )
-      .then((rows: Row[]) => {
+      .then((maybe_rows) => {
+        let rows: any[] = Array(maybe_rows);
         // each comment will have up to three rows. merge those into one with agree/disagree/pass counts.
         let adp: { [key: string]: Row } = {};
         for (let i = 0; i < rows.length; i++) {

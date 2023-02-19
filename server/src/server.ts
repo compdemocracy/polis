@@ -5,10 +5,10 @@
 import akismetLib from "akismet";
 import AWS from "aws-sdk";
 import badwords from "badwords/object";
-import Promise from "bluebird";
+// import Promise from "bluebird";
 import http from "http";
 import httpProxy from "http-proxy";
-// const Promise = require('es6-promise').Promise,
+const Promise = require("es6-promise").Promise;
 import async from "async";
 const FB = require("fb");
 import fs from "fs";
@@ -121,7 +121,7 @@ if (devMode) {
   Promise.longStackTraces();
 }
 
-// Bluebird uncaught error handler.
+// Promise uncaught error handler.
 Promise.onPossiblyUnhandledRejection(function (err: { stack: any }) {
   console.log("onPossiblyUnhandledRejection");
   if (_.isObject(err)) {
@@ -221,8 +221,6 @@ function isSpam(o: {
   user_agent: any;
   referrer: any;
 }) {
-  // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
-  //
   return MPromise(
     "isSpam",
     function (resolve: (arg0: any) => void, reject: (arg0: any) => void) {
@@ -261,30 +259,37 @@ if (devMode) {
   INFO = function () {};
 }
 
+type DDValue = { votes: number; comments: number };
+
 // basic defaultdict implementation
-function DD(this: any, f: () => { votes: number; comments: number }) {
+// function DD(this: any, f: () => DDValue): void;
+function DD(this: any, f?: () => { votes: number; comments: number }) {
   this.m = {};
-  this.f = f;
+  this.f = f || (() => ({ votes: 0, comments: 0 }));
 }
+
 // basic defaultarray implementation
 function DA(this: any, f: any) {
   this.m = [];
   this.f = f;
 }
-DD.prototype.g = DA.prototype.g = function (k: string | number) {
-  if (this.m.hasOwnProperty(k)) {
+
+DD.prototype.g = function (k: string | number) {
+  if (k in this.m) {
     return this.m[k];
   }
   const v = this.f(k);
   this.m[k] = v;
   return v;
 };
-DD.prototype.s = DA.prototype.s = function (k: string | number, v: any) {
+
+DA.prototype.g = DD.prototype.g;
+
+DD.prototype.s = function (k: string | number, v: any) {
   this.m[k] = v;
 };
-// function emptyArray() {
-//   return [];
-// }
+
+DA.prototype.s = DD.prototype.s;
 
 const domainOverride = Config.domainOverride;
 
@@ -411,28 +416,12 @@ function doApiKeyAuth(
     });
 }
 
-// function getXidRecordByXidConversationId(xid, conversation_id) {
-//   return pgQueryP("select * from xids where xid = ($2) and owner = (select org_id from conversations where zid = (select zid from zinvites where zinvite = ($1)))", [zinvite, xid]);
-// }
-
 const createDummyUser = User.createDummyUser;
 const getConversationInfo = Conversation.getConversationInfo;
 const getConversationInfoByConversationId =
   Conversation.getConversationInfoByConversationId;
 const isXidWhitelisted = Conversation.isXidWhitelisted;
 const getXidRecordByXidOwnerId = User.getXidRecordByXidOwnerId;
-
-// function doXidOwnerConversationIdAuth(assigner, xid, conversation_id, req, res, next) {
-//   getXidRecordByXidConversationId(xid, conversation_id).then(function(rows) {
-//     if (!rows || !rows.length) {
-//       res.status(403);
-//       next("polis_err_auth_no_such_api_token4");
-//       return;
-//     }
-//     assigner(req, "uid", Number(rows[0].uid));
-//     next();
-//   });
-// }
 
 function doXidApiKeyAuth(
   assigner: (arg0: any, arg1: string, arg2: number) => void,
@@ -728,13 +717,10 @@ function initializePolisHelpers() {
                 [conv.owner, uid]
               ),
               getSocialInfoForUsers([uid], zid),
-              // Binding elements 'xids' and 'info' implicitly have an 'any' type.ts(7031)
-              // @ts-ignore
-            ]).then(([xids, info]) => {
-              const socialAccountIsLinked = info.length > 0;
-              // Object is of type 'unknown'.ts(2571)
-              // @ts-ignore
-              const hasXid = xids.length > 0;
+            ]).then(function ([xids, info]: [any, any]) {
+              const socialAccountIsLinked =
+                Array.isArray(info) && info.length > 0;
+              const hasXid = Array.isArray(xids) && xids.length > 0;
               if (socialAccountIsLinked || hasXid) {
                 return conv;
               } else {
@@ -757,9 +743,7 @@ function initializePolisHelpers() {
   }
 
   function votesGet(p: { zid?: any; pid?: any; tid?: any }) {
-    // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
-    // @ts-ignore
-    return new MPromise(
+    return MPromise(
       "votesGet",
       function (resolve: (arg0: any) => void, reject: (arg0: any) => void) {
         let q = sql_votes_latest_unique
@@ -1123,101 +1107,20 @@ function initializePolisHelpers() {
         });
     };
 
-    //   let xid = req.body.xid;
-    //   let hasXid = !_.isUndefined(xid);
+    // input token from body or query, and populate req.body.u with userid.
+    function authOptional(assigner: any) {
+      return _auth(assigner, true);
+    }
 
-    //   if (hasXid) {
-    //     console.log('weee 0');
-    //     req.p = req.p || {};
-    //     req.p.xid = xid;
-    //     console.log('xidflow has');
-    //     getConversationIdFetchZid(req.body.conversation_id).then((zid) => {
-    //       console.log('xidflow got zid', zid);
+    function auth(assigner: any) {
+      return _auth(assigner, false);
+    }
 
-    //       return getXidStuff(xid, zid).then((xidRecord) => {
-    //         console.log('xidflow got xidRecord', xidRecord);
-    //         let foundXidRecord = xidRecord !== "noXidRecord";
-    //         if (foundXidRecord) {
-    //           console.log('xidflow !shouldCreateXidRecord');
-    //           assigner(req, "uid", Number(xidRecord.uid));
-    //           return next();
-    //         }
-    //         console.log('xidflow before doAuth');
-    //         // try other auth methods, and once those are done, use req.p.uid to create new xid record.
-    //         doAuth(req, res).then(() => {
-    //           console.log('xidflow after doAuth');
-    //           if (req.p.uid && !isOptional) { // req.p.uid might be set now.
-    //             console.log('xidflow uid', req.p.uid);
-    //             return createXidRecordByZid(zid, req.p.uid, xid, req.body.x_profile_image_url, req.body.x_name, req.body.x_email);
-    //           } else if (!isOptional) {
-    //             console.log('xidflow no uid, but mandatory', req.p.uid);
-    //             throw "polis_err_missing_non_optional_uid";
-    //           }
-    //           console.log('xidflow was optional, doing nothing');
-    //         }).then(() => {
-    //           console.log('xidflow ok');
-    //           return next();
-    //         }).catch((err) => {
-    //           res.status(500);
-    //           console.error(err);
-    //           return next("polis_err_auth_xid_error_423423");
-    //         });
-    //       });
-    //     });
-    //   } else {
-    //     doAuth(req, res).then(() => {
-    //       return next();
-    //     }).catch((err) => {
-    //       res.status(500);
-    //       console.error(err);
-    //       next("polis_err_auth_error_432");
-    //     });
-    //   }
-    // };
+    function enableAgid(req: { body: Body }, res: any, next: () => void) {
+      req.body.agid = 1;
+      next();
+    }
   }
-  // input token from body or query, and populate req.body.u with userid.
-  function authOptional(assigner: any) {
-    return _auth(assigner, true);
-  }
-
-  function auth(assigner: any) {
-    return _auth(assigner, false);
-  }
-
-  function enableAgid(req: { body: Body }, res: any, next: () => void) {
-    req.body.agid = 1;
-    next();
-  }
-  /*
-  function meter(name) {
-      return function (req, res, next){
-          let start = Date.now();
-          setTimeout(function() {
-              metric(name + ".go", 1, start);
-          }, 1);
-          res.on('finish', function(){
-            let end = Date.now();
-            let duration = end - start;
-            let status = ".ok";
-            if (!res.statusCode || res.statusCode >= 500) {
-              status = ".fail";
-            } else if (res.statusCode >= 400) {
-              status = ".4xx";
-            }
-            setTimeout(function() {
-                metric(name + status, duration, end);
-            }, 1);
-          });
-          next();
-      };
-  }
-  */
-  // 2xx
-  // 4xx
-  // 5xx
-  // logins
-  // failed logins
-  // forgot password
 
   const whitelistedCrossDomainRoutes = [
     /^\/api\/v[0-9]+\/launchPrep/,
@@ -1240,7 +1143,7 @@ function initializePolisHelpers() {
     "", // for API
   ];
 
-  const whitelistedBuckets = {
+  const whitelistedBuckets: { [key: string]: string } = {
     "pol.is": "pol.is",
     "embed.pol.is": "pol.is",
     "survey.pol.is": "survey.pol.is",
@@ -1544,22 +1447,17 @@ function initializePolisHelpers() {
     // Un-normalize to maintain API consistency.
     // This could removed in a future API version.
     function toObj(a: string | any[]) {
-      const obj = {};
+      const obj: { [key: string]: any } = {};
       if (!a) {
         return obj;
       }
       for (let i = 0; i < a.length; i++) {
-        // Element implicitly has an 'any' type
-        // because expression of type 'any' can't be used to index type '{ } '.ts(7053)
-        // @ts-ignore
         obj[a[i].id] = a[i].val;
-        // Element implicitly has an 'any' type
-        // because expression of type 'any' can't be used to index type '{ } '.ts(7053)
-        // @ts-ignore
         obj[a[i].id].id = a[i].id;
       }
       return obj;
     }
+
     function toArray(a: any[]) {
       if (!a) {
         return [];
@@ -1582,14 +1480,10 @@ function initializePolisHelpers() {
   }
 
   function getPca(zid?: any, math_tick?: number) {
-    let cached = pcaCache.get(zid);
-    // Object is of type 'unknown'.ts(2571)
-    // @ts-ignore
+    let cached: any = pcaCache.get(zid) ? pcaCache.get(zid) : null;
     if (cached && cached.expiration < Date.now()) {
       cached = null;
     }
-    // Object is of type 'unknown'.ts(2571)
-    // @ts-ignore
     const cachedPOJO = cached && cached.asPOJO;
     if (cachedPOJO) {
       if (cachedPOJO.math_tick <= (math_tick || 0)) {
@@ -1731,7 +1625,7 @@ function initializePolisHelpers() {
   // Cache the knowledge of whether there are any pca results for a given zid.
   // Needed to determine whether to return a 404 or a 304.
   // zid -> boolean
-  const pcaResultsExistForZid = {};
+  const pcaResultsExistForZid: { [zid: string]: boolean } = {};
   function handle_GET_math_pca2(
     req: { p: { zid: any; math_tick: any; ifNoneMatch: any } },
     res: {
@@ -1775,9 +1669,6 @@ function initializePolisHelpers() {
       math_tick = -1;
     }
     function finishWith304or404() {
-      // Element implicitly has an 'any' type
-      // because expression of type 'any' can't be used to index type '{ } '.ts(7053)
-      // @ts-ignore
       if (pcaResultsExistForZid[zid]) {
         res.status(304).end();
       } else {
@@ -1806,17 +1697,11 @@ function initializePolisHelpers() {
           res.send(data.asBufferOfGzippedJson);
         } else {
           // check whether we should return a 304 or a 404
-          // Element implicitly has an 'any' type
-          // because expression of type 'any' can't be used to index type '{ } '.ts(7053)
-          // @ts-ignore
           if (_.isUndefined(pcaResultsExistForZid[zid])) {
             // This server doesn't know yet if there are any PCA results in the DB
             // So try querying from -1
             return getPca(zid, -1).then(function (data: any) {
               const exists = !!data;
-              // Element implicitly has an 'any' type
-              // because expression of type 'any' can't be used to index type '{ } '.ts(7053)
-              // @ts-ignore
               pcaResultsExistForZid[zid] = exists;
               finishWith304or404();
             });
@@ -2047,7 +1932,7 @@ function initializePolisHelpers() {
     res: { json: (arg0: {}) => void }
   ) {
     getUserInfoForUid2(req.p.uid)
-      .then((user: { email: any }) => {
+      .then((user: any) => {
         return doAddDataExportTask(
           Config.mathEnv,
           user.email,
@@ -2127,9 +2012,7 @@ function initializePolisHelpers() {
   }
 
   function getXids(zid: any) {
-    // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
-    // @ts-ignore
-    return new MPromise(
+    return MPromise(
       "getXids",
       function (resolve: (arg0: any) => void, reject: (arg0: string) => void) {
         pgQuery_readOnly(
@@ -2508,9 +2391,6 @@ Feel free to reply to this email if you need help.`;
     let cookieName;
     if (domainOverride || origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
       for (cookieName in req.cookies) {
-        // Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; plan: boolean; referrer: boolean; parent_url: boolean; }'.
-        // No index signature with a parameter of type 'string' was found on type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; plan: boolean; referrer: boolean; parent_url: boolean; }'.ts(7053)
-        // @ts-ignore
         if (COOKIES_TO_CLEAR[cookieName]) {
           res?.clearCookie?.(cookieName, {
             path: "/",
@@ -2519,9 +2399,6 @@ Feel free to reply to this email if you need help.`;
       }
     } else {
       for (cookieName in req.cookies) {
-        // Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; plan: boolean; referrer: boolean; parent_url: boolean; }'.
-        // No index signature with a parameter of type 'string' was found on type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; plan: boolean; referrer: boolean; parent_url: boolean; }'.ts(7053)
-        // @ts-ignore
         if (COOKIES_TO_CLEAR[cookieName]) {
           res?.clearCookie?.(cookieName, {
             path: "/",
@@ -2882,7 +2759,7 @@ Feel free to reply to this email if you need help.`;
       "getZinvite",
       "select * from zinvites where zid = ($1);",
       [zid]
-    ).then(function (rows: { zinvite: any }[]) {
+    ).then(function (rows: any) {
       const conversation_id = (rows && rows[0] && rows[0].zinvite) || void 0;
       if (conversation_id) {
         zidToConversationIdCache.set(zid, conversation_id);
@@ -2915,22 +2792,16 @@ Feel free to reply to this email if you need help.`;
       });
 
     function makeZidToConversationIdMap(arrays: any[]) {
-      const zid2conversation_id = {};
+      const zid2conversation_id: { [zid: string]: any } = {};
       arrays.forEach(function (a: any[]) {
         a.forEach(function (o: { zid: string | number; zinvite: any }) {
-          // (property) zid: string | number
-          // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-          //           No index signature with a parameter of type 'string' was found onpe '{}'.ts(7053)
-          // @ts-ignore
           zid2conversation_id[o.zid] = o.zinvite;
         });
       });
       return zid2conversation_id;
     }
 
-    // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
-    // @ts-ignore
-    return new MPromise(
+    return MPromise(
       "getZinvites",
       function (resolve: (arg0: {}) => void, reject: (arg0: any) => void) {
         if (uncachedZids.length === 0) {
@@ -2985,9 +2856,7 @@ Feel free to reply to this email if you need help.`;
     if (!zids.length) {
       return Promise.resolve(a);
     }
-    return getZinvites(zids).then(function (zid2conversation_id: {
-      [x: string]: any;
-    }) {
+    return getZinvites(zids).then(function (zid2conversation_id: any) {
       return a.map(function (o: {
         conversation_id: any;
         zid: string | number;
@@ -3183,7 +3052,9 @@ Feel free to reply to this email if you need help.`;
       [zid],
       function (
         err: any,
-        qa_results: { [x: string]: { pmqid: any }; rows: any }
+        qa_results: {
+          [x: string]: { pmqid: any };
+        }
       ) {
         if (err) {
           winston.log("info", "adsfasdfasd");
@@ -3191,8 +3062,6 @@ Feel free to reply to this email if you need help.`;
         }
 
         qa_results = qa_results.rows;
-        // Property 'rows' is missing in type 'Dictionary<{ pmqid: any; }>' but required in type '{ [x: string]: { pmqid: any; }; rows: any; }'.ts(2741)
-        // @ts-ignore
         qa_results = _.indexBy(qa_results, "pmaid");
         // construct an array of params arrays
         answers = answers.map(function (pmaid: string | number) {
@@ -3260,7 +3129,7 @@ Feel free to reply to this email if you need help.`;
       ]),
       pgQueryP_readOnly("select * from twitter_users where uid = ($1);", [uid]),
       //     No overload matches this call.
-      // Overload 1 of 2, '(onFulfill?: ((value: [unknown, unknown]) => Resolvable<{ location: any; source: number; } | null>) | undefined, onReject?: ((error: any) => Resolvable<{ location: any; source: number; } | null>) | undefined): Bluebird<...>', gave the following error.
+      // Overload 1 of 2, '(onFulfill?: ((value: [unknown, unknown]) => Resolvable<{ location: any; source: number; } | null>) | undefined, onReject?: ((error: any) => Resolvable<{ location: any; source: number; } | null>) | undefined): Promise<...>', gave the following error.
     ]).then(function (o: any) {
       const fb = o[0] && o[0][0];
       const tw = o[1] && o[1][0];
@@ -3287,7 +3156,7 @@ Feel free to reply to this email if you need help.`;
     INFO("asdf1", zid, uid, pid);
     getUsersLocationName(uid)
       //     No overload matches this call.
-      // Overload 1 of 2, '(onFulfill?: ((value: unknown) => Resolvable<void>) | undefined, onReject?: ((error: any) => Resolvable<void>) | undefined): Bluebird<void>', gave the following error.
+      // Overload 1 of 2, '(onFulfill?: ((value: unknown) => Resolvable<void>) | undefined, onReject?: ((error: any) => Resolvable<void>) | undefined): Promise<void>', gave the following error.
       .then(function (locationData: any) {
         if (!locationData) {
           INFO("asdf1.nope");
@@ -3514,7 +3383,7 @@ Feel free to reply to this email if you need help.`;
       return promise;
     }
 
-    return getPidPromise(zid, uid).then(function (pid: number) {
+    return getPidPromise(zid, uid).then(function (pid: any) {
       if (pid >= 0) {
         // already a ptpt, so don't create another
         return;
@@ -3594,8 +3463,8 @@ Feel free to reply to this email if you need help.`;
   // returns null if it's missing
   function getParticipant(zid: any, uid?: any) {
     // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
-    // @ts-ignore
-    return new MPromise(
+    //
+    return MPromise(
       "getParticipant",
       function (resolve: (arg0: any) => void, reject: (arg0: Error) => any) {
         pgQuery_readOnly(
@@ -3684,10 +3553,6 @@ ${message}`;
       body
     ).catch(function (err: any) {
       yell("polis_err_failed_to_email_team");
-      // Cannot find name 'message'. Did you mean 'onmessage'?ts(2552)
-      //     lib.dom.d.ts(20013, 13): 'onmessage' is declared here.
-      // @ts-ignore
-      yell(message);
     });
   }
 
@@ -3873,11 +3738,6 @@ Email verified! You can close this tab or hit the back button.
     return pairsList.join("&");
   }
 
-  // // units are seconds
-  // let expirationPolicies = {
-  //     pwreset_created : 60 * 60 * 2,
-  // };
-
   const HMAC_SIGNATURE_PARAM_NAME = "signature";
 
   function createHmacForQueryParams(
@@ -3919,10 +3779,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function sendEmailByUid(uid?: any, subject?: string, body?: string | number) {
-    return getUserInfoForUid2(uid).then(function (userInfo: {
-      hname: any;
-      email: any;
-    }) {
+    return getUserInfoForUid2(uid).then(function (userInfo: any) {
       return sendTextEmail(
         polisFromAddress,
         userInfo.hname
@@ -4039,9 +3896,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function userHasAnsweredZeQuestions(zid: any, answers: string | any[]) {
-    // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
-    // @ts-ignore
-    return new MPromise(
+    return MPromise(
       "userHasAnsweredZeQuestions",
       function (resolve: any, reject: (arg0: Error) => void) {
         getAnswersForConversation(
@@ -4137,7 +3992,7 @@ Email verified! You can close this tab or hit the back button.
     // Check if already in the conversation
     getParticipant(zid, req.p.uid)
       .then(
-        function (ptpt: { pid: any }) {
+        function (ptpt: any) {
           if (ptpt) {
             finish(ptpt);
 
@@ -4295,13 +4150,11 @@ Email verified! You can close this tab or hit the back button.
 
           const url = conv.parent_url || "https://pol.is/" + conversation_id;
 
-          const pid_to_ptpt = {};
+          const pid_to_ptpt: { [key: string]: any } = {};
           candidates.forEach((c: { pid: string | number }) => {
-            // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-            // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-            // @ts-ignore
-            pid_to_ptpt[c.pid] = c;
+            pid_to_ptpt[c.pid.toString()] = c;
           });
+
           return Promise.mapSeries(
             candidates,
             (item: { zid: any; pid: any }, index: any, length: any) => {
@@ -4314,19 +4167,10 @@ Email verified! You can close this tab or hit the back button.
           ).then((results: any[]) => {
             const needNotification = results.filter(
               (result: { pid: string | number; remaining: number }) => {
-                // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-                // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-                // @ts-ignore
                 const ptpt = pid_to_ptpt[result.pid];
                 let needs = true;
 
                 needs = needs && result.remaining > 0;
-
-                // if (needs && result.remaining < 5) {
-                //   // no need to try again for this user since new comments will create new tasks
-                //   console.log('doNotificationsForZid', 'not enough remaining');
-                //   needs = false;
-                // }
 
                 let waitTime = 60 * 60 * 1000;
 
@@ -4394,12 +4238,9 @@ Email verified! You can close this tab or hit the back button.
                 "));",
               []
             ).then((rows: any) => {
-              const uidToEmail = {};
+              const uidToEmail: Record<string, string> = {};
               rows.forEach(
                 (row: { uid: string | number; subscribe_email: any }) => {
-                  // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-                  // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-                  // @ts-ignore
                   uidToEmail[row.uid] = row.subscribe_email;
                 }
               );
@@ -4411,17 +4252,11 @@ Email verified! You can close this tab or hit the back button.
                   index: any,
                   length: any
                 ) => {
-                  // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-                  // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-                  // @ts-ignore
                   const uid = pid_to_ptpt[item.pid].uid;
                   return sendNotificationEmail(
                     uid,
                     url,
                     conversation_id,
-                    // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-                    // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-                    // @ts-ignore
                     uidToEmail[uid],
                     item.remaining
                   ).then(() => {
@@ -4499,20 +4334,15 @@ Email verified! You can close this tab or hit the back button.
   }
 
   const shouldSendNotifications = !devMode;
-  // let shouldSendNotifications = true;
-  // let shouldSendNotifications = false;
   if (shouldSendNotifications) {
     doNotificationLoop();
   }
   function createNotificationsUnsubscribeUrl(conversation_id: any, email: any) {
-    const params = {
+    const params: any = {
       conversation_id: conversation_id,
       email: email,
     };
     const path = "api/v3/notifications/unsubscribe";
-    // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-    // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-    // @ts-ignore
     params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
 
     const server = Config.getServerUrl();
@@ -4520,14 +4350,11 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function createNotificationsSubscribeUrl(conversation_id: any, email: any) {
-    const params = {
+    const params: any = {
       conversation_id: conversation_id,
       email: email,
     };
     const path = "api/v3/notifications/subscribe";
-    // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-    // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-    // @ts-ignore
     params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
 
     const server = Config.getServerUrl();
@@ -4545,13 +4372,10 @@ Email verified! You can close this tab or hit the back button.
   ) {
     const zid = req.p.zid;
     const email = req.p.email;
-    const params = {
+    const params: any = {
       conversation_id: req.p.conversation_id,
       email: req.p.email,
     };
-    // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-    // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-    // @ts-ignore
     params[HMAC_SIGNATURE_PARAM_NAME] = req.p[HMAC_SIGNATURE_PARAM_NAME];
     verifyHmacForQueryParams("api/v3/notifications/subscribe", params)
       .then(
@@ -4591,13 +4415,13 @@ Email verified! You can close this tab or hit the back button.
   ) {
     const zid = req.p.zid;
     const email = req.p.email;
-    const params = {
+    const params: any = {
       conversation_id: req.p.conversation_id,
       email: email,
     };
     // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
     // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-    // @ts-ignore
+    //
     params[HMAC_SIGNATURE_PARAM_NAME] = req.p[HMAC_SIGNATURE_PARAM_NAME];
     verifyHmacForQueryParams("api/v3/notifications/unsubscribe", params)
       .then(
@@ -4850,7 +4674,7 @@ Email verified! You can close this tab or hit the back button.
         parent_url: req.p.parent_url,
       })
         //     No overload matches this call.
-        // Overload 1 of 2, '(onFulfill?: ((value: unknown) => Resolvable<{ uid?: any; existingAuth: string; }>) | undefined, onReject?: ((error: any) => Resolvable<{ uid?: any; existingAuth: string; }>) | undefined): Bluebird<...>', gave the following error.
+        // Overload 1 of 2, '(onFulfill?: ((value: unknown) => Resolvable<{ uid?: any; existingAuth: string; }>) | undefined, onReject?: ((error: any) => Resolvable<{ uid?: any; existingAuth: string; }>) | undefined): Promise<...>', gave the following error.
         .then(function (o: any) {
           const uid = o.uid;
           winston.log(
@@ -4867,7 +4691,7 @@ Email verified! You can close this tab or hit the back button.
         })
         //       No overload matches this call.
         // Overload 1 of 2, '(onFulfill?: ((value: unknown) => Resolvable<{ permanentCookieToken: any; zid: any; }>) | undefined,
-        //  onReject ?: ((error: any) => Resolvable<{ permanentCookieToken: any; zid: any; }>) | undefined): Bluebird <...> ', gave the following error.
+        //  onReject ?: ((error: any) => Resolvable<{ permanentCookieToken: any; zid: any; }>) | undefined): Promise <...> ', gave the following error.
         .then(function (o: { permanentCookieToken: any; zid: any }) {
           winston.log("info", "permanentCookieToken", o.permanentCookieToken);
           if (o.permanentCookieToken) {
@@ -4887,7 +4711,7 @@ Email verified! You can close this tab or hit the back button.
           }
         })
         //       No overload matches this call.
-        // Overload 1 of 2, '(onFulfill?: ((value: unknown) => Resolvable<void>) | undefined, onReject?: ((error: any) => Resolvable<void>) | undefined): Bluebird<void>', gave the following error.
+        // Overload 1 of 2, '(onFulfill?: ((value: unknown) => Resolvable<void>) | undefined, onReject?: ((error: any) => Resolvable<void>) | undefined): Promise<void>', gave the following error.
         .then(function (o: any) {
           const pid = o.pid;
           res.status(200).json({
@@ -4983,7 +4807,7 @@ Email verified! You can close this tab or hit the back button.
           }
         })
         //       No overload matches this call.
-        // Overload 1 of 2, '(onFulfill?: ((value: unknown) => any) | undefined, onReject?: ((error: any) => any) | undefined): Bluebird<any>', gave the following error.
+        // Overload 1 of 2, '(onFulfill?: ((value: unknown) => any) | undefined, onReject?: ((error: any) => any) | undefined): Promise<any>', gave the following error.
         .then(function (o: any) {
           winston.log("info", "joinWithZidOrSuzinvite userinfo begin");
           if (!o.uid) {
@@ -5008,9 +4832,8 @@ Email verified! You can close this tab or hit the back button.
         // }
         // return o;
         // })
-        // @ts-ignore
+        //
         .then(function (o: { uid?: any }) {
-          // winston.log("info","joinWithZidOrSuzinvite check email done");
           if (o.uid) {
             return o;
           } else {
@@ -5022,7 +4845,7 @@ Email verified! You can close this tab or hit the back button.
           }
         })
         // No overload matches this call.
-        // Overload 1 of 2, '(onFulfill?: ((value: unknown) => any) | undefined, onReject?: ((error: any) => any) | undefined): Bluebird<any>', gave the following error.
+        // Overload 1 of 2, '(onFulfill?: ((value: unknown) => any) | undefined, onReject?: ((error: any) => any) | undefined): Promise<any>', gave the following error.
         .then(function (o: { zid: any; answers: any }) {
           return userHasAnsweredZeQuestions(o.zid, o.answers).then(function () {
             // looks good, pass through
@@ -5030,14 +4853,8 @@ Email verified! You can close this tab or hit the back button.
           });
         })
         //       No overload matches this call.
-        // Overload 1 of 2, '(onFulfill?: ((value: unknown) => any) | undefined, onReject?: ((error: any) => any) | undefined): Bluebird<any>', gave the following error.
-        .then(function (o: {
-          referrer: any;
-          parent_url: any;
-          zid: any;
-          uid?: any;
-          answers: any;
-        }) {
+        // Overload 1 of 2, '(onFulfill?: ((value: unknown) => any) | undefined, onReject?: ((error: any) => any) | undefined): Promise<any>', gave the following error.
+        .then(function (o: any) {
           const info: ParticipantInfo = {};
           if (o.referrer) {
             info.referrer = o.referrer;
@@ -5054,7 +4871,7 @@ Email verified! You can close this tab or hit the back button.
         })
         //       No overload matches this call.
         // Overload 1 of 2, '(onFulfill?: ((value: unknown) => Resolvable<{ xid: any; conv: { org_id: any; use_xid_whitelist: any; owner: any; };
-        // uid?: any; } | undefined>) | undefined, onReject?: ((error: any) => Resolvable<{ xid: any; conv: { ...; }; uid?: any; } | undefined>) | undefined): Bluebird<...>', gave the following error.
+        // uid?: any; } | undefined>) | undefined, onReject?: ((error: any) => Resolvable<{ xid: any; conv: { ...; }; uid?: any; } | undefined>) | undefined): Promise<...>', gave the following error.
         .then(function (o: {
           xid: any;
           conv: { org_id: any; use_xid_whitelist: any; owner: any };
@@ -5090,7 +4907,7 @@ Email verified! You can close this tab or hit the back button.
           }
         })
         //       No overload matches this call.
-        // Overload 1 of 2, '(onFulfill?: ((value: unknown) => Resolvable<{ suzinvite: any; }>) | undefined, onReject?: ((error: any) => Resolvable<{ suzinvite: any; }>) | undefined): Bluebird<{ suzinvite: any; }>', gave the following error.
+        // Overload 1 of 2, '(onFulfill?: ((value: unknown) => Resolvable<{ suzinvite: any; }>) | undefined, onReject?: ((error: any) => Resolvable<{ suzinvite: any; }>) | undefined): Promise<{ suzinvite: any; }>', gave the following error.
         .then(function (o: any) {
           if (o.suzinvite) {
             return deleteSuzinvite(o.suzinvite).then(function () {
@@ -5240,24 +5057,19 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function getFirstForPid(votes: string | any[]) {
-    const seen = {};
+    const seen: { [key: string]: boolean } = {};
     const len = votes.length;
-    const firstVotes = [];
+    const firstVotes: any[] = [];
     for (let i = 0; i < len; i++) {
       const vote = votes[i];
-      // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-      // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-      // @ts-ignore
       if (!seen[vote.pid]) {
         firstVotes.push(vote);
-        // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-        // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-        // @ts-ignore
         seen[vote.pid] = true;
       }
     }
     return firstVotes;
   }
+
   function isParentDomainWhitelisted(
     domain: string,
     zid: any,
@@ -5537,37 +5349,32 @@ Email verified! You can close this tab or hit the back button.
           }
           const comments = _.map(a[0], castTimestamp);
           const votes = _.map(a[1], castTimestamp);
-          // let uniqueHits = _.map(a[2], castTimestamp); // participants table
-          // let votesHistogram = a[2];
-          // let socialUsers = _.map(a[4], castTimestamp);
 
           const votesGroupedByPid = _.groupBy(votes, "pid");
-          const votesHistogramObj = {};
+          const votesHistogramObj: { [key: string]: number } = {};
           _.each(
             votesGroupedByPid,
-            function (votesByParticipant: string | any[], pid: any) {
-              // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-              // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-              // @ts-ignore
+            function (votesByParticipant: { created: number }[], pid: any) {
               votesHistogramObj[votesByParticipant.length] =
-                // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-                // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-                // @ts-ignore
                 votesHistogramObj[votesByParticipant.length] + 1 || 1;
             }
           );
-          let votesHistogram: { n_votes: any; n_ptpts: any }[] = [];
-          _.each(votesHistogramObj, function (ptptCount: any, voteCount: any) {
+
+          let votesHistogram: { n_votes: number; n_ptpts: number }[] = [];
+          _.each(votesHistogramObj, function (ptptCount, voteCount) {
+            const n_votes = Number(voteCount);
+            const n_ptpts = Number(ptptCount);
             votesHistogram.push({
-              n_votes: voteCount,
-              n_ptpts: ptptCount,
+              n_votes: n_votes,
+              n_ptpts: n_ptpts,
             });
           });
+
           votesHistogram.sort(function (a, b) {
             return a.n_ptpts - b.n_ptpts;
           });
 
-          const burstsForPid = {};
+          const burstsForPid: { [key: string]: any } = {};
           const interBurstGap = 10 * 60 * 1000; // a 10 minute gap between votes counts as a gap between bursts
           _.each(
             votesGroupedByPid,
@@ -5577,7 +5384,7 @@ Email verified! You can close this tab or hit the back button.
             ) {
               // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
               // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-              // @ts-ignore
+              // @
               burstsForPid[pid] = 1;
               let prevCreated = votesByParticipant.length
                 ? votesByParticipant[0]
@@ -5587,20 +5394,20 @@ Email verified! You can close this tab or hit the back button.
                 if (interBurstGap + prevCreated < vote.created) {
                   // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
                   // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-                  // @ts-ignore
+                  // @
                   burstsForPid[pid] += 1;
                 }
                 prevCreated = vote.created;
               }
             }
           );
-          const burstHistogramObj = {};
+
+          const burstHistogramObj: { [key: string]: number } = {};
           _.each(burstsForPid, function (bursts: any, pid: any) {
-            // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-            // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-            // @ts-ignore
-            burstHistogramObj[bursts] = burstHistogramObj[bursts] + 1 || 1;
+            burstHistogramObj[String(bursts)] =
+              burstHistogramObj[String(bursts)] + 1 || 1;
           });
+
           const burstHistogram: { n_ptpts: any; n_bursts: number }[] = [];
           _.each(burstHistogramObj, function (ptptCount: any, burstCount: any) {
             burstHistogram.push({
@@ -5758,8 +5565,8 @@ Email verified! You can close this tab or hit the back button.
   }
   function getFriends(fb_access_token: any) {
     // 'getMoreFriends' implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions.ts(7023)
-    // @ts-ignore
-    function getMoreFriends(friendsSoFar: any[], urlForNextCall: any) {
+    // @
+    function getMoreFriends(friendsSoFar: any[], urlForNextCall: any): any {
       // urlForNextCall includes access token
       return request.get(urlForNextCall).then(
         function (response: { data: string | any[]; paging: { next: any } }) {
@@ -6137,7 +5944,7 @@ Email verified! You can close this tab or hit the back button.
             [uid, email]
           ),
           //         No overload matches this call.
-          // Overload 1 of 2, '(onFulfill?: ((value: [unknown, unknown, unknown]) => any) | undefined, onReject?: ((error: any) => any) | undefined): Bluebird<any>', gave the following error.
+          // Overload 1 of 2, '(onFulfill?: ((value: [unknown, unknown, unknown]) => any) | undefined, onReject?: ((error: any) => any) | undefined): Promise<any>', gave the following error.
         ]).then(function (o: any) {
           const user = o[0][0];
           winston.log("info", "fb1 5a");
@@ -6233,14 +6040,10 @@ Email verified! You can close this tab or hit the back button.
         });
     } // end doFbNoUserExistsYet
 
-    let emailVerifiedPromise = Promise.resolve(true);
+    let emailVerifiedPromise: Promise<boolean> = Promise.resolve(false);
     if (!verified) {
       if (email) {
-        // Type 'Promise<unknown>' is missing the following properties from type 'Bluebird<boolean>': caught, error, lastly, bind, and 38 more.ts(2740)
-        // @ts-ignore
         emailVerifiedPromise = isEmailVerified(email);
-      } else {
-        emailVerifiedPromise = Promise.resolve(false);
       }
     }
 
@@ -6351,7 +6154,7 @@ Email verified! You can close this tab or hit the back button.
   const getUser = User.getUser;
 
   // These map from non-ui string codes to number codes used in the DB
-  const planCodes = {
+  const planCodes: { [key: string]: number } = {
     mike: 9999,
     trial: 0,
     free: 0,
@@ -6637,14 +6440,11 @@ Email verified! You can close this tab or hit the back button.
     res: { json: (arg0: {}) => void }
   ) {
     const uid = req.p.uid;
-    const planName = req.p.plan;
-    // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-    // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-    // @ts-ignore
-    const planCode = planCodes[planName];
+    const planName = String(req.p.plan);
+    const planCode: number = planCodes[planName];
 
     getUserInfoForUid2(uid)
-      .then(function (user: UserType) {
+      .then(function (user: any) {
         const stripeResponse = JSON.parse(req.p.stripeResponse);
 
         const body =
@@ -6699,7 +6499,7 @@ Email verified! You can close this tab or hit the back button.
     res: { json: (arg0: {}) => void }
   ) {
     const uid = req.p.uid;
-    getUserInfoForUid2(uid).then((user: { email: string }) => {
+    getUserInfoForUid2(uid).then((user: any) => {
       emailBadProblemTime("User cancelled subscription: " + user.email);
 
       return pgQueryP("select * from stripe_subscriptions where uid = ($1);", [
@@ -6749,9 +6549,6 @@ Email verified! You can close this tab or hit the back button.
     const stripeEmail = req.p.stripeEmail;
     const uid = req.p.uid;
     const plan = req.p.plan;
-    // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-    // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-    // @ts-ignore
     const planCode = planCodes[plan];
 
     if (plan !== "pp") {
@@ -6847,10 +6644,7 @@ Email verified! You can close this tab or hit the back button.
           }
 
           // Build a map like this {xid -> {votes: 10, comments: 2}}
-          //           (property) votes: number
-          // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
-          // @ts-ignore
-          let result = new DD(function () {
+          let result = new (DD as any)(function () {
             return {
               votes: 0,
               comments: 0,
@@ -6873,20 +6667,14 @@ Email verified! You can close this tab or hit the back button.
 
           if (pidXidRows && pidXidRows.length) {
             // Convert from {pid -> foo} to {xid -> foo}
-            const pidToXid = {};
+            const pidToXid: { [key: number]: any } = {};
             for (i = 0; i < pidXidRows.length; i++) {
-              // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-              // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-              // @ts-ignore
               pidToXid[pidXidRows[i].pid] = pidXidRows[i].xid;
             }
-            const xidBasedResult = {};
+            const xidBasedResult: { [key: number]: any } = {};
             let size = 0;
             _.each(result, function (val: any, key: string | number) {
-              // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-              // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-              // @ts-ignore
-              xidBasedResult[pidToXid[key]] = val;
+              xidBasedResult[pidToXid[Number(key)]] = val;
               size += 1;
             });
 
@@ -7212,8 +7000,8 @@ Email verified! You can close this tab or hit the back button.
 
   function getNumberOfCommentsWithModerationStatus(zid: any, mod: any) {
     // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
-    // @ts-ignore
-    return new MPromise(
+    //
+    return MPromise(
       "getNumberOfCommentsWithModerationStatus",
       function (resolve: (arg0: any) => void, reject: (arg0: any) => void) {
         pgQuery_readOnly(
@@ -7300,28 +7088,6 @@ Email verified! You can close this tab or hit the back button.
     const url = server + "/m/" + zinvite;
     return url;
   }
-
-  // function createMuteUrl(zid, tid) {
-  //     let server = Config.getServerUrl();
-  //     let params = {
-  //         zid: zid,
-  //         tid: tid
-  //     };
-  //     let path = "v3/mute";
-  //     params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
-  //     return server + "/"+path+"?" + paramsToStringSortedByName(params);
-  // }
-
-  // function createUnmuteUrl(zid, tid) {
-  //     let server = Config.getServerUrl();
-  //     let params = {
-  //         zid: zid,
-  //         tid: tid
-  //     };
-  //     let path = "v3/unmute";
-  //     params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
-  //     return server + "/"+path+"?" + paramsToStringSortedByName(params);
-  // }
 
   function moderateComment(
     zid: string,
@@ -7498,7 +7264,7 @@ Email verified! You can close this tab or hit the back button.
 
       // PID_FLOW
       if (_.isUndefined(pid)) {
-        return getPidPromise(req.p.zid, req.p.uid, true).then((pid: number) => {
+        return getPidPromise(req.p.zid, req.p.uid, true).then((pid: any) => {
           if (pid === -1) {
             console.log(
               "POST_comments doGetPid addParticipant begin",
@@ -7540,7 +7306,7 @@ Email verified! You can close this tab or hit the back button.
     twitterPrepPromise
       .then(
         //       No overload matches this call.
-        // Overload 1 of 2, '(onFulfill?: ((value: void) => any) | undefined, onReject?: ((error: any) => any) | undefined): Bluebird<any>', gave the following error.
+        // Overload 1 of 2, '(onFulfill?: ((value: void) => any) | undefined, onReject?: ((error: any) => any) | undefined): Promise<any>', gave the following error.
         function (info: any) {
           console.log("POST_comments after twitterPrepPromise", Date.now());
 
@@ -7603,9 +7369,6 @@ Email verified! You can close this tab or hit the back button.
                 } else {
                   return doGetPid().then((pid: any) => {
                     if (shouldCreateXidRecord) {
-                      // Expected 6 arguments, but got 3.ts(2554)
-                      // conversation.ts(34, 3): An argument for 'x_profile_image_url' was not provided.
-                      // @ts-ignore
                       return createXidRecordByZid(zid, uid, xid).then(() => {
                         return pid;
                       });
@@ -7767,7 +7530,7 @@ Email verified! You can close this tab or hit the back button.
                               yell("polis_err_getting_modstatus_comment_count");
                               return void 0;
                             })
-                            .then(function (n: number) {
+                            .then(function (n: any) {
                               if (n === 0) {
                                 return;
                               }
@@ -7801,48 +7564,36 @@ Email verified! You can close this tab or hit the back button.
                           ? Promise.resolve()
                           : votesPost(uid, pid, zid, tid, vote, 0, false);
 
-                        return (
-                          votePromise
-                            // This expression is not callable.
-                            //Each member of the union type '{ <U>(onFulfill?: ((value: void) => Resolvable<U>) | undefined, onReject?: ((error: any) => Resolvable<U>) | undefined): Bluebird<U>; <TResult1 = void, TResult2 = never>(onfulfilled?: ((value: void) => Resolvable<...>) | ... 1 more ... | undefined, onrejected?: ((reason: any) => Resolvable<...>) | ... 1 more ... | u...' has signatures, but none of those signatures are compatible with each other.ts(2349)
-                            // @ts-ignore
-                            .then(
-                              function (o: { vote: { created: any } }) {
-                                if (o && o.vote && o.vote.created) {
-                                  createdTime = o.vote.created;
-                                }
+                        return votePromise.then(
+                          function (o: { vote: { created: any } }) {
+                            if (o && o.vote && o.vote.created) {
+                              createdTime = o.vote.created;
+                            }
 
-                                setTimeout(function () {
-                                  updateConversationModifiedTime(
-                                    zid,
-                                    createdTime
-                                  );
-                                  updateLastInteractionTimeForConversation(
-                                    zid,
-                                    uid
-                                  );
-                                  if (!_.isUndefined(vote)) {
-                                    updateVoteCount(zid, pid);
-                                  }
-                                }, 100);
-
-                                console.log(
-                                  "POST_comments sending json",
-                                  Date.now()
-                                );
-                                res.json({
-                                  tid: tid,
-                                  currentPid: currentPid,
-                                });
-                                console.log(
-                                  "POST_comments sent json",
-                                  Date.now()
-                                );
-                              },
-                              function (err: any) {
-                                fail(res, 500, "polis_err_vote_on_create", err);
+                            setTimeout(function () {
+                              updateConversationModifiedTime(zid, createdTime);
+                              updateLastInteractionTimeForConversation(
+                                zid,
+                                uid
+                              );
+                              if (!_.isUndefined(vote)) {
+                                updateVoteCount(zid, pid);
                               }
-                            )
+                            }, 100);
+
+                            console.log(
+                              "POST_comments sending json",
+                              Date.now()
+                            );
+                            res.json({
+                              tid: tid,
+                              currentPid: currentPid,
+                            });
+                            console.log("POST_comments sent json", Date.now());
+                          },
+                          function (err: any) {
+                            fail(res, 500, "polis_err_vote_on_create", err);
+                          }
                         );
                       },
                       function (err: { code: string | number }) {
@@ -8017,9 +7768,7 @@ Email verified! You can close this tab or hit the back button.
     withoutTids: string | any[],
     include_social: any
   ) {
-    // Type '{ zid: string; not_voted_by_pid: string; include_social: any; }' is missing the following properties from type 'CommentType': withoutTids, include_voting_patterns, modIn, pid, and 7 more.ts(2740)
-    // @ts-ignore
-    const params: CommentType = {
+    const params: any = {
       zid: zid,
       not_voted_by_pid: pid,
       include_social: include_social,
@@ -9210,7 +8959,7 @@ Email verified! You can close this tab or hit the back button.
     Promise.all([generateTokenP(40, false), generateTokenP(40, false)]).then(
       // No overload matches this call.
       // Overload 1 of 2, '(onFulfill?: ((value: [unknown, unknown]) => Resolvable<void>) | undefined, onReject?: ((error: any) => Resolvable<void>) | undefined):
-      //     Bluebird<void>', gave the following error.
+      //     Promise<void>', gave the following error.
       function (results: any) {
         const key = "polis_oauth_consumer_key_" + results[0];
         const secret = "polis_oauth_shared_secret_" + results[1];
@@ -10057,9 +9806,9 @@ Email verified! You can close this tab or hit the back button.
           const keys = result[0] && result[0].rows;
           const vals = result[1] && result[1].rows;
           const choices = result[2] && result[2].rows;
-          const o = {};
-          const keyNames = {};
-          const valueNames = {};
+          const o: { [key: string]: any } = {};
+          const keyNames: { [key: string]: any } = {};
+          const valueNames: { [key: string]: any } = {};
           let i;
           let k;
           let v;
@@ -10070,35 +9819,20 @@ Email verified! You can close this tab or hit the back button.
           for (i = 0; i < keys.length; i++) {
             // Add a map for each keyId
             k = keys[i];
-            // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-            // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-            // @ts-ignore
             o[k.pmqid] = {};
             // keep the user-facing key name
-            // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-            // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-            // @ts-ignore
             keyNames[k.pmqid] = k.key;
           }
           for (i = 0; i < vals.length; i++) {
             // Add an array for each possible valueId
             k = vals[i];
             v = vals[i];
-            // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-            // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-            // @ts-ignore
             o[k.pmqid][v.pmaid] = [];
             // keep the user-facing value string
-            // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-            // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-            // @ts-ignore
             valueNames[v.pmaid] = v.value;
           }
           for (i = 0; i < choices.length; i++) {
             // Append a pid for each person who has seleted that value for that key.
-            // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-            // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-            // @ts-ignore
             o[choices[i].pmqid][choices[i].pmaid] = choices[i].pid;
           }
           // TODO cache
@@ -10194,9 +9928,7 @@ Email verified! You can close this tab or hit the back button.
 
       conv.translations = translations;
 
-      return getUserInfoForUid2(conv.owner).then(function (ownerInfo: {
-        hname: any;
-      }) {
+      return getUserInfoForUid2(conv.owner).then(function (ownerInfo: any) {
         const ownername = ownerInfo.hname;
         if (convHasMetadata) {
           conv.hasMetadata = true;
@@ -10803,8 +10535,8 @@ Email verified! You can close this tab or hit the back button.
   ) {
     let courseIdPromise = Promise.resolve();
     if (req.p.course_invite) {
-      // Type 'Promise<void>' is missing the following properties from type 'Bluebird<void>': caught, error, lastly, bind, and 38 more.ts(2740)
-      // @ts-ignore
+      // Type 'Promise<void>' is missing the following properties from type 'Promise<void>': caught, error, lastly, bind, and 38 more.ts(2740)
+      //
       courseIdPromise = pgQueryP_readOnly(
         "select course_id from courses where course_invite = ($1);",
         [req.p.course_invite]
@@ -11412,9 +11144,7 @@ Thanks for using Polis!
       "HMAC-SHA1"
     );
 
-    // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
-    // @ts-ignore
-    return new MPromise(
+    return MPromise(
       "getTwitterUserInfo",
       function (
         resolve: (arg0: any) => void,
@@ -11465,9 +11195,7 @@ Thanks for using Polis!
       "HMAC-SHA1"
     );
 
-    // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
-    // @ts-ignore
-    return new MPromise(
+    return MPromise(
       "getTwitterTweet",
       function (resolve: (arg0: any) => void, reject: (arg0: any) => void) {
         oauth.get(
@@ -11666,10 +11394,7 @@ Thanks for using Polis!
   // });
   function createUserFromTwitterInfo(o: any) {
     return createDummyUser().then(function (uid?: any) {
-      return getAndInsertTwitterUser(o, uid).then(function (result: {
-        twitterUser: any;
-        twitterUserDbRecord: any;
-      }) {
+      return getAndInsertTwitterUser(o, uid).then(function (result: any) {
         const u = result.twitterUser;
         const twitterUserDbRecord = result.twitterUserDbRecord;
 
@@ -11702,9 +11427,7 @@ Thanks for using Polis!
   }
 
   function prepForTwitterComment(twitter_tweet_id: any, zid: any) {
-    return getTwitterTweetById(twitter_tweet_id).then(function (tweet: {
-      user: any;
-    }) {
+    return getTwitterTweetById(twitter_tweet_id).then(function (tweet: any) {
       const user = tweet.user;
       const twitter_user_id = user.id_str;
       const query = pgQueryP(
@@ -11802,7 +11525,7 @@ Thanks for using Polis!
     });
   }
   function getAndInsertTwitterUser(o: any, uid?: any) {
-    return getTwitterUserInfo(o, false).then(function (userString: string) {
+    return getTwitterUserInfo(o, false).then(function (userString: any) {
       const u: UserType = JSON.parse(userString)[0];
       winston.log("info", "TWITTER USER INFO");
       winston.log("info", u);
@@ -11893,7 +11616,7 @@ Thanks for using Polis!
             false
           )
             .then(
-              function (userStringPayload: string) {
+              function (userStringPayload: any) {
                 const u: UserType = JSON.parse(userStringPayload)[0];
                 winston.log("info", "TWITTER USER INFO");
                 winston.log("info", u);
@@ -11967,7 +11690,7 @@ Thanks for using Polis!
                         ),
                       ])
                         //                       No overload matches this call.
-                        // Overload 1 of 2, '(onFulfill?: ((value: [unknown, unknown]) => Resolvable<void>) | undefined, onReject?: ((error: any) => Resolvable<void>) | undefined): Bluebird<void>', gave the following error.
+                        // Overload 1 of 2, '(onFulfill?: ((value: [unknown, unknown]) => Resolvable<void>) | undefined, onReject?: ((error: any) => Resolvable<void>) | undefined): Promise<void>', gave the following error.
                         .then(function (foo: any) {
                           const recordForUid = foo[0][0];
                           const recordForTwitterId = foo[1][0];
@@ -12152,12 +11875,7 @@ Thanks for using Polis!
     const authorsQueryParts = (authorUids || []).map(function (
       authoruid?: any
     ) {
-      // TODO investigate this one.
-      // TODO looks like a possible typo bug
-      // Cannot find name 'authorUid'. Did you mean 'authoruid'?ts(2552)
-      // server.ts(12486, 7): 'authoruid' is declared here.
-      // @ts-ignore
-      return "select " + Number(authorUid) + " as uid, 900 as priority";
+      return "select " + Number(authoruid) + " as uid, 900 as priority";
     });
     let authorsQuery: string | null =
       "(" + authorsQueryParts.join(" union ") + ")";
@@ -12290,9 +12008,7 @@ Thanks for using Polis!
   ) {
     const key = zid + "_" + pid;
     const cachedVotes = votesForZidPidCache.get(key);
-    if (cachedVotes) {
-      // Object is of type 'unknown'.ts(2571)
-      // @ts-ignore
+    if (typeof cachedVotes == "string") {
       const pair = cachedVotes.split(":");
       const cachedTime = Number(pair[0]);
       const votes = pair[1];
@@ -12336,11 +12052,8 @@ Thanks for using Polis!
     });
 
     function toObj(items: string | any[]) {
-      const o = {};
+      const o: { [key: string]: any } = {};
       for (let i = 0; i < items.length; i++) {
-        // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-        // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-        // @ts-ignore
         o[items[i].pid] = items[i].votes;
       }
       return o;
@@ -12393,31 +12106,18 @@ Thanks for using Polis!
     }
 
     // use arrays or strings?
-    const vectors = {}; // pid -> sparse array
+    const vectors: { [key: string]: any } = {}; // pid -> sparse array
     for (i = 0; i < votes.length; i++) {
       const v = votes[i];
       // set up a vector for the participant, if not there already
-
-      // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-      // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-      // @ts-ignore
       vectors[v.pid] = vectors[v.pid] || createEmptyVoteVector(greatestTid);
       // assign a vote value at that location
       const vote = v.vote;
       if (polisTypes.reactions.push === vote) {
-        // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-        // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-        // @ts-ignore
         vectors[v.pid][v.tid] = "d";
       } else if (polisTypes.reactions.pull === vote) {
-        // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-        // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-        // @ts-ignore
         vectors[v.pid][v.tid] = "a";
       } else if (polisTypes.reactions.pass === vote) {
-        // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-        // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-        // @ts-ignore
         vectors[v.pid][v.tid] = "p";
       } else {
         console.error("unknown vote value");
@@ -12534,9 +12234,7 @@ Thanks for using Polis!
       }
     });
   }
-  // Value of type 'typeof LRUCache' is not callable. Did you mean to include 'new'? ts(2348)
-  // @ts-ignore
-  const twitterShareCountCache = LruCache({
+  const twitterShareCountCache = new LruCache({
     maxAge: 1000 * 60 * 30, // 30 minutes
     max: 999,
   });
@@ -12570,9 +12268,7 @@ Thanks for using Polis!
     );
   }
 
-  // Value of type 'typeof LRUCache' is not callable. Did you mean to include 'new'? ts(2348)
-  // @ts-ignore
-  const fbShareCountCache = LruCache({
+  const fbShareCountCache = new LruCache({
     maxAge: 1000 * 60 * 30, // 30 minutes
     max: 999,
   });
@@ -12701,51 +12397,13 @@ Thanks for using Polis!
         const pidToMetaVotes = _.groupBy(metaVotes, "pid");
 
         for (let i = 0; i < groupStats.length; i++) {
-          // Type '{ gid: number; count: number; gender_male: number; gender_female: number;
-          // gender_null: number; birth_year: number; birth_year_count: number;
-          // meta_comment_agrees: { }; meta_comment_disagrees: { }; meta_comment_passes: { }; }
-          // ' is missing the following properties from type 'DemographicEntry':
-          // ms_birth_year_estimate_fb, ms_birth_year_count, birth_year_guess,
-          // birth_year_guess_countts(2739)
-          //
-          // @ts-ignore
-          const s: DemographicEntry = groupStats[i];
+          const s: any = groupStats[i];
           const pids = groupPids[i];
           for (let p = 0; p < pids.length; p++) {
             const pid = pids[p];
             const ptptMeta = meta[pid];
             if (ptptMeta) {
               s.count += 1;
-              // if (ptptMeta.fb_gender === 0) {
-              //   s.fb_gender_male += 1;
-              // } else if (ptptMeta.fb_gender === 1) {
-              //   s.fb_gender_female += 1;
-              // } else {
-              //   s.fb_gender_null += 1;
-              // }
-              // if (ptptMeta.gender_guess === 0) {
-              //   s.gender_guess_male += 1;
-              // } else if (ptptMeta.gender_guess === 1) {
-              //   s.gender_guess_female += 1;
-              // } else {
-              //   s.gender_guess_null += 1;
-              // }
-              // if (ptptMeta.ms_birth_year_estimate_fb > 1900) {
-              //   s.ms_birth_year_estimate_fb += ptptMeta.ms_birth_year_estimate_fb;
-              //   s.ms_birth_year_count += 1;
-              // }
-              // if (ptptMeta.ms_gender_estimate_fb === 0) {
-              //   s.ms_gender_estimate_fb_male += 1;
-              // } else if (ptptMeta.ms_gender_estimate_fb === 1) {
-              //   s.ms_gender_estimate_fb_female += 1;
-              // } else {
-              //   s.ms_gender_estimate_fb_null += 1;
-              // }
-
-              // if (ptptMeta.birth_year_guess) {
-              //   s.birth_year_guess += ptptMeta.birth_year_guess;
-              //   s.birth_year_guess_count += 1;
-              // }
 
               // compute convenient counts
               let gender = null;
@@ -12779,31 +12437,13 @@ Thanks for using Polis!
               for (let v = 0; v < ptptMetaVotes.length; v++) {
                 const vote = ptptMetaVotes[v];
                 if (vote.vote === polisTypes.reactions.pass) {
-                  // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-                  // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-                  // @ts-ignore
                   s.meta_comment_passes[vote.tid] =
-                    // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-                    // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-                    // @ts-ignore
                     1 + (s.meta_comment_passes[vote.tid] || 0);
                 } else if (vote.vote === polisTypes.reactions.pull) {
-                  // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-                  // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-                  // @ts-ignore
                   s.meta_comment_agrees[vote.tid] =
-                    // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-                    // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-                    // @ts-ignore
                     1 + (s.meta_comment_agrees[vote.tid] || 0);
                 } else if (vote.vote === polisTypes.reactions.push) {
-                  // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-                  // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-                  // @ts-ignore
                   s.meta_comment_disagrees[vote.tid] =
-                    // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-                    // No index signature with a parameter of type 'string' was found on type '{}'.ts(7053)
-                    // @ts-ignore
                     1 + (s.meta_comment_disagrees[vote.tid] || 0);
                 }
               }
@@ -12828,10 +12468,7 @@ Thanks for using Polis!
     res: { json: (arg0: {}) => void }
   ) {
     if (!isPolisDev(req.p.uid) || !devMode) {
-      // TODO fix this by piping the error from the usage of this in ./app
-      // Cannot find name 'err'.ts(2304)
-      // @ts-ignore
-      return fail(res, 403, "polis_err_permissions", err);
+      return fail(res, 403, "polis_err_permissions");
     }
     pgQueryP(
       "select * from participants_extended where zid = ($1) and uid = ($2);",
@@ -13086,12 +12723,9 @@ Thanks for using Polis!
           _.pluck(pcaData.consensus.disagree, "tid")
         );
 
-        let groupTids: never[] = [];
+        let groupTids: any[] = [];
         for (const gid in pcaData.repness) {
           const commentData = pcaData.repness[gid];
-          // Type 'any[]' is not assignable to type 'never[]'.
-          // Type 'any' is not assignable to type 'never'.ts(2322)
-          // @ts-ignore
           groupTids = _.union(groupTids, _.pluck(commentData, "tid"));
         }
         let featuredTids = _.union(consensusTids, groupTids);
@@ -14088,14 +13722,6 @@ Thanks for using Polis!
                 winston.log("info", "lti_linkage didnt exist");
                 // Have them sign in again, since they weren't linked.
                 // NOTE: this could be streamlined by showing a sign-in page that also says "you are signed in as foo, link account foo? OR sign in as someone else"
-                //
-                // (parameter) res: {
-                //     redirect: (arg0: string) => void;
-                //     set: (arg0: {
-                //         "Content-Type": string;
-                //     }) => void;
-                //     send: (arg0: string) => void;
-                // }
                 renderLtiLinkagePage(req, res, url);
               }
             })
@@ -14781,21 +14407,15 @@ Thanks for using Polis!
     },
     res: { redirect: (arg0: string) => void }
   ) {
-    let site_id = /polis_site_id[^\/]*/.exec(req.path) || null;
-    let page_id = /\S\/([^\/]*)/.exec(req.path) || null;
+    let site_id: any = /polis_site_id[^\/]*/.exec(req.path) || null;
+    let page_id: any = /\S\/([^\/]*)/.exec(req.path) || null;
     if (!site_id?.length || (page_id && page_id?.length < 2)) {
       fail(res, 404, "polis_err_parsing_site_id_or_page_id");
     }
     // TODO fix this after refactoring server.ts
     // TODO into smaller files with one function per file
     // TODO manually tracing scope is too difficult right now
-    //
-    // Type 'string | undefined' is not assignable to type 'RegExpExecArray | null'.
-    //   Type 'undefined' is not assignable to type 'RegExpExecArray | null'.ts(2322)
-    // @ts-ignore
     site_id = site_id?.[0];
-    // Type 'string | undefined' is not assignable to type 'RegExpExecArray | null'.ts(2322)
-    // @ts-ignore
     page_id = page_id?.[1];
 
     const demo = req.p.demo;
@@ -14952,9 +14572,7 @@ Thanks for using Polis!
       });
   }
 
-  // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
-  // @ts-ignore
-  const routingProxy = new httpProxy.createProxyServer();
+  const routingProxy = new (httpProxy.createProxyServer() as any)();
 
   function addStaticFileHeaders(res: {
     setHeader: (arg0: string, arg1: string | number) => void;
@@ -15014,9 +14632,6 @@ Thanks for using Polis!
       return Config.staticFilesHost;
     } else {
       let origin = req?.headers?.host;
-      // Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ "pol.is": string; "embed.pol.is": string; "survey.pol.is": string; "preprod.pol.is": string; }'.
-      // No index signature with a parameter of type 'string' was found on type '{ "pol.is": string; "embed.pol.is": string; "survey.pol.is": string; "preprod.pol.is": string; }'.ts(7053)
-      // @ts-ignore
       if (!whitelistedBuckets[origin || ""]) {
         if (hasWhitelistMatches(origin || "")) {
           // Use the prod bucket for non pol.is domains
@@ -15030,9 +14645,6 @@ Thanks for using Polis!
           return;
         }
       }
-      // Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ "pol.is": string; "embed.pol.is": string; "survey.pol.is": string; "preprod.pol.is": string; }'.
-      // No index signature with a parameter of type 'string' was found on type '{ "pol.is": string; "embed.pol.is": string; "survey.pol.is": string; "preprod.pol.is": string; }'.ts(7053)
-      // @ts-ignore
       origin = whitelistedBuckets[origin || ""];
       return origin + "." + Config.staticFilesHost;
     }
@@ -15395,7 +15007,7 @@ Thanks for using Polis!
       },
       true
     )
-      .then(function (data: string) {
+      .then(function (data: any) {
         const parsedData = JSON.parse(data);
         if (!parsedData || !parsedData.length) {
           fail(res, 500, "polis_err_finding_twitter_user_info");
@@ -15569,13 +15181,10 @@ Thanks for using Polis!
 
   const returnObject: any = {
     addCorsHeader,
-    auth,
-    authOptional,
     COOKIES,
     denyIfNotFromWhitelistedDomain,
     devMode,
     emailTeam,
-    enableAgid,
     fail,
     fetchThirdPartyCookieTestPt1,
     fetchThirdPartyCookieTestPt2,
