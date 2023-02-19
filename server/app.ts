@@ -1,5 +1,3 @@
-// @ts-nocheck
-// TODO ^^ enable typechecking after refactoring to use
 // TODO modern import syntax for helpers
 
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
@@ -8,7 +6,11 @@
 import * as dotenv from "dotenv";
 dotenv.config();
 
+// @types/express does not support the 2015 version of express that we're using.
 import express from "express";
+import bodyParser from "body-parser";
+import compression from "compression";
+import cookieParser from "cookie-parser";
 
 import Config from "./src/config";
 import server from "./src/server";
@@ -24,14 +26,13 @@ const helpersInitialized = new Promise(function (resolve, reject) {
 });
 
 helpersInitialized.then(
-  function (o) {
+  function (o: any) {
     const {
       addCorsHeader,
       auth,
       authOptional,
       COOKIES,
       denyIfNotFromWhitelistedDomain,
-      devMode,
       enableAgid,
       fetchThirdPartyCookieTestPt1,
       fetchThirdPartyCookieTestPt2,
@@ -236,19 +237,16 @@ helpersInitialized.then(
     app.use(middleware_responseTime_start);
 
     app.use(redirectIfNotHttps);
-    app.use(express.cookieParser());
-    app.use(express.bodyParser());
+    app.use(cookieParser());
+    app.use(bodyParser());
     app.use(writeDefaultHead);
     app.use(redirectIfWrongDomain);
     app.use(redirectIfApiDomain);
 
-    if (devMode) {
-      app.use(express.compress());
-    } else {
-      // Cloudflare would apply gzip if we didn't
-      // but it's about 2x faster if we do the gzip (for the inbox query on mike's account)
-      app.use(express.compress());
-    }
+    // Cloudflare would apply gzip if we didn't
+    // but it's about 2x faster if we do the gzip (for the inbox query on mike's account)
+    app.use(compression());
+
     app.use(middleware_log_request_body);
     app.use(middleware_log_middleware_errors);
 
@@ -1708,8 +1706,8 @@ helpersInitialized.then(
     );
 
     function makeFetchIndexWithoutPreloadData() {
-      let port = staticFilesClientPort;
-      return function (req, res) {
+      const port = staticFilesClientPort;
+      return function (req: any, res: any) {
         return fetchIndexWithoutPreloadData(req, res, port);
       };
     }
@@ -1874,7 +1872,7 @@ helpersInitialized.then(
         pathAndQuery = pathAndQuery.replace("/?", "?");
       }
 
-      let fullUrl = req.protocol + "://" + req.get("host") + pathAndQuery;
+      const fullUrl = req.protocol + "://" + req.get("host") + pathAndQuery;
 
       if (pathAndQuery !== req.originalUrl) {
         res.redirect(fullUrl);
@@ -1883,7 +1881,7 @@ helpersInitialized.then(
       }
     });
 
-    var missingFilesGet404 = false;
+    const missingFilesGet404 = false;
     if (missingFilesGet404) {
       // 404 everything else
       app.get(

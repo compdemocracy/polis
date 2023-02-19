@@ -28,7 +28,6 @@ import Password from "./auth/password";
 import dbPgQuery from "./db/pg-query";
 
 import Config from "./config";
-// Re-import disassembled code to promise existing code will work
 import Log from "./log";
 
 import {
@@ -48,7 +47,6 @@ import {
   TwitterParameters,
   ParticipantSocialNetworkInfo,
   ParticipantOption,
-  DemographicEntry,
   Demo,
   Vote,
   Assignment,
@@ -87,23 +85,13 @@ import Session from "./session";
 import Comment from "./comment";
 import Utils from "./utils/common";
 import SQL from "./db/sql";
-// End of re-import
 
-// const winston = require("winston");
+const winston = require("winston");
 // # notifications
-const winston = console;
+// const winston = console;
 import emailSenders from "./email/senders";
 const sendTextEmail = emailSenders.sendTextEmail;
 const sendTextEmailWithBackupOnly = emailSenders.sendTextEmailWithBackupOnly;
-
-//var SegfaultHandler = require('segfault-handler');
-
-//SegfaultHandler.registerHandler("segfault.log");
-
-// var conversion = {
-//   contact: { user_id: '8634dd66-f75e-428d-a2bf-930baa0571e9' },
-//   user: { email: 'asdf@adsf.com', user_id: "12345" },
-// };
 
 if (devMode) {
   // This feature is only available with Bluebird promises and causes a substantial performance hit.
@@ -14116,7 +14104,7 @@ Thanks for using Polis!
     res.setHeader("Expires", 0);
   }
 
-  function proxy(req: { headers?: { host: string }; path: any }, res: any) {
+  function proxy(req: any, res: any) {
     const hostname = buildStaticHostname(req, res);
     if (!hostname) {
       const host = req?.headers?.host || "";
@@ -14141,16 +14129,10 @@ Thanks for using Polis!
     if (devMode) {
       addStaticFileHeaders(res);
     }
-    // if (/MSIE [^1]/.exec(req?.headers?.['user-agent'])) { // older than 10
-    //     // http.get(Config.staticFilesHost + "/unsupportedBrowser.html", function(page) {
-    //     //     res.status(200).end(page);
-    //     // }).on('error', function(e) {
-    //     //     res.status(200).end("Apollogies, this browser is not supported. We recommend Chrome, Firefox, or Safari.");
-    //     // });
-    //     getStaticFile("./unsupportedBrowser.html", res);
-    // } else {
+
     const port = Config.staticFilesClientPort;
-    // set the host header too, since S3 will look at that (or the routing proxy will patch up the request.. not sure which)
+    // set the host header too, since S3 will look at that (or the routing proxy will patch up the
+    // request.. not sure which)
     if (req && req.headers && req.headers.host) req.headers.host = hostname;
     routingProxy.web(req, res, {
       target: {
@@ -14158,7 +14140,6 @@ Thanks for using Polis!
         port: port,
       },
     });
-    // }
   }
 
   function buildStaticHostname(req: { headers?: { host: string } }, res: any) {
