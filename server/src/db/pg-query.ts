@@ -1,5 +1,7 @@
 import { isFunction, isString, isUndefined } from "underscore";
-import { native as pgnative, Pool } from "pg"; //.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
+// native provides ssl (needed for dev laptop to access)
+// http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
+import { native as pgnative, Pool } from "pg";
 import { parse as parsePgConnectionString } from "pg-connection-string";
 
 import Config from "../config";
@@ -107,10 +109,8 @@ function queryImpl(pool: Pool, queryString?: any, ...args: undefined[]) {
 }
 
 const pgPoolLevelRanks = ["info", "verbose"]; // TODO investigate
-const pgPoolLoggingLevel = -1; // -1 to get anything more important than info and verbose. // pgPoolLevelRanks.indexOf("info");
-
-// remove queryreadwriteobj
-// remove queryreadonlyobj
+const pgPoolLoggingLevel = -1; // -1 to get anything more important than info and verbose.
+// pgPoolLevelRanks.indexOf("info");
 
 function query(...args: any[]) {
   return queryImpl(readWritePool, ...args);
@@ -124,7 +124,7 @@ function queryP_impl(config: any, queryString?: any, params?: undefined) {
   if (!isString(queryString)) {
     return Promise.reject("query_was_not_string");
   }
-  let f = config.isReadOnly ? query_readOnly : query;
+  const f = config.isReadOnly ? query_readOnly : query;
   return new Promise(function (resolve, reject) {
     f(queryString, params, function (err: any, result: { rows: unknown }) {
       if (err) {
@@ -163,7 +163,7 @@ function queryP_metered_impl(
   queryString?: undefined,
   params?: undefined
 ) {
-  let f = isReadOnly ? queryP_readOnly : queryP;
+  const f = isReadOnly ? queryP_readOnly : queryP;
   if (isUndefined(name) || isUndefined(queryString) || isUndefined(params)) {
     throw new Error("polis_err_queryP_metered_impl missing params");
   }

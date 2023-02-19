@@ -122,7 +122,7 @@ function getZidFromConversationId(conversation_id: string) {
   return MPromise(
     "getZidFromConversationId",
     function (resolve: (arg0: any) => void, reject: (arg0: string) => any) {
-      let cachedZid = conversationIdToZidCache.get(conversation_id);
+      const cachedZid = conversationIdToZidCache.get(conversation_id);
       if (cachedZid) {
         resolve(cachedZid);
         return;
@@ -139,7 +139,7 @@ function getZidFromConversationId(conversation_id: string) {
             );
             return reject("polis_err_fetching_zid_for_conversation_id");
           } else {
-            let zid = results.rows[0].zid;
+            const zid = results.rows[0].zid;
             conversationIdToZidCache.set(conversation_id, zid);
             return resolve(zid);
           }

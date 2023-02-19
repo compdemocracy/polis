@@ -8,7 +8,6 @@
 import * as dotenv from "dotenv";
 dotenv.config();
 
-import Promise from "bluebird";
 import express from "express";
 
 import Config from "./src/config";
@@ -20,7 +19,7 @@ const app = express();
 // See: https://expressjs.com/en/guide/behind-proxies.html
 app.set("trust proxy", "uniquelocal");
 
-var helpersInitialized = new Promise(function (resolve, reject) {
+const helpersInitialized = new Promise(function (resolve, reject) {
   resolve(server.initializePolisHelpers());
 });
 
@@ -202,8 +201,6 @@ helpersInitialized.then(
       getUrlLimitLength,
       moveToBody,
       need,
-      needCookie,
-      needHeader,
       resolve_pidThing,
       want,
       wantCookie,
