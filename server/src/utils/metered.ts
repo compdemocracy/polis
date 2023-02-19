@@ -1,15 +1,17 @@
 type MetricsInRam = {
-  [key: string]: any;
+  [key: string]: { values: number[]; index: number };
 };
 
 // metric name => {
 //    values: [circular buffers of values (holds 1000 items)]
 //    index: index in circular buffer
 //}
-export const METRICS_IN_RAM: MetricsInRam = {};
+const METRICS_IN_RAM: MetricsInRam = {};
 const SHOULD_ADD_METRICS_IN_RAM = false;
 
-export function addInRamMetric(metricName: string, val: number) {
+// TODO either add this arg to the function definition
+// TODO or remove this arg from the function call
+function addInRamMetric(metricName: string, val: number): void {
   if (!SHOULD_ADD_METRICS_IN_RAM) {
     return;
   }
@@ -19,65 +21,46 @@ export function addInRamMetric(metricName: string, val: number) {
       index: 0,
     };
   }
-  let index = METRICS_IN_RAM[metricName].index;
+
+  const index = METRICS_IN_RAM[metricName].index;
   METRICS_IN_RAM[metricName].values[index] = val;
   METRICS_IN_RAM[metricName].index = (index + 1) % 1000;
 }
 
-// metered promise
-export function MPromise(
+function MPromise(
   name: string,
-  f: (resolve: (value: unknown) => void, reject: (reason?: any) => void) => void
-) {
-  let p = new Promise(f);
-  let start = Date.now();
-  setTimeout(function () {
-    // TODO either add this arg to the function definition
-    // TODO or remove this arg from the function call
-    //     TS2554: Expected 2 arguments, but got 3.
-    // 35     addInRamMetric(name + ".go", 1, start);
-    // @ts-ignore                        ~~~~~
-    addInRamMetric(name + ".go", 1, start);
-  }, 100);
-  p.then(
-    function () {
-      let end = Date.now();
-      let duration = end - start;
+  fn: (resolve: (value?: any) => void, reject: (value?: any) => void) => void
+): Promise<unknown> {
+  const prom = new Promise(fn);
+  const start = Date.now();
+
+  prom
+    .then(
+      function () {
+        const end = Date.now();
+        const duration = end - start;
+        setTimeout(function () {
+          addInRamMetric(name + ".ok", duration);
+        }, 100);
+      },
+      function () {
+        const end = Date.now();
+        const duration = end - start;
+        setTimeout(function () {
+          addInRamMetric(name + ".fail", duration);
+        }, 100);
+      }
+    )
+    .catch(function (err) {
+      const end = Date.now();
+      const duration = end - start;
       setTimeout(function () {
-        // TODO either add this arg to the function definition
-        // TODO or remove this arg from the function call
-        //  TS2554: Expected 2 arguments, but got 3.
-        // 45         addInRamMetric(name + ".ok", duration, end);
-        // @ts-ignore
-        addInRamMetric(name + ".ok", duration, end);
+        console.error("MPromise error: ", err, " for ", name);
+        addInRamMetric(name + ".fail", duration);
       }, 100);
-    },
-    function () {
-      let end = Date.now();
-      let duration = end - start;
-      setTimeout(function () {
-        // TODO either add this arg to the function definition
-        // TODO or remove this arg from the function call
-        // TS2554: Expected 2 arguments, but got 3.
-        // 59         addInRamMetric(name + ".fail", duration, end);
-        // @ts-ignore
-        addInRamMetric(name + ".fail", duration, end);
-      }, 100);
-    }
-  ).catch(function (err) {
-    let end = Date.now();
-    let duration = end - start;
-    setTimeout(function () {
-      // TODO either add this arg to the function definition
-      // TODO or remove this arg from the function call
-      //       TS2554: Expected 2 arguments, but got 3.
-      // 73       addInRamMetric(name + ".fail", duration, end);
-      // @ts-ignore
-      addInRamMetric(name + ".fail", duration, end);
-      console.log("MPromise internal error");
-    }, 100);
-  });
-  return p;
+    });
+
+  return prom;
 }
 
-export default { addInRamMetric, MPromise };
+export { addInRamMetric, MPromise, METRICS_IN_RAM };

@@ -4,7 +4,7 @@ import LruCache from "lru-cache";
 import Config from "./config";
 import pg from "./db/pg-query";
 
-function encrypt(text: string | null) {
+function encrypt(text: any) {
   const algorithm = "aes-256-ctr";
   const password = Config.encryptionPassword;
   //
@@ -18,20 +18,9 @@ function encrypt(text: string | null) {
   // crypto.d.ts(207, 9): The declaration was marked as deprecated here.
   // No overload matches this call.
   //   Overload 1 of 3, '(algorithm: CipherGCMTypes, password: BinaryLike, options?: CipherGCMOptions | undefined): CipherGCM', gave the following error.
-  //     Argument of type '"aes-256-ctr"' is not assignable to parameter of type 'CipherGCMTypes'.
-  //   Overload 2 of 3, '(algorithm: string, password: BinaryLike, options?: TransformOptions | undefined): Cipher', gave the following error.
-  //     Argument of type 'string | undefined' is not assignable to parameter of type 'BinaryLike'.
-  //       Type 'undefined' is not assignable to type 'BinaryLike'.ts(2769)
-  // @ts-ignore
   const cipher = crypto.createCipher(algorithm, password);
   // No overload matches this call.
   // Overload 1 of 4, '(data: ArrayBufferView, input_encoding: undefined, output_encoding: Encoding): string', gave the following error.
-  //   Argument of type 'string | null' is not assignable to parameter of type 'ArrayBufferView'.
-  //     Type 'null' is not assignable to type 'ArrayBufferView'.
-  // Overload 2 of 4, '(data: string, input_encoding: Encoding | undefined, output_encoding: Encoding): string', gave the following error.
-  //   Argument of type 'string | null' is not assignable to parameter of type 'string'.
-  //   Type 'null' is not assignable to type 'string'.ts(2769)
-  // @ts-ignore
   var crypted = cipher.update(text, "utf8", "hex");
   // Type 'string' is not assignable to type 'Buffer & string'.
   // Type 'string' is not assignable to type 'Buffer'.ts(2322)
@@ -54,10 +43,6 @@ function decrypt(text: string) {
   // crypto.d.ts(253, 9): The declaration was marked as deprecated here.
   // No overload matches this call.
   //   Overload 1 of 3, '(algorithm: CipherGCMTypes, password: BinaryLike, options?: CipherGCMOptions | undefined): DecipherGCM', gave the following error.
-  //     Argument of type '"aes-256-ctr"' is not assignable to parameter of type 'CipherGCMTypes'.
-  //   Overload 2 of 3, '(algorithm: string, password: BinaryLike, options?: TransformOptions | undefined): Decipher', gave the following error.
-  //     Argument of type 'string | undefined' is not assignable to parameter of type 'BinaryLike'.ts(2769)
-  // @ts-ignore
   const decipher = crypto.createDecipher(algorithm, password);
   var dec = decipher.update(text, "hex", "utf8");
   dec += decipher.final("utf8");

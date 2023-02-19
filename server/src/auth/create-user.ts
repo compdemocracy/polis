@@ -69,12 +69,7 @@ function createUser(req: any, res: any) {
   }
 
   pg.queryP("SELECT * FROM users WHERE email = ($1)", [email]).then(
-    //   Argument of type '(rows: string | any[]) => void' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.
-    // Types of parameters 'rows' and 'value' are incompatible.
-    //   Type 'unknown' is not assignable to type 'string | any[]'.
-    //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-    // @ts-ignore
-    function (rows: string | any[]) {
+    function (rows: any) {
       if (rows.length > 0) {
         fail(res, 403, "polis_err_reg_user_with_that_email_exists");
         return;
@@ -172,12 +167,6 @@ function createUser(req: any, res: any) {
                                 } else {
                                   User.renderLtiLinkageSuccessPage(req, res, {
                                     // may include token here too
-                                    // Argument of type '{ context_id: any; uid: any;
-                                    // hname: any; email: any;
-                                    // }' is not assignable to parameter of type '{ email: string; }'.
-                                    //Object literal may only specify known properties, and
-                                    // 'context_id' does not exist in type '{ email: string; }'.ts(2345)
-                                    // @ts-ignore
                                     context_id: lti_context_id,
                                     uid: uid,
                                     hname: hname,

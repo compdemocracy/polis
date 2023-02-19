@@ -74,10 +74,10 @@ function getComments(o: CommentType) {
     ? _getCommentsForModerationList(o)
     : _getCommentsList(o);
   let convPromise = Conversation.getConversationInfo(o.zid);
-  let conv: { is_anon: any } | null = null;
+  let conv: any;
   return Promise.all([convPromise, commentListPromise])
     .then(function (a) {
-      let rows = a[1];
+      let rows = a[1] as any[];
       conv = a[0];
       let cols = [
         "txt",
@@ -305,15 +305,10 @@ function _getCommentsList(o: {
   random: any;
   limit: any;
 }) {
-  // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
-  // @ts-ignore
-  return new MPromise(
+  return MPromise(
     "_getCommentsList",
     function (resolve: (rows: Row[]) => void, reject: (arg0: any) => void) {
-      Conversation.getConversationInfo(o.zid).then(function (conv: {
-        strict_moderation: any;
-        prioritize_seed: any;
-      }) {
+      Conversation.getConversationInfo(o.zid).then(function (conv: any) {
         let q = SQL.sql_comments
           .select(SQL.sql_comments.star())
           .where(SQL.sql_comments.zid.equals(o.zid));
@@ -402,16 +397,14 @@ function translateAndStoreComment(zid: any, tid: any, txt: any, lang: any) {
     return translateString(txt, lang).then((results: any[]) => {
       const translation = results[0];
       const src = -1; // Google Translate of txt with no added context
-      return (
-        pg
-          .queryP(
-            "insert into comment_translations (zid, tid, txt, lang, src) values ($1, $2, $3, $4, $5) returning *;",
-            [zid, tid, translation, lang, src]
-          )
-          .then((rows: any) => {
-            return rows[0];
-          })
-      );
+      return pg
+        .queryP(
+          "insert into comment_translations (zid, tid, txt, lang, src) values ($1, $2, $3, $4, $5) returning *;",
+          [zid, tid, translation, lang, src]
+        )
+        .then((rows: any) => {
+          return rows[0];
+        });
     });
   }
   return Promise.resolve(null);
