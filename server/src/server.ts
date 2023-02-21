@@ -3003,8 +3003,6 @@ Feel free to reply to this email if you need help.`;
         uid,
       ]),
       pgQueryP_readOnly("select * from twitter_users where uid = ($1);", [uid]),
-      //     No overload matches this call.
-      // Overload 1 of 2, '(onFulfill?: ((value: [unknown, unknown]) => Resolvable<{ location: any; source: number; } | null>) | undefined, onReject?: ((error: any) => Resolvable<{ location: any; source: number; } | null>) | undefined): Promise<...>', gave the following error.
     ]).then(function (o: any) {
       const fb = o[0] && o[0][0];
       const tw = o[1] && o[1][0];
@@ -3030,8 +3028,6 @@ Feel free to reply to this email if you need help.`;
   ) {
     INFO("asdf1", zid, uid, pid);
     getUsersLocationName(uid)
-      //     No overload matches this call.
-      // Overload 1 of 2, '(onFulfill?: ((value: unknown) => Resolvable<void>) | undefined, onReject?: ((error: any) => Resolvable<void>) | undefined): Promise<void>', gave the following error.
       .then(function (locationData: any) {
         if (!locationData) {
           INFO("asdf1.nope");
@@ -4517,79 +4513,70 @@ Email verified! You can close this tab or hit the back button.
     //     else
     //         let them join without forcing a sign in (assuming conversation allows that)
 
-    return (
-      joinWithZidOrSuzinvite({
-        answers: req.p.answers,
-        existingAuth: !!req.p.uid,
-        suzinvite: req.p.suzinvite,
-        permanentCookieToken: req.p.permanentCookieToken,
-        uid: req.p.uid,
-        zid: req.p.zid, // since the zid is looked up using the conversation_id, it's safe to use zid as an invite token. TODO huh?
-        referrer: req.p.referrer,
-        parent_url: req.p.parent_url,
-      })
-        //     No overload matches this call.
-        // Overload 1 of 2, '(onFulfill?: ((value: unknown) => Resolvable<{ uid?: any; existingAuth: string; }>) | undefined, onReject?: ((error: any) => Resolvable<{ uid?: any; existingAuth: string; }>) | undefined): Promise<...>', gave the following error.
-        .then(function (o: any) {
-          const uid = o.uid;
-          winston.log(
-            "info",
-            "startSessionAndAddCookies " + uid + " existing " + o.existingAuth
-          );
-          // TODO check for possible security implications
-          if (!o.existingAuth) {
-            return startSessionAndAddCookies(req, res, uid).then(function () {
-              return o;
-            });
-          }
-          return Promise.resolve(o);
-        })
-        //       No overload matches this call.
-        // Overload 1 of 2, '(onFulfill?: ((value: unknown) => Resolvable<{ permanentCookieToken: any; zid: any; }>) | undefined,
-        //  onReject ?: ((error: any) => Resolvable<{ permanentCookieToken: any; zid: any; }>) | undefined): Promise <...> ', gave the following error.
-        .then(function (o: { permanentCookieToken: any; zid: any }) {
-          winston.log("info", "permanentCookieToken", o.permanentCookieToken);
-          if (o.permanentCookieToken) {
-            return recordPermanentCookieZidJoin(
-              o.permanentCookieToken,
-              o.zid
-            ).then(
-              function () {
-                return o;
-              },
-              function () {
-                return o;
-              }
-            );
-          } else {
+    return joinWithZidOrSuzinvite({
+      answers: req.p.answers,
+      existingAuth: !!req.p.uid,
+      suzinvite: req.p.suzinvite,
+      permanentCookieToken: req.p.permanentCookieToken,
+      uid: req.p.uid,
+      zid: req.p.zid, // since the zid is looked up using the conversation_id, it's safe to use zid as an invite token. TODO huh?
+      referrer: req.p.referrer,
+      parent_url: req.p.parent_url,
+    })
+      .then(function (o: any) {
+        const uid = o.uid;
+        winston.log(
+          "info",
+          "startSessionAndAddCookies " + uid + " existing " + o.existingAuth
+        );
+        // TODO check for possible security implications
+        if (!o.existingAuth) {
+          return startSessionAndAddCookies(req, res, uid).then(function () {
             return o;
-          }
-        })
-        //       No overload matches this call.
-        // Overload 1 of 2, '(onFulfill?: ((value: unknown) => Resolvable<void>) | undefined, onReject?: ((error: any) => Resolvable<void>) | undefined): Promise<void>', gave the following error.
-        .then(function (o: any) {
-          const pid = o.pid;
-          res.status(200).json({
-            pid: pid,
-            uid: req.p.uid,
           });
-        })
-        .catch(function (err: { message: string }) {
-          if (
-            err &&
-            err.message &&
-            err.message.match(/polis_err_need_full_user/)
-          ) {
-            userFail(res, 403, err.message, err);
-          } else if (err && err.message) {
-            fail(res, 500, err.message, err);
-          } else if (err) {
-            fail(res, 500, "polis_err_joinWithZidOrSuzinvite", err);
-          } else {
-            fail(res, 500, "polis_err_joinWithZidOrSuzinvite");
-          }
-        })
-    );
+        }
+        return Promise.resolve(o);
+      })
+      .then(function (o: { permanentCookieToken: any; zid: any }) {
+        winston.log("info", "permanentCookieToken", o.permanentCookieToken);
+        if (o.permanentCookieToken) {
+          return recordPermanentCookieZidJoin(
+            o.permanentCookieToken,
+            o.zid
+          ).then(
+            function () {
+              return o;
+            },
+            function () {
+              return o;
+            }
+          );
+        } else {
+          return o;
+        }
+      })
+      .then(function (o: any) {
+        const pid = o.pid;
+        res.status(200).json({
+          pid: pid,
+          uid: req.p.uid,
+        });
+      })
+      .catch(function (err: { message: string }) {
+        if (
+          err &&
+          err.message &&
+          err.message.match(/polis_err_need_full_user/)
+        ) {
+          userFail(res, 403, err.message, err);
+        } else if (err && err.message) {
+          fail(res, 500, err.message, err);
+        } else if (err) {
+          fail(res, 500, "polis_err_joinWithZidOrSuzinvite", err);
+        } else {
+          fail(res, 500, "polis_err_joinWithZidOrSuzinvite");
+        }
+      });
   }
   // Test for deadlock condition
   // _.times(2, function() {
@@ -4661,8 +4648,6 @@ Email verified! You can close this tab or hit the back button.
             return o;
           }
         })
-        //       No overload matches this call.
-        // Overload 1 of 2, '(onFulfill?: ((value: unknown) => any) | undefined, onReject?: ((error: any) => any) | undefined): Promise<any>', gave the following error.
         .then(function (o: any) {
           winston.log("info", "joinWithZidOrSuzinvite userinfo begin");
           if (!o.uid) {
@@ -4699,16 +4684,12 @@ Email verified! You can close this tab or hit the back button.
             });
           }
         })
-        // No overload matches this call.
-        // Overload 1 of 2, '(onFulfill?: ((value: unknown) => any) | undefined, onReject?: ((error: any) => any) | undefined): Promise<any>', gave the following error.
         .then(function (o: any) {
           return userHasAnsweredZeQuestions(o.zid, o.answers).then(function () {
             // looks good, pass through
             return o;
           });
         })
-        //       No overload matches this call.
-        // Overload 1 of 2, '(onFulfill?: ((value: unknown) => any) | undefined, onReject?: ((error: any) => any) | undefined): Promise<any>', gave the following error.
         .then(function (o: any) {
           const info: ParticipantInfo = {};
           if (o.referrer) {
@@ -4724,9 +4705,6 @@ Email verified! You can close this tab or hit the back button.
             return Object.assign(o, ptpt);
           });
         })
-        //       No overload matches this call.
-        // Overload 1 of 2, '(onFulfill?: ((value: unknown) => Resolvable<{ xid: any; conv: { org_id: any; use_xid_whitelist: any; owner: any; };
-        // uid?: any; } | undefined>) | undefined, onReject?: ((error: any) => Resolvable<{ xid: any; conv: { ...; }; uid?: any; } | undefined>) | undefined): Promise<...>', gave the following error.
         .then(function (o: {
           xid: any;
           conv: { org_id: any; use_xid_whitelist: any; owner: any };
@@ -4761,8 +4739,6 @@ Email verified! You can close this tab or hit the back button.
             return o;
           }
         })
-        //       No overload matches this call.
-        // Overload 1 of 2, '(onFulfill?: ((value: unknown) => Resolvable<{ suzinvite: any; }>) | undefined, onReject?: ((error: any) => Resolvable<{ suzinvite: any; }>) | undefined): Promise<{ suzinvite: any; }>', gave the following error.
         .then(function (o: any) {
           if (o.suzinvite) {
             return deleteSuzinvite(o.suzinvite).then(function () {
@@ -5798,8 +5774,6 @@ Email verified! You can close this tab or hit the back button.
             "update users set email = ($2) where uid = ($1) and email is NULL;",
             [uid, email]
           ),
-          //         No overload matches this call.
-          // Overload 1 of 2, '(onFulfill?: ((value: [unknown, unknown, unknown]) => any) | undefined, onReject?: ((error: any) => any) | undefined): Promise<any>', gave the following error.
         ]).then(function (o: any) {
           const user = o[0][0];
           winston.log("info", "fb1 5a");
@@ -7088,8 +7062,6 @@ Email verified! You can close this tab or hit the back button.
 
     twitterPrepPromise
       .then(
-        //       No overload matches this call.
-        // Overload 1 of 2, '(onFulfill?: ((value: void) => any) | undefined, onReject?: ((error: any) => any) | undefined): Promise<any>', gave the following error.
         function (info: any) {
           console.log("POST_comments after twitterPrepPromise", Date.now());
 
@@ -8637,9 +8609,6 @@ Email verified! You can close this tab or hit the back button.
       uid = req.p.uid;
     }
     Promise.all([generateTokenP(40, false), generateTokenP(40, false)]).then(
-      // No overload matches this call.
-      // Overload 1 of 2, '(onFulfill?: ((value: [unknown, unknown]) => Resolvable<void>) | undefined, onReject?: ((error: any) => Resolvable<void>) | undefined):
-      //     Promise<void>', gave the following error.
       function (results: any) {
         const key = "polis_oauth_consumer_key_" + results[0];
         const secret = "polis_oauth_shared_secret_" + results[1];
@@ -9255,8 +9224,6 @@ Email verified! You can close this tab or hit the back button.
         return;
       }
 
-      //     No overload matches this call.
-      // Overload 1 of 3, '(tasks: AsyncFunction<{ rows: any; }, any>[], callback?: AsyncResultArrayCallback<{ rows: any; }, any> | undefined): void', gave the following error.
       async.parallel(
         [
           function (callback: any) {
@@ -9452,8 +9419,6 @@ Email verified! You can close this tab or hit the back button.
         return;
       }
 
-      //     No overload matches this call.
-      // Overload 1 of 3, '(tasks: AsyncFunction<{ rows: any; }, any>[], callback?: AsyncResultArrayCallback<{ rows: any; }, any> | undefined): void', gave the following error.
       async.parallel(
         [
           function (callback: any) {
@@ -11361,45 +11326,16 @@ Thanks for using Polis!
                           "select * from twitter_users where twitter_user_id = ($1);",
                           [u.id]
                         ),
-                      ])
-                        //                       No overload matches this call.
-                        // Overload 1 of 2, '(onFulfill?: ((value: [unknown, unknown]) => Resolvable<void>) | undefined, onReject?: ((error: any) => Resolvable<void>) | undefined): Promise<void>', gave the following error.
-                        .then(function (foo: any) {
-                          const recordForUid = foo[0][0];
-                          const recordForTwitterId = foo[1][0];
-                          if (recordForUid && recordForTwitterId) {
-                            if (recordForUid.uid === recordForTwitterId.uid) {
-                              // match
-                              res.redirect(dest);
-                            } else {
-                              // TODO_SECURITY_REVIEW
-                              // both exist, but not same uid
-                              switchToUser(req, res, recordForTwitterId.uid)
-                                .then(function () {
-                                  res.redirect(dest);
-                                })
-                                .catch(function (err: any) {
-                                  fail(
-                                    res,
-                                    500,
-                                    "polis_err_twitter_auth_456",
-                                    err
-                                  );
-                                });
-                            }
-                          } else if (recordForUid) {
-                            // currently signed in user has a twitter account attached, but it's a different twitter account, and they are now signing in with a different twitter account.
-                            // the newly supplied twitter account is not attached to anything.
-                            fail(
-                              res,
-                              500,
-                              "polis_err_twitter_already_attached",
-                              err
-                            );
-                          } else if (recordForTwitterId) {
-                            // currently signed in user has no twitter account attached, but they just signed in with a twitter account which is attached to another user.
-                            // For now, let's just have it sign in as that user.
+                      ]).then(function (foo: any) {
+                        const recordForUid = foo[0][0];
+                        const recordForTwitterId = foo[1][0];
+                        if (recordForUid && recordForTwitterId) {
+                          if (recordForUid.uid === recordForTwitterId.uid) {
+                            // match
+                            res.redirect(dest);
+                          } else {
                             // TODO_SECURITY_REVIEW
+                            // both exist, but not same uid
                             switchToUser(req, res, recordForTwitterId.uid)
                               .then(function () {
                                 res.redirect(dest);
@@ -11408,14 +11344,35 @@ Thanks for using Polis!
                                 fail(
                                   res,
                                   500,
-                                  "polis_err_twitter_auth_234",
+                                  "polis_err_twitter_auth_456",
                                   err
                                 );
                               });
-                          } else {
-                            fail(res, 500, "polis_err_twitter_auth_345");
                           }
-                        });
+                        } else if (recordForUid) {
+                          // currently signed in user has a twitter account attached, but it's a different twitter account, and they are now signing in with a different twitter account.
+                          // the newly supplied twitter account is not attached to anything.
+                          fail(
+                            res,
+                            500,
+                            "polis_err_twitter_already_attached",
+                            err
+                          );
+                        } else if (recordForTwitterId) {
+                          // currently signed in user has no twitter account attached, but they just signed in with a twitter account which is attached to another user.
+                          // For now, let's just have it sign in as that user.
+                          // TODO_SECURITY_REVIEW
+                          switchToUser(req, res, recordForTwitterId.uid)
+                            .then(function () {
+                              res.redirect(dest);
+                            })
+                            .catch(function (err: any) {
+                              fail(res, 500, "polis_err_twitter_auth_234", err);
+                            });
+                        } else {
+                          fail(res, 500, "polis_err_twitter_auth_345");
+                        }
+                      });
 
                       // else check if the uid is there and has some other screen_name - if so, ????????
 
