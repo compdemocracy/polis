@@ -15538,7 +15538,6 @@ Thanks for using Polis!
     },
     res: { redirect: (arg0: string) => void }
   ) {
-    console.log("handle_GET_implicit_conversation_generation");
     let site_id = /polis_site_id[^\/]*/.exec(req.path) || null;
     let page_id = /\S\/([^\/]*)/.exec(req.path) || null;
     if (!site_id?.length || (page_id && page_id?.length < 2)) {
@@ -15810,10 +15809,8 @@ Thanks for using Polis!
         end: () => void;
       }
     ) {
-      console.log("makeRedirectorTo", path);
       let protocol = devMode ? "http://" : "https://";
       let url = protocol + req?.headers?.host + path;
-      console.error("redirecting to " + url);
       res.writeHead(302, {
         Location: url,
       });
@@ -16030,7 +16027,6 @@ Thanks for using Polis!
       req.path.length > 1 &&
       !/^\/api/.exec(req.path) // TODO probably better to create a list of client-side route regexes (whitelist), rather than trying to blacklist things like API calls.
     ) {
-      console.error("redirecting to hash url");
       // Redirect to the same URL with the path behind the fragment "#"
       res.writeHead(302, {
         Location: "https://" + req?.headers?.host + "/#" + req.path,
@@ -16247,11 +16243,8 @@ Thanks for using Polis!
       });
   }
   let handle_GET_conditionalIndexFetcher = (function () {
-    console.log("handle_GET_conditionalIndexFetcher");
     return function (req: any, res: { redirect: (arg0: string) => void }) {
-      console.log("handle_GET_conditionalIndexFetcher inner function");
       if (hasAuthToken(req)) {
-        console.log("hasAuthToken");
         // user is signed in, serve the app
         // Argument of type '{ redirect: (arg0: string) => void; }'
         // is not assignable to parameter of type '{ set: (arg0: any) => void; }'.
@@ -16261,7 +16254,6 @@ Thanks for using Polis!
         // @ts-ignore
         return fetchIndexForAdminPage(req, res);
       } else if (!browserSupportsPushState(req)) {
-        console.log("browserSupportsPushState false");
         // TEMPORARY: Don't show the landing page.
         // The problem is that /user/create redirects to #/user/create,
         // which ends up here, and since there's no auth token yet,
@@ -16273,7 +16265,6 @@ Thanks for using Polis!
         // @ts-ignore
         return fetchIndexForAdminPage(req, res);
       } else {
-        console.log("*** REDIRECTING TO LANDING PAGE ***");
         // user not signed in, redirect to landing page
         let url = getServerNameWithProtocol(req) + "/home";
         res.redirect(url);
