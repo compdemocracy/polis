@@ -5,11 +5,15 @@
 
 FROM docker.io/node:18-alpine
 
+# Set default NODE_ENV to production unless overridden at build time with --build-arg NODE_ENV=development
+ARG NODE_ENV
+ENV NODE_ENV ${NODE_ENV:-production}
+
 WORKDIR /app
 
 COPY package*.json ./
 
-RUN npm ci
+RUN npm ci --include=dev
 
 COPY . .
 

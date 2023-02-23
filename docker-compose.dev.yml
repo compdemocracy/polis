@@ -9,9 +9,11 @@
 
 services:
   server:
-    command: npm run build:watch
-    environment:
-      NODE_ENV: development
+    build:
+      dockerfile: Dockerfile.dev
+      args:
+        NODE_ENV: development
+    command: npm run dev
     volumes:
       # This will mount your local polis/server directory so changes can be watched and reloaded.
       # But it will ignore your local node_modules and instead use a new container volume.
@@ -36,6 +38,9 @@ services:
       - "${POSTGRES_PORT:-5432}:5432"
 
   file-server:
+    build:
+      args:
+        NODE_ENV: development
     ports:
       - ${STATIC_FILES_PORT:-8080}:${STATIC_FILES_PORT:-8080}
     volumes:
