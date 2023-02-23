@@ -10,7 +10,7 @@ WORKDIR /app
 
 COPY client-admin/package*.json ./
 
-RUN npm ci --include=dev
+RUN npm ci --production=false
 
 COPY client-admin/. .
 
@@ -29,7 +29,7 @@ WORKDIR /app
 
 COPY client-participation/package*.json ./
 
-RUN npm ci --include=dev
+RUN npm ci --production=false
 
 COPY client-participation/. .
 
@@ -52,7 +52,7 @@ RUN apk add git
 
 COPY client-report/package*.json ./
 
-RUN npm ci --include=dev
+RUN npm ci --production=false
 
 COPY client-report/. .
 

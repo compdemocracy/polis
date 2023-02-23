@@ -20,7 +20,7 @@ RUN apk add libpq-dev
 RUN apk add --no-cache --virtual .build \
   g++ make python3
 
-RUN npm ci --include=dev
+RUN npm ci --production=false
 
 RUN apk del .build
 

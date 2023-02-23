@@ -16,7 +16,7 @@ RUN apk add git
 
 COPY package*.json ./
 
-RUN npm ci --include=dev
+RUN npm ci --production=false
 
 COPY . .
 
