@@ -33,7 +33,6 @@ import timeout from "connect-timeout";
 import zlib from "zlib";
 import _ from "underscore";
 import pg from "pg";
-import URL from "url";
 
 import { METRICS_IN_RAM, addInRamMetric, MPromise } from "./utils/metered";
 import CreateUser from "./auth/create-user";
@@ -1787,7 +1786,7 @@ function initializePolisHelpers() {
     });
   }
   function redirectIfHasZidButNoConversationId(
-    req: { body: { zid: any; conversation_id: any } },
+    req: { body: { zid: any; conversation_id: any }, headers?: any },
     res: {
       writeHead: (arg0: number, arg1: { Location: string }) => void;
       end: () => any;
@@ -1796,9 +1795,10 @@ function initializePolisHelpers() {
   ) {
     if (req.body.zid && !req.body.conversation_id) {
       winston.log("info", "redirecting old zid user to about page");
-      const redirectTo = URL.resolve(req.url, '/about');
+      const path = "/about";
+      const protocol = req.headers["x-forwarded-proto"] || "http";
       res.writeHead(302, {
-        Location: redirectTo
+        Location: protocol + "://" + req?.headers?.host + path,
       });
       return res.end();
     }
