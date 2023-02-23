@@ -1,5 +1,5 @@
 import _ from "underscore";
-import URL from "url";
+import url from "url";
 
 import Config from "../config";
 import User from "../user";
@@ -45,8 +45,8 @@ const COOKIES_TO_CLEAR = {
 let oneYear = 1000 * 60 * 60 * 24 * 365;
 
 function cookieDomain(req: Req) {
-  let origin = req?.headers?.origin || "";
-  let parsedOrigin = new URL(origin);
+  const origin = req?.headers?.origin || "";
+  const parsedOrigin = url.parse(origin);
   if (parsedOrigin.hostname === "localhost") {
     return "localhost";
   }
@@ -70,7 +70,7 @@ function setCookie(
   opts.maxAge = _.isUndefined(opts.maxAge) ? oneYear : opts.maxAge;
 
   const origin = req?.headers?.origin || "";
-  const parsedOrigin = new URL(origin);
+  const parsedOrigin = url.parse(origin);
 
   opts.secure = parsedOrigin.protocol === "https:";
   opts.domain = cookieDomain(req);
