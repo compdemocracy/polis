@@ -172,46 +172,7 @@ function isPolisDev(uid?: any) {
   console.log("polisDevs", polisDevs);
   return polisDevs.indexOf(uid) >= 0;
 }
-// log heap stats
-setInterval(function () {
-  let mem = process.memoryUsage();
-  let heapUsed = mem.heapUsed;
-  let rss = mem.rss;
-  let heapTotal = mem.heapTotal;
-  winston.log(
-    "info",
-    "heapUsed:",
-    heapUsed,
-    "heapTotal:",
-    heapTotal,
-    "rss:",
-    rss
-  );
-  // let start = Date.now();
 
-  //metric("api.process.mem.heapUsed", heapUsed, start);
-  //metric("api.process.mem.rss", rss, start);
-  //metric("api.process.mem.heapTotal", heapTotal, start);
-}, 10 * 1000);
-// // BEGIN GITHUB OAUTH2
-// let CLIENT_SECRET = "0b178e412a10fa023a0153bf7cefaf6dae0f74b9";
-// let CLIENT_ID = "109a1eb4732b3ec1075b";
-// let oauth2 = require('simple-oauth2')({
-//   clientID: CLIENT_ID,
-//   clientSecret: CLIENT_SECRET,
-//   site: 'https://github.com/login',
-//   tokenPath: '/oauth/access_token'
-// });
-
-// winston.log("info",oauth2);
-
-// // Authorization uri definition
-// let authorization_uri = oauth2.AuthCode.authorizeURL({
-//   redirect_uri: 'https://preprod.pol.is/oauth2/oauth2_github_callback',
-//   scope: 'notifications',
-//   state: '3(#0/!~'
-// });
-// // END GITHUB OAUTH2
 const polisFromAddress = Config.polisFromAddress;
 
 const serverUrl = Config.getServerUrl(); // typically https://pol.is or http://localhost:5000
