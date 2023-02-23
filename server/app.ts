@@ -54,10 +54,8 @@ helpersInitialized.then(
       staticFilesAdminPort,
       staticFilesClientPort,
       proxy,
-      redirectIfApiDomain,
       redirectIfHasZidButNoConversationId,
       redirectIfNotHttps,
-      redirectIfWrongDomain,
       timeout,
       winston,
       writeDefaultHead,
@@ -239,8 +237,6 @@ helpersInitialized.then(
     app.use(express.cookieParser());
     app.use(express.bodyParser());
     app.use(writeDefaultHead);
-    app.use(redirectIfWrongDomain);
-    app.use(redirectIfApiDomain);
 
     if (devMode) {
       app.use(express.compress());

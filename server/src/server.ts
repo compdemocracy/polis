@@ -33,6 +33,7 @@ import timeout from "connect-timeout";
 import zlib from "zlib";
 import _ from "underscore";
 import pg from "pg";
+import URL from "url";
 
 import { METRICS_IN_RAM, addInRamMetric, MPromise } from "./utils/metered";
 import CreateUser from "./auth/create-user";
@@ -608,7 +609,6 @@ function initializePolisHelpers() {
   const setPlanCookie = cookies.setPlanCookie;
   const setPermanentCookie = cookies.setPermanentCookie;
   const setCookieTestCookie = cookies.setCookieTestCookie;
-  const shouldSetCookieOnPolisDomain = cookies.shouldSetCookieOnPolisDomain;
   const addCookies = cookies.addCookies;
   const getPermanentCookieAndEnsureItIsSet =
     cookies.getPermanentCookieAndEnsureItIsSet;
@@ -870,51 +870,6 @@ function initializePolisHelpers() {
         Location: "https://" + req?.headers?.host + req.url,
       });
       return res.end();
-    }
-    return next();
-  }
-
-  function redirectIfWrongDomain(
-    req: { headers?: { host: string }; url: string },
-    res: {
-      writeHead: (arg0: number, arg1: { Location: string }) => void;
-      end: () => any;
-    },
-    next: () => any
-  ) {
-    // let reServiceHostname = new RegExp(Config.getServerHostname());
-    if (
-      // reServiceHostname.test(req?.headers?.host) || // needed for heroku integrations (like slack?)
-      /www.pol.is/.test(req?.headers?.host || "")
-    ) {
-      res.writeHead(302, {
-        Location: serverUrl + req.url,
-      });
-      return res.end();
-    }
-    return next();
-  }
-
-  function redirectIfApiDomain(
-    req: { headers?: { host: string }; url: string },
-    res: {
-      writeHead: (arg0: number, arg1: { Location: string }) => void;
-      end: () => any;
-    },
-    next: () => any
-  ) {
-    if (/api.pol.is/.test(req?.headers?.host || "")) {
-      if (req.url === "/" || req.url === "") {
-        res.writeHead(302, {
-          Location: "https://pol.is/docs/api",
-        });
-        return res.end();
-      } else if (!req.url.match(/^\/?api/)) {
-        res.writeHead(302, {
-          Location: "https://pol.is/" + req.url,
-        });
-        return res.end();
-      }
     }
     return next();
   }
@@ -1408,21 +1363,15 @@ function initializePolisHelpers() {
     },
     res: { redirect: (arg0: any) => void }
   ) {
-    let setOnPolisDomain = !domainOverride;
-    let origin = req?.headers?.origin || "";
-    if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
-      setOnPolisDomain = false;
-    }
-
     if (!req.cookies[COOKIES.PERMANENT_COOKIE]) {
-      setPermanentCookie(req, res, setOnPolisDomain, makeSessionToken());
+      setPermanentCookie(req, res, makeSessionToken());
     }
-    setCookieTestCookie(req, res, setOnPolisDomain);
+    setCookieTestCookie(req, res);
 
     // Argument of type '{ redirect: (arg0: any) => void; }' is not assignable to parameter of type '{ cookie: (arg0: any, arg1: any, arg2: any) => void; }'.
     // Property 'cookie' is missing in type '{ redirect: (arg0: any) => void; }' but required in type '{ cookie: (arg0: any, arg1: any, arg2: any) => void; }'.ts(2345)
     // @ts-ignore
-    setCookie(req, res, setOnPolisDomain, "top", "ok", {
+    setCookie(req, res, "top", "ok", {
       httpOnly: false, // not httpOnly - needed by JS
     });
 
@@ -1430,21 +1379,6 @@ function initializePolisHelpers() {
     let dest = hexToStr(req.p.dest);
     res.redirect(dest);
   }
-  // function handle_GET_setFirstCookie(req, res) {
-  //     let setOnPolisDomain = !domainOverride;
-  //     let origin = req?.headers?.origin || "";
-  //     if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
-  //         setOnPolisDomain = false;
-  //     }
-
-  //     if (!req.cookies[COOKIES.PERMANENT_COOKIE]) {
-  //         setPermanentCookie(req, res, setOnPolisDomain, makeSessionToken());
-  //     }
-  //     setCookie(req, res, setOnPolisDomain, "top", "ok", {
-  //         httpOnly: false,            // not httpOnly - needed by JS
-  //     });
-  //     res.status(200).json({});
-  // });
 
   function handle_GET_tryCookie(
     req: { headers?: { origin: string }; cookies: { [x: string]: any } },
@@ -1454,12 +1388,6 @@ function initializePolisHelpers() {
       ) => { (): any; new (): any; json: { (arg0: {}): void; new (): any } };
     }
   ) {
-    let setOnPolisDomain = !domainOverride;
-    let origin = req?.headers?.origin || "";
-    if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
-      setOnPolisDomain = false;
-    }
-
     if (!req.cookies[COOKIES.TRY_COOKIE]) {
       // Argument of type '{ status: (arg0: number) => { (): any; new (): any; json:
       // { (arg0: {}): void; new (): any; }; }; }' is not assignable to parameter of type
@@ -1468,7 +1396,7 @@ function initializePolisHelpers() {
       // { (): any; new (): any; json: { (arg0: {}): void; new (): any; }; };
       // } ' but required in type '{ cookie: (arg0: any, arg1: any, arg2: any) => void; } '.ts(2345)
       // @ts-ignore
-      setCookie(req, res, setOnPolisDomain, COOKIES.TRY_COOKIE, "ok", {
+      setCookie(req, res, COOKIES.TRY_COOKIE, "ok", {
         httpOnly: false, // not httpOnly - needed by JS
       });
     }
@@ -1868,8 +1796,9 @@ function initializePolisHelpers() {
   ) {
     if (req.body.zid && !req.body.conversation_id) {
       winston.log("info", "redirecting old zid user to about page");
+      const redirectTo = URL.resolve(req.url, '/about');
       res.writeHead(302, {
-        Location: "https://pol.is/about",
+        Location: redirectTo
       });
       return res.end();
     }
@@ -2679,18 +2608,10 @@ Feel free to reply to this email if you need help.`;
     },
     cookieName: any
   ) {
-    let origin = req?.headers?.origin || "";
-    if (domainOverride || origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
-      res?.clearCookie?.(cookieName, {
-        path: "/",
-      });
-    } else {
-      res?.clearCookie?.(cookieName, {
-        path: "/",
-        domain: ".pol.is",
-      });
-      //         res.clearCookie(cookieName, {path: "/", domain: "www.pol.is"});
-    }
+    res?.clearCookie?.(cookieName, {
+      path: "/",
+      domain: cookies.cookieDomain(req)
+    });
   }
 
   function clearCookies(
@@ -2706,36 +2627,17 @@ Feel free to reply to this email if you need help.`;
       set?: (arg0: { "Content-Type": string }) => void;
     }
   ) {
-    let origin = req?.headers?.origin || "";
     let cookieName;
-    if (domainOverride || origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
-      for (cookieName in req.cookies) {
-        // Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; plan: boolean; referrer: boolean; parent_url: boolean; }'.
-        // No index signature with a parameter of type 'string' was found on type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; plan: boolean; referrer: boolean; parent_url: boolean; }'.ts(7053)
-        // @ts-ignore
-        if (COOKIES_TO_CLEAR[cookieName]) {
-          res?.clearCookie?.(cookieName, {
-            path: "/",
-          });
-        }
+    for (cookieName in req.cookies) {
+      // Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; plan: boolean; referrer: boolean; parent_url: boolean; }'.
+      // No index signature with a parameter of type 'string' was found on type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; plan: boolean; referrer: boolean; parent_url: boolean; }'.ts(7053)
+      // @ts-ignore
+      if (COOKIES_TO_CLEAR[cookieName]) {
+        res?.clearCookie?.(cookieName, {
+          path: "/",
+          domain: cookies.cookieDomain(req),
+        });
       }
-    } else {
-      for (cookieName in req.cookies) {
-        // Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; plan: boolean; referrer: boolean; parent_url: boolean; }'.
-        // No index signature with a parameter of type 'string' was found on type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; plan: boolean; referrer: boolean; parent_url: boolean; }'.ts(7053)
-        // @ts-ignore
-        if (COOKIES_TO_CLEAR[cookieName]) {
-          res?.clearCookie?.(cookieName, {
-            path: "/",
-            domain: ".pol.is",
-          });
-        }
-      }
-      // for (cookieName in req.cookies) {
-      //     if (COOKIES_TO_CLEAR[cookieName]) {
-      //         res.clearCookie(cookieName, {path: "/", domain: "www.pol.is"});
-      //     }
-      // }
     }
     winston.log(
       "info",
@@ -7057,12 +6959,7 @@ Email verified! You can close this tab or hit the back button.
     // update DB and finish
     return changePlan(uid, planCode).then(function () {
       // Set cookie
-      var setOnPolisDomain = !domainOverride;
-      const origin = req?.headers?.origin || "";
-      if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
-        setOnPolisDomain = false;
-      }
-      setPlanCookie(req, res, setOnPolisDomain, planCode);
+      setPlanCookie(req, res, planCode);
     });
   }
   function updatePlanOld(
@@ -7090,15 +6987,7 @@ Email verified! You can close this tab or hit the back button.
         // Set cookie
         if (isCurrentUser) {
           var protocol = devMode ? "http" : "https";
-          var setOnPolisDomain = !domainOverride;
-          var origin = req?.headers?.origin || "";
-          if (
-            setOnPolisDomain &&
-            origin.match(/^http:\/\/localhost:[0-9]{4}/)
-          ) {
-            setOnPolisDomain = false;
-          }
-          setPlanCookie(req, res, setOnPolisDomain, planCode);
+          setPlanCookie(req, res, planCode);
 
           // Redirect to the same URL with the path behind the fragment "#"
           var path = "/settings";
@@ -15649,6 +15538,7 @@ Thanks for using Polis!
     },
     res: { redirect: (arg0: string) => void }
   ) {
+    console.log("handle_GET_implicit_conversation_generation");
     let site_id = /polis_site_id[^\/]*/.exec(req.path) || null;
     let page_id = /\S\/([^\/]*)/.exec(req.path) || null;
     if (!site_id?.length || (page_id && page_id?.length < 2)) {
@@ -15699,16 +15589,11 @@ Thanks for using Polis!
     }
     o.socialbtn_type = req.p.show_share ? 1 : 0;
     // Set stuff in cookies to be retrieved when POST participants is called.
-    let setOnPolisDomain = !domainOverride;
-    let origin = req?.headers?.origin || "";
-    if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
-      setOnPolisDomain = false;
-    }
     if (req.p.referrer) {
-      setParentReferrerCookie(req, res, setOnPolisDomain, req.p.referrer);
+      setParentReferrerCookie(req, res, req.p.referrer);
     }
     if (req.p.parent_url) {
-      setParentUrlCookie(req, res, setOnPolisDomain, req.p.parent_url);
+      setParentUrlCookie(req, res, req.p.parent_url);
     }
 
     function appendParams(url: string) {
@@ -15925,8 +15810,10 @@ Thanks for using Polis!
         end: () => void;
       }
     ) {
+      console.log("makeRedirectorTo", path);
       let protocol = devMode ? "http://" : "https://";
       let url = protocol + req?.headers?.host + path;
+      console.error("redirecting to " + url);
       res.writeHead(302, {
         Location: url,
       });
@@ -16117,7 +16004,7 @@ Thanks for using Polis!
     // Argument of type '{ path: string; headers?: { host: string; } | undefined; }' is not assignable to parameter of type 'Req'.
     //  Property 'cookies' is missing in type '{ path: string; headers?: { host: string; } | undefined; }' but required in type 'Req'.ts(2345)
     // @ts-ignore
-    setCookieTestCookie(req, res, shouldSetCookieOnPolisDomain(req));
+    setCookieTestCookie(req, res);
 
     if (devMode) {
       buildNumber = null;
@@ -16143,6 +16030,7 @@ Thanks for using Polis!
       req.path.length > 1 &&
       !/^\/api/.exec(req.path) // TODO probably better to create a list of client-side route regexes (whitelist), rather than trying to blacklist things like API calls.
     ) {
+      console.error("redirecting to hash url");
       // Redirect to the same URL with the path behind the fragment "#"
       res.writeHead(302, {
         Location: "https://" + req?.headers?.host + "/#" + req.path,
@@ -16359,8 +16247,11 @@ Thanks for using Polis!
       });
   }
   let handle_GET_conditionalIndexFetcher = (function () {
+    console.log("handle_GET_conditionalIndexFetcher");
     return function (req: any, res: { redirect: (arg0: string) => void }) {
+      console.log("handle_GET_conditionalIndexFetcher inner function");
       if (hasAuthToken(req)) {
+        console.log("hasAuthToken");
         // user is signed in, serve the app
         // Argument of type '{ redirect: (arg0: string) => void; }'
         // is not assignable to parameter of type '{ set: (arg0: any) => void; }'.
@@ -16370,6 +16261,7 @@ Thanks for using Polis!
         // @ts-ignore
         return fetchIndexForAdminPage(req, res);
       } else if (!browserSupportsPushState(req)) {
+        console.log("browserSupportsPushState false");
         // TEMPORARY: Don't show the landing page.
         // The problem is that /user/create redirects to #/user/create,
         // which ends up here, and since there's no auth token yet,
@@ -16381,6 +16273,7 @@ Thanks for using Polis!
         // @ts-ignore
         return fetchIndexForAdminPage(req, res);
       } else {
+        console.log("*** REDIRECTING TO LANDING PAGE ***");
         // user not signed in, redirect to landing page
         let url = getServerNameWithProtocol(req) + "/home";
         res.redirect(url);
@@ -16523,10 +16416,8 @@ Thanks for using Polis!
     staticFilesAdminPort,
     staticFilesClientPort,
     proxy,
-    redirectIfApiDomain,
     redirectIfHasZidButNoConversationId,
     redirectIfNotHttps,
-    redirectIfWrongDomain,
     sendTextEmail,
     timeout,
     winston,
