@@ -1,5 +1,7 @@
 describe('Home Page', function() {
-  beforeEach(function() { return cy.visit('/'); })
+  beforeEach(function() {
+    return cy.visit('/');
+  })
 
   it('bare URL redirects to /home', function() {
     cy.location('pathname').should('eq', '/home')
