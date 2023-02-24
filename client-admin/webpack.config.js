@@ -17,6 +17,7 @@ var fs = require('fs');
 var argv = process.argv.slice(2)
 var cliArgs = mri(argv)
 
+var enableTwitterWidgets = process.env.ENABLE_TWITTER_WIDGETS === 'true';
 var fbAppId = process.env.FB_APP_ID;
 
 module.exports = (env, options) => {
@@ -58,6 +59,7 @@ module.exports = (env, options) => {
         filename: (isDevBuild || isDevServer) ? 'index.html' : 'index_admin.html',
         inject: "body",
         templateParameters: {
+          enableTwitterWidgets: enableTwitterWidgets,
           fbAppId: fbAppId,
         },
       }),
