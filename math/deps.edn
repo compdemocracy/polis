@@ -51,14 +51,14 @@
         environ/environ {:mvn/version "1.2.0"}
         mount/mount {:mvn/version "0.1.17"}
         honeysql/honeysql {:mvn/version "1.0.461"}
-        metasoarous/oz {:mvn/version "2.0.0-alpha5"}
         ;; Dev
         org.clojure/test.check {:mvn/version "1.1.1"}
         irresponsible/tentacles {:mvn/version "0.6.9"}
         techascent/tech.ml.dataset {:mvn/version "6.104"}}
  :aliases {:dev 
            {:extra-paths ["dev" "test"]
-            :extra-deps {cider/cider-nrepl {:mvn/version "0.30.0"}}
+            :extra-deps {cider/cider-nrepl {:mvn/version "0.30.0"}
+                         metasoarous/oz {:mvn/version "2.0.0-alpha5"}}
             :main-opts ["-m" "nrepl.cmdline" "--middleware" "[cider.nrepl/cider-middleware]"]}
            :run
            {:main-opts ["-m" "polismath.runner"]}
