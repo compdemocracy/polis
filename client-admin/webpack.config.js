@@ -51,7 +51,7 @@ module.exports = (env, options) => {
     plugins: [
       new CopyPlugin({
         patterns: [
-          { from: 'public', globOptions: { ignore: ['**/index.html']}},
+          { from: 'public', globOptions: { ignore: ['**/index.ejs']}},
         ],
       }),
       new HtmlWebPackPlugin({

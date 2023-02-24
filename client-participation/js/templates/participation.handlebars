@@ -278,7 +278,7 @@
   </p>
   <div>
     {{#if auth_opt_fb_computed}}
-    {{#unless hasFacebook && fbAppId}}
+    {{#unless (and hasFacebook fbAppId)}}
       <button class="facebookButton" id="facebookButtonPtpt">
         <span class="socialButtonText">
           <i class="svgIcon" style="

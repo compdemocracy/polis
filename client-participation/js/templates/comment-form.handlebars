@@ -161,7 +161,7 @@
         ">
       <div class="protip"><p><i class="fa fa-microphone"></i>&nbsp; {{s.connectToPostPrompt}}</p></div>
       {{#if auth_opt_fb}}
-      {{#unless hasFacebook && fbAppId}}
+      {{#unless (and hasFacebook fbAppId)}}
         <button id="facebookButtonCommentForm" class="facebookButton" style="padding-top: 0px;">
           <i class="svgIcon" style="
             display: inline-block;

@@ -110,7 +110,7 @@ module.exports = (env, options) => {
       }),
       new CopyPlugin({
         patterns: [
-          { from: 'public', globOptions: { ignore: ['**/index.html'] } },
+          { from: 'public', globOptions: { ignore: ['**/index.ejs'] } },
           { from: 'api', globOptions: { ignore: ['**/embed.js'] } },
           {
             from: 'api/embed.js',
@@ -122,8 +122,8 @@ module.exports = (env, options) => {
         ]
       }),
       new HtmlWebPackPlugin({
-        template: path.resolve(__dirname, 'public/index.html'),
-        filename: 'index.ejs',
+        template: path.resolve(__dirname, 'public/index.ejs'),
+        filename: 'index.html',
         templateParameters: {
           versionString: pkg.version,
           fbAppId: fbAppId,
