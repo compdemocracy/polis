@@ -7,7 +7,6 @@ import {
   handleSeedCommentTweetSubmit,
   seedCommentTweetChanged
 } from '../../actions'
-import Radium from 'radium'
 import strings from '../../strings/strings'
 
 const styles = {
@@ -22,7 +21,6 @@ const styles = {
 }
 
 @connect((state) => state.seed_comments_tweet)
-@Radium
 class ModerateCommentsSeed extends React.Component {
   constructor(props) {
     super(props)
