@@ -55,7 +55,7 @@ module.exports = (env, options) => {
         ],
       }),
       new HtmlWebPackPlugin({
-        template: path.resolve( __dirname, 'public/index.html' ),
+        template: path.resolve( __dirname, 'public/index.ejs' ),
         filename: (isDevBuild || isDevServer) ? 'index.html' : 'index_admin.html',
         inject: "body",
         templateParameters: {
