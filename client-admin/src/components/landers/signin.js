@@ -14,7 +14,7 @@ const fbAppId = process.env.FB_APP_ID
 
 @connect((state) => state.signin)
 class SignIn extends React.Component {
-  // eslint-disable-next-line node/handle-callback-err
+  // eslint-disable-next-line n/handle-callback-err
   static getDerivedStateFromError(error) {
     // Update state so the next render will show the fallback UI.
     return { hasError: true }

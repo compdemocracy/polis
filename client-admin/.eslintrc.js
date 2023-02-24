@@ -2,44 +2,47 @@ module.exports = {
   env: {
     browser: true,
     es2021: true,
-    jquery: true,
+    jquery: true
   },
   extends: [
     'eslint:recommended',
+    'plugin:import/recommended',
     'plugin:jsx-a11y/recommended',
     'plugin:react/recommended',
     'standard',
-    'prettier',
+    'prettier'
   ],
   globals: {
-    FB: 'readonly',
+    FB: 'readonly'
   },
   ignorePatterns: ['build'],
   overrides: [
     {
       files: ['.eslintrc.js', 'webpack.config.js'],
-      env: { node: true },
-    },
+      env: { node: true }
+    }
   ],
   parser: '@babel/eslint-parser',
   parserOptions: {
     ecmaFeatures: {
-      jsx: true,
+      jsx: true
     },
     ecmaVersion: 2021,
     requireConfigFile: false,
-    sourceType: 'module',
+    sourceType: 'module'
   },
   plugins: ['@babel', 'jsx-a11y', 'react'],
   rules: {
     camelcase: 'off',
+    'import/namespace': 'warn',
     'jsx-a11y/no-static-element-interactions': 'warn',
     'jsx-a11y/tabindex-no-positive': 'warn',
     'object-shorthand': 'off',
+    'react/no-unknown-property': ['error', { ignore: ['sx'] }]
   },
   settings: {
     react: {
-      version: 'detect',
-    },
-  },
+      version: 'detect'
+    }
+  }
 }
