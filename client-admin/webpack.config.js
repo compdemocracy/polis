@@ -70,6 +70,9 @@ module.exports = (env, options) => {
         placeholders: true,
         shorthands: true
       }),
+      new webpack.DefinePlugin({
+        'process.env.FB_APP_ID': JSON.stringify(fbAppId),
+      }),
       // Only run analyzer when specified in flag.
       ...(cliArgs.analyze ? [new BundleAnalyzerPlugin({ defaultSizes: 'gzip' })] : []),
       // Only compress and create headerJson files during production builds.

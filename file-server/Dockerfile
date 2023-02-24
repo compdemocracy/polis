@@ -2,6 +2,11 @@
 #FROM client-base AS client-admin # <- switch back to basing on client admin once we upgrade other clients
 FROM docker.io/node:18-alpine AS client-admin
 
+ARG ENABLE_TWITTER_WIDGETS
+ARG FB_APP_ID
+ENV ENABLE_TWITTER_WIDGETS ${ENABLE_TWITTER_WIDGETS}
+ENV FB_APP_ID ${FB_APP_ID}
+
 WORKDIR /app
 
 COPY client-admin/package*.json ./
