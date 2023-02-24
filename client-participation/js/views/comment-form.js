@@ -42,14 +42,13 @@ module.exports = Handlebones.ModelView.extend({
     ctx.is_active = this.parent.model.get("is_active");
     ctx.shouldAutofocusOnTextarea = this.shouldAutofocusOnTextarea || Utils.shouldFocusOnTextareaWhenWritePaneShown();
     ctx.hasTwitter = userObject.hasTwitter;
-    ctx.hasFacebook = userObject.hasFacebook;
+    ctx.hasFacebook = userObject.hasFacebook && Constants.FB_APP_ID;
     ctx.auth_opt_tw = preload.firstConv.auth_opt_tw;
     ctx.auth_opt_fb = preload.firstConv.auth_opt_fb;
     ctx.s = Strings;
     ctx.desktop = !display.xs();
     ctx.hideHelp = !Utils.userCanSeeHelp() || preload.firstConv.help_type === 0;
     ctx.direction = Strings.direction ? Strings.direction : 'ltr'
-    ctx.fbAppId = constants.FB_APP_ID;
 
     ctx.no_write_hint = false; //preload.firstConv.write_hint_type === 0;
 

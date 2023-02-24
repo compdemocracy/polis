@@ -58,7 +58,6 @@ module.exports = Handlebones.ModelView.extend({
     // }
     ctx.email = userObject.email;
     ctx.subscribed = this.isSubscribed();
-    ctx.fbAppId = Constants.FB_APP_ID;
     if (ctx.created) {
       ctx.createdString = (new Date(ctx.created * 1)).toString().match(/(.*?) [0-9]+:/)[1];
     }
@@ -87,7 +86,7 @@ module.exports = Handlebones.ModelView.extend({
     };
     if (social) {
       var hasTwitter = social.screen_name;
-      var hasFacebook = social.fb_name;
+      var hasFacebook = social.fb_name && Constants.FB_APP_ID;
       var hasX = social.x_name;
       if (hasFacebook) {
         socialCtx = {
