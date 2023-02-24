@@ -19,4 +19,5 @@ module.exports = {
     OK: 1
   },
   FB_APP_ID: process.env.FB_APP_ID,
+  GA_TRACKING_ID: process.env.GA_TRACKING_ID,
 };
