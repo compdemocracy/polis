@@ -33,7 +33,7 @@ var authenticatedDfd = $.Deferred();
 authenticatedDfd.done(function() {
   // link uid to GA userId
   // TODO update this whenever auth changes
-  if (ga && Constants.GA_TRACKING_ID) {
+  if (Constants.GA_TRACKING_ID) {
     ga('set', 'userId', PolisStorage.uid() || PolisStorage.uidFromCookie());
   }
 });

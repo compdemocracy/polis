@@ -40,7 +40,7 @@ var methodToEventMap = {
 
 function gaEvent() {
   // Sends all arguments to a ga('send', 'event', __) partial
-  if (ga && Constants.GA_TRACKING_ID) {
+  if (Constants.GA_TRACKING_ID) {
     ga_ = _.partial(ga, 'send', 'event');
     ga_.apply(window, arguments);
   }
