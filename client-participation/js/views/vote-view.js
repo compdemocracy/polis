@@ -9,6 +9,7 @@ var preloadHelper = require("../util/preloadHelper");
 var template = require("../templates/vote-view.handlebars");
 var Utils = require("../util/utils");
 var Strings = require("../strings");
+var Constants = require("../util/constants");
 var $ = require("jquery");
 
 var iOS = Utils.isIos();
@@ -57,6 +58,7 @@ module.exports = Handlebones.ModelView.extend({
     // }
     ctx.email = userObject.email;
     ctx.subscribed = this.isSubscribed();
+    ctx.fbAppId = Constants.FB_APP_ID;
     if (ctx.created) {
       ctx.createdString = (new Date(ctx.created * 1)).toString().match(/(.*?) [0-9]+:/)[1];
     }
