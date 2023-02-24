@@ -13,6 +13,7 @@ const TerserPlugin = require("terser-webpack-plugin")
 
 const embedServiceHostname = process.env.EMBED_SERVICE_HOSTNAME;
 const fbAppId = process.env.FB_APP_ID;
+const gaTrackingId = process.env.GA_TRACKING_ID;
 const outputDirectory = 'dist'
 
 /**
@@ -122,10 +123,11 @@ module.exports = (env, options) => {
       }),
       new HtmlWebPackPlugin({
         template: path.resolve(__dirname, 'public/index.html'),
-        filename: 'index.html',
+        filename: 'index.ejs',
         templateParameters: {
           versionString: pkg.version,
-          fbAppId: fbAppId
+          fbAppId: fbAppId,
+          gaTrackingId: gaTrackingId,
         }
       }),
       // Generate the .headersJson files ...
@@ -134,6 +136,10 @@ module.exports = (env, options) => {
           console.log('Writing *.headersJson files...')
           writeHeadersJsonForOutputFiles(isDevBuild || isDevServer)
         }
+      }),
+      new webpack.DefinePlugin({
+        'process.env.FB_APP_ID': JSON.stringify(fbAppId),
+        'process.env.GA_TRACKING_ID': JSON.stringify(gaTrackingId),
       }),
       // Only compress files during production builds.
       ...((isDevBuild || isDevServer) ? [] : [

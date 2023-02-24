@@ -5,6 +5,11 @@
 
 FROM docker.io/node:18-alpine
 
+ARG FB_APP_ID
+ARG GA_TRACKING_ID
+ENV FB_APP_ID ${FB_APP_ID}
+ENV GA_TRACKING_ID ${GA_TRACKING_ID}
+
 WORKDIR /app
 
 COPY package*.json ./

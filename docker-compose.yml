@@ -96,6 +96,7 @@ services:
       args:
         ENABLE_TWITTER_WIDGETS: ${ENABLE_TWITTER_WIDGETS:-false}
         FB_APP_ID: ${FB_APP_ID}
+        GA_TRACKING_ID: ${GA_TRACKING_ID}
         GIT_HASH: "${GIT_HASH:-placeholder}"
     environment:
       - EMBED_SERVICE_HOSTNAME=${EMBED_SERVICE_HOSTNAME}
