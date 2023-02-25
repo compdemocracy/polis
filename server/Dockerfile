@@ -1,7 +1,7 @@
 # To build locally, for example:
 # docker build -t polis-server:local .
 # To run locally, for example:
-# docker run --rm --name polis-server --env-file .env --network polis-dev_polis_net \
+# docker run --rm --name polis-server --env-file .env --network polis-dev_polis-net \
 #  -p 5000:5000 polis-server:local
 #
 # For a dev build, use `--target dev` at the end of these commands
