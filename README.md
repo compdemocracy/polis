@@ -129,8 +129,6 @@ Then you can run things like:
 make PROD start
 
 make PROD start-REBUILD
-
-make PROD start-FULL-REBUILD
 ```
 
 ### Testing out your instance
@@ -205,7 +203,7 @@ Please see [`e2e/README.md`](/e2e/README.md) for more information on running the
 #### Docker Problems
 
 A lot of issues might be resolved by killing all docker containers and/or restarting docker entirely. If that doesn't
-work, this will wipe all of your polis containers and volumes and completely rebuild them:
+work, this will wipe all of your polis containers and volumes (**INCLUDING THE DATABASE VOLUME, so don't use this in prod!**) and completely rebuild them:
 
 `make start-FULL-REBUILD`
 
