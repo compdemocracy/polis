@@ -3,16 +3,15 @@
 # To run locally, for example:
 # docker run --rm --name polis-server --env-file .env --network polis-dev_polis_net \
 #  -p 5000:5000 polis-server:local
+#
+# For a dev build, use `--target dev` at the end of these commands
+# Should default to prod build, but you can also explicitly use `--target prod`
 
-FROM docker.io/node:18-alpine
+FROM docker.io/node:18-alpine as base
 
-# Set default NODE_ENV to production unless overridden at build time with --build-arg NODE_ENV=development
 ARG NODE_ENV
-ENV NODE_ENV ${NODE_ENV:-production}
 
 WORKDIR /app
-
-COPY package*.json ./
 
 # This package is needed at runtime
 RUN apk add libpq-dev
@@ -20,14 +19,40 @@ RUN apk add libpq-dev
 RUN apk add --no-cache --virtual .build \
   g++ make python3
 
+COPY package*.json ./
+
+EXPOSE 5000
+
+
+# Define the development build
+
+FROM base as dev
+
+# Set default NODE_ENV to development unless overridden at build time with --build-arg NODE_ENV=production
+ENV NODE_ENV ${NODE_ENV:-development}
+
+COPY . .
+
+CMD npm run dev
+
+
+
+# Define the production build
+
+FROM base as prod
+
+# Set default NODE_ENV to production unless overridden at build time with --build-arg NODE_ENV=development
+ENV NODE_ENV ${NODE_ENV:-production}
+
 RUN npm ci --production=false
 
+# For prod builds, want to minimize the image size, so remove the .build dir
 RUN apk del .build
 
 COPY . .
 
 RUN npm run build
 
-EXPOSE 5000
-
 CMD npm run serve
+
+
