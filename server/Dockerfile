@@ -2,9 +2,9 @@
 # docker build -t polis-server:local .
 # To run locally, for example:
 # docker run --rm --name polis-server --env-file .env --network polis-dev_polis-net \
-#  -p 5000:5000 polis-server:local
+#  -p 5000:5000 --target dev polis-server:local
 #
-# For a dev build, use `--target dev` at the end of these commands
+# For a dev build, use `--target dev`.
 # Should default to prod build, but you can also explicitly use `--target prod`
 
 FROM docker.io/node:18-alpine as base
@@ -46,7 +46,7 @@ ENV NODE_ENV ${NODE_ENV:-production}
 
 RUN npm ci --production=false
 
-# For prod builds, want to minimize the image size, so remove the .build dir
+# For prod builds, to minimize the image size, remove the dependencies tagged with `--virtual .build` above.
 RUN apk del .build
 
 COPY . .
