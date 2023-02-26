@@ -13,9 +13,7 @@ module.exports = {
   },
   plugins: [
     new webpack.DefinePlugin({
-      "process.env": {
-        NODE_ENV: JSON.stringify("production"),
-      },
+      "process.env.NODE_ENV": JSON.stringify("production")
     }),
     // new webpack.optimize.UglifyJsPlugin({  https://stackoverflow.com/questions/69468568/typeerror-webpack-optimize-uglifyjsplugin-is-not-a-constructor
     //   compressor: {
