@@ -4,6 +4,7 @@
 # App specific
 .env_dev
 build
+devel
 dist
 node_modules
 npm-debug.log
