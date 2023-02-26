@@ -28,7 +28,7 @@ const pgConnection = Object.assign(
     isReadOnly: false,
     poolLog: function (str: string, level: string) {
       if (pgPoolLevelRanks.indexOf(level) <= pgPoolLoggingLevel) {
-        console.log("pool.primary." + level + " " + str);
+        logger.info("pool.primary." + level + " " + str);
       }
     },
   }
@@ -40,7 +40,7 @@ const readsPgConnection = Object.assign(
     isReadOnly: true,
     poolLog: function (str: string, level: string) {
       if (pgPoolLevelRanks.indexOf(level) <= pgPoolLoggingLevel) {
-        console.log("pool.replica." + level + " " + str);
+        logger.info("pool.readonly." + level + " " + str);
       }
     },
   }

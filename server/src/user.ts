@@ -435,7 +435,7 @@ function getXidRecordByXidOwnerId(
       // @ts-ignore
       .then(function (rows: string | any[]) {
         if (!rows || !rows.length) {
-          console.log("no xInfo yet");
+          logger.warn("getXidRecordByXidOwnerId: no xInfo yet");
           if (!createIfMissing) {
             return null;
           }
@@ -455,7 +455,6 @@ function getXidRecordByXidOwnerId(
               return null;
             }
             return createDummyUser().then((newUid: any) => {
-              console.log("created dummy");
               return Conversation.createXidRecord(
                 owner,
                 newUid,
@@ -464,7 +463,6 @@ function getXidRecordByXidOwnerId(
                 x_name || null,
                 x_email || null
               ).then(() => {
-                console.log("created xInfo");
                 return [
                   {
                     uid: newUid,

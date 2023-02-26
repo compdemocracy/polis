@@ -573,21 +573,15 @@ function initializePolisHelpers() {
   //                 return function(callback) {
   //                     votesPost(uid, c.pid, c.zid, c.tid, 0)
   //                         .then(function() {
-  //                             winston.log("info","ok " + c.txt);
   //                             callback(null);
   //                         })
   //                         .catch(function() {
-  //                             winston.log("info","failedd " + c.txt);
   //                             callback(1);
   //                         });
   //                 };
   //             }),
   //             function(err, results) {
-  //                 winston.log("info",err);
   //             });
-  //         winston.log("info",missing);
-  //         winston.log("info",missing.length);
-  //         winston.log("info",comments.length);
   //     });
   // });
 
@@ -695,7 +689,7 @@ function initializePolisHelpers() {
           if (isDuplicateKey(err)) {
             reject("polis_err_vote_duplicate");
           } else {
-            console.dir(err);
+            logger.error("polis_err_vote_other", err);
             reject("polis_err_vote_other");
           }
           return;
@@ -922,7 +916,6 @@ function initializePolisHelpers() {
   //     return new MPromise("createDummyUser", function(resolve, reject) {
   //         pgQuery(query,[], function(err, results) {
   //             if (err || !results || !results.rows || !results.rows.length) {
-  //                 console.error(err);
   //                 reject(new Error("polis_err_create_empty_user"));
   //                 return;
   //             }
@@ -974,7 +967,7 @@ function initializePolisHelpers() {
         });
       })
       .catch((err: any) => {
-        console.log(err);
+        logger.error("doXidConversationIdAuth error", err);
         onDone(err);
       });
   }
@@ -1017,13 +1010,10 @@ function initializePolisHelpers() {
           resolve(req.p && req.p.uid);
         }
         if (xPolisToken && isPolisLtiToken(xPolisToken)) {
-          console.log("authtype", "doPolisLtiTokenHeaderAuth");
           doPolisLtiTokenHeaderAuth(assigner, isOptional, req, res, onDone);
         } else if (xPolisToken) {
-          console.log("authtype", "doHeaderAuth");
           doHeaderAuth(assigner, isOptional, req, res, onDone);
         } else if (getKey(req, "polisApiKey") && getKey(req, "ownerXid")) {
-          console.log("authtype", "doXidApiKeyAuth");
           doXidApiKeyAuth(
             assigner,
             getKey(req, "polisApiKey"),
@@ -1034,7 +1024,6 @@ function initializePolisHelpers() {
             onDone
           );
         } else if (getKey(req, "polisApiKey") && getKey(req, "xid")) {
-          console.log("authtype", "doXidApiKeyAuth");
           doXidApiKeyAuth(
             assigner,
             getKey(req, "polisApiKey"),
@@ -1052,7 +1041,6 @@ function initializePolisHelpers() {
           //     req?.headers?.["x-sandstorm-app-polis-xid"],
           //     isOptional, req, res, onDone);
         } else if (getKey(req, "xid") && getKey(req, "conversation_id")) {
-          console.log("authtype", "doXidConversationIdAuth");
           doXidConversationIdAuth(
             assigner,
             getKey(req, "xid"),
@@ -1063,7 +1051,6 @@ function initializePolisHelpers() {
             onDone
           );
         } else if (req?.headers?.["x-sandstorm-app-polis-apikey"]) {
-          console.log("authtype", "doApiKeyAuth");
           doApiKeyAuth(
             assigner,
             req?.headers?.["x-sandstorm-app-polis-apikey"],
@@ -1073,7 +1060,6 @@ function initializePolisHelpers() {
             onDone
           );
         } else if (req.body["polisApiKey"]) {
-          console.log("authtype", "doApiKeyAuth");
           doApiKeyAuth(
             assigner,
             getKey(req, "polisApiKey"),
@@ -1083,10 +1069,8 @@ function initializePolisHelpers() {
             onDone
           );
         } else if (token) {
-          console.log("authtype", "doCookieAuth");
           doCookieAuth(assigner, isOptional, req, res, onDone);
         } else if (req?.headers?.authorization) {
-          console.log("authtype", "doApiKeyBasicAuth");
           doApiKeyBasicAuth(
             assigner,
             req.headers.authorization,
@@ -1097,7 +1081,6 @@ function initializePolisHelpers() {
           );
         } else if (req.body.agid) {
           // Auto Gen user  ID
-          console.log("authtype", "no auth but agid");
           createDummyUser()
             .then(
               function (uid?: any) {
@@ -1159,39 +1142,27 @@ function initializePolisHelpers() {
     //   let hasXid = !_.isUndefined(xid);
 
     //   if (hasXid) {
-    //     console.log('weee 0');
     //     req.p = req.p || {};
     //     req.p.xid = xid;
-    //     console.log('xidflow has');
     //     getConversationIdFetchZid(req.body.conversation_id).then((zid) => {
-    //       console.log('xidflow got zid', zid);
 
     //       return getXidStuff(xid, zid).then((xidRecord) => {
-    //         console.log('xidflow got xidRecord', xidRecord);
     //         let foundXidRecord = xidRecord !== "noXidRecord";
     //         if (foundXidRecord) {
-    //           console.log('xidflow !shouldCreateXidRecord');
     //           assigner(req, "uid", Number(xidRecord.uid));
     //           return next();
     //         }
-    //         console.log('xidflow before doAuth');
     //         // try other auth methods, and once those are done, use req.p.uid to create new xid record.
     //         doAuth(req, res).then(() => {
-    //           console.log('xidflow after doAuth');
     //           if (req.p.uid && !isOptional) { // req.p.uid might be set now.
-    //             console.log('xidflow uid', req.p.uid);
     //             return createXidRecordByZid(zid, req.p.uid, xid, req.body.x_profile_image_url, req.body.x_name, req.body.x_email);
     //           } else if (!isOptional) {
-    //             console.log('xidflow no uid, but mandatory', req.p.uid);
     //             throw "polis_err_missing_non_optional_uid";
     //           }
-    //           console.log('xidflow was optional, doing nothing');
     //         }).then(() => {
-    //           console.log('xidflow ok');
     //           return next();
     //         }).catch((err) => {
     //           res.status(500);
-    //           console.error(err);
     //           return next("polis_err_auth_xid_error_423423");
     //         });
     //       });
@@ -1201,7 +1172,6 @@ function initializePolisHelpers() {
     //       return next();
     //     }).catch((err) => {
     //       res.status(500);
-    //       console.error(err);
     //       next("polis_err_auth_error_432");
     //     });
     //   }
@@ -1674,10 +1644,8 @@ function initializePolisHelpers() {
     //   var s1 = groupVotes[1].val['n-members'];
     //   const scaleRatio = 1.1;
     //   if (s1 * scaleRatio < s0) {
-    //     console.log('splitting 0', s0, s1, s1*scaleRatio);
     //     o = splitTopLevelGroup(o, groupVotes[0].id);
     //   } else if (s0 * scaleRatio < s1) {
-    //     console.log('splitting 1', s0, s1, s0*scaleRatio);
     //     o = splitTopLevelGroup(o, groupVotes[1].id);
     //   }
     // }
@@ -2045,7 +2013,6 @@ function initializePolisHelpers() {
     let math_env = Config.mathEnv;
     let math_tick = req.p.math_tick;
 
-    console.log(req.p);
     function finishAsPending() {
       res.status(202).json({
         status: "pending",
@@ -2183,9 +2150,9 @@ function initializePolisHelpers() {
               newOk = rows[0].finished_time > 0;
             }
             if (ok && newOk) {
-              console.log("runExportTest success");
+              logger.info("runExportTest success");
             } else {
-              console.log("runExportTest failed");
+              logger.error("runExportTest failed");
               emailBadProblemTime("Math export didn't finish.");
             }
           });
@@ -2246,9 +2213,6 @@ function initializePolisHelpers() {
       //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
       // @ts-ignore
     ).then((rows: string | any[]) => {
-      if (zid === 12480) {
-        console.log("bidToPid", rows[0].data);
-      }
       if (!rows || !rows.length) {
         // Could actually be a 404, would require more work to determine that.
         return new Error("polis_err_get_pca_results_missing");
@@ -3541,9 +3505,7 @@ Feel free to reply to this email if you need help.`;
       })
       .then(function (response: string) {
         var parsedResponse = JSON.parse(response);
-        console.log("BEGIN MAXMIND RESPONSE");
-        console.log(response);
-        console.log("END MAXMIND RESPONSE");
+        logger.debug("maxmind response", parsedResponse);
 
         return pgQueryP(
           "update participants_extended set modified=now_as_millis(), country_iso_code=($4), encrypted_maxmind_response_city=($3), " +
@@ -3589,9 +3551,6 @@ Feel free to reply to this email if you need help.`;
     info?: any,
     pmaid_answers?: string | any[]
   ) {
-    console.log("tryToJoinConversation");
-    console.dir(arguments);
-
     function doAddExtendedParticipantInfo() {
       if (info && _.keys(info).length > 0) {
         addExtendedParticipantInfo(zid, uid, info);
@@ -3642,7 +3601,6 @@ Feel free to reply to this email if you need help.`;
     if (parent_url) {
       info.parent_url = parent_url;
     }
-    console.log("mike foo");
     if (referer) {
       info.referrer = referer;
     }
@@ -3654,7 +3612,6 @@ Feel free to reply to this email if you need help.`;
       ip = ips.length && ips[0];
       info.encrypted_ip_address = encrypt(ip);
       info.encrypted_x_forwarded_for = encrypt(x_forwarded_for);
-      console.log("mike encrypt");
     }
     if (permanent_cookie) {
       info.permanent_cookie = permanent_cookie;
@@ -3936,7 +3893,6 @@ ${serverName}/pwreset/${pwresettoken}
   }
 
   // function sendTextEmailWithPostmark(sender, recipient, subject, text) {
-  //   winston.log("info", "sending email with postmark: " + [sender, recipient, subject, text].join(" "));
   //   return new Promise(function(resolve, reject) {
   //     postmark.send({
   //       "From": sender,
@@ -3945,11 +3901,9 @@ ${serverName}/pwreset/${pwresettoken}
   //       "TextBody": text,
   //     }, function(error, success) {
   //       if (error) {
-  //         console.error("Unable to send email via postmark to " + recipient + " " + error.message);
   //         yell("polis_err_postmark_email_send_failed");
   //         reject(error);
   //       } else {
-  //         winston.log("info", "sent email with postmark to " + recipient);
   //         resolve();
   //       }
   //     });
@@ -4579,7 +4533,6 @@ Email verified! You can close this tab or hit the back button.
 
                   // if (needs && result.remaining < 5) {
                   //   // no need to try again for this user since new comments will create new tasks
-                  //   console.log('doNotificationsForZid', 'not enough remaining');
                   //   needs = false;
                   // }
 
@@ -4600,17 +4553,11 @@ Email verified! You can close this tab or hit the back button.
                     waitTime = 48 * 60 * 60 * 1000; // 48 hours
                   } else {
                     // give up, if they vote again nsli will be set to zero again.
-                    console.log("doNotificationsForZid", "nsli");
                     needs = false;
                   }
 
                   if (needs && dbTimeMillis < ptpt.last_notified + waitTime) {
                     // Limit to one per hour.
-                    console.log(
-                      "doNotificationsForZid",
-                      "shouldTryAgain",
-                      "last_notified"
-                    );
                     shouldTryAgain = true;
                     needs = false;
                   }
@@ -4619,11 +4566,6 @@ Email verified! You can close this tab or hit the back button.
                     dbTimeMillis < ptpt.last_interaction + 5 * 60 * 1000
                   ) {
                     // Wait until 5 minutes after their last interaction.
-                    console.log(
-                      "doNotificationsForZid",
-                      "shouldTryAgain",
-                      "last_interaction"
-                    );
                     shouldTryAgain = true;
                     needs = false;
                   }
@@ -4708,15 +4650,8 @@ Email verified! You can close this tab or hit the back button.
         if (!task) {
           return Promise.resolve();
         }
-        console.log("doNotificationsForZid", task.zid);
         return doNotificationsForZid(task.zid, task.modified).then(
           (shouldTryAgain: any) => {
-            console.log(
-              "doNotificationsForZid",
-              task.zid,
-              "shouldTryAgain",
-              shouldTryAgain
-            );
             if (shouldTryAgain) {
               // Since we claimed the task above, there will be no record, so we need to
               // put it back to trigger a retry - unless there's a new one there, in which case we should
@@ -4730,7 +4665,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function doNotificationLoop() {
-    console.log("doNotificationLoop");
+    logger.debug("doNotificationLoop");
     doNotificationBatch().then(() => {
       setTimeout(doNotificationLoop, 10000);
     });
@@ -5221,17 +5156,13 @@ Email verified! You can close this tab or hit the back button.
   // Test for deadlock condition
   // _.times(2, function() {
   // setInterval(function() {
-  //         winston.log("info","foobar test call begin");
   //         joinWithZidOrSuzinvite({
   //             answers: [],
   //             existingAuth: false,
   //             zid: 11580,
   //             // uid: req.p.uid,
   //         }).then(function() {
-  //             winston.log("info",'foobar test ok');
   //         }).catch(function(err) {
-  //             winston.log("info",'foobar test failed');
-  //             winston.log("info",err);
   //         });
 
   // }, 10);
@@ -5330,7 +5261,6 @@ Email verified! You can close this tab or hit the back button.
         // })
         // @ts-ignore
         .then(function (o: { uid?: any }) {
-          // winston.log("info","joinWithZidOrSuzinvite check email done");
           if (o.uid) {
             return o;
           } else {
@@ -5625,17 +5555,17 @@ Email verified! You can close this tab or hit the back button.
       //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
       // @ts-ignore
     ).then(function (rows: string | any[]) {
-      console.log("isParentDomainWhitelisted", domain, zid, isWithinIframe);
+      logger.debug("isParentDomainWhitelisted", { domain, zid, isWithinIframe });
       if (!rows || !rows.length || !rows[0].domain_whitelist.length) {
         // there is no whitelist, so any domain is ok.
-        console.log("isParentDomainWhitelisted", "no whitelist");
+        logger.debug("isParentDomainWhitelisted : no whitelist");
         return true;
       }
       let whitelist = rows[0].domain_whitelist;
       let wdomains = whitelist.split(",");
       if (!isWithinIframe && wdomains.indexOf("*.pol.is") >= 0) {
         // if pol.is is in the whitelist, then it's ok to show the conversation outside of an iframe.
-        console.log("isParentDomainWhitelisted", "*.pol.is");
+        logger.debug("isParentDomainWhitelisted : *.pol.is");
         return true;
       }
       if (
@@ -5645,7 +5575,6 @@ Email verified! You can close this tab or hit the back button.
         return true;
       }
       let ok = false;
-      console.log("isParentDomainWhitelisted", 1);
       for (var i = 0; i < wdomains.length; i++) {
         let w = wdomains[i];
         let wParts = w.split(".");
@@ -5653,7 +5582,6 @@ Email verified! You can close this tab or hit the back button.
         // example: domain might be blogs.nytimes.com, and whitelist entry might be *.nytimes.com, and that should be a match
         let parts = domain.split(".");
 
-        console.log("isParentDomainWhitelisted", 2, wParts, parts);
         if (wParts.length && wParts[0] === "*") {
           // wild card case
           // check for a match on each part following the '*'
@@ -5661,12 +5589,9 @@ Email verified! You can close this tab or hit the back button.
 
           wParts = wParts.reverse();
           parts = parts.reverse();
-          console.log("isParentDomainWhitelisted", 3, parts, wParts);
           for (var p = 0; p < wParts.length - 1; p++) {
-            console.log("isParentDomainWhitelisted", 33, parts[p], wParts[p]);
             if (wParts[p] !== parts[p]) {
               bad = true;
-              console.log("isParentDomainWhitelisted", 4);
               break;
             }
           }
@@ -5674,18 +5599,13 @@ Email verified! You can close this tab or hit the back button.
         } else {
           // no wild card
           let bad2 = false;
-          console.log("isParentDomainWhitelisted", 5);
           if (wParts.length !== parts.length) {
-            console.log("isParentDomainWhitelisted", 6);
             bad2 = true;
           }
-          console.log("isParentDomainWhitelisted", 61, parts, wParts);
           // check for a match on each part
           for (var p2 = 0; p2 < wParts.length; p2++) {
-            console.log("isParentDomainWhitelisted", 66, parts[p2], wParts[p2]);
             if (wParts[p2] !== parts[p2]) {
               bad2 = true;
-              console.log("isParentDomainWhitelisted", 7);
               break;
             }
           }
@@ -5696,7 +5616,7 @@ Email verified! You can close this tab or hit the back button.
           break;
         }
       }
-      console.log("isParentDomainWhitelisted", 8, ok);
+      logger.debug("isParentDomainWhitelisted : " + ok);
       return ok;
     });
   }
@@ -6322,9 +6242,6 @@ Email verified! You can close this tab or hit the back button.
     let referrer = req?.cookies?.[COOKIES.REFERRER];
     let password = req.p.password;
     let uid = req.p.uid;
-
-    console.log("fb_data"); // TODO_REMOVE
-    console.dir(o); // TODO_REMOVE
 
     let fbUserRecord = {
       // uid provided later
@@ -7019,9 +6936,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function handle_POST_stripe_save_token(req: { body: any }, res: any) {
-    console.log("info", "XXX - Got the params!");
-    console.log(req.body);
-    console.log("info", "XXX - Got the params!");
+    logger.debug("handle_POST_stripe_save_token");
   }
   function handle_POST_stripe_upgrade(
     req: { p: { uid?: any; plan: any; stripeResponse: string } },
@@ -7402,8 +7317,6 @@ Email verified! You can close this tab or hit the back button.
           var votesForThisComment = votesByTid[c.tid];
 
           if (!votesForThisComment || !votesForThisComment.length) {
-            console.log("skipping");
-            // console.log(votesForThisComment);
             return c;
           }
 
@@ -7597,7 +7510,7 @@ Email verified! You can close this tab or hit the back button.
     ) => { (): any; new (): any; send: { (arg0: number): void; new (): any } };
   }) {
     res.setHeader("Retry-After", 0);
-    console.warn(57493875);
+    logger.warn("failWithRetryRequest");
     res.writeHead(500).send(57493875);
   }
 
@@ -7760,18 +7673,13 @@ Email verified! You can close this tab or hit the back button.
   //         tid: req.p.tid,
   //         signature: req.p[HMAC_SIGNATURE_PARAM_NAME],
   //     };
-  //     winston.log("info","mute", 1);
   //     verifyHmacForQueryParams("v3/mute", params).catch(function() {
-  //     winston.log("info","mute", 2);
   //         fail(res, 403, "polis_err_signature_mismatch");
   //     }).then(function() {
-  //     winston.log("info","mute", 3);
   //         return muteComment(zid, tid);
   //     }).then(function() {
-  //     winston.log("info","mute", 4);
   //         return getComment(zid, tid);
   //     }).then(function(c) {
-  //     winston.log("info","mute", 5);
   //         res.set('Content-Type', 'text/html');
   //         res.send(
   //             "<h1>muted tid: "+c.tid+" zid:" + c.zid + "</h1>" +
@@ -7779,8 +7687,6 @@ Email verified! You can close this tab or hit the back button.
   //             "<a href=\"" + createUnmuteUrl(zid, tid) + "\">Unmute this comment.</a>"
   //         );
   //     }).catch(function(err) {
-  //     winston.log("info","mute", 6);
-  //         fail(res, 500, err);
   //     });
   // }
 
@@ -7870,9 +7776,6 @@ Email verified! You can close this tab or hit the back button.
     let is_seed = req.p.is_seed;
     let mustBeModerator = !!quote_txt || !!twitter_tweet_id || anon;
 
-    console.log("POST_comments begin", Date.now());
-    console.log("POST_comments params", req.p);
-
     // either include txt, or a tweet id
     if (
       (_.isUndefined(txt) || txt === "") &&
@@ -7889,16 +7792,10 @@ Email verified! You can close this tab or hit the back button.
     }
 
     function doGetPid() {
-      console.log("POST_comments doGetPid begin", Date.now());
-
       // PID_FLOW
       if (_.isUndefined(pid)) {
         return getPidPromise(req.p.zid, req.p.uid, true).then((pid: number) => {
           if (pid === -1) {
-            console.log(
-              "POST_comments doGetPid addParticipant begin",
-              Date.now()
-            );
             //           Argument of type '(rows: any[]) => number' is not assignable to parameter of type '(value: unknown) => number | PromiseLike<number>'.
             // Types of parameters 'rows' and 'value' are incompatible.
             //             Type 'unknown' is not assignable to type 'any[]'.ts(2345)
@@ -7909,19 +7806,13 @@ Email verified! You can close this tab or hit the back button.
               let ptpt = rows[0];
               pid = ptpt.pid;
               currentPid = pid;
-              console.log(
-                "POST_comments doGetPid addParticipant done",
-                Date.now()
-              );
               return pid;
             });
           } else {
-            console.log("POST_comments doGetPid done", Date.now());
             return pid;
           }
         });
       }
-      console.log("POST_comments doGetPid done", Date.now());
       return Promise.resolve(pid);
     }
     let twitterPrepPromise = Promise.resolve();
@@ -7933,8 +7824,6 @@ Email verified! You can close this tab or hit the back button.
         zid
       );
     }
-
-    console.log("POST_comments before twitterPrepPromise", Date.now());
 
     twitterPrepPromise
       .then(
@@ -7949,20 +7838,18 @@ Email verified! You can close this tab or hit the back button.
         //       Type 'void' is not assignable to type '{ ptpt: any; tweet: any; }'.ts(2769)
         // @ts-ignore
         function (info: { ptpt: any; tweet: any }) {
-          console.log("POST_comments after twitterPrepPromise", Date.now());
-
           let ptpt = info && info.ptpt;
           // let twitterUser = info && info.twitterUser;
           let tweet = info && info.tweet;
 
           if (tweet) {
-            console.log("Post comments tweet", txt, tweet.txt);
+            logger.debug("Post comments tweet", { txt, tweetTxt: tweet.txt });
             txt = tweet.text;
           } else if (quote_txt) {
-            console.log("Post comments quote_txt", txt, quote_txt);
+            logger.debug("Post comments quote_txt", { txt, quote_txt });
             txt = quote_txt;
           } else {
-            console.log("Post comments txt", txt);
+            logger.debug("Post comments txt", { txt });
           }
 
           let ip =
@@ -8023,8 +7910,6 @@ Email verified! You can close this tab or hit the back button.
 
           let commentExistsPromise = commentExists(zid, txt);
 
-          console.log("POST_comments before Promise.all", Date.now());
-
           return Promise.all([
             pidPromise,
             conversationInfoPromise,
@@ -8032,8 +7917,6 @@ Email verified! You can close this tab or hit the back button.
             commentExistsPromise,
           ]).then(
             function (results: any[]) {
-              console.log("POST_comments after Promise.all", Date.now());
-
               let pid = results[0];
               let conv = results[1];
               let is_moderator = results[2];
@@ -8061,13 +7944,11 @@ Email verified! You can close this tab or hit the back button.
               }
 
               if (_.isUndefined(txt)) {
-                console.log("undefined txt");
-                console.log(req.p);
+                logger.error("polis_err_post_comments_missing_txt");
                 throw "polis_err_post_comments_missing_txt";
               }
               let bad = hasBadWords(txt);
 
-              console.log("POST_comments before isSpamPromise", Date.now());
               return isSpamPromise
                 .then(
                   function (spammy: any) {
@@ -8079,32 +7960,22 @@ Email verified! You can close this tab or hit the back button.
                   }
                 )
                 .then(function (spammy: any) {
-                  console.log("POST_comments after isSpamPromise", Date.now());
                   let velocity = 1;
                   let active = true;
                   let classifications = [];
                   if (bad && conv.profanity_filter) {
                     active = false;
                     classifications.push("bad");
-                    console.log(
-                      "active=false because (bad && conv.profanity_filter)"
-                    );
+                    logger.info("active=false because (bad && conv.profanity_filter)");
                   }
                   if (spammy && conv.spam_filter) {
                     active = false;
                     classifications.push("spammy");
-                    console.log(
-                      "active=false because (spammy && conv.spam_filter)"
-                    );
+                    logger.info("active=false because (spammy && conv.spam_filter)");
                   }
                   if (conv.strict_moderation) {
                     active = false;
-                    console.log(
-                      "active=false because (conv.strict_moderation)"
-                    );
-                  }
-                  if (active) {
-                    console.log("active=true");
+                    logger.info("active=false because (conv.strict_moderation)");
                   }
 
                   let mod = 0; // hasn't yet been moderated.
@@ -8115,11 +7986,6 @@ Email verified! You can close this tab or hit the back button.
                     active = true;
                   }
                   let authorUid = ptpt ? ptpt.uid : uid;
-
-                  console.log(
-                    "POST_comments before INSERT INTO COMMENTS",
-                    Date.now()
-                  );
 
                   Promise.all([detectLanguage(txt)]).then((a: any[]) => {
                     let detections = a[0];
@@ -8188,11 +8054,6 @@ Email verified! You can close this tab or hit the back button.
                         } else {
                           addNotificationTask(zid);
                         }
-
-                        console.log(
-                          "POST_comments before votesPost",
-                          Date.now()
-                        );
 
                         // It should be safe to delete this. Was added to postpone the no-auto-vote change for old conversations.
                         if (is_seed && _.isUndefined(vote) && zid <= 17037) {
@@ -8691,7 +8552,7 @@ Email verified! You can close this tab or hit the back button.
       };
     }
   ) {
-    console.log("logging handle_GET_participationInit req", req);
+    logger.info("handle_GET_participationInit");
     // let qs = {
     //   conversation_id: req.p.conversation_id,
     // };
@@ -11895,8 +11756,6 @@ Thanks for using Polis!
     o: { twitter_user_id: any; twitter_screen_name?: any },
     useCache: boolean
   ) {
-    console.log("getTwitterUserInfo", o);
-
     let twitter_user_id = o.twitter_user_id;
     let twitter_screen_name = o.twitter_screen_name;
     let params: TwitterParameters = {
@@ -12000,10 +11859,8 @@ Thanks for using Polis!
               reject(err);
             } else {
               data = JSON.parse(data);
-              console.dir(data);
               resolve(data);
             }
-            // winston.log("info",require('util').inspect(data));
           }
         );
       }
@@ -12027,16 +11884,12 @@ Thanks for using Polis!
   //       void 0, //'your user secret for this app', //test user secret
   //       function(e, data, res) {
   //         if (e) {
-  //           console.error(" - - - - get twitter tweet failed - - - -");
-  //           console.error(e);
   //           reject(e);
   //         } else {
   //           let foo = JSON.parse(data);
   //           foo = _.pluck(foo, "text");
-  //           console.dir(foo);
   //           resolve(data);
   //         }
-  //         // winston.log("info",require('util').inspect(data));
   //       }
   //     );
   //   });
@@ -12170,9 +12023,6 @@ Thanks for using Polis!
 
           getTwitterUserInfoBulk(twitter_user_ids)
             .then(function (info: any[]) {
-              // Uncomment to log out lots of twitter crap for a good time
-              //console.dir(info);
-
               let updateQueries = info.map(function (u: {
                 id: any;
                 screen_name: any;
@@ -12195,8 +12045,6 @@ Thanks for using Polis!
                   "modified = now_as_millis() " +
                   "where twitter_user_id = ($1);";
 
-            // uncomment to see some other twitter crap
-            //console.log(q);
             return pgQueryP(q, [
               u.id,
               u.screen_name,
@@ -12222,9 +12070,6 @@ Thanks for using Polis!
   // Ensure we don't call this more than 60 times in each 15 minute window (across all of our servers/use-cases)
   setInterval(updateSomeTwitterUsers, 1 * 60 * 1000);
   updateSomeTwitterUsers();
-  // getTwitterTweetById("627881237101846528").then(function(tweet) {
-  //     console.dir(tweet);
-  // });
   function createUserFromTwitterInfo(o: any) {
     return createDummyUser().then(function (uid?: any) {
       return getAndInsertTwitterUser(o, uid).then(function (result: {
@@ -12638,8 +12483,6 @@ Thanks for using Polis!
     return getSocialParticipantsForMod
       .apply(null, [zid, limit, mod, convOwner])
       .then(function (results: any) {
-        let elapsed = Date.now() - start;
-        console.log("getSocialParticipantsForMod_timed", elapsed);
         return results;
       });
   }
@@ -12841,7 +12684,6 @@ Thanks for using Polis!
       limit,
       mod,
     ]).then(function (response: any) {
-      console.log("getSocialParticipants", response);
       socialParticipantsCache.set(cacheKey, response);
       return response;
     });
@@ -13179,7 +13021,7 @@ Thanks for using Polis!
         let httpCount = JSON.parse(httpResult).count;
         let httpsCount = JSON.parse(httpsResult).count;
         if (httpCount > 0 && httpsCount > 0 && httpCount === httpsCount) {
-          console.warn(
+          logger.warn(
             "found matching http and https twitter share counts, if this is common, check twitter api to see if it has changed."
           );
         }
@@ -13737,8 +13579,6 @@ Thanks for using Polis!
 
         return pgQueryP_readOnly(q, [zid]).then(function (comments: any) {
           let uids = _.pluck(comments, "uid");
-          console.log("famous uids", uids);
-
           uids = _.uniq(uids);
           return uids;
         });
@@ -13834,10 +13674,8 @@ Thanks for using Polis!
         let pids = participantsWithSocialInfo.map(function (p: { pid: any }) {
           return p.pid;
         });
-        console.log("mike1234", pids.length);
 
         let pidToData = _.indexBy(participantsWithSocialInfo, "pid"); // TODO this is extra work, probably not needed after some rethinking
-        console.log("mike12345", pidToData);
 
         // polisSocialSettings.forEach(function(p) {
         //     if (shouldSkip(p)) {
@@ -13892,8 +13730,6 @@ Thanks for using Polis!
           return a - b;
         });
         pids = _.uniq(pids, true);
-
-        console.log("mike12346", pids);
 
         return getVotesForZidPidsWithTimestampCheck(zid, pids, math_tick).then(
           function (vectors: any) {
@@ -14423,7 +14259,6 @@ Thanks for using Polis!
   } // end /api/v3/LTI/setup_assignment
 
   // function handle_POST_lti_canvas_nav(req, res) {
-  //     winston.log("info",req);
   //     let roles = req.p.roles;
   //     let isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
   //     let user_id = req.p.user_id;
@@ -14432,8 +14267,6 @@ Thanks for using Polis!
   //     // if (!req.p.tool_consumer_instance_guid) {
   //     //     emailBadProblemTime("couldn't find tool_consumer_instance_guid, maybe this isn't Canvas?");
   //     // }
-
-  //     winston.log("info",req.p);
 
   //     // // TODO SECURITY we need to verify the signature
   //     // let oauth_consumer_key = req.p.oauth_consumer_key;
@@ -14444,8 +14277,6 @@ Thanks for using Polis!
   //         if (rows.length) {
   //             userForLtiUserId = rows[0];
   //         }
-
-  //         winston.log("info",'got user for lti_user_id:' + JSON.stringify(userForLtiUserId));
 
   //         if (userForLtiUserId) {
   //             // if (teacher pays) {
@@ -14474,7 +14305,6 @@ Thanks for using Polis!
   //             // you are signed in, but not linked to the signed in user
   //             // WARNING! CLEARING COOKIES - since it's difficult to have them click a link to sign out, and then re-initiate the LTI POST request from Canvas, just sign them out now and move on.
   //             clearCookies(req, res);
-  //             winston.log("info",'lti_linkage didnt exist');
   //             // Have them sign in again, since they weren't linked.
   //             // NOTE: this could be streamlined by showing a sign-in page that also says "you are signed in as foo, link account foo? OR sign in as someone else"
   //             renderLtiLinkagePage(req, res);
@@ -14983,11 +14813,9 @@ Thanks for using Polis!
   //             let xid = escapeLiteral(pair[0]);
   //             let suzinvite = escapeLiteral(pair[1]);
   //             let statement = "("+ suzinvite + ", " + xid + "," + zid+","+owner+")";
-  //             winston.log("info",statement);
   //             return statement;
   //         });
   //         let query = "INSERT INTO suzinvites (suzinvite, xid, zid, owner) VALUES " + valuesStatements.join(",") + ";";
-  //         winston.log("info",query);
   //         pgQuery(query, [], function(err, results) {
   //             if (err) { fail(res, 500, "polis_err_saving_invites", err); return; }
   //             getZinvite(zid).then(function(conversation_id) {
