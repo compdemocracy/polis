@@ -42,10 +42,6 @@ services:
         NODE_ENV: development
     ports:
       - ${STATIC_FILES_PORT:-8080}:${STATIC_FILES_PORT:-8080}
-    volumes:
-      # This static volume will become more useful when the client apps are configured to run
-      # in development mode.
-      - build:/app/build
 
   maildev:
     image: docker.io/maildev/maildev:1.1.1
@@ -58,11 +54,6 @@ services:
       - "1080:80"
       # SMTP port
       - "25:25"
-
-volumes:
-  build:
-    labels:
-      polis_tag: ${TAG}
 
   # TODO: Add individual entries for each of the clients, with hot-code reloading set up
   # Either:
