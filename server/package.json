@@ -48,7 +48,6 @@
     "pg": "~8.8.0",
     "pg-connection-string": "~2.5.0",
     "pg-native": "~3.0.1",
-    "pushover-notifications": "~0.1.9",
     "replacestream": "~4.0.0",
     "request": "~2.88.2",
     "request-promise": "~4.2.6",

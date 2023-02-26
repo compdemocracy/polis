@@ -1,3 +1,5 @@
+import logger from "./logger";
+
 type MetricsInRam = {
   [key: string]: any;
 };
@@ -65,6 +67,7 @@ export function MPromise(
       }, 100);
     }
   ).catch(function (err) {
+    logger.error("MPromise internal error", err);
     let end = Date.now();
     let duration = end - start;
     setTimeout(function () {

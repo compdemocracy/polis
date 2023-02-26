@@ -3,7 +3,8 @@ import { isUri } from "valid-url";
 import LruCache from "lru-cache";
 
 import pg from "../db/pg-query";
-import Log from "../log";
+import fail from "./fail";
+import logger from "./logger";
 import Conversation from "../conversation";
 import User from "../user";
 
@@ -159,10 +160,10 @@ function buildCallback(config: {
   let extractor = config.extractor;
 
   if (typeof assigner !== "function") {
-    throw "bad arg for assigner";
+    throw new Error("bad arg for assigner");
   }
   if (typeof parserWhichReturnsPromise !== "function") {
-    throw "bad arg for parserWhichReturnsPromise";
+    throw new Error("bad arg for parserWhichReturnsPromise");
   }
 
   return function (
@@ -178,18 +179,16 @@ function buildCallback(config: {
             assigner(req, name, parsed);
             next();
           },
-          function (e: any) {
+          function (err: any) {
             let s = "polis_err_param_parse_failed_" + name;
-            console.error(s);
-            console.error(e);
-            Log.yell(s);
+            logger.error(s, err);
             res.status(400);
             next(s);
             return;
           }
         )
         .catch(function (err: any) {
-          Log.fail(res, "polis_err_misc", err);
+          fail(res, 400, "polis_err_misc", err);
           return;
         });
     } else if (!required) {
@@ -198,10 +197,8 @@ function buildCallback(config: {
       }
       next();
     } else {
-      // winston.log("info",req);
       let s = "polis_err_param_missing_" + name;
-      console.error(s);
-      Log.yell(s);
+      logger.error(s);
       res.status(400);
       next(s);
     }
@@ -328,7 +325,7 @@ function getIntInRange(min: number, max: number) {
   return function (s: string): Promise<number> {
     return getInt(s).then(function (x: number) {
       if (x < min || max < x) {
-        throw "polis_fail_parse_int_out_of_range";
+        throw new Error("polis_fail_parse_int_out_of_range");
       }
       return x;
     });
@@ -365,10 +362,10 @@ function getRidFromReportId(report_id: string) {
         "select rid from reports where report_id = ($1);",
         [report_id],
         function (err: any, results: { rows: string | any[] }) {
+          logger.error("polis_err_fetching_rid_for_report_id " + report_id, err);
           if (err) {
             return reject(err);
           } else if (!results || !results.rows || !results.rows.length) {
-            console.error("polis_err_fetching_rid_for_report_id " + report_id);
             return reject("polis_err_fetching_rid_for_report_id");
           } else {
             let rid = results.rows[0].rid;
@@ -396,9 +393,7 @@ const parseReportId = getStringLimitLength(1, 100);
 
 function getReportIdFetchRid(s: any) {
   return parseReportId(s).then(function (report_id) {
-    console.log(report_id);
     return getRidFromReportId(report_id).then(function (rid: any) {
-      console.log(rid);
       return Number(rid);
     });
   });
@@ -421,7 +416,7 @@ function getNumberInRange(min: number, max: number) {
   return function (s: string) {
     return getNumber(s).then(function (x: number) {
       if (x < min || max < x) {
-        throw "polis_fail_parse_number_out_of_range";
+        throw new Error("polis_fail_parse_number_out_of_range");
       }
       return x;
     });
@@ -481,9 +476,7 @@ function getArrayOfInt(a: string[]) {
 function assignToP(req: { p: { [x: string]: any } }, name: string, x: any) {
   req.p = req.p || {};
   if (!_.isUndefined(req.p[name])) {
-    let s = "clobbering " + name;
-    console.error(s);
-    Log.yell(s);
+    logger.error("polis_err_clobbering " + name);
   }
   req.p[name] = x;
 }
@@ -502,16 +495,12 @@ function resolve_pidThing(
   if (_.isUndefined(loggingString)) {
     loggingString = "";
   }
+  logger.debug("resolve_pidThing " + loggingString);
   return function (req: Req, res: any, next: (arg0?: string) => void) {
     if (!req.p) {
-      Log.fail(
-        res,
-        500,
-        "polis_err_this_middleware_should_be_after_auth_and_zid"
-      );
+      fail(res, 500, "polis_err_this_middleware_should_be_after_auth_and_zid");
       next("polis_err_this_middleware_should_be_after_auth_and_zid");
     }
-    console.dir(req.p);
 
     let existingValue =
       extractFromBody(req, pidThingStringName) ||
@@ -526,7 +515,7 @@ function resolve_pidThing(
           next();
         })
         .catch(function (err: any) {
-          Log.fail(res, 500, "polis_err_mypid_resolve_error", err);
+          fail(res, 500, "polis_err_mypid_resolve_error", err);
           next(err);
         });
     } else if (existingValue === "mypid") {
@@ -539,7 +528,7 @@ function resolve_pidThing(
           next();
         })
         .catch(function (err) {
-          Log.fail(res, 500, "polis_err_pid_error", err);
+          fail(res, 500, "polis_err_pid_error", err);
           next(err);
         });
     } else {

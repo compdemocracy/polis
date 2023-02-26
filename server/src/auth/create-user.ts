@@ -1,7 +1,7 @@
 import _ from "underscore";
 
 import pg from "../db/pg-query";
-import { fail } from "../log";
+import fail from "../utils/fail";
 import Config from "../config";
 import Cookies from "../utils/cookies";
 import { COOKIES } from "../utils/cookies";
@@ -106,10 +106,6 @@ function createUser(req: any, res: any) {
             vals,
             function (err: any, result: { rows: { uid: any }[] }) {
               if (err) {
-                // TS2304: Cannot find name 'winston'.
-                // 117   winston.log("info", err);
-                // @ts-ignore
-                winston.log("info", err);
                 fail(res, 500, "polis_err_reg_failed_to_add_user_record", err);
                 return;
               }
@@ -121,10 +117,6 @@ function createUser(req: any, res: any) {
                 [uid, hashedPassword],
                 function (err: any, results: any) {
                   if (err) {
-                    // TS2304: Cannot find name 'winston'.
-                    // 120  winston.log("info", err);
-                    // @ts-ignore
-                    winston.log("info", err);
                     fail(
                       res,
                       500,

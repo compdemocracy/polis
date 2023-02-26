@@ -13,6 +13,7 @@ import express from "express";
 
 import Config from "./src/config";
 import server from "./src/server";
+import logger from "./src/utils/logger";
 
 const app = express();
 // Trust the X-Forwarded-Proto and X-Forwarded-Host, but only on private subnets.
@@ -56,7 +57,6 @@ helpersInitialized.then(
       redirectIfNotHttps,
       redirectIfWrongDomain,
       timeout,
-      winston,
       writeDefaultHead,
 
       middleware_log_request_body,
@@ -230,13 +230,6 @@ helpersInitialized.then(
     ////////////////////////////////////////////
     ////////////////////////////////////////////
 
-    app.use(function (req, res, next) {
-      console.log("before");
-      console.log(req.body);
-      console.log(req.headers);
-      next();
-    });
-
     app.use(middleware_responseTime_start);
 
     app.use(redirectIfNotHttps);
@@ -255,13 +248,6 @@ helpersInitialized.then(
     }
     app.use(middleware_log_request_body);
     app.use(middleware_log_middleware_errors);
-
-    app.use(function (req, res, next) {
-      console.log("part2");
-      console.log(req.body);
-      console.log(req.headers);
-      next();
-    });
 
     app.all("/api/v3/*", addCorsHeader);
     app.all("/font/*", addCorsHeader);
@@ -1897,12 +1883,12 @@ helpersInitialized.then(
     }
 
     app.listen(Config.serverPort);
+    logger.info("started on port " + Config.serverPort);
 
-    winston.log("info", "started on port " + Config.serverPort);
   },
+
   function (err) {
-    console.error("failed to init server");
-    console.error(err);
+    logger.error("failed to init server", err);
   }
 );
 
