@@ -4,7 +4,6 @@ import React from "react";
 import _ from "lodash";
 import CommentList from "./commentList";
 import * as globals from "../globals";
-import style from "../../util/style";
 
 
 function sortByTid(comments) {
@@ -55,8 +54,6 @@ class allCommentsModeratedIn extends React.Component {
       sortFunction = sortByVoteCount;
     } else if (this.state.sortStyle === "consensus") {
       sortFunction = sortByGroupAwareConsensus;
-    } else if (this.state.sortStyle === "consensus") {
-      sortFunction = sortByGroupAwareConsensus;
     } else if (this.state.sortStyle === "pctAgreed") {
       sortFunction = sortByPctAgreed;
     } else if (this.state.sortStyle === "pctDisagreed") {
@@ -73,7 +70,7 @@ class allCommentsModeratedIn extends React.Component {
         <p style={globals.paragraph}>
           Group votes across all statements, excluding those statements which were moderated out.
         </p>
-        <label for="allCommentsSortMode">Sort by: </label>
+        <label htmlFor="allCommentsSortMode">Sort by: </label>
         <select id="allCommentsSortMode" onChange={this.onSortChanged.bind(this)} value={this.state.sortStyle}>
           <option value="tid">Statement Id</option>
           <option value="consensus">Group-informed Consensus</option>
@@ -95,6 +92,6 @@ class allCommentsModeratedIn extends React.Component {
       </div>
     );
   }
-};
+}
 
 export default allCommentsModeratedIn;

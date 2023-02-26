@@ -7,7 +7,7 @@ import graphUtil from "../../util/graphUtil";
 import Axes from "../graphAxes";
 import * as d3contour from "d3-contour";
 import * as d3chromatic from "d3-scale-chromatic";
-import GroupLabels from "./groupLabels";
+// import GroupLabels from "./groupLabels";
 import Comments from "../commentsGraph/comments";
 import Hull from "./hull";
 import CommentList from "../lists/commentList";
@@ -90,11 +90,6 @@ class ParticipantsGraph extends React.Component {
     };
   }
 
-  handleCommentClick(selectedComment) {
-    return () => {
-      this.setState({ selectedComment });
-    };
-  }
   getInnerRadialAxisColor() {
     let color = globals.brandColors.lightgrey;
     if (this.props.consensusDivisionColorScale && this.props.colorBlindMode) {

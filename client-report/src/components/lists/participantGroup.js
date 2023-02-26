@@ -2,8 +2,8 @@
 
 import React from "react";
 import * as globals from "../globals";
-import Flex from "../framework/flex"
-import style from "../../util/style";
+// import Flex from "../framework/flex"
+// import style from "../../util/style";
 import CommentList from "./commentList";
 
 const ParticipantGroup = ({
@@ -12,12 +12,12 @@ const ParticipantGroup = ({
   conversation,
   comments,
   groupVotesForThisGroup,
-  groupVotesForOtherGroups,
-  demographicsForGroup,
+  // groupVotesForOtherGroups,
+  // demographicsForGroup,
   ptptCount,
   groupName,
   formatTid,
-  groupNames,
+  // groupNames,
   math,
   voteColors,
 }) => {

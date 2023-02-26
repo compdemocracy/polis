@@ -4,13 +4,13 @@
 import Checkbox from '../framework/checkbox';
 import React from "react";
 import settings from "../../settings";
-import * as globals from "../globals";
 
 class Controls extends React.Component {
 
   constructor(props) {
     super(props);
-
+    this.autoRefreshEnabledRef = React.createRef();
+    this.colorBlindModeRef = React.createRef();
   }
 
   checkboxGroupChanged(newVal) {
@@ -21,8 +21,8 @@ class Controls extends React.Component {
     }
   }
 
-  componentWillMount() {
-  }
+  // UNSAFE_componentWillMount() {
+  // }
 
   render() {
     return (
@@ -30,7 +30,7 @@ class Controls extends React.Component {
       <Checkbox
         label= {"auto-refresh"}
         disabled={false}
-        ref={"autoRefreshEnabled"}
+        ref={this.autoRefreshEnabledRef}
         checked={ this.props.autoRefreshEnabled}
         clickHandler={ this.checkboxGroupChanged.bind(this) }
         labelPosition={"left"}
@@ -39,7 +39,7 @@ class Controls extends React.Component {
       <Checkbox
         label= {"color blind mode"}
         disabled={false}
-        ref={"colorBlindMode"}
+        ref={this.colorBlindModeRef}
         checked={ this.props.colorBlindMode}
         clickHandler={ this.props.handleColorblindModeClick }
         labelPosition={"left"}
@@ -49,7 +49,7 @@ class Controls extends React.Component {
     );
   }
 
-};
+}
         // <Checkbox value="pineapple"/>
 
 export default Controls;

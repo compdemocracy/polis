@@ -20,7 +20,7 @@ class Matrix extends React.Component {
       mouseOverCorrelation: correlation,
     });
   }
-  onMouseExitCell(row, column) {
+  onMouseExitCell(/*row, column*/) {
     this.setState({
       mouseOverRow: null,
       mouseOverColumn: null,
