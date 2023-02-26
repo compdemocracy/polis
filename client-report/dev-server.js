@@ -14,7 +14,6 @@ app.set("port", 5010);
 app.use('/data', express.static('data'))
 
 app.use(require("webpack-dev-middleware")(compiler, {
-  noInfo: true,
   publicPath: config.output.publicPath
 }));
 
