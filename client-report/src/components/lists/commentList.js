@@ -21,12 +21,12 @@ const BarChartCompact = ({ comment, voteCounts, nMembers, voteColors }) => {
     missingCounts = true;
   }
   let passes = sawTheComment - (agrees + disagrees);
-  let totalVotes = agrees + disagrees + passes;
+  // let totalVotes = agrees + disagrees + passes;
 
   const agree = (agrees / nMembers) * w;
   const disagree = (disagrees / nMembers) * w;
   const pass = (passes / nMembers) * w;
-  const blank = nMembers - (sawTheComment / nMembers) * w;
+  // const blank = nMembers - (sawTheComment / nMembers) * w;
 
   const agreeSaw = (agrees / sawTheComment) * w;
   const disagreeSaw = (disagrees / sawTheComment) * w;
@@ -106,11 +106,11 @@ const CommentRow = ({ comment, groups, voteColors }) => {
   });
 
   // totals column
-  let globalCounts = {
-    A: comment.agreed,
-    D: comment.disagreed,
-    S: comment.saw,
-  };
+  // let globalCounts = {
+  //   A: comment.agreed,
+  //   D: comment.disagreed,
+  //   S: comment.saw,
+  // };
   BarCharts.unshift(
     <BarChartCompact
       key={99}

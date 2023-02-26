@@ -2,7 +2,7 @@
 
 import React from "react";
 import _ from "lodash";
-import textWrap from "svg-text-wrap";
+// import textWrap from "svg-text-wrap";
 
 class Comments extends React.Component {
   createComments() {
@@ -37,7 +37,7 @@ class Comments extends React.Component {
       }
 
       /* break the text up into pieces */
-      const textArray = textWrap(comment.txt, 200, { "letter-spacing": "1px" });
+      // const textArray = textWrap(comment.txt, 200, { "letter-spacing": "1px" });
 
       return (
         <text

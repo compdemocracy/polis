@@ -28,25 +28,20 @@ function destRoot() {
   console.log(root);
   return root;
 }
-function destRootAbout() {
-  return destRootBase;
-}
-var devMode = true;
-var preprodMode = false;
-var prodMode = false;
-var host;
 
-function prepPathForTemplate(path) {
-  // add slash at front if missing
-  if (path.match(/^[^\/]/)) {
-    path = "/" + path;
-  }
-  path = path.replace(/\/*$/, ""); // remove trailing slash
-  return path;
-}
+let s3Subdir;
+
+// function prepPathForTemplate(path) {
+//   // add slash at front if missing
+//   if (path.match(/^[^\/]/)) {
+//     path = "/" + path;
+//   }
+//   path = path.replace(/\/*$/, ""); // remove trailing slash
+//   return path;
+// }
 
 function getGitHash() {
-  return new Promise(function (resolve, reject) {
+  return new Promise(function (resolve/*, reject*/) {
     if (process.env.GIT_HASH) {
       resolve(process.env.GIT_HASH);
     } else {
@@ -61,14 +56,12 @@ gulp.task("cleanDist", function () {
 });
 
 gulp.task("bundle", [], function (callback) {
-  exec("npm run build", function (error, stdout, stderr) {
+  exec("npm run build", function (error/*, stdout, stderr*/) {
     callback(error);
   });
 });
 
 gulp.task("index", [], function () {
-  // var githash = getGitHash();
-  var bundlePath = [destRootRest, "report_bundle.js"].join("/");
   var index = fs.readFileSync("index.html", { encoding: "utf8" });
   index = index.replace(
     "/dist/report_bundle.js",
@@ -83,17 +76,14 @@ gulp.task("index", [], function () {
 });
 
 gulp.task("preprodConfig", function () {
-  preprodMode = true;
   s3Subdir = s3BucketPreprod;
 });
 
 gulp.task("prodConfig", function () {
-  prodMode = true;
   s3Subdir = s3BucketProd;
 });
 
 gulp.task("configureForProduction", function (callback) {
-  devMode = false;
   destRootBase = "dist";
 
   console.log("getGitHash begin");
@@ -219,7 +209,7 @@ function deploy(uploader) {
     };
   }
 
-  function deployBatch({ srcKeep, srcIgnore, headers, logStatement, subdir }) {
+  function deployBatch({ srcKeep, srcIgnore, headers, subdir/*, logStatement*/ }) {
     return new Promise(function (resolve, reject) {
       let gulpSrc = [srcKeep];
       if (srcIgnore) {

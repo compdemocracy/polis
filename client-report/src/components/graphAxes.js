@@ -3,7 +3,7 @@
 import React from "react";
 import * as globals from "./globals";
 
-const GraphAxes = ({yCenter, xCenter, report}) => {
+const GraphAxes = ({yCenter, xCenter/*, report*/}) => {
   return (
     <g>
       <line
