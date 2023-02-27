@@ -10,6 +10,8 @@ import StaticLayout from './lander-layout'
 
 import strings from '../../strings/strings'
 
+const fbAppId = process.env.FB_APP_ID
+
 @connect((state) => state.signin)
 class SignIn extends React.Component {
   // eslint-disable-next-line node/handle-callback-err
@@ -120,18 +122,20 @@ class SignIn extends React.Component {
             <Link to={'/pwresetinit'}>Reset Password</Link>
           </Text>
         </form>
-        <Box sx={{ my: 4 }}>
-          <Button
-            id="facebookSigninButton"
-            onClick={this.facebookButtonClicked.bind(this)}>
-            Sign in with Facebook
-          </Button>
-          <Text sx={{ my: 2 }}>
-            If you click &apos;Sign in with Facebook&apos; and are not a pol.is
-            user, you will be registered and you agree to the pol.is terms and
-            privacy policy
-          </Text>
-        </Box>
+        {fbAppId && (
+          <Box sx={{ my: 4 }}>
+            <Button
+              id="facebookSigninButton"
+              onClick={this.facebookButtonClicked.bind(this)}>
+              Sign in with Facebook
+            </Button>
+            <Text sx={{ my: 2 }}>
+              If you click &apos;Sign in with Facebook&apos; and are not a pol.is
+              user, you will be registered and you agree to the pol.is terms and
+              privacy policy
+            </Text>
+          </Box>
+        )}
       </Box>
     )
   }
