@@ -9,9 +9,10 @@
 
 services:
   server:
-    command: npm run build:watch
-    environment:
-      NODE_ENV: development
+    build:
+      target: dev
+      args:
+        NODE_ENV: development
     volumes:
       # This will mount your local polis/server directory so changes can be watched and reloaded.
       # But it will ignore your local node_modules and instead use a new container volume.
@@ -36,12 +37,11 @@ services:
       - "${POSTGRES_PORT:-5432}:5432"
 
   file-server:
+    build:
+      args:
+        NODE_ENV: development
     ports:
       - ${STATIC_FILES_PORT:-8080}:${STATIC_FILES_PORT:-8080}
-    volumes:
-      # This static volume will become more useful when the client apps are configured to run
-      # in development mode.
-      - build:/app/build
 
   maildev:
     image: docker.io/maildev/maildev:1.1.1
@@ -54,11 +54,6 @@ services:
       - "1080:80"
       # SMTP port
       - "25:25"
-
-volumes:
-  build:
-    labels:
-      polis_tag: ${TAG}
 
   # TODO: Add individual entries for each of the clients, with hot-code reloading set up
   # Either:

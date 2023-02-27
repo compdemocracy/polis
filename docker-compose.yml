@@ -27,6 +27,9 @@ services:
     build:
       context: ./server
       dockerfile: Dockerfile
+      target: prod
+      args:
+        NODE_ENV: production
       labels:
         polis_tag: ${TAG:-dev}
     depends_on:
@@ -97,6 +100,7 @@ services:
       labels:
         polis_tag: ${TAG:-dev}
       args:
+        NODE_ENV: production
         GIT_HASH: "${GIT_HASH:-placeholder}"
     environment:
       - EMBED_SERVICE_HOSTNAME=${EMBED_SERVICE_HOSTNAME}

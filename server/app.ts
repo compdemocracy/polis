@@ -10,12 +10,15 @@ dotenv.config();
 
 import Promise from "bluebird";
 import express from "express";
+import morgan from "morgan";
 
 import Config from "./src/config";
 import server from "./src/server";
 import logger from "./src/utils/logger";
 
 const app = express();
+app.use(morgan('combined'));
+
 // Trust the X-Forwarded-Proto and X-Forwarded-Host, but only on private subnets.
 // See: https://github.com/pol-is/polis/issues/546
 // See: https://expressjs.com/en/guide/behind-proxies.html
@@ -52,10 +55,8 @@ helpersInitialized.then(
       staticFilesAdminPort,
       staticFilesClientPort,
       proxy,
-      redirectIfApiDomain,
       redirectIfHasZidButNoConversationId,
       redirectIfNotHttps,
-      redirectIfWrongDomain,
       timeout,
       writeDefaultHead,
 
@@ -236,8 +237,6 @@ helpersInitialized.then(
     app.use(express.cookieParser());
     app.use(express.bodyParser());
     app.use(writeDefaultHead);
-    app.use(redirectIfWrongDomain);
-    app.use(redirectIfApiDomain);
 
     if (devMode) {
       app.use(express.compress());
