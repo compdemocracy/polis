@@ -3,7 +3,6 @@
 # But this file is still useful for development or deployments that do not use
 # the docker compose configuration.
 
-# Gulp v3 stops us from upgrading beyond Node v11
 FROM docker.io/node:18-alpine
 
 WORKDIR /app
