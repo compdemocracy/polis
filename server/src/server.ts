@@ -169,46 +169,7 @@ function isPolisDev(uid?: any) {
   console.log("polisDevs", polisDevs);
   return polisDevs.indexOf(uid) >= 0;
 }
-// log heap stats
-setInterval(function () {
-  let mem = process.memoryUsage();
-  let heapUsed = mem.heapUsed;
-  let rss = mem.rss;
-  let heapTotal = mem.heapTotal;
-  winston.log(
-    "info",
-    "heapUsed:",
-    heapUsed,
-    "heapTotal:",
-    heapTotal,
-    "rss:",
-    rss
-  );
-  // let start = Date.now();
 
-  //metric("api.process.mem.heapUsed", heapUsed, start);
-  //metric("api.process.mem.rss", rss, start);
-  //metric("api.process.mem.heapTotal", heapTotal, start);
-}, 10 * 1000);
-// // BEGIN GITHUB OAUTH2
-// let CLIENT_SECRET = "0b178e412a10fa023a0153bf7cefaf6dae0f74b9";
-// let CLIENT_ID = "109a1eb4732b3ec1075b";
-// let oauth2 = require('simple-oauth2')({
-//   clientID: CLIENT_ID,
-//   clientSecret: CLIENT_SECRET,
-//   site: 'https://github.com/login',
-//   tokenPath: '/oauth/access_token'
-// });
-
-// winston.log("info",oauth2);
-
-// // Authorization uri definition
-// let authorization_uri = oauth2.AuthCode.authorizeURL({
-//   redirect_uri: 'https://preprod.pol.is/oauth2/oauth2_github_callback',
-//   scope: 'notifications',
-//   state: '3(#0/!~'
-// });
-// // END GITHUB OAUTH2
 const polisFromAddress = Config.polisFromAddress;
 
 const serverUrl = Config.getServerUrl(); // typically https://pol.is or http://localhost:5000
@@ -619,7 +580,6 @@ function initializePolisHelpers() {
   const setParentUrlCookie = cookies.setParentUrlCookie;
   const setPermanentCookie = cookies.setPermanentCookie;
   const setCookieTestCookie = cookies.setCookieTestCookie;
-  const shouldSetCookieOnPolisDomain = cookies.shouldSetCookieOnPolisDomain;
   const addCookies = cookies.addCookies;
   const getPermanentCookieAndEnsureItIsSet =
     cookies.getPermanentCookieAndEnsureItIsSet;
@@ -881,52 +841,7 @@ function initializePolisHelpers() {
     }
     return next();
   }
-
-  function redirectIfWrongDomain(
-    req: { headers?: { host: string }; url: string },
-    res: {
-      writeHead: (arg0: number, arg1: { Location: string }) => void;
-      end: () => any;
-    },
-    next: () => any
-  ) {
-    // let reServiceHostname = new RegExp(Config.getServerHostname());
-    if (
-      // reServiceHostname.test(req?.headers?.host) || // needed for heroku integrations
-      /www.pol.is/.test(req?.headers?.host || "")
-    ) {
-      res.writeHead(302, {
-        Location: serverUrl + req.url,
-      });
-      return res.end();
-    }
-    return next();
-  }
-
-  function redirectIfApiDomain(
-    req: { headers?: { host: string }; url: string },
-    res: {
-      writeHead: (arg0: number, arg1: { Location: string }) => void;
-      end: () => any;
-    },
-    next: () => any
-  ) {
-    if (/api.pol.is/.test(req?.headers?.host || "")) {
-      if (req.url === "/" || req.url === "") {
-        res.writeHead(302, {
-          Location: "https://pol.is/docs/api",
-        });
-        return res.end();
-      } else if (!req.url.match(/^\/?api/)) {
-        res.writeHead(302, {
-          Location: "https://pol.is/" + req.url,
-        });
-        return res.end();
-      }
-    }
-    return next();
-  }
-
+  
   // function createDummyUsersBatch(n) {
   //     let query = "insert into users (created) values ";
   //     let values = [];
@@ -1408,21 +1323,15 @@ function initializePolisHelpers() {
     },
     res: { redirect: (arg0: any) => void }
   ) {
-    let setOnPolisDomain = !domainOverride;
-    let origin = req?.headers?.origin || "";
-    if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
-      setOnPolisDomain = false;
-    }
-
     if (!req.cookies[COOKIES.PERMANENT_COOKIE]) {
-      setPermanentCookie(req, res, setOnPolisDomain, makeSessionToken());
+      setPermanentCookie(req, res, makeSessionToken());
     }
-    setCookieTestCookie(req, res, setOnPolisDomain);
+    setCookieTestCookie(req, res);
 
     // Argument of type '{ redirect: (arg0: any) => void; }' is not assignable to parameter of type '{ cookie: (arg0: any, arg1: any, arg2: any) => void; }'.
     // Property 'cookie' is missing in type '{ redirect: (arg0: any) => void; }' but required in type '{ cookie: (arg0: any, arg1: any, arg2: any) => void; }'.ts(2345)
     // @ts-ignore
-    setCookie(req, res, setOnPolisDomain, "top", "ok", {
+    setCookie(req, res, "top", "ok", {
       httpOnly: false, // not httpOnly - needed by JS
     });
 
@@ -1430,21 +1339,6 @@ function initializePolisHelpers() {
     let dest = hexToStr(req.p.dest);
     res.redirect(dest);
   }
-  // function handle_GET_setFirstCookie(req, res) {
-  //     let setOnPolisDomain = !domainOverride;
-  //     let origin = req?.headers?.origin || "";
-  //     if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
-  //         setOnPolisDomain = false;
-  //     }
-
-  //     if (!req.cookies[COOKIES.PERMANENT_COOKIE]) {
-  //         setPermanentCookie(req, res, setOnPolisDomain, makeSessionToken());
-  //     }
-  //     setCookie(req, res, setOnPolisDomain, "top", "ok", {
-  //         httpOnly: false,            // not httpOnly - needed by JS
-  //     });
-  //     res.status(200).json({});
-  // });
 
   function handle_GET_tryCookie(
     req: { headers?: { origin: string }; cookies: { [x: string]: any } },
@@ -1454,12 +1348,6 @@ function initializePolisHelpers() {
       ) => { (): any; new (): any; json: { (arg0: {}): void; new (): any } };
     }
   ) {
-    let setOnPolisDomain = !domainOverride;
-    let origin = req?.headers?.origin || "";
-    if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
-      setOnPolisDomain = false;
-    }
-
     if (!req.cookies[COOKIES.TRY_COOKIE]) {
       // Argument of type '{ status: (arg0: number) => { (): any; new (): any; json:
       // { (arg0: {}): void; new (): any; }; }; }' is not assignable to parameter of type
@@ -1468,7 +1356,7 @@ function initializePolisHelpers() {
       // { (): any; new (): any; json: { (arg0: {}): void; new (): any; }; };
       // } ' but required in type '{ cookie: (arg0: any, arg1: any, arg2: any) => void; } '.ts(2345)
       // @ts-ignore
-      setCookie(req, res, setOnPolisDomain, COOKIES.TRY_COOKIE, "ok", {
+      setCookie(req, res, COOKIES.TRY_COOKIE, "ok", {
         httpOnly: false, // not httpOnly - needed by JS
       });
     }
@@ -1859,7 +1747,7 @@ function initializePolisHelpers() {
     });
   }
   function redirectIfHasZidButNoConversationId(
-    req: { body: { zid: any; conversation_id: any } },
+    req: { body: { zid: any; conversation_id: any }, headers?: any },
     res: {
       writeHead: (arg0: number, arg1: { Location: string }) => void;
       end: () => any;
@@ -1868,8 +1756,10 @@ function initializePolisHelpers() {
   ) {
     if (req.body.zid && !req.body.conversation_id) {
       winston.log("info", "redirecting old zid user to about page");
+      const path = "/about";
+      const protocol = req.headers["x-forwarded-proto"] || "http";
       res.writeHead(302, {
-        Location: "https://pol.is/about",
+        Location: protocol + "://" + req?.headers?.host + path,
       });
       return res.end();
     }
@@ -2679,18 +2569,10 @@ Feel free to reply to this email if you need help.`;
     },
     cookieName: any
   ) {
-    let origin = req?.headers?.origin || "";
-    if (domainOverride || origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
-      res?.clearCookie?.(cookieName, {
-        path: "/",
-      });
-    } else {
-      res?.clearCookie?.(cookieName, {
-        path: "/",
-        domain: ".pol.is",
-      });
-      //         res.clearCookie(cookieName, {path: "/", domain: "www.pol.is"});
-    }
+    res?.clearCookie?.(cookieName, {
+      path: "/",
+      domain: cookies.cookieDomain(req)
+    });
   }
 
   function clearCookies(
@@ -2706,36 +2588,17 @@ Feel free to reply to this email if you need help.`;
       set?: (arg0: { "Content-Type": string }) => void;
     }
   ) {
-    let origin = req?.headers?.origin || "";
     let cookieName;
-    if (domainOverride || origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
-      for (cookieName in req.cookies) {
-        // Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; referrer: boolean; parent_url: boolean; }'.
-        // No index signature with a parameter of type 'string' was found on type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; referrer: boolean; parent_url: boolean; }'.ts(7053)
-        // @ts-ignore
-        if (COOKIES_TO_CLEAR[cookieName]) {
-          res?.clearCookie?.(cookieName, {
-            path: "/",
-          });
-        }
+    for (cookieName in req.cookies) {
+      // Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; plan: boolean; referrer: boolean; parent_url: boolean; }'.
+      // No index signature with a parameter of type 'string' was found on type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; plan: boolean; referrer: boolean; parent_url: boolean; }'.ts(7053)
+      // @ts-ignore
+      if (COOKIES_TO_CLEAR[cookieName]) {
+        res?.clearCookie?.(cookieName, {
+          path: "/",
+          domain: cookies.cookieDomain(req),
+        });
       }
-    } else {
-      for (cookieName in req.cookies) {
-        // Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; referrer: boolean; parent_url: boolean; }'.
-        // No index signature with a parameter of type 'string' was found on type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; referrer: boolean; parent_url: boolean; }'.ts(7053)
-        // @ts-ignore
-        if (COOKIES_TO_CLEAR[cookieName]) {
-          res?.clearCookie?.(cookieName, {
-            path: "/",
-            domain: ".pol.is",
-          });
-        }
-      }
-      // for (cookieName in req.cookies) {
-      //     if (COOKIES_TO_CLEAR[cookieName]) {
-      //         res.clearCookie(cookieName, {path: "/", domain: "www.pol.is"});
-      //     }
-      // }
     }
     winston.log(
       "info",
@@ -13818,16 +13681,11 @@ Thanks for using Polis!
     }
     o.socialbtn_type = req.p.show_share ? 1 : 0;
     // Set stuff in cookies to be retrieved when POST participants is called.
-    let setOnPolisDomain = !domainOverride;
-    let origin = req?.headers?.origin || "";
-    if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
-      setOnPolisDomain = false;
-    }
     if (req.p.referrer) {
-      setParentReferrerCookie(req, res, setOnPolisDomain, req.p.referrer);
+      setParentReferrerCookie(req, res, req.p.referrer);
     }
     if (req.p.parent_url) {
-      setParentUrlCookie(req, res, setOnPolisDomain, req.p.parent_url);
+      setParentUrlCookie(req, res, req.p.parent_url);
     }
 
     function appendParams(url: string) {
@@ -14236,7 +14094,7 @@ Thanks for using Polis!
     // Argument of type '{ path: string; headers?: { host: string; } | undefined; }' is not assignable to parameter of type 'Req'.
     //  Property 'cookies' is missing in type '{ path: string; headers?: { host: string; } | undefined; }' but required in type 'Req'.ts(2345)
     // @ts-ignore
-    setCookieTestCookie(req, res, shouldSetCookieOnPolisDomain(req));
+    setCookieTestCookie(req, res);
 
     if (devMode) {
       buildNumber = null;
@@ -14642,10 +14500,8 @@ Thanks for using Polis!
     staticFilesAdminPort,
     staticFilesClientPort,
     proxy,
-    redirectIfApiDomain,
     redirectIfHasZidButNoConversationId,
     redirectIfNotHttps,
-    redirectIfWrongDomain,
     sendTextEmail,
     timeout,
     winston,
