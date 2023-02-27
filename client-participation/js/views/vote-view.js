@@ -9,6 +9,7 @@ var preloadHelper = require("../util/preloadHelper");
 var template = require("../templates/vote-view.handlebars");
 var Utils = require("../util/utils");
 var Strings = require("../strings");
+var Constants = require("../util/constants");
 var $ = require("jquery");
 
 var iOS = Utils.isIos();
@@ -85,7 +86,7 @@ module.exports = Handlebones.ModelView.extend({
     };
     if (social) {
       var hasTwitter = social.screen_name;
-      var hasFacebook = social.fb_name;
+      var hasFacebook = social.fb_name && Constants.FB_APP_ID;
       var hasX = social.x_name;
       if (hasFacebook) {
         socialCtx = {
