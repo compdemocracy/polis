@@ -231,26 +231,21 @@
   </head>
 
   <body class="clickDeselectsHull" style="margin:0; background-color: white;">
-    <div id="fb-root"></div>
-    <script>
-      window.fbAsyncInit = function() {
-        FB.init({
-          appId      : '<%= fbAppId %>',
-          cookie     : true,
-          xfbml      : true,
-          version    : 'v9.0'
-        });
-      };
 
-      (function(d, s, id){
-        var js, fjs = d.getElementsByTagName(s)[0];
-        if (d.getElementById(id)) {return;}
-        js = d.createElement(s); js.id = id;
-        js.src = "//connect.facebook.net/en_US/sdk.js";
-        //js.src = "//connect.facebook.net/en_US/sdk/debug.js"; // unminified
-        fjs.parentNode.insertBefore(js, fjs);
-      }(document, 'script', 'facebook-jssdk'));
-    </script>
+    <% if (fbAppId) { %>
+      <div id="fb-root"></div>
+      <script>
+        window.fbAsyncInit = function() {
+          FB.init({
+            appId            : '<%= fbAppId %>',
+            cookie           : true,
+            xfbml            : true,
+            version          : 'v9.0'
+          });
+        };
+      </script>
+      <script async defer crossorigin="anonymous" src="https://connect.facebook.net/en_US/sdk.js"></script>
+    <% } %>
 
     <p id="mainSpinner" style="text-align:center; margin: auto; width:100%; display: none">
       <svg version="1.1" id="loader-1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
@@ -278,17 +273,18 @@
       }
     </script>
 
-    <script>
-      // TODO make this toggleable and configurable
-      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
-      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
-      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
-      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+    <% if (gaTrackingId) { %>
+      <script>
+        (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+        })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
 
-      ga('create', 'UA-49459311-1', 'pol.is');
-      ga('require', 'displayfeatures');
-      ga('send', 'pageview');
-    </script>
+        ga('create', '<%= gaTrackingId %>', 'auto');
+        ga('require', 'displayfeatures');
+        ga('send', 'pageview');
+      </script>
+    <% } %>
 
 </body>
 </html>

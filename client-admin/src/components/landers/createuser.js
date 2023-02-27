@@ -10,6 +10,8 @@ import { Link } from 'react-router-dom'
 import StaticLayout from './lander-layout'
 import strings from '../../strings/strings'
 
+const fbAppId = process.env.FB_APP_ID
+
 @connect((state) => state.signin)
 class Createuser extends React.Component {
   getDest() {
@@ -160,17 +162,21 @@ class Createuser extends React.Component {
           </Link>
         </Box>
 
-        <Button
-          sx={{ my: [2] }}
-          id="signupFacebookButton"
-          onClick={this.facebookButtonClicked.bind(this)}>
-          Sign up with Facebook
-        </Button>
-        <Text>
-          If you click &apos;Sign in with Facebook&apos; and are not a pol.is
-          user, you will be registered and you agree to the pol.is terms and
-          privacy policy
-        </Text>
+        {fbAppId && (
+          <>
+            <Button
+              sx={{ my: [2] }}
+              id="signupFacebookButton"
+              onClick={this.facebookButtonClicked.bind(this)}>
+              Sign up with Facebook
+            </Button>
+            <Text>
+              If you click &apos;Sign in with Facebook&apos; and are not a pol.is
+              user, you will be registered and you agree to the pol.is terms and
+              privacy policy
+            </Text>
+          </>
+        )}
       </Box>
     )
   }
