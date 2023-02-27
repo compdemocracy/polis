@@ -13,6 +13,7 @@ var ParticipationView = require("../views/participation");
 var PolisStorage = require("../util/polisStorage");
 var preloadHelper = require("../util/preloadHelper");
 var RootView = require("../views/root");
+var Constants = require("../util/constants");
 var SettingsView = require("../views/settings.js");
 
 var UserModel = require("../models/user");
@@ -29,7 +30,9 @@ var authenticatedDfd = $.Deferred();
 authenticatedDfd.done(function() {
   // link uid to GA userId
   // TODO update this whenever auth changes
-  ga('set', 'userId', PolisStorage.uid() || PolisStorage.uidFromCookie());
+  if (Constants.GA_TRACKING_ID) {
+    ga('set', 'userId', PolisStorage.uid() || PolisStorage.uidFromCookie());
+  }
 });
 
 function onFirstRender() {

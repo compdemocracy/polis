@@ -11,6 +11,7 @@ var PolisFacebookUtils = require('../util/facebookButton');
 
 // var iOS = Utils.isIos();
 
+// if this changes, be sure to check for the presence of Constants.FB_APP_ID as well:
 var SHOULD_PROMPT_FOR_FB = false;
 
 module.exports = Handlebones.ModelView.extend({
