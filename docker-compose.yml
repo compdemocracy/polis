@@ -100,11 +100,13 @@ services:
       labels:
         polis_tag: ${TAG:-dev}
       args:
+        ENABLE_TWITTER_WIDGETS: ${ENABLE_TWITTER_WIDGETS:-false}
+        FB_APP_ID: ${FB_APP_ID}
+        GA_TRACKING_ID: ${GA_TRACKING_ID}
         NODE_ENV: production
         GIT_HASH: "${GIT_HASH:-placeholder}"
     environment:
       - EMBED_SERVICE_HOSTNAME=${EMBED_SERVICE_HOSTNAME}
-      - FB_APP_ID=${FB_APP_ID}
       - PORT=${STATIC_FILES_PORT:-8080}
       - REPORT_UPLOADER=${REPORT_UPLOADER:-local}
       - REPORT_SERVICE_URL=${REPORT_SERVICE_URL}
