@@ -17,6 +17,7 @@ var fs = require('fs');
 var argv = process.argv.slice(2)
 var cliArgs = mri(argv)
 
+var enableTwitterWidgets = process.env.ENABLE_TWITTER_WIDGETS === 'true';
 var fbAppId = process.env.FB_APP_ID;
 
 module.exports = (env, options) => {
@@ -50,14 +51,15 @@ module.exports = (env, options) => {
     plugins: [
       new CopyPlugin({
         patterns: [
-          { from: 'public', globOptions: { ignore: ['**/index.html']}},
+          { from: 'public', globOptions: { ignore: ['**/index.ejs']}},
         ],
       }),
       new HtmlWebPackPlugin({
-        template: path.resolve( __dirname, 'public/index.html' ),
+        template: path.resolve( __dirname, 'public/index.ejs' ),
         filename: (isDevBuild || isDevServer) ? 'index.html' : 'index_admin.html',
         inject: "body",
         templateParameters: {
+          enableTwitterWidgets: enableTwitterWidgets,
           fbAppId: fbAppId,
         },
       }),
@@ -67,6 +69,9 @@ module.exports = (env, options) => {
         paths: true,
         placeholders: true,
         shorthands: true
+      }),
+      new webpack.DefinePlugin({
+        'process.env.FB_APP_ID': JSON.stringify(fbAppId),
       }),
       // Only run analyzer when specified in flag.
       ...(cliArgs.analyze ? [new BundleAnalyzerPlugin({ defaultSizes: 'gzip' })] : []),

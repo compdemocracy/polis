@@ -14,6 +14,7 @@ var PolisStorage = require("../util/polisStorage");
 var PlanUpgradeView = require("../views/plan-upgrade");
 var preloadHelper = require("../util/preloadHelper");
 var RootView = require("../views/root");
+var Constants = require("../util/constants");
 
 var SettingsEnterpriseView = require("../views/settingsEnterprise.js");
 var SettingsView = require("../views/settings.js");
@@ -32,7 +33,9 @@ var authenticatedDfd = $.Deferred();
 authenticatedDfd.done(function() {
   // link uid to GA userId
   // TODO update this whenever auth changes
-  ga('set', 'userId', PolisStorage.uid() || PolisStorage.uidFromCookie());
+  if (Constants.GA_TRACKING_ID) {
+    ga('set', 'userId', PolisStorage.uid() || PolisStorage.uidFromCookie());
+  }
 });
 
 function onFirstRender() {
