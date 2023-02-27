@@ -3,13 +3,14 @@ import _ from "underscore";
 import pg from "../db/pg-query";
 import { fail } from "../log";
 import Config from "../config";
-import Cookies from "../utils/cookies";
-import { COOKIES } from "../utils/cookies";
+import cookies from "../utils/cookies";
 import User from "../user";
 import Session from "../session";
 import Utils from "../utils/common";
 import Password from "./password";
 import emailSenders from "../email/senders";
+
+const COOKIES = cookies.COOKIES;
 
 const sendTextEmail = emailSenders.sendTextEmail;
 function createUser(req: any, res: any) {
@@ -143,7 +144,7 @@ function createUser(req: any, res: any) {
                       );
                       return;
                     }
-                    Cookies.addCookies(req, res, token, uid)
+                    cookies.addCookies(req, res, token, uid)
                       .then(
                         function () {
                           let ltiUserPromise = lti_user_id

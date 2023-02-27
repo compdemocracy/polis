@@ -69,6 +69,13 @@ Many convenient commands are found in the Makefile. Run `make help` for a list o
 
 First clone the repository, then navigate via command line to the root directory and run the following command to build and run the docker containers.
 
+Copy the example.env file and modify as needed (although it should just work as is for development and testing purposes).
+
+```sh
+cp example.env .env
+```
+
+
 ```sh
 docker compose up --build
 ```
@@ -104,6 +111,24 @@ To see what the environment of your containers is going to look like, run:
 
 ```sh
 docker compose convert
+```
+
+#### Production Mode Shortcuts
+
+The commands in the Makefile can be prefaced with PROD. If so, the "dev overlay" configuration in `docker-compose.dev.yml` will be ignored.
+Ports from services other than the HTTP proxy (80/443) will not be exposed. Containers will not mount local directories, watch for changes,
+or rebuild themselves. In theory this should be one way to run Polis in a production environment.
+
+You need a `prod.env` file:
+
+`cp example.env prod.env` (and update accordingly).
+
+Then you can run things like:
+
+```sh
+make PROD start
+
+make PROD start-REBUILD
 ```
 
 ### Testing out your instance
@@ -178,7 +203,7 @@ Please see [`e2e/README.md`](/e2e/README.md) for more information on running the
 #### Docker Problems
 
 A lot of issues might be resolved by killing all docker containers and/or restarting docker entirely. If that doesn't
-work, this will wipe all of your polis containers and volumes and completely rebuild them:
+work, this will wipe all of your polis containers and volumes (**INCLUDING THE DATABASE VOLUME, so don't use this in prod!**) and completely rebuild them:
 
 `make start-FULL-REBUILD`
 
