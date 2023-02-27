@@ -10,11 +10,14 @@ dotenv.config();
 
 import Promise from "bluebird";
 import express from "express";
+import morgan from "morgan";
 
 import Config from "./src/config";
 import server from "./src/server";
 
 const app = express();
+app.use(morgan('combined'));
+
 // Trust the X-Forwarded-Proto and X-Forwarded-Host, but only on private subnets.
 // See: https://github.com/pol-is/polis/issues/546
 // See: https://expressjs.com/en/guide/behind-proxies.html
@@ -51,10 +54,8 @@ helpersInitialized.then(
       staticFilesAdminPort,
       staticFilesClientPort,
       proxy,
-      redirectIfApiDomain,
       redirectIfHasZidButNoConversationId,
       redirectIfNotHttps,
-      redirectIfWrongDomain,
       timeout,
       winston,
       writeDefaultHead,
@@ -230,21 +231,12 @@ helpersInitialized.then(
     ////////////////////////////////////////////
     ////////////////////////////////////////////
 
-    app.use(function (req, res, next) {
-      console.log("before");
-      console.log(req.body);
-      console.log(req.headers);
-      next();
-    });
-
     app.use(middleware_responseTime_start);
 
     app.use(redirectIfNotHttps);
     app.use(express.cookieParser());
     app.use(express.bodyParser());
     app.use(writeDefaultHead);
-    app.use(redirectIfWrongDomain);
-    app.use(redirectIfApiDomain);
 
     if (devMode) {
       app.use(express.compress());
@@ -255,13 +247,6 @@ helpersInitialized.then(
     }
     app.use(middleware_log_request_body);
     app.use(middleware_log_middleware_errors);
-
-    app.use(function (req, res, next) {
-      console.log("part2");
-      console.log(req.body);
-      console.log(req.headers);
-      next();
-    });
 
     app.all("/api/v3/*", addCorsHeader);
     app.all("/font/*", addCorsHeader);
