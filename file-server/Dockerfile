@@ -33,7 +33,7 @@ RUN npm run build:prod
 ######################## POLIS CLIENT REPORT ########################
 # Gulp v3 stops us from upgrading beyond Node v11
 # FROM client-base AS client-report
-FROM docker.io/node:11-alpine as client-report
+FROM docker.io/node:18-alpine as client-report
 
 WORKDIR /app
 
