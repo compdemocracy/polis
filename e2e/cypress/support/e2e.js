@@ -13,4 +13,5 @@
 // https://on.cypress.io/configuration
 // ***********************************************************
 
+import 'cypress-plugin-api'
 import './commands'
