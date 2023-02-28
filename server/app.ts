@@ -17,7 +17,10 @@ import server from "./src/server";
 import logger from "./src/utils/logger";
 
 const app = express();
-app.use(morgan('combined'));
+
+// 'dev' format is
+// :method :url :status :response-time ms - :res[content-length]
+app.use(morgan('dev'));
 
 // Trust the X-Forwarded-Proto and X-Forwarded-Host, but only on private subnets.
 // See: https://github.com/pol-is/polis/issues/546
