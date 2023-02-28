@@ -178,11 +178,7 @@ function addCookies(
   token: any,
   uid: any
 ) {
-  return User.getUserInfoForUid2(uid).then(function (opts: {
-    email: any;
-    created: any;
-    plan: any;
-  }) {
+  return User.getUserInfoForUid2(uid).then(function (opts: any) {
     let email = opts.email;
     let created = opts.created;
     let plan = opts.plan;
