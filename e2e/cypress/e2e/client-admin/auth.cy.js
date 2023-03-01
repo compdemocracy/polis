@@ -21,7 +21,7 @@ describe('User Auth', function () {
     // Register User
     cy.register(userInfo)
     cy.visit('/')
-    
+
     cy.location('pathname').should('eq', '/')
     cy.getCookie('token2').should('exist')
     cy.getCookie('uid2').should('exist')

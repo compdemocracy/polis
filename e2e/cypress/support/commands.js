@@ -8,9 +8,7 @@ Cypress.Commands.add('login', (user) => {
   cy.wait('@login')
 })
 
-Cypress.Commands.add('loginViaAPI', (user) => {
-  apiLogin(user)
-})
+Cypress.Commands.add('loginViaAPI', (user) => apiLogin(user))
 
 Cypress.Commands.add('logout', () => {
   cy.intercept('POST', '/api/v3/auth/deregister').as('logout')
@@ -24,10 +22,7 @@ Cypress.Commands.add('logout', () => {
 })
 
 Cypress.Commands.add('logoutViaAPI', () => {
-  cy.request({
-    method: 'POST',
-    url: '/api/v3/auth/deregister',
-  }).then(() => cy.clearCookies())
+  cy.request('POST', '/api/v3/auth/deregister').then(() => cy.clearCookies())
 })
 
 Cypress.Commands.add('register', (user) => {
@@ -63,31 +58,66 @@ Cypress.Commands.add('registerViaAPI', (user) => {
       gatekeeperTosPrivacy: 'true',
     },
     failOnStatusCode: false,
-  }).then(({ body, status }) => {
+  }).then(({ status }) => {
     // Conditionally check if the user already exist.
     // If the user already exists, log them in.
     if (status == 403) {
       apiLogin(user)
-    } else {
-      cy.setCookie('token2', String(body.token))
-      cy.setCookie('uid2', String(body.uid))
     }
   })
 })
 
-Cypress.Commands.add('createConvo', () => {})
+Cypress.Commands.add('ensureModerator', (userLabel = 'mod01') => {
+  cy.session(
+    'moderator',
+    () => {
+      cy.fixture('users').then((usersJson) => {
+        const user = usersJson[userLabel]
+        cy.registerViaAPI(user)
+      })
+    },
+    {
+      validate: () => {
+        cy.getCookie('token2').should('exist')
+        cy.getCookie('uid2').should('exist')
+      },
+    }
+  )
+})
+
+Cypress.Commands.add('ensureParticipant', ({ convoId, pid = 'mypid', lang = 'acceptLang' }) => {
+  if (!convoId) {
+    throw new Error('convoId is not defined')
+  }
+
+  cy.session(
+    'participant',
+    () => {
+      cy.request(
+        '/api/v3/participationInit?conversation_id=' + convoId + '&pid=' + pid + '&lang=' + lang
+      )
+    },
+    {
+      validate: () => {
+        cy.getCookie('token2').should('be.null')
+        cy.getCookie('uid2').should('be.null')
+        cy.getCookie('pc').should('exist')
+      },
+    }
+  )
+})
+
+Cypress.Commands.add('createConvoViaAPI', () => {
+  cy.request('POST', '/api/v3/conversations', {
+    is_active: true,
+    is_draft: true,
+  })
+    .its('body.conversation_id')
+    .as('convoId')
+})
 
 Cypress.Commands.add('seedComment', () => {})
 
 function apiLogin(user) {
-  return cy
-    .request({
-      method: 'POST',
-      url: '/api/v3/auth/login',
-      body: { email: user.email, password: user.password },
-    })
-    .then(({ body }) => {
-      cy.setCookie('token2', String(body.token))
-      cy.setCookie('uid2', String(body.uid))
-    })
+  cy.request('POST', '/api/v3/auth/login', { email: user.email, password: user.password })
 }
