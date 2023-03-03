@@ -22,4 +22,7 @@ jobs:
         with:
           config: baseUrl=http://localhost
           working-directory: e2e
-
+    env:
+      DATABASE_URL: postgres://postgres:oiPorg3Nrz0yqDLE@localhost:5432/polis-dev
+      WEBSERVER_PASS: ws-pass
+      WEBSERVER_USERNAME: ws-user
