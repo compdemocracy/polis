@@ -67,7 +67,6 @@ describe('Conversation: Configure', function () {
 
   describe('Closing a Conversation', function () {
     beforeEach(function () {
-      cy.ensureModerator()
       cy.createConvoViaAPI().then(() => cy.visit('/m/' + this.convoId))
       cy.wait('@getConversations')
       cy.get('input[data-test-id="topic"]').type('Test topic')
@@ -76,7 +75,7 @@ describe('Conversation: Configure', function () {
     })
 
     it('responds properly to being closed', function() {
-      cy.ensureParticipant({ convoId: this.convoId })
+      cy.ensureParticipant()
       cy.visit('/' + this.convoId)
 
       cy.get('[data-view-name="participationView"]').should('be.visible')

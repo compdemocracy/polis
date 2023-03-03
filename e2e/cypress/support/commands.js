@@ -85,16 +85,36 @@ Cypress.Commands.add('ensureModerator', (userLabel = 'mod01') => {
   )
 })
 
-Cypress.Commands.add('ensureParticipant', ({ convoId, pid = 'mypid', lang = 'acceptLang' }) => {
+Cypress.Commands.add('ensureParticipant', (userLabel = 'user01') => {
+  cy.session(
+    'participant',
+    () => {
+      cy.fixture('users').then((usersJson) => {
+        const user = usersJson[userLabel]
+        cy.registerViaAPI(user)
+      })
+    },
+    {
+      validate: () => {
+        cy.getCookie('token2').should('exist')
+        cy.getCookie('uid2').should('exist')
+      },
+    }
+  )
+})
+
+Cypress.Commands.add('anonymousParticipant', ({ convoId }) => {
   if (!convoId) {
     throw new Error('convoId is not defined')
   }
 
   cy.session(
-    'participant',
+    'anonymous',
     () => {
       cy.request(
-        '/api/v3/participationInit?conversation_id=' + convoId + '&pid=' + pid + '&lang=' + lang
+        '/api/v3/participationInit?conversation_id=' +
+        convoId +
+        '&pid=mypid&lang=acceptLang'
       )
     },
     {
@@ -108,6 +128,7 @@ Cypress.Commands.add('ensureParticipant', ({ convoId, pid = 'mypid', lang = 'acc
 })
 
 Cypress.Commands.add('createConvoViaAPI', () => {
+  cy.ensureModerator()
   cy.request('POST', '/api/v3/conversations', {
     is_active: true,
     is_draft: true,
@@ -116,7 +137,7 @@ Cypress.Commands.add('createConvoViaAPI', () => {
     .as('convoId')
 })
 
-Cypress.Commands.add('seedComment', () => {})
+// Cypress.Commands.add('seedComment', () => {})
 
 function apiLogin(user) {
   cy.request('POST', '/api/v3/auth/login', { email: user.email, password: user.password })
