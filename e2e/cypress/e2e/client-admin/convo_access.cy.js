@@ -5,6 +5,10 @@ describe('Access control', function () {
     })
   })
 
+  beforeEach(function () {
+    cy.intercept('GET', '/api/v3/participationInit*').as('getParticipation')
+  })
+
   describe('Participant', function () {
     beforeEach(function () {
       cy.ensureParticipant()
@@ -39,12 +43,17 @@ describe('Access control', function () {
       cy.visit(this.adminPath + '/reports')
       cy.get('#no-permission-warning').should('exist').and('be.visible')
     })
+
+    it('Can access /:id', function () {
+      cy.visit('/' + this.convoId)
+      cy.wait('@getParticipation').its('response.statusCode').should('eq', 200)
+      cy.get('[data-view-name="participationView"]').should('be.visible')
+    })
   })
 
   describe('Anonymous participant', function () {
     beforeEach(function () {
       cy.intercept('GET', '/api/v3/users*').as('getUsers')
-      cy.intercept('GET', '/api/v3/participationInit*').as('getParticipation')
       cy.anonymousParticipant({ convoId: this.convoId })
     })
 
