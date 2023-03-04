@@ -22,7 +22,8 @@
 
 services:
   server:
-    env_file: ./.env
+    env_file:
+      - ${SERVER_ENV_FILE:-.env}
     image: docker.io/compdem/polis-server:${TAG:-dev}
     build:
       context: ./server

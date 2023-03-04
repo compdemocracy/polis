@@ -18,11 +18,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: isbang/compose-action@v1.4.1
+        with:
+          compose-flags: "--env-file test.env"
       - uses: cypress-io/github-action@v5.0.9
         with:
           config: baseUrl=http://localhost
           working-directory: e2e
-    env:
-      DATABASE_URL: postgres://postgres:oiPorg3Nrz0yqDLE@localhost:5432/polis-dev
-      WEBSERVER_PASS: ws-pass
-      WEBSERVER_USERNAME: ws-user
