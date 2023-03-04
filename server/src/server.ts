@@ -2230,7 +2230,6 @@ function initializePolisHelpers() {
         res.status(200).json({});
       })
       .catch((err: any) => {
-        logger.error("polis_err_POST_xidWhitelist", err);
         return fail(res, 500, "polis_err_POST_xidWhitelist", err);
       });
   }
@@ -2436,7 +2435,7 @@ function initializePolisHelpers() {
             server,
             function (err: any) {
               if (err) {
-                fail(res, 500, "Error: Couldn't send password reset email.");
+                fail(res, 500, "Error: Couldn't send password reset email.", err);
                 return;
               }
               finish();
@@ -6195,7 +6194,8 @@ Email verified! You can close this tab or hit the back button.
             fail(
               res,
               500,
-              "polis_err_reg_fb_user_exists_with_different_account"
+              "polis_err_reg_fb_user_exists_with_different_account",
+              err
             );
           }
         );
@@ -6285,7 +6285,7 @@ Email verified! You can close this tab or hit the back button.
             }
           },
           function (err: any) {
-            fail(res, 500, "polis_err_password_check");
+            fail(res, 500, "polis_err_password_check", err);
           }
         );
       }
@@ -11458,7 +11458,7 @@ Email verified! You can close this tab or hit the back button.
         res.status(200).json({});
       })
       .catch((err: any) => {
-        return fail(res, 500, "polis_err_notifyTeam");
+        return fail(res, 500, "polis_err_notifyTeam", err);
       });
   }
 
