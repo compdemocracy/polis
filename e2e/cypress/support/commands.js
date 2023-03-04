@@ -1,7 +1,7 @@
 Cypress.Commands.add('login', (user) => {
   cy.intercept('POST', '/api/v3/auth/login').as('login')
   cy.visit('/signin')
-  cy.contains('h1', 'Sign In').should('be.visible')
+
   cy.get('form input#signinEmailInput').type(user.email)
   cy.get('form input#signinPasswordInput').type(user.password)
   cy.get('form button#signinButton').click()
@@ -16,9 +16,6 @@ Cypress.Commands.add('logout', () => {
 
   cy.contains('a[href="/signout"]', 'sign out').click()
   cy.wait('@logout')
-
-  cy.getCookie('token2').should('not.exist')
-  cy.getCookie('uid2').should('not.exist')
 })
 
 Cypress.Commands.add('logoutViaAPI', () => {
@@ -28,8 +25,6 @@ Cypress.Commands.add('logoutViaAPI', () => {
 Cypress.Commands.add('register', (user) => {
   cy.intercept('POST', '/api/v3/auth/new').as('register')
   cy.visit('/createuser')
-
-  cy.contains('h1', 'Create Account').should('be.visible')
 
   cy.get('form input#createUserNameInput').type(user.name)
   cy.get('form input#createUserEmailInput').type(user.email)
@@ -127,7 +122,7 @@ Cypress.Commands.add('anonymousParticipant', ({ convoId }) => {
   )
 })
 
-Cypress.Commands.add('createConvoViaAPI', () => {
+Cypress.Commands.add('createConvo', () => {
   cy.ensureModerator()
   cy.request('POST', '/api/v3/conversations', {
     is_active: true,

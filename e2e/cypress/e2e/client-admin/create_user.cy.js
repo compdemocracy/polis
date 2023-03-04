@@ -1,19 +1,13 @@
-const user1 = 'user01'
-const user2 = 'user02'
-const user3 = 'user03'
+import { generateRandomUser } from '../../support/helpers'
 
 describe('Create User page', function () {
-  beforeEach(function () {
-    cy.fixture('users').as('usersJson')
-  })
-
   it('should redirect unauthenticated user to signin page', function () {
     cy.visit('/account')
     cy.location('pathname').should('eq', '/signin')
   })
 
   it('should allow a visitor to register, log out, and log in, via UI', function () {
-    const user = this.usersJson[user1]
+    const user = generateRandomUser()
     cy.visit('/home')
     cy.contains('a[href="/createuser"]', 'Sign up').click()
 
@@ -48,22 +42,8 @@ describe('Create User page', function () {
     cy.getCookie('uid2').should('exist')
   })
 
-  // This is redundant with the above test, but it's a nice sanity check to use with `it.only`
-  it('should allow a user to log in, via UI', function () {
-    const user = this.usersJson[user1]
-    cy.login(user)
-
-    cy.getCookie('token2').should('exist')
-    cy.getCookie('uid2').should('exist')
-
-    cy.visit('/')
-    cy.location('pathname').should('eq', '/')
-    cy.contains('h3', 'All Conversations').should('be.visible')
-    cy.contains('a[href="/signout"]', 'sign out').should('be.visible')
-  })
-
   it('should allow a visitor to register, log out, and log in, via API', function () {
-    const user = this.usersJson[user2]
+    const user = generateRandomUser()
 
     cy.registerViaAPI(user)
     cy.logoutViaAPI()
@@ -79,7 +59,7 @@ describe('Create User page', function () {
   })
 
   it('should give an error if a user tries to register with an existing email', function () {
-    const user = this.usersJson[user3]
+    const user = generateRandomUser()
 
     cy.registerViaAPI(user)
     cy.logout()

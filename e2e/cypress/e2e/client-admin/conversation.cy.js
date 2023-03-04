@@ -12,7 +12,7 @@ describe('Conversation: Configure', function () {
     })
 
     it('should create with proper defaults', function () {
-      cy.createConvoViaAPI().then(() => cy.visit('/m/' + this.convoId))
+      cy.createConvo().then(() => cy.visit('/m/' + this.convoId))
       cy.wait('@getConversations')
 
       // Customize section
@@ -59,7 +59,7 @@ describe('Conversation: Configure', function () {
       cy.get('textarea[data-test-id="seed_form"]').type('Test seed comment')
       cy.get('button').contains('Submit').click()
 
-      cy.wait('@createComment').then(({ response }) => expect(response.statusCode).to.equal(200))
+      cy.wait('@createComment').its('response.statusCode').should('eq', 200)
 
       cy.get('button').contains('Success!').should('be.visible')
     })
@@ -67,7 +67,7 @@ describe('Conversation: Configure', function () {
 
   describe('Closing a Conversation', function () {
     beforeEach(function () {
-      cy.createConvoViaAPI().then(() => cy.visit('/m/' + this.convoId))
+      cy.createConvo().then(() => cy.visit('/m/' + this.convoId))
       cy.wait('@getConversations')
       cy.get('input[data-test-id="topic"]').type('Test topic')
       cy.get('button').contains('Submit').click()

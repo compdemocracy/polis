@@ -23,5 +23,8 @@
     "eslint-plugin-cypress": "^2.12.1",
     "eslint-plugin-mocha": "^10.1.0",
     "prettier": "^2.8.4"
+  },
+  "devDependencies": {
+    "@faker-js/faker": "^7.6.0"
   }
 }

@@ -1,6 +1,6 @@
 describe('Access control', function () {
   before(function () {
-    cy.createConvoViaAPI().then(() => {
+    cy.createConvo().then(() => {
       cy.wrap('m/' + this.convoId).as('adminPath')
     })
   })
