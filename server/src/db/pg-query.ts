@@ -3,7 +3,7 @@ import { native as pgnative, Pool } from "pg"; //.native, // native provides ssl
 import { parse as parsePgConnectionString } from "pg-connection-string";
 
 import Config from "../config";
-import { yell } from "../log";
+import logger from "../utils/logger";
 import { MPromise } from "../utils/metered";
 
 // # DB Connections
@@ -28,7 +28,7 @@ const pgConnection = Object.assign(
     isReadOnly: false,
     poolLog: function (str: string, level: string) {
       if (pgPoolLevelRanks.indexOf(level) <= pgPoolLoggingLevel) {
-        console.log("pool.primary." + level + " " + str);
+        logger.info("pool.primary." + level + " " + str);
       }
     },
   }
@@ -40,7 +40,7 @@ const readsPgConnection = Object.assign(
     isReadOnly: true,
     poolLog: function (str: string, level: string) {
       if (pgPoolLevelRanks.indexOf(level) <= pgPoolLoggingLevel) {
-        console.log("pool.replica." + level + " " + str);
+        logger.info("pool.readonly." + level + " " + str);
       }
     },
   }
@@ -95,7 +95,7 @@ function queryImpl(pool: Pool, queryString?: any, ...args: undefined[]) {
         if (callback) callback(err);
         // force the pool to destroy and remove a client by passing an instance of Error (or anything truthy, actually) to the done() callback
         release(err);
-        yell("pg_connect_pool_fail");
+        logger.error("pg_connect_pool_fail", err);
         return;
       }
       // Anyway, here's the actual query call

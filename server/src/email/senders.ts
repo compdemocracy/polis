@@ -11,6 +11,7 @@ import AWS from "aws-sdk";
 import nodemailer from "nodemailer";
 import mg from "nodemailer-mailgun-transport";
 import Config from "../config";
+import logger from "../utils/logger";
 
 // https://docs.aws.amazon.com/sdk-for-javascript/v2/developer-guide/setting-region.html
 // v2 docs, since we use v2 in our package.json: "aws:sdk": "2.78.0"
@@ -26,7 +27,7 @@ function sendTextEmailWithBackup(
     ? Config.emailTransportTypes.split(",")
     : ["aws-ses", "mailgun"];
   if (transportTypes.length < 2) {
-    new Error("No backup email transport available.");
+    logger.warn("No backup email transport available.");
   }
   const backupTransport = transportTypes[1];
   sendTextEmail(sender, recipient, subject, text, backupTransport);
@@ -93,14 +94,15 @@ function sendTextEmail(
   let promise: any = transporter
     .sendMail({ from: sender, to: recipient, subject: subject, text: text })
     .catch(function (err: any) {
-      console.error(
+      logger.error(
         "polis_err_email_sender_failed_transport_priority_" +
-          priority.toString()
+          priority.toString(),
+        err
       );
-      console.error(
-        `Unable to send email via priority ${priority.toString()} transport '${thisTransportType}' to: ${recipient}`
+      logger.error(
+        `Unable to send email via priority ${priority.toString()} transport '${thisTransportType}' to: ${recipient}`,
+        err
       );
-      console.error(err);
       return sendTextEmail(
         sender,
         recipient,
