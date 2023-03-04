@@ -19,6 +19,9 @@ jobs:
       - uses: actions/checkout@v3
       - uses: isbang/compose-action@v1.4.1
         with:
+          compose-file: |
+            docker-compose.yml
+            docker-compose.test.yml
           compose-flags: "--env-file test.env"
       - uses: cypress-io/github-action@v5.0.9
         with:

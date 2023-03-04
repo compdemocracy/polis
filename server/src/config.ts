@@ -3,7 +3,7 @@ import isTrue from "boolean";
 const devHostname = process.env.API_DEV_HOSTNAME || "localhost:5000";
 const devMode = isTrue(process.env.DEV_MODE) as boolean;
 const domainOverride = process.env.DOMAIN_OVERRIDE || null as string | null;
-const serverHostname = process.env.API_SERVER_HOSTNAME || "pol.is";
+const prodHostname = process.env.API_PROD_HOSTNAME || "pol.is";
 const serverPort = parseInt(process.env.API_SERVER_PORT || "5000", 10) as number;
 
 export default {
@@ -29,7 +29,7 @@ export default {
       return "https://survey.pol.is";
     }
 
-    return `https://${serverHostname}`;
+    return `https://${prodHostname}`;
   },
 
   getServerHostname: (): string => {
@@ -39,14 +39,14 @@ export default {
     if (domainOverride) {
       return domainOverride;
     }
-    return serverHostname;
+    return prodHostname;
   },
 
   getServerUrl: (): string => {
     if (devMode) {
       return `http://${devHostname}`;
     } else {
-      return `https://${serverHostname}`;
+      return `https://${prodHostname}`;
     }
   },
 
