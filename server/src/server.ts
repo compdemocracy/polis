@@ -2363,40 +2363,40 @@ function initializePolisHelpers() {
       //     Type 'undefined' is not assignable to type '{ uid?: any; }'.ts(2345)
       // @ts-ignore
       function (err: any, userParams: { uid?: any }) {
-      if (err) {
-        fail(
-          res,
-          500,
-          "Password Reset failed. Couldn't find matching pwresettoken.",
-          err
-        );
-        return;
-      }
+        if (err) {
+          fail(
+            res,
+            500,
+            "Password Reset failed. Couldn't find matching pwresettoken.",
+            err
+          );
+          return;
+        }
         let uid = Number(userParams.uid);
         generateHashedPassword(
-        newPassword,
-        function (err: any, hashedPassword: any) {
-          return pgQueryP(
-            "insert into jianiuevyew (uid, pwhash) values " +
-              "($1, $2) on conflict (uid) " +
-              "do update set pwhash = excluded.pwhash;",
-            [uid, hashedPassword]
-          ).then(
-            (rows: any) => {
-              res.status(200).json("Password reset successful.");
-              clearPwResetToken(pwresettoken, function (err: any) {
-                if (err) {
-                  logger.error("polis_err_auth_pwresettoken_clear_fail", err);
-                }
-              });
-            },
-            (err: any) => {
-              fail(res, 500, "Couldn't reset password.", err);
-            }
-          );
-        }
-      );
-    });
+          newPassword,
+          function (err: any, hashedPassword: any) {
+            return pgQueryP(
+              "insert into jianiuevyew (uid, pwhash) values " +
+                "($1, $2) on conflict (uid) " +
+                "do update set pwhash = excluded.pwhash;",
+              [uid, hashedPassword]
+            ).then(
+              (rows: any) => {
+                res.status(200).json("Password reset successful.");
+                clearPwResetToken(pwresettoken, function (err: any) {
+                  if (err) {
+                    logger.error("polis_err_auth_pwresettoken_clear_fail", err);
+                  }
+                });
+              },
+              (err: any) => {
+                fail(res, 500, "Couldn't reset password.", err);
+              }
+            );
+          }
+        );
+      });
   }
 
   const getServerNameWithProtocol = Config.getServerNameWithProtocol;
@@ -3752,16 +3752,14 @@ ${serverName}/pwreset/${pwresettoken}
 
 "Thank you for using Polis`;
 
-      sendTextEmail(
-        polisFromAddress,
-        userInfo.email,
-        "Polis Password Reset",
-        body
-      )
-        .then(function () {
+        sendTextEmail(
+          polisFromAddress,
+          userInfo.email,
+          "Polis Password Reset",
+          body
+        ).then(function () {
           callback?.();
-        })
-        .catch(function (err: any) {
+        }).catch(function (err: any) {
           logger.error("polis_err_failed_to_email_password_reset_code", err);
           callback?.(err);
         });
@@ -4932,15 +4930,15 @@ Email verified! You can close this tab or hit the back button.
 
     return (
       joinWithZidOrSuzinvite({
-      answers: req.p.answers,
-      existingAuth: !!req.p.uid,
-      suzinvite: req.p.suzinvite,
-      permanentCookieToken: req.p.permanentCookieToken,
-      uid: req.p.uid,
-      zid: req.p.zid, // since the zid is looked up using the conversation_id, it's safe to use zid as an invite token. TODO huh?
-      referrer: req.p.referrer,
-      parent_url: req.p.parent_url,
-    })
+        answers: req.p.answers,
+        existingAuth: !!req.p.uid,
+        suzinvite: req.p.suzinvite,
+        permanentCookieToken: req.p.permanentCookieToken,
+        uid: req.p.uid,
+        zid: req.p.zid, // since the zid is looked up using the conversation_id, it's safe to use zid as an invite token. TODO huh?
+        referrer: req.p.referrer,
+        parent_url: req.p.parent_url,
+      })
         //     No overload matches this call.
         // Overload 1 of 2, '(onFulfill?: ((value: unknown) => Resolvable<{ uid?: any; existingAuth: string; }>) | undefined, onReject?: ((error: any) => Resolvable<{ uid?: any; existingAuth: string; }>) | undefined): Bluebird<...>', gave the following error.
         //   Argument of type '(o: { uid?: any; existingAuth: string; }) => Bluebird<{ uid?: any; existingAuth: string; }>' is not assignable to parameter of type '(value: unknown) => Resolvable<{ uid?: any; existingAuth: string; }>'.
@@ -4952,18 +4950,18 @@ Email verified! You can close this tab or hit the back button.
         //     Type 'unknown' is not assignable to type '{ uid?: any; existingAuth: string; }'.ts(2769)
         // @ts-ignore
         .then(function (o: { uid?: any; existingAuth: string }) {
-        let uid = o.uid;
-        logger.info(
-          "startSessionAndAddCookies " + uid + " existing " + o.existingAuth
-        );
-        // TODO check for possible security implications
-        if (!o.existingAuth) {
-          return startSessionAndAddCookies(req, res, uid).then(function () {
-            return o;
-          });
-        }
-        return Promise.resolve(o);
-      })
+          let uid = o.uid;
+          logger.info(
+            "startSessionAndAddCookies " + uid + " existing " + o.existingAuth
+          );
+          // TODO check for possible security implications
+          if (!o.existingAuth) {
+            return startSessionAndAddCookies(req, res, uid).then(function () {
+              return o;
+            });
+          }
+          return Promise.resolve(o);
+        })
         //       No overload matches this call.
         // Overload 1 of 2, '(onFulfill?: ((value: unknown) => Resolvable<{ permanentCookieToken: any; zid: any; }>) | undefined,
         //  onReject ?: ((error: any) => Resolvable<{ permanentCookieToken: any; zid: any; }>) | undefined): Bluebird <...> ', gave the following error.
@@ -4978,24 +4976,24 @@ Email verified! You can close this tab or hit the back button.
         //     Types of parameters 'o' and 'value' are incompatible.
         //     Type 'unknown' is not assignable to type '{ permanentCookieToken: any; zid: any; }'.ts(2769)
         // @ts-ignore
-      .then(function (o: { permanentCookieToken: any; zid: any }) {
-        logger.info("permanentCookieToken", o.permanentCookieToken);
-        if (o.permanentCookieToken) {
-          return recordPermanentCookieZidJoin(
-            o.permanentCookieToken,
-            o.zid
-          ).then(
-            function () {
-              return o;
-            },
-            function () {
-              return o;
-            }
-          );
-        } else {
-          return o;
-        }
-      })
+        .then(function (o: { permanentCookieToken: any; zid: any }) {
+          logger.info("permanentCookieToken", o.permanentCookieToken);
+          if (o.permanentCookieToken) {
+            return recordPermanentCookieZidJoin(
+              o.permanentCookieToken,
+              o.zid
+            ).then(
+              function () {
+                return o;
+              },
+              function () {
+                return o;
+              }
+            );
+          } else {
+            return o;
+          }
+        })
         //       No overload matches this call.
         // Overload 1 of 2, '(onFulfill?: ((value: unknown) => Resolvable<void>) | undefined, onReject?: ((error: any) => Resolvable<void>) | undefined): Bluebird<void>', gave the following error.
         //   Argument of type '(o: { pid: any; }) => void' is not assignable to parameter of type '(value: unknown) => Resolvable<void>'.
@@ -5008,26 +5006,26 @@ Email verified! You can close this tab or hit the back button.
         // @ts-ignore
         .then(function (o: { pid: any }) {
           let pid = o.pid;
-        res.status(200).json({
-          pid: pid,
-          uid: req.p.uid,
-        });
-      })
-      .catch(function (err: { message: string }) {
-        if (
-          err &&
-          err.message &&
-          err.message.match(/polis_err_need_full_user/)
-        ) {
-          fail(res, 403, err.message, err);
-        } else if (err && err.message) {
-          fail(res, 500, err.message, err);
-        } else if (err) {
-          fail(res, 500, "polis_err_joinWithZidOrSuzinvite", err);
-        } else {
-          fail(res, 500, "polis_err_joinWithZidOrSuzinvite");
-        }
-      })
+          res.status(200).json({
+            pid: pid,
+            uid: req.p.uid,
+          });
+        })
+        .catch(function (err: { message: string }) {
+          if (
+            err &&
+            err.message &&
+            err.message.match(/polis_err_need_full_user/)
+          ) {
+            fail(res, 403, err.message, err);
+          } else if (err && err.message) {
+            fail(res, 500, err.message, err);
+          } else if (err) {
+            fail(res, 500, "polis_err_joinWithZidOrSuzinvite", err);
+          } else {
+            fail(res, 500, "polis_err_joinWithZidOrSuzinvite");
+          }
+        })
     );
   }
   // Test for deadlock condition
@@ -7955,14 +7953,14 @@ Email verified! You can close this tab or hit the back button.
                                   }
                                 }, 100);
 
-                            res.json({
-                              tid: tid,
-                              currentPid: currentPid,
-                            });
-                          },
-                          function (err: any) {
-                            fail(res, 500, "polis_err_vote_on_create", err);
-                          }
+                                res.json({
+                                  tid: tid,
+                                  currentPid: currentPid,
+                                });
+                              },
+                              function (err: any) {
+                                fail(res, 500, "polis_err_vote_on_create", err);
+                              }
                             )
                         );
                       },
@@ -11910,26 +11908,26 @@ Thanks for using Polis!
                   "modified = now_as_millis() " +
                   "where twitter_user_id = ($1);";
 
-            return pgQueryP(q, [
-              u.id,
-              u.screen_name,
-              u.name,
-              u.followers_count,
-              u.friends_count,
-              u.verified,
-              u.profile_image_url_https,
-              u.location,
-            ]);
-          });
-          return Promise.all(updateQueries);
+                return pgQueryP(q, [
+                  u.id,
+                  u.screen_name,
+                  u.name,
+                  u.followers_count,
+                  u.friends_count,
+                  u.verified,
+                  u.profile_image_url_https,
+                  u.location,
+                ]);
+              });
+              return Promise.all(updateQueries);
+            })
+            .catch(function (err: any) {
+              logger.error(
+                "error updating twitter users: " + twitter_user_ids.join(" "),
+                err
+              );
+            });
         })
-        .catch(function (err: any) {
-          logger.error(
-            "error updating twitter users: " + twitter_user_ids.join(" "),
-            err
-          );
-        });
-    })
     );
   }
   // Ensure we don't call this more than 60 times in each 15 minute window (across all of our servers/use-cases)
@@ -12095,30 +12093,30 @@ Thanks for using Polis!
       const u: UserType = JSON.parse(userString)[0];
       return (
         pgQueryP(
-        "insert into twitter_users (" +
-          "uid," +
-          "twitter_user_id," +
-          "screen_name," +
-          "name," +
-          "followers_count," +
-          "friends_count," +
-          "verified," +
-          "profile_image_url_https," +
-          "location," +
-          "response" +
-          ") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) returning *;",
-        [
-          uid,
-          u.id,
-          u.screen_name,
-          u.name,
-          u.followers_count,
-          u.friends_count,
-          u.verified,
-          u.profile_image_url_https,
-          u.location,
-          JSON.stringify(u),
-        ]
+          "insert into twitter_users (" +
+            "uid," +
+            "twitter_user_id," +
+            "screen_name," +
+            "name," +
+            "followers_count," +
+            "friends_count," +
+            "verified," +
+            "profile_image_url_https," +
+            "location," +
+            "response" +
+            ") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) returning *;",
+          [
+            uid,
+            u.id,
+            u.screen_name,
+            u.name,
+            u.followers_count,
+            u.friends_count,
+            u.verified,
+            u.profile_image_url_https,
+            u.location,
+            JSON.stringify(u),
+          ]
         )
           //       Argument of type '(rows: string | any[]) => { twitterUser: UserType; twitterUserDbRecord: any; }' is not assignable to parameter of type '(value: unknown) => { twitterUser: UserType; twitterUserDbRecord: any; } | PromiseLike<{ twitterUser: UserType; twitterUserDbRecord: any; }>'.
           // Types of parameters 'rows' and 'value' are incompatible.
@@ -12826,7 +12824,7 @@ Thanks for using Polis!
   function geoCode(locationString: any) {
     return (
       pgQueryP("select * from geolocation_cache where location = ($1);", [
-      locationString,
+        locationString,
       ])
         //     Argument of type '(rows: string | any[]) => Bluebird<{ lat: any; lng: any; }> | { lat: any; lng: any; }' is not assignable to parameter of type '(value: unknown) => { lat: any; lng: any; } | PromiseLike<{ lat: any; lng: any; }>'.
         // Types of parameters 'rows' and 'value' are incompatible.
@@ -12834,31 +12832,31 @@ Thanks for using Polis!
         //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
         // @ts-ignore
         .then(function (rows: string | any[]) {
-      if (!rows || !rows.length) {
-        return geoCodeWithGoogleApi(locationString).then(function (result: {
-          geometry: { location: { lat: any; lng: any } };
-        }) {
-          let lat = result.geometry.location.lat;
-          let lng = result.geometry.location.lng;
-          // NOTE: not waiting for the response to this - it might fail in the case of a race-condition, since we don't have upsert
-          pgQueryP(
-            "insert into geolocation_cache (location,lat,lng,response) values ($1,$2,$3,$4);",
-            [locationString, lat, lng, JSON.stringify(result)]
-          );
-          let o = {
-            lat: lat,
-            lng: lng,
-          };
-          return o;
-        });
-      } else {
-        let o = {
-          lat: rows[0].lat,
-          lng: rows[0].lng,
-        };
-        return o;
-      }
-    })
+          if (!rows || !rows.length) {
+            return geoCodeWithGoogleApi(locationString).then(function (result: {
+              geometry: { location: { lat: any; lng: any } };
+            }) {
+              let lat = result.geometry.location.lat;
+              let lng = result.geometry.location.lng;
+              // NOTE: not waiting for the response to this - it might fail in the case of a race-condition, since we don't have upsert
+              pgQueryP(
+                "insert into geolocation_cache (location,lat,lng,response) values ($1,$2,$3,$4);",
+                [locationString, lat, lng, JSON.stringify(result)]
+              );
+              let o = {
+                lat: lat,
+                lng: lng,
+              };
+              return o;
+            });
+          } else {
+            let o = {
+              lat: rows[0].lat,
+              lng: rows[0].lng,
+            };
+            return o;
+          }
+        })
     );
   }
   // Value of type 'typeof LRUCache' is not callable. Did you mean to include 'new'? ts(2348)
@@ -14332,8 +14330,8 @@ Thanks for using Polis!
     function getPolisUserForLtiUser() {
       return (
         pgQueryP(
-        "select * from lti_users left join users on lti_users.uid = users.uid where lti_users.lti_user_id = ($1) and lti_users.tool_consumer_instance_guid = ($2);",
-        [user_id, req.p.tool_consumer_instance_guid]
+          "select * from lti_users left join users on lti_users.uid = users.uid where lti_users.lti_user_id = ($1) and lti_users.tool_consumer_instance_guid = ($2);",
+          [user_id, req.p.tool_consumer_instance_guid]
         )
           //       Argument of type '(rows: string | any[]) => any' is not assignable to parameter of type '(value: unknown) => any'.
           // Types of parameters 'rows' and 'value' are incompatible.
@@ -14341,11 +14339,11 @@ Thanks for using Polis!
           //       Type 'unknown' is not assignable to type 'any[]'.ts(2345)
           // @ts-ignore
           .then(function (rows: string | any[]) {
-        let userForLtiUserId = null;
-        if (rows.length) {
-          userForLtiUserId = rows[0];
-        }
-        return userForLtiUserId;
+            let userForLtiUserId = null;
+            if (rows.length) {
+              userForLtiUserId = rows[0];
+            }
+            return userForLtiUserId;
           })
       );
     }
@@ -14924,21 +14922,21 @@ Thanks for using Polis!
                   .returning("*")
                   .toString();
 
-            pgQuery(
-              q,
-              [],
-              function (err: any, result: { rows: { zid: any }[] }) {
-                if (err) {
-                  if (isDuplicateKey(err)) {
-                    logger.error(
-                      "polis_err_create_implicit_conv_duplicate_key",
-                      err
-                    );
-                    reject("polis_err_create_implicit_conv_duplicate_key");
-                  } else {
-                    reject("polis_err_create_implicit_conv_db");
-                  }
-                }
+                pgQuery(
+                  q,
+                  [],
+                  function (err: any, result: { rows: { zid: any }[] }) {
+                    if (err) {
+                      if (isDuplicateKey(err)) {
+                        logger.error(
+                          "polis_err_create_implicit_conv_duplicate_key",
+                          err
+                        );
+                        reject("polis_err_create_implicit_conv_duplicate_key");
+                      } else {
+                        reject("polis_err_create_implicit_conv_db");
+                      }
+                    }
 
                     let zid =
                       result &&
