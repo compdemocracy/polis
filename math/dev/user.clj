@@ -17,7 +17,6 @@
             [clojure.pprint :as pp]
             [environ.core :as env]
             [taoensso.timbre :as log]
-            [taoensso.timbre.profiling :as prof]
             [oz.core :as oz]
             [cheshire.core :as chesh]
             [tentacles.gists :as gists]
@@ -399,11 +398,6 @@
   (def zid2 17023)
   (def args2 {:zid zid2})
   (def conv2 (load-conv args2))
-  ;; Profiling
-  (prof/profile
-    :info
-    :stuffnpuff
-    (def conv2 (conv/conv-update conv2 [])))
 
   ;; queue votes through conv-man
   (conv-man/queue-message-batch! (:conversation-manager runner/system)

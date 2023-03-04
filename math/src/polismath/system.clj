@@ -11,7 +11,6 @@
             [polismath.poller :as poller]
             [polismath.tasks :as tasks]
             [polismath.darwin.core :as darwin]
-            [polismath.utils :as utils]
             [taoensso.timbre :as log]
             [clojure.tools.namespace.repl :as namespace.repl]
             [clojure.string :as string]
