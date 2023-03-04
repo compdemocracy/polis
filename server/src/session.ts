@@ -3,6 +3,7 @@ import LruCache from "lru-cache";
 
 import Config from "./config";
 import pg from "./db/pg-query";
+import logger from "./utils/logger";
 
 function encrypt(text: string | null) {
   const algorithm = "aes-256-ctr";
@@ -96,12 +97,12 @@ function getUserInfoForSessionToken(
     [sessionToken],
     function (err: any, results: { rows: string | any[] }) {
       if (err) {
-        console.error("token_fetch_error");
+        logger.error("token_fetch_error", err);
         cb(500);
         return;
       }
       if (!results || !results.rows || !results.rows.length) {
-        console.error("token_expired_or_missing");
+        logger.error("token_expired_or_missing");
 
         cb(403);
         return;
@@ -153,8 +154,7 @@ function getUserInfoForPolisLtiToken(token: any) {
 
 function startSession(uid: any, cb: (arg0: null, arg1?: string) => void) {
   let token = makeSessionToken();
-  //console.log("info",'startSession: token will be: ' + sessionToken);
-  console.log("info", "startSession");
+  logger.info("startSession");
   pg.query(
     "insert into auth_tokens (uid, token, created) values ($1, $2, default);",
     [uid, token],
@@ -163,7 +163,7 @@ function startSession(uid: any, cb: (arg0: null, arg1?: string) => void) {
         cb(err);
         return;
       }
-      console.log("info", "startSession: token set.");
+      logger.info("startSession: token set.");
       cb(null, token);
     }
   );
@@ -215,12 +215,12 @@ function getUidForPwResetToken(
     [pwresettoken],
     function (errGetToken: any, results: { rows: string | any[] }) {
       if (errGetToken) {
-        console.error("pwresettoken_fetch_error");
+        logger.error("pwresettoken_fetch_error", errGetToken);
         cb(500);
         return;
       }
       if (!results || !results.rows || !results.rows.length) {
-        console.error("token_expired_or_missing");
+        logger.error("token_expired_or_missing");
         cb(403);
         return;
       }

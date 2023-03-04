@@ -20,6 +20,7 @@ module.exports = {
     "@typescript-eslint/no-inferrable-types": 1,
     "@typescript-eslint/no-var-requires": 1,
     "no-case-declarations": 1,
+    'no-console': 2,
     "no-constant-condition": 1,
     "no-empty": 1,
     "no-extra-boolean-cast": 1,
