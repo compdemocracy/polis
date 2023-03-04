@@ -6,6 +6,7 @@ import pg from "./db/pg-query";
 import SQL from "./db/sql";
 import { MPromise } from "./utils/metered";
 import Utils from "./utils/common";
+import logger from "./utils/logger";
 
 import Config from "./config";
 import Conversation from "./conversation";
@@ -164,10 +165,11 @@ function getComments(o: CommentType) {
               try {
                 let temp = JSON.parse(info.fb_public_profile);
                 infoToReturn.fb_verified = temp.verified;
-              } catch (e) {
-                console.error(
-                  "error parsing JSON of fb_public_profile for uid: ",
-                  info.uid
+              } catch (err) {
+                logger.error(
+                  "error parsing JSON of fb_public_profile for uid: " +
+                    info.uid,
+                  err
                 );
               }
             }
