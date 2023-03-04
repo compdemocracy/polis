@@ -39,6 +39,9 @@ services:
       - "polis-net"
     # Scale the server container to a given number of instances.
     scale: 1
+    volumes:
+    # Persist logs to a volume, so they can be accessed after the container is stopped.
+      - server-logs:/app/logs
 
   math:
     image: docker.io/compdem/polis-math:${TAG:-dev}
@@ -120,5 +123,8 @@ volumes:
     labels:
       polis_tag: ${TAG:-dev}
   postgres:
+    labels:
+      polis_tag: ${TAG:-dev}
+  server-logs:
     labels:
       polis_tag: ${TAG:-dev}

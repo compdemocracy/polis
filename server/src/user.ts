@@ -6,8 +6,8 @@ import { MPromise } from "./utils/metered";
 
 import Config from "./config";
 import Conversation from "./conversation";
-import Log from "./log";
 import LRUCache from "lru-cache";
+import logger from "./utils/logger";
 
 function getUserInfoForUid(
   uid: any,
@@ -268,7 +268,7 @@ function createDummyUser() {
         [],
         function (err: any, results: { rows: string | any[] }) {
           if (err || !results || !results.rows || !results.rows.length) {
-            console.error(err);
+            logger.error("polis_err_create_empty_user", err);
             reject(new Error("polis_err_create_empty_user"));
             return;
           }
@@ -366,17 +366,17 @@ function getPidForParticipant(
       function (pid: number) {
         if (pid === -1) {
           let msg = "polis_err_get_pid_for_participant_missing";
-          Log.yell(msg);
-
-          console.log("info", zid);
-          console.log("info", uid);
-          console.log("info", req.p);
+          logger.error(msg, {
+            zid,
+            uid,
+            p: req.p,
+          });
           next(msg);
         }
         finish(pid);
       },
       function (err: any) {
-        Log.yell("polis_err_get_pid_for_participant");
+        logger.error("polis_err_get_pid_for_participant", err);
         next(err);
       }
     );
@@ -435,7 +435,7 @@ function getXidRecordByXidOwnerId(
       // @ts-ignore
       .then(function (rows: string | any[]) {
         if (!rows || !rows.length) {
-          console.log("no xInfo yet");
+          logger.warn("getXidRecordByXidOwnerId: no xInfo yet");
           if (!createIfMissing) {
             return null;
           }
@@ -455,7 +455,6 @@ function getXidRecordByXidOwnerId(
               return null;
             }
             return createDummyUser().then((newUid: any) => {
-              console.log("created dummy");
               return Conversation.createXidRecord(
                 owner,
                 newUid,
@@ -464,7 +463,6 @@ function getXidRecordByXidOwnerId(
                 x_name || null,
                 x_email || null
               ).then(() => {
-                console.log("created xInfo");
                 return [
                   {
                     uid: newUid,
