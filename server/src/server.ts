@@ -6364,17 +6364,6 @@ Email verified! You can close this tab or hit the back button.
   const _getCommentsList = Comment._getCommentsList;
   const getNumberOfCommentsRemaining = Comment.getNumberOfCommentsRemaining;
 
-  /*
-   Rename column 'zid' to 'conversation_id', add a new column called 'zid' and have that be a VARCHAR of limited length.
-   Use conversation_id internally, refactor math poller to use conversation_id
-   continue to use zid externally, but it will be a string of limited length
-   Don't expose the conversation_id to the client.
-
-   plan:
-   add the new column conversation_id, copy values from zid
-   change the code to look things up by conversation_id
-
-  */
 
   function handle_GET_participation(
     req: { p: { zid: any; uid?: any; strict: any } },
