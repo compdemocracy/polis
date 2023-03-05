@@ -132,6 +132,11 @@ Cypress.Commands.add('createConvo', () => {
     .as('convoId')
 })
 
+Cypress.Commands.add('openTranslated', (convoId, lang) => {
+  // cy.visit(`/${convoId}?ui_lang=${lang}`)
+  cy.visit('/' + convoId, { qs: { ui_lang: lang } })
+})
+
 // Cypress.Commands.add('seedComment', () => {})
 
 function apiLogin(user) {
