@@ -13799,16 +13799,20 @@ Thanks for using Polis!
       // client requests these later.
       // TODO actually store these values in a cache that is shared between
       // the servers, probably just in the db.
-      getTwitterShareCountForConversation(conversation_id).catch(function (
-        err: string
-      ) {
-        logger.error("polis_err_fetching_twitter_share_count", err);
-      });
-      getFacebookShareCountForConversation(conversation_id).catch(function (
-        err: string
-      ) {
-        logger.error("polis_err_fetching_facebook_share_count", err);
-      });
+      if (Config.twitterConsumerKey) {
+        getTwitterShareCountForConversation(conversation_id).catch(function (
+          err: string
+        ) {
+          logger.error("polis_err_fetching_twitter_share_count", err);
+        });
+      }
+      if (Config.fbAppId) {
+        getFacebookShareCountForConversation(conversation_id).catch(function (
+          err: string
+        ) {
+          logger.error("polis_err_fetching_facebook_share_count", err);
+        });
+      }
     }, 100);
 
     doGetConversationPreloadInfo(conversation_id)
