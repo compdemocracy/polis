@@ -9,9 +9,6 @@
 ;            [plumbing.core :as pc]
 ;            [bigml.sampling [reservoir :as reservoir]
 ;                            [simple :as simple]]
-;            [taoensso.timbre.profiling :as profiling :refer (pspy pspy* profile defnp p p*)]
-;            ;[taoensso.carmine :as car]
-;            ;[taoensso.carmine.message-queue :as car-mq]
 ;            [clj-time.coerce :as time-coerce]
 ;            [clj-time.local :as time-local]))
 ;

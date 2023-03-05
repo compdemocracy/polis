@@ -2,6 +2,7 @@ import LruCache from "lru-cache";
 
 import pg from "./db/pg-query";
 import { MPromise } from "./utils/metered";
+import logger from "./utils/logger";
 
 function createXidRecord(
   ownerUid: any,
@@ -155,8 +156,9 @@ function getZidFromConversationId(conversation_id: string) {
           if (err) {
             return reject(err);
           } else if (!results || !results.rows || !results.rows.length) {
-            console.error(
-              "polis_err_fetching_zid_for_conversation_id " + conversation_id
+            logger.error(
+              "polis_err_fetching_zid_for_conversation_id " + conversation_id,
+              err
             );
             return reject("polis_err_fetching_zid_for_conversation_id");
           } else {
