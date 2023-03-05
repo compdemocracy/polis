@@ -469,7 +469,7 @@ module.exports = function VisView(params) {
 
 
   function updateHulls() {
-    bidToBucket = _.zipObject(_.map(nodes, "bid"), nodes);
+    bidToBucket = _.fromPairs(_.map(nodes, "bid"), nodes);
     hulls = clusters.map(function(cluster) {
       var temp = _.map(cluster, function(bid) {
         var bucket = bidToBucket[bid];
