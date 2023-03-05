@@ -62,6 +62,7 @@ export default {
   databaseURL: process.env.DATABASE_URL as string,
   emailTransportTypes: process.env.EMAIL_TRANSPORT_TYPES || null as string | null,
   encryptionPassword: process.env.ENCRYPTION_PASSWORD_00001 as string,
+  fbAppId: process.env.FB_APP_ID || null as string | null,
   googleCredentialsBase64: process.env.GOOGLE_CREDENTIALS_BASE64 || null as string | null,
   googleCredsStringified: process.env.GOOGLE_CREDS_STRINGIFIED as string,
   logLevel: process.env.SERVER_LOG_LEVEL as string,
