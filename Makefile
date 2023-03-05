@@ -45,11 +45,6 @@ rm-images: echo_vars ## Remove Docker images where (polis_tag="${TAG}")
 rm-ALL: rm-containers rm-volumes rm-images ## Remove Docker containers, volumes, and images where (polis_tag="${TAG}")
 	@echo Done.
 
-rm-ALL-ALL-TAGS: ## Remove EVERY Docker container, volume, and image on this machine
-	-docker rm -f $(shell docker ps -aq)
-	-docker rmi -f $(shell docker images -q)
-	-docker volume rm $(shell docker volume ls -q)
-
 hash: ## Show current short hash
 	@echo Git hash: ${GIT_HASH}
 
@@ -93,7 +88,7 @@ rbs: start-rebuild
 	@true
 
 .PHONY: help pull start stop rm-containers rm-volumes rm-images rm-ALL hash start-rebuild restart-FULL-REBUILD \
-	rm-ALL-ALL-TAGS e2e-install e2e-prepare e2e-run-minimal e2e-run-standalone e2e-run-secret e2e-run-subset e2e-run-all
+	e2e-install e2e-prepare e2e-run-minimal e2e-run-standalone e2e-run-secret e2e-run-subset e2e-run-all
 
 help:
 	@echo 'Usage: make <command>'
