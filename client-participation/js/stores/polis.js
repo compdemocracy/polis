@@ -1797,7 +1797,7 @@ module.exports = function(params) {
       // // Create a tidToR mapping which is a restriction of the tidToStats to just the repness. This is
       // // what code other than getCommentsForGroup is expecting; if other stuff starts wanting the prob
       // // estimates, we can change the API
-      // var tidToR = _.zipObject(_.map(triples, function(t) {return [t[0], t[1]];}));
+      // var tidToR = _.fromPairs(_.map(triples, function(t) {return [t[0], t[1]];}));
 
       // // filter out comments with insufficient repness or agreement probability
       // var filteredTriples = _.filter(triples, function(t) {
