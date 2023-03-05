@@ -29,7 +29,6 @@ const COOKIES = {
   USER_CREATED_TIMESTAMP: "uc",
   PERMANENT_COOKIE: "pc",
   TRY_COOKIE: "tryCookie",
-  PLAN_NUMBER: "plan", // not set if trial user
 };
 
 const COOKIES_TO_CLEAR = {
@@ -37,7 +36,6 @@ const COOKIES_TO_CLEAR = {
   token2: true,
   uid2: true,
   uc: true,
-  plan: true,
   referrer: true,
   parent_url: true,
 };
@@ -96,19 +94,6 @@ function setParentUrlCookie(
   setCookie(req, res, COOKIES.PARENT_URL, parent_url, {
     httpOnly: true,
   });
-}
-
-function setPlanCookie(
-  req: any,
-  res: any,
-  planNumber: number
-) {
-  if (planNumber > 0) {
-    setCookie(req, res, COOKIES.PLAN_NUMBER, planNumber, {
-      // not httpOnly - needed by JS
-    });
-  }
-  // else falsy
 }
 
 function setHasEmailCookie(
@@ -181,18 +166,15 @@ function addCookies(
   return User.getUserInfoForUid2(uid).then(function (opts: {
     email: any;
     created: any;
-    plan: any;
   }) {
     let email = opts.email;
     let created = opts.created;
-    let plan = opts.plan;
-
 
     setTokenCookie(req, res, token);
     setUidCookie(req, res, uid);
-    setPlanCookie(req, res, plan);
     setHasEmailCookie(req, res, email);
     setUserCreatedTimestampCookie(req, res, created);
+    
     if (!req.cookies[COOKIES.PERMANENT_COOKIE]) {
       setPermanentCookie(
         req,
@@ -224,7 +206,6 @@ export default {
   setCookie,
   setParentReferrerCookie,
   setParentUrlCookie,
-  setPlanCookie,
   setPermanentCookie,
   setCookieTestCookie,
   addCookies,

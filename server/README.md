@@ -64,6 +64,7 @@ flavors of node.
   \i postgres/migrations/000002_add_xid_constraint.sql
   \i postgres/migrations/000003_add_origin_permanent_cookie_columns.sql
   \i postgres/migrations/000004_drop_waitinglist_table.sql
+  \i postgres/migrations/000005_drop_slack_stripe_canvas.sql
   ```
 
   You can also separately run `psql -d polis -f postgres/migrations/000000_initial.sql` and
