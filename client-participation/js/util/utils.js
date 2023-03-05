@@ -170,18 +170,9 @@ function shouldFocusOnTextareaWhenWritePaneShown() {
   return false;
 }
 
-function parseQueryParams(s) {
-  if (!_.isString(s)) {
-    return {};
-  }
-  if (s.charAt(0) === "?") {
-    s = s.slice(1);
-  }
-  var pairStrings = s.split("&");
-  var pairArrays = _.map(pairStrings, function(pairString) {
-    return pairString.split("=");
-  });
-  return _.zipObject(pairArrays);
+function parseQueryParams(queryString) {
+  const params = new URLSearchParams(queryString);
+  return Object.fromEntries(params);
 }
 
 function toQueryParamString(o) {
