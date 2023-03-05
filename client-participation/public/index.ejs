@@ -61,7 +61,9 @@
           return params.dwok;
         }
         function getUiLang() {
+          console.log("getUiLang");
           var params = parseQueryParams(window.location.search);
+          console.log("getUiLang params.ui_lang", params.ui_lang);
           return params.ui_lang;
         }
 
@@ -256,6 +258,7 @@
       }
 
       if (window.ui_lang) {
+        console.log("setting lang to " + window.ui_lang);
         document.getElementsByTagName("body")[0].setAttribute("lang", ui_lang);
       }
     </script>

@@ -264,8 +264,11 @@ function getBestTranslation(translations, lang) {
 
 
 function uiLanguage() {
+  console.log("uiLanguage");
   var params = parseQueryParams(window.location.search);
   var lang = params.ui_lang;
+  console.log({ params, lang });
+  console.log("window.preload.acceptLanguage: " + window.preload.acceptLanguage);
   if (_.isUndefined(lang)) {
     return window.preload.acceptLanguage && window.preload.acceptLanguage.substr(0,2) || null;
     // return null;
