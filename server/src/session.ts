@@ -114,44 +114,6 @@ function getUserInfoForSessionToken(
   );
 }
 
-function createPolisLtiToken(
-  tool_consumer_instance_guid: any,
-  lti_user_id: any
-) {
-  return ["xPolisLtiToken", tool_consumer_instance_guid, lti_user_id].join(
-    ":::"
-  );
-}
-
-function isPolisLtiToken(token: string) {
-  return token.match(/^xPolisLtiToken/);
-}
-
-function parsePolisLtiToken(token: string) {
-  let parts = token.split(/:::/);
-  let o = {
-    // parts[0] === "xPolisLtiToken", don't need that
-    tool_consumer_instance_guid: parts[1],
-    lti_user_id: parts[2],
-  };
-  return o;
-}
-
-function getUserInfoForPolisLtiToken(token: any) {
-  let o = parsePolisLtiToken(token);
-  return pg
-    .queryP(
-      "select uid from lti_users where tool_consumer_instance_guid = $1 and lti_user_id = $2",
-      [o.tool_consumer_instance_guid, o.lti_user_id]
-    )
-    .then(function (rows) {
-      // (parameter) rows: unknown
-      // Object is of type 'unknown'.ts(2571)
-      // @ts-ignore
-      return rows[0].uid;
-    });
-}
-
 function startSession(uid: any, cb: (arg0: null, arg1?: string) => void) {
   let token = makeSessionToken();
   logger.info("startSession");
@@ -250,9 +212,6 @@ export {
   decrypt,
   makeSessionToken,
   getUserInfoForSessionToken,
-  createPolisLtiToken,
-  isPolisLtiToken,
-  getUserInfoForPolisLtiToken,
   startSession,
   endSession,
   setupPwReset,
@@ -265,9 +224,6 @@ export default {
   decrypt,
   makeSessionToken,
   getUserInfoForSessionToken,
-  createPolisLtiToken,
-  isPolisLtiToken,
-  getUserInfoForPolisLtiToken,
   startSession,
   endSession,
   setupPwReset,
