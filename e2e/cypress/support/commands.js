@@ -107,9 +107,7 @@ Cypress.Commands.add('anonymousParticipant', ({ convoId }) => {
     'anonymous',
     () => {
       cy.request(
-        '/api/v3/participationInit?conversation_id=' +
-        convoId +
-        '&pid=mypid&lang=acceptLang'
+        '/api/v3/participationInit?conversation_id=' + convoId + '&pid=mypid&lang=acceptLang'
       )
     },
     {
@@ -133,11 +131,8 @@ Cypress.Commands.add('createConvo', () => {
 })
 
 Cypress.Commands.add('openTranslated', (convoId, lang) => {
-  // cy.visit(`/${convoId}?ui_lang=${lang}`)
   cy.visit('/' + convoId, { qs: { ui_lang: lang } })
 })
-
-// Cypress.Commands.add('seedComment', () => {})
 
 function apiLogin(user) {
   cy.request('POST', '/api/v3/auth/login', { email: user.email, password: user.password })
