@@ -794,7 +794,7 @@ function initializePolisHelpers() {
     }
     return next();
   }
-  
+
   // function createDummyUsersBatch(n) {
   //     let query = "insert into users (created) values ";
   //     let values = [];
@@ -4734,7 +4734,9 @@ Email verified! You can close this tab or hit the back button.
                   // lti_user_image: any; lti_context_id: any; tool_consumer_instance_guid?: any; afterJoinRedirectUrl: any; }; }' but required in type
                   // '{ cookies: { [x: string]: any; }; }'.ts(2345)
                   // @ts-ignore
-                  addCookies(req, res, token, uid)
+                  addCookies(req, res, token, uid).then(function () {
+                    res.json(response_data);
+                  })
                     .catch(function (err: any) {
                       fail(res, 500, "polis_err_adding_cookies", err);
                     });
