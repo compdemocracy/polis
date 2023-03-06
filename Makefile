@@ -48,6 +48,12 @@ rm-ALL: rm-containers rm-volumes rm-images ## Remove Docker containers, volumes,
 hash: ## Show current short hash
 	@echo Git hash: ${GIT_HASH}
 
+build-no-cache: echo_vars ## Build all Docker containers without cache
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} build --no-cache
+
+start-recreate: echo_vars ## Start all Docker containers with recreated environments
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up --force-recreate
+
 start-rebuild: echo_vars ## Start all Docker containers, [re]building as needed
 	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up --build
 
@@ -87,8 +93,9 @@ rbs: start-rebuild
 %:
 	@true
 
-.PHONY: help pull start stop rm-containers rm-volumes rm-images rm-ALL hash start-rebuild restart-FULL-REBUILD \
-	e2e-install e2e-prepare e2e-run-minimal e2e-run-standalone e2e-run-secret e2e-run-subset e2e-run-all
+.PHONY: help pull start stop rm-containers rm-volumes rm-images rm-ALL hash build-no-cache start-rebuild \
+  start-recreate restart-FULL-REBUILD e2e-install e2e-prepare e2e-run-minimal e2e-run-standalone e2e-run-secret \
+  e2e-run-subset e2e-run-all
 
 help:
 	@echo 'Usage: make <command>'
