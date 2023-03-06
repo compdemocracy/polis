@@ -22,15 +22,15 @@ services:
       - "${API_SERVER_PORT:-5000}:${API_SERVER_PORT:-5000}"
       - "9229:9229"
 
-  math:
-    command: clojure -X:dev-poller
-    volumes:
-      - ./math:/app
-    ports:
-      # nrepl port
-      - "18975:18975"
-    environment:
-      CHOKIDAR_USEPOLLING: "true"
+  # math:
+  #   command: clojure -X:dev-poller
+  #   volumes:
+  #     - ./math:/app
+  #   ports:
+  #     # nrepl port
+  #     - "18975:18975"
+  #   environment:
+  #     CHOKIDAR_USEPOLLING: "true"
 
   postgres:
     ports:
