@@ -132,7 +132,9 @@ function createUser(req: any, res: any) {
                       );
                       return;
                     }
-                    cookies.addCookies(req, res, token, uid)
+                    cookies.addCookies(req, res, token, uid).then(function () {
+                      res.json(response_data);
+                    })
                       .catch(function (err: any) {
                         fail(res, 500, "polis_err_adding_user", err);
                       });
