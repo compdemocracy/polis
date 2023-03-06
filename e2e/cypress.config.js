@@ -8,6 +8,7 @@ module.exports = defineConfig({
   blockHosts: ['*.twitter.com', '*.jsdelivr.net'],
   e2e: {
     baseUrl: 'http://localhost:5000',
+    experimentalRunAllSpecs: true,
     video: false,
     setupNodeEvents(/*on, config*/) {
       // implement node event listeners here
