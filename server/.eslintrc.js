@@ -5,7 +5,14 @@ module.exports = {
     "jest/globals": true
   },
   extends: ["eslint:recommended", "plugin:@typescript-eslint/recommended"],
-  overrides: [],
+  overrides: [
+    {
+      files: ["bin/*.js"],
+      rules: {
+        "no-console": "off",
+      }
+    }
+  ],
   parser: "@typescript-eslint/parser",
   parserOptions: {
     ecmaVersion: "latest",
