@@ -44,16 +44,16 @@ services:
       - ${STATIC_FILES_PORT:-8080}:${STATIC_FILES_PORT:-8080}
 
   maildev:
-    image: docker.io/maildev/maildev:1.1.1
+    image: docker.io/maildev/maildev:2.0.5
     labels:
       polis_tag: ${TAG}
     networks:
       - polis-net
     ports:
       # User interface
-      - "1080:80"
+      - "1080:1080"
       # SMTP port
-      - "25:25"
+      - "1025:1025"
 
   # TODO: Add individual entries for each of the clients, with hot-code reloading set up
   # Either:
