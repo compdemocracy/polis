@@ -22,6 +22,14 @@ COPY . .
 # GIT_HASH is optional and will be set properly when running `make` (see Makefile).
 # Or may be passed in at build time with --build-arg GIT_HASH=$(git rev-parse --short HEAD)
 ARG GIT_HASH
+ARG REPORT_UPLOADER
+ARG S3_BUCKET_PREPROD
+ARG S3_BUCKET_PROD
+ARG SERVICE_URL
 ENV GIT_HASH ${GIT_HASH:-placeholder}
+ENV REPORT_UPLOADER ${REPORT_UPLOADER:-local}
+ENV S3_BUCKET_PREPROD ${S3_BUCKET_PREPROD}
+ENV S3_BUCKET_PROD ${S3_BUCKET_PROD}
+ENV SERVICE_URL ${SERVICE_URL}
 
 CMD npm run deploy:prod

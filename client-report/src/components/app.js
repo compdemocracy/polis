@@ -136,8 +136,7 @@ class App extends React.Component {
           }, this.corMatRetries < 10 ? 200 : 3000); // try to get a quick response, but don't keep polling at that rate for more than 10 seconds.
         } else if (globals.enableMatrix && response && response.status === "polis_report_needs_comment_selection") {
           this.setState({
-            errorLink: "http://localhost:5002/m/36jajfnhhn/reports/r6ehukhk29tcfmuc57vrj/comments",
-            errorLinkText: "Select some comments",
+            errorText: "Select some comments",
           });
           reject("Currently, No comments are selected for display in the matrix.");
         } else {
@@ -427,7 +426,6 @@ class App extends React.Component {
       return (<div>
         <div> Error Loading </div>
         <div> {this.state.errorText} </div>
-        {this.state.errorLink ? (<a href={this.state.errorLink}>{this.state.errorLinkText}</a>) : ""}
       </div>);
     }
     if (this.state.nothingToShow) {

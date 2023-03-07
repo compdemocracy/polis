@@ -10,6 +10,7 @@ globals:
   d3: readonly
   process: readonly
 ignorePatterns:
+  - build
   - devel
   - dist
 overrides:
