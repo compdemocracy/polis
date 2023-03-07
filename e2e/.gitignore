@@ -1,3 +1,4 @@
+.vscode
 cypress/logs
 cypress/screenshots
 cypress/videos
