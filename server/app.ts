@@ -502,7 +502,6 @@ helpersInitialized.then(
       "/api/v3/auth/login",
       need("password", getPassword, assignToP),
       want("email", getEmail, assignToP),
-      want("afterJoinRedirectUrl", getStringLimitLength(1, 9999), assignToP),
       handle_POST_auth_login
     );
 
@@ -640,7 +639,6 @@ helpersInitialized.then(
       want("zinvite", getOptionalStringLimitLength(999), assignToP),
       want("organization", getOptionalStringLimitLength(999), assignToP),
       want("gatekeeperTosPrivacy", getBool, assignToP),
-      want("afterJoinRedirectUrl", getStringLimitLength(1, 9999), assignToP),
       want("owner", getBool, assignToP, true),
       handle_POST_auth_new
     );
