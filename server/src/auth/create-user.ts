@@ -20,10 +20,8 @@ function createUser(req: any, res: any) {
   let email = req.p.email;
   let oinvite = req.p.oinvite;
   let zinvite = req.p.zinvite;
-  let referrer = req.cookies[COOKIES.REFERRER];
   let organization = req.p.organization;
   let gatekeeperTosPrivacy = req.p.gatekeeperTosPrivacy;
-  let afterJoinRedirectUrl = req.p.afterJoinRedirectUrl;
 
   let site_id = void 0;
   if (req.p.encodedParams) {
@@ -133,13 +131,13 @@ function createUser(req: any, res: any) {
                       return;
                     }
                     cookies.addCookies(req, res, token, uid)
-                      .then(
+                      .then(function() {
                         res.json({
                           uid: uid,
                           hname: hname,
                           email: email
                         })
-                      )
+                      })
                       .catch(function (err: any) {
                         fail(res, 500, "polis_err_adding_user", err);
                       });
