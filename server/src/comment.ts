@@ -46,19 +46,7 @@ type UidToSocialInfo = {
 };
 
 const useTranslateApi: boolean = Config.shouldUseTranslationAPI;
-let translateClient: any = null;
-if (useTranslateApi) {
-  // Tell translation library where to find credentials, and write them to disk.
-  process.env.GOOGLE_APPLICATION_CREDENTIALS = ".google_creds_temp";
-  // TODO: Consider deprecating GOOGLE_CREDS_STRINGIFIED in future.
-  const creds_string = Config.googleCredentialsBase64
-    ? new Buffer(Config.googleCredentialsBase64, "base64").toString(
-        "ascii"
-      )
-    : (Config.googleCredsStringified as string | NodeJS.ArrayBufferView);
-  fs.writeFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS, creds_string);
-  translateClient = Translate();
-}
+const translateClient = useTranslateApi ? Translate() : null;
 
 function getComment(zid: Id, tid: Id) {
   return (
