@@ -4,10 +4,9 @@
   "description": "pol.is report",
   "scripts": {
     "clean": "rimraf dist",
-    "build:webpack": "webpack --mode=production",
-    "build": "npm run clean && npm run build:webpack",
-    "deploy:preprod": "gulp deployPreprod",
-    "deploy:prod": "gulp deploy_TO_PRODUCTION",
+    "bundle:prod": "webpack --mode=production",
+    "bundle": "npm run clean && npm run build:prod",
+    "build:prod": "gulp build",
     "start": "node dev-server.js",
     "lint": "eslint --quiet .",
     "lint:verbose": "eslint ."

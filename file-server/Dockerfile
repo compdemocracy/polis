@@ -67,17 +67,11 @@ COPY client-report/. .
 
 # GIT_HASH will be set properly when running `make` (see Makefile).
 ARG GIT_HASH
-ARG REPORT_UPLOADER
-ARG S3_BUCKET_PREPROD
-ARG S3_BUCKET_PROD
 ARG SERVICE_URL
 ENV GIT_HASH ${GIT_HASH:-placeholder}
-ENV REPORT_UPLOADER ${REPORT_UPLOADER:-local}
-ENV S3_BUCKET_PREPROD ${S3_BUCKET_PREPROD}
-ENV S3_BUCKET_PROD ${S3_BUCKET_PROD}
 ENV SERVICE_URL ${SERVICE_URL}
 
-RUN npm run deploy:prod
+RUN npm run build:prod
 
 
 

@@ -6,20 +6,18 @@ Interface for working with polis reports. It is built with React.js.
 
 ### Dependencies
 
-* Node `~ 11`
+* Node `>= 18`
 We recommend installing [nvm](https://github.com/creationix/nvm) so that you can easily switch between your favorite
 flavors of node.
-* NPM `~ 6`
+* NPM `>= 8`
 
 If using nvm, run the commands below to install node and the application dependencies.
 
 ```sh
-nvm install 11
-nvm use 11
+nvm install 18
+nvm use 18
 npm install
 ```
-
-**note:** Due to compatability issues with Gulp.js v3 this component of the Polis application cannot be built with Node.js version 12 or greater at this moment.
 
 ### Docker Build
 
@@ -38,16 +36,10 @@ get very far. Still it can be useful for developing and debugging builds.
 
 ## Configuration
 
-The folowing environment variables can be set when building and running this application. If using the top-level `docker compose` configuration, they can be found in the `.env` file there.
+The folowing environment variable can be set when building and running this application. If using the top-level `docker compose` configuration, it can be found in the `.env` file there.
 
-**SERVICE_URL**: The URL of your API Server. Set this value if your API Server is not on the same domain as your client-report.
+**SERVICE_URL**: (Optional) The URL of your API Server. Set this value if your API Server is not on the same domain as your client-report.
 Currently this is only used in development.
-
-**S3_BUCKET_PREPROD**: Name of s3 bucket to use for preprod report uploads.
-
-**S3_BUCKET_PROD**: Name of s3 bucket to use for prod report uploads.
-
-**REPORT_UPLOADER**: Set to 'local' or 's3'. Defaults to 'local'.
 
 You will also need to have AWS credentials set up at `.polis_s3_creds_client.json` if you are using S3
 buckets for deployment.
@@ -72,15 +64,11 @@ application components (via docker compose or otherwise) to have a functional in
 
 ## Deployment
 
-Deploy using the `npm run deploy:preprod` and `npm run deploy:prod`, as appropriate.
-
-To build static assets into `dist/` for a production deployment, run
+To build static assets into `build/` for a production deployment, run
 
 ```sh
-npm run deploy:prod
+npm run build:prod
 ```
-
-or `npm run deploy:preprod`, as appropriate.
 
 _The polis file-server process builds and serves these assets when docker compose is used._
 
