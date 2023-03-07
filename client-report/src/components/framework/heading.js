@@ -2,7 +2,9 @@
 
 import React from "react";
 import SmallLogo from "./logoSmallLong";
-import { urlPrefix } from "../../util/url";
+import URL from "../../util/url";
+
+const urlPrefix = URL.urlPrefix;
 
 const Content = ({conversation}) => {
   return (
