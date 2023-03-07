@@ -1,3 +1,5 @@
+import { faker } from '@faker-js/faker'
+
 Cypress.Commands.add('login', (user) => {
   cy.intercept('POST', '/api/v3/auth/login').as('login')
   cy.visit('/signin')
@@ -128,6 +130,18 @@ Cypress.Commands.add('createConvo', () => {
   })
     .its('body.conversation_id')
     .as('convoId')
+})
+
+Cypress.Commands.add('seedComment', (convoId, commentText) => {
+  const text = commentText || faker.commerce.productDescription()
+
+  cy.ensureModerator()
+  cy.request('POST', '/api/v3/comments', {
+    conversation_id: convoId,
+    is_seed: true,
+    pid: 'mypid',
+    txt: text,
+  })
 })
 
 Cypress.Commands.add('openTranslated', (convoId, lang) => {
