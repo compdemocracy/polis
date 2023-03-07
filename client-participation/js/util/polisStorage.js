@@ -104,10 +104,6 @@ function getUidFromUserObject() {
   return window.preload && window.preload.firstUser && window.preload.firstUser.uid;
 }
 
-function getPlanCodeFromUserObject() {
-  return window.preload && window.preload.firstUser && window.preload.firstUser.planCode || 0;
-}
-
 function userCreated() {
   return toNumberWithFalsyAsZero(window.preload && window.preload.firstUser && window.preload.firstUser.created) || Date.now();
 }
@@ -116,6 +112,5 @@ module.exports = {
   hasEmail: makeAccessor("e").get,
   uidFromCookie: makeAccessor("uid2").get,
   uid: getUidFromUserObject,
-  planCode: getPlanCodeFromUserObject,
   userCreated: userCreated
 };
