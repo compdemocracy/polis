@@ -1154,7 +1154,6 @@ function initializePolisHelpers() {
     ...Config.whitelistItems,
     "localhost:5000",
     "localhost:5001",
-    "localhost:5002",
     "canvas.instructure.com", // LTI
     "canvas.uw.edu", // LTI
     "canvas.shoreline.edu", // LTI

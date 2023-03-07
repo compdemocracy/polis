@@ -2,6 +2,7 @@
 
 import React from "react";
 import SmallLogo from "./logoSmallLong";
+import { urlPrefix } from "../../util/url";
 
 const Content = ({conversation}) => {
   return (
@@ -26,7 +27,7 @@ const Content = ({conversation}) => {
         }}>
         <a
           style={{color: "#03A9F4", fontWeight: 700, textDecoration: "none"}}
-          href={`https://pol.is/${conversation.conversation_id}`}>pol.is/{conversation.conversation_id}
+          href={`${urlPrefix + conversation.conversation_id}`}>{urlPrefix + conversation.conversation_id}
         </a>
       </p>
     </div>
