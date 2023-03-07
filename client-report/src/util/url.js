@@ -33,7 +33,7 @@ const getDomainPrefix = () => {
   if (domain.includes("pol.is")) return `https://${domain}/`;
   if (domain.includes("polis.io")) return `https://${domain}/`;
 
-  if (serviceUrl) return serviceUrl;
+  if (serviceUrl) return `${serviceUrl}/`;
 
   return `${document.origin}/`;
 };
