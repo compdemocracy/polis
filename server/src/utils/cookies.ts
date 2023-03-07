@@ -174,7 +174,7 @@ function addCookies(
     setUidCookie(req, res, uid);
     setHasEmailCookie(req, res, email);
     setUserCreatedTimestampCookie(req, res, created);
-    
+
     if (!req.cookies[COOKIES.PERMANENT_COOKIE]) {
       setPermanentCookie(
         req,

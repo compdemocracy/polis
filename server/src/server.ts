@@ -4660,7 +4660,6 @@ Email verified! You can close this tab or hit the back button.
       p: {
         password: any;
         email: string;
-        afterJoinRedirectUrl: any;
       };
     },
     res: {
@@ -4670,7 +4669,6 @@ Email verified! You can close this tab or hit the back button.
   ) {
     let password = req.p.password;
     let email = req.p.email || "";
-    let afterJoinRedirectUrl = req.p.afterJoinRedirectUrl;
 
     email = email.toLowerCase();
     if (!_.isString(password) || !password.length) {
