@@ -12,7 +12,6 @@ const sql_conversations: any = sql.define({
     "is_draft",
     "is_public", // TODO remove this column
     "is_data_open",
-    "is_slack",
     "profanity_filter",
     "spam_filter",
     "strict_moderation",
@@ -22,7 +21,6 @@ const sql_conversations: any = sql.define({
     "owner_sees_participation_stats",
     "context",
     "course_id",
-    "lti_users_only",
     "modified",
     "created",
     "link_url",

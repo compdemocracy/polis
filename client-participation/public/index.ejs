@@ -39,20 +39,9 @@
 
     <script> // Fire off this ajax first. it's slower than the other CDN delivered things.
       (function() {
-        function parseQueryParams(s) {
-          if (typeof s !== "string") {
-            return {};
-          }
-          if (s.charAt(0) === "?") {
-            s = s.slice(1);
-          }
-          var pairStrings = s.split("&");
-          var o = {};
-          for (var i = 0; i < pairStrings.length; i++) {
-            var pair = pairStrings[i].split("=");
-            o[pair[0]] = decodeURIComponent(pair[1]);
-          }
-          return o;
+        function parseQueryParams(queryString) {
+          const params = new URLSearchParams(queryString);
+          return Object.fromEntries(params);
         }
 
         function getXid() {
@@ -123,8 +112,6 @@
             if (response) {
               p[dst] = r.JSON ? JSON.parse(response[src]) : response[src];
             }
-
-            console.log("in index.html in participation: response, p, r, ", response, p, r)
 
             if (r.fn) {
               p[dst] = r.fn(p[dst]);

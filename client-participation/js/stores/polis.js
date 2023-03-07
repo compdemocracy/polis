@@ -1797,7 +1797,7 @@ module.exports = function(params) {
       // // Create a tidToR mapping which is a restriction of the tidToStats to just the repness. This is
       // // what code other than getCommentsForGroup is expecting; if other stuff starts wanting the prob
       // // estimates, we can change the API
-      // var tidToR = _.zipObject(_.map(triples, function(t) {return [t[0], t[1]];}));
+      // var tidToR = _.fromPairs(_.map(triples, function(t) {return [t[0], t[1]];}));
 
       // // filter out comments with insufficient repness or agreement probability
       // var filteredTriples = _.filter(triples, function(t) {
@@ -2098,7 +2098,6 @@ module.exports = function(params) {
     var numComments = pcaCenter.length;
     var numVotes = o.votes.length;
 
-    // https://files.slack.com/files-pri/T02G773HK-F02N30MKD/slack_for_ios_upload.jpg
     if (numVotes > 0 && (o.pid !== -1 || USE_JETPACK_FOR_SELF)) {
       var jetpack_aka_sparsity_compensation_factor = Math.sqrt(numComments / numVotes);
       x *= jetpack_aka_sparsity_compensation_factor;
@@ -2426,8 +2425,6 @@ module.exports = function(params) {
     }
 
     var numComments = pcaCenter.length;
-
-    // https://files.slack.com/files-pri/T02G773HK-F02N30MKD/slack_for_ios_upload.jpg
 
     var numVotes = 1; // pretend the comment is a person who voted for only itself
     var jetpack_aka_sparsity_compensation_factor = Math.sqrt(numComments / numVotes);
