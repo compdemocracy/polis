@@ -4,10 +4,15 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { Box, Heading, Text } from 'theme-ui'
+import Url from '../../util/url'
 
 @connect((state) => state.user)
 class Integrate extends React.Component {
   render() {
+    const userSiteId = this.props.user === null
+     ? '__loading, try refreshing__'
+     : this.props.user.site_ids[0];
+
     return (
       <Box>
         <Box>
@@ -44,18 +49,12 @@ class Integrate extends React.Component {
           </ul>
           <Box>
             <pre>
-              {'<div\n'}
-              {"  class='polis'\n"}
-              {"  data-page_id='PAGE_ID'\n"}
-              {"  data-site_id='"}
-              {this.props.user === null
-                ? '__loading, try refreshing__'
-                : this.props.user.site_ids[0]}
-              {"'>\n"}
-              {'</div>\n'}
-              {'<script async\n'}
-              {"  src='https://pol.is/embed.js'>\n"}
-              {'</script>'}
+              {`<div
+                class='polis'
+                data-page_id='PAGE_ID'
+                data-site_id='${userSiteId}'
+              ></div>
+              <script async src=${Url.urlPrefix}'/embed.js'></script>`}
             </pre>
           </Box>
         </Box>

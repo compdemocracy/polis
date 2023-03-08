@@ -3,7 +3,7 @@
   var firstRun = !window.polis._hasRun;
   polis._hasRun = 1;
   var iframes = [];
-  var polisUrl = "https://<%= polisHostName %>";
+  var serviceUrl = window.location.protocol + "//" + "<%= embedServiceHostname %>";
   var maxHeightsSeen = {};
 
   polis.on = polis.on || {};
@@ -119,7 +119,7 @@
       alert("Error: need data-conversation_id or data-site_id");
       return;
     }
-    var src = polisUrl+ "/" + path.join("/");
+    var src = serviceUrl+ "/" + path.join("/");
 
     appendIfPresent("parent_url");
     if (o.parent_url) {
@@ -212,7 +212,7 @@
     window.addEventListener("message", function(event) {
       var data = event.data||{};
       var domain = event.origin.replace(/^https?:\/\//,'');
-      if (!domain.match(/(^|\.)<%= polisHostName %>$/)) {
+      if (!domain.match(/(^|\.)<%= embedServiceHostname %>$/)) {
         return;
       }
 
@@ -232,13 +232,13 @@
       }
 
       if (data === "cookieRedirect" && cookiesEnabledAtTopLevel()) {//   // temporarily redirect to polis, which will set a cookie and redirect back
-        window.location = polisUrl + "/api/v3/launchPrep?dest=" + encodeReturnUrl(window.location+"");
+        window.location = serviceUrl + "/api/v3/launchPrep?dest=" + encodeReturnUrl(window.location+"");
       }
       // if (data === "twitterConnectBegin") {
       //   // open a new window where the twitter auth screen will show.
       //   // that window will redirect back to a simple page that calls window.opener.twitterStatus("ok")
       //   var params = 'location=0,status=0,width=800,height=400';
-      //   twitterWindow = window.open(polisUrl + "/api/v3/twitterBtn?dest=" + encodeReturnUrl(window.location+""), 'twitterWindow', params);
+      //   twitterWindow = window.open(serviceUrl + "/api/v3/twitterBtn?dest=" + encodeReturnUrl(window.location+""), 'twitterWindow', params);
       // }
 
       if (data.name === "resize") {

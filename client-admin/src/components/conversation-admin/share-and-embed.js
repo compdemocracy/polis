@@ -65,7 +65,7 @@ class ShareAndEmbed extends React.Component {
               {" class='polis'"}
               {" data-conversation_id='" + match.params.conversation_id + "'>"}
               {'</div>\n'}
-              {"<script async src='https://pol.is/embed.js'></script>"}
+              {"<script async src='" + Url.urlPrefix + "/embed.js'></script>"}
             </pre>
           </div>
           <p>
