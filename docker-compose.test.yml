@@ -16,3 +16,7 @@ services:
       - polis-net
     ports:
       - "1080:1080"
+
+  server:
+    environment:
+      - GOOGLE_CREDENTIALS_BASE64
