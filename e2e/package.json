@@ -5,14 +5,15 @@
   "main": "index.js",
   "scripts": {
     "start": "cypress open",
-    "test": "cypress run",
+    "test": "cypress run --spec 'cypress/e2e/!(third-party)/**/*.cy.js'",
+    "test:all": "cypress run --spec 'cypress/**/*.cy.js'",
+    "e2e": "npm test",
+    "e2e:chrome": "npm test -- --browser chrome",
+    "cy:run": "cypress run",
+    "cy:open": "cypress open",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "prettier": "prettier --write .",
-    "e2e": "cypress run",
-    "e2e:chrome": "cypress run --browser chrome",
-    "cy:run": "cypress run",
-    "cy:open": "cypress open"
+    "prettier": "prettier --write ."
   },
   "author": "",
   "license": "ISC",
