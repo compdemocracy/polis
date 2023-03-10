@@ -28,4 +28,5 @@ jobs:
       - uses: cypress-io/github-action@v5.0.9
         with:
           config: baseUrl=http://localhost
+          spec: cypress/e2e/!(third-party)/**/*.cy.js
           working-directory: e2e
