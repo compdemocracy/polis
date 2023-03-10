@@ -12,8 +12,9 @@ module.exports = defineConfig({
     baseUrl: 'http://localhost',
     experimentalRunAllSpecs: true,
     video: false,
-    setupNodeEvents(/*on, config*/) {
+    setupNodeEvents(on/*, config*/) {
       // implement node event listeners here
+      require('cypress-terminal-report/src/installLogsPrinter')(on);
     },
   },
   env: {

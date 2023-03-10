@@ -21,6 +21,7 @@
   "dependencies": {
     "@faker-js/faker": "^7.6.0",
     "cypress": "^12.7.0",
+    "cypress-terminal-report": "^5.0.2",
     "yargs": "^17.7.1"
   },
   "devDependencies": {
