@@ -9766,7 +9766,6 @@ Email verified! You can close this tab or hit the back button.
                       delete conv.zid;
 
                       delete conv.is_anon;
-                      delete conv.is_active;
                       delete conv.is_draft;
                       delete conv.is_public;
                       if (conv.context === "") {

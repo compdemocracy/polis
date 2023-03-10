@@ -9,7 +9,7 @@ describe('Comment translation', function() {
   })
 
   it('prevents translation when comment already in browser language', function () {
-    cy.ensureParticipant()
+    cy.ensureUser()
     cy.openTranslated(this.convoId, 'fr')
 
     cy.contains('p', commentFrench).should('exist')
@@ -17,7 +17,7 @@ describe('Comment translation', function() {
   })
 
   it('allows translation when comment not in browser language', function () {
-    cy.ensureParticipant()
+    cy.ensureUser()
     cy.openTranslated(this.convoId, 'en')
 
     cy.contains('p', commentFrench).should('exist')

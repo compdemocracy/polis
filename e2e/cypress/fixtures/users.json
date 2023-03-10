@@ -1,4 +1,14 @@
 {
+  "moderator": {
+    "name": "Test Moderator",
+    "email": "moderator@polis.test",
+    "password": "Te$tP@ssw0rd*"
+  },
+  "participant": {
+    "name": "Test Participant",
+    "email": "participant@polis.test",
+    "password": "Te$tP@ssw0rd*"
+  },
   "mod01": {
     "name": "moderator 01",
     "email": "mod01@polis.test",

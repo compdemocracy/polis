@@ -12,7 +12,7 @@ Cypress.Commands.add('login', (user) => {
 
 Cypress.Commands.add('loginViaAPI', (user) => apiLogin(user))
 
-Cypress.Commands.add('logout', () => {
+Cypress.Commands.add('logoutViaUI', () => {
   cy.intercept('POST', '/api/v3/auth/deregister').as('logout')
   cy.visit('/')
 
@@ -20,11 +20,11 @@ Cypress.Commands.add('logout', () => {
   cy.wait('@logout')
 })
 
-Cypress.Commands.add('logoutViaAPI', () => {
+Cypress.Commands.add('logout', () => {
   cy.request('POST', '/api/v3/auth/deregister').then(() => cy.clearCookies())
 })
 
-Cypress.Commands.add('register', (user) => {
+Cypress.Commands.add('registerViaUI', (user) => {
   cy.intercept('POST', '/api/v3/auth/new').as('register')
   cy.visit('/createuser')
 
@@ -44,7 +44,7 @@ Cypress.Commands.add('register', (user) => {
   })
 })
 
-Cypress.Commands.add('registerViaAPI', (user) => {
+Cypress.Commands.add('register', (user) => {
   cy.request({
     method: 'POST',
     url: '/api/v3/auth/new',
@@ -56,7 +56,7 @@ Cypress.Commands.add('registerViaAPI', (user) => {
     },
     failOnStatusCode: false,
   }).then(({ status }) => {
-    // Conditionally check if the user already exist.
+    // Conditionally check if the user already exists.
     // If the user already exists, log them in.
     if (status == 403) {
       apiLogin(user)
@@ -64,31 +64,13 @@ Cypress.Commands.add('registerViaAPI', (user) => {
   })
 })
 
-Cypress.Commands.add('ensureModerator', (userLabel = 'mod01') => {
+Cypress.Commands.add('ensureUser', (userLabel = 'participant') => {
   cy.session(
-    'moderator',
+    userLabel,
     () => {
       cy.fixture('users').then((usersJson) => {
         const user = usersJson[userLabel]
-        cy.registerViaAPI(user)
-      })
-    },
-    {
-      validate: () => {
-        cy.getCookie('token2').should('exist')
-        cy.getCookie('uid2').should('exist')
-      },
-    }
-  )
-})
-
-Cypress.Commands.add('ensureParticipant', (userLabel = 'user01') => {
-  cy.session(
-    'participant',
-    () => {
-      cy.fixture('users').then((usersJson) => {
-        const user = usersJson[userLabel]
-        cy.registerViaAPI(user)
+        cy.register(user)
       })
     },
     {
@@ -122,20 +104,36 @@ Cypress.Commands.add('anonymousParticipant', ({ convoId }) => {
   )
 })
 
-Cypress.Commands.add('createConvo', () => {
-  cy.ensureModerator()
+Cypress.Commands.add('createConvo', (topic, description) => {
+  cy.ensureUser('moderator')
   cy.request('POST', '/api/v3/conversations', {
     is_active: true,
     is_draft: true,
+    ...(topic && { topic }),
+    ...(description && { description })
   })
     .its('body.conversation_id')
     .as('convoId')
 })
 
-Cypress.Commands.add('seedComment', (convoId, commentText) => {
-  const text = commentText || faker.commerce.productDescription()
+Cypress.Commands.add('ensureConversation', (userLabel) => {
+  cy.ensureUser(userLabel)
+  cy.request('/api/v3/conversations').its('body').then((convos = []) => {
+    // find the first active conversation, if one exists
+    const conversation = convos.find(convo => convo.is_active)
 
-  cy.ensureModerator()
+    if (conversation) {
+      cy.wrap(conversation.conversation_id).as('convoId')
+    } else {
+      cy.createConvo()
+    }
+  })
+})
+
+Cypress.Commands.add('seedComment', (convoId, commentText) => {
+  const text = commentText || faker.lorem.sentences()
+
+  cy.ensureUser('moderator')
   cy.request('POST', '/api/v3/comments', {
     conversation_id: convoId,
     is_seed: true,
@@ -146,6 +144,33 @@ Cypress.Commands.add('seedComment', (convoId, commentText) => {
 
 Cypress.Commands.add('openTranslated', (convoId, lang) => {
   cy.visit('/' + convoId, { qs: { ui_lang: lang } })
+})
+
+// https://www.cypress.io/blog/2020/02/12/working-with-iframes-in-cypress/
+Cypress.Commands.add('getIframeBody', () => {
+  // get the iframe > document > body
+  // and retry until the body element is not empty
+  return cy
+    .get('iframe')
+    .its('0.contentDocument.body').should('not.be.empty')
+    // wraps "body" DOM element to allow
+    // chaining more Cypress commands, like ".find(...)"
+    .then(cy.wrap)
+})
+
+// Serve up the embed/index.html in response to a request to /embedded
+Cypress.Commands.add('interceptEmbed', () => {
+  cy.readFile('./embed/index.html').then((html) => {
+    cy.intercept('GET', '/embedded', (req) => {
+      req.reply({
+        statusCode: 200,
+        body: html,
+        headers: {
+          'Content-Type': 'text/html',
+        },
+      })
+    })
+  })
 })
 
 function apiLogin(user) {

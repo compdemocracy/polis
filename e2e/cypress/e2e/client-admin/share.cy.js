@@ -10,7 +10,7 @@ describe('Share page', function() {
   })
 
   beforeEach(function() {
-    cy.ensureModerator()
+    cy.ensureUser('moderator')
     cy.intercept('POST', '/api/v3/comments').as('newComment')
     cy.intercept('PUT', '/api/v3/comments').as('updateComment')
   })

@@ -1,6 +1,8 @@
 describe('Conversation: Configure', function () {
   beforeEach(function () {
     cy.intercept('GET', '/api/v3/conversations*').as('getConversations')
+    cy.intercept('GET', '/api/v3/users*').as('getUsers')
+    cy.intercept('GET', '/api/v3/participationInit*').as('participationInit')
     cy.intercept('POST', '/api/v3/comments').as('createComment')
     cy.intercept('POST', '/api/v3/conversations').as('createConversation')
     cy.intercept('PUT', '/api/v3/conversations').as('updateConversation')
@@ -8,11 +10,12 @@ describe('Conversation: Configure', function () {
 
   describe('Create new conversation', function () {
     beforeEach(function () {
-      return cy.ensureModerator()
+      return cy.ensureUser('moderator')
     })
 
     it('should create with proper defaults', function () {
       cy.createConvo().then(() => cy.visit('/m/' + this.convoId))
+      cy.wait('@getUsers')
       cy.wait('@getConversations')
 
       // Customize section
@@ -75,8 +78,9 @@ describe('Conversation: Configure', function () {
     })
 
     it('responds properly to being closed', function() {
-      cy.ensureParticipant()
+      cy.ensureUser()
       cy.visit('/' + this.convoId)
+      cy.wait('@participationInit')
 
       cy.get('[data-view-name="participationView"]').should('be.visible')
       cy.get('h2').contains('Test topic closed').should('be.visible')

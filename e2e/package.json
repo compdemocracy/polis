@@ -1,7 +1,7 @@
 {
   "name": "polis-e2e",
   "version": "1.0.0",
-  "description": "",
+  "description": "End-to-End test suite for polis, using Cypress.js",
   "main": "index.js",
   "scripts": {
     "start": "cypress open",
@@ -13,19 +13,21 @@
     "cy:open": "cypress open",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "prettier": "prettier --write ."
+    "prettier": "prettier --write .",
+    "build:embed": "node build-embed.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@faker-js/faker": "^7.6.0",
     "cypress": "^12.7.0",
+    "yargs": "^17.7.1"
+  },
+  "devDependencies": {
     "eslint": "^8.35.0",
     "eslint-config-prettier": "^8.6.0",
     "eslint-plugin-cypress": "^2.12.1",
     "eslint-plugin-mocha": "^10.1.0",
     "prettier": "^2.8.4"
-  },
-  "devDependencies": {
-    "@faker-js/faker": "^7.6.0"
   }
 }

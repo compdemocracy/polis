@@ -6,6 +6,8 @@ const { defineConfig } = require('cypress')
 
 module.exports = defineConfig({
   blockHosts: ['*.twitter.com', '*.jsdelivr.net'],
+  // required to test within iframe:
+  chromeSecurity: false,
   e2e: {
     baseUrl: 'http://localhost',
     experimentalRunAllSpecs: true,
@@ -15,7 +17,6 @@ module.exports = defineConfig({
     },
   },
   env: {
-    apiPath: '/api/v3',
     maildevUrl: 'http://localhost:1080',
   },
 })

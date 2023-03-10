@@ -1,17 +1,17 @@
 describe('Access control', function () {
   before(function () {
-    cy.createConvo().then(() => {
+    cy.ensureConversation().then(() => {
       cy.wrap('m/' + this.convoId).as('adminPath')
     })
   })
 
   beforeEach(function () {
-    cy.intercept('GET', '/api/v3/participationInit*').as('getParticipation')
+    cy.intercept('GET', '/api/v3/participationInit*').as('participationInit')
   })
 
   describe('Participant', function () {
     beforeEach(function () {
-      cy.ensureParticipant()
+      cy.ensureUser()
     })
 
     it('Cannot access /m/:id', function () {
@@ -46,7 +46,7 @@ describe('Access control', function () {
 
     it('Can access /:id', function () {
       cy.visit('/' + this.convoId)
-      cy.wait('@getParticipation').its('response.statusCode').should('eq', 200)
+      cy.wait('@participationInit').its('response.statusCode').should('eq', 200)
       cy.get('[data-view-name="participationView"]').should('be.visible')
     })
   })
@@ -67,7 +67,7 @@ describe('Access control', function () {
 
     it('Can access /:id', function () {
       cy.visit('/' + this.convoId)
-      cy.wait('@getParticipation').its('response.statusCode').should('eq', 200)
+      cy.wait('@participationInit').its('response.statusCode').should('eq', 200)
       cy.get('[data-view-name="participationView"]').should('be.visible')
     })
   })

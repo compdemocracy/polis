@@ -14,7 +14,7 @@ describe('Create User page', function () {
     cy.location('pathname').should('eq', '/createuser')
 
     // Register User
-    cy.register(user)
+    cy.registerViaUI(user)
     cy.visit('/')
 
     cy.location('pathname').should('eq', '/')
@@ -22,7 +22,7 @@ describe('Create User page', function () {
     cy.getCookie('uid2').should('exist')
 
     // Log out User
-    cy.logout()
+    cy.logoutViaUI()
 
     cy.visit('/')
     cy.location('pathname').should('eq', '/home')
@@ -45,8 +45,8 @@ describe('Create User page', function () {
   it('should allow a visitor to register, log out, and log in, via API', function () {
     const user = generateRandomUser()
 
-    cy.registerViaAPI(user)
-    cy.logoutViaAPI()
+    cy.register(user)
+    cy.logout()
     cy.loginViaAPI(user)
 
     cy.getCookie('token2').should('exist')
@@ -61,7 +61,7 @@ describe('Create User page', function () {
   it('should give an error if a user tries to register with an existing email', function () {
     const user = generateRandomUser()
 
-    cy.registerViaAPI(user)
+    cy.register(user)
     cy.logout()
 
     cy.intercept('POST', '/api/v3/auth/new').as('register')

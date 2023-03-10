@@ -9,7 +9,7 @@ function checkTranslation(lang, convoId) {
 
 describe('Interface internationalization', function () {
   before(function () {
-    cy.createConvo()
+    cy.ensureConversation()
   })
 
   it('translates into Welsh', function () {
