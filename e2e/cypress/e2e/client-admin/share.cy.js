@@ -11,7 +11,7 @@ describe('Share page', function() {
 
   beforeEach(function() {
     cy.ensureUser('moderator')
-    cy.intercept('POST', '/api/v3/comments').as('newComment')
+    cy.intercept('POST', '/api/v3/comments').as('createComment')
     cy.intercept('PUT', '/api/v3/comments').as('updateComment')
   })
 
@@ -28,7 +28,7 @@ describe('Share page', function() {
     cy.get('#comment_form_textarea').type('moderated comment, to reject')
     cy.get('#comment_button').click()
 
-    cy.wait('@newComment').its('response.statusCode').should('eq', 200)
+    cy.wait('@createComment').its('response.statusCode').should('eq', 200)
 
     cy.visit(this.adminPath + '/share')
     cy.contains('has no visible comments').should('be.visible')
@@ -45,7 +45,7 @@ describe('Share page', function() {
     cy.get('#comment_form_textarea').type('moderated comment, to accept')
     cy.get('#comment_button').click()
 
-    cy.wait('@newComment').its('response.statusCode').should('eq', 200)
+    cy.wait('@createComment').its('response.statusCode').should('eq', 200)
 
     cy.visit(this.adminPath + '/comments')
     cy.contains('button', 'accept').should('be.visible')
