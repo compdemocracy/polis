@@ -54,6 +54,9 @@ rm-ALL: rm-containers rm-volumes rm-images ## Remove Docker containers, volumes,
 hash: ## Show current short hash
 	@echo Git hash: ${GIT_HASH}
 
+build: echo_vars ## [Re]Build all Docker containers
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} build
+
 build-no-cache: echo_vars ## Build all Docker containers without cache
 	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} build --no-cache
 
