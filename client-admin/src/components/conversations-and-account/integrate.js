@@ -51,11 +51,11 @@ class Integrate extends React.Component {
             <pre>
               {`
 <div
-  class='polis'
-  data-page_id='PAGE_ID'
-  data-site_id='${userSiteId}'>
+  class="polis"
+  data-page_id="PAGE_ID"
+  data-site_id="${userSiteId}">
 </div>
-<script async src=${Url.urlPrefix}embed.js></script>
+<script async src="${Url.urlPrefix}embed.js"></script>
               `}
             </pre>
           </Box>
