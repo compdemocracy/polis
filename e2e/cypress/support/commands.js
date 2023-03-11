@@ -187,8 +187,15 @@ Cypress.Commands.add('vote', () => {
     Math.floor(Math.random() * 3)
   ]
 
-  cy.get('[data-view-name="vote-view"]').find(selector).click()
-  cy.wait('@postVotes')
+  cy.get('[data-view-name="vote-view"]').then(($voteView) => {
+    if ($voteView.find('.Notification.Notification--warning').length) {
+      // You've voted on all the statements.
+      return
+    }
+
+    $voteView.find(selector).click()
+    cy.wait('@postVotes')
+  })
 })
 
 Cypress.Commands.add('initAndVote', (userLabel, convoId) => {
@@ -207,13 +214,8 @@ function apiLogin(user) {
 
 function recursiveVote() {
   cy.get('[data-view-name="vote-view"]').then(($voteView) => {
-    if ($voteView.find('.Notification.Notification--warning').length) {
-      // You've voted on all the statements.
-      return
-    } else {
-      if ($voteView.find('button#agreeButton').length) {
-        cy.vote().then(() => recursiveVote())
-      }
+    if ($voteView.find('button#agreeButton').length) {
+      cy.vote().then(() => recursiveVote())
     }
   })
 }
