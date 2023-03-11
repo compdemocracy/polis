@@ -46,7 +46,7 @@ function getMailOptions(transportType: any) {
       return {
         // Allows running outside docker, connecting to exposed port of maildev container.
         host: isDocker() ? "maildev" : "localhost",
-        port: 25,
+        port: 1025,
         ignoreTLS: true,
       };
     case "mailgun":
