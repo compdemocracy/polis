@@ -5,17 +5,19 @@ on:
     # Required so that baseline for comparison is pushed to bundlewatch service.
     branches:
       - edge
-      - update-bundlewatch-config
+      - update-bundlewatch-config # remove this after merge into edge
     paths:
       - .github/workflows/bundlewatch.yml
       - client-admin/**
       - client-participation/**
+      - client-report/**
   pull_request:
     types: ["opened", "reopened", "synchronize"]
     paths:
       - .github/workflows/bundlewatch.yml
       - client-admin/**
       - client-participation/**
+      - client-report/**
 
 jobs:
   bundlewatch:
@@ -24,7 +26,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    # Both components use this version
+    # Client components all use this version
     - name: Use Node version for app builds
       uses: actions/setup-node@v3
       with:
@@ -53,12 +55,16 @@ jobs:
       working-directory: client-participation
       run: |
         npm install
-        npm run deploy:prod
-        # So directory stays consistent between builds for comparison.
-        mv dist/cached/* dist/cached/xxxxxxxxx
+        npm run build:prod
+
+    - name: "Install & Build: client-report"
+      working-directory: client-report
+      run: |
+        npm install
+        npm run build:prod
 
     - name: Install Bundlewatch
-      run: npm install -g bundlewatch@0.2.6
+      run: npm install -g bundlewatch@0.3.3
 
     - name: "Run Bundlewatch"
       uses: jackyef/bundlewatch-gh-action@master

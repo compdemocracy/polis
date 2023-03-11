@@ -16,6 +16,10 @@ module.exports = {
       path: "client-participation/dist/js/*.js",
       maxSize: "450 kB",
     },
+    {
+      path: "client-report/dist/*.js",
+      maxSize: "200 kB",
+    }
   ],
   normalizeFileNames: /^.+?(\..+?)\.\w+$/,
 };
