@@ -180,6 +180,7 @@ Cypress.Commands.add('interceptEmbed', () => {
 
 Cypress.Commands.add('vote', () => {
   cy.intercept('POST', '/api/v3/votes').as('postVotes')
+  cy.intercept('GET', '/api/v3/comments*').as('getComments')
 
   // randomly select one of [agree, disagree, pass]
   // as a selector for the vote button
@@ -189,6 +190,7 @@ Cypress.Commands.add('vote', () => {
 
   cy.get('[data-view-name="vote-view"]').find(selector).click()
   cy.wait('@postVotes')
+  cy.wait('@getComments')
 })
 
 Cypress.Commands.add('initAndVote', (userLabel, convoId) => {
