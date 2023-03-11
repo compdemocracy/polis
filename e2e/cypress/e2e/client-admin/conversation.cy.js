@@ -77,7 +77,7 @@ describe('Conversation: Configure', function () {
       cy.get('input[data-test-id="is_active"]').uncheck()
     })
 
-    it('responds properly to being closed', function() {
+    it('responds properly to being closed', function () {
       cy.ensureUser()
       cy.visit('/' + this.convoId)
       cy.wait('@participationInit')

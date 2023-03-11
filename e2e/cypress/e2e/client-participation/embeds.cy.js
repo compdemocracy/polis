@@ -39,7 +39,8 @@ describe('Embedded Conversations', function () {
       cy.getIframeBody().find('[data-view-name="profile-pic-view"]').should('be.visible')
       cy.getIframeBody().find('[data-test-footer]').should('be.visible')
 
-      cy.getIframeBody().find('.conversationViewHeadline')
+      cy.getIframeBody()
+        .find('.conversationViewHeadline')
         .find('h2')
         .should('contain', topic)
         .siblings('p')

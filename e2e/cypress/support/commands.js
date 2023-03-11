@@ -110,7 +110,7 @@ Cypress.Commands.add('createConvo', (topic, description) => {
     is_active: true,
     is_draft: true,
     ...(topic && { topic }),
-    ...(description && { description })
+    ...(description && { description }),
   })
     .its('body.conversation_id')
     .as('convoId')
@@ -118,16 +118,18 @@ Cypress.Commands.add('createConvo', (topic, description) => {
 
 Cypress.Commands.add('ensureConversation', (userLabel) => {
   cy.ensureUser(userLabel)
-  cy.request('/api/v3/conversations').its('body').then((convos = []) => {
-    // find the first active conversation, if one exists
-    const conversation = convos.find(convo => convo.is_active)
+  cy.request('/api/v3/conversations')
+    .its('body')
+    .then((convos = []) => {
+      // find the first active conversation, if one exists
+      const conversation = convos.find((convo) => convo.is_active)
 
-    if (conversation) {
-      cy.wrap(conversation.conversation_id).as('convoId')
-    } else {
-      cy.createConvo()
-    }
-  })
+      if (conversation) {
+        cy.wrap(conversation.conversation_id).as('convoId')
+      } else {
+        cy.createConvo()
+      }
+    })
 })
 
 Cypress.Commands.add('seedComment', (convoId, commentText) => {
@@ -150,12 +152,15 @@ Cypress.Commands.add('openTranslated', (convoId, lang) => {
 Cypress.Commands.add('getIframeBody', () => {
   // get the iframe > document > body
   // and retry until the body element is not empty
-  return cy
-    .get('iframe')
-    .its('0.contentDocument.body').should('not.be.empty')
-    // wraps "body" DOM element to allow
-    // chaining more Cypress commands, like ".find(...)"
-    .then(cy.wrap)
+  return (
+    cy
+      .get('iframe')
+      .its('0.contentDocument.body')
+      .should('not.be.empty')
+      // wraps "body" DOM element to allow
+      // chaining more Cypress commands, like ".find(...)"
+      .then(cy.wrap)
+  )
 })
 
 // Serve up the embed/index.html in response to a request to /embedded
@@ -173,6 +178,37 @@ Cypress.Commands.add('interceptEmbed', () => {
   })
 })
 
+Cypress.Commands.add('vote', () => {
+  cy.intercept('POST', '/api/v3/votes').as('postVotes')
+
+  // randomly select one of [agree, disagree, pass]
+  // as a selector for the vote button
+  const selector = ['button#agreeButton', 'button#disagreeButton', 'button#passButton'][
+    Math.floor(Math.random() * 3)
+  ]
+
+  cy.get('[data-view-name="vote-view"]').find(selector).click()
+  cy.wait('@postVotes')
+})
+
+Cypress.Commands.add('initAndVote', (userLabel, convoId) => {
+  cy.intercept('GET', '/api/v3/participationInit*').as('participationInit')
+
+  cy.ensureUser(userLabel)
+  cy.visit('/' + convoId)
+  cy.wait('@participationInit')
+
+  recursiveVote()
+})
+
 function apiLogin(user) {
   cy.request('POST', '/api/v3/auth/login', { email: user.email, password: user.password })
+}
+
+function recursiveVote() {
+  cy.get('[data-view-name="vote-view"]').then(($voteView) => {
+    if ($voteView.find('button#agreeButton').length) {
+      cy.vote().then(() => recursiveVote())
+    }
+  })
 }

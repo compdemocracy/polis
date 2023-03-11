@@ -1,11 +1,11 @@
-describe('Routes', function() {
+describe('Routes', function () {
   before(function () {
     cy.ensureConversation().then(() => {
       cy.wrap(`/m/${this.convoId}`).as('adminPath')
     })
   })
 
-  beforeEach(function() {
+  beforeEach(function () {
     cy.ensureUser('moderator')
     cy.intercept('/api/v3/conversations*').as('getConversations')
     cy.intercept('/api/v3/users*').as('getUsers')

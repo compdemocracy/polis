@@ -8,13 +8,14 @@ module.exports = defineConfig({
   blockHosts: ['*.twitter.com', '*.jsdelivr.net'],
   // required to test within iframe:
   chromeSecurity: false,
+  requestTimeout: 10000,
   e2e: {
     baseUrl: 'http://localhost',
     experimentalRunAllSpecs: true,
     video: false,
-    setupNodeEvents(on/*, config*/) {
+    setupNodeEvents(on /*, config*/) {
       // implement node event listeners here
-      require('cypress-terminal-report/src/installLogsPrinter')(on);
+      require('cypress-terminal-report/src/installLogsPrinter')(on)
     },
   },
   env: {

@@ -1,15 +1,17 @@
-describe('Share page', function() {
+describe('Share page', function () {
   before(function () {
-    cy.createConvo().then(() => {
-      cy.wrap(`/m/${this.convoId}`).as('adminPath')
-      cy.wrap(`/${this.convoId}`).as('convoPath')
-    }).then(() => cy.visit(this.adminPath))
+    cy.createConvo()
+      .then(() => {
+        cy.wrap(`/m/${this.convoId}`).as('adminPath')
+        cy.wrap(`/${this.convoId}`).as('convoPath')
+      })
+      .then(() => cy.visit(this.adminPath))
 
     cy.get('input[data-test-id="strict_moderation"]').check()
     cy.get('input[data-test-id="auth_needed_to_write"]').uncheck()
   })
 
-  beforeEach(function() {
+  beforeEach(function () {
     cy.ensureUser('moderator')
     cy.intercept('POST', '/api/v3/comments').as('createComment')
     cy.intercept('PUT', '/api/v3/comments').as('updateComment')

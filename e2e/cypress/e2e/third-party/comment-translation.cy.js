@@ -1,4 +1,4 @@
-describe('Comment translation', function() {
+describe('Comment translation', function () {
   const commentFrench = 'Cette déclaration est en français.'
   const commentEnglish = 'This statement is in French.'
 

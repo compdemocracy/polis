@@ -1,28 +1,26 @@
 <!DOCTYPE html>
 <html lang="<%= ui_lang %>">
-<head>
-  <meta charset="UTF-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Embedded Polis Test</title>
-</head>
-<body style="background-color: chartreuse;">
-  Check out this conversation!
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Embedded Polis Test</title>
+  </head>
+  <body style="background-color: chartreuse">
+    Check out this conversation!
 
-  <div
-    class='polis'
-    data-conversation_id='<%= conversation_id %>'
-    data-ui_lang="<%= ui_lang %>"
-
-    data-ucsd="<%= ucsd %>"
-    data-ucsf="<%= ucsf %>"
-    data-ucsh="<%= ucsh %>"
-    data-ucst="<%= ucst %>"
-    data-ucsv="<%= ucsv %>"
-    data-ucv="<%= ucv %>"
-    data-ucw="<%= ucw %>"
-  ></div>
-  <script async src='<%= base_url %>/embed.js'></script>
-
-</body>
+    <div
+      class="polis"
+      data-conversation_id="<%= conversation_id %>"
+      data-ui_lang="<%= ui_lang %>"
+      data-ucsd="<%= ucsd %>"
+      data-ucsf="<%= ucsf %>"
+      data-ucsh="<%= ucsh %>"
+      data-ucst="<%= ucst %>"
+      data-ucsv="<%= ucsv %>"
+      data-ucv="<%= ucv %>"
+      data-ucw="<%= ucw %>"
+    ></div>
+    <script async src="<%= base_url %>/embed.js"></script>
+  </body>
 </html>

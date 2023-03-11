@@ -8,63 +8,64 @@ const inputFile = './embed/template.html'
 const outputFile = './embed/index.html'
 
 const argv = require('yargs/yargs')(process.argv.slice(2))
-  .usage('Usage: $0 --conversationId <conversationId> [--baseUrl <baseUrl>]\n' +
-  '[--uiLang <ulLang>] [--ucsd <false>] [--ucsf <false>] [--ucsh <false>]\n' +
-  '[--ucst <false>] [--ucsv <false>] [--ucv <false>] [--ucw <false>]')
+  .usage(
+    'Usage: $0 --conversationId <conversationId> [--baseUrl <baseUrl>]\n' +
+      '[--uiLang <ulLang>] [--ucsd <false>] [--ucsf <false>] [--ucsh <false>]\n' +
+      '[--ucst <false>] [--ucsv <false>] [--ucv <false>] [--ucw <false>]'
+  )
   .option('conversationId', {
     alias: 'id',
     describe: 'The conversation ID',
     type: 'string',
-    demandOption: true
+    demandOption: true,
   })
   .option('baseUrl', {
     alias: 'url',
     describe: 'The base URL',
     type: 'string',
-    default: 'http://localhost'
+    default: 'http://localhost',
   })
   .option('uiLang', {
     alias: 'lang',
     describe: 'The UI language',
     type: 'string',
-    default: 'en'
+    default: 'en',
   })
   .option('ucsd', {
     describe: 'user-can-see-description',
     type: 'boolean',
-    default: true
+    default: true,
   })
   .option('ucsf', {
     describe: 'user-can-see-footer',
     type: 'boolean',
-    default: true
+    default: true,
   })
   .option('ucsh', {
     describe: 'user-can-see-help',
     type: 'boolean',
-    default: true
+    default: true,
   })
   .option('ucst', {
     describe: 'user-can-see-topic',
     type: 'boolean',
-    default: true
+    default: true,
   })
   .option('ucsv', {
     describe: 'user-can-see-vis',
     type: 'boolean',
-    default: true
+    default: true,
   })
   .option('ucv', {
     describe: 'user-can-vote',
     type: 'boolean',
-    default: true
+    default: true,
   })
   .option('ucw', {
     describe: 'user-can-write',
     type: 'boolean',
-    default: true
-  })
-  .argv
+    default: true,
+  }).argv
 
 fs.readFile(inputFile, 'utf8', (err, data) => {
   if (err) throw err

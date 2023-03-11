@@ -5,53 +5,38 @@
     "password": "Te$tP@ssw0rd*"
   },
   "participant": {
-    "name": "Test Participant",
-    "email": "participant@polis.test",
+    "name": "Test Participant 01",
+    "email": "participant01@polis.test",
     "password": "Te$tP@ssw0rd*"
   },
-  "mod01": {
-    "name": "moderator 01",
-    "email": "mod01@polis.test",
+  "participant2": {
+    "name": "Test Participant 02",
+    "email": "participant02@polis.test",
     "password": "Te$tP@ssw0rd*"
   },
-  "mod02": {
-    "name": "moderator 02",
-    "email": "mod02@polis.test",
+  "participant3": {
+    "name": "Test Participant 03",
+    "email": "participant03@polis.test",
     "password": "Te$tP@ssw0rd*"
   },
-  "user01": {
-    "name": "participant 01",
-    "email": "user01@polis.test",
+  "participant4": {
+    "name": "Test Participant 04",
+    "email": "participant04@polis.test",
     "password": "Te$tP@ssw0rd*"
   },
-  "user02": {
-    "name": "participant 02",
-    "email": "user02@polis.test",
+  "participant5": {
+    "name": "Test Participant 05",
+    "email": "participant05@polis.test",
     "password": "Te$tP@ssw0rd*"
   },
-  "user03": {
-    "name": "participant 03",
-    "email": "user03@polis.test",
+  "participant6": {
+    "name": "Test Participant 06",
+    "email": "participant06@polis.test",
     "password": "Te$tP@ssw0rd*"
   },
-  "user04": {
-    "name": "participant 04",
-    "email": "user04@polis.test",
-    "password": "Te$tP@ssw0rd*"
-  },
-  "user05": {
-    "name": "participant 05",
-    "email": "user05@polis.test",
-    "password": "Te$tP@ssw0rd*"
-  },
-  "user06": {
-    "name": "participant 06",
-    "email": "user06@polis.test",
-    "password": "Te$tP@ssw0rd*"
-  },
-  "user07": {
-    "name": "participant 07",
-    "email": "user07@polis.test",
+  "participant7": {
+    "name": "Test Participant 07",
+    "email": "participant07@polis.test",
     "password": "Te$tP@ssw0rd*"
   }
 }
