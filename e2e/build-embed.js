@@ -84,6 +84,6 @@ fs.readFile(inputFile, 'utf8', (err, data) => {
 
   fs.writeFile(outputFile, replacedData, (err) => {
     if (err) throw err
-    console.log(`Generated index.html with Conversation ID ${argv.id}`)
+    console.log(`Generated ${outputFile} with Conversation ID ${argv.id}`)
   })
 })

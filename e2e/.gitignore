@@ -2,5 +2,5 @@
 cypress/logs
 cypress/screenshots
 cypress/videos
-embed/index.html
+embed/*index.html
 node_modules

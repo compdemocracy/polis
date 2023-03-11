@@ -178,6 +178,21 @@ Cypress.Commands.add('interceptEmbed', () => {
   })
 })
 
+// Serve up the embed/integrated-index.html in response to a request to /integrated
+Cypress.Commands.add('interceptIntegrated', () => {
+  cy.readFile('./embed/integrated-index.html').then((html) => {
+    cy.intercept('GET', '/integrated*', (req) => {
+      req.reply({
+        statusCode: 200,
+        body: html,
+        headers: {
+          'Content-Type': 'text/html',
+        },
+      })
+    })
+  })
+})
+
 Cypress.Commands.add('vote', () => {
   cy.intercept('POST', '/api/v3/votes').as('postVotes')
 

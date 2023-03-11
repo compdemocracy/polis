@@ -19,7 +19,7 @@ describe('Share page', function () {
 
   it('has link with proper domain', function () {
     cy.visit(this.adminPath + '/share')
-    cy.contains(Cypress.config().baseUrl)
+    cy.contains(Cypress.config('baseUrl'))
   })
 
   it('shows warnings when no comments', function () {
