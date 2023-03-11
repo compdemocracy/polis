@@ -45,11 +45,7 @@ RUN npm ci --production=false
 
 COPY client-participation/. .
 
-RUN if [ "$NODE_ENV" = "development" ]; then \
-    npm run build:dev; \
-  else \
-    npm run build:prod; \
-  fi
+RUN npm run build:prod
 
 
 
