@@ -16,7 +16,6 @@ import FB from "fb";
 import fs from "fs";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import isTrue from "boolean";
 import OAuth from "oauth";
 // const Pushover = require('pushover-notifications');
 // const pushoverInstance = new Pushover({
@@ -317,7 +316,7 @@ function doApiKeyBasicAuth(
   next: (err: any) => void
 ) {
   let token = header.split(/\s+/).pop() || "", // and the encoded auth token
-    auth = new Buffer(token, "base64").toString(), // convert from base64
+    auth = Buffer.from(token, "base64").toString(), // convert from base64
     parts = auth.split(/:/), // split on colon
     username = parts[0],
     // password = parts[1], // we don't use the password part (just use "apikey:")
@@ -1122,7 +1121,6 @@ function initializePolisHelpers() {
     ...Config.whitelistItems,
     "localhost:5000",
     "localhost:5001",
-    "localhost:5002",
     "facebook.com",
     "api.twitter.com",
     "", // for API
@@ -1652,7 +1650,7 @@ function initializePolisHelpers() {
     ) {
       delete item.zid; // don't leak zid
       let asJSON = JSON.stringify(item);
-      let buf = new Buffer(asJSON, "utf-8");
+      let buf = Buffer.from(asJSON, "utf-8");
       zlib.gzip(buf, function (err: any, jsondGzipdPcaBuffer: any) {
         if (err) {
           return reject(err);
@@ -3330,7 +3328,7 @@ Feel free to reply to this email if you need help.`;
         headers: {
           Authorization:
             "Basic " +
-            new Buffer(userId + ":" + licenseKey, "utf8").toString("base64"),
+            Buffer.from(userId + ":" + licenseKey, "utf8").toString("base64"),
         },
       })
       .then(function (response: string) {
@@ -9768,7 +9766,6 @@ Email verified! You can close this tab or hit the back button.
                       delete conv.zid;
 
                       delete conv.is_anon;
-                      delete conv.is_active;
                       delete conv.is_draft;
                       delete conv.is_public;
                       if (conv.context === "") {
@@ -13556,7 +13553,7 @@ Thanks for using Polis!
   ) {
     res.set({ "Content-Type": "text/html" });
     res.send(
-      new Buffer(
+      Buffer.from(
         "<body>\n" +
           "<script>\n" +
           '  document.cookie="thirdparty=yes; Max-Age=3600; SameSite=None; Secure";\n' +
@@ -13575,7 +13572,7 @@ Thanks for using Polis!
   ) {
     res.set({ "Content-Type": "text/html" });
     res.send(
-      new Buffer(
+      Buffer.from(
         "<body>\n" +
           "<script>\n" +
           "  if (window.parent) {\n" +
