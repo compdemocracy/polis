@@ -1,215 +1,187 @@
-describe.skip('Embedded Conversations', () => {
-  // This test requires overriding client-admin/embed.html with
-  // e2e/cypress/fixtures/html/embeds.html - see https://github.com/compdemocracy/polis/issues/839
-  const POLIS_DOMAIN = Cypress.config().baseUrl.replace('https://', '')
-  const CONVO_DESCRIPTION = 'This is dummy description for embed tests.'
-  const CONVO_TOPIC = 'Embed test topic'
+const topic = 'Embedded Conversation Topic'
+const description = 'Embedded Conversation Description'
+
+describe('Embedded Conversations', function () {
+  before(function () {
+    cy.createConvo(topic, description).then(() => {
+      cy.seedComment(this.convoId)
+    })
+    cy.logout()
+  })
 
   beforeEach(function () {
-    cy.createConvo('moderator').then(() => {
-      cy.seedComment('Seed statement 1', this.convoId)
-      cy.get('[data-test-id="description"]').type(CONVO_DESCRIPTION).blur()
-      cy.get('[data-test-id="topic"]').type(CONVO_TOPIC).blur()
+    cy.intercept('GET', '/api/v3/participationInit*').as('participationInit')
+  })
+
+  describe('default embed', function () {
+    before(function () {
+      const baseUrl = Cypress.config('baseUrl')
+      cy.exec(`npm run build:embed -- --id=${this.convoId} --url=${baseUrl}`)
+      cy.interceptEmbed()
+    })
+
+    it('renders a default embed', function () {
+      cy.visit('/embedded')
+      cy.wait('@participationInit')
+
+      cy.getIframeBody()
+        .find('[data-view-name="root"]')
+        .should('be.visible')
+        .find('[data-view-name="participationView"]')
+        .should('be.visible')
+        .find('[data-view-name="readReactView"]')
+        .should('be.visible')
+        .find('[data-view-name="vote-view"]')
+        .should('be.visible')
+
+      cy.getIframeBody().find('#helpTextWelcome').should('be.visible')
+      cy.getIframeBody().find('[data-view-name="comment-form"]').should('be.visible')
+      cy.getIframeBody().find('[data-view-name="profile-pic-view"]').should('be.visible')
+      cy.getIframeBody().find('[data-test-footer]').should('be.visible')
+
+      cy.getIframeBody()
+        .find('.conversationViewHeadline')
+        .find('h2')
+        .should('contain', topic)
+        .siblings('p')
+        .should('contain', description)
     })
   })
 
-  it('renders a default embed', function () {
-    cy.logout()
-    cy.visit(
-      `${
-        Cypress.config().baseUrl
-      }/embed.html?polisDomain=${POLIS_DOMAIN}&data-conversation_id=${
-        this.convoId
-      }`
-    )
-    cy.enter(`#polis_${this.convoId}`).then((cyframe) => {
-      cyframe().find('div[data-view-name="root"]').as('iframe')
-      cyframe().find('#readReactView').as('vote-widget')
-      cyframe().find('#comment_form_textarea').as('comment-widget')
-      cyframe().find('#helpTextWelcome').as('vote-help')
-      cyframe().find('.POLIS_HEADLINE').as('headline')
-      cyframe().find('svg.svgCenter').as('footer-logo')
-      cyframe().find('#vis_section').as('vis')
+  describe('user-can-vote (ucv) is OFF', function () {
+    before(function () {
+      const baseUrl = Cypress.config('baseUrl')
+      cy.exec(`npm run build:embed -- --id=${this.convoId} --url=${baseUrl} --ucv=false`)
+      cy.interceptEmbed()
     })
 
-    cy.get('@iframe').should('be.visible')
-    cy.get('@vote-widget').should('be.visible')
-    cy.get('@comment-widget').should('be.visible')
-    cy.get('@vote-help').should('be.visible')
-    cy.get('@headline').should('contain', CONVO_DESCRIPTION)
-    cy.get('@footer-logo').should('be.visible')
-    cy.get('@headline').should('contain', CONVO_TOPIC)
-    // TODO add full votes to check this
-    // cy.get('@vis').should('be.visible')
-  })
+    it('hides voting', function () {
+      cy.visit('/embedded')
+      cy.wait('@participationInit')
 
-  it('hides voting when user-can-vote (ucv) is OFF', function () {
-    cy.logout()
-    cy.visit(
-      `${
-        Cypress.config().baseUrl
-      }/embed.html?polisDomain=${POLIS_DOMAIN}&data-conversation_id=${
-        this.convoId
-      }&data-ucv=false`
-    )
-    cy.enter(`#polis_${this.convoId}`).then((cyframe) => {
-      cyframe().find('div[data-view-name="root"]').as('iframe')
-      cyframe().find('#readReactView').as('vote-widget')
-    })
-
-    cy.get('@iframe').should('be.visible')
-    cy.get('@vote-widget').should('not.be.visible')
-  })
-
-  it('hides commenting when user-can-write (ucw) is OFF', function () {
-    cy.logout()
-    cy.visit(
-      `${
-        Cypress.config().baseUrl
-      }/embed.html?polisDomain=${POLIS_DOMAIN}&data-conversation_id=${
-        this.convoId
-      }&data-ucw=false`
-    )
-    cy.enter(`#polis_${this.convoId}`).then((cyframe) => {
-      cyframe().find('div[data-view-name="root"]').as('iframe')
-      cyframe().find('#comment_form_textarea').as('comment-widget')
-    })
-
-    cy.get('@iframe').should('be.visible')
-    cy.get('@comment-widget').should('not.be.visible')
-  })
-
-  it('hides help text when user-can-see-help (ucsh) is OFF', function () {
-    cy.logout()
-    cy.visit(
-      `${
-        Cypress.config().baseUrl
-      }/embed.html?polisDomain=${POLIS_DOMAIN}&data-conversation_id=${
-        this.convoId
-      }&data-ucsh=false`
-    )
-    cy.enter(`#polis_${this.convoId}`).then((cyframe) => {
-      cyframe().find('div[data-view-name="root"]').as('iframe')
-      cyframe().find('#helpTextWelcome').as('vote-help')
-    })
-
-    cy.get('@iframe').should('be.visible')
-    cy.get('@vote-help').should('not.be.visible')
-  })
-
-  it('hides description when user-can-see-description (ucsd) is OFF', function () {
-    cy.logout()
-    cy.visit(
-      `${
-        Cypress.config().baseUrl
-      }/embed.html?polisDomain=${POLIS_DOMAIN}&data-conversation_id=${
-        this.convoId
-      }&data-ucsd=false`
-    )
-    cy.enter(`#polis_${this.convoId}`).then((cyframe) => {
-      cyframe().find('div[data-view-name="root"]').as('iframe')
-      cyframe().find('.POLIS_HEADLINE').as('headline')
-    })
-
-    cy.get('@iframe').should('be.visible')
-    cy.get('@headline').should('not.contain', CONVO_DESCRIPTION)
-  })
-
-  // Seems convo owner needs special permission to disable branding.
-  it.skip('hides footer when user-can-see-footer (ucsf) is OFF', function () {
-    cy.logout()
-    cy.visit(
-      `${
-        Cypress.config().baseUrl
-      }/embed.html?polisDomain=${POLIS_DOMAIN}&data-conversation_id=${
-        this.convoId
-      }&data-ucsf=false`
-    )
-    cy.enter(`#polis_${this.convoId}`).then((cyframe) => {
-      cyframe().find('div[data-view-name="root"]').as('iframe')
-      cyframe().find('svg.svgCenter').as('footer-logo')
-    })
-
-    cy.get('@iframe').should('be.visible')
-    cy.get('@footer-logo').should('not.be.visible')
-  })
-
-  it('hides vis when user-can-see-vis (ucsv) is OFF', function () {
-    cy.logout()
-    cy.visit(
-      `${
-        Cypress.config().baseUrl
-      }/embed.html?polisDomain=${POLIS_DOMAIN}&data-conversation_id=${
-        this.convoId
-      }&data-ucsv=false`
-    )
-    cy.enter(`#polis_${this.convoId}`).then((cyframe) => {
-      cyframe().find('div[data-view-name="root"]').as('iframe')
-      cyframe().find('#vis_section').as('vis')
-    })
-
-    cy.get('@iframe').should('be.visible')
-    cy.get('@vis').should('not.be.visible')
-  })
-
-  it('hides topic when user-can-see-topic (ucst) is OFF', function () {
-    cy.logout()
-    cy.visit(
-      `${
-        Cypress.config().baseUrl
-      }/embed.html?polisDomain=${POLIS_DOMAIN}&data-conversation_id=${
-        this.convoId
-      }&data-ucst=false`
-    )
-    cy.enter(`#polis_${this.convoId}`).then((cyframe) => {
-      cyframe().find('div[data-view-name="root"]').as('iframe')
-      cyframe().find('.POLIS_HEADLINE').as('headline')
-    })
-
-    cy.get('@iframe').should('be.visible')
-    cy.get('@headline').should('not.contain', CONVO_TOPIC)
-  })
-  // TODO: test other data-* params
-  //   - data-x_name
-  //   - data-x_profile_image_url
-  // See: https://roamresearch.com/#/app/polis-methods/page/hwRb6tXIA
-
-  // This is currently broken and has a pending PR to fix.
-  // TODO fix later
-  it.skip('creates xid when provided', function () {
-    cy.logout()
-    cy.visit(
-      `${
-        Cypress.config().baseUrl
-      }/embed.html?polisDomain=${POLIS_DOMAIN}&data-conversation_id=${
-        this.convoId
-      }`
-    )
-    cy.enter(`#polis_${this.convoId}`).then((cyframe) => {
-      cyframe().find('div[data-view-name="root"]').as('iframe')
-      cy.get('@iframe').should('be.visible')
-    })
-    cy.task('dbQuery', {
-      sql: `
-      `,
-      values: []
+      cy.getIframeBody()
+        .find('[data-view-name="root"]')
+        .should('be.visible')
+        .find('[data-view-name="vote-view"]')
+        .should('not.be.visible')
     })
   })
 
-  it.skip('does not create xid when not provided', function () {
-    cy.logout()
-    cy.visit(
-      `${
-        Cypress.config().baseUrl
-      }/embed.html?polisDomain=${POLIS_DOMAIN}&data-conversation_id=${
-        this.convoId
-      }&xid=foobar`
-    )
-    cy.enter(`#polis_${this.convoId}`).then((cyframe) => {
-      cyframe().find('div[data-view-name="root"]').as('iframe')
-      cy.get('@iframe').should('be.visible')
+  describe('user-can-write (ucw) is OFF', function () {
+    before(function () {
+      const baseUrl = Cypress.config('baseUrl')
+      cy.exec(`npm run build:embed -- --id=${this.convoId} --url=${baseUrl} --ucw=false`)
+      cy.interceptEmbed()
+    })
+
+    it('hides commenting', function () {
+      cy.visit('/embedded')
+      cy.wait('@participationInit')
+
+      cy.getIframeBody()
+        .find('[data-view-name="root"]')
+        .should('be.visible')
+        .find('[data-view-name="comment-form"]')
+        .should('not.be.visible')
     })
   })
 
-  // TODO: test postMessage events
+  describe('user-can-see-help (ucsh) is OFF', function () {
+    before(function () {
+      const baseUrl = Cypress.config('baseUrl')
+      cy.exec(`npm run build:embed -- --id=${this.convoId} --url=${baseUrl} --ucsh=false`)
+      cy.interceptEmbed()
+    })
+
+    it('hides help text', function () {
+      cy.visit('/embedded')
+      cy.wait('@participationInit')
+
+      cy.getIframeBody()
+        .find('[data-view-name="root"]')
+        .should('be.visible')
+        .find('#helpTextWelcome')
+        .should('not.be.visible')
+    })
+  })
+
+  describe('user-can-see-description (ucsd) is OFF', function () {
+    before(function () {
+      const baseUrl = Cypress.config('baseUrl')
+      cy.exec(`npm run build:embed -- --id=${this.convoId} --url=${baseUrl} --ucsd=false`)
+      cy.interceptEmbed()
+    })
+
+    it('hides description', function () {
+      cy.visit('/embedded')
+      cy.wait('@participationInit')
+
+      cy.getIframeBody()
+        .find('[data-view-name="root"]')
+        .should('be.visible')
+        .find('.conversationViewHeadline')
+        .find('h2')
+        .should('contain', topic)
+        .siblings('p')
+        .should('not.exist')
+    })
+  })
+
+  describe('user-can-see-footer (ucsf) is OFF', function () {
+    before(function () {
+      const baseUrl = Cypress.config('baseUrl')
+      cy.exec(`npm run build:embed -- --id=${this.convoId} --url=${baseUrl} --ucsf=false`)
+      cy.interceptEmbed()
+    })
+
+    it('hides footer', function () {
+      cy.visit('/embedded')
+      cy.wait('@participationInit')
+
+      cy.getIframeBody()
+        .find('[data-view-name="root"]')
+        .should('be.visible')
+        .get('[data-test-footer]')
+        .should('not.exist')
+    })
+  })
+
+  describe('user-can-see-topic (ucst) is OFF', function () {
+    before(function () {
+      const baseUrl = Cypress.config('baseUrl')
+      cy.exec(`npm run build:embed -- --id=${this.convoId} --url=${baseUrl} --ucst=false`)
+      cy.interceptEmbed()
+    })
+
+    it('hides topic', function () {
+      cy.visit('/embedded')
+      cy.wait('@participationInit')
+
+      cy.getIframeBody()
+        .find('[data-view-name="root"]')
+        .should('be.visible')
+        .find('.conversationViewHeadline h2')
+        .should('not.exist')
+    })
+  })
+
+  // TODO - add enough votes to show the vis
+  describe('user-can-see-vis (ucsv) is OFF', function () {
+    before(function () {
+      const baseUrl = Cypress.config('baseUrl')
+      cy.exec(`npm run build:embed -- --id=${this.convoId} --url=${baseUrl} --ucsv=false`)
+      cy.interceptEmbed()
+    })
+
+    it('hides vis', function () {
+      cy.visit('/embedded')
+      cy.wait('@participationInit')
+
+      cy.getIframeBody()
+        .find('[data-view-name="root"]')
+        .should('be.visible')
+        .find('#vis_section')
+        .should('not.be.visible')
+    })
+  })
 })

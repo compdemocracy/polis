@@ -1,94 +1,148 @@
-describe('Social login buttons', () => {
-  before(function () {
-    cy.createConvo('moderator').then(() => {
-      cy.seedComment('I feel like foo.', this.convoId)
-    })
+const voteView = '[data-view-name="vote-view"]'
+const commentView = '[data-view-name="comment-form"]'
+const facebookAuthOpt = 'input[data-test-id="auth_opt_fb"]'
+const facebookCommentBtn = 'button#facebookButtonCommentForm'
+const facebookVoteBtn = 'button#facebookButtonVoteView'
+const twitterAuthOpt = 'input[data-test-id="auth_opt_tw"]'
+const twitterCommentBtn = 'button#twitterButtonCommentForm'
+const twitterVoteBtn = 'button#twitterButtonVoteView'
 
-    // Ensure social login is enabled for all participant interactions.
-    cy.get('input[data-test-id="auth_needed_to_write"]').check()
-    cy.get('input[data-test-id="auth_needed_to_vote"]').check()
+describe('Social login buttons', function () {
+  before(function () {
+    cy.createConvo().then(() => {
+      cy.seedComment(this.convoId)
+      cy.wrap(`/m/${this.convoId}`).as('adminPath')
+      cy.wrap(`/${this.convoId}`).as('convoPath')
+    })
   })
 
   beforeEach(function () {
-    cy.login('moderator')
-    cy.visit(`/m/${this.convoId}`)
-    cy.get('input[data-test-id="auth_opt_tw"]').as('showTwitterCheckbox')
-    cy.get('input[data-test-id="auth_opt_fb"]').as('showFacebookCheckbox')
-    cy.get('@showTwitterCheckbox').check().should('be.checked')
-    cy.get('@showFacebookCheckbox').check().should('be.checked')
-    cy.logout()
-
-    // Generate aliases for page elements.
-    cy.visit(`/${this.convoId}`)
-    // Click to make other buttons appear in DOM.
-    cy.get('button#passButton').as('voteButton').click()
-    cy.get('button#comment_button').as('commentButton').click()
-    cy.get('button#twitterButtonVoteView').as('onVoteTwitterButton')
-    cy.get('button#twitterButtonCommentForm').as('onCommentTwitterButton')
-    cy.get('button#facebookButtonVoteView').as('onVoteFacebookButton')
-    cy.get('button#facebookButtonCommentForm').as('onCommentFacebookButton')
+    cy.intercept('GET', '/api/v3/comments*').as('getComments')
+    cy.intercept('GET', '/api/v3/conversations*').as('getConversations')
+    cy.intercept('GET', '/api/v3/users*').as('getUsers')
+    cy.intercept('GET', '/api/v3/participationInit*').as('participationInit')
+    cy.intercept('PUT', '/api/v3/conversations').as('putConversations')
   })
 
-  it('allows Facebook to be disabled', function () {
-    cy.login('moderator')
-    cy.visit(`/m/${this.convoId}`)
-    cy.get('@showFacebookCheckbox').uncheck().should('not.be.checked')
-    cy.logout()
+  describe('default settings', function () {
+    it('has the correct settings checked in the admin view', function () {
+      cy.ensureUser('moderator')
+      cy.visit(this.adminPath)
 
-    cy.visit(`/${this.convoId}`)
-    cy.get('@voteButton').click()
-    cy.get('@onVoteTwitterButton').should('be.visible')
-    cy.get('@onVoteFacebookButton').should('not.exist')
+      cy.get(facebookAuthOpt).should('be.checked')
+      cy.get(twitterAuthOpt).should('be.checked')
+      cy.get('input[data-test-id="auth_needed_to_vote"]').should('not.be.checked')
+      cy.get('input[data-test-id="auth_needed_to_write"]').should('be.checked')
+    })
 
-    cy.get('@commentButton').click()
-    cy.get('@onCommentTwitterButton').should('be.visible')
-    cy.get('@onCommentFacebookButton').should('not.exist')
+    it('requires social login to comment, but not to vote', function () {
+      cy.ensureUser('participant')
+      cy.visit(this.convoPath)
+      cy.wait('@participationInit')
+      cy.wait('@getComments')
+
+      cy.vote()
+
+      cy.get(voteView).find(facebookVoteBtn).should('not.exist')
+      cy.get(voteView).find(twitterVoteBtn).should('not.exist')
+
+      cy.get(commentView).find('button#comment_button').click()
+
+      cy.get(commentView).find(facebookCommentBtn).should('be.visible')
+      cy.get(commentView).find(twitterCommentBtn).should('be.visible')
+    })
   })
 
-  it('allows Twitter to be disabled', function () {
-    cy.login('moderator')
-    cy.visit(`/m/${this.convoId}`)
-    cy.get('@showTwitterCheckbox').uncheck().should('not.be.checked')
-    cy.logout()
+  describe('social login required to vote and comment', function () {
+    before(function () {
+      cy.ensureUser('moderator')
+      cy.visit(this.adminPath)
 
-    cy.visit(`/${this.convoId}`)
-    cy.get('@voteButton').click()
-    cy.get('@onVoteTwitterButton').should('not.exist')
-    cy.get('@onVoteFacebookButton').should('be.visible')
+      cy.get('input[data-test-id="auth_needed_to_write"]').check()
+      cy.get('input[data-test-id="auth_needed_to_vote"]').check()
+    })
 
-    cy.get('@commentButton').click()
-    cy.get('@onCommentTwitterButton').should('not.exist')
-    cy.get('@onCommentFacebookButton').should('be.visible')
-  })
+    it('prompts for social login to comment and vote', function () {
+      cy.ensureUser('participant2')
+      cy.visit(this.convoPath)
+      cy.wait('@participationInit')
+      cy.wait('@getComments')
 
-  it('allows both login providers to be enabled', function () {
-    // Both providers enabled by default in beforeEach.
+      cy.vote()
 
-    cy.visit(`/${this.convoId}`)
-    cy.get('@voteButton').click()
-    cy.get('@onVoteTwitterButton').should('be.visible')
-    cy.get('@onVoteFacebookButton').should('be.visible')
+      cy.get(voteView).find(facebookVoteBtn).should('be.visible')
+      cy.get(voteView).find(twitterVoteBtn).should('be.visible')
 
-    cy.get('@commentButton').click()
-    cy.get('@onCommentTwitterButton').should('be.visible')
-    cy.get('@onCommentFacebookButton').should('be.visible')
-  })
+      cy.get(commentView).find('button#comment_button').click()
 
-  // TODO: This state should actually be prevented through config page.
-  it('allows both login providers to be hidden', function () {
-    cy.login('moderator')
-    cy.visit(`/m/${this.convoId}`)
-    cy.get('@showTwitterCheckbox').uncheck().should('not.be.checked')
-    cy.get('@showFacebookCheckbox').uncheck().should('not.be.checked')
-    cy.logout()
+      cy.get(commentView).find(facebookCommentBtn).should('be.visible')
+      cy.get(commentView).find(twitterCommentBtn).should('be.visible')
+    })
 
-    cy.visit(`/${this.convoId}`)
-    cy.get('@voteButton').click()
-    cy.get('@onVoteTwitterButton').should('not.exist')
-    cy.get('@onVoteFacebookButton').should('not.exist')
+    it('allows Facebook to be disabled', function () {
+      cy.ensureUser('moderator')
+      cy.visit(this.adminPath)
+      cy.get(facebookAuthOpt).uncheck()
+      cy.get(twitterAuthOpt).check()
 
-    cy.get('@commentButton').click()
-    cy.get('@onCommentTwitterButton').should('not.exist')
-    cy.get('@onCommentFacebookButton').should('not.exist')
+      cy.ensureUser('participant3')
+      cy.visit(this.convoPath)
+      cy.wait('@participationInit')
+      cy.wait('@getComments')
+
+      cy.vote()
+
+      cy.get(voteView).find(facebookVoteBtn).should('not.exist')
+      cy.get(voteView).find(twitterVoteBtn).should('be.visible')
+
+      cy.get(commentView).find('button#comment_button').click()
+
+      cy.get(commentView).find(facebookCommentBtn).should('not.exist')
+      cy.get(commentView).find(twitterCommentBtn).should('be.visible')
+    })
+
+    it('allows Twitter to be disabled', function () {
+      cy.ensureUser('moderator')
+      cy.visit(this.adminPath)
+      cy.get(facebookAuthOpt).check()
+      cy.get(twitterAuthOpt).uncheck()
+
+      cy.ensureUser('participant4')
+      cy.visit(this.convoPath)
+      cy.wait('@participationInit')
+      cy.wait('@getComments')
+
+      cy.vote()
+
+      cy.get(voteView).find(facebookVoteBtn).should('be.visible')
+      cy.get(voteView).find(twitterVoteBtn).should('not.exist')
+
+      cy.get(commentView).find('button#comment_button').click()
+
+      cy.get(commentView).find(facebookCommentBtn).should('be.visible')
+      cy.get(commentView).find(twitterCommentBtn).should('not.exist')
+    })
+
+    it('allows both providers to be disabled', function () {
+      cy.ensureUser('moderator')
+      cy.visit(this.adminPath)
+      cy.get(facebookAuthOpt).uncheck()
+      cy.get(twitterAuthOpt).uncheck()
+
+      cy.ensureUser('participant5')
+      cy.visit(this.convoPath)
+      cy.wait('@participationInit')
+      cy.wait('@getComments')
+
+      cy.vote()
+
+      cy.get(voteView).find(facebookVoteBtn).should('not.exist')
+      cy.get(voteView).find(twitterVoteBtn).should('not.exist')
+
+      cy.get(commentView).find('button#comment_button').click()
+
+      cy.get(commentView).find(facebookCommentBtn).should('not.exist')
+      cy.get(commentView).find(twitterCommentBtn).should('not.exist')
+    })
   })
 })
