@@ -48,9 +48,8 @@ RUN npm run build:prod
 
 
 ######################## POLIS CLIENT REPORT ########################
-# Gulp v3 stops us from upgrading beyond Node v11
 # FROM client-base AS client-report
-FROM docker.io/node:11-alpine as client-report
+FROM docker.io/node:18-alpine AS client-report
 
 # Set default NODE_ENV to production unless overridden at build time with --build-arg NODE_ENV=development
 ARG NODE_ENV
@@ -68,9 +67,11 @@ COPY client-report/. .
 
 # GIT_HASH will be set properly when running `make` (see Makefile).
 ARG GIT_HASH
+ARG SERVICE_URL
 ENV GIT_HASH ${GIT_HASH:-placeholder}
+ENV SERVICE_URL ${SERVICE_URL}
 
-RUN npm run deploy:prod
+RUN npm run build:prod
 
 
 
