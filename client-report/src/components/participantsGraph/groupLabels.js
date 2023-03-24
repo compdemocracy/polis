@@ -1,14 +1,17 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-const getBackgroundRectWidth = (ptptCount) =>  {
-  let width = 46; /* smallest number */
-  if (ptptCount >= 100 && ptptCount < 1000) {
-    width = 52;
-  } else if (ptptCount > 1000) {
-    width = 59;
-  }
-  return width;
-}
+import * as globals from "../globals";
+import React from "react";
+
+// const getBackgroundRectWidth = (ptptCount) =>  {
+//   let width = 46; /* smallest number */
+//   if (ptptCount >= 100 && ptptCount < 1000) {
+//     width = 52;
+//   } else if (ptptCount > 1000) {
+//     width = 59;
+//   }
+//   return width;
+// }
 
 const Users = ({selectedGroup}) => {
   return (
@@ -23,7 +26,7 @@ const Users = ({selectedGroup}) => {
   )
 }
 
-const Label = ({ptptCount, centroid, gid, selectedGroup, handleClick}) => {
+const Label = ({ptptCount, centroid, gid, selectedGroup /*, handleClick*/}) => {
   return (
     <g transform={`translate(${centroid.x},${centroid.y})`}>
       <text
@@ -53,7 +56,7 @@ const Label = ({ptptCount, centroid, gid, selectedGroup, handleClick}) => {
   )
 }
 
-const GroupLabels = ({groups, centroids, selectedGroup, handleClick}) => {
+const GroupLabels = ({groups, centroids, selectedGroup/*, handleClick*/}) => {
 
   if (!centroids || !groups) { return null }
 

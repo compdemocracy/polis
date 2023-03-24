@@ -7,7 +7,6 @@ dist
 devel
 .polis_env
 .polis_s3_creds_client.json
-.polis_scp_creds_client.json
 .sass-cache/*
 .bashrc
 .env_always

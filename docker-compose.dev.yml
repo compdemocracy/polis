@@ -23,7 +23,7 @@ services:
       - "9229:9229"
 
   math:
-    command: clojure -X:dev-poller
+    # command: clojure -X:dev-poller
     volumes:
       - ./math:/app
     ports:

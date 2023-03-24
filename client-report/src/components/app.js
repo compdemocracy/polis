@@ -10,7 +10,7 @@ import _ from "lodash";
 
 import * as globals from "./globals";
 import DataUtils from "../util/dataUtils";
-import Matrix from "./correlationMatrix/matrix";
+// import Matrix from "./correlationMatrix/matrix";
 import Heading from "./framework/heading";
 import Footer from "./framework/Footer";
 import Overview from "./overview";
@@ -18,9 +18,9 @@ import MajorityStrict from "./lists/majorityStrict";
 import Uncertainty from "./lists/uncertainty";
 import AllCommentsModeratedIn from "./lists/allCommentsModeratedIn"
 import ParticipantGroups from "./lists/participantGroups";
-import CommentsGraph from "./commentsGraph/commentsGraph";
+// import CommentsGraph from "./commentsGraph/commentsGraph";
 import ParticipantsGraph from "./participantsGraph/participantsGraph";
-import BoxPlot from "./boxPlot/boxPlot";
+// import BoxPlot from "./boxPlot/boxPlot";
 import Beeswarm from "./beeswarm/beeswarm";
 import Controls from "./controls/controls";
 
@@ -136,8 +136,7 @@ class App extends React.Component {
           }, this.corMatRetries < 10 ? 200 : 3000); // try to get a quick response, but don't keep polling at that rate for more than 10 seconds.
         } else if (globals.enableMatrix && response && response.status === "polis_report_needs_comment_selection") {
           this.setState({
-            errorLink: "http://localhost:5002/m/36jajfnhhn/reports/r6ehukhk29tcfmuc57vrj/comments",
-            errorLinkText: "Select some comments",
+            errorText: "Select some comments",
           });
           reject("Currently, No comments are selected for display in the matrix.");
         } else {
@@ -223,7 +222,7 @@ class App extends React.Component {
 
       // # ptpts that voted enough to be included in math
       var ptptCount = 0;
-      _.each(mathResult["group-votes"], (val, key) => {
+      _.each(mathResult["group-votes"], (val/*, key*/) => {
         ptptCount += val["n-members"];
       });
 
@@ -251,7 +250,7 @@ class App extends React.Component {
             let rowTid = correlationHClust.comments[rowNum];
             return badTids[rowTid] !== true;
         });
-        filteredTids = tids.filter((tid, index) => {
+        filteredTids = tids.filter((tid/*, index*/) => {
           return badTids[tid] !== true;
         });
       }
@@ -270,7 +269,7 @@ class App extends React.Component {
         return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n;
       }
       function formatTid(tid) {
-        let padded = "" + tid;
+        // let padded = "" + tid;
         // return '#' + pad(""+tid, tidWidth);
         return pad(""+tid, tidWidth);
       }
@@ -301,9 +300,8 @@ class App extends React.Component {
       }
 
       let uncertainty = [];
-      let unanimity = [];
 
-      let maxCount = _.reduce(comments, (memo, c) => { return Math.max(c.count, memo);}, 1);
+      // let maxCount = _.reduce(comments, (memo, c) => { return Math.max(c.count, memo);}, 1);
       comments.map((c) => {
         var unc = c.pass_count / c.count
         if (unc > .3) {
@@ -373,7 +371,7 @@ class App extends React.Component {
   }
 
 
-  componentWillMount() {
+  UNSAFE_componentWillMount() {
     this.getData();
 
     setInterval(() => {
@@ -428,7 +426,6 @@ class App extends React.Component {
       return (<div>
         <div> Error Loading </div>
         <div> {this.state.errorText} </div>
-        {this.state.errorLink ? (<a href={this.state.errorLink}>{this.state.errorLinkText}</a>) : ""}
       </div>);
     }
     if (this.state.nothingToShow) {
@@ -492,7 +489,6 @@ class App extends React.Component {
             comments={this.state.comments}
             conversation={this.state.conversation}
             demographics={this.state.demographics}
-            comments={this.state.comments}
             ptptCount={this.state.ptptCount}
             groupNames={this.state.groupNames}
             formatTid={this.state.formatTid}
@@ -510,7 +506,7 @@ class App extends React.Component {
             ptptCount={this.state.ptptCount}
             formatTid={this.state.formatTid}
             voteColors={this.state.voteColors}/>
-          {false ? <CommentsGraph
+          {/* {false ? <CommentsGraph
             comments={this.state.comments}
             groupNames={this.state.groupNames}
             badTids={this.state.badTids}
@@ -526,7 +522,7 @@ class App extends React.Component {
             tids={this.state.filteredCorrelationTids}
             formatTid={this.state.formatTid}
             ptptCount={this.state.ptptCount}
-            voteColors={this.state.voteColors}/> : ""}
+            voteColors={this.state.voteColors}/> : ""} */}
           <ParticipantsGraph
             comments={this.state.comments}
             groupNames={this.state.groupNames}

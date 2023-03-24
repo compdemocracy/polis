@@ -55,7 +55,7 @@ function polisAjax(api, data, type) {
         }));
     }
 
-    promise.fail( function(jqXHR, message, errorType) {
+    promise.fail( function(jqXHR/*, message, errorType*/) {
 
         // sendEvent("Error", api, jqXHR.status);
 

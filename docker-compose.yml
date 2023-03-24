@@ -53,7 +53,7 @@ services:
         polis_tag: ${TAG:-dev}
     environment:
       - DATABASE_URL=${DATABASE_URL:?error}
-      - MATH_ENV=${MATH_ENV:-dev}
+      - MATH_ENV=${MATH_ENV:-prod}
       - WEBSERVER_USERNAME=${WEBSERVER_USERNAME:?error}
       - WEBSERVER_PASS=${WEBSERVER_PASS:?error}
     networks:
@@ -108,12 +108,7 @@ services:
     environment:
       - EMBED_SERVICE_HOSTNAME=${EMBED_SERVICE_HOSTNAME}
       - PORT=${STATIC_FILES_PORT:-8080}
-      - REPORT_UPLOADER=${REPORT_UPLOADER:-local}
-      - REPORT_SERVICE_URL=${REPORT_SERVICE_URL}
-      - S3_BUCKET_PREPROD=${S3_BUCKET_PREPROD}
-      - S3_BUCKET_PROD=${S3_BUCKET_PROD}
-      - SCP_SUBDIR_PREPROD=${SCP_SUBDIR_PREPROD}
-      - SCP_SUBDIR_PROD=${SCP_SUBDIR_PROD}
+      - SERVICE_URL=${SERVICE_URL}
     networks:
       - "polis-net"
 
