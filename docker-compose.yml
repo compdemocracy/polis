@@ -53,7 +53,7 @@ services:
         polis_tag: ${TAG:-dev}
     environment:
       - DATABASE_URL=${DATABASE_URL:?error}
-      - MATH_ENV=${MATH_ENV:-dev}
+      - MATH_ENV=${MATH_ENV:-prod}
       - WEBSERVER_USERNAME=${WEBSERVER_USERNAME:?error}
       - WEBSERVER_PASS=${WEBSERVER_PASS:?error}
     networks:
