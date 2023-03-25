@@ -4,7 +4,7 @@ const devHostname = process.env.API_DEV_HOSTNAME || "localhost:5000";
 const devMode = isTrue(process.env.DEV_MODE) as boolean;
 const domainOverride = process.env.DOMAIN_OVERRIDE || null as string | null;
 const serverHostname = process.env.API_SERVER_HOSTNAME || "pol.is";
-const serverPort = parseInt(process.env.API_SERVER_PORT || "5000", 10) as number;
+const serverPort = parseInt(process.env.API_SERVER_PORT || process.env.PORT || "5000", 10) as number;
 
 export default {
   domainOverride: domainOverride as string | null,
