@@ -26,8 +26,10 @@ RUN npm run build:prod
 ##################### POLIS CLIENT PARTICIPATION #####################
 FROM docker.io/node:18-alpine AS client-participation
 
+ARG EMBED_SERVICE_HOSTNAME
 ARG FB_APP_ID
 ARG GA_TRACKING_ID
+ENV EMBED_SERVICE_HOSTNAME ${EMBED_SERVICE_HOSTNAME}
 ENV FB_APP_ID ${FB_APP_ID}
 ENV GA_TRACKING_ID ${GA_TRACKING_ID}
 

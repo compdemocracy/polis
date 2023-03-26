@@ -140,6 +140,9 @@ preloadHelper.acceptLanguagePromise.then(function() {
     else if (languageCode.match(/^ru/)) {
       _.extend(strings, translations.ru);
     }
+    else if (languageCode.match(/^hr/)) {
+      _.extend(strings, translations.hr);
+    }
   });
 });
 
