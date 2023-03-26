@@ -70,15 +70,15 @@ describe("Config", () => {
   });
 
   describe("getServerUrl", () => {
-    test('returns API_SERVER_HOSTNAME when DEV_MODE is false', async () => {
-      jest.replaceProperty(process, 'env', {DEV_MODE: 'false', API_SERVER_HOSTNAME: 'example.com'});
+    test('returns API_PROD_HOSTNAME when DEV_MODE is false', async () => {
+      jest.replaceProperty(process, 'env', {DEV_MODE: 'false', API_PROD_HOSTNAME: 'example.com'});
 
       const { default: Config } = await import('../src/config');
 
       expect(Config.getServerUrl()).toBe('https://example.com');
     });
 
-    test('returns https://pol.is when DEV_MODE is false and API_SERVER_HOSTNAME is not set', async () => {
+    test('returns https://pol.is when DEV_MODE is false and API_PROD_HOSTNAME is not set', async () => {
       jest.replaceProperty(process, 'env', {DEV_MODE: 'false'});
 
       const { default: Config } = await import('../src/config');

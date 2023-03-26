@@ -1,29 +1,24 @@
-describe('Comment translation', () => {
-  let browserLanguage
+describe('Comment translation', function () {
   const commentFrench = 'Cette déclaration est en français.'
   const commentEnglish = 'This statement is in French.'
 
   before(function () {
-    cy.createConvo('moderator').then(() => {
-      cy.seedComment(commentFrench, this.convoId)
+    cy.createConvo().then(() => {
+      cy.seedComment(this.convoId, commentFrench)
     })
-
-    // Moderator will have implicitly voted on seed comment, so log out.
-    // See: https://github.com/pol-is/polisServer/issues/373
-    cy.logout()
   })
 
   it('prevents translation when comment already in browser language', function () {
-    browserLanguage = 'fr'
-    cy.visit(`/${this.convoId}`, { qs: { ui_lang: browserLanguage } })
+    cy.ensureUser()
+    cy.openTranslated(this.convoId, 'fr')
 
     cy.contains('p', commentFrench).should('exist')
     cy.get('button#showTranslationButtonVoteView').should('not.exist')
   })
 
   it('allows translation when comment not in browser language', function () {
-    browserLanguage = 'en'
-    cy.visit(`/${this.convoId}`, { qs: { ui_lang: browserLanguage } })
+    cy.ensureUser()
+    cy.openTranslated(this.convoId, 'en')
 
     cy.contains('p', commentFrench).should('exist')
 
