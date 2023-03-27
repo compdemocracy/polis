@@ -1,0 +1,22 @@
+# This file is an override to the original docker-compose.yml file, and as such is meant to
+# extend that configuration with some additional concerns for e2e tests, such as a maildev
+# server. DO NOT USE THIS IN PRODUCTION.
+
+# This configuration does not work on its own and must be run together with docker-compose.yml,
+# e.g. `docker compose -f docker-compose.yml -f docker-compose.test.yml --env-file test.env up`.
+
+# For more information see https://docs.docker.com/compose/extends/
+
+services:
+  maildev:
+    image: docker.io/maildev/maildev:1.1.1
+    labels:
+      polis_tag: ${TAG}
+    networks:
+      - polis-net
+    ports:
+      - "1080:1080"
+
+  server:
+    environment:
+      - GOOGLE_CREDENTIALS_BASE64
