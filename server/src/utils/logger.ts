@@ -1,6 +1,15 @@
 import { createLogger, format, transports } from "winston";
 import Config from "../config";
 
+// Use the console transport in development, and the file transport in production,
+// unless the logTransport config is set.
+let transport = "console";
+if (Config.logTransport) {
+  transport = Config.logTransport;
+} else if (Config.nodeEnv === "production") {
+  transport = "file";
+}
+
 const logger = createLogger({
   level: Config.logLevel || 'info',
   exitOnError: false,
@@ -33,11 +42,7 @@ const logger = createLogger({
   ],
 });
 
-//
-// If we're not in production then log to the `console` with the format:
-// `${info.level}: ${info.message} JSON.stringify({ ...rest }) `
-//
-if (Config.nodeEnv !== "production") {
+if (transport === "console") {
   logger.add(
     new transports.Console({
       format: format.combine(format.colorize(), format.simple()),
