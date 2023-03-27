@@ -1,4 +1,4 @@
-describe('Public pages', () => {
+describe('Public pages', function () {
   it('renders Privacy Policy', function () {
     cy.visit('/privacy')
     cy.get('h1').should('contain', 'Privacy Policy')

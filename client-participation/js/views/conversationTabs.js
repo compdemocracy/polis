@@ -96,7 +96,7 @@ module.exports = Handlebones.ModelView.extend({
     c.showMajorityTab = this.showMajorityTab;
     c.selfUrl = null;
     if (Utils.isInIframe()) {
-      c.selfUrl = (document.location + "").replace("embed.pol.is", "pol.is");
+      c.selfUrl = (document.location + "").replace("embed.", "");
     }
     return c;
   },
