@@ -65,6 +65,7 @@ export default {
   emailTransportTypes: process.env.EMAIL_TRANSPORT_TYPES || null as string | null,
   encryptionPassword: process.env.ENCRYPTION_PASSWORD_00001 as string,
   fbAppId: process.env.FB_APP_ID || null as string | null,
+  logTransport: process.env.SERVER_LOG_TRANSPORT as string,
   logLevel: process.env.SERVER_LOG_LEVEL as string,
   mailgunApiKey: process.env.MAILGUN_API_KEY || (null as string | null),
   mailgunDomain: process.env.MAILGUN_DOMAIN || (null as string | null),
