@@ -67,6 +67,7 @@ export default {
   fbAppId: process.env.FB_APP_ID || null as string | null,
   logTransport: process.env.SERVER_LOG_TRANSPORT as string,
   logLevel: process.env.SERVER_LOG_LEVEL as string,
+  logToFile: isTrue(process.env.SERVER_LOG_TO_FILE) as boolean,
   mailgunApiKey: process.env.MAILGUN_API_KEY || (null as string | null),
   mailgunDomain: process.env.MAILGUN_DOMAIN || (null as string | null),
   mathEnv: process.env.MATH_ENV as string,
