@@ -78,7 +78,7 @@ export default {
   runPeriodicExportTests: isTrue(process.env.RUN_PERIODIC_EXPORT_TESTS) as boolean,
   shouldUseTranslationAPI: setGoogleApplicationCredentials() as boolean,
   staticFilesAdminPort: parseInt(process.env.STATIC_FILES_ADMIN_PORT || '8080', 10) as number,
-  staticFilesClientPort: parseInt(process.env.STATIC_FILES_CLIENT_PORT || '8080', 10) as number,
+  staticFilesParticipationPort: parseInt(process.env.STATIC_FILES_PARTICIPATION_PORT || '8080', 10) as number,
   staticFilesHost: process.env.STATIC_FILES_HOST as string,
   twitterConsumerKey: process.env.TWITTER_CONSUMER_KEY || null as string | null,
   twitterConsumerSecret: process.env.TWITTER_CONSUMER_SECRET || null as string | null,

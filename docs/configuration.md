@@ -46,7 +46,7 @@ If you are doing development on a url other than `localhost` or `localhost:5000`
 **API_DEV_HOSTNAME** value to your development hostname:port, e.g. `myhost:8000` or `api.testserver.net`.
 **DEV_MODE** should be `true`.
 
-If you are deploying to a custom domain (not pol.is) than you need to update both the **API_PROD_HOSTNAME** and
+If you are deploying to a custom domain (not pol.is) then you need to update both the **API_PROD_HOSTNAME** and
 **DOMAIN_OVERRIDE** values to your custom hostname (omitting http(s):// protocol).
 **DEV_MODE** should be `false`.
 
@@ -81,7 +81,7 @@ If you are deploying to a custom domain (not pol.is) than you need to update bot
 - **HTTPS_PORT** typically 443. Port exposed by Nginx reverse proxy.
 - **STATIC_FILES_PORT** typically 8080. Used internally within a docker network and/or behind a proxy.
 - **STATIC_FILES_ADMIN_PORT** same as **STATIC_FILES_PORT** unless you are hosting client-admin separately from file-server. Useful in local development.
-- **STATIC_FILES_CLIENT_PORT** same as **STATIC_FILES_PORT** unless you are hosting client-participation separately from file-server. Useful in local development.
+- **STATIC_FILES_PARTICIPATION_PORT** same as **STATIC_FILES_PORT** unless you are hosting client-participation separately from file-server. Useful in local development.
 
 ### Email Addresses
 
