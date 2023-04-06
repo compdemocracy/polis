@@ -7551,6 +7551,8 @@ Email verified! You can close this tab or hit the back button.
       let comments = results[0];
       let math = results[1];
       let numberOfCommentsRemainingRows = results[2];
+      logger.debug("in getNextPrioritizedComment; intermediate results:",
+                   {zid, pid, comments, numberOfCommentsRemainingRows});
       if (!comments || !comments.length) {
         return null;
       } else if (
@@ -7673,6 +7675,7 @@ Email verified! You can close this tab or hit the back button.
       withoutTids,
       include_social
     ).then((c: CommentType) => {
+      logger.debug("in getNextComment; found new comment:", c);
       if (lang && c) {
         const firstTwoCharsOfLang = lang.substr(0, 2);
         return getCommentTranslations(zid, c.tid).then((translations: any) => {
@@ -8100,9 +8103,11 @@ Email verified! You can close this tab or hit the back button.
             }
           })
           .then(function () {
+            logger.debug("getNextComment being called");
             return getNextComment(zid, pid, [], true, lang);
           })
           .then(function (nextComment: any) {
+            logger.debug("in vote handler; nextComment is:", nextComment);
             let result: PidReadyResult = {};
             if (nextComment) {
               result.nextComment = nextComment;
