@@ -8,6 +8,8 @@ End-To-End Tests written with cypress.io
 
 ## Setup
 
+within the "e2e" folder (`cd e2e`):
+
 ```sh
 npm install
 ```
@@ -26,7 +28,7 @@ If you want to run tests that require integration with Google Translation API, r
 
 ## Running the tests
 
-To run the tests "headlessly" from the command line, simply run:
+To run the tests "headlessly" from the command line, within the "e2e" folder (`cd e2e`), simply run:
 
 ```sh
 npm test
@@ -49,7 +51,7 @@ Read more about the [Cypress command line options here](https://docs.cypress.io/
 
 ## Notes
 
-- The default base url for running tests against, is http://localhost
+- The default base url for running tests against, is <http://localhost>
 - The default browser is electron. On the command line the default is headless electron unless you include a `--browser` option.
 - You may override the base url with a command like so: `CYPRESS_BASE_URL=http://123.45.67.89.sslip.io npm test`
 - `cypress/support/commands.js`: where we keep oft-used commands, e.g., for logging in, creating conversations, etc.
