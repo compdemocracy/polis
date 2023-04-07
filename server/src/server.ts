@@ -7108,7 +7108,7 @@ Email verified! You can close this tab or hit the back button.
             logger.debug("Post comments quote_txt", { txt, quote_txt });
             txt = quote_txt;
           } else {
-            logger.debug("Post comments txt", { txt });
+            logger.debug("Post comments txt", {zid, pid, txt});
           }
 
           let ip =
@@ -7363,12 +7363,7 @@ Email verified! You can close this tab or hit the back button.
                       function (err: { code: string | number }) {
                         if (err.code === "23505" || err.code === 23505) {
                           // duplicate comment
-                          fail(
-                            res,
-                            409,
-                            "polis_err_post_comment_duplicate",
-                            err
-                          );
+                          fail(res, 409, "polis_err_post_comment_duplicate", err);
                         } else {
                           fail(res, 500, "polis_err_post_comment", err);
                         }
@@ -7396,36 +7391,8 @@ Email verified! You can close this tab or hit the back button.
       .catch(function (err: any) {
         fail(res, 500, "polis_err_post_comment_misc", err);
       });
-
-    //var rollback = function(client) {
-    //pgQuery('ROLLBACK', function(err) {
-    //if (err) { fail(res, 500, "polis_err_post_comment", err); return; }
-    //});
-    //};
-    //pgQuery('BEGIN;', function(err) {
-    //if(err) return rollback(client);
-    ////process.nextTick(function() {
-    //pgQuery("SET CONSTRAINTS ALL DEFERRED;", function(err) {
-    //if(err) return rollback(client);
-    //pgQuery("INSERT INTO comments (tid, pid, zid, txt, created) VALUES (null, $1, $2, $3, default);", [pid, zid, txt], function(err, docs) {
-    //if(err) return rollback(client);
-    //pgQuery('COMMIT;', function(err, docs) {
-    //if (err) { fail(res, 500, "polis_err_post_comment", err); return; }
-    //var tid = docs && docs[0] && docs[0].tid;
-    //// Since the user posted it, we'll submit an auto-pull for that.
-    //var autoPull = {
-    //zid: zid,
-    //vote: polisTypes.reactions.pull,
-    //tid: tid,
-    //pid: pid
-    //};
-    ////votesPost(uid, pid, zid, tid, [autoPull]);
-    //}); // COMMIT
-    //}); // INSERT
-    //}); // SET CONSTRAINTS
-    ////}); // nextTick
-    //}); // BEGIN
   } // end POST /api/v3/comments
+
   function handle_GET_votes_me(
     req: { p: { zid: any; uid?: any; pid: any } },
     res: any
