@@ -19,9 +19,9 @@ PROD: ## Run in prod mode (e.g. `make PROD start`, etc.)
 	$(eval COMPOSE_FILE_ARGS = -f docker-compose.yml)
 
 TEST: ## Run in test mode (e.g. `make TEST start`, etc.)
-  $(eval ENV_FILE = test.env)
-  $(eval TAG = $(shell grep -e ^TAG ${ENV_FILE} | awk -F'[=]' '{gsub(/ /,"");print $$2}'))
-  $(eval COMPOSE_FILE_ARGS = -f docker-compose.yml -f docker-compose.test.yml)
+	$(eval ENV_FILE = test.env)
+	$(eval TAG = $(shell grep -e ^TAG ${ENV_FILE} | awk -F'[=]' '{gsub(/ /,"");print $$2}'))
+	$(eval COMPOSE_FILE_ARGS = -f docker-compose.yml -f docker-compose.test.yml)
 
 echo_vars:
 	@echo ENV_FILE=${ENV_FILE}
