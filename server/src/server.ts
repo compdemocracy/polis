@@ -7463,33 +7463,6 @@ Email verified! You can close this tab or hit the back button.
     );
   }
 
-  //function getNextCommentRandomly(zid, pid, withoutTids, include_social) {
-  //let params = {
-  //zid: zid,
-  //not_voted_by_pid: pid,
-  //limit: 1,
-  //random: true,
-  //include_social: include_social,
-  //};
-  //if (!_.isUndefined(withoutTids) && withoutTids.length) {
-  //params.withoutTids = withoutTids;
-  //}
-  //return getComments(params).then(function(comments) {
-  //if (!comments || !comments.length) {
-  //return null;
-  //} else {
-  //let c = comments[0];
-  //return getNumberOfCommentsRemaining(zid, pid).then((rows) => {
-  //if (!rows || !rows.length) {
-  //throw new Error("polis_err_getNumberOfCommentsRemaining_" + zid + "_" + pid);
-  //}
-  //c.remaining = Number(rows[0].remaining);
-  //c.total = Number(rows[0].total);
-  //return c;
-  //});
-  //}
-  //});
-  //}
   function selectProbabilistically(
     comments: any,
     priorities: { [x: string]: any },
@@ -7551,8 +7524,8 @@ Email verified! You can close this tab or hit the back button.
       let comments = results[0];
       let math = results[1];
       let numberOfCommentsRemainingRows = results[2];
-      logger.debug("in getNextPrioritizedComment; intermediate results:",
-                   {zid, pid, comments, numberOfCommentsRemainingRows});
+      logger.debug("getNextPrioritizedComment intermediate results:",
+                   {zid, pid, numberOfCommentsRemainingRows});
       if (!comments || !comments.length) {
         return null;
       } else if (
@@ -7579,79 +7552,6 @@ Email verified! You can close this tab or hit the back button.
       return c;
     });
   }
-  // function getNextCommentPrioritizingNonPassedComments(zid, pid, withoutTids) {
-  //   if (!withoutTids || !withoutTids.length) {
-  //     withoutTids = [-999999]; // ensure there's a value in there so the sql parses as a list
-  //   }
-  //   let q = "WITH ";
-  //   q += "  star_counts AS ";
-  //   q += "  (SELECT tid, count(*) as starcount from stars where zid = $1 group by tid), ";
-  //   q += "  conv AS  ";
-  //   q += "  (SELECT *,";
-  //   q += "    CASE WHEN strict_moderation=TRUE then 1 ELSE 0 END as minModVal from conversations where zid = $1),";
-  //   q += "  pv AS  ";
-  //   q += "  (SELECT tid,  ";
-  //   q += "          TRUE AS voted ";
-  //   q += "   FROM votes  ";
-  //   q += "   WHERE zid = $1 ";
-  //   q += "     AND pid = $2 ";
-  //   q += "   GROUP BY tid),  ";
-  //   q += "     x AS  ";
-  //   q += "  (SELECT * ";
-  //   q += "   FROM votes_latest_unique($1) ";
-  //   q += "   ORDER BY tid),  ";
-  //   q += "     a AS  ";
-  //   q += "  (SELECT zid,  ";
-  //   q += "          tid,  ";
-  //   q += "          count(*) ";
-  //   q += "   FROM x  ";
-  //   q += "   WHERE vote < 0 ";
-  //   q += "   GROUP BY zid,  ";
-  //   q += "            tid),  ";
-  //   q += "     d AS  ";
-  //   q += "  (SELECT tid,  ";
-  //   q += "          count(*) ";
-  //   q += "   FROM x  ";
-  //   q += "   WHERE vote > 0 ";
-  //   q += "   GROUP BY tid),  ";
-  //   q += "     t AS  ";
-  //   q += "  (SELECT tid,  ";
-  //   q += "          count(*) ";
-  //   q += "   FROM x ";
-  //   q += "   GROUP BY tid),  ";
-  //   q += "     c AS  ";
-  //   q += "  (SELECT * ";
-  //   q += "   FROM comments  ";
-  //   q += "   WHERE zid = $1) ";
-  //   q += "SELECT $1 AS zid,  ";
-  //   q += "       c.tid,  ";
-  //   q += "       (COALESCE(a.count,0.0)+COALESCE(d.count,0.0)) / coalesce(t.count, 1.0) AS nonpass_score,  ";
-  //   q += "       pv.voted AS voted,  ";
-  //   q += "       c.* ";
-  //   q += "FROM c ";
-  //   q += "LEFT JOIN d ON c.tid = d.tid ";
-  //   q += "LEFT JOIN t ON c.tid = t.tid ";
-  //   q += "LEFT JOIN a ON a.zid = c.zid ";
-  //   q += "  AND a.tid = c.tid ";
-  //   q += "LEFT JOIN pv ON c.tid = pv.tid  ";
-  //   q += "LEFT JOIN conv ON c.zid = conv.zid  ";
-  //   q += "LEFT JOIN star_counts ON c.tid = star_counts.tid ";
-  //   q += "WHERE voted IS NULL ";
-  //   q += "  AND c.tid NOT IN (" + withoutTids.join(",") + ") ";
-  //   q += "  AND (pv.voted = FALSE OR pv.voted IS NULL)";
-  //   q += "  AND c.active = true";
-  //   q += "  AND c.mod >= conv.minModVal";
-  //   q += "  AND c.velocity > 0";
-  //   q += " ORDER BY starcount DESC NULLS LAST, nonpass_score DESC ";
-  //   q += " LIMIT 1;";
-  //   return pgQueryP_readOnly(q, [zid, pid]).then(function(comments) {
-  //     if (!comments || !comments.length) {
-  //       return null;
-  //     } else {
-  //       return comments[0];
-  //     }
-  //   });
-  // }
 
   function getCommentTranslations(zid: any, tid: any) {
     return dbPgQuery.queryP(
@@ -7667,15 +7567,12 @@ Email verified! You can close this tab or hit the back button.
     include_social?: boolean,
     lang?: string
   ) {
-    // return getNextCommentPrioritizingNonPassedComments(zid, pid, withoutTids, !!!!!!!!!!!!!!!!TODO IMPL!!!!!!!!!!!include_social);
-    //return getNextCommentRandomly(zid, pid, withoutTids, include_social).then((c) => {
     return getNextPrioritizedComment(
       zid,
       pid,
       withoutTids,
       include_social
     ).then((c: CommentType) => {
-      logger.debug("in getNextComment; found new comment:", c);
       if (lang && c) {
         const firstTwoCharsOfLang = lang.substr(0, 2);
         return getCommentTranslations(zid, c.tid).then((translations: any) => {
@@ -8103,11 +8000,10 @@ Email verified! You can close this tab or hit the back button.
             }
           })
           .then(function () {
-            logger.debug("getNextComment being called");
             return getNextComment(zid, pid, [], true, lang);
           })
           .then(function (nextComment: any) {
-            logger.debug("in vote handler; nextComment is:", nextComment);
+            logger.debug("handle_POST_votes nextComment:", {zid, pid, nextComment});
             let result: PidReadyResult = {};
             if (nextComment) {
               result.nextComment = nextComment;
