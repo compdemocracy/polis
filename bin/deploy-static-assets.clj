@@ -1,5 +1,24 @@
 #!/usr/bin/env bb
 
+;; To use this script, you will need to install babashka: https://github.com/babashka/babashka#installation
+;; If you have homebrew/linuxbrew installed, you can use:
+;;
+;;     brew install borkdude/brew/babashka
+;;
+;; Before deploying, use `make PROD start-rebuild` to get the system running, then from another shell, run
+;;
+;;     docker cp polis-prod-file-server-1:/app/build build
+;;
+;; to copy over all of the static assets from the container to local directory.
+;; Next you will have to make sure that you have the AWS environment variables set.
+;;
+;; Then you should be able to run:
+;;
+;;     ./bin/deploy-static-assets.clj --bucket preprod.pol.is --dist-path build
+;;
+;; This deploys to the `preprod.pol.is` bucket.
+;; To deploy to the production `pol.is` bucket, use instead `--bucket pol.is`.
+
 (require '[babashka.pods :as pods]
          '[babashka.deps :as deps]
          '[babashka.process :as process]
@@ -7,16 +26,13 @@
          '[clojure.pprint :as pp]
          '[clojure.tools.cli :as cli]
          '[clojure.java.io :as io]
-         '[clojure.string :as string])
+         '[clojure.string :as string]
+         '[cheshire.core :as json])
 
-(pods/load-pod 'org.babashka/postgresql "0.0.7")
 (pods/load-pod 'org.babashka/aws "0.0.6")
 (deps/add-deps '{:deps {honeysql/honeysql {:mvn/version "1.0.444"}}})
 
-(require '[pod.babashka.postgresql :as pg]
-         '[honeysql.core :as hsql]
-         '[honeysql.helpers :as hsqlh]
-         '[pod.babashka.aws :as aws]
+(require '[pod.babashka.aws :as aws]
          '[pod.babashka.aws.credentials :as aws-creds])
 
 ;; Should move this to arg parsing if and when available
@@ -41,7 +57,11 @@
 
 ;; basic listing contents example
 ;(aws/invoke s3-client {:op :ListObjects :request {:Bucket "pol.is"}})
-;(aws/invoke s3-client {:op :ListObjects :request {:Bucket "preprod.pol.is"}})
+;(->> (:Contents (aws/invoke s3-client {:op :ListObjects :request {:Bucket "preprod.pol.is"}}))
+     ;(map :Key)
+     ;(filter #(re-matches #".*\.headersJson" %)))
+;(->> (:Contents (aws/invoke s3-client {:op :ListObjects :request {:Bucket "preprod.pol.is"}}))
+     ;(filter #(re-matches #".*/fonts/.*" (:Key %))))
 
 (defn file-extension [file]
   (keyword (second (re-find #"\.([a-zA-Z0-9]+)$" (str file)))))
@@ -54,6 +74,8 @@
    :otf   "application/x-font-opentype"
    :svg   "image/svg+xml"
    :eot   "application/vnd.ms-fontobject"
+   ;; technically don't need these since being explicitly set for everything but the fonts files, but doesn't
+   ;; hurt as a backup
    :html  "text/html; charset=UTF-8"
    :js    "application/javascript"
    :css   "text/css; charset=UTF-8"})
@@ -61,123 +83,39 @@
 (def cache-buster-seconds 31536000);
 (def cache-buster (format "no-transform,public,max-age=%s,s-maxage=%s" cache-buster-seconds cache-buster-seconds))
 
-(defn relative-path
-  "Return the relative path of file file to the base path"
-  [path-base file]
-  (let [path-base (cond-> path-base
-                    (not= (last path-base) \/) (str "/"))
-        full-path (str file)]
-    (string/replace full-path path-base "")))
+;(json/decode (slurp (io/file "build/embed.html.headersJson"))
+             ;(comp keyword #(clojure.string/replace % #"-" "")))
 
-;(relative-path "cached/blobs" "cached/blobs/stuff/yeah")
+(defn headers-json-data
+  [file]
+  (let [data (json/decode (slurp file)
+               (comp keyword #(clojure.string/replace % #"-" "")))]
+    (select-keys data [:ContentType :CacheControl :ContentEncoding])))
 
 (defn file-upload-request
   "Return an aws s3 upload request given bucket name, deploy spec, and file"
-  [bucket {:as spec :keys [path cached-path ContentEncoding]} file]
-  (merge
-    {:Bucket bucket
-     :Body (io/input-stream (io/file file))
-     :Key (str (when cached-path "cached/")
-            (relative-path (or path cached-path) file))
-     :ACL "public-read"
-     :ContentType (-> file file-extension ext->content-type)
-     :CacheControl (if cached-path cache-buster "no-cache")}
-    (when ContentEncoding
-      {:ContentEncoding ContentEncoding})))
+  [bucket file]
+  (let [path (str file)
+        headers-file (io/file (str path ".headersJson"))]
+    (merge
+      {:Bucket bucket
+       :Body (io/input-stream (io/file file))
+       :Key (str file)
+       :ACL "public-read"}
+      (if (.exists headers-file)
+        (headers-json-data headers-file)
+        ;; This should just be for the fonts files, which are the only that don't have an explicit headersJson
+        ;; file; assuming caching
+        {:ContentType (-> file file-extension ext->content-type)
+         :CacheControl cache-buster}))))
 
-;(file-upload-request
-  ;"preprod.pol.is"
-  ;{:path "dist/"
-   ;:pattern #".*\.html"}
-  ;(io/file "dist/404.html"))
+;(file-seq (io/file "build"))
 
-
-(defn try-int [s]
-  (try
-    (Long/parseLong s)
-    (catch Throwable t
-      nil)))
-
-;(mapv try-int (string/split "2021_3_20_4_32_16" #"_"))
-
-(defn latest-version [cache-dir]
-  (->> (.listFiles (io/file cache-dir))
-       (sort-by #(mapv try-int (string/split (str %) #"_")))
-       (last)))
-
-;(latest-version "participation-client/dist/cached")
-
-(defn spec-requests
-  [bucket {:as spec :keys [path cached-path pattern ContentEncoding]}]
-  (let [file (io/file (or path cached-path))]
-    (cond
-      cached-path
-      (->> (latest-version file)
-           (file-seq)
-           (filter #(and (.isFile %) ;; exclude subdirectories
-                         (or (not pattern) (re-matches pattern (str %))))) ;; apply pattern if present
-           (map (partial file-upload-request bucket spec)))
-      (and path (.isDirectory file))
-      (->> (file-seq file)
-           (filter #(and (.isFile %) ;; exclude subdirectories
-                         (or (not pattern) (re-matches pattern (str %))))) ;; apply pattern if present
-           (map (partial file-upload-request bucket spec)))
-      (and path (.isFile file))
-      [(file-upload-request bucket spec file)])))
-
-;(spec-requests "preprod.pol.is"
-   ;{:cached-path "client-admin/dist/cached"
-    ;:pattern #".*\.js"
-    ;:ContentEncoding "gzip"})
-
-;(spec-requests "preprod.pol.is"
-   ;{:cached-path "client-participation/dist/cached"
-    ;:pattern #".*/css/.*\.css"})
-
-;(spec-requests "preprod.pol.is"
-  ;{:path "dist/"
-   ;:pattern #".*\.html"})
-
-;(spec-requests "preprod.pol.is"
-  ;{:cached-path "dist/cached/"
-   ;:ContentEncoding "gzip"})
-
-;(re-matches #".*\.(html|svg)" "test.svg")
-(def deploy-specs
-  [
-   ;; client admin
-   {:cached-path "client-admin/dist/cached"
-    ;; <version>/js/* -> cached/<version>/js/**
-    :pattern #".*\.js"
-    :ContentEncoding "gzip"}
-   {:path "client-admin/dist/"
-    :pattern #".*\.html"}
-
-   ;; participation client files
-   {:path "client-participation/dist/"
-    :pattern #".*\.html"}
-   {:path "client-participation/dist/"
-    :pattern #"twitterAuthReturn\.html"
-    :ContentEncoding "gzip"}
-   {:path "client-participation/dist/"
-    :pattern #"embedPreprod\.js"}
-   {:path "client-participation/dist/"
-    :pattern #"embed\.js"}
-   {:cached-path "client-participation/dist/cached"
-    :pattern #".*/css/.*\.css"}
-   {:cached-path "client-participation/dist/cached"
-    :pattern #".*\.(html|svg)"}
-   {:cached-path "client-participation/dist/cached"
-    :pattern #".*/js/.*\.js"
-    :ContentEncoding "gzip"}])
-   
-   ;; client report
-   ;{:path "client-report/dest-root/**/js/**"
-    ;:ContentEncoding "gzip"
-    ;:CacheControl cache-buster
-    ;:subdir cached-subdir}
-   ;{:path "client-report/dest-root/**/*.html"}]
-
+(defn upload-requests [bucket path]
+  (->> (file-seq (io/file path))
+       (filter #(and (.isFile %) ;; exclude subdirectories
+                     (not (re-matches #".*\.headersJson" (str %))))) ;; omit, headersJson, since processed separately
+       (map (partial file-upload-request bucket))))
 
 ; Inspect how this parses to AWS S3 requests
 ;(pp/pprint
@@ -198,7 +136,7 @@
 (defn process-deploy
   "Execute AWS S3 request, and return result"
   [request]
-  (println "processing request" (pr-str request))
+  (println "Processing request:" request)
   [request (aws/invoke s3-client {:op :PutObject :request request})])
 
 ;(doseq [request (mapcat (partial spec-requests "preprod.pol.is") deploy-specs)]
@@ -218,9 +156,8 @@
     ("preprod" "edge") "preprod.pol.is"
     bucket-arg))
 
-(defn responses [bucket]
-  (let [requests (mapcat (partial spec-requests bucket)
-                         deploy-specs)
+(defn responses [bucket path]
+  (let [requests (upload-requests bucket path)
         output-chan (async/chan concurrent-requests)]
     (async/pipeline-blocking concurrent-requests
                              output-chan
@@ -232,10 +169,10 @@
   (remove (comp :ETag second)
           responses))
 
-(defn -main [& {:as opts-map :strs [--bucket]}]
+(defn -main [& {:as opts-map :strs [--bucket --dist-path]}]
   (let [bucket (get-bucket --bucket)
         _ (println "Deploying static assets to bucket:" bucket)
-        responses (responses bucket)
+        responses (responses bucket (or --dist-path "build"))
         errors (errors responses)]
     (if (not-empty errors)
       (do
