@@ -38,7 +38,7 @@ get very far. Still it can be useful for developing and debugging builds.
 
 The folowing environment variable can be set when building and running this application. If using the top-level `docker compose` configuration, it can be found in the `.env` file there.
 
-**SERVICE_URL**: (Optional) The URL of your API Server. Set this value if your API Server is not on the same domain as your client-report.
+**`SERVICE_URL`**: (Optional) The URL of your API Server. Set this value if your API Server is not on the same domain as your client-report.
 Currently this is only used in development.
 
 You will also need to have AWS credentials set up at `.polis_s3_creds_client.json` if you are using S3
