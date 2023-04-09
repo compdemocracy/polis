@@ -13482,7 +13482,7 @@ Thanks for using Polis!
     //     // });
     //     getStaticFile("./unsupportedBrowser.html", res);
     // } else {
-    let port = Config.staticFilesClientPort;
+    let port = Config.staticFilesParticipationPort;
     // set the host header too, since S3 will look at that (or the routing proxy will patch up the request.. not sure which)
     if (req && req.headers && req.headers.host) req.headers.host = hostname;
     routingProxy.web(req, res, {
@@ -13689,11 +13689,11 @@ Thanks for using Polis!
 
   // serve up index.html in response to anything starting with a number
   let hostname: string = Config.staticFilesHost;
-  let staticFilesClientPort: number = Config.staticFilesClientPort;
+  let staticFilesParticipationPort: number = Config.staticFilesParticipationPort;
   let staticFilesAdminPort: number = Config.staticFilesAdminPort;
   let fetchUnsupportedBrowserPage = makeFileFetcher(
     hostname,
-    staticFilesClientPort,
+    staticFilesParticipationPort,
     "/unsupportedBrowser.html",
     {
       "Content-Type": "text/html",
@@ -13822,7 +13822,7 @@ Thanks for using Polis!
           req,
           res,
           preloadData,
-          staticFilesClientPort,
+          staticFilesParticipationPort,
           buildNumber
         );
       })
@@ -14116,7 +14116,7 @@ Thanks for using Polis!
     makeRedirectorTo,
     pidCache,
     staticFilesAdminPort,
-    staticFilesClientPort,
+    staticFilesParticipationPort,
     proxy,
     redirectIfHasZidButNoConversationId,
     redirectIfNotHttps,
