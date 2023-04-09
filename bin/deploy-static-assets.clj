@@ -92,15 +92,22 @@
                (comp keyword #(clojure.string/replace % #"-" "")))]
     (select-keys data [:ContentType :CacheControl :ContentEncoding])))
 
+(defn relative-path
+  "Return the relative path of file file to the base path"
+  [path-base file]
+  (let [path-base (cond-> path-base
+                    (not= (last path-base) \/) (str "/"))
+        full-path (str file)]
+    (string/replace full-path path-base "")))
+
 (defn file-upload-request
   "Return an aws s3 upload request given bucket name, deploy spec, and file"
-  [bucket file]
-  (let [path (str file)
-        headers-file (io/file (str path ".headersJson"))]
+  [bucket base-path file]
+  (let [headers-file (io/file (str file ".headersJson"))]
     (merge
       {:Bucket bucket
        :Body (io/input-stream (io/file file))
-       :Key (str file)
+       :Key (relative-path base-path file)
        :ACL "public-read"}
       (if (.exists headers-file)
         (headers-json-data headers-file)
@@ -115,7 +122,7 @@
   (->> (file-seq (io/file path))
        (filter #(and (.isFile %) ;; exclude subdirectories
                      (not (re-matches #".*\.headersJson" (str %))))) ;; omit, headersJson, since processed separately
-       (map (partial file-upload-request bucket))))
+       (map (partial file-upload-request bucket path))))
 
 ; Inspect how this parses to AWS S3 requests
 ;(pp/pprint
