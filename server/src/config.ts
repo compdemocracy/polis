@@ -60,7 +60,7 @@ export default {
   akismetAntispamApiKey: process.env.AKISMET_ANTISPAM_API_KEY || null as string | null,
   awsRegion: process.env.AWS_REGION as string,
   backfillCommentLangDetection: isTrue(process.env.BACKFILL_COMMENT_LANG_DETECTION) as boolean,
-  cacheMathResults: isTrue(process.env.CACHE_MATH_RESULTS) as boolean,
+  cacheMathResults: isTrueOrBlank(process.env.CACHE_MATH_RESULTS) as boolean,
   databaseURL: process.env.DATABASE_URL as string,
   emailTransportTypes: process.env.EMAIL_TRANSPORT_TYPES || null as string | null,
   encryptionPassword: process.env.ENCRYPTION_PASSWORD_00001 as string,
@@ -97,6 +97,11 @@ export default {
   ].filter(item => item !== null) as string[],
 };
 
+// Use this function when a value shuould default to true if not set.
+function isTrueOrBlank(val: string | boolean | undefined): boolean {
+  return val === undefined || val === '' || isTrue(val);
+}
+
 function setGoogleApplicationCredentials(): boolean {
   if (!shouldUseTranslationAPI) {
     return false;
@@ -105,15 +110,15 @@ function setGoogleApplicationCredentials(): boolean {
   const googleCredentialsBase64: string | undefined = process.env.GOOGLE_CREDENTIALS_BASE64;
   const googleCredsStringified: string | undefined = process.env.GOOGLE_CREDS_STRINGIFIED;
 
-try {
-  // TODO: Consider deprecating GOOGLE_CREDS_STRINGIFIED in future.
-  if (!googleCredentialsBase64 && !googleCredsStringified) {
-    throw new Error("Missing Google credentials. Translation API will be disabled.");
-  }
+  try {
+    // TODO: Consider deprecating GOOGLE_CREDS_STRINGIFIED in future.
+    if (!googleCredentialsBase64 && !googleCredsStringified) {
+      throw new Error("Missing Google credentials. Translation API will be disabled.");
+    }
 
-  const creds_string = googleCredentialsBase64
-    ? Buffer.from(googleCredentialsBase64, "base64").toString("ascii")
-    : (googleCredsStringified as string);
+    const creds_string = googleCredentialsBase64
+      ? Buffer.from(googleCredentialsBase64, "base64").toString("ascii")
+      : (googleCredsStringified as string);
 
     // Tell translation library where to find credentials, and write them to disk.
     const credentialsFilePath = ".google_creds_temp";

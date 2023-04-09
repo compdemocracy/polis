@@ -96,7 +96,7 @@ If you are deploying to a custom domain (not pol.is) then you need to update bot
 (All can be left blank, or `false`)
 
 - **`BACKFILL_COMMENT_LANG_DETECTION`** Set to `true`, if Comment Translation was enabled, to instruct the server upon the next initialization (reboot) to backfill detected language of stored comments. Default `false`.
-- **`CACHE_MATH_RESULTS`** Set this to `true` to instruct the API server to use LRU caching for results from the math service. Default `false`.
+- **`CACHE_MATH_RESULTS`** Set this to `true` to instruct the API server to use LRU caching for results from the math service. Default is `true` if left blank.
 - **`DEV_MODE`** Set this to `true` in development and `false` otherwise. Used by API Server to make a variety of assumptions about HTTPS, logging, notifications, etc.
 - **`RUN_PERIODIC_EXPORT_TESTS`** Set this to `true` to run periodic export tests, sent to the **`ADMIN_EMAIL_DATA_EXPORT_TEST`** address.
 - **`SERVER_LOG_TO_FILE`** Set this to `true` to tell Winston.js to also write log files to server/logs/. Defaults to `false`. *Note that if using docker compose, server/logs is mounted as a persistent volume.*
