@@ -20,7 +20,7 @@ The ones you're most frequently to need to tweak for one reason or another:
   Conversations which have had vote or moderation activity in the specified range will be loaded into memory, and will be updated.
   This prevents old inactive conversations from being loaded into memory every time the poller starts.
 
-You'll also need to pass database credentials. If using docker compose, this will be inheritted from the `.env` file or process environment in which docker is being run.
+You'll also need to pass database credentials. If using docker compose, this will be inherited from the `.env` file or process environment in which docker is being run.
 
   `DATABASE_URL`: url for the database:
 
