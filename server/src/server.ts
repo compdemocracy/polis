@@ -11257,7 +11257,7 @@ Thanks for using Polis!
     }
 
     const authorsQueryParts = (authorUids || []).map(function (
-      authoruid?: any
+      authorUid?: any
     ) {
       // TODO investigate this one.
       // TODO looks like a possible typo bug
