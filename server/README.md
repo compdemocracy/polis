@@ -52,7 +52,7 @@ flavors of node.
   the default behavior if you run `docker compose -f docker-compose.yml -f docker-compose.dev.yml up postgres` from the
   root folder of the polis project. To run everything but the API server in this fashion you can use
   `docker compose -f docker-compose.yml -f docker-compose.dev.yml up math postgres file-server maildev`. In this case
-  the polis-dev database should be accesssable at the default DATABASE_URL seen in server/example.env.
+  the polis-dev database should be accessible at the default DATABASE_URL seen in server/example.env.
 
 3\. Connect to the new database then run the migrations in its shell. You can skip this step if you built the
   database with docker compose.

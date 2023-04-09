@@ -3,40 +3,41 @@ name: "Bundlewatch Github Action"
 on:
   push:
     # Required so that baseline for comparison is pushed to bundlewatch service.
-    branches: ["dev"]
+    branches:
+      - edge
     paths:
       - .github/workflows/bundlewatch.yml
       - client-admin/**
       - client-participation/**
+      - client-report/**
   pull_request:
     types: ["opened", "reopened", "synchronize"]
     paths:
       - .github/workflows/bundlewatch.yml
       - client-admin/**
       - client-participation/**
+      - client-report/**
 
 jobs:
   bundlewatch:
     runs-on: ubuntu-latest
-    env:
-      BUNDLEWATCH_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
-    - uses: actions/checkout@v2.3.4
+    - uses: actions/checkout@v3
 
-    # Both components use this version
+    # Client components all use this version
     - name: Use Node version for app builds
-      uses: actions/setup-node@v2.1.5
+      uses: actions/setup-node@v3
       with:
-        node-version: 11.15.0
+        node-version: 18
 
     - name: Get npm cache directory
       id: npm-cache
       run: |
-        echo "::set-output name=dir::$(npm config get cache)"
+        echo "dir=$(npm config get cache)" >> $GITHUB_OUTPUT
 
     - name: Restore npm cache directory
-      uses: actions/cache@v2.1.5
+      uses: actions/cache@v3
       with:
         path: ${{ steps.npm-cache.outputs.dir }}
         key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
@@ -48,32 +49,24 @@ jobs:
       run: |
         npm install
         npm run build:prod
-        mv dist/static/js/admin_bundle.*.js dist/static/js/admin_bundle.xxxxxxxx.js
 
     - name: "Install & Build: client-participation"
       working-directory: client-participation
       run: |
         npm install
-        npm run deploy:prod
-        # So directory stays consistent between builds for comparison.
-        mv dist/cached/* dist/cached/xxxxxxxxx
+        npm run build:prod
+
+    - name: "Install & Build: client-report"
+      working-directory: client-report
+      run: |
+        npm install
+        npm run build:prod
 
     - name: Install Bundlewatch
-      run: npm install -g bundlewatch@0.2.6
+      run: npm install -g bundlewatch@0.3.3
 
     - name: "Run Bundlewatch"
-      # TODO: Move config to root directory, so easier to run against all components.
-      # See: https://github.com/bundlewatch/bundlewatch/pull/170
-      env:
-        CI_BRANCH_DEFAULT: ${{ github.event.repository.default_branch }}
-
-        PR_COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
-        PR_BRANCH: ${{ github.event.pull_request.head.ref }}
-        # Overrides `ci.repoBranchBase` (bundlewatch config)
-        PR_BRANCH_BASE: ${{ github.event.pull_request.base.ref }}
-
-        PUSH_COMMIT_SHA: ${{ github.event.after }}
-        # PUSH_BRANCH: see below (needs processing)
-        PUSH_BRANCH_BASE: ${{ github.event.repository.default_branch }}
-      # GITHUB_REF is in format `refs/heads/branch-name`, so need to strip first part.
-      run: PUSH_BRANCH=${GITHUB_REF#refs/heads/} npx bundlewatch --config .bundlewatch.config.js
+      uses: jackyef/bundlewatch-gh-action@master
+      with:
+        bundlewatch-github-token: ${{ secrets.GITHUB_TOKEN }}
+        bundlewatch-config: .bundlewatch.config.js
