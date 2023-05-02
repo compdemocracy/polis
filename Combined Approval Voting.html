@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Combined Approval Voting</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <h1>Combined Approval Voting Poll</h1>
+        <form @submit.prevent="submitVotes">
+            <div v-for="(option, index) in options" :key="index">
+                <input type="checkbox" :value="index" v-model="selectedOptions">
+                <label>{{option}}</label>
+            </div>
+            <button type="submit">Submit Votes</button>
+        </form>
+    </div>
+
+    <script src="https://unpkg.com/vue@next"></script>
+    <script>
+        const app = Vue.createApp({
+            data() {
+                return {
+                    options: ['Option 1', 'Option 2', 'Option 3'],
+                    selectedOptions: []
+                };
+            },
+            methods: {
+                submitVotes() {
+                    // Submit the selected options to the server for processing
+                    console.log('Selected Options:', this.selectedOptions);
+                }
+            }
+        });
+
+        app.mount('#app');
+    </script>
+</body>
+</html>
