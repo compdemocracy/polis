@@ -8008,6 +8008,7 @@ Email verified! You can close this tab or hit the back button.
         help_bgcolor: string;
         style_btn: any;
         write_type: any;
+        priority_type: any;
         owner_sees_participation_stats: any;
         launch_presentation_return_url_hex: any;
         link_url: any;
@@ -12421,6 +12422,7 @@ Thanks for using Polis!
           parent_url: conv.parent_url,
           vis_type: conv.vis_type,
           write_type: conv.write_type,
+          priority_type: conv.priority_type,
           help_type: conv.help_type,
           socialbtn_type: conv.socialbtn_type,
           bgcolor: conv.bgcolor,

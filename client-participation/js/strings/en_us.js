@@ -12,6 +12,20 @@ s.pass = "Pass / Unsure";
 
 s.writePrompt = "Share your perspective...";
 s.anonPerson = "Anonymous";
+s.importantCheckbox = "Important/Significant";
+s.importantCheckboxDesc =
+  "Check this box if you believe this statement is especially important to you or is highly relevant to the conversation, irrespective of your vote. It will give this statement higher priority compared to your other votes in the conversation analysis."
+  s.howImportantPrompt = "How important is this statement?";
+s.howImportantLow = "Low";
+s.howImportantMedium = "Medium";
+s.howImportantHigh = "High";
+
+s.modSpam = "Spam";
+s.modOffTopic = "Off Topic";
+s.modImportant = "Important";
+s.modSubmitInitialState = "Skip (none of the above), next statement";
+s.modSubmit = "Done, next statement";
+
 s.x_wrote = "wrote:";
 s.x_tweeted = "tweeted:";
 s.comments_remaining = "{{num_comments}} remaining";

@@ -1004,6 +1004,7 @@ helpersInitialized.then(
       want("strict_moderation", getBool, assignToP),
       want("topic", getOptionalStringLimitLength(1000), assignToP),
       want("description", getOptionalStringLimitLength(50000), assignToP),
+      want("priority_type", getBool, assignToP),
       want("vis_type", getInt, assignToP),
       want("help_type", getInt, assignToP),
       want("write_type", getInt, assignToP),
