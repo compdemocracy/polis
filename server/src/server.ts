@@ -611,6 +611,7 @@ function initializePolisHelpers() {
     tid?: any,
     voteType?: any,
     weight?: number,
+    high_priority?: boolean,
   ) {
     let zid = conv?.zid;
     weight = weight || 0;
@@ -620,8 +621,8 @@ function initializePolisHelpers() {
       reject: (arg0: string) => void
     ) {
       let query =
-        "INSERT INTO votes (pid, zid, tid, vote, weight_x_32767, created) VALUES ($1, $2, $3, $4, $5, default) RETURNING *;";
-      let params = [pid, zid, tid, voteType, weight_x_32767];
+        "INSERT INTO votes (pid, zid, tid, vote, weight_x_32767, high_priority, created) VALUES ($1, $2, $3, $4, $5, $6, default) RETURNING *;";
+      let params = [pid, zid, tid, voteType, weight_x_32767, high_priority];
       pgQuery(query, params, function (err: any, result: { rows: any[] }) {
         if (err) {
           if (isDuplicateKey(err)) {
@@ -650,6 +651,7 @@ function initializePolisHelpers() {
     tid?: any,
     voteType?: any,
     weight?: number,
+    high_priority?: boolean,
   ) {
     return (
       pgQueryP_readOnly("select * from conversations where zid = ($1);", [zid])
@@ -702,6 +704,7 @@ function initializePolisHelpers() {
             tid,
             voteType,
             weight,
+            high_priority,
           );
         })
     );
@@ -7947,6 +7950,7 @@ Email verified! You can close this tab or hit the back button.
               req.p.tid,
               req.p.vote,
               req.p.weight,
+              req.p.high_priority,
             );
           })
           .then(function (o: { vote: any }) {

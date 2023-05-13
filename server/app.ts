@@ -835,7 +835,7 @@ helpersInitialized.then(
       ),
       need("vote", getIntInRange(-1, 1), assignToP),
       want("starred", getBool, assignToP),
-      want("weight", getNumberInRange(-1, 1), assignToP, 0),
+      want("high_priority", getBool, assignToP, false),
       resolve_pidThing("pid", assignToP, "post:votes"),
       want("xid", getStringLimitLength(1, 999), assignToP),
       want("lang", getStringLimitLength(1, 10), assignToP), // language of the next comment to be returned

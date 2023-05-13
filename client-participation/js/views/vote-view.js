@@ -508,7 +508,7 @@ module.exports = Handlebones.ModelView.extend({
       };
       serverClient.addToVotesByMe(this.wipVote);
       this.onButtonClicked();
-      serverClient.agree(tid, starred, this.wipVote.weight)
+      serverClient.agree(tid, starred, this.wipVote.high_priority)
         .then(onVote.bind(this), onFail.bind(this));
     };
     this.participantDisagreed = function() {
@@ -523,7 +523,7 @@ module.exports = Handlebones.ModelView.extend({
       };
       serverClient.addToVotesByMe(this.wipVote);
       this.onButtonClicked();
-      serverClient.disagree(tid, starred, this.wipVote.weight)
+      serverClient.disagree(tid, starred, this.wipVote.high_priority)
         .then(onVote.bind(this), onFail.bind(this));
     };
     this.participantPassed = function() {
@@ -538,7 +538,7 @@ module.exports = Handlebones.ModelView.extend({
       };
       serverClient.addToVotesByMe(this.wipVote);
       this.onButtonClicked();
-      serverClient.pass(tid, starred, this.wipVote.weight)
+      serverClient.pass(tid, starred, this.wipVote.high_priority)
         .then(onVote.bind(this), onFail.bind(this));
     };
 
@@ -578,7 +578,7 @@ module.exports = Handlebones.ModelView.extend({
         return;
       }
       var starred = this.model.get("starred");
-      var weight = 0;
+      var high_priority = this.wipVote.high_priority;
 
       var tid = this.wipVote.tid;
 
@@ -590,13 +590,13 @@ module.exports = Handlebones.ModelView.extend({
       }
 
       if (this.wipVote.vote === -1) {
-        serverClient.agree(tid, starred, weight)
+        serverClient.agree(tid, starred, high_priority)
           .then(reloadPage, onFailAfterAuth);
       } else if (this.wipVote.vote === 0) {
-        serverClient.pass(tid, starred, weight)
+        serverClient.pass(tid, starred, high_priority)
           .then(reloadPage, onFailAfterAuth);
       } else if (this.wipVote.vote === 1) {
-        serverClient.disagree(tid, starred, weight)
+        serverClient.disagree(tid, starred, high_priority)
           .then(reloadPage, onFailAfterAuth);
       } else {
         alert(3);

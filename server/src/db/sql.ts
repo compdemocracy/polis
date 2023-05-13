@@ -75,7 +75,7 @@ const sql_comments = sql.define({
 
 const sql_votes_latest_unique = sql.define({
   name: "votes_latest_unique",
-  columns: ["zid", "tid", "pid", "modified", "vote", "weight"],
+  columns: ["zid", "tid", "pid", "modified", "vote", "weight", "high_priority"],
 });
 
 const sql_participant_metadata_answers = sql.define({
