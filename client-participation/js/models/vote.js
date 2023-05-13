@@ -11,6 +11,7 @@ module.exports = Model.extend({
       pid: undefined, // PPPParticipant id -- this is a unique id every participant has in every convo that starts at 0
       conversation_id: undefined, // converSation id
       votes: undefined, // agree = -1, pass = 0, disagree = 1
-      participantStarred: false
+      participantStarred: false,
+      high_priority: false,
     }
   });
