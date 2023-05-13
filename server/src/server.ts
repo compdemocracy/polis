@@ -7325,7 +7325,7 @@ Email verified! You can close this tab or hit the back button.
                         let createdTime = comment.created;
                         let votePromise = _.isUndefined(vote)
                           ? Promise.resolve()
-                          : votesPost(uid, pid, zid, tid, vote, 0);
+                          : votesPost(uid, pid, zid, tid, vote, 0, false);
 
                         return (
                           votePromise
