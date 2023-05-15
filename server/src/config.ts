@@ -8,6 +8,9 @@ const prodHostname = process.env.API_PROD_HOSTNAME || "pol.is";
 const serverPort = parseInt(process.env.API_SERVER_PORT || process.env.PORT || "5000", 10) as number;
 const shouldUseTranslationAPI = isTrue(process.env.SHOULD_USE_TRANSLATION_API) as boolean;
 
+/* Do NOT use source-map-support in production as it uses the non-standard stack property of Errors */
+if(devMode) { require('source-map-support').install(); }
+
 export default {
   domainOverride: domainOverride as string | null,
   isDevMode: devMode as boolean,
