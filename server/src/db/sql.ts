@@ -27,7 +27,7 @@ const sql_conversations: any = sql.define({
     "parent_url",
     "vis_type",
     "write_type",
-    "priority_type",
+    "importance_enabled",
     "help_type",
     "socialbtn_type",
     "subscribe_type",

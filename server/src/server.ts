@@ -8550,7 +8550,7 @@ Email verified! You can close this tab or hit the back button.
         help_bgcolor: string;
         style_btn: any;
         write_type: any;
-        priority_type: any;
+        importance_enabled: any;
         owner_sees_participation_stats: any;
         launch_presentation_return_url_hex: any;
         link_url: any;
@@ -8642,8 +8642,8 @@ Email verified! You can close this tab or hit the back button.
         if (!_.isUndefined(req.p.write_type)) {
           fields.write_type = req.p.write_type;
         }
-        if (!_.isUndefined(req.p.priority_type)) {
-          fields.priority_type = req.p.priority_type;
+        if (!_.isUndefined(req.p.importance_enabled)) {
+          fields.importance_enabled = req.p.importance_enabled;
         }
         ifDefinedSet("auth_needed_to_vote", req.p, fields);
         ifDefinedSet("auth_needed_to_write", req.p, fields);
@@ -13066,7 +13066,7 @@ Thanks for using Polis!
           parent_url: conv.parent_url,
           vis_type: conv.vis_type,
           write_type: conv.write_type,
-          priority_type: conv.priority_type,
+          importance_enabled: conv.importance_enabled,
           help_type: conv.help_type,
           socialbtn_type: conv.socialbtn_type,
           bgcolor: conv.bgcolor,
