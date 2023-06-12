@@ -8,11 +8,9 @@ const prodHostname = process.env.API_PROD_HOSTNAME || "pol.is";
 const serverPort = parseInt(process.env.API_SERVER_PORT || process.env.PORT || "5000", 10) as number;
 const shouldUseTranslationAPI = isTrue(process.env.SHOULD_USE_TRANSLATION_API) as boolean;
 
-if(devMode) {
-  import('source-map-support').then((sourceMapSupport) => {
-      sourceMapSupport.install();
-  });
-}
+import('source-map-support').then((sourceMapSupport) => {
+    sourceMapSupport.install();
+});
 
 export default {
   domainOverride: domainOverride as string | null,
