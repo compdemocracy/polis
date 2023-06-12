@@ -111,7 +111,7 @@ module.exports = Handlebones.ModelView.extend({
       }
 
     }
-    ctx.showImportantCheckbox = preload.conversation.priority_type; // TODO: set up feature flagging
+    ctx.showImportantCheckbox = preload.conversation.importance_enabled;
     ctx.social = socialCtx;
     ctx.noModSet = !ctx.spamOn && !ctx.otOn && !ctx.importantOn;
     ctx.canSubscribe = !!preload.firstPtpt || this.votesByMe.size() > 0;

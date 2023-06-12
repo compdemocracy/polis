@@ -1,7 +1,7 @@
 ALTER TABLE conversations
-  ADD priority_type BOOLEAN NOT NULL
+  ADD importance_enabled BOOLEAN NOT NULL
     DEFAULT (false);
 
-ALTER TABLE votes 
-  ADD high_priority BOOLEAN NOT NULL 
+ALTER TABLE votes
+  ADD high_priority BOOLEAN NOT NULL
     DEFAULT (false);
