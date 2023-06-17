@@ -3438,8 +3438,6 @@ Feel free to reply to this email if you need help.`;
       let ips = x_forwarded_for;
       ips = ips && ips.split(", ");
       ip = ips.length && ips[0];
-      info.encrypted_ip_address = encrypt(ip);
-      info.encrypted_x_forwarded_for = encrypt(x_forwarded_for);
     }
     if (permanent_cookie) {
       info.permanent_cookie = permanent_cookie;
