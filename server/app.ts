@@ -56,7 +56,7 @@ helpersInitialized.then(
       makeRedirectorTo,
       pidCache,
       staticFilesAdminPort,
-      staticFilesClientPort,
+      staticFilesParticipationPort,
       proxy,
       redirectIfHasZidButNoConversationId,
       redirectIfNotHttps,
@@ -1506,7 +1506,7 @@ helpersInitialized.then(
     );
 
     function makeFetchIndexWithoutPreloadData() {
-      let port = staticFilesClientPort;
+      let port = staticFilesParticipationPort;
       return function (req, res) {
         return fetchIndexWithoutPreloadData(req, res, port);
       };
@@ -1607,7 +1607,7 @@ helpersInitialized.then(
     );
     app.get(
       /^\/styleguide$/,
-      makeFileFetcher(hostname, staticFilesClientPort, "/styleguide.html", {
+      makeFileFetcher(hostname, staticFilesParticipationPort, "/styleguide.html", {
         "Content-Type": "text/html",
       })
     );
@@ -1616,7 +1616,7 @@ helpersInitialized.then(
     app.get(/^\/home(\/.*)?/, fetchIndexForAdminPage);
     app.get(
       /^\/s\/CTE\/?$/,
-      makeFileFetcher(hostname, staticFilesClientPort, "/football.html", {
+      makeFileFetcher(hostname, staticFilesParticipationPort, "/football.html", {
         "Content-Type": "text/html",
       })
     );
@@ -1624,7 +1624,7 @@ helpersInitialized.then(
       /^\/twitterAuthReturn(\/.*)?$/,
       makeFileFetcher(
         hostname,
-        staticFilesClientPort,
+        staticFilesParticipationPort,
         "/twitterAuthReturn.html",
         {
           "Content-Type": "text/html",

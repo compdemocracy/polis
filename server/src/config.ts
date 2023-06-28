@@ -5,8 +5,12 @@ const devHostname = process.env.API_DEV_HOSTNAME || "localhost:5000";
 const devMode = isTrue(process.env.DEV_MODE) as boolean;
 const domainOverride = process.env.DOMAIN_OVERRIDE || null as string | null;
 const prodHostname = process.env.API_PROD_HOSTNAME || "pol.is";
-const serverPort = parseInt(process.env.API_SERVER_PORT || "5000", 10) as number;
+const serverPort = parseInt(process.env.API_SERVER_PORT || process.env.PORT || "5000", 10) as number;
 const shouldUseTranslationAPI = isTrue(process.env.SHOULD_USE_TRANSLATION_API) as boolean;
+
+import('source-map-support').then((sourceMapSupport) => {
+    sourceMapSupport.install();
+});
 
 export default {
   domainOverride: domainOverride as string | null,
@@ -60,13 +64,13 @@ export default {
   akismetAntispamApiKey: process.env.AKISMET_ANTISPAM_API_KEY || null as string | null,
   awsRegion: process.env.AWS_REGION as string,
   backfillCommentLangDetection: isTrue(process.env.BACKFILL_COMMENT_LANG_DETECTION) as boolean,
-  cacheMathResults: isTrue(process.env.CACHE_MATH_RESULTS) as boolean,
+  cacheMathResults: isTrueOrBlank(process.env.CACHE_MATH_RESULTS) as boolean,
   databaseURL: process.env.DATABASE_URL as string,
   emailTransportTypes: process.env.EMAIL_TRANSPORT_TYPES || null as string | null,
   encryptionPassword: process.env.ENCRYPTION_PASSWORD_00001 as string,
   fbAppId: process.env.FB_APP_ID || null as string | null,
-  logTransport: process.env.SERVER_LOG_TRANSPORT as string,
   logLevel: process.env.SERVER_LOG_LEVEL as string,
+  logToFile: isTrue(process.env.SERVER_LOG_TO_FILE) as boolean,
   mailgunApiKey: process.env.MAILGUN_API_KEY || (null as string | null),
   mailgunDomain: process.env.MAILGUN_DOMAIN || (null as string | null),
   mathEnv: process.env.MATH_ENV as string,
@@ -77,8 +81,8 @@ export default {
   readOnlyDatabaseURL: process.env.READ_ONLY_DATABASE_URL || process.env.DATABASE_URL as string,
   runPeriodicExportTests: isTrue(process.env.RUN_PERIODIC_EXPORT_TESTS) as boolean,
   shouldUseTranslationAPI: setGoogleApplicationCredentials() as boolean,
-  staticFilesAdminPort: parseInt(process.env.STATIC_FILES_ADMIN_PORT || '8080', 10) as number,
-  staticFilesClientPort: parseInt(process.env.STATIC_FILES_CLIENT_PORT || '8080', 10) as number,
+  staticFilesAdminPort: parseInt(process.env.STATIC_FILES_ADMIN_PORT || process.env.STATIC_FILES_PORT || '8080', 10) as number,
+  staticFilesParticipationPort: parseInt(process.env.STATIC_FILES_PARTICIPATION_PORT || process.env.STATIC_FILES_PORT || '8080', 10) as number,
   staticFilesHost: process.env.STATIC_FILES_HOST as string,
   twitterConsumerKey: process.env.TWITTER_CONSUMER_KEY || null as string | null,
   twitterConsumerSecret: process.env.TWITTER_CONSUMER_SECRET || null as string | null,
@@ -97,6 +101,11 @@ export default {
   ].filter(item => item !== null) as string[],
 };
 
+// Use this function when a value shuould default to true if not set.
+function isTrueOrBlank(val: string | boolean | undefined): boolean {
+  return val === undefined || val === '' || isTrue(val);
+}
+
 function setGoogleApplicationCredentials(): boolean {
   if (!shouldUseTranslationAPI) {
     return false;
@@ -105,15 +114,15 @@ function setGoogleApplicationCredentials(): boolean {
   const googleCredentialsBase64: string | undefined = process.env.GOOGLE_CREDENTIALS_BASE64;
   const googleCredsStringified: string | undefined = process.env.GOOGLE_CREDS_STRINGIFIED;
 
-try {
-  // TODO: Consider deprecating GOOGLE_CREDS_STRINGIFIED in future.
-  if (!googleCredentialsBase64 && !googleCredsStringified) {
-    throw new Error("Missing Google credentials. Translation API will be disabled.");
-  }
+  try {
+    // TODO: Consider deprecating GOOGLE_CREDS_STRINGIFIED in future.
+    if (!googleCredentialsBase64 && !googleCredsStringified) {
+      throw new Error("Missing Google credentials. Translation API will be disabled.");
+    }
 
-  const creds_string = googleCredentialsBase64
-    ? Buffer.from(googleCredentialsBase64, "base64").toString("ascii")
-    : (googleCredsStringified as string);
+    const creds_string = googleCredentialsBase64
+      ? Buffer.from(googleCredentialsBase64, "base64").toString("ascii")
+      : (googleCredsStringified as string);
 
     // Tell translation library where to find credentials, and write them to disk.
     const credentialsFilePath = ".google_creds_temp";

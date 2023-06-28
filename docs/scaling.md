@@ -15,7 +15,7 @@ Typically, this would be run on a single machine, and thus for even moderate sca
 This complicates the process of adjusting in real time to changing demand in a cost and resource effective manner.
 
 For small to medium size deployments with rather steady or predictable participation rates, this may be a tenable solution.
-But for deployments which expect exceptionally high, uneven and/or unpredictable participation rates, it may prove too costly in terms of computational and operations personele resources.
+But for deployments which expect exceptionally high, uneven and/or unpredictable participation rates, it may prove too costly in terms of computational and operations personnel resources.
 
 #### Docker Compose over Docker Swarm
 

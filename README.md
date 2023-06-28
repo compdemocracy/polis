@@ -99,7 +99,7 @@ make start
 Any time you want to _rebuild_ the images, just reaffix `--build` when you run. Another way to
 easily rebuild and start your containers is with `make start-rebuild`.
 
-If you have only changed configuration values in .env, you can reacreate your containers without
+If you have only changed configuration values in .env, you can recreate your containers without
 fully rebuilding them with `--force-recreate`. For example:
 
 ```sh

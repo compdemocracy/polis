@@ -7108,7 +7108,7 @@ Email verified! You can close this tab or hit the back button.
             logger.debug("Post comments quote_txt", { txt, quote_txt });
             txt = quote_txt;
           } else {
-            logger.debug("Post comments txt", { txt });
+            logger.debug("Post comments txt", {zid, pid, txt});
           }
 
           let ip =
@@ -7363,12 +7363,7 @@ Email verified! You can close this tab or hit the back button.
                       function (err: { code: string | number }) {
                         if (err.code === "23505" || err.code === 23505) {
                           // duplicate comment
-                          fail(
-                            res,
-                            409,
-                            "polis_err_post_comment_duplicate",
-                            err
-                          );
+                          fail(res, 409, "polis_err_post_comment_duplicate", err);
                         } else {
                           fail(res, 500, "polis_err_post_comment", err);
                         }
@@ -7396,36 +7391,8 @@ Email verified! You can close this tab or hit the back button.
       .catch(function (err: any) {
         fail(res, 500, "polis_err_post_comment_misc", err);
       });
-
-    //var rollback = function(client) {
-    //pgQuery('ROLLBACK', function(err) {
-    //if (err) { fail(res, 500, "polis_err_post_comment", err); return; }
-    //});
-    //};
-    //pgQuery('BEGIN;', function(err) {
-    //if(err) return rollback(client);
-    ////process.nextTick(function() {
-    //pgQuery("SET CONSTRAINTS ALL DEFERRED;", function(err) {
-    //if(err) return rollback(client);
-    //pgQuery("INSERT INTO comments (tid, pid, zid, txt, created) VALUES (null, $1, $2, $3, default);", [pid, zid, txt], function(err, docs) {
-    //if(err) return rollback(client);
-    //pgQuery('COMMIT;', function(err, docs) {
-    //if (err) { fail(res, 500, "polis_err_post_comment", err); return; }
-    //var tid = docs && docs[0] && docs[0].tid;
-    //// Since the user posted it, we'll submit an auto-pull for that.
-    //var autoPull = {
-    //zid: zid,
-    //vote: polisTypes.reactions.pull,
-    //tid: tid,
-    //pid: pid
-    //};
-    ////votesPost(uid, pid, zid, tid, [autoPull]);
-    //}); // COMMIT
-    //}); // INSERT
-    //}); // SET CONSTRAINTS
-    ////}); // nextTick
-    //}); // BEGIN
   } // end POST /api/v3/comments
+
   function handle_GET_votes_me(
     req: { p: { zid: any; uid?: any; pid: any } },
     res: any
@@ -7463,33 +7430,6 @@ Email verified! You can close this tab or hit the back button.
     );
   }
 
-  //function getNextCommentRandomly(zid, pid, withoutTids, include_social) {
-  //let params = {
-  //zid: zid,
-  //not_voted_by_pid: pid,
-  //limit: 1,
-  //random: true,
-  //include_social: include_social,
-  //};
-  //if (!_.isUndefined(withoutTids) && withoutTids.length) {
-  //params.withoutTids = withoutTids;
-  //}
-  //return getComments(params).then(function(comments) {
-  //if (!comments || !comments.length) {
-  //return null;
-  //} else {
-  //let c = comments[0];
-  //return getNumberOfCommentsRemaining(zid, pid).then((rows) => {
-  //if (!rows || !rows.length) {
-  //throw new Error("polis_err_getNumberOfCommentsRemaining_" + zid + "_" + pid);
-  //}
-  //c.remaining = Number(rows[0].remaining);
-  //c.total = Number(rows[0].total);
-  //return c;
-  //});
-  //}
-  //});
-  //}
   function selectProbabilistically(
     comments: any,
     priorities: { [x: string]: any },
@@ -7551,6 +7491,8 @@ Email verified! You can close this tab or hit the back button.
       let comments = results[0];
       let math = results[1];
       let numberOfCommentsRemainingRows = results[2];
+      logger.debug("getNextPrioritizedComment intermediate results:",
+                   {zid, pid, numberOfCommentsRemainingRows});
       if (!comments || !comments.length) {
         return null;
       } else if (
@@ -7577,79 +7519,6 @@ Email verified! You can close this tab or hit the back button.
       return c;
     });
   }
-  // function getNextCommentPrioritizingNonPassedComments(zid, pid, withoutTids) {
-  //   if (!withoutTids || !withoutTids.length) {
-  //     withoutTids = [-999999]; // ensure there's a value in there so the sql parses as a list
-  //   }
-  //   let q = "WITH ";
-  //   q += "  star_counts AS ";
-  //   q += "  (SELECT tid, count(*) as starcount from stars where zid = $1 group by tid), ";
-  //   q += "  conv AS  ";
-  //   q += "  (SELECT *,";
-  //   q += "    CASE WHEN strict_moderation=TRUE then 1 ELSE 0 END as minModVal from conversations where zid = $1),";
-  //   q += "  pv AS  ";
-  //   q += "  (SELECT tid,  ";
-  //   q += "          TRUE AS voted ";
-  //   q += "   FROM votes  ";
-  //   q += "   WHERE zid = $1 ";
-  //   q += "     AND pid = $2 ";
-  //   q += "   GROUP BY tid),  ";
-  //   q += "     x AS  ";
-  //   q += "  (SELECT * ";
-  //   q += "   FROM votes_latest_unique($1) ";
-  //   q += "   ORDER BY tid),  ";
-  //   q += "     a AS  ";
-  //   q += "  (SELECT zid,  ";
-  //   q += "          tid,  ";
-  //   q += "          count(*) ";
-  //   q += "   FROM x  ";
-  //   q += "   WHERE vote < 0 ";
-  //   q += "   GROUP BY zid,  ";
-  //   q += "            tid),  ";
-  //   q += "     d AS  ";
-  //   q += "  (SELECT tid,  ";
-  //   q += "          count(*) ";
-  //   q += "   FROM x  ";
-  //   q += "   WHERE vote > 0 ";
-  //   q += "   GROUP BY tid),  ";
-  //   q += "     t AS  ";
-  //   q += "  (SELECT tid,  ";
-  //   q += "          count(*) ";
-  //   q += "   FROM x ";
-  //   q += "   GROUP BY tid),  ";
-  //   q += "     c AS  ";
-  //   q += "  (SELECT * ";
-  //   q += "   FROM comments  ";
-  //   q += "   WHERE zid = $1) ";
-  //   q += "SELECT $1 AS zid,  ";
-  //   q += "       c.tid,  ";
-  //   q += "       (COALESCE(a.count,0.0)+COALESCE(d.count,0.0)) / coalesce(t.count, 1.0) AS nonpass_score,  ";
-  //   q += "       pv.voted AS voted,  ";
-  //   q += "       c.* ";
-  //   q += "FROM c ";
-  //   q += "LEFT JOIN d ON c.tid = d.tid ";
-  //   q += "LEFT JOIN t ON c.tid = t.tid ";
-  //   q += "LEFT JOIN a ON a.zid = c.zid ";
-  //   q += "  AND a.tid = c.tid ";
-  //   q += "LEFT JOIN pv ON c.tid = pv.tid  ";
-  //   q += "LEFT JOIN conv ON c.zid = conv.zid  ";
-  //   q += "LEFT JOIN star_counts ON c.tid = star_counts.tid ";
-  //   q += "WHERE voted IS NULL ";
-  //   q += "  AND c.tid NOT IN (" + withoutTids.join(",") + ") ";
-  //   q += "  AND (pv.voted = FALSE OR pv.voted IS NULL)";
-  //   q += "  AND c.active = true";
-  //   q += "  AND c.mod >= conv.minModVal";
-  //   q += "  AND c.velocity > 0";
-  //   q += " ORDER BY starcount DESC NULLS LAST, nonpass_score DESC ";
-  //   q += " LIMIT 1;";
-  //   return pgQueryP_readOnly(q, [zid, pid]).then(function(comments) {
-  //     if (!comments || !comments.length) {
-  //       return null;
-  //     } else {
-  //       return comments[0];
-  //     }
-  //   });
-  // }
 
   function getCommentTranslations(zid: any, tid: any) {
     return dbPgQuery.queryP(
@@ -7665,8 +7534,6 @@ Email verified! You can close this tab or hit the back button.
     include_social?: boolean,
     lang?: string
   ) {
-    // return getNextCommentPrioritizingNonPassedComments(zid, pid, withoutTids, !!!!!!!!!!!!!!!!TODO IMPL!!!!!!!!!!!include_social);
-    //return getNextCommentRandomly(zid, pid, withoutTids, include_social).then((c) => {
     return getNextPrioritizedComment(
       zid,
       pid,
@@ -8103,6 +7970,7 @@ Email verified! You can close this tab or hit the back button.
             return getNextComment(zid, pid, [], true, lang);
           })
           .then(function (nextComment: any) {
+            logger.debug("handle_POST_votes nextComment:", {zid, pid, nextComment});
             let result: PidReadyResult = {};
             if (nextComment) {
               result.nextComment = nextComment;
@@ -11389,7 +11257,7 @@ Thanks for using Polis!
     }
 
     const authorsQueryParts = (authorUids || []).map(function (
-      authoruid?: any
+      authorUid?: any
     ) {
       // TODO investigate this one.
       // TODO looks like a possible typo bug
@@ -13482,7 +13350,7 @@ Thanks for using Polis!
     //     // });
     //     getStaticFile("./unsupportedBrowser.html", res);
     // } else {
-    let port = Config.staticFilesClientPort;
+    let port = Config.staticFilesParticipationPort;
     // set the host header too, since S3 will look at that (or the routing proxy will patch up the request.. not sure which)
     if (req && req.headers && req.headers.host) req.headers.host = hostname;
     routingProxy.web(req, res, {
@@ -13689,11 +13557,11 @@ Thanks for using Polis!
 
   // serve up index.html in response to anything starting with a number
   let hostname: string = Config.staticFilesHost;
-  let staticFilesClientPort: number = Config.staticFilesClientPort;
+  let staticFilesParticipationPort: number = Config.staticFilesParticipationPort;
   let staticFilesAdminPort: number = Config.staticFilesAdminPort;
   let fetchUnsupportedBrowserPage = makeFileFetcher(
     hostname,
-    staticFilesClientPort,
+    staticFilesParticipationPort,
     "/unsupportedBrowser.html",
     {
       "Content-Type": "text/html",
@@ -13822,7 +13690,7 @@ Thanks for using Polis!
           req,
           res,
           preloadData,
-          staticFilesClientPort,
+          staticFilesParticipationPort,
           buildNumber
         );
       })
@@ -14116,7 +13984,7 @@ Thanks for using Polis!
     makeRedirectorTo,
     pidCache,
     staticFilesAdminPort,
-    staticFilesClientPort,
+    staticFilesParticipationPort,
     proxy,
     redirectIfHasZidButNoConversationId,
     redirectIfNotHttps,

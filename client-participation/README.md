@@ -40,7 +40,7 @@ assets in another way.
 ### embed.js
 
 Among the assets built into the `dist/` directory is `embed.js` which is used when deploying a polis client
-embedded into another website. Set the **EMBED_SERVICE_HOSTNAME** environment variable to your API Service hostname
+embedded into another website. Set the **`EMBED_SERVICE_HOSTNAME`** environment variable to your API Service hostname
 when you build this app. In the top-level `docker compose` configuration, this variable is read from the `.env` file
 there. e.g. `EMBED_SERVICE_HOSTNAME=api.mypolis.org`.
 
@@ -49,7 +49,7 @@ there. e.g. `EMBED_SERVICE_HOSTNAME=api.mypolis.org`.
 Optionally, you can [register with Facebook](https://developers.facebook.com/docs/development) and get a Facebook App ID
 to use the Facebook auth features.
 
-If you do so, set the **FB_APP_ID** environment variable in the top level `.env` file, or manually pass it in
+If you do so, set the **`FB_APP_ID`** environment variable in the top level `.env` file, or manually pass it in
 when building and running this application.
 
 ## Building the Application
