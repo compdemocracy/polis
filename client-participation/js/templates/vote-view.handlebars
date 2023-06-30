@@ -272,6 +272,29 @@
     </div>
   </div>
   {{else}} {{!-- !shouldMod --}}
+    {{#if showImportantCheckbox}}
+    <div style="text-align: center; margin-bottom: 20px">
+      <label class="weight-label">
+        <span class="weight-radio"></span>
+        <input type="checkbox" name="checkbox" id="weight_high" aria-describedby="importantCheckboxDesc">
+        {{s.importantCheckbox}}
+        <span id="importantCheckboxDesc" class="is-visually-hidden">
+          {{s.importantCheckboxDesc}}
+        </span>
+      </label>
+      <i class="svgIcon" style="
+        display: inline-block;
+        position: relative;
+        top: 2px;
+        width: 17px;
+        fill: #8a8a8a;
+        "
+        data-text="{{s.importantCheckboxDesc}}"
+        onclick="alert(this.dataset.text)"
+        aria-hidden="true"
+        >{{> iconFaCircleQuestion}}</i>
+    </div>
+    {{/if}}
     <div
       class="
         reactionButtons
@@ -326,29 +349,7 @@
       </button>
     </div>
 
-    {{#if showImportantCheckbox}}
-    <div style="text-align: center; margin-bottom: 20px">
-      <label class="weight-label">
-        <span class="weight-radio"></span>
-        <input type="checkbox" name="checkbox" id="weight_high" aria-describedby="importantCheckboxDesc">
-        {{s.importantCheckbox}}
-        <span id="importantCheckboxDesc" class="is-visually-hidden">
-          {{s.importantCheckboxDesc}}
-        </span>
-      </label>
-      <i class="svgIcon" style="
-        display: inline-block;
-        position: relative;
-        top: 2px;
-        width: 17px;
-        fill: #8a8a8a;
-        "
-        data-text="{{s.importantCheckboxDesc}}"
-        onclick="alert(this.dataset.text)"
-        aria-hidden="true"
-        >{{> iconFaCircleQuestion}}</i>
-    </div>
-    {{/if}}
+
 
   {{/if}} {{!-- /shouldMod --}}
 
