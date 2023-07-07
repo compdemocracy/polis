@@ -11,27 +11,27 @@
 // If client-report is running on localhost:80, it is being served by the dev api server,
 // via nginx-proxy, and should send requests to localhost:80. (Dev API server via nginx-proxy).
 //
-// If client-report is running on any polis production domain,
-// it should send requests to that domain.
+// If client-report is running on any polis production hostname,
+// it should send requests to that hostname.
 //
 // Otherwise, use the SERVICE_URL environment variable, if set, or default to
-// the current self.origin (e.g. "https://mypolis.xyz/").
+// the current origin (e.g. "https://mypolis.xyz/").
 
 // NOTE: SERVICE_URL is currently not present in the production build via gulp.
 // It is only present in the dev build via webpack-dev-server.
 const serviceUrl = process.env.SERVICE_URL;
-const domain = document.domain;
-const port = document.location.port;
+const hostname = self.location.hostname;
+const port = self.location.port;
 
 const getDomainPrefix = () => {
-  if (domain === "localhost") {
-    if (port === "" || port === "80") return "http://localhost/";
-    if (port === "5010") return "http://localhost:5000/";
-    return "http://localhost:5000/";
+  if (hostname === 'localhost') {
+    if (port === '' || port === '80') return 'http://localhost/';
+    if (port === '5010') return 'http://localhost:5000/';
+    return 'http://localhost:5000/';
   }
 
-  if (domain.includes("pol.is")) return `https://${domain}/`;
-  if (domain.includes("polis.io")) return `https://${domain}/`;
+  if (hostname.includes('pol.is')) return `https://${hostname}/`;
+  if (hostname.includes('polis.io')) return `https://${hostname}/`;
 
   if (serviceUrl) return `${serviceUrl}/`;
 
