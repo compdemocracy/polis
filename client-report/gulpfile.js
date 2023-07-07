@@ -39,7 +39,7 @@ function localUploader(params) {
 }
 
 function deploy(uploader) {
-  const cacheSecondsForContentWithCacheBuster = 31536000;
+  const cacheSecondsForContentWithCacheBuster = 31536000; // 1 year
 
   function makeUploadPathHtml(file) {
     return file.path.match(RegExp("[^/]*$"))[0];
