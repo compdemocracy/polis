@@ -29,6 +29,8 @@
     "gulp-gzip": "0.0.4",
     "gulp-rename": "~1.0.0",
     "gulp-s3": "github:pol-is/gulp-s3#master",
+    "html-loader": "^4.2.0",
+    "html-webpack-plugin": "^5.5.3",
     "json-loader": "~0.5.7",
     "react-transform-catch-errors": "~1.0.2",
     "react-transform-hmr": "~1.0.4",
