@@ -15,7 +15,7 @@
 // it should send requests to that domain.
 //
 // Otherwise, use the SERVICE_URL environment variable, if set, or default to
-// the current document.origin (e.g. "https://mypolis.xyz/").
+// the current self.origin (e.g. "https://mypolis.xyz/").
 
 // NOTE: SERVICE_URL is currently not present in the production build via gulp.
 // It is only present in the dev build via webpack-dev-server.
@@ -35,7 +35,7 @@ const getDomainPrefix = () => {
 
   if (serviceUrl) return `${serviceUrl}/`;
 
-  return `${document.origin}/`;
+  return `${self.origin}/`;
 };
 
 const urlPrefix = getDomainPrefix();
