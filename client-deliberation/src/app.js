@@ -30,6 +30,7 @@ import Account from './components/conversations-and-account/account'
 import Integrate from './components/conversations-and-account/integrate'
 
 import InteriorHeader from './components/interior-header'
+import TestPage from './components/testpage'
 
 const PrivateRoute = ({ component: Component, isLoading, authed, ...rest }) => {
   if (isLoading) {
@@ -149,6 +150,7 @@ class App extends React.Component {
             render={() => <SignIn {...this.props} authed={this.isAuthed()} />}
           />
           <Route exact path="/signout" component={SignOut} />
+          <Route exact path="/testpage" component={TestPage} />
           <Route exact path="/signout/*" component={SignOut} />
           <Route exact path="/signout/**/*" component={SignOut} />
           <Route exact path="/createuser" component={CreateUser} />
