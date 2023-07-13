@@ -1,0 +1,22 @@
+# For client-deliberation
+
+FROM docker.io/node:18-alpine
+
+ARG ENABLE_TWITTER_WIDGETS
+ARG FB_APP_ID
+ENV ENABLE_TWITTER_WIDGETS ${ENABLE_TWITTER_WIDGETS}
+ENV FB_APP_ID ${FB_APP_ID}
+
+# Set default NODE_ENV to development unless overridden at build time with --build-arg NODE_ENV=production
+ARG NODE_ENV
+ENV NODE_ENV ${NODE_ENV:-development}
+
+WORKDIR /app
+
+COPY package*.json ./
+
+RUN npm ci --production=false
+
+COPY . .
+
+CMD npm run dev
