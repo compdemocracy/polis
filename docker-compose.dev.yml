@@ -61,3 +61,13 @@ services:
   #     live-code-reloaded ports
   #   * leave the server pointing to the static builds, but have separate ports you can hit for the live-code
   #     reloading (making sure to document the process)
+  client-deliberation:
+    env_file:
+      - ".env"
+    build:
+      context: ./client-deliberation
+      dockerfile: Dockerfile-dev
+    ports:
+      - "127.0.0.1:8081:8081"
+    volumes:
+      - ./client-deliberation/src:/app/src
