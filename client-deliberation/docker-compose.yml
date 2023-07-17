@@ -1,0 +1,24 @@
+# note that this doesn't yet work properly when running all the containers
+# containers using `make start`.
+
+# This is because we need to host this container in dev mode in order to
+# get hot reload functionality. However, the file server is also hosted
+# on port 8080, and the system is designed for all static content to be
+# build and hosted via a file server on the same port. So we need to find
+# a way to create a proxy for the API calls, because everything is supposed to
+# be on the same hostname + port, but that's not going to work in development.
+
+# ports should be kept as they are, if they are changed it seems that
+# it breaks hot reload functonality within the container
+
+services:
+  client-deliberation:
+    env_file:
+      - "../.env"
+    build:
+      context: .
+      dockerfile: Dockerfile-dev
+    ports:
+      - "127.0.0.1:8081:8081"
+    volumes:
+      - ./src:/app/src
