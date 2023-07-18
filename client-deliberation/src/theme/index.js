@@ -3,15 +3,44 @@ export default {
   fonts: {
     body:
       // 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif',
-      "'Space Mono', monospace",
+      // "'Space Mono', monospace",
+      "'Helvetica Neue'",
     heading: 'inherit',
     monospace: "'Space Mono', monospace"
   },
-  fontSizes: [12, 14, 16, 20, 24, 32, 48, 64, 96],
+  fontSizes: [12, 14, 16, 18, 24, 36, 48, 64, 96],
   fontWeights: {
     body: 400,
     heading: 700,
     bold: 700
+  },
+  text: {
+    conversationPage: {
+      fontFamily: "Times New Roman",
+      fontStyle: "italic",
+    },
+  },
+  borders: {
+    primary: {
+      border: "solid 1px lightGray",
+      borderRadius: "5px"
+    },
+    avatar: {
+      border: "solid 1px lightGray",
+      borderRadius: "2px"
+    }
+  },
+  statementBox: {
+    variant: "borders.primary",
+    bg: "white",
+    stack: {
+      variant: "borders.primary",
+      bg: "white",
+      marginBottom: "10px",
+      minHeight: "30px",
+      margin: "0 auto",
+      position: "relative",
+    },
   },
   sizes: {
     maxWidth: {
@@ -24,11 +53,11 @@ export default {
   },
   colors: {
     // text: "#FFF",
-    text: '#60656F',
+    text: '#000000',
     // background: "#03a9f4",
     // primary: "#FFF",
     background: '#FFF',
-    primary: '#03a9f4',
+    primary: '#0090ff',
     secondary: '#F6F7F8',
     mediumGray: '#60656F'
   },
@@ -85,7 +114,19 @@ export default {
       color: 'background',
       bg: 'primary',
       fontFamily: 'body',
-      cursor: 'pointer'
+      fontWeight: '500',
+      cursor: 'pointer',
+    },
+    vote: {
+      color: 'text',
+      bg: 'transparent',
+      fontWeight: '400',
+      fontSize: [1],
+      cursor: 'pointer',
+      transition: 'all .2s ease-in-out',
+      '&:hover': {
+        transform: 'scale(1.12,1.12)'
+      },
     }
   },
   cards: {
