@@ -4,7 +4,7 @@ import { Box, jsx } from "theme-ui";
 import { Link } from "react-router-dom";
 import Logomark from "./framework/logomark";
 
-const InteriorHeader = () => {
+const InteriorHeader = ({ children }) => {
   return (
     <Box>
       <Box
@@ -28,7 +28,7 @@ const InteriorHeader = () => {
           sign out
         </Link>
       </Box>
-      <Box>{this.props.children}</Box>
+      <Box>{children}</Box>
     </Box>
   );
 };
