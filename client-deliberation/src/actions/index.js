@@ -388,7 +388,7 @@ const getFriends = () => {
   const dfd = $.Deferred()
 
   const getMoreFriends = (friendsSoFar, urlForNextCall) => {
-    return $.get(urlForNextCall).then((response) => {
+    return PolisNet.polisGet(urlForNextCall).then((response) => {
       if (response.data.length) {
         for (let i = 0; i < response.data.length; i++) {
           friendsSoFar.push(response.data[i])
@@ -658,7 +658,7 @@ const conversationsError = (err) => {
 }
 
 const fetchConversations = () => {
-  return $.get('/api/v3/conversations?include_all_conversations_i_am_in=true')
+  return PolisNet.polisGet('/api/v3/conversations', { include_all_conversations_i_am_in: true })
 }
 
 export const populateConversationsStore = () => {
@@ -703,7 +703,7 @@ export const resetMetadataStore = () => {
 }
 
 const fetchZidMetadata = (conversation_id) => {
-  return $.get('/api/v3/conversations?conversation_id=' + conversation_id)
+  return PolisNet.polisGet('/api/v3/conversations', { conversation_id: conversation_id })
 }
 
 export const populateZidMetadataStore = (conversation_id) => {
@@ -1011,14 +1011,11 @@ const commentsFetchError = (err) => {
 }
 
 const fetchAllComments = (conversation_id) => {
-  // let includeSocial = "include_social=true&";
-  const includeSocial = ''
-  return $.get(
-    '/api/v3/comments?moderation=true&include_voting_patterns=false&' +
-      includeSocial +
-      'conversation_id=' +
-      conversation_id
-  )
+  return PolisNet.polisGet('/api/v3/comments', {
+    moderation: true,
+    include_voting_patterns: false,
+    conversation_id: conversation_id,
+  })
 }
 
 export const populateCommentsStore = (conversation_id) => {
@@ -1054,12 +1051,10 @@ const mathFetchError = (err) => {
 }
 
 const fetchMath = (conversation_id, math_tick) => {
-  return $.get(
-    '/api/v3/math/pca2?&math_tick=' +
-      math_tick +
-      '&conversation_id=' +
-      conversation_id
-  )
+  return PolisNet.polisGet('/api/v3/math/pca2', {
+    math_tick: math_tick,
+    conversation_id: conversation_id,
+  })
 }
 
 export const populateMathStore = (conversation_id) => {
@@ -1096,14 +1091,12 @@ const unmoderatedCommentsFetchError = (err) => {
 }
 
 const fetchUnmoderatedComments = (conversation_id) => {
-  // let includeSocial = "include_social=true&";
-  const includeSocial = ''
-  return $.get(
-    '/api/v3/comments?moderation=true&include_voting_patterns=false&' +
-      includeSocial +
-      'mod=0&conversation_id=' +
-      conversation_id
-  )
+  return PolisNet.polisGet('/api/v3/comments', {
+    moderation: true,
+    include_voting_patterns: false,
+    mod: 0,
+    conversation_id: conversation_id,
+  })
 }
 
 export const populateUnmoderatedCommentsStore = (conversation_id) => {
@@ -1139,14 +1132,12 @@ const acceptedCommentsFetchError = (err) => {
 }
 
 const fetchAcceptedComments = (conversation_id) => {
-  // let includeSocial = "include_social=true&";
-  const includeSocial = ''
-  return $.get(
-    '/api/v3/comments?moderation=true&include_voting_patterns=false&mod=1&' +
-      includeSocial +
-      'conversation_id=' +
-      conversation_id
-  )
+  return PolisNet.polisGet('/api/v3/comments', {
+    moderation: true,
+    include_voting_patterns: false,
+    mod: 1,
+    conversation_id: conversation_id,
+  })
 }
 
 export const populateAcceptedCommentsStore = (conversation_id) => {
@@ -1182,14 +1173,12 @@ const rejectedCommentsFetchError = (err) => {
 }
 
 const fetchRejectedComments = (conversation_id) => {
-  // let includeSocial = "include_social=true&";
-  const includeSocial = ''
-  return $.get(
-    '/api/v3/comments?moderation=true&include_voting_patterns=false&' +
-      includeSocial +
-      'mod=-1&conversation_id=' +
-      conversation_id
-  )
+  return PolisNet.polisGet('/api/v3/comments', {
+    moderation: true,
+    include_voting_patterns: false,
+    mod: -1,
+    conversation_id: conversation_id,
+  })
 }
 
 export const populateRejectedCommentsStore = (conversation_id) => {
@@ -1373,7 +1362,7 @@ const participantsFetchError = (err) => {
 }
 
 const fetchParticipants = (conversation_id) => {
-  return $.get('/api/v3/ptptois?conversation_id=' + conversation_id)
+  return PolisNet.polisGet('/api/v3/ptptois', {conversation_id: conversation_id})
 }
 
 export const populateParticipantsStore = (conversation_id) => {
@@ -1409,7 +1398,7 @@ const defaultParticipantFetchError = (err) => {
 }
 
 const fetchDefaultParticipants = (conversation_id) => {
-  return $.get('/api/v3/ptptois?mod=0&conversation_id=' + conversation_id)
+  return PolisNet.polisGet('/api/v3/ptptois', {mod: 0, conversation_id: conversation_id})
 }
 
 export const populateDefaultParticipantStore = (conversation_id) => {
@@ -1445,7 +1434,7 @@ const featuredParticipantFetchError = (err) => {
 }
 
 const fetchFeaturedParticipants = (conversation_id) => {
-  return $.get('/api/v3/ptptois?mod=1&conversation_id=' + conversation_id)
+  return PolisNet.polisGet('/api/v3/ptptois', {mod: 1, conversation_id: conversation_id})
 }
 
 export const populateFeaturedParticipantStore = (conversation_id) => {
@@ -1481,7 +1470,7 @@ const hiddenParticipantFetchError = (err) => {
 }
 
 const fetchHiddenParticipants = (conversation_id) => {
-  return $.get('/api/v3/ptptois?mod=-1&conversation_id=' + conversation_id)
+  return PolisNet.polisGet('/api/v3/ptptois', {mod: -1, conversation_id: conversation_id})
 }
 
 export const populateHiddenParticipantStore = (conversation_id) => {
@@ -1654,11 +1643,10 @@ const conversationStatsFetchError = (err) => {
 }
 
 const fetchConversationStats = (conversation_id, until) => {
-  return $.get(
-    '/api/v3/conversationStats?conversation_id=' +
-      conversation_id +
-      (until ? '&until=' + until : '')
-  )
+  return PolisNet.polisGet('/api/v3/conversationStats', {
+    conversation_id: conversation_id,
+    ...(until && {until: until}),
+  })
 }
 
 export const populateConversationStatsStore = (conversation_id, until) => {
@@ -1704,7 +1692,7 @@ const dataExportGet = (
   if (untilEnabled) {
     url += `&unixTimestamp=${unixTimestamp}`
   }
-  return $.get(url)
+  return PolisNet.polisGet(url)
 }
 
 export const startDataExport = (
