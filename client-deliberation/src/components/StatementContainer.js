@@ -23,7 +23,7 @@ const StatementContainer = ({ author, authorAvatar, numStatementsRemaining, stat
               src={authorAvatar || anon_profile}
             />
           </Box>
-          <Flex sx={{ flexDirection: "column" }}>
+          <Flex sx={{ flex: "1 1 auto", flexDirection: "column" }}>
             <Flex sx={{ justifyContent: "space-between" }}>
               <Text
                 sx={{
@@ -37,7 +37,7 @@ const StatementContainer = ({ author, authorAvatar, numStatementsRemaining, stat
                 {numStatementsRemaining} remaining
               </Text>
             </Flex>
-            <Box sx={{ maxWidth: "85%" }}>
+            <Box sx={{ maxWidth: "85%", overflowWrap: "break-word"}}>
               <Text
                 sx={{
                   fontSize: [2, null, 3],
