@@ -39,7 +39,18 @@ const StatementForm = ({ myAvatar, conversation_id }) => {
           );
           setShowMessage({ show: true, status: "success" });
         })
-        .fail((err) => {});
+        .fail((err) => {
+          if (err.status === 409) {
+            setMessageValue(
+              "There was an error submitting your statement - An identical statement already exists.",
+            );
+            setShowMessage({ show: true, status: "failure" });
+          } else if (err.responseText === "polis_err_conversation_is_closed") {
+            setMessageValue("This conversation is closed. No further statements can be submitted.");
+          } else {
+            setMessageValue("There was an error submitting your statement.");
+          }
+        });
     }
   };
 
