@@ -16,6 +16,7 @@ import ModerateComments from './comment-moderation/'
 import ShareAndEmbed from './share-and-embed'
 
 import Reports from './report/reports'
+import InteriorHeader from '../interior-header'
 
 @connect((state) => state.zid_metadata)
 class ConversationAdminContainer extends React.Component {
@@ -47,83 +48,85 @@ class ConversationAdminContainer extends React.Component {
     const url = location.pathname.split('/')[3]
 
     return (
-      <Flex>
-        <Box sx={{ mr: [5], p: [4], flex: '0 0 275' }}>
-          <Box sx={{ mb: [3] }}>
-            <Link sx={{ variant: 'links.nav' }} to={`/`}>
-              All
-            </Link>
+      <InteriorHeader>
+        <Flex>
+          <Box sx={{ mr: [5], p: [4], flex: '0 0 275' }}>
+            <Box sx={{ mb: [3] }}>
+              <Link sx={{ variant: 'links.nav' }} to={`/`}>
+                All
+              </Link>
+            </Box>
+            <Box sx={{ mb: [3] }}>
+              <Link
+                sx={{ variant: url ? 'links.nav' : 'links.activeNav' }}
+                to={`${match.url}`}>
+                Configure
+              </Link>
+            </Box>
+            <Box sx={{ mb: [3] }}>
+              <Link
+                sx={{
+                  variant: url === 'share' ? 'links.activeNav' : 'links.nav'
+                }}
+                to={`${match.url}/share`}>
+                Distribute
+              </Link>
+            </Box>
+            <Box sx={{ mb: [3] }}>
+              <Link
+                sx={{
+                  variant: url === 'comments' ? 'links.activeNav' : 'links.nav'
+                }}
+                to={`${match.url}/comments`}>
+                Moderate
+              </Link>
+            </Box>
+            <Box sx={{ mb: [3] }}>
+              <Link
+                sx={{
+                  variant: url === 'stats' ? 'links.activeNav' : 'links.nav'
+                }}
+                to={`${match.url}/stats`}>
+                Monitor
+              </Link>
+            </Box>
+            <Box sx={{ mb: [3] }}>
+              <Link
+                sx={{
+                  variant: url === 'reports' ? 'links.activeNav' : 'links.nav'
+                }}
+                to={`${match.url}/reports`}>
+                Report
+              </Link>
+            </Box>
           </Box>
-          <Box sx={{ mb: [3] }}>
-            <Link
-              sx={{ variant: url ? 'links.nav' : 'links.activeNav' }}
-              to={`${match.url}`}>
-              Configure
-            </Link>
+          <Box sx={{ p: [4], flex: '0 0 auto', maxWidth: '35em', mx: [4] }}>
+            <Switch>
+              <Route
+                exact
+                path={`${match.path}/`}
+                component={ConversationConfig}
+              />
+              <Route
+                exact
+                path={`${match.path}/share`}
+                component={ShareAndEmbed}
+              />
+              <Route exact path={`${match.path}/reports`} component={Reports} />
+              <Route
+                path={`${match.path}/comments`}
+                component={ModerateComments}
+              />
+              <Route
+                exact
+                path={`${match.path}/stats`}
+                component={ConversationStats}
+              />
+              {/* <Route exact path={`${match.path}/export`} component={DataExport} /> */}
+            </Switch>
           </Box>
-          <Box sx={{ mb: [3] }}>
-            <Link
-              sx={{
-                variant: url === 'share' ? 'links.activeNav' : 'links.nav'
-              }}
-              to={`${match.url}/share`}>
-              Distribute
-            </Link>
-          </Box>
-          <Box sx={{ mb: [3] }}>
-            <Link
-              sx={{
-                variant: url === 'comments' ? 'links.activeNav' : 'links.nav'
-              }}
-              to={`${match.url}/comments`}>
-              Moderate
-            </Link>
-          </Box>
-          <Box sx={{ mb: [3] }}>
-            <Link
-              sx={{
-                variant: url === 'stats' ? 'links.activeNav' : 'links.nav'
-              }}
-              to={`${match.url}/stats`}>
-              Monitor
-            </Link>
-          </Box>
-          <Box sx={{ mb: [3] }}>
-            <Link
-              sx={{
-                variant: url === 'reports' ? 'links.activeNav' : 'links.nav'
-              }}
-              to={`${match.url}/reports`}>
-              Report
-            </Link>
-          </Box>
-        </Box>
-        <Box sx={{ p: [4], flex: '0 0 auto', maxWidth: '35em', mx: [4] }}>
-          <Switch>
-            <Route
-              exact
-              path={`${match.path}/`}
-              component={ConversationConfig}
-            />
-            <Route
-              exact
-              path={`${match.path}/share`}
-              component={ShareAndEmbed}
-            />
-            <Route exact path={`${match.path}/reports`} component={Reports} />
-            <Route
-              path={`${match.path}/comments`}
-              component={ModerateComments}
-            />
-            <Route
-              exact
-              path={`${match.path}/stats`}
-              component={ConversationStats}
-            />
-            {/* <Route exact path={`${match.path}/export`} component={DataExport} /> */}
-          </Switch>
-        </Box>
-      </Flex>
+        </Flex>
+      </InteriorHeader>
     )
   }
 }

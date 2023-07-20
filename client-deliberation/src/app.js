@@ -1,7 +1,7 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 /** @jsx jsx */
 
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { populateUserStore } from './actions'
@@ -30,7 +30,10 @@ import Account from './components/conversations-and-account/account'
 import Integrate from './components/conversations-and-account/integrate'
 
 import InteriorHeader from './components/interior-header'
-import TestPage from './components/testpage'
+import ConversationUI from './components/ConversationUI'
+import DoesNotExist from './components/DoesNotExist'
+import PolisNet from './util/net'
+import Loading from './components/Loading'
 
 const PrivateRoute = ({ component: Component, isLoading, authed, ...rest }) => {
   if (isLoading) {
@@ -58,6 +61,47 @@ PrivateRoute.propTypes = {
   location: PropTypes.object,
   authed: PropTypes.bool
 }
+
+const isMatch = (conv_id) => {
+  return new Promise((resolve, reject) => {
+    PolisNet.polisGet("/api/v3/participationInit", {
+      conversation_id: conv_id,
+      pid: "mypid",
+      lang: "acceptLang",
+    })
+      .then((res) => {
+        resolve(true);
+      })
+      .fail((err) => {
+        resolve(false);
+      });
+  });
+};
+
+const RouteOrRedirect = (props) => {
+  const [isConversationExists, setIsConversationExists] = useState(null);
+
+  useEffect(() => {
+    isMatch(props.computedMatch.params.conversation_id)
+      .then((exists) => setIsConversationExists(exists))
+      .catch((error) => setIsConversationExists(false));
+  }, [props.computedMatch.params.conversation_id]);
+
+  if (isConversationExists === null) {
+    return <Loading />;
+  }
+
+  return (
+    <div>
+      {isConversationExists ? (
+        <Route path={props.path} component={props.component} />
+      ) : (
+        // <Redirect to="/404" />
+        <DoesNotExist title={"This conversation does not exist."} />
+      )}
+    </div>
+  );
+};
 
 @connect((state) => {
   return state.user
@@ -150,7 +194,6 @@ class App extends React.Component {
             render={() => <SignIn {...this.props} authed={this.isAuthed()} />}
           />
           <Route exact path="/signout" component={SignOut} />
-          <Route exact path="/testpage" component={TestPage} />
           <Route exact path="/signout/*" component={SignOut} />
           <Route exact path="/signout/**/*" component={SignOut} />
           <Route exact path="/createuser" component={CreateUser} />
@@ -168,79 +211,87 @@ class App extends React.Component {
           <Route exact path="/tos" component={TOS} />
           <Route exact path="/privacy" component={Privacy} />
 
-          <InteriorHeader>
-            <Route
-              render={(routeProps) => {
-                if (routeProps.location.pathname.split('/')[1] === 'm') {
-                  return null
-                }
-                return (
-                  <Flex>
-                    <Box sx={{ mr: [5], p: [4], flex: '0 0 auto' }}>
-                      <Box sx={{ mb: [3] }}>
-                        <Link sx={{ variant: 'links.nav' }} to={`/`}>
-                          Conversations
-                        </Link>
-                      </Box>
-                      <Box sx={{ mb: [3] }}>
-                        <Link sx={{ variant: 'links.nav' }} to={`/integrate`}>
-                          Integrate
-                        </Link>
-                      </Box>
-                      <Box sx={{ mb: [3] }}>
-                        <Link sx={{ variant: 'links.nav' }} to={`/account`}>
-                          Account
-                        </Link>
-                      </Box>
-                    </Box>
-                    <Box
-                      sx={{
-                        p: [4],
-                        flex: '0 0 auto',
-                        maxWidth: '35em',
-                        mx: [4]
-                      }}>
-                      <PrivateRoute
-                        isLoading={this.isLoading()}
-                        authed={this.isAuthed()}
-                        exact
-                        path="/"
-                        component={Conversations}
-                      />
-                      <PrivateRoute
-                        isLoading={this.isLoading()}
-                        authed={this.isAuthed()}
-                        exact
-                        path="/conversations"
-                        component={Conversations}
-                      />
-                      <PrivateRoute
-                        isLoading={this.isLoading()}
-                        authed={this.isAuthed()}
-                        exact
-                        path="/account"
-                        component={Account}
-                      />
-                      <PrivateRoute
-                        isLoading={this.isLoading()}
-                        authed={this.isAuthed()}
-                        exact
-                        path="/integrate"
-                        component={Integrate}
-                      />
-                    </Box>
-                  </Flex>
-                )
-              }}
-            />
+          <Route exact path="/404" render={() => <DoesNotExist title={"Page not found"} />} />
+          <RouteOrRedirect path="/c/:conversation_id" component={ConversationUI}/>
 
-            <PrivateRoute
-              isLoading={this.isLoading()}
-              path="/m/:conversation_id"
-              authed={this.isAuthed()}
-              component={ConversationAdminContainer}
-            />
-          </InteriorHeader>
+          <Route
+            exact
+            path="/"
+            render={(routeProps) => {
+              if (routeProps.location.pathname.split('/')[1] === 'm') {
+                return null
+              }
+              return (
+                <InteriorHeader>
+                <Flex>
+                  <Box sx={{ mr: [5], p: [4], flex: '0 0 auto' }}>
+                    <Box sx={{ mb: [3] }}>
+                      <Link sx={{ variant: 'links.nav' }} to={`/`}>
+                        Conversations
+                      </Link>
+                    </Box>
+                    <Box sx={{ mb: [3] }}>
+                      <Link sx={{ variant: 'links.nav' }} to={`/integrate`}>
+                        Integrate
+                      </Link>
+                    </Box>
+                    <Box sx={{ mb: [3] }}>
+                      <Link sx={{ variant: 'links.nav' }} to={`/account`}>
+                        Account
+                      </Link>
+                    </Box>
+                  </Box>
+                  <Box
+                    sx={{
+                      p: [4],
+                      flex: '0 0 auto',
+                      maxWidth: '35em',
+                      mx: [4]
+                    }}>
+                    <PrivateRoute
+                      isLoading={this.isLoading()}
+                      authed={this.isAuthed()}
+                      exact
+                      path="/"
+                      component={Conversations}
+                    />
+                    <PrivateRoute
+                      isLoading={this.isLoading()}
+                      authed={this.isAuthed()}
+                      exact
+                      path="/conversations"
+                      component={Conversations}
+                    />
+                    <PrivateRoute
+                      isLoading={this.isLoading()}
+                      authed={this.isAuthed()}
+                      exact
+                      path="/account"
+                      component={Account}
+                    />
+                    <PrivateRoute
+                      isLoading={this.isLoading()}
+                      authed={this.isAuthed()}
+                      exact
+                      path="/integrate"
+                      component={Integrate}
+                    />
+                  </Box>
+                </Flex>
+                </InteriorHeader>
+              )
+            }}
+          />
+
+          <PrivateRoute
+            isLoading={this.isLoading()}
+            path="/m/:conversation_id"
+            authed={this.isAuthed()}
+            component={ConversationAdminContainer}
+          />
+
+          {/* <Route path="*" render={() => <DoesNotExist title={"Page not found"} />} /> */}
+          <Redirect to="/404" />
         </Switch>
       </>
     )

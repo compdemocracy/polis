@@ -9,7 +9,7 @@ import HexLogo from "./hexLogo";
 import OpinionContainer from "./OpinionContainer";
 import PolisNet from "../util/net";
 
-const TestPage = (props) => {
+const ConversationUI = (props) => {
   const [nextComment, setNextComment] = useState("");
   const conversation_id = props.match.params.conversation_id;
 
@@ -121,4 +121,4 @@ const TestPage = (props) => {
   );
 };
 
-export default TestPage;
+export default ConversationUI;
