@@ -44,7 +44,6 @@ const ConversationUI = (props) => {
       pid: "mypid",
       lang: "acceptLang",
     }).then((res) => {
-      console.log(res);
       setNextComment(res.nextComment);
     });
   }, []);
@@ -52,12 +51,8 @@ const ConversationUI = (props) => {
   return (
     <Box sx={{ maxWidth: "768px", margin: "auto", py: "20px", px: "10px" }}>
       <HexLogo />
-      <Title value={"Configuring the HAI Lab Space"} />
-      <Subtitle
-        value={
-          "Pilot testing the Pol.is deliberation platform to see what features we should augment."
-        }
-      />
+      <Title value={props.response.conversation.topic} />
+      <Subtitle value={props.response.conversation.description} />
       <Text variant="conversationPage" sx={{ mb: [2] }}>
         Welcome to a new kind of conversation - vote on other people's statements.
       </Text>

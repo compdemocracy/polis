@@ -70,21 +70,25 @@ const isMatch = (conv_id) => {
       lang: "acceptLang",
     })
       .then((res) => {
-        resolve(true);
+        resolve({ wasSuccessful: true, response: res });
       })
       .fail((err) => {
-        resolve(false);
+        resolve({ wasSuccessful: false });
       });
   });
 };
 
 const RouteOrRedirect = (props) => {
   const [isConversationExists, setIsConversationExists] = useState(null);
+  const [responseObject, setResponseObject] = useState({});
 
   useEffect(() => {
     isMatch(props.computedMatch.params.conversation_id)
-      .then((exists) => setIsConversationExists(exists))
-      .catch((error) => setIsConversationExists(false));
+      .then((status) => {
+        setResponseObject(status.response)
+        setIsConversationExists(status.wasSuccessful)
+      })
+      .catch((status) => setIsConversationExists(status.wasSuccessful));
   }, [props.computedMatch.params.conversation_id]);
 
   if (isConversationExists === null) {
@@ -94,7 +98,7 @@ const RouteOrRedirect = (props) => {
   return (
     <div>
       {isConversationExists ? (
-        <Route path={props.path} component={props.component} />
+        <Route path={props.path} render={(routeProps) => <ConversationUI {...routeProps} response={responseObject}/>} />
       ) : (
         // <Redirect to="/404" />
         <DoesNotExist title={"This conversation does not exist."} />
@@ -212,7 +216,7 @@ class App extends React.Component {
           <Route exact path="/privacy" component={Privacy} />
 
           <Route exact path="/404" render={() => <DoesNotExist title={"Page not found"} />} />
-          <RouteOrRedirect path="/c/:conversation_id" component={ConversationUI}/>
+          <RouteOrRedirect path="/c/:conversation_id"x/>
 
           <Route
             exact
