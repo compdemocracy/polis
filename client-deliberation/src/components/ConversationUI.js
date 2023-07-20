@@ -104,7 +104,7 @@ const ConversationUI = (props) => {
         Please remember, statements are displayed randomly and you are not replying directly to
         other participants' statements.
       </Text>
-      <StatementForm />
+      <StatementForm conversation_id={conversation_id} />
       <Box sx={{ mb: [5] }}>
         <OpinionContainer />
       </Box>

@@ -3,31 +3,59 @@
 import React, { useState } from "react";
 import { Flex, Box, Text, Button, Image, jsx } from "theme-ui";
 import anon_profile from "./anon_profile";
+import PolisNet from "../util/net";
 
-const StatementForm = ({ myAvatar }) => {
+const StatementForm = ({ myAvatar, conversation_id }) => {
   const FORM_CHARACTER_LIMIT = 140;
 
   const [textValue, setTextValue] = useState("");
   const [charCount, setCharCount] = useState(0);
-  const [showWarning, setShowWarning] = useState(false);
-  const [warningMessage, setWarningMessage] = useState("");
+  const [showMessage, setShowMessage] = useState({ show: false, status: null });
+  const [messageValue, setMessageValue] = useState("");
 
   const submitComment = () => {
     console.log("submitting comment now");
     console.log("SUBMITTING TEXT: ", textValue);
     if (textValue.length === 0) {
-      setWarningMessage("There was an error submitting your statement - Statement should not be empty.")
-      setShowWarning(true)
+      setMessageValue(
+        "There was an error submitting your statement - Statement should not be empty.",
+      );
+      setShowMessage({ show: true, status: "failure" });
     } else if (textValue.length > 140) {
-      setWarningMessage("There was an error submitting your statement - Statement is too long.")
-      setShowWarning(true)
+      setMessageValue("There was an error submitting your statement - Statement is too long.");
+      setShowMessage({ show: true, status: "failure" });
     } else {
-      
+      // replace newlines with whitespace
+      const txt = textValue.replace(/\n/g, " ");
+
+      PolisNet.polisPost("/api/v3/comments", {
+        conversation_id: conversation_id,
+        agid: 1,
+        txt: txt,
+      })
+        .then((res) => {
+          setMessageValue(
+            "Statement submitted! Only other participants will see your statement and agree or disagree.",
+          );
+          setShowMessage({ show: true, status: "success" });
+        })
+        .fail((err) => {});
     }
   };
 
-  const WarningMessage = () => {
-    return (<Text sx={{ color: "white" }}>{warningMessage}</Text>)
+  const Message = () => {
+    return (
+      <Box
+        sx={{
+          flex: "0 1 auto",
+          bg: `${showMessage.status === "success" ? "#32a852" : "#cf152a"}`,
+          borderRadius: "5px",
+          padding: "5px",
+        }}
+      >
+        <Text sx={{ color: "white" }}>{messageValue}</Text>
+      </Box>
+    );
   };
 
   return (
@@ -77,7 +105,7 @@ const StatementForm = ({ myAvatar }) => {
               {"Submit"}
             </Button>
           </Flex>
-          {showWarning && <Box sx={{flex: "0 1 auto", bg: "#cf152a", borderRadius: "5px", padding: "5px"}}><WarningMessage /></Box>}
+          {showMessage.show && <Message />}
         </form>
       </Box>
     </Flex>
