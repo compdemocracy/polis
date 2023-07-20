@@ -91,14 +91,26 @@ const RouteOrRedirect = (props) => {
       .catch((status) => setIsConversationExists(status.wasSuccessful));
   }, [props.computedMatch.params.conversation_id]);
 
-  if (isConversationExists === null) {
+  if (isConversationExists === null || props.isLoading) {
     return <Loading />;
   }
 
   return (
     <div>
       {isConversationExists ? (
-        <Route path={props.path} render={(routeProps) => <ConversationUI {...routeProps} response={responseObject}/>} />
+        // <Route path={props.path} render={(routeProps) => <ConversationUI {...routeProps} response={responseObject}/>} />
+        <Route
+          path={props.path}
+          render={(routeProps) =>
+            props.isAuthed === true ? (
+              <ConversationUI {...routeProps} response={responseObject}/>
+            ) : (
+              <Redirect
+                to={{ pathname: '/signin', state: { from: props.location } }}
+              />
+            )
+          }
+        />
       ) : (
         // <Redirect to="/404" />
         <DoesNotExist title={"This conversation does not exist."} />
@@ -216,7 +228,7 @@ class App extends React.Component {
           <Route exact path="/privacy" component={Privacy} />
 
           <Route exact path="/404" render={() => <DoesNotExist title={"Page not found"} />} />
-          <RouteOrRedirect path="/c/:conversation_id"x/>
+          <RouteOrRedirect path="/c/:conversation_id" isLoading={this.isLoading()} isAuthed={this.isAuthed()}/>
 
           <Route
             exact

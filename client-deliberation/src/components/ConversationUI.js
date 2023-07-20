@@ -10,8 +10,8 @@ import OpinionContainer from "./OpinionContainer";
 import PolisNet from "../util/net";
 
 const ConversationUI = (props) => {
-  const [nextComment, setNextComment] = useState("");
   const conversation_id = props.match.params.conversation_id;
+  const [nextComment, setNextComment] = useState(props.response.nextComment);
 
   const vote = (params) => {
     PolisNet.polisPost(
@@ -38,15 +38,15 @@ const ConversationUI = (props) => {
       });
   };
 
-  useEffect(() => {
-    PolisNet.polisGet("/api/v3/participationInit", {
-      conversation_id: conversation_id,
-      pid: "mypid",
-      lang: "acceptLang",
-    }).then((res) => {
-      setNextComment(res.nextComment);
-    });
-  }, []);
+  // useEffect(() => {
+  //   PolisNet.polisGet("/api/v3/participationInit", {
+  //     conversation_id: conversation_id,
+  //     pid: "mypid",
+  //     lang: "acceptLang",
+  //   }).then((res) => {
+  //     setNextComment(res.nextComment);
+  //   });
+  // }, []);
 
   return (
     <Box sx={{ maxWidth: "768px", margin: "auto", py: "20px", px: "10px" }}>
