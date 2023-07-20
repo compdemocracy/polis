@@ -1,6 +1,6 @@
 /** @jsx jsx */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Flex, Box, Text, Button, Image, jsx } from "theme-ui";
 import anon_profile from "./anon_profile";
 import PolisNet from "../util/net";
@@ -13,9 +13,11 @@ const StatementForm = ({ myAvatar, conversation_id }) => {
   const [showMessage, setShowMessage] = useState({ show: false, status: null });
   const [messageValue, setMessageValue] = useState("");
 
+  useEffect(() => {
+    setShowMessage({ show: false, status: null });
+  }, [textValue]);
+
   const submitComment = () => {
-    console.log("submitting comment now");
-    console.log("SUBMITTING TEXT: ", textValue);
     if (textValue.length === 0) {
       setMessageValue(
         "There was an error submitting your statement - Statement should not be empty.",
@@ -34,6 +36,7 @@ const StatementForm = ({ myAvatar, conversation_id }) => {
         txt: txt,
       })
         .then((res) => {
+          setTextValue("");
           setMessageValue(
             "Statement submitted! Only other participants will see your statement and agree or disagree.",
           );
@@ -93,6 +96,7 @@ const StatementForm = ({ myAvatar, conversation_id }) => {
             id="createStatement"
             placeholder="Share your perspective..."
             type="text"
+            value={textValue}
             onChange={(event) => {
               setTextValue(event.target.value);
               setCharCount(event.target.value.length);
