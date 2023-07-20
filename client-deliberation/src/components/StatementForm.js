@@ -5,7 +5,30 @@ import { Flex, Box, Text, Button, Image, jsx } from "theme-ui";
 import anon_profile from "./anon_profile";
 
 const StatementForm = ({ myAvatar }) => {
+  const FORM_CHARACTER_LIMIT = 140;
+
+  const [textValue, setTextValue] = useState("");
   const [charCount, setCharCount] = useState(0);
+  const [showWarning, setShowWarning] = useState(false);
+  const [warningMessage, setWarningMessage] = useState("");
+
+  const submitComment = () => {
+    console.log("submitting comment now");
+    console.log("SUBMITTING TEXT: ", textValue);
+    if (textValue.length === 0) {
+      setWarningMessage("There was an error submitting your statement - Statement should not be empty.")
+      setShowWarning(true)
+    } else if (textValue.length > 140) {
+      setWarningMessage("There was an error submitting your statement - Statement is too long.")
+      setShowWarning(true)
+    } else {
+      
+    }
+  };
+
+  const WarningMessage = () => {
+    return (<Text sx={{ color: "white" }}>{warningMessage}</Text>)
+  };
 
   return (
     <Flex sx={{ columnGap: "10px" }}>
@@ -31,21 +54,30 @@ const StatementForm = ({ myAvatar }) => {
             id="createStatement"
             placeholder="Share your perspective..."
             type="text"
-            onChange={(event) => setCharCount(event.target.value.length)}
+            onChange={(event) => {
+              setTextValue(event.target.value);
+              setCharCount(event.target.value.length);
+            }}
             maxLength={400}
           />
           <Flex sx={{ alignItems: "center", justifyContent: "end" }}>
-            {charCount > 140 ? (
+            {charCount > FORM_CHARACTER_LIMIT ? (
               <Text sx={{ color: "red", mr: [3] }}>{`Statement length limit exceeded by ${
-                charCount - 140
-              } ${charCount - 140 > 1 ? "characters" : "character"}`}</Text>
+                charCount - FORM_CHARACTER_LIMIT
+              } ${charCount - FORM_CHARACTER_LIMIT > 1 ? "characters" : "character"}`}</Text>
             ) : (
-              <Text sx={{ color: "gray", mr: [3] }}>{140 - charCount}</Text>
+              <Text sx={{ color: "gray", mr: [3] }}>{FORM_CHARACTER_LIMIT - charCount}</Text>
             )}
-            <Button sx={{ padding: "8px 28px", my: [1] }} id="submitButton">
+            <Button
+              sx={{ padding: "8px 28px", my: [1], flex: "0 0 auto" }}
+              id="submitButton"
+              type="button"
+              onClick={submitComment}
+            >
               {"Submit"}
             </Button>
           </Flex>
+          {showWarning && <Box sx={{flex: "0 1 auto", bg: "#cf152a", borderRadius: "5px", padding: "5px"}}><WarningMessage /></Box>}
         </form>
       </Box>
     </Flex>
