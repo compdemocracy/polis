@@ -1,13 +1,54 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Title from "./Title";
 import Subtitle from "./Subtitle";
-import StatementContainer from "./StatementContainer";
+import StatementUIContainer from "./StatementUIContainer";
+import StatementUI from "./StatementUI";
 import StatementForm from "./StatementForm";
 import { Flex, Box, Text } from "theme-ui";
 import HexLogo from "./hexLogo";
 import OpinionContainer from "./OpinionContainer";
+import PolisNet from "../util/net";
 
-const TestPage = () => {
+const TestPage = (props) => {
+  const [nextComment, setNextComment] = useState("");
+  const conversation_id = props.match.params.conversation_id;
+
+  const vote = (params) => {
+    PolisNet.polisPost(
+      "/api/v3/votes",
+      $.extend({}, params, {
+        pid: "mypid",
+        conversation_id: conversation_id,
+        agid: 1,
+        tid: nextComment.tid,
+        weight: 0,
+      }),
+    )
+      .then((res) => {
+        setNextComment(res.nextComment);
+      })
+      .fail((err) => {
+        if (!navigator.cookieEnabled) {
+          alert(
+            "Sorry, voting requires cookies to be enabled. If you do enable cookies, be sure to reload the page after.",
+          );
+        } else {
+          alert("Apologies, your vote failed to send. Please check your connection and try again.");
+        }
+      });
+  };
+
+  useEffect(() => {
+    PolisNet.polisGet("/api/v3/participationInit", {
+      conversation_id: conversation_id,
+      pid: "mypid",
+      lang: "acceptLang",
+    }).then((res) => {
+      console.log(res);
+      setNextComment(res.nextComment);
+    });
+  }, []);
+
   return (
     <Box sx={{ maxWidth: "768px", margin: "auto", py: "20px", px: "10px" }}>
       <HexLogo />
@@ -21,13 +62,20 @@ const TestPage = () => {
         Welcome to a new kind of conversation - vote on other people's statements.
       </Text>
       <Box sx={{ mb: "-40px" }}>
-        <StatementContainer
-          author="Anonymous"
-          numStatementsRemaining={33}
-          statement={
-            'We could get one of those digital frames that can rotate through "posters" of our active projects (visual summaries) and somehow hang it'
-          }
-        />
+        <StatementUIContainer>
+          {typeof nextComment !== "undefined" && nextComment.hasOwnProperty("tid") ? (
+            <StatementUI
+              author="Anonymous"
+              numStatementsRemaining={nextComment.remaining}
+              statement={nextComment.txt}
+              vote={vote}
+            />
+          ) : (
+            <Text>
+              You've voted on all the statements. Feel free to leave your own comments below!
+            </Text>
+          )}
+        </StatementUIContainer>
         <Box
           sx={{
             variant: "statementBox.stack",

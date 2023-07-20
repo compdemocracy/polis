@@ -8,7 +8,7 @@ const HexLogo = () => {
           <g id="Group" transform="translate(68.000000, 48.000000)">
             <polygon
               id="Polygon-1"
-              fill="#0090ff"
+              fill="#cf5e00"
               points="131.734836 0 263.469671 76 263.469671 228 131.734836 304 1.13280813e-13 228 2.84217094e-14 76"
             ></polygon>
             <path

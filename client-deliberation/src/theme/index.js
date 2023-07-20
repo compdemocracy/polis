@@ -57,7 +57,7 @@ export default {
     // background: "#03a9f4",
     // primary: "#FFF",
     background: '#FFF',
-    primary: '#0090ff',
+    primary: '#cf5e00',
     secondary: '#F6F7F8',
     mediumGray: '#60656F'
   },

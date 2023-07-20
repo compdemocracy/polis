@@ -1,8 +1,20 @@
 import React from "react";
 import { Button } from "theme-ui";
 
-const PassButton = () => {
-  return <Button variant="vote">Pass / Unsure</Button>;
+const PassButton = ({ vote }) => {
+  return (
+    <Button
+      variant="vote"
+      onClick={() => {
+        var o = {
+          vote: 0, //pass
+        };
+        return vote(o);
+      }}
+    >
+      Pass / Unsure
+    </Button>
+  );
 };
 
 export default PassButton;

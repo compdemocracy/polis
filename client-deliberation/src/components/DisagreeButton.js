@@ -1,9 +1,17 @@
 import React from "react";
 import { Button, Flex } from "theme-ui";
 
-const DisagreeButton = () => {
+const DisagreeButton = ({ vote }) => {
   return (
-    <Button variant="vote">
+    <Button
+      variant="vote"
+      onClick={() => {
+        var o = {
+          vote: 1, //disagree
+        };
+        return vote(o);
+      }}
+    >
       <Flex sx={{ alignItems: "center", columnGap: [2] }}>
         <svg
           fill="#e74c3c"
