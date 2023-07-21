@@ -77,7 +77,7 @@ const StatementForm = ({ myAvatar, conversation_id }) => {
   };
 
   return (
-    <Flex sx={{ columnGap: "10px" }}>
+    <Flex sx={{ columnGap: "10px", mb: [2] }}>
       <Box sx={{ flex: "0 0 auto" }}>
         <Image
           sx={{ variant: "borders.avatar" }}
@@ -87,7 +87,7 @@ const StatementForm = ({ myAvatar, conversation_id }) => {
         />
       </Box>
       <Box sx={{ flex: "0 1 100%" }}>
-        <form sx={{ mb: [2] }}>
+        <form>
           <textarea
             sx={{
               variant: "borders.primary",
