@@ -65,9 +65,13 @@ const ConversationUI = (props) => {
               statement={nextComment.txt}
               vote={vote}
             />
-          ) : (
+          ) : typeof nextComment !== "undefined" && nextComment.hasOwnProperty("currentPid") ? (
             <Text>
               You've voted on all the statements. Feel free to leave your own comments below!
+            </Text>
+          ) : (
+            <Text>
+              There aren't any statements yet. Get this conversation started by adding a statement.
             </Text>
           )}
         </StatementUIContainer>
