@@ -9,7 +9,6 @@ const StatementForm = ({ myAvatar, conversation_id }) => {
   const FORM_CHARACTER_LIMIT = 140;
 
   const [textValue, setTextValue] = useState("");
-  const [charCount, setCharCount] = useState(0);
   const [showMessage, setShowMessage] = useState({ show: false, status: null });
   const [messageValue, setMessageValue] = useState("");
 
@@ -104,17 +103,16 @@ const StatementForm = ({ myAvatar, conversation_id }) => {
             value={textValue}
             onChange={(event) => {
               setTextValue(event.target.value);
-              setCharCount(event.target.value.length);
             }}
             maxLength={400}
           />
           <Flex sx={{ alignItems: "center", justifyContent: "end" }}>
-            {charCount > FORM_CHARACTER_LIMIT ? (
+            {textValue.length > FORM_CHARACTER_LIMIT ? (
               <Text sx={{ color: "red", mr: [3] }}>{`Statement length limit exceeded by ${
-                charCount - FORM_CHARACTER_LIMIT
-              } ${charCount - FORM_CHARACTER_LIMIT > 1 ? "characters" : "character"}`}</Text>
+                textValue.length - FORM_CHARACTER_LIMIT
+              } ${textValue.length - FORM_CHARACTER_LIMIT > 1 ? "characters" : "character"}`}</Text>
             ) : (
-              <Text sx={{ color: "gray", mr: [3] }}>{FORM_CHARACTER_LIMIT - charCount}</Text>
+              <Text sx={{ color: "gray", mr: [3] }}>{FORM_CHARACTER_LIMIT - textValue.length}</Text>
             )}
             <Button
               sx={{ padding: "8px 28px", my: [1], flex: "0 0 auto" }}
