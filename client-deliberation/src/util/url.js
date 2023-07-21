@@ -7,6 +7,9 @@ const host = process.env.DEV_PORT_OVERRIDE ?
 
 const urlPrefix = `${document.location.protocol}//${host}/`
 
+const frontendUrlPrefix = `${document.location.protocol}//${document.location.host}/`
+
 export default {
   urlPrefix,
+  frontendUrlPrefix,
 }

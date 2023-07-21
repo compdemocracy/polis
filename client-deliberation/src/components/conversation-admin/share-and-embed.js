@@ -52,8 +52,8 @@ class ShareAndEmbed extends React.Component {
           <p>
             <a
               target="blank"
-              href={Url.urlPrefix + match.params.conversation_id}>
-              {Url.urlPrefix + match.params.conversation_id}
+              href={Url.frontendUrlPrefix + 'c/' + match.params.conversation_id}>
+              {Url.frontendUrlPrefix + 'c/' + match.params.conversation_id}
             </a>
           </p>
         </div>
