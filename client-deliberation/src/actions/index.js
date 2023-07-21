@@ -221,7 +221,7 @@ const signinPost = (attrs) => {
   return PolisNet.polisPost('/api/v3/auth/login', attrs)
 }
 
-export const doSignin = (attrs) => {
+export const doSignin = (attrs, dest) => {
   return (dispatch) => {
     dispatch(signinInitiated())
     return signinPost(attrs).then(
@@ -230,7 +230,7 @@ export const doSignin = (attrs) => {
           // Force page to load so we can be sure the password is cleared from memory
           // delay a bit so the cookie has time to set
           dispatch({ type: 'signin completed successfully' })
-          window.location = '/'
+          window.location = dest
         }, 3000)
       },
       (err) => dispatch(signinError(err))
