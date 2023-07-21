@@ -34,6 +34,7 @@ import ConversationUI from './components/ConversationUI'
 import DoesNotExist from './components/DoesNotExist'
 import PolisNet from './util/net'
 import Loading from './components/Loading'
+import IndividualDeliberation from './components/IndividualDeliberation'
 
 const PrivateRoute = ({ component: Component, isLoading, authed, ...rest }) => {
   if (isLoading) {
@@ -306,6 +307,7 @@ class App extends React.Component {
           />
 
           {/* <Route path="*" render={() => <DoesNotExist title={"Page not found"} />} /> */}
+          <Route exact path="/individualdeliberation" component={IndividualDeliberation}/>
           <Redirect to="/404" />
         </Switch>
       </>
