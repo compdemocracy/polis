@@ -116,3 +116,6 @@ window.renderHeader = function(rootEl, props) {
     rootEl
   );
 }
+
+export default Root;
+
