@@ -1,7 +1,9 @@
 import * as globals from "../components/globals";
 import _ from "lodash";
 import createHull from "hull.js";
-import * as d3 from "../../js/3rdparty/d3.v4.min.js";
+// import * as d3 from "../../js/3rdparty/d3.v4.min.js";
+import { forceManyBody } from "d3-force";
+import { scaleLinear } from "d3-scale";
 
 import { forceSimulation, forceCollide, forceX, forceY } from 'd3-force';
 

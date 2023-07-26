@@ -53,6 +53,9 @@
     "webpack-cli": "~5.0.1"
   },
   "dependencies": {
+    "d3": "~3.5.17",
+    "d3-force": "~1.2.1",
+    "hull.js": "~0.2.11",
     "d3-scale": "~3.2.3",
     "jquery": "~2.1.4",
     "lodash": "~4.17.21",
