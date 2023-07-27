@@ -7,8 +7,9 @@ var _ = require("lodash");
 
 const Visualization3 = ( {} ) => {
   useEffect(() => {
+    (async () => {
     console.log(Strings)
-    buildPcaObject();
+    await buildPcaObject();
     buildFancyCommentsObject().then(
       function(comments) {
         console.log(comments);
@@ -468,7 +469,7 @@ const Visualization3 = ( {} ) => {
       });
     }
 
-    buildFamousVotesObject();
+    await buildFamousVotesObject();
     pcaData = bucketize(pcaData);
   }
 
