@@ -125,6 +125,15 @@ const Visualization3 = ( {} ) => {
     return objects;
   }
 
+  function sum(arrayOfNumbers) {
+    var count = 0;
+    var len = arrayOfNumbers.length;
+    for (var i = 0; i < len; i++) {
+      count += arrayOfNumbers[i];
+    }
+    return count;
+  }
+
   // from client-participation/js/stores/polis.js:1226 getFamousVotes.then(...)
   const bucketize = (pcaData) => {
     // Check for missing comps... TODO solve
