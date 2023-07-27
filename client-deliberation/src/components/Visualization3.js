@@ -657,7 +657,6 @@ const Visualization3 = ( {} ) => {
   }
 
   const buildParticipantsOfInterestIncludingSelf = () => {
-    const myPid = 0; // Jake - remove in the future
     var alreadyHaveSelf = participantsOfInterestVotes[myPid];
     // _.some(participantsOfInterestVotes, function(p) {
     //   console.log('pid', myPid, p.pid);
