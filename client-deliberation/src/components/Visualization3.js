@@ -30,7 +30,15 @@ const Visualization3 = ( {} ) => {
       console.error("got invlid math_tick");
     }
 
-    
+    // create map for if a comment should not appear in visualization?
+    modOutTids = {};
+    var modOut = pcaData["mod-out"];
+    if (modOut) {
+      modOut.forEach(function(x) {
+        modOutTids[x] = true;
+      });
+    }
+
   }
   
 
