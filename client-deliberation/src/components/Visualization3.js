@@ -16,6 +16,7 @@ const Visualization3 = ( {} ) => {
         console.log(comments);
       }
     );
+    votesByMe = await fetchVotesByMe();
     printVotesByMe();
     console.log("participantsOfInterestVotes", participantsOfInterestVotes);
     await buildParticipantsOfInterestIncludingSelf();
@@ -57,6 +58,8 @@ const Visualization3 = ( {} ) => {
   let participantsOfInterestBids = [];  // change this global variable to a parameter at some point
 
   var votesForTidBidPromise = $.Deferred(); // change this to something other than jquery in the future?
+
+  var votesByMe = null;
 
 
   // normally this would be passed in via props, but since this is being
@@ -585,8 +588,8 @@ const Visualization3 = ( {} ) => {
     if (pid === myPid) {
       votesToUseForProjection = votesByMe.map(function(v) {
         return {
-          vote: v.get("vote"),
-          tid: v.get("tid")
+          vote: v["vote"],
+          tid: v["tid"]
         };
       });
     } else {
@@ -624,11 +627,18 @@ const Visualization3 = ( {} ) => {
     });
   }
 
+  function getPid() {
+    if (!(myPid >= 0)) {
+      //     alert("bad pid: " + pid);
+    }
+    return myPid;
+  }
+
   function projectSelf() {
     var votesToUseForProjection = votesByMe.map(function(v) {
       return {
-        vote: v.get("vote"),
-        tid: v.get("tid")
+        vote: v["vote"],
+        tid: v["tid"]
       };
     });
     return project({
