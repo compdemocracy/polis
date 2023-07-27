@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 // var Strings = require("../strings/participation_en_us");
 import Root from "../vis2/vis2";
 import PolisNet from "../util/net";
+import anon_profile from "./anon_profile";
 
 const Visualization2 = () => {
   var lastServerTokenForPCA = -1;
@@ -21,6 +22,7 @@ const Visualization2 = () => {
   var participantsOfInterestBids = [];
   var groupVotes = null;
   var nextCommentCache = null;
+  var usePreloadMath = false;
 
   var consensusComments = null;
 
@@ -29,6 +31,8 @@ const Visualization2 = () => {
   // collections
   // var votesByMe = params.votesByMe;
   var votesByMe = {}
+
+  var myPid = 1 //change later
 
   const conversation_id = "7ajfd9j53y";
 
@@ -40,13 +44,15 @@ const Visualization2 = () => {
   });
 
   function fetchPca(path, timestamp) {
-    if (Utils.isHidden() && firstPcaCallPromise.state() === "resolved") {
+    if (
+      // Utils.isHidden() && 
+      firstPcaCallPromise.state() === "resolved") {
       // Don't poll when the document isn't visible. (and we've already fetched the pca)
       return $.Deferred().reject();
     }
 
     function fetchIt() {
-      return polisGet(path, {
+      return PolisNet.polisGet(path, {
         // math_tick: timestamp,
         conversation_id: conversation_id,
         cacheBust: (Math.random() * 1e9 >> 0)
@@ -315,10 +321,10 @@ const Visualization2 = () => {
       include_social: true,
       // not_pid: getPid() // don't want to see own coments
     }, params);
-    return polisGet(commentsPath, params);
+    return PolisNet.polisGet("api/v3/comments", params);
   }
 
-  function getFancyComments() {
+  function getFancyComments(options) {
     options = $.extend(options, { translate: true, lang: navigator.language });
     return $.when(getComments(options), votesForTidBidPromise).then(function(args /* , dont need second arg */ ) {
 
@@ -378,7 +384,8 @@ const Visualization2 = () => {
       proj: self.proj,
       count: 1,
       bid: selfDotBid,
-      pic: Utils.getAnonPicUrl(),
+      // pic: Utils.getAnonPicUrl(),
+      pic: anon_profile,
       picture_size: -1
     });
     return bucket;

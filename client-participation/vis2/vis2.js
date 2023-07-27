@@ -104,6 +104,7 @@ injectTapEventPlugin();
 
 
 window.renderVis = function(rootEl, props) {
+  console.log(props);
   ReactDOM.render(
     React.createElement(Root, props, null),
     rootEl
