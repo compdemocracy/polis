@@ -1,20 +1,9 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// 1. Create version string
-// 2. Clean dist folder
-// 3. Bundle report
-
 const path = require('path');
 const webpack = require("webpack");
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
-
-// Generate version string
-const gitHash = process.env.GIT_HASH;
-const hash = gitHash ? `_${gitHash.split(/[^\w]/)[0]}` : ''
-const versionString = `${new Date().toISOString().replace(/[-:T]/g, "_").split('.')[0]}` + hash;
-
-console.log(`Version string: ${versionString}`);
 
 module.exports = {
   mode: 'production',
@@ -41,10 +30,8 @@ module.exports = {
   },
   plugins: [
     new HtmlWebpackPlugin({
-      template: './public/index.ejs',
-      templateParameters: {
-        versionString: versionString,
-      },
+      template: './public/index.html',
+      filename: 'index_report.html',
     }),
     new MiniCssExtractPlugin({
       filename: '[name].[contenthash].css',
