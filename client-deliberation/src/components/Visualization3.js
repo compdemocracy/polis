@@ -624,6 +624,38 @@ const Visualization3 = ( {} ) => {
     });
   }
 
+  function projectSelf() {
+    var votesToUseForProjection = votesByMe.map(function(v) {
+      return {
+        vote: v.get("vote"),
+        tid: v.get("tid")
+      };
+    });
+    return project({
+      pid: getPid(),
+      isBlueDot: true,
+      votes: votesToUseForProjection
+    });
+  }
+
+  function bucketizeSelf(self, selfDotBid) {
+    var bucket = new Bucket({
+      priority: 999999,
+      containsSelf: true,
+      gid: self.gid,
+      hasTwitter: !!self.hasTwitter,
+      hasFacebook: !!self.hasFacebook,
+      twitter: self.twitter || {},
+      facebook: self.facebook || {},
+      proj: self.proj,
+      count: 1,
+      bid: selfDotBid,
+      pic: anon_profile,
+      picture_size: -1
+    });
+    return bucket;
+  }
+
   const buildParticipantsOfInterestIncludingSelf = () => {
     const myPid = 0; // Jake - remove in the future
     var alreadyHaveSelf = participantsOfInterestVotes[myPid];
