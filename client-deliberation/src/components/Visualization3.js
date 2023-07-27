@@ -103,6 +103,28 @@ const Visualization3 = ( {} ) => {
     participantsOfInterestBids = _.map(_.values(participantsOfInterestVotes), "bid");
   }
 
+  function arraysToObjects(objWithArraysAsProperties) {
+    /* jshint -W089 */
+    var objects = [];
+    var len = -1;
+    for (var k in objWithArraysAsProperties) {
+      var nextLen = objWithArraysAsProperties[k].length;
+      if (len !== -1 && len !== nextLen) {
+        console.error("mismatched lengths");
+      }
+      len = nextLen;
+    }
+    for (var i = 0; i < len; i++) {
+      var o = {};
+      for (var key in objWithArraysAsProperties) {
+        o[key] = objWithArraysAsProperties[key][i];
+      }
+      objects.push(o);
+    }
+    /* jshint +W089 */
+    return objects;
+  }
+
   // from client-participation/js/stores/polis.js:1226 getFamousVotes.then(...)
   const bucketize = (pcaData) => {
     // Check for missing comps... TODO solve
@@ -300,6 +322,7 @@ const Visualization3 = ( {} ) => {
     // return null;
     return pcaData;
   }
+
 
   const buildPcaObject = async () => {
     const pcaData = await fetchPcaData();
