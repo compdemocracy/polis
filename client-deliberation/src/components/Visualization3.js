@@ -9,6 +9,11 @@ const Visualization3 = ( {} ) => {
   useEffect(() => {
     console.log(Strings)
     buildPcaObject();
+    buildFancyCommentsObject().then(
+      function(comments) {
+        console.log(comments);
+      }
+    );
   }, []);
 
   // Jake - globals, don't like this at all
@@ -68,6 +73,13 @@ const Visualization3 = ( {} ) => {
       conversation_id: conversation_id,
       math_tick: lastServerTokenForPCA,
     })
+  }
+
+  const fetchComments = (params) => {
+    return PolisNet.polisGet("/api/v3/comments", {
+      conversation_id: conversation_id,
+      include_social: true,
+    }, params)
   }
 
   const buildFamousVotesObject = async () => {
@@ -419,7 +431,6 @@ const Visualization3 = ( {} ) => {
 
   const buildPcaObject = async () => {
     let pcaData = await fetchPcaData();
-    console.log(pcaData)
 
     if (_.isNumber(pcaData.math_tick)) {
       lastServerTokenForPCA = pcaData.math_tick;
@@ -441,6 +452,30 @@ const Visualization3 = ( {} ) => {
 
     buildFamousVotesObject();
     pcaData = bucketize(pcaData);
+  }
+
+  // Jake - try and remove the JQuery in the future
+  const buildFancyCommentsObject = (options) => {
+    options = $.extend(options, { translate: true, lang: navigator.language });
+    return $.when(fetchComments(options), votesForTidBidPromise).then(function(args /* , dont need second arg */ ) {
+
+      var comments = args[0];
+      // don't need args[1], just used as a signal
+
+      // votesForTidBid should be defined since votesForTidBidPromise has resolved.
+      return _.map(comments, function(x) {
+        // Count the agrees and disagrees for each comment.
+        var bidToVote = votesForTidBid[x.tid];
+        if (bidToVote) {
+          x.A = sum(_.values(bidToVote.A));
+          x.D = sum(_.values(bidToVote.D));
+        } else {
+          x.A = 0;
+          x.D = 0;
+        }
+        return _.clone(x);
+      });
+    });    
   }
   
 
