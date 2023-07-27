@@ -63,6 +63,9 @@ const Visualization3 = ( {} ) => {
 
   var votesByMe = null;
 
+  const projectComments = false;
+  const projectRepfulTids = true;
+
 
   // normally this would be passed in via props, but since this is being
   // developed as an isolated component, we will call the API for it again here
@@ -932,11 +935,11 @@ const Visualization3 = ( {} ) => {
   }
 
   function prepCommentsProjection() {
-    if (!Utils.projectComments) {
+    if (!projectComments) {
       return [];
     }
     var repfulTids = {};
-    if (Utils.projectRepfulTids) {
+    if (projectRepfulTids) {
       _.each(repness, function(gid) {
         _.each(repness[gid], function(c) {
           if (c['repful-for'] === "agree") {
@@ -955,7 +958,7 @@ const Visualization3 = ( {} ) => {
     if (pcX.length && pcY.length) {
       for (var i = 0; i < pcX.length; i++) {
         var shouldAdd = true;
-        if (Utils.projectRepfulTids && !repfulTids[i]) {
+        if (projectRepfulTids && !repfulTids[i]) {
           shouldAdd = false;
         }
         if (shouldAdd) {
@@ -974,6 +977,16 @@ const Visualization3 = ( {} ) => {
       }
     }
     return projectedComments;
+  }
+
+  function sendUpdatedVisData(people, clusters, participantCount, projectedComments) {
+    // make deep copy so the vis doesn't muck with the model
+    people = _.map(people, function(p) {
+      var deep = true;
+      return $.extend(deep, {}, p);
+    });
+    // Jake - figure out what this is for
+    // personUpdateCallbacks.fire(people || [], clusters || [], participantCount, projectedComments);
   }
 
   function prepAndSendVisData() {
