@@ -10,6 +10,20 @@ const Visualization3 = ( {} ) => {
     buildPcaObject();
   }, []);
 
+  // Jake - globals, don't like this at all
+  // these should be combined into some sort of object
+  // and passed as parameters
+  var pcX = {};
+  var pcY = {};
+  var pcaCenter;
+  var repness; // gid -> [{data about most representative comments}]
+  var votesForTidBid = {}; // tid -> bid -> {A: agree count, B: disagree count}
+  var participantCount = 0;
+  var bidToPids = {};
+  var pidToBidCache = null;
+  var myBid;
+  var cachedPcaData = void 0;
+
   const conversation_id = "7ajfd9j53y";
   let lastServerTokenForPCA = -1;
   let participantsOfInterestVotes = null; // change this global variable to a parameter at some point
@@ -150,14 +164,17 @@ const Visualization3 = ( {} ) => {
     // TODO this is not runnable, just a rough idea. (data isn't structured like this)
     ///var people = pcaData.people;
 
-    eb.trigger(eb.participantCount, participantCount);
-    if (_.isNumber(pcaData.voteCount)) {
-      eb.trigger(eb.voteCount, pcaData.voteCount);
-    }
+    // Jake - commented this out because it is from Backbone
+    // eb.trigger(eb.participantCount, participantCount);
+    // if (_.isNumber(pcaData.voteCount)) {
+    //   eb.trigger(eb.voteCount, pcaData.voteCount);
+    // }
     //var myself = people.find(p => p.pid === getPid());
     //people = _.without(people, myself);
     //people.push(myself);
 
+    // Jake - these are global variables too
+    // ideally we should pass this around as an object
     pcX = pcaData.pca.comps[0];
     pcY = pcaData.pca.comps[1];
     pcaCenter = pcaData.pca.center;
