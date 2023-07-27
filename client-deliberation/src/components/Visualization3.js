@@ -31,7 +31,7 @@ const Visualization3 = ( {} ) => {
   var groupVotes = null;
   // var nextCommentCache = null;
 
-  // var consensusComments = null;
+  var consensusComments = null;
 
   // var modOutTids = {};
 
@@ -396,6 +396,9 @@ const Visualization3 = ( {} ) => {
     } else {
       console.error("got invlid math_tick");
     }
+
+    consensusComments = pcaData.consensus;
+    groupVotes = pcaData["group-votes"];
 
     // create map for if a comment should not appear in visualization?
     let modOutTids = {};
