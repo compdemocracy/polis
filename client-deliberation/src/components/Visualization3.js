@@ -16,6 +16,10 @@ const Visualization3 = ( {} ) => {
       }
     );
     printVotesByMe();
+    console.log("participantsOfInterestVotes", participantsOfInterestVotes);
+    await buildParticipantsOfInterestIncludingSelf();
+    })();
+
   }, []);
 
   // Jake - globals, don't like this at all
@@ -189,6 +193,28 @@ const Visualization3 = ( {} ) => {
       count += arrayOfNumbers[i];
     }
     return count;
+  }
+
+  function removeItemFromArray(bid, cluster) {
+    var index = cluster.indexOf(bid);
+    if (index >= 0) {
+      cluster = cluster.splice(index, 1);
+    }
+    return cluster;
+  }
+
+  function removeEmptyBucketsFromClusters(clusters) {
+    var buckets = projectionPeopleCache;
+    for (var i = 0; i < buckets.length; i++) {
+      var bucket = buckets[i];
+      if (bucket.count <= 0 &&
+        !bucket.containsSelf // but don't remove PTPTOIs from cluster
+      ) {
+        for (var gid = 0; gid < clusters.length; gid++) {
+          removeItemFromArray(bucket.bid, clusters[gid].members);
+        }
+      }
+    }
   }
 
   const getClusters = () => {
@@ -538,7 +564,7 @@ const Visualization3 = ( {} ) => {
 
       return o;
     });
-    
+
   }
   
 
