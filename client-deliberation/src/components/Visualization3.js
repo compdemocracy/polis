@@ -25,7 +25,7 @@ const Visualization3 = ( {} ) => {
   var myBid;
   var cachedPcaData = void 0;
 
-  // var projectionPeopleCache = [];
+  var projectionPeopleCache = [];
   var bigBuckets = [];
   var bidToBigBucket = {};
   var clustersCache = {};
@@ -405,7 +405,11 @@ const Visualization3 = ( {} ) => {
     clustersCache = temp.clusters;
 
     projectionPeopleCache = buckets;
-    clustersCachePromise.resolve();
+
+    // Jake - commented this out for now but it will be used in
+    //  findRepresentativeMetadata() and getTidsForGroup()
+    // 
+    // clustersCachePromise.resolve();
 
     // o = prepProjection(buckets);
     // return null;
@@ -414,7 +418,7 @@ const Visualization3 = ( {} ) => {
 
 
   const buildPcaObject = async () => {
-    const pcaData = await fetchPcaData();
+    let pcaData = await fetchPcaData();
     console.log(pcaData)
 
     if (_.isNumber(pcaData.math_tick)) {
