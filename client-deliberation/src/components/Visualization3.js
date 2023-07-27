@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Strings from "../strings/participation_en_us";
 import PolisNet from "../util/net";
+import anon_profile from "./anon_profile";
 var _ = require("lodash");
 
 const Visualization3 = ( {} ) => {
@@ -11,6 +12,9 @@ const Visualization3 = ( {} ) => {
 
   const conversation_id = "7ajfd9j53y";
   let lastServerTokenForPCA = -1;
+  let participantsOfInterestVotes = null; // change this global variable to a parameter at some point
+  let participantsOfInterestBids = [];  // change this global variable to a parameter at some point
+
 
   // normally this would be passed in via props, but since this is being
   // developed as an isolated component, we will call the API for it again here
@@ -53,7 +57,7 @@ const Visualization3 = ( {} ) => {
       ptpt.fakeBid = bucketId;
 
       // default anon picture, may be overwritten
-      ptpt.picture = Utils.getAnonPicUrl();
+      ptpt.picture = anon_profile;
 
       if (ptpt.facebook &&
         ptpt.facebook.fb_user_id // TEMP - needed since I deleted some entries from facebook_users
