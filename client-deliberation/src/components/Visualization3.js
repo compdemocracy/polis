@@ -14,6 +14,7 @@ const Visualization3 = ( {} ) => {
         console.log(comments);
       }
     );
+    printVotesByMe();
   }, []);
 
   // Jake - globals, don't like this at all
@@ -80,6 +81,23 @@ const Visualization3 = ( {} ) => {
       conversation_id: conversation_id,
       include_social: true,
     }, params)
+    // in the original client-participation code,
+    // there are two object attributes that are added onto
+    // this response: commentText and participantStarred,
+    // but their values are never used or modified.
+    // see client-participation/js/models/vote.js
+  }
+
+  const fetchVotesByMe = () => {
+    return PolisNet.polisGet("/api/v3/votes", {
+      conversation_id: conversation_id,
+      pid: "mypid",
+    })
+  }
+
+  const printVotesByMe = async () => {
+    const v = await fetchVotesByMe();
+    console.log(v)
   }
 
   const buildFamousVotesObject = async () => {
