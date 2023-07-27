@@ -8,18 +8,19 @@ var _ = require("lodash");
 const Visualization3 = ( {} ) => {
   useEffect(() => {
     (async () => {
-    console.log(Strings)
+    console.log("Strings", Strings)
     myPid = await getMyPid();
     await buildPcaObject();
     buildFancyCommentsObject().then(
       function(comments) {
-        console.log(comments);
+        console.log("fancyComments", comments);
       }
     );
     votesByMe = await fetchVotesByMe();
     printVotesByMe();
     console.log("participantsOfInterestVotes", participantsOfInterestVotes);
-    await buildParticipantsOfInterestIncludingSelf();
+    const ptptois = await buildParticipantsOfInterestIncludingSelf();
+    console.log("ptpois", ptptois);
     })();
 
   }, []);
@@ -109,7 +110,7 @@ const Visualization3 = ( {} ) => {
 
   const printVotesByMe = async () => {
     const v = await fetchVotesByMe();
-    console.log(v)
+    console.log("votesByMe", v)
   }
 
   const buildFamousVotesObject = async () => {
