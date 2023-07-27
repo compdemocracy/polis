@@ -24,6 +24,17 @@ const Visualization3 = ( {} ) => {
   var myBid;
   var cachedPcaData = void 0;
 
+  // var projectionPeopleCache = [];
+  // var bigBuckets = [];
+  var bidToBigBucket = {};
+  // var clustersCache = {};
+  var groupVotes = null;
+  // var nextCommentCache = null;
+
+  // var consensusComments = null;
+
+  // var modOutTids = {};
+
   const conversation_id = "7ajfd9j53y";
   let lastServerTokenForPCA = -1;
   let participantsOfInterestVotes = null; // change this global variable to a parameter at some point
@@ -146,6 +157,32 @@ const Visualization3 = ( {} ) => {
       count += arrayOfNumbers[i];
     }
     return count;
+  }
+
+  const getClusters = () => {
+    var clusters = deepcopy(clustersCache);
+    // addParticipantsOfInterestToClusters(clusters);
+    removeEmptyBucketsFromClusters(clusters);
+
+    for (var i = 0; i < clusters.length; i++) {
+      clusters[i]["n-members"] = cachedPcaData["group-votes"][i]["n-members"];
+    }
+    return clusters;
+  }
+
+  const getBidToGid = (clusters) => {
+    var bidToGid = {};
+    clusters = clusters || getClusters(); // TODO cleanup
+    var gids = _.keys(clusters);
+    for (var g = 0; g < gids.length; g++) {
+      var gid = Number(gids[g]);
+      var cluster = clusters[gid];
+      for (var i = 0; i < cluster.members.length; i++) {
+        var bid = cluster.members[i];
+        bidToGid[bid] = gid;
+      }
+    }
+    return bidToGid;
   }
 
   // from client-participation/js/stores/polis.js:1226 getFamousVotes.then(...)
