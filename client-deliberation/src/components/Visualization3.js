@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import Strings from "../strings/participation_en_us";
 import PolisNet from "../util/net";
 import anon_profile from "./anon_profile";
+import { Bucket } from "./Bucket";
 var _ = require("lodash");
 
 const Visualization3 = ( {} ) => {
@@ -25,7 +26,7 @@ const Visualization3 = ( {} ) => {
   var cachedPcaData = void 0;
 
   // var projectionPeopleCache = [];
-  // var bigBuckets = [];
+  var bigBuckets = [];
   var bidToBigBucket = {};
   // var clustersCache = {};
   var groupVotes = null;
