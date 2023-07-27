@@ -10,6 +10,7 @@ const Visualization3 = ( {} ) => {
     (async () => {
     console.log("Strings", Strings)
     myPid = await getMyPid();
+    await prepAndSendVisData();
     await buildPcaObject();
     buildFancyCommentsObject().then(
       function(comments) {
@@ -707,7 +708,19 @@ const Visualization3 = ( {} ) => {
 
       return o;
     });
+  }
 
+  function prepAndSendVisData() {
+    var o = prepProjection(projectionPeopleCache);
+    var buckets = o.buckets;
+    buckets.sort(function(a, b) {
+      return b.priority - a.priority;
+    });
+    var clusters = o.clusters;
+    var projectedComments = prepCommentsProjection();
+    if (buckets.length) {
+      sendUpdatedVisData(buckets, clusters, participantCount, projectedComments);
+    }
   }
   
 
