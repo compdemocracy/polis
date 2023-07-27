@@ -10,7 +10,6 @@ const Visualization3 = ( {} ) => {
     (async () => {
     console.log("Strings", Strings)
     myPid = await getMyPid();
-    await prepAndSendVisData();
     await buildPcaObject();
     buildFancyCommentsObject().then(
       function(comments) {
@@ -22,6 +21,7 @@ const Visualization3 = ( {} ) => {
     console.log("participantsOfInterestVotes", participantsOfInterestVotes);
     const ptptois = await buildParticipantsOfInterestIncludingSelf();
     console.log("ptpois", ptptois);
+    await prepAndSendVisData();
     })();
 
   }, []);
