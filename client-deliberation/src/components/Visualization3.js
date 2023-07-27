@@ -496,6 +496,50 @@ const Visualization3 = ( {} ) => {
       });
     });    
   }
+
+  const buildParticipantsOfInterestIncludingSelf = () => {
+    const myPid = 0; // Jake - remove in the future
+    var alreadyHaveSelf = participantsOfInterestVotes[myPid];
+    // _.some(participantsOfInterestVotes, function(p) {
+    //   console.log('pid', myPid, p.pid);
+    //   if (myPid === p.pid) {
+    //     console.log(p);
+    //   }
+    //   return myPid === p.pid;
+    // });
+    var result = _.clone(participantsOfInterestVotes);
+    if (alreadyHaveSelf) {
+      // nothing to do
+    } else {
+      result[myPid] = bucketizeSelf(projectSelf(), -1);
+      result[myPid].isSelf = true;
+    }
+    result[myPid].picture_size = 48;
+
+    var b2g = getBidToGid();
+
+    return _.keys(result).map(function(key) {
+      var o = result[key];
+      var votesVectorInAscii_adpu_format = o.votes || "";
+      var pid = parseInt(o.pid);
+
+      var temp = projectParticipant(pid, votesVectorInAscii_adpu_format);
+      o.x = temp.proj.x;
+      o.y = temp.proj.y;
+
+      o.gid = b2g[o.bid];
+      o.isSelf = temp.isBlueDot || o.bid === -1;
+      // if (o.isSelf && o.pid === -1) { // use local votes based projection for anon self case. (rely on votesVectorInAscii_adpu_format for non-anon self)
+      //   var projectedSelf = projectSelf();
+      //   o.x = projectedSelf.proj.x;
+      //   o.y = projectedSelf.proj.y;
+      // }
+
+
+      return o;
+    });
+    
+  }
   
 
   return (
