@@ -192,7 +192,7 @@ const Visualization3 = ( {} ) => {
   }
 
   const getClusters = () => {
-    var clusters = deepcopy(clustersCache);
+    var clusters = _.cloneDeep(clustersCache);
     // addParticipantsOfInterestToClusters(clusters);
     removeEmptyBucketsFromClusters(clusters);
 
