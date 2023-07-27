@@ -15,6 +15,8 @@ const Visualization3 = ( {} ) => {
   let participantsOfInterestVotes = null; // change this global variable to a parameter at some point
   let participantsOfInterestBids = [];  // change this global variable to a parameter at some point
 
+  var votesForTidBidPromise = $.Deferred(); // change this to something other than jquery in the future?
+
 
   // normally this would be passed in via props, but since this is being
   // developed as an isolated component, we will call the API for it again here
@@ -102,7 +104,7 @@ const Visualization3 = ( {} ) => {
   }
 
   // from client-participation/js/stores/polis.js:1226 getFamousVotes.then(...)
-  const bucketize = () => {
+  const bucketize = (pcaData) => {
     // Check for missing comps... TODO solve
     if (!pcaData.pca || !pcaData.pca.comps) {
       console.error("missing comps");
@@ -295,7 +297,8 @@ const Visualization3 = ( {} ) => {
     clustersCachePromise.resolve();
 
     // o = prepProjection(buckets);
-    return null;
+    // return null;
+    return pcaData;
   }
 
   const buildPcaObject = async () => {
@@ -318,7 +321,7 @@ const Visualization3 = ( {} ) => {
     }
 
     buildFamousVotesObject();
-    bucketize();
+    pcaData = bucketize(pcaData);
   }
   
 
