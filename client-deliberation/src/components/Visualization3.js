@@ -28,7 +28,7 @@ const Visualization3 = ( {} ) => {
   // var projectionPeopleCache = [];
   var bigBuckets = [];
   var bidToBigBucket = {};
-  // var clustersCache = {};
+  var clustersCache = {};
   var groupVotes = null;
   // var nextCommentCache = null;
 
@@ -184,6 +184,31 @@ const Visualization3 = ( {} ) => {
       }
     }
     return bidToGid;
+  }
+
+  const removeSelfFromBucketsAndClusters = (buckets, clusters) => {
+    for (var b = 0; b < buckets.length; b++) {
+      var bucket = buckets[b];
+
+      // remove PTPTOIs from their buckets
+      for (var i = 0; i < participantsOfInterestBids.length; i++) {
+        if (participantsOfInterestBids.indexOf(bucket.bid) >= 0) {
+          // Don't decrement if this participant is self, since we subtract for the blue dot below
+          if (bucket.bid !== myBid) {
+            bucket.count -= 1;
+          }
+        }
+      }
+
+      // remove self
+      if (bucket.bid === myBid) {
+        bucket.count -= 1;
+      }
+    }
+    return {
+      buckets: buckets,
+      clusters: clusters
+    };
   }
 
   // from client-participation/js/stores/polis.js:1226 getFamousVotes.then(...)
