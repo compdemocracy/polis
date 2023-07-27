@@ -7,23 +7,31 @@
 const path = require('path');
 const webpack = require("webpack");
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+
+// Generate version string
+const gitHash = process.env.GIT_HASH;
+const hash = gitHash ? `_${gitHash.split(/[^\w]/)[0]}` : ''
+const versionString = `${new Date().toISOString().replace(/[-:T]/g, "_").split('.')[0]}` + hash;
+
+console.log(`Version string: ${versionString}`);
 
 module.exports = {
   mode: 'production',
   entry: './src/index.js',
   output: {
-    filename: 'report_bundle.js',
+    filename: '[name].[contenthash].js',
     path: path.resolve(__dirname, 'dist'),
     clean: true,
   },
   module: {
     rules: [
-      // {
-      //   test: /\.html$/,
-      //   loader: 'html-loader',
-      // },
       {
-        test: /\.(js)$/,
+        test: /\.css$/,
+        use: [MiniCssExtractPlugin.loader, 'css-loader'],
+      },
+      {
+        test: /\.js$/,
         exclude: /node_modules/,
         use: {
           loader: 'babel-loader',
@@ -33,10 +41,13 @@ module.exports = {
   },
   plugins: [
     new HtmlWebpackPlugin({
-      template: './public/index.html',
+      template: './public/index.ejs',
       templateParameters: {
-        versionString: '1_2_3_4_abc',
+        versionString: versionString,
       },
+    }),
+    new MiniCssExtractPlugin({
+      filename: '[name].[contenthash].css',
     }),
     new webpack.DefinePlugin({
       "process.env.NODE_ENV": JSON.stringify("production"),
