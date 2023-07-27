@@ -101,8 +101,201 @@ const Visualization3 = ( {} ) => {
     participantsOfInterestBids = _.map(_.values(participantsOfInterestVotes), "bid");
   }
 
+  // from client-participation/js/stores/polis.js:1226 getFamousVotes.then(...)
   const bucketize = () => {
+    // Check for missing comps... TODO solve
+    if (!pcaData.pca || !pcaData.pca.comps) {
+      console.error("missing comps");
+      return $.Deferred().reject();
+    }
+    var buckets = arraysToObjects(pcaData["base-clusters"]);
+    participantCount = sum(pcaData["base-clusters"].count);
+    repness = pcaData["repness"];
+    // TODO we should include the vectors for each comment (with the comments?)
+    ///commentVectors = pcaData.commentVectors;
 
+    // TODO this is not runnable, just a rough idea. (data isn't structured like this)
+    ///var people = pcaData.people;
+
+    eb.trigger(eb.participantCount, participantCount);
+    if (_.isNumber(pcaData.voteCount)) {
+      eb.trigger(eb.voteCount, pcaData.voteCount);
+    }
+    //var myself = people.find(p => p.pid === getPid());
+    //people = _.without(people, myself);
+    //people.push(myself);
+
+    pcX = pcaData.pca.comps[0];
+    pcY = pcaData.pca.comps[1];
+    pcaCenter = pcaData.pca.center;
+
+    // in case of malformed PCs (seen on conversations with only one comment)
+    pcX = pcX || [];
+    pcY = pcY || [];
+
+
+
+    // gid -> {members: [bid1, bid2, ...], ...}
+    var clusters = _.keyBy(pcaData["group-clusters"], "id");
+
+
+    // buckets = _.map(pcaData["group-clusters"], function(cluster) {
+    //     var anonBucket = _.clone(cluster);
+    //     anonBucket.x = anonBucket.center[0];
+    //     anonBucket.y = anonBucket.center[1];
+    //     anonBucket.id = 4;
+    //     return anonBucket;
+    // });
+
+
+    var bidToGid = getBidToGid(clusters);
+    var bucketPerGroup = {};
+    _.each(buckets, function(bucket) {
+      var gid = bidToGid[bucket.id];
+      bucketPerGroup[gid] = bucketPerGroup[gid] || [];
+      bucketPerGroup[gid].push(bucket);
+      bucket.gid = gid;
+    });
+
+
+    bidToBigBucket = {};
+    // bigBuckets = [1,2,3];
+    bigBuckets = _.map(bucketPerGroup,
+      function(bucketsForGid, gid) {
+        gid = parseInt(gid);
+        var bigBucket = _.reduce(bucketsForGid, function(o, bucket) {
+          if (_.includes(participantsOfInterestBids, bucket.id)) {
+            // debugger;
+            // o.ptptoiCount += 1;
+            return o;
+          }
+          // o.members = _.union(o.members, bucket.members);
+          o.count += bucket.count;
+          o.bids.push(bucket.id); // not currently consumed by vis
+
+          // cumulative moving average  (SHOULD PROBABLY BE WEIGHTED)
+          // bucket.count makes larger buckets weigh more.
+          // o.x = ((bucket.x - o.x)) / o.bucketCount;
+          // o.y = ((bucket.y - o.y)) / o.bucketCount;
+          o.id = o.id + "_" + bucket.id; // TODO not sure, but this is proof-of-concept code
+          return o;
+        }, {
+          members: [],
+          id: "bigBucketBid_",
+          bids: [],
+          gid: gid,
+          count: 0, // total ptpt count
+          clusterCount: groupVotes[gid]["n-members"],
+          // ptptoiCount: getParticipantsOfInterestForGid(gid).length,
+          x: clusters[gid].center[0],
+          y: clusters[gid].center[1],
+          isSummaryBucket: true
+        });
+        for (var i = 0; i < bigBucket.bids.length; i++) {
+          bidToBigBucket[bigBucket.bids[i]] = bigBucket.id;
+        }
+        clusters[gid].members = _.union(clusters[gid].members, [bigBucket.id]);
+        return bigBucket;
+      }
+    );
+
+    // bigBuckets.forEach(function(bb) {
+
+    //     bb.ptptoiCount = _.intersection(participantsOfInterestBids, bb.bids).length; // getParticipantsOfInterestForClusterBids(bb.bids).length;
+    // });
+
+    // buckets = _.values(gidToBuckets);
+    // buckets = buckets2;
+
+
+
+
+    // remove the buckets that only contain a ptptoi
+    buckets = _.filter(buckets, function(b) {
+      var hasPtptOI = _.includes(participantsOfInterestBids, b.id);
+      if (hasPtptOI) {
+        if (b.count === 1) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+
+
+
+
+    // mutate - move x and y into a proj sub-object, so the vis can animate x and y
+    _.each(buckets, function(b) {
+      b.proj = {
+        x: b.x,
+        y: b.y
+      };
+      delete b.x;
+      delete b.y;
+    });
+
+    // Convert to Bucket objects.
+    buckets = _.map(buckets, function(b) {
+      return new Bucket(b);
+    });
+
+    // ----------------- AGAIN for bigBuckets ---------------------
+    _.each(bigBuckets, function(b) {
+      b.proj = {
+        x: b.x,
+        y: b.y
+      };
+      delete b.x;
+      delete b.y;
+    });
+
+    // Convert to Bucket objects.
+    bigBuckets = _.map(bigBuckets, function(b) {
+      return new Bucket(b);
+    });
+
+
+
+    // -------------- PROCESS VOTES INFO --------------------------
+    var gidToBigBucketId = {};
+    _.each(bigBuckets, function(b) {
+      gidToBigBucketId[b.gid] = b.bid;
+    });
+    votesForTidBid = {};
+    _.each(groupVotes[0].votes, function(o, tid) {
+      var A = {};
+      var D = {};
+      var S = {};
+      _.each(clusters, function(cluster) {
+        var gid = cluster.id;
+        var bigBucketBid = gidToBigBucketId[gid];
+        A[bigBucketBid] = groupVotes[gid]["votes"][tid].A;
+        D[bigBucketBid] = groupVotes[gid]["votes"][tid].D;
+        S[bigBucketBid] = groupVotes[gid]["votes"][tid].S;
+      });
+      votesForTidBid[tid] = {
+        A: A,
+        D: D,
+        S: S,
+      };
+    });
+
+    votesForTidBidPromise.resolve(); // NOTE this may already be resolved.
+
+    // -------------- END PROCESS VOTES INFO --------------------------
+
+
+
+    var temp = removeSelfFromBucketsAndClusters(buckets, clusters);
+    buckets = temp.buckets;
+    clustersCache = temp.clusters;
+
+    projectionPeopleCache = buckets;
+    clustersCachePromise.resolve();
+
+    // o = prepProjection(buckets);
+    return null;
   }
 
   const buildPcaObject = async () => {
@@ -125,6 +318,7 @@ const Visualization3 = ( {} ) => {
     }
 
     buildFamousVotesObject();
+    bucketize();
   }
   
 
