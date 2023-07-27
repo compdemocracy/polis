@@ -21,10 +21,17 @@ const Visualization3 = ( {} ) => {
   };
 
   const buildPcaObject = async () => {
-    const object = await fetchPcaData(conversation_id, lastServerTokenForPCA);
+    const pcaData = await fetchPcaData(conversation_id, lastServerTokenForPCA);
     console.log(object)
-  }
 
+    if (_.isNumber(pcaData.math_tick)) {
+      lastServerTokenForPCA = pcaData.math_tick;
+    } else {
+      console.error("got invlid math_tick");
+    }
+
+    
+  }
   
 
   return (
