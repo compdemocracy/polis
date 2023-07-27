@@ -9,6 +9,7 @@ const Visualization3 = ( {} ) => {
   useEffect(() => {
     (async () => {
     console.log(Strings)
+    myPid = await getMyPid();
     await buildPcaObject();
     buildFancyCommentsObject().then(
       function(comments) {
@@ -25,6 +26,9 @@ const Visualization3 = ( {} ) => {
   // Jake - globals, don't like this at all
   // these should be combined into some sort of object
   // and passed as parameters
+
+  var myPid = "unknownpid";
+  
   var pcX = {};
   var pcY = {};
   var pcaCenter;
@@ -45,7 +49,7 @@ const Visualization3 = ( {} ) => {
 
   var consensusComments = null;
 
-  // var modOutTids = {};
+  var modOutTids = {};
 
   const conversation_id = "7ajfd9j53y";
   let lastServerTokenForPCA = -1;
@@ -487,7 +491,7 @@ const Visualization3 = ( {} ) => {
     groupVotes = pcaData["group-votes"];
 
     // create map for if a comment should not appear in visualization?
-    let modOutTids = {};
+    modOutTids = {};
     var modOut = pcaData["mod-out"];
     if (modOut) {
       modOut.forEach(function(x) {
@@ -521,6 +525,103 @@ const Visualization3 = ( {} ) => {
         return _.clone(x);
       });
     });    
+  }
+
+  function project(o) {
+    var x = 0;
+    var y = 0;
+
+    if (!o.votes.length) {
+      return {
+        pid: o.pid,
+        isBlueDot: o.isBlueDot,
+        containsSelf: o.containsSelf,
+        isPtptoi: o.isPtptoi,
+        proj: {
+          x: x,
+          y: y
+        }
+      };
+    }
+
+    for (var i = 0; i < o.votes.length; i++) {
+      var v = o.votes[i];
+      var tid = v.tid;
+      if (modOutTids[tid]) {
+        continue;
+      }
+      var vote = v.vote;
+
+      var dxi = (vote - (pcaCenter[tid] || 0)) * (pcX[tid] || 0);
+      var dyi = (vote - (pcaCenter[tid] || 0)) * (pcY[tid] || 0);
+      if (!_.isNaN(dxi) && !_.isNaN(dyi)) {
+        x += dxi;
+        y += dyi;
+      }
+    }
+
+    var numComments = pcaCenter.length;
+    var numVotes = o.votes.length;
+
+    if (numVotes > 0 && (o.pid !== -1 || USE_JETPACK_FOR_SELF)) {
+      var jetpack_aka_sparsity_compensation_factor = Math.sqrt(numComments / numVotes);
+      x *= jetpack_aka_sparsity_compensation_factor;
+      y *= jetpack_aka_sparsity_compensation_factor;
+    }
+
+    return {
+      pid: o.pid,
+      isBlueDot: o.isBlueDot,
+      containsSelf: o.containsSelf,
+      proj: {
+        x: x,
+        y: y
+      }
+    };
+  }
+
+  function projectParticipant(pid, votesVectorInAscii_adpu_format) {
+    var votesToUseForProjection = [];
+    if (pid === myPid) {
+      votesToUseForProjection = votesByMe.map(function(v) {
+        return {
+          vote: v.get("vote"),
+          tid: v.get("tid")
+        };
+      });
+    } else {
+      var len = votesVectorInAscii_adpu_format.length;
+      for (var i = 0; i < len; i++) {
+        var c = votesVectorInAscii_adpu_format[i];
+        if (c !== "u" /* && c !== "p" */ ) { // TODO think about "p", and whether it should be counted in the jetpack vote count
+          if (c === "a") {
+            votesToUseForProjection.push({
+              vote: -1,
+              tid: i
+            });
+          } else if (c === "d") {
+            votesToUseForProjection.push({
+              vote: 1,
+              tid: i
+            });
+          } else if (c === "p") {
+            votesToUseForProjection.push({
+              vote: 0,
+              tid: i
+            });
+          } else {
+            alert("bad vote encoding " + c);
+          }
+        }
+      }
+    }
+    return project({
+      pid: pid,
+      containsSelf: (pid === myPid),
+      isBlueDot: (pid === myPid), // TODO needed?
+      isPtptoi: true,
+      votes: votesToUseForProjection
+    });
   }
 
   const buildParticipantsOfInterestIncludingSelf = () => {
