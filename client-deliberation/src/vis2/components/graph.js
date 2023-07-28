@@ -137,7 +137,7 @@ class Graph extends React.Component {
 
   render() {
 
-    let ww = parseInt(getComputedStyle(document.getElementById('visualization_parent_div')).width, 10);
+    let ww = 748; // Jake - arbitrary width, change later
     let w = globals.sideWithPadding;
     let svgScale = 1;
     /*
