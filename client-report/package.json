@@ -1,6 +1,6 @@
 {
   "name": "polis-report",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "pol.is report",
   "scripts": {
     "build:dev": "webpack --config webpack.dev.js",
