@@ -19,7 +19,7 @@ overrides:
     - gulpfile.js
     - webpack.config.js
     - webpack.config.dev.js
-    - webpack.config.prod.js
+    - writeHeadersJsonTask.js
     env:
       browser: false
       node: true
