@@ -1057,7 +1057,9 @@ const Visualization3 = ( {} ) => {
       <Root
         comments={visObject.comments}
         math_main={visObject.math_main}
-        tidsToShow={[]}
+        //set tidsToShow based on which buttons the user
+        //has clicked on the visualization
+        tidsToShow={[3, 16, 2, 25, 9]}
         ptptois={visObject.ptptois}
         votesByMe={visObject.votesByMe}
         onVoteClicked={() => {}}
