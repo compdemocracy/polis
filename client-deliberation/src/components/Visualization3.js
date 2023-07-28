@@ -2,29 +2,76 @@ import React, { useState, useEffect } from "react";
 import Strings from "../strings/participation_en_us";
 import PolisNet from "../util/net";
 import anon_profile from "./anon_profile";
+import Root from "../vis2/vis2";
 import { Bucket } from "./Bucket";
 var _ = require("lodash");
 
 const Visualization3 = ( {} ) => {
-  useEffect(() => {
-    (async () => {
+
+  const [loading, setLoading] = useState(true);
+  const [visObject, setVisObject] = useState({});
+
+  var JakeComments = null;
+  var JakeMathMain = null;
+  var JakeTidsToShow = [];
+  var JakePtptois = null;
+  var JakeVotesByMe = null;
+
+  const getVisObject = async () => {
+    let visObj = {}
     console.log("Strings", Strings)
     myPid = await getMyPid();
-    await buildPcaObject();
-    buildFancyCommentsObject().then(
+    visObj.math_main = await buildPcaObject();
+    await buildFancyCommentsObject().then(
       function(comments) {
         console.log("fancyComments", comments);
+        // JakeComments = _.cloneDeep(comments);
+        visObj.comments = _.cloneDeep(comments);
       }
     );
+    // console.log("make sure i'm not null", JakeComments)
+    visObj.votesByMe = await fetchVotesByMe();
     votesByMe = await fetchVotesByMe();
     printVotesByMe();
     console.log("participantsOfInterestVotes", participantsOfInterestVotes);
-    const ptptois = await buildParticipantsOfInterestIncludingSelf();
-    console.log("ptpois", ptptois);
+    visObj.ptptois = await buildParticipantsOfInterestIncludingSelf();
+    console.log("ptpois", JakePtptois);
     await prepAndSendVisData();
-    })();
+    return visObj;
+  }
 
-  }, []);
+  useEffect(() => {
+    getVisObject().then(
+      (data) => {
+        console.log("visObject", data)
+        setVisObject(data);
+        setLoading(false);
+      }
+    )
+  }, [])
+
+  // useEffect(() => {
+  //   (async () => {
+  //     console.log("Strings", Strings)
+  //     myPid = await getMyPid();
+  //     JakeMathMain = await buildPcaObject();
+  //     await buildFancyCommentsObject().then(
+  //       function(comments) {
+  //         console.log("fancyComments", comments);
+  //         JakeComments = _.cloneDeep(comments);
+  //       }
+  //     );
+  //     console.log("make sure i'm not null", JakeComments)
+  //     votesByMe = await fetchVotesByMe();
+  //     JakeVotesByMe = await fetchVotesByMe();
+  //     printVotesByMe();
+  //     console.log("participantsOfInterestVotes", participantsOfInterestVotes);
+  //     JakePtptois = await buildParticipantsOfInterestIncludingSelf();
+  //     console.log("ptpois", JakePtptois);
+  //     await prepAndSendVisData();
+  //     })();
+  //     setLoading(false);
+  // }, []);
 
   // Jake - globals, don't like this at all
   // these should be combined into some sort of object
@@ -509,6 +556,7 @@ const Visualization3 = ( {} ) => {
 
     await buildFamousVotesObject();
     pcaData = bucketize(pcaData);
+    return pcaData;
   }
 
   // Jake - try and remove the JQuery in the future
@@ -1002,10 +1050,22 @@ const Visualization3 = ( {} ) => {
     }
   }
   
-
-  return (
-    <h1>Hello world</h1>
-  )
+  if (loading) {
+    return <div>Loading...</div>
+  } else {
+    return (
+      <Root
+        comments={visObject.comments}
+        math_main={visObject.math_main}
+        tidsToShow={[]}
+        ptptois={visObject.ptptois}
+        votesByMe={visObject.votesByMe}
+        onVoteClicked={() => {}}
+        onCurationChange={() => {}}
+        Strings={Strings}
+      />
+    );
+  }
 }
 
 export default Visualization3;
