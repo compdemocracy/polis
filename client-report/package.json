@@ -3,8 +3,9 @@
   "version": "0.0.1",
   "description": "pol.is report",
   "scripts": {
-    "build:prod": "webpack --mode=production",
-    "start": "node dev-server.js",
+    "build:dev": "webpack --config webpack.dev.js",
+    "build:prod": "webpack",
+    "start": "webpack serve --config webpack.dev.js",
     "lint": "eslint --quiet .",
     "lint:verbose": "eslint ."
   },
@@ -24,7 +25,6 @@
     "eslint": "~8.35.0",
     "eslint-plugin-react": "~7.32.2",
     "event-hooks-webpack-plugin": "^2.3.0",
-    "express": "~4.13.4",
     "glob": "~7.1.7",
     "gulp": "~3.9.1",
     "gulp-gzip": "0.0.4",
@@ -38,10 +38,9 @@
     "react-transform-hmr": "~1.0.4",
     "rimraf": "~2.4.5",
     "run-sequence": "~0.3.7",
-    "webpack": "~5.74.0",
-    "webpack-cli": "~4.10.0",
-    "webpack-dev-middleware": "~6.0.1",
-    "webpack-hot-middleware": "~2.25.3"
+    "webpack": "~5.88.0",
+    "webpack-cli": "~5.1.4",
+    "webpack-dev-server": "^4.15.1"
   },
   "dependencies": {
     "color": "~4.2.3",

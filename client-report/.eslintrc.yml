@@ -15,10 +15,10 @@ ignorePatterns:
   - dist
 overrides:
   - files:
-    - dev-server.js
     - gulpfile.js
     - webpack.config.js
-    - webpack.config.dev.js
+    - webpack.common.js
+    - webpack.dev.js
     - writeHeadersJsonTask.js
     env:
       browser: false

@@ -2,45 +2,47 @@
 
 const common = require('./webpack.common');
 const path = require('path');
-const webpack = require("webpack");
-const CompressionPlugin = require("compression-webpack-plugin");
-const EventHooksPlugin = require('event-hooks-webpack-plugin');
+const webpack = require('webpack');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
-const writeHeadersJsonTask = require('./writeHeadersJsonTask');
+
+const serviceUrl = process.env.SERVICE_URL || 'http://localhost:5000';
 
 module.exports = {
   ...common,
-  mode: 'production',
+  mode: 'development',
+  devtool: 'inline-source-map',
   output: {
-    filename: 'report_bundle.[contenthash].js',
-    path: path.resolve(__dirname, 'dist'),
-    clean: true,
+    filename: 'report_bundle.js',
+    path: path.resolve(__dirname, 'devel'),
   },
   plugins: [
     ...common.plugins,
-    new CompressionPlugin({
-      // It appears that nothing is currently using these gzipped files.
-      // So we're just going to generate it with the .gz extension and not
-      // delete the original.
-      // TODO: Decide if we want to use these gzipped files.
-      test: /\.js$/,
-      // filename: '[path][base]',
-      // deleteOriginalAssets: true,
-    }),
-    new EventHooksPlugin({
-      afterEmit: () => writeHeadersJsonTask(),
-    }),
     new MiniCssExtractPlugin({
-      filename: 'report_style.[contenthash].css',
+      filename: 'report_style.css',
     }),
     new webpack.DefinePlugin({
-      "process.env.NODE_ENV": JSON.stringify("production")
-    })
+      'process.env.NODE_ENV': JSON.stringify('development'),
+      'process.env.SERVICE_URL': JSON.stringify(process.env.SERVICE_URL),
+    }),
+    new webpack.HotModuleReplacementPlugin(),
   ],
+  devServer: {
+    compress: true,
+    hot: true,
+    open: "index_report.html",
+    port: 5010,
+    proxy: {
+      '/api': {
+        target: serviceUrl,
+        secure: false
+      }
+    },
+    static: false,
+  },
   performance: {
     // TODO: Find and remove orphan modules; Reduce bundle size.
     hints: 'warning', // 'error' for errors, 'warning' for warnings, false to disable
-    maxAssetSize: 505000, // Size limit in bytes, default is 250000 (250 KB)
-    maxEntrypointSize: 500000, // Size limit in bytes, default is 250000 (250 KB)
+    maxAssetSize: 7100000, // Size limit in bytes, default is 250000 (250 KB)
+    maxEntrypointSize: 7100000, // Size limit in bytes, default is 250000 (250 KB)
   },
 };
