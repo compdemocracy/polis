@@ -17,8 +17,9 @@
 // Otherwise, use the SERVICE_URL environment variable, if set, or default to
 // the current origin (e.g. "https://mypolis.xyz/").
 
-// NOTE: SERVICE_URL is currently not present in the production build via gulp.
+// NOTE: SERVICE_URL is currently not present in the production build.
 // It is only present in the dev build via webpack-dev-server.
+
 const serviceUrl = process.env.SERVICE_URL;
 const hostname = self.location.hostname;
 const port = self.location.port;
@@ -26,7 +27,6 @@ const port = self.location.port;
 const getDomainPrefix = () => {
   if (hostname === 'localhost') {
     if (port === '' || port === '80') return 'http://localhost/';
-    if (port === '5010') return 'http://localhost:5000/';
     return 'http://localhost:5000/';
   }
 
