@@ -1,8 +1,7 @@
 import React from "react";
 import * as globals from "./globals";
 import {VictoryAnimation} from "victory-core";
-// import * as d3 from "../../js/3rdparty/d3.v4.min.js";
-import { line } from "d3";
+var d3 = require("d3-shape")
 
 class Hull extends React.Component {
   render () {

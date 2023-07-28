@@ -1,9 +1,8 @@
 import * as globals from "../components/globals";
 import _ from "lodash";
 import createHull from "hull.js";
-// import * as d3 from "../../js/3rdparty/d3.v4.min.js";
-import { forceManyBody } from "d3-force";
-import { scaleLinear } from "d3-scale";
+var d3Force = require("d3-force")
+var d3Scale = require("d3-scale")
 
 import { forceSimulation, forceCollide, forceX, forceY } from 'd3-force';
 
@@ -111,7 +110,7 @@ function mixedForce(arrays, strength) {
       .force('collide', forceCollide(function(d) {
         return d.collideRadius || 10;
       }))
-      .force("charge", d3.forceManyBody().strength(strength));
+      .force("charge", d3Force.forceManyBody().strength(strength));
 
   for (let i = 0; i < 110; ++i) {
     force.tick();
@@ -198,8 +197,8 @@ const graphUtil = (comments, math, badTids, ptptois) => {
     let maxClusterX = _.max(allXs);
     let minClusterY = _.min(allYs);
     let maxClusterY = _.max(allYs);
-    const xx = d3.scaleLinear().domain([minClusterX, maxClusterX]).range([border, globals.side - border]);
-    const yy = d3.scaleLinear().domain([minClusterY, maxClusterY]).range([border, globals.svgHeightWithoutPadding - border]);
+    const xx = d3Scale.scaleLinear().domain([minClusterX, maxClusterX]).range([border, globals.side - border]);
+    const yy = d3Scale.scaleLinear().domain([minClusterY, maxClusterY]).range([border, globals.svgHeightWithoutPadding - border]);
 
     const xCenter = xx(0);
     const yCenter = yy(0);
