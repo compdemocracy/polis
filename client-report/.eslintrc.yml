@@ -15,7 +15,6 @@ ignorePatterns:
   - dist
 overrides:
   - files:
-    - gulpfile.js
     - webpack.config.js
     - webpack.common.js
     - webpack.dev.js
