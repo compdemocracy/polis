@@ -139,6 +139,7 @@ class App extends React.Component {
 
   componentWillMount() {
     this.loadUserData()
+     // Jake - the below line somehow affects when the visualizations show up
     const mql = window.matchMedia(`(min-width: 800px)`)
     mql.addListener(this.mediaQueryChanged.bind(this))
     this.setState({ mql: mql, docked: mql.matches })

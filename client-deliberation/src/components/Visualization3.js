@@ -2,29 +2,76 @@ import React, { useState, useEffect } from "react";
 import Strings from "../strings/participation_en_us";
 import PolisNet from "../util/net";
 import anon_profile from "./anon_profile";
+import Root from "../vis2/vis2";
 import { Bucket } from "./Bucket";
 var _ = require("lodash");
 
 const Visualization3 = ( {} ) => {
-  useEffect(() => {
-    (async () => {
+
+  const [loading, setLoading] = useState(true);
+  const [visObject, setVisObject] = useState({});
+
+  var JakeComments = null;
+  var JakeMathMain = null;
+  var JakeTidsToShow = [];
+  var JakePtptois = null;
+  var JakeVotesByMe = null;
+
+  const getVisObject = async () => {
+    let visObj = {}
     console.log("Strings", Strings)
     myPid = await getMyPid();
-    await buildPcaObject();
-    buildFancyCommentsObject().then(
+    visObj.math_main = await buildPcaObject();
+    await buildFancyCommentsObject().then(
       function(comments) {
         console.log("fancyComments", comments);
+        // JakeComments = _.cloneDeep(comments);
+        visObj.comments = _.cloneDeep(comments);
       }
     );
+    // console.log("make sure i'm not null", JakeComments)
+    visObj.votesByMe = await fetchVotesByMe();
     votesByMe = await fetchVotesByMe();
     printVotesByMe();
     console.log("participantsOfInterestVotes", participantsOfInterestVotes);
-    const ptptois = await buildParticipantsOfInterestIncludingSelf();
-    console.log("ptpois", ptptois);
+    visObj.ptptois = await buildParticipantsOfInterestIncludingSelf();
+    console.log("ptpois", JakePtptois);
     await prepAndSendVisData();
-    })();
+    return visObj;
+  }
 
-  }, []);
+  useEffect(() => {
+    getVisObject().then(
+      (data) => {
+        console.log("visObject", data)
+        setVisObject(data);
+        setLoading(false);
+      }
+    )
+  }, [])
+
+  // useEffect(() => {
+  //   (async () => {
+  //     console.log("Strings", Strings)
+  //     myPid = await getMyPid();
+  //     JakeMathMain = await buildPcaObject();
+  //     await buildFancyCommentsObject().then(
+  //       function(comments) {
+  //         console.log("fancyComments", comments);
+  //         JakeComments = _.cloneDeep(comments);
+  //       }
+  //     );
+  //     console.log("make sure i'm not null", JakeComments)
+  //     votesByMe = await fetchVotesByMe();
+  //     JakeVotesByMe = await fetchVotesByMe();
+  //     printVotesByMe();
+  //     console.log("participantsOfInterestVotes", participantsOfInterestVotes);
+  //     JakePtptois = await buildParticipantsOfInterestIncludingSelf();
+  //     console.log("ptpois", JakePtptois);
+  //     await prepAndSendVisData();
+  //     })();
+  //     setLoading(false);
+  // }, []);
 
   // Jake - globals, don't like this at all
   // these should be combined into some sort of object
@@ -62,6 +109,9 @@ const Visualization3 = ( {} ) => {
   var votesForTidBidPromise = $.Deferred(); // change this to something other than jquery in the future?
 
   var votesByMe = null;
+
+  const projectComments = false;
+  const projectRepfulTids = true;
 
 
   // normally this would be passed in via props, but since this is being
@@ -506,6 +556,7 @@ const Visualization3 = ( {} ) => {
 
     await buildFamousVotesObject();
     pcaData = bucketize(pcaData);
+    return pcaData;
   }
 
   // Jake - try and remove the JQuery in the future
@@ -710,6 +761,282 @@ const Visualization3 = ( {} ) => {
     });
   }
 
+  function withProjectedSelf(people) {
+    people = people || [];
+
+    var alreadyHaveSelfDot = _.some(people, function(p) {
+      return p.containsSelf;
+    });
+    if (!alreadyHaveSelfDot) {
+      people = _.clone(people); // shallow copy
+      people.unshift(bucketizeSelf(projectSelf(), -1));
+    }
+    return people;
+  }
+
+  function moveTowards(x, y, dest, howFar) {
+    if (!dest) {
+      return {
+        x: x,
+        y: y
+      };
+    }
+    var vectorToCentroidX = dest[0] - x;
+    var vectorToCentroidY = dest[1] - y;
+    // var unitVectorToCentroid = Utils.toUnitVector(vectorToCentroidX, vectorToCentroidY);
+    // var adjustedVectorX = howFar * unitVectorToCentroid[0];
+    // var adjustedVectorY = howFar * unitVectorToCentroid[1];
+    var adjustedVectorX = vectorToCentroidX * howFar;
+    var adjustedVectorY = vectorToCentroidY * howFar;
+    return {
+      x: x + adjustedVectorX,
+      y: y + adjustedVectorY
+    };
+  }
+
+  function bucketizeParticipantOfInterest(o, ptptoiData) {
+    if (!ptptoiData.picture_size) {
+      if (ptptoiData.isSelf) {
+        ptptoiData.picture_size = 48;
+      } else {
+
+        ptptoiData.picture_size = 48; // just set it for now
+        // console.error('missing picture_size', ptptoiData);
+      }
+    }
+    var bucket = new Bucket({
+      priority: ptptoiData.priority,
+      pic: ptptoiData.picture,
+      picture_size: ptptoiData.picture_size,
+      containsSelf: o.containsSelf,
+      gid: o.gid,
+      hasTwitter: !!ptptoiData.hasTwitter,
+      hasFacebook: !!ptptoiData.hasFacebook,
+      twitter: ptptoiData.twitter || {},
+      facebook: ptptoiData.facebook || {},
+      ptptoi: true,
+      proj: o.proj,
+      count: 1,
+      bid: ptptoiData.fakeBid
+    });
+    return bucket;
+  }
+
+  function withParticipantsOfInterest(people, clusters) {
+    if (!participantsOfInterestVotes) {
+      return {
+        buckets: people,
+        clusters: clusters
+      };
+    }
+    people = people || [];
+    people = _.clone(people); // shallow copy
+
+    // if(Utils.isDemoMode()) {
+    //     participantsOfInterestVotes[myPid] = {
+    //         bid: -1,
+    //         // created: "1416276055476"
+    //         // modified: "1416276055476"
+    //         // uid: 91268
+    //         // zid: 12460
+    //         //votes: "daaauduuuuuuudauu" // Votes will be found in a local collection
+    //         picture: "https://umbc.givecorps.com/assets/user-icon-silhouette-ae9ddcaf4a156a47931d5719ecee17b9.png",
+    //         twitter: {
+    //             pid: myPid,
+    //             // followers_count: 23
+    //             // friends_count: 47
+    //             profile_image_url_https: "https://umbc.givecorps.com/assets/user-icon-silhouette-ae9ddcaf4a156a47931d5719ecee17b9.png",
+    //             // screen_name: "mbjorkegren"
+    //             // twitter_user_id: 1131541
+    //             verified: false
+    //         },
+    //         facebook: {
+    //             // ...
+    //         }
+    //     };
+    // }
+
+
+    var bidToGid = getBidToGid();
+    _.each(participantsOfInterestVotes, function(ptpt, pid) {
+      var magicPid = Number(pid) + 10000000000;
+      var gid = bidToGid[magicPid];
+      // clusters[gid].ptptoiCount = (clusters[gid].ptptoiCount || 0) + 1;
+      // clustersCache[gid].ptptois = _.union(clustersCache[gid].ptptois||[], magicPid);            // SO BAD
+      var votesVectorInAscii_adpu_format = ptpt.votes || "";
+      pid = parseInt(pid);
+
+      // pid += 1000000000; // TODO figure out what bids to assign to ptptoi buckets, these fake pids are currently used for that
+      var temp = projectParticipant(
+        pid,
+        votesVectorInAscii_adpu_format
+      );
+      temp.gid = gid;
+      var p = bucketizeParticipantOfInterest(temp, ptpt);
+      people.push(p);
+    });
+
+    function averageTheThings(items, getter) {
+      var total = 0;
+      _.each(items, function(item) {
+        var val = getter(item);
+        total += val;
+      });
+      return total / items.length;
+    }
+
+    var bidToNode = _.keyBy(people, "bid");
+
+    function getxy(bid, dim) {
+      var node = bidToNode[bid];
+      if (!node) {
+        console.error("missing node for bid: " + bid);
+        return 0;
+      }
+      return node.proj[dim];
+    }
+
+    function getX(bid) {
+      return getxy(bid, "x");
+    }
+
+    function getY(bid) {
+      return getxy(bid, "y");
+    }
+
+    function getBigBucketForGroup(gid) {
+      for (var i = 0; i < people.length; i++) {
+        var isBigBucket = false;
+        if ("string" === typeof people[i].bid) {
+          if (people[i].bid.match(/^bigBucketBid/)) {
+            isBigBucket = true;
+          }
+        }
+        if (isBigBucket && people[i].gid === gid) {
+          return people[i];
+        }
+      }
+      return null;
+    }
+
+    _.each(clusters, function(cluster) {
+      var ptptoiMembers = cluster.members.filter(function(bid) {
+        return bid >= 10000000000; // magicPid
+      });
+      // use the center of the ptpois if possible
+      var centerX = averageTheThings(ptptoiMembers, getX);
+      var centerY = averageTheThings(ptptoiMembers, getY);
+      // otherwise, just use the center of the cluster, since there are no ptptois
+      if (_.isNaN(centerX)) {
+        centerX = cluster.center[0];
+      }
+      if (_.isNaN(centerY)) {
+        centerY = cluster.center[1];
+      }
+      var associatedBigBucket = getBigBucketForGroup(cluster.id);
+      associatedBigBucket.proj.x = centerX;
+      associatedBigBucket.proj.y = centerY;
+    });
+
+    return {
+      buckets: people,
+      clusters: clusters
+    };
+
+  }
+
+  function prepProjection(buckets2) {
+    if (bigBuckets.length) {
+      buckets2 = bigBuckets;
+    }
+    // buckets = reprojectForSubsetOfComments(buckets2);
+    var clusters = [];
+    if (buckets2.length) {
+      clusters = getClusters();
+    }
+
+    var o = withParticipantsOfInterest(buckets2, clusters);
+    buckets2 = o.buckets;
+    clusters = o.clusters;
+    buckets2 = withProjectedSelf(buckets2);
+
+    // remove empty buckets
+    buckets2 = _.filter(buckets2, function(bucket) {
+      return bucket.count > 0;
+    });
+
+    // inset each ptptoi towards the center of its cluster
+    _.each(buckets2, function(b) {
+      var cluster = clustersCache[b.gid];
+      var center = null;
+      if (cluster) {
+        center = cluster.center;
+      }
+      b.proj = moveTowards(b.proj.x, b.proj.y, center, 0.0);
+    });
+
+
+    return {
+      buckets: buckets2,
+      clusters: clusters
+    };
+  }
+
+  function prepCommentsProjection() {
+    if (!projectComments) {
+      return [];
+    }
+    var repfulTids = {};
+    if (projectRepfulTids) {
+      _.each(repness, function(gid) {
+        _.each(repness[gid], function(c) {
+          if (c['repful-for'] === "agree") {
+            repfulTids[c.tid] = true;
+          }
+        });
+      });
+    }
+
+    var numComments = pcaCenter.length;
+
+    var numVotes = 1; // pretend the comment is a person who voted for only itself
+    var jetpack_aka_sparsity_compensation_factor = Math.sqrt(numComments / numVotes);
+
+    var projectedComments = [];
+    if (pcX.length && pcY.length) {
+      for (var i = 0; i < pcX.length; i++) {
+        var shouldAdd = true;
+        if (projectRepfulTids && !repfulTids[i]) {
+          shouldAdd = false;
+        }
+        if (shouldAdd) {
+          var x = pcX[i];
+          var y = pcY[i];
+          x *= jetpack_aka_sparsity_compensation_factor;
+          y *= jetpack_aka_sparsity_compensation_factor;
+          projectedComments.push({
+            tid: i,
+            proj: {
+              x: x,
+              y: y
+            }
+          });
+        }
+      }
+    }
+    return projectedComments;
+  }
+
+  function sendUpdatedVisData(people, clusters, participantCount, projectedComments) {
+    // make deep copy so the vis doesn't muck with the model
+    people = _.map(people, function(p) {
+      var deep = true;
+      return $.extend(deep, {}, p);
+    });
+    // Jake - figure out what this is for
+    // personUpdateCallbacks.fire(people || [], clusters || [], participantCount, projectedComments);
+  }
+
   function prepAndSendVisData() {
     var o = prepProjection(projectionPeopleCache);
     var buckets = o.buckets;
@@ -723,10 +1050,24 @@ const Visualization3 = ( {} ) => {
     }
   }
   
-
-  return (
-    <h1>Hello world</h1>
-  )
+  if (loading) {
+    return <div>Loading...</div>
+  } else {
+    return (
+      <Root
+        comments={visObject.comments}
+        math_main={visObject.math_main}
+        //set tidsToShow based on which buttons the user
+        //has clicked on the visualization
+        tidsToShow={[3, 16, 2, 25, 9]}
+        ptptois={visObject.ptptois}
+        votesByMe={visObject.votesByMe}
+        onVoteClicked={() => {}}
+        onCurationChange={() => {}}
+        Strings={Strings}
+      />
+    );
+  }
 }
 
 export default Visualization3;

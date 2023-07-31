@@ -25,6 +25,8 @@ import ReactDOM from 'react-dom';
 class Root extends React.Component {
   render() {
 
+    console.log("ALL PROPS AS SEEN BY <Root>", this.props)
+
     let comments = this.props.comments;
 
     var maxTid = -1;
