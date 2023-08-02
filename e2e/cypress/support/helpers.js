@@ -4,7 +4,7 @@ import { faker } from '@faker-js/faker'
 
 export function generateRandomUser() {
   return {
-    name: faker.name.findName(),
+    name: faker.person.fullName(),
     email: faker.internet.email(),
     password: faker.internet.password(),
   }
