@@ -67,42 +67,24 @@ const ConversationUI = (props) => {
       <Text variant="conversationPage" sx={{ mb: [2] }}>
         Welcome to a new kind of conversation - vote on other people's statements.
       </Text>
-      <Box sx={{ mb: "-40px" }}>
-        <StatementUIContainer>
-          {typeof nextComment !== "undefined" && nextComment.hasOwnProperty("tid") ? (
-            <StatementUI
-              author="Anonymous"
-              numStatementsRemaining={nextComment.remaining}
-              statement={nextComment.txt}
-              vote={vote}
-            />
-          ) : typeof nextComment !== "undefined" && nextComment.hasOwnProperty("currentPid") ? (
-            <Text>
-              You've voted on all the statements. Feel free to leave your own comments below!
-            </Text>
-          ) : (
-            <Text>
-              There aren't any statements yet. Get this conversation started by adding a statement.
-            </Text>
-          )}
-        </StatementUIContainer>
-        <Box
-          sx={{
-            variant: "statementBox.stack",
-            width: "99%",
-            top: "-26px",
-            zIndex: "-1",
-          }}
-        />
-        <Box
-          sx={{
-            variant: "statementBox.stack",
-            width: "98%",
-            top: "-52px",
-            zIndex: "-2",
-          }}
-        />
-      </Box>
+      <StatementUIContainer>
+        {typeof nextComment !== "undefined" && nextComment.hasOwnProperty("tid") ? (
+          <StatementUI
+            author="Anonymous"
+            numStatementsRemaining={nextComment.remaining}
+            statement={nextComment.txt}
+            vote={vote}
+          />
+        ) : typeof nextComment !== "undefined" && nextComment.hasOwnProperty("currentPid") ? (
+          <Text>
+            You've voted on all the statements. Feel free to leave your own comments below!
+          </Text>
+        ) : (
+          <Text>
+            There aren't any statements yet. Get this conversation started by adding a statement.
+          </Text>
+        )}
+      </StatementUIContainer>
       <Text variant="conversationPage" sx={{ mb: [3] }}>
         Are your perspectives or experiences missing from the conversation? If so, add them in the
         box below.
