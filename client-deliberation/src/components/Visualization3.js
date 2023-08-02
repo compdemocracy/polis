@@ -56,7 +56,7 @@ const Visualization3 = ( {myPid, conversation_id} ) => {
           math_main: newMathMain
         }));
       }
-    }, 5000); // Call the function every 5000ms (5 seconds)
+    }, 5000);
   
     return () => clearInterval(interval); // Clean up the interval when the component unmounts
   }, [visObject])

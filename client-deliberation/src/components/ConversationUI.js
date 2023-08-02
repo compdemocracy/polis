@@ -13,8 +13,7 @@ import Visualization3 from "./Visualization3";
 const ConversationUI = (props) => {
   const conversation_id = props.match.params.conversation_id;
   const [nextComment, setNextComment] = useState(props.response.nextComment);
-
-  let myPid = props.response.ptpt?.pid ?? "unknownpid";
+  const [myPid, setMyPid] = useState(props.response.ptpt?.pid ?? "unknownpid");
 
   const vote = (params) => {
     PolisNet.polisPost(
@@ -29,6 +28,9 @@ const ConversationUI = (props) => {
     )
       .then((res) => {
         setNextComment(res.nextComment);
+        if (!_.isUndefined(res.currentPid)) {
+          processPidResponse(res.currentPid);
+        }
       })
       .fail((err) => {
         if (!navigator.cookieEnabled) {
@@ -40,6 +42,12 @@ const ConversationUI = (props) => {
         }
       });
   };
+
+  const processPidResponse = (returnedPid) => {
+    if (returnedPid !== myPid) {
+      setMyPid(returnedPid)
+    }
+  }
 
   // useEffect(() => {
   //   PolisNet.polisGet("/api/v3/participationInit", {
@@ -111,12 +119,12 @@ const ConversationUI = (props) => {
         Please remember, statements are displayed randomly and you are not replying directly to
         other participants' statements.
       </Text>
-      <StatementForm conversation_id={conversation_id} />
+      <StatementForm conversation_id={conversation_id} processPidResponse={processPidResponse} />
       <Box sx={{ mb: [5] }}>
         <OpinionContainer />
       </Box>
       <Box sx={{ mb: [5] }}>
-        <Visualization3 myPid={myPid} conversation_id={conversation_id}/>
+        <Visualization3 myPid={myPid} conversation_id={conversation_id} />
       </Box>
       <Flex sx={{ justifyContent: "center" }}>
         {/* TODO: enlarge */}
