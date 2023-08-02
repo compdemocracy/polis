@@ -5,9 +5,8 @@
 # update TAG
 
 SHELL=/bin/bash
+E2E_RUN = cd e2e;
 
-BASEURL ?= https://127.0.0.1.sslip.io
-E2E_RUN = cd e2e; CYPRESS_BASE_URL=$(BASEURL)
 export ENV_FILE = .env
 export TAG = $(shell grep -e ^TAG ${ENV_FILE} | awk -F'[=]' '{gsub(/ /,""); print $$2}')
 export GIT_HASH = $(shell git rev-parse --short HEAD)
@@ -76,25 +75,11 @@ start-FULL-REBUILD: echo_vars stop rm-ALL ## Remove and restart all Docker conta
 e2e-install: e2e/node_modules ## Install Cypress E2E testing tools
 	$(E2E_RUN) npm install
 
-e2e-prepare: ## Prepare to run Cypress E2E tests
-	@# Testing embeds requires a override of a file prior to build.
-	cp e2e/cypress/fixtures/html/embed.html client-admin/embed.html
-
-e2e-run-minimal: ## Run E2E tests: minimal (smoke test)
-	$(E2E_RUN) npm run e2e:minimal
-
-e2e-run-standalone: ## Run E2E tests: standalone (no credentials required)
-	$(E2E_RUN) npm run e2e:standalone
-
-e2e-run-secret: ## Run E2E tests: secret (credentials required)
-	$(E2E_RUN) npm run e2e:secret
-
-e2e-run-subset: ## Run E2E tests: filter tests by TEST_FILTER envvar (without browser exit)
-	$(E2E_RUN) npm run e2e:subset
+e2e-run: ## Run E2E tests except those which require 3rd party services
+	$(E2E_RUN) npm run test
 
 e2e-run-all: ## Run E2E tests: all
-	$(E2E_RUN) npm run e2e:all
-
+	$(E2E_RUN) npm run test:all
 
 # Helpful CLI shortcuts
 rbs: start-rebuild
@@ -103,8 +88,7 @@ rbs: start-rebuild
 	@true
 
 .PHONY: help pull start stop rm-containers rm-volumes rm-images rm-ALL hash build-no-cache start-rebuild \
-  start-recreate restart-FULL-REBUILD e2e-install e2e-prepare e2e-run-minimal e2e-run-standalone e2e-run-secret \
-  e2e-run-subset e2e-run-all
+  start-recreate restart-FULL-REBUILD e2e-install e2e-run e2e-run-all e2e-run-some
 
 help:
 	@echo 'Usage: make <command>'
