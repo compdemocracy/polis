@@ -20,10 +20,56 @@ class Graph extends React.Component {
     this.hullElems = [];
     this.Viewer = null;
 
+    let tidsToShowSet = _.keyBy(props.tidsToShow);
+
+    let {
+      xx,
+      yy,
+      commentsPoints,
+      xCenter,
+      yCenter,
+      baseClustersScaled,
+      commentScaleupFactorX,
+      commentScaleupFactorY,
+      hulls,
+      groupCentroids,
+      groupCornerAssignments,
+      ptptoisProjected,
+    } = graphUtil(props.comments, props.math, props.badTids, props.ptptois);
+
+    commentsPoints = commentsPoints.filter((c) => {
+      return !_.isUndefined(tidsToShowSet[c.tid]);
+    });
+
+    let tidCarouselComments = props.comments.filter((c) => {
+      return !_.isUndefined(tidsToShowSet[c.tid]);
+    });
+
+    // let selectedComment = this.state.selectedComment
+
+    // if (this.state.selectedComment === null && this.state.selectedTidCuration !== null) {
+    //   selectedComment = tidCarouselComments[0]
+    // }
+
     this.state = {
       selectedComment: null,
       selectedTidCuration: null,
-      browserDimensions: window.innerWidth
+      browserDimensions: window.innerWidth,
+
+      xx,
+      yy,
+      commentsPoints,
+      xCenter,
+      yCenter,
+      baseClustersScaled,
+      commentScaleupFactorX,
+      commentScaleupFactorY,
+      hulls,
+      groupCentroids,
+      groupCornerAssignments,
+      ptptoisProjected,
+      // selectedComment,
+      tidCarouselComments
     };
   }
 
