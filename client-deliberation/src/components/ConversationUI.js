@@ -102,7 +102,7 @@ const ConversationUI = (props) => {
         other participants' statements.
       </Text>
       <StatementForm conversation_id={conversation_id} processPidResponse={processPidResponse} />
-      <Box sx={{ mb: [5] }}>
+      <Box sx={{ mb: [3] }}>
         <OpinionContainer />
       </Box>
       <Box sx={{ mb: [5] }}>

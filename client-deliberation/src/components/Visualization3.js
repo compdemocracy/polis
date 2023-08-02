@@ -17,7 +17,6 @@ const Visualization3 = ( {myPid, conversation_id} ) => {
   const getVisObject = async () => {
     let visObj = {}
     console.log("Strings", Strings)
-    // myPid = await getMyPid();
     visObj.math_main = await buildPcaObject();
     await buildFancyCommentsObject().then(
       function(comments) {

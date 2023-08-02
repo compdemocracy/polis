@@ -47,6 +47,8 @@ const DataSentence = ({math, selectedTidCuration, selectedComment, repfulFor, St
           <path d={repfulForAgree ? checkmark : ban}/>
           </svg>
         <p style={{
+            marginTop: 0,
+            marginBottom: 10,
             fontSize: 14,
             fontFamily: "Helvetica",
             fontWeight: 500,
