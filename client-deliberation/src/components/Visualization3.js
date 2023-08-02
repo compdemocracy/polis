@@ -6,7 +6,7 @@ import Root from "../vis2/vis2";
 import { Bucket } from "./Bucket";
 var _ = require("lodash");
 
-const Visualization3 = ( {} ) => {
+const Visualization3 = ( {myPid, conversation_id} ) => {
 
   const [loading, setLoading] = useState(true);
   const [visObject, setVisObject] = useState({});
@@ -17,7 +17,7 @@ const Visualization3 = ( {} ) => {
   const getVisObject = async () => {
     let visObj = {}
     console.log("Strings", Strings)
-    myPid = await getMyPid();
+    // myPid = await getMyPid();
     visObj.math_main = await buildPcaObject();
     await buildFancyCommentsObject().then(
       function(comments) {
@@ -44,6 +44,22 @@ const Visualization3 = ( {} ) => {
       }
     )
   }, [])
+
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const newMathMain = await buildPcaObject();
+      //compare, check if it's different
+      if (visObject && !_.isEqual(visObject.math_main, newMathMain)) {
+        console.log("seeing updated pca")
+        setVisObject(prevVisObject => ({
+          ...prevVisObject,
+          math_main: newMathMain
+        }));
+      }
+    }, 5000); // Call the function every 5000ms (5 seconds)
+  
+    return () => clearInterval(interval); // Clean up the interval when the component unmounts
+  }, [visObject])
 
   const changeCuration = (newCuration) => {
     setCurationType(newCuration)
@@ -72,8 +88,6 @@ const Visualization3 = ( {} ) => {
   // Jake - globals, don't like this at all
   // these should be combined into some sort of object
   // and passed as parameters
-
-  var myPid = "unknownpid";
   
   var pcX = {};
   var pcY = {};
@@ -97,7 +111,6 @@ const Visualization3 = ( {} ) => {
 
   var modOutTids = {};
 
-  const conversation_id = "7ajfd9j53y";
   let lastServerTokenForPCA = -1;
   let participantsOfInterestVotes = null; // change this global variable to a parameter at some point
   let participantsOfInterestBids = [];  // change this global variable to a parameter at some point
@@ -108,17 +121,6 @@ const Visualization3 = ( {} ) => {
 
   const projectComments = false;
   const projectRepfulTids = true;
-
-
-  // normally this would be passed in via props, but since this is being
-  // developed as an isolated component, we will call the API for it again here
-  const getMyPid = () => {
-    return PolisNet.polisGet("/api/v3/participationInit", {
-      conversation_id: conversation_id,
-      pid: "mypid",
-      lang: "acceptLang",
-    });
-  }
 
   const fetchPcaData = () => {
     return PolisNet.polisGet("/api/v3/math/pca2", {
@@ -161,7 +163,6 @@ const Visualization3 = ( {} ) => {
   }
 
   const buildFamousVotesObject = async () => {
-    const myPid = await getMyPid(); // remove in the future
     const PTPOI_BID_OFFSET = 1e10;
     let x = await fetchFamousVotes();
     x = x || {};

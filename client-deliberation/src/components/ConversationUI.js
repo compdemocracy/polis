@@ -8,10 +8,13 @@ import { Flex, Box, Text } from "theme-ui";
 import HexLogo from "./hexLogo";
 import OpinionContainer from "./OpinionContainer";
 import PolisNet from "../util/net";
+import Visualization3 from "./Visualization3";
 
 const ConversationUI = (props) => {
   const conversation_id = props.match.params.conversation_id;
   const [nextComment, setNextComment] = useState(props.response.nextComment);
+
+  let myPid = props.response.ptpt?.pid ?? "unknownpid";
 
   const vote = (params) => {
     PolisNet.polisPost(
@@ -111,6 +114,9 @@ const ConversationUI = (props) => {
       <StatementForm conversation_id={conversation_id} />
       <Box sx={{ mb: [5] }}>
         <OpinionContainer />
+      </Box>
+      <Box sx={{ mb: [5] }}>
+        <Visualization3 myPid={myPid} conversation_id={conversation_id}/>
       </Box>
       <Flex sx={{ justifyContent: "center" }}>
         {/* TODO: enlarge */}
