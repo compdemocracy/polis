@@ -11,11 +11,8 @@ const Visualization3 = ( {} ) => {
   const [loading, setLoading] = useState(true);
   const [visObject, setVisObject] = useState({});
 
-  var JakeComments = null;
-  var JakeMathMain = null;
-  var JakeTidsToShow = [];
-  var JakePtptois = null;
-  var JakeVotesByMe = null;
+  const [curationType, setCurationType] = useState(null); //"majority" or number
+  const [tidsToShow, setTidsToShow] = useState([]);
 
   const getVisObject = async () => {
     let visObj = {}
@@ -25,17 +22,15 @@ const Visualization3 = ( {} ) => {
     await buildFancyCommentsObject().then(
       function(comments) {
         console.log("fancyComments", comments);
-        // JakeComments = _.cloneDeep(comments);
         visObj.comments = _.cloneDeep(comments);
       }
     );
-    // console.log("make sure i'm not null", JakeComments)
     visObj.votesByMe = await fetchVotesByMe();
     votesByMe = await fetchVotesByMe();
     printVotesByMe();
     console.log("participantsOfInterestVotes", participantsOfInterestVotes);
     visObj.ptptois = await buildParticipantsOfInterestIncludingSelf();
-    console.log("ptpois", JakePtptois);
+    console.log("ptpois", visObj.ptptois);
     await prepAndSendVisData();
     return visObj;
   }
@@ -50,28 +45,29 @@ const Visualization3 = ( {} ) => {
     )
   }, [])
 
-  // useEffect(() => {
-  //   (async () => {
-  //     console.log("Strings", Strings)
-  //     myPid = await getMyPid();
-  //     JakeMathMain = await buildPcaObject();
-  //     await buildFancyCommentsObject().then(
-  //       function(comments) {
-  //         console.log("fancyComments", comments);
-  //         JakeComments = _.cloneDeep(comments);
-  //       }
-  //     );
-  //     console.log("make sure i'm not null", JakeComments)
-  //     votesByMe = await fetchVotesByMe();
-  //     JakeVotesByMe = await fetchVotesByMe();
-  //     printVotesByMe();
-  //     console.log("participantsOfInterestVotes", participantsOfInterestVotes);
-  //     JakePtptois = await buildParticipantsOfInterestIncludingSelf();
-  //     console.log("ptpois", JakePtptois);
-  //     await prepAndSendVisData();
-  //     })();
-  //     setLoading(false);
-  // }, []);
+  const changeCuration = (newCuration) => {
+    setCurationType(newCuration)
+    console.log("changeCuration")
+    if (visObject){
+      console.log("newCuration", newCuration)
+      const mathMain = visObject.math_main
+      console.log("mathMain!!!!", mathMain);
+      if (_.isNull(newCuration)) {
+
+      } else if (newCuration === "majority") {
+        const agreeTids = mathMain.consensus.agree.map(c => c.tid);
+        const disagreeTids = mathMain.consensus.disagree.map(c => c.tid);
+        console.log("SETTING TIDS TO SHOW", [...agreeTids, ...disagreeTids])
+        setTidsToShow([...agreeTids, ...disagreeTids]);
+      } else if (_.isNumber(newCuration)) {
+        var gid = newCuration;
+        console.log("SETTING TIDS TO SHOW", mathMain.repness[gid].map(c => c.tid))
+        setTidsToShow(mathMain.repness[gid].map(c => c.tid));
+      } else {
+        console.error("unknown curationType:", newCuration);
+      }
+    }
+  }
 
   // Jake - globals, don't like this at all
   // these should be combined into some sort of object
@@ -1059,11 +1055,15 @@ const Visualization3 = ( {} ) => {
         math_main={visObject.math_main}
         //set tidsToShow based on which buttons the user
         //has clicked on the visualization
-        tidsToShow={[3, 16, 2, 25, 9]}
+        tidsToShow={tidsToShow}
         ptptois={visObject.ptptois}
         votesByMe={visObject.votesByMe}
         onVoteClicked={() => {}}
-        onCurationChange={() => {}}
+        onCurationChange={
+          (newCurationType) => {
+            changeCuration(newCurationType)
+          }
+        }
         Strings={Strings}
       />
     );
