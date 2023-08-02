@@ -45,17 +45,10 @@ class Graph extends React.Component {
       return !_.isUndefined(tidsToShowSet[c.tid]);
     });
 
-    // let selectedComment = this.state.selectedComment
-
-    // if (this.state.selectedComment === null && this.state.selectedTidCuration !== null) {
-    //   selectedComment = tidCarouselComments[0]
-    // }
-
     this.state = {
       selectedComment: null,
       selectedTidCuration: null,
       browserDimensions: window.innerWidth,
-
       xx,
       yy,
       commentsPoints,
@@ -68,7 +61,6 @@ class Graph extends React.Component {
       groupCentroids,
       groupCornerAssignments,
       ptptoisProjected,
-      // selectedComment,
       tidCarouselComments
     };
   }
