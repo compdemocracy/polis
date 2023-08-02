@@ -8,7 +8,8 @@ var _ = require("lodash");
 
 const Visualization3 = ( {myPid, conversation_id} ) => {
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // if data from APIs has been received
+  const [ready, setReady] = useState(false); // if visualization is ready to be shown
   const [visObject, setVisObject] = useState({});
 
   const [curationType, setCurationType] = useState(null); //"majority" or number
@@ -18,6 +19,10 @@ const Visualization3 = ( {myPid, conversation_id} ) => {
     let visObj = {}
     console.log("Strings", Strings)
     visObj.math_main = await buildPcaObject();
+    if (visObj.math_main === undefined) {
+      return {}
+    }
+    console.log("math_main", visObj.math_main)
     await buildFancyCommentsObject().then(
       function(comments) {
         console.log("fancyComments", comments);
@@ -39,6 +44,9 @@ const Visualization3 = ( {myPid, conversation_id} ) => {
       (data) => {
         console.log("visObject", data)
         setVisObject(data);
+        if (!_.isEmpty(data)){
+          setReady(true);
+        }
         setLoading(false);
       }
     )
@@ -531,6 +539,10 @@ const Visualization3 = ( {myPid, conversation_id} ) => {
 
   const buildPcaObject = async () => {
     let pcaData = await fetchPcaData();
+
+    if (_.isUndefined(pcaData)) {
+      return undefined;
+    }
 
     if (_.isNumber(pcaData.math_tick)) {
       lastServerTokenForPCA = pcaData.math_tick;
@@ -1047,7 +1059,9 @@ const Visualization3 = ( {myPid, conversation_id} ) => {
   }
   
   if (loading) {
-    return <div>Loading...</div>
+    return <div>Loading visualization...</div>
+  } else if (!ready || !(visObject.math_main && visObject.math_main.n >= 7)) {
+    return <div>The visualization will appear once 7 participants have begun voting</div>
   } else {
     return (
       <Root
