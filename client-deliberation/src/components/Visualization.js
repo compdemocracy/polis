@@ -6,7 +6,7 @@ import Root from "../vis2/vis2";
 import { Bucket } from "./Bucket";
 var _ = require("lodash");
 
-const Visualization3 = ( {myPid, conversation_id} ) => {
+const Visualization = ( {myPid, conversation_id} ) => {
 
   const [loading, setLoading] = useState(true); // if data from APIs has been received
   const [ready, setReady] = useState(false); // if visualization is ready to be shown
@@ -1067,8 +1067,6 @@ const Visualization3 = ( {myPid, conversation_id} ) => {
       <Root
         comments={visObject.comments}
         math_main={visObject.math_main}
-        //set tidsToShow based on which buttons the user
-        //has clicked on the visualization
         tidsToShow={tidsToShow}
         ptptois={visObject.ptptois}
         votesByMe={visObject.votesByMe}
@@ -1084,4 +1082,4 @@ const Visualization3 = ( {myPid, conversation_id} ) => {
   }
 }
 
-export default Visualization3;
+export default Visualization;

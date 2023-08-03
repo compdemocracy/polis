@@ -8,7 +8,7 @@ import { Flex, Box, Text } from "theme-ui";
 import HexLogo from "./hexLogo";
 import OpinionContainer from "./OpinionContainer";
 import PolisNet from "../util/net";
-import Visualization3 from "./Visualization3";
+import Visualization from "./Visualization";
 
 const ConversationUI = (props) => {
   const conversation_id = props.match.params.conversation_id;
@@ -106,7 +106,7 @@ const ConversationUI = (props) => {
         <OpinionContainer />
       </Box>
       <Box sx={{ mb: [5] }}>
-        <Visualization3 myPid={myPid} conversation_id={conversation_id} />
+        <Visualization myPid={myPid} conversation_id={conversation_id} />
       </Box>
       <Flex sx={{ justifyContent: "center" }}>
         {/* TODO: enlarge */}
