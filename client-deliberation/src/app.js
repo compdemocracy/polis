@@ -35,6 +35,7 @@ import DoesNotExist from './components/DoesNotExist'
 import PolisNet from './util/net'
 import Loading from './components/Loading'
 import IndividualDeliberation from './components/IndividualDeliberation'
+import Visualization from './components/Visualization'
 
 const PrivateRoute = ({ component: Component, isLoading, authed, ...rest }) => {
   if (isLoading) {
@@ -137,6 +138,7 @@ class App extends React.Component {
 
   componentWillMount() {
     this.loadUserData()
+     // Jake - the below line somehow affects when the visualizations show up
     const mql = window.matchMedia(`(min-width: 800px)`)
     mql.addListener(this.mediaQueryChanged.bind(this))
     this.setState({ mql: mql, docked: mql.matches })
@@ -226,6 +228,8 @@ class App extends React.Component {
           />
           <Route exact path="/tos" component={TOS} />
           <Route exact path="/privacy" component={Privacy} />
+
+          <Route exact path="/testvis" component={Visualization} />
 
           <Route exact path="/404" render={() => <DoesNotExist title={"Page not found"} />} />
           <RouteOrRedirect path="/c/:conversation_id" isLoading={this.isLoading()} isAuthed={this.isAuthed()}/>

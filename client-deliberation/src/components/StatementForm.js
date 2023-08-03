@@ -5,7 +5,7 @@ import { Flex, Box, Text, Button, Image, jsx } from "theme-ui";
 import anon_profile from "./anon_profile";
 import PolisNet from "../util/net";
 
-const StatementForm = ({ myAvatar, conversation_id }) => {
+const StatementForm = ({ myAvatar, conversation_id, processPidResponse }) => {
   const FORM_CHARACTER_LIMIT = 140;
 
   const [textValue, setTextValue] = useState("");
@@ -40,6 +40,9 @@ const StatementForm = ({ myAvatar, conversation_id }) => {
             "Statement submitted! Only other participants will see your statement and agree or disagree.",
           );
           setShowMessage({ show: true, status: "success" });
+          if (!_.isUndefined(res.currentPid)) {
+            processPidResponse(res.currentPid);
+          }
         })
         .fail((err) => {
           if (err.status === 409) {

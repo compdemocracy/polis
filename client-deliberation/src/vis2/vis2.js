@@ -25,6 +25,8 @@ import ReactDOM from 'react-dom';
 class Root extends React.Component {
   render() {
 
+    console.log("ALL PROPS AS SEEN BY <Root>", this.props)
+
     let comments = this.props.comments;
 
     var maxTid = -1;
@@ -49,7 +51,7 @@ class Root extends React.Component {
     let repfulAgreeTidsByGroup = {};
     let repfulDisageeTidsByGroup = {};
     if (mathResult.repness) {
-      _.each(mathResult.repness, (entries, gid) => {
+      _.forOwn(mathResult.repness, (entries, gid) => {
         entries.forEach((entry) => {
           if (entry['repful-for'] === 'agree') {
             repfulAgreeTidsByGroup[gid] = repfulAgreeTidsByGroup[gid] || [];
@@ -104,7 +106,6 @@ injectTapEventPlugin();
 
 
 window.renderVis = function(rootEl, props) {
-  console.log(props);
   ReactDOM.render(
     React.createElement(Root, props, null),
     rootEl
@@ -117,3 +118,6 @@ window.renderHeader = function(rootEl, props) {
     rootEl
   );
 }
+
+export default Root;
+
