@@ -35,8 +35,7 @@ import DoesNotExist from './components/DoesNotExist'
 import PolisNet from './util/net'
 import Loading from './components/Loading'
 import IndividualDeliberation from './components/IndividualDeliberation'
-import Visualization2 from './components/Visualization2'
-import Visualization3 from './components/Visualization3'
+import Visualization from './components/Visualization'
 
 const PrivateRoute = ({ component: Component, isLoading, authed, ...rest }) => {
   if (isLoading) {
@@ -230,7 +229,7 @@ class App extends React.Component {
           <Route exact path="/tos" component={TOS} />
           <Route exact path="/privacy" component={Privacy} />
 
-          <Route exact path="/testvis" component={Visualization3} />
+          <Route exact path="/testvis" component={Visualization} />
 
           <Route exact path="/404" render={() => <DoesNotExist title={"Page not found"} />} />
           <RouteOrRedirect path="/c/:conversation_id" isLoading={this.isLoading()} isAuthed={this.isAuthed()}/>
