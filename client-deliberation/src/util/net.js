@@ -8,7 +8,7 @@ const basePath = ''
 
 // var pid = "unknownpid";
 
-function polisAjax(api, data, type) {
+function polisAjax(api, data, type, dataType = 'json') {
   if (!_.isString(api)) {
     throw new Error('api param should be a string')
   }
@@ -42,7 +42,7 @@ function polisAjax(api, data, type) {
       withCredentials: true
     },
     // crossDomain: true,
-    dataType: 'json'
+    dataType: dataType
   }
   if (type === 'GET') {
     promise = $.ajax(
@@ -55,6 +55,13 @@ function polisAjax(api, data, type) {
     promise = $.ajax(
       $.extend(config, {
         type: 'POST',
+        data: JSON.stringify(data)
+      })
+    )
+  } else if (type === 'PUT') {
+    promise = $.ajax(
+      $.extend(config, {
+        type: 'PUT',
         data: JSON.stringify(data)
       })
     )
@@ -75,17 +82,22 @@ function polisAjax(api, data, type) {
   return promise
 }
 
-function polisPost(api, data) {
-  return polisAjax(api, data, 'POST')
+function polisPost(api, data, dataType) {
+  return polisAjax(api, data, 'POST', dataType)
 }
 
-function polisGet(api, data) {
-  return polisAjax(api, data, 'GET')
+function polisGet(api, data, dataType) {
+  return polisAjax(api, data, 'GET', dataType)
+}
+
+function polisPut(api, data, dataType) {
+  return polisAjax(api, data, 'PUT', dataType)
 }
 
 const PolisNet = {
   polisAjax: polisAjax,
   polisPost: polisPost,
-  polisGet: polisGet
+  polisGet: polisGet,
+  polisPut: polisPut,
 }
 export default PolisNet

@@ -462,19 +462,8 @@ const getInfo = () => {
 }
 
 const saveFacebookFriendsData = (data, dest, dispatch) => {
-  $.ajax({
-    url: '/api/v3/auth/facebook',
-    contentType: 'application/json; charset=utf-8',
-    headers: {
-      'Cache-Control': 'max-age=0'
-    },
-    xhrFields: {
-      withCredentials: true
-    },
-    dataType: 'json',
-    data: JSON.stringify(data),
-    type: 'POST'
-  }).then(
+  PolisNet.polisPost('/api/v3/auth/facebook', JSON.stringify(data))
+  .then(
     () => {
       setTimeout(() => {
         // Force page to load so we can be sure the old user"s state is cleared from memory
@@ -610,13 +599,7 @@ const signoutError = (err) => {
 }
 
 const signoutPost = (dest) => {
-  // relying on server to clear cookies
-  return $.ajax({
-    type: 'POST',
-    url: '/api/v3/auth/deregister',
-    data: {},
-    dataType: 'text' // server returns an empty response, so can"t parse as JSON
-  })
+  return PolisNet.polisPost('/api/v3/auth/deregister', {}, 'text')
 }
 
 export const doSignout = (dest) => {
@@ -764,15 +747,7 @@ const updateZidMetadataError = (err) => {
 const updateZidMetadata = (zm, field, value) => {
   const data = {}
   data[field] = value
-  return $.ajax({
-    url: '/api/v3/conversations',
-    method: 'PUT',
-    contentType: 'application/json; charset=utf-8',
-    headers: { 'Cache-Control': 'max-age=0' },
-    xhrFields: { withCredentials: true },
-    dataType: 'json',
-    data: JSON.stringify(Object.assign({}, zm, data))
-  })
+  return PolisNet.polisPut('/api/v3/conversations', Object.assign({}, zm, data))
 }
 
 export const handleZidMetadataUpdate = (zm, field, value) => {
@@ -1230,11 +1205,7 @@ const acceptCommentError = (err) => {
 }
 
 const putCommentAccepted = (comment) => {
-  return $.ajax({
-    method: 'PUT',
-    url: '/api/v3/comments',
-    data: Object.assign(comment, { mod: 1 })
-  })
+  return PolisNet.polisPut('/api/v3/comments', Object.assign(comment, { mod: 1 }))
 }
 
 export const changeCommentStatusToAccepted = (comment) => {
@@ -1275,11 +1246,7 @@ const rejectCommentError = (err) => {
 }
 
 const putCommentRejected = (comment) => {
-  return $.ajax({
-    method: 'PUT',
-    url: '/api/v3/comments',
-    data: Object.assign(comment, { mod: -1 })
-  })
+  return PolisNet.polisPut('/api/v3/comments', Object.assign(comment, { mod: -1 }))
 }
 
 export const changeCommentStatusToRejected = (comment) => {
@@ -1319,11 +1286,7 @@ const commentIsMetaChangeError = (err) => {
 }
 
 const putCommentCommentIsMetaChange = (comment, is_meta) => {
-  return $.ajax({
-    method: 'PUT',
-    url: '/api/v3/comments',
-    data: Object.assign(comment, { is_meta: is_meta })
-  })
+  return PolisNet.polisPut('/api/v3/comments', Object.assign(comment, { is_meta: is_meta }))
 }
 
 export const changeCommentCommentIsMeta = (comment, is_meta) => {
@@ -1519,11 +1482,7 @@ const featureParticipantError = (err) => {
 }
 
 const putFeatureParticipant = (participant) => {
-  return $.ajax({
-    method: 'PUT',
-    url: '/api/v3/ptptois',
-    data: Object.assign(participant, { mod: 1 })
-  })
+  return PolisNet.polisPut('/api/v3/ptptois', Object.assign(participant, { mod: 1 }))
 }
 
 export const changeParticipantStatusToFeatured = (participant) => {
@@ -1559,11 +1518,7 @@ const hideParticipantError = (err) => {
 }
 
 const putHideParticipant = (participant) => {
-  return $.ajax({
-    method: 'PUT',
-    url: '/api/v3/ptptois',
-    data: Object.assign(participant, { mod: -1 })
-  })
+  return PolisNet.polisPut('/api/v3/ptptois', Object.assign(participant, { mod: -1 }))
 }
 
 export const changeParticipantStatusToHidden = (participant) => {
@@ -1603,11 +1558,7 @@ const unmoderateParticipantError = (err) => {
 }
 
 const putUnmoderateParticipant = (participant) => {
-  return $.ajax({
-    method: 'PUT',
-    url: '/api/v3/ptptois',
-    data: Object.assign(participant, { mod: 0 })
-  })
+  PolisNet.polisPut('/api/v3/ptptois', Object.assign(participant, { mod: 0 }))
 }
 
 export const changeParticipantStatusToUnmoderated = (participant) => {
