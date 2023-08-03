@@ -25,7 +25,15 @@ const ConversationUI = (props) => {
       }),
     )
       .then((res) => {
-        setNextComment(res.nextComment);
+        if (res.nextComment === undefined && res.currentPid !== undefined) {
+            // for correctly showing "you've voted on all statements" message
+            setNextComment({currentPid: res.currentPid})
+        } else {
+          setNextComment(res.nextComment);
+        }
+        if (!_.isUndefined(res.currentPid)) {
+          processPidResponse(res.currentPid);
+        }
       })
       .fail((err) => {
         if (!navigator.cookieEnabled) {
