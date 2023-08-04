@@ -161,6 +161,23 @@ class App extends React.Component {
     return authed
   }
 
+  isDeveloper() {
+    let isDev = false
+
+    if (!_.isUndefined(this.props.isDeveloper) && this.props.isDeveloper) {
+      isDev = true
+    }
+
+    if (
+      (this.props.error && this.props.status === 401) ||
+      this.props.status === 403
+    ) {
+      isDev = false
+    }
+
+    return isDev
+  }
+
   isLoading() {
     const { isLoggedIn } = this.props
 
@@ -276,28 +293,28 @@ class App extends React.Component {
                       }}>
                       <PrivateRoute
                         isLoading={this.isLoading()}
-                        authed={this.isAuthed()}
+                        authed={this.isDeveloper()}
                         exact
                         path="/"
                         component={Conversations}
                       />
                       <PrivateRoute
                         isLoading={this.isLoading()}
-                        authed={this.isAuthed()}
+                        authed={this.isDeveloper()}
                         exact
                         path="/conversations"
                         component={Conversations}
                       />
                       <PrivateRoute
                         isLoading={this.isLoading()}
-                        authed={this.isAuthed()}
+                        authed={this.isDeveloper()}
                         exact
                         path="/account"
                         component={Account}
                       />
                       <PrivateRoute
                         isLoading={this.isLoading()}
-                        authed={this.isAuthed()}
+                        authed={this.isDeveloper()}
                         exact
                         path="/integrate"
                         component={Integrate}

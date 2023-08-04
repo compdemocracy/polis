@@ -9,6 +9,14 @@ import Conversation from "./conversation";
 import LRUCache from "lru-cache";
 import logger from "./utils/logger";
 
+const polisDevs = Config.adminUIDs
+  ? JSON.parse(Config.adminUIDs)
+  : [];
+
+function isPolisDev(uid?: any) {
+  return polisDevs.indexOf(uid) >= 0;
+}
+
 function getUserInfoForUid(
   uid: any,
   callback: (arg0: null, arg1?: undefined) => void
@@ -127,6 +135,7 @@ async function getUser(
     finishedTutorial: !!info.tut,
     site_ids: [info.site_id],
     created: Number(info.created),
+    isPolisDev: isPolisDev(uid),
   };
 }
 

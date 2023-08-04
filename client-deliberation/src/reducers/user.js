@@ -7,7 +7,8 @@ const user = (
     loading: false,
     user: null,
     error: false,
-    isLoggedIn: undefined
+    isLoggedIn: undefined,
+    isDeveloper: undefined
   },
   action
 ) => {
@@ -21,6 +22,7 @@ const user = (
         loading: false,
         user: action.data,
         isLoggedIn: !!action.data.email || !!action.data.xInfo,
+        isDeveloper: action.data.isPolisDev,
         error: false
       })
     case types.USER_FETCH_ERROR:
@@ -29,7 +31,8 @@ const user = (
         user: null,
         error: true,
         status: action.status,
-        isLoggedIn: false
+        isLoggedIn: false,
+        isDeveloper: false,
       })
     default:
       return state
