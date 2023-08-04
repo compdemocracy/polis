@@ -234,6 +234,12 @@ class App extends React.Component {
           <Route exact path="/404" render={() => <DoesNotExist title={"Page not found"} />} />
           <RouteOrRedirect path="/c/:conversation_id" isLoading={this.isLoading()} isAuthed={this.isAuthed()}/>
 
+          <PrivateRoute
+            isLoading={this.isLoading()}
+            authed={this.isAuthed()}
+            exact
+            path="/" component={IndividualDeliberation}/>
+
           <Route
             exact
             path={["/","/conversations","/integrate", "/account"]}
