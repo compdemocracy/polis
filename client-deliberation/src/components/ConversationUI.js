@@ -68,7 +68,6 @@ const ConversationUI = (props) => {
     <Box sx={{ maxWidth: "768px", margin: "auto", py: "20px", px: "10px" }}>
       <HexLogo />
       <Title value={props.response.conversation.topic} />
-      {/* <Box sx={{ display: "inline", backgroundColor: "#E74C3C", color: "#fff"}}>Closed</Box> */}
       {props.response.conversation.is_active == false &&
         <Box
           sx={{
@@ -106,32 +105,36 @@ const ConversationUI = (props) => {
             )}
           </StatementUIContainer>
           {props.response.conversation.write_type !== 0 &&
-            <Box>
-              <Text variant="conversationPage" sx={{ mb: [3] }}>
-                Are your perspectives or experiences missing from the conversation? If so, add them in the
-                box below.
-              </Text>
-              <Text variant="conversationPage">What makes a good statement?</Text>
-              <Text variant="conversationPage">
-                <ul>
-                  <li>Stand alone idea</li>
-                  <li>Raise new perspectives, experiences or issues</li>
-                  <li>Clear & concise (limited to 140 characters)</li>
-                </ul>
-              </Text>
-              <Text variant="conversationPage" sx={{ mb: [3] }}>
-                Please remember, statements are displayed randomly and you are not replying directly to
-                other participants' statements.
-              </Text>
+            <Fragment>
+              {props.response.conversation.help_type !== 0 &&
+                <Box>
+                  <Text variant="conversationPage" sx={{ mb: [3] }}>
+                    Are your perspectives or experiences missing from the conversation? If so, add them in the
+                    box below.
+                  </Text>
+                  <Text variant="conversationPage">What makes a good statement?</Text>
+                  <Text variant="conversationPage">
+                    <ul>
+                      <li>Stand alone idea</li>
+                      <li>Raise new perspectives, experiences or issues</li>
+                      <li>Clear & concise (limited to 140 characters)</li>
+                    </ul>
+                  </Text>
+                  <Text variant="conversationPage" sx={{ mb: [3] }}>
+                    Please remember, statements are displayed randomly and you are not replying directly to
+                    other participants' statements.
+                  </Text>
+                </Box>
+              }
               <StatementForm conversation_id={conversation_id} processPidResponse={processPidResponse} />
-            </Box>
+            </Fragment>
           }
         </Box>
       }
       {props.response.conversation.vis_type !== 0 && (
         <Fragment>
           <Box sx={{ mb: [3] }}>
-            <OpinionContainer />
+            <OpinionContainer showHelperText={props.response.conversation.help_type} />
           </Box>
           <Box sx={{ mb: [5] }}>
             <Visualization myPid={myPid} conversation_id={conversation_id} />
