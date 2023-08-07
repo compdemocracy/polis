@@ -15,6 +15,7 @@ const ConversationUI = (props) => {
   const [nextComment, setNextComment] = useState(props.response.nextComment);
   const [myPid, setMyPid] = useState(props.response.ptpt?.pid ?? "unknownpid");
   const [isSubscribed, setIsSubscribed] = useState(props.response.ptpt?.subscribed ?? false)
+  const [emailInputValue, setEmailInputValue] = useState("")
 
   const vote = (params) => {
     PolisNet.polisPost(
@@ -59,7 +60,7 @@ const ConversationUI = (props) => {
     PolisNet.polisPost("/api/v3/convSubscriptions", {
       conversation_id: conversation_id,
       type: 1,
-      email: props.response.user.email,
+      email: props.response.user.email || emailInputValue,
     })
       .then((res) => {
         setIsSubscribed(true)
@@ -80,11 +81,13 @@ const ConversationUI = (props) => {
     }
     return (
       <form>
-        <Box sx={{mb: [2]}}>
+        <Box sx={{ mb: [2] }}>
           {"Enter your email: "}
-          <Input sx={{ display: "inline", width: 250, height: 35 }} />
+          <Input value={emailInputValue} onChange={(event) => {
+            setEmailInputValue(event.target.value);
+          }} sx={{ display: "inline", width: 250, height: 35 }} />
         </Box>
-        <Button onClick={doSubscribe}>
+        <Button type="button" onClick={doSubscribe}>
           Subscribe
         </Button>
       </form>
