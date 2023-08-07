@@ -83,9 +83,11 @@ const ConversationUI = (props) => {
       <Subtitle value={props.response.conversation.description} />
       {props.response.conversation.is_active == true &&
         <Box>
-          <Text variant="conversationPage" sx={{ mb: [2] }}>
-            Welcome to a new kind of conversation - vote on other people's statements.
-          </Text>
+          {props.response.conversation.help_type !== 0 &&
+            <Text variant="conversationPage" sx={{ mb: [2] }}>
+              Welcome to a new kind of conversation - vote on other people's statements.
+            </Text>
+          }
           <StatementUIContainer>
             {typeof nextComment !== "undefined" && nextComment.hasOwnProperty("tid") ? (
               <StatementUI
