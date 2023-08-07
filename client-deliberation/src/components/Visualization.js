@@ -130,12 +130,16 @@ const Visualization = ( {myPid, conversation_id} ) => {
   const projectRepfulTids = true;
 
   const fetchPcaData = () => {
-    return PolisNet.polisGet("/api/v3/math/pca2", {
-      conversation_id: conversation_id,
-      cacheBust: (Math.random() * 1e9 >> 0),
-    }, {
-      "If-None-Match": '"' + lastServerTokenForPCA + '"',
-    });
+    return PolisNet.polisGet("/api/v3/math/pca2",
+    $.extend({}, 
+      {
+        conversation_id: conversation_id,
+        cacheBust: (Math.random() * 1e9 >> 0),
+      },
+      {
+        "If-None-Match": '"' + lastServerTokenForPCA + '"',
+      })
+    );
   };
 
   const fetchFamousVotes = () => {
@@ -145,11 +149,11 @@ const Visualization = ( {myPid, conversation_id} ) => {
     })
   }
 
-  const fetchComments = (params) => {
+  const fetchComments = () => {
     return PolisNet.polisGet("/api/v3/comments", {
       conversation_id: conversation_id,
       include_social: true,
-    }, params)
+    })
     // in the original client-participation code,
     // there are two object attributes that are added onto
     // this response: commentText and participantStarred,
@@ -570,7 +574,7 @@ const Visualization = ( {myPid, conversation_id} ) => {
   // Jake - try and remove the JQuery in the future
   const buildFancyCommentsObject = (options) => {
     options = $.extend(options, { translate: true, lang: navigator.language });
-    return $.when(fetchComments(options), votesForTidBidPromise).then(function(args /* , dont need second arg */ ) {
+    return $.when(fetchComments(), votesForTidBidPromise).then(function(args /* , dont need second arg */ ) {
 
       var comments = args[0];
       // don't need args[1], just used as a signal

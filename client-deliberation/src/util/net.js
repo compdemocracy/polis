@@ -8,7 +8,7 @@ const basePath = ''
 
 // var pid = "unknownpid";
 
-function polisAjax(api, data, type, dataType = 'json') {
+function polisAjax(api, data, type, requestDataType = 'json') {
   if (!_.isString(api)) {
     throw new Error('api param should be a string')
   }
@@ -42,7 +42,7 @@ function polisAjax(api, data, type, dataType = 'json') {
       withCredentials: true
     },
     // crossDomain: true,
-    dataType: dataType
+    dataType: requestDataType
   }
   if (type === 'GET') {
     promise = $.ajax(
