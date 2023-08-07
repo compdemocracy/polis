@@ -28,8 +28,8 @@ const ConversationUI = (props) => {
     )
       .then((res) => {
         if (res.nextComment === undefined && res.currentPid !== undefined) {
-            // for correctly showing "you've voted on all statements" message
-            setNextComment({currentPid: res.currentPid})
+          // for correctly showing "you've voted on all statements" message
+          setNextComment({ currentPid: res.currentPid })
         } else {
           setNextComment(res.nextComment);
         }
@@ -68,45 +68,66 @@ const ConversationUI = (props) => {
     <Box sx={{ maxWidth: "768px", margin: "auto", py: "20px", px: "10px" }}>
       <HexLogo />
       <Title value={props.response.conversation.topic} />
+      {/* <Box sx={{ display: "inline", backgroundColor: "#E74C3C", color: "#fff"}}>Closed</Box> */}
+      {props.response.conversation.is_active == false &&
+        <Box
+          sx={{
+            display: "inline-block",
+            bg: "#cf152a",
+            borderRadius: "5px",
+            padding: "5px",
+          }}
+        >
+          <Text sx={{ color: "white" }}>closed</Text>
+        </Box>
+      }
       <Subtitle value={props.response.conversation.description} />
-      <Text variant="conversationPage" sx={{ mb: [2] }}>
-        Welcome to a new kind of conversation - vote on other people's statements.
-      </Text>
-      <StatementUIContainer>
-        {typeof nextComment !== "undefined" && nextComment.hasOwnProperty("tid") ? (
-          <StatementUI
-            author="Anonymous"
-            numStatementsRemaining={nextComment.remaining}
-            statement={nextComment.txt}
-            vote={vote}
-          />
-        ) : typeof nextComment !== "undefined" && nextComment.hasOwnProperty("currentPid") ? (
-          <Text>
-            You've voted on all the statements. Feel free to leave your own comments below!
+      {props.response.conversation.is_active == true &&
+        <Box>
+          <Text variant="conversationPage" sx={{ mb: [2] }}>
+            Welcome to a new kind of conversation - vote on other people's statements.
           </Text>
-        ) : (
-          <Text>
-            There aren't any statements yet. Get this conversation started by adding a statement.
-          </Text>
-        )}
-      </StatementUIContainer>
-      <Text variant="conversationPage" sx={{ mb: [3] }}>
-        Are your perspectives or experiences missing from the conversation? If so, add them in the
-        box below.
-      </Text>
-      <Text variant="conversationPage">What makes a good statement?</Text>
-      <Text variant="conversationPage">
-        <ul>
-          <li>Stand alone idea</li>
-          <li>Raise new perspectives, experiences or issues</li>
-          <li>Clear & concise (limited to 140 characters)</li>
-        </ul>
-      </Text>
-      <Text variant="conversationPage" sx={{ mb: [3] }}>
-        Please remember, statements are displayed randomly and you are not replying directly to
-        other participants' statements.
-      </Text>
-      <StatementForm conversation_id={conversation_id} processPidResponse={processPidResponse} />
+          <StatementUIContainer>
+            {typeof nextComment !== "undefined" && nextComment.hasOwnProperty("tid") ? (
+              <StatementUI
+                author="Anonymous"
+                numStatementsRemaining={nextComment.remaining}
+                statement={nextComment.txt}
+                vote={vote}
+              />
+            ) : typeof nextComment !== "undefined" && nextComment.hasOwnProperty("currentPid") ? (
+              <Text>
+                You've voted on all the statements.
+              </Text>
+            ) : (
+              <Text>
+                There aren't any statements yet. Get this conversation started by adding a statement.
+              </Text>
+            )}
+          </StatementUIContainer>
+          {props.response.conversation.write_type !== 0 &&
+            <Box>
+              <Text variant="conversationPage" sx={{ mb: [3] }}>
+                Are your perspectives or experiences missing from the conversation? If so, add them in the
+                box below.
+              </Text>
+              <Text variant="conversationPage">What makes a good statement?</Text>
+              <Text variant="conversationPage">
+                <ul>
+                  <li>Stand alone idea</li>
+                  <li>Raise new perspectives, experiences or issues</li>
+                  <li>Clear & concise (limited to 140 characters)</li>
+                </ul>
+              </Text>
+              <Text variant="conversationPage" sx={{ mb: [3] }}>
+                Please remember, statements are displayed randomly and you are not replying directly to
+                other participants' statements.
+              </Text>
+              <StatementForm conversation_id={conversation_id} processPidResponse={processPidResponse} />
+            </Box>
+          }
+        </Box>
+      }
       {props.response.conversation.vis_type !== 0 && (
         <Fragment>
           <Box sx={{ mb: [3] }}>
