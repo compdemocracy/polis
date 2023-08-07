@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Fragment } from "react";
 import Title from "./Title";
 import Subtitle from "./Subtitle";
 import StatementUIContainer from "./StatementUIContainer";
@@ -107,12 +107,17 @@ const ConversationUI = (props) => {
         other participants' statements.
       </Text>
       <StatementForm conversation_id={conversation_id} processPidResponse={processPidResponse} />
-      <Box sx={{ mb: [3] }}>
-        <OpinionContainer />
-      </Box>
-      <Box sx={{ mb: [5] }}>
-        <Visualization myPid={myPid} conversation_id={conversation_id} />
-      </Box>
+      {props.response.conversation.vis_type !== 0 && (
+        <Fragment>
+          <Box sx={{ mb: [3] }}>
+            <OpinionContainer />
+          </Box>
+          <Box sx={{ mb: [5] }}>
+            <Visualization myPid={myPid} conversation_id={conversation_id} />
+          </Box>
+        </Fragment>
+      )
+      }
       <Flex sx={{ justifyContent: "center" }}>
         {/* TODO: enlarge */}
         <HexLogo />
