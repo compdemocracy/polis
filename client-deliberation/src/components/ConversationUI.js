@@ -4,7 +4,7 @@ import Subtitle from "./Subtitle";
 import StatementUIContainer from "./StatementUIContainer";
 import StatementUI from "./StatementUI";
 import StatementForm from "./StatementForm";
-import { Flex, Box, Text } from "theme-ui";
+import { Flex, Box, Text, Button, Input } from "theme-ui";
 import HexLogo from "./hexLogo";
 import OpinionContainer from "./OpinionContainer";
 import PolisNet from "../util/net";
@@ -14,6 +14,7 @@ const ConversationUI = (props) => {
   const conversation_id = props.match.params.conversation_id;
   const [nextComment, setNextComment] = useState(props.response.nextComment);
   const [myPid, setMyPid] = useState(props.response.ptpt?.pid ?? "unknownpid");
+  const [isSubscribed, setIsSubscribed] = useState(props.response.ptpt?.subscribed ?? false)
 
   const vote = (params) => {
     PolisNet.polisPost(
@@ -52,6 +53,75 @@ const ConversationUI = (props) => {
     if (returnedPid !== myPid) {
       setMyPid(returnedPid)
     }
+  }
+
+  const doSubscribe = () => {
+    PolisNet.polisPost("/api/v3/convSubscriptions", {
+      conversation_id: conversation_id,
+      type: 1,
+      email: props.response.user.email,
+    })
+      .then((res) => {
+        setIsSubscribed(true)
+      })
+      .fail((err) => {
+        alert("Error subscribing")
+      });
+  };
+
+  const getSubscribeForm = () => {
+    if (props.response.user?.hasOwnProperty("email") ?? false) {
+      <form>
+        {props.response.user?.email}
+        <Button onClick={doSubscribe}>
+          Subscribe
+        </Button>
+      </form>
+    }
+    return (
+      <form>
+        <Box sx={{mb: [2]}}>
+          {"Enter your email: "}
+          <Input sx={{ display: "inline", width: 250, height: 35 }} />
+        </Box>
+        <Button onClick={doSubscribe}>
+          Subscribe
+        </Button>
+      </form>
+    )
+  }
+
+  const getSubscribeText = () => {
+    if (isSubscribed) {
+      return (
+        <Fragment>
+          <Text>If you have something to add, try writing your own statement.</Text>
+          <Text>You are subscribed to updates for this conversation.</Text>
+        </Fragment>
+      )
+    } else {
+      if (props.response.conversation.subscribe_type == 1) { //can subscribe
+        return (
+          <Fragment>
+            <Text>Get notified when more statements arrive:</Text>
+            {getSubscribeForm()}
+          </Fragment>
+        )
+      } else {
+        return <Text>If you have something to add, try writing your own statement.</Text>
+      }
+    }
+  }
+
+  const getHasVotedUI = () => {
+    return (
+      <Fragment>
+        <Text>
+          You've voted on all the statements.
+        </Text>
+        {getSubscribeText()}
+      </Fragment>
+    )
   }
 
   // useEffect(() => {
@@ -97,9 +167,7 @@ const ConversationUI = (props) => {
                 vote={vote}
               />
             ) : typeof nextComment !== "undefined" && nextComment.hasOwnProperty("currentPid") ? (
-              <Text>
-                You've voted on all the statements.
-              </Text>
+              getHasVotedUI()
             ) : (
               <Text>
                 There aren't any statements yet. Get this conversation started by adding a statement.
