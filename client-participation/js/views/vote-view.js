@@ -33,6 +33,7 @@ module.exports = Handlebones.ModelView.extend({
     "click #agreeButton": "participantAgreed",
     "click #disagreeButton": "participantDisagreed",
     "click #passButton": "participantPassed",
+    "click #quitButton": "participantQuit",
     "click #subscribeBtn": "subscribeBtn",
     'submit #subscribeEmailForm': "subscribeBtn",
 
@@ -49,6 +50,7 @@ module.exports = Handlebones.ModelView.extend({
   },
   context: function() {
     var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
+    ctx.showQuitForNowButton = true;
     ctx.iOS = iOS;
     ctx.customStyles = "";
     // if (ctx.txt && ctx.txt.length < 30) {
