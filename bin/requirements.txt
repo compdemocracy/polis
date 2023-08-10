@@ -1,0 +1,4 @@
+googletrans
+diskcache
+google-cloud-translate
+wheel

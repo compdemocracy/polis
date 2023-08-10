@@ -3,6 +3,27 @@
 var preloadHelper = require("./util/preloadHelper");
 var Utils = require("./util/utils");
 
+// polis_languages = [
+//   "Chinese (traditional)",
+//   "Chinese (simplified)",
+//   "Danish",
+//   "German",
+//   "Spanish",
+//   "Persian", # Farsi
+//   "French",
+//   "Italian",
+//   "Dutch",
+//   "Portuguese", # Brazilian Portuguese
+//   "Japanese",
+//   "Croatian",
+//   "Slovak",
+//   "Hebrew",
+//   "Welsh",
+//   "Greek",
+//   "Ukrainian",
+//   "Russian",
+//   ]
+
 var translations = {
   en_us: require("./strings/en_us.js"),
   // ja:  require("./strings/ja.js"),
