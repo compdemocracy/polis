@@ -73,7 +73,8 @@ if __name__ == "__main__":
         translations = translate_to_multiple_languages(phrase)
 
         for lang, translated_text in translations.items():
-            print(f"{lang}: {translated_text}")
+            print(f"{lang}({LANGUAGE_KEY_LOOKUP[lang]}): {translated_text}")
+        print(f"Translated into {len(translations)} languages.")
 
         # Remember to close the cache when done to free up resources
         cache.close()
