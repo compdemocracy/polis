@@ -19,7 +19,7 @@ RUN npm ci --production=false
 
 COPY client-admin/. .
 
-RUN npm run build:prod
+RUN npm run build:dev
 
 
 
@@ -45,7 +45,7 @@ RUN npm ci --production=false
 
 COPY client-participation/. .
 
-RUN npm run build:prod
+RUN npm run build:dev
 
 
 

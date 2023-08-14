@@ -23,6 +23,11 @@ TEST: ## Run in test mode (e.g. `make TEST start`, etc.)
 	$(eval TAG = $(shell grep -e ^TAG ${ENV_FILE} | awk -F'[=]' '{gsub(/ /,"");print $$2}'))
 	$(eval COMPOSE_FILE_ARGS = -f docker-compose.yml -f docker-compose.test.yml)
 
+TEST2: ## Run with test.env but not docker-compose.test.yml (e.g. `make TEST2 start`, etc.)
+	$(eval ENV_FILE = test.env)
+	$(eval TAG = $(shell grep -e ^TAG ${ENV_FILE} | awk -F'[=]' '{gsub(/ /,"");print $$2}'))
+	$(eval COMPOSE_FILE_ARGS = -f docker-compose.yml -f docker-compose.test.yml)
+
 DEV: ## Run in dev mode (e.g. `make DEV start`, etc.)
 	$(eval ENV_FILE = test.env)
 	$(eval TAG = $(shell grep -e ^TAG ${ENV_FILE} | awk -F'[=]' '{gsub(/ /,"");print $$2}'))
