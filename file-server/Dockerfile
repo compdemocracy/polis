@@ -19,7 +19,7 @@ RUN npm ci --production=false
 
 COPY client-admin/. .
 
-RUN npm run build:dev
+RUN npm run build:prod
 
 
 
