@@ -67,17 +67,6 @@ rm-single-image: ## Remove Docker image that matches REGEXP (e.g. make rm-single
 		| xargs docker rmi; \
 	fi
 
-all:
-	@if [ "$(DEBUG)" = "yes" ]; then \
-		echo "Debug mode is on"; \
-		cp src/config.debug dest/config; \
-	else \
-		echo "Debug mode is off"; \
-		cp src/config.release dest/config; \
-	fi
-	@echo 'removing filtered image (polis_tag="${TAG}")'
-	@-docker rmi -f $(shell docker images -q --filter "label=polis_tag=${TAG}")
-
 rm-ALL: rm-containers rm-volumes rm-images ## Remove Docker containers, volumes, and images where (polis_tag="${TAG}")
 	@echo Done.
 
