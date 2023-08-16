@@ -3,6 +3,8 @@
 var preloadHelper = require("./util/preloadHelper");
 var Utils = require("./util/utils");
 
+// Note: Please keep the following list up to date.
+//       It is used for automatic translation of new strings.
 // polis_languages = [
 //   "Chinese (traditional)",
 //   "Chinese (simplified)",
