@@ -415,9 +415,6 @@ module.exports = Handlebones.ModelView.extend({
         preloadHelper.firstVotesByMePromise,
         preloadHelper.firstPtptPromise
       ).then(_.defer(function() {
-        console.log("showEmpty");
-        console.log("this", this);
-        console.log("that", that);
         var userHasVoted = !!votesByMe.size() ||
           (preload.firstVotesByMe && preload.firstVotesByMe.length) ||
           (preload.firstPtpt && preload.firstPtpt.vote_count > 0);
@@ -460,12 +457,6 @@ module.exports = Handlebones.ModelView.extend({
         preloadHelper.firstVotesByMePromise,
         preloadHelper.firstPtptPromise
       ).then(_.defer(function() {
-        console.log("quitForNow");
-        console.log("this", this);
-        
-        console.log("ctx", ctx);
-        Handlebones.ModelView.prototype.context.apply(this, arguments);
-        console.log("ctx", ctx);
         waitingForComments = false;
         // pollForComments();
         var ucw = Utils.userCanWrite();
