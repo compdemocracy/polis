@@ -34,7 +34,7 @@ If you're not familiar with Clojure and want a fun crash course, I highly recomm
 
 If you're not using the docker compose infrastructure, you can run `clj -M:dev` to get nREPL going, but this will not start math worker's processing queue (or obviously any other parts of the system).
 This may be preferable if you don't need the whole system running for whatever task you're working on.
-You can always manually start the polling system by manually running `(runner/run!)`, as described below, as long as you have the `DATABASE_URL` environment variable pointing to a database (see `math/doc/configuration.md`)
+You can always manually start the polling system by manually running `(runner/run!)`, as described below, as long as you have the `DATABASE_URL` environment variable pointing to a database (see [`doc/configuration.md`](doc/configuration.md))
 ## Starting and stopping the system
 
 This application uses Stuart Sierra's Component library for REPL-reloadability.
