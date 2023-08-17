@@ -66,7 +66,7 @@ If you are exporting data, you will need to run `docker compose` here with the s
 You can run tests by executing `clojure -M:test`.
 
 Since Clojure is slow to start though, you may find it easier to run the `test-runner/-main` function (located at [`test/test_runner.clj`](test/test_runner.clj)) from within your nREPL process.
-There is an example of this in the `math/dev/user.clj` file mentioned above.
+There is an example of this in the [`dev/user.clj`](dev/user.clj) file mentioned above.
 There are rough units tests for most of the basic math things, and one or two higher level integration tests (presently broken).
 We're looking forward to setting up `clojure.spec` and some generative testing for more thorough coverage if this is something that excites you!
 
