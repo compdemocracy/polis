@@ -64,7 +64,7 @@ application components (via docker compose or otherwise) to have a functional in
 
 ## Deployment
 
-To build static assets into `build/` for a production deployment, run
+To build static assets into `dist/` for a production deployment, run
 
 ```sh
 npm run build:prod
