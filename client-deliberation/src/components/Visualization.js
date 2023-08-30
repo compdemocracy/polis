@@ -1,3 +1,5 @@
+// uses functions from client-participation-old/js/stores/polis.js
+
 import React, { useState, useEffect } from "react";
 import Strings from "../strings/participation_en_us";
 import PolisNet from "../util/net";
@@ -15,6 +17,7 @@ const Visualization = ( {myPid, conversation_id} ) => {
   const [curationType, setCurationType] = useState(null); //"majority" or number
   const [tidsToShow, setTidsToShow] = useState([]);
 
+  // grab and orchestrate all data necessary for render
   const getVisObject = async () => {
     let visObj = {}
     console.log("Strings", Strings)
@@ -39,6 +42,7 @@ const Visualization = ( {myPid, conversation_id} ) => {
     return visObj;
   }
 
+  // execute getVisObject on first render
   useEffect(() => {
     getVisObject().then(
       (data) => {
@@ -52,6 +56,7 @@ const Visualization = ( {myPid, conversation_id} ) => {
     )
   }, [])
 
+  // refresh pca math data
   useEffect(() => {
     const interval = setInterval(async () => {
       const newMathMain = await buildPcaObject();
@@ -68,6 +73,7 @@ const Visualization = ( {myPid, conversation_id} ) => {
     return () => clearInterval(interval); // Clean up the interval when the component unmounts
   }, [visObject])
 
+  // called when "A, B, C..." or "Majority Opinion" is clicked
   const changeCuration = (newCuration) => {
     setCurationType(newCuration)
     console.log("changeCuration")
@@ -95,6 +101,7 @@ const Visualization = ( {myPid, conversation_id} ) => {
   // Jake - globals, don't like this at all
   // these should be combined into some sort of object
   // and passed as parameters
+  // variables from client-participation-old/js/stores/polis.js
   
   var pcX = {};
   var pcY = {};
@@ -129,6 +136,7 @@ const Visualization = ( {myPid, conversation_id} ) => {
   const projectComments = false;
   const projectRepfulTids = true;
 
+  // Jake - API call
   const fetchPcaData = () => {
     return PolisNet.polisGet("/api/v3/math/pca2",
     $.extend({}, 
@@ -142,6 +150,7 @@ const Visualization = ( {myPid, conversation_id} ) => {
     );
   };
 
+  // Jake - API call
   const fetchFamousVotes = () => {
     return PolisNet.polisGet("/api/v3/votes/famous", {
       conversation_id: conversation_id,
@@ -149,6 +158,7 @@ const Visualization = ( {myPid, conversation_id} ) => {
     })
   }
 
+  // Jake - API call
   const fetchComments = () => {
     return PolisNet.polisGet("/api/v3/comments", {
       conversation_id: conversation_id,
@@ -161,6 +171,7 @@ const Visualization = ( {myPid, conversation_id} ) => {
     // see client-participation/js/models/vote.js
   }
 
+  // Jake - API call
   const fetchVotesByMe = () => {
     return PolisNet.polisGet("/api/v3/votes", {
       conversation_id: conversation_id,
@@ -168,11 +179,16 @@ const Visualization = ( {myPid, conversation_id} ) => {
     })
   }
 
+  // debug method
   const printVotesByMe = async () => {
     const v = await fetchVotesByMe();
     console.log("votesByMe", v)
   }
 
+
+  // ****** BEGIN REUSED CODE FROM client-participation-old/js/stores/polis.js
+
+  // logic from client-participation-old/js/stores/polis.js
   const buildFamousVotesObject = async () => {
     const PTPOI_BID_OFFSET = 1e10;
     let x = await fetchFamousVotes();
@@ -231,6 +247,7 @@ const Visualization = ( {myPid, conversation_id} ) => {
     participantsOfInterestBids = _.map(_.values(participantsOfInterestVotes), "bid");
   }
 
+  // from client-participation-old/js/stores/polis.js
   function arraysToObjects(objWithArraysAsProperties) {
     /* jshint -W089 */
     var objects = [];
@@ -253,6 +270,7 @@ const Visualization = ( {myPid, conversation_id} ) => {
     return objects;
   }
 
+  // from client-participation-old/js/stores/polis.js
   function sum(arrayOfNumbers) {
     var count = 0;
     var len = arrayOfNumbers.length;
@@ -262,6 +280,7 @@ const Visualization = ( {myPid, conversation_id} ) => {
     return count;
   }
 
+  // from client-participation-old/js/stores/polis.js
   function removeItemFromArray(bid, cluster) {
     var index = cluster.indexOf(bid);
     if (index >= 0) {
@@ -270,6 +289,7 @@ const Visualization = ( {myPid, conversation_id} ) => {
     return cluster;
   }
 
+  // from client-participation-old/js/stores/polis.js
   function removeEmptyBucketsFromClusters(clusters) {
     var buckets = projectionPeopleCache;
     for (var i = 0; i < buckets.length; i++) {
@@ -283,7 +303,8 @@ const Visualization = ( {myPid, conversation_id} ) => {
       }
     }
   }
-
+  
+  // from client-participation-old/js/stores/polis.js
   const getClusters = () => {
     var clusters = _.cloneDeep(clustersCache);
     // addParticipantsOfInterestToClusters(clusters);
@@ -295,6 +316,7 @@ const Visualization = ( {myPid, conversation_id} ) => {
     return clusters;
   }
 
+  // from client-participation-old/js/stores/polis.js
   const getBidToGid = (clusters) => {
     var bidToGid = {};
     clusters = clusters || getClusters(); // TODO cleanup
@@ -310,6 +332,7 @@ const Visualization = ( {myPid, conversation_id} ) => {
     return bidToGid;
   }
 
+  // from client-participation-old/js/stores/polis.js
   const removeSelfFromBucketsAndClusters = (buckets, clusters) => {
     for (var b = 0; b < buckets.length; b++) {
       var bucket = buckets[b];
@@ -541,6 +564,7 @@ const Visualization = ( {myPid, conversation_id} ) => {
   }
 
 
+  // logic from client-participation-old/js/stores/polis.js
   const buildPcaObject = async () => {
     let pcaData = await fetchPcaData();
 
@@ -571,7 +595,8 @@ const Visualization = ( {myPid, conversation_id} ) => {
     return pcaData;
   }
 
-  // Jake - try and remove the JQuery in the future
+  // Jake - try and remove the JQuery in the futur
+  // from client-participation-old/js/stores/polis.js
   const buildFancyCommentsObject = (options) => {
     options = $.extend(options, { translate: true, lang: navigator.language });
     return $.when(fetchComments(), votesForTidBidPromise).then(function(args /* , dont need second arg */ ) {
@@ -595,6 +620,7 @@ const Visualization = ( {myPid, conversation_id} ) => {
     });    
   }
 
+  // from client-participation-old/js/stores/polis.js
   function project(o) {
     var x = 0;
     var y = 0;
@@ -648,6 +674,7 @@ const Visualization = ( {myPid, conversation_id} ) => {
     };
   }
 
+  // from client-participation-old/js/stores/polis.js
   function projectParticipant(pid, votesVectorInAscii_adpu_format) {
     var votesToUseForProjection = [];
     if (pid === myPid) {
@@ -692,6 +719,7 @@ const Visualization = ( {myPid, conversation_id} ) => {
     });
   }
 
+  // from client-participation-old/js/stores/polis.js
   function getPid() {
     if (!(myPid >= 0)) {
       //     alert("bad pid: " + pid);
@@ -699,6 +727,7 @@ const Visualization = ( {myPid, conversation_id} ) => {
     return myPid;
   }
 
+  // from client-participation-old/js/stores/polis.js
   function projectSelf() {
     var votesToUseForProjection = votesByMe.map(function(v) {
       return {
@@ -713,6 +742,7 @@ const Visualization = ( {myPid, conversation_id} ) => {
     });
   }
 
+  // from client-participation-old/js/stores/polis.js
   function bucketizeSelf(self, selfDotBid) {
     var bucket = new Bucket({
       priority: 999999,
@@ -731,6 +761,7 @@ const Visualization = ( {myPid, conversation_id} ) => {
     return bucket;
   }
 
+  // from client-participation-old/js/stores/polis.js
   const buildParticipantsOfInterestIncludingSelf = () => {
     var alreadyHaveSelf = participantsOfInterestVotes[myPid];
     // _.some(participantsOfInterestVotes, function(p) {
@@ -773,6 +804,7 @@ const Visualization = ( {myPid, conversation_id} ) => {
     });
   }
 
+  // from client-participation-old/js/stores/polis.js
   function withProjectedSelf(people) {
     people = people || [];
 
@@ -786,6 +818,7 @@ const Visualization = ( {myPid, conversation_id} ) => {
     return people;
   }
 
+  // from client-participation-old/js/stores/polis.js
   function moveTowards(x, y, dest, howFar) {
     if (!dest) {
       return {
@@ -806,6 +839,7 @@ const Visualization = ( {myPid, conversation_id} ) => {
     };
   }
 
+  // from client-participation-old/js/stores/polis.js
   function bucketizeParticipantOfInterest(o, ptptoiData) {
     if (!ptptoiData.picture_size) {
       if (ptptoiData.isSelf) {
@@ -834,6 +868,7 @@ const Visualization = ( {myPid, conversation_id} ) => {
     return bucket;
   }
 
+  // from client-participation-old/js/stores/polis.js
   function withParticipantsOfInterest(people, clusters) {
     if (!participantsOfInterestVotes) {
       return {
@@ -957,6 +992,7 @@ const Visualization = ( {myPid, conversation_id} ) => {
 
   }
 
+  // from client-participation-old/js/stores/polis.js
   function prepProjection(buckets2) {
     if (bigBuckets.length) {
       buckets2 = bigBuckets;
@@ -994,6 +1030,7 @@ const Visualization = ( {myPid, conversation_id} ) => {
     };
   }
 
+  // from client-participation-old/js/stores/polis.js
   function prepCommentsProjection() {
     if (!projectComments) {
       return [];
@@ -1039,6 +1076,7 @@ const Visualization = ( {myPid, conversation_id} ) => {
     return projectedComments;
   }
 
+  // from client-participation-old/js/stores/polis.js
   function sendUpdatedVisData(people, clusters, participantCount, projectedComments) {
     // make deep copy so the vis doesn't muck with the model
     people = _.map(people, function(p) {
@@ -1049,6 +1087,7 @@ const Visualization = ( {myPid, conversation_id} ) => {
     // personUpdateCallbacks.fire(people || [], clusters || [], participantCount, projectedComments);
   }
 
+  // from client-participation-old/js/stores/polis.js
   function prepAndSendVisData() {
     var o = prepProjection(projectionPeopleCache);
     var buckets = o.buckets;
@@ -1061,7 +1100,10 @@ const Visualization = ( {myPid, conversation_id} ) => {
       sendUpdatedVisData(buckets, clusters, participantCount, projectedComments);
     }
   }
+
+  // ****** END REUSED CODE FROM client-participation-old/js/stores/polis.js
   
+  // display logic
   if (loading) {
     return <div>Loading visualization...</div>
   } else if (!ready || !(visObject.math_main && visObject.math_main.n >= 7)) {
