@@ -1,4 +1,6 @@
-# Polis Client Participation
+# Polis Client Participation (Deprecated)
+
+This is the original client-participation. The functionality for this is now in client-deliberation.
 
 This is the front-end code that participants see. It is built with backbone.js and react.js.
 

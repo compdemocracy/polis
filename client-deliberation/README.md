@@ -1,6 +1,6 @@
-# Polis Admin Console
+# Polis Admin/Deliberation Console
 
-The web interface for creating and administering polis conversations. It is built with React.js.
+The web interface for creating and administering polis conversations. It also houses the conversations portion. It is built with React.js.
 
 ## Installation
 

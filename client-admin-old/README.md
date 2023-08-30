@@ -1,4 +1,6 @@
-# Polis Admin Console
+# Polis Admin Console (Deprecated)
+
+This is the original client-admin. The functionality for this is now in client-deliberation.
 
 The web interface for creating and administering polis conversations. It is built with React.js.
 

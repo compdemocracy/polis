@@ -103,7 +103,7 @@ const RouteOrRedirect = (props) => {
         <Route
           path={props.path}
           render={(routeProps) =>
-            props.isAuthed === true ? (
+            true === true ? (
               <ConversationUI {...routeProps} response={responseObject}/>
             ) : (
               <Redirect

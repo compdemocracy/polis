@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, Text } from "theme-ui";
+import { Box, Button } from "theme-ui";
 import HexLogo from "./hexLogo";
 import Title from "./Title";
 
@@ -14,6 +14,11 @@ const IndividualDeliberation = () => {
       <MDXProvider>
         <IndividualDeliberationMD/>
       </MDXProvider>
+      <Box sx={{ mt: [4] }}>
+        <Button>
+          Continue to group deliberation
+        </Button>
+      </Box>
     </Box>
   );
 };
