@@ -27,8 +27,8 @@ class Header extends Component {
             </Link>
           </Box>
           <Box>
-            <Link sx={{ variant: 'links.nav' }} to="/signin">
-              Sign in
+            <Link sx={{ variant: 'links.nav' }} to={'/createuser'}>
+              Sign Up
             </Link>
           </Box>
         </Flex>
