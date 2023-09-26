@@ -2,8 +2,8 @@
 
 const common = require('./webpack.common');
 const path = require('path');
-const webpack = require("webpack");
-const CompressionPlugin = require("compression-webpack-plugin");
+const webpack = require('webpack');
+const CompressionPlugin = require('compression-webpack-plugin');
 const EventHooksPlugin = require('event-hooks-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const writeHeadersJsonTask = require('./writeHeadersJsonTask');
@@ -14,6 +14,7 @@ module.exports = {
   output: {
     filename: 'report_bundle.[contenthash].js',
     path: path.resolve(__dirname, 'dist'),
+    publicPath: '/',
     clean: true,
   },
   plugins: [
@@ -34,7 +35,8 @@ module.exports = {
       filename: 'report_style.[contenthash].css',
     }),
     new webpack.DefinePlugin({
-      "process.env.NODE_ENV": JSON.stringify("production")
+      'process.env.NODE_ENV': JSON.stringify('production'),
+      'process.env.SERVICE_URL': null,
     })
   ],
   performance: {
