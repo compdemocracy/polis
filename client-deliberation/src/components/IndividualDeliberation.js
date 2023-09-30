@@ -7,6 +7,7 @@ import { MDXProvider } from "@theme-ui/mdx";
 import IndividualDeliberationMD from "./IndividualDeliberationMD.mdx"
 import IntegrateLink from "./IntegrateLink";
 import IntegrateBox from "./IntegrateBox";
+import Tutorial from "./Tutorial";
 
 
 const IndividualDeliberation = () => {
@@ -30,6 +31,7 @@ const IndividualDeliberation = () => {
 
       <IntegrateBox heading={"Integration Description"} description={'Copy and paste this code into your content management template. Each page (article, post) requires a unique string in the "PAGE_ID" field. This should be consistent over time and unique to each of your pages (like the article title).'} items={items}></IntegrateBox>
 
+      <Tutorial></Tutorial>
     </Box>
   );
 };
