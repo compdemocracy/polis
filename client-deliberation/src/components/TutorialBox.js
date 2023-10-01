@@ -3,9 +3,9 @@ import { Box } from "theme-ui";
 import ArrowIcon from './ArrowIcon';
 import PolisButton from './PolisButton';
 
-const TutorialBox = ({ heading, description }) => {
+const TutorialBox = ({ heading, description, currentIndex, setCurrentIndex  }) => {
 
-  const [currentIndex, setCurrentIndex] = useState(0);
+  
 
   // Check if description is an array, if not, use the provided description
   const descArray = Array.isArray(description) ? description : [description];
