@@ -1,18 +1,36 @@
-import React from 'react';
+import React, {useState} from 'react';
 import { Box } from "theme-ui";
+import ArrowIcon from './ArrowIcon';
+import PolisButton from './PolisButton';
 
-const TutorialBox = ({ heading, description}) => {
+const TutorialBox = ({ heading, description }) => {
+
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  // Check if description is an array, if not, use the provided description
+  const descArray = Array.isArray(description) ? description : [description];
+
+    // Handle the right arrow click
+    const handleRightArrowClick = () => {
+      setCurrentIndex((prevIndex) => (prevIndex + 1) % descArray.length);
+    };
+  
+    // Handle the left arrow click
+    const handleLeftArrowClick = () => {
+      setCurrentIndex((prevIndex) => (prevIndex - 1 + descArray.length) % descArray.length);
+    };
+
   return (
     <Box sx={{ 
         backgroundColor: '#F1F1F1',
         borderRadius: '8px',
         padding: '15px',
-        position: 'fixed', // Changed from 'relative' to 'fixed'
+        position: 'fixed',
         color: 'black',
         mb: [4],
-        bottom: '80px', // Added to position at bottom
-        right: '125px',  // Added to position at right
-        width: '600px', // You may need to set a width
+        bottom: '80px',
+        right: '125px',
+        width: '600px',
         margin: '10px',
       }}>
          <h2 style={{marginTop: '0px', marginBottom: '10px'}}>{heading}</h2>
@@ -20,10 +38,17 @@ const TutorialBox = ({ heading, description}) => {
             display: 'flex', 
             justifyContent: 'space-between',
             alignItems: 'initial',
+            position: 'relative',
           }}>
-            <Box sx={{ marginRight: '10px' }}>
-              <div>{description}</div>
+            {currentIndex > 0 &&
+            <ArrowIcon onClick={handleLeftArrowClick} style={{ position: 'absolute', bottom: '-10px', left: '0', cursor: 'pointer', transform: 'rotate(180deg)'}} />}
+            <Box sx={{ marginRight: '10px', marginBottom: '30px'}}>
+                <div>{descArray[currentIndex]}</div> 
             </Box>
+            {currentIndex === descArray.length - 1 ? (  
+              <PolisButton onClick={console.log("Polis Button Pressed")} buttonText={'Starts'}></PolisButton>
+            ) : (
+            <ArrowIcon onClick={handleRightArrowClick} style={{ position: 'absolute', bottom: '-10', right: '0', cursor: 'pointer' }} />)}
           </Box>
       </Box>
   );

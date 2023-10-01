@@ -19,11 +19,13 @@ const IntegrateDescription = ({ heading, description, items }) => {
           }}>
             <Box sx={{ marginRight: '10px' }}>
               <div>{description}</div>
-              <ul>
-                {items.map((item, index) => (
-                  <li key={index}>{item}</li>
-                ))}
-              </ul>
+              {Array.isArray(items) && items.length > 0 && (
+                <ul>
+                  {items.map((item, index) => (
+                    <li key={index}>{item}</li>
+                  ))}
+                </ul>
+              )}
             </Box>
           </Box>
       </Box>

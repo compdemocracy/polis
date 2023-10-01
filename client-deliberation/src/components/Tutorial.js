@@ -65,7 +65,7 @@ const Tutorial = () => {
   <path style={styles.cls7} d="M70.55,77a21.91,21.91,0,0,1-9.06,5.9,24.25,24.25,0,0,1-8.88-5.77c-1.53-1.66-2.17-2.29-1.94-4.56a6.58,6.58,0,0,1,2.1-4.32c3.83-3.51,13.12-3.58,17.09-.21a6.51,6.51,0,0,1,2.24,4c.42,2.38,0,3.21-1.55,5Z"/>
 </svg>
     </div>
-    <TutorialBox heading={"Welcome to Polis"} description={'My name is Charlie and I am here to to help you to train your AI with the write attributes.Let’s start out simpel by creating your first conversation. Please click on the create a new conversation button'}></TutorialBox>
+    <TutorialBox heading={"Welcome to Polis"} description={['My name is Charlie and I am here to to help you to train your AI with the write attributes.Let’s start out simpel by creating your first conversation. Please click on the create a new conversation button', 'Hello World', 'Mock Data']}></TutorialBox>
     </div>
     
   );
