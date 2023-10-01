@@ -1,8 +1,11 @@
-import React from 'react';
+import React, {useState} from 'react';
 import TutorialBox from "./TutorialBox";
 
 
 const Tutorial = ({ setCurrentIndex, currentIndex }) => {
+
+  const [showTutorial, setShowTutorial] = useState(true);
+
     const styles = {
         cls1: {
           fill: '#a0470d',
@@ -43,13 +46,19 @@ const Tutorial = ({ setCurrentIndex, currentIndex }) => {
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
+            cursor: showTutorial?'':'pointer'
           },
+      };
+
+      const handlePuppyClick = () => {
+        setShowTutorial(true);
+        setCurrentIndex(0);
       };
   return (
     <div>
 
 
-<div style={styles.circle} >
+<div style={styles.circle} onClick={handlePuppyClick}>
         <svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 122.88 107.32" style={{width: '73%', height: 'auto'}}>
   <defs></defs>
   <title>dog-face-color</title>
@@ -65,7 +74,9 @@ const Tutorial = ({ setCurrentIndex, currentIndex }) => {
   <path style={styles.cls7} d="M70.55,77a21.91,21.91,0,0,1-9.06,5.9,24.25,24.25,0,0,1-8.88-5.77c-1.53-1.66-2.17-2.29-1.94-4.56a6.58,6.58,0,0,1,2.1-4.32c3.83-3.51,13.12-3.58,17.09-.21a6.51,6.51,0,0,1,2.24,4c.42,2.38,0,3.21-1.55,5Z"/>
 </svg>
     </div>
-    <TutorialBox heading={"Welcome to Polis"} description={['My name is Charlie and I am here to to help you to train your AI with the right attributes.', 'If you want to learn more about AI, this highlighted YouTube Video will help you to understand the topic. If you got any further question you can read the rest of the page.', 'Now you can familirize yourself with the basics of AI and aftwards you can start voting on your first poll.']} currentIndex={currentIndex} setCurrentIndex={setCurrentIndex}></TutorialBox>
+    {showTutorial && 
+    <TutorialBox heading={"Welcome to Polis"} description={['My name is Charlie and I am here to to help you to train your AI with the right attributes.', 'If you want to learn more about AI, this highlighted YouTube Video will help you to understand the topic. If you got any further question you can read the rest of the page.', 'Now you can familirize yourself with the basics of AI and aftwards you can start voting on your first poll.']} currentIndex={currentIndex} setCurrentIndex={setCurrentIndex} onHide={() => setShowTutorial(false)}></TutorialBox>
+  }
     </div>
     
   );

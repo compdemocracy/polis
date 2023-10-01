@@ -3,9 +3,7 @@ import { Box } from "theme-ui";
 import ArrowIcon from './ArrowIcon';
 import PolisButton from './PolisButton';
 
-const TutorialBox = ({ heading, description, currentIndex, setCurrentIndex  }) => {
-
-  
+const TutorialBox = ({ heading, description, currentIndex, setCurrentIndex, onHide  }) => {
 
   // Check if description is an array, if not, use the provided description
   const descArray = Array.isArray(description) ? description : [description];
@@ -46,7 +44,10 @@ const TutorialBox = ({ heading, description, currentIndex, setCurrentIndex  }) =
                 <div>{descArray[currentIndex]}</div> 
             </Box>
             {currentIndex === descArray.length - 1 ? (  
-              <PolisButton onClick={console.log("Polis Button Pressed")} buttonText={'Starts'}></PolisButton>
+              <PolisButton onClick={() => {
+                console.log("Tutorial over");
+                onHide(); 
+              }}  buttonText={'Start'}></PolisButton>
             ) : (
             <ArrowIcon onClick={handleRightArrowClick} style={{ position: 'absolute', bottom: '-10', right: '0', cursor: 'pointer' }} />)}
           </Box>
