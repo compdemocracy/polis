@@ -309,6 +309,7 @@ async function updateTutorialDoneByEmail(email: string) {
   }
 }
 
+
 function getSocialInfoForUsers(uids: any[], zid: any) {
   uids = _.uniq(uids);
   uids.forEach(function (uid: string) {
@@ -441,6 +442,7 @@ export {
   getPidPromise,
   getPidForParticipant,
   getSocialInfoForUsers,
+  updateTutorialDoneByEmail,
 };
 
 export default {
@@ -455,4 +457,5 @@ export default {
   getPidPromise,
   getPidForParticipant,
   getSocialInfoForUsers,
+  updateTutorialDoneByEmail,
 };

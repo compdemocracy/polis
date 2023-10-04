@@ -55,7 +55,7 @@ const IndividualDeliberation = (props = {}) => {
 
       {
         !props.finishedTutorial &&
-        <Tutorial setCurrentIndex={setCurrentIndex} currentIndex={currentIndex}></Tutorial>
+        <Tutorial setCurrentIndex={setCurrentIndex} currentIndex={currentIndex} email={props}></Tutorial>
       }
     </Box>
   );

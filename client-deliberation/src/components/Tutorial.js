@@ -2,11 +2,11 @@ import React, {useState} from 'react';
 import TutorialBox from "./TutorialBox";
 
 
-const Tutorial = ({ setCurrentIndex, currentIndex }) => {
+const Tutorial = ({ setCurrentIndex, currentIndex, email = {} }) => {
 
   const [showTutorial, setShowTutorial] = useState(true);
 
-    const styles = {
+    const styles = { 
         cls1: {
           fill: '#a0470d',
           fillRule: 'evenodd'
@@ -75,7 +75,7 @@ const Tutorial = ({ setCurrentIndex, currentIndex }) => {
 </svg>
     </div>
     {showTutorial && 
-    <TutorialBox heading={"Welcome to Polis"} description={['My name is Charlie and I am here to to help you to train your AI with the right attributes.', 'If you want to learn more about AI, this highlighted YouTube Video will help you to understand the topic. If you got any further question you can read the rest of the page.', 'Now you can familirize yourself with the basics of AI and aftwards you can start voting on your first poll.']} currentIndex={currentIndex} setCurrentIndex={setCurrentIndex} onHide={() => setShowTutorial(false)}></TutorialBox>
+    <TutorialBox heading={"Welcome to Polis"} description={['My name is Charlie and I am here to to help you to train your AI with the right attributes.', 'If you want to learn more about AI, this highlighted YouTube Video will help you to understand the topic. If you got any further question you can read the rest of the page.', 'Now you can familirize yourself with the basics of AI and aftwards you can start voting on your first poll.']} currentIndex={currentIndex} setCurrentIndex={setCurrentIndex} onHide={() => setShowTutorial(false)} email={email}></TutorialBox>
   }
     </div>
     

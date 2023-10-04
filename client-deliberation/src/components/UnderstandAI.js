@@ -40,7 +40,7 @@ const UnderstandAI = () => {
 
 
       <IntegrateBox heading={"How inputdata shapes AI"} description={'Input data and rules significantly shape an AIs learning and behavior, much like how ingredients and a recipe determine a cake’s taste and texture.'} items={items} ></IntegrateBox>
-
+      <button onClick={() => console.log(props)}>test</button>
     </Box>
   );
 };
