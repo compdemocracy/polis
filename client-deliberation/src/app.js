@@ -36,6 +36,7 @@ import PolisNet from './util/net'
 import Loading from './components/Loading'
 import IndividualDeliberation from './components/IndividualDeliberation'
 import UnderstandAI from './components/UnderstandAI'
+import Legal from './components/Legal'
 import Visualization from './components/Visualization'
 
 const PrivateRoute = ({ component: Component, isLoading, authed, ...rest }) => {
@@ -253,6 +254,12 @@ class App extends React.Component {
             exact
             path="/understandAI"
             render={() => <UnderstandAI/>}
+          />
+
+          <Route
+            exact
+            path="/legal"
+            render={() => <Legal/>}
           />
 
           <Route
