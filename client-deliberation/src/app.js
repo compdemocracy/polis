@@ -249,7 +249,17 @@ class App extends React.Component {
 
           <Route exact path="/testvis" component={Visualization} />
 
-          <Route exact path="/understandAI" component={UnderstandAI}/>
+          <Route
+            exact
+            path="/understandAI"
+            render={() => <UnderstandAI/>}
+          />
+
+          <Route
+            exact
+            path="/deliberation"
+            render={() => <IndividualDeliberation {...this.props.user} />}
+          />
 
           <Route exact path="/404" render={() => <DoesNotExist title={"Page not found"} />} />
           <RouteOrRedirect path="/c/:conversation_id" isLoading={this.isLoading()} isAuthed={this.isAuthed()}/>
@@ -258,7 +268,9 @@ class App extends React.Component {
             isLoading={this.isLoading()}
             authed={this.isAuthed()}
             exact
-            path="/" component={IndividualDeliberation}/>
+            path="/" 
+            component={IndividualDeliberation}
+            />
 
           <Route
             exact

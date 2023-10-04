@@ -10,7 +10,7 @@ import IntegrateBox from "./IntegrateBox";
 import Tutorial from "./Tutorial";
 
 
-const IndividualDeliberation = () => {
+const IndividualDeliberation = (props = {}) => {
 
   const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -53,7 +53,10 @@ const IndividualDeliberation = () => {
 
       <IntegrateBox heading={"Integration Description"} description={'Copy and paste this code into your content management template. Each page (article, post) requires a unique string in the "PAGE_ID" field. This should be consistent over time and unique to each of your pages (like the article title).'} items={items} ></IntegrateBox>
 
-      <Tutorial setCurrentIndex={setCurrentIndex} currentIndex={currentIndex}></Tutorial>
+      {
+        !props.finishedTutorial &&
+        <Tutorial setCurrentIndex={setCurrentIndex} currentIndex={currentIndex}></Tutorial>
+      }
     </Box>
   );
 };
