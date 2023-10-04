@@ -280,6 +280,35 @@ function getPidForParticipant(
   };
 }
 
+async function updateTutorialDoneByEmail(email: string) {
+  try {
+    // Step 1: Retrieve uid by email
+    const userResult = await pg.queryP_readOnly(
+      "SELECT uid FROM users WHERE email = $1 LIMIT 1",
+      [email]
+    );
+
+    if (!userResult || !userResult.rows || !userResult.rows.length) {
+      console.error('No user found with the provided email:', email);
+      return;  // Or handle this case as appropriate for your application
+    }
+
+    const uid = userResult.rows[0].uid;
+
+    // Step 2: Update tutorial_done for retrieved uid
+    const updateResult = await pg.queryP(
+      "UPDATE users SET tutorial_done = true WHERE uid = $1",
+      [uid]
+    );
+
+    console.log('User tutorial_done updated successfully:', updateResult);
+    return updateResult;
+  } catch (err) {
+    console.error('Error updating tutorial_done for user by email:', err);
+    throw err;  // or handle error as appropriate for your application
+  }
+}
+
 function getSocialInfoForUsers(uids: any[], zid: any) {
   uids = _.uniq(uids);
   uids.forEach(function (uid: string) {
