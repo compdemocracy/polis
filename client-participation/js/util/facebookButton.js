@@ -2,6 +2,7 @@
 
 var Strings = require("../strings");
 var M = require("../util/metrics");
+var $ = require("jquery");
 
 // FB.getLoginStatus(function(response) {
 //   if (response.status === 'connected') {
