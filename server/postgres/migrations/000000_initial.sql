@@ -75,6 +75,7 @@ CREATE TABLE users(
     tut SMALLINT DEFAULT 0,
     site_id VARCHAR(256) NOT NULL DEFAULT random_polis_site_id(), -- TODO add a separate table for this, once we have people with multiple sites
     site_owner BOOLEAN DEFAULT TRUE,
+    tutorialprogress INT DEFAULT 0, -- New column added here
     -- UNIQUE (site_id), -- not unique, since many usres can be admins for the same site_id
     UNIQUE (email),
     UNIQUE (uid)
