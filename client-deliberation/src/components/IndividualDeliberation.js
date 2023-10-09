@@ -8,11 +8,13 @@ import IndividualDeliberationMD from "./IndividualDeliberationMD.mdx"
 import IntegrateLink from "./IntegrateLink";
 import IntegrateBox from "./IntegrateBox";
 import Tutorial from "./Tutorial";
+import ProgressBar from "./Progressbar";
 
 
 const IndividualDeliberation = (props = {}) => {
 
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [progress, setProgress] = useState(33.3);
 
   const items = [
     "When this embed code loads on your website, it will either create a new conversation (if one is not already associated with the string passed into PAGE_ID) or load an existing conversation.",

@@ -1,0 +1,42 @@
+import React, { useState } from "react";
+import { Box, Button } from "theme-ui";
+import UnderstandAI from "./UnderstandAI";
+import IndividualDeliberation from "./IndividualDeliberation";
+import ProgressBar from "./Progressbar";
+
+const Deliberation = (props = {}) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [progress, setProgress] = useState(33.3);
+
+  const handleNextClick = () => {
+    if (currentIndex < 2) {
+      setCurrentIndex(currentIndex + 1);
+      setProgress(progress + 33.3);
+    }
+  };
+
+  const fillerStyles = {
+    height: '100%',
+    width: `${progress}%`,
+    backgroundColor: '#F4511E',
+    borderRadius: 'inherit',
+    transition: 'width 1s ease-in-out'
+  }
+
+
+
+  return (
+    <Box sx={{ maxWidth: "768px", margin: "auto", py: "20px", px: "10px"}}>
+      {currentIndex === 0 && <IndividualDeliberation {...props} />}
+      {currentIndex === 1 && <UnderstandAI {...props} />}
+      {currentIndex === 2 && <a href="http://localhost:5000/8hjyvcneet" target="_blank" rel="noopener noreferrer">Go to Next Section</a>}
+      
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <ProgressBar progress={progress} fillerStyles={fillerStyles}></ProgressBar>
+        {currentIndex < 2 && <Button onClick={handleNextClick} sx={{ marginLeft: '10px' }}>Next</Button>}
+      </div>
+    </Box>
+  );
+};
+
+export default Deliberation;

@@ -38,6 +38,7 @@ import IndividualDeliberation from './components/IndividualDeliberation'
 import UnderstandAI from './components/UnderstandAI'
 import Legal from './components/Legal'
 import Visualization from './components/Visualization'
+import Deliberation from './components/Deliberation'
 
 const PrivateRoute = ({ component: Component, isLoading, authed, ...rest }) => {
   if (isLoading) {
@@ -265,7 +266,7 @@ class App extends React.Component {
           <Route
             exact
             path="/deliberation"
-            render={() => <IndividualDeliberation {...this.props.user} />}
+            render={() => <Deliberation {...this.props.user} />}
           />
 
           <Route exact path="/404" render={() => <DoesNotExist title={"Page not found"} />} />
