@@ -23,6 +23,8 @@ const TutorialBox = ({ heading, description, currentIndex, setCurrentIndex, onHi
     };
 
     const handleTutorialCompletion = (userEmail) => {
+      setCurrentIndex(3)
+      console.log(currentIndex)
       PolisNet.polisPost('/api/v3/updateTutorialDoneByEmail', { email: userEmail })
         .then(response => {
           console.log(response)

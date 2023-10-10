@@ -8,8 +8,10 @@ import Tutorial from "./Tutorial";
 const Deliberation = (props = {}) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [progress, setProgress] = useState(33.3);
+  const [currentTutorialIndex, setCurrentTutorialIndex] = useState(0);
 
   const handleNextClick = () => {
+    setCurrentTutorialIndex(currentTutorialIndex+1)
     if (currentIndex < 2) {
       setCurrentIndex(currentIndex + 1);
       setProgress(progress + 33.3);
@@ -29,10 +31,10 @@ const Deliberation = (props = {}) => {
       {currentIndex === 0 && <IndividualDeliberation {...props} currentIndex={currentIndex} />}
       {currentIndex === 1 && <UnderstandAI {...props} />}
       {currentIndex === 2 && <a href="http://localhost:5000/8hjyvcneet" target="_blank" rel="noopener noreferrer">Go to Next Section</a>}
-      {!props.finishedTutorial && <Tutorial setCurrentIndex={setCurrentIndex} currentIndex={currentIndex} email={props} />}
+      {(!props.finishedTutorial&& currentTutorialIndex != 3)&& <Tutorial setCurrentIndex={setCurrentTutorialIndex} currentIndex={currentTutorialIndex} email={props} />}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <ProgressBar progress={progress} fillerStyles={fillerStyles}></ProgressBar>
-        {currentIndex < 2 && <Button onClick={handleNextClick} sx={{ marginLeft: '10px' }}>Next</Button>}
+        {(currentTutorialIndex === 3 || currentTutorialIndex === 5) && <Button onClick={handleNextClick} sx={{ marginLeft: '10px' }}>Next</Button>}
       </div>
     </Box>
   );
