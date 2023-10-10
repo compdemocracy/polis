@@ -31,10 +31,10 @@ const Deliberation = (props = {}) => {
       {currentIndex === 0 && <IndividualDeliberation {...props} currentIndex={currentIndex} />}
       {currentIndex === 1 && <UnderstandAI {...props} />}
       {currentIndex === 2 && <a href="http://localhost:5000/8hjyvcneet" target="_blank" rel="noopener noreferrer">Go to Next Section</a>}
-      {(!props.finishedTutorial&& currentTutorialIndex != 3)&& <Tutorial setCurrentIndex={setCurrentTutorialIndex} currentIndex={currentTutorialIndex} email={props} />}
+      {(!props.finishedTutorial && currentTutorialIndex != 3 && currentTutorialIndex != 6)&& <Tutorial setCurrentIndex={setCurrentTutorialIndex} currentIndex={currentTutorialIndex} email={props} />}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <ProgressBar progress={progress} fillerStyles={fillerStyles}></ProgressBar>
-        {(currentTutorialIndex === 3 || currentTutorialIndex === 5) && <Button onClick={handleNextClick} sx={{ marginLeft: '10px' }}>Next</Button>}
+        {(currentTutorialIndex === 3 || currentTutorialIndex === 6) && <Button onClick={handleNextClick} sx={{ marginLeft: '10px' }}>Next</Button>}
       </div>
     </Box>
   );

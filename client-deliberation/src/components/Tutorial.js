@@ -6,6 +6,17 @@ const Tutorial = ({ setCurrentIndex, currentIndex, email = {} }) => {
 
   const [showTutorial, setShowTutorial] = useState(true);
 
+  const heading = currentIndex > 3 ? "Understand AI" : "Welcome to Polis";
+  const description = [
+      'My name is Charlie and I am here to help you train your AI with the right attributes.',
+      'If you want to learn more about AI, this highlighted YouTube Video will help you understand the topic. If you have any further questions, you can read the rest of the page.',
+      'Now you can familiarize yourself with the basics of AI and afterward, you can start voting on your first poll.',
+      '',
+      "In this section I will help you to get a proper understanding of AI.",
+      "AI, or Artificial Intelligence, is like a robot brain inside computers, phones, or even toys. This robot brain can think, learn, and solve problems, almost like how you do in school!",
+      "If you are hooked now you can also read through the other sections. Happy Learning Wuff!"
+    ];
+
     const styles = { 
         cls1: {
           fill: '#a0470d',
@@ -73,9 +84,10 @@ const Tutorial = ({ setCurrentIndex, currentIndex, email = {} }) => {
   <path style={styles.cls6} d="M61.43,93.56h0c10.67,5.25,19.1,3.29,24.72-7.69,1.75-3.41,1.5-4.83-.17-8.23-.48-1-1-1.9-1.47-2.84A190.34,190.34,0,0,0,74.08,57.43c-2-2.91-3.84-6-7-7.71a12.5,12.5,0,0,0-11.18,0c-3.21,1.68-5.08,4.8-7.05,7.71A190.34,190.34,0,0,0,38.35,74.8c-.5.94-1,1.88-1.47,2.84-1.67,3.4-1.92,4.82-.17,8.23,5.62,11,14,12.94,24.72,7.69Z"/>
   <path style={styles.cls7} d="M70.55,77a21.91,21.91,0,0,1-9.06,5.9,24.25,24.25,0,0,1-8.88-5.77c-1.53-1.66-2.17-2.29-1.94-4.56a6.58,6.58,0,0,1,2.1-4.32c3.83-3.51,13.12-3.58,17.09-.21a6.51,6.51,0,0,1,2.24,4c.42,2.38,0,3.21-1.55,5Z"/>
 </svg>
+    <bottom onClick={() => {console.log(currentIndex)}}>test </bottom>
     </div>
     {showTutorial && 
-    <TutorialBox heading={"Welcome to Polis"} description={['My name is Charlie and I am here to to help you to train your AI with the right attributes.', 'If you want to learn more about AI, this highlighted YouTube Video will help you to understand the topic. If you got any further question you can read the rest of the page.', 'Now you can familirize yourself with the basics of AI and aftwards you can start voting on your first poll.']} currentIndex={currentIndex} setCurrentIndex={setCurrentIndex} onHide={() => setShowTutorial(false)} email={email}></TutorialBox>
+    <TutorialBox heading={heading} description={description} currentIndex={currentIndex} setCurrentIndex={setCurrentIndex} onHide={() => setShowTutorial(false)} email={email}></TutorialBox>
   }
     </div>
     

@@ -14,16 +14,18 @@ const TutorialBox = ({ heading, description, currentIndex, setCurrentIndex, onHi
 
     // Handle the right arrow click
     const handleRightArrowClick = () => {
-      setCurrentIndex((prevIndex) => (prevIndex + 1) % descArray.length);
+      setCurrentIndex(currentIndex+1);
+      console.log(currentIndex)
     };
   
     // Handle the left arrow click
     const handleLeftArrowClick = () => {
-      setCurrentIndex((prevIndex) => (prevIndex - 1 + descArray.length) % descArray.length);
+      setCurrentIndex(currentIndex-1);
+      console.log(currentIndex)
     };
 
     const handleTutorialCompletion = (userEmail) => {
-      setCurrentIndex(3)
+      setCurrentIndex(currentIndex+1)
       console.log(currentIndex)
       PolisNet.polisPost('/api/v3/updateTutorialDoneByEmail', { email: userEmail })
         .then(response => {
