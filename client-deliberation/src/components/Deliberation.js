@@ -5,6 +5,7 @@ import IndividualDeliberation from "./IndividualDeliberation";
 import ProgressBar from "./Progressbar";
 import Tutorial from "./Tutorial";
 import ConversationUI from "./ConversationUI";
+import Legal from "./Legal";
 
 const Deliberation = (props = {}) => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -16,9 +17,9 @@ const Deliberation = (props = {}) => {
 
   const handleNextClick = () => {
     setCurrentTutorialIndex(currentTutorialIndex+1)
-    if (currentIndex < 2) {
+    if (currentIndex < 3) {
       setCurrentIndex(currentIndex + 1);
-      setProgress(progress + 33.3);
+      setProgress(progress + 25);
     }
   };
 
@@ -75,11 +76,12 @@ const Deliberation = (props = {}) => {
     <Box sx={{ maxWidth: "768px", margin: "auto", py: "20px", px: "10px"}}>
       {currentIndex === 0 && <IndividualDeliberation {...props} currentIndex={currentIndex} />}
       {currentIndex === 1 && <UnderstandAI {...props} />}
-      {currentIndex === 2 && isConversationExists && <ConversationUI response={testProps} />}
-      {(!props.finishedTutorial && currentTutorialIndex != 3 && currentTutorialIndex != 6)&& <Tutorial setCurrentIndex={setCurrentTutorialIndex} currentIndex={currentTutorialIndex} email={props} />}
+      {currentIndex === 2 &&  <Legal/>}
+      {currentIndex === 3 && isConversationExists && <ConversationUI response={testProps} />}
+      {(!props.finishedTutorial && currentTutorialIndex != 3 && currentTutorialIndex != 6 && currentTutorialIndex != 10)&& <Tutorial setCurrentIndex={setCurrentTutorialIndex} currentIndex={currentTutorialIndex} email={props} />}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <ProgressBar progress={progress} fillerStyles={fillerStyles}></ProgressBar>
-        {(currentTutorialIndex === 3 || currentTutorialIndex === 6) && <Button onClick={handleNextClick} sx={{ marginLeft: '10px' }}>Next</Button>}
+        {(currentTutorialIndex === 3 || currentTutorialIndex === 6 || currentTutorialIndex === 10) && <Button onClick={handleNextClick} sx={{ marginLeft: '10px' }}>Next</Button>}
       </div>
     </Box>
   );

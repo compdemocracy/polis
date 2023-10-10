@@ -6,7 +6,7 @@ const Tutorial = ({ setCurrentIndex, currentIndex, email = {} }) => {
 
   const [showTutorial, setShowTutorial] = useState(true);
 
-  const heading = currentIndex > 3 ? "Understand AI" : "Welcome to Polis";
+  const heading = currentIndex > 3 ? currentIndex > 6 ? "Legal AI" : "Understand AI" : "Welcome to Polis";
   const description = [
       'My name is Charlie and I am here to help you train your AI with the right attributes.',
       'If you want to learn more about AI, this highlighted YouTube Video will help you understand the topic. If you have any further questions, you can read the rest of the page.',
@@ -14,7 +14,11 @@ const Tutorial = ({ setCurrentIndex, currentIndex, email = {} }) => {
       '',
       "In this section I will help you to get a proper understanding of AI.",
       "AI, or Artificial Intelligence, is like a robot brain inside computers, phones, or even toys. This robot brain can think, learn, and solve problems, almost like how you do in school!",
-      "If you are hooked now you can also read through the other sections. Happy Learning Wuff!"
+      "If you are hooked now you can also read through the other sections. Happy Learning Wuff!",
+      'Of course there are also some legal points we always have to consider.',
+      'This page provides you with all the information necessary for creating an AI, which is legal',
+      'Always keep in mind if you are not sure about something you should always get advise form a laywer wuff'
+
     ];
 
     const styles = { 
