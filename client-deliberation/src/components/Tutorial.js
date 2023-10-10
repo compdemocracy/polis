@@ -84,7 +84,6 @@ const Tutorial = ({ setCurrentIndex, currentIndex, email = {} }) => {
   <path style={styles.cls6} d="M61.43,93.56h0c10.67,5.25,19.1,3.29,24.72-7.69,1.75-3.41,1.5-4.83-.17-8.23-.48-1-1-1.9-1.47-2.84A190.34,190.34,0,0,0,74.08,57.43c-2-2.91-3.84-6-7-7.71a12.5,12.5,0,0,0-11.18,0c-3.21,1.68-5.08,4.8-7.05,7.71A190.34,190.34,0,0,0,38.35,74.8c-.5.94-1,1.88-1.47,2.84-1.67,3.4-1.92,4.82-.17,8.23,5.62,11,14,12.94,24.72,7.69Z"/>
   <path style={styles.cls7} d="M70.55,77a21.91,21.91,0,0,1-9.06,5.9,24.25,24.25,0,0,1-8.88-5.77c-1.53-1.66-2.17-2.29-1.94-4.56a6.58,6.58,0,0,1,2.1-4.32c3.83-3.51,13.12-3.58,17.09-.21a6.51,6.51,0,0,1,2.24,4c.42,2.38,0,3.21-1.55,5Z"/>
 </svg>
-    <bottom onClick={() => {console.log(currentIndex)}}>test </bottom>
     </div>
     {showTutorial && 
     <TutorialBox heading={heading} description={description} currentIndex={currentIndex} setCurrentIndex={setCurrentIndex} onHide={() => setShowTutorial(false)} email={email}></TutorialBox>
