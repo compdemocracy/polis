@@ -13808,37 +13808,6 @@ Thanks for using Polis!
     };
   })();
 
-  function handle_GET_localFile_dev_only(
-    req: { path: any },
-    res: {
-      writeHead: (
-        arg0: number,
-        arg1?: { "Content-Type": string } | undefined
-      ) => void;
-      end: (arg0?: undefined, arg1?: string) => void;
-    }
-  ) {
-    const filenameParts = String(req.path).split("/");
-    filenameParts.shift();
-    filenameParts.shift();
-    const filename = filenameParts.join("/");
-    if (!devMode) {
-      // pretend this route doesn't exist.
-      return proxy(req, res);
-    }
-    fs.readFile(filename, function (error: any, content: any) {
-      if (error) {
-        res.writeHead(500);
-        res.end();
-      } else {
-        res.writeHead(200, {
-          "Content-Type": "text/html",
-        });
-        res.end(content, "utf-8");
-      }
-    });
-  }
-
   function middleware_log_request_body(
     req: { body: any; path: string },
     res: any,
@@ -13973,7 +13942,6 @@ Thanks for using Polis!
     handle_GET_iip_conversation,
     handle_GET_implicit_conversation_generation,
     handle_GET_launchPrep,
-    handle_GET_localFile_dev_only,
     handle_GET_locations,
     handle_GET_logMaxmindResponse,
     handle_GET_math_pca,
