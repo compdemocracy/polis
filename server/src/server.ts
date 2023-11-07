@@ -4489,7 +4489,7 @@ Email verified! You can close this tab or hit the back button.
   function createNotificationsUnsubscribeUrl(conversation_id: any, email: any) {
     let params = {
       conversation_id: conversation_id,
-      email: email,
+      email: encode(email),
     };
     let path = "api/v3/notifications/unsubscribe";
     // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
@@ -4504,7 +4504,7 @@ Email verified! You can close this tab or hit the back button.
   function createNotificationsSubscribeUrl(conversation_id: any, email: any) {
     let params = {
       conversation_id: conversation_id,
-      email: email,
+      email: encode(email),
     };
     let path = "api/v3/notifications/subscribe";
     // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
