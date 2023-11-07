@@ -31,6 +31,7 @@ import timeout from "connect-timeout";
 import zlib from "zlib";
 import _ from "underscore";
 import pg from "pg";
+import { encode } from "html-entities";
 
 import { METRICS_IN_RAM, addInRamMetric, MPromise } from "./utils/metered";
 import CreateUser from "./auth/create-user";
@@ -13467,11 +13468,11 @@ Thanks for using Polis!
       if (preloadData && preloadData.conversation) {
         fbMetaTagsString +=
           '    <meta property="og:title" content="' +
-          preloadData.conversation.topic +
+          encode(preloadData.conversation.topic) +
           '" />\n';
         fbMetaTagsString +=
           '    <meta property="og:description" content="' +
-          preloadData.conversation.description +
+          encode(preloadData.conversation.description) +
           '" />\n';
         // fbMetaTagsString += "    <meta property=\"og:site_name\" content=\"" + site_name + "\" />\n";
       }
