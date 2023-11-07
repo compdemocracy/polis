@@ -13128,7 +13128,6 @@ Thanks for using Polis!
         x_email: any;
         parent_url: any;
         dwok: any;
-        build: any;
         show_vis: any;
         bg_white: any;
         show_share: any;
@@ -13171,7 +13170,6 @@ Thanks for using Polis!
     let x_email = req.p.x_email;
     let parent_url = req.p.parent_url;
     let dwok = req.p.dwok;
-    let build = req.p.build;
     let o: ConversationType = {};
     ifDefinedSet("parent_url", req.p, o);
     ifDefinedSet("auth_needed_to_vote", req.p, o);
@@ -13243,9 +13241,6 @@ Thanks for using Polis!
       }
       if (!_.isUndefined(dwok)) {
         url += "&dwok=" + dwok;
-      }
-      if (!_.isUndefined(build)) {
-        url += "&build=" + build;
       }
       return url;
     }
@@ -13544,8 +13539,7 @@ Thanks for using Polis!
       end: () => any;
     },
     preloadData: { conversation?: ConversationType },
-    port: string | number | undefined,
-    buildNumber?: string | null | undefined
+    port: string | number | undefined
   ) {
     let headers = {
       "Content-Type": "text/html",
@@ -13562,12 +13556,7 @@ Thanks for using Polis!
     // @ts-ignore
     setCookieTestCookie(req, res);
 
-    if (devMode) {
-      buildNumber = null;
-    }
-
-    let indexPath =
-      (buildNumber ? "/cached/" + buildNumber : "") + "/index.html";
+    let indexPath = "/index.html";
 
     let doFetch = makeFileFetcher(
       hostname,
@@ -13612,7 +13601,7 @@ Thanks for using Polis!
   });
 
   function fetchIndexForConversation(
-    req: { path: string; query?: { build: any } },
+    req: { path: string; },
     res: any
   ) {
     logger.debug("fetchIndexForConversation", req.path);
@@ -13620,11 +13609,6 @@ Thanks for using Polis!
     let conversation_id: any;
     if (match && match.length) {
       conversation_id = match[0];
-    }
-    let buildNumber: null = null;
-    if (req?.query?.build) {
-      buildNumber = req.query.build;
-      logger.debug("loading_build", buildNumber);
     }
 
     setTimeout(function () {
@@ -13659,14 +13643,13 @@ Thanks for using Polis!
           req,
           res,
           preloadData,
-          staticFilesParticipationPort,
-          buildNumber
+          staticFilesParticipationPort
         );
       })
       .catch(function (err: any) {
         logger.error("polis_err_fetching_conversation_info", err);
-        // Argument of type '{ path: string; query?: { build: any; } | undefined; }' is not assignable to parameter of type '{ headers?: { host: any; } | undefined; path: any; pipe: (arg0: any) => void; }'.
-        //   Property 'pipe' is missing in type '{ path: string; query?: { build: any; } | undefined; }' but required in type '{ headers?: { host: any; } | undefined; path: any; pipe: (arg0: any) => void; }'.ts(2345)
+        // Argument of type '{ path: string; }' is not assignable to parameter of type '{ headers?: { host: any; } | undefined; path: any; pipe: (arg0: any) => void; }'.
+        // Property 'pipe' is missing in type '{ path: string; }' but required in type '{ headers?: { host: any; } | undefined; path: any; pipe: (arg0: any) => void; }'.
         // @ts-ignore
         fetch404Page(req, res);
       });
