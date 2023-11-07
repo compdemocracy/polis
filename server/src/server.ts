@@ -1262,8 +1262,9 @@ function initializePolisHelpers() {
     });
 
     // using hex since it doesn't require escaping like base64.
-    let dest = hexToStr(req.p.dest);
-    res.redirect(dest);
+    const dest = hexToStr(req.p.dest);
+    const url = new URL(dest);
+    res.redirect(url.pathname + url.search + url.hash);
   }
 
   function handle_GET_tryCookie(
