@@ -54,24 +54,24 @@ If you are deploying to a custom domain (not `pol.is`) then you need to update b
 
 - **`ADMIN_UIDS`** an array of user UUIDs for site admins. These users will have moderator capabilities on all conversations hosted on the site.
 - **`EMAIL_TRANSPORT_TYPES`** comma-separated list of email services to use (see [Email Transports](#email-transports) below)
-- **`GIT_HASH`** Set programatically using `git rev-parse HEAD` (e.g. in Makefile) to tag docker container versions and other release assets. Can be left blank.
-- **`MATH_ENV`** Set to prod (default), preprod, or dev. In cases where a single database is used for multiple environments, this value is used by the API service to request the correct data. (Using a single DB for multiple environments is no longer recommended.)
-- **`SERVER_ENV_FILE`** The name of an environment file to be passed into the API Server container by docker compose. Defaults to ".env" if left blank. Used especially for building a "test" version of the project for end-to-end testing.
-- **`SERVER_LOG_LEVEL`** Used by Winston.js in the API server to determine how much logging to output. Reasonable values are "debug", "info", and "error". Defaults to "info".
+- **`GIT_HASH`** Set programatically using `git rev-parse HEAD` (e.g. in `Makefile`) to tag docker container versions and other release assets. Can be left blank.
+- **`MATH_ENV`** Set to `prod` (default), `preprod`, `dev` or arbitrary feature flag. In cases where a single database is used for multiple environments, this value is used by the API service to request the correct data. (Using a single DB for multiple environments in this fashion is no longer recommended, and so the default value of `prod` is recommended.)
+- **`SERVER_ENV_FILE`** The name of an environment file to be passed into the API Server container by docker compose. Defaults to `.env` if left blank. Used especially for building a `test` version of the project for end-to-end testing.
+- **`SERVER_LOG_LEVEL`** Used by Winston.js in the API server to determine how much logging to output. Reasonable values are `debug`, `info`, and `error`. Defaults to `info`.
 
 ### Database
 
 - **`READ_ONLY_DATABASE_URL`** (optional) Database replica for reads.
-- **`POSTGRES_DB`** database name (e.g. "polis-dev")
-- **`POSTGRES_HOST`** database host (e.g. postgres:5432 if using docker compose, localhost:5432 if using local db)
+- **`POSTGRES_DB`** database name (e.g. `polis-dev`)
+- **`POSTGRES_HOST`** database host (e.g. `postgres:5432` if using docker compose, `localhost:5432` if using local db)
 - **`POSTGRES_PASSWORD`** database password
 - **`POSTGRES_PORT`** typically 5432
-- **`POSTGRES_USER`** typically "postgres". Any username will be used by the docker container to create a db user.
+- **`POSTGRES_USER`** typically `postgres`. Any username will be used by the docker container to create a db user.
 - **`DATABASE_URL`** should be the combination of above values, `postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}/${POSTGRES_DB}`
 
 ### Docker Concerns
 
-- **`TAG`** used by **`COMPOSE_PROJECT_NAME`** below. Defaults to "dev".
+- **`TAG`** used by **`COMPOSE_PROJECT_NAME`** below. Defaults to `dev`.
 - **`COMPOSE_PROJECT_NAME`** Used by docker compose to label containers and volumes. Useful in development if you are (re)-building and deleting groups of docker assets.
 
 ### Ports
@@ -104,13 +104,13 @@ If you are deploying to a custom domain (not `pol.is`) then you need to update b
 
 ### URL/Hostname Settings
 
-- **`API_DEV_HOSTNAME`** typically "localhost" unless you are running a development instance elsewhere.
-- **`API_PROD_HOSTNAME`** the hostname of your site (e.g. pol.is, or example.com). Should match **`DOMAIN_OVERRIDE`**. (In the future these two options may be combined into one.)
+- **`API_DEV_HOSTNAME`** typically `localhost` unless you are running a development instance elsewhere.
+- **`API_PROD_HOSTNAME`** the hostname of your site (e.g. `pol.is`, or `example.com`). Should match **`DOMAIN_OVERRIDE`**. (In the future these two options may be combined into one.)
 - **`DOMAIN_OVERRIDE`** the hostname of your site. Should match **`API_PROD_HOSTNAME`**.
 - **`DOMAIN_WHITELIST_ITEM_01`** - **`08`** up to 8 possible additional whitelisted domains for client applications to make API requests from. Typical setups that use the same URL for the API service as for the public-facing web sites do not need to configure these.
 - **`EMBED_SERVICE_HOSTNAME`** should match **`API_DEV_HOSTNAME`** in production, or **`API_DEV_HOSTNAME`** in development. Embedded conversations make API requests to this host.
 - **`SERVICE_URL`** used by client-report to make API calls. Only necessary if client-report is hosted separately from the API service. Can be left blank.
-- **`STATIC_FILES_HOST`** Used by the API service to fetch static assets (the compiled client applications) from a static file server. Within a docker compose network this is "file-server", but could be an external hostname, such as a CDN.
+- **`STATIC_FILES_HOST`** Used by the API service to fetch static assets (the compiled client applications) from a static file server. Within the docker compose setup this is `file-server`, but could be an external hostname, such as a CDN.
 
 ### Third Party API Credentials
 
