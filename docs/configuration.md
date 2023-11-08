@@ -46,8 +46,8 @@ If you are doing development on a url other than `localhost` or `localhost:5000`
 **`API_DEV_HOSTNAME`** value to your development hostname:port, e.g. `myhost:8000` or `api.testserver.net`.
 **`DEV_MODE`** should be `true`.
 
-If you are deploying to a custom domain (not pol.is) then you need to update both the **`API_PROD_HOSTNAME`** and
-**`DOMAIN_OVERRIDE`** values to your custom hostname (omitting http(s):// protocol).
+If you are deploying to a custom domain (not `pol.is`) then you need to update both the **`API_PROD_HOSTNAME`** and
+**`DOMAIN_OVERRIDE`** values to your custom hostname (omitting `http(s)://` protocol).
 **`DEV_MODE`** should be `false`.
 
 ### General Settings
