@@ -45,6 +45,8 @@ describe('Conversation: Configure', function () {
 
       cy.get('input[data-test-id="topic"]')
         .type('Test topic')
+
+      cy.get('input[data-test-id="topic"]')
         .then(() => cy.focused().blur())
 
       cy.wait('@updateConversation').then(({ response }) =>
@@ -53,6 +55,8 @@ describe('Conversation: Configure', function () {
 
       cy.get('textarea[data-test-id="description"]')
         .type('Test description')
+
+      cy.get('textarea[data-test-id="description"]')
         .then(() => cy.focused().blur())
 
       cy.wait('@updateConversation').then(({ response }) =>
