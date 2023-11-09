@@ -25,7 +25,7 @@ jobs:
             docker-compose.yml
             docker-compose.test.yml
           compose-flags: "--env-file test.env"
-      - uses: cypress-io/github-action@v5.0.9
+      - uses: cypress-io/github-action@v5
         with:
           config: baseUrl=http://localhost
           spec: cypress/e2e/!(third-party)/**/*.cy.js
