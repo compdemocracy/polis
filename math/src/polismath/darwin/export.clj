@@ -146,18 +146,24 @@
               (assoc data :datetime (datetime (:created data)))))))
 
 
+(defn- get-comments-data-query
+  ([zid]
+   {:select [:zid :tid :pid :is_meta :is_seed :txt :mod :created]
+    :from [:comments]
+    :where [:= :zid zid]})
+  ([zid final-timestamp]
+   (update (get-comments-data-query zid)
+           :where
+           (fn [zid-clause]
+             [:and zid-clause [:<= :created final-timestamp]]))))
+
 (defn get-comments-data
   ([darwin zid]
    (db/query (:postgres darwin)
-             {:select [:zid :tid :pid :txt :mod :created]
-              :from [:comments]
-              :where [:= :zid zid]}))
+             (get-comments-data-query zid)))
   ([darwin zid final-timestamp]
    (db/query (:postgres darwin)
-             {:select [:zid :tid :pid :txt :mod :created]
-              :from [:comments]
-              :where [:and [:= :zid zid]
-                           [:<= :created final-timestamp]]})))
+             (get-comments-data-query zid final-timestamp))))
 
 
 
@@ -349,6 +355,31 @@
 ;; Comments
 ;; ========
 
+(defn add-group-data-to-comments
+  [comments {:as conv :keys [group-aware-consensus]}]
+  (log/info (keys conv))
+  (map (fn [{:as comment-data :keys [tid]}]
+         (assoc comment-data :group-informed-consensus (get group-aware-consensus tid)))
+       comments))
+
+;(sort (keys theconv))
+;(:subgroup-repness theconv)
+
+;(:group-aware-consensus theconv)
+
+;(comment
+  ;(require '[polismath.runner :as runner])
+  ;(runner/run! polismath.system/export-system)
+  ;(load-conv (:darwin runner/system) :zid 12798)
+  ;(try
+    ;(export-conversation (:darwin runner/system)
+                         ;{;;:zid 310273
+                          ;:zinvite "2demo"
+                          ;:format :csv
+                          ;:filename "2demo.zip"
+                          ;:math-env "prod"})
+    ;(catch Exception e
+      ;(.printStackTrace e))))
 
 (defn enriched-comments-data
   "Just adds vote counts to the comments data"
@@ -409,13 +440,16 @@
                                                           :n-comments   "Comments"
                                                           :n-commenters "Commenters"}}))
       (update-in [:comments]
-                 (partial scsv/vectorize {:header [:created :tid :pid :aggrees :disagrees :mod :txt]
+                 (partial scsv/vectorize {:header [:created :tid :pid :aggrees :disagrees :mod :is_meta :is_seed :group-informed-consensus :txt]
                                           :format-header {:created   "Timestamp"
                                                           :tid       "Comment ID"
                                                           :pid       "Author"
                                                           :aggrees   "Aggrees"
                                                           :disagrees "Disagrees"
                                                           :mod       "Moderated"
+                                                          :is_meta   "Metadata"
+                                                          :is_seed   "Seed"
+                                                          :group-informed-consensus "Group informed consensus"
                                                           :txt       "Comment body"}}))
       (update-in [:votes]
                  (partial scsv/vectorize {:header [:created :tid :pid :vote]
@@ -463,7 +497,7 @@
                                                           :pid       "voter-id"
                                                           :vote      "vote"}}))
       (update-in [:comments]
-                 (partial scsv/vectorize {:header [:created :datetime :tid :pid :aggrees :disagrees :mod :txt]
+                 (partial scsv/vectorize {:header [:created :tid :pid :aggrees :disagrees :mod :is_meta :is_seed :group-informed-consensus :txt]
                                           :format-header {:created   "timestamp"
                                                           :datetime  "datetime"
                                                           :tid       "comment-id"
@@ -471,6 +505,9 @@
                                                           :aggrees   "agrees"
                                                           :disagrees "disagrees"
                                                           :mod       "moderated"
+                                                          :is_meta   "is-meta"
+                                                          :is_seed   "is-seed"
+                                                          :group-informed-consensus "group-informed-consensus"
                                                           :txt       "comment-body"}}))))
 
 
@@ -570,11 +607,13 @@
   (let [zid (or zid (postgres/get-zid-from-zinvite (:postgres darwin) zinvite))
         ;; assert zid
         votes (get-corrected-conversation-votes darwin zid)
-        comments (enriched-comments-data (get-comments-data darwin zid) votes)
         participants (get-participation-data darwin zid)
         ;; Should factor out into separate function
         conv (cond-> (utils/apply-kwargs load-conv darwin kw-args)
-               update-math (conv/conv-update votes))]
+               update-math (conv/conv-update votes))
+        comments (-> (get-comments-data darwin zid)
+                     (enriched-comments-data votes)
+                     (add-group-data-to-comments conv))]
     (when update-math (log/info "UPDATED MATH!"))
     {:votes votes
      :summary (summary-data darwin conv votes comments participants)
@@ -592,7 +631,9 @@
                  ;; The core math still uses the uncorrected votes
                  (conv/conv-update (get-uncorrected-conversation-votes darwin zid at-time)))
         _ (log/info "Done with conv update")
-        comments (enriched-comments-data (get-comments-data darwin zid at-time) votes)
+        comments (-> (get-comments-data darwin zid at-time)
+                     (enriched-comments-data votes)
+                     (add-group-data-to-comments conv))
         participants (get-participation-data darwin zid at-time)]
     (log/info "Done with conv update")
     (when update-postgres
