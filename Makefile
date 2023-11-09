@@ -81,6 +81,9 @@ e2e-run: ## Run E2E tests except those which require 3rd party services
 e2e-run-all: ## Run E2E tests: all
 	$(E2E_RUN) npm run test:all
 
+e2e-run-interactive: ## Run E2E tests: interactively
+  $(E2E_RUN) npx cypress open
+
 # Helpful CLI shortcuts
 rbs: start-rebuild
 
