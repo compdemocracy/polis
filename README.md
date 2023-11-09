@@ -128,7 +128,7 @@ Then you can run things like:
 ```sh
 make PROD start
 
-make PROD start-REBUILD
+make PROD start-rebuild
 ```
 
 ### Testing out your instance

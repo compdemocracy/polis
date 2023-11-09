@@ -3,7 +3,6 @@
 import URLs from "./url";
 
 var urlPrefix = URLs.urlPrefix;
-var basePath = "";
 
 // var pid = "unknownpid";
 
@@ -16,7 +15,7 @@ function polisAjax(api, data, type) {
         api = api.slice(1);
     }
 
-    var url = urlPrefix + basePath + api;
+    var url = urlPrefix + api;
 
     // Add the auth token if needed.
     // if (_.contains(authenticatedCalls, api)) {
