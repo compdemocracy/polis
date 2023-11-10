@@ -1,4 +1,4 @@
-# Upgade Guide
+# Upgrade Guide
 
 ## Configuration Changes (Q1 2023)
 

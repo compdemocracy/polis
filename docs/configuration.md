@@ -54,7 +54,7 @@ If you are deploying to a custom domain (not `pol.is`) then you need to update b
 
 - **`ADMIN_UIDS`** an array of user UUIDs for site admins. These users will have moderator capabilities on all conversations hosted on the site.
 - **`EMAIL_TRANSPORT_TYPES`** comma-separated list of email services to use (see [Email Transports](#email-transports) below)
-- **`GIT_HASH`** Set programatically using `git rev-parse HEAD` (e.g. in `Makefile`) to tag docker container versions and other release assets. Can be left blank.
+- **`GIT_HASH`** Set programmatically using `git rev-parse HEAD` (e.g. in `Makefile`) to tag docker container versions and other release assets. Can be left blank.
 - **`MATH_ENV`** Set to `prod` (default), `preprod`, `dev` or arbitrary feature flag. In cases where a single database is used for multiple environments, this value is used by the API service to request the correct data. (Using a single DB for multiple environments in this fashion is no longer recommended, and so the default value of `prod` is recommended.)
 - **`SERVER_ENV_FILE`** The name of an environment file to be passed into the API Server container by docker compose. Defaults to `.env` if left blank. Used especially for building a `test` version of the project for end-to-end testing.
 - **`SERVER_LOG_LEVEL`** Used by Winston.js in the API server to determine how much logging to output. Reasonable values are `debug`, `info`, and `error`. Defaults to `info`.
@@ -76,7 +76,7 @@ If you are deploying to a custom domain (not `pol.is`) then you need to update b
 
 ### Ports
 
-- **`API_SERVER_PORT`** typically 5000. Used internally within a docker network and/or behind a proxy. A `PORT` value is used as a fallback if `API_SERVER_PORT` is not set (for Heroku comptability).
+- **`API_SERVER_PORT`** typically 5000. Used internally within a docker network and/or behind a proxy. A `PORT` value is used as a fallback if `API_SERVER_PORT` is not set (for Heroku compatibility).
 - **`HTTP_PORT`** typically 80. Port exposed by Nginx reverse proxy.
 - **`HTTPS_PORT`** typically 443. Port exposed by Nginx reverse proxy.
 - **`STATIC_FILES_PORT`** typically 8080. Used internally within a docker network and/or behind a proxy.
