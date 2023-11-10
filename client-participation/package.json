@@ -39,7 +39,7 @@
     "html-webpack-plugin": "~5.5.0",
     "hull.js": "~0.2.11",
     "imports-loader": "~4.0.1",
-    "jquery": "~1.11.3",
+    "jquery": "~3.5.0",
     "lodash": "~4.17.21",
     "lodash-webpack-plugin": "~0.11.6",
     "markdown": "~0.5.0",
