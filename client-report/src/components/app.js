@@ -151,7 +151,7 @@ class App extends React.Component {
   getData() {
     const reportPromise = this.getReport(report_id);
     // debug initial report data fetch
-    reportPromise.then((report) => console.log("report recieved:", report))
+    reportPromise.then((report) => console.log("report received:", report))
     const mathPromise = reportPromise.then((report) => {
       return this.getMath(report.conversation_id);
     });
