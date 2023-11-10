@@ -23,6 +23,10 @@ jobs:
             docker-compose.yml
             docker-compose.test.yml
           compose-flags: "--env-file test.env"
+      - name: Check Application Health
+        run: |
+          echo "Waiting for application to be ready..."
+          timeout 60 bash -c 'until curl -sSf http://localhost/api/v3/testConnection; do sleep 1; done'
       - uses: cypress-io/github-action@v5
         with:
           config: baseUrl=http://localhost
