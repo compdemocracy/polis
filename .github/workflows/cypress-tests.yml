@@ -16,18 +16,26 @@ jobs:
   cypress-run:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v3
-      - uses: isbang/compose-action@v1.4.1
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Build and Run Application
+        uses: isbang/compose-action@v1.4.1
         with:
           compose-file: |
             docker-compose.yml
             docker-compose.test.yml
           compose-flags: "--env-file test.env"
+
       - name: Check Application Health
-        run: |
-          echo "Waiting for application to be ready..."
-          timeout 60 bash -c 'until curl -sSf http://localhost/api/v3/testConnection; do sleep 1; done'
-      - uses: cypress-io/github-action@v5
+        uses: jtalk/url-health-check-action@v3
+        with:
+          url: http://localhost:5000/api/v3/testConnection
+          max-attempts: 10
+          retry-delay: 10s
+
+      - name: Cypress Run
+        uses: cypress-io/github-action@v5
         with:
           config: baseUrl=http://localhost
           spec: cypress/e2e/!(third-party)/**/*.cy.js
