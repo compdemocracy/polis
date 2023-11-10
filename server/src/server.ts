@@ -765,31 +765,35 @@ function initializePolisHelpers() {
   }
 
   function redirectIfNotHttps(
-    req: { headers?: { [x: string]: string; host: string }; url: string },
+    req: { headers: { [x: string]: string; host: string }; method: string; path: string; url: string },
     res: {
-      writeHead: (arg0: number, arg1: { Location: string }) => void;
       end: () => any;
+      status: (arg0: number) => {
+        send: (arg0: string) => any;
+      };
+      writeHead: (arg0: number, arg1: { Location: string }) => void;
     },
     next: () => any
   ) {
-    let exempt = devMode;
-
-    // IE is picky, so use HTTP.
-    // TODO figure out IE situation, (proxy static files in worst-case)
-    // exempt = exempt || /MSIE/.test(req?.headers?.['user-agent']); // TODO test IE11
-
-    if (exempt) {
+    // Exempt dev mode or healthcheck path from HTTPS check
+    if (devMode || req.path === '/api/v3/testConnection') {
       return next();
     }
 
-    const isHttps = req?.headers?.["x-forwarded-proto"] === "https";
+    // Check if the request is already HTTPS
+    const isHttps = req.headers['x-forwarded-proto'] === 'https';
 
     if (!isHttps) {
-      // assuming we're running on Heroku, where we're behind a proxy.
-      res.writeHead(302, {
-        Location: "https://" + req?.headers?.host + req.url,
-      });
-      return res.end();
+      logger.debug('redirecting to https', { headers: req.headers });
+      // Only redirect GET requests; otherwise, send a 400 error for non-GET methods
+      if (req.method === 'GET') {
+        res.writeHead(302, {
+          Location: `https://${req.headers.host}${req.url}`
+        });
+        return res.end();
+      } else {
+        res.status(400).send('Please use HTTPS when submitting data.');
+      }
     }
     return next();
   }
