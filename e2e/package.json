@@ -20,16 +20,16 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@faker-js/faker": "^7.6.0",
-    "cypress": "^12.7.0",
-    "cypress-terminal-report": "^5.0.2",
-    "yargs": "^17.7.1"
+    "@faker-js/faker": "^8.2.0",
+    "cypress": "^13.5.0",
+    "cypress-terminal-report": "^5.3.9",
+    "yargs": "^17.7.2"
   },
   "devDependencies": {
-    "eslint": "^8.35.0",
-    "eslint-config-prettier": "^8.6.0",
-    "eslint-plugin-cypress": "^2.12.1",
-    "eslint-plugin-mocha": "^10.1.0",
-    "prettier": "^2.8.4"
+    "eslint": "^8.53.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-cypress": "^2.15.1",
+    "eslint-plugin-mocha": "^10.2.0",
+    "prettier": "^3.0.3"
   }
 }

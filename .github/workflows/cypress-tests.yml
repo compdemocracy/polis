@@ -14,15 +14,13 @@ on:
 
 jobs:
   cypress-run:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout
         uses: actions/checkout@v3
 
       - name: Build and Run Application
         uses: isbang/compose-action@v1.4.1
-        env:
-          GOOGLE_CREDENTIALS_BASE64: ${{ secrets.GOOGLE_CREDENTIALS_BASE64 }}
         with:
           compose-file: |
             docker-compose.yml
@@ -33,8 +31,14 @@ jobs:
         uses: jtalk/url-health-check-action@v3
         with:
           url: http://localhost/api/v3/testConnection
-          max-attempts: 12
-          retry-delay: 5s
+          max-attempts: 10
+          retry-delay: 10s
+
+      - name: Dump Application Logs
+        if: failure()
+        run: |
+          echo "Health check failed. Dumping Docker logs..."
+          docker-compose logs
 
       - name: Cypress Run
         uses: cypress-io/github-action@v5
