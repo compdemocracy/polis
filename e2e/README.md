@@ -6,10 +6,33 @@ End-To-End Tests written with cypress.io
 
 - node `>= 18`
 
+## Quickstart
+
+from the polis root directory:
+
+```sh
+make TEST start
+```
+
+and in another shell:
+
+```sh
+make e2e-install
+make e2e-run
+```
+
 ## Setup
+
+(from within the e2e directory)
 
 ```sh
 npm install
+```
+
+(or, from the root directory)
+
+```sh
+make e2e-install
 ```
 
 See [System Requirements](https://docs.cypress.io/guides/getting-started/installing-cypress#System-requirements) for additional needs that your operating system might have.
@@ -22,14 +45,25 @@ There are few ways to run the end-to-end (e2e) test suite. They can be run in a 
 
 Running `docker compose` with either the `docker-compose.dev.yml` or `docker-compose.test.yml` overlay will get you #1 and #2. (See the top-level documentation for configuring and running polis.)
 
+The helpful shortcut `make TEST start` will build (if necessary) and start all of the dockerized services in a test environment,
+making use of `docker-compose.test.yml` and the `test.env` configuration values. This is the preferred way.
+
 If you want to run tests that require integration with Google Translation API, refer to the Byzantine [documentation at Google Cloud](https://cloud.google.com/docs/authentication/client-libraries).
 
 ## Running the tests
 
 To run the tests "headlessly" from the command line, simply run:
 
+(from within the e2e directory)
+
 ```sh
 npm test
+```
+
+(or from the root directory)
+
+```sh
+make e2e-run
 ```
 
 To open a Cypress user interface and run the tests in a browser of your choosing, run:
@@ -49,7 +83,7 @@ Read more about the [Cypress command line options here](https://docs.cypress.io/
 
 ## Notes
 
-- The default base url for running tests against, is http://localhost
+- The default base url for running tests against, is <http://localhost>
 - The default browser is electron. On the command line the default is headless electron unless you include a `--browser` option.
 - You may override the base url with a command like so: `CYPRESS_BASE_URL=http://123.45.67.89.sslip.io npm test`
 - `cypress/support/commands.js`: where we keep oft-used commands, e.g., for logging in, creating conversations, etc.

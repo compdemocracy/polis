@@ -1,20 +1,30 @@
 services:
   e2e-electron:
-    image: cypress/included:12.5.1
+    image: cypress/included:12.17.3
+    environment:
+      - CYPRESS_BASE_URL=http://host.docker.internal:80
+      - CYPRESS_MAILDEV_URL=http://host.docker.internal:1080
     volumes:
-      - ./cypress:/cypress
-      - ./cypress.config.js:/cypress.config.js
+      - .:/e2e
+    working_dir: /e2e
+    command: npm run test
 
   e2e-chrome:
-    image: cypress/included:12.5.1
+    image: cypress/included:12.17.3
+    environment:
+      - CYPRESS_BASE_URL=http://host.docker.internal:80
+      - CYPRESS_MAILDEV_URL=http://host.docker.internal:1080
     volumes:
-      - ./cypress:/cypress
-      - ./cypress.config.js:/cypress.config.js
-    command: --browser chrome
+      - .:/e2e
+    working_dir: /e2e
+    command: npm run test --browser chrome
 
   e2e-firefox:
-    image: cypress/included:12.5.1
+    image: cypress/included:12.17.3
+    environment:
+      - CYPRESS_BASE_URL=http://host.docker.internal:80
+      - CYPRESS_MAILDEV_URL=http://host.docker.internal:1080
     volumes:
-      - ./cypress:/cypress
-      - ./cypress.config.js:/cypress.config.js
-    command: --browser firefox
+      - .:/e2e
+    working_dir: /e2e
+    command: npm run test --browser firefox
