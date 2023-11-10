@@ -34,6 +34,12 @@ jobs:
           max-attempts: 10
           retry-delay: 10s
 
+      - name: Dump Application Logs
+        if: failure()
+        run: |
+          echo "Health check failed. Dumping Docker logs..."
+          docker-compose logs
+
       - name: Cypress Run
         uses: cypress-io/github-action@v5
         with:
