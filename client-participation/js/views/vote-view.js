@@ -33,6 +33,7 @@ module.exports = Handlebones.ModelView.extend({
     "click #agreeButton": "participantAgreed",
     "click #disagreeButton": "participantDisagreed",
     "click #passButton": "participantPassed",
+    "click #quitButton": "quitForNow",
     "click #subscribeBtn": "subscribeBtn",
     'submit #subscribeEmailForm': "subscribeBtn",
 
@@ -49,6 +50,7 @@ module.exports = Handlebones.ModelView.extend({
   },
   context: function() {
     var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
+    ctx.showQuitForNowButton = true;
     ctx.iOS = iOS;
     ctx.customStyles = "";
     // if (ctx.txt && ctx.txt.length < 30) {
@@ -413,7 +415,6 @@ module.exports = Handlebones.ModelView.extend({
         preloadHelper.firstVotesByMePromise,
         preloadHelper.firstPtptPromise
       ).then(_.defer(function() {
-
         var userHasVoted = !!votesByMe.size() ||
           (preload.firstVotesByMe && preload.firstVotesByMe.length) ||
           (preload.firstPtpt && preload.firstPtpt.vote_count > 0);
@@ -436,6 +437,33 @@ module.exports = Handlebones.ModelView.extend({
           } else if (ucw) {
             message2 = Strings.noCommentsYetSoWrite;
           }
+        }
+
+        // TODO show some indication of whether they should wait around or not (how many active users there are, etc)
+        that.model.clear({
+          silent: true
+        });
+        that.model.set({
+          empty: true,
+          txt1: message1,
+          txt2: message2
+        });
+        that.render();
+      }));
+    }
+
+    this.quitForNow = function() {
+      $.when(
+        preloadHelper.firstVotesByMePromise,
+        preloadHelper.firstPtptPromise
+      ).then(_.defer(function() {
+        waitingForComments = false;
+        // pollForComments();
+        var ucw = Utils.userCanWrite();
+        var message2;
+        var message1 = Strings.quitForNowYouVotedOnSome;
+        if (ucw) {
+          message2 = Strings.noCommentsTryWritingOne;
         }
 
         // TODO show some indication of whether they should wait around or not (how many active users there are, etc)

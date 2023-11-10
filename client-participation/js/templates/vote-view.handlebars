@@ -324,7 +324,22 @@
         >
         {{s.pass}}
       </button>
+
+      {{#if showQuitForNowButton}}
+      <button
+          id="nullButton"
+          class="reactionButton"
+          disabled
+          >
+      </button>
+      <button
+        id="quitButton"
+        class="reactionButton"
+        >
+        {{s.quitForNow}}
+      </button>
     </div>
+    {{/if}}
 
     {{#if showImportantCheckbox}}
     <div style="text-align: center; margin-bottom: 20px">

@@ -48,6 +48,25 @@ rm-images: echo_vars ## Remove Docker images where (polis_tag="${TAG}")
 	@echo 'removing filtered images (polis_tag="${TAG}")'
 	@-docker rmi -f $(shell docker images -q --filter "label=polis_tag=${TAG}")
 
+rm-single-image: ## Remove Docker image that matches REGEXP (e.g. make rm-single-image REGEXP='file-server.*test')
+	@if [ "$(REGEXP)" = "" ]; then \
+		echo "REGEXP is not defined"; \
+		echo "Please use: make rm-single-image REGEXP='file-server.*test'"; \
+	else \
+		echo "REGEXP: $(REGEXP)"; \
+		docker-compose down; \
+		docker images \
+		| grep -E "$(REGEXP)" \
+		| awk '{print $$3}' \
+		| xargs docker rmi 2>&1 \
+		| awk '{print $$NF}' \
+		| xargs docker rm; \
+		docker images \
+		| grep -E "$(REGEXP)" \
+		| awk '{print $$3}' \
+		| xargs docker rmi; \
+	fi
+
 rm-ALL: rm-containers rm-volumes rm-images ## Remove Docker containers, volumes, and images where (polis_tag="${TAG}")
 	@echo Done.
 

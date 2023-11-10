@@ -5,6 +5,7 @@ var s = {};
 s.agree = "Agree";
 s.disagree = "Disagree";
 s.pass = "Pass / Unsure";
+s.quitForNow = "Quit for now";
 
 s.importantCheckbox = "This comment is important";
 s.howImportantPrompt = "How important is this statement?";
@@ -98,8 +99,8 @@ s.hideTranslationButton = "Deactivate Translation";
 s.thirdPartyTranslationDisclaimer = "Translation provided by a third party";
 
 s.notificationsAlreadySubscribed = "You are subscribed to updates for this conversation.";
-s.notificationsGetNotified = "Get notified when more statements arrive:";
-s.notificationsEnterEmail = "Enter your email address to get notified when more statements arrive:";
+s.notificationsGetNotified = "Get periodic updates for this conversation:";
+s.notificationsEnterEmail = "Enter your email address to receive periodic updates for this conversation:";
 s.labelEmail = "Email";
 s.notificationsSubscribeButton = "Subscribe";
 s.notificationsSubscribeErrorAlert = "Error subscribing";
@@ -107,6 +108,7 @@ s.noCommentsYet = "There aren't any statements yet.";
 s.noCommentsYetSoWrite = "Get this conversation started by adding a statement.";
 s.noCommentsYetSoInvite = "Get this conversation started by inviting more participants, or add a statement.";
 s.noCommentsYouVotedOnAll = "You've voted on all the statements.";
+s.quitForNowYouVotedOnSome = "You have not voted on all the comments."
 s.noCommentsTryWritingOne = "If you have something to add, try writing your own statement.";
 s.convIsClosed = "This conversation is closed.";
 s.noMoreVotingAllowed = "No further voting is allowed.";
