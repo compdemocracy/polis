@@ -21,8 +21,6 @@ jobs:
 
       - name: Build and Run Application
         uses: isbang/compose-action@v1.4.1
-        env:
-          GOOGLE_CREDENTIALS_BASE64: ${{ secrets.GOOGLE_CREDENTIALS_BASE64 }}
         with:
           compose-file: |
             docker-compose.yml
