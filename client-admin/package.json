@@ -54,7 +54,7 @@
   },
   "dependencies": {
     "d3-scale": "~3.2.3",
-    "jquery": "~2.1.4",
+    "jquery": "~3.5.0",
     "lodash": "~4.17.21",
     "prop-types": "~15.7.2",
     "react": "~16.14.0",
