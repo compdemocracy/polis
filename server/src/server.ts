@@ -1125,6 +1125,7 @@ function initializePolisHelpers() {
     ...Config.whitelistItems,
     "localhost:5000",
     "localhost:5001",
+    "localhost:5010",
     "facebook.com",
     "api.twitter.com",
     "", // for API
