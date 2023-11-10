@@ -10,7 +10,7 @@ BASEURL ?= https://127.0.0.1.sslip.io
 E2E_RUN = cd e2e; CYPRESS_BASE_URL=$(BASEURL)
 export ENV_FILE = .env
 export TAG = $(shell grep -e ^TAG ${ENV_FILE} | awk -F'[=]' '{gsub(/ /,""); print $$2}')
-export S3_BUCKET = $(shell grep -e ^S3_BUCKET ${ENV_FILE} | awk -F'[=]' '{gsub(/ /,""); print $$2}')
+export S3_BUCKET = $(shell awk -F'=' '/^S3_BUCKET/ {gsub(/ /, "", $$2); print $$2}' ${ENV_FILE})
 export GIT_HASH = $(shell git rev-parse --short HEAD)
 export COMPOSE_FILE_ARGS = -f docker-compose.yml -f docker-compose.dev.yml
 
@@ -74,16 +74,19 @@ start-FULL-REBUILD: echo_vars stop rm-ALL ## Remove and restart all Docker conta
 	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} down
 	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up --build
 
-extract-bundles: ## Extract bundles from file-server for cloud deployment
-  /bin/rm -rf build
-  docker cp polis-${TAG}-file-server-1:/app/build/ build
+build-web-assets: ## Build and extract static web assets for cloud deployment
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} create --build --force-recreate file-server
+	$(MAKE) extract-web-assets
 
-upload-bundles: ## upload bundles to aws s3
-  aws s3 cp build s3://${S3_BUCKET} \
-    --recursive \
-    --metadata-directive REPLACE \
-    --acl public-read \
-    --cache-control max-age=31536000
+extract-web-assets: ## Extract static web assets from file-server for cloud deployment
+	/bin/rm -rf build
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} cp file-server:/app/build/ build
+
+upload-web-assets: ## upload static web assets to aws s3
+	aws s3 cp build s3://${S3_BUCKET} \
+		--recursive \
+		--metadata-directive REPLACE \
+		--cache-control max-age=31536000
 
 e2e-install: e2e/node_modules ## Install Cypress E2E testing tools
 	$(E2E_RUN) npm install
@@ -115,8 +118,8 @@ rbs: start-rebuild
 	@true
 
 .PHONY: help pull start stop rm-containers rm-volumes rm-images rm-ALL hash build-no-cache start-rebuild \
-  start-recreate restart-FULL-REBUILD e2e-install e2e-prepare e2e-run-minimal e2e-run-standalone e2e-run-secret \
-  e2e-run-subset e2e-run-all
+	start-recreate restart-FULL-REBUILD e2e-install e2e-prepare e2e-run-minimal e2e-run-standalone e2e-run-secret \
+	e2e-run-subset e2e-run-all build-web-assets extract-web-assets upload-web-assets
 
 help:
 	@echo 'Usage: make <command>'
