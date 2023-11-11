@@ -72,6 +72,9 @@ start-FULL-REBUILD: echo_vars stop rm-ALL ## Remove and restart all Docker conta
 	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} down
 	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up --build
 
+start-backend: echo_vars ## Start backend Docker containers
+	docker compose ${COMPOSE_FILE_ARGS} --profile backend --env-file ${ENV_FILE} up
+
 e2e-install: e2e/node_modules ## Install Cypress E2E testing tools
 	$(E2E_RUN) npm install
 
@@ -91,7 +94,7 @@ rbs: start-rebuild
 	@true
 
 .PHONY: help pull start stop rm-containers rm-volumes rm-images rm-ALL hash build-no-cache start-rebuild \
-  start-recreate restart-FULL-REBUILD e2e-install e2e-run e2e-run-all e2e-run-some
+	start-recreate restart-FULL-REBUILD start-backend e2e-install e2e-run e2e-run-all e2e-run-some
 
 help:
 	@echo 'Usage: make <command>'

@@ -45,6 +45,7 @@ services:
       - ${STATIC_FILES_PORT:-8080}:${STATIC_FILES_PORT:-8080}
 
   maildev:
+    profiles: ["backend"]
     image: docker.io/maildev/maildev:1.1.1
     labels:
       polis_tag: ${TAG}
