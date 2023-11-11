@@ -42,6 +42,9 @@
       "e2e",
       "file-server",
       "math"
-    ]
+    ],
+    "[javascript]": {
+      "editor.defaultFormatter": "Jota0222.multi-formatter"
+    }
   }
 }
