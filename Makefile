@@ -73,7 +73,15 @@ start-FULL-REBUILD: echo_vars stop rm-ALL ## Remove and restart all Docker conta
 	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up --build
 
 start-backend: echo_vars ## Start backend Docker containers
-	docker compose ${COMPOSE_FILE_ARGS} --profile backend --env-file ${ENV_FILE} up
+	docker compose ${COMPOSE_FILE_ARGS} --profile backend --env-file ${ENV_FILE} up --force-recreate
+
+build-web-assets: ## Build and extract static web assets for cloud deployment
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} create --build --force-recreate file-server
+	$(MAKE) extract-web-assets
+
+extract-web-assets: ## Extract static web assets from file-server for cloud deployment
+	/bin/rm -rf file-server/build
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} cp file-server:/app/build/ file-server/build
 
 e2e-install: e2e/node_modules ## Install Cypress E2E testing tools
 	$(E2E_RUN) npm install
