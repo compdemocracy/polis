@@ -35,7 +35,7 @@ export const CheckboxField = ({
     <Flex sx={{ alignItems: 'flex-start', mb: [3] }}>
       <Box sx={{ flexShrink: 0, position: 'relative', top: -0.5 }}>
         <input
-          type="checkbox"
+          type='checkbox'
           label={label}
           data-test-id={field}
           checked={

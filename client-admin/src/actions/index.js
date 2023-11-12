@@ -174,7 +174,7 @@ const requestUser = () => {
 const receiveUser = (data) => {
   return {
     type: RECEIVE_USER,
-    data: data
+    data
   }
 }
 
@@ -380,7 +380,7 @@ const facebookSigninSuccessful = () => {
 const facebookSigninFailed = (errorCode) => {
   return {
     type: FACEBOOK_SIGNIN_FAILED,
-    errorCode: errorCode
+    errorCode
   }
 }
 
@@ -646,7 +646,7 @@ const requestConversations = () => {
 const receiveConversations = (data) => {
   return {
     type: RECEIVE_CONVERSATIONS,
-    data: data
+    data
   }
 }
 
@@ -677,7 +677,7 @@ const requestZidMetadata = (conversation_id) => {
   return {
     type: REQUEST_ZID_METADATA,
     data: {
-      conversation_id: conversation_id
+      conversation_id
     }
   }
 }
@@ -685,7 +685,7 @@ const requestZidMetadata = (conversation_id) => {
 const receiveZidMetadata = (data) => {
   return {
     type: RECEIVE_ZID_METADATA,
-    data: data
+    data
   }
 }
 
@@ -750,7 +750,7 @@ const updateZidMetadataStarted = () => {
 const updateZidMetadataSuccess = (data) => {
   return {
     type: UPDATE_ZID_METADATA_SUCCESS,
-    data: data
+    data
   }
 }
 
@@ -797,7 +797,7 @@ export const optimisticZidMetadataUpdateOnTyping = (zm, field, value) => {
 export const seedCommentChanged = (text) => {
   return {
     type: SEED_COMMENT_LOCAL_UPDATE,
-    text: text
+    text
   }
 }
 
@@ -841,7 +841,7 @@ export const handleSeedCommentSubmit = (comment) => {
 // eslint-disable-next-line no-unused-vars
 const makeStandardStart = (type) => {
   return {
-    type: type
+    type
   }
 }
 
@@ -849,7 +849,7 @@ const makeStandardStart = (type) => {
 // eslint-disable-next-line no-unused-vars
 const makeStandardError = (type, err) => {
   return {
-    type: type,
+    type,
     data: err
   }
 }
@@ -858,8 +858,8 @@ const makeStandardError = (type, err) => {
 // eslint-disable-next-line no-unused-vars
 const makeStandardSuccess = (type, data) => {
   return {
-    type: type,
-    data: data
+    type,
+    data
   }
 }
 
@@ -868,7 +868,7 @@ const makeStandardSuccess = (type, data) => {
 export const seedCommentTweetChanged = (text) => {
   return {
     type: SEED_COMMENT_TWEET_LOCAL_UPDATE,
-    text: text
+    text
   }
 }
 const submitSeedCommentTweetStart = () => {
@@ -999,7 +999,7 @@ const requestComments = () => {
 const receiveComments = (data) => {
   return {
     type: RECEIVE_COMMENTS,
-    data: data
+    data
   }
 }
 
@@ -1042,7 +1042,7 @@ const requestMath = () => {
 const receiveMath = (data) => {
   return {
     type: RECEIVE_MATH,
-    data: data
+    data
   }
 }
 
@@ -1084,7 +1084,7 @@ const requestUnmoderatedComments = () => {
 const receiveUnmoderatedComments = (data) => {
   return {
     type: RECEIVE_UNMODERATED_COMMENTS,
-    data: data
+    data
   }
 }
 
@@ -1127,7 +1127,7 @@ const requestAcceptedComments = () => {
 const receiveAcceptedComments = (data) => {
   return {
     type: RECEIVE_ACCEPTED_COMMENTS,
-    data: data
+    data
   }
 }
 
@@ -1170,7 +1170,7 @@ const requestRejectedComments = () => {
 const receiveRejectedComments = (data) => {
   return {
     type: RECEIVE_REJECTED_COMMENTS,
-    data: data
+    data
   }
 }
 
@@ -1222,14 +1222,14 @@ export const populateAllCommentStores = (conversation_id) => {
 const optimisticCommentAccepted = (comment) => {
   return {
     type: ACCEPT_COMMENT,
-    comment: comment
+    comment
   }
 }
 
 const acceptCommentSuccess = (data) => {
   return {
     type: ACCEPT_COMMENT_SUCCESS,
-    data: data
+    data
   }
 }
 
@@ -1267,14 +1267,14 @@ export const changeCommentStatusToAccepted = (comment) => {
 const optimisticCommentRejected = (comment) => {
   return {
     type: REJECT_COMMENT,
-    comment: comment
+    comment
   }
 }
 
 const rejectCommentSuccess = (data) => {
   return {
     type: REJECT_COMMENT_SUCCESS,
-    data: data
+    data
   }
 }
 
@@ -1311,14 +1311,14 @@ export const changeCommentStatusToRejected = (comment) => {
 const optimisticCommentIsMetaChanged = (comment) => {
   return {
     type: COMMENT_IS_META,
-    comment: comment
+    comment
   }
 }
 
 const commentIsMetaChangeSuccess = (data) => {
   return {
     type: COMMENT_IS_META_SUCCESS,
-    data: data
+    data
   }
 }
 
@@ -1333,7 +1333,7 @@ const putCommentCommentIsMetaChange = (comment, is_meta) => {
   return $.ajax({
     method: 'PUT',
     url: '/api/v3/comments',
-    data: Object.assign(comment, { is_meta: is_meta })
+    data: Object.assign(comment, { is_meta })
   })
 }
 
@@ -1361,7 +1361,7 @@ const requestParticipants = () => {
 const receiveParticipants = (data) => {
   return {
     type: RECEIVE_PARTICIPANTS,
-    data: data
+    data
   }
 }
 
@@ -1397,7 +1397,7 @@ const requestDefaultParticipants = () => {
 const receiveDefaultParticipants = (data) => {
   return {
     type: RECEIVE_DEFAULT_PARTICIPANTS,
-    data: data
+    data
   }
 }
 
@@ -1433,7 +1433,7 @@ const requestFeaturedParticipants = () => {
 const receiveFeaturedParticipants = (data) => {
   return {
     type: RECEIVE_FEATURED_PARTICIPANTS,
-    data: data
+    data
   }
 }
 
@@ -1469,7 +1469,7 @@ const requestHiddenParticipants = () => {
 const receiveHiddenParticipants = (data) => {
   return {
     type: RECEIVE_HIDDEN_PARTICIPANTS,
-    data: data
+    data
   }
 }
 
@@ -1511,14 +1511,14 @@ export const populateAllParticipantStores = (conversation_id) => {
 const optimisticFeatureParticipant = (participant) => {
   return {
     type: FEATURE_PARTICIPANT,
-    participant: participant
+    participant
   }
 }
 
 const featureParticipantSuccess = (data) => {
   return {
     type: FEATURE_PARTICIPANT_SUCCESS,
-    data: data
+    data
   }
 }
 
@@ -1551,14 +1551,14 @@ export const changeParticipantStatusToFeatured = (participant) => {
 const optimisticHideParticipant = (participant) => {
   return {
     type: FEATURE_PARTICIPANT,
-    participant: participant
+    participant
   }
 }
 
 const hideParticipantSuccess = (data) => {
   return {
     type: FEATURE_PARTICIPANT_SUCCESS,
-    data: data
+    data
   }
 }
 
@@ -1591,7 +1591,7 @@ export const changeParticipantStatusToHidden = (participant) => {
 const optimisticUnmoderateParticipant = (participant) => {
   return {
     type: FEATURE_PARTICIPANT,
-    participant: participant
+    participant
   }
 }
 
@@ -1600,7 +1600,7 @@ const optimisticUnmoderateParticipant = (participant) => {
 const unmoderateParticipantSuccess = (data) => {
   return {
     type: FEATURE_PARTICIPANT_SUCCESS,
-    data: data
+    data
   }
 }
 
@@ -1642,7 +1642,7 @@ const requestConversationStats = () => {
 const receiveConversationStats = (data) => {
   return {
     type: RECEIVE_CONVERSATION_STATS,
-    data: data
+    data
   }
 }
 

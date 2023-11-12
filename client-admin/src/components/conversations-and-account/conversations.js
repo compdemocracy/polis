@@ -78,12 +78,13 @@ class Conversations extends React.Component {
     return (
       <Box>
         <Heading
-          as="h3"
+          as='h3'
           sx={{
             fontSize: [3, null, 4],
             lineHeight: 'body',
             mb: [3, null, 4]
-          }}>
+          }}
+        >
           All Conversations
         </Heading>
         <Box sx={{ mb: [3, null, 4] }}>

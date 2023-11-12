@@ -78,7 +78,7 @@ class App extends React.Component {
     this.loadUserData()
     const mql = window.matchMedia(`(min-width: 800px)`)
     mql.addListener(this.mediaQueryChanged.bind(this))
-    this.setState({ mql: mql, docked: mql.matches })
+    this.setState({ mql, docked: mql.matches })
   }
 
   isAuthed() {
@@ -131,40 +131,40 @@ class App extends React.Component {
     return (
       <>
         <Switch>
-          <Redirect from="/:url*(/+)" to={location.pathname.slice(0, -1)} />
-          <Route exact path="/home" component={Home} />
+          <Redirect from='/:url*(/+)' to={location.pathname.slice(0, -1)} />
+          <Route exact path='/home' component={Home} />
           <Route
             exact
-            path="/signin"
+            path='/signin'
             render={() => <SignIn {...this.props} authed={this.isAuthed()} />}
           />
           <Route
             exact
-            path="/signin/*"
+            path='/signin/*'
             render={() => <SignIn {...this.props} authed={this.isAuthed()} />}
           />
           <Route
             exact
-            path="/signin/**/*"
+            path='/signin/**/*'
             render={() => <SignIn {...this.props} authed={this.isAuthed()} />}
           />
-          <Route exact path="/signout" component={SignOut} />
-          <Route exact path="/signout/*" component={SignOut} />
-          <Route exact path="/signout/**/*" component={SignOut} />
-          <Route exact path="/createuser" component={CreateUser} />
-          <Route exact path="/createuser/*" component={CreateUser} />
-          <Route exact path="/createuser/**/*" component={CreateUser} />
+          <Route exact path='/signout' component={SignOut} />
+          <Route exact path='/signout/*' component={SignOut} />
+          <Route exact path='/signout/**/*' component={SignOut} />
+          <Route exact path='/createuser' component={CreateUser} />
+          <Route exact path='/createuser/*' component={CreateUser} />
+          <Route exact path='/createuser/**/*' component={CreateUser} />
 
-          <Route exact path="/pwreset" component={PasswordReset} />
-          <Route path="/pwreset/*" component={PasswordReset} />
-          <Route exact path="/pwresetinit" component={PasswordResetInit} />
+          <Route exact path='/pwreset' component={PasswordReset} />
+          <Route path='/pwreset/*' component={PasswordReset} />
+          <Route exact path='/pwresetinit' component={PasswordResetInit} />
           <Route
             exact
-            path="/pwresetinit/done"
+            path='/pwresetinit/done'
             component={PasswordResetInitDone}
           />
-          <Route exact path="/tos" component={TOS} />
-          <Route exact path="/privacy" component={Privacy} />
+          <Route exact path='/tos' component={TOS} />
+          <Route exact path='/privacy' component={Privacy} />
 
           <InteriorHeader>
             <Route
@@ -197,33 +197,34 @@ class App extends React.Component {
                         flex: '0 0 auto',
                         maxWidth: '35em',
                         mx: [4]
-                      }}>
+                      }}
+                    >
                       <PrivateRoute
                         isLoading={this.isLoading()}
                         authed={this.isAuthed()}
                         exact
-                        path="/"
+                        path='/'
                         component={Conversations}
                       />
                       <PrivateRoute
                         isLoading={this.isLoading()}
                         authed={this.isAuthed()}
                         exact
-                        path="/conversations"
+                        path='/conversations'
                         component={Conversations}
                       />
                       <PrivateRoute
                         isLoading={this.isLoading()}
                         authed={this.isAuthed()}
                         exact
-                        path="/account"
+                        path='/account'
                         component={Account}
                       />
                       <PrivateRoute
                         isLoading={this.isLoading()}
                         authed={this.isAuthed()}
                         exact
-                        path="/integrate"
+                        path='/integrate'
                         component={Integrate}
                       />
                     </Box>
@@ -234,7 +235,7 @@ class App extends React.Component {
 
             <PrivateRoute
               isLoading={this.isLoading()}
-              path="/m/:conversation_id"
+              path='/m/:conversation_id'
               authed={this.isAuthed()}
               component={ConversationAdminContainer}
             />

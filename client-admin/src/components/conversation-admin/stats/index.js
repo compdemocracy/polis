@@ -34,7 +34,7 @@ class ConversationStats extends React.Component {
     const until = Number(dddate)
     this.setState(
       {
-        until: until
+        until
       },
       function () {
         this.loadStats()
@@ -85,12 +85,13 @@ class ConversationStats extends React.Component {
     return (
       <div>
         <Heading
-          as="h3"
+          as='h3'
           sx={{
             fontSize: [3, null, 4],
             lineHeight: 'body',
             mb: [3, null, 4]
-          }}>
+          }}
+        >
           Monitor
         </Heading>
         <NumberCards data={conversation_stats} />

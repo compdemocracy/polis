@@ -32,7 +32,7 @@ function polisAjax(api, data, type) {
 
   let promise
   const config = {
-    url: url,
+    url,
     contentType: 'application/json; charset=utf-8',
     headers: {
       // "Cache-Control": "no-cache"  // no-cache
@@ -48,7 +48,7 @@ function polisAjax(api, data, type) {
     promise = $.ajax(
       $.extend(config, {
         type: 'GET',
-        data: data
+        data
       })
     )
   } else if (type === 'POST') {
@@ -84,8 +84,8 @@ function polisGet(api, data) {
 }
 
 const PolisNet = {
-  polisAjax: polisAjax,
-  polisPost: polisPost,
-  polisGet: polisGet
+  polisAjax,
+  polisPost,
+  polisGet
 }
 export default PolisNet

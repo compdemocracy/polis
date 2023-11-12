@@ -26,8 +26,8 @@ class PasswordResetInit extends React.Component {
         <form>
           <input
             ref={(c) => (this.email = c)}
-            placeholder="email"
-            type="text"
+            placeholder='email'
+            type='text'
           />
           <button onClick={this.handleClick.bind(this)}>
             Send password reset email

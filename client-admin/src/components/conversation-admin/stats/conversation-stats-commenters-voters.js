@@ -16,7 +16,8 @@ class CommentersVoters extends React.Component {
         scale={{
           x: scaleTime(this.props.data.firstVoteTimes),
           y: scaleLinear()
-        }}>
+        }}
+      >
         <VictoryLine
           style={{
             data: {
@@ -39,7 +40,7 @@ class CommentersVoters extends React.Component {
             return { x: timestamp, y: i }
           })}
         />
-        <VictoryAxis orientation="bottom" />
+        <VictoryAxis orientation='bottom' />
         <VictoryAxis
           dependentAxis
           label={'Participants'}

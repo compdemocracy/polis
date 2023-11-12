@@ -74,10 +74,10 @@ class Createuser extends React.Component {
                 border: '1px solid',
                 borderColor: 'mediumGray'
               }}
-              id="createUserNameInput"
+              id='createUserNameInput'
               ref={(c) => (this.hname = c)}
-              placeholder="name"
-              type="text"
+              placeholder='name'
+              type='text'
             />
           </Box>
           <Box sx={{ my: [2] }}>
@@ -91,10 +91,10 @@ class Createuser extends React.Component {
                 border: '1px solid',
                 borderColor: 'mediumGray'
               }}
-              id="createUserEmailInput"
+              id='createUserEmailInput'
               ref={(c) => (this.email = c)}
-              placeholder="email"
-              type="email"
+              placeholder='email'
+              type='email'
             />
           </Box>
           <Box sx={{ my: [2] }}>
@@ -108,10 +108,10 @@ class Createuser extends React.Component {
                 border: '1px solid',
                 borderColor: 'mediumGray'
               }}
-              id="createUserPasswordInput"
+              id='createUserPasswordInput'
               ref={(c) => (this.password = c)}
-              placeholder="password"
-              type="password"
+              placeholder='password'
+              type='password'
             />
           </Box>
           <Box sx={{ my: [2] }}>
@@ -125,21 +125,21 @@ class Createuser extends React.Component {
                 border: '1px solid',
                 borderColor: 'mediumGray'
               }}
-              id="createUserPasswordRepeatInput"
+              id='createUserPasswordRepeatInput'
               ref={(c) => (this.password2 = c)}
-              placeholder="repeat password"
-              type="password"
+              placeholder='repeat password'
+              type='password'
             />
           </Box>
           {this.maybeErrorMessage()}
 
           <Box>
             I agree to the{' '}
-            <a href="https://pol.is/tos" tabIndex="110">
+            <a href='https://pol.is/tos' tabIndex='110'>
               pol.is terms
             </a>{' '}
             and{' '}
-            <a href="https://pol.is/privacy" tabIndex="111">
+            <a href='https://pol.is/privacy' tabIndex='111'>
               {' '}
               privacy agreement
             </a>
@@ -147,17 +147,19 @@ class Createuser extends React.Component {
           </Box>
           <Button
             sx={{ my: [2] }}
-            id="createUserButton"
-            onClick={this.handleLoginClicked.bind(this)}>
+            id='createUserButton'
+            onClick={this.handleLoginClicked.bind(this)}
+          >
             {this.props.pending ? 'Creating Account...' : 'Create Account'}
           </Button>
         </form>
         <Box sx={{ mb: [4] }}>
           Already have an account?{' '}
           <Link
-            tabIndex="6"
+            tabIndex='6'
             to={'/signin' + this.getDest()}
-            data-section="signup-select">
+            data-section='signup-select'
+          >
             Sign in
           </Link>
         </Box>
@@ -166,14 +168,15 @@ class Createuser extends React.Component {
           <>
             <Button
               sx={{ my: [2] }}
-              id="signupFacebookButton"
-              onClick={this.facebookButtonClicked.bind(this)}>
+              id='signupFacebookButton'
+              onClick={this.facebookButtonClicked.bind(this)}
+            >
               Sign up with Facebook
             </Button>
             <Text>
-              If you click &apos;Sign in with Facebook&apos; and are not a pol.is
-              user, you will be registered and you agree to the pol.is terms and
-              privacy policy
+              If you click &apos;Sign in with Facebook&apos; and are not a
+              pol.is user, you will be registered and you agree to the pol.is
+              terms and privacy policy
             </Text>
           </>
         )}
@@ -195,8 +198,8 @@ class Createuser extends React.Component {
         </Text>
         <input
           ref={(c) => (this.facebook_password = c)}
-          placeholder="polis password"
-          type="password"
+          placeholder='polis password'
+          type='password'
         />
         <Button onClick={this.handleFacebookPasswordSubmit.bind(this)}>
           {'Connect Facebook Account'}
@@ -209,7 +212,7 @@ class Createuser extends React.Component {
     return (
       <StaticLayout>
         <div>
-          <Heading as="h1" sx={{ my: [4, null, 5], fontSize: [6, null, 7] }}>
+          <Heading as='h1' sx={{ my: [4, null, 5], fontSize: [6, null, 7] }}>
             Create Account
           </Heading>
           {this.props.facebookError !== 'polis_err_user_with_this_email_exists'

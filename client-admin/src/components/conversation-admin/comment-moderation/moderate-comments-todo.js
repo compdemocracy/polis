@@ -25,8 +25,7 @@ class ModerateCommentsTodo extends React.Component {
   }
 
   createCommentMarkup(max) {
-
-    return this.props.unmoderated_comments.slice(0,max).map((comment, i) => {
+    return this.props.unmoderated_comments.slice(0, max).map((comment, i) => {
       return (
         <Comment
           key={i}
@@ -34,23 +33,22 @@ class ModerateCommentsTodo extends React.Component {
           rejectButton
           acceptClickHandler={this.onCommentAccepted.bind(this)}
           rejectClickHandler={this.onCommentRejected.bind(this)}
-          acceptButtonText="accept"
-          rejectButtonText="reject"
+          acceptButtonText='accept'
+          rejectButtonText='reject'
           isMetaCheckbox
           toggleIsMetaHandler={this.toggleIsMetaHandler.bind(this)}
           comment={comment}
         />
       )
     })
-    
   }
 
   render() {
-    const max = 100;
+    const max = 100
     return (
       <div>
         <div>
-          <p> Displays maximum {max} comments </p> 
+          <p> Displays maximum {max} comments </p>
           {this.props.unmoderated_comments !== null
             ? this.createCommentMarkup(max)
             : 'Loading unmoderated comments...'}

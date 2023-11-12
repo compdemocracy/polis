@@ -26,7 +26,7 @@ class ModerateCommentsAccepted extends React.Component {
           key={i}
           rejectButton
           rejectClickHandler={this.onCommentRejected.bind(this)}
-          rejectButtonText="reject"
+          rejectButtonText='reject'
           isMetaCheckbox
           toggleIsMetaHandler={this.toggleIsMetaHandler.bind(this)}
           comment={comment}

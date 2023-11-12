@@ -9,8 +9,9 @@ class Header extends Component {
     return (
       <Box sx={{ mt: [3, null, 4] }}>
         <Heading
-          as="h3"
-          sx={{ fontSize: [4], lineHeight: 'body', my: [2, null, 3] }}>
+          as='h3'
+          sx={{ fontSize: [4], lineHeight: 'body', my: [2, null, 3] }}
+        >
           Legal
         </Heading>
         <Box sx={{ mb: [2, null, 3], maxWidth: '30em' }}>
@@ -18,8 +19,8 @@ class Header extends Component {
           {emoji('🇺🇸')}, with contributions from around the {emoji('🌍🌏🌎')}
         </Box>
         <Box sx={{ mb: [2, null, 3] }}>
-          © {new Date().getFullYear()} The Authors <Link href="tos">TOS</Link>{' '}
-          <Link href="privacy">Privacy</Link>
+          © {new Date().getFullYear()} The Authors <Link href='tos'>TOS</Link>{' '}
+          <Link href='privacy'>Privacy</Link>
         </Box>
       </Box>
     )

@@ -57,7 +57,8 @@ class ConversationAdminContainer extends React.Component {
           <Box sx={{ mb: [3] }}>
             <Link
               sx={{ variant: url ? 'links.nav' : 'links.activeNav' }}
-              to={`${match.url}`}>
+              to={`${match.url}`}
+            >
               Configure
             </Link>
           </Box>
@@ -66,7 +67,8 @@ class ConversationAdminContainer extends React.Component {
               sx={{
                 variant: url === 'share' ? 'links.activeNav' : 'links.nav'
               }}
-              to={`${match.url}/share`}>
+              to={`${match.url}/share`}
+            >
               Distribute
             </Link>
           </Box>
@@ -75,7 +77,8 @@ class ConversationAdminContainer extends React.Component {
               sx={{
                 variant: url === 'comments' ? 'links.activeNav' : 'links.nav'
               }}
-              to={`${match.url}/comments`}>
+              to={`${match.url}/comments`}
+            >
               Moderate
             </Link>
           </Box>
@@ -84,7 +87,8 @@ class ConversationAdminContainer extends React.Component {
               sx={{
                 variant: url === 'stats' ? 'links.activeNav' : 'links.nav'
               }}
-              to={`${match.url}/stats`}>
+              to={`${match.url}/stats`}
+            >
               Monitor
             </Link>
           </Box>
@@ -93,7 +97,8 @@ class ConversationAdminContainer extends React.Component {
               sx={{
                 variant: url === 'reports' ? 'links.activeNav' : 'links.nav'
               }}
-              to={`${match.url}/reports`}>
+              to={`${match.url}/reports`}
+            >
               Report
             </Link>
           </Box>

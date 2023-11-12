@@ -35,11 +35,8 @@ class ConversationHasCommentsCheck extends React.Component {
   }
 
   render() {
-    const {
-      accepted_comments,
-      rejected_comments,
-      unmoderated_comments
-    } = this.props
+    const { accepted_comments, rejected_comments, unmoderated_comments } =
+      this.props
     return (
       <div>
         {accepted_comments !== null &&

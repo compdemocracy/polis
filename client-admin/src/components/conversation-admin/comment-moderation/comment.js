@@ -33,12 +33,14 @@ class Comment extends React.Component {
               justifyContent: 'space-between',
               alignItems: 'center',
               width: '100%'
-            }}>
+            }}
+          >
             <Box>
               {this.props.acceptButton ? (
                 <Button
                   sx={{ mr: [3] }}
-                  onClick={this.onAcceptClicked.bind(this)}>
+                  onClick={this.onAcceptClicked.bind(this)}
+                >
                   {this.props.acceptButtonText}
                 </Button>
               ) : null}
@@ -50,15 +52,16 @@ class Comment extends React.Component {
             </Box>
             <Flex sx={{ alignItems: 'center' }}>
               <Link
-                target="_blank"
+                target='_blank'
                 sx={{ mr: [2] }}
-                href="https://compdemocracy.org/metadata">
+                href='https://compdemocracy.org/metadata'
+              >
                 {this.props.isMetaCheckbox ? 'metadata' : null}
               </Link>
               {this.props.isMetaCheckbox ? (
                 <input
-                  type="checkbox"
-                  label="metadata"
+                  type='checkbox'
+                  label='metadata'
                   ref={(c) => (this.is_meta = c)}
                   checked={this.props.comment.is_meta}
                   onChange={this.onIsMetaClicked.bind(this)}

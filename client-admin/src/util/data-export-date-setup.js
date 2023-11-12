@@ -94,10 +94,10 @@ const setupBasedOnCurrentDate = () => {
 
   return {
     format: 'csv',
-    months: months,
-    years: years,
-    days: days,
-    tzs: tzs
+    months,
+    years,
+    days,
+    tzs
   }
 }
 

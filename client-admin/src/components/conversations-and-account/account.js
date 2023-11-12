@@ -14,12 +14,13 @@ class Account extends React.Component {
       <>
         <Box>
           <Heading
-            as="h3"
+            as='h3'
             sx={{
               fontSize: [3, null, 4],
               lineHeight: 'body',
               mb: [3, null, 4]
-            }}>
+            }}
+          >
             Account
           </Heading>
           <p>Hi {this.props.user.hname.split(' ')[0]}!</p>

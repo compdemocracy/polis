@@ -12,7 +12,8 @@ const Layout = ({ children }) => {
         margin: `0 auto`,
         maxWidth: globalWidth,
         padding: `0 1.0875rem 1.45rem`
-      }}>
+      }}
+    >
       <Header globalWidth={globalWidth} />
       <Box>{children}</Box>
       <Footer />

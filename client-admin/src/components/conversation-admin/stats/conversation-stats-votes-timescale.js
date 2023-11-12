@@ -17,7 +17,8 @@ class VotesTimescale extends React.Component {
         scale={{
           x: scaleTime(this.props.data.voteTimes),
           y: scaleLinear()
-        }}>
+        }}
+      >
         <VictoryLine
           style={{
             data: {
@@ -29,7 +30,7 @@ class VotesTimescale extends React.Component {
             return { x: timestamp, y: i }
           })}
         />
-        <VictoryAxis orientation="bottom" />
+        <VictoryAxis orientation='bottom' />
         <VictoryAxis dependentAxis label={'Votes'} orientation={'left'} />
       </VictoryChart>
     )

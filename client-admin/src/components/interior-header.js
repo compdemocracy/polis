@@ -19,15 +19,16 @@ class InteriorHeader extends React.Component {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between'
-          }}>
-          <Link sx={{ variant: 'links.header' }} to="/">
+          }}
+        >
+          <Link sx={{ variant: 'links.header' }} to='/'>
             <Logomark
               style={{ marginRight: 10, position: 'relative', top: 6 }}
               fill={'white'}
             />
             Polis
           </Link>
-          <Link id="signoutLink" sx={{ variant: 'links.header' }} to="/signout">
+          <Link id='signoutLink' sx={{ variant: 'links.header' }} to='/signout'>
             sign out
           </Link>
         </Box>

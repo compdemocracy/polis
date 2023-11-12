@@ -27,7 +27,7 @@ class ReportsList extends React.Component {
     reportsPromise.then((reports) => {
       this.setState({
         loading: false,
-        reports: reports
+        reports
       })
     })
   }
@@ -60,12 +60,13 @@ class ReportsList extends React.Component {
     return (
       <Box>
         <Heading
-          as="h3"
+          as='h3'
           sx={{
             fontSize: [3, null, 4],
             lineHeight: 'body',
             mb: [3, null, 4]
-          }}>
+          }}
+        >
           Report
         </Heading>
         <Box sx={{ mb: [3, null, 4] }}>
@@ -77,9 +78,10 @@ class ReportsList extends React.Component {
           return (
             <Box sx={{ mb: [2] }} key={report.report_id}>
               <a
-                target="_blank"
-                rel="noreferrer"
-                href={Url.urlPrefix + 'report/' + report.report_id}>
+                target='_blank'
+                rel='noreferrer'
+                href={Url.urlPrefix + 'report/' + report.report_id}
+              >
                 {Url.urlPrefix}report/{report.report_id}
               </a>
             </Box>

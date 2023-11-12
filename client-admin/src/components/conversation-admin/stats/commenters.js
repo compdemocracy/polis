@@ -14,12 +14,13 @@ class Commenters extends React.Component {
     return (
       <Box sx={{ mt: [5] }}>
         <Heading
-          as="h6"
+          as='h6'
           sx={{
             fontSize: [2, null, 3],
             lineHeight: 'body',
             my: [2]
-          }}>
+          }}
+        >
           Commenters over time, by time of first comment
         </Heading>
         <VictoryChart
@@ -27,7 +28,8 @@ class Commenters extends React.Component {
           height={size}
           width={size}
           domainPadding={{ x: 0, y: [0, 20] }}
-          scale={{ x: 'time' }}>
+          scale={{ x: 'time' }}
+        >
           <VictoryArea
             style={{ data: { fill: '#03a9f4' } }}
             data={firstCommentTimes.map((d, i) => {

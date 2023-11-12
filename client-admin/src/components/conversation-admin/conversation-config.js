@@ -54,12 +54,13 @@ class ConversationConfig extends React.Component {
     return (
       <Box>
         <Heading
-          as="h3"
+          as='h3'
           sx={{
             fontSize: [3, null, 4],
             lineHeight: 'body',
             mb: [3, null, 4]
-          }}>
+          }}
+        >
           Configure
         </Heading>
         <Box sx={{ mb: [4] }}>
@@ -71,7 +72,7 @@ class ConversationConfig extends React.Component {
           {this.props.error ? <Text>Error Saving</Text> : null}
         </Box>
 
-        <CheckboxField field="is_active" label="Conversation Is Open">
+        <CheckboxField field='is_active' label='Conversation Is Open'>
           Conversation is open. Unchecking disables both voting and commenting.
         </CheckboxField>
 
@@ -88,7 +89,7 @@ class ConversationConfig extends React.Component {
               border: '1px solid',
               borderColor: 'mediumGray'
             }}
-            data-test-id="topic"
+            data-test-id='topic'
             onBlur={this.handleStringValueChange('topic').bind(this)}
             onChange={this.handleConfigInputTyping('topic').bind(this)}
             defaultValue={this.props.zid_metadata.topic}
@@ -110,7 +111,7 @@ class ConversationConfig extends React.Component {
               border: '1px solid',
               borderColor: 'mediumGray'
             }}
-            data-test-id="description"
+            data-test-id='description'
             onBlur={this.handleStringValueChange('description').bind(this)}
             onChange={this.handleConfigInputTyping('description').bind(this)}
             defaultValue={this.props.zid_metadata.description}
@@ -118,12 +119,13 @@ class ConversationConfig extends React.Component {
         </Box>
 
         <Heading
-          as="h6"
+          as='h6'
           sx={{
             fontSize: [1, null, 2],
             lineHeight: 'body',
             my: [3, null, 4]
-          }}>
+          }}
+        >
           Seed Comments
         </Heading>
         <ModerateCommentsSeed
@@ -135,67 +137,71 @@ class ConversationConfig extends React.Component {
         /> */}
 
         <Heading
-          as="h6"
+          as='h6'
           sx={{
             fontSize: [1, null, 2],
             lineHeight: 'body',
             my: [3, null, 4]
-          }}>
+          }}
+        >
           Customize the user interface
         </Heading>
 
-        <CheckboxField field="vis_type" label="Visualization" isIntegerBool>
+        <CheckboxField field='vis_type' label='Visualization' isIntegerBool>
           Participants can see the visualization
         </CheckboxField>
 
-        <CheckboxField field="write_type" label="Comment form" isIntegerBool>
+        <CheckboxField field='write_type' label='Comment form' isIntegerBool>
           Participants can submit comments
         </CheckboxField>
 
-        <CheckboxField field="help_type" label="Help text" isIntegerBool>
+        <CheckboxField field='help_type' label='Help text' isIntegerBool>
           Show explanation text above voting and visualization
         </CheckboxField>
 
         <CheckboxField
-          field="subscribe_type"
-          label="Prompt participants to subscribe to updates"
-          isIntegerBool>
+          field='subscribe_type'
+          label='Prompt participants to subscribe to updates'
+          isIntegerBool
+        >
           Prompt participants to subscribe to updates. A prompt is shown to
           users once they finish voting on all available comments. If enabled,
           participants may optionally provide their email address to receive
           notifications when there are new comments to vote on.
         </CheckboxField>
 
-        <CheckboxField field="auth_opt_fb" label="Facebook login prompt">
+        <CheckboxField field='auth_opt_fb' label='Facebook login prompt'>
           Show Facebook login prompt
         </CheckboxField>
 
-        <CheckboxField field="auth_opt_tw" label="Twitter login prompt">
+        <CheckboxField field='auth_opt_tw' label='Twitter login prompt'>
           Show Twitter login prompt
         </CheckboxField>
 
         <Heading
-          as="h6"
+          as='h6'
           sx={{
             fontSize: [1, null, 2],
             lineHeight: 'body',
             my: [3, null, 4]
-          }}>
+          }}
+        >
           Schemes
         </Heading>
 
-        <CheckboxField field="strict_moderation">
+        <CheckboxField field='strict_moderation'>
           No comments shown without moderator approval
         </CheckboxField>
 
         <CheckboxField
-          field="auth_needed_to_write"
-          label="Require Auth to Comment">
+          field='auth_needed_to_write'
+          label='Require Auth to Comment'
+        >
           Participants cannot submit comments without first connecting either
           Facebook or Twitter
         </CheckboxField>
 
-        <CheckboxField field="auth_needed_to_vote" label="Require Auth to Vote">
+        <CheckboxField field='auth_needed_to_vote' label='Require Auth to Vote'>
           Participants cannot vote without first connecting either Facebook or
           Twitter
         </CheckboxField>

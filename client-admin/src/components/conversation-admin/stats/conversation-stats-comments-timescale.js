@@ -17,7 +17,8 @@ class CommentsTimescale extends React.Component {
         scale={{
           x: scaleTime(this.props.data.commentTimes),
           y: scaleLinear()
-        }}>
+        }}
+      >
         <VictoryLine
           style={{
             data: {
@@ -29,7 +30,7 @@ class CommentsTimescale extends React.Component {
             return { x: timestamp, y: i }
           })}
         />
-        <VictoryAxis orientation="bottom" />
+        <VictoryAxis orientation='bottom' />
         <VictoryAxis dependentAxis label={'Comments'} orientation={'left'} />
       </VictoryChart>
     )

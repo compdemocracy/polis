@@ -9,20 +9,22 @@ import Url from '../../util/url'
 @connect((state) => state.user)
 class Integrate extends React.Component {
   render() {
-    const userSiteId = this.props.user === null
-     ? '__loading, try refreshing__'
-     : this.props.user.site_ids[0];
+    const userSiteId =
+      this.props.user === null
+        ? '__loading, try refreshing__'
+        : this.props.user.site_ids[0]
 
     return (
       <Box>
         <Box>
           <Heading
-            as="h3"
+            as='h3'
             sx={{
               fontSize: [3, null, 4],
               lineHeight: 'body',
               mb: [3, null, 4]
-            }}>
+            }}
+          >
             Integrate
           </Heading>
           <Text>

@@ -59,12 +59,13 @@ class CommentModeration extends React.Component {
     return (
       <Box>
         <Heading
-          as="h3"
+          as='h3'
           sx={{
             fontSize: [3, null, 4],
             lineHeight: 'body',
             mb: [3, null, 4]
-          }}>
+          }}
+        >
           Moderate
         </Heading>
         <Flex sx={{ mb: [4] }}>
@@ -73,7 +74,8 @@ class CommentModeration extends React.Component {
               mr: [4],
               variant: url ? 'links.nav' : 'links.activeNav'
             }}
-            to={`${match.url}`}>
+            to={`${match.url}`}
+          >
             Unmoderated{' '}
             {this.props.unmoderated.unmoderated_comments
               ? this.props.unmoderated.unmoderated_comments.length
@@ -84,7 +86,8 @@ class CommentModeration extends React.Component {
               mr: [4],
               variant: url === 'accepted' ? 'links.activeNav' : 'links.nav'
             }}
-            to={`${match.url}/accepted`}>
+            to={`${match.url}/accepted`}
+          >
             Accepted{' '}
             {this.props.accepted.accepted_comments
               ? this.props.accepted.accepted_comments.length
@@ -95,7 +98,8 @@ class CommentModeration extends React.Component {
               mr: [4],
               variant: url === 'rejected' ? 'links.activeNav' : 'links.nav'
             }}
-            to={`${match.url}/rejected`}>
+            to={`${match.url}/rejected`}
+          >
             Rejected{' '}
             {this.props.rejected.rejected_comments
               ? this.props.rejected.rejected_comments.length

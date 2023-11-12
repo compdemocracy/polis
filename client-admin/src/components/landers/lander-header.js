@@ -16,9 +16,10 @@ class Header extends Component {
             paddingTop: '2rem',
             paddingBottom: '1.45rem',
             justifyContent: 'space-between'
-          }}>
+          }}
+        >
           <Box sx={{ zIndex: 1000 }}>
-            <Link sx={{ variant: 'links.nav' }} to="/home">
+            <Link sx={{ variant: 'links.nav' }} to='/home'>
               <Logomark
                 style={{ marginRight: 10, position: 'relative', top: 6 }}
                 fill={'#03a9f4'}
@@ -27,7 +28,7 @@ class Header extends Component {
             </Link>
           </Box>
           <Box>
-            <Link sx={{ variant: 'links.nav' }} to="/signin">
+            <Link sx={{ variant: 'links.nav' }} to='/signin'>
               Sign in
             </Link>
           </Box>

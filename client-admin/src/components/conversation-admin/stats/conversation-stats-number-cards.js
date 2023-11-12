@@ -14,27 +14,27 @@ class NumberCards extends React.Component {
       <div>
         <NumberCard
           datum={data.firstVoteTimes.length}
-          subheading="participants voted"
-          icon="users"
+          subheading='participants voted'
+          icon='users'
         />
         <NumberCard
           datum={data.voteTimes.length}
-          subheading="votes were cast"
-          icon="tags"
+          subheading='votes were cast'
+          icon='tags'
         />
         <NumberCard
           datum={isNaN(averageVotes) ? 0 : averageVotes}
-          subheading="votes per participant on average"
+          subheading='votes per participant on average'
         />
         <NumberCard
           datum={data.firstCommentTimes.length}
-          subheading="commented"
-          icon="users"
+          subheading='commented'
+          icon='users'
         />
         <NumberCard
           datum={data.commentTimes.length}
-          subheading="comments submitted"
-          icon="comments"
+          subheading='comments submitted'
+          icon='comments'
         />
       </div>
     )

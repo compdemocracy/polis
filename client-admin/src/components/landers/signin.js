@@ -87,10 +87,10 @@ class SignIn extends React.Component {
                 border: '1px solid',
                 borderColor: 'mediumGray'
               }}
-              id="signinEmailInput"
+              id='signinEmailInput'
               ref={(c) => (this.email = c)}
-              placeholder="email"
-              type="email"
+              placeholder='email'
+              type='email'
             />
           </Box>
           <Box sx={{ my: [2] }}>
@@ -104,17 +104,18 @@ class SignIn extends React.Component {
                 border: '1px solid',
                 borderColor: 'mediumGray'
               }}
-              id="signinPasswordInput"
+              id='signinPasswordInput'
               ref={(c) => (this.password = c)}
-              placeholder="password"
-              type="password"
+              placeholder='password'
+              type='password'
             />
           </Box>
           {this.maybeErrorMessage()}
           <Button
             sx={{ my: [2] }}
-            id="signinButton"
-            onClick={this.handleLoginClicked.bind(this)}>
+            id='signinButton'
+            onClick={this.handleLoginClicked.bind(this)}
+          >
             {this.props.pending ? 'Signing in...' : 'Sign In'}
           </Button>
           <Text sx={{ my: 4 }}>
@@ -125,14 +126,15 @@ class SignIn extends React.Component {
         {fbAppId && (
           <Box sx={{ my: 4 }}>
             <Button
-              id="facebookSigninButton"
-              onClick={this.facebookButtonClicked.bind(this)}>
+              id='facebookSigninButton'
+              onClick={this.facebookButtonClicked.bind(this)}
+            >
               Sign in with Facebook
             </Button>
             <Text sx={{ my: 2 }}>
-              If you click &apos;Sign in with Facebook&apos; and are not a pol.is
-              user, you will be registered and you agree to the pol.is terms and
-              privacy policy
+              If you click &apos;Sign in with Facebook&apos; and are not a
+              pol.is user, you will be registered and you agree to the pol.is
+              terms and privacy policy
             </Text>
           </Box>
         )}
@@ -155,8 +157,8 @@ class SignIn extends React.Component {
         </p>
         <input
           ref={(c) => (this.facebook_password = c)}
-          placeholder="polis password"
-          type="password"
+          placeholder='polis password'
+          type='password'
         />
         <button onClick={this.handleFacebookPasswordSubmit.bind(this)}>
           {'Connect Facebook Account'}
@@ -174,7 +176,7 @@ class SignIn extends React.Component {
 
     return (
       <StaticLayout>
-        <Heading as="h1" sx={{ my: [4, null, 5], fontSize: [6, null, 7] }}>
+        <Heading as='h1' sx={{ my: [4, null, 5], fontSize: [6, null, 7] }}>
           Sign In
         </Heading>
         {this.props.facebookError !== 'polis_err_user_with_this_email_exists'

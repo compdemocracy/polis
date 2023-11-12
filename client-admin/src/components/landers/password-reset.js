@@ -30,13 +30,13 @@ class PasswordReset extends React.Component {
         <form>
           <input
             ref={(c) => (this.password = c)}
-            placeholder="new password"
-            type="password"
+            placeholder='new password'
+            type='password'
           />
           <input
             ref={(c) => (this.passwordRepeat = c)}
-            placeholder="repeat new password"
-            type="password"
+            placeholder='repeat new password'
+            type='password'
           />
           <button onClick={this.handleClick.bind(this)}>
             Set new password
