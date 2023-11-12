@@ -4,9 +4,6 @@
     "@babel/preset-react"
   ],
   "plugins": [
-    ["@babel/plugin-proposal-decorators", { "legacy": true }],
-    ["@babel/plugin-proposal-class-properties"],
-    "lodash",
-    "@babel/plugin-transform-runtime"
+    ["@babel/plugin-proposal-decorators", { "version": "2023-05" }]
   ]
 }

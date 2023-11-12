@@ -29,3 +29,6 @@ $RECYCLE.BIN/
 build
 node_modules
 npm-debug.log
+
+# VS Code settings
+.vscode/settings.json

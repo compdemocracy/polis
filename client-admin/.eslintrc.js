@@ -1,12 +1,11 @@
 module.exports = {
   env: {
     browser: true,
-    es2021: true,
+    es2022: true,
     jquery: true
   },
   extends: [
     'eslint:recommended',
-    'plugin:import/recommended',
     'plugin:jsx-a11y/recommended',
     'plugin:react/recommended',
     'standard',
@@ -18,8 +17,13 @@ module.exports = {
   ignorePatterns: ['build'],
   overrides: [
     {
-      files: ['.eslintrc.js', 'webpack.config.js'],
-      env: { node: true }
+      files: [
+        '.eslintrc.js',
+        'webpack.config.js',
+        '*.webpack.config.js',
+        'og.webpack.config.js'
+      ],
+      env: { browser: false, node: true }
     }
   ],
   parser: '@babel/eslint-parser',
@@ -27,18 +31,16 @@ module.exports = {
     ecmaFeatures: {
       jsx: true
     },
-    ecmaVersion: 2021,
-    requireConfigFile: false,
+    ecmaVersion: 'latest',
     sourceType: 'module'
   },
-  plugins: ['@babel', 'jsx-a11y', 'react'],
+  plugins: ['jsx-a11y', 'react', 'prettier'],
   rules: {
     camelcase: 'off',
-    'import/namespace': 'warn',
     'jsx-a11y/no-static-element-interactions': 'warn',
     'jsx-a11y/tabindex-no-positive': 'warn',
-    'object-shorthand': 'off',
-    'react/no-unknown-property': ['error', { ignore: ['sx'] }]
+    'react/no-unknown-property': ['error', { ignore: ['sx'] }],
+    'prettier/prettier': 'error'
   },
   settings: {
     react: {
