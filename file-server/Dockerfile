@@ -100,4 +100,4 @@ COPY --from=client-report         /app/dist/        /app/build
 
 EXPOSE 8080
 
-CMD npm run serve
+CMD npm start

@@ -1,14 +1,12 @@
 {
   "name": "polisfileserver",
-  "version": "1.0.0",
-  "description": "",
+  "version": "2.0.0",
+  "description": "A simple static file server",
   "main": "app.js",
   "scripts": {
-    "serve": "node --max_old_space_size=400 --gc_interval=100 app.js",
     "start": "node app.js"
   },
   "dependencies": {
-    "finalhandler": "~1.1.2",
-    "serve-static": "~1.14.2"
+    "express": "^4.18.2"
   }
 }

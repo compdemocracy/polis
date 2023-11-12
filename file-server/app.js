@@ -1,42 +1,26 @@
-const finalhandler = require('finalhandler');
+const express = require('express');
 const fs = require('fs');
-const http = require('http');
-const serveStatic = require('serve-static');
 
+const app = express();
 const port = process.env.PORT || 8080;
 
-// Serve up public/ftp folder
-const serve = serveStatic('build', {
-  'index': false,
-  'setHeaders': setHeaders,
-});
-
-// Set header to force download
-function setHeaders (res, filePath) {
-  //res.setHeader('Content-Disposition', contentDisposition(path));
-  //
-  const configFile = fs.readFileSync(filePath + ".headersJson");
-  const headers = JSON.parse(configFile);
-  const headerNames = Object.keys(headers);
-  if (headerNames && headerNames.length) {
-    res.setHeader('Pragma', null);
-    headerNames.forEach((name) => {
-      res.setHeader(name, headers[name]);
-    });
+// Function to set custom headers
+function setCustomHeaders(req, res, next) {
+  const filePath = __dirname + '/build' + req.path + '.headersJson';
+  if (fs.existsSync(filePath)) {
+    const headers = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    for (const [key, value] of Object.entries(headers)) {
+      res.setHeader(key, value);
+    }
   }
+  next();
 }
 
-// Create server
-const fileServer = http.createServer(function onRequest (req, res) {
-  serve(req, res, finalhandler(req, res));
-});
+// Serve static files, with headers, from build folder
+app.use(setCustomHeaders);
+app.use(express.static('build', { index: false }));
 
-// Listen
-fileServer.listen(port, function (err) {
-  if (!err) {
-    console.log('polisFileServer listening on port ' + port);
-  } else {
-    console.error('Error starting polisFileServer.');
-    console.error(err);
-  }
+// Start the server
+app.listen(port, () => {
+  console.log(`polisFileServer listening on port ${port}`);
 });
