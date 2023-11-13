@@ -1,8 +1,9 @@
 
 # Pol.is Privacy Policy
+
 Last Updated: 2022/03/07
 
-This privacy policy (this "Policy") describes the collection of personal information by The Computational Democracy Project, a corporation Washington nonprofit ("The Computational Democracy Project," "we," or "us") from users of our Web site at "http://pol.is/" (the "Site"), as well as all related applications, widgets, software, tools, and other services provided by us and on which a link to this Policy is displayed (collectively, together with the Site, our "Services").
+This privacy policy (this "Policy") describes the collection of personal information by The Computational Democracy Project, a corporation Washington nonprofit ("The Computational Democracy Project," "we," or "us") from users of our Web site at "<http://pol.is/>" (the "Site"), as well as all related applications, widgets, software, tools, and other services provided by us and on which a link to this Policy is displayed (collectively, together with the Site, our "Services").
 This Policy also describes our use and disclosure of such information.
 By using our Services, you consent to the collection, use, and disclosure of personal information in accordance with this Policy.
 This Policy is incorporated by reference into the Terms of Use (<https://pol.is/tos>) and subject to the provisions of the Terms of Use.
@@ -66,6 +67,7 @@ If we do so, this Policy governs any combined information that we maintain in pe
 We use Personal Information to provide services and information that you request; to enhance, improve, operate, and maintain our Services, our programs, services, Web sites, and other systems; to prevent fraudulent use of our Services and other systems; to prevent or take action against activities that are, or may be, in violation of our Terms of Use or applicable law; to tailor advertisements, content, and other aspects of your experience on and in connection with the Services; to maintain a record of our dealings with you; for other administrative purposes; and for any other purposes that we may disclose to you at the point at which we request your Personal Information, and pursuant to your consent.
 
 We may also use your Personal Information:
+
 * To process information you have directed us to process.
 * To communicate with you (such as through email) about services you have subscribed for, changes to our policies (such as this Privacy Policy and our Terms of Service), or to provide important notices.
 * To provide information or content that you’ve subscribed to receive.
@@ -176,7 +178,7 @@ You should know that each region can have its own privacy and data security laws
 
 For those individual users of the Site who reside in the European Economic Area or Switzerland (collectively the “EU”), and for which the General Data Protection Regulation effective 25 May 2018 (the “GDPR”) applies, we have implemented the practices described below to provide you with control over your data that comprises “Personal Data” under the GDPR.
 Under the GDPR you are defined as a “Data Subject” and The Computational Democracy Project is a “Data Controller” for Personal Data that it obtains and processes pursuant to this Privacy Policy.
-Our Data Protection Officer is Christopher Small and can be reached at <admin@compdemocracy.org>. 
+Our Data Protection Officer is Christopher Small and can be reached at <admin@compdemocracy.org>.
 
 **Lawful Grounds for Processing Personal Data of Data Subjects:** (a) your consent; (b) contract; (c) legal obligation; vital interest; (d) public task; and (e) the legitimate interest of The Computational Democracy Project or a third-party.
 Where we rely on your consent as the legal grounds, you have the right to withdraw your consent at any time, but this will not affect any processing that has already taken place.
@@ -187,7 +189,7 @@ We make the transfer to the United States in the absence of an adequacy decision
 In the event such a transfer is made, we will employ appropriate safeguards such as binding corporate rules, contractual agreements, or certification mechanisms in conjunction with binding and enforceable commitments to protect the transferred Personal Data.
 
 **Individual Rights and Data Subject Requests:** You may exercise certain rights, described below, under the GDPR.
-In order to exercise any of the rights described below, please contact us at <admin@compdemocracy.org> and provide specific and detailed information about your request necessary for us to respond to and carry out your request. 
+In order to exercise any of the rights described below, please contact us at <admin@compdemocracy.org> and provide specific and detailed information about your request necessary for us to respond to and carry out your request.
 
 * **You may object to processing:** you may object to certain types of processing, including processing of your information for direct marketing purposes.
 * **You may request to be informed about our processing:** you may request information about how we process your Personal Data and your rights under the GDPR.
@@ -216,7 +218,6 @@ We encourage you to periodically review this Policy to stay informed about how w
 
 If you have any questions or comments about this Policy, please contact us using the following contact information:
 
-The Computational Democracy Project<br/>
-PO Box 30877, Seattle WA, 98113, United States of America<br/>
-<admin@compdemocracy.org> 
-
+The Computational Democracy Project\
+PO Box 30877, Seattle WA, 98113, United States of America\
+<admin@compdemocracy.org>

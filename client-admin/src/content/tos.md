@@ -1,5 +1,6 @@
 
 # Pol.is Terms of Use
+
 Last Updated: 2022/03/07
 
 Welcome, and thank you for your interest in The Computational Democracy Project ("we," or "us") and our Web site at <https://pol.is/> (the "Site"), as well as all related web sites, networks, embeddable widgets, downloadable software, mobile applications (including tablet applications), and other services provided by us and on which a link to these Terms of Use is displayed (collectively, together with the Site, our "Service").
@@ -31,46 +32,47 @@ These Terms of Use are a legally binding contract between you and The Computatio
 
 4. **User Content**
 
-  1. **User Content Generally**. &nbsp;
-  Certain features of the Service may permit users to post content, including messages, questions, responses, data, text, and other types of works (collectively, "User Content") and to publish User Content on the Service.
-  You retain copyright and any other proprietary rights that you may hold in the User Content that you post to the Service, but grant the limited licenses below.
+   1. **User Content Generally**. &nbsp;
+     Certain features of the Service may permit users to post content, including messages, questions, responses, data, text, and other types of works (collectively, "User Content") and to publish User Content on the Service.
+     You retain copyright and any other proprietary rights that you may hold in the User Content that you post to the Service, but grant the limited licenses below.
 
-  2. **Limited License Grant to The Computational Democracy Project.** &nbsp;
-  By posting or publishing User Content, you grant The Computational Democracy Project a worldwide, irrevocable, perpetual, non-exclusive, royalty-free, fully-paid-up right and license (with the right to sublicense) to host, store, transfer, display, perform, reproduce, modify, and distribute your User Content, in whole or in part, in any media formats and through any media channels (now known or hereafter developed).
-  Any such use of your User Content by The Computational Democracy Project may be without any compensation paid to you.
+   2. **Limited License Grant to The Computational Democracy Project.** &nbsp;
+     By posting or publishing User Content, you grant The Computational Democracy Project a worldwide, irrevocable, perpetual, non-exclusive, royalty-free, fully-paid-up right and license (with the right to sublicense) to host, store, transfer, display, perform, reproduce, modify, and distribute your User Content, in whole or in part, in any media formats and through any media channels (now known or hereafter developed).
+     Any such use of your User Content by The Computational Democracy Project may be without any compensation paid to you.
 
-  3. **Limited License Grant to Other Users.** &nbsp;
-  By posting User Content or sharing User Content with another user of the Service, you hereby grant to other users of the Service a non-exclusive license to access and use such User Content as permitted by these Terms and the functionality of the Service.
+   3. **Limited License Grant to Other Users.** &nbsp;
+     By posting User Content or sharing User Content with another user of the Service, you hereby grant to other users of the Service a non-exclusive license to access and use such User Content as permitted by these Terms and the functionality of the Service.
 
-  4. **User Content Representations and Warranties.** &nbsp;
-  You are solely responsible for your User Content and the consequences of posting or publishing User Content.
-  By posting and publishing User Content, you affirm, represent, and warrant that:
-    * you are the creator and owner of, or have the necessary licenses, rights, consents, and permissions to use and to authorize The Computational Democracy Project and users of the Service to use and distribute your User Content as necessary to exercise the licenses granted by you in this Section 4 and in the manner contemplated by The Computational Democracy Project and these Terms;
-    * and your User Content, and the use thereof as contemplated herein, does not and will not: (i) infringe, violate, or misappropriate any third-party right, including any copyright, trademark, patent, trade secret, moral right, privacy right, right of publicity, or any other intellectual property or proprietary right;
-    * or (ii) slander, defame, libel, or invade the right of privacy, publicity or other property rights of any other person.
+   4. **User Content Representations and Warranties.** &nbsp;
+     You are solely responsible for your User Content and the consequences of posting or publishing User Content.
+     By posting and publishing User Content, you affirm, represent, and warrant that:
+       *you are the creator and owner of, or have the necessary licenses, rights, consents, and permissions to use and to authorize The Computational Democracy Project and users of the Service to use and distribute your User Content as necessary to exercise the licenses granted by you in this Section 4 and in the manner contemplated by The Computational Democracy Project and these Terms;
+       * and your User Content, and the use thereof as contemplated herein, does not and will not: (i) infringe, violate, or misappropriate any third-party right, including any copyright, trademark, patent, trade secret, moral right, privacy right, right of publicity, or any other intellectual property or proprietary right;
+       * or (ii) slander, defame, libel, or invade the right of privacy, publicity or other property rights of any other person.
 
-  5. **User Content Disclaimer.** &nbsp;
-  We are under no obligation to edit or control User Content that you or other users post or publish, and will not be in any way responsible or liable for User Content.
-  The Computational Democracy Project may, however, at any time and without prior notice, screen, remove, edit, or block any User Content that in our sole judgment violates these Terms or is otherwise objectionable.
-  You understand that when using the Service you will be exposed to User Content from a variety of sources and acknowledge that User Content may be inaccurate, offensive, indecent or objectionable.
-  You agree to waive, and hereby do waive, any legal or equitable rights or remedies you have or may have against The Computational Democracy Project with respect to User Content.
-  We expressly disclaim any and all liability in connection with User Content.
-  If notified by a user or content owner that User Content allegedly does not conform to these Terms, we may investigate the allegation and determine in our sole discretion whether to remove the User Content, which we reserve the right to do at any time and without notice.
-  For clarity, The Computational Democracy Project does not permit copyright-infringing activities on the Service.
+   5. **User Content Disclaimer.** &nbsp;
+     We are under no obligation to edit or control User Content that you or other users post or publish, and will not be in any way responsible or liable for User Content.
+     The Computational Democracy Project may, however, at any time and without prior notice, screen, remove, edit, or block any User Content that in our sole judgment violates these Terms or is otherwise objectionable.
+     You understand that when using the Service you will be exposed to User Content from a variety of sources and acknowledge that User Content may be inaccurate, offensive, indecent or objectionable.
+     You agree to waive, and hereby do waive, any legal or equitable rights or remedies you have or may have against The Computational Democracy Project with respect to User Content.
+     We expressly disclaim any and all liability in connection with User Content.
+     If notified by a user or content owner that User Content allegedly does not conform to these Terms, we may investigate the allegation and determine in our sole discretion whether to remove the User Content, which we reserve the right to do at any time and without notice.
+     For clarity, The Computational Democracy Project does not permit copyright-infringing activities on the Service.
 
-  6. **DMCA Takedown Requests.** &nbsp;
-  If you believe your copyright-protected work was posted to our Service without authorization, you may notify in accordance with the Digital Millenium Copyright Act at the following email address: <hello@compdemocracy.org>.
+   6. **DMCA Takedown Requests.** &nbsp;
+     If you believe your copyright-protected work was posted to our Service without authorization, you may notify in accordance with the Digital Millenium Copyright Act at the following email address: <hello@compdemocracy.org>.
 
-5. **Prohibited Conduct.** &nbsp;
-**BY USING THE SERVICE YOU AGREE NOT TO:**
-  * use the Service for any illegal purpose, or in violation of any local, state, national, or international law;
-  * violate, or encourage others to violate, the rights of third parties, including by infringing or misappropriating third party intellectual property rights;
-  * post, upload, or distribute any User Content or other content that is unlawful, defamatory, libelous, inaccurate, or that a reasonable person could deem to be objectionable, profane, indecent, pornographic, harassing, threatening, embarrassing, hateful, or otherwise inappropriate;
-  * interfere with security-related features of the Service, including without limitation by (i) disabling or circumventing features that prevent or limit use or copying of any content, or (ii) reverse engineering or otherwise attempting to discover the source code of the Service or any part thereof except to the extent that such activity is expressly permitted by applicable law; 
-  * interfere with the operation of the Service or any user's enjoyment of the Service, including without limitation by (i) uploading or otherwise disseminating viruses, adware, spyware, worms, or other malicious code, (ii) making unsolicited offers or advertisements to other users of the Service, (iii) attempting to collect, personal information about users or third parties without their consent; or (iv) interfering with or disrupting any networks, equipment, or servers connected to or used to provide the Service, or violating the regulations, policies, or procedures of such networks, equipment, or servers;
-  * perform any fraudulent activity including impersonating any person or entity, claiming false affiliations, accessing the Service accounts of others without permission, or falsifying your age or date of birth; 
-  * sell or otherwise transfer the access granted herein or any Materials (as defined in Section 10 below) or any right or ability to view, access, or use any Materials; or
-  * attempt to do any of the foregoing in this Section 5, or assist or permit any persons in engaging in any of the activities described in this Section 5.
+5. **Prohibited Conduct.** &nbsp;\
+    **BY USING THE SERVICE YOU AGREE NOT TO:**
+
+    * use the Service for any illegal purpose, or in violation of any local, state, national, or international law;
+    * violate, or encourage others to violate, the rights of third parties, including by infringing or misappropriating third party intellectual property rights;
+    * post, upload, or distribute any User Content or other content that is unlawful, defamatory, libelous, inaccurate, or that a reasonable person could deem to be objectionable, profane, indecent, pornographic, harassing, threatening, embarrassing, hateful, or otherwise inappropriate;
+    * interfere with security-related features of the Service, including without limitation by (i) disabling or circumventing features that prevent or limit use or copying of any content, or (ii) reverse engineering or otherwise attempting to discover the source code of the Service or any part thereof except to the extent that such activity is expressly permitted by applicable law;
+    * interfere with the operation of the Service or any user's enjoyment of the Service, including without limitation by (i) uploading or otherwise disseminating viruses, adware, spyware, worms, or other malicious code, (ii) making unsolicited offers or advertisements to other users of the Service, (iii) attempting to collect, personal information about users or third parties without their consent; or (iv) interfering with or disrupting any networks, equipment, or servers connected to or used to provide the Service, or violating the regulations, policies, or procedures of such networks, equipment, or servers;
+    * perform any fraudulent activity including impersonating any person or entity, claiming false affiliations, accessing the Service accounts of others without permission, or falsifying your age or date of birth;
+    * sell or otherwise transfer the access granted herein or any Materials (as defined in Section 10 below) or any right or ability to view, access, or use any Materials; or
+    * attempt to do any of the foregoing in this Section 5, or assist or permit any persons in engaging in any of the activities described in this Section 5.
 
 6. **Termination of Use; Discontinuation and Modification of the Service.** &nbsp;
  If you violate any provision of these Terms, your permission to use the Service will be terminated.
@@ -82,19 +84,19 @@ These Terms of Use are a legally binding contract between you and The Computatio
  To the extent permitted by applicable laws and regulations, no unused portions of pre-paid fees will be refunded following termination.
 
 7. **Privacy Policy; Additional Terms.** &nbsp;
- Please read The Computational Democracy Project Privacy Policy (<https://pol.is/privacy>) carefully for information relating to our collection, use, storage and disclosure of your personal information. 
- The Computational Democracy Project Privacy Policy is hereby incorporated by reference into, and made a part of, these Terms. 
+ Please read The Computational Democracy Project Privacy Policy (<https://pol.is/privacy>) carefully for information relating to our collection, use, storage and disclosure of your personal information.
+ The Computational Democracy Project Privacy Policy is hereby incorporated by reference into, and made a part of, these Terms.
 
 8. **Additional Terms.** &nbsp;
- Your use of the Service is subject to any and all additional terms, policies, rules, or guidelines applicable to the Service or certain features of the Service that we may post on or link to on the Service (the "Additional Terms"), such as end-user license agreements for any downloadable applications that we may offer, or rules applicable to particular features or content on the Service, subject to Section 9 below. 
- All such Additional Terms are hereby incorporated by reference into, and made a part of, these Terms. 
- 
-9. **Modification of these Terms.** &nbsp; 
- We reserve the right, at our discretion, to change these Terms on a going-forward basis at any time. 
- Please check these Terms periodically for changes. 
- In the event that a change to these Terms materially modifies your rights or obligations, you will be required to accept such modified terms in order to continue to use the Service. 
- Material modifications are effective upon your acceptance of such modified Terms. 
- Immaterial modifications are effective upon publication. 
+ Your use of the Service is subject to any and all additional terms, policies, rules, or guidelines applicable to the Service or certain features of the Service that we may post on or link to on the Service (the "Additional Terms"), such as end-user license agreements for any downloadable applications that we may offer, or rules applicable to particular features or content on the Service, subject to Section 9 below.
+ All such Additional Terms are hereby incorporated by reference into, and made a part of, these Terms.
+
+9. **Modification of these Terms.** &nbsp;
+ We reserve the right, at our discretion, to change these Terms on a going-forward basis at any time.
+ Please check these Terms periodically for changes.
+ In the event that a change to these Terms materially modifies your rights or obligations, you will be required to accept such modified terms in order to continue to use the Service.
+ Material modifications are effective upon your acceptance of such modified Terms.
+ Immaterial modifications are effective upon publication.
  For the avoidance of doubt, disputes arising under these Terms will be resolved in accordance with these Terms in effect that the time the dispute arose.
 
 10. **Ownership; Proprietary Rights.** &nbsp;
@@ -147,46 +149,45 @@ We reserve the right, at our own expense, to assume the exclusive defense and co
 
 16. **Dispute Resolution and Arbitration**
 
-  1. **Generally.** &nbsp;
-  In the interest of resolving disputes between you and The Computational Democracy Project in the most expedient and cost effective manner, you and The Computational Democracy Project agree that any and all disputes arising in connection with these Terms shall be resolved by binding arbitration.
-  Arbitration is more informal than a lawsuit in court.
-  Arbitration uses a neutral arbitrator instead of a judge or jury, may allow for more limited discovery than in court, and can be subject to very limited review by courts.
-  Arbitrators can award the same damages and relief that a court can award.
-  Our agreement to arbitrate disputes includes, but is not limited to all claims arising out of or relating to any aspect of these Terms, whether based in contract, tort, statute, fraud, misrepresentation or any other legal theory, and regardless of whether the claims arise during or after the termination of these Terms.
-  YOU UNDERSTAND AND AGREE THAT, BY ENTERING INTO THESE TERMS, YOU AND MATH & DEMOCRACY ARE EACH WAIVING THE RIGHT TO A TRIAL BY JURY OR TO PARTICIPATE IN A CLASS ACTION.
+    1. **Generally.** &nbsp;
+      In the interest of resolving disputes between you and The Computational Democracy Project in the most expedient and cost effective manner, you and The Computational Democracy Project agree that any and all disputes arising in connection with these Terms shall be resolved by binding arbitration.
+      Arbitration is more informal than a lawsuit in court.
+      Arbitration uses a neutral arbitrator instead of a judge or jury, may allow for more limited discovery than in court, and can be subject to very limited review by courts.
+      Arbitrators can award the same damages and relief that a court can award.
+      Our agreement to arbitrate disputes includes, but is not limited to all claims arising out of or relating to any aspect of these Terms, whether based in contract, tort, statute, fraud, misrepresentation or any other legal theory, and regardless of whether the claims arise during or after the termination of these Terms.
+      YOU UNDERSTAND AND AGREE THAT, BY ENTERING INTO THESE TERMS, YOU AND MATH & DEMOCRACY ARE EACH WAIVING THE RIGHT TO A TRIAL BY JURY OR TO PARTICIPATE IN A CLASS ACTION.
 
-  2. **Exceptions.** &nbsp;
-  Notwithstanding subsection 16.1, we both agree that nothing herein will be deemed to waive, preclude, or otherwise limit either of our right to (i) bring an individual action in small claims court, (ii) pursue enforcement actions through applicable federal, state, or local agencies where such actions are available, (iii) seek injunctive relief in a court of law, or (iv) to file suit in a court of law to address intellectual property infringement claims.
-  3. **Arbitrator.** &nbsp;
-  Any arbitration between you and The Computational Democracy Project will be governed by the Commercial Dispute Resolution Procedures and the Supplementary Procedures for Consumer Related Disputes (collectively, "AAA Rules") of the American Arbitration Association ("AAA"), as modified by these Terms, and will be administered by the AAA.
-  The AAA Rules and filing forms are available online at www.adr.org, by calling the AAA at 1-800-778-7879, or by contacting The Computational Democracy Project.
+    2. **Exceptions.** &nbsp;
+      Notwithstanding subsection 16.1, we both agree that nothing herein will be deemed to waive, preclude, or otherwise limit either of our right to (i) bring an individual action in small claims court, (ii) pursue enforcement actions through applicable federal, state, or local agencies where such actions are available, (iii) seek injunctive relief in a court of law, or (iv) to file suit in a court of law to address intellectual property infringement claims.
+    3. **Arbitrator.** &nbsp;
+      Any arbitration between you and The Computational Democracy Project will be governed by the Commercial Dispute Resolution Procedures and the Supplementary Procedures for Consumer Related Disputes (collectively, "AAA Rules") of the American Arbitration Association ("AAA"), as modified by these Terms, and will be administered by the AAA.
+      The AAA Rules and filing forms are available online at <www.adr.org>, by calling the AAA at 1-800-778-7879, or by contacting The Computational Democracy Project.
 
-  4. **Notice; Process.** &nbsp;
-  A party who intends to seek arbitration must first send a written notice of the dispute to the other, by certified mail or Federal Express (signature required), or in the event that we do not have a physical address on file for you, by electronic mail ("Notice").
-  The address of The Computational Democracy Project for Notice is: PO BOX 30877Seattle, WA 98113.
-  The Notice must (i) describe the nature and basis of the claim or dispute; and (ii) set forth the specific relief sought ("Demand").
-  We agree to use good faith efforts to resolve the claim directly, but if we do not reach an agreement to do so within 30 days after the Notice is received, you or The Computational Democracy Project may commence an arbitration proceeding. 
+    4. **Notice; Process.** &nbsp;
+      A party who intends to seek arbitration must first send a written notice of the dispute to the other, by certified mail or Federal Express (signature required), or in the event that we do not have a physical address on file for you, by electronic mail ("Notice").
+      The address of The Computational Democracy Project for Notice is: PO BOX 30877Seattle, WA 98113.
+      The Notice must (i) describe the nature and basis of the claim or dispute; and (ii) set forth the specific relief sought ("Demand").
+      We agree to use good faith efforts to resolve the claim directly, but if we do not reach an agreement to do so within 30 days after the Notice is received, you or The Computational Democracy Project may commence an arbitration proceeding.
 
-  5. **Fees.** &nbsp;
-  The fees for filing for arbitration will be borne by the party that does not substantially prevail at arbitration, or otherwise split at the arbitrator’s direction.
+    5. **Fees.** &nbsp;
+      The fees for filing for arbitration will be borne by the party that does not substantially prevail at arbitration, or otherwise split at the arbitrator’s direction.
 
-  6. **No Class Actions.** &nbsp;
-  YOU AND MATH & DEMOCRACY AGREE THAT EACH MAY BRING CLAIMS AGAINST THE OTHER ONLY IN YOUR OR ITS INDIVIDUAL CAPACITY AND NOT AS A PLAINTIFF OR CLASS MEMBER IN ANY PURPORTED CLASS OR REPRESENTATIVE PROCEEDING.
-  Further, unless both you and The Computational Democracy Project agree otherwise, the arbitrator may not consolidate more than one person's claims, and may not otherwise preside over any form of a representative or class proceeding.
+    6. **No Class Actions.** &nbsp;
+      YOU AND MATH & DEMOCRACY AGREE THAT EACH MAY BRING CLAIMS AGAINST THE OTHER ONLY IN YOUR OR ITS INDIVIDUAL CAPACITY AND NOT AS A PLAINTIFF OR CLASS MEMBER IN ANY PURPORTED CLASS OR REPRESENTATIVE PROCEEDING.
+      Further, unless both you and The Computational Democracy Project agree otherwise, the arbitrator may not consolidate more than one person's claims, and may not otherwise preside over any form of a representative or class proceeding.
 
-  7. **Modifications.** &nbsp;
-  In the event that The Computational Democracy Project makes any future change to this arbitration provision (other than a change to the address of The Computational Democracy Project for Notice), you may reject any such change by sending us written notice within 30 days of the change to the address of The Computational Democracy Project for Notice, in which case your account with The Computational Democracy Project shall be immediately terminated and this arbitration provision, as in effect immediately prior to the amendments you reject shall survive.
+    7. **Modifications.** &nbsp;
+      In the event that The Computational Democracy Project makes any future change to this arbitration provision (other than a change to the address of The Computational Democracy Project for Notice), you may reject any such change by sending us written notice within 30 days of the change to the address of The Computational Democracy Project for Notice, in which case your account with The Computational Democracy Project shall be immediately terminated and this arbitration provision, as in effect immediately prior to the amendments you reject shall survive.
 
-  8. **Enforceability.** &nbsp;
-  If Subsection 16.6 is found to be unenforceable or if the entirety of this Section 16 is found to be unenforceable, then the entirety of this Section 16 shall be null and void and, in such case, the parties agree that the exclusive jurisdiction and venue described in Section 14 shall govern any action arising out of or related to these Terms.
+    8. **Enforceability.** &nbsp;
+      If Subsection 16.6 is found to be unenforceable or if the entirety of this Section 16 is found to be unenforceable, then the entirety of this Section 16 shall be null and void and, in such case, the parties agree that the exclusive jurisdiction and venue described in Section 14 shall govern any action arising out of or related to these Terms.
 
 17. **Consent to Electronic Communications.** &nbsp;
  By using the Service, you consent to receiving certain electronic communications from us as further described in our Privacy Policy (<https://pol.is/privacy>).
  Please read our Privacy Policy to learn more about your choices regarding our electronic communications practices.
- You agree that any notices, agreements, disclosures, or other communications that we send to you electronically will satisfy any legal communication requirements, including that such communications be in writing. 
+ You agree that any notices, agreements, disclosures, or other communications that we send to you electronically will satisfy any legal communication requirements, including that such communications be in writing.
 
 18. **Contact Information.** &nbsp;
  The services hereunder are offered by The Computational Democracy Project, located at PO BOX 30877 Seattle, WA 98113.
  You may contact us by sending correspondence to the foregoing address or by emailing us at <hello@compdemocracy.org>.
  If you are a California resident, you may have these Terms mailed to you electronically by sending a letter to the foregoing address with your electronic mail address and a request for these Terms.
-
