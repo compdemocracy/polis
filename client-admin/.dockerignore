@@ -27,6 +27,7 @@ $RECYCLE.BIN/
 
 # App specific
 build
+dist
 node_modules
 npm-debug.log
 

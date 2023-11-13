@@ -1,11 +1,11 @@
-build/
+build
 node_modules/
 
-client-admin/build
+client-admin/dist
 client-admin/node_modules/
 
 client-participation/dist
 client-participation/node_modules
 
-client-report/build
+client-report/dist
 client-report/node_modules

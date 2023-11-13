@@ -94,7 +94,7 @@ COPY file-server/. .
 
 # use the multi-stage builds above to copy out the resources
 RUN mkdir /app/build
-COPY --from=client-admin          /app/build/       /app/build
+COPY --from=client-admin          /app/dist/        /app/build
 COPY --from=client-participation  /app/dist/        /app/build
 COPY --from=client-report         /app/dist/        /app/build
 
