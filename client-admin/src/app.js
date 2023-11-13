@@ -6,7 +6,7 @@ import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { populateUserStore } from './actions'
 
-import _ from 'lodash'
+import isUndefined from 'lodash/isUndefined'
 
 import { Switch, Route, Link, Redirect } from 'react-router-dom'
 import { Flex, Box, jsx } from 'theme-ui'
@@ -84,7 +84,7 @@ class App extends React.Component {
   isAuthed() {
     let authed = false
 
-    if (!_.isUndefined(this.props.isLoggedIn) && this.props.isLoggedIn) {
+    if (!isUndefined(this.props.isLoggedIn) && this.props.isLoggedIn) {
       authed = true
     }
 
@@ -101,7 +101,7 @@ class App extends React.Component {
   isLoading() {
     const { isLoggedIn } = this.props
 
-    return _.isUndefined(
+    return isUndefined(
       isLoggedIn
     ) /* if isLoggedIn is undefined, the app is loading */
   }
