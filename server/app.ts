@@ -1540,18 +1540,6 @@ helpersInitialized.then(
     app.get(/^\/conversations(\/.*)?/, fetchIndexForAdminPage);
     app.get(/^\/signout(\/.*)?/, fetchIndexForAdminPage);
     app.get(/^\/signin(\/.*)?/, fetchIndexForAdminPage);
-    app.get(
-      /^\/dist\/admin_bundle.js$/,
-      makeFileFetcher(hostname, staticFilesAdminPort, "/dist/admin_bundle.js", {
-        "Content-Type": "application/javascript",
-      })
-    );
-    app.get(
-      /^\/__webpack_hmr$/,
-      makeFileFetcher(hostname, staticFilesAdminPort, "/__webpack_hmr", {
-        "Content-Type": "eventsource",
-      })
-    );
     app.get(/^\/privacy$/, fetchIndexForAdminPage);
     app.get(/^\/tos$/, fetchIndexForAdminPage);
 
@@ -1605,21 +1593,9 @@ helpersInitialized.then(
         "Content-Type": "text/html",
       })
     );
-    app.get(
-      /^\/styleguide$/,
-      makeFileFetcher(hostname, staticFilesParticipationPort, "/styleguide.html", {
-        "Content-Type": "text/html",
-      })
-    );
     // Duplicate url for content at root. Needed so we have something for "About" to link to.
     app.get(/^\/about$/, makeRedirectorTo("/home"));
     app.get(/^\/home(\/.*)?/, fetchIndexForAdminPage);
-    app.get(
-      /^\/s\/CTE\/?$/,
-      makeFileFetcher(hostname, staticFilesParticipationPort, "/football.html", {
-        "Content-Type": "text/html",
-      })
-    );
     app.get(
       /^\/twitterAuthReturn(\/.*)?$/,
       makeFileFetcher(
