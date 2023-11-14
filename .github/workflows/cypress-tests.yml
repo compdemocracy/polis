@@ -38,7 +38,7 @@ jobs:
         if: failure()
         run: |
           echo "Health check failed. Dumping Docker logs..."
-          docker-compose logs
+          docker compose -f docker-compose.yml -f docker-compose.test.yml --env-file test.env logs
 
       - name: Cypress Run
         uses: cypress-io/github-action@v5
