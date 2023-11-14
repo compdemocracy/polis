@@ -1,3 +1,6 @@
+# This dockerfile needs to "see" other project directories, so it much be run
+# from the root of the repository.
+
 ######################## POLIS CLIENT ADMIN ########################
 #FROM client-base AS client-admin # <- switch back to basing on client admin once we upgrade other clients
 FROM docker.io/node:18-alpine AS client-admin

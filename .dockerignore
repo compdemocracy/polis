@@ -1,0 +1,27 @@
+# This is from the context of the root of the project
+
+.bundlewatch.config.js
+.env
+.git
+.gitattributes
+.gitconfig
+.github
+.gitignore
+.vscode
+Makefile
+docker-compose.dev.yml
+docker-compose.test.yml
+docker-compose.yml
+docs
+example.env
+heroku.yml
+package.json
+prod.env
+test.env
+
+*/.dockerignore
+*/.gitignore
+*/build
+*/dist
+*/Dockerfile
+*/node_modules

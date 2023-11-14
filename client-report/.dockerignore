@@ -1,14 +1,8 @@
-### OSX ###
 .DS_Store
-
-# App specific
-.env_dev
-build
-devel
+.dockerignore
+.gitignore
+.vscode
+Dockerfile
 dist
 node_modules
-npm-debug.log
-.polis_s3_creds_client.json
-
-# VCS
-.git
+package-lock.json

@@ -1,6 +1,11 @@
+.dockerignore
 .env
 .git
+.gitignore
 .google_creds_temp
+.vscode
+Dockerfile
+Dockerfile-db
 logs/
 node_modules/
 npm-debug.log*

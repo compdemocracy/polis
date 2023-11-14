@@ -1,17 +1,8 @@
-node_modules
 .DS_Store
-*.log
-js/tmpl/
-build
+.dockerignore
+.gitignore
+.vscode
+Dockerfile
 dist
-devel
-.polis_env
-.polis_s3_creds_client.json
-.sass-cache/*
-.bashrc
-.env_always
-polisStatic/
-scratch
-
-# VCS
-.git
+node_modules
+package-lock.json
