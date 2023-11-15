@@ -1131,12 +1131,6 @@ function initializePolisHelpers() {
     "", // for API
   ];
 
-  let whitelistedBuckets = {
-    "pol.is": "pol.is",
-    "embed.pol.is": "pol.is",
-    "survey.pol.is": "survey.pol.is",
-    "preprod.pol.is": "preprod.pol.is",
-  };
   function hasWhitelistMatches(host: string) {
     let hostWithoutProtocol = host;
     if (host.startsWith("http://")) {
@@ -13330,7 +13324,7 @@ Thanks for using Polis!
   }
 
   function proxy(req: { headers?: { host: string }; path: any }, res: any) {
-    let hostname = buildStaticHostname(req, res);
+    let hostname = Config.staticFilesHost;
     if (!hostname) {
       let host = req?.headers?.host || "";
       let re = new RegExp(Config.getServerHostname() + "$");
@@ -13365,37 +13359,6 @@ Thanks for using Polis!
       },
     });
     // }
-  }
-
-  function buildStaticHostname(req: { headers?: { host: string } }, res: any) {
-    if (devMode || domainOverride) {
-      return Config.staticFilesHost;
-    } else {
-      let origin = req?.headers?.host;
-      // Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ "pol.is": string; "embed.pol.is": string; "survey.pol.is": string; "preprod.pol.is": string; }'.
-      // No index signature with a parameter of type 'string' was found on type '{ "pol.is": string; "embed.pol.is": string; "survey.pol.is": string; "preprod.pol.is": string; }'.ts(7053)
-      // @ts-ignore
-      if (!whitelistedBuckets[origin || ""]) {
-        if (hasWhitelistMatches(origin || "")) {
-          // Use the prod bucket for non pol.is domains
-          return (
-            whitelistedBuckets["pol.is"] + "." + Config.staticFilesHost
-          );
-        } else {
-          logger.error(
-            "got request with host that's not whitelisted: (" +
-              req?.headers?.host +
-              ")"
-          );
-          return;
-        }
-      }
-      // Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ "pol.is": string; "embed.pol.is": string; "survey.pol.is": string; "preprod.pol.is": string; }'.
-      // No index signature with a parameter of type 'string' was found on type '{ "pol.is": string; "embed.pol.is": string; "survey.pol.is": string; "preprod.pol.is": string; }'.ts(7053)
-      // @ts-ignore
-      origin = whitelistedBuckets[origin || ""];
-      return origin + "." + Config.staticFilesHost;
-    }
   }
 
   function makeRedirectorTo(path: string) {
@@ -13473,7 +13436,7 @@ Thanks for using Polis!
       req: { headers?: { host: any }; path: any; pipe: (arg0: any) => void },
       res: { set: (arg0: any) => void }
     ) {
-      let hostname = buildStaticHostname(req, res);
+      let hostname = Config.staticFilesHost;
       if (!hostname) {
         fail(res, 500, "polis_err_file_fetcher_serving_to_domain");
         return;
