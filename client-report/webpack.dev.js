@@ -14,6 +14,7 @@ module.exports = {
   output: {
     filename: 'report_bundle.js',
     path: path.resolve(__dirname, 'devel'),
+    publicPath: '/',
   },
   plugins: [
     ...common.plugins,
