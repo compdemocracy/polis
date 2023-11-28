@@ -81,12 +81,6 @@ extract-web-assets: ## Extract static web assets from file-server for cloud depl
 	/bin/rm -rf build
 	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} cp file-server:/app/build/ build
 
-upload-web-assets: ## upload static web assets to aws s3
-	aws s3 cp build s3://${S3_BUCKET} \
-		--recursive \
-		--metadata-directive REPLACE \
-		--cache-control max-age=31536000
-
 e2e-install: e2e/node_modules ## Install Cypress E2E testing tools
 	$(E2E_RUN) npm install
 
