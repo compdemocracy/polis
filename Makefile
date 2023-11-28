@@ -9,7 +9,6 @@ E2E_RUN = cd e2e;
 
 export ENV_FILE = .env
 export TAG = $(shell grep -e ^TAG ${ENV_FILE} | awk -F'[=]' '{gsub(/ /,""); print $$2}')
-export S3_BUCKET = $(shell awk -F'=' '/^S3_BUCKET/ {gsub(/ /, "", $$2); print $$2}' ${ENV_FILE})
 export GIT_HASH = $(shell git rev-parse --short HEAD)
 export COMPOSE_FILE_ARGS = -f docker-compose.yml -f docker-compose.dev.yml
 

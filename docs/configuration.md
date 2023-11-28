@@ -125,7 +125,6 @@ If you are deploying to a custom domain (not `pol.is`) then you need to update b
 - **`GOOGLE_CREDS_STRINGIFIED`** Alternative to **`GOOGLE_CREDENTIALS_BASE64`** (See below).
 - **`MAILGUN_API_KEY`**, **`MAILGUN_DOMAIN`** If using Mailgun as an email transport.
 - **`MAXMIND_LICENSEKEY`**, **`MAXMIND_USERID`** If using IP Geolocation service Maxmind.
-- **`S3_BUCKET`** AWS S3 Bucket name. You can optionally use S3 to host static assets.
 - **`TWITTER_CONSUMER_KEY`**, **`TWITTER_CONSUMER_SECRET`** For Twitter integration.
 - **`AWS_ACCESS_KEY_ID`**, **`AWS_SECRET_ACCESS_KEY`** If using Amazon SES as an email transport.
 
