@@ -1,23 +1,37 @@
 #!/usr/bin/env bb
 
-;; To use this script, you will need to install babashka: https://github.com/babashka/babashka#installation
-;; If you have homebrew/linuxbrew installed, you can use:
+;; This script is a utility for deploying static web assets to AWS S3, as an alternative to the `file-server`
+;; container.
 ;;
-;;     brew install borkdude/brew/babashka
+;; To use this script, you will need to [install babashka](https://github.com/babashka/babashka#installation)
+;; and the AWS CLI. If you have homebrew/linuxbrew installed, you can accomplish both with:
 ;;
-;; Before deploying, use `make PROD start-rebuild` to get the system running, then from another shell, run
+;;     brew install borkdude/brew/babashka awscli
 ;;
-;;     docker cp polis-prod-file-server-1:/app/build build
+;; Before deploying, use
 ;;
-;; to copy over all of the static assets from the container to local directory.
-;; Next you will have to make sure that you have the AWS environment variables set.
+;;     make build-web-assets
 ;;
-;; Then you should be able to run:
+;; to build and extract the web assets into the `build` directory.
 ;;
-;;     ./bin/deploy-static-assets.clj --bucket preprod.pol.is --dist-path build
+;; You may choose to run with either with `PROD` settings specified in your `prod.env` file
+;; (`make PROD build-web-assets`), or with custom settings explicitly for deploying web assets
+;; (e.g. a `prod-web-assets.env`) file with `make ENV_FILE=prod-web-assets.env extract-web-assets`).
 ;;
-;; This deploys to the `preprod.pol.is` bucket.
-;; To deploy to the production `pol.is` bucket, use instead `--bucket pol.is`.
+;; Next you will have to make sure that you have the AWS environment variables set to authenticate the AWS
+;; CLI. There are quite a few ways to do this, and we recommend following AWS documentation for this. Possible
+;; routes include using `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables (not
+;; recommended, since non-privileged processes can read these environment variables), setting these values in
+;; your `~/.aws/config` file under a profile (either `default` or a custom profile if you set the
+;; `AWS_PROFILE` environment variable), with a combination of the `~/.aws/config` file and the
+;; `~/.aws/credentials` file, or with `aws sso login` if you are using AWS SSO (a.k.a. IAM Identity Center,
+;; which is the recommended pathway by AWS for organizational human user authentication). This script just
+;; calls out to the `aws` cli, so if it properly authenticated/authorized and functioning, this script should work.
+;;
+;; Once all this is set up, you should be able to run (e.g.):
+;;
+;;     ./bin/deploy-static-assets.clj --bucket my-aws-s3-bucket-name --dist-path build
+
 
 (require '[babashka.pods :as pods]
          '[babashka.deps :as deps]
@@ -29,39 +43,7 @@
          '[clojure.string :as string]
          '[cheshire.core :as json])
 
-(pods/load-pod 'org.babashka/aws "0.0.6")
-(deps/add-deps '{:deps {honeysql/honeysql {:mvn/version "1.0.444"}}})
 
-(require '[pod.babashka.aws :as aws]
-         '[pod.babashka.aws.credentials :as aws-creds])
-
-;; Should move this to arg parsing if and when available
-(def region (or (System/getenv "AWS_REGION")
-                "us-east-1"))
-
-(def creds-provider
-  (aws-creds/basic-credentials-provider
-    {:access-key-id (System/getenv "AWS_ACCESS_KEY")
-     :secret-access-key (System/getenv "AWS_SECRET_KEY")}))
-
-(def s3-client
-  "The s3 client for this process"
-  (aws/client {:api :s3 :region region :credentials-provider creds-provider}))
-
-;; list available s3 actions
-;(map first (aws/ops s3-client))
-
-;; docs for specific action
-;(aws/doc s3-client :ListObjects)
-;(aws/doc s3-client :PutObject)
-
-;; basic listing contents example
-;(aws/invoke s3-client {:op :ListObjects :request {:Bucket "pol.is"}})
-;(->> (:Contents (aws/invoke s3-client {:op :ListObjects :request {:Bucket "preprod.pol.is"}}))
-     ;(map :Key)
-     ;(filter #(re-matches #".*\.headersJson" %)))
-;(->> (:Contents (aws/invoke s3-client {:op :ListObjects :request {:Bucket "preprod.pol.is"}}))
-     ;(filter #(re-matches #".*/fonts/.*" (:Key %))))
 
 (defn file-extension [file]
   (keyword (second (re-find #"\.([a-zA-Z0-9]+)$" (str file)))))
@@ -83,9 +65,6 @@
 (def cache-buster-seconds 31536000);
 (def cache-buster (format "no-transform,public,max-age=%s,s-maxage=%s" cache-buster-seconds cache-buster-seconds))
 
-;(json/decode (slurp (io/file "build/embed.html.headersJson"))
-             ;(comp keyword #(clojure.string/replace % #"-" "")))
-
 (defn headers-json-data
   [file]
   (let [data (json/decode (slurp file)
@@ -105,7 +84,8 @@
   [bucket base-path file]
   (let [headers-file (io/file (str file ".headersJson"))]
     (merge
-      {:Bucket bucket
+      {:file file
+       :Bucket bucket
        :Body (io/input-stream (io/file file))
        :Key (relative-path base-path file)
        :ACL "public-read"}
@@ -124,32 +104,21 @@
                      (not (re-matches #".*\.headersJson" (str %))))) ;; omit, headersJson, since processed separately
        (map (partial file-upload-request bucket path))))
 
-; Inspect how this parses to AWS S3 requests
-;(pp/pprint
-  ;(mapcat (partial spec-requests "preprod.pol.is") deploy-specs))
-
-;; Check content type mappings
-;(doseq [request
-        ;(mapcat (partial spec-requests "preprod.pol.is") deploy-specs)]
-  ;(println (:Key request) (:ContentType request)))
-
-;; test individual request
-;(spec-requests "preprod.pol.is" (nth deploy-specs 5))
-
-
 
 ;; synchonous execution
-
 (defn process-deploy
   "Execute AWS S3 request, and return result"
-  [request]
+  [{:as request :keys [Bucket Key ACL ContentType CacheControl ContentEncoding file]}]
   (println "Processing request:" request)
-  [request (aws/invoke s3-client {:op :PutObject :request request})])
-
-;(doseq [request (mapcat (partial spec-requests "preprod.pol.is") deploy-specs)]
-  ;(println "processing request for" (:Key request))
-  ;(let [response (aws/invoke s3-client {:op :PutObject :request request})]
-    ;(println response))))
+  [request
+   (process/sh "aws" "s3" "cp"
+               ;"--metadata" (json/encode (dissoc request :file :Bucket :Body :Key))
+               ;"--acl" ACL
+               "--content-type" ContentType
+               "--content-encoding" ContentEncoding
+               "--metadata-directive" "REPLACE"
+               (str file)
+               (str "s3://" Bucket "/" Key))])
 
 
 ;; process the aws requests asynchronously with parallelism 12
@@ -166,6 +135,8 @@
 (defn responses [bucket path]
   (let [requests (upload-requests bucket path)
         output-chan (async/chan concurrent-requests)]
+    ;; pipeline pushes the request objects through the (map process-deploy) transducer in parallel, and
+    ;; collects results in the output chan
     (async/pipeline-blocking concurrent-requests
                              output-chan
                              (map process-deploy)
@@ -173,7 +144,7 @@
     (async/<!! (async/into [] output-chan))))
 
 (defn errors [responses]
-  (remove (comp :ETag second)
+  (remove (comp (partial = 0) :exit second) ; remove 0 exit status (0 is success)
           responses))
 
 (defn -main [& {:as opts-map :strs [--bucket --dist-path]}]
