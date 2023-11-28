@@ -72,6 +72,14 @@ start-FULL-REBUILD: echo_vars stop rm-ALL ## Remove and restart all Docker conta
 	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} down
 	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up --build
 
+build-web-assets: ## Build and extract static web assets for cloud deployment
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} create --build --force-recreate file-server
+	$(MAKE) extract-web-assets
+
+extract-web-assets: ## Extract static web assets from file-server for cloud deployment
+	/bin/rm -rf build
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} cp file-server:/app/build/ build
+
 e2e-install: e2e/node_modules ## Install Cypress E2E testing tools
 	$(E2E_RUN) npm install
 
@@ -91,7 +99,9 @@ rbs: start-rebuild
 	@true
 
 .PHONY: help pull start stop rm-containers rm-volumes rm-images rm-ALL hash build-no-cache start-rebuild \
-  start-recreate restart-FULL-REBUILD e2e-install e2e-run e2e-run-all e2e-run-some
+	start-recreate restart-FULL-REBUILD e2e-install e2e-prepare e2e-run-minimal e2e-run-standalone e2e-run-secret \
+	e2e-run-subset e2e-run-all build-web-assets extract-web-assets upload-web-assets
+
 
 help:
 	@echo 'Usage: make <command>'
