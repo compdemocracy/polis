@@ -39,9 +39,9 @@ var methodToEventMap = {
 //
 
 function gaEvent() {
-  // Sends all arguments to a ga('send', 'event', __) partial
+  // Sends all arguments to a gtag('event', __) partial
   if (Constants.GA_TRACKING_ID) {
-    ga_ = _.partial(ga, 'send', 'event');
+    ga_ = _.partial(gtag, 'event');
     ga_.apply(window, arguments);
   }
 }
