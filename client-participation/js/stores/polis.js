@@ -349,10 +349,10 @@ module.exports = function(params) {
     }
   }
 
-  function disagree(commentId, starred, weight) {
+  function disagree(commentId, starred, high_priority) {
     clearComment(commentId, "push");
     var o = {
-      weight: weight,
+      high_priority: high_priority,
       vote: polisTypes.reactions.push,
       tid: commentId
     };
@@ -415,10 +415,10 @@ module.exports = function(params) {
     return promise;
   }
 
-  function agree(commentId, starred, weight) {
+  function agree(commentId, starred, high_priority) {
     clearComment(commentId);
     var o = {
-      weight: weight,
+      high_priority: high_priority,
       vote: polisTypes.reactions.pull,
       tid: commentId
     };
@@ -428,10 +428,10 @@ module.exports = function(params) {
     return react(o);
   }
 
-  function pass(tid, starred, weight) {
+  function pass(tid, starred, high_priority) {
     clearComment(tid);
     var o = {
-      weight: weight,
+      high_priority: high_priority,
       vote: polisTypes.reactions.pass,
       tid: tid
     };

@@ -835,7 +835,7 @@ helpersInitialized.then(
       ),
       need("vote", getIntInRange(-1, 1), assignToP),
       want("starred", getBool, assignToP),
-      want("weight", getNumberInRange(-1, 1), assignToP, 0),
+      want("high_priority", getBool, assignToP, false),
       resolve_pidThing("pid", assignToP, "post:votes"),
       want("xid", getStringLimitLength(1, 999), assignToP),
       want("lang", getStringLimitLength(1, 10), assignToP), // language of the next comment to be returned
@@ -1004,6 +1004,7 @@ helpersInitialized.then(
       want("strict_moderation", getBool, assignToP),
       want("topic", getOptionalStringLimitLength(1000), assignToP),
       want("description", getOptionalStringLimitLength(50000), assignToP),
+      want("importance_enabled", getBool, assignToP),
       want("vis_type", getInt, assignToP),
       want("help_type", getInt, assignToP),
       want("write_type", getInt, assignToP),

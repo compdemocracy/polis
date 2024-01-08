@@ -6,8 +6,10 @@ s.agree = "Agree";
 s.disagree = "Disagree";
 s.pass = "Pass / Unsure";
 
-s.importantCheckbox = "This comment is important";
-s.howImportantPrompt = "How important is this statement?";
+s.importantCheckbox = "Important/Significant";
+s.importantCheckboxDesc =
+  "Check this box if you believe this statement is especially important to you or is highly relevant to the conversation, irrespective of your vote. It will give this statement higher priority compared to your other votes in the conversation analysis."
+  s.howImportantPrompt = "How important is this statement?";
 s.howImportantLow = "Low";
 s.howImportantMedium = "Medium";
 s.howImportantHigh = "High";
