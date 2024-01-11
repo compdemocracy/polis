@@ -60,6 +60,9 @@ var translations = {
 
   // Russian
   ru: require("./strings/ru.js"),
+
+  // Romanian & Moldovan
+  ro: require("./strings/ro.js"),
 };
 
 
@@ -139,6 +142,9 @@ preloadHelper.acceptLanguagePromise.then(function() {
     }
     else if (languageCode.match(/^ru/)) {
       _.extend(strings, translations.ru);
+    }
+    else if (languageCode.match(/^ro/)) {
+      _.extend(strings, translations.ro);
     }
     else if (languageCode.match(/^hr/)) {
       _.extend(strings, translations.hr);
