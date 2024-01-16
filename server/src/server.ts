@@ -31,6 +31,7 @@ import timeout from "connect-timeout";
 import zlib from "zlib";
 import _ from "underscore";
 import pg from "pg";
+import { encode } from "html-entities";
 
 import { METRICS_IN_RAM, addInRamMetric, MPromise } from "./utils/metered";
 import CreateUser from "./auth/create-user";
@@ -1261,8 +1262,9 @@ function initializePolisHelpers() {
     });
 
     // using hex since it doesn't require escaping like base64.
-    let dest = hexToStr(req.p.dest);
-    res.redirect(dest);
+    const dest = hexToStr(req.p.dest);
+    const url = new URL(dest);
+    res.redirect(url.pathname + url.search + url.hash);
   }
 
   function handle_GET_tryCookie(
@@ -4488,7 +4490,7 @@ Email verified! You can close this tab or hit the back button.
   function createNotificationsUnsubscribeUrl(conversation_id: any, email: any) {
     let params = {
       conversation_id: conversation_id,
-      email: email,
+      email: encode(email),
     };
     let path = "api/v3/notifications/unsubscribe";
     // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
@@ -4503,7 +4505,7 @@ Email verified! You can close this tab or hit the back button.
   function createNotificationsSubscribeUrl(conversation_id: any, email: any) {
     let params = {
       conversation_id: conversation_id,
-      email: email,
+      email: encode(email),
     };
     let path = "api/v3/notifications/subscribe";
     // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
@@ -13127,7 +13129,6 @@ Thanks for using Polis!
         x_email: any;
         parent_url: any;
         dwok: any;
-        build: any;
         show_vis: any;
         bg_white: any;
         show_share: any;
@@ -13170,7 +13171,6 @@ Thanks for using Polis!
     let x_email = req.p.x_email;
     let parent_url = req.p.parent_url;
     let dwok = req.p.dwok;
-    let build = req.p.build;
     let o: ConversationType = {};
     ifDefinedSet("parent_url", req.p, o);
     ifDefinedSet("auth_needed_to_vote", req.p, o);
@@ -13242,9 +13242,6 @@ Thanks for using Polis!
       }
       if (!_.isUndefined(dwok)) {
         url += "&dwok=" + dwok;
-      }
-      if (!_.isUndefined(build)) {
-        url += "&build=" + build;
       }
       return url;
     }
@@ -13467,11 +13464,11 @@ Thanks for using Polis!
       if (preloadData && preloadData.conversation) {
         fbMetaTagsString +=
           '    <meta property="og:title" content="' +
-          preloadData.conversation.topic +
+          encode(preloadData.conversation.topic) +
           '" />\n';
         fbMetaTagsString +=
           '    <meta property="og:description" content="' +
-          preloadData.conversation.description +
+          encode(preloadData.conversation.description) +
           '" />\n';
         // fbMetaTagsString += "    <meta property=\"og:site_name\" content=\"" + site_name + "\" />\n";
       }
@@ -13543,8 +13540,7 @@ Thanks for using Polis!
       end: () => any;
     },
     preloadData: { conversation?: ConversationType },
-    port: string | number | undefined,
-    buildNumber?: string | null | undefined
+    port: string | number | undefined
   ) {
     let headers = {
       "Content-Type": "text/html",
@@ -13561,12 +13557,7 @@ Thanks for using Polis!
     // @ts-ignore
     setCookieTestCookie(req, res);
 
-    if (devMode) {
-      buildNumber = null;
-    }
-
-    let indexPath =
-      (buildNumber ? "/cached/" + buildNumber : "") + "/index.html";
+    let indexPath = "/index.html";
 
     let doFetch = makeFileFetcher(
       hostname,
@@ -13611,7 +13602,7 @@ Thanks for using Polis!
   });
 
   function fetchIndexForConversation(
-    req: { path: string; query?: { build: any } },
+    req: { path: string; },
     res: any
   ) {
     logger.debug("fetchIndexForConversation", req.path);
@@ -13619,11 +13610,6 @@ Thanks for using Polis!
     let conversation_id: any;
     if (match && match.length) {
       conversation_id = match[0];
-    }
-    let buildNumber: null = null;
-    if (req?.query?.build) {
-      buildNumber = req.query.build;
-      logger.debug("loading_build", buildNumber);
     }
 
     setTimeout(function () {
@@ -13658,14 +13644,13 @@ Thanks for using Polis!
           req,
           res,
           preloadData,
-          staticFilesParticipationPort,
-          buildNumber
+          staticFilesParticipationPort
         );
       })
       .catch(function (err: any) {
         logger.error("polis_err_fetching_conversation_info", err);
-        // Argument of type '{ path: string; query?: { build: any; } | undefined; }' is not assignable to parameter of type '{ headers?: { host: any; } | undefined; path: any; pipe: (arg0: any) => void; }'.
-        //   Property 'pipe' is missing in type '{ path: string; query?: { build: any; } | undefined; }' but required in type '{ headers?: { host: any; } | undefined; path: any; pipe: (arg0: any) => void; }'.ts(2345)
+        // Argument of type '{ path: string; }' is not assignable to parameter of type '{ headers?: { host: any; } | undefined; path: any; pipe: (arg0: any) => void; }'.
+        // Property 'pipe' is missing in type '{ path: string; }' but required in type '{ headers?: { host: any; } | undefined; path: any; pipe: (arg0: any) => void; }'.
         // @ts-ignore
         fetch404Page(req, res);
       });
@@ -13824,37 +13809,6 @@ Thanks for using Polis!
     };
   })();
 
-  function handle_GET_localFile_dev_only(
-    req: { path: any },
-    res: {
-      writeHead: (
-        arg0: number,
-        arg1?: { "Content-Type": string } | undefined
-      ) => void;
-      end: (arg0?: undefined, arg1?: string) => void;
-    }
-  ) {
-    const filenameParts = String(req.path).split("/");
-    filenameParts.shift();
-    filenameParts.shift();
-    const filename = filenameParts.join("/");
-    if (!devMode) {
-      // pretend this route doesn't exist.
-      return proxy(req, res);
-    }
-    fs.readFile(filename, function (error: any, content: any) {
-      if (error) {
-        res.writeHead(500);
-        res.end();
-      } else {
-        res.writeHead(200, {
-          "Content-Type": "text/html",
-        });
-        res.end(content, "utf-8");
-      }
-    });
-  }
-
   function middleware_log_request_body(
     req: { body: any; path: string },
     res: any,
@@ -13989,7 +13943,6 @@ Thanks for using Polis!
     handle_GET_iip_conversation,
     handle_GET_implicit_conversation_generation,
     handle_GET_launchPrep,
-    handle_GET_localFile_dev_only,
     handle_GET_locations,
     handle_GET_logMaxmindResponse,
     handle_GET_math_pca,

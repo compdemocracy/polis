@@ -93,7 +93,6 @@ helpersInitialized.then(
       handle_GET_iip_conversation,
       handle_GET_implicit_conversation_generation,
       handle_GET_launchPrep,
-      handle_GET_localFile_dev_only,
       handle_GET_locations,
       handle_GET_logMaxmindResponse,
       handle_GET_math_pca,
@@ -1631,8 +1630,6 @@ helpersInitialized.then(
         }
       )
     );
-
-    app.get(/^\/localFile\/.*/, handle_GET_localFile_dev_only);
 
     app.get("/", handle_GET_conditionalIndexFetcher);
 
