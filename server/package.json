@@ -37,6 +37,7 @@
     "dotenv": "^16.0.3",
     "express": "~3.21.2",
     "fb": "~1.0.2",
+    "html-entities": "^2.4.0",
     "http-proxy": "~1.18.1",
     "lru-cache": "~3.0.0",
     "mimelib": "~0.2.19",
@@ -55,8 +56,8 @@
     "request-promise": "~4.2.6",
     "response-time": "~2.3.1",
     "simple-oauth2": "~0.2.1",
-    "sql": "~0.34.0",
     "source-map-support": "~0.5.21",
+    "sql": "~0.34.0",
     "underscore": "~1.12.1",
     "valid-url": "~1.0.9",
     "winston": "~3.8.2"
