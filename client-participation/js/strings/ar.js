@@ -18,7 +18,7 @@ s.writeCommentHelpText = "هل تعتقد أن آرائك أو تجربتك غي
 s.helpWriteListIntro = "ما الذي يجعل الإفادة جيدة?";
 s.helpWriteListStandalone = "	فكرة مستقلة بذاتها";
 s.helpWriteListRaisNew = "تطرح وجهات نظر أو تجارب أو مشاكل جديدة";
-s.helpWriteListShort = "بوضوح وإيجاز  (		أقل من ١٤٠ حرف	)";
+s.helpWriteListShort = "بوضوح وإيجاز(		أقل من ١٤٠ حرف)";
 s.tipCommentsRandom = "الرجاء الانتباه, الإفادات تظهر بشكل عشوائي وأنت لا ترد بشكل مباشر على إفادات المشاركين الآخرين .";
 s.writePrompt = "شارك وجهة نظرك...";
 s.submitComment = "أرسل";
@@ -27,12 +27,12 @@ s.submitComment = "أرسل";
 
 s.commentSendFailed = "حدث خطأ في إرسال إفادتك.";
 s.commentSendFailedEmpty = "حدث خطأ في إرسال إفادتك	- 	الإفادة يجب ألا تكون فارغة";
-s.commentSendFailedTooLong = "حدث خطأ في إرسال إفادتك	 - 	الإفادة أطول مما يجب	.";
-s.commentSendFailedDuplicate = "حدث خطأ في إرسال إفادتك	 - 	تم إرسال إفادة مطابقة سابقاً	.";
+s.commentSendFailedTooLong = "حدث خطأ في إرسال إفادتك	 - 	الإفادة أطول مما يجب";
+s.commentSendFailedDuplicate = "حدث خطأ في إرسال إفادتك	 - 	تم إرسال إفادة مطابقة سابقاً";
 s.commentErrorDuplicate = "مكرّر! 	هذه الإفادة موجودة سابقاً	.";
-s.commentErrorConversationClosed = "تم إغلاق المحادثة	. 	 لا يمكن إرسال أي إفادات";
+s.commentErrorConversationClosed = "تم إغلاق المحادثة	. 	لا يمكن إرسال أي إفادات";
 s.commentIsEmpty = "الإفادة فارغة";
-s.commentIsTooLong = "الإفادة أطول مما يجب	";
+s.commentIsTooLong = "الإفادة أطول مما يجب";
 
 // For the visualization below
 
@@ -45,7 +45,7 @@ s.helpWhatAmISeeingTitle = "ماذا أرى؟ ";
 s.helpWhatAmISeeing ="تم وضع الأشخاص المتقاربين في التصويت ضمن مجموعات. اضغط على مجموعة لرؤية وجهة النظر التي يتشاركونها. ";
 s.helpWhatDoIDoTitle = "ماذا أفعل؟";
 s.helpWhatDoIDo = ".صوت على إفادات الأشخاص الآخرين، اضغط "موافق" أو "غير موافق". اكتب إفادة (كل إفادة لفكرة واحدة). ادع أصدقاءك للمحادثة";
-s.heresHowGroupVoted = "المجموعة رقم  {{GROUP_NUMBER}} صوّتت على الشكل التالي:";
+s.heresHowGroupVoted = "المجموعة رقم  {{GROUP_NUMBER}}  صوّتت على الشكل التالي:";
 s.one_person = "{{x}} شخص;"
 s.x_people = "{{x}} أشخاص";
 s.acrossAllPtpts = ":ضمن جميع المشاركين";
