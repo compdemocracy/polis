@@ -8,13 +8,13 @@ s.participantHelpWelcomeText = "أهلاً بكم في نوع جديد من من
 s.agree = "أوافق";
 s.disagree = "لا أوافق";
 s.pass = "غير متأكد / تجاوز التصويت";
-s.anonPerson = "مجهول	";
-s.x_wrote = "كتب	:";
+s.anonPerson = "مجهول";
+s.x_wrote = "كتب";
 s.comments_remaining = "{{num_comments}} متبقي";
 
 // Text about writing your own statement
 
-s.writeCommentHelpText = "هل تعتقد أن آرائك أو تجربتك غير موجودة في هذه المحادثة ، 				? إذا كان الأمر كذلك	 <b>		قم بإضافتها</b>			ضمن هذا المربع		.";
+s.writeCommentHelpText = "هل تعتقد أن آرائك أو تجربتك غير موجودة في هذه المحادثة، 	? إذا كان الأمر كذلك	 <b>قم بإضافتها</b>	ضمن هذا المربع";
 s.helpWriteListIntro = "ما الذي يجعل الإفادة جيدة?";
 s.helpWriteListStandalone = "	فكرة مستقلة بذاتها";
 s.helpWriteListRaisNew = "تطرح وجهات نظر أو تجارب أو مشاكل جديدة";
