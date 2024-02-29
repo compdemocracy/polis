@@ -4,7 +4,7 @@ var s = {};
 
 // Text on the card
 
-s.participantHelpWelcomeText = "أهلاً بكم في نوع جديد من من المحادثات - <em>صوّت</em>على إفادات الأشخاص الآخرين.";
+s.participantHelpWelcomeText = " أهلاً بكم في نوع جديد من المحادثات، </em> صوت <em> على إفادات الأشخاص الآخرين";
 s.agree = "أوافق";
 s.disagree = "لا أوافق";
 s.pass = "غير متأكد / تجاوز التصويت";
@@ -14,13 +14,13 @@ s.comments_remaining = "{{num_comments}} متبقي";
 
 // Text about writing your own statement
 
-s.writeCommentHelpText = "هل تعتقد أن آرائك أو تجربتك غير موجودة في هذه المحادثة، 	? إذا كان الأمر كذلك	 <b>قم بإضافتها</b>	ضمن هذا المربع";
-s.helpWriteListIntro = "ما الذي يجعل الإفادة جيدة?";
-s.helpWriteListStandalone = "	فكرة مستقلة بذاتها";
+s.writeCommentHelpText = "هل تعتقد أن آرائك أو تجربتك غير موجودة في هذه المحادثة؟ إذا كان الأمر كذلك، الرجاء إضافتها";
+s.helpWriteListIntro = "ما الذي يجعل الإفادة جيدة؟";
+s.helpWriteListStandalone = "فكرة مستقلة بذاتها";
 s.helpWriteListRaisNew = "تطرح وجهات نظر أو تجارب أو مشاكل جديدة";
-s.helpWriteListShort = "بوضوح وإيجاز(		أقل من ١٤٠ حرف)";
-s.tipCommentsRandom = "الرجاء الانتباه, الإفادات تظهر بشكل عشوائي وأنت لا ترد بشكل مباشر على إفادات المشاركين الآخرين .";
-s.writePrompt = "شارك وجهة نظرك...";
+s.helpWriteListShort = "بوضوح وإيجاز(أقل من ١٤٠ حرف)";
+s.tipCommentsRandom = ".الرجاء الانتباه، الإفادات تظهر بشكل عشوائي وأنت لا ترد بشكل مباشر على إفادات المشاركين الآخرين";
+s.writePrompt = "...شارك وجهة نظرك";
 s.submitComment = "أرسل";
 
 // Error notices
