@@ -63,6 +63,9 @@ var translations = {
 
   // Romanian & Moldovan
   ro: require("./strings/ro.js"),
+
+  // Arabic
+  ar: require("./strings/ar.js"),
 };
 
 
@@ -148,6 +151,9 @@ preloadHelper.acceptLanguagePromise.then(function() {
     }
     else if (languageCode.match(/^hr/)) {
       _.extend(strings, translations.hr);
+    }
+    else if (languageCode.match(/^ar/)) {
+      _.extend(strings, translations.ar);
     }
   });
 });
