@@ -65,7 +65,7 @@ var translations = {
   ro: require("./strings/ro.js"),
 
   // Arabic
-  ro: require("./strings/ar.js"),
+  ar: require("./strings/ar.js"),
 };
 
 
