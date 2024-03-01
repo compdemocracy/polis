@@ -2,6 +2,10 @@
 
 var s = {};
 
+
+// for right to left languages
+s.direction = "rtl";
+
 // Text on the card
 
 s.participantHelpWelcomeText = " أهلاً بكم في نوع جديد من المحادثات، </em> صوت <em> على إفادات الأشخاص الآخرين";
