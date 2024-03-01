@@ -12,20 +12,29 @@ s.participantHelpWelcomeText = " أهلاً بكم في نوع جديد من ا�
 s.agree = "أوافق";
 s.disagree = "لا أوافق";
 s.pass = "غير متأكد / تجاوز التصويت";
+s.writePrompt = "...شارك وجهة نظرك";
 s.anonPerson = "مجهول";
 s.x_wrote = "كتب";
 s.comments_remaining = "{{num_comments}} متبقي";
 
 // Text about writing your own statement
 
+s.helpWhatDoIDoTitle = " What do I do?";
+s.helpWhatDoIDo = "Vote on other people's statements by clicking 'agree' or 'disagree'. Write a statement (keep each to a single idea). Invite your friends to the conversation!";
 s.writeCommentHelpText = "هل تعتقد أن آرائك أو تجربتك غير موجودة في هذه المحادثة؟ إذا كان الأمر كذلك، الرجاء إضافتها";
 s.helpWriteListIntro = "ما الذي يجعل الإفادة جيدة؟";
 s.helpWriteListStandalone = "فكرة مستقلة بذاتها";
 s.helpWriteListRaisNew = "تطرح وجهات نظر أو تجارب أو مشاكل جديدة";
 s.helpWriteListShort = "بوضوح وإيجاز(أقل من ١٤٠ حرف)";
+s.tip = "Tip:";
+s.commentWritingTipsHintsHeader = "Tips for writing statements";
+s.tipCharLimit = "Statements are limited to {{char_limit}} characters.";
 s.tipCommentsRandom = ".الرجاء الانتباه، الإفادات تظهر بشكل عشوائي وأنت لا ترد بشكل مباشر على إفادات المشاركين الآخرين";
-s.writePrompt = "...شارك وجهة نظرك";
+s.tipOneIdea = "Break up long statements that contain multiple ideas. This makes it easier for others to vote on your statement.";
+s.tipNoQuestions = "Statements should not be in the form of a question. Participants will agree or disagree with the statements you make.";
+s.commentTooLongByChars = "Statement length limit exceeded by {{CHARACTERS_COUNT}} characters.";
 s.submitComment = "أرسل";
+s.commentSent = "Statement submitted! Only other participants will see your statement and agree or disagree.";
 
 // Text about phasing
 
