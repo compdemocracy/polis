@@ -73,7 +73,5 @@ s.pctDisagreedOfGroupLong = "{{pct}}% من مجموعة  {{group}} الذين ص
 s.privacy = "الخصوصية";
 s.TOS = "شروط الخدمة"; 
   
-
-
-
+module.exports = s;
 
