@@ -121,3 +121,6 @@ s.topic_good_03 = "Ai vreo idee despre cauzele scăderii productivității?";
 s.topic_bad_01 = "Toată lumea raportați gradul de pregătire";
 s.topic_bad_01_reason = "Oamenii din echipe diferite vor vota pentru răspunsuri, dar nu neapărat că vor avea suficiente cunoștințe pentru a vota sigur.";
 s.topic_bad_02 = "Ce ne împiedică să începem?";
+
+module.exports = s;
+
