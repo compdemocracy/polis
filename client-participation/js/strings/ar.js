@@ -49,11 +49,11 @@ s.noMoreVotingAllowed = "تم إيقاف التصويت";
 // Error notices
 
 s.commentSendFailed = "حدث خطأ في إرسال إفادتك.";
-s.commentSendFailedEmpty = "حدث خطأ في إرسال إفادتك	- 	الإفادة يجب ألا تكون فارغة";
-s.commentSendFailedTooLong = "حدث خطأ في إرسال إفادتك	 - 	الإفادة أطول مما يجب";
-s.commentSendFailedDuplicate = "حدث خطأ في إرسال إفادتك	 - 	تم إرسال إفادة مطابقة سابقاً";
+s.commentSendFailedEmpty = "حدث خطأ في إرسال إفادتك	-	الإفادة يجب ألا تكون فارغة";
+s.commentSendFailedTooLong = "حدث خطأ في إرسال إفادتك	 -	الإفادة أطول مما يجب";
+s.commentSendFailedDuplicate = "حدث خطأ في إرسال إفادتك	-	تم إرسال إفادة مطابقة سابقاً";
 s.commentErrorDuplicate = "مكرّر! 	هذه الإفادة موجودة سابقاً	.";
-s.commentErrorConversationClosed = "تم إغلاق النقاش	. 	لا يمكن إرسال أي إفادات";
+s.commentErrorConversationClosed = "تم إغلاق النقاش	.	لا يمكن إرسال أي إفادات";
 s.commentIsEmpty = "الإفادة فارغة";
 s.commentIsTooLong = "الإفادة أطول مما يجب";
 
