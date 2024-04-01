@@ -1,7 +1,13 @@
 {
-    "jest.jestCommandLine": "npx jest --forceExit test",
-    "jest.autoRun": {
-      "watch": false,
-      "onSave": "test-src-file"
-    }
+  "jest.jestCommandLine": "npx jest --forceExit test",
+  "[javascript]": {
+    "editor.defaultFormatter": "Jota0222.multi-formatter",
+    "multiFormatter.formatterList": ["vscode.typescript-language-features", "esbenp.prettier-vscode"]
+  },
+  "[jsonc]": {
+    "editor.codeActionsOnSave": {
+      "source.fixAll": "never"
+    },
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  }
 }
