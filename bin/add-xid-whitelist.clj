@@ -25,11 +25,12 @@
         owner-id (resolve-owner-id opts-map)]
     (loop [xids-batch (take batch-size xids)
            xids-rest (drop batch-size xids)]
+      (db/upsert! :xid_whitelist
+                  :xid_whitelist_owner_xid_key
+                  (map (fn [xid]
+                         (xid-record owner-id xid)) ; process xid
+                       xids-batch))
       (when (seq xids-rest)
-        (db/upsert! :xid_whitelist
-                    :xid_whitelist_owner_xid_key
-                    (map (partial xid-record owner-id)
-                         xids-batch))
         (recur (take batch-size xids-rest)
                (drop batch-size xids-rest))))
     (println "Done")))
