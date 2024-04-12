@@ -8,8 +8,8 @@
 
 (defn xid-seq [filename]
   (map
-    (fn [line] (first (str/split line #",")))
-    (line-seq (io/reader filename))))
+   (fn [line] (first (str/split line #",")))
+   (line-seq (io/reader filename))))
 
 (defn xid-record [owner xid]
   {:owner owner
@@ -27,8 +27,7 @@
            xids-rest (drop batch-size xids)]
       (db/upsert! :xid_whitelist
                   :xid_whitelist_owner_xid_key
-                  (map (fn [xid]
-                         (xid-record owner-id xid)) ; process xid
+                  (map (partial xid-record owner-id)
                        xids-batch))
       (when (seq xids-rest)
         (recur (take batch-size xids-rest)
@@ -38,5 +37,3 @@
 
 (when (= *file* (System/getProperty "babashka.file"))
   (apply -main *command-line-args*))
-
-
