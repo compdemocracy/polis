@@ -1,6 +1,6 @@
 {
   "name": "polis",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "polis =====",
   "main": "app.js",
   "type": "module",
@@ -8,6 +8,7 @@
     "debug": "SERVER_LOG_LEVEL=debug nodemon --inspect=0.0.0.0:9229 app.js",
     "serve": "node app.js",
     "start": "npm run serve",
+    "start:watch": "nodemon app.js",
     "format": "prettier 'src/**/*.{js,ts}' --write",
     "format:check": "prettier 'src/**/*.{js,ts}' --check",
     "lint": "eslint --quiet .",
