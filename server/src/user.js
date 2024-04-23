@@ -179,17 +179,17 @@ function getSocialInfoForUsers(uids, zid) {
   return pg.queryP_metered_readOnly(
     'getSocialInfoForUsers',
     'with ' +
-    'x as (select * from xids where uid in (' +
-    uidString +
-    ') and owner  in (select org_id from conversations where zid = ($1))), ' +
-    'fb as (select * from facebook_users where uid in (' +
-    uidString +
-    ')), ' +
-    'tw as (select * from twitter_users where uid in (' +
-    uidString +
-    ')), ' +
-    'foo as (select *, coalesce(fb.uid, tw.uid) as foouid from fb full outer join tw on tw.uid = fb.uid) ' +
-    'select *, coalesce(foo.foouid, x.uid) as uid from foo full outer join x on x.uid = foo.foouid;',
+      'x as (select * from xids where uid in (' +
+      uidString +
+      ') and owner  in (select org_id from conversations where zid = ($1))), ' +
+      'fb as (select * from facebook_users where uid in (' +
+      uidString +
+      ')), ' +
+      'tw as (select * from twitter_users where uid in (' +
+      uidString +
+      ')), ' +
+      'foo as (select *, coalesce(fb.uid, tw.uid) as foouid from fb full outer join tw on tw.uid = fb.uid) ' +
+      'select *, coalesce(foo.foouid, x.uid) as uid from foo full outer join x on x.uid = foo.foouid;',
     [zid]
   );
 }
@@ -203,8 +203,8 @@ function getXidRecordByXidOwnerId(xid, owner, zid_optional, x_profile_image_url,
       var shouldCreateXidEntryPromise = !zid_optional
         ? Promise.resolve(true)
         : Conversation.getConversationInfo(zid_optional).then((conv) => {
-          return conv.use_xid_whitelist ? Conversation.isXidWhitelisted(owner, xid) : Promise.resolve(true);
-        });
+            return conv.use_xid_whitelist ? Conversation.isXidWhitelisted(owner, xid) : Promise.resolve(true);
+          });
       return shouldCreateXidEntryPromise.then((should) => {
         if (!should) {
           return null;

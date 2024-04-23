@@ -985,9 +985,9 @@ function initializePolisHelpers() {
     }
     let requestExistsPromise = pgQueryP(
       "select * from worker_tasks where task_type = 'generate_report_data' and math_env=($2) " +
-      'and task_bucket = ($1) ' +
-      "and (task_data->>'math_tick')::int >= ($3) " +
-      'and finished_time is NULL;',
+        'and task_bucket = ($1) ' +
+        "and (task_data->>'math_tick')::int >= ($3) " +
+        'and finished_time is NULL;',
       [rid, math_env, math_tick]
     );
     let resultExistsPromise = pgQueryP(
@@ -1143,8 +1143,8 @@ function initializePolisHelpers() {
     return new MPromise('getXids', function (resolve, reject) {
       pgQuery_readOnly(
         'select pid, xid from xids inner join ' +
-        '(select * from participants where zid = ($1)) as p on xids.uid = p.uid ' +
-        ' where owner in (select org_id from conversations where zid = ($1));',
+          '(select * from participants where zid = ($1)) as p on xids.uid = p.uid ' +
+          ' where owner in (select org_id from conversations where zid = ($1));',
         [zid],
         function (err, result) {
           if (err) {
@@ -1282,8 +1282,8 @@ function initializePolisHelpers() {
       generateHashedPassword(newPassword, function (err, hashedPassword) {
         return pgQueryP(
           'insert into jianiuevyew (uid, pwhash) values ' +
-          '($1, $2) on conflict (uid) ' +
-          'do update set pwhash = excluded.pwhash;',
+            '($1, $2) on conflict (uid) ' +
+            'do update set pwhash = excluded.pwhash;',
           [uid, hashedPassword]
         ).then(
           (rows) => {
@@ -1873,11 +1873,11 @@ Feel free to reply to this email if you need help.`;
         logger.debug('maxmind response', parsedResponse);
         return pgQueryP(
           'update participants_extended set modified=now_as_millis(), country_iso_code=($4), encrypted_maxmind_response_city=($3), ' +
-          "location=ST_GeographyFromText('SRID=4326;POINT(" +
-          parsedResponse.location.latitude +
-          ' ' +
-          parsedResponse.location.longitude +
-          ")'), latitude=($5), longitude=($6) where zid = ($1) and uid = ($2);",
+            "location=ST_GeographyFromText('SRID=4326;POINT(" +
+            parsedResponse.location.latitude +
+            ' ' +
+            parsedResponse.location.longitude +
+            ")'), latitude=($5), longitude=($6) where zid = ($1) and uid = ($2);",
           [
             zid,
             uid,
@@ -2491,8 +2491,8 @@ Email verified! You can close this tab or hit the back button.
             const pids = _.pluck(needNotification, 'pid');
             return pgQueryP(
               'select uid, subscribe_email from participants_extended where uid in (select uid from participants where pid in (' +
-              pids.join(',') +
-              '));',
+                pids.join(',') +
+                '));',
               []
             ).then((rows) => {
               let uidToEmail = {};
@@ -2944,8 +2944,8 @@ Email verified! You can close this tab or hit the back button.
     } else {
       return pgQueryP(
         'insert into facebook_friends (uid, friend) select ($1), uid from facebook_users where fb_user_id in (' +
-        fbFriendIds.join(',') +
-        ');',
+          fbFriendIds.join(',') +
+          ');',
         [uid]
       );
     }
@@ -2969,8 +2969,8 @@ Email verified! You can close this tab or hit the back button.
   async function isParentDomainWhitelisted(domain, zid, isWithinIframe, domain_whitelist_override_key) {
     return pgQueryP_readOnly(
       'select * from site_domain_whitelist where site_id = ' +
-      '(select site_id from users where uid = ' +
-      '(select owner from conversations where zid = ($1)));',
+        '(select site_id from users where uid = ' +
+        '(select owner from conversations where zid = ($1)));',
       [zid]
     ).then(function (rows) {
       logger.debug('isParentDomainWhitelisted', { domain, zid, isWithinIframe });
@@ -3557,9 +3557,9 @@ Email verified! You can close this tab or hit the back button.
       }
       pgQueryP(
         'select users.*, facebook_users.fb_user_id from users left join facebook_users on users.uid = facebook_users.uid ' +
-        'where users.email = ($1) ' +
-        '   or facebook_users.fb_user_id = ($2) ' +
-        ';',
+          'where users.email = ($1) ' +
+          '   or facebook_users.fb_user_id = ($2) ' +
+          ';',
         [email, fb_user_id]
       )
         .then(
@@ -4179,8 +4179,8 @@ Email verified! You can close this tab or hit the back button.
                     let lang_confidence = detection.confidence;
                     return pgQueryP(
                       'INSERT INTO COMMENTS ' +
-                      '(pid, zid, txt, velocity, active, mod, uid, tweet_id, quote_src_url, anon, is_seed, created, tid, lang, lang_confidence) VALUES ' +
-                      '($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, default, null, $12, $13) RETURNING *;',
+                        '(pid, zid, txt, velocity, active, mod, uid, tweet_id, quote_src_url, anon, is_seed, created, tid, lang, lang_confidence) VALUES ' +
+                        '($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, default, null, $12, $13) RETURNING *;',
                       [
                         pid,
                         zid,
@@ -4393,7 +4393,7 @@ Email verified! You can close this tab or hit the back button.
   function addNoMoreCommentsRecord(zid, pid) {
     return pgQueryP(
       'insert into event_ptpt_no_more_comments (zid, pid, votes_placed) values ($1, $2, ' +
-      '(select count(*) from votes where zid = ($1) and pid = ($2)))',
+        '(select count(*) from votes where zid = ($1) and pid = ($2)))',
       [zid, pid]
     );
   }
@@ -4549,18 +4549,18 @@ Email verified! You can close this tab or hit the back button.
     let permanent_cookie = getPermanentCookieAndEnsureItIsSet(req, res);
     let pidReadyPromise = _.isUndefined(req.p.pid)
       ? addParticipantAndMetadata(req.p.zid, req.p.uid, req, permanent_cookie).then(function (rows) {
-        let ptpt = rows[0];
-        pid = ptpt.pid;
-      })
+          let ptpt = rows[0];
+          pid = ptpt.pid;
+        })
       : Promise.resolve();
     pidReadyPromise
       .then(async function () {
         let vote;
         let pidReadyPromise = _.isUndefined(pid)
           ? addParticipant(zid, uid).then(function (rows) {
-            let ptpt = rows[0];
-            pid = ptpt.pid;
-          })
+              let ptpt = rows[0];
+              pid = ptpt.pid;
+            })
           : Promise.resolve();
         return pidReadyPromise
           .then(function () {
@@ -4630,32 +4630,32 @@ Email verified! You can close this tab or hit the back button.
     let uid = req.p.uid;
     return pgQueryP(
       'insert into crowd_mod (' +
-      'zid, ' +
-      'pid, ' +
-      'tid, ' +
-      'as_abusive, ' +
-      'as_factual, ' +
-      'as_feeling, ' +
-      'as_important, ' +
-      'as_notfact, ' +
-      'as_notgoodidea, ' +
-      'as_notmyfeeling, ' +
-      'as_offtopic, ' +
-      'as_spam, ' +
-      'as_unsure) values (' +
-      '$1, ' +
-      '$2, ' +
-      '$3, ' +
-      '$4, ' +
-      '$5, ' +
-      '$6, ' +
-      '$7, ' +
-      '$8, ' +
-      '$9, ' +
-      '$10, ' +
-      '$11, ' +
-      '$12, ' +
-      '$13);',
+        'zid, ' +
+        'pid, ' +
+        'tid, ' +
+        'as_abusive, ' +
+        'as_factual, ' +
+        'as_feeling, ' +
+        'as_important, ' +
+        'as_notfact, ' +
+        'as_notgoodidea, ' +
+        'as_notmyfeeling, ' +
+        'as_offtopic, ' +
+        'as_spam, ' +
+        'as_unsure) values (' +
+        '$1, ' +
+        '$2, ' +
+        '$3, ' +
+        '$4, ' +
+        '$5, ' +
+        '$6, ' +
+        '$7, ' +
+        '$8, ' +
+        '$9, ' +
+        '$10, ' +
+        '$11, ' +
+        '$12, ' +
+        '$13);',
       [
         req.p.zid,
         req.p.pid,
@@ -4803,8 +4803,8 @@ Email verified! You can close this tab or hit the back button.
           });
           pgQuery_readOnly(
             'select pmaid, pmqid from participant_metadata_answers where pmqid in (' +
-            pmqids.join(',') +
-            ') and alive = TRUE and zid = ($1);',
+              pmqids.join(',') +
+              ') and alive = TRUE and zid = ($1);',
             [zid],
             function (err, results) {
               if (err) {
@@ -4876,7 +4876,7 @@ Email verified! You can close this tab or hit the back button.
         }
         return pgQueryP(
           'insert into report_comment_selections (rid, tid, selection, zid, modified) values ($1, $2, $3, $4, now_as_millis()) ' +
-          'on conflict (rid, tid) do update set selection = ($3), zid  = ($4), modified = now_as_millis();',
+            'on conflict (rid, tid) do update set selection = ($3), zid  = ($4), modified = now_as_millis();',
           [rid, tid, selection, zid]
         )
           .then(() => {
@@ -5092,17 +5092,17 @@ Email verified! You can close this tab or hit the back button.
                           req.p.uid,
                           'Conversation created',
                           'Hi ' +
-                          hname +
-                          ',\n' +
-                          '\n' +
-                          "Here's a link to the conversation you just created. Use it to invite participants to the conversation. Share it by whatever network you prefer - Gmail, Facebook, Twitter, etc., or just post it to your website or blog. Try it now! Click this link to go to your conversation:" +
-                          '\n' +
-                          url +
-                          '\n' +
-                          '\n' +
-                          'With gratitude,\n' +
-                          '\n' +
-                          'The team at pol.is\n'
+                            hname +
+                            ',\n' +
+                            '\n' +
+                            "Here's a link to the conversation you just created. Use it to invite participants to the conversation. Share it by whatever network you prefer - Gmail, Facebook, Twitter, etc., or just post it to your website or blog. Try it now! Click this link to go to your conversation:" +
+                            '\n' +
+                            url +
+                            '\n' +
+                            '\n' +
+                            'With gratitude,\n' +
+                            '\n' +
+                            'The team at pol.is\n'
                         ).catch(function (err) {
                           logger.error('polis_err_sending_conversation_created_email', err);
                         });
@@ -5950,8 +5950,8 @@ Email verified! You can close this tab or hit the back button.
             let zid = result && result.rows && result.rows[0] && result.rows[0].zid;
             const zinvitePromise = req.p.conversation_id
               ? Conversation.getZidFromConversationId(req.p.conversation_id).then((zid) => {
-                return zid === 0 ? req.p.conversation_id : null;
-              })
+                  return zid === 0 ? req.p.conversation_id : null;
+                })
               : generateAndRegisterZinvite(zid, generateShortUrl);
             zinvitePromise
               .then(function (zinvite) {
@@ -5984,12 +5984,12 @@ Email verified! You can close this tab or hit the back button.
     function doneChecking() {
       pgQuery_readOnly(
         'select pid from participants where zid = ($1) and pid not in ' +
-        '(select pid from participant_metadata_choices where alive = TRUE and pmaid in ' +
-        '(select pmaid from participant_metadata_answers where alive = TRUE and zid = ($2) and pmaid not in (' +
-        pmaids.join(',') +
-        '))' +
-        ')' +
-        ';',
+          '(select pid from participant_metadata_choices where alive = TRUE and pmaid in ' +
+          '(select pmaid from participant_metadata_answers where alive = TRUE and zid = ($2) and pmaid not in (' +
+          pmaids.join(',') +
+          '))' +
+          ')' +
+          ';',
         [zid, zid],
         function (err, results) {
           if (err) {
@@ -6445,17 +6445,17 @@ Thanks for using Polis!
       const u = JSON.parse(userString)[0];
       return pgQueryP(
         'insert into twitter_users (' +
-        'uid,' +
-        'twitter_user_id,' +
-        'screen_name,' +
-        'name,' +
-        'followers_count,' +
-        'friends_count,' +
-        'verified,' +
-        'profile_image_url_https,' +
-        'location,' +
-        'response' +
-        ') VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) returning *;',
+          'uid,' +
+          'twitter_user_id,' +
+          'screen_name,' +
+          'name,' +
+          'followers_count,' +
+          'friends_count,' +
+          'verified,' +
+          'profile_image_url_https,' +
+          'location,' +
+          'response' +
+          ') VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) returning *;',
         [
           uid,
           u.id,
@@ -6508,17 +6508,17 @@ Thanks for using Polis!
                 const u = JSON.parse(userStringPayload)[0];
                 return pgQueryP(
                   'insert into twitter_users (' +
-                  'uid,' +
-                  'twitter_user_id,' +
-                  'screen_name,' +
-                  'name,' +
-                  'followers_count,' +
-                  'friends_count,' +
-                  'verified,' +
-                  'profile_image_url_https,' +
-                  'location,' +
-                  'response' +
-                  ') VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);',
+                    'uid,' +
+                    'twitter_user_id,' +
+                    'screen_name,' +
+                    'name,' +
+                    'followers_count,' +
+                    'friends_count,' +
+                    'verified,' +
+                    'profile_image_url_https,' +
+                    'location,' +
+                    'response' +
+                    ') VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);',
                   [
                     uid,
                     u.id,
@@ -7407,7 +7407,7 @@ Thanks for using Polis!
     const company_name = req.p.company_name;
     pgQueryP(
       'insert into contributor_agreement_signatures (uid, agreement_version, github_id, name, email, company_name) ' +
-      'values ($1, $2, $3, $4, $5, $6);',
+        'values ($1, $2, $3, $4, $5, $6);',
       [uid, agreement_version, github_id, name, email, company_name]
     ).then(
       () => {
@@ -7886,11 +7886,11 @@ Thanks for using Polis!
     res.send(
       Buffer.from(
         '<body>\n' +
-        '<script>\n' +
-        '  document.cookie="thirdparty=yes; Max-Age=3600; SameSite=None; Secure";\n' +
-        '  document.location="thirdPartyCookieTestPt2.html";\n' +
-        '</script>\n' +
-        '</body>'
+          '<script>\n' +
+          '  document.cookie="thirdparty=yes; Max-Age=3600; SameSite=None; Secure";\n' +
+          '  document.location="thirdPartyCookieTestPt2.html";\n' +
+          '</script>\n' +
+          '</body>'
       )
     );
   }
@@ -7899,17 +7899,17 @@ Thanks for using Polis!
     res.send(
       Buffer.from(
         '<body>\n' +
-        '<script>\n' +
-        '  if (window.parent) {\n' +
-        '   if (/thirdparty=yes/.test(document.cookie)) {\n' +
-        "     window.parent.postMessage('MM:3PCsupported', '*');\n" +
-        '   } else {\n' +
-        "     window.parent.postMessage('MM:3PCunsupported', '*');\n" +
-        '   }\n' +
-        "   document.cookie = 'thirdparty=; expires=Thu, 01 Jan 1970 00:00:01 GMT;';\n" +
-        '  }\n' +
-        '</script>\n' +
-        '</body>'
+          '<script>\n' +
+          '  if (window.parent) {\n' +
+          '   if (/thirdparty=yes/.test(document.cookie)) {\n' +
+          "     window.parent.postMessage('MM:3PCsupported', '*');\n" +
+          '   } else {\n' +
+          "     window.parent.postMessage('MM:3PCunsupported', '*');\n" +
+          '   }\n' +
+          "   document.cookie = 'thirdparty=; expires=Thu, 01 Jan 1970 00:00:01 GMT;';\n" +
+          '  }\n' +
+          '</script>\n' +
+          '</body>'
       )
     );
   }
@@ -8046,14 +8046,14 @@ Thanks for using Polis!
         let title = info.topic || info.created;
         res.send(
           "<a href='https://pol.is/" +
-          conversation_id +
-          "' target='_blank'>" +
-          title +
-          '</a>' +
-          "<p><a href='https://pol.is/m" +
-          conversation_id +
-          "' target='_blank'>moderate</a></p>" +
-          (info.description ? '<p>' + info.description + '</p>' : '')
+            conversation_id +
+            "' target='_blank'>" +
+            title +
+            '</a>' +
+            "<p><a href='https://pol.is/m" +
+            conversation_id +
+            "' target='_blank'>moderate</a></p>" +
+            (info.description ? '<p>' + info.description + '</p>' : '')
         );
       })
       .catch(function (err) {
