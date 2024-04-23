@@ -1,5 +1,6 @@
 .env
 .google_creds_temp
+.vscode/settings.json
 dist
 logs/
 node_modules/
