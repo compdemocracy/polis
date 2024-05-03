@@ -649,6 +649,7 @@ function initializePolisHelpers() {
     pid?: any,
     zid?: any,
     tid?: any,
+    xid?: any,
     voteType?: any,
     weight?: number,
   ) {
@@ -694,7 +695,7 @@ function initializePolisHelpers() {
             });
           }
           if (conv.use_xid_whitelist) {
-            return isXidWhitelisted(zid, uid).then((is_whitelisted: boolean) => {
+            return isXidWhitelisted(conv.owner, xid).then((is_whitelisted: boolean) => {
               if (is_whitelisted) {
                 return conv;
               } else {
@@ -7013,6 +7014,7 @@ Email verified! You can close this tab or hit the back button.
     req: {
       p: {
         zid?: any;
+        xid?: any;
         uid?: any;
         txt?: any;
         pid?: any;
@@ -7031,7 +7033,7 @@ Email verified! You can close this tab or hit the back button.
     res: { json: (arg0: { tid: any; currentPid: any }) => void }
   ) {
     let zid = req.p.zid;
-    let xid = void 0; //req.p.xid;
+    let xid = req.p.xid;
     let uid = req.p.uid;
     let txt = req.p.txt;
     let pid = req.p.pid; // PID_FLOW may be undefined
@@ -7332,7 +7334,7 @@ Email verified! You can close this tab or hit the back button.
                         let createdTime = comment.created;
                         let votePromise = _.isUndefined(vote)
                           ? Promise.resolve()
-                          : votesPost(uid, pid, zid, tid, vote, 0);
+                          : votesPost(uid, pid, zid, tid, xid, vote, 0);
 
                         return (
                           votePromise
@@ -7955,6 +7957,7 @@ Email verified! You can close this tab or hit the back button.
               pid,
               zid,
               req.p.tid,
+              req.p.xid,
               req.p.vote,
               req.p.weight,
             );
