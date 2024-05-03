@@ -79,19 +79,19 @@ function wantHeader(name, parserWhichReturnsPromise, assigner, defaultVal) {
 }
 function extractFromBody(req, name) {
   if (!req.body) {
-    return void 0;
+    return;
   }
   return req.body[name];
 }
 function extractFromCookie(req, name) {
   if (!req.cookies) {
-    return void 0;
+    return;
   }
   return req.cookies[name];
 }
 function extractFromHeader(req, name) {
   if (!req.headers) {
-    return void 0;
+    return;
   }
   return req.headers[name.toLowerCase()];
 }

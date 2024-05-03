@@ -22,7 +22,7 @@ function checkPassword(uid, password) {
       if (!rows || !rows.length) {
         return null;
       } else if (!rows[0].pwhash) {
-        return void 0;
+        return;
       }
       let hashedPassword = rows[0].pwhash;
       return new Promise(function (resolve, reject) {

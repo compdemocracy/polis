@@ -178,18 +178,27 @@ function getSocialInfoForUsers(uids, zid) {
   let uidString = uids.join(',');
   return pg.queryP_metered_readOnly(
     'getSocialInfoForUsers',
-    'with ' +
-      'x as (select * from xids where uid in (' +
-      uidString +
-      ') and owner  in (select org_id from conversations where zid = ($1))), ' +
-      'fb as (select * from facebook_users where uid in (' +
-      uidString +
-      ')), ' +
-      'tw as (select * from twitter_users where uid in (' +
-      uidString +
-      ')), ' +
-      'foo as (select *, coalesce(fb.uid, tw.uid) as foouid from fb full outer join tw on tw.uid = fb.uid) ' +
-      'select *, coalesce(foo.foouid, x.uid) as uid from foo full outer join x on x.uid = foo.foouid;',
+    `
+    WITH x AS (
+      SELECT * FROM xids 
+      WHERE uid IN (${uidString}) 
+      AND owner IN (SELECT org_id FROM conversations WHERE zid = $1)
+    ), 
+    fb AS (
+      SELECT * FROM facebook_users WHERE uid IN (${uidString})
+    ), 
+    tw AS (
+      SELECT * FROM twitter_users WHERE uid IN (${uidString})
+    ), 
+    foo AS (
+      SELECT *, COALESCE(fb.uid, tw.uid) AS foouid 
+      FROM fb 
+      FULL OUTER JOIN tw ON tw.uid = fb.uid
+    ) 
+    SELECT *, COALESCE(foo.foouid, x.uid) AS uid 
+    FROM foo 
+    FULL OUTER JOIN x ON x.uid = foo.foouid;
+    `,
     [zid]
   );
 }
@@ -200,11 +209,18 @@ function getXidRecordByXidOwnerId(xid, owner, zid_optional, x_profile_image_url,
       if (!createIfMissing) {
         return null;
       }
-      var shouldCreateXidEntryPromise = !zid_optional
-        ? Promise.resolve(true)
-        : Conversation.getConversationInfo(zid_optional).then((conv) => {
-            return conv.use_xid_whitelist ? Conversation.isXidWhitelisted(owner, xid) : Promise.resolve(true);
-          });
+      let shouldCreateXidEntryPromise;
+      if (!zid_optional) {
+        shouldCreateXidEntryPromise = Promise.resolve(true);
+      } else {
+        shouldCreateXidEntryPromise = Conversation.getConversationInfo(zid_optional).then((conv) => {
+          if (conv.use_xid_whitelist) {
+            return Conversation.isXidWhitelisted(owner, xid);
+          } else {
+            return Promise.resolve(true);
+          }
+        });
+      }
       return shouldCreateXidEntryPromise.then((should) => {
         if (!should) {
           return null;

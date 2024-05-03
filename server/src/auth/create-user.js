@@ -18,7 +18,7 @@ function createUser(req, res) {
   let zinvite = req.p.zinvite;
   let organization = req.p.organization;
   let gatekeeperTosPrivacy = req.p.gatekeeperTosPrivacy;
-  let site_id = void 0;
+  let site_id;
   if (req.p.encodedParams) {
     let decodedParams = decodeParams(req.p.encodedParams);
     if (decodedParams.site_id) {

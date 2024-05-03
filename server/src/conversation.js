@@ -4,8 +4,11 @@ import { MPromise } from './utils/metered.js';
 import logger from './utils/logger.js';
 function createXidRecord(ownerUid, uid, xid, x_profile_image_url, x_name, x_email) {
   return pg.queryP(
-    'insert into xids (owner, uid, xid, x_profile_image_url, x_name, x_email) values ($1, $2, $3, $4, $5, $6) ' +
-      'on conflict (owner, xid) do nothing;',
+    `
+    insert into xids (owner, uid, xid, x_profile_image_url, x_name, x_email) 
+    values ($1, $2, $3, $4, $5, $6) 
+    on conflict (owner, xid) do nothing;
+  `,
     [ownerUid, uid, xid, x_profile_image_url || null, x_name || null, x_email || null]
   );
 }
@@ -17,8 +20,11 @@ function createXidRecordByZid(zid, uid, xid, x_profile_image_url, x_name, x_emai
         throw new Error('polis_err_xid_not_whitelisted_2');
       }
       return pg.queryP(
-        'insert into xids (owner, uid, xid, x_profile_image_url, x_name, x_email) values ((select org_id from conversations where zid = ($1)), $2, $3, $4, $5, $6) ' +
-          'on conflict (owner, xid) do nothing;',
+        `
+        insert into xids (owner, uid, xid, x_profile_image_url, x_name, x_email) 
+        values ((select org_id from conversations where zid = $1), $2, $3, $4, $5, $6) 
+        on conflict (owner, xid) do nothing;
+      `,
         [zid, uid, xid, x_profile_image_url || null, x_name || null, x_email || null]
       );
     });
