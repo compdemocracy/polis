@@ -994,9 +994,9 @@ function initializePolisHelpers() {
     }
     let requestExistsPromise = pgQueryP(
       "select * from worker_tasks where task_type = 'generate_report_data' and math_env=($2) " +
-      'and task_bucket = ($1) ' +
-      "and (task_data->>'math_tick')::int >= ($3) " +
-      'and finished_time is NULL;',
+        'and task_bucket = ($1) ' +
+        "and (task_data->>'math_tick')::int >= ($3) " +
+        'and finished_time is NULL;',
       [rid, math_env, math_tick]
     );
     let resultExistsPromise = pgQueryP(
@@ -1152,8 +1152,8 @@ function initializePolisHelpers() {
     return new MPromise('getXids', function (resolve, reject) {
       pgQuery_readOnly(
         'select pid, xid from xids inner join ' +
-        '(select * from participants where zid = ($1)) as p on xids.uid = p.uid ' +
-        ' where owner in (select org_id from conversations where zid = ($1));',
+          '(select * from participants where zid = ($1)) as p on xids.uid = p.uid ' +
+          ' where owner in (select org_id from conversations where zid = ($1));',
         [zid],
         function (err, result) {
           if (err) {
@@ -1291,8 +1291,8 @@ function initializePolisHelpers() {
       generateHashedPassword(newPassword, function (err, hashedPassword) {
         return pgQueryP(
           'insert into jianiuevyew (uid, pwhash) values ' +
-          '($1, $2) on conflict (uid) ' +
-          'do update set pwhash = excluded.pwhash;',
+            '($1, $2) on conflict (uid) ' +
+            'do update set pwhash = excluded.pwhash;',
           [uid, hashedPassword]
         ).then(
           (rows) => {
@@ -1882,11 +1882,11 @@ Feel free to reply to this email if you need help.`;
         logger.debug('maxmind response', parsedResponse);
         return pgQueryP(
           'update participants_extended set modified=now_as_millis(), country_iso_code=($4), encrypted_maxmind_response_city=($3), ' +
-          "location=ST_GeographyFromText('SRID=4326;POINT(" +
-          parsedResponse.location.latitude +
-          ' ' +
-          parsedResponse.location.longitude +
-          ")'), latitude=($5), longitude=($6) where zid = ($1) and uid = ($2);",
+            "location=ST_GeographyFromText('SRID=4326;POINT(" +
+            parsedResponse.location.latitude +
+            ' ' +
+            parsedResponse.location.longitude +
+            ")'), latitude=($5), longitude=($6) where zid = ($1) and uid = ($2);",
           [
             zid,
             uid,
@@ -2500,8 +2500,8 @@ Email verified! You can close this tab or hit the back button.
             const pids = _.pluck(needNotification, 'pid');
             return pgQueryP(
               'select uid, subscribe_email from participants_extended where uid in (select uid from participants where pid in (' +
-              pids.join(',') +
-              '));',
+                pids.join(',') +
+                '));',
               []
             ).then((rows) => {
               let uidToEmail = {};
@@ -2953,8 +2953,8 @@ Email verified! You can close this tab or hit the back button.
     } else {
       return pgQueryP(
         'insert into facebook_friends (uid, friend) select ($1), uid from facebook_users where fb_user_id in (' +
-        fbFriendIds.join(',') +
-        ');',
+          fbFriendIds.join(',') +
+          ');',
         [uid]
       );
     }
@@ -2978,8 +2978,8 @@ Email verified! You can close this tab or hit the back button.
   async function isParentDomainWhitelisted(domain, zid, isWithinIframe, domain_whitelist_override_key) {
     return pgQueryP_readOnly(
       'select * from site_domain_whitelist where site_id = ' +
-      '(select site_id from users where uid = ' +
-      '(select owner from conversations where zid = ($1)));',
+        '(select site_id from users where uid = ' +
+        '(select owner from conversations where zid = ($1)));',
       [zid]
     ).then(function (rows) {
       logger.debug('isParentDomainWhitelisted', { domain, zid, isWithinIframe });
