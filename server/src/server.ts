@@ -693,6 +693,15 @@ function initializePolisHelpers() {
               });
             });
           }
+          if (conv.use_xid_whitelist) {
+            return isXidWhitelisted(zid, uid).then((is_whitelisted: boolean) => {
+              if (is_whitelisted) {
+                return conv;
+              } else {
+                throw 'polis_err_xid_not_whitelisted';
+              }
+            });
+          }
           return conv;
         })
         .then(function (conv: any) {
@@ -8010,6 +8019,8 @@ Email verified! You can close this tab or hit the back button.
           fail(res, 403, "polis_err_conversation_is_closed", err);
         } else if (err === "polis_err_post_votes_social_needed") {
           fail(res, 403, "polis_err_post_votes_social_needed", err);
+        } else if (err === 'polis_err_xid_not_whitelisted') {
+          fail(res, 403, 'polis_err_xid_not_whitelisted', err);
         } else {
           fail(res, 500, "polis_err_vote", err);
         }
