@@ -366,6 +366,8 @@ module.exports = Handlebones.ModelView.extend({
         that.model.set({
           needSocial: true,
         });
+      } else if (err && err.responseText === "polis_err_xid_not_whitelisted") {
+        alert("Sorry, you must be registered to vote. Please sign in or contact the conversation owner.");
       } else {
         alert("Apologies, your vote failed to send. Please check your connection and try again.");
       }

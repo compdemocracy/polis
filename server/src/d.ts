@@ -203,6 +203,7 @@ export type Vote = {
   pid: any;
   lang: any;
   tid: any;
+  xid: any;
   vote: any;
   weight: any;
   starred: any;
