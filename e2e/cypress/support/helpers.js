@@ -39,7 +39,7 @@ const locales = {
   da: 'da_dk',
   de: 'de_de',
   en: 'en_us',
-  el: 'el',
+  el: 'gr',
   es: 'es_la',
   fa: 'fa',
   fr: 'fr',
