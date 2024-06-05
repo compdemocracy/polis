@@ -28,6 +28,10 @@ describe('Interface internationalization', function () {
     checkTranslation('de', this.convoId)
   })
 
+  it('translates into Greek', function () {
+    checkTranslation('el', this.convoId)
+  })
+
   it('translates into English', function () {
     checkTranslation('en', this.convoId)
   })
@@ -46,10 +50,6 @@ describe('Interface internationalization', function () {
 
   it('translates into Frisian', function () {
     checkTranslation('fy', this.convoId)
-  })
-
-  it('translates into Greek', function () {
-    checkTranslation('gr', this.convoId)
   })
 
   it('translates into Hebrew', function () {
