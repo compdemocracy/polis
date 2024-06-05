@@ -4,68 +4,59 @@ var preloadHelper = require("./util/preloadHelper");
 var Utils = require("./util/utils");
 
 var translations = {
-  en_us: require("./strings/en_us.js"),
-  // ja:  require("./strings/ja.js"),
-
-  // zh-Hant is Traditional Chinese (TW, MO and HK can use the same file.)
-  zh_Hant: require("./strings/zh_Hant.js"),
-
-  // zh-Hans is Simplified Chinese. (CN, SG and MY can use the same file.)
-  zh_Hans: require("./strings/zh_Hans.js"),
-
-  // Danish
-  da: require("./strings/da_dk.js"),
-
-  // German
-  de: require("./strings/de_de.js"),
-
-  // Spanish
-  es: require("./strings/es_la.js"),
-
-  // Farsi
-  fa: require("./strings/fa.js"),
-
-  // French
-  fr: require("./strings/fr.js"),
-
-  // Italian
-  it: require("./strings/it.js"),
-
-  // Dutch
-  nl: require("./strings/nl.js"),
-
-  // Brazilian Portuguese (all portuguese speakers are temporarily using the same file.)
-  pt_br: require("./strings/pt_br.js"),
-
-  // Japanese
-  ja: require("./strings/ja.js"),
-
-  // Croatian
-  hr: require("./strings/hr.js"),
-
-  // Slovak
-  sk: require("./strings/sk.js"),
-
-  // Hebrew
-  he: require("./strings/he.js"),
-
-  // Welsh
-  cy: require("./strings/cy.js"),
-
-  // Greek
-  gr: require("./strings/gr.js"),
-
-  // Ukrainian
-  uk: require("./strings/uk.js"),
-
-  // Russian
-  ru: require("./strings/ru.js"),
-
-  // Romanian & Moldovan
-  ro: require("./strings/ro.js"),
-
   // Arabic
   ar: require("./strings/ar.js"),
+  // Welsh
+  cy: require("./strings/cy.js"),
+  // Danish
+  da: require("./strings/da_dk.js"),
+  // German
+  de: require("./strings/de_de.js"),
+  // English
+  en_us: require("./strings/en_us.js"),
+  // Spanish
+  es: require("./strings/es_la.js"),
+  // Farsi
+  fa: require("./strings/fa.js"),
+  // French
+  fr: require("./strings/fr.js"),
+  // Frisian
+  fy: require("./strings/fy_nl.js"),
+  // Greek (Should this be 'el'?)
+  gr: require("./strings/gr.js"),
+  // Hebrew
+  he: require("./strings/he.js"),
+  // Croatian
+  hr: require("./strings/hr.js"),
+  // Italian
+  it: require("./strings/it.js"),
+  // Japanese
+  ja: require("./strings/ja.js"),
+  // Dutch
+  nl: require("./strings/nl.js"),
+  // Portuguese
+  // Brazilian Portuguese (all portuguese speakers are temporarily using the same file.)
+  pt_br: require("./strings/pt_br.js"),
+  // Portuguese (Timor-Leste)
+  pt_tl: require("./strings/pt_tl.js"),
+  // Romanian & Moldovan
+  ro: require("./strings/ro.js"),
+  // Russian
+  ru: require("./strings/ru.js"),
+  // Slovak
+  sk: require("./strings/sk.js"),
+  // Tamil
+  ta: require("./strings/ta.js"),
+  // Tetum (Timor)
+  tdt: require("./strings/tdt.js"),
+  // Ukrainian
+  uk: require("./strings/uk.js"),
+  // Chinese
+  // zh-Hans is Simplified Chinese. (CN, SG and MY can use the same file.)
+  zh_Hans: require("./strings/zh_Hans.js"),
+  // Chinese (Taiwan)
+  // zh-Hant is Traditional Chinese (TW, MO and HK can use the same file.)
+  zh_Hant: require("./strings/zh_Hant.js"),
 };
 
 

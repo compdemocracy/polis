@@ -12,6 +12,10 @@ describe('Interface internationalization', function () {
     cy.ensureConversation()
   })
 
+  it('translates into Arabic', function () {
+    checkTranslation('ar', this.convoId)
+  })
+
   it('translates into Welsh', function () {
     checkTranslation('cy', this.convoId)
   })
@@ -38,6 +42,10 @@ describe('Interface internationalization', function () {
 
   it('translates into French', function () {
     checkTranslation('fr', this.convoId)
+  })
+
+  it('translates into Frisian', function () {
+    checkTranslation('fy', this.convoId)
   })
 
   it('translates into Greek', function () {
@@ -68,12 +76,24 @@ describe('Interface internationalization', function () {
     checkTranslation('pt', this.convoId)
   })
 
+  it('translates into Romanian', function () {
+    checkTranslation('ro', this.convoId)
+  })
+
   it('translates into Russian', function () {
     checkTranslation('ru', this.convoId)
   })
 
   it('translates into Slovak', function () {
     checkTranslation('sk', this.convoId)
+  })
+
+  it('translates into Tamil', function () {
+    checkTranslation('ta', this.convoId)
+  })
+
+  it('translates into Tetum', function () {
+    checkTranslation('tdt', this.convoId)
   })
 
   it('translates into Ukrainian', function () {
