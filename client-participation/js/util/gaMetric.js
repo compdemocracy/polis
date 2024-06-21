@@ -45,6 +45,10 @@ const methodToEventMap = {
 };
 
 function routeEvent(routerMethod, methodArgs) {
+  if (!Constants.GA_TRACKING_ID) {
+    return;
+  }
+
   const event = methodToEventMap[routerMethod];
   
   // check for demo
