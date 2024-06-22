@@ -6,7 +6,6 @@ var Backbone = require("backbone");
 var bbFetch = require("../net/bbFetch");
 var ConversationModel = require("../models/conversation");
 var eb = require("../eventBus");
-// var gaEvent = require("../util/gaMetric").gaEvent;
 var metric = require("../util/gaMetric");
 var ParticipantModel = require("../models/participant");
 var ParticipationView = require("../views/participation");
@@ -15,23 +14,20 @@ var preloadHelper = require("../util/preloadHelper");
 var RootView = require("../views/root");
 var Constants = require("../util/constants");
 var SettingsView = require("../views/settings.js");
-
 var UserModel = require("../models/user");
 var Utils = require("../util/utils");
 var hasEmail = require("../util/polisStorage").hasEmail;
 
-
 var match = window.location.pathname.match(/ep1_[0-9A-Za-z]+$/);
 var encodedParams = match ? match[0] : void 0;
 
-var routeEvent = metric.routeEvent;
-
 var authenticatedDfd = $.Deferred();
 authenticatedDfd.done(function() {
-  // link uid to GA userId
+  // link uid to GA user_id
   // TODO update this whenever auth changes
   if (Constants.GA_TRACKING_ID) {
-    gtag('set', 'userId', PolisStorage.uid() || PolisStorage.uidFromCookie());
+    const userId = PolisStorage.uid() || PolisStorage.uidFromCookie();
+    gtag('config', Constants.GA_USER_ID, {'user_id': userId});
   }
 });
 
@@ -85,11 +81,10 @@ var polisRouter = Backbone.Router.extend({
     }
 
   }, // end initialize
-  r: function(pattern, methodNameToCall) {
-    var that = this;
-    this.route(pattern, function() {
-      routeEvent(methodNameToCall, arguments);
-      that[methodNameToCall].apply(that, arguments);
+  r(pattern, methodNameToCall) {
+    this.route(pattern, (...args) => {
+      metric.routeEvent(methodNameToCall, args);
+      this[methodNameToCall].apply(this, args);
     });
   },
   bail: function() {

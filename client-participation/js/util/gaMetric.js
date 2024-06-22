@@ -3,72 +3,78 @@
 var _ = require("underscore");
 var Constants = require("./constants");
 
-// Mapping of routing information to GA analytic tags (category, action, etc). By default "action"
-// is the method name. XXX: In the future, if we change method names should make this more uniform
-// so GA remains consistent; maybe integrating the GA data directly into the router?
-var methodToEventMap = {
-  createConversation: ["Ownering"],
-  participationView: ["Participation", "land"],
-  createUser: ["SignUp"],
-  // XXX - currently emmited from view
-  //login: ["Session"],
-  //logout: ["Session"],
-  createUserViewFromEinvite: ["Signup", "submit", "createUserViewFromEinvite"], // ???
-  settings: ["Account"],
-  inbox: ["Inbox", "land"],
-  faq: ["Learning"],
-  pwresetinit: ["Account"],
-  pwReset: ["Account"],
-  prototype: [], // ???
-  landingPageView: ["Lander", "land"],
-  participationViewWithSuzinvite: ["Participation", "land"],
-  demoConversation: ["Demo"],
-  shareView: ["Ownering"],
-  moderationView: ["Ownering"]
+// Mapping of routing information to GA analytic tags.
+// Each key maps to an object that contains category and action to match gtag parameters.
+const methodToEventMap = {
+  createConversation: {
+    category: "Owner",
+    action: "createConversation"
+  },
+  createUser: {
+    category: "SignUp",
+    action: "createUser"
+  },
+  createUserViewFromEinvite: {
+    category: "SignUp",
+    action: "createUserViewFromEinvite"
+  },
+  demoConversation: {
+    category: "Demo",
+    action: "demoConversation"
+  },
+  inbox: {
+    category: "Inbox",
+    action: "inbox"
+  },
+  landingPageView: {
+    category: "Landing",
+    action: "landingPageView"
+  },
+  participationView: {
+    category: "Participation",
+    action: "participationView"
+  },
+  participationViewWithSuzinvite: {
+    category: "Participation",
+    action: "participationViewWithSuzinvite"
+  },
+  settings: {
+    category: "Account",
+    action: "settings"
+  }
 };
 
-// Elsewhere:
-// SignUp, land
-// SignUp, emailSubmitted, general|edu
-// SignUp, emailSubmitFail
-// SignUp, done
-// Lander, land, general|edu
-// Session, land
-// Session, create, signIn|signUp|empty
-// Session, createFail, signIn|signUp|polis_err_no_matching_suzinvite
-//
-
-function gaEvent() {
-  // Sends all arguments to a gtag('event', __) partial
-  if (Constants.GA_TRACKING_ID) {
-    ga_ = _.partial(gtag, 'event');
-    ga_.apply(window, arguments);
+function routeEvent(routerMethod, methodArgs) {
+  if (!Constants.GA_TRACKING_ID) {
+    return;
   }
-}
 
-function routeEvent(methodNameToCall, methodArgs) {
+  const event = methodToEventMap[routerMethod];
+  
   // check for demo
-  var loc = document.location + "";
-  if (loc.match(/\/2demo/)) {
-    gaEvent("Demo", "land", loc);
+  if (window.location.href.match(/\/2demo/)) {
+    gtag('event', routerMethod, {
+      'event_category': 'Demo'
+    })
+    return;
+  }
+
+  // First parameter, if any, passed to the router method
+  const param = methodArgs ? methodArgs[0] : null;
+
+  if (event) {
+    gtag('event', event.action, {
+      'event_category': event.category,
+      'event_param': param
+    });
   } else {
-    var args = methodToEventMap[methodNameToCall];
-    if (args) {
-      if (args.length < 2) {
-        // Apply action default as described above methodToEventMap
-        args.push(methodNameToCall);
-      }
-      if (args[0] === "Participation" || args[0] === "Demo") {
-        // XXX - need to be careful in future if we introduce more Participation category actions that trigger
-        // from routes
-        args.push(methodArgs[0]);
-      }
-      gaEvent.apply(window, args);
-    }
+    gtag('event', routerMethod, {
+      'event_category': 'Uncategorized',
+      'event_param': param
+    });
   }
 }
 
 module.exports = {
-  gaEvent: gaEvent,
   routeEvent: routeEvent
 };
