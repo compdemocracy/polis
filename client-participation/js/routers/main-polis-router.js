@@ -27,7 +27,7 @@ authenticatedDfd.done(function() {
   // TODO update this whenever auth changes
   if (Constants.GA_TRACKING_ID) {
     const userId = PolisStorage.uid() || PolisStorage.uidFromCookie();
-    gtag('config', Constants.GA_USER_ID, {'user_id': userId});
+    gtag('set', 'user_properties', {'user_id': userId});
   }
 });
 
