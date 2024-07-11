@@ -3,32 +3,28 @@
 import $ from 'jquery'
 
 import React from 'react'
-import ReactDOM from 'react-dom'
 import { Provider } from 'react-redux'
 
 import configureStore from './store'
-import { ThemeProvider } from 'theme-ui'
+import { ThemeUIProvider } from 'theme-ui'
 import theme from './theme'
 import App from './app'
 
-import { BrowserRouter as Router, Route } from 'react-router-dom'
+import { BrowserRouter, Route } from 'react-router-dom'
+import { createRoot } from 'react-dom/client';
 
 const store = configureStore()
 
-class Root extends React.Component {
-  render() {
-    return (
-      <ThemeProvider theme={theme}>
-        <Provider store={store}>
-          <Router>
-            <Route render={(routeProps) => <App {...routeProps} />}></Route>
-          </Router>
-        </Provider>
-      </ThemeProvider>
-    )
-  }
-}
+const root = createRoot(document.getElementById("root"));
+
+root.render(
+  <ThemeUIProvider theme={theme}>
+    <Provider store={store}>
+      <BrowserRouter>
+        <Route render={(routeProps) => <App {...routeProps} />}></Route>
+      </BrowserRouter>
+    </Provider>
+  </ThemeUIProvider>
+)
 
 window.$ = $
-
-ReactDOM.render(<Root />, document.getElementById('root'))
