@@ -7,7 +7,9 @@ import Logomark from './framework/logomark'
 class InteriorHeader extends React.Component {
   render() {
     return (
-      <Box>
+      <Box sx={{
+        width: '100%',
+      }}>
         <Box
           sx={{
             width: '100%',

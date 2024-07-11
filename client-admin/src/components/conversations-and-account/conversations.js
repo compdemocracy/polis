@@ -103,17 +103,17 @@ class Conversations extends React.Component {
                 err.statusText}
             </Text>
           ) : null}
-          {conversations
+          {Array.isArray(conversations)
             ? conversations.map((c, i) => {
-                return this.filterCheck(c) ? (
-                  <Conversation
-                    key={c.conversation_id}
-                    c={c}
-                    i={i}
-                    goToConversation={this.goToConversation(c.conversation_id)}
-                  />
-                ) : null
-              })
+              return this.filterCheck(c) ? (
+                <Conversation
+                  key={c.conversation_id}
+                  c={c}
+                  i={i}
+                  goToConversation={this.goToConversation(c.conversation_id)}
+                />
+              ) : null
+            })
             : null}
         </Box>
       </Box>

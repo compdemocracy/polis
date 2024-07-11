@@ -173,7 +173,7 @@ class App extends React.Component {
                   return null
                 }
                 return (
-                  <Flex>
+                  <Flex sx={{ flexWrap: 'wrap' }}>
                     <Box sx={{ mr: [5], p: [4], flex: '0 0 auto' }}>
                       <Box sx={{ mb: [3] }}>
                         <Link sx={{ variant: 'links.nav' }} to={`/`}>
@@ -191,13 +191,17 @@ class App extends React.Component {
                         </Link>
                       </Box>
                     </Box>
-                    <Box
+                    <Flex
                       sx={{
-                        p: [4],
-                        flex: '0 0 auto',
+                        flexGrow: 1,
+                        justifyContent: 'center',
                         maxWidth: '35em',
+                        p: [4],
                         mx: [4]
-                      }}>
+
+                      }}
+                    >
+                      <Box>
                       <PrivateRoute
                         isLoading={this.isLoading()}
                         authed={this.isAuthed()}
@@ -227,6 +231,7 @@ class App extends React.Component {
                         component={Integrate}
                       />
                     </Box>
+                    </Flex>
                   </Flex>
                 )
               }}
