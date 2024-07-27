@@ -25,7 +25,14 @@ class Comment extends React.Component {
 
   render() {
     return (
-      <Card sx={{ mb: [3], minWidth: '35em' }}>
+      <Card
+        sx={{
+          mb: [3],
+          width: '35em',
+          maxWidth: '100%',
+          boxShadow: this.props.currentItem ? 'lightseagreen 0px 0px 16px;' : ''
+        }}
+        className={this.props.currentItem ? 'current-item' : ''}>
         <Box>
           <Text sx={{ mb: [3] }}>{this.props.comment.txt}</Text>
           <Flex
@@ -85,7 +92,8 @@ Comment.propTypes = {
   comment: PropTypes.shape({
     txt: PropTypes.string,
     is_meta: PropTypes.bool
-  })
+  }),
+  currentItem: PropTypes.bool
 }
 
 export default Comment
