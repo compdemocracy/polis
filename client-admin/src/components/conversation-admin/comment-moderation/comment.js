@@ -3,7 +3,7 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
-import { Flex, Box, Text, Button, Card, Link } from 'theme-ui'
+import { Flex, Text, Button, Card, Link } from 'theme-ui'
 
 @connect((state) => {
   return {
@@ -26,18 +26,18 @@ class Comment extends React.Component {
   render() {
     return (
       <Card sx={{ mb: [3], width: '35em', maxWidth: '100%' }}>
-        <Box>
+        <Flex sx={{ flexDirection: 'column' }}>
           <Text sx={{ mb: [3] }}>{this.props.comment.txt}</Text>
           <Flex
             sx={{
               justifyContent: 'space-between',
               alignItems: 'center',
-              width: '100%'
+              width: '100%',
+              flexWrap: 'wrap'
             }}>
-            <Box>
+            <Flex sx={{ gap: '1rem', flexWrap: 'wrap' }} className='buttons'>
               {this.props.acceptButton ? (
                 <Button
-                  sx={{ mr: [3] }}
                   onClick={this.onAcceptClicked.bind(this)}>
                   {this.props.acceptButtonText}
                 </Button>
@@ -47,7 +47,7 @@ class Comment extends React.Component {
                   {this.props.rejectButtonText}
                 </Button>
               ) : null}
-            </Box>
+            </Flex>
             <Flex sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
               <Link
                 target="_blank"
@@ -66,7 +66,7 @@ class Comment extends React.Component {
               ) : null}
             </Flex>
           </Flex>
-        </Box>
+        </Flex>
       </Card>
     )
   }
