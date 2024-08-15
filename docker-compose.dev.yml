@@ -32,10 +32,10 @@ services:
     environment:
       CHOKIDAR_USEPOLLING: "true"
 
-  postgres:
-    restart: no
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+  # postgres:
+  #   restart: no
+  #   ports:
+  #     - "${POSTGRES_PORT:-5432}:5432"
 
   file-server:
     build:
