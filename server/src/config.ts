@@ -62,6 +62,8 @@ export default {
   adminEmails: process.env.ADMIN_EMAILS || '[]' as string,
   adminUIDs: process.env.ADMIN_UIDS || '[]' as string,
   akismetAntispamApiKey: process.env.AKISMET_ANTISPAM_API_KEY || null as string | null,
+  googleJigsawPerspectiveApiKey:
+    process.env.GOOGLE_JIGSAW_PERSPECTIVE_API_KEY || (null as string | null),
   awsRegion: process.env.AWS_REGION as string,
   backfillCommentLangDetection: isTrue(process.env.BACKFILL_COMMENT_LANG_DETECTION) as boolean,
   cacheMathResults: isTrueOrBlank(process.env.CACHE_MATH_RESULTS) as boolean,
