@@ -13,6 +13,7 @@ import async from "async";
 // npm list types-at-fb
 // @ts-ignore
 import FB from "fb";
+import { google } from "googleapis";
 import fs from "fs";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
