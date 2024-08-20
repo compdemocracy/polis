@@ -5,7 +5,7 @@
 import akismetLib from "akismet";
 import AWS from "aws-sdk";
 import badwords from "badwords/object";
-import Promise from "bluebird";
+import { Promise as BluebirdPromise } from "bluebird";
 import http from "http";
 import httpProxy from "http-proxy";
 // const Promise = require('es6-promise').Promise,
@@ -125,11 +125,11 @@ const resolveWith = (x: { body?: { user_id: string } }) => {
 // };
 
 if (devMode) {
-  Promise.longStackTraces();
+  BluebirdPromise.longStackTraces();
 }
 
 // Bluebird uncaught error handler.
-Promise.onPossiblyUnhandledRejection(function (err: any) {
+BluebirdPromise.onPossiblyUnhandledRejection(function (err: any) {
   logger.error("onPossiblyUnhandledRejection", err);
   // throw err; // not throwing since we're printing stack traces anyway
 });
@@ -4309,7 +4309,7 @@ Email verified! You can close this tab or hit the back button.
               // @ts-ignore
               pid_to_ptpt[c.pid] = c;
             });
-            return Promise.mapSeries(
+            return BluebirdPromise.mapSeries(
               candidates,
               (item: { zid: any; pid: any }, index: any, length: any) => {
                 return getNumberOfCommentsRemaining(item.zid, item.pid).then(
@@ -4409,7 +4409,7 @@ Email verified! You can close this tab or hit the back button.
                   }
                 );
 
-                return Promise.each(
+                return BluebirdPromise.each(
                   needNotification,
                   (
                     item: { pid: string | number; remaining: any },
