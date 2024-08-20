@@ -115,7 +115,6 @@ const resolveWith = (x: { body?: { user_id: string } }) => {
   return Promise.resolve(x);
 };
 
-
 //var SegfaultHandler = require('segfault-handler');
 
 //SegfaultHandler.registerHandler("segfault.log");
@@ -131,17 +130,13 @@ if (devMode) {
 
 // Bluebird uncaught error handler.
 Promise.onPossiblyUnhandledRejection(function (err: any) {
-  logger.error('onPossiblyUnhandledRejection', err);
+  logger.error("onPossiblyUnhandledRejection", err);
   // throw err; // not throwing since we're printing stack traces anyway
 });
 
-const adminEmails = Config.adminEmails
-  ? JSON.parse(Config.adminEmails)
-  : [];
+const adminEmails = Config.adminEmails ? JSON.parse(Config.adminEmails) : [];
 
-const polisDevs = Config.adminUIDs
-  ? JSON.parse(Config.adminUIDs)
-  : [];
+const polisDevs = Config.adminUIDs ? JSON.parse(Config.adminUIDs) : [];
 
 function isPolisDev(uid?: any) {
   return polisDevs.indexOf(uid) >= 0;
@@ -612,7 +607,7 @@ function initializePolisHelpers() {
     conv?: { zid: any },
     tid?: any,
     voteType?: any,
-    weight?: number,
+    weight?: number
   ) {
     let zid = conv?.zid;
     weight = weight || 0;
@@ -652,7 +647,7 @@ function initializePolisHelpers() {
     tid?: any,
     xid?: any,
     voteType?: any,
-    weight?: number,
+    weight?: number
   ) {
     return (
       pgQueryP_readOnly("select * from conversations where zid = ($1);", [zid])
@@ -696,25 +691,20 @@ function initializePolisHelpers() {
             });
           }
           if (conv.use_xid_whitelist) {
-            return isXidWhitelisted(conv.owner, xid).then((is_whitelisted: boolean) => {
-              if (is_whitelisted) {
-                return conv;
-              } else {
-                throw 'polis_err_xid_not_whitelisted';
+            return isXidWhitelisted(conv.owner, xid).then(
+              (is_whitelisted: boolean) => {
+                if (is_whitelisted) {
+                  return conv;
+                } else {
+                  throw "polis_err_xid_not_whitelisted";
+                }
               }
-            });
+            );
           }
           return conv;
         })
         .then(function (conv: any) {
-          return doVotesPost(
-            uid,
-            pid,
-            conv,
-            tid,
-            voteType,
-            weight,
-          );
+          return doVotesPost(uid, pid, conv, tid, voteType, weight);
         })
     );
   }
@@ -777,10 +767,17 @@ function initializePolisHelpers() {
   }
 
   function redirectIfNotHttps(
-    req: { headers: { [x: string]: string; host: string }; method: string; path: string; url: string },
+    req: {
+      headers: { [x: string]: string; host: string };
+      method: string;
+      path: string;
+      url: string;
+    },
     res: {
       end: () => any;
-      status: (arg0: number) => {
+      status: (
+        arg0: number
+      ) => {
         send: (arg0: string) => any;
       };
       writeHead: (arg0: number, arg1: { Location: string }) => void;
@@ -788,23 +785,23 @@ function initializePolisHelpers() {
     next: () => any
   ) {
     // Exempt dev mode or healthcheck path from HTTPS check
-    if (devMode || req.path === '/api/v3/testConnection') {
+    if (devMode || req.path === "/api/v3/testConnection") {
       return next();
     }
 
     // Check if the request is already HTTPS
-    const isHttps = req.headers['x-forwarded-proto'] === 'https';
+    const isHttps = req.headers["x-forwarded-proto"] === "https";
 
     if (!isHttps) {
-      logger.debug('redirecting to https', { headers: req.headers });
+      logger.debug("redirecting to https", { headers: req.headers });
       // Only redirect GET requests; otherwise, send a 400 error for non-GET methods
-      if (req.method === 'GET') {
+      if (req.method === "GET") {
         res.writeHead(302, {
-          Location: `https://${req.headers.host}${req.url}`
+          Location: `https://${req.headers.host}${req.url}`,
         });
         return res.end();
       } else {
-        res.status(400).send('Please use HTTPS when submitting data.');
+        res.status(400).send("Please use HTTPS when submitting data.");
       }
     }
     return next();
@@ -1681,7 +1678,7 @@ function initializePolisHelpers() {
     });
   }
   function redirectIfHasZidButNoConversationId(
-    req: { body: { zid: any; conversation_id: any }, headers?: any },
+    req: { body: { zid: any; conversation_id: any }; headers?: any },
     res: {
       writeHead: (arg0: number, arg1: { Location: string }) => void;
       end: () => any;
@@ -2369,7 +2366,8 @@ function initializePolisHelpers() {
             );
           }
         );
-      });
+      }
+    );
   }
 
   const getServerNameWithProtocol = Config.getServerNameWithProtocol;
@@ -2408,7 +2406,12 @@ function initializePolisHelpers() {
             server,
             function (err: any) {
               if (err) {
-                fail(res, 500, "Error: Couldn't send password reset email.", err);
+                fail(
+                  res,
+                  500,
+                  "Error: Couldn't send password reset email.",
+                  err
+                );
                 return;
               }
               finish();
@@ -2471,7 +2474,7 @@ Feel free to reply to this email if you need help.`;
   ) {
     res?.clearCookie?.(cookieName, {
       path: "/",
-      domain: cookies.cookieDomain(req)
+      domain: cookies.cookieDomain(req),
     });
   }
 
@@ -3720,12 +3723,14 @@ ${serverName}/pwreset/${pwresettoken}
           userInfo.email,
           "Polis Password Reset",
           body
-        ).then(function () {
-          callback?.();
-        }).catch(function (err: any) {
-          logger.error("polis_err_failed_to_email_password_reset_code", err);
-          callback?.(err);
-        });
+        )
+          .then(function () {
+            callback?.();
+          })
+          .catch(function (err: any) {
+            logger.error("polis_err_failed_to_email_password_reset_code", err);
+            callback?.(err);
+          });
       }
     );
   }
@@ -4742,9 +4747,10 @@ Email verified! You can close this tab or hit the back button.
                   // lti_user_image: any; lti_context_id: any; tool_consumer_instance_guid?: any; afterJoinRedirectUrl: any; }; }' but required in type
                   // '{ cookies: { [x: string]: any; }; }'.ts(2345)
                   // @ts-ignore
-                  addCookies(req, res, token, uid).then(function () {
-                    res.json(response_data);
-                  })
+                  addCookies(req, res, token, uid)
+                    .then(function () {
+                      res.json(response_data);
+                    })
                     .catch(function (err: any) {
                       fail(res, 500, "polis_err_adding_cookies", err);
                     });
@@ -5272,7 +5278,11 @@ Email verified! You can close this tab or hit the back button.
       //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
       // @ts-ignore
     ).then(function (rows: string | any[]) {
-      logger.debug("isParentDomainWhitelisted", { domain, zid, isWithinIframe });
+      logger.debug("isParentDomainWhitelisted", {
+        domain,
+        zid,
+        isWithinIframe,
+      });
       if (!rows || !rows.length || !rows[0].domain_whitelist.length) {
         // there is no whitelist, so any domain is ok.
         logger.debug("isParentDomainWhitelisted : no whitelist");
@@ -6374,7 +6384,6 @@ Email verified! You can close this tab or hit the back button.
   const _getCommentsList = Comment._getCommentsList;
   const getNumberOfCommentsRemaining = Comment.getNumberOfCommentsRemaining;
 
-
   function handle_GET_participation(
     req: { p: { zid: any; uid?: any; strict: any } },
     res: {
@@ -7121,7 +7130,7 @@ Email verified! You can close this tab or hit the back button.
             logger.debug("Post comments quote_txt", { txt, quote_txt });
             txt = quote_txt;
           } else {
-            logger.debug("Post comments txt", {zid, pid, txt});
+            logger.debug("Post comments txt", { zid, pid, txt });
           }
 
           let ip =
@@ -7158,26 +7167,28 @@ Email verified! You can close this tab or hit the back button.
               !_.isUndefined(xid) && !_.isNull(xid)
                 ? getXidStuff(xid, zid)
                 : Promise.resolve();
-            pidPromise = xidUserPromise.then((xidUser: UserType | "noXidRecord") => {
-              shouldCreateXidRecord = xidUser === "noXidRecord";
-              if (typeof xidUser === 'object') {
-                uid = xidUser.uid;
-                pid = xidUser.pid;
-                return pid;
-              } else {
-                return doGetPid().then((pid: any) => {
-                  if (shouldCreateXidRecord) {
-                    // Expected 6 arguments, but got 3.ts(2554)
-                    // conversation.ts(34, 3): An argument for 'x_profile_image_url' was not provided.
-                    // @ts-ignore
-                    return createXidRecordByZid(zid, uid, xid).then(() => {
-                      return pid;
-                    });
-                  }
+            pidPromise = xidUserPromise.then(
+              (xidUser: UserType | "noXidRecord") => {
+                shouldCreateXidRecord = xidUser === "noXidRecord";
+                if (typeof xidUser === "object") {
+                  uid = xidUser.uid;
+                  pid = xidUser.pid;
                   return pid;
-                });
+                } else {
+                  return doGetPid().then((pid: any) => {
+                    if (shouldCreateXidRecord) {
+                      // Expected 6 arguments, but got 3.ts(2554)
+                      // conversation.ts(34, 3): An argument for 'x_profile_image_url' was not provided.
+                      // @ts-ignore
+                      return createXidRecordByZid(zid, uid, xid).then(() => {
+                        return pid;
+                      });
+                    }
+                    return pid;
+                  });
+                }
               }
-            });
+            );
           }
 
           let commentExistsPromise = commentExists(zid, txt);
@@ -7238,16 +7249,22 @@ Email verified! You can close this tab or hit the back button.
                   if (bad && conv.profanity_filter) {
                     active = false;
                     classifications.push("bad");
-                    logger.info("active=false because (bad && conv.profanity_filter)");
+                    logger.info(
+                      "active=false because (bad && conv.profanity_filter)"
+                    );
                   }
                   if (spammy && conv.spam_filter) {
                     active = false;
                     classifications.push("spammy");
-                    logger.info("active=false because (spammy && conv.spam_filter)");
+                    logger.info(
+                      "active=false because (spammy && conv.spam_filter)"
+                    );
                   }
                   if (conv.strict_moderation) {
                     active = false;
-                    logger.info("active=false because (conv.strict_moderation)");
+                    logger.info(
+                      "active=false because (conv.strict_moderation)"
+                    );
                   }
 
                   let mod = 0; // hasn't yet been moderated.
@@ -7376,7 +7393,12 @@ Email verified! You can close this tab or hit the back button.
                       function (err: { code: string | number }) {
                         if (err.code === "23505" || err.code === 23505) {
                           // duplicate comment
-                          fail(res, 409, "polis_err_post_comment_duplicate", err);
+                          fail(
+                            res,
+                            409,
+                            "polis_err_post_comment_duplicate",
+                            err
+                          );
                         } else {
                           fail(res, 500, "polis_err_post_comment", err);
                         }
@@ -7504,8 +7526,11 @@ Email verified! You can close this tab or hit the back button.
       let comments = results[0];
       let math = results[1];
       let numberOfCommentsRemainingRows = results[2];
-      logger.debug("getNextPrioritizedComment intermediate results:",
-                   {zid, pid, numberOfCommentsRemainingRows});
+      logger.debug("getNextPrioritizedComment intermediate results:", {
+        zid,
+        pid,
+        numberOfCommentsRemainingRows,
+      });
       if (!comments || !comments.length) {
         return null;
       } else if (
@@ -7960,7 +7985,7 @@ Email verified! You can close this tab or hit the back button.
               req.p.tid,
               req.p.xid,
               req.p.vote,
-              req.p.weight,
+              req.p.weight
             );
           })
           .then(function (o: { vote: any }) {
@@ -7984,7 +8009,11 @@ Email verified! You can close this tab or hit the back button.
             return getNextComment(zid, pid, [], true, lang);
           })
           .then(function (nextComment: any) {
-            logger.debug("handle_POST_votes nextComment:", {zid, pid, nextComment});
+            logger.debug("handle_POST_votes nextComment:", {
+              zid,
+              pid,
+              nextComment,
+            });
             let result: PidReadyResult = {};
             if (nextComment) {
               result.nextComment = nextComment;
@@ -8023,8 +8052,8 @@ Email verified! You can close this tab or hit the back button.
           fail(res, 403, "polis_err_conversation_is_closed", err);
         } else if (err === "polis_err_post_votes_social_needed") {
           fail(res, 403, "polis_err_post_votes_social_needed", err);
-        } else if (err === 'polis_err_xid_not_whitelisted') {
-          fail(res, 403, 'polis_err_xid_not_whitelisted', err);
+        } else if (err === "polis_err_xid_not_whitelisted") {
+          fail(res, 403, "polis_err_xid_not_whitelisted", err);
         } else {
           fail(res, 500, "polis_err_vote", err);
         }
@@ -8461,7 +8490,7 @@ Email verified! You can close this tab or hit the back button.
         pgQueryP(
           "update conversations set is_active = false where zid = ($1);",
           [conv.zid]
-        )
+        );
       })
       .catch(function (err: any) {
         fail(res, 500, "polis_err_closing_conversation", err);
@@ -12511,7 +12540,6 @@ Thanks for using Polis!
     });
   }
 
-
   function handle_POST_einvites(
     req: { p: { email: any } },
     res: {
@@ -13537,7 +13565,8 @@ Thanks for using Polis!
 
   // serve up index.html in response to anything starting with a number
   let hostname: string = Config.staticFilesHost;
-  let staticFilesParticipationPort: number = Config.staticFilesParticipationPort;
+  let staticFilesParticipationPort: number =
+    Config.staticFilesParticipationPort;
   let staticFilesAdminPort: number = Config.staticFilesAdminPort;
   let fetchUnsupportedBrowserPage = makeFileFetcher(
     hostname,
@@ -13612,14 +13641,16 @@ Thanks for using Polis!
   function ifDefinedFirstElseSecond(first: any, second: boolean) {
     return _.isUndefined(first) ? second : first;
   }
-  let fetch404Page = makeFileFetcher(hostname, staticFilesAdminPort, "/404.html", {
-    "Content-Type": "text/html",
-  });
+  let fetch404Page = makeFileFetcher(
+    hostname,
+    staticFilesAdminPort,
+    "/404.html",
+    {
+      "Content-Type": "text/html",
+    }
+  );
 
-  function fetchIndexForConversation(
-    req: { path: string; },
-    res: any
-  ) {
+  function fetchIndexForConversation(req: { path: string }, res: any) {
     logger.debug("fetchIndexForConversation", req.path);
     let match = req.path.match(/[0-9][0-9A-Za-z]+/);
     let conversation_id: any;
@@ -13655,12 +13686,7 @@ Thanks for using Polis!
           conversation: x,
           // Nothing user-specific can go here, since we want to cache these per-conv index files on the CDN.
         };
-        fetchIndex(
-          req,
-          res,
-          preloadData,
-          staticFilesParticipationPort
-        );
+        fetchIndex(req, res, preloadData, staticFilesParticipationPort);
       })
       .catch(function (err: any) {
         logger.error("polis_err_fetching_conversation_info", err);
