@@ -7020,413 +7020,262 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
-  function handle_POST_comments(
-    req: {
-      p: {
-        zid?: any;
-        xid?: any;
-        uid?: any;
-        txt?: any;
-        pid?: any;
-        vote?: any;
-        twitter_tweet_id?: any;
-        quote_twitter_screen_name?: any;
-        quote_txt?: any;
-        quote_src_url?: any;
-        anon?: any;
-        is_seed?: any;
-      };
-      headers?: Headers;
-      connection?: { remoteAddress: any; socket: { remoteAddress: any } };
-      socket?: { remoteAddress: any };
-    },
-    res: { json: (arg0: { tid: any; currentPid: any }) => void }
-  ) {
-    let zid = req.p.zid;
-    let xid = req.p.xid;
-    let uid = req.p.uid;
-    let txt = req.p.txt;
-    let pid = req.p.pid; // PID_FLOW may be undefined
-    let currentPid = pid;
-    let vote = req.p.vote;
-    let twitter_tweet_id = req.p.twitter_tweet_id;
-    let quote_twitter_screen_name = req.p.quote_twitter_screen_name;
-    let quote_txt = req.p.quote_txt;
-    let quote_src_url = req.p.quote_src_url;
-    let anon = req.p.anon;
-    let is_seed = req.p.is_seed;
-    let mustBeModerator = !!quote_txt || !!twitter_tweet_id || anon;
+  interface RequestParams {
+    zid?: string;
+    xid?: string;
+    uid?: string;
+    txt?: string;
+    pid?: string;
+    vote?: number;
+    anon?: boolean;
+    is_seed?: boolean;
+  }
 
-    // either include txt, or a tweet id
-    if (
-      (_.isUndefined(txt) || txt === "") &&
-      (_.isUndefined(twitter_tweet_id) || twitter_tweet_id === "") &&
-      (_.isUndefined(quote_txt) || quote_txt === "")
-    ) {
+  interface CustomRequest extends Request {
+    p: RequestParams;
+  }
+
+  async function handle_POST_comments(
+    req: CustomRequest,
+    res: Response
+  ): Promise<void> {
+    const { zid, xid, uid, txt, pid: initialPid, vote, anon, is_seed } = req.p;
+
+    console.log("============= handle_POST_comments ===========");
+    console.log(zid, xid, uid, txt, initialPid, vote, anon, is_seed);
+    /*
+    2024-08-20 15:44:25 ============= handle_POST_comments ===========
+    2024-08-20 15:44:25 37436 undefined 186 a lovely comment 3 undefined -1 undefined undefined
+    */
+
+    let pid = initialPid;
+    let currentPid = pid;
+    const mustBeModerator = anon;
+
+    if (!txt || txt === "") {
       fail(res, 400, "polis_err_param_missing_txt");
       return;
     }
 
-    if (quote_txt && _.isUndefined(quote_src_url)) {
-      fail(res, 400, "polis_err_param_missing_quote_src_url");
-      return;
+    async function doGetPid(): Promise<number> {
+      if (_.isUndefined(pid)) {
+        const newPid = await getPidPromise(zid!, uid!, true);
+        if (newPid === -1) {
+          const rows = await addParticipant(zid!, uid!);
+          const ptpt = rows[0];
+          pid = ptpt.pid;
+          currentPid = pid;
+          return pid;
+        } else {
+          return newPid;
+        }
+      }
+      return Number(pid);
     }
 
-    function doGetPid() {
-      // PID_FLOW
-      if (_.isUndefined(pid)) {
-        return getPidPromise(req.p.zid, req.p.uid, true).then((pid: number) => {
-          if (pid === -1) {
-            //           Argument of type '(rows: any[]) => number' is not assignable to parameter of type '(value: unknown) => number | PromiseLike<number>'.
-            // Types of parameters 'rows' and 'value' are incompatible.
-            //             Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-            // @ts-ignore
-            return addParticipant(req.p.zid, req.p.uid).then(function (
-              rows: any[]
-            ) {
-              let ptpt = rows[0];
-              pid = ptpt.pid;
-              currentPid = pid;
-              return pid;
-            });
-          } else {
+    try {
+      logger.debug("Post comments txt", { zid, pid, txt });
+
+      const ip =
+        req.headers["x-forwarded-for"] ||
+        req.connection?.remoteAddress ||
+        req.socket?.remoteAddress ||
+        req.connection?.socket?.remoteAddress;
+
+      const isSpamPromise = isSpam({
+        comment_content: txt,
+        comment_author: uid!,
+        permalink: `https://pol.is/${zid}`,
+        user_ip: ip as string,
+        user_agent: req.headers["user-agent"],
+        referrer: req.headers.referer,
+      }).catch((err) => {
+        logger.error("isSpam failed", err);
+        return false;
+      });
+
+      const isModeratorPromise = isModerator(zid!, uid!);
+      const conversationInfoPromise = getConversationInfo(zid!);
+
+      let shouldCreateXidRecord = false;
+
+      const pidPromise = (async () => {
+        if (xid) {
+          const xidUser = await getXidStuff(xid, zid!);
+          shouldCreateXidRecord = xidUser === "noXidRecord";
+          if (typeof xidUser === "object") {
+            uid = xidUser.uid;
+            pid = xidUser.pid;
             return pid;
           }
-        });
+        }
+        const newPid = await doGetPid();
+        if (shouldCreateXidRecord) {
+          await createXidRecordByZid(zid!, uid!, xid!);
+        }
+        return newPid;
+      })();
+
+      const commentExistsPromise = commentExists(zid!, txt);
+
+      const [
+        finalPid,
+        conv,
+        is_moderator,
+        commentExistsAlready,
+        spammy,
+      ] = await Promise.all([
+        pidPromise,
+        conversationInfoPromise,
+        isModeratorPromise,
+        commentExistsPromise,
+        isSpamPromise,
+      ]);
+
+      if (!is_moderator && mustBeModerator) {
+        fail(res, 403, "polis_err_post_comment_auth");
+        return;
       }
-      return Promise.resolve(pid);
-    }
-    let twitterPrepPromise = Promise.resolve();
-    if (twitter_tweet_id) {
-      twitterPrepPromise = prepForTwitterComment(twitter_tweet_id, zid);
-    } else if (quote_twitter_screen_name) {
-      twitterPrepPromise = prepForQuoteWithTwitterUser(
-        quote_twitter_screen_name,
-        zid
+
+      if (finalPid < 0) {
+        fail(res, 500, "polis_err_post_comment_bad_pid");
+        return;
+      }
+
+      if (commentExistsAlready) {
+        fail(res, 409, "polis_err_post_comment_duplicate");
+        return;
+      }
+
+      if (!conv.is_active) {
+        fail(res, 403, "polis_err_conversation_is_closed");
+        return;
+      }
+
+      const bad = hasBadWords(txt);
+
+      const velocity = 1;
+      let active = true;
+      const classifications = [];
+
+      if (bad && conv.profanity_filter) {
+        active = false;
+        classifications.push("bad");
+        logger.info("active=false because (bad && conv.profanity_filter)");
+      }
+      if (spammy && conv.spam_filter) {
+        active = false;
+        classifications.push("spammy");
+        logger.info("active=false because (spammy && conv.spam_filter)");
+      }
+      if (conv.strict_moderation) {
+        active = false;
+        logger.info("active=false because (conv.strict_moderation)");
+      }
+
+      let mod = 0;
+      if (is_moderator && is_seed) {
+        mod = polisTypes.mod.ok;
+        active = true;
+      }
+
+      const [detections] = await Promise.all([detectLanguage(txt)]);
+      const detection = Array.isArray(detections) ? detections[0] : detections;
+      const lang = detection.language;
+      const lang_confidence = detection.confidence;
+
+      const insertedComment = await pgQueryP(
+        `INSERT INTO COMMENTS 
+        (pid, zid, txt, velocity, active, mod, uid, anon, is_seed, created, tid, lang, lang_confidence) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, default, null, $10, $11) 
+        RETURNING *;`,
+        [
+          finalPid,
+          zid,
+          txt,
+          velocity,
+          active,
+          mod,
+          uid,
+          anon || false,
+          is_seed || false,
+          lang,
+          lang_confidence,
+        ]
       );
-    }
 
-    twitterPrepPromise
-      .then(
-        //       No overload matches this call.
-        // Overload 1 of 2, '(onFulfill?: ((value: void) => any) | undefined, onReject?: ((error: any) => any) | undefined): Bluebird<any>', gave the following error.
-        //   Argument of type '(info: { ptpt: any; tweet: any; }) => Bluebird<any>' is not assignable to parameter of type '(value: void) => any'.
-        //     Types of parameters 'info' and 'value' are incompatible.
-        //       Type 'void' is not assignable to type '{ ptpt: any; tweet: any; }'.
-        // Overload 2 of 2, '(onfulfilled?: ((value: void) => any) | null | undefined, onrejected?: ((reason: any) => Resolvable<void>) | null | undefined): Bluebird<any>', gave the following error.
-        //   Argument of type '(info: { ptpt: any; tweet: any; }) => Bluebird<any>' is not assignable to parameter of type '(value: void) => any'.
-        //     Types of parameters 'info' and 'value' are incompatible.
-        //       Type 'void' is not assignable to type '{ ptpt: any; tweet: any; }'.ts(2769)
-        // @ts-ignore
-        function (info: { ptpt: any; tweet: any }) {
-          let ptpt = info && info.ptpt;
-          // let twitterUser = info && info.twitterUser;
-          let tweet = info && info.tweet;
+      const comment = insertedComment[0];
+      const tid = comment.tid;
 
-          if (tweet) {
-            logger.debug("Post comments tweet", { txt, tweetTxt: tweet.txt });
-            txt = tweet.text;
-          } else if (quote_txt) {
-            logger.debug("Post comments quote_txt", { txt, quote_txt });
-            txt = quote_txt;
-          } else {
-            logger.debug("Post comments txt", { zid, pid, txt });
-          }
-
-          let ip =
-            req?.headers?.["x-forwarded-for"] || // TODO This header may contain multiple IP addresses. Which should we report?
-            req?.connection?.remoteAddress ||
-            req?.socket?.remoteAddress ||
-            req?.connection?.socket.remoteAddress;
-
-          let isSpamPromise = isSpam({
-            comment_content: txt,
-            comment_author: uid,
-            permalink: "https://pol.is/" + zid,
-            user_ip: ip,
-            user_agent: req?.headers?.["user-agent"],
-            referrer: req?.headers?.referer,
-          });
-          isSpamPromise.catch(function (err: any) {
-            logger.error("isSpam failed", err);
-          });
-          // let isSpamPromise = Promise.resolve(false);
-          let isModeratorPromise = isModerator(zid, uid);
-
-          let conversationInfoPromise = getConversationInfo(zid);
-
-          // return xidUserPromise.then(function(xidUser) {
-
-          let shouldCreateXidRecord = false;
-
-          let pidPromise;
-          if (ptpt) {
-            pidPromise = Promise.resolve(ptpt.pid);
-          } else {
-            let xidUserPromise =
-              !_.isUndefined(xid) && !_.isNull(xid)
-                ? getXidStuff(xid, zid)
-                : Promise.resolve();
-            pidPromise = xidUserPromise.then(
-              (xidUser: UserType | "noXidRecord") => {
-                shouldCreateXidRecord = xidUser === "noXidRecord";
-                if (typeof xidUser === "object") {
-                  uid = xidUser.uid;
-                  pid = xidUser.pid;
-                  return pid;
-                } else {
-                  return doGetPid().then((pid: any) => {
-                    if (shouldCreateXidRecord) {
-                      // Expected 6 arguments, but got 3.ts(2554)
-                      // conversation.ts(34, 3): An argument for 'x_profile_image_url' was not provided.
-                      // @ts-ignore
-                      return createXidRecordByZid(zid, uid, xid).then(() => {
-                        return pid;
-                      });
-                    }
-                    return pid;
-                  });
-                }
-              }
+      if (bad || spammy || conv.strict_moderation) {
+        try {
+          const n = await getNumberOfCommentsWithModerationStatus(
+            zid!,
+            polisTypes.mod.unmoderated
+          );
+          if (n !== 0) {
+            const users = await pgQueryP_readOnly(
+              "SELECT * FROM users WHERE site_id = (SELECT site_id FROM page_ids WHERE zid = $1) UNION SELECT * FROM users WHERE uid = $2;",
+              [zid, conv.owner]
+            );
+            const uids = users.map((user: { uid: string }) => user.uid);
+            uids.forEach((uid: string) =>
+              sendCommentModerationEmail(req, uid, zid!, n)
             );
           }
-
-          let commentExistsPromise = commentExists(zid, txt);
-
-          return Promise.all([
-            pidPromise,
-            conversationInfoPromise,
-            isModeratorPromise,
-            commentExistsPromise,
-          ]).then(
-            function (results: any[]) {
-              let pid = results[0];
-              let conv = results[1];
-              let is_moderator = results[2];
-              let commentExists = results[3];
-
-              if (!is_moderator && mustBeModerator) {
-                fail(res, 403, "polis_err_post_comment_auth");
-                return;
-              }
-
-              if (pid < 0) {
-                // NOTE: this API should not be called in /demo mode
-                fail(res, 500, "polis_err_post_comment_bad_pid");
-                return;
-              }
-
-              if (commentExists) {
-                fail(res, 409, "polis_err_post_comment_duplicate");
-                return;
-              }
-
-              if (!conv.is_active) {
-                fail(res, 403, "polis_err_conversation_is_closed");
-                return;
-              }
-
-              if (_.isUndefined(txt)) {
-                logger.error("polis_err_post_comments_missing_txt");
-                throw "polis_err_post_comments_missing_txt";
-              }
-              let bad = hasBadWords(txt);
-
-              return isSpamPromise
-                .then(
-                  function (spammy: any) {
-                    return spammy;
-                  },
-                  function (err: any) {
-                    logger.error("spam check failed", err);
-                    return false; // spam check failed, continue assuming "not spammy".
-                  }
-                )
-                .then(function (spammy: any) {
-                  let velocity = 1;
-                  let active = true;
-                  let classifications = [];
-                  if (bad && conv.profanity_filter) {
-                    active = false;
-                    classifications.push("bad");
-                    logger.info(
-                      "active=false because (bad && conv.profanity_filter)"
-                    );
-                  }
-                  if (spammy && conv.spam_filter) {
-                    active = false;
-                    classifications.push("spammy");
-                    logger.info(
-                      "active=false because (spammy && conv.spam_filter)"
-                    );
-                  }
-                  if (conv.strict_moderation) {
-                    active = false;
-                    logger.info(
-                      "active=false because (conv.strict_moderation)"
-                    );
-                  }
-
-                  let mod = 0; // hasn't yet been moderated.
-
-                  // moderators' comments are automatically in (when prepopulating).
-                  if (is_moderator && is_seed) {
-                    mod = polisTypes.mod.ok;
-                    active = true;
-                  }
-                  let authorUid = ptpt ? ptpt.uid : uid;
-
-                  Promise.all([detectLanguage(txt)]).then((a: any[]) => {
-                    let detections = a[0];
-                    let detection = Array.isArray(detections)
-                      ? detections[0]
-                      : detections;
-                    let lang = detection.language;
-                    let lang_confidence = detection.confidence;
-
-                    return pgQueryP(
-                      "INSERT INTO COMMENTS " +
-                        "(pid, zid, txt, velocity, active, mod, uid, tweet_id, quote_src_url, anon, is_seed, created, tid, lang, lang_confidence) VALUES " +
-                        "($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, default, null, $12, $13) RETURNING *;",
-                      [
-                        pid,
-                        zid,
-                        txt,
-                        velocity,
-                        active,
-                        mod,
-                        authorUid,
-                        twitter_tweet_id || null,
-                        quote_src_url || null,
-                        anon || false,
-                        is_seed || false,
-                        lang,
-                        lang_confidence,
-                      ]
-                    ).then(
-                      //                     Argument of type '(docs: any[]) => any' is not assignable to parameter of type '(value: unknown) => any'.
-                      // Types of parameters 'docs' and 'value' are incompatible.
-                      //                     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-                      // @ts-ignore
-                      function (docs: any[]) {
-                        let comment = docs && docs[0];
-                        let tid = comment && comment.tid;
-                        // let createdTime = comment && comment.created;
-
-                        if (bad || spammy || conv.strict_moderation) {
-                          getNumberOfCommentsWithModerationStatus(
-                            zid,
-                            polisTypes.mod.unmoderated
-                          )
-                            .catch(function (err: any) {
-                              logger.error(
-                                "polis_err_getting_modstatus_comment_count",
-                                err
-                              );
-                              return void 0;
-                            })
-                            .then(function (n: number) {
-                              if (n === 0) {
-                                return;
-                              }
-                              pgQueryP_readOnly(
-                                "select * from users where site_id = (select site_id from page_ids where zid = ($1)) UNION select * from users where uid = ($2);",
-                                [zid, conv.owner]
-                              ).then(function (users: any) {
-                                let uids = _.pluck(users, "uid");
-                                // also notify polis team for moderation
-                                uids.forEach(function (uid?: any) {
-                                  sendCommentModerationEmail(req, uid, zid, n);
-                                });
-                              });
-                            });
-                        } else {
-                          addNotificationTask(zid);
-                        }
-
-                        // It should be safe to delete this. Was added to postpone the no-auto-vote change for old conversations.
-                        if (is_seed && _.isUndefined(vote) && zid <= 17037) {
-                          vote = 0;
-                        }
-
-                        let createdTime = comment.created;
-                        let votePromise = _.isUndefined(vote)
-                          ? Promise.resolve()
-                          : votesPost(uid, pid, zid, tid, xid, vote, 0);
-
-                        return (
-                          votePromise
-                            // This expression is not callable.
-                            //Each member of the union type '{ <U>(onFulfill?: ((value: void) => Resolvable<U>) | undefined, onReject?: ((error: any) => Resolvable<U>) | undefined): Bluebird<U>; <TResult1 = void, TResult2 = never>(onfulfilled?: ((value: void) => Resolvable<...>) | ... 1 more ... | undefined, onrejected?: ((reason: any) => Resolvable<...>) | ... 1 more ... | u...' has signatures, but none of those signatures are compatible with each other.ts(2349)
-                            // @ts-ignore
-                            .then(
-                              function (o: { vote: { created: any } }) {
-                                if (o && o.vote && o.vote.created) {
-                                  createdTime = o.vote.created;
-                                }
-
-                                setTimeout(function () {
-                                  updateConversationModifiedTime(
-                                    zid,
-                                    createdTime
-                                  );
-                                  updateLastInteractionTimeForConversation(
-                                    zid,
-                                    uid
-                                  );
-                                  if (!_.isUndefined(vote)) {
-                                    updateVoteCount(zid, pid);
-                                  }
-                                }, 100);
-
-                                res.json({
-                                  tid: tid,
-                                  currentPid: currentPid,
-                                });
-                              },
-                              function (err: any) {
-                                fail(res, 500, "polis_err_vote_on_create", err);
-                              }
-                            )
-                        );
-                      },
-                      function (err: { code: string | number }) {
-                        if (err.code === "23505" || err.code === 23505) {
-                          // duplicate comment
-                          fail(
-                            res,
-                            409,
-                            "polis_err_post_comment_duplicate",
-                            err
-                          );
-                        } else {
-                          fail(res, 500, "polis_err_post_comment", err);
-                        }
-                      }
-                    ); // insert
-                  }); // lang
-                });
-            },
-            function (errors: any[]) {
-              if (errors[0]) {
-                fail(res, 500, "polis_err_getting_pid", errors[0]);
-                return;
-              }
-              if (errors[1]) {
-                fail(res, 500, "polis_err_getting_conv_info", errors[1]);
-                return;
-              }
-            }
-          );
-        },
-        function (err: any) {
-          fail(res, 500, "polis_err_fetching_tweet", err);
+        } catch (err) {
+          logger.error("polis_err_getting_modstatus_comment_count", err);
         }
-      )
-      .catch(function (err: any) {
-        fail(res, 500, "polis_err_post_comment_misc", err);
+      } else {
+        addNotificationTask(zid!);
+      }
+
+      if (is_seed && _.isUndefined(vote) && Number(zid) <= 17037) {
+        vote = 0;
+      }
+
+      let createdTime = comment.created;
+
+      if (!_.isUndefined(vote)) {
+        try {
+          const voteResult = await votesPost(
+            uid!,
+            finalPid,
+            zid!,
+            tid,
+            xid!,
+            vote,
+            0
+          );
+          if (voteResult?.vote?.created) {
+            createdTime = voteResult.vote.created;
+          }
+        } catch (err) {
+          fail(res, 500, "polis_err_vote_on_create", err);
+          return;
+        }
+      }
+
+      setTimeout(() => {
+        updateConversationModifiedTime(zid!, createdTime);
+        updateLastInteractionTimeForConversation(zid!, uid!);
+        if (!_.isUndefined(vote)) {
+          updateVoteCount(zid!, finalPid);
+        }
+      }, 100);
+
+      res.json({
+        tid: tid,
+        currentPid: currentPid,
       });
-  } // end POST /api/v3/comments
+    } catch (err: any) {
+      if (err.code === "23505" || err.code === 23505) {
+        fail(res, 409, "polis_err_post_comment_duplicate", err);
+      } else {
+        fail(res, 500, "polis_err_post_comment", err);
+      }
+    }
+  }
 
   function handle_GET_votes_me(
     req: { p: { zid: any; uid?: any; pid: any } },
@@ -10943,17 +10792,18 @@ Thanks for using Polis!
     //       * create a twitter record
   }
 
-  function addParticipant(zid: any, uid?: any) {
-    return pgQueryP(
+  const addParticipant = async (zid: string, uid?: string): Promise<any> => {
+    await pgQueryP(
       "INSERT INTO participants_extended (zid, uid) VALUES ($1, $2);",
       [zid, uid]
-    ).then(() => {
-      return pgQueryP(
-        "INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING *;",
-        [zid, uid]
-      );
-    });
-  }
+    );
+
+    return pgQueryP(
+      "INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING *;",
+      [zid, uid]
+    );
+  };
+
   function getAndInsertTwitterUser(o: any, uid?: any) {
     return getTwitterUserInfo(o, false).then(function (userString: string) {
       const u: UserType = JSON.parse(userString)[0];
