@@ -7020,6 +7020,34 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
+  const GOOGLE_DISCOVERY_URL =
+    "https://commentanalyzer.googleapis.com/$discovery/rest?version=v1alpha1";
+
+  async function analyzeComment(txt: string) {
+    try {
+      const client = await google.discoverAPI(GOOGLE_DISCOVERY_URL);
+
+      const analyzeRequest = {
+        comment: {
+          text: txt,
+        },
+        requestedAttributes: {
+          TOXICITY: {},
+          INCOHERENT: {},
+        },
+      };
+
+      const response = await client.comments.analyze({
+        key: Config.googleJigsawPerspectiveApiKey,
+        resource: analyzeRequest,
+      });
+
+      console.log(JSON.stringify(response.data, null, 2));
+    } catch (err) {
+      console.error("Error:", err);
+    }
+  }
+
   interface RequestParams {
     zid?: string;
     xid?: string;
@@ -7094,6 +7122,8 @@ Email verified! You can close this tab or hit the back button.
         return false;
       });
 
+      const jigsawModerationPromise = analyzeComment(txt);
+
       const isModeratorPromise = isModerator(zid!, uid!);
       const conversationInfoPromise = getConversationInfo(zid!);
 
@@ -7124,13 +7154,17 @@ Email verified! You can close this tab or hit the back button.
         is_moderator,
         commentExistsAlready,
         spammy,
+        jigsawResponse,
       ] = await Promise.all([
         pidPromise,
         conversationInfoPromise,
         isModeratorPromise,
         commentExistsPromise,
         isSpamPromise,
+        jigsawModerationPromise,
       ]);
+
+      console.log("JIGSAW RESPONSE", jigsawResponse);
 
       if (!is_moderator && mustBeModerator) {
         fail(res, 403, "polis_err_post_comment_auth");
