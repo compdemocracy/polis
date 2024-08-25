@@ -7033,7 +7033,6 @@ Email verified! You can close this tab or hit the back button.
         },
         requestedAttributes: {
           TOXICITY: {},
-          INCOHERENT: {},
         },
       };
 
@@ -7042,13 +7041,14 @@ Email verified! You can close this tab or hit the back button.
         resource: analyzeRequest,
       });
 
-      console.log(JSON.stringify(response.data, null, 2));
+      return response.data;
     } catch (err) {
       console.error("Error:", err);
     }
   }
 
-  interface RequestParams {
+  /* this is a concept and can be generalized to other handlers */
+  interface PolisRequestParams {
     zid?: string;
     xid?: string;
     uid?: string;
@@ -7059,12 +7059,12 @@ Email verified! You can close this tab or hit the back button.
     is_seed?: boolean;
   }
 
-  interface CustomRequest extends Request {
-    p: RequestParams;
+  interface PolisRequest extends Request {
+    p: PolisRequestParams;
   }
 
   async function handle_POST_comments(
-    req: CustomRequest,
+    req: PolisRequest,
     res: Response
   ): Promise<void> {
     const { zid, xid, uid, txt, pid: initialPid, vote, anon, is_seed } = req.p;
@@ -7164,8 +7164,6 @@ Email verified! You can close this tab or hit the back button.
         jigsawModerationPromise,
       ]);
 
-      console.log("JIGSAW RESPONSE", jigsawResponse);
-
       if (!is_moderator && mustBeModerator) {
         fail(res, 403, "polis_err_post_comment_auth");
         return;
@@ -7189,10 +7187,20 @@ Email verified! You can close this tab or hit the back button.
       const bad = hasBadWords(txt);
 
       const velocity = 1;
+      const jigsawToxicityThreshold = 0.8;
       let active = true;
       const classifications = [];
 
-      if (bad && conv.profanity_filter) {
+      console.log("JIGSAW RESPONSE", txt);
+      console.log(
+        `Jigsaw toxicty Score for comment "${txt}": ${jigsawResponse?.attributeScores?.TOXICITY?.summaryScore?.value}`
+      );
+
+      if (
+        conv.profanity_filter &&
+        jigsawResponse?.attributeScores?.TOXICITY?.summaryScore?.value >
+          jigsawToxicityThreshold
+      ) {
         active = false;
         classifications.push("bad");
         logger.info("active=false because (bad && conv.profanity_filter)");
