@@ -27,6 +27,7 @@ class Comment extends React.Component {
     return (
       <Card sx={{ mb: [3], minWidth: '35em' }}>
         <Box>
+          <Text sx={{ mb: [3], color: 'red' }}>{this.props.comment.active ? null : 'Comment flagged as toxic. Comment not active / not shown in conversation. Human moderation action will override this flag.'}</Text>
           <Text sx={{ mb: [3] }}>{this.props.comment.txt}</Text>
           <Flex
             sx={{
