@@ -1297,8 +1297,15 @@ function initializePolisHelpers() {
     }
     res.status(200).json({});
   }
+
+  type PcaCacheItem = {
+    asPOJO: any;
+    asJSON: string;
+    asBufferOfGzippedJson: any;
+    expiration: number;
+  }
   let pcaCacheSize = Config.cacheMathResults ? 300 : 1;
-  let pcaCache = new LruCache({
+  let pcaCache = new LruCache<number, PcaCacheItem>({
     max: pcaCacheSize,
   });
 
@@ -1560,12 +1567,12 @@ function initializePolisHelpers() {
     return o;
   }
 
-  function getPca(zid?: any, math_tick?: number) {
+  function getPca(zid?: any, math_tick?: number) :Promise<PcaCacheItem | undefined> {
     let cached = pcaCache.get(zid);
     // Object is of type 'unknown'.ts(2571)
     // @ts-ignore
     if (cached && cached.expiration < Date.now()) {
-      cached = null;
+      cached = undefined;
     }
     // Object is of type 'unknown'.ts(2571)
     // @ts-ignore
@@ -1577,7 +1584,7 @@ function initializePolisHelpers() {
           cached_math_tick: cachedPOJO.math_tick,
           query_math_tick: math_tick,
         });
-        return Promise.resolve(null);
+        return Promise.resolve(undefined);
       } else {
         logger.info("math from cache", { zid, math_tick });
         return Promise.resolve(cached);
@@ -1614,7 +1621,7 @@ function initializePolisHelpers() {
             math_env: Config.mathEnv,
           }
         );
-        return null;
+        return undefined;
       }
       let item = rows[0].data;
 
@@ -1627,7 +1634,7 @@ function initializePolisHelpers() {
           zid,
           math_tick,
         });
-        return null;
+        return undefined;
       }
       logger.info("after cache miss, found item, adding to cache", {
         zid,
@@ -1636,18 +1643,11 @@ function initializePolisHelpers() {
 
       processMathObject(item);
 
-      return updatePcaCache(zid, item).then(
-        function (o: any) {
-          return o;
-        },
-        function (err: any) {
-          return err;
-        }
-      );
+      return updatePcaCache(zid, item);
     });
   }
 
-  function updatePcaCache(zid: any, item: { zid: any }) {
+  function updatePcaCache(zid: any, item: { zid: any }) :Promise<PcaCacheItem> {
     return new Promise(function (
       resolve: (arg0: {
         asPOJO: any;
