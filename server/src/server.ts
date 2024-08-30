@@ -2072,6 +2072,143 @@ function initializePolisHelpers() {
     // });
     // return res.end();
   }
+
+  async function handle_GET_reportExport(
+    req: {
+      p: { rid: string, report_type: string },
+      headers: { host: string, "x-forwarded-proto": string }
+    },
+    res: { send: (data :string) => void }
+  ) {
+    function formatCSV(colFns :Record<string, (row :any) => string>, rows: object[]) :string {
+      const fns = Object.values(colFns);
+      const sep = "\n";
+      let csv = Object.keys(colFns).join(",") + sep;
+      if (rows.length > 0) {
+        for (const row of rows) {
+          // we append to a single string here (instead of creating an array of strings and joining
+          // them) to reduce the amount of garbage created; we may have millions of rows, I wish we
+          // could stream directly to the response...
+          for (let ii = 0; ii < fns.length; ii += 1) {
+            if (ii > 0) csv += ",";
+            csv += fns[ii](row);
+          }
+          csv += sep
+        }
+      }
+      return csv;
+    }
+
+    async function loadConversationSummary (zid :number) {
+      const [zinvite, convoRows, commentersRow, pca] = await Promise.all([
+        getZinvite(zid),
+        pgQueryP_readOnly(
+          `SELECT topic, description FROM conversations WHERE zid = $1`, [zid]
+        ),
+        pgQueryP_readOnly(
+          `SELECT COUNT(DISTINCT pid) FROM comments WHERE zid = $1`, [zid]
+        ),
+        getPca(zid)
+      ]);
+      if (!zinvite || !convoRows || !commentersRow || !pca) {
+        throw new Error("polis_error_data_unknown_report");
+      }
+
+      const convo = (convoRows as {topic: string, description: string}[])[0];
+      const commenters = (commentersRow as { count: number }[])[0].count;
+
+      type PcaData = {
+        "in-conv": number[],
+        "user-vote-counts": Record<number, number>,
+        "group-clusters": Record<number, object>,
+        "n-cmts": number,
+      }
+      const data = pca.asPOJO as PcaData
+      const siteUrl = `${req.headers["x-forwarded-proto"]}://${req.headers.host}`
+
+      const escapeQuotes = (s: string) => s.replace(/"/g, "\"\"");
+      return [
+        [ "topic", `"${escapeQuotes(convo.topic)}"` ],
+        [ "url", `${siteUrl}/${zinvite}` ],
+        [ "voters", Object.keys(data["user-vote-counts"]).length ],
+        [ "voters-in-conv", data["in-conv"].length ],
+        [ "commenters", commenters ],
+        [ "comments", data["n-cmts"] ],
+        [ "groups", Object.keys(data["group-clusters"]).length ],
+        [ "conversation-description", `"${escapeQuotes(convo.description)}"` ],
+      ].map(row => row.join(","));
+    }
+
+    const loadCommentSummary = (zid: number) => pgQueryP_readOnly(
+      `SELECT
+        created,
+        tid,
+        pid,
+        COALESCE((SELECT count(*) FROM votes WHERE votes.tid = comments.tid AND vote = 1), 0) as agrees,
+        COALESCE((SELECT count(*) FROM votes WHERE votes.tid = comments.tid AND vote = -1), 0) as disagrees,
+        mod,
+        txt
+      FROM comments
+      WHERE zid = $1`,
+      [zid]);
+
+    const loadVotes = (zid: number) => pgQueryP_readOnly(
+      `SELECT created as timestamp, tid, pid, vote FROM votes WHERE zid = $1 order by tid, pid`,
+      [zid]);
+
+    const formatDatetime = (timestamp: string) => new Date(parseInt(timestamp)).toString();
+
+    const { rid, report_type } = req.p;
+    try {
+      const zid = await getZidForRid(rid);
+      if (!zid) {
+        fail(res, 404, "polis_error_data_unknown_report");
+        return;
+      }
+
+      switch (report_type) {
+        case "summary.csv":
+          res.send((await loadConversationSummary(zid)).join("\n"));
+          break;
+
+        case "comments.csv":
+          const rows = await loadCommentSummary(zid) as object[] | undefined;
+          if (rows) res.send(formatCSV({
+            "timestamp": (row) => String(Math.floor(row.timestamp/1000)),
+            "datetime": (row) => formatDatetime(row.timestamp),
+            "comment-id": (row) => String(row.tid),
+            "author-id": (row) => String(row.pid),
+            agrees: (row) => String(row.agrees),
+            disagrees: (row) => String(row.disagrees),
+            moderated: (row) => String(row.mod),
+            "comment-body": (row) => String(row.txt),
+          }, rows));
+          else fail(res, 500, "polis_err_data_export");
+          break;
+
+        case "votes.csv":
+          const votes = await loadVotes(zid) as object[] | undefined;
+          if (votes) res.send(formatCSV({
+            timestamp: (row) => String(Math.floor(row.timestamp/1000)),
+            datetime: (row) => formatDatetime(row.timestamp),
+            "comment-id": (row) => String(row.tid),
+            "voter-id": (row) => String(row.pid),
+            vote: (row) => String(row.vote),
+          }, votes));
+          else fail(res, 500, "polis_err_data_export");
+          break;
+
+        default:
+          fail(res, 404, "polis_error_data_unknown_report");
+          break;
+      }
+    } catch (err) {
+      const msg = err instanceof Error && err.message && err.message.startsWith("polis_") ?
+        err.message : "polis_err_data_export";
+      fail(res, 500, msg, err);
+    }
+  }
+
   function getBidIndexToPidMapping(zid: number, math_tick: number) {
     math_tick = math_tick || -1;
     return pgQueryP_readOnly(
@@ -13867,6 +14004,7 @@ Thanks for using Polis!
     handle_GET_math_correlationMatrix,
     handle_GET_dataExport,
     handle_GET_dataExport_results,
+    handle_GET_reportExport,
     handle_GET_domainWhitelist,
     handle_GET_dummyButton,
     handle_GET_einvites,
