@@ -7227,9 +7227,9 @@ Email verified! You can close this tab or hit the back button.
       const lang_confidence = detection.confidence;
 
       const insertedComment = await pgQueryP(
-        `INSERT INTO COMMENTS 
-        (pid, zid, txt, velocity, active, mod, uid, anon, is_seed, created, tid, lang, lang_confidence) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, default, null, $10, $11) 
+        `INSERT INTO COMMENTS
+        (pid, zid, txt, velocity, active, mod, uid, anon, is_seed, created, tid, lang, lang_confidence)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, default, null, $10, $11)
         RETURNING *;`,
         [
           finalPid,
