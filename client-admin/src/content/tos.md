@@ -52,6 +52,7 @@ These Terms of Use are a legally binding contract between you and The Computatio
   5. **User Content Disclaimer.** &nbsp;
   We are under no obligation to edit or control User Content that you or other users post or publish, and will not be in any way responsible or liable for User Content.
   The Computational Democracy Project may, however, at any time and without prior notice, screen, remove, edit, or block any User Content that in our sole judgment violates these Terms or is otherwise objectionable.
+  We may use automated systems, including but not limited to the Jigsaw Perspective API, to moderate User Content for potentially toxic or inappropriate language.
   You understand that when using the Service you will be exposed to User Content from a variety of sources and acknowledge that User Content may be inaccurate, offensive, indecent or objectionable.
   You agree to waive, and hereby do waive, any legal or equitable rights or remedies you have or may have against The Computational Democracy Project with respect to User Content.
   We expressly disclaim any and all liability in connection with User Content.
