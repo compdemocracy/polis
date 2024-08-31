@@ -2078,7 +2078,7 @@ function initializePolisHelpers() {
       p: { rid: string, report_type: string },
       headers: { host: string, "x-forwarded-proto": string }
     },
-    res: { send: (data :string) => void }
+    res: { send: (data :string) => void, setHeader: (key: string, value: string) => void }
   ) {
     function formatCSV(colFns :Record<string, (row :any) => string>, rows: object[]) :string {
       const fns = Object.values(colFns);
@@ -2168,35 +2168,40 @@ function initializePolisHelpers() {
 
       switch (report_type) {
         case "summary.csv":
+          res.setHeader('content-type', 'text/csv');
           res.send((await loadConversationSummary(zid)).join("\n"));
           break;
 
         case "comments.csv":
           const rows = await loadCommentSummary(zid) as object[] | undefined;
           console.log(rows)
-          if (rows) res.send(formatCSV({
-            "timestamp": (row) => String(Math.floor(row.created/1000)),
-            "datetime": (row) => formatDatetime(row.created),
-            "comment-id": (row) => String(row.tid),
-            "author-id": (row) => String(row.pid),
-            agrees: (row) => String(row.agrees),
-            disagrees: (row) => String(row.disagrees),
-            moderated: (row) => String(row.mod),
-            "comment-body": (row) => String(row.txt),
-          }, rows));
-          else fail(res, 500, "polis_err_data_export");
+          if (rows) {
+            res.setHeader('content-type', 'text/csv');
+            res.send(formatCSV({
+              "timestamp": (row) => String(Math.floor(row.created/1000)),
+              "datetime": (row) => formatDatetime(row.created),
+              "comment-id": (row) => String(row.tid),
+              "author-id": (row) => String(row.pid),
+              agrees: (row) => String(row.agrees),
+              disagrees: (row) => String(row.disagrees),
+              moderated: (row) => String(row.mod),
+              "comment-body": (row) => String(row.txt),
+            }, rows));
+          } else fail(res, 500, "polis_err_data_export");
           break;
 
         case "votes.csv":
           const votes = await loadVotes(zid) as object[] | undefined;
-          if (votes) res.send(formatCSV({
-            timestamp: (row) => String(Math.floor(row.timestamp/1000)),
-            datetime: (row) => formatDatetime(row.timestamp),
-            "comment-id": (row) => String(row.tid),
-            "voter-id": (row) => String(row.pid),
-            vote: (row) => String(row.vote),
-          }, votes));
-          else fail(res, 500, "polis_err_data_export");
+          if (votes) {
+            res.setHeader('content-type', 'text/csv');
+            res.send(formatCSV({
+              timestamp: (row) => String(Math.floor(row.timestamp/1000)),
+              datetime: (row) => formatDatetime(row.timestamp),
+              "comment-id": (row) => String(row.tid),
+              "voter-id": (row) => String(row.pid),
+              vote: (row) => String(row.vote),
+            }, votes));
+          } else fail(res, 500, "polis_err_data_export");
           break;
 
         default:
