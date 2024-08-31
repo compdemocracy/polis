@@ -2173,9 +2173,10 @@ function initializePolisHelpers() {
 
         case "comments.csv":
           const rows = await loadCommentSummary(zid) as object[] | undefined;
+          console.log(rows)
           if (rows) res.send(formatCSV({
-            "timestamp": (row) => String(Math.floor(row.timestamp/1000)),
-            "datetime": (row) => formatDatetime(row.timestamp),
+            "timestamp": (row) => String(Math.floor(row.created/1000)),
+            "datetime": (row) => formatDatetime(row.created),
             "comment-id": (row) => String(row.tid),
             "author-id": (row) => String(row.pid),
             agrees: (row) => String(row.agrees),
