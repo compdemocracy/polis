@@ -47,7 +47,7 @@ class ConversationAdminContainer extends React.Component {
     const url = location.pathname.split('/')[3]
 
     return (
-      <Flex>
+      <Flex sx={{ flexWrap: 'wrap' }}>
         <Box sx={{ mr: [5], p: [4], flex: '0 0 275' }}>
           <Box sx={{ mb: [3] }}>
             <Link sx={{ variant: 'links.nav' }} to={`/`}>
@@ -98,31 +98,41 @@ class ConversationAdminContainer extends React.Component {
             </Link>
           </Box>
         </Box>
-        <Box sx={{ p: [4], flex: '0 0 auto', maxWidth: '35em', mx: [4] }}>
-          <Switch>
-            <Route
-              exact
-              path={`${match.path}/`}
-              component={ConversationConfig}
-            />
-            <Route
-              exact
-              path={`${match.path}/share`}
-              component={ShareAndEmbed}
-            />
-            <Route exact path={`${match.path}/reports`} component={Reports} />
-            <Route
-              path={`${match.path}/comments`}
-              component={ModerateComments}
-            />
-            <Route
-              exact
-              path={`${match.path}/stats`}
-              component={ConversationStats}
-            />
-            {/* <Route exact path={`${match.path}/export`} component={DataExport} /> */}
-          </Switch>
-        </Box>
+        <Flex
+          sx={{
+            flexGrow: 1,
+            justifyContent: 'center',
+            maxWidth: '35em',
+            p: [4],
+            mx: [4]
+          }}
+        >
+          <Box>
+            <Switch>
+              <Route
+                exact
+                path={`${match.path}/`}
+                component={ConversationConfig}
+              />
+              <Route
+                exact
+                path={`${match.path}/share`}
+                component={ShareAndEmbed}
+              />
+              <Route exact path={`${match.path}/reports`} component={Reports} />
+              <Route
+                path={`${match.path}/comments`}
+                component={ModerateComments}
+              />
+              <Route
+                exact
+                path={`${match.path}/stats`}
+                component={ConversationStats}
+              />
+              {/* <Route exact path={`${match.path}/export`} component={DataExport} /> */}
+            </Switch>
+          </Box>
+        </Flex>
       </Flex>
     )
   }

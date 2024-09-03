@@ -7,7 +7,7 @@ class NoPermission extends React.Component {
   render() {
     return (
       <div id="no-permission-warning">
-        <div>{strings('no_permission')}</div>
+        <p>{strings('no_permission')}</p>
       </div>
     )
   }

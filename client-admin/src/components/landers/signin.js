@@ -82,6 +82,7 @@ class SignIn extends React.Component {
                 fontFamily: 'body',
                 fontSize: [2],
                 width: '35em',
+                maxWidth: '100%',
                 borderRadius: 2,
                 padding: [2],
                 border: '1px solid',
@@ -99,6 +100,7 @@ class SignIn extends React.Component {
                 fontFamily: 'body',
                 fontSize: [2],
                 width: '35em',
+                maxWidth: '100%',
                 borderRadius: 2,
                 padding: [2],
                 border: '1px solid',
@@ -117,6 +119,7 @@ class SignIn extends React.Component {
             onClick={this.handleLoginClicked.bind(this)}>
             {this.props.pending ? 'Signing in...' : 'Sign In'}
           </Button>
+          <br />
           <Text sx={{ my: 4 }}>
             {'Forgot your password? '}
             <Link to={'/pwresetinit'}>Reset Password</Link>

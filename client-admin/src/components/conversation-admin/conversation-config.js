@@ -10,7 +10,7 @@ import {
 } from '../../actions'
 import ComponentHelpers from '../../util/component-helpers'
 import NoPermission from './no-permission'
-import { Heading, Box, Text, jsx } from 'theme-ui'
+import { Heading, Box, Text, jsx, Label } from 'theme-ui'
 import emoji from 'react-easy-emoji'
 
 import { CheckboxField } from './CheckboxField'
@@ -76,18 +76,20 @@ class ConversationConfig extends React.Component {
         </CheckboxField>
 
         <Box sx={{ mb: [3] }}>
-          <Text sx={{ mb: [2] }}>Topic</Text>
+          <Label htmlFor="topic" sx={{ mb: [2] }}>Topic</Label>
           <input
             ref={(c) => (this.topic = c)}
             sx={{
               fontFamily: 'body',
               fontSize: [2],
               width: '35em',
+              maxWidth: '100%',
               borderRadius: 2,
               padding: [2],
               border: '1px solid',
               borderColor: 'mediumGray'
             }}
+            name="topic"
             data-test-id="topic"
             onBlur={this.handleStringValueChange('topic').bind(this)}
             onChange={this.handleConfigInputTyping('topic').bind(this)}
@@ -96,13 +98,14 @@ class ConversationConfig extends React.Component {
         </Box>
 
         <Box sx={{ mb: [3] }}>
-          <Text sx={{ mb: [2] }}>Description</Text>
+          <Label htmlFor="description" sx={{ mb: [2] }}>Description</Label>
           <textarea
             ref={(c) => (this.description = c)}
             sx={{
               fontFamily: 'body',
               fontSize: [2],
               width: '35em',
+              maxWidth: '100%',
               height: '7em',
               resize: 'none',
               padding: [2],
@@ -110,6 +113,7 @@ class ConversationConfig extends React.Component {
               border: '1px solid',
               borderColor: 'mediumGray'
             }}
+            name="description"
             data-test-id="description"
             onBlur={this.handleStringValueChange('description').bind(this)}
             onChange={this.handleConfigInputTyping('description').bind(this)}

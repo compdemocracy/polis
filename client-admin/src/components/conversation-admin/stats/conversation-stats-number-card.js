@@ -8,7 +8,7 @@ class NumberCard extends React.Component {
   render() {
     return (
       <Flex sx={{ my: [2] }}>
-        <Text sx={{ fontWeight: 700, mr: [2] }}>{this.props.datum}</Text>
+        <Text sx={{ fontWeight: 700, mr: [2], minWidth: 'unset' }}>{this.props.datum}</Text>
         <Text> {this.props.subheading} </Text>
       </Flex>
     )

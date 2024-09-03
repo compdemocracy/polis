@@ -13,6 +13,7 @@ function Conversation({ c, i, goToConversation }) {
       <Text data-test-id="embed-page">
         {c.parent_url ? `Embedded on ${c.parent_url}` : null}
       </Text>
+      <br />
       <Text sx={{ mt: [2] }}>{c.participant_count} participants</Text>
     </Card>
   )

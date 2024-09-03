@@ -38,7 +38,7 @@ class Account extends React.Component {
   render() {
     return (
       <div>
-        {this.props.user.hname ? this.buildAccountMarkup() : <Spinner />}
+        {this.props.user?.hname ? this.buildAccountMarkup() : <Spinner />}
       </div>
     )
   }

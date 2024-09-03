@@ -60,7 +60,7 @@ class ShareAndEmbed extends React.Component {
         <div>
           <p> Embed</p>
           <div>
-            <pre>
+            <pre style={{ whiteSpace: 'break-spaces' }}>
               {'<div'}
               {" class='polis'"}
               {" data-conversation_id='" + match.params.conversation_id + "'>"}

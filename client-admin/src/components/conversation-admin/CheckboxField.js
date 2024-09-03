@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { Box, Flex, Text } from 'theme-ui'
+import { Flex } from 'theme-ui'
 import PropTypes from 'prop-types'
 
 import { handleZidMetadataUpdate } from '../../actions'
@@ -32,25 +32,23 @@ export const CheckboxField = ({
   }
 
   return (
-    <Flex sx={{ alignItems: 'flex-start', mb: [3] }}>
-      <Box sx={{ flexShrink: 0, position: 'relative', top: -0.5 }}>
-        <input
-          type="checkbox"
-          label={label}
-          data-test-id={field}
-          checked={
-            isIntegerBool ? zid_metadata[field] === 1 : zid_metadata[field]
-          }
-          onChange={
-            isIntegerBool
-              ? () => handleIntegerBoolValueChange(field)
-              : () => handleBoolValueChange(field)
-          }
-        />
-      </Box>
-      <Box sx={{ ml: [2], flexShrink: 0, maxWidth: '35em' }}>
-        <Text>{children}</Text>
-      </Box>
+    <Flex sx={{ alignItems: 'flex-start', mb: [3], gap: [2] }}>
+      <input
+        type="checkbox"
+        id={field}
+        value={field}
+        label={label}
+        data-test-id={field}
+        checked={
+          isIntegerBool ? zid_metadata[field] === 1 : zid_metadata[field]
+        }
+        onChange={
+          isIntegerBool
+            ? () => handleIntegerBoolValueChange(field)
+            : () => handleBoolValueChange(field)
+        }
+      />
+      <label htmlFor={field}>{children}</label>
     </Flex>
   )
 }

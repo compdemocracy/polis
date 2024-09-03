@@ -10,8 +10,8 @@ import Url from '../../util/url'
 class Integrate extends React.Component {
   render() {
     const userSiteId = this.props.user === null
-     ? '__loading, try refreshing__'
-     : this.props.user.site_ids[0];
+      ? '__loading, try refreshing__'
+      : this.props.user.site_ids[0];
 
     return (
       <Box>
@@ -48,7 +48,7 @@ class Integrate extends React.Component {
             </li>
           </ul>
           <Box>
-            <pre>
+            <pre style={{ whiteSpace: 'break-spaces' }}>
               {`
 <div
   class="polis"
