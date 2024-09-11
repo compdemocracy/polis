@@ -1,6 +1,7 @@
 import { isFunction, isString, isUndefined } from "underscore";
-import { native as pgnative, Pool } from "pg"; //.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
+import { Pool, QueryResult } from "pg";
 import { parse as parsePgConnectionString } from "pg-connection-string";
+import QueryStream from "pg-query-stream";
 
 import Config from "../config";
 import logger from "../utils/logger";
@@ -53,19 +54,19 @@ const readsPgConnection = Object.assign(
 // import pgnative
 // Object is possibly 'null'.ts(2531)
 // @ts-ignore
-const readWritePool = new pgnative.Pool(pgConnection);
+const readWritePool = new Pool(pgConnection);
 // (alias) const pgnative: typeof Pg | null
 // import pgnative
 // Object is possibly 'null'.ts(2531)
 // @ts-ignore
-const readPool = new pgnative.Pool(readsPgConnection);
+const readPool = new Pool(readsPgConnection);
 
 // Same syntax as pg.client.query, but uses connection pool
 // Also takes care of calling 'done'.
-function queryImpl(pool: Pool, queryString?: any, ...args: undefined[]) {
+function queryImpl(pool: Pool, queryString?: any, ...args: any[]) {
   // variable arity depending on whether or not query has params (default to [])
   let params: never[] | undefined;
-  let callback: ((arg0: any, arg1?: undefined) => void) | undefined;
+  let callback: ((arg0: any, arg1?: any) => void) | undefined;
   if (isFunction(args[1])) {
     params = args[0];
     callback = args[1];
@@ -200,6 +201,39 @@ function queryP_metered_readOnly(name: any, queryString: any, params: any) {
   return queryP_metered_impl(true, ...arguments);
 }
 
+function stream_queryP_readOnly(
+  queryString: string,
+  params: any[],
+  onRow: (row: any) => void,
+  onEnd: () => void,
+  onError: (error: Error) => void
+) {
+  const query = new QueryStream(queryString, params);
+
+  readPool.connect((err, client, done) => {
+    if (err) {
+      onError(err);
+      return;
+    }
+
+    const stream = client.query(query);
+
+    stream.on("data", (row: QueryResult) => {
+      onRow(row);
+    });
+
+    stream.on("end", () => {
+      done();
+      onEnd();
+    });
+
+    stream.on("error", (error: Error) => {
+      done(error);
+      onError(error);
+    });
+  });
+}
+
 export {
   query,
   query_readOnly,
@@ -208,6 +242,7 @@ export {
   queryP_metered_readOnly,
   queryP_readOnly,
   queryP_readOnly_wRetryIfEmpty,
+  stream_queryP_readOnly,
 };
 
 export default {
@@ -218,4 +253,5 @@ export default {
   queryP_metered_readOnly,
   queryP_readOnly,
   queryP_readOnly_wRetryIfEmpty,
+  stream_queryP_readOnly,
 };
