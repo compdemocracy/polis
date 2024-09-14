@@ -80,8 +80,28 @@ async function loadConversationSummary(zid: number, siteUrl: string) {
   ].map((row) => row.join(","));
 }
 
-const loadCommentSummary = (zid: number) =>
-  pgQueryP_readOnly(
+const formatDatetime = (timestamp: string) =>
+  new Date(parseInt(timestamp)).toString();
+
+type Response = {
+  setHeader: (key: string, value: string) => void;
+  send: (data: string) => void;
+  write: (data: string) => void;
+  end: () => void;
+};
+
+async function sendConversationSummary(
+  zid: number,
+  siteUrl: string,
+  res: Response
+) {
+  const rows = await loadConversationSummary(zid, siteUrl);
+  res.setHeader("content-type", "text/csv");
+  res.send(rows.join(sep));
+}
+
+async function sendCommentSummary(zid: number, res: Response) {
+  const rows = (await pgQueryP_readOnly(
     `SELECT
     created,
     tid,
@@ -93,22 +113,60 @@ const loadCommentSummary = (zid: number) =>
   FROM comments
   WHERE zid = $1`,
     [zid]
-  );
+  )) as object[] | undefined;
+  if (!rows) {
+    fail(res, 500, "polis_err_data_export");
+    return;
+  }
 
-const formatDatetime = (timestamp: string) =>
-  new Date(parseInt(timestamp)).toString();
+  res.setHeader("content-type", "text/csv");
+  res.send(
+    formatCSV(
+      {
+        timestamp: (row) => String(Math.floor(row.created / 1000)),
+        datetime: (row) => formatDatetime(row.created),
+        "comment-id": (row) => String(row.tid),
+        "author-id": (row) => String(row.pid),
+        agrees: (row) => String(row.agrees),
+        disagrees: (row) => String(row.disagrees),
+        moderated: (row) => String(row.mod),
+        "comment-body": (row) => String(row.txt),
+      },
+      rows
+    )
+  );
+}
+
+async function sendVotesSummary(zid: number, res: Response) {
+  const formatters: Formatters = {
+    timestamp: (row) => String(Math.floor(row.timestamp / 1000)),
+    datetime: (row) => formatDatetime(row.timestamp),
+    "comment-id": (row) => String(row.tid),
+    "voter-id": (row) => String(row.pid),
+    vote: (row) => String(row.vote),
+  };
+  res.setHeader("Content-Type", "text/csv");
+  res.write(formatCSVHeaders(formatters) + sep);
+
+  stream_pgQueryP_readOnly(
+    "SELECT created as timestamp, tid, pid, vote FROM votes WHERE zid = $1 ORDER BY tid, pid",
+    [zid],
+    (row) => res.write(formatCSVRow(row, formatters) + sep),
+    () => res.end(),
+    (error) => {
+      // Handle any errors
+      logger.error("polis_err_report_votes_csv", error);
+      fail(res, 500, "polis_err_data_export", error);
+    }
+  );
+}
 
 export async function handle_GET_reportExport(
   req: {
     p: { rid: string; report_type: string };
     headers: { host: string; "x-forwarded-proto": string };
   },
-  res: {
-    setHeader: (key: string, value: string) => void;
-    send: (data: string) => void;
-    write: (data: string) => void;
-    end: () => void;
-  }
+  res: Response
 ) {
   const { rid, report_type } = req.p;
   try {
@@ -121,54 +179,15 @@ export async function handle_GET_reportExport(
     switch (report_type) {
       case "summary.csv":
         const siteUrl = `${req.headers["x-forwarded-proto"]}://${req.headers.host}`;
-        res.setHeader("content-type", "text/csv");
-        res.send((await loadConversationSummary(zid, siteUrl)).join(sep));
+        await sendConversationSummary(zid, siteUrl, res);
         break;
 
       case "comments.csv":
-        const rows = (await loadCommentSummary(zid)) as object[] | undefined;
-        if (rows) {
-          res.setHeader("content-type", "text/csv");
-          res.send(
-            formatCSV(
-              {
-                timestamp: (row) => String(Math.floor(row.created / 1000)),
-                datetime: (row) => formatDatetime(row.created),
-                "comment-id": (row) => String(row.tid),
-                "author-id": (row) => String(row.pid),
-                agrees: (row) => String(row.agrees),
-                disagrees: (row) => String(row.disagrees),
-                moderated: (row) => String(row.mod),
-                "comment-body": (row) => String(row.txt),
-              },
-              rows
-            )
-          );
-        } else fail(res, 500, "polis_err_data_export");
+        await sendCommentSummary(zid, res);
         break;
 
       case "votes.csv":
-        const formatters: Formatters = {
-          timestamp: (row) => String(Math.floor(row.timestamp / 1000)),
-          datetime: (row) => formatDatetime(row.timestamp),
-          "comment-id": (row) => String(row.tid),
-          "voter-id": (row) => String(row.pid),
-          vote: (row) => String(row.vote),
-        };
-        res.setHeader("Content-Type", "text/csv");
-        res.write(formatCSVHeaders(formatters) + sep);
-
-        stream_pgQueryP_readOnly(
-          "SELECT created as timestamp, tid, pid, vote FROM votes WHERE zid = $1 ORDER BY tid, pid",
-          [zid],
-          (row) => res.write(formatCSVRow(row, formatters) + sep),
-          () => res.end(),
-          (error) => {
-            // Handle any errors
-            logger.error("polis_err_report_votes_csv", error);
-            fail(res, 500, "polis_err_data_export", error);
-          }
-        );
+        await sendVotesSummary(zid, res);
         break;
 
       default:
