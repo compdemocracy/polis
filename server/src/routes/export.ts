@@ -11,14 +11,14 @@ import { getPca } from "../utils/pca";
 import fail from "../utils/fail";
 import logger from "../utils/logger";
 
-type Formatters = Record<string, (row: any) => string>;
+type Formatters<T> = Record<string, (row: T) => string>;
 const sep = "\n";
 
-function formatCSVHeaders(colFns: Formatters) {
+function formatCSVHeaders<T>(colFns: Formatters<T>) {
   return Object.keys(colFns).join(",");
 }
 
-function formatCSVRow(row: object, colFns: Formatters) {
+function formatCSVRow<T>(row: T, colFns: Formatters<T>) {
   const fns = Object.values(colFns);
   let csv = "";
   for (let ii = 0; ii < fns.length; ii += 1) {
@@ -28,7 +28,7 @@ function formatCSVRow(row: object, colFns: Formatters) {
   return csv;
 }
 
-function formatCSV(colFns: Formatters, rows: object[]): string {
+function formatCSV<T>(colFns: Formatters<T>, rows: T[]): string {
   let csv = formatCSVHeaders(colFns) + sep;
   if (rows.length > 0) {
     for (const row of rows) {
@@ -100,45 +100,84 @@ async function sendConversationSummary(
   res.send(rows.join(sep));
 }
 
-async function sendCommentSummary(zid: number, res: Response) {
-  const rows = (await pgQueryP_readOnly(
-    `SELECT
-    created,
-    tid,
-    pid,
-    COALESCE((SELECT count(*) FROM votes WHERE votes.tid = comments.tid AND vote = 1), 0) as agrees,
-    COALESCE((SELECT count(*) FROM votes WHERE votes.tid = comments.tid AND vote = -1), 0) as disagrees,
-    mod,
-    txt
-  FROM comments
-  WHERE zid = $1`,
-    [zid]
-  )) as object[] | undefined;
-  if (!rows) {
-    fail(res, 500, "polis_err_data_export");
-    return;
-  }
+type CommentRow = {
+  tid: number;
+  pid: number;
+  created: string;
+  txt: string;
+  mod: number;
+  velocity: number;
+  active: boolean;
+  agrees: number;
+  disagrees: number;
+  pass: number;
+};
 
-  res.setHeader("content-type", "text/csv");
-  res.send(
-    formatCSV(
-      {
-        timestamp: (row) => String(Math.floor(row.created / 1000)),
-        datetime: (row) => formatDatetime(row.created),
-        "comment-id": (row) => String(row.tid),
-        "author-id": (row) => String(row.pid),
-        agrees: (row) => String(row.agrees),
-        disagrees: (row) => String(row.disagrees),
-        moderated: (row) => String(row.mod),
-        "comment-body": (row) => String(row.txt),
+async function sendCommentSummary(zid: number, res: Response) {
+  const comments = new Map<number, CommentRow>();
+
+  try {
+    // First query: Load comments metadata
+    const commentRows = (await pgQueryP_readOnly(
+      "SELECT tid, pid, created, txt, mod, velocity, active FROM comments WHERE zid = ($1)",
+      [zid]
+    )) as CommentRow[];
+    for (const comment of commentRows) {
+      comment.agrees = 0;
+      comment.disagrees = 0;
+      comment.pass = 0;
+      comments.set(comment.tid, comment);
+    }
+
+    // Second query: Count votes in a single pass
+    stream_pgQueryP_readOnly(
+      "SELECT tid, vote FROM votes WHERE zid = ($1) ORDER BY tid",
+      [zid],
+      (row) => {
+        const comment = comments.get(row.tid);
+        if (comment) {
+          if (row.vote === 1) comment.agrees += 1;
+          else if (row.vote === -1) comment.disagrees += 1;
+          else if (row.vote === 0) comment.pass += 1;
+        } else {
+          logger.warn(`Comment row not found for [zid=${zid}, tid=${row.tid}]`);
+        }
       },
-      rows
-    )
-  );
+      () => {
+        commentRows.sort((a, b) => {
+          return b.velocity - a.velocity;
+        });
+
+        res.setHeader("content-type", "text/csv");
+        res.send(
+          formatCSV(
+            {
+              timestamp: (row) =>
+                String(Math.floor(parseInt(row.created) / 1000)),
+              datetime: (row) => formatDatetime(row.created),
+              "comment-id": (row) => String(row.tid),
+              "author-id": (row) => String(row.pid),
+              agrees: (row) => String(row.agrees),
+              disagrees: (row) => String(row.disagrees),
+              moderated: (row) => String(row.mod),
+              "comment-body": (row) => String(row.txt),
+            },
+            commentRows
+          )
+        );
+      },
+      (error) => {
+        logger.error("polis_err_report_comments", error);
+      }
+    );
+  } catch (err) {
+    logger.error("polis_err_report_comments", err);
+    fail(res, 500, "polis_err_data_export", err);
+  }
 }
 
 async function sendVotesSummary(zid: number, res: Response) {
-  const formatters: Formatters = {
+  const formatters: Formatters<any> = {
     timestamp: (row) => String(Math.floor(row.timestamp / 1000)),
     datetime: (row) => formatDatetime(row.timestamp),
     "comment-id": (row) => String(row.tid),
