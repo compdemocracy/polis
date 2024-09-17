@@ -16,7 +16,7 @@ import Footer from "./framework/Footer";
 import Overview from "./overview";
 import MajorityStrict from "./lists/majorityStrict";
 import Uncertainty from "./lists/uncertainty";
-import AllCommentsModeratedIn from "./lists/allCommentsModeratedIn"
+import AllCommentsModeratedIn from "./lists/allCommentsModeratedIn";
 import ParticipantGroups from "./lists/participantGroups";
 // import CommentsGraph from "./commentsGraph/commentsGraph";
 import ParticipantsGraph from "./participantsGraph/participantsGraph";
@@ -24,13 +24,12 @@ import ParticipantsGraph from "./participantsGraph/participantsGraph";
 import Beeswarm from "./beeswarm/beeswarm";
 import Controls from "./controls/controls";
 
-import net from "../util/net"
+import net from "../util/net";
 
-import $ from 'jquery';
+import $ from "jquery";
 
 var pathname = window.location.pathname; // "/report/2arcefpshi"
 var report_id = pathname.split("/")[2];
-
 
 function assertExists(obj, key) {
   if (typeof obj[key] === "undefined") {
@@ -39,7 +38,6 @@ function assertExists(obj, key) {
 }
 
 class App extends React.Component {
-
   constructor(props) {
     super(props);
     this.state = {
@@ -52,7 +50,7 @@ class App extends React.Component {
       colorBlindMode: false,
       dimensions: {
         width: window.innerWidth,
-        height: window.innerHeight
+        height: window.innerHeight,
       },
       shouldPoll: false,
       voteColors: {
@@ -64,15 +62,17 @@ class App extends React.Component {
   }
 
   getMath(conversation_id) {
-    return net.polisGet("/api/v3/math/pca2", {
-      lastVoteTimestamp: 0,
-      conversation_id: conversation_id,
-    }).then((data) => {
-      if (!data) {
-        return {};
-      }
-      return data;
-    });
+    return net
+      .polisGet("/api/v3/math/pca2", {
+        lastVoteTimestamp: 0,
+        conversation_id: conversation_id,
+      })
+      .then((data) => {
+        if (!data) {
+          return {};
+        }
+        return data;
+      });
   }
 
   getComments(conversation_id, isStrictMod) {
@@ -98,14 +98,16 @@ class App extends React.Component {
     });
   }
   getReport(report_id) {
-    return net.polisGet("/api/v3/reports", {
-      report_id: report_id,
-    }).then((reports) => {
-      if (reports.length) {
-        return reports[0];
-      }
-      return null;
-    });
+    return net
+      .polisGet("/api/v3/reports", {
+        report_id: report_id,
+      })
+      .then((reports) => {
+        if (reports.length) {
+          return reports[0];
+        }
+        return null;
+      });
   }
   getGroupDemographics(conversation_id) {
     return net.polisGet("/api/v3/group_demographics", {
@@ -128,30 +130,40 @@ class App extends React.Component {
     });
 
     return new Promise((resolve, reject) => {
-      attemptResponse.then((response) => {
-        if (response.status && response.status === "pending") {
-          this.corMatRetries = _.isNumber(this.corMatRetries) ? this.corMatRetries + 1 : 1;
-          setTimeout(() => {
-            this.getCorrelationMatrix(math_tick).then(resolve, reject);
-          }, this.corMatRetries < 10 ? 200 : 3000); // try to get a quick response, but don't keep polling at that rate for more than 10 seconds.
-        } else if (globals.enableMatrix && response && response.status === "polis_report_needs_comment_selection") {
-          this.setState({
-            errorText: "Select some comments",
-          });
-          reject("Currently, No comments are selected for display in the matrix.");
-        } else {
-          resolve(response);
+      attemptResponse.then(
+        (response) => {
+          if (response.status && response.status === "pending") {
+            this.corMatRetries = _.isNumber(this.corMatRetries) ? this.corMatRetries + 1 : 1;
+            setTimeout(
+              () => {
+                this.getCorrelationMatrix(math_tick).then(resolve, reject);
+              },
+              this.corMatRetries < 10 ? 200 : 3000
+            ); // try to get a quick response, but don't keep polling at that rate for more than 10 seconds.
+          } else if (
+            globals.enableMatrix &&
+            response &&
+            response.status === "polis_report_needs_comment_selection"
+          ) {
+            this.setState({
+              errorText: "Select some comments",
+            });
+            reject("Currently, No comments are selected for display in the matrix.");
+          } else {
+            resolve(response);
+          }
+        },
+        (err) => {
+          reject(err);
         }
-      }, (err) => {
-        reject(err);
-      });
+      );
     });
   }
 
   getData() {
     const reportPromise = this.getReport(report_id);
     // debug initial report data fetch
-    reportPromise.then((report) => console.log("report received:", report))
+    reportPromise.then((report) => console.log("report received:", report));
     const mathPromise = reportPromise.then((report) => {
       return this.getMath(report.conversation_id);
     });
@@ -164,15 +176,17 @@ class App extends React.Component {
       return this.getGroupDemographics(report.conversation_id);
     });
     //const conversationStatsPromise = reportPromise.then((report) => {
-      //return this.getConversationStats(report.conversation_id)
+    //return this.getConversationStats(report.conversation_id)
     //});
     const participantsOfInterestPromise = reportPromise.then((report) => {
       return this.getParticipantsOfInterest(report.conversation_id);
     });
-    const matrixPromise = globals.enableMatrix ? mathPromise.then((math) => {
-      const math_tick = math.math_tick;
-      return this.getCorrelationMatrix(math_tick);
-    }) : Promise.resolve();
+    const matrixPromise = globals.enableMatrix
+      ? mathPromise.then((math) => {
+          const math_tick = math.math_tick;
+          return this.getCorrelationMatrix(math_tick);
+        })
+      : Promise.resolve();
     const conversationPromise = reportPromise.then((report) => {
       return this.getConversation(report.conversation_id);
     });
@@ -186,190 +200,196 @@ class App extends React.Component {
       matrixPromise,
       conversationPromise,
       //conversationStatsPromise,
-    ]).then((a) => {
-      let [
-        report,
-        mathResult,
-        comments,
-        groupDemographics,
-        participants,
-        correlationHClust,
-        conversation,
-        //conversationstats,
-      ] = a;
+    ])
+      .then((a) => {
+        let [
+          report,
+          mathResult,
+          comments,
+          groupDemographics,
+          participants,
+          correlationHClust,
+          conversation,
+          //conversationstats,
+        ] = a;
 
-      assertExists(mathResult, "base-clusters");
-      assertExists(mathResult, "consensus");
-      assertExists(mathResult, "group-aware-consensus");
-      assertExists(mathResult, "group-clusters");
-      assertExists(mathResult, "group-votes");
-      assertExists(mathResult, "n-cmts");
-      assertExists(mathResult, "repness");
-      assertExists(mathResult, "pca");
-      assertExists(mathResult, "tids");
-      assertExists(mathResult, "user-vote-counts");
-      assertExists(mathResult, "votes-base");
-      assertExists(mathResult.pca, "center");
-      assertExists(mathResult.pca, "comment-extremity");
-      assertExists(mathResult.pca, "comment-projection");
-      assertExists(mathResult.pca, "comps");
+        assertExists(mathResult, "base-clusters");
+        assertExists(mathResult, "consensus");
+        assertExists(mathResult, "group-aware-consensus");
+        assertExists(mathResult, "group-clusters");
+        assertExists(mathResult, "group-votes");
+        assertExists(mathResult, "n-cmts");
+        assertExists(mathResult, "repness");
+        assertExists(mathResult, "pca");
+        assertExists(mathResult, "tids");
+        assertExists(mathResult, "user-vote-counts");
+        assertExists(mathResult, "votes-base");
+        assertExists(mathResult.pca, "center");
+        assertExists(mathResult.pca, "comment-extremity");
+        assertExists(mathResult.pca, "comment-projection");
+        assertExists(mathResult.pca, "comps");
 
-      let indexToTid = mathResult.tids;
+        let indexToTid = mathResult.tids;
 
-      // # ptpts that voted
-      var ptptCountTotal = conversation.participant_count;
+        // # ptpts that voted
+        var ptptCountTotal = conversation.participant_count;
 
+        // # ptpts that voted enough to be included in math
+        var ptptCount = 0;
+        _.each(mathResult["group-votes"], (val /*, key*/) => {
+          ptptCount += val["n-members"];
+        });
 
-      // # ptpts that voted enough to be included in math
-      var ptptCount = 0;
-      _.each(mathResult["group-votes"], (val/*, key*/) => {
-        ptptCount += val["n-members"];
-      });
+        var badTids = {};
+        var filteredTids = {};
+        var filteredProbabilities = {};
 
-      var badTids = {};
-      var filteredTids = {};
-      var filteredProbabilities = {};
+        // prep Correlation matrix.
+        if (globals.enableMatrix) {
+          var probabilities = correlationHClust.matrix;
+          var tids = correlationHClust.comments;
+          for (let row = 0; row < probabilities.length; row++) {
+            if (probabilities[row][0] === "NaN") {
+              let tid = correlationHClust.comments[row];
+              badTids[tid] = true;
+              // console.log("bad", tid);
+            }
+          }
+          filteredProbabilities = probabilities
+            .map((row) => {
+              return row.filter((cell, colNum) => {
+                let colTid = correlationHClust.comments[colNum];
+                return badTids[colTid] !== true;
+              });
+            })
+            .filter((row, rowNum) => {
+              let rowTid = correlationHClust.comments[rowNum];
+              return badTids[rowTid] !== true;
+            });
+          filteredTids = tids.filter((tid /*, index*/) => {
+            return badTids[tid] !== true;
+          });
+        }
 
-      // prep Correlation matrix.
-      if (globals.enableMatrix) {
-        var probabilities = correlationHClust.matrix;
-        var tids =  correlationHClust.comments;
-        for (let row = 0; row < probabilities.length; row++) {
-          if (probabilities[row][0] === "NaN") {
-            let tid = correlationHClust.comments[row];
-            badTids[tid] = true;
-            // console.log("bad", tid);
+        var maxTid = -1;
+        for (let i = 0; i < comments.length; i++) {
+          if (comments[i].tid > maxTid) {
+            maxTid = comments[i].tid;
           }
         }
-        filteredProbabilities = probabilities.map((row) => {
-          return row.filter((cell, colNum) => {
-            let colTid = correlationHClust.comments[colNum];
-            return badTids[colTid] !== true;
+        var tidWidth = ("" + maxTid).length;
+
+        function pad(n, width, z) {
+          z = z || "0";
+          n = n + "";
+          return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n;
+        }
+        function formatTid(tid) {
+          // let padded = "" + tid;
+          // return '#' + pad(""+tid, tidWidth);
+          return pad("" + tid, tidWidth);
+        }
+
+        let repfulAgreeTidsByGroup = {};
+        let repfulDisageeTidsByGroup = {};
+        if (mathResult.repness) {
+          _.each(mathResult.repness, (entries, gid) => {
+            entries.forEach((entry) => {
+              if (entry["repful-for"] === "agree") {
+                repfulAgreeTidsByGroup[gid] = repfulAgreeTidsByGroup[gid] || [];
+                repfulAgreeTidsByGroup[gid].push(entry.tid);
+              } else if (entry["repful-for"] === "disagree") {
+                repfulDisageeTidsByGroup[gid] = repfulDisageeTidsByGroup[gid] || [];
+                repfulDisageeTidsByGroup[gid].push(entry.tid);
+              }
+            });
           });
-        }).filter((row, rowNum) => {
-            let rowTid = correlationHClust.comments[rowNum];
-            return badTids[rowTid] !== true;
-        });
-        filteredTids = tids.filter((tid/*, index*/) => {
-          return badTids[tid] !== true;
-        });
-      }
-
-      var maxTid = -1;
-      for (let i = 0; i < comments.length; i++) {
-        if (comments[i].tid > maxTid) {
-          maxTid = comments[i].tid;
         }
-      }
-      var tidWidth = ("" + maxTid).length
 
-      function pad(n, width, z) {
-        z = z || '0';
-        n = n + '';
-        return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n;
-      }
-      function formatTid(tid) {
-        // let padded = "" + tid;
-        // return '#' + pad(""+tid, tidWidth);
-        return pad(""+tid, tidWidth);
-      }
+        // ====== REMEMBER: gid's start at zero, (0, 1, 2) but we show them as group 1, 2, 3 in participation view ======
+        let groupNames = {};
+        for (let i = 0; i <= 9; i++) {
+          let label = report["label_group_" + i];
+          if (label) {
+            groupNames[i] = label;
+          }
+        }
 
-      let repfulAgreeTidsByGroup = {};
-      let repfulDisageeTidsByGroup = {};
-      if (mathResult.repness) {
-        _.each(mathResult.repness, (entries, gid) => {
-          entries.forEach((entry) => {
-            if (entry['repful-for'] === 'agree') {
-              repfulAgreeTidsByGroup[gid] = repfulAgreeTidsByGroup[gid] || [];
-              repfulAgreeTidsByGroup[gid].push(entry.tid);
-            } else if (entry['repful-for'] === 'disagree') {
-              repfulDisageeTidsByGroup[gid] = repfulDisageeTidsByGroup[gid] || [];
-              repfulDisageeTidsByGroup[gid].push(entry.tid);
-            }
-          });
+        let uncertainty = [];
+
+        // let maxCount = _.reduce(comments, (memo, c) => { return Math.max(c.count, memo);}, 1);
+        comments.map((c) => {
+          var unc = c.pass_count / c.count;
+          if (unc > 0.3) {
+            c.unc = unc;
+            uncertainty.push(c);
+          }
         });
-      }
+        uncertainty.sort((a, b) => {
+          return b.unc * b.unc * b.pass_count - a.unc * a.unc * a.pass_count;
+        });
+        uncertainty = uncertainty.slice(0, 5);
 
-      // ====== REMEMBER: gid's start at zero, (0, 1, 2) but we show them as group 1, 2, 3 in participation view ======
-      let groupNames = {};
-      for (let i = 0; i <= 9; i++) {
-        let label = report["label_group_" + i];
-        if (label) {
-          groupNames[i] = label;
-        }
-      }
+        let extremity = {};
+        _.each(mathResult.pca["comment-extremity"], function (e, index) {
+          extremity[indexToTid[index]] = e;
+        });
 
-      let uncertainty = [];
+        var uniqueCommenters = {};
+        var voteTotals = DataUtils.getVoteTotals(mathResult);
+        comments = comments.map((c) => {
+          c["group-aware-consensus"] = mathResult["group-aware-consensus"][c.tid];
+          uniqueCommenters[c.pid] = 1;
+          c = Object.assign(c, voteTotals[c.tid]);
+          return c;
+        });
+        var numUniqueCommenters = _.keys(uniqueCommenters).length;
+        var totalVotes = _.reduce(
+          _.values(mathResult["user-vote-counts"]),
+          function (memo, num) {
+            return memo + num;
+          },
+          0
+        );
+        const computedStats = {
+          votesPerVoterAvg: totalVotes / ptptCountTotal,
+          commentsPerCommenterAvg: comments.length / numUniqueCommenters,
+        };
 
-      // let maxCount = _.reduce(comments, (memo, c) => { return Math.max(c.count, memo);}, 1);
-      comments.map((c) => {
-        var unc = c.pass_count / c.count
-        if (unc > .3) {
-          c.unc = unc;
-          uncertainty.push(c);
-        }
+        this.setState({
+          loading: false,
+          math: mathResult,
+          consensus: mathResult.consensus,
+          extremity: extremity,
+          uncertainty: uncertainty.map((c) => {
+            return c.tid;
+          }),
+          comments: comments,
+          demographics: groupDemographics,
+          participants: participants,
+          conversation: conversation,
+          ptptCount: ptptCount,
+          ptptCountTotal: ptptCountTotal,
+          filteredCorrelationMatrix: filteredProbabilities,
+          filteredCorrelationTids: filteredTids,
+          badTids: badTids,
+          groupNames: groupNames,
+          repfulAgreeTidsByGroup: repfulAgreeTidsByGroup,
+          repfulDisageeTidsByGroup: repfulDisageeTidsByGroup,
+          formatTid: formatTid,
+          report: report,
+          //conversationStats: conversationstats,
+          computedStats: computedStats,
+          nothingToShow: !comments.length || !groupDemographics.length,
+        });
+      })
+      .catch((err) => {
+        this.setState({
+          error: true,
+          errorText: String(err),
+        });
       });
-      uncertainty.sort((a, b) => {
-          return (b.unc*b.unc*b.pass_count - a.unc*a.unc*a.pass_count);
-      });
-      uncertainty = uncertainty.slice(0, 5);
-
-      let extremity = {};
-      _.each(mathResult.pca["comment-extremity"], function(e, index) {
-        extremity[indexToTid[index]] = e;
-      });
-
-      var uniqueCommenters = {};
-      var voteTotals = DataUtils.getVoteTotals(mathResult);
-      comments = comments.map((c) => {
-        c["group-aware-consensus"] = mathResult["group-aware-consensus"][c.tid];
-        uniqueCommenters[c.pid] = 1;
-        c = Object.assign(c, voteTotals[c.tid]);
-        return c;
-      });
-      var numUniqueCommenters = _.keys(uniqueCommenters).length;
-      var totalVotes = _.reduce(_.values(mathResult["user-vote-counts"]), function(memo, num) {
-        return memo + num;
-      }, 0);
-      const computedStats = {
-        votesPerVoterAvg: totalVotes / ptptCountTotal,
-        commentsPerCommenterAvg: comments.length / numUniqueCommenters,
-      };
-
-
-      this.setState({
-        loading: false,
-        math: mathResult,
-        consensus: mathResult.consensus,
-        extremity: extremity,
-        uncertainty: uncertainty.map((c) => {return c.tid;}),
-        comments: comments,
-        demographics: groupDemographics,
-        participants: participants,
-        conversation: conversation,
-        ptptCount: ptptCount,
-        ptptCountTotal: ptptCountTotal,
-        filteredCorrelationMatrix: filteredProbabilities,
-        filteredCorrelationTids: filteredTids,
-        badTids: badTids,
-        groupNames: groupNames,
-        repfulAgreeTidsByGroup: repfulAgreeTidsByGroup,
-        repfulDisageeTidsByGroup: repfulDisageeTidsByGroup,
-        formatTid: formatTid,
-        report: report,
-        //conversationStats: conversationstats,
-        computedStats: computedStats,
-        nothingToShow: !comments.length || !groupDemographics.length
-      });
-
-    }).catch((err) => {
-      this.setState({
-        error: true,
-        errorText: String(err),
-      });
-    });
   }
-
 
   UNSAFE_componentWillMount() {
     this.getData();
@@ -380,14 +400,17 @@ class App extends React.Component {
       }
     }, 20 * 1000);
 
-    window.addEventListener("resize", _.throttle(() => {
-      this.setState({
-        dimensions: {
-          width: window.innerWidth,
-          height: window.innerHeight
-        }
-      })
-    }, 500));
+    window.addEventListener(
+      "resize",
+      _.throttle(() => {
+        this.setState({
+          dimensions: {
+            width: window.innerWidth,
+            height: window.innerHeight,
+          },
+        });
+      }, 500)
+    );
   }
 
   onAutoRefreshEnabled() {
@@ -402,7 +425,7 @@ class App extends React.Component {
     });
   }
 
-  handleColorblindModeClick () {
+  handleColorblindModeClick() {
     var colorBlind = !this.state.colorBlindMode;
     if (colorBlind) {
       this.setState({
@@ -423,36 +446,45 @@ class App extends React.Component {
 
   render() {
     if (this.state.error) {
-      return (<div>
-        <div> Error Loading </div>
-        <div> {this.state.errorText} </div>
-      </div>);
+      return (
+        <div>
+          <div> Error Loading </div>
+          <div> {this.state.errorText} </div>
+        </div>
+      );
     }
     if (this.state.nothingToShow) {
-      return (<div>
-        <div> Nothing to show yet </div>
-      </div>);
+      return (
+        <div>
+          <div> Nothing to show yet </div>
+        </div>
+      );
     }
     if (this.state.loading) {
-      return (<div>
-        <div> Loading ... </div>
-      </div>);
+      return (
+        <div>
+          <div> Loading ... </div>
+        </div>
+      );
     }
-    console.log('top level app state and props', this.state, this.props)
+    console.log("top level app state and props", this.state, this.props);
     return (
-      <div style={{margin: "0px 10px"}}>
-        <Heading conversation={this.state.conversation}/>
-        <div style={{
+      <div style={{ margin: "0px 10px" }}>
+        <Heading conversation={this.state.conversation} />
+        <div
+          style={{
             marginLeft: 20,
             marginTop: 40,
-          }}>
+          }}
+        >
           <Controls
             onAutoRefreshEnabled={this.onAutoRefreshEnabled.bind(this)}
             handleColorblindModeClick={this.handleColorblindModeClick.bind(this)}
             colorBlindMode={this.state.colorBlindMode}
             onAutoRefreshDisabled={this.onAutoRefreshDisabled.bind(this)}
             autoRefreshEnabled={this.state.shouldPoll}
-            voteColors={this.state.voteColors}/>
+            voteColors={this.state.voteColors}
+          />
 
           {/* This may eventually need to go back in below */}
           {/* stats={this.state.conversationStats} */}
@@ -464,7 +496,8 @@ class App extends React.Component {
             ptptCountTotal={this.state.ptptCountTotal}
             demographics={this.state.demographics}
             conversation={this.state.conversation}
-            voteColors={this.state.voteColors}/>
+            voteColors={this.state.voteColors}
+          />
           <Beeswarm
             conversation={this.state.conversation}
             extremity={this.state.extremity}
@@ -472,11 +505,13 @@ class App extends React.Component {
             comments={this.state.comments}
             probabilities={this.state.filteredCorrelationMatrix}
             probabilitiesTids={this.state.filteredCorrelationTids}
-            voteColors={this.state.voteColors}/>
+            voteColors={this.state.voteColors}
+          />
           {/*
             <p style={globals.primaryHeading}>Consensus</p>
             <p style={globals.primaryHeading}>Inclusive Majority</p>
           */}
+
           <MajorityStrict
             math={this.state.math}
             conversation={this.state.conversation}
@@ -484,7 +519,8 @@ class App extends React.Component {
             comments={this.state.comments}
             formatTid={this.state.formatTid}
             consensus={this.state.consensus}
-            voteColors={this.state.voteColors}/>
+            voteColors={this.state.voteColors}
+          />
           <ParticipantGroups
             comments={this.state.comments}
             conversation={this.state.conversation}
@@ -497,7 +533,8 @@ class App extends React.Component {
             repfulAgreeTidsByGroup={this.state.repfulAgreeTidsByGroup}
             repfulDisageeTidsByGroup={this.state.repfulDisageeTidsByGroup}
             report={this.state.report}
-            voteColors={this.state.voteColors}/>
+            voteColors={this.state.voteColors}
+          />
           <Uncertainty
             math={this.state.math}
             comments={this.state.comments}
@@ -505,7 +542,8 @@ class App extends React.Component {
             conversation={this.state.conversation}
             ptptCount={this.state.ptptCount}
             formatTid={this.state.formatTid}
-            voteColors={this.state.voteColors}/>
+            voteColors={this.state.voteColors}
+          />
           {/* {false ? <CommentsGraph
             comments={this.state.comments}
             groupNames={this.state.groupNames}
@@ -533,7 +571,8 @@ class App extends React.Component {
             math={this.state.math}
             renderHeading={true}
             report={this.state.report}
-            voteColors={this.state.voteColors}/>
+            voteColors={this.state.voteColors}
+          />
           {/* <BoxPlot
             groupVotes={this.state.math["group-votes"]}/>*/}
           <AllCommentsModeratedIn
@@ -542,8 +581,9 @@ class App extends React.Component {
             conversation={this.state.conversation}
             ptptCount={this.state.ptptCount}
             formatTid={this.state.formatTid}
-            voteColors={this.state.voteColors}/>
-          <Footer/>
+            voteColors={this.state.voteColors}
+          />
+          <Footer />
         </div>
       </div>
     );

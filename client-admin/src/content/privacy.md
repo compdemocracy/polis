@@ -100,6 +100,7 @@ Conversation participants may opt to use third party data collector and processo
 * We use Logentries for server logs, which may include personal information such as IP address necessary for debugging production issues. Information about how Logentries uses this data when you use our Site can be found at: <https://www.rapid7.com/privacy-policy/>
 * We use Amazon Web Services Simple Email Service for sending account confirmation and notification emails to users. We also use AWS Simple Storage Service for. Information about how AWS handles: <https://aws.amazon.com/privacy/>
 * We use Google Translate for automatic machine translation of comments, and Google Analytics for site usage statistics. Information about how Google uses this data when you use our Site can be found at: <https://policies.google.com/privacy>
+* We use Jigsaw Perspective API for comment moderation. This service analyzes the content of comments to detect potentially toxic or inappropriate language. Information about how Perspective API handles data can be found at: <https://www.perspectiveapi.com/>
 * We pass all Site web requests through a Cloudflare caching proxy. No personal information is cached at this level. Information about how Cloudflare uses your data can be found at: <https://www.cloudflare.com/privacypolicy/>
 
 ## Public Areas and Syndicated Services

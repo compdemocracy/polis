@@ -34,20 +34,20 @@ services:
       labels:
         polis_tag: ${TAG:-dev}
     depends_on:
-      - "postgres"
+      # - "postgres"
       - "file-server"
     networks:
       - "polis-net"
     # Scale the server container to a given number of instances.
     scale: 1
     volumes:
-    # Persist logs to a volume, so they can be accessed after the container is stopped.
+      # Persist logs to a volume, so they can be accessed after the container is stopped.
       - server-logs:/app/logs
 
   math:
     image: docker.io/compdem/polis-math:${TAG:-dev}
-    depends_on:
-      - "postgres"
+    # depends_on:
+    #   - "postgres"
     build:
       context: ./math
       labels:
@@ -60,23 +60,23 @@ services:
     networks:
       - "polis-net"
 
-  postgres:
-    image: docker.io/compdem/polis-postgres:${TAG:-dev}
-    restart: always
-    build:
-      context: ./server
-      dockerfile: Dockerfile-db
-      labels:
-        polis_tag: ${TAG:-dev}
-    environment:
-      - POSTGRES_DB=${POSTGRES_DB:?error}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?error}
-      - POSTGRES_USER=${POSTGRES_USER:?error}
-    networks:
-      - "polis-net"
-    volumes:
-      - "backups:/backups"
-      - "postgres:/var/lib/postgresql/data"
+  # postgres:
+  #   image: docker.io/compdem/polis-postgres:${TAG:-dev}
+  #   restart: always
+  #   build:
+  #     context: ./server
+  #     dockerfile: Dockerfile-db
+  #     labels:
+  #       polis_tag: ${TAG:-dev}
+  #   environment:
+  #     - POSTGRES_DB=${POSTGRES_DB:?error}
+  #     - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?error}
+  #     - POSTGRES_USER=${POSTGRES_USER:?error}
+  #   networks:
+  #     - "polis-net"
+  #   volumes:
+  #     - "backups:/backups"
+  #     - "postgres:/var/lib/postgresql/data"
 
   nginx-proxy:
     image: docker.io/compdem/polis-nginx-proxy:${TAG:-dev}
@@ -120,9 +120,9 @@ volumes:
   backups:
     labels:
       polis_tag: ${TAG:-dev}
-  postgres:
-    labels:
-      polis_tag: ${TAG:-dev}
+  # postgres:
+  #   labels:
+  #     polis_tag: ${TAG:-dev}
   server-logs:
     labels:
       polis_tag: ${TAG:-dev}
