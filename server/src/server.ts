@@ -1303,7 +1303,7 @@ function initializePolisHelpers() {
     asJSON: string;
     asBufferOfGzippedJson: any;
     expiration: number;
-  }
+  };
   let pcaCacheSize = Config.cacheMathResults ? 300 : 1;
   let pcaCache = new LruCache<number, PcaCacheItem>({
     max: pcaCacheSize,
@@ -1567,7 +1567,10 @@ function initializePolisHelpers() {
     return o;
   }
 
-  function getPca(zid?: any, math_tick?: number) :Promise<PcaCacheItem | undefined> {
+  function getPca(
+    zid?: any,
+    math_tick?: number
+  ): Promise<PcaCacheItem | undefined> {
     let cached = pcaCache.get(zid);
     // Object is of type 'unknown'.ts(2571)
     // @ts-ignore
@@ -1647,7 +1650,7 @@ function initializePolisHelpers() {
     });
   }
 
-  function updatePcaCache(zid: any, item: { zid: any }) :Promise<PcaCacheItem> {
+  function updatePcaCache(zid: any, item: { zid: any }): Promise<PcaCacheItem> {
     return new Promise(function (
       resolve: (arg0: {
         asPOJO: any;
@@ -2075,12 +2078,18 @@ function initializePolisHelpers() {
 
   async function handle_GET_reportExport(
     req: {
-      p: { rid: string, report_type: string },
-      headers: { host: string, "x-forwarded-proto": string }
+      p: { rid: string; report_type: string };
+      headers: { host: string; "x-forwarded-proto": string };
     },
-    res: { send: (data :string) => void, setHeader: (key: string, value: string) => void }
+    res: {
+      send: (data: string) => void;
+      setHeader: (key: string, value: string) => void;
+    }
   ) {
-    function formatCSV(colFns :Record<string, (row :any) => string>, rows: object[]) :string {
+    function formatCSV(
+      colFns: Record<string, (row: any) => string>,
+      rows: object[]
+    ): string {
       const fns = Object.values(colFns);
       const sep = "\n";
       let csv = Object.keys(colFns).join(",") + sep;
@@ -2093,54 +2102,57 @@ function initializePolisHelpers() {
             if (ii > 0) csv += ",";
             csv += fns[ii](row);
           }
-          csv += sep
+          csv += sep;
         }
       }
       return csv;
     }
 
-    async function loadConversationSummary (zid :number) {
+    async function loadConversationSummary(zid: number) {
       const [zinvite, convoRows, commentersRow, pca] = await Promise.all([
         getZinvite(zid),
         pgQueryP_readOnly(
-          `SELECT topic, description FROM conversations WHERE zid = $1`, [zid]
+          `SELECT topic, description FROM conversations WHERE zid = $1`,
+          [zid]
         ),
         pgQueryP_readOnly(
-          `SELECT COUNT(DISTINCT pid) FROM comments WHERE zid = $1`, [zid]
+          `SELECT COUNT(DISTINCT pid) FROM comments WHERE zid = $1`,
+          [zid]
         ),
-        getPca(zid)
+        getPca(zid),
       ]);
       if (!zinvite || !convoRows || !commentersRow || !pca) {
         throw new Error("polis_error_data_unknown_report");
       }
 
-      const convo = (convoRows as {topic: string, description: string}[])[0];
+      const convo = (convoRows as { topic: string; description: string }[])[0];
       const commenters = (commentersRow as { count: number }[])[0].count;
 
       type PcaData = {
-        "in-conv": number[],
-        "user-vote-counts": Record<number, number>,
-        "group-clusters": Record<number, object>,
-        "n-cmts": number,
-      }
-      const data = pca.asPOJO as PcaData
-      const siteUrl = `${req.headers["x-forwarded-proto"]}://${req.headers.host}`
+        "in-conv": number[];
+        "user-vote-counts": Record<number, number>;
+        "group-clusters": Record<number, object>;
+        "n-cmts": number;
+      };
+      const data = pca.asPOJO as PcaData;
+      const siteUrl = `${req.headers["x-forwarded-proto"]}://${req.headers.host}`;
 
-      const escapeQuotes = (s: string) => s.replace(/"/g, "\"\"");
+      const escapeQuotes = (s: string) => s.replace(/"/g, '""');
       return [
-        [ "topic", `"${escapeQuotes(convo.topic)}"` ],
-        [ "url", `${siteUrl}/${zinvite}` ],
-        [ "voters", Object.keys(data["user-vote-counts"]).length ],
-        [ "voters-in-conv", data["in-conv"].length ],
-        [ "commenters", commenters ],
-        [ "comments", data["n-cmts"] ],
-        [ "groups", Object.keys(data["group-clusters"]).length ],
-        [ "conversation-description", `"${escapeQuotes(convo.description)}"` ],
-      ].map(row => row.join(","));
+        ["topic", `"${escapeQuotes(convo.topic)}"`],
+        ["url", `${siteUrl}/${zinvite}`],
+        ["voters", Object.keys(data["user-vote-counts"]).length],
+        ["voters-in-conv", data["in-conv"].length],
+        ["commenters", commenters],
+        ["comments", data["n-cmts"]],
+        ["groups", Object.keys(data["group-clusters"]).length],
+        ["conversation-description", `"${escapeQuotes(convo.description)}"`],
+      ].map((row) => row.join(","));
     }
 
-    const loadCommentSummary = (zid: number) => pgQueryP_readOnly(
-      `SELECT
+    const loadCommentSummary = (zid: number) =>
+      pgQueryP_readOnly(
+        `SELECT
         created,
         tid,
         pid,
@@ -2150,13 +2162,17 @@ function initializePolisHelpers() {
         txt
       FROM comments
       WHERE zid = $1`,
-      [zid]);
+        [zid]
+      );
 
-    const loadVotes = (zid: number) => pgQueryP_readOnly(
-      `SELECT created as timestamp, tid, pid, vote FROM votes WHERE zid = $1 order by tid, pid`,
-      [zid]);
+    const loadVotes = (zid: number) =>
+      pgQueryP_readOnly(
+        `SELECT created as timestamp, tid, pid, vote FROM votes WHERE zid = $1 order by tid, pid`,
+        [zid]
+      );
 
-    const formatDatetime = (timestamp: string) => new Date(parseInt(timestamp)).toString();
+    const formatDatetime = (timestamp: string) =>
+      new Date(parseInt(timestamp)).toString();
 
     const { rid, report_type } = req.p;
     try {
@@ -2168,39 +2184,49 @@ function initializePolisHelpers() {
 
       switch (report_type) {
         case "summary.csv":
-          res.setHeader('content-type', 'text/csv');
+          res.setHeader("content-type", "text/csv");
           res.send((await loadConversationSummary(zid)).join("\n"));
           break;
 
         case "comments.csv":
-          const rows = await loadCommentSummary(zid) as object[] | undefined;
-          console.log(rows)
+          const rows = (await loadCommentSummary(zid)) as object[] | undefined;
+          console.log(rows);
           if (rows) {
-            res.setHeader('content-type', 'text/csv');
-            res.send(formatCSV({
-              "timestamp": (row) => String(Math.floor(row.created/1000)),
-              "datetime": (row) => formatDatetime(row.created),
-              "comment-id": (row) => String(row.tid),
-              "author-id": (row) => String(row.pid),
-              agrees: (row) => String(row.agrees),
-              disagrees: (row) => String(row.disagrees),
-              moderated: (row) => String(row.mod),
-              "comment-body": (row) => String(row.txt),
-            }, rows));
+            res.setHeader("content-type", "text/csv");
+            res.send(
+              formatCSV(
+                {
+                  timestamp: (row) => String(Math.floor(row.created / 1000)),
+                  datetime: (row) => formatDatetime(row.created),
+                  "comment-id": (row) => String(row.tid),
+                  "author-id": (row) => String(row.pid),
+                  agrees: (row) => String(row.agrees),
+                  disagrees: (row) => String(row.disagrees),
+                  moderated: (row) => String(row.mod),
+                  "comment-body": (row) => String(row.txt),
+                },
+                rows
+              )
+            );
           } else fail(res, 500, "polis_err_data_export");
           break;
 
         case "votes.csv":
-          const votes = await loadVotes(zid) as object[] | undefined;
+          const votes = (await loadVotes(zid)) as object[] | undefined;
           if (votes) {
-            res.setHeader('content-type', 'text/csv');
-            res.send(formatCSV({
-              timestamp: (row) => String(Math.floor(row.timestamp/1000)),
-              datetime: (row) => formatDatetime(row.timestamp),
-              "comment-id": (row) => String(row.tid),
-              "voter-id": (row) => String(row.pid),
-              vote: (row) => String(row.vote),
-            }, votes));
+            res.setHeader("content-type", "text/csv");
+            res.send(
+              formatCSV(
+                {
+                  timestamp: (row) => String(Math.floor(row.timestamp / 1000)),
+                  datetime: (row) => formatDatetime(row.timestamp),
+                  "comment-id": (row) => String(row.tid),
+                  "voter-id": (row) => String(row.pid),
+                  vote: (row) => String(row.vote),
+                },
+                votes
+              )
+            );
           } else fail(res, 500, "polis_err_data_export");
           break;
 
@@ -2209,8 +2235,10 @@ function initializePolisHelpers() {
           break;
       }
     } catch (err) {
-      const msg = err instanceof Error && err.message && err.message.startsWith("polis_") ?
-        err.message : "polis_err_data_export";
+      const msg =
+        err instanceof Error && err.message && err.message.startsWith("polis_")
+          ? err.message
+          : "polis_err_data_export";
       fail(res, 500, msg, err);
     }
   }
@@ -7260,7 +7288,7 @@ Email verified! You can close this tab or hit the back button.
         user_ip: ip as string,
         user_agent: req.headers["user-agent"],
         referrer: req.headers.referer,
-      }).catch((err) => {
+      }).catch((err: any) => {
         logger.error("isSpam failed", err);
         return false;
       });
