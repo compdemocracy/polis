@@ -7238,10 +7238,10 @@ Email verified! You can close this tab or hit the back button.
     req: PolisRequest,
     res: Response
   ): Promise<void> {
-    const { zid, xid, uid, txt, pid: initialPid, vote, anon, is_seed } = req.p;
+    let { zid, xid, uid, txt, pid: initialPid, vote, anon, is_seed } = req.p;
 
-    console.log("============= handle_POST_comments ===========");
-    console.log(zid, xid, uid, txt, initialPid, vote, anon, is_seed);
+    // console.log("============= debug handle_POST_comments ===========");
+    // console.log(zid, xid, uid, txt, initialPid, vote, anon, is_seed);
     /*
     2024-08-20 15:44:25 ============= handle_POST_comments ===========
     2024-08-20 15:44:25 37436 undefined 186 a lovely comment 3 undefined -1 undefined undefined
@@ -7397,7 +7397,7 @@ Email verified! You can close this tab or hit the back button.
       const lang = detection.language;
       const lang_confidence = detection.confidence;
 
-      const insertedComment = await pgQueryP(
+      const insertedComment: any = await pgQueryP(
         `INSERT INTO COMMENTS
         (pid, zid, txt, velocity, active, mod, uid, anon, is_seed, created, tid, lang, lang_confidence)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, default, null, $10, $11)
@@ -7427,7 +7427,7 @@ Email verified! You can close this tab or hit the back button.
             polisTypes.mod.unmoderated
           );
           if (n !== 0) {
-            const users = await pgQueryP_readOnly(
+            const users: any = await pgQueryP_readOnly(
               "SELECT * FROM users WHERE site_id = (SELECT site_id FROM page_ids WHERE zid = $1) UNION SELECT * FROM users WHERE uid = $2;",
               [zid, conv.owner]
             );
