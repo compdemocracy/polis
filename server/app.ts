@@ -84,6 +84,7 @@ helpersInitialized.then(
       handle_GET_math_correlationMatrix,
       handle_GET_dataExport,
       handle_GET_dataExport_results,
+      handle_GET_reportExport,
       handle_GET_domainWhitelist,
       handle_GET_dummyButton,
       handle_GET_einvites,
@@ -298,6 +299,19 @@ helpersInitialized.then(
       want("format", getStringLimitLength(1, 100), assignToP),
       want("unixTimestamp", getStringLimitLength(99), assignToP),
       handle_GET_dataExport
+    );
+
+    app.get(
+      "/api/v3/reportExport/:report_id/:report_type",
+      moveToBody,
+      need(
+        "report_id",
+        getReportIdFetchRid,
+        assignToPCustom("rid")
+      ),
+      need("report_id", getStringLimitLength(1, 1000), assignToP),
+      need("report_type", getStringLimitLength(1, 1000), assignToP),
+      handle_GET_reportExport
     );
 
     app.get(
