@@ -3499,9 +3499,9 @@ Feel free to reply to this email if you need help.`;
       request
         // @ts-ignore
         .get(url + ipAddress, {
-          method: "GET",
-          contentType: contentType,
           headers: {
+            method: "GET",
+            contentType: contentType,
             Authorization:
               "Basic " +
               Buffer.from(userId + ":" + licenseKey, "utf8").toString("base64"),
@@ -7352,7 +7352,7 @@ Email verified! You can close this tab or hit the back button.
         return;
       }
 
-      if (finalPid < 0) {
+      if (finalPid && finalPid < 0) {
         fail(res, 500, "polis_err_post_comment_bad_pid");
         return;
       }
@@ -12340,6 +12340,7 @@ Thanks for using Polis!
         if (
           !pcaResult ||
           typeof pcaResult !== "object" ||
+          pcaResult === null ||
           !("asPOJO" in pcaResult)
         ) {
           return [];
@@ -12355,7 +12356,7 @@ Thanks for using Polis!
           };
         }
 
-        const pcaData = pcaResult.asPOJO as PcaData;
+        const pcaData = (pcaResult as { asPOJO: PcaData }).asPOJO;
         pcaData.consensus = pcaData.consensus || {};
         pcaData.consensus.agree = pcaData.consensus.agree || [];
         pcaData.consensus.disagree = pcaData.consensus.disagree || [];
