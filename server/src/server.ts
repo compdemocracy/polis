@@ -7425,7 +7425,7 @@ Email verified! You can close this tab or hit the back button.
             );
             const uids = users.map((user: { uid: string }) => user.uid);
             uids.forEach((uid: string) =>
-              sendCommentModerationEmail(req, uid, zid!, n)
+              sendCommentModerationEmail(req, Number(uid), zid!, n)
             );
           }
         } catch (err) {
