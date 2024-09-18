@@ -7303,7 +7303,7 @@ Email verified! You can close this tab or hit the back button.
         }
         const newPid = await doGetPid();
         if (shouldCreateXidRecord) {
-          await createXidRecordByZid(zid!, uid!, xid!);
+          await createXidRecordByZid(zid!, uid!, xid!, null, null, null);
         }
         return newPid;
       })();
