@@ -3248,25 +3248,21 @@ Feel free to reply to this email if you need help.`;
     });
   }
 
-  function createXidEntry(xid: any, owner: any, uid?: any) {
-    return new Promise(function (
-      resolve: () => void,
-      reject: (arg0: Error) => void
-    ) {
-      pgQuery(
+  const createXidEntry = async (
+    xid: string,
+    owner: string,
+    uid?: string
+  ): Promise<void> => {
+    try {
+      await pgQueryP(
         "INSERT INTO xids (uid, owner, xid) VALUES ($1, $2, $3);",
-        [uid, owner, xid],
-        function (err: any, results: any) {
-          if (err) {
-            logger.error("polis_err_adding_xid_entry", err);
-            reject(new Error("polis_err_adding_xid_entry"));
-            return;
-          }
-          resolve();
-        }
+        [uid, owner, xid]
       );
-    });
-  }
+    } catch (err) {
+      logger.error("polis_err_adding_xid_entry", err);
+      throw new Error("polis_err_adding_xid_entry");
+    }
+  };
 
   function saveParticipantMetadataChoicesP(zid: any, pid: any, answers: any) {
     return new Promise(function (
