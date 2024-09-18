@@ -7189,6 +7189,7 @@ Email verified! You can close this tab or hit the back button.
         },
       };
 
+      // @ts-ignore
       const response = await client.comments.analyze({
         key: Config.googleJigsawPerspectiveApiKey,
         resource: analyzeRequest,
