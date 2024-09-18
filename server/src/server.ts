@@ -12319,15 +12319,26 @@ Thanks for using Polis!
     let mod = 0; // for now, assume all conversations will show unmoderated and approved participants.
 
     function getAuthorUidsOfFeaturedComments() {
-      return getPca(zid, 0).then(function (pcaData: {
-        asPOJO: any;
-        consensus: { agree?: any; disagree?: any };
-        repness: { [x: string]: any };
-      }) {
-        if (!pcaData) {
+      return getPca(zid, 0).then((pcaResult: PcaCacheItem | unknown) => {
+        if (
+          !pcaResult ||
+          typeof pcaResult !== "object" ||
+          !("asPOJO" in pcaResult)
+        ) {
           return [];
         }
-        pcaData = pcaData.asPOJO;
+
+        interface PcaData {
+          consensus?: {
+            agree?: Array<{ tid: number }>;
+            disagree?: Array<{ tid: number }>;
+          };
+          repness?: {
+            [gid: string]: Array<{ tid: number }>;
+          };
+        }
+
+        const pcaData = pcaResult.asPOJO as PcaData;
         pcaData.consensus = pcaData.consensus || {};
         pcaData.consensus.agree = pcaData.consensus.agree || [];
         pcaData.consensus.disagree = pcaData.consensus.disagree || [];
