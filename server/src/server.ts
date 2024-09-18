@@ -7218,6 +7218,15 @@ Email verified! You can close this tab or hit the back button.
 
   interface PolisRequest extends Request {
     p: PolisRequestParams;
+    connection?: {
+      remoteAddress?: string;
+      socket?: {
+        remoteAddress?: string;
+      };
+    };
+    socket?: {
+      remoteAddress?: string;
+    };
   }
 
   async function handle_POST_comments(
@@ -7262,7 +7271,7 @@ Email verified! You can close this tab or hit the back button.
       logger.debug("Post comments txt", { zid, pid, txt });
 
       const ip =
-        (req.headers?.["x-forwarded-for"] as string) ||
+        req.headers?.get("x-forwarded-for") ||
         req.connection?.remoteAddress ||
         req.socket?.remoteAddress ||
         req.connection?.socket?.remoteAddress;
@@ -7272,8 +7281,8 @@ Email verified! You can close this tab or hit the back button.
         comment_author: uid!,
         permalink: `https://pol.is/${zid}`,
         user_ip: ip as string,
-        user_agent: req.headers["user-agent"],
-        referrer: req.headers.referer,
+        user_agent: req.headers?.get("user-agent"),
+        referrer: req.headers.get("referer"),
       }).catch((err: any) => {
         logger.error("isSpam failed", err);
         return false;
