@@ -3495,37 +3495,40 @@ Feel free to reply to this email if you need help.`;
     // Overload 3 of 3, '(options: RequiredUriUrl & RequestPromiseOptions, callback?: RequestCallback | undefined): RequestPromise<any>', gave the following error.
     //   Argument of type 'string' is not assignable to parameter of type 'RequiredUriUrl & RequestPromiseOptions'.ts(2769)
     // @ts-ignore
-    return request
-      .get(url + ipAddress, {
-        method: "GET",
-        contentType: contentType,
-        headers: {
-          Authorization:
-            "Basic " +
-            Buffer.from(userId + ":" + licenseKey, "utf8").toString("base64"),
-        },
-      })
-      .then(function (response: string) {
-        var parsedResponse = JSON.parse(response);
-        logger.debug("maxmind response", parsedResponse);
+    return (
+      request
+        // @ts-ignore
+        .get(url + ipAddress, {
+          method: "GET",
+          contentType: contentType,
+          headers: {
+            Authorization:
+              "Basic " +
+              Buffer.from(userId + ":" + licenseKey, "utf8").toString("base64"),
+          },
+        })
+        .then(function (response: string) {
+          var parsedResponse = JSON.parse(response);
+          logger.debug("maxmind response", parsedResponse);
 
-        return pgQueryP(
-          "update participants_extended set modified=now_as_millis(), country_iso_code=($4), encrypted_maxmind_response_city=($3), " +
-            "location=ST_GeographyFromText('SRID=4326;POINT(" +
-            parsedResponse.location.latitude +
-            " " +
-            parsedResponse.location.longitude +
-            ")'), latitude=($5), longitude=($6) where zid = ($1) and uid = ($2);",
-          [
-            zid,
-            uid,
-            encrypt(response),
-            parsedResponse.country.iso_code,
-            parsedResponse.location.latitude,
-            parsedResponse.location.longitude,
-          ]
-        );
-      });
+          return pgQueryP(
+            "update participants_extended set modified=now_as_millis(), country_iso_code=($4), encrypted_maxmind_response_city=($3), " +
+              "location=ST_GeographyFromText('SRID=4326;POINT(" +
+              parsedResponse.location.latitude +
+              " " +
+              parsedResponse.location.longitude +
+              ")'), latitude=($5), longitude=($6) where zid = ($1) and uid = ($2);",
+            [
+              zid,
+              uid,
+              encrypt(response),
+              parsedResponse.country.iso_code,
+              parsedResponse.location.latitude,
+              parsedResponse.location.longitude,
+            ]
+          );
+        })
+    );
   }
 
   function addExtendedParticipantInfo(zid: any, uid?: any, data?: {}) {
@@ -7227,7 +7230,15 @@ Email verified! You can close this tab or hit the back button.
 
   async function handle_POST_comments(
     req: PolisRequest,
-    res: Response
+    /*
+      extending response seems strange here but,
+      res.json({
+        tid: tid,
+        currentPid: currentPid,
+      });
+      require it down below here.
+    */
+    res: Response & { json: (data: any) => void }
   ): Promise<void> {
     let { zid, xid, uid, txt, pid: initialPid, vote, anon, is_seed } = req.p;
 
