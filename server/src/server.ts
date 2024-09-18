@@ -7250,7 +7250,7 @@ Email verified! You can close this tab or hit the back button.
           const ptpt = rows[0];
           pid = ptpt.pid;
           currentPid = pid;
-          return pid;
+          return Number(pid);
         } else {
           return newPid;
         }
