@@ -1300,10 +1300,12 @@ function initializePolisHelpers() {
 
   type PcaCacheItem = {
     asPOJO: any;
+    consensus: { agree?: any; disagree?: any };
+    repness: { [x: string]: any };
     asJSON: string;
     asBufferOfGzippedJson: any;
     expiration: number;
-  }
+  };
   let pcaCacheSize = Config.cacheMathResults ? 300 : 1;
   let pcaCache = new LruCache<number, PcaCacheItem>({
     max: pcaCacheSize,
@@ -1567,7 +1569,10 @@ function initializePolisHelpers() {
     return o;
   }
 
-  function getPca(zid?: any, math_tick?: number) :Promise<PcaCacheItem | undefined> {
+  function getPca(
+    zid?: any,
+    math_tick?: number
+  ): Promise<PcaCacheItem | undefined> {
     let cached = pcaCache.get(zid);
     // Object is of type 'unknown'.ts(2571)
     // @ts-ignore
@@ -1647,14 +1652,9 @@ function initializePolisHelpers() {
     });
   }
 
-  function updatePcaCache(zid: any, item: { zid: any }) :Promise<PcaCacheItem> {
+  function updatePcaCache(zid: any, item: { zid: any }): Promise<PcaCacheItem> {
     return new Promise(function (
-      resolve: (arg0: {
-        asPOJO: any;
-        asJSON: string;
-        asBufferOfGzippedJson: any;
-        expiration: number;
-      }) => void,
+      resolve: (arg0: PcaCacheItem) => void,
       reject: (arg0: any) => any
     ) {
       delete item.zid; // don't leak zid
@@ -1665,11 +1665,13 @@ function initializePolisHelpers() {
           return reject(err);
         }
 
-        let o = {
-          asPOJO: item,
+        let o: PcaCacheItem = {
+          asPOJO: item as any,
           asJSON: asJSON,
           asBufferOfGzippedJson: jsondGzipdPcaBuffer,
           expiration: Date.now() + 3000,
+          consensus: { agree: undefined, disagree: undefined },
+          repness: {},
         };
         // save in LRU cache, but don't update the lastPrefetchedMathTick
         pcaCache.set(zid, o);
@@ -1677,6 +1679,7 @@ function initializePolisHelpers() {
       });
     });
   }
+
   function redirectIfHasZidButNoConversationId(
     req: { body: { zid: any; conversation_id: any }; headers?: any },
     res: {
@@ -1773,10 +1776,7 @@ function initializePolisHelpers() {
     }
 
     getPca(zid, math_tick)
-      .then(function (data: {
-        asPOJO: { math_tick: string };
-        asBufferOfGzippedJson: any;
-      }) {
+      .then(function (data: PcaCacheItem | undefined) {
         if (data) {
           // The buffer is gzipped beforehand to cut down on server effort in re-gzipping the same json string for each response.
           // We can't cache this endpoint on Cloudflare because the response changes too freqently, so it seems like the best way
@@ -2075,12 +2075,18 @@ function initializePolisHelpers() {
 
   async function handle_GET_reportExport(
     req: {
-      p: { rid: string, report_type: string },
-      headers: { host: string, "x-forwarded-proto": string }
+      p: { rid: string; report_type: string };
+      headers: { host: string; "x-forwarded-proto": string };
     },
-    res: { send: (data :string) => void, setHeader: (key: string, value: string) => void }
+    res: {
+      send: (data: string) => void;
+      setHeader: (key: string, value: string) => void;
+    }
   ) {
-    function formatCSV(colFns :Record<string, (row :any) => string>, rows: object[]) :string {
+    function formatCSV(
+      colFns: Record<string, (row: any) => string>,
+      rows: object[]
+    ): string {
       const fns = Object.values(colFns);
       const sep = "\n";
       let csv = Object.keys(colFns).join(",") + sep;
@@ -2093,54 +2099,57 @@ function initializePolisHelpers() {
             if (ii > 0) csv += ",";
             csv += fns[ii](row);
           }
-          csv += sep
+          csv += sep;
         }
       }
       return csv;
     }
 
-    async function loadConversationSummary (zid :number) {
+    async function loadConversationSummary(zid: number) {
       const [zinvite, convoRows, commentersRow, pca] = await Promise.all([
         getZinvite(zid),
         pgQueryP_readOnly(
-          `SELECT topic, description FROM conversations WHERE zid = $1`, [zid]
+          `SELECT topic, description FROM conversations WHERE zid = $1`,
+          [zid]
         ),
         pgQueryP_readOnly(
-          `SELECT COUNT(DISTINCT pid) FROM comments WHERE zid = $1`, [zid]
+          `SELECT COUNT(DISTINCT pid) FROM comments WHERE zid = $1`,
+          [zid]
         ),
-        getPca(zid)
+        getPca(zid),
       ]);
       if (!zinvite || !convoRows || !commentersRow || !pca) {
         throw new Error("polis_error_data_unknown_report");
       }
 
-      const convo = (convoRows as {topic: string, description: string}[])[0];
+      const convo = (convoRows as { topic: string; description: string }[])[0];
       const commenters = (commentersRow as { count: number }[])[0].count;
 
       type PcaData = {
-        "in-conv": number[],
-        "user-vote-counts": Record<number, number>,
-        "group-clusters": Record<number, object>,
-        "n-cmts": number,
-      }
-      const data = pca.asPOJO as PcaData
-      const siteUrl = `${req.headers["x-forwarded-proto"]}://${req.headers.host}`
+        "in-conv": number[];
+        "user-vote-counts": Record<number, number>;
+        "group-clusters": Record<number, object>;
+        "n-cmts": number;
+      };
+      const data = (pca.asPOJO as unknown) as PcaData;
+      const siteUrl = `${req.headers["x-forwarded-proto"]}://${req.headers.host}`;
 
-      const escapeQuotes = (s: string) => s.replace(/"/g, "\"\"");
+      const escapeQuotes = (s: string) => s.replace(/"/g, '""');
       return [
-        [ "topic", `"${escapeQuotes(convo.topic)}"` ],
-        [ "url", `${siteUrl}/${zinvite}` ],
-        [ "voters", Object.keys(data["user-vote-counts"]).length ],
-        [ "voters-in-conv", data["in-conv"].length ],
-        [ "commenters", commenters ],
-        [ "comments", data["n-cmts"] ],
-        [ "groups", Object.keys(data["group-clusters"]).length ],
-        [ "conversation-description", `"${escapeQuotes(convo.description)}"` ],
-      ].map(row => row.join(","));
+        ["topic", `"${escapeQuotes(convo.topic)}"`],
+        ["url", `${siteUrl}/${zinvite}`],
+        ["voters", Object.keys(data["user-vote-counts"]).length],
+        ["voters-in-conv", data["in-conv"].length],
+        ["commenters", commenters],
+        ["comments", data["n-cmts"]],
+        ["groups", Object.keys(data["group-clusters"]).length],
+        ["conversation-description", `"${escapeQuotes(convo.description)}"`],
+      ].map((row) => row.join(","));
     }
 
-    const loadCommentSummary = (zid: number) => pgQueryP_readOnly(
-      `SELECT
+    const loadCommentSummary = (zid: number) =>
+      pgQueryP_readOnly(
+        `SELECT
         created,
         tid,
         pid,
@@ -2150,13 +2159,17 @@ function initializePolisHelpers() {
         txt
       FROM comments
       WHERE zid = $1`,
-      [zid]);
+        [zid]
+      );
 
-    const loadVotes = (zid: number) => pgQueryP_readOnly(
-      `SELECT created as timestamp, tid, pid, vote FROM votes WHERE zid = $1 order by tid, pid`,
-      [zid]);
+    const loadVotes = (zid: number) =>
+      pgQueryP_readOnly(
+        `SELECT created as timestamp, tid, pid, vote FROM votes WHERE zid = $1 order by tid, pid`,
+        [zid]
+      );
 
-    const formatDatetime = (timestamp: string) => new Date(parseInt(timestamp)).toString();
+    const formatDatetime = (timestamp: string) =>
+      new Date(parseInt(timestamp)).toString();
 
     const { rid, report_type } = req.p;
     try {
@@ -2168,39 +2181,49 @@ function initializePolisHelpers() {
 
       switch (report_type) {
         case "summary.csv":
-          res.setHeader('content-type', 'text/csv');
+          res.setHeader("content-type", "text/csv");
           res.send((await loadConversationSummary(zid)).join("\n"));
           break;
 
         case "comments.csv":
-          const rows = await loadCommentSummary(zid) as object[] | undefined;
-          console.log(rows)
+          const rows = (await loadCommentSummary(zid)) as object[] | undefined;
+          console.log(rows);
           if (rows) {
-            res.setHeader('content-type', 'text/csv');
-            res.send(formatCSV({
-              "timestamp": (row) => String(Math.floor(row.created/1000)),
-              "datetime": (row) => formatDatetime(row.created),
-              "comment-id": (row) => String(row.tid),
-              "author-id": (row) => String(row.pid),
-              agrees: (row) => String(row.agrees),
-              disagrees: (row) => String(row.disagrees),
-              moderated: (row) => String(row.mod),
-              "comment-body": (row) => String(row.txt),
-            }, rows));
+            res.setHeader("content-type", "text/csv");
+            res.send(
+              formatCSV(
+                {
+                  timestamp: (row) => String(Math.floor(row.created / 1000)),
+                  datetime: (row) => formatDatetime(row.created),
+                  "comment-id": (row) => String(row.tid),
+                  "author-id": (row) => String(row.pid),
+                  agrees: (row) => String(row.agrees),
+                  disagrees: (row) => String(row.disagrees),
+                  moderated: (row) => String(row.mod),
+                  "comment-body": (row) => String(row.txt),
+                },
+                rows
+              )
+            );
           } else fail(res, 500, "polis_err_data_export");
           break;
 
         case "votes.csv":
-          const votes = await loadVotes(zid) as object[] | undefined;
+          const votes = (await loadVotes(zid)) as object[] | undefined;
           if (votes) {
-            res.setHeader('content-type', 'text/csv');
-            res.send(formatCSV({
-              timestamp: (row) => String(Math.floor(row.timestamp/1000)),
-              datetime: (row) => formatDatetime(row.timestamp),
-              "comment-id": (row) => String(row.tid),
-              "voter-id": (row) => String(row.pid),
-              vote: (row) => String(row.vote),
-            }, votes));
+            res.setHeader("content-type", "text/csv");
+            res.send(
+              formatCSV(
+                {
+                  timestamp: (row) => String(Math.floor(row.timestamp / 1000)),
+                  datetime: (row) => formatDatetime(row.timestamp),
+                  "comment-id": (row) => String(row.tid),
+                  "voter-id": (row) => String(row.pid),
+                  vote: (row) => String(row.vote),
+                },
+                votes
+              )
+            );
           } else fail(res, 500, "polis_err_data_export");
           break;
 
@@ -2209,8 +2232,10 @@ function initializePolisHelpers() {
           break;
       }
     } catch (err) {
-      const msg = err instanceof Error && err.message && err.message.startsWith("polis_") ?
-        err.message : "polis_err_data_export";
+      const msg =
+        err instanceof Error && err.message && err.message.startsWith("polis_")
+          ? err.message
+          : "polis_err_data_export";
       fail(res, 500, msg, err);
     }
   }
@@ -3197,21 +3222,16 @@ Feel free to reply to this email if you need help.`;
     });
   }
 
-  function deleteSuzinvite(suzinvite: any) {
-    return new Promise(function (resolve: () => void, reject: any) {
-      pgQuery(
-        "DELETE FROM suzinvites WHERE suzinvite = ($1);",
-        [suzinvite],
-        function (err: any, results: any) {
-          if (err) {
-            // resolve, but complain
-            logger.error("polis_err_removing_suzinvite", err);
-          }
-          resolve();
-        }
-      );
-    });
-  }
+  const deleteSuzinvite = async (suzinvite: string): Promise<void> => {
+    try {
+      await pgQuery("DELETE FROM suzinvites WHERE suzinvite = ($1);", [
+        suzinvite,
+      ]);
+    } catch (err) {
+      // resolve, but complain
+      logger.error("polis_err_removing_suzinvite", err);
+    }
+  };
 
   function xidExists(xid: any, owner: any, uid?: any) {
     return pgQueryP(
@@ -3227,25 +3247,21 @@ Feel free to reply to this email if you need help.`;
     });
   }
 
-  function createXidEntry(xid: any, owner: any, uid?: any) {
-    return new Promise(function (
-      resolve: () => void,
-      reject: (arg0: Error) => void
-    ) {
-      pgQuery(
+  const createXidEntry = async (
+    xid: string,
+    owner: string,
+    uid?: string
+  ): Promise<void> => {
+    try {
+      await pgQueryP(
         "INSERT INTO xids (uid, owner, xid) VALUES ($1, $2, $3);",
-        [uid, owner, xid],
-        function (err: any, results: any) {
-          if (err) {
-            logger.error("polis_err_adding_xid_entry", err);
-            reject(new Error("polis_err_adding_xid_entry"));
-            return;
-          }
-          resolve();
-        }
+        [uid, owner, xid]
       );
-    });
-  }
+    } catch (err) {
+      logger.error("polis_err_adding_xid_entry", err);
+      throw new Error("polis_err_adding_xid_entry");
+    }
+  };
 
   function saveParticipantMetadataChoicesP(zid: any, pid: any, answers: any) {
     return new Promise(function (
@@ -3479,37 +3495,40 @@ Feel free to reply to this email if you need help.`;
     // Overload 3 of 3, '(options: RequiredUriUrl & RequestPromiseOptions, callback?: RequestCallback | undefined): RequestPromise<any>', gave the following error.
     //   Argument of type 'string' is not assignable to parameter of type 'RequiredUriUrl & RequestPromiseOptions'.ts(2769)
     // @ts-ignore
-    return request
-      .get(url + ipAddress, {
-        method: "GET",
-        contentType: contentType,
-        headers: {
-          Authorization:
-            "Basic " +
-            Buffer.from(userId + ":" + licenseKey, "utf8").toString("base64"),
-        },
-      })
-      .then(function (response: string) {
-        var parsedResponse = JSON.parse(response);
-        logger.debug("maxmind response", parsedResponse);
+    return (
+      request
+        // @ts-ignore
+        .get(url + ipAddress, {
+          method: "GET",
+          contentType: contentType,
+          headers: {
+            Authorization:
+              "Basic " +
+              Buffer.from(userId + ":" + licenseKey, "utf8").toString("base64"),
+          },
+        })
+        .then(function (response: string) {
+          var parsedResponse = JSON.parse(response);
+          logger.debug("maxmind response", parsedResponse);
 
-        return pgQueryP(
-          "update participants_extended set modified=now_as_millis(), country_iso_code=($4), encrypted_maxmind_response_city=($3), " +
-            "location=ST_GeographyFromText('SRID=4326;POINT(" +
-            parsedResponse.location.latitude +
-            " " +
-            parsedResponse.location.longitude +
-            ")'), latitude=($5), longitude=($6) where zid = ($1) and uid = ($2);",
-          [
-            zid,
-            uid,
-            encrypt(response),
-            parsedResponse.country.iso_code,
-            parsedResponse.location.latitude,
-            parsedResponse.location.longitude,
-          ]
-        );
-      });
+          return pgQueryP(
+            "update participants_extended set modified=now_as_millis(), country_iso_code=($4), encrypted_maxmind_response_city=($3), " +
+              "location=ST_GeographyFromText('SRID=4326;POINT(" +
+              parsedResponse.location.latitude +
+              " " +
+              parsedResponse.location.longitude +
+              ")'), latitude=($5), longitude=($6) where zid = ($1) and uid = ($2);",
+            [
+              zid,
+              uid,
+              encrypt(response),
+              parsedResponse.country.iso_code,
+              parsedResponse.location.latitude,
+              parsedResponse.location.longitude,
+            ]
+          );
+        })
+    );
   }
 
   function addExtendedParticipantInfo(zid: any, uid?: any, data?: {}) {
@@ -4056,17 +4075,17 @@ Email verified! You can close this tab or hit the back button.
     return hash;
   }
 
-  function verifyHmacForQueryParams(
+  const verifyHmacForQueryParams = (
     path: string,
     params: { [x: string]: any; conversation_id?: any; email?: any }
-  ) {
-    return new Promise(function (resolve: () => void, reject: () => void) {
-      params = _.clone(params);
-      let hash = params[HMAC_SIGNATURE_PARAM_NAME];
-      delete params[HMAC_SIGNATURE_PARAM_NAME];
-      let correctHash = createHmacForQueryParams(path, params);
+  ): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      const clonedParams = { ...params };
+      const hash = clonedParams[HMAC_SIGNATURE_PARAM_NAME];
+      delete clonedParams[HMAC_SIGNATURE_PARAM_NAME];
+      const correctHash = createHmacForQueryParams(path, clonedParams);
       // To thwart timing attacks, add some randomness to the response time with setTimeout.
-      setTimeout(function () {
+      setTimeout(() => {
         logger.debug("comparing", { correctHash, hash });
         if (correctHash === hash) {
           resolve();
@@ -4075,7 +4094,7 @@ Email verified! You can close this tab or hit the back button.
         }
       });
     });
-  }
+  };
 
   function sendEmailByUid(uid?: any, subject?: string, body?: string | number) {
     return getUserInfoForUid2(uid).then(function (userInfo: {
@@ -5923,26 +5942,27 @@ Email verified! You can close this tab or hit the back button.
     // @ts-ignore
     function getMoreFriends(friendsSoFar: any[], urlForNextCall: any) {
       // urlForNextCall includes access token
-      return request.get(urlForNextCall).then(
-        function (response: { data: string | any[]; paging: { next: any } }) {
-          let len = response.data.length;
-          if (len) {
-            for (var i = 0; i < len; i++) {
-              friendsSoFar.push(response.data[i]);
+      return request
+        .get(urlForNextCall)
+        .then(
+          (response: {
+            data: string | any[];
+            paging: { next: any };
+          }): Promise<any[]> => {
+            const { data, paging } = response;
+            if (data.length) {
+              friendsSoFar.push(...data);
+              if (paging.next) {
+                return getMoreFriends(friendsSoFar, paging.next);
+              }
             }
-            if (response.paging.next) {
-              return getMoreFriends(friendsSoFar, response.paging.next);
-            }
-            return friendsSoFar;
-          } else {
-            return friendsSoFar;
+            return Promise.resolve(friendsSoFar);
           }
-        },
-        function (err: any) {
+        )
+        .catch((err: any) => {
           emailBadProblemTime("getMoreFriends failed");
-          return friendsSoFar;
-        }
-      );
+          return Promise.resolve(friendsSoFar);
+        });
     }
     return new Promise(function (
       resolve: (arg0: any) => void,
@@ -7050,30 +7070,29 @@ Email verified! You can close this tab or hit the back button.
   // }
 
   function moderateComment(
-    zid: string,
-    tid: number,
-    active: boolean,
-    mod: boolean,
-    is_meta: boolean
+    zid: any,
+    tid: any,
+    active: any,
+    mod: any,
+    is_meta: any
   ) {
-    return new Promise(function (
-      resolve: () => void,
-      reject: (arg0: any) => void
-    ) {
-      pgQuery(
-        "UPDATE COMMENTS SET active=($3), mod=($4), modified=now_as_millis(), is_meta = ($5) WHERE zid=($1) and tid=($2);",
-        [zid, tid, active, mod, is_meta],
-        function (err: any) {
-          if (err) {
-            reject(err);
-          } else {
-            // TODO an optimization would be to only add the task when the comment becomes visible after the mod.
-            addNotificationTask(zid);
+    return new Promise((resolve, reject) => {
+      let query =
+        "UPDATE comments SET active = $1, mod = $2, is_meta = $3 WHERE zid = $4 AND tid = $5";
+      let params = [active, mod, is_meta, zid, tid];
 
-            resolve();
-          }
+      console.log("Executing query:", query);
+      console.log("With parameters:", params);
+
+      pgQuery(query, params, (err: any, result: any) => {
+        if (err) {
+          console.error("Database error:", err);
+          reject(err);
+        } else {
+          console.log("Query executed successfully");
+          resolve(result);
         }
-      );
+      });
     });
   }
 
@@ -7179,6 +7198,7 @@ Email verified! You can close this tab or hit the back button.
         },
       };
 
+      // @ts-ignore
       const response = await client.comments.analyze({
         key: Config.googleJigsawPerspectiveApiKey,
         resource: analyzeRequest,
@@ -7204,16 +7224,33 @@ Email verified! You can close this tab or hit the back button.
 
   interface PolisRequest extends Request {
     p: PolisRequestParams;
+    connection?: {
+      remoteAddress?: string;
+      socket?: {
+        remoteAddress?: string;
+      };
+    };
+    socket?: {
+      remoteAddress?: string;
+    };
   }
 
   async function handle_POST_comments(
     req: PolisRequest,
-    res: Response
+    /*
+      extending response seems strange here but,
+      res.json({
+        tid: tid,
+        currentPid: currentPid,
+      });
+      require it down below here.
+    */
+    res: Response & { json: (data: any) => void }
   ): Promise<void> {
-    const { zid, xid, uid, txt, pid: initialPid, vote, anon, is_seed } = req.p;
+    let { zid, xid, uid, txt, pid: initialPid, vote, anon, is_seed } = req.p;
 
-    console.log("============= handle_POST_comments ===========");
-    console.log(zid, xid, uid, txt, initialPid, vote, anon, is_seed);
+    // console.log("============= debug handle_POST_comments ===========");
+    // console.log(zid, xid, uid, txt, initialPid, vote, anon, is_seed);
     /*
     2024-08-20 15:44:25 ============= handle_POST_comments ===========
     2024-08-20 15:44:25 37436 undefined 186 a lovely comment 3 undefined -1 undefined undefined
@@ -7236,7 +7273,7 @@ Email verified! You can close this tab or hit the back button.
           const ptpt = rows[0];
           pid = ptpt.pid;
           currentPid = pid;
-          return pid;
+          return Number(pid);
         } else {
           return newPid;
         }
@@ -7248,6 +7285,7 @@ Email verified! You can close this tab or hit the back button.
       logger.debug("Post comments txt", { zid, pid, txt });
 
       const ip =
+        // @ts-ignore
         req.headers["x-forwarded-for"] ||
         req.connection?.remoteAddress ||
         req.socket?.remoteAddress ||
@@ -7258,9 +7296,11 @@ Email verified! You can close this tab or hit the back button.
         comment_author: uid!,
         permalink: `https://pol.is/${zid}`,
         user_ip: ip as string,
+        // @ts-ignore
         user_agent: req.headers["user-agent"],
-        referrer: req.headers.referer,
-      }).catch((err) => {
+        // @ts-ignore
+        referrer: req.headers["referer"],
+      }).catch((err: any) => {
         logger.error("isSpam failed", err);
         return false;
       });
@@ -7284,7 +7324,7 @@ Email verified! You can close this tab or hit the back button.
         }
         const newPid = await doGetPid();
         if (shouldCreateXidRecord) {
-          await createXidRecordByZid(zid!, uid!, xid!);
+          await createXidRecordByZid(zid!, uid!, xid!, null, null, null);
         }
         return newPid;
       })();
@@ -7369,7 +7409,7 @@ Email verified! You can close this tab or hit the back button.
       const lang = detection.language;
       const lang_confidence = detection.confidence;
 
-      const insertedComment = await pgQueryP(
+      const insertedComment: any = await pgQueryP(
         `INSERT INTO COMMENTS
         (pid, zid, txt, velocity, active, mod, uid, anon, is_seed, created, tid, lang, lang_confidence)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, default, null, $10, $11)
@@ -7399,13 +7439,13 @@ Email verified! You can close this tab or hit the back button.
             polisTypes.mod.unmoderated
           );
           if (n !== 0) {
-            const users = await pgQueryP_readOnly(
+            const users: any = await pgQueryP_readOnly(
               "SELECT * FROM users WHERE site_id = (SELECT site_id FROM page_ids WHERE zid = $1) UNION SELECT * FROM users WHERE uid = $2;",
               [zid, conv.owner]
             );
             const uids = users.map((user: { uid: string }) => user.uid);
             uids.forEach((uid: string) =>
-              sendCommentModerationEmail(req, uid, zid!, n)
+              sendCommentModerationEmail(req, Number(uid), zid!, n)
             );
           }
         } catch (err) {
@@ -8337,10 +8377,7 @@ Email verified! You can close this tab or hit the back button.
   }
   function verifyMetadataAnswersExistForEachQuestion(zid: any) {
     let errorcode = "polis_err_missing_metadata_answers";
-    return new Promise(function (
-      resolve: () => void,
-      reject: (arg0: Error) => void
-    ) {
+    return new Promise<void>((resolve, reject) => {
       pgQuery_readOnly(
         "select pmqid from participant_metadata_questions where zid = ($1);",
         [zid],
@@ -8410,22 +8447,31 @@ Email verified! You can close this tab or hit the back button.
     let mod = req.p.mod;
     let is_meta = req.p.is_meta;
 
+    console.log(
+      `Attempting to update comment. zid: ${zid}, tid: ${tid}, uid: ${uid}`
+    );
+
     isModerator(zid, uid)
       .then(function (isModerator: any) {
+        console.log(`isModerator result: ${isModerator}`);
         if (isModerator) {
           moderateComment(zid, tid, active, mod, is_meta).then(
             function () {
+              console.log("Comment moderated successfully");
               res.status(200).json({});
             },
             function (err: any) {
+              console.error("Error in moderateComment:", err);
               fail(res, 500, "polis_err_update_comment", err);
             }
           );
         } else {
+          console.log("User is not a moderator");
           fail(res, 403, "polis_err_update_comment_auth");
         }
       })
       .catch(function (err: any) {
+        console.error("Error in isModerator:", err);
         fail(res, 500, "polis_err_update_comment", err);
       });
   }
@@ -10714,23 +10760,16 @@ Thanks for using Polis!
       );
     });
   }
-  function switchToUser(req: any, res: any, uid?: any) {
-    return new Promise(function (
-      resolve: () => void,
-      reject: (arg0: string) => void
-    ) {
-      startSession(uid, function (errSess: any, token: any) {
+  function switchToUser(req: any, res: any, uid?: any): Promise<void> {
+    return new Promise((resolve, reject) => {
+      startSession(uid, (errSess: any, token: any) => {
         if (errSess) {
           reject(errSess);
           return;
         }
         addCookies(req, res, token, uid)
-          .then(function () {
-            resolve();
-          })
-          .catch(function (err: any) {
-            reject("polis_err_adding_cookies");
-          });
+          .then(() => resolve())
+          .catch(() => reject("polis_err_adding_cookies"));
       });
     });
   }
@@ -12297,15 +12336,26 @@ Thanks for using Polis!
     let mod = 0; // for now, assume all conversations will show unmoderated and approved participants.
 
     function getAuthorUidsOfFeaturedComments() {
-      return getPca(zid, 0).then(function (pcaData: {
-        asPOJO: any;
-        consensus: { agree?: any; disagree?: any };
-        repness: { [x: string]: any };
-      }) {
-        if (!pcaData) {
+      return getPca(zid, 0).then((pcaResult: PcaCacheItem | unknown) => {
+        if (
+          !pcaResult ||
+          typeof pcaResult !== "object" ||
+          !("asPOJO" in pcaResult)
+        ) {
           return [];
         }
-        pcaData = pcaData.asPOJO;
+
+        interface PcaData {
+          consensus?: {
+            agree?: Array<{ tid: number }>;
+            disagree?: Array<{ tid: number }>;
+          };
+          repness?: {
+            [gid: string]: Array<{ tid: number }>;
+          };
+        }
+
+        const pcaData = pcaResult.asPOJO as PcaData;
         pcaData.consensus = pcaData.consensus || {};
         pcaData.consensus.agree = pcaData.consensus.agree || [];
         pcaData.consensus.disagree = pcaData.consensus.disagree || [];
