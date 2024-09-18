@@ -1299,7 +1299,7 @@ function initializePolisHelpers() {
   }
 
   type PcaCacheItem = {
-    asPOJO: any;
+    asPOJO: { math_tick: string };
     asJSON: string;
     asBufferOfGzippedJson: any;
     expiration: number;
@@ -1680,6 +1680,7 @@ function initializePolisHelpers() {
       });
     });
   }
+
   function redirectIfHasZidButNoConversationId(
     req: { body: { zid: any; conversation_id: any }; headers?: any },
     res: {
@@ -1776,10 +1777,7 @@ function initializePolisHelpers() {
     }
 
     getPca(zid, math_tick)
-      .then(function (data: {
-        asPOJO: { math_tick: string };
-        asBufferOfGzippedJson: any;
-      }) {
+      .then(function (data: PcaCacheItem | undefined) {
         if (data) {
           // The buffer is gzipped beforehand to cut down on server effort in re-gzipping the same json string for each response.
           // We can't cache this endpoint on Cloudflare because the response changes too freqently, so it seems like the best way
@@ -2134,7 +2132,7 @@ function initializePolisHelpers() {
         "group-clusters": Record<number, object>;
         "n-cmts": number;
       };
-      const data = pca.asPOJO as PcaData;
+      const data = (pca.asPOJO as unknown) as PcaData;
       const siteUrl = `${req.headers["x-forwarded-proto"]}://${req.headers.host}`;
 
       const escapeQuotes = (s: string) => s.replace(/"/g, '""');
@@ -3225,21 +3223,16 @@ Feel free to reply to this email if you need help.`;
     });
   }
 
-  function deleteSuzinvite(suzinvite: any) {
-    return new Promise(function (resolve: () => void, reject: any) {
-      pgQuery(
-        "DELETE FROM suzinvites WHERE suzinvite = ($1);",
-        [suzinvite],
-        function (err: any, results: any) {
-          if (err) {
-            // resolve, but complain
-            logger.error("polis_err_removing_suzinvite", err);
-          }
-          resolve();
-        }
-      );
-    });
-  }
+  const deleteSuzinvite = async (suzinvite: string): Promise<void> => {
+    try {
+      await pgQuery("DELETE FROM suzinvites WHERE suzinvite = ($1);", [
+        suzinvite,
+      ]);
+    } catch (err) {
+      // resolve, but complain
+      logger.error("polis_err_removing_suzinvite", err);
+    }
+  };
 
   function xidExists(xid: any, owner: any, uid?: any) {
     return pgQueryP(
@@ -4084,17 +4077,17 @@ Email verified! You can close this tab or hit the back button.
     return hash;
   }
 
-  function verifyHmacForQueryParams(
+  const verifyHmacForQueryParams = (
     path: string,
     params: { [x: string]: any; conversation_id?: any; email?: any }
-  ) {
-    return new Promise(function (resolve: () => void, reject: () => void) {
-      params = _.clone(params);
-      let hash = params[HMAC_SIGNATURE_PARAM_NAME];
-      delete params[HMAC_SIGNATURE_PARAM_NAME];
-      let correctHash = createHmacForQueryParams(path, params);
+  ): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      const clonedParams = { ...params };
+      const hash = clonedParams[HMAC_SIGNATURE_PARAM_NAME];
+      delete clonedParams[HMAC_SIGNATURE_PARAM_NAME];
+      const correctHash = createHmacForQueryParams(path, clonedParams);
       // To thwart timing attacks, add some randomness to the response time with setTimeout.
-      setTimeout(function () {
+      setTimeout(() => {
         logger.debug("comparing", { correctHash, hash });
         if (correctHash === hash) {
           resolve();
@@ -4103,7 +4096,7 @@ Email verified! You can close this tab or hit the back button.
         }
       });
     });
-  }
+  };
 
   function sendEmailByUid(uid?: any, subject?: string, body?: string | number) {
     return getUserInfoForUid2(uid).then(function (userInfo: {
@@ -5951,26 +5944,27 @@ Email verified! You can close this tab or hit the back button.
     // @ts-ignore
     function getMoreFriends(friendsSoFar: any[], urlForNextCall: any) {
       // urlForNextCall includes access token
-      return request.get(urlForNextCall).then(
-        function (response: { data: string | any[]; paging: { next: any } }) {
-          let len = response.data.length;
-          if (len) {
-            for (var i = 0; i < len; i++) {
-              friendsSoFar.push(response.data[i]);
+      return request
+        .get(urlForNextCall)
+        .then(
+          (response: {
+            data: string | any[];
+            paging: { next: any };
+          }): Promise<any[]> => {
+            const { data, paging } = response;
+            if (data.length) {
+              friendsSoFar.push(...data);
+              if (paging.next) {
+                return getMoreFriends(friendsSoFar, paging.next);
+              }
             }
-            if (response.paging.next) {
-              return getMoreFriends(friendsSoFar, response.paging.next);
-            }
-            return friendsSoFar;
-          } else {
-            return friendsSoFar;
+            return Promise.resolve(friendsSoFar);
           }
-        },
-        function (err: any) {
+        )
+        .catch((err: any) => {
           emailBadProblemTime("getMoreFriends failed");
-          return friendsSoFar;
-        }
-      );
+          return Promise.resolve(friendsSoFar);
+        });
     }
     return new Promise(function (
       resolve: (arg0: any) => void,
@@ -7077,33 +7071,25 @@ Email verified! You can close this tab or hit the back button.
   //     return server + "/"+path+"?" + paramsToStringSortedByName(params);
   // }
 
-  function moderateComment(
+  const moderateComment = async (
     zid: string,
     tid: number,
     active: boolean,
     mod: boolean,
     is_meta: boolean
-  ) {
-    return new Promise(function (
-      resolve: () => void,
-      reject: (arg0: any) => void
-    ) {
-      pgQuery(
+  ): Promise<void> => {
+    try {
+      await pgQuery(
         "UPDATE COMMENTS SET active=($3), mod=($4), modified=now_as_millis(), is_meta = ($5) WHERE zid=($1) and tid=($2);",
-        [zid, tid, active, mod, is_meta],
-        function (err: any) {
-          if (err) {
-            reject(err);
-          } else {
-            // TODO an optimization would be to only add the task when the comment becomes visible after the mod.
-            addNotificationTask(zid);
-
-            resolve();
-          }
-        }
+        [zid, tid, active, mod, is_meta]
       );
-    });
-  }
+
+      // TODO an optimization would be to only add the task when the comment becomes visible after the mod.
+      await addNotificationTask(zid);
+    } catch (err) {
+      throw err;
+    }
+  };
 
   const getComment = Comment.getComment;
 
@@ -7276,7 +7262,7 @@ Email verified! You can close this tab or hit the back button.
       logger.debug("Post comments txt", { zid, pid, txt });
 
       const ip =
-        req.headers["x-forwarded-for"] ||
+        (req.headers?.["x-forwarded-for"] as string) ||
         req.connection?.remoteAddress ||
         req.socket?.remoteAddress ||
         req.connection?.socket?.remoteAddress;
