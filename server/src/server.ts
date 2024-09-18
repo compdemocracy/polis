@@ -1299,7 +1299,7 @@ function initializePolisHelpers() {
   }
 
   type PcaCacheItem = {
-    asPOJO: { math_tick: string };
+    asPOJO: any;
     consensus: { agree?: any; disagree?: any };
     repness: { [x: string]: any };
     asJSON: string;
@@ -1654,12 +1654,7 @@ function initializePolisHelpers() {
 
   function updatePcaCache(zid: any, item: { zid: any }): Promise<PcaCacheItem> {
     return new Promise(function (
-      resolve: (arg0: {
-        asPOJO: any;
-        asJSON: string;
-        asBufferOfGzippedJson: any;
-        expiration: number;
-      }) => void,
+      resolve: (arg0: PcaCacheItem) => void,
       reject: (arg0: any) => any
     ) {
       delete item.zid; // don't leak zid
@@ -1670,11 +1665,13 @@ function initializePolisHelpers() {
           return reject(err);
         }
 
-        let o = {
-          asPOJO: item,
+        let o: PcaCacheItem = {
+          asPOJO: item as any,
           asJSON: asJSON,
           asBufferOfGzippedJson: jsondGzipdPcaBuffer,
           expiration: Date.now() + 3000,
+          consensus: { agree: undefined, disagree: undefined },
+          repness: {},
         };
         // save in LRU cache, but don't update the lastPrefetchedMathTick
         pcaCache.set(zid, o);
