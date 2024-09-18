@@ -1300,6 +1300,8 @@ function initializePolisHelpers() {
 
   type PcaCacheItem = {
     asPOJO: { math_tick: string };
+    consensus: { agree?: any; disagree?: any };
+    repness: { [x: string]: any };
     asJSON: string;
     asBufferOfGzippedJson: any;
     expiration: number;
