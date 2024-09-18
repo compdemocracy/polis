@@ -8359,10 +8359,7 @@ Email verified! You can close this tab or hit the back button.
   }
   function verifyMetadataAnswersExistForEachQuestion(zid: any) {
     let errorcode = "polis_err_missing_metadata_answers";
-    return new Promise(function (
-      resolve: () => void,
-      reject: (arg0: Error) => void
-    ) {
+    return new Promise<void>((resolve, reject) => {
       pgQuery_readOnly(
         "select pmqid from participant_metadata_questions where zid = ($1);",
         [zid],
