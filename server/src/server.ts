@@ -10736,23 +10736,16 @@ Thanks for using Polis!
       );
     });
   }
-  function switchToUser(req: any, res: any, uid?: any) {
-    return new Promise(function (
-      resolve: () => void,
-      reject: (arg0: string) => void
-    ) {
-      startSession(uid, function (errSess: any, token: any) {
+  function switchToUser(req: any, res: any, uid?: any): Promise<void> {
+    return new Promise((resolve, reject) => {
+      startSession(uid, (errSess: any, token: any) => {
         if (errSess) {
           reject(errSess);
           return;
         }
         addCookies(req, res, token, uid)
-          .then(function () {
-            resolve();
-          })
-          .catch(function (err: any) {
-            reject("polis_err_adding_cookies");
-          });
+          .then(() => resolve())
+          .catch(() => reject("polis_err_adding_cookies"));
       });
     });
   }
