@@ -7069,25 +7069,32 @@ Email verified! You can close this tab or hit the back button.
   //     return server + "/"+path+"?" + paramsToStringSortedByName(params);
   // }
 
-  const moderateComment = async (
-    zid: string,
-    tid: number,
-    active: boolean,
-    mod: boolean,
-    is_meta: boolean
-  ): Promise<void> => {
-    try {
-      await pgQuery(
-        "UPDATE COMMENTS SET active=($3), mod=($4), modified=now_as_millis(), is_meta = ($5) WHERE zid=($1) and tid=($2);",
-        [zid, tid, active, mod, is_meta]
-      );
+  function moderateComment(
+    zid: any,
+    tid: any,
+    active: any,
+    mod: any,
+    is_meta: any
+  ) {
+    return new Promise((resolve, reject) => {
+      let query =
+        "UPDATE comments SET active = $1, mod = $2, is_meta = $3 WHERE zid = $4 AND tid = $5";
+      let params = [active, mod, is_meta, zid, tid];
 
-      // TODO an optimization would be to only add the task when the comment becomes visible after the mod.
-      await addNotificationTask(zid);
-    } catch (err) {
-      throw err;
-    }
-  };
+      console.log("Executing query:", query);
+      console.log("With parameters:", params);
+
+      pgQuery(query, params, (err: any, result: any) => {
+        if (err) {
+          console.error("Database error:", err);
+          reject(err);
+        } else {
+          console.log("Query executed successfully");
+          resolve(result);
+        }
+      });
+    });
+  }
 
   const getComment = Comment.getComment;
 
@@ -7278,7 +7285,8 @@ Email verified! You can close this tab or hit the back button.
       logger.debug("Post comments txt", { zid, pid, txt });
 
       const ip =
-        req.headers?.get("x-forwarded-for") ||
+        // @ts-ignore
+        req.headers["x-forwarded-for"] ||
         req.connection?.remoteAddress ||
         req.socket?.remoteAddress ||
         req.connection?.socket?.remoteAddress;
@@ -7288,8 +7296,10 @@ Email verified! You can close this tab or hit the back button.
         comment_author: uid!,
         permalink: `https://pol.is/${zid}`,
         user_ip: ip as string,
-        user_agent: req.headers?.get("user-agent"),
-        referrer: req.headers.get("referer"),
+        // @ts-ignore
+        user_agent: req.headers["user-agent"],
+        // @ts-ignore
+        referrer: req.headers["referer"],
       }).catch((err: any) => {
         logger.error("isSpam failed", err);
         return false;
@@ -8437,22 +8447,31 @@ Email verified! You can close this tab or hit the back button.
     let mod = req.p.mod;
     let is_meta = req.p.is_meta;
 
+    console.log(
+      `Attempting to update comment. zid: ${zid}, tid: ${tid}, uid: ${uid}`
+    );
+
     isModerator(zid, uid)
       .then(function (isModerator: any) {
+        console.log(`isModerator result: ${isModerator}`);
         if (isModerator) {
           moderateComment(zid, tid, active, mod, is_meta).then(
             function () {
+              console.log("Comment moderated successfully");
               res.status(200).json({});
             },
             function (err: any) {
+              console.error("Error in moderateComment:", err);
               fail(res, 500, "polis_err_update_comment", err);
             }
           );
         } else {
+          console.log("User is not a moderator");
           fail(res, 403, "polis_err_update_comment_auth");
         }
       })
       .catch(function (err: any) {
+        console.error("Error in isModerator:", err);
         fail(res, 500, "polis_err_update_comment", err);
       });
   }
