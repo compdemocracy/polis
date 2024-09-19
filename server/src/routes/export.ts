@@ -200,6 +200,102 @@ async function sendVotesSummary(zid: number, res: Response) {
   );
 }
 
+async function sendParticipantVotesSummary(zid: number, res: Response) {
+  // Load up the comment ids
+  const commentRows = (await pgQueryP_readOnly(
+    "SELECT tid, pid FROM comments WHERE zid = ($1) ORDER BY tid ASC, created ASC", // TODO: filter only active comments?
+    [zid]
+  )) as { tid: number; pid: number }[];
+  const commentIds = commentRows.map((row) => row.tid);
+  const participantCommentCounts = new Map<number, number>();
+  for (const row of commentRows) {
+    const count = participantCommentCounts.get(row.pid) || 0;
+    participantCommentCounts.set(row.pid, count + 1);
+  }
+
+  const pca = await getPca(zid);
+  const groupClusters: { id: number; members: number[] }[] | undefined =
+    pca?.asPOJO["group-clusters"];
+  function getGroupId(pid: number) {
+    if (groupClusters) {
+      for (const group of groupClusters) {
+        if (group.members.includes(pid)) {
+          return group.id;
+        }
+      }
+    }
+    return undefined;
+  }
+
+  res.setHeader("content-type", "text/csv");
+  res.write(
+    [
+      "participant",
+      "group-id",
+      "n-comments",
+      "n-votes",
+      "n-agree",
+      "n-disagree",
+      ...commentIds,
+    ].join(",") + sep
+  );
+
+  // Query the votes in participant order so that we can summarize them in a streaming pass
+  let currentParticipantId = -1;
+  const currentParticipantVotes = new Map<number, number>();
+  function sendCurrentParticipantRow() {
+    let agrees = 0;
+    let disagrees = 0;
+    for (const vote of currentParticipantVotes.values()) {
+      if (vote === 1) agrees += 1;
+      else if (vote === -1) disagrees += 1;
+    }
+    const values = [
+      currentParticipantId,
+      getGroupId(currentParticipantId),
+      participantCommentCounts.get(currentParticipantId) || 0,
+      currentParticipantVotes.size,
+      agrees,
+      disagrees,
+      ...commentIds.map((tid) => currentParticipantVotes.get(tid)),
+    ];
+    res.write(
+      values
+        .map((value) => (value === undefined ? "" : String(value)))
+        .join(",") + sep
+    );
+  }
+
+  stream_pgQueryP_readOnly(
+    "SELECT pid, tid, vote FROM votes WHERE zid = ($1) ORDER BY pid",
+    [zid],
+    (row) => {
+      const pid: number = row.pid;
+      if (pid != currentParticipantId) {
+        if (currentParticipantId != -1) {
+          sendCurrentParticipantRow();
+        }
+        currentParticipantId = pid;
+        currentParticipantVotes.clear();
+      }
+
+      const tid: number = row.tid;
+      const vote: number = row.vote;
+      currentParticipantVotes.set(tid, vote);
+    },
+    () => {
+      if (currentParticipantId != -1) {
+        sendCurrentParticipantRow();
+      }
+      res.end();
+    },
+    (error) => {
+      logger.error("polis_err_report_participant_votes", error);
+      fail(res, 500, "polis_err_data_export", error);
+    }
+  );
+}
+
 export async function handle_GET_reportExport(
   req: {
     p: { rid: string; report_type: string };
@@ -227,6 +323,10 @@ export async function handle_GET_reportExport(
 
       case "votes.csv":
         await sendVotesSummary(zid, res);
+        break;
+
+      case "participant-votes.csv":
+        await sendParticipantVotesSummary(zid, res);
         break;
 
       default:
