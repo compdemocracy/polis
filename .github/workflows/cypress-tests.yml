@@ -27,7 +27,7 @@ jobs:
 
       - name: Build and start Docker containers
         run: |
-          docker-compose -f docker-compose.yml -f docker-compose.test.yml --env-file test.env up -d --build
+          docker compose -f docker-compose.yml -f docker-compose.test.yml --env-file test.env up -d --build
 
       - name: Wait for application to be ready
         run: |
@@ -72,4 +72,4 @@ jobs:
 
       - name: Stop Docker containers
         if: always()
-        run: docker-compose -f docker-compose.yml -f docker-compose.test.yml --env-file test.env down
+        run: docker compose -f docker-compose.yml -f docker-compose.test.yml --env-file test.env down
