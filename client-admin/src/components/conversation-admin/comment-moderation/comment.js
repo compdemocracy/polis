@@ -84,6 +84,7 @@ Comment.propTypes = {
   rejectButtonText: PropTypes.string,
   isMetaCheckbox: PropTypes.bool,
   comment: PropTypes.shape({
+    active: PropTypes.bool,
     txt: PropTypes.string,
     is_meta: PropTypes.bool
   })
