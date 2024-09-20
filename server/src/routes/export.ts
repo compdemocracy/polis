@@ -136,8 +136,9 @@ async function sendCommentSummary(zid: number, res: Response) {
       (row) => {
         const comment = comments.get(row.tid);
         if (comment) {
-          if (row.vote === 1) comment.agrees += 1;
-          else if (row.vote === -1) comment.disagrees += 1;
+          // note that -1 means agree and 1 means disagree
+          if (row.vote === -1) comment.agrees += 1;
+          else if (row.vote === 1) comment.disagrees += 1;
           else if (row.vote === 0) comment.pass += 1;
         } else {
           logger.warn(`Comment row not found for [zid=${zid}, tid=${row.tid}]`);
@@ -182,7 +183,7 @@ async function sendVotesSummary(zid: number, res: Response) {
     datetime: (row) => formatDatetime(row.timestamp),
     "comment-id": (row) => String(row.tid),
     "voter-id": (row) => String(row.pid),
-    vote: (row) => String(row.vote),
+    vote: (row) => String(-row.vote), // have to flip -1 to 1 and vice versa
   };
   res.setHeader("Content-Type", "text/csv");
   res.write(formatCSVHeaders(formatters) + sep);
@@ -278,10 +279,8 @@ async function sendParticipantVotesSummary(zid: number, res: Response) {
         currentParticipantId = pid;
         currentParticipantVotes.clear();
       }
-
-      const tid: number = row.tid;
-      const vote: number = row.vote;
-      currentParticipantVotes.set(tid, vote);
+      // have to flip vote from -1 to 1 and vice versa
+      currentParticipantVotes.set(row.tid, -row.vote);
     },
     () => {
       if (currentParticipantId != -1) {
