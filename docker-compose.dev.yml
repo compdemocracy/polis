@@ -3,7 +3,7 @@
 # server, and exposing most ports. DO NOT USE THIS IN PRODUCTION.
 
 # This configuration does not work on its own and must be run together with docker-compose.yml,
-# e.g. `docker compose -f docker-compose.yml -f docker-compose.dev.yml up`.
+# e.g. `docker compose --profile postgres -f docker-compose.yml -f docker-compose.dev.yml up`.
 # (Note the usage in Makefile.)
 # For more information see https://docs.docker.com/compose/extends/
 
@@ -32,10 +32,10 @@ services:
     environment:
       CHOKIDAR_USEPOLLING: "true"
 
-  # postgres:
-  #   restart: no
-  #   ports:
-  #     - "${POSTGRES_PORT:-5432}:5432"
+  postgres:
+    restart: no
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
 
   file-server:
     build:
