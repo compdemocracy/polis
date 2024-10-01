@@ -49,6 +49,16 @@ function getMailOptions(transportType: any) {
         port: 1025,
         ignoreTLS: true,
       };
+    case "scaleway":
+      return {
+        host: Config.SCALEWAY_HOST,
+        port: parseInt(Config.SCALEWAY_SMTP_PORT, 10) || undefined,
+        secure: false,
+        auth: {
+          user: Config.SCALEWAY_USER,
+          pass: Config.SCALEWAY_PASS,
+        }
+      };
     case "mailgun":
       mailgunAuth = {
         auth: {
