@@ -14,15 +14,6 @@ jobs:
       CI_COMMIT_ID: ${{ github.event.pull_request.head.sha || github.sha }}
       CI_REPO_NAME: ${{ github.repository }}
     steps:
-      # See: https://github.community/t/if-expression-with-context-variable/16558/6
-      - name: Check if secrets available
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          unset HAS_SECRET
-          if [ -n "$GITHUB_TOKEN" ]; then HAS_SECRET=true; fi
-          echo "name=HAS_SECRET" >> $GITHUB_ENV
-
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
@@ -33,7 +24,14 @@ jobs:
         run: npm install -g commit-status
 
       - name: Initiate commit status placeholders
-        if: github.event.pull_request.head.repo.full_name == github.repository
+        # Run step only when GitHub token has write permissions, so when both:
+        #   - PR is not coming from a fork, and
+        #   - user is NOT dependabot, because it's a special bot with a read-only token.
+        # See: https://github.community/t/how-to-detect-a-pull-request-from-a-fork/18363/4
+        # See: https://docs.github.com/en/code-security/supply-chain-security/keeping-your-dependencies-updated-automatically/automating-dependabot-with-github-actions
+        if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+        env:
+          ACTOR: ${{ github.actor }}
         run: |
           # commit-status <state> <context> <description> <link>
           commit-status pending "DepCheck / dependencies"    "Detecting unused packages..."
@@ -67,7 +65,8 @@ jobs:
           echo ::set-output name=devdependencies::$(cat .results.json | jq '.devDependencies | join(", ") | .[:139]' --raw-output)
 
       - name: Set commit status messages and success states
-        if: github.event.pull_request.head.repo.full_name == github.repository
+        # See explanation in earlier step.
+        if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
         run: |
           if [ "${{ steps.depcheck.outputs.dependencies }}" = "" ]; then
             commit-status success "DepCheck / dependencies" "No unused packages detected."
