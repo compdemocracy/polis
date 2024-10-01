@@ -14,6 +14,8 @@ import logger from "../utils/logger";
 type Formatters<T> = Record<string, (row: T) => string>;
 const sep = "\n";
 
+const formatEscapedText = (s: string) => `"${s.replace(/"/g, '""')}"`;
+
 function formatCSVHeaders<T>(colFns: Formatters<T>) {
   return Object.keys(colFns).join(",");
 }
@@ -67,16 +69,15 @@ async function loadConversationSummary(zid: number, siteUrl: string) {
   };
   const data = pca.asPOJO as PcaData;
 
-  const escapeQuotes = (s: string) => s.replace(/"/g, '""');
   return [
-    ["topic", `"${escapeQuotes(convo.topic)}"`],
+    ["topic", formatEscapedText(convo.topic)],
     ["url", `${siteUrl}/${zinvite}`],
     ["voters", Object.keys(data["user-vote-counts"]).length],
     ["voters-in-conv", data["in-conv"].length],
     ["commenters", commenters],
     ["comments", data["n-cmts"]],
     ["groups", Object.keys(data["group-clusters"]).length],
-    ["conversation-description", `"${escapeQuotes(convo.description)}"`],
+    ["conversation-description", formatEscapedText(convo.description)],
   ].map((row) => row.join(","));
 }
 
@@ -161,7 +162,7 @@ async function sendCommentSummary(zid: number, res: Response) {
               agrees: (row) => String(row.agrees),
               disagrees: (row) => String(row.disagrees),
               moderated: (row) => String(row.mod),
-              "comment-body": (row) => String(row.txt),
+              "comment-body": (row) => formatEscapedText(row.txt),
             },
             commentRows
           )
