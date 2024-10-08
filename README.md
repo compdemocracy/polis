@@ -77,7 +77,7 @@ cp example.env .env
 
 
 ```sh
-docker compose up --build
+docker compose --profile postgres up --build
 ```
 
 If you get a permission error, try running this command with `sudo`.
@@ -87,7 +87,7 @@ To avoid having to use `sudo` in the future (on a Linux or Windows machine with 
 Once you've built the docker images, you can run without `--build`, which may be faster. Run
 
 ```sh
-docker compose up
+docker compose --profile postgres up
 ```
 
 or simply
@@ -103,15 +103,21 @@ If you have only changed configuration values in .env, you can recreate your con
 fully rebuilding them with `--force-recreate`. For example:
 
 ```sh
-docker compose down
-docker compose up --force-recreate
+docker compose --profile postgres down
+docker compose --profile postgres up --force-recreate
 ```
 
 To see what the environment of your containers is going to look like, run:
 
 ```sh
-docker compose convert
+docker compose --profile postgres convert
 ```
+
+#### Using a local or remote (non-docker) database
+
+Omit the `--profile postgres` flag to use a local or remote database. You will need to set the `DATABASE_URL` environment variable in your `.env` file to point to your database.
+
+When using `make` commands, setting POSTGRES_DOCKER to `true` or `false` will determine whether to automatically include `--profile postgres` when it calls out to `docker compose`.
 
 #### Production Mode Shortcuts
 
@@ -138,8 +144,8 @@ You can now test your setup by visiting `http://localhost:80/home`.
 Once the index page loads, you can create an account using the `/createuser` path.
 You'll be logged in right away; email validation is not required.
 
-When you're done working, you can end the process using `Ctrl+C`, or typing `docker compose down`
-if you are running in "detched mode".
+When you're done working, you can end the process using `Ctrl+C`, or typing `docker compose --profile postgres down`
+if you are running in "detached mode".
 
 ### Updating the system
 
@@ -174,7 +180,7 @@ However, if you are deploying in a high impact context and need help, please [re
 Once you've gotten [Polis running (as described above)](#-running-polis), you can enable developer conveniences by running
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile postgres up
 ```
 
 (run with `--build` if this is your first time running, or if you need to rebuild containers)
@@ -188,7 +194,7 @@ This enables:
 - etc.
 
 This command takes advantage of the `docker-compose.dev.yml` _overlay_ file, which layers the developer conveniences describe above into the base system, as described in the `docker-compose.yml` file.
-You can specify these `-f docker-compose.yml -f docker-compose.dev.yml` arguments for any `docker` command which you need to take advantage of these features (not just `docker compose up`).
+You can specify these `-f docker-compose.yml -f docker-compose.dev.yml` arguments for any `docker` command which you need to take advantage of these features (not just `docker compose --profile postgres up`).
 
 You can create your own `docker-compose.x.yml` file as an overlay and add or modify any values you need to differ
 from the defaults found in the `docker-compose.yml` file and pass it as the second argument to the `docker compose -f` command above.
@@ -219,7 +225,7 @@ git config --local include.path ../.gitconfig
 
 #### Running as a background process
 
-If you would like to run docker compose as a background process, run the `up` commands with the `--detach` flag, and use `docker compose down` to stop.
+If you would like to run docker compose as a background process, run the `up` commands with the `--detach` flag, and use `docker compose --profile postgres down` to stop.
 
 #### Using Docker Machine as your development environment
 

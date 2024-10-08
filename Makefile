@@ -8,23 +8,44 @@
 SHELL=/bin/bash
 E2E_RUN = cd e2e;
 
+define parse_env_value
+	$(shell grep -e ^$(1) ${ENV_FILE} | awk -F'[=]' '{gsub(/ /,"");print $$2}')
+endef
+
+define parse_env_bool
+  $(if $(filter false,$(1)),false,true)
+endef
+
+# Default environment and settings (dev)
 export ENV_FILE = .env
-export TAG = $(shell grep -e ^TAG ${ENV_FILE} | awk -F'[=]' '{gsub(/ /,""); print $$2}')
+export TAG = $(call parse_env_value,TAG)
 export GIT_HASH = $(shell git rev-parse --short HEAD)
+POSTGRES_DOCKER_RAW = $(shell echo $(call parse_env_value,POSTGRES_DOCKER) | tr '[:upper:]' '[:lower:]')
+export POSTGRES_DOCKER = $(call parse_env_bool,$(POSTGRES_DOCKER_RAW))
+
+# Default compose file args
 export COMPOSE_FILE_ARGS = -f docker-compose.yml -f docker-compose.dev.yml
+COMPOSE_FILE_ARGS += $(if $(POSTGRES_DOCKER),--profile postgres,)
 
-PROD: ## Run in prod mode (e.g. `make PROD start`, etc.) using config in `prod.env`
-	$(eval ENV_FILE = prod.env)
-	$(eval TAG = $(shell grep -e ^TAG ${ENV_FILE} | awk -F'[=]' '{gsub(/ /,"");print $$2}'))
-	$(eval COMPOSE_FILE_ARGS = -f docker-compose.yml)
+# Set up environment-specific values
+define setup_env
+	$(eval ENV_FILE = $(1))
+	$(eval TAG = $(call parse_env_value,TAG))
+	$(eval POSTGRES_DOCKER_RAW = $(shell echo $(call parse_env_value,POSTGRES_DOCKER) | tr '[:upper:]' '[:lower:]'))
+	$(eval POSTGRES_DOCKER = $(call parse_env_bool,$(POSTGRES_DOCKER_RAW)))
+	$(eval COMPOSE_FILE_ARGS = $(2))
+	$(eval COMPOSE_FILE_ARGS += $(if $(POSTGRES_DOCKER),--profile postgres,))
+endef
 
-TEST: ## Run in test mode (e.g. `make TEST e2e-run`, etc.) using config in `test.env`
-	$(eval ENV_FILE = test.env)
-	$(eval TAG = $(shell grep -e ^TAG ${ENV_FILE} | awk -F'[=]' '{gsub(/ /,"");print $$2}'))
-	$(eval COMPOSE_FILE_ARGS = -f docker-compose.yml -f docker-compose.test.yml)
+PROD:
+	$(call setup_env,prod.env,-f docker-compose.yml)
+
+TEST:
+	$(call setup_env,test.env,-f docker-compose.yml -f docker-compose.test.yml)
 
 echo_vars:
 	@echo ENV_FILE=${ENV_FILE}
+	@echo POSTGRES_DOCKER=${POSTGRES_DOCKER}
 	@echo TAG=${TAG}
 
 pull: echo_vars ## Pull most recent Docker container builds (nightlies)

@@ -15,7 +15,7 @@ This allows you to connect to and evaluate code from within the running math wor
 To use this infrastructure, run the following from the root of this repository:
 
 ```sh
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile postgres up
 ```
 
 The first time you run this (or if you've edited any of the docker files, or certain other parts of the system), you may need to run this command with the `--build` flag.
@@ -59,7 +59,7 @@ There are also a number of commands which can be run, either locally or with `do
 * `clojure -M:run full` - run a full system (poller plus auxiliary task processing)
 * etc.
 
-If you are exporting data, you will need to run `docker compose` here with the same `-f docker-compose.yml -f docker-compose.dev.yml` options as described above, so that the directory (volume) mounting in the dev configuration file will mirror the generated files over onto your local filesystem.
+If you are exporting data, you will need to run `docker compose` here with the same `-f docker-compose.yml -f docker-compose.dev.yml --profile postgres` options as described above, so that the directory (volume) mounting in the dev configuration file will mirror the generated files over onto your local filesystem.
 
 ## Tests
 

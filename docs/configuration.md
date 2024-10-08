@@ -62,12 +62,19 @@ If you are deploying to a custom domain (not `pol.is`) then you need to update b
 ### Database
 
 - **`READ_ONLY_DATABASE_URL`** (optional) Database replica for reads.
+
+#### Required when using the docker postgres service (optional)
+
 - **`POSTGRES_DB`** database name (e.g. `polis-dev`)
 - **`POSTGRES_HOST`** database host (e.g. `postgres:5432` if using docker compose, `localhost:5432` if using local db)
 - **`POSTGRES_PASSWORD`** database password
 - **`POSTGRES_PORT`** typically 5432
 - **`POSTGRES_USER`** typically `postgres`. Any username will be used by the docker container to create a db user.
+
+#### Required in all cases
+
 - **`DATABASE_URL`** should be the combination of above values, `postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}/${POSTGRES_DB}`
+- **`POSTGRES_DOCKER`** Set to `false` if using a postgres database outside of docker. Defaults to `true`. Read by Makefile.
 
 ### Docker Concerns
 

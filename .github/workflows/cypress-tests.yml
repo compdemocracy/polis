@@ -27,7 +27,7 @@ jobs:
 
       - name: Build and start Docker containers
         run: |
-          docker compose -f docker-compose.yml -f docker-compose.test.yml --env-file test.env up -d --build
+          docker compose -f docker-compose.yml -f docker-compose.test.yml --env-file test.env --profile postgres up -d --build
 
       - name: Wait for application to be ready
         run: |
@@ -43,7 +43,7 @@ jobs:
             elapsed=$((current_time - start_time))
             if [ $elapsed -ge $timeout ]; then
               echo "Timeout waiting for application to be ready. Dumping logs:"
-              docker compose -f docker-compose.yml -f docker-compose.test.yml --env-file test.env logs
+              docker compose -f docker-compose.yml -f docker-compose.test.yml --env-file test.env --profile postgres logs
               exit 1
             fi
             sleep 5
@@ -72,4 +72,4 @@ jobs:
 
       - name: Stop Docker containers
         if: always()
-        run: docker compose -f docker-compose.yml -f docker-compose.test.yml --env-file test.env down
+        run: docker compose -f docker-compose.yml -f docker-compose.test.yml --env-file test.env --profile postgres down

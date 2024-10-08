@@ -49,9 +49,9 @@ flavors of node.
 
   Another popular option is to run the database in docker, and perhaps other services as well, while running this
   API server locally (not docker). Ensure that the postgres port is published from your docker container. This will be
-  the default behavior if you run `docker compose -f docker-compose.yml -f docker-compose.dev.yml up postgres` from the
+  the default behavior if you run `docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile postgres up postgres` from the
   root folder of the polis project. To run everything but the API server in this fashion you can use
-  `docker compose -f docker-compose.yml -f docker-compose.dev.yml up math postgres file-server maildev`. In this case
+  `docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile postgres up math postgres file-server maildev`. In this case
   the polis-dev database should be accessible at the default DATABASE_URL seen in server/example.env.
 
 3\. Connect to the new database then run the migrations in its shell. You can skip this step if you built the

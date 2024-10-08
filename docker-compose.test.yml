@@ -3,7 +3,7 @@
 # server. DO NOT USE THIS IN PRODUCTION.
 
 # This configuration does not work on its own and must be run together with docker-compose.yml,
-# e.g. `docker compose -f docker-compose.yml -f docker-compose.test.yml --env-file test.env up`.
+# e.g. `docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml --env-file test.env up`.
 
 # For more information see https://docs.docker.com/compose/extends/
 
