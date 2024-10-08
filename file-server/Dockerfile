@@ -1,3 +1,8 @@
+# Test this Dockerfile build with:
+# (from the polis root directory)
+# docker build -t polis-file-server:dev -f file-server/Dockerfile .
+# docker run --name file-server --env PORT=8080 -p 8080:8080 polis-file-server:dev
+
 ######################## POLIS CLIENT ADMIN ########################
 #FROM client-base AS client-admin # <- switch back to basing on client admin once we upgrade other clients
 FROM docker.io/node:18-alpine AS client-admin
