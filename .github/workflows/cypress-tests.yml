@@ -29,25 +29,12 @@ jobs:
         run: |
           docker compose -f docker-compose.yml -f docker-compose.test.yml --env-file test.env --profile postgres up -d --build
 
-      - name: Wait for application to be ready
-        run: |
-          timeout=300
-          start_time=$(date +%s)
-          while true; do
-            response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/api/v3/testConnection)
-            if [ $response -eq 200 ]; then
-              echo "Application is ready!"
-              break
-            fi
-            current_time=$(date +%s)
-            elapsed=$((current_time - start_time))
-            if [ $elapsed -ge $timeout ]; then
-              echo "Timeout waiting for application to be ready. Dumping logs:"
-              docker compose -f docker-compose.yml -f docker-compose.test.yml --env-file test.env --profile postgres logs
-              exit 1
-            fi
-            sleep 5
-          done
+      - name: Health Check the Server http response
+        uses: jtalk/url-health-check-action@v4
+        with:
+          url: http://localhost/api/v3/testConnection
+          max-attempts: 10
+          retry-delay: 10s
 
       - name: Cypress Run
         uses: cypress-io/github-action@v6
