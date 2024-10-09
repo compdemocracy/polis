@@ -41,7 +41,7 @@ jobs:
         run: |
           mv example.env .env
           sed -i 's/docker.io/ghcr.io/g' docker-compose.yml
-          sed -i 's/compdem/CivicTechTO/g' docker-compose.yml
+          sed -i 's/compdem/civictechto/g' docker-compose.yml
           docker compose build --parallel --build-arg GIT_HASH=${GITHUB_SHA:0:6}
 
       - name: Push images to Docker Hub
