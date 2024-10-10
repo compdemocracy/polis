@@ -2,8 +2,8 @@ import { isFunction, isString, isUndefined } from "underscore";
 import { native as pgnative, Pool } from "pg"; //.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
 import { parse as parsePgConnectionString } from "pg-connection-string";
 
-import { isDevMode } from "../config";
-import { yell } from "../log";
+import Config from "../config";
+import logger from "../utils/logger";
 import { MPromise } from "../utils/metered";
 
 // # DB Connections
@@ -17,37 +17,30 @@ import { MPromise } from "../utils/metered";
 // so we can have 1 preprod/3 prod servers, or 2 preprod / 2 prod.
 //
 // Note we use native
-const usingReplica =
-  process.env.DATABASE_URL !==
-  process.env[process.env.DATABASE_FOR_READS_NAME as string];
-const poolSize = isDevMode() ? 2 : usingReplica ? 3 : 12;
+const usingReplica = Config.databaseURL !== Config.readOnlyDatabaseURL;
+const poolSize = Config.isDevMode ? 2 : usingReplica ? 3 : 12;
 
 // not sure how many of these config options we really need anymore
 const pgConnection = Object.assign(
-  parsePgConnectionString(process.env.DATABASE_URL || ""),
+  parsePgConnectionString(Config.databaseURL),
   {
     max: poolSize,
     isReadOnly: false,
     poolLog: function (str: string, level: string) {
       if (pgPoolLevelRanks.indexOf(level) <= pgPoolLoggingLevel) {
-        console.log("pool.primary." + level + " " + str);
+        logger.info("pool.primary." + level + " " + str);
       }
     },
   }
 );
 const readsPgConnection = Object.assign(
-  parsePgConnectionString(
-    //     (property) NodeJS.Process.env: NodeJS.ProcessEnv
-    // Type 'undefined' cannot be used as an index type.ts(2538)
-    // @ts-ignore
-    process.env[process.env.DATABASE_FOR_READS_NAME] || ""
-  ),
+  parsePgConnectionString(Config.readOnlyDatabaseURL),
   {
     max: poolSize,
     isReadOnly: true,
     poolLog: function (str: string, level: string) {
       if (pgPoolLevelRanks.indexOf(level) <= pgPoolLoggingLevel) {
-        console.log("pool.replica." + level + " " + str);
+        logger.info("pool.readonly." + level + " " + str);
       }
     },
   }
@@ -102,7 +95,7 @@ function queryImpl(pool: Pool, queryString?: any, ...args: undefined[]) {
         if (callback) callback(err);
         // force the pool to destroy and remove a client by passing an instance of Error (or anything truthy, actually) to the done() callback
         release(err);
-        yell("pg_connect_pool_fail");
+        logger.error("pg_connect_pool_fail", err);
         return;
       }
       // Anyway, here's the actual query call

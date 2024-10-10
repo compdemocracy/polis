@@ -5,12 +5,23 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 "use strict";
 
+import * as dotenv from 'dotenv';
+dotenv.config();
+
 import Promise from "bluebird";
 import express from "express";
+import morgan from "morgan";
 
+import Config from "./src/config";
 import server from "./src/server";
+import logger from "./src/utils/logger";
 
 const app = express();
+
+// 'dev' format is
+// :method :url :status :response-time ms - :res[content-length]
+app.use(morgan('dev'));
+
 // Trust the X-Forwarded-Proto and X-Forwarded-Host, but only on private subnets.
 // See: https://github.com/pol-is/polis/issues/546
 // See: https://expressjs.com/en/guide/behind-proxies.html
@@ -44,15 +55,12 @@ helpersInitialized.then(
       makeFileFetcher,
       makeRedirectorTo,
       pidCache,
-      portForAdminFiles,
-      portForParticipationFiles,
+      staticFilesAdminPort,
+      staticFilesParticipationPort,
       proxy,
-      redirectIfApiDomain,
       redirectIfHasZidButNoConversationId,
       redirectIfNotHttps,
-      redirectIfWrongDomain,
       timeout,
-      winston,
       writeDefaultHead,
 
       middleware_log_request_body,
@@ -64,23 +72,19 @@ helpersInitialized.then(
       handle_DELETE_metadata_questions,
       handle_GET_bid,
       handle_GET_bidToPid,
-      handle_GET_canvas_app_instructions_png,
-      handle_GET_changePlanWithCoupon,
       handle_GET_comments,
       handle_GET_comments_translations,
       handle_GET_conditionalIndexFetcher,
       handle_GET_contexts,
-      handle_GET_conversation_assigmnent_xml,
       handle_GET_conversationPreloadInfo,
       handle_GET_conversations,
       handle_GET_conversationsRecentActivity,
       handle_GET_conversationsRecentlyStarted,
       handle_GET_conversationStats,
-      handle_GET_createPlanChangeCoupon,
-      handle_GET_enterprise_deal_url,
       handle_GET_math_correlationMatrix,
       handle_GET_dataExport,
       handle_GET_dataExport_results,
+      handle_GET_reportExport,
       handle_GET_domainWhitelist,
       handle_GET_dummyButton,
       handle_GET_einvites,
@@ -90,10 +94,8 @@ helpersInitialized.then(
       handle_GET_iip_conversation,
       handle_GET_implicit_conversation_generation,
       handle_GET_launchPrep,
-      handle_GET_localFile_dev_only,
       handle_GET_locations,
       handle_GET_logMaxmindResponse,
-      handle_GET_lti_oauthv1_credentials,
       handle_GET_math_pca,
       handle_GET_math_pca2,
       handle_GET_metadata,
@@ -109,13 +111,10 @@ helpersInitialized.then(
       handle_GET_perfStats,
       handle_GET_ptptois,
       handle_GET_reports,
-      handle_GET_setup_assignment_xml,
-      handle_GET_slack_login,
       handle_GET_snapshot,
-      handle_GET_stripe_account_connect,
-      handle_GET_stripe_account_connected_oauth_callback,
-      hangle_GET_testConnection,
-      hangle_GET_testDatabase,
+
+      handle_GET_testConnection,
+      handle_GET_testDatabase,
       handle_GET_tryCookie,
       handle_GET_twitter_image,
       handle_GET_twitter_oauth_callback,
@@ -135,10 +134,7 @@ helpersInitialized.then(
       handle_POST_auth_new,
       handle_POST_auth_password,
       handle_POST_auth_pwresettoken,
-      handle_POST_auth_slack_redirect_uri,
-      handle_POST_charge,
       handle_POST_comments,
-      handle_POST_comments_slack,
       handle_POST_contexts,
       handle_POST_contributors,
       handle_POST_conversation_close,
@@ -148,8 +144,6 @@ helpersInitialized.then(
       handle_POST_domainWhitelist,
       handle_POST_einvites,
       handle_POST_joinWithInvite,
-      handle_POST_lti_conversation_assignment,
-      handle_POST_lti_setup_assignment,
       handle_POST_math_update,
       handle_POST_metadata_answers,
       handle_POST_metadata_questions,
@@ -163,18 +157,12 @@ helpersInitialized.then(
       handle_POST_reserve_conversation_id,
       handle_POST_sendCreatedLinkToEmail,
       handle_POST_sendEmailExportReady,
-      handle_POST_slack_interactive_messages,
-      handle_POST_slack_user_invites,
       handle_POST_stars,
-      handle_POST_stripe_cancel,
-      handle_POST_stripe_save_token,
-      handle_POST_stripe_upgrade,
       handle_POST_trashes,
       handle_POST_tutorial,
       handle_POST_upvotes,
       handle_POST_users_invite,
       handle_POST_votes,
-      handle_POST_waitinglist,
       handle_POST_xidWhitelist,
       handle_POST_zinvites,
       handle_PUT_comments,
@@ -232,21 +220,12 @@ helpersInitialized.then(
     ////////////////////////////////////////////
     ////////////////////////////////////////////
 
-    app.use(function (req, res, next) {
-      console.log("before");
-      console.log(req.body);
-      console.log(req.headers);
-      next();
-    });
-
     app.use(middleware_responseTime_start);
 
     app.use(redirectIfNotHttps);
     app.use(express.cookieParser());
     app.use(express.bodyParser());
     app.use(writeDefaultHead);
-    app.use(redirectIfWrongDomain);
-    app.use(redirectIfApiDomain);
 
     if (devMode) {
       app.use(express.compress());
@@ -257,13 +236,6 @@ helpersInitialized.then(
     }
     app.use(middleware_log_request_body);
     app.use(middleware_log_middleware_errors);
-
-    app.use(function (req, res, next) {
-      console.log("part2");
-      console.log(req.body);
-      console.log(req.headers);
-      next();
-    });
 
     app.all("/api/v3/*", addCorsHeader);
     app.all("/font/*", addCorsHeader);
@@ -327,6 +299,19 @@ helpersInitialized.then(
       want("format", getStringLimitLength(1, 100), assignToP),
       want("unixTimestamp", getStringLimitLength(99), assignToP),
       handle_GET_dataExport
+    );
+
+    app.get(
+      "/api/v3/reportExport/:report_id/:report_type",
+      moveToBody,
+      need(
+        "report_id",
+        getReportIdFetchRid,
+        assignToPCustom("rid")
+      ),
+      need("report_id", getStringLimitLength(1, 1000), assignToP),
+      need("report_type", getStringLimitLength(1, 1000), assignToP),
+      handle_GET_reportExport
     );
 
     app.get(
@@ -530,15 +515,6 @@ helpersInitialized.then(
       "/api/v3/auth/login",
       need("password", getPassword, assignToP),
       want("email", getEmail, assignToP),
-      want("lti_user_id", getStringLimitLength(1, 9999), assignToP),
-      want("lti_user_image", getStringLimitLength(1, 9999), assignToP),
-      want("lti_context_id", getStringLimitLength(1, 9999), assignToP),
-      want(
-        "tool_consumer_instance_guid",
-        getStringLimitLength(1, 9999),
-        assignToP
-      ),
-      want("afterJoinRedirectUrl", getStringLimitLength(1, 9999), assignToP),
       handle_POST_auth_login
     );
 
@@ -639,20 +615,6 @@ helpersInitialized.then(
       handle_GET_snapshot
     );
 
-    app.get(
-      "/api/v3/auth/slack/redirect_uri",
-      moveToBody,
-      need("code", getStringLimitLength(1, 999), assignToP),
-      want("state", getStringLimitLength(999), assignToP),
-      handle_POST_auth_slack_redirect_uri
-    );
-
-    app.post(
-      "/api/v3/slack/interactive_messages",
-      need("payload", getOptionalStringLimitLength(9999), assignToP, ""),
-      handle_POST_slack_interactive_messages
-    );
-
     // this endpoint isn't really ready for general use TODO_SECURITY
     app.get(
       "/api/v3/facebook/delete",
@@ -690,15 +652,6 @@ helpersInitialized.then(
       want("zinvite", getOptionalStringLimitLength(999), assignToP),
       want("organization", getOptionalStringLimitLength(999), assignToP),
       want("gatekeeperTosPrivacy", getBool, assignToP),
-      want("lti_user_id", getStringLimitLength(1, 9999), assignToP),
-      want("lti_user_image", getStringLimitLength(1, 9999), assignToP),
-      want("lti_context_id", getStringLimitLength(1, 9999), assignToP),
-      want(
-        "tool_consumer_instance_guid",
-        getStringLimitLength(1, 9999),
-        assignToP
-      ),
-      want("afterJoinRedirectUrl", getStringLimitLength(1, 9999), assignToP),
       want("owner", getBool, assignToP, true),
       handle_POST_auth_new
     );
@@ -716,50 +669,6 @@ helpersInitialized.then(
       authOptional(assignToP),
       want("errIfNoAuth", getBool, assignToP),
       handle_GET_users
-    );
-
-    // use this to generate coupons for free upgrades
-    // TODO_SECURITY
-    app.get(
-      "/api/v3/createPlanChangeCoupon_aiudhfaiodufy78sadtfiasdf",
-      moveToBody,
-      need("uid", getInt, assignToP),
-      need("planCode", getOptionalStringLimitLength(999), assignToP),
-      handle_GET_createPlanChangeCoupon
-    );
-
-    app.get(
-      "/api/v3/changePlanWithCoupon",
-      moveToBody,
-      authOptional(assignToP),
-      need("code", getOptionalStringLimitLength(999), assignToP),
-      handle_GET_changePlanWithCoupon
-    );
-
-    // Just for testing that the new custom stripe form is submitting properly
-    app.post("/api/v3/stripe_save_token", handle_POST_stripe_save_token);
-
-    app.post(
-      "/api/v3/stripe_upgrade",
-      auth(assignToP),
-      need("stripeResponse", getStringLimitLength(9999), assignToP),
-      need("plan", getStringLimitLength(99), assignToP),
-      handle_POST_stripe_upgrade
-    );
-
-    app.post(
-      "/api/v3/stripe_cancel",
-      auth(assignToP),
-      handle_POST_stripe_cancel
-    );
-
-    app.post(
-      "/api/v3/charge",
-      auth(assignToP),
-      want("stripeToken", getOptionalStringLimitLength(999), assignToP),
-      want("stripeEmail", getOptionalStringLimitLength(999), assignToP),
-      need("plan", getOptionalStringLimitLength(999), assignToP),
-      handle_POST_charge
     );
 
     app.get(
@@ -838,28 +747,6 @@ helpersInitialized.then(
       handle_POST_comments
     );
 
-    app.post(
-      "/api/v3/comments/slack",
-      auth(assignToP),
-      want("slack_team", getOptionalStringLimitLength(99), assignToP),
-      want("slack_user_id", getOptionalStringLimitLength(99), assignToP),
-      need(
-        "conversation_id",
-        getConversationIdFetchZid,
-        assignToPCustom("zid")
-      ),
-      want("txt", getOptionalStringLimitLength(997), assignToP),
-      want("vote", getIntInRange(-1, 1), assignToP, -1), // default to agree
-      want("twitter_tweet_id", getStringLimitLength(999), assignToP),
-      want("quote_twitter_screen_name", getStringLimitLength(999), assignToP),
-      want("quote_txt", getStringLimitLength(999), assignToP),
-      want("quote_src_url", getUrlLimitLength(999), assignToP),
-      want("anon", getBool, assignToP),
-      want("is_seed", getBool, assignToP),
-      resolve_pidThing("pid", assignToP, "post:comments"),
-      handle_POST_comments_slack
-    );
-
     app.get(
       "/api/v3/comments/translations",
       auth(assignToP),
@@ -917,9 +804,9 @@ helpersInitialized.then(
       handle_GET_nextComment
     );
 
-    app.get("/api/v3/testConnection", moveToBody, hangle_GET_testConnection);
+    app.get("/api/v3/testConnection", moveToBody, handle_GET_testConnection);
 
-    app.get("/api/v3/testDatabase", moveToBody, hangle_GET_testDatabase);
+    app.get("/api/v3/testDatabase", moveToBody, handle_GET_testDatabase);
 
     app.get("/robots.txt", function (req, res) {
       res.send("User-agent: *\n" + "Disallow: /api/");
@@ -1085,14 +972,6 @@ helpersInitialized.then(
       handle_POST_reportCommentSelections
     );
 
-    // use this to generate them
-    app.get(
-      "/api/v3/lti_oauthv1_credentials",
-      moveToBody,
-      want("uid", getInt, assignToP),
-      handle_GET_lti_oauthv1_credentials
-    );
-
     app.post(
       "/api/v3/conversation/close",
       moveToBody,
@@ -1153,18 +1032,7 @@ helpersInitialized.then(
       want("auth_opt_allow_3rdparty", getBool, assignToP),
       want("verifyMeta", getBool, assignToP),
       want("send_created_email", getBool, assignToP), // ideally the email would be sent on the post, but we post before they click create to allow owner to prepopulate comments.
-      want(
-        "launch_presentation_return_url_hex",
-        getStringLimitLength(1, 9999),
-        assignToP
-      ), // LTI editor tool redirect url (once conversation editing is done)
       want("context", getOptionalStringLimitLength(999), assignToP),
-      want(
-        "tool_consumer_instance_guid",
-        getOptionalStringLimitLength(999),
-        assignToP
-      ),
-      want("custom_canvas_assignment_id", getInt, assignToP),
       want("link_url", getStringLimitLength(1, 9999), assignToP),
       want("subscribe_type", getInt, assignToP),
       handle_PUT_conversations
@@ -1279,32 +1147,6 @@ helpersInitialized.then(
       want("suzinvite", getOptionalStringLimitLength(32), assignToP),
       // TODO want('lastMetaTime', getInt, assignToP, 0),
       handle_GET_metadata
-    );
-
-    app.get(
-      "/api/v3/enterprise_deal_url",
-      moveToBody,
-      // want('upfront', getBool, assignToP),
-      need("monthly", getInt, assignToP),
-      want("maxUsers", getInt, assignToP),
-      want("plan_name", getOptionalStringLimitLength(99), assignToP),
-      want("plan_id", getOptionalStringLimitLength(99), assignToP),
-      handle_GET_enterprise_deal_url
-    );
-
-    app.get(
-      "/api/v3/stripe_account_connect",
-      handle_GET_stripe_account_connect
-    );
-
-    app.get(
-      "/api/v3/stripe_account_connected_oauth_callback",
-      moveToBody,
-      want("code", getStringLimitLength(9999), assignToP),
-      want("access_token", getStringLimitLength(9999), assignToP),
-      want("error", getStringLimitLength(9999), assignToP),
-      want("error_description", getStringLimitLength(9999), assignToP),
-      handle_GET_stripe_account_connected_oauth_callback
     );
 
     app.get(
@@ -1433,7 +1275,6 @@ helpersInitialized.then(
       want("topic", getOptionalStringLimitLength(1000), assignToP, ""),
       want("description", getOptionalStringLimitLength(50000), assignToP, ""),
       want("conversation_id", getStringLimitLength(6, 300), assignToP, ""),
-      want("is_slack", getBool, assignToP, false),
       want("is_data_open", getBool, assignToP, false),
       want("ownerXid", getStringLimitLength(1, 999), assignToP),
       handle_POST_conversations
@@ -1560,79 +1401,6 @@ helpersInitialized.then(
     );
 
     app.post(
-      "/api/v3/LTI/setup_assignment",
-      authOptional(assignToP),
-      need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school
-      need("user_id", getStringLimitLength(1, 9999), assignToP),
-      need("context_id", getStringLimitLength(1, 9999), assignToP),
-      want(
-        "tool_consumer_instance_guid",
-        getStringLimitLength(1, 9999),
-        assignToP
-      ), //  scope to the right LTI/canvas? instance
-      want("roles", getStringLimitLength(1, 9999), assignToP),
-      want("user_image", getStringLimitLength(1, 9999), assignToP),
-      want(
-        "lis_person_contact_email_primary",
-        getStringLimitLength(1, 9999),
-        assignToP
-      ),
-      want("lis_person_name_full", getStringLimitLength(1, 9999), assignToP),
-      want("lis_outcome_service_url", getStringLimitLength(1, 9999), assignToP), //  send grades here!
-      want(
-        "launch_presentation_return_url",
-        getStringLimitLength(1, 9999),
-        assignToP
-      ),
-      want(
-        "ext_content_return_types",
-        getStringLimitLength(1, 9999),
-        assignToP
-      ),
-      handle_POST_lti_setup_assignment
-    );
-
-    app.post(
-      "/api/v3/LTI/conversation_assignment",
-      need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school    need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school
-      need("oauth_signature_method", getStringLimitLength(1, 9999), assignToP), // probably "HMAC-SHA-1"
-      need("oauth_nonce", getStringLimitLength(1, 9999), assignToP), //rK81yoLBZhxVeaQHOUQQV8Ug5AObZtWv4R0ezQN20
-      need("oauth_version", getStringLimitLength(1, 9999), assignToP), //'1.0'
-      need("oauth_timestamp", getStringLimitLength(1, 9999), assignToP), //?
-      need("oauth_callback", getStringLimitLength(1, 9999), assignToP), // about:blank
-
-      need("user_id", getStringLimitLength(1, 9999), assignToP),
-      need("context_id", getStringLimitLength(1, 9999), assignToP),
-      want("roles", getStringLimitLength(1, 9999), assignToP),
-      want("user_image", getStringLimitLength(1, 9999), assignToP),
-      // per assignment stuff
-      want("custom_canvas_assignment_id", getInt, assignToP), // NOTE: it enters our system as an int, but we'll
-      want("lis_outcome_service_url", getStringLimitLength(1, 9999), assignToP), //  send grades here!
-      want("lis_result_sourcedid", getStringLimitLength(1, 9999), assignToP), //  grading context
-      want(
-        "tool_consumer_instance_guid",
-        getStringLimitLength(1, 9999),
-        assignToP
-      ), //  canvas instance
-      handle_POST_lti_conversation_assignment
-    );
-
-    app.get(
-      "/api/v3/LTI/setup_assignment.xml",
-      handle_GET_setup_assignment_xml
-    );
-
-    app.get(
-      "/api/v3/LTI/conversation_assignment.xml",
-      handle_GET_conversation_assigmnent_xml
-    );
-
-    app.get(
-      "/canvas_app_instructions.png",
-      handle_GET_canvas_app_instructions_png
-    );
-
-    app.post(
       "/api/v3/users/invite",
       // authWithApiKey(assignToP),
       auth(assignToP),
@@ -1645,20 +1413,6 @@ helpersInitialized.then(
       // need('single_use_tokens', getBool, assignToP),
       need("emails", getArrayOfStringNonEmpty, assignToP),
       handle_POST_users_invite
-    );
-
-    app.get(
-      /^\/slack_login_code.*/,
-      moveToBody,
-      authOptional(assignToP),
-      handle_GET_slack_login
-    );
-
-    app.post(
-      "/api/v3/slack/user/invites",
-      need("slack_team", getStringLimitLength(1, 20), assignToP),
-      need("slack_user_id", getStringLimitLength(1, 20), assignToP),
-      handle_POST_slack_user_invites
     );
 
     app.get(
@@ -1755,16 +1509,6 @@ helpersInitialized.then(
     );
 
     app.post(
-      "/api/v3/waitinglist",
-      need("name", getStringLimitLength(746), assignToP),
-      need("email", getEmail, assignToP),
-      want("affiliation", getStringLimitLength(999), assignToP),
-      want("role", getStringLimitLength(999), assignToP),
-      need("campaign", getStringLimitLength(100), assignToP),
-      handle_POST_waitinglist
-    );
-
-    app.post(
       "/api/v3/metrics",
       authOptional(assignToP),
       need("types", getArrayOfInt, assignToP),
@@ -1775,7 +1519,7 @@ helpersInitialized.then(
     );
 
     function makeFetchIndexWithoutPreloadData() {
-      let port = portForParticipationFiles;
+      let port = staticFilesParticipationPort;
       return function (req, res) {
         return fetchIndexWithoutPreloadData(req, res, port);
       };
@@ -1797,7 +1541,6 @@ helpersInitialized.then(
     app.get(/^\/user\/login(\/.*)?$/, fetchIndexWithoutPreloadData);
 
     app.get(/^\/settings(\/.*)?$/, makeFetchIndexWithoutPreloadData());
-    app.get(/^\/settings\/enterprise}.*$/, makeFetchIndexWithoutPreloadData());
 
     app.get(/^\/user\/logout(\/.*)?$/, fetchIndexWithoutPreloadData);
 
@@ -1812,13 +1555,13 @@ helpersInitialized.then(
     app.get(/^\/signin(\/.*)?/, fetchIndexForAdminPage);
     app.get(
       /^\/dist\/admin_bundle.js$/,
-      makeFileFetcher(hostname, portForAdminFiles, "/dist/admin_bundle.js", {
+      makeFileFetcher(hostname, staticFilesAdminPort, "/dist/admin_bundle.js", {
         "Content-Type": "application/javascript",
       })
     );
     app.get(
       /^\/__webpack_hmr$/,
-      makeFileFetcher(hostname, portForAdminFiles, "/__webpack_hmr", {
+      makeFileFetcher(hostname, staticFilesAdminPort, "/__webpack_hmr", {
         "Content-Type": "eventsource",
       })
     );
@@ -1853,42 +1596,31 @@ helpersInitialized.then(
 
     app.get(
       /^\/embed$/,
-      makeFileFetcher(hostname, portForAdminFiles, "/embed.html", {
+      makeFileFetcher(hostname, staticFilesAdminPort, "/embed.html", {
         "Content-Type": "text/html",
       })
     );
     app.get(
       /^\/embedPreprod$/,
-      makeFileFetcher(hostname, portForAdminFiles, "/embedPreprod.html", {
+      makeFileFetcher(hostname, staticFilesAdminPort, "/embedPreprod.html", {
         "Content-Type": "text/html",
       })
     );
     app.get(
       /^\/embedReport$/,
-      makeFileFetcher(hostname, portForAdminFiles, "/embedReport.html", {
+      makeFileFetcher(hostname, staticFilesAdminPort, "/embedReport.html", {
         "Content-Type": "text/html",
       })
     );
     app.get(
       /^\/embedReportPreprod$/,
-      makeFileFetcher(hostname, portForAdminFiles, "/embedReportPreprod.html", {
+      makeFileFetcher(hostname, staticFilesAdminPort, "/embedReportPreprod.html", {
         "Content-Type": "text/html",
       })
     );
     app.get(
-      /^\/canvas_setup_backup_instructions$/,
-      makeFileFetcher(
-        hostname,
-        portForParticipationFiles,
-        "/canvas_setup_backup_instructions.html",
-        {
-          "Content-Type": "text/html",
-        }
-      )
-    );
-    app.get(
       /^\/styleguide$/,
-      makeFileFetcher(hostname, portForParticipationFiles, "/styleguide.html", {
+      makeFileFetcher(hostname, staticFilesParticipationPort, "/styleguide.html", {
         "Content-Type": "text/html",
       })
     );
@@ -1897,7 +1629,7 @@ helpersInitialized.then(
     app.get(/^\/home(\/.*)?/, fetchIndexForAdminPage);
     app.get(
       /^\/s\/CTE\/?$/,
-      makeFileFetcher(hostname, portForParticipationFiles, "/football.html", {
+      makeFileFetcher(hostname, staticFilesParticipationPort, "/football.html", {
         "Content-Type": "text/html",
       })
     );
@@ -1905,15 +1637,13 @@ helpersInitialized.then(
       /^\/twitterAuthReturn(\/.*)?$/,
       makeFileFetcher(
         hostname,
-        portForParticipationFiles,
+        staticFilesParticipationPort,
         "/twitterAuthReturn.html",
         {
           "Content-Type": "text/html",
         }
       )
     );
-
-    app.get(/^\/localFile\/.*/, handle_GET_localFile_dev_only);
 
     app.get("/", handle_GET_conditionalIndexFetcher);
 
@@ -1950,7 +1680,7 @@ helpersInitialized.then(
       // 404 everything else
       app.get(
         /^\/[^(api\/)]?.*/,
-        makeFileFetcher(hostname, portForAdminFiles, "/404.html", {
+        makeFileFetcher(hostname, staticFilesAdminPort, "/404.html", {
           "Content-Type": "text/html",
         })
       );
@@ -1959,12 +1689,14 @@ helpersInitialized.then(
       app.get(/^\/[^(api\/)]?.*/, proxy);
     }
 
-    app.listen(process.env.PORT);
+    app.listen(Config.serverPort);
+    logger.info("started on port " + Config.serverPort);
 
-    winston.log("info", "started on port " + process.env.PORT);
   },
+
   function (err) {
-    console.error("failed to init server");
-    console.error(err);
+    logger.error("failed to init server", err);
   }
 );
+
+export default app;

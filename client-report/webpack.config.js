@@ -1,40 +1,48 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-var path = require("path");
-var webpack = require("webpack");
+const common = require('./webpack.common');
+const path = require('path');
+const webpack = require('webpack');
+const CompressionPlugin = require('compression-webpack-plugin');
+const EventHooksPlugin = require('event-hooks-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const writeHeadersJsonTask = require('./writeHeadersJsonTask');
 
 module.exports = {
-  // devtool: "source-map",
-  entry: [
-    "./src/index"
-  ],
+  ...common,
+  mode: 'production',
   output: {
-    path: path.join(__dirname, "dist"),
-    filename: "report_bundle.js",
-    publicPath: "/dist/"
+    filename: 'report_bundle.[contenthash].js',
+    path: path.resolve(__dirname, 'dist'),
+    publicPath: '/',
+    clean: true,
   },
   plugins: [
-    new webpack.optimize.OccurenceOrderPlugin(),
-    new webpack.DefinePlugin({
-      "process.env": {
-        "NODE_ENV": JSON.stringify("production")
-      }
+    ...common.plugins,
+    new CompressionPlugin({
+      // It appears that nothing is currently using these gzipped files.
+      // So we're just going to generate it with the .gz extension and not
+      // delete the original.
+      // TODO: Decide if we want to use these gzipped files.
+      test: /\.js$/,
+      // filename: '[path][base]',
+      // deleteOriginalAssets: true,
     }),
-    new webpack.optimize.UglifyJsPlugin({
-      compressor: {
-        warnings: false
-      }
+    new EventHooksPlugin({
+      afterEmit: () => writeHeadersJsonTask(),
+    }),
+    new MiniCssExtractPlugin({
+      filename: 'report_style.[contenthash].css',
+    }),
+    new webpack.DefinePlugin({
+      'process.env.NODE_ENV': JSON.stringify('production'),
+      'process.env.SERVICE_URL': null,
     })
   ],
-  module: {
-
-    preLoaders: [
-      { test: /\.json$/, loader: "json"}
-    ],
-    loaders: [{
-      test: /\.js$/,
-      loaders: ["babel"],
-      include: path.join(__dirname, "src")
-    }]
-  }
+  performance: {
+    // TODO: Find and remove orphan modules; Reduce bundle size.
+    hints: 'warning', // 'error' for errors, 'warning' for warnings, false to disable
+    maxAssetSize: 505000, // Size limit in bytes, default is 250000 (250 KB)
+    maxEntrypointSize: 500000, // Size limit in bytes, default is 250000 (250 KB)
+  },
 };

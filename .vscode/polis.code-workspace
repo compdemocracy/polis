@@ -1,0 +1,47 @@
+{
+	"folders": [
+		{
+      "name": "polis-root",
+			"path": ".."
+		},
+    {
+      "name": "client-admin",
+      "path": "../client-admin"
+    },
+    {
+      "name": "client-participation",
+      "path": "../client-participation"
+    },
+    {
+      "name": "client-report",
+      "path": "../client-report"
+    },
+    {
+      "name": "e2e",
+      "path": "../e2e"
+    },
+    {
+      "name": "file-server",
+      "path": "../file-server"
+    },
+    {
+      "name": "math",
+      "path": "../math"
+    },
+    {
+      "name": "server",
+      "path": "../server"
+    },
+  ],
+  "settings": {
+    "jest.disabledWorkspaceFolders": [
+      "polis-root",
+      "client-admin",
+      "client-participation",
+      "client-report",
+      "e2e",
+      "file-server",
+      "math"
+    ]
+  }
+}

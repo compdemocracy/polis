@@ -18,6 +18,11 @@
     [bidi.bidi :as bidi]))
 
 
+;; WARNING This namespace is not required anywhere, but maintained for posterity in case we decide to add a
+;; utility sever comonent again. Jetty libraries do not load as currently written (based on deps; may have to
+;; do with oz versions/)
+
+
 (defn healthcheck-handler
   [_]
   {:status 200

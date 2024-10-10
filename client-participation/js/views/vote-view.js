@@ -6,9 +6,11 @@ var M = require("../util/metrics");
 var PolisFacebookUtils = require('../util/facebookButton');
 var PostMessageUtils = require("../util/postMessageUtils");
 var preloadHelper = require("../util/preloadHelper");
-var template = require("../tmpl/vote-view");
+var template = require("../templates/vote-view.handlebars");
 var Utils = require("../util/utils");
 var Strings = require("../strings");
+var Constants = require("../util/constants");
+var $ = require("jquery");
 
 var iOS = Utils.isIos();
 
@@ -65,6 +67,13 @@ module.exports = Handlebones.ModelView.extend({
     if (btnBg) {
       ctx.customBtnStyles = "background-color: " + btnBg + ";";
     }
+    if (Strings.direction == "rtl") {
+      ctx.pMarginStyle = "margin-right: 55px;";
+      ctx.floatStyle = "float:left;"  // This is a hack to fix the bug in chrome, not supporting float:inline-start and end
+    } else {
+      ctx.pMarginStyle = "margin-left: 55px;";
+      ctx.floatStyle = "float:right;"
+    }
 
     ctx.auth_opt_tw = preload.firstConv.auth_opt_tw;
     ctx.auth_opt_fb = preload.firstConv.auth_opt_fb;
@@ -77,7 +86,7 @@ module.exports = Handlebones.ModelView.extend({
     };
     if (social) {
       var hasTwitter = social.screen_name;
-      var hasFacebook = social.fb_name;
+      var hasFacebook = social.fb_name && Constants.FB_APP_ID;
       var hasX = social.x_name;
       if (hasFacebook) {
         socialCtx = {
@@ -357,6 +366,8 @@ module.exports = Handlebones.ModelView.extend({
         that.model.set({
           needSocial: true,
         });
+      } else if (err && err.responseText === "polis_err_xid_not_whitelisted") {
+        alert("Sorry, you must be registered to vote. Please sign in or contact the conversation owner.");
       } else {
         alert("Apologies, your vote failed to send. Please check your connection and try again.");
       }

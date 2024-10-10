@@ -97,17 +97,20 @@
   (monitor-execution (clean-containers client-dir)))
   ;; once that has completed, 
 
-(def processes
-  (for [client-dir ["client-admin" "client-participation"]];; "client-report"]] ; leaving client-report off for now
-    (async/thread
-      (build-and-cp-client client-dir)
-      (println "Finished building:" client-dir))))
 
-;; Initiate all of the processes, since for is a lazy list
-(doall processes)
-;; for each process, wait until the process completes
-(doseq [proc processes]
-  (async/<!! proc))
+(defn -main []
+  (let [processes
+        (for [client-dir ["client-admin" "client-participation"]];; "client-report"]] ; leaving client-report off for now
+          (async/thread
+            (build-and-cp-client client-dir)
+            (println "Finished building:" client-dir)))]
+    ;; Initiate all of the processes, since for is a lazy list
+    (doall processes)
+    ;; for each process, wait until the process completes
+    (doseq [proc processes]
+      (async/<!! proc))))
+
+(when (= *file* (System/getProperty "babashka.file"))
+  (apply -main *command-line-args*))
 
 ;; QED
-

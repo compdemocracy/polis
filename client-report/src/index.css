@@ -1,0 +1,59 @@
+/*begin http://bl.ocks.org/jensgrubert/7789216 */
+.box {
+  font: 10px sans-serif;
+}
+
+.box line,
+.box rect,
+.box circle {
+  fill: steelblue;
+  stroke: #000;
+  stroke-width: 1px;
+}
+
+.box .center {
+  stroke-dasharray: 3,3;
+}
+
+.box .outlier {
+  fill: none;
+  stroke: #000;
+}
+
+.axis {
+  font: 12px sans-serif;
+}
+
+.axis path,
+.axis line {
+fill: none;
+stroke: #000;
+shape-rendering: crispEdges;
+}
+
+.x.axis path {
+fill: none;
+stroke: #000;
+shape-rendering: crispEdges;
+}
+/*end  http://bl.ocks.org/jensgrubert/7789216 */
+
+html, p, div, input, button {
+  font-family: "Helvetica Neue", "Helvetica", sans-serif;
+  font-weight: 400;
+  /*color: rgb(160, 160, 179);*/
+}
+
+
+
+@media print {
+    .move-left-20-for-print {
+      margin-inline-start: -20px;
+    }
+    .shrink-for-print-70 {
+      transform: scale(0.7);
+    }
+    .shrink-for-print-50 {
+      transform: scale(0.5);
+    }
+}

@@ -1,30 +1,27 @@
-# Gulp v3 stops us from upgrading beyond Node v11
-FROM docker.io/node:11.15.0-alpine
+# NOTE: This Dockerfile is not actually used by the docker-compose.yml.
+# Instead, the file-server Dockerfile builds and serves these assets.
+# But this file is still useful for development or deployments that do not use
+# the docker compose configuration.
+
+FROM docker.io/node:18-alpine
+
+ARG EMBED_SERVICE_HOSTNAME
+ARG FB_APP_ID
+ARG GA_TRACKING_ID
+ENV EMBED_SERVICE_HOSTNAME ${EMBED_SERVICE_HOSTNAME}
+ENV FB_APP_ID ${FB_APP_ID}
+ENV GA_TRACKING_ID ${GA_TRACKING_ID}
+
+# Set default NODE_ENV to production unless overridden at build time with --build-arg NODE_ENV=development
+ARG NODE_ENV
+ENV NODE_ENV ${NODE_ENV:-production}
 
 WORKDIR /app
 
-RUN apk add --no-cache --virtual .build \
-  g++ git make python
-
-# Allow global npm installs in Docker
-RUN npm config set unsafe-perm true
-
-# Upgrade npm v6.7.0 -> v6.9.2 to alias multiple pkg versions.
-# See: https://stackoverflow.com/a/56134858/504018
-RUN npm install -g npm@6.9.2
-
 COPY package*.json ./
 
-RUN npm ci
+RUN npm ci --production=false
 
-RUN apk del .build
-
-COPY polis.config.template.js polis.config.js
-# If polis.config.js exists on host, will override template here.
 COPY . .
 
-ARG GIT_HASH
-ARG BABEL_ENV=production
-
-RUN npm run deploy:prod
-
+CMD npm run build:prod

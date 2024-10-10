@@ -1,16 +1,25 @@
-# Gulp v3 stops us from upgrading beyond Node v11
-FROM docker.io/node:11.15.0-alpine
+# NOTE: This Dockerfile is not actually used by the docker-compose.yml.
+# Instead, the file-server Dockerfile builds and serves these assets.
+# But this file is still useful for development or deployments that do not use
+# the docker compose configuration.
+
+FROM docker.io/node:18-alpine
+
+ARG ENABLE_TWITTER_WIDGETS
+ARG FB_APP_ID
+ENV ENABLE_TWITTER_WIDGETS ${ENABLE_TWITTER_WIDGETS}
+ENV FB_APP_ID ${FB_APP_ID}
+
+# Set default NODE_ENV to production unless overridden at build time with --build-arg NODE_ENV=development
+ARG NODE_ENV
+ENV NODE_ENV ${NODE_ENV:-production}
 
 WORKDIR /app
 
-RUN apk add git --no-cache
-
 COPY package*.json ./
-RUN npm install
 
-COPY polis.config.template.js polis.config.js
-# If polis.config.js exists on host, will override template here.
+RUN npm ci --production=false
+
 COPY . .
 
-ARG GIT_HASH
-RUN npm run deploy:prod
+CMD npm run build:prod

@@ -3,7 +3,7 @@
 .svgIcon {
   display: inline-block;
   position: relative;
-  margin-right: 2px;
+  margin-inline-end: 2px;
   top: 5px;
   width: 22px;
   fill: black;
@@ -22,9 +22,6 @@ textarea {
 }
 
 @import "bootstrap_config/bootstrap";
-
-// 4KB
-// @import 'awesome_config/font-awesome';
 
 // @import 'base';
 

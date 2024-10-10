@@ -6,7 +6,7 @@ import _ from "lodash";
 function getVoteTotals(math_main) {
   var x = {};
   var gv = math_main["group-votes"];
-  _.each(gv, function(data, gid) {
+  _.each(gv, function(data/*, gid*/) {
     _.each(data.votes, function(counts, tid) {
       var z = x[tid] = x[tid] || {agreed:0, disagreed:0, saw:0};
       z.agreed += counts.A;

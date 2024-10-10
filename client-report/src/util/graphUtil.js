@@ -18,7 +18,7 @@ const graphUtil = (comments, math, badTids) => {
     const commentsPoints = [];
     const projX = math.pca['comment-projection'][0];
     const projY = math.pca['comment-projection'][1];
-    let rejectedCount = 0;
+    // let rejectedCount = 0;
     for (let i = 0; i < projX.length; i++) {
       if (comments[i]) {
         let tid = comments[i].tid;
@@ -38,7 +38,7 @@ const graphUtil = (comments, math, badTids) => {
               txt: commentsByTid[tid].txt,
             });
           } else {
-            rejectedCount += 1;
+            // rejectedCount += 1;
             // console.log('skipping rejected', i, rejectedCount);
           }
         } else {
@@ -73,15 +73,15 @@ const graphUtil = (comments, math, badTids) => {
     }
 
     let border = 100;
-    let minClusterX = _.min(allXs);
-    let maxClusterX = _.max(allXs);
-    let minClusterY = _.min(allYs);
-    let maxClusterY = _.max(allYs);
+    // let minClusterX = _.min(allXs);
+    // let maxClusterX = _.max(allXs);
+    // let minClusterY = _.min(allYs);
+    // let maxClusterY = _.max(allYs);
 
     var greatestAbsPtptX = Math.abs(_.maxBy(baseClusters, (pt) => { return Math.abs(pt.x); }).x);
     var greatestAbsPtptY = Math.abs(_.maxBy(baseClusters, (pt) => { return Math.abs(pt.y); }).y);
-    var greatestAbsCommentX = Math.abs(_.maxBy(commentsPoints, (pt) => { return Math.abs(pt.x); }).x);
-    var greatestAbsCommentY = Math.abs(_.maxBy(commentsPoints, (pt) => { return Math.abs(pt.y); }).y);
+    // var greatestAbsCommentX = Math.abs(_.maxBy(commentsPoints, (pt) => { return Math.abs(pt.x); }).x);
+    // var greatestAbsCommentY = Math.abs(_.maxBy(commentsPoints, (pt) => { return Math.abs(pt.y); }).y);
 
 
 

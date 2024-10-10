@@ -101,7 +101,6 @@ export type ParticipantCommentModerationResult = {
 export type UserType = {
   email?: any;
   hname?: any;
-  stripeCustomerId?: any;
   uid?: any;
   pid?: any;
   id?: any;
@@ -142,7 +141,6 @@ export type ConversationType = {
   style_btn?: any;
   write_type?: any;
   owner_sees_participation_stats?: any;
-  lti_users_only?: any;
   link_url?: any;
   course_invite?: any;
   course_id?: any;
@@ -199,29 +197,15 @@ export type Demo = {
   ms_birth_year_estimate_fb: number;
 };
 
-export type SlackUser = {
-  slack_team?: any;
-  slack_user_id?: any;
-  zid?: any;
-  uid?: any;
-  pid?: any;
-};
-
 export type Vote = {
   uid?: any;
   zid: any;
   pid: any;
   lang: any;
   tid: any;
+  xid: any;
   vote: any;
   weight: any;
   starred: any;
   parent_url: any;
-};
-
-export type Assignment = {
-  lti_user_id: number;
-  gradeFromZeroToOne: string;
-  lis_outcome_service_url: any;
-  lis_result_sourcedid: any;
 };

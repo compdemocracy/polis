@@ -1,10 +1,13 @@
-# Changes to workflow name require changes to badge URL in README.md
 name: E2E Tests
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
 
 on:
   push:
     branches:
-      - dev
+      - edge
     paths-ignore:
       - "**.md"
 
@@ -14,102 +17,46 @@ on:
 
 jobs:
   cypress-run:
-    # Platform recommended in cypress-io/github-action docs.
-    runs-on: ubuntu-20.04
-    env:
-      # Use native docker command within docker-compose
-      COMPOSE_DOCKER_CLI_BUILD: 1
-      # Use buildkit to speed up docker command
-      DOCKER_BUILDKIT: 1
+    runs-on: ubuntu-latest
     steps:
-      # This ensures only the most recently push commit will keep running.
-      - name: Cancel other active runs of this workflow
-        uses: rokroskar/workflow-run-cleanup-action@v0.3.2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Checkout
-        uses: actions/checkout@v2.3.4
+        uses: actions/checkout@v4
 
-      # This step helps us know when to skip future steps, particularly if
-      # we're on a fork where upstream secrets won't be available.
-      - name: Ensure secrets available
-        env:
-          GOOGLE_CREDENTIALS_BASE64: ${{ secrets.GOOGLE_CREDENTIALS_BASE64 }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and start Docker containers
         run: |
-          if [ -n "$GOOGLE_CREDENTIALS_BASE64" ]; then
-            echo "DO_COMMENT_TRANSLATION=true" >> $GITHUB_ENV
-          fi
+          docker compose -f docker-compose.yml -f docker-compose.test.yml --env-file test.env --profile postgres up -d --build
 
-      - name: Enable comment translation
-        if: env.DO_COMMENT_TRANSLATION
-        run: |
-          echo GOOGLE_CREDENTIALS_BASE64=${{ secrets.GOOGLE_CREDENTIALS_BASE64 }} >> server/docker-dev.env
-          echo SHOULD_USE_TRANSLATION_API=true >> server/docker-dev.env
-
-      - name: Set server configuration
-        run: |
-          # Test email transport failovers
-          # mailgun: unconfigured transport (will fail)
-          # aws-ses: unconfigured transport (will fail)
-          # nonexistent: nonexistent transport (will fail)
-          # maildev: catch-all dev email server running in container (will work)
-          echo EMAIL_TRANSPORT_TYPES=mailgun,aws-ses,nonexistent,maildev >> server/docker-dev.env
-
-      - name: Ensure embed test html is served
-        run: cp e2e/cypress/fixtures/html/embed.html client-admin/embed.html
-
-      - name: Serve app via docker-compose
-        run: docker-compose up --detach
-
-      - name: "Run Cypress tests: default"
-        uses: cypress-io/github-action@v2
-        env:
-          CYPRESS_BASE_URL: https://localhost
+      - name: Health Check the Server http response
+        uses: jtalk/url-health-check-action@v4
         with:
-          working-directory: ./e2e
-          # Ignore all tests with pattern *.secrets.spec.js
-          spec: "**/polis/**/!(*.secrets).spec.js"
-          browser: chrome
+          url: http://localhost/api/v3/testConnection
+          max-attempts: 10
+          retry-delay: 10s
 
-      - name: "Run Cypress tests: comment translation"
-        if: env.DO_COMMENT_TRANSLATION
-        uses: cypress-io/github-action@v2
-        env:
-          CYPRESS_BASE_URL: https://localhost
+      - name: Cypress Run
+        uses: cypress-io/github-action@v6
         with:
-          install: false
-          working-directory: ./e2e
-          spec: "**/comment-translation.secrets.spec.js"
-          # Prevent cypress from discarding screenshots/videos from default test run.
-          config: "trashAssetsBeforeRuns=false"
-          browser: chrome
+          config: baseUrl=http://localhost
+          spec: cypress/e2e/!(third-party)/**/*.cy.js
+          working-directory: e2e
 
-      # NOTE: screenshots will be generated only if E2E test failed
-      # thus we store screenshots only on failures
-      - name: Save screenshot artefacts
-        uses: actions/upload-artifact@v2.2.4
+      - name: Upload Cypress screenshots
+        uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: cypress-screenshots
           path: e2e/cypress/screenshots
 
-      # Test run video was always captured, so this action uses "always()" condition
-      - name: Save video artefacts
-        uses: actions/upload-artifact@v2.2.4
-        if: always()
+      - name: Upload Cypress videos
+        uses: actions/upload-artifact@v4
+        if: failure()
         with:
           name: cypress-videos
           path: e2e/cypress/videos
 
-      - name: Check status of containers
-        if: failure()
-        run: docker-compose ps
-
-      - name: 'Check logs: server'
-        if: failure()
-        run: docker-compose logs server
-
-      - name: 'Check logs: nginx-proxy'
-        if: failure()
-        run: docker-compose logs nginx-proxy
+      - name: Stop Docker containers
+        if: always()
+        run: docker compose -f docker-compose.yml -f docker-compose.test.yml --env-file test.env --profile postgres down

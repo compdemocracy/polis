@@ -1,55 +1,68 @@
-Polis Client/Participation View
-===============================
+# Polis Client Participation
 
-This is the code for the view that conversation participants see.
+This is the front-end code that participants see. It is built with backbone.js and react.js.
 
+## Installation
 
-Development
------------
+### Dependencies
 
-The below instructions are no longer officially supported; if you'd like to use them as a reference, we suggest you check out the official [Dockerfile](Dockerfile) to understand the latest build process and specific package versions.
+* Node `>= 16`
+We recommend installing [nvm](https://github.com/creationix/nvm) so that you can easily switch between your favorite
+flavors of node.
+* NPM `>= 8`
 
----
-
-Install with [npm](https://www.npmsjs.org/) and [bower](http://bower.io/) (`npm install --global bower`):
+If using nvm, run the commands below to install node and the application dependencies.
 
 ```sh
+nvm install 18
+nvm use 18
 npm install
-bower install
 ```
 
-There is a `polis.config.template.js` file which will have to be copied over to `polis.config.js`, and edited as appropriate.
+### Docker Build
 
-To run: `./x`
+If you prefer to run the Polis application using `docker compose`, see the top-level README document. This component
+will be built and served as part of the `file-server` container.
 
-The dev server should now be running at [localhost:5001](http://localhost:5001/) (or whatever port you set in your `polis.config.js`)
-So... you might think that you should now be able to go to this address and see the polis interface.
-However, this is not the case.
-Because of preprocessing required of the `index.html` file before it will load (including the embedding of the initial data payload in the html), it is necessary that the application be accessed through a running instance of the your [polisServer](https://github.com/pol-is/polisServer) (by default [localhost:5000](http://localhost:5000)).
+If you are building this container on its own, outside of the `docker compose` context, simply use the Dockerfile
+located in this directory. Optionally provide a "tag" for the image that is created:
 
-Also note that the polisServer process will need to know via its config the port on which this, the participation client code, will be available.
-If you don't mess with any of the default port settings you shouldn't have to worry about all this nonsense.
-Just know that if you do, you will then need to update these port variables in multiple places.
+```sh
+docker build -t polis-client-participation:local .
+```
 
+But it currently does not include a development server so if you want to interface with the
+application you should use the top-level `docker compose` method, or else mount and serve the built
+assets in another way.
 
+## Configuration
 
-Troubleshooting
----------------
+### embed.js
 
-If you get an error running `./x` that looks something like `Error: watch /home/csmall/code/polisClientParticipation/js ENOSPC` trying to run, this may be because your system has too many watches active.
-If you see this, try running `echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf && sudo sysctl -p` to increase the number of available watches on your system.
+Among the assets built into the `dist/` directory is `embed.js` which is used when deploying a polis client
+embedded into another website. Set the **`EMBED_SERVICE_HOSTNAME`** environment variable to your API Service hostname
+when you build this app. In the top-level `docker compose` configuration, this variable is read from the `.env` file
+there. e.g. `EMBED_SERVICE_HOSTNAME=api.mypolis.org`.
 
+### Facebook App Integration
 
-Deployment
-----------
+Optionally, you can [register with Facebook](https://developers.facebook.com/docs/development) and get a Facebook App ID
+to use the Facebook auth features.
 
-Before pushing to s3: `gulp dist`
+If you do so, set the **`FB_APP_ID`** environment variable in the top level `.env` file, or manually pass it in
+when building and running this application.
 
-Then run `npm run deploy:preprod` or `npm run deploy:prod` scripts to deploy to preprod and prod environments
-respectively.
+## Building the Application
 
+```sh
+npm run build
+```
 
-### Other Requirements
+You can run `npm run build:dev` to get an unminified version which makes for easier in-browser debugging.
 
-For gulp-ruby-sass to enable `sourcemap` options, it requires Sass >= 3.3.0
+This app currently doesn't include a development server so if you want to interface with it you need to serve the built
+assets, found in the `dist/` folder.
 
+## Troubleshooting
+
+If you get an error that looks something like `Error: watch /home/csmall/code/polisClientParticipation/js ENOSPC` trying to run, this may be because your system has too many watches active. If you see this, try running `echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf && sudo sysctl -p` to increase the number of available watches on your system.

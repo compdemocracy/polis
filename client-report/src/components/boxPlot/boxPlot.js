@@ -45,7 +45,7 @@ class BoxPlot extends React.Component {
           so that its views are properly represented.
         </p>
         <p style={globals.paragraph}>
-          <a target="_blank" href="https://www.khanacademy.org/math/probability/data-distributions-a1/box--whisker-plots-a1/v/reading-box-and-whisker-plots">
+          <a target="_blank" href="https://www.khanacademy.org/math/probability/data-distributions-a1/box--whisker-plots-a1/v/reading-box-and-whisker-plots" rel="noreferrer">
           How to read a box plot
           </a> (3 minute video).</p>
         <div id="boxPlot"> </div>

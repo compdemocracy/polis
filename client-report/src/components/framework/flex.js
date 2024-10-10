@@ -1,6 +1,6 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
+import PropTypes from "prop-types";
 import React from "react";
 import Radium from "radium";
 
@@ -17,31 +17,31 @@ import Radium from "radium";
 
 class Flex extends React.Component {
   static propTypes = {
-    direction: React.PropTypes.oneOf([
+    direction: PropTypes.oneOf([
       "row", "rowReverse", "column", "columnReverse"
     ]),
-    wrap: React.PropTypes.oneOf([
+    wrap: PropTypes.oneOf([
       "nowrap", "wrap", "wrap-reverse"
     ]),
-    justifyContent: React.PropTypes.oneOf([
+    justifyContent: PropTypes.oneOf([
       "flex-start", "flex-end", "center", "space-between", "space-around"
     ]),
-    alignItems: React.PropTypes.oneOf([
+    alignItems: PropTypes.oneOf([
       "flex-start", "flex-end", "center", "baseline", "stretch"
     ]),
-    alignContent: React.PropTypes.oneOf([
+    alignContent: PropTypes.oneOf([
       "flex-start", "flex-end", "center", "space-between", "space-around", "stretch"
     ]),
-    grow: React.PropTypes.number,
-    shrink: React.PropTypes.number,
-    basis: React.PropTypes.string,
-    order: React.PropTypes.number,
-    alignSelf: React.PropTypes.oneOf([
+    grow: PropTypes.number,
+    shrink: PropTypes.number,
+    basis: PropTypes.string,
+    order: PropTypes.number,
+    alignSelf: PropTypes.oneOf([
       "auto", "flex-start", "flex-end", "center", "baseline", "stretch"
     ]),
-    styleOverrides: React.PropTypes.object,
-    children: React.PropTypes.node,
-    clickHandler: React.PropTypes.func,
+    styleOverrides: PropTypes.object,
+    children: PropTypes.node,
+    clickHandler: PropTypes.func,
   }
   static defaultProps = {
     direction: "row",

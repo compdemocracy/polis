@@ -1,1 +1,8 @@
-*~
+.clj-kondo/
+.env
+.envrc
+.lsp/
+.vscode/settings.json
+build/
+prod.env
+xids.csv

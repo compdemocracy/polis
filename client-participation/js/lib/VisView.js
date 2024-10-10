@@ -3,14 +3,14 @@
 var eb = require("../eventBus");
 var display = require("../util/display");
 var Utils = require("../util/utils");
+var $ = require('jquery');
+var d3_old = require('d3');
+require('d3-tip');
+
 // TODO are we using force Layout or not? not really. so it may be worth cleaning up to simplify.
 // Use a css animation to transition the position
 
-/*jshint -W098 */
-var VisView;
-/*jshint +W098 */
-
-VisView = function(params) {
+module.exports = function VisView(params) {
 
   var el_selector = params.el;
   var el_queryResultSelector = params.el_queryResultSelector;
@@ -145,7 +145,7 @@ VisView = function(params) {
   // Since initialize is called on resize, clear the old vis before setting up the new one.
   $(el_selector + " > .visualization").remove();
 
-  /* d3-tip === d3 tooltips... [[$ bower install --save d3-tip]] api docs avail at https://github.com/Caged/d3-tip */
+  /* d3-tip === d3 tooltips... api docs avail at https://github.com/Caged/d3-tip */
   var tip = null;
   // var SHOW_TIP = true;
   // if (SHOW_TIP) {
@@ -469,7 +469,7 @@ VisView = function(params) {
 
 
   function updateHulls() {
-    bidToBucket = _.object(_.pluck(nodes, "bid"), nodes);
+    bidToBucket = _.fromPairs(_.map(nodes, "bid"), nodes);
     hulls = clusters.map(function(cluster) {
       var temp = _.map(cluster, function(bid) {
         var bucket = bidToBucket[bid];
@@ -1280,7 +1280,7 @@ VisView = function(params) {
       return 0;
     }
 
-    var bidToOldNode = _.indexBy(nodes, getBid);
+    var bidToOldNode = _.keyBy(nodes, getBid);
 
     (function() {
       for (var i = 0; i < updatedNodes.length; i++) {
@@ -1307,9 +1307,7 @@ VisView = function(params) {
     }
 
     oldpositions.forEach(function(oldNode) {
-      var newNode = _.findWhere(nodes, {
-        bid: oldNode.bid
-      });
+      var newNode = nodes.find(n => n.bid === oldNode.bid);
       if (!newNode) {
         console.warn("not sure why a node would disappear");
         return;

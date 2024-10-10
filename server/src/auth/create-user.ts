@@ -1,16 +1,17 @@
 import _ from "underscore";
 
 import pg from "../db/pg-query";
-import { fail } from "../log";
+import fail from "../utils/fail";
 import Config from "../config";
-import Cookies from "../utils/cookies";
-import { COOKIES } from "../utils/cookies";
+import cookies from "../utils/cookies";
 import User from "../user";
 import Session from "../session";
 import Utils from "../utils/common";
 import Password from "./password";
-
 import emailSenders from "../email/senders";
+
+const COOKIES = cookies.COOKIES;
+
 const sendTextEmail = emailSenders.sendTextEmail;
 function createUser(req: any, res: any) {
   let hname = req.p.hname;
@@ -19,14 +20,8 @@ function createUser(req: any, res: any) {
   let email = req.p.email;
   let oinvite = req.p.oinvite;
   let zinvite = req.p.zinvite;
-  let referrer = req.cookies[COOKIES.REFERRER];
   let organization = req.p.organization;
   let gatekeeperTosPrivacy = req.p.gatekeeperTosPrivacy;
-  let lti_user_id = req.p.lti_user_id;
-  let lti_user_image = req.p.lti_user_image;
-  let lti_context_id = req.p.lti_context_id;
-  let tool_consumer_instance_guid = req.p.tool_consumer_instance_guid;
-  let afterJoinRedirectUrl = req.p.afterJoinRedirectUrl;
 
   let site_id = void 0;
   if (req.p.encodedParams) {
@@ -106,10 +101,6 @@ function createUser(req: any, res: any) {
             vals,
             function (err: any, result: { rows: { uid: any }[] }) {
               if (err) {
-                // TS2304: Cannot find name 'winston'.
-                // 117   winston.log("info", err);
-                // @ts-ignore
-                winston.log("info", err);
                 fail(res, 500, "polis_err_reg_failed_to_add_user_record", err);
                 return;
               }
@@ -121,10 +112,6 @@ function createUser(req: any, res: any) {
                 [uid, hashedPassword],
                 function (err: any, results: any) {
                   if (err) {
-                    // TS2304: Cannot find name 'winston'.
-                    // 120  winston.log("info", err);
-                    // @ts-ignore
-                    winston.log("info", err);
                     fail(
                       res,
                       500,
@@ -143,69 +130,14 @@ function createUser(req: any, res: any) {
                       );
                       return;
                     }
-                    Cookies.addCookies(req, res, token, uid)
-                      .then(
-                        function () {
-                          let ltiUserPromise = lti_user_id
-                            ? User.addLtiUserIfNeeded(
-                                uid,
-                                lti_user_id,
-                                tool_consumer_instance_guid,
-                                lti_user_image
-                              )
-                            : Promise.resolve();
-                          let ltiContextMembershipPromise = lti_context_id
-                            ? User.addLtiContextMembership(
-                                uid,
-                                lti_context_id,
-                                tool_consumer_instance_guid
-                              )
-                            : Promise.resolve();
-                          Promise.all([
-                            ltiUserPromise,
-                            ltiContextMembershipPromise,
-                          ])
-                            .then(function () {
-                              if (lti_user_id) {
-                                if (afterJoinRedirectUrl) {
-                                  res.redirect(afterJoinRedirectUrl);
-                                } else {
-                                  User.renderLtiLinkageSuccessPage(req, res, {
-                                    // may include token here too
-                                    // Argument of type '{ context_id: any; uid: any;
-                                    // hname: any; email: any;
-                                    // }' is not assignable to parameter of type '{ email: string; }'.
-                                    //Object literal may only specify known properties, and
-                                    // 'context_id' does not exist in type '{ email: string; }'.ts(2345)
-                                    // @ts-ignore
-                                    context_id: lti_context_id,
-                                    uid: uid,
-                                    hname: hname,
-                                    email: email,
-                                  });
-                                }
-                              } else {
-                                res.json({
-                                  uid: uid,
-                                  hname: hname,
-                                  email: email,
-                                  // token: token
-                                });
-                              }
-                            })
-                            .catch(function (err) {
-                              fail(
-                                res,
-                                500,
-                                "polis_err_creating_user_associating_with_lti_user",
-                                err
-                              );
-                            });
-                        },
-                        function (err: any) {
-                          fail(res, 500, "polis_err_adding_cookies", err);
-                        }
-                      )
+                    cookies.addCookies(req, res, token, uid)
+                      .then(function() {
+                        res.json({
+                          uid: uid,
+                          hname: hname,
+                          email: email
+                        })
+                      })
                       .catch(function (err: any) {
                         fail(res, 500, "polis_err_adding_user", err);
                       });
@@ -245,7 +177,7 @@ Click this link to verify your email address:
 ${serverName}/api/v3/verify?e=${einvite}`;
 
   return sendTextEmail(
-    Config.get("POLIS_FROM_ADDRESS"),
+    Config.polisFromAddress,
     email,
     "Polis verification",
     body

@@ -9,7 +9,7 @@
 
 
 .primaryNav {
-  float: right;
+  float: inline-end;
   padding: 12px 0 0 0;
   list-style: none;
   vertical-align: middle;
@@ -20,10 +20,10 @@
 }
 
 .primaryNav > li {
-  margin-left: $default-whitespace;
+  margin-inline-start: $default-whitespace;
 
   &:first-child {
-    margin-left: 0;
+    margin-inline-start: 0;
   }
   a {
     padding: 0;
@@ -34,6 +34,6 @@
   padding: 0;
 
   &:before {
-    margin-right: 0.33em;
+    margin-inline-end: 0.33em;
   }
 }

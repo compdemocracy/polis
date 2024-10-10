@@ -3,11 +3,10 @@ const fs = require('fs');
 const http = require('http');
 const serveStatic = require('serve-static');
 
-const config = JSON.parse(fs.readFileSync(process.env.CONFIG_FILE || './fs_config.json'));
-
+const port = process.env.PORT || 8080;
 
 // Serve up public/ftp folder
-const serve = serveStatic(config.fileRoot, {
+const serve = serveStatic('build', {
   'index': false,
   'setHeaders': setHeaders,
 });
@@ -16,14 +15,18 @@ const serve = serveStatic(config.fileRoot, {
 function setHeaders (res, filePath) {
   //res.setHeader('Content-Disposition', contentDisposition(path));
   //
-  const configFile = fs.readFileSync(filePath + ".headersJson");
-  const headers = JSON.parse(configFile);
-  const headerNames = Object.keys(headers);
-  if (headerNames && headerNames.length) {
-    res.setHeader('Pragma', null);
-    headerNames.forEach((name) => {
-      res.setHeader(name, headers[name]);
-    });
+  try {
+    const configFile = fs.readFileSync(filePath + ".headersJson");
+    const headers = JSON.parse(configFile);
+    const headerNames = Object.keys(headers);
+    if (headerNames && headerNames.length) {
+      res.setHeader('Pragma', null);
+      headerNames.forEach((name) => {
+        res.setHeader(name, headers[name]);
+      });
+    }
+  } catch (e) {
+    console.error(e);
   }
 }
 
@@ -33,9 +36,9 @@ const fileServer = http.createServer(function onRequest (req, res) {
 });
 
 // Listen
-fileServer.listen(config.port, function (err) {
+fileServer.listen(port, function (err) {
   if (!err) {
-    console.log('polisFileServer listening on port ' + config.port);
+    console.log('polisFileServer listening on port ' + port);
   } else {
     console.error('Error starting polisFileServer.');
     console.error(err);

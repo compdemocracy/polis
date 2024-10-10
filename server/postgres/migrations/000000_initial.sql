@@ -72,7 +72,6 @@ CREATE TABLE users(
     is_owner BOOLEAN DEFAULT FALSE, -- has the ability to start conversations
     zinvite VARCHAR(300), -- The initial zinvite used to create the user, can be used for attribution (may be null)
     oinvite VARCHAR(300), -- The oinvite used to create the user, or to upgrade the user to a conversation owner.
-    plan SMALLINT DEFAULT 0,
     tut SMALLINT DEFAULT 0,
     site_id VARCHAR(256) NOT NULL DEFAULT random_polis_site_id(), -- TODO add a separate table for this, once we have people with multiple sites
     site_owner BOOLEAN DEFAULT TRUE,
@@ -139,12 +138,6 @@ CREATE INDEX apikeysndvweifu_apikey_idx ON apikeysndvweifu USING btree (apikey);
 
 
 
-CREATE TABLE coupons_for_free_upgrades (
-    uid INTEGER NOT NULL REFERENCES users(uid),
-    plan SMALLINT DEFAULT 0,
-    code VARCHAR(32) NOT NULL,
-    created BIGINT DEFAULT now_as_millis()
-);
 
 --CREATE TABLE orgs (
     --oid SERIAL,
@@ -217,7 +210,6 @@ CREATE TABLE conversations(
     -- owner_group_id ??
     context VARCHAR(1000), -- for things like a semester of a class, etc
     course_id INTEGER REFERENCES courses(course_id),
-    lti_users_only BOOLEAN DEFAULT FALSE,
     owner_sees_participation_stats BOOLEAN DEFAULT FALSE, -- currently maps to users needing a polis account, or to requiring single use urls?
 
     auth_needed_to_vote BOOLEAN, -- if null, server will default to FALSE
@@ -225,8 +217,6 @@ CREATE TABLE conversations(
     auth_opt_fb BOOLEAN, -- if null, server will default to TRUE
     auth_opt_tw BOOLEAN, -- if null, server will default to TRUE
     auth_opt_allow_3rdparty BOOLEAN, -- if null, server will default to TRUE -- this overrides auth_opt_fb and auth_opt_tw if false
-
-    is_slack BOOLEAN DEFAULT FALSE,
 
 --     ptpts_can_vote INTEGER DEFAULT 1,
 --     ptpts_can_write INTEGER DEFAULT 1,
@@ -280,15 +270,6 @@ CREATE TABLE contexts(
     created BIGINT DEFAULT now_as_millis()
 );
 
-
-CREATE TABLE slack_oauth_access_tokens (
-    slack_access_token VARCHAR(100) NOT NULL,
-    slack_scope VARCHAR(100) NOT NULL,
-    -- slack_team VARCHAR(100) NOT NULL,    
-    slack_auth_response json NOT NULL,
-    created BIGINT DEFAULT now_as_millis()
-    -- UNIQUE(slack_team)
-);
 
 CREATE TABLE inviters (
     inviter_uid INTEGER REFERENCES users(uid),
@@ -447,23 +428,6 @@ CREATE TABLE participant_metadata_choices (
 );
 
 
--- this could probably be called external_user_links, and should have a scope for the user identities, like "canvas.instructure.com" or something like that
--- NOTE, there may be multiple uids for a given lti_user_id
-CREATE TABLE lti_users (
-    uid INTEGER NOT NULL REFERENCES users(uid),
-    lti_user_id TEXT NOT NULL, -- TODO add constraint to limit length
-    lti_user_image VARCHAR(9999), -- URL - may be null
-    tool_consumer_instance_guid TEXT NOT NULL,
-    created BIGINT DEFAULT now_as_millis(),
-    UNIQUE (lti_user_id, tool_consumer_instance_guid)
-);
-
-CREATE TABLE lti_context_memberships (
-    uid INTEGER NOT NULL REFERENCES users(uid),
-    lti_context_id TEXT NOT NULL,
-    tool_consumer_instance_guid TEXT NOT NULL
-);
-
 CREATE TABLE geolocation_cache (
     location VARCHAR(9999), -- "Seattle, WA"
     lat DOUBLE PRECISION NOT NULL, -- latitude
@@ -471,28 +435,6 @@ CREATE TABLE geolocation_cache (
     response json,
     created BIGINT DEFAULT now_as_millis(),
     UNIQUE (location)
-);
-
-
-CREATE TABLE slack_users (
-    uid INTEGER NOT NULL REFERENCES users(uid),
-    slack_team VARCHAR(20) NOT NULL,
-    slack_user_id VARCHAR(20) NOT NULL,
-    created BIGINT DEFAULT now_as_millis(),
-    UNIQUE(slack_team, slack_user_id)
-);
-CREATE TABLE slack_user_invites (
-    slack_team VARCHAR(20) NOT NULL,
-    slack_user_id VARCHAR(20) NOT NULL,
-    token VARCHAR(100) NOT NULL,
-    created BIGINT DEFAULT now_as_millis()
-);
-
-CREATE TABLE slack_bot_events (
-    -- slack_team VARCHAR(20) NOT NULL,
-    id SERIAL, -- to help with deleting
-    event json NOT NULL,
-    created BIGINT DEFAULT now_as_millis()
 );
 
 
@@ -554,41 +496,6 @@ CREATE TABLE facebook_friends (
     uid INTEGER NOT NULL REFERENCES users(uid),
     friend INTEGER NOT NULL REFERENCES users(uid)
     -- UNIQUE(uid, friend)
-);
-
-
-
-
--- the use-case for this table is that there are many conversations, but a single grading callback for the whole course
--- allowing for duplicates (for now) by using 'created' field
--- TODO don't allow for duplicates
-CREATE TABLE canvas_assignment_callback_info (
-    tool_consumer_instance_guid VARCHAR(999) NOT NULL,
-    lti_context_id TEXT NOT NULL, -- TODO add constraint to limit length
-    lti_user_id TEXT NOT NULL, -- TODO add constraint to limit length
-    custom_canvas_assignment_id BIGINT NOT NULL,
-
-    lis_result_sourcedid VARCHAR(256),
-    lis_outcome_service_url TEXT, -- TODO add constraint to limit length
-    stringified_json_of_post_content TEXT, -- TODO add constraint to limit length
-    created BIGINT DEFAULT now_as_millis(),
-    grade_assigned DOUBLE PRECISION DEFAULT NULL, -- leave this null until we assign a grade, we want to keep track of which of these are resolved.
-    UNIQUE (lti_user_id, lti_context_id, custom_canvas_assignment_id, tool_consumer_instance_guid)
-);
-
-CREATE TABLE canvas_assignment_conversation_info (
-    zid INTEGER NOT NULL REFERENCES conversations(zid),
-    tool_consumer_instance_guid VARCHAR(999) NOT NULL,
-    lti_context_id VARCHAR(999) NOT NULL,
-    custom_canvas_assignment_id BIGINT NOT NULL,
-    UNIQUE(zid, tool_consumer_instance_guid, lti_context_id, custom_canvas_assignment_id)
-);
-
-CREATE TABLE lti_oauthv1_credentials (
-    uid INTEGER NOT NULL REFERENCES users(uid),
-    oauth_consumer_key VARCHAR(999) NOT NULL,
-    oauth_shared_secret VARCHAR(999) NOT NULL,
-    UNIQUE(uid) -- NOTE: if we want to allow multiple keys per instructor, we'd need to scope to tool_consumer_instance_guid, and maybe lti_context_id, but let's not go there yet
 );
 
 
@@ -733,7 +640,7 @@ CREATE TABLE reports (
   modified BIGINT DEFAULT now_as_millis(),
 
   report_name VARCHAR(999),
-  
+
   label_x_neg VARCHAR(999),
   label_x_pos VARCHAR(999),
   label_y_neg VARCHAR(999),
@@ -784,7 +691,7 @@ CREATE TABLE math_ticks (
     modified BIGINT NOT NULL DEFAULT now_as_millis(),
     UNIQUE (zid, math_env)
 );
--- insert into math_ticks (zid) values ($1) on conflict (zid) 
+-- insert into math_ticks (zid) values ($1) on conflict (zid)
 --    do update set modified = now_as_millis(), math_tick = (math_tick + 1) returning *;
 
 CREATE TABLE math_main (
@@ -896,7 +803,7 @@ CREATE INDEX votes_zid_pid_idx ON votes USING btree (zid, pid);
 -- if that fails, run this and retry
 -- delete from votes a where a.ctid <> (select min(b.ctid) from votes b where a.zid = b.zid and a.tid = b.tid and a.pid = b.pid and a.vote = b.vote and a.created = b.created);
 
-CREATE TABLE votes_latest_unique (    
+CREATE TABLE votes_latest_unique (
     zid INTEGER NOT NULL,
     pid INTEGER NOT NULL,
     tid INTEGER NOT NULL,
@@ -919,7 +826,7 @@ CREATE RULE on_vote_insert_update_unique_table AS
     DO ALSO
         INSERT INTO votes_latest_unique (zid, pid, tid, vote, weight_x_32767, modified)
         values (NEW.zid, NEW.pid, NEW.tid, NEW.vote, NEW.weight_x_32767, NEW.created)
-            ON CONFLICT (zid, pid, tid) DO UPDATE SET vote = excluded.vote, modified = NEW.created;
+            ON CONFLICT (zid, pid, tid) DO UPDATE SET vote = excluded.vote, modified = excluded.modified;
 
 
 CREATE TABLE crowd_mod (
@@ -968,16 +875,6 @@ CREATE TABLE contributer_agreement_signatures(
     created BIGINT DEFAULT now_as_millis()
 );
 
-
-CREATE TABLE waitinglist (
-    email VARCHAR(256) NOT NULL,
-    campaign VARCHAR(100) NOT NULL,
-    name VARCHAR(746),
-    affiliation VARCHAR(999),
-    role VARCHAR(999),
-    intercom_lead_user_id VARCHAR(100),
-    created BIGINT DEFAULT now_as_millis()
-);
 
 -- -- This should be updated from math nodes, who will have an entire conversation loaded in memory.
 -- CREATE TABLE stats_per_comment(
@@ -1076,26 +973,6 @@ CREATE TABLE page_ids (
     page_id VARCHAR(100) NOT NULL,
     zid INTEGER NOT NULL REFERENCES conversations(zid),
     UNIQUE(site_id, page_id)
-);
-
-
-CREATE TABLE stripe_accounts (
-    stripe_account_token_type VARCHAR(999) NOT NULL, --      "bearer",
-    stripe_account_stripe_publishable_key VARCHAR(999) NOT NULL, --       PUBLISHABLE_KEY,
-    stripe_account_scope VARCHAR(999) NOT NULL, --       "read_write",
-    stripe_account_livemode BOOLEAN NOT NULL, --       false,
-    stripe_account_stripe_user_id VARCHAR(999) NOT NULL, --       USER_ID,
-    stripe_account_refresh_token VARCHAR(999) NOT NULL, --      REFRESH_TOKEN,
-    stripe_account_access_token VARCHAR(999) NOT NULL, --      ACCESS_TOKEN
-    created BIGINT DEFAULT now_as_millis()
-);
-
-CREATE TABLE stripe_subscriptions (
-    uid INTEGER NOT NULL REFERENCES users(uid),
-    stripe_subscription_data JSONB NOT NULL,
-    created BIGINT DEFAULT now_as_millis(),
-    modified BIGINT DEFAULT now_as_millis(),
-    UNIQUE(uid)
 );
 
 CREATE TABLE demographic_data (

@@ -16,6 +16,8 @@
   background_content
   {{/if}}
   "
+  dir={{direction}}
+
   style="
     max-width: 768px; {{!-- check pixel ratio? --}}
     margin: auto; {{!-- use flexbox rather than auto, or add a container for this container? --}}
@@ -38,10 +40,10 @@
   clickDeselectsHull
   "
   style="
-    padding-left: 0px;
-    padding-right: 0px
+    padding-inline-start: 0px;
+    padding-inline-end: 0px
     ">
-    <div class="POLIS_HEADLINE conversationViewHeadline">
+    <div class="POLIS_HEADLINE conversationViewHeadline" dir="auto">
     {{#unless useBannerHeader}}
       {{#if showLogoAndBreadCrumbInHeader}}
           <div class="HeadingA">
@@ -79,7 +81,7 @@
 {{!--       <a
         href="share{{url_name}}"
         class="Btn Btn-alt"
-        style="margin-right: 20px
+        style="margin-inline-end: 20px
         ">
         <i class="fa fa-link">
         </i>
@@ -88,7 +90,7 @@
       <a
         href="{{url_moderate}}"
         class="Btn Btn-alt"
-        style="margin-right: 20px
+        style="margin-inline-end: 20px
         ">
         ADMIN
       </a>
@@ -96,7 +98,7 @@
         <a
           id="closeConversationButton"
           class="Btn Btn-alt"
-          style="cursor:pointer; margin-right: 20px; text-decoration: none;"
+          style="cursor:pointer; margin-inline-end: 20px; text-decoration: none;"
 
           >
           CLOSE
@@ -105,7 +107,7 @@
         <a
           id="reopenConversationButton"
           class="Btn Btn-alt"
-          style="cursor:pointer; margin-right: 20px"
+          style="cursor:pointer; margin-inline-end: 20px"
           >
           REOPEN
           </a>
@@ -114,7 +116,7 @@
         <a
           href="{{url_force_vis}}"
           class="Btn Btn-alt"
-          style="margin-right: 20px"
+          style="margin-inline-end: 20px"
           >
           SEE VIS
           </a>
@@ -130,7 +132,7 @@
         <i class="svgIcon" style="
           display: inline-block;
           position: relative;
-          margin-right: 2px;
+          margin-inline-end: 2px;
           top: 1px;
           width: 16px;
           fill: white;
@@ -148,7 +150,7 @@
         <i class="svgIcon" style="
           display: inline-block;
           position: relative;
-          margin-right: 2px;
+          margin-inline-end: 2px;
           top: 1px;
           width: 16px;
           fill: white;
@@ -170,7 +172,8 @@
         class="HeadingA"
         style="
          margin-bottom: 10px;
-        ">
+        "
+        dir="auto">
         {{topic}}
         {{#unless is_active}}
         <span class="no_you_vote" style="
@@ -194,11 +197,12 @@
     {{#ifDefined description}}
         <p
           style="
-            border-left: 4px solid #2980b9;
-            padding-left: 10px;
+            border-inline-start: 4px solid #2980b9;
+            padding-inline-start: 10px;
             font-family: chaparral-pro;
             word-wrap:break-word;
-          ">
+          "
+          dir="auto">
           {{{description}}}
         </p>
     {{/ifDefined}}
@@ -207,11 +211,12 @@
     {{#if link_url}}
         <p
           style="
-            border-left: 4px solid #2980b9;
-            padding-left: 10px;
+            border-inline-start: 4px solid #2980b9;
+            padding-inline-start: 10px;
             font-family: chaparral-pro;
             word-wrap:break-word;
-          ">
+          "
+          dir="auto">
         {{linkExternal link_url link_url}}
         </p>
     {{/if}}
@@ -264,7 +269,7 @@
   id="socialButtonsUnderReadReact"
   class=""
   style="
-    margin-left: 8px;
+    margin-inline-start: 8px;
     margin-bottom: 20px;
     display: none; {{! waiting to be shown }}
   ">
@@ -279,7 +284,7 @@
           <i class="svgIcon" style="
             display: inline-block;
             position: relative;
-            margin-right: 2px;
+            margin-inline-end: 2px;
             top: 6px;
             width: 25px;
             fill: white;
@@ -297,7 +302,7 @@
         <i class="svgIcon" style="
           display: inline-block;
           position: relative;
-          margin-right: 2px;
+          margin-inline-end: 2px;
           top: 8px;
           width: 25px;
           fill: white;
@@ -380,7 +385,7 @@
 <div
   id="visualization_parent_div"
   class="clickDoesNotDeselectHull"
-  style="text-align: right; visibility: hidden; background-color: rgba(0,0,0,0);"
+  style="text-align: end; visibility: hidden; background-color: rgba(0,0,0,0);"
   >
   <div
     id="visualization_div"
@@ -392,7 +397,7 @@
   <div id="vis2_root"></div>
 
   {{#if show_top_comments}}
-  <div id="top_comments" style="text-align: left">
+  <div id="top_comments" style="text-align: start">
     <div class="HeadingC" style="text-transform:none; cursor: default; white-space: nowrap; border-bottom: none;">
       {{s.topComments}}
     </div>
@@ -400,7 +405,7 @@
   </div>
   {{/if}}
   {{#if show_divisive_comments}}
-  <div id="divisive_comments" style="text-align: left">
+  <div id="divisive_comments" style="text-align: start">
     <div class="HeadingC" style="text-transform:none; cursor: default; white-space: nowrap; border-bottom: none;">
       {{s.divisiveComments}}
     </div>
@@ -432,8 +437,8 @@
 {{!  ------------ BEGIN FOOTER ---------------  }}
 {{#unless no_footer}}
 
-  <div style="margin-top: 40px; margin-bottom: 20px;">
-    <a href="https://pol.is" target="_blank">
+  <div style="margin-top: 40px; margin-bottom: 20px;" data-test-footer>
+    <a href="https://pol.is" target="_blank" dir="auto">
       {{> logo}}
     </a>
     <div
@@ -448,14 +453,14 @@
   </div>
 
   {{!-- <div style="font-size:18px;font-weight:400;color:white;background-color:#03a9f4;display:flex;-webkit-flex-direction:row;-webkit-flex-wrap:nowrap;-webkit-justify-content:space-between;-webkit-align-items:baseline;-webkit-align-content:stretch;-webkit-order:0;-webkit-flex-grow:0;-webkit-flex-shrink:1;-webkit-flex-basis:auto;-webkit-align-self:auto;" data-reactid=".0.0.$=1$=012.0">
-    <p style="margin-left:20px;font-size:12px;" data-reactid=".0.0.$=1$=012.0.$=1$/=010">© The Authors. 2016 </p>
-    <div style="margin-right:20px;" data-reactid=".0.0.$=1$=012.0.$=1$/=011">
+    <p style="margin-inline-start:20px;font-size:12px;" data-reactid=".0.0.$=1$=012.0.$=1$/=010">© The Authors. 2016 </p>
+    <div style="margin-inline-end:20px;" data-reactid=".0.0.$=1$=012.0.$=1$/=011">
       <a style="text-decoration:none;cursor:pointer;color:white;font-size:12px;" href="/tos" data-reactid=".0.0.$=1$=012.0.$=1$/=011.$/=10">
         <span name="file-text-o" class="fa fa-file-text-o" data-reactid=".0.0.$=1$=012.0.$=1$/=011.$/=10.$=10"></span>
-        <span style="margin-left:5px;" data-reactid=".0.0.$=1$=012.0.$=1$/=011.$/=10.$/=11"> TOS </span>
+        <span style="margin-inline-start:5px;" data-reactid=".0.0.$=1$=012.0.$=1$/=011.$/=10.$/=11"> TOS </span>
       </a>
       <a style="text-decoration:none;cursor:pointer;color:white;font-size:12px;" href="/privacy" data-reactid=".0.0.$=1$=012.0.$=1$/=011.$/=11">
-        <span style="margin-left:5px;" data-reactid=".0.0.$=1$=012.0.$=1$/=011.$/=11.0"> PRIVACY </span>
+        <span style="margin-inline-start:5px;" data-reactid=".0.0.$=1$=012.0.$=1$/=011.$/=11.0"> PRIVACY </span>
       </a>
     </div>
   </div> --}}

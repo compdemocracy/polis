@@ -3,7 +3,7 @@
 import React from "react";
 // import _ from "lodash";
 import Group from "./participantGroup";
-import style from "../../util/style";
+// import style from "../../util/style";
 import * as globals from "../globals";
 import Metadata from "./metadata";
 
