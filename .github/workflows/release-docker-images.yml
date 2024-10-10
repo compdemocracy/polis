@@ -5,9 +5,7 @@ on:
   push:
     branches:
       - main
-      - stable
       - edge
-      - dev
 
 jobs:
   build:
