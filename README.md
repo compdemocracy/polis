@@ -8,10 +8,10 @@ For a detailed methods paper, see [Polis: Scaling Deliberation by Mapping High D
 
 <!-- Changes to badge text in URLs below, require changes to "name" value in .github/workflows/*.yml -->
 [![Docker Image Builds](https://github.com/compdemocracy/polis/workflows/Docker%20image%20builds/badge.svg)][docker-image-builds]
-[![E2E Tests](https://github.com/compdemocracy/polis/workflows/E2E%20Tests/badge.svg)][e2e-tests]
+[![E2E Tests](https://github.com/CivicTechTO/polis/workflows/E2E%20Tests/badge.svg)][e2e-tests]
 
    [docker-image-builds]: https://hub.docker.com/u/compdem
-   [e2e-tests]: https://github.com/compdemocracy/polis/actions?query=workflow%3A%22E2E+Tests%22
+   [e2e-tests]: https://github.com/CivicTechTO/polis/actions?query=workflow%3A%22E2E+Tests%22
 
 ---
 
