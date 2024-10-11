@@ -40,9 +40,6 @@ import CreateUser from "./auth/create-user";
 import Password from "./auth/password";
 import dbPgQuery from "./db/pg-query";
 
-// Re-import disassembled code to promise existing code will work
-import Log from "./log";
-import Config from "./config";
 import fail from "./utils/fail";
 
 import {
