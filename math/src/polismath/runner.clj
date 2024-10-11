@@ -219,6 +219,9 @@
       ;; Help message
       (:help options)
       (utils/exit 0 (usage summary))
+      ;; Require ID or user, if they don't exist append to error vector before checking if errors exist
+      (not (or (:zid options) (:zinvite options) (:user-id options)))
+      (conj errors "Run must specify either -Z, -z, or -u to produce output")
       ;; Error in parsing (this should really catch the below condition as well
       errors
       (utils/exit 1 (apply str "Found the following errors:\n"
