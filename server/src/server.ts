@@ -34,11 +34,14 @@ import _ from "underscore";
 import pg from "pg";
 import { encode } from "html-entities";
 
+import Config from "./config";
 import { METRICS_IN_RAM, addInRamMetric, MPromise } from "./utils/metered";
 import CreateUser from "./auth/create-user";
 import Password from "./auth/password";
 import dbPgQuery from "./db/pg-query";
 
+// Re-import disassembled code to promise existing code will work
+import Log from "./log";
 import Config from "./config";
 import fail from "./utils/fail";
 
