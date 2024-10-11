@@ -5,7 +5,7 @@ on:
   push:
     branches:
       - main
-      - dev
+      - edge
   pull_request:
     branches:
       - main
@@ -26,9 +26,9 @@ jobs:
         id: extract_branch
 
       - name: Checkout
-        uses: actions/checkout@v2.3.4
+        uses: actions/checkout@v4
         with:
-          ref: ${{ steps.extranct_branch.outputs.branch }}
+          ref: ${{ steps.extract_branch.outputs.branch }}
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -42,7 +42,7 @@ jobs:
           mv example.env .env
           sed -i 's/docker.io/ghcr.io/g' docker-compose.yml
           sed -i 's/compdem/civictechto/g' docker-compose.yml
-          docker compose build --parallel --build-arg GIT_HASH=${GITHUB_SHA:0:6}
+          docker compose --profile postgres build --parallel --build-arg GIT_HASH=${GITHUB_SHA:0:6}
 
       - name: Push images to Docker Hub
-        run: docker compose push --ignore-push-failures
+        run: docker compose --profile postgres push --ignore-push-failures

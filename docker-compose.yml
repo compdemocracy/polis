@@ -1,24 +1,28 @@
-# Before running docker compose up for the first time,
+# Before running docker compose --profile postgres up for the first time,
 # first copy the env.example file to .env and fill in the values.
 # `cp env.example .env`
 # (edit values as needed)
 #
 # Then, build and run with:
-# `docker compose build`
-# `docker compose up`
+# `docker compose --profile postgres build`
+# `docker compose --profile postgres up`
 #
 # Subsequently you should only need to run:
-# `docker compose up`
+# `docker compose --profile postgres up`
 #
 # Force a full re-build with no cache from previous builds:
-# `docker compose build --no-cache`
-# `docker compose up`
+# `docker compose --profile postgres build --no-cache`
+# `docker compose --profile postgres up`
 #
 # If you only changed the .env file, you can do a quick rebuild:
-# `docker compose up --force-recreate`
+# `docker compose --profile postgres up --force-recreate`
 #
 # To stop, press CTRL+C (if not running in --detach mode), or run:
-# `docker compose down`
+# `docker compose --profile postgres down`
+#
+# omit the --profile postgres flag to run without the postgres service,
+# such as when using postgres on your host machine, or a remote server.
+# (by default, the Makefile will include --profile postgres, unless POSTGRES_DOCKER=false in your env)
 
 services:
   server:
@@ -34,20 +38,17 @@ services:
       labels:
         polis_tag: ${TAG:-dev}
     depends_on:
-      - "postgres"
       - "file-server"
     networks:
       - "polis-net"
     # Scale the server container to a given number of instances.
     scale: 1
     volumes:
-    # Persist logs to a volume, so they can be accessed after the container is stopped.
+      # Persist logs to a volume, so they can be accessed after the container is stopped.
       - server-logs:/app/logs
 
   math:
     image: docker.io/compdem/polis-math:${TAG:-dev}
-    depends_on:
-      - "postgres"
     build:
       context: ./math
       labels:
@@ -77,6 +78,8 @@ services:
     volumes:
       - "backups:/backups"
       - "postgres:/var/lib/postgresql/data"
+    profiles:
+      - postgres
 
   nginx-proxy:
     image: docker.io/compdem/polis-nginx-proxy:${TAG:-dev}

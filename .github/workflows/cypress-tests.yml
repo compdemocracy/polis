@@ -6,43 +6,57 @@ concurrency:
 
 on:
   push:
-    branches: [edge]
-    paths-ignore: ["**.md"]
+    branches:
+      - edge
+    paths-ignore:
+      - "**.md"
 
   pull_request:
-    paths-ignore: ["**.md"]
+    paths-ignore:
+      - "**.md"
 
 jobs:
   cypress-run:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Build and Run Application
-        uses: isbang/compose-action@v1.4.1
-        with:
-          compose-file: |
-            docker-compose.yml
-            docker-compose.test.yml
-          compose-flags: "--env-file test.env"
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Check Application Health
-        uses: jtalk/url-health-check-action@v3
+      - name: Build and start Docker containers
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.test.yml --env-file test.env --profile postgres up -d --build
+
+      - name: Health Check the Server http response
+        uses: jtalk/url-health-check-action@v4
         with:
           url: http://localhost/api/v3/testConnection
           max-attempts: 10
           retry-delay: 10s
 
-      - name: Dump Application Logs
-        if: failure()
-        run: |
-          echo "Health check failed. Dumping Docker logs..."
-          docker compose -f docker-compose.yml -f docker-compose.test.yml --env-file test.env logs
-
       - name: Cypress Run
-        uses: cypress-io/github-action@v5
+        uses: cypress-io/github-action@v6
         with:
           config: baseUrl=http://localhost
           spec: cypress/e2e/!(third-party)/**/*.cy.js
           working-directory: e2e
+
+      - name: Upload Cypress screenshots
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: cypress-screenshots
+          path: e2e/cypress/screenshots
+
+      - name: Upload Cypress videos
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: cypress-videos
+          path: e2e/cypress/videos
+
+      - name: Stop Docker containers
+        if: always()
+        run: docker compose -f docker-compose.yml -f docker-compose.test.yml --env-file test.env --profile postgres down
