@@ -6,9 +6,9 @@
 {{/ifNotEmbedded}}
 
 
-<span id="header_root"></span>
+<header id="header_root"></header>
 
-<div
+<main
   class="
   conversationViewRoot
   clickDeselectsHull
@@ -168,7 +168,7 @@
 
     {{#unless no_topic}}
     {{#ifDefined topic}}
-      <h2
+      <h1
         class="HeadingA"
         style="
          margin-bottom: 10px;
@@ -189,7 +189,7 @@
          left: 6px;
         ">closed</span>
       {{/unless}}
-      </h2>
+      </h1>
     {{/ifDefined}}
     {{/unless}}
 
@@ -431,13 +431,13 @@
 
 </span> {{!-- end no_vis toggle wrapper --}}
 
-
+</main> {{! END PARTICIPATION VIEW DIV }}
 
 
 {{!  ------------ BEGIN FOOTER ---------------  }}
 {{#unless no_footer}}
 
-  <div style="margin-top: 40px; margin-bottom: 20px;" data-test-footer>
+  <footer style="margin-top: 40px; margin-bottom: 20px;" data-test-footer>
     <a href="https://pol.is" target="_blank" dir="auto">
       {{> logo}}
     </a>
@@ -450,7 +450,7 @@
         {{> linkPrivacy}}
         {{> linkTos}}
     </div>
-  </div>
+  </footer>
 
   {{!-- <div style="font-size:18px;font-weight:400;color:white;background-color:#03a9f4;display:flex;-webkit-flex-direction:row;-webkit-flex-wrap:nowrap;-webkit-justify-content:space-between;-webkit-align-items:baseline;-webkit-align-content:stretch;-webkit-order:0;-webkit-flex-grow:0;-webkit-flex-shrink:1;-webkit-flex-basis:auto;-webkit-align-self:auto;" data-reactid=".0.0.$=1$=012.0">
     <p style="margin-inline-start:20px;font-size:12px;" data-reactid=".0.0.$=1$=012.0.$=1$/=010">© The Authors. 2016 </p>
@@ -467,5 +467,3 @@
 {{/unless}}
   {{! END FOOTER}}
 {{!  ------------ END FOOTER ---------------  }}
-
-</div> {{! END PARTICIPATION VIEW DIV }}
