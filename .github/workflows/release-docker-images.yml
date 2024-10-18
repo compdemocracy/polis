@@ -4,11 +4,10 @@ name: Docker image builds
 on:
   push:
     branches:
-      - main
-      - edge
+      - edge-civictechto
   pull_request:
     branches:
-      - main
+      - edge-civictechto
 
 jobs:
   build:
