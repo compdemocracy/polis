@@ -78,12 +78,12 @@ const DataSentence = ({ math, selectedTidCuration, selectedComment, repfulFor, S
           <path d={repfulForAgree ? checkmark : ban} />
         </svg>
         <p style={{
-          fontSize: 14,
-          fontFamily: "Helvetica",
-          fontWeight: 500,
-          maxWidth: 240,
-          color: "rgb(117,117,117)"
-        }}>
+            fontSize: 14,
+            fontFamily: "Helvetica",
+            fontWeight: 500,
+            maxWidth: 240,
+            color: "rgb(117,117,117)"
+          }}>
           {s}
         </p>
       </div>
