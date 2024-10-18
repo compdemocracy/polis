@@ -9,11 +9,11 @@ SHELL=/bin/bash
 E2E_RUN = cd e2e;
 
 define parse_env_value
-	$(shell grep -e ^$(1) ${ENV_FILE} | awk -F'[=]' '{gsub(/ /,"");print $$2}')
+$(shell grep -e ^$(1) ${ENV_FILE} | awk -F'[=]' '{gsub(/ /,"");print $$2}')
 endef
 
 define parse_env_bool
-  $(if $(filter false,$(1)),false,true)
+$(if $(filter false,$(1)),false,true)
 endef
 
 # Default environment and settings (dev)
