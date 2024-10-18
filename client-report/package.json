@@ -34,7 +34,7 @@
   "dependencies": {
     "color": "~4.2.3",
     "d3": "~4.6.0",
-    "d3-contour": "~1.1.2",
+    "d3-contour": "^4.0.2",
     "d3-scale-chromatic": "~1.1.1",
     "hull.js": "~0.2.11",
     "jquery": "~3.6.3",
