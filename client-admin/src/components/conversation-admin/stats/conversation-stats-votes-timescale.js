@@ -6,7 +6,8 @@ import PropTypes from 'prop-types'
 import { VictoryChart } from 'victory-chart'
 import { VictoryLine } from 'victory-line'
 import { VictoryAxis } from 'victory-axis'
-import { scaleLinear, scaleTime } from 'd3-scale'
+import { scaleTime } from 'd3-scale'
+import { scaleDiscontinuous } from '@d3fc/d3fc-discontinuous-scale';
 
 class VotesTimescale extends React.Component {
   render() {
@@ -15,8 +16,8 @@ class VotesTimescale extends React.Component {
         width={this.props.chartWidth}
         height={this.props.chartHeight}
         scale={{
-          x: scaleTime(this.props.data.voteTimes),
-          y: scaleLinear()
+          x: scaleDiscontinuous(scaleTime(this.props.data.voteTimes)),
+          y: 'linear'
         }}>
         <VictoryLine
           style={{
