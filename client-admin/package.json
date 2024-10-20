@@ -4,6 +4,7 @@
   "repository": "github:pol-is/polisClientAdmin",
   "description": "Polis Admin Console",
   "scripts": {
+    "build:watch": "webpack --mode=development --watch",
     "build:dev": "webpack --mode=development",
     "build:prod": "webpack --mode=production",
     "analyze": "webpack --mode=production --analyze",

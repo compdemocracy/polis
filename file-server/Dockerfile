@@ -24,7 +24,7 @@ RUN npm ci --production=false
 
 COPY client-admin/. .
 
-RUN npm run build:prod
+RUN mkdir -p /app/build
 
 
 
