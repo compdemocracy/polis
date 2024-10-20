@@ -186,6 +186,7 @@ module.exports = ConversationView.extend({
     if (/^ *$/.test(ctx.topic) || _.isNull(ctx.topic) || ctx.topic === "") {
       ctx.topic = void 0;
     }
+    document.title = ctx.topic;
 
     ctx.useBannerHeader = false; //!Utils.isInIframe();
     // ctx.showLogoAndBreadCrumbInHeader = ctx.context && !Utils.isInIframe();

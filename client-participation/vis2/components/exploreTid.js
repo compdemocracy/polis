@@ -51,7 +51,7 @@ const DataSentence = ({math, selectedTidCuration, selectedComment, repfulFor, St
             fontFamily: "Helvetica",
             fontWeight: 500,
             maxWidth: 240,
-            color: "rgb(180,180,180)"
+            color: "rgb(117,117,117)"
           }}>
           {s}
         </p>
@@ -82,7 +82,7 @@ const DataSentence = ({math, selectedTidCuration, selectedComment, repfulFor, St
             fontFamily: "Helvetica",
             fontWeight: 500,
             maxWidth: 240,
-            color: "rgb(180,180,180)"
+            color: "rgb(117,117,117)"
           }}>
           {s}
         </p>
