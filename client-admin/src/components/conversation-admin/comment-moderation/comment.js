@@ -25,7 +25,14 @@ class Comment extends React.Component {
 
   render() {
     return (
-      <Card sx={{ mb: [3], minWidth: '35em' }}>
+      <Card
+        sx={{
+          mb: [3],
+          width: '35em',
+          maxWidth: '100%',
+          boxShadow: this.props.currentItem ? 'lightseagreen 0px 0px 16px;' : ''
+        }}
+        className={this.props.currentItem ? 'current-item' : ''}>
         <Box>
           <Text sx={{ mb: [3], color: 'red', fontSize: 12 }}>{this.props.comment.active ? null : 'Comment flagged as toxic by Jigsaw Perspective API. Comment not shown to participants. Accept to override.'}</Text>
           <Text sx={{ mb: [3] }}>{this.props.comment.txt}</Text>
@@ -87,7 +94,8 @@ Comment.propTypes = {
     active: PropTypes.bool,
     txt: PropTypes.string,
     is_meta: PropTypes.bool
-  })
+  }),
+  currentItem: PropTypes.bool
 }
 
 export default Comment
