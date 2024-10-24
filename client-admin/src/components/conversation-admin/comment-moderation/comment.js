@@ -23,9 +23,10 @@ class Comment extends React.Component {
       <Card
         sx={{
           mb: [3],
+          p: [1],
           width: '35em',
           maxWidth: '100%',
-          boxShadow: this.props.currentItem ? 'lightseagreen 0px 0px 16px;' : ''
+          boxShadow: this.props.currentItem ? 'lightseagreen 0px 0px 0px 2px;' : ''
         }}
         className={this.props.currentItem ? 'current-item' : ''}>
         <Box>
@@ -37,21 +38,23 @@ class Comment extends React.Component {
               alignItems: 'center',
               width: '100%'
             }}>
-            <Box>
+            <Flex
+              sx={{
+                flexWrap: 'wrap',
+                gap: [2, 3]
+              }}>
               {this.props.acceptButton ? (
                 <Button
-                  sx={{ mr: [3] }}
                   onClick={this.onAcceptClicked.bind(this)}>
-                  {this.props.acceptButtonText}
+                  {this.props.acceptButtonText} (A)
                 </Button>
               ) : null}
               {this.props.rejectButton ? (
                 <Button onClick={this.onRejectClicked.bind(this)}>
-                  {this.props.rejectButtonText}
+                  {this.props.rejectButtonText} (R)
                 </Button>
               ) : null}
-            </Box>
-            <Flex sx={{ alignItems: 'center' }}>
+            </Flex>
               <Link
                 target="_blank"
                 sx={{ mr: [2] }}
