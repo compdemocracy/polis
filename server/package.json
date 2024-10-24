@@ -51,7 +51,7 @@
     "p3p": "~0.0.2",
     "pg": "~8.8.0",
     "pg-connection-string": "~2.5.0",
-    "pg-query-stream": "^4.6.0",
+    "pg-native": "~3.0.1",
     "replacestream": "~4.0.0",
     "request": "~2.88.2",
     "request-promise": "~4.2.6",
