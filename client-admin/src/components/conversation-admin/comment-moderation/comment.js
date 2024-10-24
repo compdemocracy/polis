@@ -5,11 +5,6 @@ import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { Flex, Box, Text, Button, Card, Link } from 'theme-ui'
 
-@connect((state) => {
-  return {
-    conversation: state.zid_metadata.zid_metadata
-  }
-})
 class Comment extends React.Component {
   onAcceptClicked() {
     this.props.acceptClickHandler(this.props.comment)
@@ -98,4 +93,8 @@ Comment.propTypes = {
   currentItem: PropTypes.bool
 }
 
-export default Comment
+export default connect((state) => {
+  return {
+    conversation: state.zid_metadata.zid_metadata
+  }
+})(Comment)
