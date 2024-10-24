@@ -115,7 +115,7 @@ If you are deploying to a custom domain (not `pol.is`) then you need to update b
 - **`API_PROD_HOSTNAME`** the hostname of your site (e.g. `pol.is`, or `example.com`). Should match **`DOMAIN_OVERRIDE`**. (In the future these two options may be combined into one.)
 - **`DOMAIN_OVERRIDE`** the hostname of your site. Should match **`API_PROD_HOSTNAME`**.
 - **`DOMAIN_WHITELIST_ITEM_01`** - **`08`** up to 8 possible additional whitelisted domains for client applications to make API requests from. Typical setups that use the same URL for the API service as for the public-facing web sites do not need to configure these.
-- **`EMBED_SERVICE_HOSTNAME`** should match **`API_DEV_HOSTNAME`** in production, or **`API_DEV_HOSTNAME`** in development. Embedded conversations make API requests to this host.
+- **`EMBED_SERVICE_HOSTNAME`** should match **`API_PROD_HOSTNAME`** in production, or **`API_DEV_HOSTNAME`** in development. Embedded conversations make API requests to this host.
 - **`SERVICE_URL`** used by client-report to make API calls. Only necessary if client-report is hosted separately from the API service. Can be left blank.
 - **`STATIC_FILES_HOST`** Used by the API service to fetch static assets (the compiled client applications) from a static file server. Within the docker compose setup this is `file-server`, but could be an external hostname, such as a CDN or S3 bucket.
 
@@ -223,4 +223,4 @@ This transport will work automatically when running via Docker Compose with the 
 3. Submit a pull request.
 
    [transports]: https://github.com/search?q=nodemailer+transport
-   [mail-senders]: /server/email/senders.js
+   [mail-senders]: /server/src/email/senders.ts
