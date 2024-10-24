@@ -13,9 +13,13 @@ const shouldUseTranslationAPI = isTrue(
   process.env.SHOULD_USE_TRANSLATION_API
 ) as boolean;
 
-import("source-map-support").then((sourceMapSupport) => {
-  sourceMapSupport.install();
-});
+/* Do NOT use source-map-support in production as it uses the non-standard stack property of Errors */
+if(devMode) {
+//   require('source-map-support').install();
+  import("source-map-support").then((sourceMapSupport) => {
+    sourceMapSupport.install();
+  });
+}
 
 export default {
   domainOverride: domainOverride as string | null,
