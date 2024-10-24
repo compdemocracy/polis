@@ -55,25 +55,24 @@ class Comment extends React.Component {
                 </Button>
               ) : null}
             </Flex>
-              <Link
-                target="_blank"
-                sx={{ mr: [2] }}
-                href="https://compdemocracy.org/metadata">
-                {this.props.isMetaCheckbox ? 'metadata' : null}
-              </Link>
-              {this.props.isMetaCheckbox ? (
-                <input
-                  type="checkbox"
-                  label="metadata"
-                  ref={(c) => (this.is_meta = c)}
-                  checked={this.props.comment.is_meta}
-                  onChange={this.onIsMetaClicked.bind(this)}
-                />
-              ) : null}
-            </Flex>
+            <Link
+              target="_blank"
+              sx={{ mr: [2] }}
+              href="https://compdemocracy.org/metadata">
+              {this.props.isMetaCheckbox ? 'metadata' : null}
+            </Link>
+            {this.props.isMetaCheckbox ? (
+              <input
+                type="checkbox"
+                label="metadata"
+                ref={(c) => (this.is_meta = c)}
+                checked={this.props.comment.is_meta}
+                onChange={this.onIsMetaClicked.bind(this)}
+              />
+            ) : null}
           </Flex>
         </Box>
-      </Card>
+      </Card >
     )
   }
 }
