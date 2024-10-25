@@ -27,6 +27,9 @@ const Number = ({ number, label }) => (
 
 const pathname = window.location.pathname; // "/report/2arcefpshi"
 const report_id = pathname.split("/")[2];
+const doShowDataLicenseTerms = ["pol.is", "preprod.pol.is", "localhost"].includes(
+  window.location.hostname
+);
 
 const getCurrentTimestamp = () => {
   const now = new Date();
@@ -147,6 +150,16 @@ const Overview = ({
           </a>
           {` (as event log)`}
         </p>
+        <p style={{ fontFamily: "monospace" }}>
+          {`---Votes matrix: `}
+          <a
+            download={getDownloadFilename("participant-votes", conversation)}
+            href={`http://${window.location.hostname}/api/v3/reportExport/${report_id}/participant-votes.csv`}
+          >
+            {getDownloadFilename("participant-votes", conversation)}
+          </a>
+          {` (as comments x participants matrix)`}
+        </p>
         <div style={{ marginTop: "3em" }}>
           <p style={{ fontFamily: "monospace" }}>
             <strong>Public API endpoints (read only, Jupyter notebook friendly)</strong>
@@ -160,36 +173,36 @@ const Overview = ({
           <p style={{ fontFamily: "monospace" }}>
             {`$ curl http://${window.location.hostname}/api/v3/reportExport/${report_id}/votes.csv`}
           </p>
+          <p style={{ fontFamily: "monospace" }}>
+            {`$ curl http://${window.location.hostname}/api/v3/reportExport/${report_id}/participant-votes.csv`}
+          </p>
         </div>
-        {window.location.hostname === "pol.is" ||
-          (window.location.hostname === "localhost" && (
-            <div style={{ marginTop: "3em" }}>
-              <p style={{ fontFamily: "monospace" }}>
-                <strong>Attribution of Polis Data</strong>
-              </p>
+        {doShowDataLicenseTerms && (
+          <div style={{ marginTop: "3em" }}>
+            <p style={{ fontFamily: "monospace" }}>
+              <strong>Attribution of Polis Data</strong>
+            </p>
 
-              <p style={{ fontFamily: "monospace" }}>
-                All Polis data is licensed under a Creative Commons Attribution 4.0 International
-                license: https://creativecommons.org/licenses/by/4.0/
-              </p>
-              <p style={{ fontFamily: "monospace" }}>
-                --------------- BEGIN STATEMENT ---------------
-              </p>
-              <p
-                style={{ fontFamily: "monospace" }}
-              >{`Data was gathered using the Polis software (see: compdemocracy.org/polis and github.com/compdemocracy/polis) and is sub-licensed
+            <p style={{ fontFamily: "monospace" }}>
+              All Polis data is licensed under a Creative Commons Attribution 4.0 International
+              license: https://creativecommons.org/licenses/by/4.0/
+            </p>
+            <p style={{ fontFamily: "monospace" }}>
+              --------------- BEGIN STATEMENT ---------------
+            </p>
+            <p
+              style={{ fontFamily: "monospace" }}
+            >{`Data was gathered using the Polis software (see: compdemocracy.org/polis and github.com/compdemocracy/polis) and is sub-licensed
           under CC BY 4.0 with Attribution to The Computational Democracy Project. The data and more
           information about how the data was collected can be found at the following link: ${window.location.href}`}</p>
-              <p style={{ fontFamily: "monospace" }}>
-                --------------- END STATEMENT---------------
-              </p>
-              <p style={{ fontFamily: "monospace" }}>
-                For further information on best practices for Attribution of CC 4.0 licensed content
-                Please see:
-                https://wiki.creativecommons.org/wiki/Best_practices_for_attribution#Title.2C_Author.2C_Source.2C_License
-              </p>
-            </div>
-          ))}
+            <p style={{ fontFamily: "monospace" }}>--------------- END STATEMENT---------------</p>
+            <p style={{ fontFamily: "monospace" }}>
+              For further information on best practices for Attribution of CC 4.0 licensed content
+              Please see:
+              https://wiki.creativecommons.org/wiki/Best_practices_for_attribution#Title.2C_Author.2C_Source.2C_License
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
