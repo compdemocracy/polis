@@ -1,5 +1,5 @@
 import { isFunction, isString, isUndefined } from "underscore";
-import { native as pgnative, Pool, PoolConfig, QueryResult } from "pg";
+import { Pool, PoolConfig, QueryResult } from "pg";
 import { parse as parsePgConnectionString } from "pg-connection-string";
 import QueryStream from "pg-query-stream";
 
@@ -16,8 +16,6 @@ import { MPromise } from "../utils/metered";
 // round up to 20
 // so we can have 25 connections per server, of of which is the preprod server
 // so we can have 1 preprod/3 prod servers, or 2 preprod / 2 prod.
-//
-// Note we use native
 const usingReplica = Config.databaseURL !== Config.readOnlyDatabaseURL;
 const poolSize = Config.isDevMode ? 2 : usingReplica ? 3 : 12;
 
@@ -27,6 +25,11 @@ const pgConnection = Object.assign(
   {
     max: poolSize,
     isReadOnly: false,
+    ssl: Config.databaseSSL
+      ? {
+          rejectUnauthorized: false,
+        }
+      : undefined,
     poolLog: function (str: string, level: string) {
       if (pgPoolLevelRanks.indexOf(level) <= pgPoolLoggingLevel) {
         logger.info("pool.primary." + level + " " + str);
@@ -39,6 +42,11 @@ const readsPgConnection = Object.assign(
   {
     max: poolSize,
     isReadOnly: true,
+    ssl: Config.databaseSSL
+      ? {
+          rejectUnauthorized: false,
+        }
+      : undefined,
     poolLog: function (str: string, level: string) {
       if (pgPoolLevelRanks.indexOf(level) <= pgPoolLoggingLevel) {
         logger.info("pool.readonly." + level + " " + str);
@@ -50,9 +58,9 @@ const readsPgConnection = Object.assign(
 // split requests into centralized read/write transactor pool vs read pool for scalability concerns in keeping
 // pressure down on the transactor (read+write) server
 
-const PoolConstructor = pgnative?.Pool ?? Pool;
-const readWritePool: Pool = new PoolConstructor(pgConnection as PoolConfig);
-const readPool: Pool = new PoolConstructor(readsPgConnection as PoolConfig);
+// const PoolConstructor = pgnative?.Pool ?? Pool;
+const readWritePool: Pool = new Pool(pgConnection as PoolConfig);
+const readPool: Pool = new Pool(readsPgConnection as PoolConfig);
 
 // Same syntax as pg.client.query, but uses connection pool
 // Also takes care of calling 'done'.

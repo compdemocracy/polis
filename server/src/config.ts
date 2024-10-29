@@ -76,6 +76,7 @@ export default {
   ) as boolean,
   cacheMathResults: isTrueOrBlank(process.env.CACHE_MATH_RESULTS) as boolean,
   databaseURL: process.env.DATABASE_URL as string,
+  databaseSSL: isTrue(process.env.DATABASE_SSL) as boolean,
   emailTransportTypes:
     process.env.EMAIL_TRANSPORT_TYPES || (null as string | null),
   encryptionPassword: process.env.ENCRYPTION_PASSWORD_00001 as string,
