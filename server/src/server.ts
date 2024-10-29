@@ -29,7 +29,6 @@ import responseTime from "response-time";
 import request from "request-promise"; // includes Request, but adds promise methods
 import LruCache from "lru-cache";
 import timeout from "connect-timeout";
-import zlib from "zlib";
 import _ from "underscore";
 import pg from "pg";
 import { encode } from "html-entities";
@@ -37,10 +36,23 @@ import { encode } from "html-entities";
 import { METRICS_IN_RAM, addInRamMetric, MPromise } from "./utils/metered";
 import CreateUser from "./auth/create-user";
 import Password from "./auth/password";
-import dbPgQuery from "./db/pg-query";
+import dbPgQuery, {
+  query as pgQuery,
+  query_readOnly as pgQuery_readOnly,
+  queryP as pgQueryP,
+  queryP_metered as pgQueryP_metered,
+  queryP_metered_readOnly as pgQueryP_metered_readOnly,
+  queryP_readOnly as pgQueryP_readOnly,
+  stream_queryP_readOnly as stream_pgQueryP_readOnly,
+  queryP_readOnly_wRetryIfEmpty as pgQueryP_readOnly_wRetryIfEmpty,
+} from "./db/pg-query";
 
 import Config from "./config";
 import fail from "./utils/fail";
+import { PcaCacheItem, getPca, fetchAndCacheLatestPcaData } from "./utils/pca";
+import { getZinvite, getZinvites, getZidForRid } from "./utils/zinvite";
+
+import { handle_GET_reportExport } from "./routes/export";
 
 import {
   Body,
@@ -69,20 +81,7 @@ import {
 AWS.config.update({ region: Config.awsRegion });
 const devMode = Config.isDevMode;
 const s3Client = new AWS.S3({ apiVersion: "2006-03-01" });
-// Property 'Client' does not exist on type '{ query: (...args: any[]) => void; query_readOnly:
-// (...args: any[]) => void; queryP: (...args: any[]) => Promise<unknown>; queryP_metered:
-// (name: any, queryString: any, params: any) => any; queryP_metered_readOnly:
-// (name: any, queryString: any, params: any) => any; queryP_readOnly:
-// (...args: any[]) => Promise <...>; ...'.ts(2339)
-// @ts-ignore
 const escapeLiteral = pg.Client.prototype.escapeLiteral;
-const pgQuery = dbPgQuery.query;
-const pgQuery_readOnly = dbPgQuery.query_readOnly;
-const pgQueryP = dbPgQuery.queryP;
-const pgQueryP_metered = dbPgQuery.queryP_metered;
-const pgQueryP_metered_readOnly = dbPgQuery.queryP_metered_readOnly;
-const pgQueryP_readOnly = dbPgQuery.queryP_readOnly;
-const pgQueryP_readOnly_wRetryIfEmpty = dbPgQuery.queryP_readOnly_wRetryIfEmpty;
 const doSendVerification = CreateUser.doSendVerification;
 const generateAndRegisterZinvite = CreateUser.generateAndRegisterZinvite;
 const generateToken = Password.generateToken;
@@ -1298,82 +1297,6 @@ function initializePolisHelpers() {
     res.status(200).json({});
   }
 
-  type PcaCacheItem = {
-    asPOJO: any;
-    consensus: { agree?: any; disagree?: any };
-    repness: { [x: string]: any };
-    asJSON: string;
-    asBufferOfGzippedJson: any;
-    expiration: number;
-  };
-  let pcaCacheSize = Config.cacheMathResults ? 300 : 1;
-  let pcaCache = new LruCache<number, PcaCacheItem>({
-    max: pcaCacheSize,
-  });
-
-  let lastPrefetchedMathTick = -1;
-
-  // this scheme might not last forever. For now, there are only a couple of MB worth of conversation pca data.
-  function fetchAndCacheLatestPcaData() {
-    let lastPrefetchPollStartTime = Date.now();
-
-    function waitTime() {
-      let timePassed = Date.now() - lastPrefetchPollStartTime;
-      return Math.max(0, 2500 - timePassed);
-    }
-    // cursor.sort([["math_tick", "asc"]]);
-    pgQueryP_readOnly(
-      "select * from math_main where caching_tick > ($1) order by caching_tick limit 10;",
-      [lastPrefetchedMathTick]
-    )
-      // Argument of type '(rows: any[]) => void' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.
-      // Types of parameters 'rows' and 'value' are incompatible.
-      //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-      // @ts-ignore
-      .then((rows: any[]) => {
-        if (!rows || !rows.length) {
-          // call again
-          logger.info("mathpoll done");
-          setTimeout(fetchAndCacheLatestPcaData, waitTime());
-          return;
-        }
-
-        let results = rows.map(
-          (row: { data: any; math_tick: any; caching_tick: any }) => {
-            let item = row.data;
-
-            if (row.math_tick) {
-              item.math_tick = Number(row.math_tick);
-            }
-            if (row.caching_tick) {
-              item.caching_tick = Number(row.caching_tick);
-            }
-
-            logger.info("mathpoll updating", {
-              caching_tick: item.caching_tick,
-              zid: item.zid,
-            });
-
-            // let prev = pcaCache.get(item.zid);
-            if (item.caching_tick > lastPrefetchedMathTick) {
-              lastPrefetchedMathTick = item.caching_tick;
-            }
-
-            processMathObject(item);
-
-            return updatePcaCache(item.zid, item);
-          }
-        );
-        Promise.all(results).then((a: any) => {
-          setTimeout(fetchAndCacheLatestPcaData, waitTime());
-        });
-      })
-      .catch((err: any) => {
-        logger.error("mathpoll error", err);
-        setTimeout(fetchAndCacheLatestPcaData, waitTime());
-      });
-  }
-
   // don't start immediately, let other things load first.
   // setTimeout(fetchAndCacheLatestPcaData, 5000);
   fetchAndCacheLatestPcaData; // TODO_DELETE
@@ -1445,240 +1368,6 @@ function initializePolisHelpers() {
     return o;
   }
   */
-
-  function processMathObject(o: { [x: string]: any }) {
-    function remapSubgroupStuff(g: { val: any[] }) {
-      if (_.isArray(g.val)) {
-        g.val = g.val.map((x: { id: number }) => {
-          return { id: Number(x.id), val: x };
-        });
-      } else {
-        // Argument of type '(id: number) => { id: number; val: any; }'
-        // is not assignable to parameter of type '(value: string, index: number, array: string[]) => { id: number; val: any; }'.
-        // Types of parameters 'id' and 'value' are incompatible.
-        //         Type 'string' is not assignable to type 'number'.ts(2345)
-        // @ts-ignore
-        g.val = _.keys(g.val).map((id: number) => {
-          return { id: Number(id), val: g.val[id] };
-        });
-      }
-      return g;
-    }
-
-    // Normalize so everything is arrays of objects (group-clusters is already in this format, but needs to have the val: subobject style too).
-
-    if (_.isArray(o["group-clusters"])) {
-      // NOTE this is different since group-clusters is already an array.
-      o["group-clusters"] = o["group-clusters"].map((g: { id: any }) => {
-        return { id: Number(g.id), val: g };
-      });
-    }
-
-    if (!_.isArray(o["repness"])) {
-      o["repness"] = _.keys(o["repness"]).map((gid: string | number) => {
-        return { id: Number(gid), val: o["repness"][gid] };
-      });
-    }
-    if (!_.isArray(o["group-votes"])) {
-      o["group-votes"] = _.keys(o["group-votes"]).map(
-        (gid: string | number) => {
-          return { id: Number(gid), val: o["group-votes"][gid] };
-        }
-      );
-    }
-    if (!_.isArray(o["subgroup-repness"])) {
-      o["subgroup-repness"] = _.keys(o["subgroup-repness"]).map(
-        (gid: string | number) => {
-          return { id: Number(gid), val: o["subgroup-repness"][gid] };
-        }
-      );
-      o["subgroup-repness"].map(remapSubgroupStuff);
-    }
-    if (!_.isArray(o["subgroup-votes"])) {
-      o["subgroup-votes"] = _.keys(o["subgroup-votes"]).map(
-        (gid: string | number) => {
-          return { id: Number(gid), val: o["subgroup-votes"][gid] };
-        }
-      );
-      o["subgroup-votes"].map(remapSubgroupStuff);
-    }
-    if (!_.isArray(o["subgroup-clusters"])) {
-      o["subgroup-clusters"] = _.keys(o["subgroup-clusters"]).map(
-        (gid: string | number) => {
-          return { id: Number(gid), val: o["subgroup-clusters"][gid] };
-        }
-      );
-      o["subgroup-clusters"].map(remapSubgroupStuff);
-    }
-
-    // Edge case where there are two groups and one is huge, split the large group.
-    // Once we have a better story for h-clust in the participation view, then we can just show the h-clust instead.
-    // var groupVotes = o['group-votes'];
-    // if (_.keys(groupVotes).length === 2 && o['subgroup-votes'] && o['subgroup-clusters'] && o['subgroup-repness']) {
-    //   var s0 = groupVotes[0].val['n-members'];
-    //   var s1 = groupVotes[1].val['n-members'];
-    //   const scaleRatio = 1.1;
-    //   if (s1 * scaleRatio < s0) {
-    //     o = splitTopLevelGroup(o, groupVotes[0].id);
-    //   } else if (s0 * scaleRatio < s1) {
-    //     o = splitTopLevelGroup(o, groupVotes[1].id);
-    //   }
-    // }
-
-    // // Gaps in the gids are not what we want to show users, and they make client development difficult.
-    // // So this guarantees that the gids are contiguous. TODO look into Darwin.
-    // o = packGids(o);
-
-    // Un-normalize to maintain API consistency.
-    // This could removed in a future API version.
-    function toObj(a: string | any[]) {
-      let obj = {};
-      if (!a) {
-        return obj;
-      }
-      for (let i = 0; i < a.length; i++) {
-        // Element implicitly has an 'any' type
-        // because expression of type 'any' can't be used to index type '{ } '.ts(7053)
-        // @ts-ignore
-        obj[a[i].id] = a[i].val;
-        // Element implicitly has an 'any' type
-        // because expression of type 'any' can't be used to index type '{ } '.ts(7053)
-        // @ts-ignore
-        obj[a[i].id].id = a[i].id;
-      }
-      return obj;
-    }
-    function toArray(a: any[]) {
-      if (!a) {
-        return [];
-      }
-      return a.map((g: { id: any; val: any }) => {
-        let id = g.id;
-        g = g.val;
-        g.id = id;
-        return g;
-      });
-    }
-    o["repness"] = toObj(o["repness"]);
-    o["group-votes"] = toObj(o["group-votes"]);
-    o["group-clusters"] = toArray(o["group-clusters"]);
-
-    delete o["subgroup-repness"];
-    delete o["subgroup-votes"];
-    delete o["subgroup-clusters"];
-    return o;
-  }
-
-  function getPca(
-    zid?: any,
-    math_tick?: number
-  ): Promise<PcaCacheItem | undefined> {
-    let cached = pcaCache.get(zid);
-    // Object is of type 'unknown'.ts(2571)
-    // @ts-ignore
-    if (cached && cached.expiration < Date.now()) {
-      cached = undefined;
-    }
-    // Object is of type 'unknown'.ts(2571)
-    // @ts-ignore
-    let cachedPOJO = cached && cached.asPOJO;
-    if (cachedPOJO) {
-      if (cachedPOJO.math_tick <= (math_tick || 0)) {
-        logger.info("math was cached but not new", {
-          zid,
-          cached_math_tick: cachedPOJO.math_tick,
-          query_math_tick: math_tick,
-        });
-        return Promise.resolve(undefined);
-      } else {
-        logger.info("math from cache", { zid, math_tick });
-        return Promise.resolve(cached);
-      }
-    }
-
-    logger.info("mathpoll cache miss", { zid, math_tick });
-
-    // NOTE: not caching results from this query for now, think about this later.
-    // not caching these means that conversations without new votes might not be cached. (closed conversations may be slower to load)
-    // It's probably not difficult to cache, but keeping things simple for now, and only caching things that come down with the poll.
-
-    let queryStart = Date.now();
-
-    return pgQueryP_readOnly(
-      "select * from math_main where zid = ($1) and math_env = ($2);",
-      [zid, Config.mathEnv]
-      //     Argument of type '(rows: string | any[]) => Promise<any> | null' is not assignable to parameter of type '(value: unknown) => any'.
-      // Types of parameters 'rows' and 'value' are incompatible.
-      //   Type 'unknown' is not assignable to type 'string | any[]'.
-      //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-      // @ts-ignore
-    ).then((rows: string | any[]) => {
-      let queryEnd = Date.now();
-      let queryDuration = queryEnd - queryStart;
-      addInRamMetric("pcaGetQuery", queryDuration);
-
-      if (!rows || !rows.length) {
-        logger.info(
-          "mathpoll related; after cache miss, unable to find data for",
-          {
-            zid,
-            math_tick,
-            math_env: Config.mathEnv,
-          }
-        );
-        return undefined;
-      }
-      let item = rows[0].data;
-
-      if (rows[0].math_tick) {
-        item.math_tick = Number(rows[0].math_tick);
-      }
-
-      if (item.math_tick <= (math_tick || 0)) {
-        logger.info("after cache miss, unable to find newer item", {
-          zid,
-          math_tick,
-        });
-        return undefined;
-      }
-      logger.info("after cache miss, found item, adding to cache", {
-        zid,
-        math_tick,
-      });
-
-      processMathObject(item);
-
-      return updatePcaCache(zid, item);
-    });
-  }
-
-  function updatePcaCache(zid: any, item: { zid: any }): Promise<PcaCacheItem> {
-    return new Promise(function (
-      resolve: (arg0: PcaCacheItem) => void,
-      reject: (arg0: any) => any
-    ) {
-      delete item.zid; // don't leak zid
-      let asJSON = JSON.stringify(item);
-      let buf = Buffer.from(asJSON, "utf-8");
-      zlib.gzip(buf, function (err: any, jsondGzipdPcaBuffer: any) {
-        if (err) {
-          return reject(err);
-        }
-
-        let o: PcaCacheItem = {
-          asPOJO: item as any,
-          asJSON: asJSON,
-          asBufferOfGzippedJson: jsondGzipdPcaBuffer,
-          expiration: Date.now() + 3000,
-          consensus: { agree: undefined, disagree: undefined },
-          repness: {},
-        };
-        // save in LRU cache, but don't update the lastPrefetchedMathTick
-        pcaCache.set(zid, o);
-        resolve(o);
-      });
-    });
-  }
 
   function redirectIfHasZidButNoConversationId(
     req: { body: { zid: any; conversation_id: any }; headers?: any },
@@ -1811,22 +1500,6 @@ function initializePolisHelpers() {
       .catch(function (err: any) {
         fail(res, 500, err);
       });
-  }
-
-  function getZidForRid(rid: any) {
-    return pgQueryP("select zid from reports where rid = ($1);", [rid]).then(
-      //     Argument of type '(row: string | any[]) => any' is not assignable to parameter of type '(value: unknown) => any'.
-      // Types of parameters 'row' and 'value' are incompatible.
-      //   Type 'unknown' is not assignable to type 'string | any[]'.
-      //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-      // @ts-ignore
-      (row: string | any[]) => {
-        if (!row || !row.length) {
-          return null;
-        }
-        return row[0].zid;
-      }
-    );
   }
 
   function handle_POST_math_update(
@@ -2071,173 +1744,6 @@ function initializePolisHelpers() {
     //   Location: protocol + "://" + req?.headers?.host + path,
     // });
     // return res.end();
-  }
-
-  async function handle_GET_reportExport(
-    req: {
-      p: { rid: string; report_type: string };
-      headers: { host: string; "x-forwarded-proto": string };
-    },
-    res: {
-      send: (data: string) => void;
-      setHeader: (key: string, value: string) => void;
-    }
-  ) {
-    function formatCSV(
-      colFns: Record<string, (row: any) => string>,
-      rows: object[]
-    ): string {
-      const fns = Object.values(colFns);
-      const sep = "\n";
-      let csv = Object.keys(colFns).join(",") + sep;
-      if (rows.length > 0) {
-        for (const row of rows) {
-          // we append to a single string here (instead of creating an array of strings and joining
-          // them) to reduce the amount of garbage created; we may have millions of rows, I wish we
-          // could stream directly to the response...
-          for (let ii = 0; ii < fns.length; ii += 1) {
-            if (ii > 0) csv += ",";
-            csv += fns[ii](row);
-          }
-          csv += sep;
-        }
-      }
-      return csv;
-    }
-
-    async function loadConversationSummary(zid: number) {
-      const [zinvite, convoRows, commentersRow, pca] = await Promise.all([
-        getZinvite(zid),
-        pgQueryP_readOnly(
-          `SELECT topic, description FROM conversations WHERE zid = $1`,
-          [zid]
-        ),
-        pgQueryP_readOnly(
-          `SELECT COUNT(DISTINCT pid) FROM comments WHERE zid = $1`,
-          [zid]
-        ),
-        getPca(zid),
-      ]);
-      if (!zinvite || !convoRows || !commentersRow || !pca) {
-        throw new Error("polis_error_data_unknown_report");
-      }
-
-      const convo = (convoRows as { topic: string; description: string }[])[0];
-      const commenters = (commentersRow as { count: number }[])[0].count;
-
-      type PcaData = {
-        "in-conv": number[];
-        "user-vote-counts": Record<number, number>;
-        "group-clusters": Record<number, object>;
-        "n-cmts": number;
-      };
-      const data = (pca.asPOJO as unknown) as PcaData;
-      const siteUrl = `${req.headers["x-forwarded-proto"]}://${req.headers.host}`;
-
-      const escapeQuotes = (s: string) => s.replace(/"/g, '""');
-      return [
-        ["topic", `"${escapeQuotes(convo.topic)}"`],
-        ["url", `${siteUrl}/${zinvite}`],
-        ["voters", Object.keys(data["user-vote-counts"]).length],
-        ["voters-in-conv", data["in-conv"].length],
-        ["commenters", commenters],
-        ["comments", data["n-cmts"]],
-        ["groups", Object.keys(data["group-clusters"]).length],
-        ["conversation-description", `"${escapeQuotes(convo.description)}"`],
-      ].map((row) => row.join(","));
-    }
-
-    const loadCommentSummary = (zid: number) =>
-      pgQueryP_readOnly(
-        `SELECT
-        created,
-        tid,
-        pid,
-        COALESCE((SELECT count(*) FROM votes WHERE votes.tid = comments.tid AND vote = 1), 0) as agrees,
-        COALESCE((SELECT count(*) FROM votes WHERE votes.tid = comments.tid AND vote = -1), 0) as disagrees,
-        mod,
-        txt
-      FROM comments
-      WHERE zid = $1`,
-        [zid]
-      );
-
-    const loadVotes = (zid: number) =>
-      pgQueryP_readOnly(
-        `SELECT created as timestamp, tid, pid, vote FROM votes WHERE zid = $1 order by tid, pid`,
-        [zid]
-      );
-
-    const formatDatetime = (timestamp: string) =>
-      new Date(parseInt(timestamp)).toString();
-
-    const { rid, report_type } = req.p;
-    try {
-      const zid = await getZidForRid(rid);
-      if (!zid) {
-        fail(res, 404, "polis_error_data_unknown_report");
-        return;
-      }
-
-      switch (report_type) {
-        case "summary.csv":
-          res.setHeader("content-type", "text/csv");
-          res.send((await loadConversationSummary(zid)).join("\n"));
-          break;
-
-        case "comments.csv":
-          const rows = (await loadCommentSummary(zid)) as object[] | undefined;
-          console.log(rows);
-          if (rows) {
-            res.setHeader("content-type", "text/csv");
-            res.send(
-              formatCSV(
-                {
-                  timestamp: (row) => String(Math.floor(row.created / 1000)),
-                  datetime: (row) => formatDatetime(row.created),
-                  "comment-id": (row) => String(row.tid),
-                  "author-id": (row) => String(row.pid),
-                  agrees: (row) => String(row.agrees),
-                  disagrees: (row) => String(row.disagrees),
-                  moderated: (row) => String(row.mod),
-                  "comment-body": (row) => String(row.txt),
-                },
-                rows
-              )
-            );
-          } else fail(res, 500, "polis_err_data_export");
-          break;
-
-        case "votes.csv":
-          const votes = (await loadVotes(zid)) as object[] | undefined;
-          if (votes) {
-            res.setHeader("content-type", "text/csv");
-            res.send(
-              formatCSV(
-                {
-                  timestamp: (row) => String(Math.floor(row.timestamp / 1000)),
-                  datetime: (row) => formatDatetime(row.timestamp),
-                  "comment-id": (row) => String(row.tid),
-                  "voter-id": (row) => String(row.pid),
-                  vote: (row) => String(row.vote),
-                },
-                votes
-              )
-            );
-          } else fail(res, 500, "polis_err_data_export");
-          break;
-
-        default:
-          fail(res, 404, "polis_error_data_unknown_report");
-          break;
-      }
-    } catch (err) {
-      const msg =
-        err instanceof Error && err.message && err.message.startsWith("polis_")
-          ? err.message
-          : "polis_err_data_export";
-      fail(res, 500, msg, err);
-    }
   }
 
   function getBidIndexToPidMapping(zid: number, math_tick: number) {
@@ -2986,96 +2492,6 @@ Feel free to reply to this email if you need help.`;
         } else {
           callback(null); // ok
         }
-      }
-    );
-  }
-
-  let zidToConversationIdCache = new LruCache({
-    max: 1000,
-  });
-
-  function getZinvite(zid: any, dontUseCache?: boolean) {
-    let cachedConversationId = zidToConversationIdCache.get(zid);
-    if (!dontUseCache && cachedConversationId) {
-      return Promise.resolve(cachedConversationId);
-    }
-    return pgQueryP_metered(
-      "getZinvite",
-      "select * from zinvites where zid = ($1);",
-      [zid]
-    ).then(function (rows: { zinvite: any }[]) {
-      let conversation_id = (rows && rows[0] && rows[0].zinvite) || void 0;
-      if (conversation_id) {
-        zidToConversationIdCache.set(zid, conversation_id);
-      }
-      return conversation_id;
-    });
-  }
-
-  function getZinvites(zids: any[]) {
-    if (!zids.length) {
-      return Promise.resolve(zids);
-    }
-    zids = _.map(zids, function (zid: any) {
-      return Number(zid); // just in case
-    });
-    zids = _.uniq(zids);
-
-    let uncachedZids = zids.filter(function (zid: any) {
-      return !zidToConversationIdCache.get(zid);
-    });
-    let zidsWithCachedConversationIds = zids
-      .filter(function (zid: any) {
-        return !!zidToConversationIdCache.get(zid);
-      })
-      .map(function (zid: any) {
-        return {
-          zid: zid,
-          zinvite: zidToConversationIdCache.get(zid),
-        };
-      });
-
-    function makeZidToConversationIdMap(arrays: any[]) {
-      let zid2conversation_id = {};
-      arrays.forEach(function (a: any[]) {
-        a.forEach(function (o: { zid: string | number; zinvite: any }) {
-          // (property) zid: string | number
-          // Element implicitly has an 'any' type because expression of type 'string | number' can't be used to index type '{}'.
-          //           No index signature with a parameter of type 'string' was found onpe '{}'.ts(7053)
-          // @ts-ignore
-          zid2conversation_id[o.zid] = o.zinvite;
-        });
-      });
-      return zid2conversation_id;
-    }
-
-    // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
-    // @ts-ignore
-    return new MPromise(
-      "getZinvites",
-      function (resolve: (arg0: {}) => void, reject: (arg0: any) => void) {
-        if (uncachedZids.length === 0) {
-          resolve(makeZidToConversationIdMap([zidsWithCachedConversationIds]));
-          return;
-        }
-        pgQuery_readOnly(
-          "select * from zinvites where zid in (" +
-            uncachedZids.join(",") +
-            ");",
-          [],
-          function (err: any, result: { rows: any }) {
-            if (err) {
-              reject(err);
-            } else {
-              resolve(
-                makeZidToConversationIdMap([
-                  result.rows,
-                  zidsWithCachedConversationIds,
-                ])
-              );
-            }
-          }
-        );
       }
     );
   }

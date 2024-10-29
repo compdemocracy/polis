@@ -180,7 +180,7 @@ function buildCallback(config: {
             next();
           },
           function (err: any) {
-            let s = "polis_err_param_parse_failed_" + name;
+            let s = `polis_err_param_parse_failed_${name} (val='${val}', error=${err})`;
             logger.error(s, err);
             res.status(400);
             next(s);
@@ -362,7 +362,10 @@ function getRidFromReportId(report_id: string) {
         "select rid from reports where report_id = ($1);",
         [report_id],
         function (err: any, results: { rows: string | any[] }) {
-          logger.error("polis_err_fetching_rid_for_report_id " + report_id, err);
+          logger.error(
+            "polis_err_fetching_rid_for_report_id " + report_id,
+            err
+          );
           if (err) {
             return reject(err);
           } else if (!results || !results.rows || !results.rows.length) {

@@ -1,6 +1,7 @@
 import { isFunction, isString, isUndefined } from "underscore";
-import { native as pgnative, Pool } from "pg"; //.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
+import { native as pgnative, Pool, PoolConfig, QueryResult } from "pg";
 import { parse as parsePgConnectionString } from "pg-connection-string";
+import QueryStream from "pg-query-stream";
 
 import Config from "../config";
 import logger from "../utils/logger";
@@ -48,24 +49,17 @@ const readsPgConnection = Object.assign(
 
 // split requests into centralized read/write transactor pool vs read pool for scalability concerns in keeping
 // pressure down on the transactor (read+write) server
-//
-// (alias) const pgnative: typeof Pg | null
-// import pgnative
-// Object is possibly 'null'.ts(2531)
-// @ts-ignore
-const readWritePool = new pgnative.Pool(pgConnection);
-// (alias) const pgnative: typeof Pg | null
-// import pgnative
-// Object is possibly 'null'.ts(2531)
-// @ts-ignore
-const readPool = new pgnative.Pool(readsPgConnection);
+
+const PoolConstructor = pgnative?.Pool ?? Pool;
+const readWritePool: Pool = new PoolConstructor(pgConnection as PoolConfig);
+const readPool: Pool = new PoolConstructor(readsPgConnection as PoolConfig);
 
 // Same syntax as pg.client.query, but uses connection pool
 // Also takes care of calling 'done'.
-function queryImpl(pool: Pool, queryString?: any, ...args: undefined[]) {
+function queryImpl<T>(pool: Pool, queryString: string, ...args: any[]) {
   // variable arity depending on whether or not query has params (default to [])
-  let params: never[] | undefined;
-  let callback: ((arg0: any, arg1?: undefined) => void) | undefined;
+  let params: any[];
+  let callback: ((arg0: any, arg1?: any) => void) | undefined;
   if (isFunction(args[1])) {
     params = args[0];
     callback = args[1];
@@ -79,106 +73,98 @@ function queryImpl(pool: Pool, queryString?: any, ...args: undefined[]) {
   // Not sure whether we have to be this careful in calling release for these query results. There may or may
   // not have been a good reason why Mike did this. If just using pool.query works and doesn't exhibit scale
   // under load, might be worth stripping
-  pool.connect(
-    (
-      err: any,
-      client: {
-        query: (
-          arg0: any,
-          arg1: any,
-          arg2: (err: any, results: any) => void
-        ) => void;
-      },
-      release: (arg0?: undefined) => void
-    ) => {
+  return new Promise((resolve, reject) => {
+    pool.connect((err, client, release) => {
       if (err) {
         if (callback) callback(err);
         // force the pool to destroy and remove a client by passing an instance of Error (or anything truthy, actually) to the done() callback
         release(err);
         logger.error("pg_connect_pool_fail", err);
-        return;
+        return reject(err);
       }
       // Anyway, here's the actual query call
-      client.query(queryString, params, function (err: any, results: any) {
+      client.query(queryString, params, function (err, results) {
         if (err) {
           // force the pool to destroy and remove a client by passing an instance of Error (or anything truthy, actually) to the release() callback
           release(err);
+          if (callback) callback(err);
+          return reject(err);
         } else {
           release();
+          if (callback) callback(null, results);
+          resolve(results.rows);
         }
-        if (callback) callback(err, results);
       });
-    }
-  );
+    });
+  });
 }
 
 const pgPoolLevelRanks = ["info", "verbose"]; // TODO investigate
 const pgPoolLoggingLevel = -1; // -1 to get anything more important than info and verbose. // pgPoolLevelRanks.indexOf("info");
 
-// remove queryreadwriteobj
-// remove queryreadonlyobj
-
-function query(...args: any[]) {
-  return queryImpl(readWritePool, ...args);
+function query<T>(queryString: string, ...args: any[]) {
+  return queryImpl<T>(readWritePool, queryString, ...args);
 }
 
-function query_readOnly(...args: any[]) {
-  return queryImpl(readPool, ...args);
+function query_readOnly<T>(queryString: string, ...args: any[]) {
+  return queryImpl<T>(readPool, queryString, ...args);
 }
 
-function queryP_impl(config: Pool, queryString?: any, params?: undefined) {
+function queryP_impl<T>(pool: Pool, queryString?: string, params?: any[]) {
   if (!isString(queryString)) {
     return Promise.reject("query_was_not_string");
   }
-  // Property 'isReadOnly' does not exist on type 'Pool'.ts(2339)
-  // @ts-ignore
-  let f = config.isReadOnly ? query_readOnly : query;
+
   return new Promise(function (resolve, reject) {
-    f(queryString, params, function (err: any, result: { rows: unknown }) {
-      if (err) {
-        return reject(err);
+    queryImpl(
+      pool,
+      queryString,
+      params,
+      function (err: Error | null, result: { rows: T[] }) {
+        if (err) {
+          return reject(err);
+        }
+        if (!result || !result.rows) {
+          // caller is responsible for testing if there are results
+          return resolve([]);
+        }
+        resolve(result.rows);
       }
-      if (!result || !result.rows) {
-        // caller is responsible for testing if there are results
-        return resolve([]);
-      }
-      resolve(result.rows);
-    });
+    );
   });
 }
 
-function queryP(...args: any[]) {
-  return queryP_impl(readWritePool, ...args);
+function queryP<T>(queryString: string, ...args: any[]) {
+  return queryP_impl<T>(readWritePool, queryString, ...args);
 }
 
-function queryP_readOnly(...args: any[]) {
-  return queryP_impl(readPool, ...args);
+function queryP_readOnly<T>(queryString: string, ...args: any[]) {
+  return queryP_impl<T>(readPool, queryString, ...args);
 }
 
-function queryP_readOnly_wRetryIfEmpty(...args: any[]) {
-  return queryP_impl(readPool, ...args).then(function (rows) {
-    // (parameter) rows: unknown
-    // Object is of type 'unknown'.ts(2571)
-    // @ts-ignore
+function queryP_readOnly_wRetryIfEmpty<T>(queryString: string, ...args: any[]) {
+  function retryIfEmpty(rows: T[]) {
     if (!rows.length) {
-      // the replica DB didn't have it (yet?) so try the master.
-      return queryP(...args);
+      return queryP<T>(queryString, ...args);
     }
-    return rows;
-  }); // NOTE: this does not retry in case of errors. Not sure what's best in that case.
+    return Promise.resolve(rows);
+  }
+
+  return queryP_impl<T>(readPool, queryString, ...args).then(
+    retryIfEmpty as any
+  );
 }
 
 function queryP_metered_impl(
   isReadOnly: boolean,
   name?: string,
-  queryString?: undefined,
-  params?: undefined
+  queryString?: string,
+  params?: any[]
 ) {
-  let f = isReadOnly ? queryP_readOnly : queryP;
+  const f = isReadOnly ? queryP_readOnly : queryP;
   if (isUndefined(name) || isUndefined(queryString) || isUndefined(params)) {
     throw new Error("polis_err_queryP_metered_impl missing params");
   }
-  //   (parameter) resolve: (value: unknown) => void
   // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
   // @ts-ignore
   return new MPromise(name, function (resolve, reject) {
@@ -186,18 +172,49 @@ function queryP_metered_impl(
   });
 }
 
-function queryP_metered(name: any, queryString: any, params: any) {
-  // Type 'IArguments' is not an array type or a string type.
-  // Use compiler option '--downlevelIteration' to allow iterating of iterators.ts(2569)
-  // @ts-ignore
-  return queryP_metered_impl(false, ...arguments);
+function queryP_metered(name: string, queryString: string, params: any[]) {
+  return queryP_metered_impl(false, name, queryString, params);
 }
 
-function queryP_metered_readOnly(name: any, queryString: any, params: any) {
-  // Type 'IArguments' is not an array type or a string type.
-  // Use compiler option '--downlevelIteration' to allow iterating of iterators.ts(2569)
-  // @ts-ignore
-  return queryP_metered_impl(true, ...arguments);
+function queryP_metered_readOnly(
+  name: string,
+  queryString: string,
+  params: any[]
+) {
+  return queryP_metered_impl(true, name, queryString, params);
+}
+
+function stream_queryP_readOnly(
+  queryString: string,
+  params: any[],
+  onRow: (row: any) => void,
+  onEnd: () => void,
+  onError: (error: Error) => void
+) {
+  const query = new QueryStream(queryString, params);
+
+  readPool.connect((err, client, done) => {
+    if (err) {
+      onError(err);
+      return;
+    }
+
+    const stream = client.query(query);
+
+    stream.on("data", (row: QueryResult) => {
+      onRow(row);
+    });
+
+    stream.on("end", () => {
+      done();
+      onEnd();
+    });
+
+    stream.on("error", (error: Error) => {
+      done(error);
+      onError(error);
+    });
+  });
 }
 
 export {
@@ -208,6 +225,7 @@ export {
   queryP_metered_readOnly,
   queryP_readOnly,
   queryP_readOnly_wRetryIfEmpty,
+  stream_queryP_readOnly,
 };
 
 export default {
@@ -218,4 +236,5 @@ export default {
   queryP_metered_readOnly,
   queryP_readOnly,
   queryP_readOnly_wRetryIfEmpty,
+  stream_queryP_readOnly,
 };
