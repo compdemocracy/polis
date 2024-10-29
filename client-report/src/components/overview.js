@@ -125,7 +125,8 @@ const Overview = ({
           {`--------Summary: `}
           <a
             download={getDownloadFilename("summary", conversation)}
-            href={`http://${window.location.hostname}/api/v3/reportExport/${report_id}/summary.csv`}
+            href={`//${window.location.hostname}/api/v3/reportExport/${report_id}/summary.csv`}
+            type="text/csv"
           >
             {getDownloadFilename("summary", conversation)}
           </a>
@@ -134,7 +135,8 @@ const Overview = ({
           {`-------Comments: `}
           <a
             download={getDownloadFilename("comments", conversation)}
-            href={`http://${window.location.hostname}/api/v3/reportExport/${report_id}/comments.csv`}
+            href={`//${window.location.hostname}/api/v3/reportExport/${report_id}/comments.csv`}
+            type="text/csv"
           >
             {getDownloadFilename("comments", conversation)}
           </a>
@@ -144,7 +146,8 @@ const Overview = ({
           {`--Votes history: `}
           <a
             download={getDownloadFilename("votes", conversation)}
-            href={`http://${window.location.hostname}/api/v3/reportExport/${report_id}/votes.csv`}
+            href={`//${window.location.hostname}/api/v3/reportExport/${report_id}/votes.csv`}
+            type="text/csv"
           >
             {getDownloadFilename("votes", conversation)}
           </a>
@@ -154,7 +157,8 @@ const Overview = ({
           {`---Votes matrix: `}
           <a
             download={getDownloadFilename("participant-votes", conversation)}
-            href={`http://${window.location.hostname}/api/v3/reportExport/${report_id}/participant-votes.csv`}
+            href={`//${window.location.hostname}/api/v3/reportExport/${report_id}/participant-votes.csv`}
+            type="text/csv"
           >
             {getDownloadFilename("participant-votes", conversation)}
           </a>
@@ -165,16 +169,16 @@ const Overview = ({
             <strong>Public API endpoints (read only, Jupyter notebook friendly)</strong>
           </p>
           <p style={{ fontFamily: "monospace" }}>
-            {`$ curl http://${window.location.hostname}/api/v3/reportExport/${report_id}/summary.csv`}
+            {`$ curl ${window.location.protocol}//${window.location.hostname}/api/v3/reportExport/${report_id}/summary.csv`}
           </p>
           <p style={{ fontFamily: "monospace" }}>
-            {`$ curl http://${window.location.hostname}/api/v3/reportExport/${report_id}/comments.csv`}
+            {`$ curl ${window.location.protocol}//${window.location.hostname}/api/v3/reportExport/${report_id}/comments.csv`}
           </p>
           <p style={{ fontFamily: "monospace" }}>
-            {`$ curl http://${window.location.hostname}/api/v3/reportExport/${report_id}/votes.csv`}
+            {`$ curl ${window.location.protocol}//${window.location.hostname}/api/v3/reportExport/${report_id}/votes.csv`}
           </p>
           <p style={{ fontFamily: "monospace" }}>
-            {`$ curl http://${window.location.hostname}/api/v3/reportExport/${report_id}/participant-votes.csv`}
+            {`$ curl ${window.location.protocol}//${window.location.hostname}/api/v3/reportExport/${report_id}/participant-votes.csv`}
           </p>
         </div>
         {doShowDataLicenseTerms && (
