@@ -130,13 +130,14 @@ function createUser(req: any, res: any) {
                       );
                       return;
                     }
-                    cookies.addCookies(req, res, token, uid)
-                      .then(function() {
+                    cookies
+                      .addCookies(req, res, token, uid)
+                      .then(function () {
                         res.json({
                           uid: uid,
                           hname: hname,
-                          email: email
-                        })
+                          email: email,
+                        });
                       })
                       .catch(function (err: any) {
                         fail(res, 500, "polis_err_adding_user", err);
