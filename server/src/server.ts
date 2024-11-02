@@ -2953,15 +2953,20 @@ Feel free to reply to this email if you need help.`;
     if (referer) {
       info.referrer = referer;
     }
-    let x_forwarded_for = req?.headers?.["x-forwarded-for"];
-    let ip: string | null = null;
-    if (x_forwarded_for) {
-      let ips = x_forwarded_for;
-      ips = ips && ips.split(", ");
-      ip = ips.length && ips[0];
-      info.encrypted_ip_address = encrypt(ip);
-      info.encrypted_x_forwarded_for = encrypt(x_forwarded_for);
+
+    // These fields only exist on the PolisWebServer deployment.
+    if (Config.applicationName === "PolisWebServer") {
+      let x_forwarded_for = req?.headers?.["x-forwarded-for"];
+      let ip: string | null = null;
+      if (x_forwarded_for) {
+        let ips = x_forwarded_for;
+        ips = ips && ips.split(", ");
+        ip = ips.length && ips[0];
+        info.encrypted_ip_address = encrypt(ip);
+        info.encrypted_x_forwarded_for = encrypt(x_forwarded_for);
+      }
     }
+
     if (permanent_cookie) {
       info.permanent_cookie = permanent_cookie;
     }

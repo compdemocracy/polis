@@ -67,6 +67,7 @@ export default {
   adminEmails: process.env.ADMIN_EMAILS || "[]",
   adminUIDs: process.env.ADMIN_UIDS || "[]",
   akismetAntispamApiKey: process.env.AKISMET_ANTISPAM_API_KEY || null,
+  applicationName: process.env.APPLICATION_NAME || null,
   awsRegion: process.env.AWS_REGION as string,
   backfillCommentLangDetection: isTrue(
     process.env.BACKFILL_COMMENT_LANG_DETECTION
