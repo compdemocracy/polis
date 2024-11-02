@@ -2833,25 +2833,15 @@ Feel free to reply to this email if you need help.`;
     pid?: any
   ) {
     getUsersLocationName(uid)
-      //     No overload matches this call.
-      // Overload 1 of 2, '(onFulfill?: ((value: unknown) => Resolvable<void>) | undefined, onReject?: ((error: any) => Resolvable<void>) | undefined): Bluebird<void>', gave the following error.
-      //   Argument of type '(locationData: { location: any; source: any; }) => void' is not assignable to parameter of type '(value: unknown) => Resolvable<void>'.
-      //     Types of parameters 'locationData' and 'value' are incompatible.
-      //       Type 'unknown' is not assignable to type '{ location: any; source: any; }'.
-      // Overload 2 of 2, '(onfulfilled?: ((value: unknown) => Resolvable<void>) | null | undefined, onrejected?: ((reason: any) => PromiseLike<never>) | null | undefined): Bluebird<void>', gave the following error.
-      //   Argument of type '(locationData: { location: any; source: any; }) => void' is not assignable to parameter of type '(value: unknown) => Resolvable<void>'.
-      //     Types of parameters 'locationData' and 'value' are incompatible.
-      //     Type 'unknown' is not assignable to type '{ location: any; source: any; }'.ts(2769)
+      // Argument of type '(locationData: { location: any; source: any; }) => void' is not assignable to parameter of type '(value: [unknown, unknown]) => void | PromiseLike<void>'.
+      // Types of parameters 'locationData' and 'value' are incompatible.
+      // Type '[unknown, unknown]' is not assignable to type '{ location: any; source: any; }'.ts(2345)
       // @ts-ignore
       .then(function (locationData: { location: any; source: any }) {
-        if (!locationData) {
+        if (!locationData || !process.env.GOOGLE_API_KEY) {
           return;
         }
         geoCode(locationData.location)
-          //         Argument of type '(o: { lat: any; lng: any; }) => void' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.
-          // Types of parameters 'o' and 'value' are incompatible.
-          //         Type 'unknown' is not assignable to type '{ lat: any; lng: any; }'.ts(2345)
-          // @ts-ignore
           .then(function (o: { lat: any; lng: any }) {
             createParticpantLocationRecord(
               zid,
@@ -11114,42 +11104,18 @@ Thanks for using Polis!
   }
 
   function geoCode(locationString: any) {
-    return (
-      pgQueryP("select * from geolocation_cache where location = ($1);", [
-        locationString,
-      ])
-        //     Argument of type '(rows: string | any[]) => Bluebird<{ lat: any; lng: any; }> | { lat: any; lng: any; }' is not assignable to parameter of type '(value: unknown) => { lat: any; lng: any; } | PromiseLike<{ lat: any; lng: any; }>'.
-        // Types of parameters 'rows' and 'value' are incompatible.
-        //   Type 'unknown' is not assignable to type 'string | any[]'.
-        //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-        // @ts-ignore
-        .then(function (rows: string | any[]) {
-          if (!rows || !rows.length) {
-            return geoCodeWithGoogleApi(locationString).then(function (result: {
-              geometry: { location: { lat: any; lng: any } };
-            }) {
-              let lat = result.geometry.location.lat;
-              let lng = result.geometry.location.lng;
-              // NOTE: not waiting for the response to this - it might fail in the case of a race-condition, since we don't have upsert
-              pgQueryP(
-                "insert into geolocation_cache (location,lat,lng,response) values ($1,$2,$3,$4);",
-                [locationString, lat, lng, JSON.stringify(result)]
-              );
-              let o = {
-                lat: lat,
-                lng: lng,
-              };
-              return o;
-            });
-          } else {
-            let o = {
-              lat: rows[0].lat,
-              lng: rows[0].lng,
-            };
-            return o;
-          }
-        })
-    );
+    return geoCodeWithGoogleApi(locationString).then(function (result: {
+      geometry: { location: { lat: any; lng: any } };
+    }) {
+      let lat = result.geometry.location.lat;
+      let lng = result.geometry.location.lng;
+
+      let o = {
+        lat: lat,
+        lng: lng,
+      };
+      return o;
+    });
   }
   // Value of type 'typeof LRUCache' is not callable. Did you mean to include 'new'? ts(2348)
   // @ts-ignore
