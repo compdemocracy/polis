@@ -2884,68 +2884,6 @@ Feel free to reply to this email if you need help.`;
       [zid, uid]
     );
   }
-  function populateGeoIpInfo(zid: any, uid?: any, ipAddress?: string | null) {
-    var userId = Config.maxmindUserID;
-    var licenseKey = Config.maxmindLicenseKey;
-
-    var url = "https://geoip.maxmind.com/geoip/v2.1/city/";
-    var contentType =
-      "application/vnd.maxmind.com-city+json; charset=UTF-8; version=2.1";
-
-    // "city" is     $0.0004 per query
-    // "insights" is $0.002  per query
-    var insights = false;
-
-    if (insights) {
-      url = "https://geoip.maxmind.com/geoip/v2.1/insights/";
-      contentType =
-        "application/vnd.maxmind.com-insights+json; charset=UTF-8; version=2.1";
-    }
-    //   No overload matches this call.
-    // Overload 1 of 3, '(uri: string, options?: RequestPromiseOptions | undefined, callback?: RequestCallback | undefined): RequestPromise<any>', gave the following error.
-    //   Argument of type '{ method: string; contentType: string; headers: { Authorization: string; }; }' is not assignable to parameter of type 'RequestPromiseOptions'.
-    //     Object literal may only specify known properties, and 'contentType' does not exist in type 'RequestPromiseOptions'.
-    // Overload 2 of 3, '(uri: string, callback?: RequestCallback | undefined): RequestPromise<any>', gave the following error.
-    //   Argument of type '{ method: string; contentType: string; headers: { Authorization: string; }; }' is not assignable to parameter of type 'RequestCallback'.
-    //     Object literal may only specify known properties, and 'method' does not exist in type 'RequestCallback'.
-    // Overload 3 of 3, '(options: RequiredUriUrl & RequestPromiseOptions, callback?: RequestCallback | undefined): RequestPromise<any>', gave the following error.
-    //   Argument of type 'string' is not assignable to parameter of type 'RequiredUriUrl & RequestPromiseOptions'.ts(2769)
-    // @ts-ignore
-    return (
-      request
-        // @ts-ignore
-        .get(url + ipAddress, {
-          headers: {
-            method: "GET",
-            contentType: contentType,
-            Authorization:
-              "Basic " +
-              Buffer.from(userId + ":" + licenseKey, "utf8").toString("base64"),
-          },
-        })
-        .then(function (response: string) {
-          var parsedResponse = JSON.parse(response);
-          logger.debug("maxmind response", parsedResponse);
-
-          return pgQueryP(
-            "update participants_extended set modified=now_as_millis(), country_iso_code=($4), encrypted_maxmind_response_city=($3), " +
-              "location=ST_GeographyFromText('SRID=4326;POINT(" +
-              parsedResponse.location.latitude +
-              " " +
-              parsedResponse.location.longitude +
-              ")'), latitude=($5), longitude=($6) where zid = ($1) and uid = ($2);",
-            [
-              zid,
-              uid,
-              encrypt(response),
-              parsedResponse.country.iso_code,
-              parsedResponse.location.latitude,
-              parsedResponse.location.longitude,
-            ]
-          );
-        })
-    );
-  }
 
   function addExtendedParticipantInfo(zid: any, uid?: any, data?: {}) {
     if (!data || !_.keys(data).length) {
@@ -3049,9 +2987,7 @@ Feel free to reply to this email if you need help.`;
       let pid = ptpt.pid;
       populateParticipantLocationRecordIfPossible(zid, uid, pid);
       addExtendedParticipantInfo(zid, uid, info);
-      if (ip) {
-        populateGeoIpInfo(zid, uid, ip);
-      }
+
       return rows;
     });
   }
@@ -11502,44 +11438,6 @@ Thanks for using Polis!
       });
   }
 
-  // this is for testing the encryption
-  function handle_GET_logMaxmindResponse(
-    req: { p: { uid?: any; zid: any; user_uid?: any } },
-    res: { json: (arg0: {}) => void }
-  ) {
-    if (!isPolisDev(req.p.uid) || !devMode) {
-      // TODO fix this by piping the error from the usage of this in ./app
-      // Cannot find name 'err'.ts(2304)
-      // @ts-ignore
-      return fail(res, 403, "polis_err_permissions", err);
-    }
-    pgQueryP(
-      "select * from participants_extended where zid = ($1) and uid = ($2);",
-      [req.p.zid, req.p.user_uid]
-    )
-      //     Argument of type '(results: string | any[]) => void' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.
-      // Types of parameters 'results' and 'value' are incompatible.
-      //   Type 'unknown' is not assignable to type 'string | any[]'.
-      //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-      // @ts-ignore
-      .then((results: string | any[]) => {
-        if (!results || !results.length) {
-          res.json({});
-          return;
-        }
-        var o = results[0];
-        _.each(o, (val: any, key: string) => {
-          if (key.startsWith("encrypted_")) {
-            o[key] = decrypt(val);
-          }
-        });
-        res.json({});
-      })
-      .catch((err: any) => {
-        fail(res, 500, "polis_err_get_participantsExtended", err);
-      });
-  }
-
   function handle_GET_locations(
     req: { p: { zid: any; gid: any } },
     res: {
@@ -13488,7 +13386,6 @@ Thanks for using Polis!
     handle_GET_implicit_conversation_generation,
     handle_GET_launchPrep,
     handle_GET_locations,
-    handle_GET_logMaxmindResponse,
     handle_GET_math_pca,
     handle_GET_math_pca2,
     handle_GET_metadata,

@@ -86,8 +86,6 @@ export default {
   mailgunApiKey: process.env.MAILGUN_API_KEY || (null as string | null),
   mailgunDomain: process.env.MAILGUN_DOMAIN || (null as string | null),
   mathEnv: process.env.MATH_ENV as string,
-  maxmindLicenseKey: process.env.MAXMIND_LICENSE_KEY as string,
-  maxmindUserID: process.env.MAXMIND_USER_ID as string,
   nodeEnv: process.env.NODE_ENV as string,
   polisFromAddress: process.env.POLIS_FROM_ADDRESS as string,
   readOnlyDatabaseURL:
