@@ -38,29 +38,25 @@ describe('Conversation: Configure', function () {
       cy.contains('button', 'Create new conversation').click()
 
       cy.wait('@createConversation').then(({ response }) =>
-        cy.location('pathname').should('eq', '/m/' + response.body.conversation_id)
+        cy.location('pathname').should('eq', '/m/' + response.body.conversation_id),
       )
 
       cy.contains('h3', 'Configure').should('be.visible')
 
-      cy.get('input[data-test-id="topic"]')
-        .type('Test topic')
+      cy.get('input[data-test-id="topic"]').type('Test topic')
 
-      cy.get('input[data-test-id="topic"]')
-        .then(() => cy.focused().blur())
+      cy.get('input[data-test-id="topic"]').then(() => cy.focused().blur())
 
       cy.wait('@updateConversation').then(({ response }) =>
-        expect(response.body.topic).to.equal('Test topic')
+        expect(response.body.topic).to.equal('Test topic'),
       )
 
-      cy.get('textarea[data-test-id="description"]')
-        .type('Test description')
+      cy.get('textarea[data-test-id="description"]').type('Test description')
 
-      cy.get('textarea[data-test-id="description"]')
-        .then(() => cy.focused().blur())
+      cy.get('textarea[data-test-id="description"]').then(() => cy.focused().blur())
 
       cy.wait('@updateConversation').then(({ response }) =>
-        expect(response.body.description).to.equal('Test description')
+        expect(response.body.description).to.equal('Test description'),
       )
 
       cy.get('textarea[data-test-id="seed_form"]').type('Test seed comment')
@@ -69,6 +65,74 @@ describe('Conversation: Configure', function () {
       cy.wait('@createComment').its('response.statusCode').should('eq', 200)
 
       cy.get('button').contains('Success!').should('be.visible')
+    })
+  })
+
+  describe('Conversation Participation', function () {
+    beforeEach(function () {
+      cy.createConvo().then(() => {
+        cy.visit('/m/' + this.convoId)
+        cy.wait('@getConversations')
+        cy.get('input[data-test-id="topic"]').type('Participation Test Topic')
+        cy.get('textarea[data-test-id="description"]').type('Test description')
+        cy.get('textarea[data-test-id="seed_form"]').type('Initial seed comment')
+        cy.get('button').contains('Submit').click()
+      })
+    })
+
+    it('should allow multiple seed comments', function () {
+      cy.wait('@createComment', { timeout: 7000 })
+      cy.get('textarea[data-test-id="seed_form"]').clear()
+      cy.get('textarea[data-test-id="seed_form"]').type('Second seed comment')
+      // pause for 1 second to ensure the button is in correct state
+      cy.pause()
+
+      cy.get('button').contains('Submit').click()
+      cy.wait('@createComment', { timeout: 7000 })
+      cy.get('textarea[data-test-id="seed_form"]').clear()
+      cy.get('textarea[data-test-id="seed_form"]').type('third seed comment')
+      // pause for 1 second to ensure the button is in correct state
+      cy.pause()
+
+      cy.get('button').contains('Submit').click()
+      cy.wait('@createComment', { timeout: 7000 })
+
+      // Verify all seed comments are visible by checking API response
+      cy.request(`/api/v3/comments?conversation_id=${this.convoId}`).then((response) =>
+        expect(response.body.length).to.equal(3),
+      )
+    })
+
+    it('should handle special characters in topic and description', function () {
+      const specialTopic = 'Test & Topic with $pecial <characters>'
+      const specialDesc = '!@#$%^&*() Special description 你好'
+
+      cy.get('input[data-test-id="topic"]').clear().type(specialTopic)
+      cy.get('input[data-test-id="topic"]').then(() => cy.focused().blur())
+      cy.wait('@updateConversation')
+
+      cy.get('textarea[data-test-id="description"]').clear().type(specialDesc)
+      cy.get('textarea[data-test-id="description"]').then(() => cy.focused().blur())
+      cy.wait('@updateConversation')
+
+      // Verify the content is saved correctly
+      cy.reload()
+      cy.get('input[data-test-id="topic"]').should('have.value', specialTopic)
+      cy.get('textarea[data-test-id="description"]').should('have.value', specialDesc)
+    })
+  })
+
+  describe('Conversation Settings', function () {
+    beforeEach(function () {
+      cy.createConvo().then(() => cy.visit('/m/' + this.convoId))
+      cy.wait('@getConversations')
+    })
+
+    it('should toggle visibility settings correctly', function () {
+      cy.get('input[data-test-id="vis_type"]').check()
+      cy.wait('@updateConversation').then(({ response }) => {
+        expect(response.body.is_public).to.be.true
+      })
     })
   })
 
