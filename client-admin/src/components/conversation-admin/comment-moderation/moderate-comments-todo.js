@@ -48,7 +48,7 @@ class ModerateCommentsTodo extends React.Component {
   render() {
     const max = 100;
     return (
-      <div>
+      <div data-test-id="pending-comment">
         <div>
           <p> Displays maximum {max} comments </p> 
           {this.props.unmoderated_comments !== null
