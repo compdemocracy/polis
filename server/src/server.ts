@@ -6428,15 +6428,15 @@ Email verified! You can close this tab or hit the back button.
         "UPDATE comments SET active = $1, mod = $2, is_meta = $3 WHERE zid = $4 AND tid = $5";
       let params = [active, mod, is_meta, zid, tid];
 
-      console.log("Executing query:", query);
-      console.log("With parameters:", params);
+      logger.debug("Executing query:", { query });
+      logger.debug("With parameters:", { params });
 
       pgQuery(query, params, (err: any, result: any) => {
         if (err) {
-          console.error("Database error:", err);
+          logger.error("moderateComment pgQuery error:", err);
           reject(err);
         } else {
-          console.log("Query executed successfully");
+          logger.debug("moderateComment pgQuery executed successfully");
           resolve(result);
         }
       });
@@ -6553,7 +6553,7 @@ Email verified! You can close this tab or hit the back button.
 
       return response.data;
     } catch (err) {
-      console.error("Error:", err);
+      logger.error("analyzeComment error", err);
     }
   }
 
@@ -6652,7 +6652,10 @@ Email verified! You can close this tab or hit the back button.
         return false;
       });
 
-      const jigsawModerationPromise = analyzeComment(txt);
+      // Only analyze comments if we have a Jigsaw API key
+      const jigsawModerationPromise = Config.googleJigsawPerspectiveApiKey
+        ? analyzeComment(txt)
+        : Promise.resolve(null);
 
       const isModeratorPromise = isModerator(zid!, uid!);
       const conversationInfoPromise = getConversationInfo(zid!);
@@ -6721,19 +6724,32 @@ Email verified! You can close this tab or hit the back button.
       let active = true;
       const classifications = [];
 
-      console.log("JIGSAW RESPONSE", txt);
-      console.log(
-        `Jigsaw toxicty Score for comment "${txt}": ${jigsawResponse?.attributeScores?.TOXICITY?.summaryScore?.value}`
-      );
+      const toxicityScore =
+        jigsawResponse?.attributeScores?.TOXICITY?.summaryScore?.value;
 
-      if (
-        conv.profanity_filter &&
-        jigsawResponse?.attributeScores?.TOXICITY?.summaryScore?.value >
-          jigsawToxicityThreshold
-      ) {
+      if (typeof toxicityScore === "number" && !isNaN(toxicityScore)) {
+        logger.debug(
+          `Jigsaw toxicity Score for comment "${txt}": ${toxicityScore}`
+        );
+
+        if (toxicityScore > jigsawToxicityThreshold && conv.profanity_filter) {
+          active = false;
+          classifications.push("bad");
+          logger.info(
+            "active=false because (jigsawToxicity && conv.profanity_filter)"
+          );
+        }
+        // Fall back to bad words filter if Jigsaw API is not available or fails to return a numeric value
+      } else if (bad && conv.profanity_filter) {
         active = false;
         classifications.push("bad");
         logger.info("active=false because (bad && conv.profanity_filter)");
+      }
+
+      if (spammy && conv.spam_filter) {
+        active = false;
+        classifications.push("spammy");
+        logger.info("active=false because (spammy && conv.spam_filter)");
       }
       if (spammy && conv.spam_filter) {
         active = false;
@@ -7794,31 +7810,31 @@ Email verified! You can close this tab or hit the back button.
     let mod = req.p.mod;
     let is_meta = req.p.is_meta;
 
-    console.log(
+    logger.debug(
       `Attempting to update comment. zid: ${zid}, tid: ${tid}, uid: ${uid}`
     );
 
     isModerator(zid, uid)
       .then(function (isModerator: any) {
-        console.log(`isModerator result: ${isModerator}`);
+        logger.debug(`isModerator result: ${isModerator}`);
         if (isModerator) {
           moderateComment(zid, tid, active, mod, is_meta).then(
             function () {
-              console.log("Comment moderated successfully");
+              logger.debug("Comment moderated successfully");
               res.status(200).json({});
             },
             function (err: any) {
-              console.error("Error in moderateComment:", err);
+              logger.error("Error in moderateComment:", err);
               fail(res, 500, "polis_err_update_comment", err);
             }
           );
         } else {
-          console.log("User is not a moderator");
+          logger.debug("User is not a moderator");
           fail(res, 403, "polis_err_update_comment_auth");
         }
       })
       .catch(function (err: any) {
-        console.error("Error in isModerator:", err);
+        logger.error("Error in isModerator:", err);
         fail(res, 500, "polis_err_update_comment", err);
       });
   }
