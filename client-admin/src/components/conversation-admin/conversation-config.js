@@ -145,7 +145,7 @@ class ConversationConfig extends React.Component {
         </Heading>
 
         <CheckboxField field="importance_enabled" label="Importance Enabled">
-          [EXPERIMENTAL FEATURE] Participants can see the "This comment is important" checkbox
+          [EXPERIMENTAL FEATURE] Participants can see the &quot;This comment is important&quot; checkbox
         </CheckboxField>
 
         <CheckboxField field="vis_type" label="Visualization" isIntegerBool>
