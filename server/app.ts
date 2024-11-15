@@ -95,7 +95,6 @@ helpersInitialized.then(
       handle_GET_implicit_conversation_generation,
       handle_GET_launchPrep,
       handle_GET_locations,
-      handle_GET_logMaxmindResponse,
       handle_GET_math_pca,
       handle_GET_math_pca2,
       handle_GET_metadata,
@@ -865,18 +864,6 @@ helpersInitialized.then(
       ),
       want("show_translation_activated", getBool, assignToP),
       handle_PUT_participants_extended
-    );
-
-    app.get(
-      "/api/v3/logMaxmindResponse",
-      auth(assignToP),
-      need("user_uid", getInt, assignToP),
-      need(
-        "conversation_id",
-        getConversationIdFetchZid,
-        assignToPCustom("zid")
-      ),
-      handle_GET_logMaxmindResponse
     );
 
     app.post(

@@ -428,16 +428,6 @@ CREATE TABLE participant_metadata_choices (
 );
 
 
-CREATE TABLE geolocation_cache (
-    location VARCHAR(9999), -- "Seattle, WA"
-    lat DOUBLE PRECISION NOT NULL, -- latitude
-    lng DOUBLE PRECISION NOT NULL, -- longitude
-    response json,
-    created BIGINT DEFAULT now_as_millis(),
-    UNIQUE (location)
-);
-
-
 CREATE TABLE twitter_users (
     uid INTEGER NOT NULL REFERENCES users(uid),
     twitter_user_id BIGINT NOT NULL,

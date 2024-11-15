@@ -2833,25 +2833,15 @@ Feel free to reply to this email if you need help.`;
     pid?: any
   ) {
     getUsersLocationName(uid)
-      //     No overload matches this call.
-      // Overload 1 of 2, '(onFulfill?: ((value: unknown) => Resolvable<void>) | undefined, onReject?: ((error: any) => Resolvable<void>) | undefined): Bluebird<void>', gave the following error.
-      //   Argument of type '(locationData: { location: any; source: any; }) => void' is not assignable to parameter of type '(value: unknown) => Resolvable<void>'.
-      //     Types of parameters 'locationData' and 'value' are incompatible.
-      //       Type 'unknown' is not assignable to type '{ location: any; source: any; }'.
-      // Overload 2 of 2, '(onfulfilled?: ((value: unknown) => Resolvable<void>) | null | undefined, onrejected?: ((reason: any) => PromiseLike<never>) | null | undefined): Bluebird<void>', gave the following error.
-      //   Argument of type '(locationData: { location: any; source: any; }) => void' is not assignable to parameter of type '(value: unknown) => Resolvable<void>'.
-      //     Types of parameters 'locationData' and 'value' are incompatible.
-      //     Type 'unknown' is not assignable to type '{ location: any; source: any; }'.ts(2769)
+      // Argument of type '(locationData: { location: any; source: any; }) => void' is not assignable to parameter of type '(value: [unknown, unknown]) => void | PromiseLike<void>'.
+      // Types of parameters 'locationData' and 'value' are incompatible.
+      // Type '[unknown, unknown]' is not assignable to type '{ location: any; source: any; }'.ts(2345)
       // @ts-ignore
       .then(function (locationData: { location: any; source: any }) {
-        if (!locationData) {
+        if (!locationData || !process.env.GOOGLE_API_KEY) {
           return;
         }
         geoCode(locationData.location)
-          //         Argument of type '(o: { lat: any; lng: any; }) => void' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.
-          // Types of parameters 'o' and 'value' are incompatible.
-          //         Type 'unknown' is not assignable to type '{ lat: any; lng: any; }'.ts(2345)
-          // @ts-ignore
           .then(function (o: { lat: any; lng: any }) {
             createParticpantLocationRecord(
               zid,
@@ -2882,68 +2872,6 @@ Feel free to reply to this email if you need help.`;
     return pgQueryP(
       "update participants set last_interaction = now_as_millis(), nsli = 0 where zid = ($1) and uid = ($2);",
       [zid, uid]
-    );
-  }
-  function populateGeoIpInfo(zid: any, uid?: any, ipAddress?: string | null) {
-    var userId = Config.maxmindUserID;
-    var licenseKey = Config.maxmindLicenseKey;
-
-    var url = "https://geoip.maxmind.com/geoip/v2.1/city/";
-    var contentType =
-      "application/vnd.maxmind.com-city+json; charset=UTF-8; version=2.1";
-
-    // "city" is     $0.0004 per query
-    // "insights" is $0.002  per query
-    var insights = false;
-
-    if (insights) {
-      url = "https://geoip.maxmind.com/geoip/v2.1/insights/";
-      contentType =
-        "application/vnd.maxmind.com-insights+json; charset=UTF-8; version=2.1";
-    }
-    //   No overload matches this call.
-    // Overload 1 of 3, '(uri: string, options?: RequestPromiseOptions | undefined, callback?: RequestCallback | undefined): RequestPromise<any>', gave the following error.
-    //   Argument of type '{ method: string; contentType: string; headers: { Authorization: string; }; }' is not assignable to parameter of type 'RequestPromiseOptions'.
-    //     Object literal may only specify known properties, and 'contentType' does not exist in type 'RequestPromiseOptions'.
-    // Overload 2 of 3, '(uri: string, callback?: RequestCallback | undefined): RequestPromise<any>', gave the following error.
-    //   Argument of type '{ method: string; contentType: string; headers: { Authorization: string; }; }' is not assignable to parameter of type 'RequestCallback'.
-    //     Object literal may only specify known properties, and 'method' does not exist in type 'RequestCallback'.
-    // Overload 3 of 3, '(options: RequiredUriUrl & RequestPromiseOptions, callback?: RequestCallback | undefined): RequestPromise<any>', gave the following error.
-    //   Argument of type 'string' is not assignable to parameter of type 'RequiredUriUrl & RequestPromiseOptions'.ts(2769)
-    // @ts-ignore
-    return (
-      request
-        // @ts-ignore
-        .get(url + ipAddress, {
-          headers: {
-            method: "GET",
-            contentType: contentType,
-            Authorization:
-              "Basic " +
-              Buffer.from(userId + ":" + licenseKey, "utf8").toString("base64"),
-          },
-        })
-        .then(function (response: string) {
-          var parsedResponse = JSON.parse(response);
-          logger.debug("maxmind response", parsedResponse);
-
-          return pgQueryP(
-            "update participants_extended set modified=now_as_millis(), country_iso_code=($4), encrypted_maxmind_response_city=($3), " +
-              "location=ST_GeographyFromText('SRID=4326;POINT(" +
-              parsedResponse.location.latitude +
-              " " +
-              parsedResponse.location.longitude +
-              ")'), latitude=($5), longitude=($6) where zid = ($1) and uid = ($2);",
-            [
-              zid,
-              uid,
-              encrypt(response),
-              parsedResponse.country.iso_code,
-              parsedResponse.location.latitude,
-              parsedResponse.location.longitude,
-            ]
-          );
-        })
     );
   }
 
@@ -3025,15 +2953,20 @@ Feel free to reply to this email if you need help.`;
     if (referer) {
       info.referrer = referer;
     }
-    let x_forwarded_for = req?.headers?.["x-forwarded-for"];
-    let ip: string | null = null;
-    if (x_forwarded_for) {
-      let ips = x_forwarded_for;
-      ips = ips && ips.split(", ");
-      ip = ips.length && ips[0];
-      info.encrypted_ip_address = encrypt(ip);
-      info.encrypted_x_forwarded_for = encrypt(x_forwarded_for);
+
+    // These fields only exist on the PolisWebServer deployment.
+    if (Config.applicationName === "PolisWebServer") {
+      let x_forwarded_for = req?.headers?.["x-forwarded-for"];
+      let ip: string | null = null;
+      if (x_forwarded_for) {
+        let ips = x_forwarded_for;
+        ips = ips && ips.split(", ");
+        ip = ips.length && ips[0];
+        info.encrypted_ip_address = encrypt(ip);
+        info.encrypted_x_forwarded_for = encrypt(x_forwarded_for);
+      }
     }
+
     if (permanent_cookie) {
       info.permanent_cookie = permanent_cookie;
     }
@@ -3049,9 +2982,7 @@ Feel free to reply to this email if you need help.`;
       let pid = ptpt.pid;
       populateParticipantLocationRecordIfPossible(zid, uid, pid);
       addExtendedParticipantInfo(zid, uid, info);
-      if (ip) {
-        populateGeoIpInfo(zid, uid, ip);
-      }
+
       return rows;
     });
   }
@@ -11178,42 +11109,18 @@ Thanks for using Polis!
   }
 
   function geoCode(locationString: any) {
-    return (
-      pgQueryP("select * from geolocation_cache where location = ($1);", [
-        locationString,
-      ])
-        //     Argument of type '(rows: string | any[]) => Bluebird<{ lat: any; lng: any; }> | { lat: any; lng: any; }' is not assignable to parameter of type '(value: unknown) => { lat: any; lng: any; } | PromiseLike<{ lat: any; lng: any; }>'.
-        // Types of parameters 'rows' and 'value' are incompatible.
-        //   Type 'unknown' is not assignable to type 'string | any[]'.
-        //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-        // @ts-ignore
-        .then(function (rows: string | any[]) {
-          if (!rows || !rows.length) {
-            return geoCodeWithGoogleApi(locationString).then(function (result: {
-              geometry: { location: { lat: any; lng: any } };
-            }) {
-              let lat = result.geometry.location.lat;
-              let lng = result.geometry.location.lng;
-              // NOTE: not waiting for the response to this - it might fail in the case of a race-condition, since we don't have upsert
-              pgQueryP(
-                "insert into geolocation_cache (location,lat,lng,response) values ($1,$2,$3,$4);",
-                [locationString, lat, lng, JSON.stringify(result)]
-              );
-              let o = {
-                lat: lat,
-                lng: lng,
-              };
-              return o;
-            });
-          } else {
-            let o = {
-              lat: rows[0].lat,
-              lng: rows[0].lng,
-            };
-            return o;
-          }
-        })
-    );
+    return geoCodeWithGoogleApi(locationString).then(function (result: {
+      geometry: { location: { lat: any; lng: any } };
+    }) {
+      let lat = result.geometry.location.lat;
+      let lng = result.geometry.location.lng;
+
+      let o = {
+        lat: lat,
+        lng: lng,
+      };
+      return o;
+    });
   }
   // Value of type 'typeof LRUCache' is not callable. Did you mean to include 'new'? ts(2348)
   // @ts-ignore
@@ -11499,44 +11406,6 @@ Thanks for using Polis!
       })
       .catch((err: any) => {
         fail(res, 500, "polis_err_groupDemographics", err);
-      });
-  }
-
-  // this is for testing the encryption
-  function handle_GET_logMaxmindResponse(
-    req: { p: { uid?: any; zid: any; user_uid?: any } },
-    res: { json: (arg0: {}) => void }
-  ) {
-    if (!isPolisDev(req.p.uid) || !devMode) {
-      // TODO fix this by piping the error from the usage of this in ./app
-      // Cannot find name 'err'.ts(2304)
-      // @ts-ignore
-      return fail(res, 403, "polis_err_permissions", err);
-    }
-    pgQueryP(
-      "select * from participants_extended where zid = ($1) and uid = ($2);",
-      [req.p.zid, req.p.user_uid]
-    )
-      //     Argument of type '(results: string | any[]) => void' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.
-      // Types of parameters 'results' and 'value' are incompatible.
-      //   Type 'unknown' is not assignable to type 'string | any[]'.
-      //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-      // @ts-ignore
-      .then((results: string | any[]) => {
-        if (!results || !results.length) {
-          res.json({});
-          return;
-        }
-        var o = results[0];
-        _.each(o, (val: any, key: string) => {
-          if (key.startsWith("encrypted_")) {
-            o[key] = decrypt(val);
-          }
-        });
-        res.json({});
-      })
-      .catch((err: any) => {
-        fail(res, 500, "polis_err_get_participantsExtended", err);
       });
   }
 
@@ -13488,7 +13357,6 @@ Thanks for using Polis!
     handle_GET_implicit_conversation_generation,
     handle_GET_launchPrep,
     handle_GET_locations,
-    handle_GET_logMaxmindResponse,
     handle_GET_math_pca,
     handle_GET_math_pca2,
     handle_GET_metadata,
