@@ -2,7 +2,6 @@ name: Test Math
 
 on:
   push:
-    branches: ["dev", "504-clj-tests"]
     # Note: Only configured for client-admin right now.
     paths:
       - .github/workflows/test-clojure.yml

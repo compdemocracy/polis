@@ -4,11 +4,12 @@ import React from "react";
 
 import _ from "lodash";
 import * as globals from "../globals";
+import { interpolatePuOr, scaleLinear } from "d3";
 
 var leftOffset = 34;
 var topOffset = 60;
 
-var scale = d3.scaleLinear().domain([-1, 1]).range([0, 1]);
+var scale = scaleLinear().domain([-1, 1]).range([0, 1]);
 
 const square = 20;
 
@@ -32,7 +33,7 @@ class Matrix extends React.Component {
     return (
       <g>
         <rect
-          fill={d3.interpolatePuOr(scale(comment))}
+          fill={interpolatePuOr(scale(comment))}
           onMouseEnter={() => {
             return this.onMouseEnterCell(row, column, comment);
           }}
@@ -162,7 +163,7 @@ class Matrix extends React.Component {
               x={300}
               y={40}
               textAnchor={"middle"}
-              fill={d3.interpolatePuOr(scale(this.state.mouseOverCorrelation))}
+              fill={interpolatePuOr(scale(this.state.mouseOverCorrelation))}
               style={{
                 fontFamily: globals.sans,
                 fontSize: 18,

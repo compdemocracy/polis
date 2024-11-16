@@ -27,15 +27,16 @@
     "glob": "~10.3.3",
     "html-webpack-plugin": "^5.5.3",
     "mini-css-extract-plugin": "^2.7.6",
-    "webpack": "~5.88.0",
+    "webpack": "~5.95.0",
     "webpack-cli": "~5.1.4",
     "webpack-dev-server": "^4.15.1"
   },
   "dependencies": {
     "color": "~4.2.3",
-    "d3": "~4.6.0",
-    "d3-contour": "~1.1.2",
-    "d3-scale-chromatic": "~1.1.1",
+    "d3": "~7.9.0",
+    "d3-contour": "^4.0.2",
+    "d3-scale-chromatic": "~3.1.0",
+    "d3-voronoi": "^1.1.4",
     "hull.js": "~0.2.11",
     "jquery": "~3.6.3",
     "lodash": "~4.17.21",
@@ -47,7 +48,6 @@
     "react-redux": "~7.2.9",
     "redux": "~3.0.5",
     "redux-thunk": "~1.0.3",
-    "request": "~2.65.0",
     "svg-text-wrap": "0.0.1"
   },
   "overrides": {

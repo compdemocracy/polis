@@ -6,6 +6,7 @@ import { VictoryChart } from 'victory-chart'
 import { VictoryLine } from 'victory-line'
 import { VictoryAxis } from 'victory-axis'
 import { scaleLinear, scaleTime } from 'd3-scale'
+import { scaleDiscontinuous } from '@d3fc/d3fc-discontinuous-scale'
 
 class CommentersVoters extends React.Component {
   render() {
@@ -14,7 +15,7 @@ class CommentersVoters extends React.Component {
         width={this.props.chartWidth}
         height={this.props.chartHeight}
         scale={{
-          x: scaleTime(this.props.data.firstVoteTimes),
+          x: scaleDiscontinuous(scaleTime(this.props.data.firstVoteTimes)),
           y: scaleLinear()
         }}>
         <VictoryLine
@@ -44,7 +45,7 @@ class CommentersVoters extends React.Component {
           dependentAxis
           label={'Participants'}
           style={{
-            label: {
+            axisLabel: {
               fontSize: '8px'
             }
           }}

@@ -7,6 +7,7 @@ import { VictoryChart } from 'victory-chart'
 import { VictoryLine } from 'victory-line'
 import { VictoryAxis } from 'victory-axis'
 import { scaleLinear, scaleTime } from 'd3-scale'
+import { scaleDiscontinuous } from '@d3fc/d3fc-discontinuous-scale';
 
 class CommentsTimescale extends React.Component {
   render() {
@@ -15,7 +16,7 @@ class CommentsTimescale extends React.Component {
         width={this.props.chartWidth}
         height={this.props.chartHeight}
         scale={{
-          x: scaleTime(this.props.data.commentTimes),
+          x: scaleDiscontinuous(scaleTime(this.props.data.commentTimes)),
           y: scaleLinear()
         }}>
         <VictoryLine

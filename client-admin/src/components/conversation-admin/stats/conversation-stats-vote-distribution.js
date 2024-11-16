@@ -16,17 +16,15 @@ class VotesDistribution extends React.Component {
           tickCount={7}
           label="Vote count"
           style={{
-            data: {
-              axis: {
-                stroke: 'black',
-                strokeWidth: 1
-              },
-              ticks: {
-                stroke: 'transparent'
-              },
-              tickLabels: {
-                fill: 'black'
-              }
+            axis: {
+              stroke: 'black',
+              strokeWidth: 1
+            },
+            ticks: {
+              stroke: 'transparent'
+            },
+            tickLabels: {
+              fill: 'black'
             }
           }}
         />
@@ -35,17 +33,15 @@ class VotesDistribution extends React.Component {
           orientation={'left'}
           dependentAxis
           style={{
-            data: {
-              axis: {
-                stroke: 'black',
-                strokeWidth: 1
-              },
-              ticks: {
-                stroke: 'transparent'
-              },
-              tickLabels: {
-                fill: 'black'
-              }
+            axis: {
+              stroke: 'black',
+              strokeWidth: 1
+            },
+            ticks: {
+              stroke: 'transparent'
+            },
+            tickLabels: {
+              fill: 'black'
             }
           }}
         />

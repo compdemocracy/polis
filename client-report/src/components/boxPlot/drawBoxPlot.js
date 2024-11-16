@@ -1,6 +1,8 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import "./lib";
+import { select, scaleBand, axisBottom, scaleLinear, axisLeft } from "d3";
+import { polisBox } from "./lib";
 
 /*********************************************************************
 **********************************************************************
@@ -76,13 +78,13 @@ const drawBoxPlot = (dataset) => {
 
   */
 
-  var chart = d3.box()
+  var chart = polisBox()
     .whiskers(iqr(1.5))
     .height(height)
     .domain([0, 100])
     .showLabels(labels);
 
-  var svg = d3.select("#boxPlot").append("svg")
+  var svg = select("#boxPlot").append("svg")
     .attr("width", width + margin.left + margin.right)
     .attr("height", height + margin.top + margin.bottom)
     .attr("class", "box")
@@ -94,21 +96,21 @@ const drawBoxPlot = (dataset) => {
     // 	.domain( data.map(function(d) { console.log(d); return d[0] } ) )
     // 	.rangeRoundBands([0 , width], 0.7, 0.3);
 
-    var x = d3.scaleBand()
-        .domain(dataset.map(function(d) { return d[0] } ))
+    var x = scaleBand()
+        .domain(dataset.map(function (d) { return d[0] }))
         .range([0, width])
         .paddingInner(0.7)
         .paddingOuter(0.3)
 
-    var xAxis = d3.axisBottom()
+    var xAxis = axisBottom()
       .scale(x)
 
     // the y-axis
-    var y = d3.scaleLinear()
+    var y = scaleLinear()
       .domain([0, 100]) /* percent, never truncated */
       .range([height + margin.top, 0 + margin.top]);
 
-    var yAxis = d3.axisLeft()
+    var yAxis = axisLeft()
       .scale(y)
 
     // draw the boxplots

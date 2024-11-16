@@ -5,8 +5,9 @@ import _ from "lodash";
 import * as globals from "../globals";
 import graphUtil from "../../util/graphUtil";
 import Axes from "../graphAxes";
-import * as d3contour from "d3-contour";
-import * as d3chromatic from "d3-scale-chromatic";
+import { scaleSequential, geoPath } from 'd3'
+import { contourDensity } from "d3-contour";
+import { interpolateYlGnBu } from "d3-scale-chromatic";
 // import GroupLabels from "./groupLabels";
 import Comments from "../commentsGraph/comments";
 import Hull from "./hull";
@@ -16,10 +17,8 @@ const pointsPerSquarePixelMax = 0.0017; /* choose dynamically ? */
 const contourBandwidth = 20;
 const colorScaleDownFactor = 0.5; /* The colors are too dark. This helps. */
 
-const color = d3
-  .scaleSequential(d3chromatic.interpolateYlGnBu)
+const color = scaleSequential(interpolateYlGnBu)
   .domain([0, pointsPerSquarePixelMax]);
-const geoPath = d3.geoPath();
 
 const Contour = ({ contour }) => (
   <path fill={color(contour.value * colorScaleDownFactor)} d={geoPath(contour)} />
@@ -117,8 +116,7 @@ class ParticipantsGraph extends React.Component {
       hulls,
     } = graphUtil(this.props.comments, this.props.math, this.props.badTids);
 
-    const contours = d3contour
-      .contourDensity()
+    const contours = contourDensity()
       .x(function (d) {
         return d.x;
       })
@@ -377,14 +375,14 @@ class ParticipantsGraph extends React.Component {
           ) : null}
           {this.state.showGroupOutline
             ? hulls.map((hull) => {
-                let gid = hull.group[0].gid;
-                if (_.isNumber(this.props.showOnlyGroup)) {
-                  if (gid !== this.props.showOnlyGroup) {
-                    return "";
-                  }
+              let gid = hull.group[0].gid;
+              if (_.isNumber(this.props.showOnlyGroup)) {
+                if (gid !== this.props.showOnlyGroup) {
+                  return "";
                 }
-                return <Hull key={gid} hull={hull} />;
-              })
+              }
+              return <Hull key={gid} hull={hull} />;
+            })
             : null}
           {this.state.showParticipants ? (
             <Participants math={this.props.math} points={baseClustersScaled} />
@@ -405,25 +403,25 @@ class ParticipantsGraph extends React.Component {
           ) : null}
           {this.state.showGroupLabels
             ? this.props.math["group-clusters"].map((g, i) => {
-                // console.log('g',g )
-                return (
-                  <text
-                    key={i}
-                    transform={`translate(
+              // console.log('g',g )
+              return (
+                <text
+                  key={i}
+                  transform={`translate(
                         ${xx(g.center[0])},
                         ${yy(g.center[1])}
                       )`}
-                    style={{
-                      fill: "rgba(0,0,0,.5)",
-                      fontFamily: "Helvetica",
-                      fontWeight: 700,
-                      fontSize: 18,
-                    }}
-                  >
-                    {globals.groupLabels[g.id]}
-                  </text>
-                );
-              })
+                  style={{
+                    fill: "rgba(0,0,0,.5)",
+                    fontFamily: "Helvetica",
+                    fontWeight: 700,
+                    fontSize: 18,
+                  }}
+                >
+                  {globals.groupLabels[g.id]}
+                </text>
+              );
+            })
             : null}
           {this.state.consensusDivisionColorScale ? (
             <g id="Page-1" stroke="none" strokeWidth="1" fill="none" fillRule="evenodd">

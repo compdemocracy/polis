@@ -2,10 +2,11 @@
 
 import React from "react";
 // import * as globals from "../globals";
+import { curveLinear, line } from "d3";
 
 const Hull = ({hull}) => {
-  const line = d3.line().curve(d3.curveLinear);
-  const pathString = line(hull.hull);
+  const curveLine = line().curve(curveLinear);
+  const pathString = curveLine(hull.hull);
 
   return (
     <path

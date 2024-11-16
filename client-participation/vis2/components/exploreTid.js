@@ -6,7 +6,7 @@ import BarChart from "./barChart";
 const checkmark = "M1299 813l-422 422q-19 19-45 19t-45-19l-294-294q-19-19-19-45t19-45l102-102q19-19 45-19t45 19l147 147 275-275q19-19 45-19t45 19l102 102q19 19 19 45t-19 45zm141 83q0-148-73-273t-198-198-273-73-273 73-198 198-73 273 73 273 198 198 273 73 273-73 198-198 73-273zm224 0q0 209-103 385.5t-279.5 279.5-385.5 103-385.5-103-279.5-279.5-103-385.5 103-385.5 279.5-279.5 385.5-103 385.5 103 279.5 279.5 103 385.5z";
 const ban = "M1440 893q0-161-87-295l-754 753q137 89 297 89 111 0 211.5-43.5t173.5-116.5 116-174.5 43-212.5zm-999 299l755-754q-135-91-300-91-148 0-273 73t-198 199-73 274q0 162 89 299zm1223-299q0 157-61 300t-163.5 246-245 164-298.5 61-298.5-61-245-164-163.5-246-61-300 61-299.5 163.5-245.5 245-164 298.5-61 298.5 61 245 164 163.5 245.5 61 299.5z";
 
-const DataSentence = ({math, selectedTidCuration, selectedComment, repfulFor, Strings}) => {
+const DataSentence = ({ math, selectedTidCuration, selectedComment, repfulFor, Strings }) => {
 
   let markup = null;
 
@@ -38,21 +38,21 @@ const DataSentence = ({math, selectedTidCuration, selectedComment, repfulFor, St
     s = s.replace("{{comment_id}}", tid);
 
     markup = (
-      <div style={{display: "flex"}}>
+      <div style={{ display: "flex" }}>
         <svg height={40} style={{
-            display: "inline",
-            marginRight: 10,
-            fill: repfulForAgree ? globals.colors.agree : globals.colors.disagree
-          }} viewBox="0 0 1792 1792">
-          <path d={repfulForAgree ? checkmark : ban}/>
-          </svg>
+          display: "inline",
+          marginRight: 10,
+          fill: repfulForAgree ? globals.colors.agree : globals.colors.disagree
+        }} viewBox="0 0 1792 1792">
+          <path d={repfulForAgree ? checkmark : ban} />
+        </svg>
         <p style={{
-            fontSize: 14,
-            fontFamily: "Helvetica",
-            fontWeight: 500,
-            maxWidth: 240,
-            color: "rgb(180,180,180)"
-          }}>
+          fontSize: 14,
+          fontFamily: "Helvetica",
+          fontWeight: 500,
+          maxWidth: 240,
+          color: "rgb(117,117,117)"
+        }}>
           {s}
         </p>
       </div>
@@ -69,20 +69,20 @@ const DataSentence = ({math, selectedTidCuration, selectedComment, repfulFor, St
     s = s.replace("{{comment_id}}", selectedComment.tid);
 
     markup = (
-      <div style={{display: "flex"}}>
+      <div style={{ display: "flex" }}>
         <svg height={40} style={{
-            display: "inline",
-            marginRight: 10,
-            fill: repfulForAgree ? globals.colors.agree : globals.colors.disagree
-          }} viewBox="0 0 1792 1792">
-          <path d={repfulForAgree ? checkmark : ban}/>
-          </svg>
+          display: "inline",
+          marginRight: 10,
+          fill: repfulForAgree ? globals.colors.agree : globals.colors.disagree
+        }} viewBox="0 0 1792 1792">
+          <path d={repfulForAgree ? checkmark : ban} />
+        </svg>
         <p style={{
             fontSize: 14,
             fontFamily: "Helvetica",
             fontWeight: 500,
             maxWidth: 240,
-            color: "rgb(180,180,180)"
+            color: "rgb(117,117,117)"
           }}>
           {s}
         </p>
@@ -132,16 +132,16 @@ class ExploreTid extends React.Component {
         fontWeight: "bold",
         cursor: "pointer",
       }}
-      onClick={this.handleAgree.bind(this)}>
-      <svg
-        style={{
-          marginRight: 3,
-          position: "relative",
-          top: 2,
-          display: "inline-block"
-        }} fill="rgb(200,0,0)" width="15" viewBox="0 0 1792 1792"><path d="M1299 813l-422 422q-19 19-45 19t-45-19l-294-294q-19-19-19-45t19-45l102-102q19-19 45-19t45 19l147 147 275-275q19-19 45-19t45 19l102 102q19 19 19 45t-19 45zm141 83q0-148-73-273t-198-198-273-73-273 73-198 198-73 273 73 273 198 198 273 73 273-73 198-198 73-273zm224 0q0 209-103 385.5t-279.5 279.5-385.5 103-385.5-103-279.5-279.5-103-385.5 103-385.5 279.5-279.5 385.5-103 385.5 103 279.5 279.5 103 385.5z"/></svg>
-      Agree
-    </button>);
+        onClick={this.handleAgree.bind(this)}>
+        <svg
+          style={{
+            marginRight: 3,
+            position: "relative",
+            top: 2,
+            display: "inline-block"
+          }} fill="rgb(200,0,0)" width="15" viewBox="0 0 1792 1792"><path d="M1299 813l-422 422q-19 19-45 19t-45-19l-294-294q-19-19-19-45t19-45l102-102q19-19 45-19t45 19l147 147 275-275q19-19 45-19t45 19l102 102q19 19 19 45t-19 45zm141 83q0-148-73-273t-198-198-273-73-273 73-198 198-73 273 73 273 198 198 273 73 273-73 198-198 73-273zm224 0q0 209-103 385.5t-279.5 279.5-385.5 103-385.5-103-279.5-279.5-103-385.5 103-385.5 279.5-279.5 385.5-103 385.5 103 279.5 279.5 103 385.5z" /></svg>
+        Agree
+      </button>);
 
     let disagreeButton = (
       <button style={{
@@ -151,14 +151,14 @@ class ExploreTid extends React.Component {
         fontWeight: "bold",
         cursor: "pointer",
       }}
-      onClick={this.handleDisagree.bind(this)}>
+        onClick={this.handleDisagree.bind(this)}>
         <svg
           style={{
             marginRight: 3,
             position: "relative",
             top: 2,
             display: "inline-block"
-          }} fill="rgb(200,0,0)" width="15" viewBox="0 0 1792 1792"><path d="M1440 893q0-161-87-295l-754 753q137 89 297 89 111 0 211.5-43.5t173.5-116.5 116-174.5 43-212.5zm-999 299l755-754q-135-91-300-91-148 0-273 73t-198 199-73 274q0 162 89 299zm1223-299q0 157-61 300t-163.5 246-245 164-298.5 61-298.5-61-245-164-163.5-246-61-300 61-299.5 163.5-245.5 245-164 298.5-61 298.5 61 245 164 163.5 245.5 61 299.5z"/></svg>
+          }} fill="rgb(200,0,0)" width="15" viewBox="0 0 1792 1792"><path d="M1440 893q0-161-87-295l-754 753q137 89 297 89 111 0 211.5-43.5t173.5-116.5 116-174.5 43-212.5zm-999 299l755-754q-135-91-300-91-148 0-273 73t-198 199-73 274q0 162 89 299zm1223-299q0 157-61 300t-163.5 246-245 164-298.5 61-298.5-61-245-164-163.5-246-61-300 61-299.5 163.5-245.5 245-164 298.5-61 298.5 61 245 164 163.5 245.5 61 299.5z" /></svg>
         Disagree
       </button>
     );
@@ -204,13 +204,13 @@ class ExploreTid extends React.Component {
     }
 
     return (
-      <div style={{display: "flex", justifyContent: "flex-start"}}>
+      <div style={{ display: "flex", justifyContent: "flex-start" }}>
         {changeVotesElements}
       </div>
     )
   }
   render() {
-    if (!this.props.selectedComment) {return null}
+    if (!this.props.selectedComment) { return null }
     let translatedText = null;
     if (this.props.selectedComment.translatedText) {
       let lang = navigator.language;
@@ -222,35 +222,35 @@ class ExploreTid extends React.Component {
     }
     return (
       <div style={{
-          borderRadius: 4,
-          padding: "10px 10px 10px 10px",
-          width:"100%",
-          minHeight: 145,
-          textAlign: "left",
-          display: "flex",
-          justifyContent:"center",
-          alignItems: "baseline",
-        }}>
+        borderRadius: 4,
+        padding: "10px 10px 10px 10px",
+        width: "100%",
+        minHeight: 145,
+        textAlign: "left",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "baseline",
+      }}>
         <p style={{
-            fontSize: 18,
-            marginRight: 20,
-            fontWeight: "700",
-          }}>
+          fontSize: 18,
+          marginRight: 20,
+          fontWeight: "700",
+        }}>
           {this.props.selectedComment ? "#" + this.props.selectedComment.tid : null}
         </p>
         <div style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "space-between",
-            height: "100%",
-          }}>
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "space-between",
+          height: "100%",
+        }}>
           <p style={{
             width: this.props.browserDimensions > 768 ? 400 : 245,
             fontSize: 18,
             fontFamily: "Georgia, serif",
           }}>
             {this.props.selectedComment ? this.props.selectedComment.txt : null}
-            {translatedText ? <hr/> : null}
+            {translatedText ? <hr /> : null}
             {translatedText ? translatedText : null}
           </p>
           <DataSentence
@@ -258,7 +258,7 @@ class ExploreTid extends React.Component {
             selectedComment={this.props.selectedComment}
             selectedTidCuration={this.props.selectedTidCuration}
             Strings={this.props.Strings}
-            />
+          />
           {/*this.createChangeVotesElements()*/}
         </div>
       </div>

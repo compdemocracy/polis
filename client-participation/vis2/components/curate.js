@@ -8,7 +8,7 @@ class Button extends React.Component {
     this.props.handleCurateButtonClick(this.props.identifier)
   }
 
-  render () {
+  render() {
 
     return (
       <button style={{
@@ -18,11 +18,11 @@ class Button extends React.Component {
         cursor: "pointer",
         padding: "6px 12px",
         fontWeight: (!_.isNull(this.props.selectedTidCuration) && this.props.selectedTidCuration === this.props.identifier) ? 700 : 500,
-        backgroundColor: (!_.isNull(this.props.selectedTidCuration) && this.props.selectedTidCuration === this.props.identifier) ? "#03a9f4" : "rgb(235,235,235)",
+        backgroundColor: (!_.isNull(this.props.selectedTidCuration) && this.props.selectedTidCuration === this.props.identifier) ? "#0076D1" : "rgb(235,235,235)",
         color: (!_.isNull(this.props.selectedTidCuration) && this.props.selectedTidCuration === this.props.identifier) ? "rgb(255,255,255)" : "rgb(100,100,100)",
         borderRadius: 4,
       }}
-      onClick={this.handleClick.bind(this)}>
+        onClick={this.handleClick.bind(this)}>
         {this.props.children}
       </button>
     )
@@ -40,7 +40,7 @@ class Curate extends React.Component {
   }
 
 
-  render () {
+  render() {
     return (
       <div style={{
         display: "flex",
@@ -49,7 +49,7 @@ class Curate extends React.Component {
         width: true ? "auto" : "100%",
 
       }}>
-        <div style={{marginRight: 20}}>
+        <div style={{ marginRight: 20 }}>
           <Button
             selectedTidCuration={this.props.selectedTidCuration}
             handleCurateButtonClick={this.props.handleCurateButtonClick}
@@ -63,11 +63,11 @@ class Curate extends React.Component {
           alignItems: "baseline",
         }}>
           <p style={{
-              marginRight: 10,
-              fontSize: 14,
-              fontFamily: "Georgia",
-              fontStyle: "italic"
-            }}>
+            marginRight: 10,
+            fontSize: 14,
+            fontFamily: "Georgia",
+            fontStyle: "italic"
+          }}>
             {this.props.Strings.group_123}
           </p>
           {

@@ -33,6 +33,7 @@ import _ from "underscore";
 import pg from "pg";
 import { encode } from "html-entities";
 
+import Config from "./config";
 import { METRICS_IN_RAM, addInRamMetric, MPromise } from "./utils/metered";
 import CreateUser from "./auth/create-user";
 import Password from "./auth/password";
@@ -47,7 +48,6 @@ import dbPgQuery, {
   queryP_readOnly_wRetryIfEmpty as pgQueryP_readOnly_wRetryIfEmpty,
 } from "./db/pg-query";
 
-import Config from "./config";
 import fail from "./utils/fail";
 import { PcaCacheItem, getPca, fetchAndCacheLatestPcaData } from "./utils/pca";
 import { getZinvite, getZinvites, getZidForRid } from "./utils/zinvite";

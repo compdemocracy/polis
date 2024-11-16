@@ -1,15 +1,16 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-d3.functor = function functor(v) {
-  return typeof v === "function" ? v : function() {
+import { ascending, select, range, scaleLinear, quantile } from "d3";
+
+function functor(v) {
+  return typeof v === "function" ? v : function () {
     return v;
   };
 };
 
-(function() {
 
   // Inspired by http://informationandvisualization.de/blog/box-plot
-  d3.box = function() {
+export function polisBox() {
     var width = 1,
     height = 1,
     duration = 0,
@@ -28,12 +29,12 @@ d3.functor = function functor(v) {
         //d = d.map(value).sort(d3.ascending);
         //var boxIndex = data[0];
         //var boxIndex = 1;
-        var d = data[1].sort(d3.ascending);
+        var d = data[1].sort(ascending);
 
         // console.log(boxIndex);
         // console.log(d);
 
-        var g = d3.select(this),
+      var g = select(this),
         n = d.length,
         min = d[0],
         max = d[n - 1];
@@ -48,16 +49,16 @@ d3.functor = function functor(v) {
         // Compute outliers. If no whiskers are specified, all data are "outliers".
         // We compute the outliers as indices, so that we can join across transitions!
         var outlierIndices = whiskerIndices
-        ? d3.range(0, whiskerIndices[0]).concat(d3.range(whiskerIndices[1] + 1, n))
-        : d3.range(n);
+        ? range(0, whiskerIndices[0]).concat(range(whiskerIndices[1] + 1, n))
+        : range(n);
 
         // Compute the new x-scale.
-        var x1 = d3.scaleLinear()
+        var x1 = scaleLinear()
         .domain(domain && domain.call(this, d, i) || [min, max])
         .range([height, 0]);
 
         // Retrieve the old x-scale, if this is an update.
-        var x0 = this.__chart__ || d3.scaleLinear()
+        var x0 = this.__chart__ || scaleLinear()
         .domain([0, Infinity])
         // .domain([0, max])
         .range(x1.range());
@@ -282,7 +283,7 @@ d3.functor = function functor(v) {
 
     box.domain = function(x) {
       if (!arguments.length) return domain;
-      domain = x == null ? x : d3.functor(x);
+      domain = x == null ? x : functor(x);
       return box;
     };
 
@@ -319,10 +320,9 @@ d3.functor = function functor(v) {
 
   function boxQuartiles(d) {
     return [
-      d3.quantile(d, .25),
-      d3.quantile(d, .5),
-      d3.quantile(d, .75)
+      quantile(d, .25),
+      quantile(d, .5),
+      quantile(d, .75)
     ];
   }
 
-})();

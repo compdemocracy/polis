@@ -4,6 +4,10 @@ import React from "react";
 import CommentList from "../lists/commentList";
 import * as globals from "../globals";
 import _ from "lodash";
+import { scaleLinear, extent, forceSimulation, forceX, forceY, forceCollide } from 'd3'
+
+import { voronoi as d3voronoi } from "d3-voronoi";
+
 // import Flex from "../framework/flex"
 
 // function type(d) {
@@ -143,22 +147,22 @@ class Beeswarm extends React.Component {
         }
       })
 
-      var x = d3.scaleLinear()
+      var x = scaleLinear()
         .rangeRound([0, this.widthMinusMargins]);
 
-      x.domain(d3.extent(commentsWithExtremity, function(d) { return d.extremity; }));
+      x.domain(extent(commentsWithExtremity, function (d) { return d.extremity; }));
 
-      var simulation = d3.forceSimulation(commentsWithExtremity)
-          .force("x", d3.forceX(function(d) {
+      var simulation = forceSimulation(commentsWithExtremity)
+          .force("x", forceX(function (d) {
             return x(d.extremity);
           }).strength(1))
-          .force("y", d3.forceY(this.heightMinusMargins / 2))
-          .force("collide", d3.forceCollide(4))
+          .force("y", forceY(this.heightMinusMargins / 2))
+          .force("collide", forceCollide(4))
           .stop();
 
       for (var i = 0; i < 120; ++i) simulation.tick();
 
-      const voronoi = d3.voronoi()
+      const voronoi = d3voronoi()
         .extent([[-this.margin.left, -this.margin.top], [this.widthMinusMargins + this.margin.right, this.heightMinusMargins + this.margin.top]])
         .x(function(d) { return d.x; })
         .y(function(d) { return d.y; })

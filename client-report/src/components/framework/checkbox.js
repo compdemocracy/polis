@@ -5,8 +5,7 @@ import Radium from "radium";
 import Color from "color";
 import settings from "../../settings";
 
-@Radium
-export default class Checkbox extends React.Component {
+class Checkbox extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
@@ -129,3 +128,5 @@ export default class Checkbox extends React.Component {
     );
   }
 }
+
+export default Radium(Checkbox)

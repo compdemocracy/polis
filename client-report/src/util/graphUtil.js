@@ -2,6 +2,7 @@
 
 import * as globals from "../components/globals";
 import createHull from "hull.js";
+import { scaleLinear } from 'd3'
 
 const graphUtil = (comments, math, badTids) => {
 
@@ -86,8 +87,8 @@ const graphUtil = (comments, math, badTids) => {
 
 
 
-    const xx = d3.scaleLinear().domain([-greatestAbsPtptX, greatestAbsPtptX]).range([border, globals.side - border]);
-    const yy = d3.scaleLinear().domain([-greatestAbsPtptY, greatestAbsPtptY]).range([border, globals.side - border]);
+    const xx = scaleLinear().domain([-greatestAbsPtptX, greatestAbsPtptX]).range([border, globals.side - border]);
+    const yy = scaleLinear().domain([-greatestAbsPtptY, greatestAbsPtptY]).range([border, globals.side - border]);
 
     const xCenter = globals.side / 2;
     const yCenter = globals.side / 2;

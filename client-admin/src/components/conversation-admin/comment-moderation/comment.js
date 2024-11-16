@@ -5,11 +5,6 @@ import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { Flex, Box, Text, Button, Card, Link } from 'theme-ui'
 
-@connect((state) => {
-  return {
-    conversation: state.zid_metadata.zid_metadata
-  }
-})
 class Comment extends React.Component {
   onAcceptClicked() {
     this.props.acceptClickHandler(this.props.comment)
@@ -25,7 +20,15 @@ class Comment extends React.Component {
 
   render() {
     return (
-      <Card sx={{ mb: [3], minWidth: '35em' }}>
+      <Card
+        sx={{
+          mb: [3],
+          p: [1],
+          width: '35em',
+          maxWidth: '100%',
+          boxShadow: this.props.currentItem ? 'lightseagreen 0px 0px 0px 2px;' : ''
+        }}
+        className={this.props.currentItem ? 'current-item' : ''}>
         <Box>
           <Text sx={{ mb: [3], color: 'red', fontSize: 12 }}>{this.props.comment.active ? null : 'Comment flagged as toxic by Jigsaw Perspective API. Comment not shown to participants. Accept to override.'}</Text>
           <Text sx={{ mb: [3] }}>{this.props.comment.txt}</Text>
@@ -35,40 +38,41 @@ class Comment extends React.Component {
               alignItems: 'center',
               width: '100%'
             }}>
-            <Box>
+            <Flex
+              sx={{
+                flexWrap: 'wrap',
+                gap: [2, 3]
+              }}>
               {this.props.acceptButton ? (
                 <Button
-                  sx={{ mr: [3] }}
                   onClick={this.onAcceptClicked.bind(this)}>
-                  {this.props.acceptButtonText}
+                  {this.props.acceptButtonText} (A)
                 </Button>
               ) : null}
               {this.props.rejectButton ? (
                 <Button onClick={this.onRejectClicked.bind(this)}>
-                  {this.props.rejectButtonText}
+                  {this.props.rejectButtonText} (R)
                 </Button>
               ) : null}
-            </Box>
-            <Flex sx={{ alignItems: 'center' }}>
-              <Link
-                target="_blank"
-                sx={{ mr: [2] }}
-                href="https://compdemocracy.org/metadata">
-                {this.props.isMetaCheckbox ? 'metadata' : null}
-              </Link>
-              {this.props.isMetaCheckbox ? (
-                <input
-                  type="checkbox"
-                  label="metadata"
-                  ref={(c) => (this.is_meta = c)}
-                  checked={this.props.comment.is_meta}
-                  onChange={this.onIsMetaClicked.bind(this)}
-                />
-              ) : null}
             </Flex>
+            <Link
+              target="_blank"
+              sx={{ mr: [2] }}
+              href="https://compdemocracy.org/metadata">
+              {this.props.isMetaCheckbox ? 'metadata' : null}
+            </Link>
+            {this.props.isMetaCheckbox ? (
+              <input
+                type="checkbox"
+                label="metadata"
+                ref={(c) => (this.is_meta = c)}
+                checked={this.props.comment.is_meta}
+                onChange={this.onIsMetaClicked.bind(this)}
+              />
+            ) : null}
           </Flex>
         </Box>
-      </Card>
+      </Card >
     )
   }
 }
@@ -87,7 +91,12 @@ Comment.propTypes = {
     active: PropTypes.bool,
     txt: PropTypes.string,
     is_meta: PropTypes.bool
-  })
+  }),
+  currentItem: PropTypes.bool
 }
 
-export default Comment
+export default connect((state) => {
+  return {
+    conversation: state.zid_metadata.zid_metadata
+  }
+})(Comment)

@@ -4,7 +4,7 @@ on:
   push:
     # Required so that baseline for comparison is pushed to bundlewatch service.
     branches:
-      - edge
+      - edge-*
     paths:
       - .github/workflows/bundlewatch.yml
       - client-admin/**
