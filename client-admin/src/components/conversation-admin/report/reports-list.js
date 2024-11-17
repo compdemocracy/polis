@@ -36,6 +36,7 @@ class ReportsList extends React.Component {
   componentDidMount() {
     const { zid_metadata } = this.props
     
+    // eslint-disable-next-line react/prop-types
     this.props.dispatch(
       populateZidMetadataStore(this.props.match.params.conversation_id)
     )
