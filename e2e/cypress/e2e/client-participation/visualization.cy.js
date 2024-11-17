@@ -20,6 +20,7 @@ describe('Visualization', function () {
   })
 
   beforeEach(function () {
+    cy.intercept('POST', '/api/v3/comments').as('postComment')
     cy.intercept('GET', '/api/v3/votes/famous*').as('getFamous')
     cy.intercept('GET', '/api/v3/math/pca2*').as('getMath')
     cy.intercept('GET', '/api/v3/participationInit*').as('participationInit')

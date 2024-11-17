@@ -17,6 +17,8 @@ describe('Social login buttons', function () {
   })
 
   beforeEach(function () {
+    cy.intercept('POST', '/api/v3/comments').as('postComment')
+    cy.intercept('GET', '/api/v3/math/pca2*').as('getMath')
     cy.intercept('GET', '/api/v3/comments*').as('getComments')
     cy.intercept('GET', '/api/v3/conversations*').as('getConversations')
     cy.intercept('GET', '/api/v3/users*').as('getUsers')
@@ -123,11 +125,13 @@ describe('Social login buttons', function () {
       cy.get(commentView).find(twitterCommentBtn).should('not.exist')
     })
 
-    it('allows both providers to be disabled', function () {
+    it('allows both providers to be disabled and a user can vote and comment', function () {
       cy.ensureUser('moderator')
       cy.visit(this.adminPath)
       cy.get(facebookAuthOpt).uncheck()
       cy.get(twitterAuthOpt).uncheck()
+      cy.get('input[data-test-id="auth_needed_to_write"]').uncheck() // testing to ensure commenting works
+      cy.get('input[data-test-id="auth_needed_to_vote"]').uncheck() // testing to ensure commenting works
 
       cy.ensureUser('participant5')
       cy.visit(this.convoPath)
@@ -139,10 +143,18 @@ describe('Social login buttons', function () {
       cy.get(voteView).find(facebookVoteBtn).should('not.exist')
       cy.get(voteView).find(twitterVoteBtn).should('not.exist')
 
-      cy.get(commentView).find('button#comment_button').click()
+      // cy.get(commentView).find('button#comment_button').click()
 
       cy.get(commentView).find(facebookCommentBtn).should('not.exist')
       cy.get(commentView).find(twitterCommentBtn).should('not.exist')
+      // cy.visit('/' + this.convoId)
+      // cy.wait('@participationInit')
+      // cy.wait('@getMath')
+      cy.get('textarea#comment_form_textarea').type('This is a test comment')
+      cy.get('button#comment_button').click()
+
+      cy.wait('@postComment').its('response.statusCode').should('eq', 200)
+      cy.contains('Statement submitted!').should('be.visible')
     })
   })
 })
