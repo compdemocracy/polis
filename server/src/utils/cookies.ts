@@ -76,31 +76,19 @@ function setCookie(
   res.cookie(name, value, opts);
 }
 
-function setParentReferrerCookie(
-  req: any,
-  res: any,
-  referrer: any
-) {
+function setParentReferrerCookie(req: any, res: any, referrer: any) {
   setCookie(req, res, COOKIES.PARENT_REFERRER, referrer, {
     httpOnly: true,
   });
 }
 
-function setParentUrlCookie(
-  req: any,
-  res: any,
-  parent_url: any
-) {
+function setParentUrlCookie(req: any, res: any, parent_url: any) {
   setCookie(req, res, COOKIES.PARENT_URL, parent_url, {
     httpOnly: true,
   });
 }
 
-function setHasEmailCookie(
-  req: any,
-  res: any,
-  email: any
-) {
+function setHasEmailCookie(req: any, res: any, email: any) {
   if (email) {
     setCookie(req, res, COOKIES.HAS_EMAIL, 1, {
       // not httpOnly - needed by JS
@@ -109,27 +97,13 @@ function setHasEmailCookie(
   // else falsy
 }
 
-function setUserCreatedTimestampCookie(
-  req: any,
-  res: any,
-  timestamp: any
-) {
-  setCookie(
-    req,
-    res,
-    COOKIES.USER_CREATED_TIMESTAMP,
-    timestamp,
-    {
-      // not httpOnly - needed by JS
-    }
-  );
+function setUserCreatedTimestampCookie(req: any, res: any, timestamp: any) {
+  setCookie(req, res, COOKIES.USER_CREATED_TIMESTAMP, timestamp, {
+    // not httpOnly - needed by JS
+  });
 }
 
-function setTokenCookie(
-  req: any,
-  res: any,
-  token: any
-) {
+function setTokenCookie(req: any, res: any, token: any) {
   setCookie(req, res, COOKIES.TOKEN, token, {
     httpOnly: true,
   });
@@ -141,11 +115,7 @@ function setUidCookie(req: any, res: any, uid: any) {
   });
 }
 
-function setPermanentCookie(
-  req: any,
-  res: any,
-  token: any
-) {
+function setPermanentCookie(req: any, res: any, token: any) {
   setCookie(req, res, COOKIES.PERMANENT_COOKIE, token, {
     httpOnly: true,
   });
@@ -176,11 +146,7 @@ function addCookies(
     setUserCreatedTimestampCookie(req, res, created);
 
     if (!req.cookies[COOKIES.PERMANENT_COOKIE]) {
-      setPermanentCookie(
-        req,
-        res,
-        Session.makeSessionToken()
-      );
+      setPermanentCookie(req, res, Session.makeSessionToken());
     }
     res.header("x-polis", token);
   });

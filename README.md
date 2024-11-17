@@ -55,6 +55,8 @@ make start
 
 That should run docker compose with the development overlay (see below) and default configuration values.
 
+You may encounter an error on mac if AirPlay receiver is enabled, which defaults to port 5000 and collides with Polis API_SERVER_PORT. You can change this in your `.env` file or disable AirPlay receiver in system settings.
+
 Visit `localhost:80/createuser` and get started.
 
 ### Docker & Docker Compose
