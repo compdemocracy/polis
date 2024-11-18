@@ -24,6 +24,7 @@ describe('Social login buttons', function () {
     cy.intercept('GET', '/api/v3/users*').as('getUsers')
     cy.intercept('GET', '/api/v3/participationInit*').as('participationInit')
     cy.intercept('PUT', '/api/v3/conversations').as('putConversations')
+    cy.intercept('GET', '/api/v3/conversationStats*').as('getConversationStats')
   })
 
   describe('default settings', function () {
@@ -132,7 +133,10 @@ describe('Social login buttons', function () {
       cy.get(twitterAuthOpt).uncheck()
       cy.get('input[data-test-id="auth_needed_to_write"]').uncheck() // testing to ensure commenting works
       cy.get('input[data-test-id="auth_needed_to_vote"]').uncheck() // testing to ensure commenting works
-
+      // check monitor page
+      cy.visit(`/m${this.convoPath}/stats`)
+      cy.wait('@getConversationStats')
+      cy.contains('2 participants voted').should('be.visible')
       cy.ensureUser('participant5')
       cy.visit(this.convoPath)
       cy.wait('@participationInit')
@@ -142,14 +146,8 @@ describe('Social login buttons', function () {
 
       cy.get(voteView).find(facebookVoteBtn).should('not.exist')
       cy.get(voteView).find(twitterVoteBtn).should('not.exist')
-
-      // cy.get(commentView).find('button#comment_button').click()
-
       cy.get(commentView).find(facebookCommentBtn).should('not.exist')
       cy.get(commentView).find(twitterCommentBtn).should('not.exist')
-      // cy.visit('/' + this.convoId)
-      // cy.wait('@participationInit')
-      // cy.wait('@getMath')
       cy.get('textarea#comment_form_textarea').type('This is a test comment')
       cy.get('button#comment_button').click()
 
