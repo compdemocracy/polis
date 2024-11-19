@@ -2,7 +2,7 @@
 
 var eb = require("../eventBus");
 var Handlebones = require("handlebones");
-var template = require("../tmpl/readReactView");
+var template = require("../templates/readReactView.handlebars");
 var CommentModel = require("../models/comment");
 var VoteView = require('../views/vote-view');
 var PolisFacebookUtils = require('../util/facebookButton');
@@ -11,6 +11,7 @@ var PolisFacebookUtils = require('../util/facebookButton');
 
 // var iOS = Utils.isIos();
 
+// if this changes, be sure to check for the presence of Constants.FB_APP_ID as well:
 var SHOULD_PROMPT_FOR_FB = false;
 
 module.exports = Handlebones.ModelView.extend({

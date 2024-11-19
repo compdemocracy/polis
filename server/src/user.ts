@@ -6,8 +6,8 @@ import { MPromise } from "./utils/metered";
 
 import Config from "./config";
 import Conversation from "./conversation";
-import Log from "./log";
 import LRUCache from "lru-cache";
+import logger from "./utils/logger";
 
 function getUserInfoForUid(
   uid: any,
@@ -50,107 +50,6 @@ function getUserInfoForUid2(uid: any) {
       );
     }
   );
-}
-
-function addLtiUserIfNeeded(
-  uid: any,
-  lti_user_id: any,
-  tool_consumer_instance_guid: any,
-  lti_user_image: null
-) {
-  lti_user_image = lti_user_image || null;
-  return (
-    pg
-      .queryP(
-        "select * from lti_users where lti_user_id = ($1) and tool_consumer_instance_guid = ($2);",
-        [lti_user_id, tool_consumer_instance_guid]
-      )
-      //     (local function)(rows: string | any[]): Promise<unknown> | undefined
-      // Argument of type '(rows: string | any[]) => Promise<unknown> | undefined' is not assignable to parameter of type '(value: unknown) => unknown'.
-      //   Types of parameters 'rows' and 'value' are incompatible.
-      //     Type 'unknown' is not assignable to type 'string | any[]'.
-      //       Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-      // @ts-ignore
-      .then(function (rows: string | any[]) {
-        if (!rows || !rows.length) {
-          return pg.queryP(
-            "insert into lti_users (uid, lti_user_id, tool_consumer_instance_guid, lti_user_image) values ($1, $2, $3, $4);",
-            [uid, lti_user_id, tool_consumer_instance_guid, lti_user_image]
-          );
-        }
-      })
-  );
-}
-
-function addLtiContextMembership(
-  uid: any,
-  lti_context_id: any,
-  tool_consumer_instance_guid: any
-) {
-  return (
-    pg
-      .queryP(
-        "select * from lti_context_memberships where uid = $1 and lti_context_id = $2 and tool_consumer_instance_guid = $3;",
-        [uid, lti_context_id, tool_consumer_instance_guid]
-      )
-      //     (local function)(rows: string | any[]): Promise<unknown> | undefined
-      // Argument of type '(rows: string | any[]) => Promise<unknown> | undefined' is not assignable to parameter of type '(value: unknown) => unknown'.
-      //   Types of parameters 'rows' and 'value' are incompatible.
-      //     Type 'unknown' is not assignable to type 'string | any[]'.
-      //       Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-      // @ts-ignore
-      .then(function (rows: string | any[]) {
-        if (!rows || !rows.length) {
-          return pg.queryP(
-            "insert into lti_context_memberships (uid, lti_context_id, tool_consumer_instance_guid) values ($1, $2, $3);",
-            [uid, lti_context_id, tool_consumer_instance_guid]
-          );
-        }
-      })
-  );
-}
-
-function renderLtiLinkageSuccessPage(
-  req: any,
-  res: {
-    set: (arg0: { "Content-Type": string }) => void;
-    status: (
-      arg0: number
-    ) => { (): any; new (): any; send: { (arg0: string): void; new (): any } };
-  },
-  o: { email: string }
-) {
-  res.set({
-    "Content-Type": "text/html",
-  });
-  let html =
-    "" +
-    "<!DOCTYPE html><html lang='en'>" +
-    "<head>" +
-    '<meta name="viewport" content="width=device-width, initial-scale=1;">' +
-    "</head>" +
-    "<body style='max-width:320px'>" +
-    "<p>You are signed in as polis user " +
-    o.email +
-    "</p>" +
-    // "<p><a href='https://pol.is/user/logout'>Change pol.is users</a></p>" +
-    // "<p><a href='https://preprod.pol.is/inbox/context="+ o.context_id +"'>inbox</a></p>" +
-    // "<p><a href='https://preprod.pol.is/2demo' target='_blank'>2demo</a></p>" +
-    // "<p><a href='https://preprod.pol.is/conversation/create/context="+ o.context_id +"'>create</a></p>" +
-
-    // form for sign out
-    '<p><form role="form" class="FormVertical" action="' +
-    Config.getServerNameWithProtocol(req) +
-    '/api/v3/auth/deregister" method="POST">' +
-    '<input type="hidden" name="showPage" value="canvas_assignment_deregister">' +
-    '<button type="submit" class="Btn Btn-primary">Change pol.is users</button>' +
-    "</form></p>" +
-    // "<p style='background-color: yellow;'>" +
-    //     JSON.stringify(req.body)+
-    //     (o.user_image ? "<img src='"+o.user_image+"'></img>" : "") +
-    // "</p>"+
-    "</body></html>";
-  res.status(200).send(html);
 }
 
 async function getUser(
@@ -228,9 +127,6 @@ async function getUser(
     finishedTutorial: !!info.tut,
     site_ids: [info.site_id],
     created: Number(info.created),
-    daysInTrial: 10 + (usersToAdditionalTrialDays[uid] || 0),
-    // plan: planCodeToPlanName[info.plan],
-    planCode: info.plan,
   };
 }
 
@@ -248,14 +144,6 @@ function getFacebookInfo(uids: any[]) {
   );
 }
 
-// so we can grant extra days to users
-// eventually we should probably move this to db.
-// for now, use git blame to see when these were added
-const usersToAdditionalTrialDays: { [key: number]: number } = {
-  50756: 14, // julien
-  85423: 100, // mike test
-};
-
 function createDummyUser() {
   // (parameter) resolve: (arg0: any) => void
   //   'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
@@ -268,7 +156,7 @@ function createDummyUser() {
         [],
         function (err: any, results: { rows: string | any[] }) {
           if (err || !results || !results.rows || !results.rows.length) {
-            console.error(err);
+            logger.error("polis_err_create_empty_user", err);
             reject(new Error("polis_err_create_empty_user"));
             return;
           }
@@ -366,17 +254,17 @@ function getPidForParticipant(
       function (pid: number) {
         if (pid === -1) {
           let msg = "polis_err_get_pid_for_participant_missing";
-          Log.yell(msg);
-
-          console.log("info", zid);
-          console.log("info", uid);
-          console.log("info", req.p);
+          logger.error(msg, {
+            zid,
+            uid,
+            p: req.p,
+          });
           next(msg);
         }
         finish(pid);
       },
       function (err: any) {
-        Log.yell("polis_err_get_pid_for_participant");
+        logger.error("polis_err_get_pid_for_participant", err);
         next(err);
       }
     );
@@ -435,7 +323,7 @@ function getXidRecordByXidOwnerId(
       // @ts-ignore
       .then(function (rows: string | any[]) {
         if (!rows || !rows.length) {
-          console.log("no xInfo yet");
+          logger.warn("getXidRecordByXidOwnerId: no xInfo yet");
           if (!createIfMissing) {
             return null;
           }
@@ -455,7 +343,6 @@ function getXidRecordByXidOwnerId(
               return null;
             }
             return createDummyUser().then((newUid: any) => {
-              console.log("created dummy");
               return Conversation.createXidRecord(
                 owner,
                 newUid,
@@ -464,7 +351,6 @@ function getXidRecordByXidOwnerId(
                 x_name || null,
                 x_email || null
               ).then(() => {
-                console.log("created xInfo");
                 return [
                   {
                     uid: newUid,
@@ -511,9 +397,6 @@ export {
   pidCache,
   getUserInfoForUid,
   getUserInfoForUid2,
-  addLtiUserIfNeeded,
-  addLtiContextMembership,
-  renderLtiLinkageSuccessPage,
   getUser,
   createDummyUser,
   getPid,
@@ -528,9 +411,6 @@ export default {
   getXidStuff,
   getUserInfoForUid,
   getUserInfoForUid2,
-  addLtiUserIfNeeded,
-  addLtiContextMembership,
-  renderLtiLinkageSuccessPage,
   getUser,
   createDummyUser,
   getPid,

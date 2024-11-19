@@ -55,7 +55,7 @@ export default class Checkbox extends React.Component {
   }
 
   getCheckboxStyles () {
-    const activeColor = Color(this.props.color).lighten(0.2).hexString();
+    const activeColor = Color(this.props.color).lighten(0.2).hex();
 
     return {
       base: {

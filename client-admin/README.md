@@ -1,77 +1,87 @@
-[![Build Status](https://travis-ci.org/pol-is/polisClientAdmin.svg?branch=master)](https://travis-ci.org/pol-is/polisClientAdmin) [![Code Climate](https://codeclimate.com/github/pol-is/polisClientAdmin/badges/gpa.svg)](https://codeclimate.com/github/pol-is/polisClientAdmin) [![Test Coverage](https://codeclimate.com/github/pol-is/polisClientAdmin/badges/coverage.svg)](https://codeclimate.com/github/vital-edu/sala-de-espera/coverage)
+# Polis Admin Console
 
-Polis Admin Console
-===================
+The web interface for creating and administering polis conversations. It is built with React.js.
 
-The below instructions are no longer officially supported; if you'd like to use them as a reference, we suggest you check out the official [Dockerfile](Dockerfile) to understand the latest build process and specific package versions.
+## Installation
 
----
+### Dependencies
 
-Configuration
--------------
+* Node `>= 16`
+We recommend installing [nvm](https://github.com/creationix/nvm) so that you can easily switch between your favorite
+flavors of node.
+* NPM `>= 8`
 
-Install the NVM following the instructions: [NVM Installation Guide](https://github.com/creationix/nvm#install-script).
-
-Them run the commands below to install the correct Node.JS version and the application dependencies.
+If using nvm, run the commands below to install node and the application dependencies.
 
 ```sh
-nvm install 8.17.0
+nvm install 18
+nvm use 18
 npm install
 ```
+
+### Docker Build
+
+If you prefer to run the Polis application using `docker compose`, see the top-level README document. This component
+will be built and served as part of the `file-server` container.
+
+If you are building this container on its own, outside of the `docker compose` context, simply use the Dockerfile
+located in this directory. Optionally provide a "tag" for the image that is created:
+
+```sh
+docker build -t polis-client-admin:local .
+docker run -p 8080:8080 --name polis-client-admin polis-client-admin:local npm start
+```
+
+Now you can see the web interface at [http://localhost:8080], but if it is not connected to the Server API you won't
+get very far. Still it can be useful for developing and debugging builds.
+
+## Configuration
+
+### Facebook App Integration
+
+Optionally, you can [register with Facebook](https://developers.facebook.com/docs/development) and get a Facebook App ID
+to use the Facebook auth features.
+
+If you do so, set the FB_APP_ID environment variable in the top level `.env` file, or manually pass it in
+when building and running this application.
+
+### Twitter Integration
+
+To enable twitter widgets for user authentication, set the ENABLE_TWITTER_WIDGETS environment variable to `true` in the
+top level `.env` file, or manually pass it in when building and running this application.
 
 ### Common Problems
 
 If you having troubles with npm dependencies try run the commands below:
 
 ```sh
-npm cache clear
+rm -rf node_modules
 npm install
 ```
 
-Running Application
--------------------
+## Running Application
+
+This will run the webpack dev server which will rebuild as you make changes.
 
 ```sh
-nvm use 6.2.0
 npm start
 ```
 
-Running Tests
--------------
+Now you can see the web interface at [http://localhost:8080]. You will still need to run the rest of the Polis
+application components (via docker compose or otherwise) to have a functional interface.
 
-We aspire to use the Jest Testing Framework. We welcome contributors to help us write tests!
+The client-admin will look for an API server at whatever domain and port it is itself running on, e.g. `localhost`.
 
-```sh
-# Doesn't work right now. Will need to reinstall jest.
-npm test
-```
+_In the future this should become more customizable._
 
-Building and Deploying for Production
--------------------------------------
+## Building for Production
 
-To build static assets for a production deployment, run
+To build static assets into `build/` for a production deployment, run
 
 ```sh
-gulp dist
+npm run build:prod
 ```
 
-As a convenience, the `npm deploy:prod` is provided for deploying to AWS S3 or via SCP to a static file server.
-For S3 deployment, place your AWS credentials in a JSON file at `.polis_s3_creds_client.json` that looks like this:
+_The polis file-server process builds and serves these assets when docker compose is used._
 
-```json
-{"key": "XXXXXXX", "secret": "YYYYYYY"}
-```
-
----
-
-### Icons from the Noun Project
-
-* Checklist by David Courey from the Noun Project
-* AI by mungang kim from the Noun Project
-* Science by Akriti Bhusal from the Noun Project
-* Success File by Ben Davis from the Noun Project
-
-### Collections to look into
-
-* https://thenounproject.com/vectorsmarket/collection/project-management-line-icon/?i=1326778
-
+See the "scripts" section of the package.json file for other run and build options.

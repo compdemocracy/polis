@@ -1,36 +1,35 @@
 {
-  "name": "polis-cypress",
-  "version": "0.0.1",
-  "description": "End to End testing for pol.is",
+  "name": "polis-e2e",
+  "version": "1.0.0",
+  "description": "End-to-End test suite for polis, using Cypress.js",
   "main": "index.js",
   "scripts": {
-    "cypress": "cypress open",
+    "start": "cypress open",
+    "test": "cypress run --spec 'cypress/e2e/!(third-party)/**/*.cy.js'",
+    "test:all": "cypress run --spec 'cypress/**/*.cy.js'",
+    "e2e": "npm test",
+    "e2e:chrome": "npm test -- --browser chrome",
+    "cy:run": "cypress run",
+    "cy:open": "cypress open",
     "lint": "eslint .",
-    "lint:fix": "eslint --fix .",
-    "test": "npm run e2e:all",
-    "e2e:all": "cypress run --spec 'cypress/integration/polis/**' --browser=chrome",
-    "e2e:minimal": "cypress run --spec '**/kitchensink.spec.js' --browser=chrome",
-    "e2e:standalone": "cypress run --spec '**/polis/**/!(*.secrets).spec.js' --browser=chrome",
-    "e2e:secret": "cypress run --spec '**/(*.secrets).spec.js' --browser=chrome",
-    "e2e:subset": "cypress run --spec **/*${TEST_FILTER:-kitchensink}*.spec.js --browser=chrome --no-exit"
+    "lint:fix": "eslint . --fix",
+    "prettier": "prettier --write .",
+    "build:embed": "node build-embed.js",
+    "build:integrated": "node build-integrated.js"
   },
-  "author": "Benjamin Rosas <ben@aliencyb.org>",
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@faker-js/faker": "^8.2.0",
+    "cypress": "^13.5.0",
+    "cypress-terminal-report": "^5.3.9",
+    "yargs": "^17.7.2"
+  },
   "devDependencies": {
-    "cypress": "^6.8.0",
-    "cypress-iframe": "git+http://git@gitlab.com/patcon/cypress-iframe.git#cc50356ac674641c2d4735e837b47ff30c947a21",
-    "cypress-terminal-report": "^1.4.1",
-    "eslint": "^7.1.0",
-    "eslint-config-prettier": "^6.11.0",
-    "eslint-config-prettier-standard": "^3.0.1",
-    "eslint-config-standard": "^14.1.1",
-    "eslint-plugin-chai-friendly": "^0.6.0",
-    "eslint-plugin-cypress": "^2.11.1",
-    "eslint-plugin-import": "^2.20.2",
-    "eslint-plugin-node": "^11.1.0",
-    "eslint-plugin-prettier": "^3.1.3",
-    "eslint-plugin-promise": "^4.2.1",
-    "eslint-plugin-standard": "^4.0.1",
-    "prettier": "^2.0.5",
-    "prettier-config-standard": "^1.0.1"
+    "eslint": "^8.53.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-cypress": "^2.15.1",
+    "eslint-plugin-mocha": "^10.2.0",
+    "prettier": "^3.0.3"
   }
 }

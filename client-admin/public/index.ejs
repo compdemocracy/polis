@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Polis</title>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+  <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    * { font-variant-ligatures: none; }
+  </style>
+</head>
+<body class="viewport avenir">
+  <% if (enableTwitterWidgets) { %>
+    <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+  <% } %>
+
+  <% if (fbAppId) { %>
+    <div id="fb-root"></div>
+    <script>
+      window.fbAsyncInit = function() {
+        FB.init({
+          appId            : '<%= fbAppId %>',
+          xfbml            : true,
+          version          : 'v2.1'
+        });
+      };
+    </script>
+    <script async defer crossorigin="anonymous" src="https://connect.facebook.net/en_US/sdk.js"></script>
+  <% } %>
+
+  <div id="root"></div>
+</body>
+</html>

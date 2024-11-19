@@ -2,9 +2,7 @@
 
 (ns polismath.utils
   (:use clojure.core.matrix)
-  (:require [taoensso.timbre.profiling :as profiling
-               :refer (pspy pspy* profile defnp p p*)]
-            [clojure.core.matrix :as matrix]
+  (:require [clojure.core.matrix :as matrix]
             [clojure.math.numeric-tower :as math]
             [clojure.core.matrix :as mat]
             [clojure.tools.trace :as tr]))

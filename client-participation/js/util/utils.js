@@ -1,6 +1,6 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-var _ = require("underscore");
+var _ = require("lodash");
 var anonPicBase64 = require("../images/anon_profile");
 var PolisStorage = require("./polisStorage");
 
@@ -13,16 +13,6 @@ function millisSinceJoin() {
 function daysSinceJoin() {
   console.log('daysSinceJoin', millisSinceJoin(), millisPerDay);
   return (millisSinceJoin() / millisPerDay) >> 0;
-}
-
-function numberOfDaysInTrial() {
-  return (window.userObject && window.userObject.daysInTrial) || 10;
-}
-
-function trialDaysRemaining() {
-  console.log('trial', numberOfDaysInTrial(), daysSinceJoin());
-
-  return Math.max(0, numberOfDaysInTrial() - daysSinceJoin());
 }
 
 function mapObj(o, f) {
@@ -170,18 +160,9 @@ function shouldFocusOnTextareaWhenWritePaneShown() {
   return false;
 }
 
-function parseQueryParams(s) {
-  if (!_.isString(s)) {
-    return {};
-  }
-  if (s.charAt(0) === "?") {
-    s = s.slice(1);
-  }
-  var pairStrings = s.split("&");
-  var pairArrays = _.map(pairStrings, function(pairString) {
-    return pairString.split("=");
-  });
-  return _.object(pairArrays);
+function parseQueryParams(queryString) {
+  const params = new URLSearchParams(queryString);
+  return Object.fromEntries(params);
 }
 
 function toQueryParamString(o) {
@@ -337,7 +318,7 @@ function userCanSeeFooter() {
   var params = parseQueryParams(window.location.search);
   var ucsf = params.ucsf;
   ucsf = (ucsf === "true" || ucsf === "1" || _.isUndefined(ucsf));
-  if (!ucsf && !ownerCanDisableBranding()) {
+  if (!ucsf) {
     ucsf = true;
   }
   return ucsf;
@@ -366,10 +347,6 @@ function userCanSeeSubscribePrompt() {
   // 1 is for email, there are no other options yet.
   x = (x === 1 || x === "1" || x === "true");
   return x;
-}
-
-function ownerCanDisableBranding() {
-  return window.preload.firstConv.plan >= 99;
 }
 
 function getXid() {
@@ -454,21 +431,6 @@ module.exports = {
   supportsVis: function() {
     return this.supportsSVG() && !this.isIE8();
   },
-  isTrialUser: function() {
-    return !PolisStorage.planCode();
-  },
-  isIndividualUser: function() {
-    return PolisStorage.planCode() === 1;
-  },
-  isStudentUser: function() {
-    return PolisStorage.planCode() === 2;
-  },
-  isPpUser: function() {
-    return PolisStorage.planCode() === 3;
-  },
-  isEnterpriseUser: function() {
-    return PolisStorage.planCode() === 1000;
-  },
   getAnonPicUrl: function() {
     return anonPicBase64;
   },
@@ -500,7 +462,5 @@ module.exports = {
   strToHex: strToHex,
   decodeParams: decodeParams,
   encodeParams: encodeParams,
-  numberOfDaysInTrial: numberOfDaysInTrial,
-  trialDaysRemaining: trialDaysRemaining,
   cookiesEnabled: are_cookies_enabled
 };

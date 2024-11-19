@@ -4,44 +4,44 @@ import React from "react";
 import CommentList from "../lists/commentList";
 import * as globals from "../globals";
 import _ from "lodash";
-import Flex from "../framework/flex"
+// import Flex from "../framework/flex"
 
-function type(d) {
-  if (!d.value) return;
-  d.value = +d.value;
-  return d;
-}
+// function type(d) {
+//   if (!d.value) return;
+//   d.value = +d.value;
+//   return d;
+// }
 
-var formatValue = d3.format(",d");
-var probabilitiesScale = d3.scaleLinear().domain([-1, 1]).range([0, 1])
+// var formatValue = d3.format(",d");
+// var probabilitiesScale = d3.scaleLinear().domain([-1, 1]).range([0, 1])
 
-const ProbabilityLegend = () => {
-  return (
-    <div style={{width: 500, marginTop: 30, marginBottom: 30}}>
-      <Flex justifyContent={"space-between"} alignItems={"baseline"} styleOverrides={{marginBottom: 5}}>
-        <span style={{fontSize: 10, width: 150}}>
-          negatively correlated
-        </span>
-        <span style={{fontSize: 10, width: 150, textAlign: "right"}}>
-          positively correlated
-        </span>
-      </Flex>
-      <img
-        style={{marginLeft: 0}}
-        width={"100%"}
-        height={20}
-        src={"https://raw.githubusercontent.com/d3/d3-scale-chromatic/master/img/PuOr.png"}/>
-      <Flex justifyContent={"space-between"} alignItems={"baseline"}>
-        <span style={{fontSize: 10, width: 150}}>
-          These two comments are in opposition. Participants who agreed with one comment tended to disagree with the other, or vice versa.
-        </span>
-        <span style={{fontSize: 10, width: 150, textAlign: "right"}}>
-          These two comments are harmonious. Participants tended to vote the same way on both comments, either agreeing or disagreeing with both.
-        </span>
-      </Flex>
-    </div>
-  )
-}
+// const ProbabilityLegend = () => {
+//   return (
+//     <div style={{width: 500, marginTop: 30, marginBottom: 30}}>
+//       <Flex justifyContent={"space-between"} alignItems={"baseline"} styleOverrides={{marginBottom: 5}}>
+//         <span style={{fontSize: 10, width: 150}}>
+//           negatively correlated
+//         </span>
+//         <span style={{fontSize: 10, width: 150, textAlign: "right"}}>
+//           positively correlated
+//         </span>
+//       </Flex>
+//       <img
+//         style={{marginLeft: 0}}
+//         width={"100%"}
+//         height={20}
+//         src={"https://raw.githubusercontent.com/d3/d3-scale-chromatic/master/img/PuOr.png"}/>
+//       <Flex justifyContent={"space-between"} alignItems={"baseline"}>
+//         <span style={{fontSize: 10, width: 150}}>
+//           These two comments are in opposition. Participants who agreed with one comment tended to disagree with the other, or vice versa.
+//         </span>
+//         <span style={{fontSize: 10, width: 150, textAlign: "right"}}>
+//           These two comments are harmonious. Participants tended to vote the same way on both comments, either agreeing or disagreeing with both.
+//         </span>
+//       </Flex>
+//     </div>
+//   )
+// }
 
 
 class VoronoiCells extends React.Component {

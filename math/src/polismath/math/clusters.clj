@@ -2,9 +2,7 @@
 
 (ns polismath.math.clusters
   (:refer-clojure :exclude [* - + == /])
-  (:require [taoensso.timbre.profiling :as prof
-             :refer (pspy pspy* profile defnp p p*)]
-            [taoensso.timbre :as log]
+  (:require [taoensso.timbre :as log]
             [plumbing.core :as pc
              :refer (fnk map-vals <-)]
             [plumbing.graph :as gr]

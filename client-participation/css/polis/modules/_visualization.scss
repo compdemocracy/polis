@@ -180,8 +180,8 @@ $HULL_HOVER_COLOR: #f5f5f5;
 
 /* http://stackoverflow.com/questions/16489307/how-to-remove-gutter-space-for-a-specific-div-only-bootstrap  */
 .row.no-gutter [class*='col-']:not(:first-child),.row.no-gutter [class*='col-']:not(:last-child) {
-  padding-right:0;
-  padding-left:0;
+  padding-inline-end:0;
+  padding-inline-start:0;
 }
 
 .help_text_you {

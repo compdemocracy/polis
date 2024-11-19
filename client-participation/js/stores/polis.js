@@ -8,6 +8,8 @@ var PostMessageUtils = require("../util/postMessageUtils");
 var preloadHelper = require("../util/preloadHelper");
 var Utils = require("../util/utils");
 var Net = require("../util/net");
+var $ = require("jquery");
+var d3 = require("../3rdparty/d3.v4.min");
 
 var PTPOI_BID_OFFSET = 1e10;
 
@@ -199,7 +201,7 @@ module.exports = function(params) {
         return;
       }
       // getCommentVelocities().then(function() {
-      var IDs = _.pluck(comments, "tid");
+      var IDs = _.map(comments, "tid");
       var oldkeys = _.keys(commentsToVoteOn).map(
         function(tid) {
           return parseInt(tid, 10);
@@ -213,7 +215,7 @@ module.exports = function(params) {
         }
       });
       var newComments = comments.filter(function(ev) {
-        return _.contains(newIDs, ev.tid);
+        return _.includes(newIDs, ev.tid);
       });
       for (var i = 0; i < newComments.length; i++) {
         var tid = newComments[i].tid;
@@ -271,7 +273,7 @@ module.exports = function(params) {
     }
 
     if (Utils.isDemoMode()) {
-      params.without = votesByMe.pluck("tid");
+      params.without = _.map(votesByMe, "tid");
     }
 
     if (o && !_.isUndefined(o.notTid)) {
@@ -949,7 +951,7 @@ module.exports = function(params) {
         }
       }
       if (duplicateColumns.length) {
-        alert('removing duplicate columns: ' + _.pluck(duplicateColumns, "name"));
+        alert('removing duplicate columns: ' + _.map(duplicateColumns, "name"));
       }
       // Remove duplicate columns
       (function() {
@@ -1241,7 +1243,7 @@ module.exports = function(params) {
           if (_.isNumber(pcaData.voteCount)) {
             eb.trigger(eb.voteCount, pcaData.voteCount);
           }
-          //var myself = _.findWhere(people, {pid: getPid()});
+          //var myself = people.find(p => p.pid === getPid());
           //people = _.without(people, myself);
           //people.push(myself);
 
@@ -1256,7 +1258,7 @@ module.exports = function(params) {
 
 
           // gid -> {members: [bid1, bid2, ...], ...}
-          var clusters = _.indexBy(pcaData["group-clusters"], "id");
+          var clusters = _.keyBy(pcaData["group-clusters"], "id");
 
 
           // buckets = _.map(pcaData["group-clusters"], function(cluster) {
@@ -1284,7 +1286,7 @@ module.exports = function(params) {
             function(bucketsForGid, gid) {
               gid = parseInt(gid);
               var bigBucket = _.reduce(bucketsForGid, function(o, bucket) {
-                if (_.contains(participantsOfInterestBids, bucket.id)) {
+                if (_.includes(participantsOfInterestBids, bucket.id)) {
                   // debugger;
                   // o.ptptoiCount += 1;
                   return o;
@@ -1332,7 +1334,7 @@ module.exports = function(params) {
 
           // remove the buckets that only contain a ptptoi
           buckets = _.filter(buckets, function(b) {
-            var hasPtptOI = _.contains(participantsOfInterestBids, b.id);
+            var hasPtptOI = _.includes(participantsOfInterestBids, b.id);
             if (hasPtptOI) {
               if (b.count === 1) {
                 return false;
@@ -1591,7 +1593,7 @@ module.exports = function(params) {
       return total / items.length;
     }
 
-    var bidToNode = _.indexBy(people, "bid");
+    var bidToNode = _.keyBy(people, "bid");
 
     function getxy(bid, dim) {
       var node = bidToNode[bid];
@@ -1701,9 +1703,7 @@ module.exports = function(params) {
     }).pipe(function(results) {
       // they arrive out of order, so map results onto the array that has the right ordering.
       return comments.map(function(comment) {
-        return _.findWhere(results, {
-          tid: comment.id
-        });
+        return results.find(r => r.tid === comment.id);
       });
     });
   }
@@ -1783,8 +1783,8 @@ module.exports = function(params) {
     // delay since clustersCache might not be populated yet.
     $.when(votesForTidBidPromise, clustersCachePromise).done(function() {
 
-      var tidToR = _.indexBy(repness[gid], "tid");
-      var tids = _.pluck(repness[gid], "tid");
+      var tidToR = _.keyBy(repness[gid], "tid");
+      var tids = _.map(repness[gid], "tid");
 
       // // Grab stats and turn into list of triples for easier mogrification
       // var tidToStats = groupVoteStats(clustersCache[gid], votesForTidBid);
@@ -1797,7 +1797,7 @@ module.exports = function(params) {
       // // Create a tidToR mapping which is a restriction of the tidToStats to just the repness. This is
       // // what code other than getCommentsForGroup is expecting; if other stuff starts wanting the prob
       // // estimates, we can change the API
-      // var tidToR = _.object(_.map(triples, function(t) {return [t[0], t[1]];}));
+      // var tidToR = _.fromPairs(_.map(triples, function(t) {return [t[0], t[1]];}));
 
       // // filter out comments with insufficient repness or agreement probability
       // var filteredTriples = _.filter(triples, function(t) {
@@ -1999,7 +1999,7 @@ module.exports = function(params) {
         }
       });
       participantsOfInterestVotes = x;
-      participantsOfInterestBids = _.pluck(_.values(participantsOfInterestVotes), "bid");
+      participantsOfInterestBids = _.map(_.values(participantsOfInterestVotes), "bid");
     });
   }
 
@@ -2098,7 +2098,6 @@ module.exports = function(params) {
     var numComments = pcaCenter.length;
     var numVotes = o.votes.length;
 
-    // https://files.slack.com/files-pri/T02G773HK-F02N30MKD/slack_for_ios_upload.jpg
     if (numVotes > 0 && (o.pid !== -1 || USE_JETPACK_FOR_SELF)) {
       var jetpack_aka_sparsity_compensation_factor = Math.sqrt(numComments / numVotes);
       x *= jetpack_aka_sparsity_compensation_factor;
@@ -2209,7 +2208,7 @@ module.exports = function(params) {
   //     });
   //     var buckets = []; // index==bid, [voteForTidAt0, voteForTidAt1, ...]
   //     var len = comments[0].votes.length;
-  //     var tids = _.map(_.pluck(comments, "tid"), function(tid) { return Number(tid);});
+  //     var tids = _.map(_.map(comments, "tid"), function(tid) { return Number(tid);});
   //     var tidToIndex = {};
   //     _.each(comments, function(o) {
   //         // Pack the subsets of tids into a dense array.
@@ -2426,8 +2425,6 @@ module.exports = function(params) {
     }
 
     var numComments = pcaCenter.length;
-
-    // https://files.slack.com/files-pri/T02G773HK-F02N30MKD/slack_for_ios_upload.jpg
 
     var numVotes = 1; // pretend the comment is a person who voted for only itself
     var jetpack_aka_sparsity_compensation_factor = Math.sqrt(numComments / numVotes);

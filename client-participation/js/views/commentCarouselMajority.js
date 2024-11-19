@@ -2,11 +2,11 @@
 
 
 var CommentCarousel = require('./commentCarousel');
-var carouselCommentMobileTemplate = require("../tmpl/carouselCommentMobile");
-var carouselCommentTemplate = require("../tmpl/carouselComment");
+var carouselCommentMobileTemplate = require("../templates/carouselCommentMobile.handlebars");
+var carouselCommentTemplate = require("../templates/carouselComment.handlebars");
 var constants = require("../util/constants");
 var display = require("../util/display");
-var template = require("../tmpl/commentCarouselMajority");
+var template = require("../templates/commentCarouselMajority.handlebars");
 var Strings = require("../strings");
 var Utils = require("../util/utils");
 
@@ -26,11 +26,11 @@ module.exports = CommentCarousel.extend({
     // Copy comments out of collection. don't want to sort collection, since it's shared with Analyze View.
     var commentsAll = that.collection.models.slice(0);
     // comments = _.filter(comments, function(comment) {
-    //   return _.contains(tids, comment.get('tid'));
+    //   return _.includes(tids, comment.get('tid'));
     // });
     var consensusComments = that.getTidsForConsensus();
 
-    var tidToConsensusInfo = _.indexBy(consensusComments, "tid");
+    var tidToConsensusInfo = _.keyBy(consensusComments, "tid");
 
     var comments = _.filter(commentsAll, function(c) {
       return !!tidToConsensusInfo[c.get("tid")];

@@ -4,59 +4,59 @@ var preloadHelper = require("./util/preloadHelper");
 var Utils = require("./util/utils");
 
 var translations = {
-  en_us: require("./strings/en_us.js"),
-  // ja:  require("./strings/ja.js"),
-
-  // zh-Hant is Traditional Chinese (TW, MO and HK can use the same file.)
-  zh_Hant: require("./strings/zh_Hant.js"),
-
-  // zh-Hans is Simplified Chinese. (CN, SG and MY can use the same file.)
-  zh_Hans: require("./strings/zh_Hans.js"),
-
-  // Danish
-  da: require("./strings/da_dk.js"),
-
-  // German
-  de: require("./strings/de_de.js"),
-
-  // Spanish
-  es: require("./strings/es_la.js"),
-
-  // French
-  fr: require("./strings/fr.js"),
-
-  // Italian
-  it: require("./strings/it.js"),
-
-  // Dutch
-  nl: require("./strings/nl.js"),
-
-  // Brazilian Portuguese (all portuguese speakers are temporarily using the same file.)
-  pt_br: require("./strings/pt_br.js"),
-
-  // Japanese
-  ja: require("./strings/ja.js"),
-
-  // Croatian
-  hr: require("./strings/hr.js"),
-
-  // Slovak
-  sk: require("./strings/sk.js"),
-
-  // Hebrew
-  he: require("./strings/he.js"),
-
+  // Arabic
+  ar: require("./strings/ar.js"),
   // Welsh
   cy: require("./strings/cy.js"),
-
+  // Danish
+  da: require("./strings/da_dk.js"),
+  // German
+  de: require("./strings/de_de.js"),
   // Greek
-  gr: require("./strings/gr.js"),
-
-  // Ukrainian
-  uk: require("./strings/uk.js"),
-
+  el: require("./strings/gr.js"),
+  // English
+  en_us: require("./strings/en_us.js"),
+  // Spanish
+  es: require("./strings/es_la.js"),
+  // Farsi
+  fa: require("./strings/fa.js"),
+  // French
+  fr: require("./strings/fr.js"),
+  // Frisian
+  fy: require("./strings/fy_nl.js"),
+  // Hebrew
+  he: require("./strings/he.js"),
+  // Croatian
+  hr: require("./strings/hr.js"),
+  // Italian
+  it: require("./strings/it.js"),
+  // Japanese
+  ja: require("./strings/ja.js"),
+  // Dutch
+  nl: require("./strings/nl.js"),
+  // Portuguese
+  // Brazilian Portuguese (all portuguese speakers are temporarily using the same file.)
+  pt_br: require("./strings/pt_br.js"),
+  // Portuguese (Timor-Leste)
+  // pt_tl: require("./strings/pt_tl.js"),
+  // Romanian & Moldovan
+  ro: require("./strings/ro.js"),
   // Russian
   ru: require("./strings/ru.js"),
+  // Slovak
+  sk: require("./strings/sk.js"),
+  // Tamil
+  ta: require("./strings/ta.js"),
+  // Tetum (Timor)
+  tdt: require("./strings/tdt.js"),
+  // Ukrainian
+  uk: require("./strings/uk.js"),
+  // Chinese
+  // zh-Hans is Simplified Chinese. (CN, SG and MY can use the same file.)
+  zh_Hans: require("./strings/zh_Hans.js"),
+  // Chinese (Taiwan)
+  // zh-Hant is Traditional Chinese (TW, MO and HK can use the same file.)
+  zh_Hant: require("./strings/zh_Hant.js"),
 };
 
 
@@ -76,63 +76,63 @@ preloadHelper.acceptLanguagePromise.then(function() {
   prioritized.reverse();
 
 
-  prioritized.forEach(function(languageCode) {
+  prioritized.forEach(function (languageCode) {
     if (languageCode.match(/^en/)) {
       _.extend(strings, translations.en_us);
-    }
-    else if (languageCode.match(/^ja/)) {
+    } else if (languageCode.match(/^ja/)) {
       _.extend(strings, translations.ja);
-    }
-    else if (
+    } else if (
       languageCode.match(/^zh-CN/) ||
       languageCode.match(/^zh-SG/) ||
-      languageCode.match(/^zh-MY/)) {
+      languageCode.match(/^zh-MY/)
+    ) {
       _.extend(strings, translations.zh_Hans);
-    }
-    else if (languageCode.match(/^zh/)) { // TW, MO and HK
+    } else if (languageCode.match(/^zh/)) {
       _.extend(strings, translations.zh_Hant);
-    }
-    else if (languageCode.match(/^it/)) {
+    } else if (languageCode.match(/^it/)) {
       _.extend(strings, translations.it);
-    }
-    else if (languageCode.match(/^da/)) {
+    } else if (languageCode.match(/^da/)) {
       _.extend(strings, translations.da);
-    }
-    else if (languageCode.match(/^de/)) {
+    } else if (languageCode.match(/^de/)) {
       _.extend(strings, translations.de);
-    }
-    else if (languageCode.match(/^es/)) {
+    } else if (languageCode.match(/^es/)) {
       _.extend(strings, translations.es);
-    }
-    else if (languageCode.match(/^fr/)) {
+    } else if (languageCode.match(/^fa/)) {
+      _.extend(strings, translations.fa);
+    } else if (languageCode.match(/^fr/)) {
       _.extend(strings, translations.fr);
-    }
-    else if (languageCode.match(/^nl/)) {
+    } else if (languageCode.match(/^nl/)) {
       _.extend(strings, translations.nl);
-    }
-    else if (languageCode.match(/^sk/)) {
+    } else if (languageCode.match(/^sk/)) {
       _.extend(strings, translations.sk);
-    }
-    else if (
-      languageCode.match(/^pt/) ||  // To help other Portuguese speaker participants until its specific translation is not here
-      languageCode.match(/^pt-PT/) ||  // To help Portuguese participantes until an specific translation is not here
-      languageCode.match(/^pt-BR/)) {
+    } else if (
+      languageCode.match(/^pt/) ||    // To help Portuguese participants until a specific translation is here
+      languageCode.match(/^pt-PT/) || // To help Portuguese participants until a specific translation is here
+      languageCode.match(/^pt-BR/)
+    ) {
       _.extend(strings, translations.pt_br);
-    }
-    else if (languageCode.match(/^he/)) {
+    } else if (languageCode.match(/^he/)) {
       _.extend(strings, translations.he);
-    }
-    else if (languageCode.match(/^cy/)) {
+    } else if (languageCode.match(/^cy/)) {
       _.extend(strings, translations.cy);
-    }
-    else if (languageCode.match(/^gr/)) {
-      _.extend(strings, translations.gr);
-    }
-    else if (languageCode.match(/^uk/)) {
+    } else if (languageCode.match(/^el/)) {
+      _.extend(strings, translations.el);
+    } else if (languageCode.match(/^uk/)) {
       _.extend(strings, translations.uk);
-    }
-    else if (languageCode.match(/^ru/)) {
+    } else if (languageCode.match(/^ru/)) {
       _.extend(strings, translations.ru);
+    } else if (languageCode.match(/^ro/)) {
+      _.extend(strings, translations.ro);
+    } else if (languageCode.match(/^hr/)) {
+      _.extend(strings, translations.hr);
+    } else if (languageCode.match(/^ar/)) {
+      _.extend(strings, translations.ar);
+    } else if (languageCode.match(/^fy/)) {
+      _.extend(strings, translations.fy);
+    } else if (languageCode.match(/^ta/)) {
+      _.extend(strings, translations.ta);
+    } else if (languageCode.match(/^tdt/)) {
+      _.extend(strings, translations.tdt);
     }
   });
 });

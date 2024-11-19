@@ -1,6 +1,6 @@
 .env
-.env_dev
 .git
 .google_creds_temp
-npm-debug.log
-node_modules
+logs/
+node_modules/
+npm-debug.log*

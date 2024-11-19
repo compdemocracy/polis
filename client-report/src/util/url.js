@@ -1,53 +1,43 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-var prod = "https://pol.is/";
-var preprod = "https://preprod.pol.is/";
-var embed = "https://embed.pol.is/";
-var survey = "https://survey.pol.is/";
-var polisio = "https://www.polis.io/";
-var localhost = "http://localhost:5000/";
-var localhost5002 = "http://localhost:5002/";
-var localhost5010 = "http://localhost:5010/";
+// Determine where to send API requests.
+//
+// If client-report is running on localhost:5010, it is running via webpack-dev-server,
+// and should send requests to localhost:5000. (Dev API server)
+//
+// If client-report is running on localhost:5000, it is being served by the dev api server,
+// and should send requests to localhost:5000. (Dev API server)
+//
+// If client-report is running on localhost:80, it is being served by the dev api server,
+// via nginx-proxy, and should send requests to localhost:80. (Dev API server via nginx-proxy).
+//
+// If client-report is running on any polis production hostname,
+// it should send requests to that hostname.
+//
+// Otherwise, use the SERVICE_URL environment variable, if set, or default to
+// the current origin (e.g. "https://mypolis.xyz/").
 
-var urlPrefix = prod;
-if (document.domain.indexOf("preprod") >= 0) {
-    urlPrefix = preprod;
-}
-if (document.domain.indexOf("embed") >= 0) {
-    urlPrefix = embed;
-}
-if (document.domain.indexOf("survey") >= 0) {
-    urlPrefix = survey;
-}
-if (document.domain.indexOf("polis.io") >= 0) {
-    urlPrefix = polisio;
-}
-if ((-1 === document.domain.indexOf("pol.is")) && (-1 === document.domain.indexOf("polis.io"))) {
-    urlPrefix = localhost;
-}
+// NOTE: SERVICE_URL is currently not present in the production build.
+// It is only present in the dev build via webpack-dev-server.
 
-if (document.domain === "localhost" && document.location.port === "5002") {
-  urlPrefix = localhost5002;
-}
+const serviceUrl = process.env.SERVICE_URL;
+const hostname = self.location.hostname;
+const port = self.location.port;
 
-if (document.domain === "localhost" && document.location.port === "5010") {
-  urlPrefix = localhost5010;
-}
+const getDomainPrefix = () => {
+  if (hostname === 'localhost') {
+    if (port === '' || port === '80') return 'http://localhost/';
+    return 'http://localhost:5000/';
+  }
 
-if (0 === document.domain.indexOf("192.168") || (new RegExp(/\.(ssl|n)ip\.io/)).test(document.domain) ) {
-  urlPrefix = "http://" + document.location.hostname + ":" + document.location.port + "/";
-}
+  if (hostname.includes('pol.is')) return `https://${hostname}/`;
+  if (hostname.includes('polis.io')) return `https://${hostname}/`;
 
-function isPreprod() {
-  return urlPrefix === preprod;
-}
+  if (serviceUrl) return `${serviceUrl}/`;
 
-function isLocalhost() {
-  return urlPrefix === localhost || urlPrefix === localhost8000;
-}
-const foo = {
-  urlPrefix: urlPrefix,
-  isPreprod: isPreprod,
-  isLocalhost: isLocalhost
+  return `${self.origin}/`;
 };
-export default foo;
+
+const urlPrefix = getDomainPrefix();
+
+export default { urlPrefix };

@@ -24,9 +24,9 @@ jobs:
           echo "name=HAS_SECRET" >> $GITHUB_ENV
 
       - name: Use Node.js
-        uses: actions/setup-node@v2.1.5
+        uses: actions/setup-node@v4
         with:
-          node-version: 14.4.0
+          node-version: 18
 
       # See: https://github.com/taskworld/commit-status
       - name: Install commit-status CLI tool
@@ -39,7 +39,7 @@ jobs:
           commit-status pending "DepCheck / dependencies"    "Detecting unused packages..."
           commit-status pending "DepCheck / devDependencies" "Detecting unused packages..."
 
-      - uses: actions/checkout@v2.3.4
+      - uses: actions/checkout@v4
 
       - name: Install depcheck CLI tool
         run: npm install -g depcheck
@@ -58,7 +58,7 @@ jobs:
           # - prettier: because it's needed by eslint-plugin-prettier, but peerDependencies aren't yet supported.
           #   See: https://github.com/depcheck/depcheck/issues/522
           # - webpack-cli: Needed for `webpack` command, but provide `webpack-cli` bin, which confuses depcheck.
-          DEPCHECK_IGNORES: "prettier,prettier-config-standard,webpack-cli,gulp-cli"
+          DEPCHECK_IGNORES: "prettier,prettier-config-standard,webpack-cli"
         run: |
           # Note: Commit status descriptions can have 140 characters max. (We add an ellipsis in the final step as final char)
           # Suppress failing exit codes with `true`.

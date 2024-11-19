@@ -10,7 +10,7 @@
 
 .ToggleContent {
   padding-left: $default-whitespace;
-  border-left: 2px solid $brand-color;
+  border-inline-start: 2px solid $brand-color;
 
   color: $dark-gray;
 }

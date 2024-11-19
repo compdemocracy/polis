@@ -1,4 +1,5 @@
 import React from "react";
+import _ from "lodash";
 import * as globals from "./globals";
 
 const GraphAxes = ({yCenter, xCenter, report}) => {

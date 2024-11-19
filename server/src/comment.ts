@@ -1,13 +1,14 @@
 import _ from "underscore";
 import fs from "fs";
 import Translate from "@google-cloud/translate";
-import isTrue from "boolean";
 
 import pg from "./db/pg-query";
 import SQL from "./db/sql";
 import { MPromise } from "./utils/metered";
 import Utils from "./utils/common";
+import logger from "./utils/logger";
 
+import Config from "./config";
 import Conversation from "./conversation";
 import User from "./user";
 import { CommentType } from "./d";
@@ -44,20 +45,8 @@ type UidToSocialInfo = {
   [key: string]: any;
 };
 
-const useTranslateApi = isTrue(process.env.SHOULD_USE_TRANSLATION_API);
-let translateClient: any = null;
-if (useTranslateApi) {
-  // Tell translation library where to find credentials, and write them to disk.
-  process.env.GOOGLE_APPLICATION_CREDENTIALS = ".google_creds_temp";
-  // TODO: Consider deprecating GOOGLE_CREDS_STRINGIFIED in future.
-  const creds_string = process.env.GOOGLE_CREDENTIALS_BASE64
-    ? new Buffer(process.env.GOOGLE_CREDENTIALS_BASE64, "base64").toString(
-        "ascii"
-      )
-    : (process.env.GOOGLE_CREDS_STRINGIFIED as string | NodeJS.ArrayBufferView);
-  fs.writeFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS, creds_string);
-  translateClient = Translate();
-}
+const useTranslateApi: boolean = Config.shouldUseTranslationAPI;
+const translateClient = useTranslateApi ? Translate() : null;
 
 function getComment(zid: Id, tid: Id) {
   return (
@@ -164,10 +153,11 @@ function getComments(o: CommentType) {
               try {
                 let temp = JSON.parse(info.fb_public_profile);
                 infoToReturn.fb_verified = temp.verified;
-              } catch (e) {
-                console.error(
-                  "error parsing JSON of fb_public_profile for uid: ",
-                  info.uid
+              } catch (err) {
+                logger.error(
+                  "error parsing JSON of fb_public_profile for uid: " +
+                    info.uid,
+                  err
                 );
               }
             }

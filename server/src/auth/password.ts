@@ -200,7 +200,6 @@ function generateTokenP(len: any, pseudoRandomOk: any) {
 //     uidsX.push(i);
 // }
 // addApiKeyForUsersBulk(uidsX, "test23").then(function(uids) {
-//     console.log("hihihihi", uids.length);
 //     setTimeout(function() { process.exit();}, 3000);
 // });
 
@@ -208,16 +207,9 @@ function generateTokenP(len: any, pseudoRandomOk: any) {
 // createDummyUsersBatch(3 * 1000).then(function(uids) {
 //         // let time2 = Date.now();
 //         // let dt = time2 - time1;
-//         // console.log("time foo" , dt);
-//         // console.dir(uids);
 //         uids.forEach(function(uid) {
-//             console.log("hihihihi", uid);
 //         });
 //         process.exit(0);
-
-// }).catch(function(err) {
-//     console.error("errorfooooo");
-//     console.error(err);
 // });
 
 export { generateHashedPassword, checkPassword, generateToken, generateTokenP };

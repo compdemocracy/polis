@@ -33,17 +33,17 @@
 
 // Alignment
 .pull-left {
-  float: left;
+  float: inline-start;
 }
 .pull-right {
-  float: right;
+  float: inline-end;
 }
 
 .align-left {
-  text-align: left;
+  text-align: start;
 }
 .align-right {
-  text-align: right;
+  text-align: end;
 }
 
 // Display
