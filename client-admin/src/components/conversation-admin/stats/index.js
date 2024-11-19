@@ -4,7 +4,7 @@
 import dateSetupUtil from '../../../util/data-export-date-setup'
 import React from 'react'
 import { connect } from 'react-redux'
-import { populateConversationStatsStore } from '../../../actions'
+import { populateConversationStatsStore, populateZidMetadataStore } from '../../../actions'
 import NumberCards from './conversation-stats-number-cards'
 import Voters from './voters'
 import Commenters from './commenters'
@@ -52,13 +52,24 @@ class ConversationStats extends React.Component {
   }
 
   componentDidMount() {
-    const { zid_metadata } = this.props
+    const { zid_metadata, match } = this.props
+
+    this.props.dispatch(
+      populateZidMetadataStore(match.params.conversation_id)
+    )
 
     if (zid_metadata.is_mod) {
       this.loadStats()
       this.getStatsRepeatedly = setInterval(() => {
         this.loadStats()
       }, 10000)
+    }
+  }
+
+  componentDidUpdate() {
+    const { zid_metadata } = this.props
+    if (zid_metadata?.is_mod) {
+      this.loadStats()
     }
   }
 
