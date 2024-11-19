@@ -447,7 +447,7 @@ class App extends React.Component {
   render() {
     if (this.state.error) {
       return (
-        <div>
+        <div data-testid="reports-overview">
           <div> Error Loading </div>
           <div> {this.state.errorText} </div>
         </div>
@@ -455,21 +455,21 @@ class App extends React.Component {
     }
     if (this.state.nothingToShow) {
       return (
-        <div>
+        <div data-testid="reports-overview">
           <div> Nothing to show yet </div>
         </div>
       );
     }
     if (this.state.loading) {
       return (
-        <div>
+        <div data-testid="reports-overview">
           <div> Loading ... </div>
         </div>
       );
     }
     console.log("top level app state and props", this.state, this.props);
     return (
-      <div style={{ margin: "0px 10px" }}>
+      <div style={{ margin: "0px 10px" }} data-testid="reports-overview">
         <Heading conversation={this.state.conversation} />
         <div
           style={{
