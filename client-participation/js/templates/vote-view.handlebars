@@ -3,6 +3,12 @@
 
 <div id="comment_shower">
 
+{{#if needSocial}}
+{{!-- ================ CONNECT FACEBOOK / TWITTER ================ --}}
+
+
+{{else}}  {{!-- !needSocial --}}
+
 {{#if empty}}
   <div  style="margin: 20px;" class="Notification Notification--warning"> {{!-- empty scenario div --}}
   {{#if subscribed}}
