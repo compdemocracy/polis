@@ -663,32 +663,32 @@ function initializePolisHelpers() {
           if (!conv.is_active) {
             throw "polis_err_conversation_is_closed";
           }
-          if (conv.auth_needed_to_vote) {
-            return isModerator(zid, uid).then((is_mod: any) => {
-              if (is_mod) {
-                return conv;
-              }
-              return Promise.all([
-                pgQueryP(
-                  "select * from xids where owner = ($1) and uid = ($2);",
-                  [conv.owner, uid]
-                ),
-                getSocialInfoForUsers([uid], zid),
-                // Binding elements 'xids' and 'info' implicitly have an 'any' type.ts(7031)
-                // @ts-ignore
-              ]).then(([xids, info]) => {
-                var socialAccountIsLinked = info.length > 0;
-                // Object is of type 'unknown'.ts(2571)
-                // @ts-ignore
-                var hasXid = xids.length > 0;
-                if (socialAccountIsLinked || hasXid) {
-                  return conv;
-                } else {
-                  throw "polis_err_post_votes_social_needed";
-                }
-              });
-            });
-          }
+          // if (conv.auth_needed_to_vote) {
+          //   return isModerator(zid, uid).then((is_mod: any) => {
+          //     if (is_mod) {
+          //       return conv;
+          //     }
+          //     return Promise.all([
+          //       pgQueryP(
+          //         "select * from xids where owner = ($1) and uid = ($2);",
+          //         [conv.owner, uid]
+          //       ),
+          //       getSocialInfoForUsers([uid], zid),
+          //       // Binding elements 'xids' and 'info' implicitly have an 'any' type.ts(7031)
+          //       // @ts-ignore
+          //     ]).then(([xids, info]) => {
+          //       var socialAccountIsLinked = info.length > 0;
+          //       // Object is of type 'unknown'.ts(2571)
+          //       // @ts-ignore
+          //       var hasXid = xids.length > 0;
+          //       if (socialAccountIsLinked || hasXid) {
+          //         return conv;
+          //       } else {
+          //         throw "polis_err_post_votes_social_needed";
+          //       }
+          //     });
+          //   });
+          // }
           if (conv.use_xid_whitelist) {
             return isXidWhitelisted(conv.owner, xid).then(
               (is_whitelisted: boolean) => {
@@ -8125,10 +8125,6 @@ Email verified! You can close this tab or hit the back button.
         if (!_.isUndefined(req.p.write_type)) {
           fields.write_type = req.p.write_type;
         }
-        ifDefinedSet("auth_needed_to_vote", req.p, fields);
-        ifDefinedSet("auth_needed_to_write", req.p, fields);
-        ifDefinedSet("auth_opt_fb", req.p, fields);
-        ifDefinedSet("auth_opt_tw", req.p, fields);
         ifDefinedSet("auth_opt_allow_3rdparty", req.p, fields);
 
         if (!_.isUndefined(req.p.owner_sees_participation_stats)) {
@@ -8840,12 +8836,8 @@ Email verified! You can close this tab or hit the back button.
         conv.auth_opt_allow_3rdparty,
         true
       );
-      conv.auth_opt_fb_computed =
-        conv.auth_opt_allow_3rdparty &&
-        ifDefinedFirstElseSecond(conv.auth_opt_fb, true);
-      conv.auth_opt_tw_computed =
-        conv.auth_opt_allow_3rdparty &&
-        ifDefinedFirstElseSecond(conv.auth_opt_tw, true);
+      conv.auth_opt_fb_computed = false;
+      conv.auth_opt_tw_computed = false;
 
       conv.translations = translations;
 
@@ -9562,15 +9554,13 @@ Email verified! You can close this tab or hit the back button.
                 owner_sees_participation_stats: !!req.p
                   .owner_sees_participation_stats,
                 // Set defaults for fields that aren't set at postgres level.
-                auth_needed_to_vote:
-                  req.p.auth_needed_to_vote || DEFAULTS.auth_needed_to_vote,
-                auth_needed_to_write:
-                  req.p.auth_needed_to_write || DEFAULTS.auth_needed_to_write,
+                auth_needed_to_vote: DEFAULTS.auth_needed_to_vote,
+                auth_needed_to_write: DEFAULTS.auth_needed_to_write,
                 auth_opt_allow_3rdparty:
                   req.p.auth_opt_allow_3rdparty ||
                   DEFAULTS.auth_opt_allow_3rdparty,
-                auth_opt_fb: req.p.auth_opt_fb || DEFAULTS.auth_opt_fb,
-                auth_opt_tw: req.p.auth_opt_tw || DEFAULTS.auth_opt_tw,
+                auth_opt_fb: DEFAULTS.auth_opt_fb,
+                auth_opt_tw: DEFAULTS.auth_opt_tw,
               })
               .returning("*")
               .toString();
@@ -12469,12 +12459,8 @@ Thanks for using Polis!
           conv.auth_opt_allow_3rdparty,
           DEFAULTS.auth_opt_allow_3rdparty
         );
-        let auth_opt_fb_computed =
-          auth_opt_allow_3rdparty &&
-          ifDefinedFirstElseSecond(conv.auth_opt_fb, DEFAULTS.auth_opt_fb);
-        let auth_opt_tw_computed =
-          auth_opt_allow_3rdparty &&
-          ifDefinedFirstElseSecond(conv.auth_opt_tw, DEFAULTS.auth_opt_tw);
+        let auth_opt_fb_computed = false;
+        let auth_opt_tw_computed = false;
 
         conv = {
           topic: conv.topic,
@@ -12490,14 +12476,8 @@ Thanks for using Polis!
           help_color: conv.help_color,
           help_bgcolor: conv.help_bgcolor,
           style_btn: conv.style_btn,
-          auth_needed_to_vote: ifDefinedFirstElseSecond(
-            conv.auth_needed_to_vote,
-            DEFAULTS.auth_needed_to_vote
-          ),
-          auth_needed_to_write: ifDefinedFirstElseSecond(
-            conv.auth_needed_to_write,
-            DEFAULTS.auth_needed_to_write
-          ),
+          auth_needed_to_vote: false,
+          auth_needed_to_write: false,
           auth_opt_allow_3rdparty: auth_opt_allow_3rdparty,
           auth_opt_fb_computed: auth_opt_fb_computed,
           auth_opt_tw_computed: auth_opt_tw_computed,
@@ -12598,10 +12578,6 @@ Thanks for using Polis!
     let dwok = req.p.dwok;
     let o: ConversationType = {};
     ifDefinedSet("parent_url", req.p, o);
-    ifDefinedSet("auth_needed_to_vote", req.p, o);
-    ifDefinedSet("auth_needed_to_write", req.p, o);
-    ifDefinedSet("auth_opt_fb", req.p, o);
-    ifDefinedSet("auth_opt_tw", req.p, o);
     ifDefinedSet("auth_opt_allow_3rdparty", req.p, o);
     ifDefinedSet("topic", req.p, o);
     if (!_.isUndefined(req.p.show_vis)) {
