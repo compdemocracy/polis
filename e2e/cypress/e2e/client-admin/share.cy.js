@@ -8,7 +8,6 @@ describe('Share page', function () {
       .then(() => cy.visit(this.adminPath))
 
     cy.get('input[data-test-id="strict_moderation"]').check()
-    cy.get('input[data-test-id="auth_needed_to_write"]').uncheck()
   })
 
   beforeEach(function () {
