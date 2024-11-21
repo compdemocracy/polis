@@ -166,14 +166,6 @@ class ConversationConfig extends React.Component {
           notifications when there are new comments to vote on.
         </CheckboxField>
 
-        <CheckboxField field="auth_opt_fb" label="Facebook login prompt">
-          Show Facebook login prompt
-        </CheckboxField>
-
-        <CheckboxField field="auth_opt_tw" label="Twitter login prompt">
-          Show Twitter login prompt
-        </CheckboxField>
-
         <Heading
           as="h6"
           sx={{
@@ -186,18 +178,6 @@ class ConversationConfig extends React.Component {
 
         <CheckboxField field="strict_moderation">
           No comments shown without moderator approval
-        </CheckboxField>
-
-        <CheckboxField
-          field="auth_needed_to_write"
-          label="Require Auth to Comment">
-          Participants cannot submit comments without first connecting either
-          Facebook or Twitter
-        </CheckboxField>
-
-        <CheckboxField field="auth_needed_to_vote" label="Require Auth to Vote">
-          Participants cannot vote without first connecting either Facebook or
-          Twitter
         </CheckboxField>
       </Box>
     )

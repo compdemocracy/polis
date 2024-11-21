@@ -5,42 +5,7 @@
 
 {{#if needSocial}}
 {{!-- ================ CONNECT FACEBOOK / TWITTER ================ --}}
-<div
-  id="socialButtonsVoteView"
-  style="
-    {{!-- display: none; --}}
-    margin: 10px;
-    ">
-  <div class="protip"><p><i class="fa fa-microphone"></i>&nbsp; {{s.connectToVotePrompt}}</p></div>
-  {{#if auth_opt_fb}}
-  {{#unless hasFacebook}}
-    <button id="facebookButtonVoteView" class="facebookButton" style="padding-top: 0px; margin-bottom: 4px;">
-      <i class="svgIcon" style="
-        display: inline-block;
-        position: relative;
-        margin-inline-end: 2px;
-        top: 6px;
-        width: 25px;
-        fill: white;
-      ">{{> iconFaFacebookSquare25}}</i>
-      {{s.connectFacebook}}</button>
-  {{/unless}}
-  {{/if}}
-  {{#if auth_opt_tw}}
-  {{#unless hasTwitter}}
-    <button id="twitterButtonVoteView" class="twitterButton" style="padding-top: 0px; margin-bottom: 4px;">
-    <i class="svgIcon" style="
-      display: inline-block;
-      position: relative;
-      margin-inline-end: 2px;
-      top: 8px;
-      width: 25px;
-      fill: white;
-    ">{{> iconFaTwitter25}}</i>
-      {{s.connectTwitter}}</button>
-  {{/unless}}
-  {{/if}}
-</div>
+
 
 {{else}}  {{!-- !needSocial --}}
 

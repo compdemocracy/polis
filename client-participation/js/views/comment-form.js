@@ -44,8 +44,8 @@ module.exports = Handlebones.ModelView.extend({
       Utils.shouldFocusOnTextareaWhenWritePaneShown();
     ctx.hasTwitter = userObject.hasTwitter;
     ctx.hasFacebook = userObject.hasFacebook && Constants.FB_APP_ID;
-    ctx.auth_opt_tw = preload.firstConv.auth_opt_tw;
-    ctx.auth_opt_fb = preload.firstConv.auth_opt_fb;
+    ctx.auth_opt_tw = false;
+    ctx.auth_opt_fb = false;
     ctx.s = Strings;
     ctx.desktop = !display.xs();
     ctx.hideHelp = !Utils.userCanSeeHelp() || preload.firstConv.help_type === 0;
@@ -251,7 +251,7 @@ module.exports = Handlebones.ModelView.extend({
       window.userObject.hasFacebook ||
       window.userObject.hasTwitter ||
       !_.isUndefined(xid);
-    var needsSocial = preload.firstConv.auth_needed_to_write;
+    var needsSocial = false;
     M.add(M.COMMENT_SUBMIT_CLICK);
     if (hasSocial || !needsSocial) {
       M.add(M.COMMENT_SUBMIT_INIT);

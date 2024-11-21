@@ -6,8 +6,9 @@ const facebookVoteBtn = 'button#facebookButtonVoteView'
 const twitterAuthOpt = 'input[data-test-id="auth_opt_tw"]'
 const twitterCommentBtn = 'button#twitterButtonCommentForm'
 const twitterVoteBtn = 'button#twitterButtonVoteView'
-
-describe('Social login buttons', function () {
+// skip this test for now
+// eslint-disable-next-line mocha/no-skipped-tests
+describe.skip('Social login buttons', function () {
   before(function () {
     cy.createConvo().then(() => {
       cy.seedComment(this.convoId)

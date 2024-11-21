@@ -152,44 +152,6 @@
       </span>
     </div>
 
-    {{!-- ================ CONNECT FACEBOOK / TWITTER ================ --}}
-    <div
-      id="socialButtonsCommentForm"
-      style="
-        display: none;
-        margin-top: 10px;
-        ">
-      <div class="protip"><p><i class="fa fa-microphone"></i>&nbsp; {{s.connectToPostPrompt}}</p></div>
-      {{#if auth_opt_fb}}
-      {{#unless hasFacebook}}
-        <button id="facebookButtonCommentForm" class="facebookButton" style="padding-top: 0px;">
-          <i class="svgIcon" style="
-            display: inline-block;
-            position: relative;
-            margin-inline-end: 2px;
-            top: 6px;
-            width: 25px;
-            fill: white;
-          ">{{> iconFaFacebookSquare25}}</i>
-          {{s.connectFacebook}}</button>
-      {{/unless}}
-      {{/if}}
-      {{#if auth_opt_tw}}
-      {{#unless hasTwitter}}
-        <button id="twitterButtonCommentForm" class="twitterButton" style="padding-top: 0px;">
-        <i class="svgIcon" style="
-          display: inline-block;
-          position: relative;
-          margin-inline-end: 2px;
-          top: 8px;
-          width: 25px;
-          fill: white;
-        ">{{> iconFaTwitter25}}</i>
-          {{s.connectTwitter}}</button>
-      {{/unless}}
-      {{/if}}
-    </div>
-
     {{!-- ================ LOWER CONTAINER ================ --}}
     <div
       id="comment_form_controls"
