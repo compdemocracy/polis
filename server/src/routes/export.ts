@@ -81,7 +81,7 @@ export async function loadConversationSummary(zid: number, siteUrl: string) {
   ].map((row) => row.join(","));
 }
 
-const formatDatetime = (timestamp: string) =>
+export const formatDatetime = (timestamp: string) =>
   new Date(parseInt(timestamp)).toString();
 
 type Response = {

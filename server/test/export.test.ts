@@ -4,6 +4,7 @@ import {
   formatCSV,
   loadConversationSummary,
   sendVotesSummary,
+  formatDatetime,
 } from "../src/routes/export";
 import { queryP_readOnly, stream_queryP_readOnly } from "../src/db/pg-query";
 import { getZinvite } from "../src/utils/zinvite";
@@ -25,7 +26,6 @@ jest.mock("../src/utils/logger");
 jest.mock("../src/utils/fail");
 
 describe("handle_GET_reportExport", () => {
-  jest.useFakeTimers().setSystemTime(new Date("2020-01-01"));
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -164,12 +164,20 @@ describe("handle_GET_reportExport", () => {
     };
     const zid = 123;
 
+    const formatDatetimeSpy = jest.spyOn(
+      require("../src/routes/export"),
+      "formatDatetime"
+    );
+    formatDatetimeSpy.mockReturnValue(
+      "Thu Jan 01 1970 00:00:00 GMT+0000 (Coordinated Universal Time)"
+    );
+
     // Mock stream_pgQueryP_readOnly to simulate data streaming
     (stream_queryP_readOnly as jest.Mock).mockImplementation(
       (_, __, cb, onComplete, onError) => {
-        // @ts-expect-error unknown type
-        cb({ timestamp: 1234567, tid: 1, pid: 1, vote: -1 });
-        // @ts-expect-error unknown type
+        //@ts-expect-error unknown type
+        cb({ timestamp: 94668411, tid: 1, pid: 1, vote: -1 });
+        //@ts-expect-error unknown type
         onComplete();
       }
     );
@@ -181,7 +189,7 @@ describe("handle_GET_reportExport", () => {
       "timestamp,datetime,comment-id,voter-id,vote\n"
     );
     expect(mockRes.write).toHaveBeenCalledWith(
-      "946684800,Thu Jan 01 1970 00:00:00 GMT+0000 (Coordinated Universal Time),1,1,1\n"
+      "94668,Thu Jan 01 1970 00:00:00 GMT+0000 (Coordinated Universal Time),1,1,1\n"
     );
     expect(mockRes.end).toHaveBeenCalled();
   });
