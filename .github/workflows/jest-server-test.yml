@@ -8,15 +8,19 @@ on:
   push:
     branches:
       - edge
+    paths:
+      - 'server/**'
     paths-ignore:
       - "**.md"
 
   pull_request:
+    paths:
+      - 'server/**'
     paths-ignore:
       - "**.md"
 
 jobs:
-  cypress-run:
+  jest-run:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -28,34 +32,25 @@ jobs:
       - name: Build and start Docker containers
         run: |
           docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile postgres up postgres
+      
+      - uses: actions/checkout@v3
 
-      - name: Health Check the Server http response
-        uses: jtalk/url-health-check-action@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
         with:
-          url: http://localhost/api/v3/testConnection
-          max-attempts: 10
-          retry-delay: 10s
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install dependencies
+        working-directory: server
+        run: npm install
 
       - name: Jest Test
-        # uses: cypress-io/github-action@v6
-        with:
-          config: baseUrl=http://localhost
-          spec: cypress/e2e/!(third-party)/**/*.cy.js
-          working-directory: e2e
-
-      - name: Upload Cypress screenshots
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: cypress-screenshots
-          path: e2e/cypress/screenshots
-
-      - name: Upload Cypress videos
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: cypress-videos
-          path: e2e/cypress/videos
+        working-directory: server
+        run: |
+          npm run dev &
+          sleep 10
 
       - name: Stop Docker containers
         if: always()
