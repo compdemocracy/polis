@@ -1,0 +1,67 @@
+name: Jest Tests
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - edge
+    paths-ignore:
+      - "**.md"
+
+  pull_request:
+    paths-ignore:
+      - "**.md"
+
+jobs:
+  jest-run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup env
+        run: |
+          cp example.env .env
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and start Docker containers
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile postgres up postgres -d --build
+
+      
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+          cache: "npm"
+          cache-dependency-path: server/package-lock.json
+
+      - name: Setup env in server
+        working-directory: server
+        run: |
+          cp example.env .env
+
+      - name: Install dependencies
+        working-directory: server
+        run: npm install
+
+      - name: Build & start server
+        working-directory: server
+        run: |
+          npm run build
+          nohup npm run serve & 
+      
+      - name: Jest test
+        working-directory: server
+        run: npm run test
+
+      - name: Stop Docker containers
+        if: always()
+        run: docker compose -f docker-compose.yml -f docker-compose.test.yml --env-file test.env --profile postgres down
