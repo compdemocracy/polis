@@ -8,14 +8,10 @@ on:
   push:
     branches:
       - edge
-    paths:
-      - 'server/**'
     paths-ignore:
       - "**.md"
 
   pull_request:
-    paths:
-      - 'server/**'
     paths-ignore:
       - "**.md"
 
