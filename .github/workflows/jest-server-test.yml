@@ -22,6 +22,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup env
+        run: |
+          cp example.env .env
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -29,9 +33,6 @@ jobs:
         run: |
           docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile postgres up math postgres file-server maildev
 
-      - name: Setup env
-        run: |
-          cp example.env .env
       
       - uses: actions/checkout@v3
 
