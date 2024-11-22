@@ -34,19 +34,22 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
-          cache: 'npm'
+          node-version: "18"
+          cache: "npm"
           cache-dependency-path: server/package-lock.json
 
       - name: Install dependencies
         working-directory: server
         run: npm install
 
-      - name: Jest Test
+      - name: Build server
         working-directory: server
         run: |
-          npm run dev &
-          sleep 10
+          npm run build
+      
+      - name: Jest test
+        working-directory: server
+        run: npm run test
 
       - name: Stop Docker containers
         if: always()
