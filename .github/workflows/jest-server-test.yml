@@ -31,7 +31,7 @@ jobs:
 
       - name: Build and start Docker containers
         run: |
-          docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile postgres up math postgres file-server maildev
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile postgres up postgres
 
       
       - uses: actions/checkout@v3
@@ -42,6 +42,11 @@ jobs:
           node-version: "18"
           cache: "npm"
           cache-dependency-path: server/package-lock.json
+
+      - name: Setup env in server
+        working-directory: server
+        run: |
+          cp example.env .env
 
       - name: Install dependencies
         working-directory: server
