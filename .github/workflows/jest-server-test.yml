@@ -27,7 +27,7 @@ jobs:
 
       - name: Build and start Docker containers
         run: |
-          docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile postgres up postgres
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml docker-compose.test.yml --env-file test.env --profile postgres up postgres
       
       - uses: actions/checkout@v3
 
