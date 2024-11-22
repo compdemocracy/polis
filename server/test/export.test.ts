@@ -5,6 +5,7 @@ import {
   loadConversationSummary,
   sendVotesSummary,
   formatDatetime,
+  sendParticipantVotesSummary,
 } from "../src/routes/export";
 import { queryP_readOnly, stream_queryP_readOnly } from "../src/db/pg-query";
 import { getZinvite } from "../src/utils/zinvite";
@@ -215,6 +216,90 @@ describe("handle_GET_reportExport", () => {
 
     expect(logger.error).toHaveBeenCalledWith(
       "polis_err_report_votes_csv",
+      mockError
+    );
+    expect(fail).toHaveBeenCalledWith(
+      mockRes,
+      500,
+      "polis_err_data_export",
+      mockError
+    );
+  });
+
+  it("sendParticipantVotesSummary should send the participant votes summary as CSV", async () => {
+    const zid = 123;
+    const mockRes = {
+      setHeader: jest.fn(),
+      write: jest.fn(),
+      end: jest.fn(),
+    };
+
+    // Mock pgQueryP_readOnly to return comment data
+    (queryP_readOnly as jest.Mock).mockResolvedValueOnce([
+      { tid: 1, pid: 1 },
+      { tid: 2, pid: 1 },
+      { tid: 3, pid: 2 },
+    ] as never);
+
+    // Mock getPca to return group cluster data
+    (getPca as jest.Mock).mockResolvedValue({
+      asPOJO: {
+        "group-clusters": [
+          { id: 1, members: [1] },
+          { id: 2, members: [2] },
+        ],
+      },
+    } as never);
+
+    // Mock stream_pgQueryP_readOnly to simulate vote streaming
+    (stream_queryP_readOnly as jest.Mock).mockImplementation(
+      (_, __, cb, onComplete, onError) => {
+        // @ts-expect-error unknown func
+        cb({ pid: 1, tid: 1, vote: -1 });
+        // @ts-expect-error unknown func
+        cb({ pid: 1, tid: 2, vote: 1 });
+        // @ts-expect-error unknown func
+        cb({ pid: 2, tid: 3, vote: -1 });
+        // @ts-expect-error unknown func
+        onComplete();
+      }
+    );
+    // @ts-expect-error mock response
+    await sendParticipantVotesSummary(zid, mockRes);
+
+    expect(mockRes.setHeader).toHaveBeenCalledWith("content-type", "text/csv");
+    expect(mockRes.write).toHaveBeenCalledWith(
+      "participant,group-id,n-comments,n-votes,n-agree,n-disagree,1,2,3\n"
+    );
+    // Check if the participant rows are correctly formatted
+    expect(mockRes.write).toHaveBeenCalledWith("1,1,2,2,1,1,1,-1,\n");
+    expect(mockRes.end).toHaveBeenCalled();
+  });
+
+  it("sendParticipantVotesSummary should handle errors during participant vote summary export", async () => {
+    const zid = 123;
+    const mockError = new Error("Test error");
+    const mockRes = {
+      setHeader: jest.fn(),
+      write: jest.fn(),
+      end: jest.fn(),
+    };
+
+    // Mock pgQueryP_readOnly to return an empty array
+    (queryP_readOnly as jest.Mock).mockResolvedValueOnce([] as never);
+
+    // Mock stream_pgQueryP_readOnly to call onError
+    (stream_queryP_readOnly as jest.Mock).mockImplementation(
+      (_, __, cb, onComplete, onError) => {
+        // @ts-expect-error unknown func
+        onError(mockError);
+      }
+    );
+    // @ts-expect-error response mock
+    await sendParticipantVotesSummary(zid, mockRes);
+
+    expect(logger.error).toHaveBeenCalledWith(
+      "polis_err_report_participant_votes",
       mockError
     );
     expect(fail).toHaveBeenCalledWith(
