@@ -27,7 +27,7 @@ jobs:
 
       - name: Build and start Docker containers
         run: |
-          docker compose -f docker-compose.yml -f docker-compose.test.yml --env-file test.env --profile postgres up -d --build
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile postgres up math postgres file-server maildev
       
       - uses: actions/checkout@v3
 
@@ -42,10 +42,10 @@ jobs:
         working-directory: server
         run: npm install
 
-      - name: Build server
+      - name: Build & start server
         working-directory: server
         run: |
-          npm run build
+          npm run start
       
       - name: Jest test
         working-directory: server
