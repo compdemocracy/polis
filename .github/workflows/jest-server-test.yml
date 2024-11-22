@@ -55,7 +55,8 @@ jobs:
       - name: Build & start server
         working-directory: server
         run: |
-          npm run start
+          npm run build
+          nohup npm run serve & 
       
       - name: Jest test
         working-directory: server
