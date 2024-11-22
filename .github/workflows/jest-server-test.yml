@@ -28,6 +28,10 @@ jobs:
       - name: Build and start Docker containers
         run: |
           docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile postgres up math postgres file-server maildev
+
+      - name: Setup env
+        run: |
+          cp example.env .env
       
       - uses: actions/checkout@v3
 
