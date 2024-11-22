@@ -14,13 +14,13 @@ import logger from "../utils/logger";
 type Formatters<T> = Record<string, (row: T) => string>;
 const sep = "\n";
 
-const formatEscapedText = (s: string) => `"${s.replace(/"/g, '""')}"`;
+export const formatEscapedText = (s: string) => `"${s.replace(/"/g, '""')}"`;
 
-function formatCSVHeaders<T>(colFns: Formatters<T>) {
+export function formatCSVHeaders<T>(colFns: Formatters<T>) {
   return Object.keys(colFns).join(",");
 }
 
-function formatCSVRow<T>(row: T, colFns: Formatters<T>) {
+export function formatCSVRow<T>(row: T, colFns: Formatters<T>) {
   const fns = Object.values(colFns);
   let csv = "";
   for (let ii = 0; ii < fns.length; ii += 1) {
@@ -30,7 +30,7 @@ function formatCSVRow<T>(row: T, colFns: Formatters<T>) {
   return csv;
 }
 
-function formatCSV<T>(colFns: Formatters<T>, rows: T[]): string {
+export function formatCSV<T>(colFns: Formatters<T>, rows: T[]): string {
   let csv = formatCSVHeaders(colFns) + sep;
   if (rows.length > 0) {
     for (const row of rows) {
@@ -41,7 +41,7 @@ function formatCSV<T>(colFns: Formatters<T>, rows: T[]): string {
   return csv;
 }
 
-async function loadConversationSummary(zid: number, siteUrl: string) {
+export async function loadConversationSummary(zid: number, siteUrl: string) {
   const [zinvite, convoRows, commentersRow, pca] = await Promise.all([
     getZinvite(zid),
     pgQueryP_readOnly(
@@ -91,7 +91,7 @@ type Response = {
   end: () => void;
 };
 
-async function sendConversationSummary(
+export async function sendConversationSummary(
   zid: number,
   siteUrl: string,
   res: Response
@@ -114,7 +114,7 @@ type CommentRow = {
   pass: number;
 };
 
-async function sendCommentSummary(zid: number, res: Response) {
+export async function sendCommentSummary(zid: number, res: Response) {
   const comments = new Map<number, CommentRow>();
 
   try {
@@ -178,7 +178,7 @@ async function sendCommentSummary(zid: number, res: Response) {
   }
 }
 
-async function sendVotesSummary(zid: number, res: Response) {
+export async function sendVotesSummary(zid: number, res: Response) {
   const formatters: Formatters<any> = {
     timestamp: (row) => String(Math.floor(row.timestamp / 1000)),
     datetime: (row) => formatDatetime(row.timestamp),
@@ -202,7 +202,7 @@ async function sendVotesSummary(zid: number, res: Response) {
   );
 }
 
-async function sendParticipantVotesSummary(zid: number, res: Response) {
+export async function sendParticipantVotesSummary(zid: number, res: Response) {
   // Load up the comment ids
   const commentRows = (await pgQueryP_readOnly(
     "SELECT tid, pid FROM comments WHERE zid = ($1) ORDER BY tid ASC, created ASC", // TODO: filter only active comments?
