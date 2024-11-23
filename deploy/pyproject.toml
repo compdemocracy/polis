@@ -1,0 +1,14 @@
+[project]
+name = "polis-deploy-tools"
+version = "0.1.0"
+requires-python = ">=3.8"
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+check_untyped_defs = true
