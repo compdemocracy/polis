@@ -13,7 +13,6 @@ module.exports = function writeHeadersJson() {
 
   function writeHeadersJsonCss() {
     const headersData = {
-      'x-amz-acl': 'public-read',
       'Content-Type': 'text/css',
       'Cache-Control':
         'no-transform,public,max-age=31536000,s-maxage=31536000'
@@ -23,7 +22,6 @@ module.exports = function writeHeadersJson() {
 
   function writeHeadersJsonHtml() {
     const headersData = {
-      'x-amz-acl': 'public-read',
       'Content-Type': 'text/html; charset=UTF-8',
       'Cache-Control': 'no-cache'
     }
@@ -32,7 +30,6 @@ module.exports = function writeHeadersJson() {
 
   function writeHeadersJsonJs() {
     const headersData = {
-      'x-amz-acl': 'public-read',
       'Content-Type': 'application/javascript',
       'Cache-Control':
         'no-transform,public,max-age=31536000,s-maxage=31536000'

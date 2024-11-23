@@ -33,7 +33,6 @@ function writeHeadersJsonForOutputFiles(isDev) {
 
   function writeHeadersJsonHtml() {
     const headersData = {
-      'x-amz-acl': 'public-read',
       'Content-Type': 'text/html; charset=UTF-8',
       'Cache-Control': 'no-cache'
     }
@@ -42,7 +41,6 @@ function writeHeadersJsonForOutputFiles(isDev) {
 
   function writeHeadersJsonJs() {
     const headersData = {
-      'x-amz-acl': 'public-read',
       ...(!isDev && { 'Content-Encoding': 'gzip' }),
       'Content-Type': 'application/javascript',
       'Cache-Control':
@@ -54,7 +52,6 @@ function writeHeadersJsonForOutputFiles(isDev) {
 
   function writeHeadersJsonCss() {
     const headersData = {
-      'x-amz-acl': 'public-read',
       ...(!isDev && { 'Content-Encoding': 'gzip' }),
       'Content-Type': 'text/css',
       'Cache-Control':
