@@ -1,16 +1,13 @@
 import _ from "underscore";
-import fs from "fs";
 import Translate from "@google-cloud/translate";
 
 import pg from "./db/pg-query";
 import SQL from "./db/sql";
 import { MPromise } from "./utils/metered";
 import Utils from "./utils/common";
-import logger from "./utils/logger";
 
 import Config from "./config";
 import Conversation from "./conversation";
-import User from "./user";
 import { CommentType } from "./d";
 
 // TODO should this be a number instead?
@@ -27,22 +24,6 @@ type Row = {
 
 type Docs = {
   rows: Row[];
-};
-
-type InfoToReturn = {
-  uid?: string | number;
-  followers_count?: any;
-  fb_user_id?: any;
-  fb_verified?: any;
-  fb_public_profile?: string;
-  fb_picture?: any;
-  tw_verified?: any;
-  tw_followers_count?: any;
-  verified?: any;
-};
-
-type UidToSocialInfo = {
-  [key: string]: any;
 };
 
 const useTranslateApi: boolean = Config.shouldUseTranslationAPI;
@@ -71,11 +52,9 @@ function getComments(o: CommentType) {
     ? _getCommentsForModerationList(o)
     : _getCommentsList(o);
   let convPromise = Conversation.getConversationInfo(o.zid);
-  let conv: { is_anon: any } | null = null;
   return Promise.all([convPromise, commentListPromise])
     .then(function (a) {
       let rows = a[1];
-      conv = a[0];
       let cols = [
         "txt",
         "tid",
@@ -109,87 +88,6 @@ function getComments(o: CommentType) {
       return rows;
     })
     .then(function (comments) {
-      let include_social = !conv?.is_anon && o.include_social;
-
-      if (include_social) {
-        let nonAnonComments = comments.filter(function (c: {
-          anon: any;
-          is_seed: any;
-        }) {
-          return !c.anon && !c.is_seed;
-        });
-        let uids = _.pluck(nonAnonComments, "uid");
-        return User.getSocialInfoForUsers(uids, o.zid).then(function (
-          socialInfos: any[]
-        ) {
-          let uidToSocialInfo: UidToSocialInfo = {};
-          socialInfos.forEach(function (info: {
-            verified: any;
-            followers_count: any;
-            fb_public_profile: string;
-            uid: string | number;
-          }) {
-            // whitelist properties to send
-            let infoToReturn: InfoToReturn = _.pick(info, [
-              // fb
-              "fb_name",
-              "fb_link",
-              "fb_user_id",
-              // twitter
-              "name",
-              "screen_name",
-              "twitter_user_id",
-              "profile_image_url_https",
-              "followers_count",
-              // xInfo
-              "x_profile_image_url",
-              "x_name",
-            ]);
-            infoToReturn.tw_verified = !!info.verified;
-            infoToReturn.tw_followers_count = info.followers_count;
-
-            // extract props from fb_public_profile
-            if (info.fb_public_profile) {
-              try {
-                let temp = JSON.parse(info.fb_public_profile);
-                infoToReturn.fb_verified = temp.verified;
-              } catch (err) {
-                logger.error(
-                  "error parsing JSON of fb_public_profile for uid: " +
-                    info.uid,
-                  err
-                );
-              }
-            }
-
-            if (!_.isUndefined(infoToReturn.fb_user_id)) {
-              let width = 40;
-              let height = 40;
-              infoToReturn.fb_picture = `https://graph.facebook.com/v2.2/${infoToReturn.fb_user_id}/picture?width=${width}&height=${height}`;
-            }
-
-            uidToSocialInfo[info.uid] = infoToReturn;
-          });
-          return comments.map(function (c: {
-            uid: string | number;
-            anon: any;
-            social: any;
-          }) {
-            let s = uidToSocialInfo[c.uid];
-            if (s) {
-              if (!c.anon) {
-                // s should be undefined in this case, but adding a double-check here in case.
-                c.social = s;
-              }
-            }
-            return c;
-          });
-        });
-      } else {
-        return comments;
-      }
-    })
-    .then(function (comments) {
       comments.forEach(function (c: { uid: any; anon: any }) {
         delete c.uid;
         delete c.anon;
@@ -214,7 +112,7 @@ function _getCommentsForModerationList(o: {
       .queryP("select strict_moderation from conversations where zid = ($1);", [
         o.zid,
       ])
-      .then((c: any) => {
+      .then(() => {
         return o.strict_moderation;
       });
   }
@@ -341,14 +239,11 @@ function _getCommentsList(o: {
         if (!_.isUndefined(o.withoutTids)) {
           q = q.and(SQL.sql_comments.tid.notIn(o.withoutTids));
         }
-        if (o.moderation) {
+        q = q.and(SQL.sql_comments.active.equals(true));
+        if (conv.strict_moderation) {
+          q = q.and(SQL.sql_comments.mod.equals(Utils.polisTypes.mod.ok));
         } else {
-          q = q.and(SQL.sql_comments.active.equals(true));
-          if (conv.strict_moderation) {
-            q = q.and(SQL.sql_comments.mod.equals(Utils.polisTypes.mod.ok));
-          } else {
-            q = q.and(SQL.sql_comments.mod.notEquals(Utils.polisTypes.mod.ban));
-          }
+          q = q.and(SQL.sql_comments.mod.notEquals(Utils.polisTypes.mod.ban));
         }
 
         q = q.and(SQL.sql_comments.velocity.gt(0)); // filter muted comments

@@ -4,7 +4,6 @@ import LruCache from "lru-cache";
 import pg from "./db/pg-query";
 import { MPromise } from "./utils/metered";
 
-import Config from "./config";
 import Conversation from "./conversation";
 import LRUCache from "lru-cache";
 import logger from "./utils/logger";
@@ -271,35 +270,6 @@ function getPidForParticipant(
   };
 }
 
-function getSocialInfoForUsers(uids: any[], zid: any) {
-  uids = _.uniq(uids);
-  uids.forEach(function (uid: string) {
-    if (!_.isNumber(uid)) {
-      throw "polis_err_123123_invalid_uid got:" + uid;
-    }
-  });
-  if (!uids.length) {
-    return Promise.resolve([]);
-  }
-  let uidString = uids.join(",");
-  return pg.queryP_metered_readOnly(
-    "getSocialInfoForUsers",
-    "with " +
-      "x as (select * from xids where uid in (" +
-      uidString +
-      ") and owner  in (select org_id from conversations where zid = ($1))), " +
-      "fb as (select * from facebook_users where uid in (" +
-      uidString +
-      ")), " +
-      "tw as (select * from twitter_users where uid in (" +
-      uidString +
-      ")), " +
-      "foo as (select *, coalesce(fb.uid, tw.uid) as foouid from fb full outer join tw on tw.uid = fb.uid) " +
-      "select *, coalesce(foo.foouid, x.uid) as uid from foo full outer join x on x.uid = foo.foouid;",
-    [zid]
-  );
-}
-
 function getXidRecordByXidOwnerId(
   xid: any,
   owner: any,
@@ -402,7 +372,6 @@ export {
   getPid,
   getPidPromise,
   getPidForParticipant,
-  getSocialInfoForUsers,
 };
 
 export default {
@@ -416,5 +385,4 @@ export default {
   getPid,
   getPidPromise,
   getPidForParticipant,
-  getSocialInfoForUsers,
 };

@@ -659,36 +659,10 @@ function initializePolisHelpers() {
           if (!rows || !rows.length) {
             throw "polis_err_unknown_conversation";
           }
-          let conv = rows[0];
+          const conv = rows[0];
           if (!conv.is_active) {
             throw "polis_err_conversation_is_closed";
           }
-          // if (conv.auth_needed_to_vote) {
-          //   return isModerator(zid, uid).then((is_mod: any) => {
-          //     if (is_mod) {
-          //       return conv;
-          //     }
-          //     return Promise.all([
-          //       pgQueryP(
-          //         "select * from xids where owner = ($1) and uid = ($2);",
-          //         [conv.owner, uid]
-          //       ),
-          //       getSocialInfoForUsers([uid], zid),
-          //       // Binding elements 'xids' and 'info' implicitly have an 'any' type.ts(7031)
-          //       // @ts-ignore
-          //     ]).then(([xids, info]) => {
-          //       var socialAccountIsLinked = info.length > 0;
-          //       // Object is of type 'unknown'.ts(2571)
-          //       // @ts-ignore
-          //       var hasXid = xids.length > 0;
-          //       if (socialAccountIsLinked || hasXid) {
-          //         return conv;
-          //       } else {
-          //         throw "polis_err_post_votes_social_needed";
-          //       }
-          //     });
-          //   });
-          // }
           if (conv.use_xid_whitelist) {
             return isXidWhitelisted(conv.owner, xid).then(
               (is_whitelisted: boolean) => {
@@ -10839,29 +10813,6 @@ Thanks for using Polis!
       return response;
     });
   }
-
-  // function getFacebookFriendsInConversation(zid, uid) {
-  //   if (!uid) {
-  //     return Promise.resolve([]);
-  //   }
-  //   let p = pgQueryP_readOnly(
-  //     "select * from " +
-  //     "(select * from " +
-  //     "(select * from " +
-  //     "(select friend as uid from facebook_friends where uid = ($2) union select uid from facebook_friends where friend = ($2) union select uid from facebook_users where uid = ($2)) as friends) " +
-  //     // ^ as friends
-  //     "as fb natural left join facebook_users) as fb2 " +
-  //     "inner join (select * from participants where zid = ($1) and (vote_count > 0 OR uid = ($2))) as p on fb2.uid = p.uid;", [zid, uid]);
-  //   //"select * from (select * from (select friend as uid from facebook_friends where uid = ($2) union select uid from facebook_friends where friend = ($2)) as friends where uid in (select uid from participants where zid = ($1))) as fb natural left join facebook_users;", [zid, uid]);
-  //   return p;
-  // }
-
-  // function getFacebookUsersInConversation(zid) {
-  //   let p = pgQueryP_readOnly("select * from facebook_users inner join (select * from participants where zid = ($1) and vote_count > 0) as p on facebook_users.uid = p.uid;", [zid]);
-  //   return p;
-  // }
-
-  const getSocialInfoForUsers = User.getSocialInfoForUsers;
 
   function updateVoteCount(zid: any, pid: any) {
     // return pgQueryP("update participants set vote_count = vote_count + 1 where zid = ($1) and pid = ($2);",[zid, pid]);
