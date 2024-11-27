@@ -7,7 +7,7 @@ FROM docker.io/node:18-alpine
 
 # Set default NODE_ENV to production unless overridden at build time with --build-arg NODE_ENV=development
 ARG NODE_ENV
-ENV NODE_ENV ${NODE_ENV:-production}
+ENV NODE_ENV=${NODE_ENV:-production}
 
 WORKDIR /app
 
@@ -23,7 +23,7 @@ COPY . .
 # Or may be passed in at build time with --build-arg GIT_HASH=$(git rev-parse --short HEAD)
 ARG GIT_HASH
 ARG SERVICE_URL
-ENV GIT_HASH ${GIT_HASH:-placeholder}
-ENV SERVICE_URL ${SERVICE_URL}
+ENV GIT_HASH=${GIT_HASH:-placeholder}
+ENV SERVICE_URL=${SERVICE_URL}
 
 CMD npm run build:prod

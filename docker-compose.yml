@@ -54,10 +54,10 @@ services:
       labels:
         polis_tag: ${TAG:-dev}
     environment:
-      - DATABASE_URL=${DATABASE_URL:?error}
+      - DATABASE_URL=${DATABASE_URL}
       - MATH_ENV=${MATH_ENV:-prod}
-      - WEBSERVER_USERNAME=${WEBSERVER_USERNAME:?error}
-      - WEBSERVER_PASS=${WEBSERVER_PASS:?error}
+      - WEBSERVER_USERNAME=${WEBSERVER_USERNAME}
+      - WEBSERVER_PASS=${WEBSERVER_PASS}
     networks:
       - "polis-net"
 
@@ -70,9 +70,9 @@ services:
       labels:
         polis_tag: ${TAG:-dev}
     environment:
-      - POSTGRES_DB=${POSTGRES_DB:?error}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?error}
-      - POSTGRES_USER=${POSTGRES_USER:?error}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_USER=${POSTGRES_USER}
     networks:
       - "polis-net"
     volumes:

@@ -98,7 +98,6 @@ module.exports = (env, options) => {
 
             function writeHeadersJsonHtml() {
               const headersData = {
-                'x-amz-acl': 'public-read',
                 'Content-Type': 'text/html; charset=UTF-8',
                 'Cache-Control': 'no-cache'
               }
@@ -107,7 +106,6 @@ module.exports = (env, options) => {
 
             function writeHeadersJsonJs() {
               const headersData = {
-                'x-amz-acl': 'public-read',
                 'Content-Encoding': 'gzip',
                 'Content-Type': 'application/javascript',
                 'Cache-Control':

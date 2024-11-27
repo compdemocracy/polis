@@ -7,12 +7,12 @@ FROM docker.io/node:18-alpine
 
 ARG ENABLE_TWITTER_WIDGETS
 ARG FB_APP_ID
-ENV ENABLE_TWITTER_WIDGETS ${ENABLE_TWITTER_WIDGETS}
-ENV FB_APP_ID ${FB_APP_ID}
+ENV ENABLE_TWITTER_WIDGETS=${ENABLE_TWITTER_WIDGETS}
+ENV FB_APP_ID=${FB_APP_ID}
 
 # Set default NODE_ENV to production unless overridden at build time with --build-arg NODE_ENV=development
 ARG NODE_ENV
-ENV NODE_ENV ${NODE_ENV:-production}
+ENV NODE_ENV=${NODE_ENV:-production}
 
 WORKDIR /app
 
