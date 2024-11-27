@@ -39,10 +39,10 @@ jobs:
 
       - name: Build static assets
         env:
-          NODE_ENV: production
-          SERVICE_URL: https://preprod.pol.is
-          API_PROD_HOSTNAME: preprod.pol.is
           EMBED_SERVICE_HOSTNAME: preprod.pol.is
+          ENABLE_TWITTER_WIDGETS: true
+          GA_TRACKING_ID: G-WVP78N35QR
+          SERVICE_URL: https://preprod.pol.is
         run: |
           docker compose create --build --force-recreate file-server
           docker cp file-server:/app/build/build ./build
