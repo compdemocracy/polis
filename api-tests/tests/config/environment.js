@@ -8,5 +8,6 @@ export const config = {
   api: {
     dockerImage: process.env.API_DOCKER_IMAGE,
     dockerfilePath: process.env.API_DOCKERFILE_PATH,
+    port: process.env.API_SERVER_PORT,
   },
 }

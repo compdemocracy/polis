@@ -154,21 +154,25 @@ class TestContext {
   }
 
   async stopContainers() {
-    // First close all DB connections
-    if (this.#pool) {
-      await this.#pool.end()
-      this.#pool = null
+    try {
+      // First close all DB connections
+      if (this.#pool) {
+        await this.#pool.end()
+        this.#pool = null
+      }
+
+      // Then stop containers with timeout
+      await Promise.all([
+        this.containers.api?.container?.stop().catch(console.error),
+        this.containers.postgres?.container?.stop().catch(console.error),
+      ]).finally(() => {
+        this.#request = null
+        this.containers.api = null
+        this.containers.postgres = null
+      })
+    } catch (error) {
+      console.error('Error stopping containers:', error)
     }
-
-    // Then stop containers
-    await Promise.all([
-      this.containers.api?.container.stop(),
-      this.containers.postgres?.container.stop(),
-    ])
-
-    this.#request = null
-    this.containers.api = null
-    this.containers.postgres = null
   }
 }
 

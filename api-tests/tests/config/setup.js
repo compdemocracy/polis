@@ -21,8 +21,8 @@ beforeAll(async () => {
   // Start Postgres container
   console.log('Starting Postgres container...')
   dbContainer = await new GenericContainer('postgres:14')
-    .withName('postgres')
     .withNetwork(network)
+    .withNetworkAliases('postgres-test-db')
     .withExposedPorts(5432)
     .withEnvironment({
       POSTGRES_USER: config.database.user,
@@ -96,7 +96,9 @@ beforeAll(async () => {
       .withNetwork(network)
       .withExposedPorts(5000)
       .withEnvironment({
-        DATABASE_URL: `postgres://${config.database.user}:${config.database.password}@postgres:5432/${config.database.testName}`,
+        API_DEV_HOSTNAME: `localhost:${config.api.port || 5000}`,
+        API_SERVER_PORT: config.api.port || 5000,
+        DATABASE_URL: `postgres://${config.database.user}:${config.database.password}@postgres-test-db:5432/${config.database.testName}`,
         NODE_ENV: 'development',
         DEBUG: 'polis:*',
         DEV_MODE: 'true',
