@@ -129,7 +129,7 @@ beforeAll(async () => {
     containerBuilder = new GenericContainer(apiConfig.dockerImage)
   } else {
     // Build from Dockerfile
-    const dockerfilePath = apiConfig.dockerfilePath ?? '../polis-api'
+    const dockerfilePath = apiConfig.dockerfilePath ?? '../server'
     containerBuilder = await GenericContainer.fromDockerfile(
       dockerfilePath
     ).build('polis-api-test-image', { deleteOnExit: false })
