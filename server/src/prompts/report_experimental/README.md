@@ -12,6 +12,7 @@ The structure of the library is as follows:
 
 Rough explanation of the intended structure (general schema, not all files):
 
+```
 📁 server/src/prompts/report_experimental/
 ├── readme.md # This documentation file
 ├── system.xml # Main system prompt, specificying the role of the LLM agent
@@ -22,6 +23,7 @@ Rough explanation of the intended structure (general schema, not all files):
 ........└── typesReference.xml # Reference implementations of typescript types
 └── 📁 evals/ # Evals notebooks
 └── 📁 scripts/ # Run everything locally for R&D
+```
 
 ## Approach
 
