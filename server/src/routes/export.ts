@@ -10,6 +10,7 @@ import { getZinvite, getZidForRid } from "../utils/zinvite";
 import { getPca } from "../utils/pca";
 import fail from "../utils/fail";
 import logger from "../utils/logger";
+import { getPidsForGid } from "../utils/participants";
 
 type Formatters<T> = Record<string, (row: T) => string>;
 const sep = "\n";
@@ -296,6 +297,168 @@ export async function sendParticipantVotesSummary(zid: number, res: Response) {
   );
 }
 
+type CommentGroupStats = {
+  tid: number;
+  txt: string;
+  total_votes: number;
+  total_agrees: number;
+  total_disagrees: number;
+  total_passes: number;
+  group_stats: Record<
+    number,
+    {
+      votes: number;
+      agrees: number;
+      disagrees: number;
+      passes: number;
+    }
+  >;
+};
+
+type GroupVoteStats = {
+  votes: Record<
+    number,
+    {
+      A: number; // agrees
+      D: number; // disagrees
+      S: number; // sum of all votes (agrees + disagrees + passes)
+    }
+  >;
+};
+
+async function sendCommentGroupsSummary(zid: number, res: Response) {
+  // Get PCA data to identify groups and get groupVotes
+  const pca = await getPca(zid);
+  if (!pca?.asPOJO) {
+    throw new Error("polis_error_no_pca_data");
+  }
+
+  const groupClusters = pca.asPOJO["group-clusters"] as Record<number, object>;
+  const groupIds = Object.keys(groupClusters).map(Number);
+  const groupVotes = pca.asPOJO["group-votes"] as Record<
+    number,
+    GroupVoteStats
+  >;
+
+  // Load comment texts
+  const commentRows = (await pgQueryP_readOnly(
+    "SELECT tid, txt FROM comments WHERE zid = ($1)",
+    [zid]
+  )) as { tid: number; txt: string }[];
+  const commentTexts = new Map(commentRows.map((row) => [row.tid, row.txt]));
+
+  // Initialize stats map
+  const commentStats = new Map<number, CommentGroupStats>();
+
+  // Process each group's votes
+  for (const groupId of groupIds) {
+    const groupVoteStats = groupVotes[groupId];
+    if (!groupVoteStats?.votes) continue;
+
+    // Process each comment's votes for this group
+    for (const [tidStr, votes] of Object.entries(groupVoteStats.votes)) {
+      const tid = parseInt(tidStr);
+
+      // Initialize stats for this comment if we haven't seen it before
+      if (!commentStats.has(tid)) {
+        const groupStats: Record<
+          number,
+          { votes: number; agrees: number; disagrees: number; passes: number }
+        > = {};
+        for (const gid of groupIds) {
+          groupStats[gid] = { votes: 0, agrees: 0, disagrees: 0, passes: 0 };
+        }
+
+        commentStats.set(tid, {
+          tid: tid,
+          txt: commentTexts.get(tid) || "",
+          total_votes: 0,
+          total_agrees: 0,
+          total_disagrees: 0,
+          total_passes: 0,
+          group_stats: groupStats,
+        });
+      }
+
+      // Get the stats object for this comment
+      const stats = commentStats.get(tid)!;
+      const groupStats = stats.group_stats[groupId];
+
+      // Update group stats
+      groupStats.agrees = votes.A;
+      groupStats.disagrees = votes.D;
+      groupStats.votes = votes.S; // S is the total number of votes
+      groupStats.passes = votes.S - (votes.A + votes.D); // Calculate passes from the sum
+    }
+  }
+
+  // Calculate totals for each comment
+  for (const stats of commentStats.values()) {
+    stats.total_agrees = Object.values(stats.group_stats).reduce(
+      (sum, g) => sum + g.agrees,
+      0
+    );
+    stats.total_disagrees = Object.values(stats.group_stats).reduce(
+      (sum, g) => sum + g.disagrees,
+      0
+    );
+    stats.total_passes = Object.values(stats.group_stats).reduce(
+      (sum, g) => sum + g.passes,
+      0
+    );
+    stats.total_votes = Object.values(stats.group_stats).reduce(
+      (sum, g) => sum + g.votes,
+      0
+    );
+  }
+
+  // Format and send CSV
+  res.setHeader("content-type", "text/csv");
+
+  // Create headers
+  const headers = [
+    "comment-id",
+    "comment",
+    "total-votes",
+    "total-agrees",
+    "total-disagrees",
+    "total-passes",
+  ];
+  for (const groupId of groupIds) {
+    const groupLetter = String.fromCharCode(97 + groupId); // 97 is 'a' in ASCII
+    headers.push(
+      `group-${groupLetter}-votes`,
+      `group-${groupLetter}-agrees`,
+      `group-${groupLetter}-disagrees`,
+      `group-${groupLetter}-passes`
+    );
+  }
+  res.write(headers.join(",") + sep);
+
+  // Write data rows
+  for (const stats of commentStats.values()) {
+    const row = [
+      stats.tid,
+      formatEscapedText(stats.txt),
+      stats.total_votes,
+      stats.total_agrees,
+      stats.total_disagrees,
+      stats.total_passes,
+    ];
+    for (const groupId of groupIds) {
+      const groupStats = stats.group_stats[groupId];
+      row.push(
+        groupStats.votes,
+        groupStats.agrees,
+        groupStats.disagrees,
+        groupStats.passes
+      );
+    }
+    res.write(row.join(",") + sep);
+  }
+  res.end();
+}
+
 export async function handle_GET_reportExport(
   req: {
     p: { rid: string; report_type: string };
@@ -327,6 +490,10 @@ export async function handle_GET_reportExport(
 
       case "participant-votes.csv":
         await sendParticipantVotesSummary(zid, res);
+        break;
+
+      case "comment-groups.csv":
+        await sendCommentGroupsSummary(zid, res);
         break;
 
       default:
