@@ -111,6 +111,7 @@ module.exports = Handlebones.ModelView.extend({
       }
 
     }
+    ctx.showImportantCheckbox = preload.conversation.importance_enabled;
     ctx.social = socialCtx;
     ctx.noModSet = !ctx.spamOn && !ctx.otOn && !ctx.importantOn;
     ctx.canSubscribe = !!preload.firstPtpt || this.votesByMe.size() > 0;
@@ -486,13 +487,13 @@ module.exports = Handlebones.ModelView.extend({
       });
       return false;
     };
-    this.getWeight = function() {
-      if ($("#weight_low").prop("checked")) {
-        return -1;
-      } else if ($("#weight_high").prop("checked")) {
-        return 1;
+
+    // note: instead of -1/1/0, weight is now the boolean high_priority
+    this.highPriority = function () {
+      if ($("#weight_high").prop("checked")) {
+        return true;
       }
-      return 0;
+      return false;
     };
     this.participantAgreed = function(e) {
       this.mostRecentVoteType = "agree";
@@ -504,12 +505,12 @@ module.exports = Handlebones.ModelView.extend({
       this.wipVote = {
         vote: -1,
         conversation_id: conversation_id,
-        weight: this.getWeight(),
+        high_priority: this.highPriority(),
         tid: tid
       };
       serverClient.addToVotesByMe(this.wipVote);
       this.onButtonClicked();
-      serverClient.agree(tid, starred, this.wipVote.weight)
+      serverClient.agree(tid, starred, this.wipVote.high_priority)
         .then(onVote.bind(this), onFail.bind(this));
     };
     this.participantDisagreed = function() {
@@ -519,12 +520,12 @@ module.exports = Handlebones.ModelView.extend({
       this.wipVote = {
         vote: 1,
         conversation_id: conversation_id,
-        weight: this.getWeight(),
+        high_priority: this.highPriority(),
         tid: tid
       };
       serverClient.addToVotesByMe(this.wipVote);
       this.onButtonClicked();
-      serverClient.disagree(tid, starred, this.wipVote.weight)
+      serverClient.disagree(tid, starred, this.wipVote.high_priority)
         .then(onVote.bind(this), onFail.bind(this));
     };
     this.participantPassed = function() {
@@ -534,12 +535,12 @@ module.exports = Handlebones.ModelView.extend({
       this.wipVote = {
         vote: 0,
         conversation_id: conversation_id,
-        weight: this.getWeight(),
+        high_priority: this.highPriority(), // TODO: specify in help text that this is for "important but unsure"
         tid: tid
       };
       serverClient.addToVotesByMe(this.wipVote);
       this.onButtonClicked();
-      serverClient.pass(tid, starred, this.wipVote.weight)
+      serverClient.pass(tid, starred, this.wipVote.high_priority)
         .then(onVote.bind(this), onFail.bind(this));
     };
 
@@ -579,7 +580,7 @@ module.exports = Handlebones.ModelView.extend({
         return;
       }
       var starred = this.model.get("starred");
-      var weight = 0;
+      var high_priority = this.wipVote.high_priority;
 
       var tid = this.wipVote.tid;
 
@@ -591,13 +592,13 @@ module.exports = Handlebones.ModelView.extend({
       }
 
       if (this.wipVote.vote === -1) {
-        serverClient.agree(tid, starred, weight)
+        serverClient.agree(tid, starred, high_priority)
           .then(reloadPage, onFailAfterAuth);
       } else if (this.wipVote.vote === 0) {
-        serverClient.pass(tid, starred, weight)
+        serverClient.pass(tid, starred, high_priority)
           .then(reloadPage, onFailAfterAuth);
       } else if (this.wipVote.vote === 1) {
-        serverClient.disagree(tid, starred, weight)
+        serverClient.disagree(tid, starred, high_priority)
           .then(reloadPage, onFailAfterAuth);
       } else {
         alert(3);
