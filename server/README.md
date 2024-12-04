@@ -65,6 +65,9 @@ flavors of node.
   \i postgres/migrations/000003_add_origin_permanent_cookie_columns.sql
   \i postgres/migrations/000004_drop_waitinglist_table.sql
   \i postgres/migrations/000005_drop_slack_stripe_canvas.sql
+  \i postgres/migrations/000006_update_votes_rule.sql
+  \i postgres/migrations/000007_drop_geolocation_fields.sql
+  \i postgres/migrations/000008_add_comment_priority.sql
   ```
 
   You can also separately run `psql -d polis -f postgres/migrations/000000_initial.sql` and
