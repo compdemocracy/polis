@@ -170,9 +170,7 @@ export async function handle_GET_reportNarrative(
     // Process each section
     const sectionResults = await Promise.all(
       reportSections.map(async (section) => {
-        console.log("mapping")
         const fileContents = await fs.readFile(section.templatePath, "utf8");
-        console.log(fileContents)
         const json = await convertXML(fileContents);
         const structured_comments = await getCommentsAsXML(zid, section.filter);
 
@@ -220,7 +218,6 @@ export async function handle_GET_reportNarrative(
       err instanceof Error && err.message && err.message.startsWith("polis_")
         ? err.message
         : "polis_err_report_narrative";
-    console.log(JSON.stringify(err));
     fail(res, 500, msg, err);
   }
 }
