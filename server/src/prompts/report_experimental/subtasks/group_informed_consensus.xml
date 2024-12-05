@@ -24,7 +24,7 @@
         </term>
         <term name="group_informed">
             <description>Difference in pass rates between groups</description>
-            <threshold<30</threshold>
+            <threshold>30</threshold>
             <unit>percent</unit>
         </term>
         <term name="valid_statement">
@@ -37,10 +37,7 @@
     <analysisProcess>
         <dataProcessing>
             <step order="1">
-                <name>Filter Valid Statements</name>
-                <criteria>
-                    <criterion>vote_count >= 75</criterion>
-                </criteria>
+                <name>Filter Valid Statements more than 75 votes</name>
             </step>
             <step order="2">
                 <name>Calculate Pass Rates</name>
@@ -113,22 +110,22 @@
                 commentId
             </template>
             <rules>
-                <rule>minimum_citations_per_clause>1</rule>
-                <rule>maximum_citations_per_clause>10</rule>
-                <rule>include_full_vote_breakdown>false</rule>
+                <rule>minimum_citations_per_clause&gt;1</rule>
+                <rule>maximum_citations_per_clause&gt;10</rule>
+                <rule>include_full_vote_breakdown&gt;false</rule>
             </rules>
         </citationRules>
 
         <validationRequirements>
             <dataQuality>
-                <requirement>minimum_votes_per_statement>75</requirement>
+                <requirement>minimum_votes_per_statement&gt;75</requirement>
             </dataQuality>
 
             <reportingCompleteness>
-                <requirement>all_groups_represented>true</requirement>
-                <requirement>high_uncertainty_topics_covered>true</requirement>
-                <requirement>patterns_explained>true</requirement>
-                <requirement>special_cases_noted>true</requirement>
+                <requirement>all_groups_represented&gt;true</requirement>
+                <requirement>high_uncertainty_topics_covered&gt;true</requirement>
+                <requirement>patterns_explained&gt;true</requirement>
+                <requirement>special_cases_noted&gt;true</requirement>
             </reportingCompleteness>
         </validationRequirements>
 
@@ -153,9 +150,9 @@
 
             <case type="topic_clustering">
                 <requirements>
-                    <requirement>minimum_statements>3</requirement>
-                    <requirement>conceptual_relationship>true</requirement>
-                    <requirement>similar_uncertainty_patterns>true</requirement>
+                    <requirement>minimum_statements&gt;3</requirement>
+                    <requirement>conceptual_relationship&gt;true</requirement>
+                    <requirement>similar_uncertainty_patterns&gt;true</requirement>
                 </requirements>
             </case>
         </specialCases>
@@ -192,13 +189,14 @@
         <rule>Citations must use provided format</rule>
         <rule>Groups must be referenced by actual group names from data</rule>
         <rule>Statements must have minimum vote threshold of 100</rule>
-        <rule>High uncertainty defined as >30% pass rate</rule>
+        <rule>High uncertainty defined as &gt;30% pass rate</rule>
     </validationRules>
 
     <responseFormat>
         <condensedJSONSchema>
             {
-            "id": "subtask_group_informed_consensus", // This is the group informed consensus subtask
+            "id": "subtask_group_informed_consensus", // This is the group informed consensus
+            subtask
             "title": "group informed consensus Analysis",
             "paragraphs": [
             {
@@ -346,6 +344,6 @@
         }
     </example>
     <data>
-      INSERT_DATA_HERE
+        INSERT_DATA_HERE
     </data>
 </polisAnalysisPrompt>

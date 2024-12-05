@@ -30,6 +30,7 @@ import net from "../util/net";
 import $ from "jquery";
 
 import Narrative from "./narrative";
+import ConsensusNarrative from "./lists/consensusNarrative";
 
 var pathname = window.location.pathname; // "/report/2arcefpshi"
 var report_id = pathname.split("/")[2];
@@ -566,6 +567,15 @@ class App extends React.Component {
             math={this.state.math}
             comments={this.state.comments}
             uncertainty={this.state.uncertainty}
+            conversation={this.state.conversation}
+            ptptCount={this.state.ptptCount}
+            formatTid={this.state.formatTid}
+            voteColors={this.state.voteColors}
+            narrative={this.state.narrative}
+          />
+          <ConsensusNarrative
+            math={this.state.math}
+            comments={this.state.comments}
             conversation={this.state.conversation}
             ptptCount={this.state.ptptCount}
             formatTid={this.state.formatTid}

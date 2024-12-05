@@ -103,39 +103,54 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-const getJSONuserMsg = async () => {
-  const report_xml_template = await fs.readFile(
-    "src/prompts/report_experimental/subtasks/uncertainty.xml",
-    "utf8"
-  ); // unsure if this should be uncertainty or group_informed_consensus
-  const asJSON = await convertXML(report_xml_template);
-  return asJSON;
-};
-
-const getCommentsAsXML = async (id: number) => {
-  const filter = (v: {
+const getCommentsAsXML = async (
+  id: number,
+  filter?: (v: {
     votes: number;
     agrees: number;
     disagrees: number;
     passes: number;
-  }): boolean => {
-    return v.passes / v.votes >= 0.2;
-    // return true;
-  };
+  }) => boolean
+) => {
   try {
     const resp = await sendCommentGroupsSummary(id, undefined, false, filter);
-    console.log(`CCC: ${resp}`);
     const xml = PolisConverter.convertToXml(resp as string);
     return xml;
   } catch (e) {
-    console.log(e);
+    return ""; // Return empty string on error to avoid undefined
   }
 };
 
-export async function handle_GET_reportNarrative(
-  req: {
-    p: { rid: string };
+// Add new type definitions
+interface ReportSection {
+  name: string;
+  templatePath: string;
+  filter?: (v: {
+    votes: number;
+    agrees: number;
+    disagrees: number;
+    passes: number;
+  }) => boolean;
+}
+
+// Define the report sections with filters
+const reportSections: ReportSection[] = [
+  {
+    name: "uncertainty",
+    templatePath: "src/prompts/report_experimental/subtasks/uncertainty.xml",
+    // Revert to original simple pass ratio check
+    filter: (v) => v.passes / v.votes >= 0.2,
   },
+  {
+    name: "group_informed_consensus",
+    templatePath:
+      "src/prompts/report_experimental/subtasks/group_informed_consensus.xml",
+    // No filter needed for consensus section
+  },
+];
+
+export async function handle_GET_reportNarrative(
+  req: { p: { rid: string } },
   res: Response
 ) {
   const { rid } = req.p;
@@ -151,47 +166,54 @@ export async function handle_GET_reportNarrative(
       "src/prompts/report_experimental/system.xml",
       "utf8"
     );
-    const json = await getJSONuserMsg();
-    const structured_comments = await getCommentsAsXML(zid);
-    json.polisAnalysisPrompt.children[
-      json.polisAnalysisPrompt.children.length - 1
-    ].data.content = { structured_comments }; // insert dynamic report stuff here
-    const prompt_xml = js2xmlparser.parse(
-      "polis-comments-and-group-demographics",
-      json
-    ); // then convert back to xml
-    console.log(`JSON: ${json}, COMMENTS: ${structured_comments}`);
-    const uncertainty = await anthropic.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 1000,
-      temperature: 0,
-      system: system_lore,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: prompt_xml,
-            },
-          ],
-        },
-        {
-          role: "assistant",
-          content: [
-            {
-              type: "text",
-              text: "{",
-            },
-          ],
-        },
-      ],
-    });
 
-    // For now just return hello world
+    // Process each section
+    const sectionResults = await Promise.all(
+      reportSections.map(async (section) => {
+        console.log("mapping")
+        const fileContents = await fs.readFile(section.templatePath, "utf8");
+        console.log(fileContents)
+        const json = await convertXML(fileContents);
+        const structured_comments = await getCommentsAsXML(zid, section.filter);
+
+        json.polisAnalysisPrompt.children[
+          json.polisAnalysisPrompt.children.length - 1
+        ].data.content = { structured_comments };
+
+        const prompt_xml = js2xmlparser.parse(
+          "polis-comments-and-group-demographics",
+          json
+        );
+
+        const response = await anthropic.messages.create({
+          model: "claude-3-5-sonnet-20241022",
+          max_tokens: 1000,
+          temperature: 0,
+          system: system_lore,
+          messages: [
+            {
+              role: "user",
+              content: [{ type: "text", text: prompt_xml }],
+            },
+            {
+              role: "assistant",
+              content: [{ type: "text", text: "{" }],
+            },
+          ],
+        });
+
+        return {
+          [section.name]: response,
+        };
+      })
+    );
+
+    // Combine all section results
+    const combinedResults = Object.assign({}, ...sectionResults);
+
     res.json({
       narrative: "A narrative report summarizing a polis conversation, Nov 26.",
-      uncertainty,
+      ...combinedResults,
     });
   } catch (err) {
     const msg =
