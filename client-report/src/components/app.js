@@ -31,6 +31,7 @@ import $ from "jquery";
 
 import Narrative from "./narrative";
 import ConsensusNarrative from "./lists/consensusNarrative";
+import RawDataExport from "./RawDataExport";
 
 var pathname = window.location.pathname; // "/report/2arcefpshi"
 var report_id = pathname.split("/")[2];
@@ -67,9 +68,15 @@ class App extends React.Component {
   }
 
   async componentDidUpdate() {
-    if (window.location.pathname.split("/")[1] === "narrativeReport" && this.state.isNarrativeReport !== true) {
+    if (
+      window.location.pathname.split("/")[1] === "narrativeReport" &&
+      this.state.isNarrativeReport !== true
+    ) {
       this.setState({ isNarrativeReport: true });
-    } else if (this.state.isNarrativeReport && window.location.pathname.split("/")[1] !== "narrativeReport") {
+    } else if (
+      this.state.isNarrativeReport &&
+      window.location.pathname.split("/")[1] !== "narrativeReport"
+    ) {
       this.setState({ isNarrativeReport: false });
     }
   }
@@ -522,21 +529,25 @@ class App extends React.Component {
             voteColors={this.state.voteColors}
           />
 
+          {!this.state.isNarrativeReport && (
+            <RawDataExport conversation={this.state.conversation} report_id={report_id} />
+          )}
+
           {this.state.isNarrativeReport ? (
             <>
-              <UncertaintyNarrative
+              <ConsensusNarrative
                 math={this.state.math}
                 comments={this.state.comments}
-                uncertainty={this.state.uncertainty}
                 conversation={this.state.conversation}
                 ptptCount={this.state.ptptCount}
                 formatTid={this.state.formatTid}
                 voteColors={this.state.voteColors}
                 narrative={this.state.narrative}
               />
-              <ConsensusNarrative
+              <UncertaintyNarrative
                 math={this.state.math}
                 comments={this.state.comments}
+                uncertainty={this.state.uncertainty}
                 conversation={this.state.conversation}
                 ptptCount={this.state.ptptCount}
                 formatTid={this.state.formatTid}
