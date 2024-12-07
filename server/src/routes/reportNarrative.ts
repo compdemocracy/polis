@@ -130,6 +130,7 @@ interface ReportSection {
     agrees: number;
     disagrees: number;
     passes: number;
+    group_aware_consensus: number;
   }) => boolean;
 }
 
@@ -145,7 +146,7 @@ const reportSections: ReportSection[] = [
     name: "group_informed_consensus",
     templatePath:
       "src/prompts/report_experimental/subtasks/group_informed_consensus.xml",
-    // No filter needed for consensus section
+    filter: (v) => v.group_aware_consensus > 0.7,
   },
 ];
 

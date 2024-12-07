@@ -335,7 +335,8 @@ export async function sendCommentGroupsSummary(
     agrees: number;
     disagrees: number;
     passes: number;
-}) => boolean,
+    group_aware_consensus: number;
+  }) => boolean
 ) {
   const csvText = [];
   // Get PCA data to identify groups and get groupVotes
@@ -349,6 +350,10 @@ export async function sendCommentGroupsSummary(
   const groupVotes = pca.asPOJO["group-votes"] as Record<
     number,
     GroupVoteStats
+  >;
+  const groupAwareConsensus = pca.asPOJO["group-aware-consensus"] as Record<
+    number,
+    number
   >;
 
   // Load comment texts
@@ -465,28 +470,40 @@ export async function sendCommentGroupsSummary(
     ];
     for (const groupId of groupIds) {
       const groupStats = stats.group_stats[groupId];
-        row.push(
-          groupStats.votes,
-          groupStats.agrees,
-          groupStats.disagrees,
-          groupStats.passes
-        );
+      row.push(
+        groupStats.votes,
+        groupStats.agrees,
+        groupStats.disagrees,
+        groupStats.passes
+      );
     }
     if (http && res) {
-      if (filterFN && filterFN({votes: stats.total_votes,
-        agrees: stats.total_agrees,
-        disagrees: stats.total_disagrees,
-        passes: stats.total_passes}) === true) {
+      if (
+        filterFN &&
+        filterFN({
+          votes: stats.total_votes,
+          agrees: stats.total_agrees,
+          disagrees: stats.total_disagrees,
+          passes: stats.total_passes,
+          group_aware_consensus: groupAwareConsensus[stats.tid],
+        }) === true
+      ) {
         res.write(row.join(",") + sep);
       } else if (filterFN === undefined) {
         res.write(row.join(",") + sep);
       }
     } else {
-      if (filterFN && filterFN({votes: stats.total_votes,
-        agrees: stats.total_agrees,
-        disagrees: stats.total_disagrees,
-        passes: stats.total_passes}) === true) {
-          csvText.push(row.join(",") + sep);
+      if (
+        filterFN &&
+        filterFN({
+          votes: stats.total_votes,
+          agrees: stats.total_agrees,
+          disagrees: stats.total_disagrees,
+          passes: stats.total_passes,
+          group_aware_consensus: groupAwareConsensus[stats.tid],
+        }) === true
+      ) {
+        csvText.push(row.join(",") + sep);
       } else if (filterFN === undefined) {
         csvText.push(row.join(",") + sep);
       }

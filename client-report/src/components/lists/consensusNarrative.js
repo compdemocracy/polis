@@ -15,8 +15,6 @@ const ConsensusNarrative = ({
   }
   const txt = narrative.group_informed_consensus.content[0].text;
 
-  console.log("NARRATIVE123", narrative)
-
   const narrativeJSON = JSON.parse(`{${txt}`);
 
   // Extract all citation IDs from the narrative structure
