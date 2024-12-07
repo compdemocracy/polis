@@ -110,6 +110,7 @@ const getCommentsAsXML = async (
     agrees: number;
     disagrees: number;
     passes: number;
+    group_aware_consensus?: number;
   }) => boolean
 ) => {
   try {
@@ -130,7 +131,7 @@ interface ReportSection {
     agrees: number;
     disagrees: number;
     passes: number;
-    group_aware_consensus: number;
+    group_aware_consensus?: number;
   }) => boolean;
 }
 
@@ -146,7 +147,7 @@ const reportSections: ReportSection[] = [
     name: "group_informed_consensus",
     templatePath:
       "src/prompts/report_experimental/subtasks/group_informed_consensus.xml",
-    filter: (v) => v.group_aware_consensus > 0.7,
+    filter: (v) => (v.group_aware_consensus ?? 0) > 0.7,
   },
 ];
 
