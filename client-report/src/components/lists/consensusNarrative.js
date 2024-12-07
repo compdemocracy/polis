@@ -1,4 +1,5 @@
 import React from "react";
+import * as globals from "../globals";
 import Narrative from "../narrative";
 import CommentList from "./commentList";
 const ConsensusNarrative = ({
@@ -33,6 +34,10 @@ const ConsensusNarrative = ({
   const dedupedTids = [...new Set(uniqueTids || [])];
   return (
     <div>
+      <p style={globals.primaryHeading}> Group Aware Consensus Narrative </p>
+      <p style={globals.paragraph}>
+        This narrative summary may contain hallucinations. Check each clause.
+      </p>
       <Narrative sectionData={narrative.group_informed_consensus} />
       <div style={{ marginTop: 50 }}>
         <CommentList
