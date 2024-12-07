@@ -73,15 +73,26 @@
                     <element>participation_context</element>
                 </elements>
                 <format>
-                    Provide a comprehensive overview of ALL major consensus areas, grouped by theme.
-                    Each theme should be thoroughly explored with multiple supporting comments.
-                    Format: [Theme 1]: [Detail multiple related consensus points with specific
-                    percentages]
-                    [Theme 2]: [Additional consensus points]
-                    Continue until all major themes and their supporting comments are covered.
+                    Areas of significant consensus across groups included [topic1] and [topic2],
+                    with [X]% of participants expressing consensus about [specific_statement].
+                    [context] [additional_overview_analysis].
+
+                    [Category X] emerged as a key area of consensus, with participants
+                    [voting, agreeing, disagreeing] on statements about [specific_topic] at rates of
+                    [range_low]-[range_high]%.
+                    [additional_categories_and_examples]. Category [category3] created additional
+                    consensus,
+                    particularly among Group [group_name] participants who showed [percentage3]%
+                    [voting, agreeing, disagreeing] on related initiatives.
                 </format>
-                <length>As many paragraphs as needed to cover all consensus patterns, typically 5-10
-                    paragraphs for larger datasets</length>
+                <paragraphInstructions>
+                    this is a tl;dr paragraph for the entire consensus in the conversation. it is
+                    the most critical paragraph of the entire report since group informed consensus
+                    is the most valuable aspect of the data. It should be a high-level overview of
+                    the consensus patterns in the conversation. It will be followed by a more
+                    detailed analysis of each theme. It requires citations for every clause.
+                </paragraphInstructions>
+                <length>4-5 sentences</length>
             </paragraph>
 
             <paragraph type="topic_analysis">
@@ -91,12 +102,21 @@
                     <element>category_patterns</element>
                 </elements>
                 <exampleFormat>
+                    Provide a comprehensive overview of ALL major consensus areas, grouped by theme.
+                    Each theme should be thoroughly explored with multiple supporting comments.
+                    Format: [Theme 1]: [Detail multiple related consensus points with specific
+                    percentages]
+                    [Theme 2]: [Additional consensus points]
+                    Continue until all major themes and their supporting comments are covered.
+
+                </exampleFormat>
+                <paragraphInstructions>
                     Each topic cluster should be analyzed in depth, with:
                     - Complete coverage of all related consensus statements
                     - Specific agreement percentages for each group
                     - Cross-referencing between related topics
                     - Multiple supporting citations for each claim
-                </exampleFormat>
+                </paragraphInstructions>
                 <length>Multiple paragraphs per topic cluster, with all relevant comments cited</length>
             </paragraph>
         </reportingStructure>
@@ -107,6 +127,10 @@
                 <rule>every_consensus_comment_must_be_cited</rule>
                 <rule>minimum_citations_per_paragraph&gt;5</rule>
                 <rule>group_related_citations_together</rule>
+                <rule>minimum_citations_per_clause&gt;1</rule>
+                <rule>maximum_citations_per_clause&gt;10</rule>
+                <rule>include_full_vote_breakdown&gt;false</rule>
+
             </rules>
         </citationRules>
 
@@ -256,8 +280,8 @@
         ]
         },
         {
-        "id": "uncertainty_group_patterns",
-        "title": "Group-Specific Uncertainty Patterns",
+        "id": "theme_1",
+        "title": "Theme 1",
         "sentences": [
         {
         "clauses": [
@@ -284,8 +308,8 @@
         ]
         },
         {
-        "id": "uncertainty_topic_categories",
-        "title": "Topic-Based Uncertainty Analysis",
+        "id": "theme_2",
+        "title": "Theme 2",
         "sentences": [
         {
         "clauses": [
