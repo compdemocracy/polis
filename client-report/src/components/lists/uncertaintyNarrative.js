@@ -16,11 +16,11 @@ const UncertaintyNarrative = ({
   voteColors,
   narrative,
 }) => {
-  if (!conversation) {
+  if (!conversation || !narrative) {
     return <div>Loading Uncertainty...</div>;
   }
 
-  const txt = narrative.uncertainty.content[0].text;
+  const txt = narrative?.uncertainty.content[0].text;
 
   const narrativeJSON = JSON.parse(`{${txt}`);
 

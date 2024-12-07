@@ -52,6 +52,7 @@ class App extends React.Component {
       conversation: null,
       groupDemographics: null,
       colorBlindMode: false,
+      isNarrativeReport: window.location.pathname.split("/")[1] === "narrativeReport",
       dimensions: {
         width: window.innerWidth,
         height: window.innerHeight,
@@ -63,6 +64,14 @@ class App extends React.Component {
         pass: globals.brandColors.pass,
       },
     };
+  }
+
+  async componentDidUpdate() {
+    if (window.location.pathname.split("/")[1] === "narrativeReport" && this.state.isNarrativeReport !== true) {
+      this.setState({ isNarrativeReport: true });
+    } else if (this.state.isNarrativeReport && window.location.pathname.split("/")[1] !== "narrativeReport") {
+      this.setState({ isNarrativeReport: false });
+    }
   }
 
   getMath(conversation_id) {
@@ -172,8 +181,6 @@ class App extends React.Component {
 
   getData() {
     const reportPromise = this.getReport(report_id);
-    // debug initial report data fetch
-    reportPromise.then((report) => console.log("report received:", report));
     const mathPromise = reportPromise.then((report) => {
       return this.getMath(report.conversation_id);
     });
@@ -202,7 +209,7 @@ class App extends React.Component {
     });
 
     const narrativePromise = reportPromise.then((report) => {
-      return this.getNarrative(report.report_id);
+      return this.state.isNarrativeReport ? this.getNarrative(report.report_id) : Promise.resolve();
     });
 
     Promise.all([
@@ -268,7 +275,6 @@ class App extends React.Component {
             if (probabilities[row][0] === "NaN") {
               let tid = correlationHClust.comments[row];
               badTids[tid] = true;
-              // console.log("bad", tid);
             }
           }
           filteredProbabilities = probabilities
@@ -394,7 +400,7 @@ class App extends React.Component {
           repfulDisageeTidsByGroup: repfulDisageeTidsByGroup,
           formatTid: formatTid,
           report: report,
-          narrative: narrative,
+          narrative: this.state.isNarrativeReport ? narrative : undefined,
           //conversationStats: conversationstats,
           computedStats: computedStats,
           nothingToShow: !comments.length || !groupDemographics.length,
@@ -408,7 +414,7 @@ class App extends React.Component {
       });
   }
 
-  UNSAFE_componentWillMount() {
+  async UNSAFE_componentWillMount() {
     this.getData();
 
     setInterval(() => {
@@ -484,7 +490,7 @@ class App extends React.Component {
         </div>
       );
     }
-    console.log("top level app state and props", this.state, this.props);
+
     return (
       <div style={{ margin: "0px 10px" }} data-testid="reports-overview">
         <Heading conversation={this.state.conversation} />
@@ -516,111 +522,118 @@ class App extends React.Component {
             voteColors={this.state.voteColors}
           />
 
-          <Beeswarm
-            conversation={this.state.conversation}
-            extremity={this.state.extremity}
-            math={this.state.math}
-            comments={this.state.comments}
-            probabilities={this.state.filteredCorrelationMatrix}
-            probabilitiesTids={this.state.filteredCorrelationTids}
-            voteColors={this.state.voteColors}
-          />
-          {/*
-            <p style={globals.primaryHeading}>Consensus</p>
-            <p style={globals.primaryHeading}>Inclusive Majority</p>
-          */}
+          {this.state.isNarrativeReport ? (
+            <>
+              <UncertaintyNarrative
+                math={this.state.math}
+                comments={this.state.comments}
+                uncertainty={this.state.uncertainty}
+                conversation={this.state.conversation}
+                ptptCount={this.state.ptptCount}
+                formatTid={this.state.formatTid}
+                voteColors={this.state.voteColors}
+                narrative={this.state.narrative}
+              />
+              <ConsensusNarrative
+                math={this.state.math}
+                comments={this.state.comments}
+                conversation={this.state.conversation}
+                ptptCount={this.state.ptptCount}
+                formatTid={this.state.formatTid}
+                voteColors={this.state.voteColors}
+                narrative={this.state.narrative}
+              />
+            </>
+          ) : (
+            <>
+              <Beeswarm
+                conversation={this.state.conversation}
+                extremity={this.state.extremity}
+                math={this.state.math}
+                comments={this.state.comments}
+                probabilities={this.state.filteredCorrelationMatrix}
+                probabilitiesTids={this.state.filteredCorrelationTids}
+                voteColors={this.state.voteColors}
+              />
+              {/*
+                <p style={globals.primaryHeading}>Consensus</p>
+                <p style={globals.primaryHeading}>Inclusive Majority</p>
+              */}
 
-          <MajorityStrict
-            math={this.state.math}
-            conversation={this.state.conversation}
-            ptptCount={this.state.ptptCount}
-            comments={this.state.comments}
-            formatTid={this.state.formatTid}
-            consensus={this.state.consensus}
-            voteColors={this.state.voteColors}
-          />
-          <ParticipantGroups
-            comments={this.state.comments}
-            conversation={this.state.conversation}
-            demographics={this.state.demographics}
-            ptptCount={this.state.ptptCount}
-            groupNames={this.state.groupNames}
-            formatTid={this.state.formatTid}
-            math={this.state.math}
-            badTids={this.state.badTids}
-            repfulAgreeTidsByGroup={this.state.repfulAgreeTidsByGroup}
-            repfulDisageeTidsByGroup={this.state.repfulDisageeTidsByGroup}
-            report={this.state.report}
-            voteColors={this.state.voteColors}
-          />
-          <Uncertainty
-            math={this.state.math}
-            comments={this.state.comments}
-            uncertainty={this.state.uncertainty}
-            conversation={this.state.conversation}
-            ptptCount={this.state.ptptCount}
-            formatTid={this.state.formatTid}
-            voteColors={this.state.voteColors}
-            narrative={this.state.narrative}
-          />
-          <UncertaintyNarrative
-            math={this.state.math}
-            comments={this.state.comments}
-            uncertainty={this.state.uncertainty}
-            conversation={this.state.conversation}
-            ptptCount={this.state.ptptCount}
-            formatTid={this.state.formatTid}
-            voteColors={this.state.voteColors}
-            narrative={this.state.narrative}
-          />
-          <ConsensusNarrative
-            math={this.state.math}
-            comments={this.state.comments}
-            conversation={this.state.conversation}
-            ptptCount={this.state.ptptCount}
-            formatTid={this.state.formatTid}
-            voteColors={this.state.voteColors}
-            narrative={this.state.narrative}
-          />
-          {/* {false ? <CommentsGraph
-            comments={this.state.comments}
-            groupNames={this.state.groupNames}
-            badTids={this.state.badTids}
-            formatTid={this.state.formatTid}
-            repfulAgreeTidsByGroup={this.state.repfulAgreeTidsByGroup}
-            math={this.state.math}
-            renderHeading={true}
-            report={this.state.report}
-            voteColors={this.state.voteColors}/> : null}
-          {globals.enableMatrix && false ? <Matrix
-            probabilities={this.state.filteredCorrelationMatrix}
-            comments={this.state.comments}
-            tids={this.state.filteredCorrelationTids}
-            formatTid={this.state.formatTid}
-            ptptCount={this.state.ptptCount}
-            voteColors={this.state.voteColors}/> : ""} */}
-          <ParticipantsGraph
-            comments={this.state.comments}
-            groupNames={this.state.groupNames}
-            badTids={this.state.badTids}
-            colorBlindMode={this.state.colorBlindMode}
-            formatTid={this.state.formatTid}
-            repfulAgreeTidsByGroup={this.state.repfulAgreeTidsByGroup}
-            math={this.state.math}
-            renderHeading={true}
-            report={this.state.report}
-            voteColors={this.state.voteColors}
-          />
-          {/* <BoxPlot
-            groupVotes={this.state.math["group-votes"]}/>*/}
-          <AllCommentsModeratedIn
-            math={this.state.math}
-            comments={this.state.comments}
-            conversation={this.state.conversation}
-            ptptCount={this.state.ptptCount}
-            formatTid={this.state.formatTid}
-            voteColors={this.state.voteColors}
-          />
+              <MajorityStrict
+                math={this.state.math}
+                conversation={this.state.conversation}
+                ptptCount={this.state.ptptCount}
+                comments={this.state.comments}
+                formatTid={this.state.formatTid}
+                consensus={this.state.consensus}
+                voteColors={this.state.voteColors}
+              />
+              <ParticipantGroups
+                comments={this.state.comments}
+                conversation={this.state.conversation}
+                demographics={this.state.demographics}
+                ptptCount={this.state.ptptCount}
+                groupNames={this.state.groupNames}
+                formatTid={this.state.formatTid}
+                math={this.state.math}
+                badTids={this.state.badTids}
+                repfulAgreeTidsByGroup={this.state.repfulAgreeTidsByGroup}
+                repfulDisageeTidsByGroup={this.state.repfulDisageeTidsByGroup}
+                report={this.state.report}
+                voteColors={this.state.voteColors}
+              />
+              <Uncertainty
+                math={this.state.math}
+                comments={this.state.comments}
+                uncertainty={this.state.uncertainty}
+                conversation={this.state.conversation}
+                ptptCount={this.state.ptptCount}
+                formatTid={this.state.formatTid}
+                voteColors={this.state.voteColors}
+                narrative={this.state.narrative}
+              />
+              {/* {false ? <CommentsGraph
+                comments={this.state.comments}
+                groupNames={this.state.groupNames}
+                badTids={this.state.badTids}
+                formatTid={this.state.formatTid}
+                repfulAgreeTidsByGroup={this.state.repfulAgreeTidsByGroup}
+                math={this.state.math}
+                renderHeading={true}
+                report={this.state.report}
+                voteColors={this.state.voteColors}/> : null}
+              {globals.enableMatrix && false ? <Matrix
+                probabilities={this.state.filteredCorrelationMatrix}
+                comments={this.state.comments}
+                tids={this.state.filteredCorrelationTids}
+                formatTid={this.state.formatTid}
+                ptptCount={this.state.ptptCount}
+                voteColors={this.state.voteColors}/> : ""} */}
+              <ParticipantsGraph
+                comments={this.state.comments}
+                groupNames={this.state.groupNames}
+                badTids={this.state.badTids}
+                colorBlindMode={this.state.colorBlindMode}
+                formatTid={this.state.formatTid}
+                repfulAgreeTidsByGroup={this.state.repfulAgreeTidsByGroup}
+                math={this.state.math}
+                renderHeading={true}
+                report={this.state.report}
+                voteColors={this.state.voteColors}
+              />
+              {/* <BoxPlot
+                groupVotes={this.state.math["group-votes"]}/>*/}
+              <AllCommentsModeratedIn
+                math={this.state.math}
+                comments={this.state.comments}
+                conversation={this.state.conversation}
+                ptptCount={this.state.ptptCount}
+                formatTid={this.state.formatTid}
+                voteColors={this.state.voteColors}
+              />
+            </>
+          )}
           <Footer />
         </div>
       </div>
