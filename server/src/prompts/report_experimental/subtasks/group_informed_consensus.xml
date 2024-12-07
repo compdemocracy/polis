@@ -12,11 +12,16 @@
             TEXT.
         </instruction>
         <instruction>
-            Use most of the data to generate the report. Do not leave out important information.
-            Bias towards including more data rather than less and being more comprehensive. This is
-            the most important part of the report. You should aim for multiple paragraphs of
-            analysis using most or all of the data provided as citations. It's ok if there are
-            dozens of citations in the report.
+            Analyze and include ALL comments that show consensus patterns — the data is already
+            filtered for those with the requisite score threshold for group-aware consensus.
+            The analysis should be exhaustive and comprehensive, potentially spanning many
+            paragraphs.
+            Each consensus pattern should be supported by multiple comment citations.
+        </instruction>
+        <instruction>
+            Group related comments into coherent themes, but ensure every relevant comment is cited
+            at least once.
+            Aim for 100% coverage of consensus comments in the dataset.
         </instruction>
     </criticalInstructions>
 
@@ -68,11 +73,15 @@
                     <element>participation_context</element>
                 </elements>
                 <format>
-                    Areas of significant consensus across groups included [topic1] and [topic2],
-                    with [X]% of participants expressing consensus about [specific_statement].
-                    [context] [additional_overview_analysis].
+                    Provide a comprehensive overview of ALL major consensus areas, grouped by theme.
+                    Each theme should be thoroughly explored with multiple supporting comments.
+                    Format: [Theme 1]: [Detail multiple related consensus points with specific
+                    percentages]
+                    [Theme 2]: [Additional consensus points]
+                    Continue until all major themes and their supporting comments are covered.
                 </format>
-                <length>4-5 sentences or longer, multiple paragraphs if needed depending on the data</length>
+                <length>As many paragraphs as needed to cover all consensus patterns, typically 5-10
+                    paragraphs for larger datasets</length>
             </paragraph>
 
             <paragraph type="topic_analysis">
@@ -82,26 +91,22 @@
                     <element>category_patterns</element>
                 </elements>
                 <exampleFormat>
-                    [Category X] emerged as a key area of consensus, with participants
-                    [voting, agreeing, disagreeing] on statements about [specific_topic] at rates of
-                    [range_low]-[range_high]%.
-                    [additional_categories_and_examples]. Category [category3] created additional
-                    consensus,
-                    particularly among Group [group_name] participants who showed [percentage3]%
-                    [voting, agreeing, disagreeing] on related initiatives.
+                    Each topic cluster should be analyzed in depth, with:
+                    - Complete coverage of all related consensus statements
+                    - Specific agreement percentages for each group
+                    - Cross-referencing between related topics
+                    - Multiple supporting citations for each claim
                 </exampleFormat>
-                <length>4-5 sentences or longer, multiple paragraphs if needed depending on the data</length>
+                <length>Multiple paragraphs per topic cluster, with all relevant comments cited</length>
             </paragraph>
         </reportingStructure>
 
         <citationRules>
-            <template>
-                commentId
-            </template>
+            <template>commentId</template>
             <rules>
-                <rule>minimum_citations_per_clause&gt;1</rule>
-                <rule>maximum_citations_per_clause&gt;10</rule>
-                <rule>include_full_vote_breakdown&gt;false</rule>
+                <rule>every_consensus_comment_must_be_cited</rule>
+                <rule>minimum_citations_per_paragraph&gt;5</rule>
+                <rule>group_related_citations_together</rule>
             </rules>
         </citationRules>
 
