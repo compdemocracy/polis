@@ -11,42 +11,40 @@
             Generate a JSON response that conforms to the provided schema. DO NOT INCLUDE ANY OTHER
             TEXT.
         </instruction>
+        <instruction>
+            Use most of the data to generate the report. Do not leave out important information.
+            Bias towards including more data rather than less and being more comprehensive. This is
+            the most important part of the report. You should aim for multiple paragraphs of
+            analysis using most or all of the data provided as citations. It's ok if there are
+            dozens of citations in the report.
+        </instruction>
     </criticalInstructions>
 
     <definitions>
-        <term name="pass_rate">
-            <description>Percentage of participants selecting "agreed" or "disagreed"</description>
+        <term name="group_aware_consensus">
+            <description>Consensus across groups</description>
+        </term>
+        <term name="group_informed_consensus">
+            <description>Consensus that considers group-specific views, usually above 80% agreement
+                per group</description>
         </term>
         <term name="high_consensus">
-            <description>Statements with significant pass rates</description>
+            <description>Statements with significant agreement aco rates</description>
             <threshold>60</threshold>
             <unit>percent</unit>
-        </term>
-        <term name="group_informed">
-            <description>Difference in pass rates between groups</description>
-            <threshold>30</threshold>
-            <unit>percent</unit>
-        </term>
-        <term name="valid_statement">
-            <description>Statement with sufficient votes</description>
-            <threshold>75</threshold>
-            <unit>votes</unit>
         </term>
     </definitions>
 
     <analysisProcess>
         <dataProcessing>
             <step order="1">
-                <name>Filter Valid Statements more than 75 votes</name>
-            </step>
-            <step order="2">
-                <name>Calculate Pass Rates</name>
+                <name>Observe Consensus Across Groups</name>
                 <calculations>
-                    <calculation>overall_pass_rate</calculation>
-                    <calculation>group_specific_pass_rates</calculation>
+                    <calculation>group_aware_consensus</calculation>
+                    <calculation>group_informed_consensus</calculation>
                 </calculations>
             </step>
-            <step order="3">
+            <step order="2">
                 <name>Identify Patterns</name>
                 <patterns>
                     <pattern>high_consensus_statements</pattern>
@@ -54,36 +52,27 @@
                     <pattern>topic_clusters</pattern>
                 </patterns>
             </step>
+            <step order="3">
+                <name>Ensure broad coverage of comments in summary</name>
+                <patterns>
+                    <pattern>high_consensus_statements</pattern>
+                    <pattern>group_informed</pattern>
+                    <pattern>topic_clusters</pattern>
+                </patterns>
+            </step>
         </dataProcessing>
-
         <reportingStructure>
-            <paragraph type="overview">
+            <paragraph type="overview_consensus">
                 <elements>
                     <element>high_consensus_statements</element>
-                    <element>special_patterns</element>
                     <element>participation_context</element>
                 </elements>
                 <format>
-                    Areas of significant consensus included [topic1] and [topic2],
+                    Areas of significant consensus across groups included [topic1] and [topic2],
                     with [X]% of participants expressing consensus about [specific_statement].
                     [context] [additional_overview_analysis].
                 </format>
-                <length>4-5 sentences</length>
-            </paragraph>
-
-            <paragraph type="group_analysis">
-                <elements>
-                    <element>group_informed_patterns</element>
-                    <element>divergent_cases</element>
-                    <element>shared_consensus</element>
-                </elements>
-                <exampleFormat>
-                    Group [A] participants showed significant consensus around [topic1]
-                    and [topic2], differing from Group [B]'s consensus centered on [topic3].
-                    Both groups shared consensus about [shared_topic], with passage rates
-                    exceeding [X]%. [additional_group_analysis].
-                </exampleFormat>
-                <length>4-5 sentences</length>
+                <length>4-5 sentences or longer, multiple paragraphs if needed depending on the data</length>
             </paragraph>
 
             <paragraph type="topic_analysis">
@@ -93,15 +82,15 @@
                     <element>category_patterns</element>
                 </elements>
                 <exampleFormat>
-                    Category [X] emerged as a key area of consensus, with participants
-                    passing on statements about [specific_topic] at rates of
+                    [Category X] emerged as a key area of consensus, with participants
+                    [voting, agreeing, disagreeing] on statements about [specific_topic] at rates of
                     [range_low]-[range_high]%.
                     [additional_categories_and_examples]. Category [category3] created additional
                     consensus,
                     particularly among Group [group_name] participants who showed [percentage3]%
-                    passage rates on related initiatives.
+                    [voting, agreeing, disagreeing] on related initiatives.
                 </exampleFormat>
-                <length>2-3 sentences</length>
+                <length>4-5 sentences or longer, multiple paragraphs if needed depending on the data</length>
             </paragraph>
         </reportingStructure>
 
@@ -122,8 +111,6 @@
             </dataQuality>
 
             <reportingCompleteness>
-                <requirement>all_groups_represented&gt;true</requirement>
-                <requirement>high_uncertainty_topics_covered&gt;true</requirement>
                 <requirement>patterns_explained&gt;true</requirement>
                 <requirement>special_cases_noted&gt;true</requirement>
             </reportingCompleteness>
@@ -134,35 +121,23 @@
                 <threshold>100-150</threshold>
                 <handling>
                     <action>flag_as_less_reliable</action>
-                    <action>include_in_pattern_analysis</action>
-                    <action>note_in_citations</action>
-                </handling>
-            </case>
-
-            <case type="extreme_divergence">
-                <threshold>40</threshold>
-                <handling>
-                    <action>highlight_difference</action>
-                    <action>provide_context</action>
-                    <action>check_related_statements</action>
                 </handling>
             </case>
 
             <case type="topic_clustering">
                 <requirements>
-                    <requirement>minimum_statements&gt;3</requirement>
                     <requirement>conceptual_relationship&gt;true</requirement>
-                    <requirement>similar_uncertainty_patterns&gt;true</requirement>
                 </requirements>
             </case>
         </specialCases>
 
         <languageGuidelines>
-            <uncertaintyTerms>
+            <consensusTerms>
+                <term>across groups</term>
                 <term>expressed consensus</term>
                 <term>were aligned</term>
                 <term>agreed/disagreed on</term>
-            </uncertaintyTerms>
+            </consensusTerms>
 
             <styleRules>
                 <rule>avoid_repetitive_structures</rule>
@@ -180,6 +155,7 @@
             <check>context_provided</check>
             <check>citations_properly_formatted</check>
             <check>language_varied_and_clear</check>
+            <check>broad_coverage_of_comments</check>
         </qualityChecklist>
     </analysisProcess>
 
@@ -189,7 +165,6 @@
         <rule>Citations must use provided format</rule>
         <rule>Groups must be referenced by actual group names from data</rule>
         <rule>Statements must have minimum vote threshold of 100</rule>
-        <rule>High uncertainty defined as &gt;30% pass rate</rule>
     </validationRules>
 
     <responseFormat>
