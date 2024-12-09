@@ -11,6 +11,7 @@ const ConsensusNarrative = ({
   voteColors,
   narrative,
 }) => {
+  console.log(narrative)
   if (!narrative?.group_informed_consensus) {
     return null;
   }

@@ -3,6 +3,10 @@ import fail from "../utils/fail";
 import { getZidForRid } from "../utils/zinvite";
 
 import Anthropic from "@anthropic-ai/sdk";
+import {
+  GenerateContentRequest,
+  GoogleGenerativeAI,
+} from "@google/generative-ai";
 import { convertXML } from "simple-xml-to-json";
 import fs from "fs/promises";
 import { parse } from "csv-parse/sync";
@@ -103,6 +107,14 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY as string);
+const gemeniModel = genAI.getGenerativeModel({
+  model: "gemini-1.5-flash",
+  generationConfig: {
+    responseMimeType: "application/json",
+  },
+});
+
 const getCommentsAsXML = async (
   id: number,
   filter?: (v: {
@@ -185,7 +197,7 @@ export async function handle_GET_reportNarrative(
           json
         );
 
-        const response = await anthropic.messages.create({
+        const responseClaude = await anthropic.messages.create({
           model: "claude-3-5-sonnet-20241022",
           max_tokens: 1000,
           temperature: 0,
@@ -202,8 +214,19 @@ export async function handle_GET_reportNarrative(
           ],
         });
 
+        const gemeniModelprompt: GenerateContentRequest = {
+          contents: prompt_xml,
+          systemInstruction: system_lore,
+        };
+
+        const respGem = await gemeniModel.generateContent(gemeniModelprompt);
+        const responseGemini = await respGem.response.text();
+
         return {
-          [section.name]: response,
+          [section.name]: {
+            responseClaude,
+            responseGemini,
+          },
         };
       })
     );
