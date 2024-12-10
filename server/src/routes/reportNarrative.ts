@@ -215,7 +215,20 @@ export async function handle_GET_reportNarrative(
         });
 
         const gemeniModelprompt: GenerateContentRequest = {
-          contents: prompt_xml,
+          contents: [
+            {
+              parts: [{
+                text: prompt_xml,
+              }],
+              role: "user"
+            },
+            // {
+            //   parts: [{
+            //     text: prompt_xml,
+            //   }],
+            //   role: "user"
+            // }
+          ],
           systemInstruction: system_lore,
         };
 

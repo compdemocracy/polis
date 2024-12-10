@@ -1,13 +1,13 @@
 import React from "react";
 
-const Narrative = ({ sectionData }) => {
+const Narrative = ({ sectionData, model }) => {
   if (!sectionData) return null;
 
   console.log("narrativeData", sectionData);
 
-  const txt = sectionData.content[0].text;
+  const txt = model === "claude" ? sectionData.responseClaude.content[0].text : sectionData.responseGemini;
 
-  const respData = JSON.parse(`{${txt}`);
+  const respData = model === "claude" ? JSON.parse(`{${txt}`) : JSON.parse(txt);
 
   return (
     <article style={{ maxWidth: "600px" }}>

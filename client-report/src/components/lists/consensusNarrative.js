@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import * as globals from "../globals";
 import Narrative from "../narrative";
 import CommentList from "./commentList";
@@ -10,14 +10,14 @@ const ConsensusNarrative = ({
   formatTid,
   voteColors,
   narrative,
+  model
 }) => {
-  console.log(narrative)
   if (!narrative?.group_informed_consensus) {
     return null;
   }
-  const txt = narrative.group_informed_consensus.content[0].text;
+  const txt = model === "claude" ? narrative.group_informed_consensus.responseClaude.content[0].text : narrative.group_informed_consensus.responseGemini;
 
-  const narrativeJSON = JSON.parse(`{${txt}`);
+  const narrativeJSON = model === "claude" ? JSON.parse(`{${txt}`) : JSON.parse(txt);
 
   // Extract all citation IDs from the narrative structure
   const uniqueTids = narrativeJSON.paragraphs.reduce((acc, paragraph) => {
@@ -39,7 +39,7 @@ const ConsensusNarrative = ({
       <p style={globals.paragraph}>
         This narrative summary may contain hallucinations. Check each clause.
       </p>
-      <Narrative sectionData={narrative.group_informed_consensus} />
+      <Narrative sectionData={narrative.group_informed_consensus} model={model} />
       <div style={{ marginTop: 50 }}>
         <CommentList
           conversation={conversation}

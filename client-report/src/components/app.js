@@ -53,6 +53,7 @@ class App extends React.Component {
       conversation: null,
       groupDemographics: null,
       colorBlindMode: false,
+      model: "claude",
       isNarrativeReport: window.location.pathname.split("/")[1] === "narrativeReport",
       dimensions: {
         width: window.innerWidth,
@@ -535,6 +536,8 @@ class App extends React.Component {
 
           {this.state.isNarrativeReport ? (
             <>
+              <button onClick={() => this.setState(state => ({ model: state.model === "claude" ? "gemini" : "claude" }))}>Toggle Model</button>
+              <h4>Current Model: {this.state.model}</h4>
               <ConsensusNarrative
                 math={this.state.math}
                 comments={this.state.comments}
@@ -543,6 +546,7 @@ class App extends React.Component {
                 formatTid={this.state.formatTid}
                 voteColors={this.state.voteColors}
                 narrative={this.state.narrative}
+                model={this.state.model}
               />
               <UncertaintyNarrative
                 math={this.state.math}
@@ -553,6 +557,7 @@ class App extends React.Component {
                 formatTid={this.state.formatTid}
                 voteColors={this.state.voteColors}
                 narrative={this.state.narrative}
+                model={this.state.model}
               />
             </>
           ) : (

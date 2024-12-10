@@ -15,14 +15,15 @@ const UncertaintyNarrative = ({
   math,
   voteColors,
   narrative,
+  model
 }) => {
   if (!conversation || !narrative) {
     return <div>Loading Uncertainty...</div>;
   }
 
-  const txt = narrative?.uncertainty.content[0].text;
+  const txt = model === "claude" ? narrative?.uncertainty.responseClaude.content[0].text : narrative?.uncertainty.responseGemini;
 
-  const narrativeJSON = JSON.parse(`{${txt}`);
+  const narrativeJSON = model === "claude" ? JSON.parse(`{${txt}`) : JSON.parse(txt);
 
   // Extract all citation IDs from the narrative structure
   const uniqueTids = narrativeJSON.paragraphs.reduce((acc, paragraph) => {
@@ -45,7 +46,7 @@ const UncertaintyNarrative = ({
       <p style={globals.paragraph}>
         This narrative summary may contain hallucinations. Check each clause.
       </p>
-      <Narrative sectionData={narrative.uncertainty} />
+      <Narrative sectionData={narrative.uncertainty} model={model} />
       <div style={{ marginTop: 50 }}>
         <CommentList
           conversation={conversation}
