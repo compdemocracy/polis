@@ -109,7 +109,7 @@ const anthropic = new Anthropic({
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY as string);
 const gemeniModel = genAI.getGenerativeModel({
-  model: "gemini-1.5-flash",
+  model: "gemini-1.5-pro-002",
   generationConfig: {
     responseMimeType: "application/json",
   },
