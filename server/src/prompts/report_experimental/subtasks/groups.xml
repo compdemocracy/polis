@@ -1,0 +1,339 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<polisAnalysisPrompt version="1.0">
+    <metadata>
+        <title>Guide to Analyzing and Reporting All Groups in Pol.is Conversations</title>
+        <purpose>Generate consistent, evidence-based reports comparing and describing all groups' views and output valid JSON</purpose>
+    </metadata>
+
+    <criticalInstructions>
+        <instruction>
+            Generate a JSON response that conforms to the provided schema. DO NOT INCLUDE ANY OTHER
+            TEXT.
+        </instruction>
+    </criticalInstructions>
+
+    <definitions>
+        <term name="pass_rate">
+            <description>Percentage of members in each group selecting "agreed" or "disagreed"</description>
+        </term>
+        <term name="high_consensus">
+            <description>Statements with significant pass rates within a group</description>
+            <threshold>60</threshold>
+            <unit>percent</unit>
+        </term>
+        <term name="group_difference">
+            <description>Notable difference in views between groups</description>
+            <threshold>30</threshold>
+            <unit>percent</unit>
+        </term>
+    </definitions>
+
+    <analysisProcess>
+        <dataProcessing>
+            <step order="1">
+                <name>Analyze Each Group's Positions</name>
+                <calculations>
+                    <calculation>per_group_pass_rates</calculation>
+                    <calculation>per_group_vote_patterns</calculation>
+                </calculations>
+            </step>
+            <step order="2">
+                <name>Compare Group Positions</name>
+                <calculations>
+                    <calculation>between_group_differences</calculation>
+                    <calculation>shared_positions</calculation>
+                </calculations>
+            </step>
+            <step order="3">
+                <name>Identify Patterns</name>
+                <patterns>
+                    <pattern>group_distinctive_views</pattern>
+                    <pattern>common_ground</pattern>
+                    <pattern>key_differences</pattern>
+                </patterns>
+            </step>
+        </dataProcessing>
+
+        <reportingStructure>
+            <paragraph type="overview">
+                <elements>
+                    <element>group_composition</element>
+                    <element>major_divisions</element>
+                    <element>common_ground</element>
+                </elements>
+                <format>
+                    The conversation revealed [X] distinct groups: [group_descriptions].
+                    These groups differed most notably on [key_topics],
+                    while finding common ground on [shared_views].
+                    [additional_context].
+                </format>
+                <length>3-4 sentences</length>
+            </paragraph>
+
+            <paragraph type="group_comparisons">
+                <elements>
+                    <element>key_differences</element>
+                    <element>voting_patterns</element>
+                    <element>distinctive_positions</element>
+                </elements>
+                <exampleFormat>
+                    Group A and B diverged significantly on [topic1],
+                    with Group A showing [X]% agreement while Group B showed [Y]% disagreement.
+                    Meanwhile, Group C took a distinct position on [topic2],
+                    characterized by [pattern_description].
+                </exampleFormat>
+                <length>4-5 sentences</length>
+            </paragraph>
+
+            <paragraph type="shared_views">
+                <elements>
+                    <element>common_positions</element>
+                    <element>cross_group_agreements</element>
+                </elements>
+                <exampleFormat>
+                    Despite their differences, all groups showed agreement on [shared_topic],
+                    with consistently high support ranging from [X]% to [Y]%.
+                    [Additional_common_ground].
+                </exampleFormat>
+                <length>2-3 sentences</length>
+            </paragraph>
+        </reportingStructure>
+
+        <citationRules>
+            <template>
+                commentId
+            </template>
+            <rules>
+                <rule>minimum_citations_per_clause&gt;1</rule>
+                <rule>maximum_citations_per_clause&gt;10</rule>
+                <rule>include_full_vote_breakdown&gt;false</rule>
+            </rules>
+        </citationRules>
+
+        <validationRequirements>
+            <dataQuality>
+                <requirement>minimum_votes_per_statement&gt;25</requirement>
+            </dataQuality>
+
+            <reportingCompleteness>
+                <requirement>all_groups_represented&gt;true</requirement>
+                <requirement>high_uncertainty_topics_covered&gt;true</requirement>
+                <requirement>patterns_explained&gt;true</requirement>
+                <requirement>special_cases_noted&gt;true</requirement>
+            </reportingCompleteness>
+        </validationRequirements>
+
+        <specialCases>
+            <case type="low_vote_counts">
+                <threshold>100-150</threshold>
+                <handling>
+                    <action>flag_as_less_reliable</action>
+                    <action>include_in_pattern_analysis</action>
+                    <action>note_in_citations</action>
+                </handling>
+            </case>
+
+            <case type="extreme_divergence">
+                <threshold>40</threshold>
+                <handling>
+                    <action>highlight_difference</action>
+                    <action>provide_context</action>
+                    <action>check_related_statements</action>
+                </handling>
+            </case>
+
+            <case type="topic_clustering">
+                <requirements>
+                    <requirement>minimum_statements&gt;3</requirement>
+                    <requirement>conceptual_relationship&gt;true</requirement>
+                    <requirement>similar_uncertainty_patterns&gt;true</requirement>
+                </requirements>
+            </case>
+        </specialCases>
+
+        <languageGuidelines>
+            <uncertaintyTerms>
+                <term>expressed consensus</term>
+                <term>were aligned</term>
+                <term>agreed/disagreed on</term>
+            </uncertaintyTerms>
+
+            <styleRules>
+                <rule>avoid_repetitive_structures</rule>
+                <rule>connect_ideas_clearly</rule>
+                <rule>maintain_neutral_tone</rule>
+            </styleRules>
+        </languageGuidelines>
+
+        <qualityChecklist>
+            <check>claims_supported_by_data</check>
+            <check>citation_rules_followed</check>
+            <check>groups_fairly_represented</check>
+            <check>patterns_properly_identified</check>
+            <check>special_cases_noted</check>
+            <check>context_provided</check>
+            <check>citations_properly_formatted</check>
+            <check>language_varied_and_clear</check>
+        </qualityChecklist>
+    </analysisProcess>
+
+    <validationRules>
+        <rule>All percentages must be actual values from data</rule>
+        <rule>Each claim requires at least one citation</rule>
+        <rule>Citations must use provided format</rule>
+        <rule>Groups must be referenced by actual group names from data</rule>
+        <rule>Statements must have minimum vote threshold of 100</rule>
+        <rule>High uncertainty defined as &gt;30% pass rate</rule>
+    </validationRules>
+
+    <responseFormat>
+        <condensedJSONSchema>
+            {
+            "id": "subtask_all_groups",
+            "title": "All Groups Analysis",
+            "paragraphs": [
+            {
+            "id": "string", // e.g. "groups_overview"
+            "title": "string",
+            "sentences": [
+            {
+            "clauses": [
+            {
+            "text": "string",
+            "citations": [
+            123
+            ]
+            }
+            ]
+            }
+            ]
+            }
+            ]
+            }
+        </condensedJSONSchema>
+        <typescriptTypesReference>
+            type Citation = {
+            commentId: number;
+            };
+
+            type Clause = {
+            text: string;
+            citations: Citation[];
+            };
+
+            type Sentence = {
+            clauses: Clause[];
+            };
+
+            type Paragraph = {
+            id: string; // e.g. "uncertainty_overview"
+            title: string;
+            sentences: Sentence[];
+            };
+
+            type Subtask = {
+            id: string;
+            title: string;
+            paragraphs: Paragraph[];
+            };
+        </typescriptTypesReference>
+    </responseFormat>
+    <example>
+        {
+        "id": "groups",
+        "title": "Group Comparisons",
+        "paragraphs": [
+        {
+        "id": "groups_overview",
+        "title": "Overview of Groups",
+        "sentences": [
+        {
+        "clauses": [
+        {
+        "text": "N groups were identified in the conversation...",
+        "citations": [46]
+        },
+        {
+        "text": "Group A focused on stakeholder obligations...",
+        "citations": [58]
+        },
+        {
+        "text": "Group B focused on regulatory enforcement mechanisms...",
+        "citations": [39]
+        }
+        ]
+        }
+        ]
+        },
+        {
+        "id": "group_comparisons",
+        "title": "Group Comparisons",
+        "sentences": [
+        {
+        "clauses": [
+        {
+        "text": "Group A and B diverged significantly on [topic1],
+        with Group A showing [X]% agreement while Group B showed [Y]% disagreement.",
+        "citations": [30]
+        },
+        {
+        "text": "while Group C showed higher uncertainty regarding stakeholder prioritization",
+        "citations": [48]
+        }
+        ]
+        },
+        {
+        "clauses": [
+        {
+        "text": "Both groups shared substantial uncertainty about corporate social justice
+        obligations, with passage rates exceeding 30% across participants",
+        "citations": [53]
+        }
+        ]
+        }
+        ]
+        },
+        {
+        "id": "uncertainty_topic_categories",
+        "title": "Topic-Based Uncertainty Analysis",
+        "sentences": [
+        {
+        "clauses": [
+        {
+        "text": "Corporate governance emerged as a key area of uncertainty, with participants
+        passing on statements about managerial obligations at rates of 30-40%",
+        "citations": [42]
+        }
+        ]
+        },
+        {
+        "clauses": [
+        {
+        "text": "Environmental justice questions showed similar uncertainty patterns, with 33%
+        passing on impact distribution",
+        "citations": [91]
+        },
+        {
+        "text": "Group C focused on stakeholder prioritization...",
+        "citations": [55]
+        }
+        ]
+        },
+        {
+        "clauses": [
+        {
+        "text": "Stakeholder prioritization created additional uncertainty, particularly among Group
+        C participants who showed high passage rates on related initiatives",
+        "citations": [58]
+        }
+        ]
+        }
+        ]
+        }
+        ]
+        }
+    </example>
+    <data>
+        INSERT_DATA_HERE
+    </data>
+</polisAnalysisPrompt>

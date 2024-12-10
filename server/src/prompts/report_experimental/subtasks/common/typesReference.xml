@@ -1,0 +1,26 @@
+<report_experimentalTypescriptTypesReference>
+    type Citation = {
+    commentId: number;
+    };
+
+    type Clause = {
+    text: string;
+    citations: Citation[];
+    };
+
+    type Sentence = {
+    clauses: Clause[];
+    };
+
+    type Paragraph = {
+    id: string; // e.g. "uncertainty_overview"
+    title: string;
+    sentences: Sentence[];
+    };
+
+    type Subtask = {
+    id: string;
+    title: string;
+    paragraphs: Paragraph[];
+    };
+</report_experimentalTypescriptTypesReference>

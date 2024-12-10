@@ -1,0 +1,22 @@
+<jsonSchema>
+  {
+  "id": "string e.g. 'subtask_uncertainty'",
+  "title": "string e.g. 'Uncertainty Analysis'",
+  "paragraphs": [
+  {
+  "id": "string e.g. 'uncertainty_overview'",
+  "title": "string e.g. 'Differences in Uncertainty Between Groups'",
+  "sentences": [
+  {
+  "clauses": [
+  {
+  "text": "string e.g. 'The uncertainty of group A is higher than group B'",
+  "citations": [123]
+  }
+  ]
+  }
+  ]
+  }
+  ]
+  }
+</jsonSchema>

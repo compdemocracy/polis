@@ -26,6 +26,7 @@ const port = self.location.port;
 
 const getDomainPrefix = () => {
   if (hostname === 'localhost') {
+    if (serviceUrl) return `${serviceUrl}/`;
     if (port === '' || port === '80') return 'http://localhost/';
     return 'http://localhost:5000/';
   }

@@ -2,7 +2,7 @@
 
 // React Core
 import React from "react";
-import ReactDOM from "react-dom";
+import { createRoot } from 'react-dom/client';
 import './index.css';
 import App from "./components/app";
 
@@ -18,4 +18,7 @@ class Root extends React.Component {
   }
 }
 
-ReactDOM.render(<Root />, document.getElementById("root"));
+const container = document.getElementById("root")
+const root = createRoot(container);
+
+root.render(<Root />)

@@ -1,11 +1,10 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import React from "react";
-import Radium from "radium";
 import Color from "color";
 import settings from "../../settings";
 
-@Radium
+
 export default class Checkbox extends React.Component {
   constructor(props) {
     super(props);
@@ -101,7 +100,9 @@ export default class Checkbox extends React.Component {
   }
 
   render () {
-    const checkboxStyles = this.getCheckboxStyles();
+    const {base, checked, active} = this.getCheckboxStyles();
+    const styles = Object.assign({}, base, this.state.checked ? checked : {}, this.state.active ? active : {});
+    console.log(styles);
 
     return (
       <div style={this.getWrapperStyles()}>
@@ -109,12 +110,9 @@ export default class Checkbox extends React.Component {
           style={this.getLabelWrapperStyles()}
           onClick={this.clickHandler.bind(this)}
           onMouseDown={this.activeHandler.bind(this)}
-          onMouseUp={this.activeHandler.bind(this)}>
-          <span style={[
-            checkboxStyles.base,
-            this.state.checked && checkboxStyles.checked,
-            this.state.active && checkboxStyles.active
-          ]}>
+          onMouseUp={this.activeHandler.bind(this)}
+          >
+          <span style={styles}>
           </span>
           <span style={this.getLabelStyles()}>
             {this.props.label}

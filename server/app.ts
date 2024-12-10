@@ -5,7 +5,7 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 "use strict";
 
-import * as dotenv from 'dotenv';
+import * as dotenv from "dotenv";
 dotenv.config();
 
 import Promise from "bluebird";
@@ -20,13 +20,12 @@ const app = express();
 
 // 'dev' format is
 // :method :url :status :response-time ms - :res[content-length]
-app.use(morgan('dev'));
+app.use(morgan("dev"));
 
 // Trust the X-Forwarded-Proto and X-Forwarded-Host, but only on private subnets.
 // See: https://github.com/pol-is/polis/issues/546
 // See: https://expressjs.com/en/guide/behind-proxies.html
 app.set("trust proxy", "uniquelocal");
-
 
 var helpersInitialized = new Promise(function (resolve, reject) {
   resolve(server.initializePolisHelpers());
@@ -84,6 +83,7 @@ helpersInitialized.then(
       handle_GET_math_correlationMatrix,
       handle_GET_dataExport,
       handle_GET_dataExport_results,
+      handle_GET_reportNarrative,
       handle_GET_reportExport,
       handle_GET_domainWhitelist,
       handle_GET_dummyButton,
@@ -303,11 +303,7 @@ helpersInitialized.then(
     app.get(
       "/api/v3/reportExport/:report_id/:report_type",
       moveToBody,
-      need(
-        "report_id",
-        getReportIdFetchRid,
-        assignToPCustom("rid")
-      ),
+      need("report_id", getReportIdFetchRid, assignToPCustom("rid")),
       need("report_id", getStringLimitLength(1, 1000), assignToP),
       need("report_type", getStringLimitLength(1, 1000), assignToP),
       handle_GET_reportExport
@@ -1175,6 +1171,13 @@ helpersInitialized.then(
       handle_GET_reports
     );
 
+    app.get(
+      "/api/v3/reportNarrative",
+      moveToBody,
+      need("report_id", getReportIdFetchRid, assignToPCustom("rid")),
+      handle_GET_reportNarrative
+    );
+
     app.post(
       "/api/v3/mathUpdate",
       moveToBody,
@@ -1602,24 +1605,39 @@ helpersInitialized.then(
     );
     app.get(
       /^\/embedReportPreprod$/,
-      makeFileFetcher(hostname, staticFilesAdminPort, "/embedReportPreprod.html", {
-        "Content-Type": "text/html",
-      })
+      makeFileFetcher(
+        hostname,
+        staticFilesAdminPort,
+        "/embedReportPreprod.html",
+        {
+          "Content-Type": "text/html",
+        }
+      )
     );
     app.get(
       /^\/styleguide$/,
-      makeFileFetcher(hostname, staticFilesParticipationPort, "/styleguide.html", {
-        "Content-Type": "text/html",
-      })
+      makeFileFetcher(
+        hostname,
+        staticFilesParticipationPort,
+        "/styleguide.html",
+        {
+          "Content-Type": "text/html",
+        }
+      )
     );
     // Duplicate url for content at root. Needed so we have something for "About" to link to.
     app.get(/^\/about$/, makeRedirectorTo("/home"));
     app.get(/^\/home(\/.*)?/, fetchIndexForAdminPage);
     app.get(
       /^\/s\/CTE\/?$/,
-      makeFileFetcher(hostname, staticFilesParticipationPort, "/football.html", {
-        "Content-Type": "text/html",
-      })
+      makeFileFetcher(
+        hostname,
+        staticFilesParticipationPort,
+        "/football.html",
+        {
+          "Content-Type": "text/html",
+        }
+      )
     );
     app.get(
       /^\/twitterAuthReturn(\/.*)?$/,
@@ -1679,7 +1697,6 @@ helpersInitialized.then(
 
     app.listen(Config.serverPort);
     logger.info("started on port " + Config.serverPort);
-
   },
 
   function (err) {

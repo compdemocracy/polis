@@ -38,7 +38,10 @@ module.exports = {
         secure: false
       }
     },
-    static: false,
+    static: {
+      directory: path.join(__dirname, 'public'),
+    },
+    historyApiFallback: true
   },
   performance: {
     // TODO: Find and remove orphan modules; Reduce bundle size.

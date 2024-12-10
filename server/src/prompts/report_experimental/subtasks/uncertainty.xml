@@ -1,0 +1,365 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<polisAnalysisPrompt version="1.0">
+    <metadata>
+        <title>Guide to Analyzing and Reporting Uncertainty in Pol.is Conversations</title>
+        <purpose>Generate consistent, evidence-based reports of uncertainty patterns and output
+            valid JSON</purpose>
+    </metadata>
+
+    <criticalInstructions>
+        <instruction>
+            Generate a JSON response that conforms to the provided schema. DO NOT INCLUDE ANY OTHER
+            TEXT.
+        </instruction>
+    </criticalInstructions>
+
+    <definitions>
+        <term name="pass_rate">
+            <description>Percentage of participants selecting "pass/unsure"</description>
+        </term>
+        <term name="high_uncertainty">
+            <description>Statements with significant pass rates</description>
+            <threshold>30</threshold>
+            <unit>percent</unit>
+        </term>
+        <term name="group_divergence">
+            <description>Difference in pass rates between groups</description>
+            <threshold>20</threshold>
+            <unit>percent</unit>
+        </term>
+        <term name="valid_statement">
+            <description>Statement with sufficient votes</description>
+            <threshold>75</threshold>
+            <unit>votes</unit>
+        </term>
+    </definitions>
+
+    <analysisProcess>
+        <dataProcessing>
+            <step order="1">
+                <name>Filter Valid Statements</name>
+                <criteria>
+                    <criterion>vote_count &gt;= 75</criterion>
+                </criteria>
+            </step>
+            <step order="2">
+                <name>Calculate Pass Rates</name>
+                <calculations>
+                    <calculation>overall_pass_rate</calculation>
+                    <calculation>group_specific_pass_rates</calculation>
+                </calculations>
+            </step>
+            <step order="3">
+                <name>Identify Patterns</name>
+                <patterns>
+                    <pattern>high_uncertainty_statements</pattern>
+                    <pattern>group_divergences</pattern>
+                    <pattern>topic_clusters</pattern>
+                </patterns>
+            </step>
+        </dataProcessing>
+
+        <reportingStructure>
+            <paragraph type="overview">
+                <elements>
+                    <element>highest_uncertainty_statements</element>
+                    <element>special_patterns</element>
+                    <element>participation_context</element>
+                </elements>
+                <format>
+                    Areas of significant uncertainty included [topic1] and [topic2],
+                    with [X]% of participants expressing uncertainty about [specific_statement].
+                    [context] [additional_overview_analysis].
+                </format>
+                <length>2-3 sentences</length>
+            </paragraph>
+
+            <paragraph type="group_analysis">
+                <elements>
+                    <element>group_uncertainty_patterns</element>
+                    <element>divergent_cases</element>
+                    <element>shared_uncertainties</element>
+                </elements>
+                <exampleFormat>
+                    Group [A] participants showed significant uncertainty around [topic1]
+                    and [topic2], differing from Group [B]'s uncertainty centered on [topic3].
+                    Both groups shared uncertainty about [shared_topic], with passage rates
+                    exceeding [X]%. [additional_group_analysis].
+                </exampleFormat>
+                <length>2-3 sentences</length>
+            </paragraph>
+
+            <paragraph type="topic_analysis">
+                <elements>
+                    <element>topic_clusters</element>
+                    <element>uncertainty_ranges</element>
+                    <element>category_patterns</element>
+                </elements>
+                <exampleFormat>
+                    Category [X] emerged as a key area of uncertainty, with participants
+                    passing on statements about [specific_topic] at rates of
+                    [range_low]-[range_high]%.
+                    [additional_categories_and_examples]. Category [category3] created additional
+                    uncertainty,
+                    particularly among Group [group_name] participants who showed [percentage3]%
+                    passage rates on related initiatives.
+                </exampleFormat>
+                <length>2-3 sentences</length>
+            </paragraph>
+            <paragraph type="topic_analysis_comparative">
+                <elements>
+                    <element>topic_clusters</element>
+                    <element>uncertainty_ranges</element>
+                    <element>category_patterns</element>
+                </elements>
+                <exampleFormat>
+                    Of note, within the topic [topic that had high variance between topically
+                    similar statements] [high uncertainty statement], [statement with low
+                    uncertainty] [overall observation about topic and uncertainty patterns]
+                </exampleFormat>
+                <length>2-3 sentences</length>
+            </paragraph>
+        </reportingStructure>
+
+        <citationRules>
+            <template>
+                commentId
+            </template>
+            <rules>
+                <rule>minimum_citations_per_clause&gt;1</rule>
+                <rule>maximum_citations_per_clause&gt;5</rule>
+                <rule>include_full_vote_breakdown&gt;false</rule>
+            </rules>
+        </citationRules>
+
+        <validationRequirements>
+            <dataQuality>
+                <requirement>minimum_votes_per_statement&gt;75</requirement>
+            </dataQuality>
+
+            <reportingCompleteness>
+                <requirement>all_groups_represented&gt;true</requirement>
+                <requirement>high_uncertainty_topics_covered&gt;true</requirement>
+                <requirement>patterns_explained&gt;true</requirement>
+                <requirement>special_cases_noted&gt;true</requirement>
+            </reportingCompleteness>
+        </validationRequirements>
+
+        <specialCases>
+            <case type="low_vote_counts">
+                <threshold>100-150</threshold>
+                <handling>
+                    <action>flag_as_less_reliable</action>
+                    <action>include_in_pattern_analysis</action>
+                    <action>note_in_citations</action>
+                </handling>
+            </case>
+
+            <case type="extreme_divergence">
+                <threshold>40</threshold>
+                <handling>
+                    <action>highlight_difference</action>
+                    <action>provide_context</action>
+                    <action>check_related_statements</action>
+                </handling>
+            </case>
+
+            <case type="topic_clustering">
+                <requirements>
+                    <requirement>minimum_statements&gt;3</requirement>
+                    <requirement>conceptual_relationship&gt;true</requirement>
+                    <requirement>similar_uncertainty_patterns&gt;true</requirement>
+                </requirements>
+            </case>
+        </specialCases>
+
+        <languageGuidelines>
+            <uncertaintyTerms>
+                <term>expressed uncertainty</term>
+                <term>were unsure</term>
+                <term>passed on</term>
+            </uncertaintyTerms>
+
+            <styleRules>
+                <rule>avoid_repetitive_structures</rule>
+                <rule>connect_ideas_clearly</rule>
+                <rule>maintain_neutral_tone</rule>
+            </styleRules>
+        </languageGuidelines>
+
+        <qualityChecklist>
+            <check>claims_supported_by_data</check>
+            <check>citation_rules_followed</check>
+            <check>groups_fairly_represented</check>
+            <check>patterns_properly_identified</check>
+            <check>special_cases_noted</check>
+            <check>context_provided</check>
+            <check>citations_properly_formatted</check>
+            <check>language_varied_and_clear</check>
+            <check>topically_related_statements_to_high_uncertainty_statements_checked</check>
+        </qualityChecklist>
+    </analysisProcess>
+
+    <validationRules>
+        <rule>All percentages must be actual values from data</rule>
+        <rule>Each claim requires at least one citation</rule>
+        <rule>Citations must use provided format</rule>
+        <rule>Groups must be referenced by actual group names from data</rule>
+        <rule>Statements must have minimum vote threshold of 100</rule>
+        <rule>High uncertainty defined as &gt;30% pass rate</rule>
+    </validationRules>
+
+    <responseFormat>
+        <condensedJSONSchema>
+            {
+            "id": "subtask_uncertainty", // This is the uncertainty subtask
+            "title": "Uncertainty Analysis",
+            "paragraphs": [
+            {
+            "id": "string", // e.g. "uncertainty_overview"
+            "title": "string", // e.g. "Overview of Uncertainties"
+            "sentences": [ // Each sentence is made up of clauses
+            {
+            "clauses": [ // Each clause has text and citations
+            {
+            "text": "string", // The actual text content
+            "citations": [ // Array of citations supporting the clause
+            123 // Required: ID of the comment
+            ]
+            }
+            ]
+            }
+            ]
+            }
+            ]
+            }
+        </condensedJSONSchema>
+        <typescriptTypesReference>
+            type Citation = {
+            commentId: number;
+            };
+
+            type Clause = {
+            text: string;
+            citations: Citation[];
+            };
+
+            type Sentence = {
+            clauses: Clause[];
+            };
+
+            type Paragraph = {
+            id: string; // e.g. "uncertainty_overview"
+            title: string;
+            sentences: Sentence[];
+            };
+
+            type Subtask = {
+            id: string;
+            title: string;
+            paragraphs: Paragraph[];
+            };
+        </typescriptTypesReference>
+    </responseFormat>
+    <example>
+        {
+        "id": "uncertainty",
+        "title": "Uncertainty Analysis",
+        "paragraphs": [
+        {
+        "id": "uncertainty_overview",
+        "title": "Overview of Key Uncertainty Areas",
+        "sentences": [
+        {
+        "clauses": [
+        {
+        "text": "Areas of significant uncertainty centered on market-based environmental solutions
+        and stakeholder obligations",
+        "citations": [46]
+        },
+        {
+        "text": "with participants showing notable hesitation around corporate responsibilities to
+        disadvantaged communities.",
+        "citations": [58]
+        },
+        {
+        "text": "Regulatory enforcement mechanisms generated particularly high uncertainty rates
+        across all groups",
+        "citations": [39]
+        }
+        ]
+        }
+        ]
+        },
+        {
+        "id": "uncertainty_group_patterns",
+        "title": "Group-Specific Uncertainty Patterns",
+        "sentences": [
+        {
+        "clauses": [
+        {
+        "text": "Group A participants expressed significant uncertainty about environmental
+        compliance measures",
+        "citations": [30]
+        },
+        {
+        "text": "while Group C showed higher uncertainty regarding stakeholder prioritization",
+        "citations": [48]
+        }
+        ]
+        },
+        {
+        "clauses": [
+        {
+        "text": "Both groups shared substantial uncertainty about corporate social justice
+        obligations, with passage rates exceeding 30% across participants",
+        "citations": [53]
+        }
+        ]
+        }
+        ]
+        },
+        {
+        "id": "uncertainty_topic_categories",
+        "title": "Topic-Based Uncertainty Analysis",
+        "sentences": [
+        {
+        "clauses": [
+        {
+        "text": "Corporate governance emerged as a key area of uncertainty, with participants
+        passing on statements about managerial obligations at rates of 30-40%",
+        "citations": [42]
+        }
+        ]
+        },
+        {
+        "clauses": [
+        {
+        "text": "Environmental justice questions showed similar uncertainty patterns, with 33%
+        passing on impact distribution",
+        "citations": [91]
+        },
+        {
+        "text": "and 35% on remediation responsibilities",
+        "citations": [55]
+        }
+        ]
+        },
+        {
+        "clauses": [
+        {
+        "text": "Stakeholder prioritization created additional uncertainty, particularly among Group
+        C participants who showed high passage rates on related initiatives",
+        "citations": [58]
+        }
+        ]
+        }
+        ]
+        }
+        ]
+        }
+    </example>
+    <data>
+        INSERT_DATA_HERE
+    </data>
+</polisAnalysisPrompt>

@@ -362,11 +362,11 @@ function getRidFromReportId(report_id: string) {
         "select rid from reports where report_id = ($1);",
         [report_id],
         function (err: any, results: { rows: string | any[] }) {
-          logger.error(
-            "polis_err_fetching_rid_for_report_id " + report_id,
-            err
-          );
           if (err) {
+            logger.error(
+              "polis_err_fetching_rid_for_report_id " + report_id,
+              err
+            );
             return reject(err);
           } else if (!results || !results.rows || !results.rows.length) {
             return reject("polis_err_fetching_rid_for_report_id");

@@ -2,7 +2,7 @@
 
 "use strict";
 
-import zlib from "zlib";
+import zlib, { InputType } from "zlib";
 import _ from "underscore";
 import LruCache from "lru-cache";
 import { queryP_readOnly as pgQueryP_readOnly } from "../db/pg-query";
@@ -177,7 +177,7 @@ function updatePcaCache(zid: any, item: { zid: any }): Promise<PcaCacheItem> {
     delete item.zid; // don't leak zid
     let asJSON = JSON.stringify(item);
     let buf = Buffer.from(asJSON, "utf-8");
-    zlib.gzip(buf, function (err: any, jsondGzipdPcaBuffer: any) {
+    zlib.gzip(buf as unknown as InputType, function (err: any, jsondGzipdPcaBuffer: any) {
       if (err) {
         return reject(err);
       }

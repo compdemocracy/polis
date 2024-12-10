@@ -1,0 +1,353 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<polisAnalysisPrompt version="1.0">
+    <metadata>
+        <title>Guide to Analyzing and Reporting Group Informed Consensus in Pol.is Conversations</title>
+        <purpose>Generate consistent, evidence-based reports of group informed consensus and output
+            valid JSON</purpose>
+    </metadata>
+
+    <criticalInstructions>
+        <instruction>
+            Generate a JSON response that conforms to the provided schema. DO NOT INCLUDE ANY OTHER
+            TEXT.
+        </instruction>
+        <instruction>
+            Analyze and include ALL comments that show consensus patterns — the data is already
+            filtered for those with the requisite score threshold for group-aware consensus.
+            The analysis should be exhaustive and comprehensive, potentially spanning many
+            paragraphs.
+            Each consensus pattern should be supported by multiple comment citations.
+        </instruction>
+        <instruction>
+            Group related comments into coherent themes, but ensure every relevant comment is cited
+            at least once.
+            Aim for 100% coverage of consensus comments in the dataset.
+        </instruction>
+    </criticalInstructions>
+
+    <definitions>
+        <term name="group_aware_consensus">
+            <description>Consensus across groups</description>
+        </term>
+        <term name="group_informed_consensus">
+            <description>Consensus that considers group-specific views, usually above 80% agreement
+                per group</description>
+        </term>
+        <term name="high_consensus">
+            <description>Statements with significant agreement aco rates</description>
+            <threshold>60</threshold>
+            <unit>percent</unit>
+        </term>
+    </definitions>
+
+    <analysisProcess>
+        <dataProcessing>
+            <step order="1">
+                <name>Observe Consensus Across Groups</name>
+                <calculations>
+                    <calculation>group_aware_consensus</calculation>
+                    <calculation>group_informed_consensus</calculation>
+                </calculations>
+            </step>
+            <step order="2">
+                <name>Identify Patterns</name>
+                <patterns>
+                    <pattern>high_consensus_statements</pattern>
+                    <pattern>group_informed</pattern>
+                    <pattern>topic_clusters</pattern>
+                </patterns>
+            </step>
+            <step order="3">
+                <name>Ensure broad coverage of comments in summary</name>
+                <patterns>
+                    <pattern>high_consensus_statements</pattern>
+                    <pattern>group_informed</pattern>
+                    <pattern>topic_clusters</pattern>
+                </patterns>
+            </step>
+        </dataProcessing>
+        <reportingStructure>
+            <paragraph type="overview_consensus">
+                <elements>
+                    <element>high_consensus_statements</element>
+                    <element>participation_context</element>
+                </elements>
+                <format>
+                    Areas of significant consensus across groups included [topic1] and [topic2],
+                    with [X]% of participants expressing consensus about [specific_statement].
+                    [context] [additional_overview_analysis].
+
+                    [Category X] emerged as a key area of consensus, with participants
+                    [voting, agreeing, disagreeing] on statements about [specific_topic] at rates of
+                    [range_low]-[range_high]%.
+                    [additional_categories_and_examples]. Category [category3] created additional
+                    consensus,
+                    particularly among Group [group_name] participants who showed [percentage3]%
+                    [voting, agreeing, disagreeing] on related initiatives.
+                </format>
+                <paragraphInstructions>
+                    this is a tl;dr paragraph for the entire consensus in the conversation. it is
+                    the most critical paragraph of the entire report since group informed consensus
+                    is the most valuable aspect of the data. It should be a high-level overview of
+                    the consensus patterns in the conversation. It will be followed by a more
+                    detailed analysis of each theme. It requires citations for every clause.
+                </paragraphInstructions>
+                <length>4-5 sentences</length>
+            </paragraph>
+
+            <paragraph type="topic_analysis">
+                <elements>
+                    <element>topic_clusters</element>
+                    <element>uncertainty_ranges</element>
+                    <element>category_patterns</element>
+                </elements>
+                <exampleFormat>
+                    Provide a comprehensive overview of ALL major consensus areas, grouped by theme.
+                    Each theme should be thoroughly explored with multiple supporting comments.
+                    Format: [Theme 1]: [Detail multiple related consensus points with specific
+                    percentages]
+                    [Theme 2]: [Additional consensus points]
+                    Continue until all major themes and their supporting comments are covered.
+
+                </exampleFormat>
+                <paragraphInstructions>
+                    Each topic cluster should be analyzed in depth, with:
+                    - Complete coverage of all related consensus statements
+                    - Specific agreement percentages for each group
+                    - Cross-referencing between related topics
+                    - Multiple supporting citations for each claim
+                </paragraphInstructions>
+                <length>Multiple paragraphs per topic cluster, with all relevant comments cited</length>
+            </paragraph>
+        </reportingStructure>
+
+        <citationRules>
+            <template>commentId</template>
+            <rules>
+                <rule>every_consensus_comment_must_be_cited</rule>
+                <rule>minimum_citations_per_paragraph&gt;5</rule>
+                <rule>group_related_citations_together</rule>
+                <rule>minimum_citations_per_clause&gt;1</rule>
+                <rule>maximum_citations_per_clause&gt;10</rule>
+                <rule>include_full_vote_breakdown&gt;false</rule>
+
+            </rules>
+        </citationRules>
+
+        <validationRequirements>
+            <dataQuality>
+                <requirement>minimum_votes_per_statement&gt;75</requirement>
+            </dataQuality>
+
+            <reportingCompleteness>
+                <requirement>patterns_explained&gt;true</requirement>
+                <requirement>special_cases_noted&gt;true</requirement>
+            </reportingCompleteness>
+        </validationRequirements>
+
+        <specialCases>
+            <case type="low_vote_counts">
+                <threshold>100-150</threshold>
+                <handling>
+                    <action>flag_as_less_reliable</action>
+                </handling>
+            </case>
+
+            <case type="topic_clustering">
+                <requirements>
+                    <requirement>conceptual_relationship&gt;true</requirement>
+                </requirements>
+            </case>
+        </specialCases>
+
+        <languageGuidelines>
+            <consensusTerms>
+                <term>across groups</term>
+                <term>expressed consensus</term>
+                <term>were aligned</term>
+                <term>agreed/disagreed on</term>
+            </consensusTerms>
+
+            <styleRules>
+                <rule>avoid_repetitive_structures</rule>
+                <rule>connect_ideas_clearly</rule>
+                <rule>maintain_neutral_tone</rule>
+            </styleRules>
+        </languageGuidelines>
+
+        <qualityChecklist>
+            <check>claims_supported_by_data</check>
+            <check>citation_rules_followed</check>
+            <check>groups_fairly_represented</check>
+            <check>patterns_properly_identified</check>
+            <check>special_cases_noted</check>
+            <check>context_provided</check>
+            <check>citations_properly_formatted</check>
+            <check>language_varied_and_clear</check>
+            <check>broad_coverage_of_comments</check>
+        </qualityChecklist>
+    </analysisProcess>
+
+    <validationRules>
+        <rule>All percentages must be actual values from data</rule>
+        <rule>Each claim requires at least one citation</rule>
+        <rule>Citations must use provided format</rule>
+        <rule>Groups must be referenced by actual group names from data</rule>
+        <rule>Statements must have minimum vote threshold of 100</rule>
+    </validationRules>
+
+    <responseFormat>
+        <condensedJSONSchema>
+            {
+            "id": "subtask_group_informed_consensus", // This is the group informed consensus
+            subtask
+            "title": "group informed consensus Analysis",
+            "paragraphs": [
+            {
+            "id": "string", // e.g. "consensus_overview"
+            "title": "string", // e.g. "Overview of Consensus"
+            "sentences": [ // Each sentence is made up of clauses
+            {
+            "clauses": [ // Each clause has text and citations
+            {
+            "text": "string", // The actual text content
+            "citations": [ // Array of citations supporting the clause
+            123 // Required: ID of the comment
+            ]
+            }
+            ]
+            }
+            ]
+            }
+            ]
+            }
+        </condensedJSONSchema>
+        <typescriptTypesReference>
+            type Citation = {
+            commentId: number;
+            };
+
+            type Clause = {
+            text: string;
+            citations: Citation[];
+            };
+
+            type Sentence = {
+            clauses: Clause[];
+            };
+
+            type Paragraph = {
+            id: string; // e.g. "uncertainty_overview"
+            title: string;
+            sentences: Sentence[];
+            };
+
+            type Subtask = {
+            id: string;
+            title: string;
+            paragraphs: Paragraph[];
+            };
+        </typescriptTypesReference>
+    </responseFormat>
+    <example>
+        {
+        "id": "consensus",
+        "title": "Consensus Analysis",
+        "paragraphs": [
+        {
+        "id": "consensus_overview",
+        "title": "Overview of Key Consensus Areas",
+        "sentences": [
+        {
+        "clauses": [
+        {
+        "text": "Areas of significant uncertainty centered on market-based environmental solutions
+        and stakeholder obligations",
+        "citations": [46]
+        },
+        {
+        "text": "with participants showing notable hesitation around corporate responsibilities to
+        disadvantaged communities.",
+        "citations": [58]
+        },
+        {
+        "text": "Regulatory enforcement mechanisms generated particularly high uncertainty rates
+        across all groups",
+        "citations": [39]
+        }
+        ]
+        }
+        ]
+        },
+        {
+        "id": "theme_1",
+        "title": "Theme 1",
+        "sentences": [
+        {
+        "clauses": [
+        {
+        "text": "Group A participants expressed significant uncertainty about environmental
+        compliance measures",
+        "citations": [30]
+        },
+        {
+        "text": "while Group C showed higher uncertainty regarding stakeholder prioritization",
+        "citations": [48]
+        }
+        ]
+        },
+        {
+        "clauses": [
+        {
+        "text": "Both groups shared substantial uncertainty about corporate social justice
+        obligations, with passage rates exceeding 30% across participants",
+        "citations": [53]
+        }
+        ]
+        }
+        ]
+        },
+        {
+        "id": "theme_2",
+        "title": "Theme 2",
+        "sentences": [
+        {
+        "clauses": [
+        {
+        "text": "Corporate governance emerged as a key area of uncertainty, with participants
+        passing on statements about managerial obligations at rates of 30-40%",
+        "citations": [42]
+        }
+        ]
+        },
+        {
+        "clauses": [
+        {
+        "text": "Environmental justice questions showed similar uncertainty patterns, with 33%
+        passing on impact distribution",
+        "citations": [91]
+        },
+        {
+        "text": "and 35% on remediation responsibilities",
+        "citations": [55]
+        }
+        ]
+        },
+        {
+        "clauses": [
+        {
+        "text": "Stakeholder prioritization created additional uncertainty, particularly among Group
+        C participants who showed high passage rates on related initiatives",
+        "citations": [58]
+        }
+        ]
+        }
+        ]
+        }
+        ]
+        }
+    </example>
+    <data>
+        INSERT_DATA_HERE
+    </data>
+</polisAnalysisPrompt>

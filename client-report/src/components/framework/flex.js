@@ -2,7 +2,6 @@
 
 import PropTypes from "prop-types";
 import React from "react";
-import Radium from "radium";
 
 /**
 
@@ -76,19 +75,23 @@ class Flex extends React.Component {
   }
 
   render() {
-    const styles = this.getStyles();
+    const {base, styleOverrides} = this.getStyles();
+    const styles = Object.assign({}, base, styleOverrides);
+    console.log(styles)
 
     return (
       <div
         onClick={this.props.clickHandler}
-        style={[
+        style={styles}
+       >
+         {/* style={[
           styles.base,
           styles.styleOverrides
-        ]}>
+        ]} */}
         {this.props.children}
       </div>
     );
   }
 }
 
-export default Radium(Flex);
+export default Flex;

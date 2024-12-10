@@ -9,3 +9,4 @@ dist
 node_modules
 npm-debug.log
 .polis_s3_creds_client.json
+coverage
