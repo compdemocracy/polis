@@ -52,7 +52,7 @@ export class PolisConverter {
       const groupKeys = Object.keys(record)
         .filter((key) => key.match(/^group-[a-z]-/))
         .reduce((groups, key) => {
-          const groupId = key.split("-")[1]; // Extract 'a' from 'group-a-votes'
+          const groupId = key.split("-")[1]; // Extract "a" from "group-a-votes"
           if (!groups.includes(groupId)) groups.push(groupId);
           return groups;
         }, [] as string[]);
@@ -167,7 +167,16 @@ export async function handle_GET_reportNarrative(
   req: { p: { rid: string } },
   res: Response
 ) {
+  res.writeHead(200, {
+    "Content-Type": "text/plain; charset=utf-8",
+    "Transfer-Encoding": "chunked"
+  });
   const { rid } = req.p;
+
+  res.write(`POLIS-PING: AI bootstrap`);
+
+  // @ts-expect-error flush - calling due to use of compression
+  res.flush();
 
   try {
     const zid = await getZidForRid(rid);
@@ -176,81 +185,139 @@ export async function handle_GET_reportNarrative(
       return;
     }
 
+
+    res.write(`POLIS-PING: retrieving system lore`);
+
     const system_lore = await fs.readFile(
       "src/prompts/report_experimental/system.xml",
       "utf8"
     );
 
-    // Process each section
-    const sectionResults = await Promise.all(
-      reportSections.map(async (section) => {
-        const fileContents = await fs.readFile(section.templatePath, "utf8");
-        const json = await convertXML(fileContents);
-        const structured_comments = await getCommentsAsXML(zid, section.filter);
+    // @ts-expect-error flush - calling due to use of compression
+    res.flush();
 
-        json.polisAnalysisPrompt.children[
-          json.polisAnalysisPrompt.children.length - 1
-        ].data.content = { structured_comments };
+    for (const section of reportSections) {
+      const fileContents = await fs.readFile(section.templatePath, "utf8");
+      const json = await convertXML(fileContents);
+      const structured_comments = await getCommentsAsXML(zid, section.filter);
 
-        const prompt_xml = js2xmlparser.parse(
-          "polis-comments-and-group-demographics",
-          json
-        );
+      json.polisAnalysisPrompt.children[
+        json.polisAnalysisPrompt.children.length - 1
+      ].data.content = { structured_comments };
 
-        const responseClaude = await anthropic.messages.create({
-          model: "claude-3-5-sonnet-20241022",
-          max_tokens: 1000,
-          temperature: 0,
-          system: system_lore,
-          messages: [
-            {
-              role: "user",
-              content: [{ type: "text", text: prompt_xml }],
-            },
-            {
-              role: "assistant",
-              content: [{ type: "text", text: "{" }],
-            },
-          ],
-        });
+      const prompt_xml = js2xmlparser.parse(
+        "polis-comments-and-group-demographics",
+        json
+      );
 
-        const gemeniModelprompt: GenerateContentRequest = {
-          contents: [
-            {
-              parts: [{
-                text: prompt_xml,
-              }],
-              role: "user"
-            },
-            // {
-            //   parts: [{
-            //     text: prompt_xml,
-            //   }],
-            //   role: "user"
-            // }
-          ],
-          systemInstruction: system_lore,
-        };
-
-        const respGem = await gemeniModel.generateContent(gemeniModelprompt);
-        const responseGemini = await respGem.response.text();
-
-        return {
-          [section.name]: {
-            responseClaude,
-            responseGemini,
+      const responseClaude = await anthropic.messages.create({
+        model: "claude-3-5-sonnet-20241022",
+        max_tokens: 1000,
+        temperature: 0,
+        system: system_lore,
+        messages: [
+          {
+            role: "user",
+            content: [{ type: "text", text: prompt_xml }],
           },
-        };
-      })
-    );
+          {
+            role: "assistant",
+            content: [{ type: "text", text: "{" }],
+          },
+        ],
+      });
 
-    // Combine all section results
-    const combinedResults = Object.assign({}, ...sectionResults);
+      const gemeniModelprompt: GenerateContentRequest = {
+        contents: [
+          {
+            parts: [{
+              text: prompt_xml,
+            }],
+            role: "user"
+          },
+        ],
+        systemInstruction: system_lore,
+      };
 
-    res.json({
-      narrative: "A narrative report summarizing a polis conversation, Nov 26.",
-      ...combinedResults,
-    });
+      const respGem = await gemeniModel.generateContent(gemeniModelprompt);
+      const responseGemini = await respGem.response.text();
+
+      res.write(JSON.stringify({ [section.name]: { responseGemini, responseClaude } }));
+      // @ts-expect-error flush - calling due to use of compression
+      res.flush();
+    }
+  
+
+    // Process each section
+    // const sectionResults = await Promise.all(
+    //   reportSections.map(async (section) => {
+    //     const fileContents = await fs.readFile(section.templatePath, "utf8");
+    //     const json = await convertXML(fileContents);
+    //     const structured_comments = await getCommentsAsXML(zid, section.filter);
+
+    //     json.polisAnalysisPrompt.children[
+    //       json.polisAnalysisPrompt.children.length - 1
+    //     ].data.content = { structured_comments };
+
+    //     const prompt_xml = js2xmlparser.parse(
+    //       "polis-comments-and-group-demographics",
+    //       json
+    //     );
+
+    //     const responseClaude = await anthropic.messages.create({
+    //       model: "claude-3-5-sonnet-20241022",
+    //       max_tokens: 1000,
+    //       temperature: 0,
+    //       system: system_lore,
+    //       messages: [
+    //         {
+    //           role: "user",
+    //           content: [{ type: "text", text: prompt_xml }],
+    //         },
+    //         {
+    //           role: "assistant",
+    //           content: [{ type: "text", text: "{" }],
+    //         },
+    //       ],
+    //     });
+
+    //     const gemeniModelprompt: GenerateContentRequest = {
+    //       contents: [
+    //         {
+    //           parts: [{
+    //             text: prompt_xml,
+    //           }],
+    //           role: "user"
+    //         },
+    //         // {
+    //         //   parts: [{
+    //         //     text: prompt_xml,
+    //         //   }],
+    //         //   role: "user"
+    //         // }
+    //       ],
+    //       systemInstruction: system_lore,
+    //     };
+
+    //     const respGem = await gemeniModel.generateContent(gemeniModelprompt);
+    //     const responseGemini = await respGem.response.text();
+
+    //     return {
+    //       [section.name]: {
+    //         responseClaude,
+    //         responseGemini,
+    //       },
+    //     };
+    //   })
+    // );
+
+    // // Combine all section results
+    // const combinedResults = Object.assign({}, ...sectionResults);
+
+    // res.write(JSON.stringify({ narrative: "A narrative report summarizing a polis conversation, Nov 26.", ...combinedResults }));
+
+    res.end();
+
   } catch (err) {
     const msg =
       err instanceof Error && err.message && err.message.startsWith("polis_")

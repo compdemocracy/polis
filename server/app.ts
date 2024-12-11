@@ -10,6 +10,9 @@ dotenv.config();
 
 import Promise from "bluebird";
 import express from "express";
+import compression from "compression";
+import cookieParser from "cookie-parser";
+import bodyParser from "body-parser";
 import morgan from "morgan";
 
 import Config from "./src/config";
@@ -222,16 +225,16 @@ helpersInitialized.then(
     app.use(middleware_responseTime_start);
 
     app.use(redirectIfNotHttps);
-    app.use(express.cookieParser());
-    app.use(express.bodyParser());
+    app.use(cookieParser());
+    // app.use(bodyParser());
     app.use(writeDefaultHead);
 
     if (devMode) {
-      app.use(express.compress());
+      app.use(compression());
     } else {
       // Cloudflare would apply gzip if we didn't
       // but it's about 2x faster if we do the gzip (for the inbox query on mike's account)
-      app.use(express.compress());
+      app.use(compression());
     }
     app.use(middleware_log_request_body);
     app.use(middleware_log_middleware_errors);
