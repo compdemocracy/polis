@@ -66,6 +66,8 @@ class App extends React.Component {
         disagree: globals.brandColors.disagree,
         pass: globals.brandColors.pass,
       },
+      narrative: {
+      },
     };
   }
 
@@ -121,7 +123,6 @@ class App extends React.Component {
   }
 
   async getNarrative(report_id) {
-    let narrativeData = "";
     const urlPrefix = URLs.urlPrefix;
     const response = await fetch(`${urlPrefix}api/v3/reportNarrative?report_id=${report_id}`, {
       credentials: "include",
@@ -139,17 +140,15 @@ class App extends React.Component {
     const decoder = new TextDecoder();
     const loopRunner = true;
   
-    while (loopRunner) {
+    while (loopRunner) { // streaming response - the loop will run indefinetly until the response ends - this is a streaming function to improve UX and prevent cloud runners (like heroku) from terminating a long running http request
       const { value, done } = await reader.read();
       if (done) {
         break;
       }
       const decodedChunk = decoder.decode(value, { stream: true });
 
-      if (!decodedChunk.includes('POLIS-PING:')) narrativeData += decodedChunk;
+      if (!decodedChunk.includes('POLIS-PING:')) this.setState(state => ({ narrative: Object.assign(state.narrative, JSON.parse(decodedChunk)) }))
     }
-
-    return JSON.parse(narrativeData);
   }
 
   getReport(report_id) {
@@ -245,7 +244,7 @@ class App extends React.Component {
     });
 
     const narrativePromise = reportPromise.then((report) => {
-      return this.state.isNarrativeReport ? this.getNarrative(report.report_id) : Promise.resolve();
+      if (this.state.isNarrativeReport) this.getNarrative(report.report_id);
     });
 
     Promise.all([
@@ -436,7 +435,7 @@ class App extends React.Component {
           repfulDisageeTidsByGroup: repfulDisageeTidsByGroup,
           formatTid: formatTid,
           report: report,
-          narrative: this.state.isNarrativeReport ? narrative : undefined,
+          // narrative: this.state.isNarrativeReport ? narrative : undefined,
           //conversationStats: conversationstats,
           computedStats: computedStats,
           nothingToShow: !comments.length || !groupDemographics.length,

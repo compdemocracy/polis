@@ -13,7 +13,7 @@ const ConsensusNarrative = ({
   model
 }) => {
   if (!narrative?.group_informed_consensus) {
-    return null;
+    return <div>Loading Consensus...</div>;
   }
   const txt = model === "claude" ? narrative.group_informed_consensus.responseClaude.content[0].text : narrative.group_informed_consensus.responseGemini;
 
