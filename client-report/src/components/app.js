@@ -9,6 +9,7 @@ import React from "react";
 import _ from "lodash";
 
 import * as globals from "./globals";
+import URLs from "../util/url";
 import DataUtils from "../util/dataUtils";
 // import Matrix from "./correlationMatrix/matrix";
 import Heading from "./framework/heading";
@@ -119,11 +120,38 @@ class App extends React.Component {
     });
   }
 
-  getNarrative(report_id) {
-    return net.polisGet("/api/v3/reportNarrative", {
-      report_id: report_id,
+  async getNarrative(report_id) {
+    let narrativeData = "";
+    const urlPrefix = URLs.urlPrefix;
+    const response = await fetch(`${urlPrefix}api/v3/reportNarrative?report_id=${report_id}`, {
+      credentials: "include",
+      method: "get",
+      headers: {
+        Accept: "application/json, text/plain, */*",
+        "Content-Type": "application/json",
+      },
     });
+    if (!response.ok || !response.body) {
+      throw response.statusText;
+    }
+  
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    const loopRunner = true;
+  
+    while (loopRunner) {
+      const { value, done } = await reader.read();
+      if (done) {
+        break;
+      }
+      const decodedChunk = decoder.decode(value, { stream: true });
+
+      if (!decodedChunk.includes('POLIS-PING:')) narrativeData += decodedChunk;
+    }
+
+    return JSON.parse(narrativeData);
   }
+
   getReport(report_id) {
     return net
       .polisGet("/api/v3/reports", {

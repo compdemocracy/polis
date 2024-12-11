@@ -52,7 +52,7 @@ export class PolisConverter {
       const groupKeys = Object.keys(record)
         .filter((key) => key.match(/^group-[a-z]-/))
         .reduce((groups, key) => {
-          const groupId = key.split("-")[1]; // Extract 'a' from 'group-a-votes'
+          const groupId = key.split("-")[1]; // Extract "a" from "group-a-votes"
           if (!groups.includes(groupId)) groups.push(groupId);
           return groups;
         }, [] as string[]);
@@ -167,7 +167,16 @@ export async function handle_GET_reportNarrative(
   req: { p: { rid: string } },
   res: Response
 ) {
+  res.writeHead(200, {
+    "Content-Type": "text/plain; charset=utf-8",
+    "Transfer-Encoding": "chunked"
+  });
   const { rid } = req.p;
+
+  res.write(`POLIS-PING: AI bootstrap`);
+
+  // @ts-expect-error flush - calling due to use of compression
+  res.flush();
 
   try {
     const zid = await getZidForRid(rid);
@@ -176,10 +185,17 @@ export async function handle_GET_reportNarrative(
       return;
     }
 
+
+    res.write(`POLIS-PING: retrieving system lore`);
+
     const system_lore = await fs.readFile(
       "src/prompts/report_experimental/system.xml",
       "utf8"
     );
+
+    // @ts-expect-error flush - calling due to use of compression
+    res.flush();
+  
 
     // Process each section
     const sectionResults = await Promise.all(
@@ -247,10 +263,10 @@ export async function handle_GET_reportNarrative(
     // Combine all section results
     const combinedResults = Object.assign({}, ...sectionResults);
 
-    res.json({
-      narrative: "A narrative report summarizing a polis conversation, Nov 26.",
-      ...combinedResults,
-    });
+    res.write(JSON.stringify({ narrative: "A narrative report summarizing a polis conversation, Nov 26.", ...combinedResults }));
+
+    res.end();
+
   } catch (err) {
     const msg =
       err instanceof Error && err.message && err.message.startsWith("polis_")
