@@ -28,13 +28,17 @@ jobs:
   deploy-static:
     runs-on: ubuntu-latest
     needs: deploy-backend
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-to-assume: ${{secrets.AWS_PREPROD_ROLE_ARN}}
+          role-session-name: GitHubActionsDeployPreprod
           aws-region: us-east-1
 
       - name: Build static assets
