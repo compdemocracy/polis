@@ -1,40 +1,41 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import React from "react";
+import React, { useState } from "react";
 
 import _ from "lodash";
 import * as globals from "../globals";
 
-var leftOffset = 34;
-var topOffset = 60;
+const leftOffset = 34;
+const topOffset = 60;
 
-var scale = d3.scaleLinear().domain([-1, 1]).range([0, 1]);
+const scale = d3.scaleLinear().domain([-1, 1]).range([0, 1]);
 
 const square = 20;
 
-class Matrix extends React.Component {
-  onMouseEnterCell(row, column, correlation) {
-    this.setState({
-      mouseOverRow: row,
-      mouseOverColumn: column,
-      mouseOverCorrelation: correlation,
-    });
-  }
-  onMouseExitCell(/*row, column*/) {
-    this.setState({
-      mouseOverRow: null,
-      mouseOverColumn: null,
-      mouseOverCorrelation: null,
-    });
+const Matrix = ({ comments, tids, probabilities, title, error }) => {
+  const [mouseOverRow, setMouseOverRow] = useState(null);
+  const [mouseOverColumn, setMouseOverColumn] = useState(null);
+  const [mouseOverCorrelation, setMouseOverCorrelation] = useState(null);
+  
+  const onMouseEnterCell = (row, column, correlation) => {
+    setMouseOverRow(row);
+    setMouseOverColumn(column);
+    setMouseOverCorrelation(correlation);
+  };
+
+  const onMouseExitCell = (/*row, column*/) => {
+    setMouseOverRow(null);
+    setMouseOverColumn(null);
+    setMouseOverCorrelation(null);
   }
 
-  makeRect(comment, row, column) {
+  const makeRect = (comment, row, column) => {
     return (
       <g>
         <rect
           fill={d3.interpolatePuOr(scale(comment))}
           onMouseEnter={() => {
-            return this.onMouseEnterCell(row, column, comment);
+            return onMouseEnterCell(row, column, comment);
           }}
           width={square}
           height={square}
@@ -56,7 +57,7 @@ class Matrix extends React.Component {
     );
   }
 
-  makeColumn(comments, row) {
+  const makeColumn = (comments, row) => {
     return comments.map((comment, column) => {
       let markup = null;
       if (column < row) {
@@ -66,26 +67,26 @@ class Matrix extends React.Component {
             {/* this translate places the top text labels where they should go, rotated */}
             {/* this translate places the columns where they should go, and creates a gutter */}
             <g transform={"translate(" + column * square + ", 30)"}>
-              {this.makeRect(comment, row, column)}
+              {makeRect(comment, row, column)}
             </g>
           </g>
         );
       } else if (column === row) {
-        const comment = _.find(this.props.comments, (comment) => {
-          return comment.tid === this.props.tids[column];
+        const comment = comments.find(comment => {
+          return comment.tid === tids[column];
         });
         markup = (
           <g key={column}>
             <text
               onMouseEnter={() => {
-                return this.onMouseExitCell();
+                return onMouseExitCell();
               }}
               onMouseLeave={() => {
-                return this.onMouseExitCell();
+                return onMouseExitCell();
               }}
               transform={"translate(" + (column * square + 10) + ", 46), rotate(315)"}
               fill={
-                column === this.state.mouseOverColumn || column === this.state.mouseOverRow
+                column === mouseOverColumn || column === mouseOverRow
                   ? "rgba(0,0,0,1)"
                   : "rgba(0,0,0,0.5)"
               }
@@ -104,31 +105,20 @@ class Matrix extends React.Component {
     });
   }
 
-  makeRow(comments, row) {
-    // {/* this translate seperates the rows */}
-    // <text
-    //   fill="rgba(0,0,0,.7)"
-    //   style={{
-    //     fontFamily: "Helvetica, sans-serif",
-    //     fontSize: 10,
-    //     fontWeight: 700
-    //   }}>
-    //   {this.props.formatTid(this.props.tids[row])}
-    // </text>
+  const makeRow = (comments, row) => {
     return (
       <g transform={"translate(0, " + (row * 20 + topOffset) + ")"}>
         {/* this translate moves just the colored squares over to make a gutter, not the text */}
-        <g transform={"translate(" + leftOffset + ", -43)"}>{this.makeColumn(comments, row)}</g>
+        <g transform={"translate(" + leftOffset + ", -43)"}>{makeColumn(comments, row)}</g>
       </g>
     );
   }
 
-  renderMatrix() {
-    // console.log("mouseOverCorrelation", this.state.mouseOverCorrelation)
-    let side = this.props.probabilities.length * square + 200;
+  const renderMatrix = () => {
+    let side = probabilities.length * square + 200;
     return (
       <div>
-        <p style={globals.primaryHeading}>{this.props.title}</p>
+        <p style={globals.primaryHeading}>{title}</p>
         <p style={globals.paragraph}>
           What is the chance that a participant who agreed (or disagreed) with a given comment also
           agreed (or disagreed) with another given comment?
@@ -146,44 +136,45 @@ class Matrix extends React.Component {
           <rect
             fill="rgba(0,0,0,0)"
             onMouseEnter={() => {
-              return this.onMouseExitCell();
+              return onMouseExitCell();
             }}
             onMouseLeave={() => {
-              return this.onMouseExitCell();
+              return onMouseExitCell();
             }}
             width={side}
             height={side}
           />
 
-          {!this.state.mouseOverCorrelation ? (
+          {!mouseOverCorrelation ? (
             " "
           ) : (
             <text
               x={300}
               y={40}
               textAnchor={"middle"}
-              fill={d3.interpolatePuOr(scale(this.state.mouseOverCorrelation))}
+              fill={d3.interpolatePuOr(scale(mouseOverCorrelation))}
               style={{
                 fontFamily: globals.sans,
                 fontSize: 18,
               }}
             >
               {`${
-                Math.round(this.state.mouseOverCorrelation * 1000) / 10
+                Math.round(mouseOverCorrelation * 1000) / 10
               }% chance of casting the same vote on these two statements`}
             </text>
           )}
 
           <g transform={"translate(200,0), rotate(45)" /* abstract translate magic number */}>
-            {this.props.probabilities.map((comments, row) => {
-              return <g key={row}>{this.makeRow(comments, row)}</g>;
+            {probabilities.map((comments, row) => {
+              return <g key={row}>{makeRow(comments, row)}</g>;
             })}
           </g>
         </svg>
       </div>
     );
-  }
-  renderError(err) {
+  };
+
+  const renderError = (err) => {
     return (
       <div>
         <div> error loading matrix </div>
@@ -191,17 +182,18 @@ class Matrix extends React.Component {
       </div>
     );
   }
-  renderLoading() {
+
+  const renderLoading = () => {
     return <div>loading matrix... (may take up to a minute)</div>;
   }
-  render() {
-    if (this.props.error) {
-      return this.renderError();
-    } else if (this.props.probabilities) {
-      return this.renderMatrix();
-    } else {
-      return this.renderLoading();
-    }
+
+
+  if (error) {
+    return renderError();
+  } else if (probabilities) {
+    return renderMatrix();
+  } else {
+    return renderLoading();
   }
 }
 

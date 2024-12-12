@@ -1,35 +1,22 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import React from "react";
-// import _ from "lodash";
+import React, { setState } from "react";
 import * as globals from "../globals";
 import graphUtil from "../../util/graphUtil";
 import Axes from "../graphAxes";
 import Comments from "./comments";
 
-// const TextSegment = ({ t, i }) => (
-//   <tspan x="27" y={i * 14}>
-//     {t}
-//   </tspan>
-// );
+const CommentsGraph = ({ comments, math, badTids, height, report, groupNames, formatTid, repfulAgreeTidsByGroup, renderHeading, voteColors }) => {
+  const [viewer, setViewer] = useState(null);
+  const [selectedComment, setSelectedComment] = useState(null);
 
-class CommentsGraph extends React.Component {
-  constructor(props) {
-    super(props);
-    this.Viewer = null;
-    this.state = {
-      selectedComment: null,
-    };
-  }
-
-  handleCommentClick(selectedComment) {
+  const handleCommentClick = (sc) => {
     return () => {
-      this.setState({ selectedComment });
+      setSelectedComment(sc);
     };
   }
 
-  render() {
-    if (!this.props.math) {
+    if (math) {
       return null;
     }
 
@@ -39,11 +26,9 @@ class CommentsGraph extends React.Component {
       commentsPoints,
       xCenter,
       yCenter,
-      // baseClustersScaled,
       commentScaleupFactorX,
       commentScaleupFactorY,
-      // hulls,
-    } = graphUtil(this.props.comments, this.props.math, this.props.badTids);
+    } = graphUtil(comments, math, badTids);
 
     return (
       <div style={{ position: "relative" }}>
@@ -65,16 +50,16 @@ class CommentsGraph extends React.Component {
           </p>
         </div>
         <p style={{ fontWeight: 500, maxWidth: 600, lineHeight: 1.4, minHeight: 50 }}>
-          {this.state.selectedComment
-            ? "#" + this.state.selectedComment.tid + ". " + this.state.selectedComment.txt
+          {selectedComment
+            ? "#" + selectedComment.tid + ". " + selectedComment.txt
             : "Click a statement, identified by its number, to explore regions of the graph."}
         </p>
         <svg
           style={{
             border: "1px solid rgb(180,180,180)",
           }}
-          width={this.props.height ? this.props.height : globals.side}
-          height={this.props.height ? this.props.height : globals.side}
+          width={height ? height : globals.side}
+          height={height ? height : globals.side}
         >
           {/* Comment https://bl.ocks.org/mbostock/7555321 */}
           <g transform={`translate(${globals.side / 2}, ${15})`}>
@@ -87,26 +72,15 @@ class CommentsGraph extends React.Component {
               textAnchor="middle"
             ></text>
           </g>
-          <Axes xCenter={xCenter} yCenter={yCenter} report={this.props.report} />
-          {/* {<Participants points={baseClustersScaled}/>} */}
-          {/* {this.props.math["group-clusters"].map((cluster, i) => {
-            return (<text x={300} y={300}> Renzi Supporters </text>)
-          }) : null} */}
-          {/* {
-            hulls.map((hull) => {
-              let gid = hull.group[0].gid;
-              if (_.isNumber(this.props.showOnlyGroup)) {
-                if (gid !== this.props.showOnlyGroup) {
-                  return "";
-                }
-              }
-              return <Hull key={gid} hull={hull}/>
-            })
-           } */}
+          <Axes xCenter={xCenter} yCenter={yCenter} report={report} />
           {commentsPoints ? (
             <Comments
-              {...this.props}
-              handleClick={this.handleCommentClick.bind(this)}
+              groupNames={groupNames}
+              formatTid={formatTid}
+              repfulAgreeTidsByGroup={repfulAgreeTidsByGroup}
+              renderHeading={renderHeading}
+              voteColors={voteColors}
+              handleClick={handleCommentClick}
               points={commentsPoints}
               xx={xx}
               yy={yy}
@@ -119,7 +93,6 @@ class CommentsGraph extends React.Component {
         </svg>
       </div>
     );
-  }
 }
 
 export default CommentsGraph;
