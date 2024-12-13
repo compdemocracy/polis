@@ -31,7 +31,7 @@ import net from "../util/net";
 import $ from "jquery";
 
 import Narrative from "./narrative";
-import ConsensusNarrative from "./lists/consensusNarrative";
+import ConsensusNarrative from "./lists/consensusNarrative.jsx";
 import RawDataExport from "./RawDataExport";
 
 var pathname = window.location.pathname; // "/report/2arcefpshi"
