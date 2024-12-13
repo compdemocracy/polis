@@ -3,7 +3,7 @@
 import React from "react";
 import * as globals from "../globals";
 import CommentList from "./commentList";
-import Legend from "../framework/legend";
+import Legend from "../framework/legend.jsx";
 
 const MajorityStrict = ({
   conversation,
