@@ -22,7 +22,6 @@ import net from "../util/net";
 
 import $ from "jquery";
 
-import Narrative from "./narrative";
 import ConsensusNarrative from "./lists/consensusNarrative.jsx";
 import RawDataExport from "./RawDataExport";
 

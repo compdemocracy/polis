@@ -3,10 +3,10 @@ import { render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import ConsensusNarrative from './consensusNarrative';
 import * as globals from '../globals.js';
-import Narrative from '../narrative/index.js';
+import Narrative from '../narrative/index.jsx';
 import CommentList from './commentList.jsx';
 
-jest.mock('../narrative/index.js', () => {
+jest.mock('../narrative/index.jsx', () => {
   return ({ sectionData, model }) => (
     <div data-testid="mock-narrative">
       Narrative Component - Model: {model} - Data: {JSON.stringify(sectionData)}

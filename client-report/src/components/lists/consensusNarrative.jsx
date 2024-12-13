@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import * as globals from "../globals.js";
-import Narrative from "../narrative/index.js";
+import Narrative from "../narrative/index.jsx";
 import CommentList from "./commentList.jsx";
 const ConsensusNarrative = ({
   math,

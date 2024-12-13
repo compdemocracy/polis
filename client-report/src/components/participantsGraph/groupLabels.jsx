@@ -3,16 +3,6 @@
 import * as globals from "../globals";
 import React from "react";
 
-// const getBackgroundRectWidth = (ptptCount) =>  {
-//   let width = 46; /* smallest number */
-//   if (ptptCount >= 100 && ptptCount < 1000) {
-//     width = 52;
-//   } else if (ptptCount > 1000) {
-//     width = 59;
-//   }
-//   return width;
-// }
-
 const Users = ({selectedGroup}) => {
   return (
     <g width={7} fill={selectedGroup ? "white" : "black"} transform={`translate(0,-9)`}>

@@ -7,9 +7,8 @@ import graphUtil from "../../util/graphUtil";
 import Axes from "../graphAxes";
 import * as d3contour from "d3-contour";
 import * as d3chromatic from "d3-scale-chromatic";
-// import GroupLabels from "./groupLabels";
 import Comments from "../commentsGraph/comments.jsx";
-import Hull from "./hull";
+import Hull from "./hull.jsx";
 import CommentList from "../lists/commentList.jsx";
 
 const pointsPerSquarePixelMax = 0.0017; /* choose dynamically ? */
@@ -48,21 +47,6 @@ const Participants = ({ points, math }) => {
             </text>
           </g>
         );
-        // return (<text
-        //     key={i}
-        //     transform={
-        //       `translate(
-        //         ${pt.x},
-        //         ${pt.y}
-        //       )`
-        //     }
-        //     style={{
-        //       fill: "rgba(0,0,0,.5)",
-        //       fontSize: 12,
-        //     }}
-        //     >
-        // {globals.groupSymbols[pt.gid]}
-        //   </text>)
       })}
     </g>
   );
@@ -144,25 +128,6 @@ class ParticipantsGraph extends React.Component {
           </p>
         </div>
         <div>
-          {
-            // <button
-            //   style={{
-            //     color: this.state.showContour ? "white" : "black",
-            //     border: this.state.showContour ? "1px solid #03A9F4" : "1px solid black",
-            //     cursor: "pointer",
-            //     borderRadius: 3,
-            //     background: this.state.showContour ? "#03A9F4" : "none",
-            //     padding: 4,
-            //     marginRight: 20
-            //   }}
-            //   onClick={() => { this.setState({
-            //     showContour: !this.state.showContour,
-            //     consensusDivisionColorScale: false
-            //   })
-            //   }}>
-            //   Density
-            // </button>
-          }
           <button
             style={{
               color: this.state.showAxes ? "white" : "black",
@@ -197,22 +162,6 @@ class ParticipantsGraph extends React.Component {
           >
             Radial axes
           </button>
-          {/* <button
-            style={{
-              color: this.state.consensusDivisionColorScale ? "white" : "black",
-              border: this.state.consensusDivisionColorScale ? "1px solid #03A9F4" : "1px solid black",
-              cursor: "pointer",
-              borderRadius: 3,
-              background: this.state.consensusDivisionColorScale ? "#03A9F4" : "none",
-              padding: 4,
-              marginRight: 20
-            }}
-            onClick={() => { this.setState({
-              consensusDivisionColorScale: !this.state.consensusDivisionColorScale,
-              showContour: false
-            }) }}>
-            Consensus / Divisive color scale
-          </button>*/}
           <button
             style={{
               color: this.state.showComments ? "white" : "black",

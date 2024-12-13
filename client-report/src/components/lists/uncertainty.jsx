@@ -4,7 +4,7 @@ import React from "react";
 import CommentList from "./commentList.jsx";
 import * as globals from "../globals.js";
 // import style from "../../util/style";
-import Narrative from "../narrative/index.js";
+import Narrative from "../narrative/index.jsx";
 
 const Uncertainty = ({
   conversation,
