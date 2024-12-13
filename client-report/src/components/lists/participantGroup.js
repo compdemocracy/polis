@@ -4,7 +4,7 @@ import React from "react";
 import * as globals from "../globals";
 // import Flex from "../framework/flex"
 // import style from "../../util/style";
-import CommentList from "./commentList";
+import CommentList from "./commentList.jsx";
 
 const ParticipantGroup = ({
   gid,

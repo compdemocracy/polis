@@ -10,7 +10,7 @@ import * as d3chromatic from "d3-scale-chromatic";
 // import GroupLabels from "./groupLabels";
 import Comments from "../commentsGraph/comments.jsx";
 import Hull from "./hull";
-import CommentList from "../lists/commentList";
+import CommentList from "../lists/commentList.jsx";
 
 const pointsPerSquarePixelMax = 0.0017; /* choose dynamically ? */
 const contourBandwidth = 20;

@@ -1,7 +1,6 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import React from "react";
-import _ from "lodash";
 import * as globals from "../globals";
 
 const BarChartCompact = ({ comment, voteCounts, nMembers, voteColors }) => {
@@ -82,17 +81,17 @@ const CommentRow = ({ comment, groups, voteColors }) => {
     console.error("WHY IS THERE NO COMMENT 3452354235", comment);
     return null;
   }
-  // const percentAgreed = Math.floor(groupVotesForThisGroup.votes[comment.tid].A / groupVotesForThisGroup.votes[comment.tid].S * 100);
 
   let BarCharts = [];
   let totalMembers = 0;
 
   // groups
-  _.forEach(groups, (g, i) => {
-    let nMembers = g["n-members"];
+  Object.entries(groups).forEach(([key, g]) => {
+    const i = parseInt(key, 10); // Parse the key to an integer
+    const nMembers = g["n-members"];
     totalMembers += nMembers;
-    let gVotes = g.votes[comment.tid];
-
+    const gVotes = g.votes[comment.tid];
+  
     BarCharts.push(
       <BarChartCompact
         key={i}
@@ -105,12 +104,6 @@ const CommentRow = ({ comment, groups, voteColors }) => {
     );
   });
 
-  // totals column
-  // let globalCounts = {
-  //   A: comment.agreed,
-  //   D: comment.disagreed,
-  //   S: comment.saw,
-  // };
   BarCharts.unshift(
     <BarChartCompact
       key={99}
@@ -159,11 +152,9 @@ const CommentRow = ({ comment, groups, voteColors }) => {
   );
 };
 
-class CommentList extends React.Component {
-  constructor(props) {
-    super(props)
-  }
-  getGroupLabels() {
+const CommentList = ({ comments, math, ptptCount, tidsToRender, voteColors }) => {
+
+  const getGroupLabels = () => {
     function makeLabel(key, label, numMembers) {
       return (
         <span
@@ -191,57 +182,59 @@ class CommentList extends React.Component {
     let labels = [];
 
     // totals
-    labels.push(makeLabel(99, "Overall", this.props.ptptCount));
+    labels.push(makeLabel(99, "Overall", ptptCount));
 
-    _.each(this.props.math["group-votes"], (g, i) => {
+    Object.entries(math["group-votes"]).forEach(([key, g]) => {
+      const i = parseInt(key, 10);
       labels.push(makeLabel(i, globals.groupLabels[i], g["n-members"]));
     });
 
     return labels;
   }
 
-  render() {
-    const comments = _.keyBy(this.props.comments, "tid");
+  const cs = comments.reduce((acc, comment) => {
+    acc[comment.tid] = comment;
+    return acc;
+  }, {});
 
-    return (
-      <div>
-        <div
+  return (
+    <div>
+      <div
+        style={{
+          marginBottom: 1,
+          borderBottom: "2px solid black",
+          position: "relative",
+        }}
+      >
+        <span
           style={{
-            marginBottom: 1,
-            borderBottom: "2px solid black",
-            position: "relative",
+            minWidth: 200,
+            marginRight:
+              50 + 10 + 33 /* the 10 in padding from the cells, the 33 for offset group labels */,
+            display: "inline-block",
+            fontWeight: 700,
+            fontSize: 14,
+            textTransform: "uppercase",
           }}
         >
-          <span
-            style={{
-              minWidth: 200,
-              marginRight:
-                50 + 10 + 33 /* the 10 in padding from the cells, the 33 for offset group labels */,
-              display: "inline-block",
-              fontWeight: 700,
-              fontSize: 14,
-              textTransform: "uppercase",
-            }}
-          >
-            Statement
-          </span>
+          Statement
+        </span>
 
-          {this.getGroupLabels()}
-        </div>
-        {this.props.tidsToRender.map((tid, i) => {
-          return (
-            <CommentRow
-              key={i}
-              index={i}
-              groups={this.props.math["group-votes"]}
-              comment={comments[tid]}
-              voteColors={this.props.voteColors}
-            />
-          );
-        })}
+        {getGroupLabels()}
       </div>
-    );
-  }
+      {tidsToRender.map((tid, i) => {
+        return (
+          <CommentRow
+            key={i}
+            index={i}
+            groups={math["group-votes"]}
+            comment={cs[tid]}
+            voteColors={voteColors}
+          />
+        );
+      })}
+    </div>
+  );
 }
 
 export default CommentList;

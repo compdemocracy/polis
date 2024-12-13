@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import AllCommentsModeratedIn from './allCommentsModeratedIn.jsx'; 
-import CommentList from './commentList.js';
+import CommentList from './commentList.jsx';
 
 jest.mock('./commentList', () => ({
   __esModule: true,
