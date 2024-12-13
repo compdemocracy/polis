@@ -2,7 +2,7 @@
 
 import React from "react";
 import CommentList from "./commentList.jsx";
-import * as globals from "../globals";
+import * as globals from "../globals.js";
 
 const Metadata = ({ conversation, comments, ptptCount, formatTid, math, voteColors }) => {
   if (!conversation) {

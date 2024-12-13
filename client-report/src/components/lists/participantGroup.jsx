@@ -1,9 +1,7 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import React from "react";
-import * as globals from "../globals";
-// import Flex from "../framework/flex"
-// import style from "../../util/style";
+import * as globals from "../globals.js";
 import CommentList from "./commentList.jsx";
 
 const ParticipantGroup = ({
@@ -12,12 +10,9 @@ const ParticipantGroup = ({
   conversation,
   comments,
   groupVotesForThisGroup,
-  // groupVotesForOtherGroups,
-  // demographicsForGroup,
   ptptCount,
   groupName,
   formatTid,
-  // groupNames,
   math,
   voteColors,
 }) => {
@@ -26,6 +21,8 @@ const ParticipantGroup = ({
   if (typeof groupLabel === "undefined") {
     groupLabel = "Group " + globals.groupLabels[gid];
   }
+
+  console.log(groupComments)
 
   return (
     <div
@@ -41,13 +38,9 @@ const ParticipantGroup = ({
         ptptCount={ptptCount}
         math={math}
         formatTid={formatTid}
-        tidsToRender={_.map(groupComments, 'tid') /* uncertainTids would be funnier */}
+        tidsToRender={groupComments.map(c => c.tid)}
         comments={comments}
         voteColors={voteColors}/>
-
-
-
-
     </div>
   );
 };
