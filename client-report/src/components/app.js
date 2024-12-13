@@ -18,7 +18,7 @@ import Overview from "./overview";
 import MajorityStrict from "./lists/majorityStrict";
 import Uncertainty from "./lists/uncertainty";
 import UncertaintyNarrative from "./lists/uncertaintyNarrative";
-import AllCommentsModeratedIn from "./lists/allCommentsModeratedIn";
+import AllCommentsModeratedIn from "./lists/allCommentsModeratedIn.jsx";
 import ParticipantGroups from "./lists/participantGroups";
 // import CommentsGraph from "./commentsGraph/commentsGraph";
 import ParticipantsGraph from "./participantsGraph/participantsGraph";

@@ -160,6 +160,9 @@ const CommentRow = ({ comment, groups, voteColors }) => {
 };
 
 class CommentList extends React.Component {
+  constructor(props) {
+    super(props)
+  }
   getGroupLabels() {
     function makeLabel(key, label, numMembers) {
       return (
