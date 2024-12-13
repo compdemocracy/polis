@@ -2,11 +2,11 @@
 
 import React from "react";
 import CommentList from "./commentList.jsx";
-import * as globals from "../globals";
+import * as globals from "../globals.js";
 // import style from "../../util/style";
-import Narrative from "../narrative";
+import Narrative from "../narrative/index.js";
 
-const UncertaintyNarrative = ({
+const Uncertainty = ({
   conversation,
   comments,
   ptptCount,
@@ -15,45 +15,27 @@ const UncertaintyNarrative = ({
   math,
   voteColors,
   narrative,
-  model
 }) => {
-  if (!conversation || !narrative || !narrative?.uncertainty?.responseClaude || !narrative?.uncertainty?.responseGemini) {
+  if (!conversation) {
     return <div>Loading Uncertainty...</div>;
   }
-
-  const txt = model === "claude" ? narrative?.uncertainty.responseClaude.content[0].text : narrative?.uncertainty.responseGemini;
-
-  const narrativeJSON = model === "claude" ? JSON.parse(`{${txt}`) : JSON.parse(txt);
-
-  // Extract all citation IDs from the narrative structure
-  const uniqueTids = narrativeJSON.paragraphs.reduce((acc, paragraph) => {
-    paragraph?.sentences?.forEach((sentence) => {
-      sentence?.clauses?.forEach((clause) => {
-        if (Array.isArray(clause?.citations)) {
-          acc.push(...clause.citations);
-        }
-      });
-    });
-    return acc;
-  }, []);
-
-  // Deduplicate the IDs
-  const dedupedTids = [...new Set(uniqueTids || [])];
-
   return (
     <div>
-      <p style={globals.primaryHeading}> Uncertainty Narrative </p>
+      <p style={globals.primaryHeading}> Areas of uncertainty </p>
       <p style={globals.paragraph}>
-        This narrative summary may contain hallucinations. Check each clause.
+        Across all {ptptCount} participants, there was uncertainty about the following statements.
+        Greater than 30% of participants who saw these statements &apos;passed&apos;.
       </p>
-      <Narrative sectionData={narrative.uncertainty} model={model} />
+      <p style={globals.paragraph}>
+        Areas of uncertainty can provide avenues to educate and open dialogue with your community.
+      </p>
       <div style={{ marginTop: 50 }}>
         <CommentList
           conversation={conversation}
           ptptCount={ptptCount}
           math={math}
           formatTid={formatTid}
-          tidsToRender={dedupedTids}
+          tidsToRender={uncertainty /* uncertainTids would be funnier */}
           comments={comments}
           voteColors={voteColors}
         />
@@ -62,4 +44,4 @@ const UncertaintyNarrative = ({
   );
 };
 
-export default UncertaintyNarrative;
+export default Uncertainty;
