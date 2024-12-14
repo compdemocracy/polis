@@ -42,7 +42,7 @@
     "csv-parse": "^5.6.0",
     "csv-to-xml": "^2.0.0",
     "dotenv": "^16.0.3",
-    "express": "~4.21.2",
+    "express": "~3.21.2",
     "fb": "~1.0.2",
     "googleapis": "^142.0.0",
     "html-entities": "^2.4.0",
