@@ -12,7 +12,7 @@ global.window.d3 = {
     }),
     domain: jest.fn()
   }),
-  extent: jest.fn(),
+  extent: jest.fn(() => [0, 1]),
   forceSimulation: jest.fn().mockReturnValue({
     force: jest.fn().mockReturnThis(),
     stop: jest.fn().mockReturnThis(),

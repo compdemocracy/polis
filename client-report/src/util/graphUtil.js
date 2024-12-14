@@ -2,13 +2,17 @@
 
 import * as globals from "../components/globals";
 import createHull from "hull.js";
+import _ from 'lodash'
 
 const graphUtil = (comments, math, badTids) => {
 
     const allXs = [];
     const allYs = [];
 
-    const commentsByTid = _.keyBy(comments, "tid");
+    const commentsByTid = comments.reduce((accumulator, comment) => {
+      accumulator[comment.tid] = comment;
+      return accumulator;
+    }, {});
     const indexToTid = math.tids;
     const tidToIndex = [];
     for (let i = 0; i < indexToTid.length; i++) {

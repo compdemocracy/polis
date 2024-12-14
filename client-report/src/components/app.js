@@ -14,7 +14,7 @@ import Uncertainty from "./lists/uncertainty.jsx";
 import UncertaintyNarrative from "./lists/uncertaintyNarrative.jsx";
 import AllCommentsModeratedIn from "./lists/allCommentsModeratedIn.jsx";
 import ParticipantGroups from "./lists/participantGroups.jsx";
-import ParticipantsGraph from "./participantsGraph/participantsGraph";
+import ParticipantsGraph from "./participantsGraph/participantsGraph.jsx";
 import Beeswarm from "./beeswarm/beeswarm.jsx";
 import Controls from "./controls/controls.jsx";
 
