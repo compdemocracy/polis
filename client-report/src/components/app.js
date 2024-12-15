@@ -1,7 +1,6 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import React from "react";
-import _ from "lodash";
+import React, { useState, useEffect } from "react";
 
 import * as globals from "./globals";
 import URLs from "../util/url";
@@ -17,16 +16,12 @@ import ParticipantGroups from "./lists/participantGroups.jsx";
 import ParticipantsGraph from "./participantsGraph/participantsGraph.jsx";
 import Beeswarm from "./beeswarm/beeswarm.jsx";
 import Controls from "./controls/controls.jsx";
-
 import net from "../util/net";
-
-import $ from "jquery";
-
 import ConsensusNarrative from "./lists/consensusNarrative.jsx";
 import RawDataExport from "./RawDataExport";
 
-var pathname = window.location.pathname; // "/report/2arcefpshi"
-var report_id = pathname.split("/")[2];
+const pathname = window.location.pathname; // "/report/2arcefpshi"
+const report_id = pathname.split("/")[2];
 
 function assertExists(obj, key) {
   if (typeof obj[key] === "undefined") {
@@ -34,49 +29,62 @@ function assertExists(obj, key) {
   }
 }
 
-class App extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-      loading: true,
-      consensus: null,
-      comments: null,
-      participants: null,
-      conversation: null,
-      groupDemographics: null,
-      colorBlindMode: false,
-      model: "claude",
-      isNarrativeReport: window.location.pathname.split("/")[1] === "narrativeReport",
-      dimensions: {
-        width: window.innerWidth,
-        height: window.innerHeight,
-      },
-      shouldPoll: false,
-      voteColors: {
-        agree: globals.brandColors.agree,
-        disagree: globals.brandColors.disagree,
-        pass: globals.brandColors.pass,
-      },
-      narrative: {
-      },
-    };
-  }
+const App = (props) => {
+  const [loading, setLoading] = useState(true);
+  const [consensus, setConsensus] = useState(null);
+  const [math, setMath] = useState(null);
+  const [comments, setComments] = useState(null);
+  const [participants, setParticipants] = useState(null);
+  const [conversation, setConversation] = useState(null);
+  const [groupDemographics, setGroupDemographics] = useState(null);
+  const [colorBlindMode, setColorBlindMode] = useState(false);
+  const [model, setModel] = useState("claude");
+  const [isNarrativeReport, setIsNarrativeReport] = useState(window.location.pathname.split("/")[1] === "narrativeReport");
+  const [dimensions, setDimensions] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight,
+  });
+  const [shouldPoll, setShouldPoll] = useState(false);
+  const [voteColors, setVoteColors] = useState({
+    agree: globals.brandColors.agree,
+    disagree: globals.brandColors.disagree,
+    pass: globals.brandColors.pass,
+  });
+  const [narrative, setNarrative] = useState({});
+  const [errorText, setErrorText] = useState(null);
+  const [extremity, setExtremity] = useState(null);
+  const [uncertainty, setUncertainty] = useState(null);
+  const [ptptCount, setPtptCount] = useState(null);
+  const [ptptCountTotal, SetPtptCountTotal] = useState(null);
+  const [filteredCorrelationMatrix, setFilteredCorrelationMatrix] = useState(null);
+  const [filteredCorrelationTids, setFilteredCorrelationTids] = useState(null);
+  const [badTids, setBadTids] = useState(null);
+  const [groupNames, setGroupNames] = useState(null);
+  const [repfulAgreeTidsByGroup, setRepfulAgreeTidsByGroup] = useState(null);
+  const[repfulDisageeTidsByGroup, setRepfulDisageeTidsByGroup] = useState(null);
+  const [formatTid, setFormatTid] = useState(null);
+  const [report, setReport] = useState(null);
+  const [computedStats, setComputedStats] = useState(null);
+  const [nothingToShow, setNothingToShow] = useState(true);
+  const [hasError, setError] = useState(false);
 
-  async componentDidUpdate() {
+  let corMatRetries;
+  
+  useEffect(() => {
     if (
       window.location.pathname.split("/")[1] === "narrativeReport" &&
-      this.state.isNarrativeReport !== true
+      isNarrativeReport !== true
     ) {
-      this.setState({ isNarrativeReport: true });
+      setIsNarrativeReport(true);
     } else if (
-      this.state.isNarrativeReport &&
+      isNarrativeReport &&
       window.location.pathname.split("/")[1] !== "narrativeReport"
     ) {
-      this.setState({ isNarrativeReport: false });
+      setIsNarrativeReport(false);
     }
-  }
+  }, [window.location?.pathname]);
 
-  getMath(conversation_id) {
+  const getMath = async (conversation_id) => {
     return net
       .polisGet("/api/v3/math/pca2", {
         lastVoteTimestamp: 0,
@@ -90,7 +98,7 @@ class App extends React.Component {
       });
   }
 
-  getComments(conversation_id, isStrictMod) {
+  const getComments = (conversation_id, isStrictMod) => {
     return net.polisGet("/api/v3/comments", {
       conversation_id: conversation_id,
       report_id: report_id,
@@ -102,18 +110,18 @@ class App extends React.Component {
     });
   }
 
-  getParticipantsOfInterest(conversation_id) {
+  const getParticipantsOfInterest = (conversation_id) => {
     return net.polisGet("/api/v3/ptptois", {
       conversation_id: conversation_id,
     });
   }
-  getConversation(conversation_id) {
+  const getConversation = (conversation_id) => {
     return net.polisGet("/api/v3/conversations", {
       conversation_id: conversation_id,
     });
   }
 
-  async getNarrative(report_id) {
+  const getNarrative = async (report_id) => {
     const urlPrefix = URLs.urlPrefix;
     const response = await fetch(`${urlPrefix}api/v3/reportNarrative?report_id=${report_id}`, {
       credentials: "include",
@@ -138,11 +146,11 @@ class App extends React.Component {
       }
       const decodedChunk = decoder.decode(value, { stream: true });
 
-      if (!decodedChunk.includes('POLIS-PING:')) this.setState(state => ({ narrative: Object.assign(state.narrative, JSON.parse(decodedChunk)) }))
+      if (!decodedChunk.includes('POLIS-PING:')) setNarrative(n => Object.assign(n, JSON.parse(decodedChunk)));
     }
   }
 
-  getReport(report_id) {
+  const getReport = (report_id) => {
     return net
       .polisGet("/api/v3/reports", {
         report_id: report_id,
@@ -154,21 +162,21 @@ class App extends React.Component {
         return null;
       });
   }
-  getGroupDemographics(conversation_id) {
+  const getGroupDemographics = (conversation_id) => {
     return net.polisGet("/api/v3/group_demographics", {
       conversation_id: conversation_id,
       report_id: report_id,
     });
   }
 
-  getConversationStats(conversation_id) {
+  const getConversationStats = (conversation_id) => {
     return net.polisGet("/api/v3/conversationStats", {
       conversation_id: conversation_id,
       report_id: report_id,
     });
   }
 
-  getCorrelationMatrix(math_tick) {
+  const getCorrelationMatrix = (math_tick) => {
     const attemptResponse = net.polisGet("/api/v3/math/correlationMatrix", {
       math_tick: math_tick,
       report_id: report_id,
@@ -178,21 +186,23 @@ class App extends React.Component {
       attemptResponse.then(
         (response) => {
           if (response.status && response.status === "pending") {
-            this.corMatRetries = _.isNumber(this.corMatRetries) ? this.corMatRetries + 1 : 1;
+            if (typeof corMatRetries === 'number') {
+              corMatRetries = corMatRetries + 1;
+            } else {
+              corMatRetries = 1;
+            }
             setTimeout(
               () => {
-                this.getCorrelationMatrix(math_tick).then(resolve, reject);
+                getCorrelationMatrix(math_tick).then(resolve, reject);
               },
-              this.corMatRetries < 10 ? 200 : 3000
+              corMatRetries < 10 ? 200 : 3000
             ); // try to get a quick response, but don't keep polling at that rate for more than 10 seconds.
           } else if (
             globals.enableMatrix &&
             response &&
             response.status === "polis_report_needs_comment_selection"
           ) {
-            this.setState({
-              errorText: "Select some comments",
-            });
+            setErrorText("Select some comments");
             reject("Currently, No comments are selected for display in the matrix.");
           } else {
             resolve(response);
@@ -205,37 +215,34 @@ class App extends React.Component {
     });
   }
 
-  getData() {
-    const reportPromise = this.getReport(report_id);
+  const getData = async () => {
+    const reportPromise = getReport(report_id);
     const mathPromise = reportPromise.then((report) => {
-      return this.getMath(report.conversation_id);
+      return getMath(report.conversation_id);
     });
     const commentsPromise = reportPromise.then((report) => {
       return conversationPromise.then((conv) => {
-        return this.getComments(report.conversation_id, conv.strict_moderation);
+        return getComments(report.conversation_id, conv.strict_moderation);
       });
     });
     const groupDemographicsPromise = reportPromise.then((report) => {
-      return this.getGroupDemographics(report.conversation_id);
+      return getGroupDemographics(report.conversation_id);
     });
-    //const conversationStatsPromise = reportPromise.then((report) => {
-    //return this.getConversationStats(report.conversation_id)
-    //});
     const participantsOfInterestPromise = reportPromise.then((report) => {
-      return this.getParticipantsOfInterest(report.conversation_id);
+      return getParticipantsOfInterest(report.conversation_id);
     });
     const matrixPromise = globals.enableMatrix
       ? mathPromise.then((math) => {
           const math_tick = math.math_tick;
-          return this.getCorrelationMatrix(math_tick);
+          return getCorrelationMatrix(math_tick);
         })
       : Promise.resolve();
     const conversationPromise = reportPromise.then((report) => {
-      return this.getConversation(report.conversation_id);
+      return getConversation(report.conversation_id);
     });
 
     const narrativePromise = reportPromise.then((report) => {
-      if (this.state.isNarrativeReport) this.getNarrative(report.report_id);
+      if (isNarrativeReport) getNarrative(report.report_id);
     });
 
     Promise.all([
@@ -246,20 +253,18 @@ class App extends React.Component {
       participantsOfInterestPromise,
       matrixPromise,
       conversationPromise,
-      //conversationStatsPromise,
       narrativePromise,
     ])
       .then((a) => {
         let [
-          report,
+          _report,
           mathResult,
-          comments,
-          groupDemographics,
-          participants,
+          _comments,
+          _groupDemographics,
+          _participants,
           correlationHClust,
-          conversation,
+          _conversation,
           narrative,
-          //conversationstats,
         ] = a;
 
         assertExists(mathResult, "base-clusters");
@@ -281,17 +286,19 @@ class App extends React.Component {
         let indexToTid = mathResult.tids;
 
         // # ptpts that voted
-        var ptptCountTotal = conversation.participant_count;
+        var _ptptCountTotal = _conversation.participant_count;
 
         // # ptpts that voted enough to be included in math
-        var ptptCount = 0;
-        _.each(mathResult["group-votes"], (val /*, key*/) => {
-          ptptCount += val["n-members"];
-        });
+        var _ptptCount = 0;
+        const groupVotes = mathResult["group-votes"];
+        for (const key in groupVotes) {
+          const val = groupVotes[key];
+          _ptptCount += val["n-members"];
+        }
 
-        var badTids = {};
-        var filteredTids = {};
-        var filteredProbabilities = {};
+        var _badTids = {};
+        var _filteredTids = {};
+        var _filteredProbabilities = {};
 
         // prep Correlation matrix.
         if (globals.enableMatrix) {
@@ -300,29 +307,29 @@ class App extends React.Component {
           for (let row = 0; row < probabilities.length; row++) {
             if (probabilities[row][0] === "NaN") {
               let tid = correlationHClust.comments[row];
-              badTids[tid] = true;
+              _badTids[tid] = true;
             }
           }
-          filteredProbabilities = probabilities
+          _filteredProbabilities = probabilities
             .map((row) => {
               return row.filter((cell, colNum) => {
                 let colTid = correlationHClust.comments[colNum];
-                return badTids[colTid] !== true;
+                return _badTids[colTid] !== true;
               });
             })
             .filter((row, rowNum) => {
               let rowTid = correlationHClust.comments[rowNum];
-              return badTids[rowTid] !== true;
+              return _badTids[rowTid] !== true;
             });
-          filteredTids = tids.filter((tid /*, index*/) => {
-            return badTids[tid] !== true;
+          _filteredTids = tids.filter((tid /*, index*/) => {
+            return _badTids[tid] !== true;
           });
         }
 
         var maxTid = -1;
-        for (let i = 0; i < comments.length; i++) {
-          if (comments[i].tid > maxTid) {
-            maxTid = comments[i].tid;
+        for (let i = 0; i < _comments.length; i++) {
+          if (_comments[i].tid > maxTid) {
+            maxTid = _comments[i].tid;
           }
         }
         var tidWidth = ("" + maxTid).length;
@@ -332,349 +339,327 @@ class App extends React.Component {
           n = n + "";
           return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n;
         }
-        function formatTid(tid) {
-          // let padded = "" + tid;
-          // return '#' + pad(""+tid, tidWidth);
+        function _formatTid(tid) {
           return pad("" + tid, tidWidth);
         }
 
-        let repfulAgreeTidsByGroup = {};
-        let repfulDisageeTidsByGroup = {};
+        const _repfulAgreeTidsByGroup = {};
+        const _repfulDisageeTidsByGroup = {};
+
         if (mathResult.repness) {
-          _.each(mathResult.repness, (entries, gid) => {
+          for (const gid in mathResult.repness) {
+            const entries = mathResult.repness[gid];
+
             entries.forEach((entry) => {
               if (entry["repful-for"] === "agree") {
-                repfulAgreeTidsByGroup[gid] = repfulAgreeTidsByGroup[gid] || [];
-                repfulAgreeTidsByGroup[gid].push(entry.tid);
+                _repfulAgreeTidsByGroup[gid] = _repfulAgreeTidsByGroup[gid] || [];
+                _repfulAgreeTidsByGroup[gid].push(entry.tid);
               } else if (entry["repful-for"] === "disagree") {
-                repfulDisageeTidsByGroup[gid] = repfulDisageeTidsByGroup[gid] || [];
-                repfulDisageeTidsByGroup[gid].push(entry.tid);
+                _repfulDisageeTidsByGroup[gid] = _repfulDisageeTidsByGroup[gid] || [];
+                _repfulDisageeTidsByGroup[gid].push(entry.tid);
               }
             });
-          });
+          }
         }
 
         // ====== REMEMBER: gid's start at zero, (0, 1, 2) but we show them as group 1, 2, 3 in participation view ======
-        let groupNames = {};
+        let _groupNames = {};
         for (let i = 0; i <= 9; i++) {
-          let label = report["label_group_" + i];
+          let label = _report["label_group_" + i];
           if (label) {
-            groupNames[i] = label;
+            _groupNames[i] = label;
           }
         }
 
-        let uncertainty = [];
-
-        // let maxCount = _.reduce(comments, (memo, c) => { return Math.max(c.count, memo);}, 1);
-        comments.map((c) => {
+        let _uncertainty = [];
+        _comments.map((c) => {
           var unc = c.pass_count / c.count;
           if (unc > 0.3) {
             c.unc = unc;
-            uncertainty.push(c);
+            _uncertainty.push(c);
           }
         });
-        uncertainty.sort((a, b) => {
+        _uncertainty.sort((a, b) => {
           return b.unc * b.unc * b.pass_count - a.unc * a.unc * a.pass_count;
         });
-        uncertainty = uncertainty.slice(0, 5);
+        _uncertainty = _uncertainty.slice(0, 5);
 
-        let extremity = {};
-        _.each(mathResult.pca["comment-extremity"], function (e, index) {
-          extremity[indexToTid[index]] = e;
-        });
+        const _extremity = {};
+
+        for (const index in mathResult.pca["comment-extremity"]) {
+          const e = mathResult.pca["comment-extremity"][index];
+          const tid = indexToTid[index];
+          _extremity[tid] = e;
+        }
 
         var uniqueCommenters = {};
         var voteTotals = DataUtils.getVoteTotals(mathResult);
-        comments = comments.map((c) => {
+        _comments = _comments.map((c) => {
           c["group-aware-consensus"] = mathResult["group-aware-consensus"][c.tid];
           uniqueCommenters[c.pid] = 1;
           c = Object.assign(c, voteTotals[c.tid]);
           return c;
         });
-        var numUniqueCommenters = _.keys(uniqueCommenters).length;
-        var totalVotes = _.reduce(
-          _.values(mathResult["user-vote-counts"]),
-          function (memo, num) {
-            return memo + num;
-          },
-          0
-        );
-        const computedStats = {
-          votesPerVoterAvg: totalVotes / ptptCountTotal,
-          commentsPerCommenterAvg: comments.length / numUniqueCommenters,
+        var numUniqueCommenters = Object.keys(uniqueCommenters).length;
+        let totalVotes = 0;
+        for (const key in mathResult["user-vote-counts"]) {
+          totalVotes += mathResult["user-vote-counts"][key];
+        }
+        const _computedStats = {
+          votesPerVoterAvg: totalVotes / _ptptCountTotal,
+          commentsPerCommenterAvg: _comments.length / numUniqueCommenters,
         };
 
-        this.setState({
-          loading: false,
-          math: mathResult,
-          consensus: mathResult.consensus,
-          extremity: extremity,
-          uncertainty: uncertainty.map((c) => {
-            return c.tid;
-          }),
-          comments: comments,
-          demographics: groupDemographics,
-          participants: participants,
-          conversation: conversation,
-          ptptCount: ptptCount,
-          ptptCountTotal: ptptCountTotal,
-          filteredCorrelationMatrix: filteredProbabilities,
-          filteredCorrelationTids: filteredTids,
-          badTids: badTids,
-          groupNames: groupNames,
-          repfulAgreeTidsByGroup: repfulAgreeTidsByGroup,
-          repfulDisageeTidsByGroup: repfulDisageeTidsByGroup,
-          formatTid: formatTid,
-          report: report,
-          // narrative: this.state.isNarrativeReport ? narrative : undefined,
-          //conversationStats: conversationstats,
-          computedStats: computedStats,
-          nothingToShow: !comments.length || !groupDemographics.length,
-        });
+        setLoading(false);
+        setMath(mathResult);
+        setConsensus(mathResult.consensus);
+        setExtremity(_extremity);
+        setUncertainty(_uncertainty.map((c) => {
+          return c.tid;
+        }));
+        setComments(_comments);
+        setGroupDemographics(_groupDemographics);
+        setParticipants(_participants);
+        setConversation(_conversation);
+        setPtptCount(_ptptCount);
+        SetPtptCountTotal(_ptptCountTotal);
+        setFilteredCorrelationMatrix(_filteredProbabilities);
+        setFilteredCorrelationTids(_filteredTids);
+        setBadTids(_badTids);
+        setGroupNames(_groupNames);
+        setRepfulAgreeTidsByGroup(_repfulAgreeTidsByGroup);
+        setRepfulDisageeTidsByGroup(_repfulDisageeTidsByGroup);
+        setFormatTid(_formatTid);
+        setReport(_report);
+        setComputedStats(_computedStats);
+        setNothingToShow(!comments.length || !_groupDemographics.length);
       })
       .catch((err) => {
-        this.setState({
-          error: true,
-          errorText: String(err),
-        });
+        setError(true);
+        setErrorText(String(err));
       });
   }
 
-  async UNSAFE_componentWillMount() {
-    this.getData();
-
-    setInterval(() => {
-      if (this.state.shouldPoll) {
-        this.getData();
-      }
-    }, 20 * 1000);
-
-    window.addEventListener(
-      "resize",
-      _.throttle(() => {
-        this.setState({
-          dimensions: {
-            width: window.innerWidth,
-            height: window.innerHeight,
-          },
-        });
-      }, 500)
-    );
-  }
-
-  onAutoRefreshEnabled() {
-    this.setState({
-      shouldPoll: true,
+  useEffect(() => {
+    const init = async () => {
+      await getData();
+      setInterval(() => {
+        if (shouldPoll) {
+          getData();
+        }
+      }, 20 * 1000);
+    };
+    function handleResize() {
+      setDimensions({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+    }
+    
+    let resizeTimeout;
+    window.addEventListener("resize", () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(handleResize, 500);
     });
+    init();
+  }, []);
+
+  const onAutoRefreshEnabled = () => {
+    setShouldPoll(true);
   }
 
-  onAutoRefreshDisabled() {
-    this.setState({
-      shouldPoll: false,
-    });
+  const onAutoRefreshDisabled = () => {
+    setShouldPoll(false);
   }
 
-  handleColorblindModeClick() {
-    var colorBlind = !this.state.colorBlindMode;
+  const handleColorblindModeClick = () => {
+    var colorBlind = !colorBlindMode;
     if (colorBlind) {
-      this.setState({
-        colorBlindMode: colorBlind,
-        voteColors: Object.assign(this.state.voteColors, {
-          agree: globals.brandColors.agreeColorblind,
-        }),
-      });
+      setColorBlindMode(colorBlind);
+      setVoteColors(Object.assign(voteColors, {
+        agree: globals.brandColors.agreeColorblind,
+      }));
     } else {
-      this.setState({
-        colorBlindMode: colorBlind,
-        voteColors: Object.assign(this.state.voteColors, {
-          agree: globals.brandColors.agree,
-        }),
-      });
+      setColorBlindMode(colorBlind);
+      setVoteColors(Object.assign(voteColors, {
+        agree: globals.brandColors.agree,
+      }));
     }
   }
 
-  render() {
-    if (this.state.error) {
-      return (
-        <div data-testid="reports-overview">
-          <div> Error Loading </div>
-          <div> {this.state.errorText} </div>
-        </div>
-      );
-    }
-    if (this.state.nothingToShow) {
-      return (
-        <div data-testid="reports-overview">
-          <div> Nothing to show yet </div>
-        </div>
-      );
-    }
-    if (this.state.loading) {
-      return (
-        <div data-testid="reports-overview">
-          <div> Loading ... </div>
-        </div>
-      );
-    }
-
+  if (hasError) {
     return (
-      <div style={{ margin: "0px 10px" }} data-testid="reports-overview">
-        <Heading conversation={this.state.conversation} />
-        <div
-          style={{
-            marginLeft: 20,
-            marginTop: 40,
-          }}
-        >
-          <Controls
-            onAutoRefreshEnabled={this.onAutoRefreshEnabled.bind(this)}
-            handleColorblindModeClick={this.handleColorblindModeClick.bind(this)}
-            colorBlindMode={this.state.colorBlindMode}
-            onAutoRefreshDisabled={this.onAutoRefreshDisabled.bind(this)}
-            autoRefreshEnabled={this.state.shouldPoll}
-            voteColors={this.state.voteColors}
-          />
-
-          {/* This may eventually need to go back in below */}
-          {/* stats={this.state.conversationStats} */}
-          <Overview
-            computedStats={this.state.computedStats}
-            math={this.state.math}
-            comments={this.state.comments}
-            ptptCount={this.state.ptptCount}
-            ptptCountTotal={this.state.ptptCountTotal}
-            demographics={this.state.demographics}
-            conversation={this.state.conversation}
-            voteColors={this.state.voteColors}
-          />
-
-          {!this.state.isNarrativeReport && (
-            <RawDataExport conversation={this.state.conversation} report_id={report_id} />
-          )}
-
-          {this.state.isNarrativeReport ? (
-            <>
-              <button onClick={() => this.setState(state => ({ model: state.model === "claude" ? "gemini" : "claude" }))}>Toggle Model</button>
-              <h4>Current Model: {this.state.model}</h4>
-              <ConsensusNarrative
-                math={this.state.math}
-                comments={this.state.comments}
-                conversation={this.state.conversation}
-                ptptCount={this.state.ptptCount}
-                formatTid={this.state.formatTid}
-                voteColors={this.state.voteColors}
-                narrative={this.state.narrative}
-                model={this.state.model}
-              />
-              <UncertaintyNarrative
-                math={this.state.math}
-                comments={this.state.comments}
-                uncertainty={this.state.uncertainty}
-                conversation={this.state.conversation}
-                ptptCount={this.state.ptptCount}
-                formatTid={this.state.formatTid}
-                voteColors={this.state.voteColors}
-                narrative={this.state.narrative}
-                model={this.state.model}
-              />
-            </>
-          ) : (
-            <>
-              <Beeswarm
-                conversation={this.state.conversation}
-                extremity={this.state.extremity}
-                math={this.state.math}
-                comments={this.state.comments}
-                probabilities={this.state.filteredCorrelationMatrix}
-                probabilitiesTids={this.state.filteredCorrelationTids}
-                voteColors={this.state.voteColors}
-              />
-              {/*
-                <p style={globals.primaryHeading}>Consensus</p>
-                <p style={globals.primaryHeading}>Inclusive Majority</p>
-              */}
-
-              <MajorityStrict
-                math={this.state.math}
-                conversation={this.state.conversation}
-                ptptCount={this.state.ptptCount}
-                comments={this.state.comments}
-                formatTid={this.state.formatTid}
-                consensus={this.state.consensus}
-                voteColors={this.state.voteColors}
-              />
-              <ParticipantGroups
-                comments={this.state.comments}
-                conversation={this.state.conversation}
-                demographics={this.state.demographics}
-                ptptCount={this.state.ptptCount}
-                groupNames={this.state.groupNames}
-                formatTid={this.state.formatTid}
-                math={this.state.math}
-                badTids={this.state.badTids}
-                repfulAgreeTidsByGroup={this.state.repfulAgreeTidsByGroup}
-                repfulDisageeTidsByGroup={this.state.repfulDisageeTidsByGroup}
-                report={this.state.report}
-                voteColors={this.state.voteColors}
-              />
-              <Uncertainty
-                math={this.state.math}
-                comments={this.state.comments}
-                uncertainty={this.state.uncertainty}
-                conversation={this.state.conversation}
-                ptptCount={this.state.ptptCount}
-                formatTid={this.state.formatTid}
-                voteColors={this.state.voteColors}
-                narrative={this.state.narrative}
-              />
-              {/* {false ? <CommentsGraph
-                comments={this.state.comments}
-                groupNames={this.state.groupNames}
-                badTids={this.state.badTids}
-                formatTid={this.state.formatTid}
-                repfulAgreeTidsByGroup={this.state.repfulAgreeTidsByGroup}
-                math={this.state.math}
-                renderHeading={true}
-                report={this.state.report}
-                voteColors={this.state.voteColors}/> : null}
-              {globals.enableMatrix && false ? <Matrix
-                probabilities={this.state.filteredCorrelationMatrix}
-                comments={this.state.comments}
-                tids={this.state.filteredCorrelationTids}
-                formatTid={this.state.formatTid}
-                ptptCount={this.state.ptptCount}
-                voteColors={this.state.voteColors}/> : ""} */}
-              <ParticipantsGraph
-                comments={this.state.comments}
-                groupNames={this.state.groupNames}
-                badTids={this.state.badTids}
-                colorBlindMode={this.state.colorBlindMode}
-                formatTid={this.state.formatTid}
-                repfulAgreeTidsByGroup={this.state.repfulAgreeTidsByGroup}
-                math={this.state.math}
-                renderHeading={true}
-                report={this.state.report}
-                voteColors={this.state.voteColors}
-              />
-              {/* <BoxPlot
-                groupVotes={this.state.math["group-votes"]}/>*/}
-              <AllCommentsModeratedIn
-                math={this.state.math}
-                comments={this.state.comments}
-                conversation={this.state.conversation}
-                ptptCount={this.state.ptptCount}
-                formatTid={this.state.formatTid}
-                voteColors={this.state.voteColors}
-              />
-            </>
-          )}
-          <Footer />
-        </div>
+      <div data-testid="reports-overview">
+        <div> Error Loading </div>
+        <div> {errorText} </div>
       </div>
     );
   }
+  if (nothingToShow) {
+    return (
+      <div data-testid="reports-overview">
+        <div> Nothing to show yet </div>
+      </div>
+    );
+  }
+  if (loading) {
+    return (
+      <div data-testid="reports-overview">
+        <div> Loading ... </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ margin: "0px 10px" }} data-testid="reports-overview">
+      <Heading conversation={conversation} />
+      <div
+        style={{
+          marginLeft: 20,
+          marginTop: 40,
+        }}
+      >
+        <Controls
+          onAutoRefreshEnabled={onAutoRefreshEnabled}
+          handleColorblindModeClick={handleColorblindModeClick}
+          colorBlindMode={colorBlindMode}
+          onAutoRefreshDisabled={onAutoRefreshDisabled}
+          autoRefreshEnabled={shouldPoll}
+          voteColors={voteColors}
+        />
+
+        {/* This may eventually need to go back in below */}
+        {/* stats={conversationStats} */}
+        <Overview
+          computedStats={computedStats}
+          math={math}
+          comments={comments}
+          ptptCount={ptptCount}
+          ptptCountTotal={ptptCountTotal}
+          demographics={demographics}
+          conversation={conversation}
+          voteColors={voteColors}
+        />
+
+        {!isNarrativeReport && (
+          <RawDataExport conversation={conversation} report_id={report_id} />
+        )}
+
+        {isNarrativeReport ? (
+          <>
+            <button onClick={() => setModel(m => m === "claude" ? "gemini" : "claude" )}>Toggle Model</button>
+            <h4>Current Model: {model}</h4>
+            <ConsensusNarrative
+              math={math}
+              comments={comments}
+              conversation={conversation}
+              ptptCount={ptptCount}
+              formatTid={formatTid}
+              voteColors={voteColors}
+              narrative={narrative}
+              model={model}
+            />
+            <UncertaintyNarrative
+              math={math}
+              comments={comments}
+              uncertainty={uncertainty}
+              conversation={conversation}
+              ptptCount={ptptCount}
+              formatTid={formatTid}
+              voteColors={voteColors}
+              narrative={narrative}
+              model={model}
+            />
+          </>
+        ) : (
+          <>
+            <Beeswarm
+              conversation={conversation}
+              extremity={extremity}
+              math={math}
+              comments={comments}
+              probabilities={filteredCorrelationMatrix}
+              probabilitiesTids={filteredCorrelationTids}
+              voteColors={voteColors}
+            />
+            <MajorityStrict
+              math={math}
+              conversation={conversation}
+              ptptCount={ptptCount}
+              comments={comments}
+              formatTid={formatTid}
+              consensus={consensus}
+              voteColors={voteColors}
+            />
+            <ParticipantGroups
+              comments={comments}
+              conversation={conversation}
+              demographics={demographics}
+              ptptCount={ptptCount}
+              groupNames={groupNames}
+              formatTid={formatTid}
+              math={math}
+              badTids={badTids}
+              repfulAgreeTidsByGroup={repfulAgreeTidsByGroup}
+              repfulDisageeTidsByGroup={repfulDisageeTidsByGroup}
+              report={report}
+              voteColors={voteColors}
+            />
+            <Uncertainty
+              math={math}
+              comments={comments}
+              uncertainty={uncertainty}
+              conversation={conversation}
+              ptptCount={ptptCount}
+              formatTid={formatTid}
+              voteColors={voteColors}
+              narrative={narrative}
+            />
+            {/* {false ? <CommentsGraph
+              comments={comments}
+              groupNames={groupNames}
+              badTids={badTids}
+              formatTid={formatTid}
+              repfulAgreeTidsByGroup={repfulAgreeTidsByGroup}
+              math={math}
+              renderHeading={true}
+              report={report}
+              voteColors={voteColors}/> : null}
+            {globals.enableMatrix && false ? <Matrix
+              probabilities={filteredCorrelationMatrix}
+              comments={comments}
+              tids={filteredCorrelationTids}
+              formatTid={formatTid}
+              ptptCount={ptptCount}
+              voteColors={voteColors}/> : ""} */}
+            <ParticipantsGraph
+              comments={comments}
+              groupNames={groupNames}
+              badTids={badTids}
+              colorBlindMode={colorBlindMode}
+              formatTid={formatTid}
+              repfulAgreeTidsByGroup={repfulAgreeTidsByGroup}
+              math={math}
+              renderHeading={true}
+              report={report}
+              voteColors={voteColors}
+            />
+            {/* <BoxPlot
+              groupVotes={math["group-votes"]}/>*/}
+            <AllCommentsModeratedIn
+              math={math}
+              comments={comments}
+              conversation={conversation}
+              ptptCount={ptptCount}
+              formatTid={formatTid}
+              voteColors={voteColors}
+            />
+          </>
+        )}
+        <Footer />
+      </div>
+    </div>
+  );
 }
 
 export default App;
-
-window.$ = $;
