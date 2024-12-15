@@ -52,7 +52,8 @@ jobs:
           SERVICE_URL: https://preprod.pol.is
         run: |
           docker compose create --build --force-recreate file-server
-          docker cp file-server:/app/build/build ./build
+          CONTAINER_ID=$(docker ps -qaf name=file-server)
+          docker cp ${CONTAINER_ID}:/app/build/ ./build
 
       - name: Set up Python
         uses: actions/setup-python@v5
