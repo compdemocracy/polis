@@ -41,6 +41,9 @@ jobs:
           role-session-name: GitHubActionsDeployPreprod
           aws-region: us-east-1
 
+      - name: Create empty .env file
+        run: touch .env
+
       - name: Build static assets
         env:
           EMBED_SERVICE_HOSTNAME: preprod.pol.is
