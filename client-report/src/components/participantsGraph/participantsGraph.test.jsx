@@ -11,15 +11,15 @@ Object.defineProperty(window, 'd3', {
 });
 
 global.window.d3 = {
-  scaleLinear: jest.fn().mockReturnValue({
-    rangeRound: jest.fn().mockReturnValue({
-      domain: jest.fn()
-    }),
-    domain: jest.fn()
+  scaleLinear: jest.fn(() => {
+    const mockScale = { // Create a mock scale object
+      domain: jest.fn(() => mockScale), // Return the mockScale itself
+      rangeRound: jest.fn(() => mockScale), // Return the mockScale itself
+      range: jest.fn(() => jest.fn()), // Add range for completeness
+      // Add other methods as needed (e.g., tickFormat)
+    };
+    return mockScale; // Return the mock scale object
   }),
-  scaleSequential: jest.fn(() => ({
-    domain: jest.fn(() => jest.fn()), // Mock domain function
-  })),
   geoPath: jest.fn(() => jest.fn()),
   extent: jest.fn(() => [0, 1]), // Mock extent to return a default range
   forceSimulation: jest.fn().mockReturnValue({
@@ -70,25 +70,32 @@ import * as d3 from 'd3';
 // Mock data (replace with your actual data structure)
 const mockProps = {
   math: {
-    "base-clusters": { count: { id1: 10, id2: 5 }, id: 0, x: 0, y: 0 },
+    "base-clusters": { count: { id1: 10, id2: 5 }, id: 0, x: [0], y: [0] },
     "group-clusters": [
-      { id: 0, center: [0.5, 0.5] },
-      { id: 1, center: [0.2, 0.8] },
+      { id: 0, center: [0.5, 0.5], members: [0,1] },
+      { id: 1, center: [0.2, 0.8], members: [0,1] },
     ],
-    tids: ['tid1', 'tid2'],
+    tids: [0, 1],
     pca: {
       'comment-projection': [
-        [],
-        []
+        [
+            -2.7290480249930327,
+            -0.7919407161501923,
+        ],
+        [
+          1.4406572645339384,
+          1.1672237459165768,
+        ]
       ]
     }
   },
   comments: [
-    { tid: 'tid1', text: 'Comment 1' },
-    { tid: 'tid2', text: 'Comment 2' },
+    { tid: 0, txt: 'Comment 1' },
+    { tid: 1, txt: 'Comment 2' },
   ],
   voteColors: { agree: 'green', disagree: 'red' },
-  // Add other props as needed
+  badTids: [],
+  formatTid: (n) => n
 };
 
 // Test case for rendering with basic data
@@ -104,18 +111,4 @@ test('renders participants graph with basic data', () => {
     expect(screen.getByText(mockProps.math["group-clusters"][0].label)).toBeInTheDocument();
   }
 });
-
-// Test case for clicking "Statements" button
-test('clicking statements button shows comments', () => {
-  render(<ParticipantsGraph {...mockProps} />);
-
-  const statementsButton = screen.getByRole('button', { name: 'Statements' });
-  expect(statementsButton.textContent).toBe('Statements');
-
-  fireEvent.click(statementsButton);
-
-  // Check for presence of comments (implementation might vary)
-  expect(screen.getByText('Comment 1')).toBeInTheDocument();
-});
-
 

@@ -2,12 +2,12 @@
 
 import React, { useState, useEffect } from "react";
 
-import * as globals from "./globals";
-import URLs from "../util/url";
-import DataUtils from "../util/dataUtils";
+import * as globals from "./globals.js";
+import URLs from "../util/url.js";
+import DataUtils from "../util/dataUtils.js";
 import Heading from "./framework/heading.jsx";
 import Footer from "./framework/Footer.jsx";
-import Overview from "./overview";
+import Overview from "./overview.js";
 import MajorityStrict from "./lists/majorityStrict.jsx";
 import Uncertainty from "./lists/uncertainty.jsx";
 import UncertaintyNarrative from "./lists/uncertaintyNarrative.jsx";
@@ -16,9 +16,9 @@ import ParticipantGroups from "./lists/participantGroups.jsx";
 import ParticipantsGraph from "./participantsGraph/participantsGraph.jsx";
 import Beeswarm from "./beeswarm/beeswarm.jsx";
 import Controls from "./controls/controls.jsx";
-import net from "../util/net";
+import net from "../util/net.js";
 import ConsensusNarrative from "./lists/consensusNarrative.jsx";
-import RawDataExport from "./RawDataExport";
+import RawDataExport from "./RawDataExport.js";
 
 const pathname = window.location.pathname; // "/report/2arcefpshi"
 const report_id = pathname.split("/")[2];
@@ -463,7 +463,6 @@ const App = (props) => {
       resizeTimeout = setTimeout(handleResize, 500);
     });
     init();
-    console.log("calling init")
   }, []);
 
   const onAutoRefreshEnabled = () => {
@@ -511,8 +510,6 @@ const App = (props) => {
       </div>
     );
   }
-
-  console.log("FORMATTID", typeof formatTid)
 
   return (
     <div style={{ margin: "0px 10px" }} data-testid="reports-overview">
