@@ -62,7 +62,7 @@ const App = (props) => {
   const [groupNames, setGroupNames] = useState(null);
   const [repfulAgreeTidsByGroup, setRepfulAgreeTidsByGroup] = useState(null);
   const[repfulDisageeTidsByGroup, setRepfulDisageeTidsByGroup] = useState(null);
-  const [formatTid, setFormatTid] = useState(null);
+  const [formatTid, setFormatTid] = useState(() => v => v);
   const [report, setReport] = useState(null);
   const [computedStats, setComputedStats] = useState(null);
   const [nothingToShow, setNothingToShow] = useState(true);
@@ -301,7 +301,7 @@ const App = (props) => {
         var _filteredProbabilities = {};
 
         // prep Correlation matrix.
-        if (globals.enableMatrix) {
+        if (globals.enableMatrix && correlationHClust) {
           var probabilities = correlationHClust.matrix;
           var tids = correlationHClust.comments;
           for (let row = 0; row < probabilities.length; row++) {
@@ -429,12 +429,13 @@ const App = (props) => {
         setGroupNames(_groupNames);
         setRepfulAgreeTidsByGroup(_repfulAgreeTidsByGroup);
         setRepfulDisageeTidsByGroup(_repfulDisageeTidsByGroup);
-        setFormatTid(_formatTid);
+        setFormatTid(() => _formatTid);
         setReport(_report);
         setComputedStats(_computedStats);
-        setNothingToShow(!comments.length || !_groupDemographics.length);
+        setNothingToShow(!_comments.length || !_groupDemographics.length);
       })
       .catch((err) => {
+        console.error(err);
         setError(true);
         setErrorText(String(err));
       });
@@ -462,6 +463,7 @@ const App = (props) => {
       resizeTimeout = setTimeout(handleResize, 500);
     });
     init();
+    console.log("calling init")
   }, []);
 
   const onAutoRefreshEnabled = () => {
@@ -510,6 +512,8 @@ const App = (props) => {
     );
   }
 
+  console.log("FORMATTID", typeof formatTid)
+
   return (
     <div style={{ margin: "0px 10px" }} data-testid="reports-overview">
       <Heading conversation={conversation} />
@@ -536,7 +540,7 @@ const App = (props) => {
           comments={comments}
           ptptCount={ptptCount}
           ptptCountTotal={ptptCountTotal}
-          demographics={demographics}
+          demographics={groupDemographics}
           conversation={conversation}
           voteColors={voteColors}
         />
@@ -581,6 +585,7 @@ const App = (props) => {
               probabilities={filteredCorrelationMatrix}
               probabilitiesTids={filteredCorrelationTids}
               voteColors={voteColors}
+              formatTid={formatTid}
             />
             <MajorityStrict
               math={math}
@@ -594,7 +599,7 @@ const App = (props) => {
             <ParticipantGroups
               comments={comments}
               conversation={conversation}
-              demographics={demographics}
+              demographics={groupDemographics}
               ptptCount={ptptCount}
               groupNames={groupNames}
               formatTid={formatTid}
