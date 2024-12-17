@@ -12,6 +12,7 @@ const ConsensusNarrative = ({
   narrative,
   model
 }) => {
+  console.log(narrative?.group_informed_consensus)
   if (!narrative?.group_informed_consensus) {
     return <div>Loading Consensus...</div>;
   }

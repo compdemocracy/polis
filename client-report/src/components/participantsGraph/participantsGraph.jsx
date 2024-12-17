@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import * as globals from "../globals.js";
 import graphUtil from "../../util/graphUtil.js";
-import Axes from "../graphAxes.js";
+import Axes from "../graphAxes.jsx";
 import * as d3contour from "d3-contour";
 import * as d3chromatic from "d3-scale-chromatic";
 import Comments from "../commentsGraph/comments.jsx";

@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import ParticipantGroups from './ParticipantGroups';
+import ParticipantGroups from './participantGroups';
 import * as globals from '../globals'; // Mock globals if necessary
 import Metadata from './metadata.jsx'; // Mock Metadata
 import Group from './participantGroup.jsx'; // Mock Group

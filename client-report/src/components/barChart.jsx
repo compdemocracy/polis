@@ -2,7 +2,7 @@
 
 import React from "react";
 
-const BarChart = ({comment, groupVotes, ptptCount/*, conversation*/}) => {
+const BarChart = ({comment, groupVotes, ptptCount}) => {
 
   const rectStartX = 70;
   const barHeight = 15;

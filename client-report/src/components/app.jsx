@@ -7,7 +7,7 @@ import URLs from "../util/url.js";
 import DataUtils from "../util/dataUtils.js";
 import Heading from "./framework/heading.jsx";
 import Footer from "./framework/Footer.jsx";
-import Overview from "./overview.js";
+import Overview from "./overview.jsx";
 import MajorityStrict from "./lists/majorityStrict.jsx";
 import Uncertainty from "./lists/uncertainty.jsx";
 import UncertaintyNarrative from "./lists/uncertaintyNarrative.jsx";
@@ -18,7 +18,7 @@ import Beeswarm from "./beeswarm/beeswarm.jsx";
 import Controls from "./controls/controls.jsx";
 import net from "../util/net.js";
 import ConsensusNarrative from "./lists/consensusNarrative.jsx";
-import RawDataExport from "./RawDataExport.js";
+import RawDataExport from "./RawDataExport.jsx";
 
 const pathname = window.location.pathname; // "/report/2arcefpshi"
 const report_id = pathname.split("/")[2];
@@ -50,7 +50,7 @@ const App = (props) => {
     disagree: globals.brandColors.disagree,
     pass: globals.brandColors.pass,
   });
-  const [narrative, setNarrative] = useState({});
+  const [narrative, setNarrative] = useState(null);
   const [errorText, setErrorText] = useState(null);
   const [extremity, setExtremity] = useState(null);
   const [uncertainty, setUncertainty] = useState(null);
@@ -146,7 +146,7 @@ const App = (props) => {
       }
       const decodedChunk = decoder.decode(value, { stream: true });
 
-      if (!decodedChunk.includes('POLIS-PING:')) setNarrative(n => Object.assign(n, JSON.parse(decodedChunk)));
+      if (!decodedChunk.includes('POLIS-PING:')) setNarrative(n => Object.assign((n || {}), JSON.parse(decodedChunk)));
     }
   }
 
@@ -511,6 +511,8 @@ const App = (props) => {
     );
   }
 
+  console.log(conversation, narrative)
+
   return (
     <div style={{ margin: "0px 10px" }} data-testid="reports-overview">
       <Heading conversation={conversation} />
@@ -550,27 +552,31 @@ const App = (props) => {
           <>
             <button onClick={() => setModel(m => m === "claude" ? "gemini" : "claude" )}>Toggle Model</button>
             <h4>Current Model: {model}</h4>
-            <ConsensusNarrative
-              math={math}
-              comments={comments}
-              conversation={conversation}
-              ptptCount={ptptCount}
-              formatTid={formatTid}
-              voteColors={voteColors}
-              narrative={narrative}
-              model={model}
-            />
-            <UncertaintyNarrative
-              math={math}
-              comments={comments}
-              uncertainty={uncertainty}
-              conversation={conversation}
-              ptptCount={ptptCount}
-              formatTid={formatTid}
-              voteColors={voteColors}
-              narrative={narrative}
-              model={model}
-            />
+            {narrative ? (
+              <>
+                <ConsensusNarrative
+                  math={math}
+                  comments={comments}
+                  conversation={conversation}
+                  ptptCount={ptptCount}
+                  formatTid={formatTid}
+                  voteColors={voteColors}
+                  narrative={narrative}
+                  model={model}
+                />
+                <UncertaintyNarrative
+                  math={math}
+                  comments={comments}
+                  uncertainty={uncertainty}
+                  conversation={conversation}
+                  ptptCount={ptptCount}
+                  formatTid={formatTid}
+                  voteColors={voteColors}
+                  narrative={narrative}
+                  model={model}
+                />
+              </>
+            ) : "...Loading"}
           </>
         ) : (
           <>

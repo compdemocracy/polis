@@ -22,8 +22,6 @@ const ParticipantGroup = ({
     groupLabel = "Group " + globals.groupLabels[gid];
   }
 
-  console.log(groupComments)
-
   return (
     <div
       style={{
