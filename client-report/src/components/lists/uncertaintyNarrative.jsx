@@ -15,11 +15,11 @@ const UncertaintyNarrative = ({
   narrative,
   model
 }) => {
-  if (!conversation || !narrative || !narrative?.uncertainty?.responseClaude || !narrative?.uncertainty?.responseGemini) {
+  if (!conversation || !narrative || !narrative?.responseClaude || !narrative?.responseGemini) {
     return <div>Loading Uncertainty...</div>;
   }
 
-  const txt = model === "claude" ? narrative?.uncertainty.responseClaude.content[0].text : narrative?.uncertainty.responseGemini;
+  const txt = model === "claude" ? narrative?.responseClaude.content[0].text : narrative?.responseGemini;
 
   const narrativeJSON = model === "claude" ? JSON.parse(`{${txt}`) : JSON.parse(txt);
 
@@ -44,7 +44,7 @@ const UncertaintyNarrative = ({
       <p style={globals.paragraph}>
         This narrative summary may contain hallucinations. Check each clause.
       </p>
-      <Narrative sectionData={narrative.uncertainty} model={model} />
+      <Narrative sectionData={narrative} model={model} />
       <div style={{ marginTop: 50 }}>
         <CommentList
           conversation={conversation}

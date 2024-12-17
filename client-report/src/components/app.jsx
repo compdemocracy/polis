@@ -67,6 +67,8 @@ const App = (props) => {
   const [computedStats, setComputedStats] = useState(null);
   const [nothingToShow, setNothingToShow] = useState(true);
   const [hasError, setError] = useState(false);
+  const [parsedNarrativeUncertainty, setParsedNarrativeUncertainty] = useState(null);
+  const [parsedNarrativeConsensus, setParsedNarrativeConsensus] = useState(null);
 
   let corMatRetries;
   
@@ -83,6 +85,15 @@ const App = (props) => {
       setIsNarrativeReport(false);
     }
   }, [window.location?.pathname]);
+
+  useEffect(() => {
+    if (narrative?.group_informed_consensus) {
+      setParsedNarrativeConsensus(narrative.group_informed_consensus);
+    }
+    if (narrative?.uncertainty) {
+      setParsedNarrativeUncertainty(narrative.uncertainty);
+    }
+  }, [narrative?.uncertainty, narrative?.group_informed_consensus, JSON.stringify(narrative)])
 
   const getMath = async (conversation_id) => {
     return net
@@ -146,7 +157,11 @@ const App = (props) => {
       }
       const decodedChunk = decoder.decode(value, { stream: true });
 
-      if (!decodedChunk.includes('POLIS-PING:')) setNarrative(n => Object.assign((n || {}), JSON.parse(decodedChunk)));
+      if (!decodedChunk.includes('POLIS-PING:')) {
+        const o = narrative || {};
+        const c = JSON.parse(decodedChunk);
+        setNarrative({...o, ...c});
+      }
     }
   }
 
@@ -511,8 +526,6 @@ const App = (props) => {
     );
   }
 
-  console.log(conversation, narrative)
-
   return (
     <div style={{ margin: "0px 10px" }} data-testid="reports-overview">
       <Heading conversation={conversation} />
@@ -552,31 +565,31 @@ const App = (props) => {
           <>
             <button onClick={() => setModel(m => m === "claude" ? "gemini" : "claude" )}>Toggle Model</button>
             <h4>Current Model: {model}</h4>
-            {narrative ? (
-              <>
-                <ConsensusNarrative
-                  math={math}
-                  comments={comments}
-                  conversation={conversation}
-                  ptptCount={ptptCount}
-                  formatTid={formatTid}
-                  voteColors={voteColors}
-                  narrative={narrative}
-                  model={model}
-                />
-                <UncertaintyNarrative
-                  math={math}
-                  comments={comments}
-                  uncertainty={uncertainty}
-                  conversation={conversation}
-                  ptptCount={ptptCount}
-                  formatTid={formatTid}
-                  voteColors={voteColors}
-                  narrative={narrative}
-                  model={model}
-                />
-              </>
-            ) : "...Loading"}
+            {parsedNarrativeConsensus ? (
+              <ConsensusNarrative
+                math={math}
+                comments={comments}
+                conversation={conversation}
+                ptptCount={ptptCount}
+                formatTid={formatTid}
+                voteColors={voteColors}
+                narrative={parsedNarrativeConsensus}
+                model={model}
+              />
+            ) : "...Loading Consensus \n"}
+            {parsedNarrativeUncertainty ? (
+              <UncertaintyNarrative
+                math={math}
+                comments={comments}
+                uncertainty={uncertainty}
+                conversation={conversation}
+                ptptCount={ptptCount}
+                formatTid={formatTid}
+                voteColors={voteColors}
+                narrative={parsedNarrativeUncertainty}
+                model={model}
+              />
+            ) : "...Loading Uncertainty \n"}
           </>
         ) : (
           <>
