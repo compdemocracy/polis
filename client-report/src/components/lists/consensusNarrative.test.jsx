@@ -24,12 +24,10 @@ jest.mock('./commentList.jsx', () => {
 
 describe('ConsensusNarrative Component', () => {
     const mockNarrativeData = {
-        group_informed_consensus: {
           responseClaude: {
             content: [{ text: '"paragraphs":[{"sentences":[{"clauses":[{"citations":["tid1","tid2"]}]}]}]}' }],
           },
           responseGemini: '{"paragraphs":[{"sentences":[{"clauses":[{"citations":["tid2","tid3","tid1"]}]}]}]}',
-        },
       };
       
 

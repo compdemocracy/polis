@@ -15,10 +15,8 @@ describe('UncertaintyNarrative Component', () => {
     math: {},
     voteColors: {},
     narrative: {
-      uncertainty: {
         responseClaude: { content: [{ text: '"paragraphs":[{"sentences":[{"clauses":[{"citations":["T1","T2"]}]}]}]}' }] },
         responseGemini: '{"paragraphs":[{"sentences":[{"clauses":[{"citations":["T3"]}]}]}]}'
-      }
     },
     model: 'claude'
   };
