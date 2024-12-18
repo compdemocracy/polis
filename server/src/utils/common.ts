@@ -7,6 +7,7 @@ import dbPgQuery, {
   queryP_readOnly as pgQueryP_readOnly,
   queryP_readOnly_wRetryIfEmpty as pgQueryP_readOnly_wRetryIfEmpty,
 } from "../db/pg-query";
+import Config from "../config";
 
 type PolisTypes = {
   reactions: Reactions;
@@ -33,6 +34,12 @@ type Mod = {
   unmoderated: number;
   ok: number;
 };
+
+const polisDevs = Config.adminUIDs ? JSON.parse(Config.adminUIDs) : [];
+
+function isPolisDev(uid?: any) {
+  return polisDevs.indexOf(uid) >= 0;
+}
 
 function strToHex(str: string) {
   let hex, i;
@@ -99,6 +106,36 @@ function isConversationOwner(
   );
 }
 
-export { strToHex, hexToStr, polisTypes, isConversationOwner };
+function isModerator(zid: any, uid?: any) {
+  if (isPolisDev(uid)) {
+    return Promise.resolve(true);
+  }
+  return pgQueryP_readOnly(
+    "select count(*) from conversations where owner in (select uid from users where site_id = (select site_id from users where uid = ($2))) and zid = ($1);",
+    [zid, uid]
+    //     Argument of type '(rows: { count: number; }[]) => boolean' is not assignable to parameter of type '(value: unknown) => boolean | PromiseLike<boolean>'.
+    // Types of parameters 'rows' and 'value' are incompatible.
+    //     Type 'unknown' is not assignable to type '{ count: number; }[]'.ts(2345)
+    // @ts-ignore
+  ).then(function (rows: { count: number }[]) {
+    return rows[0].count >= 1;
+  });
+}
 
-export default { strToHex, hexToStr, polisTypes, isConversationOwner };
+export {
+  strToHex,
+  hexToStr,
+  polisTypes,
+  isConversationOwner,
+  isModerator,
+  isPolisDev,
+};
+
+export default {
+  strToHex,
+  hexToStr,
+  polisTypes,
+  isConversationOwner,
+  isModerator,
+  isPolisDev,
+};

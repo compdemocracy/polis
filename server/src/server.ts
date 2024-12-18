@@ -40,13 +40,20 @@ import dbPgQuery, {
 import Config from "./config";
 import fail from "./utils/fail";
 import { PcaCacheItem, getPca, fetchAndCacheLatestPcaData } from "./utils/pca";
-import { getZinvite, getZinvites, getZidForRid } from "./utils/zinvite";
+import { getZinvite, getZinvites } from "./utils/zinvite";
 import { getBidIndexToPidMapping, getPidsForGid } from "./utils/participants";
 
 import { handle_GET_reportExport } from "./routes/export";
 import { handle_GET_reportNarrative } from "./routes/reportNarrative";
 import handle_DELETE_metadata_answers from "./routes/metadataAnswers";
 import handle_GET_launchPrep from "./routes/launchPrep";
+import handle_GET_tryCookie from "./routes/tryCookie";
+import {
+  handle_GET_math_pca,
+  handle_GET_math_pca2,
+  handle_POST_math_update,
+  handle_GET_math_correlationMatrix,
+} from "./routes/math";
 
 import {
   Body,
@@ -111,12 +118,6 @@ BluebirdPromise.onPossiblyUnhandledRejection(function (err: any) {
 });
 
 const adminEmails = Config.adminEmails ? JSON.parse(Config.adminEmails) : [];
-
-const polisDevs = Config.adminUIDs ? JSON.parse(Config.adminUIDs) : [];
-
-function isPolisDev(uid?: any) {
-  return polisDevs.indexOf(uid) >= 0;
-}
 
 const polisFromAddress = Config.polisFromAddress;
 
@@ -1024,29 +1025,6 @@ function initializePolisHelpers() {
   ////////////////////////////////////////////
   ////////////////////////////////////////////
 
-  function handle_GET_tryCookie(
-    req: { headers?: { origin: string }; cookies: { [x: string]: any } },
-    res: {
-      status: (
-        arg0: number
-      ) => { (): any; new (): any; json: { (arg0: {}): void; new (): any } };
-    }
-  ) {
-    if (!req.cookies[COOKIES.TRY_COOKIE]) {
-      // Argument of type '{ status: (arg0: number) => { (): any; new (): any; json:
-      // { (arg0: {}): void; new (): any; }; }; }' is not assignable to parameter of type
-      // '{ cookie: (arg0: any, arg1: any, arg2: any) => void; }'.
-      //   Property 'cookie' is missing in type '{ status: (arg0: number) =>
-      // { (): any; new (): any; json: { (arg0: {}): void; new (): any; }; };
-      // } ' but required in type '{ cookie: (arg0: any, arg1: any, arg2: any) => void; } '.ts(2345)
-      // @ts-ignore
-      setCookie(req, res, COOKIES.TRY_COOKIE, "ok", {
-        httpOnly: false, // not httpOnly - needed by JS
-      });
-    }
-    res.status(200).json({});
-  }
-
   // don't start immediately, let other things load first.
   fetchAndCacheLatestPcaData; // TODO_DELETE
 
@@ -1070,250 +1048,6 @@ function initializePolisHelpers() {
       return res.end();
     }
     return next();
-  }
-
-  function handle_GET_math_pca(
-    req: any,
-    res: {
-      status: (
-        arg0: number
-      ) => { (): any; new (): any; end: { (): void; new (): any } };
-    }
-  ) {
-    // migrated off this path, old clients were causing timeout issues by polling repeatedly without waiting for a result for a previous poll.
-    res.status(304).end();
-  }
-
-  // Cache the knowledge of whether there are any pca results for a given zid.
-  // Needed to determine whether to return a 404 or a 304.
-  // zid -> boolean
-  let pcaResultsExistForZid = {};
-  function handle_GET_math_pca2(
-    req: { p: { zid: any; math_tick: any; ifNoneMatch: any } },
-    res: {
-      status: (
-        arg0: number
-      ) => { (): any; new (): any; end: { (): void; new (): any } };
-      set: (arg0: {
-        "Content-Type": string;
-        "Content-Encoding": string;
-        Etag: string;
-      }) => void;
-      send: (arg0: any) => void;
-    }
-  ) {
-    let zid = req.p.zid;
-    let math_tick = req.p.math_tick;
-
-    let ifNoneMatch = req.p.ifNoneMatch;
-    if (ifNoneMatch) {
-      if (!_.isUndefined(math_tick)) {
-        return fail(
-          res,
-          400,
-          "Expected either math_tick param or If-Not-Match header, but not both."
-        );
-      }
-      if (ifNoneMatch.includes("*")) {
-        math_tick = 0;
-      } else {
-        let entries = ifNoneMatch.split(/ *, */).map((x: string) => {
-          return Number(
-            x
-              .replace(/^[wW]\//, "")
-              .replace(/^"/, "")
-              .replace(/"$/, "")
-          );
-        });
-        math_tick = _.min(entries); // supporting multiple values for the ifNoneMatch header doesn't really make sense, so I've arbitrarily chosen _.min to decide on one.
-      }
-    } else if (_.isUndefined(math_tick)) {
-      math_tick = -1;
-    }
-    function finishWith304or404() {
-      // Element implicitly has an 'any' type
-      // because expression of type 'any' can't be used to index type '{ } '.ts(7053)
-      // @ts-ignore
-      if (pcaResultsExistForZid[zid]) {
-        res.status(304).end();
-      } else {
-        // Technically, this should probably be a 404, but
-        // the red errors make it hard to see other errors
-        // in Chrome Developer Tools.
-        res.status(304).end();
-        // res.status(404).end();
-      }
-    }
-
-    getPca(zid, math_tick)
-      .then(function (data: PcaCacheItem | undefined) {
-        if (data) {
-          // The buffer is gzipped beforehand to cut down on server effort in re-gzipping the same json string for each response.
-          // We can't cache this endpoint on Cloudflare because the response changes too freqently, so it seems like the best way
-          // is to cache the gzipped json'd buffer here on the server.
-          res.set({
-            "Content-Type": "application/json",
-            "Content-Encoding": "gzip",
-            Etag: '"' + data.asPOJO.math_tick + '"',
-          });
-          res.send(data.asBufferOfGzippedJson);
-        } else {
-          // check whether we should return a 304 or a 404
-          // Element implicitly has an 'any' type
-          // because expression of type 'any' can't be used to index type '{ } '.ts(7053)
-          // @ts-ignore
-          if (_.isUndefined(pcaResultsExistForZid[zid])) {
-            // This server doesn't know yet if there are any PCA results in the DB
-            // So try querying from -1
-            return getPca(zid, -1).then(function (data: any) {
-              let exists = !!data;
-              // Element implicitly has an 'any' type
-              // because expression of type 'any' can't be used to index type '{ } '.ts(7053)
-              // @ts-ignore
-              pcaResultsExistForZid[zid] = exists;
-              finishWith304or404();
-            });
-          } else {
-            finishWith304or404();
-          }
-        }
-      })
-      .catch(function (err: any) {
-        fail(res, 500, err);
-      });
-  }
-
-  function handle_POST_math_update(
-    req: { p: { zid: any; uid?: any; math_update_type: any } },
-    res: {
-      status: (
-        arg0: number
-      ) => { (): any; new (): any; json: { (arg0: {}): void; new (): any } };
-    }
-  ) {
-    let zid = req.p.zid;
-    let uid = req.p.uid;
-    let math_env = Config.mathEnv;
-    let math_update_type = req.p.math_update_type;
-
-    isModerator(zid, uid).then((hasPermission: any) => {
-      if (!hasPermission) {
-        return fail(res, 500, "handle_POST_math_update_permission");
-      }
-      return pgQueryP(
-        "insert into worker_tasks (task_type, task_data, task_bucket, math_env) values ('update_math', $1, $2, $3);",
-        [
-          JSON.stringify({
-            zid: zid,
-            math_update_type: math_update_type,
-          }),
-          zid,
-          math_env,
-        ]
-      )
-        .then(() => {
-          res.status(200).json({});
-        })
-        .catch((err: any) => {
-          return fail(res, 500, "polis_err_POST_math_update", err);
-        });
-    });
-  }
-
-  function handle_GET_math_correlationMatrix(
-    req: { p: { rid: any; math_tick: any } },
-    res: {
-      status: (
-        arg0: number
-      ) => {
-        (): any;
-        new (): any;
-        json: { (arg0: { status: string }): void; new (): any };
-      };
-      json: (arg0: any) => void;
-    }
-  ) {
-    let rid = req.p.rid;
-    let math_env = Config.mathEnv;
-    let math_tick = req.p.math_tick;
-
-    function finishAsPending() {
-      res.status(202).json({
-        status: "pending",
-      });
-    }
-
-    function hasCommentSelections() {
-      return pgQueryP(
-        "select * from report_comment_selections where rid = ($1) and selection = 1;",
-        [rid]
-        // Argument of type '(rows: string | any[]) => boolean' is not assignable to parameter of type '(value: unknown) => boolean | PromiseLike<boolean>'.
-        // Types of parameters 'rows' and 'value' are incompatible.
-        // Type 'unknown' is not assignable to type 'string | any[]'.
-        //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-        // @ts-ignore
-      ).then((rows: string | any[]) => {
-        return rows.length > 0;
-      });
-    }
-
-    let requestExistsPromise = pgQueryP(
-      "select * from worker_tasks where task_type = 'generate_report_data' and math_env=($2) " +
-        "and task_bucket = ($1) " +
-        // "and attempts < 3 " +
-        "and (task_data->>'math_tick')::int >= ($3) " +
-        "and finished_time is NULL;",
-      [rid, math_env, math_tick]
-    );
-
-    let resultExistsPromise = pgQueryP(
-      "select * from math_report_correlationmatrix where rid = ($1) and math_env = ($2) and math_tick >= ($3);",
-      [rid, math_env, math_tick]
-    );
-
-    Promise.all([resultExistsPromise, getZidForRid(rid)])
-      .then((a: any[]) => {
-        let rows = a[0];
-        let zid = a[1];
-        if (!rows || !rows.length) {
-          //         Argument of type '(requests_rows: string | any[]) => globalThis.Promise<void> | undefined' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void | undefined> | undefined'.
-          // Types of parameters 'requests_rows' and 'value' are incompatible.
-          //   Type 'unknown' is not assignable to type 'string | any[]'.
-          //           Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-          // @ts-ignore
-          return requestExistsPromise.then((requests_rows: string | any[]) => {
-            const shouldAddTask = !requests_rows || !requests_rows.length;
-            // const shouldAddTask = true;
-
-            if (shouldAddTask) {
-              return hasCommentSelections().then((hasSelections: any) => {
-                if (!hasSelections) {
-                  return res.status(202).json({
-                    status: "polis_report_needs_comment_selection",
-                  });
-                }
-                return pgQueryP(
-                  "insert into worker_tasks (task_type, task_data, task_bucket, math_env) values ('generate_report_data', $1, $2, $3);",
-                  [
-                    JSON.stringify({
-                      rid: rid,
-                      zid: zid,
-                      math_tick: math_tick,
-                    }),
-                    rid,
-                    math_env,
-                  ]
-                ).then(finishAsPending);
-              });
-            }
-            finishAsPending();
-          });
-        }
-        res.json(rows[0].data);
-      })
-      .catch((err: any) => {
-        return fail(res, 500, "polis_err_GET_math_correlationMatrix", err);
-      });
   }
 
   function doAddDataExportTask(
@@ -2705,22 +2439,6 @@ Feel free to reply to this email if you need help.`;
     });
   }
 
-  function isModerator(zid: any, uid?: any) {
-    if (isPolisDev(uid)) {
-      return Promise.resolve(true);
-    }
-    return pgQueryP_readOnly(
-      "select count(*) from conversations where owner in (select uid from users where site_id = (select site_id from users where uid = ($2))) and zid = ($1);",
-      [zid, uid]
-      //     Argument of type '(rows: { count: number; }[]) => boolean' is not assignable to parameter of type '(value: unknown) => boolean | PromiseLike<boolean>'.
-      // Types of parameters 'rows' and 'value' are incompatible.
-      //     Type 'unknown' is not assignable to type '{ count: number; }[]'.ts(2345)
-      // @ts-ignore
-    ).then(function (rows: { count: number }[]) {
-      return rows[0].count >= 1;
-    });
-  }
-
   // returns null if it's missing
   function getParticipant(zid: any, uid?: any) {
     // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
@@ -3142,7 +2860,7 @@ Email verified! You can close this tab or hit the back button.
     res: { json: (arg0: any) => void },
     field: string
   ) {
-    if (!isPolisDev(req.p.uid)) {
+    if (!Utils.isPolisDev(req.p.uid)) {
       fail(res, 403, "polis_err_no_access_for_this_user");
       return;
     }
@@ -3487,7 +3205,7 @@ Email verified! You can close this tab or hit the back button.
                   }
 
                   if (devMode) {
-                    needs = needs && isPolisDev(ptpt.uid);
+                    needs = needs && Utils.isPolisDev(ptpt.uid);
                   }
                   return needs;
                 }
@@ -4229,7 +3947,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function deleteFacebookUserRecord(o: { uid?: any }) {
-    if (!isPolisDev(o.uid)) {
+    if (!Utils.isPolisDev(o.uid)) {
       // limit to test accounts for now
       return Promise.reject("polis_err_not_implemented");
     }
@@ -4604,7 +4322,7 @@ Email verified! You can close this tab or hit the back button.
 
     let hasPermission = req.p.rid
       ? Promise.resolve(!!req.p.rid)
-      : isModerator(zid, uid);
+      : Utils.isModerator(zid, uid);
 
     hasPermission
       .then(function (ok: any) {
@@ -4789,7 +4507,7 @@ Email verified! You can close this tab or hit the back button.
         "TODO Needs to clone participants_extended and any other new tables as well."
       );
     }
-    if (isPolisDev(uid)) {
+    if (Utils.isPolisDev(uid)) {
       // is polis developer
     } else {
       fail(res, 403, "polis_err_permissions");
@@ -5845,7 +5563,7 @@ Email verified! You can close this tab or hit the back button.
         });
 
         if (req.p.include_demographics) {
-          isModerator(req.p.zid, req.p.uid)
+          Utils.isModerator(req.p.zid, req.p.uid)
             .then((owner: any) => {
               if (owner || isReportQuery) {
                 return getDemographicsForVotersOnComments(req.p.zid, comments)
@@ -6168,7 +5886,7 @@ Email verified! You can close this tab or hit the back button.
         ? analyzeComment(txt)
         : Promise.resolve(null);
 
-      const isModeratorPromise = isModerator(zid!, uid!);
+      const isModeratorPromise = Utils.isModerator(zid!, uid!);
       const conversationInfoPromise = getConversationInfo(zid!);
 
       let shouldCreateXidRecord = false;
@@ -7327,9 +7045,9 @@ Email verified! You can close this tab or hit the back button.
       `Attempting to update comment. zid: ${zid}, tid: ${tid}, uid: ${uid}`
     );
 
-    isModerator(zid, uid)
+    Utils.isModerator(zid, uid)
       .then(function (isModerator: any) {
-        logger.debug(`isModerator result: ${isModerator}`);
+        logger.debug(`Utils.isModerator result: ${Utils.isModerator}`);
         if (isModerator) {
           moderateComment(zid, tid, active, mod, is_meta).then(
             function () {
@@ -7347,7 +7065,7 @@ Email verified! You can close this tab or hit the back button.
         }
       })
       .catch(function (err: any) {
-        logger.error("Error in isModerator:", err);
+        logger.error("Error in Utils.isModerator:", err);
         fail(res, 500, "polis_err_update_comment", err);
       });
   }
@@ -7361,7 +7079,7 @@ Email verified! You can close this tab or hit the back button.
     let rid = req.p.rid;
     let tid = req.p.tid;
     let selection = req.p.include ? 1 : -1;
-    isModerator(zid, uid)
+    Utils.isModerator(zid, uid)
       .then((isMod: any) => {
         if (!isMod) {
           return fail(res, 403, "polis_err_POST_reportCommentSelections_auth");
@@ -7427,7 +7145,7 @@ Email verified! You can close this tab or hit the back button.
   ) {
     var q = "select * from conversations where zid = ($1)";
     var params = [req.p.zid];
-    if (!isPolisDev(req.p.uid)) {
+    if (!Utils.isPolisDev(req.p.uid)) {
       q = q + " and owner = ($2)";
       params.push(req.p.uid);
     }
@@ -7463,7 +7181,7 @@ Email verified! You can close this tab or hit the back button.
   ) {
     var q = "select * from conversations where zid = ($1)";
     var params = [req.p.zid];
-    if (!isPolisDev(req.p.uid)) {
+    if (!Utils.isPolisDev(req.p.uid)) {
       q = q + " and owner = ($2)";
       params.push(req.p.uid);
     }
@@ -7500,7 +7218,7 @@ Email verified! You can close this tab or hit the back button.
     res: { json: (arg0: any) => void }
   ) {
     let uid = req.p.uid;
-    if (isPolisDev(uid) && req.p.uid_of_user) {
+    if (Utils.isPolisDev(uid) && req.p.uid_of_user) {
       uid = req.p.uid_of_user;
     }
 
@@ -7559,7 +7277,7 @@ Email verified! You can close this tab or hit the back button.
     res: any
   ) {
     let generateShortUrl = req.p.short_url;
-    isModerator(req.p.zid, req.p.uid)
+    Utils.isModerator(req.p.zid, req.p.uid)
       .then(function (ok: any) {
         if (!ok) {
           fail(res, 403, "polis_err_update_conversation_permission");
@@ -7667,7 +7385,7 @@ Email verified! You can close this tab or hit the back button.
                 return;
               }
               let conv = result && result.rows && result.rows[0];
-              // The first check with isModerator implictly tells us this can be returned in HTTP response.
+              // The first check with Utils.isModerator implictly tells us this can be returned in HTTP response.
               conv.is_mod = true;
 
               let promise = generateShortUrl
@@ -8585,7 +8303,7 @@ Email verified! You can close this tab or hit the back button.
     let uid = req.p.uid;
 
     return (
-      isModerator(zid, uid)
+      Utils.isModerator(zid, uid)
         // Argument of type '(isMod: any, err: string) => void | globalThis.Promise<void>' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.ts(2345)
         // @ts-ignore
         .then((isMod: any, err: string) => {
@@ -8612,7 +8330,7 @@ Email verified! You can close this tab or hit the back button.
     let zid = req.p.zid;
 
     return (
-      isModerator(zid, uid)
+      Utils.isModerator(zid, uid)
         // Argument of type '(isMod: any, err: string) => void | globalThis.Promise<void>' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.ts(2345)
         // @ts-ignore
         .then((isMod: any, err: string) => {
@@ -8677,7 +8395,7 @@ Email verified! You can close this tab or hit the back button.
         ]);
       }
     } else if (zid) {
-      reportsPromise = isModerator(zid, uid).then(
+      reportsPromise = Utils.isModerator(zid, uid).then(
         (doesOwnConversation: any) => {
           if (!doesOwnConversation) {
             throw "polis_err_permissions";
@@ -10371,7 +10089,7 @@ Thanks for using Polis!
       getPidsForGid(zid, 4, -1),
       getParticipantDemographicsForConversation(zid),
       getParticipantVotesForCommentsFlaggedWith_is_meta(zid),
-      isModerator(req.p.zid, req.p.uid),
+      Utils.isModerator(req.p.zid, req.p.uid),
     ])
       .then((o: any[]) => {
         let groupPids = [];
@@ -10662,7 +10380,7 @@ Thanks for using Polis!
     let uid = req.p.uid;
     let pid = req.p.pid;
     let mod = req.p.mod;
-    isModerator(zid, uid)
+    Utils.isModerator(zid, uid)
       .then(function (isMod: any) {
         if (!isMod) {
           fail(res, 403, "polis_err_ptptoi_permissions_123");
@@ -10702,7 +10420,8 @@ Thanks for using Polis!
         let ptptois = a[0];
         let conv = a[1];
         let isOwner = uid === conv.owner;
-        let isAllowed = isOwner || isPolisDev(req.p.uid) || conv.is_data_open;
+        let isAllowed =
+          isOwner || Utils.isPolisDev(req.p.uid) || conv.is_data_open;
         if (isAllowed) {
           ptptois = ptptois.map(pullXInfoIntoSubObjects);
           ptptois = ptptois.map(removeNullOrUndefinedProperties);
