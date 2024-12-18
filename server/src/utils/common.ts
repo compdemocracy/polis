@@ -1,4 +1,12 @@
 import _ from "underscore";
+import dbPgQuery, {
+  query as pgQuery,
+  query_readOnly as pgQuery_readOnly,
+  queryP as pgQueryP,
+  queryP_metered_readOnly as pgQueryP_metered_readOnly,
+  queryP_readOnly as pgQueryP_readOnly,
+  queryP_readOnly_wRetryIfEmpty as pgQueryP_readOnly_wRetryIfEmpty,
+} from "../db/pg-query";
 
 type PolisTypes = {
   reactions: Reactions;
@@ -67,6 +75,30 @@ let polisTypes: PolisTypes = {
 polisTypes.reactionValues = _.values(polisTypes.reactions);
 polisTypes.starValues = _.values(polisTypes.staractions);
 
-export { strToHex, hexToStr, polisTypes };
+function isConversationOwner(
+  zid: any,
+  uid?: any,
+  callback?: {
+    (err: any): void;
+    (err: any): void;
+    (err: any): void;
+    (err: any, foo: any): void;
+    (err: any, foo: any): void;
+    (arg0: any): void;
+  }
+) {
+  pgQuery_readOnly(
+    "SELECT * FROM conversations WHERE zid = ($1) AND owner = ($2);",
+    [zid, uid],
+    function (err: number, docs: { rows: string | any[] }) {
+      if (!docs || !docs.rows || docs.rows.length === 0) {
+        err = err || 1;
+      }
+      callback?.(err);
+    }
+  );
+}
 
-export default { strToHex, hexToStr, polisTypes };
+export { strToHex, hexToStr, polisTypes, isConversationOwner };
+
+export default { strToHex, hexToStr, polisTypes, isConversationOwner };
