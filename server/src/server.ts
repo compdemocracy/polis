@@ -45,6 +45,7 @@ import { getBidIndexToPidMapping, getPidsForGid } from "./utils/participants";
 
 import { handle_GET_reportExport } from "./routes/export";
 import { handle_GET_reportNarrative } from "./routes/reportNarrative";
+import handle_DELETE_metadata_answers from "./routes/metadataAnswers";
 
 import {
   Body,
@@ -241,7 +242,7 @@ function doApiKeyBasicAuth(
     username = parts[0],
     // password = parts[1], // we don't use the password part (just use "apikey:")
     apikey = username;
-  return doApiKeyAuth(assigner, apikey, isOptional, req, res, next);
+  return doApiKeyAuth(assigner, apikey, req, res, next);
 }
 
 function doApiKeyAuth(
@@ -480,7 +481,7 @@ function initializePolisHelpers() {
     tid?: any,
     voteType?: any,
     weight?: number,
-    high_priority?: boolean,
+    high_priority?: boolean
   ) {
     let zid = conv?.zid;
     weight = weight || 0;
@@ -521,7 +522,7 @@ function initializePolisHelpers() {
     xid?: any,
     voteType?: any,
     weight?: number,
-    high_priority?: boolean,
+    high_priority?: boolean
   ) {
     return (
       pgQueryP_readOnly("select * from conversations where zid = ($1);", [zid])
@@ -559,7 +560,7 @@ function initializePolisHelpers() {
             tid,
             voteType,
             weight,
-            high_priority,
+            high_priority
           );
         })
     );
@@ -783,20 +784,12 @@ function initializePolisHelpers() {
           doApiKeyAuth(
             assigner,
             req?.headers?.["x-sandstorm-app-polis-apikey"],
-            isOptional,
             req,
             res,
             onDone
           );
         } else if (req.body["polisApiKey"]) {
-          doApiKeyAuth(
-            assigner,
-            getKey(req, "polisApiKey"),
-            isOptional,
-            req,
-            res,
-            onDone
-          );
+          doApiKeyAuth(assigner, getKey(req, "polisApiKey"), req, res, onDone);
         } else if (token) {
           doCookieAuth(assigner, isOptional, req, res, onDone);
         } else if (req?.headers?.authorization) {
@@ -2749,7 +2742,6 @@ Feel free to reply to this email if you need help.`;
     });
   }
 
-
   function isOwner(zid: any, uid: string) {
     return getConversationInfo(zid).then(function (info: any) {
       return info.owner === uid;
@@ -3058,7 +3050,6 @@ Email verified! You can close this tab or hit the back button.
     });
     return pairsList.join("&");
   }
-
 
   let HMAC_SIGNATURE_PARAM_NAME = "signature";
 
@@ -6987,7 +6978,7 @@ Email verified! You can close this tab or hit the back button.
               req.p.xid,
               req.p.vote,
               req.p.weight,
-              req.p.high_priority,
+              req.p.high_priority
             );
           })
           .then(function (o: { vote: any }) {
@@ -7831,74 +7822,6 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
-  // function handle_DELETE_metadata_answers(
-  //   req: { p: { uid?: any; pmaid: any } },
-  //   res: { send: (arg0: number) => void }
-  // ) {
-  //   let uid = req.p.uid;
-  //   let pmaid = req.p.pmaid;
-
-  //   getZidForAnswer(pmaid, function (err: any, zid: any) {
-  //     if (err) {
-  //       fail(
-  //         res,
-  //         500,
-  //         "polis_err_delete_participant_metadata_answers_zid",
-  //         err
-  //       );
-  //       return;
-  //     }
-  //     Utils.isConversationOwner(zid, uid, function (err: any) {
-  //       if (err) {
-  //         fail(
-  //           res,
-  //           403,
-  //           "polis_err_delete_participant_metadata_answers_auth",
-  //           err
-  //         );
-  //         return;
-  //       }
-
-  //       deleteMetadataAnswer(pmaid, function (err: any) {
-  //         if (err) {
-  //           fail(
-  //             res,
-  //             500,
-  //             "polis_err_delete_participant_metadata_answers",
-  //             err
-  //           );
-  //           return;
-  //         }
-  //         res.send(200);
-  //       });
-  //     });
-  //   });
-  // }
-
-  function getZidForAnswer(
-    pmaid: any,
-    callback: {
-      (err: any, zid: any): void;
-      (arg0: string | null, arg1?: undefined): void;
-    }
-  ) {
-    pgQuery(
-      "SELECT zid FROM participant_metadata_answers WHERE pmaid = ($1);",
-      [pmaid],
-      function (err: any, result: { rows: string | any[] }) {
-        if (err) {
-          callback(err);
-          return;
-        }
-        if (!result.rows || !result.rows.length) {
-          callback("polis_err_zid_missing_for_answer");
-          return;
-        }
-        callback(null, result.rows[0].zid);
-      }
-    );
-  }
-
   function getZidForQuestion(
     pmqid: any,
     callback: {
@@ -7924,31 +7847,10 @@ Email verified! You can close this tab or hit the back button.
     );
   }
 
-  function deleteMetadataAnswer(
-    pmaid: any,
-    callback: { (err: any): void; (arg0: null): void }
-  ) {
-    // pgQuery("update participant_metadata_choices set alive = FALSE where pmaid = ($1);", [pmaid], function(err) {
-    //     if (err) {callback(34534545); return;}
-    pgQuery(
-      "update participant_metadata_answers set alive = FALSE where pmaid = ($1);",
-      [pmaid],
-      function (err: any) {
-        if (err) {
-          callback(err);
-          return;
-        }
-        callback(null);
-      }
-    );
-    // });
-  }
-
   function deleteMetadataQuestionAndAnswers(
     pmqid: any,
     callback: { (err: any): void; (arg0: null): void }
   ) {
-
     pgQuery(
       "update participant_metadata_answers set alive = FALSE where pmqid = ($1);",
       [pmqid],
@@ -9587,14 +9489,12 @@ Thanks for using Polis!
     );
   }
 
- 
-
   // Certain twitter ids may be suspended.
   // Twitter will error if we request info on them.
   //  so keep a list of these for as long as the server is running,
   //  so we don't repeat requests for them.
   // This is probably not optimal, but is pretty easy.
-  
+
   let suspendedOrPotentiallyProblematicTwitterIds: any[] = [];
   function getTwitterUserInfoBulk(list_of_twitter_user_id: any[]) {
     list_of_twitter_user_id = list_of_twitter_user_id || [];
@@ -9758,7 +9658,6 @@ Thanks for using Polis!
   // Ensure we don't call this more than 60 times in each 15 minute window (across all of our servers/use-cases)
   setInterval(updateSomeTwitterUsers, 1 * 60 * 1000);
   updateSomeTwitterUsers();
-
 
   const addParticipant = async (zid: string, uid?: string): Promise<any> => {
     await pgQueryP(
@@ -12650,7 +12549,7 @@ Thanks for using Polis!
     //getPca
   };
   return returnObject;
-} 
+}
 
 export { initializePolisHelpers };
 
