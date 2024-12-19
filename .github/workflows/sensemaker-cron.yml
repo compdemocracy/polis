@@ -1,8 +1,6 @@
 name: Generate Sensemaker report
 
-on:
-  repository_dispatch:
-    types: [run-jgsw-workflow]
+on: workflow_dispatch
 
 jobs:
   generate-summary:
