@@ -27,11 +27,11 @@ jobs:
         uses: valitydev/action-download-file@v1
         with:
           url: https://preprod.pol.is/api/v3/reportExport/r7kfpvrhdpyykbhnirtcd/comments.csv
-          target-path: .
+          target-path: data/
       
       - name: Generate Summary Output
         run: |
           npx ts-node runner-cli/runner.ts --outputFile "summary" \
           --vertexProject "jigsaw-vertex-integration" \
-          --inputFile "/comments.csv"
+          --inputFile "data/comments.csv"
         working-directory: sensemaking-tools
