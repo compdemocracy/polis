@@ -1,0 +1,37 @@
+name: Generate Sensemaker report
+
+on:
+  push:
+    branches:
+      - edge
+
+jobs:
+  generate-summary:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+          with:
+            repository: "Jigsaw-Code/sensemaking-tools"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Get CSV
+        uses: valitydev/action-download-file@v1
+          with:
+            url: https://preprod.pol.is/api/v3/reportExport/r7kfpvrhdpyykbhnirtcd/comments.csv
+            target-path: .
+      
+      - name: Generate Summary
+        run: |
+        npx ts-node ./evaluations/runner.ts --outputFile "summary" \
+        --vertexProject "jigsaw-vertex-integration" \
+        --inputFile "/comments.csv"
+        --rerunCount 3
