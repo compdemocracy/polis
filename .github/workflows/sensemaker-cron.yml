@@ -1,9 +1,10 @@
 name: Generate Sensemaker report
 
 on:
-  push:
-    branches:
-      - edge
+  on:
+    pull_request:
+      paths:
+        - '*' 
 
 jobs:
   generate-summary:
