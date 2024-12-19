@@ -15,6 +15,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
+          cache-dependency-path: sensemaking-tools/package-lock.json
           node-version: "18"
           cache: "npm"
 
