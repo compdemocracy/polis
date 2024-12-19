@@ -31,7 +31,7 @@ jobs:
       
       - name: Generate Summary Output
         run: |
-          npx ts-node ./evaluations/runner.ts --outputFile "summary" \
+          npx ts-node runner-cli/runner.ts --outputFile "summary" \
           --vertexProject "jigsaw-vertex-integration" \
           --inputFile "/comments.csv" \
           --rerunCount 3
