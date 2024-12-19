@@ -1,9 +1,8 @@
 name: Generate Sensemaker report
 
 on:
-  pull_request:
-    paths:
-      - '*' 
+  repository_dispatch:
+    types: [run-jgsw-workflow]
 
 jobs:
   generate-summary:
