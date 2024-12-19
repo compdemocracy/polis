@@ -25,10 +25,10 @@ jobs:
 
       - name: Get CSV
         uses: valitydev/action-download-file@v1
-        working-directory: sensemaking-tools
         with:
           url: https://preprod.pol.is/api/v3/reportExport/r7kfpvrhdpyykbhnirtcd/comments.csv
           target-path: data/
+          working-directory: sensemaking-tools
       
       - name: Generate Summary Output
         run: |
