@@ -8,7 +8,10 @@ const graphUtil = (comments, math, badTids) => {
     const allXs = [];
     const allYs = [];
 
-    const commentsByTid = _.keyBy(comments, "tid");
+    const commentsByTid = comments.reduce((accumulator, comment) => {
+      accumulator[comment.tid] = comment;
+      return accumulator;
+    }, {});
     const indexToTid = math.tids;
     const tidToIndex = [];
     for (let i = 0; i < indexToTid.length; i++) {
@@ -78,24 +81,56 @@ const graphUtil = (comments, math, badTids) => {
     // let minClusterY = _.min(allYs);
     // let maxClusterY = _.max(allYs);
 
-    var greatestAbsPtptX = Math.abs(_.maxBy(baseClusters, (pt) => { return Math.abs(pt.x); }).x);
-    var greatestAbsPtptY = Math.abs(_.maxBy(baseClusters, (pt) => { return Math.abs(pt.y); }).y);
+    let greatestAbsPtptX = baseClusters.reduce((max, pt) => {
+      return Math.max(max, Math.abs(pt.x));
+    }, 0); // Initialize max to 0
+    
+    let greatestAbsPtptY = baseClusters.reduce((max, pt) => {
+      return Math.max(max, Math.abs(pt.y));
+    }, 0); // Initialize max to 0
+    
     // var greatestAbsCommentX = Math.abs(_.maxBy(commentsPoints, (pt) => { return Math.abs(pt.x); }).x);
     // var greatestAbsCommentY = Math.abs(_.maxBy(commentsPoints, (pt) => { return Math.abs(pt.y); }).y);
 
 
 
 
-    const xx = d3.scaleLinear().domain([-greatestAbsPtptX, greatestAbsPtptX]).range([border, globals.side - border]);
-    const yy = d3.scaleLinear().domain([-greatestAbsPtptY, greatestAbsPtptY]).range([border, globals.side - border]);
+    const xx = window.d3.scaleLinear().domain([-greatestAbsPtptX, greatestAbsPtptX]).range([border, globals.side - border]);
+    const yy = window.d3.scaleLinear().domain([-greatestAbsPtptY, greatestAbsPtptY]).range([border, globals.side - border]);
 
     const xCenter = globals.side / 2;
     const yCenter = globals.side / 2;
 
-    var maxCommentX = _.maxBy(commentsPoints, (pt) => { return pt.x; }).x;
-    var minCommentX = _.minBy(commentsPoints, (pt) => { return pt.x; }).x;
-    var maxCommentY = _.maxBy(commentsPoints, (pt) => { return pt.y; }).y;
-    var minCommentY = _.minBy(commentsPoints, (pt) => { return pt.y; }).y;
+    let maxCommentX = commentsPoints.length > 0 ? commentsPoints[0].x : undefined; // Handle empty array
+    for (let i = 1; i < commentsPoints.length; i++) {
+      if (commentsPoints[i].x > maxCommentX) {
+        maxCommentX = commentsPoints[i].x;
+      }
+    }
+
+    // Find minCommentX
+    let minCommentX = commentsPoints.length > 0 ? commentsPoints[0].x : undefined; // Handle empty array
+    for (let i = 1; i < commentsPoints.length; i++) {
+      if (commentsPoints[i].x < minCommentX) {
+        minCommentX = commentsPoints[i].x;
+      }
+    }
+
+    // Find maxCommentY
+    let maxCommentY = commentsPoints.length > 0 ? commentsPoints[0].y : undefined; // Handle empty array
+    for (let i = 1; i < commentsPoints.length; i++) {
+      if (commentsPoints[i].y > maxCommentY) {
+        maxCommentY = commentsPoints[i].y;
+      }
+    }
+
+    // Find minCommentY
+    let minCommentY = commentsPoints.length > 0 ? commentsPoints[0].y : undefined; // Handle empty array
+    for (let i = 1; i < commentsPoints.length; i++) {
+      if (commentsPoints[i].y < minCommentY) {
+        minCommentY = commentsPoints[i].y;
+      }
+    }
 
     // xGreatestMapped = xCenter + xScale * maxCommentX
     // globals.side - border = xCenter + xScale * maxCommentX
@@ -139,19 +174,22 @@ const graphUtil = (comments, math, badTids) => {
 
     const hulls = [];
 
-    _.each(baseClustersScaledAndGrouped, (group) => {
-      const pairs = group.map((g) => { /* create an array of arrays */
-        return [g.x, g.y]
-      })
-      const hull = createHull(
-        pairs,
-        400
-      )
+    for (const group of Object.entries(baseClustersScaledAndGrouped)) {
+      // Destructure the group entry (key and value)
+      const [groupName, groupPoints] = group;
+    
+      // Create an array of coordinate pairs
+      const pairs = groupPoints.map((g) => [g.x, g.y]);
+    
+      // Calculate the convex hull
+      const hull = createHull(pairs, 400);
+    
+      // Push the result to hulls
       hulls.push({
-        group,
+        group: groupName,
         hull,
-      })
-    })
+      });
+    }
 
     return {
       xx,
