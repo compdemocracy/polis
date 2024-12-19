@@ -10,6 +10,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: "Jigsaw-Code/sensemaking-tools"
+          path: sensemaking-tools
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -19,6 +20,7 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+        working-directory: sensemaking-tools
 
       - name: Get CSV
         uses: valitydev/action-download-file@v1
@@ -32,3 +34,4 @@ jobs:
           --vertexProject "jigsaw-vertex-integration" \
           --inputFile "/comments.csv" \
           --rerunCount 3
+        working-directory: sensemaking-tools
