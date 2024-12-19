@@ -27,8 +27,10 @@ jobs:
         uses: valitydev/action-download-file@v1
         with:
           url: https://preprod.pol.is/api/v3/reportExport/r7kfpvrhdpyykbhnirtcd/comments.csv
-          target-path: data/
-          working-directory: sensemaking-tools
+          target-path: sensemaking-tools/data/
+
+      - name: List Files
+        run: ls -l sensemaking-tools/
       
       - name: Generate Summary Output
         run: |
