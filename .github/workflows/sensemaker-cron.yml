@@ -1,10 +1,9 @@
 name: Generate Sensemaker report
 
 on:
-  on:
-    pull_request:
-      paths:
-        - '*' 
+  pull_request:
+    paths:
+      - '*' 
 
 jobs:
   generate-summary:
