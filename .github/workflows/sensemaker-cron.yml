@@ -30,7 +30,7 @@ jobs:
       - name: Get CSV
         uses: valitydev/action-download-file@v1
         with:
-          url: https://preprod.pol.is/api/v3/reportExport/r7kfpvrhdpyykbhnirtcd/comments.csv
+          url: https://preprod.pol.is/api/v3/reportExport/r7kfpvrhdpyykbhnirtcd/comment-groups.csv
           target-path: sensemaking-tools/data/
 
       - name: List Files
