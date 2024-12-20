@@ -36,8 +36,8 @@ jobs:
       - name: Modify CSV headers
         run: |
           ls -l data/
-          file="data/comment-groups.csv" \
-          new_header="comment-id,comment_text,total-votes,total-agrees,total-disagrees,total-passes,group-a-votes,group-0-agree-count,group-0-disagree-count,group-0-pass-count,group-b-votes,group-1-agree-count,group-1-disagree-count,group-1-pass-count" \
+          file="data/comment-groups.csv"
+          new_header="comment-id,comment_text,total-votes,total-agrees,total-disagrees,total-passes,group-a-votes,group-0-agree-count,group-0-disagree-count,group-0-pass-count,group-b-votes,group-1-agree-count,group-1-disagree-count,group-1-pass-count"
           sed -i "1s/.*/$new_header/" "$file"
         working-directory: sensemaking-tools
 
