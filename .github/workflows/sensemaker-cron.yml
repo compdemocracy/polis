@@ -62,9 +62,9 @@ jobs:
         working-directory: sensemaking-tools
 
       - name: Store output in Gist
+        working-directory: sensemaking-tools
         uses: sergeysova/gist-write-action@v1
         with:
           gist_id: 2ea3c0f4cadffbde9c414c8d203cd599
           file_name: sensemaking-tools-jigsaw-summary.html
           content: $(cat summary.html)
-        working-directory: sensemaking-tools
