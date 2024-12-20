@@ -50,3 +50,18 @@ jobs:
           --vertexProject "jigsaw-vertex-integration" \
           --inputFile "data/comment-groups.csv"
         working-directory: sensemaking-tools
+
+      - name: Read HTML content
+        run: |
+          html_content=$(cat summary.html)
+          echo "HTML_CONTENT<<EOF" >> $GITHUB_ENV
+          echo "$html_content" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+        working-directory: sensemaking-tools
+
+      - name: Store output in Gist
+        uses: sergeysova/gist-write-action@v1
+        with:
+          gist_id: 2ea3c0f4cadffbde9c414c8d203cd599
+          file_name: sensemaking-tools-jigsaw-summary.html
+          content: ${{env.HTML_CONTENT}}
