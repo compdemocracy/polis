@@ -12,6 +12,10 @@ jobs:
           repository: "Jigsaw-Code/sensemaking-tools"
           path: sensemaking-tools
 
+      - uses: 'google-github-actions/auth@v2'
+        with:
+          credentials_json: '${{ secrets.GOOGLE_CREDENTIALS }}'
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
