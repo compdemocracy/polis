@@ -47,10 +47,11 @@ jobs:
         run: ls -l sensemaking-tools/
       
       - name: Generate Summary Output
-        run: |
-          npx ts-node runner-cli/runner.ts --outputFile "summary" \
-          --vertexProject "jigsaw-vertex-integration" \
-          --inputFile "data/comment-groups.csv"
+        # run: |
+        #   npx ts-node runner-cli/runner.ts --outputFile "summary" \
+        #   --vertexProject "jigsaw-vertex-integration" \
+        #   --inputFile "data/comment-groups.csv"
+        run: touch summary.html
         working-directory: sensemaking-tools
 
       - name: Upload HTML as Artifact
