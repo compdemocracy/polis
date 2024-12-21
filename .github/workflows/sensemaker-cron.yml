@@ -75,7 +75,6 @@ jobs:
         run: |
           ls -al
           ls -al downloaded-html
-          ls -al sensemaking-tools
       - name: Deploy to gist
         uses: exuanbo/actions-deploy-gist@v1
         with:
