@@ -78,7 +78,7 @@ jobs:
       - name: Deploy to gist
         uses: exuanbo/actions-deploy-gist@v1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GIST_TOKEN }}
           gist_id: 2ea3c0f4cadffbde9c414c8d203cd599
           file_path: downloaded-html/summary.html
           file_type: html
