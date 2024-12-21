@@ -53,11 +53,27 @@ jobs:
           --inputFile "data/comment-groups.csv"
         working-directory: sensemaking-tools
 
-      - uses: actions/checkout@v3
+      - name: Upload HTML as Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: sensemaking-summary-html
+          path: sensemaking-tools/summary.html
+
+  use_html:
+    needs: generate-summary
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download HTML Artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: sensemaking-summary-html
+          path: downloaded-html
+      - name: Checkout
+        uses: actions/checkout@v3
       - name: Deploy to gist
         uses: exuanbo/actions-deploy-gist@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           gist_id: 2ea3c0f4cadffbde9c414c8d203cd599
-          file_path: sensemaking-tools/summary.html
+          file_path: downloaded-html/summary.html
           file_type: html
