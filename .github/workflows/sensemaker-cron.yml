@@ -68,12 +68,17 @@ jobs:
         with:
           name: sensemaking-summary-html
           path: downloaded-html
-      - name: Checkout
-        uses: actions/checkout@v3
+      # - name: Checkout
+      #   uses: actions/checkout@v3
+      - name: debug
+        run: |
+          ls -al
+          ls -al downloaded-html
+          ls -al sensemaking-tools
       - name: Deploy to gist
         uses: exuanbo/actions-deploy-gist@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           gist_id: 2ea3c0f4cadffbde9c414c8d203cd599
-          file_path: downloaded-html/summary.html
+          file_path: downloaded-html/summary.htm
           file_type: html
