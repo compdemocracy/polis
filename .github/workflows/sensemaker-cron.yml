@@ -80,5 +80,5 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           gist_id: 2ea3c0f4cadffbde9c414c8d203cd599
-          file_path: downloaded-html/summary.htm
+          file_path: downloaded-html/summary.html
           file_type: html
