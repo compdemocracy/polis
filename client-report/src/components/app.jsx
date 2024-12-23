@@ -11,6 +11,7 @@ import Overview from "./overview.jsx";
 import MajorityStrict from "./lists/majorityStrict.jsx";
 import Uncertainty from "./lists/uncertainty.jsx";
 import UncertaintyNarrative from "./lists/uncertaintyNarrative.jsx";
+import GroupsNarrative from "./lists/groupsNarrative.jsx";
 import AllCommentsModeratedIn from "./lists/allCommentsModeratedIn.jsx";
 import ParticipantGroups from "./lists/participantGroups.jsx";
 import ParticipantsGraph from "./participantsGraph/participantsGraph.jsx";
@@ -39,7 +40,9 @@ const App = (props) => {
   const [groupDemographics, setGroupDemographics] = useState(null);
   const [colorBlindMode, setColorBlindMode] = useState(false);
   const [model, setModel] = useState("claude");
-  const [isNarrativeReport, setIsNarrativeReport] = useState(window.location.pathname.split("/")[1] === "narrativeReport");
+  const [isNarrativeReport, setIsNarrativeReport] = useState(
+    window.location.pathname.split("/")[1] === "narrativeReport"
+  );
   const [dimensions, setDimensions] = useState({
     width: window.innerWidth,
     height: window.innerHeight,
@@ -61,27 +64,25 @@ const App = (props) => {
   const [badTids, setBadTids] = useState(null);
   const [groupNames, setGroupNames] = useState(null);
   const [repfulAgreeTidsByGroup, setRepfulAgreeTidsByGroup] = useState(null);
-  const[repfulDisageeTidsByGroup, setRepfulDisageeTidsByGroup] = useState(null);
-  const [formatTid, setFormatTid] = useState(() => v => v);
+  const [repfulDisageeTidsByGroup, setRepfulDisageeTidsByGroup] = useState(null);
+  const [formatTid, setFormatTid] = useState(() => (v) => v);
   const [report, setReport] = useState(null);
   const [computedStats, setComputedStats] = useState(null);
   const [nothingToShow, setNothingToShow] = useState(true);
   const [hasError, setError] = useState(false);
   const [parsedNarrativeUncertainty, setParsedNarrativeUncertainty] = useState(null);
   const [parsedNarrativeConsensus, setParsedNarrativeConsensus] = useState(null);
+  const [parsedNarrativeGroups, setParsedNarrativeGroups] = useState(null);
 
   let corMatRetries;
-  
+
   useEffect(() => {
     if (
       window.location.pathname.split("/")[1] === "narrativeReport" &&
       isNarrativeReport !== true
     ) {
       setIsNarrativeReport(true);
-    } else if (
-      isNarrativeReport &&
-      window.location.pathname.split("/")[1] !== "narrativeReport"
-    ) {
+    } else if (isNarrativeReport && window.location.pathname.split("/")[1] !== "narrativeReport") {
       setIsNarrativeReport(false);
     }
   }, [window.location?.pathname]);
@@ -93,7 +94,15 @@ const App = (props) => {
     if (narrative?.uncertainty) {
       setParsedNarrativeUncertainty(narrative.uncertainty);
     }
-  }, [narrative?.uncertainty, narrative?.group_informed_consensus, JSON.stringify(narrative)])
+    if (narrative?.groups) {
+      setParsedNarrativeGroups(narrative.groups);
+    }
+  }, [
+    narrative?.uncertainty,
+    narrative?.group_informed_consensus,
+    narrative?.groups,
+    JSON.stringify(narrative),
+  ]);
 
   const getMath = async (conversation_id) => {
     return net
@@ -107,7 +116,7 @@ const App = (props) => {
         }
         return data;
       });
-  }
+  };
 
   const getComments = (conversation_id, isStrictMod) => {
     return net.polisGet("/api/v3/comments", {
@@ -119,18 +128,18 @@ const App = (props) => {
       //include_demographics: true,
       include_voting_patterns: true,
     });
-  }
+  };
 
   const getParticipantsOfInterest = (conversation_id) => {
     return net.polisGet("/api/v3/ptptois", {
       conversation_id: conversation_id,
     });
-  }
+  };
   const getConversation = (conversation_id) => {
     return net.polisGet("/api/v3/conversations", {
       conversation_id: conversation_id,
     });
-  }
+  };
 
   const getNarrative = async (report_id) => {
     const urlPrefix = URLs.urlPrefix;
@@ -145,25 +154,26 @@ const App = (props) => {
     if (!response.ok || !response.body) {
       throw response.statusText;
     }
-  
+
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     const loopRunner = true;
-  
-    while (loopRunner) { // streaming response - the loop will run indefinetly until the response ends - this is a streaming function to improve UX and prevent cloud runners (like heroku) from terminating a long running http request
+
+    while (loopRunner) {
+      // streaming response - the loop will run indefinetly until the response ends - this is a streaming function to improve UX and prevent cloud runners (like heroku) from terminating a long running http request
       const { value, done } = await reader.read();
       if (done) {
         break;
       }
       const decodedChunk = decoder.decode(value, { stream: true });
 
-      if (!decodedChunk.includes('POLIS-PING:')) {
+      if (!decodedChunk.includes("POLIS-PING:")) {
         const o = narrative || {};
         const c = JSON.parse(decodedChunk);
-        setNarrative({...o, ...c});
+        setNarrative({ ...o, ...c });
       }
     }
-  }
+  };
 
   const getReport = (report_id) => {
     return net
@@ -176,20 +186,20 @@ const App = (props) => {
         }
         return null;
       });
-  }
+  };
   const getGroupDemographics = (conversation_id) => {
     return net.polisGet("/api/v3/group_demographics", {
       conversation_id: conversation_id,
       report_id: report_id,
     });
-  }
+  };
 
   const getConversationStats = (conversation_id) => {
     return net.polisGet("/api/v3/conversationStats", {
       conversation_id: conversation_id,
       report_id: report_id,
     });
-  }
+  };
 
   const getCorrelationMatrix = (math_tick) => {
     const attemptResponse = net.polisGet("/api/v3/math/correlationMatrix", {
@@ -201,7 +211,7 @@ const App = (props) => {
       attemptResponse.then(
         (response) => {
           if (response.status && response.status === "pending") {
-            if (typeof corMatRetries === 'number') {
+            if (typeof corMatRetries === "number") {
               corMatRetries = corMatRetries + 1;
             } else {
               corMatRetries = 1;
@@ -228,7 +238,7 @@ const App = (props) => {
         }
       );
     });
-  }
+  };
 
   const getData = async () => {
     const reportPromise = getReport(report_id);
@@ -429,9 +439,11 @@ const App = (props) => {
         setMath(mathResult);
         setConsensus(mathResult.consensus);
         setExtremity(_extremity);
-        setUncertainty(_uncertainty.map((c) => {
-          return c.tid;
-        }));
+        setUncertainty(
+          _uncertainty.map((c) => {
+            return c.tid;
+          })
+        );
         setComments(_comments);
         setGroupDemographics(_groupDemographics);
         setParticipants(_participants);
@@ -454,7 +466,7 @@ const App = (props) => {
         setError(true);
         setErrorText(String(err));
       });
-  }
+  };
 
   useEffect(() => {
     const init = async () => {
@@ -471,7 +483,7 @@ const App = (props) => {
         height: window.innerHeight,
       });
     }
-    
+
     let resizeTimeout;
     window.addEventListener("resize", () => {
       clearTimeout(resizeTimeout);
@@ -482,26 +494,30 @@ const App = (props) => {
 
   const onAutoRefreshEnabled = () => {
     setShouldPoll(true);
-  }
+  };
 
   const onAutoRefreshDisabled = () => {
     setShouldPoll(false);
-  }
+  };
 
   const handleColorblindModeClick = () => {
     var colorBlind = !colorBlindMode;
     if (colorBlind) {
       setColorBlindMode(colorBlind);
-      setVoteColors(Object.assign(voteColors, {
-        agree: globals.brandColors.agreeColorblind,
-      }));
+      setVoteColors(
+        Object.assign(voteColors, {
+          agree: globals.brandColors.agreeColorblind,
+        })
+      );
     } else {
       setColorBlindMode(colorBlind);
-      setVoteColors(Object.assign(voteColors, {
-        agree: globals.brandColors.agree,
-      }));
+      setVoteColors(
+        Object.assign(voteColors, {
+          agree: globals.brandColors.agree,
+        })
+      );
     }
-  }
+  };
 
   if (hasError) {
     return (
@@ -557,13 +573,13 @@ const App = (props) => {
           voteColors={voteColors}
         />
 
-        {!isNarrativeReport && (
-          <RawDataExport conversation={conversation} report_id={report_id} />
-        )}
+        {!isNarrativeReport && <RawDataExport conversation={conversation} report_id={report_id} />}
 
         {isNarrativeReport ? (
           <>
-            <button onClick={() => setModel(m => m === "claude" ? "gemini" : "claude" )}>Toggle Model</button>
+            <button onClick={() => setModel((m) => (m === "claude" ? "gemini" : "claude"))}>
+              Toggle Model
+            </button>
             <h4>Current Model: {model}</h4>
             {parsedNarrativeConsensus ? (
               <ConsensusNarrative
@@ -576,7 +592,9 @@ const App = (props) => {
                 narrative={parsedNarrativeConsensus}
                 model={model}
               />
-            ) : "...Loading Consensus \n"}
+            ) : (
+              "...Loading Consensus \n"
+            )}
             {parsedNarrativeUncertainty ? (
               <UncertaintyNarrative
                 math={math}
@@ -589,7 +607,23 @@ const App = (props) => {
                 narrative={parsedNarrativeUncertainty}
                 model={model}
               />
-            ) : "...Loading Uncertainty \n"}
+            ) : (
+              "...Loading Uncertainty \n"
+            )}
+            {parsedNarrativeGroups ? (
+              <GroupsNarrative
+                math={math}
+                comments={comments}
+                conversation={conversation}
+                ptptCount={ptptCount}
+                formatTid={formatTid}
+                voteColors={voteColors}
+                narrative={parsedNarrativeGroups}
+                model={model}
+              />
+            ) : (
+              "...Loading Groups \n"
+            )}
           </>
         ) : (
           <>
@@ -681,6 +715,6 @@ const App = (props) => {
       </div>
     </div>
   );
-}
+};
 
 export default App;

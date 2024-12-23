@@ -123,6 +123,7 @@ const getCommentsAsXML = async (
     disagrees: number;
     passes: number;
     group_aware_consensus?: number;
+    comment_extremity?: number;
   }) => boolean
 ) => {
   try {
@@ -130,7 +131,8 @@ const getCommentsAsXML = async (
     const xml = PolisConverter.convertToXml(resp as string);
     return xml;
   } catch (e) {
-    return ""; // Return empty string on error to avoid undefined
+    console.error("Error in getCommentsAsXML:", e);
+    throw e; // Re-throw instead of returning empty string
   }
 };
 
@@ -144,6 +146,7 @@ interface ReportSection {
     disagrees: number;
     passes: number;
     group_aware_consensus?: number;
+    comment_extremity?: number;
   }) => boolean;
 }
 
@@ -161,6 +164,11 @@ const reportSections: ReportSection[] = [
       "src/prompts/report_experimental/subtasks/group_informed_consensus.xml",
     filter: (v) => (v.group_aware_consensus ?? 0) > 0.7,
   },
+  {
+    name: "groups",
+    templatePath: "src/prompts/report_experimental/subtasks/groups.xml",
+    filter: (v) => (v.comment_extremity ?? 0) > 0.75,
+  },
 ];
 
 export async function handle_GET_reportNarrative(
@@ -169,7 +177,7 @@ export async function handle_GET_reportNarrative(
 ) {
   res.writeHead(200, {
     "Content-Type": "text/plain; charset=utf-8",
-    "Transfer-Encoding": "chunked"
+    "Transfer-Encoding": "chunked",
   });
   const { rid } = req.p;
 
@@ -184,7 +192,6 @@ export async function handle_GET_reportNarrative(
       fail(res, 404, "polis_error_report_narrative_notfound");
       return;
     }
-
 
     res.write(`POLIS-PING: retrieving system lore`);
 
@@ -230,10 +237,12 @@ export async function handle_GET_reportNarrative(
       const gemeniModelprompt: GenerateContentRequest = {
         contents: [
           {
-            parts: [{
-              text: prompt_xml,
-            }],
-            role: "user"
+            parts: [
+              {
+                text: prompt_xml,
+              },
+            ],
+            role: "user",
           },
         ],
         systemInstruction: system_lore,
@@ -242,11 +251,17 @@ export async function handle_GET_reportNarrative(
       const respGem = await gemeniModel.generateContent(gemeniModelprompt);
       const responseGemini = await respGem.response.text();
 
-      res.write(JSON.stringify({ [section.name]: { responseGemini, responseClaude } }));
+      res.write(
+        JSON.stringify({
+          [section.name]: {
+            responseGemini,
+            responseClaude,
+          },
+        })
+      );
       // @ts-expect-error flush - calling due to use of compression
       res.flush();
     }
-  
 
     // Process each section
     // const sectionResults = await Promise.all(
@@ -317,7 +332,6 @@ export async function handle_GET_reportNarrative(
     // res.write(JSON.stringify({ narrative: "A narrative report summarizing a polis conversation, Nov 26.", ...combinedResults }));
 
     res.end();
-
   } catch (err) {
     const msg =
       err instanceof Error && err.message && err.message.startsWith("polis_")

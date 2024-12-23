@@ -335,7 +335,8 @@ export async function sendCommentGroupsSummary(
     agrees: number;
     disagrees: number;
     passes: number;
-    group_aware_consensus: number;
+    group_aware_consensus?: number;
+    comment_extremity?: number;
   }) => boolean
 ) {
   const csvText = [];
@@ -355,6 +356,9 @@ export async function sendCommentGroupsSummary(
     number,
     number
   >;
+
+  const commentExtremity =
+    (pca.asPOJO["comment-extremity"] as Record<number, number>) || [];
 
   // Load comment texts
   const commentRows = (await pgQueryP_readOnly(
@@ -486,6 +490,7 @@ export async function sendCommentGroupsSummary(
           disagrees: stats.total_disagrees,
           passes: stats.total_passes,
           group_aware_consensus: groupAwareConsensus[stats.tid],
+          comment_extremity: commentExtremity[stats.tid],
         }) === true
       ) {
         res.write(row.join(",") + sep);
@@ -501,6 +506,7 @@ export async function sendCommentGroupsSummary(
           disagrees: stats.total_disagrees,
           passes: stats.total_passes,
           group_aware_consensus: groupAwareConsensus[stats.tid],
+          comment_extremity: commentExtremity[stats.tid],
         }) === true
       ) {
         csvText.push(row.join(",") + sep);
