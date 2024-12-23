@@ -358,7 +358,7 @@ export async function sendCommentGroupsSummary(
   >;
 
   const commentExtremity =
-    (pca.asPOJO["comment-extremity"] as Record<number, number>) || [];
+    (pca.asPOJO["pca"]["comment-extremity"] as Record<number, number>) || [];
 
   // Load comment texts
   const commentRows = (await pgQueryP_readOnly(
