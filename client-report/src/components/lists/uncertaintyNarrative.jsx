@@ -15,9 +15,6 @@ const UncertaintyNarrative = ({
   narrative,
   model
 }) => {
-  if (!conversation || !narrative || !narrative?.responseClaude || !narrative?.responseGemini) {
-    return <div>Loading Uncertainty...</div>;
-  }
 
   const txt = model === "claude" ? narrative?.responseClaude.content[0].text : narrative?.responseGemini;
 

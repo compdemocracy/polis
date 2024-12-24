@@ -73,6 +73,8 @@ const App = (props) => {
   const [parsedNarrativeUncertainty, setParsedNarrativeUncertainty] = useState(null);
   const [parsedNarrativeConsensus, setParsedNarrativeConsensus] = useState(null);
   const [parsedNarrativeGroups, setParsedNarrativeGroups] = useState(null);
+  const [searchParamsSection, setSearchParamsSection] = useState(window.location.search.split('section=')[1].split('&')[0]);
+  const [searchParamsModel, setSearchParamModel] = useState(window.location.search.split('model=')[1].split('&')[0]);
 
   let corMatRetries;
 
@@ -85,7 +87,11 @@ const App = (props) => {
     } else if (isNarrativeReport && window.location.pathname.split("/")[1] !== "narrativeReport") {
       setIsNarrativeReport(false);
     }
-  }, [window.location?.pathname]);
+    const queryString = window.location.search;
+    const urlParams = new URLSearchParams(queryString);
+    if (urlParams.get("section")) setSearchParamsSection(urlParams.get("section"));
+    if (urlParams.get("model")) setSearchParamModel(urlParams.get("model"));
+  }, [window.location?.pathname, window.location?.search]);
 
   useEffect(() => {
     if (narrative?.group_informed_consensus) {
@@ -143,7 +149,7 @@ const App = (props) => {
 
   const getNarrative = async (report_id) => {
     const urlPrefix = URLs.urlPrefix;
-    const response = await fetch(`${urlPrefix}api/v3/reportNarrative?report_id=${report_id}`, {
+    const response = await fetch(`${urlPrefix}api/v3/reportNarrative?report_id=${report_id}${searchParamsSection ? `&section=${searchParamsSection}` : ``}${searchParamsModel ? `&model=${searchParamsModel}` : ``}`, {
       credentials: "include",
       method: "get",
       headers: {
@@ -577,10 +583,12 @@ const App = (props) => {
 
         {isNarrativeReport ? (
           <>
-            <button onClick={() => setModel((m) => (m === "claude" ? "gemini" : "claude"))}>
-              Toggle Model
-            </button>
-            <h4>Current Model: {model}</h4>
+            {searchParamsModel === null && (  
+              <button onClick={() => setModel((m) => (m === "claude" ? "gemini" : "claude"))}>
+                Toggle Model
+              </button>
+            )}
+            <h4>Current Model: {searchParamsModel || model}</h4>
             {parsedNarrativeConsensus ? (
               <ConsensusNarrative
                 math={math}
@@ -591,6 +599,7 @@ const App = (props) => {
                 voteColors={voteColors}
                 narrative={parsedNarrativeConsensus}
                 model={model}
+                searchParamsModel={searchParamsModel}
               />
             ) : (
               "...Loading Consensus \n"
@@ -606,6 +615,7 @@ const App = (props) => {
                 voteColors={voteColors}
                 narrative={parsedNarrativeUncertainty}
                 model={model}
+                searchParamsModel={searchParamsModel}
               />
             ) : (
               "...Loading Uncertainty \n"

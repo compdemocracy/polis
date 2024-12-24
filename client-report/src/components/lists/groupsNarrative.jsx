@@ -15,9 +15,6 @@ const GroupsNarrative = ({
   narrative,
   model,
 }) => {
-  if (!conversation || !narrative || !narrative?.responseClaude || !narrative?.responseGemini) {
-    return <div>Loading Groups...</div>;
-  }
 
   const txt =
     model === "claude" ? narrative?.responseClaude.content[0].text : narrative?.responseGemini;

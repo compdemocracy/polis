@@ -13,9 +13,6 @@ const ConsensusNarrative = ({
   model
 }) => {
 
-  if (!narrative) {
-    return <div>Loading Consensus...</div>;
-  }
   const txt = model === "claude" ? narrative.responseClaude.content[0].text : narrative.responseGemini;
 
   const narrativeJSON = model === "claude" ? JSON.parse(`{${txt}`) : JSON.parse(txt);

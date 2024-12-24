@@ -171,10 +171,16 @@ const reportSections: ReportSection[] = [
   },
 ];
 
+type QueryParams = {
+  [key: string]: string | string[] | undefined;
+};
+
 export async function handle_GET_reportNarrative(
-  req: { p: { rid: string } },
+  req: { p: { rid: string }, query: QueryParams },
   res: Response
 ) {
+  const sectionParam = req.query.section;
+  const modelParam = req.query.model;
   res.writeHead(200, {
     "Content-Type": "text/plain; charset=utf-8",
     "Transfer-Encoding": "chunked",
@@ -204,9 +210,10 @@ export async function handle_GET_reportNarrative(
     res.flush();
 
     for (const section of reportSections) {
-      const fileContents = await fs.readFile(section.templatePath, "utf8");
+      const s = (sectionParam ? (reportSections.find(s => s.name === sectionParam) || section) : section);
+      const fileContents = await fs.readFile(s.templatePath, "utf8");
       const json = await convertXML(fileContents);
-      const structured_comments = await getCommentsAsXML(zid, section.filter);
+      const structured_comments = await getCommentsAsXML(zid, s.filter);
 
       json.polisAnalysisPrompt.children[
         json.polisAnalysisPrompt.children.length - 1
@@ -217,50 +224,81 @@ export async function handle_GET_reportNarrative(
         json
       );
 
-      const responseClaude = await anthropic.messages.create({
-        model: "claude-3-5-sonnet-20241022",
-        max_tokens: 1000,
-        temperature: 0,
-        system: system_lore,
-        messages: [
-          {
-            role: "user",
-            content: [{ type: "text", text: prompt_xml }],
-          },
-          {
-            role: "assistant",
-            content: [{ type: "text", text: "{" }],
-          },
-        ],
-      });
+      if ((modelParam as string)?.trim()) {
+        const responseClaude = await anthropic.messages.create({
+          model: "claude-3-5-haiku-20241022",
+          max_tokens: 1000,
+          temperature: 0,
+          system: system_lore,
+          messages: [
+            {
+              role: "user",
+              content: [{ type: "text", text: prompt_xml }],
+            },
+            {
+              role: "assistant",
+              content: [{ type: "text", text: "{" }],
+            },
+          ],
+        });
+        res.write(
+          JSON.stringify({
+            [s.name]: {
+              responseClaude,
+            },
+          })
+        );
+      } else {
+        const responseClaude = await anthropic.messages.create({
+          model: "claude-3-5-sonnet-20241022",
+          max_tokens: 1000,
+          temperature: 0,
+          system: system_lore,
+          messages: [
+            {
+              role: "user",
+              content: [{ type: "text", text: prompt_xml }],
+            },
+            {
+              role: "assistant",
+              content: [{ type: "text", text: "{" }],
+            },
+          ],
+        });
+  
+        const gemeniModelprompt: GenerateContentRequest = {
+          contents: [
+            {
+              parts: [
+                {
+                  text: prompt_xml,
+                },
+              ],
+              role: "user",
+            },
+          ],
+          systemInstruction: system_lore,
+        };
+  
+        const respGem = await gemeniModel.generateContent(gemeniModelprompt);
+        const responseGemini = await respGem.response.text();
+  
+        res.write(
+          JSON.stringify({
+            [s.name]: {
+              responseGemini,
+              responseClaude,
+            },
+          })
+        );
+      }
 
-      const gemeniModelprompt: GenerateContentRequest = {
-        contents: [
-          {
-            parts: [
-              {
-                text: prompt_xml,
-              },
-            ],
-            role: "user",
-          },
-        ],
-        systemInstruction: system_lore,
-      };
-
-      const respGem = await gemeniModel.generateContent(gemeniModelprompt);
-      const responseGemini = await respGem.response.text();
-
-      res.write(
-        JSON.stringify({
-          [section.name]: {
-            responseGemini,
-            responseClaude,
-          },
-        })
-      );
       // @ts-expect-error flush - calling due to use of compression
       res.flush();
+
+      if ((sectionParam as string)?.trim() && sectionParam === s.name) {
+        break;
+      }
     }
 
     res.end();
