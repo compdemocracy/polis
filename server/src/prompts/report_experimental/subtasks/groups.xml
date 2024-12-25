@@ -2,7 +2,8 @@
 <polisAnalysisPrompt version="1.0">
     <metadata>
         <title>Guide to Analyzing and Reporting All Groups in Pol.is Conversations</title>
-        <purpose>Generate consistent, evidence-based reports comparing and describing all groups' views and output valid JSON</purpose>
+        <purpose>Generate consistent, evidence-based reports comparing and describing all groups'
+            views and output valid JSON</purpose>
     </metadata>
 
     <criticalInstructions>
@@ -13,17 +14,15 @@
     </criticalInstructions>
 
     <definitions>
-        <term name="pass_rate">
-            <description>Percentage of members in each group selecting "agreed" or "disagreed"</description>
-        </term>
-        <term name="high_consensus">
-            <description>Statements with significant pass rates within a group</description>
-            <threshold>60</threshold>
+        <term name="differences_between_groups">
+            <description>Notable difference in views between groups on a single statement or related
+                set of statements</description>
+            <threshold>30</threshold>
             <unit>percent</unit>
         </term>
-        <term name="group_difference">
-            <description>Notable difference in views between groups</description>
-            <threshold>30</threshold>
+        <term name="strong_agreement">
+            <description>High level of agreement within a group on a statement</description>
+            <threshold>70</threshold>
             <unit>percent</unit>
         </term>
     </definitions>
@@ -33,8 +32,9 @@
             <step order="1">
                 <name>Analyze Each Group's Positions</name>
                 <calculations>
-                    <calculation>per_group_pass_rates</calculation>
+                    <calculation>group_positions</calculation>
                     <calculation>per_group_vote_patterns</calculation>
+                    <pattern>group_distinctive_views</pattern>
                 </calculations>
             </step>
             <step order="2">
@@ -47,55 +47,80 @@
             <step order="3">
                 <name>Identify Patterns</name>
                 <patterns>
-                    <pattern>group_distinctive_views</pattern>
-                    <pattern>common_ground</pattern>
-                    <pattern>key_differences</pattern>
+                    <pattern>key_divergence_global</pattern>
                 </patterns>
             </step>
         </dataProcessing>
 
         <reportingStructure>
-            <paragraph type="overview">
+            <paragraph type="groups_overview_conversations_divisions">
                 <elements>
-                    <element>group_composition</element>
-                    <element>major_divisions</element>
-                    <element>common_ground</element>
+                    <element>overview_conversation_divisions</element>
+                    <element>major_divisions_between_groups</element>
+                    <element>each_group_worldview</element>
                 </elements>
+                <criticalInstructions>
+                    <instruction>
+                        In your overview, you must describe the "conversation" as a whole, not the
+                        groups.
+                    </instruction>
+                    <instruction>
+                        You must describe the narrative which emerges from the division, not just a
+                        grabbag of
+                        topics. What are the key themes, values, and ideas that emerge from the
+                        division? What is the narrative that emerges from the division?
+                    </instruction>
+                </criticalInstructions>
                 <format>
-                    The conversation revealed [X] distinct groups: [group_descriptions].
-                    These groups differed most notably on [key_topics],
-                    while finding common ground on [shared_views].
-                    [additional_context].
+                    The conversation revealed [X] distinct groups which differed most notably on
+                    [concise_but_in_depth_narrative_of_the_divisions] [narrative] [key_themes].
                 </format>
-                <length>3-4 sentences</length>
+                <length>4-5 sentences</length>
             </paragraph>
-
-            <paragraph type="group_comparisons">
+            <paragraph type="groups_each_worldview">
+                <elements>
+                    <element>voting_patterns</element>
+                    <element>core_beliefs</element>
+                    <element>key_positions</element>
+                </elements>
+                <criticalInstructions>
+                    <instruction>
+                        There will be a variable number of groups. You must describe every group's
+                        worldview.
+                    </instruction>
+                </criticalInstructions>
+                <format>
+                    Group [A] was characterized by [core_belief_pattern],
+                    consistently [agreeing/disagreeing] with statements about [key_theme].
+                    Their worldview appeared to prioritize [value_system],
+                    as evidenced by their strong [agreement/disagreement] on [specific_positions].
+                    Group [B]'s worldview centered on [core_belief],
+                    demonstrated by their [strong/moderate] [agreement/disagreement] ([percentage]%)
+                    with [specific_position].
+                    This aligned with their broader pattern of [voting_pattern_description],
+                    particularly on statements about [related_topic] ([percentage]%
+                    [agreement/disagreement]).
+                </format>
+            </paragraph>
+            <paragraph type="groups_comparisons">
                 <elements>
                     <element>key_differences</element>
                     <element>voting_patterns</element>
                     <element>distinctive_positions</element>
                 </elements>
-                <exampleFormat>
-                    Group A and B diverged significantly on [topic1],
-                    with Group A showing [X]% agreement while Group B showed [Y]% disagreement.
-                    Meanwhile, Group C took a distinct position on [topic2],
-                    characterized by [pattern_description].
-                </exampleFormat>
-                <length>4-5 sentences</length>
-            </paragraph>
+                <format>
+                    The most striking difference between Group [A] and Group [B] emerged on
+                    [specific_issue],
+                    where Group [A] showed [percentage]% [agreement/disagreement] while Group [B]
+                    expressed [percentage]% [opposite_position].
 
-            <paragraph type="shared_views">
-                <elements>
-                    <element>common_positions</element>
-                    <element>cross_group_agreements</element>
-                </elements>
-                <exampleFormat>
-                    Despite their differences, all groups showed agreement on [shared_topic],
-                    with consistently high support ranging from [X]% to [Y]%.
-                    [Additional_common_ground].
-                </exampleFormat>
-                <length>2-3 sentences</length>
+                    Group [A] consistently prioritizing [value_1] while Group [B] emphasized
+                    [value_2].
+
+                    [optional_if_more_than_two_groups] group [C] and group [D] were more
+                    aligned on [topic] and group [B] and group [C] were more aligned on [topic].
+                </format>
+                <length>4-5 sentences</length>
             </paragraph>
         </reportingStructure>
 
@@ -112,27 +137,17 @@
 
         <validationRequirements>
             <dataQuality>
-                <requirement>minimum_votes_per_statement&gt;25</requirement>
+                <requirement>minimum_votes_per_cited_statement&gt;25</requirement>
             </dataQuality>
 
             <reportingCompleteness>
                 <requirement>all_groups_represented&gt;true</requirement>
-                <requirement>high_uncertainty_topics_covered&gt;true</requirement>
                 <requirement>patterns_explained&gt;true</requirement>
                 <requirement>special_cases_noted&gt;true</requirement>
             </reportingCompleteness>
         </validationRequirements>
 
         <specialCases>
-            <case type="low_vote_counts">
-                <threshold>100-150</threshold>
-                <handling>
-                    <action>flag_as_less_reliable</action>
-                    <action>include_in_pattern_analysis</action>
-                    <action>note_in_citations</action>
-                </handling>
-            </case>
-
             <case type="extreme_divergence">
                 <threshold>40</threshold>
                 <handling>
@@ -141,22 +156,15 @@
                     <action>check_related_statements</action>
                 </handling>
             </case>
-
-            <case type="topic_clustering">
-                <requirements>
-                    <requirement>minimum_statements&gt;3</requirement>
-                    <requirement>conceptual_relationship&gt;true</requirement>
-                    <requirement>similar_uncertainty_patterns&gt;true</requirement>
-                </requirements>
-            </case>
         </specialCases>
 
         <languageGuidelines>
-            <uncertaintyTerms>
-                <term>expressed consensus</term>
-                <term>were aligned</term>
-                <term>agreed/disagreed on</term>
-            </uncertaintyTerms>
+            <divisionsTerms>
+                <term>were divided</term>
+                <term>differed</term>
+                <term>split</term>
+                <term>diverged</term>
+            </divisionsTerms>
 
             <styleRules>
                 <rule>avoid_repetitive_structures</rule>
@@ -181,16 +189,15 @@
         <rule>All percentages must be actual values from data</rule>
         <rule>Each claim requires at least one citation</rule>
         <rule>Citations must use provided format</rule>
-        <rule>Groups must be referenced by actual group names from data</rule>
-        <rule>Statements must have minimum vote threshold of 100</rule>
-        <rule>High uncertainty defined as &gt;30% pass rate</rule>
+        <rule>Groups must be referenced by actual group names from data, such as Group A, Group B,
+            etc.</rule>
     </validationRules>
 
     <responseFormat>
         <condensedJSONSchema>
             {
-            "id": "subtask_all_groups",
-            "title": "All Groups Analysis",
+            "id": "groups_overview_conversations_divisions",
+            "title": "Overview of Conversation Divisions",
             "paragraphs": [
             {
             "id": "string", // e.g. "groups_overview"
@@ -226,7 +233,7 @@
             };
 
             type Paragraph = {
-            id: string; // e.g. "uncertainty_overview"
+            id: string; // e.g. "groups_overview_conversations_divisions"
             title: string;
             sentences: Sentence[];
             };
@@ -240,91 +247,101 @@
     </responseFormat>
     <example>
         {
-        "id": "groups",
-        "title": "Group Comparisons",
+        "id": "groups_overview_analysis",
+        "title": "Group Analysis and Positions",
         "paragraphs": [
         {
-        "id": "groups_overview",
-        "title": "Overview of Groups",
+        "id": "groups_overview_conversations_divisions",
+        "title": "Overview of Groups and Major Divisions",
         "sentences": [
         {
         "clauses": [
         {
-        "text": "N groups were identified in the conversation...",
-        "citations": [46]
+        "text": "The conversation revealed three distinct groups with clear ideological differences
+        in their approach to environmental regulation, such as [narrative]",
+        "citations": [12, 15, 23]
         },
         {
-        "text": "Group A focused on stakeholder obligations...",
-        "citations": [58]
+        "text": "These groups differed most notably on the role of government oversight, where
+        [narrative], with stark
+        divisions between [narrative] [key themes]",
+        "citations": [25, 31]
         },
         {
-        "text": "Group B focused on regulatory enforcement mechanisms...",
-        "citations": [39]
+        "text": "Groups on implementation",
+        "citations": [45, 48]
         }
         ]
         }
         ]
         },
         {
-        "id": "group_comparisons",
-        "title": "Group Comparisons",
+        "id": "groups_each_worldview",
+        "title": "Group Worldviews",
         "sentences": [
         {
         "clauses": [
         {
-        "text": "Group A and B diverged significantly on [topic1],
-        with Group A showing [X]% agreement while Group B showed [Y]% disagreement.",
-        "citations": [30]
+        "text": "Group A was characterized by strong support for regulatory oversight, consistently
+        agreeing with statements about increased environmental controls",
+        "citations": [52, 54]
         },
         {
-        "text": "while Group C showed higher uncertainty regarding stakeholder prioritization",
-        "citations": [48]
+        "text": "Their worldview prioritized preventive measures, showing 85% agreement on stricter
+        emissions standards",
+        "citations": [61, 63]
         }
         ]
         },
         {
         "clauses": [
         {
-        "text": "Both groups shared substantial uncertainty about corporate social justice
-        obligations, with passage rates exceeding 30% across participants",
-        "citations": [53]
+        "text": "Group B's worldview centered on market efficiency, demonstrated by their strong
+        agreement (80%) with business-led environmental initiatives",
+        "citations": [71, 73]
+        },
+        {
+        "text": "This aligned with their broader pattern of opposing government intervention,
+        particularly on statements about mandatory regulations (75% disagreement)",
+        "citations": [75, 78]
+        }
+        ]
+        },
+        {
+        "clauses": [
+        {
+        "text": "Group C showed a more nuanced position, supporting targeted regulations (65%
+        agreement) while favoring market incentives for broader implementation",
+        "citations": [82, 85, 87]
         }
         ]
         }
         ]
         },
         {
-        "id": "uncertainty_topic_categories",
-        "title": "Topic-Based Uncertainty Analysis",
+        "id": "groups_comparisons",
+        "title": "Group Comparisons and Key Differences",
         "sentences": [
         {
         "clauses": [
         {
-        "text": "Corporate governance emerged as a key area of uncertainty, with participants
-        passing on statements about managerial obligations at rates of 30-40%",
-        "citations": [42]
+        "text": "The most striking difference between Group A and Group B emerged on regulatory
+        enforcement, where Group A showed 85% support while Group B expressed 70% opposition",
+        "citations": [91, 93]
+        },
+        {
+        "text": "Group A consistently prioritized government oversight while Group B emphasized
+        private sector solutions",
+        "citations": [95, 97]
         }
         ]
         },
         {
         "clauses": [
         {
-        "text": "Environmental justice questions showed similar uncertainty patterns, with 33%
-        passing on impact distribution",
-        "citations": [91]
-        },
-        {
-        "text": "Group C focused on stakeholder prioritization...",
-        "citations": [55]
-        }
-        ]
-        },
-        {
-        "clauses": [
-        {
-        "text": "Stakeholder prioritization created additional uncertainty, particularly among Group
-        C participants who showed high passage rates on related initiatives",
-        "citations": [58]
+        "text": "Groups B and C found common ground on market incentives, while Groups A and C
+        aligned more closely on targeted regulatory measures",
+        "citations": [101, 103, 105]
         }
         ]
         }
