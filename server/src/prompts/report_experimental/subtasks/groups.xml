@@ -258,17 +258,19 @@
         "clauses": [
         {
         "text": "The conversation revealed three distinct groups with clear ideological differences
-        in their approach to environmental regulation, such as [narrative]",
+        in their approach to [global_conversation_narrative], such as [narrative]",
         "citations": [12, 15, 23]
         },
         {
-        "text": "These groups differed most notably on the role of government oversight, where
+        "text": "These groups differed most notably on the role of [global_conversation_narrative],
+        where
         [narrative], with stark
         divisions between [narrative] [key themes]",
         "citations": [25, 31]
         },
         {
-        "text": "Groups on implementation",
+        "text": "Groups diverged on [global_conversation_narrative], where [narrative] [key
+        themes]",
         "citations": [45, 48]
         }
         ]
@@ -282,13 +284,13 @@
         {
         "clauses": [
         {
-        "text": "Group A was characterized by strong support for regulatory oversight, consistently
-        agreeing with statements about increased environmental controls",
+        "text": "Group A was characterized by strong support for [position_narrative], consistently
+        agreeing with statements about [aspect_of_worldview]",
         "citations": [52, 54]
         },
         {
-        "text": "Their worldview prioritized preventive measures, showing 85% agreement on stricter
-        emissions standards",
+        "text": "Their worldview prioritized [position_narrative], showing [percentage]% agreement
+        on [aspect_of_worldview]",
         "citations": [61, 63]
         }
         ]
@@ -296,13 +298,13 @@
         {
         "clauses": [
         {
-        "text": "Group B's worldview centered on market efficiency, demonstrated by their strong
-        agreement (80%) with business-led environmental initiatives",
+        "text": "Group B's worldview centered on [position_narrative], demonstrated by their strong
+        agreement ([percentage]% agreement) with [position_narrative]",
         "citations": [71, 73]
         },
         {
-        "text": "This aligned with their broader pattern of opposing government intervention,
-        particularly on statements about mandatory regulations (75% disagreement)",
+        "text": "This aligned with their broader pattern of opposing [position_narrative],
+        particularly on statements about [aspect_of_worldview] ([percentage]% disagreement)",
         "citations": [75, 78]
         }
         ]
@@ -310,8 +312,9 @@
         {
         "clauses": [
         {
-        "text": "Group C showed a more nuanced position, supporting targeted regulations (65%
-        agreement) while favoring market incentives for broader implementation",
+        "text": "Group C showed a more nuanced position, supporting [position_narrative]
+        ([percentage]%
+        agreement) while favoring [position_narrative] for [narrative]",
         "citations": [82, 85, 87]
         }
         ]
@@ -319,19 +322,21 @@
         ]
         },
         {
-        "id": "groups_comparisons",
-        "title": "Group Comparisons and Key Differences",
+        "id": "groups_comparisons_alignment",
+        "title": "Group Comparisons and Alignment",
         "sentences": [
         {
         "clauses": [
         {
-        "text": "The most striking difference between Group A and Group B emerged on regulatory
-        enforcement, where Group A showed 85% support while Group B expressed 70% opposition",
+        "text": "The most striking difference between Group A and Group B emerged on
+        [aspect_of_worldview],
+        where Group A showed [percentage]% support while Group B expressed [percentage]%
+        opposition",
         "citations": [91, 93]
         },
         {
-        "text": "Group A consistently prioritized government oversight while Group B emphasized
-        private sector solutions",
+        "text": "Group A consistently prioritized [position_narrative] while Group B emphasized
+        [position_narrative]",
         "citations": [95, 97]
         }
         ]
@@ -339,8 +344,8 @@
         {
         "clauses": [
         {
-        "text": "Groups B and C found common ground on market incentives, while Groups A and C
-        aligned more closely on targeted regulatory measures",
+        "text": "Contrasting with groups B and C found common ground on [group_alignment_narrative],
+        while Groups A and C aligned more closely on [group_alignment_narrative]",
         "citations": [101, 103, 105]
         }
         ]
