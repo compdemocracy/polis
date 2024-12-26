@@ -358,7 +358,7 @@ export async function sendCommentGroupsSummary(
   >;
 
   const commentExtremity =
-    (pca.asPOJO["pca"]["comment-extremity"] as Record<number, number>) || [];
+    (pca.asPOJO["pca"]["comment-extremity"] as Array<number>) || [];
 
   // Load comment texts
   const commentRows = (await pgQueryP_readOnly(
@@ -482,6 +482,14 @@ export async function sendCommentGroupsSummary(
       );
     }
     if (http && res) {
+      console.log("Pre-filter check (http):", {
+        tid: stats.tid,
+        total_votes: stats.total_votes,
+        comment_extremity: commentExtremity[stats.tid],
+        array_length: commentExtremity.length,
+        first_few_extremities: commentExtremity.slice(0, 5),
+        tid_as_index: `Using tid ${stats.tid} as array index`,
+      });
       if (
         filterFN &&
         filterFN({
@@ -498,6 +506,14 @@ export async function sendCommentGroupsSummary(
         res.write(row.join(",") + sep);
       }
     } else {
+      console.log("Pre-filter check (non-http):", {
+        tid: stats.tid,
+        total_votes: stats.total_votes,
+        comment_extremity: commentExtremity[stats.tid],
+        array_length: commentExtremity.length,
+        first_few_extremities: commentExtremity.slice(0, 5),
+        tid_as_index: `Using tid ${stats.tid} as array index`,
+      });
       if (
         filterFN &&
         filterFN({

@@ -167,7 +167,13 @@ const reportSections: ReportSection[] = [
   {
     name: "groups",
     templatePath: "src/prompts/report_experimental/subtasks/groups.xml",
-    filter: (v) => (v.comment_extremity ?? 0) > 0.75,
+    filter: (v) => {
+      console.log("Checking extremity:", {
+        extremity: v.comment_extremity,
+        is_extreme: (v.comment_extremity ?? 0) > 1,
+      });
+      return (v.comment_extremity ?? 0) > 1;
+    },
   },
 ];
 
@@ -176,7 +182,7 @@ type QueryParams = {
 };
 
 export async function handle_GET_reportNarrative(
-  req: { p: { rid: string }, query: QueryParams },
+  req: { p: { rid: string }; query: QueryParams },
   res: Response
 ) {
   const sectionParam = req.query.section;
@@ -210,7 +216,9 @@ export async function handle_GET_reportNarrative(
     res.flush();
 
     for (const section of reportSections) {
-      const s = (sectionParam ? (reportSections.find(s => s.name === sectionParam) || section) : section);
+      const s = sectionParam
+        ? reportSections.find((s) => s.name === sectionParam) || section
+        : section;
       const fileContents = await fs.readFile(s.templatePath, "utf8");
       const json = await convertXML(fileContents);
       const structured_comments = await getCommentsAsXML(zid, s.filter);
@@ -222,6 +230,14 @@ export async function handle_GET_reportNarrative(
       const prompt_xml = js2xmlparser.parse(
         "polis-comments-and-group-demographics",
         json
+      );
+
+      console.log(
+        "========================PROMPT XML BEGIN ============================="
+      );
+      console.log(prompt_xml);
+      console.log(
+        "========================PROMPT XML END ============================="
       );
 
       if ((modelParam as string)?.trim()) {
@@ -265,7 +281,7 @@ export async function handle_GET_reportNarrative(
             },
           ],
         });
-  
+
         const gemeniModelprompt: GenerateContentRequest = {
           contents: [
             {
@@ -279,10 +295,10 @@ export async function handle_GET_reportNarrative(
           ],
           systemInstruction: system_lore,
         };
-  
+
         const respGem = await gemeniModel.generateContent(gemeniModelprompt);
         const responseGemini = await respGem.response.text();
-  
+
         res.write(
           JSON.stringify({
             [s.name]: {
