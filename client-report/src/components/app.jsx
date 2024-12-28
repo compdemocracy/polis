@@ -157,14 +157,19 @@ const App = (props) => {
 
   const getNarrative = async (report_id) => {
     const urlPrefix = URLs.urlPrefix;
-    const response = await fetch(`${urlPrefix}api/v3/reportNarrative?report_id=${report_id}${searchParamsSection ? `&section=${searchParamsSection}` : ``}${searchParamsModel ? `&model=${searchParamsModel}` : ``}`, {
-      credentials: "include",
-      method: "get",
-      headers: {
-        Accept: "application/json, text/plain, */*",
-        "Content-Type": "application/json",
-      },
-    });
+    const response = await fetch(
+      `${urlPrefix}api/v3/reportNarrative?report_id=${report_id}${
+        searchParamsSection ? `&section=${searchParamsSection}` : ``
+      }${searchParamsModel ? `&model=${searchParamsModel}` : ``}`,
+      {
+        credentials: "include",
+        method: "get",
+        headers: {
+          Accept: "application/json, text/plain, */*",
+          "Content-Type": "application/json",
+        },
+      }
+    );
     if (!response.ok || !response.body) {
       throw response.statusText;
     }
@@ -591,7 +596,7 @@ const App = (props) => {
 
         {isNarrativeReport ? (
           <>
-            {searchParamsModel === null && (  
+            {searchParamsModel === null && (
               <button onClick={() => setModel((m) => (m === "claude" ? "gemini" : "claude"))}>
                 Toggle Model
               </button>
