@@ -612,6 +612,20 @@ const App = (props) => {
             ) : (
               "...Loading Consensus \n"
             )}
+            {parsedNarrativeGroups ? (
+              <GroupsNarrative
+                math={math}
+                comments={comments}
+                conversation={conversation}
+                ptptCount={ptptCount}
+                formatTid={formatTid}
+                voteColors={voteColors}
+                narrative={parsedNarrativeGroups}
+                model={model}
+              />
+            ) : (
+              "...Loading Groups \n"
+            )}
             {parsedNarrativeUncertainty ? (
               <UncertaintyNarrative
                 math={math}
@@ -627,20 +641,6 @@ const App = (props) => {
               />
             ) : (
               "...Loading Uncertainty \n"
-            )}
-            {parsedNarrativeGroups ? (
-              <GroupsNarrative
-                math={math}
-                comments={comments}
-                conversation={conversation}
-                ptptCount={ptptCount}
-                formatTid={formatTid}
-                voteColors={voteColors}
-                narrative={parsedNarrativeGroups}
-                model={model}
-              />
-            ) : (
-              "...Loading Groups \n"
             )}
           </>
         ) : (
