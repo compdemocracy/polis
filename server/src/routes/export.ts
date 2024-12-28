@@ -370,6 +370,14 @@ export async function sendCommentGroupsSummary(
   // Initialize stats map
   const commentStats = new Map<number, CommentGroupStats>();
 
+  // Create a mapping of tid to extremity index using math tids array
+  const tidToExtremityIndex = new Map();
+  const mathTids = pca.asPOJO.tids; // Array of tids in same order as extremity values
+  commentExtremity.forEach((extremity, index) => {
+    const tid = mathTids[index];
+    tidToExtremityIndex.set(tid, index);
+  });
+
   // Process each group's votes
   for (const groupId of groupIds) {
     const groupVoteStats = groupVotes[groupId];
@@ -484,8 +492,9 @@ export async function sendCommentGroupsSummary(
     if (http && res) {
       console.log("Pre-filter check (http):", {
         tid: stats.tid,
+        formatted_txt: formatEscapedText(stats.txt),
         total_votes: stats.total_votes,
-        comment_extremity: commentExtremity[stats.tid],
+        comment_extremity: commentExtremity[tidToExtremityIndex.get(stats.tid)],
         array_length: commentExtremity.length,
         first_few_extremities: commentExtremity.slice(0, 5),
         tid_as_index: `Using tid ${stats.tid} as array index`,
@@ -498,7 +507,8 @@ export async function sendCommentGroupsSummary(
           disagrees: stats.total_disagrees,
           passes: stats.total_passes,
           group_aware_consensus: groupAwareConsensus[stats.tid],
-          comment_extremity: commentExtremity[stats.tid],
+          comment_extremity:
+            commentExtremity[tidToExtremityIndex.get(stats.tid)],
         }) === true
       ) {
         res.write(row.join(",") + sep);
@@ -508,8 +518,9 @@ export async function sendCommentGroupsSummary(
     } else {
       console.log("Pre-filter check (non-http):", {
         tid: stats.tid,
+        formatted_txt: formatEscapedText(stats.txt),
         total_votes: stats.total_votes,
-        comment_extremity: commentExtremity[stats.tid],
+        comment_extremity: commentExtremity[tidToExtremityIndex.get(stats.tid)],
         array_length: commentExtremity.length,
         first_few_extremities: commentExtremity.slice(0, 5),
         tid_as_index: `Using tid ${stats.tid} as array index`,
@@ -522,7 +533,8 @@ export async function sendCommentGroupsSummary(
           disagrees: stats.total_disagrees,
           passes: stats.total_passes,
           group_aware_consensus: groupAwareConsensus[stats.tid],
-          comment_extremity: commentExtremity[stats.tid],
+          comment_extremity:
+            commentExtremity[tidToExtremityIndex.get(stats.tid)],
         }) === true
       ) {
         csvText.push(row.join(",") + sep);

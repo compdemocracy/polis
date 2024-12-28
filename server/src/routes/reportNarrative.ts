@@ -168,10 +168,6 @@ const reportSections: ReportSection[] = [
     name: "groups",
     templatePath: "src/prompts/report_experimental/subtasks/groups.xml",
     filter: (v) => {
-      console.log("Checking extremity:", {
-        extremity: v.comment_extremity,
-        is_extreme: (v.comment_extremity ?? 0) > 1,
-      });
       return (v.comment_extremity ?? 0) > 1;
     },
   },
@@ -233,11 +229,11 @@ export async function handle_GET_reportNarrative(
       );
 
       console.log(
-        "========================PROMPT XML BEGIN ============================="
+        "========================COMMENTS XML BEGIN ============================="
       );
-      console.log(prompt_xml);
+      console.log(structured_comments);
       console.log(
-        "========================PROMPT XML END ============================="
+        "========================COMMENTS XML END ============================="
       );
 
       if ((modelParam as string)?.trim()) {
