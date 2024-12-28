@@ -228,14 +228,6 @@ export async function handle_GET_reportNarrative(
         json
       );
 
-      console.log(
-        "========================COMMENTS XML BEGIN ============================="
-      );
-      console.log(structured_comments);
-      console.log(
-        "========================COMMENTS XML END ============================="
-      );
-
       if ((modelParam as string)?.trim()) {
         const responseClaude = await anthropic.messages.create({
           model: "claude-3-5-haiku-20241022",

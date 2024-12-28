@@ -490,15 +490,6 @@ export async function sendCommentGroupsSummary(
       );
     }
     if (http && res) {
-      console.log("Pre-filter check (http):", {
-        tid: stats.tid,
-        formatted_txt: formatEscapedText(stats.txt),
-        total_votes: stats.total_votes,
-        comment_extremity: commentExtremity[tidToExtremityIndex.get(stats.tid)],
-        array_length: commentExtremity.length,
-        first_few_extremities: commentExtremity.slice(0, 5),
-        tid_as_index: `Using tid ${stats.tid} as array index`,
-      });
       if (
         filterFN &&
         filterFN({
@@ -516,15 +507,6 @@ export async function sendCommentGroupsSummary(
         res.write(row.join(",") + sep);
       }
     } else {
-      console.log("Pre-filter check (non-http):", {
-        tid: stats.tid,
-        formatted_txt: formatEscapedText(stats.txt),
-        total_votes: stats.total_votes,
-        comment_extremity: commentExtremity[tidToExtremityIndex.get(stats.tid)],
-        array_length: commentExtremity.length,
-        first_few_extremities: commentExtremity.slice(0, 5),
-        tid_as_index: `Using tid ${stats.tid} as array index`,
-      });
       if (
         filterFN &&
         filterFN({
