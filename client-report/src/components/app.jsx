@@ -73,8 +73,16 @@ const App = (props) => {
   const [parsedNarrativeUncertainty, setParsedNarrativeUncertainty] = useState(null);
   const [parsedNarrativeConsensus, setParsedNarrativeConsensus] = useState(null);
   const [parsedNarrativeGroups, setParsedNarrativeGroups] = useState(null);
-  const [searchParamsSection, setSearchParamsSection] = useState(window.location.search.split('section=')[1].split('&')[0]);
-  const [searchParamsModel, setSearchParamModel] = useState(window.location.search.split('model=')[1].split('&')[0]);
+  const [searchParamsSection, setSearchParamsSection] = useState(
+    window.location.search.includes("section=")
+      ? window.location.search.split("section=")[1]?.split("&")[0]
+      : null
+  );
+  const [searchParamsModel, setSearchParamModel] = useState(
+    window.location.search.includes("model=")
+      ? window.location.search.split("model=")[1]?.split("&")[0]
+      : null
+  );
 
   let corMatRetries;
 
