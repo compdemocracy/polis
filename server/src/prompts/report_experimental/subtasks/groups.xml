@@ -74,13 +74,11 @@
                 <format>
                     The conversation revealed [X] distinct groups which differed most notably on
                     [concise_but_in_depth_narrative_of_the_divisions] [narrative] [key_themes].
-
-                    The most striking difference between Group [A] and Group [B] emerged on
-                    [specific_issue],
-                    where Group [A] showed [high/low] [agreement/disagreement] while Group [B]
-                    expressed [high/low] [opposite_position].
-
-                    Group [A] consistently prioritizing [value_1] while Group [B] emphasized
+                    Differences between between Group [Q] and Group [Y] emerged on
+                    [specific_issue], where Group [A] showed [high/low] [agreement/disagreement]
+                    while Group [B]
+                    expressed [high/low] [opposite_position]. Group [A] consistently prioritizing
+                    [value_1] while Group [B] emphasized
                     [value_2]. Group [C] [value_1]
                 </format>
                 <length>4-5 sentences</length>
