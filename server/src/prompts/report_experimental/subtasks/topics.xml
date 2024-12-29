@@ -1,0 +1,331 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<polisAnalysisPrompt version="1.0">
+    <metadata>
+        <title>Guide to Analyzing and Reporting A SINGLE TOPIC in Pol.is Conversations</title>
+        <purpose>Generate consistent, evidence-based reports comparing and describing the opinion
+            dynamics of the topic and output valid JSON</purpose>
+    </metadata>
+
+    <criticalInstructions>
+        <instruction>
+            Generate a JSON response that conforms to the provided schema. DO NOT INCLUDE ANY OTHER
+            TEXT.
+        </instruction>
+    </criticalInstructions>
+
+    <definitions>
+        <term name="differences_between_groups">
+            <description>Notable difference in views between groups on a single statement or related
+                set of statements within the topic</description>
+            <threshold>30</threshold>
+            <unit>percent</unit>
+        </term>
+        <term name="consensus">
+            <description>High level of agreement across all groups on a single statement or related
+                set of statements within the topic</description>
+            <threshold>70</threshold>
+            <unit>percent</unit>
+        </term>
+
+    </definitions>
+
+    <analysisProcess>
+        <dataProcessing>
+            <step order="1">
+                <name>Analyze Each Group's Positions</name>
+                <calculations>
+                    <calculation>group_positions</calculation>
+                    <calculation>per_group_vote_patterns</calculation>
+                    <pattern>group_distinctive_views</pattern>
+                </calculations>
+            </step>
+            <step order="2">
+                <name>Compare Group Positions</name>
+                <calculations>
+                    <calculation>between_group_differences</calculation>
+                    <calculation>shared_positions</calculation>
+                </calculations>
+            </step>
+            <step order="3">
+                <name>Identify Patterns</name>
+                <patterns>
+                    <pattern>key_divergence_global</pattern>
+                </patterns>
+            </step>
+        </dataProcessing>
+
+        <reportingStructure>
+            <paragraph type="topic_overview_and_consensus">
+                <elements>
+                    <element>overview_conversation_divisions</element>
+                    <element>major_divisions_between_groups</element>
+                    <element>each_group_worldview</element>
+                </elements>
+                <criticalInstructions>
+                    <instruction>
+                        In your overview, you must describe the "conversation" as a whole, not the
+                        groups.
+                    </instruction>
+                    <instruction>
+                        You must describe the narrative which emerges from the division, not just a
+                        grabbag of
+                        topics. What are the key themes, values, and ideas that emerge from the
+                        division? What is the narrative that emerges from the division?
+                    </instruction>
+                </criticalInstructions>
+                <format>
+                    [topic] [topic_overview] [narrative] [key_themes].
+                    [topic_consensus_with_key_consensus_citations]
+                </format>
+                <length>4-5 sentences</length>
+            </paragraph>
+            <paragraph type="topic_by_groups">
+                <elements>
+                    <element>voting_patterns</element>
+                    <element>core_beliefs</element>
+                    <element>key_positions</element>
+                </elements>
+                <criticalInstructions>
+                    <instruction>
+                        There will be a variable number of groups. You must describe every group's
+                        worldview vis a vis the topic.
+                    </instruction>
+                </criticalInstructions>
+                <format>
+                    Differences between between Group [Q] and Group [Y] emerged on
+                    [topic], where Group [A] showed [high/low] [agreement/disagreement]
+                    while Group [B]
+                    expressed [high/low] [opposite_position]. Group [A] consistently prioritizing
+                    [value_1] while Group [B] emphasized
+                    [value_2]. Group [C] [value_1]
+                    group [C] and group [D] were more
+                    aligned on [topic] and group [B] and group [C] were more aligned on [topic].
+                </format>
+            </paragraph>
+        </reportingStructure>
+
+        <citationRules>
+            <template>
+                commentId
+            </template>
+            <rules>
+                <rule>minimum_citations_per_clause&gt;1</rule>
+                <rule>maximum_citations_per_clause&gt;10</rule>
+                <rule>include_full_vote_breakdown&gt;false</rule>
+            </rules>
+        </citationRules>
+
+        <validationRequirements>
+            <dataQuality>
+                <requirement>minimum_votes_per_cited_statement&gt;25</requirement>
+            </dataQuality>
+
+            <reportingCompleteness>
+                <requirement>all_groups_represented&gt;true</requirement>
+                <requirement>patterns_explained&gt;true</requirement>
+                <requirement>special_cases_noted&gt;true</requirement>
+            </reportingCompleteness>
+        </validationRequirements>
+
+        <specialCases>
+            <case type="extreme_divergence">
+                <threshold>40</threshold>
+                <handling>
+                    <action>highlight_difference</action>
+                    <action>provide_context</action>
+                    <action>check_related_statements</action>
+                </handling>
+            </case>
+        </specialCases>
+
+        <languageGuidelines>
+            <topicTerms>
+                <term>topic</term>
+                <term>subtopic</term>
+                <term>across</term>
+                <term>between</term>
+                <term>within</term>
+                <term>among</term>
+                <term>around</term>
+                <term>concerning</term>
+                <term>regarding</term>
+            </topicTerms>
+
+            <styleRules>
+                <rule>avoid_repetitive_structures</rule>
+                <rule>connect_ideas_clearly</rule>
+                <rule>maintain_neutral_tone</rule>
+            </styleRules>
+        </languageGuidelines>
+
+        <qualityChecklist>
+            <check>claims_supported_by_data</check>
+            <check>citation_rules_followed</check>
+            <check>groups_fairly_represented</check>
+            <check>patterns_properly_identified</check>
+            <check>special_cases_noted</check>
+            <check>context_provided</check>
+            <check>citations_properly_formatted</check>
+            <check>language_varied_and_clear</check>
+        </qualityChecklist>
+    </analysisProcess>
+
+    <validationRules>
+        <rule>All high/low must be actual values from data</rule>
+        <rule>Each claim requires at least one citation</rule>
+        <rule>Citations must use provided format</rule>
+        <rule>Groups must be referenced by actual group names from data, such as Group A, Group B,
+            etc.</rule>
+        <rule>no percentages from comment data inserted in the text</rule>
+    </validationRules>
+
+    <responseFormat>
+        <condensedJSONSchema>
+            {
+            "id": "topic_overview_and_consensus",
+            "title": "Overview of Topic and Consensus",
+            "paragraphs": [
+            {
+            "id": "string", // e.g. "groups_overview"
+            "title": "string",
+            "sentences": [
+            {
+            "clauses": [
+            {
+            "text": "string",
+            "citations": [
+            123
+            ]
+            }
+            ]
+            }
+            ]
+            }
+            ]
+            }
+        </condensedJSONSchema>
+        <typescriptTypesReference>
+            type Citation = {
+            commentId: number;
+            };
+
+            type Clause = {
+            text: string;
+            citations: Citation[];
+            };
+
+            type Sentence = {
+            clauses: Clause[];
+            };
+
+            type Paragraph = {
+            id: string; // e.g. "topic_overview_and_consensus"
+            title: string;
+            sentences: Sentence[];
+            };
+
+            type Subtask = {
+            id: string;
+            title: string;
+            paragraphs: Paragraph[];
+            };
+        </typescriptTypesReference>
+    </responseFormat>
+    <example>
+        {
+        "id": "topic_overview_and_consensus",
+        "title": "Overview of Topic and Consensus",
+        "paragraphs": [
+        {
+        "id": "topic_overview",
+        "title": "Overview of Topic and Consensus",
+        "sentences": [
+        {
+        "clauses": [
+        {
+        "text": "[topic] is a [topic_overview]",
+        "citations": [12, 15, 23]
+        },
+        {
+        "text": "[topic] is a [topic_overview]",
+        "citations": [25, 31]
+        },
+        {
+        "text": "[topic] is a [topic_overview]",
+        "citations": [45, 48]
+        }
+        ]
+        }
+        ]
+        },
+        {
+        "id": "topic_by_groups",
+        "title": "Group Worldviews",
+        "sentences": [
+        {
+        "clauses": [
+        {
+        "text": "[topic] is a [topic_overview]",
+        "citations": [52, 54]
+        },
+        {
+        "text": "[topic] is a [topic_overview]",
+        "citations": [61, 63]
+        }
+        ]
+        },
+        {
+        "clauses": [
+        {
+        "text": "[topic] is a [topic_overview]",
+        "citations": [71, 73]
+        },
+        {
+        "text": "[topic] is a [topic_overview]",
+        "citations": [75, 78]
+        }
+        ]
+        },
+        {
+        "clauses": [
+        {
+        "text": "[topic] is a [topic_overview]",
+        "citations": [82, 85, 87]
+        }
+        ]
+        }
+        ]
+        },
+        {
+        "id": "topic_subtopic_analysis",
+        "title": "Subtopic Analysis",
+        "sentences": [
+        {
+        "clauses": [
+        {
+        "text": "[topic] is a [topic_overview]",
+        "citations": [91, 93]
+        },
+        {
+        "text": "[topic] is a [topic_overview]",
+        "citations": [95, 97]
+        }
+        ]
+        },
+        {
+        "clauses": [
+        {
+        "text": "[topic] is a [topic_overview]",
+        "citations": [101, 103, 105]
+        }
+        ]
+        }
+        ]
+        }
+        ]
+        }
+    </example>
+    <data>
+        INSERT_DATA_HERE
+    </data>
+</polisAnalysisPrompt>
