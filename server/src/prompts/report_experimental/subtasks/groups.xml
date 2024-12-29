@@ -74,6 +74,14 @@
                 <format>
                     The conversation revealed [X] distinct groups which differed most notably on
                     [concise_but_in_depth_narrative_of_the_divisions] [narrative] [key_themes].
+
+                    The most striking difference between Group [A] and Group [B] emerged on
+                    [specific_issue],
+                    where Group [A] showed [high/low] [agreement/disagreement] while Group [B]
+                    expressed [high/low] [opposite_position].
+
+                    Group [A] consistently prioritizing [value_1] while Group [B] emphasized
+                    [value_2]. Group [C] [value_1]
                 </format>
                 <length>4-5 sentences</length>
             </paragraph>
@@ -95,10 +103,10 @@
                     Their worldview appeared to prioritize [value_system],
                     as evidenced by their strong [agreement/disagreement] on [specific_positions].
                     Group [B]'s worldview centered on [core_belief],
-                    demonstrated by their [strong/moderate] [agreement/disagreement] ([percentage]%)
+                    demonstrated by their [strong/moderate] [agreement/disagreement] ([high/low])
                     with [specific_position].
                     This aligned with their broader pattern of [voting_pattern_description],
-                    particularly on statements about [related_topic] ([percentage]%
+                    particularly on statements about [related_topic] ([high/low]
                     [agreement/disagreement]).
                 </format>
             </paragraph>
@@ -109,14 +117,6 @@
                     <element>distinctive_positions</element>
                 </elements>
                 <format>
-                    The most striking difference between Group [A] and Group [B] emerged on
-                    [specific_issue],
-                    where Group [A] showed [percentage]% [agreement/disagreement] while Group [B]
-                    expressed [percentage]% [opposite_position].
-
-                    Group [A] consistently prioritizing [value_1] while Group [B] emphasized
-                    [value_2].
-
                     [optional_if_more_than_two_groups] group [C] and group [D] were more
                     aligned on [topic] and group [B] and group [C] were more aligned on [topic].
                 </format>
@@ -186,11 +186,12 @@
     </analysisProcess>
 
     <validationRules>
-        <rule>All percentages must be actual values from data</rule>
+        <rule>All high/low must be actual values from data</rule>
         <rule>Each claim requires at least one citation</rule>
         <rule>Citations must use provided format</rule>
         <rule>Groups must be referenced by actual group names from data, such as Group A, Group B,
             etc.</rule>
+        <rule>no percentages from comment data inserted in the text</rule>
     </validationRules>
 
     <responseFormat>
@@ -257,7 +258,7 @@
         {
         "clauses": [
         {
-        "text": "The conversation revealed three distinct groups with clear ideological differences
+        "text": "The conversation revealed [X] distinct groups with clear ideological differences
         in their approach to [global_conversation_narrative], such as [narrative]",
         "citations": [12, 15, 23]
         },
@@ -289,7 +290,7 @@
         "citations": [52, 54]
         },
         {
-        "text": "Their worldview prioritized [position_narrative], showing [percentage]% agreement
+        "text": "Their worldview prioritized [position_narrative], showing [high/low] agreement
         on [aspect_of_worldview]",
         "citations": [61, 63]
         }
@@ -299,12 +300,12 @@
         "clauses": [
         {
         "text": "Group B's worldview centered on [position_narrative], demonstrated by their strong
-        agreement ([percentage]% agreement) with [position_narrative]",
+        agreement ([high/low] agreement) with [position_narrative]",
         "citations": [71, 73]
         },
         {
         "text": "This aligned with their broader pattern of opposing [position_narrative],
-        particularly on statements about [aspect_of_worldview] ([percentage]% disagreement)",
+        particularly on statements about [aspect_of_worldview] ([high/low] disagreement)",
         "citations": [75, 78]
         }
         ]
@@ -313,7 +314,7 @@
         "clauses": [
         {
         "text": "Group C showed a more nuanced position, supporting [position_narrative]
-        ([percentage]%
+        ([high/low]
         agreement) while favoring [position_narrative] for [narrative]",
         "citations": [82, 85, 87]
         }
@@ -330,7 +331,7 @@
         {
         "text": "The most striking difference between Group A and Group B emerged on
         [aspect_of_worldview],
-        where Group A showed [percentage]% support while Group B expressed [percentage]%
+        where Group A showed [high/low] support while Group B expressed [high/low]
         opposition",
         "citations": [91, 93]
         },

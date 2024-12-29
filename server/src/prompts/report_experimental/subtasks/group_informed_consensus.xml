@@ -194,6 +194,7 @@
         <rule>Citations must use provided format</rule>
         <rule>Groups must be referenced by actual group names from data</rule>
         <rule>Statements must have minimum vote threshold of 100</rule>
+        <rule>no percentages from comment data inserted in the text</rule>
     </validationRules>
 
     <responseFormat>
