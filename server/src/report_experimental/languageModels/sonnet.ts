@@ -101,7 +101,7 @@ const anthropic = new Anthropic({
 
 const getJSONuserMsg = async () => {
   const report_xml_template = await fs.readFile(
-    "src/prompts/report_experimental/subtasks/uncertainty.xml",
+    "src/report_experimental/subtaskPrompts/uncertainty.xml",
     "utf8"
   ); // unsure if this should be uncertainty or group_informed_consensus
   const asJSON = await convertXML(report_xml_template);
@@ -119,7 +119,7 @@ const getCommentsAsJson = async (id: string) => {
 
 async function main() {
   const system_lore = await fs.readFile(
-    "src/prompts/report_experimental/system.xml",
+    "src/report_experimental/system.xml",
     "utf8"
   );
   const json = await getJSONuserMsg();

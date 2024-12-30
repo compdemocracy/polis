@@ -12,17 +12,18 @@ The structure of the library is as follows:
 
 Rough explanation of the intended structure (general schema, not all files):
 
-📁 server/src/prompts/report_experimental/
+📁 server/src/report_experimental/
 ├── readme.md # This documentation file
 ├── system.xml # Main system prompt, specificying the role of the LLM agent
-└── 📁 subtasks/ # Folder containing subtask prompts
+└── 📁 subtaskPrompts/ # Folder containing subtask prompts
 ....├── uncertainty.xml # Handling uncertainty in reports
 ....└── 📁 common/ # Common subtask components
-........└── jsonSchema.xml # Shared JSON schema definitions
-........└── typesReference.xml # Reference implementations of typescript types
-└── 📁 evals/ # Evals notebooks
-└── 📁 scripts/ # Run everything locally for R&D
+└── 📁 languageModels/ # Adapters for different language models
 
 ## Approach
 
-This experimental library
+This experimental library is designed to be a modular system for generating reports from Polis conversations.
+
+The system prompt is designed to be a general prompt that can be used for any language model.
+
+The subtask prompts are designed to be specific to the task of generating a report, and are designed to be used with a language model that is able to handle the subtask.

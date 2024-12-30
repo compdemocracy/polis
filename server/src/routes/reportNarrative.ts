@@ -12,7 +12,7 @@ import fs from "fs/promises";
 import { parse } from "csv-parse/sync";
 import { create } from "xmlbuilder2";
 import { sendCommentGroupsSummary } from "./export";
-import { topicsExample } from "../prompts/topics-example";
+import { topicsExample } from "../report_experimental/topics-example";
 
 const js2xmlparser = require("js2xmlparser");
 
@@ -157,26 +157,26 @@ interface ReportSection {
 const reportSections: ReportSection[] = [
   {
     name: "uncertainty",
-    templatePath: "src/prompts/report_experimental/subtasks/uncertainty.xml",
+    templatePath: "src/report_experimental/subtaskPrompts/uncertainty.xml",
     // Revert to original simple pass ratio check
     filter: (v) => v.passes / v.votes >= 0.2,
   },
   {
     name: "group_informed_consensus",
     templatePath:
-      "src/prompts/report_experimental/subtasks/group_informed_consensus.xml",
+      "src/report_experimental/subtaskPrompts/group_informed_consensus.xml",
     filter: (v) => (v.group_aware_consensus ?? 0) > 0.7,
   },
   {
     name: "groups",
-    templatePath: "src/prompts/report_experimental/subtasks/groups.xml",
+    templatePath: "src/report_experimental/subtaskPrompts/groups.xml",
     filter: (v) => {
       return (v.comment_extremity ?? 0) > 1;
     },
   },
   ...topicsExample.topics.map((topic) => ({
     name: `topic_${topic.name.toLowerCase().replace(/\s+/g, "_")}`,
-    templatePath: "src/prompts/report_experimental/subtasks/topics.xml",
+    templatePath: "src/report_experimental/subtaskPrompts/topics.xml",
     filter: (v: { comment_id: number }) => {
       // Check if the comment_id is in the citations array for this topic
       return topic.citations.includes(v.comment_id);
@@ -215,17 +215,12 @@ export async function handle_GET_reportNarrative(
     res.write(`POLIS-PING: retrieving system lore`);
 
     const system_lore = await fs.readFile(
-      "src/prompts/report_experimental/system.xml",
+      "src/report_experimental/system.xml",
       "utf8"
     );
 
     // @ts-expect-error flush - calling due to use of compression
     res.flush();
-
-    console.log("Request received. Generating report sections with topics:", {
-      totalSections: reportSections.length,
-      topicSections: reportSections.map((s) => s.name),
-    });
 
     for (const section of reportSections) {
       const s = sectionParam
@@ -243,15 +238,6 @@ export async function handle_GET_reportNarrative(
         "polis-comments-and-group-demographics",
         json
       );
-
-      if (s.name.startsWith("topic_")) {
-        console.log("Processing topic section:", {
-          name: s.name,
-          hasFilter: !!s.filter,
-          templatePath: s.templatePath,
-          timestamp: new Date().toISOString(),
-        });
-      }
 
       if ((modelParam as string)?.trim()) {
         const responseClaude = await anthropic.messages.create({
@@ -311,19 +297,6 @@ export async function handle_GET_reportNarrative(
 
         const respGem = await gemeniModel.generateContent(gemeniModelprompt);
         const responseGemini = await respGem.response.text();
-
-        if (s.name.startsWith("topic_")) {
-          console.log("Topic section response written:", {
-            name: s.name,
-            responseLength: JSON.stringify({
-              [s.name]: {
-                responseGemini,
-                responseClaude,
-              },
-            }).length,
-            timestamp: new Date().toISOString(),
-          });
-        }
 
         res.write(
           JSON.stringify({
