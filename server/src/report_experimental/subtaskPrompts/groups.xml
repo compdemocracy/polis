@@ -25,6 +25,12 @@
             <threshold>70</threshold>
             <unit>percent</unit>
         </term>
+        <term name="consensus">
+            <description>High level of agreement across all groups on a single statement or related
+                set of statements within the topic</description>
+            <threshold>at least 60% in each group</threshold>
+            <unit>percent</unit>
+        </term>
     </definitions>
 
     <analysisProcess>

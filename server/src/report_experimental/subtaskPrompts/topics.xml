@@ -23,10 +23,9 @@
         <term name="consensus">
             <description>High level of agreement across all groups on a single statement or related
                 set of statements within the topic</description>
-            <threshold>70</threshold>
+            <threshold>at least 60% in each group</threshold>
             <unit>percent</unit>
         </term>
-
     </definitions>
 
     <analysisProcess>
@@ -71,6 +70,11 @@
                         grabbag of
                         topics. What are the key themes, values, and ideas that emerge from the
                         division? What is the narrative that emerges from the division?
+                    </instruction>
+                    <instruction>
+                        If any group group is split, or disagrees, say the conversation was split
+                        or divided. Consensus means greater than 60% agreement per group across all
+                        groups.
                     </instruction>
                 </criticalInstructions>
                 <format>
