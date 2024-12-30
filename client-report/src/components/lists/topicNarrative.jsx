@@ -39,7 +39,9 @@ const TopicNarrative = ({
 
     return (
       <div>
-        <p style={globals.primaryHeading}> {topicName} Topic Narrative </p>
+        <p style={globals.primaryHeading}>
+          {topicName.charAt(0).toUpperCase() + topicName.slice(1)}
+        </p>
         <p style={globals.paragraph}>
           This narrative summary may contain hallucinations. Check each clause.
         </p>
