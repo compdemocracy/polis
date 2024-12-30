@@ -256,7 +256,7 @@ export async function handle_GET_reportNarrative(
       if ((modelParam as string)?.trim()) {
         const responseClaude = await anthropic.messages.create({
           model: "claude-3-5-haiku-20241022",
-          max_tokens: 1000,
+          max_tokens: 3000,
           temperature: 0,
           system: system_lore,
           messages: [
@@ -280,7 +280,7 @@ export async function handle_GET_reportNarrative(
       } else {
         const responseClaude = await anthropic.messages.create({
           model: "claude-3-5-sonnet-20241022",
-          max_tokens: 1000,
+          max_tokens: 3000,
           temperature: 0,
           system: system_lore,
           messages: [
