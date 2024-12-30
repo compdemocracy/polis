@@ -337,6 +337,7 @@ export async function sendCommentGroupsSummary(
     passes: number;
     group_aware_consensus?: number;
     comment_extremity?: number;
+    comment_id: number;
   }) => boolean
 ) {
   const csvText = [];
@@ -500,6 +501,7 @@ export async function sendCommentGroupsSummary(
           group_aware_consensus: groupAwareConsensus[stats.tid],
           comment_extremity:
             commentExtremity[tidToExtremityIndex.get(stats.tid)],
+          comment_id: stats.tid,
         }) === true
       ) {
         res.write(row.join(",") + sep);
@@ -517,6 +519,7 @@ export async function sendCommentGroupsSummary(
           group_aware_consensus: groupAwareConsensus[stats.tid],
           comment_extremity:
             commentExtremity[tidToExtremityIndex.get(stats.tid)],
+          comment_id: stats.tid,
         }) === true
       ) {
         csvText.push(row.join(",") + sep);

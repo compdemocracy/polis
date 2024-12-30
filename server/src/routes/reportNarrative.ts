@@ -12,6 +12,7 @@ import fs from "fs/promises";
 import { parse } from "csv-parse/sync";
 import { create } from "xmlbuilder2";
 import { sendCommentGroupsSummary } from "./export";
+import { topicsExample } from "../prompts/topics-example";
 
 const js2xmlparser = require("js2xmlparser");
 
@@ -124,6 +125,7 @@ const getCommentsAsXML = async (
     passes: number;
     group_aware_consensus?: number;
     comment_extremity?: number;
+    comment_id: number;
   }) => boolean
 ) => {
   try {
@@ -147,6 +149,7 @@ interface ReportSection {
     passes: number;
     group_aware_consensus?: number;
     comment_extremity?: number;
+    comment_id: number;
   }) => boolean;
 }
 
@@ -171,6 +174,14 @@ const reportSections: ReportSection[] = [
       return (v.comment_extremity ?? 0) > 1;
     },
   },
+  ...topicsExample.topics.map((topic) => ({
+    name: `topic_${topic.name.toLowerCase().replace(/\s+/g, "_")}`,
+    templatePath: "src/prompts/report_experimental/subtasks/topics.xml",
+    filter: (v: { comment_id: number }) => {
+      // Check if the comment_id is in the citations array for this topic
+      return topic.citations.includes(v.comment_id);
+    },
+  })),
 ];
 
 type QueryParams = {
@@ -211,6 +222,11 @@ export async function handle_GET_reportNarrative(
     // @ts-expect-error flush - calling due to use of compression
     res.flush();
 
+    console.log("Request received. Generating report sections with topics:", {
+      totalSections: reportSections.length,
+      topicSections: reportSections.map((s) => s.name),
+    });
+
     for (const section of reportSections) {
       const s = sectionParam
         ? reportSections.find((s) => s.name === sectionParam) || section
@@ -227,6 +243,15 @@ export async function handle_GET_reportNarrative(
         "polis-comments-and-group-demographics",
         json
       );
+
+      if (s.name.startsWith("topic_")) {
+        console.log("Processing topic section:", {
+          name: s.name,
+          hasFilter: !!s.filter,
+          templatePath: s.templatePath,
+          timestamp: new Date().toISOString(),
+        });
+      }
 
       if ((modelParam as string)?.trim()) {
         const responseClaude = await anthropic.messages.create({
@@ -286,6 +311,19 @@ export async function handle_GET_reportNarrative(
 
         const respGem = await gemeniModel.generateContent(gemeniModelprompt);
         const responseGemini = await respGem.response.text();
+
+        if (s.name.startsWith("topic_")) {
+          console.log("Topic section response written:", {
+            name: s.name,
+            responseLength: JSON.stringify({
+              [s.name]: {
+                responseGemini,
+                responseClaude,
+              },
+            }).length,
+            timestamp: new Date().toISOString(),
+          });
+        }
 
         res.write(
           JSON.stringify({

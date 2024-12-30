@@ -20,6 +20,7 @@ import Controls from "./controls/controls.jsx";
 import net from "../util/net.js";
 import ConsensusNarrative from "./lists/consensusNarrative.jsx";
 import RawDataExport from "./RawDataExport.jsx";
+import TopicNarrative from "./lists/topicNarrative.jsx";
 
 const pathname = window.location.pathname; // "/report/2arcefpshi"
 const report_id = pathname.split("/")[2];
@@ -118,6 +119,16 @@ const App = (props) => {
     JSON.stringify(narrative),
   ]);
 
+  useEffect(() => {
+    if (narrative) {
+      console.log("Current narrative state:", {
+        timestamp: new Date().toISOString(),
+        sections: Object.keys(narrative),
+        fullNarrative: narrative,
+      });
+    }
+  }, [narrative]);
+
   const getMath = async (conversation_id) => {
     return net
       .polisGet("/api/v3/math/pca2", {
@@ -187,9 +198,11 @@ const App = (props) => {
       const decodedChunk = decoder.decode(value, { stream: true });
 
       if (!decodedChunk.includes("POLIS-PING:")) {
-        const o = narrative || {};
         const c = JSON.parse(decodedChunk);
-        setNarrative({ ...o, ...c });
+        setNarrative((prevNarrative) => ({
+          ...(prevNarrative || {}),
+          ...c,
+        }));
       }
     }
   };
@@ -647,6 +660,25 @@ const App = (props) => {
             ) : (
               "...Loading Uncertainty \n"
             )}
+            {Object.keys(narrative || {})
+              .filter((key) => key.startsWith("topic_"))
+              .map((topicKey) => {
+                const topicName = topicKey.replace("topic_", "").replace(/_/g, " ");
+                return (
+                  <TopicNarrative
+                    key={topicKey}
+                    math={math}
+                    comments={comments}
+                    conversation={conversation}
+                    ptptCount={ptptCount}
+                    formatTid={formatTid}
+                    voteColors={voteColors}
+                    narrative={narrative[topicKey]}
+                    model={model}
+                    topicName={topicName}
+                  />
+                );
+              })}
           </>
         ) : (
           <>
