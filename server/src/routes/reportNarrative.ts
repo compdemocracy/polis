@@ -113,7 +113,9 @@ const gemeniModel = genAI.getGenerativeModel({
   // model: "gemini-1.5-pro-002",
   model: "gemini-exp-1206",
   generationConfig: {
+    // https://cloud.google.com/vertex-ai/docs/reference/rest/v1/GenerationConfig
     responseMimeType: "application/json",
+    maxOutputTokens: 5000, // high for reliability for now.
   },
 });
 
