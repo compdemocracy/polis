@@ -4,7 +4,8 @@ const genAI = new GoogleGenerativeAI("my_api_key");
 
 async function main() {
   // const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp-001" });
+  // const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro-002" });
+  const model = genAI.getGenerativeModel({ model: "gemini-exp-1206" });
 
   const msg = await model.generateContent({
     contents: [
