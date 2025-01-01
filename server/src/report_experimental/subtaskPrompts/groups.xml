@@ -318,8 +318,7 @@
         "clauses": [
         {
         "text": "Group C showed a more nuanced position, supporting [position_narrative]
-        ([high/low]
-        agreement) while favoring [position_narrative] for [narrative]",
+        ([high/low] agreement) while favoring [position_narrative] for [narrative]",
         "citations": [82, 85, 87]
         }
         ]
@@ -333,10 +332,8 @@
         {
         "clauses": [
         {
-        "text": "The most striking difference between Group A and Group B emerged on
-        [aspect_of_worldview],
-        where Group A showed [high/low] support while Group B expressed [high/low]
-        opposition",
+        "text": "Group A and Group B differed on [aspect_of_worldview], where Group A showed
+        [high/low] support while Group B expressed [high/low] opposition",
         "citations": [91, 93]
         },
         {

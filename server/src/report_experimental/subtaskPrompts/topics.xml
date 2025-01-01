@@ -56,13 +56,13 @@
         <reportingStructure>
             <paragraph type="topic_overview_and_consensus">
                 <elements>
-                    <element>overview_conversation_divisions</element>
+                    <element>overview_topic_divisions</element>
                     <element>major_divisions_between_groups</element>
-                    <element>each_group_worldview</element>
+                    <element>differences_between_groups</element>
                 </elements>
                 <criticalInstructions>
                     <instruction>
-                        In your overview, you must describe the "conversation" as a whole, not the
+                        In your overview, you must describe the statements on the topic, not the
                         groups.
                     </instruction>
                     <instruction>
@@ -72,39 +72,128 @@
                         division? What is the narrative that emerges from the division?
                     </instruction>
                     <instruction>
-                        If any group group is split, or disagrees, say the conversation was split
+                        If any group group is split, or disagrees, say the votes on statements on
+                        the topic
+                        was split
                         or divided. Consensus means greater than 60% agreement per group across all
                         groups.
                     </instruction>
+                    <instruction>
+                        DO NOT put any percentages in the text. DO NOT put any comment numbers in
+                        the text.
+                    </instruction>
                 </criticalInstructions>
                 <format>
-                    [topic] [topic_overview] [narrative] [key_themes].
-                    [topic_consensus_with_key_consensus_citations]
+                    The topic [topic_name] revealed several key patterns in the conversation.
+                    Participants
+                    expressed [strong/moderate/mixed] views on [specific_aspect], with
+                    [description_of_pattern]
+                    emerging as a central theme. The discourse around [topic_name] highlighted
+                    [key_value_or_concern], particularly in relation to [related_subtopic].
+
+                    Within this topic, [specific_subtopic] generated [significant/notable/minimal]
+                    discussion,
+                    with participants [agreeing/disagreeing/divided] on [specific_position]. This
+                    connected to
+                    broader themes of [overarching_theme], especially regarding [specific_aspect].
+                    [Additional_context_if_relevant].
+
+                    The conversation revealed [X] distinct perspectives on [topic_name], ranging
+                    from
+                    [perspective_1] to [perspective_2]. These viewpoints often intersected with
+                    [related_topic_or_theme], particularly when discussing [specific_aspect].
+                    Notable areas
+                    of [consensus/division] included [specific_examples], which highlighted
+                    [pattern_or_insight].
+
+                    [If consensus exists] Common ground emerged around [consensus_point], with
+                    participants
+                    across groups expressing support for [specific_position]. This alignment was
+                    particularly
+                    evident in discussions of [specific_aspect], where
+                    [description_of_consensus_pattern].
+
+                    [If division exists] Key divisions centered on [point_of_contention], with
+                    varying
+                    perspectives on [specific_aspect]. These differences reflected broader
+                    [values/priorities/concerns] within the conversation, particularly regarding
+                    [specific_element].
                 </format>
-                <length>4-5 sentences</length>
+                <paragraphInstructions>
+                    <instruction>
+                        This format should provide a comprehensive overview of the topic, including:
+                        - Core themes and patterns
+                        - Specific areas of consensus and division
+                        - Connection to broader conversation themes
+                        - Multiple supporting citations for each claim
+                        - Clear narrative progression
+                        - Balance between specific details and broader patterns
+                    </instruction>
+                    <instruction>
+                        Each major point should be supported by multiple citations, with clear
+                        connections
+                        between related statements and themes.
+                    </instruction>
+                </paragraphInstructions>
+                <length>4-6 sentences per paragraph, with multiple paragraphs as needed to cover the
+                    topic
+                    comprehensively</length>
             </paragraph>
             <paragraph type="topic_by_groups">
                 <elements>
                     <element>voting_patterns</element>
                     <element>core_beliefs</element>
                     <element>key_positions</element>
+                    <element>group_relationships</element>
+                    <element>value_priorities</element>
                 </elements>
                 <criticalInstructions>
                     <instruction>
-                        There will be a variable number of groups. You must describe every group's
-                        worldview vis a vis the topic.
+                        There will be a variable number of groups. You must analyze how each group
+                        relates to the topic, including both direct comparisons and broader
+                        patterns.
+                    </instruction>
+                    <instruction>
+                        Focus on the substantive differences in how groups understand and approach
+                        the topic, not just agreement levels.
+                    </instruction>
+                    <instruction>
+                        Identify and explain any notable alignments or coalitions between groups
+                        on specific aspects of the topic.
                     </instruction>
                 </criticalInstructions>
                 <format>
-                    Differences between between Group [Q] and Group [Y] emerged on
-                    [topic], where Group [A] showed [high/low] [agreement/disagreement]
-                    while Group [B]
-                    expressed [high/low] [opposite_position]. Group [A] consistently prioritizing
-                    [value_1] while Group [B] emphasized
-                    [value_2]. Group [C] [value_1]
-                    group [C] and group [D] were more
-                    aligned on [topic] and group [B] and group [C] were more aligned on [topic].
+                    On [topic_name], clear differences emerged between the groups' approaches and
+                    underlying values. Group [A] demonstrated [strong/moderate/mixed]
+                    [agreement/disagreement] with [specific_aspect], reflecting their emphasis on
+                    [value_or_priority]. In contrast, Group [B] approached the topic through the
+                    lens
+                    of [different_value_or_priority], leading to [strong/moderate/mixed]
+                    [agreement/disagreement] with these statements.
+
+                    Group [C]'s perspective aligned more closely with [Group A/B] on
+                    [specific_aspect],
+                    particularly regarding [detailed_position]. However, they diverged notably on
+                    [different_aspect], where their [agreement/disagreement] reflected distinct
+                    [values/priorities/concerns].
+
+                    [If more than three groups] The remaining groups showed varying degrees of
+                    alignment, with Groups [D] and [E] finding common ground on [shared_aspect]
+                    while diverging on [point_of_contention]. This pattern highlighted how
+                    [broader_theme_or_insight] shaped group positions on [topic_name].
+
                 </format>
+                <paragraphInstructions>
+                    <instruction>
+                        Each paragraph should:
+                        - Analyze group positions through their underlying values and priorities
+                        - Identify both expected and unexpected alignments
+                        - Connect specific positions to broader themes
+                        - Support all claims with multiple citations
+                        - Maintain focus on the specific topic while acknowledging broader patterns
+                    </instruction>
+                </paragraphInstructions>
+                <length>3-5 paragraphs, depending on number of groups and complexity of positions</length>
             </paragraph>
         </reportingStructure>
 
@@ -264,7 +353,7 @@
         },
         {
         "id": "topic_by_groups",
-        "title": "Group Worldviews",
+        "title": "Differences on [topic]",
         "sentences": [
         {
         "clauses": [
