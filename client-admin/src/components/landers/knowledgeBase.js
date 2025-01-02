@@ -7,7 +7,7 @@ const KnowledgeBase = ({ e, url, txt }) => {
   return (
     <Box sx={{ my: [3] }}>
       <Link target="_blank" href={url}>
-        <span style={{ marginRight: 12 }}>{emoji(e)}</span>
+        <span style={{ marginRight: 12 }}>{e}</span>
         {txt}
       </Link>
     </Box>
