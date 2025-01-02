@@ -11,7 +11,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          repository: "Jigsaw-Code/sensemaking-tools"
+          repository: "tevko/sensemaking-tools"
           path: sensemaking-tools
 
       - uses: 'google-github-actions/auth@v2'
