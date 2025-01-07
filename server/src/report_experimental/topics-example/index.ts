@@ -3,6 +3,14 @@
 //   - name: The main topic name
 //   - citations: All comment IDs associated with this topic (including subtopic citations)
 //   - subtopics: Array of subtopics, each with their specific citations
+
+import { sendCommentGroupsSummary } from "../../routes/export";
+import { getCommentsFromCsv } from "./lib/sensemaking-tools/runner-cli/runner_utils";
+import { VertexModel } from "./lib/sensemaking-tools/src/models/vertex_model";
+import { Sensemaker } from "./lib/sensemaking-tools/src/sensemaker";
+import { Comment, VoteTally } from "./lib/sensemaking-tools/src/types";
+import { parse } from "csv-parse";
+
 // Citations may appear multiple times if they relate to multiple topics/subtopics
 export const topicsExample = {
   topics: [
@@ -478,3 +486,69 @@ export const topicsExample = {
     },
   ],
 };
+
+async function parseCsvString(csvString: string) {
+  return new Promise((resolve, reject) => {
+    const data: Comment[] = [];
+    const parser = parse({
+      columns: true, // Use first row as headers
+      skip_empty_lines: true, // Ignore empty lines
+    });
+
+    parser.on("error", (error) => reject(error));
+
+    parser.on("data", (row) => {
+      if (row.moderated == -1) {
+        return;
+      }
+      data.push({
+        text: row.comment_text,
+        id: row["comment-id"].toString(),
+        voteTalliesByGroup: {
+          "group-0": new VoteTally(
+            Number(row["group-0-agree-count"]),
+            Number(row["group-0-disagree-count"]),
+            Number(row["group-0-pass-count"])
+          ),
+          "group-1": new VoteTally(
+            Number(row["group-1-agree-count"]),
+            Number(row["group-1-disagree-count"]),
+            Number(row["group-1-pass-count"])
+          ),
+        },
+      });
+    });
+
+    parser.on("end", () => resolve(data));
+
+    // Write the CSV string to the parser
+    parser.write(csvString);
+    parser.end(); // Signal the end of the input
+  });
+}
+
+export async function getTopicsFromRID(zId: number) {
+  const resp = await sendCommentGroupsSummary(zId, undefined, false);
+  const modified = (resp as string).split("\n");
+  modified[0] = `comment-id,comment_text,total-votes,total-agrees,total-disagrees,total-passes,group-a-votes,group-0-agree-count,group-0-disagree-count,group-0-pass-count,group-b-votes,group-1-agree-count,group-1-disagree-count,group-1-pass-count`;
+  
+  const comments = await parseCsvString(modified.join("\n"));
+  const topics = await new Sensemaker({
+    defaultModel: new VertexModel(
+      "jigsaw-vertex-integration",
+      "us-central1",
+      // "jigsaw-vertex-integration-92ef30330cf7"
+    ),
+  }).learnTopics(comments as Comment[], true);
+  return topics;
+}
+
+
+
+
+
+
+
+
+
+

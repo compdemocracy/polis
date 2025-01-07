@@ -13,6 +13,7 @@ services:
       target: dev
       args:
         NODE_ENV: development
+        GOOGLE_APPLICATION_CREDENTIALS: /app/jigsaw-vertex-integration-92ef30330cf7.json
     volumes:
       # This will mount your local polis/server directory so changes can be watched and reloaded.
       # But it will ignore your local node_modules and instead use a new container volume.

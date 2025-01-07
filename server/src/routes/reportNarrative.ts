@@ -12,7 +12,7 @@ import fs from "fs/promises";
 import { parse } from "csv-parse/sync";
 import { create } from "xmlbuilder2";
 import { sendCommentGroupsSummary } from "./export";
-import { topicsExample } from "../report_experimental/topics-example";
+import { getTopicsFromRID, topicsExample } from "../report_experimental/topics-example";
 
 const js2xmlparser = require("js2xmlparser");
 
@@ -157,35 +157,37 @@ interface ReportSection {
 }
 
 // Define the report sections with filters
-const reportSections: ReportSection[] = [
-  {
-    name: "uncertainty",
-    templatePath: "src/report_experimental/subtaskPrompts/uncertainty.xml",
-    // Revert to original simple pass ratio check
-    filter: (v) => v.passes / v.votes >= 0.2,
-  },
-  {
-    name: "group_informed_consensus",
-    templatePath:
-      "src/report_experimental/subtaskPrompts/group_informed_consensus.xml",
-    filter: (v) => (v.group_aware_consensus ?? 0) > 0.7,
-  },
-  {
-    name: "groups",
-    templatePath: "src/report_experimental/subtaskPrompts/groups.xml",
-    filter: (v) => {
-      return (v.comment_extremity ?? 0) > 1;
+const getReportSections = (topics: {name: string, citations: number[]}[]) => {
+  return [
+    {
+      name: "uncertainty",
+      templatePath: "src/report_experimental/subtaskPrompts/uncertainty.xml",
+      // Revert to original simple pass ratio check
+      filter: (v: {passes: number, votes: number}) => v.passes / v.votes >= 0.2,
     },
-  },
-  ...topicsExample.topics.map((topic) => ({
-    name: `topic_${topic.name.toLowerCase().replace(/\s+/g, "_")}`,
-    templatePath: "src/report_experimental/subtaskPrompts/topics.xml",
-    filter: (v: { comment_id: number }) => {
-      // Check if the comment_id is in the citations array for this topic
-      return topic.citations.includes(v.comment_id);
+    {
+      name: "group_informed_consensus",
+      templatePath:
+        "src/report_experimental/subtaskPrompts/group_informed_consensus.xml",
+      filter: (v: {group_aware_consensus: number}) => (v.group_aware_consensus ?? 0) > 0.7,
     },
-  })),
-];
+    {
+      name: "groups",
+      templatePath: "src/report_experimental/subtaskPrompts/groups.xml",
+      filter: (v: {comment_extremity: number}) => {
+        return (v.comment_extremity ?? 0) > 1;
+      },
+    },
+    ...topics.map((topic: {name: string, citations: number[]}) => ({
+      name: `topic_${topic.name.toLowerCase().replace(/\s+/g, "_")}`,
+      templatePath: "src/report_experimental/subtaskPrompts/topics.xml",
+      filter: (v: { comment_id: number }) => {
+        // Check if the comment_id is in the citations array for this topic
+        return topic.citations.includes(v.comment_id);
+      },
+    })),
+  ]
+};
 
 type QueryParams = {
   [key: string]: string | string[] | undefined;
@@ -215,6 +217,10 @@ export async function handle_GET_reportNarrative(
       return;
     }
 
+    const tpcs = await getTopicsFromRID(zid);
+
+    const reportSections = getReportSections(tpcs)
+
     res.write(`POLIS-PING: retrieving system lore`);
 
     const system_lore = await fs.readFile(
@@ -231,6 +237,7 @@ export async function handle_GET_reportNarrative(
         : section;
       const fileContents = await fs.readFile(s.templatePath, "utf8");
       const json = await convertXML(fileContents);
+      // @ts-expect-error function args ignore temp
       const structured_comments = await getCommentsAsXML(zid, s.filter);
 
       json.polisAnalysisPrompt.children[

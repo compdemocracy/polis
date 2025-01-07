@@ -13,6 +13,23 @@ ARG NODE_ENV
 
 WORKDIR /app
 
+# Install Python and necessary tools (including pip)
+RUN apk add --no-cache python3 py3-pip
+
+# Install the gcloud CLI
+RUN apk add --no-cache wget gnupg && \
+    wget -q -O - https://dl.google.com/dl/cloudsdk/release/google-cloud-sdk.tar.gz | tar xvz -C /root && \
+    /root/google-cloud-sdk/install.sh --quiet
+
+ENV PATH="/root/google-cloud-sdk/bin:${PATH}"
+
+COPY jigsaw-vertex-integration-92ef30330cf7.json /app/jigsaw-vertex-integration-92ef30330cf7.json
+
+ENV GOOGLE_APPLICATION_CREDENTIALS=/app/jigsaw-vertex-integration-92ef30330cf7.json
+
+# Authenticate with the service account
+RUN gcloud auth activate-service-account --key-file=/app/jigsaw-vertex-integration-92ef30330cf7.json
+
 # This package is needed at runtime
 RUN apk add libpq-dev
 

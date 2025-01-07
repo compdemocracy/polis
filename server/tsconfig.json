@@ -79,5 +79,5 @@
     "typeRoots": ["./node_modules/@types"]
   },
   "include": ["app.ts", "src/**/*", "types/**/*"],
-  "exclude": ["node_modules", "**/*.spec.ts", "dist"]
+  "exclude": ["node_modules", "**/*.spec.ts", "dist", "src/report_experimental/topics-example/lib/**/**"]
 }
