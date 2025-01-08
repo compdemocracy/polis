@@ -5,10 +5,9 @@
 //   - subtopics: Array of subtopics, each with their specific citations
 
 import { sendCommentGroupsSummary } from "../../routes/export";
-import { getCommentsFromCsv } from "./lib/sensemaking-tools/runner-cli/runner_utils";
-import { VertexModel } from "./lib/sensemaking-tools/src/models/vertex_model";
-import { Sensemaker } from "./lib/sensemaking-tools/src/sensemaker";
-import { Comment, VoteTally } from "./lib/sensemaking-tools/src/types";
+import { VertexModel } from "@tevko/sensemaking-tools/src/models/vertex_model";
+import { Sensemaker } from "@tevko/sensemaking-tools/src/sensemaker";
+import { Comment, VoteTally } from "@tevko/sensemaking-tools/src/types";
 import { parse } from "csv-parse";
 
 // Citations may appear multiple times if they relate to multiple topics/subtopics

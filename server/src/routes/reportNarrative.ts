@@ -217,6 +217,11 @@ export async function handle_GET_reportNarrative(
       return;
     }
 
+    res.write(`POLIS-PING: retrieving topics`);
+
+    // @ts-expect-error flush - calling due to use of compression
+    res.flush();
+
     const tpcs = await getTopicsFromRID(zid);
 
     const reportSections = getReportSections(tpcs)
