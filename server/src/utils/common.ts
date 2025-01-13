@@ -7,6 +7,8 @@ import dbPgQuery, {
   queryP_readOnly as pgQueryP_readOnly,
   queryP_readOnly_wRetryIfEmpty as pgQueryP_readOnly_wRetryIfEmpty,
 } from "../db/pg-query";
+import akismetLib from "akismet";
+import logger from "./utils/logger";
 import Config from "../config";
 
 type PolisTypes = {
@@ -35,7 +37,46 @@ type Mod = {
   ok: number;
 };
 
+const serverUrl = Config.getServerUrl();
+
 const polisDevs = Config.adminUIDs ? JSON.parse(Config.adminUIDs) : [];
+
+let akismet = akismetLib.client({
+  blog: serverUrl,
+  apiKey: Config.akismetAntispamApiKey,
+});
+
+akismet.verifyKey(function (err: any, verified: any) {
+  if (verified) {
+    logger.debug("Akismet: API key successfully verified.");
+  } else {
+    logger.debug("Akismet: Unable to verify API key.");
+  }
+});
+
+function isSpam(o: {
+  comment_content: any;
+  comment_author: any;
+  permalink: string;
+  user_ip: any;
+  user_agent: any;
+  referrer: any;
+}) {
+  // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
+  // @ts-ignore
+  return new MPromise(
+    "isSpam",
+    function (resolve: (arg0: any) => void, reject: (arg0: any) => void) {
+      akismet.checkSpam(o, function (err: any, spam: any) {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(spam);
+        }
+      });
+    }
+  );
+}
 
 function isPolisDev(uid?: any) {
   return polisDevs.indexOf(uid) >= 0;
@@ -129,6 +170,7 @@ export {
   isConversationOwner,
   isModerator,
   isPolisDev,
+  isSpam
 };
 
 export default {
@@ -138,4 +180,5 @@ export default {
   isConversationOwner,
   isModerator,
   isPolisDev,
+  isSpam
 };

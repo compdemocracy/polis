@@ -2,7 +2,6 @@
 
 "use strict";
 
-import akismetLib from "akismet";
 import AWS from "aws-sdk";
 import badwords from "badwords/object";
 import { Promise as BluebirdPromise } from "bluebird";
@@ -42,6 +41,7 @@ import fail from "./utils/fail";
 import { PcaCacheItem, getPca, fetchAndCacheLatestPcaData } from "./utils/pca";
 import { getZinvite, getZinvites } from "./utils/zinvite";
 import { getBidIndexToPidMapping, getPidsForGid } from "./utils/participants";
+import { isSpam } from "./utils/common";
 
 import { handle_GET_reportExport } from "./routes/export";
 import { handle_GET_reportNarrative } from "./routes/reportNarrative";
@@ -121,47 +121,6 @@ const adminEmails = Config.adminEmails ? JSON.parse(Config.adminEmails) : [];
 
 const polisFromAddress = Config.polisFromAddress;
 
-const serverUrl = Config.getServerUrl(); // typically https://pol.is or http://localhost:5000
-
-let akismet = akismetLib.client({
-  blog: serverUrl,
-  apiKey: Config.akismetAntispamApiKey,
-});
-
-akismet.verifyKey(function (err: any, verified: any) {
-  if (verified) {
-    logger.debug("Akismet: API key successfully verified.");
-  } else {
-    logger.debug("Akismet: Unable to verify API key.");
-  }
-});
-// let SELF_HOSTNAME = Config.getServerHostname();
-
-function isSpam(o: {
-  comment_content: any;
-  comment_author: any;
-  permalink: string;
-  user_ip: any;
-  user_agent: any;
-  referrer: any;
-}) {
-  // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
-  // @ts-ignore
-  return new MPromise(
-    "isSpam",
-    function (resolve: (arg0: any) => void, reject: (arg0: any) => void) {
-      akismet.checkSpam(o, function (err: any, spam: any) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(spam);
-        }
-      });
-    }
-  );
-}
-
-// basic defaultdict implementation
 function DD(this: any, f: () => { votes: number; comments: number }) {
   this.m = {};
   this.f = f;
