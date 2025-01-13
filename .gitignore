@@ -7,5 +7,6 @@
 build/
 prod.env
 xids.csv
-preprod.env
+preprod.env 
 .venv
+jigsaw-vertex-integration-92ef30330cf7.json

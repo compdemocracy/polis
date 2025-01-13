@@ -490,40 +490,6 @@ String.prototype.hashCode = function () {
 };
 
 function initializePolisHelpers() {
-  // // If there are any comments which have no votes by the owner, create a PASS vote by the owner.
-  // pgQuery("select * from comments", [], function(err, comments) {
-  //     pgQuery("select * from votes", [], function(err, votes) {
-  //         comments = comments.rows;
-  //         votes = votes.rows;
-
-  //         let exists = {};
-  //         votes.forEach(function(v) {
-  //             exists[v.zid +"_"+ v.tid] = true;
-  //         });
-  //         let missing = [];
-  //         for (var i = 0 ; i < comments.length; i++) {
-  //             let c = comments[i];
-  //             if (!exists[c.zid + "_" + c.tid]) {
-  //                 missing.push(c);
-  //             }
-  //         }
-  //         async.series(
-  //             missing.map(function(c) {
-  //                 return function(callback) {
-  //                     votesPost(uid, c.pid, c.zid, c.tid, 0)
-  //                         .then(function() {
-  //                             callback(null);
-  //                         })
-  //                         .catch(function() {
-  //                             callback(1);
-  //                         });
-  //                 };
-  //             }),
-  //             function(err, results) {
-  //             });
-  //     });
-  // });
-
   const polisTypes = Utils.polisTypes;
   const setCookie = cookies.setCookie;
   const setParentReferrerCookie = cookies.setParentReferrerCookie;
@@ -729,7 +695,7 @@ function initializePolisHelpers() {
       }
     );
   } // End votesGet
-
+  // belongs in server
   function writeDefaultHead(
     req: any,
     res: {
@@ -750,7 +716,7 @@ function initializePolisHelpers() {
     });
     next();
   }
-
+  // belongs in server
   function redirectIfNotHttps(
     req: {
       headers: { [x: string]: string; host: string };
@@ -791,31 +757,7 @@ function initializePolisHelpers() {
     }
     return next();
   }
-
-  // function createDummyUsersBatch(n) {
-  //     let query = "insert into users (created) values ";
-  //     let values = [];
-  //     for (var i = 0; i < n; i++) {
-  //         values.push("(default)");
-  //     }
-  //     values = values.join(",");
-  //     query += values;
-  //     query += " returning uid;";
-
-  //     return new MPromise("createDummyUser", function(resolve, reject) {
-  //         pgQuery(query,[], function(err, results) {
-  //             if (err || !results || !results.rows || !results.rows.length) {
-  //                 reject(new Error("polis_err_create_empty_user"));
-  //                 return;
-  //             }
-  //             let uids = results.rows.map(function(row) {
-  //                 return row.uid;
-  //             });
-  //             resolve(uids);
-  //         });
-  //     });
-  // }
-
+  // belongs in server
   function doXidConversationIdAuth(
     assigner: (arg0: any, arg1: string, arg2: number) => void,
     xid: any,
@@ -860,6 +802,7 @@ function initializePolisHelpers() {
         onDone(err);
       });
   }
+  // belongs in server - AUTH
   function _auth(assigner: any, isOptional: boolean) {
     function getKey(
       req: {
@@ -921,13 +864,6 @@ function initializePolisHelpers() {
             res,
             onDone
           );
-          // } else if (req?.headers?.["x-sandstorm-app-polis-apikey"] && req?.headers?.["x-sandstorm-app-polis-xid"] && req?.headers?.["x-sandstorm-app-polis-owner-xid"]) {
-          //   doXidApiKeyAuth(
-          //     assigner,
-          //     req?.headers?.["x-sandstorm-app-polis-apikey"],
-          //     req?.headers?.["x-sandstorm-app-polis-owner-xid"],
-          //     req?.headers?.["x-sandstorm-app-polis-xid"],
-          //     isOptional, req, res, onDone);
         } else if (getKey(req, "xid") && getKey(req, "conversation_id")) {
           doXidConversationIdAuth(
             assigner,
@@ -1078,30 +1014,6 @@ function initializePolisHelpers() {
     req.body.agid = 1;
     next();
   }
-  /*
-  function meter(name) {
-      return function (req, res, next){
-          let start = Date.now();
-          setTimeout(function() {
-              metric(name + ".go", 1, start);
-          }, 1);
-          res.on('finish', function(){
-            let end = Date.now();
-            let duration = end - start;
-            let status = ".ok";
-            if (!res.statusCode || res.statusCode >= 500) {
-              status = ".fail";
-            } else if (res.statusCode >= 400) {
-              status = ".4xx";
-            }
-            setTimeout(function() {
-                metric(name + status, duration, end);
-            }, 1);
-          });
-          next();
-      };
-  }
-  */
   // 2xx
   // 4xx
   // 5xx
@@ -1231,9 +1143,6 @@ function initializePolisHelpers() {
   ////////////////////////////////////////////
   ////////////////////////////////////////////
 
-  const strToHex = Utils.strToHex;
-  const hexToStr = Utils.hexToStr;
-
   function handle_GET_launchPrep(
     req: {
       headers?: { origin: string };
@@ -1255,7 +1164,7 @@ function initializePolisHelpers() {
     });
 
     // using hex since it doesn't require escaping like base64.
-    const dest = hexToStr(req.p.dest);
+    const dest = Utils.hexToStr(req.p.dest);
     const url = new URL(dest);
     res.redirect(url.pathname + url.search + url.hash);
   }
@@ -1284,76 +1193,7 @@ function initializePolisHelpers() {
   }
 
   // don't start immediately, let other things load first.
-  // setTimeout(fetchAndCacheLatestPcaData, 5000);
   fetchAndCacheLatestPcaData; // TODO_DELETE
-
-  /*
-  function splitTopLevelGroup(o, gid) {
-    function shouldKeepGroup(g) {
-      return g.id !== gid;
-    }
-    function uniquifySubgroupId(g) {
-      g.id = g.id + 100;
-      return g;
-    }
-    function withGid(g) {
-      return g.id === gid;
-    }
-
-    let newGroupClusters = o['group-clusters'].filter(shouldKeepGroup);
-    let subgroupClusterTop = _.find(o['subgroup-clusters'], withGid);
-    if (!subgroupClusterTop || !subgroupClusterTop.val) {
-      return o;
-    }
-    let subGroupClustersToAdd = subgroupClusterTop.val.map(uniquifySubgroupId);
-    newGroupClusters = newGroupClusters.concat(subGroupClustersToAdd);
-
-    let newRepness = o['repness'].filter(shouldKeepGroup);
-    let subgroupRepnessTop = _.find(o['subgroup-repness'], withGid);
-    if (!subgroupRepnessTop || !subgroupRepnessTop.val) {
-      return o;
-    }
-    let repnessToAdd = subgroupRepnessTop.val.map(uniquifySubgroupId);
-    newRepness = newRepness.concat(repnessToAdd);
-
-    let newGroupVotes = o['group-votes'].filter(shouldKeepGroup);
-    let subgroupVotesTop = _.find(o['subgroup-votes'], withGid);
-    if (!subgroupVotesTop || !subgroupVotesTop.val) {
-      return o;
-    }
-    let subGroupVotesToAdd = subgroupVotesTop.val.map(uniquifySubgroupId);
-    newGroupVotes = newGroupVotes.concat(subGroupVotesToAdd);
-
-    o['repness'] = _.sortBy(newRepness, "id");
-    o['group-clusters'] = _.sortBy(newGroupClusters, "id");
-    o['group-votes'] = _.sortBy(newGroupVotes, "id");
-    return o;
-  }
-
-  function packGids(o) {
-
-    // TODO start index at 1
-
-    function remapGid(g) {
-      g.id = gid2newGid[g.id];
-      return g;
-    }
-    let origGids = _.map(o['group-clusters'], (g) => {return g.id;});
-    origGids.sort();
-    let gid2newGid = {};
-    for (let i = 0; i < origGids.length; i++) {
-      gid2newGid[origGids[i]] = i;
-    }
-    o['group-clusters'] = _.sortBy(_.map(o['group-clusters'], remapGid), 'id');
-    o['group-votes'] = _.sortBy(_.map(o['group-votes'], remapGid), 'id');
-    o['repness'] = _.sortBy(_.map(o['repness'], remapGid), 'id');
-
-    o['subgroup-clusters'] = _.sortBy(_.map(o['subgroup-clusters'], remapGid), 'id');
-    o['subgroup-votes'] = _.sortBy(_.map(o['subgroup-votes'], remapGid), 'id');
-    o['subgroup-repness'] = _.sortBy(_.map(o['subgroup-repness'], remapGid), 'id');
-    return o;
-  }
-  */
 
   function redirectIfHasZidButNoConversationId(
     req: { body: { zid: any; conversation_id: any }; headers?: any },
@@ -1882,11 +1722,6 @@ function initializePolisHelpers() {
     });
   }
 
-  // function getClusters(zid, math_tick) {
-  //   return getPca(zid, math_tick).then(function(pcaData) {
-  //     return pcaData.asPOJO["group-clusters"];
-  //   });
-  // }
   function handle_GET_bid(
     req: { p: { uid?: any; zid: any; math_tick: any } },
     res: {
@@ -3209,23 +3044,6 @@ ${serverName}/pwreset/${pwresettoken}
     );
   }
 
-  // function sendTextEmailWithPostmark(sender, recipient, subject, text) {
-  //   return new Promise(function(resolve, reject) {
-  //     postmark.send({
-  //       "From": sender,
-  //       "To": recipient,
-  //       "Subject": subject,
-  //       "TextBody": text,
-  //     }, function(error, success) {
-  //       if (error) {
-  //         yell("polis_err_postmark_email_send_failed");
-  //         reject(error);
-  //       } else {
-  //         resolve();
-  //       }
-  //     });
-  //   });
-  // }
   function sendMultipleTextEmails(
     sender: string | undefined,
     recipientArray: any[],
@@ -3363,10 +3181,6 @@ Email verified! You can close this tab or hit the back button.
     return pairsList.join("&");
   }
 
-  // // units are seconds
-  // let expirationPolicies = {
-  //     pwreset_created : 60 * 60 * 2,
-  // };
 
   let HMAC_SIGNATURE_PARAM_NAME = "signature";
 
@@ -4372,20 +4186,7 @@ Email verified! You can close this tab or hit the back button.
         })
     );
   }
-  // Test for deadlock condition
-  // _.times(2, function() {
-  // setInterval(function() {
-  //         joinWithZidOrSuzinvite({
-  //             answers: [],
-  //             existingAuth: false,
-  //             zid: 11580,
-  //             // uid: req.p.uid,
-  //         }).then(function() {
-  //         }).catch(function(err) {
-  //         });
 
-  // }, 10);
-  // });
   function joinWithZidOrSuzinvite(o: {
     answers: any;
     existingAuth: boolean;
@@ -6359,28 +6160,6 @@ Email verified! You can close this tab or hit the back button.
     return url;
   }
 
-  // function createMuteUrl(zid, tid) {
-  //     let server = Config.getServerUrl();
-  //     let params = {
-  //         zid: zid,
-  //         tid: tid
-  //     };
-  //     let path = "v3/mute";
-  //     params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
-  //     return server + "/"+path+"?" + paramsToStringSortedByName(params);
-  // }
-
-  // function createUnmuteUrl(zid, tid) {
-  //     let server = Config.getServerUrl();
-  //     let params = {
-  //         zid: zid,
-  //         tid: tid
-  //     };
-  //     let path = "v3/unmute";
-  //     params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
-  //     return server + "/"+path+"?" + paramsToStringSortedByName(params);
-  // }
-
   function moderateComment(
     zid: any,
     tid: any,
@@ -6410,65 +6189,6 @@ Email verified! You can close this tab or hit the back button.
 
   const getComment = Comment.getComment;
 
-  // function muteComment(zid, tid) {
-  //     let mod = polisTypes.mod.ban;
-  //     return moderateComment(zid, tid, false, mod);
-  // }
-  // function unmuteComment(zid, tid) {
-  //     let mod = polisTypes.mod.ok;
-  //     return moderateComment(zid, tid, true, mod);
-  // }
-
-  // function handle_GET_mute(req, res) {
-  //     let tid = req.p.tid;
-  //     let zid = req.p.zid;
-  //     let params = {
-  //         zid: req.p.zid,
-  //         tid: req.p.tid,
-  //         signature: req.p[HMAC_SIGNATURE_PARAM_NAME],
-  //     };
-  //     verifyHmacForQueryParams("v3/mute", params).catch(function() {
-  //         fail(res, 403, "polis_err_signature_mismatch");
-  //     }).then(function() {
-  //         return muteComment(zid, tid);
-  //     }).then(function() {
-  //         return getComment(zid, tid);
-  //     }).then(function(c) {
-  //         res.set('Content-Type', 'text/html');
-  //         res.send(
-  //             "<h1>muted tid: "+c.tid+" zid:" + c.zid + "</h1>" +
-  //             "<p>" + c.txt + "</p>" +
-  //             "<a href=\"" + createUnmuteUrl(zid, tid) + "\">Unmute this comment.</a>"
-  //         );
-  //     }).catch(function(err) {
-  //     });
-  // }
-
-  // function handle_GET_unmute(req, res) {
-  //     let tid = req.p.tid;
-  //     let zid = req.p.zid;
-  //     let params = {
-  //         zid: req.p.zid,
-  //         tid: req.p.tid,
-  //         signature: req.p[HMAC_SIGNATURE_PARAM_NAME],
-  //     };
-  //     verifyHmacForQueryParams("v3/unmute", params).catch(function() {
-  //         fail(res, 403, "polis_err_signature_mismatch");
-  //     }).then(function() {
-  //         return unmuteComment(zid, tid);
-  //     }).then(function() {
-  //         return getComment(zid, tid);
-  //     }).then(function(c) {
-  //         res.set('Content-Type', 'text/html');
-  //         res.send(
-  //             "<h1>unmuted tid: "+c.tid+" zid:" + c.zid + "</h1>" +
-  //             "<p>" + c.txt + "</p>" +
-  //             "<a href=\"" + createMuteUrl(zid, tid) + "\">Mute this comment.</a>"
-  //         );
-  //     }).catch(function(err) {
-  //         fail(res, 500, err);
-  //     });
-  // }
   function hasBadWords(txt: string) {
     txt = txt.toLowerCase();
     let tokens = txt.split(" ");
@@ -8350,8 +8070,7 @@ Email verified! You can close this tab or hit the back button.
     pmqid: any,
     callback: { (err: any): void; (arg0: null): void }
   ) {
-    // pgQuery("update participant_metadata_choices set alive = FALSE where pmqid = ($1);", [pmqid], function(err) {
-    //     if (err) {callback(93847834); return;}
+
     pgQuery(
       "update participant_metadata_answers set alive = FALSE where pmqid = ($1);",
       [pmqid],
@@ -9285,16 +9004,6 @@ Email verified! You can close this tab or hit the back button.
       });
   }
 
-  function encodeParams(o: {
-    monthly?: any;
-    forceEmbedded?: boolean;
-    context?: any;
-  }) {
-    let stringifiedJson = JSON.stringify(o);
-    let encoded = "ep1_" + strToHex(stringifiedJson);
-    return encoded;
-  }
-
   function handle_GET_conversations(
     req: {
       p: ConversationType;
@@ -10000,39 +9709,14 @@ Thanks for using Polis!
     );
   }
 
-  // function getTwitterUserTimeline(screen_name) {
-  //   let oauth = new OAuth.OAuth(
-  //     'https://api.twitter.com/oauth/request_token', // null
-  //     'https://api.twitter.com/oauth/access_token', // null
-  //     Config.twitterConsumerKey, //'your application consumer key',
-  //     Config.twitterConsumerSecret, //'your application secret',
-  //     '1.0A',
-  //     null,
-  //     'HMAC-SHA1'
-  //   );
-  //   return new MPromise("getTwitterTweet", function(resolve, reject) {
-  //     oauth.get(
-  //       'https://api.twitter.com/1.1/statuses/user_timeline.json?screen_name=' + screen_name,
-  //       void 0, //'your user token for this app', //test user token
-  //       void 0, //'your user secret for this app', //test user secret
-  //       function(e, data, res) {
-  //         if (e) {
-  //           reject(e);
-  //         } else {
-  //           let foo = JSON.parse(data);
-  //           foo = _.pluck(foo, "text");
-  //           resolve(data);
-  //         }
-  //       }
-  //     );
-  //   });
-  // }
+ 
 
   // Certain twitter ids may be suspended.
   // Twitter will error if we request info on them.
   //  so keep a list of these for as long as the server is running,
   //  so we don't repeat requests for them.
   // This is probably not optimal, but is pretty easy.
+  
   let suspendedOrPotentiallyProblematicTwitterIds: any[] = [];
   function getTwitterUserInfoBulk(list_of_twitter_user_id: any[]) {
     list_of_twitter_user_id = list_of_twitter_user_id || [];
@@ -10196,149 +9880,7 @@ Thanks for using Polis!
   // Ensure we don't call this more than 60 times in each 15 minute window (across all of our servers/use-cases)
   setInterval(updateSomeTwitterUsers, 1 * 60 * 1000);
   updateSomeTwitterUsers();
-  function createUserFromTwitterInfo(o: any) {
-    return createDummyUser().then(function (uid?: any) {
-      return getAndInsertTwitterUser(o, uid).then(function (result: {
-        twitterUser: any;
-        twitterUserDbRecord: any;
-      }) {
-        let u = result.twitterUser;
-        let twitterUserDbRecord = result.twitterUserDbRecord;
 
-        return pgQueryP(
-          "update users set hname = ($2) where uid = ($1) and hname is NULL;",
-          [uid, u.name]
-        ).then(function () {
-          return twitterUserDbRecord;
-        });
-      });
-    });
-  }
-  function prepForQuoteWithTwitterUser(
-    quote_twitter_screen_name: any,
-    zid: any
-  ) {
-    let query = pgQueryP(
-      "select * from twitter_users where screen_name = ($1);",
-      [quote_twitter_screen_name]
-    );
-    return addParticipantByTwitterUserId(
-      // Argument of type 'Promise<unknown>' is not assignable to parameter of type 'Bluebird<any>'.
-      // Type 'Promise<unknown>' is missing the following properties from type 'Bluebird<any>': caught, error, lastly, bind, and 38 more.ts(2345)
-      // @ts-ignore
-      query,
-      {
-        twitter_screen_name: quote_twitter_screen_name,
-      },
-      zid,
-      null
-    );
-  }
-
-  function prepForTwitterComment(twitter_tweet_id: any, zid: any) {
-    return getTwitterTweetById(twitter_tweet_id).then(function (tweet: {
-      user: any;
-    }) {
-      let user = tweet.user;
-      let twitter_user_id = user.id_str;
-      let query = pgQueryP(
-        "select * from twitter_users where twitter_user_id = ($1);",
-        [twitter_user_id]
-      );
-      return addParticipantByTwitterUserId(
-        // Argument of type 'Promise<unknown>' is not assignable to parameter of type 'Bluebird<any>'.ts(2345)
-        // @ts-ignore
-        query,
-        {
-          twitter_user_id: twitter_user_id,
-        },
-        zid,
-        tweet
-      );
-    });
-  }
-  function addParticipantByTwitterUserId(
-    query: Promise<any>,
-    o: { twitter_screen_name?: any; twitter_user_id?: any },
-    zid: any,
-    tweet: { user: any } | null
-  ) {
-    function addParticipantAndFinish(
-      uid?: any,
-      twitterUser?: any,
-      tweet?: any
-    ) {
-      return (
-        addParticipant(zid, uid)
-          //       Argument of type '(rows: any[]) => { ptpt: any; twitterUser: any; tweet: any; }' is not assignable to parameter of type '(value: unknown) => { ptpt: any; twitterUser: any; tweet: any; } | PromiseLike<{ ptpt: any; twitterUser: any; tweet: any; }>'.
-          // Types of parameters 'rows' and 'value' are incompatible.
-          //   Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-          // @ts-ignore
-          .then(function (rows: any[]) {
-            let ptpt = rows[0];
-            return {
-              ptpt: ptpt,
-              twitterUser: twitterUser,
-              tweet: tweet,
-            };
-          })
-      );
-    }
-    return query.then(function (rows: string | any[]) {
-      if (rows && rows.length) {
-        let twitterUser = rows[0];
-        let uid = twitterUser.uid;
-        return getParticipant(zid, uid)
-          .then(function (ptpt: any) {
-            if (!ptpt) {
-              return addParticipantAndFinish(uid, twitterUser, tweet);
-            }
-            return {
-              ptpt: ptpt,
-              twitterUser: twitterUser,
-              tweet: tweet,
-            };
-          })
-          .catch(function (err: any) {
-            return addParticipantAndFinish(uid, twitterUser, tweet);
-          });
-      } else {
-        // no user records yet
-        return createUserFromTwitterInfo(o).then(function (twitterUser: {
-          uid?: any;
-        }) {
-          let uid = twitterUser.uid;
-          return (
-            addParticipant(zid, uid)
-              //           Argument of type '(rows: any[]) => { ptpt: any; twitterUser: { uid?: any; }; tweet: { user: any; } | null; }' is not assignable to parameter of type '(value: unknown) => { ptpt: any; twitterUser: { uid?: any; }; tweet: { user: any; } | null; } | PromiseLike<{ ptpt: any; twitterUser: { uid?: any; }; tweet: { user: any; } | null; }>'.
-              // Types of parameters 'rows' and 'value' are incompatible.
-              //           Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-              // @ts-ignore
-              .then(function (rows: any[]) {
-                let ptpt = rows[0];
-                return {
-                  ptpt: ptpt,
-                  twitterUser: twitterUser,
-                  tweet: tweet,
-                };
-              })
-          );
-        });
-      }
-    });
-
-    // * fetch tweet info
-    //   if fails, return failure
-    // * look for author in twitter_users
-    //   if exists
-    //    * use uid to find pid in participants
-    //   if not exists
-    //    * fetch info about user from twitter api
-    //      if fails, ??????
-    //      if ok
-    //       * create a new user record
-    //       * create a twitter record
-  }
 
   const addParticipant = async (zid: string, uid?: string): Promise<any> => {
     await pgQueryP(
@@ -13335,13 +12877,7 @@ Thanks for using Polis!
     //getPca
   };
   return returnObject;
-} // End of initializePolisHelpers
-// debugging
-//let ph = initializePolisHelpers()
-
-//if (false) {
-//let nextP = ph.getNextPrioritizedComment(17794, 100, [], true);
-//};
+} 
 
 export { initializePolisHelpers };
 
