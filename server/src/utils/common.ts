@@ -196,6 +196,20 @@ function isOwner(zid: any, uid: string) {
 
 const escapeLiteral = pg.Client.prototype.escapeLiteral;
 
+function isDuplicateKey(err: {
+  code: string | number;
+  sqlState: string | number;
+  messagePrimary: string | string[];
+}) {
+  let isdup =
+    err.code === 23505 ||
+    err.code === "23505" ||
+    err.sqlState === 23505 ||
+    err.sqlState === "23505" ||
+    (err.messagePrimary && err.messagePrimary.includes("duplicate key value"));
+  return isdup;
+}
+
 export {
   strToHex,
   hexToStr,
@@ -206,7 +220,8 @@ export {
   isSpam,
   doAddDataExportTask,
   isOwner,
-  escapeLiteral
+  escapeLiteral,
+  isDuplicateKey,
 };
 
 export default {
@@ -219,5 +234,6 @@ export default {
   isSpam,
   doAddDataExportTask,
   isOwner,
-  escapeLiteral
+  escapeLiteral,
+  isDuplicateKey,
 };

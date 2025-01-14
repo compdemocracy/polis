@@ -40,7 +40,13 @@ import fail from "./utils/fail";
 import { PcaCacheItem, getPca, fetchAndCacheLatestPcaData } from "./utils/pca";
 import { getZinvite, getZinvites } from "./utils/zinvite";
 import { getPidsForGid } from "./utils/participants";
-import { isSpam, doAddDataExportTask, isOwner, escapeLiteral } from "./utils/common";
+import {
+  isSpam,
+  doAddDataExportTask,
+  isOwner,
+  escapeLiteral,
+  isDuplicateKey,
+} from "./utils/common";
 
 import { handle_GET_reportExport } from "./routes/export";
 import { handle_GET_reportNarrative } from "./routes/reportNarrative";
@@ -57,9 +63,17 @@ import {
   handle_GET_xids,
   handle_POST_xidWhitelist,
   getBidsForPids,
-  handle_GET_bid
+  handle_GET_bid,
 } from "./routes/math";
-import { handle_GET_dataExport, handle_GET_dataExport_results } from "./routes/dataExport";
+import {
+  handle_GET_dataExport,
+  handle_GET_dataExport_results,
+} from "./routes/dataExport";
+import { getVotesForSingleParticipant, votesPost } from "./routes/votes";
+import {
+  handle_POST_auth_password,
+  handle_POST_auth_pwresettoken,
+} from "./routes/password";
 
 import {
   Body,
@@ -90,10 +104,9 @@ const generateToken = Password.generateToken;
 const generateTokenP = Password.generateTokenP;
 
 // TODO: Maybe able to remove
-import { checkPassword, generateHashedPassword } from "./auth/password";
+import { checkPassword } from "./auth/password";
 import cookies from "./utils/cookies";
 const COOKIES = cookies.COOKIES;
-const COOKIES_TO_CLEAR = cookies.COOKIES_TO_CLEAR;
 
 import constants from "./utils/constants";
 const DEFAULTS = constants.DEFAULTS;
@@ -166,7 +179,6 @@ function ifDefinedSet(
   }
 }
 
-const sql_votes_latest_unique = SQL.sql_votes_latest_unique;
 const sql_conversations = SQL.sql_conversations;
 const sql_participant_metadata_answers = SQL.sql_participant_metadata_answers;
 const sql_participants_extended = SQL.sql_participants_extended;
@@ -178,9 +190,6 @@ const encrypt = Session.encrypt;
 const getUserInfoForSessionToken = Session.getUserInfoForSessionToken;
 const startSession = Session.startSession;
 const endSession = Session.endSession;
-const setupPwReset = Session.setupPwReset;
-const getUidForPwResetToken = Session.getUidForPwResetToken;
-const clearPwResetToken = Session.clearPwResetToken;
 
 function hasAuthToken(req: { cookies: { [x: string]: any } }) {
   return !!req.cookies[COOKIES.TOKEN];
@@ -345,7 +354,6 @@ function doHeaderAuth(
 
 function initializePolisHelpers() {
   const polisTypes = Utils.polisTypes;
-  const setCookie = cookies.setCookie;
   const setParentReferrerCookie = cookies.setParentReferrerCookie;
   const setParentUrlCookie = cookies.setParentUrlCookie;
   const setCookieTestCookie = cookies.setCookieTestCookie;
@@ -421,133 +429,6 @@ function initializePolisHelpers() {
     );
   }
 
-  function doVotesPost(
-    uid?: any,
-    pid?: any,
-    conv?: { zid: any },
-    tid?: any,
-    voteType?: any,
-    weight?: number,
-    high_priority?: boolean
-  ) {
-    let zid = conv?.zid;
-    weight = weight || 0;
-    let weight_x_32767 = Math.trunc(weight * 32767); // weight is stored as a SMALLINT, so convert from a [-1,1] float to [-32767,32767] int
-    return new Promise(function (
-      resolve: (arg0: { conv: any; vote: any }) => void,
-      reject: (arg0: string) => void
-    ) {
-      let query =
-        "INSERT INTO votes (pid, zid, tid, vote, weight_x_32767, high_priority, created) VALUES ($1, $2, $3, $4, $5, $6, default) RETURNING *;";
-      let params = [pid, zid, tid, voteType, weight_x_32767, high_priority];
-      pgQuery(query, params, function (err: any, result: { rows: any[] }) {
-        if (err) {
-          if (isDuplicateKey(err)) {
-            reject("polis_err_vote_duplicate");
-          } else {
-            logger.error("polis_err_vote_other", err);
-            reject("polis_err_vote_other");
-          }
-          return;
-        }
-
-        const vote = result.rows[0];
-
-        resolve({
-          conv: conv,
-          vote: vote,
-        });
-      });
-    });
-  }
-
-  function votesPost(
-    uid?: any,
-    pid?: any,
-    zid?: any,
-    tid?: any,
-    xid?: any,
-    voteType?: any,
-    weight?: number,
-    high_priority?: boolean
-  ) {
-    return (
-      pgQueryP_readOnly("select * from conversations where zid = ($1);", [zid])
-        //     Argument of type '(rows: string | any[]) => any' is not assignable to parameter of type '(value: unknown) => any'.
-        // Types of parameters 'rows' and 'value' are incompatible.
-        //   Type 'unknown' is not assignable to type 'string | any[]'.
-        //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-        // @ts-ignore
-        .then(function (rows: string | any[]) {
-          if (!rows || !rows.length) {
-            throw "polis_err_unknown_conversation";
-          }
-          const conv = rows[0];
-          if (!conv.is_active) {
-            throw "polis_err_conversation_is_closed";
-          }
-          if (conv.use_xid_whitelist) {
-            return isXidWhitelisted(conv.owner, xid).then(
-              (is_whitelisted: boolean) => {
-                if (is_whitelisted) {
-                  return conv;
-                } else {
-                  throw "polis_err_xid_not_whitelisted";
-                }
-              }
-            );
-          }
-          return conv;
-        })
-        .then(function (conv: any) {
-          return doVotesPost(
-            uid,
-            pid,
-            conv,
-            tid,
-            voteType,
-            weight,
-            high_priority
-          );
-        })
-    );
-  }
-  function getVotesForSingleParticipant(p: { pid: any }) {
-    if (_.isUndefined(p.pid)) {
-      return Promise.resolve([]);
-    }
-    return votesGet(p);
-  }
-
-  function votesGet(p: { zid?: any; pid?: any; tid?: any }) {
-    // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
-    // @ts-ignore
-    return new MPromise(
-      "votesGet",
-      function (resolve: (arg0: any) => void, reject: (arg0: any) => void) {
-        let q = sql_votes_latest_unique
-          .select(sql_votes_latest_unique.star())
-          .where(sql_votes_latest_unique.zid.equals(p.zid));
-
-        if (!_.isUndefined(p.pid)) {
-          q = q.where(sql_votes_latest_unique.pid.equals(p.pid));
-        }
-        if (!_.isUndefined(p.tid)) {
-          q = q.where(sql_votes_latest_unique.tid.equals(p.tid));
-        }
-        pgQuery_readOnly(
-          q.toString(),
-          function (err: any, results: { rows: any }) {
-            if (err) {
-              reject(err);
-            } else {
-              resolve(results.rows);
-            }
-          }
-        );
-      }
-    );
-  } // End votesGet
   // belongs in server
   function writeDefaultHead(
     req: any,
@@ -738,7 +619,7 @@ function initializePolisHelpers() {
         } else if (req.body["polisApiKey"]) {
           doApiKeyAuth(assigner, getKey(req, "polisApiKey"), req, res, onDone);
         } else if (token) {
-          doCookieAuth(assigner, isOptional, req, res, onDone);
+          cookies.doCookieAuth(assigner, isOptional, req, res, onDone);
         } else if (req?.headers?.authorization) {
           doApiKeyBasicAuth(
             assigner,
@@ -974,28 +855,6 @@ function initializePolisHelpers() {
     return next();
   }
 
-  // function doAddDataExportTask(
-  //   math_env: string | undefined,
-  //   email: string,
-  //   zid: number,
-  //   atDate: number,
-  //   format: string,
-  //   task_bucket: number
-  // ) {
-  //   return pgQueryP(
-  //     "insert into worker_tasks (math_env, task_data, task_type, task_bucket) values ($1, $2, 'generate_export_data', $3);",
-  //     [
-  //       math_env,
-  //       {
-  //         email: email,
-  //         zid: zid,
-  //         "at-date": atDate,
-  //         format: format,
-  //       },
-  //       task_bucket, // TODO hash the params to get a consistent number?
-  //     ]
-  //   );
-  // }
   if (
     Config.runPeriodicExportTests &&
     !devMode &&
@@ -1044,234 +903,8 @@ function initializePolisHelpers() {
     setInterval(runExportTest, 6 * 60 * 60 * 1000); // every 6 hours
   }
 
-  function handle_POST_auth_password(
-    req: { p: { pwresettoken: any; newPassword: any } },
-    res: {
-      status: (
-        arg0: number
-      ) => {
-        (): any;
-        new (): any;
-        json: { (arg0: string): void; new (): any };
-      };
-    }
-  ) {
-    let pwresettoken = req.p.pwresettoken;
-    let newPassword = req.p.newPassword;
-
-    getUidForPwResetToken(
-      pwresettoken,
-      //     Argument of type '(err: any, userParams: { uid?: any; }) => void' is not assignable to parameter of type '(arg0: number | null, arg1?: { uid: any; } | undefined) => void'.
-      // Types of parameters 'userParams' and 'arg1' are incompatible.
-      //   Type '{ uid: any; } | undefined' is not assignable to type '{ uid?: any; }'.
-      //     Type 'undefined' is not assignable to type '{ uid?: any; }'.ts(2345)
-      // @ts-ignore
-      function (err: any, userParams: { uid?: any }) {
-        if (err) {
-          fail(
-            res,
-            500,
-            "Password Reset failed. Couldn't find matching pwresettoken.",
-            err
-          );
-          return;
-        }
-        let uid = Number(userParams.uid);
-        generateHashedPassword(
-          newPassword,
-          function (err: any, hashedPassword: any) {
-            return pgQueryP(
-              "insert into jianiuevyew (uid, pwhash) values " +
-                "($1, $2) on conflict (uid) " +
-                "do update set pwhash = excluded.pwhash;",
-              [uid, hashedPassword]
-            ).then(
-              (rows: any) => {
-                res.status(200).json("Password reset successful.");
-                clearPwResetToken(pwresettoken, function (err: any) {
-                  if (err) {
-                    logger.error("polis_err_auth_pwresettoken_clear_fail", err);
-                  }
-                });
-              },
-              (err: any) => {
-                fail(res, 500, "Couldn't reset password.", err);
-              }
-            );
-          }
-        );
-      }
-    );
-  }
-
   const getServerNameWithProtocol = Config.getServerNameWithProtocol;
 
-  function handle_POST_auth_pwresettoken(
-    req: { p: { email: any } },
-    res: {
-      status: (
-        arg0: number
-      ) => {
-        (): any;
-        new (): any;
-        json: { (arg0: string): void; new (): any };
-      };
-    }
-  ) {
-    let email = req.p.email;
-
-    let server = getServerNameWithProtocol(req);
-
-    // let's clear the cookies here, in case something is borked.
-    clearCookies(req, res);
-
-    function finish() {
-      res
-        .status(200)
-        .json("Password reset email sent, please check your email.");
-    }
-
-    getUidByEmail(email).then(
-      function (uid?: any) {
-        setupPwReset(uid, function (err: any, pwresettoken: any) {
-          sendPasswordResetEmail(
-            uid,
-            pwresettoken,
-            server,
-            function (err: any) {
-              if (err) {
-                fail(
-                  res,
-                  500,
-                  "Error: Couldn't send password reset email.",
-                  err
-                );
-                return;
-              }
-              finish();
-            }
-          );
-        });
-      },
-      function () {
-        sendPasswordResetEmailFailure(email, server);
-        finish();
-      }
-    );
-  }
-
-  function sendPasswordResetEmailFailure(email: any, server: any) {
-    let body = `We were unable to find a pol.is account registered with the email address: ${email}
-
-You may have used another email address to create your account.
-
-If you need to create a new account, you can do that here ${server}/home
-
-Feel free to reply to this email if you need help.`;
-
-    return sendTextEmail(
-      polisFromAddress,
-      email,
-      "Password Reset Failed",
-      body
-    );
-  }
-
-  function getUidByEmail(email: string) {
-    email = email.toLowerCase();
-    return pgQueryP_readOnly(
-      "SELECT uid FROM users where LOWER(email) = ($1);",
-      [email]
-      // Argument of type '(rows: string | any[]) => any' is not assignable to parameter of type '(value: unknown) => any'.
-      //   Types of parameters 'rows' and 'value' are incompatible.
-      //     Type 'unknown' is not assignable to type 'string | any[]'.
-      //       Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-      // @ts-ignore
-    ).then(function (rows: string | any[]) {
-      if (!rows || !rows.length) {
-        throw new Error("polis_err_no_user_matching_email");
-      }
-      return rows[0].uid;
-    });
-  }
-
-  function clearCookie(
-    req: { [key: string]: any; headers?: { origin: string } },
-    res: {
-      [key: string]: any;
-      clearCookie?: (
-        arg0: any,
-        arg1: { path: string; domain?: string }
-      ) => void;
-    },
-    cookieName: any
-  ) {
-    res?.clearCookie?.(cookieName, {
-      path: "/",
-      domain: cookies.cookieDomain(req),
-    });
-  }
-
-  function clearCookies(
-    req: { headers?: Headers; cookies?: any; p?: any },
-    res: {
-      clearCookie?: (
-        arg0: string,
-        arg1: { path: string; domain?: string }
-      ) => void;
-      status?: (arg0: number) => void;
-      _headers?: { [x: string]: any };
-      redirect?: (arg0: string) => void;
-      set?: (arg0: { "Content-Type": string }) => void;
-    }
-  ) {
-    let cookieName;
-    for (cookieName in req.cookies) {
-      // Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; plan: boolean; referrer: boolean; parent_url: boolean; }'.
-      // No index signature with a parameter of type 'string' was found on type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; plan: boolean; referrer: boolean; parent_url: boolean; }'.ts(7053)
-      // @ts-ignore
-      if (COOKIES_TO_CLEAR[cookieName]) {
-        res?.clearCookie?.(cookieName, {
-          path: "/",
-          domain: cookies.cookieDomain(req),
-        });
-      }
-    }
-    logger.info(
-      "after clear res set-cookie: " +
-        JSON.stringify(res?._headers?.["set-cookie"])
-    );
-  }
-  function doCookieAuth(
-    assigner: (arg0: any, arg1: string, arg2: number) => void,
-    isOptional: any,
-    req: { cookies: { [x: string]: any }; body: { uid?: any } },
-    res: { status: (arg0: number) => void },
-    next: { (err: any): void; (arg0?: string): void }
-  ) {
-    let token = req.cookies[COOKIES.TOKEN];
-
-    //if (req.body.uid) { next(401); return; } // shouldn't be in the post - TODO - see if we can do the auth in parallel for non-destructive operations
-    getUserInfoForSessionToken(token, res, function (err: any, uid?: any) {
-      if (err) {
-        clearCookies(req, res); // TODO_MULTI_DATACENTER_CONSIDERATION
-        if (isOptional) {
-          next();
-        } else {
-          res.status(403);
-          next("polis_err_auth_no_such_token");
-        }
-        return;
-      }
-      if (req.body.uid && req.body.uid !== uid) {
-        res.status(401);
-        next("polis_err_auth_mismatch_uid");
-        return;
-      }
-      assigner(req, "uid", Number(uid));
-      next();
-    });
-  }
   function handle_POST_auth_deregister(
     req: { p: { showPage?: any }; cookies: { [x: string]: any } },
     res: {
@@ -1290,7 +923,7 @@ Feel free to reply to this email if you need help.`;
     let token = req.cookies[COOKIES.TOKEN];
 
     // clear cookies regardless of auth status
-    clearCookies(req, res);
+    cookies.clearCookies(req, res);
 
     function finish() {
       if (!req.p.showPage) {
@@ -2170,7 +1803,6 @@ Feel free to reply to this email if you need help.`;
     });
   }
 
-  const getUserInfoForUid = User.getUserInfoForUid;
   const getUserInfoForUid2 = User.getUserInfoForUid2;
 
   function emailFeatureRequest(message: string) {
@@ -2209,50 +1841,50 @@ ${message}`;
 
     return emailTeam("Polis Bad Problems!!!", body);
   }
-  function sendPasswordResetEmail(
-    uid?: any,
-    pwresettoken?: any,
-    serverName?: any,
-    callback?: { (err: any): void; (arg0?: string): void }
-  ) {
-    getUserInfoForUid(
-      uid,
-      //     Argument of type '(err: any, userInfo: { hname: any; email: any; }) => void' is not assignable to parameter of type '(arg0: null, arg1?: undefined) => void'.
-      // Types of parameters 'userInfo' and 'arg1' are incompatible.
-      //     Type 'undefined' is not assignable to type '{ hname: any; email: any; }'.ts(2345)
-      // @ts-ignore
-      function (err: any, userInfo: { hname: any; email: any }) {
-        if (err) {
-          return callback?.(err);
-        }
-        if (!userInfo) {
-          return callback?.("missing user info");
-        }
-        let body = `Hi ${userInfo.hname},
+  //   function sendPasswordResetEmail(
+  //     uid?: any,
+  //     pwresettoken?: any,
+  //     serverName?: any,
+  //     callback?: { (err: any): void; (arg0?: string): void }
+  //   ) {
+  //     getUserInfoForUid(
+  //       uid,
+  //       //     Argument of type '(err: any, userInfo: { hname: any; email: any; }) => void' is not assignable to parameter of type '(arg0: null, arg1?: undefined) => void'.
+  //       // Types of parameters 'userInfo' and 'arg1' are incompatible.
+  //       //     Type 'undefined' is not assignable to type '{ hname: any; email: any; }'.ts(2345)
+  //       // @ts-ignore
+  //       function (err: any, userInfo: { hname: any; email: any }) {
+  //         if (err) {
+  //           return callback?.(err);
+  //         }
+  //         if (!userInfo) {
+  //           return callback?.("missing user info");
+  //         }
+  //         let body = `Hi ${userInfo.hname},
 
-We have just received a password reset request for ${userInfo.email}
+  // We have just received a password reset request for ${userInfo.email}
 
-To reset your password, visit this page:
-${serverName}/pwreset/${pwresettoken}
+  // To reset your password, visit this page:
+  // ${serverName}/pwreset/${pwresettoken}
 
-"Thank you for using Polis`;
+  // "Thank you for using Polis`;
 
-        sendTextEmail(
-          polisFromAddress,
-          userInfo.email,
-          "Polis Password Reset",
-          body
-        )
-          .then(function () {
-            callback?.();
-          })
-          .catch(function (err: any) {
-            logger.error("polis_err_failed_to_email_password_reset_code", err);
-            callback?.(err);
-          });
-      }
-    );
-  }
+  //         sendTextEmail(
+  //           polisFromAddress,
+  //           userInfo.email,
+  //           "Polis Password Reset",
+  //           body
+  //         )
+  //           .then(function () {
+  //             callback?.();
+  //           })
+  //           .catch(function (err: any) {
+  //             logger.error("polis_err_failed_to_email_password_reset_code", err);
+  //             callback?.(err);
+  //           });
+  //       }
+  //     );
+  //   }
 
   function sendMultipleTextEmails(
     sender: string | undefined,
@@ -2629,8 +2261,8 @@ Email verified! You can close this tab or hit the back button.
       // }
       // addCookie(res, getZidToPidCookieKey(zid), pid);
 
-      clearCookie(req, res, COOKIES.PARENT_URL);
-      clearCookie(req, res, COOKIES.PARENT_REFERRER);
+      cookies.clearCookie(req, res, COOKIES.PARENT_URL);
+      cookies.clearCookie(req, res, COOKIES.PARENT_REFERRER);
 
       setTimeout(function () {
         updateLastInteractionTimeForConversation(zid, uid);
@@ -5253,20 +4885,6 @@ Email verified! You can close this tab or hit the back button.
         fail(res, 500, "polis_err_get_comments", err);
       });
   } // end GET /api/v3/comments
-  function isDuplicateKey(err: {
-    code: string | number;
-    sqlState: string | number;
-    messagePrimary: string | string[];
-  }) {
-    let isdup =
-      err.code === 23505 ||
-      err.code === "23505" ||
-      err.sqlState === 23505 ||
-      err.sqlState === "23505" ||
-      (err.messagePrimary &&
-        err.messagePrimary.includes("duplicate key value"));
-    return isdup;
-  }
 
   function failWithRetryRequest(res: {
     setHeader: (arg0: string, arg1: number) => void;
