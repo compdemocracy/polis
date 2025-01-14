@@ -1,4 +1,5 @@
 import _ from "underscore";
+import pg from "pg";
 import dbPgQuery, {
   query as pgQuery,
   query_readOnly as pgQuery_readOnly,
@@ -8,7 +9,8 @@ import dbPgQuery, {
   queryP_readOnly_wRetryIfEmpty as pgQueryP_readOnly_wRetryIfEmpty,
 } from "../db/pg-query";
 import akismetLib from "akismet";
-import logger from "./utils/logger";
+import logger from "../utils/logger";
+import Conversation from "../conversation";
 import Config from "../config";
 
 type PolisTypes = {
@@ -163,6 +165,37 @@ function isModerator(zid: any, uid?: any) {
   });
 }
 
+function doAddDataExportTask(
+  math_env: string | undefined,
+  email: string,
+  zid: number,
+  atDate: number,
+  format: string,
+  task_bucket: number
+) {
+  return pgQueryP(
+    "insert into worker_tasks (math_env, task_data, task_type, task_bucket) values ($1, $2, 'generate_export_data', $3);",
+    [
+      math_env,
+      {
+        email: email,
+        zid: zid,
+        "at-date": atDate,
+        format: format,
+      },
+      task_bucket, // TODO hash the params to get a consistent number?
+    ]
+  );
+}
+
+function isOwner(zid: any, uid: string) {
+  return Conversation.getConversationInfo(zid).then(function (info: any) {
+    return info.owner === uid;
+  });
+}
+
+const escapeLiteral = pg.Client.prototype.escapeLiteral;
+
 export {
   strToHex,
   hexToStr,
@@ -170,7 +203,10 @@ export {
   isConversationOwner,
   isModerator,
   isPolisDev,
-  isSpam
+  isSpam,
+  doAddDataExportTask,
+  isOwner,
+  escapeLiteral
 };
 
 export default {
@@ -180,5 +216,8 @@ export default {
   isConversationOwner,
   isModerator,
   isPolisDev,
-  isSpam
+  isSpam,
+  doAddDataExportTask,
+  isOwner,
+  escapeLiteral
 };

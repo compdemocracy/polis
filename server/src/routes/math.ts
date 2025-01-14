@@ -1,10 +1,14 @@
+import _ from "underscore";
 import { getPca, PcaCacheItem } from "../utils/pca";
 import fail from "../utils/fail";
-import { queryP as pgQueryP } from "../db/pg-query";
+import { queryP as pgQueryP, query_readOnly as pgQuery_readOnly } from "../db/pg-query";
 import Utils from "../utils/common";
 import { getZidForRid } from "../utils/zinvite";
+import { getBidIndexToPidMapping } from "../utils/participants";
 
 import Config from "../config";
+import logger from "../utils/logger";
+import User from "../user";
 
 function handle_GET_math_pca(
   req: any,
@@ -22,6 +26,8 @@ function handle_GET_math_pca(
 // Needed to determine whether to return a 404 or a 304.
 // zid -> boolean
 const pcaResultsExistForZid = {};
+
+const getPidPromise = User.getPidPromise;
 
 function handle_GET_math_pca2(
   req: { p: { zid: any; math_tick: any; ifNoneMatch: any } },
@@ -251,9 +257,227 @@ function handle_GET_math_correlationMatrix(
     });
 }
 
+function handle_GET_bidToPid(
+  req: { p: { zid: any; math_tick: any } },
+  res: {
+    json: (arg0: { bidToPid: any }) => void;
+    status: (
+      arg0: number
+    ) => { (): any; new (): any; end: { (): void; new (): any } };
+  }
+) {
+  let zid = req.p.zid;
+  let math_tick = req.p.math_tick;
+  getBidIndexToPidMapping(zid, math_tick).then(
+    function (doc: { bidToPid: any }) {
+      let b2p = doc.bidToPid;
+      res.json({
+        bidToPid: b2p,
+      });
+    },
+    function (err: any) {
+      res.status(304).end();
+    }
+  );
+}
+
+function getXids(zid: any) {
+  // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
+  // @ts-ignore
+  return new MPromise(
+    "getXids",
+    function (resolve: (arg0: any) => void, reject: (arg0: string) => void) {
+      pgQuery_readOnly(
+        "select pid, xid from xids inner join " +
+          "(select * from participants where zid = ($1)) as p on xids.uid = p.uid " +
+          " where owner in (select org_id from conversations where zid = ($1));",
+        [zid],
+        function (err: any, result: { rows: any }) {
+          if (err) {
+            reject("polis_err_fetching_xids");
+            return;
+          }
+          resolve(result.rows);
+        }
+      );
+    }
+  );
+}
+function handle_GET_xids(
+  req: { p: { uid?: any; zid: any } },
+  res: {
+    status: (
+      arg0: number
+    ) => { (): any; new (): any; json: { (arg0: any): void; new (): any } };
+  }
+) {
+  let uid = req.p.uid;
+  let zid = req.p.zid;
+
+  Utils.isOwner(zid, uid).then(
+    function (owner: any) {
+      if (owner) {
+        getXids(zid).then(
+          function (xids: any) {
+            res.status(200).json(xids);
+          },
+          function (err: any) {
+            fail(res, 500, "polis_err_get_xids", err);
+          }
+        );
+      } else {
+        fail(res, 403, "polis_err_get_xids_not_authorized");
+      }
+    },
+    function (err: any) {
+      fail(res, 500, "polis_err_get_xids", err);
+    }
+  );
+}
+function handle_POST_xidWhitelist(
+  req: { p: { xid_whitelist: any; uid?: any } },
+  res: {
+    status: (
+      arg0: number
+    ) => { (): any; new (): any; json: { (arg0: {}): void; new (): any } };
+  }
+) {
+  const xid_whitelist = req.p.xid_whitelist;
+  const len = xid_whitelist.length;
+  const owner = req.p.uid;
+  const entries = [];
+  try {
+    for (var i = 0; i < len; i++) {
+      entries.push("(" + Utils.escapeLiteral(xid_whitelist[i]) + "," + owner + ")");
+    }
+  } catch (err) {
+    return fail(res, 400, "polis_err_bad_xid", err);
+  }
+
+  pgQueryP(
+    "insert into xid_whitelist (xid, owner) values " +
+      entries.join(",") +
+      " on conflict do nothing;",
+    []
+  )
+    .then((result: any) => {
+      res.status(200).json({});
+    })
+    .catch((err: any) => {
+      return fail(res, 500, "polis_err_POST_xidWhitelist", err);
+    });
+}
+function getBidsForPids(zid: any, math_tick: number, pids: any[]) {
+  let dataPromise = getBidIndexToPidMapping(zid, math_tick);
+  let mathResultsPromise = getPca(zid, math_tick);
+
+  return Promise.all([dataPromise, mathResultsPromise]).then(function (
+    items: { asPOJO: any }[]
+  ) {
+    // Property 'bidToPid' does not exist on type '{ asPOJO: any; }'.ts(2339)
+    // @ts-ignore
+    let b2p = items[0].bidToPid || []; // not sure yet if "|| []" is right here.
+    let mathResults = items[1].asPOJO;
+    function findBidForPid(pid: any) {
+      let yourBidi = -1;
+      // if (!b2p) {
+      //     return yourBidi;
+      // }
+      for (var bidi = 0; bidi < b2p.length; bidi++) {
+        let pids = b2p[bidi];
+        if (pids.indexOf(pid) !== -1) {
+          yourBidi = bidi;
+          break;
+        }
+      }
+
+      let yourBid = indexToBid[yourBidi];
+
+      if (yourBidi >= 0 && _.isUndefined(yourBid)) {
+        logger.error("polis_err_math_index_mapping_mismatch", { pid, b2p });
+        yourBid = -1;
+      }
+      return yourBid;
+    }
+
+    let indexToBid = mathResults["base-clusters"].id;
+    let bids = pids.map(findBidForPid);
+    let pidToBid = _.object(pids, bids);
+    return pidToBid;
+  });
+}
+
+function handle_GET_bid(
+  req: { p: { uid?: any; zid: any; math_tick: any } },
+  res: {
+    json: (arg0: { bid: any }) => void;
+    status: (
+      arg0: number
+    ) => { (): any; new (): any; end: { (): void; new (): any } };
+  }
+) {
+  let uid = req.p.uid;
+  let zid = req.p.zid;
+  let math_tick = req.p.math_tick;
+
+  let dataPromise = getBidIndexToPidMapping(zid, math_tick);
+  let pidPromise = getPidPromise(zid, uid);
+  let mathResultsPromise = getPca(zid, math_tick);
+
+  Promise.all([dataPromise, pidPromise, mathResultsPromise])
+    .then(
+      function (items: { asPOJO: any }[]) {
+        // Property 'bidToPid' does not exist on type '{ asPOJO: any; }'.ts(2339)
+        // @ts-ignore
+        let b2p = items[0].bidToPid || []; // not sure yet if "|| []" is right here.
+        let pid = items[1];
+        let mathResults = items[2].asPOJO;
+        if (((pid as unknown) as number) < 0) {
+          // NOTE: this API should not be called in /demo mode
+          fail(res, 500, "polis_err_get_bid_bad_pid");
+          return;
+        }
+
+        let indexToBid = mathResults["base-clusters"].id;
+
+        let yourBidi = -1;
+        for (var bidi = 0; bidi < b2p.length; bidi++) {
+          let pids = b2p[bidi];
+          if (pids.indexOf(pid) !== -1) {
+            yourBidi = bidi;
+            break;
+          }
+        }
+
+        let yourBid = indexToBid[yourBidi];
+
+        if (yourBidi >= 0 && _.isUndefined(yourBid)) {
+          logger.error("polis_err_math_index_mapping_mismatch", { pid, b2p });
+          yourBid = -1;
+        }
+
+        res.json({
+          bid: yourBid, // The user's current bid
+        });
+      },
+      function (err: any) {
+        res.status(304).end();
+      }
+    )
+    .catch(function (err: any) {
+      fail(res, 500, "polis_err_get_bid_misc", err);
+    });
+}
+
 export {
   handle_GET_math_pca,
   handle_GET_math_pca2,
   handle_POST_math_update,
   handle_GET_math_correlationMatrix,
+  handle_GET_bidToPid,
+  getXids,
+  handle_GET_xids,
+  handle_POST_xidWhitelist,
+  getBidsForPids,
+  handle_GET_bid
 };

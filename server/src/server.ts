@@ -21,7 +21,6 @@ import request from "request-promise"; // includes Request, but adds promise met
 import LruCache from "lru-cache";
 import timeout from "connect-timeout";
 import _ from "underscore";
-import pg from "pg";
 import { encode } from "html-entities";
 
 import { METRICS_IN_RAM, addInRamMetric, MPromise } from "./utils/metered";
@@ -40,8 +39,8 @@ import Config from "./config";
 import fail from "./utils/fail";
 import { PcaCacheItem, getPca, fetchAndCacheLatestPcaData } from "./utils/pca";
 import { getZinvite, getZinvites } from "./utils/zinvite";
-import { getBidIndexToPidMapping, getPidsForGid } from "./utils/participants";
-import { isSpam } from "./utils/common";
+import { getPidsForGid } from "./utils/participants";
+import { isSpam, doAddDataExportTask, isOwner, escapeLiteral } from "./utils/common";
 
 import { handle_GET_reportExport } from "./routes/export";
 import { handle_GET_reportNarrative } from "./routes/reportNarrative";
@@ -53,7 +52,14 @@ import {
   handle_GET_math_pca2,
   handle_POST_math_update,
   handle_GET_math_correlationMatrix,
+  handle_GET_bidToPid,
+  getXids,
+  handle_GET_xids,
+  handle_POST_xidWhitelist,
+  getBidsForPids,
+  handle_GET_bid
 } from "./routes/math";
+import { handle_GET_dataExport, handle_GET_dataExport_results } from "./routes/dataExport";
 
 import {
   Body,
@@ -78,8 +84,6 @@ import {
 
 AWS.config.update({ region: Config.awsRegion });
 const devMode = Config.isDevMode;
-const s3Client = new AWS.S3({ apiVersion: "2006-03-01" });
-const escapeLiteral = pg.Client.prototype.escapeLiteral;
 const doSendVerification = CreateUser.doSendVerification;
 const generateAndRegisterZinvite = CreateUser.generateAndRegisterZinvite;
 const generateToken = Password.generateToken;
@@ -802,45 +806,6 @@ function initializePolisHelpers() {
           next(err || "polis_err_auth_error_432");
         });
     };
-
-    //   let xid = req.body.xid;
-    //   let hasXid = !_.isUndefined(xid);
-
-    //   if (hasXid) {
-    //     req.p = req.p || {};
-    //     req.p.xid = xid;
-    //     getConversationIdFetchZid(req.body.conversation_id).then((zid) => {
-
-    //       return getXidStuff(xid, zid).then((xidRecord) => {
-    //         let foundXidRecord = xidRecord !== "noXidRecord";
-    //         if (foundXidRecord) {
-    //           assigner(req, "uid", Number(xidRecord.uid));
-    //           return next();
-    //         }
-    //         // try other auth methods, and once those are done, use req.p.uid to create new xid record.
-    //         doAuth(req, res).then(() => {
-    //           if (req.p.uid && !isOptional) { // req.p.uid might be set now.
-    //             return createXidRecordByZid(zid, req.p.uid, xid, req.body.x_profile_image_url, req.body.x_name, req.body.x_email);
-    //           } else if (!isOptional) {
-    //             throw "polis_err_missing_non_optional_uid";
-    //           }
-    //         }).then(() => {
-    //           return next();
-    //         }).catch((err) => {
-    //           res.status(500);
-    //           return next("polis_err_auth_xid_error_423423");
-    //         });
-    //       });
-    //     });
-    //   } else {
-    //     doAuth(req, res).then(() => {
-    //       return next();
-    //     }).catch((err) => {
-    //       res.status(500);
-    //       next("polis_err_auth_error_432");
-    //     });
-    //   }
-    // };
   }
   // input token from body or query, and populate req.body.u with userid.
   function authOptional(assigner: any) {
@@ -1009,28 +974,28 @@ function initializePolisHelpers() {
     return next();
   }
 
-  function doAddDataExportTask(
-    math_env: string | undefined,
-    email: string,
-    zid: number,
-    atDate: number,
-    format: string,
-    task_bucket: number
-  ) {
-    return pgQueryP(
-      "insert into worker_tasks (math_env, task_data, task_type, task_bucket) values ($1, $2, 'generate_export_data', $3);",
-      [
-        math_env,
-        {
-          email: email,
-          zid: zid,
-          "at-date": atDate,
-          format: format,
-        },
-        task_bucket, // TODO hash the params to get a consistent number?
-      ]
-    );
-  }
+  // function doAddDataExportTask(
+  //   math_env: string | undefined,
+  //   email: string,
+  //   zid: number,
+  //   atDate: number,
+  //   format: string,
+  //   task_bucket: number
+  // ) {
+  //   return pgQueryP(
+  //     "insert into worker_tasks (math_env, task_data, task_type, task_bucket) values ($1, $2, 'generate_export_data', $3);",
+  //     [
+  //       math_env,
+  //       {
+  //         email: email,
+  //         zid: zid,
+  //         "at-date": atDate,
+  //         format: format,
+  //       },
+  //       task_bucket, // TODO hash the params to get a consistent number?
+  //     ]
+  //   );
+  // }
   if (
     Config.runPeriodicExportTests &&
     !devMode &&
@@ -1077,259 +1042,6 @@ function initializePolisHelpers() {
       });
     };
     setInterval(runExportTest, 6 * 60 * 60 * 1000); // every 6 hours
-  }
-  function handle_GET_dataExport(
-    req: { p: { uid?: any; zid: any; unixTimestamp: number; format: any } },
-    res: { json: (arg0: {}) => void }
-  ) {
-    getUserInfoForUid2(req.p.uid)
-      .then((user: { email: any }) => {
-        return doAddDataExportTask(
-          Config.mathEnv,
-          user.email,
-          req.p.zid,
-          req.p.unixTimestamp * 1000,
-          req.p.format,
-          Math.abs((Math.random() * 999999999999) >> 0)
-        )
-          .then(() => {
-            res.json({});
-          })
-          .catch((err: any) => {
-            fail(res, 500, "polis_err_data_export123", err);
-          });
-      })
-      .catch((err: any) => {
-        fail(res, 500, "polis_err_data_export123b", err);
-      });
-  }
-  function handle_GET_dataExport_results(
-    req: { p: { filename: string } },
-    res: { redirect: (arg0: any) => void }
-  ) {
-    var url = s3Client.getSignedUrl("getObject", {
-      Bucket: "polis-datadump",
-      Key: Config.mathEnv + "/" + req.p.filename,
-      Expires: 60 * 60 * 24 * 7,
-    });
-    res.redirect(url);
-
-    // res.writeHead(302, {
-    //   Location: protocol + "://" + req?.headers?.host + path,
-    // });
-    // return res.end();
-  }
-
-  function handle_GET_bidToPid(
-    req: { p: { zid: any; math_tick: any } },
-    res: {
-      json: (arg0: { bidToPid: any }) => void;
-      status: (
-        arg0: number
-      ) => { (): any; new (): any; end: { (): void; new (): any } };
-    }
-  ) {
-    let zid = req.p.zid;
-    let math_tick = req.p.math_tick;
-    getBidIndexToPidMapping(zid, math_tick).then(
-      function (doc: { bidToPid: any }) {
-        let b2p = doc.bidToPid;
-        res.json({
-          bidToPid: b2p,
-        });
-      },
-      function (err: any) {
-        res.status(304).end();
-      }
-    );
-  }
-
-  function getXids(zid: any) {
-    // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
-    // @ts-ignore
-    return new MPromise(
-      "getXids",
-      function (resolve: (arg0: any) => void, reject: (arg0: string) => void) {
-        pgQuery_readOnly(
-          "select pid, xid from xids inner join " +
-            "(select * from participants where zid = ($1)) as p on xids.uid = p.uid " +
-            " where owner in (select org_id from conversations where zid = ($1));",
-          [zid],
-          function (err: any, result: { rows: any }) {
-            if (err) {
-              reject("polis_err_fetching_xids");
-              return;
-            }
-            resolve(result.rows);
-          }
-        );
-      }
-    );
-  }
-  function handle_GET_xids(
-    req: { p: { uid?: any; zid: any } },
-    res: {
-      status: (
-        arg0: number
-      ) => { (): any; new (): any; json: { (arg0: any): void; new (): any } };
-    }
-  ) {
-    let uid = req.p.uid;
-    let zid = req.p.zid;
-
-    isOwner(zid, uid).then(
-      function (owner: any) {
-        if (owner) {
-          getXids(zid).then(
-            function (xids: any) {
-              res.status(200).json(xids);
-            },
-            function (err: any) {
-              fail(res, 500, "polis_err_get_xids", err);
-            }
-          );
-        } else {
-          fail(res, 403, "polis_err_get_xids_not_authorized");
-        }
-      },
-      function (err: any) {
-        fail(res, 500, "polis_err_get_xids", err);
-      }
-    );
-  }
-  function handle_POST_xidWhitelist(
-    req: { p: { xid_whitelist: any; uid?: any } },
-    res: {
-      status: (
-        arg0: number
-      ) => { (): any; new (): any; json: { (arg0: {}): void; new (): any } };
-    }
-  ) {
-    const xid_whitelist = req.p.xid_whitelist;
-    const len = xid_whitelist.length;
-    const owner = req.p.uid;
-    const entries = [];
-    try {
-      for (var i = 0; i < len; i++) {
-        entries.push("(" + escapeLiteral(xid_whitelist[i]) + "," + owner + ")");
-      }
-    } catch (err) {
-      return fail(res, 400, "polis_err_bad_xid", err);
-    }
-
-    pgQueryP(
-      "insert into xid_whitelist (xid, owner) values " +
-        entries.join(",") +
-        " on conflict do nothing;",
-      []
-    )
-      .then((result: any) => {
-        res.status(200).json({});
-      })
-      .catch((err: any) => {
-        return fail(res, 500, "polis_err_POST_xidWhitelist", err);
-      });
-  }
-  function getBidsForPids(zid: any, math_tick: number, pids: any[]) {
-    let dataPromise = getBidIndexToPidMapping(zid, math_tick);
-    let mathResultsPromise = getPca(zid, math_tick);
-
-    return Promise.all([dataPromise, mathResultsPromise]).then(function (
-      items: { asPOJO: any }[]
-    ) {
-      // Property 'bidToPid' does not exist on type '{ asPOJO: any; }'.ts(2339)
-      // @ts-ignore
-      let b2p = items[0].bidToPid || []; // not sure yet if "|| []" is right here.
-      let mathResults = items[1].asPOJO;
-      function findBidForPid(pid: any) {
-        let yourBidi = -1;
-        // if (!b2p) {
-        //     return yourBidi;
-        // }
-        for (var bidi = 0; bidi < b2p.length; bidi++) {
-          let pids = b2p[bidi];
-          if (pids.indexOf(pid) !== -1) {
-            yourBidi = bidi;
-            break;
-          }
-        }
-
-        let yourBid = indexToBid[yourBidi];
-
-        if (yourBidi >= 0 && _.isUndefined(yourBid)) {
-          logger.error("polis_err_math_index_mapping_mismatch", { pid, b2p });
-          yourBid = -1;
-        }
-        return yourBid;
-      }
-
-      let indexToBid = mathResults["base-clusters"].id;
-      let bids = pids.map(findBidForPid);
-      let pidToBid = _.object(pids, bids);
-      return pidToBid;
-    });
-  }
-
-  function handle_GET_bid(
-    req: { p: { uid?: any; zid: any; math_tick: any } },
-    res: {
-      json: (arg0: { bid: any }) => void;
-      status: (
-        arg0: number
-      ) => { (): any; new (): any; end: { (): void; new (): any } };
-    }
-  ) {
-    let uid = req.p.uid;
-    let zid = req.p.zid;
-    let math_tick = req.p.math_tick;
-
-    let dataPromise = getBidIndexToPidMapping(zid, math_tick);
-    let pidPromise = getPidPromise(zid, uid);
-    let mathResultsPromise = getPca(zid, math_tick);
-
-    Promise.all([dataPromise, pidPromise, mathResultsPromise])
-      .then(
-        function (items: { asPOJO: any }[]) {
-          // Property 'bidToPid' does not exist on type '{ asPOJO: any; }'.ts(2339)
-          // @ts-ignore
-          let b2p = items[0].bidToPid || []; // not sure yet if "|| []" is right here.
-          let pid = items[1];
-          let mathResults = items[2].asPOJO;
-          if (((pid as unknown) as number) < 0) {
-            // NOTE: this API should not be called in /demo mode
-            fail(res, 500, "polis_err_get_bid_bad_pid");
-            return;
-          }
-
-          let indexToBid = mathResults["base-clusters"].id;
-
-          let yourBidi = -1;
-          for (var bidi = 0; bidi < b2p.length; bidi++) {
-            let pids = b2p[bidi];
-            if (pids.indexOf(pid) !== -1) {
-              yourBidi = bidi;
-              break;
-            }
-          }
-
-          let yourBid = indexToBid[yourBidi];
-
-          if (yourBidi >= 0 && _.isUndefined(yourBid)) {
-            logger.error("polis_err_math_index_mapping_mismatch", { pid, b2p });
-            yourBid = -1;
-          }
-
-          res.json({
-            bid: yourBid, // The user's current bid
-          });
-        },
-        function (err: any) {
-          res.status(304).end();
-        }
-      )
-      .catch(function (err: any) {
-        fail(res, 500, "polis_err_get_bid_misc", err);
-      });
   }
 
   function handle_POST_auth_password(
@@ -2389,12 +2101,6 @@ Feel free to reply to this email if you need help.`;
       } else {
         callback?.(null);
       }
-    });
-  }
-
-  function isOwner(zid: any, uid: string) {
-    return getConversationInfo(zid).then(function (info: any) {
-      return info.owner === uid;
     });
   }
 
