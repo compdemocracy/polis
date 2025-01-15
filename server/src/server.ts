@@ -2,54 +2,6 @@
 
 "use strict";
 
-import AWS from "aws-sdk";
-import badwords from "badwords/object";
-import { Promise as BluebirdPromise } from "bluebird";
-import http from "http";
-import httpProxy from "http-proxy";
-import async from "async";
-// npm list types-at-fb
-// @ts-ignore
-import FB from "fb";
-import { google } from "googleapis";
-import bcrypt from "bcryptjs";
-import crypto from "crypto";
-import OAuth from "oauth";
-import replaceStream from "replacestream";
-import responseTime from "response-time";
-import request from "request-promise"; // includes Request, but adds promise methods
-import LruCache from "lru-cache";
-import timeout from "connect-timeout";
-import _ from "underscore";
-import { encode } from "html-entities";
-
-import { METRICS_IN_RAM, addInRamMetric, MPromise } from "./utils/metered";
-import CreateUser from "./auth/create-user";
-import Password from "./auth/password";
-import dbPgQuery, {
-  query as pgQuery,
-  query_readOnly as pgQuery_readOnly,
-  queryP as pgQueryP,
-  queryP_metered_readOnly as pgQueryP_metered_readOnly,
-  queryP_readOnly as pgQueryP_readOnly,
-  queryP_readOnly_wRetryIfEmpty as pgQueryP_readOnly_wRetryIfEmpty,
-} from "./db/pg-query";
-
-import Config from "./config";
-import fail from "./utils/fail";
-import { PcaCacheItem, getPca, fetchAndCacheLatestPcaData } from "./utils/pca";
-import { getZinvite, getZinvites } from "./utils/zinvite";
-import { getPidsForGid } from "./utils/participants";
-import {
-  isSpam,
-  doAddDataExportTask,
-  isOwner,
-  escapeLiteral,
-  isDuplicateKey,
-} from "./utils/common";
-
-import { handle_GET_reportExport } from "./routes/export";
-import { handle_GET_reportNarrative } from "./routes/reportNarrative";
 import handle_DELETE_metadata_answers from "./routes/metadataAnswers";
 import handle_GET_launchPrep from "./routes/launchPrep";
 import handle_GET_tryCookie from "./routes/tryCookie";
@@ -75,12 +27,62 @@ import {
   handle_POST_auth_pwresettoken,
 } from "./routes/password";
 
+import akismetLib from "akismet";
+import AWS from "aws-sdk";
+import badwords from "badwords/object";
+import { Promise as BluebirdPromise } from "bluebird";
+import http from "http";
+import httpProxy from "http-proxy";
+// const Promise = require('es6-promise').Promise,
+import async from "async";
+// npm list types-at-fb
+// @ts-ignore
+import FB from "fb";
+import { google } from "googleapis";
+import fs from "fs";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
+import OAuth from "oauth";
+import replaceStream from "replacestream";
+import responseTime from "response-time";
+import request from "request-promise"; // includes Request, but adds promise methods
+import LruCache from "lru-cache";
+import timeout from "connect-timeout";
+import _ from "underscore";
+import pg from "pg";
+import { encode } from "html-entities";
+
+import { METRICS_IN_RAM, addInRamMetric, MPromise } from "./utils/metered";
+import CreateUser from "./auth/create-user";
+import Password from "./auth/password";
+import dbPgQuery, {
+  query as pgQuery,
+  query_readOnly as pgQuery_readOnly,
+  queryP as pgQueryP,
+  queryP_metered as pgQueryP_metered,
+  queryP_metered_readOnly as pgQueryP_metered_readOnly,
+  queryP_readOnly as pgQueryP_readOnly,
+  stream_queryP_readOnly as stream_pgQueryP_readOnly,
+  queryP_readOnly_wRetryIfEmpty as pgQueryP_readOnly_wRetryIfEmpty,
+} from "./db/pg-query";
+
+import Config from "./config";
+import fail from "./utils/fail";
+import { PcaCacheItem, getPca, fetchAndCacheLatestPcaData } from "./utils/pca";
+import { getZinvite, getZinvites, getZidForRid } from "./utils/zinvite";
+import { getBidIndexToPidMapping, getPidsForGid } from "./utils/participants";
+
+import { handle_GET_reportExport } from "./routes/export";
+import { handle_GET_reportNarrative } from "./routes/reportNarrative";
+
 import {
   Body,
   DetectLanguageResult,
   Headers,
   Query,
   AuthRequest,
+  AuthBody,
+  AuthQuery,
   ParticipantInfo,
   PidReadyResult,
   CommentOptions,
@@ -91,6 +93,7 @@ import {
   CommentType,
   TwitterParameters,
   ParticipantSocialNetworkInfo,
+  ParticipantOption,
   DemographicEntry,
   Demo,
   Vote,
@@ -98,15 +101,18 @@ import {
 
 AWS.config.update({ region: Config.awsRegion });
 const devMode = Config.isDevMode;
+const s3Client = new AWS.S3({ apiVersion: "2006-03-01" });
+const escapeLiteral = pg.Client.prototype.escapeLiteral;
 const doSendVerification = CreateUser.doSendVerification;
 const generateAndRegisterZinvite = CreateUser.generateAndRegisterZinvite;
 const generateToken = Password.generateToken;
 const generateTokenP = Password.generateTokenP;
 
 // TODO: Maybe able to remove
-import { checkPassword } from "./auth/password";
+import { checkPassword, generateHashedPassword } from "./auth/password";
 import cookies from "./utils/cookies";
 const COOKIES = cookies.COOKIES;
+const COOKIES_TO_CLEAR = cookies.COOKIES_TO_CLEAR;
 
 import constants from "./utils/constants";
 const DEFAULTS = constants.DEFAULTS;
@@ -125,6 +131,10 @@ import emailSenders from "./email/senders";
 const sendTextEmail = emailSenders.sendTextEmail;
 const sendTextEmailWithBackupOnly = emailSenders.sendTextEmailWithBackupOnly;
 
+const resolveWith = (x: { body?: { user_id: string } }) => {
+  return Promise.resolve(x);
+};
+
 if (devMode) {
   BluebirdPromise.longStackTraces();
 }
@@ -132,12 +142,75 @@ if (devMode) {
 // Bluebird uncaught error handler.
 BluebirdPromise.onPossiblyUnhandledRejection(function (err: any) {
   logger.error("onPossiblyUnhandledRejection", err);
+  // throw err; // not throwing since we're printing stack traces anyway
 });
 
 const adminEmails = Config.adminEmails ? JSON.parse(Config.adminEmails) : [];
 
+const polisDevs = Config.adminUIDs ? JSON.parse(Config.adminUIDs) : [];
+
+function isPolisDev(uid?: any) {
+  return polisDevs.indexOf(uid) >= 0;
+}
+
 const polisFromAddress = Config.polisFromAddress;
 
+const serverUrl = Config.getServerUrl(); // typically https://pol.is or http://localhost:5000
+
+let akismet = akismetLib.client({
+  blog: serverUrl,
+  apiKey: Config.akismetAntispamApiKey,
+});
+
+akismet.verifyKey(function (err: any, verified: any) {
+  if (verified) {
+    logger.debug("Akismet: API key successfully verified.");
+  } else {
+    logger.debug("Akismet: Unable to verify API key.");
+  }
+});
+// let SELF_HOSTNAME = Config.getServerHostname();
+
+function isSpam(o: {
+  comment_content: any;
+  comment_author: any;
+  permalink: string;
+  user_ip: any;
+  user_agent: any;
+  referrer: any;
+}) {
+  // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
+  // @ts-ignore
+  return new MPromise(
+    "isSpam",
+    function (resolve: (arg0: any) => void, reject: (arg0: any) => void) {
+      akismet.checkSpam(o, function (err: any, spam: any) {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(spam);
+        }
+      });
+    }
+  );
+}
+
+var INFO: {
+  (
+    arg0: string,
+    arg1: string | undefined,
+    arg2: undefined,
+    arg3: string | undefined,
+    arg4: undefined,
+    arg5: string | undefined,
+    arg6: undefined
+  ): void;
+  (...data: any[]): void;
+  (message?: any, ...optionalParams: any[]): void;
+  (): void;
+};
+
+// basic defaultdict implementation
 function DD(this: any, f: () => { votes: number; comments: number }) {
   this.m = {};
   this.f = f;
@@ -179,6 +252,7 @@ function ifDefinedSet(
   }
 }
 
+const sql_votes_latest_unique = SQL.sql_votes_latest_unique;
 const sql_conversations = SQL.sql_conversations;
 const sql_participant_metadata_answers = SQL.sql_participant_metadata_answers;
 const sql_participants_extended = SQL.sql_participants_extended;
@@ -186,10 +260,14 @@ const sql_reports = SQL.sql_reports;
 const sql_users = SQL.sql_users;
 
 const encrypt = Session.encrypt;
-
+const decrypt = Session.decrypt;
+const makeSessionToken = Session.makeSessionToken;
 const getUserInfoForSessionToken = Session.getUserInfoForSessionToken;
 const startSession = Session.startSession;
 const endSession = Session.endSession;
+const setupPwReset = Session.setupPwReset;
+const getUidForPwResetToken = Session.getUidForPwResetToken;
+const clearPwResetToken = Session.clearPwResetToken;
 
 function hasAuthToken(req: { cookies: { [x: string]: any } }) {
   return !!req.cookies[COOKIES.TOKEN];
@@ -216,12 +294,13 @@ function doApiKeyBasicAuth(
     username = parts[0],
     // password = parts[1], // we don't use the password part (just use "apikey:")
     apikey = username;
-  return doApiKeyAuth(assigner, apikey, req, res, next);
+  return doApiKeyAuth(assigner, apikey, isOptional, req, res, next);
 }
 
 function doApiKeyAuth(
   assigner: (arg0: any, arg1: string, arg2: number) => void,
   apikey: string,
+  isOptional: any,
   req: any,
   res: { status: (arg0: number) => void },
   next: { (err: any): void; (err: any): void; (arg0?: string): void }
@@ -352,10 +431,29 @@ function doHeaderAuth(
   });
 }
 
+// Property 'hashCode' does not exist on type 'String'.ts(2339)
+// @ts-ignore
+String.prototype.hashCode = function () {
+  let hash = 0;
+  let i;
+  let character;
+  if (this.length === 0) {
+    return hash;
+  }
+  for (i = 0; i < this.length; i++) {
+    character = this.charCodeAt(i);
+    hash = (hash << 5) - hash + character;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return hash;
+};
+
 function initializePolisHelpers() {
   const polisTypes = Utils.polisTypes;
+  const setCookie = cookies.setCookie;
   const setParentReferrerCookie = cookies.setParentReferrerCookie;
   const setParentUrlCookie = cookies.setParentUrlCookie;
+  const setPermanentCookie = cookies.setPermanentCookie;
   const setCookieTestCookie = cookies.setCookieTestCookie;
   const addCookies = cookies.addCookies;
   const getPermanentCookieAndEnsureItIsSet =
@@ -429,7 +527,76 @@ function initializePolisHelpers() {
     );
   }
 
-  // belongs in server
+  function doVotesPost(
+    uid?: any,
+    pid?: any,
+    conv?: { zid: any },
+    tid?: any,
+    voteType?: any,
+    weight?: number,
+    high_priority?: boolean
+  ) {
+    let zid = conv?.zid;
+    weight = weight || 0;
+    let weight_x_32767 = Math.trunc(weight * 32767); // weight is stored as a SMALLINT, so convert from a [-1,1] float to [-32767,32767] int
+    return new Promise(function (
+      resolve: (arg0: { conv: any; vote: any }) => void,
+      reject: (arg0: string) => void
+    ) {
+      let query =
+        "INSERT INTO votes (pid, zid, tid, vote, weight_x_32767, high_priority, created) VALUES ($1, $2, $3, $4, $5, $6, default) RETURNING *;";
+      let params = [pid, zid, tid, voteType, weight_x_32767, high_priority];
+      pgQuery(query, params, function (err: any, result: { rows: any[] }) {
+        if (err) {
+          if (isDuplicateKey(err)) {
+            reject("polis_err_vote_duplicate");
+          } else {
+            logger.error("polis_err_vote_other", err);
+            reject("polis_err_vote_other");
+          }
+          return;
+        }
+
+        const vote = result.rows[0];
+
+        resolve({
+          conv: conv,
+          vote: vote,
+        });
+      });
+    });
+  }
+
+  function votesGet(p: { zid?: any; pid?: any; tid?: any }) {
+    // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
+    // @ts-ignore
+    return new MPromise(
+      "votesGet",
+      function (resolve: (arg0: any) => void, reject: (arg0: any) => void) {
+        let q = sql_votes_latest_unique
+          .select(sql_votes_latest_unique.star())
+          .where(sql_votes_latest_unique.zid.equals(p.zid));
+
+        if (!_.isUndefined(p.pid)) {
+          q = q.where(sql_votes_latest_unique.pid.equals(p.pid));
+        }
+        if (!_.isUndefined(p.tid)) {
+          q = q.where(sql_votes_latest_unique.tid.equals(p.tid));
+        }
+        pgQuery_readOnly(
+          q.toString(),
+          function (err: any, results: { rows: any }) {
+            if (err) {
+              reject(err);
+            } else {
+              resolve(results.rows);
+            }
+          }
+        );
+      }
+    );
+  } // End votesGet
+
   function writeDefaultHead(
     req: any,
     res: {
@@ -450,7 +617,7 @@ function initializePolisHelpers() {
     });
     next();
   }
-  // belongs in server
+
   function redirectIfNotHttps(
     req: {
       headers: { [x: string]: string; host: string };
@@ -491,7 +658,7 @@ function initializePolisHelpers() {
     }
     return next();
   }
-  // belongs in server
+
   function doXidConversationIdAuth(
     assigner: (arg0: any, arg1: string, arg2: number) => void,
     xid: any,
@@ -536,7 +703,6 @@ function initializePolisHelpers() {
         onDone(err);
       });
   }
-  // belongs in server - AUTH
   function _auth(assigner: any, isOptional: boolean) {
     function getKey(
       req: {
@@ -598,6 +764,13 @@ function initializePolisHelpers() {
             res,
             onDone
           );
+          // } else if (req?.headers?.["x-sandstorm-app-polis-apikey"] && req?.headers?.["x-sandstorm-app-polis-xid"] && req?.headers?.["x-sandstorm-app-polis-owner-xid"]) {
+          //   doXidApiKeyAuth(
+          //     assigner,
+          //     req?.headers?.["x-sandstorm-app-polis-apikey"],
+          //     req?.headers?.["x-sandstorm-app-polis-owner-xid"],
+          //     req?.headers?.["x-sandstorm-app-polis-xid"],
+          //     isOptional, req, res, onDone);
         } else if (getKey(req, "xid") && getKey(req, "conversation_id")) {
           doXidConversationIdAuth(
             assigner,
@@ -612,14 +785,22 @@ function initializePolisHelpers() {
           doApiKeyAuth(
             assigner,
             req?.headers?.["x-sandstorm-app-polis-apikey"],
+            isOptional,
             req,
             res,
             onDone
           );
         } else if (req.body["polisApiKey"]) {
-          doApiKeyAuth(assigner, getKey(req, "polisApiKey"), req, res, onDone);
+          doApiKeyAuth(
+            assigner,
+            getKey(req, "polisApiKey"),
+            isOptional,
+            req,
+            res,
+            onDone
+          );
         } else if (token) {
-          cookies.doCookieAuth(assigner, isOptional, req, res, onDone);
+          doCookieAuth(assigner, isOptional, req, res, onDone);
         } else if (req?.headers?.authorization) {
           doApiKeyBasicAuth(
             assigner,
@@ -687,6 +868,45 @@ function initializePolisHelpers() {
           next(err || "polis_err_auth_error_432");
         });
     };
+
+    //   let xid = req.body.xid;
+    //   let hasXid = !_.isUndefined(xid);
+
+    //   if (hasXid) {
+    //     req.p = req.p || {};
+    //     req.p.xid = xid;
+    //     getConversationIdFetchZid(req.body.conversation_id).then((zid) => {
+
+    //       return getXidStuff(xid, zid).then((xidRecord) => {
+    //         let foundXidRecord = xidRecord !== "noXidRecord";
+    //         if (foundXidRecord) {
+    //           assigner(req, "uid", Number(xidRecord.uid));
+    //           return next();
+    //         }
+    //         // try other auth methods, and once those are done, use req.p.uid to create new xid record.
+    //         doAuth(req, res).then(() => {
+    //           if (req.p.uid && !isOptional) { // req.p.uid might be set now.
+    //             return createXidRecordByZid(zid, req.p.uid, xid, req.body.x_profile_image_url, req.body.x_name, req.body.x_email);
+    //           } else if (!isOptional) {
+    //             throw "polis_err_missing_non_optional_uid";
+    //           }
+    //         }).then(() => {
+    //           return next();
+    //         }).catch((err) => {
+    //           res.status(500);
+    //           return next("polis_err_auth_xid_error_423423");
+    //         });
+    //       });
+    //     });
+    //   } else {
+    //     doAuth(req, res).then(() => {
+    //       return next();
+    //     }).catch((err) => {
+    //       res.status(500);
+    //       next("polis_err_auth_error_432");
+    //     });
+    //   }
+    // };
   }
   // input token from body or query, and populate req.body.u with userid.
   function authOptional(assigner: any) {
@@ -830,7 +1050,10 @@ function initializePolisHelpers() {
   ////////////////////////////////////////////
   ////////////////////////////////////////////
 
+  const strToHex = Utils.strToHex;
+  const hexToStr = Utils.hexToStr;
   // don't start immediately, let other things load first.
+  // setTimeout(fetchAndCacheLatestPcaData, 5000);
   fetchAndCacheLatestPcaData; // TODO_DELETE
 
   function redirectIfHasZidButNoConversationId(
@@ -855,6 +1078,28 @@ function initializePolisHelpers() {
     return next();
   }
 
+  function doAddDataExportTask(
+    math_env: string | undefined,
+    email: string,
+    zid: number,
+    atDate: number,
+    format: string,
+    task_bucket: number
+  ) {
+    return pgQueryP(
+      "insert into worker_tasks (math_env, task_data, task_type, task_bucket) values ($1, $2, 'generate_export_data', $3);",
+      [
+        math_env,
+        {
+          email: email,
+          zid: zid,
+          "at-date": atDate,
+          format: format,
+        },
+        task_bucket, // TODO hash the params to get a consistent number?
+      ]
+    );
+  }
   if (
     Config.runPeriodicExportTests &&
     !devMode &&
@@ -905,6 +1150,118 @@ function initializePolisHelpers() {
 
   const getServerNameWithProtocol = Config.getServerNameWithProtocol;
 
+  function sendPasswordResetEmailFailure(email: any, server: any) {
+    let body = `We were unable to find a pol.is account registered with the email address: ${email}
+
+You may have used another email address to create your account.
+
+If you need to create a new account, you can do that here ${server}/home
+
+Feel free to reply to this email if you need help.`;
+
+    return sendTextEmail(
+      polisFromAddress,
+      email,
+      "Password Reset Failed",
+      body
+    );
+  }
+
+  function getUidByEmail(email: string) {
+    email = email.toLowerCase();
+    return pgQueryP_readOnly(
+      "SELECT uid FROM users where LOWER(email) = ($1);",
+      [email]
+      // Argument of type '(rows: string | any[]) => any' is not assignable to parameter of type '(value: unknown) => any'.
+      //   Types of parameters 'rows' and 'value' are incompatible.
+      //     Type 'unknown' is not assignable to type 'string | any[]'.
+      //       Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+      // @ts-ignore
+    ).then(function (rows: string | any[]) {
+      if (!rows || !rows.length) {
+        throw new Error("polis_err_no_user_matching_email");
+      }
+      return rows[0].uid;
+    });
+  }
+
+  function clearCookie(
+    req: { [key: string]: any; headers?: { origin: string } },
+    res: {
+      [key: string]: any;
+      clearCookie?: (
+        arg0: any,
+        arg1: { path: string; domain?: string }
+      ) => void;
+    },
+    cookieName: any
+  ) {
+    res?.clearCookie?.(cookieName, {
+      path: "/",
+      domain: cookies.cookieDomain(req),
+    });
+  }
+
+  function clearCookies(
+    req: { headers?: Headers; cookies?: any; p?: any },
+    res: {
+      clearCookie?: (
+        arg0: string,
+        arg1: { path: string; domain?: string }
+      ) => void;
+      status?: (arg0: number) => void;
+      _headers?: { [x: string]: any };
+      redirect?: (arg0: string) => void;
+      set?: (arg0: { "Content-Type": string }) => void;
+    }
+  ) {
+    let cookieName;
+    for (cookieName in req.cookies) {
+      // Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; plan: boolean; referrer: boolean; parent_url: boolean; }'.
+      // No index signature with a parameter of type 'string' was found on type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; plan: boolean; referrer: boolean; parent_url: boolean; }'.ts(7053)
+      // @ts-ignore
+      if (COOKIES_TO_CLEAR[cookieName]) {
+        res?.clearCookie?.(cookieName, {
+          path: "/",
+          domain: cookies.cookieDomain(req),
+        });
+      }
+    }
+    logger.info(
+      "after clear res set-cookie: " +
+        JSON.stringify(res?._headers?.["set-cookie"])
+    );
+  }
+  function doCookieAuth(
+    assigner: (arg0: any, arg1: string, arg2: number) => void,
+    isOptional: any,
+    req: { cookies: { [x: string]: any }; body: { uid?: any } },
+    res: { status: (arg0: number) => void },
+    next: { (err: any): void; (arg0?: string): void }
+  ) {
+    let token = req.cookies[COOKIES.TOKEN];
+
+    //if (req.body.uid) { next(401); return; } // shouldn't be in the post - TODO - see if we can do the auth in parallel for non-destructive operations
+    getUserInfoForSessionToken(token, res, function (err: any, uid?: any) {
+      if (err) {
+        clearCookies(req, res); // TODO_MULTI_DATACENTER_CONSIDERATION
+        if (isOptional) {
+          next();
+        } else {
+          res.status(403);
+          next("polis_err_auth_no_such_token");
+        }
+        return;
+      }
+      if (req.body.uid && req.body.uid !== uid) {
+        res.status(401);
+        next("polis_err_auth_mismatch_uid");
+        return;
+      }
+      assigner(req, "uid", Number(uid));
+      next();
+    });
+  }
   function handle_POST_auth_deregister(
     req: { p: { showPage?: any }; cookies: { [x: string]: any } },
     res: {
@@ -923,7 +1280,7 @@ function initializePolisHelpers() {
     let token = req.cookies[COOKIES.TOKEN];
 
     // clear cookies regardless of auth status
-    cookies.clearCookies(req, res);
+    clearCookies(req, res);
 
     function finish() {
       if (!req.p.showPage) {
@@ -1728,12 +2085,62 @@ function initializePolisHelpers() {
     // look into bluebird, use 'some' https://github.com/petkaantonov/bluebird
     getPid(zid, uid, function (err: any, pid: number) {
       if (err || pid < 0) {
-        Utils.isConversationOwner(zid, uid, function (err: any) {
+        isConversationOwner(zid, uid, function (err: any) {
           callback?.(err);
         });
       } else {
         callback?.(null);
       }
+    });
+  }
+
+  function isConversationOwner(
+    zid: any,
+    uid?: any,
+    callback?: {
+      (err: any): void;
+      (err: any): void;
+      (err: any): void;
+      (err: any, foo: any): void;
+      (err: any, foo: any): void;
+      (arg0: any): void;
+    }
+  ) {
+    // if (true) {
+    //     callback(null); // TODO remove!
+    //     return;
+    // }
+    pgQuery_readOnly(
+      "SELECT * FROM conversations WHERE zid = ($1) AND owner = ($2);",
+      [zid, uid],
+      function (err: number, docs: { rows: string | any[] }) {
+        if (!docs || !docs.rows || docs.rows.length === 0) {
+          err = err || 1;
+        }
+        callback?.(err);
+      }
+    );
+  }
+
+  function isOwner(zid: any, uid: string) {
+    return getConversationInfo(zid).then(function (info: any) {
+      return info.owner === uid;
+    });
+  }
+
+  function isModerator(zid: any, uid?: any) {
+    if (isPolisDev(uid)) {
+      return Promise.resolve(true);
+    }
+    return pgQueryP_readOnly(
+      "select count(*) from conversations where owner in (select uid from users where site_id = (select site_id from users where uid = ($2))) and zid = ($1);",
+      [zid, uid]
+      //     Argument of type '(rows: { count: number; }[]) => boolean' is not assignable to parameter of type '(value: unknown) => boolean | PromiseLike<boolean>'.
+      // Types of parameters 'rows' and 'value' are incompatible.
+      //     Type 'unknown' is not assignable to type '{ count: number; }[]'.ts(2345)
+      // @ts-ignore
+    ).then(function (rows: { count: number }[]) {
+      return rows[0].count >= 1;
     });
   }
 
@@ -1803,6 +2210,7 @@ function initializePolisHelpers() {
     });
   }
 
+  const getUserInfoForUid = User.getUserInfoForUid;
   const getUserInfoForUid2 = User.getUserInfoForUid2;
 
   function emailFeatureRequest(message: string) {
@@ -1841,50 +2249,50 @@ ${message}`;
 
     return emailTeam("Polis Bad Problems!!!", body);
   }
-  //   function sendPasswordResetEmail(
-  //     uid?: any,
-  //     pwresettoken?: any,
-  //     serverName?: any,
-  //     callback?: { (err: any): void; (arg0?: string): void }
-  //   ) {
-  //     getUserInfoForUid(
-  //       uid,
-  //       //     Argument of type '(err: any, userInfo: { hname: any; email: any; }) => void' is not assignable to parameter of type '(arg0: null, arg1?: undefined) => void'.
-  //       // Types of parameters 'userInfo' and 'arg1' are incompatible.
-  //       //     Type 'undefined' is not assignable to type '{ hname: any; email: any; }'.ts(2345)
-  //       // @ts-ignore
-  //       function (err: any, userInfo: { hname: any; email: any }) {
-  //         if (err) {
-  //           return callback?.(err);
-  //         }
-  //         if (!userInfo) {
-  //           return callback?.("missing user info");
-  //         }
-  //         let body = `Hi ${userInfo.hname},
+  function sendPasswordResetEmail(
+    uid?: any,
+    pwresettoken?: any,
+    serverName?: any,
+    callback?: { (err: any): void; (arg0?: string): void }
+  ) {
+    getUserInfoForUid(
+      uid,
+      //     Argument of type '(err: any, userInfo: { hname: any; email: any; }) => void' is not assignable to parameter of type '(arg0: null, arg1?: undefined) => void'.
+      // Types of parameters 'userInfo' and 'arg1' are incompatible.
+      //     Type 'undefined' is not assignable to type '{ hname: any; email: any; }'.ts(2345)
+      // @ts-ignore
+      function (err: any, userInfo: { hname: any; email: any }) {
+        if (err) {
+          return callback?.(err);
+        }
+        if (!userInfo) {
+          return callback?.("missing user info");
+        }
+        let body = `Hi ${userInfo.hname},
 
-  // We have just received a password reset request for ${userInfo.email}
+We have just received a password reset request for ${userInfo.email}
 
-  // To reset your password, visit this page:
-  // ${serverName}/pwreset/${pwresettoken}
+To reset your password, visit this page:
+${serverName}/pwreset/${pwresettoken}
 
-  // "Thank you for using Polis`;
+"Thank you for using Polis`;
 
-  //         sendTextEmail(
-  //           polisFromAddress,
-  //           userInfo.email,
-  //           "Polis Password Reset",
-  //           body
-  //         )
-  //           .then(function () {
-  //             callback?.();
-  //           })
-  //           .catch(function (err: any) {
-  //             logger.error("polis_err_failed_to_email_password_reset_code", err);
-  //             callback?.(err);
-  //           });
-  //       }
-  //     );
-  //   }
+        sendTextEmail(
+          polisFromAddress,
+          userInfo.email,
+          "Polis Password Reset",
+          body
+        )
+          .then(function () {
+            callback?.();
+          })
+          .catch(function (err: any) {
+            logger.error("polis_err_failed_to_email_password_reset_code", err);
+            callback?.(err);
+          });
+      }
+    );
+  }
 
   function sendMultipleTextEmails(
     sender: string | undefined,
@@ -2023,6 +2431,11 @@ Email verified! You can close this tab or hit the back button.
     return pairsList.join("&");
   }
 
+  // // units are seconds
+  // let expirationPolicies = {
+  //     pwreset_created : 60 * 60 * 2,
+  // };
+
   let HMAC_SIGNATURE_PARAM_NAME = "signature";
 
   function createHmacForQueryParams(
@@ -2107,38 +2520,6 @@ Email verified! You can close this tab or hit the back button.
       .catch(function (err: any) {
         fail(res, 500, "polis_err_get_participant", err);
       });
-
-    // function fetchOne() {
-    //     pgQuery("SELECT * FROM users WHERE uid IN (SELECT uid FROM participants WHERE pid = ($1) AND zid = ($2));", [pid, zid], function(err, result) {
-    //         if (err || !result || !result.rows || !result.rows.length) { fail(res, 500, "polis_err_fetching_participant_info", err); return; }
-    //         let ptpt = result.rows[0];
-    //         let data = {};
-    //         // choose which fields to expose
-    //         data.hname = ptpt.hname;
-
-    //         res.status(200).json(data);
-    //     });
-    // }
-    // function fetchAll() {
-    //     // NOTE: it's important to return these in order by pid, since the array index indicates the pid.
-    //     pgQuery("SELECT users.hname, users.email, participants.pid FROM users INNER JOIN participants ON users.uid = participants.uid WHERE zid = ($1) ORDER BY participants.pid;", [zid], function(err, result) {
-    //         if (err || !result || !result.rows || !result.rows.length) { fail(res, 500, "polis_err_fetching_participant_info", err); return; }
-    //         res.json(result.rows);
-    //     });
-    // }
-    // pgQuery("SELECT is_anon FROM conversations WHERE zid = ($1);", [zid], function(err, result) {
-    //     if (err || !result || !result.rows || !result.rows.length) { fail(res, 500, "polis_err_fetching_participant_info", err); return; }
-    //     if (result.rows[0].is_anon) {
-    //         fail(res, 403, "polis_err_fetching_participant_info_conversation_is_anon");
-    //         return;
-    //     }
-    //     // if (pid !== undefined) {
-    //         fetchOne();
-    //     // } else {
-    //         // fetchAll();
-    //     // }
-
-    // });
   }
   function handle_GET_dummyButton(
     req: { p: { button: string; uid: string } },
@@ -2157,7 +2538,7 @@ Email verified! You can close this tab or hit the back button.
     res: { json: (arg0: any) => void },
     field: string
   ) {
-    if (!Utils.isPolisDev(req.p.uid)) {
+    if (!isPolisDev(req.p.uid)) {
       fail(res, 403, "polis_err_no_access_for_this_user");
       return;
     }
@@ -2261,8 +2642,8 @@ Email verified! You can close this tab or hit the back button.
       // }
       // addCookie(res, getZidToPidCookieKey(zid), pid);
 
-      cookies.clearCookie(req, res, COOKIES.PARENT_URL);
-      cookies.clearCookie(req, res, COOKIES.PARENT_REFERRER);
+      clearCookie(req, res, COOKIES.PARENT_URL);
+      clearCookie(req, res, COOKIES.PARENT_REFERRER);
 
       setTimeout(function () {
         updateLastInteractionTimeForConversation(zid, uid);
@@ -2502,7 +2883,7 @@ Email verified! You can close this tab or hit the back button.
                   }
 
                   if (devMode) {
-                    needs = needs && Utils.isPolisDev(ptpt.uid);
+                    needs = needs && isPolisDev(ptpt.uid);
                   }
                   return needs;
                 }
@@ -3086,18 +3467,6 @@ Email verified! You can close this tab or hit the back button.
             return o;
           });
         })
-        // Commenting out for now until we have proper workflow for user.
-        // .then(function(o) {
-        //   logger.info("joinWithZidOrSuzinvite check email");
-        // if (o.conv.owner_sees_participation_stats) {
-        //   // User stats can be provided either by having the users sign in with polis
-        //   // or by having them join via suurls.
-        //   if (!(o.user && o.user.email) && !o.suzinvite) { // may want to inspect the contenst of the suzinvite info object instead of just the suzinvite
-        //     throw new Error("polis_err_need_full_user_for_zid_" + o.conv.zid + "_and_uid_" + (o.user&&o.user.uid));
-        //   }
-        // }
-        // return o;
-        // })
         // @ts-ignore
         .then(function (o: { uid?: any }) {
           if (o.uid) {
@@ -3244,7 +3613,7 @@ Email verified! You can close this tab or hit the back button.
   }
 
   function deleteFacebookUserRecord(o: { uid?: any }) {
-    if (!Utils.isPolisDev(o.uid)) {
+    if (!isPolisDev(o.uid)) {
       // limit to test accounts for now
       return Promise.reject("polis_err_not_implemented");
     }
@@ -3495,9 +3864,6 @@ Email verified! You can close this tab or hit the back button.
       if (ref && ref.length) refParts = ref.split("/");
       if (refParts && refParts.length >= 3) resultRef = refParts[2] || "";
     }
-    // let path = req.path;
-    // path = path && path.split('/');
-    // let conversation_id = path && path.length >= 2 && path[1];
     let zid = req.p.zid;
 
     isParentDomainWhitelisted(
@@ -3619,7 +3985,7 @@ Email verified! You can close this tab or hit the back button.
 
     let hasPermission = req.p.rid
       ? Promise.resolve(!!req.p.rid)
-      : Utils.isModerator(zid, uid);
+      : isModerator(zid, uid);
 
     hasPermission
       .then(function (ok: any) {
@@ -3649,15 +4015,6 @@ Email verified! You can close this tab or hit the back button.
         return Promise.all([
           pgQueryP_readOnly(q0, args),
           pgQueryP_readOnly(q1, args),
-          // pgQueryP_readOnly("select created from participants where zid = ($1) order by created;", [zid]),
-
-          // pgQueryP_readOnly("with pidvotes as (select pid, count(*) as countForPid from votes where zid = ($1)"+
-          //     " group by pid order by countForPid desc) select countForPid as n_votes, count(*) as n_ptpts "+
-          //     "from pidvotes group by countForPid order by n_ptpts asc;", [zid]),
-
-          // pgQueryP_readOnly("with all_social as (select uid from facebook_users union select uid from twitter_users), "+
-          //     "ptpts as (select created, uid from participants where zid = ($1)) "+
-          //     "select ptpts.created from ptpts inner join all_social on ptpts.uid = all_social.uid;", [zid]),
         ]).then(function (a: any[]) {
           function castTimestamp(o: { created: number }) {
             o.created = Number(o.created);
@@ -3665,10 +4022,6 @@ Email verified! You can close this tab or hit the back button.
           }
           let comments = _.map(a[0], castTimestamp);
           let votes = _.map(a[1], castTimestamp);
-          // let uniqueHits = _.map(a[2], castTimestamp); // participants table
-          // let votesHistogram = a[2];
-          // let socialUsers = _.map(a[4], castTimestamp);
-
           let votesGroupedByPid = _.groupBy(votes, "pid");
           let votesHistogramObj = {};
           _.each(
@@ -3804,7 +4157,7 @@ Email verified! You can close this tab or hit the back button.
         "TODO Needs to clone participants_extended and any other new tables as well."
       );
     }
-    if (Utils.isPolisDev(uid)) {
+    if (isPolisDev(uid)) {
       // is polis developer
     } else {
       fail(res, 403, "polis_err_permissions");
@@ -4860,7 +5213,7 @@ Email verified! You can close this tab or hit the back button.
         });
 
         if (req.p.include_demographics) {
-          Utils.isModerator(req.p.zid, req.p.uid)
+          isModerator(req.p.zid, req.p.uid)
             .then((owner: any) => {
               if (owner || isReportQuery) {
                 return getDemographicsForVotersOnComments(req.p.zid, comments)
@@ -4885,6 +5238,20 @@ Email verified! You can close this tab or hit the back button.
         fail(res, 500, "polis_err_get_comments", err);
       });
   } // end GET /api/v3/comments
+  function isDuplicateKey(err: {
+    code: string | number;
+    sqlState: string | number;
+    messagePrimary: string | string[];
+  }) {
+    let isdup =
+      err.code === 23505 ||
+      err.code === "23505" ||
+      err.sqlState === 23505 ||
+      err.sqlState === "23505" ||
+      (err.messagePrimary &&
+        err.messagePrimary.includes("duplicate key value"));
+    return isdup;
+  }
 
   function failWithRetryRequest(res: {
     setHeader: (arg0: string, arg1: number) => void;
@@ -5169,7 +5536,7 @@ Email verified! You can close this tab or hit the back button.
         ? analyzeComment(txt)
         : Promise.resolve(null);
 
-      const isModeratorPromise = Utils.isModerator(zid!, uid!);
+      const isModeratorPromise = isModerator(zid!, uid!);
       const conversationInfoPromise = getConversationInfo(zid!);
 
       let shouldCreateXidRecord = false;
@@ -6328,9 +6695,9 @@ Email verified! You can close this tab or hit the back button.
       `Attempting to update comment. zid: ${zid}, tid: ${tid}, uid: ${uid}`
     );
 
-    Utils.isModerator(zid, uid)
+    isModerator(zid, uid)
       .then(function (isModerator: any) {
-        logger.debug(`Utils.isModerator result: ${Utils.isModerator}`);
+        logger.debug(`isModerator result: ${isModerator}`);
         if (isModerator) {
           moderateComment(zid, tid, active, mod, is_meta).then(
             function () {
@@ -6348,7 +6715,7 @@ Email verified! You can close this tab or hit the back button.
         }
       })
       .catch(function (err: any) {
-        logger.error("Error in Utils.isModerator:", err);
+        logger.error("Error in isModerator:", err);
         fail(res, 500, "polis_err_update_comment", err);
       });
   }
@@ -6362,7 +6729,7 @@ Email verified! You can close this tab or hit the back button.
     let rid = req.p.rid;
     let tid = req.p.tid;
     let selection = req.p.include ? 1 : -1;
-    Utils.isModerator(zid, uid)
+    isModerator(zid, uid)
       .then((isMod: any) => {
         if (!isMod) {
           return fail(res, 403, "polis_err_POST_reportCommentSelections_auth");
@@ -6428,7 +6795,7 @@ Email verified! You can close this tab or hit the back button.
   ) {
     var q = "select * from conversations where zid = ($1)";
     var params = [req.p.zid];
-    if (!Utils.isPolisDev(req.p.uid)) {
+    if (!isPolisDev(req.p.uid)) {
       q = q + " and owner = ($2)";
       params.push(req.p.uid);
     }
@@ -6464,7 +6831,7 @@ Email verified! You can close this tab or hit the back button.
   ) {
     var q = "select * from conversations where zid = ($1)";
     var params = [req.p.zid];
-    if (!Utils.isPolisDev(req.p.uid)) {
+    if (!isPolisDev(req.p.uid)) {
       q = q + " and owner = ($2)";
       params.push(req.p.uid);
     }
@@ -6501,7 +6868,7 @@ Email verified! You can close this tab or hit the back button.
     res: { json: (arg0: any) => void }
   ) {
     let uid = req.p.uid;
-    if (Utils.isPolisDev(uid) && req.p.uid_of_user) {
+    if (isPolisDev(uid) && req.p.uid_of_user) {
       uid = req.p.uid_of_user;
     }
 
@@ -6560,7 +6927,7 @@ Email verified! You can close this tab or hit the back button.
     res: any
   ) {
     let generateShortUrl = req.p.short_url;
-    Utils.isModerator(req.p.zid, req.p.uid)
+    isModerator(req.p.zid, req.p.uid)
       .then(function (ok: any) {
         if (!ok) {
           fail(res, 403, "polis_err_update_conversation_permission");
@@ -6668,7 +7035,7 @@ Email verified! You can close this tab or hit the back button.
                 return;
               }
               let conv = result && result.rows && result.rows[0];
-              // The first check with Utils.isModerator implictly tells us this can be returned in HTTP response.
+              // The first check with isModerator implictly tells us this can be returned in HTTP response.
               conv.is_mod = true;
 
               let promise = generateShortUrl
@@ -6753,7 +7120,7 @@ Email verified! You can close this tab or hit the back button.
         );
         return;
       }
-      Utils.isConversationOwner(zid, uid, function (err: any) {
+      isConversationOwner(zid, uid, function (err: any) {
         if (err) {
           fail(
             res,
@@ -6778,6 +7145,30 @@ Email verified! You can close this tab or hit the back button.
         });
       });
     });
+  }
+
+  function getZidForAnswer(
+    pmaid: any,
+    callback: {
+      (err: any, zid: any): void;
+      (arg0: string | null, arg1?: undefined): void;
+    }
+  ) {
+    pgQuery(
+      "SELECT zid FROM participant_metadata_answers WHERE pmaid = ($1);",
+      [pmaid],
+      function (err: any, result: { rows: string | any[] }) {
+        if (err) {
+          callback(err);
+          return;
+        }
+        if (!result.rows || !result.rows.length) {
+          callback("polis_err_zid_missing_for_answer");
+          return;
+        }
+        callback(null, result.rows[0].zid);
+      }
+    );
   }
 
   function getZidForQuestion(
@@ -6805,10 +7196,32 @@ Email verified! You can close this tab or hit the back button.
     );
   }
 
+  function deleteMetadataAnswer(
+    pmaid: any,
+    callback: { (err: any): void; (arg0: null): void }
+  ) {
+    // pgQuery("update participant_metadata_choices set alive = FALSE where pmaid = ($1);", [pmaid], function(err) {
+    //     if (err) {callback(34534545); return;}
+    pgQuery(
+      "update participant_metadata_answers set alive = FALSE where pmaid = ($1);",
+      [pmaid],
+      function (err: any) {
+        if (err) {
+          callback(err);
+          return;
+        }
+        callback(null);
+      }
+    );
+    // });
+  }
+
   function deleteMetadataQuestionAndAnswers(
     pmqid: any,
     callback: { (err: any): void; (arg0: null): void }
   ) {
+    // pgQuery("update participant_metadata_choices set alive = FALSE where pmqid = ($1);", [pmqid], function(err) {
+    //     if (err) {callback(93847834); return;}
     pgQuery(
       "update participant_metadata_answers set alive = FALSE where pmqid = ($1);",
       [pmqid],
@@ -6936,7 +7349,7 @@ Email verified! You can close this tab or hit the back button.
       );
     }
 
-    Utils.isConversationOwner(zid, uid, doneChecking);
+    isConversationOwner(zid, uid, doneChecking);
   }
 
   function handle_POST_metadata_answers(
@@ -6981,7 +7394,7 @@ Email verified! You can close this tab or hit the back button.
       );
     }
 
-    Utils.isConversationOwner(zid, uid, doneChecking);
+    isConversationOwner(zid, uid, doneChecking);
   }
 
   function handle_GET_metadata_choices(req: { p: { zid: any } }, res: any) {
@@ -7586,7 +7999,7 @@ Email verified! You can close this tab or hit the back button.
     let uid = req.p.uid;
 
     return (
-      Utils.isModerator(zid, uid)
+      isModerator(zid, uid)
         // Argument of type '(isMod: any, err: string) => void | globalThis.Promise<void>' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.ts(2345)
         // @ts-ignore
         .then((isMod: any, err: string) => {
@@ -7613,7 +8026,7 @@ Email verified! You can close this tab or hit the back button.
     let zid = req.p.zid;
 
     return (
-      Utils.isModerator(zid, uid)
+      isModerator(zid, uid)
         // Argument of type '(isMod: any, err: string) => void | globalThis.Promise<void>' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.ts(2345)
         // @ts-ignore
         .then((isMod: any, err: string) => {
@@ -7678,7 +8091,7 @@ Email verified! You can close this tab or hit the back button.
         ]);
       }
     } else if (zid) {
-      reportsPromise = Utils.isModerator(zid, uid).then(
+      reportsPromise = isModerator(zid, uid).then(
         (doesOwnConversation: any) => {
           if (!doesOwnConversation) {
             throw "polis_err_permissions";
@@ -7740,6 +8153,16 @@ Email verified! You can close this tab or hit the back button.
           fail(res, 500, "polis_err_get_reports_misc", err);
         }
       });
+  }
+
+  function encodeParams(o: {
+    monthly?: any;
+    forceEmbedded?: boolean;
+    context?: any;
+  }) {
+    let stringifiedJson = JSON.stringify(o);
+    let encoded = "ep1_" + strToHex(stringifiedJson);
+    return encoded;
   }
 
   function handle_GET_conversations(
@@ -8447,12 +8870,6 @@ Thanks for using Polis!
     );
   }
 
-  // Certain twitter ids may be suspended.
-  // Twitter will error if we request info on them.
-  //  so keep a list of these for as long as the server is running,
-  //  so we don't repeat requests for them.
-  // This is probably not optimal, but is pretty easy.
-
   let suspendedOrPotentiallyProblematicTwitterIds: any[] = [];
   function getTwitterUserInfoBulk(list_of_twitter_user_id: any[]) {
     list_of_twitter_user_id = list_of_twitter_user_id || [];
@@ -8616,6 +9033,149 @@ Thanks for using Polis!
   // Ensure we don't call this more than 60 times in each 15 minute window (across all of our servers/use-cases)
   setInterval(updateSomeTwitterUsers, 1 * 60 * 1000);
   updateSomeTwitterUsers();
+  function createUserFromTwitterInfo(o: any) {
+    return createDummyUser().then(function (uid?: any) {
+      return getAndInsertTwitterUser(o, uid).then(function (result: {
+        twitterUser: any;
+        twitterUserDbRecord: any;
+      }) {
+        let u = result.twitterUser;
+        let twitterUserDbRecord = result.twitterUserDbRecord;
+
+        return pgQueryP(
+          "update users set hname = ($2) where uid = ($1) and hname is NULL;",
+          [uid, u.name]
+        ).then(function () {
+          return twitterUserDbRecord;
+        });
+      });
+    });
+  }
+  function prepForQuoteWithTwitterUser(
+    quote_twitter_screen_name: any,
+    zid: any
+  ) {
+    let query = pgQueryP(
+      "select * from twitter_users where screen_name = ($1);",
+      [quote_twitter_screen_name]
+    );
+    return addParticipantByTwitterUserId(
+      // Argument of type 'Promise<unknown>' is not assignable to parameter of type 'Bluebird<any>'.
+      // Type 'Promise<unknown>' is missing the following properties from type 'Bluebird<any>': caught, error, lastly, bind, and 38 more.ts(2345)
+      // @ts-ignore
+      query,
+      {
+        twitter_screen_name: quote_twitter_screen_name,
+      },
+      zid,
+      null
+    );
+  }
+
+  function prepForTwitterComment(twitter_tweet_id: any, zid: any) {
+    return getTwitterTweetById(twitter_tweet_id).then(function (tweet: {
+      user: any;
+    }) {
+      let user = tweet.user;
+      let twitter_user_id = user.id_str;
+      let query = pgQueryP(
+        "select * from twitter_users where twitter_user_id = ($1);",
+        [twitter_user_id]
+      );
+      return addParticipantByTwitterUserId(
+        // Argument of type 'Promise<unknown>' is not assignable to parameter of type 'Bluebird<any>'.ts(2345)
+        // @ts-ignore
+        query,
+        {
+          twitter_user_id: twitter_user_id,
+        },
+        zid,
+        tweet
+      );
+    });
+  }
+  function addParticipantByTwitterUserId(
+    query: Promise<any>,
+    o: { twitter_screen_name?: any; twitter_user_id?: any },
+    zid: any,
+    tweet: { user: any } | null
+  ) {
+    function addParticipantAndFinish(
+      uid?: any,
+      twitterUser?: any,
+      tweet?: any
+    ) {
+      return (
+        addParticipant(zid, uid)
+          //       Argument of type '(rows: any[]) => { ptpt: any; twitterUser: any; tweet: any; }' is not assignable to parameter of type '(value: unknown) => { ptpt: any; twitterUser: any; tweet: any; } | PromiseLike<{ ptpt: any; twitterUser: any; tweet: any; }>'.
+          // Types of parameters 'rows' and 'value' are incompatible.
+          //   Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+          // @ts-ignore
+          .then(function (rows: any[]) {
+            let ptpt = rows[0];
+            return {
+              ptpt: ptpt,
+              twitterUser: twitterUser,
+              tweet: tweet,
+            };
+          })
+      );
+    }
+    return query.then(function (rows: string | any[]) {
+      if (rows && rows.length) {
+        let twitterUser = rows[0];
+        let uid = twitterUser.uid;
+        return getParticipant(zid, uid)
+          .then(function (ptpt: any) {
+            if (!ptpt) {
+              return addParticipantAndFinish(uid, twitterUser, tweet);
+            }
+            return {
+              ptpt: ptpt,
+              twitterUser: twitterUser,
+              tweet: tweet,
+            };
+          })
+          .catch(function (err: any) {
+            return addParticipantAndFinish(uid, twitterUser, tweet);
+          });
+      } else {
+        // no user records yet
+        return createUserFromTwitterInfo(o).then(function (twitterUser: {
+          uid?: any;
+        }) {
+          let uid = twitterUser.uid;
+          return (
+            addParticipant(zid, uid)
+              //           Argument of type '(rows: any[]) => { ptpt: any; twitterUser: { uid?: any; }; tweet: { user: any; } | null; }' is not assignable to parameter of type '(value: unknown) => { ptpt: any; twitterUser: { uid?: any; }; tweet: { user: any; } | null; } | PromiseLike<{ ptpt: any; twitterUser: { uid?: any; }; tweet: { user: any; } | null; }>'.
+              // Types of parameters 'rows' and 'value' are incompatible.
+              //           Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+              // @ts-ignore
+              .then(function (rows: any[]) {
+                let ptpt = rows[0];
+                return {
+                  ptpt: ptpt,
+                  twitterUser: twitterUser,
+                  tweet: tweet,
+                };
+              })
+          );
+        });
+      }
+    });
+
+    // * fetch tweet info
+    //   if fails, return failure
+    // * look for author in twitter_users
+    //   if exists
+    //    * use uid to find pid in participants
+    //   if not exists
+    //    * fetch info about user from twitter api
+    //      if fails, ??????
+    //      if ok
+    //       * create a new user record
+    //       * create a twitter record
+  }
 
   const addParticipant = async (zid: string, uid?: string): Promise<any> => {
     await pgQueryP(
@@ -8628,6 +9188,54 @@ Thanks for using Polis!
       [zid, uid]
     );
   };
+
+  function getAndInsertTwitterUser(o: any, uid?: any) {
+    return getTwitterUserInfo(o, false).then(function (userString: string) {
+      const u: UserType = JSON.parse(userString)[0];
+      return (
+        pgQueryP(
+          "insert into twitter_users (" +
+            "uid," +
+            "twitter_user_id," +
+            "screen_name," +
+            "name," +
+            "followers_count," +
+            "friends_count," +
+            "verified," +
+            "profile_image_url_https," +
+            "location," +
+            "response" +
+            ") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) returning *;",
+          [
+            uid,
+            u.id,
+            u.screen_name,
+            u.name,
+            u.followers_count,
+            u.friends_count,
+            u.verified,
+            u.profile_image_url_https,
+            u.location,
+            JSON.stringify(u),
+          ]
+        )
+          //       Argument of type '(rows: string | any[]) => { twitterUser: UserType; twitterUserDbRecord: any; }' is not assignable to parameter of type '(value: unknown) => { twitterUser: UserType; twitterUserDbRecord: any; } | PromiseLike<{ twitterUser: UserType; twitterUserDbRecord: any; }>'.
+          // Types of parameters 'rows' and 'value' are incompatible.
+          //   Type 'unknown' is not assignable to type 'string | any[]'.
+          //       Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+          // @ts-ignore
+          .then(function (rows: string | any[]) {
+            let record = (rows && rows.length && rows[0]) || null;
+
+            // return the twitter user record
+            return {
+              twitterUser: u,
+              twitterUserDbRecord: record,
+            };
+          })
+      );
+    });
+  }
 
   function handle_GET_twitter_oauth_callback(
     req: { p: { uid?: any; dest: any; oauth_verifier: any; oauth_token: any } },
@@ -9372,7 +9980,7 @@ Thanks for using Polis!
       getPidsForGid(zid, 4, -1),
       getParticipantDemographicsForConversation(zid),
       getParticipantVotesForCommentsFlaggedWith_is_meta(zid),
-      Utils.isModerator(req.p.zid, req.p.uid),
+      isModerator(req.p.zid, req.p.uid),
     ])
       .then((o: any[]) => {
         let groupPids = [];
@@ -9663,7 +10271,7 @@ Thanks for using Polis!
     let uid = req.p.uid;
     let pid = req.p.pid;
     let mod = req.p.mod;
-    Utils.isModerator(zid, uid)
+    isModerator(zid, uid)
       .then(function (isMod: any) {
         if (!isMod) {
           fail(res, 403, "polis_err_ptptoi_permissions_123");
@@ -9703,8 +10311,7 @@ Thanks for using Polis!
         let ptptois = a[0];
         let conv = a[1];
         let isOwner = uid === conv.owner;
-        let isAllowed =
-          isOwner || Utils.isPolisDev(req.p.uid) || conv.is_data_open;
+        let isAllowed = isOwner || isPolisDev(req.p.uid) || conv.is_data_open;
         if (isAllowed) {
           ptptois = ptptois.map(pullXInfoIntoSubObjects);
           ptptois = ptptois.map(removeNullOrUndefinedProperties);
@@ -10995,6 +11602,11 @@ Thanks for using Polis!
     };
   }
 
+  // function isIE(req) {
+  //   let h = req?.headers?.['user-agent'];
+  //   return /MSIE [0-9]/.test(h) || /Trident/.test(h);
+  // }
+
   function isUnsupportedBrowser(req: { headers?: { [x: string]: string } }) {
     return /MSIE [234567]/.test(req?.headers?.["user-agent"] || "");
   }
@@ -11502,9 +12114,19 @@ Thanks for using Polis!
     handle_PUT_ptptois,
     handle_PUT_reports,
     handle_PUT_users,
+
+    // Debugging
+    //getNextPrioritizedComment,
+    //getPca
   };
   return returnObject;
-}
+} // End of initializePolisHelpers
+// debugging
+//let ph = initializePolisHelpers()
+
+//if (false) {
+//let nextP = ph.getNextPrioritizedComment(17794, 100, [], true);
+//};
 
 export { initializePolisHelpers };
 
