@@ -9,4 +9,4 @@ prod.env
 xids.csv
 preprod.env 
 .venv
-jigsaw-vertex-integration-92ef30330cf7.json
+server/jigsaw-vertex-integration-92ef30330cf7.json

@@ -121,6 +121,10 @@ class SignIn extends React.Component {
             {'Forgot your password? '}
             <Link to={'/pwresetinit'}>Reset Password</Link>
           </Text>
+          <Text sx={{ my: 4 }}>
+            {'Or '}
+            <Link to={'/createuser'}>Create an Account</Link>
+          </Text>
         </form>
         {fbAppId && (
           <Box sx={{ my: 4 }}>
