@@ -1,0 +1,72 @@
+name: Deploy Prod
+
+on:
+  push:
+    branches:
+      - stable
+
+jobs:
+  deploy-backend:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Login to Heroku
+        uses: akhileshns/heroku-deploy@v3.13.15
+        with:
+          heroku_api_key: ${{secrets.HEROKU_API_KEY}}
+          heroku_app_name: "polisapp"
+          heroku_email: ${{secrets.HEROKU_EMAIL}}
+          branch: "stable"
+          
+      - name: Deploy to Heroku
+        run: |
+          git push https://heroku:${{secrets.HEROKU_API_KEY}}@git.heroku.com/polisapp.git stable:main
+
+  deploy-static:
+    runs-on: ubuntu-latest
+    needs: deploy-backend
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{secrets.AWS_PROD_ROLE_ARN}}
+          role-session-name: GitHubActionsDeployProd
+          aws-region: us-east-1
+
+      - name: Create empty .env file
+        run: touch .env
+
+      - name: Build static assets
+        env:
+          EMBED_SERVICE_HOSTNAME: pol.is
+          ENABLE_TWITTER_WIDGETS: true
+          GA_TRACKING_ID: G-WVP78N35QR
+          SERVICE_URL: https://pol.is
+        run: |
+          docker compose create --build --force-recreate file-server
+          CONTAINER_ID=$(docker ps -qaf name=file-server)
+          docker cp ${CONTAINER_ID}:/app/build/ ./build
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install -r deploy/requirements.txt
+
+      - name: Deploy to S3
+        run: |
+          python deploy/deploy-static-assets.py --bucket prod.static-assets.pol.is
