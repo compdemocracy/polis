@@ -1,4 +1,4 @@
-FROM docker.io/clojure:tools-deps-bullseye
+FROM docker.io/clojure:temurin-17-tools-deps
 
 WORKDIR /app
 COPY . .
