@@ -103,7 +103,6 @@ function votesPost(
       })
   );
 }
-
 function getVotesForSingleParticipant(p: { pid: any }) {
   if (_.isUndefined(p.pid)) {
     return Promise.resolve([]);
@@ -139,6 +138,6 @@ function votesGet(p: { zid?: any; pid?: any; tid?: any }) {
       );
     }
   );
-}
+} // End votesGet
 
 export { votesGet, getVotesForSingleParticipant, votesPost, doVotesPost };

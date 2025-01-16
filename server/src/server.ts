@@ -2,31 +2,6 @@
 
 "use strict";
 
-import handle_DELETE_metadata_answers from "./routes/metadataAnswers";
-import handle_GET_launchPrep from "./routes/launchPrep";
-import handle_GET_tryCookie from "./routes/tryCookie";
-import {
-  handle_GET_math_pca,
-  handle_GET_math_pca2,
-  handle_POST_math_update,
-  handle_GET_math_correlationMatrix,
-  handle_GET_bidToPid,
-  getXids,
-  handle_GET_xids,
-  handle_POST_xidWhitelist,
-  getBidsForPids,
-  handle_GET_bid,
-} from "./routes/math";
-import {
-  handle_GET_dataExport,
-  handle_GET_dataExport_results,
-} from "./routes/dataExport";
-import { getVotesForSingleParticipant, votesPost } from "./routes/votes";
-import {
-  handle_POST_auth_password,
-  handle_POST_auth_pwresettoken,
-} from "./routes/password";
-
 import akismetLib from "akismet";
 import AWS from "aws-sdk";
 import badwords from "badwords/object";
@@ -43,6 +18,12 @@ import fs from "fs";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import OAuth from "oauth";
+// const Pushover = require('pushover-notifications');
+// const pushoverInstance = new Pushover({
+//   user: process.env.PUSHOVER_GROUP_POLIS_DEV,
+//   token: process.env.PUSHOVER_POLIS_PROXY_API_KEY,
+// });
+// const postmark = require("postmark")(process.env.POSTMARK_API_KEY);
 import replaceStream from "replacestream";
 import responseTime from "response-time";
 import request from "request-promise"; // includes Request, but adds promise methods
@@ -99,6 +80,31 @@ import {
   Vote,
 } from "./d";
 
+import handle_DELETE_metadata_answers from "./routes/metadataAnswers";
+import handle_GET_launchPrep from "./routes/launchPrep";
+import handle_GET_tryCookie from "./routes/tryCookie";
+import {
+  handle_GET_math_pca,
+  handle_GET_math_pca2,
+  handle_POST_math_update,
+  handle_GET_math_correlationMatrix,
+  handle_GET_bidToPid,
+  getXids,
+  handle_GET_xids,
+  handle_POST_xidWhitelist,
+  getBidsForPids,
+  handle_GET_bid,
+} from "./routes/math";
+import {
+  handle_GET_dataExport,
+  handle_GET_dataExport_results,
+} from "./routes/dataExport";
+// import { getVotesForSingleParticipant, votesPost } from "./routes/votes";
+import {
+  handle_POST_auth_password,
+  handle_POST_auth_pwresettoken,
+} from "./routes/password";
+
 AWS.config.update({ region: Config.awsRegion });
 const devMode = Config.isDevMode;
 const s3Client = new AWS.S3({ apiVersion: "2006-03-01" });
@@ -134,6 +140,15 @@ const sendTextEmailWithBackupOnly = emailSenders.sendTextEmailWithBackupOnly;
 const resolveWith = (x: { body?: { user_id: string } }) => {
   return Promise.resolve(x);
 };
+
+//var SegfaultHandler = require('segfault-handler');
+
+//SegfaultHandler.registerHandler("segfault.log");
+
+// var conversion = {
+//   contact: { user_id: '8634dd66-f75e-428d-a2bf-930baa0571e9' },
+//   user: { email: 'asdf@adsf.com', user_id: "12345" },
+// };
 
 if (devMode) {
   BluebirdPromise.longStackTraces();
@@ -231,6 +246,9 @@ DD.prototype.g = DA.prototype.g = function (k: string | number) {
 DD.prototype.s = DA.prototype.s = function (k: string | number, v: any) {
   this.m[k] = v;
 };
+// function emptyArray() {
+//   return [];
+// }
 
 const domainOverride = Config.domainOverride;
 
@@ -258,6 +276,38 @@ const sql_participant_metadata_answers = SQL.sql_participant_metadata_answers;
 const sql_participants_extended = SQL.sql_participants_extended;
 const sql_reports = SQL.sql_reports;
 const sql_users = SQL.sql_users;
+
+// // Eventually, the plan is to support a larger number-space by using some lowercase letters.
+// // Waiting to implement that since there's cognitive overhead with mapping the IDs to/from
+// // letters/numbers.
+// // Just using digits [2-9] to start with. Omitting 0 and 1 since they can be confused with
+// // letters once we start using letters.
+// // This should give us roughly 8^8 = 16777216 conversations before we have to add letters.
+// let ReadableIds = (function() {
+//     function rand(a) {
+//         return _.random(a.length);
+//     }
+//     // no 1 (looks like l)
+//     // no 0 (looks like 0)
+//     let numbers8 = "23456789".split("");
+
+//     // should fit within 32 bits
+//     function generateConversationId() {
+//        return [
+//             rand(numbers8),
+//             rand(numbers8),
+//             rand(numbers8),
+//             rand(numbers8),
+//             rand(numbers8),
+//             rand(numbers8),
+//             rand(numbers8),
+//             rand(numbers8)
+//         ].join('');
+//     }
+//     return {
+//         generateConversationId: generateConversationId,
+//     };
+// }());
 
 const encrypt = Session.encrypt;
 const decrypt = Session.decrypt;
@@ -327,12 +377,28 @@ function doApiKeyAuth(
     });
 }
 
+// function getXidRecordByXidConversationId(xid, conversation_id) {
+//   return pgQueryP("select * from xids where xid = ($2) and owner = (select org_id from conversations where zid = (select zid from zinvites where zinvite = ($1)))", [zinvite, xid]);
+// }
+
 const createDummyUser = User.createDummyUser;
 const getConversationInfo = Conversation.getConversationInfo;
 const getConversationInfoByConversationId =
   Conversation.getConversationInfoByConversationId;
 const isXidWhitelisted = Conversation.isXidWhitelisted;
 const getXidRecordByXidOwnerId = User.getXidRecordByXidOwnerId;
+
+// function doXidOwnerConversationIdAuth(assigner, xid, conversation_id, req, res, next) {
+//   getXidRecordByXidConversationId(xid, conversation_id).then(function(rows) {
+//     if (!rows || !rows.length) {
+//       res.status(403);
+//       next("polis_err_auth_no_such_api_token4");
+//       return;
+//     }
+//     assigner(req, "uid", Number(rows[0].uid));
+//     next();
+//   });
+// }
 
 function doXidApiKeyAuth(
   assigner: (arg0: any, arg1: string, arg2: number) => void,
@@ -449,6 +515,40 @@ String.prototype.hashCode = function () {
 };
 
 function initializePolisHelpers() {
+  // // If there are any comments which have no votes by the owner, create a PASS vote by the owner.
+  // pgQuery("select * from comments", [], function(err, comments) {
+  //     pgQuery("select * from votes", [], function(err, votes) {
+  //         comments = comments.rows;
+  //         votes = votes.rows;
+
+  //         let exists = {};
+  //         votes.forEach(function(v) {
+  //             exists[v.zid +"_"+ v.tid] = true;
+  //         });
+  //         let missing = [];
+  //         for (var i = 0 ; i < comments.length; i++) {
+  //             let c = comments[i];
+  //             if (!exists[c.zid + "_" + c.tid]) {
+  //                 missing.push(c);
+  //             }
+  //         }
+  //         async.series(
+  //             missing.map(function(c) {
+  //                 return function(callback) {
+  //                     votesPost(uid, c.pid, c.zid, c.tid, 0)
+  //                         .then(function() {
+  //                             callback(null);
+  //                         })
+  //                         .catch(function() {
+  //                             callback(1);
+  //                         });
+  //                 };
+  //             }),
+  //             function(err, results) {
+  //             });
+  //     });
+  // });
+
   const polisTypes = Utils.polisTypes;
   const setCookie = cookies.setCookie;
   const setParentReferrerCookie = cookies.setParentReferrerCookie;
@@ -567,6 +667,64 @@ function initializePolisHelpers() {
     });
   }
 
+  function votesPost(
+    uid?: any,
+    pid?: any,
+    zid?: any,
+    tid?: any,
+    xid?: any,
+    voteType?: any,
+    weight?: number,
+    high_priority?: boolean
+  ) {
+    return (
+      pgQueryP_readOnly("select * from conversations where zid = ($1);", [zid])
+        //     Argument of type '(rows: string | any[]) => any' is not assignable to parameter of type '(value: unknown) => any'.
+        // Types of parameters 'rows' and 'value' are incompatible.
+        //   Type 'unknown' is not assignable to type 'string | any[]'.
+        //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+        // @ts-ignore
+        .then(function (rows: string | any[]) {
+          if (!rows || !rows.length) {
+            throw "polis_err_unknown_conversation";
+          }
+          const conv = rows[0];
+          if (!conv.is_active) {
+            throw "polis_err_conversation_is_closed";
+          }
+          if (conv.use_xid_whitelist) {
+            return isXidWhitelisted(conv.owner, xid).then(
+              (is_whitelisted: boolean) => {
+                if (is_whitelisted) {
+                  return conv;
+                } else {
+                  throw "polis_err_xid_not_whitelisted";
+                }
+              }
+            );
+          }
+          return conv;
+        })
+        .then(function (conv: any) {
+          return doVotesPost(
+            uid,
+            pid,
+            conv,
+            tid,
+            voteType,
+            weight,
+            high_priority
+          );
+        })
+    );
+  }
+  function getVotesForSingleParticipant(p: { pid: any }) {
+    if (_.isUndefined(p.pid)) {
+      return Promise.resolve([]);
+    }
+    return votesGet(p);
+  }
+
   function votesGet(p: { zid?: any; pid?: any; tid?: any }) {
     // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
     // @ts-ignore
@@ -658,6 +816,30 @@ function initializePolisHelpers() {
     }
     return next();
   }
+
+  // function createDummyUsersBatch(n) {
+  //     let query = "insert into users (created) values ";
+  //     let values = [];
+  //     for (var i = 0; i < n; i++) {
+  //         values.push("(default)");
+  //     }
+  //     values = values.join(",");
+  //     query += values;
+  //     query += " returning uid;";
+
+  //     return new MPromise("createDummyUser", function(resolve, reject) {
+  //         pgQuery(query,[], function(err, results) {
+  //             if (err || !results || !results.rows || !results.rows.length) {
+  //                 reject(new Error("polis_err_create_empty_user"));
+  //                 return;
+  //             }
+  //             let uids = results.rows.map(function(row) {
+  //                 return row.uid;
+  //             });
+  //             resolve(uids);
+  //         });
+  //     });
+  // }
 
   function doXidConversationIdAuth(
     assigner: (arg0: any, arg1: string, arg2: number) => void,
@@ -921,6 +1103,30 @@ function initializePolisHelpers() {
     req.body.agid = 1;
     next();
   }
+  /*
+  function meter(name) {
+      return function (req, res, next){
+          let start = Date.now();
+          setTimeout(function() {
+              metric(name + ".go", 1, start);
+          }, 1);
+          res.on('finish', function(){
+            let end = Date.now();
+            let duration = end - start;
+            let status = ".ok";
+            if (!res.statusCode || res.statusCode >= 500) {
+              status = ".fail";
+            } else if (res.statusCode >= 400) {
+              status = ".4xx";
+            }
+            setTimeout(function() {
+                metric(name + status, duration, end);
+            }, 1);
+          });
+          next();
+      };
+  }
+  */
   // 2xx
   // 4xx
   // 5xx
@@ -1052,9 +1258,127 @@ function initializePolisHelpers() {
 
   const strToHex = Utils.strToHex;
   const hexToStr = Utils.hexToStr;
+
+  // function handle_GET_launchPrep(
+  //   req: {
+  //     headers?: { origin: string };
+  //     cookies: { [x: string]: any };
+  //     p: { dest: any };
+  //   },
+  //   res: { redirect: (arg0: any) => void }
+  // ) {
+  //   if (!req.cookies[COOKIES.PERMANENT_COOKIE]) {
+  //     setPermanentCookie(req, res, makeSessionToken());
+  //   }
+  //   setCookieTestCookie(req, res);
+
+  //   // Argument of type '{ redirect: (arg0: any) => void; }' is not assignable to parameter of type '{ cookie: (arg0: any, arg1: any, arg2: any) => void; }'.
+  //   // Property 'cookie' is missing in type '{ redirect: (arg0: any) => void; }' but required in type '{ cookie: (arg0: any, arg1: any, arg2: any) => void; }'.ts(2345)
+  //   // @ts-ignore
+  //   setCookie(req, res, "top", "ok", {
+  //     httpOnly: false, // not httpOnly - needed by JS
+  //   });
+
+  //   // using hex since it doesn't require escaping like base64.
+  //   const dest = hexToStr(req.p.dest);
+  //   const url = new URL(dest);
+  //   res.redirect(url.pathname + url.search + url.hash);
+  // }
+
+  // function handle_GET_tryCookie(
+  //   req: { headers?: { origin: string }; cookies: { [x: string]: any } },
+  //   res: {
+  //     status: (
+  //       arg0: number
+  //     ) => { (): any; new (): any; json: { (arg0: {}): void; new (): any } };
+  //   }
+  // ) {
+  //   if (!req.cookies[COOKIES.TRY_COOKIE]) {
+  //     // Argument of type '{ status: (arg0: number) => { (): any; new (): any; json:
+  //     // { (arg0: {}): void; new (): any; }; }; }' is not assignable to parameter of type
+  //     // '{ cookie: (arg0: any, arg1: any, arg2: any) => void; }'.
+  //     //   Property 'cookie' is missing in type '{ status: (arg0: number) =>
+  //     // { (): any; new (): any; json: { (arg0: {}): void; new (): any; }; };
+  //     // } ' but required in type '{ cookie: (arg0: any, arg1: any, arg2: any) => void; } '.ts(2345)
+  //     // @ts-ignore
+  //     setCookie(req, res, COOKIES.TRY_COOKIE, "ok", {
+  //       httpOnly: false, // not httpOnly - needed by JS
+  //     });
+  //   }
+  //   res.status(200).json({});
+  // }
+
   // don't start immediately, let other things load first.
   // setTimeout(fetchAndCacheLatestPcaData, 5000);
   fetchAndCacheLatestPcaData; // TODO_DELETE
+
+  /*
+  function splitTopLevelGroup(o, gid) {
+    function shouldKeepGroup(g) {
+      return g.id !== gid;
+    }
+    function uniquifySubgroupId(g) {
+      g.id = g.id + 100;
+      return g;
+    }
+    function withGid(g) {
+      return g.id === gid;
+    }
+
+    let newGroupClusters = o['group-clusters'].filter(shouldKeepGroup);
+    let subgroupClusterTop = _.find(o['subgroup-clusters'], withGid);
+    if (!subgroupClusterTop || !subgroupClusterTop.val) {
+      return o;
+    }
+    let subGroupClustersToAdd = subgroupClusterTop.val.map(uniquifySubgroupId);
+    newGroupClusters = newGroupClusters.concat(subGroupClustersToAdd);
+
+    let newRepness = o['repness'].filter(shouldKeepGroup);
+    let subgroupRepnessTop = _.find(o['subgroup-repness'], withGid);
+    if (!subgroupRepnessTop || !subgroupRepnessTop.val) {
+      return o;
+    }
+    let repnessToAdd = subgroupRepnessTop.val.map(uniquifySubgroupId);
+    newRepness = newRepness.concat(repnessToAdd);
+
+    let newGroupVotes = o['group-votes'].filter(shouldKeepGroup);
+    let subgroupVotesTop = _.find(o['subgroup-votes'], withGid);
+    if (!subgroupVotesTop || !subgroupVotesTop.val) {
+      return o;
+    }
+    let subGroupVotesToAdd = subgroupVotesTop.val.map(uniquifySubgroupId);
+    newGroupVotes = newGroupVotes.concat(subGroupVotesToAdd);
+
+    o['repness'] = _.sortBy(newRepness, "id");
+    o['group-clusters'] = _.sortBy(newGroupClusters, "id");
+    o['group-votes'] = _.sortBy(newGroupVotes, "id");
+    return o;
+  }
+
+  function packGids(o) {
+
+    // TODO start index at 1
+
+    function remapGid(g) {
+      g.id = gid2newGid[g.id];
+      return g;
+    }
+    let origGids = _.map(o['group-clusters'], (g) => {return g.id;});
+    origGids.sort();
+    let gid2newGid = {};
+    for (let i = 0; i < origGids.length; i++) {
+      gid2newGid[origGids[i]] = i;
+    }
+    o['group-clusters'] = _.sortBy(_.map(o['group-clusters'], remapGid), 'id');
+    o['group-votes'] = _.sortBy(_.map(o['group-votes'], remapGid), 'id');
+    o['repness'] = _.sortBy(_.map(o['repness'], remapGid), 'id');
+
+    o['subgroup-clusters'] = _.sortBy(_.map(o['subgroup-clusters'], remapGid), 'id');
+    o['subgroup-votes'] = _.sortBy(_.map(o['subgroup-votes'], remapGid), 'id');
+    o['subgroup-repness'] = _.sortBy(_.map(o['subgroup-repness'], remapGid), 'id');
+    return o;
+  }
+  */
 
   function redirectIfHasZidButNoConversationId(
     req: { body: { zid: any; conversation_id: any }; headers?: any },
@@ -1077,6 +1401,250 @@ function initializePolisHelpers() {
     }
     return next();
   }
+
+  // function handle_GET_math_pca(
+  //   req: any,
+  //   res: {
+  //     status: (
+  //       arg0: number
+  //     ) => { (): any; new (): any; end: { (): void; new (): any } };
+  //   }
+  // ) {
+  //   // migrated off this path, old clients were causing timeout issues by polling repeatedly without waiting for a result for a previous poll.
+  //   res.status(304).end();
+  // }
+
+  // Cache the knowledge of whether there are any pca results for a given zid.
+  // Needed to determine whether to return a 404 or a 304.
+  // zid -> boolean
+  // let pcaResultsExistForZid = {};
+  // function handle_GET_math_pca2(
+  //   req: { p: { zid: any; math_tick: any; ifNoneMatch: any } },
+  //   res: {
+  //     status: (
+  //       arg0: number
+  //     ) => { (): any; new (): any; end: { (): void; new (): any } };
+  //     set: (arg0: {
+  //       "Content-Type": string;
+  //       "Content-Encoding": string;
+  //       Etag: string;
+  //     }) => void;
+  //     send: (arg0: any) => void;
+  //   }
+  // ) {
+  //   let zid = req.p.zid;
+  //   let math_tick = req.p.math_tick;
+
+  //   let ifNoneMatch = req.p.ifNoneMatch;
+  //   if (ifNoneMatch) {
+  //     if (!_.isUndefined(math_tick)) {
+  //       return fail(
+  //         res,
+  //         400,
+  //         "Expected either math_tick param or If-Not-Match header, but not both."
+  //       );
+  //     }
+  //     if (ifNoneMatch.includes("*")) {
+  //       math_tick = 0;
+  //     } else {
+  //       let entries = ifNoneMatch.split(/ *, */).map((x: string) => {
+  //         return Number(
+  //           x
+  //             .replace(/^[wW]\//, "")
+  //             .replace(/^"/, "")
+  //             .replace(/"$/, "")
+  //         );
+  //       });
+  //       math_tick = _.min(entries); // supporting multiple values for the ifNoneMatch header doesn't really make sense, so I've arbitrarily chosen _.min to decide on one.
+  //     }
+  //   } else if (_.isUndefined(math_tick)) {
+  //     math_tick = -1;
+  //   }
+  //   function finishWith304or404() {
+  //     // Element implicitly has an 'any' type
+  //     // because expression of type 'any' can't be used to index type '{ } '.ts(7053)
+  //     // @ts-ignore
+  //     if (pcaResultsExistForZid[zid]) {
+  //       res.status(304).end();
+  //     } else {
+  //       // Technically, this should probably be a 404, but
+  //       // the red errors make it hard to see other errors
+  //       // in Chrome Developer Tools.
+  //       res.status(304).end();
+  //       // res.status(404).end();
+  //     }
+  //   }
+
+  //   getPca(zid, math_tick)
+  //     .then(function (data: PcaCacheItem | undefined) {
+  //       if (data) {
+  //         // The buffer is gzipped beforehand to cut down on server effort in re-gzipping the same json string for each response.
+  //         // We can't cache this endpoint on Cloudflare because the response changes too freqently, so it seems like the best way
+  //         // is to cache the gzipped json'd buffer here on the server.
+  //         res.set({
+  //           "Content-Type": "application/json",
+  //           "Content-Encoding": "gzip",
+  //           Etag: '"' + data.asPOJO.math_tick + '"',
+  //         });
+  //         res.send(data.asBufferOfGzippedJson);
+  //       } else {
+  //         // check whether we should return a 304 or a 404
+  //         // Element implicitly has an 'any' type
+  //         // because expression of type 'any' can't be used to index type '{ } '.ts(7053)
+  //         // @ts-ignore
+  //         if (_.isUndefined(pcaResultsExistForZid[zid])) {
+  //           // This server doesn't know yet if there are any PCA results in the DB
+  //           // So try querying from -1
+  //           return getPca(zid, -1).then(function (data: any) {
+  //             let exists = !!data;
+  //             // Element implicitly has an 'any' type
+  //             // because expression of type 'any' can't be used to index type '{ } '.ts(7053)
+  //             // @ts-ignore
+  //             pcaResultsExistForZid[zid] = exists;
+  //             finishWith304or404();
+  //           });
+  //         } else {
+  //           finishWith304or404();
+  //         }
+  //       }
+  //     })
+  //     .catch(function (err: any) {
+  //       fail(res, 500, err);
+  //     });
+  // }
+
+  // function handle_POST_math_update(
+  //   req: { p: { zid: any; uid?: any; math_update_type: any } },
+  //   res: {
+  //     status: (
+  //       arg0: number
+  //     ) => { (): any; new (): any; json: { (arg0: {}): void; new (): any } };
+  //   }
+  // ) {
+  //   let zid = req.p.zid;
+  //   let uid = req.p.uid;
+  //   let math_env = Config.mathEnv;
+  //   let math_update_type = req.p.math_update_type;
+
+  //   isModerator(zid, uid).then((hasPermission: any) => {
+  //     if (!hasPermission) {
+  //       return fail(res, 500, "handle_POST_math_update_permission");
+  //     }
+  //     return pgQueryP(
+  //       "insert into worker_tasks (task_type, task_data, task_bucket, math_env) values ('update_math', $1, $2, $3);",
+  //       [
+  //         JSON.stringify({
+  //           zid: zid,
+  //           math_update_type: math_update_type,
+  //         }),
+  //         zid,
+  //         math_env,
+  //       ]
+  //     )
+  //       .then(() => {
+  //         res.status(200).json({});
+  //       })
+  //       .catch((err: any) => {
+  //         return fail(res, 500, "polis_err_POST_math_update", err);
+  //       });
+  //   });
+  // }
+
+  // function handle_GET_math_correlationMatrix(
+  //   req: { p: { rid: any; math_tick: any } },
+  //   res: {
+  //     status: (
+  //       arg0: number
+  //     ) => {
+  //       (): any;
+  //       new (): any;
+  //       json: { (arg0: { status: string }): void; new (): any };
+  //     };
+  //     json: (arg0: any) => void;
+  //   }
+  // ) {
+  //   let rid = req.p.rid;
+  //   let math_env = Config.mathEnv;
+  //   let math_tick = req.p.math_tick;
+
+  //   function finishAsPending() {
+  //     res.status(202).json({
+  //       status: "pending",
+  //     });
+  //   }
+
+  //   function hasCommentSelections() {
+  //     return pgQueryP(
+  //       "select * from report_comment_selections where rid = ($1) and selection = 1;",
+  //       [rid]
+  //       // Argument of type '(rows: string | any[]) => boolean' is not assignable to parameter of type '(value: unknown) => boolean | PromiseLike<boolean>'.
+  //       // Types of parameters 'rows' and 'value' are incompatible.
+  //       // Type 'unknown' is not assignable to type 'string | any[]'.
+  //       //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+  //       // @ts-ignore
+  //     ).then((rows: string | any[]) => {
+  //       return rows.length > 0;
+  //     });
+  //   }
+
+  //   let requestExistsPromise = pgQueryP(
+  //     "select * from worker_tasks where task_type = 'generate_report_data' and math_env=($2) " +
+  //       "and task_bucket = ($1) " +
+  //       // "and attempts < 3 " +
+  //       "and (task_data->>'math_tick')::int >= ($3) " +
+  //       "and finished_time is NULL;",
+  //     [rid, math_env, math_tick]
+  //   );
+
+  //   let resultExistsPromise = pgQueryP(
+  //     "select * from math_report_correlationmatrix where rid = ($1) and math_env = ($2) and math_tick >= ($3);",
+  //     [rid, math_env, math_tick]
+  //   );
+
+  //   Promise.all([resultExistsPromise, getZidForRid(rid)])
+  //     .then((a: any[]) => {
+  //       let rows = a[0];
+  //       let zid = a[1];
+  //       if (!rows || !rows.length) {
+  //         //         Argument of type '(requests_rows: string | any[]) => globalThis.Promise<void> | undefined' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void | undefined> | undefined'.
+  //         // Types of parameters 'requests_rows' and 'value' are incompatible.
+  //         //   Type 'unknown' is not assignable to type 'string | any[]'.
+  //         //           Type 'unknown' is not assignable to type 'any[]'.ts(2345)
+  //         // @ts-ignore
+  //         return requestExistsPromise.then((requests_rows: string | any[]) => {
+  //           const shouldAddTask = !requests_rows || !requests_rows.length;
+  //           // const shouldAddTask = true;
+
+  //           if (shouldAddTask) {
+  //             return hasCommentSelections().then((hasSelections: any) => {
+  //               if (!hasSelections) {
+  //                 return res.status(202).json({
+  //                   status: "polis_report_needs_comment_selection",
+  //                 });
+  //               }
+  //               return pgQueryP(
+  //                 "insert into worker_tasks (task_type, task_data, task_bucket, math_env) values ('generate_report_data', $1, $2, $3);",
+  //                 [
+  //                   JSON.stringify({
+  //                     rid: rid,
+  //                     zid: zid,
+  //                     math_tick: math_tick,
+  //                   }),
+  //                   rid,
+  //                   math_env,
+  //                 ]
+  //               ).then(finishAsPending);
+  //             });
+  //           }
+  //           finishAsPending();
+  //         });
+  //       }
+  //       res.json(rows[0].data);
+  //     })
+  //     .catch((err: any) => {
+  //       return fail(res, 500, "polis_err_GET_math_correlationMatrix", err);
+  //     });
+  // }
 
   function doAddDataExportTask(
     math_env: string | undefined,
@@ -1147,8 +1715,380 @@ function initializePolisHelpers() {
     };
     setInterval(runExportTest, 6 * 60 * 60 * 1000); // every 6 hours
   }
+  // function handle_GET_dataExport(
+  //   req: { p: { uid?: any; zid: any; unixTimestamp: number; format: any } },
+  //   res: { json: (arg0: {}) => void }
+  // ) {
+  //   getUserInfoForUid2(req.p.uid)
+  //     .then((user: { email: any }) => {
+  //       return doAddDataExportTask(
+  //         Config.mathEnv,
+  //         user.email,
+  //         req.p.zid,
+  //         req.p.unixTimestamp * 1000,
+  //         req.p.format,
+  //         Math.abs((Math.random() * 999999999999) >> 0)
+  //       )
+  //         .then(() => {
+  //           res.json({});
+  //         })
+  //         .catch((err: any) => {
+  //           fail(res, 500, "polis_err_data_export123", err);
+  //         });
+  //     })
+  //     .catch((err: any) => {
+  //       fail(res, 500, "polis_err_data_export123b", err);
+  //     });
+  // }
+  // function handle_GET_dataExport_results(
+  //   req: { p: { filename: string } },
+  //   res: { redirect: (arg0: any) => void }
+  // ) {
+  //   var url = s3Client.getSignedUrl("getObject", {
+  //     Bucket: "polis-datadump",
+  //     Key: Config.mathEnv + "/" + req.p.filename,
+  //     Expires: 60 * 60 * 24 * 7,
+  //   });
+  //   res.redirect(url);
+
+  //   // res.writeHead(302, {
+  //   //   Location: protocol + "://" + req?.headers?.host + path,
+  //   // });
+  //   // return res.end();
+  // }
+
+  // function handle_GET_bidToPid(
+  //   req: { p: { zid: any; math_tick: any } },
+  //   res: {
+  //     json: (arg0: { bidToPid: any }) => void;
+  //     status: (
+  //       arg0: number
+  //     ) => { (): any; new (): any; end: { (): void; new (): any } };
+  //   }
+  // ) {
+  //   let zid = req.p.zid;
+  //   let math_tick = req.p.math_tick;
+  //   getBidIndexToPidMapping(zid, math_tick).then(
+  //     function (doc: { bidToPid: any }) {
+  //       let b2p = doc.bidToPid;
+  //       res.json({
+  //         bidToPid: b2p,
+  //       });
+  //     },
+  //     function (err: any) {
+  //       res.status(304).end();
+  //     }
+  //   );
+  // }
+
+  // function getXids(zid: any) {
+  //   // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
+  //   // @ts-ignore
+  //   return new MPromise(
+  //     "getXids",
+  //     function (resolve: (arg0: any) => void, reject: (arg0: string) => void) {
+  //       pgQuery_readOnly(
+  //         "select pid, xid from xids inner join " +
+  //           "(select * from participants where zid = ($1)) as p on xids.uid = p.uid " +
+  //           " where owner in (select org_id from conversations where zid = ($1));",
+  //         [zid],
+  //         function (err: any, result: { rows: any }) {
+  //           if (err) {
+  //             reject("polis_err_fetching_xids");
+  //             return;
+  //           }
+  //           resolve(result.rows);
+  //         }
+  //       );
+  //     }
+  //   );
+  // }
+  // function handle_GET_xids(
+  //   req: { p: { uid?: any; zid: any } },
+  //   res: {
+  //     status: (
+  //       arg0: number
+  //     ) => { (): any; new (): any; json: { (arg0: any): void; new (): any } };
+  //   }
+  // ) {
+  //   let uid = req.p.uid;
+  //   let zid = req.p.zid;
+
+  //   isOwner(zid, uid).then(
+  //     function (owner: any) {
+  //       if (owner) {
+  //         getXids(zid).then(
+  //           function (xids: any) {
+  //             res.status(200).json(xids);
+  //           },
+  //           function (err: any) {
+  //             fail(res, 500, "polis_err_get_xids", err);
+  //           }
+  //         );
+  //       } else {
+  //         fail(res, 403, "polis_err_get_xids_not_authorized");
+  //       }
+  //     },
+  //     function (err: any) {
+  //       fail(res, 500, "polis_err_get_xids", err);
+  //     }
+  //   );
+  // }
+  // function handle_POST_xidWhitelist(
+  //   req: { p: { xid_whitelist: any; uid?: any } },
+  //   res: {
+  //     status: (
+  //       arg0: number
+  //     ) => { (): any; new (): any; json: { (arg0: {}): void; new (): any } };
+  //   }
+  // ) {
+  //   const xid_whitelist = req.p.xid_whitelist;
+  //   const len = xid_whitelist.length;
+  //   const owner = req.p.uid;
+  //   const entries = [];
+  //   try {
+  //     for (var i = 0; i < len; i++) {
+  //       entries.push("(" + escapeLiteral(xid_whitelist[i]) + "," + owner + ")");
+  //     }
+  //   } catch (err) {
+  //     return fail(res, 400, "polis_err_bad_xid", err);
+  //   }
+
+  //   pgQueryP(
+  //     "insert into xid_whitelist (xid, owner) values " +
+  //       entries.join(",") +
+  //       " on conflict do nothing;",
+  //     []
+  //   )
+  //     .then((result: any) => {
+  //       res.status(200).json({});
+  //     })
+  //     .catch((err: any) => {
+  //       return fail(res, 500, "polis_err_POST_xidWhitelist", err);
+  //     });
+  // }
+  // function getBidsForPids(zid: any, math_tick: number, pids: any[]) {
+  //   let dataPromise = getBidIndexToPidMapping(zid, math_tick);
+  //   let mathResultsPromise = getPca(zid, math_tick);
+
+  //   return Promise.all([dataPromise, mathResultsPromise]).then(function (
+  //     items: { asPOJO: any }[]
+  //   ) {
+  //     // Property 'bidToPid' does not exist on type '{ asPOJO: any; }'.ts(2339)
+  //     // @ts-ignore
+  //     let b2p = items[0].bidToPid || []; // not sure yet if "|| []" is right here.
+  //     let mathResults = items[1].asPOJO;
+  //     function findBidForPid(pid: any) {
+  //       let yourBidi = -1;
+  //       // if (!b2p) {
+  //       //     return yourBidi;
+  //       // }
+  //       for (var bidi = 0; bidi < b2p.length; bidi++) {
+  //         let pids = b2p[bidi];
+  //         if (pids.indexOf(pid) !== -1) {
+  //           yourBidi = bidi;
+  //           break;
+  //         }
+  //       }
+
+  //       let yourBid = indexToBid[yourBidi];
+
+  //       if (yourBidi >= 0 && _.isUndefined(yourBid)) {
+  //         logger.error("polis_err_math_index_mapping_mismatch", { pid, b2p });
+  //         yourBid = -1;
+  //       }
+  //       return yourBid;
+  //     }
+
+  //     let indexToBid = mathResults["base-clusters"].id;
+  //     let bids = pids.map(findBidForPid);
+  //     let pidToBid = _.object(pids, bids);
+  //     return pidToBid;
+  //   });
+  // }
+
+  // function getClusters(zid, math_tick) {
+  //   return getPca(zid, math_tick).then(function(pcaData) {
+  //     return pcaData.asPOJO["group-clusters"];
+  //   });
+  // }
+  // function handle_GET_bid(
+  //   req: { p: { uid?: any; zid: any; math_tick: any } },
+  //   res: {
+  //     json: (arg0: { bid: any }) => void;
+  //     status: (
+  //       arg0: number
+  //     ) => { (): any; new (): any; end: { (): void; new (): any } };
+  //   }
+  // ) {
+  //   let uid = req.p.uid;
+  //   let zid = req.p.zid;
+  //   let math_tick = req.p.math_tick;
+
+  //   let dataPromise = getBidIndexToPidMapping(zid, math_tick);
+  //   let pidPromise = getPidPromise(zid, uid);
+  //   let mathResultsPromise = getPca(zid, math_tick);
+
+  //   Promise.all([dataPromise, pidPromise, mathResultsPromise])
+  //     .then(
+  //       function (items: { asPOJO: any }[]) {
+  //         // Property 'bidToPid' does not exist on type '{ asPOJO: any; }'.ts(2339)
+  //         // @ts-ignore
+  //         let b2p = items[0].bidToPid || []; // not sure yet if "|| []" is right here.
+  //         let pid = items[1];
+  //         let mathResults = items[2].asPOJO;
+  //         if (((pid as unknown) as number) < 0) {
+  //           // NOTE: this API should not be called in /demo mode
+  //           fail(res, 500, "polis_err_get_bid_bad_pid");
+  //           return;
+  //         }
+
+  //         let indexToBid = mathResults["base-clusters"].id;
+
+  //         let yourBidi = -1;
+  //         for (var bidi = 0; bidi < b2p.length; bidi++) {
+  //           let pids = b2p[bidi];
+  //           if (pids.indexOf(pid) !== -1) {
+  //             yourBidi = bidi;
+  //             break;
+  //           }
+  //         }
+
+  //         let yourBid = indexToBid[yourBidi];
+
+  //         if (yourBidi >= 0 && _.isUndefined(yourBid)) {
+  //           logger.error("polis_err_math_index_mapping_mismatch", { pid, b2p });
+  //           yourBid = -1;
+  //         }
+
+  //         res.json({
+  //           bid: yourBid, // The user's current bid
+  //         });
+  //       },
+  //       function (err: any) {
+  //         res.status(304).end();
+  //       }
+  //     )
+  //     .catch(function (err: any) {
+  //       fail(res, 500, "polis_err_get_bid_misc", err);
+  //     });
+  // }
+
+  // function handle_POST_auth_password(
+  //   req: { p: { pwresettoken: any; newPassword: any } },
+  //   res: {
+  //     status: (
+  //       arg0: number
+  //     ) => {
+  //       (): any;
+  //       new (): any;
+  //       json: { (arg0: string): void; new (): any };
+  //     };
+  //   }
+  // ) {
+  //   let pwresettoken = req.p.pwresettoken;
+  //   let newPassword = req.p.newPassword;
+
+  //   getUidForPwResetToken(
+  //     pwresettoken,
+  //     //     Argument of type '(err: any, userParams: { uid?: any; }) => void' is not assignable to parameter of type '(arg0: number | null, arg1?: { uid: any; } | undefined) => void'.
+  //     // Types of parameters 'userParams' and 'arg1' are incompatible.
+  //     //   Type '{ uid: any; } | undefined' is not assignable to type '{ uid?: any; }'.
+  //     //     Type 'undefined' is not assignable to type '{ uid?: any; }'.ts(2345)
+  //     // @ts-ignore
+  //     function (err: any, userParams: { uid?: any }) {
+  //       if (err) {
+  //         fail(
+  //           res,
+  //           500,
+  //           "Password Reset failed. Couldn't find matching pwresettoken.",
+  //           err
+  //         );
+  //         return;
+  //       }
+  //       let uid = Number(userParams.uid);
+  //       generateHashedPassword(
+  //         newPassword,
+  //         function (err: any, hashedPassword: any) {
+  //           return pgQueryP(
+  //             "insert into jianiuevyew (uid, pwhash) values " +
+  //               "($1, $2) on conflict (uid) " +
+  //               "do update set pwhash = excluded.pwhash;",
+  //             [uid, hashedPassword]
+  //           ).then(
+  //             (rows: any) => {
+  //               res.status(200).json("Password reset successful.");
+  //               clearPwResetToken(pwresettoken, function (err: any) {
+  //                 if (err) {
+  //                   logger.error("polis_err_auth_pwresettoken_clear_fail", err);
+  //                 }
+  //               });
+  //             },
+  //             (err: any) => {
+  //               fail(res, 500, "Couldn't reset password.", err);
+  //             }
+  //           );
+  //         }
+  //       );
+  //     }
+  //   );
+  // }
 
   const getServerNameWithProtocol = Config.getServerNameWithProtocol;
+
+  // function handle_POST_auth_pwresettoken(
+  //   req: { p: { email: any } },
+  //   res: {
+  //     status: (
+  //       arg0: number
+  //     ) => {
+  //       (): any;
+  //       new (): any;
+  //       json: { (arg0: string): void; new (): any };
+  //     };
+  //   }
+  // ) {
+  //   let email = req.p.email;
+
+  //   let server = getServerNameWithProtocol(req);
+
+  //   // let's clear the cookies here, in case something is borked.
+  //   clearCookies(req, res);
+
+  //   function finish() {
+  //     res
+  //       .status(200)
+  //       .json("Password reset email sent, please check your email.");
+  //   }
+
+  //   getUidByEmail(email).then(
+  //     function (uid?: any) {
+  //       setupPwReset(uid, function (err: any, pwresettoken: any) {
+  //         sendPasswordResetEmail(
+  //           uid,
+  //           pwresettoken,
+  //           server,
+  //           function (err: any) {
+  //             if (err) {
+  //               fail(
+  //                 res,
+  //                 500,
+  //                 "Error: Couldn't send password reset email.",
+  //                 err
+  //               );
+  //               return;
+  //             }
+  //             finish();
+  //           }
+  //         );
+  //       });
+  //     },
+  //     function () {
+  //       sendPasswordResetEmailFailure(email, server);
+  //       finish();
+  //     }
+  //   );
+  // }
 
   function sendPasswordResetEmailFailure(email: any, server: any) {
     let body = `We were unable to find a pol.is account registered with the email address: ${email}
@@ -2294,6 +3234,23 @@ ${serverName}/pwreset/${pwresettoken}
     );
   }
 
+  // function sendTextEmailWithPostmark(sender, recipient, subject, text) {
+  //   return new Promise(function(resolve, reject) {
+  //     postmark.send({
+  //       "From": sender,
+  //       "To": recipient,
+  //       "Subject": subject,
+  //       "TextBody": text,
+  //     }, function(error, success) {
+  //       if (error) {
+  //         yell("polis_err_postmark_email_send_failed");
+  //         reject(error);
+  //       } else {
+  //         resolve();
+  //       }
+  //     });
+  //   });
+  // }
   function sendMultipleTextEmails(
     sender: string | undefined,
     recipientArray: any[],
@@ -2520,6 +3477,38 @@ Email verified! You can close this tab or hit the back button.
       .catch(function (err: any) {
         fail(res, 500, "polis_err_get_participant", err);
       });
+
+    // function fetchOne() {
+    //     pgQuery("SELECT * FROM users WHERE uid IN (SELECT uid FROM participants WHERE pid = ($1) AND zid = ($2));", [pid, zid], function(err, result) {
+    //         if (err || !result || !result.rows || !result.rows.length) { fail(res, 500, "polis_err_fetching_participant_info", err); return; }
+    //         let ptpt = result.rows[0];
+    //         let data = {};
+    //         // choose which fields to expose
+    //         data.hname = ptpt.hname;
+
+    //         res.status(200).json(data);
+    //     });
+    // }
+    // function fetchAll() {
+    //     // NOTE: it's important to return these in order by pid, since the array index indicates the pid.
+    //     pgQuery("SELECT users.hname, users.email, participants.pid FROM users INNER JOIN participants ON users.uid = participants.uid WHERE zid = ($1) ORDER BY participants.pid;", [zid], function(err, result) {
+    //         if (err || !result || !result.rows || !result.rows.length) { fail(res, 500, "polis_err_fetching_participant_info", err); return; }
+    //         res.json(result.rows);
+    //     });
+    // }
+    // pgQuery("SELECT is_anon FROM conversations WHERE zid = ($1);", [zid], function(err, result) {
+    //     if (err || !result || !result.rows || !result.rows.length) { fail(res, 500, "polis_err_fetching_participant_info", err); return; }
+    //     if (result.rows[0].is_anon) {
+    //         fail(res, 403, "polis_err_fetching_participant_info_conversation_is_anon");
+    //         return;
+    //     }
+    //     // if (pid !== undefined) {
+    //         fetchOne();
+    //     // } else {
+    //         // fetchAll();
+    //     // }
+
+    // });
   }
   function handle_GET_dummyButton(
     req: { p: { button: string; uid: string } },
@@ -3408,7 +4397,20 @@ Email verified! You can close this tab or hit the back button.
         })
     );
   }
+  // Test for deadlock condition
+  // _.times(2, function() {
+  // setInterval(function() {
+  //         joinWithZidOrSuzinvite({
+  //             answers: [],
+  //             existingAuth: false,
+  //             zid: 11580,
+  //             // uid: req.p.uid,
+  //         }).then(function() {
+  //         }).catch(function(err) {
+  //         });
 
+  // }, 10);
+  // });
   function joinWithZidOrSuzinvite(o: {
     answers: any;
     existingAuth: boolean;
@@ -3467,6 +4469,18 @@ Email verified! You can close this tab or hit the back button.
             return o;
           });
         })
+        // Commenting out for now until we have proper workflow for user.
+        // .then(function(o) {
+        //   logger.info("joinWithZidOrSuzinvite check email");
+        // if (o.conv.owner_sees_participation_stats) {
+        //   // User stats can be provided either by having the users sign in with polis
+        //   // or by having them join via suurls.
+        //   if (!(o.user && o.user.email) && !o.suzinvite) { // may want to inspect the contenst of the suzinvite info object instead of just the suzinvite
+        //     throw new Error("polis_err_need_full_user_for_zid_" + o.conv.zid + "_and_uid_" + (o.user&&o.user.uid));
+        //   }
+        // }
+        // return o;
+        // })
         // @ts-ignore
         .then(function (o: { uid?: any }) {
           if (o.uid) {
@@ -3864,6 +4878,9 @@ Email verified! You can close this tab or hit the back button.
       if (ref && ref.length) refParts = ref.split("/");
       if (refParts && refParts.length >= 3) resultRef = refParts[2] || "";
     }
+    // let path = req.path;
+    // path = path && path.split('/');
+    // let conversation_id = path && path.length >= 2 && path[1];
     let zid = req.p.zid;
 
     isParentDomainWhitelisted(
@@ -4015,6 +5032,15 @@ Email verified! You can close this tab or hit the back button.
         return Promise.all([
           pgQueryP_readOnly(q0, args),
           pgQueryP_readOnly(q1, args),
+          // pgQueryP_readOnly("select created from participants where zid = ($1) order by created;", [zid]),
+
+          // pgQueryP_readOnly("with pidvotes as (select pid, count(*) as countForPid from votes where zid = ($1)"+
+          //     " group by pid order by countForPid desc) select countForPid as n_votes, count(*) as n_ptpts "+
+          //     "from pidvotes group by countForPid order by n_ptpts asc;", [zid]),
+
+          // pgQueryP_readOnly("with all_social as (select uid from facebook_users union select uid from twitter_users), "+
+          //     "ptpts as (select created, uid from participants where zid = ($1)) "+
+          //     "select ptpts.created from ptpts inner join all_social on ptpts.uid = all_social.uid;", [zid]),
         ]).then(function (a: any[]) {
           function castTimestamp(o: { created: number }) {
             o.created = Number(o.created);
@@ -4022,6 +5048,10 @@ Email verified! You can close this tab or hit the back button.
           }
           let comments = _.map(a[0], castTimestamp);
           let votes = _.map(a[1], castTimestamp);
+          // let uniqueHits = _.map(a[2], castTimestamp); // participants table
+          // let votesHistogram = a[2];
+          // let socialUsers = _.map(a[4], castTimestamp);
+
           let votesGroupedByPid = _.groupBy(votes, "pid");
           let votesHistogramObj = {};
           _.each(
@@ -5354,6 +6384,28 @@ Email verified! You can close this tab or hit the back button.
     return url;
   }
 
+  // function createMuteUrl(zid, tid) {
+  //     let server = Config.getServerUrl();
+  //     let params = {
+  //         zid: zid,
+  //         tid: tid
+  //     };
+  //     let path = "v3/mute";
+  //     params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
+  //     return server + "/"+path+"?" + paramsToStringSortedByName(params);
+  // }
+
+  // function createUnmuteUrl(zid, tid) {
+  //     let server = Config.getServerUrl();
+  //     let params = {
+  //         zid: zid,
+  //         tid: tid
+  //     };
+  //     let path = "v3/unmute";
+  //     params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
+  //     return server + "/"+path+"?" + paramsToStringSortedByName(params);
+  // }
+
   function moderateComment(
     zid: any,
     tid: any,
@@ -5383,6 +6435,65 @@ Email verified! You can close this tab or hit the back button.
 
   const getComment = Comment.getComment;
 
+  // function muteComment(zid, tid) {
+  //     let mod = polisTypes.mod.ban;
+  //     return moderateComment(zid, tid, false, mod);
+  // }
+  // function unmuteComment(zid, tid) {
+  //     let mod = polisTypes.mod.ok;
+  //     return moderateComment(zid, tid, true, mod);
+  // }
+
+  // function handle_GET_mute(req, res) {
+  //     let tid = req.p.tid;
+  //     let zid = req.p.zid;
+  //     let params = {
+  //         zid: req.p.zid,
+  //         tid: req.p.tid,
+  //         signature: req.p[HMAC_SIGNATURE_PARAM_NAME],
+  //     };
+  //     verifyHmacForQueryParams("v3/mute", params).catch(function() {
+  //         fail(res, 403, "polis_err_signature_mismatch");
+  //     }).then(function() {
+  //         return muteComment(zid, tid);
+  //     }).then(function() {
+  //         return getComment(zid, tid);
+  //     }).then(function(c) {
+  //         res.set('Content-Type', 'text/html');
+  //         res.send(
+  //             "<h1>muted tid: "+c.tid+" zid:" + c.zid + "</h1>" +
+  //             "<p>" + c.txt + "</p>" +
+  //             "<a href=\"" + createUnmuteUrl(zid, tid) + "\">Unmute this comment.</a>"
+  //         );
+  //     }).catch(function(err) {
+  //     });
+  // }
+
+  // function handle_GET_unmute(req, res) {
+  //     let tid = req.p.tid;
+  //     let zid = req.p.zid;
+  //     let params = {
+  //         zid: req.p.zid,
+  //         tid: req.p.tid,
+  //         signature: req.p[HMAC_SIGNATURE_PARAM_NAME],
+  //     };
+  //     verifyHmacForQueryParams("v3/unmute", params).catch(function() {
+  //         fail(res, 403, "polis_err_signature_mismatch");
+  //     }).then(function() {
+  //         return unmuteComment(zid, tid);
+  //     }).then(function() {
+  //         return getComment(zid, tid);
+  //     }).then(function(c) {
+  //         res.set('Content-Type', 'text/html');
+  //         res.send(
+  //             "<h1>unmuted tid: "+c.tid+" zid:" + c.zid + "</h1>" +
+  //             "<p>" + c.txt + "</p>" +
+  //             "<a href=\"" + createMuteUrl(zid, tid) + "\">Mute this comment.</a>"
+  //         );
+  //     }).catch(function(err) {
+  //         fail(res, 500, err);
+  //     });
+  // }
   function hasBadWords(txt: string) {
     txt = txt.toLowerCase();
     let tokens = txt.split(" ");
@@ -7147,6 +8258,50 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
+  // function handle_DELETE_metadata_answers(
+  //   req: { p: { uid?: any; pmaid: any } },
+  //   res: { send: (arg0: number) => void }
+  // ) {
+  //   let uid = req.p.uid;
+  //   let pmaid = req.p.pmaid;
+
+  //   getZidForAnswer(pmaid, function (err: any, zid: any) {
+  //     if (err) {
+  //       fail(
+  //         res,
+  //         500,
+  //         "polis_err_delete_participant_metadata_answers_zid",
+  //         err
+  //       );
+  //       return;
+  //     }
+  //     isConversationOwner(zid, uid, function (err: any) {
+  //       if (err) {
+  //         fail(
+  //           res,
+  //           403,
+  //           "polis_err_delete_participant_metadata_answers_auth",
+  //           err
+  //         );
+  //         return;
+  //       }
+
+  //       deleteMetadataAnswer(pmaid, function (err: any) {
+  //         if (err) {
+  //           fail(
+  //             res,
+  //             500,
+  //             "polis_err_delete_participant_metadata_answers",
+  //             err
+  //           );
+  //           return;
+  //         }
+  //         res.send(200);
+  //       });
+  //     });
+  //   });
+  // }
+
   function getZidForAnswer(
     pmaid: any,
     callback: {
@@ -8870,6 +10025,39 @@ Thanks for using Polis!
     );
   }
 
+  // function getTwitterUserTimeline(screen_name) {
+  //   let oauth = new OAuth.OAuth(
+  //     'https://api.twitter.com/oauth/request_token', // null
+  //     'https://api.twitter.com/oauth/access_token', // null
+  //     Config.twitterConsumerKey, //'your application consumer key',
+  //     Config.twitterConsumerSecret, //'your application secret',
+  //     '1.0A',
+  //     null,
+  //     'HMAC-SHA1'
+  //   );
+  //   return new MPromise("getTwitterTweet", function(resolve, reject) {
+  //     oauth.get(
+  //       'https://api.twitter.com/1.1/statuses/user_timeline.json?screen_name=' + screen_name,
+  //       void 0, //'your user token for this app', //test user token
+  //       void 0, //'your user secret for this app', //test user secret
+  //       function(e, data, res) {
+  //         if (e) {
+  //           reject(e);
+  //         } else {
+  //           let foo = JSON.parse(data);
+  //           foo = _.pluck(foo, "text");
+  //           resolve(data);
+  //         }
+  //       }
+  //     );
+  //   });
+  // }
+
+  // Certain twitter ids may be suspended.
+  // Twitter will error if we request info on them.
+  //  so keep a list of these for as long as the server is running,
+  //  so we don't repeat requests for them.
+  // This is probably not optimal, but is pretty easy.
   let suspendedOrPotentiallyProblematicTwitterIds: any[] = [];
   function getTwitterUserInfoBulk(list_of_twitter_user_id: any[]) {
     list_of_twitter_user_id = list_of_twitter_user_id || [];
@@ -10677,6 +11865,21 @@ Thanks for using Polis!
       });
   }
 
+  // function handle_GET_cache_purge(req, res) {
+
+  //   let hostname = "pol.is";
+  //   // NOTE: can't purge preprod independently unless we set up a separate domain on cloudflare, AFAIK
+
+  //   request.post("https://www.cloudflare.com/api_json.html").form({
+  //     a: 'fpurge_ts',
+  //     tkn: process.env.CLOUDFLARE_API_KEY,
+  //     email: process.env.CLOUDFLARE_API_EMAIL,
+  //     z: hostname,
+  //     v: 1,
+  //   })
+  //   .pipe(res);
+
+  // }
   function handle_GET_einvites(
     req: { p: { einvite: any } },
     res: {
@@ -10808,6 +12011,43 @@ Thanks for using Polis!
         });
     });
   }
+
+  // function handle_POST_users_invite(req, res) {
+  //     let owner = req.p.uid;
+  //     let xids = req.p.xids;
+  //     let zid = req.p.zid;
+  //     // generate some tokens
+  //     // add them to a table paired with user_ids
+  //     // return URLs with those.
+  //     generateSUZinvites(xids.length).then(function(suzinviteArray) {
+  //         let pairs = _.zip(xids, suzinviteArray);
+
+  //         let valuesStatements = pairs.map(function(pair) {
+  //             let xid = escapeLiteral(pair[0]);
+  //             let suzinvite = escapeLiteral(pair[1]);
+  //             let statement = "("+ suzinvite + ", " + xid + "," + zid+","+owner+")";
+  //             return statement;
+  //         });
+  //         let query = "INSERT INTO suzinvites (suzinvite, xid, zid, owner) VALUES " + valuesStatements.join(",") + ";";
+  //         pgQuery(query, [], function(err, results) {
+  //             if (err) { fail(res, 500, "polis_err_saving_invites", err); return; }
+  //             getZinvite(zid).then(function(conversation_id) {
+  //                 res.json({
+  //                     urls: suzinviteArray.map(function(suzinvite) {
+  //                         return generateSingleUseUrl(req, conversation_id, suzinvite);
+  //                     }),
+  //                     xids: xids,
+  //                 });
+  //             }, function(err) {
+  //                 fail(res, 500, "polis_err_generating_single_use_invites_missing_conversation_id", err);
+  //             }).catch(function(err) {
+  //                 fail(res, 500, "polis_err_generating_single_use_invites", err);
+  //             });
+  //         });
+  //     }).catch(function(err) {
+  //         fail(res, 500, "polis_err_generating_single_use_invites", err);
+  //     });
+  // }
 
   function handle_GET_testConnection(
     req: any,
