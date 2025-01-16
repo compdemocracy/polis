@@ -8,9 +8,7 @@ import badwords from "badwords/object";
 import { Promise as BluebirdPromise } from "bluebird";
 import http from "http";
 import httpProxy from "http-proxy";
-// const Promise = require('es6-promise').Promise,
 import async from "async";
-// npm list types-at-fb
 // @ts-ignore
 import FB from "fb";
 import { google } from "googleapis";
@@ -18,12 +16,6 @@ import fs from "fs";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import OAuth from "oauth";
-// const Pushover = require('pushover-notifications');
-// const pushoverInstance = new Pushover({
-//   user: process.env.PUSHOVER_GROUP_POLIS_DEV,
-//   token: process.env.PUSHOVER_POLIS_PROXY_API_KEY,
-// });
-// const postmark = require("postmark")(process.env.POSTMARK_API_KEY);
 import replaceStream from "replacestream";
 import responseTime from "response-time";
 import request from "request-promise"; // includes Request, but adds promise methods
@@ -80,6 +72,31 @@ import {
   Vote,
 } from "./d";
 
+import handle_DELETE_metadata_answers from "./routes/metadataAnswers";
+import handle_GET_launchPrep from "./routes/launchPrep";
+import handle_GET_tryCookie from "./routes/tryCookie";
+import {
+  handle_GET_math_pca,
+  handle_GET_math_pca2,
+  handle_POST_math_update,
+  handle_GET_math_correlationMatrix,
+  handle_GET_bidToPid,
+  getXids,
+  handle_GET_xids,
+  handle_POST_xidWhitelist,
+  getBidsForPids,
+  handle_GET_bid,
+} from "./routes/math";
+import {
+  handle_GET_dataExport,
+  handle_GET_dataExport_results,
+} from "./routes/dataExport";
+// import { getVotesForSingleParticipant, votesPost } from "./routes/votes";
+import {
+  handle_POST_auth_password,
+  handle_POST_auth_pwresettoken,
+} from "./routes/password";
+
 AWS.config.update({ region: Config.awsRegion });
 const devMode = Config.isDevMode;
 const s3Client = new AWS.S3({ apiVersion: "2006-03-01" });
@@ -116,15 +133,6 @@ const resolveWith = (x: { body?: { user_id: string } }) => {
   return Promise.resolve(x);
 };
 
-//var SegfaultHandler = require('segfault-handler');
-
-//SegfaultHandler.registerHandler("segfault.log");
-
-// var conversion = {
-//   contact: { user_id: '8634dd66-f75e-428d-a2bf-930baa0571e9' },
-//   user: { email: 'asdf@adsf.com', user_id: "12345" },
-// };
-
 if (devMode) {
   BluebirdPromise.longStackTraces();
 }
@@ -159,7 +167,6 @@ akismet.verifyKey(function (err: any, verified: any) {
     logger.debug("Akismet: Unable to verify API key.");
   }
 });
-// let SELF_HOSTNAME = Config.getServerHostname();
 
 function isSpam(o: {
   comment_content: any;
@@ -251,39 +258,6 @@ const sql_participant_metadata_answers = SQL.sql_participant_metadata_answers;
 const sql_participants_extended = SQL.sql_participants_extended;
 const sql_reports = SQL.sql_reports;
 const sql_users = SQL.sql_users;
-
-// // Eventually, the plan is to support a larger number-space by using some lowercase letters.
-// // Waiting to implement that since there's cognitive overhead with mapping the IDs to/from
-// // letters/numbers.
-// // Just using digits [2-9] to start with. Omitting 0 and 1 since they can be confused with
-// // letters once we start using letters.
-// // This should give us roughly 8^8 = 16777216 conversations before we have to add letters.
-// let ReadableIds = (function() {
-//     function rand(a) {
-//         return _.random(a.length);
-//     }
-//     // no 1 (looks like l)
-//     // no 0 (looks like 0)
-//     let numbers8 = "23456789".split("");
-
-//     // should fit within 32 bits
-//     function generateConversationId() {
-//        return [
-//             rand(numbers8),
-//             rand(numbers8),
-//             rand(numbers8),
-//             rand(numbers8),
-//             rand(numbers8),
-//             rand(numbers8),
-//             rand(numbers8),
-//             rand(numbers8)
-//         ].join('');
-//     }
-//     return {
-//         generateConversationId: generateConversationId,
-//     };
-// }());
-
 const encrypt = Session.encrypt;
 const decrypt = Session.decrypt;
 const makeSessionToken = Session.makeSessionToken;
@@ -352,28 +326,12 @@ function doApiKeyAuth(
     });
 }
 
-// function getXidRecordByXidConversationId(xid, conversation_id) {
-//   return pgQueryP("select * from xids where xid = ($2) and owner = (select org_id from conversations where zid = (select zid from zinvites where zinvite = ($1)))", [zinvite, xid]);
-// }
-
 const createDummyUser = User.createDummyUser;
 const getConversationInfo = Conversation.getConversationInfo;
 const getConversationInfoByConversationId =
   Conversation.getConversationInfoByConversationId;
 const isXidWhitelisted = Conversation.isXidWhitelisted;
 const getXidRecordByXidOwnerId = User.getXidRecordByXidOwnerId;
-
-// function doXidOwnerConversationIdAuth(assigner, xid, conversation_id, req, res, next) {
-//   getXidRecordByXidConversationId(xid, conversation_id).then(function(rows) {
-//     if (!rows || !rows.length) {
-//       res.status(403);
-//       next("polis_err_auth_no_such_api_token4");
-//       return;
-//     }
-//     assigner(req, "uid", Number(rows[0].uid));
-//     next();
-//   });
-// }
 
 function doXidApiKeyAuth(
   assigner: (arg0: any, arg1: string, arg2: number) => void,
@@ -490,39 +448,6 @@ String.prototype.hashCode = function () {
 };
 
 function initializePolisHelpers() {
-  // // If there are any comments which have no votes by the owner, create a PASS vote by the owner.
-  // pgQuery("select * from comments", [], function(err, comments) {
-  //     pgQuery("select * from votes", [], function(err, votes) {
-  //         comments = comments.rows;
-  //         votes = votes.rows;
-
-  //         let exists = {};
-  //         votes.forEach(function(v) {
-  //             exists[v.zid +"_"+ v.tid] = true;
-  //         });
-  //         let missing = [];
-  //         for (var i = 0 ; i < comments.length; i++) {
-  //             let c = comments[i];
-  //             if (!exists[c.zid + "_" + c.tid]) {
-  //                 missing.push(c);
-  //             }
-  //         }
-  //         async.series(
-  //             missing.map(function(c) {
-  //                 return function(callback) {
-  //                     votesPost(uid, c.pid, c.zid, c.tid, 0)
-  //                         .then(function() {
-  //                             callback(null);
-  //                         })
-  //                         .catch(function() {
-  //                             callback(1);
-  //                         });
-  //                 };
-  //             }),
-  //             function(err, results) {
-  //             });
-  //     });
-  // });
 
   const polisTypes = Utils.polisTypes;
   const setCookie = cookies.setCookie;
@@ -609,7 +534,7 @@ function initializePolisHelpers() {
     tid?: any,
     voteType?: any,
     weight?: number,
-    high_priority?: boolean,
+    high_priority?: boolean
   ) {
     let zid = conv?.zid;
     weight = weight || 0;
@@ -650,7 +575,7 @@ function initializePolisHelpers() {
     xid?: any,
     voteType?: any,
     weight?: number,
-    high_priority?: boolean,
+    high_priority?: boolean
   ) {
     return (
       pgQueryP_readOnly("select * from conversations where zid = ($1);", [zid])
@@ -688,7 +613,7 @@ function initializePolisHelpers() {
             tid,
             voteType,
             weight,
-            high_priority,
+            high_priority
           );
         })
     );
@@ -791,30 +716,6 @@ function initializePolisHelpers() {
     }
     return next();
   }
-
-  // function createDummyUsersBatch(n) {
-  //     let query = "insert into users (created) values ";
-  //     let values = [];
-  //     for (var i = 0; i < n; i++) {
-  //         values.push("(default)");
-  //     }
-  //     values = values.join(",");
-  //     query += values;
-  //     query += " returning uid;";
-
-  //     return new MPromise("createDummyUser", function(resolve, reject) {
-  //         pgQuery(query,[], function(err, results) {
-  //             if (err || !results || !results.rows || !results.rows.length) {
-  //                 reject(new Error("polis_err_create_empty_user"));
-  //                 return;
-  //             }
-  //             let uids = results.rows.map(function(row) {
-  //                 return row.uid;
-  //             });
-  //             resolve(uids);
-  //         });
-  //     });
-  // }
 
   function doXidConversationIdAuth(
     assigner: (arg0: any, arg1: string, arg2: number) => void,
@@ -921,13 +822,6 @@ function initializePolisHelpers() {
             res,
             onDone
           );
-          // } else if (req?.headers?.["x-sandstorm-app-polis-apikey"] && req?.headers?.["x-sandstorm-app-polis-xid"] && req?.headers?.["x-sandstorm-app-polis-owner-xid"]) {
-          //   doXidApiKeyAuth(
-          //     assigner,
-          //     req?.headers?.["x-sandstorm-app-polis-apikey"],
-          //     req?.headers?.["x-sandstorm-app-polis-owner-xid"],
-          //     req?.headers?.["x-sandstorm-app-polis-xid"],
-          //     isOptional, req, res, onDone);
         } else if (getKey(req, "xid") && getKey(req, "conversation_id")) {
           doXidConversationIdAuth(
             assigner,
@@ -1025,45 +919,6 @@ function initializePolisHelpers() {
           next(err || "polis_err_auth_error_432");
         });
     };
-
-    //   let xid = req.body.xid;
-    //   let hasXid = !_.isUndefined(xid);
-
-    //   if (hasXid) {
-    //     req.p = req.p || {};
-    //     req.p.xid = xid;
-    //     getConversationIdFetchZid(req.body.conversation_id).then((zid) => {
-
-    //       return getXidStuff(xid, zid).then((xidRecord) => {
-    //         let foundXidRecord = xidRecord !== "noXidRecord";
-    //         if (foundXidRecord) {
-    //           assigner(req, "uid", Number(xidRecord.uid));
-    //           return next();
-    //         }
-    //         // try other auth methods, and once those are done, use req.p.uid to create new xid record.
-    //         doAuth(req, res).then(() => {
-    //           if (req.p.uid && !isOptional) { // req.p.uid might be set now.
-    //             return createXidRecordByZid(zid, req.p.uid, xid, req.body.x_profile_image_url, req.body.x_name, req.body.x_email);
-    //           } else if (!isOptional) {
-    //             throw "polis_err_missing_non_optional_uid";
-    //           }
-    //         }).then(() => {
-    //           return next();
-    //         }).catch((err) => {
-    //           res.status(500);
-    //           return next("polis_err_auth_xid_error_423423");
-    //         });
-    //       });
-    //     });
-    //   } else {
-    //     doAuth(req, res).then(() => {
-    //       return next();
-    //     }).catch((err) => {
-    //       res.status(500);
-    //       next("polis_err_auth_error_432");
-    //     });
-    //   }
-    // };
   }
   // input token from body or query, and populate req.body.u with userid.
   function authOptional(assigner: any) {
@@ -1078,30 +933,6 @@ function initializePolisHelpers() {
     req.body.agid = 1;
     next();
   }
-  /*
-  function meter(name) {
-      return function (req, res, next){
-          let start = Date.now();
-          setTimeout(function() {
-              metric(name + ".go", 1, start);
-          }, 1);
-          res.on('finish', function(){
-            let end = Date.now();
-            let duration = end - start;
-            let status = ".ok";
-            if (!res.statusCode || res.statusCode >= 500) {
-              status = ".fail";
-            } else if (res.statusCode >= 400) {
-              status = ".4xx";
-            }
-            setTimeout(function() {
-                metric(name + status, duration, end);
-            }, 1);
-          });
-          next();
-      };
-  }
-  */
   // 2xx
   // 4xx
   // 5xx
@@ -1234,126 +1065,9 @@ function initializePolisHelpers() {
   const strToHex = Utils.strToHex;
   const hexToStr = Utils.hexToStr;
 
-  function handle_GET_launchPrep(
-    req: {
-      headers?: { origin: string };
-      cookies: { [x: string]: any };
-      p: { dest: any };
-    },
-    res: { redirect: (arg0: any) => void }
-  ) {
-    if (!req.cookies[COOKIES.PERMANENT_COOKIE]) {
-      setPermanentCookie(req, res, makeSessionToken());
-    }
-    setCookieTestCookie(req, res);
-
-    // Argument of type '{ redirect: (arg0: any) => void; }' is not assignable to parameter of type '{ cookie: (arg0: any, arg1: any, arg2: any) => void; }'.
-    // Property 'cookie' is missing in type '{ redirect: (arg0: any) => void; }' but required in type '{ cookie: (arg0: any, arg1: any, arg2: any) => void; }'.ts(2345)
-    // @ts-ignore
-    setCookie(req, res, "top", "ok", {
-      httpOnly: false, // not httpOnly - needed by JS
-    });
-
-    // using hex since it doesn't require escaping like base64.
-    const dest = hexToStr(req.p.dest);
-    const url = new URL(dest);
-    res.redirect(url.pathname + url.search + url.hash);
-  }
-
-  function handle_GET_tryCookie(
-    req: { headers?: { origin: string }; cookies: { [x: string]: any } },
-    res: {
-      status: (
-        arg0: number
-      ) => { (): any; new (): any; json: { (arg0: {}): void; new (): any } };
-    }
-  ) {
-    if (!req.cookies[COOKIES.TRY_COOKIE]) {
-      // Argument of type '{ status: (arg0: number) => { (): any; new (): any; json:
-      // { (arg0: {}): void; new (): any; }; }; }' is not assignable to parameter of type
-      // '{ cookie: (arg0: any, arg1: any, arg2: any) => void; }'.
-      //   Property 'cookie' is missing in type '{ status: (arg0: number) =>
-      // { (): any; new (): any; json: { (arg0: {}): void; new (): any; }; };
-      // } ' but required in type '{ cookie: (arg0: any, arg1: any, arg2: any) => void; } '.ts(2345)
-      // @ts-ignore
-      setCookie(req, res, COOKIES.TRY_COOKIE, "ok", {
-        httpOnly: false, // not httpOnly - needed by JS
-      });
-    }
-    res.status(200).json({});
-  }
-
   // don't start immediately, let other things load first.
   // setTimeout(fetchAndCacheLatestPcaData, 5000);
   fetchAndCacheLatestPcaData; // TODO_DELETE
-
-  /*
-  function splitTopLevelGroup(o, gid) {
-    function shouldKeepGroup(g) {
-      return g.id !== gid;
-    }
-    function uniquifySubgroupId(g) {
-      g.id = g.id + 100;
-      return g;
-    }
-    function withGid(g) {
-      return g.id === gid;
-    }
-
-    let newGroupClusters = o['group-clusters'].filter(shouldKeepGroup);
-    let subgroupClusterTop = _.find(o['subgroup-clusters'], withGid);
-    if (!subgroupClusterTop || !subgroupClusterTop.val) {
-      return o;
-    }
-    let subGroupClustersToAdd = subgroupClusterTop.val.map(uniquifySubgroupId);
-    newGroupClusters = newGroupClusters.concat(subGroupClustersToAdd);
-
-    let newRepness = o['repness'].filter(shouldKeepGroup);
-    let subgroupRepnessTop = _.find(o['subgroup-repness'], withGid);
-    if (!subgroupRepnessTop || !subgroupRepnessTop.val) {
-      return o;
-    }
-    let repnessToAdd = subgroupRepnessTop.val.map(uniquifySubgroupId);
-    newRepness = newRepness.concat(repnessToAdd);
-
-    let newGroupVotes = o['group-votes'].filter(shouldKeepGroup);
-    let subgroupVotesTop = _.find(o['subgroup-votes'], withGid);
-    if (!subgroupVotesTop || !subgroupVotesTop.val) {
-      return o;
-    }
-    let subGroupVotesToAdd = subgroupVotesTop.val.map(uniquifySubgroupId);
-    newGroupVotes = newGroupVotes.concat(subGroupVotesToAdd);
-
-    o['repness'] = _.sortBy(newRepness, "id");
-    o['group-clusters'] = _.sortBy(newGroupClusters, "id");
-    o['group-votes'] = _.sortBy(newGroupVotes, "id");
-    return o;
-  }
-
-  function packGids(o) {
-
-    // TODO start index at 1
-
-    function remapGid(g) {
-      g.id = gid2newGid[g.id];
-      return g;
-    }
-    let origGids = _.map(o['group-clusters'], (g) => {return g.id;});
-    origGids.sort();
-    let gid2newGid = {};
-    for (let i = 0; i < origGids.length; i++) {
-      gid2newGid[origGids[i]] = i;
-    }
-    o['group-clusters'] = _.sortBy(_.map(o['group-clusters'], remapGid), 'id');
-    o['group-votes'] = _.sortBy(_.map(o['group-votes'], remapGid), 'id');
-    o['repness'] = _.sortBy(_.map(o['repness'], remapGid), 'id');
-
-    o['subgroup-clusters'] = _.sortBy(_.map(o['subgroup-clusters'], remapGid), 'id');
-    o['subgroup-votes'] = _.sortBy(_.map(o['subgroup-votes'], remapGid), 'id');
-    o['subgroup-repness'] = _.sortBy(_.map(o['subgroup-repness'], remapGid), 'id');
-    return o;
-  }
-  */
 
   function redirectIfHasZidButNoConversationId(
     req: { body: { zid: any; conversation_id: any }; headers?: any },
@@ -1375,250 +1089,6 @@ function initializePolisHelpers() {
       return res.end();
     }
     return next();
-  }
-
-  function handle_GET_math_pca(
-    req: any,
-    res: {
-      status: (
-        arg0: number
-      ) => { (): any; new (): any; end: { (): void; new (): any } };
-    }
-  ) {
-    // migrated off this path, old clients were causing timeout issues by polling repeatedly without waiting for a result for a previous poll.
-    res.status(304).end();
-  }
-
-  // Cache the knowledge of whether there are any pca results for a given zid.
-  // Needed to determine whether to return a 404 or a 304.
-  // zid -> boolean
-  let pcaResultsExistForZid = {};
-  function handle_GET_math_pca2(
-    req: { p: { zid: any; math_tick: any; ifNoneMatch: any } },
-    res: {
-      status: (
-        arg0: number
-      ) => { (): any; new (): any; end: { (): void; new (): any } };
-      set: (arg0: {
-        "Content-Type": string;
-        "Content-Encoding": string;
-        Etag: string;
-      }) => void;
-      send: (arg0: any) => void;
-    }
-  ) {
-    let zid = req.p.zid;
-    let math_tick = req.p.math_tick;
-
-    let ifNoneMatch = req.p.ifNoneMatch;
-    if (ifNoneMatch) {
-      if (!_.isUndefined(math_tick)) {
-        return fail(
-          res,
-          400,
-          "Expected either math_tick param or If-Not-Match header, but not both."
-        );
-      }
-      if (ifNoneMatch.includes("*")) {
-        math_tick = 0;
-      } else {
-        let entries = ifNoneMatch.split(/ *, */).map((x: string) => {
-          return Number(
-            x
-              .replace(/^[wW]\//, "")
-              .replace(/^"/, "")
-              .replace(/"$/, "")
-          );
-        });
-        math_tick = _.min(entries); // supporting multiple values for the ifNoneMatch header doesn't really make sense, so I've arbitrarily chosen _.min to decide on one.
-      }
-    } else if (_.isUndefined(math_tick)) {
-      math_tick = -1;
-    }
-    function finishWith304or404() {
-      // Element implicitly has an 'any' type
-      // because expression of type 'any' can't be used to index type '{ } '.ts(7053)
-      // @ts-ignore
-      if (pcaResultsExistForZid[zid]) {
-        res.status(304).end();
-      } else {
-        // Technically, this should probably be a 404, but
-        // the red errors make it hard to see other errors
-        // in Chrome Developer Tools.
-        res.status(304).end();
-        // res.status(404).end();
-      }
-    }
-
-    getPca(zid, math_tick)
-      .then(function (data: PcaCacheItem | undefined) {
-        if (data) {
-          // The buffer is gzipped beforehand to cut down on server effort in re-gzipping the same json string for each response.
-          // We can't cache this endpoint on Cloudflare because the response changes too freqently, so it seems like the best way
-          // is to cache the gzipped json'd buffer here on the server.
-          res.set({
-            "Content-Type": "application/json",
-            "Content-Encoding": "gzip",
-            Etag: '"' + data.asPOJO.math_tick + '"',
-          });
-          res.send(data.asBufferOfGzippedJson);
-        } else {
-          // check whether we should return a 304 or a 404
-          // Element implicitly has an 'any' type
-          // because expression of type 'any' can't be used to index type '{ } '.ts(7053)
-          // @ts-ignore
-          if (_.isUndefined(pcaResultsExistForZid[zid])) {
-            // This server doesn't know yet if there are any PCA results in the DB
-            // So try querying from -1
-            return getPca(zid, -1).then(function (data: any) {
-              let exists = !!data;
-              // Element implicitly has an 'any' type
-              // because expression of type 'any' can't be used to index type '{ } '.ts(7053)
-              // @ts-ignore
-              pcaResultsExistForZid[zid] = exists;
-              finishWith304or404();
-            });
-          } else {
-            finishWith304or404();
-          }
-        }
-      })
-      .catch(function (err: any) {
-        fail(res, 500, err);
-      });
-  }
-
-  function handle_POST_math_update(
-    req: { p: { zid: any; uid?: any; math_update_type: any } },
-    res: {
-      status: (
-        arg0: number
-      ) => { (): any; new (): any; json: { (arg0: {}): void; new (): any } };
-    }
-  ) {
-    let zid = req.p.zid;
-    let uid = req.p.uid;
-    let math_env = Config.mathEnv;
-    let math_update_type = req.p.math_update_type;
-
-    isModerator(zid, uid).then((hasPermission: any) => {
-      if (!hasPermission) {
-        return fail(res, 500, "handle_POST_math_update_permission");
-      }
-      return pgQueryP(
-        "insert into worker_tasks (task_type, task_data, task_bucket, math_env) values ('update_math', $1, $2, $3);",
-        [
-          JSON.stringify({
-            zid: zid,
-            math_update_type: math_update_type,
-          }),
-          zid,
-          math_env,
-        ]
-      )
-        .then(() => {
-          res.status(200).json({});
-        })
-        .catch((err: any) => {
-          return fail(res, 500, "polis_err_POST_math_update", err);
-        });
-    });
-  }
-
-  function handle_GET_math_correlationMatrix(
-    req: { p: { rid: any; math_tick: any } },
-    res: {
-      status: (
-        arg0: number
-      ) => {
-        (): any;
-        new (): any;
-        json: { (arg0: { status: string }): void; new (): any };
-      };
-      json: (arg0: any) => void;
-    }
-  ) {
-    let rid = req.p.rid;
-    let math_env = Config.mathEnv;
-    let math_tick = req.p.math_tick;
-
-    function finishAsPending() {
-      res.status(202).json({
-        status: "pending",
-      });
-    }
-
-    function hasCommentSelections() {
-      return pgQueryP(
-        "select * from report_comment_selections where rid = ($1) and selection = 1;",
-        [rid]
-        // Argument of type '(rows: string | any[]) => boolean' is not assignable to parameter of type '(value: unknown) => boolean | PromiseLike<boolean>'.
-        // Types of parameters 'rows' and 'value' are incompatible.
-        // Type 'unknown' is not assignable to type 'string | any[]'.
-        //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-        // @ts-ignore
-      ).then((rows: string | any[]) => {
-        return rows.length > 0;
-      });
-    }
-
-    let requestExistsPromise = pgQueryP(
-      "select * from worker_tasks where task_type = 'generate_report_data' and math_env=($2) " +
-        "and task_bucket = ($1) " +
-        // "and attempts < 3 " +
-        "and (task_data->>'math_tick')::int >= ($3) " +
-        "and finished_time is NULL;",
-      [rid, math_env, math_tick]
-    );
-
-    let resultExistsPromise = pgQueryP(
-      "select * from math_report_correlationmatrix where rid = ($1) and math_env = ($2) and math_tick >= ($3);",
-      [rid, math_env, math_tick]
-    );
-
-    Promise.all([resultExistsPromise, getZidForRid(rid)])
-      .then((a: any[]) => {
-        let rows = a[0];
-        let zid = a[1];
-        if (!rows || !rows.length) {
-          //         Argument of type '(requests_rows: string | any[]) => globalThis.Promise<void> | undefined' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void | undefined> | undefined'.
-          // Types of parameters 'requests_rows' and 'value' are incompatible.
-          //   Type 'unknown' is not assignable to type 'string | any[]'.
-          //           Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-          // @ts-ignore
-          return requestExistsPromise.then((requests_rows: string | any[]) => {
-            const shouldAddTask = !requests_rows || !requests_rows.length;
-            // const shouldAddTask = true;
-
-            if (shouldAddTask) {
-              return hasCommentSelections().then((hasSelections: any) => {
-                if (!hasSelections) {
-                  return res.status(202).json({
-                    status: "polis_report_needs_comment_selection",
-                  });
-                }
-                return pgQueryP(
-                  "insert into worker_tasks (task_type, task_data, task_bucket, math_env) values ('generate_report_data', $1, $2, $3);",
-                  [
-                    JSON.stringify({
-                      rid: rid,
-                      zid: zid,
-                      math_tick: math_tick,
-                    }),
-                    rid,
-                    math_env,
-                  ]
-                ).then(finishAsPending);
-              });
-            }
-            finishAsPending();
-          });
-        }
-        res.json(rows[0].data);
-      })
-      .catch((err: any) => {
-        return fail(res, 500, "polis_err_GET_math_correlationMatrix", err);
-      });
   }
 
   function doAddDataExportTask(
@@ -1690,380 +1160,8 @@ function initializePolisHelpers() {
     };
     setInterval(runExportTest, 6 * 60 * 60 * 1000); // every 6 hours
   }
-  function handle_GET_dataExport(
-    req: { p: { uid?: any; zid: any; unixTimestamp: number; format: any } },
-    res: { json: (arg0: {}) => void }
-  ) {
-    getUserInfoForUid2(req.p.uid)
-      .then((user: { email: any }) => {
-        return doAddDataExportTask(
-          Config.mathEnv,
-          user.email,
-          req.p.zid,
-          req.p.unixTimestamp * 1000,
-          req.p.format,
-          Math.abs((Math.random() * 999999999999) >> 0)
-        )
-          .then(() => {
-            res.json({});
-          })
-          .catch((err: any) => {
-            fail(res, 500, "polis_err_data_export123", err);
-          });
-      })
-      .catch((err: any) => {
-        fail(res, 500, "polis_err_data_export123b", err);
-      });
-  }
-  function handle_GET_dataExport_results(
-    req: { p: { filename: string } },
-    res: { redirect: (arg0: any) => void }
-  ) {
-    var url = s3Client.getSignedUrl("getObject", {
-      Bucket: "polis-datadump",
-      Key: Config.mathEnv + "/" + req.p.filename,
-      Expires: 60 * 60 * 24 * 7,
-    });
-    res.redirect(url);
-
-    // res.writeHead(302, {
-    //   Location: protocol + "://" + req?.headers?.host + path,
-    // });
-    // return res.end();
-  }
-
-  function handle_GET_bidToPid(
-    req: { p: { zid: any; math_tick: any } },
-    res: {
-      json: (arg0: { bidToPid: any }) => void;
-      status: (
-        arg0: number
-      ) => { (): any; new (): any; end: { (): void; new (): any } };
-    }
-  ) {
-    let zid = req.p.zid;
-    let math_tick = req.p.math_tick;
-    getBidIndexToPidMapping(zid, math_tick).then(
-      function (doc: { bidToPid: any }) {
-        let b2p = doc.bidToPid;
-        res.json({
-          bidToPid: b2p,
-        });
-      },
-      function (err: any) {
-        res.status(304).end();
-      }
-    );
-  }
-
-  function getXids(zid: any) {
-    // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
-    // @ts-ignore
-    return new MPromise(
-      "getXids",
-      function (resolve: (arg0: any) => void, reject: (arg0: string) => void) {
-        pgQuery_readOnly(
-          "select pid, xid from xids inner join " +
-            "(select * from participants where zid = ($1)) as p on xids.uid = p.uid " +
-            " where owner in (select org_id from conversations where zid = ($1));",
-          [zid],
-          function (err: any, result: { rows: any }) {
-            if (err) {
-              reject("polis_err_fetching_xids");
-              return;
-            }
-            resolve(result.rows);
-          }
-        );
-      }
-    );
-  }
-  function handle_GET_xids(
-    req: { p: { uid?: any; zid: any } },
-    res: {
-      status: (
-        arg0: number
-      ) => { (): any; new (): any; json: { (arg0: any): void; new (): any } };
-    }
-  ) {
-    let uid = req.p.uid;
-    let zid = req.p.zid;
-
-    isOwner(zid, uid).then(
-      function (owner: any) {
-        if (owner) {
-          getXids(zid).then(
-            function (xids: any) {
-              res.status(200).json(xids);
-            },
-            function (err: any) {
-              fail(res, 500, "polis_err_get_xids", err);
-            }
-          );
-        } else {
-          fail(res, 403, "polis_err_get_xids_not_authorized");
-        }
-      },
-      function (err: any) {
-        fail(res, 500, "polis_err_get_xids", err);
-      }
-    );
-  }
-  function handle_POST_xidWhitelist(
-    req: { p: { xid_whitelist: any; uid?: any } },
-    res: {
-      status: (
-        arg0: number
-      ) => { (): any; new (): any; json: { (arg0: {}): void; new (): any } };
-    }
-  ) {
-    const xid_whitelist = req.p.xid_whitelist;
-    const len = xid_whitelist.length;
-    const owner = req.p.uid;
-    const entries = [];
-    try {
-      for (var i = 0; i < len; i++) {
-        entries.push("(" + escapeLiteral(xid_whitelist[i]) + "," + owner + ")");
-      }
-    } catch (err) {
-      return fail(res, 400, "polis_err_bad_xid", err);
-    }
-
-    pgQueryP(
-      "insert into xid_whitelist (xid, owner) values " +
-        entries.join(",") +
-        " on conflict do nothing;",
-      []
-    )
-      .then((result: any) => {
-        res.status(200).json({});
-      })
-      .catch((err: any) => {
-        return fail(res, 500, "polis_err_POST_xidWhitelist", err);
-      });
-  }
-  function getBidsForPids(zid: any, math_tick: number, pids: any[]) {
-    let dataPromise = getBidIndexToPidMapping(zid, math_tick);
-    let mathResultsPromise = getPca(zid, math_tick);
-
-    return Promise.all([dataPromise, mathResultsPromise]).then(function (
-      items: { asPOJO: any }[]
-    ) {
-      // Property 'bidToPid' does not exist on type '{ asPOJO: any; }'.ts(2339)
-      // @ts-ignore
-      let b2p = items[0].bidToPid || []; // not sure yet if "|| []" is right here.
-      let mathResults = items[1].asPOJO;
-      function findBidForPid(pid: any) {
-        let yourBidi = -1;
-        // if (!b2p) {
-        //     return yourBidi;
-        // }
-        for (var bidi = 0; bidi < b2p.length; bidi++) {
-          let pids = b2p[bidi];
-          if (pids.indexOf(pid) !== -1) {
-            yourBidi = bidi;
-            break;
-          }
-        }
-
-        let yourBid = indexToBid[yourBidi];
-
-        if (yourBidi >= 0 && _.isUndefined(yourBid)) {
-          logger.error("polis_err_math_index_mapping_mismatch", { pid, b2p });
-          yourBid = -1;
-        }
-        return yourBid;
-      }
-
-      let indexToBid = mathResults["base-clusters"].id;
-      let bids = pids.map(findBidForPid);
-      let pidToBid = _.object(pids, bids);
-      return pidToBid;
-    });
-  }
-
-  // function getClusters(zid, math_tick) {
-  //   return getPca(zid, math_tick).then(function(pcaData) {
-  //     return pcaData.asPOJO["group-clusters"];
-  //   });
-  // }
-  function handle_GET_bid(
-    req: { p: { uid?: any; zid: any; math_tick: any } },
-    res: {
-      json: (arg0: { bid: any }) => void;
-      status: (
-        arg0: number
-      ) => { (): any; new (): any; end: { (): void; new (): any } };
-    }
-  ) {
-    let uid = req.p.uid;
-    let zid = req.p.zid;
-    let math_tick = req.p.math_tick;
-
-    let dataPromise = getBidIndexToPidMapping(zid, math_tick);
-    let pidPromise = getPidPromise(zid, uid);
-    let mathResultsPromise = getPca(zid, math_tick);
-
-    Promise.all([dataPromise, pidPromise, mathResultsPromise])
-      .then(
-        function (items: { asPOJO: any }[]) {
-          // Property 'bidToPid' does not exist on type '{ asPOJO: any; }'.ts(2339)
-          // @ts-ignore
-          let b2p = items[0].bidToPid || []; // not sure yet if "|| []" is right here.
-          let pid = items[1];
-          let mathResults = items[2].asPOJO;
-          if (((pid as unknown) as number) < 0) {
-            // NOTE: this API should not be called in /demo mode
-            fail(res, 500, "polis_err_get_bid_bad_pid");
-            return;
-          }
-
-          let indexToBid = mathResults["base-clusters"].id;
-
-          let yourBidi = -1;
-          for (var bidi = 0; bidi < b2p.length; bidi++) {
-            let pids = b2p[bidi];
-            if (pids.indexOf(pid) !== -1) {
-              yourBidi = bidi;
-              break;
-            }
-          }
-
-          let yourBid = indexToBid[yourBidi];
-
-          if (yourBidi >= 0 && _.isUndefined(yourBid)) {
-            logger.error("polis_err_math_index_mapping_mismatch", { pid, b2p });
-            yourBid = -1;
-          }
-
-          res.json({
-            bid: yourBid, // The user's current bid
-          });
-        },
-        function (err: any) {
-          res.status(304).end();
-        }
-      )
-      .catch(function (err: any) {
-        fail(res, 500, "polis_err_get_bid_misc", err);
-      });
-  }
-
-  function handle_POST_auth_password(
-    req: { p: { pwresettoken: any; newPassword: any } },
-    res: {
-      status: (
-        arg0: number
-      ) => {
-        (): any;
-        new (): any;
-        json: { (arg0: string): void; new (): any };
-      };
-    }
-  ) {
-    let pwresettoken = req.p.pwresettoken;
-    let newPassword = req.p.newPassword;
-
-    getUidForPwResetToken(
-      pwresettoken,
-      //     Argument of type '(err: any, userParams: { uid?: any; }) => void' is not assignable to parameter of type '(arg0: number | null, arg1?: { uid: any; } | undefined) => void'.
-      // Types of parameters 'userParams' and 'arg1' are incompatible.
-      //   Type '{ uid: any; } | undefined' is not assignable to type '{ uid?: any; }'.
-      //     Type 'undefined' is not assignable to type '{ uid?: any; }'.ts(2345)
-      // @ts-ignore
-      function (err: any, userParams: { uid?: any }) {
-        if (err) {
-          fail(
-            res,
-            500,
-            "Password Reset failed. Couldn't find matching pwresettoken.",
-            err
-          );
-          return;
-        }
-        let uid = Number(userParams.uid);
-        generateHashedPassword(
-          newPassword,
-          function (err: any, hashedPassword: any) {
-            return pgQueryP(
-              "insert into jianiuevyew (uid, pwhash) values " +
-                "($1, $2) on conflict (uid) " +
-                "do update set pwhash = excluded.pwhash;",
-              [uid, hashedPassword]
-            ).then(
-              (rows: any) => {
-                res.status(200).json("Password reset successful.");
-                clearPwResetToken(pwresettoken, function (err: any) {
-                  if (err) {
-                    logger.error("polis_err_auth_pwresettoken_clear_fail", err);
-                  }
-                });
-              },
-              (err: any) => {
-                fail(res, 500, "Couldn't reset password.", err);
-              }
-            );
-          }
-        );
-      }
-    );
-  }
 
   const getServerNameWithProtocol = Config.getServerNameWithProtocol;
-
-  function handle_POST_auth_pwresettoken(
-    req: { p: { email: any } },
-    res: {
-      status: (
-        arg0: number
-      ) => {
-        (): any;
-        new (): any;
-        json: { (arg0: string): void; new (): any };
-      };
-    }
-  ) {
-    let email = req.p.email;
-
-    let server = getServerNameWithProtocol(req);
-
-    // let's clear the cookies here, in case something is borked.
-    clearCookies(req, res);
-
-    function finish() {
-      res
-        .status(200)
-        .json("Password reset email sent, please check your email.");
-    }
-
-    getUidByEmail(email).then(
-      function (uid?: any) {
-        setupPwReset(uid, function (err: any, pwresettoken: any) {
-          sendPasswordResetEmail(
-            uid,
-            pwresettoken,
-            server,
-            function (err: any) {
-              if (err) {
-                fail(
-                  res,
-                  500,
-                  "Error: Couldn't send password reset email.",
-                  err
-                );
-                return;
-              }
-              finish();
-            }
-          );
-        });
-      },
-      function () {
-        sendPasswordResetEmailFailure(email, server);
-        finish();
-      }
-    );
-  }
 
   function sendPasswordResetEmailFailure(email: any, server: any) {
     let body = `We were unable to find a pol.is account registered with the email address: ${email}
@@ -2701,9 +1799,6 @@ Feel free to reply to this email if you need help.`;
         async.map(
           answers,
           function (x: any, cb: (arg0: number) => void) {
-            // ...insert()
-            //     .into("participant_metadata_choices")
-            //     .
             pgQuery(
               "INSERT INTO participant_metadata_choices (zid, pid, pmaid, pmqid) VALUES ($1,$2,$3,$4);",
               x,
@@ -3209,23 +2304,6 @@ ${serverName}/pwreset/${pwresettoken}
     );
   }
 
-  // function sendTextEmailWithPostmark(sender, recipient, subject, text) {
-  //   return new Promise(function(resolve, reject) {
-  //     postmark.send({
-  //       "From": sender,
-  //       "To": recipient,
-  //       "Subject": subject,
-  //       "TextBody": text,
-  //     }, function(error, success) {
-  //       if (error) {
-  //         yell("polis_err_postmark_email_send_failed");
-  //         reject(error);
-  //       } else {
-  //         resolve();
-  //       }
-  //     });
-  //   });
-  // }
   function sendMultipleTextEmails(
     sender: string | undefined,
     recipientArray: any[],
@@ -3452,38 +2530,6 @@ Email verified! You can close this tab or hit the back button.
       .catch(function (err: any) {
         fail(res, 500, "polis_err_get_participant", err);
       });
-
-    // function fetchOne() {
-    //     pgQuery("SELECT * FROM users WHERE uid IN (SELECT uid FROM participants WHERE pid = ($1) AND zid = ($2));", [pid, zid], function(err, result) {
-    //         if (err || !result || !result.rows || !result.rows.length) { fail(res, 500, "polis_err_fetching_participant_info", err); return; }
-    //         let ptpt = result.rows[0];
-    //         let data = {};
-    //         // choose which fields to expose
-    //         data.hname = ptpt.hname;
-
-    //         res.status(200).json(data);
-    //     });
-    // }
-    // function fetchAll() {
-    //     // NOTE: it's important to return these in order by pid, since the array index indicates the pid.
-    //     pgQuery("SELECT users.hname, users.email, participants.pid FROM users INNER JOIN participants ON users.uid = participants.uid WHERE zid = ($1) ORDER BY participants.pid;", [zid], function(err, result) {
-    //         if (err || !result || !result.rows || !result.rows.length) { fail(res, 500, "polis_err_fetching_participant_info", err); return; }
-    //         res.json(result.rows);
-    //     });
-    // }
-    // pgQuery("SELECT is_anon FROM conversations WHERE zid = ($1);", [zid], function(err, result) {
-    //     if (err || !result || !result.rows || !result.rows.length) { fail(res, 500, "polis_err_fetching_participant_info", err); return; }
-    //     if (result.rows[0].is_anon) {
-    //         fail(res, 403, "polis_err_fetching_participant_info_conversation_is_anon");
-    //         return;
-    //     }
-    //     // if (pid !== undefined) {
-    //         fetchOne();
-    //     // } else {
-    //         // fetchAll();
-    //     // }
-
-    // });
   }
   function handle_GET_dummyButton(
     req: { p: { button: string; uid: string } },
@@ -3600,11 +2646,6 @@ Email verified! You can close this tab or hit the back button.
     }
 
     function finish(ptpt: any) {
-      // Probably don't need pid cookies..?
-      // function getZidToPidCookieKey(zid) {
-      //     return zid + "p";
-      // }
-      // addCookie(res, getZidToPidCookieKey(zid), pid);
 
       clearCookie(req, res, COOKIES.PARENT_URL);
       clearCookie(req, res, COOKIES.PARENT_REFERRER);
@@ -4372,20 +3413,7 @@ Email verified! You can close this tab or hit the back button.
         })
     );
   }
-  // Test for deadlock condition
-  // _.times(2, function() {
-  // setInterval(function() {
-  //         joinWithZidOrSuzinvite({
-  //             answers: [],
-  //             existingAuth: false,
-  //             zid: 11580,
-  //             // uid: req.p.uid,
-  //         }).then(function() {
-  //         }).catch(function(err) {
-  //         });
 
-  // }, 10);
-  // });
   function joinWithZidOrSuzinvite(o: {
     answers: any;
     existingAuth: boolean;
@@ -5007,15 +4035,6 @@ Email verified! You can close this tab or hit the back button.
         return Promise.all([
           pgQueryP_readOnly(q0, args),
           pgQueryP_readOnly(q1, args),
-          // pgQueryP_readOnly("select created from participants where zid = ($1) order by created;", [zid]),
-
-          // pgQueryP_readOnly("with pidvotes as (select pid, count(*) as countForPid from votes where zid = ($1)"+
-          //     " group by pid order by countForPid desc) select countForPid as n_votes, count(*) as n_ptpts "+
-          //     "from pidvotes group by countForPid order by n_ptpts asc;", [zid]),
-
-          // pgQueryP_readOnly("with all_social as (select uid from facebook_users union select uid from twitter_users), "+
-          //     "ptpts as (select created, uid from participants where zid = ($1)) "+
-          //     "select ptpts.created from ptpts inner join all_social on ptpts.uid = all_social.uid;", [zid]),
         ]).then(function (a: any[]) {
           function castTimestamp(o: { created: number }) {
             o.created = Number(o.created);
@@ -5162,80 +4181,6 @@ Email verified! You can close this tab or hit the back button.
         "TODO Needs to clone participants_extended and any other new tables as well."
       );
     }
-    if (isPolisDev(uid)) {
-      // is polis developer
-    } else {
-      fail(res, 403, "polis_err_permissions");
-      return;
-    }
-
-    pgQuery(
-      "insert into conversations (topic, description, link_url, owner, modified, created, participant_count) " +
-        "(select '(SNAPSHOT) ' || topic, description, link_url, $2, now_as_millis(), created, participant_count from conversations where zid = $1) returning *;",
-      [zid, uid],
-      function (err: any, result: { rows: any[] }) {
-        if (err) {
-          fail(res, 500, "polis_err_cloning_conversation", err);
-          return;
-        }
-        let conv = result.rows[0];
-
-        let newZid = conv.zid;
-        return pgQueryP(
-          "insert into participants (pid, zid, uid, created, mod, subscribed) " +
-            "select pid, ($2), uid, created, mod, 0 from participants where zid = ($1);",
-          [zid, newZid]
-        )
-          .then(function () {
-            return pgQueryP(
-              "insert into comments (pid, tid, zid, txt, velocity, mod, uid, active, lang, lang_confidence, created) " +
-                "select pid, tid, ($2), txt, velocity, mod, uid, active, lang, lang_confidence, created from comments where zid = ($1);",
-              [zid, newZid]
-            ).then(function () {
-              return pgQueryP("select * from votes where zid = ($1);", [
-                zid,
-                //               Argument of type '(votes: any[]) => Promise<void>' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.
-                // Types of parameters 'votes' and 'value' are incompatible.
-                //                 Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-                // @ts-ignore
-              ]).then((votes: any[]) => {
-                // insert votes one at a time.
-                return Promise.all(
-                  votes.map(function (v: {
-                    pid: any;
-                    tid: any;
-                    vote: any;
-                    created: any;
-                  }) {
-                    let q =
-                      "insert into votes (zid, pid, tid, vote, created) values ($1, $2, $3, $4, $5);";
-                    return pgQueryP(q, [
-                      newZid,
-                      v.pid,
-                      v.tid,
-                      v.vote,
-                      v.created,
-                    ]);
-                  })
-                ).then(function () {
-                  return generateAndRegisterZinvite(newZid, true).then(
-                    function (zinvite: string) {
-                      res.status(200).json({
-                        zid: newZid,
-                        zinvite: zinvite,
-                        url: getServerNameWithProtocol(req) + "/" + zinvite,
-                      });
-                    }
-                  );
-                });
-              });
-            });
-          })
-          .catch(function (err: any) {
-            fail(res, 500, "polis_err_cloning_conversation_misc", err);
-          });
-      }
-    );
   }
   function handle_GET_facebook_delete(
     req: { p: any },
@@ -6359,28 +5304,6 @@ Email verified! You can close this tab or hit the back button.
     return url;
   }
 
-  // function createMuteUrl(zid, tid) {
-  //     let server = Config.getServerUrl();
-  //     let params = {
-  //         zid: zid,
-  //         tid: tid
-  //     };
-  //     let path = "v3/mute";
-  //     params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
-  //     return server + "/"+path+"?" + paramsToStringSortedByName(params);
-  // }
-
-  // function createUnmuteUrl(zid, tid) {
-  //     let server = Config.getServerUrl();
-  //     let params = {
-  //         zid: zid,
-  //         tid: tid
-  //     };
-  //     let path = "v3/unmute";
-  //     params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
-  //     return server + "/"+path+"?" + paramsToStringSortedByName(params);
-  // }
-
   function moderateComment(
     zid: any,
     tid: any,
@@ -6410,65 +5333,6 @@ Email verified! You can close this tab or hit the back button.
 
   const getComment = Comment.getComment;
 
-  // function muteComment(zid, tid) {
-  //     let mod = polisTypes.mod.ban;
-  //     return moderateComment(zid, tid, false, mod);
-  // }
-  // function unmuteComment(zid, tid) {
-  //     let mod = polisTypes.mod.ok;
-  //     return moderateComment(zid, tid, true, mod);
-  // }
-
-  // function handle_GET_mute(req, res) {
-  //     let tid = req.p.tid;
-  //     let zid = req.p.zid;
-  //     let params = {
-  //         zid: req.p.zid,
-  //         tid: req.p.tid,
-  //         signature: req.p[HMAC_SIGNATURE_PARAM_NAME],
-  //     };
-  //     verifyHmacForQueryParams("v3/mute", params).catch(function() {
-  //         fail(res, 403, "polis_err_signature_mismatch");
-  //     }).then(function() {
-  //         return muteComment(zid, tid);
-  //     }).then(function() {
-  //         return getComment(zid, tid);
-  //     }).then(function(c) {
-  //         res.set('Content-Type', 'text/html');
-  //         res.send(
-  //             "<h1>muted tid: "+c.tid+" zid:" + c.zid + "</h1>" +
-  //             "<p>" + c.txt + "</p>" +
-  //             "<a href=\"" + createUnmuteUrl(zid, tid) + "\">Unmute this comment.</a>"
-  //         );
-  //     }).catch(function(err) {
-  //     });
-  // }
-
-  // function handle_GET_unmute(req, res) {
-  //     let tid = req.p.tid;
-  //     let zid = req.p.zid;
-  //     let params = {
-  //         zid: req.p.zid,
-  //         tid: req.p.tid,
-  //         signature: req.p[HMAC_SIGNATURE_PARAM_NAME],
-  //     };
-  //     verifyHmacForQueryParams("v3/unmute", params).catch(function() {
-  //         fail(res, 403, "polis_err_signature_mismatch");
-  //     }).then(function() {
-  //         return unmuteComment(zid, tid);
-  //     }).then(function() {
-  //         return getComment(zid, tid);
-  //     }).then(function(c) {
-  //         res.set('Content-Type', 'text/html');
-  //         res.send(
-  //             "<h1>unmuted tid: "+c.tid+" zid:" + c.zid + "</h1>" +
-  //             "<p>" + c.txt + "</p>" +
-  //             "<a href=\"" + createMuteUrl(zid, tid) + "\">Mute this comment.</a>"
-  //         );
-  //     }).catch(function(err) {
-  //         fail(res, 500, err);
-  //     });
-  // }
   function hasBadWords(txt: string) {
     txt = txt.toLowerCase();
     let tokens = txt.split(" ");
@@ -6549,24 +5413,9 @@ Email verified! You can close this tab or hit the back button.
 
   async function handle_POST_comments(
     req: PolisRequest,
-    /*
-      extending response seems strange here but,
-      res.json({
-        tid: tid,
-        currentPid: currentPid,
-      });
-      require it down below here.
-    */
     res: Response & { json: (data: any) => void }
   ): Promise<void> {
     let { zid, xid, uid, txt, pid: initialPid, vote, anon, is_seed } = req.p;
-
-    // console.log("============= debug handle_POST_comments ===========");
-    // console.log(zid, xid, uid, txt, initialPid, vote, anon, is_seed);
-    /*
-    2024-08-20 15:44:25 ============= handle_POST_comments ===========
-    2024-08-20 15:44:25 37436 undefined 186 a lovely comment 3 undefined -1 undefined undefined
-    */
 
     let pid = initialPid;
     let currentPid = pid;
@@ -7120,50 +5969,6 @@ Email verified! You can close this tab or hit the back button.
     }
   ) {
     logger.info("handle_GET_participationInit");
-    // let qs = {
-    //   conversation_id: req.p.conversation_id,
-    // };
-
-    // let nextCommentQs = Object.assign({}, qs, {
-    //   not_voted_by_pid: "mypid",
-    //   limit: 1,
-    //   include_social: true,
-    // });
-
-    // let votesByMeQs = Object.assign({}, req.p, {
-    //   pid: "mypid",
-    // });
-
-    // let famousQs = req.p.ptptoiLimit ? Object.assign({}, qs, {
-    //   ptptoiLimit: req.p.ptptoiLimit,
-    // }) : qs;
-
-    // function getIfConv() {
-    //   if (qs.conversation_id) {
-    //     return request.get.apply(request, arguments);
-    //   } else {
-    //     return Promise.resolve("null");
-    //   }
-    // }
-
-    // function getIfConvAndAuth() {
-    //   if (req.p.uid) {
-    //     return getIfConv.apply(0, arguments);
-    //   } else {
-    //     return Promise.resolve("null");
-    //   }
-    // }
-
-    // function getWith304AsSuccess() {
-    //   return getIfConv.apply(0, arguments).catch(function(foo) {
-    //     if (foo.statusCode === 304) {
-    //       return "null";
-    //     } else {
-    //       throw foo;
-    //     }
-    //   });
-    // }
-
     function ifConv(
       f: {
         (
@@ -7389,7 +6194,7 @@ Email verified! You can close this tab or hit the back button.
               req.p.xid,
               req.p.vote,
               req.p.weight,
-              req.p.high_priority,
+              req.p.high_priority
             );
           })
           .then(function (o: { vote: any }) {
@@ -8233,74 +7038,6 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
-  function handle_DELETE_metadata_answers(
-    req: { p: { uid?: any; pmaid: any } },
-    res: { send: (arg0: number) => void }
-  ) {
-    let uid = req.p.uid;
-    let pmaid = req.p.pmaid;
-
-    getZidForAnswer(pmaid, function (err: any, zid: any) {
-      if (err) {
-        fail(
-          res,
-          500,
-          "polis_err_delete_participant_metadata_answers_zid",
-          err
-        );
-        return;
-      }
-      isConversationOwner(zid, uid, function (err: any) {
-        if (err) {
-          fail(
-            res,
-            403,
-            "polis_err_delete_participant_metadata_answers_auth",
-            err
-          );
-          return;
-        }
-
-        deleteMetadataAnswer(pmaid, function (err: any) {
-          if (err) {
-            fail(
-              res,
-              500,
-              "polis_err_delete_participant_metadata_answers",
-              err
-            );
-            return;
-          }
-          res.send(200);
-        });
-      });
-    });
-  }
-
-  function getZidForAnswer(
-    pmaid: any,
-    callback: {
-      (err: any, zid: any): void;
-      (arg0: string | null, arg1?: undefined): void;
-    }
-  ) {
-    pgQuery(
-      "SELECT zid FROM participant_metadata_answers WHERE pmaid = ($1);",
-      [pmaid],
-      function (err: any, result: { rows: string | any[] }) {
-        if (err) {
-          callback(err);
-          return;
-        }
-        if (!result.rows || !result.rows.length) {
-          callback("polis_err_zid_missing_for_answer");
-          return;
-        }
-        callback(null, result.rows[0].zid);
-      }
-    );
-  }
-
   function getZidForQuestion(
     pmqid: any,
     callback: {
@@ -8324,26 +7061,6 @@ Email verified! You can close this tab or hit the back button.
         callback(null, result.rows[0].zid);
       }
     );
-  }
-
-  function deleteMetadataAnswer(
-    pmaid: any,
-    callback: { (err: any): void; (arg0: null): void }
-  ) {
-    // pgQuery("update participant_metadata_choices set alive = FALSE where pmaid = ($1);", [pmaid], function(err) {
-    //     if (err) {callback(34534545); return;}
-    pgQuery(
-      "update participant_metadata_answers set alive = FALSE where pmaid = ($1);",
-      [pmaid],
-      function (err: any) {
-        if (err) {
-          callback(err);
-          return;
-        }
-        callback(null);
-      }
-    );
-    // });
   }
 
   function deleteMetadataQuestionAndAnswers(
@@ -9427,13 +8144,6 @@ Email verified! You can close this tab or hit the back button.
     }
   ) {
     callback?.(null, true);
-    // pgQuery("select is_owner from users where uid = ($1);", [uid], function(err, results) {
-    //     if (err) { return callback(err); }
-    //     if (!results || !results.rows || !results.rows.length) {
-    //         return callback(1);
-    //     }
-    //     callback(null, results.rows[0].is_owner);
-    // });
   }
 
   function handle_POST_reserve_conversation_id(
@@ -10641,33 +9351,17 @@ Thanks for using Polis!
       "twitter_users.screen_name as tw__screen_name, " +
       "twitter_users.name as tw__name, " +
       "twitter_users.followers_count as tw__followers_count, " +
-      // "twitter_users.friends_count as tw__friends_count, " +
       "twitter_users.verified as tw__verified, " +
       "twitter_users.profile_image_url_https as tw__profile_image_url_https, " +
       "twitter_users.location as tw__location, " +
-      // "twitter_users.response as tw__response, " +
-      // "twitter_users.modified as tw__modified, " +
-      // "twitter_users.created as tw__created, " +
       "facebook_users.fb_user_id as fb__fb_user_id, " +
       "facebook_users.fb_name as fb__fb_name, " +
       "facebook_users.fb_link as fb__fb_link, " +
       "facebook_users.fb_public_profile as fb__fb_public_profile, " +
-      // "facebook_users.fb_login_status as fb__fb_login_status, " +
-      // "facebook_users.fb_auth_response as fb__fb_auth_response, " +
-      // "facebook_users.fb_access_token as fb__fb_access_token, " +
-      // "facebook_users.fb_granted_scopes as fb__fb_granted_scopes, " +
-      // "facebook_users.fb_location_id as fb__fb_location_id, " +
       "facebook_users.location as fb__location, " +
-      // "facebook_users.response as fb__response, " +
-      // "facebook_users.fb_friends_response as fb__fb_friends_response, " +
-      // "facebook_users.created as fb__created, " +
-      // "all_friends.uid is not null as is_fb_friend, " +
-      // "final_set.uid " +
       "xids_subset.x_profile_image_url as x_profile_image_url, " +
       "xids_subset.xid as xid, " +
       "xids_subset.x_name as x_name, " +
-      // "xids_subset.x_email as x_email, " +
-
       "final_set.pid " +
       "from final_set " +
       "left join twitter_users on final_set.uid = twitter_users.uid " +
@@ -10675,7 +9369,6 @@ Thanks for using Polis!
       "left join xids_subset on final_set.uid = xids_subset.uid " +
       ") " +
       "select * from all_rows where (tw__twitter_user_id is not null) or (fb__fb_user_id is not null) or (xid is not null) " +
-      // "select * from all_rows " +
       ";";
     return pgQueryP(q, params);
   }
@@ -10713,11 +9406,6 @@ Thanks for using Polis!
     let q =
       "with " +
       "p as (select uid, pid, mod from participants where zid = ($1) and vote_count >= 1), " +
-      // "all_friends as (select  " +
-      //         "friend as uid, 100 as priority from facebook_friends where uid = ($2) " +
-      //         "union  " +
-      //         "select uid, 100 as priority from facebook_friends where friend = ($2)), " +
-
       "xids_subset as (select * from xids where owner in (select org_id from conversations where zid = ($1)) and x_profile_image_url is not null), " +
       "xid_ptpts as (select p.uid, 100 as priority from p inner join xids_subset on xids_subset.uid = p.uid where p.mod >= ($4)), " +
       "twitter_ptpts as (select p.uid, 10 as priority from p inner join twitter_users  on twitter_users.uid  = p.uid where p.mod >= ($4)), " +
@@ -10728,8 +9416,6 @@ Thanks for using Polis!
       "from ( " +
       "select * from self " +
       (authorsQuery ? "union " + "select * from authors " : "") +
-      // "union  " +
-      // "select * from all_friends " +
       "union " +
       "select * from twitter_ptpts " +
       "union " +
@@ -10745,15 +9431,7 @@ Thanks for using Polis!
       "select * from pptpts " +
       "union all " +
       "select uid, 999 as priority from p where mod >= 2) as asdfasdjfioasjdfoi " +
-      // "inner join p on asdfasdjfioasjdfoi.uid = p.uid " +
       "group by asdfasdjfioasjdfoi.uid order by priority desc, asdfasdjfioasjdfoi.uid asc), " +
-      // "mod_pptpts2 as (select fjoisjdfio.uid, max(fjoisjdfio.priority) as priority "+
-      //     "from ( " +
-      //         "select * from pptpts " +
-      //         "UNION ALL " +
-      //         "select uid, 999 as priority from p where mod >= 2) as fjoisjdfio " +
-      //     "group by fjoisjdfio.uid order by fjoisjdfio.priority desc, fjoisjdfio.uid), " +
-
       // without blocked
       "final_set as (select * from mod_pptpts " +
       // "where uid not in (select uid from p where mod < 0) "+ // remove from twitter set intead.
@@ -10765,27 +9443,13 @@ Thanks for using Polis!
       "twitter_users.screen_name as tw__screen_name, " +
       "twitter_users.name as tw__name, " +
       "twitter_users.followers_count as tw__followers_count, " +
-      // "twitter_users.friends_count as tw__friends_count, " +
       "twitter_users.verified as tw__verified, " +
-      // "twitter_users.profile_image_url_https as tw__profile_image_url_https, " +
       "twitter_users.location as tw__location, " +
-      // "twitter_users.response as tw__response, " +
-      // "twitter_users.modified as tw__modified, " +
-      // "twitter_users.created as tw__created, " +
       "facebook_users.fb_user_id as fb__fb_user_id, " +
       "facebook_users.fb_name as fb__fb_name, " +
       "facebook_users.fb_link as fb__fb_link, " +
       "facebook_users.fb_public_profile as fb__fb_public_profile, " +
-      // "facebook_users.fb_login_status as fb__fb_login_status, " +
-      // "facebook_users.fb_auth_response as fb__fb_auth_response, " +
-      // "facebook_users.fb_access_token as fb__fb_access_token, " +
-      // "facebook_users.fb_granted_scopes as fb__fb_granted_scopes, " +
-      // "facebook_users.fb_location_id as fb__fb_location_id, " +
       "facebook_users.location as fb__location, " +
-      // "facebook_users.response as fb__response, " +
-      // "facebook_users.fb_friends_response as fb__fb_friends_response, " +
-      // "facebook_users.created as fb__created, " +
-      // "all_friends.uid is not null as is_fb_friend, " +
       "xids_subset.x_profile_image_url as x_profile_image_url, " +
       "xids_subset.xid as xid, " +
       "xids_subset.x_name as x_name, " +
@@ -11108,20 +9772,6 @@ Thanks for using Polis!
         arg0: {
           gid: number;
           count: number;
-          // fb_gender_male: 0,
-          // fb_gender_female: 0,
-          // fb_gender_null: 0,
-          // ms_gender_estimate_fb_male: 0,
-          // ms_gender_estimate_fb_female: 0,
-          // ms_gender_estimate_fb_null: 0,
-          // gender_guess_male: 0,
-          // gender_guess_female: 0,
-          // gender_guess_null: 0,
-          // ms_birth_year_estimate_fb: 0,
-          // ms_birth_year_count: 0,
-          // birth_year_guess: 0,
-          // birth_year_guess_count: 0,
-          // convenient counts
           gender_male: number;
           gender_female: number;
           gender_null: number;
@@ -11166,21 +9816,6 @@ Thanks for using Polis!
             groupStats.push({
               gid: i,
               count: 0,
-              // fb_gender_male: 0,
-              // fb_gender_female: 0,
-              // fb_gender_null: 0,
-              // ms_gender_estimate_fb_male: 0,
-              // ms_gender_estimate_fb_female: 0,
-              // ms_gender_estimate_fb_null: 0,
-              // gender_guess_male: 0,
-              // gender_guess_female: 0,
-              // gender_guess_null: 0,
-              // ms_birth_year_estimate_fb: 0,
-              // ms_birth_year_count: 0,
-              // birth_year_guess: 0,
-              // birth_year_guess_count: 0,
-
-              // convenient counts
               gender_male: 0,
               gender_female: 0,
               gender_null: 0,
@@ -11214,36 +9849,6 @@ Thanks for using Polis!
             let ptptMeta = meta[pid];
             if (ptptMeta) {
               s.count += 1;
-              // if (ptptMeta.fb_gender === 0) {
-              //   s.fb_gender_male += 1;
-              // } else if (ptptMeta.fb_gender === 1) {
-              //   s.fb_gender_female += 1;
-              // } else {
-              //   s.fb_gender_null += 1;
-              // }
-              // if (ptptMeta.gender_guess === 0) {
-              //   s.gender_guess_male += 1;
-              // } else if (ptptMeta.gender_guess === 1) {
-              //   s.gender_guess_female += 1;
-              // } else {
-              //   s.gender_guess_null += 1;
-              // }
-              // if (ptptMeta.ms_birth_year_estimate_fb > 1900) {
-              //   s.ms_birth_year_estimate_fb += ptptMeta.ms_birth_year_estimate_fb;
-              //   s.ms_birth_year_count += 1;
-              // }
-              // if (ptptMeta.ms_gender_estimate_fb === 0) {
-              //   s.ms_gender_estimate_fb_male += 1;
-              // } else if (ptptMeta.ms_gender_estimate_fb === 1) {
-              //   s.ms_gender_estimate_fb_female += 1;
-              // } else {
-              //   s.ms_gender_estimate_fb_null += 1;
-              // }
-
-              // if (ptptMeta.birth_year_guess) {
-              //   s.birth_year_guess += ptptMeta.birth_year_guess;
-              //   s.birth_year_guess_count += 1;
-              // }
 
               // compute convenient counts
               let gender = null;
@@ -11608,56 +10213,9 @@ Thanks for using Polis!
 
       return Promise.all([
         getSocialParticipants(zid, uid, hardLimit, mod, math_tick, authorUids),
-        // getFacebookFriendsInConversation(zid, uid),
-        // getTwitterUsersInConversation(zid, uid, twitterLimit),
-        // getPolisSocialSettings(zid, uid),
-        // getPidPromise(zid, uid),
       ]).then(function (stuff: never[][]) {
-        //     // if we didn't find any FB friends or Twitter users, find some that aren't friends
-        //     // This may or may not be the right thing to do, but the reasoning is that it will help people understand what Polis is. Empty buckets will be confusing.
-        //     let facebookFriends = stuff[0] || [];
-        //     let twitterParticipants = stuff[1] || [];
-        //     if (ALLOW_NON_FRIENDS_WHEN_EMPTY_SOCIAL_RESULT &&
-        //         !facebookFriends.length &&
-        //         !twitterParticipants.length) {
-        //         return getFacebookUsersInConversation(zid, softLimit).then(function(fb) {
-        //             stuff[0] = fb;
-        //             return stuff;
-        //         });
-        //     } else {
-        //         return stuff;
-        //     }
-        // }).then(function(stuff) {
 
         let participantsWithSocialInfo: any[] = stuff[0] || [];
-        // let facebookFriends = stuff[0] || [];
-        // let twitterParticipants = stuff[1] || [];
-        // let polisSocialSettings = stuff[2] || [];
-        // let myPid = stuff[3];
-        // let pidToData = {};
-        // let pids = [];
-        // twitterParticipants.map(function(p) {
-        //     return p.pid;
-        // });
-
-        // function shouldSkip(p) {
-        //     let pidAlreadyAdded = !!pidToData[p.pid];
-        //     let isSelf = p.pid === myPid;
-        //     if (!pidAlreadyAdded && !isSelf && pids.length > softLimit) {
-        //         if (pids.length > hardLimit) {
-        //             return true;
-        //         }
-        //         // if we're beyond the soft limit, allow only high-profile twitter users
-        //         if (p.followers_count < 1000) { // if this is run on FB, will be falsy
-        //             return true;
-        //         }
-        //     }
-        //     return false;
-        // }
-        // TODO There are issues with this:
-        //   really, the data should all be merged first, then the list should be truncated to the correct number.
-        // ALSO, we could return data on everyone who might appear in the list view, and add an "importance" score to help determine who to show in the vis at various screen sizes. (a client determination)
-        // ALSO, per-group-minimums: we should include at least a facebook friend and at least one famous twitter user(if they exist) per group
 
         participantsWithSocialInfo = participantsWithSocialInfo.map(
           function (p: { priority: number }) {
@@ -11687,55 +10245,6 @@ Thanks for using Polis!
         });
 
         let pidToData = _.indexBy(participantsWithSocialInfo, "pid"); // TODO this is extra work, probably not needed after some rethinking
-
-        // polisSocialSettings.forEach(function(p) {
-        //     if (shouldSkip(p)) {
-        //         return;
-        //     }
-        //     pids.push(p.pid);
-        //     pidToData[p.pid] = pidToData[p.pid] || {};
-        //     pidToData[p.pid].polis = p;
-        // });
-
-        // facebookFriends.forEach(function(p) {
-        //     if (shouldSkip(p)) {
-        //         return;
-        //     }
-        //     pids.push(p.pid);
-        //     pidToData[p.pid] = pidToData[p.pid] || {};
-        //     pidToData[p.pid].facebook = _.pick(p,
-        //         'fb_link',
-        //         'fb_name',
-        //         'fb_user_id',
-        //         'fb_link',
-        //         'location');
-        // });
-        // twitterParticipants.forEach(function(p) {
-        //     if (shouldSkip(p)) {
-        //         return;
-        //     }
-        //     // clobber the reference for the twitter profile pic, with our proxied version.
-        //     // This is done because the reference we have can be stale.
-        //     // Twitter has a bulk info API, which would work, except that it's slow, so proxying these and letting CloudFlare cache them seems better.
-        //     p.profile_image_url_https = getServerNameWithProtocol(req) + "/twitter_image?id=" + p.twitter_user_id;
-
-        //     pids.push(p.pid);
-        //     pidToData[p.pid] = pidToData[p.pid] || {};
-        //     pidToData[p.pid].twitter = _.pick(p,
-        //         'followers_count',
-        //         'friends_count',
-        //         'verified',
-        //         'profile_image_url_https',
-        //         'location',
-        //         'name',
-        //         'screen_name');
-        // });
-
-        // ensure that anon users get an entry for themselves. this ensures that they will be shown as a ptptoi, and get included in a group
-        // if (pids.indexOf(myPid) === -1) {
-        //     pids.push(myPid);
-        // }
-        // pidToData[myPid]= pidToData[myPid] || {};
 
         pids.sort(function (a: number, b: number) {
           return a - b;
@@ -11840,21 +10349,6 @@ Thanks for using Polis!
       });
   }
 
-  // function handle_GET_cache_purge(req, res) {
-
-  //   let hostname = "pol.is";
-  //   // NOTE: can't purge preprod independently unless we set up a separate domain on cloudflare, AFAIK
-
-  //   request.post("https://www.cloudflare.com/api_json.html").form({
-  //     a: 'fpurge_ts',
-  //     tkn: process.env.CLOUDFLARE_API_KEY,
-  //     email: process.env.CLOUDFLARE_API_EMAIL,
-  //     z: hostname,
-  //     v: 1,
-  //   })
-  //   .pipe(res);
-
-  // }
   function handle_GET_einvites(
     req: { p: { einvite: any } },
     res: {
@@ -11986,43 +10480,6 @@ Thanks for using Polis!
         });
     });
   }
-
-  // function handle_POST_users_invite(req, res) {
-  //     let owner = req.p.uid;
-  //     let xids = req.p.xids;
-  //     let zid = req.p.zid;
-  //     // generate some tokens
-  //     // add them to a table paired with user_ids
-  //     // return URLs with those.
-  //     generateSUZinvites(xids.length).then(function(suzinviteArray) {
-  //         let pairs = _.zip(xids, suzinviteArray);
-
-  //         let valuesStatements = pairs.map(function(pair) {
-  //             let xid = escapeLiteral(pair[0]);
-  //             let suzinvite = escapeLiteral(pair[1]);
-  //             let statement = "("+ suzinvite + ", " + xid + "," + zid+","+owner+")";
-  //             return statement;
-  //         });
-  //         let query = "INSERT INTO suzinvites (suzinvite, xid, zid, owner) VALUES " + valuesStatements.join(",") + ";";
-  //         pgQuery(query, [], function(err, results) {
-  //             if (err) { fail(res, 500, "polis_err_saving_invites", err); return; }
-  //             getZinvite(zid).then(function(conversation_id) {
-  //                 res.json({
-  //                     urls: suzinviteArray.map(function(suzinvite) {
-  //                         return generateSingleUseUrl(req, conversation_id, suzinvite);
-  //                     }),
-  //                     xids: xids,
-  //                 });
-  //             }, function(err) {
-  //                 fail(res, 500, "polis_err_generating_single_use_invites_missing_conversation_id", err);
-  //             }).catch(function(err) {
-  //                 fail(res, 500, "polis_err_generating_single_use_invites", err);
-  //             });
-  //         });
-  //     }).catch(function(err) {
-  //         fail(res, 500, "polis_err_generating_single_use_invites", err);
-  //     });
-  // }
 
   function handle_GET_testConnection(
     req: any,
@@ -12650,14 +11107,6 @@ Thanks for using Polis!
     if (devMode) {
       addStaticFileHeaders(res);
     }
-    // if (/MSIE [^1]/.exec(req?.headers?.['user-agent'])) { // older than 10
-    //     // http.get(Config.staticFilesHost + "/unsupportedBrowser.html", function(page) {
-    //     //     res.status(200).end(page);
-    //     // }).on('error', function(e) {
-    //     //     res.status(200).end("Apollogies, this browser is not supported. We recommend Chrome, Firefox, or Safari.");
-    //     // });
-    //     getStaticFile("./unsupportedBrowser.html", res);
-    // } else {
     let port = Config.staticFilesParticipationPort;
     // set the host header too, since S3 will look at that (or the routing proxy will patch up the request.. not sure which)
     if (req && req.headers && req.headers.host) req.headers.host = hostname;
@@ -12800,27 +11249,8 @@ Thanks for using Polis!
       x.on("error", function (err: any) {
         fail(res, 500, "polis_err_finding_file " + path, err);
       });
-      // http.get(url, function(proxyResponse) {
-      //     if (devMode) {
-      //         addStaticFileHeaders(res);
-      //     }
-      //     res.setHeader('Content-Type', contentType);
-      //     proxyResponse.on('data', function (chunk) {
-      //         res.write(chunk);
-      //     });
-      //     proxyResponse.on('end', function () {
-      //         res.end();
-      //     });
-      // }).on("error", function(e) {
-      //     fail(res, 500, "polis_err_serving_file", new Error("polis_err_serving_file"));
-      // });
     };
   }
-
-  // function isIE(req) {
-  //   let h = req?.headers?.['user-agent'];
-  //   return /MSIE [0-9]/.test(h) || /Trident/.test(h);
-  // }
 
   function isUnsupportedBrowser(req: { headers?: { [x: string]: string } }) {
     return /MSIE [234567]/.test(req?.headers?.["user-agent"] || "");
@@ -13128,9 +11558,6 @@ Thanks for using Polis!
       let b = "";
       if (req.body) {
         let temp = _.clone(req.body);
-        // if (temp.email) {
-        //     temp.email = "foo@foo.com";
-        // }
         if (temp.password) {
           temp.password = "some_password";
         }
@@ -13337,11 +11764,6 @@ Thanks for using Polis!
   return returnObject;
 } // End of initializePolisHelpers
 // debugging
-//let ph = initializePolisHelpers()
-
-//if (false) {
-//let nextP = ph.getNextPrioritizedComment(17794, 100, [], true);
-//};
 
 export { initializePolisHelpers };
 
