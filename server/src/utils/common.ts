@@ -210,6 +210,8 @@ function isDuplicateKey(err: {
   return isdup;
 }
 
+//todo: only one export
+
 export {
   strToHex,
   hexToStr,
