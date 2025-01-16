@@ -4,6 +4,7 @@ import url from "url";
 import Config from "../config";
 import User from "../user";
 import Session from "../session";
+import logger from "../utils/logger";
 
 type Options = {
   maxAge?: number;
@@ -30,6 +31,8 @@ const COOKIES = {
   PERMANENT_COOKIE: "pc",
   TRY_COOKIE: "tryCookie",
 };
+
+const getUserInfoForSessionToken = Session.getUserInfoForSessionToken;
 
 const COOKIES_TO_CLEAR = {
   e: true,
@@ -165,6 +168,82 @@ function getPermanentCookieAndEnsureItIsSet(
   }
 }
 
+function clearCookies(
+  req: { headers?: Headers; cookies?: any; p?: any },
+  res: {
+    clearCookie?: (
+      arg0: string,
+      arg1: { path: string; domain?: string }
+    ) => void;
+    status?: (arg0: number) => void;
+    _headers?: { [x: string]: any };
+    redirect?: (arg0: string) => void;
+    set?: (arg0: { "Content-Type": string }) => void;
+  }
+) {
+  let cookieName;
+  for (cookieName in req.cookies) {
+    // Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; plan: boolean; referrer: boolean; parent_url: boolean; }'.
+    // No index signature with a parameter of type 'string' was found on type '{ e: boolean; token2: boolean; uid2: boolean; uc: boolean; plan: boolean; referrer: boolean; parent_url: boolean; }'.ts(7053)
+    // @ts-ignore
+    if (COOKIES_TO_CLEAR[cookieName]) {
+      res?.clearCookie?.(cookieName, {
+        path: "/",
+        domain: cookieDomain(req),
+      });
+    }
+  }
+  logger.info(
+    "after clear res set-cookie: " +
+      JSON.stringify(res?._headers?.["set-cookie"])
+  );
+}
+
+function clearCookie(
+  req: { [key: string]: any; headers?: { origin: string } },
+  res: {
+    [key: string]: any;
+    clearCookie?: (arg0: any, arg1: { path: string; domain?: string }) => void;
+  },
+  cookieName: any
+) {
+  res?.clearCookie?.(cookieName, {
+    path: "/",
+    domain: cookieDomain(req),
+  });
+}
+
+function doCookieAuth(
+  assigner: (arg0: any, arg1: string, arg2: number) => void,
+  isOptional: any,
+  req: { cookies: { [x: string]: any }; body: { uid?: any } },
+  res: { status: (arg0: number) => void },
+  next: { (err: any): void; (arg0?: string): void }
+) {
+  let token = req.cookies[COOKIES.TOKEN];
+
+  //if (req.body.uid) { next(401); return; } // shouldn't be in the post - TODO - see if we can do the auth in parallel for non-destructive operations
+  getUserInfoForSessionToken(token, res, function (err: any, uid?: any) {
+    if (err) {
+      clearCookies(req, res); // TODO_MULTI_DATACENTER_CONSIDERATION
+      if (isOptional) {
+        next();
+      } else {
+        res.status(403);
+        next("polis_err_auth_no_such_token");
+      }
+      return;
+    }
+    if (req.body.uid && req.body.uid !== uid) {
+      res.status(401);
+      next("polis_err_auth_mismatch_uid");
+      return;
+    }
+    assigner(req, "uid", Number(uid));
+    next();
+  });
+}
+
 export default {
   COOKIES,
   COOKIES_TO_CLEAR,
@@ -176,4 +255,7 @@ export default {
   setCookieTestCookie,
   addCookies,
   getPermanentCookieAndEnsureItIsSet,
+  clearCookies,
+  clearCookie,
+  doCookieAuth,
 };
