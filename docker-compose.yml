@@ -35,6 +35,7 @@ services:
       target: prod
       args:
         NODE_ENV: production
+        ghToken: ${ghToken}
       labels:
         polis_tag: ${TAG:-dev}
     depends_on:
