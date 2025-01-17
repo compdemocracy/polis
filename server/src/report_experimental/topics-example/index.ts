@@ -492,6 +492,7 @@ async function parseCsvString(csvString: string) {
     const parser = parse({
       columns: true, // Use first row as headers
       skip_empty_lines: true, // Ignore empty lines
+      relax_column_count: true
     });
 
     parser.on("error", (error) => reject(error));
