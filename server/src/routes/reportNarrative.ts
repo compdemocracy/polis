@@ -134,6 +134,8 @@ const getCommentsAsXML = async (
   try {
     const resp = await sendCommentGroupsSummary(id, undefined, false, filter);
     const xml = PolisConverter.convertToXml(resp as string);
+    // eslint-disable-next-line no-console
+    if (xml.trim().length === 0) console.error("No data has been returned by sendCommentGroupsSummary");
     return xml;
   } catch (e) {
     console.error("Error in getCommentsAsXML:", e);
@@ -275,6 +277,7 @@ export async function handle_GET_reportNarrative(
           JSON.stringify({
             [s.name]: {
               responseClaude,
+              errors: structured_comments?.trim().length === 0 ? "NO_CONTENT_AFTER_FILTER" : undefined,
             },
           })
         );
