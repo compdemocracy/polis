@@ -3,6 +3,10 @@ import React from "react";
 const Narrative = ({ sectionData, model }) => {
   if (!sectionData) return null;
 
+  if (sectionData.errors) return (
+    <p>Not enough data has been provided for analysis, please check back later</p>
+  )
+
   const txt = model === "claude" ? sectionData.responseClaude.content[0].text : sectionData.responseGemini;
 
   const respData = model === "claude" ? JSON.parse(`{${txt}`) : JSON.parse(txt);

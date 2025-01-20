@@ -45,17 +45,19 @@ const UncertaintyNarrative = ({
           This narrative summary may contain hallucinations. Check each clause.
         </p>
         <Narrative sectionData={narrative} model={model} />
-        <div style={{ marginTop: 50 }}>
-          <CommentList
-            conversation={conversation}
-            ptptCount={ptptCount}
-            math={math}
-            formatTid={formatTid}
-            tidsToRender={dedupedTids}
-            comments={comments}
-            voteColors={voteColors}
-          />
-        </div>
+        {narrative.errors === undefined && (
+          <div style={{ marginTop: 50 }}>
+            <CommentList
+              conversation={conversation}
+              ptptCount={ptptCount}
+              math={math}
+              formatTid={formatTid}
+              tidsToRender={dedupedTids}
+              comments={comments}
+              voteColors={voteColors}
+            />
+          </div>
+        )}
       </div>
     );
   } catch (err) {

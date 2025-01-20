@@ -318,6 +318,7 @@ export async function handle_GET_reportNarrative(
             [s.name]: {
               responseGemini,
               responseClaude,
+              errors: structured_comments?.trim().length === 0 ? "NO_CONTENT_AFTER_FILTER" : undefined,
             },
           })
         );
