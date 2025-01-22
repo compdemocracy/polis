@@ -255,6 +255,7 @@ export async function handle_GET_reportNarrative(
 ) {
   const sectionParam = req.query.section;
   const modelParam = req.query.model;
+  let tpcs;
   res.writeHead(200, {
     "Content-Type": "text/plain; charset=utf-8",
     "Transfer-Encoding": "chunked",
@@ -278,8 +279,22 @@ export async function handle_GET_reportNarrative(
 
     // @ts-expect-error flush - calling due to use of compression
     res.flush();
+    const cachedTopics = await queryItemsByRidSectionModel(`${rid}#topics`);
 
-    const tpcs = await getTopicsFromRID(zid);
+    if (cachedTopics?.length) {
+      tpcs = cachedTopics[0].report_data
+    } else {
+      tpcs = await getTopicsFromRID(zid);
+      const reportItemTopics = {
+        rid_section_model: `${rid}#topics`,
+        timestamp: new Date().toISOString(),
+        report_data: tpcs,
+      };
+      
+      putReportItem(reportItemTopics)
+        .then(data => console.log(data))
+        .catch(err => console.error(err));
+    }
 
     const reportSections = getReportSections(tpcs)
 
