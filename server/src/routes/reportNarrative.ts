@@ -7,6 +7,18 @@ import {
   GenerateContentRequest,
   GoogleGenerativeAI,
 } from "@google/generative-ai";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import {
+  BatchWriteCommand,
+  DeleteCommand,
+  DynamoDBDocumentClient,
+  GetCommand,
+  PutCommand,
+  QueryCommand,
+  UpdateCommand,
+  paginateQuery,
+  paginateScan,
+} from "@aws-sdk/lib-dynamodb";
 import { convertXML } from "simple-xml-to-json";
 import fs from "fs/promises";
 import { parse } from "csv-parse/sync";
@@ -19,6 +31,48 @@ const js2xmlparser = require("js2xmlparser");
 interface PolisRecord {
   [key: string]: string; // Allow any string keys
 }
+
+const dynamoClient = new DynamoDBClient({ region: "us-west-1" });
+const tableName = "report_narrative_store";
+
+const putReportItem = async (item: Record<string, any> | undefined) => {
+  const params = {
+    TableName: tableName,
+    Item: item,
+  };
+
+  const command = new PutCommand(params);
+
+  try {
+    const response = await dynamoClient.send(command);
+    console.log("Item added successfully:", response);
+    return response;
+  } catch (error) {
+    console.error("Error adding item:", error);
+    throw error;
+  }
+};
+
+const queryItemsByRidSectionModel = async (rid_section_model: string) => {
+  const params = {
+    TableName: tableName,
+    KeyConditionExpression: "rid_section_model = :rid_section_model",
+    ExpressionAttributeValues: {
+      ":rid_section_model": rid_section_model,
+    },
+  };
+
+  const command = new QueryCommand(params);
+
+  try {
+    const data = await dynamoClient.send(command);
+    console.log("Items retrieved successfully:", data.Items);
+    return data.Items;
+  } catch (error) {
+    console.error("Error querying items:", error);
+    throw error;
+  }
+};
 
 export class PolisConverter {
   static convertToXml(csvContent: string): string {
@@ -207,6 +261,7 @@ export async function handle_GET_reportNarrative(
   });
   const { rid } = req.p;
 
+
   res.write(`POLIS-PING: AI bootstrap`);
 
   // @ts-expect-error flush - calling due to use of compression
@@ -242,90 +297,128 @@ export async function handle_GET_reportNarrative(
       const s = sectionParam
         ? reportSections.find((s) => s.name === sectionParam) || section
         : section;
+      const cachedResponseClaude = await queryItemsByRidSectionModel(`${rid}#${s.name}#claude`);
+      const cachedResponseGemini = await queryItemsByRidSectionModel(`${rid}#${s.name}#gemini`);
+
       const fileContents = await fs.readFile(s.templatePath, "utf8");
       const json = await convertXML(fileContents);
       // @ts-expect-error function args ignore temp
       const structured_comments = await getCommentsAsXML(zid, s.filter);
-
-      json.polisAnalysisPrompt.children[
-        json.polisAnalysisPrompt.children.length - 1
-      ].data.content = { structured_comments };
-
-      const prompt_xml = js2xmlparser.parse(
-        "polis-comments-and-group-demographics",
-        json
-      );
-
-      if ((modelParam as string)?.trim()) {
-        const responseClaude = await anthropic.messages.create({
-          model: "claude-3-5-haiku-20241022",
-          max_tokens: 3000,
-          temperature: 0,
-          system: system_lore,
-          messages: [
-            {
-              role: "user",
-              content: [{ type: "text", text: prompt_xml }],
-            },
-            {
-              role: "assistant",
-              content: [{ type: "text", text: "{" }],
-            },
-          ],
-        });
+      // send cached response first if avalable
+      if (cachedResponseClaude?.length && cachedResponseGemini?.length) {
         res.write(
           JSON.stringify({
             [s.name]: {
-              responseClaude,
+              responseGemini: cachedResponseGemini[0].report_data,
+              responseClaude: cachedResponseClaude[0].report_data,
               errors: structured_comments?.trim().length === 0 ? "NO_CONTENT_AFTER_FILTER" : undefined,
             },
           })
         );
       } else {
-        const responseClaude = await anthropic.messages.create({
-          model: "claude-3-5-sonnet-20241022",
-          max_tokens: 3000,
-          temperature: 0,
-          system: system_lore,
-          messages: [
-            {
-              role: "user",
-              content: [{ type: "text", text: prompt_xml }],
-            },
-            {
-              role: "assistant",
-              content: [{ type: "text", text: "{" }],
-            },
-          ],
-        });
-
-        const gemeniModelprompt: GenerateContentRequest = {
-          contents: [
-            {
-              parts: [
-                {
-                  text: prompt_xml,
-                },
-              ],
-              role: "user",
-            },
-          ],
-          systemInstruction: system_lore,
-        };
-
-        const respGem = await gemeniModel.generateContent(gemeniModelprompt);
-        const responseGemini = await respGem.response.text();
-
-        res.write(
-          JSON.stringify({
-            [s.name]: {
-              responseGemini,
-              responseClaude,
-              errors: structured_comments?.trim().length === 0 ? "NO_CONTENT_AFTER_FILTER" : undefined,
-            },
-          })
+        json.polisAnalysisPrompt.children[
+          json.polisAnalysisPrompt.children.length - 1
+        ].data.content = { structured_comments };
+  
+        const prompt_xml = js2xmlparser.parse(
+          "polis-comments-and-group-demographics",
+          json
         );
+  
+        if ((modelParam as string)?.trim()) {
+          const responseClaude = await anthropic.messages.create({
+            model: "claude-3-5-haiku-20241022",
+            max_tokens: 3000,
+            temperature: 0,
+            system: system_lore,
+            messages: [
+              {
+                role: "user",
+                content: [{ type: "text", text: prompt_xml }],
+              },
+              {
+                role: "assistant",
+                content: [{ type: "text", text: "{" }],
+              },
+            ],
+          });
+          res.write(
+            JSON.stringify({
+              [s.name]: {
+                responseClaude,
+                errors: structured_comments?.trim().length === 0 ? "NO_CONTENT_AFTER_FILTER" : undefined,
+              },
+            })
+          );
+        } else {
+          const responseClaude = await anthropic.messages.create({
+            model: "claude-3-5-sonnet-20241022",
+            max_tokens: 3000,
+            temperature: 0,
+            system: system_lore,
+            messages: [
+              {
+                role: "user",
+                content: [{ type: "text", text: prompt_xml }],
+              },
+              {
+                role: "assistant",
+                content: [{ type: "text", text: "{" }],
+              },
+            ],
+          });
+  
+          const gemeniModelprompt: GenerateContentRequest = {
+            contents: [
+              {
+                parts: [
+                  {
+                    text: prompt_xml,
+                  },
+                ],
+                role: "user",
+              },
+            ],
+            systemInstruction: system_lore,
+          };
+  
+          const respGem = await gemeniModel.generateContent(gemeniModelprompt);
+          const responseGemini = await respGem.response.text();
+  
+          const reportItemClaude = {
+            rid_section_model: `${rid}#${s.name}#claude`,
+            timestamp: new Date().toISOString(),
+            report_data: responseClaude,
+            errors: structured_comments?.trim().length === 0 ? "NO_CONTENT_AFTER_FILTER" : undefined,
+          };
+          
+          putReportItem(reportItemClaude)
+            .then(data => console.log(data))
+            .catch(err => console.error(err));
+  
+          const reportItemGemini = {
+            rid_section_model: `${rid}#${s.name}#gemini`,
+            timestamp: new Date().toISOString(),
+            report_data: responseGemini,
+            errors: structured_comments?.trim().length === 0 ? "NO_CONTENT_AFTER_FILTER" : undefined,
+          };
+          
+          putReportItem(reportItemGemini)
+            .then(data => console.log(data))
+            .catch(err => console.error(err));
+  
+          res.write(
+            JSON.stringify({
+              [s.name]: {
+                responseGemini,
+                responseClaude,
+                errors: structured_comments?.trim().length === 0 ? "NO_CONTENT_AFTER_FILTER" : undefined,
+              },
+            })
+          );
+        }
       }
+
 
       // @ts-expect-error flush - calling due to use of compression
       res.flush();
