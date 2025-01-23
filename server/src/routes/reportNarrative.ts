@@ -9,22 +9,16 @@ import {
 } from "@google/generative-ai";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
-  BatchWriteCommand,
-  DeleteCommand,
-  DynamoDBDocumentClient,
-  GetCommand,
   PutCommand,
   QueryCommand,
-  UpdateCommand,
-  paginateQuery,
-  paginateScan,
+  DeleteCommand
 } from "@aws-sdk/lib-dynamodb";
 import { convertXML } from "simple-xml-to-json";
 import fs from "fs/promises";
 import { parse } from "csv-parse/sync";
 import { create } from "xmlbuilder2";
 import { sendCommentGroupsSummary } from "./export";
-import { getTopicsFromRID, topicsExample } from "../report_experimental/topics-example";
+import { getTopicsFromRID } from "../report_experimental/topics-example";
 
 const js2xmlparser = require("js2xmlparser");
 
@@ -49,7 +43,6 @@ const putReportItem = async (item: Record<string, any> | undefined) => {
     return response;
   } catch (error) {
     console.error("Error adding item:", error);
-    throw error;
   }
 };
 
@@ -70,7 +63,26 @@ const queryItemsByRidSectionModel = async (rid_section_model: string) => {
     return data.Items;
   } catch (error) {
     console.error("Error querying items:", error);
-    throw error;
+  }
+};
+
+const deleteReportItem = async (rid_section_model: string, timestamp: string) => {
+  const params = {
+    TableName: tableName,
+    Key: {
+      rid_section_model: rid_section_model,
+      timestamp: timestamp,
+    },
+  };
+
+  const command = new DeleteCommand(params);
+
+  try {
+    const response = await dynamoClient.send(command);
+    console.log("Item deleted successfully:", response);
+    return response;
+  } catch (error) {
+    console.error("Error deleting item:", error);
   }
 };
 
@@ -249,6 +261,13 @@ type QueryParams = {
   [key: string]: string | string[] | undefined;
 };
 
+const isFreshData = (timestamp: string) => {
+  const now = new Date().getTime();
+  const then =  new Date(timestamp).getTime();
+  const elapsed = Math.abs(now - then);
+  return elapsed < ((process.env.MAX_REPORT_CACHE_DURATION as unknown as number) || 3600000);
+}
+
 export async function handle_GET_reportNarrative(
   req: { p: { rid: string }; query: QueryParams },
   res: Response
@@ -281,9 +300,12 @@ export async function handle_GET_reportNarrative(
     res.flush();
     const cachedTopics = await queryItemsByRidSectionModel(`${rid}#topics`);
 
-    if (cachedTopics?.length) {
+    if (cachedTopics?.length && isFreshData(cachedTopics[0].timestamp)) {
       tpcs = cachedTopics[0].report_data
     } else {
+      if (cachedTopics?.length) {
+        deleteReportItem(cachedTopics[0].rid_section_model, cachedTopics[0].timestamp);
+      }
       tpcs = await getTopicsFromRID(zid);
       const reportItemTopics = {
         rid_section_model: `${rid}#topics`,
@@ -320,7 +342,7 @@ export async function handle_GET_reportNarrative(
       // @ts-expect-error function args ignore temp
       const structured_comments = await getCommentsAsXML(zid, s.filter);
       // send cached response first if avalable
-      if (cachedResponseClaude?.length && cachedResponseGemini?.length) {
+      if (cachedResponseClaude?.length && cachedResponseGemini?.length && isFreshData(cachedResponseClaude[0].timestamp) && isFreshData(cachedResponseGemini[0].timestamp)) {
         res.write(
           JSON.stringify({
             [s.name]: {
@@ -331,6 +353,12 @@ export async function handle_GET_reportNarrative(
           })
         );
       } else {
+        if (cachedResponseClaude?.length) {
+          deleteReportItem(cachedResponseClaude[0].rid_section_model, cachedResponseClaude[0].timestamp);
+        }
+        if (cachedResponseGemini?.length) {
+          deleteReportItem(cachedResponseGemini[0].rid_section_model, cachedResponseGemini[0].timestamp);
+        }
         json.polisAnalysisPrompt.children[
           json.polisAnalysisPrompt.children.length - 1
         ].data.content = { structured_comments };
