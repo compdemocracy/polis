@@ -10,8 +10,6 @@
 FROM docker.io/node:18-alpine as base
 
 ARG NODE_ENV
-ARG ghToken
-ENV ghToken=$ghToken
 
 WORKDIR /app
 
@@ -37,10 +35,6 @@ RUN apk add libpq-dev
 
 RUN apk add --no-cache --virtual .build \
   g++ make python3
-
-# Create .npmrc with the token
-RUN echo "@tevko:registry=https://npm.pkg.github.com" > .npmrc
-RUN echo "//npm.pkg.github.com/:_authToken=${ghToken}" >> .npmrc
 
 COPY package*.json ./
 
