@@ -22,6 +22,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: set up google creds
+        run: |
+          echo "${{ secrets.JIGSAW_SERVICE_ACCT }}" > server/jigsaw-vertex-integration-92ef30330cf7.json
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
