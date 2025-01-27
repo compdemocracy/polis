@@ -23,12 +23,12 @@ RUN apk add --no-cache wget gnupg && \
 
 ENV PATH="/root/google-cloud-sdk/bin:${PATH}"
 
-COPY jigsaw-vertex-integration-92ef30330cf7.json /app/jigsaw-vertex-integration-92ef30330cf7.json
+COPY llm-service-account.json /app/llm-service-account.json
 
-ENV GOOGLE_APPLICATION_CREDENTIALS=/app/jigsaw-vertex-integration-92ef30330cf7.json
+ENV GOOGLE_APPLICATION_CREDENTIALS=/app/llm-service-account.json
 
 # Authenticate with the service account
-RUN gcloud auth activate-service-account --key-file=/app/jigsaw-vertex-integration-92ef30330cf7.json
+RUN gcloud auth activate-service-account --key-file=/app/llm-service-account.json
 
 # This package is needed at runtime
 RUN apk add libpq-dev

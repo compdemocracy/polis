@@ -61,7 +61,7 @@ export async function getTopicsFromRID(zId: number) {
     defaultModel: new VertexModel(
       "jigsaw-vertex-integration",
       "us-central1",
-      // "jigsaw-vertex-integration-92ef30330cf7"
+      // "llm-service-account"
     ),
   }).learnTopics(comments as Comment[], true);
   return topics;
