@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <polisAnalysisPrompt version="1.0">
     <metadata>
-        <title>Guide to Analyzing and Reporting Uncertainty in Pol.is Conversations</title>
-        <purpose>Generate consistent, evidence-based reports of uncertainty patterns and output
+        <title>Guide to Analyzing and Reporting Group Informed Consensus in Pol.is Conversations</title>
+        <purpose>Generate consistent, evidence-based reports of group informed consensus and output
             valid JSON</purpose>
     </metadata>
 
@@ -11,82 +11,88 @@
             Generate a JSON response that conforms to the provided schema. DO NOT INCLUDE ANY OTHER
             TEXT.
         </instruction>
+        <instruction>
+            Analyze and include ALL comments that show consensus patterns — the data is already
+            filtered for those with the requisite score threshold for group-aware consensus.
+            The analysis should be exhaustive and comprehensive, potentially spanning many
+            paragraphs.
+            Each consensus pattern should be supported by multiple comment citations.
+        </instruction>
+        <instruction>
+            Group related comments into coherent themes, but ensure every relevant comment is cited
+            at least once.
+            Aim for 100% coverage of consensus comments in the dataset.
+        </instruction>
     </criticalInstructions>
 
     <definitions>
-        <term name="pass_rate">
-            <description>Percentage of participants selecting "pass/unsure"</description>
+        <term name="group_aware_consensus">
+            <description>Consensus across groups</description>
         </term>
-        <term name="high_uncertainty">
-            <description>Statements with significant pass rates</description>
-            <threshold>30</threshold>
+        <term name="group_informed_consensus">
+            <description>Consensus that considers group-specific views, usually above 80% agreement
+                per group</description>
+        </term>
+        <term name="high_consensus">
+            <description>Statements with significant agreement aco rates</description>
+            <threshold>60</threshold>
             <unit>percent</unit>
-        </term>
-        <term name="group_divergence">
-            <description>Difference in pass rates between groups</description>
-            <threshold>20</threshold>
-            <unit>percent</unit>
-        </term>
-        <term name="valid_statement">
-            <description>Statement with sufficient votes</description>
-            <threshold>75</threshold>
-            <unit>votes</unit>
         </term>
     </definitions>
 
     <analysisProcess>
         <dataProcessing>
             <step order="1">
-                <name>Filter Valid Statements</name>
-                <criteria>
-                    <criterion>vote_count &gt;= 75</criterion>
-                </criteria>
-            </step>
-            <step order="2">
-                <name>Calculate Pass Rates</name>
+                <name>Observe Consensus Across Groups</name>
                 <calculations>
-                    <calculation>overall_pass_rate</calculation>
-                    <calculation>group_specific_pass_rates</calculation>
+                    <calculation>group_aware_consensus</calculation>
+                    <calculation>group_informed_consensus</calculation>
                 </calculations>
             </step>
-            <step order="3">
+            <step order="2">
                 <name>Identify Patterns</name>
                 <patterns>
-                    <pattern>high_uncertainty_statements</pattern>
-                    <pattern>group_divergences</pattern>
+                    <pattern>high_consensus_statements</pattern>
+                    <pattern>group_informed</pattern>
+                    <pattern>topic_clusters</pattern>
+                </patterns>
+            </step>
+            <step order="3">
+                <name>Ensure broad coverage of comments in summary</name>
+                <patterns>
+                    <pattern>high_consensus_statements</pattern>
+                    <pattern>group_informed</pattern>
                     <pattern>topic_clusters</pattern>
                 </patterns>
             </step>
         </dataProcessing>
-
         <reportingStructure>
-            <paragraph type="overview">
+            <paragraph type="overview_consensus">
                 <elements>
-                    <element>highest_uncertainty_statements</element>
-                    <element>special_patterns</element>
+                    <element>high_consensus_statements</element>
                     <element>participation_context</element>
                 </elements>
                 <format>
-                    Areas of significant uncertainty included [topic1] and [topic2],
-                    with [X]% of participants expressing uncertainty about [specific_statement].
+                    Areas of significant consensus across groups included [topic1] and [topic2],
+                    with [X]% of participants expressing consensus about [specific_statement].
                     [context] [additional_overview_analysis].
-                </format>
-                <length>2-3 sentences</length>
-            </paragraph>
 
-            <paragraph type="group_analysis">
-                <elements>
-                    <element>group_uncertainty_patterns</element>
-                    <element>divergent_cases</element>
-                    <element>shared_uncertainties</element>
-                </elements>
-                <exampleFormat>
-                    Group [A] participants showed significant uncertainty around [topic1]
-                    and [topic2], differing from Group [B]'s uncertainty centered on [topic3].
-                    Both groups shared uncertainty about [shared_topic], with passage rates
-                    exceeding [X]%. [additional_group_analysis].
-                </exampleFormat>
-                <length>2-3 sentences</length>
+                    [Category X] emerged as a key area of consensus, with participants
+                    [voting, agreeing, disagreeing] on statements about [specific_topic] at rates of
+                    [range_low]-[range_high]%.
+                    [additional_categories_and_examples]. Category [category3] created additional
+                    consensus,
+                    particularly among Group [group_name] participants who showed [percentage3]%
+                    [voting, agreeing, disagreeing] on related initiatives.
+                </format>
+                <paragraphInstructions>
+                    this is a tl;dr paragraph for the entire consensus in the conversation. it is
+                    the most critical paragraph of the entire report since group informed consensus
+                    is the most valuable aspect of the data. It should be a high-level overview of
+                    the consensus patterns in the conversation. It will be followed by a more
+                    detailed analysis of each theme. It requires citations for every clause.
+                </paragraphInstructions>
+                <length>4-5 sentences</length>
             </paragraph>
 
             <paragraph type="topic_analysis">
@@ -96,39 +102,35 @@
                     <element>category_patterns</element>
                 </elements>
                 <exampleFormat>
-                    Category [X] emerged as a key area of uncertainty, with participants
-                    passing on statements about [specific_topic] at rates of
-                    [range_low]-[range_high]%.
-                    [additional_categories_and_examples]. Category [category3] created additional
-                    uncertainty,
-                    particularly among Group [group_name] participants who showed [percentage3]%
-                    passage rates on related initiatives.
+                    Provide a comprehensive overview of ALL major consensus areas, grouped by theme.
+                    Each theme should be thoroughly explored with multiple supporting comments.
+                    Format: [Theme 1]: [Detail multiple related consensus points with specific
+                    percentages]
+                    [Theme 2]: [Additional consensus points]
+                    Continue until all major themes and their supporting comments are covered.
+
                 </exampleFormat>
-                <length>2-3 sentences</length>
-            </paragraph>
-            <paragraph type="topic_analysis_comparative">
-                <elements>
-                    <element>topic_clusters</element>
-                    <element>uncertainty_ranges</element>
-                    <element>category_patterns</element>
-                </elements>
-                <exampleFormat>
-                    Of note, within the topic [topic that had high variance between topically
-                    similar statements] [high uncertainty statement], [statement with low
-                    uncertainty] [overall observation about topic and uncertainty patterns]
-                </exampleFormat>
-                <length>2-3 sentences</length>
+                <paragraphInstructions>
+                    Each topic cluster should be analyzed in depth, with:
+                    - Complete coverage of all related consensus statements
+                    - Specific agreement percentages for each group
+                    - Cross-referencing between related topics
+                    - Multiple supporting citations for each claim
+                </paragraphInstructions>
+                <length>Multiple paragraphs per topic cluster, with all relevant comments cited</length>
             </paragraph>
         </reportingStructure>
 
         <citationRules>
-            <template>
-                commentId
-            </template>
+            <template>commentId</template>
             <rules>
+                <rule>every_consensus_comment_must_be_cited</rule>
+                <rule>minimum_citations_per_paragraph&gt;5</rule>
+                <rule>group_related_citations_together</rule>
                 <rule>minimum_citations_per_clause&gt;1</rule>
-                <rule>maximum_citations_per_clause&gt;5</rule>
+                <rule>maximum_citations_per_clause&gt;10</rule>
                 <rule>include_full_vote_breakdown&gt;false</rule>
+
             </rules>
         </citationRules>
 
@@ -138,8 +140,6 @@
             </dataQuality>
 
             <reportingCompleteness>
-                <requirement>all_groups_represented&gt;true</requirement>
-                <requirement>high_uncertainty_topics_covered&gt;true</requirement>
                 <requirement>patterns_explained&gt;true</requirement>
                 <requirement>special_cases_noted&gt;true</requirement>
             </reportingCompleteness>
@@ -150,35 +150,23 @@
                 <threshold>100-150</threshold>
                 <handling>
                     <action>flag_as_less_reliable</action>
-                    <action>include_in_pattern_analysis</action>
-                    <action>note_in_citations</action>
-                </handling>
-            </case>
-
-            <case type="extreme_divergence">
-                <threshold>40</threshold>
-                <handling>
-                    <action>highlight_difference</action>
-                    <action>provide_context</action>
-                    <action>check_related_statements</action>
                 </handling>
             </case>
 
             <case type="topic_clustering">
                 <requirements>
-                    <requirement>minimum_statements&gt;3</requirement>
                     <requirement>conceptual_relationship&gt;true</requirement>
-                    <requirement>similar_uncertainty_patterns&gt;true</requirement>
                 </requirements>
             </case>
         </specialCases>
 
         <languageGuidelines>
-            <uncertaintyTerms>
-                <term>expressed uncertainty</term>
-                <term>were unsure</term>
-                <term>passed on</term>
-            </uncertaintyTerms>
+            <consensusTerms>
+                <term>across groups</term>
+                <term>expressed consensus</term>
+                <term>were aligned</term>
+                <term>agreed/disagreed on</term>
+            </consensusTerms>
 
             <styleRules>
                 <rule>avoid_repetitive_structures</rule>
@@ -196,7 +184,7 @@
             <check>context_provided</check>
             <check>citations_properly_formatted</check>
             <check>language_varied_and_clear</check>
-            <check>topically_related_statements_to_high_uncertainty_statements_checked</check>
+            <check>broad_coverage_of_comments</check>
         </qualityChecklist>
     </analysisProcess>
 
@@ -206,18 +194,19 @@
         <rule>Citations must use provided format</rule>
         <rule>Groups must be referenced by actual group names from data</rule>
         <rule>Statements must have minimum vote threshold of 100</rule>
-        <rule>High uncertainty defined as &gt;30% pass rate</rule>
+        <rule>no percentages from comment data inserted in the text</rule>
     </validationRules>
 
     <responseFormat>
         <condensedJSONSchema>
             {
-            "id": "subtask_uncertainty", // This is the uncertainty subtask
-            "title": "Uncertainty Analysis",
+            "id": "subtask_group_informed_consensus", // This is the group informed consensus
+            subtask
+            "title": "group informed consensus Analysis",
             "paragraphs": [
             {
-            "id": "string", // e.g. "uncertainty_overview"
-            "title": "string", // e.g. "Overview of Uncertainties"
+            "id": "string", // e.g. "consensus_overview"
+            "title": "string", // e.g. "Overview of Consensus"
             "sentences": [ // Each sentence is made up of clauses
             {
             "clauses": [ // Each clause has text and citations
@@ -263,12 +252,12 @@
     </responseFormat>
     <example>
         {
-        "id": "uncertainty",
-        "title": "Uncertainty Analysis",
+        "id": "consensus",
+        "title": "Consensus Analysis",
         "paragraphs": [
         {
-        "id": "uncertainty_overview",
-        "title": "Overview of Key Uncertainty Areas",
+        "id": "consensus_overview",
+        "title": "Overview of Key Consensus Areas",
         "sentences": [
         {
         "clauses": [
@@ -292,8 +281,8 @@
         ]
         },
         {
-        "id": "uncertainty_group_patterns",
-        "title": "Group-Specific Uncertainty Patterns",
+        "id": "theme_1",
+        "title": "Theme 1",
         "sentences": [
         {
         "clauses": [
@@ -320,8 +309,8 @@
         ]
         },
         {
-        "id": "uncertainty_topic_categories",
-        "title": "Topic-Based Uncertainty Analysis",
+        "id": "theme_2",
+        "title": "Theme 2",
         "sentences": [
         {
         "clauses": [

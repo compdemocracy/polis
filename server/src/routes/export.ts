@@ -335,7 +335,9 @@ export async function sendCommentGroupsSummary(
     agrees: number;
     disagrees: number;
     passes: number;
-    group_aware_consensus: number;
+    group_aware_consensus?: number;
+    comment_extremity?: number;
+    comment_id: number;
   }) => boolean
 ) {
   const csvText = [];
@@ -356,6 +358,9 @@ export async function sendCommentGroupsSummary(
     number
   >;
 
+  const commentExtremity =
+    (pca.asPOJO["pca"]["comment-extremity"] as Array<number>) || [];
+
   // Load comment texts
   const commentRows = (await pgQueryP_readOnly(
     "SELECT tid, txt FROM comments WHERE zid = ($1)",
@@ -365,6 +370,14 @@ export async function sendCommentGroupsSummary(
 
   // Initialize stats map
   const commentStats = new Map<number, CommentGroupStats>();
+
+  // Create a mapping of tid to extremity index using math tids array
+  const tidToExtremityIndex = new Map();
+  const mathTids = pca.asPOJO.tids; // Array of tids in same order as extremity values
+  commentExtremity.forEach((extremity, index) => {
+    const tid = mathTids[index];
+    tidToExtremityIndex.set(tid, index);
+  });
 
   // Process each group's votes
   for (const groupId of groupIds) {
@@ -486,6 +499,9 @@ export async function sendCommentGroupsSummary(
           disagrees: stats.total_disagrees,
           passes: stats.total_passes,
           group_aware_consensus: groupAwareConsensus[stats.tid],
+          comment_extremity:
+            commentExtremity[tidToExtremityIndex.get(stats.tid)],
+          comment_id: stats.tid,
         }) === true
       ) {
         res.write(row.join(",") + sep);
@@ -501,6 +517,9 @@ export async function sendCommentGroupsSummary(
           disagrees: stats.total_disagrees,
           passes: stats.total_passes,
           group_aware_consensus: groupAwareConsensus[stats.tid],
+          comment_extremity:
+            commentExtremity[tidToExtremityIndex.get(stats.tid)],
+          comment_id: stats.tid,
         }) === true
       ) {
         csvText.push(row.join(",") + sep);

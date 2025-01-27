@@ -10,8 +10,26 @@
 FROM docker.io/node:18-alpine as base
 
 ARG NODE_ENV
+ARG JIGSAW_SERVICE_ACCT
 
 WORKDIR /app
+
+# Install Python and necessary tools (including pip)
+RUN apk add --no-cache python3 py3-pip
+
+# Install the gcloud CLI
+RUN apk add --no-cache wget gnupg && \
+    wget -q -O - https://dl.google.com/dl/cloudsdk/release/google-cloud-sdk.tar.gz | tar xvz -C /root && \
+    /root/google-cloud-sdk/install.sh --quiet
+
+ENV PATH="/root/google-cloud-sdk/bin:${PATH}"
+
+RUN echo ${JIGSAW_SERVICE_ACCT} > /app/llm-service-account.json
+
+ENV GOOGLE_APPLICATION_CREDENTIALS=/app/llm-service-account.json
+
+# Authenticate with the service account
+RUN gcloud auth activate-service-account --key-file=/app/llm-service-account.json
 
 # This package is needed at runtime
 RUN apk add libpq-dev

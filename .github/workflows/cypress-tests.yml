@@ -22,10 +22,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: set up google creds
+        env:
+          DATA: ${{ secrets.JIGSAW_SERVICE_ACCT }}
+        run: |
+          echo $DATA > server/llm-service-account.json
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Build and start Docker containers
+        env:
+          JIGSAW_SERVICE_ACCT: ${{ secrets.JIGSAW_SERVICE_ACCT }}
         run: |
           docker compose -f docker-compose.yml -f docker-compose.test.yml --env-file test.env --profile postgres up -d --build
 

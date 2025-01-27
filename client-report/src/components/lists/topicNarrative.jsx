@@ -1,11 +1,9 @@
-// Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 import React from "react";
-import CommentList from "./commentList.jsx";
 import * as globals from "../globals.js";
 import Narrative from "../narrative/index.jsx";
+import CommentList from "./commentList.jsx";
 
-const UncertaintyNarrative = ({
+const TopicNarrative = ({
   conversation,
   comments,
   ptptCount,
@@ -14,14 +12,15 @@ const UncertaintyNarrative = ({
   voteColors,
   narrative,
   model,
+  topicName,
 }) => {
   try {
     const txt =
       model === "claude" ? narrative?.responseClaude.content[0].text : narrative?.responseGemini;
-    console.log("Raw narrative text:", txt); // Log raw text
+    console.log(`Raw narrative text for topic ${topicName}:`, txt);
 
     const narrativeJSON = model === "claude" ? JSON.parse(`{${txt}`) : JSON.parse(txt);
-    console.log("Parsed narrative JSON:", narrativeJSON); // Log parsed JSON
+    console.log(`Parsed narrative JSON for topic ${topicName}:`, narrativeJSON);
 
     // Extract all citation IDs from the narrative structure
     const uniqueTids = narrativeJSON.paragraphs.reduce((acc, paragraph) => {
@@ -40,28 +39,28 @@ const UncertaintyNarrative = ({
 
     return (
       <div>
-        <p style={globals.primaryHeading}> Uncertainty Narrative </p>
+        <p style={globals.primaryHeading}>
+          {topicName.charAt(0).toUpperCase() + topicName.slice(1)}
+        </p>
         <p style={globals.paragraph}>
           This narrative summary may contain hallucinations. Check each clause.
         </p>
         <Narrative sectionData={narrative} model={model} />
-        {narrative.errors === undefined && (
-          <div style={{ marginTop: 50 }}>
-            <CommentList
-              conversation={conversation}
-              ptptCount={ptptCount}
-              math={math}
-              formatTid={formatTid}
-              tidsToRender={dedupedTids}
-              comments={comments}
-              voteColors={voteColors}
-            />
-          </div>
-        )}
+        <div style={{ marginTop: 50 }}>
+          <CommentList
+            conversation={conversation}
+            ptptCount={ptptCount}
+            math={math}
+            formatTid={formatTid}
+            tidsToRender={dedupedTids}
+            comments={comments}
+            voteColors={voteColors}
+          />
+        </div>
       </div>
     );
   } catch (err) {
-    console.error("Failed to parse narrative:", {
+    console.error(`Failed to parse narrative for topic ${topicName}:`, {
       error: err,
       rawText: narrative.responseClaude?.content[0]?.text,
       model,
@@ -75,4 +74,4 @@ const UncertaintyNarrative = ({
   }
 };
 
-export default UncertaintyNarrative;
+export default TopicNarrative;

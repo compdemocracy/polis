@@ -44,6 +44,12 @@ jobs:
       - name: Create empty .env file
         run: touch .env
 
+      - name: set up google creds
+        env:
+          DATA: ${{ secrets.JIGSAW_SERVICE_ACCT }}
+        run: |
+          echo $DATA > server/llm-service-account.json
+
       - name: Build static assets
         env:
           EMBED_SERVICE_HOSTNAME: preprod.pol.is
