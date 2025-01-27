@@ -33,7 +33,7 @@ jobs:
 
       - name: Build and start Docker containers
         run: |
-          docker compose -f docker-compose.yml -f docker-compose.test.yml --env-file test.env --profile postgres up -d --build
+          JIGSAW_SERVICE_ACCT=${{ secrets.JIGSAW_SERVICE_ACCT }} docker compose -f docker-compose.yml -f docker-compose.test.yml --env-file test.env --profile postgres up -d --build
 
       - name: Health Check the Server http response
         uses: jtalk/url-health-check-action@v4

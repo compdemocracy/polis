@@ -18,8 +18,5 @@ services:
       - "1080:1080"
 
   server:
-    args:
-      JIGSAW_SERVICE_ACCT: ${JIGSAW_SERVICE_ACCT}
     environment:
       - GOOGLE_CREDENTIALS_BASE64
-      - JIGSAW_SERVICE_ACCT
