@@ -10,6 +10,7 @@
 FROM docker.io/node:18-alpine as base
 
 ARG NODE_ENV
+ARG JIGSAW_SERVICE_ACCT
 
 WORKDIR /app
 
@@ -23,7 +24,7 @@ RUN apk add --no-cache wget gnupg && \
 
 ENV PATH="/root/google-cloud-sdk/bin:${PATH}"
 
-COPY llm-service-account.json /app/llm-service-account.json
+RUN echo ${JIGSAW_SERVICE_ACCT} > /app/llm-service-account.json
 
 ENV GOOGLE_APPLICATION_CREDENTIALS=/app/llm-service-account.json
 

@@ -20,3 +20,4 @@ services:
   server:
     environment:
       - GOOGLE_CREDENTIALS_BASE64
+      - JIGSAW_SERVICE_ACCT
