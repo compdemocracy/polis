@@ -26,7 +26,7 @@ interface PolisRecord {
   [key: string]: string; // Allow any string keys
 }
 
-const dynamoClient = new DynamoDBClient({ region: "us-west-1" });
+const dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION ?? "us-west-1" });
 const tableName = "report_narrative_store";
 
 const putReportItem = async (item: Record<string, any> | undefined) => {
