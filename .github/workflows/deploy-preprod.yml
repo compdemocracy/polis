@@ -25,6 +25,8 @@ jobs:
           echo $DATA > server/llm-service-account.json
 
       - name: Login to Heroku
+        env:
+          JIGSAW_SERVICE_ACCT: ${{ secrets.JIGSAW_SERVICE_ACCT }}
         uses: akhileshns/heroku-deploy@v3.13.15
         with:
           heroku_api_key: ${{secrets.HEROKU_API_KEY}}
