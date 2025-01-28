@@ -35,7 +35,7 @@ jobs:
             NODE_ENV
             JIGSAW_SERVICE_ACCT
         env:
-          JIGSAW_SERVICE_ACCT: ${{ secrets.JIGSAW_SERVICE_ACCT }}
+          HD_JIGSAW_SERVICE_ACCT: ${{ secrets.JIGSAW_SERVICE_ACCT }}
           
       - name: Deploy to Heroku
         run: |
