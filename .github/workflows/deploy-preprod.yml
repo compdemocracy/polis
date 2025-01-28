@@ -16,13 +16,6 @@ jobs:
       - name: Install Heroku CLI
         run: |
           curl https://cli-assets.heroku.com/install.sh | sh
-      
-      - name: set up google creds
-        env:
-          DATA: ${{ secrets.JIGSAW_SERVICE_ACCT }}
-          JIGSAW_SERVICE_ACCT: ${{secrets.JIGSAW_SERVICE_ACCT}}
-        run: |
-          echo $DATA > server/llm-service-account.json
 
       - name: Login to Heroku
         uses: akhileshns/heroku-deploy@v3.13.15
@@ -31,11 +24,6 @@ jobs:
           heroku_app_name: "polis-preprod"
           heroku_email: ${{secrets.HEROKU_EMAIL}}
           branch: "edge"
-          docker_build_args: |
-            NODE_ENV
-            JIGSAW_SERVICE_ACCT
-        env:
-          HD_JIGSAW_SERVICE_ACCT: ${{secrets.JIGSAW_SERVICE_ACCT}}
           
       - name: Deploy to Heroku
         run: |

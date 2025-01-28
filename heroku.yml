@@ -1,7 +1,3 @@
-
-setup:
-  config:
-    JIGSAW_SERVICE_ACCT: $JIGSAW_SERVICE_ACCT
 build:
   docker:
     # web server container
@@ -10,8 +6,6 @@ build:
     worker: math/Dockerfile
     # build and release static assets (js, index.html, etc)
     #release: Dockerfile
-  config:
-    JIGSAW_SERVICE_ACCT: $JIGSAW_SERVICE_ACCT
 
 #release:
   #image: release
