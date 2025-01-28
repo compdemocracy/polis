@@ -56,11 +56,11 @@ FROM base as prod
 # Set default NODE_ENV to production unless overridden at build time with --build-arg NODE_ENV=development
 ENV NODE_ENV ${NODE_ENV:-production}
 # auth with google cloud
+ARG JIGSAW_SERVICE_ACCT
 ENV JIGSAW_SERVICE_ACCT=${JIGSAW_SERVICE_ACCT}
-
-RUN echo ${JIGSAW_SERVICE_ACCT} > /app/llm-service-account.json
-
 ENV GOOGLE_APPLICATION_CREDENTIALS=/app/llm-service-account.json
+
+RUN printf "%s" "${JIGSAW_SERVICE_ACCT}" > /app/llm-service-account.json
 
 # Authenticate with the service account
 RUN gcloud auth activate-service-account --key-file=/app/llm-service-account.json

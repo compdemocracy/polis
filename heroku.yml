@@ -1,4 +1,7 @@
 
+setup:
+  config:
+    JIGSAW_SERVICE_ACCT: $JIGSAW_SERVICE_ACCT
 build:
   docker:
     # web server container
