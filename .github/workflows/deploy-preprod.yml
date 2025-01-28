@@ -15,7 +15,13 @@ jobs:
 
       - name: Install Heroku CLI
         run: |
-          curl https://cli-assets.heroku.com/install.sh | sh 
+          curl https://cli-assets.heroku.com/install.sh | sh
+      
+      - name: set up google creds
+        env:
+          DATA: ${{ secrets.JIGSAW_SERVICE_ACCT }}
+        run: |
+          echo $DATA > server/llm-service-account.json
 
       - name: Login to Heroku
         uses: akhileshns/heroku-deploy@v3.13.15
@@ -47,12 +53,6 @@ jobs:
 
       - name: Create empty .env file
         run: touch .env
-
-      - name: set up google creds
-        env:
-          DATA: ${{ secrets.JIGSAW_SERVICE_ACCT }}
-        run: |
-          echo $DATA > server/llm-service-account.json
 
       - name: Build static assets
         env:
