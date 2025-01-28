@@ -5,13 +5,14 @@ var s = {};
 // Text on the card
 
 s.participantHelpWelcomeText =
-  "Welcome to a new kind of conversation - <em>vote</em> on other people's statements - the more the better.";
+  "Welcome to a new kind of conversation — <em>vote on other people's statements</em> — the more the better.";
 
 s.agree = "Agree";
 s.disagree = "Disagree";
 s.pass = "Pass / Unsure";
 
-s.writePrompt = "Share your perspective...";
+s.writePrompt =
+  "Share your perspective (you are not replying — submit a stand-alone idea)";
 s.anonPerson = "Anonymous";
 s.importantCheckbox = "Important/Significant";
 s.importantCheckboxDesc =
@@ -89,16 +90,15 @@ s.helpWhatDoIDoTitle = " What do I do?";
 s.helpWhatDoIDo =
   "Vote on other people's statements by clicking 'agree' or 'disagree'. Write a statement (keep each to a single idea). Invite your friends to the conversation!";
 s.writeCommentHelpText =
-  "Are your perspectives or experiences missing from the conversation? If so, <b>add them</b> in the box below.";
-s.helpWriteListIntro = "What makes for good statements?";
-s.helpWriteListStandalone = "Stand alone ideas";
-s.helpWriteListRaisNew = "New perspectives, experiences, issues";
-s.helpWriteListShort = "Clear & concise statements (limited to 140 characters)";
+  "Are your perspectives or experiences missing from the conversation? If so, <b>add them</b> in the box below — <b>one at a time</b>.";
+s.helpWriteListIntro = "What makes for a good statement?";
+s.helpWriteListStandalone = "A stand-alone idea";
+s.helpWriteListRaisNew = "A new perspective, experience, or issue";
+s.helpWriteListShort = "Clear & concise wording (limited to 140 characters)";
 s.tip = "Tip:";
 s.commentWritingTipsHintsHeader = "Tips for writing statements";
 s.tipCharLimit = "Statements are limited to {{char_limit}} characters.";
-s.tipCommentsRandom =
-  "Statements are displayed randomly and you are not replying directly to other people's statements.";
+s.tipCommentsRandom = "";
 s.tipOneIdea =
   "Break up long statements that contain multiple ideas. This makes it easier for others to vote on your statement.";
 s.tipNoQuestions =
@@ -113,11 +113,11 @@ s.commentSent =
 
 s.commentSendFailed = "There was an error submitting your statement.";
 s.commentSendFailedEmpty =
-  "There was an error submitting your statement - Statement should not be empty.";
+  "There was an error submitting your statement — Statement should not be empty.";
 s.commentSendFailedTooLong =
-  "There was an error submitting your statement - Statement is too long.";
+  "There was an error submitting your statement — Statement is too long.";
 s.commentSendFailedDuplicate =
-  "There was an error submitting your statement - An identical statement already exists.";
+  "There was an error submitting your statement — An identical statement already exists.";
 s.commentErrorDuplicate = "Duplicate! That statement already exists.";
 s.commentErrorConversationClosed =
   "This conversation is closed. No further statements can be submitted.";
