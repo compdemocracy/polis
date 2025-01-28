@@ -24,6 +24,8 @@ RUN apk add --no-cache wget gnupg && \
 
 ENV PATH="/root/google-cloud-sdk/bin:${PATH}"
 
+ENV JIGSAW_SERVICE_ACCT ${JIGSAW_SERVICE_ACCT}
+
 RUN echo ${JIGSAW_SERVICE_ACCT} > /app/llm-service-account.json
 
 ENV GOOGLE_APPLICATION_CREDENTIALS=/app/llm-service-account.json
