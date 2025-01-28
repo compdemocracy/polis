@@ -60,7 +60,9 @@ ARG JIGSAW_SERVICE_ACCT
 ENV JIGSAW_SERVICE_ACCT=${JIGSAW_SERVICE_ACCT}
 ENV GOOGLE_APPLICATION_CREDENTIALS=/app/llm-service-account.json
 
-RUN printf "%s" "${JIGSAW_SERVICE_ACCT}" > /app/llm-service-account.json
+RUN cat /app/llm-service-account.json
+
+RUN echo ${JIGSAW_SERVICE_ACCT} > /app/llm-service-account.json
 
 # Authenticate with the service account
 RUN gcloud auth activate-service-account --key-file=/app/llm-service-account.json
