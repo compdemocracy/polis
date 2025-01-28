@@ -7,6 +7,7 @@ build:
     # build and release static assets (js, index.html, etc)
     #release: Dockerfile
 release:
+  image: web
   command:
     - echo "provisioning gcloud" # You can add other release commands if needed
     - printf "%s" "$JIGSAW_SERVICE_ACCT" > /app/llm-service-account.json
