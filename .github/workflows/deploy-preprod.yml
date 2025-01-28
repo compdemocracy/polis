@@ -25,14 +25,16 @@ jobs:
           echo $DATA > server/llm-service-account.json
 
       - name: Login to Heroku
-        env:
-          JIGSAW_SERVICE_ACCT: ${{ secrets.JIGSAW_SERVICE_ACCT }}
         uses: akhileshns/heroku-deploy@v3.13.15
         with:
           heroku_api_key: ${{secrets.HEROKU_API_KEY}}
           heroku_app_name: "polis-preprod"
           heroku_email: ${{secrets.HEROKU_EMAIL}}
           branch: "edge"
+          docker_build_args: |
+            JIGSAW_SERVICE_ACCT
+        env:
+          JIGSAW_SERVICE_ACCT: ${{ secrets.JIGSAW_SERVICE_ACCT }}
           
       - name: Deploy to Heroku
         run: |
