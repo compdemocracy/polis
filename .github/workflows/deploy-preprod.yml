@@ -32,6 +32,7 @@ jobs:
           heroku_email: ${{secrets.HEROKU_EMAIL}}
           branch: "edge"
           docker_build_args: |
+            NODE_ENV
             JIGSAW_SERVICE_ACCT
         env:
           JIGSAW_SERVICE_ACCT: ${{ secrets.JIGSAW_SERVICE_ACCT }}
