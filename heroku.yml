@@ -6,7 +6,13 @@ build:
     worker: math/Dockerfile
     # build and release static assets (js, index.html, etc)
     #release: Dockerfile
-
+release:
+  command:
+    - echo "provisioning gcloud" # You can add other release commands if needed
+    - printf "%s" "$JIGSAW_SERVICE_ACCT" > /app/llm-service-account.json
+    - gcloud auth activate-service-account --key-file=/app/llm-service-account.json
+  config:
+    JIGSAW_SERVICE_ACCT: $JIGSAW_SERVICE_ACCT
 #release:
   #image: release
   #command:
