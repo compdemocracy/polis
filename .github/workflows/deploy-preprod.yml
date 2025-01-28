@@ -20,6 +20,7 @@ jobs:
       - name: set up google creds
         env:
           DATA: ${{ secrets.JIGSAW_SERVICE_ACCT }}
+          JIGSAW_SERVICE_ACCT: ${{ secrets.JIGSAW_SERVICE_ACCT }}
         run: |
           echo $DATA > server/llm-service-account.json
 
