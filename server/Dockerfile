@@ -56,7 +56,7 @@ FROM base as prod
 ENV NODE_ENV ${NODE_ENV:-production}
 # auth with google cloud
 ARG JIGSAW_SERVICE_ACCT
-#ENV JIGSAW_SERVICE_ACCT=${JIGSAW_SERVICE_ACCT}
+ENV JIGSAW_SERVICE_ACCT=${JIGSAW_SERVICE_ACCT}
 RUN printf "%s" "${JIGSAW_SERVICE_ACCT}" > /app/llm-service-account.json
 
 
