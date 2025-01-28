@@ -35,7 +35,6 @@ services:
       target: prod
       args:
         NODE_ENV: production
-        JIGSAW_SERVICE_ACCT: ${JIGSAW_SERVICE_ACCT}
       labels:
         polis_tag: ${TAG:-dev}
     depends_on:
