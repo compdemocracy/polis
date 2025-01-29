@@ -287,6 +287,11 @@ export async function handle_GET_reportNarrative(
   // @ts-expect-error flush - calling due to use of compression
   res.flush();
 
+  const system_lore = await fs.readFile(
+    "src/report_experimental/system.xml",
+    "utf8"
+  );
+
   try {
     const zid = await getZidForRid(rid);
     if (!zid) {
@@ -306,7 +311,7 @@ export async function handle_GET_reportNarrative(
       if (cachedTopics?.length) {
         deleteReportItem(cachedTopics[0].rid_section_model, cachedTopics[0].timestamp);
       }
-      tpcs = await getTopicsFromRID(zid);
+      tpcs = await getTopicsFromRID(zid, gemeniModel, system_lore);
       const reportItemTopics = {
         rid_section_model: `${rid}#topics`,
         timestamp: new Date().toISOString(),
@@ -322,10 +327,6 @@ export async function handle_GET_reportNarrative(
 
     res.write(`POLIS-PING: retrieving system lore`);
 
-    const system_lore = await fs.readFile(
-      "src/report_experimental/system.xml",
-      "utf8"
-    );
 
     // @ts-expect-error flush - calling due to use of compression
     res.flush();

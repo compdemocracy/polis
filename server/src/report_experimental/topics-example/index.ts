@@ -5,10 +5,10 @@
 //   - subtopics: Array of subtopics, each with their specific citations
 
 import { sendCommentGroupsSummary } from "../../routes/export";
-import { VertexModel } from "@tevko/sensemaking-tools/src/models/vertex_model";
-import { Sensemaker } from "@tevko/sensemaking-tools/src/sensemaker";
+import { SensemakerPrompt } from "@tevko/sensemaking-tools/src/sensemaker";
 import { Comment, VoteTally } from "@tevko/sensemaking-tools/src/types";
 import { parse } from "csv-parse";
+import { GenerateContentRequest, GenerativeModel } from "node_modules/@google/generative-ai/dist/generative-ai";
 
 async function parseCsvString(csvString: string) {
   return new Promise((resolve, reject) => {
@@ -51,20 +51,50 @@ async function parseCsvString(csvString: string) {
   });
 }
 
-export async function getTopicsFromRID(zId: number) {
+export async function getTopicsFromRID(zId: number, model: GenerativeModel, system_lore: string) {
   const resp = await sendCommentGroupsSummary(zId, undefined, false);
   const modified = (resp as string).split("\n");
   modified[0] = `comment-id,comment_text,total-votes,total-agrees,total-disagrees,total-passes,group-a-votes,group-0-agree-count,group-0-disagree-count,group-0-pass-count,group-b-votes,group-1-agree-count,group-1-disagree-count,group-1-pass-count`;
   
   const comments = await parseCsvString(modified.join("\n"));
-  const topics = await new Sensemaker({
-    defaultModel: new VertexModel(
-      "jigsaw-vertex-integration",
-      "us-central1",
-      // "llm-service-account"
-    ),
-  }).learnTopics(comments as Comment[], true);
-  return topics;
+  const topicsPrompt = await new SensemakerPrompt().learnTopics(comments as Comment[], true);
+
+  const gemeniModelprompt: GenerateContentRequest = {
+    contents: [
+      {
+        parts: [
+          {
+            text: topicsPrompt,
+          },
+        ],
+        role: "user",
+      },
+    ],
+    systemInstruction: `
+    Example of correct output for the following task:
+
+[
+  {
+    "name": "Economic Development",
+    "citations": [5, 55, 79, 150, 189],
+    "subtopics": [
+        { "name": "Job Creation", "citations": [6, 54, 78, 151, 189] },
+        { "name": "Business Growth", "citations": [6, 53, 81, 151, 189] },
+      ]
+  },
+  {
+    "name": "Tourism",
+    "citations": [...],
+    ...
+  },
+  // ... other topics
+]`,
+  };
+
+  const respGem = await model.generateContent(gemeniModelprompt);
+  const topics = await respGem.response.text();
+  console.log(topics)
+  return JSON.parse(topics);
 }
 
 
