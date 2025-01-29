@@ -6716,15 +6716,6 @@ Email verified! You can close this tab or hit the back button.
         classifications.push("spammy");
         logger.info("active=false because (spammy && conv.spam_filter)");
       }
-      if (spammy && conv.spam_filter) {
-        active = false;
-        classifications.push("spammy");
-        logger.info("active=false because (spammy && conv.spam_filter)");
-      }
-      if (conv.strict_moderation) {
-        active = false;
-        logger.info("active=false because (conv.strict_moderation)");
-      }
 
       let mod = 0;
       if (is_moderator && is_seed) {
