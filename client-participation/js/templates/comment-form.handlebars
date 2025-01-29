@@ -25,9 +25,8 @@
       {{!-- present all hints to screen reader --}}
 
       {{#if hideHelp}}
-        {{!-- even if help text is hidden, still screen read the main comment box label/prompt --}}
-        <label for="comment_form_textarea"
-               style="display:none;">
+        {{!-- even if help text is hidden, still screen read the main comment box label/prompt Jan2025 n/m show always --}}
+        <label for="comment_form_textarea">
           {{{s.writeCommentHelpText}}}
         </label>
       {{else}}
