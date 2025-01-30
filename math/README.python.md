@@ -40,3 +40,18 @@ It'll be a real slog at first for step 0 and 1, getting familiar with running th
 Performance should also mechanically improve, as per #1579 and #1062 and #1580 . 
 
 Math part will be fun -- although we might start to see some small numerical differences appearing as we go, hopefully keeping them small. 
+
+## Notes
+
+Assuming you have installed with docker. Drop the `docker exec -it polis-dev-math-1` otherwise.
+To run the clojure pipeline on one conversation from the database, without going through the poller:
+```bash
+ docker exec -it polis-dev-math-1 clojure -M -m polismath.runner update --zid 1
+ ```
+
+ To run all clojure unit tests:
+ ```bash
+ docker exec -it polis-dev-math-1 clojure -M:test
+ ```
+
+ Note: clojure takes its sweet time closing down after the code is actually run, roughly a minute. Don't be surprised :)
