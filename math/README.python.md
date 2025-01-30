@@ -41,7 +41,7 @@ Performance should also mechanically improve, as per #1579 and #1062 and #1580 .
 
 Math part will be fun -- although we might start to see some small numerical differences appearing as we go, hopefully keeping them small. 
 
-## Notes
+## Notes
 
 Assuming you have installed with docker. Drop the `docker exec -it polis-dev-math-1` otherwise.
 To run the clojure pipeline on one conversation from the database, without going through the poller:
