@@ -10,6 +10,29 @@ import { Comment, VoteTally } from "@tevko/sensemaking-tools/src/types";
 import { parse } from "csv-parse";
 import { GenerateContentRequest, GenerativeModel } from "node_modules/@google/generative-ai/dist/generative-ai";
 
+const TOPIC_INSTRUCTIONS = `
+Example of correct output for the following task:
+
+[
+  {
+    "name": "Economic Development",
+    "citations": [5, 55, 79, 150, 184],
+    "subtopics": [
+        { "name": "Job Creation", "citations": [6, 54, 78, 151, 189] },
+        { "name": "Business Growth", "citations": [9, 53, 81, 157, 188] },
+      ]
+  },
+  {
+    "name": "Tourism",
+    "citations": [...],
+    ...
+  },
+  // ... other topics
+]
+
+Citations are mandatory and MUST map to relevant comments. If there are no relevant comments, the topic or subtopic should be disgarded. Ensure no fewer than 85% of available coments are included in citations
+`
+
 async function parseCsvString(csvString: string) {
   return new Promise((resolve, reject) => {
     const data: Comment[] = [];
@@ -70,30 +93,11 @@ export async function getTopicsFromRID(zId: number, model: GenerativeModel, syst
         role: "user",
       },
     ],
-    systemInstruction: `
-    Example of correct output for the following task:
-
-[
-  {
-    "name": "Economic Development",
-    "citations": [5, 55, 79, 150, 189],
-    "subtopics": [
-        { "name": "Job Creation", "citations": [6, 54, 78, 151, 189] },
-        { "name": "Business Growth", "citations": [6, 53, 81, 151, 189] },
-      ]
-  },
-  {
-    "name": "Tourism",
-    "citations": [...],
-    ...
-  },
-  // ... other topics
-]`,
+    systemInstruction: TOPIC_INSTRUCTIONS,
   };
 
   const respGem = await model.generateContent(gemeniModelprompt);
   const topics = await respGem.response.text();
-  console.log(topics)
   return JSON.parse(topics);
 }
 

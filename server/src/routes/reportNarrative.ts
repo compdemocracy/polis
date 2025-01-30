@@ -181,7 +181,7 @@ const gemeniModel = genAI.getGenerativeModel({
   generationConfig: {
     // https://cloud.google.com/vertex-ai/docs/reference/rest/v1/GenerationConfig
     responseMimeType: "application/json",
-    maxOutputTokens: 5000, // high for reliability for now.
+    maxOutputTokens: 50000, // high for reliability for now.
   },
 });
 
@@ -474,6 +474,7 @@ export async function handle_GET_reportNarrative(
 
     res.end();
   } catch (err) {
+    console.log(err);
     const msg =
       err instanceof Error && err.message && err.message.startsWith("polis_")
         ? err.message
