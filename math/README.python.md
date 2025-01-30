@@ -2,3 +2,41 @@
 
 This branch is a work in progress, seeing how far we can go with converting the math lib from Clojure to python,
 to make it easier to work with, by a broader community, as we look at ML expansion.
+
+**:warning: [DO NOT MERGE, FILED HERE FOR TRACKING PROGRESS!] :warning:**
+
+## Context
+We (polis core team and advisors) have been discussing for the least few years about whether Clojure was still the optimal language for the math library, given the evolution of the landscape and of polis needs. 
+This came up again when @metasoarous raised potential performance issues https://github.com/compdemocracy/polis/issues/1579#issuecomment-2621457299 . 
+
+Porting any codebase, let alone in this case 7000+ lines of scientific Clojure written by a very smart developer (hats off @metasoarous !), with tons of embedded real-world safeguards, and ten years of battle-testing is a **Very** Big Endeavour, super risky.  Most of all, we need to keep all the domain knowledge that is embedded in the current codebase. **This is *not* a rewrite from a scratch, but a port!**
+
+So, crazy, but there's a lot to gain (massive ML ecosystem: people, libraries, etc), so we would be remiss not to at least explore how far we can go. Worst that can happen is that this completely fails, we lost time and I've got egg on my face. I'll mitigate the former by still working on the new LLM features with @colinmegill, and for the latter, well, I can live with that :) 
+
+So let's go! 
+
+## Plan
+
+I'll be focusing first on the core functionality: the math. Once that is clear and done, then I will work on the poller and runner. I'll be using `numpy` for all vector operations. When we have clojure operations 
+
+### Preparation
+
+* 0/ beside the current existing unit tests, have an integration test that updates through a full conversation.  
+* 1a/ hack a basic json serialize/deserialize clojure function for vectors/matrices, and similar for python  
+* 1b/ write a basic clojure function that serializes its arguments, calls a python command , deserializes the return
+
+### Core iteration
+then, iterating this way:
+
+* 2/ identify one core function in the clojure game (pre-filtering, core PCA, etc) , and its unit tests if any
+* 3/ implement that exact function in python with numpy, with unit tests, possibly adding some
+* 3/ replace the clojure function by a serialization \+ call to the replacing python function \+ deserialization   
+* 4/ check that the end result of the full pipeline with and without python is still the same, on one or more real conversations from the database (in addition to the unit tests ofc).
+* 5/ Go to 2  with another core function, then climb up the call tree.
+
+### Expectations
+It'll be a real slog at first for step 0 and 1, getting familiar with running the various functions one by one in clojure when needed (i.e. without the realtime poller etc, which I'll keep for the end), but pace should then increase.
+
+Performance should also mechanically improve, as per #1579 and #1062 and #1580 . 
+
+Math part will be fun -- although we might start to see some small numerical differences appearing as we go, hopefully keeping them small. 
