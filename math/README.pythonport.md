@@ -131,3 +131,14 @@ graph TD
     
     pca_project_cmnts[pca-project-cmnts] --> sparsity_aware_project_ptpts
 ```
+
+In spite of adding lots of PCA tests, I do not get full branch coverage in the key
+function `power-iteration`. To avoid going crazy, I will move to the simpler
+line-coverage of other functions, and will come back to branch coverage.
+
+I do wonder whether we really need full branch coverage, knowing that the PCA
+method, while currently being an elegantly manually coded power-iteration, might
+eventually be passed to SKlearn or Lapack. But before that, we will need to
+check whether the iterative nature of the power-iteration is exploited for
+incremental updates of the conversation, as I suspect it is. So for now, we will
+stick to power-iteration.
