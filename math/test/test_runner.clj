@@ -1,8 +1,15 @@
-;; Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+;; Copyright (C) 2012-present, The Authors. This program is free software: you
+;can redistribute it and/or  modify it under the terms of the GNU Affero General
+;Public License, version 3, as published by the Free Software Foundation. This
+;program is distributed in the hope that it will be useful, but WITHOUT ANY
+;WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+;PARTICULAR PURPOSE.  See the GNU Affero General Public License for more
+;details. You should have received a copy of the GNU Affero General Public
+;License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 (ns test-runner
   (:require [cluster-tests]
-            [conv-man-tests]
+            ;[conv-man-tests]
             [conversation-test]
             [index-hash-test]
             [named-matrix-test]
@@ -13,7 +20,8 @@
             [ptpt-stats-test]
             [pythonport-test]
             [clojure.test :as test]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [cloverage.coverage :as cov]))
 
 (def all-test-namespaces
   '[cluster-tests
@@ -36,21 +44,49 @@
     all-test-namespaces
     (mapv #(symbol (str % "-test")) args)))
 
+(defn test-to-src-ns
+  "Convert a test namespace to its corresponding source namespace pattern.
+   e.g., 'utils-test -> polismath.utils.*
+         'pca-test -> polismath.math.pca.*"
+  [test-ns]
+  (let [base-name (str/replace (name test-ns) #"-tests?$" "")
+        math-namespaces #{"pca" "named-matrix" "clusters" "stats" "conversation"}]
+    (if (contains? math-namespaces base-name)
+      (re-pattern (str "^polismath\\.math\\." (str/replace base-name #"-" "-") ".*"))
+      (re-pattern (str "^polismath\\." base-name ".*")))))
+
+(defn run-with-coverage [test-namespaces]
+  (cov/run-project
+    {:src-ns-path ["src"]
+     :test-ns-path ["test"]
+     :ns-regex (map test-to-src-ns test-namespaces)
+     :exclude-namespaces ["polismath.conv-man" "conv-man-tests"]
+     :test-ns-regex (map #(re-pattern (str "^" %)) test-namespaces)
+     :output "target/coverage"
+     :low-watermark 50
+     :high-watermark 80
+     :fail-threshold 0}))
+
 (defn -main
   "Run tests for polisapp. If no arguments are provided, runs all tests.
    Otherwise, runs only the specified test namespaces.
    
-   Usage:
-     clojure -M -m test-runner          # run all tests
-     clojure -M -m test-runner utils    # run only utils-test
-     clojure -M -m test-runner utils pythonport  # run utils-test and pythonport-test
-   
-   Note: The integration test in conv-man-tests should be run separately as it
-   needs to be cleaned up to run on a separate poller system."
+  Usage:
+    clojure -M -m test-runner          # run all tests
+    clojure -M -m test-runner utils    # run only utils-test
+    clojure -M -m test-runner --coverage  # run all tests with coverage
+    clojure -M -m test-runner utils pythonport --coverage  # run utils-test and pythonport-test with coverage
+
+  Note: The integration test in conv-man-tests should be run separately as it
+  needs to be cleaned up to run on a separate poller system."
   [& args]
-  (let [test-namespaces (parse-test-names args)]
+  (let [coverage? (some #{"--coverage"} args)
+        test-args (remove #{"--coverage"} args)
+        test-namespaces (parse-test-names test-args)]
     (println "Running tests:" (str/join ", " test-namespaces))
-    (apply test/run-tests test-namespaces)))
+    (if coverage?
+      (run-with-coverage test-namespaces)
+      (apply test/run-tests test-namespaces))))
 
 ;(-main)
 ;(test/run-tests 'conversation-test)

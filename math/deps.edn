@@ -67,7 +67,9 @@
             :extra-deps {cider/cider-nrepl {:mvn/version "0.30.0"}}
             :exec-fn user/run-with-repl}
            :test
-           {:extra-paths ["test"]
+           {:extra-deps {org.clojure/test.check {:mvn/version "1.1.1"}
+                         cloverage/cloverage {:mvn/version "1.2.4"}}
+            :extra-paths ["test"]
             :main-opts ["-m" "test-runner"]}}
  ;:jvm-opts ^:replace []
  :jvm-opts ["-Xmx4g"]}

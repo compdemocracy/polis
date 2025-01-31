@@ -30,7 +30,13 @@ jobs:
         with:
           cli: 1.10.1.693
 
-      - name: Run Clojure tests
+      - name: Run Clojure tests with coverage
         working-directory: math
         # Runs all except integration tests which require database and setup/teardown
-        run: "clojure -M:test"
+        run: "clojure -M:test --coverage"
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: math/target/coverage
