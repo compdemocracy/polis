@@ -11,6 +11,7 @@
             [stats-test]
             [utils-test]
             [ptpt-stats-test]
+            [pythonport-test]
             [clojure.test :as test]))
 
 
@@ -28,7 +29,8 @@
       silhouette-test
       stats-test
       utils-test
-      ptpt-stats-test]))
+      ptpt-stats-test
+      pythonport-test]))
 
 ;(-main)
 ;(test/run-tests 'conversation-test)
