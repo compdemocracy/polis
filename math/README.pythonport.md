@@ -98,7 +98,7 @@ python -m pytest --cov=pythonport pythonport/test_serialization.py
 
 Note: Currently, Python tests run on the host machine. Docker container support for Python will be added in a future update.
 
-###  PCA
+###  PCA: `pca.clj`
 Let's start with the PCA, as it's well known and nicely isolated. 
 
 Let's first:
@@ -132,6 +132,7 @@ graph TD
     pca_project_cmnts[pca-project-cmnts] --> sparsity_aware_project_ptpts
 ```
 
+#### `power-iteration`
 In spite of adding lots of PCA tests, I do not get full branch coverage in the key
 function `power-iteration`. To avoid going crazy, I will move to the simpler
 line-coverage of other functions, and will come back to branch coverage.
@@ -142,3 +143,13 @@ eventually be passed to SKlearn or Lapack. But before that, we will need to
 check whether the iterative nature of the power-iteration is exploited for
 incremental updates of the conversation, as I suspect it is. So for now, we will
 stick to power-iteration.
+
+
+#### `wrapped-pca`
+There is a test for single-row and single-column matrices in `wrapped-pca`, but
+the match is actually not functioning: see #1894.
+
+Besides, the current behaviour is good enough.
+
+I am therefore adding tests for the actual behavior, and removing the
+unreachable code so we have proper coverage. 

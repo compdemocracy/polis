@@ -85,7 +85,6 @@
       
       (testing "exit on iters=0 only"
         (let [result (power-iteration rotation-data 0 [1 1])]
-          (println "Debug - Actual result:" result)
           ; With iters=0, we expect the normalized starting vector [1/√2, 1/√2]
           (is (almost=? result [0.7071067811865475 0.7071067811865475] 0.001))))
       
@@ -203,5 +202,24 @@
           zero-vecs [zero-vec zero-vec]
           comps (:comps (wrapped-pca data 2 :start-vectors zero-vecs))]
       (is (not (almost=? zero-vec (first comps))))
-      (is (not (almost=? zero-vec (second comps)))))))
+      (is (not (almost=? zero-vec (second comps))))))
+
+  ; See https://github.com/compdemocracy/polis/issues/1894: behaviour not as expected
+  (testing "edge case: single row matrix [1, n_cols]"
+    (let [data (m/matrix [[1 2 3 4]])
+          result (wrapped-pca data 2)
+          ; For a single row, center should be that row
+          expected-center (m/get-row data 0)]
+      (is (almost=? expected-center (:center result)))
+      ; No point in checking the components, they do not mean anything with a single sample
+  ))
+
+  (testing "edge case: single column matrix [n_rows, 1]"
+    (let [data (m/matrix [[1] [2] [3] [4]])
+          ; Calling with 2 components should give us a single component
+          result (wrapped-pca data 2)
+          expected-center (m/matrix [2.5])
+          expected-comps (m/matrix [[1]])]  ; Single component as a 1x1 matrix
+      (is (almost=? expected-center (:center result)))
+      (is (almost=? expected-comps (:comps result))))))
 
