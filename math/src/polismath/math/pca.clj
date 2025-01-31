@@ -114,14 +114,6 @@
                     (map #(if (every? #{0 0.0} %) nil %) start-vectors)
                     nil))))
 
-
-(defn pca-project
-  "Apply the principal component projection specified by pcs to the data"
-  [data {:keys [comps center]}]
-  ; Here we map each row of data to its projection
-  (matrix/mmul (- data center) (matrix/transpose comps)))
-
-
 (defn sparsity-aware-project-ptpt
   [votes {:keys [comps center]}]
   ; reduce into the projected point [p1, p2]

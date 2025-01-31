@@ -153,3 +153,12 @@ Besides, the current behaviour is good enough.
 
 I am therefore adding tests for the actual behavior, and removing the
 unreachable code so we have proper coverage. 
+
+
+#### `pca-project`
+
+Dooes not seem to be called anywhere. `conversation.clj` calls `sparsity-aware-project-ptpt[s]` instead, which makes sense.
+Therefore, deleting this function to remove dead code.
+
+#### `sparsity-aware-project-ptpt[s]` and `pca-project-cmnts`
+
