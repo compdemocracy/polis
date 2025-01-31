@@ -43,6 +43,7 @@ Math part will be fun -- although we might start to see some small numerical dif
 
 ## Notes
 
+### Clojure tests
 Assuming you have installed with docker. Drop the `docker exec -it polis-dev-math-1` otherwise.
 To run the clojure pipeline on one conversation from the database, without going through the poller:
 ```bash
@@ -55,3 +56,26 @@ To run the clojure pipeline on one conversation from the database, without going
  ```
 
  Note: clojure takes its sweet time closing down after the code is actually run, roughly a minute. Don't be surprised :)
+
+
+### Python tests
+To run the Python tests, make sure you have the required packages installed:
+```bash
+pip install pytest pytest-cov
+```
+
+Then you can run the tests:
+```bash
+# Run all Python tests with detailed output
+cd math
+python -m pytest pythonport/test_serialization.py -v
+
+# Run a specific test
+python -m pytest pythonport/test_serialization.py::test_round_trip_serialization -v
+
+# Run tests and show test coverage
+python -m pytest --cov=pythonport pythonport/test_serialization.py
+```
+
+Note: Currently, Python tests run on the host machine. Docker container support for Python will be added in a future update.
+
