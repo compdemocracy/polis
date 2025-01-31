@@ -1,0 +1,36 @@
+# Examples:
+# make test-clj           - runs all Clojure tests in the docker container
+# make test-clj T=utils   - runs only utils-test in the docker container
+# make test-py           - runs Python tests on the host
+# make test              - runs both Clojure and Python tests
+
+SHELL=/bin/bash
+
+.PHONY: test test-clj test-py help
+
+test-clj: ## Run Clojure tests in the docker container. Optional: T=test_name (without -test suffix)
+	@echo "Running Clojure tests..."
+ifdef T
+	docker exec -it polis-dev-math-1 clojure -M:test $(T)
+else
+	docker exec -it polis-dev-math-1 clojure -M:test
+endif
+
+test-py: ## Run Python tests on the host machine
+	@echo "Running Python tests..."
+	python -m pytest pythonport/test_serialization.py -v
+
+test: test-clj test-py ## Run both Clojure and Python tests
+	@echo "All tests completed."
+
+help: ## Show this help
+	@echo 'Usage: make <command>'
+	@echo
+	@echo 'Available commands:'
+	@grep -E '^[a-z0-9A-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo
+	@echo 'For test-clj, you can specify which tests to run with T=test_name'
+	@echo 'Example: make test-clj T=utils        # runs only utils-test'
+	@echo '         make test-clj T="utils pca"  # runs utils-test and pca-test'
+
+.DEFAULT_GOAL := help 
