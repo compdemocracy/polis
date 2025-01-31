@@ -5,33 +5,10 @@
 //   - subtopics: Array of subtopics, each with their specific citations
 
 import { sendCommentGroupsSummary } from "../../routes/export";
-import { SensemakerPrompt } from "@tevko/sensemaking-tools/src/sensemaker";
+import { Sensemaker } from "@tevko/sensemaking-tools/src/sensemaker";
+import { GoogleAIModel } from "@tevko/sensemaking-tools/src/models/aiStudio_model";
 import { Comment, VoteTally } from "@tevko/sensemaking-tools/src/types";
 import { parse } from "csv-parse";
-import { GenerateContentRequest, GenerativeModel } from "node_modules/@google/generative-ai/dist/generative-ai";
-
-const TOPIC_INSTRUCTIONS = `
-Example of correct output for the following task:
-
-[
-  {
-    "name": "Economic Development",
-    "citations": [5, 55, 79, 150, 184],
-    "subtopics": [
-        { "name": "Job Creation", "citations": [6, 54, 78, 151, 189] },
-        { "name": "Business Growth", "citations": [9, 53, 81, 157, 188] },
-      ]
-  },
-  {
-    "name": "Tourism",
-    "citations": [...],
-    ...
-  },
-  // ... other topics
-]
-
-Citations are mandatory and MUST map to relevant comments. If there are no relevant comments, the topic or subtopic should be disgarded. Ensure no fewer than 85% of available coments are included in citations
-`
 
 async function parseCsvString(csvString: string) {
   return new Promise((resolve, reject) => {
@@ -74,31 +51,30 @@ async function parseCsvString(csvString: string) {
   });
 }
 
-export async function getTopicsFromRID(zId: number, model: GenerativeModel, system_lore: string) {
+export async function getTopicsFromRID(zId: number) {
   const resp = await sendCommentGroupsSummary(zId, undefined, false);
   const modified = (resp as string).split("\n");
   modified[0] = `comment-id,comment_text,total-votes,total-agrees,total-disagrees,total-passes,group-a-votes,group-0-agree-count,group-0-disagree-count,group-0-pass-count,group-b-votes,group-1-agree-count,group-1-disagree-count,group-1-pass-count`;
   
   const comments = await parseCsvString(modified.join("\n"));
-  const topicsPrompt = await new SensemakerPrompt().learnTopics(comments as Comment[], true);
+  const categorizedComments = await new Sensemaker({
+    defaultModel: new GoogleAIModel(process.env.GEMINI_API_KEY as string, "gemini-2.0-flash-exp"),
+  }).categorizeComments(comments as Comment[], true);
 
-  const gemeniModelprompt: GenerateContentRequest = {
-    contents: [
-      {
-        parts: [
-          {
-            text: topicsPrompt,
-          },
-        ],
-        role: "user",
-      },
-    ],
-    systemInstruction: TOPIC_INSTRUCTIONS,
-  };
+  const topics_master_list = new Map();
 
-  const respGem = await model.generateContent(gemeniModelprompt);
-  const topics = await respGem.response.text();
-  return JSON.parse(topics);
+  categorizedComments.forEach(c => {
+    c.topics?.forEach(t => {
+      const existingTopic = topics_master_list.get(t.name);
+      if (existingTopic) {
+        existingTopic.citations.push(Number(c.id));
+      } else {
+        topics_master_list.set(t.name, { citations: [Number(c.id)]})
+      }
+    })
+  });
+
+  return Array.from(topics_master_list, ([name, value]) => ({ name, citations: value.citations }));
 }
 
 

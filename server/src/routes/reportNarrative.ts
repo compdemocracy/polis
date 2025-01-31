@@ -311,7 +311,7 @@ export async function handle_GET_reportNarrative(
       if (cachedTopics?.length) {
         deleteReportItem(cachedTopics[0].rid_section_model, cachedTopics[0].timestamp);
       }
-      tpcs = await getTopicsFromRID(zid, gemeniModel, system_lore);
+      tpcs = await getTopicsFromRID(zid);
       const reportItemTopics = {
         rid_section_model: `${rid}#topics`,
         timestamp: new Date().toISOString(),
