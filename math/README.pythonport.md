@@ -43,6 +43,25 @@ Math part will be fun -- although we might start to see some small numerical dif
 
 ## Notes
 
+### Running Tests with Make
+The easiest way to run tests is to use the provided Makefile:
+```bash
+# Show all available commands and test targets
+make help
+
+# Run all tests (both Clojure and Python)
+make test
+
+# Run all Clojure tests in Docker
+make test-clj
+
+# Run specific Clojure tests (e.g., utils and pca tests)
+make test-clj T="utils pca"
+
+# Run Python tests
+make test-py
+```
+
 ### Clojure tests
 Assuming you have installed with docker. Drop the `docker exec -it polis-dev-math-1` otherwise.
 To run the clojure pipeline on one conversation from the database, without going through the poller:
