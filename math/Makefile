@@ -18,7 +18,7 @@ endif
 
 test-py: ## Run Python tests on the host machine
 	@echo "Running Python tests..."
-	python -m pytest pythonport/test_serialization.py -v
+	python -m pytest pythonport/test_serialization.py -v --cov=pythonport --cov-report=term-missing
 
 test: test-clj test-py ## Run both Clojure and Python tests
 	@echo "All tests completed."
