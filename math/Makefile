@@ -8,12 +8,12 @@ SHELL=/bin/bash
 
 .PHONY: test test-clj test-py help
 
-test-clj: ## Run Clojure tests in the docker container. Optional: T=test_name (without -test suffix)
+test-clj: ## Run Clojure tests in the docker container. Optional: T=test_name (without -test suffix), ARGS="additional arguments"
 	@echo "Running Clojure tests..."
 ifdef T
-	docker exec -it polis-dev-math-1 clojure -M:test $(T) --coverage
+	docker exec -it polis-dev-math-1 clojure -M:test $(T) --coverage $(ARGS)
 else
-	docker exec -it polis-dev-math-1 clojure -M:test --coverage
+	docker exec -it polis-dev-math-1 clojure -M:test --coverage $(ARGS)
 endif
 
 test-py: ## Run Python tests on the host machine

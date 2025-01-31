@@ -55,17 +55,20 @@
       (re-pattern (str "^polismath\\.math\\." (str/replace base-name #"-" "-") ".*"))
       (re-pattern (str "^polismath\\." base-name ".*")))))
 
-(defn run-with-coverage [test-namespaces]
+(defn run-with-coverage [test-namespaces debug?]
   (cov/run-project
-    {:src-ns-path ["src"]
-     :test-ns-path ["test"]
-     :ns-regex (map test-to-src-ns test-namespaces)
-     :exclude-namespaces ["polismath.conv-man" "conv-man-tests"]
-     :test-ns-regex (map #(re-pattern (str "^" %)) test-namespaces)
-     :output "target/coverage"
-     :low-watermark 50
-     :high-watermark 80
-     :fail-threshold 0}))
+    (merge
+      {:src-ns-path ["src"]
+       :test-ns-path ["test"]
+       :ns-regex (map test-to-src-ns test-namespaces)
+       :exclude-namespaces ["polismath.conv-man" "conv-man-tests"]
+       :test-ns-regex (map #(re-pattern (str "^" %)) test-namespaces)
+       :output "target/coverage"
+       :low-watermark 50
+       :high-watermark 80
+       :fail-threshold 0}
+      (when debug?
+        {:debug true}))))
 
 (defn -main
   "Run tests for polisapp. If no arguments are provided, runs all tests.
@@ -75,17 +78,19 @@
     clojure -M -m test-runner          # run all tests
     clojure -M -m test-runner utils    # run only utils-test
     clojure -M -m test-runner --coverage  # run all tests with coverage
+    clojure -M -m test-runner --coverage --debug  # run all tests with debug coverage
     clojure -M -m test-runner utils pythonport --coverage  # run utils-test and pythonport-test with coverage
 
   Note: The integration test in conv-man-tests should be run separately as it
   needs to be cleaned up to run on a separate poller system."
   [& args]
   (let [coverage? (some #{"--coverage"} args)
-        test-args (remove #{"--coverage"} args)
+        debug? (some #{"--debug"} args)
+        test-args (remove #{"--coverage" "--debug"} args)
         test-namespaces (parse-test-names test-args)]
     (println "Running tests:" (str/join ", " test-namespaces))
     (if coverage?
-      (run-with-coverage test-namespaces)
+      (run-with-coverage test-namespaces debug?)
       (apply test/run-tests test-namespaces))))
 
 ;(-main)

@@ -6,8 +6,8 @@
             [polismath.math.named-matrix :refer :all]
             [clojure.math.numeric-tower :refer :all]
             [clojure.core.matrix :as m]
-            [polismath.math.pca :refer :all]))
-
+            [polismath.math.pca :refer :all]
+            [test-helpers :refer [almost=?]]))
 
 (deftest powerit
   (testing "Should generally work"
@@ -23,7 +23,153 @@
       (testing "from scratch"
                (is (almost=? (pc-from-start [1 1 1]) expected)))
       (testing "from scratch"
-               (is (almost=? (pc-from-start [1 1]) expected))))))
+               (is (almost=? (pc-from-start [1 1]) expected)))))
+
+  (testing "Convergence behavior"
+    (let [; Simple 2x2 matrix with known eigenvalues [2, 1] and eigenvector [1, 1]/√2
+          simple-data (m/matrix [[1.5 0.5]
+                                [0.5 1.5]])
+          start-vec [1 0]  ; Not aligned with eigenvector to test convergence
+          result (power-iteration simple-data 100 start-vec)]
+      
+      (testing "converges to correct eigenvector"
+        ; The dominant eigenvector should be [1 1]/√2 ≈ [0.7071 0.7071]
+        (is (almost=? result [0.7071 0.7071] 0.001)))
+      
+      (testing "result is actually an eigenvector"
+        (let [; Apply matrix to our result
+              applied (m/mmul simple-data result)
+              ; Get the scaling factor (eigenvalue)
+              lambda (/ (m/mget applied 0) (m/mget result 0))
+              ; Scale the original vector
+              scaled (m/mul result lambda)]
+          ; Av should equal λv
+          (is (almost=? applied scaled 0.001))))))
+  
+  (testing "Maximum iterations termination"
+    (let [; Matrix that converges slowly to [1 0]
+          slow-data (m/matrix [[1.1 1.0]
+                              [0.0 1.0]])
+          ; Run with different numbers of iterations
+          result1 (power-iteration slow-data 1 [0 1])   ; Start orthogonal to eigenvector
+          result3 (power-iteration slow-data 3 [0 1])]
+      
+      (testing "takes full number of iterations"
+        (is (almost=? (m/length result1) 1.0 0.000001))  ; Should still be normalized
+        (is (almost=? (m/length result3) 1.0 0.000001))
+        ; Results should be different because it's still converging
+        (is (not (almost=? result1 result3 0.1))))  ; Use larger tolerance to ensure difference
+  
+  (testing "Exhaustive termination conditions"
+    (let [; Matrix that converges very slowly (for testing continue case)
+          slow-data (m/matrix [[1.01 1.0]
+                              [0.0  1.0]])
+          ; Identity matrix (for testing eigenvalue matching)
+          identity-data (m/matrix [[1 0]
+                                 [0 1]])
+          ; Rotation matrix (for testing non-convergence)
+          rotation-data (m/matrix [[0 -1]
+                                 [1  0]])
+          ; Diagonal matrix with clear dominant eigenvector
+          diag-data (m/matrix [[2 0]
+                              [0 1]])
+          ; Zero matrix for testing zero product vector
+          zero-data (m/matrix [[0 0]
+                              [0 0]])]
+      
+      (testing "continue case - both conditions false"
+        (let [result (power-iteration slow-data 2 [0 1])]
+          ; Should run full 2 iterations since neither condition will be true initially
+          (is (not= result [0 1]))  ; Vector should change
+          (is (almost=? (m/length result) 1.0))))  ; Should still be normalized
+      
+      (testing "exit on iters=0 only"
+        (let [result (power-iteration rotation-data 0 [1 1])]
+          (println "Debug - Actual result:" result)
+          ; With iters=0, we expect the normalized starting vector [1/√2, 1/√2]
+          (is (almost=? result [0.7071067811865475 0.7071067811865475] 0.001))))
+      
+      (testing "exit on eigenvalue match only"
+        (let [result (power-iteration identity-data 10 [1 0])]
+          ; Should exit immediately due to eigenvalue match
+          ; Using identity matrix with eigenvector [1 0]
+          (is (almost=? result [1 0]))
+          ; Verify it terminated early (before iters=0)
+          (is (= result (power-iteration identity-data 1 [1 0])))))
+      
+      (testing "exit on both conditions"
+        (let [result (power-iteration identity-data 1 [1 0])]
+          ; Should exit after 1 iteration when both conditions are true
+          (is (almost=? result [1 0]))
+          ; Both conditions should be true:
+          ; 1. iters=0 after one iteration
+          ; 2. eigenvalue matches because [1 0] is already an eigenvector
+          (is (= result (power-iteration identity-data 2 [1 0])))))
+      
+      (testing "convergence progression"
+        (let [start-vec [1 1]  ; This will converge to [1 0]
+              ; Case 1: Run with enough iterations - should terminate on eigenvalue match
+              result1 (power-iteration diag-data 10 start-vec)
+              ; Case 2: Run with exactly 1 iteration - should terminate on iteration count
+              result2 (power-iteration diag-data 1 start-vec)
+              ; Case 3: Run with 2 iterations - should terminate on eigenvalue match
+              result3 (power-iteration diag-data 2 start-vec)]
+          
+          ; After 10 iterations - should be very close to [1 0]
+          (is (almost=? result1 [1 0] 0.000001))
+          
+          ; After 1 iteration - should be roughly [0.998 0.062]
+          (is (almost=? result2 [0.998 0.062] 0.001))
+          
+          ; After 2 iterations - should be roughly [0.9999 0.0156]
+          (is (almost=? result3 [0.9999 0.0156] 0.001))
+          
+          ; Results should be different, showing iteration progress
+          (is (not (= result2 result3)))
+          
+          ; Each result should be closer to [1 0] than the last
+          (let [dist1 (m/length (m/sub result1 [1 0]))
+                dist2 (m/length (m/sub result2 [1 0]))
+                dist3 (m/length (m/sub result3 [1 0]))]
+            (is (< dist1 dist3))  ; result1 closest to [1 0]
+            (is (< dist3 dist2))))
+          
+      (testing "exit on zero product vector"
+        (let [result (power-iteration zero-data 10 [1 1])]
+          ; Should exit immediately since product vector will be [0 0]
+          ; which has length 0, matching initial last-eigval of 0
+          ; When normalizing a zero vector, we get back a zero vector
+          (is (almost=? result [0 0] 0.001))
+          ; Verify it terminated early by comparing with 1 iteration
+          (is (= result (power-iteration zero-data 1 [1 1])))))
+      
+      (testing "convergence progression"
+        (let [start-vec [1 1]  ; This will converge to [1 0]
+              ; Case 1: Run with enough iterations - should terminate on eigenvalue match
+              result1 (power-iteration diag-data 10 start-vec)
+              ; Case 2: Run with exactly 1 iteration - should terminate on iteration count
+              result2 (power-iteration diag-data 1 start-vec)
+              ; Case 3: Run with 2 iterations - should terminate on eigenvalue match
+              result3 (power-iteration diag-data 2 start-vec)]
+          
+          ; After 10 iterations - should be very close to [1 0]
+          (is (almost=? result1 [1 0] 0.000001))
+          
+          ; After 1 iteration - should be roughly [0.998 0.062]
+          (is (almost=? result2 [0.998 0.062] 0.001))
+          
+          ; After 2 iterations - should be roughly [0.9999 0.0156]
+          (is (almost=? result3 [0.9999 0.0156] 0.001))
+          
+          ; Results should be different, showing iteration progress
+          (is (not (= result2 result3)))
+          
+          ; Each result should be closer to [1 0] than the last
+          (let [dist1 (m/length (m/sub result1 [1 0]))
+                dist2 (m/length (m/sub result2 [1 0]))
+                dist3 (m/length (m/sub result3 [1 0]))]
+            (is (< dist1 dist3))  ; result1 closest to [1 0]
+            (is (< dist3 dist2)))))))))))
 
 
 (deftest wrapped-pca-test
