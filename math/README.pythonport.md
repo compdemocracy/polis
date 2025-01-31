@@ -98,3 +98,36 @@ python -m pytest --cov=pythonport pythonport/test_serialization.py
 
 Note: Currently, Python tests run on the host machine. Docker container support for Python will be added in a future update.
 
+###  PCA
+Let's start with the PCA, as it's well known and nicely isolated. 
+
+Let's first:
+- [x] Task 1: document the calling graph of PCA to get a lay of the land
+- [ ] Task 2: add more clojure tests to the PCA functions
+- [ ] Task 3: code the Python PCA and the tests
+- [ ] Task 4: wrap the clojure PCA call to store its input and output, and run it on a basic conversation.
+- [ ] Task 5: load the input from clojure and run the PCA on that.
+- [ ] Task 6: load a big conversation into the database
+- [ ] Task 7: record PCA input/output on *that*, and compare.
+
+Checking its clojure calling graph in `pca.clj`:
+```mermaid
+graph TD
+    wrapped_pca[wrapped-pca] --> powerit_pca[powerit-pca]
+    powerit_pca --> power_iteration[power-iteration]
+    powerit_pca --> rand_starting_vec[rand-starting-vec]
+    powerit_pca --> factor_matrix[factor-matrix]
+    
+    power_iteration --> xtxr[xtxr]
+    power_iteration --> repeatv[repeatv]
+    
+    factor_matrix --> proj_vec[proj-vec]
+    
+    xtxr --> repeatv
+    
+    pca_project[pca-project]
+    
+    sparsity_aware_project_ptpts[sparsity-aware-project-ptpts] --> sparsity_aware_project_ptpt[sparsity-aware-project-ptpt]
+    
+    pca_project_cmnts[pca-project-cmnts] --> sparsity_aware_project_ptpts
+```
