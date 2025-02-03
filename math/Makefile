@@ -26,7 +26,7 @@ test: test-clj test-py ## Run both Clojure and Python tests
 update-from-scratch: ### Update a single convo
 ifdef ZID
 	#docker exec -it polis-dev-math-1 clojure -M:run update -r -z $(ZID)
-	docker comppose run math clojure -M:run update -r -z $(ZID)
+	docker compose run math clojure -M:run update -r -z $(ZID)
 else
 	docker exec -it polis-dev-math-1 clojure -M:run update -r -z 1
 endif

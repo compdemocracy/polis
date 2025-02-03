@@ -27,6 +27,8 @@ export POSTGRES_DOCKER = $(call parse_env_bool,$(POSTGRES_DOCKER_RAW))
 export COMPOSE_FILE_ARGS = -f docker-compose.yml -f docker-compose.dev.yml
 COMPOSE_FILE_ARGS += $(if $(POSTGRES_DOCKER),--profile postgres,)
 
+export DATABASE_URL = $(call parse_env_value,DATABASE_URL)
+
 # Set up environment-specific values
 define setup_env
 	$(eval ENV_FILE = $(1))
@@ -118,7 +120,8 @@ e2e-run-interactive: ## Run E2E tests: interactively
 rbs: start-rebuild
 
 sql: ## Connect to the database
-	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} run postgres psql postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${POSTGRES_DB}
+	echo ${DATABASE_URL}
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} run postgres psql ${DATABASE_URL}
 
 %:
 	@true
