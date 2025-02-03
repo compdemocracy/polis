@@ -57,9 +57,12 @@ export async function getTopicsFromRID(zId: number) {
   modified[0] = `comment-id,comment_text,total-votes,total-agrees,total-disagrees,total-passes,group-a-votes,group-0-agree-count,group-0-disagree-count,group-0-pass-count,group-b-votes,group-1-agree-count,group-1-disagree-count,group-1-pass-count`;
   
   const comments = await parseCsvString(modified.join("\n"));
+  const topics = await new Sensemaker({
+    defaultModel: new GoogleAIModel(process.env.GEMINI_API_KEY as string, "gemini-exp-1206"),
+  }).learnTopics(comments as Comment[], false)
   const categorizedComments = await new Sensemaker({
-    defaultModel: new GoogleAIModel(process.env.GEMINI_API_KEY as string, "gemini-2.0-flash-exp"),
-  }).categorizeComments(comments as Comment[], true);
+    defaultModel: new GoogleAIModel(process.env.GEMINI_API_KEY as string, "gemini-1.5-flash-8b"),
+  }).categorizeComments(comments as Comment[], false, topics);
 
   const topics_master_list = new Map();
 
