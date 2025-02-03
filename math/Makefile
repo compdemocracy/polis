@@ -31,9 +31,6 @@ else
 	docker exec -it polis-dev-math-1 clojure -M:run update -r -z 1
 endif
 
-psql: ## Connect to the database
-	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} run postgres psql postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${POSTGRES_DB}
-
 help: ## Show this help
 	@echo 'Usage: make <command>'
 	@echo
@@ -51,3 +48,5 @@ help: ## Show this help
 # If unknown target, try the root Makefile
 %:
 	@$(MAKE) -C .. $@
+
+.PHONY: test test-clj test-py help update-from-scratch

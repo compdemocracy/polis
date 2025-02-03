@@ -125,7 +125,7 @@ sql: ## Connect to the database
 
 .PHONY: help pull start stop rm-containers rm-volumes rm-images rm-ALL hash build-no-cache start-rebuild \
 	start-recreate restart-FULL-REBUILD e2e-install e2e-run e2e-run-all e2e-run-interactive \
-	build-web-assets extract-web-assets
+	build-web-assets extract-web-assets sql
 
 
 help:
