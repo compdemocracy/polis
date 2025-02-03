@@ -103,7 +103,7 @@ Let's start with the PCA, as it's well known and nicely isolated.
 
 Let's first:
 - [x] Task 1: document the calling graph of PCA to get a lay of the land
-- [ ] Task 2: add more clojure tests to the PCA functions
+- [x] Task 2: add more clojure tests to the PCA functions
 - [ ] Task 3: code the Python PCA and the tests
 - [ ] Task 4: wrap the clojure PCA call to store its input and output, and run it on a basic conversation.
 - [ ] Task 5: load the input from clojure and run the PCA on that.
@@ -161,4 +161,19 @@ Dooes not seem to be called anywhere. `conversation.clj` calls `sparsity-aware-p
 Therefore, deleting this function to remove dead code.
 
 #### `sparsity-aware-project-ptpt[s]` and `pca-project-cmnts`
+
+### Calling the conversation upate on one single conversation from CLI
+
+Added a shortcut to recompute a full conversation:
+```bash
+make update-from-scratch ZID=1
+# which calls
+# docker exec -it polis-dev-math-1 clojure -M:run update -r -z $(ZID)
+```
+
+Note: the `docker exec -it polis-dev-math-1` can be replaced with 
+`docker compose run math`, but it still requires remembering the clojure invokation.
+
+
+
 

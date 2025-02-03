@@ -23,6 +23,13 @@ test-py: ## Run Python tests on the host machine
 test: test-clj test-py ## Run both Clojure and Python tests
 	@echo "All tests completed."
 
+update-from-scratch: ### Update a single convo
+ifdef ZID
+	docker exec -it polis-dev-math-1 clojure -M:run update -r -z $(ZID)
+else
+	docker exec -it polis-dev-math-1 clojure -M:run update -r -z 1
+endif
+
 help: ## Show this help
 	@echo 'Usage: make <command>'
 	@echo
