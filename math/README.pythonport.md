@@ -176,4 +176,32 @@ Note: the `docker exec -it polis-dev-math-1` can be replaced with
 
 
 
+### Testing on a local (non-docker) database
+The main README file indicates that we should call docker without the "--profile postgres" flag to use a local or remote database.
+Instead, we can use the `DATABASE_URL` environment variable to point to a local database. But it's cleaner to use docker.
+And also, docker 13 (run by Docker) is not support anymore, so cannot run on the host. 
 
+So we need to import the postgres data from prod to the test database into docker, if we want to really test on real conversations.
+
+We dump straight from heroku again, to the docker db:
+```bash
+heroku pg:pull DATABASE_URL postgres://postgres:5432/prodmirror --app polisapp
+```
+
+Then  check with
+```bash
+psql postgres://postgres:oiPorg3Nrz0yqDLE@localhost:5432/prodmirror
+```
+
+Show tables with:
+```
+ \d 
+ ```
+And check conversations with: 
+```sql
+select count(*) from conversations;
+```
+and compare to the same on:
+```
+heroku pg:psql -a polisapp
+```
