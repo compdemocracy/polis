@@ -117,6 +117,9 @@ e2e-run-interactive: ## Run E2E tests: interactively
 # Helpful CLI shortcuts
 rbs: start-rebuild
 
+sql: ## Connect to the database
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} run postgres psql postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${POSTGRES_DB}
+
 %:
 	@true
 

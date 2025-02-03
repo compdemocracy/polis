@@ -25,10 +25,14 @@ test: test-clj test-py ## Run both Clojure and Python tests
 
 update-from-scratch: ### Update a single convo
 ifdef ZID
-	docker exec -it polis-dev-math-1 clojure -M:run update -r -z $(ZID)
+	#docker exec -it polis-dev-math-1 clojure -M:run update -r -z $(ZID)
+	docker comppose run math clojure -M:run update -r -z $(ZID)
 else
 	docker exec -it polis-dev-math-1 clojure -M:run update -r -z 1
 endif
+
+psql: ## Connect to the database
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} run postgres psql postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${POSTGRES_DB}
 
 help: ## Show this help
 	@echo 'Usage: make <command>'
@@ -39,5 +43,11 @@ help: ## Show this help
 	@echo 'For test-clj, you can specify which tests to run with T=test_name'
 	@echo 'Example: make test-clj T=utils        # runs only utils-test'
 	@echo '         make test-clj T="utils pca"  # runs utils-test and pca-test'
+	@echo 'If target unknown, will try and call the root Makefile'
 
 .DEFAULT_GOAL := help 
+
+
+# If unknown target, try the root Makefile
+%:
+	@$(MAKE) -C .. $@
