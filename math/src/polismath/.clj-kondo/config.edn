@@ -1,0 +1,6 @@
+{:linters {:unused-referred-var {:level :off
+                                :exclude {clojure.core.matrix.operators [==]}}
+           :unused-namespace {:level :off
+                            :exclude [clojure.core.match]}
+           :clojure-lsp/unused-public-var {:exclude #{polismath.math.pca/wrapped-pca}}
+}}

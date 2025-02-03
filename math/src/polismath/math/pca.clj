@@ -7,7 +7,7 @@
             [clojure.core.match :refer [match]]
             [clojure.core.matrix :as matrix]
             [clojure.core.matrix.stats :as matrix-stats]
-            [clojure.core.matrix.operators :refer :all]))
+            [clojure.core.matrix.operators :as mat-ops :refer [* - + == / min max]]))
 
 (matrix/set-current-implementation :vectorz)
 
@@ -79,7 +79,7 @@
 (defn rand-starting-vec [data]
   ;; Should really throw a parallelizable random number generator in the equation here...
   ;; With seeds fed in and persisted... XXX
-  (matrix/matrix (for [x (range (matrix/dimension-count data 1))] (rand))))
+  (matrix/matrix (for [_ (range (matrix/dimension-count data 1))] (rand))))
 
 
 ; Will eventually also want to add last-pcs
@@ -87,6 +87,7 @@
   "Find the first n-comps principal components of the data matrix; iters defaults to iters of
   power-iteration"
   [data n-comps & {:keys [iters start-vectors]}]
+  (log/info (str "powerit-pca: Matrix dimensions: " (matrix/row-count data) "x" (matrix/column-count data)))
   (let [center (matrix-stats/mean data)
         cntrd-data (- data center)
         start-vectors (or start-vectors [])
@@ -107,7 +108,7 @@
 
 (defn wrapped-pca
   "This function gracefully handles weird edge cases inherent in the messiness of real world data"
-  [data n-comps & {:keys [iters start-vectors] :as kwargs}]
+  [data n-comps & {:keys [_iters start-vectors] :as kwargs}]
   (utils/apply-kwargs powerit-pca data n-comps
                 (assoc kwargs :start-vectors
                   (if start-vectors
@@ -148,7 +149,7 @@
 
 
 (defn pca-project-cmnts
-  [{:as pca :keys [comps center]}]
+  [{:as pca :keys [comps _center]}]
   (let [n-cols (matrix/column-count comps)]
     (sparsity-aware-project-ptpts
       (map
