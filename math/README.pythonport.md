@@ -205,3 +205,9 @@ and compare to the same on:
 ```
 heroku pg:psql -a polisapp
 ```
+
+Then use
+```
+make sql
+```
+to connect to the database.
