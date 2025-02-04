@@ -284,10 +284,10 @@ export async function handle_GET_reportNarrative(
       const s = sectionParam
         ? reportSections.find((s) => s.name === sectionParam) || section
         : section;
-      const cachedResponseClaude = storage?.queryItemsByRidSectionModel(
+      const cachedResponseClaude = await storage?.queryItemsByRidSectionModel(
         `${rid}#${s.name}#claude`
       );
-      const cachedResponseGemini = storage?.queryItemsByRidSectionModel(
+      const cachedResponseGemini = await storage?.queryItemsByRidSectionModel(
         `${rid}#${s.name}#gemini`
       );
 
