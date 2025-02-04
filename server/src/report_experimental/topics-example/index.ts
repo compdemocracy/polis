@@ -5,9 +5,9 @@
 //   - subtopics: Array of subtopics, each with their specific citations
 
 import { sendCommentGroupsSummary } from "../../routes/export";
-import { VertexModel } from "@tevko/sensemaking-tools/src/models/vertex_model";
 import { Sensemaker } from "@tevko/sensemaking-tools/src/sensemaker";
-import { Comment, VoteTally } from "@tevko/sensemaking-tools/src/types";
+import { GoogleAIModel } from "@tevko/sensemaking-tools/src/models/aiStudio_model";
+import { Comment, VoteTally, Topic } from "@tevko/sensemaking-tools/src/types";
 import { parse } from "csv-parse";
 
 async function parseCsvString(csvString: string) {
@@ -16,7 +16,7 @@ async function parseCsvString(csvString: string) {
     const parser = parse({
       columns: true, // Use first row as headers
       skip_empty_lines: true, // Ignore empty lines
-      relax_column_count: true
+      relax_column_count: true,
     });
 
     parser.on("error", (error) => reject(error));
@@ -52,27 +52,44 @@ async function parseCsvString(csvString: string) {
 }
 
 export async function getTopicsFromRID(zId: number) {
-  const resp = await sendCommentGroupsSummary(zId, undefined, false);
-  const modified = (resp as string).split("\n");
-  modified[0] = `comment-id,comment_text,total-votes,total-agrees,total-disagrees,total-passes,group-a-votes,group-0-agree-count,group-0-disagree-count,group-0-pass-count,group-b-votes,group-1-agree-count,group-1-disagree-count,group-1-pass-count`;
-  
-  const comments = await parseCsvString(modified.join("\n"));
-  const topics = await new Sensemaker({
-    defaultModel: new VertexModel(
-      "jigsaw-vertex-integration",
-      "us-central1",
-      // "llm-service-account"
-    ),
-  }).learnTopics(comments as Comment[], true);
-  return topics;
+  try {
+    const resp = await sendCommentGroupsSummary(zId, undefined, false);
+    const modified = (resp as string).split("\n");
+    modified[0] = `comment-id,comment_text,total-votes,total-agrees,total-disagrees,total-passes,group-a-votes,group-0-agree-count,group-0-disagree-count,group-0-pass-count,group-b-votes,group-1-agree-count,group-1-disagree-count,group-1-pass-count`;
+
+    const comments = await parseCsvString(modified.join("\n"));
+    const topics = await new Sensemaker({
+      defaultModel: new GoogleAIModel(
+        process.env.GEMINI_API_KEY as string,
+        "gemini-exp-1206"
+      ),
+    }).learnTopics(comments as Comment[], false);
+    const categorizedComments = await new Sensemaker({
+      defaultModel: new GoogleAIModel(
+        process.env.GEMINI_API_KEY as string,
+        "gemini-1.5-flash-8b"
+      ),
+    }).categorizeComments(comments as Comment[], false, topics);
+
+    const topics_master_list = new Map();
+
+    categorizedComments.forEach((c: Comment) => {
+      c.topics?.forEach((t: Topic) => {
+        const existingTopic = topics_master_list.get(t.name);
+        if (existingTopic) {
+          existingTopic.citations.push(Number(c.id));
+        } else {
+          topics_master_list.set(t.name, { citations: [Number(c.id)] });
+        }
+      });
+    });
+
+    return Array.from(topics_master_list, ([name, value]) => ({
+      name,
+      citations: value.citations,
+    }));
+  } catch (error) {
+    console.error(error);
+    return [];
+  }
 }
-
-
-
-
-
-
-
-
-
-

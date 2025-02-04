@@ -7,84 +7,19 @@ import {
   GenerateContentRequest,
   GoogleGenerativeAI,
 } from "@google/generative-ai";
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import {
-  PutCommand,
-  QueryCommand,
-  DeleteCommand
-} from "@aws-sdk/lib-dynamodb";
 import { convertXML } from "simple-xml-to-json";
 import fs from "fs/promises";
 import { parse } from "csv-parse/sync";
 import { create } from "xmlbuilder2";
 import { sendCommentGroupsSummary } from "./export";
 import { getTopicsFromRID } from "../report_experimental/topics-example";
+import DynamoStorageService from "../utils/storage";
 
 const js2xmlparser = require("js2xmlparser");
 
 interface PolisRecord {
   [key: string]: string; // Allow any string keys
 }
-
-const dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION ?? "us-west-1" });
-const tableName = "report_narrative_store";
-
-const putReportItem = async (item: Record<string, any> | undefined) => {
-  const params = {
-    TableName: tableName,
-    Item: item,
-  };
-
-  const command = new PutCommand(params);
-
-  try {
-    const response = await dynamoClient.send(command);
-    console.log("Item added successfully:", response);
-    return response;
-  } catch (error) {
-    console.error("Error adding item:", error);
-  }
-};
-
-const queryItemsByRidSectionModel = async (rid_section_model: string) => {
-  const params = {
-    TableName: tableName,
-    KeyConditionExpression: "rid_section_model = :rid_section_model",
-    ExpressionAttributeValues: {
-      ":rid_section_model": rid_section_model,
-    },
-  };
-
-  const command = new QueryCommand(params);
-
-  try {
-    const data = await dynamoClient.send(command);
-    console.log("Items retrieved successfully:", data.Items);
-    return data.Items;
-  } catch (error) {
-    console.error("Error querying items:", error);
-  }
-};
-
-const deleteReportItem = async (rid_section_model: string, timestamp: string) => {
-  const params = {
-    TableName: tableName,
-    Key: {
-      rid_section_model: rid_section_model,
-      timestamp: timestamp,
-    },
-  };
-
-  const command = new DeleteCommand(params);
-
-  try {
-    const response = await dynamoClient.send(command);
-    console.log("Item deleted successfully:", response);
-    return response;
-  } catch (error) {
-    console.error("Error deleting item:", error);
-  }
-};
 
 export class PolisConverter {
   static convertToXml(csvContent: string): string {
@@ -181,7 +116,7 @@ const gemeniModel = genAI.getGenerativeModel({
   generationConfig: {
     // https://cloud.google.com/vertex-ai/docs/reference/rest/v1/GenerationConfig
     responseMimeType: "application/json",
-    maxOutputTokens: 5000, // high for reliability for now.
+    maxOutputTokens: 50000, // high for reliability for now.
   },
 });
 
@@ -201,7 +136,8 @@ const getCommentsAsXML = async (
     const resp = await sendCommentGroupsSummary(id, undefined, false, filter);
     const xml = PolisConverter.convertToXml(resp as string);
     // eslint-disable-next-line no-console
-    if (xml.trim().length === 0) console.error("No data has been returned by sendCommentGroupsSummary");
+    if (xml.trim().length === 0)
+      console.error("No data has been returned by sendCommentGroupsSummary");
     return xml;
   } catch (e) {
     console.error("Error in getCommentsAsXML:", e);
@@ -225,28 +161,30 @@ interface ReportSection {
 }
 
 // Define the report sections with filters
-const getReportSections = (topics: {name: string, citations: number[]}[]) => {
+const getReportSections = (topics: { name: string; citations: number[] }[]) => {
   return [
     {
       name: "uncertainty",
       templatePath: "src/report_experimental/subtaskPrompts/uncertainty.xml",
       // Revert to original simple pass ratio check
-      filter: (v: {passes: number, votes: number}) => v.passes / v.votes >= 0.2,
+      filter: (v: { passes: number; votes: number }) =>
+        v.passes / v.votes >= 0.2,
     },
     {
       name: "group_informed_consensus",
       templatePath:
         "src/report_experimental/subtaskPrompts/group_informed_consensus.xml",
-      filter: (v: {group_aware_consensus: number}) => (v.group_aware_consensus ?? 0) > 0.7,
+      filter: (v: { group_aware_consensus: number }) =>
+        (v.group_aware_consensus ?? 0) > 0.7,
     },
     {
       name: "groups",
       templatePath: "src/report_experimental/subtaskPrompts/groups.xml",
-      filter: (v: {comment_extremity: number}) => {
+      filter: (v: { comment_extremity: number }) => {
         return (v.comment_extremity ?? 0) > 1;
       },
     },
-    ...topics.map((topic: {name: string, citations: number[]}) => ({
+    ...topics.map((topic: { name: string; citations: number[] }) => ({
       name: `topic_${topic.name.toLowerCase().replace(/\s+/g, "_")}`,
       templatePath: "src/report_experimental/subtaskPrompts/topics.xml",
       filter: (v: { comment_id: number }) => {
@@ -254,7 +192,7 @@ const getReportSections = (topics: {name: string, citations: number[]}[]) => {
         return topic.citations.includes(v.comment_id);
       },
     })),
-  ]
+  ];
 };
 
 type QueryParams = {
@@ -263,15 +201,25 @@ type QueryParams = {
 
 const isFreshData = (timestamp: string) => {
   const now = new Date().getTime();
-  const then =  new Date(timestamp).getTime();
+  const then = new Date(timestamp).getTime();
   const elapsed = Math.abs(now - then);
-  return elapsed < ((process.env.MAX_REPORT_CACHE_DURATION as unknown as number) || 3600000);
-}
+  return (
+    elapsed <
+    (((process.env.MAX_REPORT_CACHE_DURATION as unknown) as number) || 3600000)
+  );
+};
 
 export async function handle_GET_reportNarrative(
   req: { p: { rid: string }; query: QueryParams },
   res: Response
 ) {
+  let storage;
+  if (process.env.AWS_REGION && process.env.AWS_REGION?.trim().length > 0) {
+    storage = new DynamoStorageService(
+      process.env.AWS_REGION,
+      "report_narrative_store"
+    );
+  }
   const sectionParam = req.query.section;
   const modelParam = req.query.model;
   let tpcs;
@@ -281,11 +229,15 @@ export async function handle_GET_reportNarrative(
   });
   const { rid } = req.p;
 
-
   res.write(`POLIS-PING: AI bootstrap`);
 
   // @ts-expect-error flush - calling due to use of compression
   res.flush();
+
+  const system_lore = await fs.readFile(
+    "src/report_experimental/system.xml",
+    "utf8"
+  );
 
   try {
     const zid = await getZidForRid(rid);
@@ -298,13 +250,18 @@ export async function handle_GET_reportNarrative(
 
     // @ts-expect-error flush - calling due to use of compression
     res.flush();
-    const cachedTopics = await queryItemsByRidSectionModel(`${rid}#topics`);
+    const cachedTopics = await storage?.queryItemsByRidSectionModel(
+      `${rid}#topics`
+    );
 
     if (cachedTopics?.length && isFreshData(cachedTopics[0].timestamp)) {
-      tpcs = cachedTopics[0].report_data
+      tpcs = cachedTopics[0].report_data;
     } else {
       if (cachedTopics?.length) {
-        deleteReportItem(cachedTopics[0].rid_section_model, cachedTopics[0].timestamp);
+        storage?.deleteReportItem(
+          cachedTopics[0].rid_section_model,
+          cachedTopics[0].timestamp
+        );
       }
       tpcs = await getTopicsFromRID(zid);
       const reportItemTopics = {
@@ -312,20 +269,13 @@ export async function handle_GET_reportNarrative(
         timestamp: new Date().toISOString(),
         report_data: tpcs,
       };
-      
-      putReportItem(reportItemTopics)
-        .then(data => console.log(data))
-        .catch(err => console.error(err));
+
+      storage?.putItem(reportItemTopics);
     }
 
-    const reportSections = getReportSections(tpcs)
+    const reportSections = getReportSections(tpcs);
 
     res.write(`POLIS-PING: retrieving system lore`);
-
-    const system_lore = await fs.readFile(
-      "src/report_experimental/system.xml",
-      "utf8"
-    );
 
     // @ts-expect-error flush - calling due to use of compression
     res.flush();
@@ -334,40 +284,66 @@ export async function handle_GET_reportNarrative(
       const s = sectionParam
         ? reportSections.find((s) => s.name === sectionParam) || section
         : section;
-      const cachedResponseClaude = await queryItemsByRidSectionModel(`${rid}#${s.name}#claude`);
-      const cachedResponseGemini = await queryItemsByRidSectionModel(`${rid}#${s.name}#gemini`);
+      const cachedResponseClaude = storage?.queryItemsByRidSectionModel(
+        `${rid}#${s.name}#claude`
+      );
+      const cachedResponseGemini = storage?.queryItemsByRidSectionModel(
+        `${rid}#${s.name}#gemini`
+      );
 
       const fileContents = await fs.readFile(s.templatePath, "utf8");
       const json = await convertXML(fileContents);
       // @ts-expect-error function args ignore temp
       const structured_comments = await getCommentsAsXML(zid, s.filter);
       // send cached response first if avalable
-      if (cachedResponseClaude?.length && cachedResponseGemini?.length && isFreshData(cachedResponseClaude[0].timestamp) && isFreshData(cachedResponseGemini[0].timestamp)) {
+      if (
+        Array.isArray(cachedResponseClaude) &&
+        cachedResponseClaude?.length &&
+        Array.isArray(cachedResponseGemini) &&
+        cachedResponseGemini?.length &&
+        isFreshData(cachedResponseClaude[0].timestamp) &&
+        isFreshData(cachedResponseGemini[0].timestamp)
+      ) {
         res.write(
           JSON.stringify({
             [s.name]: {
               responseGemini: cachedResponseGemini[0].report_data,
               responseClaude: cachedResponseClaude[0].report_data,
-              errors: structured_comments?.trim().length === 0 ? "NO_CONTENT_AFTER_FILTER" : undefined,
+              errors:
+                structured_comments?.trim().length === 0
+                  ? "NO_CONTENT_AFTER_FILTER"
+                  : undefined,
             },
           })
         );
       } else {
-        if (cachedResponseClaude?.length) {
-          deleteReportItem(cachedResponseClaude[0].rid_section_model, cachedResponseClaude[0].timestamp);
+        if (
+          Array.isArray(cachedResponseClaude) &&
+          cachedResponseClaude?.length
+        ) {
+          storage?.deleteReportItem(
+            cachedResponseClaude[0].rid_section_model,
+            cachedResponseClaude[0].timestamp
+          );
         }
-        if (cachedResponseGemini?.length) {
-          deleteReportItem(cachedResponseGemini[0].rid_section_model, cachedResponseGemini[0].timestamp);
+        if (
+          Array.isArray(cachedResponseGemini) &&
+          cachedResponseGemini?.length
+        ) {
+          storage?.deleteReportItem(
+            cachedResponseGemini[0].rid_section_model,
+            cachedResponseGemini[0].timestamp
+          );
         }
         json.polisAnalysisPrompt.children[
           json.polisAnalysisPrompt.children.length - 1
         ].data.content = { structured_comments };
-  
+
         const prompt_xml = js2xmlparser.parse(
           "polis-comments-and-group-demographics",
           json
         );
-  
+
         if ((modelParam as string)?.trim()) {
           const responseClaude = await anthropic.messages.create({
             model: "claude-3-5-haiku-20241022",
@@ -389,7 +365,10 @@ export async function handle_GET_reportNarrative(
             JSON.stringify({
               [s.name]: {
                 responseClaude,
-                errors: structured_comments?.trim().length === 0 ? "NO_CONTENT_AFTER_FILTER" : undefined,
+                errors:
+                  structured_comments?.trim().length === 0
+                    ? "NO_CONTENT_AFTER_FILTER"
+                    : undefined,
               },
             })
           );
@@ -410,7 +389,7 @@ export async function handle_GET_reportNarrative(
               },
             ],
           });
-  
+
           const gemeniModelprompt: GenerateContentRequest = {
             contents: [
               {
@@ -424,44 +403,48 @@ export async function handle_GET_reportNarrative(
             ],
             systemInstruction: system_lore,
           };
-  
+
           const respGem = await gemeniModel.generateContent(gemeniModelprompt);
           const responseGemini = await respGem.response.text();
-  
+
           const reportItemClaude = {
             rid_section_model: `${rid}#${s.name}#claude`,
             timestamp: new Date().toISOString(),
             report_data: responseClaude,
-            errors: structured_comments?.trim().length === 0 ? "NO_CONTENT_AFTER_FILTER" : undefined,
+            errors:
+              structured_comments?.trim().length === 0
+                ? "NO_CONTENT_AFTER_FILTER"
+                : undefined,
           };
-          
-          putReportItem(reportItemClaude)
-            .then(data => console.log(data))
-            .catch(err => console.error(err));
-  
+
+          storage?.putItem(reportItemClaude);
+
           const reportItemGemini = {
             rid_section_model: `${rid}#${s.name}#gemini`,
             timestamp: new Date().toISOString(),
             report_data: responseGemini,
-            errors: structured_comments?.trim().length === 0 ? "NO_CONTENT_AFTER_FILTER" : undefined,
+            errors:
+              structured_comments?.trim().length === 0
+                ? "NO_CONTENT_AFTER_FILTER"
+                : undefined,
           };
-          
-          putReportItem(reportItemGemini)
-            .then(data => console.log(data))
-            .catch(err => console.error(err));
-  
+
+          storage?.putItem(reportItemGemini);
+
           res.write(
             JSON.stringify({
               [s.name]: {
                 responseGemini,
                 responseClaude,
-                errors: structured_comments?.trim().length === 0 ? "NO_CONTENT_AFTER_FILTER" : undefined,
+                errors:
+                  structured_comments?.trim().length === 0
+                    ? "NO_CONTENT_AFTER_FILTER"
+                    : undefined,
               },
             })
           );
         }
       }
-
 
       // @ts-expect-error flush - calling due to use of compression
       res.flush();
@@ -473,6 +456,9 @@ export async function handle_GET_reportNarrative(
 
     res.end();
   } catch (err) {
+    // @ts-expect-error flush - calling due to use of compression
+    res.flush();
+    console.log(err);
     const msg =
       err instanceof Error && err.message && err.message.startsWith("polis_")
         ? err.message

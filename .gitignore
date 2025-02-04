@@ -9,4 +9,3 @@ prod.env
 xids.csv
 preprod.env 
 .venv
-server/llm-service-account.json
