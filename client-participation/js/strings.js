@@ -7,7 +7,7 @@ var translations = {
   // Arabic
   ar: require("./strings/ar.js"),
   // Croatian
-  bs: require("./strings/bs.js"),
+  hr: require("./strings/hr.js"),
   // Welsh
   cy: require("./strings/cy.js"),
   // Danish
@@ -100,7 +100,7 @@ preloadHelper.acceptLanguagePromise.then(function() {
     } else if (languageCode.match(/^fa/)) {
       _.extend(strings, translations.fa);
     } else if (languageCode.match(/^hr/)) {
-      _.extend(strings, translations.bs);
+      _.extend(strings, translations.hr);
     } else if (languageCode.match(/^fr/)) {
       _.extend(strings, translations.fr);
     } else if (languageCode.match(/^nl/)) {
