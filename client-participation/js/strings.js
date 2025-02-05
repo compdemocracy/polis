@@ -126,8 +126,6 @@ preloadHelper.acceptLanguagePromise.then(function() {
       _.extend(strings, translations.ru);
     } else if (languageCode.match(/^ro/)) {
       _.extend(strings, translations.ro);
-    } else if (languageCode.match(/^hr/)) {
-      _.extend(strings, translations.hr);
     } else if (languageCode.match(/^ar/)) {
       _.extend(strings, translations.ar);
     } else if (languageCode.match(/^fy/)) {
