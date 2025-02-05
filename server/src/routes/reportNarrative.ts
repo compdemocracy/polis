@@ -314,7 +314,7 @@ export async function handle_GET_reportNarrative(
                   ? "NO_CONTENT_AFTER_FILTER"
                   : undefined,
             },
-          })
+          }) + `|||`
         );
       } else {
         if (
@@ -370,7 +370,7 @@ export async function handle_GET_reportNarrative(
                     ? "NO_CONTENT_AFTER_FILTER"
                     : undefined,
               },
-            })
+            }) + `|||`
           );
         } else {
           const responseClaude = await anthropic.messages.create({
@@ -441,7 +441,7 @@ export async function handle_GET_reportNarrative(
                     ? "NO_CONTENT_AFTER_FILTER"
                     : undefined,
               },
-            })
+            }) + `|||`
           );
         }
       }

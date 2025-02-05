@@ -17,10 +17,8 @@ const TopicNarrative = ({
   try {
     const txt =
       model === "claude" ? narrative?.responseClaude.content[0].text : narrative?.responseGemini;
-    console.log(`Raw narrative text for topic ${topicName}:`, txt);
 
     const narrativeJSON = model === "claude" ? JSON.parse(`{${txt}`) : JSON.parse(txt);
-    console.log(`Parsed narrative JSON for topic ${topicName}:`, narrativeJSON);
 
     // Extract all citation IDs from the narrative structure
     const uniqueTids = narrativeJSON.paragraphs.reduce((acc, paragraph) => {

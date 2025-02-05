@@ -18,10 +18,8 @@ const UncertaintyNarrative = ({
   try {
     const txt =
       model === "claude" ? narrative?.responseClaude.content[0].text : narrative?.responseGemini;
-    console.log("Raw narrative text:", txt); // Log raw text
 
     const narrativeJSON = model === "claude" ? JSON.parse(`{${txt}`) : JSON.parse(txt);
-    console.log("Parsed narrative JSON:", narrativeJSON); // Log parsed JSON
 
     // Extract all citation IDs from the narrative structure
     const uniqueTids = narrativeJSON.paragraphs.reduce((acc, paragraph) => {
