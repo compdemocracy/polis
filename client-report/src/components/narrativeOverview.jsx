@@ -34,9 +34,9 @@ const Overview = ({ conversation, ptptCount, ptptCountTotal, math, computedStats
         <p style={globals.paragraph}>
           This report has been designed to address a critical bottleneck in Polis conversations:
           human facilitators spend countless hours turning Polis results into accessible reports for
-          both participants and decision-makers. Our goal is to accelerate and enhance, not replace,
-          human report writing. The intention is to get you 95-98% of the way to a final,
-          deliverable report—in a fraction of the time it would take manually. We aim to improve
+          both participants and decision-makers. Our first goal is to substantially augment human
+          report writing, getting any user 95-98% of the way to an acceptable deliverable report in
+          a fraction of the time it would a professional data scientist manually. We aim to improve
           both quality and speed through ongoing iteration.
         </p>
         <p style={globals.secondaryHeading}>
