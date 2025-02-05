@@ -8,6 +8,7 @@ import DataUtils from "../util/dataUtils.js";
 import Heading from "./framework/heading.jsx";
 import Footer from "./framework/Footer.jsx";
 import Overview from "./overview.jsx";
+import NarrativeOverview from "./narrativeOverview.jsx";
 import MajorityStrict from "./lists/majorityStrict.jsx";
 import Uncertainty from "./lists/uncertainty.jsx";
 import UncertaintyNarrative from "./lists/uncertaintyNarrative.jsx";
@@ -594,16 +595,30 @@ const App = (props) => {
 
         {/* This may eventually need to go back in below */}
         {/* stats={conversationStats} */}
-        <Overview
-          computedStats={computedStats}
-          math={math}
-          comments={comments}
-          ptptCount={ptptCount}
-          ptptCountTotal={ptptCountTotal}
-          demographics={groupDemographics}
-          conversation={conversation}
-          voteColors={voteColors}
-        />
+
+        {isNarrativeReport && (
+          <NarrativeOverview
+            conversation={conversation}
+            ptptCount={ptptCount}
+            ptptCountTotal={ptptCountTotal}
+            math={math}
+            computedStats={computedStats}
+            demographics={groupDemographics}
+          />
+        )}
+
+        {!isNarrativeReport && (
+          <Overview
+            computedStats={computedStats}
+            math={math}
+            comments={comments}
+            ptptCount={ptptCount}
+            ptptCountTotal={ptptCountTotal}
+            demographics={groupDemographics}
+            conversation={conversation}
+            voteColors={voteColors}
+          />
+        )}
 
         {!isNarrativeReport && <RawDataExport conversation={conversation} report_id={report_id} />}
 
