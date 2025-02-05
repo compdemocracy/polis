@@ -164,13 +164,6 @@ interface ReportSection {
 const getReportSections = (topics: { name: string; citations: number[] }[]) => {
   return [
     {
-      name: "uncertainty",
-      templatePath: "src/report_experimental/subtaskPrompts/uncertainty.xml",
-      // Revert to original simple pass ratio check
-      filter: (v: { passes: number; votes: number }) =>
-        v.passes / v.votes >= 0.2,
-    },
-    {
       name: "group_informed_consensus",
       templatePath:
         "src/report_experimental/subtaskPrompts/group_informed_consensus.xml",
@@ -183,6 +176,13 @@ const getReportSections = (topics: { name: string; citations: number[] }[]) => {
       filter: (v: { comment_extremity: number }) => {
         return (v.comment_extremity ?? 0) > 1;
       },
+    },
+    {
+      name: "uncertainty",
+      templatePath: "src/report_experimental/subtaskPrompts/uncertainty.xml",
+      // Revert to original simple pass ratio check
+      filter: (v: { passes: number; votes: number }) =>
+        v.passes / v.votes >= 0.2,
     },
     ...topics.map((topic: { name: string; citations: number[] }) => ({
       name: `topic_${topic.name.toLowerCase().replace(/\s+/g, "_")}`,
