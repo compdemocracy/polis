@@ -16,6 +16,10 @@ describe('Interface internationalization', function () {
     checkTranslation('ar', this.convoId)
   })
 
+  it('translates into Croation', function () {
+    checkTranslation('hr', this.convoId)
+  })
+
   it('translates into Welsh', function () {
     checkTranslation('cy', this.convoId)
   })

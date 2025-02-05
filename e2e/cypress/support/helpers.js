@@ -35,6 +35,7 @@ export function readTranslation(lang, key = 'writePrompt') {
 const locales = {
   // <lang>: <filename>
   ar: 'ar',
+  bs: 'hr',
   cy: 'cy',
   da: 'da_dk',
   de: 'de_de',
