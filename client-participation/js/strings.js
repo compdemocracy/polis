@@ -6,6 +6,7 @@ var Utils = require("./util/utils");
 var translations = {
   // Arabic
   ar: require("./strings/ar.js"),
+  // Croatian
   bs: require("./strings/bs.js"),
   // Welsh
   cy: require("./strings/cy.js"),
@@ -27,8 +28,6 @@ var translations = {
   fy: require("./strings/fy_nl.js"),
   // Hebrew
   he: require("./strings/he.js"),
-  // Croatian
-  hr: require("./strings/hr.js"),
   // Italian
   it: require("./strings/it.js"),
   // Japanese
