@@ -38,7 +38,7 @@ const UncertaintyNarrative = ({
 
     return (
       <div>
-        <p style={globals.primaryHeading}> Uncertainty Narrative </p>
+        <p style={globals.primaryHeading}> Areas of Uncertainty </p>
         <p style={globals.paragraph}>
           This narrative summary may contain hallucinations. Check each clause.
         </p>

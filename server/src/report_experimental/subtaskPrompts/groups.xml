@@ -63,7 +63,7 @@
                 <elements>
                     <element>overview_conversation_divisions</element>
                     <element>major_divisions_between_groups</element>
-                    <element>each_group_worldview</element>
+                    <element>each_group_perspective</element>
                 </elements>
                 <criticalInstructions>
                     <instruction>
@@ -89,7 +89,7 @@
                 </format>
                 <length>4-5 sentences</length>
             </paragraph>
-            <paragraph type="groups_each_worldview">
+            <paragraph type="groups_each_perspective">
                 <elements>
                     <element>voting_patterns</element>
                     <element>core_beliefs</element>
@@ -98,15 +98,15 @@
                 <criticalInstructions>
                     <instruction>
                         There will be a variable number of groups. You must describe every group's
-                        worldview.
+                        perspective.
                     </instruction>
                 </criticalInstructions>
                 <format>
                     Group [A] was characterized by [core_belief_pattern],
                     consistently [agreeing/disagreeing] with statements about [key_theme].
-                    Their worldview appeared to prioritize [value_system],
+                    Their perspective appeared to prioritize [value_system],
                     as evidenced by their strong [agreement/disagreement] on [specific_positions].
-                    Group [B]'s worldview centered on [core_belief],
+                    Group [B]'s perspective centered on [core_belief],
                     demonstrated by their [strong/moderate] [agreement/disagreement] ([high/low])
                     with [specific_position].
                     This aligned with their broader pattern of [voting_pattern_description],
@@ -283,19 +283,19 @@
         ]
         },
         {
-        "id": "groups_each_worldview",
-        "title": "Group Worldviews",
+        "id": "groups_each_perspective",
+        "title": "Group Descriptions",
         "sentences": [
         {
         "clauses": [
         {
         "text": "Group A was characterized by strong support for [position_narrative], consistently
-        agreeing with statements about [aspect_of_worldview]",
+        agreeing with statements about [aspect_of_perspective]",
         "citations": [52, 54]
         },
         {
-        "text": "Their worldview prioritized [position_narrative], showing [high/low] agreement
-        on [aspect_of_worldview]",
+        "text": "Their perspective prioritized [position_narrative], showing [high/low] agreement
+        on [aspect_of_perspective]",
         "citations": [61, 63]
         }
         ]
@@ -303,13 +303,14 @@
         {
         "clauses": [
         {
-        "text": "Group B's worldview centered on [position_narrative], demonstrated by their strong
+        "text": "Group B's perspective centered on [position_narrative], demonstrated by their
+        strong
         agreement ([high/low] agreement) with [position_narrative]",
         "citations": [71, 73]
         },
         {
         "text": "This aligned with their broader pattern of opposing [position_narrative],
-        particularly on statements about [aspect_of_worldview] ([high/low] disagreement)",
+        particularly on statements about [aspect_of_perspective] ([high/low] disagreement)",
         "citations": [75, 78]
         }
         ]
@@ -332,7 +333,7 @@
         {
         "clauses": [
         {
-        "text": "Group A and Group B differed on [aspect_of_worldview], where Group A showed
+        "text": "Group A and Group B differed on [aspect_of_perspective], where Group A showed
         [high/low] support while Group B expressed [high/low] opposition",
         "citations": [91, 93]
         },

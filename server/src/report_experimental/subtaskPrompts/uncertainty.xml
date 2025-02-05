@@ -66,7 +66,7 @@
         </dataProcessing>
 
         <reportingStructure>
-            <paragraph type="overview">
+            <paragraph type="uncertainty_overview">
                 <elements>
                     <element>highest_uncertainty_statements</element>
                     <element>special_patterns</element>
@@ -80,7 +80,7 @@
                 <length>2-3 sentences</length>
             </paragraph>
 
-            <paragraph type="group_analysis">
+            <paragraph type="uncertainty_group_analysis">
                 <elements>
                     <element>group_uncertainty_patterns</element>
                     <element>divergent_cases</element>
@@ -95,7 +95,7 @@
                 <length>2-3 sentences</length>
             </paragraph>
 
-            <paragraph type="topic_analysis">
+            <paragraph type="uncertainty_topic_analysis">
                 <elements>
                     <element>topic_clusters</element>
                     <element>uncertainty_ranges</element>
@@ -112,7 +112,7 @@
                 </exampleFormat>
                 <length>2-3 sentences</length>
             </paragraph>
-            <paragraph type="topic_analysis_comparative">
+            <paragraph type="uncertainty_topic_analysis_comparative">
                 <elements>
                     <element>topic_clusters</element>
                     <element>uncertainty_ranges</element>

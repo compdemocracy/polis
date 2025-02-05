@@ -38,7 +38,7 @@ const GroupsNarrative = ({
 
     return (
       <div>
-        <p style={globals.primaryHeading}> Groups Narrative </p>
+        <p style={globals.primaryHeading}> Differences Between Groups </p>
         <p style={globals.paragraph}>
           This narrative summary may contain hallucinations. Check each clause.
         </p>

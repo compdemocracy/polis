@@ -34,7 +34,7 @@ const ConsensusNarrative = ({
     const dedupedTids = [...new Set(uniqueTids || [])];
     return (
       <div>
-        <p style={globals.primaryHeading}> Group Aware Consensus Narrative </p>
+        <p style={globals.primaryHeading}> Consensus Across Groups </p>
         <p style={globals.paragraph}>
           This narrative summary may contain hallucinations. Check each clause.
         </p>
