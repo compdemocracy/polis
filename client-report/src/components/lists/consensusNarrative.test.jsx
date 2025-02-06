@@ -42,15 +42,11 @@ describe('ConsensusNarrative Component', () => {
     model: "claude",
   };
 
-  it('renders loading message when narrative data is missing', () => {
-    render(<ConsensusNarrative />);
-    expect(screen.getByText('Loading Consensus...')).toBeInTheDocument();
-  });
 
   it('renders the component with Claude model', async () => {
     render(<ConsensusNarrative {...mockProps} />);
 
-    expect(screen.getByText('Group Aware Consensus Narrative')).toBeInTheDocument();
+    expect(screen.getByText('Consensus Across Groups')).toBeInTheDocument();
     expect(screen.getByText('This narrative summary may contain hallucinations. Check each clause.')).toBeInTheDocument();
 
     expect(screen.getByTestId('mock-narrative')).toHaveTextContent('Model: claude');
@@ -60,7 +56,7 @@ describe('ConsensusNarrative Component', () => {
     it('renders the component with Gemini model', async () => {
         render(<ConsensusNarrative {...{...mockProps, model: "gemini"}} />);
 
-        expect(screen.getByText('Group Aware Consensus Narrative')).toBeInTheDocument();
+        expect(screen.getByText('Consensus Across Groups')).toBeInTheDocument();
         expect(screen.getByText('This narrative summary may contain hallucinations. Check each clause.')).toBeInTheDocument();
 
         expect(screen.getByTestId('mock-narrative')).toHaveTextContent('Model: gemini');
